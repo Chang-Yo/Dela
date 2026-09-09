@@ -1,0 +1,11 @@
+node_modules/
+.tools/
+out/
+dist/
+coverage/
+pnpm-lock.yaml
+.env*
+knowledge/
+background.md
+*.mobileconfig
+scripts/*.ps1

@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light;
+  --background: #f6f5f2;
+  --text: #252925;
+  --muted: #626a62;
+  --accent: #365948;
+  --space-sm: 12px;
+  --space-md: 24px;
+  --space-lg: 48px;
+  --text-sm: 13px;
+  --text-md: 16px;
+  --text-lg: 28px;
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-size: var(--text-md);
+  background: var(--background);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 960px;
+  margin: auto;
+  padding: var(--space-lg);
+}
+.brand {
+  color: var(--accent);
+  font-weight: 600;
+}
+h1 {
+  font-size: var(--text-lg);
+  margin-block: var(--space-md);
+}
+p {
+  line-height: 1.6;
+}
+small {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+@media (max-width: 767px) {
+  main {
+    padding: var(--space-md);
+  }
+}

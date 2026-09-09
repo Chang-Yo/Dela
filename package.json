@@ -1,0 +1,55 @@
+{
+  "name": "dela",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first campus project workspace",
+  "author": "Dela contributors",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "out/main/index.cjs",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": "24.21.0",
+    "pnpm": "12.3.4"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "typecheck": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json",
+    "build": "pnpm typecheck && vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && vite build --config vite.renderer.config.ts",
+    "start": "electron .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run --passWithNoTests",
+    "check": "pnpm format:check && pnpm build && pnpm test",
+    "postinstall": "install-electron",
+    "package:dir": "pnpm build && electron-builder --dir",
+    "package:dist": "pnpm build && electron-builder",
+    "smoke": "electron . --smoke-test"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "6.5.2",
+    "@codemirror/view": "6.43.11",
+    "better-sqlite3": "13.0.3",
+    "imapflow": "2.0.0",
+    "radix-ui": "1.6.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "zod": "4.5.4",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.9.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  }
+}
