@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
+import { closeDatabase, getDatabase } from './database';
+import { registerMailIpc } from './mail';
 
 ipcMain.on('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
@@ -32,6 +34,12 @@ if (smokeTest) {
   }, 15000).unref();
 }
 
+// 注册业务 IPC；数据库在应用就绪后可用。
+app.whenReady().then(() => {
+  getDatabase();
+  registerMailIpc();
+});
+
 async function createWindow(): Promise<void> {
   const window = new BrowserWindow({
     width: 1100,
@@ -39,7 +47,7 @@ async function createWindow(): Promise<void> {
     minWidth: 600,
     minHeight: 440,
     show: !smokeTest,
-    backgroundColor: '#f8f5ec',
+    backgroundColor: '#f7f7f8',
     titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -99,6 +107,9 @@ app
   });
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin' || smokeTest) app.quit();
+});
+app.on('will-quit', () => {
+  closeDatabase();
 });
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {

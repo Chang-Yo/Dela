@@ -8,7 +8,7 @@ export default defineConfig({
     outDir: 'out/main',
     lib: { entry: 'src/main/index.ts', formats: ['cjs'], fileName: () => 'index.cjs' },
     rolldownOptions: {
-      external: ['electron', 'better-sqlite3', ...builtinModules, /^node:/],
+      external: ['electron', 'better-sqlite3', 'imapflow', ...builtinModules, /^node:/],
     },
   },
 });
