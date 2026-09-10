@@ -1,7 +1,7 @@
 # Dela 桌面应用技术规划书
 
 日期：2026-09-09
-状态：首版开发基线；基础工程已初始化，校园接口与产品功能尚未实现。工程验证记录见文末。
+状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步与阅读（2026-09-10，见文末记录）；Canvas、模型调用与 Agent 闭环尚未实现。工程验证记录见文末。
 
 ## 1. 产品定位与范围
 
@@ -123,6 +123,8 @@ Dela/
 |   |       |-- home/
 |   |       |-- projects/
 |   |       |-- sources/
+|   |       |-- mail/
+|   |       |-- timetable/
 |   |       |-- chat/
 |   |       |-- editor/
 |   |       `-- settings/
@@ -423,4 +425,8 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 - 2026-09-10 自定义标题栏：窗口改为 `titleBarStyle: 'hidden'`（Windows 保留系统拖拽、贴边与双击最大化），标题栏由 `AppShell` 渲染——左侧 Dela 标识 + 拖拽区（`-webkit-app-region`），右侧自绘最小化/最大化/关闭按钮；窗口操作通过 preload 暴露的 `window` API 走受控 IPC（`window:minimize` / `window:toggle-maximize` / `window:close` / `window:get-state`），最大化状态由主进程经 `window:state` 推送同步，按钮在最大化/还原图标间切换。滚动从窗口级改为工作区内滚动，内容不会滑入标题栏下方；窄屏下标题栏仍置顶，底部导航保持。已验证：类型检查、生产构建、Electron 冒烟与窗口截图核对（Windows）；macOS/Linux 的标题栏形态（如交通灯按钮位置）未适配、未验证。
 - 已完成首页、项目空间、资料入口和连接设置的前端骨架，包含明暗主题与窄/中/宽屏响应式布局；当前使用明确标注的示例数据。尚不包含完整编辑器、项目 CRUD、模型调用、邮箱/Canvas 或后台任务。
 - 2026-09-09 验证通过：固定锁文件安装、Prettier、三组 TS 7 类型检查、Vite 8 生产构建、开发服务器启动与退出、生产构建及 Windows 可执行目录内的 SQLite/React/preload 隔离冒烟检查。Vitest 尚无业务测试；未生成或验证 NSIS 安装流程，未验证其他平台。
+- 2026-09-10 邮箱（首个真实业务功能）与导航改造。左侧主导航改为首页、项目、资料、邮箱、课表；资料页移除内嵌的"课程/邮箱"类别列（Canvas 为列表+详情两栏），设置页"学校邮箱"行读取真实连接状态并可跳转邮箱页。主进程新增 `database.ts`（userData 下 SQLite，`user_version` 迁移 v1：mail_accounts / mail_folders / mail_messages）、`credentials.ts`（`safeStorage` 加密存 `userData/mail-credentials.bin`）、`mail.ts`（imapflow 同步与 IPC）；`shared/api.ts` 定义 MailApi 契约，preload 暴露 `dela.mail`；imapflow 2.0.0 保持 external 随生产依赖打包。同步策略：单账号（限 @sjtu.edu.cn），登录校验后保存凭据；每次同步按文件夹拉取最近 300 封信头（ENVELOPE/FLAGS/BODYSTRUCTURE），最新 30 封预取正文，UIDVALIDITY 变化时清空该文件夹本地数据，窗口外旧信头删除；正文未缓存时打开邮件按需抓取并缓存；打开未读邮件经 IMAP 置 `\Seen` 后更新本地；HTML 正文以 `sandbox` iframe 渲染，纯文本按预格式化文本渲染；附件仅列出名称与大小。页面为 Outlook 式三栏（文件夹/列表/阅读），含配置表单、同步状态（进度/错误）、文件夹未读数、本地搜索与窄屏响应式（文件夹横向标签、列表/阅读切换）。课表页为周课表示例骨架，明确标注数据未接入。已用真实账号验证：7 个文件夹同步（INBOX 服务器总数 1250，本地窗口 187 封、92 封摘要、93 封正文）、列表与 HTML 阅读渲染、已读标记、明暗与窄屏截图。未实现：发送（SMTP/nodemailer）、附件下载、定时轮询、多账号；打包安装（NSIS）与 darwin/linux 未重验。
+- 2026-09-10 Shell 视觉统一：设计 token 改为中性灰阶、深青绿强调色，并同步提供暗色 token；自定义标题栏、侧栏、邮箱栏和状态栏复用这些 token。工作区改为固定的标题栏 / 内容 / 精简状态栏三行布局，侧栏跨内容与状态栏行；状态只在底部呈现一次。工作区不再作为全局滚动容器，各视图和邮箱三栏各自负责其内容滚动；滚动条使用统一的低对比度轨道和圆角滑块。已验证 TypeScript、生产构建、Electron 冒烟和格式检查；浏览器预览不具备 Electron preload，不能用于该应用的窗口级视觉验证。
+- 2026-09-10 Shell 细节调整：移除侧栏品牌区以及全局、项目页的底部状态栏；主侧栏与项目 Agent 右栏均可在宽屏上拖拽调整宽度，窄于三栏最低可用宽度时自动收起 Agent。邮件 HTML iframe 仍保持无脚本 sandbox，应用 CSP 允许邮件中的 HTTP(S) 图片，且 iframe 图片请求不携带 Referer；这会恢复远程图片显示，但远程服务仍可获知一次图片请求的网络地址。
+- 2026-09-10 图标与可收起导航：新增并固定 `lucide-react` 1.44.0，主导航、设置、项目与邮件文件夹使用其统一的描边图标。桌面端应用侧栏可通过标题栏 Dela 标识收起或展开；邮箱文件夹栏默认收起，列表/正文分栏可拖拽调整，默认优先留出正文阅读空间。
 - 本机 Node 下载器获取 Electron 失败后，使用系统下载方式获取官方同版本 ZIP，并以 npm 包内 checksums.json 校验 SHA-256 后安装；没有更换版本或关闭校验。
