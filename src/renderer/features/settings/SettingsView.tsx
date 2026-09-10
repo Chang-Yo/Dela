@@ -10,8 +10,10 @@ export function SettingsView({ onOpenMail }: SettingsViewProps) {
   const [mailAddress, setMailAddress] = useState<string | null>(null);
 
   useEffect(() => {
+    const mail = window.dela?.mail;
+    if (!mail) return undefined;
     let active = true;
-    void window.dela.mail.getState().then((state) => {
+    void mail.getState().then((state) => {
       if (active) setMailAddress(state.account?.address ?? null);
     });
     return () => {
@@ -77,7 +79,9 @@ export function SettingsView({ onOpenMail }: SettingsViewProps) {
           </button>
         </div>
       </section>
-      <p className={styles.versionLine}>Dela {window.dela.version} · 本地优先的项目工作台</p>
+      <p className={styles.versionLine}>
+        Dela {window.dela?.version ?? '浏览器预览'} · 本地优先的项目工作台
+      </p>
     </div>
   );
 }

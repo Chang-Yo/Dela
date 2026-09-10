@@ -156,7 +156,25 @@ function ConfigureForm({ onSubmit, error, busy }: ConfigureFormProps) {
 
 type MailViewProps = Record<string, never>;
 
+function MailUnavailable() {
+  return (
+    <div className={styles.mailPage}>
+      <div className={styles.browserPreview}>
+        <p className="eyebrow">浏览器预览</p>
+        <h2>邮箱仅在 Dela 桌面端可用</h2>
+        <p>邮件账户、凭据与本地缓存不会暴露给浏览器。请通过 Electron 窗口测试同步和阅读。</p>
+      </div>
+    </div>
+  );
+}
+
 export function MailView(_: MailViewProps = {}) {
+  if (!window.dela) return <MailUnavailable />;
+  return <DesktopMailView />;
+}
+
+function DesktopMailView() {
+  const dela = window.dela!;
   const [state, setState] = useState<MailState | null>(null);
   const [folders, setFolders] = useState<MailFolderInfo[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -186,14 +204,14 @@ export function MailView(_: MailViewProps = {}) {
   };
 
   const refreshFolders = useCallback(async () => {
-    setFolders([...(await window.dela.mail.listFolders())]);
+    setFolders([...(await dela.mail.listFolders())]);
   }, []);
 
   const loadMessages = useCallback(async (folderId: number) => {
     selectedFolderIdRef.current = folderId;
     setListLoading(true);
     try {
-      setMessages([...(await window.dela.mail.listMessages(folderId, MESSAGE_LIMIT))]);
+      setMessages([...(await dela.mail.listMessages(folderId, MESSAGE_LIMIT))]);
     } finally {
       setListLoading(false);
     }
@@ -205,10 +223,10 @@ export function MailView(_: MailViewProps = {}) {
     setDetailError(null);
     setDetailLoading(true);
     try {
-      const loaded = await window.dela.mail.getMessage(messageId);
+      const loaded = await dela.mail.getMessage(messageId);
       setDetail(loaded);
       if (!loaded.seen) {
-        const result = await window.dela.mail.markSeen(messageId);
+        const result = await dela.mail.markSeen(messageId);
         if (result.ok) {
           setMessages((prev) =>
             prev.map((item) => (item.id === messageId ? { ...item, seen: true } : item)),
@@ -233,11 +251,11 @@ export function MailView(_: MailViewProps = {}) {
   useEffect(() => {
     let active = true;
     desktopMediaRef.current = window.matchMedia('(min-width: 768px)');
-    void window.dela.mail.getState().then(async (initial) => {
+    void dela.mail.getState().then(async (initial) => {
       if (!active) return;
       setState(initial);
       if (!initial.account) return;
-      const folderList = [...(await window.dela.mail.listFolders())];
+      const folderList = [...(await dela.mail.listFolders())];
       if (!active) return;
       setFolders(folderList);
       const inbox =
@@ -248,12 +266,12 @@ export function MailView(_: MailViewProps = {}) {
       }
       if (!autoSyncedRef.current) {
         autoSyncedRef.current = true;
-        void window.dela.mail.syncNow().catch(() => {
+        void dela.mail.syncNow().catch(() => {
           // 同步错误通过 mail:sync-status 事件展示。
         });
       }
     });
-    const unsubscribe = window.dela.mail.onSyncStatus((status) => {
+    const unsubscribe = dela.mail.onSyncStatus((status) => {
       setState((prev) => (prev ? { ...prev, sync: status } : prev));
       if (status.phase === 'idle' && status.finishedAt) void refreshAll();
     });
@@ -269,15 +287,15 @@ export function MailView(_: MailViewProps = {}) {
     setConfiguring(true);
     setConfigureError(null);
     try {
-      const result = await window.dela.mail.configure({ address, password });
+      const result = await dela.mail.configure({ address, password });
       if (!result.ok) {
         setConfigureError(result.error);
         return;
       }
-      const next = await window.dela.mail.getState();
+      const next = await dela.mail.getState();
       setState(next);
       autoSyncedRef.current = true;
-      void window.dela.mail.syncNow().catch(() => {
+      void dela.mail.syncNow().catch(() => {
         // 同步错误通过 mail:sync-status 事件展示。
       });
     } finally {
@@ -291,13 +309,13 @@ export function MailView(_: MailViewProps = {}) {
       return;
     }
     setConfirmingDisconnect(false);
-    await window.dela.mail.disconnect();
+    await dela.mail.disconnect();
     setFolders([]);
     setMessages([]);
     setDetail(null);
     setSelectedFolderId(null);
     setSelectedMessageId(null);
-    setState(await window.dela.mail.getState());
+    setState(await dela.mail.getState());
   }, [confirmingDisconnect]);
 
   const account = state?.account ?? null;
@@ -354,7 +372,7 @@ export function MailView(_: MailViewProps = {}) {
             </span>
             <Button
               disabled={sync?.phase === 'syncing' || sync?.phase === 'connecting'}
-              onClick={() => void window.dela.mail.syncNow().catch(() => {})}
+              onClick={() => void dela.mail.syncNow().catch(() => {})}
               variant="primary"
             >
               ↻ 同步

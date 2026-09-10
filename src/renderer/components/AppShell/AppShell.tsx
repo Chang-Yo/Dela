@@ -40,23 +40,27 @@ const projects: Array<{ name: string; tone: 'amber' | 'green' | 'blue'; current?
 function WindowControls() {
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
+    const desktopWindow = window.dela?.window;
+    if (!desktopWindow) return undefined;
     let active = true;
-    void window.dela.window.getState().then((state) => {
+    void desktopWindow.getState().then((state) => {
       if (active) setMaximized(state.maximized);
     });
-    const unsubscribe = window.dela.window.onStateChange((state) => setMaximized(state.maximized));
+    const unsubscribe = desktopWindow.onStateChange((state) => setMaximized(state.maximized));
     return () => {
       active = false;
       unsubscribe();
     };
   }, []);
 
+  if (!window.dela) return null;
+
   return (
     <div className={styles.windowControls}>
       <button
         aria-label="最小化"
         className={styles.windowButton}
-        onClick={() => window.dela.window.minimize()}
+        onClick={() => window.dela?.window.minimize()}
         type="button"
       >
         –
@@ -64,7 +68,7 @@ function WindowControls() {
       <button
         aria-label={maximized ? '还原' : '最大化'}
         className={styles.windowButton}
-        onClick={() => window.dela.window.toggleMaximize()}
+        onClick={() => window.dela?.window.toggleMaximize()}
         type="button"
       >
         {maximized ? '⧉' : '□'}
@@ -72,7 +76,7 @@ function WindowControls() {
       <button
         aria-label="关闭"
         className={clsx(styles.windowButton, styles.closeButton)}
-        onClick={() => window.dela.window.close()}
+        onClick={() => window.dela?.window.close()}
         type="button"
       >
         ✕

@@ -8,6 +8,23 @@
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
+.browserPreview {
+  display: grid;
+  gap: var(--space-3);
+  width: min(460px, 100%);
+  margin: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.browserPreview p:last-child {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+}
+
 .syncState {
   align-self: center;
   color: var(--ink-muted);
