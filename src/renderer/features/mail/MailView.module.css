@@ -1,0 +1,627 @@
+.mailPage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.syncState {
+  align-self: center;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.syncActive {
+  color: var(--primary);
+}
+
+.syncError {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.syncBanner {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(168, 95, 42, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(168, 95, 42, 0.08);
+  color: var(--warning);
+  font-size: var(--text-sm);
+}
+
+.mailLayout {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns:
+    var(--folder-width, 220px) minmax(260px, var(--list-width, 320px))
+    6px minmax(0, 1fr);
+  min-height: 0;
+  margin-top: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* 文件夹栏 */
+
+.folderPane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface-muted);
+}
+
+.folderToggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  margin-left: auto;
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.folderToggle:hover {
+  background: var(--surface-strong);
+  color: var(--ink);
+}
+
+.folderPane.isCollapsed {
+  align-items: center;
+}
+
+.accountCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.accountMark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.accountInfo {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.accountInfo strong {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountInfo small {
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.folderList {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  overflow-y: auto;
+}
+
+.folderItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.folderItem:hover {
+  background: var(--surface-strong);
+  color: var(--ink);
+}
+
+.folderItem.isSelected {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--primary);
+  font-weight: 600;
+}
+
+.folderIcon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 18px;
+  color: var(--ink-muted);
+}
+
+.folderName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unreadBadge {
+  flex-shrink: 0;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fffdf7;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.folderEmpty {
+  padding: var(--space-3);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.folderFooter {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.disconnectButton {
+  padding: 2px 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.disconnectButton:hover {
+  color: var(--warning);
+}
+
+/* 邮件列表 */
+
+.listPane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.listResizeHandle {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.listResizeHandle::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: transparent;
+  content: '';
+}
+
+.listResizeHandle:hover::after,
+.listResizeHandle:focus-visible::after {
+  background: var(--primary);
+}
+
+.listToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.listTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.listTitle strong {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.listTitle small {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.searchInput {
+  width: 140px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--text-xs);
+}
+
+.messageList {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.listHint {
+  padding: var(--space-4);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.messageRow {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+}
+
+.messageRow:hover {
+  background: var(--surface-muted);
+}
+
+.messageRow.isSelected {
+  background: var(--surface-muted);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.unreadDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.unreadDot.isSeen {
+  background: transparent;
+}
+
+.messageMain {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.messageTopRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.messageTopRow strong {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.messageDate {
+  flex-shrink: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.messageSubject {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.messageSnippet {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.isUnread {
+  font-weight: 650;
+}
+
+.attachmentMark {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+/* 阅读面板 */
+
+.readingPane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.readingHint {
+  margin: auto;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.readingError {
+  display: grid;
+  gap: var(--space-3);
+  margin: auto;
+  color: var(--warning);
+  font-size: var(--text-sm);
+  place-items: center;
+  text-align: center;
+}
+
+.backButton {
+  display: none;
+  align-self: flex-start;
+  margin: var(--space-3) var(--space-4) 0;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+}
+
+.readingContent {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.readingSubject {
+  margin-bottom: var(--space-3);
+  font-family: inherit;
+  font-size: 22px;
+}
+
+.readingMeta {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-block: 1px solid var(--line);
+  margin-bottom: var(--space-3);
+}
+
+.readingMeta > div {
+  display: grid;
+  gap: 2px;
+}
+
+.readingMeta span {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.readingMeta strong {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.attachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.attachmentChip {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.readingNotice {
+  margin-bottom: var(--space-2);
+  color: var(--warning);
+  font-size: var(--text-xs);
+}
+
+.htmlBody {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.plainBody {
+  flex: 1 1 auto;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  min-height: 0;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 配置表单 */
+
+.configWrap {
+  display: grid;
+  flex: 1 1 auto;
+  place-items: center;
+}
+
+.configCard {
+  display: grid;
+  gap: var(--space-4);
+  width: min(420px, 100%);
+  padding: var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.configCard h2 {
+  font-family: inherit;
+  font-size: var(--text-lg);
+}
+
+.configCopy {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.fieldLabel {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.textInput {
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.configError {
+  color: var(--warning);
+  font-size: var(--text-sm);
+}
+
+.configHint {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+/* 响应式 */
+
+@media (max-width: 1080px) {
+  .mailPage {
+    padding: var(--space-4) var(--space-5) var(--space-5);
+  }
+
+  .mailLayout {
+    grid-template-columns:
+      var(--folder-width, 180px) minmax(240px, var(--list-width, 300px))
+      6px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .mailPage {
+    padding: var(--space-3);
+  }
+
+  .mailLayout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .folderPane {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    padding: var(--space-2);
+  }
+
+  .folderPane::-webkit-scrollbar {
+    display: none;
+  }
+
+  .accountCard,
+  .folderFooter {
+    display: none;
+  }
+
+  .folderList {
+    flex-direction: row;
+    align-items: center;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .folderItem {
+    white-space: nowrap;
+  }
+
+  .folderItem.isSelected {
+    box-shadow: inset 0 -2px 0 var(--primary);
+  }
+
+  .listPane {
+    border-right: 0;
+  }
+
+  .readingPane {
+    display: none;
+  }
+
+  .mobileReadingPane .listPane {
+    display: none;
+  }
+
+  .mobileReadingPane .readingPane {
+    display: flex;
+  }
+
+  .backButton {
+    display: inline-flex;
+  }
+
+  .readingContent {
+    padding: var(--space-2) var(--space-3) var(--space-3);
+  }
+
+  .listResizeHandle {
+    display: none;
+  }
+}

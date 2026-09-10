@@ -22,22 +22,6 @@ export function SourcesView() {
         title="资料"
       />
       <div className={styles.sourcesLayout}>
-        <section className={styles.sourceCategories}>
-          <button className={clsx(styles.sourceCategory, styles.isActive)} type="button">
-            <span>▤</span>
-            <div>
-              <strong>课程</strong>
-              <small>3 门课程</small>
-            </div>
-          </button>
-          <button className={styles.sourceCategory} type="button">
-            <span>✉</span>
-            <div>
-              <strong>邮箱</strong>
-              <small>需要重新登录</small>
-            </div>
-          </button>
-        </section>
         <section className={styles.sourceList}>
           <div className={styles.listHeading}>
             <p className="panel-label">课程内容</p>

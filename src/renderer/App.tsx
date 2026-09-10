@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell, type ViewId } from './components/AppShell';
 import { HomeView } from './features/home';
+import { MailView } from './features/mail';
 import { ProjectView } from './features/projects';
 import { SettingsView } from './features/settings';
 import { SourcesView } from './features/sources';
+import { TimetableView } from './features/timetable';
 import styles from './App.module.css';
 
 export default function App() {
@@ -28,7 +30,9 @@ export default function App() {
               <ProjectView activeTab={projectTab} onTabChange={setProjectTab} />
             )}
             {view === 'sources' && <SourcesView />}
-            {view === 'settings' && <SettingsView />}
+            {view === 'mail' && <MailView />}
+            {view === 'timetable' && <TimetableView />}
+            {view === 'settings' && <SettingsView onOpenMail={() => setView('mail')} />}
           </motion.div>
         </AnimatePresence>
       </MotionConfig>
