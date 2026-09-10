@@ -26,6 +26,12 @@
 
 ## 本地开发
 
+邮箱按连接表单、文件夹栏、邮件列表、阅读面板与 HTML 正文拆分组件，格式化和 HTML 文档处理各有独立 TS 文件。邮件优先读取 HTML，保留内联样式、样式表和表格，支持 CID 图片、适应宽度/原始布局、纯文本切换、远程图片开关和经系统浏览器打开的正文链接。文件夹栏记忆折叠状态，图标位置保持稳定；窄屏显示带名称的文件夹标签。
+
+HTML 仍在无脚本、不同源的 sandbox iframe 内显示；远程图片沿用默认显示，可在单封邮件内关闭。外部样式表、字体、脚本和表单提交不加载；Outlook 专有 VML、不受支持或超出 2 MB 图片总预算的 CID 图片不能保证还原。旧缓存打开时尝试重新读取，失败则保留离线正文。数据库 v2 迁移前保留本地备份。附件仍仅列出信息，未提供下载。
+
+构建后可运行 `pnpm exec electron scripts/mail-smoke.cjs`，使用独立测试目录和脱敏数据检查 HTML 隔离、侧栏折叠、请求竞态及窄屏布局；截图保存到被忽略的 `.tools/`。`pnpm test` 包含 MIME 正文选择与 CID 图片测试。本次未重新登录真实邮箱验收各类邮件模板。
+
 安装 Node.js **24.21.0** 和 pnpm **12.3.4**。本机已将两者安装在被忽略的 `.tools/` 中，不改变全局环境；在 PowerShell 中先启用：
 
 ```powershell
@@ -49,7 +55,7 @@ pnpm dev
 | `pnpm build`                        | 类型检查与三个入口的生产构建                                       |
 | `pnpm start`                        | 启动已构建产物                                                     |
 | `pnpm format` / `pnpm format:check` | 格式化 / 检查格式                                                  |
-| `pnpm test`                         | Vitest；目前没有业务单元测试，不代表业务已验证                     |
+| `pnpm test`                         | Vitest；包含 MIME 正文选择、CID 图片与失败回退测试                 |
 | `pnpm smoke`                        | 构建后验证 Electron 内 SQLite、React 渲染和 preload 隔离，自动退出 |
 | `pnpm package:dir`                  | 生成未安装的可执行目录                                             |
 | `pnpm package:dist`                 | 生成当前平台安装包                                                 |

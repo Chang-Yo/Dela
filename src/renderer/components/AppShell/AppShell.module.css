@@ -4,6 +4,11 @@
   grid-template-rows: 40px minmax(0, 1fr);
   height: 100dvh;
   background: var(--canvas);
+  transition: grid-template-columns 0.2s ease;
+}
+
+.appShell.isSidebarResizing {
+  transition: none;
 }
 
 .titleBar {
@@ -24,18 +29,24 @@
   align-items: center;
   gap: var(--space-2);
   height: 100%;
-  padding: 0 var(--space-1);
+}
+
+.titleBarLogoButton {
+  position: relative;
+  display: grid;
+  flex: 0 0 28px;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   -webkit-app-region: no-drag;
 }
 
-.titleBarBrand:hover {
-  background: var(--surface-strong);
-}
-
 .titleBarLogo {
   width: auto;
-  height: 28px;
+  height: 22px;
 }
 
 .titleBarLabel {
@@ -43,6 +54,48 @@
   font-family: inherit;
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
+}
+
+.titleBarToggle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-muted);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.titleBarLogoButton:hover .titleBarToggle,
+.titleBarLogoButton:focus-visible .titleBarToggle {
+  opacity: 1;
+}
+
+.titleBarLogoButton:hover .titleBarLogo,
+.titleBarLogoButton:focus-visible .titleBarLogo {
+  visibility: hidden;
+}
+
+.appShell.isSidebarCollapsed .titleBarToggle {
+  opacity: 1;
+}
+
+.appShell.isSidebarCollapsed .titleBarLogoButton {
+  width: 36px;
+  height: 100%;
+  flex-basis: 36px;
+  padding: 0;
+}
+
+.appShell.isSidebarCollapsed .titleBarLogo,
+.appShell.isSidebarCollapsed .titleBarLabel {
+  display: none;
 }
 
 .windowControls {
@@ -204,14 +257,28 @@
 }
 
 .appShell.isSidebarCollapsed {
-  grid-template-columns: 0 0 minmax(0, 1fr);
+  grid-template-columns: 64px 0 minmax(0, 1fr);
+}
+
+.appShell.isSidebarCollapsed .sidebarResizeHandle {
+  pointer-events: none;
 }
 
 .sidebar.isCollapsed {
-  visibility: hidden;
+  padding-inline: var(--space-2);
+}
+
+.sidebar.isCollapsed .navItem {
+  justify-content: center;
   padding: 0;
-  border-right: 0;
-  pointer-events: none;
+}
+
+.sidebar.isCollapsed .navItem > span:last-child {
+  display: none;
+}
+
+.sidebar.isCollapsed .projectNav {
+  display: none;
 }
 
 @media (max-width: 1080px) {
@@ -309,9 +376,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .sidebar.isCollapsed {
-    visibility: visible;
-    padding: var(--space-1) var(--space-2);
-    pointer-events: auto;
+  .sidebar.isCollapsed .navItem > span:last-child {
+    display: block;
   }
 }

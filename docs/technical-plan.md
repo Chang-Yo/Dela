@@ -415,6 +415,10 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 
 ## 13. 工程初始化记录
 
+- 本次邮箱改动交付检查：TypeScript、生产构建、3 个 MIME 单元测试、脱敏 Electron 邮箱检查、修改文件格式检查均通过；`pnpm smoke` 与 `dist/win-unpacked/Dela.exe --smoke-test` 均通过。已生成 Windows 可执行目录，未验证 NSIS 安装流程。构建仍提示 renderer bundle 超过 500 kB。
+
+- 2026-09-10 邮箱维护性与阅读改进：renderer 按 `MailConfigureForm`、`MailFolders`、`MailMessageList`、`MailReader`、`MailHtmlBody` 拆分页面，`mail-format.ts` / `mail-html.ts` 分别承载格式化和 HTML 文档处理。主进程正文选择优先 HTML，排除附件邮件中的正文；两个正文读取路径均解析 CID 位图（PNG/JPEG/GIF/WebP/BMP，总下载预算 2 MB），失败保留文本阅读。继续使用 ImapFlow 已有的字符集/传输编码解码，不重复转换。SQLite v2 只新增正文版本字段；升级前使用 VACUUM INTO 保留备份，旧缓存按需更新，联网失败保留缓存。HTML 用 DOMParser 保留原始 head/body 与 CSS，移除主动内容后写入无脚本、不同源 iframe；内部 CSP 限定图片与内联样式，远程图片默认显示且可关闭。适应宽度/原始布局、纯文本切换、抄送展示、正文 HTTP(S) 链接列表已实现；链接经校验主 frame 和协议的有限 preload API 在系统浏览器打开。侧栏保留账户区高度、固定按钮和图标位置、记忆折叠状态，窄屏保留名称；列表分隔条支持方向键。界面使用原有 48/220px 侧栏宽度，新增 240px 正文最低高度和 160ms 折叠过渡（尊重减少动态效果）。已通过 MIME 3 个单元测试与独立 Electron 脱敏样例检查（HTML 样式保留/脚本隔离、CID 替换逻辑、折叠图标稳定、快速切信与窄屏）。真实邮箱模板、Outlook VML、外部字体/样式表和超预算内嵌图片未保证兼容；附件下载未实现。
+
 - 开发工具安装在本机 `.tools/`，由 `scripts/use-local-tools.ps1` 为当前 PowerShell 会话启用，不更改系统全局版本。
 - 已添加 `.gitignore`、`.prettierrc.json`、`.prettierignore`、`.editorconfig`、`.gitattributes`、Node 版本文件、三个 tsconfig、三个 Vite 配置和 electron-builder 配置。
 - 辅助开发依赖固定为 Prettier 3.9.6、@types/node 24.9.0、@types/react 19.2.18、@types/react-dom 19.2.7、@types/better-sqlite3 9.6.0。

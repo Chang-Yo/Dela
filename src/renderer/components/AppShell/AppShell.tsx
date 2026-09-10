@@ -11,12 +11,18 @@ import { StatusDot } from '../StatusDot';
 import delaLogo from '../../../../assets/Dela_Logo.png';
 import {
   CalendarDays,
+  Copy,
   FolderKanban,
   FolderOpen,
   House,
   Mail,
+  Minus,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Settings,
+  Square,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import styles from './AppShell.module.css';
@@ -63,7 +69,7 @@ function WindowControls() {
         onClick={() => window.dela?.window.minimize()}
         type="button"
       >
-        –
+        <Minus size={14} strokeWidth={1.8} />
       </button>
       <button
         aria-label={maximized ? '还原' : '最大化'}
@@ -71,7 +77,7 @@ function WindowControls() {
         onClick={() => window.dela?.window.toggleMaximize()}
         type="button"
       >
-        {maximized ? '⧉' : '□'}
+        {maximized ? <Copy size={13} strokeWidth={1.8} /> : <Square size={12} strokeWidth={1.8} />}
       </button>
       <button
         aria-label="关闭"
@@ -79,7 +85,7 @@ function WindowControls() {
         onClick={() => window.dela?.window.close()}
         type="button"
       >
-        ✕
+        <X size={14} strokeWidth={1.8} />
       </button>
     </div>
   );
@@ -94,6 +100,7 @@ type AppShellProps = {
 export function AppShell({ view, onNavigate, children }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(248);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarResizing, setSidebarResizing] = useState(false);
   const resizeStart = useRef<{ x: number; width: number } | null>(null);
 
   const resizeSidebar = (event: PointerEvent<HTMLDivElement>) => {
@@ -104,20 +111,33 @@ export function AppShell({ view, onNavigate, children }: AppShellProps) {
 
   return (
     <div
-      className={clsx(styles.appShell, sidebarCollapsed && styles.isSidebarCollapsed)}
+      className={clsx(
+        styles.appShell,
+        sidebarCollapsed && styles.isSidebarCollapsed,
+        sidebarResizing && styles.isSidebarResizing,
+      )}
       style={{ '--sidebar-width': `${sidebarCollapsed ? 0 : sidebarWidth}px` } as CSSProperties}
     >
       <div className={styles.titleBar}>
-        <button
-          aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
-          className={styles.titleBarBrand}
-          onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-          title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
-          type="button"
-        >
-          <img alt="" className={styles.titleBarLogo} src={delaLogo} />
+        <div className={styles.titleBarBrand}>
+          <button
+            aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            className={styles.titleBarLogoButton}
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            type="button"
+          >
+            <span aria-hidden="true" className={styles.titleBarToggle}>
+              {sidebarCollapsed ? (
+                <PanelLeftOpen size={16} strokeWidth={1.8} />
+              ) : (
+                <PanelLeftClose size={16} strokeWidth={1.8} />
+              )}
+            </span>
+            <img alt="" className={styles.titleBarLogo} src={delaLogo} />
+          </button>
           <span className={styles.titleBarLabel}>Dela</span>
-        </button>
+        </div>
         <WindowControls />
       </div>
       <aside className={clsx(styles.sidebar, sidebarCollapsed && styles.isCollapsed)}>
@@ -127,9 +147,11 @@ export function AppShell({ view, onNavigate, children }: AppShellProps) {
               const Icon = item.icon;
               return (
                 <button
+                  aria-label={sidebarCollapsed ? item.label : undefined}
                   className={clsx(styles.navItem, view === item.id && styles.isActive)}
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
+                  title={sidebarCollapsed ? item.label : undefined}
                   type="button"
                 >
                   <span aria-hidden="true" className={styles.navIcon}>
@@ -169,7 +191,13 @@ export function AppShell({ view, onNavigate, children }: AppShellProps) {
           ))}
         </section>
         <div className={styles.sidebarFooter}>
-          <button className={styles.navItem} onClick={() => onNavigate('settings')} type="button">
+          <button
+            aria-label={sidebarCollapsed ? '设置' : undefined}
+            className={styles.navItem}
+            onClick={() => onNavigate('settings')}
+            title={sidebarCollapsed ? '设置' : undefined}
+            type="button"
+          >
             <span aria-hidden="true" className={styles.navIcon}>
               <Settings size={18} strokeWidth={1.7} />
             </span>
@@ -182,11 +210,13 @@ export function AppShell({ view, onNavigate, children }: AppShellProps) {
         className={styles.sidebarResizeHandle}
         onPointerDown={(event) => {
           resizeStart.current = { x: event.clientX, width: sidebarWidth };
+          setSidebarResizing(true);
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={resizeSidebar}
         onPointerUp={(event) => {
           resizeStart.current = null;
+          setSidebarResizing(false);
           event.currentTarget.releasePointerCapture(event.pointerId);
         }}
         role="separator"

@@ -81,6 +81,7 @@ export interface MailConfigureInput {
 }
 
 export interface MailApi {
+  openLink(url: string): Promise<void>;
   getState(): Promise<MailState>;
   configure(input: MailConfigureInput): Promise<MailResult>;
   disconnect(): Promise<MailResult>;

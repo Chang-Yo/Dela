@@ -8,151 +8,22 @@ import {
   type PointerEvent,
 } from 'react';
 import clsx from 'clsx';
-import {
-  Archive,
-  CircleAlert,
-  FilePenLine,
-  Folder,
-  Inbox,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Send,
-  Star,
-  Trash2,
-  type LucideIcon,
-} from 'lucide-react';
 import { Button } from '../../components/Button';
 import { PageHeader } from '../../components/PageHeader';
 import type {
-  MailAttachmentInfo,
   MailFolderInfo,
   MailMessageDetail,
   MailMessageSummary,
   MailState,
 } from '../../../shared/api';
+import { ConfigureForm } from './MailConfigureForm';
+import { MailFolders } from './MailFolders';
+import { MailMessageList } from './MailMessageList';
+import { MailReader } from './MailReader';
+import { formatMailDate, senderLabel } from './mail-format';
 import styles from './MailView.module.css';
 
-const FOLDER_ICONS: Record<string, LucideIcon> = {
-  '\\Inbox': Inbox,
-  '\\Flagged': Star,
-  '\\Drafts': FilePenLine,
-  '\\Sent': Send,
-  '\\Junk': CircleAlert,
-  '\\Trash': Trash2,
-  '\\Archive': Archive,
-};
-
 const MESSAGE_LIMIT = 200;
-
-function formatMailDate(iso: string | null): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
-  if (date.toDateString() === now.toDateString()) {
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  }
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${date.getMonth() + 1} 月 ${date.getDate()} 日`;
-  }
-  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-}
-
-function formatFullDate(iso: string | null): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  return `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日（星期${weekdays[date.getDay()]}）${String(
-    date.getHours(),
-  ).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function formatSize(size: number | null): string {
-  if (size === null) return '';
-  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  if (size >= 1024) return `${Math.round(size / 1024)} KB`;
-  return `${size} B`;
-}
-
-function formatMailAddress(name: string | null, address: string | null): string {
-  if (name && address) return `${name} <${address}>`;
-  return name ?? address ?? '';
-}
-
-function wrapHtmlBody(html: string): string {
-  return [
-    '<!doctype html><html><head><meta charset="utf-8">',
-    '<style>body{margin:0;padding:16px 20px;font-family:Inter,"Segoe UI","Microsoft YaHei UI",sans-serif;',
-    'font-size:14px;line-height:1.65;color:#1c1c17;background:#fff;word-break:break-word}',
-    'img{max-width:100%}a{color:#716328}table{max-width:100%}</style></head><body>',
-    html,
-    '</body></html>',
-  ].join('');
-}
-
-function senderLabel(message: MailMessageSummary): string {
-  if (!message.sender) return '(未知发件人)';
-  return message.sender.name || message.sender.address || '(未知发件人)';
-}
-
-type ConfigureFormProps = {
-  onSubmit: (address: string, password: string) => Promise<void>;
-  error: string | null;
-  busy: boolean;
-};
-
-function ConfigureForm({ onSubmit, error, busy }: ConfigureFormProps) {
-  const [address, setAddress] = useState('');
-  const [password, setPassword] = useState('');
-
-  return (
-    <div className={styles.configWrap}>
-      <form
-        className={styles.configCard}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void onSubmit(address, password);
-        }}
-      >
-        <p className="eyebrow">内置邮箱</p>
-        <h2>连接交大邮箱</h2>
-        <p className={styles.configCopy}>
-          使用 jAccount 账号对应的邮箱和密码登录。凭据加密保存在本机，不会发送到其他服务。
-        </p>
-        <label className={styles.fieldLabel}>
-          邮箱地址
-          <input
-            autoComplete="off"
-            className={styles.textInput}
-            onChange={(event) => setAddress(event.target.value)}
-            placeholder="name@sjtu.edu.cn"
-            required
-            type="email"
-            value={address}
-          />
-        </label>
-        <label className={styles.fieldLabel}>
-          密码
-          <input
-            autoComplete="current-password"
-            className={styles.textInput}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="jAccount 密码"
-            required
-            type="password"
-            value={password}
-          />
-        </label>
-        {error && <p className={styles.configError}>{error}</p>}
-        <Button disabled={busy} type="submit" variant="primary">
-          {busy ? '正在验证…' : '连接并同步'}
-        </Button>
-        <p className={styles.configHint}>服务器 mail.sjtu.edu.cn · IMAPS 993</p>
-      </form>
-    </div>
-  );
-}
 
 type MailViewProps = Record<string, never>;
 
@@ -189,13 +60,29 @@ function DesktopMailView() {
   const [configuring, setConfiguring] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [mobileReading, setMobileReading] = useState(false);
-  const [foldersCollapsed, setFoldersCollapsed] = useState(true);
+  const [foldersCollapsed, setFoldersCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('dela.mail.folders-collapsed') !== 'false';
+    } catch {
+      return true;
+    }
+  });
   const [listWidth, setListWidth] = useState(320);
 
   const selectedFolderIdRef = useRef<number | null>(null);
   const autoSyncedRef = useRef(false);
   const desktopMediaRef = useRef<MediaQueryList | null>(null);
   const listResizeStart = useRef<{ x: number; width: number } | null>(null);
+  const detailRequest = useRef(0);
+  const listRequest = useRef(0);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dela.mail.folders-collapsed', String(foldersCollapsed));
+    } catch {
+      /* Storage may be unavailable. */
+    }
+  }, [foldersCollapsed]);
 
   const resizeList = (event: PointerEvent<HTMLDivElement>) => {
     const start = listResizeStart.current;
@@ -208,25 +95,30 @@ function DesktopMailView() {
   }, []);
 
   const loadMessages = useCallback(async (folderId: number) => {
+    const request = ++listRequest.current;
     selectedFolderIdRef.current = folderId;
     setListLoading(true);
     try {
-      setMessages([...(await dela.mail.listMessages(folderId, MESSAGE_LIMIT))]);
+      const loaded = await dela.mail.listMessages(folderId, MESSAGE_LIMIT);
+      if (request === listRequest.current) setMessages([...loaded]);
     } finally {
-      setListLoading(false);
+      if (request === listRequest.current) setListLoading(false);
     }
   }, []);
 
   const openMessage = useCallback(async (messageId: number) => {
+    const request = ++detailRequest.current;
     setSelectedMessageId(messageId);
     setDetail(null);
     setDetailError(null);
     setDetailLoading(true);
     try {
       const loaded = await dela.mail.getMessage(messageId);
+      if (request !== detailRequest.current) return;
       setDetail(loaded);
       if (!loaded.seen) {
         const result = await dela.mail.markSeen(messageId);
+        if (request !== detailRequest.current) return;
         if (result.ok) {
           setMessages((prev) =>
             prev.map((item) => (item.id === messageId ? { ...item, seen: true } : item)),
@@ -236,9 +128,10 @@ function DesktopMailView() {
         }
       }
     } catch (error) {
-      setDetailError(error instanceof Error ? error.message : String(error));
+      if (request === detailRequest.current)
+        setDetailError(error instanceof Error ? error.message : String(error));
     } finally {
-      setDetailLoading(false);
+      if (request === detailRequest.current) setDetailLoading(false);
     }
   }, []);
 
@@ -277,6 +170,8 @@ function DesktopMailView() {
     });
     return () => {
       active = false;
+      detailRequest.current += 1;
+      listRequest.current += 1;
       unsubscribe();
     };
     // 仅在挂载时执行一次。
@@ -333,8 +228,6 @@ function DesktopMailView() {
     );
   }, [messages, search]);
 
-  const unreadInFolder = (folder: MailFolderInfo | null): number => folder?.unread ?? 0;
-
   if (state !== null && !account) {
     return (
       <div className={styles.mailPage}>
@@ -389,145 +282,64 @@ function DesktopMailView() {
         className={clsx(styles.mailLayout, mobileReading && styles.mobileReadingPane)}
         style={
           {
-            '--folder-width': foldersCollapsed ? '48px' : '220px',
+            '--folder-width': foldersCollapsed
+              ? 'var(--mail-folder-rail)'
+              : 'var(--mail-folder-expanded)',
             '--list-width': `${listWidth}px`,
           } as CSSProperties
         }
       >
-        <aside className={clsx(styles.folderPane, foldersCollapsed && styles.isCollapsed)}>
-          <button
-            aria-label={foldersCollapsed ? '展开邮件文件夹' : '收起邮件文件夹'}
-            className={styles.folderToggle}
-            onClick={() => setFoldersCollapsed((collapsed) => !collapsed)}
-            title={foldersCollapsed ? '展开邮件文件夹' : '收起邮件文件夹'}
-            type="button"
-          >
-            {foldersCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </button>
-          {!foldersCollapsed && (
-            <>
-              <div className={styles.accountCard}>
-                <span aria-hidden="true" className={styles.accountMark}>
-                  {(account?.address ?? 'D').charAt(0).toUpperCase()}
-                </span>
-                <div className={styles.accountInfo}>
-                  <strong>{account?.address ?? '未配置'}</strong>
-                  <small>{unreadInFolder(selectedFolder)} 封未读（当前文件夹）</small>
-                </div>
-              </div>
-              <nav aria-label="邮件文件夹" className={styles.folderList}>
-                {folders.length === 0 && (
-                  <p className={styles.folderEmpty}>
-                    {sync?.phase === 'error' ? '同步失败，暂无文件夹' : '正在获取文件夹…'}
-                  </p>
-                )}
-                {folders.map((folder) => {
-                  const Icon = FOLDER_ICONS[folder.specialUse ?? ''] ?? Folder;
-                  return (
-                    <button
-                      className={clsx(
-                        styles.folderItem,
-                        folder.id === selectedFolderId && styles.isSelected,
-                      )}
-                      key={folder.id}
-                      onClick={() => {
-                        setSelectedFolderId(folder.id);
-                        setMessages([]);
-                        setSelectedMessageId(null);
-                        setDetail(null);
-                        setMobileReading(false);
-                        void loadMessages(folder.id);
-                      }}
-                      type="button"
-                    >
-                      <span aria-hidden="true" className={styles.folderIcon}>
-                        <Icon size={16} strokeWidth={1.7} />
-                      </span>
-                      <span className={styles.folderName}>{folder.name}</span>
-                      {folder.unread !== null && folder.unread > 0 && (
-                        <span className={styles.unreadBadge}>{folder.unread}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-              <div className={styles.folderFooter}>
-                <button
-                  className={styles.disconnectButton}
-                  onClick={() => void handleDisconnect()}
-                  type="button"
-                >
-                  {confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
-                </button>
-              </div>
-            </>
-          )}
-        </aside>
+        <MailFolders
+          foldersCollapsed={foldersCollapsed}
+          setFoldersCollapsed={setFoldersCollapsed}
+          account={account}
+          selectedFolder={selectedFolder}
+          folders={folders}
+          sync={sync}
+          selectedFolderId={selectedFolderId}
+          confirmingDisconnect={confirmingDisconnect}
+          handleDisconnect={handleDisconnect}
+          onSelect={(id) => {
+            detailRequest.current += 1;
+            setDetailLoading(false);
+            setDetailError(null);
+            setSelectedFolderId(id);
+            setMessages([]);
+            setSelectedMessageId(null);
+            setDetail(null);
+            setMobileReading(false);
+            void loadMessages(id);
+          }}
+        />
 
-        <section className={styles.listPane}>
-          <div className={styles.listToolbar}>
-            <div className={styles.listTitle}>
-              <strong>{selectedFolder?.name ?? '邮件'}</strong>
-              <small>{filteredMessages.length} 封</small>
-            </div>
-            <input
-              aria-label="搜索邮件"
-              className={styles.searchInput}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索"
-              type="search"
-              value={search}
-            />
-          </div>
-          <div className={styles.messageList}>
-            {listLoading && <p className={styles.listHint}>加载中…</p>}
-            {!listLoading && filteredMessages.length === 0 && (
-              <p className={styles.listHint}>{search ? '没有匹配的邮件' : '此文件夹暂无邮件'}</p>
-            )}
-            {filteredMessages.map((message) => (
-              <button
-                className={clsx(
-                  styles.messageRow,
-                  message.id === selectedMessageId && styles.isSelected,
-                )}
-                key={message.id}
-                onClick={() => {
-                  if (desktopMediaRef.current?.matches) {
-                    void openMessage(message.id);
-                  } else {
-                    setMobileReading(true);
-                    void openMessage(message.id);
-                  }
-                }}
-                type="button"
-              >
-                <span
-                  aria-hidden="true"
-                  className={clsx(styles.unreadDot, message.seen && styles.isSeen)}
-                />
-                <span className={styles.messageMain}>
-                  <span className={styles.messageTopRow}>
-                    <strong className={clsx(!message.seen && styles.isUnread)}>
-                      {senderLabel(message)}
-                    </strong>
-                    <span className={styles.messageDate}>{formatMailDate(message.date)}</span>
-                  </span>
-                  <span className={clsx(styles.messageSubject, !message.seen && styles.isUnread)}>
-                    {message.subject ?? '(无主题)'}
-                    {message.hasAttachments && (
-                      <span aria-label="含附件" className={styles.attachmentMark}>
-                        📎
-                      </span>
-                    )}
-                  </span>
-                  <span className={styles.messageSnippet}>{message.snippet ?? ''}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
+        <MailMessageList
+          selectedFolder={selectedFolder}
+          filteredMessages={filteredMessages}
+          selectedMessageId={selectedMessageId}
+          listLoading={listLoading}
+          search={search}
+          setSearch={setSearch}
+          onSelect={(id) => {
+            setMobileReading(!desktopMediaRef.current?.matches);
+            void openMessage(id);
+          }}
+        />
         <div
           aria-label="调整邮件列表宽度"
+          aria-orientation="vertical"
+          aria-valuemin={260}
+          aria-valuemax={480}
+          aria-valuenow={listWidth}
+          onKeyDown={(event) => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            event.preventDefault();
+            setListWidth((width) =>
+              Math.min(480, Math.max(260, width + (event.key === 'ArrowRight' ? 20 : -20))),
+            );
+          }}
+          onPointerCancel={() => {
+            listResizeStart.current = null;
+          }}
           className={styles.listResizeHandle}
           onPointerDown={(event) => {
             listResizeStart.current = { x: event.clientX, width: listWidth };
@@ -542,81 +354,14 @@ function DesktopMailView() {
           tabIndex={0}
         />
 
-        <section className={styles.readingPane}>
-          <button
-            className={styles.backButton}
-            onClick={() => setMobileReading(false)}
-            type="button"
-          >
-            ← 返回列表
-          </button>
-          {detailLoading && <p className={styles.readingHint}>正在获取正文…</p>}
-          {!detailLoading && !detail && !detailError && (
-            <p className={styles.readingHint}>选择一封邮件查看正文</p>
-          )}
-          {!detailLoading && detailError && !detail && (
-            <div className={styles.readingError}>
-              <p>{detailError}</p>
-              {selectedMessageId !== null && (
-                <Button onClick={() => void openMessage(selectedMessageId)} variant="quiet">
-                  重试
-                </Button>
-              )}
-            </div>
-          )}
-          {!detailLoading && detail && (
-            <article className={styles.readingContent}>
-              <h2 className={styles.readingSubject}>{detail.subject ?? '(无主题)'}</h2>
-              <div className={styles.readingMeta}>
-                <div>
-                  <span>发件人</span>
-                  <strong>
-                    {detail.sender
-                      ? formatMailAddress(detail.sender.name, detail.sender.address)
-                      : '(未知发件人)'}
-                  </strong>
-                </div>
-                {detail.to.length > 0 && (
-                  <div>
-                    <span>收件人</span>
-                    <strong>
-                      {detail.to.map((to) => formatMailAddress(to.name, to.address)).join(', ')}
-                    </strong>
-                  </div>
-                )}
-                <div>
-                  <span>时间</span>
-                  <strong>{formatFullDate(detail.date)}</strong>
-                </div>
-                {detail.attachments.length > 0 && (
-                  <div>
-                    <span>附件 {detail.attachments.length}</span>
-                    <strong className={styles.attachmentList}>
-                      {detail.attachments.map((attachment: MailAttachmentInfo) => (
-                        <span className={styles.attachmentChip} key={attachment.filename}>
-                          {attachment.filename}
-                          {attachment.size !== null && ` · ${formatSize(attachment.size)}`}
-                        </span>
-                      ))}
-                    </strong>
-                  </div>
-                )}
-              </div>
-              {detailError && <p className={styles.readingNotice}>{detailError}</p>}
-              {detail.bodyHtml ? (
-                <iframe
-                  className={styles.htmlBody}
-                  referrerPolicy="no-referrer"
-                  sandbox=""
-                  srcDoc={wrapHtmlBody(detail.bodyHtml)}
-                  title="邮件正文"
-                />
-              ) : (
-                <div className={styles.plainBody}>{detail.bodyText ?? '(无正文)'}</div>
-              )}
-            </article>
-          )}
-        </section>
+        <MailReader
+          detail={detail}
+          detailLoading={detailLoading}
+          detailError={detailError}
+          selectedMessageId={selectedMessageId}
+          openMessage={openMessage}
+          setMobileReading={setMobileReading}
+        />
       </div>
     </div>
   );

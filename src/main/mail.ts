@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, shell } from 'electron';
 import { ImapFlow } from 'imapflow';
 import type { ListResponse, MessageStructureObject } from 'imapflow';
 import { z } from 'zod';
@@ -71,6 +71,7 @@ interface MessageRow {
   snippet: string | null;
   body_text: string | null;
   body_html: string | null;
+  body_version: number;
   attachments: string | null;
   size: number | null;
 }
@@ -171,7 +172,7 @@ interface TextPart {
   type: string;
 }
 
-function pickTextPart(node: MessageStructureObject | undefined): TextPart | null {
+export function pickTextPart(node: MessageStructureObject | undefined): TextPart | null {
   if (!node) return null;
   const stack = [node];
   let plain: TextPart | null = null;
@@ -179,7 +180,7 @@ function pickTextPart(node: MessageStructureObject | undefined): TextPart | null
   while (stack.length > 0) {
     const current = stack.shift();
     if (!current) continue;
-    if (current.disposition === 'attachment') continue;
+    if (current.disposition === 'attachment' || current.type === 'message/rfc822') continue;
     if (current.type === 'text/plain' && !plain) {
       plain = { part: current.part ?? '1', type: current.type };
     } else if (current.type === 'text/html' && !html) {
@@ -187,7 +188,58 @@ function pickTextPart(node: MessageStructureObject | undefined): TextPart | null
     }
     for (const child of current.childNodes ?? []) stack.push(child);
   }
-  return plain ?? html;
+  return html ?? plain;
+}
+
+export async function downloadHtmlImages(
+  client: ImapFlow,
+  uid: number,
+  structure: MessageStructureObject | undefined,
+  html: string,
+): Promise<string> {
+  const stack = structure ? [structure] : [];
+  // Inline images share the existing body byte budget; oversized images stay as placeholders.
+  let remaining = BODY_MAX_BYTES;
+  while (stack.length) {
+    const node = stack.shift()!;
+    if (node.type === 'message/rfc822' || node.disposition === 'attachment') continue;
+    stack.push(...(node.childNodes ?? []));
+    const cid = node.id?.replace(/^<|>$/g, '');
+    if (
+      !cid ||
+      !node.part ||
+      !/^image\/(png|jpe?g|gif|webp|bmp)$/i.test(node.type) ||
+      !html.includes('cid:')
+    )
+      continue;
+    if (remaining <= 0 || (node.size ?? 0) > remaining) continue;
+    const pattern = /cid:([^\s"'<>\)]+)/gi;
+    const matches = (value: string) => {
+      try {
+        return decodeURIComponent(value) === cid;
+      } catch {
+        return value === cid;
+      }
+    };
+    if (![...html.matchAll(pattern)].some((match) => matches(match[1]!))) continue;
+    try {
+      const download = await client.download(uid, node.part, {
+        uid: true,
+        maxBytes: remaining + 1,
+      });
+      const data = await drainStream(download.content);
+      if (data.length > remaining) {
+        remaining = 0;
+        continue;
+      }
+      remaining -= data.length;
+      const url = `data:${node.type};base64,${data.toString('base64')}`;
+      html = html.replace(pattern, (full, value: string) => (matches(value) ? url : full));
+    } catch {
+      // A missing inline image must not prevent reading the message.
+    }
+  }
+  return html;
 }
 
 interface AttachmentItem {
@@ -383,7 +435,7 @@ function syncFolder(
       // 从最新一封开始预取正文，保证打开页面即可阅读。
       const updateBody = db.prepare(
         `UPDATE mail_messages
-         SET body_text = ?, body_html = ?, snippet = COALESCE(?, snippet)
+         SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)
          WHERE folder_id = ? AND uid = ?`,
       );
       for (
@@ -400,16 +452,12 @@ function syncFolder(
             uid: true,
             maxBytes: BODY_MAX_BYTES,
           });
-          const content = (await drainStream(download.content)).toString('utf8');
+          let content = (await drainStream(download.content)).toString('utf8');
           const isHtml = textPart.type === 'text/html';
+          if (isHtml)
+            content = await downloadHtmlImages(client, uid, headers[index]?.bodyStructure, content);
           const plain = isHtml ? stripHtml(content) : content;
-          updateBody.run(
-            isHtml ? null : plain,
-            isHtml ? content : null,
-            makeSnippet(plain),
-            folder.id,
-            uid,
-          );
+          updateBody.run(plain, isHtml ? content : null, makeSnippet(plain), folder.id, uid);
         } catch {
           // 单封正文获取失败不阻塞同步；打开邮件时会再次尝试。
         }
@@ -513,18 +561,20 @@ async function fetchMissingBody(row: MessageRow, folderPath: string): Promise<vo
         uid: true,
         maxBytes: BODY_MAX_BYTES,
       });
-      const content = (await drainStream(download.content)).toString('utf8');
+      let content = (await drainStream(download.content)).toString('utf8');
       const isHtml = textPart.type === 'text/html';
+      if (isHtml)
+        content = await downloadHtmlImages(client, row.uid, message.bodyStructure, content);
       const plain = isHtml ? stripHtml(content) : content;
       getDatabase()
         .prepare(
           `UPDATE mail_messages
-           SET body_text = ?, body_html = ?, snippet = COALESCE(?, snippet)
+           SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)
            WHERE id = ?`,
         )
-        .run(isHtml ? null : plain, isHtml ? content : null, makeSnippet(plain), row.id);
-      if (isHtml) row.body_html = content;
-      else row.body_text = plain;
+        .run(plain, isHtml ? content : null, makeSnippet(plain), row.id);
+      row.body_html = isHtml ? content : null;
+      row.body_text = plain;
     } finally {
       lock.release();
     }
@@ -609,6 +659,13 @@ function startMailSync(): void {
 }
 
 export function registerMailIpc(): void {
+  ipcMain.handle('mail:open-link', async (event, value: unknown) => {
+    if (event.senderFrame !== event.sender.mainFrame || typeof value !== 'string')
+      throw new Error('参数无效');
+    const url = new URL(value);
+    if (!['https:', 'http:'].includes(url.protocol)) throw new Error('不支持的链接');
+    await shell.openExternal(url.href);
+  });
   ipcMain.handle('mail:get-state', () => {
     const account = getAccountRow();
     return {
@@ -703,6 +760,12 @@ export function registerMailIpc(): void {
       const mutableRow: MessageRow & { folder_path: string } = { ...row };
       if (mutableRow.body_text === null && mutableRow.body_html === null) {
         await fetchMissingBody(mutableRow, mutableRow.folder_path);
+      } else if (mutableRow.body_version < 1) {
+        try {
+          await fetchMissingBody(mutableRow, mutableRow.folder_path);
+        } catch {
+          // Keep old cached mail readable offline; retry upgrading on the next open.
+        }
       }
       return {
         id: mutableRow.id,

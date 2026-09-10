@@ -1,4 +1,8 @@
 .mailPage {
+  /* Existing column widths; the body minimum keeps long headers from hiding the message. */
+  --mail-folder-rail: 48px;
+  --mail-folder-expanded: 220px;
+  --mail-body-min-height: 240px;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -63,6 +67,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   overflow: hidden;
+  transition: grid-template-columns 160ms ease;
 }
 
 /* 文件夹栏 */
@@ -71,6 +76,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   border-right: 1px solid var(--line);
   background: var(--surface-muted);
 }
@@ -81,7 +88,7 @@
   flex: 0 0 48px;
   width: 48px;
   height: 48px;
-  margin-left: auto;
+  margin-right: auto;
   background: transparent;
   color: var(--ink-muted);
 }
@@ -92,14 +99,14 @@
 }
 
 .folderPane.isCollapsed {
-  align-items: center;
+  align-items: stretch;
 }
 
 .accountCard {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-2);
   border-bottom: 1px solid var(--line);
 }
 
@@ -121,6 +128,7 @@
   display: grid;
   gap: 2px;
   min-width: 0;
+  white-space: nowrap;
 }
 
 .accountInfo strong {
@@ -146,14 +154,23 @@
 
 .folderItem {
   display: flex;
+  flex-shrink: 0;
+  height: calc(var(--space-6) + var(--space-1));
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ink-soft);
   font-size: var(--text-sm);
   text-align: left;
+}
+
+.folderItem.isIconOnly {
+  position: relative;
+  justify-content: flex-start;
+  width: 100%;
+  padding: var(--space-2);
 }
 
 .folderItem:hover {
@@ -172,7 +189,7 @@
   display: grid;
   flex-shrink: 0;
   place-items: center;
-  width: 18px;
+  width: var(--space-4);
   color: var(--ink-muted);
 }
 
@@ -195,6 +212,16 @@
   text-align: center;
 }
 
+.unreadPin {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
 .folderEmpty {
   padding: var(--space-3);
   color: var(--ink-muted);
@@ -215,6 +242,29 @@
 
 .disconnectButton:hover {
   color: var(--warning);
+}
+
+.disconnectButton.isIconOnly {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.disconnectButton.isIconOnly:hover {
+  background: var(--surface-strong);
+}
+
+.disconnectButton.isConfirming {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.folderPane.isCollapsed .folderFooter {
+  padding: var(--space-2) 0;
 }
 
 /* 邮件列表 */
@@ -421,6 +471,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
@@ -476,9 +527,9 @@
 }
 
 .htmlBody {
-  flex: 1 1 auto;
+  flex: 1 0 50%;
   width: 100%;
-  min-height: 0;
+  min-height: var(--mail-body-min-height);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: #fff;
@@ -557,6 +608,69 @@
 
 /* 响应式 */
 
+.folderPane.isCollapsed .accountInfo,
+.folderPane.isCollapsed .folderName {
+  display: none;
+}
+
+.accountCard {
+  flex-shrink: 0;
+  height: calc(var(--space-6) + var(--space-5));
+}
+
+.folderPane.isCollapsed .accountCard {
+  gap: 0;
+}
+.folderPane.isCollapsed .folderItem {
+  gap: 0;
+}
+.folderToggle:focus-visible,
+.folderItem:focus-visible,
+.bodyToolbar button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.bodyToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+}
+.bodyToolbar button,
+.bodyToolbar summary {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.bodyToolbar button[aria-pressed='true'] {
+  color: var(--primary);
+}
+.bodyToolbar details[open] {
+  flex-basis: 100%;
+}
+.bodyToolbar ul {
+  padding: var(--space-3) var(--space-5);
+}
+.bodyToolbar a {
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.bodyToolbar small {
+  display: block;
+  color: var(--ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mailLayout {
+    transition: none;
+  }
+}
+
 @media (max-width: 1080px) {
   .mailPage {
     padding: var(--space-4) var(--space-5) var(--space-5);
@@ -570,6 +684,19 @@
 }
 
 @media (max-width: 767px) {
+  .folderToggle {
+    display: none;
+  }
+  .folderPane.isCollapsed .folderName {
+    display: inline;
+  }
+  .folderPane .folderItem.isIconOnly {
+    width: auto;
+    gap: var(--space-2);
+  }
+  .folderPane.isCollapsed .accountCard {
+    display: none;
+  }
   .mailPage {
     padding: var(--space-3);
   }

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 
 let database: Database.Database | null = null;
 
@@ -51,6 +51,7 @@ const migrations: string[][] = [
     )`,
     `CREATE INDEX IF NOT EXISTS idx_mail_messages_folder_date ON mail_messages(folder_id, date DESC)`,
   ],
+  ['ALTER TABLE mail_messages ADD COLUMN body_version INTEGER NOT NULL DEFAULT 0'],
 ];
 
 export function getDatabase(): Database.Database {
@@ -61,6 +62,10 @@ export function getDatabase(): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   const current = db.pragma('user_version', { simple: true }) as number;
+  if (current > 0 && current < migrations.length) {
+    const backup = join(dir, `dela-before-v${migrations.length}.db`);
+    if (!existsSync(backup)) db.exec(`VACUUM INTO '${backup.replaceAll("'", "''")}'`);
+  }
   for (let version = current; version < migrations.length; version += 1) {
     const statements = migrations[version];
     if (!statements) break;
