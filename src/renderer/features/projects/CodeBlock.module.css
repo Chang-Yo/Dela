@@ -1,0 +1,48 @@
+.code {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.code :global(.hljs-comment),
+.code :global(.hljs-quote) {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+.code :global(.hljs-keyword),
+.code :global(.hljs-selector-tag),
+.code :global(.hljs-built_in),
+.code :global(.hljs-meta) {
+  color: var(--primary);
+}
+
+.code :global(.hljs-string),
+.code :global(.hljs-attr),
+.code :global(.hljs-symbol) {
+  color: var(--success);
+}
+
+.code :global(.hljs-number),
+.code :global(.hljs-literal) {
+  color: var(--warning);
+}
+
+.code :global(.hljs-title),
+.code :global(.hljs-section) {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.code :global(.hljs-variable),
+.code :global(.hljs-attribute),
+.code :global(.hljs-params) {
+  color: var(--ink-soft);
+}

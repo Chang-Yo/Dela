@@ -1,0 +1,105 @@
+:root {
+  font-family: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
+  font-size: var(--text-md);
+  background: var(--canvas);
+  color: var(--ink);
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--canvas);
+}
+
+button,
+textarea {
+  color: inherit;
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-family: Georgia, 'Microsoft YaHei UI', serif;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+h3 {
+  font-size: var(--text-md);
+}
+
+/* 以下两个类被多个 feature 共用，保持在全局 */
+.eyebrow,
+.panel-label {
+  margin-bottom: var(--space-1);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.page {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-7) var(--space-7);
+}
+
+@media (max-width: 1080px) {
+  .page {
+    padding-inline: var(--space-5);
+  }
+}
+
+@media (max-width: 767px) {
+  .page {
+    width: 100%;
+    padding: var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

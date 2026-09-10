@@ -1,0 +1,33 @@
+.dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.sm {
+  width: 6px;
+  height: 6px;
+}
+
+.xs {
+  width: 5px;
+  height: 5px;
+}
+
+.amber {
+  background: #b08a38;
+}
+
+.green,
+.success {
+  background: var(--success);
+}
+
+.blue {
+  background: var(--blue);
+}
+
+.glow {
+  box-shadow: 0 0 0 3px rgba(86, 112, 94, 0.12);
+}

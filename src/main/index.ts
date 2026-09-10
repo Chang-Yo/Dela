@@ -1,6 +1,28 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
+
+ipcMain.on('window:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+
+ipcMain.on('window:toggle-maximize', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return;
+  if (window.isMaximized()) {
+    window.unmaximize();
+  } else {
+    window.maximize();
+  }
+});
+
+ipcMain.on('window:close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
+
+ipcMain.handle('window:get-state', (event) => ({
+  maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false,
+}));
 
 const smokeTest = process.argv.includes('--smoke-test');
 if (smokeTest) {
@@ -17,7 +39,8 @@ async function createWindow(): Promise<void> {
     minWidth: 600,
     minHeight: 440,
     show: !smokeTest,
-    backgroundColor: '#f6f5f2',
+    backgroundColor: '#f8f5ec',
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -30,6 +53,12 @@ async function createWindow(): Promise<void> {
   const session = window.webContents.session;
   session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.setPermissionCheckHandler(() => false);
+
+  const sendWindowState = () => {
+    window.webContents.send('window:state', { maximized: window.isMaximized() });
+  };
+  window.on('maximize', sendWindowState);
+  window.on('unmaximize', sendWindowState);
 
   const devUrl = !app.isPackaged ? process.env.DELA_DEV_URL : undefined;
   if (devUrl) {
@@ -50,7 +79,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        "document.querySelector('h1')?.textContent === '你的项目工作台' && window.dela?.version === '0.1.0' && typeof window.require === 'undefined'",
+        "document.querySelector('main') !== null && document.querySelector('nav[aria-label=\"主导航\"]') !== null && window.dela?.version === '0.1.0' && typeof window.require === 'undefined'",
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       console.log('Smoke check passed: SQLite, renderer, preload isolation.');

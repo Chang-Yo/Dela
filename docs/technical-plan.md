@@ -39,6 +39,8 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 | 界面          | react / react-dom           | 19.2.8   | 工作台 UI                         |
 | 基础交互      | radix-ui                    | 1.6.7    | 菜单、对话框、提示等              |
 | 样式          | CSS Modules + CSS Variables | 无独立包 | 组件样式、主题变量                |
+| 类名组合      | clsx                        | 2.1.1    | 组合 CSS Modules 状态与变体       |
+| 界面过渡      | framer-motion               | 13.2.0   | 面板、抽屉与页面切换动画          |
 | 界面状态      | zustand                     | 5.0.15   | 面板、标签页、当前选择            |
 | 参数校验      | zod                         | 4.5.4    | IPC、工具参数与必要的外部数据校验 |
 | 数据库驱动    | better-sqlite3              | 13.0.3   | 本地 SQLite 访问                  |
@@ -46,6 +48,7 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 | Markdown 语言 | @codemirror/lang-markdown   | 6.5.2    | Markdown 编辑支持                 |
 | Markdown 展示 | react-markdown              | 10.1.0   | 文档和对话渲染                    |
 | GFM           | remark-gfm                  | 4.0.1    | 表格、任务清单等                  |
+| 代码高亮      | highlight.js                | 11.12.0  | Markdown 代码块展示               |
 | 邮箱读取      | imapflow                    | 2.0.0    | IMAP 同步与查询                   |
 | 邮件发送      | nodemailer                  | 10.0.1   | 实现发送功能时再安装              |
 | 安装包        | electron-builder            | 26.15.3  | 打包和分发产物                    |
@@ -54,6 +57,8 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 HTTP 和模型请求使用运行时 `fetch`；凭据保护使用 Electron `safeStorage`；文件操作使用 Node.js API。不额外引入 HTTP 服务端、ORM、Agent 框架或客户端请求框架。
 
 类型声明、CodeMirror 的其他必需模块、格式化工具等辅助依赖，在首次安装时核对版本并固定到 `package.json` 和锁文件，不在这里凭空指定。PDF、Office 解析库需要用真实课件验证后再选；其选型不得阻塞基础项目、文本编辑和 Canvas 元数据功能。
+
+`clsx`、`framer-motion` 和 `highlight.js` 已随 2026-09-10 的前端重构安装并使用：clsx 组合 CSS Modules 的状态与变体；framer-motion 仅用于视图切换的少量过渡（`MotionConfig` 跟随系统减少动态效果设置）；highlight.js 只负责示例代码展示，不执行代码。继续使用 Prettier 作为格式化工具，不引入 Biome。自动更新等到存在正式发布渠道、签名和更新服务后再选择并引入 `electron-updater`。
 
 ### 2.2 构建决定
 
@@ -108,13 +113,16 @@ Dela/
 |   |   `-- index.ts                  # contextBridge
 |   |-- renderer/
 |   |   |-- index.html
-|   |   |-- main.tsx
-|   |   |-- App.tsx
-|   |   |-- app.css                   # 全局样式、主题变量
-|   |   |-- components/               # 真实复用的 UI
+|   |   |-- main.tsx                  # 仅挂载 React
+|   |   |-- App.tsx                   # 应用外壳与页面入口
+|   |   |-- styles/
+|   |   |   |-- tokens.css            # 设计 token 与明暗主题
+|   |   |   `-- globals.css           # reset 与窗口级全局规则
+|   |   |-- components/               # 真实复用的 UI；样式就近放置
 |   |   `-- features/
 |   |       |-- home/
 |   |       |-- projects/
+|   |       |-- sources/
 |   |       |-- chat/
 |   |       |-- editor/
 |   |       `-- settings/
@@ -137,7 +145,7 @@ Dela/
 `-- .gitignore
 ```
 
-这是目标组织约定，不要求预先建立空目录。业务从一个文件开始；出现实际复杂度或重复后再拆分。测试紧邻实现，例如 `agent/run.test.ts`；测试样例必须脱敏。
+这是目标组织约定，不要求预先建立空目录。React 组件使用同目录的 `*.module.css`，页面样式留在对应 feature；全局样式只保存设计 token、reset 和窗口级规则。模块可用 `index.ts` 暴露少量公共入口，但不建立导出整个 renderer 的总入口。测试紧邻实现，例如 `agent/run.test.ts`；测试样例必须脱敏。
 
 不默认新增 Manager、Service、Factory、Adapter、Registry 等类型或层级。不创建无明确归属的巨大 `utils.ts`。界面样式与仅被本功能使用的组件放在对应 feature 中。
 
@@ -411,6 +419,8 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 - pnpm 12 自动生成的项目设置移入 `pnpm-workspace.yaml`，对约定的 Electron 44.3.0 设置精确的发布时间排除项；没有关闭全部安装检查。
 - better-sqlite3 13.0.3 附带平台预编译模块。pnpm 尝试默认 node-gyp 构建时暴露了不必要的源码编译，因此明确禁用该步骤，并关闭 electron-builder 的自动重建。最终可用性以 Electron 内及打包后的 SQLite 冒烟检查为准。
 - Electron 44 提供显式安装命令，本项目 `postinstall` 调用 `install-electron`。
-- 当前仅有基础启动占位界面。尚不包含完整编辑器、项目 CRUD、模型调用、邮箱/Canvas 或后台任务。
+- 2026-09-10 完成 [前端重构](frontend-refactor-plan.md)：`main.tsx` 只负责挂载 React；`App.tsx` 承担应用外壳与页面入口；设计 token 与 reset 在 `styles/`；`AppShell`、`Button`、`PageHeader`、`StatusDot` 提取为共享组件；首页、项目、资料、设置拆分到各自 feature，样式迁移为同目录 CSS Modules。界面效果保持不变，仍为示例数据。同时安装并使用 clsx 2.1.1、framer-motion 13.2.0、highlight.js 11.12.0（视图切换过渡与 Agent 面板示例代码高亮）。因类名哈希化，冒烟检查的渲染断言从 `.app-shell` 类名改为结构稳定的 `main` 元素。已验证：Prettier、三组类型检查、生产构建、Electron 内 SQLite/React/preload 隔离冒烟，并在浏览器中对四个视图与窄屏布局做了视觉核对。
+- 2026-09-10 自定义标题栏：窗口改为 `titleBarStyle: 'hidden'`（Windows 保留系统拖拽、贴边与双击最大化），标题栏由 `AppShell` 渲染——左侧 Dela 标识 + 拖拽区（`-webkit-app-region`），右侧自绘最小化/最大化/关闭按钮；窗口操作通过 preload 暴露的 `window` API 走受控 IPC（`window:minimize` / `window:toggle-maximize` / `window:close` / `window:get-state`），最大化状态由主进程经 `window:state` 推送同步，按钮在最大化/还原图标间切换。滚动从窗口级改为工作区内滚动，内容不会滑入标题栏下方；窄屏下标题栏仍置顶，底部导航保持。已验证：类型检查、生产构建、Electron 冒烟与窗口截图核对（Windows）；macOS/Linux 的标题栏形态（如交通灯按钮位置）未适配、未验证。
+- 已完成首页、项目空间、资料入口和连接设置的前端骨架，包含明暗主题与窄/中/宽屏响应式布局；当前使用明确标注的示例数据。尚不包含完整编辑器、项目 CRUD、模型调用、邮箱/Canvas 或后台任务。
 - 2026-09-09 验证通过：固定锁文件安装、Prettier、三组 TS 7 类型检查、Vite 8 生产构建、开发服务器启动与退出、生产构建及 Windows 可执行目录内的 SQLite/React/preload 隔离冒烟检查。Vitest 尚无业务测试；未生成或验证 NSIS 安装流程，未验证其他平台。
 - 本机 Node 下载器获取 Electron 失败后，使用系统下载方式获取官方同版本 ZIP，并以 npm 包内 checksums.json 校验 SHA-256 后安装；没有更换版本或关闭校验。
