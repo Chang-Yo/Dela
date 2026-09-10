@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { Button } from '../../components/Button';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusDot } from '../../components/StatusDot';
@@ -18,6 +19,15 @@ type ProjectViewProps = {
 };
 
 export function ProjectView({ activeTab, onTabChange }: ProjectViewProps) {
+  const [agentWidth, setAgentWidth] = useState(340);
+  const resizeStart = useRef<{ x: number; width: number } | null>(null);
+
+  const resizeAgent = (event: PointerEvent<HTMLDivElement>) => {
+    const start = resizeStart.current;
+    if (!start) return;
+    setAgentWidth(Math.min(520, Math.max(280, start.width + start.x - event.clientX)));
+  };
+
   return (
     <div className={styles.projectPage}>
       <PageHeader
@@ -35,7 +45,10 @@ export function ProjectView({ activeTab, onTabChange }: ProjectViewProps) {
         eyebrow="项目 / 机器学习"
         title="Lab 1"
       />
-      <div className={styles.projectLayout}>
+      <div
+        className={styles.projectLayout}
+        style={{ '--agent-width': `${agentWidth}px` } as CSSProperties}
+      >
         <aside className={styles.itemsPanel}>
           <p className="panel-label">项目内容</p>
           {projectItems.map((item, index) => (
@@ -125,6 +138,21 @@ export function ProjectView({ activeTab, onTabChange }: ProjectViewProps) {
             </div>
           </div>
         </section>
+        <div
+          aria-label="调整 Agent 面板宽度"
+          className={styles.agentResizeHandle}
+          onPointerDown={(event) => {
+            resizeStart.current = { x: event.clientX, width: agentWidth };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={resizeAgent}
+          onPointerUp={(event) => {
+            resizeStart.current = null;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          role="separator"
+          tabIndex={0}
+        />
         <aside className={styles.agentPanel}>
           <div className={styles.agentHeader}>
             <div>
@@ -169,13 +197,6 @@ export function ProjectView({ activeTab, onTabChange }: ProjectViewProps) {
           </div>
         </aside>
       </div>
-      <footer className={styles.statusBar}>
-        <span>
-          <StatusDot size="xs" />
-          已保存
-        </span>
-        <span>上次检查：10:35</span>
-      </footer>
     </div>
   );
 }

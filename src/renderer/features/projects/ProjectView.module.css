@@ -13,7 +13,7 @@
 
 .projectLayout {
   display: grid;
-  grid-template-columns: 178px minmax(360px, 1fr) minmax(290px, 340px);
+  grid-template-columns: 178px minmax(360px, 1fr) 6px minmax(280px, var(--agent-width, 340px));
   flex: 1 1 auto;
   min-height: 0;
   border: 1px solid var(--line);
@@ -25,7 +25,7 @@
 .itemsPanel {
   padding: var(--space-4) var(--space-2);
   border-right: 1px solid var(--line);
-  background: rgba(241, 235, 218, 0.38);
+  background: var(--surface-muted);
 }
 
 .itemsPanel :global(.panel-label) {
@@ -244,8 +244,28 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-left: 1px solid var(--line);
-  background: rgba(241, 235, 218, 0.28);
+  background: var(--surface-muted);
+}
+
+.agentResizeHandle {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.agentResizeHandle::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: transparent;
+  content: '';
+}
+
+.agentResizeHandle:hover::after,
+.agentResizeHandle:focus-visible::after {
+  background: var(--primary);
 }
 
 .agentHeader {
@@ -383,30 +403,16 @@
   text-align: center;
 }
 
-.statusBar {
-  display: flex;
-  flex: 0 0 30px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--line);
-  border-top: 0;
-  color: var(--ink-muted);
-  font-size: 10px;
-}
-
-.statusBar span:first-child {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-@media (max-width: 1080px) {
+@media (max-width: 1140px) {
   .projectLayout {
     grid-template-columns: 150px minmax(350px, 1fr);
   }
 
   .agentPanel {
+    display: none;
+  }
+
+  .agentResizeHandle {
     display: none;
   }
 }
@@ -468,20 +474,9 @@
   .agentPanel {
     display: none;
   }
-
-  .statusBar {
-    margin-top: var(--space-3);
-    border-top: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-  }
 }
 
 @media (prefers-color-scheme: dark) {
-  .itemsPanel,
-  .agentPanel {
-    background-color: rgba(37, 31, 14, 0.76);
-  }
-
   .sendButton,
   .agentAvatar {
     color: #131007;

@@ -1,14 +1,34 @@
 import clsx from 'clsx';
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { StatusDot } from '../StatusDot';
+import delaLogo from '../../../../assets/Dela_Logo.png';
+import {
+  CalendarDays,
+  FolderKanban,
+  FolderOpen,
+  House,
+  Mail,
+  Plus,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react';
 import styles from './AppShell.module.css';
 
-export type ViewId = 'home' | 'project' | 'sources' | 'settings';
+export type ViewId = 'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'settings';
 
-const primaryNav: Array<{ id: ViewId; label: string; icon: string }> = [
-  { id: 'home', label: '首页', icon: '⌂' },
-  { id: 'project', label: '项目', icon: '□' },
-  { id: 'sources', label: '资料', icon: '◇' },
+const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
+  { id: 'home', label: '首页', icon: House },
+  { id: 'project', label: '项目', icon: FolderKanban },
+  { id: 'sources', label: '资料', icon: FolderOpen },
+  { id: 'mail', label: '邮箱', icon: Mail },
+  { id: 'timetable', label: '课表', icon: CalendarDays },
 ];
 
 const projects: Array<{ name: string; tone: 'amber' | 'green' | 'blue'; current?: boolean }> = [
@@ -68,39 +88,65 @@ type AppShellProps = {
 };
 
 export function AppShell({ view, onNavigate, children }: AppShellProps) {
+  const [sidebarWidth, setSidebarWidth] = useState(248);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const resizeStart = useRef<{ x: number; width: number } | null>(null);
+
+  const resizeSidebar = (event: PointerEvent<HTMLDivElement>) => {
+    const start = resizeStart.current;
+    if (!start) return;
+    setSidebarWidth(Math.min(360, Math.max(184, start.width + event.clientX - start.x)));
+  };
+
   return (
-    <div className={styles.appShell}>
+    <div
+      className={clsx(styles.appShell, sidebarCollapsed && styles.isSidebarCollapsed)}
+      style={{ '--sidebar-width': `${sidebarCollapsed ? 0 : sidebarWidth}px` } as CSSProperties}
+    >
       <div className={styles.titleBar}>
-        <span className={styles.titleBarLabel}>Dela</span>
+        <button
+          aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          className={styles.titleBarBrand}
+          onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          type="button"
+        >
+          <img alt="" className={styles.titleBarLogo} src={delaLogo} />
+          <span className={styles.titleBarLabel}>Dela</span>
+        </button>
         <WindowControls />
       </div>
-      <aside className={styles.sidebar}>
-        <div className={styles.brandRow}>
-          <span aria-hidden="true" className={styles.brandMark}>
-            D
-          </span>
-          <span className={styles.brandName}>Dela</span>
-        </div>
+      <aside className={clsx(styles.sidebar, sidebarCollapsed && styles.isCollapsed)}>
         <nav aria-label="主导航" className={styles.primaryNav}>
-          {primaryNav.map((item) => (
-            <button
-              className={clsx(styles.navItem, view === item.id && styles.isActive)}
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              type="button"
-            >
-              <span aria-hidden="true" className={styles.navIcon}>
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {primaryNav.map((item) =>
+            (() => {
+              const Icon = item.icon;
+              return (
+                <button
+                  className={clsx(styles.navItem, view === item.id && styles.isActive)}
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  type="button"
+                >
+                  <span aria-hidden="true" className={styles.navIcon}>
+                    <Icon size={18} strokeWidth={1.7} />
+                  </span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })(),
+          )}
         </nav>
         <section aria-labelledby="project-nav-title" className={styles.projectNav}>
           <div className={styles.sectionLabelRow}>
             <span id="project-nav-title">项目</span>
-            <button className={styles.iconButton} title="新建项目" type="button">
-              ＋
+            <button
+              aria-label="新建项目"
+              className={styles.iconButton}
+              title="新建项目"
+              type="button"
+            >
+              <Plus size={16} strokeWidth={1.8} />
             </button>
           </div>
           {projects.map((project) => (
@@ -121,16 +167,27 @@ export function AppShell({ view, onNavigate, children }: AppShellProps) {
         <div className={styles.sidebarFooter}>
           <button className={styles.navItem} onClick={() => onNavigate('settings')} type="button">
             <span aria-hidden="true" className={styles.navIcon}>
-              ⚙
+              <Settings size={18} strokeWidth={1.7} />
             </span>
             <span>设置</span>
           </button>
-          <div className={styles.syncState}>
-            <StatusDot glow size="sm" />
-            本地数据可用
-          </div>
         </div>
       </aside>
+      <div
+        aria-label="调整侧边栏宽度"
+        className={styles.sidebarResizeHandle}
+        onPointerDown={(event) => {
+          resizeStart.current = { x: event.clientX, width: sidebarWidth };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={resizeSidebar}
+        onPointerUp={(event) => {
+          resizeStart.current = null;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        role="separator"
+        tabIndex={0}
+      />
       <main className={styles.workspace}>{children}</main>
     </div>
   );

@@ -1,8 +1,9 @@
 .appShell {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
-  grid-template-rows: 36px minmax(0, 1fr);
-  height: 100vh;
+  grid-template-columns: var(--sidebar-width, 248px) 6px minmax(0, 1fr);
+  grid-template-rows: 40px minmax(0, 1fr);
+  height: 100dvh;
+  background: var(--canvas);
 }
 
 .titleBar {
@@ -10,15 +11,36 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: var(--space-3);
+  min-width: 0;
+  padding-left: var(--space-2);
+  border-bottom: 1px solid var(--line);
   background: var(--surface-muted);
   -webkit-app-region: drag;
   user-select: none;
 }
 
+.titleBarBrand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: 0 var(--space-1);
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+
+.titleBarBrand:hover {
+  background: var(--surface-strong);
+}
+
+.titleBarLogo {
+  width: auto;
+  height: 28px;
+}
+
 .titleBarLabel {
-  color: var(--ink-muted);
-  font-family: Georgia, serif;
+  color: var(--ink-soft);
+  font-family: inherit;
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
 }
@@ -32,11 +54,11 @@
 .windowButton {
   display: grid;
   place-items: center;
-  width: 46px;
+  width: 48px;
   height: 100%;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 12px;
   -webkit-app-region: no-drag;
 }
 
@@ -51,6 +73,8 @@
 }
 
 .sidebar {
+  grid-column: 1;
+  grid-row: 2;
   display: flex;
   flex-direction: column;
   padding: var(--space-5) var(--space-3) var(--space-4);
@@ -59,37 +83,10 @@
   overflow-y: auto;
 }
 
-.brandRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 40px;
-  padding: 0 var(--space-2);
-}
-
-.brandMark {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--primary);
-  border-radius: 50%;
-  color: var(--primary);
-  font-family: Georgia, serif;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.brandName {
-  font-family: Georgia, serif;
-  font-size: 20px;
-  font-weight: 700;
-}
-
 .primaryNav {
   display: grid;
   gap: var(--space-1);
-  margin-top: var(--space-6);
+  margin-top: var(--space-1);
 }
 
 .navItem,
@@ -108,14 +105,14 @@
 
 .navItem:hover,
 .projectLink:hover {
-  background: rgba(255, 253, 247, 0.65);
+  background: var(--surface-strong);
   color: var(--ink);
 }
 
 .navItem.isActive {
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 1px 0 rgba(75, 61, 27, 0.06);
+  box-shadow: inset 2px 0 0 var(--primary);
   font-weight: 600;
 }
 
@@ -124,7 +121,6 @@
   place-items: center;
   width: 20px;
   color: var(--ink-muted);
-  font-size: 18px;
 }
 
 .projectNav {
@@ -151,7 +147,6 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ink-muted);
-  font-size: 18px;
 }
 
 .iconButton:hover {
@@ -175,43 +170,61 @@
   margin-top: auto;
 }
 
-.syncState {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
-  color: var(--ink-muted);
-  font-size: var(--text-xs);
-}
-
 .workspace {
+  grid-column: 3;
+  grid-row: 2;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden auto;
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+.sidebarResizeHandle {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.sidebarResizeHandle::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: transparent;
+  content: '';
+}
+
+.sidebarResizeHandle:hover::after,
+.sidebarResizeHandle:focus-visible::after {
+  background: var(--primary);
+}
+
+.appShell.isSidebarCollapsed {
+  grid-template-columns: 0 0 minmax(0, 1fr);
+}
+
+.sidebar.isCollapsed {
+  visibility: hidden;
+  padding: 0;
+  border-right: 0;
+  pointer-events: none;
 }
 
 @media (max-width: 1080px) {
   .appShell {
-    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-columns: 72px 6px minmax(0, 1fr);
   }
 
   .sidebar {
     padding-inline: var(--space-2);
   }
 
-  .brandRow {
-    justify-content: center;
-    padding: 0;
-  }
-
-  .brandName,
   .navItem > span:last-child,
   .projectNav,
-  .syncState {
-    display: none;
-  }
-
   .navItem {
     justify-content: center;
     padding: 0;
@@ -235,7 +248,7 @@
     bottom: 0;
     left: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     width: 100%;
     height: 64px;
     padding: var(--space-1) var(--space-2);
@@ -245,9 +258,7 @@
     backdrop-filter: blur(10px);
   }
 
-  .brandRow,
-  .projectNav,
-  .syncState {
+  .projectNav {
     display: none;
   }
 
@@ -285,13 +296,22 @@
   }
 
   .workspace {
+    grid-column: 1;
+    grid-row: 2;
     padding-bottom: 64px;
   }
-}
 
-@media (prefers-color-scheme: dark) {
-  .sidebar,
-  .titleBar {
-    background-color: rgba(37, 31, 14, 0.76);
+  .sidebarResizeHandle {
+    display: none;
+  }
+
+  .appShell.isSidebarCollapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar.isCollapsed {
+    visibility: visible;
+    padding: var(--space-1) var(--space-2);
+    pointer-events: auto;
   }
 }
