@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, shell } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { ImapFlow } from 'imapflow';
 import type { ListResponse, MessageStructureObject } from 'imapflow';
 import { z } from 'zod';
@@ -659,13 +659,6 @@ function startMailSync(): void {
 }
 
 export function registerMailIpc(): void {
-  ipcMain.handle('mail:open-link', async (event, value: unknown) => {
-    if (event.senderFrame !== event.sender.mainFrame || typeof value !== 'string')
-      throw new Error('参数无效');
-    const url = new URL(value);
-    if (!['https:', 'http:'].includes(url.protocol)) throw new Error('不支持的链接');
-    await shell.openExternal(url.href);
-  });
   ipcMain.handle('mail:get-state', () => {
     const account = getAccountRow();
     return {

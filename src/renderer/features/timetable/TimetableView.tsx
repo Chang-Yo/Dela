@@ -1,6 +1,5 @@
 import { RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { PageHeader } from '../../components/PageHeader';
 import { cn } from '../../lib/utils';
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -31,16 +30,12 @@ const lessonTone: Record<LessonTone, string> = {
 export function TimetableView() {
   return (
     <div className="page">
-      <PageHeader
-        actions={
-          <Button size="sm" variant="secondary">
-            <RefreshCw className="size-3.5" />
-            同步
-          </Button>
-        }
-        eyebrow="校园日程"
-        title="课表"
-      />
+      <div className="flex justify-end">
+        <Button size="sm" variant="secondary">
+          <RefreshCw className="size-3.5" />
+          同步
+        </Button>
+      </div>
       <div className="mt-4 flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
         <span className="font-semibold text-foreground">预览</span>
         课表数据尚未接入校园接口，以下为界面示例。

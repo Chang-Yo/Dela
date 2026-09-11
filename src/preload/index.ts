@@ -17,7 +17,6 @@ contextBridge.exposeInMainWorld('dela', {
     },
   },
   mail: {
-    openLink: (url: string) => ipcRenderer.invoke('mail:open-link', url),
     getState: () => ipcRenderer.invoke('mail:get-state'),
     configure: (input: MailConfigureInput) => ipcRenderer.invoke('mail:configure', input),
     disconnect: () => ipcRenderer.invoke('mail:disconnect'),

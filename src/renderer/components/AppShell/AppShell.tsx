@@ -265,7 +265,7 @@ export function AppShell({ view, onNavigate, children }: AppShellProps) {
       <div
         aria-label="调整侧边栏宽度"
         className={cn(
-          'col-start-2 row-start-2 cursor-col-resize touch-none',
+          'col-start-2 row-start-2 cursor-ew-resize touch-none',
           sidebarCollapsed && 'pointer-events-none',
         )}
         onPointerDown={(event) => {

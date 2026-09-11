@@ -7,7 +7,6 @@ import {
   Search,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { PageHeader } from '../../components/PageHeader';
 import { cn } from '../../lib/utils';
 
 type HomeViewProps = { onOpenProject: () => void };
@@ -69,31 +68,25 @@ function ProjectCard({
 export function HomeView({ onOpenProject }: HomeViewProps) {
   return (
     <div className="page">
-      <PageHeader
-        actions={
-          <>
-            <Button
-              className="min-w-[184px] justify-between max-md:min-w-0 max-md:px-0"
-              variant="outline"
-            >
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <Search className="size-4" />
-                <span className="max-md:hidden">搜索</span>
-              </span>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground max-md:hidden">
-                Ctrl K
-              </kbd>
-            </Button>
-            <Button>
-              <span aria-hidden="true">＋</span>
-              <span className="max-md:hidden">新建项目</span>
-            </Button>
-          </>
-        }
-        eyebrow="9 月 10 日 · 星期四"
-        title="下午好"
-      />
-      <div className="mt-5 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-[13px] text-foreground/70">
+      <div className="flex justify-end gap-2">
+        <Button
+          className="min-w-[184px] justify-between max-md:min-w-0 max-md:px-0"
+          variant="outline"
+        >
+          <span className="flex items-center gap-2 text-muted-foreground">
+            <Search className="size-4" />
+            <span className="max-md:hidden">搜索</span>
+          </span>
+          <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground max-md:hidden">
+            Ctrl K
+          </kbd>
+        </Button>
+        <Button>
+          <span aria-hidden="true">＋</span>
+          <span className="max-md:hidden">新建项目</span>
+        </Button>
+      </div>
+      <div className="mt-4 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-[13px] text-foreground/70">
         <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-semibold text-secondary-foreground">
           预览
         </span>

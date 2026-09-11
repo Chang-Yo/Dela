@@ -1,4 +1,4 @@
-import { Paperclip } from 'lucide-react';
+import { Paperclip, RefreshCw } from 'lucide-react';
 import type { MailFolderInfo, MailMessageSummary } from '../../../shared/api';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../lib/utils';
@@ -11,6 +11,9 @@ type Props = {
   listLoading: boolean;
   search: string;
   setSearch: (value: string) => void;
+  syncBusy: boolean;
+  syncLabel: string;
+  onSync: () => void;
   onSelect: (id: number) => void;
 };
 
@@ -22,6 +25,9 @@ export function MailMessageList({
   listLoading,
   search,
   setSearch,
+  syncBusy,
+  syncLabel,
+  onSync,
   onSelect,
 }: Props) {
   return (
@@ -34,6 +40,16 @@ export function MailMessageList({
           </small>
         </div>
         <div className="flex-1" />
+        <button
+          aria-label="同步邮件"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+          disabled={syncBusy}
+          onClick={onSync}
+          title={syncLabel || '同步邮件'}
+          type="button"
+        >
+          <RefreshCw className={cn('size-3.5', syncBusy && 'animate-spin')} strokeWidth={1.8} />
+        </button>
         <input
           aria-label="搜索邮件"
           className="h-7 w-32 shrink-0 rounded-md border-transparent bg-muted px-2.5 text-xs shadow-none outline-none transition-[background,box-shadow] placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50 max-[1080px]:w-24"

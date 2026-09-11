@@ -7,9 +7,6 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from 'react';
-import { RefreshCw } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { PageHeader } from '../../components/PageHeader';
 import type {
   MailFolderInfo,
   MailMessageDetail,
@@ -89,7 +86,7 @@ function DesktopMailView() {
   const resizeList = (event: PointerEvent<HTMLDivElement>) => {
     const start = listResizeStart.current;
     if (!start) return;
-    setListWidth(Math.min(480, Math.max(260, start.width + event.clientX - start.x)));
+    setListWidth(Math.min(480, Math.max(320, start.width + event.clientX - start.x)));
   };
 
   const refreshFolders = useCallback(async () => {
@@ -255,31 +252,6 @@ function DesktopMailView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageHeader
-        actions={
-          <>
-            <span
-              className={cn(
-                'self-center whitespace-nowrap text-xs',
-                syncBusy ? 'text-foreground/70' : 'text-muted-foreground',
-                sync?.phase === 'error' && 'font-medium text-destructive',
-              )}
-            >
-              {syncLabel}
-            </span>
-            <Button
-              disabled={syncBusy}
-              onClick={() => void dela.mail.syncNow().catch(() => {})}
-              size="sm"
-              variant="secondary"
-            >
-              <RefreshCw className="size-3.5" strokeWidth={1.8} />
-              同步
-            </Button>
-          </>
-        }
-        title="邮箱"
-      />
       {sync?.phase === 'error' && sync.error && (
         <p
           className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
@@ -289,7 +261,7 @@ function DesktopMailView() {
         </p>
       )}
       <div
-        className="grid min-h-0 flex-1 grid-cols-[var(--folder-width)_minmax(260px,var(--list-width))_6px_minmax(0,1fr)] transition-[grid-template-columns] duration-150 ease-out"
+        className="grid min-h-0 flex-1 grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_6px_minmax(0,1fr)] transition-[grid-template-columns] duration-150 ease-out"
         style={
           {
             '--folder-width': foldersCollapsed ? '48px' : '220px',
@@ -328,6 +300,9 @@ function DesktopMailView() {
           listLoading={listLoading}
           search={search}
           setSearch={setSearch}
+          syncBusy={syncBusy}
+          syncLabel={syncLabel}
+          onSync={() => void dela.mail.syncNow().catch(() => {})}
           onSelect={(id) => {
             setMobileReading(!desktopMediaRef.current?.matches);
             void openMessage(id);
@@ -337,14 +312,14 @@ function DesktopMailView() {
           aria-label="调整邮件列表宽度"
           aria-orientation="vertical"
           aria-valuemax={480}
-          aria-valuemin={260}
+          aria-valuemin={320}
           aria-valuenow={listWidth}
-          className="group relative cursor-col-resize touch-none focus-visible:outline-none max-md:hidden"
+          className="group relative cursor-ew-resize touch-none focus-visible:outline-none max-md:hidden"
           onKeyDown={(event) => {
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
             event.preventDefault();
             setListWidth((width) =>
-              Math.min(480, Math.max(260, width + (event.key === 'ArrowRight' ? 20 : -20))),
+              Math.min(480, Math.max(320, width + (event.key === 'ArrowRight' ? 20 : -20))),
             );
           }}
           onPointerCancel={() => {

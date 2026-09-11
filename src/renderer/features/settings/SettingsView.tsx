@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
-import { PageHeader } from '../../components/PageHeader';
 
 type SettingsViewProps = { onOpenMail: () => void };
 
@@ -33,8 +32,7 @@ export function SettingsView({ onOpenMail }: SettingsViewProps) {
 
   return (
     <div className="page max-w-[980px]">
-      <PageHeader eyebrow="Dela" title="设置" />
-      <section className="mt-8 grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
         <div className="grid content-start gap-2">
           <p className="text-[11px] font-medium text-muted-foreground">连接</p>
           <h2 className="text-base font-semibold tracking-tight">数据与服务</h2>

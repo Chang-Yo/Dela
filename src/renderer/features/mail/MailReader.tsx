@@ -25,7 +25,7 @@ export function MailReader({
   setMobileReading,
 }: Props) {
   return (
-    <section className={cn('flex min-h-0 min-w-0 flex-col', className)}>
+    <section className={cn('flex min-h-0 min-w-0 flex-col bg-muted/30', className)}>
       <button
         className="mx-4 mt-3 hidden max-md:inline-flex items-center self-start rounded-full border px-3 py-1 text-xs text-foreground/80 transition-colors hover:bg-muted"
         onClick={() => setMobileReading(false)}
@@ -48,7 +48,7 @@ export function MailReader({
         </div>
       )}
       {!detailLoading && detail && (
-        <article className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 py-6 max-md:px-4 max-md:py-2">
+        <article className="flex min-h-0 flex-1 flex-col overflow-hidden px-8 pt-6 pb-0 max-md:px-4 max-md:pt-2 max-md:pb-0">
           <div className="mx-auto flex w-full max-w-[760px] min-h-0 flex-1 flex-col">
             <h2 className="text-[21px] font-semibold leading-7 tracking-tight">
               {detail.subject ?? '(无主题)'}
@@ -125,7 +125,7 @@ export function MailReader({
             {detail.bodyHtml ? (
               <MailHtmlBody key={detail.id} html={detail.bodyHtml} text={detail.bodyText} />
             ) : (
-              <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl border p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+              <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
                 {detail.bodyText ?? '(无正文)'}
               </div>
             )}

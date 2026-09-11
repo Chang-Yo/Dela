@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import { closeDatabase, getDatabase } from './database';
@@ -56,7 +56,17 @@ async function createWindow(): Promise<void> {
       sandbox: true,
     },
   });
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const external = new URL(url);
+      if (external.protocol === 'https:' || external.protocol === 'http:') {
+        void shell.openExternal(external.href);
+      }
+    } catch {
+      // Keep unparseable popup targets inside the application boundary.
+    }
+    return { action: 'deny' };
+  });
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   const session = window.webContents.session;
   session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));

@@ -10,6 +10,7 @@ import {
   Send,
   Star,
   Trash2,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -58,12 +59,7 @@ export function MailFolders({
         foldersCollapsed ? 'items-stretch' : '',
       )}
     >
-      <div
-        className={cn(
-          'flex shrink-0 items-center gap-2 p-2 max-md:hidden',
-          foldersCollapsed && 'justify-center',
-        )}
-      >
+      <div className="flex h-11 shrink-0 items-center p-2 max-md:hidden">
         <button
           aria-controls="mail-folders"
           aria-expanded={!foldersCollapsed}
@@ -79,16 +75,6 @@ export function MailFolders({
             <PanelLeftClose className="size-4" strokeWidth={1.8} />
           )}
         </button>
-        {!foldersCollapsed && (
-          <div className="grid min-w-0 gap-0.5">
-            <span className="truncate text-[13px] font-medium leading-4">
-              {account?.address ?? '未配置'}
-            </span>
-            <span className="text-[11px] leading-3.5 text-muted-foreground">
-              {selectedFolder?.unread ?? 0} 封未读（当前文件夹）
-            </span>
-          </div>
-        )}
       </div>
       <nav
         aria-label="邮件文件夹"
@@ -147,15 +133,33 @@ export function MailFolders({
           );
         })}
       </nav>
-      <div className={cn('mt-auto p-2 max-md:hidden', foldersCollapsed && 'p-1')}>
+      <div className="mt-auto border-t border-border/70 p-2 max-md:hidden">
+        <div
+          className="flex h-11 min-w-0 items-center gap-2 overflow-hidden rounded-md text-muted-foreground"
+          title={account?.address ?? '未配置'}
+        >
+          <span className="grid size-7 shrink-0 place-items-center">
+            <UserRound className="size-3.5" strokeWidth={1.8} />
+          </span>
+          <div
+            className={cn(
+              'grid min-w-0 gap-0.5 overflow-hidden whitespace-nowrap transition-opacity duration-100',
+              foldersCollapsed ? 'pointer-events-none opacity-0 delay-0' : 'opacity-100 delay-150',
+            )}
+          >
+            <span className="truncate text-xs text-foreground">{account?.address ?? '未配置'}</span>
+            <span className="truncate text-[11px] leading-3.5">
+              {selectedFolder?.unread ?? 0} 封未读（当前文件夹）
+            </span>
+          </div>
+        </div>
         <button
           aria-label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
           className={cn(
-            'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors',
+            'mt-1 flex h-8 min-w-0 items-center gap-2 overflow-hidden rounded-md text-xs transition-colors',
             confirmingDisconnect
               ? 'font-medium text-destructive'
               : 'text-muted-foreground hover:bg-accent/60 hover:text-destructive',
-            foldersCollapsed && 'mx-auto grid size-8 place-items-center p-0',
           )}
           onClick={() => void handleDisconnect()}
           title={
@@ -163,8 +167,17 @@ export function MailFolders({
           }
           type="button"
         >
-          <LogOut className="size-3.5 shrink-0" strokeWidth={1.8} />
-          {!foldersCollapsed && (confirmingDisconnect ? '再点一次确认退出' : '退出登录')}
+          <span className="grid size-8 shrink-0 place-items-center">
+            <LogOut className="size-3.5" strokeWidth={1.8} />
+          </span>
+          <span
+            className={cn(
+              'whitespace-nowrap transition-opacity duration-100',
+              foldersCollapsed ? 'pointer-events-none opacity-0 delay-0' : 'opacity-100 delay-150',
+            )}
+          >
+            {confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
+          </span>
         </button>
       </div>
     </aside>
