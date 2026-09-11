@@ -7,7 +7,6 @@ import { ProjectView } from './features/projects';
 import { SettingsView } from './features/settings';
 import { SourcesView } from './features/sources';
 import { TimetableView } from './features/timetable';
-import styles from './App.module.css';
 
 export default function App() {
   const [view, setView] = useState<ViewId>('home');
@@ -19,7 +18,7 @@ export default function App() {
         <AnimatePresence initial={false} mode="wait">
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className={styles.view}
+            className="flex min-h-0 flex-1 flex-col"
             exit={{ opacity: 0 }}
             initial={{ opacity: 0, y: 4 }}
             key={view}

@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import clsx from 'clsx';
-import { Button } from '../../components/Button';
+import { Button } from '../../components/ui/button';
 import { PageHeader } from '../../components/PageHeader';
-import styles from './SettingsView.module.css';
 
 type SettingsViewProps = { onOpenMail: () => void };
 
@@ -34,52 +32,61 @@ export function SettingsView({ onOpenMail }: SettingsViewProps) {
   ];
 
   return (
-    <div className={clsx('page', styles.settingsPage)}>
+    <div className="page max-w-[980px]">
       <PageHeader eyebrow="Dela" title="设置" />
-      <section className={styles.settingsCard}>
-        <div className={styles.settingsHeading}>
-          <p className="eyebrow">连接</p>
-          <h2>数据与服务</h2>
-          <p>凭据保存在本机，不会暴露给页面。</p>
+      <section className="mt-8 grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+        <div className="grid content-start gap-2">
+          <p className="text-[11px] font-medium text-muted-foreground">连接</p>
+          <h2 className="text-base font-semibold tracking-tight">数据与服务</h2>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            凭据保存在本机，不会暴露给页面。
+          </p>
         </div>
-        <div className={styles.connectionList}>
+        <div className="grid">
           {connections.map(({ name, state, description, onOpen }) => (
-            <div className={styles.connectionRow} key={name}>
-              <div>
-                <strong>{name}</strong>
-                <span>{description}</span>
+            <div
+              className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0 max-md:items-start max-md:py-3"
+              key={name}
+            >
+              <div className="grid gap-0.5">
+                <strong className="text-sm">{name}</strong>
+                <span className="text-xs text-muted-foreground">{description}</span>
               </div>
-              <div>
-                <span className={styles.connectionState}>{state}</span>
-                {onOpen ? (
-                  <Button onClick={onOpen} variant="quiet">
-                    配置
-                  </Button>
-                ) : (
-                  <Button variant="quiet">配置</Button>
-                )}
+              <div className="flex items-center gap-2">
+                <span className="min-w-[72px] text-xs text-muted-foreground max-md:min-w-0">
+                  {state}
+                </span>
+                <Button onClick={onOpen} size="sm" variant="secondary">
+                  配置
+                </Button>
               </div>
             </div>
           ))}
         </div>
       </section>
-      <section className={styles.settingsCard}>
-        <div className={styles.settingsHeading}>
-          <p className="eyebrow">外观</p>
-          <h2>跟随系统</h2>
+      <section className="mt-6 grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+        <div className="grid content-start gap-2">
+          <p className="text-[11px] font-medium text-muted-foreground">外观</p>
+          <h2 className="text-base font-semibold tracking-tight">跟随系统</h2>
         </div>
-        <div className={styles.themePreviewRow}>
-          <button className={clsx(styles.themePreview, styles.isSelected)} type="button">
+        <div className="flex flex-wrap gap-4">
+          <button
+            className="grid w-[130px] gap-2 rounded-lg border bg-transparent p-2 text-left transition-colors hover:bg-muted/50 [&>span]:h-16 [&>span]:rounded [&>span]:bg-linear-to-r [&>span]:from-secondary [&>span]:from-30% [&>span]:to-background"
+            type="button"
+          >
             <span />
-            <strong>系统</strong>
+            <strong className="text-xs">系统</strong>
           </button>
-          <button className={clsx(styles.themePreview, styles.darkPreview)} type="button">
+          <button
+            className="grid w-[130px] gap-2 rounded-lg border bg-transparent p-2 text-left transition-colors hover:bg-muted/50 [&>span]:h-16 [&>span]:rounded [&>span]:bg-neutral-800"
+            type="button"
+          >
             <span />
-            <strong>深色</strong>
+            <strong className="text-xs">深色</strong>
           </button>
         </div>
       </section>
-      <p className={styles.versionLine}>
+      <p className="mt-5 text-center text-xs text-muted-foreground">
         Dela {window.dela?.version ?? '浏览器预览'} · 本地优先的项目工作台
       </p>
     </div>

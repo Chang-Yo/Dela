@@ -87,7 +87,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        "document.querySelector('main') !== null && document.querySelector('nav[aria-label=\"主导航\"]') !== null && window.dela?.version === '0.1.0' && typeof window.require === 'undefined'",
+        "document.querySelector('main') !== null && document.querySelector('aside[aria-label=\"主导航\"]') !== null && window.dela?.version === '0.1.0' && typeof window.require === 'undefined'",
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       console.log('Smoke check passed: SQLite, renderer, preload isolation.');

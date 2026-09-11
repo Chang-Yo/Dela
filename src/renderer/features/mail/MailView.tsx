@@ -7,8 +7,8 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from 'react';
-import clsx from 'clsx';
-import { Button } from '../../components/Button';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '../../components/ui/button';
 import { PageHeader } from '../../components/PageHeader';
 import type {
   MailFolderInfo,
@@ -21,7 +21,7 @@ import { MailFolders } from './MailFolders';
 import { MailMessageList } from './MailMessageList';
 import { MailReader } from './MailReader';
 import { formatMailDate, senderLabel } from './mail-format';
-import styles from './MailView.module.css';
+import { cn } from '../../lib/utils';
 
 const MESSAGE_LIMIT = 200;
 
@@ -29,11 +29,13 @@ type MailViewProps = Record<string, never>;
 
 function MailUnavailable() {
   return (
-    <div className={styles.mailPage}>
-      <div className={styles.browserPreview}>
-        <p className="eyebrow">浏览器预览</p>
-        <h2>邮箱仅在 Dela 桌面端可用</h2>
-        <p>邮件账户、凭据与本地缓存不会暴露给浏览器。请通过 Electron 窗口测试同步和阅读。</p>
+    <div className="grid h-full place-items-center p-8">
+      <div className="grid w-full max-w-[460px] gap-2">
+        <p className="text-[11px] font-medium text-muted-foreground">浏览器预览</p>
+        <h2 className="text-lg font-semibold tracking-tight">邮箱仅在 Dela 桌面端可用</h2>
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
+          邮件账户、凭据与本地缓存不会暴露给浏览器。请通过 Electron 窗口测试同步和阅读。
+        </p>
       </div>
     </div>
   );
@@ -230,7 +232,7 @@ function DesktopMailView() {
 
   if (state !== null && !account) {
     return (
-      <div className={styles.mailPage}>
+      <div className="flex h-full min-h-0 flex-col">
         <ConfigureForm busy={configuring} error={configureError} onSubmit={handleConfigure} />
       </div>
     );
@@ -249,56 +251,62 @@ function DesktopMailView() {
     return '尚未同步';
   })();
 
+  const syncBusy = sync?.phase === 'syncing' || sync?.phase === 'connecting';
+
   return (
-    <div className={styles.mailPage}>
+    <div className="flex h-full min-h-0 flex-col">
       <PageHeader
         actions={
           <>
             <span
-              className={clsx(
-                styles.syncState,
-                sync?.phase === 'error' && styles.syncError,
-                (sync?.phase === 'syncing' || sync?.phase === 'connecting') && styles.syncActive,
+              className={cn(
+                'self-center whitespace-nowrap text-xs',
+                syncBusy ? 'text-foreground/70' : 'text-muted-foreground',
+                sync?.phase === 'error' && 'font-medium text-destructive',
               )}
             >
               {syncLabel}
             </span>
             <Button
-              disabled={sync?.phase === 'syncing' || sync?.phase === 'connecting'}
+              disabled={syncBusy}
               onClick={() => void dela.mail.syncNow().catch(() => {})}
-              variant="primary"
+              size="sm"
+              variant="secondary"
             >
-              ↻ 同步
+              <RefreshCw className="size-3.5" strokeWidth={1.8} />
+              同步
             </Button>
           </>
         }
-        eyebrow="内置邮箱"
         title="邮箱"
       />
       {sync?.phase === 'error' && sync.error && (
-        <p className={styles.syncBanner}>同步出现问题：{sync.error}</p>
+        <p
+          className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          role="alert"
+        >
+          同步出现问题：{sync.error}
+        </p>
       )}
       <div
-        className={clsx(styles.mailLayout, mobileReading && styles.mobileReadingPane)}
+        className="grid min-h-0 flex-1 grid-cols-[var(--folder-width)_minmax(260px,var(--list-width))_6px_minmax(0,1fr)] transition-[grid-template-columns] duration-150 ease-out"
         style={
           {
-            '--folder-width': foldersCollapsed
-              ? 'var(--mail-folder-rail)'
-              : 'var(--mail-folder-expanded)',
+            '--folder-width': foldersCollapsed ? '48px' : '220px',
             '--list-width': `${listWidth}px`,
           } as CSSProperties
         }
       >
         <MailFolders
+          confirmingDisconnect={confirmingDisconnect}
+          folders={folders}
           foldersCollapsed={foldersCollapsed}
-          setFoldersCollapsed={setFoldersCollapsed}
+          handleDisconnect={handleDisconnect}
           account={account}
           selectedFolder={selectedFolder}
-          folders={folders}
           sync={sync}
           selectedFolderId={selectedFolderId}
-          confirmingDisconnect={confirmingDisconnect}
-          handleDisconnect={handleDisconnect}
+          setFoldersCollapsed={setFoldersCollapsed}
           onSelect={(id) => {
             detailRequest.current += 1;
             setDetailLoading(false);
@@ -313,6 +321,7 @@ function DesktopMailView() {
         />
 
         <MailMessageList
+          className={cn(mobileReading && 'max-md:hidden')}
           selectedFolder={selectedFolder}
           filteredMessages={filteredMessages}
           selectedMessageId={selectedMessageId}
@@ -327,9 +336,10 @@ function DesktopMailView() {
         <div
           aria-label="调整邮件列表宽度"
           aria-orientation="vertical"
-          aria-valuemin={260}
           aria-valuemax={480}
+          aria-valuemin={260}
           aria-valuenow={listWidth}
+          className="group relative cursor-col-resize touch-none focus-visible:outline-none max-md:hidden"
           onKeyDown={(event) => {
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
             event.preventDefault();
@@ -340,7 +350,6 @@ function DesktopMailView() {
           onPointerCancel={() => {
             listResizeStart.current = null;
           }}
-          className={styles.listResizeHandle}
           onPointerDown={(event) => {
             listResizeStart.current = { x: event.clientX, width: listWidth };
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -352,9 +361,12 @@ function DesktopMailView() {
           }}
           role="separator"
           tabIndex={0}
-        />
+        >
+          <span className="absolute inset-y-0 left-0 w-px bg-transparent transition-colors group-hover:bg-foreground/30 group-focus-visible:bg-foreground/40" />
+        </div>
 
         <MailReader
+          className={cn(!mobileReading && 'max-md:hidden')}
           detail={detail}
           detailLoading={detailLoading}
           detailError={detailError}

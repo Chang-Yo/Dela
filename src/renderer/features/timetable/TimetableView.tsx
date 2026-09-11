@@ -1,6 +1,7 @@
-import { Button } from '../../components/Button';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '../../components/ui/button';
 import { PageHeader } from '../../components/PageHeader';
-import styles from './TimetableView.module.css';
+import { cn } from '../../lib/utils';
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -21,42 +22,65 @@ const sampleLessons: Array<{
   { name: '体育', room: '光明体育场', day: 5, slot: 4, tone: 'green' },
 ];
 
+const lessonTone: Record<LessonTone, string> = {
+  amber: 'bg-amber-500/15 dark:bg-amber-400/15',
+  green: 'bg-emerald-500/15 dark:bg-emerald-400/15',
+  blue: 'bg-sky-500/15 dark:bg-sky-400/15',
+};
+
 export function TimetableView() {
   return (
     <div className="page">
       <PageHeader
         actions={
-          <Button className={styles.headerPrimary} variant="primary">
-            ↻ 同步
+          <Button size="sm" variant="secondary">
+            <RefreshCw className="size-3.5" />
+            同步
           </Button>
         }
         eyebrow="校园日程"
         title="课表"
       />
-      <div className={styles.previewNote}>
-        <span>预览</span>课表数据尚未接入校园接口，以下为界面示例。
+      <div className="mt-4 flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">预览</span>
+        课表数据尚未接入校园接口，以下为界面示例。
       </div>
-      <section aria-label="周课表" className={styles.gridScroller}>
-        <div className={styles.weekGrid}>
-          <div className={styles.cornerCell} />
+      <section aria-label="周课表" className="mt-5 overflow-x-auto">
+        <div className="grid min-w-[780px] grid-cols-[64px_repeat(7,minmax(96px,1fr))] overflow-hidden rounded-xl border bg-card">
+          <div className="border-b border-r bg-muted/60 p-3 text-center text-xs font-semibold text-muted-foreground" />
           {weekDays.map((day) => (
-            <div className={styles.dayHeader} key={day}>
+            <div
+              className="border-b bg-muted/60 p-3 text-center text-xs font-semibold text-muted-foreground"
+              key={day}
+            >
               {day}
             </div>
           ))}
           {timeSlots.map((slot, slotIndex) => (
-            <div className={styles.slotRow} key={slot}>
-              <div className={styles.slotLabel}>{slot}</div>
+            <div className="grid grid-cols-subgrid col-span-full" key={slot}>
+              <div
+                className={cn(
+                  'grid place-items-center border-r p-2 text-xs text-muted-foreground',
+                  slotIndex > 0 && 'border-t',
+                )}
+              >
+                {slot}
+              </div>
               {weekDays.map((day, dayIndex) => {
                 const lesson = sampleLessons.find(
                   (item) => item.day === dayIndex + 1 && item.slot === slotIndex + 1,
                 );
                 return (
-                  <div className={styles.slotCell} key={day}>
+                  <div className={cn('min-h-[84px] p-1', slotIndex > 0 && 'border-t')} key={day}>
                     {lesson && (
-                      <div className={`${styles.lesson} ${styles[lesson.tone]}`}>
-                        <strong>{lesson.name}</strong>
-                        <span>{lesson.room}</span>
+                      <div
+                        className={cn(
+                          'grid h-full gap-0.5 rounded-lg p-2 text-xs',
+                          lessonTone[lesson.tone],
+                        )}
+                      >
+                        <strong className="text-sm">{lesson.name}</strong>
+                        <span className="text-muted-foreground">{lesson.room}</span>
                       </div>
                     )}
                   </div>

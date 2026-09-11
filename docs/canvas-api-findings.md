@@ -4,13 +4,13 @@
 
 ## 1. 基础设施行为
 
-| 事项 | 实测结论 |
-| --- | --- |
-| 认证 | `Authorization: Bearer <Canvas_access_token>`，官方 Instructure REST API 行为 |
-| 分页 | 本实例把 `per_page` **静默限制为 50**（请求 100 也只返回 50，Link 头显示 `per_page=50`）；同步必须跟随 `Link` 响应头（`rel="next"` / `rel="last"`），不能信任请求参数 |
-| 限流 | `X-Rate-Limit-Remaining: 600.0`（令牌桶）+ `X-Request-Cost`（每请求按成本扣减）；标准 Canvas 软限流 |
-| 错误形态 | 无权限返回 **HTTP 401 + JSON body**：`{"status":"未授权","errors":[{"message":"用户无权执行该操作"}]}`；功能未开启返回 404。401 也可能是业务无权限而非 token 失效，两者需区分 |
-| 课程可见性 | `/courses` 返回 48 门课，其中 5 门访问详情返回 401（可见条目、详情无权限），需容忍单课失败 |
+| 事项       | 实测结论                                                                                                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 认证       | `Authorization: Bearer <Canvas_access_token>`，官方 Instructure REST API 行为                                                                                                 |
+| 分页       | 本实例把 `per_page` **静默限制为 50**（请求 100 也只返回 50，Link 头显示 `per_page=50`）；同步必须跟随 `Link` 响应头（`rel="next"` / `rel="last"`），不能信任请求参数         |
+| 限流       | `X-Rate-Limit-Remaining: 600.0`（令牌桶）+ `X-Request-Cost`（每请求按成本扣减）；标准 Canvas 软限流                                                                           |
+| 错误形态   | 无权限返回 **HTTP 401 + JSON body**：`{"status":"未授权","errors":[{"message":"用户无权执行该操作"}]}`；功能未开启返回 404。401 也可能是业务无权限而非 token 失效，两者需区分 |
+| 课程可见性 | `/courses` 返回 48 门课，其中 5 门访问详情返回 401（可见条目、详情无权限），需容忍单课失败                                                                                    |
 
 ## 2. 课程（Course）与学期分类
 
@@ -72,13 +72,13 @@
 
 ## 9. 聚合端点：实测全部为空，聚合需自己做
 
-| 端点 | 实测 |
-| --- | --- |
-| `/users/self/todo` | 空数组（当前学期课程无作业；历史学期数据不参与） |
-| `/users/self/upcoming_events` | 空 |
-| `/planner/items`（带日期窗口与 context_codes） | 空 |
-| `/calendar_events`（带 context_codes + 日期窗） | 空——交大教师不用 Canvas 日历事件 |
-| `/users/self/enrollments` | 只返回当前 active 的 5 门课；`grades.current_score/final_score` 现为 null（无已发布成绩） |
+| 端点                                            | 实测                                                                                      |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/users/self/todo`                              | 空数组（当前学期课程无作业；历史学期数据不参与）                                          |
+| `/users/self/upcoming_events`                   | 空                                                                                        |
+| `/planner/items`（带日期窗口与 context_codes）  | 空                                                                                        |
+| `/calendar_events`（带 context_codes + 日期窗） | 空——交大教师不用 Canvas 日历事件                                                          |
+| `/users/self/enrollments`                       | 只返回当前 active 的 5 门课；`grades.current_score/final_score` 现为 null（无已发布成绩） |
 
 结论：跨课程 DDL/待办视图应由客户端遍历各课 `assignments.due_at` 自行聚合，不依赖 planner/todo/calendar。
 

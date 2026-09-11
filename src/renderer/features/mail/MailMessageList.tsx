@@ -1,9 +1,10 @@
-import clsx from 'clsx';
+import { Paperclip } from 'lucide-react';
 import type { MailFolderInfo, MailMessageSummary } from '../../../shared/api';
 import { senderLabel, formatMailDate } from './mail-format';
-import styles from './MailView.module.css';
+import { cn } from '../../lib/utils';
 
 type Props = {
+  className?: string;
   selectedFolder: MailFolderInfo | null;
   filteredMessages: MailMessageSummary[];
   selectedMessageId: number | null;
@@ -12,7 +13,9 @@ type Props = {
   setSearch: (value: string) => void;
   onSelect: (id: number) => void;
 };
+
 export function MailMessageList({
+  className,
   selectedFolder,
   filteredMessages,
   selectedMessageId,
@@ -22,59 +25,88 @@ export function MailMessageList({
   onSelect,
 }: Props) {
   return (
-    <section className={styles.listPane}>
-      <div className={styles.listToolbar}>
-        <div className={styles.listTitle}>
-          <strong>{selectedFolder?.name ?? '邮件'}</strong>
-          <small>{filteredMessages.length} 封</small>
+    <section className={cn('flex min-h-0 flex-col', className)}>
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <strong className="truncate text-sm">{selectedFolder?.name ?? '邮件'}</strong>
+          <small className="shrink-0 text-xs text-muted-foreground">
+            {filteredMessages.length} 封
+          </small>
         </div>
+        <div className="flex-1" />
         <input
           aria-label="搜索邮件"
-          className={styles.searchInput}
+          className="h-7 w-32 shrink-0 rounded-md border-transparent bg-muted px-2.5 text-xs shadow-none outline-none transition-[background,box-shadow] placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50 max-[1080px]:w-24"
           onChange={(event) => setSearch(event.target.value)}
           placeholder="搜索"
           type="search"
           value={search}
         />
       </div>
-      <div className={styles.messageList}>
-        {listLoading && <p className={styles.listHint}>加载中…</p>}
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        {listLoading && <p className="p-4 text-xs text-muted-foreground">加载中…</p>}
         {!listLoading && filteredMessages.length === 0 && (
-          <p className={styles.listHint}>{search ? '没有匹配的邮件' : '此文件夹暂无邮件'}</p>
+          <p className="p-4 text-xs text-muted-foreground">
+            {search ? '没有匹配的邮件' : '此文件夹暂无邮件'}
+          </p>
         )}
-        {filteredMessages.map((message) => (
-          <button
-            className={clsx(
-              styles.messageRow,
-              message.id === selectedMessageId && styles.isSelected,
-            )}
-            key={message.id}
-            onClick={() => onSelect(message.id)}
-            type="button"
-          >
-            <span
-              aria-hidden="true"
-              className={clsx(styles.unreadDot, message.seen && styles.isSeen)}
-            />
-            <span className={styles.messageMain}>
-              <span className={styles.messageTopRow}>
-                <strong className={clsx(!message.seen && styles.isUnread)}>
-                  {senderLabel(message)}
-                </strong>
-                <span className={styles.messageDate}>{formatMailDate(message.date)}</span>
-              </span>
-              <span className={clsx(styles.messageSubject, !message.seen && styles.isUnread)}>
-                {message.subject ?? '(无主题)'}
-                {message.hasAttachments && (
-                  <span aria-label="含附件" className={styles.attachmentMark}>
-                    📎
-                  </span>
+        {filteredMessages.map((message) => {
+          const selected = message.id === selectedMessageId;
+          return (
+            <button
+              className={cn(
+                'flex w-full gap-2.5 border-b border-border/50 px-4 py-2.5 text-left transition-colors',
+                selected ? 'bg-muted' : 'hover:bg-muted/50',
+              )}
+              key={message.id}
+              onClick={() => onSelect(message.id)}
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'mt-1.5 size-2 shrink-0 rounded-full',
+                  message.seen ? 'bg-transparent' : 'bg-foreground',
                 )}
+              />
+              <span className="grid min-w-0 flex-1 gap-0.5">
+                <span className="flex min-w-0 items-baseline justify-between gap-3">
+                  <strong
+                    className={cn(
+                      'min-w-0 truncate text-[13px]',
+                      message.seen ? 'font-normal text-foreground/80' : 'font-semibold',
+                    )}
+                  >
+                    {senderLabel(message)}
+                  </strong>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {formatMailDate(message.date)}
+                  </span>
+                </span>
+                <span className="flex items-center gap-1.5 overflow-hidden">
+                  <span
+                    className={cn(
+                      'truncate text-[13px]',
+                      message.seen ? 'text-foreground/80' : 'font-medium',
+                    )}
+                  >
+                    {message.subject ?? '(无主题)'}
+                  </span>
+                  {message.hasAttachments && (
+                    <Paperclip
+                      aria-label="含附件"
+                      className="size-3 shrink-0 text-muted-foreground"
+                      strokeWidth={1.8}
+                    />
+                  )}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {message.snippet ?? ''}
+                </span>
               </span>
-              <span className={styles.messageSnippet}>{message.snippet ?? ''}</span>
-            </span>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </section>
   );

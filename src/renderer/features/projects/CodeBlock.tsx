@@ -1,6 +1,5 @@
 import hljs from 'highlight.js/lib/common';
 import { useMemo } from 'react';
-import styles from './CodeBlock.module.css';
 
 type CodeBlockProps = {
   code: string;
@@ -16,7 +15,7 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
   }, [code, language]);
 
   return (
-    <pre className={styles.code}>
+    <pre className="mt-3 overflow-x-auto rounded-lg border bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/80">
       <code dangerouslySetInnerHTML={{ __html: html }} />
     </pre>
   );
