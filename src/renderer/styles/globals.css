@@ -1,9 +1,9 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@custom-variant dark (&:where(@media (prefers-color-scheme: dark) *));
-
 :root {
+  /* 原生控件（日期/时间弹层、select 下拉）跟随主题亮暗渲染。 */
+  color-scheme: light;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -36,6 +36,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -141,11 +142,8 @@
     outline-offset: 2px;
   }
 
-  * {
-    scrollbar-color: var(--color-border) transparent;
-    scrollbar-width: thin;
-  }
-
+  /* 仅用 ::-webkit-scrollbar 定制：同时声明 scrollbar-width/color 会让 Chromium
+     忽略伪元素样式并回退到带箭头的原生滚动条。 */
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -158,12 +156,12 @@
   *::-webkit-scrollbar-thumb {
     border: 3px solid transparent;
     border-radius: 999px;
-    background: var(--color-border);
+    background: color-mix(in oklch, var(--color-foreground) 22%, transparent);
     background-clip: padding-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-muted-foreground);
+    background-color: color-mix(in oklch, var(--color-foreground) 38%, transparent);
   }
 }
 
@@ -195,5 +193,10 @@
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+
+  /* 同步/加载指示是必要的活动反馈，保持旋转。 */
+  .animate-spin {
+    animation-duration: 1s !important;
   }
 }

@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   CircleAlert,
   MoreHorizontal,
+  Plus,
   RefreshCw,
   Search,
 } from 'lucide-react';
@@ -82,7 +83,7 @@ export function HomeView({ onOpenProject }: HomeViewProps) {
           </kbd>
         </Button>
         <Button>
-          <span aria-hidden="true">＋</span>
+          <Plus className="size-4" />
           <span className="max-md:hidden">新建项目</span>
         </Button>
       </div>
