@@ -179,4 +179,115 @@ export interface DelaApi {
   readonly window: WindowApi;
   readonly mail: MailApi;
   readonly timetable: TimetableApi;
+  readonly canvas: CanvasApi;
+  readonly workspace: WorkspaceApi;
+}
+
+export interface CanvasCourse {
+  id: number;
+  name: string;
+  term: string;
+  code: string;
+  syncedAt: string | null;
+  error: string | null;
+}
+
+export interface SourceItem {
+  id: string;
+  parentId: string | null;
+  courseId: number;
+  name: string;
+  kind: 'folder' | 'module' | 'file' | 'assignment' | 'page' | 'discussion' | 'link';
+  sourceId: string | null;
+  dueAt?: string | null;
+}
+
+export interface CanvasState {
+  connected: boolean;
+  syncedAt: string | null;
+  courses: CanvasCourse[];
+  items: SourceItem[];
+}
+
+export interface DocumentContent {
+  title: string;
+  format: 'html' | 'markdown' | 'text' | 'pdf' | 'image' | 'unsupported';
+  text?: string;
+  bytes?: Uint8Array;
+  mime?: string;
+  url?: string;
+  dueAt?: string | null;
+  updatedAt?: string | null;
+  revision?: string;
+}
+
+export interface CanvasApi {
+  getState(): Promise<CanvasState>;
+  configure(token: string): Promise<void>;
+  disconnect(): Promise<void>;
+  syncCourses(): Promise<CanvasState>;
+  syncCourse(id: number): Promise<CanvasState>;
+  read(sourceId: string): Promise<DocumentContent>;
+  download(sourceId: string): Promise<void>;
+  openLink(url: string): Promise<void>;
+}
+
+export interface WorkspaceEntry {
+  id: string;
+  parentId: string | null;
+  name: string;
+  kind: 'folder' | 'project' | 'note' | 'source' | 'local';
+  sourceId: string | null;
+  noteId: string | null;
+  updatedAt: string;
+}
+
+export interface WorkspaceViewState {
+  tabs: string[];
+  active: string | null;
+  expanded: string[];
+  scroll: Record<string, number>;
+}
+
+export interface WorkspaceState {
+  entries: WorkspaceEntry[];
+  views: Record<string, WorkspaceViewState>;
+  directory: string;
+}
+
+export interface WorkspaceCreateInput {
+  parentId: string | null;
+  name: string;
+  kind: 'folder' | 'project' | 'note' | 'source';
+  sourceId?: string;
+  text?: string;
+}
+
+export interface WorkspaceApi {
+  getState(): Promise<WorkspaceState>;
+  create(input: WorkspaceCreateInput): Promise<WorkspaceEntry>;
+  update(
+    id: string,
+    input: { name?: string; parentId?: string | null; kind?: 'folder' | 'project' },
+  ): Promise<void>;
+  remove(id: string): Promise<void>;
+  read(id: string): Promise<DocumentContent>;
+  saveNote(id: string, text: string, revision: string): Promise<string>;
+  importFiles(parentId: string | null): Promise<void>;
+  openLocal(id: string): Promise<void>;
+  chooseDirectory(): Promise<string>;
+  saveView(scope: string, state: WorkspaceViewState): Promise<void>;
+  getChat(scope: string): Promise<WorkspaceChat>;
+  configureModel(key: string, model: string): Promise<void>;
+  ask(scope: string, prompt: string, context: string[]): Promise<WorkspaceChat>;
+}
+
+export interface WorkspaceChat {
+  configured: boolean;
+  model: string;
+  messages: {
+    role: 'user' | 'assistant';
+    content: string;
+    sources?: { key: string; title: string }[];
+  }[];
 }

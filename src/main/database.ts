@@ -90,6 +90,18 @@ const migrations: string[][] = [
     )`,
     `CREATE INDEX IF NOT EXISTS idx_calendar_events_time ON calendar_events(start_at, end_at)`,
   ],
+  [
+    `CREATE TABLE canvas_courses (id INTEGER PRIMARY KEY, data TEXT NOT NULL, items TEXT NOT NULL DEFAULT '[]')`,
+    `CREATE TABLE canvas_sources (id TEXT PRIMARY KEY, course_id INTEGER NOT NULL, data TEXT NOT NULL)`,
+    `CREATE TABLE workspace_entries (
+      id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
+      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, note_id TEXT, local_path TEXT,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE workspace_notes (id TEXT PRIMARY KEY, path TEXT NOT NULL)`,
+    `CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+    `CREATE INDEX workspace_parent ON workspace_entries(parent_id)`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {

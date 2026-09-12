@@ -3,8 +3,13 @@ import { Bot, CalendarDays, Folder, GraduationCap, Mail, type LucideIcon } from 
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { SectionHeader } from './SectionHeader';
+import { useWorkspace } from '../projects/workspace';
 
-type ConnectionsSectionProps = { onOpenMail: () => void; onOpenTimetable: () => void };
+type ConnectionsSectionProps = {
+  onOpenMail: () => void;
+  onOpenTimetable: () => void;
+  onOpenSources: () => void;
+};
 
 type Connection = {
   name: string;
@@ -15,14 +20,27 @@ type Connection = {
   onOpen?: () => void;
 };
 
-export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsSectionProps) {
+export function ConnectionsSection({
+  onOpenMail,
+  onOpenTimetable,
+  onOpenSources,
+}: ConnectionsSectionProps) {
+  const canvas = useWorkspace((state) => state.canvas);
+  const directory = useWorkspace((state) => state.workspace.directory);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [timetableConnected, setTimetableConnected] = useState(false);
+  const [modelConfigured, setModelConfigured] = useState(false);
 
   useEffect(() => {
     const dela = window.dela;
     if (!dela) return undefined;
     let active = true;
+    void dela.workspace
+      .getChat('sources')
+      .then((chat) => {
+        if (active) setModelConfigured(chat.configured);
+      })
+      .catch(() => {});
     void Promise.all([dela.mail.getState(), dela.timetable.getState()]).then(
       ([mailState, timetableState]) => {
         if (!active) return;
@@ -39,9 +57,10 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
     {
       name: 'Canvas',
       icon: GraduationCap,
-      state: '未连接',
-      connected: false,
+      state: canvas.connected ? '已连接' : '未连接',
+      connected: canvas.connected,
       description: '连接课程、作业与文件',
+      onOpen: onOpenSources,
     },
     {
       name: '学校邮箱',
@@ -62,16 +81,23 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
     {
       name: '致远一号',
       icon: Bot,
-      state: '未配置',
-      connected: false,
-      description: '用于项目内 Agent 请求',
+      state: modelConfigured ? '已配置' : '未配置',
+      connected: modelConfigured,
+      description: '在资料或项目的助手面板配置正文问答',
+      onOpen: onOpenSources,
     },
     {
       name: '工作目录',
       icon: Folder,
-      state: '未选择',
-      connected: false,
-      description: '保存笔记与生成文件',
+      state: directory ? '已设置' : '未选择',
+      connected: Boolean(directory),
+      description: directory || '保存笔记与生成文件',
+      onOpen: () => {
+        void window.dela?.workspace
+          .chooseDirectory()
+          .then(() => useWorkspace.getState().refresh())
+          .catch(useWorkspace.getState().setError);
+      },
     },
   ];
 

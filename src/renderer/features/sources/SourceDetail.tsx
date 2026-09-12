@@ -1,25 +1,140 @@
-import { Button } from '../../components/ui/button';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type { DocumentContent } from '../../../shared/api';
+import { renderMailHtml } from '../mail/mail-html-display';
 
-export function SourceDetail() {
-  return (
-    <article className="overflow-auto p-8 max-md:p-5">
-      <div className="mx-auto w-full max-w-[720px]">
-        <p className="text-[11px] font-medium text-muted-foreground">Canvas · 作业</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight">Lab 1: Classification</h2>
-        <div className="mt-5 grid gap-1 border-y py-3">
-          <span className="text-xs text-muted-foreground">截止时间</span>
-          <strong className="text-sm">9 月 12 日 23:59</strong>
-        </div>
-        <p className="mt-5 text-sm leading-relaxed text-foreground/75">
-          完成分类模型训练、结果分析与实验报告。报告需包含数据预处理、参数选择和误差讨论。
-        </p>
-        <div className="mt-6 flex gap-2">
-          <Button size="sm" variant="secondary">
-            打开原文
-          </Button>
-          <Button size="sm">加入项目</Button>
-        </div>
+export function SourceDetail({
+  content,
+  text,
+  onQuote,
+  onLink,
+  onScroll,
+  scroll = 0,
+}: {
+  content: DocumentContent;
+  text?: string;
+  onQuote: (text: string) => void;
+  onLink: (url: string) => void;
+  onScroll?: (top: number) => void;
+  scroll?: number;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const scrollContainer = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollContainer.current) scrollContainer.current.scrollTop = scroll;
+  }, [content]);
+  useEffect(() => {
+    if (!content.bytes) {
+      setBlobUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(
+      new Blob([new Uint8Array(content.bytes)], { type: content.mime }),
+    );
+    setBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [content.bytes, content.mime]);
+  const html = useMemo(() => {
+    if (content.format !== 'html') return '';
+    const doc = new DOMParser().parseFromString(
+      content.text || '<p>此内容没有正文。</p>',
+      'text/html',
+    );
+    doc
+      .querySelectorAll('script,iframe,object,embed,form,base,meta,link')
+      .forEach((el) => el.remove());
+    doc.querySelectorAll('*').forEach((el) => {
+      for (const a of [...el.attributes])
+        if (a.name.startsWith('on') || a.name === 'srcdoc') el.removeAttribute(a.name);
+    });
+    doc.querySelectorAll('a[href],img[src]').forEach((el) => {
+      const attr = el.tagName === 'A' ? 'href' : 'src';
+      try {
+        const url = new URL(el.getAttribute(attr)!, 'https://oc.sjtu.edu.cn');
+        if (['https:', 'http:'].includes(url.protocol)) el.setAttribute(attr, url.href);
+        else el.removeAttribute(attr);
+      } catch {
+        el.removeAttribute(attr);
+      }
+    });
+    const csp = doc.createElement('meta');
+    csp.httpEquiv = 'Content-Security-Policy';
+    csp.content =
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data: https: http:; script-src 'none'; form-action 'none'";
+    doc.head.prepend(csp);
+    return renderMailHtml(doc, true);
+  }, [content.format, content.text]);
+  if (content.format === 'html')
+    return (
+      <iframe
+        title={content.title}
+        className="min-h-0 w-full flex-1 border-0 bg-white"
+        sandbox="allow-same-origin"
+        referrerPolicy="no-referrer"
+        srcDoc={html}
+        onLoad={(event) => {
+          const frame = event.currentTarget;
+          const doc = frame.contentDocument;
+          if (!doc) return;
+          frame.contentWindow?.scrollTo(0, scroll);
+          doc.addEventListener('mouseup', () =>
+            onQuote(frame.contentWindow?.getSelection()?.toString() ?? ''),
+          );
+          doc.addEventListener('click', (e) => {
+            const target = (e.target as Element).closest?.('a[href]');
+            if (target) {
+              e.preventDefault();
+              onLink(target.getAttribute('href')!);
+            }
+          });
+          frame.contentWindow?.addEventListener('scroll', () =>
+            onScroll?.(frame.contentWindow?.scrollY ?? 0),
+          );
+        }}
+      />
+    );
+  if (content.format === 'pdf')
+    return blobUrl ? (
+      <iframe title={content.title} className="min-h-0 w-full flex-1 border-0" src={blobUrl} />
+    ) : (
+      <p className="p-4 text-sm text-muted-foreground">正在准备预览…</p>
+    );
+  if (content.format === 'image')
+    return (
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        {blobUrl && <img src={blobUrl} alt={content.title} className="mx-auto max-w-full" />}
       </div>
-    </article>
+    );
+  if (content.format === 'unsupported')
+    return (
+      <p className="p-6 text-sm text-muted-foreground">
+        此格式暂不支持内嵌预览，请下载文件或打开原文。
+      </p>
+    );
+  return (
+    <div
+      className="min-h-0 flex-1 overflow-auto p-6 text-sm leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+      ref={scrollContainer}
+      onScroll={(event) => onScroll?.(event.currentTarget.scrollTop)}
+      onMouseUp={() => onQuote(window.getSelection()?.toString() ?? '')}
+    >
+      {content.format === 'markdown' ? (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ({ href, children }) => (
+              <button className="text-primary underline" onClick={() => href && onLink(href)}>
+                {children}
+              </button>
+            ),
+          }}
+        >
+          {text ?? content.text ?? ''}
+        </ReactMarkdown>
+      ) : (
+        <pre className="whitespace-pre-wrap font-mono">{content.text}</pre>
+      )}
+    </div>
   );
 }

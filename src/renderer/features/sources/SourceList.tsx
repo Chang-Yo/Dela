@@ -1,78 +1,134 @@
-import { ClipboardList, Folder, Megaphone, RefreshCw, type LucideIcon } from 'lucide-react';
-import { PanelToggleButton } from '../../components/ui/panel-toggle';
-import { cn } from '../../lib/utils';
+import { useState } from 'react';
+import { LoaderCircle } from 'lucide-react';
+import { Explorer, type ExplorerItem } from '../../components/ui/explorer';
+import { useWorkspace } from '../projects/workspace';
 
-const courseItems: Array<{ name: string; meta: string; icon: LucideIcon }> = [
-  { name: '机器学习 · Lab 1', meta: '9 月 12 日截止', icon: ClipboardList },
-  { name: '计算机网络 · Assignment 2', meta: '9 月 18 日截止', icon: ClipboardList },
-  { name: '人工智能 · 课程通知', meta: '昨天更新', icon: Megaphone },
-];
-
-type SourceListProps = {
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-};
-
-export function SourceList({ collapsed, onToggleCollapsed }: SourceListProps) {
+export function SourceList({
+  expanded,
+  onExpand,
+  onOpen,
+  selected,
+  query,
+  bySource,
+}: {
+  expanded: string[];
+  onExpand: (id: string, open: boolean) => void;
+  onOpen: (key: string) => void;
+  selected: string | null;
+  query: string;
+  bySource: boolean;
+}) {
+  const canvas = useWorkspace((s) => s.canvas);
+  const [loading, setLoading] = useState<number[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
+  const nodes: ExplorerItem[] = [];
+  if (bySource) nodes.push({ id: 'canvas', parentId: null, name: 'Canvas', container: true });
+  const terms = [...new Set(canvas.courses.map((c) => c.term))].sort((a, b) => b.localeCompare(a));
+  for (const term of terms)
+    nodes.push({
+      id: `term:${term}`,
+      parentId: bySource ? 'canvas' : null,
+      name: term,
+      container: true,
+    });
+  for (const course of canvas.courses)
+    nodes.push({
+      id: `course:${course.id}`,
+      parentId: `term:${course.term}`,
+      name: course.name,
+      container: true,
+      badge: loading.includes(course.id) ? '…' : course.error ? '!' : undefined,
+    });
+  for (const item of canvas.items)
+    nodes.push({
+      id: item.id,
+      parentId: item.parentId ?? `course:${item.courseId}`,
+      name: item.name,
+      container: item.kind === 'folder' || item.kind === 'module',
+    });
+  let filtered = nodes;
+  let effectiveExpanded = expanded;
+  if (query.trim()) {
+    const keep = new Set(
+      nodes
+        .filter((n) => n.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+        .map((n) => n.id),
+    );
+    const parents = new Map(nodes.map((n) => [n.id, n.parentId]));
+    for (const id of [...keep]) {
+      let parent = parents.get(id);
+      while (parent && !keep.has(parent)) {
+        keep.add(parent);
+        parent = parents.get(parent);
+      }
+    }
+    filtered = nodes.filter((n) => keep.has(n.id));
+    effectiveExpanded = [...keep];
+  }
+  const sync = async (id: number) => {
+    if (!window.dela || loading.includes(id)) return;
+    setLoading((ids) => [...ids, id]);
+    try {
+      useWorkspace.getState().setCanvas(await window.dela.canvas.syncCourse(id));
+    } catch (error) {
+      useWorkspace.getState().setError(error);
+    } finally {
+      setLoading((ids) => ids.filter((value) => value !== id));
+    }
+  };
+  const expand = (id: string, open: boolean) => {
+    onExpand(id, open);
+    if (open && id.startsWith('course:')) {
+      const courseId = Number(id.slice(7));
+      setSelectedCourse(courseId);
+      if (!canvas.courses.find((c) => c.id === courseId)?.syncedAt) void sync(courseId);
+    }
+  };
+  const course = canvas.courses.find((c) => c.id === selectedCourse);
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden border-r bg-muted/40 max-md:border-r-0 max-md:border-b">
-      <div className="flex h-11 shrink-0 items-center gap-1.5 p-2">
-        <PanelToggleButton
-          collapsed={collapsed}
-          controlsId="sources-list"
-          label="资料列表"
-          onToggle={onToggleCollapsed}
-        />
-        {!collapsed && (
-          <>
-            <span className="truncate text-xs font-medium text-muted-foreground">课程内容</span>
-            <div className="flex-1" />
+    <>
+      <Explorer
+        label="课程资料"
+        items={filtered}
+        expanded={effectiveExpanded}
+        selected={canvas.items.find((i) => `source:${i.sourceId}` === selected)?.id ?? null}
+        onExpand={expand}
+        onSelect={(id) => {
+          const item = canvas.items.find((i) => i.id === id);
+          if (item?.sourceId) onOpen(`source:${item.sourceId}`);
+          else expand(id, !expanded.includes(id));
+        }}
+      />
+      {query && filtered.length === 0 && (
+        <p className="px-4 py-3 text-xs text-muted-foreground">已同步资料中没有匹配内容</p>
+      )}
+      {course && (
+        <div className="mx-3 mb-3 border-t pt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate">{course.name}</span>
             <button
-              aria-label="刷新资料"
-              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-              title="刷新资料"
+              className="shrink-0 hover:text-foreground"
+              disabled={loading.includes(course.id)}
+              onClick={() => void sync(course.id)}
               type="button"
             >
-              <RefreshCw className="size-3.5" strokeWidth={1.8} />
-            </button>
-          </>
-        )}
-      </div>
-      <nav
-        aria-label="课程内容"
-        className={cn(
-          'grid content-start gap-0.5 overflow-y-auto overflow-x-hidden p-2',
-          collapsed && 'px-1.5',
-        )}
-        id="sources-list"
-      >
-        {courseItems.map((item, index) => {
-          const Icon = item.icon ?? Folder;
-          const selected = index === 0;
-          return (
-            <button
-              aria-current={selected ? 'page' : undefined}
-              className={cn(
-                'grid w-full gap-2 rounded-lg p-3 text-left transition-colors',
-                collapsed && 'w-8 justify-items-center px-0 py-2 max-md:w-full max-md:px-3',
-                selected ? 'bg-background shadow-xs' : 'hover:bg-background/60',
+              {loading.includes(course.id) ? (
+                <LoaderCircle className="size-3 animate-spin" />
+              ) : (
+                '刷新课程'
               )}
-              key={item.name}
-              title={collapsed ? item.name : undefined}
-              type="button"
-            >
-              <Icon
-                className="size-4 shrink-0 self-center text-muted-foreground"
-                strokeWidth={1.8}
-              />
-              <span className={cn('grid gap-2', collapsed && 'hidden max-md:grid')}>
-                <strong className="text-sm">{item.name}</strong>
-                <span className="text-xs text-muted-foreground">{item.meta}</span>
-              </span>
             </button>
-          );
-        })}
-      </nav>
-    </section>
+          </div>
+          {course.error && (
+            <p role="status" className="mt-2 whitespace-pre-line text-destructive">
+              {course.error}
+            </p>
+          )}
+          {course.syncedAt && (
+            <p className="mt-2">更新于 {new Date(course.syncedAt).toLocaleString('zh-CN')}</p>
+          )}
+        </div>
+      )}
+    </>
   );
 }

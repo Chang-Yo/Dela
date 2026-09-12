@@ -8,6 +8,8 @@ import type {
   MailSendInput,
   MailSyncStatus,
   WindowState,
+  WorkspaceCreateInput,
+  WorkspaceViewState,
 } from '../shared/api';
 
 contextBridge.exposeInMainWorld('dela', {
@@ -60,5 +62,38 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('timetable:list-events', startAt, endAt),
     createEvent: (input: CalendarEventInput) => ipcRenderer.invoke('timetable:create-event', input),
     syncNow: (semester?: string) => ipcRenderer.invoke('timetable:sync', semester),
+  },
+  canvas: {
+    getState: () => ipcRenderer.invoke('canvas:get-state'),
+    configure: (token: string) => ipcRenderer.invoke('canvas:configure', token),
+    disconnect: () => ipcRenderer.invoke('canvas:disconnect'),
+    syncCourses: () => ipcRenderer.invoke('canvas:sync-courses'),
+    syncCourse: (id: number) => ipcRenderer.invoke('canvas:sync-course', id),
+    read: (id: string) => ipcRenderer.invoke('canvas:read', id),
+    download: (id: string) => ipcRenderer.invoke('canvas:download', id),
+    openLink: (url: string) => ipcRenderer.invoke('canvas:open-link', url),
+  },
+  workspace: {
+    getState: () => ipcRenderer.invoke('workspace:get-state'),
+    create: (input: WorkspaceCreateInput) => ipcRenderer.invoke('workspace:create', input),
+    update: (
+      id: string,
+      input: { name?: string; parentId?: string | null; kind?: 'folder' | 'project' },
+    ) => ipcRenderer.invoke('workspace:update', id, input),
+    remove: (id: string) => ipcRenderer.invoke('workspace:remove', id),
+    read: (id: string) => ipcRenderer.invoke('workspace:read', id),
+    saveNote: (id: string, text: string, revision: string) =>
+      ipcRenderer.invoke('workspace:save-note', id, text, revision),
+    importFiles: (parentId: string | null) =>
+      ipcRenderer.invoke('workspace:import-files', parentId),
+    openLocal: (id: string) => ipcRenderer.invoke('workspace:open-local', id),
+    chooseDirectory: () => ipcRenderer.invoke('workspace:choose-directory'),
+    saveView: (scope: string, state: WorkspaceViewState) =>
+      ipcRenderer.invoke('workspace:save-view', scope, state),
+    getChat: (scope: string) => ipcRenderer.invoke('workspace:get-chat', scope),
+    configureModel: (key: string, model: string) =>
+      ipcRenderer.invoke('workspace:configure-model', key, model),
+    ask: (scope: string, prompt: string, context: string[]) =>
+      ipcRenderer.invoke('workspace:ask', scope, prompt, context),
   },
 } satisfies DelaApi);
