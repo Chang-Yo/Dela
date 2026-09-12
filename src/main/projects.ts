@@ -1,11 +1,25 @@
-import { app, dialog, ipcMain, shell } from 'electron';
-import { basename, extname, join } from 'node:path';
-import { mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'node:fs';
+import { app, dialog, ipcMain, protocol, shell } from 'electron';
+import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
+import {
+  constants,
+  copyFileSync,
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  statSync,
+} from 'node:fs';
+import { stat as fileStat } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { z } from 'zod';
 import { getDatabase } from './database';
-import { checkWorkspaceSender, readCanvasSource } from './canvas';
+import { canvasPdfPath, checkWorkspaceSender, readCanvasSource } from './canvas';
 import { loadModelCredential, saveModelCredential } from './credentials';
+import { availablePath, storageDirectory as directory } from './storage';
+import { workspaceArchiveId } from '../shared/api';
 import type {
   DocumentContent,
   WorkspaceChat,
@@ -18,6 +32,17 @@ const idSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(200);
 const entryColumns =
   'id, parent_id AS parentId, name, kind, source_id AS sourceId, note_id AS noteId, updated_at AS updatedAt';
+
+const previewScheme = 'dela-resource';
+
+export function registerPreviewScheme(): void {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: previewScheme,
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+    },
+  ]);
+}
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
 function setting(key: string): string | null {
@@ -29,11 +54,104 @@ function setting(key: string): string | null {
   );
 }
 
-function directory() {
-  return setting('directory') ?? join(app.getPath('documents'), 'Dela');
+function containerPath(parentId: string | null): string {
+  if (parentId) return managedPath(entry(parentId))!;
+  const root = join(directory(), '工作区');
+  mkdirSync(root, { recursive: true });
+  return root;
+}
+
+function managedPath(item: WorkspaceEntry): string | null {
+  if (!['folder', 'project', 'note'].includes(item.kind)) return null;
+  const db = getDatabase();
+  const stored = db
+    .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
+    .get(item.id) as { path: string | null };
+  if (stored.path) return stored.path;
+  const folder = item.kind !== 'note';
+  const name = folder || /\.md$/i.test(item.name) ? item.name : `${item.name}.md`;
+  const path = availablePath(containerPath(item.parentId), name, folder);
+  if (folder) mkdirSync(path);
+  else {
+    const original = notePath(item);
+    // Missing legacy files remain linked to their original location for recovery.
+    if (!existsSync(original)) return original;
+    copyFileSync(original, path, constants.COPYFILE_EXCL);
+  }
+  db.transaction(() => {
+    if (!folder) db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, item.noteId);
+    db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, item.id);
+  })();
+  return path;
+}
+
+type PendingMove = {
+  from: string;
+  to: string;
+  id: string;
+  name: string;
+  parentId: string | null;
+  kind: string;
+};
+
+function finishMove(move: PendingMove) {
+  const db = getDatabase();
+  const relocate = (path: string) => {
+    const suffix = relative(move.from, path);
+    return suffix === ''
+      ? move.to
+      : !isAbsolute(suffix) && suffix !== '..' && !suffix.startsWith(`..${sep}`)
+        ? join(move.to, suffix)
+        : path;
+  };
+  db.transaction(() => {
+    const rows = db
+      .prepare('SELECT id, local_path AS path FROM workspace_entries WHERE local_path IS NOT NULL')
+      .all() as { id: string; path: string }[];
+    for (const row of rows) {
+      const path = relocate(row.path);
+      if (path !== row.path)
+        db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, row.id);
+    }
+    const notes = db.prepare('SELECT id, path FROM workspace_notes').all() as {
+      id: string;
+      path: string;
+    }[];
+    for (const note of notes) {
+      const path = relocate(note.path);
+      if (path !== note.path)
+        db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, note.id);
+    }
+    db.prepare(
+      'UPDATE workspace_entries SET name=?, parent_id=?, kind=?, updated_at=? WHERE id=?',
+    ).run(move.name, move.parentId, move.kind, new Date().toISOString(), move.id);
+    db.prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
+  })();
+}
+
+function prepareStorage() {
+  const pending = setting('storage-move');
+  if (pending) {
+    const move: PendingMove = JSON.parse(pending);
+    if (!existsSync(move.from) && existsSync(move.to)) finishMove(move);
+    else if (existsSync(move.from) && !existsSync(move.to))
+      getDatabase().prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
+    else throw new Error('文件移动尚未恢复，请检查原路径和目标路径，暂不继续修改文件。');
+  }
+  const items = getDatabase()
+    .prepare(
+      `SELECT ${entryColumns} FROM workspace_entries WHERE local_path IS NULL AND kind IN ('folder','project','note')`,
+    )
+    .all() as WorkspaceEntry[];
+  if (items.length) {
+    const backup = join(app.getPath('userData'), 'dela-before-storage-tree.db');
+    if (!existsSync(backup)) getDatabase().exec(`VACUUM INTO '${backup.replaceAll("'", "''")}'`);
+  }
+  for (const item of items) managedPath(item);
 }
 
 export function getWorkspaceState(): WorkspaceState {
+  prepareStorage();
   const views = getDatabase()
     .prepare("SELECT key, value FROM workspace_settings WHERE key LIKE 'view:%'")
     .all() as { key: string; value: string }[];
@@ -78,6 +196,7 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
     })
     .parse(input);
   checkParent(parsed.parentId);
+  prepareStorage();
   const db = getDatabase();
   if (parsed.kind === 'source') {
     if (
@@ -94,25 +213,31 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   }
   const id = randomUUID();
   const noteId = parsed.kind === 'note' ? randomUUID() : null;
-  if (noteId) {
-    mkdirSync(directory(), { recursive: true });
-    const path = join(directory(), `${noteId}.md`);
-    writeFileSync(path, parsed.text ?? '', { flag: 'wx' });
-    db.prepare('INSERT INTO workspace_notes VALUES (?, ?)').run(noteId, path);
+  let path: string | null = null;
+  if (parsed.kind !== 'source') {
+    const name = noteId && !/\.md$/i.test(parsed.name) ? `${parsed.name}.md` : parsed.name;
+    path = availablePath(containerPath(parsed.parentId), name, !noteId);
+    if (noteId) writeFileSync(path, parsed.text ?? '', { flag: 'wx' });
+    else mkdirSync(path);
   }
-  db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, ?, ?, NULL, ?)').run(
-    id,
-    parsed.parentId,
-    parsed.name,
-    parsed.kind,
-    parsed.sourceId ?? null,
-    noteId,
-    new Date().toISOString(),
-  );
+  db.transaction(() => {
+    if (noteId) db.prepare('INSERT INTO workspace_notes VALUES (?, ?)').run(noteId, path);
+    db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+      id,
+      parsed.parentId,
+      parsed.name,
+      parsed.kind,
+      parsed.sourceId ?? null,
+      noteId,
+      path,
+      new Date().toISOString(),
+    );
+  })();
   return entry(id);
 }
 
 export function updateWorkspaceEntry(id: string, input: unknown) {
+  prepareStorage();
   const parsed = z
     .object({
       name: nameSchema.optional(),
@@ -122,9 +247,30 @@ export function updateWorkspaceEntry(id: string, input: unknown) {
     .strict()
     .parse(input);
   const current = entry(id);
+  if (id === workspaceArchiveId) throw new Error('归档文件夹不能修改');
   if (parsed.parentId !== undefined) checkParent(parsed.parentId, id);
   if (parsed.kind && current.kind !== 'folder' && current.kind !== 'project')
     throw new Error('只有文件夹可以作为项目开展');
+  const from = managedPath(current);
+  const name = parsed.name ?? current.name;
+  const parentId = parsed.parentId === undefined ? current.parentId : parsed.parentId;
+  if (from && (name !== current.name || parentId !== current.parentId)) {
+    const filename = current.kind === 'note' && !/\.md$/i.test(name) ? `${name}.md` : name;
+    const parent = parentId === current.parentId ? dirname(from) : containerPath(parentId);
+    const to = availablePath(parent, filename, current.kind !== 'note');
+    const move: PendingMove = { from, to, id, name, parentId, kind: parsed.kind ?? current.kind };
+    getDatabase()
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
+      .run(JSON.stringify(move));
+    try {
+      renameSync(from, to);
+    } catch (error) {
+      getDatabase().prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
+      throw error;
+    }
+    finishMove(move);
+    return;
+  }
   getDatabase()
     .prepare('UPDATE workspace_entries SET name=?, parent_id=?, kind=?, updated_at=? WHERE id=?')
     .run(
@@ -144,7 +290,87 @@ function notePath(item: WorkspaceEntry): string {
   return note.path;
 }
 
+export function workspacePdfPath(id: string): string {
+  prepareStorage();
+  const item = entry(idSchema.parse(id));
+  if (item.kind !== 'local') throw new Error('文档不是本地 PDF');
+  const stored = getDatabase()
+    .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
+    .get(id) as { path: string };
+  if (extname(stored.path).toLowerCase() !== '.pdf') throw new Error('文档不是本地 PDF');
+  return stored.path;
+}
+
+async function pdfResponse(path: string, request: Request): Promise<Response> {
+  const size = (await fileStat(path)).size;
+  const headers = new Headers({
+    'accept-ranges': 'bytes',
+    'content-disposition': 'inline',
+    'content-type': 'application/pdf',
+    'x-content-type-options': 'nosniff',
+  });
+  let start = 0;
+  let end = Math.max(0, size - 1);
+  let status = 200;
+  const range = request.headers.get('range');
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!match || (!match[1] && !match[2])) {
+      headers.set('content-range', `bytes */${size}`);
+      return new Response(null, { status: 416, headers });
+    }
+    if (match[1]) {
+      start = Number(match[1]);
+      end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+    } else {
+      const suffix = Number(match[2]);
+      start = Math.max(0, size - suffix);
+      end = size - 1;
+    }
+    if (
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end) ||
+      start > end ||
+      start >= size
+    ) {
+      headers.set('content-range', `bytes */${size}`);
+      return new Response(null, { status: 416, headers });
+    }
+    status = 206;
+    headers.set('content-range', `bytes ${start}-${end}/${size}`);
+  }
+  headers.set('content-length', String(size ? end - start + 1 : 0));
+  const body =
+    request.method === 'HEAD' || size === 0
+      ? null
+      : (Readable.toWeb(createReadStream(path, { start, end })) as never);
+  return new Response(body, { status, headers });
+}
+
+export function registerPreviewProtocol(): void {
+  protocol.handle(previewScheme, async (request) => {
+    try {
+      if (request.method !== 'GET' && request.method !== 'HEAD')
+        return new Response(null, { status: 405 });
+      const url = new URL(request.url);
+      const id = decodeURIComponent(url.pathname.slice(1));
+      if (!id || id.includes('/') || id.includes('\\')) throw new Error('无效的文档地址');
+      const path =
+        url.hostname === 'canvas'
+          ? await canvasPdfPath(id)
+          : url.hostname === 'workspace'
+            ? workspacePdfPath(id)
+            : null;
+      if (!path) throw new Error('无效的文档地址');
+      return pdfResponse(path, request);
+    } catch {
+      return new Response(null, { status: 404 });
+    }
+  });
+}
+
 export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
+  prepareStorage();
   const item = entry(id);
   if (item.kind === 'source' && item.sourceId) return readCanvasSource(item.sourceId);
   if (item.kind === 'note') {
@@ -165,22 +391,30 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
             ? 'text'
             : 'unsupported';
     if (format === 'unsupported') return { title: item.name, format };
-    if (statSync(stored.path).size > 128 * 1024 * 1024)
-      throw new Error('文件较大，请在外部应用中打开');
+    const stats = statSync(stored.path);
+    if (format === 'pdf')
+      return {
+        title: item.name,
+        format,
+        previewUrl: `dela-resource://workspace/${encodeURIComponent(id)}?v=${stats.mtimeMs}-${stats.size}`,
+        mime: 'application/pdf',
+        revision: `${stats.mtimeMs}-${stats.size}`,
+      };
+    if (stats.size > 128 * 1024 * 1024) throw new Error('文件较大，请在外部应用中打开');
     const bytes = readFileSync(stored.path);
     return {
       title: item.name,
       format,
       text: format === 'text' ? bytes.toString('utf8') : undefined,
       bytes: format === 'text' ? undefined : new Uint8Array(bytes),
-      mime:
-        format === 'pdf' ? 'application/pdf' : `image/${ext === '.jpg' ? 'jpeg' : ext.slice(1)}`,
+      mime: format === 'image' ? `image/${ext === '.jpg' ? 'jpeg' : ext.slice(1)}` : undefined,
     };
   }
   throw new Error('请选择要打开的文档');
 }
 
 export function saveWorkspaceNote(id: string, text: string, revision: string): string {
+  prepareStorage();
   const item = entry(id);
   if (item.kind !== 'note') throw new Error('只有笔记可以编辑');
   const path = notePath(item);
@@ -292,6 +526,7 @@ export function registerWorkspaceIpc() {
   handle('update', (id, input) => updateWorkspaceEntry(idSchema.parse(id), input));
   handle('remove', (value) => {
     const id = idSchema.parse(value);
+    if (id === workspaceArchiveId) throw new Error('归档文件夹不能移除');
     entry(id);
     // Only remove application references. Notes and imported files stay on disk.
     getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(id);
@@ -333,6 +568,7 @@ export function registerWorkspaceIpc() {
     })();
   });
   handle('open-local', async (value) => {
+    prepareStorage();
     const id = idSchema.parse(value);
     const item = entry(id);
     const stored = getDatabase()
@@ -344,7 +580,7 @@ export function registerWorkspaceIpc() {
   });
   handle('choose-directory', async () => {
     const result = await dialog.showOpenDialog({
-      title: '新笔记保存位置',
+      title: '新建工作区与课程资料的保存位置（已有文件不迁移）',
       defaultPath: directory(),
       properties: ['openDirectory', 'createDirectory'],
     });

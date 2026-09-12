@@ -102,6 +102,12 @@ const migrations: string[][] = [
     `CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
     `CREATE INDEX workspace_parent ON workspace_entries(parent_id)`,
   ],
+  [`ALTER TABLE calendar_events ADD COLUMN color TEXT`],
+  [
+    `INSERT OR IGNORE INTO workspace_entries
+      (id, parent_id, name, kind, source_id, note_id, local_path, updated_at)
+      VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, NULL, '2026-09-12T00:00:00.000Z')`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {

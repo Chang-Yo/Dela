@@ -27,6 +27,7 @@ type Store = {
   setView: (scope: string, state: WorkspaceViewState) => void;
   setError: (error: unknown) => void;
   read: (key: string, force?: boolean) => Promise<void>;
+  release: (key: string) => void;
   edit: (key: string, text: string) => void;
   save: (key: string) => Promise<void>;
 };
@@ -100,6 +101,16 @@ export const useWorkspace = create<Store>((set, get) => ({
     })().finally(() => loading.delete(key));
     loading.set(key, work);
     return work;
+  },
+  release: (key) => {
+    const draft = get().drafts[key];
+    if (!draft || draft.saving || draft.text !== draft.saved || draft.content.format === 'markdown')
+      return;
+    set((state) => {
+      const drafts = { ...state.drafts };
+      delete drafts[key];
+      return { drafts };
+    });
   },
   edit: (key, text) => {
     set((s) => ({ drafts: { ...s.drafts, [key]: { ...s.drafts[key]!, text, error: null } } }));

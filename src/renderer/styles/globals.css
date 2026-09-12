@@ -32,10 +32,36 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* 日历候选色：低饱和灰调，浅底深字，供课程哈希分配与事件手动选择。 */
+  --cal-rose-bg: oklch(0.941 0.024 18);
+  --cal-rose-text: oklch(0.42 0.083 18);
+  --cal-peach-bg: oklch(0.949 0.024 55);
+  --cal-peach-text: oklch(0.43 0.086 55);
+  --cal-sand-bg: oklch(0.953 0.03 92);
+  --cal-sand-text: oklch(0.42 0.075 85);
+  --cal-sage-bg: oklch(0.937 0.024 150);
+  --cal-sage-text: oklch(0.41 0.062 150);
+  --cal-teal-bg: oklch(0.937 0.022 200);
+  --cal-teal-text: oklch(0.41 0.062 205);
+  --cal-blue-bg: oklch(0.935 0.022 250);
+  --cal-blue-text: oklch(0.43 0.083 255);
+  --cal-lilac-bg: oklch(0.937 0.024 300);
+  --cal-lilac-text: oklch(0.45 0.08 300);
+  --cal-slate-bg: oklch(0.93 0.004 255);
+  --cal-slate-text: oklch(0.37 0.014 255);
+  /* 语法高亮（Markdown 编辑器 CodeMirror 与预览 highlight.js 共用）：GitHub Light/Primer prettylights。 */
+  --syntax-keyword: #cf222e;
+  --syntax-string: #0a3069;
+  --syntax-constant: #0550ae;
+  --syntax-comment: #59636e;
+  --syntax-function: #6639ba;
+  --syntax-variable: #953800;
+  --syntax-tag: #116329;
+  --syntax-caret: #0969da;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light) {
     color-scheme: dark;
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
@@ -64,7 +90,88 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --cal-rose-bg: oklch(0.304 0.032 18);
+    --cal-rose-text: oklch(0.871 0.048 18);
+    --cal-peach-bg: oklch(0.304 0.032 55);
+    --cal-peach-text: oklch(0.878 0.058 60);
+    --cal-sand-bg: oklch(0.31 0.038 92);
+    --cal-sand-text: oklch(0.871 0.052 90);
+    --cal-sage-bg: oklch(0.297 0.03 150);
+    --cal-sage-text: oklch(0.858 0.05 150);
+    --cal-teal-bg: oklch(0.297 0.028 200);
+    --cal-teal-text: oklch(0.858 0.05 205);
+    --cal-blue-bg: oklch(0.297 0.036 255);
+    --cal-blue-text: oklch(0.858 0.052 255);
+    --cal-lilac-bg: oklch(0.304 0.036 300);
+    --cal-lilac-text: oklch(0.864 0.055 300);
+    --cal-slate-bg: oklch(0.29 0.008 255);
+    --cal-slate-text: oklch(0.85 0.008 255);
+    /* GitHub Dark/Primer prettylights。 */
+    --syntax-keyword: #ff7b72;
+    --syntax-string: #a5d6ff;
+    --syntax-constant: #79c0ff;
+    --syntax-comment: #9198a1;
+    --syntax-function: #d2a8ff;
+    --syntax-variable: #ffa657;
+    --syntax-tag: #7ee787;
+    --syntax-caret: #58a6ff;
   }
+}
+
+/* 手动深色主题复用系统深色配色；`.light` 只会屏蔽上方媒体查询。 */
+:root.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.185 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --cal-rose-bg: oklch(0.304 0.032 18);
+  --cal-rose-text: oklch(0.871 0.048 18);
+  --cal-peach-bg: oklch(0.304 0.032 55);
+  --cal-peach-text: oklch(0.878 0.058 60);
+  --cal-sand-bg: oklch(0.31 0.038 92);
+  --cal-sand-text: oklch(0.871 0.052 90);
+  --cal-sage-bg: oklch(0.297 0.03 150);
+  --cal-sage-text: oklch(0.858 0.05 150);
+  --cal-teal-bg: oklch(0.297 0.028 200);
+  --cal-teal-text: oklch(0.858 0.05 205);
+  --cal-blue-bg: oklch(0.297 0.036 255);
+  --cal-blue-text: oklch(0.858 0.052 255);
+  --cal-lilac-bg: oklch(0.304 0.036 300);
+  --cal-lilac-text: oklch(0.864 0.055 300);
+  --cal-slate-bg: oklch(0.29 0.008 255);
+  --cal-slate-text: oklch(0.85 0.008 255);
+  --syntax-keyword: #ff7b72;
+  --syntax-string: #a5d6ff;
+  --syntax-constant: #79c0ff;
+  --syntax-comment: #9198a1;
+  --syntax-function: #d2a8ff;
+  --syntax-variable: #ffa657;
+  --syntax-tag: #7ee787;
+  --syntax-caret: #58a6ff;
 }
 
 @theme inline {
@@ -140,6 +247,86 @@
   input:focus-visible {
     outline: 2px solid color-mix(in oklch, var(--color-ring) 60%, transparent);
     outline-offset: 2px;
+  }
+
+  /* 预览代码块（highlight.js GitHub 主题类名）与编辑器共用 --syntax-* 配色。 */
+  .hljs-doctag,
+  .hljs-keyword,
+  .hljs-meta .hljs-keyword,
+  .hljs-template-tag,
+  .hljs-template-variable,
+  .hljs-type,
+  .hljs-variable.language_ {
+    color: var(--syntax-keyword);
+  }
+
+  .hljs-title,
+  .hljs-title.class_,
+  .hljs-title.class_.inherited__,
+  .hljs-title.function_ {
+    color: var(--syntax-function);
+  }
+
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-literal,
+  .hljs-meta,
+  .hljs-number,
+  .hljs-operator,
+  .hljs-variable,
+  .hljs-selector-attr,
+  .hljs-selector-class,
+  .hljs-selector-id {
+    color: var(--syntax-constant);
+  }
+
+  .hljs-regexp,
+  .hljs-string,
+  .hljs-meta .hljs-string {
+    color: var(--syntax-string);
+  }
+
+  .hljs-built_in,
+  .hljs-symbol {
+    color: var(--syntax-variable);
+  }
+
+  .hljs-comment,
+  .hljs-code,
+  .hljs-formula {
+    color: var(--syntax-comment);
+  }
+
+  .hljs-name,
+  .hljs-quote,
+  .hljs-selector-tag,
+  .hljs-selector-pseudo {
+    color: var(--syntax-tag);
+  }
+
+  .hljs-section {
+    color: var(--syntax-constant);
+    font-weight: bold;
+  }
+
+  .hljs-bullet {
+    color: var(--syntax-variable);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: bold;
+  }
+
+  .hljs-addition {
+    color: var(--syntax-tag);
+  }
+
+  .hljs-deletion {
+    color: var(--syntax-keyword);
   }
 
   /* 仅用 ::-webkit-scrollbar 定制：同时声明 scrollbar-width/color 会让 Chromium

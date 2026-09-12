@@ -10,6 +10,7 @@ import type {
   WindowState,
   WorkspaceCreateInput,
   WorkspaceViewState,
+  ThemePreference,
 } from '../shared/api';
 
 contextBridge.exposeInMainWorld('dela', {
@@ -26,6 +27,10 @@ contextBridge.exposeInMainWorld('dela', {
         ipcRenderer.removeListener('window:state', subscription);
       };
     },
+  },
+  settings: {
+    getTheme: () => ipcRenderer.invoke('settings:get-theme'),
+    setTheme: (theme: ThemePreference) => ipcRenderer.invoke('settings:set-theme', theme),
   },
   mail: {
     getState: () => ipcRenderer.invoke('mail:get-state'),
@@ -61,6 +66,8 @@ contextBridge.exposeInMainWorld('dela', {
     listEvents: (startAt: string, endAt: string) =>
       ipcRenderer.invoke('timetable:list-events', startAt, endAt),
     createEvent: (input: CalendarEventInput) => ipcRenderer.invoke('timetable:create-event', input),
+    setSemesterStart: (semester: string, value: string) =>
+      ipcRenderer.invoke('timetable:set-semester-start', semester, value),
     syncNow: (semester?: string) => ipcRenderer.invoke('timetable:sync', semester),
   },
   canvas: {

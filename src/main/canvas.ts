@@ -1,9 +1,13 @@
 import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
-import { access, mkdir, readFile, writeFile, rename, copyFile } from 'node:fs/promises';
+import { copyFile, link, open, readFile, rm, stat } from 'node:fs/promises';
+import { constants, copyFileSync, createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { getDatabase } from './database';
+import { availablePath, diskName, storageDirectory } from './storage';
 import { clearCanvasToken, loadCanvasToken, saveCanvasToken } from './credentials';
 import type { CanvasCourse, CanvasState, DocumentContent, SourceItem } from '../shared/api';
 
@@ -403,18 +407,56 @@ function cachedFile(source: StoredSource): Promise<{ path: string; mime: string 
 
 async function downloadFile(source: StoredSource): Promise<{ path: string; mime: string }> {
   if (!source.fileId) throw new Error('文件不可用');
-  const dir = join(app.getPath('userData'), 'canvas-cache');
-  await mkdir(dir, { recursive: true });
   const key = createHash('sha256')
     .update(`${source.fileId}:${source.updatedAt ?? ''}`)
     .digest('hex');
-  const path = join(dir, key);
-  try {
-    await access(path);
-    return { path, mime: source.mime || 'application/octet-stream' };
-  } catch {
-    /* Download on first open. */
+  const db = getDatabase();
+  const cacheKey = `canvas-file:${key}`;
+  const cached = db.prepare('SELECT value FROM workspace_settings WHERE key=?').get(cacheKey) as
+    { value: string } | undefined;
+  if (cached && existsSync(cached.value))
+    return { path: cached.value, mime: source.mime || 'application/octet-stream' };
+
+  const state = getCanvasState();
+  const course = state.courses.find((course) => course.id === source.courseId);
+  const items = state.items.filter((item) => item.courseId === source.courseId);
+  // Prefer the original file tree over module references to the same source.
+  const original = items.find(
+    (item) => item.sourceId === source.id && !item.id.startsWith('module-item:'),
+  );
+  const folders: string[] = [];
+  const seen = new Set<string>();
+  let parentId = original?.parentId;
+  while (parentId) {
+    if (seen.has(parentId)) throw new Error('课程文件目录包含循环');
+    seen.add(parentId);
+    const parent = items.find((item) => item.id === parentId);
+    if (!parent) break;
+    const sameName = items.filter(
+      (item) =>
+        item.parentId === parent.parentId &&
+        diskName(item.name).toLowerCase() === diskName(parent.name).toLowerCase(),
+    );
+    folders.unshift(diskName(sameName.length > 1 ? `${parent.name} [${parent.id}]` : parent.name));
+    parentId = parent.parentId;
   }
+  const dir = join(
+    storageDirectory(),
+    '课程资料',
+    diskName(course?.term ?? '未标注学期'),
+    diskName(`${course?.name ?? '课程'} [${source.courseId}]`),
+    ...folders,
+  );
+  mkdirSync(dir, { recursive: true });
+  const storeLegacy = (legacyPath: string) => {
+    const path = availablePath(dir, source.title);
+    copyFileSync(legacyPath, path, constants.COPYFILE_EXCL);
+    db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(cacheKey, path);
+    return path;
+  };
+  const legacy = join(app.getPath('userData'), 'canvas-cache', key);
+  if (existsSync(legacy))
+    return { path: storeLegacy(legacy), mime: source.mime || 'application/octet-stream' };
   const metadata = row(await (await request(`files/${source.fileId}`)).json());
   const downloadUrl = new URL(str(metadata.url), origin);
   if (downloadUrl.origin !== origin) throw new Error('Canvas 下载地址无效');
@@ -435,12 +477,29 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
     response = await fetch(target, { redirect: 'error', signal: AbortSignal.timeout(120000) });
   }
   if (!response.ok) throw new Error(`文件下载失败（HTTP ${response.status}）`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (num(metadata.size) && bytes.byteLength !== num(metadata.size))
-    throw new Error('文件下载不完整，请重试');
-  const temp = `${path}.part`;
-  await writeFile(temp, bytes);
-  await rename(temp, path);
+  if (!response.body) throw new Error('文件下载没有返回内容');
+  const path = availablePath(dir, source.title);
+  const temporary = `${path}.${randomUUID()}.part`;
+  try {
+    await pipeline(
+      Readable.fromWeb(response.body as never),
+      createWriteStream(temporary, { flags: 'wx' }),
+    );
+    if (num(metadata.size) && (await stat(temporary)).size !== num(metadata.size))
+      throw new Error('文件下载不完整，请重试');
+    try {
+      await link(temporary, path);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (!['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS'].includes(code ?? '')) throw error;
+      await copyFile(temporary, path, constants.COPYFILE_EXCL);
+    }
+    await rm(temporary);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+  db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(cacheKey, path);
   const mime = str(metadata['content-type']) || 'application/octet-stream';
   source.mime = mime;
   getDatabase()
@@ -449,17 +508,39 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
   return { path, mime };
 }
 
+async function isPdf(path: string): Promise<boolean> {
+  const file = await open(path, 'r');
+  try {
+    const header = Buffer.alloc(5);
+    const { bytesRead } = await file.read(header, 0, header.length, 0);
+    return bytesRead === header.length && header.toString() === '%PDF-';
+  } finally {
+    await file.close();
+  }
+}
+
+export async function canvasPdfPath(id: string): Promise<string> {
+  const source = getSource(z.string().max(512).parse(id));
+  if (source.kind !== 'file') throw new Error('资料不是 PDF 文件');
+  const cached = await cachedFile(source);
+  if (!(await isPdf(cached.path))) throw new Error('资料不是 PDF 文件');
+  return cached.path;
+}
+
 export async function readCanvasSource(id: string): Promise<DocumentContent> {
   const source = getSource(id);
   if (source.kind === 'file') {
     const cached = await cachedFile(source);
-    const bytes = new Uint8Array(await readFile(cached.path));
-    const pdf = new TextDecoder().decode(bytes.slice(0, 5)) === '%PDF-';
+    const pdf = await isPdf(cached.path);
     const image = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(cached.mime);
+    const bytes = image ? new Uint8Array(await readFile(cached.path)) : undefined;
     return {
       title: source.title,
       format: pdf ? 'pdf' : image ? 'image' : 'unsupported',
-      bytes: pdf || image ? bytes : undefined,
+      bytes,
+      previewUrl: pdf
+        ? `dela-resource://canvas/${encodeURIComponent(id)}?v=${encodeURIComponent(source.updatedAt ?? '')}`
+        : undefined,
       mime: pdf ? 'application/pdf' : cached.mime,
       updatedAt: source.updatedAt,
     };
@@ -497,7 +578,21 @@ export function registerCanvasIpc() {
       checkWorkspaceSender(event);
       return fn(...args);
     });
-  handle('get-state', getCanvasState);
+  handle('get-state', async () => {
+    // Relocate only already-downloaded legacy files; listing courses never starts a download.
+    const rows = getDatabase().prepare('SELECT data FROM canvas_sources').all() as {
+      data: string;
+    }[];
+    for (const row of rows) {
+      const source: StoredSource = JSON.parse(row.data);
+      if (source.kind !== 'file' || !source.fileId) continue;
+      const key = createHash('sha256')
+        .update(`${source.fileId}:${source.updatedAt ?? ''}`)
+        .digest('hex');
+      if (existsSync(join(app.getPath('userData'), 'canvas-cache', key))) await cachedFile(source);
+    }
+    return getCanvasState();
+  });
   handle('configure', (token) => configureCanvas(z.string().parse(token)));
   handle('disconnect', () => clearCanvasToken());
   handle('sync-courses', syncCanvasCourses);

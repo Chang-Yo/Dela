@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import hljs from 'highlight.js/lib/common';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { DocumentContent } from '../../../shared/api';
@@ -95,8 +96,12 @@ export function SourceDetail({
       />
     );
   if (content.format === 'pdf')
-    return blobUrl ? (
-      <iframe title={content.title} className="min-h-0 w-full flex-1 border-0" src={blobUrl} />
+    return content.previewUrl ? (
+      <iframe
+        title={content.title}
+        className="min-h-0 w-full flex-1 border-0"
+        src={content.previewUrl}
+      />
     ) : (
       <p className="p-4 text-sm text-muted-foreground">正在准备预览…</p>
     );
@@ -128,6 +133,19 @@ export function SourceDetail({
                 {children}
               </button>
             ),
+            code: ({ className, children }) => {
+              const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
+              if (!language || !hljs.getLanguage(language))
+                return <code className={className}>{children}</code>;
+              return (
+                <code
+                  className={className}
+                  dangerouslySetInnerHTML={{
+                    __html: hljs.highlight(String(children), { language }).value,
+                  }}
+                />
+              );
+            },
           }}
         >
           {text ?? content.text ?? ''}

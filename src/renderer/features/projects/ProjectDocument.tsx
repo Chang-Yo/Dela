@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ChevronRight,
+  Clock,
   Download,
   ExternalLink,
-  FilePenLine,
+  Eye,
   FolderOpen,
   Link2,
   LoaderCircle,
+  PenLine,
   RefreshCw,
   Save,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { SourceDetail } from '../sources/SourceDetail';
+import { MarkdownEditor } from './MarkdownEditor';
 import { errorText, useWorkspace } from './workspace';
 
 export function ProjectDocument({
@@ -19,6 +23,7 @@ export function ProjectDocument({
   scroll = 0,
   onScroll,
   onQuote,
+  onReveal,
   onLinkSource,
   onNewNote,
   onOpenSource,
@@ -28,41 +33,64 @@ export function ProjectDocument({
   scroll?: number;
   onScroll: (top: number) => void;
   onQuote: (text: string) => void;
+  onReveal: (id: string) => void;
   onLinkSource: (key: string) => void;
   onNewNote: (text: string) => void;
   onOpenSource: (key: string) => void;
 }) {
   const draft = useWorkspace((s) => s.drafts[documentKey]);
+  const entries = useWorkspace((s) => s.workspace.entries);
   const entry = useWorkspace((s) => s.workspace.entries.find((e) => e.id === documentKey));
   const canvas = useWorkspace((s) => s.canvas);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
-  const editor = useRef<HTMLTextAreaElement>(null);
   const sourceId = documentKey.startsWith('source:') ? documentKey.slice(7) : entry?.sourceId;
   const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : undefined;
   const course = canvas.courses.find((c) => c.id === source?.courseId);
   const editable = entry?.kind === 'note' && !readOnly;
+  /* 面包屑：所属项目链（可点击在目录中定位）+ Canvas 课程与目录链（只读上下文）。 */
+  const crumbs = useMemo(() => {
+    const list: { key: string; label: string; onOpen?: () => void }[] = [];
+    let parent = entry?.parentId;
+    while (parent) {
+      const node = entries.find((e) => e.id === parent);
+      if (!node) break;
+      list.unshift({ key: node.id, label: node.name, onOpen: () => onReveal(node.id) });
+      parent = node.parentId;
+    }
+    if (course) list.push({ key: `course:${course.id}`, label: `${course.name} · Canvas` });
+    if (source) {
+      const trail: string[] = [];
+      let nodeId = source.parentId;
+      while (nodeId) {
+        const node = canvas.items.find((i) => i.id === nodeId);
+        if (!node) break;
+        trail.unshift(node.name);
+        nodeId = node.parentId;
+      }
+      trail.forEach((label, index) => list.push({ key: `trail:${index}:${label}`, label }));
+    }
+    return list;
+  }, [entries, entry?.parentId, course, source, canvas.items, onReveal]);
   useEffect(() => {
     let active = true;
     setError(null);
-    const refresh = () => {
+    const refresh = (force = false) => {
       const state = useWorkspace.getState();
       const current = state.drafts[documentKey];
       if (current && (current.saving || current.text !== current.saved)) return;
-      void state.read(documentKey, true).catch((e) => {
+      void state.read(documentKey, force).catch((e) => {
         if (active) setError(errorText(e));
       });
     };
     refresh();
-    window.addEventListener('focus', refresh);
+    const refreshLocal = () => refresh(true);
+    if (!sourceId) window.addEventListener('focus', refreshLocal);
     return () => {
       active = false;
-      window.removeEventListener('focus', refresh);
+      window.removeEventListener('focus', refreshLocal);
     };
-  }, [documentKey]);
-  useEffect(() => {
-    if (editor.current) editor.current.scrollTop = scroll;
-  }, [documentKey, preview]);
+  }, [documentKey, sourceId]);
   const run = (work: Promise<unknown>) => {
     setError(null);
     void work.catch((e) => setError(errorText(e)));
@@ -111,33 +139,52 @@ export function ProjectDocument({
       aria-label={`文档：${entry?.name ?? draft.content.title}`}
     >
       <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-1 border-b px-3 py-1">
-        <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-          <p className="truncate" title={course?.name ?? entry?.name ?? draft.content.title}>
-            {course ? `${course.name} · Canvas` : (entry?.name ?? draft.content.title)}
-          </p>
+        <nav
+          aria-label="所在位置"
+          className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap text-xs text-muted-foreground"
+        >
+          {crumbs.map((crumb, index) => (
+            <span key={crumb.key} className="flex min-w-0 items-center gap-1">
+              {index > 0 && <ChevronRight className="size-3 shrink-0 opacity-60" />}
+              {crumb.onOpen ? (
+                <button
+                  className="max-w-40 truncate rounded hover:text-foreground hover:underline"
+                  title={crumb.label}
+                  onClick={crumb.onOpen}
+                >
+                  {crumb.label}
+                </button>
+              ) : (
+                <span className="max-w-40 truncate" title={crumb.label}>
+                  {crumb.label}
+                </span>
+              )}
+            </span>
+          ))}
           {draft.content.dueAt && (
-            <p>截止 {new Date(draft.content.dueAt).toLocaleString('zh-CN')}</p>
+            <span className="ml-1 flex shrink-0 items-center gap-1">
+              <Clock className="size-3" />
+              截止 {new Date(draft.content.dueAt).toLocaleString('zh-CN')}
+            </span>
           )}
-        </div>
+        </nav>
         {editable && (
           <>
-            <span className="mr-2 text-xs text-muted-foreground" role="status">
-              {draft.error
-                ? '保存失败'
-                : draft.saving
-                  ? '保存中…'
-                  : draft.text === draft.saved
-                    ? '已保存'
-                    : '未保存'}
-            </span>
-            <Button size="sm" variant="ghost" onClick={() => setPreview((v) => !v)}>
-              {preview ? '编辑' : '预览'}
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title={preview ? '返回编辑' : '预览'}
+              aria-label={preview ? '返回编辑' : '预览'}
+              onClick={() => setPreview((v) => !v)}
+            >
+              {preview ? <PenLine /> : <Eye />}
             </Button>
             <Button
               size="icon-sm"
               variant="ghost"
-              title="保存笔记"
+              title={draft.text === draft.saved ? '已保存' : '保存 (Ctrl+S)'}
               aria-label="保存笔记"
+              disabled={draft.saving || draft.text === draft.saved}
               onClick={() => run(useWorkspace.getState().save(documentKey))}
             >
               <Save />
@@ -153,17 +200,6 @@ export function ProjectDocument({
             onClick={() => onLinkSource(documentKey)}
           >
             <Link2 />
-          </Button>
-        )}
-        {!readOnly && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="记笔记"
-            aria-label="记笔记"
-            onClick={() => onNewNote('')}
-          >
-            <FilePenLine />
           </Button>
         )}
         {sourceId?.startsWith('file:') && (
@@ -226,22 +262,12 @@ export function ProjectDocument({
         </div>
       )}
       {editable && !preview ? (
-        <textarea
-          ref={editor}
-          aria-label="笔记编辑器"
-          spellCheck={false}
-          className="min-h-0 w-full flex-1 resize-none border-0 bg-background p-6 font-mono text-sm leading-relaxed outline-none"
-          placeholder="开始记录…"
+        <MarkdownEditor
           value={draft.text}
-          onChange={(event) => useWorkspace.getState().edit(documentKey, event.target.value)}
-          onBlur={() => void useWorkspace.getState().save(documentKey)}
-          onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
-          onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-              event.preventDefault();
-              void useWorkspace.getState().save(documentKey);
-            }
-          }}
+          scroll={scroll}
+          onChange={(text) => useWorkspace.getState().edit(documentKey, text)}
+          onSave={() => void useWorkspace.getState().save(documentKey)}
+          onScroll={onScroll}
         />
       ) : (
         <SourceDetail

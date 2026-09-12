@@ -1,17 +1,20 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
+import { z } from 'zod';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc } from './mail';
 import { registerTimetableIpc } from './timetable';
-import { registerCanvasIpc } from './canvas';
-import { registerWorkspaceIpc } from './projects';
+import { checkWorkspaceSender, registerCanvasIpc } from './canvas';
+import { registerPreviewProtocol, registerPreviewScheme, registerWorkspaceIpc } from './projects';
+import type { ThemePreference } from '../shared/api';
 
 // Chromium 默认按滚轮格数瞬时跳变；开启后对滚轮输入做逐帧插值，滚动平滑。
 app.commandLine.appendSwitch('enable-smooth-scrolling');
 // Electron 界面语言默认 en-US，原生日期/时间控件会渲染成 MM/DD/YYYY AM/PM；
 // 应用界面全中文，强制 Chromium locale 一致。
 app.commandLine.appendSwitch('lang', 'zh-CN');
+registerPreviewScheme();
 
 ipcMain.on('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
@@ -35,6 +38,35 @@ ipcMain.handle('window:get-state', (event) => ({
   maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false,
 }));
 
+const themeSchema = z.enum(['system', 'light', 'dark']);
+
+function savedTheme(): ThemePreference {
+  const value = getDatabase()
+    .prepare("SELECT value FROM workspace_settings WHERE key='theme'")
+    .get() as { value: string } | undefined;
+  return themeSchema.catch('system').parse(value?.value);
+}
+
+function applyTheme(theme: ThemePreference): ThemePreference {
+  nativeTheme.themeSource = theme;
+  return theme;
+}
+
+function registerSettingsIpc(): void {
+  ipcMain.handle('settings:get-theme', (event) => {
+    checkWorkspaceSender(event);
+    return savedTheme();
+  });
+  ipcMain.handle('settings:set-theme', (event, value) => {
+    checkWorkspaceSender(event);
+    const theme = themeSchema.parse(value);
+    getDatabase()
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('theme', ?)")
+      .run(theme);
+    return applyTheme(theme);
+  });
+}
+
 const smokeTest = process.argv.includes('--smoke-test');
 if (smokeTest) {
   setTimeout(() => {
@@ -46,6 +78,9 @@ if (smokeTest) {
 // 注册业务 IPC；数据库在应用就绪后可用。
 app.whenReady().then(() => {
   getDatabase();
+  registerPreviewProtocol();
+  applyTheme(savedTheme());
+  registerSettingsIpc();
   registerMailIpc();
   registerTimetableIpc();
   registerCanvasIpc();
@@ -60,6 +95,7 @@ async function createWindow(): Promise<void> {
     minHeight: 440,
     show: !smokeTest,
     backgroundColor: '#f7f7f8',
+    icon: join(app.getAppPath(), 'assets', 'Dela_white_bg.png'),
     titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -120,7 +156,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.require === 'undefined'`,
+        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       console.log('Smoke check passed: SQLite, renderer, preload isolation.');

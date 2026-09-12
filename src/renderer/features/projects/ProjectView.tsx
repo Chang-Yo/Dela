@@ -1,32 +1,28 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import {
+  ChevronsDownUp,
+  ChevronRight,
   Columns2,
   FilePlus2,
   Folder,
   FolderInput,
-  FolderKanban,
   FolderPlus,
   GraduationCap,
   MessageSquare,
-  Plus,
   RefreshCw,
   Search,
   Settings2,
   X,
 } from 'lucide-react';
-import type { WorkspaceEntry } from '../../../shared/api';
+import { workspaceArchiveId, type WorkspaceEntry } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Resizer } from '../../components/ui/resizer';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
+import { explorerDragType } from '../../components/ui/explorer';
 import { cn } from '../../lib/utils';
 import { SourceList } from '../sources/SourceList';
 import { ProjectDocument } from './ProjectDocument';
@@ -44,6 +40,7 @@ const titles: Record<Modal['action'], string> = {
   remove: '移除内容',
   promote: '作为项目开展',
   import: '关联本地文件',
+  archive: '归档',
   link: '加入文件夹或项目',
   connect: '连接 Canvas',
 };
@@ -81,6 +78,7 @@ export function ProjectView({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [bySource, setBySource] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentWidth, setAgentWidth] = useState(340);
@@ -141,6 +139,36 @@ export function ProjectView({
       expanded: open ? [...new Set([...expanded, id])] : expanded.filter((value) => value !== id),
     });
   };
+  const isDescendant = (id: string, ancestor: string): boolean => {
+    let parent = workspace.entries.find((e) => e.id === id)?.parentId;
+    while (parent) {
+      if (parent === ancestor) return true;
+      parent = workspace.entries.find((e) => e.id === parent)?.parentId;
+    }
+    return false;
+  };
+  const move = (dragId: string, targetId: string | null) => {
+    const parentId = targetId ?? rootId;
+    if (parentId === dragId || (parentId && isDescendant(parentId, dragId))) return;
+    void run(async () => {
+      await window.dela!.workspace.update(dragId, { parentId });
+      await useWorkspace.getState().refresh();
+      if (targetId) expand(targetId, true);
+    });
+  };
+  const collapseAll = () => updateView({ expanded: [] });
+  const reveal = (id: string) => {
+    const chain = [id];
+    let parent = workspace.entries.find((e) => e.id === id)?.parentId;
+    while (parent) {
+      chain.unshift(parent);
+      parent = workspace.entries.find((e) => e.id === parent)?.parentId;
+    }
+    const expanded = useWorkspace.getState().workspace.views[scope]?.expanded ?? [];
+    updateView({ expanded: [...new Set([...expanded, ...chain])] });
+    setSelected(id);
+    setMobileOpen(false);
+  };
   const open = (key: string) => {
     const view = useWorkspace.getState().workspace.views[scope] ?? emptyView;
     updateView({
@@ -150,6 +178,12 @@ export function ProjectView({
     setSelected(key);
     setQuote('');
     setMobileOpen(false);
+  };
+  const closeTab = (key: string) => {
+    const tabs = saved.tabs.filter((id) => id !== key);
+    updateView({ tabs, active: saved.active === key ? (tabs.at(-1) ?? null) : saved.active });
+    if (reference === key) setReference(null);
+    useWorkspace.getState().release(key);
   };
   const title = (key: string) =>
     workspace.entries.find((e) => e.id === key)?.name ??
@@ -182,7 +216,13 @@ export function ProjectView({
     }
   };
   const action = (type: EntryAction, id: string | null) => {
-    if (type === 'promote' && id) {
+    if (type === 'archive' && id) {
+      void run(async () => {
+        await window.dela!.workspace.update(id, { parentId: workspaceArchiveId });
+        await useWorkspace.getState().refresh();
+        expand(workspaceArchiveId, true);
+      });
+    } else if (type === 'promote' && id) {
       void run(async () => {
         await window.dela!.workspace.update(id, { kind: 'project' });
         await useWorkspace.getState().refresh();
@@ -312,11 +352,6 @@ export function ProjectView({
     }
     return names.join(' / ');
   };
-  const folder =
-    workspace.entries.find(
-      (e) => e.id === selected && (e.kind === 'folder' || e.kind === 'project'),
-    ) ?? root;
-  const children = workspace.entries.filter((e) => e.parentId === (folder?.id ?? rootId));
   const renderDocument = (key: string, readOnly = false) => (
     <ProjectDocument
       key={key}
@@ -324,6 +359,7 @@ export function ProjectView({
       readOnly={readOnly}
       scroll={saved.scroll[key] ?? 0}
       onScroll={(top) => recordScroll(key, top)}
+      onReveal={reveal}
       onQuote={(text) => {
         setQuote(text);
         setQuoteSource(key);
@@ -377,37 +413,28 @@ export function ProjectView({
             >
               {mode === 'sources' ? '资料' : (root?.name ?? '项目与文件夹')}
             </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  className={cn(collapsed && !mobileOpen && 'invisible')}
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label="新建内容"
-                  title="新建内容"
-                >
-                  <Plus />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => action('folder', currentContainer())}>
-                  <FolderPlus />
-                  新建文件夹
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => action('project', null)}>
-                  <FolderKanban />
-                  新建项目
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => action('note', currentContainer())}>
-                  <FilePlus2 />
-                  新建笔记
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => action('import', currentContainer())}>
-                  <FolderInput />
-                  关联本地文件
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div
+              className={cn(
+                'flex shrink-0 items-center gap-0.5',
+                collapsed && !mobileOpen && 'invisible',
+              )}
+            >
+              <HeaderAction label="新建笔记" onClick={() => action('note', currentContainer())}>
+                <FilePlus2 />
+              </HeaderAction>
+              <HeaderAction label="新建文件夹" onClick={() => action('folder', currentContainer())}>
+                <FolderPlus />
+              </HeaderAction>
+              <HeaderAction
+                label="关联本地文件"
+                onClick={() => action('import', currentContainer())}
+              >
+                <FolderInput />
+              </HeaderAction>
+              <HeaderAction label="全部收起" onClick={collapseAll}>
+                <ChevronsDownUp />
+              </HeaderAction>
+            </div>
           </div>
           <div
             id="workspace-explorer"
@@ -423,7 +450,24 @@ export function ProjectView({
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto"
+              onDoubleClick={(event) => {
+                if (event.target === event.currentTarget) action('note', currentContainer());
+              }}
+              onDragOver={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (!event.dataTransfer.types.includes(explorerDragType)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(event) => {
+                if (event.target !== event.currentTarget) return;
+                event.preventDefault();
+                const drag = event.dataTransfer.getData(explorerDragType);
+                if (drag) move(drag, null);
+              }}
+            >
               {mode === 'sources' && (
                 <>
                   <div className="flex h-8 items-center gap-1 px-3">
@@ -480,6 +524,9 @@ export function ProjectView({
                       </Button>
                     </div>
                   )}
+                  <div className="mx-3 mt-3 border-t pt-3 text-xs font-medium text-muted-foreground">
+                    Canvas 资料
+                  </div>
                   <SourceList
                     expanded={saved.expanded}
                     onExpand={expand}
@@ -501,16 +548,56 @@ export function ProjectView({
                 onExpand={expand}
                 onSelect={selectEntry}
                 onAction={action}
+                onMove={move}
+                canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
                 query={query}
+                excludeIds={mode === 'sources' ? [workspaceArchiveId] : []}
               />
+              {mode === 'sources' && (
+                <>
+                  <button
+                    type="button"
+                    className="mx-3 mt-3 flex h-8 w-[calc(100%-1.5rem)] items-center gap-1 border-t pt-3 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+                    aria-expanded={archiveOpen || Boolean(query.trim())}
+                    onClick={() => setArchiveOpen((value) => !value)}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'size-3 transition-transform duration-150 motion-reduce:transition-none',
+                        (archiveOpen || query.trim()) && 'rotate-90',
+                      )}
+                    />
+                    归档
+                  </button>
+                  {(archiveOpen || query.trim()) && (
+                    <>
+                      <SourceList
+                        archived
+                        expanded={saved.expanded}
+                        onExpand={expand}
+                        onOpen={open}
+                        selected={saved.active}
+                        query={query}
+                        bySource={bySource}
+                      />
+                      <ProjectSidebar
+                        entries={workspace.entries}
+                        rootId={workspaceArchiveId}
+                        selected={saved.active ?? selected}
+                        expanded={saved.expanded}
+                        onExpand={expand}
+                        onSelect={selectEntry}
+                        onAction={action}
+                        onMove={move}
+                        canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
+                        query={query}
+                        archived
+                      />
+                    </>
+                  )}
+                </>
+              )}
             </div>
-            <button
-              className="flex h-11 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => action('import', currentContainer())}
-            >
-              <FolderInput className="size-4" />
-              关联本地文件
-            </button>
           </div>
         </div>
       </aside>
@@ -526,77 +613,100 @@ export function ProjectView({
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex h-11 shrink-0 items-center border-b px-2">
-          <Button
-            className="md:hidden"
-            size="icon-sm"
-            variant="ghost"
-            aria-label="打开目录"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Folder />
-          </Button>
-          <div
-            role="tablist"
-            aria-label="打开的内容"
-            className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"
-          >
-            {saved.tabs.map((key) => (
-              <div
-                key={key}
-                className={cn(
-                  'flex h-11 shrink-0 items-center border-b-2',
-                  saved.active === key ? 'border-foreground' : 'border-transparent',
-                )}
-              >
-                <button
-                  role="tab"
-                  aria-selected={saved.active === key}
-                  className="max-w-48 truncate px-3 text-xs"
-                  onClick={() => open(key)}
-                >
-                  {title(key)}
-                  {drafts[key] && drafts[key].text !== drafts[key].saved ? ' •' : ''}
-                </button>
-                <button
-                  className="mr-1 grid size-6 place-items-center rounded text-muted-foreground hover:bg-muted"
-                  aria-label={`关闭 ${title(key)}`}
-                  onClick={() => {
-                    const tabs = saved.tabs.filter((id) => id !== key);
-                    updateView({
-                      tabs,
-                      active: saved.active === key ? (tabs.at(-1) ?? null) : saved.active,
-                    });
-                    if (reference === key) setReference(null);
-                  }}
-                >
-                  <X className="size-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-          {saved.active && (
+        {mode !== 'sources' && (
+          <div className="flex h-11 shrink-0 items-center border-b px-2">
             <Button
-              className="max-lg:hidden"
+              className="md:hidden"
               size="icon-sm"
               variant="ghost"
-              title={reference ? '结束并排阅读' : '固定当前文档并排阅读'}
-              aria-label={reference ? '结束并排阅读' : '固定当前文档并排阅读'}
-              onClick={() => setReference(reference ? null : saved.active)}
+              aria-label="打开目录"
+              onClick={() => setMobileOpen(true)}
             >
-              <Columns2 />
+              <Folder />
             </Button>
-          )}
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="助手"
-            aria-label="打开助手"
-            onClick={() => setAgentOpen((value) => !value)}
-          >
-            <MessageSquare />
-          </Button>
-        </div>
+            {saved.active && (
+              <div
+                role="tablist"
+                aria-label="打开的内容"
+                className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"
+                onDoubleClick={(event) => {
+                  if (event.target === event.currentTarget) newNote('');
+                }}
+              >
+                {saved.tabs.map((key) => {
+                  const dirty = Boolean(drafts[key] && drafts[key].text !== drafts[key].saved);
+                  const active = saved.active === key;
+                  return (
+                    <div
+                      key={key}
+                      className={cn(
+                        'group/tab flex h-11 shrink-0 items-center border-b-2',
+                        active ? 'border-foreground' : 'border-transparent',
+                      )}
+                      onAuxClick={(event) => {
+                        if (event.button === 1) {
+                          event.preventDefault();
+                          closeTab(key);
+                        }
+                      }}
+                    >
+                      <button
+                        role="tab"
+                        aria-selected={active}
+                        className="max-w-48 truncate px-3 text-xs"
+                        title={title(key)}
+                        onClick={() => open(key)}
+                      >
+                        {title(key)}
+                      </button>
+                      <button
+                        className="mr-1 grid size-6 place-items-center rounded text-muted-foreground hover:bg-muted"
+                        aria-label={`关闭 ${title(key)}`}
+                        title={dirty ? '关闭（修改会自动保存）' : undefined}
+                        onClick={() => closeTab(key)}
+                      >
+                        {dirty && (
+                          <span
+                            className="size-2 rounded-full bg-foreground group-hover/tab:hidden"
+                            aria-hidden
+                          />
+                        )}
+                        <X
+                          className={cn(
+                            'size-3',
+                            active && !dirty ? 'block' : 'hidden group-hover/tab:block',
+                          )}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {saved.active && (
+              <Button
+                className="max-lg:hidden"
+                size="icon-sm"
+                variant="ghost"
+                title={reference ? '结束并排阅读' : '固定当前文档并排阅读'}
+                aria-label={reference ? '结束并排阅读' : '固定当前文档并排阅读'}
+                onClick={() => setReference(reference ? null : saved.active)}
+              >
+                <Columns2 />
+              </Button>
+            )}
+            <Button
+              className={cn(!saved.active && 'ml-auto')}
+              size="icon-sm"
+              variant="ghost"
+              title="助手"
+              aria-label="打开助手"
+              onClick={() => setAgentOpen((value) => !value)}
+            >
+              <MessageSquare />
+            </Button>
+          </div>
+        )}
         {globalError && (
           <div
             role="alert"
@@ -625,79 +735,16 @@ export function ProjectView({
         <div className="flex min-h-0 min-w-0 flex-1">
           {reference && (
             <div className="flex min-h-0 w-1/2 min-w-0 flex-col border-r max-lg:hidden">
-              {renderDocument(reference, true)}
-            </div>
-          )}
-          {saved.active ? (
-            renderDocument(saved.active)
-          ) : (
-            <div className="min-h-0 min-w-0 flex-1 overflow-auto p-6 md:p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <FolderOpenIcon project={folder?.kind === 'project'} />
-                <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
-                  {folder?.name ?? (mode === 'sources' ? '资料' : '项目与文件夹')}
-                </h1>
-                {folder && (
-                  <Button size="sm" variant="ghost" onClick={() => action('rename', folder.id)}>
-                    重命名
-                  </Button>
-                )}
-              </div>
-              <div className="mb-5 flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => action('note', folder?.id ?? rootId)}>
-                  <FilePlus2 />
-                  新建笔记
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => action('folder', folder?.id ?? rootId)}
-                >
-                  <FolderPlus />
-                  新建文件夹
-                </Button>
-                {folder?.kind === 'folder' && (
-                  <Button size="sm" variant="outline" onClick={() => action('promote', folder.id)}>
-                    <FolderKanban />
-                    作为项目开展
-                  </Button>
-                )}
-              </div>
-              {children.length ? (
-                <div className="grid">
-                  {children.map((item) => (
-                    <button
-                      key={item.id}
-                      className="flex min-w-0 items-center gap-3 border-b py-3 text-left text-sm hover:bg-muted/40"
-                      onClick={() => selectEntry(item.id)}
-                    >
-                      {item.kind === 'folder' || item.kind === 'project' ? (
-                        <Folder className="size-4 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <FilePlus2 className="size-4 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="truncate">{item.name}</span>
-                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                        {item.kind === 'project'
-                          ? '项目'
-                          : item.kind === 'source'
-                            ? '资料引用'
-                            : item.kind === 'note'
-                              ? '笔记'
-                              : ''}
-                      </span>
-                    </button>
-                  ))}
+              {reference === saved.active ? (
+                <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
+                  已固定当前文档，请打开另一个文档。
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  {mode === 'sources'
-                    ? '从左侧展开课程，或新建文件夹整理自己的内容。'
-                    : '添加资料或写一篇笔记，从这里开始。'}
-                </p>
+                renderDocument(reference, true)
               )}
             </div>
           )}
+          {saved.active ? renderDocument(saved.active) : <div className="min-h-0 flex-1" />}
         </div>
       </div>
       {agentOpen && (
@@ -816,10 +863,23 @@ export function ProjectView({
   );
 }
 
-function FolderOpenIcon({ project }: { project?: boolean }) {
-  return project ? (
-    <FolderKanban className="size-6 shrink-0 text-muted-foreground" />
-  ) : (
-    <Folder className="size-6 shrink-0 text-muted-foreground" />
+function HeaderAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button size="icon-sm" variant="ghost" aria-label={label} onClick={onClick}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }

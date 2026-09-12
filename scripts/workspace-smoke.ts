@@ -1,6 +1,15 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, net } from 'electron';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  truncateSync,
+} from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { closeDatabase, getDatabase } from '../src/main/database';
@@ -16,6 +25,8 @@ import {
   createWorkspaceEntry,
   getWorkspaceState,
   readWorkspaceEntry,
+  registerPreviewProtocol,
+  registerPreviewScheme,
   registerWorkspaceIpc,
   saveWorkspaceNote,
   updateWorkspaceEntry,
@@ -24,6 +35,7 @@ import { saveModelCredential } from '../src/main/credentials';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);
+registerPreviewScheme();
 const pdf = new TextEncoder().encode('%PDF-1.4\nfixture');
 let failFiles = false;
 let storageGets = 0;
@@ -135,8 +147,70 @@ app
       readCanvasSource('file:3'),
     ]);
     assert.equal(first.format, 'pdf');
-    assert.equal(second.bytes?.length, pdf.length);
+    assert.equal(first.bytes, undefined);
+    assert.match(second.previewUrl ?? '', /^dela-resource:\/\/canvas\/file%3A3/);
     assert.equal(storageGets, 1);
+    const canvasKey = createHash('sha256').update('3:2026-09-01').digest('hex');
+    const cachedPath = (
+      db
+        .prepare('SELECT value FROM workspace_settings WHERE key=?')
+        .get(`canvas-file:${canvasKey}`) as { value: string }
+    ).value;
+    assert.equal(
+      cachedPath,
+      join(profile, 'notes', '课程资料', '2026 秋季', '验证课程 [1]', '文件', '第三章', '课件.pdf'),
+    );
+    assert.deepEqual(new Uint8Array(readFileSync(cachedPath)), pdf);
+    const largePdfId = randomUUID();
+    const largePdfPath = join(profile, 'large-fixture.pdf');
+    const largePdfSize = 256 * 1024 * 1024;
+    writeFileSync(largePdfPath, pdf);
+    truncateSync(largePdfPath, largePdfSize);
+    db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, NULL, ?, ?)').run(
+      largePdfId,
+      'large-fixture.pdf',
+      'local',
+      largePdfPath,
+      new Date().toISOString(),
+    );
+    const largePdf = await readWorkspaceEntry(largePdfId);
+    assert.equal(largePdf.format, 'pdf');
+    assert.equal(largePdf.bytes, undefined);
+    registerPreviewProtocol();
+    const preview = await net.fetch(second.previewUrl!);
+    assert.equal(preview.status, 200);
+    assert.deepEqual(new Uint8Array(await preview.arrayBuffer()), pdf);
+    const previewRange = await net.fetch(second.previewUrl!, {
+      headers: { Range: 'bytes=0-4' },
+    });
+    assert.equal(previewRange.status, 206);
+    assert.equal(await previewRange.text(), '%PDF-');
+    const largePreviewRange = await net.fetch(largePdf.previewUrl!, {
+      headers: { Range: 'bytes=0-4' },
+    });
+    assert.equal(largePreviewRange.status, 206);
+    assert.equal(largePreviewRange.headers.get('content-range'), `bytes 0-4/${largePdfSize}`);
+    assert.equal(await largePreviewRange.text(), '%PDF-');
+    // Legacy cache migration must work without downloading or overwriting an existing file.
+    mkdirSync(join(profile, 'canvas-cache'), { recursive: true });
+    writeFileSync(join(profile, 'canvas-cache', canvasKey), pdf);
+    db.prepare('DELETE FROM workspace_settings WHERE key=?').run(`canvas-file:${canvasKey}`);
+    await readCanvasSource('file:3');
+    assert.equal(storageGets, 1);
+    assert(
+      existsSync(
+        join(
+          profile,
+          'notes',
+          '课程资料',
+          '2026 秋季',
+          '验证课程 [1]',
+          '文件',
+          '第三章',
+          '课件 (2).pdf',
+        ),
+      ),
+    );
     assert.equal((await readCanvasSource('assignment:4')).format, 'html');
 
     const folder = createWorkspaceEntry({ name: '主题资料', kind: 'folder', parentId: null });
@@ -178,15 +252,87 @@ app
     assert.equal(ref1.sourceId, ref2.sourceId);
     const opened = await readWorkspaceEntry(note.id);
     const revision = saveWorkspaceNote(note.id, '# 恢复测试', opened.revision!);
-    const path = (
+    let path = (
       db.prepare('SELECT path FROM workspace_notes WHERE id=?').get(note.noteId) as { path: string }
     ).path;
+    assert.equal(path, join(profile, 'notes', '工作区', '主题资料', '参考', '笔记.md'));
+    const duplicateNote = createWorkspaceEntry({
+      name: '笔记.md',
+      kind: 'note',
+      parentId: child.id,
+      text: '独立副本',
+    });
+    assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
+    assert(existsSync(join(profile, 'notes', '工作区', '主题资料', '参考', '笔记 (2).md')));
+    const legacyId = randomUUID();
+    const legacyNoteId = randomUUID();
+    const legacyPath = join(profile, 'notes', `${legacyNoteId}.md`);
+    writeFileSync(legacyPath, '旧版内容');
+    db.prepare('INSERT INTO workspace_notes VALUES (?, ?)').run(legacyNoteId, legacyPath);
+    db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, NULL, ?, NULL, ?)').run(
+      legacyId,
+      child.id,
+      '旧版笔记',
+      'note',
+      legacyNoteId,
+      new Date().toISOString(),
+    );
+    getWorkspaceState();
+    assert.equal((await readWorkspaceEntry(legacyId)).text, '旧版内容');
+    assert.equal(
+      readFileSync(join(profile, 'notes', '工作区', '主题资料', '参考', '旧版笔记.md'), 'utf8'),
+      '旧版内容',
+    );
+    assert.equal(readFileSync(legacyPath, 'utf8'), '旧版内容');
     writeFileSync(path, '# 外部编辑');
     assert.throws(() => saveWorkspaceNote(note.id, '# 不覆盖', revision), /外部修改/);
     assert.equal(readFileSync(path, 'utf8'), '# 外部编辑');
     const disk = await readWorkspaceEntry(note.id);
     saveWorkspaceNote(note.id, '# 恢复测试', disk.revision!);
     updateWorkspaceEntry(note.id, { parentId: folder.id, name: '记录.md' });
+    assert(!existsSync(path));
+    path = join(profile, 'notes', '工作区', '主题资料', '记录.md');
+    assert.equal(readFileSync(path, 'utf8'), '# 恢复测试');
+    updateWorkspaceEntry(child.id, { name: '参考改名', parentId: other.id });
+    assert.equal(
+      readFileSync(join(profile, 'notes', '工作区', '独立项目', '参考改名', '旧版笔记.md'), 'utf8'),
+      '旧版内容',
+    );
+    assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
+    // Simulate a crash after the physical rename but before the database commit.
+    const moveFrom = join(profile, 'notes', '工作区', '独立项目', '参考改名');
+    const moveTo = join(profile, 'notes', '工作区', '独立项目', '恢复后的参考');
+    db.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)").run(
+      JSON.stringify({
+        from: moveFrom,
+        to: moveTo,
+        id: child.id,
+        name: '恢复后的参考',
+        parentId: other.id,
+        kind: 'folder',
+      }),
+    );
+    renameSync(moveFrom, moveTo);
+    closeDatabase();
+    getWorkspaceState();
+    assert.equal((await readWorkspaceEntry(legacyId)).text, '旧版内容');
+    assert(existsSync(join(moveTo, '笔记 (2).md')));
+    const odd = createWorkspaceEntry({
+      name: '../CON',
+      kind: 'note',
+      parentId: folder.id,
+      text: '安全路径',
+    });
+    assert.equal((await readWorkspaceEntry(odd.id)).text, '安全路径');
+    assert(existsSync(join(profile, 'notes', '工作区', '主题资料', '.._CON.md')));
+    assert(existsSync(join(profile, 'dela-before-storage-tree.db')));
+    renameSync(path, `${path}.external`);
+    assert.throws(() => updateWorkspaceEntry(note.id, { name: '不应生效.md' }));
+    assert.equal(
+      getWorkspaceState().entries.find((entry) => entry.id === note.id)?.name,
+      '记录.md',
+    );
+    renameSync(`${path}.external`, path);
     createWorkspaceEntry({
       name: '未选资料',
       kind: 'note',
@@ -221,6 +367,7 @@ app
     await invoke(`await window.dela.workspace.remove(${JSON.stringify(child.id)});`);
     assert.equal((await readWorkspaceEntry(ref2.id)).format, 'html');
     assert(existsSync(path));
+    assert.equal(readFileSync(join(moveTo, '旧版笔记.md'), 'utf8'), '旧版内容');
     closeDatabase();
     const restored = getWorkspaceState();
     assert.equal(restored.views[folder.id]?.active, note.id);

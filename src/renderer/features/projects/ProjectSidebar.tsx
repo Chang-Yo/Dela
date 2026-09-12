@@ -18,7 +18,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 
 export type EntryAction =
-  'folder' | 'project' | 'note' | 'rename' | 'move' | 'remove' | 'promote' | 'import';
+  'folder' | 'project' | 'note' | 'rename' | 'move' | 'remove' | 'promote' | 'import' | 'archive';
 
 export function ProjectSidebar({
   entries,
@@ -28,7 +28,11 @@ export function ProjectSidebar({
   onExpand,
   onSelect,
   onAction,
+  onMove,
+  canDrop,
   query,
+  excludeIds = [],
+  archived = false,
 }: {
   entries: WorkspaceEntry[];
   rootId: string | null;
@@ -37,12 +41,17 @@ export function ProjectSidebar({
   onExpand: (id: string, open: boolean) => void;
   onSelect: (id: string) => void;
   onAction: (action: EntryAction, id: string | null) => void;
+  onMove?: (dragId: string, targetId: string | null) => void;
+  canDrop?: (dragId: string, targetId: string) => boolean;
   query: string;
+  excludeIds?: string[];
+  archived?: boolean;
 }) {
+  const excluded = new Set(excludeIds);
   const included = new Set<string>();
   const visit = (parentId: string | null) => {
     for (const e of entries)
-      if (e.parentId === parentId && !included.has(e.id)) {
+      if (e.parentId === parentId && !excluded.has(e.id) && !included.has(e.id)) {
         included.add(e.id);
         visit(e.id);
       }
@@ -83,6 +92,8 @@ export function ProjectSidebar({
       expanded={open}
       onExpand={onExpand}
       onSelect={onSelect}
+      onMove={onMove}
+      canDrop={canDrop}
       actions={(item) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -125,6 +136,12 @@ export function ProjectSidebar({
               <FolderInput />
               移动到…
             </DropdownMenuItem>
+            {!archived && (
+              <DropdownMenuItem onSelect={() => onAction('archive', item.id)}>
+                <FolderInput />
+                归档
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem variant="destructive" onSelect={() => onAction('remove', item.id)}>
               <Trash2 />
               移除

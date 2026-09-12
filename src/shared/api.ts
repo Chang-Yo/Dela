@@ -144,12 +144,27 @@ export interface TimetableState {
   readonly semesterStart: string | null;
 }
 
+// 日历事件候选色 key，与 renderer 的 --cal-* 设计 token 一一对应。
+export const calendarEventColors = [
+  'rose',
+  'peach',
+  'sand',
+  'sage',
+  'teal',
+  'blue',
+  'lilac',
+  'slate',
+] as const;
+
+export type CalendarEventColor = (typeof calendarEventColors)[number];
+
 export interface CalendarEvent {
   readonly id: number;
   readonly title: string;
   readonly startAt: string;
   readonly endAt: string;
   readonly location: string | null;
+  readonly color: CalendarEventColor | null;
 }
 
 export interface CalendarEventInput {
@@ -157,6 +172,7 @@ export interface CalendarEventInput {
   readonly startAt: string;
   readonly endAt: string;
   readonly location?: string;
+  readonly color?: CalendarEventColor;
 }
 
 export interface TimetableResult {
@@ -171,12 +187,21 @@ export interface TimetableApi {
   listLessons(semester?: string): Promise<readonly TimetableLesson[]>;
   listEvents(startAt: string, endAt: string): Promise<readonly CalendarEvent[]>;
   createEvent(input: CalendarEventInput): Promise<CalendarEvent>;
+  setSemesterStart(semester: string, value: string): Promise<void>;
   syncNow(semester?: string): Promise<TimetableResult>;
+}
+
+export type ThemePreference = 'system' | 'light' | 'dark';
+
+export interface SettingsApi {
+  getTheme(): Promise<ThemePreference>;
+  setTheme(theme: ThemePreference): Promise<ThemePreference>;
 }
 
 export interface DelaApi {
   readonly version: string;
   readonly window: WindowApi;
+  readonly settings: SettingsApi;
   readonly mail: MailApi;
   readonly timetable: TimetableApi;
   readonly canvas: CanvasApi;
@@ -214,6 +239,7 @@ export interface DocumentContent {
   format: 'html' | 'markdown' | 'text' | 'pdf' | 'image' | 'unsupported';
   text?: string;
   bytes?: Uint8Array;
+  previewUrl?: string;
   mime?: string;
   url?: string;
   dueAt?: string | null;
@@ -241,6 +267,8 @@ export interface WorkspaceEntry {
   noteId: string | null;
   updatedAt: string;
 }
+
+export const workspaceArchiveId = '00000000-0000-4000-8000-000000000001';
 
 export interface WorkspaceViewState {
   tabs: string[];

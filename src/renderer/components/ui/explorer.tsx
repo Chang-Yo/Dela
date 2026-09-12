@@ -1,4 +1,4 @@
-import { useRef, type ReactNode, type KeyboardEvent } from 'react';
+import { useRef, useState, type ReactNode, type KeyboardEvent, type DragEvent } from 'react';
 import { ChevronRight, FileText, Folder, FolderOpen, FolderKanban } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -11,6 +11,8 @@ export interface ExplorerItem {
   badge?: string;
 }
 
+export const explorerDragType = 'application/x-dela-entry';
+
 export function Explorer({
   items,
   expanded,
@@ -19,6 +21,8 @@ export function Explorer({
   onSelect,
   label,
   actions,
+  onMove,
+  canDrop,
 }: {
   items: ExplorerItem[];
   expanded: string[];
@@ -27,8 +31,12 @@ export function Explorer({
   onSelect: (id: string) => void;
   label: string;
   actions?: (item: ExplorerItem) => ReactNode;
+  onMove?: (dragId: string, targetId: string | null) => void;
+  canDrop?: (dragId: string, targetId: string) => boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const children = new Map<string | null, ExplorerItem[]>();
   for (const item of items) {
     const group = children.get(item.parentId) ?? [];
@@ -66,6 +74,37 @@ export function Explorer({
     event.preventDefault();
     root.current?.querySelectorAll<HTMLElement>('[role="treeitem"]')[target]?.focus();
   };
+  const droppable = (drag: string, target: string) =>
+    drag !== target && (!canDrop || canDrop(drag, target));
+  const dragProps = onMove
+    ? (item: ExplorerItem, branch: boolean) => ({
+        draggable: true,
+        onDragStart: (event: DragEvent) => {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData(explorerDragType, item.id);
+          event.dataTransfer.setData('text/plain', item.name);
+          setDragId(item.id);
+        },
+        onDragEnd: () => {
+          setDragId(null);
+          setDropTarget(null);
+        },
+        onDragOver: (event: DragEvent) => {
+          if (!branch || !dragId || !droppable(dragId, item.id)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+          if (dropTarget !== item.id) setDropTarget(item.id);
+        },
+        onDragLeave: dropTarget === item.id ? () => setDropTarget(null) : undefined,
+        onDrop: (event: DragEvent) => {
+          event.preventDefault();
+          const drag = dragId ?? event.dataTransfer.getData(explorerDragType);
+          if (drag && droppable(drag, item.id)) onMove(drag, item.id);
+          setDragId(null);
+          setDropTarget(null);
+        },
+      })
+    : undefined;
   return (
     <div ref={root} role="tree" aria-label={label} className="grid content-start gap-0.5 p-2">
       {visible.map(({ item, level }, index) => {
@@ -93,6 +132,7 @@ export function Explorer({
             onKeyDown={(event) => {
               if (event.target === event.currentTarget) keyDown(event, index, item, branch);
             }}
+            {...dragProps?.(item, branch)}
             onClick={(event) => {
               event.currentTarget.focus();
               onSelect(item.id);
@@ -111,6 +151,7 @@ export function Explorer({
               selected === item.id
                 ? 'bg-accent font-medium text-accent-foreground'
                 : 'text-foreground/75 hover:bg-accent/60',
+              dropTarget === item.id && 'bg-accent/60 text-foreground',
             )}
             style={{ paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})` }}
           >

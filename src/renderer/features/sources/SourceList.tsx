@@ -10,6 +10,7 @@ export function SourceList({
   selected,
   query,
   bySource,
+  archived = false,
 }: {
   expanded: string[];
   onExpand: (id: string, open: boolean) => void;
@@ -17,6 +18,7 @@ export function SourceList({
   selected: string | null;
   query: string;
   bySource: boolean;
+  archived?: boolean;
 }) {
   const canvas = useWorkspace((s) => s.canvas);
   const [loading, setLoading] = useState<number[]>([]);
@@ -24,7 +26,12 @@ export function SourceList({
   const nodes: ExplorerItem[] = [];
   if (bySource) nodes.push({ id: 'canvas', parentId: null, name: 'Canvas', container: true });
   const terms = [...new Set(canvas.courses.map((c) => c.term))].sort((a, b) => b.localeCompare(a));
-  for (const term of terms)
+  const latestTerm = terms.find((term) => term !== '未标注学期');
+  const archivedTerms = new Set(
+    terms.filter((term) => term !== '未标注学期' && term !== latestTerm),
+  );
+  const visibleTerms = terms.filter((term) => archivedTerms.has(term) === archived);
+  for (const term of visibleTerms)
     nodes.push({
       id: `term:${term}`,
       parentId: bySource ? 'canvas' : null,
