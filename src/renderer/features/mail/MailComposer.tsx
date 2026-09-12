@@ -1,5 +1,12 @@
 import { Bold, ImagePlus, Italic, Link, LoaderCircle, Paperclip, Send, X } from 'lucide-react';
-import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import type { MailComposeFile } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
@@ -13,7 +20,7 @@ type Props = {
 };
 
 const toolButtonClass =
-  'grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground';
+  'grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground disabled:pointer-events-none disabled:opacity-40';
 
 function restoreSelection(editor: HTMLDivElement, range: Range | null): void {
   editor.focus();
@@ -28,6 +35,13 @@ function restoreSelection(editor: HTMLDivElement, range: Range | null): void {
   fallback.selectNodeContents(editor);
   fallback.collapse(false);
   selection.addRange(fallback);
+}
+
+function hasEditableSelection(editor: HTMLDivElement): boolean {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return false;
+  const range = selection.getRangeAt(0);
+  return editor.contains(range.commonAncestorContainer) && !range.collapsed;
 }
 
 function normalizeLink(value: string): string | null {
@@ -73,7 +87,12 @@ function serializeBody(editor: HTMLDivElement): { html: string; text: string } {
     }
     for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name);
   }
-  return { html: clone.innerHTML, text: editor.innerText };
+  const plainText = clone.cloneNode(true) as HTMLDivElement;
+  for (const link of plainText.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href) link.append(` [${href}]`);
+  }
+  return { html: clone.innerHTML, text: plainText.innerText };
 }
 
 export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }: Props) {
@@ -88,6 +107,7 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formatState, setFormatState] = useState({ bold: false, italic: false });
+  const [hasLinkSelection, setHasLinkSelection] = useState(false);
   const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const [linkInvalid, setLinkInvalid] = useState(false);
 
@@ -95,6 +115,15 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
   const dirty = Boolean(to.trim() || subject.trim() || bodyHasContent || files.length);
 
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    const updateLinkSelection = () => {
+      const editor = editorRef.current;
+      setHasLinkSelection(Boolean(editor && hasEditableSelection(editor)));
+    };
+    document.addEventListener('selectionchange', updateLinkSelection);
+    return () => document.removeEventListener('selectionchange', updateLinkSelection);
+  }, []);
 
   useEffect(() => {
     const preventUnload = (event: BeforeUnloadEvent) => {
@@ -133,7 +162,12 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
     const selection = window.getSelection();
     if (!editor || !selection?.rangeCount) return;
     const range = selection.getRangeAt(0);
-    if (editor.contains(range.commonAncestorContainer)) selectionRef.current = range.cloneRange();
+    if (editor.contains(range.commonAncestorContainer)) {
+      selectionRef.current = range.cloneRange();
+      setHasLinkSelection(!range.collapsed);
+    } else {
+      setHasLinkSelection(false);
+    }
     syncFormatState();
   };
 
@@ -141,11 +175,14 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
     const editor = editorRef.current;
     if (!editor) return;
     restoreSelection(editor, selectionRef.current);
+    document.execCommand('styleWithCSS', false, 'false');
     document.execCommand(command);
     saveSelection();
   };
 
   const openLinkDraft = () => {
+    const editor = editorRef.current;
+    if (!editor || !hasEditableSelection(editor)) return;
     saveSelection();
     setLinkInvalid(false);
     setLinkDraft('');
@@ -163,7 +200,7 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
     document.execCommand('createLink', false, href);
     setLinkDraft(null);
     editor.focus();
-    saveSelection();
+    handleEditorInput();
   };
 
   const cancelLink = () => {
@@ -271,6 +308,30 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
         Boolean(editorRef.current?.querySelector('img[data-dela-inline]')),
     );
     syncFormatState();
+    saveSelection();
+  };
+
+  const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const editor = editorRef.current;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+      event.preventDefault();
+      format('bold');
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
+      event.preventDefault();
+      format('italic');
+      return;
+    }
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      event.key.toLowerCase() === 'k' &&
+      editor &&
+      hasEditableSelection(editor)
+    ) {
+      event.preventDefault();
+      openLinkDraft();
+    }
   };
 
   const submit = async (event: FormEvent) => {
@@ -389,10 +450,11 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
             </button>
             <button
               aria-label="添加链接"
+              disabled={!hasLinkSelection}
               className={toolButtonClass}
               onMouseDown={(event) => event.preventDefault()}
               onClick={openLinkDraft}
-              title="添加链接"
+              title={hasLinkSelection ? '添加链接' : '选中文字后添加链接'}
               type="button"
             >
               <Link className="size-4" strokeWidth={1.8} />
@@ -460,12 +522,14 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
 
         <div
           aria-label="邮件正文"
-          className="min-h-[220px] flex-1 overflow-y-auto py-4 text-[13px] leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_img]:my-3 [&_img]:block [&_img]:max-h-[520px] [&_img]:max-w-full [&_img]:rounded-md"
+          className="min-h-[220px] flex-1 overflow-y-auto py-4 text-[13px] leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[520px] [&_img]:max-w-full [&_img]:rounded-md"
           contentEditable
           onInput={handleEditorInput}
+          onKeyDown={handleEditorKeyDown}
           onKeyUp={saveSelection}
           onMouseUp={saveSelection}
           onPaste={pastePlainText}
+          onSelect={saveSelection}
           ref={editorRef}
           suppressContentEditableWarning
         />
