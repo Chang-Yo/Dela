@@ -34,6 +34,8 @@ const state = {
 };
 let downloadCount = 0;
 const routes = {
+  'workspace:get-state': () => ({ entries: [], views: {}, directory: '' }),
+  'canvas:get-state': () => ({ connected: false, courses: [], items: [], syncedAt: null }),
   'window:get-state': () => ({ maximized: false }),
   'mail:get-state': () => state,
   'mail:list-folders': () => folders,
@@ -307,8 +309,24 @@ app
       composerLayout.editor > 300,
       `narrow composer should use the available content width: ${JSON.stringify(composerLayout)}`,
     );
+    win.setSize(1280, 900);
+    await pause(200);
+    await js(
+      `const editor=document.querySelector('[aria-label="邮件正文"]');editor.innerHTML='未发送的验证草稿';editor.dispatchEvent(new Event('input',{bubbles:true}));`,
+    );
+    await pause(50);
+    await js(
+      `window.leaveConfirmCount=0;window.confirm=()=>{window.leaveConfirmCount++;return true;};document.querySelector('[aria-label="新建项目"]').click();`,
+    );
+    await pause(500);
+    assert.equal(
+      await js('window.leaveConfirmCount'),
+      1,
+      'opening a new project must ask to leave mail only once',
+    );
+    assert.equal(await js(`document.querySelector('[role="dialog"] h2')?.textContent`), '新建项目');
     console.log(
-      'Mail QA passed: HTML styles/CSP, links, stable sidebar icons, request race, narrow layout.',
+      'Mail QA passed: HTML styles/CSP, links, stable sidebar icons, request race, narrow layout, and one confirmation when leaving for a new project.',
     );
     win.destroy();
     app.quit();

@@ -23,6 +23,7 @@ import {
 import { Resizer } from '../ui/resizer';
 import { cn } from '../../lib/utils';
 import delaLogo from '../../../../assets/Dela_Logo.png';
+import { useWorkspace } from '../../features/projects/workspace';
 
 export type ViewId = 'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'settings';
 
@@ -37,11 +38,8 @@ const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
   { id: 'timetable', label: '课表', icon: CalendarDays },
 ];
 
-const projects: Array<{ name: string; tone: string; current?: boolean }> = [
-  { name: '机器学习 Lab 1', tone: 'bg-amber-500', current: true },
-  { name: '毕业设计', tone: 'bg-emerald-500' },
-  { name: '暑研申请', tone: 'bg-sky-500' },
-];
+/** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
+const labelFade = 'transition-opacity duration-200 ease-out';
 
 function WindowControls() {
   const [maximized, setMaximized] = useState(false);
@@ -105,6 +103,9 @@ type AppShellProps = {
   canBack: boolean;
   canForward: boolean;
   children: ReactNode;
+  projectId: string | null;
+  onOpenProject: (id: string) => void;
+  onNewProject: () => void;
 };
 
 export function AppShell({
@@ -117,7 +118,12 @@ export function AppShell({
   canBack,
   canForward,
   children,
+  projectId,
+  onOpenProject,
+  onNewProject,
 }: AppShellProps) {
+  const entries = useWorkspace((state) => state.workspace.entries);
+  const projects = entries.filter((entry) => entry.kind === 'project');
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -249,15 +255,21 @@ export function AppShell({
                 'animate-in fade-in slide-in-from-left-6 duration-150 absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] border-r border-sidebar-border px-2 shadow-2xl',
                 drawer === null && 'hidden',
               )
-            : cn('col-start-1 row-start-2 px-2', sidebarCollapsed && 'invisible w-0 px-0'),
+            : cn(
+                // 收起时延后 invisible,让文字先随宽度动画淡出;w-0 会让内容立即消失。
+                'col-start-1 row-start-2 transition-[visibility] duration-0',
+                sidebarCollapsed && 'invisible delay-200',
+              ),
         )}
         id="main-nav"
       >
+        {/* 宽屏内容按目标宽度固定排版:展开/收起动画期间被容器裁剪显示,而非回流换行。 */}
         <div
           className={cn(
-            'flex min-h-0 min-w-0 flex-1 flex-col',
-            narrow && drawer === 'mail' && 'hidden',
+            'flex min-h-0 flex-1 flex-col',
+            narrow ? cn('min-w-0', drawer === 'mail' && 'hidden') : 'px-2',
           )}
+          style={narrow ? undefined : { width: sidebarWidth }}
         >
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
             <button
@@ -267,7 +279,15 @@ export function AppShell({
               type="button"
             >
               <img alt="Dela" className="h-[18px] w-auto" src={delaLogo} />
-              <span className="text-[15px] font-semibold tracking-tight">Dela</span>
+              <span
+                className={cn(
+                  'text-[15px] font-semibold tracking-tight',
+                  labelFade,
+                  sidebarCollapsed && 'opacity-0',
+                )}
+              >
+                Dela
+              </span>
             </button>
             <div className="flex-1" />
             <button
@@ -303,20 +323,33 @@ export function AppShell({
                     )}
                     strokeWidth={1.8}
                   />
-                  <span className="truncate">{item.label}</span>
+                  <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
+                    {item.label}
+                  </span>
                 </button>
               );
             })}
           </nav>
           <section aria-labelledby="project-nav-title" className="mt-5">
             <div className="flex items-center justify-between px-2 pb-1">
-              <span id="project-nav-title" className="text-xs font-medium text-muted-foreground">
+              <span
+                id="project-nav-title"
+                className={cn(
+                  'whitespace-nowrap text-xs font-medium text-muted-foreground',
+                  labelFade,
+                  sidebarCollapsed && 'opacity-0',
+                )}
+              >
                 项目
               </span>
               <button
                 aria-label="新建项目"
                 className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                 title="新建项目"
+                onClick={() => {
+                  onNewProject();
+                  if (narrow) onMobileDrawerChange?.(null);
+                }}
                 type="button"
               >
                 <Plus className="size-3.5" strokeWidth={1.8} />
@@ -324,7 +357,7 @@ export function AppShell({
             </div>
             <div className="grid gap-0.5">
               {projects.map((project) => {
-                const current = view === 'project' && project.current;
+                const current = view === 'project' && project.id === projectId;
                 return (
                   <button
                     aria-current={current ? 'page' : undefined}
@@ -334,15 +367,20 @@ export function AppShell({
                         ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
                         : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
                     )}
-                    key={project.name}
-                    onClick={() => project.current && navigate('project')}
+                    key={project.id}
+                    onClick={() => {
+                      onOpenProject(project.id);
+                      if (narrow) onMobileDrawerChange?.(null);
+                    }}
                     type="button"
                   >
                     <span
                       aria-hidden="true"
-                      className={cn('size-2 shrink-0 rounded-full', project.tone)}
+                      className="size-2 shrink-0 rounded-full bg-muted-foreground"
                     />
-                    <span className="truncate">{project.name}</span>
+                    <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
+                      {project.name}
+                    </span>
                   </button>
                 );
               })}
@@ -367,7 +405,9 @@ export function AppShell({
                 )}
                 strokeWidth={1.8}
               />
-              <span className="truncate">设置</span>
+              <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
+                设置
+              </span>
             </button>
           </div>
         </div>

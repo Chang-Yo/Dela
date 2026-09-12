@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc } from './mail';
 import { registerTimetableIpc } from './timetable';
+import { registerCanvasIpc } from './canvas';
+import { registerWorkspaceIpc } from './projects';
 
 // Chromium 默认按滚轮格数瞬时跳变；开启后对滚轮输入做逐帧插值，滚动平滑。
 app.commandLine.appendSwitch('enable-smooth-scrolling');
@@ -46,6 +48,8 @@ app.whenReady().then(() => {
   getDatabase();
   registerMailIpc();
   registerTimetableIpc();
+  registerCanvasIpc();
+  registerWorkspaceIpc();
 });
 
 async function createWindow(): Promise<void> {
@@ -82,8 +86,8 @@ async function createWindow(): Promise<void> {
       buttons: ['抛弃并退出', '继续编辑'],
       defaultId: 1,
       cancelId: 1,
-      title: '邮件尚未发送',
-      message: '这封邮件不会保存，确定退出 Dela 吗？',
+      title: '仍有未保存的内容',
+      message: '有未保存的笔记或未发送的邮件，确定抛弃并退出 Dela 吗？',
     });
     if (choice === 0) event.preventDefault();
   });

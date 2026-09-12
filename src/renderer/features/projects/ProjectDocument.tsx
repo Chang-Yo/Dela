@@ -1,136 +1,258 @@
-import { FolderOpen, PanelRightOpen, SquareArrowOutUpRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Download,
+  ExternalLink,
+  FilePenLine,
+  FolderOpen,
+  Link2,
+  LoaderCircle,
+  RefreshCw,
+  Save,
+} from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { cn } from '../../lib/utils';
-
-const documentTabs = ['概览', 'notes.md', '检查清单'];
-
-type ProjectDocumentProps = {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-  agentCollapsed: boolean;
-  onExpandAgent: () => void;
-};
+import { SourceDetail } from '../sources/SourceDetail';
+import { errorText, useWorkspace } from './workspace';
 
 export function ProjectDocument({
-  activeTab,
-  onTabChange,
-  agentCollapsed,
-  onExpandAgent,
-}: ProjectDocumentProps) {
+  documentKey,
+  readOnly = false,
+  scroll = 0,
+  onScroll,
+  onQuote,
+  onLinkSource,
+  onNewNote,
+  onOpenSource,
+}: {
+  documentKey: string;
+  readOnly?: boolean;
+  scroll?: number;
+  onScroll: (top: number) => void;
+  onQuote: (text: string) => void;
+  onLinkSource: (key: string) => void;
+  onNewNote: (text: string) => void;
+  onOpenSource: (key: string) => void;
+}) {
+  const draft = useWorkspace((s) => s.drafts[documentKey]);
+  const entry = useWorkspace((s) => s.workspace.entries.find((e) => e.id === documentKey));
+  const canvas = useWorkspace((s) => s.canvas);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState(false);
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const sourceId = documentKey.startsWith('source:') ? documentKey.slice(7) : entry?.sourceId;
+  const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : undefined;
+  const course = canvas.courses.find((c) => c.id === source?.courseId);
+  const editable = entry?.kind === 'note' && !readOnly;
+  useEffect(() => {
+    let active = true;
+    setError(null);
+    const refresh = () => {
+      const state = useWorkspace.getState();
+      const current = state.drafts[documentKey];
+      if (current && (current.saving || current.text !== current.saved)) return;
+      void state.read(documentKey, true).catch((e) => {
+        if (active) setError(errorText(e));
+      });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refresh);
+    };
+  }, [documentKey]);
+  useEffect(() => {
+    if (editor.current) editor.current.scrollTop = scroll;
+  }, [documentKey, preview]);
+  const run = (work: Promise<unknown>) => {
+    setError(null);
+    void work.catch((e) => setError(errorText(e)));
+  };
+  const link = (url: string) => {
+    try {
+      const parsed = new URL(url);
+      const file =
+        parsed.origin === 'https://oc.sjtu.edu.cn'
+          ? parsed.pathname.match(/\/files\/(\d+)/)?.[1]
+          : null;
+      if (file && canvas.items.some((i) => i.sourceId === `file:${file}`))
+        onOpenSource(`source:file:${file}`);
+      else if (window.dela) run(window.dela.canvas.openLink(url));
+    } catch {
+      setError('不支持的链接');
+    }
+  };
+  if (!draft)
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
+        {error ? (
+          <div role="alert">
+            <p>{error}</p>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setError(null);
+                run(useWorkspace.getState().read(documentKey, true));
+              }}
+            >
+              重试
+            </Button>
+          </div>
+        ) : (
+          <>
+            <LoaderCircle className="mr-2 size-4 animate-spin" />
+            正在打开…
+          </>
+        )}
+      </div>
+    );
   return (
-    <section className="min-w-0 overflow-auto">
-      <div className="flex h-12 overflow-x-auto border-b px-4">
-        <div className="flex min-w-0 overflow-x-auto">
-          {documentTabs.map((tab) => (
-            <button
-              className={cn(
-                'relative whitespace-nowrap px-3 text-xs transition-colors',
-                activeTab === tab
-                  ? 'font-semibold text-foreground after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:bg-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-              key={tab}
-              onClick={() => onTabChange(tab)}
-              role="tab"
-              type="button"
-            >
-              {tab}
-            </button>
-          ))}
+    <section
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      aria-label={`文档：${entry?.name ?? draft.content.title}`}
+    >
+      <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-1 border-b px-3 py-1">
+        <div className="min-w-0 flex-1 text-xs text-muted-foreground">
+          <p className="truncate" title={course?.name ?? entry?.name ?? draft.content.title}>
+            {course ? `${course.name} · Canvas` : (entry?.name ?? draft.content.title)}
+          </p>
+          {draft.content.dueAt && (
+            <p>截止 {new Date(draft.content.dueAt).toLocaleString('zh-CN')}</p>
+          )}
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-1 pl-3">
-          <button
-            aria-label="打开文件夹"
-            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="打开文件夹"
-            type="button"
-          >
-            <FolderOpen className="size-4" strokeWidth={1.8} />
-          </button>
-          <button
-            aria-label="在 VS Code 中打开"
-            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="在 VS Code 中打开"
-            type="button"
-          >
-            <SquareArrowOutUpRight className="size-4" strokeWidth={1.8} />
-          </button>
-          {agentCollapsed && (
-            <button
-              aria-label="展开 Agent 面板"
-              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-[1140px]:hidden"
-              onClick={onExpandAgent}
-              title="展开 Agent 面板"
-              type="button"
+        {editable && (
+          <>
+            <span className="mr-2 text-xs text-muted-foreground" role="status">
+              {draft.error
+                ? '保存失败'
+                : draft.saving
+                  ? '保存中…'
+                  : draft.text === draft.saved
+                    ? '已保存'
+                    : '未保存'}
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => setPreview((v) => !v)}>
+              {preview ? '编辑' : '预览'}
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title="保存笔记"
+              aria-label="保存笔记"
+              onClick={() => run(useWorkspace.getState().save(documentKey))}
             >
-              <PanelRightOpen className="size-4" strokeWidth={1.8} />
+              <Save />
+            </Button>
+          </>
+        )}
+        {sourceId && !readOnly && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title="加入文件夹或项目"
+            aria-label="加入文件夹或项目"
+            onClick={() => onLinkSource(documentKey)}
+          >
+            <Link2 />
+          </Button>
+        )}
+        {!readOnly && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title="记笔记"
+            aria-label="记笔记"
+            onClick={() => onNewNote('')}
+          >
+            <FilePenLine />
+          </Button>
+        )}
+        {sourceId?.startsWith('file:') && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title="下载文件"
+            aria-label="下载文件"
+            onClick={() => window.dela && run(window.dela.canvas.download(sourceId))}
+          >
+            <Download />
+          </Button>
+        )}
+        {draft.content.url && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title="打开原文"
+            aria-label="打开原文"
+            onClick={() => link(draft.content.url!)}
+          >
+            <ExternalLink />
+          </Button>
+        )}
+        {(entry?.kind === 'local' || entry?.kind === 'note') && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title="在文件夹中显示"
+            aria-label="在文件夹中显示"
+            onClick={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
+          >
+            <FolderOpen />
+          </Button>
+        )}
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          title="重新载入"
+          aria-label="重新载入"
+          onClick={() => {
+            if (
+              draft.text === draft.saved ||
+              window.confirm('重新载入会抛弃当前未保存的草稿，是否继续？')
+            )
+              run(useWorkspace.getState().read(documentKey, true));
+          }}
+        >
+          <RefreshCw />
+        </Button>
+      </div>
+      {(error || draft.error) && (
+        <div role="alert" className="shrink-0 border-b px-4 py-2 text-xs text-destructive">
+          {error ?? draft.error}
+          {draft.error && (
+            <button className="ml-3 underline" onClick={() => onNewNote(draft.text)}>
+              另存为新笔记
             </button>
           )}
         </div>
-      </div>
-      <div className="mx-auto max-w-[720px] px-6 py-12 max-md:px-4 max-md:py-5">
-        <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-          <span aria-hidden="true" className="size-2 rounded-full bg-amber-500" />
-          项目概览
-        </div>
-        <h2 className="max-w-[540px] text-[26px] leading-[1.35] tracking-tight max-md:text-[22px]">
-          完成实验、核对要求并按时提交
-        </h2>
-        <p className="mt-3 max-w-[580px] text-sm leading-relaxed text-foreground/75">
-          围绕实验要求整理资料、记录结果，并在提交前完成一次完整检查。
-        </p>
-        <div className="mt-5 grid grid-cols-2 gap-3 max-md:grid-cols-1">
-          <div className="grid gap-2 border-l-2 border-border py-3 pl-4">
-            <span className="text-xs text-muted-foreground">截止时间</span>
-            <strong className="text-sm">9 月 12 日 23:59</strong>
-          </div>
-          <div className="grid gap-2 border-l-2 border-border py-3 pl-4">
-            <span className="text-xs text-muted-foreground">当前进度</span>
-            <strong className="text-sm">60% · 3 项完成</strong>
-          </div>
-        </div>
-        <div className="mt-8">
-          <div className="mb-2 flex items-end justify-between gap-3">
-            <h3 className="text-base font-semibold tracking-tight">下一步</h3>
-            <Button size="sm" variant="secondary">
-              编辑
-            </Button>
-          </div>
-          <label className="flex min-h-[43px] items-center gap-3 border-b text-sm">
-            <input defaultChecked className="size-4 accent-foreground" type="checkbox" />
-            <span className="text-muted-foreground line-through">完成模型训练与记录</span>
-          </label>
-          <label className="flex min-h-[43px] items-center gap-3 border-b text-sm">
-            <input className="size-4 accent-foreground" type="checkbox" />
-            <span>补充误差分析图表</span>
-          </label>
-          <label className="flex min-h-[43px] items-center gap-3 border-b text-sm">
-            <input className="size-4 accent-foreground" type="checkbox" />
-            <span>核对报告命名与提交格式</span>
-          </label>
-        </div>
-        <div className="mt-8">
-          <h3 className="mb-3 text-base font-semibold tracking-tight">已关联资料</h3>
-          <div className="flex items-center gap-3 border-b py-3">
-            <span className="grid size-[34px] shrink-0 place-items-center rounded-lg bg-muted text-[9px] font-extrabold text-foreground">
-              PDF
-            </span>
-            <div className="grid gap-0.5">
-              <strong className="text-sm">Lab1_requirements.pdf</strong>
-              <small className="text-xs text-muted-foreground">Canvas · 今天 10:30</small>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 border-b py-3">
-            <span className="grid size-[34px] shrink-0 place-items-center rounded-lg bg-muted text-[9px] font-extrabold text-foreground">
-              DIR
-            </span>
-            <div className="grid gap-0.5">
-              <strong className="text-sm">D:\Courses\ML\Lab1</strong>
-              <small className="text-xs text-muted-foreground">本地文件夹</small>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
+      {editable && !preview ? (
+        <textarea
+          ref={editor}
+          aria-label="笔记编辑器"
+          spellCheck={false}
+          className="min-h-0 w-full flex-1 resize-none border-0 bg-background p-6 font-mono text-sm leading-relaxed outline-none"
+          placeholder="开始记录…"
+          value={draft.text}
+          onChange={(event) => useWorkspace.getState().edit(documentKey, event.target.value)}
+          onBlur={() => void useWorkspace.getState().save(documentKey)}
+          onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+              event.preventDefault();
+              void useWorkspace.getState().save(documentKey);
+            }
+          }}
+        />
+      ) : (
+        <SourceDetail
+          content={draft.content}
+          text={draft.text}
+          onQuote={onQuote}
+          onLink={link}
+          scroll={scroll}
+          onScroll={onScroll}
+        />
+      )}
     </section>
   );
 }

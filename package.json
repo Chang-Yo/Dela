@@ -28,7 +28,8 @@
     "postinstall": "install-electron",
     "package:dir": "pnpm build && electron-builder --dir",
     "package:dist": "pnpm build && electron-builder",
-    "smoke": "electron . --smoke-test"
+    "smoke": "electron . --smoke-test",
+    "smoke:workspace": "node scripts/workspace-smoke.mjs"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "6.5.2",

@@ -1,100 +1,137 @@
 import {
-  FilePenLine,
-  FileText,
-  Folder,
-  LayoutDashboard,
-  ListChecks,
-  Plus,
-  Presentation,
-  type LucideIcon,
+  Ellipsis,
+  FilePlus2,
+  FolderPlus,
+  FolderKanban,
+  Pencil,
+  Trash2,
+  FolderInput,
+  FileInput,
 } from 'lucide-react';
-import { PanelToggleButton } from '../../components/ui/panel-toggle';
-import { cn } from '../../lib/utils';
+import type { WorkspaceEntry } from '../../../shared/api';
+import { Explorer } from '../../components/ui/explorer';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 
-const projectItems = ['概览', '实验要求', 'slides.pdf', 'notes.md', '检查清单'];
-
-const ITEM_ICONS: Record<string, LucideIcon> = {
-  概览: LayoutDashboard,
-  实验要求: FileText,
-  'slides.pdf': Presentation,
-  'notes.md': FilePenLine,
-  检查清单: ListChecks,
-};
-
-type ProjectSidebarProps = {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-};
+export type EntryAction =
+  'folder' | 'project' | 'note' | 'rename' | 'move' | 'remove' | 'promote' | 'import';
 
 export function ProjectSidebar({
-  activeTab,
-  onTabChange,
-  collapsed,
-  onToggleCollapsed,
-}: ProjectSidebarProps) {
+  entries,
+  rootId,
+  selected,
+  expanded,
+  onExpand,
+  onSelect,
+  onAction,
+  query,
+}: {
+  entries: WorkspaceEntry[];
+  rootId: string | null;
+  selected: string | null;
+  expanded: string[];
+  onExpand: (id: string, open: boolean) => void;
+  onSelect: (id: string) => void;
+  onAction: (action: EntryAction, id: string | null) => void;
+  query: string;
+}) {
+  const included = new Set<string>();
+  const visit = (parentId: string | null) => {
+    for (const e of entries)
+      if (e.parentId === parentId && !included.has(e.id)) {
+        included.add(e.id);
+        visit(e.id);
+      }
+  };
+  visit(rootId);
+  const nodes = entries
+    .filter((e) => included.has(e.id))
+    .map((e) => ({
+      id: e.id,
+      parentId: e.parentId === rootId ? null : e.parentId,
+      name: e.name,
+      project: e.kind === 'project',
+      container: e.kind === 'folder' || e.kind === 'project',
+    }));
+  let filtered = nodes;
+  let open = expanded;
+  if (query.trim()) {
+    const keep = new Set(
+      nodes
+        .filter((n) => n.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+        .map((n) => n.id),
+    );
+    for (const id of [...keep]) {
+      let parent = nodes.find((n) => n.id === id)?.parentId;
+      while (parent && !keep.has(parent)) {
+        keep.add(parent);
+        parent = nodes.find((n) => n.id === parent)?.parentId;
+      }
+    }
+    filtered = nodes.filter((n) => keep.has(n.id));
+    open = [...keep];
+  }
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden border-r bg-muted/40 max-md:flex-row max-md:items-center max-md:gap-1 max-md:border-r-0 max-md:border-b max-md:overflow-x-auto max-md:p-2">
-      <div className="flex h-11 shrink-0 items-center gap-1.5 p-2 max-md:hidden">
-        <PanelToggleButton
-          collapsed={collapsed}
-          controlsId="project-items"
-          label="项目内容"
-          onToggle={onToggleCollapsed}
-        />
-        {!collapsed && (
-          <span className="truncate text-xs font-medium text-muted-foreground">项目内容</span>
-        )}
-      </div>
-      <nav
-        aria-label="项目内容"
-        className={cn(
-          'grid content-start gap-0.5 overflow-y-auto overflow-x-hidden p-2 max-md:flex max-md:flex-row max-md:items-center max-md:overflow-x-auto max-md:p-0 max-md:[scrollbar-width:none]',
-          collapsed && 'px-1.5',
-        )}
-        id="project-items"
-      >
-        {projectItems.map((item) => {
-          const Icon = ITEM_ICONS[item] ?? Folder;
-          const selected = item === activeTab;
-          return (
+    <Explorer
+      label="我的内容"
+      items={filtered}
+      selected={selected}
+      expanded={open}
+      onExpand={onExpand}
+      onSelect={onSelect}
+      actions={(item) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
-              aria-current={selected ? 'page' : undefined}
-              className={cn(
-                'flex h-8 shrink-0 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                collapsed && 'w-8 justify-center px-0 max-md:w-auto max-md:px-3',
-                selected
-                  ? 'bg-background font-medium text-foreground shadow-xs'
-                  : 'text-foreground/70 hover:bg-background/60 hover:text-foreground',
-              )}
-              key={item}
-              onClick={() => onTabChange(item)}
-              title={collapsed ? item : undefined}
               type="button"
+              className="grid size-6 place-items-center rounded hover:bg-background"
+              aria-label={`${item.name} 的操作`}
             >
-              <Icon
-                className={cn('size-4 shrink-0', selected ? '' : 'text-muted-foreground')}
-                strokeWidth={1.8}
-              />
-              <span className={cn('truncate', collapsed && 'hidden max-md:inline')}>{item}</span>
+              <Ellipsis className="size-4" />
             </button>
-          );
-        })}
-      </nav>
-      <button
-        className={cn(
-          'mb-2 mt-5 h-[34px] shrink-0 rounded-lg border border-dashed text-xs text-muted-foreground transition-colors hover:bg-background/60 max-md:hidden',
-          collapsed
-            ? 'mx-auto grid w-8 place-items-center'
-            : 'mx-2 flex items-center justify-center gap-1',
-        )}
-        title={collapsed ? '添加资料' : undefined}
-        type="button"
-      >
-        <Plus className="size-3.5" strokeWidth={1.8} />
-        {!collapsed && <span>添加资料</span>}
-      </button>
-    </aside>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {item.container && (
+              <>
+                <DropdownMenuItem onSelect={() => onAction('folder', item.id)}>
+                  <FolderPlus />
+                  新建文件夹
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onAction('note', item.id)}>
+                  <FilePlus2 />
+                  新建笔记
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onAction('import', item.id)}>
+                  <FileInput />
+                  关联本地文件
+                </DropdownMenuItem>
+              </>
+            )}
+            {item.container && !item.project && (
+              <DropdownMenuItem onSelect={() => onAction('promote', item.id)}>
+                <FolderKanban />
+                作为项目开展
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>
+              <Pencil />
+              重命名
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAction('move', item.id)}>
+              <FolderInput />
+              移动到…
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onSelect={() => onAction('remove', item.id)}>
+              <Trash2 />
+              移除
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    />
   );
 }
