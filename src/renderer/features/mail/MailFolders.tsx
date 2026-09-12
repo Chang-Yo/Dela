@@ -1,3 +1,5 @@
+import type { ReactElement, ReactNode } from 'react';
+
 import {
   Archive,
   CircleAlert,
@@ -15,6 +17,7 @@ import {
 
 import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../../../shared/api';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../lib/utils';
 
 const FOLDER_ICONS: Record<string, LucideIcon> = {
@@ -26,6 +29,49 @@ const FOLDER_ICONS: Record<string, LucideIcon> = {
   '\\Trash': Trash2,
   '\\Archive': Archive,
 };
+
+/** 折叠态图标悬浮时在右侧显示名称提示;展开时原样渲染。 */
+function CollapsedTip({
+  collapsed,
+  label,
+  children,
+}: {
+  collapsed: boolean;
+  label: string;
+  children: ReactElement;
+}) {
+  if (!collapsed) return children;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * 行内文字双态:折叠时宽度收为 0 并淡出,展开时随宽度揭示(clip),
+ * 图标始终原位,高亮块随面板宽度连续缩放。
+ */
+function RowLabel({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        'grid min-w-0 flex-1 transition-[grid-template-columns,padding-left] duration-150 ease-out',
+        collapsed ? 'grid-cols-[0fr]' : 'grid-cols-[1fr] pl-2.5',
+      )}
+    >
+      <span
+        className={cn(
+          'truncate whitespace-nowrap transition-opacity duration-150 ease-out',
+          collapsed && 'opacity-0',
+        )}
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
 
 type Props = {
   foldersCollapsed: boolean;
@@ -79,7 +125,8 @@ export function MailFolders({
       )}
       <nav
         aria-label="邮件文件夹"
-        className="grid content-start gap-0.5 overflow-y-auto overflow-x-hidden p-2"
+        // minmax(0,1fr): 行宽锁定为面板宽,不随文字 max-content 撑出面板外。
+        className="grid grid-cols-[minmax(0,1fr)] content-start gap-0.5 overflow-y-auto overflow-x-hidden p-2"
         id="mail-folders"
       >
         {folders.length === 0 && (
@@ -99,117 +146,100 @@ export function MailFolders({
           const hasUnread = folder.unread !== null && folder.unread > 0;
           const selected = folder.id === selectedFolderId;
           return (
-            <button
-              aria-current={selected ? 'page' : undefined}
-              aria-label={`${folder.name}${hasUnread ? `，${folder.unread} 封未读` : ''}`}
-              className={cn(
-                'relative flex h-8 shrink-0 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                selected
-                  ? 'bg-accent font-medium text-accent-foreground'
-                  : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
-              )}
-              key={folder.id}
-              onClick={() => onSelect(folder.id)}
-              title={foldersCollapsed ? folder.name : undefined}
-              type="button"
-            >
-              <Icon
-                className={cn('size-4 shrink-0', selected ? '' : 'text-muted-foreground')}
-                strokeWidth={1.8}
-              />
-              <span
+            <CollapsedTip collapsed={foldersCollapsed} key={folder.id} label={folder.name}>
+              <button
+                aria-current={selected ? 'page' : undefined}
+                aria-label={`${folder.name}${hasUnread ? `，${folder.unread} 封未读` : ''}`}
                 className={cn(
-                  'truncate transition-opacity duration-150 ease-out',
-                  foldersCollapsed && 'opacity-0',
+                  'relative flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
+                  selected
+                    ? 'bg-accent font-medium text-accent-foreground'
+                    : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
                 )}
+                onClick={() => onSelect(folder.id)}
+                type="button"
               >
-                {folder.name}
-              </span>
-              {!foldersCollapsed && hasUnread && (
-                <span className="ml-auto shrink-0 animate-in fade-in duration-150 text-xs tabular-nums text-muted-foreground">
-                  {folder.unread}
-                </span>
-              )}
-              {foldersCollapsed && hasUnread && (
-                <span
-                  aria-hidden="true"
-                  className="absolute top-1 right-1 size-1.5 rounded-full bg-foreground"
+                <Icon
+                  className={cn('size-4 shrink-0', selected ? '' : 'text-muted-foreground')}
+                  strokeWidth={1.8}
                 />
-              )}
-            </button>
+                <RowLabel collapsed={foldersCollapsed}>{folder.name}</RowLabel>
+                {!foldersCollapsed && hasUnread && (
+                  <span className="ml-2.5 shrink-0 animate-in fade-in duration-150 text-xs tabular-nums text-muted-foreground">
+                    {folder.unread}
+                  </span>
+                )}
+                {foldersCollapsed && hasUnread && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1 right-1 size-1.5 rounded-full bg-foreground"
+                  />
+                )}
+              </button>
+            </CollapsedTip>
           );
         })}
       </nav>
-      <div className="mt-auto grid content-start gap-0.5 p-2">
-        <button
-          aria-current={composing ? 'page' : undefined}
-          aria-label="发送邮件"
-          className={cn(
-            'flex h-8 shrink-0 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-            composing
-              ? 'bg-accent font-medium text-accent-foreground'
-              : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
-          )}
-          onClick={onCompose}
-          title={foldersCollapsed ? '发送邮件' : undefined}
-          type="button"
-        >
-          <Pencil
-            className={cn('size-4 shrink-0', composing ? '' : 'text-muted-foreground')}
-            strokeWidth={1.8}
-          />
-          <span
+      <div className="mt-auto grid grid-cols-[minmax(0,1fr)] content-start gap-0.5 p-2">
+        <CollapsedTip collapsed={foldersCollapsed} label="发送邮件">
+          <button
+            aria-current={composing ? 'page' : undefined}
+            aria-label="发送邮件"
             className={cn(
-              'truncate transition-opacity duration-150 ease-out',
-              foldersCollapsed && 'opacity-0',
+              'flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
+              composing
+                ? 'bg-accent font-medium text-accent-foreground'
+                : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
             )}
+            onClick={onCompose}
+            type="button"
           >
-            发送邮件
-          </span>
-        </button>
+            <Pencil
+              className={cn('size-4 shrink-0', composing ? '' : 'text-muted-foreground')}
+              strokeWidth={1.8}
+            />
+            <RowLabel collapsed={foldersCollapsed}>发送邮件</RowLabel>
+          </button>
+        </CollapsedTip>
         <div aria-hidden="true" className="my-2 border-t border-border/70" />
-        <div
-          className="flex h-11 min-w-0 items-center gap-2.5 rounded-lg px-2 text-muted-foreground"
-          title={account?.address ?? '未配置'}
-        >
-          <UserRound className="size-4 shrink-0" strokeWidth={1.8} />
-          <span
-            className={cn(
-              'truncate text-sm text-foreground transition-opacity duration-150 ease-out',
-              foldersCollapsed && 'opacity-0',
-            )}
+        <CollapsedTip collapsed={foldersCollapsed} label={account?.address ?? '未配置'}>
+          <div
+            className="flex h-11 min-w-0 items-center rounded-lg px-2 text-muted-foreground"
+            title={!foldersCollapsed ? (account?.address ?? '未配置') : undefined}
           >
-            {account ? account.address.split('@')[0] : '未配置'}
-          </span>
-        </div>
-        <button
-          aria-label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
-          className={cn(
-            'flex h-8 shrink-0 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-            confirmingDisconnect
-              ? 'bg-accent font-medium text-destructive'
-              : 'text-foreground/75 hover:bg-accent/60 hover:text-destructive',
-          )}
-          onClick={() => void handleDisconnect()}
-          data-mail-disconnect
-          title={
-            foldersCollapsed ? (confirmingDisconnect ? '再点一次确认退出' : '退出登录') : undefined
-          }
-          type="button"
+            <UserRound className="size-4 shrink-0" strokeWidth={1.8} />
+            <RowLabel collapsed={foldersCollapsed}>
+              <span className="text-sm text-foreground">
+                {account ? account.address.split('@')[0] : '未配置'}
+              </span>
+            </RowLabel>
+          </div>
+        </CollapsedTip>
+        <CollapsedTip
+          collapsed={foldersCollapsed}
+          label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
         >
-          <LogOut
-            className={cn('size-4 shrink-0', confirmingDisconnect ? '' : 'text-muted-foreground')}
-            strokeWidth={1.8}
-          />
-          <span
+          <button
+            aria-label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
             className={cn(
-              'truncate transition-opacity duration-150 ease-out',
-              foldersCollapsed && 'opacity-0',
+              'flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
+              confirmingDisconnect
+                ? 'bg-accent font-medium text-destructive'
+                : 'text-foreground/75 hover:bg-accent/60 hover:text-destructive',
             )}
+            onClick={() => void handleDisconnect()}
+            data-mail-disconnect
+            type="button"
           >
-            {confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
-          </span>
-        </button>
+            <LogOut
+              className={cn('size-4 shrink-0', confirmingDisconnect ? '' : 'text-muted-foreground')}
+              strokeWidth={1.8}
+            />
+            <RowLabel collapsed={foldersCollapsed}>
+              {confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
+            </RowLabel>
+          </button>
+        </CollapsedTip>
       </div>
     </aside>
   );
