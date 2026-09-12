@@ -249,6 +249,20 @@ app
       `Array.from(document.querySelectorAll('button')).find(e=>e.textContent.includes('HTML 阅读验证 2')).click()`,
     );
     await pause(200);
+    assert.equal(
+      await js(
+        `[...document.querySelectorAll('main section')].some(s=>s.querySelector('article')&&getComputedStyle(s).display!=='none')`,
+      ),
+      true,
+      'narrow reading should swap the list for the reader',
+    );
+    assert.equal(
+      await js(
+        `[...document.querySelectorAll('main section')].every(s=>!s.querySelector("input[aria-label='搜索邮件']")||getComputedStyle(s).display==='none')`,
+      ),
+      true,
+      'narrow reading should hide the message list',
+    );
     writeFileSync(
       join(root, '.tools/mail-narrow.png'),
       (await win.webContents.capturePage()).toPNG(),

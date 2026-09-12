@@ -406,7 +406,7 @@ function DesktopMailView({
               syncLabel={syncLabel}
               onSync={() => dela.mail.syncNow()}
               onSelect={(id) => {
-                setMobileReading(!narrow);
+                setMobileReading(narrow);
                 void openMessage(id);
               }}
             />
