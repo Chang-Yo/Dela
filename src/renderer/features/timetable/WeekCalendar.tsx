@@ -2,11 +2,13 @@ import { MapPin } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
 import {
   addDays,
+  colorFor,
   dateKey,
   dayMilliseconds,
+  eventColorStyle,
   eventStyle,
+  eventTone,
   formatTime,
-  localEventTone,
   localEventsByDay,
   minuteOfDay,
   periodBoundary,
@@ -14,7 +16,6 @@ import {
   startOfDay,
   timelineEnd,
   timelineStart,
-  toneFor,
   weekDays,
 } from './timetable-format';
 import { cn } from '../../lib/utils';
@@ -156,14 +157,14 @@ function LessonBlock({ lesson }: { lesson: TimetableLesson }) {
   const end = periodBoundary(lesson.endPeriod, 'end');
   return (
     <article
-      className={cn(
-        'absolute inset-x-1 z-10 overflow-hidden rounded-lg px-2 py-1.5',
-        toneFor(lesson.courseCode || lesson.courseName),
-      )}
-      style={eventStyle(start, end)}
+      className="absolute inset-x-1 z-10 overflow-hidden rounded-lg px-2 py-1.5"
+      style={{
+        ...eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
+        ...eventStyle(start, end),
+      }}
       title={`${lesson.courseName}\n${lesson.teacher ?? ''}\n${lesson.classroom ?? ''}\n${lesson.weeksText}`}
     >
-      <strong className="block truncate text-xs font-semibold leading-tight">
+      <strong className="block break-words text-xs font-semibold leading-tight">
         {lesson.courseName}
       </strong>
       <span className="mt-1 block truncate text-[11px] opacity-75">
@@ -179,16 +180,18 @@ function LocalEventBlock({ event }: { event: CalendarEvent }) {
   const end = new Date(event.endAt);
   return (
     <article
-      className={cn(
-        'absolute inset-x-1 z-10 overflow-hidden rounded-lg px-2 py-1.5',
-        localEventTone,
-      )}
-      style={eventStyle(
-        Math.max(timelineStart, minuteOfDay(start)),
-        Math.min(timelineEnd, minuteOfDay(end)),
-      )}
+      className="absolute inset-x-1 z-10 overflow-hidden rounded-lg px-2 py-1.5"
+      style={{
+        ...eventTone(event.color),
+        ...eventStyle(
+          Math.max(timelineStart, minuteOfDay(start)),
+          Math.min(timelineEnd, minuteOfDay(end)),
+        ),
+      }}
     >
-      <strong className="block truncate text-xs font-semibold leading-tight">{event.title}</strong>
+      <strong className="block break-words text-xs font-semibold leading-tight">
+        {event.title}
+      </strong>
       <span className="mt-1 block truncate text-[11px] opacity-70">
         {formatTime(start)}–{formatTime(end)}
       </span>
@@ -203,10 +206,8 @@ function MobileLesson({ lesson }: { lesson: TimetableLesson }) {
   const start = periodBoundary(lesson.startPeriod, 'start');
   return (
     <article
-      className={cn(
-        'grid grid-cols-[54px_1fr] overflow-hidden rounded-lg p-3',
-        toneFor(lesson.courseCode || lesson.courseName),
-      )}
+      className="grid grid-cols-[54px_1fr] overflow-hidden rounded-lg p-3"
+      style={eventColorStyle(colorFor(lesson.courseCode || lesson.courseName))}
     >
       <div className="border-r pr-3 text-xs tabular-nums opacity-75">
         <strong className="block font-semibold text-inherit">
@@ -215,7 +216,7 @@ function MobileLesson({ lesson }: { lesson: TimetableLesson }) {
         {lesson.startPeriod}–{lesson.endPeriod}节
       </div>
       <div className="min-w-0 pl-3">
-        <strong className="block truncate">{lesson.courseName}</strong>
+        <strong className="block break-words">{lesson.courseName}</strong>
         <p className="mt-1 flex flex-wrap gap-x-3 text-xs opacity-75">
           <span className="inline-flex items-center gap-1">
             <MapPin className="size-3" />
@@ -231,10 +232,10 @@ function MobileLesson({ lesson }: { lesson: TimetableLesson }) {
 function MobileEvent({ event }: { event: CalendarEvent }) {
   const start = new Date(event.startAt);
   return (
-    <article className={cn('grid grid-cols-[54px_1fr] rounded-lg p-3', localEventTone)}>
+    <article className="grid grid-cols-[54px_1fr] rounded-lg p-3" style={eventTone(event.color)}>
       <div className="border-r pr-3 text-xs font-medium tabular-nums">{formatTime(start)}</div>
       <div className="min-w-0 pl-3">
-        <strong className="block truncate">{event.title}</strong>
+        <strong className="block break-words">{event.title}</strong>
         {event.location ? (
           <span className="mt-1 block truncate text-xs opacity-70">{event.location}</span>
         ) : null}

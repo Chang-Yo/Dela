@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
+import type { CalendarEventColor } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { dateKey, timeInput } from './timetable-format';
+import { cn } from '../../lib/utils';
+import { dateKey, eventPalette, timeInput } from './timetable-format';
 
 export function NewEventDialog({
   draft,
@@ -19,6 +21,8 @@ export function NewEventDialog({
   const [endDate, setEndDate] = useState(() => dateKey(draft.end));
   const [endTime, setEndTime] = useState(() => timeInput(draft.end));
   const [location, setLocation] = useState('');
+  // 默认石墨中性色，与自动配色的课程区分；选了候选色则随事件保存。
+  const [color, setColor] = useState<CalendarEventColor>('slate');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +41,7 @@ export function NewEventDialog({
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
         location: location.trim(),
+        color,
       });
       onCreated();
     } catch (reason) {
@@ -133,6 +138,26 @@ export function NewEventDialog({
                 placeholder="会议室、教室或线上"
                 value={location}
               />
+            </div>
+            <div className="flex h-11 items-center gap-2 px-3 transition-colors">
+              <span className="w-8 shrink-0 text-xs text-muted-foreground">颜色</span>
+              <div className="flex flex-1 items-center gap-1.5">
+                {eventPalette.map(({ key, label }) => (
+                  <button
+                    aria-label={label}
+                    aria-pressed={color === key}
+                    className={cn(
+                      'size-5 rounded-full outline-offset-2 transition-transform hover:scale-110',
+                      color === key && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
+                    )}
+                    key={key}
+                    onClick={() => setColor(key)}
+                    style={{ backgroundColor: `var(--cal-${key}-bg)` }}
+                    title={label}
+                    type="button"
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>

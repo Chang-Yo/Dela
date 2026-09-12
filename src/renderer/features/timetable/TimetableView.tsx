@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   CalendarDays,
+  CalendarRange,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -13,12 +14,15 @@ import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import { MonthCalendar } from './MonthCalendar';
 import { NewEventDialog } from './NewEventDialog';
+import { SemesterStartDialog } from './SemesterStartDialog';
 import { WeekCalendar } from './WeekCalendar';
 import {
   activeInWeek,
   addDays,
+  formatMonthDay,
   formatSyncTime,
   mondayOf,
+  parseDate,
   semesterLabel,
   semesterOptions,
   startOfDay,
@@ -53,6 +57,7 @@ function DesktopTimetableView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventDraft, setEventDraft] = useState<{ start: Date; end: Date } | null>(null);
+  const [semesterDraft, setSemesterDraft] = useState(false);
 
   const loadSemester = useCallback(
     async (requested?: string) => {
@@ -135,11 +140,13 @@ function DesktopTimetableView() {
     }
   };
 
-  const openNewEvent = (date = new Date()) => {
-    const start = new Date(date);
-    if (start.getHours() < 8 || start.getHours() > 19) start.setHours(9, 0, 0, 0);
-    else start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
-    setEventDraft({ start, end: new Date(start.getTime() + 60 * 60 * 1000) });
+  const openNewEvent = (start: Date = startOfDay(new Date()), end: Date = start) => {
+    // 月历拖拽给出的是整天，统一落在 9:00–10:00，弹窗内可再改。
+    const startAt = new Date(start);
+    const endAt = new Date(end);
+    startAt.setHours(9, 0, 0, 0);
+    endAt.setHours(10, 0, 0, 0);
+    setEventDraft({ start: startAt, end: endAt });
   };
 
   if (!state || !semester) {
@@ -219,7 +226,7 @@ function DesktopTimetableView() {
               <ChevronLeft />
             </Button>
             <Button className="rounded-none border-x" onClick={goToday} size="sm" variant="ghost">
-              今天
+              {mode === 'week' ? '本周' : '本月'}
             </Button>
             <Button
               aria-label="下一段时间"
@@ -232,6 +239,21 @@ function DesktopTimetableView() {
             </Button>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <Button
+              aria-label={state.connected ? '同步课表' : '重新登录'}
+              disabled={busy}
+              onClick={() => void (state.connected ? sync() : connectAndSync())}
+              size={state.connected ? 'icon-sm' : 'sm'}
+              title={state.connected ? formatSyncTime(state.lastSyncedAt) : undefined}
+              variant="ghost"
+            >
+              {state.connected ? (
+                <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
+              ) : (
+                <LogIn className="size-3.5" />
+              )}
+              {state.connected ? null : '重新登录'}
+            </Button>
             <div className="flex items-center rounded-md bg-secondary p-0.5">
               {(['week', 'month'] as const).map((value) => (
                 <button
@@ -248,7 +270,7 @@ function DesktopTimetableView() {
                 </button>
               ))}
             </div>
-            <Button onClick={() => openNewEvent(semesterWeekStart ?? new Date())} size="sm">
+            <Button onClick={() => openNewEvent()} size="sm">
               <Plus />
               新建事件
             </Button>
@@ -285,18 +307,14 @@ function DesktopTimetableView() {
             </HeaderSelect>
           ) : null}
           <button
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-            disabled={busy}
-            onClick={() => void (state.connected ? sync() : connectAndSync())}
-            title={state.connected ? '同步课表' : '重新登录'}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-secondary/70 px-2.5 text-xs font-medium text-secondary-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            onClick={() => setSemesterDraft(true)}
             type="button"
           >
-            {state.connected ? (
-              <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
-            ) : (
-              <LogIn className="size-3.5" />
-            )}
-            {state.connected ? formatSyncTime(state.lastSyncedAt) : '重新登录'}
+            <CalendarRange className="size-3.5 text-muted-foreground" />
+            {state.semesterStart
+              ? `开学 ${formatMonthDay(parseDate(state.semesterStart))}`
+              : '设置开学日期'}
           </button>
         </div>
       </header>
@@ -322,6 +340,7 @@ function DesktopTimetableView() {
           lessons={lessons}
           month={month}
           onCreate={openNewEvent}
+          onEditSemesterStart={() => setSemesterDraft(true)}
           semesterStart={state.semesterStart}
         />
       )}
@@ -334,6 +353,21 @@ function DesktopTimetableView() {
             setEventDraft(null);
             void loadEvents();
           }}
+        />
+      ) : null}
+
+      {semesterDraft ? (
+        <SemesterStartDialog
+          onClose={() => setSemesterDraft(false)}
+          onSaved={() => {
+            setSemesterDraft(false);
+            setError(null);
+            void loadSemester(semester).catch((reason: unknown) =>
+              setError(reason instanceof Error ? reason.message : String(reason)),
+            );
+          }}
+          semester={semester}
+          semesterStart={state.semesterStart}
         />
       ) : null}
     </div>

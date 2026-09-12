@@ -1,14 +1,16 @@
+import { useEffect, useState } from 'react';
 import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
 import {
   activeInWeek,
   addDays,
+  colorFor,
   dateKey,
   dayMilliseconds,
+  eventColorStyle,
+  eventTone,
   formatTime,
-  localEventTone,
   localEventsByDay,
   mondayOf,
-  toneFor,
   weekDays,
   weekForDate,
 } from './timetable-format';
@@ -20,12 +22,14 @@ export function MonthCalendar({
   month,
   semesterStart,
   onCreate,
+  onEditSemesterStart,
 }: {
   events: readonly CalendarEvent[];
   lessons: readonly TimetableLesson[];
   month: Date;
   semesterStart: string | null;
-  onCreate: (date: Date) => void;
+  onCreate: (start: Date, end?: Date) => void;
+  onEditSemesterStart: () => void;
 }) {
   const first = mondayOf(new Date(month.getFullYear(), month.getMonth(), 1));
   const nextMonthWeek = mondayOf(new Date(month.getFullYear(), month.getMonth() + 1, 1));
@@ -34,22 +38,51 @@ export function MonthCalendar({
   );
   const days = Array.from({ length: dayCount }, (_, index) => addDays(first, index));
   const groupedEvents = localEventsByDay(events);
+  // 拖拽跨天选择时间段的任务，参考 DayPilot 月视图：按住起点划过目标日期，松开后弹窗命名。
+  const [drag, setDrag] = useState<{ start: Date; end: Date } | null>(null);
+  const dragRange = drag
+    ? [
+        drag.start.getTime() <= drag.end.getTime() ? drag.start : drag.end,
+        drag.start.getTime() <= drag.end.getTime() ? drag.end : drag.start,
+      ]
+    : null;
+
+  useEffect(() => {
+    if (!drag) return;
+    const finish = () => {
+      const [start, end] =
+        drag.start.getTime() <= drag.end.getTime()
+          ? [drag.start, drag.end]
+          : [drag.end, drag.start];
+      setDrag(null);
+      onCreate(start, end);
+    };
+    window.addEventListener('mouseup', finish);
+    return () => window.removeEventListener('mouseup', finish);
+  }, [drag, onCreate]);
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       {!semesterStart ? (
-        <p className="border-b bg-muted/40 px-5 py-2 text-[11px] text-muted-foreground">
-          旧缓存没有学期日期，月视图暂只显示手动添加的事件；下次成功同步后会补齐课程。
-        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-5 py-2 text-xs text-muted-foreground max-md:px-3">
+          <span>还没有开学日期，课程暂不显示在月历上。</span>
+          <button
+            className="font-medium text-primary underline-offset-2 hover:underline"
+            onClick={onEditSemesterStart}
+            type="button"
+          >
+            设置开学日期
+          </button>
+        </div>
       ) : null}
-      <div className="hidden grid-cols-7 border-b text-center text-[11px] font-medium text-muted-foreground md:grid">
+      <div className="hidden border-b md:grid md:grid-cols-7">
         {weekDays.map((day) => (
-          <div className="py-2" key={day}>
+          <div className="py-2 pl-2 text-xs font-semibold text-foreground" key={day}>
             {day}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 max-md:grid-cols-1">
+      <div className="grid select-none grid-cols-7 max-md:grid-cols-1">
         {days.map((date) => {
           const currentMonth = date.getMonth() === month.getMonth();
           const today = dateKey(date) === dateKey(new Date());
@@ -65,28 +98,48 @@ export function MonthCalendar({
             ...dayEvents.map((event) => ({
               id: `event-${event.id}`,
               title: event.title,
-              time: formatTime(new Date(event.startAt)),
-              tone: localEventTone,
+              time:
+                dateKey(new Date(event.startAt)) === dateKey(date)
+                  ? formatTime(new Date(event.startAt))
+                  : null,
+              tone: eventTone(event.color),
             })),
             ...dayLessons.map((lesson) => ({
               id: `lesson-${lesson.id}`,
               title: lesson.courseName,
               time: lesson.periodsText,
-              tone: toneFor(lesson.courseCode || lesson.courseName),
+              tone: eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
             })),
           ];
+          // 拖拽可以跨到补位的相邻日期创建，但只有当月日期参与高亮。
+          const selected =
+            !!dragRange && currentMonth && date >= dragRange[0]! && date <= dragRange[1]!;
           return (
             <button
+              aria-current={today ? 'date' : undefined}
+              aria-label={`${date.getMonth() + 1}月${date.getDate()}日`}
               className={cn(
-                'min-h-28 border-b p-2 text-left align-top transition-colors hover:bg-accent/45 max-md:grid max-md:min-h-16 max-md:grid-cols-[44px_1fr] max-md:gap-2',
+                // button 默认垂直居中内容，改为 flex 顶对齐，日号稳定在左上角。
+                'flex min-h-28 flex-col border-b p-2 text-left transition-colors hover:bg-accent/45 max-md:grid max-md:min-h-16 max-md:grid-cols-[44px_1fr] max-md:gap-2',
+                selected && 'bg-primary/10',
                 !currentMonth && 'bg-muted/25 text-muted-foreground max-md:hidden',
               )}
               key={dateKey(date)}
-              onClick={() => onCreate(date)}
+              onClick={(event) => {
+                if (event.detail === 0) onCreate(date);
+              }}
+              onMouseDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                setDrag({ start: date, end: date });
+              }}
+              onMouseEnter={() => {
+                if (drag) setDrag((current) => current && { ...current, end: date });
+              }}
             >
               <span
                 className={cn(
-                  'mb-1 grid size-6 place-items-center rounded-full text-xs font-medium max-md:mb-0',
+                  'mb-1 grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium max-md:mb-0',
                   today && 'bg-primary text-primary-foreground',
                 )}
               >
@@ -95,13 +148,13 @@ export function MonthCalendar({
               <span className="grid min-w-0 gap-0.5">
                 {items.slice(0, 3).map((item) => (
                   <span
-                    className={cn(
-                      'flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-[11px]',
-                      item.tone,
-                    )}
+                    className="flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-[11px]"
                     key={item.id}
+                    style={item.tone}
                   >
-                    <span className="shrink-0 tabular-nums opacity-70">{item.time}</span>
+                    {item.time ? (
+                      <span className="shrink-0 tabular-nums opacity-70">{item.time}</span>
+                    ) : null}
                     <span className="truncate font-medium">{item.title}</span>
                   </span>
                 ))}

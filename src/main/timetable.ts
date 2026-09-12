@@ -1,10 +1,11 @@
 import { BrowserWindow, ipcMain, session, type WebContents } from 'electron';
 import { z } from 'zod';
-import type {
-  CalendarEvent,
-  TimetableLesson,
-  TimetableResult,
-  TimetableState,
+import {
+  calendarEventColors,
+  type CalendarEvent,
+  type TimetableLesson,
+  type TimetableResult,
+  type TimetableState,
 } from '../shared/api';
 import { getDatabase } from './database';
 
@@ -46,6 +47,7 @@ const calendarEventSchema = z
     startAt: dateTimeSchema,
     endAt: dateTimeSchema,
     location: z.string().trim().max(120).optional(),
+    color: z.enum(calendarEventColors).optional(),
   })
   .refine(
     (event) => new Date(event.endAt).getTime() > new Date(event.startAt).getTime(),
@@ -77,15 +79,22 @@ type CalendarEventRow = {
   start_at: string;
   end_at: string;
   location: string | null;
+  color: string | null;
 };
 
 function mapEvent(row: CalendarEventRow): CalendarEvent {
+  const stored = row.color;
   return {
     id: row.id,
     title: row.title,
     startAt: row.start_at,
     endAt: row.end_at,
     location: row.location,
+    // 旧缓存或异常值回退为无色，渲染时按中性色处理。
+    color:
+      stored && (calendarEventColors as readonly string[]).includes(stored)
+        ? (stored as CalendarEvent['color'])
+        : null,
   };
 }
 
@@ -343,7 +352,7 @@ export function registerTimetableIpc(): void {
       return {
         connected: await isConnected(),
         semester,
-        lastSyncedAt: row?.last_synced_at ?? null,
+        lastSyncedAt: row?.last_synced_at || null,
         semesterStart: row?.semester_start ?? null,
       };
     },
@@ -363,7 +372,7 @@ export function registerTimetableIpc(): void {
     return (
       getDatabase()
         .prepare(
-          `SELECT id, title, start_at, end_at, location FROM calendar_events
+          `SELECT id, title, start_at, end_at, location, color FROM calendar_events
            WHERE end_at > ? AND start_at < ? ORDER BY start_at`,
         )
         .all(startAt, endAt) as CalendarEventRow[]
@@ -373,14 +382,15 @@ export function registerTimetableIpc(): void {
     const event = calendarEventSchema.parse(input);
     const result = getDatabase()
       .prepare(
-        `INSERT INTO calendar_events (title, start_at, end_at, location, created_at)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
       )
       .run(
         event.title,
         event.startAt,
         event.endAt,
         event.location || null,
+        event.color || null,
         new Date().toISOString(),
       );
     return mapEvent({
@@ -389,7 +399,24 @@ export function registerTimetableIpc(): void {
       start_at: event.startAt,
       end_at: event.endAt,
       location: event.location || null,
+      color: event.color || null,
     });
+  });
+  ipcMain.handle('timetable:set-semester-start', (_event, requested?: unknown, value?: unknown) => {
+    const semester = semesterSchema.parse(requested);
+    // 手动补设学期日期时可能还没有同步记录，先落到空串以满足 NOT NULL。
+    getDatabase()
+      .prepare(
+        `INSERT INTO timetable_sync (semester, last_synced_at, semester_start) VALUES (?, '', ?)
+         ON CONFLICT(semester) DO UPDATE SET semester_start = excluded.semester_start`,
+      )
+      .run(
+        semester,
+        z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .parse(value),
+      );
   });
   ipcMain.handle('timetable:sync', (_event, requested?: unknown) => {
     const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);

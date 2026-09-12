@@ -1,5 +1,10 @@
 import type { CSSProperties } from 'react';
-import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
+import {
+  calendarEventColors,
+  type CalendarEvent,
+  type CalendarEventColor,
+  type TimetableLesson,
+} from '../../../shared/api';
 
 export const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 export const dayMilliseconds = 86_400_000;
@@ -24,22 +29,39 @@ const classPeriods = [
   [19 * 60 + 50, 20 * 60 + 20],
 ] as const;
 
-// 课程块配色与首页项目卡片的粉彩一致：实色浅底深字，暗色模式反转。
-const lessonTones = [
-  'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
-  'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-  'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200',
-  'bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200',
-  'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200',
+// 候选配色与 globals.css 的 --cal-* token 对应：低饱和灰调，明暗主题各自成对。
+export const eventPalette: readonly { key: CalendarEventColor; label: string }[] = [
+  { key: 'rose', label: '玫红' },
+  { key: 'peach', label: '杏橙' },
+  { key: 'sand', label: '沙黄' },
+  { key: 'sage', label: '草绿' },
+  { key: 'teal', label: '湖青' },
+  { key: 'blue', label: '雾蓝' },
+  { key: 'lilac', label: '藕紫' },
+  { key: 'slate', label: '石墨' },
 ];
 
-// 手动事件不占用课程色，用中性色与课程区分。
-export const localEventTone = 'bg-secondary text-secondary-foreground';
+export function eventColorStyle(key: CalendarEventColor): CSSProperties {
+  return {
+    backgroundColor: `var(--cal-${key}-bg)`,
+    color: `var(--cal-${key}-text)`,
+  };
+}
 
-export function toneFor(value: string): string {
+// 课程块按课程号或课程名稳定分配候选色。
+export function colorFor(value: string): CalendarEventColor {
   let hash = 0;
   for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) | 0;
-  return lessonTones[Math.abs(hash) % lessonTones.length]!;
+  return calendarEventColors[Math.abs(hash) % calendarEventColors.length]!;
+}
+
+// 手动事件未选色时用石墨中性色，与自动配色的课程区分。
+export function eventTone(color: string | null | undefined): CSSProperties {
+  const key =
+    color && calendarEventColors.includes(color as CalendarEventColor)
+      ? (color as CalendarEventColor)
+      : 'slate';
+  return eventColorStyle(key);
 }
 
 export function parseDate(value: string): Date {
@@ -151,10 +173,20 @@ export function activeInWeek(lesson: TimetableLesson, week: number): boolean {
 export function localEventsByDay(events: readonly CalendarEvent[]): Map<string, CalendarEvent[]> {
   const grouped = new Map<string, CalendarEvent[]>();
   for (const event of events) {
-    const key = dateKey(new Date(event.startAt));
-    const current = grouped.get(key);
-    if (current) current.push(event);
-    else grouped.set(key, [event]);
+    const start = startOfDay(new Date(event.startAt));
+    const end = new Date(event.endAt);
+    // 结束时刻恰为午夜时归属前一天，避免跨天任务多占一天。
+    const last = startOfDay(new Date(end.getTime() - (end.getHours() || end.getMinutes() ? 0 : 1)));
+    for (let day = start; day.getTime() <= last.getTime(); day = addDays(day, 1)) {
+      const key = dateKey(day);
+      const current = grouped.get(key);
+      if (current) current.push(event);
+      else grouped.set(key, [event]);
+    }
   }
   return grouped;
+}
+
+export function formatMonthDay(date: Date): string {
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
