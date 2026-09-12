@@ -1,12 +1,5 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   MailFolderInfo,
   MailMessageDetail,
@@ -17,12 +10,20 @@ import { ConfigureForm } from './MailConfigureForm';
 import { MailFolders } from './MailFolders';
 import { MailMessageList } from './MailMessageList';
 import { MailReader } from './MailReader';
+import { MailComposer } from './MailComposer';
 import { formatMailDate, senderLabel } from './mail-format';
+import { Resizer } from '../../components/ui/resizer';
 import { cn } from '../../lib/utils';
 
 const MESSAGE_LIMIT = 200;
+const ignoreComposeDirty = () => {};
 
-type MailViewProps = Record<string, never>;
+type MailViewProps = {
+  onComposeDirtyChange?: (dirty: boolean) => void;
+  /** 窄屏邮箱级抽屉是否展开,受控于 App 的 mobileDrawer。 */
+  mobileDrawerOpen?: boolean;
+  onMobileDrawerClose?: () => void;
+};
 
 function MailUnavailable() {
   return (
@@ -38,12 +39,26 @@ function MailUnavailable() {
   );
 }
 
-export function MailView(_: MailViewProps = {}) {
+export function MailView({
+  onComposeDirtyChange,
+  mobileDrawerOpen = false,
+  onMobileDrawerClose,
+}: MailViewProps = {}) {
   if (!window.dela) return <MailUnavailable />;
-  return <DesktopMailView />;
+  return (
+    <DesktopMailView
+      mobileDrawerOpen={mobileDrawerOpen}
+      onMobileDrawerClose={onMobileDrawerClose}
+      onComposeDirtyChange={onComposeDirtyChange}
+    />
+  );
 }
 
-function DesktopMailView() {
+function DesktopMailView({
+  onComposeDirtyChange = ignoreComposeDirty,
+  mobileDrawerOpen = false,
+  onMobileDrawerClose,
+}: MailViewProps) {
   const dela = window.dela!;
   const [state, setState] = useState<MailState | null>(null);
   const [folders, setFolders] = useState<MailFolderInfo[]>([]);
@@ -67,13 +82,32 @@ function DesktopMailView() {
     }
   });
   const [listWidth, setListWidth] = useState(320);
+  const [listResizing, setListResizing] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [composeDirty, setComposeDirty] = useState(false);
+  const [sendNotice, setSendNotice] = useState<string | null>(null);
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
 
   const selectedFolderIdRef = useRef<number | null>(null);
   const autoSyncedRef = useRef(false);
-  const desktopMediaRef = useRef<MediaQueryList | null>(null);
-  const listResizeStart = useRef<{ x: number; width: number } | null>(null);
   const detailRequest = useRef(0);
   const listRequest = useRef(0);
+
+  const updateComposeDirty = useCallback(
+    (dirty: boolean) => {
+      setComposeDirty(dirty);
+      onComposeDirtyChange(dirty);
+    },
+    [onComposeDirtyChange],
+  );
+
+  const closeComposer = useCallback(() => {
+    if (composeDirty && !window.confirm('这封邮件不会保存。确定抛弃吗？')) return false;
+    updateComposeDirty(false);
+    setComposing(false);
+    return true;
+  }, [composeDirty, updateComposeDirty]);
 
   useEffect(() => {
     try {
@@ -83,11 +117,18 @@ function DesktopMailView() {
     }
   }, [foldersCollapsed]);
 
-  const resizeList = (event: PointerEvent<HTMLDivElement>) => {
-    const start = listResizeStart.current;
-    if (!start) return;
-    setListWidth(Math.min(480, Math.max(320, start.width + event.clientX - start.x)));
-  };
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setNarrow(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  // 抽屉挂载点由 AppShell 的 aside 常驻渲染,挂载后定位一次即可。
+  useEffect(() => {
+    setDrawerSlot(document.getElementById('mail-drawer-slot'));
+  }, []);
 
   const refreshFolders = useCallback(async () => {
     setFolders([...(await dela.mail.listFolders())]);
@@ -105,6 +146,27 @@ function DesktopMailView() {
     }
   }, []);
 
+  const selectFolder = useCallback(
+    (id: number) => {
+      if (composing && !closeComposer()) return;
+      detailRequest.current += 1;
+      setDetailLoading(false);
+      setDetailError(null);
+      setSelectedFolderId(id);
+      setMessages([]);
+      setSelectedMessageId(null);
+      setDetail(null);
+      setMobileReading(false);
+      void loadMessages(id);
+    },
+    [closeComposer, composing, loadMessages],
+  );
+
+  const handleCompose = useCallback(() => {
+    setSendNotice(null);
+    setComposing((current) => (current && composeDirty ? true : !current));
+  }, [composeDirty]);
+
   const openMessage = useCallback(async (messageId: number) => {
     const request = ++detailRequest.current;
     setSelectedMessageId(messageId);
@@ -116,13 +178,29 @@ function DesktopMailView() {
       if (request !== detailRequest.current) return;
       setDetail(loaded);
       if (!loaded.seen) {
+        const folderId = selectedFolderIdRef.current;
         const result = await dela.mail.markSeen(messageId);
-        if (request !== detailRequest.current) return;
         if (result.ok) {
-          setMessages((prev) =>
-            prev.map((item) => (item.id === messageId ? { ...item, seen: true } : item)),
-          );
-        } else {
+          if (selectedFolderIdRef.current === folderId) {
+            setMessages((prev) =>
+              prev.map((item) => (item.id === messageId ? { ...item, seen: true } : item)),
+            );
+          }
+          if (folderId !== null) {
+            setFolders((prev) =>
+              prev.map((folder) =>
+                folder.id === folderId && folder.unread !== null
+                  ? { ...folder, unread: Math.max(0, folder.unread - 1) }
+                  : folder,
+              ),
+            );
+          }
+          if (request === detailRequest.current) {
+            setDetail((current) =>
+              current?.id === messageId ? { ...current, seen: true } : current,
+            );
+          }
+        } else if (request === detailRequest.current) {
           setDetailError(result.error);
         }
       }
@@ -142,7 +220,6 @@ function DesktopMailView() {
 
   useEffect(() => {
     let active = true;
-    desktopMediaRef.current = window.matchMedia('(min-width: 768px)');
     void dela.mail.getState().then(async (initial) => {
       if (!active) return;
       setState(initial);
@@ -212,6 +289,17 @@ function DesktopMailView() {
     setState(await dela.mail.getState());
   }, [confirmingDisconnect]);
 
+  useEffect(() => {
+    if (!confirmingDisconnect) return;
+    const cancelDisconnect = (event: MouseEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest('[data-mail-disconnect]')) {
+        setConfirmingDisconnect(false);
+      }
+    };
+    document.addEventListener('click', cancelDisconnect, true);
+    return () => document.removeEventListener('click', cancelDisconnect, true);
+  }, [confirmingDisconnect]);
+
   const account = state?.account ?? null;
   const sync = state?.sync ?? null;
 
@@ -251,7 +339,7 @@ function DesktopMailView() {
   const syncBusy = sync?.phase === 'syncing' || sync?.phase === 'connecting';
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       {sync?.phase === 'error' && sync.error && (
         <p
           className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
@@ -261,7 +349,10 @@ function DesktopMailView() {
         </p>
       )}
       <div
-        className="grid min-h-0 flex-1 grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_6px_minmax(0,1fr)] transition-[grid-template-columns] duration-150 ease-out"
+        className={cn(
+          'grid min-h-0 flex-1 grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_1px_minmax(0,1fr)] transition-[grid-template-columns] duration-150 ease-out max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]',
+          listResizing && 'transition-none',
+        )}
         style={
           {
             '--folder-width': foldersCollapsed ? '48px' : '220px',
@@ -269,87 +360,115 @@ function DesktopMailView() {
           } as CSSProperties
         }
       >
-        <MailFolders
-          confirmingDisconnect={confirmingDisconnect}
-          folders={folders}
-          foldersCollapsed={foldersCollapsed}
-          handleDisconnect={handleDisconnect}
-          account={account}
-          selectedFolder={selectedFolder}
-          sync={sync}
-          selectedFolderId={selectedFolderId}
-          setFoldersCollapsed={setFoldersCollapsed}
-          onSelect={(id) => {
-            detailRequest.current += 1;
-            setDetailLoading(false);
-            setDetailError(null);
-            setSelectedFolderId(id);
-            setMessages([]);
-            setSelectedMessageId(null);
-            setDetail(null);
-            setMobileReading(false);
-            void loadMessages(id);
-          }}
-        />
+        {!narrow && (
+          <MailFolders
+            confirmingDisconnect={confirmingDisconnect}
+            folders={folders}
+            foldersCollapsed={foldersCollapsed}
+            handleDisconnect={handleDisconnect}
+            composing={composing}
+            onCompose={handleCompose}
+            account={account}
+            sync={sync}
+            selectedFolderId={selectedFolderId}
+            setFoldersCollapsed={setFoldersCollapsed}
+            onSelect={selectFolder}
+          />
+        )}
 
-        <MailMessageList
-          className={cn(mobileReading && 'max-md:hidden')}
-          selectedFolder={selectedFolder}
-          filteredMessages={filteredMessages}
-          selectedMessageId={selectedMessageId}
-          listLoading={listLoading}
-          search={search}
-          setSearch={setSearch}
-          syncBusy={syncBusy}
-          syncLabel={syncLabel}
-          onSync={() => void dela.mail.syncNow().catch(() => {})}
-          onSelect={(id) => {
-            setMobileReading(!desktopMediaRef.current?.matches);
-            void openMessage(id);
-          }}
-        />
-        <div
-          aria-label="调整邮件列表宽度"
-          aria-orientation="vertical"
-          aria-valuemax={480}
-          aria-valuemin={320}
-          aria-valuenow={listWidth}
-          className="group relative cursor-ew-resize touch-none focus-visible:outline-none max-md:hidden"
-          onKeyDown={(event) => {
-            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-            event.preventDefault();
-            setListWidth((width) =>
-              Math.min(480, Math.max(320, width + (event.key === 'ArrowRight' ? 20 : -20))),
-            );
-          }}
-          onPointerCancel={() => {
-            listResizeStart.current = null;
-          }}
-          onPointerDown={(event) => {
-            listResizeStart.current = { x: event.clientX, width: listWidth };
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
-          onPointerMove={resizeList}
-          onPointerUp={(event) => {
-            listResizeStart.current = null;
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }}
-          role="separator"
-          tabIndex={0}
-        >
-          <span className="absolute inset-y-0 left-0 w-px bg-transparent transition-colors group-hover:bg-foreground/30 group-focus-visible:bg-foreground/40" />
-        </div>
+        {composing ? (
+          <MailComposer
+            accountAddress={account?.address ?? ''}
+            onClose={() => void closeComposer()}
+            onDirtyChange={updateComposeDirty}
+            onSent={(warning) => {
+              updateComposeDirty(false);
+              setComposing(false);
+              setSendNotice(warning ?? '邮件已发送');
+              void dela.mail.syncNow().catch(() => {});
+              window.setTimeout(() => setSendNotice(null), 3000);
+            }}
+          />
+        ) : (
+          <>
+            <MailMessageList
+              className={cn(
+                'max-md:col-span-full max-md:row-start-2',
+                mobileReading && 'max-md:hidden',
+              )}
+              selectedFolder={selectedFolder}
+              filteredMessages={filteredMessages}
+              selectedMessageId={selectedMessageId}
+              listLoading={listLoading}
+              search={search}
+              setSearch={setSearch}
+              syncBusy={syncBusy}
+              syncLabel={syncLabel}
+              onSync={() => dela.mail.syncNow()}
+              onSelect={(id) => {
+                setMobileReading(!narrow);
+                void openMessage(id);
+              }}
+            />
+            <Resizer
+              className="max-md:hidden"
+              label="调整邮件列表宽度"
+              max={480}
+              min={320}
+              onChange={setListWidth}
+              onResizingChange={setListResizing}
+              value={listWidth}
+            />
 
-        <MailReader
-          className={cn(!mobileReading && 'max-md:hidden')}
-          detail={detail}
-          detailLoading={detailLoading}
-          detailError={detailError}
-          selectedMessageId={selectedMessageId}
-          openMessage={openMessage}
-          setMobileReading={setMobileReading}
-        />
+            <MailReader
+              className={cn(
+                'max-md:col-span-full max-md:row-start-2',
+                !mobileReading && 'max-md:hidden',
+              )}
+              detail={detail}
+              detailLoading={detailLoading}
+              detailError={detailError}
+              selectedMessageId={selectedMessageId}
+              openMessage={openMessage}
+              downloadAttachment={(messageId, part) =>
+                dela.mail.downloadAttachment(messageId, part)
+              }
+              setMobileReading={setMobileReading}
+            />
+          </>
+        )}
       </div>
+      {mobileDrawerOpen &&
+        drawerSlot &&
+        createPortal(
+          <MailFolders
+            className="min-h-0 flex-1 border-r-0"
+            confirmingDisconnect={confirmingDisconnect}
+            folders={folders}
+            foldersCollapsed={false}
+            handleDisconnect={handleDisconnect}
+            composing={composing}
+            onCompose={() => {
+              onMobileDrawerClose?.();
+              handleCompose();
+            }}
+            hideHeader
+            account={account}
+            sync={sync}
+            selectedFolderId={selectedFolderId}
+            setFoldersCollapsed={setFoldersCollapsed}
+            onSelect={(id) => {
+              onMobileDrawerClose?.();
+              selectFolder(id);
+            }}
+          />,
+          drawerSlot,
+        )}
+      {sendNotice && (
+        <p className="pointer-events-none absolute right-5 bottom-5 rounded-md bg-foreground px-3 py-2 text-xs text-background shadow-lg">
+          {sendNotice}
+        </p>
+      )}
     </div>
   );
 }

@@ -13,6 +13,10 @@
     "pnpm": "12.3.4"
   },
   "scripts": {
+    "version:bump": "npm version --no-git-tag-version",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
     "dev": "node scripts/dev.mjs",
     "typecheck": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json",
     "build": "pnpm typecheck && vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && vite build --config vite.renderer.config.ts",
@@ -36,6 +40,7 @@
     "highlight.js": "11.12.0",
     "imapflow": "2.0.0",
     "lucide-react": "1.44.0",
+    "nodemailer": "10.0.1",
     "radix-ui": "1.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",

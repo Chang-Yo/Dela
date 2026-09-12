@@ -1,4 +1,5 @@
 import { Paperclip } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import type { MailMessageDetail, MailAttachmentInfo } from '../../../shared/api';
 import { formatMailAddress, formatFullDate, formatSize } from './mail-format';
@@ -12,6 +13,7 @@ type Props = {
   detailError: string | null;
   selectedMessageId: number | null;
   openMessage: (id: number) => Promise<void>;
+  downloadAttachment: (messageId: number, part: string) => Promise<{ ok: boolean; error?: string }>;
   setMobileReading: (reading: boolean) => void;
 };
 
@@ -22,8 +24,29 @@ export function MailReader({
   detailError,
   selectedMessageId,
   openMessage,
+  downloadAttachment,
   setMobileReading,
 }: Props) {
+  const [downloadingPart, setDownloadingPart] = useState<string | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAttachmentError(null);
+    setDownloadingPart(null);
+  }, [detail?.id]);
+
+  const saveAttachment = async (attachment: MailAttachmentInfo) => {
+    if (!detail || !attachment.part) return;
+    setDownloadingPart(attachment.part);
+    setAttachmentError(null);
+    try {
+      const result = await downloadAttachment(detail.id, attachment.part);
+      if (!result.ok) setAttachmentError(result.error ?? '附件下载失败');
+    } finally {
+      setDownloadingPart(null);
+    }
+  };
+
   return (
     <section className={cn('flex min-h-0 min-w-0 flex-col bg-muted/30', className)}>
       <button
@@ -97,9 +120,15 @@ export function MailReader({
                   </span>
                   <span className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                     {detail.attachments.map((attachment: MailAttachmentInfo) => (
-                      <span
-                        className="inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs"
-                        key={attachment.filename}
+                      <button
+                        className="inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-left text-xs transition-colors hover:bg-muted disabled:cursor-wait disabled:opacity-60"
+                        disabled={!attachment.part || downloadingPart === attachment.part}
+                        key={`${attachment.filename}-${attachment.part}`}
+                        onClick={() => void saveAttachment(attachment)}
+                        title={
+                          attachment.part ? `保存 ${attachment.filename}` : '请先同步邮件后下载'
+                        }
+                        type="button"
                       >
                         <Paperclip
                           className="size-3 shrink-0 text-muted-foreground"
@@ -111,12 +140,17 @@ export function MailReader({
                             {formatSize(attachment.size)}
                           </span>
                         )}
-                      </span>
+                      </button>
                     ))}
                   </span>
                 </div>
               )}
             </div>
+            {attachmentError && (
+              <p className="mt-2 text-xs text-destructive" role="alert">
+                {attachmentError}
+              </p>
+            )}
             {detailError && (
               <p className="mt-2 text-xs text-destructive" role="alert">
                 {detailError}

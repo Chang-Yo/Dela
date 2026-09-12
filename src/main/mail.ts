@@ -1,6 +1,11 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { ImapFlow } from 'imapflow';
 import type { ListResponse, MessageStructureObject } from 'imapflow';
+import { randomUUID } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import { rename, rm } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import type {
   MailAddress,
@@ -11,6 +16,12 @@ import type {
 } from '../shared/api';
 import { getDatabase } from './database';
 import { clearMailCredentials, loadMailCredentials, saveMailCredentials } from './credentials';
+import {
+  addComposeImage,
+  pickComposeFiles,
+  releaseComposeFiles,
+  sendMailMessage,
+} from './mail-send';
 
 const IMAP_HOST = 'mail.sjtu.edu.cn';
 const IMAP_PORT = 993;
@@ -245,6 +256,7 @@ export async function downloadHtmlImages(
 interface AttachmentItem {
   filename: string;
   size: number | null;
+  part: string | null;
 }
 
 function collectAttachments(node: MessageStructureObject | undefined): AttachmentItem[] {
@@ -259,7 +271,9 @@ function collectAttachments(node: MessageStructureObject | undefined): Attachmen
         current.dispositionParameters?.filename ??
         current.parameters?.name ??
         (current.type === 'message/rfc822' ? '附件邮件.eml' : null);
-      if (filename) result.push({ filename, size: current.size ?? null });
+      if (filename) {
+        result.push({ filename, size: current.size ?? null, part: current.part ?? null });
+      }
     }
     for (const child of current.childNodes ?? []) stack.push(child);
   }
@@ -298,12 +312,13 @@ function parseAttachments(json: string | null): MailMessageDetail['attachments']
     if (!Array.isArray(parsed)) return [];
     return parsed.flatMap((item) => {
       if (typeof item !== 'object' || item === null) return [];
-      const record = item as { filename?: unknown; size?: unknown };
+      const record = item as { filename?: unknown; size?: unknown; part?: unknown };
       if (typeof record.filename !== 'string') return [];
       return [
         {
           filename: record.filename,
           size: typeof record.size === 'number' ? record.size : null,
+          part: typeof record.part === 'string' ? record.part : null,
         },
       ];
     });
@@ -811,8 +826,124 @@ export function registerMailIpc(): void {
       client.close();
       return { ok: false, error: friendlyError(error) };
     }
-    db.prepare('UPDATE mail_messages SET seen = 1 WHERE id = ?').run(row.id);
+    db.transaction(() => {
+      db.prepare('UPDATE mail_messages SET seen = 1 WHERE id = ?').run(row.id);
+      db.prepare(
+        `UPDATE mail_folders
+         SET unread = CASE WHEN unread IS NULL THEN NULL ELSE MAX(unread - 1, 0) END
+         WHERE id = ?`,
+      ).run(row.folder_id);
+    })();
     return { ok: true };
+  });
+
+  ipcMain.handle(
+    'mail:download-attachment',
+    async (event, messageId: unknown, part: unknown): Promise<MailResult> => {
+      const parsedMessageId = z.number().int().positive().safeParse(messageId);
+      const parsedPart = z
+        .string()
+        .regex(/^\d+(?:\.\d+)*$/)
+        .safeParse(part);
+      if (!parsedMessageId.success || !parsedPart.success) return { ok: false, error: '参数无效' };
+      const db = getDatabase();
+      const row = db
+        .prepare(
+          `SELECT m.*, f.path AS folder_path FROM mail_messages m
+           JOIN mail_folders f ON f.id = m.folder_id WHERE m.id = ?`,
+        )
+        .get(parsedMessageId.data) as (MessageRow & { folder_path: string }) | undefined;
+      const attachment = row
+        ? parseAttachments(row.attachments).find((item) => item.part === parsedPart.data)
+        : null;
+      if (!row || !attachment) return { ok: false, error: '附件不存在，请先同步邮件' };
+      const owner = BrowserWindow.fromWebContents(event.sender);
+      if (!owner) return { ok: false, error: '窗口不可用' };
+      const save = await dialog.showSaveDialog(owner, {
+        defaultPath: basename(attachment.filename) || '附件',
+        buttonLabel: '保存附件',
+      });
+      if (save.canceled || !save.filePath) return { ok: true };
+      const account = getAccountRow();
+      const credential = account ? loadMailCredentials() : null;
+      if (!account || !credential) return { ok: false, error: '邮箱未配置' };
+      const temporaryPath = join(
+        dirname(save.filePath),
+        `.${basename(save.filePath)}.${randomUUID()}.download`,
+      );
+      const client = connectImap(account.address, credential.password);
+      try {
+        await client.connect();
+        const lock = await client.getMailboxLock(row.folder_path);
+        try {
+          const download = await client.download(row.uid, parsedPart.data, { uid: true });
+          await pipeline(download.content, createWriteStream(temporaryPath, { flags: 'wx' }));
+          await rename(temporaryPath, save.filePath);
+        } finally {
+          lock.release();
+        }
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, error: friendlyError(error) };
+      } finally {
+        client.close();
+        await rm(temporaryPath, { force: true }).catch(() => {});
+      }
+    },
+  );
+
+  ipcMain.handle('mail:pick-compose-files', async (event, kind: unknown) => {
+    const parsed = z.enum(['attachment', 'inline']).safeParse(kind);
+    if (!parsed.success) throw new Error('参数无效');
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (!owner) throw new Error('窗口不可用');
+    return pickComposeFiles(owner, parsed.data);
+  });
+
+  ipcMain.handle('mail:add-compose-image', (_event, dataUrl: unknown) => {
+    if (typeof dataUrl !== 'string') throw new Error('参数无效');
+    return addComposeImage(dataUrl);
+  });
+
+  ipcMain.handle('mail:release-compose-files', (_event, ids: unknown) => {
+    const parsed = z.array(z.string().uuid()).max(50).safeParse(ids);
+    if (!parsed.success) throw new Error('参数无效');
+    releaseComposeFiles(parsed.data);
+  });
+
+  ipcMain.handle('mail:send-message', (_event, input: unknown): Promise<MailResult> => {
+    let credential;
+    try {
+      credential = loadMailCredentials();
+    } catch {
+      return Promise.resolve({ ok: false, error: '邮箱凭据无法解密，请退出后重新登录' });
+    }
+    if (!credential) return Promise.resolve({ ok: false, error: '邮箱未配置' });
+    const account = getAccountRow();
+    const sentPath = account
+      ? ((
+          getDatabase()
+            .prepare(
+              "SELECT path FROM mail_folders WHERE account_id = ? AND special_use = '\\Sent' LIMIT 1",
+            )
+            .get(account.id) as { path: string } | undefined
+        )?.path ?? null)
+      : null;
+    return sendMailMessage(credential, input, async (message) => {
+      const client = connectImap(credential.address, credential.password);
+      try {
+        await client.connect();
+        const destination =
+          sentPath ?? (await client.list()).find((folder) => folder.specialUse === '\\Sent')?.path;
+        if (!destination) return '邮件已发送，但未找到“已发送”文件夹';
+        await client.append(destination, message, ['\\Seen']);
+        return null;
+      } catch {
+        return '邮件已发送，但未能保存到“已发送”文件夹';
+      } finally {
+        client.close();
+      }
+    });
   });
 
   ipcMain.handle('mail:sync', () => {

@@ -17,21 +17,22 @@ const message = (id) => ({
   subject: 'HTML 阅读验证 ' + id,
   sender: { name: '测试发件人', address: 'test@example.com' },
   date: '2026-09-10T01:00:00Z',
-  seen: true,
+  seen: id !== 1,
   flagged: false,
-  hasAttachments: false,
+  hasAttachments: id === 1,
   snippet: '脱敏测试',
   size: 100,
   to: [{ name: '收件人', address: 'reader@example.com' }],
   cc: [],
   bodyHtml: html,
   bodyText: '富文本样例\n表格甲 表格乙',
-  attachments: [],
+  attachments: id === 1 ? [{ filename: '附件.txt', size: 8, part: '2' }] : [],
 });
 const state = {
   account: { address: 'reader@example.com', lastSyncedAt: null },
   sync: { phase: 'idle', error: null, processed: 0, total: null },
 };
+let downloadCount = 0;
 const routes = {
   'window:get-state': () => ({ maximized: false }),
   'mail:get-state': () => state,
@@ -41,8 +42,46 @@ const routes = {
     await new Promise((r) => setTimeout(r, id === 1 ? 180 : 10));
     return message(id);
   },
-  'mail:sync': () => {},
+  'mail:sync': (event) => {
+    event.sender.send('mail:sync-status', {
+      phase: 'connecting',
+      folderPath: null,
+      processed: 0,
+      total: null,
+      error: null,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+    });
+    setTimeout(
+      () =>
+        event.sender.send('mail:sync-status', {
+          phase: 'idle',
+          folderPath: null,
+          processed: 0,
+          total: null,
+          error: null,
+          startedAt: null,
+          finishedAt: new Date().toISOString(),
+        }),
+      80,
+    );
+  },
   'mail:mark-seen': () => ({ ok: true }),
+  'mail:download-attachment': () => {
+    downloadCount += 1;
+    return { ok: true };
+  },
+  'mail:pick-compose-files': () => [],
+  'mail:add-compose-image': () => ({
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'clipboard-image.png',
+    size: 68,
+    kind: 'inline',
+    previewUrl:
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL6xQAAAABJRU5ErkJggg==',
+  }),
+  'mail:release-compose-files': () => {},
+  'mail:send-message': () => ({ ok: true }),
   'mail:open-link': () => {},
 };
 for (const [channel, handler] of Object.entries(routes)) ipcMain.handle(channel, handler);
@@ -78,11 +117,15 @@ app
       }
     };
     win.webContents.on('console-message', (event) => console.log(event.message));
-    const helper = stripTypeScriptTypes(
-      readFileSync(join(root, 'src/renderer/features/mail/mail-html.ts'), 'utf8'),
-    ).replaceAll('export function', 'function');
+    const helper = [
+      'src/renderer/features/mail/mail-html.ts',
+      'src/renderer/features/mail/mail-html-display.ts',
+    ]
+      .map((path) => stripTypeScriptTypes(readFileSync(join(root, path), 'utf8')))
+      .join('\n')
+      .replaceAll('export function', 'function');
     const checked = await js(
-      `(()=>{${helper}; const input=${JSON.stringify(html)};const output=prepareMailHtml(input,false); const d=new DOMParser().parseFromString(output,'text/html');return {styles:d.querySelectorAll('style').length,script:!!d.querySelector('script'),events:!!d.querySelector('[onerror]'),csp:d.querySelector('meta[http-equiv]').content,links:mailLinks(input).length};})()`,
+      `(()=>{${helper}; const input=${JSON.stringify(html)};const output=renderMailHtml(sanitizeMailHtml(input,false),true); const d=new DOMParser().parseFromString(output,'text/html');return {styles:d.querySelectorAll('style').length,script:!!d.querySelector('script'),events:!!d.querySelector('[onerror]'),csp:d.querySelector('meta[http-equiv]').content,links:d.querySelectorAll('a[href]').length};})()`,
     );
     assert.equal(checked.styles, 3);
     assert.equal(checked.script, false);
@@ -93,6 +136,21 @@ app
       `Array.from(document.querySelectorAll('nav button')).find(e=>e.textContent.includes('邮箱') || e.getAttribute('aria-label')==='邮箱').click()`,
     );
     await pause(1200);
+    await js(`document.querySelector('[aria-label="同步邮件"]').click()`);
+    await pause(20);
+    assert.equal(
+      await js(
+        `document.querySelector('[aria-label="同步邮件"] svg').classList.contains('animate-spin')`,
+      ),
+      true,
+    );
+    await pause(120);
+    assert.equal(
+      await js(
+        `document.querySelector('[aria-label="同步邮件"] svg').classList.contains('animate-spin')`,
+      ),
+      false,
+    );
     const pos = () =>
       js(
         `(()=>{const e=document.querySelector('#mail-folders button svg').getBoundingClientRect(); return {x:e.x,y:e.y};})()`,
@@ -104,6 +162,64 @@ app
     await js(`document.querySelector('[aria-controls="mail-folders"]').click()`);
     await pause(220);
     assert.deepEqual(await pos(), first);
+    await js(`document.querySelector('[aria-label="退出登录"]').click()`);
+    await pause(50);
+    assert.equal(
+      await js(`document.querySelector('[aria-label="再点一次确认退出"]') !== null`),
+      true,
+    );
+    await js(`document.querySelector('[aria-controls="mail-folders"]').click()`);
+    await pause(50);
+    assert.equal(await js(`document.querySelector('[aria-label="退出登录"]') !== null`), true);
+    await js(`document.querySelector('[aria-label="发送邮件"]').click()`);
+    await pause(100);
+    assert.equal(await js(`document.querySelector('[aria-label="邮件正文"]') !== null`), true);
+    await js(`document.querySelector('[aria-label="发送邮件"]').click()`);
+    await pause(100);
+    assert.equal(await js(`document.querySelector('[aria-label="邮件正文"]') === null`), true);
+    await js(`document.querySelector('[aria-label="发送邮件"]').click()`);
+    await pause(100);
+    assert.equal(
+      await js(`document.querySelector('button[type="submit"]').textContent.trim()`),
+      '发送邮件',
+    );
+    await js(
+      `(()=>{const data=new DataTransfer();data.items.add(new File([Uint8Array.of(137,80,78,71)],'paste.png',{type:'image/png'}));document.querySelector('[aria-label="邮件正文"]').dispatchEvent(new ClipboardEvent('paste',{bubbles:true,clipboardData:data}))})()`,
+    );
+    await pause(150);
+    assert.equal(
+      await js(`document.querySelector('[aria-label="邮件正文"] img[data-dela-inline]') !== null`),
+      true,
+    );
+    await js(
+      `(()=>{const editor=document.querySelector('[aria-label="邮件正文"]');editor.innerText='待发送正文';const range=document.createRange();range.selectNodeContents(editor);getSelection().removeAllRanges();getSelection().addRange(range);editor.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText'}));editor.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}))})()`,
+    );
+    await pause(50);
+    await js(`document.querySelector('[aria-label="发送邮件"]').click()`);
+    await pause(100);
+    assert.equal(await js(`document.querySelector('[aria-label="邮件正文"]') !== null`), true);
+    await js(
+      `document.querySelector('[aria-label="加粗"]').click();window.confirm=()=>false;document.querySelector('[aria-label="关闭写邮件"]').click()`,
+    );
+    await pause(100);
+    assert.equal(await js(`document.querySelector('[aria-label="邮件正文"]') !== null`), true);
+    assert.equal(await js(`document.querySelector('[aria-label="邮件正文"] b') !== null`), true);
+    await js(`window.confirm=()=>true;document.querySelector('[aria-label="关闭写邮件"]').click()`);
+    await pause(100);
+    assert.equal(await js(`document.querySelector('[aria-label="邮件正文"]') === null`), true);
+    await js(
+      `Array.from(document.querySelectorAll('button')).find(e=>e.textContent.includes('HTML 阅读验证 1')).click()`,
+    );
+    await pause(300);
+    assert(
+      await js(
+        `document.querySelector('nav[aria-label="邮件文件夹"] button[aria-label="收件箱，2 封未读"]') !== null`,
+      ),
+      'opening an unread message should update the folder count immediately',
+    );
+    await js(`document.querySelector('[title="保存 附件.txt"]').click()`);
+    await pause(50);
+    assert.equal(downloadCount, 1);
     await js(
       `Array.from(document.querySelectorAll('button')).find(e=>e.textContent.includes('HTML 阅读验证 1')).click();Array.from(document.querySelectorAll('button')).find(e=>e.textContent.includes('HTML 阅读验证 2')).click()`,
     );
@@ -112,18 +228,23 @@ app
     const frame = win.webContents.mainFrame.frames.find((f) => f.url === 'about:srcdoc');
     assert(frame);
     await assert.rejects(frame.executeJavaScript('1+1'));
-    assert.equal(await js(`document.querySelector('iframe').sandbox.length`), 0);
+    assert.deepEqual(await js(`[...document.querySelector('iframe').sandbox]`), ['allow-popups']);
     writeFileSync(
       join(root, '.tools/mail-wide.png'),
       (await win.webContents.capturePage()).toPNG(),
     );
     win.setSize(660, 760);
     await pause(250);
-    const narrow = await js(
-      `(()=>{const e=document.querySelector('#mail-folders button span:nth-child(2)');return {name:getComputedStyle(e).display,overflow:document.documentElement.scrollWidth>innerWidth};})()`,
+    assert.equal(
+      await js(`document.documentElement.scrollWidth > innerWidth`),
+      false,
+      'narrow list should not overflow',
     );
-    assert.notEqual(narrow.name, 'none');
-    assert.equal(narrow.overflow, false);
+    assert.equal(
+      await js(`document.querySelector('#mail-folders') !== null`),
+      false,
+      'narrow list should not reserve a folders column',
+    );
     await js(
       `Array.from(document.querySelectorAll('button')).find(e=>e.textContent.includes('HTML 阅读验证 2')).click()`,
     );
@@ -131,6 +252,46 @@ app
     writeFileSync(
       join(root, '.tools/mail-narrow.png'),
       (await win.webContents.capturePage()).toPNG(),
+    );
+    await js(`document.querySelector('[aria-label="展开侧边栏"]').click()`);
+    await pause(250);
+    assert.equal(
+      await js(
+        `(()=>{const nav=document.querySelector('#mail-drawer-slot nav[aria-label="邮件文件夹"]');const name=nav&&nav.querySelector('button span');return name!==null&&getComputedStyle(name).display!=='none';})()`,
+      ),
+      true,
+      'mail drawer should list named folders',
+    );
+    assert.equal(
+      await js(`document.querySelector('#mail-drawer-slot [aria-label="退出登录"]') !== null`),
+      true,
+      'mail drawer should keep account actions reachable',
+    );
+    await js(`document.querySelector('[aria-label="返回主菜单"]').click()`);
+    await pause(200);
+    assert.equal(await js(`document.querySelector('#mail-drawer-slot nav') !== null`), false);
+    await js(
+      `Array.from(document.querySelectorAll('#main-nav nav button')).find(e=>e.textContent.includes('邮箱')).click()`,
+    );
+    await pause(200);
+    assert.equal(
+      await js(`document.querySelector('#mail-drawer-slot [aria-label="发送邮件"]') !== null`),
+      true,
+      'nav should drill back into the mail drawer',
+    );
+    await js(`document.querySelector('#mail-drawer-slot [aria-label="发送邮件"]').click()`);
+    await pause(100);
+    assert.equal(
+      await js(`document.documentElement.scrollWidth > innerWidth`),
+      false,
+      'narrow composer should not overflow',
+    );
+    const composerLayout = await js(
+      `(()=>{const editor=document.querySelector('[aria-label="邮件正文"]');const form=editor.closest('form');const grid=form.parentElement;return {editor:editor.getBoundingClientRect().width,form:form.getBoundingClientRect().width,grid:getComputedStyle(grid).gridTemplateColumns,viewport:innerWidth}})()`,
+    );
+    assert(
+      composerLayout.editor > 300,
+      `narrow composer should use the available content width: ${JSON.stringify(composerLayout)}`,
     );
     console.log(
       'Mail QA passed: HTML styles/CSP, links, stable sidebar icons, request race, narrow layout.',

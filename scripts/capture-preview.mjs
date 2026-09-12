@@ -36,7 +36,11 @@ function send(method, params = {}) {
 }
 
 async function evaluate(expression) {
-  const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  const res = await send('Runtime.evaluate', {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
   if (res.result?.exceptionDetails) {
     console.error('Evaluate failed:', JSON.stringify(res.result.exceptionDetails));
   }

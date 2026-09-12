@@ -1,4 +1,5 @@
 import { Paperclip, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { MailFolderInfo, MailMessageSummary } from '../../../shared/api';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../lib/utils';
@@ -13,7 +14,7 @@ type Props = {
   setSearch: (value: string) => void;
   syncBusy: boolean;
   syncLabel: string;
-  onSync: () => void;
+  onSync: () => Promise<void>;
   onSelect: (id: number) => void;
 };
 
@@ -30,6 +31,18 @@ export function MailMessageList({
   onSync,
   onSelect,
 }: Props) {
+  const [refreshRequested, setRefreshRequested] = useState(false);
+  const spinning = syncBusy || refreshRequested;
+
+  useEffect(() => {
+    if (!syncBusy) setRefreshRequested(false);
+  }, [syncBusy]);
+
+  const refresh = () => {
+    setRefreshRequested(true);
+    Promise.resolve(onSync()).catch(() => setRefreshRequested(false));
+  };
+
   return (
     <section className={cn('flex min-h-0 flex-col', className)}>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
@@ -43,12 +56,12 @@ export function MailMessageList({
         <button
           aria-label="同步邮件"
           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50"
-          disabled={syncBusy}
-          onClick={onSync}
+          disabled={spinning}
+          onClick={refresh}
           title={syncLabel || '同步邮件'}
           type="button"
         >
-          <RefreshCw className={cn('size-3.5', syncBusy && 'animate-spin')} strokeWidth={1.8} />
+          <RefreshCw className={cn('size-3.5', spinning && 'animate-spin')} strokeWidth={1.8} />
         </button>
         <input
           aria-label="搜索邮件"
