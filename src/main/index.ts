@@ -1,8 +1,15 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc } from './mail';
+import { registerTimetableIpc } from './timetable';
+
+// Chromium 默认按滚轮格数瞬时跳变；开启后对滚轮输入做逐帧插值，滚动平滑。
+app.commandLine.appendSwitch('enable-smooth-scrolling');
+// Electron 界面语言默认 en-US，原生日期/时间控件会渲染成 MM/DD/YYYY AM/PM；
+// 应用界面全中文，强制 Chromium locale 一致。
+app.commandLine.appendSwitch('lang', 'zh-CN');
 
 ipcMain.on('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
@@ -38,6 +45,7 @@ if (smokeTest) {
 app.whenReady().then(() => {
   getDatabase();
   registerMailIpc();
+  registerTimetableIpc();
 });
 
 async function createWindow(): Promise<void> {
@@ -68,6 +76,17 @@ async function createWindow(): Promise<void> {
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event) => event.preventDefault());
+  window.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(window, {
+      type: 'warning',
+      buttons: ['抛弃并退出', '继续编辑'],
+      defaultId: 1,
+      cancelId: 1,
+      title: '邮件尚未发送',
+      message: '这封邮件不会保存，确定退出 Dela 吗？',
+    });
+    if (choice === 0) event.preventDefault();
+  });
   const session = window.webContents.session;
   session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.setPermissionCheckHandler(() => false);
@@ -97,7 +116,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        "document.querySelector('main') !== null && document.querySelector('aside[aria-label=\"主导航\"]') !== null && window.dela?.version === '0.1.0' && typeof window.require === 'undefined'",
+        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       console.log('Smoke check passed: SQLite, renderer, preload isolation.');

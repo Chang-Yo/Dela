@@ -18,6 +18,7 @@ export interface MailAddress {
 export interface MailAttachmentInfo {
   readonly filename: string;
   readonly size: number | null;
+  readonly part: string | null;
 }
 
 export interface MailFolderInfo {
@@ -73,11 +74,31 @@ export interface MailState {
   readonly sync: MailSyncStatus;
 }
 
-export type MailResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
+export type MailResult =
+  { readonly ok: true; readonly warning?: string } | { readonly ok: false; readonly error: string };
 
 export interface MailConfigureInput {
   readonly address: string;
   readonly password: string;
+}
+
+export type MailComposeFileKind = 'attachment' | 'inline';
+
+export interface MailComposeFile {
+  readonly id: string;
+  readonly name: string;
+  readonly size: number;
+  readonly kind: MailComposeFileKind;
+  readonly previewUrl: string | null;
+}
+
+export interface MailSendInput {
+  readonly to: readonly string[];
+  readonly subject: string;
+  readonly text: string;
+  readonly html: string;
+  readonly attachmentIds: readonly string[];
+  readonly inlineImageIds: readonly string[];
 }
 
 export interface MailApi {
@@ -88,12 +109,74 @@ export interface MailApi {
   listMessages(folderId: number, limit: number): Promise<readonly MailMessageSummary[]>;
   getMessage(messageId: number): Promise<MailMessageDetail>;
   markSeen(messageId: number): Promise<MailResult>;
+  downloadAttachment(messageId: number, part: string): Promise<MailResult>;
+  pickComposeFiles(kind: MailComposeFileKind): Promise<readonly MailComposeFile[]>;
+  addComposeImage(dataUrl: string): Promise<MailComposeFile>;
+  releaseComposeFiles(ids: readonly string[]): Promise<void>;
+  sendMessage(input: MailSendInput): Promise<MailResult>;
   syncNow(): Promise<void>;
   onSyncStatus(listener: (status: MailSyncStatus) => void): () => void;
+}
+
+export interface TimetableLesson {
+  readonly id: number;
+  readonly semester: string;
+  readonly courseCode: string;
+  readonly courseName: string;
+  readonly className: string | null;
+  readonly teacher: string | null;
+  readonly campus: string | null;
+  readonly classroom: string | null;
+  readonly weekday: number;
+  readonly startPeriod: number;
+  readonly endPeriod: number;
+  readonly periodsText: string;
+  readonly weeksText: string;
+  readonly weekNumbers: readonly number[];
+  readonly credits: number | null;
+  readonly note: string | null;
+}
+
+export interface TimetableState {
+  readonly connected: boolean;
+  readonly semester: string;
+  readonly lastSyncedAt: string | null;
+  readonly semesterStart: string | null;
+}
+
+export interface CalendarEvent {
+  readonly id: number;
+  readonly title: string;
+  readonly startAt: string;
+  readonly endAt: string;
+  readonly location: string | null;
+}
+
+export interface CalendarEventInput {
+  readonly title: string;
+  readonly startAt: string;
+  readonly endAt: string;
+  readonly location?: string;
+}
+
+export interface TimetableResult {
+  readonly ok: boolean;
+  readonly error?: string;
+}
+
+export interface TimetableApi {
+  getState(semester?: string): Promise<TimetableState>;
+  connect(): Promise<TimetableResult>;
+  disconnect(): Promise<TimetableResult>;
+  listLessons(semester?: string): Promise<readonly TimetableLesson[]>;
+  listEvents(startAt: string, endAt: string): Promise<readonly CalendarEvent[]>;
+  createEvent(input: CalendarEventInput): Promise<CalendarEvent>;
+  syncNow(semester?: string): Promise<TimetableResult>;
 }
 
 export interface DelaApi {
   readonly version: string;
   readonly window: WindowApi;
   readonly mail: MailApi;
+  readonly timetable: TimetableApi;
 }

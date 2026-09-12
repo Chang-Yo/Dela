@@ -52,6 +52,44 @@ const migrations: string[][] = [
     `CREATE INDEX IF NOT EXISTS idx_mail_messages_folder_date ON mail_messages(folder_id, date DESC)`,
   ],
   ['ALTER TABLE mail_messages ADD COLUMN body_version INTEGER NOT NULL DEFAULT 0'],
+  [
+    `CREATE TABLE IF NOT EXISTS timetable_sync (
+      semester TEXT PRIMARY KEY,
+      last_synced_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS timetable_lessons (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      semester TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      course_code TEXT NOT NULL,
+      course_name TEXT NOT NULL,
+      class_name TEXT,
+      teacher TEXT,
+      campus TEXT,
+      classroom TEXT,
+      weekday INTEGER NOT NULL,
+      start_period INTEGER NOT NULL,
+      end_period INTEGER NOT NULL,
+      periods_text TEXT NOT NULL,
+      weeks_text TEXT NOT NULL,
+      week_numbers TEXT NOT NULL,
+      credits REAL,
+      note TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_timetable_lessons_semester_day ON timetable_lessons(semester, weekday, start_period)`,
+  ],
+  [
+    `ALTER TABLE timetable_sync ADD COLUMN semester_start TEXT`,
+    `CREATE TABLE IF NOT EXISTS calendar_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      start_at TEXT NOT NULL,
+      end_at TEXT NOT NULL,
+      location TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_calendar_events_time ON calendar_events(start_at, end_at)`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {
