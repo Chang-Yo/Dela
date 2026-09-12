@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
+import type { ThemePreference } from '../../../shared/api';
 import { cn } from '../../lib/utils';
 import { SectionHeader } from './SectionHeader';
 
-type ThemeId = 'system' | 'light' | 'dark';
-
-// 主题选择当前只维护组件内选择态，不持久化、也不实际切换主题；
-// 待接入的接口与 renderer 改动记录在同目录 INTERFACES.md。
-const themes: Array<{ id: ThemeId; label: string; preview: string }> = [
+const themes: Array<{ id: ThemePreference; label: string; preview: string }> = [
   {
     id: 'system',
     label: '跟随系统',
@@ -17,12 +14,32 @@ const themes: Array<{ id: ThemeId; label: string; preview: string }> = [
   { id: 'dark', label: '深色', preview: 'bg-neutral-800' },
 ];
 
-export function AppearanceSection() {
-  const [theme, setTheme] = useState<ThemeId>('system');
+export function AppearanceSection({
+  onThemeChange,
+  theme,
+}: {
+  onThemeChange: (theme: ThemePreference) => Promise<void>;
+  theme: ThemePreference;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectTheme = async (next: ThemePreference) => {
+    if (next === theme || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onThemeChange(next);
+    } catch {
+      setError('主题保存失败，请重试。');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="grid gap-5">
-      <SectionHeader description="界面明暗主题，选择尚未实际应用。" title="外观" />
+      <SectionHeader description="选择会立即应用，并在下次启动时保留。" title="外观" />
       <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">主题</h2>
@@ -41,7 +58,8 @@ export function AppearanceSection() {
                   selected ? 'border-foreground/60 bg-muted/50' : 'border-border hover:bg-muted/50',
                 )}
                 key={id}
-                onClick={() => setTheme(id)}
+                disabled={busy}
+                onClick={() => void selectTheme(id)}
                 role="radio"
                 type="button"
               >
@@ -59,6 +77,11 @@ export function AppearanceSection() {
             );
           })}
         </div>
+        {error && (
+          <p className="col-span-full text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        )}
       </section>
     </div>
   );

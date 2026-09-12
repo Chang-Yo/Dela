@@ -8,6 +8,14 @@ import { SettingsView } from './features/settings';
 import { SourcesView } from './features/sources';
 import { TimetableView } from './features/timetable';
 import { useWorkspace } from './features/projects/workspace';
+import type { ThemePreference } from '../shared/api';
+
+const themeStorageKey = 'dela.theme';
+
+function initialTheme(): ThemePreference {
+  const theme = localStorage.getItem(themeStorageKey);
+  return theme === 'light' || theme === 'dark' ? theme : 'system';
+}
 
 export default function App() {
   const [view, setView] = useState<ViewId>('home');
@@ -19,8 +27,21 @@ export default function App() {
   const [createProject, setCreateProject] = useState(false);
   const [mailComposeDirty, setMailComposeDirty] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<MobileDrawer | null>(null);
+  const [theme, setTheme] = useState<ThemePreference>(initialTheme);
   useEffect(() => {
     void useWorkspace.getState().load();
+  }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    root.classList.toggle('light', theme === 'light');
+    localStorage.setItem(themeStorageKey, theme);
+  }, [theme]);
+  useEffect(() => {
+    void window.dela?.settings
+      .getTheme()
+      .then(setTheme)
+      .catch(() => {});
   }, []);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -38,6 +59,13 @@ export default function App() {
   const newProject = () => {
     if (!navigate('project')) return;
     setCreateProject(true);
+  };
+  const changeTheme = async (next: ThemePreference) => {
+    if (!window.dela) {
+      setTheme(next);
+      return;
+    }
+    setTheme(await window.dela.settings.setTheme(next));
   };
 
   // 后退/前进与普通导航共用同一守卫:用户取消确认时导航中止,历史保持不动。
@@ -123,9 +151,10 @@ export default function App() {
             {view === 'timetable' && <TimetableView />}
             {view === 'settings' && (
               <SettingsView
+                onThemeChange={changeTheme}
                 onOpenMail={() => navigate('mail')}
                 onOpenTimetable={() => navigate('timetable')}
-                onOpenSources={() => navigate('sources')}
+                theme={theme}
               />
             )}
           </motion.div>

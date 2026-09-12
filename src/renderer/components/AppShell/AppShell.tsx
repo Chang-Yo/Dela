@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
 import { cn } from '../../lib/utils';
-import delaLogo from '../../../../assets/Dela_Logo.png';
+import delaLogo from '../../../../assets/Dela_white_bg.svg';
 import { useWorkspace } from '../../features/projects/workspace';
 
 export type ViewId = 'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'settings';
