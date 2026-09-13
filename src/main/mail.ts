@@ -224,7 +224,7 @@ export async function downloadHtmlImages(
     )
       continue;
     if (remaining <= 0 || (node.size ?? 0) > remaining) continue;
-    const pattern = /cid:([^\s"'<>\)]+)/gi;
+    const pattern = /cid:([^\s"'<>)]+)/gi;
     const matches = (value: string) => {
       try {
         return decodeURIComponent(value) === cid;

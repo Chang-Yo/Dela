@@ -63,7 +63,8 @@ function serializeBody(editor: HTMLDivElement): { html: string; text: string } {
         element.replaceWith(...element.childNodes);
         continue;
       }
-      for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name);
+      for (const attribute of Array.from(element.attributes))
+        element.removeAttribute(attribute.name);
       element.href = href;
       element.target = '_blank';
       element.rel = 'noreferrer';
@@ -76,7 +77,8 @@ function serializeBody(editor: HTMLDivElement): { html: string; text: string } {
         continue;
       }
       const alt = element.alt;
-      for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name);
+      for (const attribute of Array.from(element.attributes))
+        element.removeAttribute(attribute.name);
       element.src = `cid:${id}@dela`;
       element.alt = alt;
       continue;
@@ -85,7 +87,7 @@ function serializeBody(editor: HTMLDivElement): { html: string; text: string } {
       element.replaceWith(...element.childNodes);
       continue;
     }
-    for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name);
+    for (const attribute of Array.from(element.attributes)) element.removeAttribute(attribute.name);
   }
   const plainText = clone.cloneNode(true) as HTMLDivElement;
   for (const link of plainText.querySelectorAll('a[href]')) {

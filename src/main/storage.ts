@@ -13,6 +13,7 @@ export function storageDirectory() {
 // A single path component, including Windows device names and trailing dots/spaces.
 export function diskName(name: string) {
   let value = name
+    // oxlint-disable-next-line no-control-regex -- Windows filenames prohibit C0 control characters.
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
     .replace(/[. ]+$/g, '')
     .trim();

@@ -46,7 +46,7 @@ export function SourceDetail({
       .querySelectorAll('script,iframe,object,embed,form,base,meta,link')
       .forEach((el) => el.remove());
     doc.querySelectorAll('*').forEach((el) => {
-      for (const a of [...el.attributes])
+      for (const a of Array.from(el.attributes))
         if (a.name.startsWith('on') || a.name === 'srcdoc') el.removeAttribute(a.name);
     });
     doc.querySelectorAll('a[href],img[src]').forEach((el) => {

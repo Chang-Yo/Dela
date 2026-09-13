@@ -81,7 +81,7 @@ CodeMirror 的其他必需模块已于 2026-09-12 随 Markdown 编辑器落地�
 
 ### 2.3 版本与变更纪律
 
-2026-09-12 新增 `.github/workflows/check.yaml`：PR 创建、更新、重新打开及 main push 自动运行 Windows x64、macOS x64/arm64、Ubuntu x64 的锁文件安装、类型与生产构建、单元测试、Electron 冒烟、目录打包和打包后启动检查。格式检查仅在 Ubuntu 执行。使用与发布一致的 runner 和 Node/pnpm 版本，只读权限，同一 PR/main 的新提交取消旧检查；不生成安装包或发布 Release。必需检查需另在 GitHub 分支规则中配置，跨平台结果待首次 CI 运行确认。
+2026-09-13 `.github/workflows/check.yaml` 在 Ubuntu 上单独运行 Prettier 格式检查与 Oxlint；后者检查 TypeScript/JavaScript 正确性、未使用代码及 React Hook 调用规则。ESLint 暂不引入：其 TypeScript 插件当前 peer 依赖不支持本项目固定的 TypeScript 7。其余矩阵仍在 Windows x64、macOS x64/arm64、Ubuntu x64 上进行锁文件安装、类型与生产构建、单元测试、Electron 冒烟、目录打包和打包后启动检查。PR 创建、更新、重新打开及 main push 会触发；使用与发布一致的 runner 和 Node/pnpm 版本，只读权限，同一 PR/main 的新提交取消旧检查；不生成安装包或发布 Release。必需检查需另在 GitHub 分支规则中配置，跨平台结果待首次 CI 运行确认。
 
 2026-09-11 新增 `.github/workflows/release.yml`：推送与包版本一致的 `v*` tag，或手动指定已有 tag，固定同一提交在 Windows、macOS Intel/Apple Silicon、Ubuntu runner 构建 NSIS、DMG、AppImage。运行基线选择 Windows 10 x64、macOS 13 x64/arm64、Ubuntu 24.04 x64；macOS 最低版本写入 electron-builder 配置。所有平台的生产构建、单元测试、Electron 与打包目录冒烟成功后统一发布 Release；预发布版本自动标记 prerelease。保留 `npmRebuild: false` 和随 better-sqlite3 13 提供的预编译模块，以各平台冒烟检查验证加载。未配置代码签名或 Apple 公证，未宣称最低系统实机兼容性和安装过程已验收；GitHub 跨平台运行结果待首次发布验证。操作方法、产物与重跑约束见 README「自动发布安装包」。
 

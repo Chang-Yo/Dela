@@ -74,7 +74,7 @@ export function ProjectSidebar({
         .filter((n) => n.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
         .map((n) => n.id),
     );
-    for (const id of [...keep]) {
+    for (const id of keep) {
       let parent = nodes.find((n) => n.id === id)?.parentId;
       while (parent && !keep.has(parent)) {
         keep.add(parent);
