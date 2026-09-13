@@ -1,12 +1,33 @@
+import { leaveComposer } from '../mail/compose-close';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, LoaderCircle, Settings2 } from 'lucide-react';
+import { ArrowUp, LoaderCircle, Settings2, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { WorkspaceChat } from '../../../shared/api';
+import { Dialog } from 'radix-ui';
+import type { PreparedEmail, WorkspaceChat } from '../../../shared/api';
+import { MailComposer } from '../mail/MailComposer';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { errorText, useWorkspace } from './workspace';
+
+const toolLabels: Record<string, string> = {
+  prepare_email: '准备邮件草稿',
+  query_schedule: '查询日程',
+  query_assignments: '查询作业',
+  find_courses: '查找课程',
+  sync_sources: '同步课程资料',
+  search_sources: '查找资料',
+  search_workspace: '查找项目文件',
+  search_mail: '查找邮件',
+  read_resource: '读取资料',
+  create_entry: '创建条目',
+  update_entry: '整理条目',
+  write_note: '保存笔记',
+  link_source: '关联资料',
+  copy_file_to_project: '复制文件',
+  create_event: '创建日程',
+};
 
 export function AgentPanel({
   scope,
@@ -15,13 +36,15 @@ export function AgentPanel({
   onCollapse,
   onSaveNote,
   onOpen,
+  home = false,
 }: {
   scope: string;
   tabs: string[];
   title: (key: string) => string;
-  onCollapse: () => void;
+  onCollapse?: () => void;
   onSaveNote: (text: string) => void;
   onOpen: (key: string) => void;
+  home?: boolean;
 }) {
   const [chat, setChat] = useState<WorkspaceChat | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -33,6 +56,26 @@ export function AgentPanel({
   const [error, setError] = useState<string | null>(null);
   const drafts = useWorkspace((s) => s.drafts);
   const activeScope = useRef(scope);
+  const [email, setEmail] = useState<{ draft: PreparedEmail; address: string } | null>(null);
+  const [openingEmail, setOpeningEmail] = useState(false);
+  const openEmail = async (id: string) => {
+    if (!window.dela || openingEmail) return;
+    setOpeningEmail(true);
+    try {
+      const state = await window.dela.mail.getState();
+      if (!state.account) throw new Error('请先在邮箱页面配置账号');
+      const draft = await window.dela.mail.openDraft(id);
+      setEmail({ draft, address: state.account.address });
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setOpeningEmail(false);
+    }
+  };
+  const closeEmail = () => {
+    if (!leaveComposer(() => setEmail(null))) return;
+    setEmail(null);
+  };
   useEffect(() => {
     activeScope.current = scope;
     setChat(null);
@@ -46,14 +89,21 @@ export function AgentPanel({
       .then((value) => {
         if (active) {
           setChat(value);
+          setBusy(Boolean(value.running));
           setModel(value.model);
         }
       })
       .catch((e) => {
         if (active) setError(errorText(e));
       });
+    const unsubscribe = window.dela?.workspace.onChatUpdate((updatedScope, value) => {
+      if (!active || updatedScope !== scope) return;
+      setChat(value);
+      setBusy(Boolean(value.running));
+    });
     return () => {
       active = false;
+      unsubscribe?.();
     };
   }, [scope]);
   const send = async () => {
@@ -84,7 +134,7 @@ export function AgentPanel({
     <aside
       id="workspace-agent"
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted/40"
-      aria-label="阅读助手"
+      aria-label="学习生活助手"
     >
       <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3">
         <strong className="flex-1 text-xs font-medium">助手</strong>
@@ -97,13 +147,15 @@ export function AgentPanel({
         >
           <Settings2 />
         </Button>
-        <PanelToggleButton
-          collapsed={false}
-          controlsId="workspace-agent"
-          label="助手"
-          side="right"
-          onToggle={onCollapse}
-        />
+        {onCollapse && (
+          <PanelToggleButton
+            collapsed={false}
+            controlsId="workspace-agent"
+            label="助手"
+            side="right"
+            onToggle={onCollapse}
+          />
+        )}
       </div>
       {(!chat?.configured || settings) && (
         <form
@@ -205,6 +257,37 @@ export function AgentPanel({
                 ))}
               </div>
             ) : null}
+            {message.toolResults?.map((result) => {
+              const output = result.output as {
+                ok?: boolean;
+                error?: { message?: string };
+                result?: { draftId?: string };
+              } | null;
+              return (
+                <details
+                  key={result.id}
+                  className="my-2 rounded border p-2 text-xs text-muted-foreground"
+                >
+                  <summary className="cursor-pointer">
+                    {toolLabels[result.name] ?? result.name} · {output?.ok ? '已完成' : '未完成'}
+                  </summary>
+                  {output?.error?.message && <p className="mt-2">{output.error.message}</p>}
+                  {result.name === 'prepare_email' && output?.ok && output.result?.draftId && (
+                    <Button
+                      size="sm"
+                      className="mt-2"
+                      disabled={openingEmail}
+                      onClick={() => void openEmail(output.result!.draftId!)}
+                    >
+                      检查并发送
+                    </Button>
+                  )}
+                  <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all">
+                    {JSON.stringify(result.output, null, 2)}
+                  </pre>
+                </details>
+              );
+            })}
             {message.role === 'assistant' && (
               <button
                 className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -218,7 +301,7 @@ export function AgentPanel({
         {busy && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
             <LoaderCircle className="size-3 animate-spin" />
-            正在处理…
+            {chat?.activeTool ? `${toolLabels[chat.activeTool] ?? chat.activeTool}…` : '正在处理…'}
           </p>
         )}
         {error && (
@@ -227,7 +310,7 @@ export function AgentPanel({
           </p>
         )}
       </div>
-      <div className="shrink-0 border-t p-3">
+      <div className={home ? 'order-first shrink-0 border-b p-3' : 'shrink-0 border-t p-3'}>
         <details className="mb-3 text-xs">
           <summary className="cursor-pointer text-muted-foreground">
             本次引用 · {selected.filter((id) => tabs.includes(id)).length} 项
@@ -266,7 +349,7 @@ export function AgentPanel({
             rows={3}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="询问或粘贴一段文字…"
+            placeholder="查找资料、安排日程，或继续一个项目…"
             onKeyDown={(e) => {
               if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                 e.preventDefault();
@@ -277,17 +360,50 @@ export function AgentPanel({
           <Button
             className="absolute bottom-2 right-2"
             size="icon-sm"
-            aria-label="发送问题"
-            disabled={busy || !chat?.configured || !prompt.trim()}
-            onClick={() => void send()}
+            aria-label={busy ? '停止执行' : '发送问题'}
+            disabled={!busy && (!chat?.configured || !prompt.trim())}
+            onClick={() =>
+              busy
+                ? void window.dela?.workspace.cancelAsk(scope).catch((e) => setError(errorText(e)))
+                : void send()
+            }
           >
-            <ArrowUp />
+            {busy ? <Square /> : <ArrowUp />}
           </Button>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          发送时，所选正文及近期对话会提供给致远一号。
+          对话、选中资料及工具读取的内容会提供给致远一号。
         </p>
       </div>
+      <Dialog.Root
+        open={Boolean(email)}
+        onOpenChange={(open) => {
+          if (!open) closeEmail();
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+          <Dialog.Content
+            className="fixed inset-4 z-50 flex flex-col overflow-hidden rounded-xl border bg-background shadow-xl"
+            aria-describedby={undefined}
+          >
+            <Dialog.Title className="sr-only">检查邮件草稿</Dialog.Title>
+            {email && (
+              <MailComposer
+                key={email.draft.id}
+                draft={email.draft}
+                accountAddress={email.address}
+                onDirtyChange={() => {}}
+                onClose={closeEmail}
+                onSent={(warning) => {
+                  setEmail(null);
+                  if (warning) setError(warning);
+                }}
+              />
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </aside>
   );
 }

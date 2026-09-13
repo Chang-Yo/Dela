@@ -1,6 +1,7 @@
 import { ArrowRight, FolderKanban, GraduationCap, Plus } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useWorkspace } from '../projects/workspace';
+import { AgentPanel } from '../projects/AgentPanel';
 
 export function HomeView({
   onOpenProject,
@@ -16,6 +17,24 @@ export function HomeView({
   const projects = workspace.entries.filter((e) => e.kind === 'project');
   return (
     <div className="page">
+      <section
+        className="mb-6 flex max-h-96 flex-col overflow-hidden rounded-xl border"
+        aria-label="助手"
+      >
+        <AgentPanel
+          scope="home"
+          tabs={[]}
+          title={(key) => key}
+          home
+          onOpen={onOpenSources}
+          onSaveNote={(text) => {
+            void window.dela?.workspace
+              .create({ parentId: null, kind: 'note', name: '助手笔记', text })
+              .then(() => useWorkspace.getState().refresh())
+              .catch(useWorkspace.getState().setError);
+          }}
+        />
+      </section>
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">继续工作</h1>
         <Button onClick={onNewProject}>
