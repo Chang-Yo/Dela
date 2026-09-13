@@ -1,0 +1,173 @@
+import { useEffect, useState } from 'react';
+import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
+import {
+  activeInWeek,
+  addDays,
+  colorFor,
+  dateKey,
+  dayMilliseconds,
+  eventColorStyle,
+  eventTone,
+  formatTime,
+  localEventsByDay,
+  mondayOf,
+  weekDays,
+  weekForDate,
+} from './timetable-format';
+import { cn } from '../../lib/utils';
+
+export function MonthCalendar({
+  events,
+  lessons,
+  month,
+  semesterStart,
+  onCreate,
+  onEditSemesterStart,
+}: {
+  events: readonly CalendarEvent[];
+  lessons: readonly TimetableLesson[];
+  month: Date;
+  semesterStart: string | null;
+  onCreate: (start: Date, end?: Date) => void;
+  onEditSemesterStart: () => void;
+}) {
+  const first = mondayOf(new Date(month.getFullYear(), month.getMonth(), 1));
+  const nextMonthWeek = mondayOf(new Date(month.getFullYear(), month.getMonth() + 1, 1));
+  const dayCount = Math.round(
+    (addDays(nextMonthWeek, 7).getTime() - first.getTime()) / dayMilliseconds,
+  );
+  const days = Array.from({ length: dayCount }, (_, index) => addDays(first, index));
+  const groupedEvents = localEventsByDay(events);
+  // 拖拽跨天选择时间段的任务，参考 DayPilot 月视图：按住起点划过目标日期，松开后弹窗命名。
+  const [drag, setDrag] = useState<{ start: Date; end: Date } | null>(null);
+  const dragRange = drag
+    ? [
+        drag.start.getTime() <= drag.end.getTime() ? drag.start : drag.end,
+        drag.start.getTime() <= drag.end.getTime() ? drag.end : drag.start,
+      ]
+    : null;
+
+  useEffect(() => {
+    if (!drag) return;
+    const finish = () => {
+      const [start, end] =
+        drag.start.getTime() <= drag.end.getTime()
+          ? [drag.start, drag.end]
+          : [drag.end, drag.start];
+      setDrag(null);
+      onCreate(start, end);
+    };
+    window.addEventListener('mouseup', finish);
+    return () => window.removeEventListener('mouseup', finish);
+  }, [drag, onCreate]);
+
+  return (
+    <div className="min-h-0 flex-1 overflow-auto">
+      {!semesterStart ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-5 py-2 text-xs text-muted-foreground max-md:px-3">
+          <span>还没有开学日期，课程暂不显示在月历上。</span>
+          <button
+            className="font-medium text-primary underline-offset-2 hover:underline"
+            onClick={onEditSemesterStart}
+            type="button"
+          >
+            设置开学日期
+          </button>
+        </div>
+      ) : null}
+      <div className="hidden border-b md:grid md:grid-cols-7">
+        {weekDays.map((day) => (
+          <div className="py-2 pl-2 text-xs font-semibold text-foreground" key={day}>
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid select-none grid-cols-7 max-md:grid-cols-1">
+        {days.map((date) => {
+          const currentMonth = date.getMonth() === month.getMonth();
+          const today = dateKey(date) === dateKey(new Date());
+          const week = weekForDate(semesterStart, date);
+          const dayLessons =
+            week && week > 0
+              ? lessons.filter(
+                  (lesson) => lesson.weekday === (date.getDay() || 7) && activeInWeek(lesson, week),
+                )
+              : [];
+          const dayEvents = groupedEvents.get(dateKey(date)) ?? [];
+          const items = [
+            ...dayEvents.map((event) => ({
+              id: `event-${event.id}`,
+              title: event.title,
+              time:
+                dateKey(new Date(event.startAt)) === dateKey(date)
+                  ? formatTime(new Date(event.startAt))
+                  : null,
+              tone: eventTone(event.color),
+            })),
+            ...dayLessons.map((lesson) => ({
+              id: `lesson-${lesson.id}`,
+              title: lesson.courseName,
+              time: lesson.periodsText,
+              tone: eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
+            })),
+          ];
+          // 拖拽可以跨到补位的相邻日期创建，但只有当月日期参与高亮。
+          const selected =
+            !!dragRange && currentMonth && date >= dragRange[0]! && date <= dragRange[1]!;
+          return (
+            <button
+              aria-current={today ? 'date' : undefined}
+              aria-label={`${date.getMonth() + 1}月${date.getDate()}日`}
+              className={cn(
+                // button 默认垂直居中内容，改为 flex 顶对齐，日号稳定在左上角。
+                'flex min-h-28 flex-col border-b p-2 text-left transition-colors hover:bg-accent/45 max-md:grid max-md:min-h-16 max-md:grid-cols-[44px_1fr] max-md:gap-2',
+                selected && 'bg-primary/10',
+                !currentMonth && 'bg-muted/25 text-muted-foreground max-md:hidden',
+              )}
+              key={dateKey(date)}
+              onClick={(event) => {
+                if (event.detail === 0) onCreate(date);
+              }}
+              onMouseDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                setDrag({ start: date, end: date });
+              }}
+              onMouseEnter={() => {
+                if (drag) setDrag((current) => current && { ...current, end: date });
+              }}
+            >
+              <span
+                className={cn(
+                  'mb-1 grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium max-md:mb-0',
+                  today && 'bg-primary text-primary-foreground',
+                )}
+              >
+                {date.getDate()}
+              </span>
+              <span className="grid min-w-0 gap-0.5">
+                {items.slice(0, 3).map((item) => (
+                  <span
+                    className="flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-[11px]"
+                    key={item.id}
+                    style={item.tone}
+                  >
+                    {item.time ? (
+                      <span className="shrink-0 tabular-nums opacity-70">{item.time}</span>
+                    ) : null}
+                    <span className="truncate font-medium">{item.title}</span>
+                  </span>
+                ))}
+                {items.length > 3 ? (
+                  <span className="px-1.5 text-[10px] text-muted-foreground">
+                    还有 {items.length - 3} 项
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

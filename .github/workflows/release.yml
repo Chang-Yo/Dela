@@ -1,0 +1,156 @@
+name: Release installers
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag to publish (for example, v0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+      - name: Validate tag and package version
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const tag = process.env.RELEASE_TAG;
+          const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          if (tag !== `v${version}` || !/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag)) {
+            throw new Error('Tag must be v<package.json version>, optionally with a prerelease suffix');
+          }
+          const sha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+          appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\nsha=${sha}\n`);
+          NODE
+
+  build:
+    needs: prepare
+    name: Build ${{ matrix.platform }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: win
+            arch: x64
+            executable: dist/win-unpacked/Dela.exe
+          - os: macos-15-intel
+            platform: mac
+            arch: x64
+            executable: dist/mac/Dela.app/Contents/MacOS/Dela
+          - os: macos-15
+            platform: mac
+            arch: arm64
+            executable: dist/mac-arm64/Dela.app/Contents/MacOS/Dela
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+            executable: dist/linux-unpacked/dela
+    defaults:
+      run:
+        shell: bash
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Install pnpm
+        run: npm install --global pnpm@12.3.4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Prepare Linux desktop runtime
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes xvfb libgtk-3-0 libnss3 libasound2t64 libfuse2t64
+          # Allow Electron's sandbox in this ephemeral Ubuntu runner.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Build and test
+        run: |
+          pnpm build
+          pnpm test
+      - name: Smoke test Electron
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run --auto-servernum pnpm smoke
+          else
+            pnpm smoke
+          fi
+      - name: Build installer
+        run: pnpm exec electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+      - name: Smoke test packaged app
+        env:
+          PACKAGED_EXECUTABLE: ${{ matrix.executable }}
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run --auto-servernum "$PACKAGED_EXECUTABLE" --smoke-test
+          else
+            "$PACKAGED_EXECUTABLE" --smoke-test
+          fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: installer-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  release:
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: installer-*
+          path: installers
+          merge-multiple: true
+      - name: Create and publish release
+        shell: bash
+        run: |
+          prerelease=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" installers/* \
+            --verify-tag --draft --generate-notes --title "$RELEASE_TAG" "${prerelease[@]}"
+          gh release edit "$RELEASE_TAG" --draft=false

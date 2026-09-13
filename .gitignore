@@ -4,6 +4,8 @@ node_modules/
 out/
 dist/
 coverage/
+.playwright-cli/
+output/playwright/
 *.tsbuildinfo
 *.tgz
 

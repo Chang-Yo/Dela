@@ -52,3 +52,4 @@ curl --location --request POST 'https://models.sjtu.edu.cn/api/v1/chat/completio
 ## 长期目标
 
 桌面端app + Android端app
+

@@ -1,0 +1,389 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+:root {
+  /* 原生控件（日期/时间弹层、select 下拉）跟随主题亮暗渲染。 */
+  color-scheme: light;
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.955 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  /* 日历候选色：低饱和灰调，浅底深字，供课程哈希分配与事件手动选择。 */
+  --cal-rose-bg: oklch(0.941 0.024 18);
+  --cal-rose-text: oklch(0.42 0.083 18);
+  --cal-peach-bg: oklch(0.949 0.024 55);
+  --cal-peach-text: oklch(0.43 0.086 55);
+  --cal-sand-bg: oklch(0.953 0.03 92);
+  --cal-sand-text: oklch(0.42 0.075 85);
+  --cal-sage-bg: oklch(0.937 0.024 150);
+  --cal-sage-text: oklch(0.41 0.062 150);
+  --cal-teal-bg: oklch(0.937 0.022 200);
+  --cal-teal-text: oklch(0.41 0.062 205);
+  --cal-blue-bg: oklch(0.935 0.022 250);
+  --cal-blue-text: oklch(0.43 0.083 255);
+  --cal-lilac-bg: oklch(0.937 0.024 300);
+  --cal-lilac-text: oklch(0.45 0.08 300);
+  --cal-slate-bg: oklch(0.93 0.004 255);
+  --cal-slate-text: oklch(0.37 0.014 255);
+  /* 语法高亮（Markdown 编辑器 CodeMirror 与预览 highlight.js 共用）：GitHub Light/Primer prettylights。 */
+  --syntax-keyword: #cf222e;
+  --syntax-string: #0a3069;
+  --syntax-constant: #0550ae;
+  --syntax-comment: #59636e;
+  --syntax-function: #6639ba;
+  --syntax-variable: #953800;
+  --syntax-tag: #116329;
+  --syntax-caret: #0969da;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --sidebar: oklch(0.185 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+    --cal-rose-bg: oklch(0.304 0.032 18);
+    --cal-rose-text: oklch(0.871 0.048 18);
+    --cal-peach-bg: oklch(0.304 0.032 55);
+    --cal-peach-text: oklch(0.878 0.058 60);
+    --cal-sand-bg: oklch(0.31 0.038 92);
+    --cal-sand-text: oklch(0.871 0.052 90);
+    --cal-sage-bg: oklch(0.297 0.03 150);
+    --cal-sage-text: oklch(0.858 0.05 150);
+    --cal-teal-bg: oklch(0.297 0.028 200);
+    --cal-teal-text: oklch(0.858 0.05 205);
+    --cal-blue-bg: oklch(0.297 0.036 255);
+    --cal-blue-text: oklch(0.858 0.052 255);
+    --cal-lilac-bg: oklch(0.304 0.036 300);
+    --cal-lilac-text: oklch(0.864 0.055 300);
+    --cal-slate-bg: oklch(0.29 0.008 255);
+    --cal-slate-text: oklch(0.85 0.008 255);
+    /* GitHub Dark/Primer prettylights。 */
+    --syntax-keyword: #ff7b72;
+    --syntax-string: #a5d6ff;
+    --syntax-constant: #79c0ff;
+    --syntax-comment: #9198a1;
+    --syntax-function: #d2a8ff;
+    --syntax-variable: #ffa657;
+    --syntax-tag: #7ee787;
+    --syntax-caret: #58a6ff;
+  }
+}
+
+/* 手动深色主题复用系统深色配色；`.light` 只会屏蔽上方媒体查询。 */
+:root.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.185 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --cal-rose-bg: oklch(0.304 0.032 18);
+  --cal-rose-text: oklch(0.871 0.048 18);
+  --cal-peach-bg: oklch(0.304 0.032 55);
+  --cal-peach-text: oklch(0.878 0.058 60);
+  --cal-sand-bg: oklch(0.31 0.038 92);
+  --cal-sand-text: oklch(0.871 0.052 90);
+  --cal-sage-bg: oklch(0.297 0.03 150);
+  --cal-sage-text: oklch(0.858 0.05 150);
+  --cal-teal-bg: oklch(0.297 0.028 200);
+  --cal-teal-text: oklch(0.858 0.05 205);
+  --cal-blue-bg: oklch(0.297 0.036 255);
+  --cal-blue-text: oklch(0.858 0.052 255);
+  --cal-lilac-bg: oklch(0.304 0.036 300);
+  --cal-lilac-text: oklch(0.864 0.055 300);
+  --cal-slate-bg: oklch(0.29 0.008 255);
+  --cal-slate-text: oklch(0.85 0.008 255);
+  --syntax-keyword: #ff7b72;
+  --syntax-string: #a5d6ff;
+  --syntax-constant: #79c0ff;
+  --syntax-comment: #9198a1;
+  --syntax-function: #d2a8ff;
+  --syntax-variable: #ffa657;
+  --syntax-tag: #7ee787;
+  --syntax-caret: #58a6ff;
+}
+
+@theme inline {
+  --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    outline-color: color-mix(in oklch, var(--color-ring) 50%, transparent);
+  }
+
+  html,
+  body,
+  #root {
+    min-width: 320px;
+    min-height: 100%;
+    margin: 0;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    font-synthesis: none;
+  }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:focus-visible,
+  textarea:focus-visible,
+  input:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--color-ring) 60%, transparent);
+    outline-offset: 2px;
+  }
+
+  /* 预览代码块（highlight.js GitHub 主题类名）与编辑器共用 --syntax-* 配色。 */
+  .hljs-doctag,
+  .hljs-keyword,
+  .hljs-meta .hljs-keyword,
+  .hljs-template-tag,
+  .hljs-template-variable,
+  .hljs-type,
+  .hljs-variable.language_ {
+    color: var(--syntax-keyword);
+  }
+
+  .hljs-title,
+  .hljs-title.class_,
+  .hljs-title.class_.inherited__,
+  .hljs-title.function_ {
+    color: var(--syntax-function);
+  }
+
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-literal,
+  .hljs-meta,
+  .hljs-number,
+  .hljs-operator,
+  .hljs-variable,
+  .hljs-selector-attr,
+  .hljs-selector-class,
+  .hljs-selector-id {
+    color: var(--syntax-constant);
+  }
+
+  .hljs-regexp,
+  .hljs-string,
+  .hljs-meta .hljs-string {
+    color: var(--syntax-string);
+  }
+
+  .hljs-built_in,
+  .hljs-symbol {
+    color: var(--syntax-variable);
+  }
+
+  .hljs-comment,
+  .hljs-code,
+  .hljs-formula {
+    color: var(--syntax-comment);
+  }
+
+  .hljs-name,
+  .hljs-quote,
+  .hljs-selector-tag,
+  .hljs-selector-pseudo {
+    color: var(--syntax-tag);
+  }
+
+  .hljs-section {
+    color: var(--syntax-constant);
+    font-weight: bold;
+  }
+
+  .hljs-bullet {
+    color: var(--syntax-variable);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: bold;
+  }
+
+  .hljs-addition {
+    color: var(--syntax-tag);
+  }
+
+  .hljs-deletion {
+    color: var(--syntax-keyword);
+  }
+
+  /* 仅用 ::-webkit-scrollbar 定制：同时声明 scrollbar-width/color 会让 Chromium
+     忽略伪元素样式并回退到带箭头的原生滚动条。 */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--color-foreground) 22%, transparent);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--color-foreground) 38%, transparent);
+  }
+}
+
+@layer components {
+  .page {
+    width: min(1180px, 100%);
+    margin-inline: auto;
+    padding: 32px 48px 48px;
+  }
+
+  @media (max-width: 1080px) {
+    .page {
+      padding-inline: 24px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .page {
+      width: 100%;
+      padding: 16px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  /* 同步/加载指示是必要的活动反馈，保持旋转。 */
+  .animate-spin {
+    animation-duration: 1s !important;
+  }
+}

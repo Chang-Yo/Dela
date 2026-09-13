@@ -1,7 +1,7 @@
 # Dela 桌面应用技术规划书
 
 日期：2026-09-09
-状态：首版开发基线；基础工程已初始化，校园接口与产品功能尚未实现。工程验证记录见文末。
+状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步、阅读与 SMTP 发送；课表已实现 i.sjtu 会话接入、本地缓存、周/月视图和本地事件，真实账号同步及学期日期格式待验证（2026-09-11，见文末记录）；Canvas 课程资料、文件夹/项目、磁盘笔记、阅读工作区及明确选取正文的模型问答已实现（2026-09-12）；自动执行型 Agent 闭环尚未实现。工程验证记录见文末。
 
 ## 1. 产品定位与范围
 
@@ -39,21 +39,31 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 | 界面          | react / react-dom           | 19.2.8   | 工作台 UI                         |
 | 基础交互      | radix-ui                    | 1.6.7    | 菜单、对话框、提示等              |
 | 样式          | CSS Modules + CSS Variables | 无独立包 | 组件样式、主题变量                |
+| 类名组合      | clsx                        | 2.1.1    | 组合 CSS Modules 状态与变体       |
+| 界面过渡      | framer-motion               | 13.2.0   | 面板、抽屉与页面切换动画          |
 | 界面状态      | zustand                     | 5.0.15   | 面板、标签页、当前选择            |
 | 参数校验      | zod                         | 4.5.4    | IPC、工具参数与必要的外部数据校验 |
 | 数据库驱动    | better-sqlite3              | 13.0.3   | 本地 SQLite 访问                  |
 | Markdown 编辑 | @codemirror/view            | 6.43.11  | 编辑器视图                        |
 | Markdown 语言 | @codemirror/lang-markdown   | 6.5.2    | Markdown 编辑支持                 |
+| 编辑器内核    | @codemirror/state           | 6.7.4    | 编辑器状态与事务                  |
+| 编辑器语言    | @codemirror/language        | 6.12.4   | 高亮系统（HighlightStyle）        |
+| 编辑器命令    | @codemirror/commands        | 6.11.0   | 撤销/重做与默认键位               |
+| 代码块语言    | @codemirror/language-data   | 6.5.2    | 围栏代码块语言按需加载            |
+| 高亮标签      | @lezer/highlight            | 1.2.3    | 语法标签定义                      |
 | Markdown 展示 | react-markdown              | 10.1.0   | 文档和对话渲染                    |
 | GFM           | remark-gfm                  | 4.0.1    | 表格、任务清单等                  |
+| 代码高亮      | highlight.js                | 11.12.0  | Markdown 代码块展示               |
 | 邮箱读取      | imapflow                    | 2.0.0    | IMAP 同步与查询                   |
-| 邮件发送      | nodemailer                  | 10.0.1   | 实现发送功能时再安装              |
+| 邮件发送      | nodemailer                  | 10.0.1   | SMTP 发送与 MIME 构建             |
 | 安装包        | electron-builder            | 26.15.3  | 打包和分发产物                    |
 | 逻辑测试      | vitest                      | 5.0.0    | 状态、同步和工具执行测试          |
 
 HTTP 和模型请求使用运行时 `fetch`；凭据保护使用 Electron `safeStorage`；文件操作使用 Node.js API。不额外引入 HTTP 服务端、ORM、Agent 框架或客户端请求框架。
 
-类型声明、CodeMirror 的其他必需模块、格式化工具等辅助依赖，在首次安装时核对版本并固定到 `package.json` 和锁文件，不在这里凭空指定。PDF、Office 解析库需要用真实课件验证后再选；其选型不得阻塞基础项目、文本编辑和 Canvas 元数据功能。
+CodeMirror 的其他必需模块已于 2026-09-12 随 Markdown 编辑器落地核对并固定到 `package.json` 和锁文件（见上表）。PDF、Office 解析库需要用真实课件验证后再选；其选型不得阻塞基础项目、文本编辑和 Canvas 元数据功能。
+
+`clsx`、`framer-motion` 和 `highlight.js` 已随 2026-09-10 的前端重构安装并使用：clsx 组合 CSS Modules 的状态与变体；framer-motion 仅用于视图切换的少量过渡（`MotionConfig` 跟随系统减少动态效果设置）；highlight.js 只负责 Markdown 预览代码块展示，不执行代码。继续使用 Prettier 作为格式化工具，不引入 Biome。自动更新等到存在正式发布渠道、签名和更新服务后再选择并引入 `electron-updater`。
 
 ### 2.2 构建决定
 
@@ -71,7 +81,15 @@ HTTP 和模型请求使用运行时 `fetch`；凭据保护使用 Electron `safeS
 
 ### 2.3 版本与变更纪律
 
+2026-09-12 新增 `.github/workflows/check.yaml`：PR 创建、更新、重新打开及 main push 自动运行 Windows x64、macOS x64/arm64、Ubuntu x64 的锁文件安装、类型与生产构建、单元测试、Electron 冒烟、目录打包和打包后启动检查。格式检查仅在 Ubuntu 执行。使用与发布一致的 runner 和 Node/pnpm 版本，只读权限，同一 PR/main 的新提交取消旧检查；不生成安装包或发布 Release。必需检查需另在 GitHub 分支规则中配置，跨平台结果待首次 CI 运行确认。
+
+2026-09-11 新增 `.github/workflows/release.yml`：推送与包版本一致的 `v*` tag，或手动指定已有 tag，固定同一提交在 Windows、macOS Intel/Apple Silicon、Ubuntu runner 构建 NSIS、DMG、AppImage。运行基线选择 Windows 10 x64、macOS 13 x64/arm64、Ubuntu 24.04 x64；macOS 最低版本写入 electron-builder 配置。所有平台的生产构建、单元测试、Electron 与打包目录冒烟成功后统一发布 Release；预发布版本自动标记 prerelease。保留 `npmRebuild: false` 和随 better-sqlite3 13 提供的预编译模块，以各平台冒烟检查验证加载。未配置代码签名或 Apple 公证，未宣称最低系统实机兼容性和安装过程已验收；GitHub 跨平台运行结果待首次发布验证。操作方法、产物与重跑约束见 README「自动发布安装包」。
+
 `package.json` 是已安装版本的执行依据，`pnpm-lock.yaml` 锁定传递依赖；本文件记录选择理由和固定基线。初始化设置 `packageManager`，记录开发 Node.js 版本。
+
+应用升版通过 `version:patch`、`version:minor`、`version:major` 或 `version:bump <版本/递增类型>` 调用 npm 内置 SemVer 命令，仅修改包版本，不自动提交、打 tag 或发布。preload 构建时内联 `package.json` 的 version，冒烟检查与 `app.getVersion()` 比较，移除原有 `0.1.0` 硬编码。单包 pnpm 锁文件不保存根应用版本，升版不需要更新依赖锁文件。
+
+本次发布配置本地验证（2026-09-11）：actionlint、相关文件 Prettier 检查、`pnpm build`、7 个单元测试、`pnpm smoke`、Windows x64 NSIS 安装包生成和 `win-unpacked/Dela.exe --smoke-test` 均通过。未执行 NSIS 安装向导，未推送 tag 或创建远端 Release。
 
 初始化验收未通过时记录具体冲突，再局部修改选型与本表，不静默降级。升级必须独立检查类型、构建、核心测试和安装包启动。原生依赖安装脚本仅允许明确需要的包，不全局放开。
 
@@ -108,13 +126,18 @@ Dela/
 |   |   `-- index.ts                  # contextBridge
 |   |-- renderer/
 |   |   |-- index.html
-|   |   |-- main.tsx
-|   |   |-- App.tsx
-|   |   |-- app.css                   # 全局样式、主题变量
-|   |   |-- components/               # 真实复用的 UI
+|   |   |-- main.tsx                  # 仅挂载 React
+|   |   |-- App.tsx                   # 应用外壳与页面入口
+|   |   |-- styles/
+|   |   |   |-- tokens.css            # 设计 token 与明暗主题
+|   |   |   `-- globals.css           # reset 与窗口级全局规则
+|   |   |-- components/               # 真实复用的 UI；样式就近放置
 |   |   `-- features/
 |   |       |-- home/
 |   |       |-- projects/
+|   |       |-- sources/
+|   |       |-- mail/
+|   |       |-- timetable/
 |   |       |-- chat/
 |   |       |-- editor/
 |   |       `-- settings/
@@ -137,7 +160,7 @@ Dela/
 `-- .gitignore
 ```
 
-这是目标组织约定，不要求预先建立空目录。业务从一个文件开始；出现实际复杂度或重复后再拆分。测试紧邻实现，例如 `agent/run.test.ts`；测试样例必须脱敏。
+这是目标组织约定，不要求预先建立空目录。React 组件使用同目录的 `*.module.css`，页面样式留在对应 feature；全局样式只保存设计 token、reset 和窗口级规则。模块可用 `index.ts` 暴露少量公共入口，但不建立导出整个 renderer 的总入口。测试紧邻实现，例如 `agent/run.test.ts`；测试样例必须脱敏。
 
 不默认新增 Manager、Service、Factory、Adapter、Registry 等类型或层级。不创建无明确归属的巨大 `utils.ts`。界面样式与仅被本功能使用的组件放在对应 feature 中。
 
@@ -173,7 +196,7 @@ Dela/
 
 ### 5.1 Project 的含义
 
-Project 是用户主动建立的事务空间，可以对应课程、Lab、科研或申请。它包含目标与背景、来源关联、对话、任务和成果。Project 不等于 Git 仓库，不要求每个项目拥有本地代码目录。
+Project 是用户主动围绕主题建立的持续工作空间，可以对应课程、Lab、科研、申请或长期阅读。普通文件夹可原地作为项目开展，不要求填写目标、截止时间或任务清单。项目保留来源引用、笔记、对话及打开的工作内容；不等于 Git 仓库，也不要求本地代码目录。
 
 首版保存以下概念，不预先构建知识图谱：
 
@@ -405,12 +428,87 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 
 ## 13. 工程初始化记录
 
+- 本次邮箱改动交付检查：TypeScript、生产构建、3 个 MIME 单元测试、脱敏 Electron 邮箱检查、修改文件格式检查均通过；`pnpm smoke` 与 `dist/win-unpacked/Dela.exe --smoke-test` 均通过。已生成 Windows 可执行目录，未验证 NSIS 安装流程。构建仍提示 renderer bundle 超过 500 kB。
+
+- 2026-09-10 邮箱维护性与阅读改进：renderer 按 `MailConfigureForm`、`MailFolders`、`MailMessageList`、`MailReader`、`MailHtmlBody` 拆分页面，`mail-format.ts` / `mail-html.ts` 分别承载格式化和 HTML 文档处理。主进程正文选择优先 HTML，排除附件邮件中的正文；两个正文读取路径均解析 CID 位图（PNG/JPEG/GIF/WebP/BMP，总下载预算 2 MB），失败保留文本阅读。继续使用 ImapFlow 已有的字符集/传输编码解码，不重复转换。SQLite v2 只新增正文版本字段；升级前使用 VACUUM INTO 保留备份，旧缓存按需更新，联网失败保留缓存。HTML 用 DOMParser 保留原始 head/body 与 CSS，移除主动内容后写入无脚本、不同源 iframe；内部 CSP 限定图片与内联样式，远程图片默认显示且可关闭。适应宽度/原始布局、纯文本切换、抄送展示、正文 HTTP(S) 链接列表已实现；链接经校验主 frame 和协议的有限 preload API 在系统浏览器打开。侧栏保留账户区高度、固定按钮和图标位置、记忆折叠状态，窄屏保留名称；列表分隔条支持方向键。界面使用原有 48/220px 侧栏宽度，新增 240px 正文最低高度和 160ms 折叠过渡（尊重减少动态效果）。已通过 MIME 3 个单元测试与独立 Electron 脱敏样例检查（HTML 样式保留/脚本隔离、CID 替换逻辑、折叠图标稳定、快速切信与窄屏）。真实邮箱模板、Outlook VML、外部字体/样式表和超预算内嵌图片未保证兼容；附件下载未实现。
+
 - 开发工具安装在本机 `.tools/`，由 `scripts/use-local-tools.ps1` 为当前 PowerShell 会话启用，不更改系统全局版本。
 - 已添加 `.gitignore`、`.prettierrc.json`、`.prettierignore`、`.editorconfig`、`.gitattributes`、Node 版本文件、三个 tsconfig、三个 Vite 配置和 electron-builder 配置。
 - 辅助开发依赖固定为 Prettier 3.9.6、@types/node 24.9.0、@types/react 19.2.18、@types/react-dom 19.2.7、@types/better-sqlite3 9.6.0。
 - pnpm 12 自动生成的项目设置移入 `pnpm-workspace.yaml`，对约定的 Electron 44.3.0 设置精确的发布时间排除项；没有关闭全部安装检查。
 - better-sqlite3 13.0.3 附带平台预编译模块。pnpm 尝试默认 node-gyp 构建时暴露了不必要的源码编译，因此明确禁用该步骤，并关闭 electron-builder 的自动重建。最终可用性以 Electron 内及打包后的 SQLite 冒烟检查为准。
 - Electron 44 提供显式安装命令，本项目 `postinstall` 调用 `install-electron`。
-- 当前仅有基础启动占位界面。尚不包含完整编辑器、项目 CRUD、模型调用、邮箱/Canvas 或后台任务。
+- 2026-09-10 完成 [前端重构](frontend-refactor-plan.md)：`main.tsx` 只负责挂载 React；`App.tsx` 承担应用外壳与页面入口；设计 token 与 reset 在 `styles/`；`AppShell`、`Button`、`PageHeader`、`StatusDot` 提取为共享组件；首页、项目、资料、设置拆分到各自 feature，样式迁移为同目录 CSS Modules。界面效果保持不变，仍为示例数据。同时安装并使用 clsx 2.1.1、framer-motion 13.2.0、highlight.js 11.12.0（视图切换过渡与 Agent 面板示例代码高亮）。因类名哈希化，冒烟检查的渲染断言从 `.app-shell` 类名改为结构稳定的 `main` 元素。已验证：Prettier、三组类型检查、生产构建、Electron 内 SQLite/React/preload 隔离冒烟，并在浏览器中对四个视图与窄屏布局做了视觉核对。
+- 2026-09-10 自定义标题栏：窗口改为 `titleBarStyle: 'hidden'`（Windows 保留系统拖拽、贴边与双击最大化），标题栏由 `AppShell` 渲染——左侧 Dela 标识 + 拖拽区（`-webkit-app-region`），右侧自绘最小化/最大化/关闭按钮；窗口操作通过 preload 暴露的 `window` API 走受控 IPC（`window:minimize` / `window:toggle-maximize` / `window:close` / `window:get-state`），最大化状态由主进程经 `window:state` 推送同步，按钮在最大化/还原图标间切换。滚动从窗口级改为工作区内滚动，内容不会滑入标题栏下方；窄屏下标题栏仍置顶，底部导航保持。已验证：类型检查、生产构建、Electron 冒烟与窗口截图核对（Windows）；macOS/Linux 的标题栏形态（如交通灯按钮位置）未适配、未验证。
+- 已完成首页、项目空间、资料入口和连接设置的前端骨架，包含明暗主题与窄/中/宽屏响应式布局；当前使用明确标注的示例数据。尚不包含完整编辑器、项目 CRUD、模型调用、邮箱/Canvas 或后台任务。
 - 2026-09-09 验证通过：固定锁文件安装、Prettier、三组 TS 7 类型检查、Vite 8 生产构建、开发服务器启动与退出、生产构建及 Windows 可执行目录内的 SQLite/React/preload 隔离冒烟检查。Vitest 尚无业务测试；未生成或验证 NSIS 安装流程，未验证其他平台。
+- 2026-09-10 邮箱（首个真实业务功能）与导航改造。左侧主导航改为首页、项目、资料、邮箱、课表；资料页移除内嵌的"课程/邮箱"类别列（Canvas 为列表+详情两栏），设置页"学校邮箱"行读取真实连接状态并可跳转邮箱页。主进程新增 `database.ts`（userData 下 SQLite，`user_version` 迁移 v1：mail_accounts / mail_folders / mail_messages）、`credentials.ts`（`safeStorage` 加密存 `userData/mail-credentials.bin`）、`mail.ts`（imapflow 同步与 IPC）；`shared/api.ts` 定义 MailApi 契约，preload 暴露 `dela.mail`；imapflow 2.0.0 保持 external 随生产依赖打包。同步策略：单账号（限 @sjtu.edu.cn），登录校验后保存凭据；每次同步按文件夹拉取最近 300 封信头（ENVELOPE/FLAGS/BODYSTRUCTURE），最新 30 封预取正文，UIDVALIDITY 变化时清空该文件夹本地数据，窗口外旧信头删除；正文未缓存时打开邮件按需抓取并缓存；打开未读邮件经 IMAP 置 `\Seen` 后更新本地；HTML 正文以 `sandbox` iframe 渲染，纯文本按预格式化文本渲染；附件仅列出名称与大小。页面为 Outlook 式三栏（文件夹/列表/阅读），含配置表单、同步状态（进度/错误）、文件夹未读数、本地搜索与窄屏响应式（文件夹横向标签、列表/阅读切换）。课表页为周课表示例骨架，明确标注数据未接入。已用真实账号验证：7 个文件夹同步（INBOX 服务器总数 1250，本地窗口 187 封、92 封摘要、93 封正文）、列表与 HTML 阅读渲染、已读标记、明暗与窄屏截图。未实现：发送（SMTP/nodemailer）、附件下载、定时轮询、多账号；打包安装（NSIS）与 darwin/linux 未重验。
+- 2026-09-10 Shell 视觉统一：设计 token 改为中性灰阶、深青绿强调色，并同步提供暗色 token；自定义标题栏、侧栏、邮箱栏和状态栏复用这些 token。工作区改为固定的标题栏 / 内容 / 精简状态栏三行布局，侧栏跨内容与状态栏行；状态只在底部呈现一次。工作区不再作为全局滚动容器，各视图和邮箱三栏各自负责其内容滚动；滚动条使用统一的低对比度轨道和圆角滑块。已验证 TypeScript、生产构建、Electron 冒烟和格式检查；浏览器预览不具备 Electron preload，不能用于该应用的窗口级视觉验证。
+- 2026-09-10 Shell 细节调整：移除侧栏品牌区以及全局、项目页的底部状态栏；主侧栏与项目 Agent 右栏均可在宽屏上拖拽调整宽度，窄于三栏最低可用宽度时自动收起 Agent。邮件 HTML iframe 仍保持无脚本 sandbox，应用 CSP 允许邮件中的 HTTP(S) 图片，且 iframe 图片请求不携带 Referer；这会恢复远程图片显示，但远程服务仍可获知一次图片请求的网络地址。
+- 2026-09-10 图标与可收起导航：新增并固定 `lucide-react` 1.44.0，主导航、设置、项目与邮件文件夹使用其统一的描边图标。桌面端应用侧栏可通过标题栏 Dela 标识收起或展开；邮箱文件夹栏默认收起，列表/正文分栏可拖拽调整，默认优先留出正文阅读空间。
+- 2026-09-10 开发预览修复：Vite 的普通浏览器页面不具备 Electron preload 注入的 `window.dela`，renderer 现将该 API 声明为可选；窗口控制在浏览器中不渲染，设置页使用预览版本标识，邮箱明确显示仅桌面端可用，不读取或模拟凭据和邮件数据。Electron 中仍以 preload 注入的受控 API 运作。已核对 `scripts/dev.mjs` 的 Vite / main / preload watch 与 `vite.renderer.config.ts`；空白页原因为 renderer 直接访问不存在的 preload API，而非开发服务器配置错误。
 - 本机 Node 下载器获取 Electron 失败后，使用系统下载方式获取官方同版本 ZIP，并以 npm 包内 checksums.json 校验 SHA-256 后安装；没有更换版本或关闭校验。
+- 2026-09-11 个人课表接入：采用教学信息服务网登录后的只读接口 `POST /kbcx/xskbcx_cxXsgrkb.html?gnmkdm=N2151`，不依赖无法取得的开放平台 `client_id`。校园登录使用独立持久 Electron Session 和不含 preload 的模态窗口；renderer 只能通过受控 IPC 取得规范化数据。主进程按学期读取并校验课程名、课程号、教学班、教师、学分、校区、教室、星期、节次、周次和备注，成功后事务替换该学期缓存；失败或登录失效时保留旧缓存。课表页支持学期/教学周筛选、桌面周网格和窄屏日列表，设置页显示连接入口。已验证格式、三组类型检查、生产构建、周次解析测试、Electron 冒烟、登录窗口和 `win-unpacked` 启动；真实 jAccount 登录后的本人课表响应尚待实测，因此接口仍属于待验证能力。
+- 2026-09-11 jAccount 扫码回跳修正：移除登录窗口对导航协议、域名、新窗口和网页权限的自定义拦截，不再取消 HTTP 回跳后从事件中重发 HTTPS 导航；校园 SSO 重定向交给 Chromium 正常跟随，成功回跳直接识别 i.sjtu 的 HTTP/HTTPS 地址。独立 Session、无 preload 和受控 IPC 边界保持不变。
+- 2026-09-11 登录后同步修正：删除通过再次请求 `/jaccountlogin` 并解析最终响应 URL 来确认会话的步骤。扫码成功后直接使用同一 Session 请求课表；课表请求发生重定向或返回非 JSON 时再提示登录失效，避免 Electron 对 SSO 响应地址抛出 `Invalid URL`。
+- 2026-09-11 联调限制清理：课表同步不再要求服务器声明特定 JSON `Content-Type`，直接解析响应内容后校验必要字段，兼容教学信息服务网可能不规范的响应头。
+- 2026-09-11 课表日历化：参考开源项目 charlietlamb/calendar 的周/月视图、事件创建和窄屏纵向布局，以及 CalendarCN 的时间轴、当前时间线和月视图事件摘要，将原节次网格改为 8:00–20:20 周时间轴与月历；未增加 daily 模式。课表同步尝试从 `rqazcList` 提取最早有效日期作为第一教学周，元素形态未知时不会阻断课程同步；旧缓存没有日期时，月视图明确只显示本地事件。新增本地事件表和受控 IPC，可保存名称、起止时间和地点。已用脱敏课程及事件完成 1280px 周/月/弹窗和 620px 窄窗口渲染检查，无页面横向溢出；真实账号返回的 `rqazcList` 格式仍待验证。
+- 2026-09-11 邮件发送与未读状态修正：文件夹栏账户区上方新增“发送邮件”入口和分隔线，写信时以编辑器替换邮件列表与阅读区域，右上角发送；不保存草稿，关闭编辑器、切换文件夹、离开邮箱或退出窗口前提示抛弃。编辑器仅保留加粗、斜体、HTTP(S) 超链接、正文图片和普通附件；主进程用临时文件令牌隔离真实路径并通过 Nodemailer 连接 `mail.sjtu.edu.cn:465`，正文图片以 CID 发送。打开未读邮件后，renderer 立即更新邮件和文件夹未读数，主进程在 IMAP 标记成功后同步更新 SQLite 中的邮件及文件夹计数。生产构建和脱敏 Electron 邮箱检查通过；自动化没有再次发送真实邮件，用户已在正常应用会话中完成手动发送。
+- 2026-09-11 邮件归档与附件下载：SMTP 投递使用一份 Nodemailer 生成的 RFC 822 MIME 内容；投递被服务器接受后，同一内容通过 IMAP `APPEND` 写入识别到的 `\\Sent` 文件夹。归档失败不把已投递的邮件显示为失败，而是明确提示。阅读面板中的附件改为可点击按钮，点击后每次弹出系统保存位置对话框；主进程按已缓存且经校验的 MIME part 从对应 IMAP 邮件流式写入临时文件，完成后移动到用户选择的位置，失败不留下半成品。旧缓存缺少 MIME part 时需重新同步。已通过类型检查、生产构建和脱敏 Electron 交互检查；真实账号的已发送归档和附件保存仍待应用内实测。
+- 2026-09-11 界面语言统一到邮箱标杆：邮箱页的折叠栏、拉伸线与工具栏约定提取为共享组件并应用到其余页面。新增 `components/ui/resizer.tsx`（role=separator、aria 值、方向键 20px 步进、pointer capture、视觉线 1px 且两侧各外扩 10px 命中区、拖拽时经回调暂停列宽过渡），替换应用侧栏、邮箱列表、项目 Agent 面板、资料列表四处重复实现；`panel-toggle.tsx`（展开/收起按钮，支持左右侧面板）与 `desktop-only-notice.tsx`（浏览器预览提示）同为共享。应用侧栏宽屏折叠保持完全隐藏并持久化（应用户要求不做 48px 图标栏，避免与页内面板图标栏叠加），窄屏改为左上角菜单按钮控制的覆盖式抽屉（280px、带遮罩、点击导航或遮罩关闭），参照 ChatGPT 移动端；项目页拆分为 ProjectSidebar / ProjectDocument / AgentPanel，左侧列表改为带 lucide 图标的可折叠图标栏，Agent 面板可折叠并从文档标签行重新展开；资料页拆分为 SourceList / SourceDetail，列表改 px 宽度加拉伸线并可折叠；课表按邮箱模式拆分为 TimetableView / WeekCalendar / MonthCalendar / NewEventDialog / timetable-format，页头对齐工具栏风格；设置页连接行加图标，未实现连接的“配置”按钮禁用；首页“新建项目”改用 Plus 图标。折叠与展开状态保存在 localStorage（`dela.shell.*`、`dela.project.*`、`dela.sources.*`，与既有 `dela.mail.*` 一致）。已验证：格式检查、三组类型检查、生产构建、7 个单元测试、Electron 冒烟，以及浏览器预览 1280px/620px 下首页、项目、资料、设置、侧栏完全折叠与窄屏抽屉开合的截图核对；Electron 窗口内邮箱三栏与课表的实机视觉核对未重做，待下次应用会话确认。
+- 2026-09-11 课表视觉修润与两处全局修正：课程块与月历日程条从“左侧彩条 + 半透明底”改为与首页项目卡片一致的实色粉彩（amber/emerald/sky/violet/rose 按课程号或课程名哈希，暗色反转 -950/-200），手动事件用中性灰与课程区分；月历改为仅横向分隔线的网格，日程条带节次/时间前缀；页头第二行改为无边框胶囊下拉（自带箭头），同步状态与刷新合并为一个按钮；新建事件弹窗拆分为日期 + 时间原生输入（开始/结束各一行），支持 Esc 关闭与淡入动画，周视图首刻度 8:00 不再被表头裁剪。修正 `globals.css` 中损坏的 `@custom-variant dark`（编译为空 `:where()` 选择器，导致全应用所有 `dark:` 工具类在暗色下失效），删除后恢复 Tailwind v4 默认 `prefers-color-scheme` 变体；主进程增加 `--lang=zh-CN`（Electron 界面语言默认 en-US，原生日期/时间控件因此渲染 MM/DD/YYYY AM/PM）。已验证：格式检查、三组类型检查、生产构建、7 个单元测试、Electron 冒烟，并经 CDP 对真实缓存课表截图核对周视图（明/暗）、月视图与弹窗（日期显示 2026/09/12、24 小时制），视觉验收通过；月历日程条因旧缓存无学期日期且无本地事件，样式中“还有 N 项”溢出形态未在实机复核；周视图表头日期数字依赖学期日期，旧缓存下仍只显示星期名，待下次成功同步补齐。
+- 2026-09-11 设置页重构为分区导航：改为 macOS 系统设置式的「左侧分区导航 + 右侧详情」，窄屏导航折为顶部横向分区行。三个分区——数据与服务沿用原 5 项连接并继续读取真实的邮箱/课表状态（未实现连接的配置按钮禁用，已连接的跳转对应视图）；外观为主题三选（跟随系统/浅色/深色，带预览色块），当前仅维护组件内选择态，不持久化也不实际切换主题，接口草案记录在同目录 `INTERFACES.md`；关于为居中品牌卡（logo、名称、定位、版本，版本读 preload 构建时内联的 `package.json`）。拆分为 `SettingsView` / `SettingsNav` / `ConnectionsSection` / `AppearanceSection` / `AboutSection` / `SectionHeader`，导出签名未变。已验证：格式检查、三组类型检查、生产构建，浏览器 1280px 明暗主题截图核对。
+- 2026-09-12 窄屏邮箱两级抽屉：修复窄屏邮箱列表上方的空壳行（MailFolders 此前在窄屏 grid 第一行仍渲染，但折叠开关、文件夹、账号区全部被 `max-md:hidden` 隐藏，只剩内边距加边框约 17px，且文件夹切换与账号操作不可达），窄屏不再渲染 grid 内文件夹列。左上角菜单按钮改为受控两级抽屉（`MobileDrawer`，状态在 App）：邮箱视图首击直达邮箱级——文件夹+未读数、发送邮件、账号、退出登录，顶部「‹ 主菜单」返回一级主导航，导航级点邮箱钻回；其他视图首击仍开主导航级。抽屉内容由 MailView 经 AppShell 常驻的 `mail-drawer-slot` portal 注入，邮件状态保持单一来源；拉宽窗口或经后退/前进离开邮箱视图时抽屉自动收起。`MailFolders` 移除窄屏横条样式，新增 `hideHeader`/`className`，删除窄屏专属顶部「写邮件」按钮（与底部发送邮件重复）；顺带修正折叠态 `px-1.5` 使图标相对展开态左移 2px 的旧问题（改为仅 `pr-1.5`）。mail-smoke 窄屏断言改为：列表不横向溢出且不保留文件夹列、邮箱级抽屉含命名文件夹与退出登录、返回主菜单并可从导航钻回、抽屉内发送邮件进入编辑器且不溢出。已验证：格式检查、三组类型检查、生产构建、7 个单元测试、mail-smoke，并在运行中的 Electron 开发实例经 CDP 以 600×960 截图核对列表无空壳行、邮箱级抽屉、返回/钻回与 1440px 宽屏三栏回归，视觉验收通过。
+- 2026-09-12 标题栏后退/前进与帮助入口：参照 Codex App 在标题栏左侧依次排布侧栏开关、后退、前进和帮助。视图导航历史（backStack/forwardStack）由 App 持有并与普通导航共用同一守卫——写信未发送时经后退/前进离开邮箱同样弹确认，用户取消则导航中止、历史栈不动；后退/前进随历史置灰。帮助为占位文字按钮，链接目标后续接入；未加键盘快捷键。已验证：Prettier、三组类型检查，浏览器预览 1280px/620px 下初始禁用态、首页→项目→后退→前进完整周期（含邮箱离开守卫路径的栈不污染）、窄屏抽屉内导航与后退离开邮箱自动收起抽屉，及宽窄屏标题栏渲染截图核对；受后台标签动画冻结所限，内容切换经按钮禁用态与 aria-current 确认而非逐帧目视，真实指针输入与 Electron 实机渲染未重验。
+- 2026-09-12 侧栏折叠过渡统一：文字淡入淡出 + 裁剪，图标全程钉位。此前主侧栏展开动画中间帧里「项目」标题会被窄容器挤成竖排两行。确立全局约定——宽度过渡期间侧栏内容按目标宽度排版、由容器 overflow 裁剪显示，文字随折叠状态淡入/淡出（参照 Chrome 垂直标签页），图标不参与淡入淡出。主侧栏（AppShell）内容层为固定宽度（等于当前栏宽）内层，文字标签统一 `transition-opacity`；`invisible` 改为延迟 200ms 生效（与宽度动画同步结束），否则收起时内容立即消失、看不到淡出；去掉原先立即 `w-0` 的写法。邮箱与项目侧栏行标签改为常驻 + `transition-opacity`（去掉折叠时 `w-8 justify-center px-0` 的居中交换，图标与展开态横向对齐且全程不动），未读徽标与收起态未读圆点逻辑不变，展开淡入、收起随宽度侵蚀淡出；项目侧栏顺带修正折叠图标比展开态左移 2px 的旧错位（nav `px-1.5` 改为与邮箱一致的 `p-2`）。资料列表、「项目内容」标题与「添加资料」为卡片/居中结构，保留双态切换、文字挂载时用 `animate-in fade-in` 淡入。宽屏折叠保持完全隐藏不变。已验证：格式检查、三组类型检查、生产构建、7 个单元测试、mail-smoke（含折叠图标稳定与窄屏布局断言）；另用隔离 userData 的 Electron 实例（CDP 注入慢放过渡 + 强制泵帧截图）核对主侧栏收起 ~60% 帧（标签 opacity≈0.6、被收缩边缘裁剪、图标实心）与项目侧栏收起/展开 ~40% 帧（文字半透明、在最终位置淡入淡出，无换行无回流）；邮箱侧栏折叠动画与项目侧栏同构，未逐帧重验。
+- 2026-09-12 目录交互对齐 VSCode 资源管理器：共享 `Explorer` 新增可选 HTML5 拖拽移动（`onMove`/`canDrop`，拖拽载荷用自定义 MIME `application/x-dela-entry`，放置目标行以 `bg-accent/60` 高亮），仅"我的内容"树启用，Canvas 资料树只读不参与；拖入文件夹或项目成功后自动展开目标，拖到目录滚动区空白处移到顶层，自身子树不可作为放置目标（前端 `canDrop` 预判 + 主进程 `checkParent` 循环校验双保险）。项目页目录头部为四个带 Radix 悬浮提示的纯图标按钮（新建笔记/新建文件夹/关联本地文件/全部收起，`icon-sm` 沿用既有尺寸，折叠态保持隐藏），双击目录空白处直接新建笔记（目标取当前容器）；"全部收起"清空当前工作区视图的 `expanded`。窄屏/触屏仍经条目"…"菜单完成移动等操作，功能可达。已验证：格式、三组类型检查、生产构建、7 个单元测试、Electron 冒烟；另以隔离 userData 启动真实应用，经 CDP 合成拖拽事件验证移动落库与高亮、双击空白弹窗、Tooltip 渲染与全部收起（测试数据仅存临时目录，未触碰真实数据与笔记目录）；OS 级指针手势拖拽与 NSIS 打包未重验。已知取舍：目录头部并排四个图标，侧栏拖到最小宽度 240px 时标题文字会被压缩至近乎不可见（默认 300px 正常）；VSCode 的行内重命名/内联新建输入框未引入，沿用现有对话框模式。
+- 2026-09-12 课表月历交互补强：参照 DayPilot 的 `onTimeRangeSelected` 模式，月视图支持按住拖过若干天创建跨天任务——按下即高亮选区（仅当月日期参与高亮），松开弹出预填起止日期的新建事件弹窗，取消则不创建；键盘 Enter/Space（click `detail===0`）与触屏点击仍按单日创建。开学日期改为应用内可维护：主进程新增 `timetable:set-semester-start`（zod 校验学期与 `YYYY-MM-DD`，upsert `timetable_sync.semester_start`；无同步记录时以空串 `last_synced_at` 满足 NOT NULL，`getState` 将空串映射回 null），新增 `SemesterStartDialog` 提供日期输入与「第 1 教学周：M月D日 – M月D日」预览（周一记为周首，与 `weekForDate` 一致），入口为页头第二行胶囊（有值显示「开学 M月D日」）与月历缺日期提示条；下次成功同步取得权威日期仍会覆盖手动值。`localEventsByDay` 展开为跨天事件在覆盖的每一天出现（结束时刻为午夜时归属前一天），月历续日条目不重复时间前缀，周视图同步受益。页头整理：「今天」按视图改为「本周/本月」；同步/重新登录按钮移入第一行右侧动作组（已连接为图标 + 悬浮提示同步时间，未连接显示文字「重新登录」）；「+ 新建事件」默认今天而非学期周一，拖拽与单日创建统一落在 9:00–10:00。已验证：格式检查、三组类型检查、生产构建、7 个单元测试；另以隔离 userData 的真实应用实例经 CDP 与人工操作核对——拖拽 9/14–9/19 弹窗预填与创建、跨天条目逐日显示且仅起始日带时间、缺日期提示条与页头入口均可打开弹窗、保存 2026-09-14 后提示条消失且课程按第 1 教学周自 9/14 渲染（9/7 等开学前日期无课程）、弹窗重开预填已存值、9/16（周三）预览解析到 9/14–9/20；OS 级触摸手势、真实 jAccount 同步覆盖手动日期的行为与打包未重验。
+- 2026-09-12 关于页重排与赞赏入口：去掉品牌卡的边框与卡片底，改为居中留白排版——透明 logo（96px，深浅主题共用，深色背景下的观感经离屏合成核对）、名称、定位语、版本号；发丝线之下为作者行（头像 + author: ChangYo），右侧是 GitHub 仓库图标链接（内联 simple-icons 的 GitHub 标记，lucide 已移除品牌图标）与「赞赏」按钮。赞赏弹窗用 radix-ui Dialog（进出场沿用 dropdown 的 tw-animate 类），文案收敛为标题「赞赏」加描述「请作者喝一杯」；微信/支付宝收款码并排，二维码固定白底圆角容器保证深色主题下可扫，色点区分渠道。GitHub 链接走既有 window-open 外链通道由主进程在系统浏览器打开。素材取自仓库根 `assets/`，未新增依赖。已验证：格式检查、三组类型检查、生产构建、7 个单元测试；在运行中的 Electron 开发实例（HMR）核对关于页排版与赞赏弹窗开合；系统深色主题实机截图与打包未重验。
+- 2026-09-12 课表配色体系化与三处视觉修正：参照 Google Calendar 的成套事件色与 muted pastel 方案，把原先 5 色高饱和粉彩（Tailwind 100/900，暗色 950/200）换成 8 色低饱和灰调候选色（玫红/杏橙/沙黄/草绿/湖青/雾蓝/藕紫/石墨），以 `--cal-{key}-bg/-text` 设计 token 定义于 `globals.css`，明暗各一套。课程仍按课程号/课程名哈希自动分配（`colorFor`）；手动事件可显式选色：`calendar_events` 新增 `color` 列（数据库 v6 迁移 `ALTER TABLE`），API 增加可选 `color`（zod 枚举校验，读回异常值为 null），新建事件弹窗在分组行内新增 8 个圆形色板，默认石墨中性色与课程区分，选中态用 ring。周视图课程/事件块与窄屏卡片的标题改为 `break-words` 换行展示、不再省略（教室/节次等次要信息仍单行截断，月历摘要条保持单行属概览形态）；月历日格按钮改为 flex 顶对齐，修复 button 默认垂直居中导致日期数字随条目数量上下漂移的问题，数字统一固定左上角。已验证：格式检查、三组类型检查、生产构建、7 个单元测试、Electron 冒烟（真实 userData 完成 v5→v6 迁移）；另以隔离 userData 的真实应用实例经 CDP 用脱敏课程与事件截图核对周/月视图与新建事件弹窗的明暗主题、标题换行与日号对齐，并完成「选色→创建→落库→月历按所选色渲染」端到端检查（测试数据仅存临时目录，已清理）；NSIS 打包未重验。
+- 2026-09-12 应用品牌图标统一：renderer 标题栏与设置页改用 `assets/Dela_white_bg.svg`；BrowserWindow 设置同设计的 `Dela_white_bg.png` 作为原生窗口图标，electron-builder 顶层 `icon` 与打包文件列表同步配置该 PNG，使开发窗口与安装包不再回退到 Electron 默认图标。原生图标使用 PNG 伴生文件，因为 Electron/electron-builder 的平台图标链路不直接以 SVG 作为通用输入；已通过类型检查、生产构建和 Electron 冒烟，安装包目录图标待重新打包后确认。
+- 2026-09-12 Markdown 编辑器语法高亮：笔记编辑从原生 textarea 换为 CodeMirror 6（`ProjectDocument` 内 `MarkdownEditor` 组件），`@codemirror/lang-markdown` 的 GFM 解析覆盖标题/加粗/列表等标记与内联代码，`@codemirror/language-data` 按需懒加载围栏代码块语言（Vite 分包，用到才拉取），代码块内按语言高亮；新增固定依赖 @codemirror/state 6.7.4、@codemirror/language 6.12.4、@codemirror/commands 6.11.0、@codemirror/language-data 6.5.2、@lezer/highlight 1.2.3。配色调研了 GitHub Light/Dark（Primer prettylights）、Ayu、One Light/Dark、Flexoki、Nord、Solarized 后选用 GitHub：低饱和适合长文写作，且明暗两版都以纯白/近黑为设计底色，与应用的中性灰阶主题同底；逐色值溯源 `primer/primitives`，以 8 个 `--syntax-*` 设计 token 定义于 `globals.css` 明暗各一套，CodeMirror `HighlightStyle` 与预览侧 highlight.js 的 GitHub 主题类名共用同一组变量（`var()` 注入经 style-mod 验证），编辑与预览观感一致并跟随系统主题。编辑器行为保持原有数据流：`updateListener` 仍写回 `workspace.edit` 的 600ms 空闲自动保存、Ctrl/Cmd+S 与失焦保存、滚动位置经 `scrollDOM` 持久化；外部文本变更（重新载入等）仅在传入文本与编辑器文档不同才整体替换，不打断输入光标。新增体验：Enter 续写列表/引用（markdownKeymap）、撤销/重做历史（Mod-Z/Y）、Tab 缩进、行环绕。预览侧 react-markdown 代码块接入 `highlight.js/lib/common`（识别语言才高亮，不做自动猜测），复用既有 `[&_pre]` 容器样式；助手面板的对话渲染未改动。已验证：格式检查、三组类型检查、生产构建、7 个单元测试、Electron 冒烟与 workspace 冒烟；在运行中的应用实例以临时笔记（API 创建、截图后即删除）经 CDP 核对编辑态明/暗主题与预览态代码块高亮；打包产物与真实长文输入手感未重验。
+- 2026-09-12 文档区交互对齐 VSCode 编辑器：先研读 vscode 仓库 `multiEditorTabsControl`（脏标记与关闭按钮是同一按钮的字形切换、悬停互换、激活标签常显 X）、`editorInput.isSaving`（短自动保存下抑制脏点——VS Code 在 afterDelay≤1000ms 时不显示圆点）、`editorGroupView` 关闭确认流（仅在脏且不会自动保存时弹 Save/Don't Save/Cancel）、`breadcrumbsControl`（22px 面包屑行、chevron 分隔、溢出滚动、点击弹出同级选择器）与 `editor/title` 情境菜单（`when` 上下文按文档类型显隐、图标+tooltip 无文字），再结合本项目"600ms 自动保存 + 关闭标签不丢草稿"的实际裁剪：标签未保存显示圆点、悬停或保存后变关闭 X（保留圆点作为用户明确要求的未保存反馈，未采用 VS Code 的抑制策略；关闭不弹确认框——自动保存兜底且草稿留在应用状态），新增中键点击关闭与双击标签栏空白处新建笔记（与目录空白双击新建同构）。`ProjectDocument` 第二行文件名重复问题改为面包屑：所属项目/文件夹链可点击（`onReveal` 在目录中展开并定位），Canvas 资料追加「课程 · Canvas › 目录链」只读上下文与截止时间（Clock 图标）；工具栏情境化——移除「已保存/未保存/保存中」文字与「记笔记」按钮（与目录头新建笔记重复，且非文档级操作），预览/编辑改为对称图标切换（Eye/PenLine），保存按钮干净或保存中置灰，各按钮按 `editable`/来源类型/`url`/`kind` 严格显隐。已验证：格式检查、三组类型检查、生产构建、7 个单元测试、Electron 冒烟与 workspace 冒烟；在运行中的应用实例以临时嵌套结构（创建→验证→删除并复位视图状态）经 CDP 截图核对脏点、保存后圆点变 X、面包屑渲染与点击定位、保存按钮置灰；真实 Canvas 资料面包屑链与悬停换 X 的指针级核对未做（CSS group-hover 标准机制）。
+- 2026-09-13 工作区文档语义修正：目录头移除重复的底部“关联本地文件”入口及“新建项目”图标，保留针对文件夹的“作为项目开展”。右侧不再把文件夹/项目渲染为详情页；仅当文档处于打开状态时展示其标签栏，标签保留脏标记、中键或按钮关闭及双击空白新建笔记，目录选中时不展示此前文件标签。Markdown 编辑器启用 CodeMirror 官方 `lineNumbers()` gutter，使用既有 muted token 保持明暗主题一致。侧栏折叠方案暂不改：展开入口仍留在左侧边界，避免跳到右侧工具栏造成大幅视觉跳转。
+- 2026-09-13 设置页接口闭环：`dela.settings.getTheme/setTheme` 只接受 `system`、`light`、`dark`，调用方经主 frame 校验；主题值保存到既有 `workspace_settings`，主进程启动和变更时同步 `nativeTheme.themeSource`，renderer 以 `html.light` / `html.dark` 覆盖系统媒体查询并保留 localStorage 缓存以避免启动闪烁。设置页不再把 Canvas、致远一号的“配置”跳转到资料页：Canvas 对话框复用已有 `configure/syncCourses/disconnect` IPC，令牌验证后才由主进程加密保存；模型对话框复用 `getChat/configureModel`，密钥不回传 renderer。工作目录复用系统选择器并立即刷新设置状态；邮箱和课表保持前往已有完整配置页。`INTERFACES.md` 更新为实际 API 约定。已验证：类型检查与生产构建；真实凭据连接不作为本次验证内容。
+
+### 2026-09-12 资料与项目从示例转为真实工作区
+
+用户确认的产品边界：资料负责课程与来源的原始组织，文件夹是用户自由整理内容的容器；项目是用户主动围绕主题持续工作的文件夹形态，不要求目标、DDL 或任务清单。文件夹可原地转为项目，同一来源可引用到多个位置。资料和项目共用工作区，不再固定展示示例概览、虚构进度或助手执行结果。
+
+本次实现：
+
+- `main/canvas.ts` 对接个人 Canvas token（safeStorage），按学期/课程保存列表；资料侧栏依次独立展示“Canvas 资料”“我的内容”“归档”，归档默认收起，默认显示最新学期与“未标注学期”，其余学期置于归档。用户内容可移入受保护的归档根目录，保留子项与磁盘路径。课程内容按需同步文件夹/文件、作业/本人提交附件、讨论和模块；同步保存清单元数据，文件本体仅在首次打开或下载时获取并缓存。全量列表跟随 Link 分页，模块 item 使用独立分页端点。栏目失败保留旧快照并显示错误，刷新课程不会破坏项目内稳定的来源引用。远端不再可见的历史条目暂保留缓存，不自动删除用户引用。
+- 数据库 v5 新增 Canvas 课程快照、来源、工作区条目、笔记路径和工作区设置。`main/projects.ts` 提供文件夹/项目/笔记/来源引用/本地文件的受控操作。文件夹转换保留身份；移动校验父级和循环；删除递归移除应用记录而保留原件。迁移前沿用备份机制。
+- （此条存储约定已由文末“磁盘目录隔离修正”取代。）Markdown 笔记使用独立 UUID 的磁盘 `.md` 文件，默认系统文档目录下 `Dela`，用户可调整新笔记位置；不自动迁移已有文件。编辑器使用原生 textarea 与 react-markdown/remark-gfm 预览，600ms 空闲自动保存、Ctrl/Cmd+S 手动保存。保存前比较内容哈希，外部变化不覆盖；未保存草稿留在应用状态中，退出时提示。文件夹和条目名称独立于文件系统路径。
+- renderer 的 `workspace.ts` 供 App、首页、导航、资料和项目共享真实状态，避免原始资料与引用分成两套数据。`Explorer` 是资料树与用户内容树的共同组件；支持树形键盘导航、操作菜单、名称筛选。ProjectView 在现有文件中组合目录、标签、阅读/编辑、分屏与助手；资料页使用同一工作区。文本、HTML 滚动位置与标签、展开状态持久化；PDF 内嵌阅读器的页码/缩放状态暂不保存。
+- 侧栏继续使用 Mail 的 h-11 工具栏、48px 折叠入口和 Resizer；沿用资料栏默认 300px、240–420px 拉伸范围及窄屏 280px 抽屉。树缩进按设计系统 spacing 分级。正文切换不增加新的空间位移动画，侧栏使用 150ms 裁剪过渡并遵循减少动态效果设置。
+- 新增 `workspace.getChat/configureModel/ask`：致远一号固定服务地址、明确的模型枚举，凭据只在主进程保存。用户手动选择已打开的文本/HTML/Markdown 正文；请求包含所选正文、当前问题与最近 12 条对话，超出上下文预算报错，不默默截断资料。每个工作区保存一段对话，回答可新建为笔记；不具备工具调用、自动文件修改或提交能力。Qwen 已用合成笔记完成真实请求；其他模型尚未验证本次问答路径。流式、取消、多会话切换和 PDF 文本提取仍待实现。
+- Canvas HTML 清除脚本、事件属性和嵌入活动内容，使用禁止脚本的 sandbox iframe；允许同源仅用于捕获选区和接管链接，业务 IPC 校验主 frame，子 frame 不可调用。图片从主进程缓存读取后创建临时 Blob URL；PDF 已改由受控 `dela-resource` 协议按 Range 流式读取，不向 renderer 提供磁盘路径或文件字节。下载跳转到允许的对象存储主机时去掉 Authorization，不把签名链接提供给页面。
+
+真实联调：48 门课程、6 个学期分组；抽查 4 门课程包含真实文件树、模块与作业，PDF 下载及 Electron 阅读器显示通过。正式应用确认 Canvas 与模型凭据均可解密读取。不同 userData/sessionData 配置的密文不能直接互拷，联调在各自正确的配置目录内加密，不将导入辅助脚本加入产品。
+
+自动回归：新增 `pnpm smoke:workspace`，在 Electron 的临时用户目录中验证真实 SQLite、磁盘笔记与受控 IPC，网络使用脱敏桩。覆盖分页与非法分页地址、栏目失败缓存、模块引用共享身份、下载不转发认证头、文件夹转换/移动循环、笔记外部修改冲突、删除引用保留文件与另一项目引用、重新打开后标签/滚动/笔记/会话恢复、模型只收到所选正文。保持单包、无新增依赖。
+
+本次没有实现：非 Canvas 课程源的自动合并、本地目录递归挂载、拖放与多选、PDF 页码恢复和全文解析、Office 编辑、完整 Agent 执行循环。此前章节中的这些能力继续视为规划；本文记录的已实现工作区约定优先于旧界面草图。
+
+交付检查：格式检查、构建、单元测试、工作区与 Mail 脱敏回归通过；Windows 目录打包完成，打包程序 `--smoke-test` 退出码为 0。正式环境观察到邮箱凭据解密错误，原因尚未定位，真实邮箱同步未算作验证通过。
+
+### 2026-09-12 磁盘目录隔离修正
+
+用户确认：Canvas 原始文件按课程隔离保存一份，项目保留引用；笔记按工作区的项目/文件夹层级保存。此约定取代此前 UUID 平铺笔记、哈希平铺下载缓存和名称独立于磁盘路径的约定。
+
+- 默认路径为 `文档/Dela/工作区/项目/子文件夹/笔记名.md` 与 `文档/Dela/课程资料/学期/课程名 [课程 ID]/来源目录/文件名`。课程 ID 区分同名课程；文件使用可读名称，冲突加序号，Windows 保留名、路径分隔符及非法字符做文件名归一化。Canvas 模块及项目引用仍共享同一来源版本，来源更新保留旧版本，避免覆盖用户修改过的文件。
+- 复用 `workspace_entries.local_path` 记录应用管理的目录和笔记路径，`workspace_notes.path` 保持实际读写位置；不新增数据库层级。文件夹与笔记重命名、移动同步磁盘和数据库，移动父目录时更新后代路径。移动前在 SQLite 写恢复记录，物理移动后以事务更新路径；下次工作区操作可完成被中断的数据库更新。跨磁盘移动暂不支持，文件系统报错时不更改应用关系。
+- 旧笔记首次加载工作区时复制到对应目录，迁移前保留 `dela-before-storage-tree.db`；不存在的旧文件保留原路径供恢复，读取时报告缺失。旧 Canvas 缓存按当前已知来源版本在加载资料列表/读取文件时复制迁移，不发起额外下载。旧文件留在原位置作为恢复副本，迁移后不继续写旧文件，也不自动删除未被当前来源引用的历史缓存。迁移重试不覆盖已有文件。
+- 更改保存位置只影响之后新建的顶层内容及新下载资料；已存在项目的目录不搬迁，其新笔记仍放在项目目录。关联外部本地文件仍保留原位置；删除项目或引用保留磁盘内容。“复制来源到项目”作为独立编辑副本的产品操作尚未增加，本次不改变现有下载/关联入口。
+- `storage.ts` 仅共享工作目录读取、文件名归一化和同名路径分配三个实际被笔记和 Canvas 使用的函数。renderer 无文件系统与数据库访问，无新依赖。
+- 验证：扩展 `pnpm smoke:workspace`，在临时用户目录检查磁盘树、同名笔记、旧笔记和旧缓存迁移、目录移动、数据库提交前中断恢复、外部编辑冲突以及删除引用后的文件保留。真实个人数据迁移尚未执行。
+
+本次交付验证：相关文件格式检查、`pnpm build`、7 个单元测试、扩展后的 `pnpm smoke:workspace`、`pnpm smoke`、Windows 目录打包及打包程序 `--smoke-test` 均通过（退出码 0）。构建仍提示较大 renderer chunk，Electron 退出时有 GPU 日志，未影响上述检查结果。个人数据目录未用于此次测试，实际迁移在启动新版后加载工作区与资料时执行。
+
+### 2026-09-13 PDF 预览性能修正
+
+- 原实现把完整 PDF 读入主进程，经 IPC 复制到 renderer，并在 Zustand、`Uint8Array`、Blob 与 Chromium PDF Viewer 中同时持有；本地 PDF 还使用同步读取。关闭标签不移除 draft，窗口聚焦会强制重读，并排固定当前文档时可能创建两个相同 Viewer。这些行为会使大 PDF 的内存峰值显著超过文件大小，并造成主进程或 renderer 卡顿。
+- PDF `DocumentContent` 现在只返回受控预览 URL。应用启动前注册标准、安全且支持流的 `dela-resource` scheme，主进程仅按已有 Canvas 来源 ID 或 Workspace UUID 解析数据库中的 PDF 路径；不接受 URL 中的磁盘路径。协议支持单字节范围请求、`HEAD`、`Content-Range`、`Accept-Ranges` 与 `416`，正文由文件流直接响应。Canvas 读取 PDF 时只检查 5 字节文件头，本地 PDF 只读取文件元数据；图片维持原 Blob 路径。
+- Canvas 首次下载从 `response.arrayBuffer()` 改为响应流写入随机 `.part` 文件，校验元数据大小后以硬链接提交到最终可读路径；文件系统不支持硬链接时退回排他复制，成功后才登记缓存，失败则清理临时文件。Canvas 来源不再因窗口聚焦重读，关闭已保存的非 Markdown 文档标签会移除 draft；并排固定项等于当前项时只显示选择提示，不创建第二个 Viewer。未新增依赖或数据库层级。
+- 已验证：格式化、三组类型检查、生产构建、7 个单元测试、`pnpm smoke:workspace`、`pnpm smoke`、Windows x64 目录打包及 `dist/win-unpacked/Dela.exe --smoke-test`。脱敏 Electron 回归确认 PDF IPC 结果无 `bytes`，协议完整读取返回 `200`，普通文件与 256 MiB 稀疏文件的 `bytes=0-4` 请求均返回 `206` 与 `%PDF-`，Canvas 并发首次读取只下载一次。真实大型课件的峰值内存、翻页流畅度和关闭后的 Chromium 缓存回落尚未实测，不能据此宣称所有 PDF 卡顿均已消除。

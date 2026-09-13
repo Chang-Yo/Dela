@@ -7,3 +7,4 @@ allowBuilds:
   electron-winstaller: false
 minimumReleaseAgeExclude:
   - electron@44.3.0
+  - lucide-react@1.44.0

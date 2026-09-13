@@ -1,0 +1,1 @@
+export { TimetableView } from './TimetableView';
