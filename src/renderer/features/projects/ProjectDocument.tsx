@@ -48,6 +48,9 @@ export function ProjectDocument({
   const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : undefined;
   const course = canvas.courses.find((c) => c.id === source?.courseId);
   const editable = entry?.kind === 'note' && !readOnly;
+  const markdown = draft?.content.format === 'markdown';
+  // 预览只对 Markdown 笔记有意义；名称改为其他扩展名后自动回到编辑态。
+  const showPreview = preview && markdown;
   /* 面包屑：所属项目链（可点击在目录中定位）+ Canvas 课程与目录链（只读上下文）。 */
   const crumbs = useMemo(() => {
     const list: { key: string; label: string; onOpen?: () => void }[] = [];
@@ -168,30 +171,32 @@ export function ProjectDocument({
             </span>
           )}
         </nav>
-        {editable && (
-          <>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title={preview ? '返回编辑' : '预览'}
-              aria-label={preview ? '返回编辑' : '预览'}
-              onClick={() => setPreview((v) => !v)}
-            >
-              {preview ? <PenLine /> : <Eye />}
-            </Button>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title={draft.text === draft.saved ? '已保存' : '保存 (Ctrl+S)'}
-              aria-label="保存笔记"
-              disabled={draft.saving || draft.text === draft.saved}
-              onClick={() => run(useWorkspace.getState().save(documentKey))}
-            >
-              <Save />
-            </Button>
-          </>
+        {editable && markdown && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title={preview ? '返回编辑' : '预览'}
+            aria-label={preview ? '返回编辑' : '预览'}
+            onClick={() => setPreview((v) => !v)}
+          >
+            {preview ? <PenLine /> : <Eye />}
+          </Button>
         )}
-        {sourceId && !readOnly && (
+        {editable && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title={
+              draft.saving ? '保存中…' : draft.text === draft.saved ? '已保存' : '保存 (Ctrl+S)'
+            }
+            aria-label="保存笔记"
+            disabled={draft.saving || draft.text === draft.saved}
+            onClick={() => run(useWorkspace.getState().save(documentKey))}
+          >
+            <Save />
+          </Button>
+        )}
+        {sourceId && (
           <Button
             size="icon-sm"
             variant="ghost"
@@ -224,7 +229,7 @@ export function ProjectDocument({
             <ExternalLink />
           </Button>
         )}
-        {(entry?.kind === 'local' || entry?.kind === 'note') && (
+        {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
           <Button
             size="icon-sm"
             variant="ghost"
@@ -261,9 +266,10 @@ export function ProjectDocument({
           )}
         </div>
       )}
-      {editable && !preview ? (
+      {editable && !showPreview ? (
         <MarkdownEditor
           value={draft.text}
+          filename={entry?.name ?? undefined}
           scroll={scroll}
           onChange={(text) => useWorkspace.getState().edit(documentKey, text)}
           onSave={() => void useWorkspace.getState().save(documentKey)}
