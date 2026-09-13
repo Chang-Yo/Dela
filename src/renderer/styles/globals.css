@@ -2,6 +2,9 @@
 @import 'tw-animate-css';
 
 :root {
+  /* 全局字号缩放（设置 › 外观 › 字号）：仅作用于下方 @theme inline 的 --text-* 与 body 字号，
+     间距、图标等 rem 布局不受影响。 */
+  --font-scale: 1;
   /* 原生控件（日期/时间弹层、select 下拉）跟随主题亮暗渲染。 */
   color-scheme: light;
   --radius: 0.625rem;
@@ -196,6 +199,14 @@
 
 @theme inline {
   --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
+  /* 字号档位缩放：值内联进 text-* 工具类，line-height 沿用默认的无单位比值自动跟随。
+     任意值写法（text-[13px] 等）不走这组变量，是已知不缩放范围。 */
+  --text-xs: calc(0.75rem * var(--font-scale));
+  --text-sm: calc(0.875rem * var(--font-scale));
+  --text-base: calc(1rem * var(--font-scale));
+  --text-lg: calc(1.125rem * var(--font-scale));
+  --text-xl: calc(1.25rem * var(--font-scale));
+  --text-2xl: calc(1.5rem * var(--font-scale));
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -254,7 +265,7 @@
     overflow: hidden;
     background: var(--color-background);
     color: var(--color-foreground);
-    font-size: 14px;
+    font-size: calc(0.875rem * var(--font-scale));
     line-height: 1.5;
   }
 

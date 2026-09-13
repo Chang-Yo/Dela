@@ -25,6 +25,7 @@ import { Resizer } from '../ui/resizer';
 import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
 import { useWorkspace } from '../../features/projects/workspace';
+import { zoomLevels, type ZoomPreference } from '../../../shared/api';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -155,6 +156,8 @@ type AppShellProps = {
   onForward: () => void;
   canBack: boolean;
   canForward: boolean;
+  zoom: ZoomPreference;
+  onZoomChange: (zoom: ZoomPreference) => void;
   children: ReactNode;
   projectId: string | null;
   onOpenProject: (id: string) => void;
@@ -170,6 +173,8 @@ export function AppShell({
   onForward,
   canBack,
   canForward,
+  zoom,
+  onZoomChange,
   children,
   projectId,
   onOpenProject,
@@ -234,6 +239,17 @@ export function AppShell({
     void Promise.all(Object.keys(drafts).map((key) => useWorkspace.getState().save(key)));
   };
 
+  // Ctrl/⌘ +/-/0 的缩放步进：在设置页同一组档位间移动，两端保持不动；0 重置。
+  const stepZoom = (direction: 1 | -1 | 0) => {
+    if (direction === 0) {
+      onZoomChange(1);
+      return;
+    }
+    const index = zoomLevels.indexOf(zoom);
+    const next = zoomLevels[Math.max(0, Math.min(index + direction, zoomLevels.length - 1))];
+    if (next !== undefined) onZoomChange(next);
+  };
+
   const updateMenu = (menu: TitleMenuId, open: boolean) => {
     setOpenMenu((current) => (open ? menu : current === menu ? null : current));
   };
@@ -260,6 +276,9 @@ export function AppShell({
       } else if (key === 's' && !event.shiftKey) {
         event.preventDefault();
         saveAllNotes();
+      } else if (!event.shiftKey && (key === '=' || key === '+' || key === '-' || key === '0')) {
+        event.preventDefault();
+        stepZoom(key === '-' ? -1 : key === '0' ? 0 : 1);
       } else if (!event.shiftKey && (key === ',' || viewShortcuts[key])) {
         event.preventDefault();
         setOpenMenu(null);
@@ -268,7 +287,7 @@ export function AppShell({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [importFiles, navigate, onNewProject, saveAllNotes]);
+  }, [importFiles, navigate, onNewProject, saveAllNotes, stepZoom]);
 
   return (
     <div
@@ -487,6 +506,9 @@ export function AppShell({
                   <ShortcutRow keys={[modKey, '⇧', 'N']} label="新建项目" />
                   <ShortcutRow keys={[modKey, 'O']} label="导入本地文件" />
                   <ShortcutRow keys={[modKey, 'S']} label="保存所有已打开笔记" />
+                  <ShortcutRow keys={[modKey, '=']} label="放大" />
+                  <ShortcutRow keys={[modKey, '-']} label="缩小" />
+                  <ShortcutRow keys={[modKey, '0']} label="重置缩放" />
                 </ShortcutSection>
                 <ShortcutSection title="鼠标">
                   <ShortcutRow hint="关闭文档" label="中键点击文档标签" />

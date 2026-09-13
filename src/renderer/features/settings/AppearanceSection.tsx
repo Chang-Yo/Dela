@@ -1,6 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
-import type { IconPreference, ThemePreference } from '../../../shared/api';
+import {
+  fontScaleLevels,
+  zoomLevels,
+  type FontScalePreference,
+  type IconPreference,
+  type ThemePreference,
+  type ZoomPreference,
+} from '../../../shared/api';
 import { cn } from '../../lib/utils';
 import blackLogo from '../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../assets/Dela_white_bg.svg';
@@ -20,6 +27,19 @@ const icons: Array<{ id: IconPreference; label: string; src: string }> = [
   { id: 'white', label: '白底', src: whiteLogo },
   { id: 'black', label: '黑底', src: blackLogo },
 ];
+
+// 缩放档位标签直接由档位值换算为百分比，与系统显示缩放的写法一致。
+const zoomOptions: Array<{ id: ZoomPreference; label: string }> = zoomLevels.map((zoom) => ({
+  id: zoom,
+  label: `${Math.round(zoom * 100)}%`,
+}));
+
+const fontScaleLabels: Record<FontScalePreference, string> = {
+  0.9: '小',
+  1: '默认',
+  1.1: '大',
+  1.25: '特大',
+};
 
 function OptionCard({
   busy,
@@ -61,17 +81,29 @@ function OptionCard({
 }
 
 export function AppearanceSection({
+  fontScale,
+  onFontScaleChange,
   onThemeChange,
+  onZoomChange,
   theme,
+  zoom,
 }: {
+  fontScale: FontScalePreference;
+  onFontScaleChange: (scale: FontScalePreference) => Promise<void>;
   onThemeChange: (theme: ThemePreference) => Promise<void>;
+  onZoomChange: (zoom: ZoomPreference) => Promise<void>;
   theme: ThemePreference;
+  zoom: ZoomPreference;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [icon, setIcon] = useState<IconPreference>('white');
   const [iconBusy, setIconBusy] = useState(false);
   const [iconError, setIconError] = useState<string | null>(null);
+  const [zoomBusy, setZoomBusy] = useState(false);
+  const [zoomError, setZoomError] = useState<string | null>(null);
+  const [fontBusy, setFontBusy] = useState(false);
+  const [fontError, setFontError] = useState<string | null>(null);
 
   useEffect(() => {
     void window.dela?.settings
@@ -107,6 +139,32 @@ export function AppearanceSection({
     }
   };
 
+  const selectZoom = async (next: ZoomPreference) => {
+    if (next === zoom || zoomBusy) return;
+    setZoomBusy(true);
+    setZoomError(null);
+    try {
+      await onZoomChange(next);
+    } catch {
+      setZoomError('缩放设置保存失败，请重试。');
+    } finally {
+      setZoomBusy(false);
+    }
+  };
+
+  const selectFontScale = async (next: FontScalePreference) => {
+    if (next === fontScale || fontBusy) return;
+    setFontBusy(true);
+    setFontError(null);
+    try {
+      await onFontScaleChange(next);
+    } catch {
+      setFontError('字号设置保存失败，请重试。');
+    } finally {
+      setFontBusy(false);
+    }
+  };
+
   return (
     <div className="grid gap-5">
       <SectionHeader description="主题立即应用；应用图标在重启应用后生效。" title="外观" />
@@ -133,6 +191,66 @@ export function AppearanceSection({
         {error && (
           <p className="col-span-full text-xs text-destructive" role="alert">
             {error}
+          </p>
+        )}
+      </section>
+      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+        <div className="grid content-start gap-2">
+          <h2 className="text-sm font-medium">页面缩放</h2>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            整个界面按比例缩放，立即生效并持久保存；快捷键 Ctrl/⌘ + 放大、- 缩小、0 重置。
+          </p>
+        </div>
+        <div className="flex items-center justify-end">
+          {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
+          <select
+            aria-label="页面缩放"
+            className="h-9 w-24 rounded-md border bg-background px-3 text-sm text-foreground"
+            disabled={zoomBusy}
+            onChange={(event) => void selectZoom(Number(event.target.value) as ZoomPreference)}
+            value={zoom}
+          >
+            {zoomOptions.map(({ id, label }) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {zoomError && (
+          <p className="col-span-full text-xs text-destructive" role="alert">
+            {zoomError}
+          </p>
+        )}
+      </section>
+      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+        <div className="grid content-start gap-2">
+          <h2 className="text-sm font-medium">字号</h2>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            调整界面文字大小，不影响间距与图标。
+          </p>
+        </div>
+        <div className="flex items-center justify-end">
+          {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
+          <select
+            aria-label="字号"
+            className="h-9 w-24 rounded-md border bg-background px-3 text-sm text-foreground"
+            disabled={fontBusy}
+            onChange={(event) =>
+              void selectFontScale(Number(event.target.value) as FontScalePreference)
+            }
+            value={fontScale}
+          >
+            {fontScaleLevels.map((level) => (
+              <option key={level} value={level}>
+                {fontScaleLabels[level]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {fontError && (
+          <p className="col-span-full text-xs text-destructive" role="alert">
+            {fontError}
           </p>
         )}
       </section>
