@@ -1,3 +1,4 @@
+import { leaveComposer } from './features/mail/compose-close';
 import { useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell, type MobileDrawer, type ViewId } from './components/AppShell';
@@ -8,13 +9,27 @@ import { SettingsView } from './features/settings';
 import { SourcesView } from './features/sources';
 import { TimetableView } from './features/timetable';
 import { useWorkspace } from './features/projects/workspace';
-import type { ThemePreference } from '../shared/api';
+import {
+  fontScaleLevels,
+  type FontScalePreference,
+  type ThemePreference,
+  type ZoomPreference,
+} from '../shared/api';
 
 const themeStorageKey = 'dela.theme';
+const fontScaleStorageKey = 'dela.font-scale';
 
 function initialTheme(): ThemePreference {
   const theme = localStorage.getItem(themeStorageKey);
   return theme === 'light' || theme === 'dark' ? theme : 'system';
+}
+
+// 与主题同理：localStorage 缓存避免启动瞬间回退默认字号。
+function initialFontScale(): FontScalePreference {
+  const value = Number(localStorage.getItem(fontScaleStorageKey));
+  return (fontScaleLevels as readonly number[]).includes(value)
+    ? (value as FontScalePreference)
+    : 1;
 }
 
 export default function App() {
@@ -25,11 +40,21 @@ export default function App() {
     localStorage.getItem('dela.workspace.project'),
   );
   const [createProject, setCreateProject] = useState(false);
-  const [mailComposeDirty, setMailComposeDirty] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<MobileDrawer | null>(null);
   const [theme, setTheme] = useState<ThemePreference>(initialTheme);
+  const [zoom, setZoom] = useState<ZoomPreference>(1);
+  const [fontScale, setFontScale] = useState<FontScalePreference>(initialFontScale);
   useEffect(() => {
     void useWorkspace.getState().load();
+    return window.dela?.workspace.onChatUpdate((_scope, chat) => {
+      if (chat.running) return;
+      const store = useWorkspace.getState();
+      void store.refresh().catch(store.setError);
+      void window.dela?.canvas.getState().then(store.setCanvas).catch(store.setError);
+      for (const [id, draft] of Object.entries(store.drafts)) {
+        if (draft.text === draft.saved) void store.read(id, true).catch(store.setError);
+      }
+    });
   }, []);
   useEffect(() => {
     const root = document.documentElement;
@@ -38,9 +63,25 @@ export default function App() {
     localStorage.setItem(themeStorageKey, theme);
   }, [theme]);
   useEffect(() => {
+    document.documentElement.style.setProperty('--font-scale', String(fontScale));
+    localStorage.setItem(fontScaleStorageKey, String(fontScale));
+  }, [fontScale]);
+  // 浏览器预览没有主进程缩放，用 CSS zoom 降级；桌面端由主进程 setZoomFactor 生效。
+  useEffect(() => {
+    if (!window.dela) document.documentElement.style.zoom = String(zoom);
+  }, [zoom]);
+  useEffect(() => {
     void window.dela?.settings
       .getTheme()
       .then(setTheme)
+      .catch(() => {});
+    void window.dela?.settings
+      .getZoom()
+      .then(setZoom)
+      .catch(() => {});
+    void window.dela?.settings
+      .getFontScale()
+      .then(setFontScale)
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -52,11 +93,13 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', beforeUnload);
   }, []);
   const openProject = (id: string) => {
+    if (!leaveComposer(() => openProject(id))) return;
     if (!navigate('project')) return;
     setProjectId(id || null);
     localStorage.setItem('dela.workspace.project', id);
   };
   const newProject = () => {
+    if (!leaveComposer(newProject)) return;
     if (!navigate('project')) return;
     setCreateProject(true);
   };
@@ -68,17 +111,25 @@ export default function App() {
     setTheme(await window.dela.settings.setTheme(next));
   };
 
-  // 后退/前进与普通导航共用同一守卫:用户取消确认时导航中止,历史保持不动。
-  const leaveMail = (next: ViewId) => {
-    if (view !== 'mail' || next === 'mail') return true;
-    if (mailComposeDirty && !window.confirm('这封邮件不会保存。确定抛弃并离开吗？')) return false;
-    setMailComposeDirty(false);
-    return true;
+  const changeZoom = async (next: ZoomPreference) => {
+    if (!window.dela) {
+      setZoom(next);
+      return;
+    }
+    setZoom(await window.dela.settings.setZoom(next));
+  };
+
+  const changeFontScale = async (next: FontScalePreference) => {
+    if (!window.dela) {
+      setFontScale(next);
+      return;
+    }
+    setFontScale(await window.dela.settings.setFontScale(next));
   };
 
   const navigate = (next: ViewId) => {
     if (next === view) return true;
-    if (!leaveMail(next)) return false;
+    if (!leaveComposer(() => navigate(next))) return false;
     setBackStack((stack) => [...stack, view]);
     setForwardStack([]);
     setView(next);
@@ -87,7 +138,7 @@ export default function App() {
 
   const goBack = () => {
     const prev = backStack[backStack.length - 1];
-    if (prev === undefined || !leaveMail(prev)) return;
+    if (prev === undefined || !leaveComposer(goBack)) return;
     setBackStack((stack) => stack.slice(0, -1));
     setForwardStack((stack) => [view, ...stack]);
     setView(prev);
@@ -95,7 +146,7 @@ export default function App() {
 
   const goForward = () => {
     const next = forwardStack[0];
-    if (next === undefined || !leaveMail(next)) return;
+    if (next === undefined || !leaveComposer(goForward)) return;
     setBackStack((stack) => [...stack, view]);
     setForwardStack((stack) => stack.slice(1));
     setView(next);
@@ -110,7 +161,9 @@ export default function App() {
       onMobileDrawerChange={setMobileDrawer}
       onForward={goForward}
       onNavigate={navigate}
+      onZoomChange={(next) => void changeZoom(next)}
       view={view}
+      zoom={zoom}
       projectId={projectId}
       onOpenProject={openProject}
       onNewProject={newProject}
@@ -144,17 +197,20 @@ export default function App() {
             {view === 'mail' && (
               <MailView
                 mobileDrawerOpen={mobileDrawer === 'mail'}
-                onComposeDirtyChange={setMailComposeDirty}
                 onMobileDrawerClose={() => setMobileDrawer(null)}
               />
             )}
             {view === 'timetable' && <TimetableView />}
             {view === 'settings' && (
               <SettingsView
+                fontScale={fontScale}
+                onFontScaleChange={changeFontScale}
                 onThemeChange={changeTheme}
                 onOpenMail={() => navigate('mail')}
                 onOpenTimetable={() => navigate('timetable')}
+                onZoomChange={changeZoom}
                 theme={theme}
+                zoom={zoom}
               />
             )}
           </motion.div>

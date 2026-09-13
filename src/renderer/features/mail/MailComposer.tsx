@@ -1,4 +1,15 @@
-import { Bold, ImagePlus, Italic, Link, LoaderCircle, Paperclip, Send, X } from 'lucide-react';
+import {
+  Bold,
+  ImagePlus,
+  Italic,
+  Link,
+  LoaderCircle,
+  Paperclip,
+  Send,
+  Save,
+  X,
+} from 'lucide-react';
+import { registerComposeClose, leaveComposer } from './compose-close';
 import {
   useEffect,
   useRef,
@@ -7,16 +18,19 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import type { MailComposeFile } from '../../../shared/api';
+import type { MailComposeFile, PreparedEmail } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { formatSize } from './mail-format';
 
 type Props = {
+  draft?: PreparedEmail;
   accountAddress: string;
   onClose: () => void;
   onDirtyChange: (dirty: boolean) => void;
   onSent: (warning?: string) => void;
+  /** 邮箱 grid 的占位类,由 MailView 按布局档位传入;Dialog 等非网格场景无需传。 */
+  className?: string;
 };
 
 const toolButtonClass =
@@ -97,16 +111,30 @@ function serializeBody(editor: HTMLDivElement): { html: string; text: string } {
   return { html: clone.innerHTML, text: plainText.innerText };
 }
 
-export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }: Props) {
+export function MailComposer({
+  accountAddress,
+  onClose,
+  onDirtyChange,
+  onSent,
+  draft,
+  className,
+}: Props) {
   const dela = window.dela!;
   const editorRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Range | null>(null);
   const filesRef = useRef<MailComposeFile[]>([]);
-  const [to, setTo] = useState('');
-  const [subject, setSubject] = useState('');
-  const [bodyHasContent, setBodyHasContent] = useState(false);
-  const [files, setFiles] = useState<MailComposeFile[]>([]);
+  const [to, setTo] = useState(draft?.recipientText ?? draft?.to.join(', ') ?? '');
+  const [subject, setSubject] = useState(draft?.subject ?? '');
+  const [bodyHasContent, setBodyHasContent] = useState(Boolean(draft?.text));
+  const [files, setFiles] = useState<MailComposeFile[]>(draft?.files ?? []);
   const [sending, setSending] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savingDraft = useRef(false);
+  const [savedNotice, setSavedNotice] = useState(false);
+  const savedId = useRef(draft?.savedLocally ? draft.id : undefined);
+  const savedContent = useRef('');
+  const allowUnload = useRef(false);
+  const latestClose = useRef<() => Promise<boolean>>(async () => true);
   const [error, setError] = useState<string | null>(null);
   const [formatState, setFormatState] = useState({ bold: false, italic: false });
   const [hasLinkSelection, setHasLinkSelection] = useState(false);
@@ -114,9 +142,122 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
   const [linkInvalid, setLinkInvalid] = useState(false);
 
   filesRef.current = files;
-  const dirty = Boolean(to.trim() || subject.trim() || bodyHasContent || files.length);
+  const dirtyCallback = useRef(onDirtyChange);
+  dirtyCallback.current = onDirtyChange;
+  const dirty = Boolean(
+    to.trim() || subject.trim() || bodyHasContent || files.length || savedId.current,
+  );
 
+  const snapshot = () => {
+    const body = editorRef.current ? serializeBody(editorRef.current) : { text: '', html: '' };
+    return {
+      account: accountAddress,
+      recipientText: to,
+      subject,
+      ...body,
+      attachmentIds: files.filter((file) => file.kind === 'attachment').map((file) => file.id),
+      inlineImageIds: files.filter((file) => file.kind === 'inline').map((file) => file.id),
+    };
+  };
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!draft || !editor) return;
+    if (!draft.html) {
+      editor.textContent = draft.text;
+      if (draft.savedLocally) savedContent.current = JSON.stringify(snapshot());
+      return;
+    }
+    // Reconstruct a small safe formatting subset; never insert stored HTML directly.
+    const parsed = new DOMParser().parseFromString(draft.html, 'text/html');
+    const append = (source: Node, target: Node) => {
+      if (source.nodeType === Node.TEXT_NODE) {
+        target.appendChild(document.createTextNode(source.textContent ?? ''));
+        return;
+      }
+      if (!(source instanceof Element)) return;
+      if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT'].includes(source.tagName)) return;
+      if (source.tagName === 'IMG') {
+        const file = draft.files.find(
+          (file) => source.getAttribute('src') === `cid:${file.id}@dela` && file.kind === 'inline',
+        );
+        if (file?.previewUrl) {
+          const image = document.createElement('img');
+          image.src = file.previewUrl;
+          image.dataset.delaInline = file.id;
+          image.alt = source.getAttribute('alt') ?? '';
+          target.appendChild(image);
+        }
+        return;
+      }
+      let destination = target;
+      if (['DIV', 'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'A'].includes(source.tagName)) {
+        const element = document.createElement(source.tagName.toLowerCase());
+        if (element instanceof HTMLAnchorElement) {
+          const href = normalizeLink(source.getAttribute('href') ?? '');
+          if (href) element.href = href;
+        }
+        target.appendChild(element);
+        destination = element;
+      }
+      for (const child of source.childNodes) append(child, destination);
+    };
+    editor.replaceChildren();
+    for (const child of parsed.body.childNodes) append(child, editor);
+    if (draft.savedLocally) savedContent.current = JSON.stringify(snapshot());
+  }, [draft]);
+
+  const saveDraft = async () => {
+    if (sending || savingDraft.current) return false;
+    savingDraft.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      const content = snapshot();
+      const result = await dela.mail.saveDraft({ ...content, id: savedId.current });
+      savedId.current = result.id;
+      savedContent.current = JSON.stringify(content);
+      setSavedNotice(true);
+      return true;
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      return false;
+    } finally {
+      savingDraft.current = false;
+      setSaving(false);
+    }
+  };
+  latestClose.current = async () => {
+    if (sending || saving) return false;
+    if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
+    try {
+      const choice = await dela.mail.confirmDraftClose();
+      if (choice === 'cancel') return false;
+      return choice === 'discard' || (await saveDraft());
+    } catch (reason) {
+      setError(String(reason));
+      return false;
+    }
+  };
+  useEffect(() => registerComposeClose(() => latestClose.current()), []);
+  useEffect(() => {
+    void dela.mail.setComposeActive(true);
+    const unsubscribe = dela.mail.onRequestClose(() => {
+      if (
+        !leaveComposer(() => {
+          allowUnload.current = true;
+          void dela.mail.setComposeActive(false).then(() => dela.window.close());
+        })
+      )
+        return;
+      allowUnload.current = true;
+      void dela.mail.setComposeActive(false).then(() => dela.window.close());
+    });
+    return () => {
+      unsubscribe();
+      void dela.mail.setComposeActive(false);
+    };
+  }, [dela]);
 
   useEffect(() => {
     const updateLinkSelection = () => {
@@ -129,7 +270,7 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
 
   useEffect(() => {
     const preventUnload = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
+      if (!dirty || allowUnload.current) return;
       event.preventDefault();
       event.returnValue = false;
     };
@@ -141,9 +282,9 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
     () => () => {
       const ids = filesRef.current.map((file) => file.id);
       if (ids.length) void dela.mail.releaseComposeFiles(ids);
-      onDirtyChange(false);
+      dirtyCallback.current(false);
     },
-    [dela.mail, onDirtyChange],
+    [dela.mail],
   );
 
   const attachments = files.filter((file) => file.kind === 'attachment');
@@ -364,6 +505,14 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
         setError(result.error);
         return;
       }
+      if (savedId.current) {
+        try {
+          await dela.mail.deleteDraft(savedId.current);
+        } catch {
+          onSent('邮件已发送，但本地草稿未能删除，请勿重复发送');
+          return;
+        }
+      }
       onSent(result.warning);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : String(sendError));
@@ -374,10 +523,26 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
 
   return (
     <form
-      className="col-span-3 flex min-h-0 min-w-0 flex-col bg-muted/30 px-3 pb-3 max-md:col-span-full max-md:row-start-2"
+      className={cn('flex min-h-0 min-w-0 flex-col bg-muted/30 px-3 pb-3', className)}
       onSubmit={submit}
     >
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-4">
+        {savedNotice && (
+          <span role="status" className="text-xs text-muted-foreground">
+            草稿已保存
+          </span>
+        )}
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label="保存草稿"
+          title="保存草稿"
+          disabled={sending || saving}
+          onClick={() => void saveDraft()}
+        >
+          <Save />
+        </Button>
         <button
           aria-label="关闭写邮件"
           className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -393,7 +558,7 @@ export function MailComposer({ accountAddress, onClose, onDirtyChange, onSent }:
             从 {accountAddress} 发送
           </span>
         </div>
-        <Button className="ml-auto" disabled={sending} size="sm" type="submit">
+        <Button className="ml-auto" disabled={sending || saving} size="sm" type="submit">
           {sending ? (
             <LoaderCircle className="size-3.5 animate-spin" strokeWidth={1.8} />
           ) : (

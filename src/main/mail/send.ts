@@ -1,11 +1,12 @@
 import { BrowserWindow, dialog, nativeImage } from 'electron';
-import { statSync } from 'node:fs';
+import { statSync, readFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import nodemailer from 'nodemailer';
 import { z } from 'zod';
-import type { MailComposeFile, MailComposeFileKind, MailResult } from '../shared/api';
-import type { MailCredential } from './credentials';
+import type { MailComposeFile, MailComposeFileKind, MailResult } from '../../shared/api';
+import type { MailCredential } from '../credentials';
+
+import nodemailer from 'nodemailer';
 
 const SMTP_HOST = 'mail.sjtu.edu.cn';
 const SMTP_PORT = 465;
@@ -82,6 +83,56 @@ export async function pickComposeFiles(
 
 export function releaseComposeFiles(ids: readonly string[]): void {
   for (const id of ids) selectedFiles.delete(id);
+}
+
+export function snapshotComposeFiles(attachmentIds: string[], inlineImageIds: string[]) {
+  const files = [
+    ...resolveFiles(attachmentIds, 'attachment'),
+    ...resolveFiles(inlineImageIds, 'inline'),
+  ];
+  if (files.reduce((total, file) => total + file.size, 0) > MAX_RAW_FILE_BYTES)
+    throw new Error('附件总大小超过 70 MB');
+  return files.map((file) => ({
+    id: file.id,
+    name: file.name,
+    kind: file.kind,
+    data: ('content' in file ? file.content : readFileSync(file.path)).toString('base64'),
+  }));
+}
+
+export function restoreComposeFile(
+  name: string,
+  kind: MailComposeFileKind,
+  content: Buffer,
+): MailComposeFile {
+  let file = addComposeAttachment(name, content);
+  if (kind === 'inline') {
+    const ext = extname(name).slice(1).toLowerCase();
+    if (!['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+      releaseComposeFiles([file.id]);
+      throw new Error('草稿图片格式不支持');
+    }
+    file = {
+      ...file,
+      kind,
+      previewUrl: `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${content.toString('base64')}`,
+    };
+    selectedFiles.set(file.id, { ...file, content });
+  }
+  return file;
+}
+
+export function addComposeAttachment(name: string, content: Buffer): MailComposeFile {
+  if (content.length > MAX_RAW_FILE_BYTES) throw new Error('附件过大');
+  const file: MailComposeFile = {
+    id: randomUUID(),
+    name,
+    size: content.length,
+    kind: 'attachment',
+    previewUrl: null,
+  };
+  selectedFiles.set(file.id, { ...file, content });
+  return file;
 }
 
 export function addComposeImage(dataUrl: string): MailComposeFile {

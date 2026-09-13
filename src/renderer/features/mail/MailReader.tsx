@@ -1,4 +1,4 @@
-import { Paperclip } from 'lucide-react';
+import { Paperclip, Reply, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import type { MailMessageDetail, MailAttachmentInfo } from '../../../shared/api';
@@ -12,8 +12,15 @@ type Props = {
   detailLoading: boolean;
   detailError: string | null;
   selectedMessageId: number | null;
-  openMessage: (id: number) => Promise<void>;
+  openMessage: (id: number, options?: { readonly?: boolean }) => Promise<void>;
   downloadAttachment: (messageId: number, part: string) => Promise<{ ok: boolean; error?: string }>;
+  onReply: (detail: MailMessageDetail) => void;
+  /** 移入本地回收站;readOnly 上下文(回收站阅读)不显示该按钮。 */
+  onDelete: (detail: MailMessageDetail) => void;
+  /** 只读阅读(回收站):隐藏回复与删除按钮,重试时不标记已读。 */
+  readOnly?: boolean;
+  /** 单栏态(列表/详情二选一)时显示"返回列表"按钮。 */
+  showBackButton?: boolean;
   setMobileReading: (reading: boolean) => void;
 };
 
@@ -25,6 +32,10 @@ export function MailReader({
   selectedMessageId,
   openMessage,
   downloadAttachment,
+  onReply,
+  onDelete,
+  readOnly = false,
+  showBackButton = false,
   setMobileReading,
 }: Props) {
   const [downloadingPart, setDownloadingPart] = useState<string | null>(null);
@@ -50,7 +61,10 @@ export function MailReader({
   return (
     <section className={cn('flex min-h-0 min-w-0 flex-col bg-muted/30', className)}>
       <button
-        className="mx-4 mt-3 hidden max-md:inline-flex items-center self-start rounded-full border px-3 py-1 text-xs text-foreground/80 transition-colors hover:bg-muted"
+        className={cn(
+          'mx-4 mt-3 items-center self-start rounded-full border px-3 py-1 text-xs text-foreground/80 transition-colors hover:bg-muted',
+          showBackButton ? 'inline-flex' : 'hidden',
+        )}
         onClick={() => setMobileReading(false)}
         type="button"
       >
@@ -64,7 +78,13 @@ export function MailReader({
         <div className="m-auto grid place-items-center gap-3 text-center text-sm text-destructive">
           <p>{detailError}</p>
           {selectedMessageId !== null && (
-            <Button onClick={() => void openMessage(selectedMessageId)} size="sm" variant="ghost">
+            <Button
+              onClick={() =>
+                void openMessage(selectedMessageId, readOnly ? { readonly: true } : undefined)
+              }
+              size="sm"
+              variant="ghost"
+            >
               重试
             </Button>
           )}
@@ -73,9 +93,33 @@ export function MailReader({
       {!detailLoading && detail && (
         <article className="flex min-h-0 flex-1 flex-col overflow-hidden px-8 pt-6 pb-0 max-md:px-4 max-md:pt-2 max-md:pb-0">
           <div className="mx-auto flex w-full max-w-[760px] min-h-0 flex-1 flex-col">
-            <h2 className="text-[21px] font-semibold leading-7 tracking-tight">
-              {detail.subject ?? '(无主题)'}
-            </h2>
+            <div className="flex items-start gap-2">
+              <h2 className="min-w-0 flex-1 text-[21px] font-semibold leading-7 tracking-tight">
+                {detail.subject ?? '(无主题)'}
+              </h2>
+              {!readOnly && (
+                <>
+                  <Button
+                    aria-label="回复"
+                    onClick={() => onReply(detail)}
+                    size="icon-sm"
+                    title="回复"
+                    variant="ghost"
+                  >
+                    <Reply className="size-4" strokeWidth={1.8} />
+                  </Button>
+                  <Button
+                    aria-label="删除"
+                    onClick={() => onDelete(detail)}
+                    size="icon-sm"
+                    title="删除"
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-4" strokeWidth={1.8} />
+                  </Button>
+                </>
+              )}
+            </div>
             <div className="mt-3 grid gap-1.5 border-b border-border/50 pb-4">
               <div className="flex gap-3">
                 <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">

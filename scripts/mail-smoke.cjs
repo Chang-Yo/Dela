@@ -69,6 +69,14 @@ const routes = {
     );
   },
   'mail:mark-seen': () => ({ ok: true }),
+  // 本地回收站与保留期：主进程逻辑不在此脱敏桩内运行，只提供默认响应。
+  'mail:delete-message': () => ({ ok: true }),
+  'mail:restore-message': () => ({ ok: true }),
+  'mail:purge-message': () => ({ ok: true }),
+  'mail:empty-trash': () => ({ ok: true }),
+  'mail:list-trash': () => [],
+  'mail:get-trash-retention': () => 30,
+  'mail:set-trash-retention': () => 30,
   'mail:download-attachment': () => {
     downloadCount += 1;
     return { ok: true };
@@ -85,6 +93,19 @@ const routes = {
   'mail:release-compose-files': () => {},
   'mail:send-message': () => ({ ok: true }),
   'mail:open-link': () => {},
+  // 本地草稿通道：脱敏桩不落盘，确认对话框映射回页面的 window.confirm，
+  // 与既有断言（confirm=false 留在编辑器、confirm=true 保存后关闭）语义一致。
+  'mail:compose-active': () => null,
+  'mail:confirm-draft-close': async (event) =>
+    (await event.sender.executeJavaScript('window.confirm("是否保存这封邮件为本地草稿？")'))
+      ? 'save'
+      : 'cancel',
+  'mail:save-draft': () => ({ id: 'smoke-draft-1' }),
+  'mail:list-drafts': () => [],
+  'mail:open-draft': () => {
+    throw new Error('smoke 不覆盖 open-draft');
+  },
+  'mail:delete-draft': () => null,
 };
 for (const [channel, handler] of Object.entries(routes)) ipcMain.handle(channel, handler);
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));

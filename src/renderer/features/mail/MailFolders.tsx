@@ -23,12 +23,29 @@ import { cn } from '../../lib/utils';
 const FOLDER_ICONS: Record<string, LucideIcon> = {
   '\\Inbox': Inbox,
   '\\Flagged': Star,
-  '\\Drafts': FilePenLine,
   '\\Sent': Send,
   '\\Junk': CircleAlert,
-  '\\Trash': Trash2,
   '\\Archive': Archive,
 };
+
+/**
+ * 与主进程 SPECIAL_USE_ORDER 语义对齐的排序档位；服务器 \Drafts/\Trash 由
+ * 本地草稿与本地回收站取代（见 MailView 的过滤），档位 1/4 由两个伪条目占用。
+ */
+const FOLDER_RANKS: Record<string, number> = {
+  '\\Inbox': 0,
+  '\\Sent': 2,
+  '\\Junk': 3,
+  '\\Archive': 5,
+};
+
+/** 侧栏当前视图：真实文件夹、本地草稿或本地回收站。 */
+export type MailSelection = { kind: 'folder'; id: number } | { kind: 'drafts' } | { kind: 'trash' };
+
+type SidebarEntry =
+  | { kind: 'folder'; folder: MailFolderInfo; rank: number }
+  | { kind: 'drafts'; rank: number }
+  | { kind: 'trash'; rank: number };
 
 /** 折叠态图标悬浮时在右侧显示名称提示;展开时原样渲染。 */
 function CollapsedTip({
@@ -73,14 +90,72 @@ function RowLabel({ collapsed, children }: { collapsed: boolean; children: React
   );
 }
 
+/** 真实文件夹与本地伪条目共用的侧栏行;count 沿用未读角标样式。 */
+function SidebarRow({
+  collapsed,
+  selected,
+  icon: Icon,
+  label,
+  count,
+  countLabel,
+  onSelect,
+}: {
+  collapsed: boolean;
+  selected: boolean;
+  icon: LucideIcon;
+  label: string;
+  count: number | null;
+  countLabel: string;
+  onSelect: () => void;
+}) {
+  const hasCount = count !== null && count > 0;
+  return (
+    <CollapsedTip collapsed={collapsed} label={label}>
+      <button
+        aria-current={selected ? 'page' : undefined}
+        aria-label={hasCount ? `${label}，${countLabel}` : label}
+        className={cn(
+          'relative flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
+          selected
+            ? 'bg-accent font-medium text-accent-foreground'
+            : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
+        )}
+        onClick={onSelect}
+        type="button"
+      >
+        <Icon
+          className={cn('size-4 shrink-0', selected ? '' : 'text-muted-foreground')}
+          strokeWidth={1.8}
+        />
+        <RowLabel collapsed={collapsed}>{label}</RowLabel>
+        {!collapsed && hasCount && (
+          <span className="ml-2.5 shrink-0 animate-in fade-in duration-150 text-xs tabular-nums text-muted-foreground">
+            {count}
+          </span>
+        )}
+        {collapsed && hasCount && (
+          <span
+            aria-hidden="true"
+            className="absolute top-1 right-1 size-1.5 rounded-full bg-foreground"
+          />
+        )}
+      </button>
+    </CollapsedTip>
+  );
+}
+
 type Props = {
   foldersCollapsed: boolean;
   setFoldersCollapsed: (update: (value: boolean) => boolean) => void;
   account: MailAccountInfo | null;
   folders: MailFolderInfo[];
   sync: MailSyncStatus | null;
-  selectedFolderId: number | null;
-  onSelect: (id: number) => void;
+  selection: MailSelection | null;
+  onSelect: (selection: MailSelection) => void;
+  /** 本地草稿份数,用于角标。 */
+  draftCount: number;
+  /** 回收站邮件数,用于角标。 */
+  trashCount: number;
   confirmingDisconnect: boolean;
   handleDisconnect: () => Promise<void>;
   composing: boolean;
@@ -96,8 +171,10 @@ export function MailFolders({
   account,
   folders,
   sync,
-  selectedFolderId,
+  selection,
   onSelect,
+  draftCount,
+  trashCount,
   confirmingDisconnect,
   handleDisconnect,
   composing,
@@ -105,6 +182,18 @@ export function MailFolders({
   hideHeader = false,
   className,
 }: Props) {
+  // 稳定排序:服务器文件夹已按档位+路径排好,同档保持原相对顺序;
+  // 草稿箱/已删除常驻占位,避免同步后其他行跳动。
+  const entries: SidebarEntry[] = [
+    ...folders.map((folder) => ({
+      kind: 'folder' as const,
+      folder,
+      rank: folder.specialUse ? (FOLDER_RANKS[folder.specialUse] ?? 90) : 90,
+    })),
+    { kind: 'drafts' as const, rank: 1 },
+    { kind: 'trash' as const, rank: 4 },
+  ].sort((a, b) => a.rank - b.rank);
+
   return (
     <aside
       className={cn(
@@ -141,42 +230,47 @@ export function MailFolders({
             {sync?.phase === 'error' ? '同步失败，暂无文件夹' : '正在获取文件夹…'}
           </p>
         )}
-        {folders.map((folder) => {
-          const Icon = FOLDER_ICONS[folder.specialUse ?? ''] ?? Folder;
-          const hasUnread = folder.unread !== null && folder.unread > 0;
-          const selected = folder.id === selectedFolderId;
+        {entries.map((entry) => {
+          if (entry.kind === 'folder') {
+            const { folder } = entry;
+            return (
+              <SidebarRow
+                collapsed={foldersCollapsed}
+                count={folder.unread}
+                countLabel={`${folder.unread} 封未读`}
+                icon={FOLDER_ICONS[folder.specialUse ?? ''] ?? Folder}
+                key={`folder-${folder.id}`}
+                label={folder.name}
+                onSelect={() => onSelect({ kind: 'folder', id: folder.id })}
+                selected={selection?.kind === 'folder' && selection.id === folder.id}
+              />
+            );
+          }
+          if (entry.kind === 'drafts') {
+            return (
+              <SidebarRow
+                collapsed={foldersCollapsed}
+                count={draftCount}
+                countLabel={`${draftCount} 份草稿`}
+                icon={FilePenLine}
+                key="drafts"
+                label="草稿箱"
+                onSelect={() => onSelect({ kind: 'drafts' })}
+                selected={selection?.kind === 'drafts'}
+              />
+            );
+          }
           return (
-            <CollapsedTip collapsed={foldersCollapsed} key={folder.id} label={folder.name}>
-              <button
-                aria-current={selected ? 'page' : undefined}
-                aria-label={`${folder.name}${hasUnread ? `，${folder.unread} 封未读` : ''}`}
-                className={cn(
-                  'relative flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
-                  selected
-                    ? 'bg-accent font-medium text-accent-foreground'
-                    : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
-                )}
-                onClick={() => onSelect(folder.id)}
-                type="button"
-              >
-                <Icon
-                  className={cn('size-4 shrink-0', selected ? '' : 'text-muted-foreground')}
-                  strokeWidth={1.8}
-                />
-                <RowLabel collapsed={foldersCollapsed}>{folder.name}</RowLabel>
-                {!foldersCollapsed && hasUnread && (
-                  <span className="ml-2.5 shrink-0 animate-in fade-in duration-150 text-xs tabular-nums text-muted-foreground">
-                    {folder.unread}
-                  </span>
-                )}
-                {foldersCollapsed && hasUnread && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute top-1 right-1 size-1.5 rounded-full bg-foreground"
-                  />
-                )}
-              </button>
-            </CollapsedTip>
+            <SidebarRow
+              collapsed={foldersCollapsed}
+              count={trashCount}
+              countLabel={`${trashCount} 封`}
+              icon={Trash2}
+              key="trash"
+              label="已删除"
+              onSelect={() => onSelect({ kind: 'trash' })}
+              selected={selection?.kind === 'trash'}
+            />
           );
         })}
       </nav>

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { Bot, CalendarDays, Folder, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
+import type { MailTrashRetention } from '../../../shared/api';
 import { SectionHeader } from './SectionHeader';
 import { errorText, useWorkspace } from '../projects/workspace';
 
@@ -20,12 +21,16 @@ type Connection = {
   description: string;
   actionLabel: string;
   onClick: () => void;
+  /** 条目右侧的内联设置(如保留期);仅在相应数据就绪时渲染。 */
+  extra?: ReactNode;
 };
 
 export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsSectionProps) {
   const canvas = useWorkspace((state) => state.canvas);
   const directory = useWorkspace((state) => state.workspace.directory);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
+  const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
+  const [retentionError, setRetentionError] = useState<string | null>(null);
   const [timetableConnected, setTimetableConnected] = useState(false);
   const [modelConfigured, setModelConfigured] = useState(false);
   const [dialog, setDialog] = useState<'canvas' | 'model' | null>(null);
@@ -49,6 +54,14 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
         if (!active) return;
         setMailAddress(mailState.account?.address ?? null);
         setTimetableConnected(timetableState.connected);
+        if (mailState.account) {
+          void dela.mail
+            .getTrashRetention()
+            .then((value) => {
+              if (active) setTrashRetention(value);
+            })
+            .catch(() => {});
+        }
       },
     );
     return () => {
@@ -108,6 +121,19 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
       .catch(useWorkspace.getState().setError);
   };
 
+  const changeRetention = async (value: MailTrashRetention) => {
+    if (!window.dela || trashRetention === null) return;
+    const previous = trashRetention;
+    setTrashRetention(value);
+    setRetentionError(null);
+    try {
+      setTrashRetention(await window.dela.mail.setTrashRetention(value));
+    } catch (cause) {
+      setTrashRetention(previous);
+      setRetentionError(errorText(cause));
+    }
+  };
+
   const connections: Connection[] = [
     {
       name: 'Canvas',
@@ -126,6 +152,31 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
       description: '通过 IMAP 读取交大邮箱',
       actionLabel: '前往',
       onClick: onOpenMail,
+      // 仅在邮箱已连接且保留期已读取时显示;浏览器预览无 window.dela,自然不渲染。
+      extra:
+        trashRetention === null ? undefined : (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground max-md:hidden">已删除保留</span>
+            <select
+              aria-label="已删除邮件保留"
+              className="h-8 rounded-md border bg-background px-1.5 text-xs text-foreground"
+              onChange={(event) =>
+                void changeRetention(Number(event.target.value) as MailTrashRetention)
+              }
+              value={trashRetention}
+            >
+              <option value={7}>7 天</option>
+              <option value={30}>30 天</option>
+              <option value={90}>90 天</option>
+              <option value={0}>永久</option>
+            </select>
+            {retentionError && (
+              <span className="text-xs text-destructive" role="alert">
+                {retentionError}
+              </span>
+            )}
+          </div>
+        ),
     },
     {
       name: '教学信息服务网',
@@ -159,41 +210,40 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
   return (
     <div className="grid gap-5">
       <SectionHeader description="凭据经系统加密保存在本机。" title="数据与服务" />
-      <section className="overflow-hidden rounded-xl border bg-card">
-        <ul className="grid">
-          {connections.map(
-            ({ name, icon: Icon, state, connected, description, actionLabel, onClick }) => (
-              <li
-                className="flex min-h-16 items-center justify-between gap-4 border-b px-4 last:border-0 max-md:items-start max-md:py-3 md:px-5"
-                key={name}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-                    <Icon className="size-4 text-muted-foreground" strokeWidth={1.8} />
-                  </span>
-                  <div className="grid gap-0.5">
-                    <strong className="text-sm">{name}</strong>
-                    <span className="text-xs text-muted-foreground">{description}</span>
-                  </div>
+      <ul className="grid">
+        {connections.map(
+          ({ name, icon: Icon, state, connected, description, actionLabel, onClick, extra }) => (
+            <li
+              className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0 max-md:items-start max-md:py-3"
+              key={name}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
+                  <Icon className="size-4 text-muted-foreground" strokeWidth={1.8} />
+                </span>
+                <div className="grid gap-0.5">
+                  <strong className="text-sm">{name}</strong>
+                  <span className="text-xs text-muted-foreground">{description}</span>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span
-                    className={cn(
-                      'min-w-[72px] text-xs max-md:min-w-0',
-                      connected ? 'text-foreground' : 'text-muted-foreground',
-                    )}
-                  >
-                    {state}
-                  </span>
-                  <Button onClick={onClick} size="sm" variant="secondary">
-                    {actionLabel}
-                  </Button>
-                </div>
-              </li>
-            ),
-          )}
-        </ul>
-      </section>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {extra}
+                <span
+                  className={cn(
+                    'min-w-[72px] text-xs max-md:min-w-0',
+                    connected ? 'text-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  {state}
+                </span>
+                <Button onClick={onClick} size="sm" variant="secondary">
+                  {actionLabel}
+                </Button>
+              </div>
+            </li>
+          ),
+        )}
+      </ul>
       <Dialog.Root
         onOpenChange={(open) => {
           if (!open && !busy) setDialog(null);
