@@ -262,7 +262,7 @@ export interface WorkspaceEntry {
   id: string;
   parentId: string | null;
   name: string;
-  kind: 'folder' | 'project' | 'note' | 'source' | 'local';
+  kind: 'folder' | 'project' | 'note' | 'source' | 'local' | 'imported';
   sourceId: string | null;
   noteId: string | null;
   updatedAt: string;

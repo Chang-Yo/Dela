@@ -10,6 +10,7 @@ import {
   writeFileSync,
   renameSync,
   statSync,
+  unlinkSync,
 } from 'node:fs';
 import { stat as fileStat } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
@@ -56,18 +57,19 @@ function setting(key: string): string | null {
 
 function containerPath(parentId: string | null): string {
   if (parentId) return managedPath(entry(parentId))!;
-  const root = join(directory(), '工作区');
+  const root = join(directory(), 'workspace');
   mkdirSync(root, { recursive: true });
   return root;
 }
 
 function managedPath(item: WorkspaceEntry): string | null {
-  if (!['folder', 'project', 'note'].includes(item.kind)) return null;
+  if (!['folder', 'project', 'note', 'imported'].includes(item.kind)) return null;
   const db = getDatabase();
   const stored = db
     .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
     .get(item.id) as { path: string | null };
   if (stored.path) return stored.path;
+  if (item.kind === 'imported') throw new Error('导入文件已丢失');
   const folder = item.kind !== 'note';
   const name = folder || /\.md$/i.test(item.name) ? item.name : `${item.name}.md`;
   const path = availablePath(containerPath(item.parentId), name, folder);
@@ -83,6 +85,40 @@ function managedPath(item: WorkspaceEntry): string | null {
     db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, item.id);
   })();
   return path;
+}
+
+function migrateWorkspaceRoot() {
+  const oldRoot = join(directory(), '工作区');
+  const root = join(directory(), 'workspace');
+  if (!existsSync(oldRoot) || existsSync(root)) return;
+  renameSync(oldRoot, root);
+  const replaceRoot = (path: string) => {
+    const suffix = relative(oldRoot, path);
+    return suffix === '' ||
+      (!isAbsolute(suffix) && suffix !== '..' && !suffix.startsWith(`..${sep}`))
+      ? join(root, suffix)
+      : path;
+  };
+  const db = getDatabase();
+  db.transaction(() => {
+    const entries = db
+      .prepare('SELECT id, local_path AS path FROM workspace_entries WHERE local_path IS NOT NULL')
+      .all() as { id: string; path: string }[];
+    for (const item of entries) {
+      const path = replaceRoot(item.path);
+      if (path !== item.path)
+        db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, item.id);
+    }
+    const notes = db.prepare('SELECT id, path FROM workspace_notes').all() as {
+      id: string;
+      path: string;
+    }[];
+    for (const note of notes) {
+      const path = replaceRoot(note.path);
+      if (path !== note.path)
+        db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, note.id);
+    }
+  })();
 }
 
 type PendingMove = {
@@ -130,6 +166,7 @@ function finishMove(move: PendingMove) {
 }
 
 function prepareStorage() {
+  migrateWorkspaceRoot();
   const pending = setting('storage-move');
   if (pending) {
     const move: PendingMove = JSON.parse(pending);
@@ -282,6 +319,35 @@ export function updateWorkspaceEntry(id: string, input: unknown) {
     );
 }
 
+export function importWorkspaceFiles(parentId: string | null, paths: string[]): WorkspaceEntry[] {
+  checkParent(parentId);
+  prepareStorage();
+  const imported: { id: string; name: string; path: string }[] = [];
+  try {
+    for (const source of paths) {
+      const path = availablePath(containerPath(parentId), basename(source), false);
+      copyFileSync(source, path, constants.COPYFILE_EXCL);
+      imported.push({ id: randomUUID(), name: basename(path), path });
+    }
+    const db = getDatabase();
+    db.transaction(() => {
+      for (const item of imported)
+        db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, NULL, NULL, ?, ?)').run(
+          item.id,
+          parentId,
+          item.name,
+          'imported',
+          item.path,
+          new Date().toISOString(),
+        );
+    })();
+    return imported.map((item) => entry(item.id));
+  } catch (error) {
+    for (const item of imported) if (existsSync(item.path)) unlinkSync(item.path);
+    throw error;
+  }
+}
+
 function notePath(item: WorkspaceEntry): string {
   const note = getDatabase()
     .prepare('SELECT path FROM workspace_notes WHERE id=?')
@@ -293,7 +359,7 @@ function notePath(item: WorkspaceEntry): string {
 export function workspacePdfPath(id: string): string {
   prepareStorage();
   const item = entry(idSchema.parse(id));
-  if (item.kind !== 'local') throw new Error('文档不是本地 PDF');
+  if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('文档不是本地 PDF');
   const stored = getDatabase()
     .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
     .get(id) as { path: string };
@@ -377,7 +443,7 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
     const text = readFileSync(notePath(item), 'utf8');
     return { title: item.name, format: 'markdown', text, revision: hash(text) };
   }
-  if (item.kind === 'local') {
+  if (item.kind === 'local' || item.kind === 'imported') {
     const stored = getDatabase()
       .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
       .get(id) as { path: string };
@@ -541,31 +607,19 @@ export function registerWorkspaceIpc() {
   );
   handle('import-files', async (value) => {
     const parentId = idSchema.nullable().parse(value);
-    checkParent(parentId);
     const picked = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      title: '关联本地文件',
+      title: '导入本地文件',
     });
     if (picked.canceled) return;
-    const db = getDatabase();
-    db.transaction(() => {
-      for (const path of picked.filePaths) {
-        if (
-          db
-            .prepare('SELECT id FROM workspace_entries WHERE parent_id IS ? AND local_path=?')
-            .get(parentId, path)
-        )
-          continue;
-        db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, NULL, NULL, ?, ?)').run(
-          randomUUID(),
-          parentId,
-          basename(path),
-          'local',
-          path,
-          new Date().toISOString(),
-        );
-      }
-    })();
+    importWorkspaceFiles(parentId, picked.filePaths);
+  });
+  handle('import-dropped-files', (value, paths) => {
+    const parentId = idSchema.nullable().parse(value);
+    importWorkspaceFiles(
+      parentId,
+      z.array(z.string().min(1).max(32_767)).min(1).max(100).parse(paths),
+    );
   });
   handle('open-local', async (value) => {
     prepareStorage();

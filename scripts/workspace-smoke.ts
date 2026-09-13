@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { closeDatabase, getDatabase } from '../src/main/database';
 import {
   canvasNextPage,
@@ -24,6 +24,7 @@ import {
 import {
   createWorkspaceEntry,
   getWorkspaceState,
+  importWorkspaceFiles,
   readWorkspaceEntry,
   registerPreviewProtocol,
   registerPreviewScheme,
@@ -158,9 +159,43 @@ app
     ).value;
     assert.equal(
       cachedPath,
-      join(profile, 'notes', '课程资料', '2026 秋季', '验证课程 [1]', '文件', '第三章', '课件.pdf'),
+      join(
+        profile,
+        'notes',
+        'courses',
+        'term-2026-fall',
+        '验证课程 [1]',
+        'files',
+        'folder-11',
+        '课件.pdf',
+      ),
     );
     assert.deepEqual(new Uint8Array(readFileSync(cachedPath)), pdf);
+    const oldCanvasPath = join(
+      profile,
+      'notes',
+      '课程资料',
+      '2026 秋季',
+      '验证课程 [1]',
+      '文件',
+      '第三章',
+      '课件.pdf',
+    );
+    mkdirSync(dirname(oldCanvasPath), { recursive: true });
+    renameSync(cachedPath, oldCanvasPath);
+    db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(
+      `canvas-file:${canvasKey}`,
+      oldCanvasPath,
+    );
+    await readCanvasSource('file:3');
+    assert.equal(
+      (
+        db
+          .prepare('SELECT value FROM workspace_settings WHERE key=?')
+          .get(`canvas-file:${canvasKey}`) as { value: string }
+      ).value,
+      cachedPath,
+    );
     const largePdfId = randomUUID();
     const largePdfPath = join(profile, 'large-fixture.pdf');
     const largePdfSize = 256 * 1024 * 1024;
@@ -202,11 +237,11 @@ app
         join(
           profile,
           'notes',
-          '课程资料',
-          '2026 秋季',
+          'courses',
+          'term-2026-fall',
           '验证课程 [1]',
-          '文件',
-          '第三章',
+          'files',
+          'folder-11',
           '课件 (2).pdf',
         ),
       ),
@@ -215,12 +250,31 @@ app
 
     const folder = createWorkspaceEntry({ name: '主题资料', kind: 'folder', parentId: null });
     const child = createWorkspaceEntry({ name: '参考', kind: 'folder', parentId: folder.id });
+    const outsideFile = join(profile, '外部文件.txt');
+    writeFileSync(outsideFile, '原文件');
+    const [imported] = importWorkspaceFiles(child.id, [outsideFile]);
+    assert.equal(readFileSync(outsideFile, 'utf8'), '原文件');
+    assert.equal(
+      readFileSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '外部文件.txt'), 'utf8'),
+      '原文件',
+    );
+    assert.equal((await readWorkspaceEntry(imported!.id)).text, '原文件');
     updateWorkspaceEntry(folder.id, { kind: 'project' });
     assert.equal(
       getWorkspaceState().entries.find((entry) => entry.id === folder.id)?.kind,
       'project',
     );
     assert.throws(() => updateWorkspaceEntry(folder.id, { parentId: child.id }), /子文件夹/);
+    const oldWorkspaceRoot = join(profile, 'notes', '工作区');
+    const workspaceRoot = join(profile, 'notes', 'workspace');
+    renameSync(workspaceRoot, oldWorkspaceRoot);
+    db.prepare('UPDATE workspace_entries SET local_path=REPLACE(local_path, ?, ?)').run(
+      workspaceRoot,
+      oldWorkspaceRoot,
+    );
+    getWorkspaceState();
+    assert(existsSync(workspaceRoot));
+    assert(!existsSync(oldWorkspaceRoot));
     const note = createWorkspaceEntry({
       name: '笔记.md',
       kind: 'note',
@@ -255,7 +309,7 @@ app
     let path = (
       db.prepare('SELECT path FROM workspace_notes WHERE id=?').get(note.noteId) as { path: string }
     ).path;
-    assert.equal(path, join(profile, 'notes', '工作区', '主题资料', '参考', '笔记.md'));
+    assert.equal(path, join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记.md'));
     const duplicateNote = createWorkspaceEntry({
       name: '笔记.md',
       kind: 'note',
@@ -263,7 +317,7 @@ app
       text: '独立副本',
     });
     assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
-    assert(existsSync(join(profile, 'notes', '工作区', '主题资料', '参考', '笔记 (2).md')));
+    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记 (2).md')));
     const legacyId = randomUUID();
     const legacyNoteId = randomUUID();
     const legacyPath = join(profile, 'notes', `${legacyNoteId}.md`);
@@ -280,7 +334,7 @@ app
     getWorkspaceState();
     assert.equal((await readWorkspaceEntry(legacyId)).text, '旧版内容');
     assert.equal(
-      readFileSync(join(profile, 'notes', '工作区', '主题资料', '参考', '旧版笔记.md'), 'utf8'),
+      readFileSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '旧版笔记.md'), 'utf8'),
       '旧版内容',
     );
     assert.equal(readFileSync(legacyPath, 'utf8'), '旧版内容');
@@ -291,17 +345,20 @@ app
     saveWorkspaceNote(note.id, '# 恢复测试', disk.revision!);
     updateWorkspaceEntry(note.id, { parentId: folder.id, name: '记录.md' });
     assert(!existsSync(path));
-    path = join(profile, 'notes', '工作区', '主题资料', '记录.md');
+    path = join(profile, 'notes', 'workspace', '主题资料', '记录.md');
     assert.equal(readFileSync(path, 'utf8'), '# 恢复测试');
     updateWorkspaceEntry(child.id, { name: '参考改名', parentId: other.id });
     assert.equal(
-      readFileSync(join(profile, 'notes', '工作区', '独立项目', '参考改名', '旧版笔记.md'), 'utf8'),
+      readFileSync(
+        join(profile, 'notes', 'workspace', '独立项目', '参考改名', '旧版笔记.md'),
+        'utf8',
+      ),
       '旧版内容',
     );
     assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
     // Simulate a crash after the physical rename but before the database commit.
-    const moveFrom = join(profile, 'notes', '工作区', '独立项目', '参考改名');
-    const moveTo = join(profile, 'notes', '工作区', '独立项目', '恢复后的参考');
+    const moveFrom = join(profile, 'notes', 'workspace', '独立项目', '参考改名');
+    const moveTo = join(profile, 'notes', 'workspace', '独立项目', '恢复后的参考');
     db.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)").run(
       JSON.stringify({
         from: moveFrom,
@@ -324,7 +381,7 @@ app
       text: '安全路径',
     });
     assert.equal((await readWorkspaceEntry(odd.id)).text, '安全路径');
-    assert(existsSync(join(profile, 'notes', '工作区', '主题资料', '.._CON.md')));
+    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON.md')));
     assert(existsSync(join(profile, 'dela-before-storage-tree.db')));
     renameSync(path, `${path}.external`);
     assert.throws(() => updateWorkspaceEntry(note.id, { name: '不应生效.md' }));

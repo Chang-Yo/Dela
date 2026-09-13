@@ -1,5 +1,5 @@
 import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
-import { copyFile, link, open, readFile, rm, stat } from 'node:fs/promises';
+import { copyFile, link, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import { constants, copyFileSync, createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -405,20 +405,27 @@ function cachedFile(source: StoredSource): Promise<{ path: string; mime: string 
   return work;
 }
 
-async function downloadFile(source: StoredSource): Promise<{ path: string; mime: string }> {
-  if (!source.fileId) throw new Error('文件不可用');
-  const key = createHash('sha256')
-    .update(`${source.fileId}:${source.updatedAt ?? ''}`)
-    .digest('hex');
-  const db = getDatabase();
-  const cacheKey = `canvas-file:${key}`;
-  const cached = db.prepare('SELECT value FROM workspace_settings WHERE key=?').get(cacheKey) as
-    { value: string } | undefined;
-  if (cached && existsSync(cached.value))
-    return { path: cached.value, mime: source.mime || 'application/octet-stream' };
+function courseTermDirectory(term: string | undefined) {
+  const value = term ?? '';
+  const year = value.match(/(?:19|20)\d{2}/)?.[0];
+  const season = /春|spring/i.test(value)
+    ? 'spring'
+    : /夏|summer/i.test(value)
+      ? 'summer'
+      : /秋|fall|autumn/i.test(value)
+        ? 'fall'
+        : /冬|winter/i.test(value)
+          ? 'winter'
+          : undefined;
+  if (year) return `term-${year}${season ? `-${season}` : ''}`;
+  return value
+    ? `term-${createHash('sha256').update(value).digest('hex').slice(0, 12)}`
+    : 'term-unspecified';
+}
 
+function sourceDirectory(source: StoredSource): string {
   const state = getCanvasState();
-  const course = state.courses.find((course) => course.id === source.courseId);
+  const course = state.courses.find((item) => item.id === source.courseId);
   const items = state.items.filter((item) => item.courseId === source.courseId);
   // Prefer the original file tree over module references to the same source.
   const original = items.find(
@@ -432,21 +439,47 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
     seen.add(parentId);
     const parent = items.find((item) => item.id === parentId);
     if (!parent) break;
-    const sameName = items.filter(
-      (item) =>
-        item.parentId === parent.parentId &&
-        diskName(item.name).toLowerCase() === diskName(parent.name).toLowerCase(),
-    );
-    folders.unshift(diskName(sameName.length > 1 ? `${parent.name} [${parent.id}]` : parent.name));
+    if (parent.id === `${source.courseId}:files`) folders.unshift('files');
+    else if (parent.id === `${source.courseId}:assignments`) folders.unshift('assignments');
+    else if (parent.id === `${source.id}:submission`) folders.unshift('submission');
+    else if (parent.id.startsWith('assignment:'))
+      folders.unshift(`assignment-${parent.id.slice(11)}`);
+    else if (parent.id.startsWith('folder:')) folders.unshift(`folder-${parent.id.slice(7)}`);
+    else
+      folders.unshift(
+        `source-${createHash('sha256').update(parent.id).digest('hex').slice(0, 12)}`,
+      );
     parentId = parent.parentId;
   }
-  const dir = join(
+  return join(
     storageDirectory(),
-    '课程资料',
-    diskName(course?.term ?? '未标注学期'),
-    diskName(`${course?.name ?? '课程'} [${source.courseId}]`),
+    'courses',
+    courseTermDirectory(course?.term),
+    diskName(`${course?.name || `course-${source.courseId}`} [${source.courseId}]`),
     ...folders,
   );
+}
+
+async function downloadFile(source: StoredSource): Promise<{ path: string; mime: string }> {
+  if (!source.fileId) throw new Error('文件不可用');
+  const key = createHash('sha256')
+    .update(`${source.fileId}:${source.updatedAt ?? ''}`)
+    .digest('hex');
+  const db = getDatabase();
+  const cacheKey = `canvas-file:${key}`;
+  const cached = db.prepare('SELECT value FROM workspace_settings WHERE key=?').get(cacheKey) as
+    { value: string } | undefined;
+  const dir = sourceDirectory(source);
+  if (cached && existsSync(cached.value)) {
+    mkdirSync(dir, { recursive: true });
+    const path = availablePath(dir, source.title);
+    if (path !== cached.value) {
+      await rename(cached.value, path);
+      db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(cacheKey, path);
+      return { path, mime: source.mime || 'application/octet-stream' };
+    }
+    return { path: cached.value, mime: source.mime || 'application/octet-stream' };
+  }
   mkdirSync(dir, { recursive: true });
   const storeLegacy = (legacyPath: string) => {
     const path = availablePath(dir, source.title);
