@@ -103,6 +103,14 @@ function DesktopTimetableView() {
     );
   }, [loadEvents]);
 
+  useEffect(
+    () =>
+      window.dela?.workspace.onChatUpdate((_scope, chat) => {
+        if (!chat.running) void loadEvents().catch((reason) => setError(String(reason)));
+      }),
+    [loadEvents],
+  );
+
   const weeks = useMemo(() => {
     const found = [...new Set(lessons.flatMap((lesson) => lesson.weekNumbers))].sort(
       (a, b) => a - b,

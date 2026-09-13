@@ -6,12 +6,17 @@ import type {
   MailComposeFileKind,
   MailConfigureInput,
   MailSendInput,
+  MailDraftInput,
   MailSyncStatus,
+  MailTrashRetention,
   WindowState,
   WorkspaceCreateInput,
   WorkspaceViewState,
+  WorkspaceChat,
   ThemePreference,
   IconPreference,
+  ZoomPreference,
+  FontScalePreference,
 } from '../shared/api';
 
 contextBridge.exposeInMainWorld('dela', {
@@ -34,6 +39,11 @@ contextBridge.exposeInMainWorld('dela', {
     setTheme: (theme: ThemePreference) => ipcRenderer.invoke('settings:set-theme', theme),
     getIcon: () => ipcRenderer.invoke('settings:get-icon'),
     setIcon: (icon: IconPreference) => ipcRenderer.invoke('settings:set-icon', icon),
+    getZoom: () => ipcRenderer.invoke('settings:get-zoom'),
+    setZoom: (zoom: ZoomPreference) => ipcRenderer.invoke('settings:set-zoom', zoom),
+    getFontScale: () => ipcRenderer.invoke('settings:get-font-scale'),
+    setFontScale: (scale: FontScalePreference) =>
+      ipcRenderer.invoke('settings:set-font-scale', scale),
   },
   mail: {
     getState: () => ipcRenderer.invoke('mail:get-state'),
@@ -44,6 +54,14 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('mail:list-messages', folderId, limit),
     getMessage: (messageId: number) => ipcRenderer.invoke('mail:get-message', messageId),
     markSeen: (messageId: number) => ipcRenderer.invoke('mail:mark-seen', messageId),
+    deleteMessage: (messageId: number) => ipcRenderer.invoke('mail:delete-message', messageId),
+    restoreMessage: (messageId: number) => ipcRenderer.invoke('mail:restore-message', messageId),
+    purgeMessage: (messageId: number) => ipcRenderer.invoke('mail:purge-message', messageId),
+    emptyTrash: () => ipcRenderer.invoke('mail:empty-trash'),
+    listTrash: () => ipcRenderer.invoke('mail:list-trash'),
+    getTrashRetention: () => ipcRenderer.invoke('mail:get-trash-retention'),
+    setTrashRetention: (retention: MailTrashRetention) =>
+      ipcRenderer.invoke('mail:set-trash-retention', retention),
     downloadAttachment: (messageId: number, part: string) =>
       ipcRenderer.invoke('mail:download-attachment', messageId, part),
     pickComposeFiles: (kind: MailComposeFileKind) =>
@@ -52,6 +70,19 @@ contextBridge.exposeInMainWorld('dela', {
     releaseComposeFiles: (ids: readonly string[]) =>
       ipcRenderer.invoke('mail:release-compose-files', ids),
     sendMessage: (input: MailSendInput) => ipcRenderer.invoke('mail:send-message', input),
+    openDraft: (id: string) => ipcRenderer.invoke('workspace:open-email-draft', id),
+    saveDraft: (input: MailDraftInput) => ipcRenderer.invoke('mail:save-draft', input),
+    listDrafts: (account: string) => ipcRenderer.invoke('mail:list-drafts', account),
+    deleteDraft: (id: string) => ipcRenderer.invoke('mail:delete-draft', id),
+    confirmDraftClose: () => ipcRenderer.invoke('mail:confirm-draft-close'),
+    setComposeActive: (active: boolean) => ipcRenderer.invoke('mail:compose-active', active),
+    onRequestClose: (listener: () => void) => {
+      const subscription = () => listener();
+      ipcRenderer.on('mail:request-close', subscription);
+      return () => {
+        ipcRenderer.removeListener('mail:request-close', subscription);
+      };
+    },
     syncNow: () => ipcRenderer.invoke('mail:sync'),
     onSyncStatus: (listener: (status: MailSyncStatus) => void) => {
       const subscription = (_event: unknown, status: MailSyncStatus) => listener(status);
@@ -111,5 +142,14 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('workspace:configure-model', key, model),
     ask: (scope: string, prompt: string, context: string[]) =>
       ipcRenderer.invoke('workspace:ask', scope, prompt, context),
+    cancelAsk: (scope: string) => ipcRenderer.invoke('workspace:cancel-ask', scope),
+    onChatUpdate: (listener: (scope: string, chat: WorkspaceChat) => void) => {
+      const subscription = (_event: unknown, scope: string, chat: WorkspaceChat) =>
+        listener(scope, chat);
+      ipcRenderer.on('workspace:chat-update', subscription);
+      return () => {
+        ipcRenderer.removeListener('workspace:chat-update', subscription);
+      };
+    },
   },
 } satisfies DelaApi);

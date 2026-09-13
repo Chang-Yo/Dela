@@ -1,13 +1,17 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron';
-import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { closeDatabase, getDatabase } from './database';
-import { registerMailIpc } from './mail';
-import { registerTimetableIpc } from './timetable';
-import { checkWorkspaceSender, registerCanvasIpc } from './canvas';
-import { registerPreviewProtocol, registerPreviewScheme, registerWorkspaceIpc } from './projects';
+import { registerMailIpc, hasMailComposer } from './mail/ipc';
+import { registerTimetableIpc } from './timetable/ipc';
+import { checkWorkspaceSender } from './ipc';
+import { registerCanvasIpc } from './canvas/ipc';
+import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
+import { registerWorkspaceIpc } from './workspace/ipc';
 import type { IconPreference, ThemePreference } from '../shared/api';
+import { fontScaleLevels, zoomLevels } from '../shared/api';
+
+import Database from 'better-sqlite3';
 
 // Chromium 默认按滚轮格数瞬时跳变；开启后对滚轮输入做逐帧插值，滚动平滑。
 app.commandLine.appendSwitch('enable-smooth-scrolling');
@@ -40,19 +44,31 @@ ipcMain.handle('window:get-state', (event) => ({
 
 const themeSchema = z.enum(['system', 'light', 'dark']);
 const iconSchema = z.enum(['white', 'black']);
+const zoomSchema = z.number().refine((value) => (zoomLevels as readonly number[]).includes(value));
+const fontScaleSchema = z
+  .number()
+  .refine((value) => (fontScaleLevels as readonly number[]).includes(value));
+
+function readSetting(key: string): string | undefined {
+  const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
+    { value: string } | undefined;
+  return row?.value;
+}
 
 function savedTheme(): ThemePreference {
-  const value = getDatabase()
-    .prepare("SELECT value FROM workspace_settings WHERE key='theme'")
-    .get() as { value: string } | undefined;
-  return themeSchema.catch('system').parse(value?.value);
+  return themeSchema.catch('system').parse(readSetting('theme'));
 }
 
 function savedIcon(): IconPreference {
-  const value = getDatabase()
-    .prepare("SELECT value FROM workspace_settings WHERE key='icon'")
-    .get() as { value: string } | undefined;
-  return iconSchema.catch('white').parse(value?.value);
+  return iconSchema.catch('white').parse(readSetting('icon'));
+}
+
+function savedZoom(): number {
+  return zoomSchema.catch(1).parse(Number(readSetting('zoom')));
+}
+
+function savedFontScale(): number {
+  return fontScaleSchema.catch(1).parse(Number(readSetting('font-scale')));
 }
 
 function applyTheme(theme: ThemePreference): ThemePreference {
@@ -83,6 +99,33 @@ function registerSettingsIpc(): void {
     const icon = iconSchema.parse(value);
     getDatabase().prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('icon', ?)").run(icon);
     return icon;
+  });
+  // 页面缩放立即应用到调用窗口，并持久化供下次启动使用。
+  ipcMain.handle('settings:get-zoom', (event) => {
+    checkWorkspaceSender(event);
+    return savedZoom();
+  });
+  ipcMain.handle('settings:set-zoom', (event, value) => {
+    checkWorkspaceSender(event);
+    const zoom = zoomSchema.parse(value);
+    getDatabase()
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('zoom', ?)")
+      .run(String(zoom));
+    BrowserWindow.fromWebContents(event.sender)?.webContents.setZoomFactor(zoom);
+    return zoom;
+  });
+  // 字号缩放由 renderer 以 CSS 变量生效，这里只负责持久化。
+  ipcMain.handle('settings:get-font-scale', (event) => {
+    checkWorkspaceSender(event);
+    return savedFontScale();
+  });
+  ipcMain.handle('settings:set-font-scale', (event, value) => {
+    checkWorkspaceSender(event);
+    const scale = fontScaleSchema.parse(value);
+    getDatabase()
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('font-scale', ?)")
+      .run(String(scale));
+    return scale;
   });
 }
 
@@ -136,6 +179,10 @@ async function createWindow(): Promise<void> {
   });
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   window.webContents.on('will-prevent-unload', (event) => {
+    if (hasMailComposer(window.webContents.id)) {
+      window.webContents.send('mail:request-close');
+      return;
+    }
     const choice = dialog.showMessageBoxSync(window, {
       type: 'warning',
       buttons: ['抛弃并退出', '继续编辑'],
@@ -165,6 +212,8 @@ async function createWindow(): Promise<void> {
   } else {
     await window.loadFile(join(__dirname, '../renderer/index.html'));
   }
+  // 恢复持久化的页面缩放；在页面加载后设置，避免导航重置缩放级别。
+  window.webContents.setZoomFactor(savedZoom());
 
   if (smokeTest) {
     const database = new Database(':memory:');
@@ -175,7 +224,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.require === 'undefined'`,
+        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.dela?.settings.getZoom === 'function' && typeof window.dela?.settings.getFontScale === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       console.log('Smoke check passed: SQLite, renderer, preload isolation.');

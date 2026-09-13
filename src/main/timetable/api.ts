@@ -1,15 +1,16 @@
-import { BrowserWindow, ipcMain, session, type WebContents } from 'electron';
+import type { TimetableState } from '../../shared/api';
+import { BrowserWindow, session, type WebContents } from 'electron';
 import { z } from 'zod';
 import {
   calendarEventColors,
   type CalendarEvent,
   type TimetableLesson,
   type TimetableResult,
-  type TimetableState,
-} from '../shared/api';
-import { getDatabase } from './database';
+} from '../../shared/api';
+import { getDatabase } from '../database';
+import { lessonOccurrences } from '../../shared/schedule';
 
-const CAMPUS_PARTITION = 'persist:dela-campus';
+export const CAMPUS_PARTITION = 'persist:dela-campus';
 const CAMPUS_ORIGIN = 'https://i.sjtu.edu.cn';
 const LOGIN_URL = `${CAMPUS_ORIGIN}/jaccountlogin`;
 const TIMETABLE_URL = `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkb.html?gnmkdm=N2151`;
@@ -39,7 +40,7 @@ const responseSchema = z
     rqazcList: z.array(z.unknown()).optional(),
   })
   .passthrough();
-const semesterSchema = z.string().regex(/^\d{4}-\d{4}-[123]$/);
+export const semesterSchema = z.string().regex(/^\d{4}-\d{4}-[123]$/);
 const dateTimeSchema = z.string().datetime();
 const calendarEventSchema = z
   .object({
@@ -119,7 +120,7 @@ export function parseSemesterStart(values: readonly unknown[] | undefined): stri
   return dates[0] ?? null;
 }
 
-function currentSemester(now = new Date()): string {
+export function currentSemester(now = new Date()): string {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   if (month >= 9) return `${year}-${year + 1}-1`;
@@ -194,14 +195,14 @@ function mapRow(row: LessonRow): TimetableLesson {
   };
 }
 
-async function isConnected(): Promise<boolean> {
+export async function isConnected(): Promise<boolean> {
   const cookies = await session.fromPartition(CAMPUS_PARTITION).cookies.get({});
   return cookies.some(
     (cookie) => cookie.name === 'JAAuthCookie' || cookie.domain?.endsWith('i.sjtu.edu.cn'),
   );
 }
 
-function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
+export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
   return new Promise((resolve) => {
     const parent = BrowserWindow.fromWebContents(sender) ?? undefined;
     const loginWindow = new BrowserWindow({
@@ -247,7 +248,7 @@ function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
   });
 }
 
-async function syncTimetable(semester: string): Promise<TimetableResult> {
+export async function syncTimetable(semester: string): Promise<TimetableResult> {
   try {
     const { xnm, xqm } = semesterParams(semester);
     const body = new URLSearchParams({ xnm, xqm, kzlx: 'ck', xsdm: '' });
@@ -330,7 +331,7 @@ async function syncTimetable(semester: string): Promise<TimetableResult> {
   }
 }
 
-function listLessons(semester: string): TimetableLesson[] {
+export function listLessons(semester: string): TimetableLesson[] {
   const rows = getDatabase()
     .prepare(
       `SELECT * FROM timetable_lessons WHERE semester = ?
@@ -340,86 +341,114 @@ function listLessons(semester: string): TimetableLesson[] {
   return rows.map(mapRow);
 }
 
-export function registerTimetableIpc(): void {
-  ipcMain.handle(
-    'timetable:get-state',
-    async (_event, requested?: unknown): Promise<TimetableState> => {
-      const semester =
-        requested === undefined ? currentSemester() : semesterSchema.parse(requested);
-      const row = getDatabase()
-        .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
-        .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
-      return {
-        connected: await isConnected(),
-        semester,
-        lastSyncedAt: row?.last_synced_at || null,
-        semesterStart: row?.semester_start ?? null,
-      };
-    },
+export const scheduleQuerySchema = z
+  .object({
+    semester: semesterSchema.optional(),
+    startAt: z.string().datetime(),
+    endAt: z.string().datetime(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Date.parse(value.endAt) > Date.parse(value.startAt) &&
+      Date.parse(value.endAt) - Date.parse(value.startAt) <= 366 * 86400000,
+    '查询范围必须为正数且不超过一年',
   );
-  ipcMain.handle('timetable:connect', (event) => openLoginWindow(event.sender));
-  ipcMain.handle('timetable:disconnect', async (): Promise<TimetableResult> => {
-    await session.fromPartition(CAMPUS_PARTITION).clearStorageData({ storages: ['cookies'] });
-    return { ok: true };
-  });
-  ipcMain.handle('timetable:list-lessons', (_event, requested?: unknown) => {
-    const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);
-    return listLessons(semester);
-  });
-  ipcMain.handle('timetable:list-events', (_event, startValue: unknown, endValue: unknown) => {
-    const startAt = dateTimeSchema.parse(startValue);
-    const endAt = dateTimeSchema.parse(endValue);
-    return (
-      getDatabase()
-        .prepare(
-          `SELECT id, title, start_at, end_at, location, color FROM calendar_events
-           WHERE end_at > ? AND start_at < ? ORDER BY start_at`,
-        )
-        .all(startAt, endAt) as CalendarEventRow[]
-    ).map(mapEvent);
-  });
-  ipcMain.handle('timetable:create-event', (_event, input: unknown) => {
-    const event = calendarEventSchema.parse(input);
-    const result = getDatabase()
-      .prepare(
-        `INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        event.title,
-        event.startAt,
-        event.endAt,
-        event.location || null,
-        event.color || null,
-        new Date().toISOString(),
-      );
-    return mapEvent({
-      id: Number(result.lastInsertRowid),
-      title: event.title,
-      start_at: event.startAt,
-      end_at: event.endAt,
-      location: event.location || null,
-      color: event.color || null,
-    });
-  });
-  ipcMain.handle('timetable:set-semester-start', (_event, requested?: unknown, value?: unknown) => {
-    const semester = semesterSchema.parse(requested);
-    // 手动补设学期日期时可能还没有同步记录，先落到空串以满足 NOT NULL。
+
+export function querySchedule(input: unknown) {
+  const args = scheduleQuerySchema.parse(input);
+  const semester = args.semester ?? currentSemester();
+  const row = getDatabase()
+    .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
+    .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
+  const courses = lessonOccurrences(
+    listLessons(semester),
+    row?.semester_start ?? null,
+    args.startAt,
+    args.endAt,
+  );
+  const events = listCalendarEvents(args.startAt, args.endAt).map((event) => ({
+    ...event,
+    source: 'event' as const,
+  }));
+  const warnings = [...courses.warnings];
+  if (!row?.last_synced_at) warnings.push('该学期课表尚未同步');
+  return {
+    semester,
+    timezone: 'Asia/Shanghai',
+    items: [...courses.items, ...events].sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    coverage: {
+      courseSyncedAt: row?.last_synced_at || null,
+      complete: warnings.length === 0,
+      warnings,
+    },
+  };
+}
+
+export function listCalendarEvents(startValue: unknown, endValue: unknown) {
+  const startAt = dateTimeSchema.parse(startValue);
+  const endAt = dateTimeSchema.parse(endValue);
+  return (
     getDatabase()
       .prepare(
-        `INSERT INTO timetable_sync (semester, last_synced_at, semester_start) VALUES (?, '', ?)
-         ON CONFLICT(semester) DO UPDATE SET semester_start = excluded.semester_start`,
+        `SELECT id, title, start_at, end_at, location, color FROM calendar_events
+         WHERE end_at > ? AND start_at < ? ORDER BY start_at`,
       )
-      .run(
-        semester,
-        z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .parse(value),
-      );
+      .all(startAt, endAt) as CalendarEventRow[]
+  ).map(mapEvent);
+}
+
+export function createCalendarEvent(input: unknown) {
+  const event = calendarEventSchema.parse(input);
+  const result = getDatabase()
+    .prepare(
+      `INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      event.title,
+      event.startAt,
+      event.endAt,
+      event.location || null,
+      event.color || null,
+      new Date().toISOString(),
+    );
+  return mapEvent({
+    id: Number(result.lastInsertRowid),
+    title: event.title,
+    start_at: event.startAt,
+    end_at: event.endAt,
+    location: event.location || null,
+    color: event.color || null,
   });
-  ipcMain.handle('timetable:sync', (_event, requested?: unknown) => {
-    const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);
-    return syncTimetable(semester);
-  });
+}
+
+export async function getTimetableState(requested?: unknown): Promise<TimetableState> {
+  const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);
+  const row = getDatabase()
+    .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
+    .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
+  return {
+    connected: await isConnected(),
+    semester,
+    lastSyncedAt: row?.last_synced_at || null,
+    semesterStart: row?.semester_start ?? null,
+  };
+}
+
+export function setSemesterStart(requested: unknown, value: unknown) {
+  const semester = semesterSchema.parse(requested);
+  // 手动补设学期日期时可能还没有同步记录，先落到空串以满足 NOT NULL。
+  getDatabase()
+    .prepare(
+      `INSERT INTO timetable_sync (semester, last_synced_at, semester_start) VALUES (?, '', ?)
+       ON CONFLICT(semester) DO UPDATE SET semester_start = excluded.semester_start`,
+    )
+    .run(
+      semester,
+      z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .parse(value),
+    );
 }
