@@ -7,7 +7,7 @@ import { registerMailIpc } from './mail';
 import { registerTimetableIpc } from './timetable';
 import { checkWorkspaceSender, registerCanvasIpc } from './canvas';
 import { registerPreviewProtocol, registerPreviewScheme, registerWorkspaceIpc } from './projects';
-import type { ThemePreference } from '../shared/api';
+import type { IconPreference, ThemePreference } from '../shared/api';
 
 // Chromium 默认按滚轮格数瞬时跳变；开启后对滚轮输入做逐帧插值，滚动平滑。
 app.commandLine.appendSwitch('enable-smooth-scrolling');
@@ -39,12 +39,20 @@ ipcMain.handle('window:get-state', (event) => ({
 }));
 
 const themeSchema = z.enum(['system', 'light', 'dark']);
+const iconSchema = z.enum(['white', 'black']);
 
 function savedTheme(): ThemePreference {
   const value = getDatabase()
     .prepare("SELECT value FROM workspace_settings WHERE key='theme'")
     .get() as { value: string } | undefined;
   return themeSchema.catch('system').parse(value?.value);
+}
+
+function savedIcon(): IconPreference {
+  const value = getDatabase()
+    .prepare("SELECT value FROM workspace_settings WHERE key='icon'")
+    .get() as { value: string } | undefined;
+  return iconSchema.catch('white').parse(value?.value);
 }
 
 function applyTheme(theme: ThemePreference): ThemePreference {
@@ -64,6 +72,17 @@ function registerSettingsIpc(): void {
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('theme', ?)")
       .run(theme);
     return applyTheme(theme);
+  });
+  // 图标偏好只持久化；窗口/任务栏图标在下次启动创建窗口时生效。
+  ipcMain.handle('settings:get-icon', (event) => {
+    checkWorkspaceSender(event);
+    return savedIcon();
+  });
+  ipcMain.handle('settings:set-icon', (event, value) => {
+    checkWorkspaceSender(event);
+    const icon = iconSchema.parse(value);
+    getDatabase().prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('icon', ?)").run(icon);
+    return icon;
   });
 }
 
@@ -95,7 +114,7 @@ async function createWindow(): Promise<void> {
     minHeight: 440,
     show: !smokeTest,
     backgroundColor: '#f7f7f8',
-    icon: join(app.getAppPath(), 'assets', 'Dela_white_bg.png'),
+    icon: join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
     titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -156,7 +175,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.require === 'undefined'`,
+        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       console.log('Smoke check passed: SQLite, renderer, preload isolation.');

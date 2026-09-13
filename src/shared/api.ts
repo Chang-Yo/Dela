@@ -193,9 +193,14 @@ export interface TimetableApi {
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
+/** 应用图标底色：white 对应 Dela_white_bg.png，black 对应 Dela_black_bg.png。 */
+export type IconPreference = 'white' | 'black';
+
 export interface SettingsApi {
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
+  getIcon(): Promise<IconPreference>;
+  setIcon(icon: IconPreference): Promise<IconPreference>;
 }
 
 export interface DelaApi {

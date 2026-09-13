@@ -11,6 +11,7 @@ import type {
   WorkspaceCreateInput,
   WorkspaceViewState,
   ThemePreference,
+  IconPreference,
 } from '../shared/api';
 
 contextBridge.exposeInMainWorld('dela', {
@@ -31,6 +32,8 @@ contextBridge.exposeInMainWorld('dela', {
   settings: {
     getTheme: () => ipcRenderer.invoke('settings:get-theme'),
     setTheme: (theme: ThemePreference) => ipcRenderer.invoke('settings:set-theme', theme),
+    getIcon: () => ipcRenderer.invoke('settings:get-icon'),
+    setIcon: (icon: IconPreference) => ipcRenderer.invoke('settings:set-icon', icon),
   },
   mail: {
     getState: () => ipcRenderer.invoke('mail:get-state'),
