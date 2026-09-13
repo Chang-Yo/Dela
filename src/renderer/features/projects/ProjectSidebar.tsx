@@ -30,6 +30,7 @@ export function ProjectSidebar({
   onAction,
   onMove,
   canDrop,
+  onImportFiles,
   query,
   excludeIds = [],
   archived = false,
@@ -43,6 +44,7 @@ export function ProjectSidebar({
   onAction: (action: EntryAction, id: string | null) => void;
   onMove?: (dragId: string, targetId: string | null) => void;
   canDrop?: (dragId: string, targetId: string) => boolean;
+  onImportFiles?: (files: File[], targetId: string | null) => void;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
@@ -94,6 +96,7 @@ export function ProjectSidebar({
       onSelect={onSelect}
       onMove={onMove}
       canDrop={canDrop}
+      onImportFiles={onImportFiles}
       actions={(item) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -118,7 +121,7 @@ export function ProjectSidebar({
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onAction('import', item.id)}>
                   <FileInput />
-                  关联本地文件
+                  导入本地文件
                 </DropdownMenuItem>
               </>
             )}

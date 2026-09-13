@@ -302,6 +302,7 @@ export interface WorkspaceApi {
   read(id: string): Promise<DocumentContent>;
   saveNote(id: string, text: string, revision: string): Promise<string>;
   importFiles(parentId: string | null): Promise<void>;
+  importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;
   saveView(scope: string, state: WorkspaceViewState): Promise<void>;
