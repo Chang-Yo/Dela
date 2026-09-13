@@ -58,6 +58,9 @@ jobs:
       - name: Check formatting
         if: runner.os == 'Linux'
         run: pnpm format:check
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: pnpm lint
       - name: Prepare Linux desktop runtime
         if: runner.os == 'Linux'
         run: |

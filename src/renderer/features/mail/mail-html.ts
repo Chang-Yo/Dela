@@ -7,7 +7,7 @@ export function sanitizeMailHtml(html: string, remoteImages: boolean): Document 
     )
     .forEach((node) => node.remove());
   for (const element of doc.querySelectorAll('*')) {
-    for (const attribute of [...element.attributes]) {
+    for (const attribute of Array.from(element.attributes)) {
       if (
         /^on/i.test(attribute.name) ||
         ['srcdoc', 'autofocus', 'ping', 'action', 'formaction'].includes(attribute.name)

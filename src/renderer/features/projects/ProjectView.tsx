@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import {
   ChevronsDownUp,
@@ -39,7 +39,7 @@ const titles: Record<Modal['action'], string> = {
   move: '移动到',
   remove: '移除内容',
   promote: '作为项目开展',
-  import: '关联本地文件',
+  import: '导入本地文件',
   archive: '归档',
   link: '加入文件夹或项目',
   connect: '连接 Canvas',
@@ -89,6 +89,7 @@ export function ProjectView({
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const scrollPending = useRef<Record<string, number>>({});
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,6 +153,14 @@ export function ProjectView({
     if (parentId === dragId || (parentId && isDescendant(parentId, dragId))) return;
     void run(async () => {
       await window.dela!.workspace.update(dragId, { parentId });
+      await useWorkspace.getState().refresh();
+      if (targetId) expand(targetId, true);
+    });
+  };
+  const importDroppedFiles = (files: File[], targetId: string | null) => {
+    setDraggingFiles(false);
+    void run(async () => {
+      await window.dela!.workspace.importDroppedFiles(targetId ?? rootId, files);
       await useWorkspace.getState().refresh();
       if (targetId) expand(targetId, true);
     });
@@ -378,6 +387,13 @@ export function ProjectView({
     );
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden bg-background">
+      {mode === 'project' && draggingFiles && (
+        <div className="pointer-events-none absolute inset-0 z-50 grid place-items-center bg-black/30 backdrop-blur-[1px]">
+          <div className="rounded-lg border bg-background px-4 py-3 text-sm font-medium shadow-lg">
+            释放以导入到项目
+          </div>
+        </div>
+      )}
       {mobileOpen && (
         <button
           aria-label="关闭目录"
@@ -426,7 +442,7 @@ export function ProjectView({
                 <FolderPlus />
               </HeaderAction>
               <HeaderAction
-                label="关联本地文件"
+                label="导入本地文件"
                 onClick={() => action('import', currentContainer())}
               >
                 <FolderInput />
@@ -455,13 +471,38 @@ export function ProjectView({
               onDoubleClick={(event) => {
                 if (event.target === event.currentTarget) action('note', currentContainer());
               }}
+              onDragEnter={(event: DragEvent<HTMLDivElement>) => {
+                if (mode === 'project' && event.dataTransfer.types.includes('Files'))
+                  setDraggingFiles(true);
+              }}
+              onDragLeave={(event: DragEvent<HTMLDivElement>) => {
+                if (
+                  mode === 'project' &&
+                  event.dataTransfer.types.includes('Files') &&
+                  !event.currentTarget.contains(event.relatedTarget as Node | null)
+                ) {
+                  setDraggingFiles(false);
+                }
+              }}
               onDragOver={(event) => {
+                if (mode === 'project' && event.dataTransfer.types.includes('Files')) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'copy';
+                  return;
+                }
                 if (event.target !== event.currentTarget) return;
                 if (!event.dataTransfer.types.includes(explorerDragType)) return;
                 event.preventDefault();
                 event.dataTransfer.dropEffect = 'move';
               }}
               onDrop={(event) => {
+                if (mode === 'project' && event.dataTransfer.types.includes('Files')) {
+                  setDraggingFiles(false);
+                  if (event.defaultPrevented) return;
+                  event.preventDefault();
+                  importDroppedFiles(Array.from(event.dataTransfer.files), null);
+                  return;
+                }
                 if (event.target !== event.currentTarget) return;
                 event.preventDefault();
                 const drag = event.dataTransfer.getData(explorerDragType);
@@ -550,6 +591,7 @@ export function ProjectView({
                 onAction={action}
                 onMove={move}
                 canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
+                onImportFiles={mode === 'project' ? importDroppedFiles : undefined}
                 query={query}
                 excludeIds={mode === 'sources' ? [workspaceArchiveId] : []}
               />

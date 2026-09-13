@@ -62,7 +62,7 @@ export function SourceList({
         .map((n) => n.id),
     );
     const parents = new Map(nodes.map((n) => [n.id, n.parentId]));
-    for (const id of [...keep]) {
+    for (const id of keep) {
       let parent = parents.get(id);
       while (parent && !keep.has(parent)) {
         keep.add(parent);

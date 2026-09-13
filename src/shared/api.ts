@@ -193,9 +193,14 @@ export interface TimetableApi {
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
+/** 应用图标底色：white 对应 Dela_white_bg.png，black 对应 Dela_black_bg.png。 */
+export type IconPreference = 'white' | 'black';
+
 export interface SettingsApi {
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
+  getIcon(): Promise<IconPreference>;
+  setIcon(icon: IconPreference): Promise<IconPreference>;
 }
 
 export interface DelaApi {
@@ -262,7 +267,7 @@ export interface WorkspaceEntry {
   id: string;
   parentId: string | null;
   name: string;
-  kind: 'folder' | 'project' | 'note' | 'source' | 'local';
+  kind: 'folder' | 'project' | 'note' | 'source' | 'local' | 'imported';
   sourceId: string | null;
   noteId: string | null;
   updatedAt: string;
@@ -302,6 +307,7 @@ export interface WorkspaceApi {
   read(id: string): Promise<DocumentContent>;
   saveNote(id: string, text: string, revision: string): Promise<string>;
   importFiles(parentId: string | null): Promise<void>;
+  importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;
   saveView(scope: string, state: WorkspaceViewState): Promise<void>;

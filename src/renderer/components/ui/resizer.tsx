@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent } from 'react';
+import { useRef } from 'react';
 import { cn } from '../../lib/utils';
 
 type ResizerProps = {

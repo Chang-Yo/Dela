@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { version } from '../../package.json';
 import type {
   DelaApi,
@@ -11,6 +11,7 @@ import type {
   WorkspaceCreateInput,
   WorkspaceViewState,
   ThemePreference,
+  IconPreference,
 } from '../shared/api';
 
 contextBridge.exposeInMainWorld('dela', {
@@ -31,6 +32,8 @@ contextBridge.exposeInMainWorld('dela', {
   settings: {
     getTheme: () => ipcRenderer.invoke('settings:get-theme'),
     setTheme: (theme: ThemePreference) => ipcRenderer.invoke('settings:set-theme', theme),
+    getIcon: () => ipcRenderer.invoke('settings:get-icon'),
+    setIcon: (icon: IconPreference) => ipcRenderer.invoke('settings:set-icon', icon),
   },
   mail: {
     getState: () => ipcRenderer.invoke('mail:get-state'),
@@ -93,6 +96,12 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('workspace:save-note', id, text, revision),
     importFiles: (parentId: string | null) =>
       ipcRenderer.invoke('workspace:import-files', parentId),
+    importDroppedFiles: (parentId: string | null, files: File[]) => {
+      const paths = files.map((file) => webUtils.getPathForFile(file)).filter(Boolean);
+      return paths.length
+        ? ipcRenderer.invoke('workspace:import-dropped-files', parentId, paths)
+        : Promise.resolve();
+    },
     openLocal: (id: string) => ipcRenderer.invoke('workspace:open-local', id),
     chooseDirectory: () => ipcRenderer.invoke('workspace:choose-directory'),
     saveView: (scope: string, state: WorkspaceViewState) =>

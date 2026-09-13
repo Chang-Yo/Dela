@@ -1,9 +1,9 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Heart, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { DelaBrand } from '../../components/ui/dela-brand';
 import alipayQr from '../../../../assets/Alipay.png';
 import authorAvatar from '../../../../assets/author_avatar_square.jpg';
-import delaLogo from '../../../../assets/Dela_Logo.png';
 import wechatQr from '../../../../assets/Wechat.png';
 import { SectionHeader } from './SectionHeader';
 
@@ -28,7 +28,7 @@ export function AboutSection() {
     <div className="grid gap-5">
       <SectionHeader title="关于" />
       <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-12 text-center">
-        <img alt="Dela" className="mb-6 h-48 w-48" src={delaLogo} />
+        <DelaBrand className="mb-6 h-48 w-48" />
         <h2 className="text-2xl font-semibold tracking-tight">Dela</h2>
         <p className="text-sm text-muted-foreground">If MySJTU can do it, so can Dela!</p>
         <p className="mt-5 text-xs text-muted-foreground">

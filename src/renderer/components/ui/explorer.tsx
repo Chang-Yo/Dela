@@ -23,6 +23,7 @@ export function Explorer({
   actions,
   onMove,
   canDrop,
+  onImportFiles,
 }: {
   items: ExplorerItem[];
   expanded: string[];
@@ -33,10 +34,12 @@ export function Explorer({
   actions?: (item: ExplorerItem) => ReactNode;
   onMove?: (dragId: string, targetId: string | null) => void;
   canDrop?: (dragId: string, targetId: string) => boolean;
+  onImportFiles?: (files: File[], targetId: string | null) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [externalDropTarget, setExternalDropTarget] = useState<string | null>(null);
   const children = new Map<string | null, ExplorerItem[]>();
   for (const item of items) {
     const group = children.get(item.parentId) ?? [];
@@ -76,37 +79,82 @@ export function Explorer({
   };
   const droppable = (drag: string, target: string) =>
     drag !== target && (!canDrop || canDrop(drag, target));
-  const dragProps = onMove
-    ? (item: ExplorerItem, branch: boolean) => ({
-        draggable: true,
-        onDragStart: (event: DragEvent) => {
-          event.dataTransfer.effectAllowed = 'move';
-          event.dataTransfer.setData(explorerDragType, item.id);
-          event.dataTransfer.setData('text/plain', item.name);
-          setDragId(item.id);
-        },
-        onDragEnd: () => {
-          setDragId(null);
-          setDropTarget(null);
-        },
-        onDragOver: (event: DragEvent) => {
-          if (!branch || !dragId || !droppable(dragId, item.id)) return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = 'move';
-          if (dropTarget !== item.id) setDropTarget(item.id);
-        },
-        onDragLeave: dropTarget === item.id ? () => setDropTarget(null) : undefined,
-        onDrop: (event: DragEvent) => {
-          event.preventDefault();
-          const drag = dragId ?? event.dataTransfer.getData(explorerDragType);
-          if (drag && droppable(drag, item.id)) onMove(drag, item.id);
-          setDragId(null);
-          setDropTarget(null);
-        },
-      })
-    : undefined;
+  const isFileDrag = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+  const dragProps =
+    onMove || onImportFiles
+      ? (item: ExplorerItem, branch: boolean) => ({
+          draggable: Boolean(onMove),
+          onDragStart: (event: DragEvent) => {
+            if (!onMove) return;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData(explorerDragType, item.id);
+            event.dataTransfer.setData('text/plain', item.name);
+            setDragId(item.id);
+          },
+          onDragEnd: () => {
+            setDragId(null);
+            setDropTarget(null);
+          },
+          onDragOver: (event: DragEvent) => {
+            if (onImportFiles && branch && isFileDrag(event)) {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'copy';
+              if (externalDropTarget !== item.id) setExternalDropTarget(item.id);
+              return;
+            }
+            if (!branch || !dragId || !droppable(dragId, item.id)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            if (dropTarget !== item.id) setDropTarget(item.id);
+          },
+          onDragLeave: (event: DragEvent) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            if (dropTarget === item.id) setDropTarget(null);
+            if (externalDropTarget === item.id) setExternalDropTarget(null);
+          },
+          onDrop: (event: DragEvent) => {
+            if (onImportFiles && branch && isFileDrag(event)) {
+              event.preventDefault();
+              onImportFiles(Array.from(event.dataTransfer.files), item.id);
+              setExternalDropTarget(null);
+              return;
+            }
+            event.preventDefault();
+            const drag = dragId ?? event.dataTransfer.getData(explorerDragType);
+            if (drag && onMove && droppable(drag, item.id)) onMove(drag, item.id);
+            setDragId(null);
+            setDropTarget(null);
+          },
+        })
+      : undefined;
   return (
-    <div ref={root} role="tree" aria-label={label} className="grid content-start gap-0.5 p-2">
+    <div
+      ref={root}
+      role="tree"
+      aria-label={label}
+      className="grid content-start gap-0.5 p-2"
+      onDragLeave={(event) => {
+        if (
+          onImportFiles &&
+          isFileDrag(event) &&
+          !event.currentTarget.contains(event.relatedTarget as Node | null)
+        ) {
+          setExternalDropTarget(null);
+        }
+      }}
+      onDragOver={(event) => {
+        if (onImportFiles && isFileDrag(event)) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={(event) => {
+        if (!onImportFiles || !isFileDrag(event)) return;
+        if (event.defaultPrevented) return;
+        event.preventDefault();
+        onImportFiles(Array.from(event.dataTransfer.files), null);
+      }}
+    >
       {visible.map(({ item, level }, index) => {
         const branch = Boolean(item.container || children.has(item.id));
         const Icon = item.project
@@ -151,7 +199,8 @@ export function Explorer({
               selected === item.id
                 ? 'bg-accent font-medium text-accent-foreground'
                 : 'text-foreground/75 hover:bg-accent/60',
-              dropTarget === item.id && 'bg-accent/60 text-foreground',
+              (dropTarget === item.id || externalDropTarget === item.id) &&
+                'bg-accent/60 text-foreground',
             )}
             style={{ paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})` }}
           >

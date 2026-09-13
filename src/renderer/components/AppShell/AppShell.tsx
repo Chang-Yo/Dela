@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Dialog } from 'radix-ui';
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,14 +22,23 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
+import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
-import delaLogo from '../../../../assets/Dela_white_bg.svg';
 import { useWorkspace } from '../../features/projects/workspace';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
 export type ViewId = 'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'settings';
 
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
 export type MobileDrawer = 'nav' | 'mail';
+type TitleMenuId = 'file' | 'sources' | 'view' | 'help';
 
 const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
   { id: 'home', label: '首页', icon: House },
@@ -40,6 +50,49 @@ const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
+
+/** Ctrl/⌘+数字直达的主视图,序号与侧栏 primaryNav 排布一致。 */
+const viewShortcuts: Record<string, ViewId> = {
+  '1': 'home',
+  '2': 'project',
+  '3': 'sources',
+  '4': 'mail',
+  '5': 'timetable',
+};
+
+// 快捷键弹窗的按键提示按运行平台显示 Ctrl 或 ⌘。
+const modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+
+function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <section aria-label={title}>
+      <h3 className="text-xs font-medium tracking-[0.12em] text-muted-foreground">{title}</h3>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
+function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; label: string }) {
+  return (
+    <div className="flex h-9 items-center justify-between gap-8">
+      <span className="text-sm text-foreground/80">{label}</span>
+      {keys ? (
+        <span className="flex shrink-0 items-center gap-1">
+          {keys.map((key) => (
+            <kbd
+              className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border bg-muted/50 px-1.5 text-xs font-medium text-foreground/80"
+              key={key}
+            >
+              {key}
+            </kbd>
+          ))}
+        </span>
+      ) : (
+        <span className="shrink-0 text-sm text-muted-foreground">{hint}</span>
+      )}
+    </div>
+  );
+}
 
 function WindowControls() {
   const [maximized, setMaximized] = useState(false);
@@ -123,6 +176,7 @@ export function AppShell({
   onNewProject,
 }: AppShellProps) {
   const entries = useWorkspace((state) => state.workspace.entries);
+  const drafts = useWorkspace((state) => state.drafts);
   const projects = entries.filter((entry) => entry.kind === 'project');
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -135,6 +189,9 @@ export function AppShell({
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const drawer = mobileDrawer ?? null;
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<TitleMenuId | null>(null);
+  const hasSaveableNote = Object.values(drafts).some((draft) => Boolean(draft.content.revision));
 
   useEffect(() => {
     try {
@@ -164,6 +221,54 @@ export function AppShell({
     onNavigate(next);
     if (narrow) onMobileDrawerChange?.(next === 'mail' ? 'mail' : null);
   };
+
+  const importFiles = () => {
+    if (!window.dela) return;
+    void window.dela.workspace
+      .importFiles(view === 'project' ? projectId : null)
+      .then(() => useWorkspace.getState().refresh())
+      .catch(useWorkspace.getState().setError);
+  };
+
+  const saveAllNotes = () => {
+    void Promise.all(Object.keys(drafts).map((key) => useWorkspace.getState().save(key)));
+  };
+
+  const updateMenu = (menu: TitleMenuId, open: boolean) => {
+    setOpenMenu((current) => (open ? menu : current === menu ? null : current));
+  };
+
+  const hoverMenu = (menu: TitleMenuId) => {
+    setOpenMenu((current) => (current === null ? null : menu));
+  };
+
+  const selectMenu = (action: () => void) => () => {
+    setOpenMenu(null);
+    action();
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 'n' && event.shiftKey) {
+        event.preventDefault();
+        onNewProject();
+      } else if (key === 'o' && !event.shiftKey) {
+        event.preventDefault();
+        importFiles();
+      } else if (key === 's' && !event.shiftKey) {
+        event.preventDefault();
+        saveAllNotes();
+      } else if (!event.shiftKey && (key === ',' || viewShortcuts[key])) {
+        event.preventDefault();
+        setOpenMenu(null);
+        navigate(key === ',' ? 'settings' : viewShortcuts[key]!);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [importFiles, navigate, onNewProject, saveAllNotes]);
 
   return (
     <div
@@ -230,15 +335,168 @@ export function AppShell({
           >
             <ArrowRight className="size-4" strokeWidth={1.8} />
           </button>
-          <button
-            className="[-webkit-app-region:no-drag] ml-0.5 grid h-7 shrink-0 place-items-center rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-            type="button"
+          <div className="[-webkit-app-region:no-drag] ml-2 hidden h-full items-center gap-0.5 md:flex">
+            <DropdownMenu
+              modal={false}
+              onOpenChange={(open) => updateMenu('file', open)}
+              open={openMenu === 'file'}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                  onPointerEnter={() => hoverMenu('file')}
+                  type="button"
+                >
+                  文件
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
+                <DropdownMenuItem onSelect={selectMenu(onNewProject)}>
+                  新建项目
+                  <DropdownMenuShortcut>Ctrl/⌘⇧N</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(importFiles)}>
+                  导入本地文件
+                  <DropdownMenuShortcut>Ctrl/⌘O</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={!hasSaveableNote} onSelect={selectMenu(saveAllNotes)}>
+                  保存所有已打开笔记
+                  <DropdownMenuShortcut>Ctrl/⌘S</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu
+              modal={false}
+              onOpenChange={(open) => updateMenu('sources', open)}
+              open={openMenu === 'sources'}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                  onPointerEnter={() => hoverMenu('sources')}
+                  type="button"
+                >
+                  资料
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('sources'))}>
+                  Canvas 资料
+                  <DropdownMenuShortcut>Ctrl/⌘3</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('mail'))}>
+                  邮箱
+                  <DropdownMenuShortcut>Ctrl/⌘4</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('timetable'))}>
+                  课表
+                  <DropdownMenuShortcut>Ctrl/⌘5</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu
+              modal={false}
+              onOpenChange={(open) => updateMenu('view', open)}
+              open={openMenu === 'view'}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                  onPointerEnter={() => hoverMenu('view')}
+                  type="button"
+                >
+                  视图
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('home'))}>
+                  首页
+                  <DropdownMenuShortcut>Ctrl/⌘1</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('project'))}>
+                  项目
+                  <DropdownMenuShortcut>Ctrl/⌘2</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
+                  设置
+                  <DropdownMenuShortcut>Ctrl/⌘,</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <DropdownMenu
+            modal={false}
+            onOpenChange={(open) => updateMenu('help', open)}
+            open={openMenu === 'help'}
           >
-            帮助
-          </button>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="[-webkit-app-region:no-drag] ml-0.5 grid h-7 min-w-12 shrink-0 place-items-center rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                onPointerEnter={() => hoverMenu('help')}
+                type="button"
+              >
+                帮助
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
+              <DropdownMenuItem onSelect={selectMenu(() => setHelpOpen(true))}>
+                快捷键
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
+                设置与关于
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <WindowControls />
       </header>
+      <Dialog.Root onOpenChange={setHelpOpen} open={helpOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-popover p-8 shadow-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-150 max-md:w-[calc(100%-2rem)] max-md:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
+                <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+                  以下快捷键在任何界面均直接生效。
+                </Dialog.Description>
+              </div>
+              <Dialog.Close asChild>
+                <button
+                  aria-label="关闭"
+                  className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  type="button"
+                >
+                  <X className="size-4" strokeWidth={1.8} />
+                </button>
+              </Dialog.Close>
+            </div>
+            <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
+              <ShortcutSection title="导航">
+                <ShortcutRow keys={[modKey, '1']} label="首页" />
+                <ShortcutRow keys={[modKey, '2']} label="项目" />
+                <ShortcutRow keys={[modKey, '3']} label="Canvas 资料" />
+                <ShortcutRow keys={[modKey, '4']} label="邮箱" />
+                <ShortcutRow keys={[modKey, '5']} label="课表" />
+                <ShortcutRow keys={[modKey, ',']} label="设置" />
+              </ShortcutSection>
+              <div className="flex flex-col gap-8">
+                <ShortcutSection title="通用">
+                  <ShortcutRow keys={[modKey, '⇧', 'N']} label="新建项目" />
+                  <ShortcutRow keys={[modKey, 'O']} label="导入本地文件" />
+                  <ShortcutRow keys={[modKey, 'S']} label="保存所有已打开笔记" />
+                </ShortcutSection>
+                <ShortcutSection title="鼠标">
+                  <ShortcutRow hint="关闭文档" label="中键点击文档标签" />
+                  <ShortcutRow hint="新建笔记" label="双击标签栏或目录空白处" />
+                </ShortcutSection>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       {narrow && drawer !== null && (
         <div
           aria-hidden="true"
@@ -278,7 +536,7 @@ export function AppShell({
               title="回到首页"
               type="button"
             >
-              <img alt="Dela" className="h-[18px] w-auto" src={delaLogo} />
+              <DelaBrand className="h-[18px] w-auto" />
               <span
                 className={cn(
                   'text-[15px] font-semibold tracking-tight',

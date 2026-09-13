@@ -9,6 +9,7 @@ files:
   - out/**/*
   - package.json
   - assets/Dela_white_bg.png
+  - assets/Dela_black_bg.png
 asarUnpack:
   - node_modules/better-sqlite3/**/*
 npmRebuild: false
