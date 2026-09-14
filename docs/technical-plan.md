@@ -747,3 +747,9 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 ### 验证状态与边界
 
 已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、53 项单元测试（新增 providers 14 项：保存/脱敏视图/空密钥沿用/模型校验/启用与删除/端点候选规则/三种列表解析/检测的 401、回退、存储密钥、无密钥、不可达分支）、`pnpm smoke`、`pnpm smoke:workspace`（新增断言：旧单凭据迁移为致远一号提供商并删除旧文件、list 不含密钥、verify 经 /models 成功且返回模型、setModel 切换后 ask 的 model/providerName 正确）。设置页模型服务界面为代码实现，未做实机视觉核对；第三方提供商（DeepSeek、MiniMax、智谱 Coding Plan）的真实端点流式与工具调用兼容性未实测，属待验证能力；检测功能未对真实第三方密钥验证。
+
+## 水源 User API Key 授权验证（2026-09-14）
+
+已验证但尚未接入应用：水源可向展示名为 Dela 的请求签发只读 Discourse User API Key。测试由用户在水源授权页手动确认；本机以一次性 RSA 私钥解密回传 payload，使用 `User-Api-Key` 与 `User-Api-Client-Id` 成功请求 `GET /session/current.json`，再成功 `POST /user-api-key/revoke` 撤销测试 key。测试 key 未写入 Dela，临时私钥已删除。
+
+这表明 Dela 可采用官方 Discourse User API Key 协议让用户授权水源读取权限，不依赖 OpenClaw 安装、配置或应用展示名白名单。已验证的是一个账号的 `read` scope 完整流程；全量账户覆盖、长期站点策略、其他 scopes 与 Dela 内的凭据保存/UI 尚未实现或验证。完整证据与请求差异见 `docs/shuiyuan-api-findings.md`。
