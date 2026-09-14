@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Popover } from 'radix-ui';
 import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
 import {
   activeInWeek,
@@ -8,6 +9,7 @@ import {
   dayMilliseconds,
   eventColorStyle,
   eventTone,
+  formatMonthDay,
   formatTime,
   localEventsByDay,
   mondayOf,
@@ -115,18 +117,31 @@ export function MonthCalendar({
           const selected =
             !!dragRange && currentMonth && date >= dragRange[0]! && date <= dragRange[1]!;
           return (
-            <button
+            <div
               aria-current={today ? 'date' : undefined}
               aria-label={`${date.getMonth() + 1}月${date.getDate()}日`}
               className={cn(
                 // button 默认垂直居中内容，改为 flex 顶对齐，日号稳定在左上角。
+                // 用 div + role 是为了能嵌套「更多」按钮，button 里不能再放交互元素。
                 'flex min-h-28 flex-col border-b p-2 text-left transition-colors hover:bg-accent/45 max-md:grid max-md:min-h-16 max-md:grid-cols-[44px_1fr] max-md:gap-2',
                 selected && 'bg-primary/10',
                 !currentMonth && 'bg-muted/25 text-muted-foreground max-md:hidden',
               )}
               key={dateKey(date)}
+              role="button"
+              tabIndex={0}
               onClick={(event) => {
-                if (event.detail === 0) onCreate(date);
+                // 读屏等合成的 click detail 为 0，同样只认日格自身，忽略「更多」冒泡。
+                if (event.detail === 0 && event.target === event.currentTarget) onCreate(date);
+              }}
+              onKeyDown={(event) => {
+                // 只响应日格自身的键盘激活，忽略内部「更多」按钮冒泡上来的按键。
+                if (event.target !== event.currentTarget) return;
+                // 与 click 的 detail === 0 语义一致：仅键盘激活新建，鼠标点击留给拖拽。
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onCreate(date);
+                }
               }}
               onMouseDown={(event) => {
                 if (event.button !== 0) return;
@@ -159,12 +174,45 @@ export function MonthCalendar({
                   </span>
                 ))}
                 {items.length > 3 ? (
-                  <span className="px-1.5 text-[10px] text-muted-foreground">
-                    还有 {items.length - 3} 项
-                  </span>
+                  <Popover.Root>
+                    <Popover.Trigger
+                      className="flex h-5 items-center rounded px-1.5 text-left text-[10px] text-muted-foreground outline-none transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      // 不让「更多」上的按下冒泡成日格拖拽的起点。
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      +{items.length - 3} 更多
+                    </Popover.Trigger>
+                    <Popover.Portal>
+                      <Popover.Content
+                        align="start"
+                        className="z-50 max-h-(--radix-popover-content-available-height) w-56 overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                        sideOffset={4}
+                      >
+                        <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+                          {formatMonthDay(date)}
+                        </p>
+                        <ul className="grid gap-0.5 p-1">
+                          {items.map((item) => (
+                            <li
+                              className="flex h-6 min-w-0 items-center gap-1.5 rounded px-1.5 text-xs"
+                              key={item.id}
+                              style={item.tone}
+                            >
+                              {item.time ? (
+                                <span className="shrink-0 tabular-nums opacity-70">
+                                  {item.time}
+                                </span>
+                              ) : null}
+                              <span className="truncate font-medium">{item.title}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </Popover.Content>
+                    </Popover.Portal>
+                  </Popover.Root>
                 ) : null}
               </span>
-            </button>
+            </div>
           );
         })}
       </div>

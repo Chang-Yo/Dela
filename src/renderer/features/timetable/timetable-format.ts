@@ -135,6 +135,48 @@ export function eventStyle(startMinute: number, endMinute: number): CSSPropertie
   };
 }
 
+// 日列内并排布局的结果：left/width 是相对日列宽度的 0–100 百分比数值，
+// 供 style.left / style.width 拼接 % 使用。
+export type DayColumnLayout = { left: number; width: number };
+
+// 把时间重叠的项聚成簇，簇内按开始时间排序后贪心分配列（first-fit）：
+// 每项宽度 = 100 / 簇内最大列数，left = 列号 × 每项宽度。
+// 仅严格相交（start < other.end 且 other.start < end）算重叠；
+// 首尾相接（前一项的 end 等于后一项的 start）不算，各项仍占满整列。
+export function layoutDayColumns(
+  items: readonly { id: string; start: number; end: number }[],
+): Map<string, DayColumnLayout> {
+  const layout = new Map<string, DayColumnLayout>();
+  const sorted = [...items].sort((a, b) => a.start - b.start || a.end - b.end);
+  let index = 0;
+  while (index < sorted.length) {
+    // 已按开始时间排序，簇通过严格相交传递扩张：下一项开始早于簇内最晚结束时刻即并入。
+    let clusterEnd = sorted[index]!.end;
+    let clusterEndIndex = index + 1;
+    while (clusterEndIndex < sorted.length && sorted[clusterEndIndex]!.start < clusterEnd) {
+      clusterEnd = Math.max(clusterEnd, sorted[clusterEndIndex]!.end);
+      clusterEndIndex += 1;
+    }
+    // 每列记录最后一项的结束时刻，放入第一个不冲突的列，放不下则新开一列。
+    const columns: number[] = [];
+    const placed = sorted.slice(index, clusterEndIndex).map((item) => {
+      let column = columns.findIndex((end) => end <= item.start);
+      if (column === -1) {
+        column = columns.length;
+        columns.push(item.end);
+      } else {
+        columns[column] = item.end;
+      }
+      return { item, column };
+    });
+    for (const { item, column } of placed) {
+      layout.set(item.id, { left: (column / columns.length) * 100, width: 100 / columns.length });
+    }
+    index = clusterEndIndex;
+  }
+  return layout;
+}
+
 export function weekStartFor(semesterStart: string | null, week: number): Date | null {
   if (!semesterStart) return null;
   return addDays(mondayOf(parseDate(semesterStart)), (week - 1) * 7);

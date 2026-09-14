@@ -5,7 +5,6 @@ import {
   FolderKanban,
   History,
   ListTodo,
-  NotebookPen,
   Plus,
   SquarePen,
   type LucideIcon,
@@ -73,21 +72,25 @@ export function HomeView({
     onOpenSources();
   };
 
-  const suggestions: { icon: LucideIcon; label: string; prompt: string }[] = [];
-  const firstProject = projects[0];
-  if (firstProject)
-    suggestions.push({
-      icon: NotebookPen,
-      label: `继续「${firstProject.name}」`,
-      prompt: `帮我看看「${firstProject.name}」的进展，整理下一步计划`,
-    });
+  // 闲置态 composer 上方的快捷入口：新建项目直达，其余填入 prompt 并聚焦输入框。
+  const quickActions: { icon: LucideIcon; label: string; run: () => void }[] = [
+    { icon: Plus, label: '新建项目', run: onNewProject },
+  ];
+  const askPrompt = (prompt: string) => () => {
+    chatState.setPrompt(prompt);
+    composerRef.current?.focus();
+  };
   if (canvas.connected)
-    suggestions.push({
+    quickActions.push({
       icon: ListTodo,
       label: '近期作业',
-      prompt: '帮我查询即将截止的作业，按课程整理',
+      run: askPrompt('帮我查询即将截止的作业，按课程整理'),
     });
-  suggestions.push({ icon: CalendarDays, label: '今天的日程', prompt: '帮我查看今天的日程安排' });
+  quickActions.push({
+    icon: CalendarDays,
+    label: '今天的日程',
+    run: askPrompt('帮我查看今天的日程安排'),
+  });
 
   const composer = (
     <ChatComposer
@@ -155,15 +158,35 @@ export function HomeView({
         </motion.div>
       )}
       {!conversation && (
-        <div className="shrink-0 px-6 pb-4 pt-10 text-center">
-          {chat && !chat.configured ? (
-            <div className="mx-auto max-w-md text-left">
-              <ModelKeyForm onConfigured={chatState.refresh} />
-            </div>
-          ) : (
-            <h1 className="text-2xl font-semibold tracking-tight">{greeting()}</h1>
-          )}
-        </div>
+        <>
+          {/* 弹性留白把问候语压到视口上部约 1/4–1/3；内容溢出时随空间收缩为 0。 */}
+          <div className="grow-3" />
+          <div className="shrink-0 px-6 text-center">
+            {chat && !chat.configured ? (
+              <div className="mx-auto max-w-md text-left">
+                <ModelKeyForm onConfigured={chatState.refresh} />
+              </div>
+            ) : (
+              <h1 className="text-3xl font-semibold tracking-tight">{greeting()}</h1>
+            )}
+          </div>
+          <div className="mt-6 flex shrink-0 flex-wrap justify-center gap-2 px-4 md:px-6">
+            {quickActions.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  key={item.label}
+                  onClick={item.run}
+                  type="button"
+                >
+                  <Icon className="size-3.5" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
       <motion.div
         className="shrink-0 px-4 md:px-6"
@@ -172,27 +195,6 @@ export function HomeView({
       >
         <div className="mx-auto w-full max-w-3xl">
           {composer}
-          {!conversation && (
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {suggestions.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                    key={item.label}
-                    onClick={() => {
-                      chatState.setPrompt(item.prompt);
-                      composerRef.current?.focus();
-                    }}
-                    type="button"
-                  >
-                    <Icon className="size-3.5" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
           {error && (
             <p className="mt-2 text-xs text-destructive" role="alert">
               {error}
@@ -204,14 +206,8 @@ export function HomeView({
         </div>
       </motion.div>
       {!conversation && (
-        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-12">
-          <div className="mt-10 flex items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold">继续工作</h2>
-            <Button onClick={onNewProject}>
-              <Plus />
-              新建项目
-            </Button>
-          </div>
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-6 pb-12">
+          <h2 className="mt-10 text-xl font-semibold">最近项目</h2>
           <section
             aria-label="最近项目"
             className="mt-4 grid grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1"
@@ -241,6 +237,8 @@ export function HomeView({
           )}
         </div>
       )}
+      {/* 与上方弹性留白按 3:2 分摊剩余空间，让主内容在视口上部聚拢；溢出时均收缩为 0。 */}
+      {!conversation && <div className="grow-2" />}
       <ChatSessions
         currentSessionId={chat?.sessionId ?? null}
         listSessions={chatState.listSessions}
