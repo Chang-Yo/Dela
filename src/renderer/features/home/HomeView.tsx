@@ -50,7 +50,8 @@ export function HomeView({
   const reduceMotion = useReducedMotion();
   const [greeting, setGreeting] = useState(initialGreeting);
 
-  const conversation = Boolean(chat && (chat.messages.length > 0 || chat.running));
+  // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
+  const conversation = Boolean(chat && (busy || chat.messages.length > 0 || chat.running));
 
   // 温和的问候轮播：进入会话态或用户偏好减少动态效果时停在当前问候。
   useEffect(() => {
