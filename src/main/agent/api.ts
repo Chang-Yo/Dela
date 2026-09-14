@@ -18,8 +18,8 @@ type SessionRow = {
   updated_at: string;
 };
 
-// 每个 scope 记住当前打开的会话；null 表示用户已点“新对话”但还没发消息。
-// 缺省（进程启动后首次访问）指向最近更新的会话，与旧版单一会话行为一致。
+// 每个 scope 记住当前打开的会话；null 表示新对话闲置态（点了“新对话”，或重启后尚未恢复历史）。
+// 指针缺失（进程启动后首次访问）同样视为新对话，不回退最近会话；历史经 listChats/openChat 找回。
 const activeSession = new Map<string, string | null>();
 
 function sessionRow(id: string): SessionRow | null {
@@ -31,12 +31,8 @@ function sessionRow(id: string): SessionRow | null {
 
 function resolveSession(scope: string): SessionRow | null {
   const known = activeSession.get(scope);
-  if (known !== undefined) return known ? sessionRow(known) : null;
-  const row = getDatabase()
-    .prepare('SELECT * FROM chat_sessions WHERE scope=? ORDER BY updated_at DESC LIMIT 1')
-    .get(scope) as SessionRow | undefined;
-  activeSession.set(scope, row?.id ?? null);
-  return row ?? null;
+  if (known === undefined) activeSession.set(scope, null);
+  return known ? sessionRow(known) : null;
 }
 
 function snapshot(row: SessionRow | null): WorkspaceChat {
