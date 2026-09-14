@@ -267,10 +267,57 @@ export interface SettingsApi {
   setFontScale(scale: FontScalePreference): Promise<FontScalePreference>;
 }
 
+/** LLM 提供商的脱敏视图：密钥永不返回 renderer。 */
+export interface LlmProviderView {
+  id: string;
+  name: string;
+  baseUrl: string;
+  models: string[];
+  model: string;
+  presetId: string | null;
+  active: boolean;
+}
+
+export interface LlmSaveInput {
+  id?: string;
+  name: string;
+  baseUrl: string;
+  /** 留空且 id 已存在时保留已保存密钥；新建时必填。 */
+  apiKey?: string;
+  models: string[];
+  model: string;
+  presetId?: string | null;
+}
+
+export interface LlmVerifyInput {
+  /** 已保存的提供商 id；apiKey 留空时取其存储密钥。 */
+  id?: string;
+  baseUrl: string;
+  apiKey?: string;
+}
+
+export interface LlmVerifyResult {
+  ok: boolean;
+  message: string;
+  /** 检测成功时端点返回的模型 id 列表，可能为空。 */
+  models?: string[];
+}
+
+export interface LlmApi {
+  list(): Promise<LlmProviderView[]>;
+  save(input: LlmSaveInput): Promise<LlmProviderView>;
+  remove(id: string): Promise<void>;
+  setActive(id: string): Promise<void>;
+  /** 为当前使用中的提供商切换模型。 */
+  setModel(model: string): Promise<void>;
+  verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
+}
+
 export interface DelaApi {
   readonly version: string;
   readonly window: WindowApi;
   readonly settings: SettingsApi;
+  readonly llm: LlmApi;
   readonly mail: MailApi;
   readonly timetable: TimetableApi;
   readonly canvas: CanvasApi;
@@ -380,7 +427,6 @@ export interface WorkspaceApi {
   listChats(scope: string, query: string): Promise<ChatSessionSummary[]>;
   openChat(scope: string, sessionId: string): Promise<WorkspaceChat>;
   deleteChat(scope: string, sessionId: string): Promise<void>;
-  configureModel(key: string, model: string): Promise<void>;
   ask(scope: string, prompt: string, context: string[]): Promise<WorkspaceChat>;
   cancelAsk(scope: string): Promise<void>;
   onChatUpdate(listener: (scope: string, chat: WorkspaceChat) => void): () => void;
@@ -405,7 +451,11 @@ export interface WorkspaceChat {
   running?: boolean;
   activeTool?: string;
   configured: boolean;
+  /** 当前使用中的提供商名称；未配置时为 null。 */
+  providerName: string | null;
   model: string;
+  /** 当前提供商的可选模型，驱动 composer 下拉。 */
+  models: string[];
   messages: {
     role: 'user' | 'assistant';
     content: string;

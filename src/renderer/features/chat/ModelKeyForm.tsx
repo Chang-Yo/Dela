@@ -1,38 +1,81 @@
 import { useState } from 'react';
+import { llmProviderPresets } from '../../../shared/llm-presets';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { errorText } from '../projects/workspace';
 
-const models = [
-  { value: 'qwen', label: 'Qwen' },
-  { value: 'deepseek-chat', label: 'DeepSeek' },
-  { value: 'deepseek-reasoner', label: 'DeepSeek · 深度思考' },
-  { value: 'minimax', label: 'MiniMax' },
-];
-
-/** 致远一号 API Key 配置；仅在未配置或用户主动打开设置时显示。 */
-export function ModelKeyForm({ model, onConfigured }: { model: string; onConfigured: () => void }) {
+/** 模型服务快捷配置：选预设厂商并填入 API Key 即可开始对话；完整管理在设置 › 模型服务。 */
+export function ModelKeyForm({ onConfigured }: { onConfigured: () => void }) {
+  const [presetId, setPresetId] = useState(llmProviderPresets[0]!.id);
   const [key, setKey] = useState('');
-  const [value, setValue] = useState(model);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const preset = llmProviderPresets.find((item) => item.id === presetId)!;
+  const models = preset.models;
+  const [model, setModel] = useState(models[0] ?? '');
+
+  const changePreset = (id: string) => {
+    setPresetId(id);
+    setModel(llmProviderPresets.find((item) => item.id === id)!.models[0] ?? '');
+  };
 
   return (
     <form
       className="grid shrink-0 gap-3 border-b p-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!window.dela) return;
+        const dela = window.dela;
+        if (!dela) return;
         setBusy(true);
-        void window.dela.workspace
-          .configureModel(key, value)
+        void dela.llm
+          .save({
+            name: preset.name,
+            baseUrl: preset.baseUrl,
+            apiKey: key,
+            models,
+            model,
+            presetId: preset.id,
+          })
+          .then((saved) => dela.llm.setActive(saved.id))
           .then(onConfigured)
           .catch((e) => setError(errorText(e)))
           .finally(() => setBusy(false));
       }}
     >
       <label className="grid gap-2 text-xs">
-        致远一号 API Key
+        模型服务
+        <select
+          aria-label="模型服务"
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+          onChange={(event) => changePreset(event.target.value)}
+          value={presetId}
+        >
+          {llmProviderPresets.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {models.length > 0 && (
+        <label className="grid gap-2 text-xs">
+          模型
+          <select
+            aria-label="模型"
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+            onChange={(event) => setModel(event.target.value)}
+            value={model}
+          >
+            {models.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label className="grid gap-2 text-xs">
+        API Key
         <Input
           autoComplete="off"
           onChange={(event) => setKey(event.target.value)}
@@ -42,28 +85,13 @@ export function ModelKeyForm({ model, onConfigured }: { model: string; onConfigu
           value={key}
         />
       </label>
-      <label className="grid gap-2 text-xs">
-        模型
-        <select
-          aria-label="模型"
-          className="h-9 rounded-md border bg-background px-2 text-sm"
-          onChange={(event) => setValue(event.target.value)}
-          value={value}
-        >
-          {models.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
       {error && (
         <p className="text-xs text-destructive" role="alert">
           {error}
         </p>
       )}
       <Button disabled={busy} size="sm" type="submit">
-        保存配置
+        {busy ? '处理中…' : '保存并开始对话'}
       </Button>
     </form>
   );

@@ -95,7 +95,8 @@ export function HomeView({
       configured={Boolean(chat?.configured)}
       hero={!conversation}
       inputRef={composerRef}
-      model={chat?.model ?? 'qwen'}
+      model={chat?.model ?? ''}
+      models={chat?.models ?? []}
       onAddReference={chatState.addReference}
       onChange={chatState.setPrompt}
       onModelChange={chatState.setModel}
@@ -157,7 +158,7 @@ export function HomeView({
         <div className="shrink-0 px-6 pb-4 pt-10 text-center">
           {chat && !chat.configured ? (
             <div className="mx-auto max-w-md text-left">
-              <ModelKeyForm model={chat.model} onConfigured={chatState.refresh} />
+              <ModelKeyForm onConfigured={chatState.refresh} />
             </div>
           ) : (
             <h1 className="text-2xl font-semibold tracking-tight">{greeting()}</h1>
@@ -198,7 +199,7 @@ export function HomeView({
             </p>
           )}
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            对话、引用资料及工具读取的内容会提供给致远一号。
+            对话、引用资料及工具读取的内容会提供给{chat?.providerName ?? '模型服务'}。
           </p>
         </div>
       </motion.div>

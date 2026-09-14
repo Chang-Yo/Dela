@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import { z } from 'zod';
 import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
-import { loadModelCredential } from '../credentials';
 import { getDatabase } from '../database';
 import { readCanvasSource } from '../canvas/api';
 import { readWorkspaceEntry } from '../workspace/api';
+import { getActiveLlmProvider } from './providers';
 
 const idSchema = z.string().uuid();
 
@@ -40,11 +40,13 @@ function resolveSession(scope: string): SessionRow | null {
 }
 
 function snapshot(row: SessionRow | null): WorkspaceChat {
-  const credential = loadModelCredential();
+  const provider = getActiveLlmProvider();
   return {
     sessionId: row?.id ?? null,
-    configured: Boolean(credential),
-    model: credential?.model ?? 'qwen',
+    configured: Boolean(provider),
+    providerName: provider?.name ?? null,
+    model: provider?.model ?? '',
+    models: provider?.models ?? [],
     messages: row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
     running: asking.has(row?.scope ?? ''),
     activeTool: asking.get(row?.scope ?? '')?.tool,
@@ -125,8 +127,8 @@ export async function ask(
   context: string[],
 ): Promise<WorkspaceChat> {
   if (asking.has(scope)) throw new Error('请等待当前回答完成');
-  const credential = loadModelCredential();
-  if (!credential) throw new Error('请先配置致远一号');
+  const provider = getActiveLlmProvider();
+  if (!provider) throw new Error('请先在设置中配置模型服务');
   const run = { controller: new AbortController(), tool: undefined as string | undefined };
   asking.set(scope, run);
   try {
@@ -204,8 +206,9 @@ export async function ask(
     persist();
     try {
       const result = await runAgent({
-        model: credential.model,
-        key: credential.key,
+        baseUrl: provider.baseUrl,
+        model: provider.model,
+        key: provider.apiKey,
         messages,
         tools: modelToolDefinitions(),
         signal: run.controller.signal,

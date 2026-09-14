@@ -140,6 +140,7 @@ const RESULT_CHAR_LIMIT = 20000;
 const RETRY_DELAYS = [1000, 3000];
 
 export async function runAgent(options: {
+  baseUrl: string;
   model: string;
   key: string;
   messages: { role: string; content: string }[];
@@ -154,12 +155,13 @@ export async function runAgent(options: {
   const messages: unknown[] = [...options.messages];
   const toolResults: AgentToolResult[] = [];
   const retryDelays = options.retryDelays ?? RETRY_DELAYS;
+  const endpoint = options.baseUrl.replace(/\/+$/, '') + '/chat/completions';
   // 传输层瞬时失败指数退避重试；已有流式内容产出后不再重试，避免重复展示。
   const requestCompletion = async () => {
     for (let attempt = 0; ; attempt += 1) {
       options.signal.throwIfAborted();
       try {
-        const response = await fetch('https://models.sjtu.edu.cn/api/v1/chat/completions', {
+        const response = await fetch(endpoint, {
           method: 'POST',
           redirect: 'error',
           // 每次尝试独立超时：多轮长任务不会因整跑共享计时被误杀；用户取消仍然即时生效。

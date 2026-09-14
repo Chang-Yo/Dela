@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { History, Settings2, SquarePen } from 'lucide-react';
+import { History, SquarePen } from 'lucide-react';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Button } from '../../components/ui/button';
 import { useWorkspace } from './workspace';
@@ -30,7 +30,6 @@ export function AgentPanel({
   const { chat, busy, error } = chatState;
   const drafts = useWorkspace((s) => s.drafts);
   const entries = useWorkspace((s) => s.workspace.entries);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(false);
 
   // @ 引用候选：当前打开的文档优先，其余可读条目（笔记/导入副本/Canvas 引用）按名搜索。
@@ -81,17 +80,6 @@ export function AgentPanel({
         >
           <SquarePen />
         </Button>
-        <Button
-          aria-label="模型设置"
-          aria-expanded={settingsOpen}
-          onClick={() => setSettingsOpen((open) => !open)}
-          size="icon-sm"
-          title="模型设置"
-          type="button"
-          variant="ghost"
-        >
-          <Settings2 />
-        </Button>
         {onCollapse && (
           <PanelToggleButton
             collapsed={false}
@@ -102,15 +90,7 @@ export function AgentPanel({
           />
         )}
       </div>
-      {(!chat?.configured || settingsOpen) && (
-        <ModelKeyForm
-          model={chat?.model ?? 'qwen'}
-          onConfigured={() => {
-            setSettingsOpen(false);
-            chatState.refresh();
-          }}
-        />
-      )}
+      {!chat?.configured && <ModelKeyForm onConfigured={chatState.refresh} />}
       {conversation ? (
         <ChatThread chat={chat} onOpenSource={onOpen} onSaveNote={onSaveNote} />
       ) : (
@@ -124,7 +104,8 @@ export function AgentPanel({
         <ChatComposer
           busy={busy}
           configured={Boolean(chat?.configured)}
-          model={chat?.model ?? 'qwen'}
+          model={chat?.model ?? ''}
+          models={chat?.models ?? []}
           onAddReference={chatState.addReference}
           onChange={chatState.setPrompt}
           onModelChange={chatState.setModel}
@@ -141,7 +122,7 @@ export function AgentPanel({
           </p>
         )}
         <p className="mt-2 text-xs text-muted-foreground">
-          对话、引用资料及工具读取的内容会提供给致远一号。
+          对话、引用资料及工具读取的内容会提供给{chat?.providerName ?? '模型服务'}。
         </p>
       </div>
       <ChatSessions

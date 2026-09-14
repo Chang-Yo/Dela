@@ -1,7 +1,7 @@
 # Dela 桌面应用技术规划书
 
 日期：2026-09-09
-状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步、阅读与 SMTP 发送；课表已实现 i.sjtu 会话接入、本地缓存、周/月视图和本地事件，真实账号同步及学期日期格式待验证（2026-09-11，见文末记录）；Canvas 课程资料、文件夹/项目、磁盘笔记、阅读工作区及明确选取正文的模型问答已实现（2026-09-12）；前台 Agent 工具循环、首页入口、邮件草稿及流式文字已接入（2026-09-13）；最新流式改动未验证，真实模型工具调用兼容性与最终打包验收待确认。当前实现与验证边界见文末。
+状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步、阅读与 SMTP 发送；课表已实现 i.sjtu 会话接入、本地缓存、周/月视图和本地事件，真实账号同步及学期日期格式待验证（2026-09-11，见文末记录）；Canvas 课程资料、文件夹/项目、磁盘笔记、阅读工作区及明确选取正文的模型问答已实现（2026-09-12）；前台 Agent 工具循环、首页入口、邮件草稿及流式文字已接入（2026-09-13）；最新流式改动未验证，真实模型工具调用兼容性与最终打包验收待确认；模型服务已改为多提供商自定义配置（2026-09-14，见文末）。当前实现与验证边界见文末。
 
 ## 1. 产品定位与范围
 
@@ -725,3 +725,25 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 已验证：39 项单元测试（包含实际响应判定）、生产构建、Electron smoke；独立三进程模拟 Cookie 测试验证会话恢复、hostOnly/HttpOnly/Secure/SameSite、持久 Cookie 留存和断开后无残留。真实扫码、信任期限、学校服务端失效策略与跨平台凭据加密仍待实机验证。
 
 补充验证：Windows 目录打包与 `dist/win-unpacked/Dela.exe --smoke-test` 通过；三进程测试还覆盖 Cookie 删除不复活、覆盖后恢复最新值。相关文件 Prettier、Oxlint 与 `git diff --check` 通过。本次未修改依赖、数据库或 renderer。
+
+## LLM 提供商自定义配置（2026-09-14）
+
+本节取代此前"仅致远一号"的模型接入约定。调研了 cc-switch（preset 与配置实例分离、`current` id 切换、模型列表端点探测）、Cherry Studio（真实对话请求级"检查"）与 ChatBox（ProviderDefinition 预设目录）后，按本应用业务裁剪：预设只预填默认值不持密钥，密钥只在主进程的配置实例中，一个 activeId 决定当前使用中的提供商。
+
+### 数据与存储
+
+- `src/shared/llm-presets.ts`（main/renderer 共享）：致远一号、DeepSeek、MiniMax、智谱 Coding Plan、自定义五个预设，各含 baseUrl、初始模型列表与获取密钥的控制台链接；第三方模型名是规划时按官方文档整理的初始建议，权威来源是检测按钮返回的模型列表。
+- 主进程 `credentials.ts` 新增 `llm-providers.bin`（safeStorage 加密，userData）：`{ providers: [{ id, name, baseUrl, apiKey, models, model, presetId }], activeId }`。旧 `model-credential.bin`（key+model 单凭据）在首次访问时懒迁移为一条致远一号提供商配置（沿用密钥与模型，模型不在预设列表时回退默认），写入成功后删除旧文件；迁移失败保留旧文件。
+- `agent/providers.ts`：列表/保存/删除/启用/选模型操作（zod 校验：名称 ≤50、baseUrl 须 http(s)、密钥 ≤4096、模型列表 1–64 项且默认模型必须在列表内）；`list()` 返回不含密钥的视图，新建提供商自动启用，编辑时空密钥表示沿用已存密钥，删除使用中的提供商回到未配置态。
+- 检测功能（`verifyLlm`）：GET 模型列表端点——baseUrl 以 `/v数字` 结尾时取 `{base}/models`，否则依次尝试 `{base}/v1/models`、`{base}/models`；`Authorization: Bearer` + 15s 超时；401/403 报密钥无效，2xx 解析 OpenAI `{data:[{id}]}`、智谱 `{models:[{slug}]}` 与裸数组三种形态并返回模型列表供导入。已保存提供商可免重填密钥直接检测（主进程取存储密钥），编辑对话框草稿也可检测。个别网关 `/models` 不校验密钥，检测结果以该端点行为为准，界面文案已注明。
+- `agent/loop.ts` 端点改为 `baseUrl 去尾部斜杠 + /chat/completions`；`agent/api.ts` 的 configured/model 与请求参数均取自 activeId 对应提供商，未配置报"请先在设置中配置模型服务"。
+
+### 通道与界面
+
+- 新增 `llm:list/save/remove/set-active/set-model/verify` IPC（沿用 `checkWorkspaceSender` + zod），preload 暴露 `dela.llm`；`workspace:configure-model` 及其 preload 方法移除。`WorkspaceChat` 增加 `providerName` 与 `models`（composer 模型下拉的数据源），模型枚举不再硬编码。
+- 设置页新增「模型服务」分区（导航置于数据与服务之后）：提供商列表行（使用中 Badge、使用/编辑/两步确认删除）、添加/编辑对话框（预设预填、密钥留空保持、模型 chips 增删、默认模型选择、检测密钥与导入模型列表、获取密钥外链）；「数据与服务」移除致远一号行。浏览器预览（无 preload）显示仅桌面端可用提示。
+- 聊天空状态快捷表单改为"预设厂商 + API Key + 模型"三字段，保存后直接启用；composer 底部模型下拉改为数据驱动（原三处重复的模型标签表删除，统一显示模型 id）；AgentPanel 的「模型设置」按钮移除（职责并入 composer 下拉与设置页）；"会提供给致远一号"文案改为动态 providerName。
+
+### 验证状态与边界
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、53 项单元测试（新增 providers 14 项：保存/脱敏视图/空密钥沿用/模型校验/启用与删除/端点候选规则/三种列表解析/检测的 401、回退、存储密钥、无密钥、不可达分支）、`pnpm smoke`、`pnpm smoke:workspace`（新增断言：旧单凭据迁移为致远一号提供商并删除旧文件、list 不含密钥、verify 经 /models 成功且返回模型、setModel 切换后 ask 的 model/providerName 正确）。设置页模型服务界面为代码实现，未做实机视觉核对；第三方提供商（DeepSeek、MiniMax、智谱 Coding Plan）的真实端点流式与工具调用兼容性未实测，属待验证能力；检测功能未对真实第三方密钥验证。

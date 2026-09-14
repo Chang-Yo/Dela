@@ -83,8 +83,8 @@ export function useChat(scope: string) {
 
   const setModel = (model: string) => {
     if (!window.dela) return;
-    void window.dela.workspace
-      .configureModel('', model)
+    void window.dela.llm
+      .setModel(model)
       .then(() => setChat((current) => (current ? { ...current, model } : current)))
       .catch((e) => setError(errorText(e)));
   };

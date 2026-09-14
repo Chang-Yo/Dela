@@ -10,13 +10,6 @@ import {
 } from '../../components/ui/dropdown-menu';
 import type { ChatReference } from './use-chat';
 
-const modelLabels: Record<string, string> = {
-  qwen: 'Qwen',
-  'deepseek-chat': 'DeepSeek',
-  'deepseek-reasoner': 'DeepSeek 深度思考',
-  minimax: 'MiniMax',
-};
-
 const slashCommands = [
   { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
   { name: '作业', prompt: '帮我查询即将截止的作业，按课程整理', hint: 'Canvas 截止时间' },
@@ -63,6 +56,7 @@ export function ChatComposer({
   busy,
   configured,
   model,
+  models,
   onModelChange,
   references,
   onRemoveReference,
@@ -79,6 +73,7 @@ export function ChatComposer({
   busy: boolean;
   configured: boolean;
   model: string;
+  models: string[];
   onModelChange: (model: string) => void;
   references: ChatReference[];
   onRemoveReference: (key: string) => void;
@@ -260,7 +255,7 @@ export function ChatComposer({
           <Plus />
         </Button>
         <div className="flex-1" />
-        {configured && (
+        {configured && models.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -269,18 +264,18 @@ export function ChatComposer({
                 type="button"
                 variant="ghost"
               >
-                {modelLabels[model] ?? model}
+                {model}
                 <ChevronDown className="size-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={6}>
-              {Object.entries(modelLabels).map(([key, label]) => (
+              {models.map((item) => (
                 <DropdownMenuItem
-                  key={key}
-                  className={cn(model === key && 'font-medium')}
-                  onSelect={() => onModelChange(key)}
+                  className={cn(model === item && 'font-medium')}
+                  key={item}
+                  onSelect={() => onModelChange(item)}
                 >
-                  {label}
+                  {item}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
