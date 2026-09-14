@@ -546,7 +546,6 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 
 冒烟断言补充 `settings.getIcon` 存在性检查。已验证：格式检查、oxlint、三组类型检查、生产构建、7 个单元测试与 Electron 冒烟；明暗切换下的关于页/侧栏品牌图与黑底窗口图标重启生效待实机视觉核对，NSIS 重打包未执行。
 
-
 ## Agent 业务接口当前实现（2026-09-13）
 
 本节取代此前 Agent 分阶段进展中的未完成状态。前文带日期的验证记录和界面草图保留历史含义；以下区分已实现与已验证，不将框架或接口能力当作真实端点验证。
@@ -560,18 +559,18 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 助手 → agent-loop → agent-tools ────────┘
 ```
 
-| 文件 | 当前职责 |
-| --- | --- |
-| `src/main/workspace/api.ts` / `workspace/ipc.ts` | 工作区业务入口与页面通信；不再包含聊天调度 |
-| `src/main/agent/api.ts` / `agent/ipc.ts` | 聊天保存、运行取消、状态推送与兼容的聊天 IPC |
-| `src/main/mail/api.ts` / `timetable.ts` | 页面和工具共用的邮件查询/读取/附件保存、日程创建与查询 |
-| `src/shared/resources.ts` | 严格校验 workspace、canvas、mail、attachment 引用 |
-| `src/shared/schedule.ts` | 与课表界面共用节次表，按上海时区展开课程日期 |
-| `src/main/resources.ts` | 解析项目/Canvas/附件文件，复制导入及临时下载清理 |
-| `src/main/mail/drafts.ts` | 保存原始草稿、按资源引用加载发送附件 |
-| `src/main/agent/tools.ts` | 15 个工具的描述、Zod 输入校验、模型 schema 和执行结果 |
-| `src/main/agent/loop.ts` | 模型请求、SSE 解析、工具循环及执行边界 |
-| `src/renderer/features/projects/AgentPanel.tsx` | 首页与项目助手共用的对话、进度、结果和邮件编辑入口 |
+| 文件                                             | 当前职责                                               |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| `src/main/workspace/api.ts` / `workspace/ipc.ts` | 工作区业务入口与页面通信；不再包含聊天调度             |
+| `src/main/agent/api.ts` / `agent/ipc.ts`         | 聊天保存、运行取消、状态推送与兼容的聊天 IPC           |
+| `src/main/mail/api.ts` / `timetable.ts`          | 页面和工具共用的邮件查询/读取/附件保存、日程创建与查询 |
+| `src/shared/resources.ts`                        | 严格校验 workspace、canvas、mail、attachment 引用      |
+| `src/shared/schedule.ts`                         | 与课表界面共用节次表，按上海时区展开课程日期           |
+| `src/main/resources.ts`                          | 解析项目/Canvas/附件文件，复制导入及临时下载清理       |
+| `src/main/mail/drafts.ts`                        | 保存原始草稿、按资源引用加载发送附件                   |
+| `src/main/agent/tools.ts`                        | 15 个工具的描述、Zod 输入校验、模型 schema 和执行结果  |
+| `src/main/agent/loop.ts`                         | 模型请求、SSE 解析、工具循环及执行边界                 |
+| `src/renderer/features/projects/AgentPanel.tsx`  | 首页与项目助手共用的对话、进度、结果和邮件编辑入口     |
 
 资源引用使用对象，例如 `{ type: 'workspace', id: '<UUID>' }`、`{ type: 'canvas', id: 'file:123' }`、`{ type: 'mail', id: 123 }`、`{ type: 'attachment', messageId: 123, part: '2' }`。引用不是磁盘路径或下载 URL；解析时验证资源仍存在，邮件缓存 ID 不承诺永久有效。
 
@@ -579,35 +578,35 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 
 统一执行结果为 `{ ok: true, result }` 或 `{ ok: false, error: { code, message } }`。错误码包括 UNKNOWN_TOOL、INVALID_INPUT、OPERATION_FAILED；循环另处理 INVALID_JSON。输入 schema 已生成给模型，尚未为每个输出建立独立运行时 schema。分页查询使用 offset/limit 与 nextOffset，具体以源码为准。
 
-| 工具 | 主要输入 | 主要结果与范围 |
-| --- | --- | --- |
-| `find_courses` | query、offset、limit | 缓存课程 ID、名称、同步时间/错误 |
-| `sync_sources` | 可选 courseId | 同步课程列表或指定课程资料，检查部分失败信息 |
-| `search_sources` | query、courseId、kind、分页 | 缓存标题搜索，去重后的 Canvas 引用与课程同步情况 |
-| `search_workspace` | query、parentId、分页 | 名称搜索；parentId 仅限定直接子条目 |
-| `search_mail` | query、from、folderId、起止时间、分页 | 主题/摘要缓存搜索；返回 UID 窗口与同步信息 |
-| `read_resource` | ref、offset、limit | 正文字符分页、格式、笔记 revision 或邮件附件引用 |
-| `query_assignments` | courseId、截止时间范围、分页 | 缓存作业与截止时间，submissionStatus 为 unknown |
-| `query_schedule` | semester、startAt、endAt | 课程和个人事件，上海时区及缺失数据警告；最多一年 |
-| `create_event` | title、startAt、endAt、location | 实际保存的个人事件；不修改课程 |
-| `create_entry` | parentId、kind、name、text | 新项目/文件夹/笔记及引用 |
-| `update_entry` | id、name、parentId | 重命名/移动后的实际条目 |
-| `write_note` | id、text、revision | 保存后的笔记版本；冲突返回错误 |
-| `link_source` | parentId、sourceId、name | 保留来源的项目资料关联 |
-| `copy_file_to_project` | source、parentId | 项目文件、Canvas 文件或附件的独立导入副本与引用 |
-| `prepare_email` | to、subject、text、attachments | 原始草稿 ID、内容和引用；sent 为 false |
+| 工具                   | 主要输入                              | 主要结果与范围                                   |
+| ---------------------- | ------------------------------------- | ------------------------------------------------ |
+| `find_courses`         | query、offset、limit                  | 缓存课程 ID、名称、同步时间/错误                 |
+| `sync_sources`         | 可选 courseId                         | 同步课程列表或指定课程资料，检查部分失败信息     |
+| `search_sources`       | query、courseId、kind、分页           | 缓存标题搜索，去重后的 Canvas 引用与课程同步情况 |
+| `search_workspace`     | query、parentId、分页                 | 名称搜索；parentId 仅限定直接子条目              |
+| `search_mail`          | query、from、folderId、起止时间、分页 | 主题/摘要缓存搜索；返回 UID 窗口与同步信息       |
+| `read_resource`        | ref、offset、limit                    | 正文字符分页、格式、笔记 revision 或邮件附件引用 |
+| `query_assignments`    | courseId、截止时间范围、分页          | 缓存作业与截止时间，submissionStatus 为 unknown  |
+| `query_schedule`       | semester、startAt、endAt              | 课程和个人事件，上海时区及缺失数据警告；最多一年 |
+| `create_event`         | title、startAt、endAt、location       | 实际保存的个人事件；不修改课程                   |
+| `create_entry`         | parentId、kind、name、text            | 新项目/文件夹/笔记及引用                         |
+| `update_entry`         | id、name、parentId                    | 重命名/移动后的实际条目                          |
+| `write_note`           | id、text、revision                    | 保存后的笔记版本；冲突返回错误                   |
+| `link_source`          | parentId、sourceId、name              | 保留来源的项目资料关联                           |
+| `copy_file_to_project` | source、parentId                      | 项目文件、Canvas 文件或附件的独立导入副本与引用  |
+| `prepare_email`        | to、subject、text、attachments        | 原始草稿 ID、内容和引用；sent 为 false           |
 
 邮箱缓存只保留每个文件夹近期 300 个 UID 窗口，并非完整邮箱或固定 300 封邮件。Canvas 尚无可靠提交状态；缺少截止时间的作业不进入带日期过滤的结果。未知周次、无效节次或缺少学期日期不会猜测实际课程日期。正文读取不自动标记邮件已读；PDF/图片不做全文提取，HTML 以文本标记返回。
 
 ### 执行与 UI
 
-首页顶部复用项目助手，下方仍是项目入口，尚非统一的“未完成事项”列表。用户请求、选中正文、最近 12 条角色/正文消息及本轮工具结果进入模型上下文；不是只发送勾选正文。工具内容可能包含个人邮件或资料，界面已说明它们会提供给致远一号。
+首页为两状态布局：闲置态居中 composer、建议胶囊与项目卡片，会话态消息流占满、composer 钉底；项目页右栏为面板形态。两者共用 `renderer/features/chat` 的对话核心（ChatThread/ChatComposer/useChat），会话按 scope 多会话管理。用户请求、@ 引用的正文、最近 12 条角色/正文消息及本轮工具结果进入模型上下文。工具内容可能包含个人邮件或资料，界面已说明它们会提供给致远一号。
 
-最多执行 12 轮模型请求，工具顺序执行。模型循环使用 120 秒 AbortSignal 超时；该计时在所选正文加载后开始，已运行的业务函数未普遍接入 AbortSignal，因此不是整个操作的硬性时长上限。取消中断模型请求并阻止下一项工具，不回滚已完成写入。
+最多执行 12 轮模型请求（最后一轮请求前注入“总结收尾”提示），工具顺序执行。每个模型请求独立 120s AbortSignal 超时；429/5xx/网络中断按 1s/3s 退避重试，4xx 与流式已产出内容后的失败不重试。已运行的业务函数未普遍接入 AbortSignal，工具执行不可中断读取。取消中断模型请求并阻止下一项工具，不回滚已完成写入。
 
-SSE 文字经聊天更新推送，分片工具参数收到完整结束标记后才执行；提前断流或长度截断报告错误。同时支持返回普通 JSON 的端点。文字增量不逐 token 写库，工具完成及最终回复时持久化。工具结果逐项保存，后续模型失败不会自动重试已完成操作。没有独立任务恢复、完整状态机或自动记忆。
+SSE 文字经聊天更新推送，分片工具参数收到完整结束标记后才执行；提前断流或长度截断报告错误。同时支持返回普通 JSON 的端点。文字增量不逐 token 写库，按 ~100ms 节流广播；单条工具结果回灌模型前截断至 20000 字符并附引导说明；工具完成及最终回复时持久化。工具结果逐项保存，后续模型失败不会自动重试已完成操作。没有独立任务恢复、完整状态机或自动记忆。
 
-聊天更新只发给经过 workspace IPC 来源校验的应用窗口。界面展示当前工具、展开的结构化结果、错误与停止按钮；结束后刷新工作区、Canvas 缓存和已保存的打开文档，日程页刷新个人事件。未保存文档不被刷新覆盖。
+聊天更新只发给经过 workspace IPC 来源校验的应用窗口。界面在消息内展示当前工具与折叠的结构化结果、错误与停止按钮；结束后刷新工作区、Canvas 缓存和已保存的打开文档，日程页刷新个人事件。未保存文档不被刷新覆盖。
 
 ### 文件和邮件草稿
 
@@ -624,7 +623,6 @@ Agent 原始草稿保留；编辑器可以另存为本地草稿，本地草稿�
 按用户要求，最新流式改动后只做格式化，未追加测试、构建或打包。此前其他阶段的 Windows 打包记录不覆盖本次 Agent 改动。真实 Qwen 普通正文问答的历史验证也不覆盖新工具循环、流式或其他模型。
 
 下一阶段先确认真实致远一号的工具调用与流式响应，再走完整业务流程、修正工具与交互问题；用户恢复验收安排后再做最终构建、回归及打包启动检查。记忆、自动任务恢复、复杂并发编辑协调、多 Agent 和 shell 继续暂缓。
-
 
 ## 业务领域目录与本地邮件草稿（2026-09-13）
 
@@ -691,3 +689,27 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 设置页：外观节「页面缩放/字号」的 Aa 卡片组改为右对齐下拉 select（`h-9 w-24`，固定宽度防选项切换跳动），档位集合、保存流程与 Ctrl/⌘ 快捷键步进均不变——未采用 ±10% 步进器，因其与 1.1/1.25 非整十档位冲突，需连带修改 shared 档位集、主进程 zod 校验与快捷键步进（select 与步进器为用户给出的二选一，此处取低风险项；如需步进器另立任务）；SizePreview 随替换删除，OptionCard 保留给主题/应用图标。「数据与服务」五项移除整体卡片边框（五项语义不同质，外框产生错误分组暗示），行间保留细分隔线并与节标题左对齐，行内内容与交互不变。
 
 验证：typecheck×3、oxlint 0 警告、vitest 32/32、prettier 通过；三个子任务并行修改互不重叠的文件后统一集成检查。待实机：真实窗口下三档布局的阈值手感、缩放/字号下拉、数据与服务对齐效果。
+
+## 首页两状态改版、多会话与 Agent 循环强化（2026-09-13）
+
+参照主流 AI 产品的首页组织（闲置态/会话态为同一页面两状态，composer 为贯穿两个状态的连续元素），重做首页并抽取共享对话核心。调研基础：Anthropic「Building Effective Agents / Writing Tools / Context Engineering」、Manus context engineering、OpenAI Agents SDK 文档、vercel/ai-chatbot 与 streamdown/use-stick-to-bottom 的实现模式。
+
+### 数据库与会话模型（v9）
+
+新增 `chat_sessions` 表（id、scope、title、messages JSON、created_at、updated_at，`(scope, updated_at DESC)` 索引）；迁移把旧 `workspace_settings` 的 `chat:<scope>` JSON 转为各 scope 的首个会话后删除原键，迁移前自动 `VACUUM INTO` 备份。主进程为每个 scope 维护“当前会话”指针：缺省解析为最近更新的会话（与旧单会话行为一致），「新对话」把指针置空并把从未发送过消息的空会话删除（空会话不进历史）；首条消息发送时才建会话行，标题取首条消息前 60 字符。新增受控 IPC：`new-chat`、`list-chats`（LIKE 搜索标题与消息原文，转义 %/_，上限 100 条）、`open-chat`、`delete-chat`；`configure-model` 的 key 允许空串（仅切换模型，沿用已存密钥）。`WorkspaceChat` 增加 `sessionId`。
+
+### renderer 共享对话核心
+
+新增 `features/chat`：`useChat`（会话加载、推送订阅、发送、引用 chips、模型切换、多会话操作；`listSessions` 经 useCallback 保持稳定引用）；`ChatThread`（消息流唯一滚动容器：距底 48px 内自动跟随、`overflow-anchor:none`、滚轮上滚立即脱离、非跟随态显示“回到底部”；工具步骤行 = 状态图标 + 工具名 + 输入摘要 + 可展开详情，邮件草稿保留“检查并发送”；流式光标、“正在思考…”占位、流式期间未闭合 ``` 围栏临时补全）；`ChatComposer`（Enter 发送/Shift+Enter 换行，IME 以本地 composition 状态 + `nativeEvent.isComposing` + keyCode 229 三重判断；textarea 用 `field-sizing-content` 自适应（Chromium 123+ 支持）；`/` 指令菜单与 `@` 引用菜单共用一套触发词检测/键盘导航/`onMouseDown preventDefault` 模式，引用 chip 可移除；底部模型下拉与发送/停止圆形按钮）；`ChatSessions`（历史弹窗：200ms 防抖搜索、打开、删除、当前会话高亮）；`ModelKeyForm`。AgentPanel 改为该核心的面板形态（保留头部分隔、折叠按钮、密钥表单与 `@` 候选把当前打开文档排前的策略），移除已无用的 `title`/`home` props 与旧的复选框引用抽屉。
+
+首页 `HomeView` 为两状态：闲置态居中问候语（未配置时为密钥表单）、hero composer、数据驱动建议胶囊（最近项目/近期作业/今日日程）与项目卡片，删除与侧栏重复的“课程资料”长条；会话态为右上方「历史/新对话」图标行 + 消息流 + 钉底 composer。composer 单节点常驻，用 `motion.div layout="position"` 弹簧位移衔接两状态（MotionConfig 全局尊重减少动态效果）；消息流淡入。会话态不再渲染闲置内容（第一轮验证曾出现 AnimatePresence 退出动画卡在半透明的残留，改为直接条件渲染后消除）。发送失败时用户消息已上屏，故输入同样清空，错误提示保留在 composer 下方。
+
+### Agent 循环（loop.ts）强化
+
+按调研共识落地五项低成本改进：(1) 模型请求改为每轮独立 `AbortSignal.timeout(120s)`，多轮长任务不再被整跑共享计时误杀，用户取消仍即时生效；(2) 传输层瞬时错误（429/5xx/网络 TypeError）按 1s/3s 退避重试（最多 2 次），4xx 不重试，流式已产出内容后的失败不重试；(3) 单条工具结果回灌模型前超过 20000 字符截断并附“请用更具体的过滤或分页参数”引导，UI 侧仍保存完整结果；(4) 第 12 轮请求前注入“请总结收尾，不再发起新工具调用”的用户提示；(5) `max_tokens` 4096→8192（降低深度思考模型截断概率）。错误回灌（INVALID_JSON/UNKNOWN_TOOL/失败结果作为 tool 消息继续循环）与 12 轮上限维持原状；系统提示词未动。
+
+### 验证状态
+
+通过：三入口 typecheck、oxlint 0 警告、prettier、34 项单元测试（loop 新增瞬态重试成功、4xx 不重试用例）、`pnpm build`、`pnpm smoke`、扩展后的 `pnpm smoke:workspace`（新增 newChat/listChats 搜索/openChat/deleteChat 断言，modelCalls 断言保持单次）。另以隔离 userData 的真实构建实例经 CDP 核对 7 个界面状态（闲置未配置/闲置/会话/历史弹窗/新对话回闲置/项目面板/面板历史），DOM 断言含会话态无闲置残留、发送后输入清空、历史时间合法；视觉验收两轮通过（第一轮发现：会话态闲置内容残留、历史 Invalid Date（SQL 列名 `updated_at` 未别名所致）、ChatSessions effect 因回调引用不稳定导致无限重渲染——均已修复）。
+
+边界与待验证：真实致远一号的流式与工具调用兼容性仍未实测，本次界面与循环改动均在脱敏桩与假密钥（真实端点 401）路径上验证；删除历史会话不可恢复；@ 引用候选仅限工作区条目与打开文档（Canvas 原始资料经资料条目引用）；窄窗口（高度 <600px）闲置态为滚动降级，未逐档视觉核对；`field-sizing-content` 在浏览器预览的旧内核下退化为固定高度。

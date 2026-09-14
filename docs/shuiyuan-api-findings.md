@@ -4,13 +4,13 @@
 
 ## 1. 站点身份与访问策略（已验证）
 
-| 事项 | 实测结论 |
-| --- | --- |
-| 框架与版本 | Discourse **2026.5.0-latest.1**（HTML meta generator；标准 Discourse 路由全部在位，`X-Discourse-Route` 头可确认） |
-| 访问策略 | 全站强制登录（`login_required`）：匿名请求 `latest.json`、`categories.json`、`site.json`、`about.json` 一律 403 `{"errors":["您需要登录才能执行此操作。"],"error_type":"not_logged_in"}` |
-| 爬虫旁路 | Googlebot UA 仍 403；`latest.rss` 302 跳登录。无任何匿名数据泄露面 |
-| 登录入口 | 唯一入口为 jAccount SSO：`/` → 302 `/auth/jaccount` → 302 `jaccount.sjtu.edu.cn/oauth2/authorize?client_id=nvRnqMSQc1tpkGoSC36N&redirect_uri=…/auth/jaccount/callback&response_type=code&scope=essential&state=…` |
-| 会话机制 | 登录回跳后由 Discourse 种会话 cookie；`GET /session/csrf` 匿名可用（写操作前置） |
+| 事项       | 实测结论                                                                                                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 框架与版本 | Discourse **2026.5.0-latest.1**（HTML meta generator；标准 Discourse 路由全部在位，`X-Discourse-Route` 头可确认）                                                                                                 |
+| 访问策略   | 全站强制登录（`login_required`）：匿名请求 `latest.json`、`categories.json`、`site.json`、`about.json` 一律 403 `{"errors":["您需要登录才能执行此操作。"],"error_type":"not_logged_in"}`                          |
+| 爬虫旁路   | Googlebot UA 仍 403；`latest.rss` 302 跳登录。无任何匿名数据泄露面                                                                                                                                                |
+| 登录入口   | 唯一入口为 jAccount SSO：`/` → 302 `/auth/jaccount` → 302 `jaccount.sjtu.edu.cn/oauth2/authorize?client_id=nvRnqMSQc1tpkGoSC36N&redirect_uri=…/auth/jaccount/callback&response_type=code&scope=essential&state=…` |
+| 会话机制   | 登录回跳后由 Discourse 种会话 cookie；`GET /session/csrf` 匿名可用（写操作前置）                                                                                                                                  |
 
 `client_id=nvRnqMSQc1tpkGoSC36N` 是**水源自己注册的 jAccount 应用**。Dela 不是 OAuth client，不持有任何 client_secret，只是让用户在受控窗口里正常完成一次浏览器登录——与"无法取得 jAccount client_id"的固定约束不冲突。
 
@@ -31,21 +31,21 @@ Electron 独立持久 Session（无 preload 模态窗）
 
 与课表接入的异同：
 
-| 维度 | 教学信息服务网（课表） | 水源社区 |
-| --- | --- | --- |
-| 登录方式 | jAccount（表单/跳转后种 JAAuthCookie） | jAccount OAuth2 授权码回跳后种 Discourse cookie |
-| 数据接口 | 页面内的 JSON 端点（`xskbcx_cxXsgrkb.html`），需 POST | 标准 Discourse REST JSON（`GET *.json`），无需解析 HTML |
-| 会话载体 | 教学网 cookie | `_forum_session` + `_t`（remember-me，长效，存活时长待多天验证） |
-| 失效表现 | 重定向到登录页 / 非 JSON | 预期同左（403 `not_logged_in`），待实测确认 |
-| Dela 侧复用 | 独立 Session、模态登录窗、受控 IPC、失效保留缓存 | 完全同一套模式，无需新的认证抽象 |
+| 维度        | 教学信息服务网（课表）                                | 水源社区                                                         |
+| ----------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| 登录方式    | jAccount（表单/跳转后种 JAAuthCookie）                | jAccount OAuth2 授权码回跳后种 Discourse cookie                  |
+| 数据接口    | 页面内的 JSON 端点（`xskbcx_cxXsgrkb.html`），需 POST | 标准 Discourse REST JSON（`GET *.json`），无需解析 HTML          |
+| 会话载体    | 教学网 cookie                                         | `_forum_session` + `_t`（remember-me，长效，存活时长待多天验证） |
+| 失效表现    | 重定向到登录页 / 非 JSON                              | 预期同左（403 `not_logged_in`），待实测确认                      |
+| Dela 侧复用 | 独立 Session、模态登录窗、受控 IPC、失效保留缓存      | 完全同一套模式，无需新的认证抽象                                 |
 
 ### 2.1 已被实测排除的认证路径
 
-| 路径 | 结论 |
-| --- | --- |
-| 匿名 JSON API | 全部 403 `not_logged_in`，无公开数据面 |
-| 爬虫 UA / RSS | 均被拦截 |
-| 无头脚本登录 | jAccount 登录页含验证码（另有扫码、短信两种人工方式），脚本化不可行，且不应存储用户密码 |
+| 路径                       | 结论                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 匿名 JSON API              | 全部 403 `not_logged_in`，无公开数据面                                                                |
+| 爬虫 UA / RSS              | 均被拦截                                                                                              |
+| 无头脚本登录               | jAccount 登录页含验证码（另有扫码、短信两种人工方式），脚本化不可行，且不应存储用户密码               |
 | **Discourse User API Key** | **登录态实测：管理员已禁用**。授权页返回"抱歉，我们无法发布用户 API 密钥，此功能可能被网站管理员禁用" |
 
 User API Key 是 Discourse 官方为第三方客户端设计的授权机制（功能上类似 OAuth 授权：应用出示 RSA 公钥，用户网页点授权，服务端加密下发 token，之后带 `User-Api-Key` 头调用）。**方法论教训**：匿名探测阶段该路由返回 200、参数校验（nonce）正常、页面显示登录按钮，曾据此误判"通道开启"；站点设置类开关（`enable_user_api_keys`）只在登录后才暴露拦截。涉及站点开关的结论必须以登录态实测为准。
@@ -58,17 +58,17 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 
 ## 3. 登录后可获取的数据（全部为本人会话实测）
 
-| 端点 | 实测内容 |
-| --- | --- |
-| `GET /session/current.json` | 当前用户对象（实测 89 个字段）：`username`、`name`、`unread_notifications`、`unread_private_messages`、`admin` 等 |
-| `GET /latest.json` | 每页 30 个 topic + `topic_list.more_topics_url` 分页游标；topic 含 `id`、`title`、`category_id`、`posts_count`、`created_at`、`last_posted_at` |
-| `GET /categories.json` | 13 个顶级分类及帖子计数：校园生活 13415、广而告之 2199、人生经验 2067、休闲娱乐 1475、社团组织 567、数码科技 522、文化艺术 383、水源活动 69；计数为 0 的应为父分类（推断） |
-| `GET /search.json?q=数据结构` | 每页 50 条：`topics[]`（id/标题/时间）+ `posts[].blurb` 正文摘要 + `grouped_search_result.hit_count`；摘要质量足以直接展示 |
-| `GET /t/<topic_id>.json` | 帖子全文：`title`、`posts_count`（样本 67 楼）、`post_stream.stream`（楼层 id 全量）+ 每楼 `cooked`（消毒后 HTML，首楼样本 4281 字符）、`details.participants`（样本 24 人） |
-| `GET /notifications.json?recent=true` | 15 条通知：`notification_type`（实测出现 {2,5,6,12,14,19}，对应 Discourse 标准枚举，实现时按语义映射）、`read` 状态、触发者与主题引用 |
-| `GET /new.json`、`GET /unread.json` | 新帖流、未读流，各 30 topic/页，结构与 `latest` 相同 |
-| `GET /u/<username>/bookmarks.json` | 本人收藏：实测 11 条，含 `topic_id`、`created_at`、可选 `name` |
-| `GET /session/csrf` | 200 + CSRF token（写操作前置） |
+| 端点                                  | 实测内容                                                                                                                                                                     |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /session/current.json`           | 当前用户对象（实测 89 个字段）：`username`、`name`、`unread_notifications`、`unread_private_messages`、`admin` 等                                                            |
+| `GET /latest.json`                    | 每页 30 个 topic + `topic_list.more_topics_url` 分页游标；topic 含 `id`、`title`、`category_id`、`posts_count`、`created_at`、`last_posted_at`                               |
+| `GET /categories.json`                | 13 个顶级分类及帖子计数：校园生活 13415、广而告之 2199、人生经验 2067、休闲娱乐 1475、社团组织 567、数码科技 522、文化艺术 383、水源活动 69；计数为 0 的应为父分类（推断）   |
+| `GET /search.json?q=数据结构`         | 每页 50 条：`topics[]`（id/标题/时间）+ `posts[].blurb` 正文摘要 + `grouped_search_result.hit_count`；摘要质量足以直接展示                                                   |
+| `GET /t/<topic_id>.json`              | 帖子全文：`title`、`posts_count`（样本 67 楼）、`post_stream.stream`（楼层 id 全量）+ 每楼 `cooked`（消毒后 HTML，首楼样本 4281 字符）、`details.participants`（样本 24 人） |
+| `GET /notifications.json?recent=true` | 15 条通知：`notification_type`（实测出现 {2,5,6,12,14,19}，对应 Discourse 标准枚举，实现时按语义映射）、`read` 状态、触发者与主题引用                                        |
+| `GET /new.json`、`GET /unread.json`   | 新帖流、未读流，各 30 topic/页，结构与 `latest` 相同                                                                                                                         |
+| `GET /u/<username>/bookmarks.json`    | 本人收藏：实测 11 条，含 `topic_id`、`created_at`、可选 `name`                                                                                                               |
+| `GET /session/csrf`                   | 200 + CSRF token（写操作前置）                                                                                                                                               |
 
 ## 4. 对聚合器的数据模型推论
 
