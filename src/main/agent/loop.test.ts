@@ -19,6 +19,7 @@ const options = () => ({
   tools: [],
   signal: new AbortController().signal,
   execute: vi.fn().mockResolvedValue({ ok: true, result: 'body' }),
+  retryDelays: [0, 0],
 });
 
 describe('Agent loop', () => {
@@ -71,12 +72,33 @@ describe('Agent loop', () => {
       vi
         .fn()
         .mockResolvedValueOnce(answer(call()))
-        .mockResolvedValueOnce(new Response('', { status: 503 })),
+        .mockResolvedValue(new Response('', { status: 503 })),
     );
     const input = options();
     const onToolResult = vi.fn();
     await expect(runAgent({ ...input, onToolResult })).rejects.toThrow('503');
     expect(input.execute).toHaveBeenCalledTimes(1);
     expect(onToolResult).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries transient server errors without re-executing tools', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockResolvedValueOnce(new Response('', { status: 429 }))
+      .mockResolvedValueOnce(answer({ content: 'Recovered' }));
+    vi.stubGlobal('fetch', fetcher);
+    const input = options();
+    const result = await runAgent(input);
+    expect(result.content).toBe('Recovered');
+    expect(input.execute).not.toHaveBeenCalled();
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry permanent client errors', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 400 }));
+    vi.stubGlobal('fetch', fetcher);
+    await expect(runAgent(options())).rejects.toThrow('400');
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

@@ -350,10 +350,7 @@ app
     assert.equal(readFileSync(path, 'utf8'), '# 恢复测试');
     updateWorkspaceEntry(child.id, { name: '参考改名', parentId: other.id });
     assert.equal(
-      readFileSync(
-        join(profile, 'notes', 'workspace', '独立项目', '参考改名', '旧版笔记'),
-        'utf8',
-      ),
+      readFileSync(join(profile, 'notes', 'workspace', '独立项目', '参考改名', '旧版笔记'), 'utf8'),
       '旧版内容',
     );
     assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
@@ -463,6 +460,32 @@ app
       `return await window.dela.workspace.getChat(${JSON.stringify(folder.id)});`,
     );
     assert.equal(restoredChat.messages.length, 2);
+    // 多会话：新对话后旧会话保留在历史中，可搜索、重新打开与删除。
+    await invoke(`await window.dela.workspace.newChat(${JSON.stringify(folder.id)});`);
+    const secondAsk = await invoke(
+      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, '第二轮提问', [${JSON.stringify(note.id)}]);`,
+    );
+    assert.equal(secondAsk.messages.length, 2);
+    assert.notEqual(secondAsk.sessionId, restoredChat.sessionId);
+    const byQuery = await invoke(
+      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '第二轮');`,
+    );
+    assert.equal(byQuery.length, 1);
+    const allSessions = await invoke(
+      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '');`,
+    );
+    assert.equal(allSessions.length, 2);
+    const reopened = await invoke(
+      `return await window.dela.workspace.openChat(${JSON.stringify(folder.id)}, ${JSON.stringify(restoredChat.sessionId)});`,
+    );
+    assert.equal(reopened.messages.length, 2);
+    await invoke(
+      `await window.dela.workspace.deleteChat(${JSON.stringify(folder.id)}, ${JSON.stringify(secondAsk.sessionId)});`,
+    );
+    const remaining = await invoke(
+      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '');`,
+    );
+    assert.equal(remaining.length, 1);
     win.destroy();
     closeDatabase();
     console.log(
