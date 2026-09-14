@@ -105,10 +105,9 @@ export function AgentPanel({
           busy={busy}
           configured={Boolean(chat?.configured)}
           model={chat?.model ?? ''}
-          models={chat?.models ?? []}
           onAddReference={chatState.addReference}
           onChange={chatState.setPrompt}
-          onModelChange={chatState.setModel}
+          onModelSelect={chatState.selectModel}
           onRemoveReference={chatState.removeReference}
           onSend={() => void chatState.send()}
           onStop={chatState.stop}

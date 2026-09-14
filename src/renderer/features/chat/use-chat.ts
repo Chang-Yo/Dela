@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChatSessionSummary, WorkspaceChat } from '../../../shared/api';
+import type { ChatSessionSummary, LlmProviderView, WorkspaceChat } from '../../../shared/api';
 import { errorText, useWorkspace } from '../projects/workspace';
 
 export type ChatReference = { key: string; title: string };
@@ -42,8 +42,9 @@ export function useChat(scope: string) {
 
   const busy = pending || Boolean(chat?.running);
 
-  const send = async () => {
-    const text = prompt.trim();
+  // 可选参数供快捷入口直接发送：绕过 prompt state 的异步时序，单击即发。
+  const send = async (directText?: string) => {
+    const text = (directText ?? prompt).trim();
     if (!window.dela || !text || busy) return;
     setPending(true);
     setError(null);
@@ -81,12 +82,15 @@ export function useChat(scope: string) {
     void window.dela?.workspace.cancelAsk(scope).catch((e) => setError(errorText(e)));
   };
 
-  const setModel = (model: string) => {
-    if (!window.dela) return;
-    void window.dela.llm
-      .setModel(model)
-      .then(() => setChat((current) => (current ? { ...current, model } : current)))
-      .catch((e) => setError(errorText(e)));
+  // 两列模型面板的提交：非使用中提供商先 setActive，再设置模型并刷新会话状态。
+  const selectModel = (provider: LlmProviderView, model: string) => {
+    const dela = window.dela;
+    if (!dela) return;
+    setChat((current) => (current ? { ...current, model } : current));
+    const run = provider.active
+      ? dela.llm.setModel(model)
+      : dela.llm.setActive(provider.id).then(() => dela.llm.setModel(model));
+    void run.then(() => refresh()).catch((e) => setError(errorText(e)));
   };
 
   const newChat = () => {
@@ -147,7 +151,7 @@ export function useChat(scope: string) {
     error,
     send,
     stop,
-    setModel,
+    selectModel,
     newChat,
     openSession,
     deleteSession,
