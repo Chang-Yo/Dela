@@ -40,12 +40,14 @@ export function colorFor(value: string): CalendarEventColor {
 }
 
 // 手动事件未选色时用石墨中性色，与自动配色的课程区分。
+export function calendarToneKey(color: string | null | undefined): CalendarEventColor {
+  return color && calendarEventColors.includes(color as CalendarEventColor)
+    ? (color as CalendarEventColor)
+    : 'slate';
+}
+
 export function eventTone(color: string | null | undefined): CSSProperties {
-  const key =
-    color && calendarEventColors.includes(color as CalendarEventColor)
-      ? (color as CalendarEventColor)
-      : 'slate';
-  return eventColorStyle(key);
+  return eventColorStyle(calendarToneKey(color));
 }
 
 export function parseDate(value: string): Date {
@@ -80,6 +82,39 @@ export function timeInput(date: Date): string {
 
 export function formatTime(date: Date): string {
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+export function weekdayName(date: Date): string {
+  return weekDays[(date.getDay() + 6) % 7]!;
+}
+
+export function formatMinuteOfDay(minute: number): string {
+  return `${`${Math.floor(minute / 60)}`.padStart(2, '0')}:${`${minute % 60}`.padStart(2, '0')}`;
+}
+
+// 事件的完整起止时间：同日只写一个日期，跨日两端各带日期与星期。
+export function formatEventRange(event: Pick<CalendarEvent, 'startAt' | 'endAt'>): string {
+  const start = new Date(event.startAt);
+  const end = new Date(event.endAt);
+  const startText = `${formatMonthDay(start)}（${weekdayName(start)}）${formatTime(start)}`;
+  return dateKey(start) === dateKey(end)
+    ? `${startText} – ${formatTime(end)}`
+    : `${startText} – ${formatMonthDay(end)}（${weekdayName(end)}）${formatTime(end)}`;
+}
+
+// 事件在某天的首末段标志：只有事件真实起止日才是 start/end，
+// 被周视图切割的延续日不算；结束恰为午夜时与 localEventsByDay 一致记为前一天。
+export function eventDayEdges(
+  event: Pick<CalendarEvent, 'startAt' | 'endAt'>,
+  day: Date,
+): { isStart: boolean; isEnd: boolean } {
+  const dayTime = startOfDay(day).getTime();
+  const end = new Date(event.endAt);
+  const endDay = startOfDay(new Date(end.getTime() - (end.getHours() || end.getMinutes() ? 0 : 1)));
+  return {
+    isStart: startOfDay(new Date(event.startAt)).getTime() === dayTime,
+    isEnd: endDay.getTime() === dayTime,
+  };
 }
 
 export function semesterLabel(semester: string): string {

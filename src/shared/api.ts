@@ -239,6 +239,7 @@ export interface TimetableApi {
   listLessons(semester?: string): Promise<readonly TimetableLesson[]>;
   listEvents(startAt: string, endAt: string): Promise<readonly CalendarEvent[]>;
   createEvent(input: CalendarEventInput): Promise<CalendarEvent>;
+  deleteEvent(id: number): Promise<void>;
   setSemesterStart(semester: string, value: string): Promise<void>;
   syncNow(semester?: string): Promise<TimetableResult>;
 }

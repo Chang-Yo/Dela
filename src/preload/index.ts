@@ -110,6 +110,7 @@ contextBridge.exposeInMainWorld('dela', {
     listEvents: (startAt: string, endAt: string) =>
       ipcRenderer.invoke('timetable:list-events', startAt, endAt),
     createEvent: (input: CalendarEventInput) => ipcRenderer.invoke('timetable:create-event', input),
+    deleteEvent: (id: number) => ipcRenderer.invoke('timetable:delete-event', id),
     setSemesterStart: (semester: string, value: string) =>
       ipcRenderer.invoke('timetable:set-semester-start', semester, value),
     syncNow: (semester?: string) => ipcRenderer.invoke('timetable:sync', semester),

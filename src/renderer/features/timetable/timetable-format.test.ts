@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutDayColumns } from './timetable-format';
+import { eventDayEdges, formatEventRange, layoutDayColumns } from './timetable-format';
 
 // 时间用一天内的分钟数表示，样例不对应任何真实课程。
 describe('layoutDayColumns', () => {
@@ -71,5 +71,48 @@ describe('layoutDayColumns', () => {
 
   it('空输入返回空布局', () => {
     expect(layoutDayColumns([]).size).toBe(0);
+  });
+});
+
+describe('eventDayEdges', () => {
+  // 2026-09-14 是周一。跨天事件：周一 22:00 起，周三 10:00 止。
+  const event = {
+    startAt: new Date(2026, 8, 14, 22, 0).toISOString(),
+    endAt: new Date(2026, 8, 16, 10, 0).toISOString(),
+  };
+
+  it('只有事件真实起止日才是首末段', () => {
+    expect(eventDayEdges(event, new Date(2026, 8, 14))).toEqual({ isStart: true, isEnd: false });
+    expect(eventDayEdges(event, new Date(2026, 8, 15))).toEqual({ isStart: false, isEnd: false });
+    expect(eventDayEdges(event, new Date(2026, 8, 16))).toEqual({ isStart: false, isEnd: true });
+  });
+
+  it('结束恰为午夜时归属前一天，与 localEventsByDay 一致', () => {
+    const event = {
+      startAt: new Date(2026, 8, 14, 9, 0).toISOString(),
+      endAt: new Date(2026, 8, 16).toISOString(),
+    };
+    expect(eventDayEdges(event, new Date(2026, 8, 15)).isEnd).toBe(true);
+    expect(eventDayEdges(event, new Date(2026, 8, 16)).isEnd).toBe(false);
+  });
+});
+
+describe('formatEventRange', () => {
+  it('同日事件只写一个日期', () => {
+    expect(
+      formatEventRange({
+        startAt: new Date(2026, 8, 14, 9, 0).toISOString(),
+        endAt: new Date(2026, 8, 14, 10, 0).toISOString(),
+      }),
+    ).toBe('9月14日（周一）09:00 – 10:00');
+  });
+
+  it('跨天事件两端各带日期与星期', () => {
+    expect(
+      formatEventRange({
+        startAt: new Date(2026, 8, 12, 22, 0).toISOString(),
+        endAt: new Date(2026, 8, 16, 10, 0).toISOString(),
+      }),
+    ).toBe('9月12日（周六）22:00 – 9月16日（周三）10:00');
   });
 });

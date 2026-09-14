@@ -21,7 +21,8 @@ import {
 import { MonthCalendar } from './MonthCalendar';
 import { NewEventDialog } from './NewEventDialog';
 import { SemesterStartDialog } from './SemesterStartDialog';
-import { WeekCalendar } from './WeekCalendar';
+import { WeekCalendar, type CalendarItemDetail } from './WeekCalendar';
+import { EventDetailDialog } from './EventDetailDialog';
 import {
   activeInWeek,
   addDays,
@@ -64,6 +65,7 @@ function DesktopTimetableView() {
   const [error, setError] = useState<string | null>(null);
   const [eventDraft, setEventDraft] = useState<{ start: Date; end: Date } | null>(null);
   const [semesterDraft, setSemesterDraft] = useState(false);
+  const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
 
   const loadSemester = useCallback(
     async (requested?: string) => {
@@ -354,6 +356,7 @@ function DesktopTimetableView() {
         <WeekCalendar
           events={semesterWeekStart ? events : []}
           lessons={weekLessons}
+          onOpen={setDetail}
           weekStart={semesterWeekStart}
         />
       ) : (
@@ -390,6 +393,17 @@ function DesktopTimetableView() {
           }}
           semester={semester}
           semesterStart={state.semesterStart}
+        />
+      ) : null}
+
+      {detail ? (
+        <EventDetailDialog
+          detail={detail}
+          onClose={() => setDetail(null)}
+          onDeleted={() => {
+            setDetail(null);
+            void loadEvents();
+          }}
         />
       ) : null}
     </div>

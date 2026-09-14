@@ -445,6 +445,12 @@ export function createCalendarEvent(input: unknown) {
   });
 }
 
+export function deleteCalendarEvent(id: unknown) {
+  // 只删自建事件；课程在 timetable_lessons 表，不经此入口。
+  const eventId = z.number().int().positive().parse(id);
+  getDatabase().prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
+}
+
 export async function getTimetableState(requested?: unknown): Promise<TimetableState> {
   const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);
   const row = getDatabase()

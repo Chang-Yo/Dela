@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isConnected, parseSemesterStart, parseWeekNumbers } from './api';
+import type { Database } from 'better-sqlite3';
+import { deleteCalendarEvent, isConnected, parseSemesterStart, parseWeekNumbers } from './api';
 import { getCampusSession } from './session';
+import { getDatabase } from '../database';
 import type { Session } from 'electron';
 
 vi.mock('electron', () => ({ BrowserWindow: {}, ipcMain: {}, session: {} }));
@@ -52,5 +54,20 @@ describe('parseSemesterStart', () => {
 
   it('ignores malformed dates', () => {
     expect(parseSemesterStart(['第1周', '2026-02-30'])).toBeNull();
+  });
+});
+
+describe('deleteCalendarEvent', () => {
+  it('deletes only from calendar_events with a validated id', () => {
+    const run = vi.fn();
+    const prepare = vi.fn(() => ({ run }));
+    vi.mocked(getDatabase).mockReturnValue({ prepare } as unknown as Database);
+    deleteCalendarEvent(7);
+    expect(prepare).toHaveBeenCalledWith('DELETE FROM calendar_events WHERE id = ?');
+    expect(run).toHaveBeenCalledWith(7);
+    expect(() => deleteCalendarEvent(0)).toThrow();
+    expect(() => deleteCalendarEvent(2.5)).toThrow();
+    expect(() => deleteCalendarEvent('3')).toThrow();
+    expect(prepare).toHaveBeenCalledOnce();
   });
 });
