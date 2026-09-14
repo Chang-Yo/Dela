@@ -754,9 +754,54 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 
 已验证但尚未接入应用：水源可向展示名为 Dela 的请求签发只读 Discourse User API Key。测试由用户在水源授权页手动确认；本机以一次性 RSA 私钥解密回传 payload，使用 `User-Api-Key` 与 `User-Api-Client-Id` 成功请求 `GET /session/current.json`，再成功 `POST /user-api-key/revoke` 撤销测试 key。测试 key 未写入 Dela，临时私钥已删除。
 
-这表明 Dela 可采用官方 Discourse User API Key 协议让用户授权水源读取权限，不依赖 OpenClaw 安装、配置或应用展示名白名单。已验证的是一个账号的 `read` scope 完整流程；全量账户覆盖、长期站点策略、其他 scopes 与 Dela 内的凭据保存/UI 尚未实现或验证。完整证据与请求差异见 `docs/shuiyuan-api-findings.md`。
+## 课表控件与层叠改进、首页视觉层次、重启默认新对话（2026-09-14）
 
-## 资料导航、多标签与 PDF.js 资源控制（2026-09-14）
+四项并行改动，文件互不重叠，由四个子任务实现后统一集成验证。
+
+### 课表：自定义 Select 与数字日期输入
+
+- 新增 `components/ui/select.tsx`：radix-ui Select 原语的组合式薄封装（写法对齐既有 dropdown-menu）。触发器保持原页头胶囊样式（h-8、bg-secondary/70、text-xs、ChevronDown），下拉内容 Portal + rounded-lg/bg-popover/shadow-md，选项 hover 用 accent、当前项右侧 Check 标识，开合动画沿用 tw-animate 类，明暗主题走既有 token。页头「学期」「教学周」两处原生 select 已替换，HeaderSelect 随之删除。
+- 新增 `features/timetable/DateInput.tsx`：年/月/日三段数字输入（inputMode=numeric，`/` 分隔），仅在 onChange 过滤非数字并裁剪长度（不用 keydown 操纵值，IME 安全；焦点类按键带 isComposing 守卫）；段内填满自动跳段、Backspace 空段回退、方向键移段；三段构成真实日期才输出 `YYYY-MM-DD`，否则空串由调用方提交时报错。新建事件弹窗的开始/结束日期与开学日期弹窗均已替换；时间输入保留原生 `type="time"`。
+- 新增 `layoutDayColumns`（timetable-format.ts，纯函数 + 7 项单元测试）：把时间严格相交（start < other.end 且 other.start < end；首尾相接不算）的项聚簇，簇内按开始时间 first-fit 分列，每项宽度 = 100/最大列数。周视图同一天的课程与本地事件参与同一次布局（此前渲染顺序靠后者直接覆盖先前者）；事件以裁剪到时间轴后的可见区间参与相交判定。
+- 课程块第二行改为「教师 · 教室」（教师为 null 时与原显示一致）——教师排在教室之前，保证并排窄列截断时教师名可见；事件块按高度分级渲染：≥44px（约 55 分钟）显示时间行、≥60px（约 75 分钟）再显示地点行，次要行改 leading-none，避免中文行高下文字贴底被裁。44/60 为按内容区行高实测推导的阈值（padding 12 + 标题 15 + 间距 2 + 行 11），非随意魔法数。
+- 月历日格溢出项从静态「还有 N 项」改为「+N 更多」按钮，点击经 radix Popover 展示当天完整条目（时间前缀 + 标题，沿用各项配色）。日格由 `<button>` 改为 `div role="button"` 以合法嵌套交互元素；键盘 Enter/Space 仍创建事件、读屏合成 click（detail===0）语义保留，两者都以 `event.target === event.currentTarget` 屏蔽「更多」冒泡；「更多」的 pointerdown 不作为拖拽选区起点，跨天拖拽建事件不回归。
+
+### 首页：ChatGPT 式视觉层次
+
+闲置态自上而下重排：弹性留白把问候语压至视口上部约 1/4–1/3（text-3xl；`globals.css` 补 `--text-3xl` 字号缩放映射，随「设置›外观›字号」缩放）→ 快捷入口行（新建项目直达；近期作业仅 Canvas 已连接时出现；今天的日程——后两者沿用原建议胶囊填入 prompt 并聚焦 composer 的行为）→ hero composer（主视觉，节点与 `layout="position"` 两状态衔接动画不变）→ 提供商声明 → 「最近项目」卡片（原「继续工作」改名，卡片区容器放宽至与 composer 同宽 max-w-3xl；该区右上角的原「新建项目」按钮上移为快捷入口，空态文案保留）。会话态布局、历史/新对话按钮、吸底 composer 未动；顶部与底部弹性留白按 3:2 分摊，内容溢出时收缩为 0 正常滚动。
+
+### 重启后默认新对话
+
+`agent/api.ts` 的 `resolveSession`：进程内指针缺失（每次重启后的首次访问）不再回退「最近更新的会话」，直接视为新对话（指针置 null）；历史会话仍可经「历史对话」弹窗（listChats/openChat）找回。`ask` 在指针为 null 时本就新建会话，行为不变；`scripts/workspace-smoke.ts` 的断言全部发生在同进程内显式设置指针之后，不受影响。唯一残余边界：进程在 ask 落库前崩溃可能遗留 0 消息空会话出现在历史中，可手动删除。该行为作用于所有 scope（首页与项目助手一致）。
+
+### 验证状态
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、60 项单元测试（含 layoutDayColumns 7 项）、`pnpm smoke`、`pnpm smoke:workspace`。另以隔离 userData 的真实构建实例经 CDP 完成 12 项程序化断言（重启后 getChat 为新对话且旧会话保留在历史、周视图 28 个块无互相覆盖、月历 +2/+3 更多与弹层 6 项、数字日期输入逐段跳段、自定义下拉可打开）与截图视觉验收：judge 首轮 9 张中 8 张通过，唯一 fail（周视图并排窄列教师被截断、矮事件时间贴底裁切）已按上述方案修复并通过类型与构建；修复后的实机视觉、浅色主题截图与真实 IME 手感未做第二轮验收，待真实环境手动确认。探针环境限制：瞬态 userData 中 Chromium os_crypt 密钥往返不稳定，导致探针内「已配置模型」状态不可靠；该路径不在本次改动范围内，真实环境不受影响。
+
+## 课表交互补强与首页信息密度调整（2026-09-14 第二轮）
+
+两项并行（课表组、首页组，文件互不重叠），由两个 subagent 先行网络调研（FullCalendar 事件渲染源码、Radix Tooltip/Popover 官方文档、Google Calendar 事件卡排版、LibreChat/Open WebUI 模型选择器、WCAG 2.2.2 与 AnimatePresence 文档）后实现，总调度统一集成验收；用户随后实测反馈四项精修（模型面板向下展开、移除「最近项目」标题、详情弹窗去掉与右上角 X 重复的「关闭」文字、快捷入口与 composer 间距按亲密性收紧为 mt-4）已并入。
+
+### 课表
+
+- **悬浮提示**：周视图课程/事件块的原生 `title` 换成共享 Radix Tooltip（`TooltipTrigger asChild` 包住 article）。课程显示课程名/教师/教室/周次；事件显示名称/`formatEventRange`（跨天两端各带日期与星期）/地点。月历摘要条维持概览形态不加 tooltip（日格已有拖拽建事件与「+N 更多」Popover，再叠点击目标易冲突）。
+- **删除自建事件**：`deleteEvent(id: number)` 贯通 `shared/api.ts` → `preload/index.ts` → `timetable/ipc.ts`（`checkWorkspaceSender` + zod，删除不可逆故比照 create-event 多一层来源校验，既有其他 timetable handler 无来源校验属既有不对称，未在本次扩散修改）→ `timetable/api.ts`（`z.number().int().positive()` 后仅 `DELETE FROM calendar_events WHERE id = ?`，课程表物理上不可达；id 不存在幂等无操作）。新增单元测试断言 SQL 仅命中 calendar_events、非法 id 抛错且 prepare 仅一次。
+- **跨天连续条**：`eventDayEdges`（纯函数 + 测试）按事件真实起止日给出 isStart/isEnd（被周切割的延续日不算；结束恰为午夜归属前一天，与 `localEventsByDay` 一致）。参照 FullCalendar v6 `h-event.css` 的边缘模型：非首段去左圆角/非末段去右圆角；仅当该段独占整列（`layout.width === 100`，无并排冲突）时向相邻列出血压过分隔线（`-1px` / `calc(100% + 1px)`，由既有 1px 分隔线推导）无缝相接；跨周首/周末按周边缘收口；与课程并排时退回独立胶囊（几何上无法出血）。时间前缀仅首段显示，跨天首段写全「9月12日 22:00 – 9月16日 10:00」避免「22:00–10:00」式误导。
+- **详情弹窗**：新增 `EventDetailDialog`（radix Dialog，Overlay/Content 沿用赞赏弹窗 tw-animate 类），排版仿 Google Calendar：`--cal-*` 色点 + 标题头部、Clock/MapPin/User/CalendarRange/GraduationCap 信息行，课程另显班级·课程号与学分。自建事件两步确认删除（删除期间 Esc/遮罩由 `!deleting` 守卫），成功后关闭并刷新事件列表；课程只读。周视图桌面块（Tooltip + 点击 + Enter/Space 键盘可达）与窄屏卡片均可打开（窄屏否则无法删除）。不做编辑功能。
+
+### 首页
+
+- 闲置态重排：顶部弹性留白 `grow-3`→`grow-5`（与底部 5:2，composer 视觉重心下移至约视口 2/3；受最近项目卡片占位影响实际约 60%+，弹性收缩属既有约定）；快捷入口行去掉 `justify-center`，与 composer 同宽同 padding 左对齐；入口→composer 间距 mt-4（用户精修：亲密性语义）、问候语→入口 mt-8。会话态与 `layout="position"` 衔接动画未动。
+- 项目卡片副行去掉「继续 」前缀（用户确认的「继续工作」文字提示落地）；「最近项目」h2 标题移除，卡片自解释，`aria-label` 保留读屏上下文；提供商免责声明整段删除。
+- **两列模型面板**：ChatComposer 的 DropdownMenu 换成 radix Popover（`side="bottom"` 向下展开，用户精修），打开时 `window.dela.llm.list()` 现读设置配置；左列 Provider（active 者绿点 title=使用中，当前查看 bg-accent），右列该 Provider 的 models（active 且匹配当前 model 时 bg-accent + Check）。提交经 use-chat 新增的 `selectModel(provider, model)`：非 active 先 `llm.setActive(id)` 再 `llm.setModel(model)`，本地乐观更新后 `refresh()`；原 `setModel` 因唯一调用方迁移而删除。AgentPanel 同步接线，工作区助手复用不受影响。加载失败降级为空配置文案（实际仅在无 preload 时可达）。
+- **快捷入口直发**：`send(directText?: string)` 以参数绕过 prompt state 异步时序；「近期作业」「今天的日程」单击即发并进入会话态；「新建项目」保持直接导航。composerRef/inputRef 随之删除。
+- **英文轮播问候**：7 条英文预设（Good morning/afternoon/evening、Welcome back、Working late、Ready to continue?、What are we working on?），按时间段定初始值，`GREETING_INTERVAL_MS = 8000` 轮换，`AnimatePresence mode="wait"` 纯 opacity 0.3s（sync 叠放会双行重叠故弃用），`useReducedMotion()` 时定时器不启动。WCAG 2.2.2 严格暂停控件未做，属装饰性内容取舍，已记录。
+
+### 验证状态
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、65 项单元测试（新增 eventDayEdges 2、formatEventRange 2、deleteCalendarEvent 校验 1）、`pnpm smoke`。隔离探针（临时隔离 userData + CDP）确认闲置态布局、按钮左对齐与无免责声明；问候语轮播、两列模型面板（真实配置下向下展开）与课程详情弹窗（真实同步课程数据）已由用户真实环境实测确认；跨天连续条与删除流程由单元测试、代码评审与构建覆盖，实机观感待日常使用确认。探针中隔离实例因已知 os_crypt 限制无法进入「已配置」态、断连课表显示连接引导卡，均为环境边界而非应用缺陷；相关已知限制与探针前置检查已沉淀为用户级 skill（`~/.agents/skills/probe-preflight`），后续探针须先过其六项门禁。
+
+
 
 本节取代此前“未标注学期保留在主目录”、资料页隐藏标签栏及 PDF 页码恢复待实现的约定。采用现有 ProjectView 标签、持久视图与 Explorer 行内菜单，不新增阅读器管理层。课程资料、我的资料、归档统一为可折叠分区；Canvas 菜单明确区分课程列表同步、课程行菜单中的资料同步和令牌更换，文件菜单承载打开、加入项目与下载，文档低频操作合并到右上角菜单。交互参考 Notion 官方侧栏说明：https://www.notion.com/help/navigate-with-the-sidebar 。
 
