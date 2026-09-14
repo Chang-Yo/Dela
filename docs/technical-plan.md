@@ -713,3 +713,15 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 通过：三入口 typecheck、oxlint 0 警告、prettier、34 项单元测试（loop 新增瞬态重试成功、4xx 不重试用例）、`pnpm build`、`pnpm smoke`、扩展后的 `pnpm smoke:workspace`（新增 newChat/listChats 搜索/openChat/deleteChat 断言，modelCalls 断言保持单次）。另以隔离 userData 的真实构建实例经 CDP 核对 7 个界面状态（闲置未配置/闲置/会话/历史弹窗/新对话回闲置/项目面板/面板历史），DOM 断言含会话态无闲置残留、发送后输入清空、历史时间合法；视觉验收两轮通过（第一轮发现：会话态闲置内容残留、历史 Invalid Date（SQL 列名 `updated_at` 未别名所致）、ChatSessions effect 因回调引用不稳定导致无限重渲染——均已修复）。
 
 边界与待验证：真实致远一号的流式与工具调用兼容性仍未实测，本次界面与循环改动均在脱敏桩与假密钥（真实端点 401）路径上验证；删除历史会话不可恢复；@ 引用候选仅限工作区条目与打开文档（Canvas 原始资料经资料条目引用）；窄窗口（高度 <600px）闲置态为滚动降级，未逐档视觉核对；`field-sizing-content` 在浏览器预览的旧内核下退化为固定高度。
+
+## 校园登录会话跨重启保存（2026-09-14）
+
+已确认实现缺口：原有 `persist:dela-campus` 仅持久化网站指定有效期的 Cookie；没有会话 Cookie 的恢复机制，也未在登录完成后立即 flush。原连接检测仅检查 JAAuthCookie 或校园域 Cookie，不能证明登录有效。Electron Cookie API 明确说明无 expirationDate 的 Cookie 不跨会话保留：https://www.electronjs.org/docs/latest/api/cookies 。未读取真实账号 Cookie，因此实际 Cookie 名称、学校端期限不作推断。
+
+主进程 `timetable/session.ts` 为登录、状态检测、同步、断开共用同一初始化 Promise。仅对专用分区的 sjtu.edu.cn 及子域 session Cookie 保存 safeStorage 加密快照（userData/campus-session.bin）；监听添加、覆盖和删除，临时文件写完后替换快照；恢复时保留 hostOnly/domain/path/secure/httpOnly/sameSite 属性且不覆盖当前已有 Cookie，不人工增加有效期。网站持久 Cookie 与浏览器信任数据继续由原分区管理，登录和同步后 flush；断开清除整个专用分区存储和快照。renderer 不接触 Cookie 或文件。
+
+课表请求复用原 POST 接口并设置 15 秒超时；登录导航到校园网站后还需通过数据结构验证才报告成功。设置页状态不再凭 Cookie 存在判定成功，空课表仍视为有效登录；重定向、HTML、无效响应或网络错误显示未连接，保留本地会话和课表缓存。未新增自动 SSO 续期；学校端会话过期时经原登录窗口重登，可复用学校允许的浏览器信任状态。
+
+已验证：39 项单元测试（包含实际响应判定）、生产构建、Electron smoke；独立三进程模拟 Cookie 测试验证会话恢复、hostOnly/HttpOnly/Secure/SameSite、持久 Cookie 留存和断开后无残留。真实扫码、信任期限、学校服务端失效策略与跨平台凭据加密仍待实机验证。
+
+补充验证：Windows 目录打包与 `dist/win-unpacked/Dela.exe --smoke-test` 通过；三进程测试还覆盖 Cookie 删除不复活、覆盖后恢复最新值。相关文件 Prettier、Oxlint 与 `git diff --check` 通过。本次未修改依赖、数据库或 renderer。

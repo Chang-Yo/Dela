@@ -1,7 +1,6 @@
 import {
   setSemesterStart,
   getTimetableState,
-  CAMPUS_PARTITION,
   semesterSchema,
   currentSemester,
   openLoginWindow,
@@ -10,7 +9,8 @@ import {
   listCalendarEvents,
   createCalendarEvent,
 } from './api';
-import { ipcMain, session } from 'electron';
+import { ipcMain } from 'electron';
+import { clearCampusSession } from './session';
 import { type TimetableResult } from '../../shared/api';
 
 export function registerTimetableIpc(): void {
@@ -19,7 +19,7 @@ export function registerTimetableIpc(): void {
   );
   ipcMain.handle('timetable:connect', (event) => openLoginWindow(event.sender));
   ipcMain.handle('timetable:disconnect', async (): Promise<TimetableResult> => {
-    await session.fromPartition(CAMPUS_PARTITION).clearStorageData({ storages: ['cookies'] });
+    await clearCampusSession();
     return { ok: true };
   });
   ipcMain.handle('timetable:list-lessons', (_event, requested?: unknown) => {
