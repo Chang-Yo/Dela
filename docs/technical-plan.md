@@ -1,7 +1,7 @@
 # Dela 桌面应用技术规划书
 
 日期：2026-09-09
-状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步、阅读与 SMTP 发送；课表已实现 i.sjtu 会话接入、本地缓存、周/月视图和本地事件，真实账号同步及学期日期格式待验证（2026-09-11，见文末记录）；Canvas 课程资料、文件夹/项目、磁盘笔记、阅读工作区及明确选取正文的模型问答已实现（2026-09-12）；自动执行型 Agent 闭环尚未实现。工程验证记录见文末。
+状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步、阅读与 SMTP 发送；课表已实现 i.sjtu 会话接入、本地缓存、周/月视图和本地事件，真实账号同步及学期日期格式待验证（2026-09-11，见文末记录）；Canvas 课程资料、文件夹/项目、磁盘笔记、阅读工作区及明确选取正文的模型问答已实现（2026-09-12）；前台 Agent 工具循环、首页入口、邮件草稿及流式文字已接入（2026-09-13）；最新流式改动未验证，真实模型工具调用兼容性与最终打包验收待确认。当前实现与验证边界见文末。
 
 ## 1. 产品定位与范围
 
@@ -109,19 +109,31 @@ Dela/
 |-- src/
 |   |-- main/
 |   |   |-- index.ts                  # 生命周期、主窗口
-|   |   |-- ipc.ts                    # 注册明确的应用操作
+|   |   |-- ipc.ts                    # 共用 IPC 来源校验
 |   |   |-- database.ts               # 数据库初始化与迁移
-|   |   |-- projects.ts               # 项目、来源和资料关联
-|   |   |-- files.ts                  # 文件读取、保存、外部打开
 |   |   |-- credentials.ts            # 凭据保护
-|   |   |-- agent/
-|   |   |   |-- run.ts                # 执行循环与状态
-|   |   |   |-- model.ts              # 模型请求与流式响应
-|   |   |   |-- context.ts            # 项目上下文选择
-|   |   |   `-- tools.ts              # 首批工具定义与执行
-|   |   `-- integrations/
-|   |       |-- canvas.ts
-|   |       `-- mail.ts
+|   |   |-- storage.ts                # 共用存储路径规则
+|   |   |-- resources.ts              # 跨业务文件流转
+|   |   |-- mail/
+|   |   |   |-- api.ts                # 邮箱业务入口
+|   |   |   |-- ipc.ts                # 邮箱 IPC、对话框与退出协作
+|   |   |   |-- send.ts               # MIME/SMTP 与写信附件
+|   |   |   `-- drafts.ts             # Agent 原始草稿与本地编辑草稿
+|   |   |-- canvas/
+|   |   |   |-- api.ts                # 课程、资料与同步
+|   |   |   `-- ipc.ts                # 页面通信与下载对话框
+|   |   |-- timetable/
+|   |   |   |-- api.ts                # 课表与日程业务
+|   |   |   `-- ipc.ts                # 课表页面通信
+|   |   |-- workspace/
+|   |   |   |-- api.ts                # 条目、笔记、文件操作
+|   |   |   |-- ipc.ts                # 工作区页面通信
+|   |   |   `-- preview.ts            # PDF 预览协议
+|   |   `-- agent/
+|   |       |-- api.ts                # 聊天上下文、保存和运行态
+|   |       |-- ipc.ts                # 聊天 IPC（兼容 workspace 通道名）
+|   |       |-- loop.ts               # 模型请求、流式响应与工具循环
+|   |       `-- tools.ts              # 工具描述与领域调用
 |   |-- preload/
 |   |   `-- index.ts                  # contextBridge
 |   |-- renderer/
@@ -320,7 +332,7 @@ Project 是用户主动围绕主题建立的持续工作空间，可以对应课
 +--------------------------------------------------------------------+
 ```
 
-默认采用单视图切换，空间足够时可分屏。Agent 修改已有内容时提供修改预览和应用入口；打开专业软件不代表能读取其中未保存的内容或终端状态。
+默认采用单视图切换，空间足够时可分屏。修改预览和应用入口仍为后续设想，当前 Agent 笔记写入直接执行并校验 revision；打开专业软件不代表能读取其中未保存的内容或终端状态。
 
 ### 6.5 连接设置与任务详情
 
@@ -357,14 +369,14 @@ User request -> Create run -> Select context -> Model response
                                       needs input / done / failed
 ```
 
-- 模型通过 `model.ts` 访问致远一号；API Key 不进入 renderer 或模型消息。
+- 当前模型通过 `src/main/agent/loop.ts` 访问致远一号；API Key 不进入 renderer 或模型消息。
 - 候选调用名沿用 background.md：`deepseek-chat`、`deepseek-reasoner`、`qwen`、`minimax`。实际工具调用、流式、中断与上下文限制需要逐个实测；不把名称当作能力保证。
 - 上下文包括项目背景、当前请求、用户选中的资料和必要检索片段，不默认发送全部历史和全部文件。
 - 邮件、课件、网页是资料，其中的指令不能扩大工具权限。
 - 保存执行步骤和结果，支持取消、超时、步数限制以及错误显示。
-- 首版状态：`queued`、`running`、`waiting_input`、`completed`、`failed`、`cancelled`、`interrupted`。
-- 重启后把遗留的运行任务标为中断；用户继续时读取已有步骤，不能盲目重放已经产生外部副作用的工具。
-- 已授权的读取与项目内新建成果可以直接执行；覆盖已有文件提供修改预览。发邮件、提交作业等外部写入展示具体目标和内容，由用户执行前确认。
+- 当前仅保存基本聊天和逐项工具结果，运行态通过 `running` / `activeTool` 推送；完整任务状态机暂缓。
+- 重启后不自动恢复执行；用户提供后续背景。已有工具结果保留，但当前后续模型请求只取最近 12 条对话的角色与正文，不自动重放历史工具结果。
+- 当前写入工具直接执行用户请求，笔记沿用 revision 校验，尚无修改差异预览；邮件工具只准备草稿，由用户在编辑器点击发送。不提供提交作业工具。
 - 首版不开放任意 shell。未来增加命令执行时单独设计目录范围、进程管理和结果记录。
 - 本地存储不等于本地推理：发送给致远服务的上下文会离开本机。界面应能让用户了解所选资料范围。
 
@@ -533,3 +545,171 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 设置 › 外观新增「应用图标」选择（白底/黑底，与主题选择共用同文件内提取的 `OptionCard` 单选卡片）：`dela.settings.getIcon/setIcon` 只接受 `white`（默认）/`black`，经 zod 校验与主 frame 检查后持久化到 `workspace_settings` 的 `icon` 键。主进程创建窗口时按偏好加载 `assets/Dela_<色>_bg.png` 作为 BrowserWindow 图标；按用户要求重启应用后生效，运行中不热切换。electron-builder `files` 同时打包两份 PNG。平台限制：Windows 桌面快捷方式与 exe 资源图标在构建时由 electron-builder 顶层 `icon`（白底）固定，运行期设置只能改变窗口/任务栏图标，安装包内 exe 图标不随设置变化。
 
 冒烟断言补充 `settings.getIcon` 存在性检查。已验证：格式检查、oxlint、三组类型检查、生产构建、7 个单元测试与 Electron 冒烟；明暗切换下的关于页/侧栏品牌图与黑底窗口图标重启生效待实机视觉核对，NSIS 重打包未执行。
+
+## Agent 业务接口当前实现（2026-09-13）
+
+本节取代此前 Agent 分阶段进展中的未完成状态。前文带日期的验证记录和界面草图保留历史含义；以下区分已实现与已验证，不将框架或接口能力当作真实端点验证。
+
+### 调用结构与文件职责
+
+仍为单应用、单 package，无新增 HTTP 服务、MCP 服务或 Agent 框架依赖。
+
+```text
+页面 → preload / IPC → 共用业务函数 → SQLite / 文件 / 校园接口
+助手 → agent-loop → agent-tools ────────┘
+```
+
+| 文件                                             | 当前职责                                               |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| `src/main/workspace/api.ts` / `workspace/ipc.ts` | 工作区业务入口与页面通信；不再包含聊天调度             |
+| `src/main/agent/api.ts` / `agent/ipc.ts`         | 聊天保存、运行取消、状态推送与兼容的聊天 IPC           |
+| `src/main/mail/api.ts` / `timetable.ts`          | 页面和工具共用的邮件查询/读取/附件保存、日程创建与查询 |
+| `src/shared/resources.ts`                        | 严格校验 workspace、canvas、mail、attachment 引用      |
+| `src/shared/schedule.ts`                         | 与课表界面共用节次表，按上海时区展开课程日期           |
+| `src/main/resources.ts`                          | 解析项目/Canvas/附件文件，复制导入及临时下载清理       |
+| `src/main/mail/drafts.ts`                        | 保存原始草稿、按资源引用加载发送附件                   |
+| `src/main/agent/tools.ts`                        | 15 个工具的描述、Zod 输入校验、模型 schema 和执行结果  |
+| `src/main/agent/loop.ts`                         | 模型请求、SSE 解析、工具循环及执行边界                 |
+| `src/renderer/features/projects/AgentPanel.tsx`  | 首页与项目助手共用的对话、进度、结果和邮件编辑入口     |
+
+资源引用使用对象，例如 `{ type: 'workspace', id: '<UUID>' }`、`{ type: 'canvas', id: 'file:123' }`、`{ type: 'mail', id: 123 }`、`{ type: 'attachment', messageId: 123, part: '2' }`。引用不是磁盘路径或下载 URL；解析时验证资源仍存在，邮件缓存 ID 不承诺永久有效。
+
+### 工具输入与输出
+
+统一执行结果为 `{ ok: true, result }` 或 `{ ok: false, error: { code, message } }`。错误码包括 UNKNOWN_TOOL、INVALID_INPUT、OPERATION_FAILED；循环另处理 INVALID_JSON。输入 schema 已生成给模型，尚未为每个输出建立独立运行时 schema。分页查询使用 offset/limit 与 nextOffset，具体以源码为准。
+
+| 工具                   | 主要输入                              | 主要结果与范围                                   |
+| ---------------------- | ------------------------------------- | ------------------------------------------------ |
+| `find_courses`         | query、offset、limit                  | 缓存课程 ID、名称、同步时间/错误                 |
+| `sync_sources`         | 可选 courseId                         | 同步课程列表或指定课程资料，检查部分失败信息     |
+| `search_sources`       | query、courseId、kind、分页           | 缓存标题搜索，去重后的 Canvas 引用与课程同步情况 |
+| `search_workspace`     | query、parentId、分页                 | 名称搜索；parentId 仅限定直接子条目              |
+| `search_mail`          | query、from、folderId、起止时间、分页 | 主题/摘要缓存搜索；返回 UID 窗口与同步信息       |
+| `read_resource`        | ref、offset、limit                    | 正文字符分页、格式、笔记 revision 或邮件附件引用 |
+| `query_assignments`    | courseId、截止时间范围、分页          | 缓存作业与截止时间，submissionStatus 为 unknown  |
+| `query_schedule`       | semester、startAt、endAt              | 课程和个人事件，上海时区及缺失数据警告；最多一年 |
+| `create_event`         | title、startAt、endAt、location       | 实际保存的个人事件；不修改课程                   |
+| `create_entry`         | parentId、kind、name、text            | 新项目/文件夹/笔记及引用                         |
+| `update_entry`         | id、name、parentId                    | 重命名/移动后的实际条目                          |
+| `write_note`           | id、text、revision                    | 保存后的笔记版本；冲突返回错误                   |
+| `link_source`          | parentId、sourceId、name              | 保留来源的项目资料关联                           |
+| `copy_file_to_project` | source、parentId                      | 项目文件、Canvas 文件或附件的独立导入副本与引用  |
+| `prepare_email`        | to、subject、text、attachments        | 原始草稿 ID、内容和引用；sent 为 false           |
+
+邮箱缓存只保留每个文件夹近期 300 个 UID 窗口，并非完整邮箱或固定 300 封邮件。Canvas 尚无可靠提交状态；缺少截止时间的作业不进入带日期过滤的结果。未知周次、无效节次或缺少学期日期不会猜测实际课程日期。正文读取不自动标记邮件已读；PDF/图片不做全文提取，HTML 以文本标记返回。
+
+### 执行与 UI
+
+首页为两状态布局：闲置态居中 composer、建议胶囊与项目卡片，会话态消息流占满、composer 钉底；项目页右栏为面板形态。两者共用 `renderer/features/chat` 的对话核心（ChatThread/ChatComposer/useChat），会话按 scope 多会话管理。用户请求、@ 引用的正文、最近 12 条角色/正文消息及本轮工具结果进入模型上下文。工具内容可能包含个人邮件或资料，界面已说明它们会提供给致远一号。
+
+最多执行 12 轮模型请求（最后一轮请求前注入“总结收尾”提示），工具顺序执行。每个模型请求独立 120s AbortSignal 超时；429/5xx/网络中断按 1s/3s 退避重试，4xx 与流式已产出内容后的失败不重试。已运行的业务函数未普遍接入 AbortSignal，工具执行不可中断读取。取消中断模型请求并阻止下一项工具，不回滚已完成写入。
+
+SSE 文字经聊天更新推送，分片工具参数收到完整结束标记后才执行；提前断流或长度截断报告错误。同时支持返回普通 JSON 的端点。文字增量不逐 token 写库，按 ~100ms 节流广播；单条工具结果回灌模型前截断至 20000 字符并附引导说明；工具完成及最终回复时持久化。工具结果逐项保存，后续模型失败不会自动重试已完成操作。没有独立任务恢复、完整状态机或自动记忆。
+
+聊天更新只发给经过 workspace IPC 来源校验的应用窗口。界面在消息内展示当前工具与折叠的结构化结果、错误与停止按钮；结束后刷新工作区、Canvas 缓存和已保存的打开文档，日程页刷新个人事件。未保存文档不被刷新覆盖。
+
+### 文件和邮件草稿
+
+文件解析统一通过 withResourceFile；邮件附件临时下载后交给复制或草稿加载函数，结束后清理临时目录。导入复用现有工作区物理路径与重名处理，不另建文件存储体系。
+
+原始邮件草稿保存在 workspace_settings 的 email-draft 键下，包含正文和资源引用，不是 IMAP 草稿。用户从工具结果点击“检查并发送”，经 preload 加载附件并打开现有 MailComposer；正文使用 textContent 初始化，附件总大小限制为 70 MiB。附件打开时解析，引用失效会报错；原始草稿不保证附件内容快照。打开后的附件存于本次写信的内存记录，关闭/发送时沿用附件释放逻辑。
+
+Agent 原始草稿保留；编辑器可以另存为本地草稿，本地草稿再次保存时覆盖同一份，成功发送后删除对应本地草稿。Agent 原始草稿仍不自动更新发送状态，再次打开原始草稿可能再次发送。工具没有自动发送或提交作业能力。笔记写入直接执行并校验版本，修改差异预览尚未实现。
+
+### 验证状态与下一阶段
+
+流式改动前已通过类型检查、lint、24 项单元测试、构建和工作区冒烟。覆盖工具输入拒绝、正文分页、PDF 能力边界、课程时间转换、结果衔接与失败不重试；草稿冒烟验证通过 preload 加载笔记附件及不暴露路径。首页曾检查真实 Electron 截图。模拟网络与模型响应不证明真实端点工具调用兼容。
+
+按用户要求，最新流式改动后只做格式化，未追加测试、构建或打包。此前其他阶段的 Windows 打包记录不覆盖本次 Agent 改动。真实 Qwen 普通正文问答的历史验证也不覆盖新工具循环、流式或其他模型。
+
+下一阶段先确认真实致远一号的工具调用与流式响应，再走完整业务流程、修正工具与交互问题；用户恢复验收安排后再做最终构建、回归及打包启动检查。记忆、自动任务恢复、复杂并发编辑协调、多 Agent 和 shell 继续暂缓。
+
+## 业务领域目录与本地邮件草稿（2026-09-13）
+
+按用户确认的范围，目录重构保持既有业务行为；新增功能仅限本地草稿及关闭保存流程。mail、canvas、timetable、workspace、agent 均预先划分 api.ts 与 ipc.ts；邮件发送/草稿、工作区预览继续作为对应领域中的具体职责文件，测试随领域移动。共用数据库、凭据、存储和跨领域文件流转留在 main 根目录。
+
+api.ts 承载业务调用，ipc.ts 负责通道注册、页面参数接入与交互入口；不新增 Manager/Service/Factory。项目业务已移除聊天执行状态与模型调度；Agent 工具调用领域函数，领域业务不导入 Agent。保留现有 workspace:* 聊天通道和 workspace:open-email-draft 兼容入口，避免目录调整改变 renderer 协议。部分已有登录窗口、同步状态广播仍在领域实现中，未借此次目录调整重写这些流程。
+
+### 本地草稿功能
+
+- 邮箱侧栏“发送邮件”上方新增 FilePenLine 图标的“本地草稿”入口，展开/折叠与窄屏抽屉均可访问；列表按当前账号过滤，支持打开和删除。
+- 写信工具栏新增保存草稿按钮。收件人允许为空或尚未填写完整，真正发送时仍走原收件人校验。
+- 关闭写信、切换业务页面、前进/后退、切换邮箱文件夹、退出账号或关闭应用时，未保存编辑提供“保存草稿 / 不保存 / 继续编辑”。保存失败保留当前编辑；没有修改的已保存草稿无需重复确认。Agent 邮件编辑弹窗复用同一机制。
+- 草稿文件位于 Electron userData/mail-drafts/<UUID>.json，包含收件人输入、主题、纯文本、受限富文本及附件/正文图片的 base64 快照；写入临时文件后重命名替换。SQLite workspace_settings 的 mail-draft:* 键保存列表摘要。路径由主进程生成，renderer 不提供磁盘位置。
+- 图片恢复时重新登记发送文件 ID 并重映射 CID，富文本经元素白名单重建，不直接插入存储的 HTML；沿用已有 70 MiB 附件总大小上限。重启后不依赖原文件路径或之前的内存附件 ID。
+- 已保存草稿再次保存覆盖同一 ID；发送成功删除对应本地草稿，删除失败明确提示邮件已经发送。选择“不保存”只放弃本次编辑，不删除之前已保存的版本。
+- Agent prepare_email 的原始草稿仍保留原语义：保存资源引用，不自动发送、不自动写 IMAP 草稿箱；用户在编辑器保存后得到独立的本地附件快照草稿。
+
+本次通过 TypeScript 三个入口类型检查和 oxlint。按用户此前不追加测试的要求，未运行单元测试、UI 回归、生产构建或打包；实际退出弹窗、重启恢复和富文本附件发送仍待运行验收。原有历史通过记录不代表本次功能已完成运行验证。
+
+## 邮件回复、显示设置与编辑器改进（2026-09-13）
+
+四个并行改动，按页面互不重叠地分配文件后合并验证。
+
+### 邮件回复
+
+MailReader 主题行右侧新增回复按钮（Reply 图标，桌面/窄屏可见）；MailView 以 `replyDraft` 构造 `PreparedEmail` 复用现有 draft 加载路径：收件人取原发件人地址、主题加 `Re: ` 前缀（检测既有前缀避免重复）、正文为署名行（`在 {时间}，{发件人} 写道：`）加逐行 `> ` 引用。回复对象不携带 `savedLocally`/持久 ID，`id` 仅作 React key，因此不会覆盖或删除既有本地草稿；关闭时沿用 leaveComposer 未保存确认。纯 HTML 邮件 `bodyText` 为空时只保留署名行，不在 renderer 做 HTML 转文本。
+
+### 显示设置：页面缩放与字号
+
+沿用 theme/icon 的 settings IPC 模式新增 `getZoom/setZoom/getFontScale/setFontScale`（zod 档位校验，SQLite workspace_settings 持久化）。缩放为主进程 `webContents.setZoomFactor`，`createWindow` 在页面加载完成后恢复；档位 0.9/1/1.1/1.25/1.5，快捷键 Ctrl/⌘ `=`/`-`/`0` 经 AppShell 既有全局 keydown 通道步进并与设置页共用状态。字号经根节点 `--font-scale` 缩放 Tailwind `--text-*` token（档位 0.9/1/1.1/1.25），只作用于 rem 字号；px 任意值字号、CodeMirror、邮件 iframe 与 PDF 阅读器不跟随，属已知边界。浏览器预览降级：缩放用 CSS `zoom`，两者均会话内本地状态。设置页接口见 `src/renderer/features/settings/INTERFACES.md`。
+
+### CodeMirror：IME 与按扩展名语言
+
+IME 问题定位为外部值同步 effect 在组文期间 dispatch 全量替换（触发路径：window focus 的 `read(force)`、重载按钮、Agent 工具完成后的已保存文档刷新在组文起笔、首个变更尚未派发时整体替换 `draft.text`，Chromium 随即取消 IME 会话）。修复：同步收敛为 `syncValue()`，用 `view.compositionStarted` 守卫整个组文会话，真分叉时置 `pendingValueSync`，`compositionend` 后微任务补同步；keymap 与 blur→onSave 经源码核实不构成问题，未改。`@codemirror/view` 6.43.11 已是最新，无上游修复可升级。
+
+新增可选 `filename` prop 作为编辑器与文档层的接口契约：`.md`/`.markdown` 维持 `markdown({ codeLanguages })` 现状；其他扩展名经 `@codemirror/language-data` 按 extension 解析（异步 load 经模块级 Compartment reconfigure，加载前纯文本，不包 markdown()），未识别按纯文本；ProjectDocument 传入 `entry.name`。零新增依赖。代码文件下 `markdownKeymap` 的 Enter 列表续写仍生效，属可感知怪癖，待上层决定是否按格式裁剪 keymap。
+
+### 工作区文件类型与工具栏
+
+移除三处强制 `.md`（旧版迁移、新建、重命名/移动）：`availablePath`/`diskName` 只做 Windows 非法字符归一化与同名去重，用户输入即磁盘名。note 的 format 按实际扩展名返回（`.md`/`.markdown` → markdown，其余一律 text——笔记由应用以 UTF-8 写入）；本地/导入文件映射扩展到常见文本与代码格式（json/xml/yaml/toml/ini/html/css/js/ts/py/c/cpp/java/cs/go/rs/rb/php/swift/kt/sh/sql/tex 等），未列出扩展仍 unsupported。存量语义变化：此前自动追加过 `.md` 的旧笔记在下次重命名/移动时按输入精确改名，不输入 `.md` 即去掉旧后缀；旧版迁移产物由 markdown 变为 text（无预览），该路径仅对 2026-09-12 存储树改造前数据触发。
+
+工具栏按 VSCode 上下文相关操作原则修正四处：预览仅对 `editable && format==='markdown'` 显示且用派生值防止重命名后卡在预览态；保存按钮补三态 tooltip（保存中…/已保存/保存 (Ctrl+S)）；Link2 移除 `!readOnly` 限制使参考窗与主窗一致；FolderOpen 纳入 imported（导入副本有 local_path 且 open-local 可用）。下载、打开原文、重新载入经审计确认逻辑正确，未改。
+
+### 验证状态
+
+三个入口 TypeScript、`pnpm build`、`pnpm smoke`、`pnpm smoke:workspace`（断言已同步无后缀命名）通过；workspace-smoke 中 renderer 读取新设置项的未注册 IPC 报错与既有 get-theme 噪音同源，应用内已 catch。待实机验收：真实 IME 输入手感、缩放重启恢复、字号视觉、打包后启动、真实账号下的回复发送全流程。imported/local 文本文件的“在系统默认应用打开”与 Canvas 端文本扩展清单复用为后续建议，未实现。
+
+## 邮箱本地化：草稿箱与已删除（2026-09-13）
+
+经用户确认的文件夹语义：`\Inbox`/`\Sent`/`\Junk`/服务器自建文件夹同步；`\Drafts`/`\Trash` 本地化，侧栏两格为常驻伪条目（草稿箱=本地草稿，已删除=本地回收站），renderer 按 rank（草稿箱 1、已删除 4，与 SPECIAL_USE_ORDER 对齐）与服务器文件夹稳定合并排序。
+
+主进程：runSync 跳过 `\Drafts`/`\Trash`（keptPaths 为空时守卫 NOT IN ()），getMailState 读取路径幂等清理本地残留文件夹行（FK CASCADE 已实证生效）；未读数改由本地统计（`deleted_at IS NULL AND seen=0`），upsert 不触碰 deleted_at。服务器草稿箱一次性清理（用户明确授权的破坏性操作）：仅精确匹配 `specialUse === '\Drafts'`，status 确认数量后 messageDelete（ImapFlow 单调用即 \Deleted+EXPUNGE），成功写 `mail-drafts-purged`=账号地址，失败不写键下次重试且不中断同步。删除/恢复/彻底删除/清空/保留期七条 IPC 经既有 handle 助手注册；保留期存 `mail-trash-retention`（'7'/'30'/'90'/'0'，zod 校验，默认 30），runSync 成功后与 getMailState 各清理一次过期条目。Agent 全局搜索 searchMail 补 `deleted_at IS NULL` 过滤。
+
+renderer：MailFolders props 重构为统一 selection（folder id/drafts/trash），删除底部本地草稿入口；回收站列表复用邮件列表样式（恢复/彻底删除行内图标、清空需确认），阅读页删除按钮在回复旁，删除后未读数联动、瞬时提示；回收站阅读只读（隐藏回复与删除、不标已读以保留未读状态）；设置›学校邮箱提供保留期选择，无 preload 时隐藏。
+
+mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭确认从 window.confirm 改为 mail:confirm-draft-close IPC 时未同步更新桩，现桩回调页面 window.confirm（true→save/false→cancel）保持原断言语义，并补齐草稿通道桩。
+
+验证：类型检查×3、vitest 32/32（新增 purge 一次/失败重试/级联、deleted_at 跨同步保留、本地未读统计、delete/restore/purge 生命周期、保留期默认/校验/过期）、build、smoke、smoke:workspace、mail-smoke 全通过。待实机：真实账号服务器草稿箱清理、删除恢复全流程、保留期清理实际生效。边界：同步窗口裁剪会移除旧于 300 封的回收站条目；purge 失败静默重试无 UI 提示。
+
+## 邮箱分级降档与设置页控件修正（2026-09-13）
+
+邮箱内容区改为容器实测宽度驱动的分级降档（ResizeObserver + useLayoutEffect 首帧同步测量，逻辑内联在 MailView，未做通用抽象）：容器 <1000px 时文件夹栏在用户偏好之外强制折叠为 48px 图标栏并隐藏折叠开关（hideHeader，避免"点开又被自动折叠"打架），localStorage 持久化偏好不动、拉宽还原；<760px（或窗口 <768px）进入单栏态，列表与详情二选一，MailReader 新增可选 showBackButton 控制返回按钮，占位类由窗口 `max-md:*` 改为 stacked 驱动（narrow 仍走 AppShell 两级抽屉）。阈值推导：760 = 48+320+1+391（折叠态四列的可读下限），1000 = 220+320+1+459（展开态四列的可读下限）。MailComposer 新增可选 className，占位类移至 MailView 调用方（AgentPanel 的 Dialog 用法下 col-span 本就不生效，不受影响）。边界：跨 760 阈值时 grid 轨道数变化无法插值，布局为切换式（与原 max-md 边界一致）；48↔220 折叠仍有 150ms 过渡；单栏阅读中拉宽再收窄会回到阅读态（状态连续性设计）。
+
+设置页：外观节「页面缩放/字号」的 Aa 卡片组改为右对齐下拉 select（`h-9 w-24`，固定宽度防选项切换跳动），档位集合、保存流程与 Ctrl/⌘ 快捷键步进均不变——未采用 ±10% 步进器，因其与 1.1/1.25 非整十档位冲突，需连带修改 shared 档位集、主进程 zod 校验与快捷键步进（select 与步进器为用户给出的二选一，此处取低风险项；如需步进器另立任务）；SizePreview 随替换删除，OptionCard 保留给主题/应用图标。「数据与服务」五项移除整体卡片边框（五项语义不同质，外框产生错误分组暗示），行间保留细分隔线并与节标题左对齐，行内内容与交互不变。
+
+验证：typecheck×3、oxlint 0 警告、vitest 32/32、prettier 通过；三个子任务并行修改互不重叠的文件后统一集成检查。待实机：真实窗口下三档布局的阈值手感、缩放/字号下拉、数据与服务对齐效果。
+
+## 首页两状态改版、多会话与 Agent 循环强化（2026-09-13）
+
+参照主流 AI 产品的首页组织（闲置态/会话态为同一页面两状态，composer 为贯穿两个状态的连续元素），重做首页并抽取共享对话核心。调研基础：Anthropic「Building Effective Agents / Writing Tools / Context Engineering」、Manus context engineering、OpenAI Agents SDK 文档、vercel/ai-chatbot 与 streamdown/use-stick-to-bottom 的实现模式。
+
+### 数据库与会话模型（v9）
+
+新增 `chat_sessions` 表（id、scope、title、messages JSON、created_at、updated_at，`(scope, updated_at DESC)` 索引）；迁移把旧 `workspace_settings` 的 `chat:<scope>` JSON 转为各 scope 的首个会话后删除原键，迁移前自动 `VACUUM INTO` 备份。主进程为每个 scope 维护“当前会话”指针：缺省解析为最近更新的会话（与旧单会话行为一致），「新对话」把指针置空并把从未发送过消息的空会话删除（空会话不进历史）；首条消息发送时才建会话行，标题取首条消息前 60 字符。新增受控 IPC：`new-chat`、`list-chats`（LIKE 搜索标题与消息原文，转义 %/_，上限 100 条）、`open-chat`、`delete-chat`；`configure-model` 的 key 允许空串（仅切换模型，沿用已存密钥）。`WorkspaceChat` 增加 `sessionId`。
+
+### renderer 共享对话核心
+
+新增 `features/chat`：`useChat`（会话加载、推送订阅、发送、引用 chips、模型切换、多会话操作；`listSessions` 经 useCallback 保持稳定引用）；`ChatThread`（消息流唯一滚动容器：距底 48px 内自动跟随、`overflow-anchor:none`、滚轮上滚立即脱离、非跟随态显示“回到底部”；工具步骤行 = 状态图标 + 工具名 + 输入摘要 + 可展开详情，邮件草稿保留“检查并发送”；流式光标、“正在思考…”占位、流式期间未闭合 ``` 围栏临时补全）；`ChatComposer`（Enter 发送/Shift+Enter 换行，IME 以本地 composition 状态 + `nativeEvent.isComposing` + keyCode 229 三重判断；textarea 用 `field-sizing-content` 自适应（Chromium 123+ 支持）；`/` 指令菜单与 `@` 引用菜单共用一套触发词检测/键盘导航/`onMouseDown preventDefault` 模式，引用 chip 可移除；底部模型下拉与发送/停止圆形按钮）；`ChatSessions`（历史弹窗：200ms 防抖搜索、打开、删除、当前会话高亮）；`ModelKeyForm`。AgentPanel 改为该核心的面板形态（保留头部分隔、折叠按钮、密钥表单与 `@` 候选把当前打开文档排前的策略），移除已无用的 `title`/`home` props 与旧的复选框引用抽屉。
+
+首页 `HomeView` 为两状态：闲置态居中问候语（未配置时为密钥表单）、hero composer、数据驱动建议胶囊（最近项目/近期作业/今日日程）与项目卡片，删除与侧栏重复的“课程资料”长条；会话态为右上方「历史/新对话」图标行 + 消息流 + 钉底 composer。composer 单节点常驻，用 `motion.div layout="position"` 弹簧位移衔接两状态（MotionConfig 全局尊重减少动态效果）；消息流淡入。会话态不再渲染闲置内容（第一轮验证曾出现 AnimatePresence 退出动画卡在半透明的残留，改为直接条件渲染后消除）。发送失败时用户消息已上屏，故输入同样清空，错误提示保留在 composer 下方。
+
+### Agent 循环（loop.ts）强化
+
+按调研共识落地五项低成本改进：(1) 模型请求改为每轮独立 `AbortSignal.timeout(120s)`，多轮长任务不再被整跑共享计时误杀，用户取消仍即时生效；(2) 传输层瞬时错误（429/5xx/网络 TypeError）按 1s/3s 退避重试（最多 2 次），4xx 不重试，流式已产出内容后的失败不重试；(3) 单条工具结果回灌模型前超过 20000 字符截断并附“请用更具体的过滤或分页参数”引导，UI 侧仍保存完整结果；(4) 第 12 轮请求前注入“请总结收尾，不再发起新工具调用”的用户提示；(5) `max_tokens` 4096→8192（降低深度思考模型截断概率）。错误回灌（INVALID_JSON/UNKNOWN_TOOL/失败结果作为 tool 消息继续循环）与 12 轮上限维持原状；系统提示词未动。
+
+### 验证状态
+
+通过：三入口 typecheck、oxlint 0 警告、prettier、34 项单元测试（loop 新增瞬态重试成功、4xx 不重试用例）、`pnpm build`、`pnpm smoke`、扩展后的 `pnpm smoke:workspace`（新增 newChat/listChats 搜索/openChat/deleteChat 断言，modelCalls 断言保持单次）。另以隔离 userData 的真实构建实例经 CDP 核对 7 个界面状态（闲置未配置/闲置/会话/历史弹窗/新对话回闲置/项目面板/面板历史），DOM 断言含会话态无闲置残留、发送后输入清空、历史时间合法；视觉验收两轮通过（第一轮发现：会话态闲置内容残留、历史 Invalid Date（SQL 列名 `updated_at` 未别名所致）、ChatSessions effect 因回调引用不稳定导致无限重渲染——均已修复）。
+
+边界与待验证：真实致远一号的流式与工具调用兼容性仍未实测，本次界面与循环改动均在脱敏桩与假密钥（真实端点 401）路径上验证；删除历史会话不可恢复；@ 引用候选仅限工作区条目与打开文档（Canvas 原始资料经资料条目引用）；窄窗口（高度 <600px）闲置态为滚动降级，未逐档视觉核对；`field-sizing-content` 在浏览器预览的旧内核下退化为固定高度。

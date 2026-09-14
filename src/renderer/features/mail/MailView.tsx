@@ -1,22 +1,61 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { leaveComposer } from './compose-close';
+import type { PreparedEmail, MailDraftSummary } from '../../../shared/api';
+import { FilePenLine, Trash2 } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { createPortal } from 'react-dom';
 import type {
   MailFolderInfo,
   MailMessageDetail,
   MailMessageSummary,
   MailState,
+  MailTrashItem,
 } from '../../../shared/api';
 import { ConfigureForm } from './MailConfigureForm';
-import { MailFolders } from './MailFolders';
+import { MailFolders, type MailSelection } from './MailFolders';
 import { MailMessageList } from './MailMessageList';
 import { MailReader } from './MailReader';
 import { MailComposer } from './MailComposer';
-import { formatMailDate, senderLabel } from './mail-format';
+import { MailTrashList } from './MailTrashList';
+import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
 import { Resizer } from '../../components/ui/resizer';
 import { cn } from '../../lib/utils';
 
 const MESSAGE_LIMIT = 200;
+
+// 邮箱内容区分级降档阈值(单位 px,作用于 grid 容器实测宽度 W):
+// - STACKED_THRESHOLD = 760:折叠态四列的可读下限 = 48(图标栏) + 320(列表最小宽) + 1(分隔线)
+//   + 391(阅读区可读下限,在 380–400 间取整);W 再小则阅读区不可读,降为列表/详情二选一的单栏。
+// - AUTO_COLLAPSE_THRESHOLD = 1000:展开态四列的可读下限 = 220(展开侧栏) + 320(列表最小宽)
+//   + 1(分隔线) + 459(阅读区舒适下限);W 再小则强制折叠侧栏,把 172px 还给阅读区。
+const STACKED_THRESHOLD = 760;
+const AUTO_COLLAPSE_THRESHOLD = 1000;
 const ignoreComposeDirty = () => {};
+
+/** 回复预填不是本地草稿：不带 savedLocally，避免触发既有草稿的覆盖保存/发送后删除。 */
+function replyDraft(source: MailMessageDetail): PreparedEmail {
+  const subject = source.subject ?? '';
+  const body = source.bodyText ?? '';
+  const attribution = `在 ${formatFullDate(source.date) || '未知时间'}，${senderLabel(source)} 写道：`;
+  const quoted = body
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n');
+  return {
+    id: `reply-${source.id}`,
+    to: source.sender?.address ? [source.sender.address] : [],
+    subject: /^\s*re:/i.test(subject) ? subject : `Re: ${subject}`,
+    text: body ? `${attribution}\n${quoted}` : attribution,
+    files: [],
+  };
+}
 
 type MailViewProps = {
   onComposeDirtyChange?: (dirty: boolean) => void;
@@ -62,7 +101,7 @@ function DesktopMailView({
   const dela = window.dela!;
   const [state, setState] = useState<MailState | null>(null);
   const [folders, setFolders] = useState<MailFolderInfo[]>([]);
-  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [selection, setSelection] = useState<MailSelection | null>(null);
   const [messages, setMessages] = useState<MailMessageSummary[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
@@ -84,15 +123,26 @@ function DesktopMailView({
   const [listWidth, setListWidth] = useState(320);
   const [listResizing, setListResizing] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [draft, setDraft] = useState<PreparedEmail | undefined>();
+  const [localDrafts, setLocalDrafts] = useState<MailDraftSummary[]>([]);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [openingDraft, setOpeningDraft] = useState(false);
   const [composeDirty, setComposeDirty] = useState(false);
   const [sendNotice, setSendNotice] = useState<string | null>(null);
+  const [trashItems, setTrashItems] = useState<MailTrashItem[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashError, setTrashError] = useState<string | null>(null);
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
+  // 邮箱 grid 容器实测宽度;初始按最宽处理,挂载后在布局阶段同步测量并纠正,不产生可见闪烁。
+  const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
+  const [contentWidth, setContentWidth] = useState(Number.POSITIVE_INFINITY);
 
   const selectedFolderIdRef = useRef<number | null>(null);
   const autoSyncedRef = useRef(false);
   const detailRequest = useRef(0);
   const listRequest = useRef(0);
+  const trashRequest = useRef(0);
 
   const updateComposeDirty = useCallback(
     (dirty: boolean) => {
@@ -102,12 +152,81 @@ function DesktopMailView({
     [onComposeDirtyChange],
   );
 
+  /** 瞬时提示,样式沿用发送成功通知。 */
+  const notify = useCallback((text: string) => {
+    setSendNotice(text);
+    window.setTimeout(() => setSendNotice(null), 3000);
+  }, []);
+
+  const loadDrafts = useCallback(async (account: string) => {
+    try {
+      setLocalDrafts(await dela.mail.listDrafts(account));
+    } catch (reason) {
+      setDraftError(String(reason));
+    }
+  }, []);
+
+  const loadTrash = useCallback(async () => {
+    const request = ++trashRequest.current;
+    setTrashLoading(true);
+    try {
+      const loaded = await dela.mail.listTrash();
+      if (request === trashRequest.current) {
+        setTrashItems([...loaded]);
+        setTrashError(null);
+      }
+    } catch (reason) {
+      if (request === trashRequest.current) setTrashError(String(reason));
+    } finally {
+      if (request === trashRequest.current) setTrashLoading(false);
+    }
+  }, []);
+
+  const accountAddress = state?.account?.address ?? '';
+
   const closeComposer = useCallback(() => {
-    if (composeDirty && !window.confirm('这封邮件不会保存。确定抛弃吗？')) return false;
-    updateComposeDirty(false);
-    setComposing(false);
+    const close = () => {
+      updateComposeDirty(false);
+      setComposing(false);
+      setDraft(undefined);
+      // 编辑器内可能保存过草稿,刷新侧栏草稿数。
+      void loadDrafts(accountAddress);
+    };
+    if (!leaveComposer(close)) return false;
+    close();
     return true;
-  }, [composeDirty, updateComposeDirty]);
+  }, [accountAddress, loadDrafts, updateComposeDirty]);
+  const openDrafts = () => {
+    if (!leaveComposer(openDrafts)) return;
+    setComposing(false);
+    setDraft(undefined);
+    setSelection({ kind: 'drafts' });
+    setDraftError(null);
+    onMobileDrawerClose?.();
+    void loadDrafts(accountAddress);
+  };
+  const openTrash = () => {
+    if (!leaveComposer(openTrash)) return;
+    setComposing(false);
+    setDraft(undefined);
+    setSelection({ kind: 'trash' });
+    setTrashError(null);
+    onMobileDrawerClose?.();
+    void loadTrash();
+  };
+  const editDraft = async (id: string) => {
+    if (openingDraft) return;
+    setOpeningDraft(true);
+    setDraftError(null);
+    try {
+      setDraft(await dela.mail.openDraft(id));
+      setComposing(true);
+    } catch (reason) {
+      setDraftError(String(reason));
+    } finally {
+      setOpeningDraft(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -125,13 +244,30 @@ function DesktopMailView({
     return () => media.removeEventListener('change', update);
   }, []);
 
+  // 容器宽度驱动分级降档;未配置账户时 grid 晚于首帧挂载,依赖 gridElement 触发本 effect 重跑。
+  useLayoutEffect(() => {
+    if (!gridElement) return;
+    // 挂载即同步测量一次,避免按旧宽度先渲染再闪烁;后续变化交给 ResizeObserver。
+    setContentWidth(gridElement.clientWidth);
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width !== undefined) setContentWidth(width);
+    });
+    observer.observe(gridElement);
+    return () => observer.disconnect();
+  }, [gridElement]);
+
   // 抽屉挂载点由 AppShell 的 aside 常驻渲染,挂载后定位一次即可。
   useEffect(() => {
     setDrawerSlot(document.getElementById('mail-drawer-slot'));
   }, []);
 
+  // 服务器 \Drafts/\Trash 不再显示:侧栏这两个位置由本地草稿与本地回收站取代。
+  const visibleFolders = (list: readonly MailFolderInfo[]) =>
+    list.filter((folder) => folder.specialUse !== '\\Drafts' && folder.specialUse !== '\\Trash');
+
   const refreshFolders = useCallback(async () => {
-    setFolders([...(await dela.mail.listFolders())]);
+    setFolders([...visibleFolders(await dela.mail.listFolders())]);
   }, []);
 
   const loadMessages = useCallback(async (folderId: number) => {
@@ -148,26 +284,44 @@ function DesktopMailView({
 
   const selectFolder = useCallback(
     (id: number) => {
-      if (composing && !closeComposer()) return;
+      if (!leaveComposer(() => selectFolder(id))) return;
+      setComposing(false);
+      setDraft(undefined);
       detailRequest.current += 1;
       setDetailLoading(false);
       setDetailError(null);
-      setSelectedFolderId(id);
+      setSelection({ kind: 'folder', id });
       setMessages([]);
       setSelectedMessageId(null);
       setDetail(null);
       setMobileReading(false);
       void loadMessages(id);
     },
-    [closeComposer, composing, loadMessages],
+    [loadMessages],
   );
+
+  const handleSelect = (next: MailSelection) => {
+    if (next.kind === 'folder') selectFolder(next.id);
+    else if (next.kind === 'drafts') openDrafts();
+    else openTrash();
+  };
 
   const handleCompose = useCallback(() => {
     setSendNotice(null);
     setComposing((current) => (current && composeDirty ? true : !current));
   }, [composeDirty]);
 
-  const openMessage = useCallback(async (messageId: number) => {
+  const handleReply = useCallback((source: MailMessageDetail) => {
+    const open = () => {
+      setSendNotice(null);
+      setDraft(replyDraft(source));
+      setComposing(true);
+    };
+    if (!leaveComposer(open)) return;
+    open();
+  }, []);
+
+  const openMessage = useCallback(async (messageId: number, options?: { readonly?: boolean }) => {
     const request = ++detailRequest.current;
     setSelectedMessageId(messageId);
     setDetail(null);
@@ -177,7 +331,8 @@ function DesktopMailView({
       const loaded = await dela.mail.getMessage(messageId);
       if (request !== detailRequest.current) return;
       setDetail(loaded);
-      if (!loaded.seen) {
+      // 只读阅读(回收站)不标记已读:恢复时保留原未读状态。
+      if (!loaded.seen && !options?.readonly) {
         const folderId = selectedFolderIdRef.current;
         const result = await dela.mail.markSeen(messageId);
         if (result.ok) {
@@ -216,7 +371,9 @@ function DesktopMailView({
     await refreshFolders();
     const folderId = selectedFolderIdRef.current;
     if (folderId !== null) await loadMessages(folderId);
-  }, [loadMessages, refreshFolders]);
+    // 同步结束/恢复邮件后回收站可能被自动清理或变化,刷新角标计数。
+    void loadTrash();
+  }, [loadMessages, loadTrash, refreshFolders]);
 
   useEffect(() => {
     let active = true;
@@ -224,15 +381,17 @@ function DesktopMailView({
       if (!active) return;
       setState(initial);
       if (!initial.account) return;
-      const folderList = [...(await dela.mail.listFolders())];
+      const folderList = [...visibleFolders(await dela.mail.listFolders())];
       if (!active) return;
       setFolders(folderList);
       const inbox =
         folderList.find((folder) => folder.specialUse === '\\Inbox') ?? folderList[0] ?? null;
       if (inbox) {
-        setSelectedFolderId(inbox.id);
+        setSelection({ kind: 'folder', id: inbox.id });
         await loadMessages(inbox.id);
       }
+      void loadDrafts(initial.account.address);
+      void loadTrash();
       if (!autoSyncedRef.current) {
         autoSyncedRef.current = true;
         void dela.mail.syncNow().catch(() => {
@@ -248,6 +407,7 @@ function DesktopMailView({
       active = false;
       detailRequest.current += 1;
       listRequest.current += 1;
+      trashRequest.current += 1;
       unsubscribe();
     };
     // 仅在挂载时执行一次。
@@ -279,15 +439,114 @@ function DesktopMailView({
       setConfirmingDisconnect(true);
       return;
     }
+    if (
+      !leaveComposer(() => {
+        void handleDisconnect();
+      })
+    )
+      return;
     setConfirmingDisconnect(false);
     await dela.mail.disconnect();
     setFolders([]);
     setMessages([]);
     setDetail(null);
-    setSelectedFolderId(null);
+    setSelection(null);
     setSelectedMessageId(null);
+    setLocalDrafts([]);
+    setDraftError(null);
+    setTrashItems([]);
+    setTrashError(null);
     setState(await dela.mail.getState());
   }, [confirmingDisconnect]);
+
+  // 阅读页删除:纯本地移入回收站,可恢复,无需确认。
+  const handleDeleteMessage = async (target: MailMessageDetail) => {
+    try {
+      const result = await dela.mail.deleteMessage(target.id);
+      if (!result.ok) {
+        setDetailError(result.error);
+        return;
+      }
+      const folderId = selectedFolderIdRef.current;
+      detailRequest.current += 1;
+      setSelectedMessageId(null);
+      setDetail(null);
+      setDetailLoading(false);
+      setDetailError(null);
+      setMobileReading(false);
+      setMessages((prev) => prev.filter((message) => message.id !== target.id));
+      if (!target.seen && folderId !== null) {
+        setFolders((prev) =>
+          prev.map((folder) =>
+            folder.id === folderId && folder.unread !== null
+              ? { ...folder, unread: Math.max(0, folder.unread - 1) }
+              : folder,
+          ),
+        );
+      }
+      notify('已移入已删除');
+      void loadTrash();
+    } catch (reason) {
+      setDetailError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const handleRestore = async (item: MailTrashItem) => {
+    try {
+      const result = await dela.mail.restoreMessage(item.id);
+      if (!result.ok) {
+        setTrashError(result.error);
+        return;
+      }
+      setTrashItems((prev) => prev.filter((row) => row.id !== item.id));
+      notify(`已恢复到 ${item.folderName ?? '原文件夹'}`);
+      // 原文件夹列表与未读数可能变化。
+      void refreshAll();
+    } catch (reason) {
+      setTrashError(String(reason));
+    }
+  };
+
+  /** 彻底删除/清空后,若该邮件正被阅读则回到列表态。 */
+  const clearReading = (messageId: number) => {
+    if (selectedMessageId !== messageId) return;
+    detailRequest.current += 1;
+    setSelectedMessageId(null);
+    setDetail(null);
+    setDetailLoading(false);
+    setDetailError(null);
+    setMobileReading(false);
+  };
+
+  const handlePurge = async (item: MailTrashItem) => {
+    if (!window.confirm('彻底删除这封邮件？此操作不可恢复。')) return;
+    try {
+      const result = await dela.mail.purgeMessage(item.id);
+      if (!result.ok) {
+        setTrashError(result.error);
+        return;
+      }
+      clearReading(item.id);
+      setTrashItems((prev) => prev.filter((row) => row.id !== item.id));
+    } catch (reason) {
+      setTrashError(String(reason));
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    if (!window.confirm('清空全部已删除邮件？此操作不可恢复。')) return;
+    try {
+      const result = await dela.mail.emptyTrash();
+      if (!result.ok) {
+        setTrashError(result.error);
+        return;
+      }
+      if (selectedMessageId !== null) clearReading(selectedMessageId);
+      setTrashItems([]);
+    } catch (reason) {
+      setTrashError(String(reason));
+    }
+  };
 
   useEffect(() => {
     if (!confirmingDisconnect) return;
@@ -303,7 +562,11 @@ function DesktopMailView({
   const account = state?.account ?? null;
   const sync = state?.sync ?? null;
 
-  const selectedFolder = folders.find((folder) => folder.id === selectedFolderId) ?? null;
+  const selectedFolder =
+    selection?.kind === 'folder'
+      ? (folders.find((folder) => folder.id === selection.id) ?? null)
+      : null;
+  const readingTrash = selection?.kind === 'trash';
 
   const filteredMessages = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -338,6 +601,14 @@ function DesktopMailView({
 
   const syncBusy = sync?.phase === 'syncing' || sync?.phase === 'connecting';
 
+  // 单栏态(第二级降档):窗口本身窄屏,或容器实测宽度不足。
+  const stacked = narrow || contentWidth < STACKED_THRESHOLD;
+  // 第一级降档:非窄屏但容器偏窄时强制折叠文件夹栏;持久化偏好不动,宽度恢复后还原用户偏好。
+  const autoCollapseFolders = !narrow && contentWidth < AUTO_COLLAPSE_THRESHOLD;
+  const effectiveFoldersCollapsed = foldersCollapsed || autoCollapseFolders;
+  // 单栏态下内容面板的网格占位:narrow 沿用第二行整行,非 narrow 单栏落到图标栏右侧一列。
+  const stackedPlacement = narrow ? 'col-span-full row-start-2' : 'col-start-2';
+
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {sync?.phase === 'error' && sync.error && (
@@ -349,13 +620,20 @@ function DesktopMailView({
         </p>
       )}
       <div
+        ref={setGridElement}
         className={cn(
-          'grid min-h-0 flex-1 grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_1px_minmax(0,1fr)] transition-[grid-template-columns] duration-150 ease-out max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]',
+          'grid min-h-0 flex-1 transition-[grid-template-columns] duration-150 ease-out',
+          // narrow 维持单列 + AppShell 抽屉;非 narrow 单栏保留 48px 图标栏;宽布局维持可拖四列。
+          narrow
+            ? 'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]'
+            : stacked
+              ? 'grid-cols-[48px_minmax(0,1fr)]'
+              : 'grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_1px_minmax(0,1fr)]',
           listResizing && 'transition-none',
         )}
         style={
           {
-            '--folder-width': foldersCollapsed ? '48px' : '220px',
+            '--folder-width': effectiveFoldersCollapsed ? '48px' : '220px',
             '--list-width': `${listWidth}px`,
           } as CSSProperties
         }
@@ -364,54 +642,124 @@ function DesktopMailView({
           <MailFolders
             confirmingDisconnect={confirmingDisconnect}
             folders={folders}
-            foldersCollapsed={foldersCollapsed}
+            foldersCollapsed={effectiveFoldersCollapsed}
             handleDisconnect={handleDisconnect}
             composing={composing}
+            selection={selection}
+            onSelect={handleSelect}
+            draftCount={localDrafts.length}
+            trashCount={trashItems.length}
             onCompose={handleCompose}
             account={account}
             sync={sync}
-            selectedFolderId={selectedFolderId}
+            // 自动折叠期间隐藏开关,避免用户展开后又被强制折叠;宽度恢复后开关随用户偏好回归。
+            hideHeader={autoCollapseFolders}
             setFoldersCollapsed={setFoldersCollapsed}
-            onSelect={selectFolder}
           />
         )}
 
         {composing ? (
           <MailComposer
+            key={draft?.id ?? 'new'}
+            className={stacked ? stackedPlacement : 'col-span-3'}
+            draft={draft}
             accountAddress={account?.address ?? ''}
             onClose={() => void closeComposer()}
             onDirtyChange={updateComposeDirty}
             onSent={(warning) => {
               updateComposeDirty(false);
               setComposing(false);
+              setDraft(undefined);
               setSendNotice(warning ?? '邮件已发送');
               void dela.mail.syncNow().catch(() => {});
+              void loadDrafts(account?.address ?? '');
               window.setTimeout(() => setSendNotice(null), 3000);
             }}
           />
+        ) : selection?.kind === 'drafts' ? (
+          <section
+            className={cn('min-h-0 overflow-auto p-4', stacked ? stackedPlacement : 'col-span-3')}
+            aria-label="本地草稿"
+          >
+            <h2 className="mb-4 flex items-center gap-2 text-sm font-medium">
+              <FilePenLine className="size-4" />
+              本地草稿
+            </h2>
+            {draftError && (
+              <p role="alert" className="text-sm text-destructive">
+                {draftError}
+              </p>
+            )}
+            {!localDrafts.length && <p className="text-sm text-muted-foreground">暂无草稿</p>}
+            {localDrafts.map((item) => (
+              <div key={item.id} className="flex items-center gap-2 border-b py-3">
+                <button
+                  disabled={openingDraft}
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => void editDraft(item.id)}
+                >
+                  <strong className="block truncate text-sm">{item.subject || '(无主题)'}</strong>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {item.recipientText || '未填写收件人'} ·{' '}
+                    {new Date(item.updatedAt).toLocaleString()}
+                  </span>
+                </button>
+                <button
+                  aria-label="删除草稿"
+                  title="删除草稿"
+                  className="rounded p-2 hover:bg-muted"
+                  onClick={() => {
+                    if (!window.confirm('删除这份本地草稿？')) return;
+                    void dela.mail
+                      .deleteDraft(item.id)
+                      .then(() =>
+                        setLocalDrafts((items) => items.filter((row) => row.id !== item.id)),
+                      )
+                      .catch((reason) => setDraftError(String(reason)));
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </section>
         ) : (
           <>
-            <MailMessageList
-              className={cn(
-                'max-md:col-span-full max-md:row-start-2',
-                mobileReading && 'max-md:hidden',
-              )}
-              selectedFolder={selectedFolder}
-              filteredMessages={filteredMessages}
-              selectedMessageId={selectedMessageId}
-              listLoading={listLoading}
-              search={search}
-              setSearch={setSearch}
-              syncBusy={syncBusy}
-              syncLabel={syncLabel}
-              onSync={() => dela.mail.syncNow()}
-              onSelect={(id) => {
-                setMobileReading(narrow);
-                void openMessage(id);
-              }}
-            />
+            {readingTrash ? (
+              <MailTrashList
+                className={cn(stacked && stackedPlacement, stacked && mobileReading && 'hidden')}
+                items={trashItems}
+                loading={trashLoading}
+                error={trashError}
+                selectedMessageId={selectedMessageId}
+                onOpen={(id) => {
+                  setMobileReading(stacked);
+                  void openMessage(id, { readonly: true });
+                }}
+                onRestore={(item) => void handleRestore(item)}
+                onPurge={(item) => void handlePurge(item)}
+                onEmpty={() => void handleEmptyTrash()}
+              />
+            ) : (
+              <MailMessageList
+                className={cn(stacked && stackedPlacement, stacked && mobileReading && 'hidden')}
+                selectedFolder={selectedFolder}
+                filteredMessages={filteredMessages}
+                selectedMessageId={selectedMessageId}
+                listLoading={listLoading}
+                search={search}
+                setSearch={setSearch}
+                syncBusy={syncBusy}
+                syncLabel={syncLabel}
+                onSync={() => dela.mail.syncNow()}
+                onSelect={(id) => {
+                  setMobileReading(stacked);
+                  void openMessage(id);
+                }}
+              />
+            )}
             <Resizer
-              className="max-md:hidden"
+              className={stacked ? 'hidden' : undefined}
               label="调整邮件列表宽度"
               max={480}
               min={320}
@@ -421,10 +769,7 @@ function DesktopMailView({
             />
 
             <MailReader
-              className={cn(
-                'max-md:col-span-full max-md:row-start-2',
-                !mobileReading && 'max-md:hidden',
-              )}
+              className={cn(stacked && stackedPlacement, stacked && !mobileReading && 'hidden')}
               detail={detail}
               detailLoading={detailLoading}
               detailError={detailError}
@@ -433,6 +778,10 @@ function DesktopMailView({
               downloadAttachment={(messageId, part) =>
                 dela.mail.downloadAttachment(messageId, part)
               }
+              onReply={handleReply}
+              onDelete={(target) => void handleDeleteMessage(target)}
+              readOnly={readingTrash}
+              showBackButton={stacked}
               setMobileReading={setMobileReading}
             />
           </>
@@ -448,6 +797,13 @@ function DesktopMailView({
             foldersCollapsed={false}
             handleDisconnect={handleDisconnect}
             composing={composing}
+            selection={selection}
+            onSelect={(next) => {
+              onMobileDrawerClose?.();
+              handleSelect(next);
+            }}
+            draftCount={localDrafts.length}
+            trashCount={trashItems.length}
             onCompose={() => {
               onMobileDrawerClose?.();
               handleCompose();
@@ -455,12 +811,7 @@ function DesktopMailView({
             hideHeader
             account={account}
             sync={sync}
-            selectedFolderId={selectedFolderId}
             setFoldersCollapsed={setFoldersCollapsed}
-            onSelect={(id) => {
-              onMobileDrawerClose?.();
-              selectFolder(id);
-            }}
           />,
           drawerSlot,
         )}

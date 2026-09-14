@@ -807,7 +807,6 @@ export function ProjectView({
             <AgentPanel
               scope={scope}
               tabs={saved.tabs}
-              title={title}
               onCollapse={() => setAgentOpen(false)}
               onSaveNote={(text) => show({ action: 'note', id: currentContainer(), text })}
               onOpen={open}

@@ -52,6 +52,15 @@ export interface MailMessageDetail extends MailMessageSummary {
   readonly attachments: readonly MailAttachmentInfo[];
 }
 
+/** 回收站条目：本地删除的缓存邮件，附原文件夹名与删除时间。 */
+export interface MailTrashItem extends MailMessageSummary {
+  readonly folderName: string | null;
+  readonly deletedAt: string;
+}
+
+/** 本地回收站保留天数；0 表示永久保留。 */
+export type MailTrashRetention = 7 | 30 | 90 | 0;
+
 export type MailSyncPhase = 'idle' | 'connecting' | 'syncing' | 'error';
 
 export interface MailSyncStatus {
@@ -92,6 +101,35 @@ export interface MailComposeFile {
   readonly previewUrl: string | null;
 }
 
+export interface PreparedEmail {
+  id: string;
+  to: string[];
+  subject: string;
+  text: string;
+  files: MailComposeFile[];
+  html?: string;
+  savedLocally?: boolean;
+  recipientText?: string;
+}
+
+export interface MailDraftInput {
+  id?: string;
+  account: string;
+  recipientText: string;
+  subject: string;
+  text: string;
+  html: string;
+  attachmentIds: string[];
+  inlineImageIds: string[];
+}
+
+export interface MailDraftSummary {
+  id: string;
+  subject: string;
+  recipientText: string;
+  updatedAt: string;
+}
+
 export interface MailSendInput {
   readonly to: readonly string[];
   readonly subject: string;
@@ -109,11 +147,25 @@ export interface MailApi {
   listMessages(folderId: number, limit: number): Promise<readonly MailMessageSummary[]>;
   getMessage(messageId: number): Promise<MailMessageDetail>;
   markSeen(messageId: number): Promise<MailResult>;
+  deleteMessage(messageId: number): Promise<MailResult>;
+  restoreMessage(messageId: number): Promise<MailResult>;
+  purgeMessage(messageId: number): Promise<MailResult>;
+  emptyTrash(): Promise<MailResult>;
+  listTrash(): Promise<readonly MailTrashItem[]>;
+  getTrashRetention(): Promise<MailTrashRetention>;
+  setTrashRetention(retention: MailTrashRetention): Promise<MailTrashRetention>;
   downloadAttachment(messageId: number, part: string): Promise<MailResult>;
   pickComposeFiles(kind: MailComposeFileKind): Promise<readonly MailComposeFile[]>;
   addComposeImage(dataUrl: string): Promise<MailComposeFile>;
   releaseComposeFiles(ids: readonly string[]): Promise<void>;
   sendMessage(input: MailSendInput): Promise<MailResult>;
+  openDraft(id: string): Promise<PreparedEmail>;
+  saveDraft(input: MailDraftInput): Promise<MailDraftSummary>;
+  listDrafts(account: string): Promise<MailDraftSummary[]>;
+  deleteDraft(id: string): Promise<void>;
+  confirmDraftClose(): Promise<'save' | 'discard' | 'cancel'>;
+  setComposeActive(active: boolean): Promise<void>;
+  onRequestClose(listener: () => void): () => void;
   syncNow(): Promise<void>;
   onSyncStatus(listener: (status: MailSyncStatus) => void): () => void;
 }
@@ -196,11 +248,23 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 /** 应用图标底色：white 对应 Dela_white_bg.png，black 对应 Dela_black_bg.png。 */
 export type IconPreference = 'white' | 'black';
 
+/** 页面缩放档位（webContents zoom factor）：百分比阶梯与系统显示缩放一致。 */
+export const zoomLevels = [0.9, 1, 1.1, 1.25, 1.5] as const;
+export type ZoomPreference = (typeof zoomLevels)[number];
+
+/** 全局字号档位：作用于 rem 字号（--text-* 与 body 默认字号），不影响间距与图标。 */
+export const fontScaleLevels = [0.9, 1, 1.1, 1.25] as const;
+export type FontScalePreference = (typeof fontScaleLevels)[number];
+
 export interface SettingsApi {
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
   getIcon(): Promise<IconPreference>;
   setIcon(icon: IconPreference): Promise<IconPreference>;
+  getZoom(): Promise<ZoomPreference>;
+  setZoom(zoom: ZoomPreference): Promise<ZoomPreference>;
+  getFontScale(): Promise<FontScalePreference>;
+  setFontScale(scale: FontScalePreference): Promise<FontScalePreference>;
 }
 
 export interface DelaApi {
@@ -312,16 +376,40 @@ export interface WorkspaceApi {
   chooseDirectory(): Promise<string>;
   saveView(scope: string, state: WorkspaceViewState): Promise<void>;
   getChat(scope: string): Promise<WorkspaceChat>;
+  newChat(scope: string): Promise<WorkspaceChat>;
+  listChats(scope: string, query: string): Promise<ChatSessionSummary[]>;
+  openChat(scope: string, sessionId: string): Promise<WorkspaceChat>;
+  deleteChat(scope: string, sessionId: string): Promise<void>;
   configureModel(key: string, model: string): Promise<void>;
   ask(scope: string, prompt: string, context: string[]): Promise<WorkspaceChat>;
+  cancelAsk(scope: string): Promise<void>;
+  onChatUpdate(listener: (scope: string, chat: WorkspaceChat) => void): () => void;
+}
+
+export interface AgentToolResult {
+  id: string;
+  name: string;
+  input: unknown;
+  output: unknown;
+}
+
+export interface ChatSessionSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messageCount: number;
 }
 
 export interface WorkspaceChat {
+  sessionId: string | null;
+  running?: boolean;
+  activeTool?: string;
   configured: boolean;
   model: string;
   messages: {
     role: 'user' | 'assistant';
     content: string;
     sources?: { key: string; title: string }[];
+    toolResults?: AgentToolResult[];
   }[];
 }

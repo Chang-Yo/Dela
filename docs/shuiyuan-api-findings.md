@@ -1,0 +1,108 @@
+# 水源社区（shuiyuan.sjtu.edu.cn）API 探测记录
+
+日期：2026-09-13。方式：匿名 HTTP 探测 + 本人在受控浏览器会话中完成一次 jAccount 登录后，用该会话同源请求各 Discourse JSON 端点实测。探测过程未读取仓库 `.env`，凭据由用户在登录窗口人工输入（jAccount 登录含验证码，无法也无必要脚本化）。本文与 `canvas-api-findings.md` 同一定位：只记录事实与结构推断，不含实现承诺；产品设想单独标注。
+
+## 1. 站点身份与访问策略（已验证）
+
+| 事项       | 实测结论                                                                                                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 框架与版本 | Discourse **2026.5.0-latest.1**（HTML meta generator；标准 Discourse 路由全部在位，`X-Discourse-Route` 头可确认）                                                                                                 |
+| 访问策略   | 全站强制登录（`login_required`）：匿名请求 `latest.json`、`categories.json`、`site.json`、`about.json` 一律 403 `{"errors":["您需要登录才能执行此操作。"],"error_type":"not_logged_in"}`                          |
+| 爬虫旁路   | Googlebot UA 仍 403；`latest.rss` 302 跳登录。无任何匿名数据泄露面                                                                                                                                                |
+| 登录入口   | 唯一入口为 jAccount SSO：`/` → 302 `/auth/jaccount` → 302 `jaccount.sjtu.edu.cn/oauth2/authorize?client_id=nvRnqMSQc1tpkGoSC36N&redirect_uri=…/auth/jaccount/callback&response_type=code&scope=essential&state=…` |
+| 会话机制   | 登录回跳后由 Discourse 种会话 cookie；`GET /session/csrf` 匿名可用（写操作前置）                                                                                                                                  |
+
+`client_id=nvRnqMSQc1tpkGoSC36N` 是**水源自己注册的 jAccount 应用**。Dela 不是 OAuth client，不持有任何 client_secret，只是让用户在受控窗口里正常完成一次浏览器登录——与"无法取得 jAccount client_id"的固定约束不冲突。
+
+## 2. 工作原理：与教学信息服务网（课表）登录同构
+
+用户在浏览器里对水源做的事，和 Dela 已实现的课表接入是同一个模式：**让真实用户在独立持久 Session 的窗口里人工完成 jAccount 登录，然后带着目标站点种下的会话 cookie 调它的 JSON 接口**。
+
+```text
+Electron 独立持久 Session（无 preload 模态窗）
+  └─ 打开 https://shuiyuan.sjtu.edu.cn/
+       └─ 302 → /auth/jaccount
+            └─ 302 → jaccount.sjtu.edu.cn/oauth2/authorize（水源自己的 client_id）
+                 └─ 用户人工输入 jAccount 账号/密码/验证码（或扫码、短信）
+                      └─ 授权回跳 /auth/jaccount/callback
+                           └─ Discourse 种会话 cookie（_forum_session / _t）
+                                └─ 主进程带 cookie 请求 *.json 端点（只读 GET）
+```
+
+与课表接入的异同：
+
+| 维度        | 教学信息服务网（课表）                                | 水源社区                                                         |
+| ----------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| 登录方式    | jAccount（表单/跳转后种 JAAuthCookie）                | jAccount OAuth2 授权码回跳后种 Discourse cookie                  |
+| 数据接口    | 页面内的 JSON 端点（`xskbcx_cxXsgrkb.html`），需 POST | 标准 Discourse REST JSON（`GET *.json`），无需解析 HTML          |
+| 会话载体    | 教学网 cookie                                         | `_forum_session` + `_t`（remember-me，长效，存活时长待多天验证） |
+| 失效表现    | 重定向到登录页 / 非 JSON                              | 预期同左（403 `not_logged_in`），待实测确认                      |
+| Dela 侧复用 | 独立 Session、模态登录窗、受控 IPC、失效保留缓存      | 完全同一套模式，无需新的认证抽象                                 |
+
+### 2.1 已被实测排除的认证路径
+
+| 路径                       | 结论                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 匿名 JSON API              | 全部 403 `not_logged_in`，无公开数据面                                                                |
+| 爬虫 UA / RSS              | 均被拦截                                                                                              |
+| 无头脚本登录               | jAccount 登录页含验证码（另有扫码、短信两种人工方式），脚本化不可行，且不应存储用户密码               |
+| **Discourse User API Key** | **登录态实测：管理员已禁用**。授权页返回"抱歉，我们无法发布用户 API 密钥，此功能可能被网站管理员禁用" |
+
+User API Key 是 Discourse 官方为第三方客户端设计的授权机制（功能上类似 OAuth 授权：应用出示 RSA 公钥，用户网页点授权，服务端加密下发 token，之后带 `User-Api-Key` 头调用）。**方法论教训**：匿名探测阶段该路由返回 200、参数校验（nonce）正常、页面显示登录按钮，曾据此误判"通道开启"；站点设置类开关（`enable_user_api_keys`）只在登录后才暴露拦截。涉及站点开关的结论必须以登录态实测为准。
+
+### 2.2 会话 Cookie 路径的边界
+
+- GET 类端点只依赖 cookie，无需 CSRF。
+- 写操作（标记通知已读、收藏等）需要 `X-CSRF-Token`，取自 `GET /session/csrf`（该端点匿名可用，token 与 `_forum_session` 配对）。
+- 响应未暴露 `X-RateLimit-*` 头；Discourse 只在触发限流时返回 `Retry-After`，阈值未知。轮询应保持分钟级以上间隔并做退避。
+
+## 3. 登录后可获取的数据（全部为本人会话实测）
+
+| 端点                                  | 实测内容                                                                                                                                                                     |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /session/current.json`           | 当前用户对象（实测 89 个字段）：`username`、`name`、`unread_notifications`、`unread_private_messages`、`admin` 等                                                            |
+| `GET /latest.json`                    | 每页 30 个 topic + `topic_list.more_topics_url` 分页游标；topic 含 `id`、`title`、`category_id`、`posts_count`、`created_at`、`last_posted_at`                               |
+| `GET /categories.json`                | 13 个顶级分类及帖子计数：校园生活 13415、广而告之 2199、人生经验 2067、休闲娱乐 1475、社团组织 567、数码科技 522、文化艺术 383、水源活动 69；计数为 0 的应为父分类（推断）   |
+| `GET /search.json?q=数据结构`         | 每页 50 条：`topics[]`（id/标题/时间）+ `posts[].blurb` 正文摘要 + `grouped_search_result.hit_count`；摘要质量足以直接展示                                                   |
+| `GET /t/<topic_id>.json`              | 帖子全文：`title`、`posts_count`（样本 67 楼）、`post_stream.stream`（楼层 id 全量）+ 每楼 `cooked`（消毒后 HTML，首楼样本 4281 字符）、`details.participants`（样本 24 人） |
+| `GET /notifications.json?recent=true` | 15 条通知：`notification_type`（实测出现 {2,5,6,12,14,19}，对应 Discourse 标准枚举，实现时按语义映射）、`read` 状态、触发者与主题引用                                        |
+| `GET /new.json`、`GET /unread.json`   | 新帖流、未读流，各 30 topic/页，结构与 `latest` 相同                                                                                                                         |
+| `GET /u/<username>/bookmarks.json`    | 本人收藏：实测 11 条，含 `topic_id`、`created_at`、可选 `name`                                                                                                               |
+| `GET /session/csrf`                   | 200 + CSRF token（写操作前置）                                                                                                                                               |
+
+## 4. 对聚合器的数据模型推论
+
+1. **topic 是核心实体**：`id` 稳定唯一，来源链接可由 topic 构造；分类、楼层、通知、收藏都挂接到 topic。
+2. **增量策略**：API 无变更游标（与 Canvas 相同），需用 `latest/new/unread` 分页 + `last_posted_at` 对比自行增量；首次全量、之后按页对比即可。
+3. **正文复用现有管线**：`cooked` 是服务端消毒的 HTML，与 Canvas 页面、邮件 HTML 同类，可走同一套"清洗 + 无脚本 sandbox iframe"渲染。
+4. **分类是天然订阅单元**：13 个顶级分类粒度适中，用户勾选 2–3 个即可构成个性化信息流。
+5. **搜索是最高价值入口**：带摘要、命中数、相关性排序，直接支撑"按课程名/教师名找论坛情报"。
+
+## 5. 能做出什么效果（产品设想，非实现承诺）
+
+以下基于第 3、4 节已验证的数据可得性，描述产品形态：
+
+1. **课程情报**（与课表/Canvas 联动，最具 Dela 特色）：以课表课程的课程名、教师名为查询词定期调用 `search.json`，把课程评价、考试经验、资料帖以"标题 + 摘要 + 原文链接"聚进对应课程的工作区，与 Canvas 资料并列成第三类课程资料来源。
+2. **通知中心**：回复/提及/私信/徽章汇入首页"有人找你"，与邮箱未读统一呈现；`unread_notifications` 计数可直接驱动角标。
+3. **校园信息流**：订阅分类（如校园生活、广而告之）的未读/新帖，按时间线浏览，点开经消毒渲染的帖子全文。
+4. **收藏同步**：水源书签进入 Dela 阅读清单，作为可关联进项目的资料来源。
+5. **Agent 上下文**：`bbs_search` / `bbs_topic` 作为 Agent 工具，让模型在项目对话中引用论坛经验（如"这门课往年怎么考"）。
+
+对接方式：登录复用课表的独立 Session + 模态窗模式；数据落库走既有来源引用表（平台标识、远端 ID、原文链接、抓取时间）；连接状态展示在设置页。第一版只读，不做发帖/标记类写操作。
+
+## 6. 风险与约束
+
+- **非官方接口**：Discourse 升级可能改变端点行为；管理策略可变（User API Key 被禁即是实例）。同步失败须保留缓存并明示，不静默清空。
+- **会话生命周期未长期验证**：`_t` 的实际存活时长、失效的具体表现（重定向 vs 403）需多天使用观察。
+- **限流不可见**：阈值未知，轮询保持分钟级以上并退避；避免高频深分页。
+- **合规边界**：使用本人会话、只读、数据（社区用户生成内容）仅在本机应用内呈现，不对外分发；遵守规划第 8 节，保留来源与抓取时间。
+- 凭据与 cookie 只存在 Electron Session 与 safeStorage，不进 renderer、不进日志。
+
+## 7. 未验证 / 待办
+
+- 会话 cookie 存活时长与失效形态（需多天真实使用观察）。
+- 深分页行为（`more_topics_url` 翻页之后）、按分类过滤的请求参数。
+- 通知已读标记、收藏增删等写操作（需 CSRF，属第二阶段）。
+- MessageBus 实时通道（`/message-bus/…`）是否可用于推送式更新。
+- `u/<me>/summary.json`、私信列表（`/topics/private-messages/…`）等长尾端点。
+- 实际限流阈值与触发后的 `Retry-After` 表现。

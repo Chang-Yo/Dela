@@ -13,25 +13,26 @@ import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { closeDatabase, getDatabase } from '../src/main/database';
+import { prepareEmail } from '../src/main/mail/drafts';
+import { releaseComposeFiles } from '../src/main/mail/send';
 import {
   canvasNextPage,
   configureCanvas,
   readCanvasSource,
-  registerCanvasIpc,
   syncCanvasCourse,
   syncCanvasCourses,
-} from '../src/main/canvas';
+} from '../src/main/canvas/api';
+import { registerCanvasIpc } from '../src/main/canvas/ipc';
 import {
   createWorkspaceEntry,
   getWorkspaceState,
   importWorkspaceFiles,
   readWorkspaceEntry,
-  registerPreviewProtocol,
-  registerPreviewScheme,
-  registerWorkspaceIpc,
   saveWorkspaceNote,
   updateWorkspaceEntry,
-} from '../src/main/projects';
+} from '../src/main/workspace/api';
+import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
+import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
 import { saveModelCredential } from '../src/main/credentials';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
@@ -334,7 +335,7 @@ app
     getWorkspaceState();
     assert.equal((await readWorkspaceEntry(legacyId)).text, '旧版内容');
     assert.equal(
-      readFileSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '旧版笔记.md'), 'utf8'),
+      readFileSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '旧版笔记'), 'utf8'),
       '旧版内容',
     );
     assert.equal(readFileSync(legacyPath, 'utf8'), '旧版内容');
@@ -349,10 +350,7 @@ app
     assert.equal(readFileSync(path, 'utf8'), '# 恢复测试');
     updateWorkspaceEntry(child.id, { name: '参考改名', parentId: other.id });
     assert.equal(
-      readFileSync(
-        join(profile, 'notes', 'workspace', '独立项目', '参考改名', '旧版笔记.md'),
-        'utf8',
-      ),
+      readFileSync(join(profile, 'notes', 'workspace', '独立项目', '参考改名', '旧版笔记'), 'utf8'),
       '旧版内容',
     );
     assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
@@ -381,7 +379,7 @@ app
       text: '安全路径',
     });
     assert.equal((await readWorkspaceEntry(odd.id)).text, '安全路径');
-    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON.md')));
+    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON')));
     assert(existsSync(join(profile, 'dela-before-storage-tree.db')));
     renameSync(path, `${path}.external`);
     assert.throws(() => updateWorkspaceEntry(note.id, { name: '不应生效.md' }));
@@ -421,10 +419,38 @@ app
     );
     assert.equal(chat.messages.length, 2);
     assert.equal(modelCalls, 1);
+    const email = prepareEmail({
+      to: ['recipient@example.com'],
+      subject: '报告草稿',
+      text: '请查看附件',
+      attachments: [{ type: 'workspace', id: note.id }],
+    });
+    assert.equal(email.sent, false);
+    const prepared = await invoke(
+      `return await window.dela.mail.openDraft(${JSON.stringify(email.draftId)});`,
+    );
+    assert.equal(prepared.subject, '报告草稿');
+    assert.equal(prepared.text, '请查看附件');
+    assert.equal(prepared.files.length, 1);
+    assert.equal(prepared.files[0].size, Buffer.byteLength('# 恢复测试'));
+    assert.equal('path' in prepared.files[0], false);
+    releaseComposeFiles(prepared.files.map((file: { id: string }) => file.id));
+    assert.equal(chat.running, false);
+    assert.equal(await invoke(`return typeof window.dela.workspace.cancelAsk;`), 'function');
+    assert.equal(await invoke(`return typeof window.dela.workspace.onChatUpdate;`), 'function');
+    await invoke(`await document.fonts.ready;`);
+    assert.equal(
+      await invoke(`return Boolean(document.querySelector('textarea[aria-label="发送给助手"]'));`),
+      true,
+    );
+    writeFileSync(
+      join(process.cwd(), '.tools', 'agent-home.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    );
     await invoke(`await window.dela.workspace.remove(${JSON.stringify(child.id)});`);
     assert.equal((await readWorkspaceEntry(ref2.id)).format, 'html');
     assert(existsSync(path));
-    assert.equal(readFileSync(join(moveTo, '旧版笔记.md'), 'utf8'), '旧版内容');
+    assert.equal(readFileSync(join(moveTo, '旧版笔记'), 'utf8'), '旧版内容');
     closeDatabase();
     const restored = getWorkspaceState();
     assert.equal(restored.views[folder.id]?.active, note.id);
@@ -434,6 +460,32 @@ app
       `return await window.dela.workspace.getChat(${JSON.stringify(folder.id)});`,
     );
     assert.equal(restoredChat.messages.length, 2);
+    // 多会话：新对话后旧会话保留在历史中，可搜索、重新打开与删除。
+    await invoke(`await window.dela.workspace.newChat(${JSON.stringify(folder.id)});`);
+    const secondAsk = await invoke(
+      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, '第二轮提问', [${JSON.stringify(note.id)}]);`,
+    );
+    assert.equal(secondAsk.messages.length, 2);
+    assert.notEqual(secondAsk.sessionId, restoredChat.sessionId);
+    const byQuery = await invoke(
+      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '第二轮');`,
+    );
+    assert.equal(byQuery.length, 1);
+    const allSessions = await invoke(
+      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '');`,
+    );
+    assert.equal(allSessions.length, 2);
+    const reopened = await invoke(
+      `return await window.dela.workspace.openChat(${JSON.stringify(folder.id)}, ${JSON.stringify(restoredChat.sessionId)});`,
+    );
+    assert.equal(reopened.messages.length, 2);
+    await invoke(
+      `await window.dela.workspace.deleteChat(${JSON.stringify(folder.id)}, ${JSON.stringify(secondAsk.sessionId)});`,
+    );
+    const remaining = await invoke(
+      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '');`,
+    );
+    assert.equal(remaining.length, 1);
     win.destroy();
     closeDatabase();
     console.log(

@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import { app } from 'electron';
 import { copyFile, link, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import { constants, copyFileSync, createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,28 +6,18 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
-import { getDatabase } from './database';
-import { availablePath, diskName, storageDirectory } from './storage';
-import { clearCanvasToken, loadCanvasToken, saveCanvasToken } from './credentials';
-import type { CanvasCourse, CanvasState, DocumentContent, SourceItem } from '../shared/api';
+import { getDatabase } from '../database';
+import { availablePath, diskName, storageDirectory } from '../storage';
+import { loadCanvasToken, saveCanvasToken } from '../credentials';
+import type { CanvasCourse, CanvasState, DocumentContent, SourceItem } from '../../shared/api';
 
 const origin = 'https://oc.sjtu.edu.cn';
 const apiRoot = `${origin}/api/v1/`;
 type Row = Record<string, unknown>;
-const rowSchema = z.record(z.string(), z.unknown());
+export const rowSchema = z.record(z.string(), z.unknown());
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 const num = (value: unknown) => (typeof value === 'number' ? value : 0);
 const row = (value: unknown): Row => rowSchema.safeParse(value).data ?? {};
-
-// Only the app's main frame can invoke credential, file and workspace operations.
-export function checkWorkspaceSender(event: IpcMainInvokeEvent) {
-  const frame = event.senderFrame;
-  if (!frame || frame !== event.sender.mainFrame) throw new Error('不允许的调用来源');
-  const url = new URL(frame.url);
-  if (url.protocol !== 'file:' && (app.isPackaged || url.origin !== 'http://127.0.0.1:5173')) {
-    throw new Error('不允许的调用来源');
-  }
-}
 
 export function canvasNextPage(header: string | null): string | null {
   const next = header
@@ -128,7 +118,7 @@ export async function syncCanvasCourses(): Promise<CanvasState> {
   return getCanvasState();
 }
 
-interface StoredSource {
+export interface StoredSource {
   id: string;
   courseId: number;
   title: string;
@@ -388,7 +378,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
   return getCanvasState();
 }
 
-function getSource(id: string): StoredSource {
+export function getSource(id: string): StoredSource {
   const stored = getDatabase().prepare('SELECT data FROM canvas_sources WHERE id=?').get(id) as
     { data: string } | undefined;
   if (!stored) throw new Error('资料尚未同步，请刷新所属课程');
@@ -396,7 +386,7 @@ function getSource(id: string): StoredSource {
 }
 
 const downloads = new Map<string, Promise<{ path: string; mime: string }>>();
-function cachedFile(source: StoredSource): Promise<{ path: string; mime: string }> {
+export function cachedFile(source: StoredSource): Promise<{ path: string; mime: string }> {
   const key = `${source.id}:${source.updatedAt ?? ''}`;
   const existing = downloads.get(key);
   if (existing) return existing;
@@ -552,6 +542,12 @@ async function isPdf(path: string): Promise<boolean> {
   }
 }
 
+export async function canvasFilePath(id: string): Promise<string> {
+  const source = getSource(z.string().min(1).max(512).parse(id));
+  if (source.kind !== 'file') throw new Error('资料不是文件');
+  return (await cachedFile(source)).path;
+}
+
 export async function canvasPdfPath(id: string): Promise<string> {
   const source = getSource(z.string().max(512).parse(id));
   if (source.kind !== 'file') throw new Error('资料不是 PDF 文件');
@@ -603,47 +599,4 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
     dueAt: source.dueAt,
     updatedAt: source.updatedAt,
   };
-}
-
-export function registerCanvasIpc() {
-  const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
-    ipcMain.handle(`canvas:${name}`, (event, ...args) => {
-      checkWorkspaceSender(event);
-      return fn(...args);
-    });
-  handle('get-state', async () => {
-    // Relocate only already-downloaded legacy files; listing courses never starts a download.
-    const rows = getDatabase().prepare('SELECT data FROM canvas_sources').all() as {
-      data: string;
-    }[];
-    for (const row of rows) {
-      const source: StoredSource = JSON.parse(row.data);
-      if (source.kind !== 'file' || !source.fileId) continue;
-      const key = createHash('sha256')
-        .update(`${source.fileId}:${source.updatedAt ?? ''}`)
-        .digest('hex');
-      if (existsSync(join(app.getPath('userData'), 'canvas-cache', key))) await cachedFile(source);
-    }
-    return getCanvasState();
-  });
-  handle('configure', (token) => configureCanvas(z.string().parse(token)));
-  handle('disconnect', () => clearCanvasToken());
-  handle('sync-courses', syncCanvasCourses);
-  handle('sync-course', (id) => syncCanvasCourse(z.number().int().positive().parse(id)));
-  handle('read', (id) => readCanvasSource(z.string().max(512).parse(id)));
-  handle('download', async (id) => {
-    const source = getSource(z.string().parse(id));
-    const { canceled, filePath } = await dialog.showSaveDialog({
-      defaultPath: source.title.replace(/[<>:"/\\|?*]/g, '_'),
-    });
-    if (canceled || !filePath) return;
-    const file = await cachedFile(source);
-    await copyFile(file.path, filePath);
-  });
-  handle('open-link', async (value) => {
-    const url = new URL(z.string().max(8192).parse(value));
-    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
-      throw new Error('不支持的链接');
-    await shell.openExternal(url.href);
-  });
 }

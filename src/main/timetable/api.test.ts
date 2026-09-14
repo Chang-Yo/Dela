@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { parseSemesterStart, parseWeekNumbers } from './api';
+
 vi.mock('electron', () => ({ BrowserWindow: {}, ipcMain: {}, session: {} }));
-vi.mock('./database', () => ({ getDatabase: vi.fn() }));
-import { parseSemesterStart, parseWeekNumbers } from './timetable';
+vi.mock('../database', () => ({ getDatabase: vi.fn() }));
 
 describe('parseWeekNumbers', () => {
   it('expands ranges and comma-separated weeks', () => {

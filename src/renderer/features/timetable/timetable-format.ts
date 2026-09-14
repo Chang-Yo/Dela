@@ -1,3 +1,4 @@
+import { classPeriods } from '../../../shared/schedule';
 import type { CSSProperties } from 'react';
 import {
   calendarEventColors,
@@ -11,23 +12,6 @@ export const dayMilliseconds = 86_400_000;
 export const timelineStart = 8 * 60;
 export const timelineEnd = 20 * 60 + 20;
 export const pixelsPerMinute = 0.8;
-
-// 上海交大教务处公布的本科生节次表。第 13 节仅用于 11–13 节连上的课程。
-const classPeriods = [
-  [8 * 60, 8 * 60 + 45],
-  [8 * 60 + 55, 9 * 60 + 40],
-  [10 * 60, 10 * 60 + 45],
-  [10 * 60 + 55, 11 * 60 + 40],
-  [12 * 60, 12 * 60 + 45],
-  [12 * 60 + 55, 13 * 60 + 40],
-  [14 * 60, 14 * 60 + 45],
-  [14 * 60 + 55, 15 * 60 + 40],
-  [16 * 60, 16 * 60 + 45],
-  [16 * 60 + 55, 17 * 60 + 40],
-  [18 * 60, 18 * 60 + 45],
-  [18 * 60 + 55, 19 * 60 + 40],
-  [19 * 60 + 50, 20 * 60 + 20],
-] as const;
 
 // 候选配色与 globals.css 的 --cal-* token 对应：低饱和灰调，明暗主题各自成对。
 export const eventPalette: readonly { key: CalendarEventColor; label: string }[] = [

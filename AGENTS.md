@@ -8,6 +8,7 @@
 - 保持精确依赖与锁文件，使用 Node.js 24.21.0、pnpm 12.3.4；本机可先执行 `. ./scripts/use-local-tools.ps1`。
 - 改动后执行相关检查。涉及构建或原生依赖时，验证 `pnpm build`、`pnpm smoke` 和打包后启动。
 - 重要改动同步更新 README 和技术规划。区分已验证事实、待验证能力与产品设想，不能以占位结果宣称功能完成。
+- 每次产生大量的、具有统一主题的改动diff时，主动提醒用户是否需要提交commit
 
 # Coding core rules
 

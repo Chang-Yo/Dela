@@ -108,6 +108,28 @@ const migrations: string[][] = [
       (id, parent_id, name, kind, source_id, note_id, local_path, updated_at)
       VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, NULL, '2026-09-12T00:00:00.000Z')`,
   ],
+  [`ALTER TABLE mail_messages ADD COLUMN deleted_at TEXT`],
+  [
+    `CREATE TABLE chat_sessions (
+      id TEXT PRIMARY KEY,
+      scope TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '新对话',
+      messages TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX idx_chat_sessions_scope ON chat_sessions(scope, updated_at DESC)`,
+    // 旧版把每个 scope 的对话存为 workspace_settings 的 `chat:<scope>` JSON；升级为多会话表。
+    `INSERT INTO chat_sessions (id, scope, title, messages, created_at, updated_at)
+      SELECT lower(hex(randomblob(16))),
+        substr(key, 6),
+        substr(coalesce(json_extract(value, '$[0].content'), '新对话'), 1, 60),
+        value,
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      FROM workspace_settings WHERE key LIKE 'chat:%'`,
+    `DELETE FROM workspace_settings WHERE key LIKE 'chat:%'`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {
