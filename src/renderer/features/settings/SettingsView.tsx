@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { ConnectionsSection } from './ConnectionsSection';
+import { LlmSection } from './LlmSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
 import type { FontScalePreference, ThemePreference, ZoomPreference } from '../../../shared/api';
 
@@ -36,6 +37,7 @@ export function SettingsView({
           {section === 'connections' && (
             <ConnectionsSection onOpenMail={onOpenMail} onOpenTimetable={onOpenTimetable} />
           )}
+          {section === 'llm' && <LlmSection />}
           {section === 'appearance' && (
             <AppearanceSection
               fontScale={fontScale}

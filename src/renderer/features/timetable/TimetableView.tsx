@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CalendarDays,
   CalendarRange,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   LogIn,
@@ -12,10 +11,18 @@ import {
 import type { CalendarEvent, TimetableLesson, TimetableState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
 import { MonthCalendar } from './MonthCalendar';
 import { NewEventDialog } from './NewEventDialog';
 import { SemesterStartDialog } from './SemesterStartDialog';
-import { WeekCalendar } from './WeekCalendar';
+import { WeekCalendar, type CalendarItemDetail } from './WeekCalendar';
+import { EventDetailDialog } from './EventDetailDialog';
 import {
   activeInWeek,
   addDays,
@@ -58,6 +65,7 @@ function DesktopTimetableView() {
   const [error, setError] = useState<string | null>(null);
   const [eventDraft, setEventDraft] = useState<{ start: Date; end: Date } | null>(null);
   const [semesterDraft, setSemesterDraft] = useState(false);
+  const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
 
   const loadSemester = useCallback(
     async (requested?: string) => {
@@ -285,9 +293,8 @@ function DesktopTimetableView() {
           </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <HeaderSelect
-            label="学期"
-            onChange={(value) => {
+          <Select
+            onValueChange={(value) => {
               setError(null);
               void loadSemester(value).catch((reason: unknown) =>
                 setError(reason instanceof Error ? reason.message : String(reason)),
@@ -295,24 +302,33 @@ function DesktopTimetableView() {
             }}
             value={semester}
           >
-            {semesterOptions(semester).map((option) => (
-              <option key={option} value={option}>
-                {semesterLabel(option)}
-              </option>
-            ))}
-          </HeaderSelect>
+            <SelectTrigger aria-label="学期">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {semesterOptions(semester).map((option) => (
+                <SelectItem key={option} value={option}>
+                  {semesterLabel(option)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {mode === 'week' ? (
-            <HeaderSelect
-              label="教学周"
-              onChange={(value) => setSelectedWeek(Number(value))}
+            <Select
+              onValueChange={(value) => setSelectedWeek(Number(value))}
               value={String(selectedWeek)}
             >
-              {weeks.map((week) => (
-                <option key={week} value={week}>
-                  第 {week} 周
-                </option>
-              ))}
-            </HeaderSelect>
+              <SelectTrigger aria-label="教学周">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {weeks.map((week) => (
+                  <SelectItem key={week} value={String(week)}>
+                    第 {week} 周
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : null}
           <button
             className="inline-flex h-8 items-center gap-1.5 rounded-md bg-secondary/70 px-2.5 text-xs font-medium text-secondary-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -340,6 +356,7 @@ function DesktopTimetableView() {
         <WeekCalendar
           events={semesterWeekStart ? events : []}
           lessons={weekLessons}
+          onOpen={setDetail}
           weekStart={semesterWeekStart}
         />
       ) : (
@@ -378,32 +395,17 @@ function DesktopTimetableView() {
           semesterStart={state.semesterStart}
         />
       ) : null}
-    </div>
-  );
-}
 
-function HeaderSelect({
-  children,
-  label,
-  onChange,
-  value,
-}: {
-  children: ReactNode;
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  return (
-    <span className="relative inline-flex items-center">
-      <select
-        aria-label={label}
-        className="h-8 appearance-none rounded-md bg-secondary/70 pl-2.5 pr-7 text-xs font-medium text-secondary-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2 size-3.5 text-muted-foreground" />
-    </span>
+      {detail ? (
+        <EventDetailDialog
+          detail={detail}
+          onClose={() => setDetail(null)}
+          onDeleted={() => {
+            setDetail(null);
+            void loadEvents();
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

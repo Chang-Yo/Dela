@@ -13,6 +13,7 @@ const call = (args = '{"id":1}') => ({
   ],
 });
 const options = () => ({
+  baseUrl: 'https://model.example.test/v1',
   model: 'test',
   key: 'test-only',
   messages: [{ role: 'user', content: 'read' }],
@@ -33,6 +34,8 @@ describe('Agent loop', () => {
     const result = await runAgent(input);
     expect(input.execute).toHaveBeenCalledWith('read_resource', { id: 1 });
     expect(result.content).toBe('Done');
+    // 端点由提供商配置拼接：{baseUrl}/chat/completions。
+    expect(fetcher.mock.calls[0]![0]).toBe('https://model.example.test/v1/chat/completions');
     const second = JSON.parse(fetcher.mock.calls[1]![1].body);
     expect(second.messages.at(-1)).toEqual({
       role: 'tool',

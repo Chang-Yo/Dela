@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
 import { dateKey, eventPalette, timeInput } from './timetable-format';
+import { DateInput } from './DateInput';
 
 export function NewEventDialog({
   draft,
@@ -91,15 +92,13 @@ export function NewEventDialog({
           <div className="grid divide-y overflow-hidden rounded-lg border">
             <div className="flex h-11 items-center gap-2 px-3 transition-colors has-[:focus-visible]:bg-accent/60">
               <span className="w-8 shrink-0 text-xs text-muted-foreground">开始</span>
-              {/* Electron 界面语言默认 en-US，lang 强制日期时间按中文格式渲染。 */}
-              <Input
-                aria-label="开始日期"
-                className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none accent-foreground focus-visible:ring-0 dark:bg-transparent"
-                lang="zh-CN"
-                onChange={(event) => setStartDate(event.target.value)}
-                type="date"
+              <DateInput
+                className="flex-1"
+                label="开始日期"
+                onChange={setStartDate}
                 value={startDate}
               />
+              {/* Electron 界面语言默认 en-US，lang 强制时间按中文格式渲染。 */}
               <Input
                 aria-label="开始时间"
                 className="h-8 w-[88px] border-0 bg-transparent px-0 shadow-none accent-foreground focus-visible:ring-0 dark:bg-transparent"
@@ -111,12 +110,10 @@ export function NewEventDialog({
             </div>
             <div className="flex h-11 items-center gap-2 px-3 transition-colors has-[:focus-visible]:bg-accent/60">
               <span className="w-8 shrink-0 text-xs text-muted-foreground">结束</span>
-              <Input
-                aria-label="结束日期"
-                className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none accent-foreground focus-visible:ring-0 dark:bg-transparent"
-                lang="zh-CN"
-                onChange={(event) => setEndDate(event.target.value)}
-                type="date"
+              <DateInput
+                className="flex-1"
+                label="结束日期"
+                onChange={setEndDate}
                 value={endDate}
               />
               <Input

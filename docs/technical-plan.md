@@ -1,7 +1,7 @@
 # Dela 桌面应用技术规划书
 
 日期：2026-09-09
-状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步、阅读与 SMTP 发送；课表已实现 i.sjtu 会话接入、本地缓存、周/月视图和本地事件，真实账号同步及学期日期格式待验证（2026-09-11，见文末记录）；Canvas 课程资料、文件夹/项目、磁盘笔记、阅读工作区及明确选取正文的模型问答已实现（2026-09-12）；前台 Agent 工具循环、首页入口、邮件草稿及流式文字已接入（2026-09-13）；最新流式改动未验证，真实模型工具调用兼容性与最终打包验收待确认。当前实现与验证边界见文末。
+状态：开发基线；工程已初始化，前端骨架完成。邮箱已实现真实 IMAP 同步、阅读与 SMTP 发送；课表已实现 i.sjtu 会话接入、本地缓存、周/月视图和本地事件，真实账号同步及学期日期格式待验证（2026-09-11，见文末记录）；Canvas 课程资料、文件夹/项目、磁盘笔记、阅读工作区及明确选取正文的模型问答已实现（2026-09-12）；前台 Agent 工具循环、首页入口、邮件草稿及流式文字已接入（2026-09-13）；最新流式改动未验证，真实模型工具调用兼容性与最终打包验收待确认；模型服务已改为多提供商自定义配置（2026-09-14，见文末）。当前实现与验证边界见文末。
 
 ## 1. 产品定位与范围
 
@@ -80,6 +80,8 @@ CodeMirror 的其他必需模块已于 2026-09-12 随 Markdown 编辑器落地�
 - 工具版本升级主要影响开发与构建性能，不据此承诺应用运行性能提升。
 
 ### 2.3 版本与变更纪律
+
+2026-09-14 `release.yml` 新增 `publish-public` 任务：私有 Release 发布成功后，把同一批安装包发布到公开仓库 `Chang-Yo/Dela_releases` 的同名 tag Release，不带说明文字、不用 `--generate-notes`（公开仓库没有可生成的提交历史）；tag 不存在时由 GitHub 在该仓库默认分支最新提交上自动创建，因此不用 `--verify-tag`。跨仓库发布使用 fine-grained PAT（私有仓库 secret `PUBLIC_RELEASE_TOKEN`，仅授权该公开仓库 Contents 读写），内置 `GITHUB_TOKEN` 无跨仓库权限。同时私有与公开发布都改为可重跑同一 tag：Release 已存在时改用 `gh release upload --clobber` 覆盖同名资产再 `--draft=false`，替代原先“删除草稿后重跑”的约束，历史 tag 也可直接重跑补发公开 Release。自动更新元数据（`latest*.yml`、blockmap）暂不发布，待需要时再扩展。跨仓库发布与重跑覆盖行为待 GitHub 首次运行验证。
 
 2026-09-13 `.github/workflows/check.yaml` 在 Ubuntu 上单独运行 Prettier 格式检查与 Oxlint；后者检查 TypeScript/JavaScript 正确性、未使用代码及 React Hook 调用规则。ESLint 暂不引入：其 TypeScript 插件当前 peer 依赖不支持本项目固定的 TypeScript 7。其余矩阵仍在 Windows x64、macOS x64/arm64、Ubuntu x64 上进行锁文件安装、类型与生产构建、单元测试、Electron 冒烟、目录打包和打包后启动检查。PR 创建、更新、重新打开及 main push 会触发；使用与发布一致的 runner 和 Node/pnpm 版本，只读权限，同一 PR/main 的新提交取消旧检查；不生成安装包或发布 Release。必需检查需另在 GitHub 分支规则中配置，跨平台结果待首次 CI 运行确认。
 
@@ -713,3 +715,116 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 通过：三入口 typecheck、oxlint 0 警告、prettier、34 项单元测试（loop 新增瞬态重试成功、4xx 不重试用例）、`pnpm build`、`pnpm smoke`、扩展后的 `pnpm smoke:workspace`（新增 newChat/listChats 搜索/openChat/deleteChat 断言，modelCalls 断言保持单次）。另以隔离 userData 的真实构建实例经 CDP 核对 7 个界面状态（闲置未配置/闲置/会话/历史弹窗/新对话回闲置/项目面板/面板历史），DOM 断言含会话态无闲置残留、发送后输入清空、历史时间合法；视觉验收两轮通过（第一轮发现：会话态闲置内容残留、历史 Invalid Date（SQL 列名 `updated_at` 未别名所致）、ChatSessions effect 因回调引用不稳定导致无限重渲染——均已修复）。
 
 边界与待验证：真实致远一号的流式与工具调用兼容性仍未实测，本次界面与循环改动均在脱敏桩与假密钥（真实端点 401）路径上验证；删除历史会话不可恢复；@ 引用候选仅限工作区条目与打开文档（Canvas 原始资料经资料条目引用）；窄窗口（高度 <600px）闲置态为滚动降级，未逐档视觉核对；`field-sizing-content` 在浏览器预览的旧内核下退化为固定高度。
+
+## 校园登录会话跨重启保存（2026-09-14）
+
+已确认实现缺口：原有 `persist:dela-campus` 仅持久化网站指定有效期的 Cookie；没有会话 Cookie 的恢复机制，也未在登录完成后立即 flush。原连接检测仅检查 JAAuthCookie 或校园域 Cookie，不能证明登录有效。Electron Cookie API 明确说明无 expirationDate 的 Cookie 不跨会话保留：https://www.electronjs.org/docs/latest/api/cookies 。未读取真实账号 Cookie，因此实际 Cookie 名称、学校端期限不作推断。
+
+主进程 `timetable/session.ts` 为登录、状态检测、同步、断开共用同一初始化 Promise。仅对专用分区的 sjtu.edu.cn 及子域 session Cookie 保存 safeStorage 加密快照（userData/campus-session.bin）；监听添加、覆盖和删除，临时文件写完后替换快照；恢复时保留 hostOnly/domain/path/secure/httpOnly/sameSite 属性且不覆盖当前已有 Cookie，不人工增加有效期。网站持久 Cookie 与浏览器信任数据继续由原分区管理，登录和同步后 flush；断开清除整个专用分区存储和快照。renderer 不接触 Cookie 或文件。
+
+课表请求复用原 POST 接口并设置 15 秒超时；登录导航到校园网站后还需通过数据结构验证才报告成功。设置页状态不再凭 Cookie 存在判定成功，空课表仍视为有效登录；重定向、HTML、无效响应或网络错误显示未连接，保留本地会话和课表缓存。未新增自动 SSO 续期；学校端会话过期时经原登录窗口重登，可复用学校允许的浏览器信任状态。
+
+已验证：39 项单元测试（包含实际响应判定）、生产构建、Electron smoke；独立三进程模拟 Cookie 测试验证会话恢复、hostOnly/HttpOnly/Secure/SameSite、持久 Cookie 留存和断开后无残留。真实扫码、信任期限、学校服务端失效策略与跨平台凭据加密仍待实机验证。
+
+补充验证：Windows 目录打包与 `dist/win-unpacked/Dela.exe --smoke-test` 通过；三进程测试还覆盖 Cookie 删除不复活、覆盖后恢复最新值。相关文件 Prettier、Oxlint 与 `git diff --check` 通过。本次未修改依赖、数据库或 renderer。
+
+## LLM 提供商自定义配置（2026-09-14）
+
+本节取代此前"仅致远一号"的模型接入约定。调研了 cc-switch（preset 与配置实例分离、`current` id 切换、模型列表端点探测）、Cherry Studio（真实对话请求级"检查"）与 ChatBox（ProviderDefinition 预设目录）后，按本应用业务裁剪：预设只预填默认值不持密钥，密钥只在主进程的配置实例中，一个 activeId 决定当前使用中的提供商。
+
+### 数据与存储
+
+- `src/shared/llm-presets.ts`（main/renderer 共享）：致远一号、DeepSeek、MiniMax、智谱 Coding Plan、自定义五个预设，各含 baseUrl、初始模型列表与获取密钥的控制台链接；第三方模型名是规划时按官方文档整理的初始建议，权威来源是检测按钮返回的模型列表。
+- 主进程 `credentials.ts` 新增 `llm-providers.bin`（safeStorage 加密，userData）：`{ providers: [{ id, name, baseUrl, apiKey, models, model, presetId }], activeId }`。旧 `model-credential.bin`（key+model 单凭据）在首次访问时懒迁移为一条致远一号提供商配置（沿用密钥与模型，模型不在预设列表时回退默认），写入成功后删除旧文件；迁移失败保留旧文件。
+- `agent/providers.ts`：列表/保存/删除/启用/选模型操作（zod 校验：名称 ≤50、baseUrl 须 http(s)、密钥 ≤4096、模型列表 1–64 项且默认模型必须在列表内）；`list()` 返回不含密钥的视图，新建提供商自动启用，编辑时空密钥表示沿用已存密钥，删除使用中的提供商回到未配置态。
+- 检测功能（`verifyLlm`）：GET 模型列表端点——baseUrl 以 `/v数字` 结尾时取 `{base}/models`，否则依次尝试 `{base}/v1/models`、`{base}/models`；`Authorization: Bearer` + 15s 超时；401/403 报密钥无效，2xx 解析 OpenAI `{data:[{id}]}`、智谱 `{models:[{slug}]}` 与裸数组三种形态并返回模型列表供导入。已保存提供商可免重填密钥直接检测（主进程取存储密钥），编辑对话框草稿也可检测。个别网关 `/models` 不校验密钥，检测结果以该端点行为为准，界面文案已注明。
+- `agent/loop.ts` 端点改为 `baseUrl 去尾部斜杠 + /chat/completions`；`agent/api.ts` 的 configured/model 与请求参数均取自 activeId 对应提供商，未配置报"请先在设置中配置模型服务"。
+
+### 通道与界面
+
+- 新增 `llm:list/save/remove/set-active/set-model/verify` IPC（沿用 `checkWorkspaceSender` + zod），preload 暴露 `dela.llm`；`workspace:configure-model` 及其 preload 方法移除。`WorkspaceChat` 增加 `providerName` 与 `models`（composer 模型下拉的数据源），模型枚举不再硬编码。
+- 设置页新增「模型服务」分区（导航置于数据与服务之后）：提供商列表行（使用中 Badge、使用/编辑/两步确认删除）、添加/编辑对话框（预设预填、密钥留空保持、模型 chips 增删、默认模型选择、检测密钥与导入模型列表、获取密钥外链）；「数据与服务」移除致远一号行。浏览器预览（无 preload）显示仅桌面端可用提示。
+- 聊天空状态快捷表单改为"预设厂商 + API Key + 模型"三字段，保存后直接启用；composer 底部模型下拉改为数据驱动（原三处重复的模型标签表删除，统一显示模型 id）；AgentPanel 的「模型设置」按钮移除（职责并入 composer 下拉与设置页）；"会提供给致远一号"文案改为动态 providerName。
+
+### 验证状态与边界
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、53 项单元测试（新增 providers 14 项：保存/脱敏视图/空密钥沿用/模型校验/启用与删除/端点候选规则/三种列表解析/检测的 401、回退、存储密钥、无密钥、不可达分支）、`pnpm smoke`、`pnpm smoke:workspace`（新增断言：旧单凭据迁移为致远一号提供商并删除旧文件、list 不含密钥、verify 经 /models 成功且返回模型、setModel 切换后 ask 的 model/providerName 正确）。设置页模型服务界面为代码实现，未做实机视觉核对；第三方提供商（DeepSeek、MiniMax、智谱 Coding Plan）的真实端点流式与工具调用兼容性未实测，属待验证能力；检测功能未对真实第三方密钥验证。
+
+## 水源 User API Key 授权验证（2026-09-14）
+
+已验证但尚未接入应用：水源可向展示名为 Dela 的请求签发只读 Discourse User API Key。测试由用户在水源授权页手动确认；本机以一次性 RSA 私钥解密回传 payload，使用 `User-Api-Key` 与 `User-Api-Client-Id` 成功请求 `GET /session/current.json`，再成功 `POST /user-api-key/revoke` 撤销测试 key。测试 key 未写入 Dela，临时私钥已删除。
+
+## 课表控件与层叠改进、首页视觉层次、重启默认新对话（2026-09-14）
+
+四项并行改动，文件互不重叠，由四个子任务实现后统一集成验证。
+
+### 课表：自定义 Select 与数字日期输入
+
+- 新增 `components/ui/select.tsx`：radix-ui Select 原语的组合式薄封装（写法对齐既有 dropdown-menu）。触发器保持原页头胶囊样式（h-8、bg-secondary/70、text-xs、ChevronDown），下拉内容 Portal + rounded-lg/bg-popover/shadow-md，选项 hover 用 accent、当前项右侧 Check 标识，开合动画沿用 tw-animate 类，明暗主题走既有 token。页头「学期」「教学周」两处原生 select 已替换，HeaderSelect 随之删除。
+- 新增 `features/timetable/DateInput.tsx`：年/月/日三段数字输入（inputMode=numeric，`/` 分隔），仅在 onChange 过滤非数字并裁剪长度（不用 keydown 操纵值，IME 安全；焦点类按键带 isComposing 守卫）；段内填满自动跳段、Backspace 空段回退、方向键移段；三段构成真实日期才输出 `YYYY-MM-DD`，否则空串由调用方提交时报错。新建事件弹窗的开始/结束日期与开学日期弹窗均已替换；时间输入保留原生 `type="time"`。
+- 新增 `layoutDayColumns`（timetable-format.ts，纯函数 + 7 项单元测试）：把时间严格相交（start < other.end 且 other.start < end；首尾相接不算）的项聚簇，簇内按开始时间 first-fit 分列，每项宽度 = 100/最大列数。周视图同一天的课程与本地事件参与同一次布局（此前渲染顺序靠后者直接覆盖先前者）；事件以裁剪到时间轴后的可见区间参与相交判定。
+- 课程块第二行改为「教师 · 教室」（教师为 null 时与原显示一致）——教师排在教室之前，保证并排窄列截断时教师名可见；事件块按高度分级渲染：≥44px（约 55 分钟）显示时间行、≥60px（约 75 分钟）再显示地点行，次要行改 leading-none，避免中文行高下文字贴底被裁。44/60 为按内容区行高实测推导的阈值（padding 12 + 标题 15 + 间距 2 + 行 11），非随意魔法数。
+- 月历日格溢出项从静态「还有 N 项」改为「+N 更多」按钮，点击经 radix Popover 展示当天完整条目（时间前缀 + 标题，沿用各项配色）。日格由 `<button>` 改为 `div role="button"` 以合法嵌套交互元素；键盘 Enter/Space 仍创建事件、读屏合成 click（detail===0）语义保留，两者都以 `event.target === event.currentTarget` 屏蔽「更多」冒泡；「更多」的 pointerdown 不作为拖拽选区起点，跨天拖拽建事件不回归。
+
+### 首页：ChatGPT 式视觉层次
+
+闲置态自上而下重排：弹性留白把问候语压至视口上部约 1/4–1/3（text-3xl；`globals.css` 补 `--text-3xl` 字号缩放映射，随「设置›外观›字号」缩放）→ 快捷入口行（新建项目直达；近期作业仅 Canvas 已连接时出现；今天的日程——后两者沿用原建议胶囊填入 prompt 并聚焦 composer 的行为）→ hero composer（主视觉，节点与 `layout="position"` 两状态衔接动画不变）→ 提供商声明 → 「最近项目」卡片（原「继续工作」改名，卡片区容器放宽至与 composer 同宽 max-w-3xl；该区右上角的原「新建项目」按钮上移为快捷入口，空态文案保留）。会话态布局、历史/新对话按钮、吸底 composer 未动；顶部与底部弹性留白按 3:2 分摊，内容溢出时收缩为 0 正常滚动。
+
+### 重启后默认新对话
+
+`agent/api.ts` 的 `resolveSession`：进程内指针缺失（每次重启后的首次访问）不再回退「最近更新的会话」，直接视为新对话（指针置 null）；历史会话仍可经「历史对话」弹窗（listChats/openChat）找回。`ask` 在指针为 null 时本就新建会话，行为不变；`scripts/workspace-smoke.ts` 的断言全部发生在同进程内显式设置指针之后，不受影响。唯一残余边界：进程在 ask 落库前崩溃可能遗留 0 消息空会话出现在历史中，可手动删除。该行为作用于所有 scope（首页与项目助手一致）。
+
+### 验证状态
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、60 项单元测试（含 layoutDayColumns 7 项）、`pnpm smoke`、`pnpm smoke:workspace`。另以隔离 userData 的真实构建实例经 CDP 完成 12 项程序化断言（重启后 getChat 为新对话且旧会话保留在历史、周视图 28 个块无互相覆盖、月历 +2/+3 更多与弹层 6 项、数字日期输入逐段跳段、自定义下拉可打开）与截图视觉验收：judge 首轮 9 张中 8 张通过，唯一 fail（周视图并排窄列教师被截断、矮事件时间贴底裁切）已按上述方案修复并通过类型与构建；修复后的实机视觉、浅色主题截图与真实 IME 手感未做第二轮验收，待真实环境手动确认。探针环境限制：瞬态 userData 中 Chromium os_crypt 密钥往返不稳定，导致探针内「已配置模型」状态不可靠；该路径不在本次改动范围内，真实环境不受影响。
+
+## 课表交互补强与首页信息密度调整（2026-09-14 第二轮）
+
+两项并行（课表组、首页组，文件互不重叠），由两个 subagent 先行网络调研（FullCalendar 事件渲染源码、Radix Tooltip/Popover 官方文档、Google Calendar 事件卡排版、LibreChat/Open WebUI 模型选择器、WCAG 2.2.2 与 AnimatePresence 文档）后实现，总调度统一集成验收；用户随后实测反馈四项精修（模型面板向下展开、移除「最近项目」标题、详情弹窗去掉与右上角 X 重复的「关闭」文字、快捷入口与 composer 间距按亲密性收紧为 mt-4）已并入。
+
+### 课表
+
+- **悬浮提示**：周视图课程/事件块的原生 `title` 换成共享 Radix Tooltip（`TooltipTrigger asChild` 包住 article）。课程显示课程名/教师/教室/周次；事件显示名称/`formatEventRange`（跨天两端各带日期与星期）/地点。月历摘要条维持概览形态不加 tooltip（日格已有拖拽建事件与「+N 更多」Popover，再叠点击目标易冲突）。
+- **删除自建事件**：`deleteEvent(id: number)` 贯通 `shared/api.ts` → `preload/index.ts` → `timetable/ipc.ts`（`checkWorkspaceSender` + zod，删除不可逆故比照 create-event 多一层来源校验，既有其他 timetable handler 无来源校验属既有不对称，未在本次扩散修改）→ `timetable/api.ts`（`z.number().int().positive()` 后仅 `DELETE FROM calendar_events WHERE id = ?`，课程表物理上不可达；id 不存在幂等无操作）。新增单元测试断言 SQL 仅命中 calendar_events、非法 id 抛错且 prepare 仅一次。
+- **跨天连续条**：`eventDayEdges`（纯函数 + 测试）按事件真实起止日给出 isStart/isEnd（被周切割的延续日不算；结束恰为午夜归属前一天，与 `localEventsByDay` 一致）。参照 FullCalendar v6 `h-event.css` 的边缘模型：非首段去左圆角/非末段去右圆角；仅当该段独占整列（`layout.width === 100`，无并排冲突）时向相邻列出血压过分隔线（`-1px` / `calc(100% + 1px)`，由既有 1px 分隔线推导）无缝相接；跨周首/周末按周边缘收口；与课程并排时退回独立胶囊（几何上无法出血）。时间前缀仅首段显示，跨天首段写全「9月12日 22:00 – 9月16日 10:00」避免「22:00–10:00」式误导。
+- **详情弹窗**：新增 `EventDetailDialog`（radix Dialog，Overlay/Content 沿用赞赏弹窗 tw-animate 类），排版仿 Google Calendar：`--cal-*` 色点 + 标题头部、Clock/MapPin/User/CalendarRange/GraduationCap 信息行，课程另显班级·课程号与学分。自建事件两步确认删除（删除期间 Esc/遮罩由 `!deleting` 守卫），成功后关闭并刷新事件列表；课程只读。周视图桌面块（Tooltip + 点击 + Enter/Space 键盘可达）与窄屏卡片均可打开（窄屏否则无法删除）。不做编辑功能。
+
+### 首页
+
+- 闲置态重排：顶部弹性留白 `grow-3`→`grow-5`（与底部 5:2，composer 视觉重心下移至约视口 2/3；受最近项目卡片占位影响实际约 60%+，弹性收缩属既有约定）；快捷入口行去掉 `justify-center`，与 composer 同宽同 padding 左对齐；入口→composer 间距 mt-4（用户精修：亲密性语义）、问候语→入口 mt-8。会话态与 `layout="position"` 衔接动画未动。
+- 项目卡片副行去掉「继续 」前缀（用户确认的「继续工作」文字提示落地）；「最近项目」h2 标题移除，卡片自解释，`aria-label` 保留读屏上下文；提供商免责声明整段删除。
+- **两列模型面板**：ChatComposer 的 DropdownMenu 换成 radix Popover（`side="bottom"` 向下展开，用户精修），打开时 `window.dela.llm.list()` 现读设置配置；左列 Provider（active 者绿点 title=使用中，当前查看 bg-accent），右列该 Provider 的 models（active 且匹配当前 model 时 bg-accent + Check）。提交经 use-chat 新增的 `selectModel(provider, model)`：非 active 先 `llm.setActive(id)` 再 `llm.setModel(model)`，本地乐观更新后 `refresh()`；原 `setModel` 因唯一调用方迁移而删除。AgentPanel 同步接线，工作区助手复用不受影响。加载失败降级为空配置文案（实际仅在无 preload 时可达）。
+- **快捷入口直发**：`send(directText?: string)` 以参数绕过 prompt state 异步时序；「近期作业」「今天的日程」单击即发并进入会话态；「新建项目」保持直接导航。composerRef/inputRef 随之删除。
+- **英文轮播问候**：7 条英文预设（Good morning/afternoon/evening、Welcome back、Working late、Ready to continue?、What are we working on?），按时间段定初始值，`GREETING_INTERVAL_MS = 8000` 轮换，`AnimatePresence mode="wait"` 纯 opacity 0.3s（sync 叠放会双行重叠故弃用），`useReducedMotion()` 时定时器不启动。WCAG 2.2.2 严格暂停控件未做，属装饰性内容取舍，已记录。
+
+### 验证状态
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、65 项单元测试（新增 eventDayEdges 2、formatEventRange 2、deleteCalendarEvent 校验 1）、`pnpm smoke`。隔离探针（临时隔离 userData + CDP）确认闲置态布局、按钮左对齐与无免责声明；问候语轮播、两列模型面板（真实配置下向下展开）与课程详情弹窗（真实同步课程数据）已由用户真实环境实测确认；跨天连续条与删除流程由单元测试、代码评审与构建覆盖，实机观感待日常使用确认。探针中隔离实例因已知 os_crypt 限制无法进入「已配置」态、断连课表显示连接引导卡，均为环境边界而非应用缺陷；相关已知限制与探针前置检查已沉淀为用户级 skill（`~/.agents/skills/probe-preflight`），后续探针须先过其六项门禁。
+
+这表明 Dela 可采用官方 Discourse User API Key 协议让用户授权水源读取权限，不依赖 OpenClaw 安装、配置或应用展示名白名单。已验证的是一个账号的 `read` scope 完整流程；全量账户覆盖、长期站点策略、其他 scopes 与 Dela 内的凭据保存/UI 尚未实现或验证。完整证据与请求差异见 `docs/shuiyuan-api-findings.md`。
+
+## 资料导航、多标签与 PDF.js 资源控制（2026-09-14）
+
+本节取代此前“未标注学期保留在主目录”、资料页隐藏标签栏及 PDF 页码恢复待实现的约定。采用现有 ProjectView 标签、持久视图与 Explorer 行内菜单，不新增阅读器管理层。课程资料、我的资料、归档统一为可折叠分区；Canvas 菜单明确区分课程列表同步、课程行菜单中的资料同步和令牌更换，文件菜单承载打开、加入项目与下载，文档低频操作合并到右上角菜单。交互参考 Notion 官方侧栏说明：https://www.notion.com/help/navigate-with-the-sidebar 。
+
+PDF 使用精确版本 pdfjs-dist 6.3.289（构建依赖；renderer 动态加载，Worker、CMaps、标准字体、WASM 随明确产物发布）。SourceDetail 的 PDF iframe 替换为 PdfReader，HTML iframe 不变。CSP 允许 dela-resource fetch 与 WASM 编译，不开放普通 unsafe-eval；协议 CORS 仅返回开发源或 file 页的 null 源。
+
+### 官方阅读组件取代自制渲染器
+
+此前自制等高槽位、按挂载页数均分预算和 effect 中清除画布造成滚动/缩放闪烁。最终直接采用安装包中的 PDFViewer，删除自制 PdfPage、窗口范围计算、画布双缓冲、DPR 分配与缩放锚点算法。依据 Mozilla 官方 examples/components/simpleviewer.mjs 集成，由 PDFRenderingQueue 优先处理可见页、再处理滚动方向邻页；PDFPageViewBuffer 基线 10 页，容量按 max(10, 2×可见页数+1) 调整并保护可见页。保留轻量页面容器，LRU 淘汰画布与页资源，不渲染全书。
+
+缩放采用官方 updateScale，drawingDelay 使用官方 app_options 默认 400ms：先保留并 CSS 缩放已有画面，再重绘。触摸板 ctrl+wheel 的像素模式转换依据官方 app.js 的指数公式；嵌入 Dela 时把 client 坐标转为 PDFViewer 使用的 offset-parent 坐标。缩放比例与上下限由官方组件负责，工具栏显示实际比例；适合宽度在窗口改变时重算。保存实际页面的页码与页内相对偏移到现有 scroll 字段，不在 React 卸载后读取已脱离 DOM 的尺寸。使用 abortSignal 解除官方滚动监听及 ResizeObserver，setDocument(null) 释放阅读器资源，destroy 加载任务终止 Worker。
+
+单页 maxCanvasPixels=4×1024²（16 MiB RGBA），关闭额外 detail canvas，输出 DPR 由官方上限计算，不再固定为 2。保留官方基于视口面积的画布限制。10 页全部触及上限时基础画布约 160 MiB，缓存扩容及缩放替换还可增加；没有固定 48/96 MiB 全窗预算，也不宣称进程内存上限。后台标签无驻留 PDF 实例，并排各自占用资源。文字层支持选择引用，注释层、自动链接、脚本及批注编辑不启用。
+
+源码依据：https://github.com/mozilla/pdf.js/blob/master/web/pdf_viewer.js 、https://github.com/mozilla/pdf.js/blob/master/web/pdf_rendering_queue.js 、https://github.com/mozilla/pdf.js/blob/master/web/pdf_page_view.js 、https://github.com/mozilla/pdf.js/blob/master/web/app_options.js 。同时核对安装包 6.3.289 的实际导出与行为。
+
+### 分段读取与缓存路径
+
+PDF.js 网络流只对 http(s) 自动使用 Range，自定义协议通过 PDFDataRangeTransport + fetch 显式请求 64 KiB 首段及所需区间，主进程沿用限定 source/entry ID 的磁盘流。disableAutoFetch、disableStream 均开启，切换/关闭文档取消请求并销毁任务；不把整份 PDF 字节放入 Zustand。远端课件首开仍先下载到磁盘。未见页尺寸由官方延迟初始化，混合横竖页加载后使用真实比例。
+
+修复缓存路径问题：每次 Range 请求曾调用 availablePath，把已存在缓存误判为同名冲突并重命名，造成并发请求 stat 旧路径时 ENOENT。目标目录内的缓存直接复用原路径，仅真正迁移目录时选择新路径；保留已有带序号文件。协议 await 文件响应使异步异常进入受控响应。只显示首次读取失败，取消其他分段不会将原错误覆盖为 AbortError。
+
+### 验证范围
+
+scripts/pdf-smoke.cjs 使用隔离 Electron、生产 renderer、300 页含 2048×2048 图像及 JPEG2000 的合成 PDF。覆盖归档折叠、多标签/快速切换、位置恢复、分段失败重试、画布保留及替换过程中可见性、触摸板合成事件、DPR 上限和不同窗口尺寸。通过 MutationObserver 与定时采样检查可见画布，避免隐藏窗口 requestAnimationFrame 不运行造成零次采样的假通过。workspace smoke 覆盖 24 次并发分段请求保持缓存路径。真实课件长期内存、触摸板硬件手感和其他平台尚未验收。

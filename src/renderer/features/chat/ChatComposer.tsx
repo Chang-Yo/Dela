@@ -1,21 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { ArrowUp, AtSign, ChevronDown, Plus, Square } from 'lucide-react';
+import { Popover } from 'radix-ui';
+import { ArrowUp, AtSign, Check, ChevronDown, Plus, Square } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
+import type { LlmProviderView } from '../../../shared/api';
 import type { ChatReference } from './use-chat';
-
-const modelLabels: Record<string, string> = {
-  qwen: 'Qwen',
-  'deepseek-chat': 'DeepSeek',
-  'deepseek-reasoner': 'DeepSeek 深度思考',
-  minimax: 'MiniMax',
-};
 
 const slashCommands = [
   { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
@@ -63,7 +52,7 @@ export function ChatComposer({
   busy,
   configured,
   model,
-  onModelChange,
+  onModelSelect,
   references,
   onRemoveReference,
   onAddReference,
@@ -79,7 +68,7 @@ export function ChatComposer({
   busy: boolean;
   configured: boolean;
   model: string;
-  onModelChange: (model: string) => void;
+  onModelSelect: (provider: LlmProviderView, model: string) => void;
   references: ChatReference[];
   onRemoveReference: (key: string) => void;
   onAddReference: (ref: ChatReference) => void;
@@ -93,6 +82,23 @@ export function ChatComposer({
   const [menu, setMenu] = useState<MenuState>(null);
   const [index, setIndex] = useState(0);
   const itemRef = useRef<HTMLLIElement>(null);
+  // 两列模型面板：打开时读取设置配置保证新鲜；focusedId 是左列当前查看的提供商。
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const focused = providers?.find((provider) => provider.id === focusedId) ?? null;
+
+  const openModelPicker = (open: boolean) => {
+    setModelPickerOpen(open);
+    if (!open || !window.dela) return;
+    window.dela.llm
+      .list()
+      .then((views) => {
+        setProviders(views);
+        setFocusedId(views.find((view) => view.active)?.id ?? views[0]?.id ?? null);
+      })
+      .catch(() => setProviders([]));
+  };
 
   const slashItems =
     menu?.kind === 'slash'
@@ -261,30 +267,90 @@ export function ChatComposer({
         </Button>
         <div className="flex-1" />
         {configured && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
+            <Popover.Trigger asChild>
               <Button
                 className="gap-1 text-xs text-muted-foreground"
                 size="sm"
                 type="button"
                 variant="ghost"
               >
-                {modelLabels[model] ?? model}
+                {model}
                 <ChevronDown className="size-3" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={6}>
-              {Object.entries(modelLabels).map(([key, label]) => (
-                <DropdownMenuItem
-                  key={key}
-                  className={cn(model === key && 'font-medium')}
-                  onSelect={() => onModelChange(key)}
-                >
-                  {label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                align="end"
+                className="z-50 w-80 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                side="bottom"
+                sideOffset={6}
+              >
+                {providers === null ? (
+                  <p className="px-2 py-3 text-xs text-muted-foreground">正在加载模型列表…</p>
+                ) : providers.length === 0 ? (
+                  <p className="px-2 py-3 text-xs text-muted-foreground">
+                    还没有配置模型服务，可在设置 › 模型服务 中添加。
+                  </p>
+                ) : (
+                  <div className="flex gap-0.5">
+                    <ul aria-label="模型服务" className="w-28 shrink-0 overflow-y-auto">
+                      {providers.map((provider) => (
+                        <li key={provider.id}>
+                          <button
+                            className={cn(
+                              'flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs transition-colors',
+                              provider.id === focusedId
+                                ? 'bg-accent text-accent-foreground'
+                                : 'hover:bg-accent/50',
+                            )}
+                            onClick={() => setFocusedId(provider.id)}
+                            type="button"
+                          >
+                            <span className="truncate">{provider.name}</span>
+                            {provider.active && (
+                              <span
+                                aria-label="使用中"
+                                className="ms-auto size-1.5 shrink-0 rounded-full bg-emerald-500"
+                                title="使用中"
+                              />
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <ul
+                      aria-label="模型"
+                      className="max-h-64 min-w-0 flex-1 overflow-y-auto border-l pl-1.5"
+                    >
+                      {focused?.models.map((item) => (
+                        <li key={item}>
+                          <button
+                            className={cn(
+                              'flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs transition-colors',
+                              focused.active && model === item
+                                ? 'bg-accent font-medium text-accent-foreground'
+                                : 'hover:bg-accent/50',
+                            )}
+                            onClick={() => {
+                              setModelPickerOpen(false);
+                              onModelSelect(focused, item);
+                            }}
+                            type="button"
+                          >
+                            <span className="truncate">{item}</span>
+                            {focused.active && model === item && (
+                              <Check className="ms-auto size-3.5 shrink-0" />
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
         )}
         {busy ? (
           <Button

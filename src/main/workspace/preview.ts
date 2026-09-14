@@ -11,7 +11,13 @@ export function registerPreviewScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: previewScheme,
-      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        corsEnabled: true,
+        stream: true,
+      },
     },
   ]);
 }
@@ -19,6 +25,9 @@ async function pdfResponse(path: string, request: Request): Promise<Response> {
   const size = (await fileStat(path)).size;
   const headers = new Headers({
     'accept-ranges': 'bytes',
+    'access-control-allow-origin':
+      request.headers.get('origin') === 'http://127.0.0.1:5173' ? 'http://127.0.0.1:5173' : 'null',
+    'access-control-expose-headers': 'Accept-Ranges, Content-Length, Content-Range',
     'content-disposition': 'inline',
     'content-type': 'application/pdf',
     'x-content-type-options': 'nosniff',
@@ -76,7 +85,7 @@ export function registerPreviewProtocol(): void {
             ? workspacePdfPath(id)
             : null;
       if (!path) throw new Error('无效的文档地址');
-      return pdfResponse(path, request);
+      return await pdfResponse(path, request);
     } catch {
       return new Response(null, { status: 404 });
     }

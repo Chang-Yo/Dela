@@ -1,5 +1,5 @@
 import type { TimetableState } from '../../shared/api';
-import { BrowserWindow, session, type WebContents } from 'electron';
+import { BrowserWindow, type WebContents } from 'electron';
 import { z } from 'zod';
 import {
   calendarEventColors,
@@ -9,8 +9,8 @@ import {
 } from '../../shared/api';
 import { getDatabase } from '../database';
 import { lessonOccurrences } from '../../shared/schedule';
+import { CAMPUS_PARTITION, flushCampusSession, getCampusSession } from './session';
 
-export const CAMPUS_PARTITION = 'persist:dela-campus';
 const CAMPUS_ORIGIN = 'https://i.sjtu.edu.cn';
 const LOGIN_URL = `${CAMPUS_ORIGIN}/jaccountlogin`;
 const TIMETABLE_URL = `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkb.html?gnmkdm=N2151`;
@@ -196,13 +196,18 @@ function mapRow(row: LessonRow): TimetableLesson {
 }
 
 export async function isConnected(): Promise<boolean> {
-  const cookies = await session.fromPartition(CAMPUS_PARTITION).cookies.get({});
-  return cookies.some(
-    (cookie) => cookie.name === 'JAAuthCookie' || cookie.domain?.endsWith('i.sjtu.edu.cn'),
-  );
+  const campus = await getCampusSession();
+  if ((await campus.cookies.get({ url: CAMPUS_ORIGIN })).length === 0) return false;
+  try {
+    await fetchTimetable(currentSemester());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
+export async function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
+  await getCampusSession();
   return new Promise((resolve) => {
     const parent = BrowserWindow.fromWebContents(sender) ?? undefined;
     const loginWindow = new BrowserWindow({
@@ -228,11 +233,19 @@ export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
       resolve(result);
       if (!loginWindow.isDestroyed()) loginWindow.close();
     };
-    const checkNavigation = (url: string) => {
+    let checking = false;
+    const checkNavigation = async (url: string) => {
       const reachedCampus =
         url.startsWith('https://i.sjtu.edu.cn/') || url.startsWith('http://i.sjtu.edu.cn/');
-      if (reachedCampus && !url.includes('/jaccountlogin')) {
-        finish({ ok: true });
+      if (reachedCampus && !url.includes('/jaccountlogin') && !checking && !completed) {
+        checking = true;
+        try {
+          await fetchTimetable(currentSemester());
+          await flushCampusSession();
+          finish({ ok: true });
+        } catch (error) {
+          finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
       }
     };
     loginWindow.webContents.on('did-navigate', (_event, url) => checkNavigation(url));
@@ -248,35 +261,44 @@ export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
   });
 }
 
+async function fetchTimetable(semester: string) {
+  const { xnm, xqm } = semesterParams(semester);
+  const body = new URLSearchParams({ xnm, xqm, kzlx: 'ck', xsdm: '' });
+  const response = await (
+    await getCampusSession()
+  ).fetch(TIMETABLE_URL, {
+    method: 'POST',
+    redirect: 'manual',
+    signal: AbortSignal.timeout(15000),
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Referer: `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkbIndex.html?gnmkdm=N2151`,
+    },
+    body: body.toString(),
+  });
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error('登录已失效，请重新登录');
+  }
+  if (!response.ok) throw new Error(`课表接口返回 ${response.status}`);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(await response.text());
+  } catch {
+    throw new Error('课表接口没有返回预期的数据，请重新登录后再试');
+  }
+  const parsed = responseSchema.safeParse(payload);
+  if (!parsed.success) throw new Error('课表返回了无法识别的数据');
+  return parsed.data;
+}
+
 export async function syncTimetable(semester: string): Promise<TimetableResult> {
   try {
-    const { xnm, xqm } = semesterParams(semester);
-    const body = new URLSearchParams({ xnm, xqm, kzlx: 'ck', xsdm: '' });
-    const response = await session.fromPartition(CAMPUS_PARTITION).fetch(TIMETABLE_URL, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        Referer: `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkbIndex.html?gnmkdm=N2151`,
-      },
-      body: body.toString(),
-    });
-    if (response.status >= 300 && response.status < 400) {
-      return { ok: false, error: '登录已失效，请重新登录' };
-    }
-    if (!response.ok) return { ok: false, error: `课表接口返回 ${response.status}` };
-    let payload: unknown;
-    try {
-      payload = JSON.parse(await response.text());
-    } catch {
-      return { ok: false, error: '课表接口没有返回预期的数据，请重新登录后再试' };
-    }
-    const parsed = responseSchema.safeParse(payload);
-    if (!parsed.success) return { ok: false, error: '课表返回了无法识别的数据' };
+    const data = await fetchTimetable(semester);
+    await flushCampusSession();
 
-    const semesterStart = parseSemesterStart(parsed.data.rqazcList);
-    const lessons = parsed.data.kbList.flatMap((raw, index) => {
+    const semesterStart = parseSemesterStart(data.rqazcList);
+    const lessons = data.kbList.flatMap((raw, index) => {
       const courseName = raw.kcmc?.trim();
       const weekday = Number(raw.xqj);
       if (!courseName || !Number.isInteger(weekday) || weekday < 1 || weekday > 7) return [];
@@ -421,6 +443,12 @@ export function createCalendarEvent(input: unknown) {
     location: event.location || null,
     color: event.color || null,
   });
+}
+
+export function deleteCalendarEvent(id: unknown) {
+  // 只删自建事件；课程在 timetable_lessons 表，不经此入口。
+  const eventId = z.number().int().positive().parse(id);
+  getDatabase().prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
 }
 
 export async function getTimetableState(requested?: unknown): Promise<TimetableState> {

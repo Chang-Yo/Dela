@@ -3,6 +3,8 @@ import { version } from '../../package.json';
 import type {
   DelaApi,
   CalendarEventInput,
+  LlmSaveInput,
+  LlmVerifyInput,
   MailComposeFileKind,
   MailConfigureInput,
   MailSendInput,
@@ -44,6 +46,14 @@ contextBridge.exposeInMainWorld('dela', {
     getFontScale: () => ipcRenderer.invoke('settings:get-font-scale'),
     setFontScale: (scale: FontScalePreference) =>
       ipcRenderer.invoke('settings:set-font-scale', scale),
+  },
+  llm: {
+    list: () => ipcRenderer.invoke('llm:list'),
+    save: (input: LlmSaveInput) => ipcRenderer.invoke('llm:save', input),
+    remove: (id: string) => ipcRenderer.invoke('llm:remove', id),
+    setActive: (id: string) => ipcRenderer.invoke('llm:set-active', id),
+    setModel: (model: string) => ipcRenderer.invoke('llm:set-model', model),
+    verify: (input: LlmVerifyInput) => ipcRenderer.invoke('llm:verify', input),
   },
   mail: {
     getState: () => ipcRenderer.invoke('mail:get-state'),
@@ -100,6 +110,7 @@ contextBridge.exposeInMainWorld('dela', {
     listEvents: (startAt: string, endAt: string) =>
       ipcRenderer.invoke('timetable:list-events', startAt, endAt),
     createEvent: (input: CalendarEventInput) => ipcRenderer.invoke('timetable:create-event', input),
+    deleteEvent: (id: number) => ipcRenderer.invoke('timetable:delete-event', id),
     setSemesterStart: (semester: string, value: string) =>
       ipcRenderer.invoke('timetable:set-semester-start', semester, value),
     syncNow: (semester?: string) => ipcRenderer.invoke('timetable:sync', semester),
@@ -145,8 +156,6 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('workspace:open-chat', scope, sessionId),
     deleteChat: (scope: string, sessionId: string) =>
       ipcRenderer.invoke('workspace:delete-chat', scope, sessionId),
-    configureModel: (key: string, model: string) =>
-      ipcRenderer.invoke('workspace:configure-model', key, model),
     ask: (scope: string, prompt: string, context: string[]) =>
       ipcRenderer.invoke('workspace:ask', scope, prompt, context),
     cancelAsk: (scope: string) => ipcRenderer.invoke('workspace:cancel-ask', scope),

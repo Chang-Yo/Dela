@@ -1,10 +1,11 @@
-import { Info, Palette, Plug, type LucideIcon } from 'lucide-react';
+import { Bot, Info, Palette, Plug, type LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export type SettingsSectionId = 'connections' | 'appearance' | 'about';
+export type SettingsSectionId = 'connections' | 'llm' | 'appearance' | 'about';
 
 const sections: Array<{ id: SettingsSectionId; label: string; icon: LucideIcon }> = [
   { id: 'connections', label: '数据与服务', icon: Plug },
+  { id: 'llm', label: '模型服务', icon: Bot },
   { id: 'appearance', label: '外观', icon: Palette },
   { id: 'about', label: '关于', icon: Info },
 ];

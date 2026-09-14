@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import { z } from 'zod';
 import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
-import { loadModelCredential } from '../credentials';
 import { getDatabase } from '../database';
 import { readCanvasSource } from '../canvas/api';
 import { readWorkspaceEntry } from '../workspace/api';
+import { getActiveLlmProvider } from './providers';
 
 const idSchema = z.string().uuid();
 
@@ -18,8 +18,8 @@ type SessionRow = {
   updated_at: string;
 };
 
-// 每个 scope 记住当前打开的会话；null 表示用户已点“新对话”但还没发消息。
-// 缺省（进程启动后首次访问）指向最近更新的会话，与旧版单一会话行为一致。
+// 每个 scope 记住当前打开的会话；null 表示新对话闲置态（点了“新对话”，或重启后尚未恢复历史）。
+// 指针缺失（进程启动后首次访问）同样视为新对话，不回退最近会话；历史经 listChats/openChat 找回。
 const activeSession = new Map<string, string | null>();
 
 function sessionRow(id: string): SessionRow | null {
@@ -31,20 +31,18 @@ function sessionRow(id: string): SessionRow | null {
 
 function resolveSession(scope: string): SessionRow | null {
   const known = activeSession.get(scope);
-  if (known !== undefined) return known ? sessionRow(known) : null;
-  const row = getDatabase()
-    .prepare('SELECT * FROM chat_sessions WHERE scope=? ORDER BY updated_at DESC LIMIT 1')
-    .get(scope) as SessionRow | undefined;
-  activeSession.set(scope, row?.id ?? null);
-  return row ?? null;
+  if (known === undefined) activeSession.set(scope, null);
+  return known ? sessionRow(known) : null;
 }
 
 function snapshot(row: SessionRow | null): WorkspaceChat {
-  const credential = loadModelCredential();
+  const provider = getActiveLlmProvider();
   return {
     sessionId: row?.id ?? null,
-    configured: Boolean(credential),
-    model: credential?.model ?? 'qwen',
+    configured: Boolean(provider),
+    providerName: provider?.name ?? null,
+    model: provider?.model ?? '',
+    models: provider?.models ?? [],
     messages: row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
     running: asking.has(row?.scope ?? ''),
     activeTool: asking.get(row?.scope ?? '')?.tool,
@@ -125,8 +123,8 @@ export async function ask(
   context: string[],
 ): Promise<WorkspaceChat> {
   if (asking.has(scope)) throw new Error('请等待当前回答完成');
-  const credential = loadModelCredential();
-  if (!credential) throw new Error('请先配置致远一号');
+  const provider = getActiveLlmProvider();
+  if (!provider) throw new Error('请先在设置中配置模型服务');
   const run = { controller: new AbortController(), tool: undefined as string | undefined };
   asking.set(scope, run);
   try {
@@ -204,8 +202,9 @@ export async function ask(
     persist();
     try {
       const result = await runAgent({
-        model: credential.model,
-        key: credential.key,
+        baseUrl: provider.baseUrl,
+        model: provider.model,
+        key: provider.apiKey,
         messages,
         tools: modelToolDefinitions(),
         signal: run.controller.signal,

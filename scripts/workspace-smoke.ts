@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, net } from 'electron';
+import { app, BrowserWindow, ipcMain, net, safeStorage } from 'electron';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,
@@ -33,7 +33,6 @@ import {
 } from '../src/main/workspace/api';
 import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
 import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
-import { saveModelCredential } from '../src/main/credentials';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);
@@ -49,6 +48,8 @@ globalThis.fetch = async (input, init) => {
       headers: { 'Content-Type': 'application/json', ...headers },
     });
   if (url.hostname === 'models.sjtu.edu.cn') {
+    if (url.pathname === '/api/v1/models')
+      return json({ data: [{ id: 'qwen' }, { id: 'minimax' }] });
     modelCalls += 1;
     const body = JSON.parse(String(init?.body));
     const text = body.messages.at(-1).content;
@@ -227,6 +228,25 @@ app
     assert.equal(largePreviewRange.status, 206);
     assert.equal(largePreviewRange.headers.get('content-range'), `bytes 0-4/${largePdfSize}`);
     assert.equal(await largePreviewRange.text(), '%PDF-');
+    // Repeated/concurrent range reads must never rename the cached file.
+    for (let batch = 0; batch < 3; batch++) {
+      await Promise.all(
+        Array.from({ length: 8 }, async () => {
+          const response = await net.fetch(second.previewUrl!, { headers: { Range: 'bytes=0-4' } });
+          assert.equal(response.status, 206);
+          assert.equal(await response.text(), '%PDF-');
+          assert.equal(
+            (
+              db
+                .prepare('SELECT value FROM workspace_settings WHERE key=?')
+                .get(`canvas-file:${canvasKey}`) as { value: string }
+            ).value,
+            cachedPath,
+          );
+          assert.deepEqual(new Uint8Array(readFileSync(cachedPath)), pdf);
+        }),
+      );
+    }
     // Legacy cache migration must work without downloading or overwriting an existing file.
     mkdirSync(join(profile, 'canvas-cache'), { recursive: true });
     writeFileSync(join(profile, 'canvas-cache', canvasKey), pdf);
@@ -410,14 +430,42 @@ app
     await win.loadFile(join(process.cwd(), 'out/renderer/index.html'));
     const invoke = (body: string) =>
       win.webContents.executeJavaScript(`(async () => { ${body} })()`);
+    const rendererRange = await invoke(`
+      const response = await fetch(${JSON.stringify(second.previewUrl)}, { headers: { Range: 'bytes=0-4' } });
+      return { status: response.status, range: response.headers.get('content-range'), text: await response.text() };
+    `);
+    assert.equal(rendererRange.status, 206);
+    assert.equal(rendererRange.text, '%PDF-');
+    assert.match(rendererRange.range, /^bytes 0-4\//);
     await invoke(
       `await window.dela.workspace.saveView(${JSON.stringify(folder.id)}, {tabs:[${JSON.stringify(note.id)}], active:${JSON.stringify(note.id)}, expanded:[${JSON.stringify(child.id)}], scroll:{${JSON.stringify(note.id)}:120}});`,
     );
-    saveModelCredential('fixture-model-key', 'qwen');
+    // 旧版单凭据迁移：写入 model-credential.bin 后首次访问 llm 配置应转为致远一号提供商。
+    writeFileSync(
+      join(profile, 'model-credential.bin'),
+      safeStorage.encryptString(
+        JSON.stringify({ key: 'legacy-model-key', model: 'deepseek-chat' }),
+      ),
+    );
+    const providers = await invoke(`return await window.dela.llm.list();`);
+    assert.equal(providers.length, 1);
+    assert.equal(providers[0].name, '致远一号');
+    assert.equal(providers[0].active, true);
+    assert.equal(providers[0].model, 'deepseek-chat');
+    assert.equal(existsSync(join(profile, 'model-credential.bin')), false);
+    assert.equal('apiKey' in providers[0], false);
+    const verified = await invoke(
+      `return await window.dela.llm.verify({ id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
+    );
+    assert.equal(verified.ok, true);
+    assert.deepEqual(verified.models, ['qwen', 'minimax']);
+    await invoke(`await window.dela.llm.setModel('minimax');`);
     const chat = await invoke(
       `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, '总结所选笔记', [${JSON.stringify(note.id)}]);`,
     );
     assert.equal(chat.messages.length, 2);
+    assert.equal(chat.model, 'minimax');
+    assert.equal(chat.providerName, '致远一号');
     assert.equal(modelCalls, 1);
     const email = prepareEmail({
       to: ['recipient@example.com'],

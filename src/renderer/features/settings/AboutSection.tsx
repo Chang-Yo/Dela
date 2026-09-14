@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import { Heart, X } from 'lucide-react';
+import { Feather, Heart, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { DelaBrand } from '../../components/ui/dela-brand';
 import alipayQr from '../../../../assets/Alipay.png';
@@ -7,7 +7,8 @@ import authorAvatar from '../../../../assets/author_avatar_square.jpg';
 import wechatQr from '../../../../assets/Wechat.png';
 import { SectionHeader } from './SectionHeader';
 
-const REPO_URL = 'https://github.com/Chang-Yo/Dela';
+const AUTHOR_GITHUB_URL = 'https://github.com/Chang-Yo';
+const AUTHOR_BLOG_URL = 'https://changyo.pages.dev';
 
 const sponsorChannels = [
   { label: '微信', dotClass: 'bg-[#07C160]', qrAlt: '微信收款二维码', qrSrc: wechatQr },
@@ -30,27 +31,35 @@ export function AboutSection() {
       <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-12 text-center">
         <DelaBrand className="mb-6 h-48 w-48" />
         <h2 className="text-2xl font-semibold tracking-tight">Dela</h2>
-        <p className="text-sm text-muted-foreground">If MySJTU can do it, so can Dela!</p>
+        <p className="text-sm text-muted-foreground">
+          The world keeps changing. Dela stays with you.
+        </p>
         <p className="mt-5 text-xs text-muted-foreground">
           版本 {window.dela?.version ?? '浏览器预览'}
         </p>
       </section>
       <footer className="flex items-center justify-between gap-3 border-t pt-5">
-        <div className="flex items-center gap-2.5">
-          <img
-            alt=""
-            aria-hidden="true"
-            className="size-6 rounded-full object-cover"
-            src={authorAvatar}
-          />
-          <span className="text-sm text-muted-foreground">
-            author: <span className="font-medium text-foreground">ChangYo</span>
-          </span>
+        <div className="grid gap-1.5">
+          <span className="text-base font-semibold tracking-tight">Author</span>
+          <div className="flex items-center gap-2.5">
+            <img
+              alt=""
+              aria-hidden="true"
+              className="size-6 rounded-full object-cover"
+              src={authorAvatar}
+            />
+            <span className="text-sm font-medium text-foreground">ChangYo</span>
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button asChild aria-label="GitHub 仓库" size="icon-sm" variant="ghost">
-            <a href={REPO_URL} rel="noreferrer" target="_blank">
+          <Button asChild aria-label="GitHub 主页" size="icon-sm" variant="ghost">
+            <a href={AUTHOR_GITHUB_URL} rel="noreferrer" target="_blank">
               <GithubMark />
+            </a>
+          </Button>
+          <Button asChild aria-label="个人博客" size="icon-sm" variant="ghost">
+            <a href={AUTHOR_BLOG_URL} rel="noreferrer" target="_blank">
+              <Feather />
             </a>
           </Button>
           <DialogPrimitive.Root>

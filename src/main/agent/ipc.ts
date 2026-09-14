@@ -1,7 +1,6 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
-import { saveModelCredential } from '../credentials';
 import {
   getChat,
   ask,
@@ -12,6 +11,16 @@ import {
   openChat,
   deleteChat,
 } from './api';
+import {
+  listLlmProviders,
+  saveLlmProvider,
+  removeLlmProvider,
+  setActiveLlmProvider,
+  setLlmModel,
+  verifyLlm,
+} from './providers';
+
+const idSchema = z.string().uuid();
 
 export function registerAgentIpc() {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
@@ -40,21 +49,33 @@ export function registerAgentIpc() {
   handle('cancel-ask', (scope) => {
     cancelAsk(z.string().max(100).parse(scope));
   });
-  // key 允许为空串：表示仅切换模型，保留已保存的密钥。
-  handle('configure-model', (key, model) =>
-    saveModelCredential(
-      z
-        .string()
-        .max(4096)
-        .parse(key ?? ''),
-      z.enum(['deepseek-chat', 'deepseek-reasoner', 'qwen', 'minimax']).parse(model),
-    ),
-  );
   handle('ask', (scope, prompt, context) =>
     ask(
       z.string().max(100).parse(scope),
       z.string().trim().min(1).max(20000).parse(prompt),
       z.array(z.string().max(512)).max(10).parse(context),
+    ),
+  );
+  // LLM 提供商配置通道；save/verify 的对象内字段在 providers.ts 内做 zod 校验。
+  const llmHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
+    ipcMain.handle(`llm:${name}`, (event, ...args) => {
+      checkWorkspaceSender(event);
+      return fn(...args);
+    });
+  llmHandle('list', () => listLlmProviders());
+  llmHandle('save', (input) => saveLlmProvider(input));
+  llmHandle('remove', (id) => removeLlmProvider(idSchema.parse(id)));
+  llmHandle('set-active', (id) => setActiveLlmProvider(idSchema.parse(id)));
+  llmHandle('set-model', (model) => setLlmModel(z.string().trim().min(1).max(200).parse(model)));
+  llmHandle('verify', (input) =>
+    verifyLlm(
+      z
+        .object({
+          id: idSchema.optional(),
+          baseUrl: z.string(),
+          apiKey: z.string().optional(),
+        })
+        .parse(input),
     ),
   );
 }

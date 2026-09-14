@@ -30,3 +30,6 @@ knowledge/*
 .DS_Store
 Thumbs.db
 .idea/
+
+# LLM
+.zcode/

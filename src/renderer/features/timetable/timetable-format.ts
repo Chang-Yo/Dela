@@ -40,12 +40,14 @@ export function colorFor(value: string): CalendarEventColor {
 }
 
 // 手动事件未选色时用石墨中性色，与自动配色的课程区分。
+export function calendarToneKey(color: string | null | undefined): CalendarEventColor {
+  return color && calendarEventColors.includes(color as CalendarEventColor)
+    ? (color as CalendarEventColor)
+    : 'slate';
+}
+
 export function eventTone(color: string | null | undefined): CSSProperties {
-  const key =
-    color && calendarEventColors.includes(color as CalendarEventColor)
-      ? (color as CalendarEventColor)
-      : 'slate';
-  return eventColorStyle(key);
+  return eventColorStyle(calendarToneKey(color));
 }
 
 export function parseDate(value: string): Date {
@@ -80,6 +82,39 @@ export function timeInput(date: Date): string {
 
 export function formatTime(date: Date): string {
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+export function weekdayName(date: Date): string {
+  return weekDays[(date.getDay() + 6) % 7]!;
+}
+
+export function formatMinuteOfDay(minute: number): string {
+  return `${`${Math.floor(minute / 60)}`.padStart(2, '0')}:${`${minute % 60}`.padStart(2, '0')}`;
+}
+
+// 事件的完整起止时间：同日只写一个日期，跨日两端各带日期与星期。
+export function formatEventRange(event: Pick<CalendarEvent, 'startAt' | 'endAt'>): string {
+  const start = new Date(event.startAt);
+  const end = new Date(event.endAt);
+  const startText = `${formatMonthDay(start)}（${weekdayName(start)}）${formatTime(start)}`;
+  return dateKey(start) === dateKey(end)
+    ? `${startText} – ${formatTime(end)}`
+    : `${startText} – ${formatMonthDay(end)}（${weekdayName(end)}）${formatTime(end)}`;
+}
+
+// 事件在某天的首末段标志：只有事件真实起止日才是 start/end，
+// 被周视图切割的延续日不算；结束恰为午夜时与 localEventsByDay 一致记为前一天。
+export function eventDayEdges(
+  event: Pick<CalendarEvent, 'startAt' | 'endAt'>,
+  day: Date,
+): { isStart: boolean; isEnd: boolean } {
+  const dayTime = startOfDay(day).getTime();
+  const end = new Date(event.endAt);
+  const endDay = startOfDay(new Date(end.getTime() - (end.getHours() || end.getMinutes() ? 0 : 1)));
+  return {
+    isStart: startOfDay(new Date(event.startAt)).getTime() === dayTime,
+    isEnd: endDay.getTime() === dayTime,
+  };
 }
 
 export function semesterLabel(semester: string): string {
@@ -133,6 +168,48 @@ export function eventStyle(startMinute: number, endMinute: number): CSSPropertie
     top: (startMinute - timelineStart) * pixelsPerMinute,
     height: Math.max(28, (endMinute - startMinute) * pixelsPerMinute),
   };
+}
+
+// 日列内并排布局的结果：left/width 是相对日列宽度的 0–100 百分比数值，
+// 供 style.left / style.width 拼接 % 使用。
+export type DayColumnLayout = { left: number; width: number };
+
+// 把时间重叠的项聚成簇，簇内按开始时间排序后贪心分配列（first-fit）：
+// 每项宽度 = 100 / 簇内最大列数，left = 列号 × 每项宽度。
+// 仅严格相交（start < other.end 且 other.start < end）算重叠；
+// 首尾相接（前一项的 end 等于后一项的 start）不算，各项仍占满整列。
+export function layoutDayColumns(
+  items: readonly { id: string; start: number; end: number }[],
+): Map<string, DayColumnLayout> {
+  const layout = new Map<string, DayColumnLayout>();
+  const sorted = [...items].sort((a, b) => a.start - b.start || a.end - b.end);
+  let index = 0;
+  while (index < sorted.length) {
+    // 已按开始时间排序，簇通过严格相交传递扩张：下一项开始早于簇内最晚结束时刻即并入。
+    let clusterEnd = sorted[index]!.end;
+    let clusterEndIndex = index + 1;
+    while (clusterEndIndex < sorted.length && sorted[clusterEndIndex]!.start < clusterEnd) {
+      clusterEnd = Math.max(clusterEnd, sorted[clusterEndIndex]!.end);
+      clusterEndIndex += 1;
+    }
+    // 每列记录最后一项的结束时刻，放入第一个不冲突的列，放不下则新开一列。
+    const columns: number[] = [];
+    const placed = sorted.slice(index, clusterEndIndex).map((item) => {
+      let column = columns.findIndex((end) => end <= item.start);
+      if (column === -1) {
+        column = columns.length;
+        columns.push(item.end);
+      } else {
+        columns[column] = item.end;
+      }
+      return { item, column };
+    });
+    for (const { item, column } of placed) {
+      layout.set(item.id, { left: (column / columns.length) * 100, width: 100 / columns.length });
+    }
+    index = clusterEndIndex;
+  }
+  return layout;
 }
 
 export function weekStartFor(semesterStart: string | null, week: number): Date | null {

@@ -177,7 +177,17 @@ async function createWindow(): Promise<void> {
     }
     return { action: 'deny' };
   });
-  window.webContents.on('will-navigate', (event) => event.preventDefault());
+  window.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault();
+    try {
+      const external = new URL(url);
+      if (external.protocol === 'https:' || external.protocol === 'http:') {
+        void shell.openExternal(external.href);
+      }
+    } catch {
+      // Keep unparseable navigation targets inside the application boundary.
+    }
+  });
   window.webContents.on('will-prevent-unload', (event) => {
     if (hasMailComposer(window.webContents.id)) {
       window.webContents.send('mail:request-close');

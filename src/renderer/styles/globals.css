@@ -207,6 +207,7 @@
   --text-lg: calc(1.125rem * var(--font-scale));
   --text-xl: calc(1.25rem * var(--font-scale));
   --text-2xl: calc(1.5rem * var(--font-scale));
+  --text-3xl: calc(1.875rem * var(--font-scale));
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

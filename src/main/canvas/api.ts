@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { copyFile, link, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import { constants, copyFileSync, createWriteStream, existsSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -461,6 +461,10 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
     { value: string } | undefined;
   const dir = sourceDirectory(source);
   if (cached && existsSync(cached.value)) {
+    // availablePath treats our own cached file as a collision. Reusing a file
+    // must not rename it underneath another active PDF range request.
+    if (resolve(dirname(cached.value)) === resolve(dir))
+      return { path: cached.value, mime: source.mime || 'application/octet-stream' };
     mkdirSync(dir, { recursive: true });
     const path = availablePath(dir, source.title);
     if (path !== cached.value) {

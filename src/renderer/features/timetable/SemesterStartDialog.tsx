@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
+import { DateInput } from './DateInput';
 import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-format';
 
 export function SemesterStartDialog({
@@ -63,14 +63,9 @@ export function SemesterStartDialog({
           </Button>
         </div>
         <div className="grid gap-2">
-          {/* Electron 界面语言默认 en-US，lang 强制日期按中文格式渲染。 */}
-          <Input
-            autoFocus
-            lang="zh-CN"
-            onChange={(event) => setValue(event.target.value)}
-            type="date"
-            value={value}
-          />
+          <div className="border-input dark:bg-input/30 flex h-9 w-full items-center rounded-md border bg-transparent px-3 text-sm shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
+            <DateInput autoFocus label="开学日期" onChange={setValue} value={value} />
+          </div>
           {firstWeek ? (
             <p className="text-xs text-muted-foreground">
               第 1 教学周：{formatMonthDay(firstWeek)} –{' '}
