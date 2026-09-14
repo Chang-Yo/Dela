@@ -60,10 +60,13 @@ export function clearCanvasToken(): void {
 }
 
 export function saveModelCredential(key: string, model: string): void {
+  // key 传空串表示只切换模型，沿用已保存的密钥（composer 内切换模型不需要重填 Key）。
+  const finalKey = key || loadModelCredential()?.key;
+  if (!finalKey) throw new Error('请先填写 API Key');
   if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
   writeFileSync(
     join(app.getPath('userData'), 'model-credential.bin'),
-    safeStorage.encryptString(JSON.stringify({ key, model })),
+    safeStorage.encryptString(JSON.stringify({ key: finalKey, model })),
   );
 }
 

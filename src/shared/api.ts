@@ -376,6 +376,10 @@ export interface WorkspaceApi {
   chooseDirectory(): Promise<string>;
   saveView(scope: string, state: WorkspaceViewState): Promise<void>;
   getChat(scope: string): Promise<WorkspaceChat>;
+  newChat(scope: string): Promise<WorkspaceChat>;
+  listChats(scope: string, query: string): Promise<ChatSessionSummary[]>;
+  openChat(scope: string, sessionId: string): Promise<WorkspaceChat>;
+  deleteChat(scope: string, sessionId: string): Promise<void>;
   configureModel(key: string, model: string): Promise<void>;
   ask(scope: string, prompt: string, context: string[]): Promise<WorkspaceChat>;
   cancelAsk(scope: string): Promise<void>;
@@ -389,7 +393,15 @@ export interface AgentToolResult {
   output: unknown;
 }
 
+export interface ChatSessionSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
 export interface WorkspaceChat {
+  sessionId: string | null;
   running?: boolean;
   activeTool?: string;
   configured: boolean;

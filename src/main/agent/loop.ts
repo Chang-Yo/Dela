@@ -132,6 +132,13 @@ async function readCompletion(
   }
 }
 
+const MAX_ROUNDS = 12;
+const REQUEST_TIMEOUT = 120000;
+// 单条工具结果回灌给模型的上限；超出截断并引导模型改用过滤/分页，防止上下文被单次结果撑爆。
+const RESULT_CHAR_LIMIT = 20000;
+// 仅对传输层瞬时错误（429/5xx/网络中断）重试；测试注入 0 延迟。
+const RETRY_DELAYS = [1000, 3000];
+
 export async function runAgent(options: {
   model: string;
   key: string;
@@ -142,27 +149,55 @@ export async function runAgent(options: {
   onToolResult?: (result: AgentToolResult) => void;
   onToolStart?: (name: string) => void;
   onText?: (text: string) => void;
+  retryDelays?: number[];
 }) {
   const messages: unknown[] = [...options.messages];
   const toolResults: AgentToolResult[] = [];
+  const retryDelays = options.retryDelays ?? RETRY_DELAYS;
+  // 传输层瞬时失败指数退避重试；已有流式内容产出后不再重试，避免重复展示。
+  const requestCompletion = async () => {
+    for (let attempt = 0; ; attempt += 1) {
+      options.signal.throwIfAborted();
+      try {
+        const response = await fetch('https://models.sjtu.edu.cn/api/v1/chat/completions', {
+          method: 'POST',
+          redirect: 'error',
+          // 每次尝试独立超时：多轮长任务不会因整跑共享计时被误杀；用户取消仍然即时生效。
+          signal: AbortSignal.any([options.signal, AbortSignal.timeout(REQUEST_TIMEOUT)]),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${options.key}` },
+          body: JSON.stringify({
+            model: options.model,
+            messages,
+            tools: options.tools,
+            stream: true,
+            max_tokens: 8192,
+          }),
+        });
+        if (response.ok) return response;
+        throw Object.assign(new Error(`模型请求失败（HTTP ${response.status}）`), {
+          transient: response.status === 429 || response.status >= 500,
+        });
+      } catch (error) {
+        const transient =
+          error instanceof Error && 'transient' in error
+            ? Boolean((error as { transient?: boolean }).transient)
+            : error instanceof TypeError;
+        if (!transient || attempt >= retryDelays.length) throw error;
+        await new Promise((resolve) => setTimeout(resolve, retryDelays[attempt]));
+      }
+    }
+  };
   // A bounded foreground run; reaching the limit reports partial work rather than retrying mutations.
-  for (let round = 0; round < 12; round += 1) {
+  for (let round = 0; round < MAX_ROUNDS; round += 1) {
     options.signal.throwIfAborted();
-    const response = await fetch('https://models.sjtu.edu.cn/api/v1/chat/completions', {
-      method: 'POST',
-      redirect: 'error',
-      signal: options.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${options.key}` },
-      body: JSON.stringify({
-        model: options.model,
-        messages,
-        tools: options.tools,
-        stream: true,
-        max_tokens: 4096,
-      }),
-    });
-    if (!response.ok) throw new Error(`模型请求失败（HTTP ${response.status}）`);
-    const message = await readCompletion(response, options.signal, options.onText);
+    if (round === MAX_ROUNDS - 1) {
+      messages.push({
+        role: 'user',
+        content:
+          '已接近本次执行步数上限，请直接总结已完成的工作并给出最终回答，不要发起新的工具调用。',
+      });
+    }
+    const message = await readCompletion(await requestCompletion(), options.signal, options.onText);
     if (!message.tool_calls?.length) return { content: message.content ?? '', toolResults };
     messages.push({ role: 'assistant', ...message });
     for (const call of message.tool_calls) {
@@ -179,7 +214,15 @@ export async function runAgent(options: {
       const result = { id: call.id, name: call.function.name, input, output };
       toolResults.push(result);
       options.onToolResult?.(result);
-      messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(output) });
+      const serialized = JSON.stringify(output);
+      messages.push({
+        role: 'tool',
+        tool_call_id: call.id,
+        content:
+          serialized.length > RESULT_CHAR_LIMIT
+            ? `${serialized.slice(0, RESULT_CHAR_LIMIT)}…[结果过大已截断，请用更具体的过滤或分页参数重新查询]`
+            : serialized,
+      });
     }
   }
   return {

@@ -1,39 +1,124 @@
+import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import { z } from 'zod';
-import type { WorkspaceChat } from '../../shared/api';
+import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
 import { loadModelCredential } from '../credentials';
 import { getDatabase } from '../database';
 import { readCanvasSource } from '../canvas/api';
 import { readWorkspaceEntry } from '../workspace/api';
 
 const idSchema = z.string().uuid();
-function setting(key: string): string | null {
+
+type SessionRow = {
+  id: string;
+  scope: string;
+  title: string;
+  messages: string;
+  created_at: string;
+  updated_at: string;
+};
+
+// 每个 scope 记住当前打开的会话；null 表示用户已点“新对话”但还没发消息。
+// 缺省（进程启动后首次访问）指向最近更新的会话，与旧版单一会话行为一致。
+const activeSession = new Map<string, string | null>();
+
+function sessionRow(id: string): SessionRow | null {
   return (
-    (
-      getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
-        { value: string } | undefined
-    )?.value ?? null
+    (getDatabase().prepare('SELECT * FROM chat_sessions WHERE id=?').get(id) as
+      SessionRow | undefined) ?? null
   );
 }
-export function getChat(scope: string): WorkspaceChat {
+
+function resolveSession(scope: string): SessionRow | null {
+  const known = activeSession.get(scope);
+  if (known !== undefined) return known ? sessionRow(known) : null;
+  const row = getDatabase()
+    .prepare('SELECT * FROM chat_sessions WHERE scope=? ORDER BY updated_at DESC LIMIT 1')
+    .get(scope) as SessionRow | undefined;
+  activeSession.set(scope, row?.id ?? null);
+  return row ?? null;
+}
+
+function snapshot(row: SessionRow | null): WorkspaceChat {
   const credential = loadModelCredential();
   return {
+    sessionId: row?.id ?? null,
     configured: Boolean(credential),
     model: credential?.model ?? 'qwen',
-    messages: JSON.parse(setting(`chat:${scope}`) ?? '[]'),
-    running: asking.has(scope),
-    activeTool: asking.get(scope)?.tool,
+    messages: row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
+    running: asking.has(row?.scope ?? ''),
+    activeTool: asking.get(row?.scope ?? '')?.tool,
   };
+}
+
+export function getChat(scope: string): WorkspaceChat {
+  return snapshot(resolveSession(scope));
 }
 
 const asking = new Map<string, { controller: AbortController; tool?: string }>();
 const chatClients = new Set<WebContents>();
-function publishChat(scope: string, snapshot?: WorkspaceChat) {
-  const chat = snapshot ?? getChat(scope);
+function publishChat(scope: string, partial?: Partial<WorkspaceChat>) {
+  const chat = { ...getChat(scope), ...partial };
   for (const client of chatClients) {
     if (!client.isDestroyed()) client.send('workspace:chat-update', scope, chat);
   }
 }
+
+export function listChats(scope: string, query: string): ChatSessionSummary[] {
+  const rows = (query
+    ? getDatabase()
+        .prepare(
+          // 转义 LIKE 通配符，按标题或消息原文匹配。
+          "SELECT id, title, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM chat_sessions WHERE scope=? AND (title LIKE ? ESCAPE '\\' OR messages LIKE ? ESCAPE '\\') ORDER BY updated_at DESC LIMIT 100",
+        )
+        .all(
+          scope,
+          `%${query.replace(/[\\%_]/g, '\\$&')}%`,
+          `%${query.replace(/[\\%_]/g, '\\$&')}%`,
+        )
+    : getDatabase()
+        .prepare(
+          'SELECT id, title, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM chat_sessions WHERE scope=? ORDER BY updated_at DESC LIMIT 100',
+        )
+        .all(scope)) as unknown as ChatSessionSummary[];
+  return rows;
+}
+
+export function newChat(scope: string): WorkspaceChat {
+  if (asking.has(scope)) throw new Error('请等待当前回答完成');
+  const current = resolveSession(scope);
+  // 空会话不进入历史：点“新对话”时清掉上一条从未发送过消息的会话。
+  if (current && current.messages === '[]') {
+    getDatabase().prepare('DELETE FROM chat_sessions WHERE id=?').run(current.id);
+  }
+  activeSession.set(scope, null);
+  publishChat(scope);
+  return getChat(scope);
+}
+
+export function openChat(scope: string, sessionId: string): WorkspaceChat {
+  const row = sessionRow(sessionId);
+  if (!row || row.scope !== scope) throw new Error('会话不存在');
+  if (asking.has(scope) && activeSession.get(scope) !== sessionId)
+    throw new Error('请等待当前回答完成');
+  activeSession.set(scope, sessionId);
+  return snapshot(row);
+}
+
+export function deleteChat(scope: string, sessionId: string): void {
+  const row = sessionRow(sessionId);
+  if (!row || row.scope !== scope) return;
+  getDatabase().prepare('DELETE FROM chat_sessions WHERE id=?').run(sessionId);
+  if (activeSession.get(scope) === sessionId) activeSession.set(scope, null);
+  publishChat(scope);
+}
+
+function persistSession(row: SessionRow) {
+  getDatabase()
+    .prepare('UPDATE chat_sessions SET messages=?, updated_at=? WHERE id=?')
+    .run(row.messages, new Date().toISOString(), row.id);
+}
+
 export async function ask(
   scope: string,
   prompt: string,
@@ -64,7 +149,24 @@ export async function ask(
     );
     if (documents.reduce((total, doc) => total + doc.text.length, 0) > 100000)
       throw new Error('所选正文过长，请减少资料或粘贴相关段落');
-    const chat = getChat(scope);
+    let row = resolveSession(scope);
+    if (!row) {
+      row = {
+        id: randomUUID(),
+        scope,
+        title: prompt.slice(0, 60),
+        messages: '[]',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      getDatabase()
+        .prepare(
+          'INSERT INTO chat_sessions (id, scope, title, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        )
+        .run(row.id, row.scope, row.title, row.messages, row.created_at, row.updated_at);
+      activeSession.set(scope, row.id);
+    }
+    const chat = snapshot(row);
     const { runAgent } = await import('./loop');
     const { modelToolDefinitions, executeAgentTool } = await import('./tools');
     const messages = [
@@ -93,11 +195,12 @@ export async function ask(
       reply,
     );
     const persist = () => {
-      getDatabase()
-        .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
-        .run(`chat:${scope}`, JSON.stringify(chat.messages));
+      row!.messages = JSON.stringify(chat.messages);
+      persistSession(row!);
       publishChat(scope);
     };
+    // 流式文字增量不逐条广播，按 ~100ms 节流；工具事件与最终结果即时推送。
+    let lastTextPublish = 0;
     persist();
     try {
       const result = await runAgent({
@@ -105,11 +208,16 @@ export async function ask(
         key: credential.key,
         messages,
         tools: modelToolDefinitions(),
-        signal: AbortSignal.any([run.controller.signal, AbortSignal.timeout(120000)]),
+        signal: run.controller.signal,
         execute: executeAgentTool,
         onText: (text) => {
           reply.content = text;
-          publishChat(scope, { ...chat, running: true, activeTool: run.tool });
+          const now = Date.now();
+          if (now - lastTextPublish >= 100) {
+            lastTextPublish = now;
+            // 携带内存中的活跃消息数组：持久化的 row.messages 尚未更新，直接读库会回退内容。
+            publishChat(scope, { messages: chat.messages, running: true, activeTool: run.tool });
+          }
         },
         onToolStart: (name) => {
           run.tool = name;

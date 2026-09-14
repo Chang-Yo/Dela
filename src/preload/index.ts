@@ -138,6 +138,13 @@ contextBridge.exposeInMainWorld('dela', {
     saveView: (scope: string, state: WorkspaceViewState) =>
       ipcRenderer.invoke('workspace:save-view', scope, state),
     getChat: (scope: string) => ipcRenderer.invoke('workspace:get-chat', scope),
+    newChat: (scope: string) => ipcRenderer.invoke('workspace:new-chat', scope),
+    listChats: (scope: string, query: string) =>
+      ipcRenderer.invoke('workspace:list-chats', scope, query),
+    openChat: (scope: string, sessionId: string) =>
+      ipcRenderer.invoke('workspace:open-chat', scope, sessionId),
+    deleteChat: (scope: string, sessionId: string) =>
+      ipcRenderer.invoke('workspace:delete-chat', scope, sessionId),
     configureModel: (key: string, model: string) =>
       ipcRenderer.invoke('workspace:configure-model', key, model),
     ask: (scope: string, prompt: string, context: string[]) =>
