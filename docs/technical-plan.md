@@ -801,7 +801,9 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 
 已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、65 项单元测试（新增 eventDayEdges 2、formatEventRange 2、deleteCalendarEvent 校验 1）、`pnpm smoke`。隔离探针（临时隔离 userData + CDP）确认闲置态布局、按钮左对齐与无免责声明；问候语轮播、两列模型面板（真实配置下向下展开）与课程详情弹窗（真实同步课程数据）已由用户真实环境实测确认；跨天连续条与删除流程由单元测试、代码评审与构建覆盖，实机观感待日常使用确认。探针中隔离实例因已知 os_crypt 限制无法进入「已配置」态、断连课表显示连接引导卡，均为环境边界而非应用缺陷；相关已知限制与探针前置检查已沉淀为用户级 skill（`~/.agents/skills/probe-preflight`），后续探针须先过其六项门禁。
 
+这表明 Dela 可采用官方 Discourse User API Key 协议让用户授权水源读取权限，不依赖 OpenClaw 安装、配置或应用展示名白名单。已验证的是一个账号的 `read` scope 完整流程；全量账户覆盖、长期站点策略、其他 scopes 与 Dela 内的凭据保存/UI 尚未实现或验证。完整证据与请求差异见 `docs/shuiyuan-api-findings.md`。
 
+## 资料导航、多标签与 PDF.js 资源控制（2026-09-14）
 
 本节取代此前“未标注学期保留在主目录”、资料页隐藏标签栏及 PDF 页码恢复待实现的约定。采用现有 ProjectView 标签、持久视图与 Explorer 行内菜单，不新增阅读器管理层。课程资料、我的资料、归档统一为可折叠分区；Canvas 菜单明确区分课程列表同步、课程行菜单中的资料同步和令牌更换，文件菜单承载打开、加入项目与下载，文档低频操作合并到右上角菜单。交互参考 Notion 官方侧栏说明：https://www.notion.com/help/navigate-with-the-sidebar 。
 
