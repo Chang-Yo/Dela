@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   CalendarDays,
   FolderKanban,
@@ -14,13 +14,22 @@ import { cn } from '../../lib/utils';
 import { useWorkspace } from '../projects/workspace';
 import { ChatComposer, ChatSessions, ChatThread, ModelKeyForm, useChat } from '../chat';
 
-function greeting() {
+// 闲置态轮播的英文问候：按时间段给初始值，其余作为后续轮换。
+const GREETING_INTERVAL_MS = 2000000;
+const greetings = [
+  'Wanna build something with Dela?',
+  'Welcome back',
+  'Ready to continue?',
+  'What are we working on?',
+  'Dela is here! Anything want to do?',
+];
+
+function initialGreeting() {
   const hour = new Date().getHours();
-  if (hour < 5) return '夜深了';
-  if (hour < 11) return '早上好';
-  if (hour < 13) return '中午好';
-  if (hour < 18) return '下午好';
-  return '晚上好';
+  if (hour < 5) return 'Working late';
+  if (hour < 11) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
 }
 
 export function HomeView({
@@ -37,10 +46,20 @@ export function HomeView({
   const projects = workspace.entries.filter((entry) => entry.kind === 'project');
   const chatState = useChat('home');
   const { chat, busy, error } = chatState;
-  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const [greeting, setGreeting] = useState(initialGreeting);
 
   const conversation = Boolean(chat && (chat.messages.length > 0 || chat.running));
+
+  // 温和的问候轮播：进入会话态或用户偏好减少动态效果时停在当前问候。
+  useEffect(() => {
+    if (conversation || reduceMotion) return;
+    const timer = setInterval(() => {
+      setGreeting((current) => greetings[(greetings.indexOf(current) + 1) % greetings.length]!);
+    }, GREETING_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [conversation, reduceMotion]);
 
   const referenceOptions = useMemo(
     () =>
@@ -72,14 +91,11 @@ export function HomeView({
     onOpenSources();
   };
 
-  // 闲置态 composer 上方的快捷入口：新建项目直达，其余填入 prompt 并聚焦输入框。
+  // 闲置态 composer 上方的快捷入口：新建项目直达，其余直接发送对应提问进入对话。
   const quickActions: { icon: LucideIcon; label: string; run: () => void }[] = [
     { icon: Plus, label: '新建项目', run: onNewProject },
   ];
-  const askPrompt = (prompt: string) => () => {
-    chatState.setPrompt(prompt);
-    composerRef.current?.focus();
-  };
+  const askPrompt = (prompt: string) => () => void chatState.send(prompt);
   if (canvas.connected)
     quickActions.push({
       icon: ListTodo,
@@ -97,12 +113,10 @@ export function HomeView({
       busy={busy}
       configured={Boolean(chat?.configured)}
       hero={!conversation}
-      inputRef={composerRef}
       model={chat?.model ?? ''}
-      models={chat?.models ?? []}
       onAddReference={chatState.addReference}
       onChange={chatState.setPrompt}
-      onModelChange={chatState.setModel}
+      onModelSelect={chatState.selectModel}
       onRemoveReference={chatState.removeReference}
       onSend={() => void chatState.send()}
       onStop={chatState.stop}
@@ -159,37 +173,53 @@ export function HomeView({
       )}
       {!conversation && (
         <>
-          {/* 弹性留白把问候语压到视口上部约 1/4–1/3；内容溢出时随空间收缩为 0。 */}
-          <div className="grow-3" />
+          {/* 弹性留白把内容压向视口下部：问候语约在上部 1/4，composer 视觉重心约在 2/3；溢出时随空间收缩为 0。 */}
+          <div className="grow-5" />
           <div className="shrink-0 px-6 text-center">
             {chat && !chat.configured ? (
               <div className="mx-auto max-w-md text-left">
                 <ModelKeyForm onConfigured={chatState.refresh} />
               </div>
             ) : (
-              <h1 className="text-3xl font-semibold tracking-tight">{greeting()}</h1>
+              <h1 className="text-3xl font-semibold tracking-tight">
+                <AnimatePresence initial={false} mode="wait">
+                  <motion.span
+                    animate={{ opacity: 1 }}
+                    className="block"
+                    exit={{ opacity: 0 }}
+                    initial={{ opacity: 0 }}
+                    key={greeting}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {greeting}
+                  </motion.span>
+                </AnimatePresence>
+              </h1>
             )}
           </div>
-          <div className="mt-6 flex shrink-0 flex-wrap justify-center gap-2 px-4 md:px-6">
-            {quickActions.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                  key={item.label}
-                  onClick={item.run}
-                  type="button"
-                >
-                  <Icon className="size-3.5" />
-                  {item.label}
-                </button>
-              );
-            })}
+          {/* 与 composer 同宽同 padding，快捷入口与其左边缘对齐。 */}
+          <div className="mt-8 shrink-0 px-4 md:px-6">
+            <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-2">
+              {quickActions.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                    key={item.label}
+                    onClick={item.run}
+                    type="button"
+                  >
+                    <Icon className="size-3.5" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
       <motion.div
-        className="shrink-0 px-4 md:px-6"
+        className={cn('shrink-0 px-4 md:px-6', !conversation && 'mt-4')}
         layout="position"
         transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
       >
@@ -200,17 +230,14 @@ export function HomeView({
               {error}
             </p>
           )}
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            对话、引用资料及工具读取的内容会提供给{chat?.providerName ?? '模型服务'}。
-          </p>
         </div>
       </motion.div>
       {!conversation && (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-6 pb-12">
-          <h2 className="mt-10 text-xl font-semibold">最近项目</h2>
+          {/* 区块语义由卡片自解释，去掉大标题；aria-label 保留读屏上下文。 */}
           <section
             aria-label="最近项目"
-            className="mt-4 grid grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1"
+            className="mt-8 grid grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1"
           >
             {projects.map((project) => {
               const view = workspace.views[project.id];
@@ -224,20 +251,20 @@ export function HomeView({
                   <FolderKanban className="size-5 text-muted-foreground" />
                   <strong className="truncate text-base">{project.name}</strong>
                   <span className="truncate text-xs text-muted-foreground">
-                    {last ? `继续 ${last.name}` : '打开工作区'}
+                    {last ? last.name : '打开工作区'}
                   </span>
                 </button>
               );
             })}
           </section>
           {!projects.length && (
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-8 text-sm text-muted-foreground">
               还没有项目。可以先浏览课程资料，也可以围绕一个主题新建项目。
             </p>
           )}
         </div>
       )}
-      {/* 与上方弹性留白按 3:2 分摊剩余空间，让主内容在视口上部聚拢；溢出时均收缩为 0。 */}
+      {/* 与上方弹性留白按 2:5 分摊剩余空间（composer 视觉重心约在视口 2/3 处）；溢出时均收缩为 0。 */}
       {!conversation && <div className="grow-2" />}
       <ChatSessions
         currentSessionId={chat?.sessionId ?? null}
