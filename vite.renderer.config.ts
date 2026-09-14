@@ -1,3 +1,5 @@
+import { cp } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -6,7 +8,22 @@ export default defineConfig({
   root: 'src/renderer',
   base: './',
   envDir: false,
+  define: {
+    __PDF_ASSET_DIR__: JSON.stringify(resolve('node_modules/pdfjs-dist').replaceAll('\\', '/')),
+  },
   plugins: [
+    {
+      name: 'pdfjs-assets',
+      apply: 'build',
+      async closeBundle() {
+        for (const directory of ['cmaps', 'standard_fonts', 'wasm'])
+          await cp(
+            resolve('node_modules/pdfjs-dist', directory),
+            resolve('out/renderer/pdfjs', directory),
+            { recursive: true },
+          );
+      },
+    },
     tailwindcss(),
     react(),
     {

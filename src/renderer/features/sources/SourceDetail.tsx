@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import hljs from 'highlight.js/lib/common';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { DocumentContent } from '../../../shared/api';
 import { renderMailHtml } from '../mail/mail-html-display';
+
+const PdfReader = lazy(() =>
+  import('./PdfReader').then((module) => ({ default: module.PdfReader })),
+);
 
 export function SourceDetail({
   content,
@@ -97,11 +101,15 @@ export function SourceDetail({
     );
   if (content.format === 'pdf')
     return content.previewUrl ? (
-      <iframe
-        title={content.title}
-        className="min-h-0 w-full flex-1 border-0"
-        src={content.previewUrl}
-      />
+      <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">正在加载阅读器…</p>}>
+        <PdfReader
+          key={content.previewUrl}
+          url={content.previewUrl}
+          scroll={scroll}
+          onScroll={onScroll}
+          onQuote={onQuote}
+        />
+      </Suspense>
     ) : (
       <p className="p-4 text-sm text-muted-foreground">正在准备预览…</p>
     );

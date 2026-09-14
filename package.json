@@ -30,7 +30,8 @@
     "package:dir": "pnpm build && electron-builder --dir",
     "package:dist": "pnpm build && electron-builder",
     "smoke": "electron . --smoke-test",
-    "smoke:workspace": "node scripts/workspace-smoke.mjs"
+    "smoke:workspace": "node scripts/workspace-smoke.mjs",
+    "smoke:pdf": "electron scripts/pdf-smoke.cjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",
@@ -68,6 +69,7 @@
     "electron": "44.3.0",
     "electron-builder": "26.15.3",
     "oxlint": "1.82.0",
+    "pdfjs-dist": "6.3.289",
     "prettier": "3.9.6",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",

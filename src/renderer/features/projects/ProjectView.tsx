@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import {
+  Archive,
+  Plus,
   ChevronsDownUp,
   ChevronRight,
   Columns2,
@@ -12,10 +14,17 @@ import {
   MessageSquare,
   RefreshCw,
   Search,
-  Settings2,
+  Ellipsis,
+  KeyRound,
   X,
 } from 'lucide-react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../../shared/api';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
@@ -78,7 +87,10 @@ export function ProjectView({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [bySource, setBySource] = useState(false);
+  const [coursesOpen, setCoursesOpen] = useState(true);
+  const [personalOpen, setPersonalOpen] = useState(true);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [reference, setReference] = useState<string | null>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentWidth, setAgentWidth] = useState(340);
@@ -116,6 +128,12 @@ export function ProjectView({
     };
     media.addEventListener('change', reset);
     return () => media.removeEventListener('change', reset);
+  }, []);
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setWide(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
   }, []);
   useEffect(
     () => () => {
@@ -366,7 +384,7 @@ export function ProjectView({
       key={key}
       documentKey={key}
       readOnly={readOnly}
-      scroll={saved.scroll[key] ?? 0}
+      scroll={scrollPending.current[key] ?? saved.scroll[key] ?? 0}
       onScroll={(top) => recordScroll(key, top)}
       onReveal={reveal}
       onQuote={(text) => {
@@ -435,18 +453,26 @@ export function ProjectView({
                 collapsed && !mobileOpen && 'invisible',
               )}
             >
-              <HeaderAction label="新建笔记" onClick={() => action('note', currentContainer())}>
-                <FilePlus2 />
-              </HeaderAction>
-              <HeaderAction label="新建文件夹" onClick={() => action('folder', currentContainer())}>
-                <FolderPlus />
-              </HeaderAction>
-              <HeaderAction
-                label="导入本地文件"
-                onClick={() => action('import', currentContainer())}
-              >
-                <FolderInput />
-              </HeaderAction>
+              {mode === 'project' && (
+                <>
+                  {' '}
+                  <HeaderAction label="新建笔记" onClick={() => action('note', currentContainer())}>
+                    <FilePlus2 />
+                  </HeaderAction>
+                  <HeaderAction
+                    label="新建文件夹"
+                    onClick={() => action('folder', currentContainer())}
+                  >
+                    <FolderPlus />
+                  </HeaderAction>
+                  <HeaderAction
+                    label="导入本地文件"
+                    onClick={() => action('import', currentContainer())}
+                  >
+                    <FolderInput />
+                  </HeaderAction>
+                </>
+              )}
               <HeaderAction label="全部收起" onClick={collapseAll}>
                 <ChevronsDownUp />
               </HeaderAction>
@@ -512,45 +538,59 @@ export function ProjectView({
               {mode === 'sources' && (
                 <>
                   <div className="flex h-8 items-center gap-1 px-3">
-                    <GraduationCap className="size-4 text-muted-foreground" />
-                    <select
-                      aria-label="资料分组方式"
-                      className="min-w-0 flex-1 bg-transparent text-xs text-muted-foreground outline-none"
-                      value={bySource ? 'source' : 'course'}
-                      onChange={(e) => {
-                        setBySource(e.target.value === 'source');
-                        if (e.target.value === 'source') expand('canvas', true);
-                      }}
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-1 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+                      aria-expanded={coursesOpen || Boolean(query.trim())}
+                      onClick={() => setCoursesOpen((value) => !value)}
                     >
-                      <option value="course">按课程</option>
-                      <option value="source">按来源</option>
-                    </select>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      title="刷新课程列表"
-                      aria-label="刷新课程列表"
-                      disabled={syncing || !canvas.connected}
-                      onClick={() => {
-                        setSyncing(true);
-                        void run(async () =>
-                          useWorkspace
-                            .getState()
-                            .setCanvas(await window.dela!.canvas.syncCourses()),
-                        ).finally(() => setSyncing(false));
-                      }}
-                    >
-                      <RefreshCw className={cn(syncing && 'animate-spin')} />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      title="Canvas 连接"
-                      aria-label="Canvas 连接"
-                      onClick={() => show({ action: 'connect', id: null })}
-                    >
-                      <Settings2 />
-                    </Button>
+                      <ChevronRight
+                        className={cn('size-3', (coursesOpen || query.trim()) && 'rotate-90')}
+                      />
+                      <GraduationCap className="size-4" />
+                      课程资料
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Canvas 操作"
+                          title="Canvas 操作"
+                        >
+                          <Ellipsis />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem
+                          disabled={syncing || !canvas.connected}
+                          onSelect={() => {
+                            setSyncing(true);
+                            void run(async () =>
+                              useWorkspace
+                                .getState()
+                                .setCanvas(await window.dela!.canvas.syncCourses()),
+                            ).finally(() => setSyncing(false));
+                          }}
+                        >
+                          <RefreshCw className={cn(syncing && 'animate-spin')} />
+                          {syncing ? '正在同步…' : '同步课程列表'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => show({ action: 'connect', id: null })}>
+                          <KeyRound />
+                          {canvas.connected ? '更换 Canvas 令牌' : '连接 Canvas'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setBySource((value) => !value);
+                            if (!bySource) expand('canvas', true);
+                          }}
+                        >
+                          <Folder />
+                          {bySource ? '按课程分组' : '按来源分组'}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   {!canvas.connected && (
                     <div className="px-4 py-3 text-xs text-muted-foreground">
@@ -565,41 +605,81 @@ export function ProjectView({
                       </Button>
                     </div>
                   )}
-                  <div className="mx-3 mt-3 border-t pt-3 text-xs font-medium text-muted-foreground">
-                    Canvas 资料
-                  </div>
-                  <SourceList
-                    expanded={saved.expanded}
-                    onExpand={expand}
-                    onOpen={open}
-                    selected={saved.active}
-                    query={query}
-                    bySource={bySource}
-                  />
-                  <div className="mx-3 mt-3 border-t pt-3 text-xs font-medium text-muted-foreground">
-                    我的内容
+
+                  {(coursesOpen || query.trim()) && (
+                    <SourceList
+                      expanded={saved.expanded}
+                      onExpand={expand}
+                      onOpen={open}
+                      onLink={(id) => show({ action: 'link', id })}
+                      selected={saved.active}
+                      query={query}
+                      bySource={bySource}
+                    />
+                  )}
+                  <div className="mt-3 flex h-8 items-center gap-1 px-3">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-1 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+                      aria-expanded={personalOpen || Boolean(query.trim())}
+                      onClick={() => setPersonalOpen((value) => !value)}
+                    >
+                      <ChevronRight
+                        className={cn('size-3', (personalOpen || query.trim()) && 'rotate-90')}
+                      />
+                      <Folder className="size-4" />
+                      我的资料
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="添加我的资料"
+                          title="添加我的资料"
+                        >
+                          <Plus />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onSelect={() => action('note', null)}>
+                          <FilePlus2 />
+                          新建笔记
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => action('folder', null)}>
+                          <FolderPlus />
+                          新建文件夹
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => action('import', null)}>
+                          <FolderInput />
+                          导入本地文件
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </>
               )}
-              <ProjectSidebar
-                entries={workspace.entries}
-                rootId={rootId}
-                selected={saved.active ?? selected}
-                expanded={saved.expanded}
-                onExpand={expand}
-                onSelect={selectEntry}
-                onAction={action}
-                onMove={move}
-                canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
-                onImportFiles={mode === 'project' ? importDroppedFiles : undefined}
-                query={query}
-                excludeIds={mode === 'sources' ? [workspaceArchiveId] : []}
-              />
+              {(mode !== 'sources' || personalOpen || query.trim()) && (
+                <ProjectSidebar
+                  entries={workspace.entries}
+                  rootId={rootId}
+                  selected={saved.active ?? selected}
+                  expanded={saved.expanded}
+                  onExpand={expand}
+                  onSelect={selectEntry}
+                  onAction={action}
+                  onMove={move}
+                  canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
+                  onImportFiles={mode === 'project' ? importDroppedFiles : undefined}
+                  query={query}
+                  excludeIds={mode === 'sources' ? [workspaceArchiveId] : []}
+                />
+              )}
               {mode === 'sources' && (
                 <>
                   <button
                     type="button"
-                    className="mx-3 mt-3 flex h-8 w-[calc(100%-1.5rem)] items-center gap-1 border-t pt-3 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+                    className="mt-3 flex h-8 w-full px-3 items-center gap-1 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
                     aria-expanded={archiveOpen || Boolean(query.trim())}
                     onClick={() => setArchiveOpen((value) => !value)}
                   >
@@ -609,6 +689,7 @@ export function ProjectView({
                         (archiveOpen || query.trim()) && 'rotate-90',
                       )}
                     />
+                    <Archive className="size-4" />
                     归档
                   </button>
                   {(archiveOpen || query.trim()) && (
@@ -618,6 +699,7 @@ export function ProjectView({
                         expanded={saved.expanded}
                         onExpand={expand}
                         onOpen={open}
+                        onLink={(id) => show({ action: 'link', id })}
                         selected={saved.active}
                         query={query}
                         bySource={bySource}
@@ -655,7 +737,7 @@ export function ProjectView({
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {mode !== 'sources' && (
+        {
           <div className="flex h-11 shrink-0 items-center border-b px-2">
             <Button
               className="md:hidden"
@@ -666,7 +748,7 @@ export function ProjectView({
             >
               <Folder />
             </Button>
-            {saved.active && (
+            {saved.tabs.length > 0 && (
               <div
                 role="tablist"
                 aria-label="打开的内容"
@@ -748,7 +830,7 @@ export function ProjectView({
               <MessageSquare />
             </Button>
           </div>
-        )}
+        }
         {globalError && (
           <div
             role="alert"
@@ -775,7 +857,7 @@ export function ProjectView({
           </div>
         )}
         <div className="flex min-h-0 min-w-0 flex-1">
-          {reference && (
+          {reference && wide && (
             <div className="flex min-h-0 w-1/2 min-w-0 flex-col border-r max-lg:hidden">
               {reference === saved.active ? (
                 <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">

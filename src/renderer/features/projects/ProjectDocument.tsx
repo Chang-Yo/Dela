@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronRight,
+  Ellipsis,
   Clock,
   Download,
   ExternalLink,
@@ -12,6 +13,12 @@ import {
   RefreshCw,
   Save,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
 import { SourceDetail } from '../sources/SourceDetail';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -196,65 +203,55 @@ export function ProjectDocument({
             <Save />
           </Button>
         )}
-        {sourceId && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="加入文件夹或项目"
-            aria-label="加入文件夹或项目"
-            onClick={() => onLinkSource(documentKey)}
-          >
-            <Link2 />
-          </Button>
-        )}
-        {sourceId?.startsWith('file:') && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="下载文件"
-            aria-label="下载文件"
-            onClick={() => window.dela && run(window.dela.canvas.download(sourceId))}
-          >
-            <Download />
-          </Button>
-        )}
-        {draft.content.url && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="打开原文"
-            aria-label="打开原文"
-            onClick={() => link(draft.content.url!)}
-          >
-            <ExternalLink />
-          </Button>
-        )}
-        {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="在文件夹中显示"
-            aria-label="在文件夹中显示"
-            onClick={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
-          >
-            <FolderOpen />
-          </Button>
-        )}
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          title="重新载入"
-          aria-label="重新载入"
-          onClick={() => {
-            if (
-              draft.text === draft.saved ||
-              window.confirm('重新载入会抛弃当前未保存的草稿，是否继续？')
-            )
-              run(useWorkspace.getState().read(documentKey, true));
-          }}
-        >
-          <RefreshCw />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon-sm" variant="ghost" title="文档操作" aria-label="文档操作">
+              <Ellipsis />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {sourceId && (
+              <DropdownMenuItem onSelect={() => onLinkSource(documentKey)}>
+                <Link2 />
+                加入文件夹或项目
+              </DropdownMenuItem>
+            )}
+            {sourceId?.startsWith('file:') && (
+              <DropdownMenuItem
+                onSelect={() => window.dela && run(window.dela.canvas.download(sourceId))}
+              >
+                <Download />
+                下载文件
+              </DropdownMenuItem>
+            )}
+            {draft.content.url && (
+              <DropdownMenuItem onSelect={() => link(draft.content.url!)}>
+                <ExternalLink />
+                打开原文
+              </DropdownMenuItem>
+            )}
+            {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
+              <DropdownMenuItem
+                onSelect={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
+              >
+                <FolderOpen />
+                在文件夹中显示
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onSelect={() => {
+                if (
+                  draft.text === draft.saved ||
+                  window.confirm('重新载入会抛弃当前未保存的草稿，是否继续？')
+                )
+                  run(useWorkspace.getState().read(documentKey, true));
+              }}
+            >
+              <RefreshCw />
+              重新载入
+            </DropdownMenuItem>{' '}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {(error || draft.error) && (
         <div role="alert" className="shrink-0 border-b px-4 py-2 text-xs text-destructive">

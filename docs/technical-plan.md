@@ -753,3 +753,29 @@ mail-smoke 脱敏回归修复了一个既有断档：本地草稿功能把关闭
 已验证但尚未接入应用：水源可向展示名为 Dela 的请求签发只读 Discourse User API Key。测试由用户在水源授权页手动确认；本机以一次性 RSA 私钥解密回传 payload，使用 `User-Api-Key` 与 `User-Api-Client-Id` 成功请求 `GET /session/current.json`，再成功 `POST /user-api-key/revoke` 撤销测试 key。测试 key 未写入 Dela，临时私钥已删除。
 
 这表明 Dela 可采用官方 Discourse User API Key 协议让用户授权水源读取权限，不依赖 OpenClaw 安装、配置或应用展示名白名单。已验证的是一个账号的 `read` scope 完整流程；全量账户覆盖、长期站点策略、其他 scopes 与 Dela 内的凭据保存/UI 尚未实现或验证。完整证据与请求差异见 `docs/shuiyuan-api-findings.md`。
+
+## 资料导航、多标签与 PDF.js 资源控制（2026-09-14）
+
+本节取代此前“未标注学期保留在主目录”、资料页隐藏标签栏及 PDF 页码恢复待实现的约定。采用现有 ProjectView 标签、持久视图与 Explorer 行内菜单，不新增阅读器管理层。课程资料、我的资料、归档统一为可折叠分区；Canvas 菜单明确区分课程列表同步、课程行菜单中的资料同步和令牌更换，文件菜单承载打开、加入项目与下载，文档低频操作合并到右上角菜单。交互参考 Notion 官方侧栏说明：https://www.notion.com/help/navigate-with-the-sidebar 。
+
+PDF 使用精确版本 pdfjs-dist 6.3.289（构建依赖；renderer 动态加载，Worker、CMaps、标准字体、WASM 随明确产物发布）。SourceDetail 的 PDF iframe 替换为 PdfReader，HTML iframe 不变。CSP 允许 dela-resource fetch 与 WASM 编译，不开放普通 unsafe-eval；协议 CORS 仅返回开发源或 file 页的 null 源。
+
+### 官方阅读组件取代自制渲染器
+
+此前自制等高槽位、按挂载页数均分预算和 effect 中清除画布造成滚动/缩放闪烁。最终直接采用安装包中的 PDFViewer，删除自制 PdfPage、窗口范围计算、画布双缓冲、DPR 分配与缩放锚点算法。依据 Mozilla 官方 examples/components/simpleviewer.mjs 集成，由 PDFRenderingQueue 优先处理可见页、再处理滚动方向邻页；PDFPageViewBuffer 基线 10 页，容量按 max(10, 2×可见页数+1) 调整并保护可见页。保留轻量页面容器，LRU 淘汰画布与页资源，不渲染全书。
+
+缩放采用官方 updateScale，drawingDelay 使用官方 app_options 默认 400ms：先保留并 CSS 缩放已有画面，再重绘。触摸板 ctrl+wheel 的像素模式转换依据官方 app.js 的指数公式；嵌入 Dela 时把 client 坐标转为 PDFViewer 使用的 offset-parent 坐标。缩放比例与上下限由官方组件负责，工具栏显示实际比例；适合宽度在窗口改变时重算。保存实际页面的页码与页内相对偏移到现有 scroll 字段，不在 React 卸载后读取已脱离 DOM 的尺寸。使用 abortSignal 解除官方滚动监听及 ResizeObserver，setDocument(null) 释放阅读器资源，destroy 加载任务终止 Worker。
+
+单页 maxCanvasPixels=4×1024²（16 MiB RGBA），关闭额外 detail canvas，输出 DPR 由官方上限计算，不再固定为 2。保留官方基于视口面积的画布限制。10 页全部触及上限时基础画布约 160 MiB，缓存扩容及缩放替换还可增加；没有固定 48/96 MiB 全窗预算，也不宣称进程内存上限。后台标签无驻留 PDF 实例，并排各自占用资源。文字层支持选择引用，注释层、自动链接、脚本及批注编辑不启用。
+
+源码依据：https://github.com/mozilla/pdf.js/blob/master/web/pdf_viewer.js 、https://github.com/mozilla/pdf.js/blob/master/web/pdf_rendering_queue.js 、https://github.com/mozilla/pdf.js/blob/master/web/pdf_page_view.js 、https://github.com/mozilla/pdf.js/blob/master/web/app_options.js 。同时核对安装包 6.3.289 的实际导出与行为。
+
+### 分段读取与缓存路径
+
+PDF.js 网络流只对 http(s) 自动使用 Range，自定义协议通过 PDFDataRangeTransport + fetch 显式请求 64 KiB 首段及所需区间，主进程沿用限定 source/entry ID 的磁盘流。disableAutoFetch、disableStream 均开启，切换/关闭文档取消请求并销毁任务；不把整份 PDF 字节放入 Zustand。远端课件首开仍先下载到磁盘。未见页尺寸由官方延迟初始化，混合横竖页加载后使用真实比例。
+
+修复缓存路径问题：每次 Range 请求曾调用 availablePath，把已存在缓存误判为同名冲突并重命名，造成并发请求 stat 旧路径时 ENOENT。目标目录内的缓存直接复用原路径，仅真正迁移目录时选择新路径；保留已有带序号文件。协议 await 文件响应使异步异常进入受控响应。只显示首次读取失败，取消其他分段不会将原错误覆盖为 AbortError。
+
+### 验证范围
+
+scripts/pdf-smoke.cjs 使用隔离 Electron、生产 renderer、300 页含 2048×2048 图像及 JPEG2000 的合成 PDF。覆盖归档折叠、多标签/快速切换、位置恢复、分段失败重试、画布保留及替换过程中可见性、触摸板合成事件、DPR 上限和不同窗口尺寸。通过 MutationObserver 与定时采样检查可见画布，避免隐藏窗口 requestAnimationFrame 不运行造成零次采样的假通过。workspace smoke 覆盖 24 次并发分段请求保持缓存路径。真实课件长期内存、触摸板硬件手感和其他平台尚未验收。

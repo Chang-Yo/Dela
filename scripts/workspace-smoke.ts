@@ -228,6 +228,25 @@ app
     assert.equal(largePreviewRange.status, 206);
     assert.equal(largePreviewRange.headers.get('content-range'), `bytes 0-4/${largePdfSize}`);
     assert.equal(await largePreviewRange.text(), '%PDF-');
+    // Repeated/concurrent range reads must never rename the cached file.
+    for (let batch = 0; batch < 3; batch++) {
+      await Promise.all(
+        Array.from({ length: 8 }, async () => {
+          const response = await net.fetch(second.previewUrl!, { headers: { Range: 'bytes=0-4' } });
+          assert.equal(response.status, 206);
+          assert.equal(await response.text(), '%PDF-');
+          assert.equal(
+            (
+              db
+                .prepare('SELECT value FROM workspace_settings WHERE key=?')
+                .get(`canvas-file:${canvasKey}`) as { value: string }
+            ).value,
+            cachedPath,
+          );
+          assert.deepEqual(new Uint8Array(readFileSync(cachedPath)), pdf);
+        }),
+      );
+    }
     // Legacy cache migration must work without downloading or overwriting an existing file.
     mkdirSync(join(profile, 'canvas-cache'), { recursive: true });
     writeFileSync(join(profile, 'canvas-cache', canvasKey), pdf);
@@ -411,6 +430,13 @@ app
     await win.loadFile(join(process.cwd(), 'out/renderer/index.html'));
     const invoke = (body: string) =>
       win.webContents.executeJavaScript(`(async () => { ${body} })()`);
+    const rendererRange = await invoke(`
+      const response = await fetch(${JSON.stringify(second.previewUrl)}, { headers: { Range: 'bytes=0-4' } });
+      return { status: response.status, range: response.headers.get('content-range'), text: await response.text() };
+    `);
+    assert.equal(rendererRange.status, 206);
+    assert.equal(rendererRange.text, '%PDF-');
+    assert.match(rendererRange.range, /^bytes 0-4\//);
     await invoke(
       `await window.dela.workspace.saveView(${JSON.stringify(folder.id)}, {tabs:[${JSON.stringify(note.id)}], active:${JSON.stringify(note.id)}, expanded:[${JSON.stringify(child.id)}], scroll:{${JSON.stringify(note.id)}:120}});`,
     );
