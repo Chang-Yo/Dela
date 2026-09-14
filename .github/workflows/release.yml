@@ -167,6 +167,43 @@ jobs:
               git log --no-merges --format='- %s (`%h`)' "$RELEASE_TAG"
             fi
           } > release-notes.md
-          gh release create "$RELEASE_TAG" installers/* \
-            --verify-tag --draft --generate-notes --notes-file release-notes.md --title "$RELEASE_TAG" "${prerelease[@]}"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" installers/* --clobber
+          else
+            gh release create "$RELEASE_TAG" installers/* \
+              --verify-tag --draft --generate-notes --notes-file release-notes.md --title "$RELEASE_TAG" "${prerelease[@]}"
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false
+
+  publish-public:
+    needs: [prepare, release]
+    name: Publish to public releases repo
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+      GH_REPO: Chang-Yo/Dela_releases
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: installer-*
+          path: installers
+          merge-multiple: true
+      - name: Publish installers without notes
+        shell: bash
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo '::error::PUBLIC_RELEASE_TOKEN secret is not configured (fine-grained PAT with Contents write on Chang-Yo/Dela_releases)'
+            exit 1
+          fi
+          prerelease=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" installers/* --clobber
+          else
+            gh release create "$RELEASE_TAG" installers/* \
+              --draft --title "$RELEASE_TAG" "${prerelease[@]}"
+          fi
           gh release edit "$RELEASE_TAG" --draft=false

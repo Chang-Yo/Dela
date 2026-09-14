@@ -92,7 +92,9 @@ Windows 打包目录可运行 `dist/win-unpacked/Dela.exe --smoke-test` 做相�
 
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release；tag 必须等于 `v` 加 `package.json` 的版本，例如 `v0.1.0`。先提交版本和代码，再执行 `git tag v0.1.0`、`git push origin v0.1.0`。含预发布后缀的版本（例如 `0.2.0-beta.1`）会发布为 prerelease。
 
-工作流合入默认分支后，也可在 Actions → Release installers → Run workflow 中填写已有 tag。手动运行构建该 tag 指向的代码，使用相同版本校验和发布流程。已存在的 Release 不自动覆盖；发布失败若留下草稿，检查并删除该草稿后可重跑同一 tag。
+私有 Release 发布成功后，同一工作流会把同一批安装包再发布到公开仓库 [Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases) 的同名 tag Release，不包含任何说明文字。公开仓库中的 tag 由 GitHub 自动创建在其默认分支最新提交上，仅作发布锚点，不对应源码。首次使用前需要两项准备：公开仓库已有初始提交（例如 README）；在本仓库 Settings → Secrets and variables → Actions 配置 `PUBLIC_RELEASE_TOKEN`，取值为仅授权 `Chang-Yo/Dela_releases`、权限 Contents: Read and write 的 fine-grained PAT——内置 `GITHUB_TOKEN` 无法跨仓库发布。
+
+工作流合入默认分支后，也可在 Actions → Release installers → Run workflow 中填写已有 tag。手动运行构建该 tag 指向的代码，使用相同版本校验和发布流程。重跑同一 tag 时，私有与公开仓库已存在的 Release 不会被重建，而是以 `gh release upload --clobber` 覆盖同名安装包后重新公开，因此首次为历史 tag 补发公开 Release 可直接重跑该 tag。
 
 | 平台    | 最低系统基线     | 架构                 | 产物               | GitHub runner                |
 | ------- | ---------------- | -------------------- | ------------------ | ---------------------------- |
@@ -102,7 +104,7 @@ Windows 打包目录可运行 `dist/win-unpacked/Dela.exe --smoke-test` 做相�
 
 以上是项目选择的运行基线，不代表最低系统实机兼容性已验收；[Electron 44 要求 macOS 13 或以上](https://www.electronjs.org/blog/electron-44-0)，该下限也写入打包配置。Ubuntu AppImage 需 `libfuse2t64`，下载后赋予执行权限即可运行。GitHub runner 是构建环境，与最低运行系统不同。
 
-四个构建任务均执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟及打包目录启动检查，全部成功才统一创建草稿 Release、上传安装包并公开。Linux 冒烟通过 Xvfb 运行，并仅在临时 runner 中放开 AppArmor 对用户命名空间的限制以运行 Electron sandbox。安装包名包含版本、系统和架构，避免产物重名。仅发布任务具有 `contents: write`，使用内置 `GITHUB_TOKEN`，无需另配发布 token。
+四个构建任务均执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟及打包目录启动检查，全部成功才统一创建草稿 Release、上传安装包并公开。Linux 冒烟通过 Xvfb 运行，并仅在临时 runner 中放开 AppArmor 对用户命名空间的限制以运行 Electron sandbox。安装包名包含版本、系统和架构，避免产物重名。私有发布任务具有 `contents: write`，使用内置 `GITHUB_TOKEN`；公开发布任务使用 `PUBLIC_RELEASE_TOKEN`（配置方法见上文），token 权限只覆盖公开仓库。
 
 当前未配置 Windows 签名、Apple Developer ID 签名或公证，安装时可能遇到 SmartScreen/Gatekeeper 提示。工作流中的冒烟检查验证打包后程序及 SQLite/preload，不代替 NSIS 安装过程或 DMG/AppImage 最低系统实机验收；跨平台流水线结果需在 GitHub 首次运行后确认。
 
