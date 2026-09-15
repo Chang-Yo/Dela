@@ -129,7 +129,30 @@ export function HomeView({
 
   return (
     <div className={cn('flex h-full min-h-0 flex-col', !conversation && 'overflow-y-auto')}>
-      <div className={cn(conversation && 'hidden', 'shrink-0', 'min-h-12')} />
+      {/* 历史/新对话常驻左上角：闲置与会话两态位置不变，历史打开悬浮面板。 */}
+      <div className="flex shrink-0 items-center gap-1 px-3 pt-2">
+        <Button
+          aria-label="历史对话"
+          onClick={() => setSessionsOpen(true)}
+          size="icon-sm"
+          title="历史对话"
+          type="button"
+          variant="ghost"
+        >
+          <History />
+        </Button>
+        <Button
+          aria-label="新对话"
+          disabled={busy}
+          onClick={chatState.newChat}
+          size="icon-sm"
+          title="新对话"
+          type="button"
+          variant="ghost"
+        >
+          <SquarePen />
+        </Button>
+      </div>
       {chat && (chat.messages.length > 0 || chat.running) && (
         <motion.div
           animate={{ opacity: 1 }}
@@ -137,29 +160,6 @@ export function HomeView({
           initial={{ opacity: 0 }}
           transition={{ duration: 0.16 }}
         >
-          <div className="mx-auto flex w-full max-w-3xl items-center justify-end gap-1 px-4 pt-2">
-            <Button
-              aria-label="历史对话"
-              onClick={() => setSessionsOpen(true)}
-              size="icon-sm"
-              title="历史对话"
-              type="button"
-              variant="ghost"
-            >
-              <History />
-            </Button>
-            <Button
-              aria-label="新对话"
-              disabled={busy}
-              onClick={chatState.newChat}
-              size="icon-sm"
-              title="新对话"
-              type="button"
-              variant="ghost"
-            >
-              <SquarePen />
-            </Button>
-          </div>
           <ChatThread
             chat={chat}
             onOpenSource={openSource}
@@ -275,6 +275,7 @@ export function HomeView({
         onOpenSession={chatState.openSession}
         open={sessionsOpen}
         scope="home"
+        variant="panel"
       />
     </div>
   );

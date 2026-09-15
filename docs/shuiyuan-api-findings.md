@@ -1,10 +1,12 @@
 # 水源社区（shuiyuan.sjtu.edu.cn）API 探测记录
 
-日期：2026-09-13、2026-09-14。方式：匿名 HTTP 探测 + 本人在受控浏览器会话中完成一次 jAccount 登录后，用该会话同源请求各 Discourse JSON 端点实测。探测过程未读取仓库 `.env`，凭据由用户在登录窗口人工输入（jAccount 登录含验证码，无法也无必要脚本化）。本文与 `canvas-api-findings.md` 同一定位：只记录事实与结构推断，不含实现承诺；产品设想单独标注。
+日期：2026-09-13、2026-09-14、2026-09-15。方式：匿名 HTTP 探测 + 本人在受控浏览器会话中完成一次 jAccount 登录后，用该会话同源请求各 Discourse JSON 端点实测。探测过程未读取仓库 `.env`，凭据由用户在登录窗口人工输入（jAccount 登录含验证码，无法也无必要脚本化）。本文与 `canvas-api-findings.md` 同一定位：只记录事实与结构推断，不含实现承诺；产品设想单独标注。
 
-## 0. 最新结论（2026-09-14）
+## 0. 最新结论（2026-09-14、2026-09-15）
 
 **已验证 Dela 的水源 User API Key 只读授权可行。** 用户在水源页面手动确认后，本机成功完成“加密 payload 解密 → `User-Api-Key` 只读请求 → 撤销测试 key”的完整链路。Dela 展示名可直接打开相同授权页；没有证据表明请求需要 OpenClaw 安装、配置或展示名白名单。
+
+**已验证 `write` scope 同样可签发且写接口真实生效（2026-09-15）。** 与只读流程同一请求形态（`scopes=write`、不带 `auth_redirect`），授权页正常展示「写入所有」并完成授权；解密后实测创建/删除书签均 200，撤销后请求 403。写操作仅凭 `User-Api-Key` 头即可，无需 CSRF token。另确认：**水源偏好设置没有任何 User API Key 的查看或撤销界面**（安全性页仅有“最近使用的设备”），key 的生命周期管理只能由客户端自身实现，详见 2.1。
 
 这是一项已验证的外部能力，不等于 Dela 已实现该接入。验证范围限一个已登录账号和 `read` scope；完整过程、边界与仍待验证项见 2.1 节。
 
@@ -52,7 +54,7 @@ Electron 独立持久 Session（无 preload 模态窗）
 | 匿名 JSON API          | 全部 403 `not_logged_in`，无公开数据面                                                                   |
 | 爬虫 UA / RSS          | 均被拦截                                                                                                 |
 | 无头脚本登录           | jAccount 登录页含验证码（另有扫码、短信两种人工方式），脚本化不可行，且不应存储用户密码                  |
-| Discourse User API Key | **已验证完整只读授权流**：Dela 可获签发、解密、请求并撤销 User API Key；展示名不是当前观测到的白名单条件 |
+| Discourse User API Key | **`read` 与 `write` scope 均已验证完整授权流**（2026-09-14 read、2026-09-15 write）：可获签发、解密、请求并撤销；展示名与 scope 均不是当前观测到的白名单条件。站点网页端无 key 管理入口 |
 
 User API Key 是 Discourse 官方为第三方客户端设计的授权机制（功能上类似 OAuth 授权：应用出示 RSA 公钥，用户网页点授权，服务端加密下发 token，之后带 `User-Api-Key` 头调用）。2026-09-13 的一个登录态请求曾返回"抱歉，我们无法发布用户 API 密钥，此功能可能被网站管理员禁用"，当时不能据此完成授权。
 
@@ -62,10 +64,18 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 
 这证明了一个已登录水源账号可以为 Dela 完成当前的只读 User API Key 流程；不证明所有账户、未来站点策略或其他 scopes 也会成功。此前失败请求与成功流程最显著的未隔离差异仍是是否携带 `auth_redirect`。
 
+2026-09-15 以与 `read` 完全相同的请求形态请求 `scopes=write`（展示名 `Dela`、不带 `auth_redirect`）：授权页正常渲染，明确列出「写入所有」与警示文案（“请求完全写入权限 — 此应用程序将能够发布、编辑和删除内容”），未出现 2026-09-13 那种“无法发布用户 API 密钥”的禁用错误。用户在页面确认后，站点直接展示密文 payload（带「复制密钥」按钮）。解密得 32 字符 key，`api=4`、`push=false`，nonce 回传匹配。用该 key 实测：`GET /session/current.json` 200 确认身份；`POST /bookmarks`（`bookmarkable_id` + `bookmarkable_type: "Topic"`）200 创建书签；`DELETE /bookmarks/<id>` 200 删除，状态完全回滚；`POST /user-api-key/revoke` 200 后同一请求 403。全程只带 `User-Api-Key` 与 `User-Api-Client-Id` 头，未取 CSRF token。
+
+本次 write 验证的边界：只实测了书签创建/删除两类写操作，发帖、回帖、通知已读等写端点未逐一验证，不能据此宣称全部写接口可用；`read` 验证时已有的账户、未来策略等保留条款同样适用。
+
+**站点侧 key 管理能力缺失（2026-09-15 确认）**：偏好设置 › 安全性页面只显示“最近使用的设备”，没有任何 User API Key 的列表、查看或撤销入口。这意味着 key 一旦签发，用户在水源网页端无法管理——**客户端必须自行持久化 key 并实现 `POST /user-api-key/revoke` 撤销**；若授权后 payload 未被客户端捕获，该 key 将成为无法解密的休眠凭据，且除站点管理员外无人能撤销。
+
+测试遗留：write 测试前的一次授权（用户手动点击确认）因浏览器窗口在提取密文前关闭，payload 丢失。该 write key 成为无法解密、无法经网页撤销的休眠 key；对应 RSA 私钥仅存在于本机临时目录（`/tmp/tmp.spcvQ7g2y6/priv.pem`）、从未外传，密文也从未提交给任何第三方（无 `auth_redirect`），实际风险趋近于零。若用户当时复制过该密文，可解密后立即撤销；否则只能由站点管理员清理或长期休眠。
+
 ### 2.2 会话 Cookie 路径的边界
 
 - GET 类端点只依赖 cookie，无需 CSRF。
-- 写操作（标记通知已读、收藏等）需要 `X-CSRF-Token`，取自 `GET /session/csrf`（该端点匿名可用，token 与 `_forum_session` 配对）。
+- 走会话 cookie 的写操作（标记通知已读、收藏等）需要 `X-CSRF-Token`，取自 `GET /session/csrf`（该端点匿名可用，token 与 `_forum_session` 配对）。**User API Key 头路径的写操作不需要 CSRF**（2026-09-15 实测 POST/DELETE 未带 token 即成功），这是它相对 cookie 路径的结构性优势。
 - 响应未暴露 `X-RateLimit-*` 头；Discourse 只在触发限流时返回 `Retry-After`，阈值未知。轮询应保持分钟级以上间隔并做退避。
 
 ## 3. 登录后可获取的数据（全部为本人会话实测）
@@ -114,7 +124,8 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 
 - 会话 cookie 存活时长与失效形态（需多天真实使用观察）。
 - 深分页行为（`more_topics_url` 翻页之后）、按分类过滤的请求参数。
-- 通知已读标记、收藏增删等写操作（需 CSRF，属第二阶段）。
+- cookie 会话路径的写操作未测；写能力已由 User API Key `write` scope 覆盖（书签增删已验证），但通知已读、发帖/回帖、私信等具体写端点尚未逐一实测。
+- Dela 侧 User API Key 生命周期管理是硬性要求：站点无网页管理入口，客户端必须持久化 key（safeStorage）并提供撤销（`POST /user-api-key/revoke`）；payload 丢失即产生无法使用的休眠 key，授权窗口的 payload 捕获要做成可靠步骤。
 - MessageBus 实时通道（`/message-bus/…`）是否可用于推送式更新。
 - `u/<me>/summary.json`、私信列表（`/topics/private-messages/…`）等长尾端点。
 - 实际限流阈值与触发后的 `Retry-After` 表现。

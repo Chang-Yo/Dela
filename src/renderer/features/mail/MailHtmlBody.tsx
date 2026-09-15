@@ -12,7 +12,7 @@ const toolbarToggle = cn(
 export function MailHtmlBody({ html, text }: { html: string; text: string | null }) {
   const [remoteImages, setRemoteImages] = useState(true);
   const [plain, setPlain] = useState(false);
-  const [fitWidth, setFitWidth] = useState(true);
+  const [fitWidth, setFitWidth] = useState(false);
   const document = useMemo(
     () => renderMailHtml(sanitizeMailHtml(html, remoteImages), fitWidth),
     [html, remoteImages, fitWidth],

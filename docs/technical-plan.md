@@ -848,3 +848,13 @@ scripts/pdf-smoke.cjs 使用隔离 Electron、生产 renderer、300 页含 2048�
 用户打开课表时出现 Electron 内部 `ClientRequest → new Response` 的未捕获 RangeError（状态码必须为 200–599）。课表连接检查与同步共用的请求改为 `net.request`，直接消费响应流，保留校园 Session、Cookie、代理和 15 秒超时；显式拒绝登录重定向、无效状态码和 HTTP 错误，网络失败与中断回到已有错误处理，不再经过 Electron `session.fetch` 的 Response 构造路径。未修改登录数据或吞掉全局异常。依据 Electron v44.3.0 的 lib/browser/api/net-fetch.ts 与 lib/common/api/net-client-request.ts；截图无法确定服务器当时的实际状态码，不将“状态为 0”或“登录过期”宣称为已复现事实。
 
 验证：课表单元测试覆盖正常 JSON、登录 HTML、错误载荷、302、0/101/600 无效状态、503、redirect/error 事件及超时；类型检查通过。未访问真实校园账号，真实服务器触发条件与打包版实机点击尚未复验。
+
+### 2026-09-15 首页历史会话悬浮面板
+
+按用户要求把首页历史入口移到左上角并改为悬浮面板。`HomeView` 的「历史对话」「新对话」两个 icon-sm 按钮从会话态右上角（max-w-3xl 行内右对齐）移到内容区左上角（`px-3 pt-2` 全宽行左对齐），闲置态与会话态常驻同一位置；原闲置态顶部的 `min-h-12` 占位由该行取代。闲置态因此可直接查看历史，不再需要先进入会话态。
+
+`ChatSessions` 增加 `variant?: 'dialog' | 'panel'`（默认 dialog，项目助手 AgentPanel 调用处不变）：panel 形态不复用 Radix Dialog，改用条件渲染 + `createPortal` 到 `#app-main`（AppShell 的 `<main>` 为此加 `relative` 和 id），backdrop（`bg-black/30` + fade-in，onMouseDown 关闭）与面板（`w-72 max-w-[85vw]`、左侧滑入 150ms，与窄屏抽屉同一动画语言）都绝对定位于内容区内，侧栏展开时不遮挡主导航，且不受闲置态 `overflow-y-auto` 滚动影响。面板顶部为搜索框（沿用 200ms 防抖 listChats），右上角 X、Esc（自行监听，非 Radix）与遮罩三种关闭路径；点击会话打开并收起。dialog 与 panel 共用文件内提取的 `SessionList`。删除会话采用「乐观移除 + 递增列表版本重取」：立即从本地列表去掉该行，随后按新版本重新拉取，保证在途的防抖搜索/打开请求不会用旧结果复活已删除行，删除失败（IPC 报错）时该行也按实际数据恢复。面板为非模态覆盖层，不锁 body 滚动、不设 aria-modal；焦点管理沿用 autoFocus 搜索框，不另做焦点圈闭（与窄屏抽屉同策略）。
+
+本次取代 2026-09-13「会话态为右上方『历史/新对话』图标行」与 2026-09-14「历史对话仍可在会话态右上角找到」的界面描述；会话数据模型（chat_sessions v9、scope 隔离、list-chats 搜索）不变。
+
+验证：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、74 项单元测试；另以隔离 userData 的假 IPC 探针（chat-smoke 同模式）断言通过——闲置/会话两态左上角入口位置、面板锚定（左缘/顶缘/高度与 main 一致、宽 288px）、搜索框 autofocus 与过滤、打开会话进入会话态、当前会话高亮、Esc/遮罩/X 三种关闭路径、删除后列表收敛为服务端事实、项目助手居中弹窗回归、600px 宽无横向溢出、明暗主题截图（`output/playwright/history-panel-*.png`）。探针过程记录两个测试侧事实：裸 `ipcMain.handle` 桩首参是 `IpcMainInvokeEvent`（真实主进程经包装 `handle` 剥离，探针桩用到调用参数时须显式跳过）；合成 `KeyboardEvent` 默认 `bubbles: false`，派发到 `document` 不会到达 window 监听器，探针派发须带 `bubbles: true`（真实键盘事件天然冒泡，应用行为不受影响）。删除后行恢复、悬停显示删除按钮等指针级交互待真实环境确认；窄屏触屏无法悬停呼出删除按钮为既有边界，未在本次扩散修改。

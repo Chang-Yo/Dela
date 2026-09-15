@@ -723,7 +723,11 @@ export function AppShell({
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      <main className="col-start-3 row-start-2 flex min-w-0 flex-col overflow-hidden bg-background">
+      {/* relative + id：供页内悬浮面板（如首页历史对话）portal 锚定到内容区。 */}
+      <main
+        className="relative col-start-3 row-start-2 flex min-w-0 flex-col overflow-hidden bg-background"
+        id="app-main"
+      >
         {children}
       </main>
     </div>
