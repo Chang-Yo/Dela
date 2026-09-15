@@ -1,9 +1,10 @@
 import { Paperclip, Reply, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
-import type { MailMessageDetail, MailAttachmentInfo } from '../../../shared/api';
+import type { MailMessageDetail, MailAttachmentInfo, MailAddress } from '../../../shared/api';
 import { formatMailAddress, formatFullDate, formatSize } from './mail-format';
 import { MailHtmlBody } from './MailHtmlBody';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../lib/utils';
 
 type Props = {
@@ -11,6 +12,8 @@ type Props = {
   detail: MailMessageDetail | null;
   detailLoading: boolean;
   detailError: string | null;
+  /** 当前账户地址,用于在收件人行识别"自己"并折叠其余收件人。 */
+  accountAddress: string;
   selectedMessageId: number | null;
   openMessage: (id: number, options?: { readonly?: boolean }) => Promise<void>;
   downloadAttachment: (messageId: number, part: string) => Promise<{ ok: boolean; error?: string }>;
@@ -24,11 +27,72 @@ type Props = {
   setMobileReading: (reading: boolean) => void;
 };
 
+/** 收件人行:群发时只显示自己,其余收件人与抄送折叠为"+N 收件者",悬浮展开完整列表。 */
+function RecipientRow({
+  to,
+  cc,
+  accountAddress,
+}: {
+  to: readonly MailAddress[];
+  cc: readonly MailAddress[];
+  accountAddress: string;
+}) {
+  const accountKey = accountAddress.replace(/\s+/g, '').toLowerCase();
+  const self =
+    to.find((item) => (item.address ?? '').replace(/\s+/g, '').toLowerCase() === accountKey) ??
+    to[0];
+  if (!self) return null;
+  const foldedCount = to.length + cc.length - 1;
+  return (
+    <div className="flex gap-3">
+      <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">收件人</span>
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[13px] leading-5">
+        <span className="break-all">{formatMailAddress(self.name, self.address)}</span>
+        {foldedCount > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+                type="button"
+              >
+                +{foldedCount} 收件者
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-h-64 max-w-80 overflow-y-auto">
+              <div className="space-y-2">
+                <div className="space-y-0.5">
+                  <p className="opacity-70">收件人</p>
+                  {to.map((item) => (
+                    <p className="break-all" key={`${item.address}-${item.name}`}>
+                      {formatMailAddress(item.name, item.address)}
+                    </p>
+                  ))}
+                </div>
+                {cc.length > 0 && (
+                  <div className="space-y-0.5">
+                    <p className="opacity-70">抄送</p>
+                    {cc.map((item) => (
+                      <p className="break-all" key={`${item.address}-${item.name}`}>
+                        {formatMailAddress(item.name, item.address)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export function MailReader({
   className,
   detail,
   detailLoading,
   detailError,
+  accountAddress,
   selectedMessageId,
   openMessage,
   downloadAttachment,
@@ -91,8 +155,8 @@ export function MailReader({
         </div>
       )}
       {!detailLoading && detail && (
-        <article className="flex min-h-0 flex-1 flex-col overflow-hidden px-8 pt-6 pb-0 max-md:px-4 max-md:pt-2 max-md:pb-0">
-          <div className="mx-auto flex w-full max-w-[760px] min-h-0 flex-1 flex-col">
+        <article className="min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-0 max-md:px-4 max-md:pt-2 max-md:pb-0">
+          <div className="mx-auto flex w-full max-w-[760px] flex-col">
             <div className="flex items-start gap-2">
               <h2 className="min-w-0 flex-1 text-[21px] font-semibold leading-7 tracking-tight">
                 {detail.subject ?? '(无主题)'}
@@ -132,16 +196,10 @@ export function MailReader({
                 </span>
               </div>
               {detail.to.length > 0 && (
-                <div className="flex gap-3">
-                  <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">
-                    收件人
-                  </span>
-                  <span className="min-w-0 flex-1 break-all text-[13px] leading-5">
-                    {detail.to.map((to) => formatMailAddress(to.name, to.address)).join(', ')}
-                  </span>
-                </div>
+                <RecipientRow accountAddress={accountAddress} cc={detail.cc} to={detail.to} />
               )}
-              {detail.cc.length > 0 && (
+              {/* 折叠时抄送并入"+N 收件者"悬浮列表;仅当无收件人(无法折叠)时保留独立抄送行。 */}
+              {detail.to.length === 0 && detail.cc.length > 0 && (
                 <div className="flex gap-3">
                   <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">
                     抄送
@@ -203,7 +261,7 @@ export function MailReader({
             {detail.bodyHtml ? (
               <MailHtmlBody key={detail.id} html={detail.bodyHtml} text={detail.bodyText} />
             ) : (
-              <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+              <div className="mt-4 rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
                 {detail.bodyText ?? '(无正文)'}
               </div>
             )}

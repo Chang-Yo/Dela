@@ -773,6 +773,7 @@ function DesktopMailView({
               detail={detail}
               detailLoading={detailLoading}
               detailError={detailError}
+              accountAddress={account?.address ?? ''}
               selectedMessageId={selectedMessageId}
               openMessage={openMessage}
               downloadAttachment={(messageId, part) =>
