@@ -129,7 +129,7 @@ app
       { urls: ['https://example.com/*'] },
       (_, cb) => cb({ cancel: true }),
     );
-    await win.loadFile(join(root, 'out/renderer/index.html'));
+    await win.loadFile(join(root, 'out/renderer/index.html'), { query: { 'smoke-test': '1' } });
     await pause(300);
     const js = async (s) => {
       try {

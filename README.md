@@ -249,3 +249,11 @@ src/main 按 mail、canvas、timetable、workspace、agent 分类，每个领域
 验证：Prettier、Oxlint、三组类型检查、`pnpm build`、74 项单元测试；隔离假 IPC 探针核对面板锚定与宽度、搜索过滤、三种关闭路径、删除后列表收敛、打开会话与当前会话高亮、项目助手居中弹窗回归、600px 宽无横向溢出及明暗主题截图。
 
 课表 hotfix（2026-09-15）：连接检查与同步改用保留校园 Session 的 `net.request`，绕开 Electron 内部构造 Response 引起的未捕获状态码异常；重定向、异常状态与超时由现有错误处理接收。课表单元测试与类型检查通过，真实校园服务器及打包版点击待实机复验。
+
+### 首次启动开屏动画（2026-09-15）
+
+- 首次启动（localStorage 无 `dela.splash.seen` 标记）时播放约 2.4 秒的一次性全屏开屏：品牌图标弹入、名称淡入、细分隔线展开、标语「The world keeps changing. Dela stays with you.」淡入，随后整层放大淡出进入应用；点击任意处或 Esc 立即跳过，退场时写入标记，之后不再显示。
+- 明暗主题走既有设计 token 与 `DelaBrand` 双图切换，跟随系统「减少动态效果」设置降级为纯淡入淡出。
+- 冒烟与自动化隔离：`--smoke-test` 运行时主进程在页面 URL 注入 `smoke-test=1`，chat/mail/pdf/workspace 四个直接加载 renderer 的冒烟脚本同步注入，开屏自动跳过，自动化时序不受影响。
+
+验证：改动文件 Prettier、Oxlint、renderer/main 类型检查、74 项单元测试、`pnpm smoke` 与 `pnpm smoke:workspace`；另以隔离 userData 的生产构建实例经 CDP 完成 10 项断言与 4 张截图的 judge 视觉验收（明/暗动画帧、点击与 Esc 跳过、重启不再显示）。NSIS 打包后启动未重验；浏览器开发预览同样会播放开屏（每个浏览器档案一次），便于开发期查看。

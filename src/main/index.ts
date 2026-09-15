@@ -220,9 +220,13 @@ async function createWindow(): Promise<void> {
     if (new URL(devUrl).origin !== 'http://127.0.0.1:5173') {
       throw new Error('Unexpected development server origin');
     }
-    await window.loadURL(devUrl);
+    // 冒烟运行经 URL 参数告知 renderer 跳过首启开屏等一次性界面。
+    await window.loadURL(smokeTest ? `${devUrl}?smoke-test=1` : devUrl);
   } else {
-    await window.loadFile(join(__dirname, '../renderer/index.html'));
+    await window.loadFile(
+      join(__dirname, '../renderer/index.html'),
+      smokeTest ? { query: { 'smoke-test': '1' } } : undefined,
+    );
   }
   // 恢复持久化的页面缩放；在页面加载后设置，避免导航重置缩放级别。
   window.webContents.setZoomFactor(savedZoom());

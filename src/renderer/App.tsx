@@ -4,6 +4,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell, type MobileDrawer, type ViewId } from './components/AppShell';
 import { HomeView } from './features/home';
 import { MailView } from './features/mail';
+import { FirstLaunchSplash } from './features/onboarding/FirstLaunchSplash';
 import { ProjectView } from './features/projects';
 import { SettingsView } from './features/settings';
 import { ShuiyuanView } from './features/shuiyuan';
@@ -154,70 +155,73 @@ export default function App() {
   };
 
   return (
-    <AppShell
-      canBack={backStack.length > 0}
-      canForward={forwardStack.length > 0}
-      mobileDrawer={mobileDrawer}
-      onBack={goBack}
-      onMobileDrawerChange={setMobileDrawer}
-      onForward={goForward}
-      onNavigate={navigate}
-      onZoomChange={(next) => void changeZoom(next)}
-      view={view}
-      zoom={zoom}
-      projectId={projectId}
-      onOpenProject={openProject}
-      onNewProject={newProject}
-    >
-      <MotionConfig reducedMotion="user">
-        <AnimatePresence initial={false} mode="wait">
-          <motion.div
-            animate={{ opacity: 1, y: 0 }}
-            className="flex min-h-0 flex-1 flex-col"
-            exit={{ opacity: 0 }}
-            initial={{ opacity: 0, y: 4 }}
-            key={view}
-            transition={{ duration: 0.16 }}
-          >
-            {view === 'home' && (
-              <HomeView
-                onOpenProject={openProject}
-                onNewProject={newProject}
-                onOpenSources={() => navigate('sources')}
-              />
-            )}
-            {view === 'project' && (
-              <ProjectView
-                projectId={projectId}
-                onOpenProject={openProject}
-                createRequested={createProject}
-                onCreateHandled={() => setCreateProject(false)}
-              />
-            )}
-            {view === 'sources' && <SourcesView onOpenProject={openProject} />}
-            {view === 'mail' && (
-              <MailView
-                mobileDrawerOpen={mobileDrawer === 'mail'}
-                onMobileDrawerClose={() => setMobileDrawer(null)}
-              />
-            )}
-            {view === 'timetable' && <TimetableView />}
-            {view === 'shuiyuan' && <ShuiyuanView />}
-            {view === 'settings' && (
-              <SettingsView
-                fontScale={fontScale}
-                onFontScaleChange={changeFontScale}
-                onThemeChange={changeTheme}
-                onOpenMail={() => navigate('mail')}
-                onOpenTimetable={() => navigate('timetable')}
-                onZoomChange={changeZoom}
-                theme={theme}
-                zoom={zoom}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </MotionConfig>
-    </AppShell>
+    <>
+      <AppShell
+        canBack={backStack.length > 0}
+        canForward={forwardStack.length > 0}
+        mobileDrawer={mobileDrawer}
+        onBack={goBack}
+        onMobileDrawerChange={setMobileDrawer}
+        onForward={goForward}
+        onNavigate={navigate}
+        onZoomChange={(next) => void changeZoom(next)}
+        view={view}
+        zoom={zoom}
+        projectId={projectId}
+        onOpenProject={openProject}
+        onNewProject={newProject}
+      >
+        <MotionConfig reducedMotion="user">
+          <AnimatePresence initial={false} mode="wait">
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className="flex min-h-0 flex-1 flex-col"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, y: 4 }}
+              key={view}
+              transition={{ duration: 0.16 }}
+            >
+              {view === 'home' && (
+                <HomeView
+                  onOpenProject={openProject}
+                  onNewProject={newProject}
+                  onOpenSources={() => navigate('sources')}
+                />
+              )}
+              {view === 'project' && (
+                <ProjectView
+                  projectId={projectId}
+                  onOpenProject={openProject}
+                  createRequested={createProject}
+                  onCreateHandled={() => setCreateProject(false)}
+                />
+              )}
+              {view === 'sources' && <SourcesView onOpenProject={openProject} />}
+              {view === 'mail' && (
+                <MailView
+                  mobileDrawerOpen={mobileDrawer === 'mail'}
+                  onMobileDrawerClose={() => setMobileDrawer(null)}
+                />
+              )}
+              {view === 'timetable' && <TimetableView />}
+              {view === 'shuiyuan' && <ShuiyuanView />}
+              {view === 'settings' && (
+                <SettingsView
+                  fontScale={fontScale}
+                  onFontScaleChange={changeFontScale}
+                  onThemeChange={changeTheme}
+                  onOpenMail={() => navigate('mail')}
+                  onOpenTimetable={() => navigate('timetable')}
+                  onZoomChange={changeZoom}
+                  theme={theme}
+                  zoom={zoom}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </MotionConfig>
+      </AppShell>
+      <FirstLaunchSplash />
+    </>
   );
 }

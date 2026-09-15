@@ -427,7 +427,9 @@ app
         nodeIntegration: false,
       },
     });
-    await win.loadFile(join(process.cwd(), 'out/renderer/index.html'));
+    await win.loadFile(join(process.cwd(), 'out/renderer/index.html'), {
+      query: { 'smoke-test': '1' },
+    });
     const invoke = (body: string) =>
       win.webContents.executeJavaScript(`(async () => { ${body} })()`);
     const rendererRange = await invoke(`

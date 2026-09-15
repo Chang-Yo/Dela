@@ -59,7 +59,7 @@ app
       win.webContents.send('workspace:chat-update', 'home', structuredClone(chat));
       await pause();
     };
-    await win.loadFile(join(root, 'out/renderer/index.html'));
+    await win.loadFile(join(root, 'out/renderer/index.html'), { query: { 'smoke-test': '1' } });
     await wait("document.querySelector('textarea')");
     chat.messages.push({ role: 'user', content: '帮我整理课程资料，保存本周复习计划。' });
     const reply = {
