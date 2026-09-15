@@ -130,6 +130,19 @@ const migrations: string[][] = [
       FROM workspace_settings WHERE key LIKE 'chat:%'`,
     `DELETE FROM workspace_settings WHERE key LIKE 'chat:%'`,
   ],
+  [
+    // 水源来源引用：仅在用户把帖子添加到项目时写入一行，不是同步缓存。
+    `CREATE TABLE shuiyuan_topics (
+      topic_id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      excerpt TEXT,
+      category_name TEXT,
+      author TEXT,
+      posts_count INTEGER,
+      added_at TEXT NOT NULL
+    )`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {

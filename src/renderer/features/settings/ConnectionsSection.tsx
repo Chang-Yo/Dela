@@ -3,6 +3,7 @@ import { Dialog } from 'radix-ui';
 import { CalendarDays, Folder, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { cn } from '../../lib/utils';
 import type { MailTrashRetention } from '../../../shared/api';
 import { SectionHeader } from './SectionHeader';
@@ -10,12 +11,13 @@ import { errorText, useWorkspace } from '../projects/workspace';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;
+  onOpenShuiyuan: () => void;
   onOpenTimetable: () => void;
 };
 
 type Connection = {
   name: string;
-  icon: LucideIcon;
+  icon: LucideIcon | typeof ShuiyuanIcon;
   state: string;
   connected: boolean;
   description: string;
@@ -25,13 +27,21 @@ type Connection = {
   extra?: ReactNode;
 };
 
-export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsSectionProps) {
+export function ConnectionsSection({
+  onOpenMail,
+  onOpenShuiyuan,
+  onOpenTimetable,
+}: ConnectionsSectionProps) {
   const canvas = useWorkspace((state) => state.canvas);
   const directory = useWorkspace((state) => state.workspace.directory);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
   const [retentionError, setRetentionError] = useState<string | null>(null);
   const [timetableConnected, setTimetableConnected] = useState(false);
+  const [shuiyuanUser, setShuiyuanUser] = useState<string | null>(null);
+  const [shuiyuanBusy, setShuiyuanBusy] = useState(false);
+  const [shuiyuanConfirm, setShuiyuanConfirm] = useState(false);
+  const [shuiyuanError, setShuiyuanError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'canvas' | null>(null);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
@@ -41,25 +51,47 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
     const dela = window.dela;
     if (!dela) return undefined;
     let active = true;
-    void Promise.all([dela.mail.getState(), dela.timetable.getState()]).then(
-      ([mailState, timetableState]) => {
-        if (!active) return;
-        setMailAddress(mailState.account?.address ?? null);
-        setTimetableConnected(timetableState.connected);
-        if (mailState.account) {
-          void dela.mail
-            .getTrashRetention()
-            .then((value) => {
-              if (active) setTrashRetention(value);
-            })
-            .catch(() => {});
-        }
-      },
-    );
+    void Promise.all([
+      dela.mail.getState(),
+      dela.timetable.getState(),
+      dela.shuiyuan.getState(),
+    ]).then(([mailState, timetableState, shuiyuanState]) => {
+      if (!active) return;
+      setMailAddress(mailState.account?.address ?? null);
+      setTimetableConnected(timetableState.connected);
+      setShuiyuanUser(shuiyuanState.connected ? shuiyuanState.username : null);
+      if (mailState.account) {
+        void dela.mail
+          .getTrashRetention()
+          .then((value) => {
+            if (active) setTrashRetention(value);
+          })
+          .catch(() => {});
+      }
+    });
     return () => {
       active = false;
     };
   }, []);
+
+  // 水源解绑：先远端 revoke 再清本地；两步确认防误触（重新授权成本高）。
+  const unbindShuiyuan = async () => {
+    if (!window.dela || !shuiyuanConfirm) {
+      setShuiyuanConfirm(true);
+      return;
+    }
+    setShuiyuanBusy(true);
+    setShuiyuanError(null);
+    try {
+      await window.dela.shuiyuan.unbind();
+      setShuiyuanUser(null);
+      setShuiyuanConfirm(false);
+    } catch (cause) {
+      setShuiyuanError(errorText(cause));
+    } finally {
+      setShuiyuanBusy(false);
+    }
+  };
 
   const openDialog = () => {
     setDialog('canvas');
@@ -170,6 +202,26 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
       description: '同步个人课表与教学安排',
       actionLabel: '前往',
       onClick: onOpenTimetable,
+    },
+    {
+      name: '水源社区',
+      icon: ShuiyuanIcon,
+      state: shuiyuanUser ? `已绑定 · @${shuiyuanUser}` : '未绑定',
+      connected: Boolean(shuiyuanUser),
+      description: '浏览帖子、回复与私信（读取 + 写入授权）',
+      actionLabel: shuiyuanUser
+        ? shuiyuanBusy
+          ? '解除中…'
+          : shuiyuanConfirm
+            ? '确认解除？'
+            : '解除绑定'
+        : '去绑定',
+      onClick: shuiyuanUser ? () => void unbindShuiyuan() : onOpenShuiyuan,
+      extra: shuiyuanError ? (
+        <span className="text-xs text-destructive" role="alert">
+          {shuiyuanError}
+        </span>
+      ) : undefined,
     },
     {
       name: '工作目录',

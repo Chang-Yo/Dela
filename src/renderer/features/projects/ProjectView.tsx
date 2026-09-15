@@ -58,12 +58,14 @@ export function ProjectView({
   mode = 'project',
   projectId = null,
   onOpenProject,
+  onOpenShuiyuanTopic,
   createRequested = false,
   onCreateHandled,
 }: {
   mode?: 'project' | 'sources';
   projectId?: string | null;
   onOpenProject: (id: string) => void;
+  onOpenShuiyuanTopic?: (topicId: number) => void;
   createRequested?: boolean;
   onCreateHandled?: () => void;
 }) {
@@ -390,6 +392,7 @@ export function ProjectView({
       onLinkSource={(id) => show({ action: 'link', id })}
       onNewNote={newNote}
       onOpenSource={open}
+      onOpenShuiyuanTopic={onOpenShuiyuanTopic}
     />
   );
   if (!window.dela)

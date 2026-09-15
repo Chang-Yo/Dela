@@ -10,6 +10,7 @@ type SettingsViewProps = {
   fontScale: FontScalePreference;
   onFontScaleChange: (scale: FontScalePreference) => Promise<void>;
   onOpenMail: () => void;
+  onOpenShuiyuan: () => void;
   onOpenTimetable: () => void;
   onThemeChange: (theme: ThemePreference) => Promise<void>;
   onZoomChange: (zoom: ZoomPreference) => Promise<void>;
@@ -21,6 +22,7 @@ export function SettingsView({
   fontScale,
   onFontScaleChange,
   onOpenMail,
+  onOpenShuiyuan,
   onOpenTimetable,
   onThemeChange,
   onZoomChange,
@@ -35,7 +37,11 @@ export function SettingsView({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[760px] px-4 py-5 md:px-10 md:py-8">
           {section === 'connections' && (
-            <ConnectionsSection onOpenMail={onOpenMail} onOpenTimetable={onOpenTimetable} />
+            <ConnectionsSection
+              onOpenMail={onOpenMail}
+              onOpenShuiyuan={onOpenShuiyuan}
+              onOpenTimetable={onOpenTimetable}
+            />
           )}
           {section === 'llm' && <LlmSection />}
           {section === 'appearance' && (

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
 import { getDatabase } from '../database';
 import { readCanvasSource } from '../canvas/api';
+import { readShuiyuanSource } from '../shuiyuan/api';
 import { readWorkspaceEntry } from '../workspace/api';
 import { getActiveLlmProvider } from './providers';
 
@@ -130,8 +131,11 @@ export async function ask(
   try {
     const documents = await Promise.all(
       context.map(async (key) => {
-        const content = key.startsWith('source:')
-          ? await readCanvasSource(key.slice(7))
+        const sourceKey = key.startsWith('source:') ? key.slice(7) : null;
+        const content = sourceKey
+          ? sourceKey.startsWith('shuiyuan-topic:')
+            ? await readShuiyuanSource(Number(sourceKey.slice('shuiyuan-topic:'.length)))
+            : await readCanvasSource(sourceKey)
           : await readWorkspaceEntry(idSchema.parse(key));
         if (!['markdown', 'text', 'html'].includes(content.format))
           throw new Error(`“${content.title}”暂不支持全文问答，可粘贴需要讨论的文字`);

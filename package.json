@@ -31,7 +31,8 @@
     "package:dist": "pnpm build && electron-builder",
     "smoke": "electron . --smoke-test",
     "smoke:workspace": "node scripts/workspace-smoke.mjs",
-    "smoke:pdf": "electron scripts/pdf-smoke.cjs"
+    "smoke:pdf": "electron scripts/pdf-smoke.cjs",
+    "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",

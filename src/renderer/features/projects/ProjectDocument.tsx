@@ -21,6 +21,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
 import { SourceDetail } from '../sources/SourceDetail';
+import { ShuiyuanSourceDoc } from '../shuiyuan/SourceRefCard';
 import { MarkdownEditor } from './MarkdownEditor';
 import { errorText, useWorkspace } from './workspace';
 
@@ -33,6 +34,7 @@ export function ProjectDocument({
   onLinkSource,
   onNewNote,
   onOpenSource,
+  onOpenShuiyuanTopic,
 }: {
   documentKey: string;
   readOnly?: boolean;
@@ -42,6 +44,7 @@ export function ProjectDocument({
   onLinkSource: (key: string) => void;
   onNewNote: (text: string) => void;
   onOpenSource: (key: string) => void;
+  onOpenShuiyuanTopic?: (topicId: number) => void;
 }) {
   const draft = useWorkspace((s) => s.drafts[documentKey]);
   const entries = useWorkspace((s) => s.workspace.entries);
@@ -50,6 +53,9 @@ export function ProjectDocument({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const sourceId = documentKey.startsWith('source:') ? documentKey.slice(7) : entry?.sourceId;
+  const shuiyuanTopicId = sourceId?.startsWith('shuiyuan-topic:')
+    ? Number(sourceId.slice('shuiyuan-topic:'.length))
+    : null;
   const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : undefined;
   const course = canvas.courses.find((c) => c.id === source?.courseId);
   const editable = entry?.kind === 'note' && !readOnly;
@@ -67,6 +73,7 @@ export function ProjectDocument({
       parent = node.parentId;
     }
     if (course) list.push({ key: `course:${course.id}`, label: `${course.name} · Canvas` });
+    if (shuiyuanTopicId !== null) list.push({ key: 'shuiyuan', label: '水源社区' });
     if (source) {
       const trail: string[] = [];
       let nodeId = source.parentId;
@@ -79,7 +86,7 @@ export function ProjectDocument({
       trail.forEach((label, index) => list.push({ key: `trail:${index}:${label}`, label }));
     }
     return list;
-  }, [entries, entry?.parentId, course, source, canvas.items, onReveal]);
+  }, [entries, entry?.parentId, course, source, canvas.items, onReveal, shuiyuanTopicId]);
   useEffect(() => {
     let active = true;
     setError(null);
@@ -269,6 +276,14 @@ export function ProjectDocument({
           onChange={(text) => useWorkspace.getState().edit(documentKey, text)}
           onSave={() => void useWorkspace.getState().save(documentKey)}
           onScroll={onScroll}
+        />
+      ) : shuiyuanTopicId !== null ? (
+        <ShuiyuanSourceDoc
+          content={draft.content}
+          onOpenInShuiyuan={(topicId) => onOpenShuiyuanTopic?.(topicId)}
+          onOpenUrl={link}
+          text={draft.text}
+          topicId={shuiyuanTopicId}
         />
       ) : (
         <SourceDetail

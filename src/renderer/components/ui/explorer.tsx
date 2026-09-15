@@ -1,4 +1,11 @@
-import { useRef, useState, type ReactNode, type KeyboardEvent, type DragEvent } from 'react';
+import {
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+  type KeyboardEvent,
+  type DragEvent,
+} from 'react';
 import { ChevronRight, FileText, Folder, FolderOpen, FolderKanban } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -9,6 +16,8 @@ export interface ExplorerItem {
   container?: boolean;
   project?: boolean;
   badge?: string;
+  /** 叶子条目的自定义图标（如水源来源的水滴）；默认 FileText。 */
+  icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
 }
 
 export const explorerDragType = 'application/x-dela-entry';
@@ -163,7 +172,7 @@ export function Explorer({
             ? open.has(item.id)
               ? FolderOpen
               : Folder
-            : FileText;
+            : (item.icon ?? FileText);
         return (
           <div
             key={item.id}

@@ -106,6 +106,20 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 | ▲ `GET /about.json`                        | 全站统计（topics/posts/users/likes/chat 的日、7 天、30 天、总量）与版本、管理团队                                                                                                      |
 | `GET /session/csrf`                        | 200 + CSRF token（写操作前置）                                                                                                                                                         |
 
+### 3.1 v1 实现前的补充验证（2026-09-15，read key 实测）
+
+| 事项 | 结论 |
+| ---- | ---- |
+| 精品 tag | 端点为 `/tag/<中文名>.json`（如 `/tag/精品.json` → 200，30 条/页，结果确实按 tag 过滤）；侧栏的 `11-tag` 形态 slug 不可用于 API（404） |
+| `?tag=` 组合过滤 | `latest.json?tag=X` 与 `c/<slug>/<id>.json?tag=X` 均返回**未过滤**结果——组合过滤不可用，类别与标签只能互斥 |
+| tags 字段形态 | 水源的 topic `tags` 元素是对象 `{id, name, slug}` 而非纯字符串，映射需取 `.name` |
+| 分类树 | `categories.json?include_subcategories=true` 不生效（仍只有 13 个顶级）；完整树来自 `site.json`（83 个，70 个带 `parent_category_id`）；`site.json` 另有 `top_tags`（101 个，带计数） |
+| `tags.json` | 280 个 tag，按常用度排序，无计数 |
+| 楼层深链 | `/t/<id>/<post_number>.json` 可用（样本返回目标楼前后 20 楼 + 全量 stream） |
+| 楼层分段 | `/t/<id>/posts.json?post_ids[]=<n>` 可用（实测 3 个 id 返回 3 楼） |
+| 通知已读 | `PUT /notifications/mark-read` 端点存在（read scope 下 403，属权限不足而非不存在）；按 id 形态 404 不存在 |
+| 分页 | 统一跟随响应的 `more_topics_url`（tag 列表形态如 `/tag/精品?match_all_tags=true&page=1&tags[]=精品`，路径加 `.json` 即为下一页） |
+
 ## 4. 对聚合器的数据模型推论
 
 1. **topic 是核心实体**：`id` 稳定唯一，来源链接可由 topic 构造；分类、楼层、通知、收藏都挂接到 topic。

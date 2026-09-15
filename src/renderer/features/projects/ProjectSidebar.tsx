@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { WorkspaceEntry } from '../../../shared/api';
 import { Explorer } from '../../components/ui/explorer';
+import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +68,9 @@ export function ProjectSidebar({
       name: e.name,
       project: e.kind === 'project',
       container: e.kind === 'folder' || e.kind === 'project',
+      // 水源来源条目显示水滴图标，与其余资料区分。
+      icon:
+        e.kind === 'source' && e.sourceId?.startsWith('shuiyuan-topic:') ? ShuiyuanIcon : undefined,
     }));
   let filtered = nodes;
   let open = expanded;

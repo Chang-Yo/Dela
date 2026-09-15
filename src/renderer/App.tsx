@@ -10,6 +10,7 @@ import { SettingsView } from './features/settings';
 import { ShuiyuanView } from './features/shuiyuan';
 import { SourcesView } from './features/sources';
 import { TimetableView } from './features/timetable';
+import { useShuiyuan } from './features/shuiyuan/store';
 import { useWorkspace } from './features/projects/workspace';
 import {
   fontScaleLevels,
@@ -154,6 +155,12 @@ export default function App() {
     setView(next);
   };
 
+  // 项目里水源引用卡片的「在水源页打开」：切视图并请求定位到该帖。
+  const openShuiyuanTopic = (topicId: number) => {
+    navigate('shuiyuan');
+    useShuiyuan.getState().requestTopic(topicId);
+  };
+
   return (
     <>
       <AppShell
@@ -192,11 +199,14 @@ export default function App() {
                 <ProjectView
                   projectId={projectId}
                   onOpenProject={openProject}
+                  onOpenShuiyuanTopic={openShuiyuanTopic}
                   createRequested={createProject}
                   onCreateHandled={() => setCreateProject(false)}
                 />
               )}
-              {view === 'sources' && <SourcesView onOpenProject={openProject} />}
+              {view === 'sources' && (
+                <SourcesView onOpenProject={openProject} onOpenShuiyuanTopic={openShuiyuanTopic} />
+              )}
               {view === 'mail' && (
                 <MailView
                   mobileDrawerOpen={mobileDrawer === 'mail'}
@@ -211,6 +221,7 @@ export default function App() {
                   onFontScaleChange={changeFontScale}
                   onThemeChange={changeTheme}
                   onOpenMail={() => navigate('mail')}
+                  onOpenShuiyuan={() => navigate('shuiyuan')}
                   onOpenTimetable={() => navigate('timetable')}
                   onZoomChange={changeZoom}
                   theme={theme}

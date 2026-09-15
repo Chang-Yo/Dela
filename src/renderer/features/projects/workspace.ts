@@ -74,8 +74,11 @@ export const useWorkspace = create<Store>((set, get) => ({
     const started = get().drafts[key];
     const work = (async () => {
       const api = window.dela!;
-      const content = key.startsWith('source:')
-        ? await api.canvas.read(key.slice(7))
+      const sourceId = key.startsWith('source:') ? key.slice(7) : null;
+      const content = sourceId
+        ? sourceId.startsWith('shuiyuan-topic:')
+          ? await api.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
+          : await api.canvas.read(sourceId)
         : await api.workspace.read(key);
       const current = get().drafts[key];
       if (

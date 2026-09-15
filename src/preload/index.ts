@@ -11,6 +11,7 @@ import type {
   MailDraftInput,
   MailSyncStatus,
   MailTrashRetention,
+  ShuiyuanFeed,
   WindowState,
   WorkspaceCreateInput,
   WorkspaceViewState,
@@ -120,6 +121,27 @@ contextBridge.exposeInMainWorld('dela', {
     startAuth: () => ipcRenderer.invoke('shuiyuan:start-auth'),
     bind: (payload: string) => ipcRenderer.invoke('shuiyuan:bind', payload),
     unbind: () => ipcRenderer.invoke('shuiyuan:unbind'),
+    siteStructure: () => ipcRenderer.invoke('shuiyuan:site-structure'),
+    listTopics: (feed: ShuiyuanFeed, moreUrl?: string) =>
+      ipcRenderer.invoke('shuiyuan:list-topics', feed, moreUrl),
+    getTopic: (id: number, postNumber?: number) =>
+      ipcRenderer.invoke('shuiyuan:get-topic', id, postNumber),
+    loadPosts: (topicId: number, postIds: readonly number[]) =>
+      ipcRenderer.invoke('shuiyuan:load-posts', topicId, [...postIds]),
+    listBookmarks: () => ipcRenderer.invoke('shuiyuan:list-bookmarks'),
+    listMessages: () => ipcRenderer.invoke('shuiyuan:list-messages'),
+    listNotifications: () => ipcRenderer.invoke('shuiyuan:list-notifications'),
+    markNotificationsRead: () => ipcRenderer.invoke('shuiyuan:mark-notifications-read'),
+    getCounts: () => ipcRenderer.invoke('shuiyuan:get-counts'),
+    createReply: (topicId: number, raw: string) =>
+      ipcRenderer.invoke('shuiyuan:create-reply', topicId, raw),
+    createMessage: (to: readonly string[], title: string, raw: string) =>
+      ipcRenderer.invoke('shuiyuan:create-message', [...to], title, raw),
+    setBookmarked: (topicId: number, on: boolean) =>
+      ipcRenderer.invoke('shuiyuan:set-bookmarked', topicId, on),
+    addSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:add-source-ref', topicId),
+    getSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:get-source-ref', topicId),
+    readSource: (topicId: number) => ipcRenderer.invoke('shuiyuan:read-source', topicId),
   },
   canvas: {
     getState: () => ipcRenderer.invoke('canvas:get-state'),

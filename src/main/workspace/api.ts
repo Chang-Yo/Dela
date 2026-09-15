@@ -15,6 +15,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
+import { readShuiyuanSource } from '../shuiyuan/api';
 import { availablePath, storageDirectory as directory } from '../storage';
 import { workspaceArchiveId } from '../../shared/api';
 import type {
@@ -294,7 +295,16 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   prepareStorage();
   const db = getDatabase();
   if (parsed.kind === 'source') {
-    if (
+    // 来源引用按前缀区分平台：水源引用行在 shuiyuan_topics，其余仍是 Canvas 资料表。
+    if (parsed.sourceId?.startsWith('shuiyuan-topic:')) {
+      const topicId = Number(parsed.sourceId.slice('shuiyuan-topic:'.length));
+      if (
+        !Number.isInteger(topicId) ||
+        topicId <= 0 ||
+        !db.prepare('SELECT 1 FROM shuiyuan_topics WHERE topic_id=?').get(topicId)
+      )
+        throw new Error('水源帖子引用不存在，请回到水源页重新添加');
+    } else if (
       !parsed.sourceId ||
       !db.prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(parsed.sourceId)
     )
@@ -427,6 +437,9 @@ export async function workspaceFilePath(id: string): Promise<string> {
   prepareStorage();
   const item = entry(idSchema.parse(id));
   if (item.kind === 'note') return notePath(item);
+  // 水源来源是实时拉取的帖子，没有本地文件路径。
+  if (item.kind === 'source' && item.sourceId?.startsWith('shuiyuan-topic:'))
+    throw new Error('条目不是文件');
   if (item.kind === 'source' && item.sourceId) return canvasFilePath(item.sourceId);
   if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('条目不是文件');
   const stored = getDatabase()
@@ -439,7 +452,12 @@ export async function workspaceFilePath(id: string): Promise<string> {
 export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   prepareStorage();
   const item = entry(id);
-  if (item.kind === 'source' && item.sourceId) return readCanvasSource(item.sourceId);
+  if (item.kind === 'source' && item.sourceId) {
+    if (item.sourceId.startsWith('shuiyuan-topic:')) {
+      return readShuiyuanSource(Number(item.sourceId.slice('shuiyuan-topic:'.length)));
+    }
+    return readCanvasSource(item.sourceId);
+  }
   if (item.kind === 'note') {
     const path = notePath(item);
     const text = readFileSync(path, 'utf8');

@@ -84,6 +84,10 @@ export function MarkdownEditor({
   onSave,
   onScroll,
   scroll,
+  placeholderText = '开始记录…',
+  lineNumbers: showLineNumbers = true,
+  ariaLabel = '笔记编辑器',
+  saveOnBlur = true,
 }: {
   value: string;
   filename?: string;
@@ -91,6 +95,13 @@ export function MarkdownEditor({
   onSave: () => void;
   onScroll: (top: number) => void;
   scroll: number;
+  /** 占位文案；回复编辑器等非笔记场景使用。 */
+  placeholderText?: string;
+  /** 行号 gutter；笔记默认开启，回复编辑器可关闭。 */
+  lineNumbers?: boolean;
+  ariaLabel?: string;
+  /** 失焦即保存是笔记语义；回复编辑器传 false 防止误触发发送。 */
+  saveOnBlur?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -138,9 +149,9 @@ export function MarkdownEditor({
           languageConf.of(
             initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : [],
           ),
-          lineNumbers(),
+          ...(showLineNumbers ? [lineNumbers()] : []),
           EditorView.lineWrapping,
-          placeholder('开始记录…'),
+          placeholder(placeholderText),
           keymap.of([
             ...markdownKeymap,
             {
@@ -156,13 +167,13 @@ export function MarkdownEditor({
           ]),
           editorTheme,
           syntaxHighlighting(highlightStyle),
-          EditorView.contentAttributes.of({ spellcheck: 'false', 'aria-label': '笔记编辑器' }),
+          EditorView.contentAttributes.of({ spellcheck: 'false', 'aria-label': ariaLabel }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) handlers.current.onChange(update.state.doc.toString());
           }),
           EditorView.domEventHandlers({
             blur: () => {
-              handlers.current.onSave();
+              if (saveOnBlur) handlers.current.onSave();
               return false;
             },
             // 组文结束后（CM6 微任务冲完组文变更）补一次被跳过的外部值同步。
