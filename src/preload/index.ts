@@ -115,6 +115,12 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('timetable:set-semester-start', semester, value),
     syncNow: (semester?: string) => ipcRenderer.invoke('timetable:sync', semester),
   },
+  shuiyuan: {
+    getState: () => ipcRenderer.invoke('shuiyuan:get-state'),
+    startAuth: () => ipcRenderer.invoke('shuiyuan:start-auth'),
+    bind: (payload: string) => ipcRenderer.invoke('shuiyuan:bind', payload),
+    unbind: () => ipcRenderer.invoke('shuiyuan:unbind'),
+  },
   canvas: {
     getState: () => ipcRenderer.invoke('canvas:get-state'),
     configure: (token: string) => ipcRenderer.invoke('canvas:configure', token),

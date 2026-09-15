@@ -858,3 +858,9 @@ scripts/pdf-smoke.cjs 使用隔离 Electron、生产 renderer、300 页含 2048�
 本次取代 2026-09-13「会话态为右上方『历史/新对话』图标行」与 2026-09-14「历史对话仍可在会话态右上角找到」的界面描述；会话数据模型（chat_sessions v9、scope 隔离、list-chats 搜索）不变。
 
 验证：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、74 项单元测试；另以隔离 userData 的假 IPC 探针（chat-smoke 同模式）断言通过——闲置/会话两态左上角入口位置、面板锚定（左缘/顶缘/高度与 main 一致、宽 288px）、搜索框 autofocus 与过滤、打开会话进入会话态、当前会话高亮、Esc/遮罩/X 三种关闭路径、删除后列表收敛为服务端事实、项目助手居中弹窗回归、600px 宽无横向溢出、明暗主题截图（`output/playwright/history-panel-*.png`）。探针过程记录两个测试侧事实：裸 `ipcMain.handle` 桩首参是 `IpcMainInvokeEvent`（真实主进程经包装 `handle` 剥离，探针桩用到调用参数时须显式跳过）；合成 `KeyboardEvent` 默认 `bubbles: false`，派发到 `document` 不会到达 window 监听器，探针派发须带 `bubbles: true`（真实键盘事件天然冒泡，应用行为不受影响）。删除后行恢复、悬停显示删除按钮等指针级交互待真实环境确认；窄屏触屏无法悬停呼出删除按钮为既有边界，未在本次扩散修改。
+
+### 2026-09-15 水源授权绑定模块
+
+主侧栏新增「水源」入口（`assets/shuiyuan_logo.svg` 水滴图标，`ShuiyuanIcon` 组件），新增 `features/shuiyuan/ShuiyuanView`：当前只有授权卡与「已绑定 @用户名」状态，不做数据展示页（用户明确要求先验证数据面再定页面形态）。授权交互为用户设计的复制回贴流：点击「登录并授权」→ 主进程生成一次性 RSA-2048 密钥对与 nonce，打开与课表共用 `persist:dela-campus` Session 的无 preload 模态窗加载 `/user-api-key/new`（`scopes=read`、展示名 Dela、不带 `auth_redirect`）→ 用户窗口内登录授权并复制站点展示的加密密文 → 回 Dela 粘贴 → 主进程解密、校验 nonce、带 `User-Api-Key` 实测 `session/current.json` 后才存入 safeStorage（`userData/shuiyuan-key.bin`，含 key/clientId/username/boundAt）。待授权私钥只存主进程内存，随进程退出或下次授权替换。解除绑定先调远端 `POST /user-api-key/revoke` 成功才清本地（403/404 视为已失效直接清），网络失败保留凭据提示重试——站点无 key 管理界面，失败即清会产生无人可撤销的休眠 key。IPC `shuiyuan:get-state/start-auth/bind/unbind` 全部经 `checkWorkspaceSender`，参数走 zod。
+
+验证：Prettier、Oxlint、三组类型检查、生产构建、74 项单元测试、Electron 冒烟通过；用户已在开发实例实机完成登录授权与粘贴绑定，key 经 safeStorage 加解密往返成功。同日以该授权完成 17 个只读端点结构普查（全部 200，含分页、分类过滤、私信、阅读摘要、site/about 元数据），结果与边界记录于 `docs/shuiyuan-api-findings.md` 第 3、7 节；数据呈现页面、同步落库与 Agent 工具尚未实现。

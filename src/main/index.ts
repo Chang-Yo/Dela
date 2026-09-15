@@ -6,6 +6,7 @@ import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
 import { checkWorkspaceSender } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
+import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import type { IconPreference, ThemePreference } from '../shared/api';
@@ -146,6 +147,7 @@ app.whenReady().then(() => {
   registerMailIpc();
   registerTimetableIpc();
   registerCanvasIpc();
+  registerShuiyuanIpc();
   registerWorkspaceIpc();
 });
 

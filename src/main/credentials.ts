@@ -61,6 +61,51 @@ export function clearCanvasToken(): void {
   if (existsSync(path)) unlinkSync(path);
 }
 
+/** 水源 User API Key 的本地形态；key 只存在主进程，不进 renderer 或数据库。 */
+export interface ShuiyuanCredential {
+  key: string;
+  clientId: string;
+  username: string;
+  boundAt: string;
+}
+
+function shuiyuanPath(): string {
+  return join(app.getPath('userData'), 'shuiyuan-key.bin');
+}
+
+export function saveShuiyuanCredential(credential: ShuiyuanCredential): void {
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
+  writeFileSync(shuiyuanPath(), safeStorage.encryptString(JSON.stringify(credential)));
+}
+
+export function loadShuiyuanCredential(): ShuiyuanCredential | null {
+  const path = shuiyuanPath();
+  if (!existsSync(path)) return null;
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
+  const parsed = JSON.parse(
+    safeStorage.decryptString(readFileSync(path)),
+  ) as Partial<ShuiyuanCredential>;
+  if (
+    typeof parsed.key !== 'string' ||
+    typeof parsed.clientId !== 'string' ||
+    typeof parsed.username !== 'string' ||
+    typeof parsed.boundAt !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    key: parsed.key,
+    clientId: parsed.clientId,
+    username: parsed.username,
+    boundAt: parsed.boundAt,
+  };
+}
+
+export function clearShuiyuanCredential(): void {
+  const path = shuiyuanPath();
+  if (existsSync(path)) unlinkSync(path);
+}
+
 /** 主进程持久化的 LLM 提供商配置实例；apiKey 只存在这里，不进 renderer 或 SQLite。 */
 export interface StoredLlmProvider {
   id: string;

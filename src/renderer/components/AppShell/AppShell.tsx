@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
 import { DelaBrand } from '../ui/dela-brand';
+import { ShuiyuanIcon } from '../ui/shuiyuan-icon';
 import { cn } from '../../lib/utils';
 import { useWorkspace } from '../../features/projects/workspace';
 import { zoomLevels, type ZoomPreference } from '../../../shared/api';
@@ -35,18 +36,21 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-export type ViewId = 'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'settings';
+export type ViewId =
+  'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'shuiyuan' | 'settings';
 
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
 export type MobileDrawer = 'nav' | 'mail';
 type TitleMenuId = 'file' | 'sources' | 'view' | 'help';
+type ShuiyuanIconType = typeof ShuiyuanIcon;
 
-const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
+const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon | ShuiyuanIconType }> = [
   { id: 'home', label: '首页', icon: House },
   { id: 'project', label: '项目', icon: FolderKanban },
   { id: 'sources', label: '资料', icon: FolderOpen },
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
+  { id: 'shuiyuan', label: '水源', icon: ShuiyuanIcon },
 ];
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */

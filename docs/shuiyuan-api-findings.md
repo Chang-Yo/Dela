@@ -8,6 +8,8 @@
 
 **已验证 `write` scope 同样可签发且写接口真实生效（2026-09-15）。** 与只读流程同一请求形态（`scopes=write`、不带 `auth_redirect`），授权页正常展示「写入所有」并完成授权；解密后实测创建/删除书签均 200，撤销后请求 403。写操作仅凭 `User-Api-Key` 头即可，无需 CSRF token。另确认：**水源偏好设置没有任何 User API Key 的查看或撤销界面**（安全性页仅有“最近使用的设备”），key 的生命周期管理只能由客户端自身实现，详见 2.1。
 
+**Dela 已实现授权绑定模块，并以真实用户绑定完成只读端点结构普查（2026-09-15）。** 主侧栏新增「水源」入口，`read` scope 授权流（独立窗口登录授权 → 用户复制密文 → 回 Dela 粘贴绑定 → safeStorage 保存）已在实机走通；随后用该 key 普查 17 个只读端点，全部 200，结构与字段记录见第 3 节。
+
 这是一项已验证的外部能力，不等于 Dela 已实现该接入。验证范围限一个已登录账号和 `read` scope；完整过程、边界与仍待验证项见 2.1 节。
 
 ## 1. 站点身份与访问策略（已验证）
@@ -80,17 +82,29 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 
 ## 3. 登录后可获取的数据（全部为本人会话实测）
 
-| 端点                                  | 实测内容                                                                                                                                                                     |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /session/current.json`           | 当前用户对象（实测 89 个字段）：`username`、`name`、`unread_notifications`、`unread_private_messages`、`admin` 等                                                            |
-| `GET /latest.json`                    | 每页 30 个 topic + `topic_list.more_topics_url` 分页游标；topic 含 `id`、`title`、`category_id`、`posts_count`、`created_at`、`last_posted_at`                               |
-| `GET /categories.json`                | 13 个顶级分类及帖子计数：校园生活 13415、广而告之 2199、人生经验 2067、休闲娱乐 1475、社团组织 567、数码科技 522、文化艺术 383、水源活动 69；计数为 0 的应为父分类（推断）   |
-| `GET /search.json?q=数据结构`         | 每页 50 条：`topics[]`（id/标题/时间）+ `posts[].blurb` 正文摘要 + `grouped_search_result.hit_count`；摘要质量足以直接展示                                                   |
-| `GET /t/<topic_id>.json`              | 帖子全文：`title`、`posts_count`（样本 67 楼）、`post_stream.stream`（楼层 id 全量）+ 每楼 `cooked`（消毒后 HTML，首楼样本 4281 字符）、`details.participants`（样本 24 人） |
-| `GET /notifications.json?recent=true` | 15 条通知：`notification_type`（实测出现 {2,5,6,12,14,19}，对应 Discourse 标准枚举，实现时按语义映射）、`read` 状态、触发者与主题引用                                        |
-| `GET /new.json`、`GET /unread.json`   | 新帖流、未读流，各 30 topic/页，结构与 `latest` 相同                                                                                                                         |
-| `GET /u/<username>/bookmarks.json`    | 本人收藏：实测 11 条，含 `topic_id`、`created_at`、可选 `name`                                                                                                               |
-| `GET /session/csrf`                   | 200 + CSRF token（写操作前置）                                                                                                                                               |
+2026-09-15 前 9 行以登录 cookie 会话实测；标记 ▲ 的行以 Dela 绑定的 `read` User API Key 重新实测，全部 200。
+
+| 端点                                       | 实测内容                                                                                                                                                                               |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /session/current.json`                | 当前用户对象（实测 89 个字段）：`username`、`name`、`unread_notifications`、`unread_private_messages`、`admin` 等                                                                      |
+| `GET /latest.json`                         | 每页 30 个 topic + `topic_list.more_topics_url` 分页游标；topic 含 `id`、`title`、`category_id`、`posts_count`、`created_at`、`last_posted_at`                                         |
+| ▲ `GET /latest.json?page=N`                | 数字页码翻页可用：`page=2` 返回不同于首页的 30 条，`more_topics_url` 指向 `page=3`；page=1 为首页（`more_topics_url` 从 page=0 起算）                                                  |
+| `GET /categories.json`                     | 13 个顶级分类及帖子计数：校园生活 13415、广而告之 2199、人生经验 2067、休闲娱乐 1475、社团组织 567、数码科技 522、文化艺术 383、水源活动 69；计数为 0 的应为父分类（推断）             |
+| ▲ `GET /categories.json`（字段补充）       | 每分类 45 字段，含 `subcategory_ids`、`topics_day/week/month/year` 趋势计数、`color/emoji/icon`、`read_restricted`——趋势计数可直接做“今日热门分类”                                     |
+| ▲ `GET /c/<slug>/<id>.json`                | 分类过滤的主题列表可用（样本 `/c/campus-life/23.json`），30 条/页 + `more_topics_url`，结构与 `latest` 相同                                                                            |
+| `GET /search.json?q=数据结构`              | 每页 50 条：`topics[]`（id/标题/时间）+ `posts[].blurb` 正文摘要 + `grouped_search_result.hit_count`；摘要质量足以直接展示                                                             |
+| `GET /t/<topic_id>.json`                   | 帖子全文：`title`、`posts_count`（样本 67 楼）、`post_stream.stream`（楼层 id 全量）+ 每楼 `cooked`（消毒后 HTML，首楼样本 4281 字符）、`details.participants`（样本 24 人）           |
+| ▲ `GET /t/<id>.json`（字段补充）           | 60 字段/楼；另有 `suggested_topics`（相关主题推荐）、`thumbnails`、`timeline_lookup`、`chunk_size`、`summarizable`/`has_cached_summary`（站点 AI 摘要能力标志）、`message_bus_last_id` |
+| `GET /notifications.json?recent=true`      | 15 条通知：`notification_type`（实测出现 {2,5,6,12,14,19}，对应 Discourse 标准枚举，实现时按语义映射）、`read` 状态、触发者与主题引用                                                  |
+| `GET /new.json`、`GET /unread.json`        | 新帖流、未读流，各 30 topic/页，结构与 `latest` 相同                                                                                                                                   |
+| `GET /u/<username>/bookmarks.json`         | 本人收藏：实测 11 条，含 `topic_id`、`created_at`、可选 `name`                                                                                                                         |
+| ▲ `GET /u/<me>/bookmarks.json`（补充）     | 条目含 `excerpt`（正文摘要）、`reminder_at`、`bookmarkable_url`、`tags`、`last_read_post_number`，可直接渲染收藏列表                                                                   |
+| ▲ `GET /u/<me>/summary.json`               | 阅读画像：`days_visited` 296、`time_read`、`topics_entered`、`posts_read_count`、`top_categories`、`badges`、`most_liked_by_users`                                                     |
+| ▲ `GET /topics/private-messages/<me>.json` | 本人私信列表：实测 8 个会话，`archetype=private_message`，条目为 topic 结构 + `allowed_user_count`、`participants`                                                                     |
+| ▲ `GET /u/<me>.json`                       | 完整个人资料（90 字段），含 `email`、`trust_level`、`user_api_keys`、`user_auth_tokens`、`groups`、`user_option`                                                                       |
+| ▲ `GET /site.json`                         | 站点结构清单：83 个分类全树（13 顶级 + 子分类）、31 个 groups、`notification_types`/`post_types` 枚举、`top_tags`                                                                      |
+| ▲ `GET /about.json`                        | 全站统计（topics/posts/users/likes/chat 的日、7 天、30 天、总量）与版本、管理团队                                                                                                      |
+| `GET /session/csrf`                        | 200 + CSRF token（写操作前置）                                                                                                                                                         |
 
 ## 4. 对聚合器的数据模型推论
 
@@ -122,10 +136,10 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 
 ## 7. 未验证 / 待办
 
-- 会话 cookie 存活时长与失效形态（需多天真实使用观察）。
-- 深分页行为（`more_topics_url` 翻页之后）、按分类过滤的请求参数。
+- 会话 cookie 存活时长与失效形态（需多天真实使用观察）；User API Key 的长期有效性同样需多天观察。
+- 深分页只验证到 `page=2`；更长翻页、`posts.json?post_ids[]=` 按楼分段加载长帖未逐一实测。
 - cookie 会话路径的写操作未测；写能力已由 User API Key `write` scope 覆盖（书签增删已验证），但通知已读、发帖/回帖、私信等具体写端点尚未逐一实测。
 - Dela 侧 User API Key 生命周期管理是硬性要求：站点无网页管理入口，客户端必须持久化 key（safeStorage）并提供撤销（`POST /user-api-key/revoke`）；payload 丢失即产生无法使用的休眠 key，授权窗口的 payload 捕获要做成可靠步骤。
-- MessageBus 实时通道（`/message-bus/…`）是否可用于推送式更新。
-- `u/<me>/summary.json`、私信列表（`/topics/private-messages/…`）等长尾端点。
-- 实际限流阈值与触发后的 `Retry-After` 表现。
+- MessageBus 实时通道（`/message-bus/…`）是否可用于推送式更新；`t/<id>.json` 已返回 `message_bus_last_id`，是接入锚点。
+- `summarizable`/`has_cached_summary` 标志表明站点开启了 Discourse AI 摘要；摘要内容的获取端点未测。
+- 实际限流阈值与触发后的 `Retry-After` 表现（本次普查 17 个请求顺序执行未触发限流）。

@@ -6,6 +6,7 @@ import { HomeView } from './features/home';
 import { MailView } from './features/mail';
 import { ProjectView } from './features/projects';
 import { SettingsView } from './features/settings';
+import { ShuiyuanView } from './features/shuiyuan';
 import { SourcesView } from './features/sources';
 import { TimetableView } from './features/timetable';
 import { useWorkspace } from './features/projects/workspace';
@@ -201,6 +202,7 @@ export default function App() {
               />
             )}
             {view === 'timetable' && <TimetableView />}
+            {view === 'shuiyuan' && <ShuiyuanView />}
             {view === 'settings' && (
               <SettingsView
                 fontScale={fontScale}

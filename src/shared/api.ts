@@ -246,6 +246,22 @@ export interface TimetableApi {
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
+export interface ShuiyuanState {
+  readonly connected: boolean;
+  readonly username: string | null;
+  readonly boundAt: string | null;
+}
+
+export interface ShuiyuanApi {
+  getState(): Promise<ShuiyuanState>;
+  /** 打开水源授权窗口：用户在其中登录并授权，随后把站点展示的密文复制回来。 */
+  startAuth(): Promise<void>;
+  /** 解密并校验用户粘贴的密文，成功后保存 User API Key 并返回绑定状态。 */
+  bind(payload: string): Promise<ShuiyuanState>;
+  /** 撤销远端 key 并清除本地凭据。 */
+  unbind(): Promise<void>;
+}
+
 /** 应用图标底色：white 对应 Dela_white_bg.png，black 对应 Dela_black_bg.png。 */
 export type IconPreference = 'white' | 'black';
 
@@ -321,6 +337,7 @@ export interface DelaApi {
   readonly llm: LlmApi;
   readonly mail: MailApi;
   readonly timetable: TimetableApi;
+  readonly shuiyuan: ShuiyuanApi;
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
 }
