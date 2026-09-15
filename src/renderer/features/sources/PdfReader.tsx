@@ -23,12 +23,10 @@ export function PdfReader({
   url,
   scroll,
   onScroll,
-  onQuote,
 }: {
   url: string;
   scroll: number;
   onScroll?: (top: number) => void;
-  onQuote: (text: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const pages = useRef<HTMLDivElement>(null);
@@ -257,7 +255,6 @@ export function PdfReader({
         <div
           ref={host}
           className="absolute inset-0 overflow-auto overscroll-contain bg-muted [overflow-anchor:none] [scrollbar-gutter:stable]"
-          onMouseUp={() => onQuote(window.getSelection()?.toString() ?? '')}
         >
           <div ref={pages} className="pdfViewer" />
         </div>

@@ -29,7 +29,6 @@ export function ProjectDocument({
   readOnly = false,
   scroll = 0,
   onScroll,
-  onQuote,
   onReveal,
   onLinkSource,
   onNewNote,
@@ -39,7 +38,6 @@ export function ProjectDocument({
   readOnly?: boolean;
   scroll?: number;
   onScroll: (top: number) => void;
-  onQuote: (text: string) => void;
   onReveal: (id: string) => void;
   onLinkSource: (key: string) => void;
   onNewNote: (text: string) => void;
@@ -276,7 +274,6 @@ export function ProjectDocument({
         <SourceDetail
           content={draft.content}
           text={draft.text}
-          onQuote={onQuote}
           onLink={link}
           scroll={scroll}
           onScroll={onScroll}

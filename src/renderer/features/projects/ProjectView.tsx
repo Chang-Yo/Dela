@@ -33,7 +33,7 @@ import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { explorerDragType } from '../../components/ui/explorer';
 import { cn } from '../../lib/utils';
-import { SourceList } from '../sources/SourceList';
+import { SourceList, latestTermOf } from '../sources/SourceList';
 import { ProjectDocument } from './ProjectDocument';
 import { ProjectSidebar, type EntryAction } from './ProjectSidebar';
 import { emptyView, errorText, useWorkspace } from './workspace';
@@ -94,8 +94,6 @@ export function ProjectView({
   const [reference, setReference] = useState<string | null>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentWidth, setAgentWidth] = useState(340);
-  const [quote, setQuote] = useState('');
-  const [quoteSource, setQuoteSource] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal | null>(null);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
@@ -203,7 +201,6 @@ export function ProjectView({
       tabs: view.tabs.includes(key) ? view.tabs : [...view.tabs.slice(-99), key],
     });
     setSelected(key);
-    setQuote('');
     setMobileOpen(false);
   };
   const closeTab = (key: string) => {
@@ -275,29 +272,18 @@ export function ProjectView({
     } else open(id);
   };
   const newNote = (text: string) => {
-    const quoted = quote || text;
-    const active = quote ? quoteSource : saved.active;
-    const sourceId = active?.startsWith('source:')
-      ? active.slice(7)
-      : workspace.entries.find((e) => e.id === active)?.sourceId;
+    const sourceId = saved.active?.startsWith('source:')
+      ? saved.active.slice(7)
+      : workspace.entries.find((e) => e.id === saved.active)?.sourceId;
     const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : null;
-    const originalUrl = active ? drafts[active]?.content.url : undefined;
+    const originalUrl = saved.active ? drafts[saved.active]?.content.url : undefined;
     const header = source
       ? `来源：${originalUrl ? `[${source.name}](${originalUrl})` : source.name}\n\n`
       : '';
     show({
       action: 'note',
       id: currentContainer(),
-      text:
-        text ||
-        `${header}${
-          quoted
-            ? quoted
-                .split('\n')
-                .map((line) => `> ${line}`)
-                .join('\n') + '\n\n'
-            : ''
-        }`,
+      text: text || header,
     });
   };
   const submit = async (event: FormEvent) => {
@@ -379,6 +365,20 @@ export function ProjectView({
     }
     return names.join(' / ');
   };
+  const refreshCourses = () => {
+    if (syncing || !canvas.connected) return;
+    setSyncing(true);
+    void run(async () => {
+      const { setCanvas } = useWorkspace.getState();
+      // 先刷新课程列表，否则新学期的课程拿不到；再逐门同步最新学期（顺序执行，避免并发轰炸 Canvas）。
+      await setCanvas(await window.dela!.canvas.syncCourses());
+      const courses = useWorkspace.getState().canvas.courses;
+      const latest = latestTermOf(courses);
+      for (const course of courses)
+        if (course.term === latest)
+          await setCanvas(await window.dela!.canvas.syncCourse(course.id));
+    }).finally(() => setSyncing(false));
+  };
   const renderDocument = (key: string, readOnly = false) => (
     <ProjectDocument
       key={key}
@@ -387,10 +387,6 @@ export function ProjectView({
       scroll={scrollPending.current[key] ?? saved.scroll[key] ?? 0}
       onScroll={(top) => recordScroll(key, top)}
       onReveal={reveal}
-      onQuote={(text) => {
-        setQuote(text);
-        setQuoteSource(key);
-      }}
       onLinkSource={(id) => show({ action: 'link', id })}
       onNewNote={newNote}
       onOpenSource={open}
@@ -550,6 +546,9 @@ export function ProjectView({
                       <GraduationCap className="size-4" />
                       课程资料
                     </button>
+                    <HeaderAction label="刷新课程资料" onClick={refreshCourses}>
+                      <RefreshCw className={cn(syncing && 'animate-spin')} />
+                    </HeaderAction>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -562,20 +561,6 @@ export function ProjectView({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem
-                          disabled={syncing || !canvas.connected}
-                          onSelect={() => {
-                            setSyncing(true);
-                            void run(async () =>
-                              useWorkspace
-                                .getState()
-                                .setCanvas(await window.dela!.canvas.syncCourses()),
-                            ).finally(() => setSyncing(false));
-                          }}
-                        >
-                          <RefreshCw className={cn(syncing && 'animate-spin')} />
-                          {syncing ? '正在同步…' : '同步课程列表'}
-                        </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => show({ action: 'connect', id: null })}>
                           <KeyRound />
                           {canvas.connected ? '更换 Canvas 令牌' : '连接 Canvas'}
@@ -841,17 +826,6 @@ export function ProjectView({
               aria-label="关闭错误提示"
               onClick={() => useWorkspace.getState().setError(null)}
             >
-              <X className="size-3" />
-            </button>
-          </div>
-        )}
-        {quote.trim() && (
-          <div className="flex shrink-0 items-center gap-3 border-b bg-muted/40 px-4 py-2 text-xs">
-            <span className="min-w-0 flex-1 truncate">{quote}</span>
-            <button className="shrink-0 font-medium" onClick={() => newNote('')}>
-              记入笔记
-            </button>
-            <button aria-label="取消引用" onClick={() => setQuote('')}>
               <X className="size-3" />
             </button>
           </div>
