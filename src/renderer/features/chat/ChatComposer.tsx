@@ -204,7 +204,7 @@ export function ChatComposer({
   return (
     <div
       className={cn(
-        'relative rounded-2xl border bg-card shadow-xs transition-colors focus-within:border-ring/60',
+        'relative rounded-3xl border bg-card shadow-xs transition-colors focus-within:border-ring/60',
         className,
       )}
     >
@@ -232,7 +232,7 @@ export function ChatComposer({
       <textarea
         aria-label="发送给助手"
         className={cn(
-          'field-sizing-content w-full resize-none overflow-y-auto bg-transparent px-4 pt-3 pb-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground',
+          'field-sizing-content w-full resize-none overflow-y-auto bg-transparent px-4 pt-3.5 pb-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground',
           hero ? 'min-h-16' : 'min-h-10',
         )}
         onChange={(event) => handleChange(event.target.value)}
@@ -253,7 +253,7 @@ export function ChatComposer({
         rows={1}
         value={value}
       />
-      <div className="flex items-center gap-1 px-2 pb-2">
+      <div className="flex items-center gap-1 px-2.5 pb-2.5">
         <Button
           aria-label="引用资料"
           className="text-muted-foreground"

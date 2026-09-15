@@ -46,32 +46,44 @@ export function useChat(scope: string) {
   const send = async (directText?: string) => {
     const text = (directText ?? prompt).trim();
     if (!window.dela || !text || busy) return;
-    setPending(true);
-    setError(null);
     const requested = scope;
+    const sentReferences = references;
     try {
-      for (const ref of references) {
+      for (const ref of sentReferences) {
         if (ref.key.startsWith('source:')) continue;
         await useWorkspace.getState().save(ref.key);
         const draft = useWorkspace.getState().drafts[ref.key];
         if (draft && draft.text !== draft.saved)
           throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
       }
+    } catch (e) {
+      setError(errorText(e));
+      return;
+    }
+    setPending(true);
+    setError(null);
+    // 发送即清空输入：用户消息与流式增量经推送回显，不等整轮结束。
+    setPrompt('');
+    setReferences([]);
+    try {
       const result = await window.dela.workspace.ask(
         scope,
         text,
-        references.map((ref) => ref.key),
+        sentReferences.map((ref) => ref.key),
       );
-      if (activeScope.current === requested) {
-        setChat(result);
-        setPrompt('');
-        setReferences([]);
-      }
+      if (activeScope.current === requested) setChat(result);
     } catch (e) {
       if (activeScope.current === requested) {
         setError(errorText(e));
-        // 用户消息此刻已上屏持久化，失败也要清空输入，避免重发同一段话。
-        setPrompt('');
+        // 消息未上屏（未配置模型、引用读取失败等发生在持久化前）时恢复输入，避免重打。
+        const fresh = await window.dela.workspace.getChat(scope).catch(() => null);
+        if (
+          activeScope.current === requested &&
+          !fresh?.messages.some((message) => message.role === 'user' && message.content === text)
+        ) {
+          setPrompt(text);
+          setReferences(sentReferences);
+        }
       }
     } finally {
       if (activeScope.current === requested) setPending(false);

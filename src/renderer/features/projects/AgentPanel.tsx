@@ -49,7 +49,9 @@ export function AgentPanel({
     return options;
   }, [drafts, entries, tabs]);
 
-  const conversation = chat && (chat.messages.length > 0 || chat.running);
+  // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
+  // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
+  const conversation = chat && (busy || chat.messages.length > 0 || chat.running);
 
   return (
     <aside

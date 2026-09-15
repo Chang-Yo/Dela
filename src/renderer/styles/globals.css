@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import 'streamdown/styles.css';
+@source '../../../node_modules/streamdown/dist/*.js';
 
 :root {
   /* 全局字号缩放（设置 › 外观 › 字号）：仅作用于下方 @theme inline 的 --text-* 与 body 字号，
