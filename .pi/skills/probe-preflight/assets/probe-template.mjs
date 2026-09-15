@@ -54,7 +54,11 @@ const send = (method, params = {}) =>
   });
 // G2/G3：表达式一律纯字符串 + JSON.stringify 插值；禁止嵌套模板字符串与 .replace 拼串。
 async function evaluate(expression) {
-  const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  const res = await send('Runtime.evaluate', {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
   if (res.result?.exceptionDetails) {
     return { error: JSON.stringify(res.result.exceptionDetails).slice(0, 300) };
   }
@@ -95,7 +99,12 @@ async function elementCenter(text) {
 }
 
 await send('Page.enable');
-await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
+await send('Emulation.setDeviceMetricsOverride', {
+  width: 1440,
+  height: 960,
+  deviceScaleFactor: 1,
+  mobile: false,
+});
 await sleep(1800);
 // TODO(probe): 断言清单驱动——G4 先确认每个目标元素的渲染门（configured/connected/semesterStart…），
 // 不满足的门在此处用 IPC 或 sqlite 种子满足；reload 后重新点导航并 sleep 再查询。

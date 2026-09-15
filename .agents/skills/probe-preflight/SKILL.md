@@ -38,12 +38,12 @@ node --check scripts/<探针名>.mjs
 
 截图/点击前，在**源码里**确认目标元素的渲染条件，写出「门 → 满足方式」清单。已知的门：
 
-| 想看的东西 | 渲染条件 | 探针满足方式 |
-| --- | --- | --- |
-| 首页问候语 | `chat && !chat.configured` 为假（未配置模型时显示密钥表单，**不显示问候语**） | 配置模型；或纯浏览器预览（无 preload 时 chat 为 null） |
-| composer 模型触发器 | `configured` 为真 | 必须有 active 提供商 |
-| 课表周/月网格 | `!connected && lessons.length === 0` 时显示连接引导卡 | 向隔离档案注入缓存课程（sqlite 种子） |
-| 课表日期/事件 | `semesterStart` 有值 | `setSemesterStart` 或 sqlite 种子 |
+| 想看的东西          | 渲染条件                                                                      | 探针满足方式                                           |
+| ------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 首页问候语          | `chat && !chat.configured` 为假（未配置模型时显示密钥表单，**不显示问候语**） | 配置模型；或纯浏览器预览（无 preload 时 chat 为 null） |
+| composer 模型触发器 | `configured` 为真                                                             | 必须有 active 提供商                                   |
+| 课表周/月网格       | `!connected && lessons.length === 0` 时显示连接引导卡                         | 向隔离档案注入缓存课程（sqlite 种子）                  |
+| 课表日期/事件       | `semesterStart` 有值                                                          | `setSemesterStart` 或 sqlite 种子                      |
 
 当前元素的渲染条件以源码为准，上表只是已知门的位置索引。
 
