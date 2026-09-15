@@ -462,5 +462,10 @@ export interface WorkspaceChat {
     content: string;
     sources?: { key: string; title: string }[];
     toolResults?: AgentToolResult[];
+    /** 按发生顺序保存公开说明与相邻工具组；旧会话没有 parts。 */
+    parts?: ({ type: 'text'; text: string } | { type: 'tools'; results: AgentToolResult[] })[];
+    startedAt?: number;
+    finishedAt?: number;
+    interrupted?: boolean;
   }[];
 }

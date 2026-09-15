@@ -828,3 +828,17 @@ PDF.js 网络流只对 http(s) 自动使用 Range，自定义协议通过 PDFDat
 ### 验证范围
 
 scripts/pdf-smoke.cjs 使用隔离 Electron、生产 renderer、300 页含 2048×2048 图像及 JPEG2000 的合成 PDF。覆盖归档折叠、多标签/快速切换、位置恢复、分段失败重试、画布保留及替换过程中可见性、触摸板合成事件、DPR 上限和不同窗口尺寸。通过 MutationObserver 与定时采样检查可见画布，避免隐藏窗口 requestAnimationFrame 不运行造成零次采样的假通过。workspace smoke 覆盖 24 次并发分段请求保持缓存路径。真实课件长期内存、触摸板硬件手感和其他平台尚未验收。
+
+### 2026-09-15 Agent 对话时间线与流式渲染
+
+首页和项目助手共用的 ChatThread 改为按公开说明、相邻动作组、后续说明、最终回答的实际顺序展示；动作摘要可展开时间线和输入/输出，失败单独标识，邮件检查入口不随动作组折叠隐藏。移除尾部光标，采用精确依赖 Streamdown 2.6.0 处理未完成 Markdown、分块缓存与新增字符淡入，减少动态效果偏好下禁用动画。未接入新的 Agent runtime；模型与工具执行仍在 main，经现有 preload API 推送。
+
+修复主进程每轮文字覆盖前一轮说明及工具开始时读取旧快照造成的回退；parts 与执行起止时间保存在现有会话 JSON，content 汇总公开文本供复制、笔记和后续上下文使用。中断保留已输出内容和已完成操作。旧会话缺少事件顺序，继续显示原有工具组和正文，不重构不存在的历史。
+
+滚动参考 assistant-ui 的顶部回合锚定：回答向下生长，预留空间随正文增长消耗，结束不突然删除；主动点击回到底部后跟随新内容，手动滚动退出跟随。高度来自实际布局，一行字号作为底部容差，未新增固定像素阈值。动作组使用现有 Tailwind 间距/高度档位与默认过渡；文字动画使用 Streamdown 默认 150ms 淡入与 320ms 积压上限，不新增自定义计时常数。
+
+参考：[assistant-ui Thread](https://www.assistant-ui.com/docs/primitives/thread)、[相邻 Parts 分组](https://www.assistant-ui.com/docs/guides/part-grouping)、[Streamdown 集成](https://www.assistant-ui.com/docs/guides/streamdown)、[AI SDK UI](https://ai-sdk.dev/docs/ai-sdk-ui/overview)。取舍：Dela 已有本地会话与工具循环，本次复用流式展示库及消息分段思想，没有引入整套 Web transport 或替换 Electron 进程边界。
+
+验证入口：构建后执行 `pnpm exec electron scripts/chat-smoke.cjs`，使用隔离 userData 和脱敏推送检查消息顺序、未闭合加粗、工具失败与详情、滚动稳定性、跟随/退出跟随、旧会话切换，覆盖 600/900/1200 宽度及明暗主题。主进程 api.test.ts 验证分段持久化与中断保留。真实提供商流速、硬件触摸板与其他平台尚未验收。
+
+本次验证结果：相关类型与格式检查、Oxlint、Agent loop/API 共 8 项单元测试、生产构建、隔离聊天 UI 回归、Windows 目录打包与打包后启动（退出码 0）通过。普通及打包启动冒烟均报告本机已保存凭据的 safeStorage 解密错误；基础 SQLite/renderer/preload 冒烟通过不代表真实模型连接可用。未修改凭据或将该错误计为已修复。

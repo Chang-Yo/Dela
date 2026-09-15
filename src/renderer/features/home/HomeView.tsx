@@ -220,7 +220,7 @@ export function HomeView({
         </>
       )}
       <motion.div
-        className={cn('shrink-0 px-4 md:px-6', !conversation && 'mt-4')}
+        className={cn('shrink-0 px-4 md:px-6', conversation ? 'pt-2 pb-4' : 'mt-4')}
         layout="position"
         transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
       >

@@ -183,6 +183,8 @@ export async function ask(
       role: 'assistant',
       content: '',
       toolResults: [],
+      parts: [],
+      startedAt: Date.now(),
     };
     chat.messages.push(
       {
@@ -199,6 +201,15 @@ export async function ask(
     };
     // 流式文字增量不逐条广播，按 ~100ms 节流；工具事件与最终结果即时推送。
     let lastTextPublish = 0;
+    const updateText = (text: string) => {
+      if (!text) return;
+      const last = reply.parts!.at(-1);
+      if (last?.type === 'text') last.text = text;
+      else reply.parts!.push({ type: 'text', text });
+      reply.content = reply
+        .parts!.flatMap((part) => (part.type === 'text' ? [part.text] : []))
+        .join('\n\n');
+    };
     persist();
     try {
       const result = await runAgent({
@@ -210,7 +221,7 @@ export async function ask(
         signal: run.controller.signal,
         execute: executeAgentTool,
         onText: (text) => {
-          reply.content = text;
+          updateText(text);
           const now = Date.now();
           if (now - lastTextPublish >= 100) {
             lastTextPublish = now;
@@ -220,19 +231,29 @@ export async function ask(
         },
         onToolStart: (name) => {
           run.tool = name;
-          publishChat(scope);
+          if (reply.parts!.at(-1)?.type !== 'tools')
+            reply.parts!.push({ type: 'tools', results: [] });
+          persist();
         },
         onToolResult: (result) => {
           run.tool = undefined;
           reply.toolResults!.push(result);
+          const last = reply.parts!.at(-1);
+          if (last?.type === 'tools') last.results.push(result);
           persist();
         },
       });
-      reply.content = result.content;
+      updateText(result.content);
     } catch (error) {
-      reply.content = `本次执行中断：${error instanceof Error ? error.message : '未知错误'}。已完成的操作保留，请查看工具结果。`;
+      reply.interrupted = true;
+      reply.parts!.push({ type: 'text', text: '' });
+      updateText(
+        `本次执行中断：${error instanceof Error ? error.message : '未知错误'}。已完成的操作保留，请查看工具结果。`,
+      );
       throw error;
     } finally {
+      run.tool = undefined;
+      reply.finishedAt = Date.now();
       persist();
     }
     return { ...chat, running: false, activeTool: undefined };

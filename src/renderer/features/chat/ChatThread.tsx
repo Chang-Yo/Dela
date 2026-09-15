@@ -1,25 +1,17 @@
-import {
-  Fragment,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUpRight,
   Check,
   ChevronRight,
   CircleAlert,
-  CircleCheck,
+  Wrench,
   Copy,
   LoaderCircle,
   NotebookPen,
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { Streamdown } from 'streamdown';
+import { useReducedMotion } from 'framer-motion';
 import { Dialog } from 'radix-ui';
 import type { AgentToolResult, PreparedEmail, WorkspaceChat } from '../../../shared/api';
 import { MailComposer } from '../mail/MailComposer';
@@ -59,73 +51,29 @@ function toolSummary(result: AgentToolResult): string {
   return name ? `「${name}」` : '';
 }
 
-// 流式光标：以 sentinel 字符跟随正文尾部，随 Markdown 一起进入所在段落，
-// 渲染时替换为闪烁光标——避免在 Markdown 块之外渲染出与正文脱离的光标。
-const STREAM_CURSOR = '▍';
-
-const caretSpan = (
-  <span
-    aria-hidden="true"
-    className="mx-px inline-block h-[1em] w-[2px] animate-pulse rounded-full bg-foreground/80"
-  />
-);
-
-function withCursor(children: ReactNode): ReactNode {
-  if (typeof children === 'string') {
-    if (!children.includes(STREAM_CURSOR)) return children;
-    return children.split(STREAM_CURSOR).map((part, index) => (
-      <Fragment key={index}>
-        {index > 0 && caretSpan}
-        {part}
-      </Fragment>
-    ));
-  }
-  if (Array.isArray(children)) return children.map((child) => withCursor(child));
-  return children;
-}
-
-// 只需在可承载光标的块级元素上做替换；className 透传以保留语言标记等行为。
-const markdownComponents = {
-  p: ({ children }: { children?: ReactNode }) => <p>{withCursor(children)}</p>,
-  li: ({ children }: { children?: ReactNode }) => <li>{withCursor(children)}</li>,
-  h1: ({ children }: { children?: ReactNode }) => <h1>{withCursor(children)}</h1>,
-  h2: ({ children }: { children?: ReactNode }) => <h2>{withCursor(children)}</h2>,
-  h3: ({ children }: { children?: ReactNode }) => <h3>{withCursor(children)}</h3>,
-  code: ({ className, children }: { className?: string; children?: ReactNode }) => (
-    <code className={className}>{withCursor(children)}</code>
-  ),
-};
-
 const markdownStyles =
   '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_table]:my-2 [&_table]:w-full [&_table]:text-xs [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0';
 
-// 流式期间未闭合的 ``` 会让剩余全文渲染成代码块；奇数个围栏时补一个临时闭合。
-function completeFences(text: string): string {
-  const fences = text.match(/```/g)?.length ?? 0;
-  return fences % 2 === 1 ? `${text}\n\`\`\`` : text;
-}
+// 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
+const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
 
 /** 工具步骤行：摘要 + 可展开的原始结果。 */
-function ToolStep({
-  result,
-  onOpenDraft,
-}: {
-  result: AgentToolResult;
-  onOpenDraft: (draftId: string) => void;
-}) {
+function ToolStep({ result }: { result: AgentToolResult }) {
   const output = result.output as ToolOutput;
   const ok = Boolean(output?.ok);
   const [open, setOpen] = useState(false);
-  const draftId = result.name === 'prepare_email' && ok ? output?.result?.draftId : undefined;
+  const detailId = useId();
   return (
     <li className="min-w-0">
       <button
         className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
+        aria-expanded={open}
+        aria-controls={detailId}
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
         {ok ? (
-          <Check className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <Wrench className="size-3.5 shrink-0" />
         ) : (
           <CircleAlert className="size-3.5 shrink-0 text-destructive" />
         )}
@@ -141,17 +89,11 @@ function ToolStep({
           )}
         />
       </button>
-      {draftId && (
-        <Button size="sm" className="my-1" onClick={() => onOpenDraft(draftId)}>
-          <ArrowUpRight />
-          检查并发送
-        </Button>
-      )}
-      {open && (
-        <pre className="my-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-2 text-muted-foreground">
-          {JSON.stringify(output?.result ?? output, null, 2)}
+      <div id={detailId} hidden={!open}>
+        <pre className="my-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
+          {JSON.stringify({ input: result.input, output }, null, 2)}
         </pre>
-      )}
+      </div>
     </li>
   );
 }
@@ -166,54 +108,82 @@ function ToolGroup({
   runningTool: string | undefined;
   onOpenDraft: (draftId: string) => void;
 }) {
-  const running = Boolean(runningTool);
-  // 完成后自动收起；用户手动展开过则保持其选择。
-  const [open, setOpen] = useState(running);
-  const touched = useRef(false);
-  const wasRunning = useRef(running);
-  useEffect(() => {
-    if (wasRunning.current && !running && !touched.current) setOpen(false);
-    wasRunning.current = running;
-  }, [running]);
-
-  const done = results.length > 0;
+  const [open, setOpen] = useState(false);
+  const groupId = useId();
+  const failed = results.filter((result) => !(result.output as ToolOutput)?.ok).length;
   const label = runningTool
     ? `正在${toolLabels[runningTool] ?? runningTool}…`
-    : done
-      ? results.length > 1
-        ? `已执行 ${results.length} 步`
-        : (toolLabels[results[0]!.name] ?? results[0]!.name)
-      : '';
-  if (!label) return null;
+    : results.length
+      ? `已执行 ${results.length} 个动作${failed ? ` · ${failed} 个失败` : ''}`
+      : '执行已中断';
   return (
-    <div className="my-3 text-xs">
+    <div className="my-4 min-w-0 text-sm text-muted-foreground">
       <button
-        className="flex items-center gap-2 rounded-md text-muted-foreground transition-colors hover:text-foreground"
-        onClick={() => {
-          touched.current = true;
-          setOpen((current) => !current);
-        }}
+        aria-expanded={open}
+        aria-controls={groupId}
+        className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
+        onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        {running ? (
-          <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+        {runningTool ? (
+          <LoaderCircle className="size-4 shrink-0 motion-safe:animate-spin" />
+        ) : failed ? (
+          <CircleAlert className="size-4 shrink-0 text-destructive" />
         ) : (
-          <CircleCheck className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <Wrench className="size-4 shrink-0" />
         )}
-        <span>{label}</span>
-        {done && (
-          <ChevronRight
-            className={cn('size-3 shrink-0 transition-transform', open && 'rotate-90')}
-          />
-        )}
+        <span className="truncate" role={runningTool ? 'status' : undefined}>
+          {label}
+        </span>
+        <ChevronRight
+          className={cn(
+            'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
+            open && 'rotate-90',
+          )}
+        />
       </button>
-      {open && done && (
-        <ul className="ml-[7px] mt-1 space-y-0.5 border-l pl-3">
-          {results.map((result) => (
-            <ToolStep key={result.id} result={result} onOpenDraft={onOpenDraft} />
-          ))}
-        </ul>
-      )}
+      <div
+        id={groupId}
+        inert={!open}
+        className={cn(
+          'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <ol
+            aria-label="动作时间线"
+            className="my-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain border-l pl-4"
+          >
+            {results.map((result) => (
+              <ToolStep key={result.id} result={result} />
+            ))}
+            {runningTool && (
+              <li className="flex items-center gap-2 py-1" role="status">
+                <LoaderCircle className="size-3.5 shrink-0 motion-safe:animate-spin" />
+                正在{toolLabels[runningTool] ?? runningTool}…
+              </li>
+            )}
+          </ol>
+        </div>
+      </div>
+      {results.map((result) => {
+        const output = result.output as ToolOutput;
+        const draftId =
+          result.name === 'prepare_email' && output?.ok ? output.result?.draftId : undefined;
+        return draftId ? (
+          <Button
+            key={result.id}
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => onOpenDraft(draftId)}
+          >
+            <ArrowUpRight />
+            检查并发送邮件
+          </Button>
+        ) : null;
+      })}
     </div>
   );
 }
@@ -272,7 +242,7 @@ function UserMessage({
 }) {
   return (
     <div data-turn-anchor={anchor || undefined} className="mb-5 flex flex-col items-end">
-      <div className="max-w-[85%] whitespace-pre-wrap rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
+      <div className="max-w-[85%] [overflow-wrap:anywhere] whitespace-pre-wrap rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
         {message.content}
       </div>
       {message.sources?.length ? (
@@ -305,32 +275,68 @@ function AssistantMessage({
   onSaveNote: (text: string) => void;
   onOpenDraft: (draftId: string) => void;
 }) {
-  // 文字流式进行中才携带光标；执行工具期间光标停驻。
-  const cursor = live && !activeTool && message.content ? STREAM_CURSOR : '';
-  const text = live ? completeFences(message.content + cursor) : message.content;
-  const hasTools = Boolean(message.toolResults?.length) || Boolean(live && activeTool);
+  const reduced = useReducedMotion();
+  // 旧会话缺少顺序信息，仅按原来的工具组 + 正文展示，不虚构中间说明。
+  const parts = message.parts ?? [
+    ...(message.toolResults?.length
+      ? [{ type: 'tools' as const, results: message.toolResults }]
+      : []),
+    ...(message.content ? [{ type: 'text' as const, text: message.content }] : []),
+  ];
+  const elapsed =
+    message.startedAt && message.finishedAt
+      ? Math.max(0, Math.round((message.finishedAt - message.startedAt) / 1000))
+      : null;
   return (
-    <div className="group/msg mb-8 text-sm leading-relaxed">
-      {hasTools && (
-        <ToolGroup
-          results={message.toolResults ?? []}
-          runningTool={live ? activeTool : undefined}
-          onOpenDraft={onOpenDraft}
-        />
+    <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
+      {message.startedAt && (
+        <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
+          <span>
+            {elapsed === null ? (
+              live ? (
+                '正在处理'
+              ) : (
+                '执行中断'
+              )
+            ) : (
+              <>
+                {message.interrupted ? '执行中断' : '用时'} ·{' '}
+                {elapsed >= 60 ? `${Math.floor(elapsed / 60)} 分 ` : ''}
+                {elapsed % 60} 秒
+              </>
+            )}
+          </span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
       )}
-      <div className={markdownStyles}>
-        {text && (
-          <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
-            {text}
-          </ReactMarkdown>
-        )}
-        {live && !message.content && !activeTool && (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
-            <LoaderCircle className="size-3 animate-spin" />
-            正在思考…
-          </p>
-        )}
-      </div>
+      {parts.map((part, index) =>
+        part.type === 'tools' ? (
+          <ToolGroup
+            key={index}
+            results={part.results}
+            runningTool={live && index === parts.length - 1 ? activeTool : undefined}
+            onOpenDraft={onOpenDraft}
+          />
+        ) : (
+          <Streamdown
+            key={index}
+            className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
+            mode="streaming"
+            isAnimating={live && !activeTool && index === parts.length - 1}
+            animated={live && !reduced && index === parts.length - 1 ? textAnimation : false}
+            controls={false}
+            skipHtml
+          >
+            {part.text}
+          </Streamdown>
+        ),
+      )}
+      {live && !activeTool && !parts.some((part) => part.type === 'text' && part.text) && (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <LoaderCircle className="size-4 motion-safe:animate-spin" />
+          正在思考…
+        </p>
+      )}
       {!live && message.content && (
         <MessageActions content={message.content} onSaveNote={onSaveNote} />
       )}
@@ -353,6 +359,7 @@ export function ChatThread({
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
+  const followBottom = useRef(false);
   const [atBottom, setAtBottom] = useState(true);
   const [draft, setDraft] = useState<{ draft: PreparedEmail; address: string } | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -367,52 +374,54 @@ export function ChatThread({
     return -1;
   }, [messages]);
 
+  // 以一行正文高度作为到底部容差，避免固定像素阈值随字号失效。
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-    setAtBottom((current) => (current === bottom ? current : bottom));
+    const line =
+      parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize);
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight <= line);
   };
 
-  // 新一轮发送（流式进行中出现新用户消息）把该消息锚定到视口顶部；打开历史则直接回底部。
   const anchoredKey = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (lastUserIndex < 0) return;
-    const key = `${chat.sessionId}:${lastUserIndex}:${messages[lastUserIndex]!.content}`;
-    if (anchoredKey.current === key) return;
-    anchoredKey.current = key;
     const viewport = scrollRef.current;
     const content = contentRef.current;
-    if (!viewport || !content) return;
-    if (!streaming) {
-      viewport.scrollTop = viewport.scrollHeight;
-      return;
-    }
+    const spacer = spacerRef.current;
+    if (!viewport || !content || !spacer) return;
+    const key = `${chat.sessionId}:${lastUserIndex}`;
     const anchor = content.querySelector<HTMLElement>('[data-turn-anchor]');
-    if (!anchor) return;
-    const viewportHeight = viewport.clientHeight;
-    const anchorTop = anchor.offsetTop;
-    // 预留底部空白，保证锚点位置在回复内容不足一屏时也可达（assistant-ui 的 reserve 思路）。
-    const below = content.scrollHeight - anchorTop;
-    if (spacerRef.current)
-      spacerRef.current.style.height = `${Math.max(0, viewportHeight - below)}px`;
-    // 超高消息只保留底部可见：阈值为 10em，可见高度 6em（assistant-ui topAnchorMessageClamp 默认值）。
-    const em = parseFloat(getComputedStyle(content).fontSize);
-    const target =
-      anchor.offsetHeight > em * 10 ? anchorTop + anchor.offsetHeight - em * 6 : anchorTop - 24;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    viewport.scrollTo({ top: Math.max(0, target), behavior: reduced ? 'auto' : 'smooth' });
-    setAtBottom(true);
-  }, [chat.sessionId, lastUserIndex, messages, streaming]);
-
-  // 回合结束收起预留空白；收起的是答案下方的空白，视口位置不动。
-  const wasStreaming = useRef(false);
-  useEffect(() => {
-    if (wasStreaming.current && !streaming && spacerRef.current) {
-      spacerRef.current.style.height = '0px';
+    if (anchoredKey.current !== key) {
+      anchoredKey.current = key;
+      followBottom.current = false;
+      spacer.style.height = '0px';
+      if (streaming && anchor) {
+        const inset = parseFloat(getComputedStyle(content).paddingTop);
+        const target = anchor.offsetTop - inset;
+        spacer.style.height = `${Math.max(0, viewport.clientHeight + target - content.scrollHeight)}px`;
+        viewport.scrollTo({ top: target, behavior: 'instant' });
+      } else viewport.scrollTop = viewport.scrollHeight;
     }
-    wasStreaming.current = streaming;
-  }, [streaming]);
+    const resize = () => {
+      // 保留当前滚动位置所需的最小空白；回答增长时逐渐消耗，不在结束时突然归零。
+      const heightWithoutReserve = content.scrollHeight - spacer.offsetHeight;
+      spacer.style.height = `${Math.max(0, viewport.scrollTop + viewport.clientHeight - heightWithoutReserve)}px`;
+      if (followBottom.current) viewport.scrollTop = viewport.scrollHeight;
+      onScroll();
+    };
+    resize();
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(resize);
+    });
+    observer.observe(content);
+    observer.observe(viewport);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [chat.sessionId, lastUserIndex, streaming]);
 
   const openDraft = async (draftId: string) => {
     if (!window.dela) return;
@@ -433,6 +442,19 @@ export function ChatThread({
       <div
         ref={scrollRef}
         className="size-full overflow-y-auto [overflow-anchor:none]"
+        aria-label="对话消息"
+        onWheel={() => {
+          followBottom.current = false;
+        }}
+        onTouchStart={() => {
+          followBottom.current = false;
+        }}
+        onPointerDown={() => {
+          followBottom.current = false;
+        }}
+        onKeyDown={(event) => {
+          if (['ArrowUp', 'PageUp', 'Home'].includes(event.key)) followBottom.current = false;
+        }}
         onScroll={onScroll}
       >
         <div ref={contentRef} className="relative mx-auto w-full max-w-3xl px-4 py-4">
@@ -440,13 +462,13 @@ export function ChatThread({
             message.role === 'user' ? (
               <UserMessage
                 anchor={index === lastUserIndex}
-                key={index}
+                key={`${chat.sessionId}:${index}`}
                 message={message}
                 onOpenSource={onOpenSource}
               />
             ) : (
               <AssistantMessage
-                key={index}
+                key={`${chat.sessionId}:${index}`}
                 live={streaming && index === messages.length - 1}
                 message={message}
                 activeTool={chat.activeTool}
@@ -463,6 +485,7 @@ export function ChatThread({
           aria-label="回到底部"
           className="absolute bottom-3 left-1/2 z-10 grid size-8 -translate-x-1/2 place-items-center rounded-full border bg-background shadow-md transition-colors hover:bg-muted/60"
           onClick={() => {
+            followBottom.current = true;
             const el = scrollRef.current;
             const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             el?.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
