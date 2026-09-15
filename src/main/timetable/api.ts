@@ -1,5 +1,5 @@
 import type { TimetableState } from '../../shared/api';
-import { BrowserWindow, type WebContents } from 'electron';
+import { BrowserWindow, net, type WebContents } from 'electron';
 import { z } from 'zod';
 import {
   calendarEventColors,
@@ -264,26 +264,56 @@ export async function openLoginWindow(sender: WebContents): Promise<TimetableRes
 async function fetchTimetable(semester: string) {
   const { xnm, xqm } = semesterParams(semester);
   const body = new URLSearchParams({ xnm, xqm, kzlx: 'ck', xsdm: '' });
-  const response = await (
-    await getCampusSession()
-  ).fetch(TIMETABLE_URL, {
-    method: 'POST',
-    redirect: 'manual',
-    signal: AbortSignal.timeout(15000),
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      'X-Requested-With': 'XMLHttpRequest',
-      Referer: `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkbIndex.html?gnmkdm=N2151`,
-    },
-    body: body.toString(),
+  const campus = await getCampusSession();
+  // Electron session.fetch 在内部构造 Response 时可能抛出未捕获的状态码异常。
+  // 直接消费 Chromium 响应，保留校园 Session 的 Cookie 与代理设置。
+  const text = await new Promise<string>((resolve, reject) => {
+    const request = net.request({
+      url: TIMETABLE_URL,
+      method: 'POST',
+      session: campus,
+      useSessionCookies: true,
+      redirect: 'manual',
+    });
+    const fail = (error: Error) => {
+      clearTimeout(timer);
+      reject(error);
+      request.abort();
+    };
+    const timer = setTimeout(() => fail(new Error('课表请求超时，请稍后重试')), 15000);
+    request.on('error', fail);
+    request.on('redirect', () => fail(new Error('登录已失效，请重新登录')));
+    request.on('response', (response) => {
+      const status = response.statusCode;
+      if (!Number.isInteger(status) || status < 200 || status > 599) {
+        fail(new Error('课表接口返回了无效状态，请稍后重试或重新登录'));
+        return;
+      }
+      if (status >= 300 && status < 400) {
+        fail(new Error('登录已失效，请重新登录'));
+        return;
+      }
+      if (status >= 400) {
+        fail(new Error(`课表接口返回 ${status}`));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('error', fail);
+      response.on('aborted', () => fail(new Error('课表请求中断，请稍后重试')));
+      response.on('end', () => {
+        clearTimeout(timer);
+        resolve(Buffer.concat(chunks).toString('utf8'));
+      });
+    });
+    request.setHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+    request.setHeader('X-Requested-With', 'XMLHttpRequest');
+    request.setHeader('Referer', `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkbIndex.html?gnmkdm=N2151`);
+    request.end(body.toString());
   });
-  if (response.status >= 300 && response.status < 400) {
-    throw new Error('登录已失效，请重新登录');
-  }
-  if (!response.ok) throw new Error(`课表接口返回 ${response.status}`);
   let payload: unknown;
   try {
-    payload = JSON.parse(await response.text());
+    payload = JSON.parse(text);
   } catch {
     throw new Error('课表接口没有返回预期的数据，请重新登录后再试');
   }

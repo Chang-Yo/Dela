@@ -842,3 +842,9 @@ scripts/pdf-smoke.cjs 使用隔离 Electron、生产 renderer、300 页含 2048�
 验证入口：构建后执行 `pnpm exec electron scripts/chat-smoke.cjs`，使用隔离 userData 和脱敏推送检查消息顺序、未闭合加粗、工具失败与详情、滚动稳定性、跟随/退出跟随、旧会话切换，覆盖 600/900/1200 宽度及明暗主题。主进程 api.test.ts 验证分段持久化与中断保留。真实提供商流速、硬件触摸板与其他平台尚未验收。
 
 本次验证结果：相关类型与格式检查、Oxlint、Agent loop/API 共 8 项单元测试、生产构建、隔离聊天 UI 回归、Windows 目录打包与打包后启动（退出码 0）通过。普通及打包启动冒烟均报告本机已保存凭据的 safeStorage 解密错误；基础 SQLite/renderer/preload 冒烟通过不代表真实模型连接可用。未修改凭据或将该错误计为已修复。
+
+### 2026-09-15 课表主进程状态码异常 hotfix
+
+用户打开课表时出现 Electron 内部 `ClientRequest → new Response` 的未捕获 RangeError（状态码必须为 200–599）。课表连接检查与同步共用的请求改为 `net.request`，直接消费响应流，保留校园 Session、Cookie、代理和 15 秒超时；显式拒绝登录重定向、无效状态码和 HTTP 错误，网络失败与中断回到已有错误处理，不再经过 Electron `session.fetch` 的 Response 构造路径。未修改登录数据或吞掉全局异常。依据 Electron v44.3.0 的 lib/browser/api/net-fetch.ts 与 lib/common/api/net-client-request.ts；截图无法确定服务器当时的实际状态码，不将“状态为 0”或“登录过期”宣称为已复现事实。
+
+验证：课表单元测试覆盖正常 JSON、登录 HTML、错误载荷、302、0/101/600 无效状态、503、redirect/error 事件及超时；类型检查通过。未访问真实校园账号，真实服务器触发条件与打包版实机点击尚未复验。

@@ -239,3 +239,5 @@ src/main 按 mail、canvas、timetable、workspace、agent 分类，每个领域
 设计参考和依赖取舍见 `docs/technical-plan.md` 的 2026-09-15 记录。
 
 本次构建、聊天隔离回归、8 项相关单元测试、Windows 目录打包和包内启动通过。启动日志仍报告已有凭据的 safeStorage 解密错误，真实模型连接未验收；该问题未在本次修改中处理。
+
+课表 hotfix（2026-09-15）：连接检查与同步改用保留校园 Session 的 `net.request`，绕开 Electron 内部构造 Response 引起的未捕获状态码异常；重定向、异常状态与超时由现有错误处理接收。课表单元测试与类型检查通过，真实校园服务器及打包版点击待实机复验。

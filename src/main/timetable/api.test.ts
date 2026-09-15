@@ -3,36 +3,96 @@ import type { Database } from 'better-sqlite3';
 import { deleteCalendarEvent, isConnected, parseSemesterStart, parseWeekNumbers } from './api';
 import { getCampusSession } from './session';
 import { getDatabase } from '../database';
-import type { Session } from 'electron';
+import { net, type Session } from 'electron';
+import { EventEmitter } from 'node:events';
 
-vi.mock('electron', () => ({ BrowserWindow: {}, ipcMain: {}, session: {} }));
+vi.mock('electron', () => ({
+  BrowserWindow: {},
+  ipcMain: {},
+  session: {},
+  net: { request: vi.fn() },
+}));
 vi.mock('../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('./session', () => ({ getCampusSession: vi.fn() }));
+
+function mockRequest(status: number | 'redirect' | 'error', body = '') {
+  const request = Object.assign(new EventEmitter(), {
+    setHeader: vi.fn(),
+    abort: vi.fn(),
+    end: vi.fn(() =>
+      queueMicrotask(() => {
+        if (status === 'redirect') {
+          request.emit('redirect', 302);
+          return;
+        }
+        if (status === 'error') {
+          request.emit('error', new Error('network failed'));
+          return;
+        }
+        const response = Object.assign(new EventEmitter(), { statusCode: status });
+        request.emit('response', response);
+        response.emit('data', Buffer.from(body));
+        response.emit('end');
+      }),
+    ),
+  });
+  vi.mocked(net.request).mockReturnValue(request as unknown as ReturnType<typeof net.request>);
+  return request;
+}
 
 describe('campus connection validation', () => {
   it.each([
     [200, '{"kbList":[]}', true],
     [302, '', false],
+    [0, '', false],
+    [101, '', false],
+    [600, '', false],
+    [503, '', false],
+    ['redirect', '', false],
+    ['error', '', false],
     [200, '<html>Login</html>', false],
     [200, '{"error":"expired"}', false],
-  ])('checks the response rather than cookie presence (%s, %s)', async (status, body, expected) => {
-    const fetch = vi.fn().mockResolvedValue(new Response(body, { status }));
-    vi.mocked(getCampusSession).mockResolvedValue({
-      cookies: { get: vi.fn().mockResolvedValue([{ name: 'JSESSIONID' }]) },
-      fetch,
-    } as unknown as Session);
-    expect(await isConnected()).toBe(expected);
-    expect(fetch).toHaveBeenCalledOnce();
-  });
+  ] as const)(
+    'handles response %s without constructing a Response',
+    async (status, body, expected) => {
+      const request = mockRequest(status, body);
+      const campus = {
+        cookies: { get: vi.fn().mockResolvedValue([{ name: 'JSESSIONID' }]) },
+      } as unknown as Session;
+      vi.mocked(getCampusSession).mockResolvedValue(campus);
+      expect(await isConnected()).toBe(expected);
+      expect(net.request).toHaveBeenLastCalledWith(
+        expect.objectContaining({ session: campus, useSessionCookies: true, redirect: 'manual' }),
+      );
+      expect(request.end).toHaveBeenCalledWith(expect.stringContaining('kzlx=ck'));
+      if (status !== 200) expect(request.abort).toHaveBeenCalled();
+    },
+  );
 
-  it('does not probe a disconnected browser', async () => {
-    const fetch = vi.fn();
+  it('does not request a disconnected browser', async () => {
+    vi.mocked(net.request).mockClear();
     vi.mocked(getCampusSession).mockResolvedValue({
       cookies: { get: vi.fn().mockResolvedValue([]) },
-      fetch,
     } as unknown as Session);
     expect(await isConnected()).toBe(false);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(net.request).not.toHaveBeenCalled();
+  });
+
+  it('aborts a stalled request after the timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const request = mockRequest(200);
+      request.end.mockImplementation(() => {});
+      vi.mocked(getCampusSession).mockResolvedValue({
+        cookies: { get: vi.fn().mockResolvedValue([{ name: 'JSESSIONID' }]) },
+      } as unknown as Session);
+      const connected = isConnected();
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(await connected).toBe(false);
+      expect(request.abort).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
