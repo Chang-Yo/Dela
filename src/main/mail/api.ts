@@ -883,6 +883,7 @@ export async function readMailMessage(messageId: unknown): Promise<MailMessageDe
   }
   return {
     ...toSummary(mutableRow),
+    folderId: mutableRow.folder_id,
     to: parseAddresses(mutableRow.to_addresses),
     cc: parseAddresses(mutableRow.cc_addresses),
     bodyText: mutableRow.body_text,

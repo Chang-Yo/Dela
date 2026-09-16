@@ -13,12 +13,17 @@ import { ShuiyuanView } from './features/shuiyuan';
 import { SourcesView } from './features/sources';
 import { TimetableView } from './features/timetable';
 import { useShuiyuan } from './features/shuiyuan/store';
-import { useWorkspace } from './features/projects/workspace';
+import { emptyView, errorText, useWorkspace } from './features/projects/workspace';
+import { GlobalSearchDialog } from './features/search/GlobalSearchDialog';
+import { NotificationsView } from './features/notifications/NotificationsView';
 import {
   fontScaleLevels,
   type FontScalePreference,
   type ThemePreference,
   type ZoomPreference,
+  type GlobalSearchResult,
+  type NotificationItem,
+  type NotificationState,
 } from '../shared/api';
 
 const themeStorageKey = 'dela.theme';
@@ -39,6 +44,14 @@ function initialFontScale(): FontScalePreference {
 
 export default function App() {
   const [view, setView] = useState<ViewId>('home');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [mailRequest, setMailRequest] = useState<{ messageId: number }>();
+  const [chatRequest, setChatRequest] = useState<{ scope: string; sessionId: string }>();
+  const [notifications, setNotifications] = useState<NotificationState | null>(null);
+  const [notificationNow, setNotificationNow] = useState(Date.now);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const [backStack, setBackStack] = useState<ViewId[]>([]);
   const [forwardStack, setForwardStack] = useState<ViewId[]>([]);
   const [projectId, setProjectId] = useState<string | null>(() =>
@@ -53,6 +66,54 @@ export default function App() {
   const [launchStage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>(() =>
     isSmokeTest || onboardingCompleted() ? 'app' : 'flow',
   );
+  useEffect(() => {
+    if (launchStage === 'flow') return;
+    const api = window.dela?.notifications;
+    if (!api) return;
+    let active = true;
+    let version = 0;
+    const unsubscribe = api.onUpdate((state) => {
+      version += 1;
+      setNotificationNow(Date.now());
+      if (active) setNotifications(state);
+    });
+    void api
+      .getState()
+      .then((state) => {
+        if (active && version === 0) setNotifications(state);
+      })
+      .catch((error) => {
+        if (active) setNotificationError(errorText(error));
+      });
+    // 暂停到期时重新读取，使铃铛无需等待下一次网络刷新即可恢复。
+    const timer = window.setInterval(() => {
+      setNotificationNow(Date.now());
+      const requested = version;
+      void api
+        .getState()
+        .then((state) => {
+          if (active && version === requested) setNotifications(state);
+        })
+        .catch(() => {});
+    }, 60_000);
+    return () => {
+      active = false;
+      unsubscribe();
+      window.clearInterval(timer);
+    };
+  }, [launchStage]);
+  useEffect(() => {
+    if (launchStage === 'flow') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setMobileDrawer(null);
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [launchStage]);
   useEffect(() => {
     void useWorkspace.getState().load();
     return window.dela?.workspace.onChatUpdate((_scope, chat) => {
@@ -142,6 +203,9 @@ export default function App() {
     setBackStack((stack) => [...stack, view]);
     setForwardStack([]);
     setView(next);
+    setMailRequest(undefined);
+    setChatRequest(undefined);
+    setNavigationError(null);
     return true;
   };
 
@@ -167,6 +231,71 @@ export default function App() {
     useShuiyuan.getState().requestTopic(topicId);
   };
 
+  const notificationAction = async (action: () => Promise<NotificationState>) => {
+    setNotificationLoading(true);
+    setNotificationError(null);
+    try {
+      setNotifications(await action());
+    } catch (error) {
+      setNotificationError(errorText(error));
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+  const openSearchResult = (result: GlobalSearchResult) => {
+    if (!leaveComposer(() => openSearchResult(result))) return;
+    setNavigationError(null);
+    const target = result.target;
+    if (target.page === 'projects') openProject(target.entryId);
+    else if (target.page === 'mail') {
+      if (navigate('mail')) setMailRequest({ messageId: target.messageId });
+    } else if (target.page === 'sources') {
+      if (!navigate('sources')) return;
+      const store = useWorkspace.getState();
+      const saved = store.workspace.views.sources ?? emptyView;
+      const key = `source:${target.sourceId}`;
+      store.setView('sources', {
+        ...saved,
+        active: key,
+        tabs: saved.tabs.includes(key) ? saved.tabs : [...saved.tabs, key],
+      });
+    } else {
+      const scope = target.scope;
+      const project = useWorkspace
+        .getState()
+        .workspace.entries.find((entry) => entry.id === scope && entry.kind === 'project');
+      if (!['home', 'sources', 'projects'].includes(scope) && !project) {
+        setNavigationError('这个会话所属的项目已不存在。');
+        return;
+      }
+      const next = scope === 'home' ? 'home' : scope === 'sources' ? 'sources' : 'project';
+      if (!navigate(next)) return;
+      if (next === 'project') {
+        setProjectId(project?.id ?? null);
+        localStorage.setItem('dela.workspace.project', project?.id ?? '');
+      }
+      setChatRequest({ scope, sessionId: target.sessionId });
+    }
+  };
+  const openNotification = (item: NotificationItem) => {
+    if (!leaveComposer(() => openNotification(item))) return;
+    const target = item.href;
+    if (target.kind === 'mail') {
+      if (!navigate('mail')) return;
+      setMailRequest({ messageId: target.messageId });
+    } else {
+      if (!navigate('shuiyuan')) return;
+      useShuiyuan.getState().requestTopic(target.topicId, target.postNumber ?? undefined);
+    }
+    if (!item.readAt && window.dela?.notifications) {
+      void notificationAction(() => window.dela!.notifications.markRead(item.id));
+    }
+  };
+  const notificationCount =
+    notifications?.snoozedUntil && Date.parse(notifications.snoozedUntil) > notificationNow
+      ? 0
+      : (notifications?.unreadCount ?? 0);
+
   return (
     <>
       {launchStage !== 'flow' && (
@@ -184,7 +313,14 @@ export default function App() {
           projectId={projectId}
           onOpenProject={openProject}
           onNewProject={newProject}
+          onSearch={() => setSearchOpen(true)}
+          notificationCount={notificationCount}
         >
+          {navigationError && (
+            <p role="alert" className="px-4 py-2 text-sm text-destructive">
+              {navigationError}
+            </p>
+          )}
           <MotionConfig reducedMotion="user">
             <AnimatePresence initial={false} mode="wait">
               <motion.div
@@ -197,6 +333,7 @@ export default function App() {
               >
                 {view === 'home' && (
                   <HomeView
+                    chatRequest={chatRequest?.scope === 'home' ? chatRequest : undefined}
                     onOpenProject={openProject}
                     onNewProject={newProject}
                     onOpenSources={() => navigate('sources')}
@@ -204,6 +341,9 @@ export default function App() {
                 )}
                 {view === 'project' && (
                   <ProjectView
+                    chatRequest={
+                      chatRequest?.scope === (projectId ?? 'projects') ? chatRequest : undefined
+                    }
                     projectId={projectId}
                     onOpenProject={openProject}
                     onOpenShuiyuanTopic={openShuiyuanTopic}
@@ -213,18 +353,44 @@ export default function App() {
                 )}
                 {view === 'sources' && (
                   <SourcesView
+                    chatRequest={chatRequest?.scope === 'sources' ? chatRequest : undefined}
                     onOpenProject={openProject}
                     onOpenShuiyuanTopic={openShuiyuanTopic}
                   />
                 )}
                 {view === 'mail' && (
                   <MailView
+                    openRequest={mailRequest}
                     mobileDrawerOpen={mobileDrawer === 'mail'}
                     onMobileDrawerClose={() => setMobileDrawer(null)}
                   />
                 )}
                 {view === 'timetable' && <TimetableView />}
                 {view === 'shuiyuan' && <ShuiyuanView />}
+                {view === 'notifications' && (
+                  <NotificationsView
+                    state={notifications}
+                    loading={notificationLoading}
+                    error={notificationError}
+                    onRefresh={() =>
+                      window.dela?.notifications &&
+                      void notificationAction(() => window.dela!.notifications.refresh())
+                    }
+                    onMarkRead={(id) =>
+                      window.dela?.notifications &&
+                      void notificationAction(() => window.dela!.notifications.markRead(id))
+                    }
+                    onMarkAllRead={() =>
+                      window.dela?.notifications &&
+                      void notificationAction(() => window.dela!.notifications.markAllRead())
+                    }
+                    onSnooze={(until) =>
+                      window.dela?.notifications &&
+                      void notificationAction(() => window.dela!.notifications.setSnooze(until))
+                    }
+                    onOpen={openNotification}
+                  />
+                )}
                 {view === 'settings' && (
                   <SettingsView
                     fontScale={fontScale}
@@ -242,6 +408,13 @@ export default function App() {
             </AnimatePresence>
           </MotionConfig>
         </AppShell>
+      )}
+      {launchStage !== 'flow' && (
+        <GlobalSearchDialog
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          onSelect={openSearchResult}
+        />
       )}
       {launchStage === 'flow' && (
         <OnboardingFlow onWizardDone={() => setLaunchStage('completion')} />

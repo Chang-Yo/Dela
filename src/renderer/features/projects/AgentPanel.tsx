@@ -19,14 +19,16 @@ export function AgentPanel({
   onCollapse,
   onSaveNote,
   onOpen,
+  chatRequest,
 }: {
   scope: string;
   tabs: string[];
   onCollapse?: () => void;
   onSaveNote: (text: string) => void;
   onOpen: (key: string) => void;
+  chatRequest?: { sessionId: string };
 }) {
-  const chatState = useChat(scope);
+  const chatState = useChat(scope, chatRequest);
   const { chat, busy, error } = chatState;
   const drafts = useWorkspace((s) => s.drafts);
   const entries = useWorkspace((s) => s.workspace.entries);

@@ -486,6 +486,7 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 - 2026-09-13 设置页接口闭环：`dela.settings.getTheme/setTheme` 只接受 `system`、`light`、`dark`，调用方经主 frame 校验；主题值保存到既有 `workspace_settings`，主进程启动和变更时同步 `nativeTheme.themeSource`，renderer 以 `html.light` / `html.dark` 覆盖系统媒体查询并保留 localStorage 缓存以避免启动闪烁。设置页不再把 Canvas、致远一号的“配置”跳转到资料页：Canvas 对话框复用已有 `configure/syncCourses/disconnect` IPC，令牌验证后才由主进程加密保存；模型对话框复用 `getChat/configureModel`，密钥不回传 renderer。工作目录复用系统选择器并立即刷新设置状态；邮箱和课表保持前往已有完整配置页。`INTERFACES.md` 更新为实际 API 约定。已验证：类型检查与生产构建；真实凭据连接不作为本次验证内容。
 - 2026-09-13 标题栏快捷键补全与快捷键弹窗重排：沿用既有全局 keydown 通道，资料/视图菜单的导航项补上真实响应的快捷键——`Ctrl/⌘1–5` 依侧栏排布直达首页/项目/Canvas 资料/邮箱/课表，`Ctrl/⌘,` 打开设置，触发时顺带收起打开中的标题栏菜单；帮助菜单「快捷键」「设置与关于」保持无快捷键（低频操作，且 `Ctrl/⌘/` 已被 CodeMirror defaultKeymap 的切换注释占用，不另占用）。快捷键弹窗从单栏文字说明（max-w-sm）重排为 Linear 风格双栏黑白排版（max-w-2xl、p-8、max-h 85vh 滚动）：导航/通用/鼠标三组，行内右对齐 keycap 式 `<kbd>` 芯片（按 `navigator.platform` 显示 Ctrl 或 ⌘），右上角 X 关闭替代底部按钮，开启时加 fade/zoom 进场。已验证：Prettier、oxlint、三组类型检查、生产构建、7 个单元测试、Electron 冒烟；另经 Vite 浏览器预览 1440×900 截图核对弹窗双栏排版与资料/视图菜单快捷键提示（judge 视觉验收通过），并实测 Ctrl+4 跳转邮箱、Ctrl+, 跳转设置；明暗主题下的弹窗截图与 Electron 实机按键未重验。
 - 2026-09-15 首次启动引导流程（取代同日早先的一次性开屏）：localStorage 无 `dela.onboarding.completed` 时 App 不渲染主界面，改渲染 `features/onboarding/` 引导流程——IntroSequence（纯白画布：`assets/intro.mp4` 经 `import.meta.glob` 可选导入自动启用视频，缺省用品牌色动效占位；品牌与 Quote 依次复现、Quote 以 clip-path 左→右流式、CTA「开始配置个人资料」）→ WizardShell 五步全屏白色向导（邮箱/教学信息服务信息网/Canvas Token/水源/模型服务，步骤进度点 + 底部「跳过」；无界排版：无卡片容器、固定中性配色、全宽主按钮带 idle/busy/success 三态——success 显示「连接成功，下一步」待用户点击才前进，主按钮走 form onSubmit 单通道使 required 校验对点击与回车同样生效；表单为向导自有组件，与业务页共享 `connectAndSyncTimetable` 与 `connectCanvas` 逻辑层；模型步骤支持自定义名称/Base URL，经 `llm.verify` 检测连通并导入模型列表）→ 宿主在已挂载的主界面之上渲染 CompletionOverlay（「一切就绪」+ 能力点依次点亮后整层淡出）。状态键：`dela.onboarding.completed` / `dela.onboarding.step`（断点恢复，向导进行中退出后直达对应步骤；旧 `dela.splash.seen` 视为已完成）；组件自带 `MotionConfig reducedMotion="user"`。引导页自带拖拽区与最小化/关闭；开发构建（vite dev）经 `import.meta.env.DEV` 每次启动完整重播引导，正式构建按标记只播一次。`smoke-test=1` URL 参数（主进程与四个直接 loadFile 的冒烟脚本注入）使整个引导短路，六处自动化断言零改动。已验证：改动文件 Prettier、Oxlint、renderer 类型检查、74 项单元测试、`pnpm smoke`、`pnpm smoke:workspace`、chat/pdf 冒烟；以隔离 userData + 真实主进程（窗口经 CDP 移至屏幕外）的生产构建实例完成 15 项断言与 10 张截图的 judge 视觉验收。`assets/intro.mp4` 成片与真实凭据配置待用户提供/实机验证；NSIS 打包未重验。已发现的既有问题（非本次引入）：932bdc4 为邮件 iframe 高度上报加入 `allow-scripts` 后 `mail-smoke.cjs` 的沙箱断言未同步更新。
+- 2026-09-16 引导向导五步 UX 改版（用户反馈驱动）：邮箱步骤删除标题下描述与底部服务器信息行；教学信息服务网描述收敛为一行（登录在独立窗口完成、只读个人课表）；Canvas 与水源新增 `steps/step-guide.tsx` 两段式编号引导（序号圆点 + 竖向连线，第 1 步教用户在哪获取 Token/如何授权，第 2 步粘贴绑定）——Canvas 指引含进入「设置」→「批准的集成」→「+ 创建新的访问许可证」（过期留空）的逐字站内路径，水源第 1 步内嵌「登录并授权」按钮；模型服务步骤按业界实践重排为「服务商 / API Key / 模型」三段式（发丝线分组、密钥内嵌眼睛可见性切换、预设 `keyUrl` 渲染「获取密钥」外链、「检测连接」缩为紧凑按钮并与验证反馈同行、自定义字段经 framer-motion 渐进展开）；WizardShell 内容列从垂直居中改为顶部锚定（各步标题起点一致，切换时视线不跳），进度点补 `role="group"` 与 `aria-current`，「跳过」对比度与命中区达标；主按钮禁用策略统一为「可点 + 原生 required」（仅模型列表为空这类真不可提交时才禁用），末步按钮文案改「保存并完成」。已验证：Prettier、Oxlint、三组类型检查、生产构建；隔离 userData + CDP 探针完成 6 张截图与 18 项断言（红框删除、各步标记、自定义展开、外链隐藏）；UX-reviewer 审核后修复 P1/P2 共 7 项。待用户确认：致远一号 `keyUrl` 控制台地址、Canvas 站内按钮逐字校对、是否需要「上一步」回退。
 
 ### 2026-09-12 资料与项目从示例转为真实工作区
 
@@ -862,7 +863,7 @@ scripts/pdf-smoke.cjs 使用隔离 Electron、生产 renderer、300 页含 2048�
 
 ### 2026-09-15 水源授权绑定模块
 
-主侧栏新增「水源」入口（`assets/shuiyuan_logo.svg` 水滴图标，`ShuiyuanIcon` 组件），新增 `features/shuiyuan/ShuiyuanView`：当前只有授权卡与「已绑定 @用户名」状态，不做数据展示页（用户明确要求先验证数据面再定页面形态）。授权交互为用户设计的复制回贴流：点击「登录并授权」→ 主进程生成一次性 RSA-2048 密钥对与 nonce，打开与课表共用 `persist:dela-campus` Session 的无 preload 模态窗加载 `/user-api-key/new`（`scopes=read`、展示名 Dela、不带 `auth_redirect`）→ 用户窗口内登录授权并复制站点展示的加密密文 → 回 Dela 粘贴 → 主进程解密、校验 nonce、带 `User-Api-Key` 实测 `session/current.json` 后才存入 safeStorage（`userData/shuiyuan-key.bin`，含 key/clientId/username/boundAt）。待授权私钥只存主进程内存，随进程退出或下次授权替换。解除绑定先调远端 `POST /user-api-key/revoke` 成功才清本地（403/404 视为已失效直接清），网络失败保留凭据提示重试——站点无 key 管理界面，失败即清会产生无人可撤销的休眠 key。IPC `shuiyuan:get-state/start-auth/bind/unbind` 全部经 `checkWorkspaceSender`，参数走 zod。
+主侧栏新增「水源」入口（`createLucideIcon` 注册的水滴图标 `ShuiyuanIcon` 组件），新增 `features/shuiyuan/ShuiyuanView`：当前只有授权卡与「已绑定 @用户名」状态，不做数据展示页（用户明确要求先验证数据面再定页面形态）。授权交互为用户设计的复制回贴流：点击「登录并授权」→ 主进程生成一次性 RSA-2048 密钥对与 nonce，打开与课表共用 `persist:dela-campus` Session 的无 preload 模态窗加载 `/user-api-key/new`（`scopes=read`、展示名 Dela、不带 `auth_redirect`）→ 用户窗口内登录授权并复制站点展示的加密密文 → 回 Dela 粘贴 → 主进程解密、校验 nonce、带 `User-Api-Key` 实测 `session/current.json` 后才存入 safeStorage（`userData/shuiyuan-key.bin`，含 key/clientId/username/boundAt）。待授权私钥只存主进程内存，随进程退出或下次授权替换。解除绑定先调远端 `POST /user-api-key/revoke` 成功才清本地（403/404 视为已失效直接清），网络失败保留凭据提示重试——站点无 key 管理界面，失败即清会产生无人可撤销的休眠 key。IPC `shuiyuan:get-state/start-auth/bind/unbind` 全部经 `checkWorkspaceSender`，参数走 zod。
 
 验证：Prettier、Oxlint、三组类型检查、生产构建、74 项单元测试、Electron 冒烟通过；用户已在开发实例实机完成登录授权与粘贴绑定，key 经 safeStorage 加解密往返成功。同日以该授权完成 17 个只读端点结构普查（全部 200，含分页、分类过滤、私信、阅读摘要、site/about 元数据），结果与边界记录于 `docs/shuiyuan-api-findings.md` 第 3、7 节；数据呈现页面、同步落库与 Agent 工具尚未实现。
 
@@ -877,3 +878,33 @@ renderer `features/shuiyuan/`：zustand store（workspace 模式：errorText、�
 srcDoc iframe CSP 修正（生产环境 bug，邮件同修）：srcDoc 文档继承应用 CSP（`script-src 'self'`），高度上报内联脚本在打包版被拦截而开发模式因 Vite 放宽无感。邮件与水源共用 `components/ui/frame-height.ts` 的同一段上报脚本，应用 CSP 以 sha256 hash 精确放行该脚本（index.html 有注释与维护规则），`shuiyuan-smoke` 的零控制台报错断言防漂移。
 
 验证：Prettier（`.agents/` 本地技能与用户未提交的 canvas 文档不在本次范围）、Oxlint、三组类型检查、生产构建、74 项单测、`pnpm smoke`、`pnpm smoke:workspace`、新增 `pnpm smoke:shuiyuan`（隔离 userData + 假 IPC：信息流渲染/类别色点/未读徽标、分页、阅读推入与楼层 iframe 隔离、引用展开、返回、通知已读、搜索切换、零控制台报错）全部通过。真实账号的 read+write 重新绑定、公开回复、私信收发、收藏与已读标记待用户实机验收（私信自发自收可先行全链路验证）。本机旧只读 key 在用户重新绑定前写操作将得到 403 提示。
+
+### 2026-09-16 水源阅读器改版：双栏阅读 + Composer 侧栏、自动发送修复
+
+自动发送 bug（用户实机发现：点击编辑器外即发出回复）：`ReplyComposer` 创建时漏传 `saveOnBlur={false}`，`MarkdownEditor` 的失焦即保存语义（笔记用）把 blur 直通到 `onSave=submit`。修复为回复器两个形态均显式传 `false`；另在 `MarkdownEditor` keymap 增加 `Mod-Enter` 保存（与既有 `Mod-s` 并列，笔记场景同语义）。发送只经发送按钮 / `Mod-s` / `Mod-Enter`。
+
+沙箱 iframe 高度测量修正（邮件同修）：共享上报脚本从 `documentElement.scrollHeight`（不会小于 iframe 视口高，短内容被垫出大片空白）改为 `body.scrollHeight`（两处消费方 body 均为 margin:0 内容自适应），按 index.html 维护规则重算 CSP sha256。`mail-smoke.cjs` 顺带修正 932bdc4 的遗留断言（加入 `allow-scripts` 后 `executeJavaScript` 不再 reject，改为断言无 `allow-same-origin` 的不透明源 `location.origin === 'null'` 与 sandbox token 列表）。
+
+楼层阅读样式重写（`shuiyuan-html.ts`）：覆盖 Discourse cooked 全量内容块——`aside.quote`（标题条 + 正文还原全色）、`aside.onebox` 链接卡、`lightbox-wrapper`（隐藏尺寸 meta）、`img.emoji`、`.mention`/`.hashtag`、`details` 折叠、`.poll` 选项列表、表格（block + 横向滚动）、脚注、hr 等。灰度阶梯与排版 token 手动镜像全局 CSS 变量（iframe 取不到外层值），链接色沿用日历蓝（全应用唯一低饱和内容强调色）；明暗两套由 `renderShuiyuanHtml(doc, dark)` 注入 `html.dark`。iframe 改无边框透明底，楼层文字与阅读页融为一体；主题跟随用 `useIsDarkTheme`（根 class MutationObserver + `prefers-color-scheme` 兜底）。消毒管线把无可用地址的图片替换为 `.img-fallback` 灰底文字占位，不再出现浏览器破图图标。
+
+阅读页布局（按用户规格）：顶栏 = 返回 + OP 头像 + 标题 + meta（楼层/浏览/时间）+ 右侧「分类 › 标签」Label>Tag 与收藏/添加到项目/外链；≥1024px 双栏（左 `max-w-2xl` 阅读栏 + 右 320px Composer 侧栏），窄屏为底部折叠回复条（`useDockedComposer` matchMedia 切换，草稿状态两形态共享）。楼层改为 IntersectionObserver 自动续载（rootMargin 320px + 并发 guard）替代手动按钮，文末「已读到末尾」；新增回复指向（`replyToPostNumber` 命中已加载楼时显示 ↳ 用户名）与自己楼层的「你」徽标；引用按钮悬停显现（<1024px 常显，触屏可达）。进入阅读时全局筛选工具栏以 0.16s 高度动画收起，与阅读页推入同节奏，阅读页顶栏成为唯一 chrome。
+
+信息流打磨：最新/精品改为分段控件（muted 底槽 + 浮起活动段，macOS 式）、行节奏统一（15px 标题、可选摘要、11px tabular-nums meta、发丝线分隔、末行无线）、类别/标签下拉 h-8、未读徽标细化；收藏/通知个人列表同一节奏。
+
+Composer 双形态（`ReplyComposer` `variant: 'docked' | 'floating'`）：docked 常驻右栏（编辑器撑满、无折叠态），floating 沿用折叠药丸 → 展开卡片；共享预览（react-markdown，`upload://` 替换为可读占位）、错误行与工具栏（附件/预览切换/发送）。附件上传：renderer FileReader 转 base64（≤20MB 前置 guard）→ `shuiyuan:upload-file` IPC → 主进程 `POST /uploads.json`（multipart `type=composer` + `files[]`；**不走** `shuiyuanRequest`——其 JSON Content-Type 会破坏 multipart 边界；60s 超时，413/403/422 语义化错误）→ 取 `short_url` 写回 Markdown（图片 `![]()`、文件 `[]()`，多文件串行追加）；上传中显示 chip、失败 chip 可移除。该端点未实测（`docs/shuiyuan-api-findings.md` 第 7 节）。
+
+验证：Prettier、Oxlint、三组类型检查、`pnpm build`、74 项单测、`pnpm smoke`、`pnpm smoke:shuiyuan`、mail/workspace 冒烟全部通过。隔离 userData + 假 IPC 视觉探针（`.tools/probe-shuiyuan-ui.cjs`：信息流/阅读宽窄屏/明暗/引用/预览七张截图 + 短楼层 iframe 高度断言 [712,42,42,42,42,42] + 零控制台报错）经 judge 两轮视觉验收全 pass。`/uploads.json` 上传与真实账号回复/私信待用户实机验收。
+
+## 2026-09-16 全局搜索与通知中心
+
+采用现有 Radix Dialog 的模态焦点和键盘交互、Electron 有限 preload IPC 与 SQLite 本地查询，不增加依赖或通用服务层。参考 https://www.radix-ui.com/primitives/docs/components/dialog 、https://www.electronjs.org/docs/latest/tutorial/ipc 。
+
+搜索通过 search:query 查询全库，每类最多 10 条：项目名称、会话标题及 messages.content（不查工具载荷）、未删除邮件主题/发件人/摘要/已缓存正文、Canvas kind=file 的资料标题。SQL 绑定参数并转义 LIKE 通配符。空输入展示本地记录，课程文件按文件名匹配，不下载或读取正文。结果按已有 scope/sessionId、messageId、sourceId 导航；保留邮件离开草稿确认。界面使用现有主题圆角/间距、Radix Dialog、方向键/Enter/Escape 与 Ctrl/⌘+K。
+
+数据库 v11 保存 notifications 和 notification_refreshes；通知以来源、账号和远端/本地消息 ID 去重。通知已读独立持久化，全部已读不调用远端批量已读；打开邮件仍沿用邮件阅读时的标记已读行为。全局暂停时间保存在 workspace_settings，暂停期间继续收集，仅屏蔽铃铛未读提示。账号切换不显示旧账号通知。水源有限页未返回的旧通知不能推断为已读；刷新失败保留缓存和上次成功时间。最新 200 条用于页面展示，计数按全量活跃账号记录计算。
+
+应用运行期间水源/本地通知每 60 秒刷新，IMAP 通过已有 startMailSync 每 5 分钟启动（已有并发保护）；启动时执行一次，退出清定时器。没有 OS 推送或退出后后台驻留。首次采集已有未读通知作为被动提示，无弹窗轰炸。通知中心提供来源筛选、已读操作及 30 分钟/1 小时/次日 9 点暂停。
+
+本次遵照用户要求不执行探针、截图或冒烟验收；类型、格式、逻辑测试结果以交付记录为准。真实账号轮询、窗口交互与跨平台表现未实机验收。
+
+交付检查：三组 TypeScript 检查、相关 Oxlint、Prettier 与 diff 空白检查通过；search.test.ts 和 notifications.test.ts 共 7 项测试通过。未运行构建、打包、探针或 UI 冒烟。检索范围、去重/本地已读和暂停持久化有逻辑覆盖；真实账号后台同步与视觉交互仍待实际使用验证。

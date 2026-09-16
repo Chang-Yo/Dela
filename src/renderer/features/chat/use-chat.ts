@@ -5,13 +5,14 @@ import { errorText, useWorkspace } from '../projects/workspace';
 export type ChatReference = { key: string; title: string };
 
 /** 首页与项目助手共用的对话状态：会话加载、推送订阅、发送、多会话管理。 */
-export function useChat(scope: string) {
+export function useChat(scope: string, chatRequest?: { sessionId: string }) {
   const [chat, setChat] = useState<WorkspaceChat | null>(null);
   const [prompt, setPrompt] = useState('');
   const [references, setReferences] = useState<ChatReference[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const activeScope = useRef(scope);
+  const loadRequest = useRef(0);
 
   useEffect(() => {
     activeScope.current = scope;
@@ -21,14 +22,19 @@ export function useChat(scope: string) {
     setError(null);
     setPending(false);
     let active = true;
-    void window.dela?.workspace
-      .getChat(scope)
-      .then((value) => {
-        if (active) setChat(value);
-      })
-      .catch((e) => {
-        if (active) setError(errorText(e));
-      });
+    const request = ++loadRequest.current;
+    const load = chatRequest
+      ? window.dela?.workspace.openChat(scope, chatRequest.sessionId)
+      : window.dela?.workspace.getChat(scope);
+    if (load) {
+      void load
+        .then((value) => {
+          if (active && request === loadRequest.current) setChat(value);
+        })
+        .catch((e) => {
+          if (active && request === loadRequest.current) setError(errorText(e));
+        });
+    }
     const unsubscribe = window.dela?.workspace.onChatUpdate((updatedScope, value) => {
       if (!active || updatedScope !== scope) return;
       setChat(value);
@@ -36,9 +42,10 @@ export function useChat(scope: string) {
     });
     return () => {
       active = false;
+      loadRequest.current += 1;
       unsubscribe?.();
     };
-  }, [scope]);
+  }, [chatRequest, scope]);
 
   const busy = pending || Boolean(chat?.running);
 

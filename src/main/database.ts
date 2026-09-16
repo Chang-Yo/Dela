@@ -143,6 +143,28 @@ const migrations: string[][] = [
       added_at TEXT NOT NULL
     )`,
   ],
+  [
+    `CREATE TABLE notifications (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+      account_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      read_at TEXT,
+      source_unread INTEGER NOT NULL DEFAULT 1,
+      href TEXT NOT NULL
+    )`,
+    `CREATE INDEX idx_notifications_account_source_created
+      ON notifications (account_key, source, created_at DESC)`,
+    `CREATE TABLE notification_refreshes (
+      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+      account_key TEXT NOT NULL,
+      last_success_at TEXT,
+      error TEXT,
+      PRIMARY KEY (source, account_key)
+    )`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {

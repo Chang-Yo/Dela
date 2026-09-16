@@ -61,6 +61,7 @@ export function ProjectView({
   onOpenShuiyuanTopic,
   createRequested = false,
   onCreateHandled,
+  chatRequest,
 }: {
   mode?: 'project' | 'sources';
   projectId?: string | null;
@@ -68,6 +69,7 @@ export function ProjectView({
   onOpenShuiyuanTopic?: (topicId: number) => void;
   createRequested?: boolean;
   onCreateHandled?: () => void;
+  chatRequest?: { sessionId: string };
 }) {
   const workspace = useWorkspace((s) => s.workspace);
   const canvas = useWorkspace((s) => s.canvas);
@@ -121,6 +123,9 @@ export function ProjectView({
       onCreateHandled?.();
     }
   }, [createRequested]);
+  useEffect(() => {
+    if (chatRequest) setAgentOpen(true);
+  }, [chatRequest]);
   useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)');
     const reset = () => {
@@ -866,6 +871,7 @@ export function ProjectView({
             <AgentPanel
               scope={scope}
               tabs={saved.tabs}
+              chatRequest={chatRequest}
               onCollapse={() => setAgentOpen(false)}
               onSaveNote={(text) => show({ action: 'note', id: currentContainer(), text })}
               onOpen={open}

@@ -45,6 +45,7 @@ export interface MailMessageSummary {
 }
 
 export interface MailMessageDetail extends MailMessageSummary {
+  readonly folderId?: number;
   readonly to: readonly MailAddress[];
   readonly cc: readonly MailAddress[];
   readonly bodyText: string | null;
@@ -373,6 +374,13 @@ export interface ShuiyuanSourceRef {
   readonly addedAt: string;
 }
 
+/** Composer 附件上传结果；shortUrl 为 upload:// 形态，可直接写进 Markdown。 */
+export interface ShuiyuanUpload {
+  readonly shortUrl: string;
+  readonly url: string | null;
+  readonly originalFilename: string | null;
+}
+
 export interface ShuiyuanApi {
   getState(): Promise<ShuiyuanState>;
   /** 打开水源授权窗口：用户在其中登录并授权，随后把站点展示的密文复制回来。 */
@@ -397,8 +405,13 @@ export interface ShuiyuanApi {
   markNotificationsRead(): Promise<void>;
   /** 未读计数（主进程 60s 内存缓存）。 */
   getCounts(): Promise<ShuiyuanCounts>;
-  /** 回复主题或私信会话；返回新楼层。 */
-  createReply(topicId: number, raw: string): Promise<ShuiyuanPost>;
+  /** 回复主题或私信会话；返回新楼层。replyToPostNumber 为楼层级回复目标（Discourse reply_to_post_number）。 */
+  createReply(topicId: number, raw: string, replyToPostNumber?: number): Promise<ShuiyuanPost>;
+  /**
+   * 上传 Composer 附件（Discourse `/uploads.json` multipart）。
+   * 该端点未实测：站点若禁用匿名上传路径或调整限制，以错误提示暴露。
+   */
+  uploadFile(fileName: string, base64: string): Promise<ShuiyuanUpload>;
   /** 发起新私信；返回会话 topic id。 */
   createMessage(to: readonly string[], title: string, raw: string): Promise<number>;
   /** 收藏/取消收藏主题；返回最新状态。 */
@@ -478,6 +491,52 @@ export interface LlmApi {
   verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
 }
 
+export type GlobalSearchResult = {
+  title: string;
+  subtitle: string | null;
+} & (
+  | { kind: 'project'; id: string; target: { page: 'projects'; entryId: string } }
+  | { kind: 'chat'; id: string; target: { page: 'chat'; scope: string; sessionId: string } }
+  | { kind: 'mail'; id: number; target: { page: 'mail'; messageId: number } }
+  | { kind: 'course-file'; id: string; target: { page: 'sources'; sourceId: string } }
+);
+
+export interface SearchApi {
+  query(query: string): Promise<GlobalSearchResult[]>;
+}
+
+export type NotificationSource = 'mail' | 'shuiyuan';
+export type NotificationFilter = 'all' | NotificationSource;
+export interface NotificationItem {
+  id: string;
+  source: NotificationSource;
+  title: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+  href:
+    | { kind: 'mail'; messageId: number }
+    | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null };
+}
+export interface NotificationState {
+  items: readonly NotificationItem[];
+  totalCount: number;
+  unreadCount: number;
+  snoozedUntil: string | null;
+  refresh: Record<
+    NotificationSource,
+    { lastSuccessAt: string | null; error: string | null } | null
+  >;
+}
+export interface NotificationsApi {
+  getState(filter?: NotificationFilter): Promise<NotificationState>;
+  refresh(): Promise<NotificationState>;
+  markRead(id: string): Promise<NotificationState>;
+  markAllRead(): Promise<NotificationState>;
+  setSnooze(until: string | null): Promise<NotificationState>;
+  onUpdate(listener: (state: NotificationState) => void): () => void;
+}
+
 export interface DelaApi {
   readonly version: string;
   readonly window: WindowApi;
@@ -488,6 +547,8 @@ export interface DelaApi {
   readonly shuiyuan: ShuiyuanApi;
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
+  readonly search: SearchApi;
+  readonly notifications: NotificationsApi;
 }
 
 export interface CanvasCourse {

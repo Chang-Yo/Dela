@@ -20,10 +20,28 @@ import type {
   IconPreference,
   ZoomPreference,
   FontScalePreference,
+  NotificationFilter,
+  NotificationState,
 } from '../shared/api';
 
 contextBridge.exposeInMainWorld('dela', {
   version,
+  search: {
+    query: (query: string) => ipcRenderer.invoke('search:query', query),
+  },
+  notifications: {
+    getState: (filter?: NotificationFilter) =>
+      ipcRenderer.invoke('notifications:get-state', filter),
+    refresh: () => ipcRenderer.invoke('notifications:refresh'),
+    markRead: (id: string) => ipcRenderer.invoke('notifications:mark-read', id),
+    markAllRead: () => ipcRenderer.invoke('notifications:mark-all-read'),
+    setSnooze: (until: string | null) => ipcRenderer.invoke('notifications:set-snooze', until),
+    onUpdate: (listener: (state: NotificationState) => void) => {
+      const subscription = (_event: unknown, state: NotificationState) => listener(state);
+      ipcRenderer.on('notifications:state', subscription);
+      return () => ipcRenderer.removeListener('notifications:state', subscription);
+    },
+  },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
@@ -133,8 +151,10 @@ contextBridge.exposeInMainWorld('dela', {
     listNotifications: () => ipcRenderer.invoke('shuiyuan:list-notifications'),
     markNotificationsRead: () => ipcRenderer.invoke('shuiyuan:mark-notifications-read'),
     getCounts: () => ipcRenderer.invoke('shuiyuan:get-counts'),
-    createReply: (topicId: number, raw: string) =>
-      ipcRenderer.invoke('shuiyuan:create-reply', topicId, raw),
+    createReply: (topicId: number, raw: string, replyToPostNumber?: number) =>
+      ipcRenderer.invoke('shuiyuan:create-reply', topicId, raw, replyToPostNumber),
+    uploadFile: (fileName: string, base64: string) =>
+      ipcRenderer.invoke('shuiyuan:upload-file', fileName, base64),
     createMessage: (to: readonly string[], title: string, raw: string) =>
       ipcRenderer.invoke('shuiyuan:create-message', [...to], title, raw),
     setBookmarked: (topicId: number, on: boolean) =>

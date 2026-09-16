@@ -36,15 +36,17 @@ export function HomeView({
   onOpenProject,
   onNewProject,
   onOpenSources,
+  chatRequest,
 }: {
   onOpenProject: (id: string) => void;
   onNewProject: () => void;
   onOpenSources: () => void;
+  chatRequest?: { sessionId: string };
 }) {
   const workspace = useWorkspace((s) => s.workspace);
   const canvas = useWorkspace((s) => s.canvas);
   const projects = workspace.entries.filter((entry) => entry.kind === 'project');
-  const chatState = useChat('home');
+  const chatState = useChat('home', chatRequest);
   const { chat, busy, error } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const reduceMotion = useReducedMotion();
