@@ -499,6 +499,8 @@ export interface LlmApi {
   verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
 }
 
+export type SettingsSectionId = 'connections' | 'llm' | 'appearance' | 'about';
+
 export type GlobalSearchResult = {
   title: string;
   subtitle: string | null;
@@ -507,6 +509,11 @@ export type GlobalSearchResult = {
   | { kind: 'chat'; id: string; target: { page: 'chat'; scope: string; sessionId: string } }
   | { kind: 'mail'; id: number; target: { page: 'mail'; messageId: number } }
   | { kind: 'course-file'; id: string; target: { page: 'sources'; sourceId: string } }
+  | {
+      kind: 'setting';
+      id: SettingsSectionId;
+      target: { page: 'settings'; section: SettingsSectionId };
+    }
 );
 
 export interface SearchApi {

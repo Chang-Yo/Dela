@@ -7,25 +7,77 @@ import {
   Mail,
   MessageSquare,
   Search,
+  Settings,
   X,
   type LucideIcon,
 } from 'lucide-react';
-import type { GlobalSearchResult } from '../../../shared/api';
+import type { GlobalSearchResult, SettingsSectionId } from '../../../shared/api';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
-
-type SearchPhase = 'idle' | 'loading' | 'ready' | 'error';
 
 const resultGroups: ReadonlyArray<{
   kind: GlobalSearchResult['kind'];
   label: string;
   icon: LucideIcon;
+  /** 分组说明,标注主进程同步数据的条数上限。 */
+  note?: string;
 }> = [
-  { kind: 'project', label: '本地项目', icon: FolderKanban },
-  { kind: 'chat', label: '聊天对话', icon: MessageSquare },
-  { kind: 'mail', label: '邮件', icon: Mail },
-  { kind: 'course-file', label: '课程资料', icon: FileText },
+  { kind: 'project', label: '本地项目', icon: FolderKanban, note: '最多 10 条' },
+  { kind: 'chat', label: '聊天对话', icon: MessageSquare, note: '最多 10 条' },
+  { kind: 'mail', label: '邮件', icon: Mail, note: '最多 10 条' },
+  { kind: 'course-file', label: '课程资料', icon: FileText, note: '最多 10 条' },
+  { kind: 'setting', label: '设置', icon: Settings },
 ];
+
+/** 设置入口是渲染层静态数据,与主进程返回的同步数据在本地合并展示。 */
+const settingsEntries: ReadonlyArray<{
+  section: SettingsSectionId;
+  title: string;
+  subtitle: string;
+  keywords: string;
+}> = [
+  {
+    section: 'connections',
+    title: '数据与服务',
+    subtitle: '设置 · 邮箱、水源、课表与 Canvas 连接',
+    keywords: '连接 账号 jaccount 邮箱 水源 课表 canvas 数据服务',
+  },
+  {
+    section: 'llm',
+    title: '模型服务',
+    subtitle: '设置 · AI 模型与 API 提供商',
+    keywords: '模型 llm ai api 提供商',
+  },
+  {
+    section: 'appearance',
+    title: '外观',
+    subtitle: '设置 · 主题、缩放与字号',
+    keywords: '主题 深色 浅色 暗色 缩放 字号 外观',
+  },
+  {
+    section: 'about',
+    title: '关于',
+    subtitle: '设置 · 版本信息',
+    keywords: '版本 更新 关于',
+  },
+];
+
+function settingsResultsFor(query: string): GlobalSearchResult[] {
+  const keyword = query.trim().toLowerCase();
+  return settingsEntries
+    .filter(
+      (entry) =>
+        !keyword ||
+        `${entry.title} ${entry.subtitle} ${entry.keywords}`.toLowerCase().includes(keyword),
+    )
+    .map((entry) => ({
+      kind: 'setting',
+      id: entry.section,
+      title: entry.title,
+      subtitle: entry.subtitle,
+      target: { page: 'settings', section: entry.section },
+    }));
+}
 
 function ResultRow({
   active,
@@ -44,7 +96,7 @@ function ResultRow({
     <div
       aria-selected={active}
       className={cn(
-        'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none transition-colors',
+        'flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 outline-none transition-colors',
         active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/70',
       )}
       id={`global-search-result-${index}`}
@@ -54,7 +106,7 @@ function ResultRow({
     >
       <span
         aria-hidden="true"
-        className="grid size-8 shrink-0 place-items-center rounded-md bg-muted"
+        className="grid size-7 shrink-0 place-items-center rounded-md bg-muted"
       >
         <ResultIcon kind={result.kind} />
       </span>
@@ -84,9 +136,10 @@ export function GlobalSearchDialog({
   onOpenChange: (open: boolean) => void;
   onSelect: (result: GlobalSearchResult) => void;
 }) {
+  // results 跨打开/查询保留:新数据到达前继续展示旧结果,弹窗高度不会先塌陷再撑开。
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<readonly GlobalSearchResult[]>([]);
-  const [phase, setPhase] = useState<SearchPhase>('idle');
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -99,15 +152,13 @@ export function GlobalSearchDialog({
     }
 
     const id = ++requestId.current;
-    setResults([]);
-    setSelectedIndex(-1);
     setError(null);
-    setPhase('loading');
+    setRefreshing(true);
     const timer = window.setTimeout(() => {
       const search = window.dela?.search;
       if (!search) {
         if (requestId.current === id) {
-          setPhase('error');
+          setRefreshing(false);
           setError('搜索功能暂不可用。');
         }
         return;
@@ -117,12 +168,12 @@ export function GlobalSearchDialog({
         .then((next) => {
           if (requestId.current !== id) return;
           setResults(next);
-          setSelectedIndex(next.length ? 0 : -1);
-          setPhase('ready');
+          setSelectedIndex([...settingsResultsFor(query), ...next].length ? 0 : -1);
+          setRefreshing(false);
         })
         .catch((reason: unknown) => {
           if (requestId.current !== id) return;
-          setPhase('error');
+          setRefreshing(false);
           setError(reason instanceof Error ? reason.message : '搜索失败，请重试。');
         });
     }, 180);
@@ -138,13 +189,17 @@ export function GlobalSearchDialog({
     onOpenChange(false);
   };
 
+  const settingsMatches = settingsResultsFor(query);
+  const allResults = [...settingsMatches, ...results];
+  const hasContent = allResults.length > 0;
+
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (!results.length) return;
+      if (!allResults.length) return;
       event.preventDefault();
       const delta = event.key === 'ArrowDown' ? 1 : -1;
       setSelectedIndex((current) => {
-        const next = (current + delta + results.length) % results.length;
+        const next = (current + delta + allResults.length) % allResults.length;
         window.requestAnimationFrame(() => {
           document
             .getElementById(`global-search-result-${next}`)
@@ -154,7 +209,7 @@ export function GlobalSearchDialog({
       });
       return;
     }
-    const selectedResult = results[selectedIndex];
+    const selectedResult = allResults[selectedIndex];
     if (event.key === 'Enter' && !event.nativeEvent.isComposing && selectedResult) {
       event.preventDefault();
       selectResult(selectedResult);
@@ -163,7 +218,7 @@ export function GlobalSearchDialog({
 
   const groupedResults = resultGroups.map((group) => ({
     ...group,
-    results: results.filter((result) => result.kind === group.kind),
+    results: allResults.filter((result) => result.kind === group.kind),
   }));
   const isRecent = !query.trim();
   const resultListId = 'global-search-results';
@@ -173,21 +228,21 @@ export function GlobalSearchDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-var(--spacing)*8)] w-[calc(100%-var(--spacing)*8)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-popover shadow-2xl outline-none duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
+          className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-var(--spacing)*8)] w-[calc(100%-var(--spacing)*8)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-popover shadow-2xl outline-none duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             inputRef.current?.focus();
           }}
         >
-          <div className="flex items-center gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2.5 border-b px-4 py-2.5">
             <Search
               aria-hidden="true"
-              className="size-5 shrink-0 text-muted-foreground"
+              className="size-4 shrink-0 text-muted-foreground"
               strokeWidth={1.8}
             />
             <Dialog.Title className="sr-only">全局搜索</Dialog.Title>
             <Dialog.Description className="sr-only">
-              搜索已同步到本机的项目、聊天、邮件和课程资料文件名。
+              搜索已同步到本机的项目、聊天、邮件、课程资料文件名和设置入口。
             </Dialog.Description>
             <input
               aria-activedescendant={
@@ -195,9 +250,9 @@ export function GlobalSearchDialog({
               }
               aria-autocomplete="list"
               aria-controls={resultListId}
-              aria-expanded={phase === 'ready' && results.length > 0}
+              aria-expanded={hasContent}
               aria-label="全局搜索"
-              className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="搜索项目、聊天、邮件或课程资料…"
@@ -206,48 +261,54 @@ export function GlobalSearchDialog({
               maxLength={200}
               value={query}
             />
+            {refreshing ? (
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-4 shrink-0 animate-spin text-muted-foreground"
+              />
+            ) : null}
             <Dialog.Close asChild>
               <Button aria-label="关闭搜索" size="icon-sm" variant="ghost">
                 <X />
               </Button>
             </Dialog.Close>
           </div>
-          <div className="min-h-0 overflow-y-auto p-2 sm:p-3">
-            {phase === 'loading' ? (
+          <div className="max-h-80 min-h-0 overflow-y-auto p-2">
+            {error && !hasContent ? (
+              <p className="px-3 py-5 text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+            {!hasContent && refreshing ? (
               <div
                 className="flex items-center gap-2 px-3 py-5 text-sm text-muted-foreground"
                 role="status"
               >
                 <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-                正在搜索本地已同步的数据…
+                正在获取本地已同步的数据…
               </div>
             ) : null}
-            {phase === 'error' ? (
-              <p className="px-3 py-5 text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-            {phase === 'ready' && !results.length ? (
+            {!hasContent && !refreshing && !error ? (
               <p className="px-3 py-5 text-sm text-muted-foreground">
                 {isRecent ? '还没有可显示的最近记录。' : '没有找到匹配的本地数据。'}
               </p>
             ) : null}
-            {phase === 'ready' && results.length ? (
+            {hasContent ? (
               <div id={resultListId} role="listbox">
-                <p className="px-3 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+                <p className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
                   {isRecent ? '本地记录' : '搜索结果'}
                 </p>
                 {groupedResults.map((group) => {
                   if (!group.results.length) return null;
                   const GroupIcon = group.icon;
                   return (
-                    <section className="mt-2" key={group.kind}>
-                      <h3 className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-muted-foreground">
+                    <section className="mt-1" key={group.kind}>
+                      <h3 className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                         <GroupIcon aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-                        {group.label}（最多 10 条）
+                        {group.note ? `${group.label}（${group.note}）` : group.label}
                       </h3>
                       {group.results.map((result) => {
-                        const index = results.indexOf(result);
+                        const index = allResults.indexOf(result);
                         return (
                           <ResultRow
                             active={selectedIndex === index}
@@ -262,10 +323,15 @@ export function GlobalSearchDialog({
                     </section>
                   );
                 })}
+                {error ? (
+                  <p className="px-3 py-2 text-xs text-destructive" role="status">
+                    {error}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
-          <div className="flex items-center gap-3 border-t px-4 py-2 text-xs text-muted-foreground sm:px-5">
+          <div className="flex items-center gap-3 border-t px-4 py-1.5 text-xs text-muted-foreground">
             <span>↑↓ 选择</span>
             <span>↵ 打开</span>
             <span className="ml-auto">Esc 关闭</span>

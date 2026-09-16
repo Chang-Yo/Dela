@@ -1,7 +1,8 @@
 import { Bot, Info, Palette, Plug, type LucideIcon } from 'lucide-react';
+import type { SettingsSectionId } from '../../../shared/api';
 import { cn } from '../../lib/utils';
 
-export type SettingsSectionId = 'connections' | 'llm' | 'appearance' | 'about';
+export type { SettingsSectionId };
 
 const sections: Array<{ id: SettingsSectionId; label: string; icon: LucideIcon }> = [
   { id: 'connections', label: '数据与服务', icon: Plug },

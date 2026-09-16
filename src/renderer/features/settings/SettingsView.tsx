@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { ConnectionsSection } from './ConnectionsSection';
@@ -14,6 +14,8 @@ type SettingsViewProps = {
   onOpenTimetable: () => void;
   onThemeChange: (theme: ThemePreference) => Promise<void>;
   onZoomChange: (zoom: ZoomPreference) => Promise<void>;
+  /** 全局搜索选中设置入口时的定位请求;对象每次新建,已在设置页也会触发切换。 */
+  sectionRequest?: { section: SettingsSectionId };
   theme: ThemePreference;
   zoom: ZoomPreference;
 };
@@ -26,10 +28,15 @@ export function SettingsView({
   onOpenTimetable,
   onThemeChange,
   onZoomChange,
+  sectionRequest,
   theme,
   zoom,
 }: SettingsViewProps) {
   const [section, setSection] = useState<SettingsSectionId>('connections');
+
+  useEffect(() => {
+    if (sectionRequest) setSection(sectionRequest.section);
+  }, [sectionRequest]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background md:flex-row">

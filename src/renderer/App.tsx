@@ -24,6 +24,7 @@ import {
   type GlobalSearchResult,
   type NotificationItem,
   type NotificationState,
+  type SettingsSectionId,
 } from '../shared/api';
 
 const themeStorageKey = 'dela.theme';
@@ -47,6 +48,8 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mailRequest, setMailRequest] = useState<{ messageId: number }>();
   const [chatRequest, setChatRequest] = useState<{ scope: string; sessionId: string }>();
+  // 搜索选中设置入口时定位到对应分区;每次赋新对象,保证已在设置页时也能触发切换。
+  const [settingsRequest, setSettingsRequest] = useState<{ section: SettingsSectionId }>();
   const [notifications, setNotifications] = useState<NotificationState | null>(null);
   const [notificationNow, setNotificationNow] = useState(Date.now);
   const [notificationLoading, setNotificationLoading] = useState(false);
@@ -205,6 +208,7 @@ export default function App() {
     setView(next);
     setMailRequest(undefined);
     setChatRequest(undefined);
+    setSettingsRequest(undefined);
     setNavigationError(null);
     return true;
   };
@@ -259,6 +263,8 @@ export default function App() {
         active: key,
         tabs: saved.tabs.includes(key) ? saved.tabs : [...saved.tabs, key],
       });
+    } else if (target.page === 'settings') {
+      if (navigate('settings')) setSettingsRequest({ section: target.section });
     } else {
       const scope = target.scope;
       const project = useWorkspace
@@ -400,6 +406,7 @@ export default function App() {
                     onOpenShuiyuan={() => navigate('shuiyuan')}
                     onOpenTimetable={() => navigate('timetable')}
                     onZoomChange={changeZoom}
+                    sectionRequest={settingsRequest}
                     theme={theme}
                     zoom={zoom}
                   />
