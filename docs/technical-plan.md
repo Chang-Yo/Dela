@@ -895,6 +895,20 @@ Composer 双形态（`ReplyComposer` `variant: 'docked' | 'floating'`）：docke
 
 验证：Prettier、Oxlint、三组类型检查、`pnpm build`、74 项单测、`pnpm smoke`、`pnpm smoke:shuiyuan`、mail/workspace 冒烟全部通过。隔离 userData + 假 IPC 视觉探针（`.tools/probe-shuiyuan-ui.cjs`：信息流/阅读宽窄屏/明暗/引用/预览七张截图 + 短楼层 iframe 高度断言 [712,42,42,42,42,42] + 零控制台报错）经 judge 两轮视觉验收全 pass。`/uploads.json` 上传与真实账号回复/私信待用户实机验收。
 
+### 2026-09-16 水源第二轮：按需回复栏、楼层级回复、媒体认证代理
+
+回复栏按需出现（用户反馈：右侧回复区不应常驻）：`TopicReader` 拆出 `TopicReaderHeader` 由 `ShuiyuanView` 在视图顶层渲染，进入阅读时顶部导航**原地互换**为阅读页顶栏（用户明确去掉此前的收缩动画），楼层流推入动画只作用于内容区；`TopicReader` 主体默认只有居中阅读栏 + 底部折叠药丸，点「回复」入口时回复栏以 0.18s 宽度动画展开（AnimatePresence + 固定内容宽 340px 右锚定，编辑器不随动画逐帧重排），收起保留草稿。三个入口：每楼回复按钮（`Reply` 图标，hover 显现）、引用按钮（行为不变）、底部药丸。
+
+楼层级回复：`createReply` 全链路（shared/preload/ipc/main）增加可选 `replyToPostNumber`（Discourse `reply_to_post_number`，zod 校验 ≤100000、undefined 不传键）；`TopicReader` 的 `replyTarget` 状态驱动 composer 目标准条（`回复 @用户 · 第 N 楼` + X 取消，两 variant 共用），提交成功清目标并收起。
+
+媒体认证代理（用户反馈图片仍破图）：根因有二——水源全站强制登录（`docs/shuiyuan-api-findings.md` 第 1 节），楼层内 `/uploads` 等地址被 iframe 匿名加载拦下；且第一版 cookie 通道用 `session.fetch({credentials:'include'})` 无效——那是无 initiator 的程序化请求，Chromium SameSite 规则不随其发送 Lax cookie，而水源 `_t`/`_forum_session` 正是 Lax。修正：`dela-resource://shuiyuan/<path>` 经 `handleShuiyuanMediaRequest`（主进程，路径白名单 /uploads|/images|/user_avatar|/letter_avatar）用 `cookies.get({url})` 显式拼 Cookie 头 + `net.fetch` 携带（Electron 允许自定义 Cookie 头，绕开 SameSite 判定），失败回退 User API Key 头，按 content-type 判定真媒体（登录墙 302 后是 200 的 HTML）。消毒管线同时剥 `srcset/sizes`（候选不走改写，会覆盖已改写的 src）。应用与 iframe 两层 CSP 的 img-src 均放行 `dela-resource:`。
+
+顶栏三区（用户指定排布）：左 收藏/通知/私信（图标+未读徽标）、中 最新/精品分段控件+类别/标签下拉（宽屏真居中，`lg:grid-cols-[1fr_auto_1fr]`，窄屏纵向三行）、右 刷新+搜索框；收藏/通知/私信列表左上角新增 `ListBackButton`（返回最新）；信息流 meta 的回复/浏览数改图标+数字（sr-only 保留语义）。
+
+测试侧事实：用户同期的全局通知中心（AppShell 侧栏 `title="通知"`）与水源顶栏通知按钮选择器冲突，`shuiyuan-smoke` 的三处选择器限定 `closest('header')`/`header button` 作用域。
+
+验证：Oxlint、三组类型检查、生产构建、82 项单测、smoke/smoke:shuiyuan/mail/workspace 冒烟通过；渲染层断言证实楼层级回复目标准条、媒体地址改写（`dela-resource://shuiyuan/...`）、默认无回复栏、顶栏三区几何关系与个人列表返回往返。**待用户实机视觉验证**：真实登录态下楼层图片/表情经代理加载、楼层级回复实际发帖、`/uploads.json` 附件上传（端点仍未实测）。
+
 ## 2026-09-16 全局搜索与通知中心
 
 采用现有 Radix Dialog 的模态焦点和键盘交互、Electron 有限 preload IPC 与 SQLite 本地查询，不增加依赖或通用服务层。参考 https://www.radix-ui.com/primitives/docs/components/dialog 、https://www.electronjs.org/docs/latest/tutorial/ipc 。

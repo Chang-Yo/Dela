@@ -161,6 +161,13 @@ export function MarkdownEditor({
                 return true;
               },
             },
+            {
+              key: 'Mod-Enter',
+              run: () => {
+                handlers.current.onSave();
+                return true;
+              },
+            },
             ...defaultKeymap,
             ...historyKeymap,
             indentWithTab,

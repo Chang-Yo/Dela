@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat as fileStat } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { canvasPdfPath } from '../canvas/api';
+import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
 import { workspacePdfPath } from './api';
 
 const previewScheme = 'dela-resource';
@@ -76,6 +77,7 @@ export function registerPreviewProtocol(): void {
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return new Response(null, { status: 405 });
       const url = new URL(request.url);
+      if (url.hostname === 'shuiyuan') return handleShuiyuanMediaRequest(request);
       const id = decodeURIComponent(url.pathname.slice(1));
       if (!id || id.includes('/') || id.includes('\\')) throw new Error('无效的文档地址');
       const path =

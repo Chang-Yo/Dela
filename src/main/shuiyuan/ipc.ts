@@ -5,6 +5,7 @@ import {
   bindShuiyuan,
   createShuiyuanMessage,
   createShuiyuanReply,
+  createShuiyuanUpload,
   getShuiyuanCounts,
   getShuiyuanSiteStructure,
   getShuiyuanSourceRef,
@@ -47,8 +48,11 @@ export function registerShuiyuanIpc(): void {
   handle('list-notifications', () => listShuiyuanNotifications());
   handle('mark-notifications-read', () => markShuiyuanNotificationsRead());
   handle('get-counts', () => getShuiyuanCounts());
-  handle('create-reply', (_event, topicId: unknown, raw: unknown) =>
-    createShuiyuanReply(topicId, raw),
+  handle('create-reply', (_event, topicId: unknown, raw: unknown, replyToPostNumber?: unknown) =>
+    createShuiyuanReply(topicId, raw, replyToPostNumber),
+  );
+  handle('upload-file', (_event, fileName: unknown, base64: unknown) =>
+    createShuiyuanUpload(fileName, base64),
   );
   handle('create-message', (_event, to: unknown, title: unknown, raw: unknown) =>
     createShuiyuanMessage(to, title, raw),

@@ -108,17 +108,17 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 
 ### 3.1 v1 实现前的补充验证（2026-09-15，read key 实测）
 
-| 事项 | 结论 |
-| ---- | ---- |
-| 精品 tag | 端点为 `/tag/<中文名>.json`（如 `/tag/精品.json` → 200，30 条/页，结果确实按 tag 过滤）；侧栏的 `11-tag` 形态 slug 不可用于 API（404） |
-| `?tag=` 组合过滤 | `latest.json?tag=X` 与 `c/<slug>/<id>.json?tag=X` 均返回**未过滤**结果——组合过滤不可用，类别与标签只能互斥 |
-| tags 字段形态 | 水源的 topic `tags` 元素是对象 `{id, name, slug}` 而非纯字符串，映射需取 `.name` |
-| 分类树 | `categories.json?include_subcategories=true` 不生效（仍只有 13 个顶级）；完整树来自 `site.json`（83 个，70 个带 `parent_category_id`）；`site.json` 另有 `top_tags`（101 个，带计数） |
-| `tags.json` | 280 个 tag，按常用度排序，无计数 |
-| 楼层深链 | `/t/<id>/<post_number>.json` 可用（样本返回目标楼前后 20 楼 + 全量 stream） |
-| 楼层分段 | `/t/<id>/posts.json?post_ids[]=<n>` 可用（实测 3 个 id 返回 3 楼） |
-| 通知已读 | `PUT /notifications/mark-read` 端点存在（read scope 下 403，属权限不足而非不存在）；按 id 形态 404 不存在 |
-| 分页 | 统一跟随响应的 `more_topics_url`（tag 列表形态如 `/tag/精品?match_all_tags=true&page=1&tags[]=精品`，路径加 `.json` 即为下一页） |
+| 事项             | 结论                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 精品 tag         | 端点为 `/tag/<中文名>.json`（如 `/tag/精品.json` → 200，30 条/页，结果确实按 tag 过滤）；侧栏的 `11-tag` 形态 slug 不可用于 API（404）                                                |
+| `?tag=` 组合过滤 | `latest.json?tag=X` 与 `c/<slug>/<id>.json?tag=X` 均返回**未过滤**结果——组合过滤不可用，类别与标签只能互斥                                                                            |
+| tags 字段形态    | 水源的 topic `tags` 元素是对象 `{id, name, slug}` 而非纯字符串，映射需取 `.name`                                                                                                      |
+| 分类树           | `categories.json?include_subcategories=true` 不生效（仍只有 13 个顶级）；完整树来自 `site.json`（83 个，70 个带 `parent_category_id`）；`site.json` 另有 `top_tags`（101 个，带计数） |
+| `tags.json`      | 280 个 tag，按常用度排序，无计数                                                                                                                                                      |
+| 楼层深链         | `/t/<id>/<post_number>.json` 可用（样本返回目标楼前后 20 楼 + 全量 stream）                                                                                                           |
+| 楼层分段         | `/t/<id>/posts.json?post_ids[]=<n>` 可用（实测 3 个 id 返回 3 楼）                                                                                                                    |
+| 通知已读         | `PUT /notifications/mark-read` 端点存在（read scope 下 403，属权限不足而非不存在）；按 id 形态 404 不存在                                                                             |
+| 分页             | 统一跟随响应的 `more_topics_url`（tag 列表形态如 `/tag/精品?match_all_tags=true&page=1&tags[]=精品`，路径加 `.json` 即为下一页）                                                      |
 
 ## 4. 对聚合器的数据模型推论
 
@@ -153,6 +153,8 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 - 会话 cookie 存活时长与失效形态（需多天真实使用观察）；User API Key 的长期有效性同样需多天观察。
 - 深分页只验证到 `page=2`；更长翻页、`posts.json?post_ids[]=` 按楼分段加载长帖未逐一实测。
 - cookie 会话路径的写操作未测；写能力已由 User API Key `write` scope 覆盖（书签增删已验证），但通知已读、发帖/回帖、私信等具体写端点尚未逐一实测。
+- `POST /uploads.json`（Composer 附件上传，multipart：`type=composer` + `files[]`）**未实测**：Dela 回复器已按标准 Discourse 形态接入（2026-09-16），成功响应取 `short_url`（`upload://` 形态，可直接写回 Markdown）；站点若禁用匿名上传路径或调整大小限制，以响应错误暴露（413/403/422 已做语义化映射）。
+- 静态媒体（`/uploads/`、`/images/`、`/user_avatar/`、`/letter_avatar/`）在 `login_required` 下对匿名请求同样被拦（2026-09-16 实际观察：楼层图片破图而 CDN 头像正常）。Dela 经 `dela-resource://shuiyuan/...` 主进程代理取回：cookie 通道必须从 campus Session 的 cookie store **显式拼 Cookie 头**——Electron `session.fetch` 属无 initiator 的程序化请求，Chromium SameSite 规则不随其发送 Lax cookie（`_t`/`_forum_session` 正是 Lax）；回退 User API Key 头。真实登录态下的取图成功率待多日观察。
 - Dela 侧 User API Key 生命周期管理是硬性要求：站点无网页管理入口，客户端必须持久化 key（safeStorage）并提供撤销（`POST /user-api-key/revoke`）；payload 丢失即产生无法使用的休眠 key，授权窗口的 payload 捕获要做成可靠步骤。
 - MessageBus 实时通道（`/message-bus/…`）是否可用于推送式更新；`t/<id>.json` 已返回 `message_bus_last_id`，是接入锚点。
 - `summarizable`/`has_cached_summary` 标志表明站点开启了 Discourse AI 摘要；摘要内容的获取端点未测。

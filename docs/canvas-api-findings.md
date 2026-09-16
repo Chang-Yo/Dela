@@ -4,13 +4,14 @@
 
 ## 1. 基础设施行为
 
-| 事项       | 实测结论                                                                                                                                                                      |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 认证       | `Authorization: Bearer <Canvas_access_token>`，官方 Instructure REST API 行为                                                                                                 |
-| 分页       | 本实例把 `per_page` **静默限制为 50**（请求 100 也只返回 50，Link 头显示 `per_page=50`）；同步必须跟随 `Link` 响应头（`rel="next"` / `rel="last"`），不能信任请求参数         |
-| 限流       | `X-Rate-Limit-Remaining: 600.0`（令牌桶）+ `X-Request-Cost`（每请求按成本扣减）；标准 Canvas 软限流                                                                           |
-| 错误形态   | 无权限返回 **HTTP 401 + JSON body**：`{"status":"未授权","errors":[{"message":"用户无权执行该操作"}]}`；功能未开启返回 404。401 也可能是业务无权限而非 token 失效，两者需区分 |
-| 课程可见性 | `/courses` 返回 48 门课，其中 5 门访问详情返回 401（可见条目、详情无权限），需容忍单课失败                                                                                    |
+| 事项       | 实测结论                                                                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 认证       | `Authorization: Bearer <Canvas_access_token>`，官方 Instructure REST API 行为                                                                                                                                                               |
+| 分页       | 本实例把 `per_page` **静默限制为 50**（请求 100 也只返回 50，Link 头显示 `per_page=50`）；同步必须跟随 `Link` 响应头（`rel="next"` / `rel="last"`），不能信任请求参数                                                                       |
+| 限流       | `X-Rate-Limit-Remaining: 600.0`（令牌桶）+ `X-Request-Cost`（每请求按成本扣减）；标准 Canvas 软限流                                                                                                                                         |
+| 错误形态   | 无权限返回 **HTTP 401 + JSON body**：`{"status":"未授权","errors":[{"message":"用户无权执行该操作"}]}`；功能未开启返回 404。401 也可能是业务无权限而非 token 失效，两者需区分                                                               |
+| 写入权限   | 个人 token 默认含写入 scope（2026-09-15 实测）：无实体的写入探测（`POST /conversations` 缺收件人→400 参数错误、`POST /courses/0/assignments`→404）均未被 scope 层以 401 "Insufficient permissions" 拒绝；scope 检查先于参数校验，可据此探测 |
+| 课程可见性 | `/courses` 返回 48 门课，其中 5 门访问详情返回 401（可见条目、详情无权限），需容忍单课失败                                                                                                                                                  |
 
 ## 2. 课程（Course）与学期分类
 
@@ -63,22 +64,24 @@
 
 - `GET /courses/:id/discussion_topics` 同一结构涵盖公告与讨论，靠 `is_announcement` 区分；`only_announcements=true` 可只取公告。
 - 跨课程聚合端点 `GET /announcements` **必须传 `context_codes[]`**（缺省 400 `Missing context_codes`；`active_only=true` 还需 start/end 日期）。
-- 实测本人全部 48 门课中公告为 0，讨论仅 2 门课在用（物理讨论题 5 条、C++ 每章讨论区 13 条）。该类数据在交大使用率低，但 API 可用、结构标准。
+- 实测本人全部 48 门课中公告为 0（2026-09-10），讨论仅 2 门课在用（物理讨论题 5 条、C++ 每章讨论区 13 条）。该类数据在交大使用率低，但 API 可用、结构标准。
+- 2026-09-15 复测：计算经济学（CS3343-01，2026-2027 Fall）出现 1 条公告 "Welcome"（`locked=false`）。以学生身份 `POST /courses/:id/discussion_topics/:topic_id/entries`（JSON body `{"message":"..."}`，`Content-Type: application/json; charset=utf-8`）发布回复返回 **201 Created**，entry 含 `id`/`user_name`/`message`/`created_at`，Unicode（em dash）原样保存。学生回复公告的写入链路可用。
 
 ## 8. 模块（Module）——第二种课程目录轴
 
 - `GET /courses/:id/modules?include[]=items`。约 1/3 的课在用：C++ 课用 13 个模块表达章节结构；系统结构实验按 Lab 组织；模块 item `type` 实测出现 `File`、`Discussion`（预期还有 `Assignment`/`ExternalUrl`/`Page`），item 经 `content_id` 链到具体资源。
 - 对有模块的课，模块是教师组织的"课程目录"，比 folder 更贴近学习顺序；对没有模块的课则只有文件树。呈现层可把"模块"作为可选视图，而不是硬性层级。
 
-## 9. 聚合端点：实测全部为空，聚合需自己做
+## 9. 聚合端点：实测大多为空，聚合需自己做
 
-| 端点                                            | 实测                                                                                      |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `/users/self/todo`                              | 空数组（当前学期课程无作业；历史学期数据不参与）                                          |
-| `/users/self/upcoming_events`                   | 空                                                                                        |
-| `/planner/items`（带日期窗口与 context_codes）  | 空                                                                                        |
-| `/calendar_events`（带 context_codes + 日期窗） | 空——交大教师不用 Canvas 日历事件                                                          |
-| `/users/self/enrollments`                       | 只返回当前 active 的 5 门课；`grades.current_score/final_score` 现为 null（无已发布成绩） |
+| 端点                                            | 实测                                                                                                                                                                                    |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/users/self/todo`                              | 空数组（2026-09-10 与 2026-09-15 开学后两次实测均空）                                                                                                                                   |
+| `/users/self/upcoming_events`                   | 空（2026-09-15 开学后复测仍空）                                                                                                                                                         |
+| `/users/self/activity_stream`                   | **200 可用（2026-09-15）**：全局活动流，实测仅 1 条 `type=Announcement`；条目 `context_code` 为空，关联课程需从 `html_url`/`course_id` 解析。当日新公告未立即出现在流中，收录时效未验证 |
+| `/planner/items`（带日期窗口与 context_codes）  | 空                                                                                                                                                                                      |
+| `/calendar_events`（带 context_codes + 日期窗） | 空——交大教师不用 Canvas 日历事件                                                                                                                                                        |
+| `/users/self/enrollments`                       | 只返回当前 active 的 5 门课；`grades.current_score/final_score` 现为 null（无已发布成绩）                                                                                               |
 
 结论：跨课程 DDL/待办视图应由客户端遍历各课 `assignments.due_at` 自行聚合，不依赖 planner/todo/calendar。
 
@@ -96,3 +99,5 @@
 - Canvas OAuth2（浏览器登录换 token）未验证；当前前提是用户手动粘贴 personal access token。
 - 长期运行的 token 失效表现（401 的具体形态）未实测。
 - 增量同步：API 未提供稳定的 change 游标，需靠 `updated_at` 对比 + 定期全量校核，具体策略未验证。
+- `activity_stream` 的收录时效（新公告何时出现）与覆盖的事件类型范围未系统验证。
+- 写入类端点仅验证了讨论回复（entries POST）；其余写入（提交作业、上传文件等）未验证。

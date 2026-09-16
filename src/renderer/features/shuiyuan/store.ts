@@ -52,7 +52,7 @@ type Store = {
   closeReading: () => void;
   loadMorePosts: () => Promise<void>;
   toggleBookmark: (topicId: number, current: boolean) => Promise<void>;
-  submitReply: (raw: string) => Promise<void>;
+  submitReply: (raw: string, replyToPostNumber?: number) => Promise<void>;
   consumeTopicRequest: (request: { topicId: number; postNumber: number | null }) => void;
   /** App 层「在水源页打开」入口：记录请求并随后由视图消费。 */
   requestTopic: (topicId: number, postNumber?: number) => void;
@@ -282,11 +282,11 @@ export const useShuiyuan = create<Store>((set, get) => {
       }
     },
 
-    submitReply: async (raw: string) => {
+    submitReply: async (raw: string, replyToPostNumber?: number) => {
       const api = window.dela?.shuiyuan;
       const reading = get().reading;
       if (!api || !reading?.detail) throw new Error('尚未打开帖子');
-      const post: ShuiyuanPost = await api.createReply(reading.detail.id, raw);
+      const post: ShuiyuanPost = await api.createReply(reading.detail.id, raw, replyToPostNumber);
       const detail = reading.detail;
       set({
         reading: {

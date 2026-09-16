@@ -17,6 +17,7 @@ import type {
   ShuiyuanTopicDetail,
   ShuiyuanTopicPage,
   ShuiyuanTopicSummary,
+  ShuiyuanUpload,
 } from '../../shared/api';
 import {
   clearShuiyuanCredential,
@@ -609,14 +610,91 @@ export async function getShuiyuanCounts(): Promise<ShuiyuanCounts> {
 export async function createShuiyuanReply(
   topicIdInput: unknown,
   rawInput: unknown,
+  replyToPostNumberInput?: unknown,
 ): Promise<ShuiyuanPost> {
   const topicId = z.number().int().positive().parse(topicIdInput);
   const raw = z.string().trim().min(1, '回复内容不能为空').max(20000).parse(rawInput);
+  // 楼层级回复目标（Discourse reply_to_post_number）；缺省时不传键，即主题级回复。
+  const replyToPostNumber =
+    replyToPostNumberInput === undefined
+      ? undefined
+      : z.number().int().positive().max(100000).parse(replyToPostNumberInput);
   const payload = await shuiyuanRequest('/posts.json', {
     method: 'POST',
-    body: JSON.stringify({ topic_id: topicId, raw }),
+    body: JSON.stringify({
+      topic_id: topicId,
+      raw,
+      ...(replyToPostNumber === undefined ? {} : { reply_to_post_number: replyToPostNumber }),
+    }),
   });
   return mapPost(rawPostSchema.parse(payload));
+}
+
+const UPLOAD_TIMEOUT_MS = 60000;
+const rawUploadSchema = z
+  .object({
+    short_url: z.string().min(1).nullish(),
+    url: z.string().min(1).nullish(),
+    original_filename: z.string().nullish(),
+  })
+  .passthrough();
+
+/**
+ * Composer 附件上传（Discourse `POST /uploads.json`）。该端点未实测，站点若
+ * 禁用或调整限制则以响应错误暴露。multipart 请求不走 shuiyuanRequest——
+ * 那里的 JSON Content-Type 会破坏 multipart 边界。
+ */
+export async function createShuiyuanUpload(
+  fileNameInput: unknown,
+  base64Input: unknown,
+): Promise<ShuiyuanUpload> {
+  const fileName = z.string().trim().min(1).max(255).parse(fileNameInput);
+  const base64 = z
+    .string()
+    .min(1, '附件内容为空')
+    .max(28_000_000, '附件超过 20MB，请压缩后再上传')
+    .parse(base64Input);
+  const credential = loadShuiyuanCredential();
+  if (!credential) throw new Error('尚未绑定水源社区');
+  const form = new FormData();
+  form.append('type', 'composer');
+  form.append('files[]', new File([Buffer.from(base64, 'base64')], fileName));
+  let response: Response;
+  try {
+    response = await fetch(`${SHUIYUAN_ORIGIN}/uploads.json`, {
+      method: 'POST',
+      headers: {
+        'User-Api-Key': credential.key,
+        'User-Api-Client-Id': credential.clientId,
+        Accept: 'application/json',
+      },
+      body: form,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+  } catch {
+    throw new Error('上传附件时无法连接水源社区，请检查网络后重试');
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { errors?: string[] } | null;
+    const detail = payload?.errors?.join('；');
+    if (response.status === 413 || /too large|尺寸|大小/i.test(detail ?? '')) {
+      throw new Error('附件超过站点大小限制，请压缩后再上传');
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('水源拒绝了上传（HTTP 403）：密钥可能已失效或站点已禁用该能力');
+    }
+    throw new Error(detail ? `水源返回错误：${detail}` : `上传附件失败（HTTP ${response.status}）`);
+  }
+  const payload = (await response.json().catch(() => null)) as unknown;
+  const parsed = rawUploadSchema.safeParse(payload);
+  if (!parsed.success) throw new Error('水源返回的附件响应无法识别，请稍后重试');
+  const shortUrl = parsed.data.short_url ?? parsed.data.url;
+  if (!shortUrl) throw new Error('水源没有返回附件地址，请稍后重试');
+  return {
+    shortUrl,
+    url: parsed.data.url ?? null,
+    originalFilename: parsed.data.original_filename ?? fileName,
+  };
 }
 
 export async function createShuiyuanMessage(

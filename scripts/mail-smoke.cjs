@@ -250,8 +250,12 @@ app
     assert.equal(await js(`document.querySelector('article h2').textContent`), 'HTML 阅读验证 2');
     const frame = win.webContents.mainFrame.frames.find((f) => f.url === 'about:srcdoc');
     assert(frame);
-    await assert.rejects(frame.executeJavaScript('1+1'));
-    assert.deepEqual(await js(`[...document.querySelector('iframe').sandbox]`), ['allow-popups']);
+    // 高度上报需要 allow-scripts；隔离性体现在无 allow-same-origin 的不透明源。
+    assert.equal(await frame.executeJavaScript('location.origin'), 'null');
+    assert.deepEqual(await js(`[...document.querySelector('iframe').sandbox]`), [
+      'allow-popups',
+      'allow-scripts',
+    ]);
     writeFileSync(
       join(root, '.tools/mail-wide.png'),
       (await win.webContents.capturePage()).toPNG(),

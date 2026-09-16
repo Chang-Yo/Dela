@@ -5,9 +5,9 @@ import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import { BindCard } from './BindCard';
 import { NewMessageDialog } from './NewMessageDialog';
-import { BookmarkList, NotificationList } from './PersonalLists';
+import { BookmarkList, ListBackButton, NotificationList } from './PersonalLists';
 import { ShuiyuanHeader } from './ShuiyuanHeader';
-import { TopicReader } from './TopicReader';
+import { TopicReader, TopicReaderHeader } from './TopicReader';
 import { TopicFeed } from './TopicFeed';
 import { useShuiyuan } from './store';
 
@@ -53,7 +53,8 @@ function DesktopShuiyuanView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <ShuiyuanHeader />
+      {/* 顶部导航原地互换：阅读时直接换为阅读页顶栏，不做动画。 */}
+      {reading ? <TopicReaderHeader /> : <ShuiyuanHeader />}
       <div className="relative min-h-0 flex-1">
         {/* 信息流常驻挂载：进入阅读页后保留滚动位置，返回即时还原。 */}
         <div aria-hidden={Boolean(reading)} className="absolute inset-0 overflow-y-auto">
@@ -64,7 +65,8 @@ function DesktopShuiyuanView() {
           ) : (
             <>
               {list.kind === 'messages' ? (
-                <div className="mx-auto flex w-full max-w-3xl justify-end px-4 pb-1 pt-3 max-md:px-3">
+                <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pb-1 pt-3 max-md:px-3">
+                  <ListBackButton />
                   <Button onClick={() => setMessageOpen(true)} size="sm" variant="outline">
                     <PencilLine className="size-3.5" />
                     新私信

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bell, Bookmark, Mail, RefreshCw, Search } from 'lucide-react';
-import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import {
   Select,
@@ -74,7 +73,7 @@ export function ShuiyuanHeader() {
     >
       <Icon className="size-4" strokeWidth={1.8} />
       {count && count > 0 ? (
-        <span className="absolute -right-1 -top-1 rounded-full bg-primary px-1 text-[10px] font-medium leading-4 text-primary-foreground">
+        <span className="absolute -right-1.5 -top-1 rounded-full bg-primary px-1 text-[9px] font-medium leading-[14px] tabular-nums text-primary-foreground">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -83,91 +82,9 @@ export function ShuiyuanHeader() {
 
   return (
     <header className="border-b bg-background/95 px-4 py-2 backdrop-blur max-md:px-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div
-          aria-label="信息流类型"
-          className="flex overflow-hidden rounded-md border shadow-xs"
-          role="group"
-        >
-          <Button
-            aria-pressed={feedKind === 'latest'}
-            className="rounded-none border-r"
-            onClick={() => void selectList({ kind: 'latest' })}
-            size="sm"
-            variant="ghost"
-          >
-            最新
-          </Button>
-          <Button
-            aria-pressed={feedKind === 'featured'}
-            className="rounded-none"
-            onClick={() => void selectList({ kind: 'featured' })}
-            size="sm"
-            variant="ghost"
-          >
-            精品
-          </Button>
-        </div>
-        <Select
-          onValueChange={(value) => {
-            void selectList(
-              value === 'all'
-                ? { kind: 'latest' }
-                : { kind: 'category', categoryId: Number(value) },
-            );
-          }}
-          value={categoryValue}
-        >
-          <SelectTrigger aria-label="类别" className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部类别</SelectItem>
-            {roots.flatMap((category) => [
-              <SelectItem key={category.id} value={String(category.id)}>
-                {category.name}
-              </SelectItem>,
-              ...childrenOf(category.id).map((child) => (
-                <SelectItem key={child.id} value={String(child.id)}>
-                  └ {child.name}
-                </SelectItem>
-              )),
-            ])}
-          </SelectContent>
-        </Select>
-        <Select
-          onValueChange={(value) => {
-            void selectList(value === 'all' ? { kind: 'latest' } : { kind: 'tag', tag: value });
-          }}
-          value={tagValue}
-        >
-          <SelectTrigger aria-label="标签" className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部标签</SelectItem>
-            {(structure?.tags ?? []).slice(0, 60).map((tag) => (
-              <SelectItem key={tag.name} value={tag.name}>
-                {tag.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="relative ml-auto min-w-32 max-w-56 flex-1">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            aria-label="搜索水源"
-            className="h-8 pl-8 text-xs"
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="搜索帖子"
-            type="search"
-            value={search}
-          />
-        </div>
-        <div className="flex items-center gap-0.5">
+      {/* 宽屏三区网格（左入口 / 中筛选 / 右搜索），窄屏退化为纵向三行。 */}
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
+        <div className="flex flex-wrap items-center gap-0.5 justify-self-start">
           {personalButton(
             list.kind === 'bookmarks',
             '收藏',
@@ -176,19 +93,101 @@ export function ShuiyuanHeader() {
             () => void selectList({ kind: 'bookmarks' }),
           )}
           {personalButton(
-            list.kind === 'messages',
-            '私信',
-            counts?.messages ?? null,
-            Mail,
-            () => void selectList({ kind: 'messages' }),
-          )}
-          {personalButton(
             list.kind === 'notifications',
             '通知',
             counts?.notifications ?? null,
             Bell,
             () => void selectList({ kind: 'notifications' }),
           )}
+          {personalButton(
+            list.kind === 'messages',
+            '私信',
+            counts?.messages ?? null,
+            Mail,
+            () => void selectList({ kind: 'messages' }),
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5 justify-self-center">
+          {/* 分段控件：底槽 + 浮起的活动段，替代描边按钮组。 */}
+          <div
+            aria-label="信息流类型"
+            className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+            role="group"
+          >
+            <button
+              aria-pressed={feedKind === 'latest'}
+              className={cn(
+                'h-7 rounded-md px-3 text-[13px] font-medium transition-all',
+                feedKind === 'latest'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => void selectList({ kind: 'latest' })}
+              type="button"
+            >
+              最新
+            </button>
+            <button
+              aria-pressed={feedKind === 'featured'}
+              className={cn(
+                'h-7 rounded-md px-3 text-[13px] font-medium transition-all',
+                feedKind === 'featured'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => void selectList({ kind: 'featured' })}
+              type="button"
+            >
+              精品
+            </button>
+          </div>
+          <Select
+            onValueChange={(value) => {
+              void selectList(
+                value === 'all'
+                  ? { kind: 'latest' }
+                  : { kind: 'category', categoryId: Number(value) },
+              );
+            }}
+            value={categoryValue}
+          >
+            <SelectTrigger aria-label="类别" className="h-8 w-28 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部类别</SelectItem>
+              {roots.flatMap((category) => [
+                <SelectItem key={category.id} value={String(category.id)}>
+                  {category.name}
+                </SelectItem>,
+                ...childrenOf(category.id).map((child) => (
+                  <SelectItem key={child.id} value={String(child.id)}>
+                    └ {child.name}
+                  </SelectItem>
+                )),
+              ])}
+            </SelectContent>
+          </Select>
+          <Select
+            onValueChange={(value) => {
+              void selectList(value === 'all' ? { kind: 'latest' } : { kind: 'tag', tag: value });
+            }}
+            value={tagValue}
+          >
+            <SelectTrigger aria-label="标签" className="h-8 w-28 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部标签</SelectItem>
+              {(structure?.tags ?? []).slice(0, 60).map((tag) => (
+                <SelectItem key={tag.name} value={tag.name}>
+                  {tag.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5 justify-self-end">
           <button
             aria-label="刷新"
             className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
@@ -201,6 +200,20 @@ export function ShuiyuanHeader() {
           >
             <RefreshCw className={cn('size-4', listLoading && 'animate-spin')} strokeWidth={1.8} />
           </button>
+          <div className="relative min-w-32 max-w-56 flex-1">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              aria-label="搜索水源"
+              className="h-8 pl-8 text-xs"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="搜索帖子"
+              type="search"
+              value={search}
+            />
+          </div>
         </div>
       </div>
     </header>

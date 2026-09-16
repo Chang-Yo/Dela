@@ -1,7 +1,22 @@
-import { CheckCheck, Heart } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Heart } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useShuiyuan } from './store';
 import { describeNotification, formatListDate } from './shuiyuan-format';
+
+/** 个人列表（收藏/通知/私信）返回信息流首页，三处共用。 */
+export function ListBackButton() {
+  const selectList = useShuiyuan((state) => state.selectList);
+  return (
+    <button
+      className="flex items-center gap-1 self-start text-xs text-muted-foreground transition-colors hover:text-foreground"
+      onClick={() => void selectList({ kind: 'latest' })}
+      type="button"
+    >
+      <ArrowLeft className="size-4" strokeWidth={1.8} />
+      返回最新
+    </button>
+  );
+}
 
 /** 收藏列表：点击进入帖子阅读。 */
 export function BookmarkList() {
@@ -12,10 +27,11 @@ export function BookmarkList() {
   const openTopic = useShuiyuan((state) => state.openTopic);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-8 max-md:px-3">
+    <div className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-8 max-md:px-3">
+      <ListBackButton />
       {bookmarks.map((bookmark) => (
         <button
-          className="flex w-full flex-col gap-1.5 border-b border-border/60 px-1 py-3 text-left transition-colors hover:bg-muted/40"
+          className="flex w-full flex-col gap-1.5 border-b border-border/60 px-1 py-3.5 text-left transition-colors last:border-0 hover:bg-muted/40"
           key={bookmark.id}
           onClick={() => void openTopic(bookmark.topicId, bookmark.linkedPostNumber ?? undefined)}
           type="button"
@@ -23,16 +39,18 @@ export function BookmarkList() {
           <div className="flex items-start gap-1.5">
             <Heart
               aria-hidden="true"
-              className="mt-0.5 size-3.5 shrink-0 fill-current text-primary"
+              className="mt-1 size-3.5 shrink-0 fill-current text-primary"
             />
-            <span className="line-clamp-2 text-sm font-medium leading-snug">{bookmark.title}</span>
+            <span className="line-clamp-2 text-[15px] font-medium leading-snug">
+              {bookmark.title}
+            </span>
           </div>
           {bookmark.excerpt ? (
-            <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
               {bookmark.excerpt}
             </p>
           ) : null}
-          <p className="text-[11px] text-muted-foreground">
+          <p className="pl-5 text-[11px] tabular-nums text-muted-foreground">
             收藏于 {formatListDate(bookmark.createdAt)}
           </p>
         </button>
@@ -71,7 +89,8 @@ export function NotificationList() {
   const hasUnread = notifications.some((item) => !item.read);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-8 max-md:px-3">
+    <div className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-8 max-md:px-3">
+      <ListBackButton />
       <div className="flex min-h-9 items-center justify-between gap-2 py-1">
         <p className="text-xs text-muted-foreground">最近 30 天通知</p>
         {hasUnread ? (
@@ -86,14 +105,14 @@ export function NotificationList() {
         const Icon = meta.icon;
         return (
           <button
-            className="flex w-full items-start gap-2.5 border-b border-border/60 px-1 py-3 text-left transition-colors hover:bg-muted/40"
+            className="flex w-full items-start gap-2.5 border-b border-border/60 px-1 py-3.5 text-left transition-colors last:border-0 hover:bg-muted/40"
             key={item.id}
             onClick={() =>
               item.topicId !== null && void openTopic(item.topicId, item.postNumber ?? undefined)
             }
             type="button"
           >
-            <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <Icon aria-hidden="true" className="mt-1 size-4 shrink-0 text-muted-foreground" />
             <span className="grid min-w-0 flex-1 gap-1">
               <span
                 className={
@@ -104,7 +123,7 @@ export function NotificationList() {
               >
                 {meta.text}
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] tabular-nums text-muted-foreground">
                 {formatListDate(item.createdAt)}
               </span>
             </span>

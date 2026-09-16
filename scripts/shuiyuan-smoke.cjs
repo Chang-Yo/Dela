@@ -201,10 +201,15 @@ app
       'category color dot',
     );
     assert.ok(
-      await evaluate("[...document.querySelectorAll('button[title=通知]')].length === 1"),
+      await evaluate(
+        "[...document.querySelectorAll('button[title=通知]')].filter(b => b.closest('header')).length === 1",
+      ),
       '通知入口',
     );
-    assert.match(await evaluate("document.querySelector('button[title=通知]').textContent"), /1/);
+    assert.match(
+      await evaluate("document.querySelector('header button[title=通知]').textContent"),
+      /1/,
+    );
 
     // 分页：加载更多追加第二页并移除按钮。
     await click(
@@ -242,11 +247,11 @@ app
     await wait("document.body.innerText.includes('考试经验分享帖')");
 
     // 通知：未读点、全部已读后消失。
-    await click("document.querySelector('button[title=通知]')");
+    await click("document.querySelector('header button[title=通知]')");
     await wait("document.body.innerText.includes('点赞人')");
     assert.ok(
       await evaluate(
-        "document.querySelector('button[title=通知] + * , button[title=通知]') && document.body.innerText.includes('提到了你')",
+        "document.querySelector('header button[title=通知]') && document.body.innerText.includes('提到了你')",
       ),
     );
     await click(
