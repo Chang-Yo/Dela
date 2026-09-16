@@ -108,9 +108,12 @@ export function AgentPanel({
         <ChatComposer
           busy={busy}
           configured={Boolean(chat?.configured)}
+          effort={chat?.effort ?? null}
+          effortLevels={chat?.effortLevels ?? []}
           model={chat?.model ?? ''}
           onAddReference={chatState.addReference}
           onChange={chatState.setPrompt}
+          onEffortSelect={chatState.selectEffort}
           onModelSelect={chatState.selectModel}
           onRemoveReference={chatState.removeReference}
           onSend={() => void chatState.send()}

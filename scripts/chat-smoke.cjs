@@ -61,6 +61,21 @@ app
     };
     await win.loadFile(join(root, 'out/renderer/index.html'), { query: { 'smoke-test': '1' } });
     await wait("document.querySelector('textarea')");
+    // 提供商未开启推理强度时，composer 的思考强度控件显示 default 且不可改。
+    assert.ok(
+      await evaluate("document.querySelector('button[aria-label=思考强度]') !== null"),
+      'effort control missing',
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelector('button[aria-label=思考强度]')?.textContent.includes('default')",
+      ),
+      true,
+    );
+    assert.equal(
+      await evaluate("document.querySelector('button[aria-label=思考强度]')?.disabled"),
+      true,
+    );
     chat.messages.push({ role: 'user', content: '帮我整理课程资料，保存本周复习计划。' });
     const reply = {
       role: 'assistant',
@@ -75,22 +90,79 @@ app
     await wait("document.querySelector('[aria-label=对话消息]')");
     const viewport = "document.querySelector('[aria-label=对话消息]')";
     const initialTop = await evaluate(`${viewport}.scrollTop`);
+    // 思考段先于公开正文流式进入：块自动展开，正文到达后自动收起为“已思考 · X 秒”。
+    const thinkStart = Date.now();
+    reply.parts.push({
+      type: 'reasoning',
+      text: '先分析请求：需要查找课程资料，再保存复习计划。',
+      startedAt: thinkStart,
+    });
+    await push();
+    await wait(
+      "[...document.querySelectorAll('[data-reasoning-body]')].some(el => el.textContent.includes('先分析请求') && el.parentElement.getBoundingClientRect().height > 1)",
+    );
+    reply.parts[0].finishedAt = thinkStart + 3200;
     reply.parts.push({ type: 'text', text: '我会先查找课程资料，再按课程整理复习重点。' });
     await push();
+    await wait("document.body.innerText.includes('已思考 · 3 秒')");
+    await wait(
+      "[...document.querySelectorAll('[data-reasoning-body]')].every(el => el.parentElement.getBoundingClientRect().height < 1)",
+    );
     chat.activeTool = 'search_sources';
-    reply.parts.push({ type: 'tools', results: [] });
+    // 新协议：工具开始即写入无输出的占位步骤（带输入摘要与 startedAt）。
+    const runStart = Date.now();
+    reply.parts.push({
+      type: 'tools',
+      results: [
+        { id: 'run1', name: 'search_sources', input: { query: '本周课程' }, startedAt: runStart },
+      ],
+    });
     await push();
     await wait("document.body.innerText.includes('正在查找资料')");
+    // 运行中的组自动展开：占位步骤的输入摘要直接可见。
+    await wait(
+      "[...document.querySelectorAll('span')].some(el => el.textContent === '「本周课程」' && el.checkVisibility())",
+    );
+    // 消息头的“正在工作 · N 秒”每秒跳动。
+    const workingLabel = () =>
+      evaluate(
+        "[...document.querySelectorAll('span')].find(el => el.textContent.startsWith('正在工作'))?.textContent",
+      );
+    const tick1 = await workingLabel();
+    assert.match(tick1, /^正在工作 · \d+ 秒$/);
+    await new Promise((r) => setTimeout(r, 1600));
+    const tick2 = await workingLabel();
+    assert.notEqual(tick2, tick1, 'working timer did not tick');
     const first = {
-      id: 'read',
+      id: 'run1',
       name: 'search_sources',
       input: { query: '本周课程' },
       output: { ok: true, result: { count: 3 } },
+      startedAt: runStart,
+      finishedAt: runStart + 2100,
     };
-    reply.parts.at(-1).results.push(first);
+    reply.parts.at(-1).results[0] = first;
     reply.toolResults.push(first);
     chat.activeTool = undefined;
     await push();
+    await wait("document.body.innerText.includes('已执行 1 个动作')");
+    // 完成后未触碰的组自动收起：折叠容器高度归零（内层 ol 保留固有高度，测父容器），摘要行仍在。
+    await wait(
+      "[...document.querySelectorAll('ol[aria-label=动作时间线]')].every(ol => ol.parentElement.getBoundingClientRect().height < 1)",
+    );
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已执行 1 个动作')).click()",
+    );
+    // 展开后可见占位时输入的摘要与每步耗时（startedAt→finishedAt 差值 2 秒）。
+    await wait(
+      "[...document.querySelectorAll('span')].some(el => el.textContent === '「本周课程」' && el.checkVisibility())",
+    );
+    assert.match(
+      await evaluate(
+        "[...document.querySelectorAll('button')].find(b => b.textContent.includes('查找资料'))?.textContent",
+      ),
+      /2 秒/,
+    );
     reply.parts.push({ type: 'text', text: '已找到 **三份资料' });
     await push();
     await wait(
@@ -201,9 +273,47 @@ app
     await push();
     await wait("document.body.innerText.includes('旧回答')");
     assert.ok(!(await evaluate("document.body.innerText.includes('我会先')")));
+    // Draft persistence: input survives leaving and re-entering the chat view.
+    win.setSize(1200, 900);
+    await pause();
+    const draftText = '草稿保留验证';
+    await evaluate(`(() => {
+      const ta = document.querySelector('textarea');
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(ta, ${JSON.stringify(draftText)});
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    assert.equal(await evaluate('document.querySelector("textarea").value'), draftText);
+    assert.ok(
+      ((await evaluate('localStorage.getItem("dela.chat.drafts")')) ?? '').includes(draftText),
+      'draft not written to localStorage',
+    );
+    const clickNav = (label) =>
+      evaluate(`(() => {
+        const b = [...document.querySelectorAll('nav[aria-label="功能导航"] button')]
+          .find((item) => item.textContent.includes(${JSON.stringify(label)}));
+        if (!b) return 'not-found';
+        b.click();
+        return 'clicked';
+      })()`);
+    assert.equal(await clickNav('项目'), 'clicked', 'projects nav missing');
+    // 侧栏 aria-current 立即变化；等首页对话流随退场动画确实卸载后再取项目页状态。
+    await wait('document.querySelector(\'[aria-label="对话消息"]\') === null');
+    assert.notEqual(
+      await evaluate('document.querySelector("textarea")?.value'),
+      draftText,
+      'projects view shares the home composer draft',
+    );
+    assert.equal(await clickNav('首页'), 'clicked', 'home nav missing');
+    await wait("document.querySelector('textarea')");
+    assert.equal(
+      await evaluate('document.querySelector("textarea")?.value'),
+      draftText,
+      'draft lost after switching away and back',
+    );
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log(
-      'Chat smoke passed: ordered parts, streaming Markdown, failures, disclosures, stable scroll, follow/escape, legacy sessions, 3 widths, light/dark.',
+      'Chat smoke passed: ordered parts, reasoning collapse, streaming Markdown, failures, disclosures, working timer, auto collapse, per-step duration, stable scroll, follow/escape, legacy sessions, draft persistence, 3 widths, light/dark.',
     );
     win.destroy();
     app.exit(0);

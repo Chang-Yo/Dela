@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('dela', {
     remove: (id: string) => ipcRenderer.invoke('llm:remove', id),
     setActive: (id: string) => ipcRenderer.invoke('llm:set-active', id),
     setModel: (model: string) => ipcRenderer.invoke('llm:set-model', model),
+    setEffort: (level: string) => ipcRenderer.invoke('llm:set-effort', level),
     verify: (input: LlmVerifyInput) => ipcRenderer.invoke('llm:verify', input),
   },
   mail: {

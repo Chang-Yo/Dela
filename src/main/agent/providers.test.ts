@@ -7,6 +7,7 @@ import {
   removeLlmProvider,
   saveLlmProvider,
   setActiveLlmProvider,
+  setLlmEffort,
   setLlmModel,
   verifyLlm,
 } from './providers';
@@ -49,11 +50,53 @@ describe('LLM provider config', () => {
       baseUrl: input.baseUrl,
       models: input.models,
       model: input.model,
+      effortLevels: [],
+      effort: null,
       presetId: input.presetId,
       active: false,
     });
     expect('apiKey' in view).toBe(false);
     expect(config.providers[0]!.apiKey).toBe('test-only');
+  });
+
+  it('normalizes effort levels to the canonical order and defaults the effort to the first', () => {
+    const view = saveLlmProvider({
+      ...input,
+      effortLevels: ['ultra', 'low', 'low', 'none'],
+    });
+    expect(view.effortLevels).toEqual(['none', 'low', 'ultra']);
+    expect(view.effort).toBe('none');
+    expect(listLlmProviders()[0]!.effort).toBe('none');
+  });
+
+  it('rejects effort levels outside the enum', () => {
+    expect(() => saveLlmProvider({ ...input, effortLevels: ['turbo'] })).toThrow();
+  });
+
+  it('keeps a still-listed effort when editing and resets it when its level is removed', () => {
+    const created = saveLlmProvider({ ...input, effortLevels: ['low', 'high'] });
+    setActiveLlmProvider(created.id);
+    setLlmEffort('high');
+    // 仍在列表内：编辑保留当前档位。
+    saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: ['low', 'high'] });
+    expect(listLlmProviders()[0]!.effort).toBe('high');
+    // high 被移出列表：回到第一档。
+    saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: ['medium'] });
+    const view = listLlmProviders()[0]!;
+    expect(view.effortLevels).toEqual(['medium']);
+    expect(view.effort).toBe('medium');
+    // 关闭（空列表）：清除档位，composer 回到 default。
+    saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: [] });
+    expect(listLlmProviders()[0]!.effort).toBeNull();
+  });
+
+  it('switches the effort only within the enabled levels of the active provider', () => {
+    const created = saveLlmProvider({ ...input, effortLevels: ['low', 'high'] });
+    setActiveLlmProvider(created.id);
+    setLlmEffort('high');
+    expect(listLlmProviders()[0]!.effort).toBe('high');
+    expect(() => setLlmEffort('max')).toThrow(/不在当前提供商开启/);
+    expect(() => setLlmEffort('extreme')).toThrow();
   });
 
   it('keeps the stored key when editing with an empty apiKey', () => {

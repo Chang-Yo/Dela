@@ -114,6 +114,10 @@ export interface StoredLlmProvider {
   apiKey: string;
   models: string[];
   model: string;
+  /** 开启推理强度后暴露的档位子集；空数组表示未开启。 */
+  effortLevels: string[];
+  /** 当前选中的推理强度档位；未开启时为 undefined。 */
+  effort?: string;
   presetId: string | null;
 }
 
@@ -159,6 +163,9 @@ function parseLlmConfig(payload: string): StoredLlmConfig {
     providers: providers.map((provider) => ({
       ...provider,
       presetId: typeof provider.presetId === 'string' ? provider.presetId : null,
+      effortLevels: Array.isArray(provider.effortLevels)
+        ? provider.effortLevels.filter((level): level is string => typeof level === 'string')
+        : [],
     })),
     activeId:
       typeof parsed.activeId === 'string' && providers.some(({ id }) => id === parsed.activeId)
@@ -190,6 +197,7 @@ function migrateLegacyModelCredential(): StoredLlmConfig {
           typeof parsed.model === 'string' && zhiyuan.models.includes(parsed.model)
             ? parsed.model
             : zhiyuan.models[0]!,
+        effortLevels: [],
         presetId: zhiyuan.id,
       },
     ],

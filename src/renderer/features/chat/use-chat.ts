@@ -1,24 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatSessionSummary, LlmProviderView, WorkspaceChat } from '../../../shared/api';
 import { errorText, useWorkspace } from '../projects/workspace';
+import { emptyDraft, useChatDrafts, type ChatReference } from './drafts';
 
-export type ChatReference = { key: string; title: string };
+export type { ChatReference };
 
-/** 首页与项目助手共用的对话状态：会话加载、推送订阅、发送、多会话管理。 */
+/** 首页与项目助手共用的对话状态：会话加载、推送订阅、发送、多会话管理。
+ *  输入草稿存于 useChatDrafts（按 scope 持久化），切换页面或重启后不丢失。 */
 export function useChat(scope: string, chatRequest?: { sessionId: string }) {
   const [chat, setChat] = useState<WorkspaceChat | null>(null);
-  const [prompt, setPrompt] = useState('');
-  const [references, setReferences] = useState<ChatReference[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const draft = useChatDrafts((state) => state.drafts[scope] ?? emptyDraft);
+  const updateDraft = useChatDrafts((state) => state.update);
+  const clearDraft = useChatDrafts((state) => state.clear);
   const activeScope = useRef(scope);
   const loadRequest = useRef(0);
 
   useEffect(() => {
     activeScope.current = scope;
     setChat(null);
-    setPrompt('');
-    setReferences([]);
     setError(null);
     setPending(false);
     let active = true;
@@ -48,6 +49,12 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
   }, [chatRequest, scope]);
 
   const busy = pending || Boolean(chat?.running);
+  const prompt = draft.prompt;
+  const references = draft.references;
+  const setPrompt = useCallback(
+    (text: string) => updateDraft(scope, { prompt: text }),
+    [scope, updateDraft],
+  );
 
   // 可选参数供快捷入口直接发送：绕过 prompt state 的异步时序，单击即发。
   const send = async (directText?: string) => {
@@ -59,8 +66,8 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
       for (const ref of sentReferences) {
         if (ref.key.startsWith('source:')) continue;
         await useWorkspace.getState().save(ref.key);
-        const draft = useWorkspace.getState().drafts[ref.key];
-        if (draft && draft.text !== draft.saved)
+        const draftNote = useWorkspace.getState().drafts[ref.key];
+        if (draftNote && draftNote.text !== draftNote.saved)
           throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
       }
     } catch (e) {
@@ -70,8 +77,7 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
     setPending(true);
     setError(null);
     // 发送即清空输入：用户消息与流式增量经推送回显，不等整轮结束。
-    setPrompt('');
-    setReferences([]);
+    clearDraft(requested);
     try {
       const result = await window.dela.workspace.ask(
         scope,
@@ -88,8 +94,7 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
           activeScope.current === requested &&
           !fresh?.messages.some((message) => message.role === 'user' && message.content === text)
         ) {
-          setPrompt(text);
-          setReferences(sentReferences);
+          updateDraft(requested, { prompt: text, references: sentReferences });
         }
       }
     } finally {
@@ -112,14 +117,24 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
     void run.then(() => refresh()).catch((e) => setError(errorText(e)));
   };
 
+  // 思考强度档位切换：乐观更新会话状态，持久化到当前使用中的提供商。
+  const selectEffort = (level: string) => {
+    const dela = window.dela;
+    if (!dela) return;
+    setChat((current) => (current ? { ...current, effort: level } : current));
+    void dela.llm
+      .setEffort(level)
+      .then(() => refresh())
+      .catch((e) => setError(errorText(e)));
+  };
+
   const newChat = () => {
     if (!window.dela) return;
     void window.dela.workspace
       .newChat(scope)
       .then((value) => {
         setChat(value);
-        setPrompt('');
-        setReferences([]);
+        clearDraft(scope);
         setError(null);
       })
       .catch((e) => setError(errorText(e)));
@@ -161,16 +176,22 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
     prompt,
     setPrompt,
     references,
-    addReference: (ref: ChatReference) =>
-      setReferences((current) =>
-        current.some((item) => item.key === ref.key) ? current : [...current, ref],
-      ),
+    addReference: (ref: ChatReference) => {
+      const current = useChatDrafts.getState().drafts[scope]?.references ?? [];
+      if (current.some((item) => item.key === ref.key)) return;
+      updateDraft(scope, { references: [...current, ref] });
+    },
     removeReference: (key: string) =>
-      setReferences((current) => current.filter((item) => item.key !== key)),
+      updateDraft(scope, {
+        references: (useChatDrafts.getState().drafts[scope]?.references ?? []).filter(
+          (item) => item.key !== key,
+        ),
+      }),
     error,
     send,
     stop,
     selectModel,
+    selectEffort,
     newChat,
     openSession,
     deleteSession,

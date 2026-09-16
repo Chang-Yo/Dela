@@ -1,192 +1,22 @@
-import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 'react';
-import {
-  ArrowDown,
-  ArrowUpRight,
-  Check,
-  ChevronRight,
-  CircleAlert,
-  Wrench,
-  Copy,
-  LoaderCircle,
-  NotebookPen,
-} from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, Check, Copy, LoaderCircle, NotebookPen } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 import { useReducedMotion } from 'framer-motion';
 import { Dialog } from 'radix-ui';
-import type { AgentToolResult, PreparedEmail, WorkspaceChat } from '../../../shared/api';
+import type { PreparedEmail, WorkspaceChat } from '../../../shared/api';
 import { MailComposer } from '../mail/MailComposer';
 import { leaveComposer } from '../mail/compose-close';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { errorText } from '../projects/workspace';
-
-const toolLabels: Record<string, string> = {
-  prepare_email: '准备邮件草稿',
-  query_schedule: '查询日程',
-  query_assignments: '查询作业',
-  find_courses: '查找课程',
-  sync_sources: '同步课程资料',
-  search_sources: '查找资料',
-  search_workspace: '查找项目文件',
-  search_mail: '查找邮件',
-  read_resource: '读取资料',
-  create_entry: '创建条目',
-  update_entry: '整理条目',
-  write_note: '保存笔记',
-  link_source: '关联资料',
-  copy_file_to_project: '复制文件',
-  create_event: '创建日程',
-};
-
-type ToolOutput = {
-  ok?: boolean;
-  error?: { message?: string };
-  result?: { draftId?: string };
-} | null;
-
-// 从工具输入提取一行摘要；没有稳定字段的工具不显示摘要。
-function toolSummary(result: AgentToolResult): string {
-  const input = result.input as { title?: string; name?: string; subject?: string } | null;
-  const name = input?.title ?? input?.name ?? input?.subject;
-  return name ? `「${name}」` : '';
-}
+import { formatDuration, ReasoningBlock, ToolTimeline, useNow } from './ToolTimeline';
+import styles from './timeline.module.css';
 
 const markdownStyles =
   '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_table]:my-2 [&_table]:w-full [&_table]:text-xs [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0';
 
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
-
-/** 工具步骤行：摘要 + 可展开的原始结果。 */
-function ToolStep({ result }: { result: AgentToolResult }) {
-  const output = result.output as ToolOutput;
-  const ok = Boolean(output?.ok);
-  const [open, setOpen] = useState(false);
-  const detailId = useId();
-  return (
-    <li className="min-w-0">
-      <button
-        className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
-        aria-expanded={open}
-        aria-controls={detailId}
-        onClick={() => setOpen((current) => !current)}
-        type="button"
-      >
-        {ok ? (
-          <Wrench className="size-3.5 shrink-0" />
-        ) : (
-          <CircleAlert className="size-3.5 shrink-0 text-destructive" />
-        )}
-        <span className="shrink-0 font-medium">{toolLabels[result.name] ?? result.name}</span>
-        {ok && <span className="truncate text-muted-foreground">{toolSummary(result)}</span>}
-        {!ok && output?.error?.message && (
-          <span className="truncate text-destructive">{output.error.message}</span>
-        )}
-        <ChevronRight
-          className={cn(
-            'ms-auto size-3 shrink-0 text-muted-foreground transition-transform',
-            open && 'rotate-90',
-          )}
-        />
-      </button>
-      <div id={detailId} hidden={!open}>
-        <pre className="my-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
-          {JSON.stringify({ input: result.input, output }, null, 2)}
-        </pre>
-      </div>
-    </li>
-  );
-}
-
-/** 执行过程：一条消息内的工具调用折叠为一组（ChainOfThought 模式），运行中显示当前工具。 */
-function ToolGroup({
-  results,
-  runningTool,
-  onOpenDraft,
-}: {
-  results: AgentToolResult[];
-  runningTool: string | undefined;
-  onOpenDraft: (draftId: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const groupId = useId();
-  const failed = results.filter((result) => !(result.output as ToolOutput)?.ok).length;
-  const label = runningTool
-    ? `正在${toolLabels[runningTool] ?? runningTool}…`
-    : results.length
-      ? `已执行 ${results.length} 个动作${failed ? ` · ${failed} 个失败` : ''}`
-      : '执行已中断';
-  return (
-    <div className="my-4 min-w-0 text-sm text-muted-foreground">
-      <button
-        aria-expanded={open}
-        aria-controls={groupId}
-        className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
-        onClick={() => setOpen((current) => !current)}
-        type="button"
-      >
-        {runningTool ? (
-          <LoaderCircle className="size-4 shrink-0 motion-safe:animate-spin" />
-        ) : failed ? (
-          <CircleAlert className="size-4 shrink-0 text-destructive" />
-        ) : (
-          <Wrench className="size-4 shrink-0" />
-        )}
-        <span className="truncate" role={runningTool ? 'status' : undefined}>
-          {label}
-        </span>
-        <ChevronRight
-          className={cn(
-            'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
-            open && 'rotate-90',
-          )}
-        />
-      </button>
-      <div
-        id={groupId}
-        inert={!open}
-        className={cn(
-          'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <ol
-            aria-label="动作时间线"
-            className="my-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain border-l pl-4"
-          >
-            {results.map((result) => (
-              <ToolStep key={result.id} result={result} />
-            ))}
-            {runningTool && (
-              <li className="flex items-center gap-2 py-1" role="status">
-                <LoaderCircle className="size-3.5 shrink-0 motion-safe:animate-spin" />
-                正在{toolLabels[runningTool] ?? runningTool}…
-              </li>
-            )}
-          </ol>
-        </div>
-      </div>
-      {results.map((result) => {
-        const output = result.output as ToolOutput;
-        const draftId =
-          result.name === 'prepare_email' && output?.ok ? output.result?.draftId : undefined;
-        return draftId ? (
-          <Button
-            key={result.id}
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            onClick={() => onOpenDraft(draftId)}
-          >
-            <ArrowUpRight />
-            检查并发送邮件
-          </Button>
-        ) : null;
-      })}
-    </div>
-  );
-}
 
 /** 消息悬停操作栏：复制与保存为笔记，参照 assistant-ui ActionBar 的自动显隐。 */
 function MessageActions({
@@ -283,39 +113,46 @@ function AssistantMessage({
       : []),
     ...(message.content ? [{ type: 'text' as const, text: message.content }] : []),
   ];
-  const elapsed =
-    message.startedAt && message.finishedAt
-      ? Math.max(0, Math.round((message.finishedAt - message.startedAt) / 1000))
+  // 整轮“正在工作 · X 秒”：运行中每秒跳动，结束冻结为用时；与动作组触发行构成两层状态。
+  const working = live && message.startedAt !== undefined && message.finishedAt === undefined;
+  const now = useNow(working);
+  const elapsedMs =
+    message.startedAt !== undefined && (message.finishedAt !== undefined || working)
+      ? (message.finishedAt ?? now) - message.startedAt
       : null;
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
-      {message.startedAt && (
+      {message.startedAt !== undefined && (
         <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>
-            {elapsed === null ? (
-              live ? (
-                '正在处理'
-              ) : (
-                '执行中断'
-              )
-            ) : (
-              <>
-                {message.interrupted ? '执行中断' : '用时'} ·{' '}
-                {elapsed >= 60 ? `${Math.floor(elapsed / 60)} 分 ` : ''}
-                {elapsed % 60} 秒
-              </>
-            )}
+          <span
+            className={cn('tabular-nums', working && styles.shimmer)}
+            role={working ? 'status' : undefined}
+          >
+            {elapsedMs === null
+              ? '执行中断'
+              : working
+                ? `正在工作 · ${formatDuration(elapsedMs)}`
+                : `${message.interrupted ? '执行中断' : '用时'} · ${formatDuration(elapsedMs)}`}
           </span>
           <span className="h-px flex-1 bg-border" />
         </div>
       )}
       {parts.map((part, index) =>
         part.type === 'tools' ? (
-          <ToolGroup
+          <ToolTimeline
             key={index}
             results={part.results}
-            runningTool={live && index === parts.length - 1 ? activeTool : undefined}
+            running={live && index === parts.length - 1}
+            activeTool={activeTool}
             onOpenDraft={onOpenDraft}
+          />
+        ) : part.type === 'reasoning' ? (
+          <ReasoningBlock
+            key={index}
+            text={part.text}
+            live={live && index === parts.length - 1}
+            startedAt={part.startedAt}
+            finishedAt={part.finishedAt}
           />
         ) : (
           <Streamdown
@@ -331,12 +168,14 @@ function AssistantMessage({
           </Streamdown>
         ),
       )}
-      {live && !activeTool && !parts.some((part) => part.type === 'text' && part.text) && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-          <LoaderCircle className="size-4 motion-safe:animate-spin" />
-          正在思考…
-        </p>
-      )}
+      {live &&
+        !activeTool &&
+        !parts.some((part) => (part.type === 'text' || part.type === 'reasoning') && part.text) && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+            <LoaderCircle className="size-4 motion-safe:animate-spin" />
+            正在思考…
+          </p>
+        )}
       {!live && message.content && (
         <MessageActions content={message.content} onSaveNote={onSaveNote} />
       )}

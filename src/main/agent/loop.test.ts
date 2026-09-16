@@ -31,11 +31,20 @@ describe('Agent loop', () => {
       .mockResolvedValueOnce(answer({ content: 'Done' }));
     vi.stubGlobal('fetch', fetcher);
     const input = options();
-    const result = await runAgent(input);
+    const onToolStart = vi.fn();
+    const result = await runAgent({ ...input, onToolStart });
+    // 开始执行即收到解析后的输入：时间线可以先行展示动作摘要。
+    expect(onToolStart).toHaveBeenCalledWith({
+      id: 'call1',
+      name: 'read_resource',
+      input: { id: 1 },
+    });
     expect(input.execute).toHaveBeenCalledWith('read_resource', { id: 1 });
     expect(result.content).toBe('Done');
     // 端点由提供商配置拼接：{baseUrl}/chat/completions。
     expect(fetcher.mock.calls[0]![0]).toBe('https://model.example.test/v1/chat/completions');
+    // 未开启推理强度时不携带 reasoning_effort 字段。
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body).reasoning_effort).toBeUndefined();
     const second = JSON.parse(fetcher.mock.calls[1]![1].body);
     expect(second.messages.at(-1)).toEqual({
       role: 'tool',
@@ -43,6 +52,18 @@ describe('Agent loop', () => {
       content: JSON.stringify({ ok: true, result: 'body' }),
     });
     expect(result.toolResults).toHaveLength(1);
+  });
+
+  it('sends reasoning_effort on every model request when an effort level is set', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(answer(call()))
+      .mockResolvedValueOnce(answer({ content: 'Done' }));
+    vi.stubGlobal('fetch', fetcher);
+    await runAgent({ ...options(), effort: 'high' });
+    for (const call of fetcher.mock.calls) {
+      expect(JSON.parse(call[1].body).reasoning_effort).toBe('high');
+    }
   });
 
   it('returns malformed arguments to the model without executing them', async () => {
@@ -103,5 +124,41 @@ describe('Agent loop', () => {
     vi.stubGlobal('fetch', fetcher);
     await expect(runAgent(options())).rejects.toThrow('400');
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('separates streamed reasoning deltas from answer text', async () => {
+    const sse = (body: string) =>
+      new Response(body, { headers: { 'Content-Type': 'text/event-stream' } });
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          sse(
+            [
+              'data: {"choices":[{"delta":{"reasoning_content":"先想"}}]}',
+              'data: {"choices":[{"delta":{"reasoning_content":"清楚"}}]}',
+              'data: {"choices":[{"delta":{"content":"答案"}}]}',
+              'data: [DONE]',
+              '',
+            ].join('\n\n'),
+          ),
+        ),
+    );
+    const onReasoning = vi.fn();
+    const result = await runAgent({ ...options(), onReasoning });
+    expect(onReasoning).toHaveBeenLastCalledWith('先想清楚');
+    expect(result.content).toBe('答案');
+  });
+
+  it('reads reasoning_content from non-streaming responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(answer({ content: 'Ok', reasoning_content: '想了想' })),
+    );
+    const onReasoning = vi.fn();
+    const result = await runAgent({ ...options(), onReasoning });
+    expect(onReasoning).toHaveBeenCalledWith('想了想');
+    expect(result.content).toBe('Ok');
   });
 });

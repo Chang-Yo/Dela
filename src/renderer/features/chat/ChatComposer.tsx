@@ -53,6 +53,9 @@ export function ChatComposer({
   configured,
   model,
   onModelSelect,
+  effort,
+  effortLevels,
+  onEffortSelect,
   references,
   onRemoveReference,
   onAddReference,
@@ -69,6 +72,10 @@ export function ChatComposer({
   configured: boolean;
   model: string;
   onModelSelect: (provider: LlmProviderView, model: string) => void;
+  /** 当前推理强度档位；提供商未开启时为 null，控件显示 default 且不可改。 */
+  effort: string | null;
+  effortLevels: string[];
+  onEffortSelect: (level: string) => void;
   references: ChatReference[];
   onRemoveReference: (key: string) => void;
   onAddReference: (ref: ChatReference) => void;
@@ -87,6 +94,7 @@ export function ChatComposer({
   const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const focused = providers?.find((provider) => provider.id === focusedId) ?? null;
+  const [effortPickerOpen, setEffortPickerOpen] = useState(false);
 
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
@@ -348,6 +356,55 @@ export function ChatComposer({
                     </ul>
                   </div>
                 )}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+        )}
+        {configured && (
+          <Popover.Root onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
+            <Popover.Trigger asChild>
+              <Button
+                aria-label="思考强度"
+                className="gap-1 text-xs text-muted-foreground"
+                disabled={effortLevels.length === 0}
+                size="sm"
+                title={effortLevels.length ? '思考强度' : '在设置 › 模型服务 中开启推理强度后可选'}
+                type="button"
+                variant="ghost"
+              >
+                {effort ?? 'default'}
+                <ChevronDown className="size-3" />
+              </Button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                align="end"
+                className="z-50 w-32 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                side="bottom"
+                sideOffset={6}
+              >
+                <ul aria-label="思考强度">
+                  {effortLevels.map((level) => (
+                    <li key={level}>
+                      <button
+                        className={cn(
+                          'flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs transition-colors',
+                          level === effort
+                            ? 'bg-accent font-medium text-accent-foreground'
+                            : 'hover:bg-accent/50',
+                        )}
+                        onClick={() => {
+                          setEffortPickerOpen(false);
+                          onEffortSelect(level);
+                        }}
+                        type="button"
+                      >
+                        <span className="truncate">{level}</span>
+                        {level === effort && <Check className="ms-auto size-3.5 shrink-0" />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>

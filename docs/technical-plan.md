@@ -922,3 +922,52 @@ Composer 双形态（`ReplyComposer` `variant: 'docked' | 'floating'`）：docke
 本次遵照用户要求不执行探针、截图或冒烟验收；类型、格式、逻辑测试结果以交付记录为准。真实账号轮询、窗口交互与跨平台表现未实机验收。
 
 交付检查：三组 TypeScript 检查、相关 Oxlint、Prettier 与 diff 空白检查通过；search.test.ts 和 notifications.test.ts 共 7 项测试通过。未运行构建、打包、探针或 UI 冒烟。检索范围、去重/本地已读和暂停持久化有逻辑覆盖；真实账号后台同步与视觉交互仍待实际使用验证。
+
+## 2026-09-16 Agent 动作时间线与输入草稿持久化
+
+本节扩展同日的“Agent 对话时间线与流式渲染”（2026-09-15）。经调研确认 `@assistant-ui/elements-tool-timeline` 不是 npm 包而是 shadcn registry 条目（`r.assistant-ui.com/elements-tool-timeline.json`，约 130 行受控纯展示组件，官方以 copy-paste 方式分发）；`assistant-stream` 与 `@assistant-ui/react` 为独立框架层。按仓库依赖纪律未引入新依赖，把 ToolTimeline 的交互模式移植到 `renderer/features/chat/ToolTimeline.tsx`（附 `timeline.module.css` 承载 ShimmerLabel 流光，色值取全局 token，`prefers-reduced-motion` 下停用）。参考：https://www.assistant-ui.com/elements/tool-timeline 。
+
+### 数据与协议
+
+- `AgentToolResult`（shared/api.ts）增加可选 `startedAt`/`finishedAt`（epoch 毫秒），`output` 改为可选——运行中的占位步骤有开始时间与输入、没有输出。
+- `runAgent` 的 `onToolStart` 回调改为 `(call: { id, name, input })` 并在解析参数后触发：时间线可以先行展示动作摘要。
+- `agent/api.ts` 在工具开始时即向尾部工具组推入占位步骤（id、名称、输入、startedAt）并持久化推送；完成时按 id 回填结果并保留 startedAt、补 finishedAt。中断时占位步骤保留（无输出），UI 显示“未完成”。`activeTool` 协议字段保留，作为无占位推送时的兜底与 Streamdown 动画门。
+- 推送仍为全量快照，无通道变更；旧会话（无时间戳）每步不显示耗时，其余行为不变。
+
+### 界面
+
+- 消息头为整轮计时：运行中“正在工作 · X 秒”流光并每秒跳动（`useNow`，结束冻结定时器），结束后“用时 X 分 Y 秒”或“执行中断”；`tabular-nums` 防数字抖动。
+- 动作组（ToolTimeline）触发行：运行中显示流光的“正在X…”；完成收起为“已执行 N 个动作 · M 个失败”。运行中自动展开让步骤逐个进入（`animate-in fade-in slide-in-from-bottom-1`），完成自动收起；用户手动开合后尊重其选择（组件内 touched 标记）。
+- 步骤行 = 工具图标（14 个工具各配 lucide 图标，未知工具回退扳手）+ 动词 + 「输入摘要」chip（query/title/name/subject）+ 右对齐耗时；失败行展示错误信息，中断行标注“未完成”；每步可展开原始输入/输出 JSON。左树形导轨沿用 border-l。
+- `prepare_email` 的“检查并发送邮件”按钮保持折叠组外常显。
+
+### 输入草稿持久化
+
+- 新增 `renderer/features/chat/drafts.ts`：zustand store 按 scope 保存 `{ prompt, references }`，写穿 localStorage `dela.chat.drafts`（最多 30 个 scope，超出丢弃最早）；修复切换页面（组件卸载）导致输入丢失的问题，重启后草稿仍在。
+- `useChat` 的 prompt/references 改从该 store 读写；scope 切换不再清空输入，发送成功清空、失败恢复逻辑不变，“新对话”清空该 scope 草稿。`ChatReference` 类型移至 drafts.ts 并自 use-chat 转出口。
+- `ProjectView` 的助手面板开关与宽度持久化到 `dela.workspace.agentOpen` / `dela.workspace.agentWidth`，与 collapsed 同模式。
+
+### 思考过程展示（同日追加）
+
+此前 loop 的 SSE/JSON 解析白名单只有 `content` 与 `tool_calls`，思考型模型经 `reasoning_content` 返回的思考增量被 zod 静默丢弃（早期规划 6.5 曾决定不展示思维过程，本节按用户要求改为对齐主流并取代该取舍）。
+
+- `runAgent` 的 SSE 增量解析增加 `delta.reasoning_content`（DeepSeek/GLM/MiniMax/Qwen 兼容层通用）与 `delta.reasoning`（OpenRouter/vLLM 系别名），累积后经新回调 `onReasoning(text)` 输出；非流式响应同样解析 `message.reasoning_content`。请求不附带 `enable_thinking`/`thinking` 等厂商开关——需要显式开启思考的模型仍不返回思考，属提供商参数差异，未验证前不盲发。
+- parts 联合类型新增 `{ type: 'reasoning'; text; startedAt?; finishedAt? }`。api.ts 的 `updateReasoning` 相邻合并并打 startedAt；思考段进入正文/工具阶段或中断时由 `closeTrailingReasoning` 补 finishedAt（中断路径在追加中断文案前收尾）。思考与正文增量共用 ~100ms 节流推送。
+- 思考不进入 `content`（复制、保存笔记、回灌模型的上下文均不含思考），满足 OpenAI 兼容协议“reasoning_content 不回传模型”的要求；构建上下文本就只取 role/content。
+- UI 为 `ReasoningBlock`（ToolTimeline.tsx）：流式期间自动展开、标签流光计时“正在思考 · X 秒”，结束自动收起为“已思考 · X 秒”，用户手动开合后尊重选择；无时间戳时降级为“思考过程”。内容为 muted 小字、左导轨、最高 256px 滚动。消息尾部占位“正在思考…”仅在既无正文也无思考输出时显示。
+
+### 推理强度档位（同日追加）
+
+按用户要求为提供商配置增加可选的推理强度：设置 › 模型服务的添加/编辑对话框新增「推理强度」开关，开启后从固定档位超集（none/minimal/low/medium/high/xhigh/max/ultra）中多选暴露给对话的子集；保存时去重并按固定强度顺序归一化，编辑时仍在列表内的当前档位保留、被移出则回到第一档、关闭（空列表）则清除。
+
+- 存储：`StoredLlmProvider` 新增 `effortLevels`（空数组=未开启）与可选 `effort`；加载时归一化形状，旧单凭据迁移补空数组。
+- 新增 IPC `llm:set-effort`（preload `dela.llm.setEffort`）：仅在当前使用中提供商已开启的档位内切换，枚举外与未勾选档位拒绝。
+- 会话快照（`WorkspaceChat`）新增 `effortLevels`/`effort`，与 model/models 同模式驱动 composer；`ask` 在已开启时把当前档位传入 `runAgent`，请求体附带 `reasoning_effort` 字段（OpenAI 兼容层通用名），未开启不携带。
+- composer 模型选择右侧新增「思考强度」选择（Popover 单列，样式与模型面板一致）：已开启时可选已勾选档位、乐观更新后持久化；未开启时显示 `default` 且禁用，悬浮提示引导去设置开启。首页与项目助手面板共用。
+- 档位值为跨提供商超集，各服务对 `reasoning_effort` 的实际支持与取值范围未实测；不支持的端点可能忽略或报错，属待验证能力。
+
+### 验证
+
+- 主进程单测：api.test.ts 更新占位/回填契约并新增“工具执行中取消保留 startedAt 占位”用例；loop.test.ts 断言 onToolStart 收到解析后的输入。思考展示追加：loop.test.ts 新增 SSE 增量累积与非流式 reasoning_content 两用例，api.test.ts 新增思考与正文隔离、中断收尾两用例（并修复 catch 路径先推 text 导致思考段 finishedAt 永不补上的缺陷）。
+- `scripts/chat-smoke.cjs` 扩展（先过 probe-preflight 六项门禁）：思考块流式展开可见→正文到达自动收起为“已思考 · 3 秒”、未开启推理强度时思考强度控件为 default 且禁用、占位步骤输入摘要运行中可见、“正在工作”计时 1.6 秒内跳动、完成后自动收起（折叠容器高度归零）、展开后每步耗时正确（2.1 秒 → “2 秒”）、第二组无时间戳降级不报错、草稿输入→切项目页→回首页恢复且写入 localStorage；明暗主题与 600/900/1200 三档宽度截图人工核对通过。providers.test.ts 新增档位归一化/枚举拒绝/编辑保留与回落/setEffort 范围校验五用例，loop.test.ts 断言未开启不带 reasoning_effort、开启后每次请求都携带。共 91 项单测。
+- 类型检查、Oxlint、Prettier、`pnpm build`、`pnpm smoke`、`pnpm smoke:workspace` 通过。真实模型流速下的流光/计时手感、真实提供商的思考流（智谱 GLM/DeepSeek-Reasoner/MiniMax）与其他平台未实机验收；探针输出中 `notifications:get-state` 未注册报错为既有问题（通知中心 IPC 未列入 chat-smoke 桩路由），不在本次范围。

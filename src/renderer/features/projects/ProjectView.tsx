@@ -96,8 +96,14 @@ export function ProjectView({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [reference, setReference] = useState<string | null>(null);
-  const [agentOpen, setAgentOpen] = useState(false);
-  const [agentWidth, setAgentWidth] = useState(340);
+  // 助手面板开关与宽度持久化：离开页面再回来不重置（草稿另由 dela.chat.drafts 保存）。
+  const [agentOpen, setAgentOpen] = useState(
+    () => localStorage.getItem('dela.workspace.agentOpen') === 'true',
+  );
+  const [agentWidth, setAgentWidth] = useState(() => {
+    const stored = Number(localStorage.getItem('dela.workspace.agentWidth'));
+    return Number.isFinite(stored) && stored > 0 ? stored : 340;
+  });
   const [modal, setModal] = useState<Modal | null>(null);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
@@ -113,6 +119,12 @@ export function ProjectView({
   useEffect(() => {
     localStorage.setItem('dela.workspace.collapsed', String(collapsed));
   }, [collapsed]);
+  useEffect(() => {
+    localStorage.setItem('dela.workspace.agentOpen', String(agentOpen));
+  }, [agentOpen]);
+  useEffect(() => {
+    localStorage.setItem('dela.workspace.agentWidth', String(agentWidth));
+  }, [agentWidth]);
   useEffect(() => {
     setSelected(rootId);
     setReference(null);

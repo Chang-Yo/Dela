@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import { z } from 'zod';
-import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
+import type { AgentToolResult, ChatSessionSummary, WorkspaceChat } from '../../shared/api';
 import { getDatabase } from '../database';
 import { readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
@@ -38,12 +38,15 @@ function resolveSession(scope: string): SessionRow | null {
 
 function snapshot(row: SessionRow | null): WorkspaceChat {
   const provider = getActiveLlmProvider();
+  const effortLevels = provider?.effortLevels ?? [];
   return {
     sessionId: row?.id ?? null,
     configured: Boolean(provider),
     providerName: provider?.name ?? null,
     model: provider?.model ?? '',
     models: provider?.models ?? [],
+    effortLevels,
+    effort: effortLevels.length ? (provider?.effort ?? effortLevels[0]!) : null,
     messages: row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
     running: asking.has(row?.scope ?? ''),
     activeTool: asking.get(row?.scope ?? '')?.tool,
@@ -203,10 +206,30 @@ export async function ask(
       persistSession(row!);
       publishChat(scope);
     };
-    // 流式文字增量不逐条广播，按 ~100ms 节流；工具事件与最终结果即时推送。
-    let lastTextPublish = 0;
+    // 思考与正文增量共用 ~100ms 节流推送；工具事件与最终结果即时持久化并推送。
+    let lastStreamPublish = 0;
+    const publishStream = () => {
+      const now = Date.now();
+      if (now - lastStreamPublish < 100) return;
+      lastStreamPublish = now;
+      // 携带内存中的活跃消息数组：持久化的 row.messages 尚未更新，直接读库会回退内容。
+      publishChat(scope, { messages: chat.messages, running: true, activeTool: run.tool });
+    };
+    // 思考段进入正文或工具阶段时收尾计时，供 UI 显示“已思考 · X 秒”。
+    const closeTrailingReasoning = () => {
+      const last = reply.parts!.at(-1);
+      if (last?.type === 'reasoning' && last.finishedAt === undefined) last.finishedAt = Date.now();
+    };
+    // 思考内容独立于公开正文（content）：不进复制、笔记与回灌模型的上下文。
+    const updateReasoning = (text: string) => {
+      if (!text) return;
+      const last = reply.parts!.at(-1);
+      if (last?.type === 'reasoning') last.text = text;
+      else reply.parts!.push({ type: 'reasoning', text, startedAt: Date.now() });
+    };
     const updateText = (text: string) => {
       if (!text) return;
+      closeTrailingReasoning();
       const last = reply.parts!.at(-1);
       if (last?.type === 'text') last.text = text;
       else reply.parts!.push({ type: 'text', text });
@@ -220,36 +243,59 @@ export async function ask(
         baseUrl: provider.baseUrl,
         model: provider.model,
         key: provider.apiKey,
+        // 已开启推理强度时随请求下发 reasoning_effort；未开启不携带该字段。
+        effort: provider.effortLevels?.length
+          ? (provider.effort ?? provider.effortLevels[0]!)
+          : undefined,
         messages,
         tools: modelToolDefinitions(),
         signal: run.controller.signal,
         execute: executeAgentTool,
         onText: (text) => {
           updateText(text);
-          const now = Date.now();
-          if (now - lastTextPublish >= 100) {
-            lastTextPublish = now;
-            // 携带内存中的活跃消息数组：持久化的 row.messages 尚未更新，直接读库会回退内容。
-            publishChat(scope, { messages: chat.messages, running: true, activeTool: run.tool });
-          }
+          publishStream();
         },
-        onToolStart: (name) => {
-          run.tool = name;
+        onReasoning: (text) => {
+          updateReasoning(text);
+          publishStream();
+        },
+        onToolStart: (call) => {
+          run.tool = call.name;
+          closeTrailingReasoning();
           if (reply.parts!.at(-1)?.type !== 'tools')
             reply.parts!.push({ type: 'tools', results: [] });
+          const group = reply.parts!.at(-1);
+          // 占位步骤先入组：UI 实时展示动作链；完成时按 id 回填并补 finishedAt。
+          if (group && group.type === 'tools')
+            group.results.push({
+              id: call.id,
+              name: call.name,
+              input: call.input,
+              startedAt: Date.now(),
+            });
           persist();
         },
         onToolResult: (result) => {
           run.tool = undefined;
-          reply.toolResults!.push(result);
           const last = reply.parts!.at(-1);
-          if (last?.type === 'tools') last.results.push(result);
+          const group = last && last.type === 'tools' ? last : undefined;
+          const placeholder = group?.results.find((item) => item.id === result.id);
+          const completed: AgentToolResult = {
+            ...result,
+            startedAt: placeholder?.startedAt,
+            finishedAt: Date.now(),
+          };
+          reply.toolResults!.push(completed);
+          if (placeholder) group!.results[group!.results.indexOf(placeholder)] = completed;
+          else group?.results.push(completed);
           persist();
         },
       });
       updateText(result.content);
     } catch (error) {
       reply.interrupted = true;
+      // 中断文案以新 text 部分落地前，先为流式中的思考段收尾计时。
+      closeTrailingReasoning();
       reply.parts!.push({ type: 'text', text: '' });
       updateText(
         `本次执行中断：${error instanceof Error ? error.message : '未知错误'}。已完成的操作保留，请查看工具结果。`,
@@ -257,6 +303,7 @@ export async function ask(
       throw error;
     } finally {
       run.tool = undefined;
+      closeTrailingReasoning();
       reply.finishedAt = Date.now();
       persist();
     }

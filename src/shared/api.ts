@@ -452,6 +452,10 @@ export interface LlmProviderView {
   baseUrl: string;
   models: string[];
   model: string;
+  /** 开启推理强度后暴露给 composer 的档位子集；空数组表示未开启。 */
+  effortLevels: string[];
+  /** 当前选中的推理强度档位；未开启时为 null。 */
+  effort: string | null;
   presetId: string | null;
   active: boolean;
 }
@@ -464,6 +468,8 @@ export interface LlmSaveInput {
   apiKey?: string;
   models: string[];
   model: string;
+  /** 开启推理强度时暴露的档位（多选）；空数组或缺省表示关闭。 */
+  effortLevels?: string[];
   presetId?: string | null;
 }
 
@@ -488,6 +494,8 @@ export interface LlmApi {
   setActive(id: string): Promise<void>;
   /** 为当前使用中的提供商切换模型。 */
   setModel(model: string): Promise<void>;
+  /** 为当前使用中的提供商切换推理强度档位（须在其已开启的档位列表内）。 */
+  setEffort(level: string): Promise<void>;
   verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
 }
 
@@ -663,7 +671,12 @@ export interface AgentToolResult {
   id: string;
   name: string;
   input: unknown;
-  output: unknown;
+  /** 执行结果；运行中的占位步骤（startedAt 已有、output 尚缺）没有输出。 */
+  output?: unknown;
+  /** 本步骤开始执行的 epoch 毫秒；旧会话与更早的记录没有。 */
+  startedAt?: number;
+  /** 本步骤完成的 epoch 毫秒；运行中或被中断的步骤没有。 */
+  finishedAt?: number;
 }
 
 export interface ChatSessionSummary {
@@ -683,13 +696,21 @@ export interface WorkspaceChat {
   model: string;
   /** 当前提供商的可选模型，驱动 composer 下拉。 */
   models: string[];
+  /** 当前提供商开启的推理强度档位；空数组表示未开启，composer 显示 default 且不可改。 */
+  effortLevels: string[];
+  /** 当前选中的推理强度档位；未开启时为 null。 */
+  effort: string | null;
   messages: {
     role: 'user' | 'assistant';
     content: string;
     sources?: { key: string; title: string }[];
     toolResults?: AgentToolResult[];
-    /** 按发生顺序保存公开说明与相邻工具组；旧会话没有 parts。 */
-    parts?: ({ type: 'text'; text: string } | { type: 'tools'; results: AgentToolResult[] })[];
+    /** 按发生顺序保存公开说明、思考过程与相邻工具组；旧会话没有 parts。 */
+    parts?: (
+      | { type: 'text'; text: string }
+      | { type: 'reasoning'; text: string; startedAt?: number; finishedAt?: number }
+      | { type: 'tools'; results: AgentToolResult[] }
+    )[];
     startedAt?: number;
     finishedAt?: number;
     interrupted?: boolean;

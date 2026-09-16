@@ -17,6 +17,7 @@ import {
   removeLlmProvider,
   setActiveLlmProvider,
   setLlmModel,
+  setLlmEffort,
   verifyLlm,
 } from './providers';
 
@@ -67,6 +68,7 @@ export function registerAgentIpc() {
   llmHandle('remove', (id) => removeLlmProvider(idSchema.parse(id)));
   llmHandle('set-active', (id) => setActiveLlmProvider(idSchema.parse(id)));
   llmHandle('set-model', (model) => setLlmModel(z.string().trim().min(1).max(200).parse(model)));
+  llmHandle('set-effort', (level) => setLlmEffort(z.string().trim().min(1).max(16).parse(level)));
   llmHandle('verify', (input) =>
     verifyLlm(
       z

@@ -1,0 +1,30 @@
+/* 移植 assistant-ui ToolTimeline 的 ShimmerLabel 流光效果，色值取自全局设计 token，
+   跟随明暗主题；尊重系统“减少动态效果”设置。 */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: dela-timeline-shimmer 1.8s linear infinite;
+}
+
+@keyframes dela-timeline-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
+}
