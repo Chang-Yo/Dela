@@ -36,7 +36,7 @@ export function CampusStep({ onDone }: { onDone: () => void }) {
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">连接教学信息服务网</h2>
         <p className="text-sm leading-relaxed text-neutral-500">
-          登录后读取课程、教师、教室、节次和教学周。登录在独立窗口完成，Dela 只读取你的个人课表。
+          登录在独立窗口完成，Dela 只读取你的个人课表。
         </p>
       </header>
       {error && (

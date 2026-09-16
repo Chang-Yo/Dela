@@ -3,8 +3,9 @@ import { KeyRound } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
 import { errorText } from '../../projects/workspace';
 import { StepButton, StepTextarea, type StepButtonState } from './step-controls';
+import { StepGuide } from './step-guide';
 
-/** 向导 · 水源步骤：独立窗口完成 jAccount 登录与授权，粘贴密文绑定，按钮转为「下一步」。 */
+/** 向导 · 水源步骤：独立窗口完成 jAccount 登录与授权，粘贴密钥绑定，按钮转为「下一步」。 */
 export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
   const [authBusy, setAuthBusy] = useState(false);
   const [payload, setPayload] = useState('');
@@ -51,53 +52,68 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
     <div className="grid gap-7">
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">连接水源社区</h2>
-        <p className="text-sm leading-relaxed text-neutral-500">
-          授权 Dela 读取你的水源数据并支持回复、私信（读取 + 写入）。登录与授权在独立窗口完成。
-        </p>
+        <p className="text-sm leading-relaxed text-neutral-500">绑定后可浏览水源并回复、发私信。</p>
       </header>
-      <div className="grid gap-5">
-        <button
-          className="h-10 w-full rounded-lg border border-neutral-300 bg-white text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={authBusy}
-          onClick={() => void startAuth()}
-          type="button"
-        >
-          {authBusy ? '正在打开授权窗口…' : '登录并授权'}
-        </button>
-        <form
-          className="grid gap-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void bind();
-          }}
-        >
-          <label className="grid gap-2">
-            <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-700">
-              <KeyRound className="size-3.5 text-neutral-400" aria-hidden="true" />
-              在窗口中点击「授权」后，复制页面显示的密钥并粘贴到这里
-            </span>
-            <StepTextarea
-              onChange={(event) => setPayload(event.target.value)}
-              placeholder="粘贴授权密文"
-              rows={4}
-              spellCheck={false}
-              value={payload}
-            />
-          </label>
-          {error && (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          )}
-          <StepButton
-            busyLabel="正在绑定…"
-            disabled={!payload.trim()}
-            idleLabel="绑定"
-            state={state}
-            successLabel="绑定成功，下一步"
-          />
-        </form>
-      </div>
+      <StepGuide
+        steps={[
+          {
+            title: '登录并授权',
+            content: (
+              <div className="grid gap-3">
+                <p className="text-sm leading-relaxed text-neutral-500">
+                  在独立窗口登录 jAccount 并点击「授权」，然后复制页面显示的密钥。
+                </p>
+                <button
+                  className="h-10 w-full rounded-lg border border-neutral-300 bg-white text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={authBusy}
+                  onClick={() => void startAuth()}
+                  type="button"
+                >
+                  {authBusy ? '正在打开授权窗口…' : '登录并授权'}
+                </button>
+              </div>
+            ),
+          },
+          {
+            title: '粘贴密钥并绑定',
+            content: (
+              <form
+                className="grid gap-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void bind();
+                }}
+              >
+                <label className="grid gap-2">
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-700">
+                    <KeyRound className="size-3.5 text-neutral-400" aria-hidden="true" />
+                    授权密钥
+                  </span>
+                  <StepTextarea
+                    onChange={(event) => setPayload(event.target.value)}
+                    placeholder="粘贴授权密钥"
+                    required
+                    rows={4}
+                    spellCheck={false}
+                    value={payload}
+                  />
+                </label>
+                {error && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {error}
+                  </p>
+                )}
+                <StepButton
+                  busyLabel="正在绑定…"
+                  idleLabel="绑定"
+                  state={state}
+                  successLabel="绑定成功，下一步"
+                />
+              </form>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

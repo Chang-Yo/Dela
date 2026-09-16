@@ -36,13 +36,24 @@ export function OnboardingFlow({ onWizardDone }: OnboardingFlowProps) {
     setStep(next);
   }, [step, onWizardDone]);
 
+  const back = useCallback(() => {
+    if (step === 0) return;
+    saveWizardStep(step - 1);
+    setStep(step - 1);
+  }, [step]);
+
   if (!introDone) {
     return <IntroSequence onStart={() => setIntroDone(true)} />;
   }
 
   const CurrentStep = wizardSteps[step]!;
   return (
-    <WizardShell onSkip={advance} step={step} stepCount={wizardSteps.length}>
+    <WizardShell
+      onBack={step > 0 ? back : undefined}
+      onSkip={advance}
+      step={step}
+      stepCount={wizardSteps.length}
+    >
       <CurrentStep onDone={advance} />
     </WizardShell>
   );

@@ -44,12 +44,7 @@ export function MailStep({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="grid gap-7">
-      <header className="grid gap-2">
-        <h2 className="text-2xl font-semibold tracking-tight">连接交大邮箱</h2>
-        <p className="text-sm leading-relaxed text-neutral-500">
-          使用 jAccount 账号对应的邮箱和密码登录。凭据加密保存在本机，不会发送到其他服务。
-        </p>
-      </header>
+      <h2 className="text-2xl font-semibold tracking-tight">连接交大邮箱</h2>
       <form
         className="grid gap-5"
         onSubmit={(event) => {
@@ -90,7 +85,6 @@ export function MailStep({ onDone }: { onDone: () => void }) {
           state={state}
           successLabel="连接成功，下一步"
         />
-        <p className="text-center text-xs text-neutral-400">服务器 mail.sjtu.edu.cn · IMAPS 993</p>
       </form>
     </div>
   );
