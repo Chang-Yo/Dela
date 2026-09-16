@@ -250,13 +250,15 @@ src/main 按 mail、canvas、timetable、workspace、agent 分类，每个领域
 
 课表 hotfix（2026-09-15）：连接检查与同步改用保留校园 Session 的 `net.request`，绕开 Electron 内部构造 Response 引起的未捕获状态码异常；重定向、异常状态与超时由现有错误处理接收。课表单元测试与类型检查通过，真实校园服务器及打包版点击待实机复验。
 
-### 首次启动开屏动画（2026-09-15）
+### 首次启动引导流程：开场动画 → 五步配置向导 → 完成动画（2026-09-15）
 
-- 首次启动（localStorage 无 `dela.splash.seen` 标记）时播放约 2.4 秒的一次性全屏开屏：品牌图标弹入、名称淡入、细分隔线展开、标语「The world keeps changing. Dela stays with you.」淡入，随后整层放大淡出进入应用；点击任意处或 Esc 立即跳过，退场时写入标记，之后不再显示。
-- 明暗主题走既有设计 token 与 `DelaBrand` 双图切换，跟随系统「减少动态效果」设置降级为纯淡入淡出。
-- 冒烟与自动化隔离：`--smoke-test` 运行时主进程在页面 URL 注入 `smoke-test=1`，chat/mail/pdf/workspace 四个直接加载 renderer 的冒烟脚本同步注入，开屏自动跳过，自动化时序不受影响。
+- 首次启动（localStorage 无 `dela.onboarding.completed` 标记）进入全屏引导，期间主界面不渲染：纯白画布上先溶解淡入一段开场视频（成片放到 `assets/intro.mp4` 即自动启用，当前为品牌色动效占位），播放中后段 Logo 与名字从中心缓缓复现，Quote「The world keeps changing. Dela stays with you.」自左向右流式显现，底部浮现「开始配置个人资料」按钮。
+- 向导五步按序为：学校邮箱 → 教学信息服务网 → Canvas Token → 水源 → 模型服务，每步全屏白色页面 + 顶部步骤进度点 + 底部「跳过」。采用无界排版（无卡片容器，标题/描述/表单直接排在白画布上，Vercel 式左对齐节奏），主按钮全部全宽并带三态：idle → busy（进行中）→ success（如「连接成功，下一步」，点击才进入下一步），让用户始终看到连接状态。表单为向导自有组件；与业务页共享的是逻辑层——`connectAndSyncTimetable`（课表页头部、登录卡、向导三处共用）与 `connectCanvas`（设置页 Canvas 表单与向导共用）；`TimetableConnectCard` 供课表页、`CanvasTokenForm` 供设置页对话框。
+- 模型服务步骤支持预设与自定义 OpenAI 兼容服务：选择「自定义」时可填写名称与 Base URL；「检测连接」调用 `llm.verify` 验证连通性并导入真实模型列表，保存后自动激活。
+- 中途退出按 `dela.onboarding.step` 断点恢复，直达退出时的步骤，不重播开场；全部完成后播放「一切就绪」完成动画（Logo + 五个能力点依次点亮），随后整层淡化进入已挂载好的主界面，写入完成标记。
+- 引导页自带拖拽区与最小化/关闭（`titleBarStyle: hidden` 下不能把用户困在全屏页里）；`smoke-test=1` URL 参数下整个引导短路、主界面照常渲染，六处自动化断言零改动。开发模式（`pnpm dev` 的 vite dev 构建）下每次启动都完整重播引导便于查看，正式构建仍只播一次。
 
-验证：改动文件 Prettier、Oxlint、renderer/main 类型检查、74 项单元测试、`pnpm smoke` 与 `pnpm smoke:workspace`；另以隔离 userData 的生产构建实例经 CDP 完成 10 项断言与 4 张截图的 judge 视觉验收（明/暗动画帧、点击与 Esc 跳过、重启不再显示）。NSIS 打包后启动未重验；浏览器开发预览同样会播放开屏（每个浏览器档案一次），便于开发期查看。
+验证：改动文件 Prettier、Oxlint、renderer 类型检查、74 项单元测试、`pnpm smoke`、`pnpm smoke:workspace`、chat/pdf 冒烟；另以隔离 userData + 真实主进程（窗口移至屏幕外）的生产构建实例经 CDP 完成 15 项断言与 10 张截图的 judge 视觉验收（开场四帧、向导三步、完成动画、进入主界面、重启直达、断点恢复）。真实凭据配置（邮箱/教学网/Canvas/水源/模型）与 NSIS 打包未在自动化内验证。
 
 ## 水源社区：授权绑定与信息流（2026-09-15）
 

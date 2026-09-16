@@ -4,7 +4,9 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell, type MobileDrawer, type ViewId } from './components/AppShell';
 import { HomeView } from './features/home';
 import { MailView } from './features/mail';
-import { FirstLaunchSplash } from './features/onboarding/FirstLaunchSplash';
+import { CompletionOverlay } from './features/onboarding/CompletionOverlay';
+import { OnboardingFlow } from './features/onboarding/OnboardingFlow';
+import { isSmokeTest, onboardingCompleted } from './features/onboarding/onboarding-state';
 import { ProjectView } from './features/projects';
 import { SettingsView } from './features/settings';
 import { ShuiyuanView } from './features/shuiyuan';
@@ -47,6 +49,10 @@ export default function App() {
   const [theme, setTheme] = useState<ThemePreference>(initialTheme);
   const [zoom, setZoom] = useState<ZoomPreference>(1);
   const [fontScale, setFontScale] = useState<FontScalePreference>(initialFontScale);
+  // 首次启动引导：flow 期间主界面不渲染；completion 时主界面已挂载、完成动画叠在其上渐隐。
+  const [launchStage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>(() =>
+    isSmokeTest || onboardingCompleted() ? 'app' : 'flow',
+  );
   useEffect(() => {
     void useWorkspace.getState().load();
     return window.dela?.workspace.onChatUpdate((_scope, chat) => {
@@ -163,76 +169,86 @@ export default function App() {
 
   return (
     <>
-      <AppShell
-        canBack={backStack.length > 0}
-        canForward={forwardStack.length > 0}
-        mobileDrawer={mobileDrawer}
-        onBack={goBack}
-        onMobileDrawerChange={setMobileDrawer}
-        onForward={goForward}
-        onNavigate={navigate}
-        onZoomChange={(next) => void changeZoom(next)}
-        view={view}
-        zoom={zoom}
-        projectId={projectId}
-        onOpenProject={openProject}
-        onNewProject={newProject}
-      >
-        <MotionConfig reducedMotion="user">
-          <AnimatePresence initial={false} mode="wait">
-            <motion.div
-              animate={{ opacity: 1, y: 0 }}
-              className="flex min-h-0 flex-1 flex-col"
-              exit={{ opacity: 0 }}
-              initial={{ opacity: 0, y: 4 }}
-              key={view}
-              transition={{ duration: 0.16 }}
-            >
-              {view === 'home' && (
-                <HomeView
-                  onOpenProject={openProject}
-                  onNewProject={newProject}
-                  onOpenSources={() => navigate('sources')}
-                />
-              )}
-              {view === 'project' && (
-                <ProjectView
-                  projectId={projectId}
-                  onOpenProject={openProject}
-                  onOpenShuiyuanTopic={openShuiyuanTopic}
-                  createRequested={createProject}
-                  onCreateHandled={() => setCreateProject(false)}
-                />
-              )}
-              {view === 'sources' && (
-                <SourcesView onOpenProject={openProject} onOpenShuiyuanTopic={openShuiyuanTopic} />
-              )}
-              {view === 'mail' && (
-                <MailView
-                  mobileDrawerOpen={mobileDrawer === 'mail'}
-                  onMobileDrawerClose={() => setMobileDrawer(null)}
-                />
-              )}
-              {view === 'timetable' && <TimetableView />}
-              {view === 'shuiyuan' && <ShuiyuanView />}
-              {view === 'settings' && (
-                <SettingsView
-                  fontScale={fontScale}
-                  onFontScaleChange={changeFontScale}
-                  onThemeChange={changeTheme}
-                  onOpenMail={() => navigate('mail')}
-                  onOpenShuiyuan={() => navigate('shuiyuan')}
-                  onOpenTimetable={() => navigate('timetable')}
-                  onZoomChange={changeZoom}
-                  theme={theme}
-                  zoom={zoom}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </MotionConfig>
-      </AppShell>
-      <FirstLaunchSplash />
+      {launchStage !== 'flow' && (
+        <AppShell
+          canBack={backStack.length > 0}
+          canForward={forwardStack.length > 0}
+          mobileDrawer={mobileDrawer}
+          onBack={goBack}
+          onMobileDrawerChange={setMobileDrawer}
+          onForward={goForward}
+          onNavigate={navigate}
+          onZoomChange={(next) => void changeZoom(next)}
+          view={view}
+          zoom={zoom}
+          projectId={projectId}
+          onOpenProject={openProject}
+          onNewProject={newProject}
+        >
+          <MotionConfig reducedMotion="user">
+            <AnimatePresence initial={false} mode="wait">
+              <motion.div
+                animate={{ opacity: 1, y: 0 }}
+                className="flex min-h-0 flex-1 flex-col"
+                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, y: 4 }}
+                key={view}
+                transition={{ duration: 0.16 }}
+              >
+                {view === 'home' && (
+                  <HomeView
+                    onOpenProject={openProject}
+                    onNewProject={newProject}
+                    onOpenSources={() => navigate('sources')}
+                  />
+                )}
+                {view === 'project' && (
+                  <ProjectView
+                    projectId={projectId}
+                    onOpenProject={openProject}
+                    onOpenShuiyuanTopic={openShuiyuanTopic}
+                    createRequested={createProject}
+                    onCreateHandled={() => setCreateProject(false)}
+                  />
+                )}
+                {view === 'sources' && (
+                  <SourcesView
+                    onOpenProject={openProject}
+                    onOpenShuiyuanTopic={openShuiyuanTopic}
+                  />
+                )}
+                {view === 'mail' && (
+                  <MailView
+                    mobileDrawerOpen={mobileDrawer === 'mail'}
+                    onMobileDrawerClose={() => setMobileDrawer(null)}
+                  />
+                )}
+                {view === 'timetable' && <TimetableView />}
+                {view === 'shuiyuan' && <ShuiyuanView />}
+                {view === 'settings' && (
+                  <SettingsView
+                    fontScale={fontScale}
+                    onFontScaleChange={changeFontScale}
+                    onThemeChange={changeTheme}
+                    onOpenMail={() => navigate('mail')}
+                    onOpenShuiyuan={() => navigate('shuiyuan')}
+                    onOpenTimetable={() => navigate('timetable')}
+                    onZoomChange={changeZoom}
+                    theme={theme}
+                    zoom={zoom}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </MotionConfig>
+        </AppShell>
+      )}
+      {launchStage === 'flow' && (
+        <OnboardingFlow onWizardDone={() => setLaunchStage('completion')} />
+      )}
+      {launchStage === 'completion' && (
+        <CompletionOverlay onFinished={() => setLaunchStage('app')} />
+      )}
     </>
   );
 }

@@ -2,10 +2,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { CalendarDays, Folder, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { cn } from '../../lib/utils';
 import type { MailTrashRetention } from '../../../shared/api';
+import { CanvasTokenForm } from '../sources/CanvasTokenForm';
 import { SectionHeader } from './SectionHeader';
 import { errorText, useWorkspace } from '../projects/workspace';
 
@@ -43,9 +43,8 @@ export function ConnectionsSection({
   const [shuiyuanConfirm, setShuiyuanConfirm] = useState(false);
   const [shuiyuanError, setShuiyuanError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'canvas' | null>(null);
-  const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
   useEffect(() => {
     const dela = window.dela;
@@ -95,36 +94,19 @@ export function ConnectionsSection({
 
   const openDialog = () => {
     setDialog('canvas');
-    setKey('');
-    setError(null);
-  };
-
-  const configure = async () => {
-    if (!window.dela || dialog !== 'canvas') return;
-    setBusy(true);
-    setError(null);
-    try {
-      await window.dela.canvas.configure(key);
-      useWorkspace.getState().setCanvas(await window.dela.canvas.syncCourses());
-      setDialog(null);
-      setKey('');
-    } catch (cause) {
-      setError(errorText(cause));
-    } finally {
-      setBusy(false);
-    }
+    setDisconnectError(null);
   };
 
   const disconnectCanvas = async () => {
     if (!window.dela) return;
     setBusy(true);
-    setError(null);
+    setDisconnectError(null);
     try {
       await window.dela.canvas.disconnect();
       useWorkspace.getState().setCanvas(await window.dela.canvas.getState());
       setDialog(null);
     } catch (cause) {
-      setError(errorText(cause));
+      setDisconnectError(errorText(cause));
     } finally {
       setBusy(false);
     }
@@ -286,43 +268,26 @@ export function ConnectionsSection({
                 ? '输入新的个人 Access Token 以替换当前连接，或断开并删除当前凭据。'
                 : '输入个人 Access Token。验证成功后会读取课程列表，凭据仅由主进程加密保存。'}
             </Dialog.Description>
-            <form
-              className="mt-4 grid gap-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void configure();
-              }}
-            >
-              <label className="grid gap-2 text-sm">
-                Access Token
-                <Input
-                  autoComplete="off"
-                  autoFocus
-                  onChange={(event) => setKey(event.target.value)}
-                  required
-                  type="password"
-                  value={key}
-                />
-              </label>
-              {error && (
-                <p className="text-xs text-destructive" role="alert">
-                  {error}
-                </p>
-              )}
-              <div className="flex items-center justify-end gap-2">
-                {canvas.connected && (
-                  <Button disabled={busy} onClick={() => void disconnectCanvas()} variant="ghost">
-                    断开
+            <CanvasTokenForm
+              actions={
+                <>
+                  {canvas.connected && (
+                    <Button disabled={busy} onClick={() => void disconnectCanvas()} variant="ghost">
+                      断开
+                    </Button>
+                  )}
+                  <Button disabled={busy} onClick={() => setDialog(null)} variant="ghost">
+                    取消
                   </Button>
-                )}
-                <Button disabled={busy} onClick={() => setDialog(null)} variant="ghost">
-                  取消
-                </Button>
-                <Button disabled={busy} type="submit">
-                  {busy ? '处理中…' : '保存并连接'}
-                </Button>
-              </div>
-            </form>
+                </>
+              }
+              onSuccess={() => setDialog(null)}
+            />
+            {disconnectError && (
+              <p className="mt-2 text-xs text-destructive" role="alert">
+                {disconnectError}
+              </p>
+            )}
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

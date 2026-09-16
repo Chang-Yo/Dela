@@ -12,6 +12,8 @@ files:
   - assets/Dela_black_bg.png
 asarUnpack:
   - node_modules/better-sqlite3/**/*
+  # 引导开场的可选视频；文件不存在时该行无副作用
+  - out/renderer/assets/*.mp4
 npmRebuild: false
 win:
   target:

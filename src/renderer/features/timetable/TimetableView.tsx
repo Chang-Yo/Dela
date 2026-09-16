@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  CalendarDays,
-  CalendarRange,
-  ChevronLeft,
-  ChevronRight,
-  LogIn,
-  Plus,
-  RefreshCw,
-} from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, LogIn, Plus, RefreshCw } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson, TimetableState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
@@ -21,6 +13,8 @@ import {
 import { MonthCalendar } from './MonthCalendar';
 import { NewEventDialog } from './NewEventDialog';
 import { SemesterStartDialog } from './SemesterStartDialog';
+import { TimetableConnectCard } from './TimetableConnectCard';
+import { connectAndSyncTimetable } from './timetable-connect';
 import { WeekCalendar, type CalendarItemDetail } from './WeekCalendar';
 import { EventDetailDialog } from './EventDetailDialog';
 import {
@@ -134,10 +128,8 @@ function DesktopTimetableView() {
     setBusy(true);
     setError(null);
     try {
-      const connected = await timetable.connect();
-      if (!connected.ok) return setError(connected.error ?? '未完成登录');
-      const result = await timetable.syncNow(semester ?? undefined);
-      if (!result.ok) return setError(result.error ?? '同步失败');
+      const failure = await connectAndSyncTimetable(semester ?? undefined);
+      if (failure) return setError(failure);
       await loadSemester(semester ?? undefined);
     } finally {
       setBusy(false);
@@ -176,22 +168,10 @@ function DesktopTimetableView() {
   if (!state.connected && lessons.length === 0) {
     return (
       <div className="grid h-full place-items-center p-6">
-        <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-xl border bg-card p-6">
-          <div className="grid size-10 place-items-center rounded-lg bg-secondary">
-            <CalendarDays className="size-5" />
-          </div>
-          <div className="grid gap-1">
-            <h2 className="text-lg font-semibold tracking-tight">连接教学信息服务网</h2>
-            <p className="text-[13px] leading-relaxed text-muted-foreground">
-              登录后读取课程、教师、教室、节次和教学周。登录在独立窗口完成。
-            </p>
-          </div>
-          {error ? <p className="text-xs text-destructive">{error}</p> : null}
-          <Button disabled={busy} onClick={() => void connectAndSync()}>
-            <LogIn className="size-4" />
-            {busy ? '等待登录…' : '登录并同步'}
-          </Button>
-        </section>
+        <TimetableConnectCard
+          semester={semester ?? undefined}
+          onSuccess={() => void loadSemester(semester ?? undefined)}
+        />
       </div>
     );
   }

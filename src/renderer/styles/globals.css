@@ -48,6 +48,9 @@
   --cal-sage-text: oklch(0.41 0.062 150);
   --cal-teal-bg: oklch(0.937 0.022 200);
   --cal-teal-text: oklch(0.41 0.062 205);
+  /* 首启引导专用固定色：引导画布恒为白色，不随明暗主题翻转（取亮色 cal-teal 值）。 */
+  --onboarding-accent: oklch(0.41 0.062 205);
+  --onboarding-accent-soft: oklch(0.937 0.022 200);
   --cal-blue-bg: oklch(0.935 0.022 250);
   --cal-blue-text: oklch(0.43 0.083 255);
   --cal-lilac-bg: oklch(0.937 0.024 300);
