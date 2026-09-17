@@ -219,7 +219,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                 ) : (
                   <CircleX className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                 )}
-                <span>
+                <span className="min-w-0 break-words">
                   {verifyResult.message}
                   {verifyResult.ok && verifyResult.models?.length
                     ? `，已导入 ${verifyResult.models.length} 个模型`
@@ -256,7 +256,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             )}
           </label>
           {error && (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm [overflow-wrap:anywhere] text-red-600" role="alert">
               {error}
             </p>
           )}

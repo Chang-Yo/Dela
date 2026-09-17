@@ -51,7 +51,7 @@ export function CanvasTokenForm({ onSuccess, actions }: CanvasTokenFormProps) {
         />
       </label>
       {error && (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-xs [overflow-wrap:anywhere] text-destructive" role="alert">
           {error}
         </p>
       )}

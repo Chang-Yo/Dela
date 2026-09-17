@@ -51,7 +51,7 @@ const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon | Shuiyuan
   { id: 'sources', label: '资料', icon: FolderOpen },
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
-  { id: 'shuiyuan', label: '水源', icon: ShuiyuanIcon },
+  { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
 ];
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */

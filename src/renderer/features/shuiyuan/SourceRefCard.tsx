@@ -89,7 +89,7 @@ export function ShuiyuanSourceDoc({
         {content.format === 'html' ? (
           <ShuiyuanHtmlBody html={text} title="帖子内容" />
         ) : (
-          <pre className="whitespace-pre-wrap rounded-md border bg-muted/30 p-4 text-sm leading-relaxed">
+          <pre className="whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-4 text-sm leading-relaxed">
             {text}
           </pre>
         )}

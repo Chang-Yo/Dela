@@ -278,12 +278,12 @@ export function ChatComposer({
           <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
             <Popover.Trigger asChild>
               <Button
-                className="gap-1 text-xs text-muted-foreground"
+                className="min-w-0 shrink gap-1 text-xs text-muted-foreground"
                 size="sm"
                 type="button"
                 variant="ghost"
               >
-                {model}
+                <span className="truncate">{model}</span>
                 <ChevronDown className="size-3" />
               </Button>
             </Popover.Trigger>
@@ -302,7 +302,7 @@ export function ChatComposer({
                   </p>
                 ) : (
                   <div className="flex gap-0.5">
-                    <ul aria-label="模型服务" className="w-28 shrink-0 overflow-y-auto">
+                    <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
                       {providers.map((provider) => (
                         <li key={provider.id}>
                           <button

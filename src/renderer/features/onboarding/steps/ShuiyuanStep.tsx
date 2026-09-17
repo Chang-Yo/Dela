@@ -99,7 +99,7 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
                   />
                 </label>
                 {error && (
-                  <p className="text-sm text-red-600" role="alert">
+                  <p className="text-sm [overflow-wrap:anywhere] text-red-600" role="alert">
                     {error}
                   </p>
                 )}

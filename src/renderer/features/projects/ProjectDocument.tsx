@@ -128,8 +128,8 @@ export function ProjectDocument({
     return (
       <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
         {error ? (
-          <div role="alert">
-            <p>{error}</p>
+          <div role="alert" className="min-w-0">
+            <p className="break-words">{error}</p>
             <Button
               variant="ghost"
               onClick={() => {
@@ -259,7 +259,10 @@ export function ProjectDocument({
         </DropdownMenu>
       </div>
       {(error || draft.error) && (
-        <div role="alert" className="shrink-0 border-b px-4 py-2 text-xs text-destructive">
+        <div
+          role="alert"
+          className="shrink-0 break-words border-b px-4 py-2 text-xs text-destructive"
+        >
           {error ?? draft.error}
           {draft.error && (
             <button className="ml-3 underline" onClick={() => onNewNote(draft.text)}>

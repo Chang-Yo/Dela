@@ -207,11 +207,29 @@ app
       beforeFinish,
       'completion moved the viewport',
     );
-    const body = await evaluate('document.body.innerText');
+    // 完成后整段工作过程折叠为一行“已工作 · X 秒”（Codex 式），最终回答保持在下方；
+    // 部分顺序改用 textContent 断言：折叠后的内容仍在 DOM 中，顺序不变。
+    const body = await evaluate('document.body.textContent');
     assert.ok(body.indexOf('我会先') < body.indexOf('已执行 1 个动作'));
     assert.ok(body.indexOf('已执行 1 个动作') < body.indexOf('已找到'));
-    assert.ok(body.includes('1 个失败'));
     assert.ok(!body.includes('▍'));
+    await wait("document.body.innerText.includes('已工作 · 12 秒')");
+    assert.ok(
+      await evaluate(
+        "[...document.querySelectorAll('button')].some(b => b.textContent.includes('已工作 · 12 秒 · 1 个失败'))",
+      ),
+      'worked row lost the failure count',
+    );
+    await wait(
+      "[...document.querySelectorAll('[data-worked-body]')].every(el => el.getBoundingClientRect().height < 1)",
+    );
+    // 点击摘要行展开完整时间线，再进入单个动作组的详情。
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已工作 · 12 秒')).click()",
+    );
+    await wait(
+      "[...document.querySelectorAll('[data-worked-body]')].some(el => el.getBoundingClientRect().height > 1)",
+    );
     await evaluate(
       "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已执行 2 个动作')).click()",
     );

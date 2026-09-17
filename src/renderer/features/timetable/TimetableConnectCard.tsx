@@ -38,7 +38,7 @@ export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCa
           登录后读取课程、教师、教室、节次和教学周。登录在独立窗口完成。
         </p>
       </div>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="break-words text-xs text-destructive">{error}</p> : null}
       <Button disabled={busy} onClick={() => void connectAndSync()}>
         <LogIn className="size-4" />
         {busy ? '等待登录…' : '登录并同步'}

@@ -230,9 +230,11 @@ export function ConnectionsSection({
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
                   <Icon className="size-4 text-muted-foreground" strokeWidth={1.8} />
                 </span>
-                <div className="grid gap-0.5">
+                <div className="grid min-w-0 gap-0.5">
                   <strong className="text-sm">{name}</strong>
-                  <span className="text-xs text-muted-foreground">{description}</span>
+                  <span className="truncate text-xs text-muted-foreground" title={description}>
+                    {description}
+                  </span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">

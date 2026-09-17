@@ -261,7 +261,7 @@ export function PdfReader({
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 bg-background p-3 text-sm text-destructive"
+            className="absolute inset-x-0 top-0 break-words bg-background p-3 text-sm text-destructive"
           >
             PDF 打开失败：{error}
             <button

@@ -108,7 +108,7 @@ export function LlmSection() {
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
                   <Server className="size-4 text-muted-foreground" strokeWidth={1.8} />
                 </span>
-                <div className="grid gap-0.5">
+                <div className="grid min-w-0 gap-0.5">
                   <strong className="truncate text-sm">{provider.name}</strong>
                   <span className="truncate text-xs text-muted-foreground">
                     {provider.baseUrl} · {provider.model}
@@ -167,7 +167,7 @@ export function LlmSection() {
         </ul>
       )}
       {error && (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-xs [overflow-wrap:anywhere] text-destructive" role="alert">
           {error}
         </p>
       )}
@@ -304,7 +304,7 @@ function ProviderFormDialog({
     <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
           <Dialog.Title className="text-base font-semibold">
             {editing.mode === 'create' ? '添加提供商' : `编辑 ${editing.provider.name}`}
           </Dialog.Title>
@@ -490,7 +490,7 @@ function ProviderFormDialog({
               {verifyResult && (
                 <p
                   className={cn(
-                    'flex flex-wrap items-center gap-1.5 text-xs',
+                    'flex flex-wrap items-center gap-1.5 text-xs [overflow-wrap:anywhere]',
                     verifyResult.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
                   )}
                   role="status"

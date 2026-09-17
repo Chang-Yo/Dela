@@ -55,8 +55,8 @@ export function BindCard() {
   }
 
   return (
-    <div className="grid h-full place-items-center overflow-y-auto p-6">
-      <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-xl border bg-card p-6">
+    <div className="flex h-full overflow-y-auto p-6">
+      <section className="m-auto grid w-full max-w-[480px] justify-items-start gap-3 rounded-xl border bg-card p-6">
         <ShuiyuanIcon className="size-10 rounded-lg" />
         <div className="grid gap-1">
           <h2 className="text-lg font-semibold tracking-tight">连接水源社区</h2>

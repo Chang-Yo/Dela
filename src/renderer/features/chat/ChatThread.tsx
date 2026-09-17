@@ -1,5 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, Check, Copy, LoaderCircle, NotebookPen } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUpRight,
+  Check,
+  ChevronRight,
+  Copy,
+  LoaderCircle,
+  NotebookPen,
+} from 'lucide-react';
 import { Streamdown } from 'streamdown';
 import { useReducedMotion } from 'framer-motion';
 import { Dialog } from 'radix-ui';
@@ -9,7 +17,13 @@ import { leaveComposer } from '../mail/compose-close';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { errorText } from '../projects/workspace';
-import { formatDuration, ReasoningBlock, ToolTimeline, useNow } from './ToolTimeline';
+import {
+  formatDuration,
+  ReasoningBlock,
+  ToolTimeline,
+  useNow,
+  type ToolOutput,
+} from './ToolTimeline';
 import styles from './timeline.module.css';
 
 const markdownStyles =
@@ -17,6 +31,8 @@ const markdownStyles =
 
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
+
+type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 
 /** 消息悬停操作栏：复制与保存为笔记，参照 assistant-ui ActionBar 的自动显隐。 */
 function MessageActions({
@@ -92,6 +108,88 @@ function UserMessage({
   );
 }
 
+/**
+ * 完成后的工作过程块（参照 Codex 的“Worked for Xm Xs”）：整段思考、动作与中间说明
+ * 折叠为一行摘要，点击展开完整时间线；失败数保留在摘要行上，不在折叠中丢失。
+ */
+function WorkedBlock({
+  parts,
+  elapsedMs,
+  interrupted,
+  failed,
+}: {
+  parts: ChatParts;
+  elapsedMs: number | null;
+  interrupted: boolean | undefined;
+  failed: number;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="my-4 min-w-0 text-sm text-muted-foreground">
+      <button
+        aria-expanded={open}
+        className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <ChevronRight
+          className={cn(
+            'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
+            open && 'rotate-90',
+          )}
+        />
+        <span className="truncate tabular-nums">
+          {interrupted ? '工作中断' : '已工作'}
+          {elapsedMs !== null ? ` · ${formatDuration(elapsedMs)}` : ''}
+          {failed > 0 && <span className="text-destructive"> · {failed} 个失败</span>}
+        </span>
+      </button>
+      <div
+        inert={!open}
+        className={cn(
+          'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+        )}
+      >
+        <div data-worked-body className="min-h-0 overflow-hidden">
+          <div className="pt-2">
+            {parts.map((part, index) =>
+              part.type === 'tools' ? (
+                <ToolTimeline
+                  key={index}
+                  results={part.results}
+                  running={false}
+                  activeTool={undefined}
+                />
+              ) : part.type === 'reasoning' ? (
+                <ReasoningBlock
+                  key={index}
+                  text={part.text}
+                  live={false}
+                  startedAt={part.startedAt}
+                  finishedAt={part.finishedAt}
+                />
+              ) : (
+                <Streamdown
+                  key={index}
+                  className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
+                  mode="streaming"
+                  isAnimating={false}
+                  animated={false}
+                  controls={false}
+                  skipHtml
+                >
+                  {part.text}
+                </Streamdown>
+              ),
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AssistantMessage({
   message,
   live,
@@ -113,16 +211,102 @@ function AssistantMessage({
       : []),
     ...(message.content ? [{ type: 'text' as const, text: message.content }] : []),
   ];
-  // 整轮“正在工作 · X 秒”：运行中每秒跳动，结束冻结为用时；与动作组触发行构成两层状态。
+  // 最终回答 = 尾部最后一个非空正文部分（其后只有正文）；其余全部视为工作过程，
+  // 完成后折叠为一个“已工作”块——无需模型或协议显式标注。
+  let answerIndex = -1;
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index]!;
+    if (part.type !== 'text') break;
+    if (part.text) {
+      answerIndex = index;
+      break;
+    }
+  }
+  const workingParts =
+    answerIndex === -1 ? [...parts] : parts.filter((_, index) => index !== answerIndex);
+  const hasActivity = workingParts.some(
+    (part) => part.type === 'tools' || part.type === 'reasoning',
+  );
+  const showWorked = !live && hasActivity;
+  const answer = answerIndex >= 0 ? parts[answerIndex] : null;
+  // 整轮“正在工作 · X 秒”：运行中每秒跳动，结束冻结为用时；完成后由已工作块接管计时。
   const working = live && message.startedAt !== undefined && message.finishedAt === undefined;
   const now = useNow(working);
   const elapsedMs =
     message.startedAt !== undefined && (message.finishedAt !== undefined || working)
       ? (message.finishedAt ?? now) - message.startedAt
       : null;
+  const failed = parts.reduce(
+    (count, part) =>
+      part.type === 'tools'
+        ? count +
+          part.results.filter(
+            (result) => result.output !== undefined && !(result.output as ToolOutput)?.ok,
+          ).length
+        : count,
+    0,
+  );
+  // 邮件草稿入口提升到折叠块之外：折叠时不被 inert 隐藏。
+  const draftIds = [
+    ...new Set(
+      parts.flatMap((part) =>
+        part.type === 'tools'
+          ? part.results
+              .filter(
+                (result) =>
+                  result.name === 'prepare_email' && (result.output as ToolOutput | undefined)?.ok,
+              )
+              .map(
+                (result) =>
+                  ((result.output as ToolOutput | undefined)?.result as { draftId?: string })
+                    ?.draftId,
+              )
+          : [],
+      ),
+    ),
+  ].filter((id): id is string => Boolean(id));
+
+  const renderPart = (part: (typeof parts)[number], index: number) => {
+    const isLast = index === parts.length - 1;
+    if (part.type === 'tools') {
+      return (
+        <ToolTimeline
+          key={index}
+          results={part.results}
+          running={live && isLast}
+          activeTool={activeTool}
+        />
+      );
+    }
+    if (part.type === 'reasoning') {
+      return (
+        <ReasoningBlock
+          key={index}
+          text={part.text}
+          live={live && isLast}
+          startedAt={part.startedAt}
+          finishedAt={part.finishedAt}
+        />
+      );
+    }
+    return (
+      <Streamdown
+        key={index}
+        className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
+        mode="streaming"
+        isAnimating={live && !activeTool && isLast}
+        animated={live && !reduced && isLast ? textAnimation : false}
+        controls={false}
+        skipHtml
+      >
+        {part.text}
+      </Streamdown>
+    );
+  };
+
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
-      {message.startedAt !== undefined && (
+      {!showWorked && message.startedAt !== undefined && (
         <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
           <span
             className={cn('tabular-nums', working && styles.shimmer)}
@@ -137,36 +321,41 @@ function AssistantMessage({
           <span className="h-px flex-1 bg-border" />
         </div>
       )}
-      {parts.map((part, index) =>
-        part.type === 'tools' ? (
-          <ToolTimeline
-            key={index}
-            results={part.results}
-            running={live && index === parts.length - 1}
-            activeTool={activeTool}
-            onOpenDraft={onOpenDraft}
+      {showWorked ? (
+        <>
+          <WorkedBlock
+            parts={workingParts}
+            elapsedMs={elapsedMs}
+            interrupted={message.interrupted}
+            failed={failed}
           />
-        ) : part.type === 'reasoning' ? (
-          <ReasoningBlock
-            key={index}
-            text={part.text}
-            live={live && index === parts.length - 1}
-            startedAt={part.startedAt}
-            finishedAt={part.finishedAt}
-          />
-        ) : (
-          <Streamdown
-            key={index}
-            className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
-            mode="streaming"
-            isAnimating={live && !activeTool && index === parts.length - 1}
-            animated={live && !reduced && index === parts.length - 1 ? textAnimation : false}
-            controls={false}
-            skipHtml
-          >
-            {part.text}
-          </Streamdown>
-        ),
+          {draftIds.map((draftId) => (
+            <Button
+              key={draftId}
+              variant="outline"
+              size="sm"
+              className="mb-2 mt-0"
+              onClick={() => onOpenDraft(draftId)}
+            >
+              <ArrowUpRight />
+              检查并发送邮件
+            </Button>
+          ))}
+          {answer?.type === 'text' && (
+            <Streamdown
+              className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
+              mode="streaming"
+              isAnimating={false}
+              animated={false}
+              controls={false}
+              skipHtml
+            >
+              {answer.text}
+            </Streamdown>
+          )}
+        </>
+      ) : (
+        parts.map((part, index) => renderPart(part, index))
       )}
       {live &&
         !activeTool &&

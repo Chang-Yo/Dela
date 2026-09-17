@@ -841,7 +841,7 @@ export function ProjectView({
             role="alert"
             className="flex items-start gap-2 border-b px-4 py-2 text-xs text-destructive"
           >
-            <span className="flex-1">{globalError}</span>
+            <span className="min-w-0 flex-1 break-words">{globalError}</span>
             <button
               aria-label="关闭错误提示"
               onClick={() => useWorkspace.getState().setError(null)}
@@ -955,7 +955,7 @@ export function ProjectView({
                   </label>
                 )}
               {modalError && (
-                <p role="alert" className="text-xs text-destructive">
+                <p role="alert" className="text-xs [overflow-wrap:anywhere] text-destructive">
                   {modalError}
                 </p>
               )}

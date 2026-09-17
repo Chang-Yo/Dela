@@ -170,7 +170,9 @@ export function MonthCalendar({
                     {item.time ? (
                       <span className="shrink-0 tabular-nums opacity-70">{item.time}</span>
                     ) : null}
-                    <span className="truncate font-medium">{item.title}</span>
+                    <span className="truncate font-medium" title={item.title}>
+                      {item.title}
+                    </span>
                   </span>
                 ))}
                 {items.length > 3 ? (
@@ -203,7 +205,9 @@ export function MonthCalendar({
                                   {item.time}
                                 </span>
                               ) : null}
-                              <span className="truncate font-medium">{item.title}</span>
+                              <span className="truncate font-medium" title={item.title}>
+                                {item.title}
+                              </span>
                             </li>
                           ))}
                         </ul>

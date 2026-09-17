@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import {
-  ArrowUpRight,
   BookOpen,
   CalendarDays,
   CalendarPlus,
@@ -22,7 +21,6 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AgentToolResult } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import styles from './timeline.module.css';
 
@@ -48,7 +46,7 @@ function display(name: string) {
   return toolDisplay[name] ?? { label: name, icon: Wrench };
 }
 
-type ToolOutput = {
+export type ToolOutput = {
   ok?: boolean;
   error?: { message?: string };
   result?: { draftId?: string };
@@ -164,12 +162,10 @@ export function ToolTimeline({
   results,
   running,
   activeTool,
-  onOpenDraft,
 }: {
   results: AgentToolResult[];
   running: boolean;
   activeTool: string | undefined;
-  onOpenDraft: (draftId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const touched = useRef(false);
@@ -248,23 +244,6 @@ export function ToolTimeline({
           </ol>
         </div>
       </div>
-      {results.map((result) => {
-        const output = result.output as ToolOutput;
-        const draftId =
-          result.name === 'prepare_email' && output?.ok ? output.result?.draftId : undefined;
-        return draftId ? (
-          <Button
-            key={result.id}
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            onClick={() => onOpenDraft(draftId)}
-          >
-            <ArrowUpRight />
-            检查并发送邮件
-          </Button>
-        ) : null;
-      })}
     </div>
   );
 }

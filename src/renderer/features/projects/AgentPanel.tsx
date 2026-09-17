@@ -123,7 +123,7 @@ export function AgentPanel({
           value={chatState.prompt}
         />
         {error && (
-          <p className="mt-2 text-xs text-destructive" role="alert">
+          <p className="mt-2 break-words text-xs text-destructive" role="alert">
             {error}
           </p>
         )}

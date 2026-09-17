@@ -158,7 +158,7 @@ export function MailReader({
         <article className="min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-0 max-md:px-4 max-md:pt-2 max-md:pb-0">
           <div className="mx-auto flex w-full max-w-[760px] flex-col">
             <div className="flex items-start gap-2">
-              <h2 className="min-w-0 flex-1 text-[21px] font-semibold leading-7 tracking-tight">
+              <h2 className="min-w-0 flex-1 break-words text-[21px] font-semibold leading-7 tracking-tight">
                 {detail.subject ?? '(无主题)'}
               </h2>
               {!readOnly && (

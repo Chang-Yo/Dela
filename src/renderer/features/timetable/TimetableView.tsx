@@ -325,7 +325,7 @@ function DesktopTimetableView() {
 
       {error ? (
         <p
-          className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="mx-4 mt-3 break-words rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           role="alert"
         >
           {error}

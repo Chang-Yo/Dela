@@ -141,7 +141,7 @@ export function SourceList({
                     {course.error && (
                       <p
                         role="status"
-                        className="max-w-64 whitespace-pre-line px-2 py-1 text-xs text-destructive"
+                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-xs text-destructive"
                       >
                         {course.error}
                       </p>
