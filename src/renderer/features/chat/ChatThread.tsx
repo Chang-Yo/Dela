@@ -2,11 +2,13 @@ import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 're
 import {
   ArrowDown,
   ArrowUpRight,
+  Brain,
   Check,
   ChevronRight,
   CircleAlert,
   Wrench,
   Copy,
+  FileText,
   LoaderCircle,
   NotebookPen,
 } from 'lucide-react';
@@ -19,6 +21,7 @@ import { leaveComposer } from '../mail/compose-close';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { errorText } from '../projects/workspace';
+import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 
 const toolLabels: Record<string, string> = {
   prepare_email: '准备邮件草稿',
@@ -46,8 +49,16 @@ type ToolOutput = {
 
 // 从工具输入提取一行摘要；没有稳定字段的工具不显示摘要。
 function toolSummary(result: AgentToolResult): string {
-  const input = result.input as { title?: string; name?: string; subject?: string } | null;
-  const name = input?.title ?? input?.name ?? input?.subject;
+  const input = result.input as {
+    title?: string;
+    name?: string;
+    subject?: string;
+    query?: string;
+    path?: string;
+    command?: string;
+  } | null;
+  const name =
+    input?.title ?? input?.name ?? input?.subject ?? input?.query ?? input?.path ?? input?.command;
   return name ? `「${name}」` : '';
 }
 
@@ -111,10 +122,11 @@ function ToolGroup({
   const [open, setOpen] = useState(false);
   const groupId = useId();
   const failed = results.filter((result) => !(result.output as ToolOutput)?.ok).length;
+  // 完成态用去重后的类别文字：计数会随每次工具调用变化，导致整行频繁重渲染。
   const label = runningTool
     ? `正在${toolLabels[runningTool] ?? runningTool}…`
     : results.length
-      ? `已执行 ${results.length} 个动作${failed ? ` · ${failed} 个失败` : ''}`
+      ? [...new Set(results.map((result) => toolLabels[result.name] ?? result.name))].join('、')
       : '执行已中断';
   return (
     <div className="my-4 min-w-0 text-sm text-muted-foreground">
@@ -153,7 +165,7 @@ function ToolGroup({
         <div className="min-h-0 overflow-hidden">
           <ol
             aria-label="动作时间线"
-            className="my-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain border-l pl-4"
+            className="my-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain pl-4"
           >
             {results.map((result) => (
               <ToolStep key={result.id} result={result} />
@@ -184,6 +196,54 @@ function ToolGroup({
           </Button>
         ) : null;
       })}
+    </div>
+  );
+}
+
+/** 思考过程折叠行：样式与 ToolGroup 一致；live 自动展开，回答开始或消息结束后自动收起。 */
+function ThinkingBlock({ thinking, active }: { thinking: string; active: boolean }) {
+  const [open, setOpen] = useState(active);
+  // 用户手动切换后不再自动改，以用户为准。
+  const manualRef = useRef(false);
+  const detailId = useId();
+  useEffect(() => {
+    if (!manualRef.current) setOpen(active);
+  }, [active]);
+  return (
+    <div className="my-4 min-w-0 text-sm text-muted-foreground">
+      <button
+        aria-expanded={open}
+        aria-controls={detailId}
+        className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
+        onClick={() => {
+          manualRef.current = true;
+          setOpen((current) => !current);
+        }}
+        type="button"
+      >
+        <Brain className="size-4 shrink-0" />
+        <span className="truncate">{active ? '思考中…' : '已深度思考'}</span>
+        <ChevronRight
+          className={cn(
+            'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
+            open && 'rotate-90',
+          )}
+        />
+      </button>
+      <div
+        id={detailId}
+        inert={!open}
+        className={cn(
+          'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="my-2 max-h-48 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+            {thinking}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -231,6 +291,36 @@ function MessageActions({
   );
 }
 
+/** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图。 */
+function MessageImage({ id, name }: { id: string; name: string }) {
+  const [url, setUrl] = useState(() => getChatMediaPreview(id) ?? null);
+  useEffect(() => {
+    if (url) return;
+    let active = true;
+    void ensureChatMediaPreview(id).then((next) => {
+      if (active && next) setUrl(next);
+    });
+    return () => {
+      active = false;
+    };
+  }, [id, url]);
+  return url ? (
+    <img
+      alt={name}
+      className="size-20 rounded-xl border object-cover"
+      src={url}
+      title={name || undefined}
+    />
+  ) : (
+    <span
+      className="grid size-20 place-items-center rounded-xl border bg-muted text-[11px] text-muted-foreground"
+      title={name || undefined}
+    >
+      图片
+    </span>
+  );
+}
+
 function UserMessage({
   message,
   anchor,
@@ -242,9 +332,34 @@ function UserMessage({
 }) {
   return (
     <div data-turn-anchor={anchor || undefined} className="mb-5 flex flex-col items-end">
-      <div className="max-w-[85%] [overflow-wrap:anywhere] whitespace-pre-wrap rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
-        {message.content}
-      </div>
+      {message.content ? (
+        <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
+          <Streamdown className={markdownStyles} controls={false} skipHtml>
+            {message.content}
+          </Streamdown>
+        </div>
+      ) : null}
+      {message.images?.length ? (
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
+          {message.images.map((image) => (
+            <MessageImage id={image.id} key={image.id} name={image.name} />
+          ))}
+        </div>
+      ) : null}
+      {message.attachments?.length ? (
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
+          {message.attachments.map((attachment, index) => (
+            <span
+              className="flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
+              key={`${attachment.name}:${index}`}
+              title={attachment.name}
+            >
+              <FileText className="size-3 shrink-0" />
+              <span className="truncate">{attachment.name}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
       {message.sources?.length ? (
         <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
           {message.sources.map((source) => (
@@ -287,12 +402,18 @@ function AssistantMessage({
     message.startedAt && message.finishedAt
       ? Math.max(0, Math.round((message.finishedAt - message.startedAt) / 1000))
       : null;
+  const thinking = message.thinking ?? '';
+  // live 且尚无非空回答文本即视为思考仍在增长；回答出现或消息结束后 ThinkingBlock 自动收起。
+  const hasAnswerText = parts.some((part) => part.type === 'text' && part.text);
+  const thinkingActive = live && !hasAnswerText;
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
       {message.startedAt && (
         <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
           <span>
-            {elapsed === null ? (
+            {message.stopped ? (
+              '已停止'
+            ) : elapsed === null ? (
               live ? (
                 '正在处理'
               ) : (
@@ -306,9 +427,9 @@ function AssistantMessage({
               </>
             )}
           </span>
-          <span className="h-px flex-1 bg-border" />
         </div>
       )}
+      {thinking && <ThinkingBlock active={thinkingActive} thinking={thinking} />}
       {parts.map((part, index) =>
         part.type === 'tools' ? (
           <ToolGroup
@@ -331,7 +452,7 @@ function AssistantMessage({
           </Streamdown>
         ),
       )}
-      {live && !activeTool && !parts.some((part) => part.type === 'text' && part.text) && (
+      {live && !activeTool && !hasAnswerText && !thinking && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
           <LoaderCircle className="size-4 motion-safe:animate-spin" />
           正在思考…

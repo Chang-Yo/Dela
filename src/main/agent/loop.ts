@@ -7,6 +7,8 @@ const completionSchema = z.object({
       z.object({
         message: z.object({
           content: z.string().nullable().optional(),
+          // 思考过程放在非标准字段；读到仅用于上报展示，回灌模型时必须剔除（DeepSeek 明确要求不回传）。
+          reasoning_content: z.string().nullable().optional(),
           tool_calls: z
             .array(
               z.object({
@@ -27,9 +29,11 @@ async function readCompletion(
   response: Response,
   signal: AbortSignal,
   onText?: (text: string) => void,
+  onReasoning?: (text: string) => void,
 ) {
   if (!response.headers.get('content-type')?.includes('text/event-stream')) {
     const message = completionSchema.parse(await response.json()).choices[0]!.message;
+    if (message.reasoning_content) onReasoning?.(message.reasoning_content);
     onText?.(message.content ?? '');
     return message;
   }
@@ -38,6 +42,7 @@ async function readCompletion(
   const decoder = new TextDecoder();
   let pending = '',
     content = '',
+    reasoning = '',
     finished = false;
   const calls = new Map<
     number,
@@ -50,6 +55,9 @@ async function readCompletion(
         finish_reason: z.string().nullable().optional(),
         delta: z.object({
           content: z.string().nullable().optional(),
+          // DeepSeek/Qwen/vLLM 用 reasoning_content，OpenRouter 用 reasoning；缺失时零影响。
+          reasoning_content: z.string().nullable().optional(),
+          reasoning: z.string().nullable().optional(),
           tool_calls: z
             .array(
               z.object({
@@ -82,6 +90,11 @@ async function readCompletion(
     if (choice.finish_reason === 'length')
       throw new Error('模型输出达到长度限制，未执行未完成的工具调用');
     if (choice.finish_reason === 'content_filter') throw new Error('模型响应被过滤');
+    const reasoningDelta = choice.delta.reasoning_content ?? choice.delta.reasoning;
+    if (reasoningDelta) {
+      reasoning += reasoningDelta;
+      onReasoning?.(reasoning);
+    }
     if (choice.delta.content) {
       content += choice.delta.content;
       onText?.(content);
@@ -139,17 +152,22 @@ const RESULT_CHAR_LIMIT = 20000;
 // 仅对传输层瞬时错误（429/5xx/网络中断）重试；测试注入 0 延迟。
 const RETRY_DELAYS = [1000, 3000];
 
+/** OpenAI 兼容的多模态 content part：文字按输入顺序与图片交错。 */
+export type ChatContentPart =
+  { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
 export async function runAgent(options: {
   baseUrl: string;
   model: string;
   key: string;
-  messages: { role: string; content: string }[];
+  messages: { role: string; content: string | ChatContentPart[] }[];
   tools: unknown[];
   signal: AbortSignal;
   execute: (name: string, input: unknown) => Promise<unknown>;
   onToolResult?: (result: AgentToolResult) => void;
   onToolStart?: (name: string) => void;
   onText?: (text: string) => void;
+  onReasoning?: (text: string) => void;
   retryDelays?: number[];
 }) {
   const messages: unknown[] = [...options.messages];
@@ -190,6 +208,7 @@ export async function runAgent(options: {
     }
   };
   // A bounded foreground run; reaching the limit reports partial work rather than retrying mutations.
+  let reasoningAll = '';
   for (let round = 0; round < MAX_ROUNDS; round += 1) {
     options.signal.throwIfAborted();
     if (round === MAX_ROUNDS - 1) {
@@ -199,9 +218,20 @@ export async function runAgent(options: {
           '已接近本次执行步数上限，请直接总结已完成的工作并给出最终回答，不要发起新的工具调用。',
       });
     }
-    const message = await readCompletion(await requestCompletion(), options.signal, options.onText);
+    const base = reasoningAll;
+    const message = await readCompletion(
+      await requestCompletion(),
+      options.signal,
+      options.onText,
+      (roundText) => {
+        // 思考过程跨轮累计：本轮文本接在前几轮之后（空行分隔），整体上报累计结果。
+        reasoningAll = base + (base ? '\n\n' : '') + roundText;
+        options.onReasoning?.(reasoningAll);
+      },
+    );
     if (!message.tool_calls?.length) return { content: message.content ?? '', toolResults };
-    messages.push({ role: 'assistant', ...message });
+    // 回灌模型只保留 content 与 tool_calls：DeepSeek 明确要求不回传 reasoning_content。
+    messages.push({ role: 'assistant', content: message.content, tool_calls: message.tool_calls });
     for (const call of message.tool_calls) {
       options.signal.throwIfAborted();
       options.onToolStart?.(call.function.name);

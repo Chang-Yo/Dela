@@ -15,7 +15,21 @@ const chat = {
   running: false,
 };
 const routes = {
-  'workspace:get-state': () => ({ entries: [], directory: '', views: {} }),
+  'workspace:get-state': () => ({
+    entries: [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        parentId: null,
+        kind: 'note',
+        name: '测试笔记',
+        sourceId: null,
+        noteId: null,
+        updatedAt: '2026-09-18T00:00:00.000Z',
+      },
+    ],
+    directory: '',
+    views: {},
+  }),
   'canvas:get-state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
   'settings:get-theme': () => 'light',
@@ -23,6 +37,7 @@ const routes = {
   'settings:get-font-scale': () => 1,
   'workspace:get-chat': () => chat,
   'llm:list': () => [],
+  'chat:list-commands': () => [],
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
 app
@@ -60,7 +75,29 @@ app
       await pause();
     };
     await win.loadFile(join(root, 'out/renderer/index.html'));
-    await wait("document.querySelector('textarea')");
+    await wait('document.querySelector(\'.cm-content[aria-label="发送给助手"]\')');
+    // Composer 候选菜单：空查询的 / 与 @ 都应立即打开候选，选择项替换触发词。
+    // IIFE 包裹：executeJavaScript 在全局作用域执行，裸 const 会因重复声明抛错。
+    const editComposer = (text) =>
+      `(() => {
+        const editor = document.querySelector('.cm-content[aria-label="发送给助手"]');
+        editor.focus();
+        document.execCommand('selectAll');
+        document.execCommand('insertText', false, ${JSON.stringify(text)});
+      })()`;
+    await evaluate(editComposer('/'));
+    await wait("document.body.innerText.includes('/日程')");
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('/日程')).click()",
+    );
+    await wait("document.body.innerText.includes('帮我查看本周的日程安排')");
+    await evaluate(editComposer('@'));
+    await wait("document.body.innerText.includes('测试笔记')");
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('测试笔记')).click()",
+    );
+    await wait('document.querySelector(\'button[aria-label="移除引用 测试笔记"]\') !== null');
+    await evaluate(editComposer(''));
     chat.messages.push({ role: 'user', content: '帮我整理课程资料，保存本周复习计划。' });
     const reply = {
       role: 'assistant',
@@ -75,6 +112,17 @@ app
     await wait("document.querySelector('[aria-label=对话消息]')");
     const viewport = "document.querySelector('[aria-label=对话消息]')";
     const initialTop = await evaluate(`${viewport}.scrollTop`);
+    // 思考过程：live 且无回答文本时自动展开，回答开始后自动收起，可手动再展开。
+    reply.thinking = '先查找资料，再按课程整理复习重点。';
+    await push();
+    await wait("document.body.innerText.includes('思考中…')");
+    reply.parts.push({ type: 'text', text: '我会先查找课程资料，再按课程整理复习重点。' });
+    await push();
+    await wait("document.body.innerText.includes('已深度思考')");
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已深度思考')).click()",
+    );
+    await wait("document.body.innerText.includes('先查找资料，再按课程整理复习重点。')");
     reply.parts.push({ type: 'text', text: '我会先查找课程资料，再按课程整理复习重点。' });
     await push();
     chat.activeTool = 'search_sources';
@@ -136,16 +184,17 @@ app
       'completion moved the viewport',
     );
     const body = await evaluate('document.body.innerText');
-    assert.ok(body.indexOf('我会先') < body.indexOf('已执行 1 个动作'));
-    assert.ok(body.indexOf('已执行 1 个动作') < body.indexOf('已找到'));
-    assert.ok(body.includes('1 个失败'));
+    // 折叠行不再有数字统计：完成态显示去重后的动作类别，失败只以图标提示。
+    assert.ok(body.indexOf('我会先') < body.indexOf('已找到'));
+    assert.ok(body.includes('保存笔记、读取资料'));
+    assert.ok(!body.includes('个动作') && !body.includes('个失败'));
     assert.ok(!body.includes('▍'));
     await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已执行 2 个动作')).click()",
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('保存笔记、读取资料')).click()",
     );
     await wait("document.body.innerText.includes('资料尚未下载')");
     await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('读取资料')).click()",
+      "[...document.querySelectorAll('button')].find(b => b.textContent.trim().startsWith('读取资料')).click()",
     );
     await wait(
       "[...document.querySelectorAll('pre')].some(p => p.textContent.includes('missing') && p.checkVisibility())",

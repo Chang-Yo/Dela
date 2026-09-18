@@ -8,6 +8,7 @@ import { checkWorkspaceSender } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
+import { gcChatMedia } from './agent/media';
 import type { IconPreference, ThemePreference } from '../shared/api';
 import { fontScaleLevels, zoomLevels } from '../shared/api';
 
@@ -147,6 +148,8 @@ app.whenReady().then(() => {
   registerTimetableIpc();
   registerCanvasIpc();
   registerWorkspaceIpc();
+  // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
+  gcChatMedia();
 });
 
 async function createWindow(): Promise<void> {

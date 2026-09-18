@@ -9,8 +9,9 @@ import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 
 /* 语法高亮配色（GitHub Light/Dark，Primer prettylights）：色值定义在
-   styles/globals.css 的 --syntax-*，跟随系统明暗主题，无需在此区分。 */
-const highlightStyle = HighlightStyle.define([
+   styles/globals.css 的 --syntax-*，跟随系统明暗主题，无需在此区分。
+   助手 Composer（features/chat）复用同一份配色，编辑与预览观感一致。 */
+export const markdownHighlightStyle = HighlightStyle.define([
   { tag: t.heading, color: 'var(--syntax-constant)', fontWeight: 'bold' },
   { tag: t.strong, fontWeight: 'bold' },
   { tag: t.emphasis, fontStyle: 'italic' },
@@ -155,7 +156,7 @@ export function MarkdownEditor({
             indentWithTab,
           ]),
           editorTheme,
-          syntaxHighlighting(highlightStyle),
+          syntaxHighlighting(markdownHighlightStyle),
           EditorView.contentAttributes.of({ spellcheck: 'false', 'aria-label': '笔记编辑器' }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) handlers.current.onChange(update.state.doc.toString());

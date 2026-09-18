@@ -52,7 +52,14 @@ globalThis.fetch = async (input, init) => {
       return json({ data: [{ id: 'qwen' }, { id: 'minimax' }] });
     modelCalls += 1;
     const body = JSON.parse(String(init?.body));
-    const text = body.messages.at(-1).content;
+    // 用户消息现在是多模态 parts：文字块 + 内联图片块，前言在首个 text part。
+    const last = body.messages.at(-1);
+    const text = Array.isArray(last.content)
+      ? last.content
+          .filter((part: { type: string }) => part.type === 'text')
+          .map((part: { text: string }) => part.text)
+          .join('\n')
+      : last.content;
     assert.match(text, /本次选中的资料/);
     assert.match(text, /恢复测试/);
     assert.doesNotMatch(text, /不应发送的资料/);
@@ -461,7 +468,7 @@ app
     assert.deepEqual(verified.models, ['qwen', 'minimax']);
     await invoke(`await window.dela.llm.setModel('minimax');`);
     const chat = await invoke(
-      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, '总结所选笔记', [${JSON.stringify(note.id)}]);`,
+      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, { text: '总结所选笔记', attachments: [], context: [${JSON.stringify(note.id)}] });`,
     );
     assert.equal(chat.messages.length, 2);
     assert.equal(chat.model, 'minimax');
@@ -488,7 +495,9 @@ app
     assert.equal(await invoke(`return typeof window.dela.workspace.onChatUpdate;`), 'function');
     await invoke(`await document.fonts.ready;`);
     assert.equal(
-      await invoke(`return Boolean(document.querySelector('textarea[aria-label="发送给助手"]'));`),
+      await invoke(
+        `return Boolean(document.querySelector('.cm-content[aria-label="发送给助手"]'));`,
+      ),
       true,
     );
     writeFileSync(
@@ -511,7 +520,7 @@ app
     // 多会话：新对话后旧会话保留在历史中，可搜索、重新打开与删除。
     await invoke(`await window.dela.workspace.newChat(${JSON.stringify(folder.id)});`);
     const secondAsk = await invoke(
-      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, '第二轮提问', [${JSON.stringify(note.id)}]);`,
+      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, { text: '第二轮提问', attachments: [], context: [${JSON.stringify(note.id)}] });`,
     );
     assert.equal(secondAsk.messages.length, 2);
     assert.notEqual(secondAsk.sessionId, restoredChat.sessionId);

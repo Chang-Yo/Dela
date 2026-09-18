@@ -3,6 +3,7 @@ import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { ConnectionsSection } from './ConnectionsSection';
 import { LlmSection } from './LlmSection';
+import { PluginsSection } from './PluginsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
 import type { FontScalePreference, ThemePreference, ZoomPreference } from '../../../shared/api';
 
@@ -38,6 +39,7 @@ export function SettingsView({
             <ConnectionsSection onOpenMail={onOpenMail} onOpenTimetable={onOpenTimetable} />
           )}
           {section === 'llm' && <LlmSection />}
+          {section === 'plugins' && <PluginsSection />}
           {section === 'appearance' && (
             <AppearanceSection
               fontScale={fontScale}

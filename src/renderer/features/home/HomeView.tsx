@@ -111,13 +111,17 @@ export function HomeView({
 
   const composer = (
     <ChatComposer
+      attachments={chatState.attachments}
       busy={busy}
       configured={Boolean(chat?.configured)}
       hero={!conversation}
       model={chat?.model ?? ''}
+      onAddAttachmentFile={chatState.addAttachmentFile}
+      onAddAttachmentView={chatState.addAttachmentView}
       onAddReference={chatState.addReference}
       onChange={chatState.setPrompt}
       onModelSelect={chatState.selectModel}
+      onRemoveAttachment={chatState.removeAttachment}
       onRemoveReference={chatState.removeReference}
       onSend={() => void chatState.send()}
       onStop={chatState.stop}
