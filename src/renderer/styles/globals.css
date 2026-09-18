@@ -389,6 +389,15 @@
   }
 }
 
+/* 滚动容器常驻竖向滚动条槽位：轨道透明，未溢出时不可见；内容增长只淡入滑块，
+   不再挤占内容宽度触发重排。置于层外以覆盖 Tailwind 的 overflow-y:auto，
+   新增滚动区域自动获得此行为；横向滚动条仍按需出现，不预留高度。 */
+.overflow-y-auto,
+.overflow-y-scroll,
+.overflow-auto {
+  overflow-y: scroll;
+}
+
 @layer components {
   .page {
     width: min(1180px, 100%);

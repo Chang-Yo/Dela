@@ -109,6 +109,8 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
       font: 15px/1.8 -apple-system, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
       overflow-wrap: break-word;
     }
+    /* 楼层 iframe 靠高度上报自适应增长，纵向滚动由外层话题区承担，内部滚动条禁止出现。 */
+    html { overflow-y: hidden; }
     ::selection { background: color-mix(in oklch, var(--link) 22%, transparent); }
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-track { background: transparent; }
