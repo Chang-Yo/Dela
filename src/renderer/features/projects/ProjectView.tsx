@@ -177,7 +177,7 @@ export function ProjectView({
   mode?: 'project' | 'sources';
   projectId?: string | null;
   onOpenProject: (id: string) => void;
-  onOpenShuiyuanTopic?: (topicId: number) => void;
+  onOpenShuiyuanTopic?: (topicId: number, postNumber?: number) => void;
   createRequested?: boolean;
   onCreateHandled?: () => void;
   chatRequest?: { sessionId: string };

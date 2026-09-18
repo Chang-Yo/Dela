@@ -1,23 +1,27 @@
 /**
- * 沙箱 iframe 的高度自适应上报。srcDoc 文档会继承应用 CSP（script-src 'self'），
+ * 沙箱 iframe 的高度自适应与可选站内链接上报。srcDoc 文档会继承应用 CSP（script-src 'self'），
  * 因此外层 CSP 需 pin 本脚本的 sha256 hash（见 index.html）；脚本文本任何改动都要
  * 重新计算并同步内外层 CSP 的 hash——scripts/shuiyuan-smoke.cjs 的零控制台报错断言会拦截漂移。
- * 邮件正文与水源楼层共用同一段脚本，只维护一个 hash。
+ * 邮件正文与水源楼层共用同一段脚本，只维护一个 hash；链接上报仅在调用方提供
+ * 站点 host 时启用。
  * 测量 body.scrollHeight 而非 documentElement：后者不会小于 iframe 视口高，
  * 短楼层会被垫出大片空白；两处消费方的 body 均为 margin:0 的内容自适应高度。
  */
 export const FRAME_HEIGHT_SOURCE = 'dela-frame-height';
+export const FRAME_LINK_SOURCE = 'dela-frame-link';
 
 export const FRAME_HEIGHT_SCRIPT =
-  '(function(){var send=function(){var b=document.body;var h=(b?b.scrollHeight:document.documentElement.scrollHeight)||0;window.parent.postMessage({source:\'dela-frame-height\',height:h},"*")};if("ResizeObserver" in window){new ResizeObserver(send).observe(document.documentElement)}send()})();';
+  '(function(){var send=function(){var b=document.body;var h=(b?b.scrollHeight:document.documentElement.scrollHeight)||0;window.parent.postMessage({source:\'dela-frame-height\',height:h},"*")};document.addEventListener("click",function(e){var t=e.target;var a=t&&t.closest?t.closest("a[href]"):null;var host=document.documentElement.getAttribute("data-dela-internal-link-host");if(!a||!host)return;try{var u=new URL(a.href);var p=u.pathname.split("/").filter(Boolean);if((u.protocol==="https:"||u.protocol==="http:")&&u.hostname===host&&p[0]==="t"&&(/^\\d+$/.test(p[1]||"")||/^\\d+$/.test(p[2]||""))){e.preventDefault();window.parent.postMessage({source:\'dela-frame-link\',href:u.href},"*")}}catch(_){}});if("ResizeObserver" in window){new ResizeObserver(send).observe(document.documentElement)}send()})();';
 
 /** 在已消毒文档中注入高度上报脚本；必须在 sanitize 之后调用，避免被剥除。 */
-export function injectFrameHeightReport(doc: Document) {
+export function injectFrameHeightReport(doc: Document, internalLinkHost?: string) {
+  if (internalLinkHost)
+    doc.documentElement.setAttribute('data-dela-internal-link-host', internalLinkHost);
   const policy = doc.querySelector('meta[http-equiv="Content-Security-Policy"]');
   if (policy)
     policy.setAttribute(
       'content',
-      `${policy.getAttribute('content') ?? ''}; script-src 'sha256-kFNA+Ohd9TuTlEwk8b7CIo2KkvW0P4tqmPAqwATNlsY='`,
+      `${policy.getAttribute('content') ?? ''}; script-src 'sha256-6ls+Tslxjo93SL4NSk/hvwnI1MIUdUKBi4JQp3N7X0o='`,
     );
   const script = doc.createElement('script');
   script.textContent = FRAME_HEIGHT_SCRIPT;
@@ -36,4 +40,14 @@ export function frameHeightFromEvent(
   return typeof height === 'number' && Number.isFinite(height)
     ? Math.max(0, Math.ceil(height))
     : null;
+}
+
+/** 校验来自目标 iframe 的站内链接消息，返回绝对地址；无效返回 null。 */
+export function frameLinkFromEvent(
+  event: MessageEvent,
+  iframe: HTMLIFrameElement | null,
+): string | null {
+  if (iframe === null || event.source !== iframe.contentWindow) return null;
+  const data = event.data as { source?: unknown; href?: unknown } | null;
+  return data?.source === FRAME_LINK_SOURCE && typeof data.href === 'string' ? data.href : null;
 }

@@ -47,7 +47,7 @@ export function ProjectDocument({
   onLinkSource: (key: string) => void;
   onNewNote: (text: string) => void;
   onOpenSource: (key: string) => void;
-  onOpenShuiyuanTopic?: (topicId: number) => void;
+  onOpenShuiyuanTopic?: (topicId: number, postNumber?: number) => void;
 }) {
   const draft = useWorkspace((s) => s.drafts[documentKey]);
   const entries = useWorkspace((s) => s.workspace.entries);
@@ -298,7 +298,7 @@ export function ProjectDocument({
       ) : shuiyuanTopicId !== null ? (
         <ShuiyuanSourceDoc
           content={draft.content}
-          onOpenInShuiyuan={(topicId) => onOpenShuiyuanTopic?.(topicId)}
+          onOpenInShuiyuan={(topicId, postNumber) => onOpenShuiyuanTopic?.(topicId, postNumber)}
           onOpenUrl={link}
           text={draft.text}
           topicId={shuiyuanTopicId}

@@ -1,4 +1,4 @@
-import { SHUIYUAN_ORIGIN } from './shuiyuan-format';
+import { SHUIYUAN_HOST, SHUIYUAN_ORIGIN } from './shuiyuan-format';
 
 /**
  * 水源楼层 HTML（Discourse cooked，服务端已消毒）在本应用的二次消毒：
@@ -24,15 +24,18 @@ export function sanitizeShuiyuanHtml(html: string): Document {
   const absolute = (value: string | null): string | null => {
     if (!value) return null;
     if (value.startsWith('#')) return value;
-    if (/^https?:\/\//i.test(value)) return value;
-    if (value.startsWith('/')) return `${SHUIYUAN_ORIGIN}${value}`;
-    return null;
+    try {
+      const parsed = new URL(value, `${SHUIYUAN_ORIGIN}/`);
+      return ['https:', 'http:'].includes(parsed.protocol) ? parsed.href : null;
+    } catch {
+      return null;
+    }
   };
   // 同站媒体匿名加载会被水源登录墙拦下（403/302 到登录页），改写为主进程
   // 代理协议由主进程带凭据取回；站外图维持直连。
   const toMediaUrl = (value: string): string => {
-    if (!value.startsWith(`${SHUIYUAN_ORIGIN}/`)) return value;
     const parsed = new URL(value);
+    if (parsed.hostname !== SHUIYUAN_HOST) return value;
     return `dela-resource://shuiyuan${parsed.pathname}${parsed.search}`;
   };
   for (const anchor of doc.querySelectorAll('a, area')) {

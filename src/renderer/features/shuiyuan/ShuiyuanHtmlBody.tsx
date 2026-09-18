@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderShuiyuanHtml, sanitizeShuiyuanHtml } from './shuiyuan-html';
-import { frameHeightFromEvent, injectFrameHeightReport } from '../../components/ui/frame-height';
+import {
+  frameHeightFromEvent,
+  frameLinkFromEvent,
+  injectFrameHeightReport,
+} from '../../components/ui/frame-height';
+import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from './shuiyuan-format';
 
 const INITIAL_BODY_HEIGHT = 48;
 
@@ -36,24 +41,36 @@ function useIsDarkTheme(): boolean {
  * 外链经 sandbox allow-popups + 主进程 windowOpenHandler 走系统浏览器。
  * 无边框透明底，楼层文字与阅读页融为一体。
  */
-export function ShuiyuanHtmlBody({ html, title = '帖子正文' }: { html: string; title?: string }) {
+export function ShuiyuanHtmlBody({
+  html,
+  title = '帖子正文',
+  onOpenTopic,
+}: {
+  html: string;
+  title?: string;
+  onOpenTopic?: (topicId: number, postNumber?: number) => void;
+}) {
   const dark = useIsDarkTheme();
   const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const internalNavigation = Boolean(onOpenTopic);
   const document = useMemo(() => {
     const doc = sanitizeShuiyuanHtml(html);
-    injectFrameHeightReport(doc);
+    injectFrameHeightReport(doc, internalNavigation ? SHUIYUAN_HOST : undefined);
     return renderShuiyuanHtml(doc, dark);
-  }, [html, dark]);
+  }, [html, dark, internalNavigation]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const height = frameHeightFromEvent(event, iframeRef.current);
       if (height !== null) setBodyHeight(height);
+      const href = frameLinkFromEvent(event, iframeRef.current);
+      const target = href ? shuiyuanTopicFromUrl(href) : null;
+      if (target && onOpenTopic) onOpenTopic(target.topicId, target.postNumber);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, []);
+  }, [onOpenTopic]);
 
   return (
     <iframe

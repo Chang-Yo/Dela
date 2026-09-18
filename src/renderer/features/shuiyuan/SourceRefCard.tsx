@@ -20,7 +20,7 @@ export function ShuiyuanSourceDoc({
   topicId: number;
   content: DocumentContent;
   text: string;
-  onOpenInShuiyuan: (topicId: number) => void;
+  onOpenInShuiyuan: (topicId: number, postNumber?: number) => void;
   onOpenUrl: (url: string) => void;
 }) {
   const [ref, setRef] = useState<ShuiyuanSourceRef | null>(null);
@@ -87,7 +87,7 @@ export function ShuiyuanSourceDoc({
           </div>
         </section>
         {content.format === 'html' ? (
-          <ShuiyuanHtmlBody html={text} title="帖子内容" />
+          <ShuiyuanHtmlBody html={text} onOpenTopic={onOpenInShuiyuan} title="帖子内容" />
         ) : (
           <pre className="whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-4 text-sm leading-relaxed">
             {text}

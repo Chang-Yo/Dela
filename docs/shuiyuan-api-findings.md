@@ -154,7 +154,7 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 - 深分页只验证到 `page=2`；更长翻页、`posts.json?post_ids[]=` 按楼分段加载长帖未逐一实测。
 - cookie 会话路径的写操作未测；写能力已由 User API Key `write` scope 覆盖（书签增删已验证），但通知已读、发帖/回帖、私信等具体写端点尚未逐一实测。
 - `POST /uploads.json`（Composer 附件上传，multipart：`type=composer` + `files[]`）**未实测**：Dela 回复器已按标准 Discourse 形态接入（2026-09-16），成功响应取 `short_url`（`upload://` 形态，可直接写回 Markdown）；站点若禁用匿名上传路径或调整大小限制，以响应错误暴露（413/403/422 已做语义化映射）。
-- 静态媒体（`/uploads/`、`/images/`、`/user_avatar/`、`/letter_avatar/`）在 `login_required` 下对匿名请求同样被拦（2026-09-16 实际观察：楼层图片破图而 CDN 头像正常）。Dela 经 `dela-resource://shuiyuan/...` 主进程代理取回：cookie 通道必须从 campus Session 的 cookie store **显式拼 Cookie 头**——Electron `session.fetch` 属无 initiator 的程序化请求，Chromium SameSite 规则不随其发送 Lax cookie（`_t`/`_forum_session` 正是 Lax）；回退 User API Key 头。真实登录态下的取图成功率待多日观察。
+- 静态媒体在 `login_required` 下对匿名请求同样被拦（2026-09-16 实际观察：楼层图片破图而 CDN 头像正常）。2026-09-18 真实账号诊断确认 User API Key、恢复后的 campus Session、自定义协议及不透明沙箱 iframe 均能完整加载同站 PNG，因此排除被测地址上的认证、CSP 与 sandbox 故障；继续代码审查发现代理前仍有明确的 URL 误杀：协议相对地址（`//host/path`）会被错误拼接，路径相对地址会被丢弃，且主进程枚举 `/uploads/` 等路径会拒绝 Discourse 后续增加的媒体路由。在未取得用户具体失败帖 URL 的情况下，不能断言其图片必属哪一种，但这些分支都会稳定破图。现统一用 URL 标准解析补全 http(s) 地址；同站媒体全部进入固定水源 origin 的代理，安全边界由“固定目标域名 + 响应 MIME 必须为 image/video/audio”承担，不再猜测路径。认证通道由 `getCampusSession()` 恢复同一 Session 并 `fetch({credentials:'include'})`，失败再以 Node `fetch` + User API Key 头回退。
 - Dela 侧 User API Key 生命周期管理是硬性要求：站点无网页管理入口，客户端必须持久化 key（safeStorage）并提供撤销（`POST /user-api-key/revoke`）；payload 丢失即产生无法使用的休眠 key，授权窗口的 payload 捕获要做成可靠步骤。
 - MessageBus 实时通道（`/message-bus/…`）是否可用于推送式更新；`t/<id>.json` 已返回 `message_bus_last_id`，是接入锚点。
 - `summarizable`/`has_cached_summary` 标志表明站点开启了 Discourse AI 摘要；摘要内容的获取端点未测。

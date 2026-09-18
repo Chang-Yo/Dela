@@ -160,6 +160,7 @@ export function TopicReaderHeader() {
  */
 export function TopicReader() {
   const reading = useShuiyuan((state) => state.reading);
+  const openTopic = useShuiyuan((state) => state.openTopic);
   const loadMorePosts = useShuiyuan((state) => state.loadMorePosts);
   const submitReply = useShuiyuan((state) => state.submitReply);
   const docked = useDockedComposer();
@@ -182,6 +183,14 @@ export function TopicReader() {
     setComposerOpen(false);
     setReplyTarget(null);
   }, [reading?.topicId]);
+
+  useEffect(() => {
+    const targetPostNumber = reading?.postNumber;
+    if (!detail || targetPostNumber === null || targetPostNumber === undefined) return;
+    scrollRef.current
+      ?.querySelector(`[data-post-number="${targetPostNumber}"]`)
+      ?.scrollIntoView({ block: 'start' });
+  }, [detail?.id, reading?.postNumber]);
 
   const loadedCount = detail?.posts.length ?? 0;
   const totalCount = detail?.postsCount ?? 0;
@@ -263,6 +272,7 @@ export function TopicReader() {
                 return (
                   <article
                     className="group border-b border-border/60 py-4 last:border-0"
+                    data-post-number={post.postNumber}
                     key={post.id}
                   >
                     <div className="flex items-center gap-2">
@@ -320,7 +330,11 @@ export function TopicReader() {
                       </button>
                     </div>
                     <div className="mt-2">
-                      <ShuiyuanHtmlBody html={post.cooked} title={`第 ${post.postNumber} 楼`} />
+                      <ShuiyuanHtmlBody
+                        html={post.cooked}
+                        onOpenTopic={(topicId, postNumber) => void openTopic(topicId, postNumber)}
+                        title={`第 ${post.postNumber} 楼`}
+                      />
                     </div>
                   </article>
                 );

@@ -6,7 +6,7 @@ export function SourcesView({
   chatRequest,
 }: {
   onOpenProject: (id: string) => void;
-  onOpenShuiyuanTopic?: (topicId: number) => void;
+  onOpenShuiyuanTopic?: (topicId: number, postNumber?: number) => void;
   chatRequest?: { sessionId: string };
 }) {
   return (

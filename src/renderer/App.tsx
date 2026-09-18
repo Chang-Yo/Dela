@@ -230,9 +230,9 @@ export default function App() {
   };
 
   // 项目里水源引用卡片的「在水源页打开」：切视图并请求定位到该帖。
-  const openShuiyuanTopic = (topicId: number) => {
+  const openShuiyuanTopic = (topicId: number, postNumber?: number) => {
     navigate('shuiyuan');
-    useShuiyuan.getState().requestTopic(topicId);
+    useShuiyuan.getState().requestTopic(topicId, postNumber);
   };
 
   const notificationAction = async (action: () => Promise<NotificationState>) => {
