@@ -48,6 +48,9 @@
   --cal-sage-text: oklch(0.41 0.062 150);
   --cal-teal-bg: oklch(0.937 0.022 200);
   --cal-teal-text: oklch(0.41 0.062 205);
+  /* 首启引导专用固定色：引导画布恒为白色，不随明暗主题翻转（取亮色 cal-teal 值）。 */
+  --onboarding-accent: oklch(0.41 0.062 205);
+  --onboarding-accent-soft: oklch(0.937 0.022 200);
   --cal-blue-bg: oklch(0.935 0.022 250);
   --cal-blue-text: oklch(0.43 0.083 255);
   --cal-lilac-bg: oklch(0.937 0.024 300);
@@ -199,8 +202,17 @@
   }
 }
 
+@font-face {
+  font-family: 'Italianno';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../../assets/fonts/Italianno.woff2') format('woff2');
+}
+
 @theme inline {
   --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
+  --font-script: Italianno, cursive;
   /* 字号档位缩放：值内联进 text-* 工具类，line-height 沿用默认的无单位比值自动跟随。
      任意值写法（text-[13px] 等）不走这组变量，是已知不缩放范围。 */
   --text-xs: calc(0.75rem * var(--font-scale));
@@ -384,6 +396,15 @@
   *::-webkit-scrollbar-thumb:hover {
     background-color: color-mix(in oklch, var(--color-foreground) 38%, transparent);
   }
+}
+
+/* 滚动容器常驻竖向滚动条槽位：轨道透明，未溢出时不可见；内容增长只淡入滑块，
+   不再挤占内容宽度触发重排。置于层外以覆盖 Tailwind 的 overflow-y:auto，
+   新增滚动区域自动获得此行为；横向滚动条仍按需出现，不预留高度。 */
+.overflow-y-auto,
+.overflow-y-scroll,
+.overflow-auto {
+  overflow-y: scroll;
 }
 
 @layer components {

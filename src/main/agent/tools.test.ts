@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCanvasState } from '../canvas/api';
 import { readWorkspaceEntry, saveWorkspaceNote } from '../workspace/api';
+import { withResourceFile } from '../resources';
+import { parseDocumentFile } from '../resource-parse';
+import { searchWeb } from './web-search';
 import { executeAgentTool, modelToolDefinitions } from './tools';
 
 vi.mock('../canvas/api', () => ({
@@ -20,7 +23,23 @@ vi.mock('../workspace/api', () => ({
   saveWorkspaceNote: vi.fn(),
   updateWorkspaceEntry: vi.fn(),
 }));
-vi.mock('../resources', () => ({ copyResourceToProject: vi.fn() }));
+vi.mock('../resources', () => ({
+  copyResourceToProject: vi.fn(),
+  withResourceFile: vi.fn(async (_source: unknown, consume: (path: string) => unknown) =>
+    consume('C:/tmp/fake-document'),
+  ),
+}));
+vi.mock('../resource-parse', () => ({
+  parseDocumentFile: vi.fn(),
+  parsableDocumentExtension: (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'pdf';
+    if (lower.endsWith('.docx')) return 'docx';
+    if (lower.endsWith('.pptx')) return 'pptx';
+    return null;
+  },
+}));
+vi.mock('./web-search', () => ({ fetchWebPage: vi.fn(), searchWeb: vi.fn() }));
 vi.mock('../timetable/api', async () => {
   const { z } = await import('zod');
   return {
@@ -73,15 +92,80 @@ describe('Agent tool contracts', () => {
     });
   });
 
-  it('does not report PDF preview as extracted text', async () => {
+  it('extracts PDF text through the document parser with pagination', async () => {
     vi.mocked(readWorkspaceEntry).mockResolvedValue({
-      title: 'Lecture',
+      title: 'Lecture.pdf',
       format: 'pdf',
       previewUrl: 'dela-resource://private',
     });
-    const result = await executeAgentTool('read_resource', { ref: { type: 'workspace', id } });
-    expect(result).toMatchObject({ ok: true, result: { readable: false, totalCharacters: null } });
+    vi.mocked(parseDocumentFile).mockResolvedValue({
+      kind: 'pdf',
+      text: 'abcdef',
+      pages: 2,
+      hasTextLayer: true,
+    });
+    const result = await executeAgentTool('read_resource', {
+      ref: { type: 'workspace', id },
+      offset: 2,
+      limit: 2,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      result: {
+        text: 'cd',
+        nextOffset: 4,
+        totalCharacters: 6,
+        readable: true,
+        pages: 2,
+        format: 'pdf',
+      },
+    });
+    expect(withResourceFile).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(result)).not.toContain('dela-resource');
+  });
+
+  it('reports scanned PDFs without a text layer as unreadable', async () => {
+    vi.mocked(readWorkspaceEntry).mockResolvedValue({ title: 'Scan.pdf', format: 'pdf' });
+    vi.mocked(parseDocumentFile).mockResolvedValue({
+      kind: 'pdf',
+      text: '[第 1 页]\n',
+      pages: 1,
+      hasTextLayer: false,
+    });
+    expect(
+      await executeAgentTool('read_resource', { ref: { type: 'workspace', id } }),
+    ).toMatchObject({
+      ok: true,
+      result: { readable: false, nextOffset: null, hasTextLayer: false },
+    });
+  });
+
+  it('parses unsupported office entries by file extension', async () => {
+    vi.mocked(readWorkspaceEntry).mockResolvedValue({
+      title: 'Report.docx',
+      format: 'unsupported',
+    });
+    vi.mocked(parseDocumentFile).mockResolvedValue({
+      kind: 'docx',
+      text: '内容',
+      pages: 1,
+      hasTextLayer: true,
+    });
+    const result = await executeAgentTool('read_resource', { ref: { type: 'workspace', id } });
+    expect(result).toMatchObject({ ok: true, result: { format: 'docx', readable: true } });
+    expect(withResourceFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('searches the web and caps the returned result count', async () => {
+    vi.mocked(searchWeb).mockResolvedValue(
+      [1, 2, 3].map((n) => ({ title: `t${n}`, url: `https://example.com/${n}`, snippet: `s${n}` })),
+    );
+    const result = await executeAgentTool('web_search', { query: 'canvas', count: 2 });
+    expect(searchWeb).toHaveBeenCalledWith('canvas', undefined);
+    expect(result).toMatchObject({
+      ok: true,
+      result: { query: 'canvas', results: [{ title: 't1' }, { title: 't2' }] },
+    });
   });
 
   it('returns a failed write as a failed operation', async () => {

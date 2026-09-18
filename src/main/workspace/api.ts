@@ -15,8 +15,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
+import { readShuiyuanSource } from '../shuiyuan/api';
 import { availablePath, storageDirectory as directory } from '../storage';
 import { workspaceArchiveId } from '../../shared/api';
+import { textFileExtensions } from '../../shared/chat-input';
 import type {
   DocumentContent,
   WorkspaceCreateInput,
@@ -32,76 +34,8 @@ const entryColumns =
 // 笔记按扩展名区分为 Markdown 或普通文本；其余内容一律按文本读写。
 const markdownExtensions = ['.md', '.markdown'];
 // 本地/导入文件按 VSCode 对文本文件的宽泛处理内嵌展示；未列出的扩展仍不支持预览。
-const textExtensions = new Set([
-  ...markdownExtensions,
-  '.txt',
-  '.text',
-  '.log',
-  '.csv',
-  '.tsv',
-  '.json',
-  '.jsonc',
-  '.xml',
-  '.svg',
-  '.yml',
-  '.yaml',
-  '.toml',
-  '.ini',
-  '.cfg',
-  '.conf',
-  '.properties',
-  '.env',
-  '.editorconfig',
-  '.html',
-  '.htm',
-  '.css',
-  '.scss',
-  '.less',
-  '.js',
-  '.mjs',
-  '.cjs',
-  '.jsx',
-  '.ts',
-  '.tsx',
-  '.vue',
-  '.svelte',
-  '.py',
-  '.pyw',
-  '.ipynb',
-  '.c',
-  '.h',
-  '.cpp',
-  '.cc',
-  '.cxx',
-  '.hpp',
-  '.hh',
-  '.java',
-  '.cs',
-  '.go',
-  '.rs',
-  '.rb',
-  '.php',
-  '.swift',
-  '.kt',
-  '.kts',
-  '.scala',
-  '.dart',
-  '.sh',
-  '.bash',
-  '.zsh',
-  '.ps1',
-  '.bat',
-  '.cmd',
-  '.sql',
-  '.r',
-  '.pl',
-  '.lua',
-  '.tex',
-  '.rst',
-  '.mk',
-  '.cmake',
-  '.gradle',
-]);
+// 清单与助手 composer 附件共用（shared/chat-input.ts，无点小写）。
+const textExtensions = new Set(textFileExtensions.map((extension) => `.${extension}`));
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
@@ -294,7 +228,16 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   prepareStorage();
   const db = getDatabase();
   if (parsed.kind === 'source') {
-    if (
+    // 来源引用按前缀区分平台：水源引用行在 shuiyuan_topics，其余仍是 Canvas 资料表。
+    if (parsed.sourceId?.startsWith('shuiyuan-topic:')) {
+      const topicId = Number(parsed.sourceId.slice('shuiyuan-topic:'.length));
+      if (
+        !Number.isInteger(topicId) ||
+        topicId <= 0 ||
+        !db.prepare('SELECT 1 FROM shuiyuan_topics WHERE topic_id=?').get(topicId)
+      )
+        throw new Error('水源帖子引用不存在，请回到水源页重新添加');
+    } else if (
       !parsed.sourceId ||
       !db.prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(parsed.sourceId)
     )
@@ -427,6 +370,9 @@ export async function workspaceFilePath(id: string): Promise<string> {
   prepareStorage();
   const item = entry(idSchema.parse(id));
   if (item.kind === 'note') return notePath(item);
+  // 水源来源是实时拉取的帖子，没有本地文件路径。
+  if (item.kind === 'source' && item.sourceId?.startsWith('shuiyuan-topic:'))
+    throw new Error('条目不是文件');
   if (item.kind === 'source' && item.sourceId) return canvasFilePath(item.sourceId);
   if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('条目不是文件');
   const stored = getDatabase()
@@ -439,7 +385,12 @@ export async function workspaceFilePath(id: string): Promise<string> {
 export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   prepareStorage();
   const item = entry(id);
-  if (item.kind === 'source' && item.sourceId) return readCanvasSource(item.sourceId);
+  if (item.kind === 'source' && item.sourceId) {
+    if (item.sourceId.startsWith('shuiyuan-topic:')) {
+      return readShuiyuanSource(Number(item.sourceId.slice('shuiyuan-topic:'.length)));
+    }
+    return readCanvasSource(item.sourceId);
+  }
   if (item.kind === 'note') {
     const path = notePath(item);
     const text = readFileSync(path, 'utf8');

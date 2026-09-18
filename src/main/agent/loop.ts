@@ -7,6 +7,8 @@ const completionSchema = z.object({
       z.object({
         message: z.object({
           content: z.string().nullable().optional(),
+          // 思考过程放在非标准字段；读到仅用于上报展示，回灌模型时必须剔除（DeepSeek 明确要求不回传）。
+          reasoning_content: z.string().nullable().optional(),
           tool_calls: z
             .array(
               z.object({
@@ -27,9 +29,11 @@ async function readCompletion(
   response: Response,
   signal: AbortSignal,
   onText?: (text: string) => void,
+  onReasoning?: (text: string) => void,
 ) {
   if (!response.headers.get('content-type')?.includes('text/event-stream')) {
     const message = completionSchema.parse(await response.json()).choices[0]!.message;
+    if (message.reasoning_content) onReasoning?.(message.reasoning_content);
     onText?.(message.content ?? '');
     return message;
   }
@@ -38,6 +42,7 @@ async function readCompletion(
   const decoder = new TextDecoder();
   let pending = '',
     content = '',
+    reasoning = '',
     finished = false;
   const calls = new Map<
     number,
@@ -50,6 +55,10 @@ async function readCompletion(
         finish_reason: z.string().nullable().optional(),
         delta: z.object({
           content: z.string().nullable().optional(),
+          // 思考增量：OpenAI 兼容层的通用字段是 reasoning_content（DeepSeek/GLM/MiniMax/Qwen），
+          // 部分网关（OpenRouter/vLLM 系）用 reasoning；两者都接受。
+          reasoning_content: z.string().nullable().optional(),
+          reasoning: z.string().nullable().optional(),
           tool_calls: z
             .array(
               z.object({
@@ -82,6 +91,11 @@ async function readCompletion(
     if (choice.finish_reason === 'length')
       throw new Error('模型输出达到长度限制，未执行未完成的工具调用');
     if (choice.finish_reason === 'content_filter') throw new Error('模型响应被过滤');
+    const reasoningDelta = choice.delta.reasoning_content ?? choice.delta.reasoning;
+    if (reasoningDelta) {
+      reasoning += reasoningDelta;
+      onReasoning?.(reasoning);
+    }
     if (choice.delta.content) {
       content += choice.delta.content;
       onText?.(content);
@@ -139,17 +153,24 @@ const RESULT_CHAR_LIMIT = 20000;
 // 仅对传输层瞬时错误（429/5xx/网络中断）重试；测试注入 0 延迟。
 const RETRY_DELAYS = [1000, 3000];
 
+/** OpenAI 兼容的多模态 content part：文字按输入顺序与图片交错。 */
+export type ChatContentPart =
+  { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
 export async function runAgent(options: {
   baseUrl: string;
   model: string;
   key: string;
-  messages: { role: string; content: string }[];
+  /** 推理强度档位；设置时以 reasoning_effort 字段随请求下发。 */
+  effort?: string;
+  messages: { role: string; content: string | ChatContentPart[] }[];
   tools: unknown[];
   signal: AbortSignal;
   execute: (name: string, input: unknown) => Promise<unknown>;
   onToolResult?: (result: AgentToolResult) => void;
-  onToolStart?: (name: string) => void;
+  onToolStart?: (call: { id: string; name: string; input: unknown }) => void;
   onText?: (text: string) => void;
+  onReasoning?: (text: string) => void;
   retryDelays?: number[];
 }) {
   const messages: unknown[] = [...options.messages];
@@ -173,6 +194,7 @@ export async function runAgent(options: {
             tools: options.tools,
             stream: true,
             max_tokens: 8192,
+            ...(options.effort ? { reasoning_effort: options.effort } : {}),
           }),
         });
         if (response.ok) return response;
@@ -199,12 +221,18 @@ export async function runAgent(options: {
           '已接近本次执行步数上限，请直接总结已完成的工作并给出最终回答，不要发起新的工具调用。',
       });
     }
-    const message = await readCompletion(await requestCompletion(), options.signal, options.onText);
+    const message = await readCompletion(
+      await requestCompletion(),
+      options.signal,
+      options.onText,
+      // 逐轮直传本轮累计文本：api 层按 parts 位置分段保存，不跨轮拼接。
+      options.onReasoning,
+    );
     if (!message.tool_calls?.length) return { content: message.content ?? '', toolResults };
-    messages.push({ role: 'assistant', ...message });
+    // 回灌模型只保留 content 与 tool_calls：DeepSeek 明确要求不回传 reasoning_content。
+    messages.push({ role: 'assistant', content: message.content, tool_calls: message.tool_calls });
     for (const call of message.tool_calls) {
       options.signal.throwIfAborted();
-      options.onToolStart?.(call.function.name);
       let input: unknown;
       let output: unknown;
       try {
@@ -212,6 +240,8 @@ export async function runAgent(options: {
       } catch {
         output = { ok: false, error: { code: 'INVALID_JSON', message: '工具参数必须是有效 JSON' } };
       }
+      // 开始执行即通知：UI 在拿到结果前就能展示带输入摘要的运行中步骤。
+      options.onToolStart?.({ id: call.id, name: call.function.name, input });
       if (output === undefined) output = await options.execute(call.function.name, input);
       const result = { id: call.id, name: call.function.name, input, output };
       toolResults.push(result);

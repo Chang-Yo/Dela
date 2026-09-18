@@ -3,6 +3,7 @@ import { Dialog } from 'radix-ui';
 import {
   ArrowLeft,
   ArrowRight,
+  Bell,
   CalendarDays,
   ChevronLeft,
   Copy,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
 import { DelaBrand } from '../ui/dela-brand';
+import { ShuiyuanIcon } from '../ui/shuiyuan-icon';
 import { cn } from '../../lib/utils';
 import { useWorkspace } from '../../features/projects/workspace';
 import { zoomLevels, type ZoomPreference } from '../../../shared/api';
@@ -35,18 +37,21 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-export type ViewId = 'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'settings';
+export type ViewId =
+  'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'shuiyuan' | 'settings' | 'notifications';
 
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
 export type MobileDrawer = 'nav' | 'mail';
 type TitleMenuId = 'file' | 'sources' | 'view' | 'help';
+type ShuiyuanIconType = typeof ShuiyuanIcon;
 
-const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
+const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon | ShuiyuanIconType }> = [
   { id: 'home', label: '首页', icon: House },
   { id: 'project', label: '项目', icon: FolderKanban },
   { id: 'sources', label: '资料', icon: FolderOpen },
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
+  { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
 ];
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
@@ -162,6 +167,8 @@ type AppShellProps = {
   projectId: string | null;
   onOpenProject: (id: string) => void;
   onNewProject: () => void;
+  onSearch: () => void;
+  notificationCount: number;
 };
 
 export function AppShell({
@@ -179,6 +186,8 @@ export function AppShell({
   projectId,
   onOpenProject,
   onNewProject,
+  onSearch,
+  notificationCount,
 }: AppShellProps) {
   const entries = useWorkspace((state) => state.workspace.entries);
   const drafts = useWorkspace((state) => state.drafts);
@@ -571,9 +580,32 @@ export function AppShell({
             </button>
             <div className="flex-1" />
             <button
+              aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
+              aria-current={view === 'notifications' ? 'page' : undefined}
+              className={cn(
+                'relative grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground',
+                view === 'notifications' && 'bg-sidebar-accent text-foreground',
+              )}
+              onClick={() => navigate('notifications')}
+              title="通知"
+              type="button"
+            >
+              <Bell className="size-4" strokeWidth={1.8} />
+              {notificationCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-sidebar"
+                />
+              )}
+            </button>
+            <button
               aria-label="搜索"
               className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-              title="搜索"
+              onClick={() => {
+                onMobileDrawerChange?.(null);
+                onSearch();
+              }}
+              title="全局搜索 (Ctrl/⌘+K)"
               type="button"
             >
               <Search className="size-4" strokeWidth={1.8} />

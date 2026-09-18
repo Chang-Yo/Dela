@@ -59,6 +59,7 @@ function replyDraft(source: MailMessageDetail): PreparedEmail {
 
 type MailViewProps = {
   onComposeDirtyChange?: (dirty: boolean) => void;
+  openRequest?: { messageId: number };
   /** 窄屏邮箱级抽屉是否展开,受控于 App 的 mobileDrawer。 */
   mobileDrawerOpen?: boolean;
   onMobileDrawerClose?: () => void;
@@ -82,6 +83,7 @@ export function MailView({
   onComposeDirtyChange,
   mobileDrawerOpen = false,
   onMobileDrawerClose,
+  openRequest,
 }: MailViewProps = {}) {
   if (!window.dela) return <MailUnavailable />;
   return (
@@ -89,6 +91,7 @@ export function MailView({
       mobileDrawerOpen={mobileDrawerOpen}
       onMobileDrawerClose={onMobileDrawerClose}
       onComposeDirtyChange={onComposeDirtyChange}
+      openRequest={openRequest}
     />
   );
 }
@@ -97,6 +100,7 @@ function DesktopMailView({
   onComposeDirtyChange = ignoreComposeDirty,
   mobileDrawerOpen = false,
   onMobileDrawerClose,
+  openRequest,
 }: MailViewProps) {
   const dela = window.dela!;
   const [state, setState] = useState<MailState | null>(null);
@@ -143,6 +147,8 @@ function DesktopMailView({
   const detailRequest = useRef(0);
   const listRequest = useRef(0);
   const trashRequest = useRef(0);
+  const navigationRequest = useRef(0);
+  const processedOpenRequest = useRef<{ messageId: number } | undefined>(undefined);
 
   const updateComposeDirty = useCallback(
     (dirty: boolean) => {
@@ -285,6 +291,7 @@ function DesktopMailView({
   const selectFolder = useCallback(
     (id: number) => {
       if (!leaveComposer(() => selectFolder(id))) return;
+      navigationRequest.current += 1;
       setComposing(false);
       setDraft(undefined);
       detailRequest.current += 1;
@@ -322,6 +329,7 @@ function DesktopMailView({
   }, []);
 
   const openMessage = useCallback(async (messageId: number, options?: { readonly?: boolean }) => {
+    navigationRequest.current += 1;
     const request = ++detailRequest.current;
     setSelectedMessageId(messageId);
     setDetail(null);
@@ -405,6 +413,7 @@ function DesktopMailView({
     });
     return () => {
       active = false;
+      navigationRequest.current += 1;
       detailRequest.current += 1;
       listRequest.current += 1;
       trashRequest.current += 1;
@@ -578,14 +587,6 @@ function DesktopMailView({
     );
   }, [messages, search]);
 
-  if (state !== null && !account) {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        <ConfigureForm busy={configuring} error={configureError} onSubmit={handleConfigure} />
-      </div>
-    );
-  }
-
   const syncLabel = (() => {
     if (!sync) return '';
     if (sync.phase === 'connecting') return '正在连接…';
@@ -608,6 +609,58 @@ function DesktopMailView({
   const effectiveFoldersCollapsed = foldersCollapsed || autoCollapseFolders;
   // 单栏态下内容面板的网格占位:narrow 沿用第二行整行,非 narrow 单栏落到图标栏右侧一列。
   const stackedPlacement = narrow ? 'col-span-full row-start-2' : 'col-start-2';
+
+  // 全局搜索已经由 App 通过既有草稿守卫放行；这里仅切换到目标邮件，避免重新挂载邮箱而丢失其他状态。
+  useEffect(() => {
+    if (!openRequest || !account || !folders.length) return;
+    if (processedOpenRequest.current === openRequest) return;
+    processedOpenRequest.current = openRequest;
+    const request = ++navigationRequest.current;
+    void dela.mail
+      .getMessage(openRequest.messageId)
+      .then((message) => {
+        if (request !== navigationRequest.current) return;
+        const folderId = message.folderId;
+        if (!folderId || !folders.some((folder) => folder.id === folderId)) {
+          setDetailError('目标邮件所在的文件夹不可用。');
+          return;
+        }
+        updateComposeDirty(false);
+        setComposing(false);
+        setDraft(undefined);
+        setSearch('');
+        selectedFolderIdRef.current = folderId;
+        setSelection({ kind: 'folder', id: folderId });
+        setMessages([]);
+        setSelectedMessageId(null);
+        setDetail(null);
+        setDetailError(null);
+        setMobileReading(stacked);
+        void loadMessages(folderId);
+        void openMessage(message.id);
+      })
+      .catch((reason) => {
+        if (request === navigationRequest.current)
+          setDetailError(reason instanceof Error ? reason.message : String(reason));
+      });
+  }, [
+    account,
+    dela.mail,
+    folders,
+    loadMessages,
+    openMessage,
+    openRequest,
+    stacked,
+    updateComposeDirty,
+  ]);
+
+  if (state !== null && !account) {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <ConfigureForm busy={configuring} error={configureError} onSubmit={handleConfigure} />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -773,6 +826,7 @@ function DesktopMailView({
               detail={detail}
               detailLoading={detailLoading}
               detailError={detailError}
+              accountAddress={account?.address ?? ''}
               selectedMessageId={selectedMessageId}
               openMessage={openMessage}
               downloadAttachment={(messageId, part) =>

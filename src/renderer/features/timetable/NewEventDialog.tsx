@@ -159,7 +159,7 @@ export function NewEventDialog({
           </div>
         </div>
         {error ? (
-          <p className="text-xs text-destructive" role="alert">
+          <p className="break-words text-xs text-destructive" role="alert">
             {error}
           </p>
         ) : null}

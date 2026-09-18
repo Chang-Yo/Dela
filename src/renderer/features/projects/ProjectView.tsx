@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Dialog } from 'radix-ui';
 import {
   Archive,
@@ -16,9 +24,16 @@ import {
   Search,
   Ellipsis,
   KeyRound,
+  Rows2,
   X,
 } from 'lucide-react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../../shared/api';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '../../components/ui/context-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,8 +48,9 @@ import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { explorerDragType } from '../../components/ui/explorer';
 import { cn } from '../../lib/utils';
-import { SourceList } from '../sources/SourceList';
+import { SourceList, latestTermOf } from '../sources/SourceList';
 import { ProjectDocument } from './ProjectDocument';
+import { forgetMarkdownEditorState } from './MarkdownEditor';
 import { ProjectSidebar, type EntryAction } from './ProjectSidebar';
 import { emptyView, errorText, useWorkspace } from './workspace';
 import { AgentPanel } from './AgentPanel';
@@ -54,20 +70,120 @@ const titles: Record<Modal['action'], string> = {
   connect: '连接 Canvas',
 };
 
+type EditorGroupId = 'primary' | 'secondary';
+type SplitOrientation = 'vertical' | 'horizontal';
+type EditorGroup = { tabs: string[]; active: string | null; preview: string | null };
+type EditorLayout = {
+  split: boolean;
+  orientation: SplitOrientation;
+  ratio: number;
+  focus: EditorGroupId;
+  groups: Record<EditorGroupId, EditorGroup>;
+};
+
+const editorLayoutKey = (scope: string) => `dela.editor.layout.${scope}`;
+const MAX_EDITOR_TABS = 100;
+// A single editor group needs room for its document toolbar and readable body.
+// This is a layout constraint only; the stored sidebar/assistant preferences remain intact.
+const EDITOR_MIN_WIDTH = 320;
+const EDITOR_MIN_HEIGHT = 240;
+const SIDEBAR_DEFAULT_WIDTH = 300;
+const SIDEBAR_MIN_WIDTH = 240;
+const SIDEBAR_COLLAPSED_WIDTH = 48;
+const AGENT_DEFAULT_WIDTH = 340;
+const AGENT_MIN_WIDTH = 280;
+/** ProjectDocument 以此格式生成 CodeMirror 会话键（viewId = `${scope}:${group}`）。 */
+const documentSessionKey = (key: string, atScope: string, group: EditorGroupId) =>
+  `document:${key}:${atScope}:${group}`;
+
+function defaultEditorLayout(
+  scope: string,
+  tabs: string[],
+  savedActive: string | null,
+): EditorLayout {
+  const stored = (() => {
+    try {
+      const value = localStorage.getItem(editorLayoutKey(scope));
+      return value ? (JSON.parse(value) as Partial<EditorLayout>) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const validTabs = Array.from(new Set(tabs)).slice(0, MAX_EDITOR_TABS);
+  const clean = (group: Partial<EditorGroup> | undefined, fallback: string[]) => {
+    const rawTabs = Array.isArray(group?.tabs) ? group.tabs : fallback;
+    const groupTabs = Array.from(
+      new Set(rawTabs.filter((key): key is string => typeof key === 'string' && Boolean(key))),
+    );
+    return {
+      tabs: groupTabs,
+      active:
+        group?.active && groupTabs.includes(group.active)
+          ? group.active
+          : (groupTabs.at(-1) ?? null),
+      preview:
+        typeof group?.preview === 'string' && groupTabs.includes(group.preview)
+          ? group.preview
+          : null,
+    };
+  };
+  const groups = {
+    primary: clean(stored?.groups?.primary, validTabs),
+    secondary: clean(stored?.groups?.secondary, []),
+  } satisfies Record<EditorGroupId, EditorGroup>;
+  const seen = new Set<string>();
+  for (const group of [groups.primary, groups.secondary]) {
+    group.tabs = group.tabs.filter((key) => {
+      if (seen.has(key) || seen.size >= MAX_EDITOR_TABS) return false;
+      seen.add(key);
+      return true;
+    });
+    if (group.active && !group.tabs.includes(group.active))
+      group.active = group.tabs.at(-1) ?? null;
+    if (group.preview && !group.tabs.includes(group.preview)) group.preview = null;
+  }
+  const orientation = stored?.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+  const ratio =
+    typeof stored?.ratio === 'number' && Number.isFinite(stored.ratio)
+      ? Math.min(0.8, Math.max(0.2, stored.ratio))
+      : 0.5;
+  const focus =
+    stored?.focus === 'secondary' && groups.secondary.tabs.length ? 'secondary' : 'primary';
+  // Older view state stored one flat active key. Keep it when the group data did not yet exist.
+  if (!stored?.groups?.primary && savedActive && groups.primary.tabs.includes(savedActive)) {
+    groups.primary.active = savedActive;
+  }
+  return {
+    split: Boolean(stored?.split && groups.secondary.tabs.length),
+    orientation,
+    ratio,
+    focus,
+    groups,
+  };
+}
+
+const layoutTabs = (layout: EditorLayout) =>
+  Array.from(new Set([...layout.groups.primary.tabs, ...layout.groups.secondary.tabs]));
+
 export function ProjectView({
   mode = 'project',
   projectId = null,
   onOpenProject,
+  onOpenShuiyuanTopic,
   createRequested = false,
   onCreateHandled,
+  chatRequest,
 }: {
   mode?: 'project' | 'sources';
   projectId?: string | null;
   onOpenProject: (id: string) => void;
+  onOpenShuiyuanTopic?: (topicId: number, postNumber?: number) => void;
   createRequested?: boolean;
   onCreateHandled?: () => void;
+  chatRequest?: { sessionId: string };
 }) {
   const workspace = useWorkspace((s) => s.workspace);
+  const workspaceLoaded = useWorkspace((s) => s.loaded);
   const canvas = useWorkspace((s) => s.canvas);
   const globalError = useWorkspace((s) => s.error);
   const drafts = useWorkspace((s) => s.drafts);
@@ -79,7 +195,10 @@ export function ProjectView({
   const saved = workspace.views[scope] ?? emptyView;
   const root = workspace.entries.find((e) => e.id === rootId);
   const [selected, setSelected] = useState<string | null>(rootId);
-  const [width, setWidth] = useState(300);
+  const [width, setWidth] = useState(() => {
+    const stored = Number(localStorage.getItem('dela.workspace.sidebarWidth'));
+    return Number.isFinite(stored) && stored > 0 ? stored : SIDEBAR_DEFAULT_WIDTH;
+  });
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('dela.workspace.collapsed') === 'true',
   );
@@ -90,12 +209,24 @@ export function ProjectView({
   const [coursesOpen, setCoursesOpen] = useState(true);
   const [personalOpen, setPersonalOpen] = useState(true);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
-  const [reference, setReference] = useState<string | null>(null);
-  const [agentOpen, setAgentOpen] = useState(false);
-  const [agentWidth, setAgentWidth] = useState(340);
-  const [quote, setQuote] = useState('');
-  const [quoteSource, setQuoteSource] = useState<string | null>(null);
+  const [shellWidth, setShellWidth] = useState(0);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
+  const [editorSize, setEditorSize] = useState({ width: 0, height: 0 });
+  const [editorLayout, setEditorLayout] = useState<EditorLayout>(() =>
+    defaultEditorLayout(scope, saved.tabs, saved.active),
+  );
+  const editorLayoutRef = useRef(editorLayout);
+  const scopeRef = useRef(scope);
+  const closeRequest = useRef(0);
+  // 助手面板开关与宽度持久化：离开页面再回来不重置（草稿另由 dela.chat.drafts 保存）。
+  const [agentOpen, setAgentOpen] = useState(
+    () => localStorage.getItem('dela.workspace.agentOpen') === 'true',
+  );
+  const [agentWidth, setAgentWidth] = useState(() => {
+    const stored = Number(localStorage.getItem('dela.workspace.agentWidth'));
+    return Number.isFinite(stored) && stored > 0 ? stored : AGENT_DEFAULT_WIDTH;
+  });
   const [modal, setModal] = useState<Modal | null>(null);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
@@ -105,15 +236,45 @@ export function ProjectView({
   const [modalError, setModalError] = useState<string | null>(null);
   const scrollPending = useRef<Record<string, number>>({});
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusedGroup = editorLayout.focus;
+  const activeKey = editorLayout.groups[focusedGroup].active;
+  const allTabs = layoutTabs(editorLayout);
+  const persistEditorLayout = (next: EditorLayout) => {
+    editorLayoutRef.current = next;
+    setEditorLayout(next);
+    try {
+      localStorage.setItem(editorLayoutKey(scope), JSON.stringify(next));
+    } catch {
+      // localStorage is optional; the in-memory layout remains usable.
+    }
+  };
   useEffect(() => {
     void useWorkspace.getState().load();
   }, []);
   useEffect(() => {
+    const node = editorAreaRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry)
+        setEditorSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('dela.workspace.sidebarWidth', String(width));
+  }, [width]);
+  useEffect(() => {
     localStorage.setItem('dela.workspace.collapsed', String(collapsed));
   }, [collapsed]);
   useEffect(() => {
+    localStorage.setItem('dela.workspace.agentOpen', String(agentOpen));
+  }, [agentOpen]);
+  useEffect(() => {
+    localStorage.setItem('dela.workspace.agentWidth', String(agentWidth));
+  }, [agentWidth]);
+  useEffect(() => {
     setSelected(rootId);
-    setReference(null);
   }, [rootId]);
   useEffect(() => {
     if (createRequested) {
@@ -121,6 +282,9 @@ export function ProjectView({
       onCreateHandled?.();
     }
   }, [createRequested]);
+  useEffect(() => {
+    if (chatRequest) setAgentOpen(true);
+  }, [chatRequest]);
   useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)');
     const reset = () => {
@@ -130,11 +294,57 @@ export function ProjectView({
     return () => media.removeEventListener('change', reset);
   }, []);
   useEffect(() => {
-    const media = window.matchMedia('(min-width: 1024px)');
-    const update = () => setWide(media.matches);
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
+    const node = shellRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setShellWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
+  useEffect(() => {
+    if (workspaceLoaded) {
+      const next = defaultEditorLayout(scope, saved.tabs, saved.active);
+      editorLayoutRef.current = next;
+      setEditorLayout(next);
+    }
+  }, [scope, workspaceLoaded]);
+  useEffect(() => {
+    scopeRef.current = scope;
+    closeRequest.current += 1;
+  }, [scope]);
+  /* 预览标签一旦被编辑就转正（VSCode 语义）。从 ref 读当前布局：
+     scope 切换的同一提交里 state 仍是旧 scope 的布局，直接用会把旧布局写进新 scope。 */
+  useEffect(() => {
+    const layout = editorLayoutRef.current;
+    const pinned = (group: EditorGroupId) => {
+      const preview = layout.groups[group].preview;
+      return preview && drafts[preview]?.text !== drafts[preview]?.saved ? null : preview;
+    };
+    const primary = pinned('primary');
+    const secondary = pinned('secondary');
+    if (primary === layout.groups.primary.preview && secondary === layout.groups.secondary.preview)
+      return;
+    persistEditorLayout({
+      ...layout,
+      groups: {
+        primary: { ...layout.groups.primary, preview: primary },
+        secondary: { ...layout.groups.secondary, preview: secondary },
+      },
+    });
+  }, [drafts]);
+  const effectiveSidebarWidth = collapsed
+    ? SIDEBAR_COLLAPSED_WIDTH
+    : Math.min(
+        width,
+        Math.max(SIDEBAR_MIN_WIDTH, shellWidth - EDITOR_MIN_WIDTH - (agentOpen ? agentWidth : 0)),
+      );
+  const effectiveAgentWidth = agentOpen
+    ? Math.min(
+        agentWidth,
+        Math.max(AGENT_MIN_WIDTH, shellWidth - EDITOR_MIN_WIDTH - effectiveSidebarWidth),
+      )
+    : 0;
   useEffect(
     () => () => {
       if (scrollTimer.current) clearTimeout(scrollTimer.current);
@@ -196,21 +406,202 @@ export function ProjectView({
     setSelected(id);
     setMobileOpen(false);
   };
-  const open = (key: string) => {
-    const view = useWorkspace.getState().workspace.views[scope] ?? emptyView;
-    updateView({
-      active: key,
-      tabs: view.tabs.includes(key) ? view.tabs : [...view.tabs.slice(-99), key],
-    });
-    setSelected(key);
-    setQuote('');
-    setMobileOpen(false);
+  const syncView = (next: EditorLayout) => {
+    const active = next.groups[next.focus].active;
+    updateView({ tabs: layoutTabs(next), active });
   };
-  const closeTab = (key: string) => {
-    const tabs = saved.tabs.filter((id) => id !== key);
-    updateView({ tabs, active: saved.active === key ? (tabs.at(-1) ?? null) : saved.active });
-    if (reference === key) setReference(null);
-    useWorkspace.getState().release(key);
+  const open = (key: string, group: EditorGroupId = focusedGroup, pin = false) => {
+    const current = editorLayout.groups[group];
+    const alreadyOpen = current.tabs.includes(key);
+    const previewToReplace =
+      !pin && current.preview && current.preview !== key ? current.preview : null;
+    const canReplacePreview =
+      previewToReplace &&
+      !(
+        drafts[previewToReplace] && drafts[previewToReplace].text !== drafts[previewToReplace].saved
+      );
+    const openEverywhere = layoutTabs(editorLayout);
+    if (!alreadyOpen && !openEverywhere.includes(key) && openEverywhere.length >= MAX_EDITOR_TABS) {
+      useWorkspace.getState().setError(`最多打开 ${MAX_EDITOR_TABS} 个文档`);
+      return;
+    }
+    const tabs = current.tabs.filter((tab) => !canReplacePreview || tab !== previewToReplace);
+    const next: EditorLayout = {
+      ...editorLayout,
+      split: editorLayout.split || group === 'secondary',
+      focus: group,
+      groups: {
+        ...editorLayout.groups,
+        [group]: {
+          tabs: alreadyOpen ? current.tabs : [...tabs, key],
+          active: key,
+          preview: pin
+            ? current.preview === key
+              ? null
+              : current.preview
+            : alreadyOpen
+              ? current.preview
+              : key,
+        },
+      },
+    };
+    persistEditorLayout(next);
+    syncView(next);
+    setSelected(key);
+    setMobileOpen(false);
+    if (
+      canReplacePreview &&
+      previewToReplace &&
+      !next.groups.primary.tabs.includes(previewToReplace) &&
+      !next.groups.secondary.tabs.includes(previewToReplace)
+    ) {
+      void useWorkspace.getState().release(previewToReplace);
+      forgetDocumentSessions(previewToReplace, scope);
+    }
+  };
+  /* ProjectDocument 在两编辑器组各持有独立 CodeMirror 会话；文档彻底关闭后
+     连撤销历史一起清理，否则 sessions 表随开关标签无限增长。 */
+  const forgetDocumentSessions = (key: string, atScope: string) => {
+    for (const group of ['primary', 'secondary'] as const)
+      forgetMarkdownEditorState(documentSessionKey(key, atScope, group));
+  };
+  const closeTab = async (key: string, group: EditorGroupId = focusedGroup) => {
+    const request = ++closeRequest.current;
+    const closeScope = scope;
+    const otherGroup = group === 'primary' ? 'secondary' : 'primary';
+    const stillOpenElsewhere = editorLayoutRef.current.groups[otherGroup].tabs.includes(key);
+    // 彻底关闭前先冲盘并释放草稿；保存失败则保留标签，脏草稿不能变得不可达。
+    if (!stillOpenElsewhere && !(await useWorkspace.getState().release(key))) return;
+    if (request !== closeRequest.current || closeScope !== scopeRef.current) return;
+    const currentLayout = editorLayoutRef.current;
+    const currentGroup = currentLayout.groups[group];
+    const index = currentGroup.tabs.indexOf(key);
+    if (index < 0) return;
+    const tabs = currentGroup.tabs.filter((id) => id !== key);
+    const active =
+      currentGroup.active === key ? (tabs[index] ?? tabs[index - 1] ?? null) : currentGroup.active;
+    const removed: EditorLayout = {
+      ...currentLayout,
+      groups: {
+        ...currentLayout.groups,
+        [group]: {
+          tabs,
+          active,
+          preview: currentGroup.preview === key ? null : currentGroup.preview,
+        },
+      },
+      focus: currentLayout.focus === group ? group : currentLayout.focus,
+    };
+    // 副编辑器组最后一个标签关闭时收起分栏（VSCode 行为），焦点回到主组。
+    const next =
+      removed.split && removed.groups.secondary.tabs.length === 0
+        ? { ...removed, split: false, focus: 'primary' as EditorGroupId }
+        : removed;
+    persistEditorLayout(next);
+    syncView(next);
+    const fullyClosed =
+      !next.groups.primary.tabs.includes(key) && !next.groups.secondary.tabs.includes(key);
+    if (fullyClosed) {
+      // 仅剩这一组时已在上面前置 release；两组都开着时此刻才释放。
+      if (stillOpenElsewhere) void useWorkspace.getState().release(key);
+      forgetDocumentSessions(key, closeScope);
+    }
+  };
+  /** 批量关闭（标签右键菜单）：others=除当前外全部，right=当前右侧，all=整组。 */
+  const closeTabs = async (key: string, group: EditorGroupId, mode: 'others' | 'right' | 'all') => {
+    const tabs = editorLayoutRef.current.groups[group].tabs;
+    const index = tabs.indexOf(key);
+    if (index < 0) return;
+    const victims =
+      mode === 'all'
+        ? [...tabs]
+        : mode === 'others'
+          ? tabs.filter((tab) => tab !== key)
+          : tabs.slice(index + 1);
+    for (const victim of victims) await closeTab(victim, group);
+  };
+  const focusGroup = (group: EditorGroupId) => {
+    if (group === editorLayout.focus) return;
+    if (group === 'secondary' && !editorLayout.split) return;
+    const next = { ...editorLayout, focus: group };
+    persistEditorLayout(next);
+    syncView(next);
+  };
+  const toggleSplit = () => {
+    if (editorLayout.split) {
+      // 合并时分栏的标签并入主组，避免留下任何界面都看不到的“幽灵”标签。
+      const primary = editorLayout.groups.primary;
+      const secondary = editorLayout.groups.secondary;
+      const focused = editorLayout.groups[focusedGroup];
+      const other = focusedGroup === 'primary' ? secondary : primary;
+      const next: EditorLayout = {
+        ...editorLayout,
+        split: false,
+        focus: 'primary',
+        groups: {
+          ...editorLayout.groups,
+          primary: {
+            tabs: Array.from(new Set([...primary.tabs, ...secondary.tabs])),
+            active: focused.active ?? other.active,
+            preview: focused.preview ?? other.preview,
+          },
+        },
+      };
+      persistEditorLayout(next);
+      syncView(next);
+      return;
+    }
+    const active = editorLayout.groups[focusedGroup].active;
+    const secondary = editorLayout.groups.secondary;
+    const next = {
+      ...editorLayout,
+      split: true,
+      focus: 'secondary' as EditorGroupId,
+      groups: {
+        ...editorLayout.groups,
+        secondary: {
+          tabs: secondary.tabs.length ? secondary.tabs : active ? [active] : [],
+          active: secondary.active ?? active ?? null,
+          preview: secondary.preview ?? null,
+        },
+      },
+    };
+    persistEditorLayout(next);
+    syncView(next);
+  };
+  const moveTab = (key: string, from: EditorGroupId, to: EditorGroupId, targetIndex?: number) => {
+    const source = editorLayout.groups[from];
+    if (!source.tabs.includes(key)) return;
+    const movingPreview = source.preview === key;
+    const sourceTabs = source.tabs.filter((id) => id !== key);
+    const destination = editorLayout.groups[to];
+    const destinationTabs = destination.tabs.filter((id) => id !== key);
+    const index = Math.max(
+      0,
+      Math.min(targetIndex ?? destinationTabs.length, destinationTabs.length),
+    );
+    destinationTabs.splice(index, 0, key);
+    const next: EditorLayout = {
+      ...editorLayout,
+      split: editorLayout.split || to === 'secondary',
+      focus: to,
+      groups: {
+        ...editorLayout.groups,
+        [from]: {
+          tabs: sourceTabs,
+          active: source.active === key ? (sourceTabs.at(-1) ?? null) : source.active,
+          preview: movingPreview && from !== to ? null : source.preview,
+        },
+        // from===to 时该键覆盖上面的值；预览状态在组内重排和跨组移动时都保留。
+        [to]: {
+          tabs: destinationTabs,
+          active: key,
+          preview: from === to ? source.preview : movingPreview ? key : destination.preview,
+        },
+      },
+    };
+    persistEditorLayout(next);
+    syncView(next);
   };
   const title = (key: string) =>
     workspace.entries.find((e) => e.id === key)?.name ??
@@ -218,7 +609,7 @@ export function ProjectView({
     drafts[key]?.content.title ??
     '资料';
   const currentContainer = () => {
-    const entry = workspace.entries.find((e) => e.id === (saved.active ?? selected));
+    const entry = workspace.entries.find((e) => e.id === (selected ?? activeKey));
     return entry
       ? entry.kind === 'folder' || entry.kind === 'project'
         ? entry.id
@@ -271,33 +662,41 @@ export function ProjectView({
     } else if (item.kind === 'folder') {
       setSelected(id);
       expand(id, !saved.expanded.includes(id));
-      updateView({ active: null });
     } else open(id);
   };
+  const openToSide = (id: string) => {
+    const item = workspace.entries.find((entry) => entry.id === id);
+    if (!item || item.kind === 'folder') {
+      selectEntry(id);
+      return;
+    }
+    if (item.kind === 'project') {
+      onOpenProject(id);
+      return;
+    }
+    open(id, 'secondary', true);
+  };
+  const pinEntry = (id: string) => {
+    const item = workspace.entries.find((entry) => entry.id === id);
+    if (item?.kind === 'folder' || item?.kind === 'project') {
+      selectEntry(id);
+      return;
+    }
+    open(id, focusedGroup, true);
+  };
   const newNote = (text: string) => {
-    const quoted = quote || text;
-    const active = quote ? quoteSource : saved.active;
-    const sourceId = active?.startsWith('source:')
-      ? active.slice(7)
-      : workspace.entries.find((e) => e.id === active)?.sourceId;
+    const sourceId = activeKey?.startsWith('source:')
+      ? activeKey.slice(7)
+      : workspace.entries.find((e) => e.id === activeKey)?.sourceId;
     const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : null;
-    const originalUrl = active ? drafts[active]?.content.url : undefined;
+    const originalUrl = activeKey ? drafts[activeKey]?.content.url : undefined;
     const header = source
       ? `来源：${originalUrl ? `[${source.name}](${originalUrl})` : source.name}\n\n`
       : '';
     show({
       action: 'note',
       id: currentContainer(),
-      text:
-        text ||
-        `${header}${
-          quoted
-            ? quoted
-                .split('\n')
-                .map((line) => `> ${line}`)
-                .join('\n') + '\n\n'
-            : ''
-        }`,
+      text: text || header,
     });
   };
   const submit = async (event: FormEvent) => {
@@ -318,12 +717,30 @@ export function ProjectView({
         await api.remove(modal.id!);
         const remaining = (await api.getState()).entries;
         const live = new Set(remaining.map((e) => e.id));
-        const tabs = saved.tabs.filter((key) => key.startsWith('source:') || live.has(key));
-        updateView({
-          tabs,
-          active:
-            saved.active && tabs.includes(saved.active) ? saved.active : (tabs.at(-1) ?? null),
-        });
+        const keep = (key: string) => key.startsWith('source:') || live.has(key);
+        const group = (current: EditorGroup): EditorGroup => {
+          const tabs = current.tabs.filter(keep);
+          return {
+            tabs,
+            active: current.active && keep(current.active) ? current.active : (tabs.at(-1) ?? null),
+            preview: current.preview && keep(current.preview) ? current.preview : null,
+          };
+        };
+        const removedLayout = editorLayoutRef.current;
+        const dropped = layoutTabs(removedLayout).filter((key) => !keep(key));
+        const next = {
+          ...removedLayout,
+          groups: {
+            primary: group(removedLayout.groups.primary),
+            secondary: group(removedLayout.groups.secondary),
+          },
+        };
+        persistEditorLayout(next);
+        syncView(next);
+        for (const key of dropped) {
+          void useWorkspace.getState().release(key);
+          forgetDocumentSessions(key, scope);
+        }
         if (rootId && !live.has(rootId)) onOpenProject('');
       } else if (modal.action === 'link') {
         const sourceId = modal.id!.startsWith('source:')
@@ -346,7 +763,7 @@ export function ProjectView({
       if (created) {
         if (created.parentId) expand(created.parentId, true);
         if (created.kind === 'project') onOpenProject(created.id);
-        else if (created.kind === 'note') open(created.id);
+        else if (created.kind === 'note') open(created.id, focusedGroup, true);
         else if (created.kind === 'folder') {
           setSelected(created.id);
           updateView({ active: null });
@@ -359,6 +776,7 @@ export function ProjectView({
       setBusy(false);
     }
   };
+  const viewScrollKey = (group: EditorGroupId, key: string) => `${group}:${key}`;
   const recordScroll = (key: string, top: number) => {
     scrollPending.current[key] = top;
     if (!scrollTimer.current)
@@ -379,23 +797,243 @@ export function ProjectView({
     }
     return names.join(' / ');
   };
-  const renderDocument = (key: string, readOnly = false) => (
-    <ProjectDocument
-      key={key}
-      documentKey={key}
-      readOnly={readOnly}
-      scroll={scrollPending.current[key] ?? saved.scroll[key] ?? 0}
-      onScroll={(top) => recordScroll(key, top)}
-      onReveal={reveal}
-      onQuote={(text) => {
-        setQuote(text);
-        setQuoteSource(key);
-      }}
-      onLinkSource={(id) => show({ action: 'link', id })}
-      onNewNote={newNote}
-      onOpenSource={open}
-    />
+  const refreshCourses = () => {
+    if (syncing || !canvas.connected) return;
+    setSyncing(true);
+    void run(async () => {
+      const { setCanvas } = useWorkspace.getState();
+      // 先刷新课程列表，否则新学期的课程拿不到；再逐门同步最新学期（顺序执行，避免并发轰炸 Canvas）。
+      await setCanvas(await window.dela!.canvas.syncCourses());
+      const courses = useWorkspace.getState().canvas.courses;
+      const latest = latestTermOf(courses);
+      for (const course of courses)
+        if (course.term === latest)
+          await setCanvas(await window.dela!.canvas.syncCourse(course.id));
+    }).finally(() => setSyncing(false));
+  };
+  const renderDocument = (key: string, group: EditorGroupId, readOnly = false) => {
+    const scrollKey = viewScrollKey(group, key);
+    return (
+      <ProjectDocument
+        key={`${group}:${key}`}
+        documentKey={key}
+        viewId={`${scope}:${group}`}
+        readOnly={readOnly}
+        scroll={
+          scrollPending.current[scrollKey] ??
+          saved.scroll[scrollKey] ??
+          (group === 'primary' ? saved.scroll[key] : 0) ??
+          0
+        }
+        onScroll={(top) => recordScroll(scrollKey, top)}
+        onReveal={reveal}
+        onLinkSource={(id) => show({ action: 'link', id })}
+        onNewNote={newNote}
+        onOpenSource={open}
+        onOpenShuiyuanTopic={onOpenShuiyuanTopic}
+      />
+    );
+  };
+  const pinTab = (key: string, group: EditorGroupId) => {
+    const state = editorLayout.groups[group];
+    if (state.preview !== key) return;
+    persistEditorLayout({
+      ...editorLayout,
+      groups: { ...editorLayout.groups, [group]: { ...state, preview: null } },
+    });
+  };
+  const renderTabs = (group: EditorGroupId) => {
+    const state = editorLayout.groups[group];
+    return (
+      <div
+        role="tablist"
+        aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器标签页`}
+        className="flex h-10 min-w-0 shrink-0 overflow-x-auto border-b bg-muted/20 [scrollbar-width:none]"
+        onWheel={(event) => {
+          // 纵向滚轮在标签栏内转为横向滚动（VSCode 行为），触控板横向滚动原生支持。
+          if (event.deltaY !== 0) event.currentTarget.scrollLeft += event.deltaY;
+        }}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('application/x-dela-editor-tab')) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
+          if (!raw) return;
+          try {
+            const payload = JSON.parse(raw) as { key?: string; group?: EditorGroupId };
+            if (!payload.key || (payload.group !== 'primary' && payload.group !== 'secondary'))
+              return;
+            const target = (event.target as HTMLElement).closest('[data-editor-tab]');
+            const index = target
+              ? Array.from(event.currentTarget.querySelectorAll('[data-editor-tab]')).indexOf(
+                  target,
+                )
+              : state.tabs.length;
+            moveTab(payload.key, payload.group, group, index);
+          } catch {
+            // Ignore data from unrelated drag sources.
+          }
+        }}
+        onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) newNote('');
+        }}
+      >
+        {state.tabs.map((key) => {
+          const dirty = Boolean(drafts[key] && drafts[key].text !== drafts[key].saved);
+          const active = state.active === key;
+          return (
+            <ContextMenu key={key}>
+              <ContextMenuTrigger asChild>
+                <div
+                  data-editor-tab
+                  draggable
+                  className={cn(
+                    'group/tab flex h-10 max-w-56 shrink-0 items-center border-r border-b-2 px-1',
+                    active ? 'border-b-foreground bg-background' : 'border-b-transparent',
+                  )}
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData(
+                      'application/x-dela-editor-tab',
+                      JSON.stringify({ key, group }),
+                    );
+                  }}
+                  onAuxClick={(event) => {
+                    if (event.button === 1) {
+                      event.preventDefault();
+                      void closeTab(key, group);
+                    }
+                  }}
+                  onDoubleClick={() => pinTab(key, group)}
+                >
+                  <button
+                    role="tab"
+                    aria-selected={active}
+                    className="min-w-0 flex-1 truncate px-2 text-left text-xs"
+                    title={title(key)}
+                    onClick={() => open(key, group)}
+                  >
+                    <span className={cn(state.preview === key && 'italic')}>{title(key)}</span>
+                  </button>
+                  <button
+                    className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted"
+                    aria-label={`关闭 ${title(key)}`}
+                    title={dirty ? '关闭（将先保存修改）' : '关闭'}
+                    onClick={() => void closeTab(key, group)}
+                  >
+                    {dirty ? (
+                      <span
+                        className="size-2 rounded-full bg-foreground group-hover/tab:hidden"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <X className={cn('size-3', dirty ? 'hidden group-hover/tab:block' : 'block')} />
+                  </button>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onSelect={() => void closeTab(key, group)}>关闭</ContextMenuItem>
+                <ContextMenuItem onSelect={() => void closeTabs(key, group, 'others')}>
+                  关闭其他
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => void closeTabs(key, group, 'right')}>
+                  关闭右侧
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => void closeTabs(key, group, 'all')}>
+                  关闭全部
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          );
+        })}
+        {!state.tabs.length && (
+          <span className="flex items-center px-3 text-xs text-muted-foreground">未打开文件</span>
+        )}
+      </div>
+    );
+  };
+  const renderGroup = (group: EditorGroupId) => {
+    const state = editorLayout.groups[group];
+    return (
+      <section
+        key={group}
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+        style={{
+          flexBasis: editorLayout.split ? `${editorLayout.ratio * 100}%` : undefined,
+          minWidth:
+            editorLayout.split && editorLayout.orientation === 'vertical'
+              ? EDITOR_MIN_WIDTH
+              : undefined,
+          minHeight:
+            editorLayout.split && editorLayout.orientation === 'horizontal'
+              ? EDITOR_MIN_HEIGHT
+              : undefined,
+        }}
+        aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器`}
+        onPointerDown={() => focusGroup(group)}
+      >
+        {renderTabs(group)}
+        {state.active ? (
+          renderDocument(state.active, group)
+        ) : (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+            <FilePlus2 className="size-7 opacity-45" />
+            <p>从左侧目录打开文件</p>
+            <p className="text-xs opacity-75">拖动标签页可调整顺序或移动到另一栏</p>
+          </div>
+        )}
+      </section>
+    );
+  };
+  const splitDimension =
+    editorLayout.orientation === 'vertical' ? editorSize.width : editorSize.height;
+  const splitMinimum = Math.min(
+    editorLayout.orientation === 'vertical' ? EDITOR_MIN_WIDTH : EDITOR_MIN_HEIGHT,
+    Math.max(1, splitDimension / 2),
   );
+  const splitMaximum = Math.max(splitMinimum, splitDimension - splitMinimum);
+  const splitValue = Math.min(
+    splitMaximum,
+    Math.max(splitMinimum, splitDimension * editorLayout.ratio),
+  );
+  const setSplitValue = (value: number) => {
+    if (splitDimension <= 0) return;
+    const minimumRatio = splitMinimum / splitDimension;
+    const maximumRatio = 1 - minimumRatio;
+    persistEditorLayout({
+      ...editorLayout,
+      ratio: Math.min(maximumRatio, Math.max(minimumRatio, value / splitDimension)),
+    });
+  };
+  const handleWorkspaceKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (target?.closest('[role="dialog"], input, textarea')) return;
+    const modifier = event.metaKey || event.ctrlKey;
+    if (!modifier) return;
+    if (event.key === '\\') {
+      event.preventDefault();
+      toggleSplit();
+    } else if (event.altKey && (event.key === '1' || event.key === '2')) {
+      // Ctrl/Cmd+数字已被全局视图导航占用，编辑器组沿用 Alt 修饰。
+      event.preventDefault();
+      focusGroup(event.key === '1' ? 'primary' : 'secondary');
+    } else if (event.key === 'PageDown' || event.key === 'PageUp') {
+      const group = editorLayout.groups[focusedGroup];
+      if (group.tabs.length < 2) return;
+      event.preventDefault();
+      const current = Math.max(0, group.tabs.indexOf(group.active ?? group.tabs[0]!));
+      const offset = event.key === 'PageDown' ? 1 : -1;
+      open(group.tabs[(current + offset + group.tabs.length) % group.tabs.length]!, focusedGroup);
+    } else if (event.key.toLowerCase() === 'w' && activeKey) {
+      event.preventDefault();
+      void closeTab(activeKey, focusedGroup);
+    }
+  };
   if (!window.dela)
     return (
       <DesktopOnlyNotice
@@ -404,7 +1042,12 @@ export function ProjectView({
       />
     );
   return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-background">
+    <div
+      ref={shellRef}
+      tabIndex={-1}
+      onKeyDown={handleWorkspaceKeyDown}
+      className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
+    >
       {mode === 'project' && draggingFiles && (
         <div className="pointer-events-none absolute inset-0 z-50 grid place-items-center bg-black/30 backdrop-blur-[1px]">
           <div className="rounded-lg border bg-background px-4 py-3 text-sm font-medium shadow-lg">
@@ -425,9 +1068,12 @@ export function ProjectView({
           resizing && 'transition-none',
           !mobileOpen && 'max-md:hidden',
         )}
-        style={{ width: collapsed ? 48 : width }}
+        style={{ width: effectiveSidebarWidth }}
       >
-        <div className="flex min-h-0 flex-1 flex-col max-md:!w-full" style={{ width }}>
+        <div
+          className="flex min-h-0 flex-1 flex-col max-md:!w-full"
+          style={{ width: effectiveSidebarWidth }}
+        >
           <div className="flex h-11 shrink-0 items-center gap-1 px-2">
             <PanelToggleButton
               collapsed={collapsed}
@@ -550,6 +1196,9 @@ export function ProjectView({
                       <GraduationCap className="size-4" />
                       课程资料
                     </button>
+                    <HeaderAction label="刷新课程资料" onClick={refreshCourses}>
+                      <RefreshCw className={cn(syncing && 'animate-spin')} />
+                    </HeaderAction>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -562,20 +1211,6 @@ export function ProjectView({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem
-                          disabled={syncing || !canvas.connected}
-                          onSelect={() => {
-                            setSyncing(true);
-                            void run(async () =>
-                              useWorkspace
-                                .getState()
-                                .setCanvas(await window.dela!.canvas.syncCourses()),
-                            ).finally(() => setSyncing(false));
-                          }}
-                        >
-                          <RefreshCw className={cn(syncing && 'animate-spin')} />
-                          {syncing ? '正在同步…' : '同步课程列表'}
-                        </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => show({ action: 'connect', id: null })}>
                           <KeyRound />
                           {canvas.connected ? '更换 Canvas 令牌' : '连接 Canvas'}
@@ -612,7 +1247,7 @@ export function ProjectView({
                       onExpand={expand}
                       onOpen={open}
                       onLink={(id) => show({ action: 'link', id })}
-                      selected={saved.active}
+                      selected={activeKey}
                       query={query}
                       bySource={bySource}
                     />
@@ -663,7 +1298,7 @@ export function ProjectView({
                 <ProjectSidebar
                   entries={workspace.entries}
                   rootId={rootId}
-                  selected={saved.active ?? selected}
+                  selected={activeKey ?? selected}
                   expanded={saved.expanded}
                   onExpand={expand}
                   onSelect={selectEntry}
@@ -671,6 +1306,8 @@ export function ProjectView({
                   onMove={move}
                   canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
                   onImportFiles={mode === 'project' ? importDroppedFiles : undefined}
+                  onOpenToSide={openToSide}
+                  onDoubleClick={pinEntry}
                   query={query}
                   excludeIds={mode === 'sources' ? [workspaceArchiveId] : []}
                 />
@@ -700,20 +1337,22 @@ export function ProjectView({
                         onExpand={expand}
                         onOpen={open}
                         onLink={(id) => show({ action: 'link', id })}
-                        selected={saved.active}
+                        selected={activeKey}
                         query={query}
                         bySource={bySource}
                       />
                       <ProjectSidebar
                         entries={workspace.entries}
                         rootId={workspaceArchiveId}
-                        selected={saved.active ?? selected}
+                        selected={activeKey ?? selected}
                         expanded={saved.expanded}
                         onExpand={expand}
                         onSelect={selectEntry}
                         onAction={action}
                         onMove={move}
                         canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
+                        onOpenToSide={openToSide}
+                        onDoubleClick={pinEntry}
                         query={query}
                         archived
                       />
@@ -729,114 +1368,70 @@ export function ProjectView({
         <Resizer
           className="max-md:hidden"
           label="调整目录宽度"
-          min={240}
+          min={SIDEBAR_MIN_WIDTH}
           max={420}
+          defaultValue={SIDEBAR_DEFAULT_WIDTH}
           value={width}
           onChange={setWidth}
           onResizingChange={setResizing}
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {
-          <div className="flex h-11 shrink-0 items-center border-b px-2">
+        <div className="flex h-11 shrink-0 items-center border-b px-2">
+          <Button
+            className="md:hidden"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="打开目录"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Folder />
+          </Button>
+          <span className="min-w-0 flex-1 truncate px-2 text-xs font-medium text-muted-foreground">
+            {activeKey ? title(activeKey) : '编辑器'}
+          </span>
+          <Button
+            size="icon-sm"
+            variant={editorLayout.split ? 'secondary' : 'ghost'}
+            title={editorLayout.split ? '合并编辑组' : '拆分编辑组（Ctrl/Cmd+\\）'}
+            aria-label={editorLayout.split ? '合并编辑组' : '拆分编辑组'}
+            onClick={toggleSplit}
+          >
+            <Columns2 />
+          </Button>
+          {editorLayout.split && (
             <Button
-              className="md:hidden"
               size="icon-sm"
               variant="ghost"
-              aria-label="打开目录"
-              onClick={() => setMobileOpen(true)}
+              title={editorLayout.orientation === 'vertical' ? '改为上下分栏' : '改为左右分栏'}
+              aria-label="切换分栏方向"
+              onClick={() =>
+                persistEditorLayout({
+                  ...editorLayout,
+                  orientation: editorLayout.orientation === 'vertical' ? 'horizontal' : 'vertical',
+                })
+              }
             >
-              <Folder />
+              <Rows2 />
             </Button>
-            {saved.tabs.length > 0 && (
-              <div
-                role="tablist"
-                aria-label="打开的内容"
-                className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"
-                onDoubleClick={(event) => {
-                  if (event.target === event.currentTarget) newNote('');
-                }}
-              >
-                {saved.tabs.map((key) => {
-                  const dirty = Boolean(drafts[key] && drafts[key].text !== drafts[key].saved);
-                  const active = saved.active === key;
-                  return (
-                    <div
-                      key={key}
-                      className={cn(
-                        'group/tab flex h-11 shrink-0 items-center border-b-2',
-                        active ? 'border-foreground' : 'border-transparent',
-                      )}
-                      onAuxClick={(event) => {
-                        if (event.button === 1) {
-                          event.preventDefault();
-                          closeTab(key);
-                        }
-                      }}
-                    >
-                      <button
-                        role="tab"
-                        aria-selected={active}
-                        className="max-w-48 truncate px-3 text-xs"
-                        title={title(key)}
-                        onClick={() => open(key)}
-                      >
-                        {title(key)}
-                      </button>
-                      <button
-                        className="mr-1 grid size-6 place-items-center rounded text-muted-foreground hover:bg-muted"
-                        aria-label={`关闭 ${title(key)}`}
-                        title={dirty ? '关闭（修改会自动保存）' : undefined}
-                        onClick={() => closeTab(key)}
-                      >
-                        {dirty && (
-                          <span
-                            className="size-2 rounded-full bg-foreground group-hover/tab:hidden"
-                            aria-hidden
-                          />
-                        )}
-                        <X
-                          className={cn(
-                            'size-3',
-                            active && !dirty ? 'block' : 'hidden group-hover/tab:block',
-                          )}
-                        />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {saved.active && (
-              <Button
-                className="max-lg:hidden"
-                size="icon-sm"
-                variant="ghost"
-                title={reference ? '结束并排阅读' : '固定当前文档并排阅读'}
-                aria-label={reference ? '结束并排阅读' : '固定当前文档并排阅读'}
-                onClick={() => setReference(reference ? null : saved.active)}
-              >
-                <Columns2 />
-              </Button>
-            )}
-            <Button
-              className={cn(!saved.active && 'ml-auto')}
-              size="icon-sm"
-              variant="ghost"
-              title="助手"
-              aria-label="打开助手"
-              onClick={() => setAgentOpen((value) => !value)}
-            >
-              <MessageSquare />
-            </Button>
-          </div>
-        }
+          )}
+          <Button
+            className={cn(!activeKey && 'ml-auto')}
+            size="icon-sm"
+            variant="ghost"
+            title="助手"
+            aria-label="打开助手"
+            onClick={() => setAgentOpen((value) => !value)}
+          >
+            <MessageSquare />
+          </Button>
+        </div>
         {globalError && (
           <div
             role="alert"
             className="flex items-start gap-2 border-b px-4 py-2 text-xs text-destructive"
           >
-            <span className="flex-1">{globalError}</span>
+            <span className="min-w-0 flex-1 break-words">{globalError}</span>
             <button
               aria-label="关闭错误提示"
               onClick={() => useWorkspace.getState().setError(null)}
@@ -845,30 +1440,34 @@ export function ProjectView({
             </button>
           </div>
         )}
-        {quote.trim() && (
-          <div className="flex shrink-0 items-center gap-3 border-b bg-muted/40 px-4 py-2 text-xs">
-            <span className="min-w-0 flex-1 truncate">{quote}</span>
-            <button className="shrink-0 font-medium" onClick={() => newNote('')}>
-              记入笔记
-            </button>
-            <button aria-label="取消引用" onClick={() => setQuote('')}>
-              <X className="size-3" />
-            </button>
-          </div>
-        )}
-        <div className="flex min-h-0 min-w-0 flex-1">
-          {reference && wide && (
-            <div className="flex min-h-0 w-1/2 min-w-0 flex-col border-r max-lg:hidden">
-              {reference === saved.active ? (
-                <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-                  已固定当前文档，请打开另一个文档。
-                </div>
-              ) : (
-                renderDocument(reference, true)
-              )}
+        <div
+          ref={editorAreaRef}
+          className={cn(
+            'flex min-h-0 min-w-0 flex-1 overflow-hidden',
+            editorLayout.orientation === 'vertical' ? 'flex-row' : 'flex-col',
+          )}
+        >
+          {renderGroup('primary')}
+          {editorLayout.split && (
+            <Resizer
+              label="调整编辑器分栏比例"
+              orientation={editorLayout.orientation}
+              value={splitValue}
+              min={splitMinimum}
+              max={splitMaximum}
+              defaultValue={splitDimension / 2}
+              onChange={setSplitValue}
+              className={editorLayout.orientation === 'vertical' ? 'w-px' : 'h-px'}
+            />
+          )}
+          {editorLayout.split && (
+            <div
+              className="flex min-h-0 min-w-0 flex-1"
+              style={{ flexBasis: `${(1 - editorLayout.ratio) * 100}%` }}
+            >
+              {renderGroup('secondary')}
             </div>
           )}
-          {saved.active ? renderDocument(saved.active) : <div className="min-h-0 flex-1" />}
         </div>
       </div>
       {agentOpen && (
@@ -876,22 +1475,24 @@ export function ProjectView({
           <Resizer
             className="max-lg:hidden"
             label="调整助手宽度"
-            min={280}
-            max={520}
+            min={AGENT_MIN_WIDTH}
+            max={Math.min(520, Math.max(AGENT_MIN_WIDTH, shellWidth * 0.45))}
+            defaultValue={AGENT_DEFAULT_WIDTH}
             direction={-1}
             value={agentWidth}
             onChange={setAgentWidth}
           />
           <div
             className="flex min-h-0 shrink-0 border-l max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:!w-full max-lg:bg-background"
-            style={{ width: agentWidth }}
+            style={{ width: effectiveAgentWidth }}
           >
             <AgentPanel
               scope={scope}
-              tabs={saved.tabs}
+              tabs={allTabs}
+              chatRequest={chatRequest}
               onCollapse={() => setAgentOpen(false)}
               onSaveNote={(text) => show({ action: 'note', id: currentContainer(), text })}
-              onOpen={open}
+              onOpen={(key) => open(key, focusedGroup, true)}
             />
           </div>
         </>
@@ -960,7 +1561,7 @@ export function ProjectView({
                   </label>
                 )}
               {modalError && (
-                <p role="alert" className="text-xs text-destructive">
+                <p role="alert" className="text-xs [overflow-wrap:anywhere] text-destructive">
                   {modalError}
                 </p>
               )}

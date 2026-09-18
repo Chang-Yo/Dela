@@ -9,6 +9,7 @@ import type { LlmProviderView, LlmVerifyResult } from '../../../shared/api';
 import {
   findLlmPreset,
   llmProviderPresets,
+  reasoningEffortLevels,
   type LlmProviderPreset,
 } from '../../../shared/llm-presets';
 import { SectionHeader } from './SectionHeader';
@@ -107,7 +108,7 @@ export function LlmSection() {
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
                   <Server className="size-4 text-muted-foreground" strokeWidth={1.8} />
                 </span>
-                <div className="grid gap-0.5">
+                <div className="grid min-w-0 gap-0.5">
                   <strong className="truncate text-sm">{provider.name}</strong>
                   <span className="truncate text-xs text-muted-foreground">
                     {provider.baseUrl} · {provider.model}
@@ -166,7 +167,7 @@ export function LlmSection() {
         </ul>
       )}
       {error && (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-xs [overflow-wrap:anywhere] text-destructive" role="alert">
           {error}
         </p>
       )}
@@ -207,6 +208,12 @@ function ProviderFormDialog({
     editing.mode === 'edit' ? editing.provider.model : (initialPreset.models[0] ?? ''),
   );
   const [modelInput, setModelInput] = useState('');
+  const [effortEnabled, setEffortEnabled] = useState(
+    editing.mode === 'edit' && editing.provider.effortLevels.length > 0,
+  );
+  const [effortLevels, setEffortLevels] = useState<string[]>(
+    editing.mode === 'edit' ? [...editing.provider.effortLevels] : [],
+  );
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<LlmVerifyResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -272,6 +279,7 @@ function ProviderFormDialog({
         apiKey: apiKey || undefined,
         models,
         model,
+        effortLevels: effortEnabled ? effortLevels : [],
         presetId:
           editing.mode === 'edit'
             ? editing.provider.presetId
@@ -296,7 +304,7 @@ function ProviderFormDialog({
     <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
           <Dialog.Title className="text-base font-semibold">
             {editing.mode === 'create' ? '添加提供商' : `编辑 ${editing.provider.name}`}
           </Dialog.Title>
@@ -420,6 +428,51 @@ function ProviderFormDialog({
                 ))}
               </select>
             </label>
+            <div className="grid gap-2 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  checked={effortEnabled}
+                  onChange={(event) => setEffortEnabled(event.target.checked)}
+                  type="checkbox"
+                />
+                推理强度
+              </label>
+              {effortEnabled && (
+                <>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    勾选要在对话中暴露的档位（多选）；所选档位经 reasoning_effort
+                    随请求下发，默认取第一档，可在输入框旁切换。
+                  </p>
+                  <div aria-label="推理强度档位" className="flex flex-wrap gap-1.5" role="group">
+                    {reasoningEffortLevels.map((level) => {
+                      const selected = effortLevels.includes(level);
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className={cn(
+                            'rounded-md border px-2 py-1 text-xs transition-colors',
+                            selected
+                              ? 'border-transparent bg-accent text-accent-foreground'
+                              : 'text-muted-foreground hover:bg-accent/40',
+                          )}
+                          key={level}
+                          onClick={() =>
+                            setEffortLevels((current) =>
+                              current.includes(level)
+                                ? current.filter((item) => item !== level)
+                                : [...current, level],
+                            )
+                          }
+                          type="button"
+                        >
+                          {level}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm">密钥检测</span>
@@ -437,7 +490,7 @@ function ProviderFormDialog({
               {verifyResult && (
                 <p
                   className={cn(
-                    'flex flex-wrap items-center gap-1.5 text-xs',
+                    'flex flex-wrap items-center gap-1.5 text-xs [overflow-wrap:anywhere]',
                     verifyResult.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
                   )}
                   role="status"
@@ -468,7 +521,10 @@ function ProviderFormDialog({
               <Button disabled={busy} onClick={onClose} variant="ghost">
                 取消
               </Button>
-              <Button disabled={busy || !models.length} type="submit">
+              <Button
+                disabled={busy || !models.length || (effortEnabled && !effortLevels.length)}
+                type="submit"
+              >
                 {busy ? '处理中…' : '保存'}
               </Button>
             </div>

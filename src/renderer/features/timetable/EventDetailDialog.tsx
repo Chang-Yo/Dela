@@ -124,7 +124,7 @@ export function EventDetailDialog({
             )}
           </div>
           {error ? (
-            <p className="mt-3 text-xs text-destructive" role="alert">
+            <p className="mt-3 break-words text-xs text-destructive" role="alert">
               {error}
             </p>
           ) : null}

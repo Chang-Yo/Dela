@@ -199,7 +199,7 @@ app
       evaluate(
         `[...document.querySelectorAll('button')].findLast(b => b.textContent.trim() === ${JSON.stringify(text)}).click()`,
       );
-    await win.loadFile(join(root, 'out/renderer/index.html'));
+    await win.loadFile(join(root, 'out/renderer/index.html'), { query: { 'smoke-test': '1' } });
     await wait(
       "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === '资料')",
     );

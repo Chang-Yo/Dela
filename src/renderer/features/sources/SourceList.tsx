@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ellipsis, Download, FileText, Link2, RefreshCw } from 'lucide-react';
+import { Ellipsis, Download, FileText, Link2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +8,13 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { Explorer, type ExplorerItem } from '../../components/ui/explorer';
 import { useWorkspace } from '../projects/workspace';
+
+// 学期按名称降序取第一个非"未标注学期"，作为默认展开/刷新的"最新学期"。
+export function latestTermOf(courses: { term: string }[]): string | undefined {
+  return [...new Set(courses.map((c) => c.term))]
+    .sort((a, b) => b.localeCompare(a))
+    .find((term) => term !== '未标注学期');
+}
 
 export function SourceList({
   expanded,
@@ -33,7 +40,7 @@ export function SourceList({
   const nodes: ExplorerItem[] = [];
   if (bySource) nodes.push({ id: 'canvas', parentId: null, name: 'Canvas', container: true });
   const terms = [...new Set(canvas.courses.map((c) => c.term))].sort((a, b) => b.localeCompare(a));
-  const latestTerm = terms.find((term) => term !== '未标注学期');
+  const latestTerm = latestTermOf(canvas.courses);
   const archivedTerms = new Set(
     terms.filter((term) => term === '未标注学期' || term !== latestTerm),
   );
@@ -110,6 +117,8 @@ export function SourceList({
           const item = canvas.items.find((i) => i.id === node.id);
           const sourceId = item?.sourceId;
           if (!course && !sourceId) return null;
+          // 课程菜单只剩同步信息；尚无信息可看的课程不渲染"更多"触发器。
+          if (course && !course.syncedAt && !course.error) return null;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -124,13 +133,6 @@ export function SourceList({
               <DropdownMenuContent align="start">
                 {course ? (
                   <>
-                    <DropdownMenuItem
-                      disabled={loading.includes(course.id) || !canvas.connected}
-                      onSelect={() => void sync(course.id)}
-                    >
-                      <RefreshCw />
-                      {loading.includes(course.id) ? '正在同步…' : '同步课程资料'}
-                    </DropdownMenuItem>
                     {course.syncedAt && (
                       <p className="px-2 py-1 text-xs text-muted-foreground">
                         更新于 {new Date(course.syncedAt).toLocaleString('zh-CN')}
@@ -139,7 +141,7 @@ export function SourceList({
                     {course.error && (
                       <p
                         role="status"
-                        className="max-w-64 whitespace-pre-line px-2 py-1 text-xs text-destructive"
+                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-xs text-destructive"
                       >
                         {course.error}
                       </p>

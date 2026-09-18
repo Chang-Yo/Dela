@@ -36,15 +36,17 @@ export function HomeView({
   onOpenProject,
   onNewProject,
   onOpenSources,
+  chatRequest,
 }: {
   onOpenProject: (id: string) => void;
   onNewProject: () => void;
   onOpenSources: () => void;
+  chatRequest?: { sessionId: string };
 }) {
   const workspace = useWorkspace((s) => s.workspace);
   const canvas = useWorkspace((s) => s.canvas);
   const projects = workspace.entries.filter((entry) => entry.kind === 'project');
-  const chatState = useChat('home');
+  const chatState = useChat('home', chatRequest);
   const { chat, busy, error } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -111,13 +113,20 @@ export function HomeView({
 
   const composer = (
     <ChatComposer
+      attachments={chatState.attachments}
       busy={busy}
       configured={Boolean(chat?.configured)}
+      effort={chat?.effort ?? null}
+      effortLevels={chat?.effortLevels ?? []}
       hero={!conversation}
       model={chat?.model ?? ''}
+      onAddAttachmentFile={chatState.addAttachmentFile}
+      onAddAttachmentView={chatState.addAttachmentView}
       onAddReference={chatState.addReference}
       onChange={chatState.setPrompt}
+      onEffortSelect={chatState.selectEffort}
       onModelSelect={chatState.selectModel}
+      onRemoveAttachment={chatState.removeAttachment}
       onRemoveReference={chatState.removeReference}
       onSend={() => void chatState.send()}
       onStop={chatState.stop}
@@ -222,12 +231,14 @@ export function HomeView({
       <motion.div
         className={cn('shrink-0 px-4 md:px-6', conversation ? 'pt-2 pb-4' : 'mt-4')}
         layout="position"
-        transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
+        // 与线程淡入同时长的快速位移：保留 composer 跨两态的连续性，
+        // 不再用长弹簧下坠——发送后它会缓慢滑过新挂载的消息区，观感不稳。
+        transition={{ duration: 0.16, ease: 'easeOut' }}
       >
         <div className="mx-auto w-full max-w-3xl">
           {composer}
           {error && (
-            <p className="mt-2 text-xs text-destructive" role="alert">
+            <p className="mt-2 break-words text-xs text-destructive" role="alert">
               {error}
             </p>
           )}

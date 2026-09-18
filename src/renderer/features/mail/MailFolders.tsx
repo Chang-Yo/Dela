@@ -215,7 +215,10 @@ export function MailFolders({
       <nav
         aria-label="邮件文件夹"
         // minmax(0,1fr): 行宽锁定为面板宽,不随文字 max-content 撑出面板外。
-        className="grid grid-cols-[minmax(0,1fr)] content-start gap-0.5 overflow-y-auto overflow-x-hidden p-2"
+        className={cn(
+          'grid grid-cols-[minmax(0,1fr)] content-start gap-0.5 overflow-y-auto overflow-x-hidden p-2',
+          foldersCollapsed && '[scrollbar-width:none]',
+        )}
         id="mail-folders"
       >
         {folders.length === 0 && (

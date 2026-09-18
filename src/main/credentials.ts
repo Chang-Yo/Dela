@@ -61,6 +61,51 @@ export function clearCanvasToken(): void {
   if (existsSync(path)) unlinkSync(path);
 }
 
+/** 水源 User API Key 的本地形态；key 只存在主进程，不进 renderer 或数据库。 */
+export interface ShuiyuanCredential {
+  key: string;
+  clientId: string;
+  username: string;
+  boundAt: string;
+}
+
+function shuiyuanPath(): string {
+  return join(app.getPath('userData'), 'shuiyuan-key.bin');
+}
+
+export function saveShuiyuanCredential(credential: ShuiyuanCredential): void {
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
+  writeFileSync(shuiyuanPath(), safeStorage.encryptString(JSON.stringify(credential)));
+}
+
+export function loadShuiyuanCredential(): ShuiyuanCredential | null {
+  const path = shuiyuanPath();
+  if (!existsSync(path)) return null;
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
+  const parsed = JSON.parse(
+    safeStorage.decryptString(readFileSync(path)),
+  ) as Partial<ShuiyuanCredential>;
+  if (
+    typeof parsed.key !== 'string' ||
+    typeof parsed.clientId !== 'string' ||
+    typeof parsed.username !== 'string' ||
+    typeof parsed.boundAt !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    key: parsed.key,
+    clientId: parsed.clientId,
+    username: parsed.username,
+    boundAt: parsed.boundAt,
+  };
+}
+
+export function clearShuiyuanCredential(): void {
+  const path = shuiyuanPath();
+  if (existsSync(path)) unlinkSync(path);
+}
+
 /** 主进程持久化的 LLM 提供商配置实例；apiKey 只存在这里，不进 renderer 或 SQLite。 */
 export interface StoredLlmProvider {
   id: string;
@@ -69,6 +114,10 @@ export interface StoredLlmProvider {
   apiKey: string;
   models: string[];
   model: string;
+  /** 开启推理强度后暴露的档位子集；空数组表示未开启。 */
+  effortLevels: string[];
+  /** 当前选中的推理强度档位；未开启时为 undefined。 */
+  effort?: string;
   presetId: string | null;
 }
 
@@ -114,6 +163,9 @@ function parseLlmConfig(payload: string): StoredLlmConfig {
     providers: providers.map((provider) => ({
       ...provider,
       presetId: typeof provider.presetId === 'string' ? provider.presetId : null,
+      effortLevels: Array.isArray(provider.effortLevels)
+        ? provider.effortLevels.filter((level): level is string => typeof level === 'string')
+        : [],
     })),
     activeId:
       typeof parsed.activeId === 'string' && providers.some(({ id }) => id === parsed.activeId)
@@ -145,6 +197,7 @@ function migrateLegacyModelCredential(): StoredLlmConfig {
           typeof parsed.model === 'string' && zhiyuan.models.includes(parsed.model)
             ? parsed.model
             : zhiyuan.models[0]!,
+        effortLevels: [],
         presetId: zhiyuan.id,
       },
     ],

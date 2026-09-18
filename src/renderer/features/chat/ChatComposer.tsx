@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
-import { ArrowUp, AtSign, Check, ChevronDown, Plus, Square } from 'lucide-react';
+import { ArrowUp, AtSign, Check, ChevronDown, FileText, Paperclip, Square } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
-import type { LlmProviderView } from '../../../shared/api';
+import type { ChatCommandView, ChatMediaView, LlmProviderView } from '../../../shared/api';
+import {
+  chatFileKind,
+  chatImageToken,
+  hasChatImages,
+  INLINE_IMAGE_MAX,
+  matchChatImageTokens,
+} from '../../../shared/chat-input';
 import type { ChatReference } from './use-chat';
+import { ComposerEditor, type ComposerEditorHandle } from './ComposerEditor';
+import { setChatMediaPreview } from './media';
 
-const slashCommands = [
+const builtinCommands = [
   { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
   { name: '作业', prompt: '帮我查询即将截止的作业，按课程整理', hint: 'Canvas 截止时间' },
   { name: '邮件', prompt: '帮我查找最近的未读邮件', hint: '已缓存的邮件' },
@@ -16,32 +25,20 @@ const slashCommands = [
 
 type MenuState = { kind: 'slash' | 'mention'; query: string; start: number } | null;
 
-/** 检测光标前的 / 或 @ 触发词，返回菜单状态与触发词起始位置。 */
+/** 检测光标前的 / 或 @ 触发词；单独输入 / 或 @ 也打开候选（空查询）。 */
 function detectMenu(text: string, caret: number): MenuState {
   const before = text.slice(0, caret);
   const slash = /(?:^|\s)\/([^\s]{0,30})$/.exec(before);
-  if (slash?.[1]) {
-    return {
-      kind: 'slash',
-      query: slash[1],
-      start: slash.index + slash[0].length - slash[1].length - 1,
-    };
-  }
+  if (slash) return { kind: 'slash', query: slash[1]!, start: caret - slash[1]!.length - 1 };
   const mention = /(?:^|\s)@([^\s@]{0,50})$/.exec(before);
-  if (mention?.[1]) {
-    return {
-      kind: 'mention',
-      query: mention[1],
-      start: mention.index + mention[0].length - mention[1].length - 1,
-    };
-  }
+  if (mention)
+    return { kind: 'mention', query: mention[1]!, start: caret - mention[1]!.length - 1 };
   return null;
 }
 
-/** 把输入框中的触发词替换为指定文本，返回新文本与新光标位置。 */
-function replaceToken(text: string, start: number, caret: number, replacement: string) {
-  const next = text.slice(0, start) + replacement + text.slice(caret);
-  return { text: next, caret: start + replacement.length };
+function formatSize(size: number): string {
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
 export function ChatComposer({
@@ -53,12 +50,18 @@ export function ChatComposer({
   configured,
   model,
   onModelSelect,
+  effort,
+  effortLevels,
+  onEffortSelect,
   references,
   onRemoveReference,
   onAddReference,
   referenceOptions,
+  attachments,
+  onAddAttachmentFile,
+  onAddAttachmentView,
+  onRemoveAttachment,
   hero = false,
-  inputRef,
   className,
 }: {
   value: string;
@@ -69,24 +72,165 @@ export function ChatComposer({
   configured: boolean;
   model: string;
   onModelSelect: (provider: LlmProviderView, model: string) => void;
+  /** 当前推理强度档位；提供商未开启时为 null，控件显示 default 且不可改。 */
+  effort: string | null;
+  effortLevels: string[];
+  onEffortSelect: (level: string) => void;
   references: ChatReference[];
   onRemoveReference: (key: string) => void;
   onAddReference: (ref: ChatReference) => void;
   referenceOptions: ChatReference[];
+  attachments: ChatMediaView[];
+  onAddAttachmentFile: (file: File) => Promise<void>;
+  onAddAttachmentView: (view: ChatMediaView) => void;
+  onRemoveAttachment: (id: string) => void;
   hero?: boolean;
-  inputRef?: RefObject<HTMLTextAreaElement | null>;
   className?: string;
 }) {
-  const innerRef = useRef<HTMLTextAreaElement | null>(null);
-  const composingRef = useRef(false);
+  const editorRef = useRef<ComposerEditorHandle | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [index, setIndex] = useState(0);
   const itemRef = useRef<HTMLLIElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [customCommands, setCustomCommands] = useState<ChatCommandView[]>([]);
   // 两列模型面板：打开时读取设置配置保证新鲜；focusedId 是左列当前查看的提供商。
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const focused = providers?.find((provider) => provider.id === focusedId) ?? null;
+  const [effortPickerOpen, setEffortPickerOpen] = useState(false);
+
+  useEffect(() => {
+    void window.dela?.chat
+      .listCommands()
+      .then(setCustomCommands)
+      .catch(() => {});
+  }, []);
+
+  const slashItems =
+    menu?.kind === 'slash'
+      ? [
+          ...builtinCommands,
+          ...customCommands.map((command) => ({ ...command, hint: '自定义' })),
+        ].filter((command) => command.name.includes(menu.query))
+      : [];
+  const mentionItems =
+    menu?.kind === 'mention'
+      ? referenceOptions
+          .filter(
+            (option) =>
+              !references.some((ref) => ref.key === option.key) &&
+              option.title.toLowerCase().includes(menu.query.toLowerCase()),
+          )
+          .slice(0, 8)
+      : [];
+  const items: (typeof slashItems)[number][] | ChatReference[] =
+    menu?.kind === 'slash' ? slashItems : mentionItems;
+  const menuOpen = menu !== null && items.length > 0;
+
+  useEffect(() => setIndex(0), [menu?.kind, menu?.query]);
+  useEffect(() => {
+    itemRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [index, menuOpen]);
+
+  const handleCaret = (text: string, caret: number) => {
+    if (fileError) setFileError(null);
+    setMenu(detectMenu(text, caret));
+  };
+
+  const handleSelect = (position: number) => {
+    if (!menu) return;
+    const caret = editorRef.current?.selectionStart() ?? value.length;
+    if (menu.kind === 'slash') {
+      const command = slashItems[position];
+      if (!command) return;
+      editorRef.current?.replaceRange(menu.start, caret, command.prompt);
+    } else {
+      const option = mentionItems[position];
+      if (!option) return;
+      onAddReference(option);
+      editorRef.current?.replaceRange(menu.start, caret, '');
+    }
+    setMenu(null);
+  };
+
+  const insertMention = () => {
+    const caret = editorRef.current?.selectionStart() ?? value.length;
+    editorRef.current?.insertAt(caret, '@');
+  };
+
+  const addFiles = async (files: File[], pos: number) => {
+    if (!window.dela) return;
+    let insertPos = pos;
+    for (const file of files) {
+      const kind = chatFileKind(file.name);
+      if (!kind) {
+        setFileError(`“${file.name}”暂不支持：仅接受图片与常见文本文件`);
+        continue;
+      }
+      try {
+        if (kind === 'image') {
+          if (matchChatImageTokens(value).length >= INLINE_IMAGE_MAX)
+            throw new Error(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const view = await window.dela.chat.stageMedia({ name: file.name, bytes });
+          setChatMediaPreview(view.id, view.previewUrl);
+          const token = `${chatImageToken(view.id, view.name)} `;
+          editorRef.current?.insertAt(insertPos, token);
+          insertPos += token.length;
+        } else {
+          await onAddAttachmentFile(file);
+        }
+        setFileError(null);
+      } catch (e) {
+        setFileError(e instanceof Error ? e.message : String(e));
+      }
+    }
+  };
+
+  const pickFiles = () => {
+    if (!window.dela) return;
+    void window.dela.chat
+      .pickMedia()
+      .then((views) => {
+        let insertPos = editorRef.current?.selectionStart() ?? value.length;
+        for (const view of views) {
+          if (view.kind === 'image') {
+            setChatMediaPreview(view.id, view.previewUrl);
+            const token = `${chatImageToken(view.id, view.name)} `;
+            editorRef.current?.insertAt(insertPos, token);
+            insertPos += token.length;
+          } else {
+            onAddAttachmentView(view);
+          }
+        }
+      })
+      .catch((e) => setFileError(e instanceof Error ? e.message : String(e)));
+  };
+
+  // 候选菜单的键盘协议：菜单打开时消费按键并移动高亮，否则交回编辑器默认行为。
+  const menuApi = {
+    onKey: (key: 'down' | 'up' | 'select' | 'close'): boolean => {
+      if (!menuOpen) return false;
+      if (key === 'close') {
+        setMenu(null);
+        return true;
+      }
+      if (key === 'down') {
+        setIndex((current) => (current + 1) % items.length);
+        return true;
+      }
+      if (key === 'up') {
+        setIndex((current) => (current - 1 + items.length) % items.length);
+        return true;
+      }
+      handleSelect(index);
+      return true;
+    },
+  };
+
+  const canSend = value.trim().length > 0 || hasChatImages(value);
 
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
@@ -100,114 +244,58 @@ export function ChatComposer({
       .catch(() => setProviders([]));
   };
 
-  const slashItems =
-    menu?.kind === 'slash'
-      ? slashCommands.filter((command) => command.name.includes(menu.query))
-      : [];
-  const mentionItems =
-    menu?.kind === 'mention'
-      ? referenceOptions
-          .filter(
-            (option) =>
-              !references.some((ref) => ref.key === option.key) &&
-              option.title.toLowerCase().includes(menu.query.toLowerCase()),
-          )
-          .slice(0, 8)
-      : [];
-  const items = menu?.kind === 'slash' ? slashItems : mentionItems;
-  const menuOpen = menu !== null && items.length > 0;
-
-  useEffect(() => setIndex(0), [menu?.kind, menu?.query]);
-  useEffect(() => {
-    itemRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [index, menuOpen]);
-
-  const restoreCaret = (caret: number) => {
-    requestAnimationFrame(() => {
-      innerRef.current?.focus();
-      innerRef.current?.setSelectionRange(caret, caret);
-    });
-  };
-
-  const handleSelect = (position: number) => {
-    if (!menu) return;
-    const caret = innerRef.current?.selectionStart ?? value.length;
-    if (menu.kind === 'slash') {
-      const command = slashCommands.filter((entry) => entry.name.includes(menu.query))[position];
-      if (!command) return;
-      const { text, caret: nextCaret } = replaceToken(value, menu.start, caret, command.prompt);
-      onChange(text);
-      restoreCaret(nextCaret);
-    } else {
-      const option = referenceOptions.filter(
-        (entry) =>
-          !references.some((ref) => ref.key === entry.key) &&
-          entry.title.toLowerCase().includes(menu.query.toLowerCase()),
-      )[position];
-      if (!option) return;
-      onAddReference(option);
-      const { text, caret: nextCaret } = replaceToken(value, menu.start, caret, '');
-      onChange(text);
-      restoreCaret(nextCaret);
-    }
-    setMenu(null);
-  };
-
-  const handleChange = (next: string) => {
-    onChange(next);
-    setMenu(detectMenu(next, innerRef.current?.selectionStart ?? next.length));
-  };
-
-  const insertMention = () => {
-    const el = innerRef.current;
-    const caret = el?.selectionStart ?? value.length;
-    const { text, caret: nextCaret } = replaceToken(value, caret, caret, '@');
-    handleChange(text);
-    restoreCaret(nextCaret);
-  };
-
-  // IME 组合期间的 Enter 是候选词操作：isComposing 与 keyCode 229 双保险。
-  const isComposing = (event: React.KeyboardEvent) =>
-    composingRef.current || event.nativeEvent.isComposing || event.keyCode === 229;
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (menuOpen) {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        setIndex((current) => (current + 1) % items.length);
-        return;
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        setIndex((current) => (current - 1 + items.length) % items.length);
-        return;
-      }
-      if (event.key === 'Tab' || event.key === 'Enter') {
-        if (isComposing(event)) return;
-        event.preventDefault();
-        handleSelect(index);
-        return;
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setMenu(null);
-        return;
-      }
-    }
-    if (event.key === 'Enter' && !event.shiftKey) {
-      if (isComposing(event)) return;
-      event.preventDefault();
-      if (value.trim()) onSend();
-    }
-  };
-
   return (
     <div
       className={cn(
         'relative rounded-3xl border bg-card shadow-xs transition-colors focus-within:border-ring/60',
         className,
       )}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault();
+          setDragging(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(event) => {
+        setDragging(false);
+        const files = [...(event.dataTransfer?.files ?? [])];
+        if (!files.length) return;
+        event.preventDefault();
+        void addFiles(files, editorRef.current?.selectionStart() ?? value.length);
+      }}
     >
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-3xl border-2 border-dashed border-ring/50 bg-background/80 text-sm text-muted-foreground">
+          松开以添加图片或附件
+        </div>
+      )}
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+          {attachments.map((item) => (
+            <span
+              className="flex min-w-0 max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+              key={item.id}
+            >
+              <FileText className="size-3 shrink-0 text-muted-foreground" />
+              <span className="truncate" title={item.name}>
+                {item.name}
+              </span>
+              <span className="shrink-0 text-muted-foreground">{formatSize(item.size)}</span>
+              <button
+                aria-label={`移除附件 ${item.name}`}
+                className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground"
+                onClick={() => onRemoveAttachment(item.id)}
+                type="button"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       {references.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
           {references.map((ref) => (
@@ -229,31 +317,39 @@ export function ChatComposer({
           ))}
         </div>
       )}
-      <textarea
-        aria-label="发送给助手"
-        className={cn(
-          'field-sizing-content w-full resize-none overflow-y-auto bg-transparent px-4 pt-3.5 pb-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground',
-          hero ? 'min-h-16' : 'min-h-10',
-        )}
-        onChange={(event) => handleChange(event.target.value)}
-        onCompositionEnd={() => {
-          composingRef.current = false;
+      <ComposerEditor
+        handleRef={editorRef}
+        hero={hero}
+        menu={menuApi}
+        onChange={onChange}
+        onCaret={handleCaret}
+        onDropHandled={() => setDragging(false)}
+        onFiles={(files, pos) => void addFiles(files, pos)}
+        onSend={() => {
+          if (canSend) onSend();
         }}
-        onCompositionStart={() => {
-          composingRef.current = true;
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder={
+        placeholderText={
           hero ? '查找资料、安排日程，或继续一个项目…' : '继续对话，@ 引用资料，/ 使用指令…'
         }
-        ref={(element) => {
-          innerRef.current = element;
-          if (inputRef) inputRef.current = element;
-        }}
-        rows={1}
         value={value}
       />
-      <div className="flex items-center gap-1 px-2.5 pb-2.5">
+      {fileError && (
+        <p className="px-4 text-xs text-destructive" role="alert">
+          {fileError}
+        </p>
+      )}
+      <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1">
+        <Button
+          aria-label="添加图片或附件"
+          className="text-muted-foreground"
+          onClick={pickFiles}
+          size="icon-sm"
+          title="添加图片或附件"
+          type="button"
+          variant="ghost"
+        >
+          <Paperclip />
+        </Button>
         <Button
           aria-label="引用资料"
           className="text-muted-foreground"
@@ -263,19 +359,19 @@ export function ChatComposer({
           type="button"
           variant="ghost"
         >
-          <Plus />
+          <AtSign />
         </Button>
         <div className="flex-1" />
         {configured && (
           <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
             <Popover.Trigger asChild>
               <Button
-                className="gap-1 text-xs text-muted-foreground"
+                className="min-w-0 shrink gap-1 text-xs text-muted-foreground"
                 size="sm"
                 type="button"
                 variant="ghost"
               >
-                {model}
+                <span className="truncate">{model}</span>
                 <ChevronDown className="size-3" />
               </Button>
             </Popover.Trigger>
@@ -294,7 +390,7 @@ export function ChatComposer({
                   </p>
                 ) : (
                   <div className="flex gap-0.5">
-                    <ul aria-label="模型服务" className="w-28 shrink-0 overflow-y-auto">
+                    <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
                       {providers.map((provider) => (
                         <li key={provider.id}>
                           <button
@@ -352,6 +448,55 @@ export function ChatComposer({
             </Popover.Portal>
           </Popover.Root>
         )}
+        {configured && (
+          <Popover.Root onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
+            <Popover.Trigger asChild>
+              <Button
+                aria-label="思考强度"
+                className="gap-1 text-xs text-muted-foreground"
+                disabled={effortLevels.length === 0}
+                size="sm"
+                title={effortLevels.length ? '思考强度' : '在设置 › 模型服务 中开启推理强度后可选'}
+                type="button"
+                variant="ghost"
+              >
+                {effort ?? 'default'}
+                <ChevronDown className="size-3" />
+              </Button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                align="end"
+                className="z-50 w-32 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                side="bottom"
+                sideOffset={6}
+              >
+                <ul aria-label="思考强度">
+                  {effortLevels.map((level) => (
+                    <li key={level}>
+                      <button
+                        className={cn(
+                          'flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-xs transition-colors',
+                          level === effort
+                            ? 'bg-accent font-medium text-accent-foreground'
+                            : 'hover:bg-accent/50',
+                        )}
+                        onClick={() => {
+                          setEffortPickerOpen(false);
+                          onEffortSelect(level);
+                        }}
+                        type="button"
+                      >
+                        <span className="truncate">{level}</span>
+                        {level === effort && <Check className="ms-auto size-3.5 shrink-0" />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+        )}
         {busy ? (
           <Button
             aria-label="停止执行"
@@ -366,7 +511,7 @@ export function ChatComposer({
           <Button
             aria-label="发送"
             className="rounded-full"
-            disabled={!configured || !value.trim()}
+            disabled={!configured || !canSend}
             onClick={onSend}
             size="icon-sm"
             type="button"
@@ -387,7 +532,7 @@ export function ChatComposer({
                   'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm',
                   position === index ? 'bg-accent text-accent-foreground' : '',
                 )}
-                // 阻止点击选项时 textarea 失焦。
+                // 阻止点击选项时编辑器失焦。
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => handleSelect(position)}
                 type="button"

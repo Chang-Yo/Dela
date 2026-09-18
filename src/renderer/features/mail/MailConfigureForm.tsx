@@ -13,9 +13,9 @@ export function ConfigureForm({ onSubmit, error, busy }: ConfigureFormProps) {
   const [password, setPassword] = useState('');
 
   return (
-    <div className="grid min-h-0 flex-1 place-items-center p-6">
+    <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
       <form
-        className="grid w-full max-w-[400px] gap-4 rounded-2xl border bg-card p-8 shadow-sm"
+        className="m-auto grid w-full max-w-[400px] gap-4 rounded-2xl border bg-card p-8 shadow-sm"
         onSubmit={(event) => {
           event.preventDefault();
           void onSubmit(address, password);

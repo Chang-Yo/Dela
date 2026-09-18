@@ -3,6 +3,9 @@ import { version } from '../../package.json';
 import type {
   DelaApi,
   CalendarEventInput,
+  ChatAskInput,
+  ChatCommandView,
+  ChatMediaView,
   LlmSaveInput,
   LlmVerifyInput,
   MailComposeFileKind,
@@ -11,6 +14,7 @@ import type {
   MailDraftInput,
   MailSyncStatus,
   MailTrashRetention,
+  ShuiyuanFeed,
   WindowState,
   WorkspaceCreateInput,
   WorkspaceViewState,
@@ -19,10 +23,28 @@ import type {
   IconPreference,
   ZoomPreference,
   FontScalePreference,
+  NotificationFilter,
+  NotificationState,
 } from '../shared/api';
 
 contextBridge.exposeInMainWorld('dela', {
   version,
+  search: {
+    query: (query: string) => ipcRenderer.invoke('search:query', query),
+  },
+  notifications: {
+    getState: (filter?: NotificationFilter) =>
+      ipcRenderer.invoke('notifications:get-state', filter),
+    refresh: () => ipcRenderer.invoke('notifications:refresh'),
+    markRead: (id: string) => ipcRenderer.invoke('notifications:mark-read', id),
+    markAllRead: () => ipcRenderer.invoke('notifications:mark-all-read'),
+    setSnooze: (until: string | null) => ipcRenderer.invoke('notifications:set-snooze', until),
+    onUpdate: (listener: (state: NotificationState) => void) => {
+      const subscription = (_event: unknown, state: NotificationState) => listener(state);
+      ipcRenderer.on('notifications:state', subscription);
+      return () => ipcRenderer.removeListener('notifications:state', subscription);
+    },
+  },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
@@ -53,7 +75,20 @@ contextBridge.exposeInMainWorld('dela', {
     remove: (id: string) => ipcRenderer.invoke('llm:remove', id),
     setActive: (id: string) => ipcRenderer.invoke('llm:set-active', id),
     setModel: (model: string) => ipcRenderer.invoke('llm:set-model', model),
+    setEffort: (level: string) => ipcRenderer.invoke('llm:set-effort', level),
     verify: (input: LlmVerifyInput) => ipcRenderer.invoke('llm:verify', input),
+  },
+  chat: {
+    stageMedia: (input: { name: string; bytes: ArrayBuffer | Uint8Array }) =>
+      ipcRenderer.invoke('chat:stage-media', input) as Promise<ChatMediaView>,
+    pickMedia: () => ipcRenderer.invoke('chat:pick-media') as Promise<ChatMediaView[]>,
+    readMediaPreview: (id: string) =>
+      ipcRenderer.invoke('chat:read-media-preview', id) as Promise<string | null>,
+    releaseMedia: (ids: readonly string[]) => ipcRenderer.invoke('chat:release-media', ids),
+    listCommands: () => ipcRenderer.invoke('chat:list-commands') as Promise<ChatCommandView[]>,
+    saveCommand: (input: { id?: string; name: string; prompt: string }) =>
+      ipcRenderer.invoke('chat:save-command', input) as Promise<ChatCommandView>,
+    deleteCommand: (id: string) => ipcRenderer.invoke('chat:delete-command', id),
   },
   mail: {
     getState: () => ipcRenderer.invoke('mail:get-state'),
@@ -115,6 +150,35 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('timetable:set-semester-start', semester, value),
     syncNow: (semester?: string) => ipcRenderer.invoke('timetable:sync', semester),
   },
+  shuiyuan: {
+    getState: () => ipcRenderer.invoke('shuiyuan:get-state'),
+    startAuth: () => ipcRenderer.invoke('shuiyuan:start-auth'),
+    bind: (payload: string) => ipcRenderer.invoke('shuiyuan:bind', payload),
+    unbind: () => ipcRenderer.invoke('shuiyuan:unbind'),
+    siteStructure: () => ipcRenderer.invoke('shuiyuan:site-structure'),
+    listTopics: (feed: ShuiyuanFeed, moreUrl?: string) =>
+      ipcRenderer.invoke('shuiyuan:list-topics', feed, moreUrl),
+    getTopic: (id: number, postNumber?: number) =>
+      ipcRenderer.invoke('shuiyuan:get-topic', id, postNumber),
+    loadPosts: (topicId: number, postIds: readonly number[]) =>
+      ipcRenderer.invoke('shuiyuan:load-posts', topicId, [...postIds]),
+    listBookmarks: () => ipcRenderer.invoke('shuiyuan:list-bookmarks'),
+    listMessages: () => ipcRenderer.invoke('shuiyuan:list-messages'),
+    listNotifications: () => ipcRenderer.invoke('shuiyuan:list-notifications'),
+    markNotificationsRead: () => ipcRenderer.invoke('shuiyuan:mark-notifications-read'),
+    getCounts: () => ipcRenderer.invoke('shuiyuan:get-counts'),
+    createReply: (topicId: number, raw: string, replyToPostNumber?: number) =>
+      ipcRenderer.invoke('shuiyuan:create-reply', topicId, raw, replyToPostNumber),
+    uploadFile: (fileName: string, base64: string) =>
+      ipcRenderer.invoke('shuiyuan:upload-file', fileName, base64),
+    createMessage: (to: readonly string[], title: string, raw: string) =>
+      ipcRenderer.invoke('shuiyuan:create-message', [...to], title, raw),
+    setBookmarked: (topicId: number, on: boolean) =>
+      ipcRenderer.invoke('shuiyuan:set-bookmarked', topicId, on),
+    addSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:add-source-ref', topicId),
+    getSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:get-source-ref', topicId),
+    readSource: (topicId: number) => ipcRenderer.invoke('shuiyuan:read-source', topicId),
+  },
   canvas: {
     getState: () => ipcRenderer.invoke('canvas:get-state'),
     configure: (token: string) => ipcRenderer.invoke('canvas:configure', token),
@@ -156,8 +220,7 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('workspace:open-chat', scope, sessionId),
     deleteChat: (scope: string, sessionId: string) =>
       ipcRenderer.invoke('workspace:delete-chat', scope, sessionId),
-    ask: (scope: string, prompt: string, context: string[]) =>
-      ipcRenderer.invoke('workspace:ask', scope, prompt, context),
+    ask: (scope: string, input: ChatAskInput) => ipcRenderer.invoke('workspace:ask', scope, input),
     cancelAsk: (scope: string) => ipcRenderer.invoke('workspace:cancel-ask', scope),
     onChatUpdate: (listener: (scope: string, chat: WorkspaceChat) => void) => {
       const subscription = (_event: unknown, scope: string, chat: WorkspaceChat) =>

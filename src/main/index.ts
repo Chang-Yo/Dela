@@ -6,8 +6,17 @@ import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
 import { checkWorkspaceSender } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
+import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
+import { registerSearchIpc } from './search';
+import {
+  initializeNotifications,
+  registerNotificationsIpc,
+  refreshNotifications,
+} from './notifications';
+import { getMailState, startMailSync } from './mail/api';
+import { gcChatMedia } from './agent/media';
 import type { IconPreference, ThemePreference } from '../shared/api';
 import { fontScaleLevels, zoomLevels } from '../shared/api';
 
@@ -130,6 +139,11 @@ function registerSettingsIpc(): void {
 }
 
 const smokeTest = process.argv.includes('--smoke-test');
+// 水源通知每分钟更新；IMAP 沿用现有增量同步，每五分钟检查一次。
+const NOTIFICATION_REFRESH_MS = 60_000;
+const MAIL_REFRESH_MS = 5 * 60_000;
+let notificationTimer: ReturnType<typeof setInterval> | undefined;
+let mailTimer: ReturnType<typeof setInterval> | undefined;
 if (smokeTest) {
   setTimeout(() => {
     console.error('Smoke check timed out');
@@ -146,7 +160,31 @@ app.whenReady().then(() => {
   registerMailIpc();
   registerTimetableIpc();
   registerCanvasIpc();
+  registerShuiyuanIpc();
   registerWorkspaceIpc();
+  registerSearchIpc();
+  registerNotificationsIpc();
+  initializeNotifications();
+  // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
+  gcChatMedia();
+  if (!smokeTest) {
+    const refresh = () => {
+      void refreshNotifications().catch((error: unknown) =>
+        console.error('Notification refresh failed', error),
+      );
+    };
+    const syncMail = () => {
+      try {
+        if (getMailState().account) startMailSync();
+      } catch (error) {
+        console.error('Mail background sync failed', error);
+      }
+    };
+    refresh();
+    syncMail();
+    notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
+    mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
+  }
 });
 
 async function createWindow(): Promise<void> {
@@ -218,9 +256,13 @@ async function createWindow(): Promise<void> {
     if (new URL(devUrl).origin !== 'http://127.0.0.1:5173') {
       throw new Error('Unexpected development server origin');
     }
-    await window.loadURL(devUrl);
+    // 冒烟运行经 URL 参数告知 renderer 跳过首启开屏等一次性界面。
+    await window.loadURL(smokeTest ? `${devUrl}?smoke-test=1` : devUrl);
   } else {
-    await window.loadFile(join(__dirname, '../renderer/index.html'));
+    await window.loadFile(
+      join(__dirname, '../renderer/index.html'),
+      smokeTest ? { query: { 'smoke-test': '1' } } : undefined,
+    );
   }
   // 恢复持久化的页面缩放；在页面加载后设置，避免导航重置缩放级别。
   window.webContents.setZoomFactor(savedZoom());
@@ -256,6 +298,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin' || smokeTest) app.quit();
 });
 app.on('will-quit', () => {
+  clearInterval(notificationTimer);
+  clearInterval(mailTimer);
   closeDatabase();
 });
 app.on('activate', () => {

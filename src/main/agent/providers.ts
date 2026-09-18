@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { LlmProviderView, LlmVerifyResult } from '../../shared/api';
+import { reasoningEffortLevels } from '../../shared/llm-presets';
 import {
   loadLlmConfig,
   saveLlmConfig,
@@ -18,6 +19,7 @@ const baseUrlSchema = z
 const apiKeySchema = z.string().max(4096);
 const modelIdSchema = z.string().trim().min(1).max(200);
 const modelsSchema = z.array(modelIdSchema).min(1).max(64);
+const effortLevelsSchema = z.array(z.enum(reasoningEffortLevels)).max(8).optional();
 
 const saveInputSchema = z
   .object({
@@ -27,19 +29,29 @@ const saveInputSchema = z
     apiKey: apiKeySchema.optional(),
     models: modelsSchema,
     model: modelIdSchema,
+    effortLevels: effortLevelsSchema,
     presetId: z.string().max(64).nullable().optional(),
   })
   .refine((input) => input.models.includes(input.model), {
     message: '默认模型必须在模型列表中',
   });
 
+/** 去重并按固定强度顺序排列，避免多选顺序影响存储与展示。 */
+function normalizeEffortLevels(levels: string[] | undefined): string[] {
+  if (!levels?.length) return [];
+  return reasoningEffortLevels.filter((level) => levels.includes(level));
+}
+
 function viewOf(provider: StoredLlmProvider, activeId: string | null): LlmProviderView {
+  const effortLevels = provider.effortLevels ?? [];
   return {
     id: provider.id,
     name: provider.name,
     baseUrl: provider.baseUrl,
     models: provider.models,
     model: provider.model,
+    effortLevels,
+    effort: effortLevels.length ? (provider.effort ?? effortLevels[0]!) : null,
     presetId: provider.presetId,
     active: provider.id === activeId,
   };
@@ -61,6 +73,7 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
   const parsed = saveInputSchema.parse(input);
   const baseUrl = parsed.baseUrl.replace(/\/+$/, '');
   const presetId = parsed.presetId ?? null;
+  const effortLevels = normalizeEffortLevels(parsed.effortLevels);
   const config = loadLlmConfig();
   let provider: StoredLlmProvider | undefined;
   if (parsed.id) {
@@ -71,6 +84,7 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       baseUrl,
       models: parsed.models,
       model: parsed.model,
+      effortLevels,
       presetId,
     });
     if (parsed.apiKey) provider.apiKey = parsed.apiKey;
@@ -83,10 +97,14 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       apiKey: parsed.apiKey,
       models: parsed.models,
       model: parsed.model,
+      effortLevels,
       presetId,
     };
     config.providers.push(provider);
   }
+  // 档位变化后收敛当前档位：仍在列表内则保留，否则回到第一档；关闭则清除。
+  if (provider.effort && !effortLevels.includes(provider.effort)) provider.effort = undefined;
+  if (!provider.effort && effortLevels.length) provider.effort = effortLevels[0];
   saveLlmConfig(config);
   return viewOf(provider, config.activeId);
 }
@@ -117,6 +135,18 @@ export function setLlmModel(model: string): void {
   if (!provider) throw new Error('请先在设置中配置模型服务');
   if (!provider.models.includes(parsed)) throw new Error('模型不在当前提供商的模型列表中');
   provider.model = parsed;
+  saveLlmConfig(config);
+}
+
+export function setLlmEffort(level: string): void {
+  const parsed = z.enum(reasoningEffortLevels).parse(level);
+  const config: StoredLlmConfig = loadLlmConfig();
+  const provider = config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey);
+  if (!provider) throw new Error('请先在设置中配置模型服务');
+  const levels = provider.effortLevels ?? [];
+  if (!levels.includes(parsed))
+    throw new Error('该档位不在当前提供商开启的推理强度列表中，请先在设置中勾选');
+  provider.effort = parsed;
   saveLlmConfig(config);
 }
 

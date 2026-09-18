@@ -9,6 +9,20 @@ export interface LlmProviderPreset {
   keyUrl?: string;
 }
 
+/** 推理强度档位：跨提供商的超集，按强度递增排序；开启后用户多选暴露给 composer 的子集。 */
+export const reasoningEffortLevels = [
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+] as const;
+
+export type ReasoningEffortLevel = (typeof reasoningEffortLevels)[number];
+
 export const llmProviderPresets: readonly LlmProviderPreset[] = [
   {
     id: 'zhiyuan',

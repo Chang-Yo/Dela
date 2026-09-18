@@ -2,20 +2,22 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { CalendarDays, Folder, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
+import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { cn } from '../../lib/utils';
 import type { MailTrashRetention } from '../../../shared/api';
+import { CanvasTokenForm } from '../sources/CanvasTokenForm';
 import { SectionHeader } from './SectionHeader';
 import { errorText, useWorkspace } from '../projects/workspace';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;
+  onOpenShuiyuan: () => void;
   onOpenTimetable: () => void;
 };
 
 type Connection = {
   name: string;
-  icon: LucideIcon;
+  icon: LucideIcon | typeof ShuiyuanIcon;
   state: string;
   connected: boolean;
   description: string;
@@ -25,74 +27,86 @@ type Connection = {
   extra?: ReactNode;
 };
 
-export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsSectionProps) {
+export function ConnectionsSection({
+  onOpenMail,
+  onOpenShuiyuan,
+  onOpenTimetable,
+}: ConnectionsSectionProps) {
   const canvas = useWorkspace((state) => state.canvas);
   const directory = useWorkspace((state) => state.workspace.directory);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
   const [retentionError, setRetentionError] = useState<string | null>(null);
   const [timetableConnected, setTimetableConnected] = useState(false);
+  const [shuiyuanUser, setShuiyuanUser] = useState<string | null>(null);
+  const [shuiyuanBusy, setShuiyuanBusy] = useState(false);
+  const [shuiyuanConfirm, setShuiyuanConfirm] = useState(false);
+  const [shuiyuanError, setShuiyuanError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'canvas' | null>(null);
-  const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
   useEffect(() => {
     const dela = window.dela;
     if (!dela) return undefined;
     let active = true;
-    void Promise.all([dela.mail.getState(), dela.timetable.getState()]).then(
-      ([mailState, timetableState]) => {
-        if (!active) return;
-        setMailAddress(mailState.account?.address ?? null);
-        setTimetableConnected(timetableState.connected);
-        if (mailState.account) {
-          void dela.mail
-            .getTrashRetention()
-            .then((value) => {
-              if (active) setTrashRetention(value);
-            })
-            .catch(() => {});
-        }
-      },
-    );
+    void Promise.all([
+      dela.mail.getState(),
+      dela.timetable.getState(),
+      dela.shuiyuan.getState(),
+    ]).then(([mailState, timetableState, shuiyuanState]) => {
+      if (!active) return;
+      setMailAddress(mailState.account?.address ?? null);
+      setTimetableConnected(timetableState.connected);
+      setShuiyuanUser(shuiyuanState.connected ? shuiyuanState.username : null);
+      if (mailState.account) {
+        void dela.mail
+          .getTrashRetention()
+          .then((value) => {
+            if (active) setTrashRetention(value);
+          })
+          .catch(() => {});
+      }
+    });
     return () => {
       active = false;
     };
   }, []);
 
-  const openDialog = () => {
-    setDialog('canvas');
-    setKey('');
-    setError(null);
+  // 水源解绑：先远端 revoke 再清本地；两步确认防误触（重新授权成本高）。
+  const unbindShuiyuan = async () => {
+    if (!window.dela || !shuiyuanConfirm) {
+      setShuiyuanConfirm(true);
+      return;
+    }
+    setShuiyuanBusy(true);
+    setShuiyuanError(null);
+    try {
+      await window.dela.shuiyuan.unbind();
+      setShuiyuanUser(null);
+      setShuiyuanConfirm(false);
+    } catch (cause) {
+      setShuiyuanError(errorText(cause));
+    } finally {
+      setShuiyuanBusy(false);
+    }
   };
 
-  const configure = async () => {
-    if (!window.dela || dialog !== 'canvas') return;
-    setBusy(true);
-    setError(null);
-    try {
-      await window.dela.canvas.configure(key);
-      useWorkspace.getState().setCanvas(await window.dela.canvas.syncCourses());
-      setDialog(null);
-      setKey('');
-    } catch (cause) {
-      setError(errorText(cause));
-    } finally {
-      setBusy(false);
-    }
+  const openDialog = () => {
+    setDialog('canvas');
+    setDisconnectError(null);
   };
 
   const disconnectCanvas = async () => {
     if (!window.dela) return;
     setBusy(true);
-    setError(null);
+    setDisconnectError(null);
     try {
       await window.dela.canvas.disconnect();
       useWorkspace.getState().setCanvas(await window.dela.canvas.getState());
       setDialog(null);
     } catch (cause) {
-      setError(errorText(cause));
+      setDisconnectError(errorText(cause));
     } finally {
       setBusy(false);
     }
@@ -172,6 +186,26 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
       onClick: onOpenTimetable,
     },
     {
+      name: '水源社区',
+      icon: ShuiyuanIcon,
+      state: shuiyuanUser ? `已绑定 · @${shuiyuanUser}` : '未绑定',
+      connected: Boolean(shuiyuanUser),
+      description: '浏览帖子、回复与私信（读取 + 写入授权）',
+      actionLabel: shuiyuanUser
+        ? shuiyuanBusy
+          ? '解除中…'
+          : shuiyuanConfirm
+            ? '确认解除？'
+            : '解除绑定'
+        : '去绑定',
+      onClick: shuiyuanUser ? () => void unbindShuiyuan() : onOpenShuiyuan,
+      extra: shuiyuanError ? (
+        <span className="text-xs text-destructive" role="alert">
+          {shuiyuanError}
+        </span>
+      ) : undefined,
+    },
+    {
       name: '工作目录',
       icon: Folder,
       state: directory ? '已设置' : '未选择',
@@ -196,9 +230,11 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
                   <Icon className="size-4 text-muted-foreground" strokeWidth={1.8} />
                 </span>
-                <div className="grid gap-0.5">
+                <div className="grid min-w-0 gap-0.5">
                   <strong className="text-sm">{name}</strong>
-                  <span className="text-xs text-muted-foreground">{description}</span>
+                  <span className="truncate text-xs text-muted-foreground" title={description}>
+                    {description}
+                  </span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -234,43 +270,26 @@ export function ConnectionsSection({ onOpenMail, onOpenTimetable }: ConnectionsS
                 ? '输入新的个人 Access Token 以替换当前连接，或断开并删除当前凭据。'
                 : '输入个人 Access Token。验证成功后会读取课程列表，凭据仅由主进程加密保存。'}
             </Dialog.Description>
-            <form
-              className="mt-4 grid gap-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void configure();
-              }}
-            >
-              <label className="grid gap-2 text-sm">
-                Access Token
-                <Input
-                  autoComplete="off"
-                  autoFocus
-                  onChange={(event) => setKey(event.target.value)}
-                  required
-                  type="password"
-                  value={key}
-                />
-              </label>
-              {error && (
-                <p className="text-xs text-destructive" role="alert">
-                  {error}
-                </p>
-              )}
-              <div className="flex items-center justify-end gap-2">
-                {canvas.connected && (
-                  <Button disabled={busy} onClick={() => void disconnectCanvas()} variant="ghost">
-                    断开
+            <CanvasTokenForm
+              actions={
+                <>
+                  {canvas.connected && (
+                    <Button disabled={busy} onClick={() => void disconnectCanvas()} variant="ghost">
+                      断开
+                    </Button>
+                  )}
+                  <Button disabled={busy} onClick={() => setDialog(null)} variant="ghost">
+                    取消
                   </Button>
-                )}
-                <Button disabled={busy} onClick={() => setDialog(null)} variant="ghost">
-                  取消
-                </Button>
-                <Button disabled={busy} type="submit">
-                  {busy ? '处理中…' : '保存并连接'}
-                </Button>
-              </div>
-            </form>
+                </>
+              }
+              onSuccess={() => setDialog(null)}
+            />
+            {disconnectError && (
+              <p className="mt-2 text-xs text-destructive" role="alert">
+                {disconnectError}
+              </p>
+            )}
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

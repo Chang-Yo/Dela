@@ -12,14 +12,12 @@ const PdfReader = lazy(() =>
 export function SourceDetail({
   content,
   text,
-  onQuote,
   onLink,
   onScroll,
   scroll = 0,
 }: {
   content: DocumentContent;
   text?: string;
-  onQuote: (text: string) => void;
   onLink: (url: string) => void;
   onScroll?: (top: number) => void;
   scroll?: number;
@@ -83,9 +81,6 @@ export function SourceDetail({
           const doc = frame.contentDocument;
           if (!doc) return;
           frame.contentWindow?.scrollTo(0, scroll);
-          doc.addEventListener('mouseup', () =>
-            onQuote(frame.contentWindow?.getSelection()?.toString() ?? ''),
-          );
           doc.addEventListener('click', (e) => {
             const target = (e.target as Element).closest?.('a[href]');
             if (target) {
@@ -107,7 +102,6 @@ export function SourceDetail({
           url={content.previewUrl}
           scroll={scroll}
           onScroll={onScroll}
-          onQuote={onQuote}
         />
       </Suspense>
     ) : (
@@ -130,7 +124,6 @@ export function SourceDetail({
       className="min-h-0 flex-1 overflow-auto p-6 text-sm leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
       ref={scrollContainer}
       onScroll={(event) => onScroll?.(event.currentTarget.scrollTop)}
-      onMouseUp={() => onQuote(window.getSelection()?.toString() ?? '')}
     >
       {content.format === 'markdown' ? (
         <ReactMarkdown

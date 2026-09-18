@@ -1,0 +1,123 @@
+import { ipcMain } from 'electron';
+import { z } from 'zod';
+import type { GlobalSearchResult } from '../shared/api';
+import { getDatabase } from './database';
+import { checkWorkspaceSender } from './ipc';
+
+const querySchema = z.string().trim().max(200);
+const perKindLimit = 10;
+
+function likePattern(query: string): string {
+  return `%${query.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_')}%`;
+}
+
+type ProjectRow = { id: string; title: string; updatedAt: string };
+type ChatRow = { id: string; scope: string; title: string; subtitle: string; updatedAt: string };
+type MailRow = {
+  id: number;
+  subject: string | null;
+  senderName: string | null;
+  senderAddress: string | null;
+  snippet: string | null;
+  date: string | null;
+};
+type CanvasFileRow = { id: string; title: string; courseName: string | null };
+
+/**
+ * Searches only data already stored in Dela's SQLite database. In particular,
+ * Canvas files are matched by their cached title and never downloaded here.
+ */
+export function queryGlobalSearch(query: string): GlobalSearchResult[] {
+  const db = getDatabase();
+  const pattern = likePattern(query);
+  const projects = (
+    query
+      ? db
+          .prepare(
+            "SELECT id, name AS title, updated_at AS updatedAt FROM workspace_entries WHERE kind='project' AND name LIKE ? ESCAPE '!' ORDER BY updated_at DESC LIMIT ?",
+          )
+          .all(pattern, perKindLimit)
+      : db
+          .prepare(
+            "SELECT id, name AS title, updated_at AS updatedAt FROM workspace_entries WHERE kind='project' ORDER BY updated_at DESC LIMIT ?",
+          )
+          .all(perKindLimit)
+  ) as ProjectRow[];
+  const chats = (
+    query
+      ? db
+          .prepare(
+            "SELECT chat_sessions.id, chat_sessions.scope, chat_sessions.title, coalesce(project.name, case chat_sessions.scope when 'home' then '首页' when 'sources' then '资料' when 'projects' then '项目' else '项目对话' end) AS subtitle, chat_sessions.updated_at AS updatedAt FROM chat_sessions LEFT JOIN workspace_entries AS project ON project.id=chat_sessions.scope AND project.kind='project' WHERE chat_sessions.title LIKE ? ESCAPE '!' OR (json_valid(chat_sessions.messages) AND EXISTS (SELECT 1 FROM json_each(chat_sessions.messages) WHERE json_extract(value, '$.content') LIKE ? ESCAPE '!')) ORDER BY chat_sessions.updated_at DESC LIMIT ?",
+          )
+          .all(pattern, pattern, perKindLimit)
+      : db
+          .prepare(
+            "SELECT chat_sessions.id, chat_sessions.scope, chat_sessions.title, coalesce(project.name, case chat_sessions.scope when 'home' then '首页' when 'sources' then '资料' when 'projects' then '项目对话' else '项目对话' end) AS subtitle, chat_sessions.updated_at AS updatedAt FROM chat_sessions LEFT JOIN workspace_entries AS project ON project.id=chat_sessions.scope AND project.kind='project' ORDER BY chat_sessions.updated_at DESC LIMIT ?",
+          )
+          .all(perKindLimit)
+  ) as ChatRow[];
+  const mail = (
+    query
+      ? db
+          .prepare(
+            "SELECT id, subject, sender_name AS senderName, sender_address AS senderAddress, snippet, date FROM mail_messages WHERE deleted_at IS NULL AND (subject LIKE ? ESCAPE '!' OR sender_name LIKE ? ESCAPE '!' OR sender_address LIKE ? ESCAPE '!' OR snippet LIKE ? ESCAPE '!' OR body_text LIKE ? ESCAPE '!') ORDER BY date DESC LIMIT ?",
+          )
+          .all(pattern, pattern, pattern, pattern, pattern, perKindLimit)
+      : db
+          .prepare(
+            'SELECT id, subject, sender_name AS senderName, sender_address AS senderAddress, snippet, date FROM mail_messages WHERE deleted_at IS NULL ORDER BY date DESC LIMIT ?',
+          )
+          .all(perKindLimit)
+  ) as MailRow[];
+  const files = (
+    query
+      ? db
+          .prepare(
+            "SELECT canvas_sources.id, json_extract(canvas_sources.data, '$.title') AS title, json_extract(canvas_courses.data, '$.name') AS courseName FROM canvas_sources LEFT JOIN canvas_courses ON canvas_courses.id=canvas_sources.course_id WHERE json_extract(canvas_sources.data, '$.kind')='file' AND json_extract(canvas_sources.data, '$.title') LIKE ? ESCAPE '!' ORDER BY canvas_sources.id LIMIT ?",
+          )
+          .all(pattern, perKindLimit)
+      : db
+          .prepare(
+            "SELECT canvas_sources.id, json_extract(canvas_sources.data, '$.title') AS title, json_extract(canvas_courses.data, '$.name') AS courseName FROM canvas_sources LEFT JOIN canvas_courses ON canvas_courses.id=canvas_sources.course_id WHERE json_extract(canvas_sources.data, '$.kind')='file' ORDER BY canvas_sources.id LIMIT ?",
+          )
+          .all(perKindLimit)
+  ) as CanvasFileRow[];
+
+  return [
+    ...projects.map((row) => ({
+      kind: 'project' as const,
+      id: row.id,
+      title: row.title,
+      subtitle: null,
+      target: { page: 'projects' as const, entryId: row.id },
+    })),
+    ...chats.map((row) => ({
+      kind: 'chat' as const,
+      id: row.id,
+      title: row.title,
+      subtitle: row.subtitle,
+      target: { page: 'chat' as const, scope: row.scope, sessionId: row.id },
+    })),
+    ...mail.map((row) => ({
+      kind: 'mail' as const,
+      id: row.id,
+      title: row.subject || '(无主题)',
+      subtitle: row.senderName || row.senderAddress || row.snippet,
+      target: { page: 'mail' as const, messageId: row.id },
+    })),
+    ...files.map((row) => ({
+      kind: 'course-file' as const,
+      id: row.id,
+      title: row.title,
+      subtitle: row.courseName,
+      target: { page: 'sources' as const, sourceId: row.id },
+    })),
+  ];
+}
+
+export function registerSearchIpc(): void {
+  ipcMain.handle('search:query', (event, query: unknown) => {
+    checkWorkspaceSender(event);
+    return queryGlobalSearch(querySchema.parse(query));
+  });
+}

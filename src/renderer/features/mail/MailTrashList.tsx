@@ -101,7 +101,7 @@ export function MailTrashList({
                         strokeWidth={1.8}
                       />
                     )}
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="min-w-0 truncate text-xs text-muted-foreground">
                       {item.folderName ?? '未知文件夹'}
                     </span>
                   </span>
