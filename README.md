@@ -311,3 +311,11 @@ src/main 按 mail、canvas、timetable、workspace、agent 分类，每个领域
 - 远端其余功能（水源社区、全局搜索与通知中心、首启引导、设计统一化）完整并入；`settings` 的 `SettingsSectionId` 上移 shared 并加入本地新增的 `plugins` 分区。chat-smoke 重写为合并后语义（composer 菜单 + effort 控件 + 占位步骤 + 类别摘要 + WorkedBlock + CM6 草稿持久化），并带 `smoke-test=1` 跳过首启引导。
 
 验证：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、102 项单元测试（含远端 effort/providers/shuiyuan 用例与本地图文混排/停止用例）、`pnpm smoke`、`pnpm smoke:workspace`、chat-smoke 全部通过；截图核对 WorkedBlock 折叠与 composer 控件。合并中的已知取舍：图片/附件不随草稿持久化；远端时间线的流光计时与每步耗时按用户 9-18 反馈移除（git 历史可溯）。
+
+## VS Code 风格编辑器可靠性改造（2026-09-18）
+
+编辑器工作区按 VS Code 的 Explorer、标签、编辑器组、面包屑和状态提示原则改造中，继续保留 Dela 的轻量 Markdown/资料阅读边界。文档草稿按文档 key 共享；编辑器组接线使用独立的 `editorStateKey` 保留各自的光标、滚动位置和 CodeMirror 撤销历史，具体分栏行为仍待并行 `ProjectView` 改动完成后验收。外部草稿回填使用最小差异同步，避开 IME 组文，且不进入撤销栈；文件名变化会重新应用对应语言支持。
+
+保存请求按文档串行化并共享进行中的 Promise。自动保存、Ctrl/⌘+S、批量保存和关闭前保存等待同一结果；保存失败会保留脏草稿并在文档工具栏显示错误，关闭操作不能静默丢弃内容。文档工具栏明确显示只读、保存中、未保存和已保存状态，编辑器底部显示当前行列。强制重新载入只在读取期间没有更新草稿时替换内容，避免后台刷新覆盖新输入。
+
+当前检查点：相关文件 Prettier、Oxlint、`git diff --check` 和 `src/renderer/features/projects/workspace.test.ts` 的 3 项保存/刷新回归通过。完整 renderer 类型检查、生产构建、Electron 冒烟和 UI 探针尚未运行；真实 IME 手感、分栏同文档、按组滚动恢复、关闭失败和打包后行为均未验收。并行 `ProjectView.tsx` 接线还需确认关闭前 `release()` 失败时不会先从标签栏移除文档，并在真正关闭最后一个编辑组后清理对应 editor session。

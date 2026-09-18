@@ -1,20 +1,23 @@
 import { MotionConfig, motion } from 'framer-motion';
-import whiteLogo from '../../../../assets/Dela_white_bg.svg';
+import logo from '../../../../assets/Dela_Logo.png';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 
-// Quote 文案常量；与设置 › 关于的品牌语保持一致，要换从这一处改。
-const QUOTE_TEXT = 'The world keeps changing. Dela stays with you.';
+// 品牌名与 Quote 均用手写体 Italianno（--font-script）。
+const QUOTE_TEXT = 'In a shallow age, refuse to float.';
+const QUOTE_AUTHOR = 'ChangYo';
 
-// Intro 时间线（秒）：纯白停留 → 视频溶解淡入 → 品牌从中心复现 → Quote 左→右流式 → CTA 浮现。
-// 视频出现后保持低透明度继续播放，作为品牌层背后的氛围。
-const blankSeconds = 0.7;
-const videoFadeSeconds = 1.4;
-const brandAtSeconds = 3.2;
-const brandSeconds = 1.5;
-const quoteAtSeconds = 4.6;
-const quoteSeconds = 1.8;
-const ctaAtSeconds = 6.2;
-const videoDimAtSeconds = 4;
+// Intro 时间线（秒）：Logo 浮现 → Dela 名字淡入 → Quote 左→右流式 → 署名流式 →
+// 停顿约 3 秒 → CTA 浮现。动画只用透明度、位移与 clip-path 揭示——缩放插值在
+// 低性能机器上易掉帧；各元素自上而下依次出现，视线单方向移动。
+const logoAtSeconds = 0.35;
+const logoSeconds = 1;
+const nameAtSeconds = 1.2;
+const nameSeconds = 0.8;
+const quoteAtSeconds = 2.1;
+const quoteSeconds = 1.7;
+const authorAtSeconds = 4;
+const authorSeconds = 0.8;
+const ctaAtSeconds = 7.3;
 
 // 可选视频槽位：把成片放到 assets/intro.mp4（H.264、静音）即自动启用；
 // 文件不存在时用品牌色动效占位，组件结构不变。
@@ -23,20 +26,14 @@ const introVideos = import.meta.glob<{ default: string }>('../../../../assets/in
 });
 const introVideoUrl = Object.values(introVideos)[0]?.default;
 
-// 氛围层透明度关键帧（相对动画时间）：blank 纯白停留后开始溶解淡入 videoFade 时长，
-// brand 复现起压暗至 0.28，退为品牌层背后的氛围。
+// 氛围层透明度关键帧（相对动画时间）：blank 纯白停留后溶解淡入，品牌出现后压暗退为背景。
 const ambience = {
-  delay: blankSeconds,
-  duration: videoDimAtSeconds - blankSeconds,
-  times: [
-    0,
-    videoFadeSeconds / (videoDimAtSeconds - blankSeconds),
-    (brandAtSeconds - blankSeconds) / (videoDimAtSeconds - blankSeconds),
-    1,
-  ],
+  delay: logoAtSeconds,
+  duration: 3.6,
+  times: [0, 0.4, 1],
 };
 
-/** 首启引导的开场：溶解淡入的视频（或占位动效）之上，品牌、Quote 与开始按钮依次复现。 */
+/** 首启引导的开场：氛围层之上，透明底 Logo、手写体品牌名与 Quote 依次复现。 */
 export function IntroSequence({ onStart }: { onStart: () => void }) {
   return (
     <MotionConfig reducedMotion="user">
@@ -45,10 +42,11 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
         data-onboarding-intro=""
       >
         <OnboardingWindowBar />
-        <div className="relative grid place-items-center overflow-hidden pb-10">
-          {/* 氛围层：视频或占位动效。先溶解淡入，品牌出现后压暗退为背景。 */}
+        {/* pb 让品牌列整体居中偏上，Logo 视觉重心落在画面上半部。 */}
+        <div className="relative grid place-items-center overflow-hidden pb-[10vh]">
+          {/* 氛围层：视频或占位动效。溶解淡入后压暗，退为品牌层背后的氛围。 */}
           <motion.div
-            animate={{ opacity: [0, 1, 1, 0.28] }}
+            animate={{ opacity: [0, 1, 0.28] }}
             className="absolute inset-0"
             initial={{ opacity: 0 }}
             transition={{
@@ -88,31 +86,43 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             )}
           </motion.div>
 
-          {/* 品牌层：Logo 与名字从中心缓缓复现，随后 Quote 自左向右流式显现。 */}
+          {/* 品牌层：Logo 浮现，名字与 Quote 依次复现，Quote 自左向右流式显现。 */}
           <div className="relative flex flex-col items-center">
-            <motion.div
-              animate={{ opacity: 1, scale: 1 }}
-              initial={{ opacity: 0, scale: 0.86 }}
-              transition={{ delay: brandAtSeconds, duration: brandSeconds, ease: 'easeOut' }}
-            >
-              <img alt="Dela" className="h-20 w-20" src={whiteLogo} />
-            </motion.div>
+            <motion.img
+              alt="Dela"
+              animate={{ opacity: 1, y: 0 }}
+              className="size-[264px]"
+              initial={{ opacity: 0, y: 28 }}
+              src={logo}
+              transition={{ delay: logoAtSeconds, duration: logoSeconds, ease: 'easeOut' }}
+            />
             <motion.h1
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 text-4xl font-semibold tracking-tight"
-              initial={{ opacity: 0, y: 12 }}
-              transition={{ delay: brandAtSeconds + 0.25, duration: brandSeconds, ease: 'easeOut' }}
+              className="mt-6 font-script text-8xl leading-none"
+              initial={{ opacity: 0, y: 18 }}
+              transition={{ delay: nameAtSeconds, duration: nameSeconds, ease: 'easeOut' }}
             >
               Dela
             </motion.h1>
-            <motion.p
-              animate={{ clipPath: 'inset(0 0% 0 0)' }}
-              className="mt-8 text-sm tracking-wide text-neutral-500"
-              initial={{ clipPath: 'inset(0 100% 0 0)' }}
-              transition={{ delay: quoteAtSeconds, duration: quoteSeconds, ease: 'easeInOut' }}
-            >
-              {QUOTE_TEXT}
-            </motion.p>
+            {/* Quote 与署名右对齐成签名式收尾；包裹块由外层列居中。 */}
+            <div className="flex flex-col items-end">
+              <motion.p
+                animate={{ clipPath: 'inset(0 0% 0 0)' }}
+                className="mt-4 font-script text-5xl text-neutral-600"
+                initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                transition={{ delay: quoteAtSeconds, duration: quoteSeconds, ease: 'easeInOut' }}
+              >
+                {QUOTE_TEXT}
+              </motion.p>
+              <motion.p
+                animate={{ clipPath: 'inset(0 0% 0 0)' }}
+                className="mt-1 font-script text-3xl text-neutral-500"
+                initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                transition={{ delay: authorAtSeconds, duration: authorSeconds, ease: 'easeInOut' }}
+              >
+                — {QUOTE_AUTHOR}
+              </motion.p>
+            </div>
           </div>
 
           <motion.button

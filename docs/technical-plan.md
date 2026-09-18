@@ -1050,3 +1050,31 @@ Composer 双形态（`ReplyComposer` `variant: 'docked' | 'floating'`）：docke
 已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、102 项单元测试（远端 91 项体系 + 本地多模态 2 项/停止 1 项合并后的择优用例：占位/回填、思考隔离、中断收尾、停止 resolve、图文 parts、仅图片/空输入）、`pnpm smoke`、`pnpm smoke:workspace`、chat-smoke（重写为合并后语义，先过 probe-preflight 门禁；`smoke-test=1` 查询参数跳过首启引导——远端新增的引导层会使空档案启动停在向导）。截图核对 WorkedBlock 折叠行与 composer 思考强度控件。
 
 待实机验证：真实推理模型的思考流与 reasoning_effort 行为；水源/搜索/通知/引导功能沿用远端章节原验证边界。已知取舍：图片/附件不随草稿持久化（机制见上）；远端时间线的跳动计时与每步耗时按用户 9-18 反馈移除，需要时可从 git 历史找回。
+
+## VS Code 编辑工作区设计基线（2026-09-18）
+
+用户决定：编辑工作区全面借鉴 VS Code 的 Explorer、editor view、可拉伸布局、分栏阅读和细节 UX。沿用 Dela 的轻量笔记与资料阅读定位、CodeMirror 内核和现有主题；本轮工作不扩展到 IDE 调试、终端或插件系统。onboarding 由另一任务修改，本轮不涉及。
+
+### 参考与设计裁决
+
+已阅读官方 [User Interface](https://code.visualstudio.com/docs/editing/getting-started/userinterface)、[Custom Layout](https://code.visualstudio.com/docs/configure/custom-layout)、[Views UX Guidelines](https://code.visualstudio.com/api/ux-guidelines/views)，并参考 [editorGroupModel.ts](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/common/editor/editorGroupModel.ts) 与 [sash.ts](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/sash/sash.ts) 的职责划分。参考交互原则，不搬入 VS Code 的服务容器与完整工作台架构。
+
+| 区域       | Dela 的设计规则                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 资源树     | 紧凑连续行；文件夹优先自然排序仅用于用户内容，课程原有学期顺序保留；选中、键盘焦点与拖放目标可辨；展开目录不清空正文；菜单与键盘均可访问操作。       |
+| 标签       | 浏览文件采用预览标签，双击或编辑后保留；标签条横向滚动；当前标签与活动编辑器组分别标识；关闭后选择相邻标签，保存失败保留入口，不默默淘汰已打开文件。 |
+| 编辑器组   | 本轮采用最多两个独立标签组，可左右或上下排列；在活动组打开文件；允许同一文档双视图，正文草稿共享，滚动与光标属于各自视图。                           |
+| 拉伸与恢复 | Explorer、编辑器组、助手使用同一分隔线交互；支持方向键、边界、双击恢复；根据实际容器空间约束面板，窗口变窄不能丢失标签或覆盖用户的宽屏偏好。         |
+| 文档       | 面包屑提供位置，工具栏提供少量相关操作，正文获得主要空间；保存中、未保存、失败和只读状态明确；外部同步不能变成本地输入或污染撤销历史。               |
+| 快捷键     | 保留现有应用导航；编辑器命令限定在工作区并避开弹窗和输入法组文；所有拖拽操作应有菜单或键盘替代。                                                     |
+| 视觉       | 复用现有字号、间距、颜色与明暗主题 token；结构用细分隔线表达，降低大圆角卡片感；拖动直接跟随指针，不添加导致正文漂移的布局动画。                     |
+
+验收重点为切换与恢复、同文档双视图、关闭保存失败、目录键盘操作、标签移动和窄窗口布局。本节为设计基线，具体实现与已验证范围在交付记录中单列；任意数量网格、多窗口、目录多选、全量 VS Code 命令体系不属于本轮完成承诺。
+
+### 本轮可靠性实现与验证边界
+
+- `features/projects/workspace.ts` 以文档 key 共享编辑草稿；保存请求按文档串行化，共享进行中的 Promise，并返回是否真正完成。自动保存、显式保存和关闭前保存使用同一链路；磁盘冲突或其他错误会保留脏草稿、停止自动重试并在文档工具栏显示错误。读取期间产生的新编辑优先于后台刷新，确认重新载入也不会覆盖读取开始后才产生的输入。
+- `MarkdownEditor.tsx` 只有显式传入 `editorStateKey` 的项目编辑器会保留 CodeMirror `EditorState`，因此标签切换保留撤销历史、选区和滚动位置；不同编辑器组应使用不同 key。普通回复编辑器不进入持久缓存。外部同步采用最小差异、`addToHistory=false` 和 IME 组文结束后的补同步，避免回填触发 onChange 循环或污染本地撤销历史。
+- `ProjectDocument.tsx` 工具栏显示只读、保存中、未保存和已保存状态，错误保留在文档区域并提供另存为入口；编辑器底部显示行列信息。编辑组的 `viewId`、按组滚动 key 和关闭后 session 清理由 `ProjectView` 接入层负责，草稿仍按文档 key 共享。
+
+截至本记录，相关文件 Prettier 检查和 `workspace.test.ts` 的 3 项异步保存/刷新回归已通过。完整 renderer 类型检查被并行 `ProjectView.tsx` 编辑组迁移中的 ResizeObserver 可空值与 `EditorGroup.preview` 类型错误阻塞；生产构建、Electron 冒烟、真实输入法手感和打包后行为尚未因本轮改动宣称验收。编辑组接线完成后仍需验证同文档双视图、按组滚动恢复和保存失败时关闭标签的实际交互。
