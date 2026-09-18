@@ -55,12 +55,12 @@
 
 ### 5. 日期格式化 4+ 份平行实现，3 个同名 `formatTime` 语义互不相同
 
-| 实现 | 规则 |
-|---|---|
-| `mail/mail-format.ts:4-14` | 今天→`HH:MM`；同年→`X 月 X 日`（带空格）；跨年→`Y/M/D` |
-| `shuiyuan/shuiyuan-format.ts:29-41` | 今天/昨天前缀 + `X月X日`（无空格）；跨年→`X年X月X日` |
-| `chat/ChatSessions.tsx:10-19` | 唯一使用 `toLocaleTimeString/DateString` 的实现 |
-| `notifications/NotificationsView.tsx:34-44` | 唯一相对时间实现（刚刚 / X 分钟前 / …） |
+| 实现                                        | 规则                                                   |
+| ------------------------------------------- | ------------------------------------------------------ |
+| `mail/mail-format.ts:4-14`                  | 今天→`HH:MM`；同年→`X 月 X 日`（带空格）；跨年→`Y/M/D` |
+| `shuiyuan/shuiyuan-format.ts:29-41`         | 今天/昨天前缀 + `X月X日`（无空格）；跨年→`X年X月X日`   |
+| `chat/ChatSessions.tsx:10-19`               | 唯一使用 `toLocaleTimeString/DateString` 的实现        |
+| `notifications/NotificationsView.tsx:34-44` | 唯一相对时间实现（刚刚 / X 分钟前 / …）                |
 
 配套重复：HH:MM 手写 padStart 3 份（`mail-format.ts:7`、`shuiyuan-format.ts:33`、`timetable-format.ts:79,90`）；星期数组 2 套（`mail-format.ts:19` vs `timetable-format.ts:6`）；`X月X日` 表达式在 `shuiyuan-format.ts:39` 与 `timetable-format.ts:252` 逐字相同；`MailView.tsx:757` 是唯一无 locale 参数的裸 `toLocaleString()`。
 
@@ -123,13 +123,13 @@
 
 ## 五、建议整改优先级
 
-| 优先级 | 事项 | 理由 |
-|---|---|---|
-| 1 | 字号档 token 化（在 `@theme inline` 补 `--text-2xs` 等） | 直接修复用户可见的“设置字号无效” |
-| 2 | `workspace.ts` 升为共享模块，补齐或收缩 barrel | 消除 21 处深路径与 sources↔projects 依赖环 |
-| 3 | 抽 `ui/dialog.tsx` 封装 + 统一危险操作确认模式 | 消除最大的 UX 感知差异与焦点陷阱缺陷 |
-| 4 | 统一 `window.dela` 处理、`errorText()`、日期格式化各一种写法 | 高频代码级分裂点，收拢成本低 |
-| 5 | 图标按钮 / 加载态 / 选中态对齐到 ui 基类 | 渐进收拢，可随功能迭代顺带处理 |
+| 优先级 | 事项                                                         | 理由                                       |
+| ------ | ------------------------------------------------------------ | ------------------------------------------ |
+| 1      | 字号档 token 化（在 `@theme inline` 补 `--text-2xs` 等）     | 直接修复用户可见的“设置字号无效”           |
+| 2      | `workspace.ts` 升为共享模块，补齐或收缩 barrel               | 消除 21 处深路径与 sources↔projects 依赖环 |
+| 3      | 抽 `ui/dialog.tsx` 封装 + 统一危险操作确认模式               | 消除最大的 UX 感知差异与焦点陷阱缺陷       |
+| 4      | 统一 `window.dela` 处理、`errorText()`、日期格式化各一种写法 | 高频代码级分裂点，收拢成本低               |
+| 5      | 图标按钮 / 加载态 / 选中态对齐到 ui 基类                     | 渐进收拢，可随功能迭代顺带处理             |
 
 ## 六、待确认（未定为缺陷）
 

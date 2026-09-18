@@ -7,6 +7,7 @@ const completionSchema = z.object({
       z.object({
         message: z.object({
           content: z.string().nullable().optional(),
+          // 思考过程放在非标准字段；读到仅用于上报展示，回灌模型时必须剔除（DeepSeek 明确要求不回传）。
           reasoning_content: z.string().nullable().optional(),
           tool_calls: z
             .array(
@@ -152,13 +153,17 @@ const RESULT_CHAR_LIMIT = 20000;
 // 仅对传输层瞬时错误（429/5xx/网络中断）重试；测试注入 0 延迟。
 const RETRY_DELAYS = [1000, 3000];
 
+/** OpenAI 兼容的多模态 content part：文字按输入顺序与图片交错。 */
+export type ChatContentPart =
+  { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
 export async function runAgent(options: {
   baseUrl: string;
   model: string;
   key: string;
   /** 推理强度档位；设置时以 reasoning_effort 字段随请求下发。 */
   effort?: string;
-  messages: { role: string; content: string }[];
+  messages: { role: string; content: string | ChatContentPart[] }[];
   tools: unknown[];
   signal: AbortSignal;
   execute: (name: string, input: unknown) => Promise<unknown>;
@@ -220,10 +225,12 @@ export async function runAgent(options: {
       await requestCompletion(),
       options.signal,
       options.onText,
+      // 逐轮直传本轮累计文本：api 层按 parts 位置分段保存，不跨轮拼接。
       options.onReasoning,
     );
     if (!message.tool_calls?.length) return { content: message.content ?? '', toolResults };
-    messages.push({ role: 'assistant', ...message });
+    // 回灌模型只保留 content 与 tool_calls：DeepSeek 明确要求不回传 reasoning_content。
+    messages.push({ role: 'assistant', content: message.content, tool_calls: message.tool_calls });
     for (const call of message.tool_calls) {
       options.signal.throwIfAborted();
       let input: unknown;

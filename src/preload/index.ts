@@ -3,6 +3,9 @@ import { version } from '../../package.json';
 import type {
   DelaApi,
   CalendarEventInput,
+  ChatAskInput,
+  ChatCommandView,
+  ChatMediaView,
   LlmSaveInput,
   LlmVerifyInput,
   MailComposeFileKind,
@@ -74,6 +77,18 @@ contextBridge.exposeInMainWorld('dela', {
     setModel: (model: string) => ipcRenderer.invoke('llm:set-model', model),
     setEffort: (level: string) => ipcRenderer.invoke('llm:set-effort', level),
     verify: (input: LlmVerifyInput) => ipcRenderer.invoke('llm:verify', input),
+  },
+  chat: {
+    stageMedia: (input: { name: string; bytes: ArrayBuffer | Uint8Array }) =>
+      ipcRenderer.invoke('chat:stage-media', input) as Promise<ChatMediaView>,
+    pickMedia: () => ipcRenderer.invoke('chat:pick-media') as Promise<ChatMediaView[]>,
+    readMediaPreview: (id: string) =>
+      ipcRenderer.invoke('chat:read-media-preview', id) as Promise<string | null>,
+    releaseMedia: (ids: readonly string[]) => ipcRenderer.invoke('chat:release-media', ids),
+    listCommands: () => ipcRenderer.invoke('chat:list-commands') as Promise<ChatCommandView[]>,
+    saveCommand: (input: { id?: string; name: string; prompt: string }) =>
+      ipcRenderer.invoke('chat:save-command', input) as Promise<ChatCommandView>,
+    deleteCommand: (id: string) => ipcRenderer.invoke('chat:delete-command', id),
   },
   mail: {
     getState: () => ipcRenderer.invoke('mail:get-state'),
@@ -205,8 +220,7 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('workspace:open-chat', scope, sessionId),
     deleteChat: (scope: string, sessionId: string) =>
       ipcRenderer.invoke('workspace:delete-chat', scope, sessionId),
-    ask: (scope: string, prompt: string, context: string[]) =>
-      ipcRenderer.invoke('workspace:ask', scope, prompt, context),
+    ask: (scope: string, input: ChatAskInput) => ipcRenderer.invoke('workspace:ask', scope, input),
     cancelAsk: (scope: string) => ipcRenderer.invoke('workspace:cancel-ask', scope),
     onChatUpdate: (listener: (scope: string, chat: WorkspaceChat) => void) => {
       const subscription = (_event: unknown, scope: string, chat: WorkspaceChat) =>

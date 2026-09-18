@@ -18,6 +18,7 @@ import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
 import { availablePath, storageDirectory as directory } from '../storage';
 import { workspaceArchiveId } from '../../shared/api';
+import { textFileExtensions } from '../../shared/chat-input';
 import type {
   DocumentContent,
   WorkspaceCreateInput,
@@ -33,76 +34,8 @@ const entryColumns =
 // 笔记按扩展名区分为 Markdown 或普通文本；其余内容一律按文本读写。
 const markdownExtensions = ['.md', '.markdown'];
 // 本地/导入文件按 VSCode 对文本文件的宽泛处理内嵌展示；未列出的扩展仍不支持预览。
-const textExtensions = new Set([
-  ...markdownExtensions,
-  '.txt',
-  '.text',
-  '.log',
-  '.csv',
-  '.tsv',
-  '.json',
-  '.jsonc',
-  '.xml',
-  '.svg',
-  '.yml',
-  '.yaml',
-  '.toml',
-  '.ini',
-  '.cfg',
-  '.conf',
-  '.properties',
-  '.env',
-  '.editorconfig',
-  '.html',
-  '.htm',
-  '.css',
-  '.scss',
-  '.less',
-  '.js',
-  '.mjs',
-  '.cjs',
-  '.jsx',
-  '.ts',
-  '.tsx',
-  '.vue',
-  '.svelte',
-  '.py',
-  '.pyw',
-  '.ipynb',
-  '.c',
-  '.h',
-  '.cpp',
-  '.cc',
-  '.cxx',
-  '.hpp',
-  '.hh',
-  '.java',
-  '.cs',
-  '.go',
-  '.rs',
-  '.rb',
-  '.php',
-  '.swift',
-  '.kt',
-  '.kts',
-  '.scala',
-  '.dart',
-  '.sh',
-  '.bash',
-  '.zsh',
-  '.ps1',
-  '.bat',
-  '.cmd',
-  '.sql',
-  '.r',
-  '.pl',
-  '.lua',
-  '.tex',
-  '.rst',
-  '.mk',
-  '.cmake',
-  '.gradle',
-]);
+// 清单与助手 composer 附件共用（shared/chat-input.ts，无点小写）。
+const textExtensions = new Set(textFileExtensions.map((extension) => `.${extension}`));
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 

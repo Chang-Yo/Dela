@@ -276,3 +276,38 @@ src/main 按 mail、canvas、timetable、workspace、agent 分类，每个领域
 侧栏搜索按钮或 Ctrl/⌘+K 打开居中搜索框，搜索本地项目名、聊天标题与消息正文、邮件缓存的主题/发件人/正文，以及已同步课程资料的文件名；每类最多显示 10 条，可直接打开对应内容。未同步数据和课程文件正文不在搜索范围。
 
 搜索左侧铃铛打开通知中心，提供邮件/水源筛选、单条及全部已读、暂停 30 分钟/1 小时/至次日 9 点。已读和暂停状态保存在本机，暂停只隐藏铃铛提醒，继续收集通知；通知操作不会批量标记远端邮件或水源已读。首次启用纳入已缓存的未读收件箱邮件和水源返回的未读通知。应用运行期间，邮箱每五分钟同步、水源每分钟刷新；关闭应用后不运行。通知展示最近 200 条，未读总数覆盖全部记录。真实账号的长期轮询行为待实机确认。
+
+## Agent Composer 输入模型重构（2026-09-18）
+
+本节取代 2026-09-13 一节中“Composer：Enter 发送……textarea”的描述；两状态布局、多会话与模型面板不变。
+
+- 输入从纯文本升级为结构化草稿：Markdown 文本（内联图片以 `![文件名](dela-img:<UUID>)` token 嵌入、保持图文顺序）+ 附件数组（≤5）+ @ 引用。发送载荷为 `{ text, attachments, context }`。
+- 编辑器由 textarea 换为 CodeMirror 6（复用笔记编辑器的 Markdown 语言与 GitHub 明暗高亮配色，无新增依赖）：列表/加粗/行内代码/代码块/链接输入即高亮，Shift+Enter 换行并续写列表标记，Enter 发送（IME 组文期不发送），撤销/重做可用；高度自适应，超过约 8 行滚动。
+- 图文混排：粘贴/拖入/回形针选择的图片（png/jpg/jpeg/gif/webp，单张 ≤5MB，≤6 张）以原子 chip 内联在光标处，可整块删除；主进程暂存到 userData/chat-media 并返回 480px 缩略预览。发送时按出现顺序拆成 text/image blocks——模型收到 OpenAI 兼容的多模态 content parts（图片 base64 data URL）。
+- 附件：文本类文件（与工作区文本预览共用同一份扩展名清单，≤1MB）以回形针/拖入添加，chip 显示在 composer 上方排版区之外；发送时内容作为“用户上传的附件”进入当轮上下文后即释放，不落盘。PDF 等二进制类型在添加时明确拒绝，不假装可读。
+- 消息展示：用户消息按 Markdown 渲染，内联图片显示缩略图（历史消息经 IPC 按需拉取并缓存），附件显示文件 chip；发送失败且消息未上屏时草稿（含图片 token 与附件）原样恢复。孤儿图片文件在启动时按会话引用回收。
+- `/` 与 `@` 候选修复：空查询（只输入 / 或 @）也会立即打开候选框；`/` 菜单合并内置指令与设置 › 插件的自定义指令（自定义 prompt，名称限文字/数字/下划线/短横线），选择后替换触发词。
+- 设置新增「插件」分区：自定义 / 指令的增删改，存 SQLite `workspace_settings`（`chat-commands` 键）；composer 挂载时读取。
+
+验证：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、82 项单元测试（新增 chat-input 解析 6 项、多模态 ask 组装 2 项）、`pnpm smoke`、`pnpm smoke:workspace`（模型桩断言改为按 parts 提取文字）、`pnpm exec electron scripts/chat-smoke.cjs`（新增 composer 候选菜单交互断言：空查询 / 与 @ 打开、选择填充、引用 chip）。待实机验证：真实多模态模型对 image parts 的兼容性（各提供商 vision 支持未实测）、真实 IME 手感、粘贴大图性能；附件暂只支持文本类，PDF/Office 解析仍属后续能力。
+
+## 时间线、思考流与停止行为修正（2026-09-18 第二轮）
+
+- Composer 拖拽蒙版修复：文件拖到编辑器上松手后「松开以添加图片或附件」不再停留——根因是 CM6 drop 处理器的 `stopPropagation` 阻断了容器的 onDrop，编辑器处理完拖放后现在主动通知容器复位。
+- 附件行去掉 `n/5` 计数；达到上限（5 个）时明确提示「附件最多 5 个」，选择文件路径不再静默忽略。
+- 对话时间线参照 Codex App 重排：折叠行不再显示「已执行 N 个动作 · M 个失败」这类动态数字（每次工具调用都触发整行重渲染），改为去重后的动作类别（如「保存笔记、读取资料」），失败仅以红色图标提示；头部去掉分隔横线，最顶层「用时」保留；展开的动作列表去掉左侧竖线，每步摘要补充 query/path/command 字段；用户主动停止显示「已停止」。
+- 思考过程流式展示：解析 OpenAI 兼容流的 `reasoning_content`（DeepSeek/Qwen/vLLM）与 `reasoning`（OpenRouter）增量；回答上方显示「思考中…/已深度思考」折叠块，思考时自动展开、回答开始自动收起、手动切换后以用户为准。思考文本仅用于展示，不回灌模型（DeepSeek 明确要求不回传）。
+- 停止不再报错：点停止后 `workspace:ask` 正常返回——此前 AbortController 的 AbortError 从 handler 抛出，主进程记录未捕获错误、渲染端还会误判为发送失败并恢复草稿。停止保留已生成的部分内容并标记 `stopped`。
+
+验证：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、87 项单元测试（新增 reasoning 双字段流解析、跨轮累计、回灌不含 reasoning、停止优雅返回与 thinking 记录共 5 项）、`pnpm smoke`、`pnpm smoke:workspace`、chat-smoke（断言同步新时间线：无数字统计、类别折叠行、thinking 自动展开/收起；组行与步骤行的文字歧义以 `startsWith` 区分）。待实机验证：deepseek-v4-pro 等真实推理模型的思考流显示与停止观感；不支持 reasoning 字段的提供商应零影响（增量解析，字段缺失即无行为）。
+
+## 与 origin/feat/chat-UI 的合并（2026-09-18）
+
+本地 Composer 重构与远端同期提交（动作时间线、reasoning 展示）在同一区域重复实现；`feat/chat-UI-composer-rework` 保存本地工作后与 `origin/feat/chat-UI` 合并，重叠功能逐项择优：
+
+- 时间线采用远端的 Codex 式「已工作 · X · N 个失败」整体折叠架构（完成后思考、动作与中间说明折为一行摘要，最终回答保持在外），并按 9-18 反馈去动态化：运行态头部为静态「正在工作」（无跳秒）、思考块无计时数字、每步不显示耗时、头部横线移除；工具组摘要为去重类别文字。每个工具有独立图标，运行中的占位步骤（带输入摘要）自动展开、完成自动收起。
+- 思考存储统一为远端的位置保持 `reasoning` parts（思考与工具/正文的交错顺序可回放），替代本地最初的消息级 `thinking` 字段；双字段流解析与「不回灌模型」两侧实现一致，保留本地的回灌剔除修复。用户停止（`stopped`）走本地实现：ask 正常返回、不抛 AbortError、不追加中断文案。
+- 远端的 reasoning_effort 全链路（提供商档位多选、`llm:set-effort` IPC、composer 档位控件、请求携带 `reasoning_effort`）与输入草稿 localStorage 持久化（zustand，按 scope）全部保留；草稿持久化覆盖文字与 @ 引用，内联图片与附件是暂存资源，离开视图时从草稿剥离并释放（图片文件由启动 GC 回收，避免重启后 token 悬空）。
+- 远端其余功能（水源社区、全局搜索与通知中心、首启引导、设计统一化）完整并入；`settings` 的 `SettingsSectionId` 上移 shared 并加入本地新增的 `plugins` 分区。chat-smoke 重写为合并后语义（composer 菜单 + effort 控件 + 占位步骤 + 类别摘要 + WorkedBlock + CM6 草稿持久化），并带 `smoke-test=1` 跳过首启引导。
+
+验证：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、102 项单元测试（含远端 effort/providers/shuiyuan 用例与本地图文混排/停止用例）、`pnpm smoke`、`pnpm smoke:workspace`、chat-smoke 全部通过；截图核对 WorkedBlock 折叠与 composer 控件。合并中的已知取舍：图片/附件不随草稿持久化；远端时间线的流光计时与每步耗时按用户 9-18 反馈移除（git 历史可溯）。

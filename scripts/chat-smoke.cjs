@@ -11,11 +11,27 @@ const chat = {
   model: 'Preview',
   models: [],
   providerName: 'Fixture',
+  effortLevels: [],
+  effort: null,
   messages: [],
   running: false,
 };
 const routes = {
-  'workspace:get-state': () => ({ entries: [], directory: '', views: {} }),
+  'workspace:get-state': () => ({
+    entries: [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        parentId: null,
+        kind: 'note',
+        name: '测试笔记',
+        sourceId: null,
+        noteId: null,
+        updatedAt: '2026-09-18T00:00:00.000Z',
+      },
+    ],
+    directory: '',
+    views: {},
+  }),
   'canvas:get-state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
   'settings:get-theme': () => 'light',
@@ -23,6 +39,7 @@ const routes = {
   'settings:get-font-scale': () => 1,
   'workspace:get-chat': () => chat,
   'llm:list': () => [],
+  'chat:list-commands': () => [],
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
 app
@@ -59,8 +76,9 @@ app
       win.webContents.send('workspace:chat-update', 'home', structuredClone(chat));
       await pause();
     };
+    // smoke-test 查询参数跳过首启引导；隔离档案不会出现真实 onboarding 状态。
     await win.loadFile(join(root, 'out/renderer/index.html'), { query: { 'smoke-test': '1' } });
-    await wait("document.querySelector('textarea')");
+    await wait('document.querySelector(\'.cm-content[aria-label="发送给助手"]\')');
     // 提供商未开启推理强度时，composer 的思考强度控件显示 default 且不可改。
     assert.ok(
       await evaluate("document.querySelector('button[aria-label=思考强度]') !== null"),
@@ -76,6 +94,28 @@ app
       await evaluate("document.querySelector('button[aria-label=思考强度]')?.disabled"),
       true,
     );
+    // Composer 候选菜单：空查询的 / 与 @ 都应立即打开候选，选择项替换触发词。
+    // IIFE 包裹：executeJavaScript 在全局作用域执行，裸 const 会因重复声明抛错。
+    const editComposer = (text) =>
+      `(() => {
+        const editor = document.querySelector('.cm-content[aria-label="发送给助手"]');
+        editor.focus();
+        document.execCommand('selectAll');
+        document.execCommand('insertText', false, ${JSON.stringify(text)});
+      })()`;
+    await evaluate(editComposer('/'));
+    await wait("document.body.innerText.includes('/日程')");
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('/日程')).click()",
+    );
+    await wait("document.body.innerText.includes('帮我查看本周的日程安排')");
+    await evaluate(editComposer('@'));
+    await wait("document.body.innerText.includes('测试笔记')");
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('测试笔记')).click()",
+    );
+    await wait('document.querySelector(\'button[aria-label="移除引用 测试笔记"]\') !== null');
+    await evaluate(editComposer(''));
     chat.messages.push({ role: 'user', content: '帮我整理课程资料，保存本周复习计划。' });
     const reply = {
       role: 'assistant',
@@ -90,79 +130,65 @@ app
     await wait("document.querySelector('[aria-label=对话消息]')");
     const viewport = "document.querySelector('[aria-label=对话消息]')";
     const initialTop = await evaluate(`${viewport}.scrollTop`);
-    // 思考段先于公开正文流式进入：块自动展开，正文到达后自动收起为“已思考 · X 秒”。
-    const thinkStart = Date.now();
+    // 思考段先于公开正文流式进入：块自动展开；正文到达后自动收起，可手动再展开。
     reply.parts.push({
       type: 'reasoning',
       text: '先分析请求：需要查找课程资料，再保存复习计划。',
-      startedAt: thinkStart,
+      startedAt: Date.now(),
     });
     await push();
+    await wait("document.body.innerText.includes('思考中…')");
     await wait(
       "[...document.querySelectorAll('[data-reasoning-body]')].some(el => el.textContent.includes('先分析请求') && el.parentElement.getBoundingClientRect().height > 1)",
     );
-    reply.parts[0].finishedAt = thinkStart + 3200;
     reply.parts.push({ type: 'text', text: '我会先查找课程资料，再按课程整理复习重点。' });
     await push();
-    await wait("document.body.innerText.includes('已思考 · 3 秒')");
+    await wait("document.body.innerText.includes('已深度思考')");
     await wait(
       "[...document.querySelectorAll('[data-reasoning-body]')].every(el => el.parentElement.getBoundingClientRect().height < 1)",
     );
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已深度思考')).click()",
+    );
+    await wait(
+      "[...document.querySelectorAll('[data-reasoning-body]')].some(el => el.textContent.includes('先分析请求') && el.parentElement.getBoundingClientRect().height > 1)",
+    );
+    // 消息头运行态是静态“正在工作”，不携带每秒跳动的秒数。
+    assert.match(
+      await evaluate(
+        "[...document.querySelectorAll('span')].find(el => el.textContent.trim() === '正在工作')?.textContent ?? ''",
+      ),
+      /^正在工作$/,
+    );
     chat.activeTool = 'search_sources';
-    // 新协议：工具开始即写入无输出的占位步骤（带输入摘要与 startedAt）。
-    const runStart = Date.now();
+    // 工具开始即写入无输出的占位步骤（带输入摘要）；运行中的组自动展开。
     reply.parts.push({
       type: 'tools',
       results: [
-        { id: 'run1', name: 'search_sources', input: { query: '本周课程' }, startedAt: runStart },
+        { id: 'run1', name: 'search_sources', input: { query: '本周课程' }, startedAt: Date.now() },
       ],
     });
     await push();
     await wait("document.body.innerText.includes('正在查找资料')");
-    // 运行中的组自动展开：占位步骤的输入摘要直接可见。
     await wait(
       "[...document.querySelectorAll('span')].some(el => el.textContent === '「本周课程」' && el.checkVisibility())",
     );
-    // 消息头的“正在工作 · N 秒”每秒跳动。
-    const workingLabel = () =>
-      evaluate(
-        "[...document.querySelectorAll('span')].find(el => el.textContent.startsWith('正在工作'))?.textContent",
-      );
-    const tick1 = await workingLabel();
-    assert.match(tick1, /^正在工作 · \d+ 秒$/);
-    await new Promise((r) => setTimeout(r, 1600));
-    const tick2 = await workingLabel();
-    assert.notEqual(tick2, tick1, 'working timer did not tick');
     const first = {
       id: 'run1',
       name: 'search_sources',
       input: { query: '本周课程' },
       output: { ok: true, result: { count: 3 } },
-      startedAt: runStart,
-      finishedAt: runStart + 2100,
     };
     reply.parts.at(-1).results[0] = first;
     reply.toolResults.push(first);
     chat.activeTool = undefined;
     await push();
-    await wait("document.body.innerText.includes('已执行 1 个动作')");
-    // 完成后未触碰的组自动收起：折叠容器高度归零（内层 ol 保留固有高度，测父容器），摘要行仍在。
+    // 完成态摘要是去重的动作类别，没有计数；未触碰的组自动收起。
     await wait(
       "[...document.querySelectorAll('ol[aria-label=动作时间线]')].every(ol => ol.parentElement.getBoundingClientRect().height < 1)",
     );
-    await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已执行 1 个动作')).click()",
-    );
-    // 展开后可见占位时输入的摘要与每步耗时（startedAt→finishedAt 差值 2 秒）。
-    await wait(
-      "[...document.querySelectorAll('span')].some(el => el.textContent === '「本周课程」' && el.checkVisibility())",
-    );
-    assert.match(
-      await evaluate(
-        "[...document.querySelectorAll('button')].find(b => b.textContent.includes('查找资料'))?.textContent",
-      ),
-      /2 秒/,
-    );
+    assert.ok(await evaluate("document.body.innerText.includes('查找资料')"));
+    assert.ok(!(await evaluate("document.body.innerText.includes('个动作')")));
     reply.parts.push({ type: 'text', text: '已找到 **三份资料' });
     await push();
     await wait(
@@ -207,35 +233,30 @@ app
       beforeFinish,
       'completion moved the viewport',
     );
-    // 完成后整段工作过程折叠为一行“已工作 · X 秒”（Codex 式），最终回答保持在下方；
-    // 部分顺序改用 textContent 断言：折叠后的内容仍在 DOM 中，顺序不变。
-    const body = await evaluate('document.body.textContent');
-    assert.ok(body.indexOf('我会先') < body.indexOf('已执行 1 个动作'));
-    assert.ok(body.indexOf('已执行 1 个动作') < body.indexOf('已找到'));
-    assert.ok(!body.includes('▍'));
-    await wait("document.body.innerText.includes('已工作 · 12 秒')");
-    assert.ok(
-      await evaluate(
-        "[...document.querySelectorAll('button')].some(b => b.textContent.includes('已工作 · 12 秒 · 1 个失败'))",
-      ),
-      'worked row lost the failure count',
+    // 完成后整段工作过程折叠为一行“已工作 · X 秒 · N 个失败”（Codex 式），最终回答保持在下方。
+    const body = await evaluate('document.body.innerText');
+    assert.ok(body.indexOf('我会先') < body.indexOf('已保存复习计划'));
+    await wait(
+      "[...document.querySelectorAll('button')].some(b => b.textContent.includes('已工作 · 12 秒 · 1 个失败'))",
     );
     await wait(
       "[...document.querySelectorAll('[data-worked-body]')].every(el => el.getBoundingClientRect().height < 1)",
     );
-    // 点击摘要行展开完整时间线，再进入单个动作组的详情。
+    assert.ok(!body.includes('▍'));
+    // 点击摘要行展开完整时间线，再进入单个动作组的详情；组摘要为类别文字。
     await evaluate(
       "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已工作 · 12 秒')).click()",
     );
     await wait(
       "[...document.querySelectorAll('[data-worked-body]')].some(el => el.getBoundingClientRect().height > 1)",
     );
+    assert.ok(await evaluate("document.body.innerText.includes('保存笔记、读取资料')"));
     await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已执行 2 个动作')).click()",
+      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('保存笔记、读取资料')).click()",
     );
     await wait("document.body.innerText.includes('资料尚未下载')");
     await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('读取资料')).click()",
+      "[...document.querySelectorAll('button')].find(b => b.textContent.trim().startsWith('读取资料')).click()",
     );
     await wait(
       "[...document.querySelectorAll('pre')].some(p => p.textContent.includes('missing') && p.checkVisibility())",
@@ -291,21 +312,20 @@ app
     await push();
     await wait("document.body.innerText.includes('旧回答')");
     assert.ok(!(await evaluate("document.body.innerText.includes('我会先')")));
-    // Draft persistence: input survives leaving and re-entering the chat view.
+    // Draft persistence: CM6 输入经 localStorage 按 scope 持久化，切页往返不丢失。
     win.setSize(1200, 900);
     await pause();
     const draftText = '草稿保留验证';
-    await evaluate(`(() => {
-      const ta = document.querySelector('textarea');
-      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
-      setter.call(ta, ${JSON.stringify(draftText)});
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-    })()`);
-    assert.equal(await evaluate('document.querySelector("textarea").value'), draftText);
+    await evaluate(editComposer(draftText));
     assert.ok(
       ((await evaluate('localStorage.getItem("dela.chat.drafts")')) ?? '').includes(draftText),
       'draft not written to localStorage',
     );
+    const composerText = () =>
+      evaluate(
+        'document.querySelector(\'.cm-content[aria-label="发送给助手"]\')?.textContent ?? ""',
+      );
+    assert.ok(((await composerText()) || '').includes(draftText));
     const clickNav = (label) =>
       evaluate(`(() => {
         const b = [...document.querySelectorAll('nav[aria-label="功能导航"] button')]
@@ -318,20 +338,19 @@ app
     // 侧栏 aria-current 立即变化；等首页对话流随退场动画确实卸载后再取项目页状态。
     await wait('document.querySelector(\'[aria-label="对话消息"]\') === null');
     assert.notEqual(
-      await evaluate('document.querySelector("textarea")?.value'),
+      await composerText(),
       draftText,
       'projects view shares the home composer draft',
     );
     assert.equal(await clickNav('首页'), 'clicked', 'home nav missing');
-    await wait("document.querySelector('textarea')");
-    assert.equal(
-      await evaluate('document.querySelector("textarea")?.value'),
-      draftText,
+    await wait('document.querySelector(\'.cm-content[aria-label="发送给助手"]\') !== null');
+    assert.ok(
+      ((await composerText()) || '').includes(draftText),
       'draft lost after switching away and back',
     );
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log(
-      'Chat smoke passed: ordered parts, reasoning collapse, streaming Markdown, failures, disclosures, working timer, auto collapse, per-step duration, stable scroll, follow/escape, legacy sessions, draft persistence, 3 widths, light/dark.',
+      'Chat smoke passed: composer menus and effort control, reasoning collapse, placeholder steps, category summaries, worked block, streaming Markdown, failures, disclosures, stable scroll, follow/escape, legacy sessions, draft persistence, 3 widths, light/dark.',
     );
     win.destroy();
     app.exit(0);

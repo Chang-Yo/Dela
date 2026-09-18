@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   BookOpen,
+  Brain,
   CalendarDays,
   CalendarPlus,
   ChevronRight,
@@ -56,9 +57,14 @@ export type ToolOutput = {
 function stepChip(result: AgentToolResult): string {
   const input = result.input as Record<string, unknown> | null;
   if (!input || typeof input !== 'object') return '';
-  const value = [input.query, input.title, input.name, input.subject].find(
-    (item): item is string => typeof item === 'string' && item.length > 0,
-  );
+  const value = [
+    input.query,
+    input.title,
+    input.name,
+    input.subject,
+    input.path,
+    input.command,
+  ].find((item): item is string => typeof item === 'string' && item.length > 0);
   return value ?? '';
 }
 
@@ -68,18 +74,6 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
 }
 
-/** 运行期间每秒跳动、结束时冻结的时钟；非运行态不启动定时器。 */
-export function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
-}
-
 type StepState = 'running' | 'done' | 'failed' | 'interrupted';
 
 function stepState(result: AgentToolResult, groupActive: boolean): StepState {
@@ -87,16 +81,12 @@ function stepState(result: AgentToolResult, groupActive: boolean): StepState {
   return (result.output as ToolOutput)?.ok ? 'done' : 'failed';
 }
 
-/** 单个动作行：图标 + 动词 + 摘要 + 耗时，可展开原始输入输出。 */
+/** 单个动作行：图标 + 动词 + 摘要，可展开原始输入输出；不显示逐步耗时。 */
 function TimelineStep({ result, state }: { result: AgentToolResult; state: StepState }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
   const { label, icon: Icon } = display(result.name);
-  const output = result.output as ToolOutput;
-  const duration =
-    result.startedAt !== undefined && result.finishedAt !== undefined
-      ? formatDuration(result.finishedAt - result.startedAt)
-      : null;
+  const output = result.output as ToolOutput | undefined;
   return (
     <li className="min-w-0 animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none">
       <button
@@ -131,22 +121,16 @@ function TimelineStep({ result, state }: { result: AgentToolResult; state: StepS
           <span className="min-w-0 truncate text-xs text-destructive">{output.error.message}</span>
         )}
         {state === 'interrupted' && <span className="text-xs text-muted-foreground">未完成</span>}
-        {duration && (
-          <span className="ms-auto shrink-0 text-xs tabular-nums text-muted-foreground/70">
-            {duration}
-          </span>
-        )}
         <ChevronRight
           className={cn(
-            'size-3 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none',
-            !duration && 'ms-auto',
+            'ms-auto size-3 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none',
             open && 'rotate-90',
           )}
         />
       </button>
       <div id={detailId} hidden={!open}>
         <pre className="my-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
-          {JSON.stringify({ input: result.input, output: result.output })}
+          {JSON.stringify({ input: result.input, output: result.output }, null, 2)}
         </pre>
       </div>
     </li>
@@ -154,9 +138,9 @@ function TimelineStep({ result, state }: { result: AgentToolResult; state: StepS
 }
 
 /**
- * 动作执行链时间线（移植 assistant-ui ToolTimeline 的交互模式）：
- * 触发行流光提示当前动作，执行中自动展开让步骤逐个进入，完成后收起为摘要行；
- * 用户手动开合后尊重其选择。旧会话没有时间戳时按原有行样式降级。
+ * 动作执行链折叠组（Codex 风格）：运行中自动展开让步骤逐个进入、触发行提示当前动作，
+ * 完成后收起为摘要行；用户手动开合后尊重其选择。摘要为去重的动作类别文字——
+ * 计数随每次工具调用变化，会让折叠行高频重渲染；失败以红色图标与步骤内文案体现。
  */
 export function ToolTimeline({
   results,
@@ -180,19 +164,17 @@ export function ToolTimeline({
   }, [active]);
 
   const groupId = useId();
-  const completed = results.filter((result) => result.output !== undefined);
-  const failed = completed.filter((result) => !(result.output as ToolOutput)?.ok).length;
   const label = active ? (
     <span className={styles.shimmer} role="status">
       正在{activeLabel}…
     </span>
-  ) : completed.length ? (
-    <>
-      已执行 {completed.length} 个动作
-      {failed ? <span className="text-destructive"> · {failed} 个失败</span> : ''}
-    </>
+  ) : results.length ? (
+    [...new Set(results.map((result) => display(result.name).label))].join('、')
   ) : (
     '执行已中断'
+  );
+  const failed = results.some(
+    (result) => result.output !== undefined && !(result.output as ToolOutput)?.ok,
   );
   return (
     <div className="my-4 min-w-0 text-sm text-muted-foreground">
@@ -213,6 +195,7 @@ export function ToolTimeline({
           )}
         />
         <span className="truncate">{label}</span>
+        {failed && !active && <CircleAlert className="size-3.5 shrink-0 text-destructive" />}
       </button>
       <div
         id={groupId}
@@ -225,7 +208,7 @@ export function ToolTimeline({
         <div className="min-h-0 overflow-hidden">
           <ol
             aria-label="动作时间线"
-            className="my-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain border-l pl-4"
+            className="my-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain pl-4"
           >
             {results.map((result) => (
               <TimelineStep key={result.id} result={result} state={stepState(result, active)} />
@@ -248,46 +231,20 @@ export function ToolTimeline({
   );
 }
 
-/**
- * 思考过程块（参照 ChatGPT/Claude 的思考折叠交互）：流式期间展开、标签流光计时
- * “正在思考 · X 秒”，思考结束自动收起为“已思考 · X 秒”；用户手动开合后尊重其选择。
- */
-export function ReasoningBlock({
-  text,
-  live,
-  startedAt,
-  finishedAt,
-}: {
-  text: string;
-  live: boolean;
-  startedAt?: number;
-  finishedAt?: number;
-}) {
-  const [open, setOpen] = useState(false);
+/** 思考过程折叠块：流式期间自动展开（标签不携带跳动的计时数字），结束自动收起；手动开合后尊重选择。 */
+export function ReasoningBlock({ text, live }: { text: string; live: boolean }) {
+  const [open, setOpen] = useState(live);
   const touched = useRef(false);
-  const thinking = live && startedAt !== undefined && finishedAt === undefined;
-  const now = useNow(thinking);
-  const durationMs =
-    startedAt !== undefined && finishedAt !== undefined ? finishedAt - startedAt : null;
-
+  const detailId = useId();
   useEffect(() => {
     if (touched.current) return;
-    setOpen(thinking);
-  }, [thinking]);
-
-  const label = thinking ? (
-    <span className={cn('tabular-nums', styles.shimmer)} role="status">
-      正在思考 · {formatDuration(now - (startedAt ?? now))}
-    </span>
-  ) : durationMs !== null ? (
-    <span className="tabular-nums">已思考 · {formatDuration(durationMs)}</span>
-  ) : (
-    '思考过程'
-  );
+    setOpen(live);
+  }, [live]);
   return (
     <div className="my-4 min-w-0 text-sm text-muted-foreground">
       <button
         aria-expanded={open}
+        aria-controls={detailId}
         onClick={() => {
           touched.current = true;
           setOpen((current) => !current);
@@ -295,15 +252,22 @@ export function ReasoningBlock({
         className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
         type="button"
       >
+        <Brain className="size-4 shrink-0" />
+        <span
+          className={`truncate ${live ? styles.shimmer : ''}`}
+          role={live ? 'status' : undefined}
+        >
+          {live ? '思考中…' : '已深度思考'}
+        </span>
         <ChevronRight
           className={cn(
             'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
             open && 'rotate-90',
           )}
         />
-        <span className="truncate">{label}</span>
       </button>
       <div
+        id={detailId}
         inert={!open}
         className={cn(
           'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
@@ -313,7 +277,7 @@ export function ReasoningBlock({
         <div className="min-h-0 overflow-hidden">
           <div
             data-reasoning-body
-            className="my-2 max-h-64 overflow-y-auto overscroll-contain whitespace-pre-wrap border-l pl-4 text-xs leading-6 text-muted-foreground/80"
+            className="my-2 max-h-48 overflow-y-auto overscroll-contain whitespace-pre-wrap pl-4 text-xs leading-relaxed text-muted-foreground"
           >
             {text}
           </div>

@@ -499,7 +499,7 @@ export interface LlmApi {
   verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
 }
 
-export type SettingsSectionId = 'connections' | 'llm' | 'appearance' | 'about';
+export type SettingsSectionId = 'connections' | 'llm' | 'plugins' | 'appearance' | 'about';
 
 export type GlobalSearchResult = {
   title: string;
@@ -552,11 +552,47 @@ export interface NotificationsApi {
   onUpdate(listener: (state: NotificationState) => void): () => void;
 }
 
+/** Composer 发送载荷：markdown 文本（内联图片以 dela-img token 嵌入）、暂存附件与 @ 引用。 */
+export interface ChatAskInput {
+  text: string;
+  attachments: string[];
+  context: string[];
+}
+
+/** 暂存到主进程的图片/附件：图片持久化到磁盘供历史展示，附件发送后即释放。 */
+export interface ChatMediaView {
+  id: string;
+  name: string;
+  size: number;
+  kind: 'image' | 'attachment';
+  /** 图片的缩略预览 data URL；附件为 null。 */
+  previewUrl: string | null;
+}
+
+export interface ChatCommandView {
+  id: string;
+  name: string;
+  prompt: string;
+}
+
+export interface ChatApi {
+  stageMedia(input: { name: string; bytes: ArrayBuffer | Uint8Array }): Promise<ChatMediaView>;
+  pickMedia(): Promise<ChatMediaView[]>;
+  /** 已发送图片的缩略预览；附件或文件缺失时为 null。 */
+  readMediaPreview(id: string): Promise<string | null>;
+  /** 移除尚未发送的暂存文件（composer 删除 chip、离开视图清理草稿）。 */
+  releaseMedia(ids: readonly string[]): void;
+  listCommands(): Promise<ChatCommandView[]>;
+  saveCommand(input: { id?: string; name: string; prompt: string }): Promise<ChatCommandView>;
+  deleteCommand(id: string): void;
+}
+
 export interface DelaApi {
   readonly version: string;
   readonly window: WindowApi;
   readonly settings: SettingsApi;
   readonly llm: LlmApi;
+  readonly chat: ChatApi;
   readonly mail: MailApi;
   readonly timetable: TimetableApi;
   readonly shuiyuan: ShuiyuanApi;
@@ -669,7 +705,7 @@ export interface WorkspaceApi {
   listChats(scope: string, query: string): Promise<ChatSessionSummary[]>;
   openChat(scope: string, sessionId: string): Promise<WorkspaceChat>;
   deleteChat(scope: string, sessionId: string): Promise<void>;
-  ask(scope: string, prompt: string, context: string[]): Promise<WorkspaceChat>;
+  ask(scope: string, input: ChatAskInput): Promise<WorkspaceChat>;
   cancelAsk(scope: string): Promise<void>;
   onChatUpdate(listener: (scope: string, chat: WorkspaceChat) => void): () => void;
 }
@@ -711,6 +747,10 @@ export interface WorkspaceChat {
     role: 'user' | 'assistant';
     content: string;
     sources?: { key: string; title: string }[];
+    /** 用户消息携带的内联图片（按输入顺序）；id 对应 chat-media 落盘文件。 */
+    images?: { id: string; name: string }[];
+    /** 用户消息携带的文本附件名；内容已进入当轮模型上下文，文件不保留。 */
+    attachments?: { name: string }[];
     toolResults?: AgentToolResult[];
     /** 按发生顺序保存公开说明、思考过程与相邻工具组；旧会话没有 parts。 */
     parts?: (
@@ -721,5 +761,7 @@ export interface WorkspaceChat {
     startedAt?: number;
     finishedAt?: number;
     interrupted?: boolean;
+    /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
+    stopped?: boolean;
   }[];
 }

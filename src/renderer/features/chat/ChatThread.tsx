@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUpRight,
   Check,
   ChevronRight,
   Copy,
+  FileText,
   LoaderCircle,
   NotebookPen,
 } from 'lucide-react';
@@ -17,14 +18,9 @@ import { leaveComposer } from '../mail/compose-close';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { errorText } from '../projects/workspace';
-import {
-  formatDuration,
-  ReasoningBlock,
-  ToolTimeline,
-  useNow,
-  type ToolOutput,
-} from './ToolTimeline';
+import { formatDuration, ReasoningBlock, ToolTimeline, type ToolOutput } from './ToolTimeline';
 import styles from './timeline.module.css';
+import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 
 const markdownStyles =
   '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_table]:my-2 [&_table]:w-full [&_table]:text-xs [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0';
@@ -77,6 +73,36 @@ function MessageActions({
   );
 }
 
+/** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图。 */
+function MessageImage({ id, name }: { id: string; name: string }) {
+  const [url, setUrl] = useState(() => getChatMediaPreview(id) ?? null);
+  useEffect(() => {
+    if (url) return;
+    let active = true;
+    void ensureChatMediaPreview(id).then((next) => {
+      if (active && next) setUrl(next);
+    });
+    return () => {
+      active = false;
+    };
+  }, [id, url]);
+  return url ? (
+    <img
+      alt={name}
+      className="size-20 rounded-xl border object-cover"
+      src={url}
+      title={name || undefined}
+    />
+  ) : (
+    <span
+      className="grid size-20 place-items-center rounded-xl border bg-muted text-[11px] text-muted-foreground"
+      title={name || undefined}
+    >
+      图片
+    </span>
+  );
+}
+
 function UserMessage({
   message,
   anchor,
@@ -88,9 +114,34 @@ function UserMessage({
 }) {
   return (
     <div data-turn-anchor={anchor || undefined} className="mb-5 flex flex-col items-end">
-      <div className="max-w-[85%] [overflow-wrap:anywhere] whitespace-pre-wrap rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
-        {message.content}
-      </div>
+      {message.content ? (
+        <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
+          <Streamdown className={markdownStyles} controls={false} skipHtml>
+            {message.content}
+          </Streamdown>
+        </div>
+      ) : null}
+      {message.images?.length ? (
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
+          {message.images.map((image) => (
+            <MessageImage id={image.id} key={image.id} name={image.name} />
+          ))}
+        </div>
+      ) : null}
+      {message.attachments?.length ? (
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
+          {message.attachments.map((attachment, index) => (
+            <span
+              className="flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
+              key={`${attachment.name}:${index}`}
+              title={attachment.name}
+            >
+              <FileText className="size-3 shrink-0" />
+              <span className="truncate">{attachment.name}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
       {message.sources?.length ? (
         <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
           {message.sources.map((source) => (
@@ -110,24 +161,26 @@ function UserMessage({
 
 /**
  * 完成后的工作过程块（参照 Codex 的“Worked for Xm Xs”）：整段思考、动作与中间说明
- * 折叠为一行摘要，点击展开完整时间线；失败数保留在摘要行上，不在折叠中丢失。
+ * 折叠为一行摘要，点击展开完整时间线；摘要在结束后定型，不含运行中跳动的数字。
  */
 function WorkedBlock({
   parts,
   elapsedMs,
-  interrupted,
+  status,
   failed,
 }: {
   parts: ChatParts;
   elapsedMs: number | null;
-  interrupted: boolean | undefined;
+  status: 'interrupted' | 'stopped' | 'done';
   failed: number;
 }) {
   const [open, setOpen] = useState(false);
+  const summaryId = useId();
   return (
     <div className="my-4 min-w-0 text-sm text-muted-foreground">
       <button
         aria-expanded={open}
+        aria-controls={summaryId}
         className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
         onClick={() => setOpen((current) => !current)}
         type="button"
@@ -139,12 +192,13 @@ function WorkedBlock({
           )}
         />
         <span className="truncate tabular-nums">
-          {interrupted ? '工作中断' : '已工作'}
+          {status === 'interrupted' ? '工作中断' : status === 'stopped' ? '已停止' : '已工作'}
           {elapsedMs !== null ? ` · ${formatDuration(elapsedMs)}` : ''}
           {failed > 0 && <span className="text-destructive"> · {failed} 个失败</span>}
         </span>
       </button>
       <div
+        id={summaryId}
         inert={!open}
         className={cn(
           'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
@@ -162,13 +216,7 @@ function WorkedBlock({
                   activeTool={undefined}
                 />
               ) : part.type === 'reasoning' ? (
-                <ReasoningBlock
-                  key={index}
-                  text={part.text}
-                  live={false}
-                  startedAt={part.startedAt}
-                  finishedAt={part.finishedAt}
-                />
+                <ReasoningBlock key={index} text={part.text} live={false} />
               ) : (
                 <Streamdown
                   key={index}
@@ -229,12 +277,10 @@ function AssistantMessage({
   );
   const showWorked = !live && hasActivity;
   const answer = answerIndex >= 0 ? parts[answerIndex] : null;
-  // 整轮“正在工作 · X 秒”：运行中每秒跳动，结束冻结为用时；完成后由已工作块接管计时。
-  const working = live && message.startedAt !== undefined && message.finishedAt === undefined;
-  const now = useNow(working);
+  // 用时只在结束后计算为静态值；运行中的顶层状态不带跳动的秒数。
   const elapsedMs =
-    message.startedAt !== undefined && (message.finishedAt !== undefined || working)
-      ? (message.finishedAt ?? now) - message.startedAt
+    !live && message.startedAt !== undefined && message.finishedAt !== undefined
+      ? message.finishedAt - message.startedAt
       : null;
   const failed = parts.reduce(
     (count, part) =>
@@ -279,15 +325,7 @@ function AssistantMessage({
       );
     }
     if (part.type === 'reasoning') {
-      return (
-        <ReasoningBlock
-          key={index}
-          text={part.text}
-          live={live && isLast}
-          startedAt={part.startedAt}
-          finishedAt={part.finishedAt}
-        />
-      );
+      return <ReasoningBlock key={index} text={part.text} live={live && isLast} />;
     }
     return (
       <Streamdown
@@ -307,18 +345,20 @@ function AssistantMessage({
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
       {!showWorked && message.startedAt !== undefined && (
-        <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <span
-            className={cn('tabular-nums', working && styles.shimmer)}
-            role={working ? 'status' : undefined}
-          >
-            {elapsedMs === null
-              ? '执行中断'
-              : working
-                ? `正在工作 · ${formatDuration(elapsedMs)}`
-                : `${message.interrupted ? '执行中断' : '用时'} · ${formatDuration(elapsedMs)}`}
-          </span>
-          <span className="h-px flex-1 bg-border" />
+        <div className="mb-4 text-xs text-muted-foreground">
+          {live ? (
+            <span className={styles.shimmer} role="status">
+              正在工作
+            </span>
+          ) : message.stopped ? (
+            <span>已停止</span>
+          ) : elapsedMs === null ? (
+            <span>执行中断</span>
+          ) : (
+            <span className="tabular-nums">
+              {message.interrupted ? '执行中断' : '用时'} · {formatDuration(elapsedMs)}
+            </span>
+          )}
         </div>
       )}
       {showWorked ? (
@@ -326,7 +366,7 @@ function AssistantMessage({
           <WorkedBlock
             parts={workingParts}
             elapsedMs={elapsedMs}
-            interrupted={message.interrupted}
+            status={message.stopped ? 'stopped' : message.interrupted ? 'interrupted' : 'done'}
             failed={failed}
           />
           {draftIds.map((draftId) => (

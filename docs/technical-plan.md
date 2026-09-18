@@ -979,3 +979,73 @@ Composer 双形态（`ReplyComposer` `variant: 'docked' | 'floating'`）：docke
 - 主进程单测：api.test.ts 更新占位/回填契约并新增“工具执行中取消保留 startedAt 占位”用例；loop.test.ts 断言 onToolStart 收到解析后的输入。思考展示追加：loop.test.ts 新增 SSE 增量累积与非流式 reasoning_content 两用例，api.test.ts 新增思考与正文隔离、中断收尾两用例（并修复 catch 路径先推 text 导致思考段 finishedAt 永不补上的缺陷）。
 - `scripts/chat-smoke.cjs` 扩展（先过 probe-preflight 六项门禁）：思考块流式展开可见→正文到达自动收起为“已思考 · 3 秒”、未开启推理强度时思考强度控件为 default 且禁用、占位步骤输入摘要运行中可见、“正在工作”计时 1.6 秒内跳动、完成后自动收起（折叠容器高度归零）、展开后每步耗时正确（2.1 秒 → “2 秒”）、第二组无时间戳降级不报错、草稿输入→切项目页→回首页恢复且写入 localStorage；明暗主题与 600/900/1200 三档宽度截图人工核对通过。providers.test.ts 新增档位归一化/枚举拒绝/编辑保留与回落/setEffort 范围校验五用例，loop.test.ts 断言未开启不带 reasoning_effort、开启后每次请求都携带。共 91 项单测。
 - 类型检查、Oxlint、Prettier、`pnpm build`、`pnpm smoke`、`pnpm smoke:workspace` 通过。真实模型流速下的流光/计时手感、真实提供商的思考流（智谱 GLM/DeepSeek-Reasoner/MiniMax）与其他平台未实机验收；探针输出中 `notifications:get-state` 未注册报错为既有问题（通知中心 IPC 未列入 chat-smoke 桩路由），不在本次范围。
+
+## Agent Composer 输入模型重构（2026-09-18）
+
+按用户确认的方向把首页/项目助手的输入从纯字符串升级为结构化对象：图文混排 blocks + 附件数组 + @ 引用；编辑器支持 Markdown 子集（列表、加粗、代码、代码块、链接）；`/` 与 `@` 候选修复并新增设置 › 插件的自定义指令。本节取代前文「ChatComposer（Enter 发送/Shift+Enter 换行……textarea 用 field-sizing-content）」的描述；两状态首页、多会话与 Agent 循环不变。
+
+### 选型与理由
+
+- **不引入新的富文本框架**（Tiptap/Lexical/Slate/Milkdown）：均需新增重依赖，且仓库已固定 CodeMirror 6 全套版本。composer 复用 `@codemirror/lang-markdown` + `@codemirror/language-data`（代码块按需高亮）与笔记编辑器导出的 GitHub 明暗高亮（`markdownHighlightStyle`），零新增依赖。
+- **图文混排用 token + widget 而非双向富文本模型**：图片在文档中以标准 Markdown 图片语法 `![文件名](dela-img:<UUID>)` 表示（UUID 严格匹配，普通外链图片不受影响），ViewPlugin 以 Decoration.replace 渲染为原子 chip（缩略图 + 移除按钮），atomicRanges 保证删除以整块进行。发送时 `parseChatBlocks` 按出现顺序拆分——文字与图片的相对顺序即用户指定的顺序。该 token 在任何 Markdown 渲染器中退化为普通图片链接，不产生私有格式。
+
+### 数据与 IPC
+
+- 发送载荷 `ask(scope, { text, attachments, context })`（`ChatAskInput`）。`workspace:ask` zod：text ≤20000、attachments 为 UUID 数组 ≤5、context ≤10。
+- 新增 `chat:*` 通道（均过 `checkWorkspaceSender` + zod）：`stage-media`（renderer 字节 → 主进程暂存，返回 `{id,name,size,kind,previewUrl}`）、`pick-media`（系统对话框多选）、`read-media-preview`（历史图片缩略）、`release-media`（composer 删除/弃草稿）、`list-commands`/`save-command`/`delete-command`（自定义指令，存 `workspace_settings` 的 `chat-commands` 键，名称限 `[\p{L}\p{N}_-]{1,20}` 且不允许重名）。
+- 暂存策略：图片（png/jpg/jpeg/gif/webp，≤5MB，≤6 张）写 `userData/chat-media/<UUID>.<ext>`，发送后由消息 `images:[{id,name}]` 引用，启动时 `gcChatMedia()` 扫描全部会话 JSON 删除无引用文件（被弃草稿的图片即孤儿，可回收）；文本附件（与工作区文本预览共用 `shared/chat-input.ts` 的扩展名清单，≤1MB）只进内存，进入当轮上下文后 `releaseChatAttachments` 释放，消息只留名字。PDF 等不支持类型在添加时拒绝并提示，不进入"假装已读"状态。
+
+### 模型请求
+
+- `loop.ts` 的 messages content 放宽为 `string | ChatContentPart[]`（OpenAI 兼容 text/image_url parts），请求体其余不变。
+- 用户消息 parts 组装：引用资料 JSON、附件正文（`【文件名】` 分节）与"用户请求："合为首个 text part，其后按 blocks 顺序交错 text/image part（图片 base64 data URL，MIME 按扩展名）；空文字块跳过，允许仅图片输入（校验"有文字或有图片"）。资料 + 附件总字符仍受 100000 上限约束。历史轮次仍只回传最近 12 条角色与正文（字符串），多模态 parts 只作用于当轮。
+
+### 渲染与交互
+
+- `ComposerEditor`（CM6）：Enter 发送（`compositionStarted` 守卫 + CM keymap 对 229 的既有忽略，双保险）、Shift+Enter 续写 Markdown 标记、外部值同步沿用笔记编辑器的 IME 组文推迟模式、粘贴/拖放文件经 domEventHandlers 拦截（drop 定位到 posAtCoords）、内容区 aria-label「发送给助手」。高度自适应，`.cm-scroller` 超过 224px 滚动（约 8 行，推导自 14px×1.65 行高）。
+- `ChatComposer`：附件 chip 行（显示 n/5）、引用 chip 行、回形针（对话框选择）与 @ 按钮、拖入文件时覆盖层提示；候选菜单修复——`/` 与 `@` 空查询即打开（旧实现 `if (mention?.[1])` 把空串当假值导致"输入 @ 无候选"）；`/` 菜单 = 内置指令 + 插件自定义指令（标"自定义"），键盘导航经 `ComposerMenuApi` 协议注入 CM 最高优先级 keymap。
+- 用户消息在 ChatThread 按 Markdown 渲染（Streamdown，与助手侧同一样式），内联图片显示 80px 缩略（renderer 维护 id→dataURL 会话级缓存，历史按需 `read-media-preview`），附件显示文件 chip；发送失败且消息未上屏时文本（含图片 token）与附件引用原样恢复草稿。
+
+### 验证状态与边界
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、82 项单元测试（新增 chat-input 解析/类型判定 6 项、ask 多模态组装与仅图片/空输入校验 2 项，media 以 mock 注入）、`pnpm smoke`、`pnpm smoke:workspace`（ask 断言改为从 parts 提取文字，模型仍只收到所选正文）、`pnpm exec electron scripts/chat-smoke.cjs`（新增 composer 断言：空查询 `/` 与 `@` 打开候选、选择 `/日程` 填充 prompt、选择引用生成 chip；textarea 就绪断言改为 `.cm-content[aria-label]`）。
+
+待实机验证：真实多模态提供商对 image_url parts 的兼容性（本项目未对任何提供商实测 vision，不支持图片的端点会返回 API 错误并在 composer 下方提示）；真实 IME 输入手感；大图片粘贴的 IPC 与渲染性能；插件分区与自定义指令的真实使用流。已知边界：附件仅文本类（PDF/Office 属后续解析能力，拒绝时不落盘）；删除内联图片 token 的瞬间不主动释放磁盘文件，由启动 GC 回收；探针侧事实——`executeJavaScript` 的多语句代码在全局作用域执行，裸 `const` 第二次求值会因重复声明抛错，探针须以 IIFE 包裹（已按 probe-preflight 记录）。
+
+## 时间线、思考流与停止行为（2026-09-18 第二轮）
+
+紧接 Composer 重构的实测反馈修复五件事：拖拽蒙版不消失、附件 `n/5` 计数冗余、时间线折叠行的动态数字、thinking 内容不显示、点停止后主进程报 AbortError。
+
+### 设计与理由
+
+- **折叠行去数字**：`已执行 N 个动作` 随每次工具调用变化，折叠行作为持续可见的锚点被高频重渲染（用户观感是数字闪动影响刷新）。改为按首次出现顺序去重的动作类别文字（参照 Codex App 的 "Ran commands, searched the web"），只在出现新类别时才变化；失败与否由图标承载，不进文字。头部「用时」是整轮结束才确定的终值，按要求保留；分隔横线与展开列表的左竖线移除（对齐参考的平铺观感）。
+- **thinking 只展示不回灌**：`reasoning_content`（DeepSeek/Qwen/vLLM 事实标准）与 `reasoning`（OpenRouter）都从 delta 增量解析，`runAgent` 新增 `onReasoning`，跨轮累计、空行分隔；api 层写入 `reply.thinking` 并与正文共用 ~100ms 节流广播。回灌 assistant 消息时显式只挑 `content`/`tool_calls`——DeepSeek 明确要求不回传 reasoning_content。渲染为 ThinkingBlock（复用 ToolGroup 的折叠结构与 grid-rows 动效），`active = live && 无非空回答文本` 驱动自动展开/收起，手动切换后 ref 锁定以用户为准。
+- **停止 = 正常返回**：以 `run.controller.signal.aborted` 为用户停止的权威信号（请求超时走 `AbortSignal.timeout` 的独立信号，不会误入）。停止时置 `reply.stopped`、保留已流式内容、不追加「本次执行中断」文案、不 rethrow——ipcMain handler 不再以 AbortError 拒绝，渲染端也不会误判为发送失败而恢复草稿。非停止错误的中断路径一字未动。
+- **拖拽蒙版根因**：ComposerEditor 的 CM6 drop 处理器 `stopPropagation()` 阻断了冒泡到容器的 React onDrop，`setDragging(false)` 永不执行；编辑器处理完文件拖放后经新回调 `onDropHandled` 通知容器复位。容器空白区拖放与无文件拖拽路径不变。
+- **附件上限反馈**：`n/5` 计数移除；`addAttachmentView` 已满时由静默忽略改为抛「附件最多 5 个」，经 pickFiles 的 catch 显示为 composer 内联错误，与拖拽路径同文案。
+
+### 验证状态与边界
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、87 项单元测试（loop 新增 reasoning_content/reasoning 双字段解析、跨轮累计与「回灌不含 reasoning」断言；api 新增停止 resolve + stopped 标记 + thinking 记录用例）、`pnpm smoke`、`pnpm smoke:workspace`、chat-smoke——断言随 UI 同步：thinking 自动展开→回答后自动收起→手动展开可见、折叠行为类别文字且「个动作/个失败」断言不再出现、组行与步骤行的文字歧义以 `startsWith` 区分。截图（output/playwright/）人工核对：头部无横线、折叠无数字、失败红图标、展开列表无竖线。
+
+待实机验证：真实推理模型的思考流显示（deepseek-v4-pro 未实测，OpenRouter 类 `reasoning` 字段同理）；停止后部分内容的观感；不支持 reasoning 字段的提供商应零影响（增量解析，字段缺失即无行为）。
+
+## 与 origin/feat/chat-UI 的合并（2026-09-18）
+
+背景：本地在 `feat/chat-UI` 之上做了两轮未提交改动（Composer 多模态重构 + 时间线/思考/停止修正），而 `origin/feat/chat-UI`（合作者，merge-base 恰为本地 HEAD 7f84cdf）同期实现了动作时间线、reasoning 展示、reasoning_effort 与草稿持久化，同一区域重复实现。处置：本地分支改名 `feat/chat-UI-composer-rework` 并提交两轮工作，`feat/chat-UI` 重建于 origin 头，合并 `feat/chat-UI-composer-rework`，重叠功能逐项择优。
+
+### 合并裁决（保留 / 舍弃）
+
+- **时间线**：保留远端 WorkedBlock 架构（完成后思考/动作/中间说明整体折叠为「已工作 · X分Y秒 · N 个失败」，最终回答 = 尾部最后一个非空正文部分，保持在折叠外；邮件草稿入口提升到折叠外），叠加用户 9-18 反馈的去动态化——运行态头部为静态「正在工作」（流光为纯 CSS，无 React 每秒重渲染）、ReasoningBlock 标签「思考中…/已深度思考」无计时数字、TimelineStep 无每步耗时、头部横线与步骤列表竖线移除、工具组摘要为去重类别文字（本地方案）而非计数。保留远端的每工具独立图标与占位步骤机制（`AgentToolResult.output` 可选 + `startedAt/finishedAt`，onToolStart 推占位、onToolResult 按 id 回填）。
+- **思考存储**：采用远端位置保持的 `reasoning` parts（思考与工具/正文交错顺序可回放），放弃本地消息级 `thinking` 字段（已从 shared/api.ts 移除）。双字段流解析（`reasoning_content`/`reasoning`）两侧实现一致；保留本地修复——回灌 assistant 消息只含 content/tool_calls，不带 reasoning_content；跨轮思考各自成段（本地原 `\n\n` 拼接方案废弃）。
+- **停止**：本地实现胜出——`run.controller.signal.aborted` 判用户停止，`reply.stopped = true` 后正常 resolve（远端会 rethrow AbortError，即用户报的主进程报错）。UI：WorkedBlock 摘要「已停止」，非折叠头部同。
+- **reasoning_effort 全链路（远端独有，保留）**：提供商档位多选（providers/credentials/llm-presets 持久化）、`llm:set-effort` IPC、composer「思考强度」Popover、请求体 `reasoning_effort`（未开启不携带）。
+- **草稿持久化（远端独有，保留）**：`drafts.ts` zustand + localStorage 按 scope 存 prompt/references，切页/重启不丢。与本地暂存资源生命周期的整合：离开视图时把内联图片 token 从持久化草稿剥离并 `releaseMedia`（附件内存暂存同样释放）——落盘图片由启动 GC 回收，避免重启后 token 指向已删除文件；即草稿持久化覆盖文字与引用，图片/附件不持久化。
+- **Composer**：本地 CM6 多模态编辑器胜出，远端的思考强度控件并入工具栏；`/` 与 `@` 空查询候选、插件自定义指令、图文混排、附件上限提示（无 n/5 计数）均为本地实现。拖拽蒙版修复经 `onDropHandled` 回调保留。
+- **远端其余功能整块保留**：水源社区（含 `source:shuiyuan-topic:` 引用进入 ask 上下文）、全局搜索（`SettingsSectionId` 上移 shared，并集加入本地 `plugins`）、通知中心、首启引导、设计统一化。
+
+### 验证状态
+
+已通过：Prettier、Oxlint 0 警告、三组类型检查、`pnpm build`、102 项单元测试（远端 91 项体系 + 本地多模态 2 项/停止 1 项合并后的择优用例：占位/回填、思考隔离、中断收尾、停止 resolve、图文 parts、仅图片/空输入）、`pnpm smoke`、`pnpm smoke:workspace`、chat-smoke（重写为合并后语义，先过 probe-preflight 门禁；`smoke-test=1` 查询参数跳过首启引导——远端新增的引导层会使空档案启动停在向导）。截图核对 WorkedBlock 折叠行与 composer 思考强度控件。
+
+待实机验证：真实推理模型的思考流与 reasoning_effort 行为；水源/搜索/通知/引导功能沿用远端章节原验证边界。已知取舍：图片/附件不随草稿持久化（机制见上）；远端时间线的跳动计时与每步耗时按用户 9-18 反馈移除，需要时可从 git 历史找回。

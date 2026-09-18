@@ -16,6 +16,7 @@ import {
   refreshNotifications,
 } from './notifications';
 import { getMailState, startMailSync } from './mail/api';
+import { gcChatMedia } from './agent/media';
 import type { IconPreference, ThemePreference } from '../shared/api';
 import { fontScaleLevels, zoomLevels } from '../shared/api';
 
@@ -164,6 +165,8 @@ app.whenReady().then(() => {
   registerSearchIpc();
   registerNotificationsIpc();
   initializeNotifications();
+  // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
+  gcChatMedia();
   if (!smokeTest) {
     const refresh = () => {
       void refreshNotifications().catch((error: unknown) =>
