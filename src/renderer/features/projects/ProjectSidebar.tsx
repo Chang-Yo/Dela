@@ -7,6 +7,7 @@ import {
   Trash2,
   FolderInput,
   FileInput,
+  PanelRightOpen,
 } from 'lucide-react';
 import type { WorkspaceEntry } from '../../../shared/api';
 import { Explorer } from '../../components/ui/explorer';
@@ -32,6 +33,8 @@ export function ProjectSidebar({
   onMove,
   canDrop,
   onImportFiles,
+  onOpenToSide,
+  onDoubleClick,
   query,
   excludeIds = [],
   archived = false,
@@ -46,6 +49,8 @@ export function ProjectSidebar({
   onMove?: (dragId: string, targetId: string | null) => void;
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
+  onOpenToSide?: (id: string) => void;
+  onDoubleClick?: (id: string) => void;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
@@ -101,6 +106,9 @@ export function ProjectSidebar({
       onMove={onMove}
       canDrop={canDrop}
       onImportFiles={onImportFiles}
+      onOpenToSide={onOpenToSide}
+      onDoubleClick={onDoubleClick}
+      sortItems
       actions={(item) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -133,6 +141,12 @@ export function ProjectSidebar({
               <DropdownMenuItem onSelect={() => onAction('promote', item.id)}>
                 <FolderKanban />
                 作为项目开展
+              </DropdownMenuItem>
+            )}
+            {onOpenToSide && (
+              <DropdownMenuItem onSelect={() => onOpenToSide(item.id)}>
+                <PanelRightOpen />
+                在侧边打开
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>

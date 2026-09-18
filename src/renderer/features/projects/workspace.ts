@@ -27,9 +27,11 @@ type Store = {
   setView: (scope: string, state: WorkspaceViewState) => void;
   setError: (error: unknown) => void;
   read: (key: string, force?: boolean) => Promise<void>;
-  release: (key: string) => void;
+  /** Flush a draft before releasing it. False means it is still present and dirty. */
+  release: (key: string) => Promise<boolean>;
   edit: (key: string, text: string) => void;
-  save: (key: string) => Promise<void>;
+  /** Resolves true only when the current draft is clean (or was already clean). */
+  save: (key: string) => Promise<boolean>;
 };
 
 export const errorText = (error: unknown) =>
@@ -38,6 +40,7 @@ export const errorText = (error: unknown) =>
     : String(error);
 const loading = new Map<string, Promise<void>>();
 const scheduledSaves = new Map<string, ReturnType<typeof setTimeout>>();
+const saving = new Map<string, Promise<boolean>>();
 
 export const useWorkspace = create<Store>((set, get) => ({
   workspace: { entries: [], views: {}, directory: '' },
@@ -69,6 +72,10 @@ export const useWorkspace = create<Store>((set, get) => ({
   },
   read: async (key, force = false) => {
     if (!window.dela || (!force && get().drafts[key])) return;
+    if (force && get().drafts[key]?.saving) {
+      const pending = saving.get(key);
+      if (!pending || !(await pending)) return;
+    }
     const pending = loading.get(key);
     if (pending) return pending;
     const started = get().drafts[key];
@@ -81,6 +88,9 @@ export const useWorkspace = create<Store>((set, get) => ({
           : await api.canvas.read(sourceId)
         : await api.workspace.read(key);
       const current = get().drafts[key];
+      // A refresh must never replace edits made while it was reading. A confirmed
+      // reload may discard the snapshot that existed when it started, but a newer
+      // edit always wins.
       if (
         started &&
         current &&
@@ -105,17 +115,28 @@ export const useWorkspace = create<Store>((set, get) => ({
     loading.set(key, work);
     return work;
   },
-  release: (key) => {
+  release: async (key) => {
+    const timer = scheduledSaves.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      scheduledSaves.delete(key);
+    }
     const draft = get().drafts[key];
-    if (!draft || draft.saving || draft.text !== draft.saved || draft.content.format === 'markdown')
-      return;
+    if (!draft) return true;
+    if (draft.saving || draft.text !== draft.saved) {
+      if (!(await get().save(key))) return false;
+    }
+    const current = get().drafts[key];
+    if (!current || current.saving || current.text !== current.saved) return false;
     set((state) => {
       const drafts = { ...state.drafts };
       delete drafts[key];
       return { drafts };
     });
+    return true;
   },
   edit: (key, text) => {
+    if (!get().drafts[key]) return;
     set((s) => ({ drafts: { ...s.drafts, [key]: { ...s.drafts[key]!, text, error: null } } }));
     clearTimeout(scheduledSaves.get(key));
     scheduledSaves.set(
@@ -126,41 +147,75 @@ export const useWorkspace = create<Store>((set, get) => ({
       }, 600),
     );
   },
-  save: async (key) => {
-    const draft = get().drafts[key];
-    if (
-      !window.dela ||
-      !draft ||
-      draft.saving ||
-      draft.text === draft.saved ||
-      !draft.content.revision
-    )
-      return;
-    const text = draft.text;
-    set((s) => ({ drafts: { ...s.drafts, [key]: { ...draft, saving: true } } }));
-    try {
-      const revision = await window.dela.workspace.saveNote(key, text, draft.content.revision);
-      set((s) => ({
-        drafts: {
-          ...s.drafts,
-          [key]: {
-            ...s.drafts[key]!,
-            saved: text,
-            content: { ...s.drafts[key]!.content, revision },
-            saving: false,
-            error: null,
-          },
-        },
-      }));
-    } catch (error) {
-      set((s) => ({
-        drafts: {
-          ...s.drafts,
-          [key]: { ...s.drafts[key]!, saving: false, error: errorText(error) },
-        },
-      }));
+  save: (key) => {
+    const existing = saving.get(key);
+    if (existing) return existing;
+    const timer = scheduledSaves.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      scheduledSaves.delete(key);
     }
-    const current = get().drafts[key];
-    if (current && !current.error && current.text !== current.saved) void get().save(key);
+    const task = (async (): Promise<boolean> => {
+      while (true) {
+        const draft = get().drafts[key];
+        if (!draft) return true;
+        if (draft.text === draft.saved) return true;
+        if (!window.dela) return false;
+        if (!draft.content.revision) {
+          const message = '此文档没有可用的保存版本。';
+          set((s) => ({
+            drafts: s.drafts[key]
+              ? { ...s.drafts, [key]: { ...s.drafts[key]!, saving: false, error: message } }
+              : s.drafts,
+          }));
+          return false;
+        }
+        const text = draft.text;
+        set((s) => ({
+          drafts: s.drafts[key]
+            ? { ...s.drafts, [key]: { ...s.drafts[key]!, saving: true } }
+            : s.drafts,
+        }));
+        try {
+          const revision = await window.dela.workspace.saveNote(key, text, draft.content.revision);
+          set((s) => {
+            const current = s.drafts[key];
+            if (!current) return s;
+            return {
+              drafts: {
+                ...s.drafts,
+                [key]: {
+                  ...current,
+                  saved: text,
+                  content: { ...current.content, revision },
+                  saving: false,
+                  error: null,
+                },
+              },
+            };
+          });
+        } catch (error) {
+          set((s) => ({
+            drafts: s.drafts[key]
+              ? {
+                  ...s.drafts,
+                  [key]: { ...s.drafts[key]!, saving: false, error: errorText(error) },
+                }
+              : s.drafts,
+          }));
+          return false;
+        }
+      }
+    })();
+    saving.set(key, task);
+    void task.then(
+      () => {
+        if (saving.get(key) === task) saving.delete(key);
+      },
+      () => {
+        if (saving.get(key) === task) saving.delete(key);
+      },
+    );
+    return task;
   },
 }));

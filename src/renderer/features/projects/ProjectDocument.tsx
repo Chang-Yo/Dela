@@ -27,6 +27,7 @@ import { errorText, useWorkspace } from './workspace';
 
 export function ProjectDocument({
   documentKey,
+  viewId = 'primary',
   readOnly = false,
   scroll = 0,
   onScroll,
@@ -37,6 +38,8 @@ export function ProjectDocument({
   onOpenShuiyuanTopic,
 }: {
   documentKey: string;
+  /** Distinguishes editor groups so each keeps its own cursor, scroll and undo history. */
+  viewId?: string;
   readOnly?: boolean;
   scroll?: number;
   onScroll: (top: number) => void;
@@ -62,6 +65,7 @@ export function ProjectDocument({
   const markdown = draft?.content.format === 'markdown';
   // 预览只对 Markdown 笔记有意义；名称改为其他扩展名后自动回到编辑态。
   const showPreview = preview && markdown;
+  const dirty = draft ? draft.text !== draft.saved : false;
   /* 面包屑：所属项目链（可点击在目录中定位）+ Canvas 课程与目录链（只读上下文）。 */
   const crumbs = useMemo(() => {
     const list: { key: string; label: string; onOpen?: () => void }[] = [];
@@ -182,6 +186,16 @@ export function ProjectDocument({
               截止 {new Date(draft.content.dueAt).toLocaleString('zh-CN')}
             </span>
           )}
+          <span
+            className={`ml-auto flex shrink-0 items-center gap-1 ${
+              draft.error ? 'text-destructive' : 'text-muted-foreground'
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {draft.saving && <LoaderCircle className="size-3 animate-spin" />}
+            {!editable ? '只读' : draft.saving ? '保存中…' : dirty ? '未保存' : '已保存'}
+          </span>
         </nav>
         {editable && markdown && (
           <Button
@@ -202,7 +216,7 @@ export function ProjectDocument({
               draft.saving ? '保存中…' : draft.text === draft.saved ? '已保存' : '保存 (Ctrl+S)'
             }
             aria-label="保存笔记"
-            disabled={draft.saving || draft.text === draft.saved}
+            disabled={draft.saving || !dirty}
             onClick={() => run(useWorkspace.getState().save(documentKey))}
           >
             <Save />
@@ -275,6 +289,7 @@ export function ProjectDocument({
         <MarkdownEditor
           value={draft.text}
           filename={entry?.name ?? undefined}
+          editorStateKey={`document:${documentKey}:${viewId}`}
           scroll={scroll}
           onChange={(text) => useWorkspace.getState().edit(documentKey, text)}
           onSave={() => void useWorkspace.getState().save(documentKey)}

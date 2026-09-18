@@ -22,6 +22,11 @@ export interface ExplorerItem {
 
 export const explorerDragType = 'application/x-dela-entry';
 
+const explorerCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base',
+});
+
 export function Explorer({
   items,
   expanded,
@@ -33,6 +38,9 @@ export function Explorer({
   onMove,
   canDrop,
   onImportFiles,
+  onOpenToSide,
+  onDoubleClick,
+  sortItems = false,
 }: {
   items: ExplorerItem[];
   expanded: string[];
@@ -44,6 +52,12 @@ export function Explorer({
   onMove?: (dragId: string, targetId: string | null) => void;
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
+  /** 修饰键单击时在另一编辑器组打开条目。 */
+  onOpenToSide?: (id: string) => void;
+  /** 双击条目时由上层决定固定/打开行为。 */
+  onDoubleClick?: (id: string) => void;
+  /** 仅对不依赖业务顺序的树启用文件夹优先自然排序。 */
+  sortItems?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -54,6 +68,14 @@ export function Explorer({
     const group = children.get(item.parentId) ?? [];
     group.push(item);
     children.set(item.parentId, group);
+  }
+  if (sortItems) {
+    for (const group of children.values())
+      group.sort((a, b) => {
+        const aBranch = Boolean(a.container || children.has(a.id));
+        const bBranch = Boolean(b.container || children.has(b.id));
+        return Number(bBranch) - Number(aBranch) || explorerCollator.compare(a.name, b.name);
+      });
   }
   const open = new Set(expanded);
   const visible: { item: ExplorerItem; level: number }[] = [];
@@ -67,6 +89,15 @@ export function Explorer({
     }
   };
   walk(null, 1);
+  const typeahead = useRef({ query: '', at: 0 });
+  const resetDrag = () => {
+    setDragId(null);
+    setDropTarget(null);
+    setExternalDropTarget(null);
+  };
+  const focusItem = (index: number) => {
+    root.current?.querySelectorAll<HTMLElement>('[role="treeitem"]')[index]?.focus();
+  };
   const keyDown = (event: KeyboardEvent, index: number, item: ExplorerItem, branch: boolean) => {
     let target = index;
     if (event.key === 'ArrowDown') target = Math.min(visible.length - 1, index + 1);
@@ -75,16 +106,37 @@ export function Explorer({
     else if (event.key === 'End') target = visible.length - 1;
     else if (event.key === 'ArrowRight') {
       if (branch && !open.has(item.id)) onExpand(item.id, true);
-      else if (branch) target = Math.min(visible.length - 1, index + 1);
+      else if (branch && visible[index + 1]?.item.parentId === item.id) target = index + 1;
     } else if (event.key === 'ArrowLeft') {
       if (branch && open.has(item.id)) onExpand(item.id, false);
-      else target = visible.findIndex((v) => v.item.id === item.parentId);
+      else {
+        const parent = visible.findIndex((v) => v.item.id === item.parentId);
+        if (parent >= 0) target = parent;
+      }
     } else if (event.key === 'Enter' || event.key === ' ') {
       onSelect(item.id);
-      if (branch) onExpand(item.id, !open.has(item.id));
+    } else if (
+      event.key.length === 1 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      // KeyboardEvent.timeStamp is monotonic for the current event stream and
+      // keeps the handler pure from the renderer's point of view.
+      const now = event.timeStamp;
+      const query =
+        now - typeahead.current.at < 700 ? typeahead.current.query + event.key : event.key;
+      typeahead.current = { query, at: now };
+      const lower = query.toLocaleLowerCase();
+      const next = [...visible.slice(index + 1), ...visible.slice(0, index + 1)].findIndex(
+        ({ item: candidate }) => candidate.name.toLocaleLowerCase().startsWith(lower),
+      );
+      if (next < 0) return;
+      target = (index + 1 + next) % visible.length;
     } else return;
     event.preventDefault();
-    root.current?.querySelectorAll<HTMLElement>('[role="treeitem"]')[target]?.focus();
+    focusItem(target);
   };
   const droppable = (drag: string, target: string) =>
     drag !== target && (!canDrop || canDrop(drag, target));
@@ -95,14 +147,15 @@ export function Explorer({
           draggable: Boolean(onMove),
           onDragStart: (event: DragEvent) => {
             if (!onMove) return;
+            setDropTarget(null);
+            setExternalDropTarget(null);
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData(explorerDragType, item.id);
             event.dataTransfer.setData('text/plain', item.name);
             setDragId(item.id);
           },
           onDragEnd: () => {
-            setDragId(null);
-            setDropTarget(null);
+            resetDrag();
           },
           onDragOver: (event: DragEvent) => {
             if (onImportFiles && branch && isFileDrag(event)) {
@@ -125,14 +178,13 @@ export function Explorer({
             if (onImportFiles && branch && isFileDrag(event)) {
               event.preventDefault();
               onImportFiles(Array.from(event.dataTransfer.files), item.id);
-              setExternalDropTarget(null);
+              resetDrag();
               return;
             }
             event.preventDefault();
             const drag = dragId ?? event.dataTransfer.getData(explorerDragType);
-            if (drag && onMove && droppable(drag, item.id)) onMove(drag, item.id);
-            setDragId(null);
-            setDropTarget(null);
+            if (drag && onMove && branch && droppable(drag, item.id)) onMove(drag, item.id);
+            resetDrag();
           },
         })
       : undefined;
@@ -141,16 +193,17 @@ export function Explorer({
       ref={root}
       role="tree"
       aria-label={label}
-      className="grid content-start gap-0.5 p-2"
+      className="grid content-start gap-0 p-1"
       onDragLeave={(event) => {
         if (
           onImportFiles &&
           isFileDrag(event) &&
           !event.currentTarget.contains(event.relatedTarget as Node | null)
         ) {
-          setExternalDropTarget(null);
+          resetDrag();
         }
       }}
+      onDragEnd={resetDrag}
       onDragOver={(event) => {
         if (onImportFiles && isFileDrag(event)) {
           event.preventDefault();
@@ -162,6 +215,7 @@ export function Explorer({
         if (event.defaultPrevented) return;
         event.preventDefault();
         onImportFiles(Array.from(event.dataTransfer.files), null);
+        resetDrag();
       }}
     >
       {visible.map(({ item, level }, index) => {
@@ -192,8 +246,10 @@ export function Explorer({
             {...dragProps?.(item, branch)}
             onClick={(event) => {
               event.currentTarget.focus();
-              onSelect(item.id);
+              if (event.altKey && onOpenToSide) onOpenToSide(item.id);
+              else onSelect(item.id);
             }}
+            onDoubleClick={() => onDoubleClick?.(item.id)}
             onContextMenu={(event) => {
               const trigger = event.currentTarget.querySelector<HTMLButtonElement>(
                 '[data-slot="dropdown-menu-trigger"]',
@@ -204,7 +260,7 @@ export function Explorer({
               }
             }}
             className={cn(
-              'group flex h-8 min-w-0 cursor-default items-center gap-1 rounded-lg pr-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+              'group flex h-7 min-w-0 cursor-default items-center gap-1 rounded-sm pr-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
               selected === item.id
                 ? 'bg-accent font-medium text-accent-foreground'
                 : 'text-foreground/75 hover:bg-accent/60',
