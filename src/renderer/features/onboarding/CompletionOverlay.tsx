@@ -25,11 +25,11 @@ export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
         initial={{ opacity: 1 }}
         transition={{ delay: fadeAtSeconds, duration: fadeSeconds, ease: 'easeOut' }}
       >
-        <h1 className="px-8 text-center text-5xl font-bold tracking-tight">
+        <h1 className="px-8 text-center text-4xl leading-snug font-bold tracking-tight">
           <motion.span
             animate={{ opacity: 1, y: 0 }}
             className="block"
-            initial={{ opacity: 0, y: 14 }}
+            initial={{ opacity: 0, y: 10 }}
             transition={{ delay: line1AtSeconds, duration: lineSeconds, ease: 'easeOut' }}
           >
             The world keeps changing,
@@ -37,7 +37,7 @@ export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
           <motion.span
             animate={{ opacity: 1, y: 0 }}
             className="block"
-            initial={{ opacity: 0, y: 14 }}
+            initial={{ opacity: 0, y: 10 }}
             transition={{ delay: line2AtSeconds, duration: lineSeconds, ease: 'easeOut' }}
           >
             Dela always stays with you

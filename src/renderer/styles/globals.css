@@ -202,8 +202,6 @@
   }
 }
 
-/* Italianno 手写体（assets/fonts 本地打包，离线可用；仅引导页使用）。
-   font-display: block 避免按脚本编排的入场动画期间闪现回退字体。 */
 @font-face {
   font-family: 'Italianno';
   font-style: normal;
@@ -214,7 +212,6 @@
 
 @theme inline {
   --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
-  /* 手写体仅用于首启引导的品牌名与 Quote（Italianno，Google Fonts，OFL 授权，仅 400）。 */
   --font-script: Italianno, cursive;
   /* 字号档位缩放：值内联进 text-* 工具类，line-height 沿用默认的无单位比值自动跟随。
      任意值写法（text-[13px] 等）不走这组变量，是已知不缩放范围。 */

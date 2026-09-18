@@ -3,7 +3,7 @@ import logo from '../../../../assets/Dela_Logo.png';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 
 // 品牌名与 Quote 均用手写体 Italianno（--font-script）。
-const QUOTE_TEXT = 'In a shallow age, refuse to float.';
+const QUOTE_TEXT = 'In a shallow age, refuse to float.\u00A0\u00A0\u00A0\u00A0';
 const QUOTE_AUTHOR = 'ChangYo';
 
 // Intro 时间线（秒）：Logo 浮现 → Dela 名字淡入 → Quote 左→右流式 → 署名流式 →
@@ -91,15 +91,15 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             <motion.img
               alt="Dela"
               animate={{ opacity: 1, y: 0 }}
-              className="size-[264px]"
-              initial={{ opacity: 0, y: 28 }}
+              className="size-[180px]"
+              initial={{ opacity: 0, y: 14 }}
               src={logo}
               transition={{ delay: logoAtSeconds, duration: logoSeconds, ease: 'easeOut' }}
             />
             <motion.h1
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 font-script text-8xl leading-none"
-              initial={{ opacity: 0, y: 18 }}
+              className="mt-6 font-script text-6xl leading-none"
+              initial={{ opacity: 0, y: 10 }}
               transition={{ delay: nameAtSeconds, duration: nameSeconds, ease: 'easeOut' }}
             >
               Dela
@@ -108,7 +108,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             <div className="flex flex-col items-end">
               <motion.p
                 animate={{ clipPath: 'inset(0 0% 0 0)' }}
-                className="mt-4 font-script text-5xl text-neutral-600"
+                className="mt-4 font-script text-3xl text-neutral-600"
                 initial={{ clipPath: 'inset(0 100% 0 0)' }}
                 transition={{ delay: quoteAtSeconds, duration: quoteSeconds, ease: 'easeInOut' }}
               >
@@ -116,7 +116,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
               </motion.p>
               <motion.p
                 animate={{ clipPath: 'inset(0 0% 0 0)' }}
-                className="mt-1 font-script text-3xl text-neutral-500"
+                className="mt-1 font-script text-2xl text-neutral-800"
                 initial={{ clipPath: 'inset(0 100% 0 0)' }}
                 transition={{ delay: authorAtSeconds, duration: authorSeconds, ease: 'easeInOut' }}
               >
