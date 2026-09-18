@@ -4,10 +4,12 @@ import type { ShuiyuanState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { errorText } from '../projects/workspace';
+import { useShuiyuan } from './store';
 
 /** 未绑定时的授权卡：发起授权窗口 → 粘贴密文 → 绑定。 */
 export function BindCard() {
   const shuiyuan = window.dela!.shuiyuan;
+  const init = useShuiyuan((state) => state.init);
   const [payload, setPayload] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [bindBusy, setBindBusy] = useState(false);
@@ -33,6 +35,9 @@ export function BindCard() {
     try {
       setBound(await shuiyuan.bind(payload));
       setPayload('');
+      // 绑定成功后立即刷新连接态：connected 置真时 ShuiyuanView 用信息流替换本卡片，
+      // 不再依赖切走再切回触发重新挂载。
+      void init();
     } catch (reason) {
       setError(errorText(reason));
     } finally {

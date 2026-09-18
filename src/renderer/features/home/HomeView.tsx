@@ -231,7 +231,9 @@ export function HomeView({
       <motion.div
         className={cn('shrink-0 px-4 md:px-6', conversation ? 'pt-2 pb-4' : 'mt-4')}
         layout="position"
-        transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
+        // 与线程淡入同时长的快速位移：保留 composer 跨两态的连续性，
+        // 不再用长弹簧下坠——发送后它会缓慢滑过新挂载的消息区，观感不稳。
+        transition={{ duration: 0.16, ease: 'easeOut' }}
       >
         <div className="mx-auto w-full max-w-3xl">
           {composer}

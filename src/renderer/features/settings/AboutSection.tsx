@@ -29,8 +29,8 @@ export function AboutSection() {
     <div className="grid gap-5">
       <SectionHeader title="关于" />
       <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-12 text-center">
-        <DelaBrand className="mb-6 h-48 w-48" />
-        <h2 className="text-2xl font-semibold tracking-tight">Dela</h2>
+        <DelaBrand className="h-48 w-48" />
+        <h2 className="text-4xl font-script tracking-tight">Dela</h2>
         <p className="text-sm text-muted-foreground">
           The world keeps changing. Dela stays with you.
         </p>
