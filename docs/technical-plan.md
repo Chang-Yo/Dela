@@ -1106,3 +1106,7 @@ Agent 新增两个联网工具与文档文字提取，零新增依赖。本节�
 已通过：三组类型检查、Oxlint 0 警告、123 项单元测试（新增 21 项：DDG 结果解析与 URL 解码、URL 守卫（含 IPv6 方括号回归）、htmlToText、搜索 POST 形态与限流报错、重定向拒绝内网目标、DOCX/PPTX/PPT 数字排序/扫描件检测/zip 损坏等 fixtures、read_resource 提取分页与扩展名分派）、`pnpm build`（pdfjs 双 chunk 产出）、`pnpm smoke`；并以构建产物 chunk 直接完成端到端 PDF 文本提取（require `pdf.cjs` + `pdf.worker.cjs` + globalThis 钩子，真实解析出文本）。
 
 待实机验证：正常使用频率下 DDG 的稳定性（联调触发的反爬为分钟级恢复）；真实课件 PDF/DOCX/PPTX 的提取质量；重打 NSIS 安装包后的完整链路（「node_modules 不含 pdfjs-dist、bundle 内自含解析能力」已由构建产物静态确认）。真实模型对 web_search/fetch_page 的调用配合属于既有「真实提供商工具调用待实测」边界的一部分。
+
+## 聊天滚动贴底跟随（2026-09-18）
+
+按用户要求，取代 2026-09-15「滚动参考 assistant-ui 顶部回合锚定」的约定：发送后该轮用户消息贴近视口底部（下方即流式输出），流式期间视口自动跟随最新内容；上滚/触摸/方向键退出跟随，「回到底部」按钮恢复跟随（按钮与退出跟随的既有交互不变）。短对话仍由 spacer 把内容底部对齐视口底部，流式增长先消耗 spacer、不产生滚动；内容超出视口后转为跟随滚动；回答完成折叠工作过程时 spacer 回填，阅读位置不跳。ChatThread 移除 data-turn-anchor 锚点标记与顶部定位计算，新回合统一瞬时滚到底并置跟随；chat-smoke 的长流式断言同步改为「自动贴底 → 上滚驻留 → 按钮回跟」。

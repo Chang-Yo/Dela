@@ -105,15 +105,13 @@ function MessageImage({ id, name }: { id: string; name: string }) {
 
 function UserMessage({
   message,
-  anchor,
   onOpenSource,
 }: {
   message: WorkspaceChat['messages'][number];
-  anchor: boolean;
   onOpenSource: (key: string) => void;
 }) {
   return (
-    <div data-turn-anchor={anchor || undefined} className="mb-5 flex flex-col items-end">
+    <div className="mb-5 flex flex-col items-end">
       {message.content ? (
         <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
           <Streamdown className={markdownStyles} controls={false} skipHtml>
@@ -458,17 +456,13 @@ export function ChatThread({
     const spacer = spacerRef.current;
     if (!viewport || !content || !spacer) return;
     const key = `${chat.sessionId}:${lastUserIndex}`;
-    const anchor = content.querySelector<HTMLElement>('[data-turn-anchor]');
     if (anchoredKey.current !== key) {
       anchoredKey.current = key;
-      followBottom.current = false;
       spacer.style.height = '0px';
-      if (streaming && anchor) {
-        const inset = parseFloat(getComputedStyle(content).paddingTop);
-        const target = anchor.offsetTop - inset;
-        spacer.style.height = `${Math.max(0, viewport.clientHeight + target - content.scrollHeight)}px`;
-        viewport.scrollTo({ top: target, behavior: 'instant' });
-      } else viewport.scrollTop = viewport.scrollHeight;
+      // ChatGPT 式：新回合贴底展示（用户消息下方就是流式输出），流式期间自动跟随
+      // 最新内容；上滚/触摸/方向键退出跟随，「回到底部」按钮恢复跟随。
+      followBottom.current = streaming;
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
     }
     const resize = () => {
       // 保留当前滚动位置所需的最小空白；回答增长时逐渐消耗，不在结束时突然归零。
@@ -529,7 +523,6 @@ export function ChatThread({
           {messages.map((message, index) =>
             message.role === 'user' ? (
               <UserMessage
-                anchor={index === lastUserIndex}
                 key={`${chat.sessionId}:${index}`}
                 message={message}
                 onOpenSource={onOpenSource}

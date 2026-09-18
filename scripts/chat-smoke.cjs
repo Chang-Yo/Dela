@@ -224,14 +224,17 @@ app
       .map((p) => p.text)
       .join('\n\n');
     await push();
-    const beforeFinish = await evaluate(`${viewport}.scrollTop`);
     chat.running = false;
     reply.finishedAt = reply.startedAt + 12400;
     await push();
-    assert.equal(
-      await evaluate(`${viewport}.scrollTop`),
-      beforeFinish,
-      'completion moved the viewport',
+    await new Promise((r) => setTimeout(r, 150));
+    // 完成折叠工作过程后视口仍贴底：折叠收缩超过滚动偏移时 scrollTop 会被钳到 0
+    // 并由 spacer 回填，位置数值相等不再是判据。
+    assert.ok(
+      await evaluate(
+        `${viewport}.scrollHeight - ${viewport}.scrollTop - ${viewport}.clientHeight < 30`,
+      ),
+      'completion lost the bottom',
     );
     // 完成后整段工作过程折叠为一行“已工作 · X 秒 · N 个失败”（Codex 式），最终回答保持在下方。
     const body = await evaluate('document.body.innerText');
@@ -281,11 +284,25 @@ app
         (await win.webContents.capturePage()).toPNG(),
       );
     }
-    // Long stream: reading remains stationary; explicitly following the bottom tracks growth.
+    // Long stream: auto-follow keeps the newest output at the bottom; scrolling away parks
+    // the reading position; the back-to-bottom button resumes following.
     chat.running = true;
     delete reply.finishedAt;
     reply.parts.at(-1).text += '\n\n' + '长回答段落，用于验证阅读位置。\n\n'.repeat(60);
     await push();
+    await new Promise((r) => setTimeout(r, 150));
+    assert.ok(
+      await evaluate(
+        `${viewport}.scrollHeight - ${viewport}.scrollTop - ${viewport}.clientHeight < 30`,
+      ),
+      'long stream did not auto-follow',
+    );
+    await evaluate(
+      `${viewport}.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true })); ${viewport}.scrollTop = 100`,
+    );
+    reply.parts.at(-1).text += '\n\n更多输出。'.repeat(20);
+    await push();
+    assert.equal(await evaluate(`${viewport}.scrollTop`), 100);
     await wait("document.querySelector('[aria-label=回到底部]')");
     await evaluate("document.querySelector('[aria-label=回到底部]').click()");
     await new Promise((r) => setTimeout(r, 700));
@@ -295,13 +312,8 @@ app
       await evaluate(
         `${viewport}.scrollHeight - ${viewport}.scrollTop - ${viewport}.clientHeight < 30`,
       ),
+      'button follow lost track',
     );
-    await evaluate(
-      `${viewport}.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true })); ${viewport}.scrollTop = 100`,
-    );
-    reply.parts.at(-1).text += '\n\n更多输出。'.repeat(20);
-    await push();
-    assert.equal(await evaluate(`${viewport}.scrollTop`), 100);
     // Legacy history and switching must not inherit disclosure state or invent lost text.
     chat.running = false;
     chat.sessionId = 'legacy';
