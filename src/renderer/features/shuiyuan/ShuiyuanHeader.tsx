@@ -11,6 +11,9 @@ import {
 import { cn } from '../../lib/utils';
 import { useShuiyuan, type ListSelection } from './store';
 
+// 搜索防抖：输入停顿该时长后才切换到搜索结果。
+const SEARCH_DEBOUNCE_MS = 400;
+
 /** 顶栏：feed 切换（最新/精品）、类别/标签筛选、搜索与三个个人入口。 */
 export function ShuiyuanHeader() {
   const list = useShuiyuan((state) => state.list);
@@ -35,9 +38,12 @@ export function ShuiyuanHeader() {
       return;
     }
     if (list.kind !== 'search') beforeSearch.current = list;
+    // 调度时捕获选择序号；防抖期间用户显式切换了列表则到点不再抢回搜索结果。
+    const selection = useShuiyuan.getState().listSelection;
     const timer = setTimeout(() => {
+      if (useShuiyuan.getState().listSelection !== selection) return;
       void selectList({ kind: 'search', query });
-    }, 400);
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // search/list 手动依赖：仅在输入变化时重设防抖。
   }, [search]); // eslint-disable-line react-hooks/exhaustive-deps

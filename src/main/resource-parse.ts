@@ -98,6 +98,111 @@ async function extractPdfText(bytes: Uint8Array): Promise<ParsedDocument> {
   }
 }
 
+/** 整页渲染出的 JPEG；供 agent 以图片消息附给视觉模型。 */
+export interface RenderedPdfPage {
+  page: number;
+  jpeg: Uint8Array;
+}
+
+// 页渲染远贵于文本提取，同样以路径 + 修改时间 + 大小为键做进程内小缓存。
+const renderCache = new Map<string, Uint8Array>();
+const RENDER_CACHE_LIMIT = 12;
+
+/** pdfjs 画布工厂协议（create/reset/destroy）的 @napi-rs/canvas 实现。 */
+function napiCanvasFactory(canvas: typeof import('@napi-rs/canvas')) {
+  return class {
+    create(width: number, height: number) {
+      if (width <= 0 || height <= 0) throw new Error('Invalid canvas size');
+      const instance = canvas.createCanvas(width, height);
+      return {
+        canvas: instance,
+        context: instance.getContext('2d'),
+      };
+    }
+    reset(
+      entry: { canvas: { width: number; height: number } | null },
+      width: number,
+      height: number,
+    ) {
+      if (!entry.canvas) throw new Error('Canvas is not specified');
+      if (width <= 0 || height <= 0) throw new Error('Invalid canvas size');
+      entry.canvas.width = width;
+      entry.canvas.height = height;
+    }
+    destroy(entry: { canvas: { width: number; height: number } | null; context: unknown }) {
+      if (!entry.canvas) throw new Error('Canvas is not specified');
+      entry.canvas.width = entry.canvas.height = 0;
+      entry.canvas = null;
+      entry.context = null;
+    }
+  };
+}
+
+/**
+ * 把指定页整页渲染为 JPEG（白底，最长边约 1600px，质量 0.85）。
+ * pdfjs 的 Node 分支依赖 createRequire(import.meta.url) 加载 @napi-rs/canvas，
+ * 但主进程打包后 import.meta.url 被 rolldown 置空，其自带的画布工厂与
+ * DOMMatrix polyfill 都会静默失效——这里显式注入工厂并补齐 polyfill。
+ */
+export async function renderPdfPages(
+  path: string,
+  pages: number[],
+): Promise<{ totalPages: number; pages: RenderedPdfPage[] }> {
+  const wanted = [...new Set(pages)].sort((a, b) => a - b);
+  if (wanted.length === 0) throw new Error('请至少指定一个页码');
+  const stats = await stat(path);
+  const baseKey = `${path}|${stats.mtimeMs}|${stats.size}`;
+  const rendered: RenderedPdfPage[] = [];
+  const missing: number[] = [];
+  for (const page of wanted) {
+    const cached = renderCache.get(`${baseKey}|${page}`);
+    if (cached) rendered.push({ page, jpeg: cached });
+    else missing.push(page);
+  }
+  const pdfjs = await loadPdfjs();
+  const canvasModule = await import('@napi-rs/canvas');
+  // 进程内 worker 与显示层都用 globalThis.DOMMatrix；缺失时补 pdfjs 本想补的 polyfill。
+  const globals = globalThis as typeof globalThis & { DOMMatrix?: unknown };
+  globals.DOMMatrix ??= canvasModule.DOMMatrix;
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(await readFile(path)),
+    verbosity: 0,
+    CanvasFactory: napiCanvasFactory(canvasModule),
+  });
+  try {
+    const document = await task.promise;
+    for (const page of missing) {
+      if (page < 1 || page > document.numPages)
+        throw new Error(`页码 ${page} 超出范围（共 ${document.numPages} 页）`);
+    }
+    for (const page of missing) {
+      const pdfPage = await document.getPage(page);
+      const base = pdfPage.getViewport({ scale: 1 });
+      const scale = Math.min(2.5, Math.max(1, 1600 / Math.max(base.width, base.height)));
+      const viewport = pdfPage.getViewport({ scale });
+      const canvas = canvasModule.createCanvas(
+        Math.ceil(viewport.width),
+        Math.ceil(viewport.height),
+      );
+      const context = canvas.getContext('2d');
+      // PDF 页可能是透明背景，先铺白底，否则编码出的 JPEG 是黑底。
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      // pdfjs 的渲染类型面向 DOM canvas；@napi-rs/canvas 在 Node 下与其同构。
+      await pdfPage.render({ canvas: canvas as never, viewport }).promise;
+      const jpeg = new Uint8Array(canvas.toBuffer('image/jpeg', 0.85));
+      if (renderCache.size >= RENDER_CACHE_LIMIT)
+        renderCache.delete(renderCache.keys().next().value!);
+      renderCache.set(`${baseKey}|${page}`, jpeg);
+      rendered.push({ page, jpeg });
+      pdfPage.cleanup();
+    }
+    return { totalPages: document.numPages, pages: rendered.sort((a, b) => a.page - b.page) };
+  } finally {
+    await task.destroy();
+  }
+}
+
 /**
  * 读取 zip 中央目录并解出匹配条目。OOXML 文档（DOCX/PPTX）是 deflate 压缩的 zip + XML，
  * 这里只实现文档解析所需的子集：不校验 CRC，不支持加密与 Zip64。

@@ -28,36 +28,39 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 
 下表版本来自本次讨论期间对官方文档和 npm 元数据的核对。版本存在和声明范围兼容，不代表整个组合已通过运行验证。初始化时使用精确版本，不使用 `latest`、`^`、`~` 作为直接依赖约束；提交锁文件。
 
-| 层面          | 选型                        | 固定版本 | 职责                              |
-| ------------- | --------------------------- | -------- | --------------------------------- |
-| 桌面运行时    | Electron                    | 44.3.0   | 窗口、Session、系统能力           |
-| 开发运行时    | Node.js                     | 24.21.0  | 安装、开发与构建                  |
-| 包管理        | pnpm                        | 12.3.4   | 单包依赖管理                      |
-| 语言          | TypeScript                  | 7.0.2    | 类型检查、共享契约                |
-| 构建          | Vite                        | 8.2.2    | main/preload/renderer 构建        |
-| React 插件    | @vitejs/plugin-react        | 6.1.1    | JSX 转换与开发刷新                |
-| 界面          | react / react-dom           | 19.2.8   | 工作台 UI                         |
-| 基础交互      | radix-ui                    | 1.6.7    | 菜单、对话框、提示等              |
-| 样式          | CSS Modules + CSS Variables | 无独立包 | 组件样式、主题变量                |
-| 类名组合      | clsx                        | 2.1.1    | 组合 CSS Modules 状态与变体       |
-| 界面过渡      | framer-motion               | 13.2.0   | 面板、抽屉与页面切换动画          |
-| 界面状态      | zustand                     | 5.0.15   | 面板、标签页、当前选择            |
-| 参数校验      | zod                         | 4.5.4    | IPC、工具参数与必要的外部数据校验 |
-| 数据库驱动    | better-sqlite3              | 13.0.3   | 本地 SQLite 访问                  |
-| Markdown 编辑 | @codemirror/view            | 6.43.11  | 编辑器视图                        |
-| Markdown 语言 | @codemirror/lang-markdown   | 6.5.2    | Markdown 编辑支持                 |
-| 编辑器内核    | @codemirror/state           | 6.7.4    | 编辑器状态与事务                  |
-| 编辑器语言    | @codemirror/language        | 6.12.4   | 高亮系统（HighlightStyle）        |
-| 编辑器命令    | @codemirror/commands        | 6.11.0   | 撤销/重做与默认键位               |
-| 代码块语言    | @codemirror/language-data   | 6.5.2    | 围栏代码块语言按需加载            |
-| 高亮标签      | @lezer/highlight            | 1.2.3    | 语法标签定义                      |
-| Markdown 展示 | react-markdown              | 10.1.0   | 文档和对话渲染                    |
-| GFM           | remark-gfm                  | 4.0.1    | 表格、任务清单等                  |
-| 代码高亮      | highlight.js                | 11.12.0  | Markdown 代码块展示               |
-| 邮箱读取      | imapflow                    | 2.0.0    | IMAP 同步与查询                   |
-| 邮件发送      | nodemailer                  | 10.0.1   | SMTP 发送与 MIME 构建             |
-| 安装包        | electron-builder            | 26.15.3  | 打包和分发产物                    |
-| 逻辑测试      | vitest                      | 5.0.0    | 状态、同步和工具执行测试          |
+| 层面          | 选型                          | 固定版本              | 职责                                                 |
+| ------------- | ----------------------------- | --------------------- | ---------------------------------------------------- |
+| 桌面运行时    | Electron                      | 44.3.0                | 窗口、Session、系统能力                              |
+| 开发运行时    | Node.js                       | 24.21.0               | 安装、开发与构建                                     |
+| 包管理        | pnpm                          | 12.3.4                | 单包依赖管理                                         |
+| 语言          | TypeScript                    | 7.0.2                 | 类型检查、共享契约                                   |
+| 构建          | Vite                          | 8.2.2                 | main/preload/renderer 构建                           |
+| React 插件    | @vitejs/plugin-react          | 6.1.1                 | JSX 转换与开发刷新                                   |
+| 界面          | react / react-dom             | 19.2.8                | 工作台 UI                                            |
+| 基础交互      | radix-ui                      | 1.6.7                 | 菜单、对话框、提示等                                 |
+| 样式          | CSS Modules + CSS Variables   | 无独立包              | 组件样式、主题变量                                   |
+| 类名组合      | clsx                          | 2.1.1                 | 组合 CSS Modules 状态与变体                          |
+| 界面过渡      | framer-motion                 | 13.2.0                | 面板、抽屉与页面切换动画                             |
+| 界面状态      | zustand                       | 5.0.15                | 面板、标签页、当前选择                               |
+| 参数校验      | zod                           | 4.5.4                 | IPC、工具参数与必要的外部数据校验                    |
+| 数据库驱动    | better-sqlite3                | 13.0.3                | 本地 SQLite 访问                                     |
+| Markdown 编辑 | @codemirror/view              | 6.43.11               | 编辑器视图                                           |
+| Markdown 语言 | @codemirror/lang-markdown     | 6.5.2                 | Markdown 编辑支持                                    |
+| 编辑器内核    | @codemirror/state             | 6.7.4                 | 编辑器状态与事务                                     |
+| 编辑器语言    | @codemirror/language          | 6.12.4                | 高亮系统（HighlightStyle）                           |
+| 编辑器命令    | @codemirror/commands          | 6.11.0                | 撤销/重做与默认键位                                  |
+| 代码块语言    | @codemirror/language-data     | 6.5.2                 | 围栏代码块语言按需加载                               |
+| 高亮标签      | @lezer/highlight              | 1.2.3                 | 语法标签定义                                         |
+| Markdown 展示 | react-markdown                | 10.1.0                | 来源详情与回复预览渲染                               |
+| 对话 Markdown | streamdown                    | 2.6.0                 | 聊天流式渲染与代码块控件                             |
+| 对话渲染插件  | @streamdown/code/math/mermaid | 1.1.1 / 1.0.2 / 1.0.2 | shiki 双主题高亮、KaTeX 公式、mermaid 图表（懒加载） |
+| 数学公式      | katex                         | 0.16.47               | LaTeX 排版内核与字体                                 |
+| GFM           | remark-gfm                    | 4.0.1                 | 表格、任务清单等                                     |
+| 代码高亮      | highlight.js                  | 11.12.0               | Markdown 代码块展示                                  |
+| 邮箱读取      | imapflow                      | 2.0.0                 | IMAP 同步与查询                                      |
+| 邮件发送      | nodemailer                    | 10.0.1                | SMTP 发送与 MIME 构建                                |
+| 安装包        | electron-builder              | 26.15.3               | 打包和分发产物                                       |
+| 逻辑测试      | vitest                        | 5.0.0                 | 状态、同步和工具执行测试                             |
 
 HTTP 和模型请求使用运行时 `fetch`；凭据保护使用 Electron `safeStorage`；文件操作使用 Node.js API。不额外引入 HTTP 服务端、ORM、Agent 框架或客户端请求框架。
 
@@ -424,7 +427,7 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 | `src/main/agent/tools.ts`          | 工具描述、输入校验与执行结果                             |
 | `src/main/agent/providers.ts`      | 提供商列表/保存/删除/启用/检测（密钥只在主进程）         |
 | `src/main/agent/web-search.ts`     | `web_search` 与 `fetch_page` 联网工具                    |
-| `src/main/resource-parse.ts`       | PDF/DOCX/PPTX 文本提取                                   |
+| `src/main/resource-parse.ts`       | PDF 文本提取与整页渲染（JPEG）、DOCX/PPTX 文本提取       |
 | `src/shared/resources.ts`          | 严格校验 workspace/canvas/mail/attachment/shuiyuan 引用  |
 | `src/renderer/features/chat/`      | 首页与项目助手共用的对话核心（线程、composer、会话管理） |
 
@@ -434,29 +437,29 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 
 统一执行结果为 `{ ok: true, result }` 或 `{ ok: false, error: { code, message } }`；错误码 UNKNOWN_TOOL、INVALID_INPUT、OPERATION_FAILED、INVALID_JSON。
 
-| 工具                            | 主要输入                          | 主要结果与范围                               |
-| ------------------------------- | --------------------------------- | -------------------------------------------- |
-| `find_courses`                  | query、分页                       | 缓存课程 ID、名称、同步时间/错误             |
-| `sync_sources`                  | 可选 courseId                     | 同步课程列表或指定课程资料                   |
-| `search_sources`                | query、courseId、kind、分页       | 缓存标题搜索                                 |
-| `search_workspace`              | query、parentId、分页             | 工作区条目名称搜索                           |
-| `web_search`                    | query、region、count              | DuckDuckGo lite 结果；限流明确报错           |
-| `fetch_page`                    | url                               | 网页转文本；PDF 直链提取文字；仅公网 http(s) |
-| `search_mail`                   | query、from、folderId、时间、分页 | 主题/摘要缓存搜索；UID 窗口与同步信息        |
-| `read_resource`                 | ref、offset、limit                | 正文分页；PDF/DOCX/PPTX 提取文字层           |
-| `query_assignments`             | courseId、截止时间范围、分页      | 缓存作业与截止时间，提交状态未知             |
-| `query_schedule`                | semester、startAt、endAt          | 课程和个人事件（上海时区），缺失数据有警告   |
-| `create_event`                  | title、startAt、endAt、location   | 个人事件；不修改课程                         |
-| `create_entry` / `update_entry` | parentId、kind、name 等           | 新建/重命名/移动条目                         |
-| `write_note`                    | id、text、revision                | 保存笔记版本；冲突返回错误                   |
-| `link_source`                   | parentId、sourceId、name          | 保留来源的项目资料关联                       |
-| `copy_file_to_project`          | source、parentId                  | 项目/Canvas/附件文件的独立导入副本           |
-| `prepare_email`                 | to、subject、text、attachments    | 邮件草稿；只备稿不发送                       |
+| 工具                            | 主要输入                          | 主要结果与范围                                                                                                           |
+| ------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `find_courses`                  | query、分页                       | 缓存课程 ID、名称、同步时间/错误                                                                                         |
+| `sync_sources`                  | 可选 courseId                     | 同步课程列表或指定课程资料                                                                                               |
+| `search_sources`                | query、courseId、kind、分页       | 缓存标题搜索                                                                                                             |
+| `search_workspace`              | query、parentId、分页             | 工作区条目名称搜索                                                                                                       |
+| `web_search`                    | query、region、count              | DuckDuckGo lite 结果；限流明确报错                                                                                       |
+| `fetch_page`                    | url                               | 网页转文本；PDF 直链提取文字；仅公网 http(s)                                                                             |
+| `search_mail`                   | query、from、folderId、时间、分页 | 主题/摘要缓存搜索；UID 窗口与同步信息                                                                                    |
+| `read_resource`                 | ref、offset、limit、pages         | 正文分页；PDF/DOCX/PPTX 提取文字层；PDF `pages`（每次 ≤6 页）整页渲染为图像以合成 user 消息附给视觉模型，单次运行 ≤12 张 |
+| `query_assignments`             | courseId、截止时间范围、分页      | 缓存作业与截止时间，提交状态未知                                                                                         |
+| `query_schedule`                | semester、startAt、endAt          | 课程和个人事件（上海时区），缺失数据有警告                                                                               |
+| `create_event`                  | title、startAt、endAt、location   | 个人事件；不修改课程                                                                                                     |
+| `create_entry` / `update_entry` | parentId、kind、name 等           | 新建/重命名/移动条目                                                                                                     |
+| `write_note`                    | id、text、revision                | 保存笔记版本；冲突返回错误                                                                                               |
+| `link_source`                   | parentId、sourceId、name          | 保留来源的项目资料关联                                                                                                   |
+| `copy_file_to_project`          | source、parentId                  | 项目/Canvas/附件文件的独立导入副本                                                                                       |
+| `prepare_email`                 | to、subject、text、attachments    | 邮件草稿；只备稿不发送                                                                                                   |
 
 ### 执行与上下文
 
-- 上下文 = 用户请求（支持图文混排 parts，图片为 base64 data URL，仅当轮生效）+ @ 引用正文 + 最近 12 条对话角色/正文 + 本轮工具结果；不默认发送全部历史和全部文件。
-- 每轮模型请求独立 120s 超时；429/5xx/网络错误按 1s/3s 退避重试（4xx 与已产出内容后不重试）；最多 12 轮，末轮注入“总结收尾”提示；单条工具结果回灌前截断至 20000 字符。
+- 上下文 = 用户请求（支持图文混排 parts，图片为 base64 data URL，仅当轮生效）+ @ 引用正文 + 最近 12 条对话角色/正文 + 本轮工具结果（PDF 页图像经 `role:'tool'` 无法承载，剥离 base64 后以合成 user 图片消息附后，持久化只留页码元数据）；不默认发送全部历史和全部文件。
+- 每轮模型请求独立 120s 超时；429/5xx/网络错误按 1s/3s 退避重试（4xx 与已产出内容后不重试）；最多 12 轮，末轮注入“总结收尾”提示；单条工具结果回灌前截断至 20000 字符；单次回复输出上限 32768 tokens，提供商以 400 拒绝该上限时自动退回 8192 重试。
 - 思考内容（`reasoning_content`/`reasoning`）仅展示、不回灌模型；用户停止标记 `stopped` 并正常返回，保留已生成内容；已执行的业务操作不回滚。
 - 边界：邮箱缓存仅每文件夹近期 300 UID 窗口；作业提交状态未知；缺失周次或学期日期时不猜测日期；邮件、课件、网页是指令不可执行的资料；不提供提交作业工具，不开放任意 shell。
 - 本地存储不等于本地推理：发送给模型服务商的上下文会离开本机，界面让用户了解所选资料范围。

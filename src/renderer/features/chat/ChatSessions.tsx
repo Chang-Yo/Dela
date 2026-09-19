@@ -112,15 +112,24 @@ export function ChatSessions({
 
   useEffect(() => {
     if (!open) return;
+    // cleanup 只能清 timer，无法取消在途 IPC：active 标志丢弃过期响应（含删除后到达的旧列表）。
+    let active = true;
     const timer = setTimeout(() => {
       void listSessions(query.trim())
-        .then(setSessions)
+        .then((result) => {
+          if (active) setSessions(result);
+        })
         .catch((e) => {
-          setSessions([]);
-          console.error(errorText(e));
+          if (active) {
+            setSessions([]);
+            console.error(errorText(e));
+          }
         });
     }, 200);
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [listSessions, listVersion, open, query]);
 
   // 悬浮面板不是 Radix 对话框，自行响应 Esc 关闭。

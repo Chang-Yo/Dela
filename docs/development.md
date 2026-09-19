@@ -26,7 +26,7 @@ pnpm dev
 ```
 
 - `pnpm install` 会通过 Electron 提供的 `install-electron` 命令下载运行时。
-- pnpm 仅允许明确的依赖脚本；`better-sqlite3` 使用随包提供的预编译模块，当前关闭源码重建（`npmRebuild: false`），新增原生依赖时需重新评估。
+- pnpm 仅允许明确的依赖脚本；原生依赖（`better-sqlite3`、`@napi-rs/canvas`）均使用随包提供的预编译模块，当前关闭源码重建（`npmRebuild: false`）。`@napi-rs/canvas` 需在 `vite.main.config.ts` 标记 external 并加入 electron-builder `asarUnpack`；pnpm 不会自动安装传递平台包，非当前平台的出包需在对应平台环境补齐（见 devlog 2026-09-18 第五轮）。
 - 开发模式（Vite dev 构建）下每次启动都会完整重播首启引导，便于查看；正式构建只在首次启动播放。URL 加 `?smoke-test=1` 可短路引导直接渲染主界面，供自动化使用。
 
 ## 常用命令

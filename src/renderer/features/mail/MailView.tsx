@@ -37,6 +37,8 @@ const MESSAGE_LIMIT = 200;
 //   + 1(分隔线) + 459(阅读区舒适下限);W 再小则强制折叠侧栏,把 172px 还给阅读区。
 const STACKED_THRESHOLD = 760;
 const AUTO_COLLAPSE_THRESHOLD = 1000;
+/** 窄屏媒体查询:窗口宽度决定走 AppShell 抽屉的单列布局。 */
+const NARROW_MEDIA_QUERY = '(max-width: 767px)';
 const ignoreComposeDirty = () => {};
 
 /** 回复预填不是本地草稿：不带 savedLocally，避免触发既有草稿的覆盖保存/发送后删除。 */
@@ -136,7 +138,7 @@ function DesktopMailView({
   const [trashItems, setTrashItems] = useState<MailTrashItem[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
   const [trashError, setTrashError] = useState<string | null>(null);
-  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_MEDIA_QUERY).matches);
   const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
   // 邮箱 grid 容器实测宽度;初始按最宽处理,挂载后在布局阶段同步测量并纠正,不产生可见闪烁。
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
@@ -147,6 +149,8 @@ function DesktopMailView({
   const detailRequest = useRef(0);
   const listRequest = useRef(0);
   const trashRequest = useRef(0);
+  const draftRequest = useRef(0);
+  const noticeTimer = useRef<number | null>(null);
   const navigationRequest = useRef(0);
   const processedOpenRequest = useRef<{ messageId: number } | undefined>(undefined);
 
@@ -158,17 +162,23 @@ function DesktopMailView({
     [onComposeDirtyChange],
   );
 
-  /** 瞬时提示,样式沿用发送成功通知。 */
+  /** 瞬时提示,样式沿用发送成功通知;新提示顶掉旧提示并接管其定时器。 */
   const notify = useCallback((text: string) => {
     setSendNotice(text);
-    window.setTimeout(() => setSendNotice(null), 3000);
+    if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => {
+      noticeTimer.current = null;
+      setSendNotice(null);
+    }, 3000);
   }, []);
 
   const loadDrafts = useCallback(async (account: string) => {
+    const request = ++draftRequest.current;
     try {
-      setLocalDrafts(await dela.mail.listDrafts(account));
+      const loaded = await dela.mail.listDrafts(account);
+      if (request === draftRequest.current) setLocalDrafts(loaded);
     } catch (reason) {
-      setDraftError(String(reason));
+      if (request === draftRequest.current) setDraftError(String(reason));
     }
   }, []);
 
@@ -204,6 +214,7 @@ function DesktopMailView({
   }, [accountAddress, loadDrafts, updateComposeDirty]);
   const openDrafts = () => {
     if (!leaveComposer(openDrafts)) return;
+    navigationRequest.current += 1;
     setComposing(false);
     setDraft(undefined);
     setSelection({ kind: 'drafts' });
@@ -213,6 +224,7 @@ function DesktopMailView({
   };
   const openTrash = () => {
     if (!leaveComposer(openTrash)) return;
+    navigationRequest.current += 1;
     setComposing(false);
     setDraft(undefined);
     setSelection({ kind: 'trash' });
@@ -243,9 +255,8 @@ function DesktopMailView({
   }, [foldersCollapsed]);
 
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 767px)');
+    const media = window.matchMedia(NARROW_MEDIA_QUERY);
     const update = () => setNarrow(media.matches);
-    update();
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
@@ -385,6 +396,8 @@ function DesktopMailView({
 
   useEffect(() => {
     let active = true;
+    // 捕获导航计数:草稿/回收站按钮在 folders 到达前即可点击,加载完成后不得覆盖用户选择。
+    const nav = navigationRequest.current;
     void dela.mail.getState().then(async (initial) => {
       if (!active) return;
       setState(initial);
@@ -394,7 +407,8 @@ function DesktopMailView({
       setFolders(folderList);
       const inbox =
         folderList.find((folder) => folder.specialUse === '\\Inbox') ?? folderList[0] ?? null;
-      if (inbox) {
+      // 加载期间用户已切换草稿/回收站等视图时不再强制回到收件箱;后续草稿/回收站/自动同步仍需执行。
+      if (inbox && navigationRequest.current === nav) {
         setSelection({ kind: 'folder', id: inbox.id });
         await loadMessages(inbox.id);
       }
@@ -417,6 +431,7 @@ function DesktopMailView({
       detailRequest.current += 1;
       listRequest.current += 1;
       trashRequest.current += 1;
+      draftRequest.current += 1;
       unsubscribe();
     };
     // 仅在挂载时执行一次。
@@ -625,19 +640,28 @@ function DesktopMailView({
           setDetailError('目标邮件所在的文件夹不可用。');
           return;
         }
-        updateComposeDirty(false);
-        setComposing(false);
-        setDraft(undefined);
-        setSearch('');
-        selectedFolderIdRef.current = folderId;
-        setSelection({ kind: 'folder', id: folderId });
-        setMessages([]);
-        setSelectedMessageId(null);
-        setDetail(null);
-        setDetailError(null);
-        setMobileReading(stacked);
-        void loadMessages(folderId);
-        void openMessage(message.id);
+        // App 侧守卫只覆盖点击瞬间;folders 迟到时这里仍可能撞上脏编辑器,复用 leaveComposer
+        // 走保存/放弃确认后再切换,不允许静默丢内容。
+        const apply = () => {
+          if (request !== navigationRequest.current) return;
+          updateComposeDirty(false);
+          setComposing(false);
+          setDraft(undefined);
+          setSearch('');
+          selectedFolderIdRef.current = folderId;
+          setSelection({ kind: 'folder', id: folderId });
+          setMessages([]);
+          setSelectedMessageId(null);
+          setDetail(null);
+          setDetailError(null);
+          setMobileReading(stacked);
+          void loadMessages(folderId);
+          void openMessage(message.id);
+          // 确认对话框可能刚保存过草稿,刷新侧栏草稿数。
+          void loadDrafts(account.address);
+        };
+        if (!leaveComposer(apply)) return;
+        apply();
       })
       .catch((reason) => {
         if (request === navigationRequest.current)
@@ -723,10 +747,9 @@ function DesktopMailView({
               updateComposeDirty(false);
               setComposing(false);
               setDraft(undefined);
-              setSendNotice(warning ?? '邮件已发送');
+              notify(warning ?? '邮件已发送');
               void dela.mail.syncNow().catch(() => {});
               void loadDrafts(account?.address ?? '');
-              window.setTimeout(() => setSendNotice(null), 3000);
             }}
           />
         ) : selection?.kind === 'drafts' ? (

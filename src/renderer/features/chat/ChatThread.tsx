@@ -1,34 +1,27 @@
-import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUpRight,
   Check,
-  ChevronRight,
   Copy,
   FileText,
   LoaderCircle,
   NotebookPen,
 } from 'lucide-react';
-import { Streamdown } from 'streamdown';
 import { useReducedMotion } from 'framer-motion';
 import { Dialog } from 'radix-ui';
 import type { PreparedEmail, WorkspaceChat } from '../../../shared/api';
 import { MailComposer } from '../mail/MailComposer';
 import { leaveComposer } from '../mail/compose-close';
 import { Button } from '../../components/ui/button';
-import { cn } from '../../lib/utils';
 import { errorText } from '../projects/workspace';
-import { formatDuration, ReasoningBlock, ToolTimeline, type ToolOutput } from './ToolTimeline';
+import { WorkingSection, formatDuration, type ToolOutput } from './ToolTimeline';
+import { ChatMarkdown } from './markdown';
 import styles from './timeline.module.css';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 
-const markdownStyles =
-  '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_table]:my-2 [&_table]:w-full [&_table]:text-xs [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0';
-
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
-
-type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 
 /** 消息悬停操作栏：复制与保存为笔记，参照 assistant-ui ActionBar 的自动显隐。 */
 function MessageActions({
@@ -114,9 +107,7 @@ function UserMessage({
     <div className="mb-5 flex flex-col items-end">
       {message.content ? (
         <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
-          <Streamdown className={markdownStyles} controls={false} skipHtml>
-            {message.content}
-          </Streamdown>
+          <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
       ) : null}
       {message.images?.length ? (
@@ -157,85 +148,6 @@ function UserMessage({
   );
 }
 
-/**
- * 完成后的工作过程块（参照 Codex 的“Worked for Xm Xs”）：整段思考、动作与中间说明
- * 折叠为一行摘要，点击展开完整时间线；摘要在结束后定型，不含运行中跳动的数字。
- */
-function WorkedBlock({
-  parts,
-  elapsedMs,
-  status,
-  failed,
-}: {
-  parts: ChatParts;
-  elapsedMs: number | null;
-  status: 'interrupted' | 'stopped' | 'done';
-  failed: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const summaryId = useId();
-  return (
-    <div className="my-4 min-w-0 text-sm text-muted-foreground">
-      <button
-        aria-expanded={open}
-        aria-controls={summaryId}
-        className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
-        onClick={() => setOpen((current) => !current)}
-        type="button"
-      >
-        <ChevronRight
-          className={cn(
-            'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
-            open && 'rotate-90',
-          )}
-        />
-        <span className="truncate tabular-nums">
-          {status === 'interrupted' ? '工作中断' : status === 'stopped' ? '已停止' : '已工作'}
-          {elapsedMs !== null ? ` · ${formatDuration(elapsedMs)}` : ''}
-          {failed > 0 && <span className="text-destructive"> · {failed} 个失败</span>}
-        </span>
-      </button>
-      <div
-        id={summaryId}
-        inert={!open}
-        className={cn(
-          'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-      >
-        <div data-worked-body className="min-h-0 overflow-hidden">
-          <div className="pt-2">
-            {parts.map((part, index) =>
-              part.type === 'tools' ? (
-                <ToolTimeline
-                  key={index}
-                  results={part.results}
-                  running={false}
-                  activeTool={undefined}
-                />
-              ) : part.type === 'reasoning' ? (
-                <ReasoningBlock key={index} text={part.text} live={false} />
-              ) : (
-                <Streamdown
-                  key={index}
-                  className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
-                  mode="streaming"
-                  isAnimating={false}
-                  animated={false}
-                  controls={false}
-                  skipHtml
-                >
-                  {part.text}
-                </Streamdown>
-              ),
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AssistantMessage({
   message,
   live,
@@ -257,8 +169,8 @@ function AssistantMessage({
       : []),
     ...(message.content ? [{ type: 'text' as const, text: message.content }] : []),
   ];
-  // 最终回答 = 尾部最后一个非空正文部分（其后只有正文）；其余全部视为工作过程，
-  // 完成后折叠为一个“已工作”块——无需模型或协议显式标注。
+  // 最终回答 = 尾部最后一个非空正文部分（其后只有正文）；其余全部进入工作过程区，
+  // 由 WorkingSection 平铺展示并折叠——无需模型或协议显式标注。
   let answerIndex = -1;
   for (let index = parts.length - 1; index >= 0; index -= 1) {
     const part = parts[index]!;
@@ -273,9 +185,8 @@ function AssistantMessage({
   const hasActivity = workingParts.some(
     (part) => part.type === 'tools' || part.type === 'reasoning',
   );
-  const showWorked = !live && hasActivity;
   const answer = answerIndex >= 0 ? parts[answerIndex] : null;
-  // 用时只在结束后计算为静态值；运行中的顶层状态不带跳动的秒数。
+  // 用时只在结束后计算为静态值；运行中的头部不带跳动的秒数。
   const elapsedMs =
     !live && message.startedAt !== undefined && message.finishedAt !== undefined
       ? message.finishedAt - message.startedAt
@@ -290,7 +201,7 @@ function AssistantMessage({
         : count,
     0,
   );
-  // 邮件草稿入口提升到折叠块之外：折叠时不被 inert 隐藏。
+  // 邮件草稿入口放在工作过程区之外：折叠时不被 inert 隐藏。
   const draftIds = [
     ...new Set(
       parts.flatMap((part) =>
@@ -310,39 +221,21 @@ function AssistantMessage({
     ),
   ].filter((id): id is string => Boolean(id));
 
-  const renderPart = (part: (typeof parts)[number], index: number) => {
-    const isLast = index === parts.length - 1;
-    if (part.type === 'tools') {
-      return (
-        <ToolTimeline
-          key={index}
-          results={part.results}
-          running={live && isLast}
-          activeTool={activeTool}
-        />
-      );
-    }
-    if (part.type === 'reasoning') {
-      return <ReasoningBlock key={index} text={part.text} live={live && isLast} />;
-    }
-    return (
-      <Streamdown
-        key={index}
-        className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
+  const answerEl =
+    answer?.type === 'text' && answer.text ? (
+      <ChatMarkdown
+        className="my-4 min-w-0 first:mt-0"
         mode="streaming"
-        isAnimating={live && !activeTool && isLast}
-        animated={live && !reduced && isLast ? textAnimation : false}
-        controls={false}
-        skipHtml
+        isAnimating={live && !activeTool}
+        animated={live && !reduced ? textAnimation : false}
       >
-        {part.text}
-      </Streamdown>
-    );
-  };
+        {answer.text}
+      </ChatMarkdown>
+    ) : null;
 
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
-      {!showWorked && message.startedAt !== undefined && (
+      {!hasActivity && message.startedAt !== undefined && (
         <div className="mb-4 text-xs text-muted-foreground">
           {live ? (
             <span className={styles.shimmer} role="status">
@@ -359,13 +252,15 @@ function AssistantMessage({
           )}
         </div>
       )}
-      {showWorked ? (
+      {hasActivity ? (
         <>
-          <WorkedBlock
-            parts={workingParts}
+          <WorkingSection
             elapsedMs={elapsedMs}
-            status={message.stopped ? 'stopped' : message.interrupted ? 'interrupted' : 'done'}
             failed={failed}
+            live={live}
+            autoOpen={live && answerIndex < 0}
+            parts={workingParts}
+            status={message.stopped ? 'stopped' : message.interrupted ? 'interrupted' : 'done'}
           />
           {draftIds.map((draftId) => (
             <Button
@@ -379,21 +274,22 @@ function AssistantMessage({
               检查并发送邮件
             </Button>
           ))}
-          {answer?.type === 'text' && (
-            <Streamdown
-              className={cn(markdownStyles, 'my-4 min-w-0 first:mt-0')}
-              mode="streaming"
-              isAnimating={false}
-              animated={false}
-              controls={false}
-              skipHtml
-            >
-              {answer.text}
-            </Streamdown>
-          )}
+          {answerEl}
         </>
       ) : (
-        parts.map((part, index) => renderPart(part, index))
+        parts.map((part, index) =>
+          part.type === 'text' && part.text ? (
+            <ChatMarkdown
+              key={index}
+              className="my-4 min-w-0 first:mt-0"
+              mode="streaming"
+              isAnimating={live && !activeTool}
+              animated={live && !reduced ? textAnimation : false}
+            >
+              {part.text}
+            </ChatMarkdown>
+          ) : null,
+        )
       )}
       {live &&
         !activeTool &&

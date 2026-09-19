@@ -10,6 +10,7 @@ export default defineConfig({
     rolldownOptions: {
       external: [
         'electron',
+        '@napi-rs/canvas',
         'better-sqlite3',
         'imapflow',
         'nodemailer',

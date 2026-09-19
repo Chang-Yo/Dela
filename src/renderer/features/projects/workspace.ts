@@ -41,6 +41,7 @@ export const errorText = (error: unknown) =>
 const loading = new Map<string, Promise<void>>();
 const scheduledSaves = new Map<string, ReturnType<typeof setTimeout>>();
 const saving = new Map<string, Promise<boolean>>();
+let loadPromise: Promise<void> | null = null;
 
 export const useWorkspace = create<Store>((set, get) => ({
   workspace: { entries: [], views: {}, directory: '' },
@@ -49,16 +50,26 @@ export const useWorkspace = create<Store>((set, get) => ({
   error: null,
   drafts: {},
   setError: (error) => set({ error: error === null ? null : errorText(error) }),
-  load: async () => {
-    if (get().loaded || !window.dela) return;
-    const [workspace, canvas] = await Promise.allSettled([
-      window.dela.workspace.getState(),
-      window.dela.canvas.getState(),
-    ]);
-    if (workspace.status === 'fulfilled') set({ workspace: workspace.value, loaded: true });
-    else set({ error: errorText(workspace.reason) });
-    if (canvas.status === 'fulfilled') set({ canvas: canvas.value });
-    else set({ error: errorText(canvas.reason) });
+  load: () => {
+    const dela = window.dela;
+    if (get().loaded || !dela) return Promise.resolve();
+    // Concurrent callers (StrictMode double-invocation included) share one request;
+    // cleared on settle so a failed load can be retried.
+    if (!loadPromise) {
+      loadPromise = (async () => {
+        const [workspace, canvas] = await Promise.allSettled([
+          dela.workspace.getState(),
+          dela.canvas.getState(),
+        ]);
+        if (workspace.status === 'fulfilled') set({ workspace: workspace.value, loaded: true });
+        else set({ error: errorText(workspace.reason) });
+        if (canvas.status === 'fulfilled') set({ canvas: canvas.value });
+        else set({ error: errorText(canvas.reason) });
+      })().finally(() => {
+        loadPromise = null;
+      });
+    }
+    return loadPromise;
   },
   refresh: async () => {
     if (window.dela) set({ workspace: await window.dela.workspace.getState() });

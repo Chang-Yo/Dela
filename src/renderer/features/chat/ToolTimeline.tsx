@@ -1,7 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import {
   BookOpen,
-  Brain,
   CalendarDays,
   CalendarPlus,
   ChevronRight,
@@ -23,9 +22,12 @@ import {
   Wrench,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { AgentToolResult } from '../../../shared/api';
+import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
 import { cn } from '../../lib/utils';
+import { ChatMarkdown } from './markdown';
 import styles from './timeline.module.css';
+
+export type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 
 const toolDisplay: Record<string, { label: string; icon: LucideIcon }> = {
   prepare_email: { label: '准备邮件草稿', icon: MailPlus },
@@ -81,35 +83,38 @@ export function formatDuration(ms: number): string {
 
 type StepState = 'running' | 'done' | 'failed' | 'interrupted';
 
-function stepState(result: AgentToolResult, groupActive: boolean): StepState {
-  if (result.output === undefined) return groupActive ? 'running' : 'interrupted';
+function stepState(result: AgentToolResult, live: boolean): StepState {
+  if (result.output === undefined) return live ? 'running' : 'interrupted';
   return (result.output as ToolOutput)?.ok ? 'done' : 'failed';
 }
 
-/** 单个动作行：图标 + 动词 + 摘要，可展开原始输入输出；不显示逐步耗时。 */
-function TimelineStep({ result, state }: { result: AgentToolResult; state: StepState }) {
+/** 单个动作行：图标钉在左侧连线上，动词 + 摘要一行；点击展开原始输入输出。 */
+function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
   const { label, icon: Icon } = display(result.name);
+  const state = stepState(result, live);
   const output = result.output as ToolOutput | undefined;
   return (
-    <li className="min-w-0 animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none">
+    <li className="relative animate-in fade-in pl-6 duration-300 motion-reduce:animate-none slide-in-from-bottom-1">
+      <span className="absolute left-0 top-1 grid size-3.5 place-items-center">
+        {state === 'running' ? (
+          <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
+        ) : state === 'failed' ? (
+          <CircleAlert className="size-3.5 text-destructive" />
+        ) : state === 'interrupted' ? (
+          <CircleAlert className="size-3.5 text-muted-foreground" />
+        ) : (
+          <Icon className="size-3.5 text-muted-foreground" />
+        )}
+      </span>
       <button
-        className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
+        className="flex w-full min-w-0 items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:text-foreground"
         aria-expanded={open}
         aria-controls={detailId}
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        {state === 'running' ? (
-          <LoaderCircle className="size-3.5 shrink-0 motion-safe:animate-spin" />
-        ) : state === 'failed' ? (
-          <CircleAlert className="size-3.5 shrink-0 text-destructive" />
-        ) : state === 'interrupted' ? (
-          <CircleAlert className="size-3.5 shrink-0 text-muted-foreground" />
-        ) : (
-          <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-        )}
         {state === 'running' ? (
           <span className={`shrink-0 font-medium ${styles.shimmer}`} role="status">
             正在{label}…
@@ -134,7 +139,7 @@ function TimelineStep({ result, state }: { result: AgentToolResult; state: StepS
         />
       </button>
       <div id={detailId} hidden={!open}>
-        <pre className="my-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
+        <pre className="my-1 max-h-48 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
           {JSON.stringify({ input: result.input, output: result.output }, null, 2)}
         </pre>
       </div>
@@ -142,128 +147,84 @@ function TimelineStep({ result, state }: { result: AgentToolResult; state: StepS
   );
 }
 
-/**
- * 动作执行链折叠组（Codex 风格）：运行中自动展开让步骤逐个进入、触发行提示当前动作，
- * 完成后收起为摘要行；用户手动开合后尊重其选择。摘要为去重的动作类别文字——
- * 计数随每次工具调用变化，会让折叠行高频重渲染；失败以红色图标与步骤内文案体现。
- */
-export function ToolTimeline({
-  results,
-  running,
-  activeTool,
-}: {
-  results: AgentToolResult[];
-  running: boolean;
-  activeTool: string | undefined;
-}) {
-  const [open, setOpen] = useState(false);
-  const touched = useRef(false);
-  // 运行中步骤以“无输出的占位结果”表示；activeTool 是旧推送（无占位）时的兜底。
-  const pending = results.length > 0 && results.at(-1)?.output === undefined;
-  const active = running && (pending || Boolean(activeTool));
-  const activeLabel = display(activeTool ?? (pending ? results.at(-1)!.name : '')).label;
-
-  useEffect(() => {
-    if (touched.current) return;
-    setOpen(active);
-  }, [active]);
-
-  const groupId = useId();
-  const label = active ? (
-    <span className={styles.shimmer} role="status">
-      正在{activeLabel}…
-    </span>
-  ) : results.length ? (
-    [...new Set(results.map((result) => display(result.name).label))].join('、')
-  ) : (
-    '执行已中断'
-  );
-  const failed = results.some(
-    (result) => result.output !== undefined && !(result.output as ToolOutput)?.ok,
-  );
+/** 思考段落：圆点钉在连线上，正文以弱化色阅读。 */
+function ThoughtRow({ text }: { text: string }) {
   return (
-    <div className="my-4 min-w-0 text-sm text-muted-foreground">
-      <button
-        aria-expanded={open}
-        aria-controls={groupId}
-        className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
-        onClick={() => {
-          touched.current = true;
-          setOpen((current) => !current);
-        }}
-        type="button"
-      >
-        <ChevronRight
-          className={cn(
-            'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
-            open && 'rotate-90',
-          )}
-        />
-        <span className="truncate">{label}</span>
-        {failed && !active && <CircleAlert className="size-3.5 shrink-0 text-destructive" />}
-      </button>
-      <div
-        id={groupId}
-        inert={!open}
-        className={cn(
-          'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <ol
-            aria-label="动作时间线"
-            className="my-2 max-h-64 space-y-1 overflow-y-auto overscroll-contain pl-4"
-          >
-            {results.map((result) => (
-              <TimelineStep key={result.id} result={result} state={stepState(result, active)} />
-            ))}
-            {running && !pending && activeTool && (
-              <li
-                className="animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none"
-                role="status"
-              >
-                <span className="flex items-center gap-2 py-1">
-                  <LoaderCircle className="size-3.5 shrink-0 motion-safe:animate-spin" />
-                  正在{activeLabel}…
-                </span>
-              </li>
-            )}
-          </ol>
-        </div>
+    <li className="relative pl-6">
+      <span
+        aria-hidden
+        className="absolute left-[4px] top-[9px] size-1.5 rounded-full bg-muted-foreground/50"
+      />
+      <div data-reasoning-body className="whitespace-pre-wrap py-0.5 text-sm leading-relaxed">
+        {text}
       </div>
-    </div>
+    </li>
   );
 }
 
-/** 思考过程折叠块：流式期间自动展开（标签不携带跳动的计时数字），结束自动收起；手动开合后尊重选择。 */
-export function ReasoningBlock({ text, live }: { text: string; live: boolean }) {
-  const [open, setOpen] = useState(live);
-  const touched = useRef(false);
-  const detailId = useId();
-  useEffect(() => {
-    if (touched.current) return;
-    setOpen(live);
-  }, [live]);
+/** 工具之间的说明文字：与思考段落同级展示，但不带圆点。 */
+function NarrationRow({ text }: { text: string }) {
+  return (
+    <li className="relative pl-6">
+      <div className="py-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
+        <ChatMarkdown
+          className="text-sm leading-relaxed"
+          mode="streaming"
+          isAnimating={false}
+          animated={false}
+        >
+          {text}
+        </ChatMarkdown>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * 工作过程区（DeepSeek 风格）：思考、动作与中间说明按发生顺序平铺在一条左侧连线上，
+ * 整段只有一个折叠层级——消除此前“已工作 > 动作组 > 步骤”的冗余层级。
+ * 运行中自动展开；尾部公开正文开始后整段自动收起；手动开合后尊重用户选择。
+ */
+export function WorkingSection({
+  parts,
+  live,
+  autoOpen,
+  status,
+  elapsedMs,
+  failed,
+}: {
+  parts: ChatParts;
+  live: boolean;
+  autoOpen: boolean;
+  status: 'working' | 'done' | 'interrupted' | 'stopped';
+  elapsedMs: number | null;
+  failed: number;
+}) {
+  // null 跟随 autoOpen 自动开合；首次手动点击后固定用户选择，不再被流式状态覆盖。
+  const [override, setOverride] = useState<boolean | null>(null);
+  const open = override ?? autoOpen;
+  const bodyId = useId();
+
   return (
     <div className="my-4 min-w-0 text-sm text-muted-foreground">
       <button
         aria-expanded={open}
-        aria-controls={detailId}
-        onClick={() => {
-          touched.current = true;
-          setOpen((current) => !current);
-        }}
-        className="flex max-w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:text-foreground"
+        aria-controls={bodyId}
+        className="flex max-w-full items-center gap-1.5 rounded-md py-1 text-left transition-colors hover:text-foreground"
+        onClick={() => setOverride(!open)}
         type="button"
       >
-        <Brain className="size-4 shrink-0" />
-        <span
-          className={`truncate ${live ? styles.shimmer : ''}`}
-          role={live ? 'status' : undefined}
-        >
-          {live ? '思考中…' : '已深度思考'}
-        </span>
+        {live ? (
+          <span className={`shrink-0 ${styles.shimmer}`} role="status">
+            正在工作
+          </span>
+        ) : (
+          <span className="truncate tabular-nums">
+            {status === 'interrupted' ? '工作中断' : status === 'stopped' ? '已停止' : '已工作'}
+            {elapsedMs !== null ? ` · ${formatDuration(elapsedMs)}` : ''}
+            {failed > 0 && <span className="text-destructive"> · {failed} 个失败</span>}
+          </span>
+        )}
         <ChevronRight
           className={cn(
             'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
@@ -272,19 +233,34 @@ export function ReasoningBlock({ text, live }: { text: string; live: boolean }) 
         />
       </button>
       <div
-        id={detailId}
+        id={bodyId}
         inert={!open}
         className={cn(
           'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
           open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
         )}
       >
-        <div className="min-h-0 overflow-hidden">
-          <div
-            data-reasoning-body
-            className="my-2 max-h-48 overflow-y-auto overscroll-contain whitespace-pre-wrap pl-4 text-xs leading-relaxed text-muted-foreground"
-          >
-            {text}
+        <div data-worked-body className="min-h-0 overflow-hidden">
+          <div aria-label="工作过程" className="relative my-1 py-1">
+            <div
+              aria-hidden
+              className="absolute inset-y-0 left-[7px] w-px -translate-x-1/2 bg-border"
+            />
+            <ul className="space-y-1">
+              {parts.map((part, index) => {
+                if (part.type === 'tools') {
+                  return part.results.map((result) => (
+                    <TimelineStep key={result.id} live={live} result={result} />
+                  ));
+                }
+                if (!part.text) return null;
+                return part.type === 'reasoning' ? (
+                  <ThoughtRow key={index} text={part.text} />
+                ) : (
+                  <NarrationRow key={index} text={part.text} />
+                );
+              })}
+            </ul>
           </div>
         </div>
       </div>

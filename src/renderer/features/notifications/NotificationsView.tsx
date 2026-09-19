@@ -84,6 +84,8 @@ export function NotificationsView({
       ) as string[])
     : [];
   const snoozed = state?.snoozedUntil && new Date(state.snoozedUntil).getTime() > now;
+  // 初始抓取在途（有通知 API、尚无状态且无错误）时按加载态展示，避免闪现“暂不可用”。
+  const initialLoading = !state && !error && Boolean(window.dela?.notifications);
 
   return (
     <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-6 py-6 max-md:px-4">
@@ -198,10 +200,10 @@ export function NotificationsView({
         </p>
       ))}
 
-      {loading && !state ? (
+      {(loading || initialLoading) && !state ? (
         <p className="py-12 text-center text-sm text-muted-foreground">正在获取通知…</p>
       ) : null}
-      {!loading && !state && !error ? (
+      {!loading && !state && !error && !initialLoading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
           <p>通知服务暂不可用。</p>
           <Button className="mt-3" onClick={onRefresh} size="sm" variant="outline">

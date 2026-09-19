@@ -30,6 +30,8 @@ type Store = {
   structure: ShuiyuanSiteStructure | null;
   counts: ShuiyuanCounts | null;
   list: ListSelection;
+  /** 选择序号：selectList 每次递增，防抖搜索据此让位给用户的显式切换。 */
+  listSelection: number;
   topics: ShuiyuanTopicSummary[];
   moreUrl: string | null;
   listLoading: boolean;
@@ -111,6 +113,7 @@ export const useShuiyuan = create<Store>((set, get) => {
     structure: null,
     counts: null,
     list: { kind: 'latest' },
+    listSelection: 0,
     topics: [],
     moreUrl: null,
     listLoading: false,
@@ -146,6 +149,7 @@ export const useShuiyuan = create<Store>((set, get) => {
     },
 
     selectList: async (next) => {
+      set({ listSelection: get().listSelection + 1 });
       if (sameList(get().list, next) && !get().listError) {
         await get().refreshList();
         return;
@@ -178,14 +182,14 @@ export const useShuiyuan = create<Store>((set, get) => {
     markNotificationsRead: async () => {
       const api = window.dela?.shuiyuan;
       if (!api) return;
-      // 乐观置已读；失败时回滚并保留错误给列表态展示。
-      const before = get().notifications;
-      set({ notifications: before.map((item) => ({ ...item, read: true })) });
+      // 乐观置已读；失败时以服务端列表为准重新拉取，并保留错误给列表态展示。
+      set({ notifications: get().notifications.map((item) => ({ ...item, read: true })) });
       try {
         await api.markNotificationsRead();
         void get().refreshCounts();
       } catch (error) {
-        set({ notifications: before, listError: errorText(error) });
+        void get().refreshList();
+        set({ listError: errorText(error) });
       }
     },
 
@@ -242,11 +246,14 @@ export const useShuiyuan = create<Store>((set, get) => {
       if (nextIds.length === 0) return;
       try {
         const posts = await api.loadPosts(detail.id, nextIds);
+        // 请求期间切帖/返回会替换 reading 引用，过期批次直接丢弃。
+        if (get().reading !== reading) return;
         const merged = [...detail.posts, ...posts].sort((a, b) => a.postNumber - b.postNumber);
         set({
           reading: { ...reading, detail: { ...detail, posts: merged } },
         });
       } catch (error) {
+        if (get().reading !== reading) return;
         set({ reading: { ...reading, error: errorText(error) } });
       }
     },
@@ -257,7 +264,6 @@ export const useShuiyuan = create<Store>((set, get) => {
       const next = !current;
       // 乐观更新列表与阅读态；失败回滚。
       const topicsBefore = get().topics;
-      const readingBefore = get().reading;
       const apply = (value: boolean) => {
         set({
           topics: get().topics.map((topic) =>
@@ -278,7 +284,19 @@ export const useShuiyuan = create<Store>((set, get) => {
         apply(confirmed);
         if (get().list.kind === 'bookmarks') void get().refreshList();
       } catch (error) {
-        set({ topics: topicsBefore, reading: readingBefore, listError: errorText(error) });
+        // 期间切帖则当前 reading 已不属于本帖，不还原以免盖回旧阅读态；乐观标记按原值回退。
+        const currentReading = get().reading;
+        set({
+          topics: topicsBefore,
+          reading:
+            currentReading?.detail?.id === topicId
+              ? {
+                  ...currentReading,
+                  detail: { ...currentReading.detail, bookmarked: current },
+                }
+              : currentReading,
+          listError: errorText(error),
+        });
       }
     },
 
@@ -287,6 +305,8 @@ export const useShuiyuan = create<Store>((set, get) => {
       const reading = get().reading;
       if (!api || !reading?.detail) throw new Error('尚未打开帖子');
       const post: ShuiyuanPost = await api.createReply(reading.detail.id, raw, replyToPostNumber);
+      // 请求期间切帖/返回：回复已在服务端创建，静默丢弃本地合并，重开该帖即见。
+      if (get().reading !== reading) return;
       const detail = reading.detail;
       set({
         reading: {

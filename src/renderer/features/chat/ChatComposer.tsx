@@ -102,10 +102,16 @@ export function ChatComposer({
   const [effortPickerOpen, setEffortPickerOpen] = useState(false);
 
   useEffect(() => {
+    let active = true;
     void window.dela?.chat
       .listCommands()
-      .then(setCustomCommands)
+      .then((commands) => {
+        if (active) setCustomCommands(commands);
+      })
       .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   const slashItems =
@@ -129,14 +135,16 @@ export function ChatComposer({
     menu?.kind === 'slash' ? slashItems : mentionItems;
   const menuOpen = menu !== null && items.length > 0;
 
-  useEffect(() => setIndex(0), [menu?.kind, menu?.query]);
   useEffect(() => {
     itemRef.current?.scrollIntoView({ block: 'nearest' });
   }, [index, menuOpen]);
 
   const handleCaret = (text: string, caret: number) => {
     if (fileError) setFileError(null);
-    setMenu(detectMenu(text, caret));
+    const next = detectMenu(text, caret);
+    // 候选词变化时高亮从头开始；同词内移动光标保留当前高亮。
+    if (next?.kind !== menu?.kind || next?.query !== menu?.query) setIndex(0);
+    setMenu(next);
   };
 
   const handleSelect = (position: number) => {
@@ -153,6 +161,7 @@ export function ChatComposer({
       editorRef.current?.replaceRange(menu.start, caret, '');
     }
     setMenu(null);
+    setIndex(0);
   };
 
   const insertMention = () => {
@@ -163,6 +172,8 @@ export function ChatComposer({
   const addFiles = async (files: File[], pos: number) => {
     if (!window.dela) return;
     let insertPos = pos;
+    // 闭包里的 value 不含本轮已插入的 token，循环内自计数防止批量拖入绕过上限。
+    let imageCount = matchChatImageTokens(value).length;
     for (const file of files) {
       const kind = chatFileKind(file.name);
       if (!kind) {
@@ -171,7 +182,7 @@ export function ChatComposer({
       }
       try {
         if (kind === 'image') {
-          if (matchChatImageTokens(value).length >= INLINE_IMAGE_MAX)
+          if (imageCount >= INLINE_IMAGE_MAX)
             throw new Error(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
           const bytes = new Uint8Array(await file.arrayBuffer());
           const view = await window.dela.chat.stageMedia({ name: file.name, bytes });
@@ -179,6 +190,7 @@ export function ChatComposer({
           const token = `${chatImageToken(view.id, view.name)} `;
           editorRef.current?.insertAt(insertPos, token);
           insertPos += token.length;
+          imageCount += 1;
         } else {
           await onAddAttachmentFile(file);
         }
@@ -195,12 +207,18 @@ export function ChatComposer({
       .pickMedia()
       .then((views) => {
         let insertPos = editorRef.current?.selectionStart() ?? value.length;
+        let imageCount = matchChatImageTokens(value).length;
         for (const view of views) {
           if (view.kind === 'image') {
+            if (imageCount >= INLINE_IMAGE_MAX) {
+              setFileError(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
+              continue;
+            }
             setChatMediaPreview(view.id, view.previewUrl);
             const token = `${chatImageToken(view.id, view.name)} `;
             editorRef.current?.insertAt(insertPos, token);
             insertPos += token.length;
+            imageCount += 1;
           } else {
             onAddAttachmentView(view);
           }
@@ -215,6 +233,7 @@ export function ChatComposer({
       if (!menuOpen) return false;
       if (key === 'close') {
         setMenu(null);
+        setIndex(0);
         return true;
       }
       if (key === 'down') {

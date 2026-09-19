@@ -68,6 +68,7 @@ type ResolvedLanguage =
   { kind: 'markdown' } | { kind: 'code'; language: LanguageDescription } | { kind: 'text' };
 
 const languageConf = new Compartment();
+const placeholderConf = new Compartment();
 const externalSync = Annotation.define<boolean>();
 
 type EditorHandlers = {
@@ -129,8 +130,9 @@ export function MarkdownEditor({
   onChange: (text: string) => void;
   onSave: () => void;
   onScroll: (top: number) => void;
+  /* scroll 与 lineNumbers/ariaLabel/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
   scroll: number;
-  /** 占位文案；回复编辑器等非笔记场景使用。 */
+  /** 占位文案；回复编辑器等非笔记场景使用，变化时热替换。 */
   placeholderText?: string;
   /** 行号 gutter；笔记默认开启，回复编辑器可关闭。 */
   lineNumbers?: boolean;
@@ -184,7 +186,7 @@ export function MarkdownEditor({
       languageConf.of(initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []),
       ...(showLineNumbers ? [lineNumbers()] : []),
       EditorView.lineWrapping,
-      placeholder(placeholderText),
+      placeholderConf.of(placeholder(placeholderText)),
       keymap.of([
         ...markdownKeymap,
         {
@@ -315,6 +317,12 @@ export function MarkdownEditor({
       apply(resolved.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []);
     }
   }, [filename]);
+  /* 占位文案热替换；重挂载复用 session 携带旧值时也在此纠正。 */
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: placeholderConf.reconfigure(placeholder(placeholderText)),
+    });
+  }, [placeholderText]);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div ref={host} className="min-h-0 w-full flex-1 overflow-hidden" />

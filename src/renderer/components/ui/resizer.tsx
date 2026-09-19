@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';
 
 type ResizerProps = {
@@ -37,6 +37,9 @@ export function Resizer({
 }: ResizerProps) {
   const start = useRef<{ pointerId: number; position: number; size: number } | null>(null);
   const horizontal = orientation === 'horizontal';
+
+  // 拖拽中宿主卸载时 lostpointercapture 不会到达已移除元素，卸载时兜底复位 resizing 态。
+  useEffect(() => () => onResizingChange?.(false), []);
 
   const clamp = (size: number) => Math.min(max, Math.max(min, size));
   const finishPointer = () => {

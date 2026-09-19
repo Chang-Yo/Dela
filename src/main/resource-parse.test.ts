@@ -1,6 +1,9 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { extractDocumentBytes, parsableDocumentExtension } from './resource-parse';
+import { extractDocumentBytes, parsableDocumentExtension, renderPdfPages } from './resource-parse';
 
 /** 构造最小可用 zip：deflate 条目 + 中央目录，CRC 置零（解析器不校验）。 */
 function buildZip(entries: Record<string, string>): Buffer {
@@ -112,5 +115,41 @@ describe('resource parsing', () => {
     await expect(extractDocumentBytes(Buffer.from('not a zip'), 'x.docx')).rejects.toThrow(
       '压缩包损坏',
     );
+  });
+});
+
+describe('PDF page rendering', () => {
+  /** 渲染走文件路径：建临时目录放 fixture，结束后清理。 */
+  async function withPdfFile(text: string, run: (path: string) => Promise<void>) {
+    const dir = await mkdtemp(join(tmpdir(), 'dela-pdf-'));
+    try {
+      const path = join(dir, 'lecture.pdf');
+      await writeFile(path, minimalPdf(text));
+      await run(path);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('renders whole pages as JPEG with deduplicated page numbers', async () => {
+    await withPdfFile('Render me', async (path) => {
+      const rendered = await renderPdfPages(path, [1, 1]);
+      expect(rendered.totalPages).toBe(1);
+      expect(rendered.pages).toHaveLength(1);
+      const jpeg = rendered.pages[0]!.jpeg;
+      expect(jpeg[0]).toBe(0xff); // JPEG magic
+      expect(jpeg[1]).toBe(0xd8);
+      expect(jpeg.length).toBeGreaterThan(100);
+    });
+  });
+
+  it('rejects page numbers outside the document', async () => {
+    await withPdfFile('x', async (path) => {
+      await expect(renderPdfPages(path, [5])).rejects.toThrow('超出范围');
+    });
+  });
+
+  it('rejects empty page lists before touching the file', async () => {
+    await expect(renderPdfPages('missing.pdf', [])).rejects.toThrow('请至少指定一个页码');
   });
 });

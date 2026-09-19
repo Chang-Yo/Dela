@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import {
   ArrowLeft,
@@ -106,9 +106,12 @@ function WindowControls() {
     const desktopWindow = window.dela?.window;
     if (!desktopWindow) return undefined;
     let active = true;
-    void desktopWindow.getState().then((state) => {
-      if (active) setMaximized(state.maximized);
-    });
+    void desktopWindow
+      .getState()
+      .then((state) => {
+        if (active) setMaximized(state.maximized);
+      })
+      .catch(() => {});
     const unsubscribe = desktopWindow.onStateChange((state) => setMaximized(state.maximized));
     return () => {
       active = false;
@@ -272,9 +275,16 @@ export function AppShell({
     action();
   };
 
+  // 快捷键回调经 ref 取最新值：keydown 监听只注册一次，避免每次渲染重绑。
+  const shortcutsRef = useRef({ importFiles, navigate, onNewProject, saveAllNotes, stepZoom });
+  useEffect(() => {
+    shortcutsRef.current = { importFiles, navigate, onNewProject, saveAllNotes, stepZoom };
+  });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
+      const { importFiles, navigate, onNewProject, saveAllNotes, stepZoom } = shortcutsRef.current;
       const key = event.key.toLowerCase();
       if (key === 'n' && event.shiftKey) {
         event.preventDefault();
@@ -296,7 +306,7 @@ export function AppShell({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [importFiles, navigate, onNewProject, saveAllNotes, stepZoom]);
+  }, []);
 
   return (
     <div

@@ -114,6 +114,7 @@ export function ProjectDocument({
     setError(null);
     void work.catch((e) => setError(errorText(e)));
   };
+  /* 点击时刻取实时 Canvas 快照：HTML 文档 iframe 的监听闭包可能早于最新同步。 */
   const link = (url: string) => {
     try {
       const parsed = new URL(url);
@@ -121,7 +122,7 @@ export function ProjectDocument({
         parsed.origin === 'https://oc.sjtu.edu.cn'
           ? parsed.pathname.match(/\/files\/(\d+)/)?.[1]
           : null;
-      if (file && canvas.items.some((i) => i.sourceId === `file:${file}`))
+      if (file && useWorkspace.getState().canvas.items.some((i) => i.sourceId === `file:${file}`))
         onOpenSource(`source:file:${file}`);
       else if (window.dela) run(window.dela.canvas.openLink(url));
     } catch {

@@ -79,6 +79,7 @@ function DesktopShuiyuanView() {
         </div>
         <AnimatePresence initial={false}>
           {reading ? (
+            // key 随 topicId 变化：切帖重挂载阅读器，重挂载即重置草稿与回复目标。
             <motion.div
               animate={{ opacity: 1, x: 0 }}
               className="absolute inset-0 z-10 bg-background"
