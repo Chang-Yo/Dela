@@ -276,11 +276,26 @@ app
       'code-block-body still bordered',
     );
     // eslint-disable-next-line no-console
-    console.log('DEBUG actions:', await evaluate("document.querySelectorAll('[data-streamdown=code-block-actions]').length"));
+    console.log(
+      'DEBUG actions:',
+      await evaluate("document.querySelectorAll('[data-streamdown=code-block-actions]').length"),
+    );
     // eslint-disable-next-line no-console
-    console.log('DEBUG copybtn:', await evaluate("document.querySelectorAll('[data-streamdown=code-block-copy-button]').length"));
+    console.log(
+      'DEBUG copybtn:',
+      await evaluate(
+        "document.querySelectorAll('[data-streamdown=code-block-copy-button]').length",
+      ),
+    );
     // eslint-disable-next-line no-console
-    console.log('DEBUG cb outer:', (await evaluate("document.querySelector('[data-streamdown=code-block]')?.outerHTML ?? 'NONE'")).slice(0, 900));
+    console.log(
+      'DEBUG cb outer:',
+      (
+        await evaluate(
+          "document.querySelector('[data-streamdown=code-block]')?.outerHTML ?? 'NONE'",
+        )
+      ).slice(0, 900),
+    );
     mkdirSync(join(root, 'output/playwright'), { recursive: true });
     for (const [width, theme] of [
       [1200, 'light'],
