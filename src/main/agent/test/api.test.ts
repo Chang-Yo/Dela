@@ -4,7 +4,7 @@ const fixtures = vi.hoisted(() => ({
   rows: new Map<string, { id: string; scope: string; messages: string }>(),
   run: vi.fn(),
 }));
-vi.mock('../database', () => ({
+vi.mock('../../database', () => ({
   getDatabase: () => ({
     prepare: (sql: string) => ({
       get: (id: string) => fixtures.rows.get(id),
@@ -16,10 +16,10 @@ vi.mock('../database', () => ({
     }),
   }),
 }));
-vi.mock('../canvas/api', () => ({ readCanvasSource: vi.fn() }));
-vi.mock('../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
-vi.mock('../workspace/api', () => ({ readWorkspaceEntry: vi.fn() }));
-vi.mock('./providers', () => ({
+vi.mock('../../canvas/api', () => ({ readCanvasSource: vi.fn() }));
+vi.mock('../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
+vi.mock('../../workspace/api', () => ({ readWorkspaceEntry: vi.fn() }));
+vi.mock('../providers', () => ({
   getActiveLlmProvider: () => ({
     name: 'fixture',
     baseUrl: 'https://example.test',
@@ -28,9 +28,9 @@ vi.mock('./providers', () => ({
     apiKey: 'fixture',
   }),
 }));
-vi.mock('./tools', () => ({ modelToolDefinitions: () => [], executeAgentTool: vi.fn() }));
-vi.mock('./loop', () => ({ runAgent: fixtures.run }));
-vi.mock('./media', () => ({
+vi.mock('../tools', () => ({ modelToolDefinitions: () => [], executeAgentTool: vi.fn() }));
+vi.mock('../loop', () => ({ runAgent: fixtures.run }));
+vi.mock('../media', () => ({
   readChatAttachment: vi.fn((id: string) => ({
     name: `附件-${id.slice(0, 4)}.md`,
     bytes: Buffer.from('# 附件内容'),
@@ -38,9 +38,9 @@ vi.mock('./media', () => ({
   readChatMediaBytes: vi.fn(() => Buffer.from('pngbytes')),
   releaseChatAttachments: vi.fn(),
 }));
-import { ask, cancelAsk, getChat } from './api';
-import { releaseChatAttachments } from './media';
-import type { runAgent } from './loop';
+import { ask, cancelAsk, getChat } from '../api';
+import { releaseChatAttachments } from '../media';
+import type { runAgent } from '../loop';
 type Callbacks = Parameters<typeof runAgent>[0];
 const result = { id: 'tool', name: 'search_sources', input: {}, output: { ok: true } };
 

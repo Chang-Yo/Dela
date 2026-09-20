@@ -73,7 +73,7 @@ pnpm dev
 - `src/preload/` — contextBridge，只暴露受控 API。
 - `src/renderer/` — React 界面，`features/<域名>/` 组织页面，`components/ui/` 放共享组件，样式用 Tailwind v4 + `styles/globals.css` 中的语义 token。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数。
-- 测试紧邻实现（`*.test.ts`），`scripts/` 存放开发服务器与冒烟脚本。
+- 主进程测试集中放在各级目录的 `test/` 子目录（例如 `src/main/agent/test/`），`scripts/` 存放开发服务器与冒烟脚本。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 不自动加载仓库 `.env`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。
 

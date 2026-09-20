@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../credentials';
+import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../../credentials';
 import {
   listLlmProviders,
   modelListEndpoints,
@@ -10,9 +10,9 @@ import {
   setLlmEffort,
   setLlmModel,
   verifyLlm,
-} from './providers';
+} from '../providers';
 
-vi.mock('../credentials', () => ({
+vi.mock('../../credentials', () => ({
   loadLlmConfig: vi.fn(),
   saveLlmConfig: vi.fn(),
 }));

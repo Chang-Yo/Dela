@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { canvasFilePath } from './canvas/api';
-import { readMailMessage, saveMailAttachment } from './mail/api';
-import { importWorkspaceFiles } from './workspace/api';
-import { copyResourceToProject } from './resources';
+import { canvasFilePath } from '../canvas/api';
+import { readMailMessage, saveMailAttachment } from '../mail/api';
+import { importWorkspaceFiles } from '../workspace/api';
+import { copyResourceToProject } from '../resources';
 
 vi.mock('electron', () => ({ app: { getPath: () => 'temp' } }));
 vi.mock('node:fs/promises', () => ({ mkdtemp: vi.fn(), rm: vi.fn() }));
-vi.mock('./canvas/api', () => ({ canvasFilePath: vi.fn() }));
-vi.mock('./mail/api', () => ({ readMailMessage: vi.fn(), saveMailAttachment: vi.fn() }));
-vi.mock('./workspace/api', () => ({ importWorkspaceFiles: vi.fn() }));
-vi.mock('./storage', () => ({ diskName: (name: string) => name.replace(/[/\\]/g, '_') }));
+vi.mock('../canvas/api', () => ({ canvasFilePath: vi.fn() }));
+vi.mock('../mail/api', () => ({ readMailMessage: vi.fn(), saveMailAttachment: vi.fn() }));
+vi.mock('../workspace/api', () => ({ importWorkspaceFiles: vi.fn() }));
+vi.mock('../storage', () => ({ diskName: (name: string) => name.replace(/[/\\]/g, '_') }));
 
 const parentId = 'a03d4e01-ae55-4168-8572-ef88cb9f2e10';
 afterEach(() => vi.resetAllMocks());

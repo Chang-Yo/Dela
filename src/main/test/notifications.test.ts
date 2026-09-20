@@ -5,23 +5,23 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: { handle: vi.fn() },
 }));
-vi.mock('./database', () => ({ getDatabase: vi.fn() }));
-vi.mock('./ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('./credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
-vi.mock('./mail/api', () => ({
+vi.mock('../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
+vi.mock('../credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
+vi.mock('../mail/api', () => ({
   getMailState: vi.fn(() => ({ sync: { phase: 'idle', error: null } })),
 }));
-vi.mock('./shuiyuan/api', () => ({ listShuiyuanNotifications: vi.fn() }));
+vi.mock('../shuiyuan/api', () => ({ listShuiyuanNotifications: vi.fn() }));
 
 import {
   getNotificationState,
   markAllNotificationsRead,
   refreshNotifications,
   setNotificationSnooze,
-} from './notifications';
-import { getDatabase } from './database';
-import { loadShuiyuanCredential } from './credentials';
-import { listShuiyuanNotifications } from './shuiyuan/api';
+} from '../notifications';
+import { getDatabase } from '../database';
+import { loadShuiyuanCredential } from '../credentials';
+import { listShuiyuanNotifications } from '../shuiyuan/api';
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');

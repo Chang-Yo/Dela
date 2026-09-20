@@ -1,35 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCanvasState } from '../canvas/api';
-import { readWorkspaceEntry, saveWorkspaceNote } from '../workspace/api';
-import { withResourceFile } from '../resources';
-import { parseDocumentFile, renderPdfPages } from '../resource-parse';
-import { searchWeb } from './web-search';
-import { executeAgentTool, modelToolDefinitions } from './tools';
+import { getCanvasState } from '../../canvas/api';
+import { readWorkspaceEntry, saveWorkspaceNote } from '../../workspace/api';
+import { withResourceFile } from '../../resources';
+import { parseDocumentFile, renderPdfPages } from '../../resource-parse';
+import { searchWeb } from '../web-search';
+import { executeAgentTool, modelToolDefinitions } from '../tools';
 
-vi.mock('../canvas/api', () => ({
+vi.mock('../../canvas/api', () => ({
   getCanvasState: vi.fn(),
   readCanvasSource: vi.fn(),
   syncCanvasCourse: vi.fn(),
   syncCanvasCourses: vi.fn(),
 }));
-vi.mock('../mail/api', async () => {
+vi.mock('../../mail/api', async () => {
   const { z } = await import('zod');
   return { mailSearchSchema: z.object({}), searchMail: vi.fn(), readMailMessage: vi.fn() };
 });
-vi.mock('../workspace/api', () => ({
+vi.mock('../../workspace/api', () => ({
   createWorkspaceEntry: vi.fn(),
   getWorkspaceState: vi.fn(),
   readWorkspaceEntry: vi.fn(),
   saveWorkspaceNote: vi.fn(),
   updateWorkspaceEntry: vi.fn(),
 }));
-vi.mock('../resources', () => ({
+vi.mock('../../resources', () => ({
   copyResourceToProject: vi.fn(),
   withResourceFile: vi.fn(async (_source: unknown, consume: (path: string) => unknown) =>
     consume('C:/tmp/fake-document'),
   ),
 }));
-vi.mock('../resource-parse', () => ({
+vi.mock('../../resource-parse', () => ({
   parseDocumentFile: vi.fn(),
   renderPdfPages: vi.fn(),
   parsableDocumentExtension: (name: string) => {
@@ -40,8 +40,8 @@ vi.mock('../resource-parse', () => ({
     return null;
   },
 }));
-vi.mock('./web-search', () => ({ fetchWebPage: vi.fn(), searchWeb: vi.fn() }));
-vi.mock('../timetable/api', async () => {
+vi.mock('../web-search', () => ({ fetchWebPage: vi.fn(), searchWeb: vi.fn() }));
+vi.mock('../../timetable/api', async () => {
   const { z } = await import('zod');
   return {
     createCalendarEvent: vi.fn(),

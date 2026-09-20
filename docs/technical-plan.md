@@ -143,7 +143,7 @@ Dela/
 `-- pnpm-workspace.yaml               # pnpm 12 设置，无子包
 ```
 
-这是目标组织约定，不要求预先建立空目录。React 组件使用同目录的 `*.module.css`，页面样式留在对应 feature；全局样式只保存设计 token、reset 和窗口级规则。模块可用 `index.ts` 暴露少量公共入口，但不建立导出整个 renderer 的总入口。测试紧邻实现，例如 `agent/run.test.ts`；测试样例必须脱敏。
+这是目标组织约定，不要求预先建立空目录。React 组件使用同目录的 `*.module.css`，页面样式留在对应 feature；全局样式只保存设计 token、reset 和窗口级规则。模块可用 `index.ts` 暴露少量公共入口，但不建立导出整个 renderer 的总入口。`src/main/` 各级业务目录在对应的 `test/` 子目录集中放置单元测试，例如 `agent/test/run.test.ts`；测试样例必须脱敏。
 
 不默认新增 Manager、Service、Factory、Adapter、Registry 等类型或层级。不创建无明确归属的巨大 `utils.ts`。界面样式与仅被本功能使用的组件放在对应 feature 中。
 
