@@ -20,6 +20,7 @@ import type {
   WorkspaceViewState,
   WorkspaceChat,
   ThemePreference,
+  TrayAction,
   IconPreference,
   ZoomPreference,
   FontScalePreference,
@@ -55,6 +56,13 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.on('window:state', subscription);
       return () => {
         ipcRenderer.removeListener('window:state', subscription);
+      };
+    },
+    onTrayAction: (listener: (action: TrayAction) => void) => {
+      const subscription = (_event: unknown, action: TrayAction) => listener(action);
+      ipcRenderer.on('window:tray-action', subscription);
+      return () => {
+        ipcRenderer.removeListener('window:tray-action', subscription);
       };
     },
   },

@@ -141,3 +141,73 @@
 - 代码结构：原 `requestCompletion` 拆为只管退避重试的 `sendCompletion` 与负责降级的 `requestCompletion`，退避语义未改动。
 - 已验证：Oxlint 0 告警、三组类型检查、134 项单元测试（新增「每轮请求携带 32768」「提供商拒绝后降级为 8192 并成功」「降级后仍被拒则如实失败」三条）。既有用例「不重试永久性 4xx」在实现中抓到一个标志位判定 bug（`in` 判存在而非判值，导致空响应体 400 也触发降级），已修正。
 - 仍待决策：`finish_reason === 'length'` 目前无条件抛错，正文回答只是被截断（无未完成工具调用）时也会丢弃已生成内容并替换为中断说明。是否改为「无待执行工具调用时保留截断正文」属于产品行为选择，未擅自改动。
+
+### 测试与验证
+
+- 新增 `jsdom` devDependency（30.1.0，精确锁定，仅测试用）；新增 `blockCommands.test.ts`：真实 Editor 实例上的事务级回归测试（转换/列表归并与下标映射/引用往返/代码内容保留/移动往返/副本 id/缩进出入 Toggle），重点守住「块操作不得毁文档」。
+- 已验证：Prettier、Oxlint 0 告警、三组类型检查、构建、152 项单元测试、`pnpm smoke`。**待实机验证**（作者审阅）：斜杠菜单手感、拖拽自动滚动、链接弹层、代码块 Enter/Esc 焦点往返、图片对齐按钮。
+- 已知取舍：嵌套容器内部（如 Toggle 子块上）的 Mod+↑↓/Mod+D/转换仍作用于顶层祖先容器（Notion 作用于子块），属块操作层的下一轮范围；斜杠菜单内 Tab 确认、Cmd+Shift+↑↓ 键位未做。
+
+## 2026-09-20（第五轮）Block 编辑器：全面 UX 复查与修复
+
+流程：5 个并行审查 subagent（编辑器内核/块交互/斜杠与格式化/NodeView/主进程集成）复查前两轮全部 diff，关键结论对照 node_modules 内 tiptap/prosemirror/remark 源码或最小复现实证；随后按文件边界拆 4 个并行修复集群落地（互不触碰对方文件，集成后统一验证）。
+
+### 数据安全级修复
+
+- **外部内容同步计入撤销历史**：tiptap 的 `setContent` 只挂 `preventUpdate` 不设 `addToHistory`，外部重载后一次 Ctrl+Z 整篇回退，且该 undo 触发自动保存把旧内容写盘（静默覆盖刚接受的外部修改）。修复：chain 内 `setMeta('addToHistory', false)`，并按块 id 锚点保存/恢复光标（顺带改善分栏同文档对侧光标跳顶）。
+- **空字符串 `.dela` 直接进错误面板**：新建空笔记默认 `.dela` 但落盘空串，parse 抛错且「重试」永远失败。`parseDelaDocument` 空/全空白返回空文档；`children: []` 兜底空段落。
+- **相邻不同链接被并成一个范围编辑**（mark 只比类型不比 href，保存/移除互相覆盖）：改 `mark.eq` 比较。
+- **InlineMathView 未用 NodeViewWrapper**：每个 mutation 批次抛未捕获异常并中断同批 mutation 处理。改 `NodeViewWrapper as="span"`。
+- **atom 块句柄菜单命令作用到相邻块**（`from+1` 越过 nodeSize=1 的 atom，选区落到下一块）：菜单命令改为显式目标地址，删除绕道选区的 `menuSelectInto`。
+- **Markdown 导出三连**：有序列表嵌套子块 2 空格缩进重解析逃出列表项（第 10 项起需 4 空格）；导出完全不转义（「费用$5 押金$10」往返变公式、`2*3*4` 变斜体）；导入 GFM 表格单元格连体。**导出整体迁移 remark-stringify**（remark 15 内置 stringify，零新增依赖）：Dela 树 → mdast → stringify，转义/缩进/标记宽度交给库；导入侧表格显式按行分段、单元格 `" | "` 连接。
+
+### 块操作内核：深度感知（上轮已知遗留的根治）
+
+- 操作单元（unit）从「顶层块」升级为「最近容器的直接子块」（列表→listItem、引用/Toggle→直接子块）：Mod+↑↓/Mod+D/转换/删除在同级兄弟数组内操作（listItem 连子树移动/复制、子树换新 id）；嵌套块转普通类型提升出容器（空容器级联移除）、转列表保持嵌套；句柄/＋菜单同样按悬停 unit 定位与操作。**拖拽落点仍为顶层粒度（下一轮）**。
+- 转列表时子块不再粘连/丢弃：children 保留为列表项子块（代码/公式子块完整保留）。
+- 块操作替换区间从整篇 `[0, size]` 收敛到受影响顶层区间（差异下标 + 列表归并段边界对齐 + 前后不动点锚定）：Mod+↑ 不再导致全文档 CodeMirror 实例重建（块内撤销史/滚动/语言加载保留）；新增测试断言局部替换与整篇替换产出 doc JSON 相等。
+- 删除块后焦点归还相邻块（此前落在隐藏 trigger 上打字无反应）；文档删空兜底空段落。
+
+### 编辑器会话与同步
+
+- **切标签不再丢撤销历史/光标**：照 MarkdownEditor 的 sessions 模式缓存 Tiptap Editor 实例（按 `editorStateKey`，卸载不销毁、`forgetDocumentSessions` 时销毁；弃 `useEditor` 因其卸载必 destroy）。jsdom 测试覆盖 卸载→重挂载 历史保留、StrictMode 单实例。
+- IME 组文期间到达的外部同步不再丢弃（pendingValue + compositionend 后应用，`setTimeout(0)` 等 PM 冲完组文事务）。
+- 每键全文档序列化改 200ms 尾随去抖（blur/卸载/beforeunload/Ctrl+S 前 flush；Ctrl+S 先冲盘再保存）。
+- 挂载首轮不再 emit：手工整理过的 `.dela`（键序/缩进不同）不再一打开就「未保存」被规范化重写。
+
+### NodeView / 代码块 / 媒体
+
+- readOnly 门控内嵌编辑器：CodeMirror（editable Compartment）、公式/说明/Toggle 摘要输入框、语言下拉统一随 `editor.isEditable`（此前只读视图里 CM 照常可改文档但不保存）。
+- 代码块：`js/`ts 别名规范化（语言下拉不再空白）；末行 ↓/首行 ↑ 跳出代码块；写属性 300ms 去抖 + `addToHistory:false`（块内撤销由 CM 自管，不再双轨）。
+- blockId 补号只扫事务变更区间（打字不再每键全文档遍历；拆块/粘贴复制 id 仍会命中全量补号）。
+- 数学块 hover 展开源码导致整页跳动（违反动画稳定规则）：改为选中/双击编辑态展示源码，失焦/Esc 提交回渲染态。
+- 图片加载失败占位卡片 + 重试（cache-bust query）；粘贴/拖入按主进程白名单 + 20MB 预检，失败显示错误条（不再静默）；粘贴后立刻切标签的 `isDestroyed` 守卫；斜杠插图片取消对话框零残留（改为选完文件再插）。
+- KaTeX 错误信息放 title；容器内空段落不再显示大占位文案。
+- 主进程：媒体写盘 `fs/promises` 化 + media 目录缓存（不再每请求查库+建目录）；协议缓存改 `immutable`（uuid 文件名不可变，不再每次重验证全量读盘）；HEAD 不建 body；svg MIME 复用白名单映射（`image/svg+xml`）；**更换存储目录 best-effort 复制旧 media 目录**（此前切目录后所有图片 404）。
+
+### 定位与依赖（成熟库优先）
+
+- 浮动层（文本工具栏/块工具栏/链接弹层）从手写 clamp 迁移 `@floating-ui/dom` 的 computePosition + flip/shift/offset/autoUpdate（滚动/resize 自动贴住选区，链接编辑滚动不再丢输入）；`@floating-ui/dom@1.8.0` 由传递依赖升为直接精确依赖，手写 clamp 常量（12/-150/320/8/-48/+6）删除。
+- Markdown 导出迁移 remark-stringify（见上，零新增依赖）。
+
+### 已验证
+
+Prettier、Oxlint 0 告警、三组类型检查、构建、**182 项单元测试**（上轮 152 + 30：嵌套 unit 操作 13、编辑器会话 6、行内公式输入规则 6、Markdown 往返/表格 5 等）、`pnpm smoke`。**待实机验证**（作者审阅）：flip 翻转观感、数学块双击编辑、拖拽自动滚动渐变、链接弹层滚动跟随、Tab 确认手感、切标签后撤销历史。
+
+### 已知取舍 / 遗留
+
+- 拖拽落点仍只有顶层粒度（无法拖进列表项之间/引用内部），Notion 的左右缩进落点提示同属下一轮。
+- 分栏同文档双窗格是「整篇替换同步」而非增量 diff（撤销/光标已不破坏，但打字高峰对侧整篇刷新）。
+- 媒体孤儿 GC 未做（删块/删笔记/换封面后文件残留；需先决定 md 副本引用语义）。
+- CM 内输入后 300ms 内直接关窗可能丢最后几字符（beforeunload 冲盘读 PM 属性，改它需动别人的文件）。
+- 网页选区/图片 URL 拖入仍被丢弃（需主进程 `net.fetch` 转存）；远程图 src 无白名单（隐私考量待产品决策）。
+- readOnly 下图片对齐/宽度拖拽、Toggle 折叠按钮仍可改 attrs（不保存，同此前的只读漏洞同源）。
+- choose-directory 对话框文案仍写「已有文件不迁移」，而媒体现在会 best-effort 复制，文案待定夺。
+- `preview.ts` 的 mediaMime 与 api.ts 的 mediaExtensions 是两份相同映射，未合并。
+
+## 2026-09-20 系统托盘
+
+- 主窗口关闭改为隐藏至系统托盘，进程、通知和后台同步继续运行；移除 Electron 默认原生菜单的退出入口后，仅托盘右键菜单中的“退出”会真正关闭应用。
+- 托盘菜单提供打开主窗口、新建首页对话、新建项目和退出；前两项通过受限 preload 事件复用既有 renderer 导航与创建逻辑，不新增窗口或通用 IPC 通道。
+- 已验证：Prettier、三组类型检查、生产构建与 `pnpm smoke`；`pnpm package:dir` 命令成功结束。
+- 待验证：Windows 实机上托盘图标在浅色/深色任务栏中的可见性，以及关闭、菜单新建与退出的完整交互。当前 `dist/win-unpacked/resources/` 为空，产物仅含通用 `electron.exe` 且启动即退出，故暂不能以该包验证；该打包产物问题不由本次改动引入。

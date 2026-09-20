@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  nativeTheme,
+  shell,
+  Tray,
+} from 'electron';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { closeDatabase, getDatabase } from './database';
@@ -144,6 +154,8 @@ const NOTIFICATION_REFRESH_MS = 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
+let tray: Tray | undefined;
+let quitting = false;
 if (smokeTest) {
   setTimeout(() => {
     console.error('Smoke check timed out');
@@ -153,6 +165,8 @@ if (smokeTest) {
 
 // 注册业务 IPC；数据库在应用就绪后可用。
 app.whenReady().then(() => {
+  // 标题栏内已有应用菜单；移除 Electron 默认菜单，避免额外的系统“退出”入口绕过托盘。
+  Menu.setApplicationMenu(null);
   getDatabase();
   registerPreviewProtocol();
   applyTheme(savedTheme());
@@ -203,6 +217,11 @@ async function createWindow(): Promise<void> {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+  window.on('close', (event) => {
+    if (quitting) return;
+    event.preventDefault();
+    window.hide();
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
     try {
@@ -267,6 +286,8 @@ async function createWindow(): Promise<void> {
   // 恢复持久化的页面缩放；在页面加载后设置，避免导航重置缩放级别。
   window.webContents.setZoomFactor(savedZoom());
 
+  if (!smokeTest) createTray(window);
+
   if (smokeTest) {
     const database = new Database(':memory:');
     try {
@@ -287,6 +308,50 @@ async function createWindow(): Promise<void> {
   }
 }
 
+function showMainWindow(window: BrowserWindow): void {
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
+function createTray(window: BrowserWindow): void {
+  tray?.destroy();
+  const icon = nativeImage
+    .createFromPath(join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`))
+    .resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+  tray.setToolTip('Dela');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: '打开主窗口', click: () => showMainWindow(window) },
+      { type: 'separator' },
+      {
+        label: '新建对话',
+        click: () => {
+          showMainWindow(window);
+          window.webContents.send('window:tray-action', 'new-chat');
+        },
+      },
+      {
+        label: '新建项目',
+        click: () => {
+          showMainWindow(window);
+          window.webContents.send('window:tray-action', 'new-project');
+        },
+      },
+      { type: 'separator' },
+      {
+        label: '退出',
+        click: () => {
+          quitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
+  tray.on('click', () => showMainWindow(window));
+}
+
 app
   .whenReady()
   .then(createWindow)
@@ -297,16 +362,20 @@ app
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin' || smokeTest) app.quit();
 });
+app.on('before-quit', () => {
+  quitting = true;
+});
 app.on('will-quit', () => {
+  tray?.destroy();
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
   closeDatabase();
 });
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    void createWindow().catch((error: unknown) => {
-      console.error(error);
-      app.exit(1);
-    });
-  }
+  const window = BrowserWindow.getAllWindows()[0];
+  if (window) return showMainWindow(window);
+  void createWindow().catch((error: unknown) => {
+    console.error(error);
+    app.exit(1);
+  });
 });

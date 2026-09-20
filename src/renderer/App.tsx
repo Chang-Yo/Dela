@@ -216,6 +216,21 @@ export default function App() {
     return true;
   };
 
+  const newHomeChat = () => {
+    if (!leaveComposer(newHomeChat)) return;
+    if (!navigate('home')) return;
+    void window.dela?.workspace
+      .newChat('home')
+      .catch((error) => setNavigationError(errorText(error)));
+  };
+
+  useEffect(() => {
+    return window.dela?.window.onTrayAction((action) => {
+      if (action === 'new-chat') newHomeChat();
+      else newProject();
+    });
+  }, [newHomeChat, newProject]);
+
   const goBack = () => {
     const prev = backStack[backStack.length - 1];
     if (prev === undefined || !leaveComposer(goBack)) return;
