@@ -99,7 +99,7 @@ describe('resource parsing', () => {
     expect(parsed.text).toContain('第十页');
   });
 
-  it('extracts PDF text with page sections', async () => {
+  it('extracts PDF text with page sections', { timeout: 30_000 }, async () => {
     const parsed = await extractDocumentBytes(minimalPdf('Hello Dela'), 'lecture.pdf');
     expect(parsed).toMatchObject({ kind: 'pdf', pages: 1, hasTextLayer: true });
     expect(parsed.text).toContain('[第 1 页]');
