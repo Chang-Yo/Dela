@@ -45,29 +45,30 @@ export function ConnectionsSection({
   const [dialog, setDialog] = useState<'canvas' | null>(null);
   const [busy, setBusy] = useState(false);
   const [disconnectError, setDisconnectError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const dela = window.dela;
     if (!dela) return undefined;
     let active = true;
-    void Promise.all([
-      dela.mail.getState(),
-      dela.timetable.getState(),
-      dela.shuiyuan.getState(),
-    ]).then(([mailState, timetableState, shuiyuanState]) => {
-      if (!active) return;
-      setMailAddress(mailState.account?.address ?? null);
-      setTimetableConnected(timetableState.connected);
-      setShuiyuanUser(shuiyuanState.connected ? shuiyuanState.username : null);
-      if (mailState.account) {
-        void dela.mail
-          .getTrashRetention()
-          .then((value) => {
-            if (active) setTrashRetention(value);
-          })
-          .catch(() => {});
-      }
-    });
+    void Promise.all([dela.mail.getState(), dela.timetable.getState(), dela.shuiyuan.getState()])
+      .then(([mailState, timetableState, shuiyuanState]) => {
+        if (!active) return;
+        setMailAddress(mailState.account?.address ?? null);
+        setTimetableConnected(timetableState.connected);
+        setShuiyuanUser(shuiyuanState.connected ? shuiyuanState.username : null);
+        if (mailState.account) {
+          void dela.mail
+            .getTrashRetention()
+            .then((value) => {
+              if (active) setTrashRetention(value);
+            })
+            .catch(() => {});
+        }
+      })
+      .catch((cause) => {
+        if (active) setLoadError(errorText(cause));
+      });
     return () => {
       active = false;
     };
@@ -219,6 +220,11 @@ export function ConnectionsSection({
   return (
     <div className="grid gap-5">
       <SectionHeader description="凭据经系统加密保存在本机。" title="数据与服务" />
+      {loadError && (
+        <p className="text-xs text-destructive" role="alert">
+          {loadError}
+        </p>
+      )}
       <ul className="grid">
         {connections.map(
           ({ name, icon: Icon, state, connected, description, actionLabel, onClick, extra }) => (

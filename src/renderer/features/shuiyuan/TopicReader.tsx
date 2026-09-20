@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -177,13 +177,6 @@ export function TopicReader() {
   const detail = reading?.detail ?? null;
   const isPM = detail?.archetype === 'private_message';
 
-  // 切换帖子时重置输入态。
-  useEffect(() => {
-    setDraft('');
-    setComposerOpen(false);
-    setReplyTarget(null);
-  }, [reading?.topicId]);
-
   useEffect(() => {
     const targetPostNumber = reading?.postNumber;
     if (!detail || targetPostNumber === null || targetPostNumber === undefined) return;
@@ -216,6 +209,12 @@ export function TopicReader() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMorePosts, loadMorePosts, loadedCount]);
+
+  // 稳定引用：避免每次渲染都让各楼层 iframe 的 message 监听解绑重挂。
+  const openTopicFromPost = useCallback(
+    (topicId: number, postNumber?: number) => void openTopic(topicId, postNumber),
+    [openTopic],
+  );
 
   const quote = (username: string, postNumber: number, cooked: string) => {
     const snippet = stripToText(cooked).trim().slice(0, 120);
@@ -332,7 +331,7 @@ export function TopicReader() {
                     <div className="mt-2">
                       <ShuiyuanHtmlBody
                         html={post.cooked}
-                        onOpenTopic={(topicId, postNumber) => void openTopic(topicId, postNumber)}
+                        onOpenTopic={openTopicFromPost}
                         title={`第 ${post.postNumber} 楼`}
                       />
                     </div>

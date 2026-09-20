@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCanvasState } from '../canvas/api';
 import { readWorkspaceEntry, saveWorkspaceNote } from '../workspace/api';
 import { withResourceFile } from '../resources';
-import { parseDocumentFile } from '../resource-parse';
+import { parseDocumentFile, renderPdfPages } from '../resource-parse';
 import { searchWeb } from './web-search';
 import { executeAgentTool, modelToolDefinitions } from './tools';
 
@@ -31,6 +31,7 @@ vi.mock('../resources', () => ({
 }));
 vi.mock('../resource-parse', () => ({
   parseDocumentFile: vi.fn(),
+  renderPdfPages: vi.fn(),
   parsableDocumentExtension: (name: string) => {
     const lower = name.toLowerCase();
     if (lower.endsWith('.pdf')) return 'pdf';
@@ -136,7 +137,66 @@ describe('Agent tool contracts', () => {
       await executeAgentTool('read_resource', { ref: { type: 'workspace', id } }),
     ).toMatchObject({
       ok: true,
-      result: { readable: false, nextOffset: null, hasTextLayer: false },
+      result: {
+        readable: false,
+        nextOffset: null,
+        hasTextLayer: false,
+        // 扫描件引导模型改走 pages 图像路径。
+        hint: expect.stringContaining('pages'),
+      },
+    });
+  });
+
+  it('renders requested PDF pages as ordered image attachments', async () => {
+    vi.mocked(readWorkspaceEntry).mockResolvedValue({ title: 'Scan.pdf', format: 'pdf' });
+    vi.mocked(renderPdfPages).mockResolvedValue({
+      totalPages: 9,
+      pages: [
+        { page: 1, jpeg: new Uint8Array([0xff, 0xd8, 0xff, 0x01]) },
+        { page: 2, jpeg: new Uint8Array([0xff, 0xd8, 0xff, 0x02]) },
+      ],
+    });
+    const result = await executeAgentTool('read_resource', {
+      ref: { type: 'workspace', id },
+      pages: [2, 1],
+    });
+    expect(renderPdfPages).toHaveBeenCalledWith('C:/tmp/fake-document', [2, 1]);
+    expect(result).toMatchObject({
+      ok: true,
+      result: {
+        format: 'pdf',
+        totalPages: 9,
+        pageImages: [{ page: 1 }, { page: 2 }],
+        images: [
+          { page: 1, dataUrl: 'data:image/jpeg;base64,/9j/AQ==' },
+          { page: 2, dataUrl: 'data:image/jpeg;base64,/9j/Ag==' },
+        ],
+      },
+    });
+  });
+
+  it('reports page rendering failures without aborting the tool result', async () => {
+    vi.mocked(readWorkspaceEntry).mockResolvedValue({ title: 'Scan.pdf', format: 'pdf' });
+    vi.mocked(renderPdfPages).mockRejectedValue(new Error('页码 5 超出范围（共 1 页）'));
+    expect(
+      await executeAgentTool('read_resource', { ref: { type: 'workspace', id }, pages: [5] }),
+    ).toMatchObject({
+      ok: true,
+      result: { readable: false, parseError: '页码 5 超出范围（共 1 页）' },
+    });
+  });
+
+  it('rejects the pages parameter for non-PDF resources', async () => {
+    vi.mocked(readWorkspaceEntry).mockResolvedValue({
+      title: 'Note.md',
+      format: 'markdown',
+      text: 'x',
+    });
+    expect(
+      await executeAgentTool('read_resource', { ref: { type: 'workspace', id }, pages: [1] }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: 'OPERATION_FAILED', message: 'pages 仅支持 PDF 文档' },
     });
   });
 

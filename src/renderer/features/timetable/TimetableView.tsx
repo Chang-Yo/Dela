@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronLeft, ChevronRight, LogIn, Plus, RefreshCw } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson, TimetableState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
@@ -34,6 +34,10 @@ import { cn } from '../../lib/utils';
 
 type CalendarMode = 'week' | 'month';
 
+/** 学期/事件请求序号：丢弃过期响应（与水源 store 的 request guard 同法）。 */
+let semesterRequest = 0;
+let eventsRequest = 0;
+
 export function TimetableView() {
   if (!window.dela) {
     return (
@@ -60,16 +64,23 @@ function DesktopTimetableView() {
   const [eventDraft, setEventDraft] = useState<{ start: Date; end: Date } | null>(null);
   const [semesterDraft, setSemesterDraft] = useState(false);
   const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
+  /** 上次已加载的学期：据此判断是否把选中周归位到本周。 */
+  const loadedSemesterRef = useRef<string | null>(null);
 
   const loadSemester = useCallback(
     async (requested?: string) => {
+      const request = ++semesterRequest;
       const [nextState, nextLessons] = await Promise.all([
         timetable.getState(requested),
         timetable.listLessons(requested),
       ]);
+      if (semesterRequest !== request) return;
       setState(nextState);
       setSemester(nextState.semester);
       setLessons([...nextLessons]);
+      // 学期未变时保留用户选中的教学周：同步/改开学日期不应把用户拉回本周。
+      if (loadedSemesterRef.current === nextState.semester) return;
+      loadedSemesterRef.current = nextState.semester;
       const currentWeek = weekForDate(nextState.semesterStart, new Date());
       setSelectedWeek(currentWeek && currentWeek > 0 ? currentWeek : 1);
     },
@@ -92,11 +103,15 @@ function DesktopTimetableView() {
   const eventRangeEnd = mode === 'week' ? addDays(visibleWeekStart, 7) : monthGridEnd;
 
   const loadEvents = useCallback(async () => {
+    const request = ++eventsRequest;
     const nextEvents = await timetable.listEvents(
       eventRangeStart.toISOString(),
       eventRangeEnd.toISOString(),
     );
+    if (eventsRequest !== request) return;
     setEvents([...nextEvents]);
+    // 依赖写法沿用 .getTime() 内联形式：React Compiler 无法证明派生数值稳定，具名 deps 会触发
+    // preserve-manual-memoization 告警。
   }, [timetable, eventRangeStart.getTime(), eventRangeEnd.getTime()]);
 
   useEffect(() => {

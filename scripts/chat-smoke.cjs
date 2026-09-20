@@ -130,28 +130,22 @@ app
     await wait("document.querySelector('[aria-label=对话消息]')");
     const viewport = "document.querySelector('[aria-label=对话消息]')";
     const initialTop = await evaluate(`${viewport}.scrollTop`);
-    // 思考段先于公开正文流式进入：块自动展开；正文到达后自动收起，可手动再展开。
+    // 思考段先于公开正文进入：工作过程区自动展开，思考以弱化段落平铺在连线右侧。
     reply.parts.push({
       type: 'reasoning',
       text: '先分析请求：需要查找课程资料，再保存复习计划。',
       startedAt: Date.now(),
     });
     await push();
-    await wait("document.body.innerText.includes('思考中…')");
+    await wait("document.body.innerText.includes('正在工作')");
     await wait(
-      "[...document.querySelectorAll('[data-reasoning-body]')].some(el => el.textContent.includes('先分析请求') && el.parentElement.getBoundingClientRect().height > 1)",
+      "[...document.querySelectorAll('[data-reasoning-body]')].some(el => el.textContent.includes('先分析请求') && el.getBoundingClientRect().height > 1)",
     );
     reply.parts.push({ type: 'text', text: '我会先查找课程资料，再按课程整理复习重点。' });
     await push();
-    await wait("document.body.innerText.includes('已深度思考')");
+    // 尾部出现公开正文后，整段工作过程自动收起（DeepSeek 式：回答开始即折叠）。
     await wait(
-      "[...document.querySelectorAll('[data-reasoning-body]')].every(el => el.parentElement.getBoundingClientRect().height < 1)",
-    );
-    await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已深度思考')).click()",
-    );
-    await wait(
-      "[...document.querySelectorAll('[data-reasoning-body]')].some(el => el.textContent.includes('先分析请求') && el.parentElement.getBoundingClientRect().height > 1)",
+      "[...document.querySelectorAll('[data-worked-body]')].every(el => el.getBoundingClientRect().height < 1)",
     );
     // 消息头运行态是静态“正在工作”，不携带每秒跳动的秒数。
     assert.match(
@@ -161,7 +155,7 @@ app
       /^正在工作$/,
     );
     chat.activeTool = 'search_sources';
-    // 工具开始即写入无输出的占位步骤（带输入摘要）；运行中的组自动展开。
+    // 工具开始即写入无输出的占位步骤（带输入摘要）；工作过程区自动重新展开。
     reply.parts.push({
       type: 'tools',
       results: [
@@ -183,12 +177,13 @@ app
     reply.toolResults.push(first);
     chat.activeTool = undefined;
     await push();
-    // 完成态摘要是去重的动作类别，没有计数；未触碰的组自动收起。
+    // 工具完成后步骤行平铺保留在时间线上（未到回答阶段不收起），没有组摘要的二次折叠。
     await wait(
-      "[...document.querySelectorAll('ol[aria-label=动作时间线]')].every(ol => ol.parentElement.getBoundingClientRect().height < 1)",
+      "[...document.querySelectorAll('[data-worked-body]')].some(el => el.getBoundingClientRect().height > 1)",
     );
     assert.ok(await evaluate("document.body.innerText.includes('查找资料')"));
     assert.ok(!(await evaluate("document.body.innerText.includes('个动作')")));
+    assert.ok(!(await evaluate("document.body.innerText.includes('保存笔记、读取资料')")));
     reply.parts.push({ type: 'text', text: '已找到 **三份资料' });
     await push();
     await wait(
@@ -217,7 +212,7 @@ app
     reply.toolResults.push(second, failed);
     reply.parts.push({
       type: 'text',
-      text: '已保存复习计划：\n\n- 周一：复习课程概念\n- 周三：完成练习\n- 周五：整理疑问\n\n一份资料尚未下载，未纳入本次整理。',
+      text: '已保存复习计划：\n\n- 周一：复习课程概念\n- 周三：完成练习\n- 周五：整理疑问\n\n一份资料尚未下载，未纳入本次整理。\n\n```bash\ng++ -std=c++17 -O2 quicksort.cpp && ./quicksort\n```',
     });
     reply.content = reply.parts
       .filter((p) => p.type === 'text')
@@ -246,23 +241,60 @@ app
       "[...document.querySelectorAll('[data-worked-body]')].every(el => el.getBoundingClientRect().height < 1)",
     );
     assert.ok(!body.includes('▍'));
-    // 点击摘要行展开完整时间线，再进入单个动作组的详情；组摘要为类别文字。
+    // 点击摘要行展开完整时间线：动作行直接平铺（无组层级），失败行内联错误，单步可再展开详情。
     await evaluate(
       "[...document.querySelectorAll('button')].find(b => b.textContent.includes('已工作 · 12 秒')).click()",
     );
     await wait(
       "[...document.querySelectorAll('[data-worked-body]')].some(el => el.getBoundingClientRect().height > 1)",
     );
-    assert.ok(await evaluate("document.body.innerText.includes('保存笔记、读取资料')"));
-    await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent.includes('保存笔记、读取资料')).click()",
-    );
     await wait("document.body.innerText.includes('资料尚未下载')");
+    assert.ok(await evaluate("document.body.innerText.includes('查找资料')"));
     await evaluate(
       "[...document.querySelectorAll('button')].find(b => b.textContent.trim().startsWith('读取资料')).click()",
     );
     await wait(
       "[...document.querySelectorAll('pre')].some(p => p.textContent.includes('missing') && p.checkVisibility())",
+    );
+    // 代码块：shiki 高亮生效（token 携带双主题变量，fallback 永远不会有），
+    // code-block 与 code-block-body 的自带盒样式已被拍平，只剩内层代码框。
+    await wait(
+      "[...document.querySelectorAll('[data-streamdown=code-block-body] span')].some(el => (el.getAttribute('style') || '').includes('--shiki-dark'))",
+    );
+    assert.equal(
+      await evaluate(
+        "getComputedStyle(document.querySelector('[data-streamdown=code-block]')).borderStyle",
+      ),
+      'none',
+      'code-block outer box still bordered',
+    );
+    assert.equal(
+      await evaluate(
+        "getComputedStyle(document.querySelector('[data-streamdown=code-block-body]')).borderStyle",
+      ),
+      'none',
+      'code-block-body still bordered',
+    );
+    // eslint-disable-next-line no-console
+    console.log(
+      'DEBUG actions:',
+      await evaluate("document.querySelectorAll('[data-streamdown=code-block-actions]').length"),
+    );
+    // eslint-disable-next-line no-console
+    console.log(
+      'DEBUG copybtn:',
+      await evaluate(
+        "document.querySelectorAll('[data-streamdown=code-block-copy-button]').length",
+      ),
+    );
+    // eslint-disable-next-line no-console
+    console.log(
+      'DEBUG cb outer:',
+      (
+        await evaluate(
+          "document.querySelector('[data-streamdown=code-block]')?.outerHTML ?? 'NONE'",
+        )
+      ).slice(0, 900),
     );
     mkdirSync(join(root, 'output/playwright'), { recursive: true });
     for (const [width, theme] of [
@@ -362,7 +394,7 @@ app
     );
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log(
-      'Chat smoke passed: composer menus and effort control, reasoning collapse, placeholder steps, category summaries, worked block, streaming Markdown, failures, disclosures, stable scroll, follow/escape, legacy sessions, draft persistence, 3 widths, light/dark.',
+      'Chat smoke passed: composer menus and effort control, flat working timeline (single-level collapse, rail layout, auto open/close on answer), streaming Markdown, failures, disclosures, stable scroll, follow/escape, legacy sessions, draft persistence, 3 widths, light/dark.',
     );
     win.destroy();
     app.exit(0);

@@ -35,12 +35,7 @@ export function LlmSection() {
       .catch((cause) => setError(errorText(cause)));
   };
 
-  useEffect(() => {
-    void window.dela?.llm
-      .list()
-      .then(setProviders)
-      .catch((cause) => setError(errorText(cause)));
-  }, []);
+  useEffect(refresh, []);
 
   const activate = async (id: string) => {
     if (!window.dela) return;

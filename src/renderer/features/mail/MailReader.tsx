@@ -117,6 +117,8 @@ export function MailReader({
     try {
       const result = await downloadAttachment(detail.id, attachment.part);
       if (!result.ok) setAttachmentError(result.error ?? '附件下载失败');
+    } catch (reason) {
+      setAttachmentError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setDownloadingPart(null);
     }

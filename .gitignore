@@ -34,4 +34,5 @@ Thumbs.db
 # LLM
 .zcode/
 .agents/
+.pi/
 .playwright*/

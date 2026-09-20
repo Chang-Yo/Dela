@@ -99,8 +99,8 @@ export function ReplyComposer({
   const uploadFiles = async (files: FileList | null) => {
     const api = window.dela?.shuiyuan;
     if (!files || files.length === 0 || !api) return;
-    for (const file of Array.from(files)) {
-      const key = `${file.name}-${uploads.length}-${file.lastModified}-${file.size}`;
+    for (const [index, file] of Array.from(files).entries()) {
+      const key = `${file.name}-${uploads.length}-${index}-${file.lastModified}-${file.size}`;
       setUploads((current) => [...current, { key, name: file.name, error: null }]);
       try {
         if (file.size > MAX_UPLOAD_BYTES) throw new Error('附件超过 20MB');

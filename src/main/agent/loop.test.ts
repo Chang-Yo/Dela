@@ -135,6 +135,48 @@ describe('Agent loop', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it('requests the raised output ceiling on every round', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(answer(call()))
+      .mockResolvedValueOnce(answer({ content: 'Done' }));
+    vi.stubGlobal('fetch', fetcher);
+    await runAgent(options());
+    for (const call of fetcher.mock.calls) {
+      expect(JSON.parse(call[1].body).max_tokens).toBe(32768);
+    }
+  });
+
+  it('falls back to the safe ceiling when the provider rejects max_tokens', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response('{"error":{"message":"max_tokens must be less than or equal to 8192"}}', {
+          status: 400,
+        }),
+      )
+      .mockResolvedValueOnce(answer({ content: 'Done' }));
+    vi.stubGlobal('fetch', fetcher);
+    const input = options();
+    const result = await runAgent(input);
+    expect(result.content).toBe('Done');
+    expect(input.execute).not.toHaveBeenCalled();
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body).max_tokens).toBe(32768);
+    expect(JSON.parse(fetcher.mock.calls[1]![1].body).max_tokens).toBe(8192);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a max_tokens rejection at the fallback ceiling as a failure', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('{"error":{"message":"max_tokens is too large"}}', { status: 400 }),
+      );
+    vi.stubGlobal('fetch', fetcher);
+    await expect(runAgent(options())).rejects.toThrow('400');
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it('streams reasoning_content deltas as accumulated onReasoning text', async () => {
     vi.stubGlobal(
       'fetch',
@@ -175,6 +217,68 @@ describe('Agent loop', () => {
     const result = await runAgent({ ...options(), onReasoning });
     expect(onReasoning).toHaveBeenCalledWith('想了想');
     expect(result.content).toBe('Ok');
+  });
+
+  it('attaches tool page images as a synthetic user message after tool results', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(answer(call()))
+      .mockResolvedValueOnce(answer({ content: 'Seen' }));
+    vi.stubGlobal('fetch', fetcher);
+    const input = options();
+    input.execute.mockResolvedValueOnce({
+      ok: true,
+      result: {
+        title: 'Scan.pdf',
+        pageImages: [{ page: 1 }],
+        images: [{ page: 1, dataUrl: 'data:image/jpeg;base64,QUJD' }],
+      },
+    });
+    const onToolResult = vi.fn();
+    const result = await runAgent({ ...input, onToolResult });
+    expect(result.content).toBe('Seen');
+    const second = JSON.parse(fetcher.mock.calls[1]![1].body);
+    const toolMessage = second.messages.find(
+      (message: { role: string }) => message.role === 'tool',
+    );
+    // tool 消息与持久化输出只留元数据，base64 不进字符串结果与数据库。
+    expect(toolMessage.content).not.toContain('data:image');
+    expect(JSON.stringify(onToolResult.mock.calls[0]![0].output)).not.toContain('data:image');
+    // 页图像走标准多模态 parts：以合成 user 消息附在工具结果之后。
+    expect(second.messages.at(-1)).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: '【read_resource 附图】《Scan.pdf》第 1 页' },
+        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,QUJD' } },
+      ],
+    });
+  });
+
+  it('caps attached page images per run and reports the remainder', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(answer(call()))
+      .mockResolvedValueOnce(answer({ content: 'Enough' }));
+    vi.stubGlobal('fetch', fetcher);
+    const input = options();
+    input.execute.mockResolvedValueOnce({
+      ok: true,
+      result: {
+        title: 'Big.pdf',
+        images: Array.from({ length: 13 }, (_, index) => ({
+          page: index + 1,
+          dataUrl: `data:image/jpeg;base64,${index}`,
+        })),
+      },
+    });
+    await runAgent(input);
+    const second = JSON.parse(fetcher.mock.calls[1]![1].body);
+    const attachment = second.messages.at(-1);
+    expect(attachment.role).toBe('user');
+    expect(
+      attachment.content.filter((part: { type: string }) => part.type === 'image_url'),
+    ).toHaveLength(12);
+    expect(attachment.content.at(-1).text).toContain('上限');
   });
 
   it('reports each round reasoning separately and never feeds reasoning back to the model', async () => {

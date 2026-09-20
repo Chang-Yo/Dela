@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { History, SquarePen } from 'lucide-react';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Button } from '../../components/ui/button';
@@ -35,21 +35,19 @@ export function AgentPanel({
   const [sessionsOpen, setSessionsOpen] = useState(false);
 
   // @ 引用候选：当前打开的文档优先，其余可读条目（笔记/导入副本/Canvas 引用）按名搜索。
-  const referenceOptions = useMemo<ChatReference[]>(() => {
-    const options: ChatReference[] = [];
-    for (const id of tabs) {
-      const title = drafts[id]?.content.title;
-      if (title) options.push({ key: id, title });
-    }
-    for (const entry of entries) {
-      if (
-        (entry.kind === 'note' || entry.kind === 'imported' || entry.kind === 'source') &&
-        !tabs.includes(entry.id)
-      )
-        options.push({ key: entry.id, title: entry.name });
-    }
-    return options;
-  }, [drafts, entries, tabs]);
+  // 渲染期直接计算：drafts/tabs 引用每次渲染必变，缓存永不命中。
+  const referenceOptions: ChatReference[] = [];
+  for (const id of tabs) {
+    const title = drafts[id]?.content.title;
+    if (title) referenceOptions.push({ key: id, title });
+  }
+  for (const entry of entries) {
+    if (
+      (entry.kind === 'note' || entry.kind === 'imported' || entry.kind === 'source') &&
+      !tabs.includes(entry.id)
+    )
+      referenceOptions.push({ key: entry.id, title: entry.name });
+  }
 
   // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。

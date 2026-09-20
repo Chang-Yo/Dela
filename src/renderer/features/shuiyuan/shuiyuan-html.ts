@@ -58,10 +58,10 @@ export function sanitizeShuiyuanHtml(html: string): Document {
     // srcset/sizes 里的候选不走代理改写，留着会覆盖已改写的 src 重新破图。
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
-    if (src) {
+    if (src && /^https?:\/\//i.test(src)) {
       img.setAttribute('src', toMediaUrl(src));
     } else {
-      // 无可用地址的图片换成安静的文字占位，避免浏览器破图图标。
+      // 无可用地址（含 # 锚点等非 http(s) 值）的图片换成安静的文字占位，避免浏览器破图图标。
       const fallback = doc.createElement('span');
       fallback.className = 'img-fallback';
       fallback.textContent = img.alt || '图片不可用';

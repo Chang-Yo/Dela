@@ -138,7 +138,7 @@ const composerTheme = EditorView.theme({
   '.dela-chat-image': {
     position: 'relative',
     display: 'inline-flex',
-    verticalAlign: 'middle',
+    verticalAlign: 'bottom',
     margin: '2px 0',
   },
   '.dela-chat-image img': {
@@ -234,20 +234,13 @@ export function ComposerEditor({
   handlers.current = { onChange, onSend, onCaret, onFiles, onDropHandled, menu };
   const latestValue = useRef(value);
   latestValue.current = value;
-  const pendingValueSync = useRef(false);
-  // 外部值同步（发送失败恢复等）：IME 组文期间全量替换会打断输入法，推迟到组文结束后。
+  // 外部值同步（发送失败恢复等）：IME 组文期间全量替换会打断输入法，此时丢弃外部变更，
+  // 以用户输入为准（后续 onChange 会把草稿收敛回编辑器内容）。
   const syncValue = () => {
     const current = view.current;
     if (!current) return;
-    if (latestValue.current === current.state.doc.toString()) {
-      pendingValueSync.current = false;
-      return;
-    }
-    if (current.compositionStarted) {
-      pendingValueSync.current = true;
-      return;
-    }
-    pendingValueSync.current = false;
+    if (latestValue.current === current.state.doc.toString()) return;
+    if (current.compositionStarted) return;
     current.dispatch({
       changes: { from: 0, to: current.state.doc.length, insert: latestValue.current },
     });

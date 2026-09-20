@@ -83,6 +83,8 @@ type EditorLayout = {
 
 const editorLayoutKey = (scope: string) => `dela.editor.layout.${scope}`;
 const MAX_EDITOR_TABS = 100;
+// 拖拽中高频变化的偏好值延迟落盘，避免每次 pointermove 都同步写 localStorage。
+const PERSIST_DEBOUNCE_MS = 300;
 // A single editor group needs room for its document toolbar and readable body.
 // This is a layout constraint only; the stored sidebar/assistant preferences remain intact.
 const EDITOR_MIN_WIDTH = 320;
@@ -262,26 +264,52 @@ export function ProjectView({
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    localStorage.setItem('dela.workspace.sidebarWidth', String(width));
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('dela.workspace.sidebarWidth', String(width));
+      } catch {
+        // localStorage is optional; the in-memory value remains usable.
+      }
+    }, PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
   }, [width]);
   useEffect(() => {
-    localStorage.setItem('dela.workspace.collapsed', String(collapsed));
+    try {
+      localStorage.setItem('dela.workspace.collapsed', String(collapsed));
+    } catch {
+      // localStorage is optional; the in-memory value remains usable.
+    }
   }, [collapsed]);
   useEffect(() => {
-    localStorage.setItem('dela.workspace.agentOpen', String(agentOpen));
+    try {
+      localStorage.setItem('dela.workspace.agentOpen', String(agentOpen));
+    } catch {
+      // localStorage is optional; the in-memory value remains usable.
+    }
   }, [agentOpen]);
   useEffect(() => {
-    localStorage.setItem('dela.workspace.agentWidth', String(agentWidth));
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('dela.workspace.agentWidth', String(agentWidth));
+      } catch {
+        // localStorage is optional; the in-memory value remains usable.
+      }
+    }, PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
   }, [agentWidth]);
-  useEffect(() => {
+  // 项目切换时重置选中项：渲染期调整（而非 effect），避免旧高亮多绘制一帧。
+  const [prevRootId, setPrevRootId] = useState(rootId);
+  if (prevRootId !== rootId) {
+    setPrevRootId(rootId);
     setSelected(rootId);
-  }, [rootId]);
+  }
   useEffect(() => {
     if (createRequested) {
       show({ action: 'project', id: null });
       onCreateHandled?.();
     }
   }, [createRequested]);
+  // chatRequest 是一次性脉冲：父组件每次请求须传新对象引用，复用同一对象不会再次触发。
   useEffect(() => {
     if (chatRequest) setAgentOpen(true);
   }, [chatRequest]);
@@ -302,19 +330,32 @@ export function ProjectView({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+  /* 不变量：workspace.views[scope].tabs 仅在 scope 首次进入（含冷启动 load 完成）时作为种子，
+     之后 editorLayout 是唯一写方（syncView 单向推送），refresh 不回灌。 */
+  // scope 切换在渲染期完成：effect 要到绘制后才跑，会让旧 scope 的标签闪现一帧。
+  const [prevScope, setPrevScope] = useState(scope);
+  if (prevScope !== scope) {
+    setPrevScope(scope);
+    if (workspaceLoaded) {
+      const next = defaultEditorLayout(scope, saved.tabs, saved.active);
+      editorLayoutRef.current = next;
+      setEditorLayout(next);
+    }
+  }
+  // 冷启动 load 完成后的种子；运行中的 scope 变化已由上方渲染期调整处理。
   useEffect(() => {
     if (workspaceLoaded) {
       const next = defaultEditorLayout(scope, saved.tabs, saved.active);
       editorLayoutRef.current = next;
       setEditorLayout(next);
     }
-  }, [scope, workspaceLoaded]);
+  }, [workspaceLoaded]);
   useEffect(() => {
     scopeRef.current = scope;
     closeRequest.current += 1;
   }, [scope]);
   /* 预览标签一旦被编辑就转正（VSCode 语义）。从 ref 读当前布局：
-     scope 切换的同一提交里 state 仍是旧 scope 的布局，直接用会把旧布局写进新 scope。 */
+     ref 与 persistEditorLayout 同源，StrictMode 重跑时仍能读到上一次已持久化的结果。 */
   useEffect(() => {
     const layout = editorLayoutRef.current;
     const pinned = (group: EditorGroupId) => {
@@ -411,27 +452,32 @@ export function ProjectView({
     updateView({ tabs: layoutTabs(next), active });
   };
   const open = (key: string, group: EditorGroupId = focusedGroup, pin = false) => {
-    const current = editorLayout.groups[group];
+    /* 与 closeTab 一致：从 ref 读布局、从 store 读草稿。submit 在 await 之后调用本函数时，
+       渲染闭包里的 editorLayout/drafts 已过期，直接用会把旧布局写回去。 */
+    const layout = editorLayoutRef.current;
+    const currentDrafts = useWorkspace.getState().drafts;
+    const current = layout.groups[group];
     const alreadyOpen = current.tabs.includes(key);
     const previewToReplace =
       !pin && current.preview && current.preview !== key ? current.preview : null;
     const canReplacePreview =
       previewToReplace &&
       !(
-        drafts[previewToReplace] && drafts[previewToReplace].text !== drafts[previewToReplace].saved
+        currentDrafts[previewToReplace] &&
+        currentDrafts[previewToReplace].text !== currentDrafts[previewToReplace].saved
       );
-    const openEverywhere = layoutTabs(editorLayout);
+    const openEverywhere = layoutTabs(layout);
     if (!alreadyOpen && !openEverywhere.includes(key) && openEverywhere.length >= MAX_EDITOR_TABS) {
       useWorkspace.getState().setError(`最多打开 ${MAX_EDITOR_TABS} 个文档`);
       return;
     }
     const tabs = current.tabs.filter((tab) => !canReplacePreview || tab !== previewToReplace);
     const next: EditorLayout = {
-      ...editorLayout,
-      split: editorLayout.split || group === 'secondary',
+      ...layout,
+      split: layout.split || group === 'secondary',
       focus: group,
       groups: {
-        ...editorLayout.groups,
+        ...layout.groups,
         [group]: {
           tabs: alreadyOpen ? current.tabs : [...tabs, key],
           active: key,
@@ -820,6 +866,7 @@ export function ProjectView({
         viewId={`${scope}:${group}`}
         readOnly={readOnly}
         scroll={
+          // 仅挂载时消费一次、非响应式：pending 值优先于已落盘滚动位置，其后经 recordScroll 异步落盘。
           scrollPending.current[scrollKey] ??
           saved.scroll[scrollKey] ??
           (group === 'primary' ? saved.scroll[key] : 0) ??

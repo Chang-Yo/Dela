@@ -1,5 +1,5 @@
 import { leaveComposer } from './features/mail/compose-close';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell, type MobileDrawer, type ViewId } from './components/AppShell';
 import { HomeView } from './features/home';
@@ -106,7 +106,8 @@ export default function App() {
     };
   }, [launchStage]);
   useEffect(() => {
-    if (launchStage === 'flow') return;
+    // 仅主界面阶段响应；completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
+    if (launchStage !== 'app') return;
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -165,6 +166,8 @@ export default function App() {
     window.addEventListener('beforeunload', beforeUnload);
     return () => window.removeEventListener('beforeunload', beforeUnload);
   }, []);
+  // 稳定引用：CompletionOverlay 以它为依赖设一次性定时器，避免 App 重渲染重置计时。
+  const finishCompletion = useCallback(() => setLaunchStage('app'), []);
   const openProject = (id: string) => {
     if (!leaveComposer(() => openProject(id))) return;
     if (!navigate('project')) return;
@@ -212,6 +215,21 @@ export default function App() {
     setNavigationError(null);
     return true;
   };
+
+  const newHomeChat = () => {
+    if (!leaveComposer(newHomeChat)) return;
+    if (!navigate('home')) return;
+    void window.dela?.workspace
+      .newChat('home')
+      .catch((error) => setNavigationError(errorText(error)));
+  };
+
+  useEffect(() => {
+    return window.dela?.window.onTrayAction((action) => {
+      if (action === 'new-chat') newHomeChat();
+      else newProject();
+    });
+  }, [newHomeChat, newProject]);
 
   const goBack = () => {
     const prev = backStack[backStack.length - 1];
@@ -426,9 +444,7 @@ export default function App() {
       {launchStage === 'flow' && (
         <OnboardingFlow onWizardDone={() => setLaunchStage('completion')} />
       )}
-      {launchStage === 'completion' && (
-        <CompletionOverlay onFinished={() => setLaunchStage('app')} />
-      )}
+      {launchStage === 'completion' && <CompletionOverlay onFinished={finishCompletion} />}
     </>
   );
 }

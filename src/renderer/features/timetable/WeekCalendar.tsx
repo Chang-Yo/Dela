@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
@@ -26,6 +27,9 @@ import {
 } from './timetable-format';
 import { cn } from '../../lib/utils';
 
+// 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。
+const NOW_REFRESH_INTERVAL_MS = 60_000;
+
 // 点击周视图条目后弹详情的数据形态（课程只读，自建事件可删除）。
 export type CalendarItemDetail =
   | { kind: 'lesson'; lesson: TimetableLesson; date: Date | null }
@@ -42,6 +46,11 @@ export function WeekCalendar({
   weekStart: Date | null;
   onOpen: (detail: CalendarItemDetail) => void;
 }) {
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick((tick) => tick + 1), NOW_REFRESH_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
   const timelineHeight = (timelineEnd - timelineStart) * pixelsPerMinute;
   const groupedEvents = localEventsByDay(events);
   const now = new Date();

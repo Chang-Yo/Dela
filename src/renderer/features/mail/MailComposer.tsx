@@ -135,6 +135,7 @@ export function MailComposer({
   const savedContent = useRef('');
   const allowUnload = useRef(false);
   const latestClose = useRef<() => Promise<boolean>>(async () => true);
+  const releaseTimerRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formatState, setFormatState] = useState({ bold: false, italic: false });
   const [hasLinkSelection, setHasLinkSelection] = useState(false);
@@ -278,14 +279,25 @@ export function MailComposer({
     return () => window.removeEventListener('beforeunload', preventUnload);
   }, [dirty]);
 
-  useEffect(
-    () => () => {
+  // 暂存附件的释放:主进程仅在发送成功后释放,保存/删除/丢弃草稿都依赖卸载时释放。
+  // 开发模式 StrictMode 挂载后立刻假卸载一次,同步释放会让重挂载后的保存/发送报
+  // 「所选文件已失效」,故推迟一个宏任务:假卸载被重挂载取消,真卸载照常全量释放。
+  useEffect(() => {
+    if (releaseTimerRef.current !== null) {
+      window.clearTimeout(releaseTimerRef.current);
+      releaseTimerRef.current = null;
+    }
+    return () => {
       const ids = filesRef.current.map((file) => file.id);
-      if (ids.length) void dela.mail.releaseComposeFiles(ids);
+      if (ids.length) {
+        releaseTimerRef.current = window.setTimeout(() => {
+          releaseTimerRef.current = null;
+          void dela.mail.releaseComposeFiles(ids);
+        }, 0);
+      }
       dirtyCallback.current(false);
-    },
-    [dela.mail],
-  );
+    };
+  }, [dela.mail]);
 
   const attachments = files.filter((file) => file.kind === 'attachment');
 
