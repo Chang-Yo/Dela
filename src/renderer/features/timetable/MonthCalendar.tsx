@@ -164,12 +164,15 @@ export function MonthCalendar({
               <span className="grid min-w-0 gap-0.5">
                 {items.slice(0, 3).map((item) => (
                   <span
-                    className="flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-[11px]"
+                    className="@container flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-[11px]"
                     key={item.id}
                     style={item.tone}
                   >
                     {item.time ? (
-                      <span className="shrink-0 tabular-nums opacity-70">{item.time}</span>
+                      // 日格被压窄（768-860px 窗口）时先让出时间前缀，把宽度留给标题。
+                      <span className="hidden shrink-0 tabular-nums opacity-70 @min-[120px]:inline">
+                        {item.time}
+                      </span>
                     ) : null}
                     <span className="truncate font-medium" title={item.title}>
                       {item.title}

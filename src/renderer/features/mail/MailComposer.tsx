@@ -688,7 +688,9 @@ export function MailComposer({
               value={linkDraft}
             />
             {linkInvalid && (
-              <span className="shrink-0 text-xs text-destructive">请输入有效的链接地址</span>
+              <span className="min-w-0 shrink truncate text-xs text-destructive">
+                请输入有效的链接地址
+              </span>
             )}
             <Button onClick={applyLink} size="sm" type="button">
               插入
@@ -701,7 +703,8 @@ export function MailComposer({
 
         <div
           aria-label="邮件正文"
-          className="min-h-[220px] flex-1 overflow-y-auto py-4 text-[13px] leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[520px] [&_img]:max-w-full [&_img]:rounded-md"
+          // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
+          className="min-h-0 flex-1 overflow-y-auto py-4 text-[13px] leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[520px] [&_img]:max-w-full [&_img]:rounded-md"
           contentEditable
           onInput={handleEditorInput}
           onKeyDown={handleEditorKeyDown}

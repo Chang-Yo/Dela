@@ -119,7 +119,12 @@ export function DateTimeStepper({
     { display: `${pad(value.getMinutes())}分`, field: 'minute', label: '分钟' },
   ];
   return (
-    <div aria-label={label} className="flex items-start justify-center gap-1" role="group">
+    // flex-wrap：字体缩放或双栏窄列放不下五列时，年月日/时分自动换行。
+    <div
+      aria-label={label}
+      className="flex flex-wrap items-start justify-center gap-1"
+      role="group"
+    >
       {columns.map((column) => (
         <StepperColumn
           display={column.display}

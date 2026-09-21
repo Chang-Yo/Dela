@@ -106,7 +106,7 @@ function UserMessage({
   return (
     <div className="mb-5 flex flex-col items-end">
       {message.content ? (
-        <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed">
+        <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere]">
           <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
       ) : null}

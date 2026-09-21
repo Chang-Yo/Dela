@@ -228,9 +228,14 @@ export function ProjectDocument({
           aria-label="文档操作"
         >
           {draft.content.dueAt && (
-            <span className="ml-1 flex shrink-0 items-center gap-1">
-              <Clock className="size-3" />
-              截止 {new Date(draft.content.dueAt).toLocaleString('zh-CN')}
+            <span
+              className="ml-1 flex min-w-0 shrink items-center gap-1"
+              title={`截止 ${new Date(draft.content.dueAt).toLocaleString('zh-CN')}`}
+            >
+              <Clock className="size-3 shrink-0" />
+              <span className="max-w-40 truncate">
+                截止 {new Date(draft.content.dueAt).toLocaleString('zh-CN')}
+              </span>
             </span>
           )}
           <span

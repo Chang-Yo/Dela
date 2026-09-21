@@ -124,7 +124,7 @@ const imagePlugin = ViewPlugin.fromClass(
 );
 
 const composerTheme = EditorView.theme({
-  '&': { fontSize: '14px', backgroundColor: 'transparent' },
+  '&': { fontSize: 'calc(14px * var(--font-scale, 1))', backgroundColor: 'transparent' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     fontFamily: 'inherit',

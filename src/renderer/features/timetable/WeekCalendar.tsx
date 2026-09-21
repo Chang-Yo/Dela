@@ -69,7 +69,8 @@ export function WeekCalendar({
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="hidden min-w-[860px] md:block">
         <div className="sticky top-0 z-30 grid grid-cols-[58px_repeat(7,minmax(110px,1fr))] border-b bg-background/95 backdrop-blur">
-          <div />
+          {/* 横向滚动（内容窄于 860px）时刻度列常驻左缘。 */}
+          <div className="sticky left-0 bg-background" />
           {weekDays.map((day, index) => {
             const date = weekStart ? addDays(weekStart, index) : null;
             const today = date ? dateKey(date) === dateKey(new Date()) : false;
@@ -94,7 +95,7 @@ export function WeekCalendar({
           className="relative grid grid-cols-[58px_repeat(7,minmax(110px,1fr))]"
           style={{ height: timelineHeight }}
         >
-          <div className="relative">
+          <div className="sticky left-0 z-20 bg-background">
             {hours.map((hour) => (
               <span
                 className={cn(

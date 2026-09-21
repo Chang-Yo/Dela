@@ -45,14 +45,19 @@ export const markdownHighlightStyle = HighlightStyle.define([
 ]);
 
 const editorTheme = EditorView.theme({
-  '&': { height: '100%', fontSize: '14px', backgroundColor: 'transparent' },
+  '&': {
+    height: '100%',
+    fontSize: 'calc(14px * var(--font-scale, 1))',
+    backgroundColor: 'transparent',
+  },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     lineHeight: '1.625',
     padding: '24px',
   },
-  '.cm-content': { caretColor: 'var(--syntax-caret)' },
+  // 与富文本（note-editor.css 的 60rem 居中）一致，超宽窗口下行宽不无限拉伸。
+  '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
   '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
   '.cm-gutters': {

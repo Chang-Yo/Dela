@@ -185,7 +185,7 @@ export function HomeView({
         <>
           {/* 弹性留白把内容压向视口下部：问候语约在上部 1/4，composer 视觉重心约在 2/3；溢出时随空间收缩为 0。 */}
           <div className="grow-5" />
-          <div className="shrink-0 px-6 text-center">
+          <div className="shrink-0 px-4 text-center md:px-6">
             {chat && !chat.configured ? (
               <div className="mx-auto max-w-md text-left">
                 <ModelKeyForm onConfigured={chatState.refresh} />

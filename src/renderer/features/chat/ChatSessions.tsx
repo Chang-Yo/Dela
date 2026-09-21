@@ -79,7 +79,7 @@ function SessionList({
               {session.title || '新对话'}
             </span>
             <span className="shrink-0 text-xs text-muted-foreground">
-              {session.messageCount} 条 · {formatTime(session.updatedAt)}
+              {formatTime(session.updatedAt)}
             </span>
           </button>
           {confirmingId === session.id ? (

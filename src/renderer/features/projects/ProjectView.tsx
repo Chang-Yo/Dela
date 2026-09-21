@@ -215,6 +215,17 @@ export function ProjectView({
   const [personalOpen, setPersonalOpen] = useState(true);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [shellWidth, setShellWidth] = useState(0);
+  // 助手栏 ≥lg 与编辑器并排、<lg 覆盖在编辑区上；宽度扣减只在并排时参与。
+  const [agentInline, setAgentInline] = useState(
+    () => window.matchMedia('(min-width: 1024px)').matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setAgentInline(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
   const shellRef = useRef<HTMLDivElement>(null);
   const editorAreaRef = useRef<HTMLDivElement>(null);
   const [editorSize, setEditorSize] = useState({ width: 0, height: 0 });
@@ -380,7 +391,10 @@ export function ProjectView({
     ? SIDEBAR_COLLAPSED_WIDTH
     : Math.min(
         width,
-        Math.max(SIDEBAR_MIN_WIDTH, shellWidth - EDITOR_MIN_WIDTH - (agentOpen ? agentWidth : 0)),
+        Math.max(
+          SIDEBAR_MIN_WIDTH,
+          shellWidth - EDITOR_MIN_WIDTH - (agentOpen && agentInline ? agentWidth : 0),
+        ),
       );
   const availableAgentWidth = Math.min(
     agentWidth,
@@ -1091,13 +1105,14 @@ export function ProjectView({
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         style={{
           flexBasis: editorLayout.split ? `${editorLayout.ratio * 100}%` : undefined,
+          // 编辑区容不下两组 EDITOR_MIN_* 时用 splitMinimum 同步放宽，避免副组被裁切。
           minWidth:
             editorLayout.split && editorLayout.orientation === 'vertical'
-              ? EDITOR_MIN_WIDTH
+              ? splitMinimum
               : undefined,
           minHeight:
             editorLayout.split && editorLayout.orientation === 'horizontal'
-              ? EDITOR_MIN_HEIGHT
+              ? splitMinimum
               : undefined,
         }}
         aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器`}
