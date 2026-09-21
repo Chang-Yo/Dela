@@ -30,6 +30,7 @@ import type {
 
 contextBridge.exposeInMainWorld('dela', {
   version,
+  firstLaunch: process.argv.includes('--dela-first-launch'),
   search: {
     query: (query: string) => ipcRenderer.invoke('search:query', query),
   },

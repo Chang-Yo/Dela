@@ -592,6 +592,8 @@ export interface ChatApi {
 
 export interface DelaApi {
   readonly version: string;
+  /** 主进程在数据库初始化前判定；已有用户数据的更新和重启均为 false。 */
+  readonly firstLaunch: boolean;
   readonly window: WindowApi;
   readonly settings: SettingsApi;
   readonly llm: LlmApi;
