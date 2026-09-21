@@ -19,6 +19,7 @@ import {
   markShuiyuanNotificationsRead,
   readShuiyuanSource,
   setShuiyuanBookmarked,
+  setShuiyuanLiked,
   startShuiyuanAuth,
   unbindShuiyuan,
 } from './api';
@@ -60,6 +61,7 @@ export function registerShuiyuanIpc(): void {
   handle('set-bookmarked', (_event, topicId: unknown, on: unknown) =>
     setShuiyuanBookmarked(topicId, on),
   );
+  handle('set-liked', (_event, postId: unknown, liked: unknown) => setShuiyuanLiked(postId, liked));
   handle('add-source-ref', (_event, topicId: unknown) => addShuiyuanSourceRef(topicId));
   handle('get-source-ref', (_event, topicId: unknown) => getShuiyuanSourceRef(topicId));
   handle('read-source', (_event, topicId: unknown) => readShuiyuanSource(topicId));

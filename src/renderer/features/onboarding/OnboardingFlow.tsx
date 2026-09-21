@@ -20,7 +20,7 @@ type OnboardingFlowProps = {
  * 完成动画由宿主在主界面之上渲染（CompletionOverlay），不属于本组件。
  */
 export function OnboardingFlow({ onWizardDone }: OnboardingFlowProps) {
-  // 中途退出过的用户直接回到向导对应步骤，不再重播 Intro。
+  // 启动时是否跳过整个引导由 App 判定；这里仅管理当前流程内的步骤。
   const [introDone, setIntroDone] = useState(() => readWizardStep() !== null);
   // 钳制到合法区间，防御被手工改坏的 localStorage 值。
   const [step, setStep] = useState(() => Math.min(readWizardStep() ?? 0, wizardSteps.length - 1));

@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react';
-import { BellOff, Check, CheckCheck, Mail, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import {
+  CircleCheckBig,
+  BellOff,
+  Check,
+  CheckCheck,
+  Mail,
+  RefreshCw,
+  SlidersHorizontal,
+} from 'lucide-react';
 import type { NotificationFilter, NotificationItem, NotificationState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
@@ -29,6 +37,7 @@ const filterLabels: Record<NotificationFilter, string> = {
   all: '全部来源',
   mail: '邮件',
   shuiyuan: '水源',
+  todo: 'TODO',
 };
 
 function formatTime(value: string): string {
@@ -56,7 +65,7 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
 }
 
 function SourceIcon({ source }: { source: NotificationItem['source'] }) {
-  const Icon = source === 'mail' ? Mail : ShuiyuanIcon;
+  const Icon = source === 'mail' ? Mail : source === 'todo' ? CircleCheckBig : ShuiyuanIcon;
   return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-muted-foreground" />;
 }
 

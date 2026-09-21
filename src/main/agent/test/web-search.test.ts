@@ -6,7 +6,7 @@ import {
   htmlToText,
   parseDdgLiteResults,
   searchWeb,
-} from './web-search';
+} from '../web-search';
 
 // 结构取自 2026-09-18 抓取的 lite.duckduckgo.com 真实响应（脱敏缩减）。
 const ddgLiteFixture = `

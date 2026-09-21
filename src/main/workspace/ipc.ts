@@ -12,6 +12,9 @@ import {
   notePath,
   readWorkspaceEntry,
   saveWorkspaceNote,
+  saveNoteImage,
+  createMarkdownNoteCopy,
+  openEntryExternally,
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
 import { subscribeChat } from '../agent/api';
@@ -45,6 +48,25 @@ export function registerWorkspaceIpc() {
       z.string().length(64).parse(revision),
     ),
   );
+  handle('save-note-image', (id, name, bytes) =>
+    saveNoteImage(
+      idSchema.parse(id),
+      z
+        .string()
+        .min(1)
+        .max(200)
+        .refine((value) => !value.includes('/') && !value.includes('\\'))
+        .parse(name),
+      z
+        .instanceof(Uint8Array)
+        .refine((value) => value.byteLength > 0)
+        .parse(bytes),
+    ),
+  );
+  handle('create-note-copy', (id, parentId) =>
+    createMarkdownNoteCopy(idSchema.parse(id), idSchema.nullable().parse(parentId ?? null)),
+  );
+  handle('open-external', (id) => openEntryExternally(idSchema.parse(id)));
   handle('import-files', async (value) => {
     const parentId = idSchema.nullable().parse(value);
     const picked = await dialog.showOpenDialog({

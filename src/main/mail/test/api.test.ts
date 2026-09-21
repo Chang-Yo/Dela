@@ -16,17 +16,17 @@ import {
   setMailTrashRetention,
   startMailSync,
   syncStatus,
-} from './api';
-import { getDatabase } from '../database';
-import { loadMailCredentials } from '../credentials';
+} from '../api';
+import { getDatabase } from '../../database';
+import { loadMailCredentials } from '../../credentials';
 
 vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: {},
   shell: {},
 }));
-vi.mock('../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../credentials', () => ({
+vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../../credentials', () => ({
   clearMailCredentials: vi.fn(),
   loadMailCredentials: vi.fn(),
   saveMailCredentials: vi.fn(),

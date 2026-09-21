@@ -15,12 +15,15 @@ export function SourceDetail({
   onLink,
   onScroll,
   scroll = 0,
+  resolveImage,
 }: {
   content: DocumentContent;
   text?: string;
   onLink: (url: string) => void;
   onScroll?: (top: number) => void;
   scroll?: number;
+  /** 本地 Markdown 的相对图片地址改写为受限资源协议；不传则按原样输出。 */
+  resolveImage?: (src: string) => string;
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const scrollContainer = useRef<HTMLDivElement>(null);
@@ -134,6 +137,15 @@ export function SourceDetail({
                 {children}
               </button>
             ),
+            img: ({ src, alt }) =>
+              src ? (
+                <img
+                  src={resolveImage?.(src) ?? src}
+                  alt={alt ?? ''}
+                  className="mx-auto max-w-full rounded-lg"
+                  loading="lazy"
+                />
+              ) : null,
             code: ({ className, children }) => {
               const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
               if (!language || !hljs.getLanguage(language))

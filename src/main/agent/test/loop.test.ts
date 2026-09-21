@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runAgent } from './loop';
+import { runAgent } from '../loop';
 
 afterEach(() => vi.unstubAllGlobals());
 const answer = (message: unknown) =>

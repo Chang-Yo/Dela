@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type DragEvent,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -51,6 +50,7 @@ import { cn } from '../../lib/utils';
 import { SourceList, latestTermOf } from '../sources/SourceList';
 import { ProjectDocument } from './ProjectDocument';
 import { forgetMarkdownEditorState } from './MarkdownEditor';
+import { forgetNoteEditorState } from './NoteEditor';
 import { ProjectSidebar, type EntryAction } from './ProjectSidebar';
 import { emptyView, errorText, useWorkspace } from './workspace';
 import { AgentPanel } from './AgentPanel';
@@ -97,6 +97,9 @@ const AGENT_MIN_WIDTH = 280;
 /** ProjectDocument 以此格式生成 CodeMirror 会话键（viewId = `${scope}:${group}`）。 */
 const documentSessionKey = (key: string, atScope: string, group: EditorGroupId) =>
   `document:${key}:${atScope}:${group}`;
+/** NoteEditor 所见即所得会话键（前缀 note:，其余同上）。 */
+const noteSessionKey = (key: string, atScope: string, group: EditorGroupId) =>
+  `note:${key}:${atScope}:${group}`;
 
 function defaultEditorLayout(
   scope: string,
@@ -234,7 +237,6 @@ export function ProjectView({
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [draggingFiles, setDraggingFiles] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const scrollPending = useRef<Record<string, number>>({});
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -427,7 +429,6 @@ export function ProjectView({
     });
   };
   const importDroppedFiles = (files: File[], targetId: string | null) => {
-    setDraggingFiles(false);
     void run(async () => {
       await window.dela!.workspace.importDroppedFiles(targetId ?? rootId, files);
       await useWorkspace.getState().refresh();
@@ -505,11 +506,13 @@ export function ProjectView({
       forgetDocumentSessions(previewToReplace, scope);
     }
   };
-  /* ProjectDocument 在两编辑器组各持有独立 CodeMirror 会话；文档彻底关闭后
+  /* ProjectDocument 在两编辑器组各持有独立 CodeMirror / 所见即所得会话；文档彻底关闭后
      连撤销历史一起清理，否则 sessions 表随开关标签无限增长。 */
   const forgetDocumentSessions = (key: string, atScope: string) => {
-    for (const group of ['primary', 'secondary'] as const)
+    for (const group of ['primary', 'secondary'] as const) {
       forgetMarkdownEditorState(documentSessionKey(key, atScope, group));
+      forgetNoteEditorState(noteSessionKey(key, atScope, group));
+    }
   };
   const closeTab = async (key: string, group: EditorGroupId = focusedGroup) => {
     const request = ++closeRequest.current;
@@ -849,11 +852,12 @@ export function ProjectView({
     void run(async () => {
       const { setCanvas } = useWorkspace.getState();
       // 先刷新课程列表，否则新学期的课程拿不到；再逐门同步最新学期（顺序执行，避免并发轰炸 Canvas）。
+      // 已归档课程不参与刷新：其令牌往往已失效，同步只会反复报错。
       await setCanvas(await window.dela!.canvas.syncCourses());
       const courses = useWorkspace.getState().canvas.courses;
       const latest = latestTermOf(courses);
       for (const course of courses)
-        if (course.term === latest)
+        if (course.term === latest && !course.archived)
           await setCanvas(await window.dela!.canvas.syncCourse(course.id));
     }).finally(() => setSyncing(false));
   };
@@ -878,6 +882,7 @@ export function ProjectView({
         onNewNote={newNote}
         onOpenSource={open}
         onOpenShuiyuanTopic={onOpenShuiyuanTopic}
+        onOpenEntry={(id) => open(id, group, true)}
       />
     );
   };
@@ -1095,13 +1100,6 @@ export function ProjectView({
       onKeyDown={handleWorkspaceKeyDown}
       className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
     >
-      {mode === 'project' && draggingFiles && (
-        <div className="pointer-events-none absolute inset-0 z-50 grid place-items-center bg-black/30 backdrop-blur-[1px]">
-          <div className="rounded-lg border bg-background px-4 py-3 text-sm font-medium shadow-lg">
-            释放以导入到项目
-          </div>
-        </div>
-      )}
       {mobileOpen && (
         <button
           aria-label="关闭目录"
@@ -1190,19 +1188,6 @@ export function ProjectView({
               onDoubleClick={(event) => {
                 if (event.target === event.currentTarget) action('note', currentContainer());
               }}
-              onDragEnter={(event: DragEvent<HTMLDivElement>) => {
-                if (mode === 'project' && event.dataTransfer.types.includes('Files'))
-                  setDraggingFiles(true);
-              }}
-              onDragLeave={(event: DragEvent<HTMLDivElement>) => {
-                if (
-                  mode === 'project' &&
-                  event.dataTransfer.types.includes('Files') &&
-                  !event.currentTarget.contains(event.relatedTarget as Node | null)
-                ) {
-                  setDraggingFiles(false);
-                }
-              }}
               onDragOver={(event) => {
                 if (mode === 'project' && event.dataTransfer.types.includes('Files')) {
                   event.preventDefault();
@@ -1216,7 +1201,6 @@ export function ProjectView({
               }}
               onDrop={(event) => {
                 if (mode === 'project' && event.dataTransfer.types.includes('Files')) {
-                  setDraggingFiles(false);
                   if (event.defaultPrevented) return;
                   event.preventDefault();
                   importDroppedFiles(Array.from(event.dataTransfer.files), null);
@@ -1297,6 +1281,7 @@ export function ProjectView({
                       selected={activeKey}
                       query={query}
                       bySource={bySource}
+                      onArchive={() => setArchiveOpen(true)}
                     />
                   )}
                   <div className="mt-3 flex h-8 items-center gap-1 px-3">

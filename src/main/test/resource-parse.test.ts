@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { extractDocumentBytes, parsableDocumentExtension, renderPdfPages } from './resource-parse';
+import { extractDocumentBytes, parsableDocumentExtension, renderPdfPages } from '../resource-parse';
 
 /** 构造最小可用 zip：deflate 条目 + 中央目录，CRC 置零（解析器不校验）。 */
 function buildZip(entries: Record<string, string>): Buffer {

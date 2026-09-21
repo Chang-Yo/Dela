@@ -107,6 +107,7 @@ export async function syncCanvasCourses(): Promise<CanvasState> {
         code: str(course.course_code),
         syncedAt: previous?.syncedAt ?? null,
         error: previous?.error ?? null,
+        archived: previous?.archived ?? false,
       };
       insert.run(id, JSON.stringify(data));
     }
@@ -378,6 +379,17 @@ async function syncCourse(id: number): Promise<CanvasState> {
   return getCanvasState();
 }
 
+/** 归档/取消归档课程：归档后不参与自动同步，仅保留本地已同步数据。 */
+export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
+  const db = getDatabase();
+  const rowById = db.prepare('SELECT data FROM canvas_courses WHERE id=?').get(id) as
+    { data: string } | undefined;
+  if (!rowById) throw new Error('课程不存在，请刷新课程列表');
+  const course: CanvasCourse = { ...JSON.parse(rowById.data), archived };
+  db.prepare('UPDATE canvas_courses SET data=? WHERE id=?').run(JSON.stringify(course), id);
+  return getCanvasState();
+}
+
 export function getSource(id: string): StoredSource {
   const stored = getDatabase().prepare('SELECT data FROM canvas_sources WHERE id=?').get(id) as
     { data: string } | undefined;
@@ -603,4 +615,24 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
     dueAt: source.dueAt,
     updatedAt: source.updatedAt,
   };
+}
+
+// TODO 独立刷新作业，避免定时轮询触发文件、模块和页面的全量同步。
+export async function listTodoCanvasCourses() {
+  const courses = await list('courses?enrollment_state=active&per_page=50');
+  const archived = new Set(
+    getCanvasState()
+      .courses.filter((c) => c.archived)
+      .map((c) => c.id),
+  );
+  return courses
+    .filter((c) => num(c.id) > 0 && !archived.has(num(c.id)))
+    .map((c) => ({
+      id: num(c.id),
+      name: str(c.name) || str(c.course_code) || `课程 ${num(c.id)}`,
+    }));
+}
+
+export function listTodoCanvasAssignments(courseId: number) {
+  return list(`courses/${courseId}/assignments?include[]=submission&per_page=50`);
 }

@@ -2,7 +2,9 @@
 
 日期：2026-09-13、2026-09-14、2026-09-15。方式：匿名 HTTP 探测 + 本人在受控浏览器会话中完成一次 jAccount 登录后，用该会话同源请求各 Discourse JSON 端点实测。探测过程未读取仓库 `.env`，凭据由用户在登录窗口人工输入（jAccount 登录含验证码，无法也无必要脚本化）。本文与 `canvas-api-findings.md` 同一定位：只记录事实与结构推断，不含实现承诺；产品设想单独标注。
 
-## 0. 最新结论（2026-09-14、2026-09-15）
+## 0. 最新结论（2026-09-14、2026-09-15、2026-09-21）
+
+**已验证楼层点赞写路径与 discourse-reactions 缺位（2026-09-21，详见 3.2）。** `POST /post_actions.json` 点赞 200、重复点赞 403；取消点赞被 403 拒绝（write scope 不含 post_actions#destroy）；discourse-reactions 插件未安装，贴表情无第三方客户端可用的 REST 端点。
 
 **已验证 Dela 的水源 User API Key 只读授权可行。** 用户在水源页面手动确认后，本机成功完成“加密 payload 解密 → `User-Api-Key` 只读请求 → 撤销测试 key”的完整链路。Dela 展示名可直接打开相同授权页；没有证据表明请求需要 OpenClaw 安装、配置或展示名白名单。
 
@@ -120,6 +122,20 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 | 通知已读         | `PUT /notifications/mark-read` 端点存在（read scope 下 403，属权限不足而非不存在）；按 id 形态 404 不存在                                                                             |
 | 分页             | 统一跟随响应的 `more_topics_url`（tag 列表形态如 `/tag/精品?match_all_tags=true&page=1&tags[]=精品`，路径加 `.json` 即为下一页）                                                      |
 
+### 3.2 楼层交互写端点实测（2026-09-21，Dela 绑定的 write key 实测）
+
+用户授权在其私信贴（topic 518172）上实测。结论先行：**点赞可用；取消点赞被拒；贴表情（discourse-reactions）在水源不存在**。
+
+| 事项                     | 实测结论                                                                                                                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 点赞                     | `POST /post_actions.json`，body `{id: <post_id>, post_action_type_id: 2}` → **200**，仅凭 `User-Api-Key` 头，无需 CSRF                                                                                |
+| 重复点赞                 | 同一楼层再次 POST → **403**（"你已经执行过此类操作"），客户端需幂等处理                                                                                                                               |
+| 取消点赞                 | `DELETE /post_actions/<post_id>.json?post_action_type_id=2` → **403**：write scope 的授权页只声明"发布、编辑和删除内容"，**不含 post_actions#destroy**。第三方 key 无法取消点赞，只能引导用户去网页端 |
+| 点赞状态读取             | `GET /t/<id>.json` 每楼 `actions_summary` 中 `id=2` 的条目 `{count, acted, can_act}`；`acted` 即当前用户是否已赞，`count` 为赞数（0 时条目可能缺省）                                                  |
+| discourse-reactions 插件 | **未安装**。`PUT                                                                                                                                                                                      | POST /discourse-reactions/posts/:id/custom-reactions/:name/toggle.json`、无 `.json` 后缀、`/reactions.json`、`/posts/:id/reactions.json`等全部变体 404，且楼层序列化无任何`reactions` 字段。水源官方界面上的表情回应是网页端专属能力，第三方客户端无对应 REST 端点可用 |
+
+实测残留：测试在用户私信贴的一层楼上留了一个赞（`{"count":1,"acted":true}`），key 无法撤销，已在水源网页端告知用户可自行取消。
+
 ## 4. 对聚合器的数据模型推论
 
 1. **topic 是核心实体**：`id` 稳定唯一，来源链接可由 topic 构造；分类、楼层、通知、收藏都挂接到 topic。
@@ -152,7 +168,7 @@ User API Key 是 Discourse 官方为第三方客户端设计的授权机制（�
 
 - 会话 cookie 存活时长与失效形态（需多天真实使用观察）；User API Key 的长期有效性同样需多天观察。
 - 深分页只验证到 `page=2`；更长翻页、`posts.json?post_ids[]=` 按楼分段加载长帖未逐一实测。
-- cookie 会话路径的写操作未测；写能力已由 User API Key `write` scope 覆盖（书签增删已验证），但通知已读、发帖/回帖、私信等具体写端点尚未逐一实测。
+- cookie 会话路径的写操作未测；写能力已由 User API Key `write` scope 覆盖（书签增删 2026-09-15、楼层点赞 2026-09-21 已验证），但通知已读、发帖/回帖、私信等具体写端点尚未逐一实测。取消点赞确认不可用（见 3.2）。
 - `POST /uploads.json`（Composer 附件上传，multipart：`type=composer` + `files[]`）**未实测**：Dela 回复器已按标准 Discourse 形态接入（2026-09-16），成功响应取 `short_url`（`upload://` 形态，可直接写回 Markdown）；站点若禁用匿名上传路径或调整大小限制，以响应错误暴露（413/403/422 已做语义化映射）。
 - 静态媒体在 `login_required` 下对匿名请求同样被拦（2026-09-16 实际观察：楼层图片破图而 CDN 头像正常）。2026-09-18 真实账号诊断确认 User API Key、恢复后的 campus Session、自定义协议及不透明沙箱 iframe 均能完整加载同站 PNG，因此排除被测地址上的认证、CSP 与 sandbox 故障；继续代码审查发现代理前仍有明确的 URL 误杀：协议相对地址（`//host/path`）会被错误拼接，路径相对地址会被丢弃，且主进程枚举 `/uploads/` 等路径会拒绝 Discourse 后续增加的媒体路由。在未取得用户具体失败帖 URL 的情况下，不能断言其图片必属哪一种，但这些分支都会稳定破图。现统一用 URL 标准解析补全 http(s) 地址；同站媒体全部进入固定水源 origin 的代理，安全边界由“固定目标域名 + 响应 MIME 必须为 image/video/audio”承担，不再猜测路径。认证通道由 `getCampusSession()` 恢复同一 Session 并 `fetch({credentials:'include'})`，失败再以 Node `fetch` + User API Key 头回退。
 - Dela 侧 User API Key 生命周期管理是硬性要求：站点无网页管理入口，客户端必须持久化 key（safeStorage）并提供撤销（`POST /user-api-key/revoke`）；payload 丢失即产生无法使用的休眠 key，授权窗口的 payload 捕获要做成可靠步骤。

@@ -215,12 +215,15 @@ export const calendarEventColors = [
 export type CalendarEventColor = (typeof calendarEventColors)[number];
 
 export interface CalendarEvent {
-  readonly id: number;
+  /** 自建事件为数据库自增 id；来自个人待办的派生事件是 `todo:{todoId}` 字符串。 */
+  readonly id: number | string;
   readonly title: string;
   readonly startAt: string;
   readonly endAt: string;
   readonly location: string | null;
   readonly color: CalendarEventColor | null;
+  /** 非空表示这条事件由个人待办派生，值为待办 id；删除须走待办而非日历。 */
+  readonly todoId?: string;
 }
 
 export interface CalendarEventInput {
@@ -292,6 +295,8 @@ export interface ShuiyuanPost {
   readonly cooked: string;
   readonly replyToPostNumber: number | null;
   readonly likeCount: number | null;
+  /** 当前用户是否已点赞（actions_summary id=2 acted）。 */
+  readonly liked: boolean;
   readonly yours: boolean;
 }
 
@@ -327,9 +332,16 @@ export interface ShuiyuanTag {
   readonly topicCount: number | null;
 }
 
+/** 站点自定义 emoji（site.json custom_emoji）；标题里内联为远程图片。 */
+export interface ShuiyuanCustomEmoji {
+  readonly name: string;
+  readonly url: string;
+}
+
 export interface ShuiyuanSiteStructure {
   readonly categories: readonly ShuiyuanCategory[];
   readonly tags: readonly ShuiyuanTag[];
+  readonly customEmoji: readonly ShuiyuanCustomEmoji[];
 }
 
 export interface ShuiyuanNotificationItem {
@@ -410,6 +422,12 @@ export interface ShuiyuanApi {
   getCounts(): Promise<ShuiyuanCounts>;
   /** 回复主题或私信会话；返回新楼层。replyToPostNumber 为楼层级回复目标（Discourse reply_to_post_number）。 */
   createReply(topicId: number, raw: string, replyToPostNumber?: number): Promise<ShuiyuanPost>;
+  /**
+   * 点赞/取消点赞楼层（Discourse post_action_type_id=2）。
+   * 实测（2026-09-21）：点赞 200；取消点赞被站点以 403 拒绝（User API Key write scope 不含
+   * post_actions#destroy），已点赞状态只能去网页端撤销。
+   */
+  setLiked(postId: number, liked: boolean): Promise<void>;
   /**
    * 上传 Composer 附件（Discourse `/uploads.json` multipart）。
    * 该端点未实测：站点若禁用匿名上传路径或调整限制，以错误提示暴露。
@@ -511,6 +529,7 @@ export type GlobalSearchResult = {
   | { kind: 'project'; id: string; target: { page: 'projects'; entryId: string } }
   | { kind: 'chat'; id: string; target: { page: 'chat'; scope: string; sessionId: string } }
   | { kind: 'mail'; id: number; target: { page: 'mail'; messageId: number } }
+  | { kind: 'todo'; id: string; target: { page: 'todo'; todoId: string } }
   | { kind: 'course-file'; id: string; target: { page: 'sources'; sourceId: string } }
   | {
       kind: 'setting';
@@ -523,7 +542,7 @@ export interface SearchApi {
   query(query: string): Promise<GlobalSearchResult[]>;
 }
 
-export type NotificationSource = 'mail' | 'shuiyuan';
+export type NotificationSource = 'mail' | 'shuiyuan' | 'todo';
 export type NotificationFilter = 'all' | NotificationSource;
 export interface NotificationItem {
   id: string;
@@ -533,6 +552,7 @@ export interface NotificationItem {
   createdAt: string;
   readAt: string | null;
   href:
+    | { kind: 'todo'; todoId: string }
     | { kind: 'mail'; messageId: number }
     | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null };
 }
@@ -591,7 +611,10 @@ export interface ChatApi {
 }
 
 export interface DelaApi {
+  readonly todo: TodoApi;
   readonly version: string;
+  /** 主进程在数据库初始化前判定；已有用户数据的更新和重启均为 false。 */
+  readonly firstLaunch: boolean;
   readonly window: WindowApi;
   readonly settings: SettingsApi;
   readonly llm: LlmApi;
@@ -612,6 +635,8 @@ export interface CanvasCourse {
   code: string;
   syncedAt: string | null;
   error: string | null;
+  /** 已归档课程不再自动同步、不再提示同步错误，仅保留本地数据。 */
+  archived?: boolean;
 }
 
 export interface SourceItem {
@@ -650,6 +675,7 @@ export interface CanvasApi {
   disconnect(): Promise<void>;
   syncCourses(): Promise<CanvasState>;
   syncCourse(id: number): Promise<CanvasState>;
+  archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
   read(sourceId: string): Promise<DocumentContent>;
   download(sourceId: string): Promise<void>;
   openLink(url: string): Promise<void>;
@@ -688,6 +714,12 @@ export interface WorkspaceCreateInput {
   text?: string;
 }
 
+/** 从本地/导入 Markdown 创建可编辑副本的结果；missing 为无法携带的图片引用。 */
+export interface MarkdownNoteCopyResult {
+  entry: WorkspaceEntry;
+  missing: string[];
+}
+
 export interface WorkspaceApi {
   getState(): Promise<WorkspaceState>;
   create(input: WorkspaceCreateInput): Promise<WorkspaceEntry>;
@@ -698,6 +730,12 @@ export interface WorkspaceApi {
   remove(id: string): Promise<void>;
   read(id: string): Promise<DocumentContent>;
   saveNote(id: string, text: string, revision: string): Promise<string>;
+  /** 把新插入的本地图片存入笔记目录 assets/，返回相对路径。 */
+  saveNoteImage(id: string, name: string, bytes: Uint8Array): Promise<string>;
+  /** 从本地/导入 Markdown 创建可编辑笔记副本（携带图片）。 */
+  createNoteCopy(id: string, parentId?: string | null): Promise<MarkdownNoteCopyResult>;
+  /** 在 VS Code 或系统默认应用中打开条目文件。 */
+  openExternal(id: string): Promise<'vscode' | 'system'>;
   importFiles(parentId: string | null): Promise<void>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
@@ -767,4 +805,51 @@ export interface WorkspaceChat {
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
     stopped?: boolean;
   }[];
+}
+
+export type TodoStatus =
+  'pending' | 'completed' | 'submitted' | 'graded' | 'excused' | 'resubmit' | 'offline' | 'unknown';
+export interface TodoItem {
+  id: string;
+  source: 'personal' | 'canvas';
+  title: string;
+  notes: string;
+  dueAt: string | null;
+  status: TodoStatus;
+  readAt: string | null;
+  createdAt: string;
+  /** 仅个人待办：开启后在日历（周/月视图）中按截止时间显示。 */
+  calendar?: boolean;
+  /** 仅个人待办：写入日历时的候选色；未选时渲染回退石墨色。 */
+  color?: CalendarEventColor;
+  courseId?: number;
+  courseName?: string;
+  assignmentId?: number;
+  url?: string;
+  submittedAt?: string | null;
+  syncedAt?: string;
+}
+export interface TodoState {
+  items: TodoItem[];
+  connected: boolean;
+  syncing: boolean;
+  syncedAt: string | null;
+  error: string | null;
+}
+export interface TodoSaveInput {
+  id?: string;
+  title: string;
+  notes?: string;
+  dueAt?: string | null;
+  completed?: boolean;
+  calendar?: boolean;
+  color?: CalendarEventColor;
+}
+export interface TodoApi {
+  getState(): Promise<TodoState>;
+  refresh(): Promise<TodoState>;
+  save(input: TodoSaveInput): Promise<TodoState>;
+  remove(id: string): Promise<TodoState>;
+  markRead(id: string): Promise<TodoState>;
+  onUpdate(listener: (state: TodoState) => void): () => void;
 }

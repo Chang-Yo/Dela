@@ -30,10 +30,11 @@ import { cn } from '../../lib/utils';
 // 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。
 const NOW_REFRESH_INTERVAL_MS = 60_000;
 
-// 点击周视图条目后弹详情的数据形态（课程只读，自建事件可删除）。
+// 点击周视图条目后弹详情的数据形态（课程只读，自建事件可删除，待办派生事件跳转 TODO）。
 export type CalendarItemDetail =
   | { kind: 'lesson'; lesson: TimetableLesson; date: Date | null }
-  | { kind: 'event'; event: CalendarEvent };
+  | { kind: 'event'; event: CalendarEvent }
+  | { kind: 'todo'; event: CalendarEvent };
 
 export function WeekCalendar({
   lessons,
@@ -303,7 +304,7 @@ function LocalEventBlock({
   // 时间前缀只在首段显示；跨天事件首段写全起止日期，避免“22:00–10:00”式误导。
   const showTime = edges.isStart && height >= 44;
   const showLocation = showTime && Boolean(event.location) && height >= 60;
-  const open = () => onOpen({ kind: 'event', event });
+  const open = () => onOpen(event.todoId ? { kind: 'todo', event } : { kind: 'event', event });
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -408,7 +409,7 @@ function MobileEvent({
   onOpen: (detail: CalendarItemDetail) => void;
 }) {
   const start = new Date(event.startAt);
-  const open = () => onOpen({ kind: 'event', event });
+  const open = () => onOpen(event.todoId ? { kind: 'todo', event } : { kind: 'event', event });
   return (
     <article
       className="grid cursor-pointer grid-cols-[54px_1fr] rounded-lg p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"

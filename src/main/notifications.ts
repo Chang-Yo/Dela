@@ -7,13 +7,19 @@ import type {
   NotificationState,
   ShuiyuanNotificationItem,
 } from '../shared/api';
+import { getTodoState, markTodoRead, todoNotifications } from './todo';
 import { getDatabase } from './database';
 import { loadShuiyuanCredential } from './credentials';
 import { checkWorkspaceSender } from './ipc';
 import { getMailState } from './mail/api';
 import { listShuiyuanNotifications } from './shuiyuan/api';
 
-const filterSchema = z.union([z.literal('all'), z.literal('mail'), z.literal('shuiyuan')]);
+const filterSchema = z.union([
+  z.literal('all'),
+  z.literal('mail'),
+  z.literal('shuiyuan'),
+  z.literal('todo'),
+]);
 const snoozeSchema = z.string().datetime().nullable();
 let activeRefresh: Promise<NotificationState> | null = null;
 
@@ -137,10 +143,15 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
       ];
     }),
   ) as NotificationState['refresh'];
+  const todos = filter === 'all' || filter === 'todo' ? todoNotifications() : [];
+  const todoState = getTodoState();
+  refresh.todo = { lastSuccessAt: todoState.syncedAt, error: todoState.error };
   return {
-    items,
-    totalCount,
-    unreadCount,
+    items: [...items, ...todos]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 200),
+    totalCount: totalCount + todos.length,
+    unreadCount: unreadCount + todos.filter((item) => !item.readAt).length,
     snoozedUntil,
     refresh,
   };
@@ -294,6 +305,10 @@ export function refreshNotifications(): Promise<NotificationState> {
 
 export function markNotificationRead(idInput: unknown): NotificationState {
   const id = z.string().min(1).max(1000).parse(idInput);
+  if (id.startsWith('todo:')) {
+    markTodoRead(id.slice(5));
+    return broadcast();
+  }
   const accounts = currentAccounts();
   const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
   if (clauses.length)
@@ -310,6 +325,7 @@ export function markNotificationRead(idInput: unknown): NotificationState {
 }
 
 export function markAllNotificationsRead(): NotificationState {
+  markTodoRead();
   const accounts = currentAccounts();
   const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
   if (clauses.length)

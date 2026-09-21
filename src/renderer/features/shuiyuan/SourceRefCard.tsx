@@ -4,6 +4,7 @@ import type { DocumentContent, ShuiyuanSourceRef } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
+import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { formatListDate } from './shuiyuan-format';
 
 /**
@@ -62,7 +63,7 @@ export function ShuiyuanSourceDoc({
               ) : null}
             </p>
             <p className="line-clamp-2 text-sm font-semibold leading-snug">
-              {ref?.title ?? content.title}
+              <ShuiyuanTitle text={ref?.title ?? content.title} />
             </p>
             <p className="text-[11px] text-muted-foreground">
               {meta.join(' · ') || '来自水源社区的帖子'}

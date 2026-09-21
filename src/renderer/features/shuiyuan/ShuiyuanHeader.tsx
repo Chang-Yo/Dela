@@ -88,32 +88,66 @@ export function ShuiyuanHeader() {
 
   return (
     <header className="border-b bg-background/95 px-4 py-2 backdrop-blur max-md:px-3">
-      {/* 宽屏三区网格（左入口 / 中筛选 / 右搜索），窄屏退化为纵向三行。 */}
+      {/* 宽屏三区网格（左入口 / 中筛选 / 右搜索）；窄屏两行：入口+刷新/搜索在上，
+          筛选器在下——操作语义归上、过滤语义归下。lg:contents 把首行包装拆散为网格项。 */}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
-        <div className="flex flex-wrap items-center gap-0.5 justify-self-start">
-          {personalButton(
-            list.kind === 'bookmarks',
-            '收藏',
-            null,
-            Bookmark,
-            () => void selectList({ kind: 'bookmarks' }),
-          )}
-          {personalButton(
-            list.kind === 'notifications',
-            '通知',
-            counts?.notifications ?? null,
-            Bell,
-            () => void selectList({ kind: 'notifications' }),
-          )}
-          {personalButton(
-            list.kind === 'messages',
-            '私信',
-            counts?.messages ?? null,
-            Mail,
-            () => void selectList({ kind: 'messages' }),
-          )}
+        <div className="flex items-center gap-2.5 lg:contents">
+          <div className="flex flex-wrap items-center gap-0.5 lg:col-start-1 lg:row-start-1 lg:justify-self-start">
+            {personalButton(
+              list.kind === 'bookmarks',
+              '收藏',
+              null,
+              Bookmark,
+              () => void selectList({ kind: 'bookmarks' }),
+            )}
+            {personalButton(
+              list.kind === 'notifications',
+              '通知',
+              counts?.notifications ?? null,
+              Bell,
+              () => void selectList({ kind: 'notifications' }),
+            )}
+            {personalButton(
+              list.kind === 'messages',
+              '私信',
+              counts?.messages ?? null,
+              Mail,
+              () => void selectList({ kind: 'messages' }),
+            )}
+          </div>
+          <div className="ml-auto flex flex-1 flex-wrap items-center justify-end gap-2.5 lg:col-start-3 lg:row-start-1 lg:ml-0 lg:justify-self-end">
+            <button
+              aria-label="刷新"
+              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
+              onClick={() => {
+                void refreshList();
+                void refreshCounts();
+              }}
+              title="刷新"
+              type="button"
+            >
+              <RefreshCw
+                className={cn('size-4', listLoading && 'animate-spin')}
+                strokeWidth={1.8}
+              />
+            </button>
+            <div className="relative min-w-32 max-w-56 flex-1">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                aria-label="搜索水源"
+                className="h-8 pl-8 text-xs"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索帖子"
+                type="search"
+                value={search}
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5 justify-self-center">
+        <div className="flex flex-wrap items-center gap-2.5 lg:col-start-2 lg:row-start-1 lg:justify-self-center">
           {/* 分段控件：底槽 + 浮起的活动段，替代描边按钮组。 */}
           <div
             aria-label="信息流类型"
@@ -192,34 +226,6 @@ export function ShuiyuanHeader() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5 justify-self-end">
-          <button
-            aria-label="刷新"
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
-            onClick={() => {
-              void refreshList();
-              void refreshCounts();
-            }}
-            title="刷新"
-            type="button"
-          >
-            <RefreshCw className={cn('size-4', listLoading && 'animate-spin')} strokeWidth={1.8} />
-          </button>
-          <div className="relative min-w-32 max-w-56 flex-1">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              aria-label="搜索水源"
-              className="h-8 pl-8 text-xs"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索帖子"
-              type="search"
-              value={search}
-            />
-          </div>
         </div>
       </div>
     </header>

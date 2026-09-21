@@ -9,7 +9,9 @@ import {
   shell,
   Tray,
 } from 'electron';
+import { registerTodoIpc, refreshTodos } from './todo';
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
@@ -31,6 +33,10 @@ import type { IconPreference, ThemePreference } from '../shared/api';
 import { fontScaleLevels, zoomLevels } from '../shared/api';
 
 import Database from 'better-sqlite3';
+
+// 在数据库、窗口和托盘初始化前抢占锁，重复启动只唤起已有实例。
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
 
 // Chromium 默认按滚轮格数瞬时跳变；开启后对滚轮输入做逐帧插值，滚动平滑。
 app.commandLine.appendSwitch('enable-smooth-scrolling');
@@ -152,10 +158,18 @@ const smokeTest = process.argv.includes('--smoke-test');
 // 水源通知每分钟更新；IMAP 沿用现有增量同步，每五分钟检查一次。
 const NOTIFICATION_REFRESH_MS = 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
+const TODO_REFRESH_MS = 15 * 60_000;
+let todoTimer: ReturnType<typeof setInterval> | undefined;
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
 let tray: Tray | undefined;
+let mainWindow: BrowserWindow | undefined;
 let quitting = false;
+let firstLaunch = false;
+app.on('second-instance', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) showMainWindow(mainWindow);
+  // 窗口尚未创建时，正常启动流程会显示它，不另建窗口。
+});
 if (smokeTest) {
   setTimeout(() => {
     console.error('Smoke check timed out');
@@ -165,8 +179,11 @@ if (smokeTest) {
 
 // 注册业务 IPC；数据库在应用就绪后可用。
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return;
   // 标题栏内已有应用菜单；移除 Electron 默认菜单，避免额外的系统“退出”入口绕过托盘。
   Menu.setApplicationMenu(null);
+  // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。
+  firstLaunch = !smokeTest && !existsSync(join(app.getPath('userData'), 'dela.db'));
   getDatabase();
   registerPreviewProtocol();
   applyTheme(savedTheme());
@@ -178,6 +195,7 @@ app.whenReady().then(() => {
   registerWorkspaceIpc();
   registerSearchIpc();
   registerNotificationsIpc();
+  registerTodoIpc();
   initializeNotifications();
   // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
   gcChatMedia();
@@ -194,6 +212,11 @@ app.whenReady().then(() => {
         console.error('Mail background sync failed', error);
       }
     };
+    const syncTodos = () => {
+      void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
+    };
+    syncTodos();
+    todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
     refresh();
     syncMail();
     notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
@@ -202,6 +225,11 @@ app.whenReady().then(() => {
 });
 
 async function createWindow(): Promise<void> {
+  if (!hasSingleInstanceLock) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    showMainWindow(mainWindow);
+    return;
+  }
   const window = new BrowserWindow({
     width: 1100,
     height: 760,
@@ -216,7 +244,12 @@ async function createWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      additionalArguments: firstLaunch ? ['--dela-first-launch'] : [],
     },
+  });
+  mainWindow = window;
+  window.on('closed', () => {
+    mainWindow = undefined;
   });
   window.on('close', (event) => {
     if (quitting) return;
@@ -367,13 +400,12 @@ app.on('before-quit', () => {
 });
 app.on('will-quit', () => {
   tray?.destroy();
+  clearInterval(todoTimer);
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
   closeDatabase();
 });
 app.on('activate', () => {
-  const window = BrowserWindow.getAllWindows()[0];
-  if (window) return showMainWindow(window);
   void createWindow().catch((error: unknown) => {
     console.error(error);
     app.exit(1);

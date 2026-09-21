@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { getTodoState, refreshTodos, saveTodo, todoSaveSchema } from '../todo';
+import { todoCompleted } from '../../shared/todo';
 import { resourceRefSchema } from '../../shared/resources';
 import {
   getCanvasState,
@@ -57,50 +59,62 @@ export const agentTools = {
     scheduleQuerySchema,
     querySchedule,
   ),
+  query_todos: tool(
+    '查询本地个人待办和 Canvas 作业。已读与完成独立，未知或线下状态不能当成未提交；返回同步时间与错误。',
+    z.object({ query, completed: z.boolean().optional(), offset, limit }).strict(),
+    ({ query, completed, offset, limit }) => {
+      const state = getTodoState();
+      const items = state.items.filter(
+        (item) =>
+          match(`${item.title} ${item.notes} ${item.courseName ?? ''}`, query) &&
+          (completed === undefined ||
+            (completed
+              ? todoCompleted(item.status)
+              : ['pending', 'resubmit'].includes(item.status))),
+      );
+      return { ...page(items, offset, limit), syncedAt: state.syncedAt, error: state.error };
+    },
+  ),
+  save_todo: tool(
+    '新建或修改个人待办，completed 控制完成状态。提供 id 时更新已有条目；不能修改 Canvas 作业状态，不会提交作业。',
+    todoSaveSchema,
+    saveTodo,
+  ),
+  refresh_todos: tool(
+    '从 Canvas 同步在读且未归档课程的作业和提交状态，只读操作，不会提交作业。',
+    z.object({}).strict(),
+    refreshTodos,
+  ),
   query_assignments: tool(
-    '查询缓存的 Canvas 作业与截止时间。不提供未完成筛选：当前未保存可靠的提交状态。无截止时间的作业仅在未指定日期范围时返回。',
+    '查询 TODO 缓存中的 Canvas 作业、截止时间和真实提交状态。首次使用或缓存过期时调用 refresh_todos。未知与线下状态不会归为未完成。',
     z
       .object({
         courseId: z.number().int().positive().optional(),
         startAt: z.string().datetime().optional(),
         endAt: z.string().datetime().optional(),
+        completed: z.boolean().optional(),
         offset,
         limit,
       })
       .strict(),
-    ({ courseId, startAt, endAt, offset, limit }) => {
-      const state = getCanvasState();
-      const items = new Map(
-        state.items
-          .filter(
-            (item) =>
-              item.kind === 'assignment' &&
-              item.sourceId &&
-              (courseId === undefined || item.courseId === courseId) &&
-              (!startAt || (item.dueAt && Date.parse(item.dueAt) >= Date.parse(startAt))) &&
-              (!endAt || (item.dueAt && Date.parse(item.dueAt) < Date.parse(endAt))),
-          )
-          .map((item) => [
-            item.sourceId!,
-            {
-              ref: { type: 'canvas', id: item.sourceId! },
-              title: item.name,
-              courseId: item.courseId,
-              dueAt: item.dueAt ?? null,
-              submissionStatus: 'unknown',
-            },
-          ]),
+    ({ courseId, startAt, endAt, completed, offset, limit }) => {
+      const state = getTodoState();
+      const items = state.items.filter(
+        (item) =>
+          item.source === 'canvas' &&
+          (courseId === undefined || item.courseId === courseId) &&
+          (!startAt || (item.dueAt && Date.parse(item.dueAt) >= Date.parse(startAt))) &&
+          (!endAt || (item.dueAt && Date.parse(item.dueAt) < Date.parse(endAt))) &&
+          (completed === undefined ||
+            (completed
+              ? todoCompleted(item.status)
+              : ['pending', 'resubmit'].includes(item.status))),
       );
       return {
-        ...page(
-          [...items.values()].sort((a, b) => (a.dueAt ?? 'z').localeCompare(b.dueAt ?? 'z')),
-          offset,
-          limit,
-        ),
+        ...page(items, offset, limit),
         coverage: 'cached_assignments',
-        courses: state.courses
-          .filter((c) => courseId === undefined || c.id === courseId)
-          .map((c) => ({ id: c.id, syncedAt: c.syncedAt, error: c.error })),
+        syncedAt: state.syncedAt,
+        error: state.error,
       };
     },
   ),

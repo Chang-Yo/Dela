@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Bell,
   CalendarDays,
+  CircleCheckBig,
   ChevronLeft,
   Copy,
   FolderKanban,
@@ -38,7 +39,15 @@ import {
 } from '../ui/dropdown-menu';
 
 export type ViewId =
-  'home' | 'project' | 'sources' | 'mail' | 'timetable' | 'shuiyuan' | 'settings' | 'notifications';
+  | 'home'
+  | 'project'
+  | 'sources'
+  | 'mail'
+  | 'timetable'
+  | 'shuiyuan'
+  | 'settings'
+  | 'notifications'
+  | 'todo';
 
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
 export type MobileDrawer = 'nav' | 'mail';
@@ -52,6 +61,7 @@ const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon | Shuiyuan
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
   { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
+  { id: 'todo', label: 'TODO', icon: CircleCheckBig },
 ];
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */

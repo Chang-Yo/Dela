@@ -1,5 +1,6 @@
 import { ArrowLeft, CheckCheck, Heart } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { useShuiyuan } from './store';
 import { describeNotification, formatListDate } from './shuiyuan-format';
 
@@ -42,7 +43,7 @@ export function BookmarkList() {
               className="mt-1 size-3.5 shrink-0 fill-current text-primary"
             />
             <span className="line-clamp-2 text-[15px] font-medium leading-snug">
-              {bookmark.title}
+              <ShuiyuanTitle text={bookmark.title} />
             </span>
           </div>
           {bookmark.excerpt ? (

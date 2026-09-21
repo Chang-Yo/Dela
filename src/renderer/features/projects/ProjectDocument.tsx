@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronRight,
+  CopyPlus,
   Ellipsis,
   Clock,
+  Code,
   Download,
   ExternalLink,
   Eye,
@@ -23,7 +25,18 @@ import { Button } from '../../components/ui/button';
 import { SourceDetail } from '../sources/SourceDetail';
 import { ShuiyuanSourceDoc } from '../shuiyuan/SourceRefCard';
 import { MarkdownEditor } from './MarkdownEditor';
+import { NoteEditor } from './NoteEditor';
 import { errorText, useWorkspace } from './workspace';
+import {
+  externalOpenTarget,
+  isRelativeAssetPath,
+  markdownRequiresSourceMode,
+  noteAssetUrl,
+} from '../../../shared/note-files';
+
+/* 笔记编辑模式（本次会话内按文档记忆；含 frontmatter 等不支持语法的文档强制源码模式）。 */
+type NoteMode = 'rich' | 'read' | 'source';
+const noteModes = new Map<string, NoteMode>();
 
 export function ProjectDocument({
   documentKey,
@@ -36,6 +49,7 @@ export function ProjectDocument({
   onNewNote,
   onOpenSource,
   onOpenShuiyuanTopic,
+  onOpenEntry,
 }: {
   documentKey: string;
   /** Distinguishes editor groups so each keeps its own cursor, scroll and undo history. */
@@ -48,23 +62,32 @@ export function ProjectDocument({
   onNewNote: (text: string) => void;
   onOpenSource: (key: string) => void;
   onOpenShuiyuanTopic?: (topicId: number, postNumber?: number) => void;
+  /** 打开新创建的条目（笔记副本等）。 */
+  onOpenEntry?: (id: string) => void;
 }) {
   const draft = useWorkspace((s) => s.drafts[documentKey]);
   const entries = useWorkspace((s) => s.workspace.entries);
   const entry = useWorkspace((s) => s.workspace.entries.find((e) => e.id === documentKey));
   const canvas = useWorkspace((s) => s.canvas);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [mode, setMode] = useState<NoteMode>(() => noteModes.get(documentKey) ?? 'rich');
   const sourceId = documentKey.startsWith('source:') ? documentKey.slice(7) : entry?.sourceId;
   const shuiyuanTopicId = sourceId?.startsWith('shuiyuan-topic:')
     ? Number(sourceId.slice('shuiyuan-topic:'.length))
     : null;
   const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : undefined;
   const course = canvas.courses.find((c) => c.id === source?.courseId);
-  const editable = entry?.kind === 'note' && !readOnly;
+  const isNote = entry?.kind === 'note';
+  const editable = isNote && !readOnly;
   const markdown = draft?.content.format === 'markdown';
-  // 预览只对 Markdown 笔记有意义；名称改为其他扩展名后自动回到编辑态。
-  const showPreview = preview && markdown;
+  // frontmatter 等会被所见即所得内核破坏的语法：整篇停留源码模式。
+  const forcedSource = markdown && markdownRequiresSourceMode(draft?.text ?? '');
+  const effectiveMode: NoteMode = forcedSource ? 'source' : mode;
+  const changeMode = (next: NoteMode) => {
+    noteModes.set(documentKey, next);
+    setMode(next);
+  };
   const dirty = draft ? draft.text !== draft.saved : false;
   /* 面包屑：所属项目链（可点击在目录中定位）+ Canvas 课程与目录链（只读上下文）。 */
   const crumbs = useMemo(() => {
@@ -114,6 +137,30 @@ export function ProjectDocument({
     setError(null);
     void work.catch((e) => setError(errorText(e)));
   };
+  /* 代码文件进 VS Code，PDF、图片等交给系统默认应用；主进程按条目 ID 解析实际文件。 */
+  const fileEntry =
+    entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'source';
+  const openTarget = entry ? externalOpenTarget(entry.name) : 'system';
+  const openExternally = () => {
+    if (window.dela) run(window.dela.workspace.openExternal(documentKey));
+  };
+  /* 导入的 Markdown 制作可编辑副本（携带可访问的本地图片）后打开。 */
+  const createCopy = () => {
+    if (!window.dela || !entry) return;
+    setNotice(null);
+    run(
+      window.dela.workspace.createNoteCopy(documentKey, entry.parentId).then((result) => {
+        onOpenEntry?.(result.entry.id);
+        if (result.missing.length)
+          setNotice(
+            `已创建笔记副本；${result.missing.length} 张图片无法携带：${result.missing.join('、')}`,
+          );
+      }),
+    );
+  };
+  /* 相对图片经受限资源协议解析显示；远程与绝对地址保持原样。 */
+  const resolveImage = (src: string) =>
+    isRelativeAssetPath(src) ? noteAssetUrl(documentKey, src) : src;
   /* 点击时刻取实时 Canvas 快照：HTML 文档 iframe 的监听闭包可能早于最新同步。 */
   const link = (url: string) => {
     try {
@@ -198,15 +245,26 @@ export function ProjectDocument({
             {!editable ? '只读' : draft.saving ? '保存中…' : dirty ? '未保存' : '已保存'}
           </span>
         </nav>
-        {editable && markdown && (
+        {editable && markdown && effectiveMode !== 'source' && (
           <Button
             size="icon-sm"
             variant="ghost"
-            title={preview ? '返回编辑' : '预览'}
-            aria-label={preview ? '返回编辑' : '预览'}
-            onClick={() => setPreview((v) => !v)}
+            title={effectiveMode === 'read' ? '编辑' : '阅读模式'}
+            aria-label={effectiveMode === 'read' ? '编辑' : '阅读模式'}
+            onClick={() => changeMode(effectiveMode === 'read' ? 'rich' : 'read')}
           >
-            {preview ? <PenLine /> : <Eye />}
+            {effectiveMode === 'read' ? <PenLine /> : <Eye />}
+          </Button>
+        )}
+        {fileEntry && entry && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
+            aria-label={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
+            onClick={openExternally}
+          >
+            {openTarget === 'vscode' ? <Code /> : <ExternalLink />}
           </Button>
         )}
         {editable && (
@@ -250,6 +308,20 @@ export function ProjectDocument({
                 打开原文
               </DropdownMenuItem>
             )}
+            {editable && markdown && !forcedSource && (
+              <DropdownMenuItem
+                onSelect={() => changeMode(effectiveMode === 'source' ? 'rich' : 'source')}
+              >
+                <Code />
+                {effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
+              </DropdownMenuItem>
+            )}
+            {(entry?.kind === 'local' || entry?.kind === 'imported') && markdown && (
+              <DropdownMenuItem onSelect={createCopy}>
+                <CopyPlus />
+                创建可编辑副本
+              </DropdownMenuItem>
+            )}
             {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
               <DropdownMenuItem
                 onSelect={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
@@ -286,11 +358,32 @@ export function ProjectDocument({
           )}
         </div>
       )}
-      {editable && !showPreview ? (
+      {editable && forcedSource && (
+        <p className="shrink-0 border-b px-4 py-2 text-xs text-muted-foreground">
+          此笔记包含暂不支持所见即所得的语法（frontmatter），已停在源码模式，内容将原样保存。
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="shrink-0 border-b px-4 py-2 text-xs text-muted-foreground">
+          {notice}
+        </p>
+      )}
+      {isNote && markdown && effectiveMode !== 'source' ? (
+        <NoteEditor
+          value={draft.text}
+          documentKey={documentKey}
+          editorStateKey={`note:${documentKey}:${viewId}`}
+          readOnly={!editable || effectiveMode === 'read'}
+          autoFocus={editable && draft.text === ''}
+          onChange={(text) => useWorkspace.getState().edit(documentKey, text)}
+          onSave={() => void useWorkspace.getState().save(documentKey)}
+        />
+      ) : isNote ? (
         <MarkdownEditor
           value={draft.text}
           filename={entry?.name ?? undefined}
           editorStateKey={`document:${documentKey}:${viewId}`}
+          readOnly={!editable}
           scroll={scroll}
           onChange={(text) => useWorkspace.getState().edit(documentKey, text)}
           onSave={() => void useWorkspace.getState().save(documentKey)}
@@ -304,6 +397,20 @@ export function ProjectDocument({
           text={draft.text}
           topicId={shuiyuanTopicId}
         />
+      ) : (entry?.kind === 'local' || entry?.kind === 'imported') &&
+        draft.content.format === 'text' ? (
+        /* 代码/文本文件：只读 CodeMirror（语法高亮、原生复制与搜索）。 */
+        <MarkdownEditor
+          value={draft.text ?? ''}
+          filename={entry.name}
+          editorStateKey={`document:${documentKey}:${viewId}`}
+          readOnly
+          saveOnBlur={false}
+          scroll={scroll}
+          onChange={() => {}}
+          onSave={() => {}}
+          onScroll={onScroll}
+        />
       ) : (
         <SourceDetail
           content={draft.content}
@@ -311,6 +418,11 @@ export function ProjectDocument({
           onLink={link}
           scroll={scroll}
           onScroll={onScroll}
+          resolveImage={
+            (entry?.kind === 'local' || entry?.kind === 'imported') && entry
+              ? resolveImage
+              : undefined
+          }
         />
       )}
     </section>

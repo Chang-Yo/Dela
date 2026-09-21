@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { version } from '../../package.json';
 import type {
   DelaApi,
+  TodoState,
+  TodoSaveInput,
   CalendarEventInput,
   ChatAskInput,
   ChatCommandView,
@@ -30,6 +32,19 @@ import type {
 
 contextBridge.exposeInMainWorld('dela', {
   version,
+  firstLaunch: process.argv.includes('--dela-first-launch'),
+  todo: {
+    getState: () => ipcRenderer.invoke('todo:get-state'),
+    refresh: () => ipcRenderer.invoke('todo:refresh'),
+    save: (input: TodoSaveInput) => ipcRenderer.invoke('todo:save', input),
+    remove: (id: string) => ipcRenderer.invoke('todo:remove', id),
+    markRead: (id: string) => ipcRenderer.invoke('todo:mark-read', id),
+    onUpdate: (listener: (state: TodoState) => void) => {
+      const subscription = (_event: unknown, state: TodoState) => listener(state);
+      ipcRenderer.on('todo:state', subscription);
+      return () => ipcRenderer.removeListener('todo:state', subscription);
+    },
+  },
   search: {
     query: (query: string) => ipcRenderer.invoke('search:query', query),
   },
@@ -183,6 +198,8 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('shuiyuan:create-message', [...to], title, raw),
     setBookmarked: (topicId: number, on: boolean) =>
       ipcRenderer.invoke('shuiyuan:set-bookmarked', topicId, on),
+    setLiked: (postId: number, liked: boolean) =>
+      ipcRenderer.invoke('shuiyuan:set-liked', postId, liked),
     addSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:add-source-ref', topicId),
     getSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:get-source-ref', topicId),
     readSource: (topicId: number) => ipcRenderer.invoke('shuiyuan:read-source', topicId),
@@ -193,6 +210,8 @@ contextBridge.exposeInMainWorld('dela', {
     disconnect: () => ipcRenderer.invoke('canvas:disconnect'),
     syncCourses: () => ipcRenderer.invoke('canvas:sync-courses'),
     syncCourse: (id: number) => ipcRenderer.invoke('canvas:sync-course', id),
+    archiveCourse: (id: number, archived: boolean) =>
+      ipcRenderer.invoke('canvas:archive-course', id, archived),
     read: (id: string) => ipcRenderer.invoke('canvas:read', id),
     download: (id: string) => ipcRenderer.invoke('canvas:download', id),
     openLink: (url: string) => ipcRenderer.invoke('canvas:open-link', url),
@@ -208,6 +227,12 @@ contextBridge.exposeInMainWorld('dela', {
     read: (id: string) => ipcRenderer.invoke('workspace:read', id),
     saveNote: (id: string, text: string, revision: string) =>
       ipcRenderer.invoke('workspace:save-note', id, text, revision),
+    saveNoteImage: (id: string, name: string, bytes: Uint8Array) =>
+      ipcRenderer.invoke('workspace:save-note-image', id, name, bytes) as Promise<string>,
+    createNoteCopy: (id: string, parentId?: string | null) =>
+      ipcRenderer.invoke('workspace:create-note-copy', id, parentId ?? null),
+    openExternal: (id: string) =>
+      ipcRenderer.invoke('workspace:open-external', id) as Promise<'vscode' | 'system'>,
     importFiles: (parentId: string | null) =>
       ipcRenderer.invoke('workspace:import-files', parentId),
     importDroppedFiles: (parentId: string | null, files: File[]) => {
