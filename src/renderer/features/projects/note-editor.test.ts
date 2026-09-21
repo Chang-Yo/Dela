@@ -1,10 +1,19 @@
 // @vitest-environment jsdom
 // 所见即所得内核的往返保真测试：图片 alt/title 修复、链接输入规则、常用语法第二遍稳定、
 // frontmatter 会被破坏（因此该类文档强制源码模式，见 shared/note-files.ts）。
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { createElement, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import { Crepe } from '@milkdown/crepe';
 import { editorViewCtx } from '@milkdown/kit/core';
-import { attachLinkInputRule, fixImageBlockSchema } from './NoteEditor';
+import {
+  attachLinkInputRule,
+  fixImageBlockSchema,
+  forgetNoteEditorState,
+  NoteEditor,
+} from './NoteEditor';
+import { MarkdownEditor } from './MarkdownEditor';
+import { EditorView } from '@codemirror/view';
 
 beforeAll(() => {
   // jsdom 缺少 Crepe 依赖的观察者 API，补无副作用的桩。
@@ -19,6 +28,72 @@ beforeAll(() => {
   Object.assign(globalThis, {
     IntersectionObserver: EmptyObserver,
     ResizeObserver: EmptyObserver,
+  });
+});
+
+describe('编辑器 IME 回传', () => {
+  it('富文本选词结束后不被组词期间回传的拼音覆盖', async () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    const onChange = vi.fn();
+    function ControlledNote() {
+      const [value, setValue] = useState('开始');
+      return createElement(NoteEditor, {
+        documentKey: 'ime-test',
+        editorStateKey: 'ime-test',
+        value,
+        onChange: (text) => {
+          onChange(text);
+          setValue(text);
+        },
+        onSave: () => {},
+      });
+    }
+    root.render(createElement(ControlledNote));
+    try {
+      await vi.waitFor(() => expect(host.querySelector('.ProseMirror p')).not.toBeNull());
+      const editor = host.querySelector<HTMLElement>('.ProseMirror')!;
+      editor.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+      editor.querySelector('p')!.textContent = '开始ni';
+      await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith('开始ni\n'));
+      // 让父组件回传拼音，然后模拟输入法提交汉字的 DOM 修改。
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      editor.querySelector('p')!.textContent = '开始你';
+      editor.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '你' }));
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(editor.textContent).toBe('开始你');
+      expect(onChange).toHaveBeenLastCalledWith('开始你\n');
+    } finally {
+      root.unmount();
+      forgetNoteEditorState('ime-test');
+      host.remove();
+    }
+  });
+
+  it('源码组词结束先于父组件回传时保留已提交中文，仍接收外部修改', async () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    const props = { onChange: vi.fn(), onSave: () => {}, onScroll: () => {}, scroll: 0 };
+    root.render(createElement(MarkdownEditor, { ...props, value: '' }));
+    try {
+      await vi.waitFor(() => expect(host.querySelector('.cm-content')).not.toBeNull());
+      const content = host.querySelector<HTMLElement>('.cm-content')!;
+      const view = EditorView.findFromDOM(content)!;
+      view.dispatch({ changes: { from: 0, insert: '中文' }, userEvent: 'input.type.compose' });
+      content.dispatchEvent(
+        new CompositionEvent('compositionend', { bubbles: true, data: '中文' }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(view.state.doc.toString()).toBe('中文');
+      expect(props.onChange).toHaveBeenLastCalledWith('中文');
+      root.render(createElement(MarkdownEditor, { ...props, value: '外部修改' }));
+      await vi.waitFor(() => expect(view.state.doc.toString()).toBe('外部修改'));
+    } finally {
+      root.unmount();
+      host.remove();
+    }
   });
 });
 

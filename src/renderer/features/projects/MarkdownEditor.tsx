@@ -153,16 +153,24 @@ export function MarkdownEditor({
   const handlersRef = useRef({ onChange, onSave, onScroll });
   handlersRef.current = { onChange, onSave, onScroll };
   const latestValue = useRef(value);
-  latestValue.current = value;
+  const lastPublishedValue = useRef<string | null>(null);
+  const publishChange = (text: string) => {
+    lastPublishedValue.current = text;
+    // 组词结束的定时回调可能早于 React 提交新的 value。
+    latestValue.current = text;
+    handlersRef.current.onChange(text);
+  };
   /* 外部值同步：IME 组文期间全量替换文档会打断输入法，推迟到组文结束后再补。 */
   const syncValue = () => {
     const current = view.current;
     if (!current) return;
+    if (latestValue.current === lastPublishedValue.current) return;
     const text = current.state.doc.toString();
     if (latestValue.current === text) return;
     if (current.compositionStarted) {
       return;
     }
+    lastPublishedValue.current = null;
     current.dispatch({
       changes: replaceDocument(text, latestValue.current),
       annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
@@ -270,7 +278,7 @@ export function MarkdownEditor({
       handlers.get(instanceKey)?.onScroll(current.scrollDOM.scrollTop);
     };
     const boundHandlers: EditorHandlers = {
-      onChange: handlersRef.current.onChange,
+      onChange: publishChange,
       onSave: handlersRef.current.onSave,
       onScroll: handlersRef.current.onScroll,
       sync: syncValue,
@@ -303,9 +311,10 @@ export function MarkdownEditor({
     const current = view.current;
     if (!current) return;
     const bound = handlers.get(instanceKey);
-    if (bound) handlers.set(instanceKey, { ...bound, onChange, onSave, onScroll });
+    if (bound) handlers.set(instanceKey, { ...bound, onChange: publishChange, onSave, onScroll });
   }, [onChange, onSave, onScroll, instanceKey]);
   useEffect(() => {
+    latestValue.current = value;
     syncValue();
   }, [value]);
   /* 同实例切换文件名时切换语言；语言包经 language-data 异步加载完成后 reconfigure。 */

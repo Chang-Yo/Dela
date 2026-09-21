@@ -25,7 +25,7 @@ type CrepeSession = {
   scrollTop: number;
   applying: boolean;
   composing: boolean;
-  pendingValue: string | null;
+  lastPublishedValue: string | null;
   syncTimer: ReturnType<typeof setTimeout> | null;
   ready: boolean;
   disposed: boolean;
@@ -271,16 +271,19 @@ function createSession(
     scrollTop: 0,
     applying: false,
     composing: false,
-    pendingValue: null,
+    lastPublishedValue: null,
     syncTimer: null,
     ready: false,
     disposed: false,
   };
   const update = (markdown: string) => {
-    if (!session.applying) handlersByKey.get(key)?.onChange(markdown);
+    if (session.applying || session.disposed) return;
+    session.lastPublishedValue = markdown;
+    handlersByKey.get(key)?.onChange(markdown);
   };
   crepe.on((api) => {
-    api.markdownUpdated((_ctx, markdown) => update(markdown));
+    // Milkdown 的通知有 200ms 去抖，回调时以当前文档为准。
+    api.markdownUpdated(() => update(crepe.getMarkdown()));
   });
   void crepe
     .create()
@@ -294,14 +297,15 @@ function createSession(
       const editor = root.querySelector('.milkdown');
       editor?.addEventListener('compositionstart', () => {
         session.composing = true;
+        if (session.syncTimer) clearTimeout(session.syncTimer);
+        session.syncTimer = null;
       });
       editor?.addEventListener('compositionend', () => {
         session.composing = false;
-        // 组文事务由 PM 在微任务冲完后再补被推迟的外部同步。
+        // 先发布选词结果，不能把组词期间回传的拼音重新写回编辑器。
         window.setTimeout(() => {
-          const pending = session.pendingValue;
-          session.pendingValue = null;
-          if (pending !== null) applyExternalValue(key, pending);
+          if (session.disposed || session.composing) return;
+          update(crepe.getMarkdown());
         }, 0);
       });
       editor?.addEventListener('click', (event) => {
@@ -330,7 +334,12 @@ function createSession(
 function applyExternalValue(key: string, value: string) {
   const session = sessions.get(key);
   if (!session || !session.ready) return;
+  if (value === session.lastPublishedValue) return;
+  if (session.composing || session.crepe.editor.action((ctx) => ctx.get(editorViewCtx).composing)) {
+    return;
+  }
   if (session.crepe.getMarkdown() === value) return;
+  session.lastPublishedValue = null;
   const host = session.root.parentElement;
   const scrollTop = host instanceof HTMLElement ? host.scrollTop : session.scrollTop;
   session.applying = true;
@@ -400,8 +409,8 @@ export function NoteEditor({
           ctx.get(editorViewCtx).focus();
         });
     }
-    const editor = session.root.querySelector('.milkdown');
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
         handlersByKey.get(key)?.onSave();
@@ -411,14 +420,11 @@ export function NoteEditor({
       session!.scrollTop = node.scrollTop;
       handlersByKey.get(key)?.onScroll(node.scrollTop);
     };
-    editor?.addEventListener('keydown', onKeyDown as EventListener);
+    node.addEventListener('keydown', onKeyDown);
     node.addEventListener('scroll', handleScroll);
     return () => {
-      editor?.removeEventListener('keydown', onKeyDown as EventListener);
+      node.removeEventListener('keydown', onKeyDown);
       node.removeEventListener('scroll', handleScroll);
-      const pending = session.pendingValue;
-      session.pendingValue = null;
-      if (pending !== null) applyExternalValue(key, pending);
       if (sessions.get(key) === session && session.ready) {
         session.scrollTop = node.scrollTop;
         // 挂到隐藏暂存节点保持实例与撤销历史存活；彻底关闭时由 forgetNoteEditorState 销毁。
@@ -441,8 +447,9 @@ export function NoteEditor({
   useEffect(() => {
     const session = sessions.get(key);
     if (!session) return;
+    // onChange 的回传只是确认本地输入，不能当作整篇替换指令。
+    if (value === session.lastPublishedValue) return;
     if (session.composing) {
-      session.pendingValue = value;
       return;
     }
     if (!session.ready) return;
@@ -453,7 +460,6 @@ export function NoteEditor({
       session.syncTimer = null;
       if (sessions.get(key) !== session) return;
       if (session.composing) {
-        session.pendingValue = valueRef.current;
         return;
       }
       applyExternalValue(key, valueRef.current);

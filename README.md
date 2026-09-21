@@ -41,6 +41,8 @@ Dela 以单实例运行：重复启动快捷方式会打开已有主窗口。关
 
 **本地优先与安全边界**：数据与索引保存在本机 SQLite，凭据经 Electron `safeStorage` 加密；邮件 HTML 与社区内容在禁止脚本的沙箱 iframe 中渲染；渲染进程不接触文件系统、数据库与凭据，一切经受控 IPC 通信。发送给模型服务商的内容范围在界面上始终可见。
 
+编辑器热修复（0.7.1，2026-09-21）：已修复中文选词后被旧拼音覆盖、源码输入被清空的正文同步问题，回归测试通过，用户已确认修复有效。
+
 ## 下载安装
 
 从 [Releases](https://github.com/Chang-Yo/Dela/releases) 下载对应平台安装包（公开镜像：[Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases)）：

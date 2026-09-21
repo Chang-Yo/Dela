@@ -72,6 +72,8 @@ HTTP 和模型请求使用运行时 `fetch`；凭据保护使用 Electron `safeS
 
 CodeMirror 的其他必需模块已于 2026-09-12 随 Markdown 编辑器落地核对并固定到 `package.json` 和锁文件（见上表）。PDF、Office 解析库需要用真实课件验证后再选；其选型不得阻塞基础项目、文本编辑和 Canvas 元数据功能。
 
+编辑器同步约束：本地 onChange 回传不作为外部正文替换；IME 组词期间保护内核持有的输入，选词结束后保留本地最新结果，不能重放旧拼音快照。2026-09-21 已加入富文本与源码模式回归测试，用户已确认修复有效（覆盖边界见开发记录）。
+
 `clsx`、`framer-motion` 和 `highlight.js` 已随 2026-09-10 的前端重构安装并使用：clsx 组合 CSS Modules 的状态与变体；framer-motion 仅用于视图切换的少量过渡（`MotionConfig` 跟随系统减少动态效果设置）；highlight.js 只负责 Markdown 预览代码块展示，不执行代码。继续使用 Prettier 作为格式化工具，不引入 Biome。自动更新等到存在正式发布渠道、签名和更新服务后再选择并引入 `electron-updater`。
 
 ### 2.2 构建决定
