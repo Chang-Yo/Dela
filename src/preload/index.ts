@@ -209,6 +209,12 @@ contextBridge.exposeInMainWorld('dela', {
     read: (id: string) => ipcRenderer.invoke('workspace:read', id),
     saveNote: (id: string, text: string, revision: string) =>
       ipcRenderer.invoke('workspace:save-note', id, text, revision),
+    saveNoteImage: (id: string, name: string, bytes: Uint8Array) =>
+      ipcRenderer.invoke('workspace:save-note-image', id, name, bytes) as Promise<string>,
+    createNoteCopy: (id: string, parentId?: string | null) =>
+      ipcRenderer.invoke('workspace:create-note-copy', id, parentId ?? null),
+    openExternal: (id: string) =>
+      ipcRenderer.invoke('workspace:open-external', id) as Promise<'vscode' | 'system'>,
     importFiles: (parentId: string | null) =>
       ipcRenderer.invoke('workspace:import-files', parentId),
     importDroppedFiles: (parentId: string | null, files: File[]) => {

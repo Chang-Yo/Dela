@@ -4,7 +4,7 @@ import { stat as fileStat } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { canvasPdfPath } from '../canvas/api';
 import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
-import { workspacePdfPath } from './api';
+import { resolveWorkspaceAsset, workspacePdfPath } from './api';
 
 const previewScheme = 'dela-resource';
 
@@ -78,6 +78,26 @@ export function registerPreviewProtocol(): void {
         return new Response(null, { status: 405 });
       const url = new URL(request.url);
       if (url.hostname === 'shuiyuan') return handleShuiyuanMediaRequest(request);
+      // 笔记/导入文档的相对图片：dela-resource://note-asset/<ref>?id=<条目ID>。
+      // 协议只是显示通道；解析按条目目录约束，不向 renderer 开放任意磁盘读取。
+      if (url.hostname === 'note-asset') {
+        const id = url.searchParams.get('id');
+        const ref = decodeURIComponent(url.pathname.slice(1));
+        if (!id || !ref || ref.includes('\\')) throw new Error('无效的图片地址');
+        const { path, mime } = resolveWorkspaceAsset(id, ref);
+        const size = (await fileStat(path)).size;
+        const headers = new Headers({
+          'content-type': mime,
+          'content-length': String(size),
+          'cache-control': 'no-cache',
+          'x-content-type-options': 'nosniff',
+        });
+        const body =
+          request.method === 'HEAD' || size === 0
+            ? null
+            : (Readable.toWeb(createReadStream(path)) as never);
+        return new Response(body, { status: 200, headers });
+      }
       const id = decodeURIComponent(url.pathname.slice(1));
       if (!id || id.includes('/') || id.includes('\\')) throw new Error('无效的文档地址');
       const path =

@@ -51,6 +51,7 @@ import { cn } from '../../lib/utils';
 import { SourceList, latestTermOf } from '../sources/SourceList';
 import { ProjectDocument } from './ProjectDocument';
 import { forgetMarkdownEditorState } from './MarkdownEditor';
+import { forgetNoteEditorState } from './NoteEditor';
 import { ProjectSidebar, type EntryAction } from './ProjectSidebar';
 import { emptyView, errorText, useWorkspace } from './workspace';
 import { AgentPanel } from './AgentPanel';
@@ -97,6 +98,9 @@ const AGENT_MIN_WIDTH = 280;
 /** ProjectDocument 以此格式生成 CodeMirror 会话键（viewId = `${scope}:${group}`）。 */
 const documentSessionKey = (key: string, atScope: string, group: EditorGroupId) =>
   `document:${key}:${atScope}:${group}`;
+/** NoteEditor 所见即所得会话键（前缀 note:，其余同上）。 */
+const noteSessionKey = (key: string, atScope: string, group: EditorGroupId) =>
+  `note:${key}:${atScope}:${group}`;
 
 function defaultEditorLayout(
   scope: string,
@@ -505,11 +509,13 @@ export function ProjectView({
       forgetDocumentSessions(previewToReplace, scope);
     }
   };
-  /* ProjectDocument 在两编辑器组各持有独立 CodeMirror 会话；文档彻底关闭后
+  /* ProjectDocument 在两编辑器组各持有独立 CodeMirror / 所见即所得会话；文档彻底关闭后
      连撤销历史一起清理，否则 sessions 表随开关标签无限增长。 */
   const forgetDocumentSessions = (key: string, atScope: string) => {
-    for (const group of ['primary', 'secondary'] as const)
+    for (const group of ['primary', 'secondary'] as const) {
       forgetMarkdownEditorState(documentSessionKey(key, atScope, group));
+      forgetNoteEditorState(noteSessionKey(key, atScope, group));
+    }
   };
   const closeTab = async (key: string, group: EditorGroupId = focusedGroup) => {
     const request = ++closeRequest.current;
@@ -878,6 +884,7 @@ export function ProjectView({
         onNewNote={newNote}
         onOpenSource={open}
         onOpenShuiyuanTopic={onOpenShuiyuanTopic}
+        onOpenEntry={(id) => open(id, group, true)}
       />
     );
   };

@@ -6,6 +6,7 @@ import { languages } from '@codemirror/language-data';
 import { Annotation, Compartment, EditorState, Transaction } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
+import { search, searchKeymap } from '@codemirror/search';
 import { tags as t } from '@lezer/highlight';
 
 /* 语法高亮配色（GitHub Light/Dark，Primer prettylights）：色值定义在
@@ -123,6 +124,7 @@ export function MarkdownEditor({
   lineNumbers: showLineNumbers = true,
   ariaLabel = '笔记编辑器',
   saveOnBlur = true,
+  readOnly = false,
   editorStateKey,
 }: {
   value: string;
@@ -130,7 +132,7 @@ export function MarkdownEditor({
   onChange: (text: string) => void;
   onSave: () => void;
   onScroll: (top: number) => void;
-  /* scroll 与 lineNumbers/ariaLabel/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
+  /* scroll 与 lineNumbers/ariaLabel/saveOnBlur/readOnly 仅取初值：只装配于首次挂载，此后变化不生效。 */
   scroll: number;
   /** 占位文案；回复编辑器等非笔记场景使用，变化时热替换。 */
   placeholderText?: string;
@@ -139,6 +141,8 @@ export function MarkdownEditor({
   ariaLabel?: string;
   /** 失焦即保存是笔记语义；回复编辑器传 false 防止误触发发送。 */
   saveOnBlur?: boolean;
+  /** 只读预览（代码文件等）：不可编辑、不参与保存。 */
+  readOnly?: boolean;
   /** 传入后在切换标签时保留撤销历史、光标和滚动位置。每个编辑器组应使用不同值。 */
   editorStateKey?: string;
 }) {
@@ -183,10 +187,13 @@ export function MarkdownEditor({
     const previous = persistent ? sessions.get(instanceKey) : undefined;
     const extensions: Extension[] = [
       history(),
+      // 只读仅锁事务,不改 editable:保持可聚焦,搜索面板与键盘选择/复制可用(CM6 官方只读做法)。
+      EditorState.readOnly.of(readOnly),
       languageConf.of(initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []),
       ...(showLineNumbers ? [lineNumbers()] : []),
       EditorView.lineWrapping,
       placeholderConf.of(placeholder(placeholderText)),
+      search({ top: true }),
       keymap.of([
         ...markdownKeymap,
         {
@@ -203,6 +210,7 @@ export function MarkdownEditor({
             return true;
           },
         },
+        ...searchKeymap,
         ...defaultKeymap,
         ...historyKeymap,
         indentWithTab,

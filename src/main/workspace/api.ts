@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, shell } from 'electron';
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
 import {
   constants,
@@ -12,6 +12,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
+import { execFile, spawn } from 'node:child_process';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
@@ -19,8 +20,15 @@ import { readShuiyuanSource } from '../shuiyuan/api';
 import { availablePath, storageDirectory as directory } from '../storage';
 import { workspaceArchiveId } from '../../shared/api';
 import { textFileExtensions } from '../../shared/chat-input';
+import {
+  buildMarkdownImage,
+  externalOpenTarget,
+  isRelativeAssetPath,
+  matchMarkdownImageRefs,
+} from '../../shared/note-files';
 import type {
   DocumentContent,
+  MarkdownNoteCopyResult,
   WorkspaceCreateInput,
   WorkspaceEntry,
   WorkspaceState,
@@ -38,6 +46,177 @@ const markdownExtensions = ['.md', '.markdown'];
 const textExtensions = new Set(textFileExtensions.map((extension) => `.${extension}`));
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
+
+// 新插入图片的落盘白名单与大小上限（与助手内联图片的常规体积一致量级）。
+const noteImageMime: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+};
+const NOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+
+/** 有可辨识扩展名（点后 1–8 位字母数字）才视为已带后缀；否则新建笔记补默认 .md。 */
+function hasFileNameExtension(name: string): boolean {
+  return /\.[a-z0-9]{1,8}$/i.test(name);
+}
+
+function entryLocalPath(item: WorkspaceEntry): string {
+  const stored = getDatabase()
+    .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
+    .get(item.id) as { path: string | null };
+  if (!stored.path) throw new Error('文件不存在');
+  return stored.path;
+}
+
+/** 图片/笔记资源的解析结果：受限资源协议按它读取文件，只服务图片格式。 */
+export function resolveWorkspaceAsset(id: string, ref: string): { path: string; mime: string } {
+  const item = entry(id);
+  if (item.kind !== 'note' && item.kind !== 'local' && item.kind !== 'imported')
+    throw new Error('此条目没有本地目录');
+  const base = dirname(item.kind === 'note' ? notePath(item) : entryLocalPath(item));
+  const path = join(base, ...ref.split('/'));
+  const within = relative(base, path);
+  if (!within || within.startsWith('..') || isAbsolute(within))
+    throw new Error('资源路径超出文档目录');
+  const mime = noteImageMime[extname(path).toLowerCase()];
+  if (!mime) throw new Error('不支持的图片格式');
+  if (!statSync(path).isFile()) throw new Error('图片文件不存在');
+  return { path, mime };
+}
+
+/** 新插入的本地图片保存到笔记目录 assets/ 下，返回可写入 Markdown 的相对路径。 */
+export function saveNoteImage(id: string, name: string, bytes: Uint8Array): string {
+  prepareStorage();
+  const item = entry(id);
+  if (item.kind !== 'note') throw new Error('只有笔记可以插入图片');
+  if (bytes.byteLength > NOTE_IMAGE_MAX_BYTES) throw new Error('图片超过 20MB，无法保存');
+  if (!noteImageMime[extname(name).toLowerCase()]) throw new Error('不支持的图片格式');
+  const noteDir = dirname(notePath(item));
+  const assets = join(noteDir, 'assets');
+  mkdirSync(assets, { recursive: true });
+  const path = availablePath(assets, name, false);
+  writeFileSync(path, bytes);
+  return relative(noteDir, path).split(sep).join('/');
+}
+
+/** 笔记移动到其他目录时，把正文引用的相对图片按原相对路径复制过去；正文不改写。 */
+function carryNoteAssets(fromFile: string, toFile: string, text: string): void {
+  const fromDir = dirname(fromFile);
+  const toDir = dirname(toFile);
+  if (fromDir === toDir) return;
+  const root = join(directory(), 'workspace');
+  const inside = (path: string) => {
+    const within = relative(root, path);
+    return !within.startsWith('..') && !isAbsolute(within);
+  };
+  for (const ref of matchMarkdownImageRefs(text)) {
+    if (!isRelativeAssetPath(ref.path)) continue;
+    const source = join(fromDir, ...ref.path.split('/'));
+    if (!existsSync(source) || !statSync(source).isFile()) continue;
+    if (!inside(source)) continue; // 工作区外的引用不携带
+    const target = join(toDir, ...ref.path.split('/'));
+    if (existsSync(target) || !inside(target)) continue;
+    mkdirSync(dirname(target), { recursive: true });
+    copyFileSync(source, target, constants.COPYFILE_EXCL);
+  }
+}
+
+/** 导入/本地 Markdown 制作可编辑笔记副本，携带可访问的本地图片。 */
+export function createMarkdownNoteCopy(
+  id: string,
+  parentId: string | null,
+): MarkdownNoteCopyResult {
+  prepareStorage();
+  const item = entry(id);
+  if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('只能从本地文件创建副本');
+  const source = entryLocalPath(item);
+  if (!markdownExtensions.includes(extname(source).toLowerCase()))
+    throw new Error('只能对 Markdown 文件创建笔记副本');
+  const text = readFileSync(source, 'utf8');
+  const note = createWorkspaceEntry({ parentId, name: item.name, kind: 'note', text });
+  const noteFile = notePath(entry(note.id));
+  const missing: string[] = [];
+  let rewritten = text;
+  const refs = matchMarkdownImageRefs(text);
+  for (let index = refs.length - 1; index >= 0; index -= 1) {
+    const ref = refs[index]!;
+    const asset = join(dirname(source), ...ref.path.split('/'));
+    if (!existsSync(asset) || !statSync(asset).isFile()) {
+      missing.push(ref.path);
+      continue;
+    }
+    // 与新插入图片同约定：根级引用收进 assets/，子目录引用保留目录结构。
+    const assets = join(
+      dirname(noteFile),
+      dirname(ref.path) === '.' ? 'assets' : ref.path.split('/')[0]!,
+    );
+    mkdirSync(assets, { recursive: true });
+    const target = availablePath(assets, basename(ref.path), false);
+    copyFileSync(asset, target, constants.COPYFILE_EXCL);
+    const finalRef = relative(dirname(noteFile), target).split(sep).join('/');
+    if (finalRef !== ref.path)
+      rewritten =
+        rewritten.slice(0, ref.index) +
+        buildMarkdownImage(ref.alt, finalRef) +
+        rewritten.slice(ref.index + ref.length);
+  }
+  if (rewritten !== text) writeFileSync(noteFile, rewritten);
+  return { entry: note, missing };
+}
+
+/** 在外部应用中打开条目对应文件：代码文件进 VS Code，其余交给系统默认应用。 */
+export async function openEntryExternally(id: string): Promise<'vscode' | 'system'> {
+  prepareStorage();
+  const item = entry(id);
+  const path = await workspaceFilePath(id);
+  if (externalOpenTarget(item.name) === 'vscode') {
+    await openInVsCode(path);
+    return 'vscode';
+  }
+  const error = await shell.openPath(path);
+  if (error) throw new Error(`无法用默认应用打开：${error}`);
+  return 'system';
+}
+
+async function openInVsCode(path: string): Promise<void> {
+  const locate = (finder: string) =>
+    new Promise<string>((resolve, reject) => {
+      execFile(finder, ['code'], (error, stdout) => {
+        const first = stdout.split(/\r?\n/).find((line) => line.trim());
+        if (error || !first)
+          reject(
+            new Error(
+              '未找到 VS Code 命令（code）。可先安装 VS Code，或在文件夹中显示后手动打开。',
+            ),
+          );
+        else resolve(first.trim());
+      });
+    });
+  const cli = await locate(process.platform === 'win32' ? 'where' : 'which');
+  await new Promise<void>((resolve, reject) => {
+    // Windows 的 code 是 .cmd 脚本，必须经 shell 启动；路径中不允许引号，手工加引号安全。
+    const child = spawn(`"${cli}" "${path}"`, { shell: true, stdio: 'ignore', windowsHide: true });
+    const timer = setTimeout(() => {
+      // CLI 偶发不退出（更新提示等）；能运行到超时说明命令本身已找到并启动，按成功处理。
+      child.removeAllListeners();
+      child.kill();
+      resolve();
+    }, 5000);
+    child.once('error', (error) => {
+      clearTimeout(timer);
+      reject(new Error(`启动 VS Code 失败：${error.message}`));
+    });
+    child.once('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0 || code === null) resolve();
+      else reject(new Error('VS Code 启动失败；可改用「在文件夹中显示」定位文件。'));
+    });
+  });
+}
 
 function setting(key: string): string | null {
   return (
@@ -253,7 +432,10 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   const noteId = parsed.kind === 'note' ? randomUUID() : null;
   let path: string | null = null;
   if (parsed.kind !== 'source') {
-    path = availablePath(containerPath(parsed.parentId), parsed.name, !noteId);
+    // 新笔记默认 .md（所见即所得正文）；显式带其他扩展名时尊重用户选择。
+    const name = noteId && !hasFileNameExtension(parsed.name) ? `${parsed.name}.md` : parsed.name;
+    parsed.name = name;
+    path = availablePath(containerPath(parsed.parentId), name, !noteId);
     if (noteId) writeFileSync(path, parsed.text ?? '', { flag: 'wx' });
     else mkdirSync(path);
   }
@@ -299,7 +481,10 @@ export function updateWorkspaceEntry(id: string, input: unknown) {
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
       .run(JSON.stringify(move));
     try {
+      // 笔记移动前快照正文，移动后按原相对路径携带图片；正文不改写，草稿 revision 不受影响。
+      const noteText = current.kind === 'note' ? readFileSync(from, 'utf8') : null;
       renameSync(from, to);
+      if (noteText !== null) carryNoteAssets(from, to, noteText);
     } catch (error) {
       getDatabase().prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
       throw error;
@@ -412,9 +597,11 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
         ? 'pdf'
         : ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)
           ? 'image'
-          : textExtensions.has(ext)
-            ? 'text'
-            : 'unsupported';
+          : markdownExtensions.includes(ext)
+            ? 'markdown'
+            : textExtensions.has(ext)
+              ? 'text'
+              : 'unsupported';
     if (format === 'unsupported') return { title: item.name, format };
     const stats = statSync(stored.path);
     if (format === 'pdf')
@@ -430,7 +617,7 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
     return {
       title: item.name,
       format,
-      text: format === 'text' ? bytes.toString('utf8') : undefined,
+      text: format === 'text' || format === 'markdown' ? bytes.toString('utf8') : undefined,
       bytes: format === 'text' ? undefined : new Uint8Array(bytes),
       mime: format === 'image' ? `image/${ext === '.jpg' ? 'jpeg' : ext.slice(1)}` : undefined,
     };
