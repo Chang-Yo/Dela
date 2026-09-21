@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type DragEvent,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -238,7 +237,6 @@ export function ProjectView({
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [draggingFiles, setDraggingFiles] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const scrollPending = useRef<Record<string, number>>({});
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -431,7 +429,6 @@ export function ProjectView({
     });
   };
   const importDroppedFiles = (files: File[], targetId: string | null) => {
-    setDraggingFiles(false);
     void run(async () => {
       await window.dela!.workspace.importDroppedFiles(targetId ?? rootId, files);
       await useWorkspace.getState().refresh();
@@ -855,11 +852,12 @@ export function ProjectView({
     void run(async () => {
       const { setCanvas } = useWorkspace.getState();
       // 先刷新课程列表，否则新学期的课程拿不到；再逐门同步最新学期（顺序执行，避免并发轰炸 Canvas）。
+      // 已归档课程不参与刷新：其令牌往往已失效，同步只会反复报错。
       await setCanvas(await window.dela!.canvas.syncCourses());
       const courses = useWorkspace.getState().canvas.courses;
       const latest = latestTermOf(courses);
       for (const course of courses)
-        if (course.term === latest)
+        if (course.term === latest && !course.archived)
           await setCanvas(await window.dela!.canvas.syncCourse(course.id));
     }).finally(() => setSyncing(false));
   };
@@ -1102,13 +1100,6 @@ export function ProjectView({
       onKeyDown={handleWorkspaceKeyDown}
       className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
     >
-      {mode === 'project' && draggingFiles && (
-        <div className="pointer-events-none absolute inset-0 z-50 grid place-items-center bg-black/30 backdrop-blur-[1px]">
-          <div className="rounded-lg border bg-background px-4 py-3 text-sm font-medium shadow-lg">
-            释放以导入到项目
-          </div>
-        </div>
-      )}
       {mobileOpen && (
         <button
           aria-label="关闭目录"
@@ -1197,19 +1188,6 @@ export function ProjectView({
               onDoubleClick={(event) => {
                 if (event.target === event.currentTarget) action('note', currentContainer());
               }}
-              onDragEnter={(event: DragEvent<HTMLDivElement>) => {
-                if (mode === 'project' && event.dataTransfer.types.includes('Files'))
-                  setDraggingFiles(true);
-              }}
-              onDragLeave={(event: DragEvent<HTMLDivElement>) => {
-                if (
-                  mode === 'project' &&
-                  event.dataTransfer.types.includes('Files') &&
-                  !event.currentTarget.contains(event.relatedTarget as Node | null)
-                ) {
-                  setDraggingFiles(false);
-                }
-              }}
               onDragOver={(event) => {
                 if (mode === 'project' && event.dataTransfer.types.includes('Files')) {
                   event.preventDefault();
@@ -1223,7 +1201,6 @@ export function ProjectView({
               }}
               onDrop={(event) => {
                 if (mode === 'project' && event.dataTransfer.types.includes('Files')) {
-                  setDraggingFiles(false);
                   if (event.defaultPrevented) return;
                   event.preventDefault();
                   importDroppedFiles(Array.from(event.dataTransfer.files), null);
@@ -1304,6 +1281,7 @@ export function ProjectView({
                       selected={activeKey}
                       query={query}
                       bySource={bySource}
+                      onArchive={() => setArchiveOpen(true)}
                     />
                   )}
                   <div className="mt-3 flex h-8 items-center gap-1 px-3">

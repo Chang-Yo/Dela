@@ -16,6 +16,7 @@ import {
   getSource,
   cachedFile,
   readCanvasSource,
+  archiveCanvasCourse,
 } from './api';
 
 export function registerCanvasIpc() {
@@ -43,6 +44,9 @@ export function registerCanvasIpc() {
   handle('disconnect', () => clearCanvasToken());
   handle('sync-courses', syncCanvasCourses);
   handle('sync-course', (id) => syncCanvasCourse(z.number().int().positive().parse(id)));
+  handle('archive-course', (id, archived) =>
+    archiveCanvasCourse(z.number().int().positive().parse(id), z.boolean().parse(archived)),
+  );
   handle('read', (id) => readCanvasSource(z.string().max(512).parse(id)));
   handle('download', async (id) => {
     const source = getSource(z.string().parse(id));

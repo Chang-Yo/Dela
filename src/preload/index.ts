@@ -196,6 +196,8 @@ contextBridge.exposeInMainWorld('dela', {
     disconnect: () => ipcRenderer.invoke('canvas:disconnect'),
     syncCourses: () => ipcRenderer.invoke('canvas:sync-courses'),
     syncCourse: (id: number) => ipcRenderer.invoke('canvas:sync-course', id),
+    archiveCourse: (id: number, archived: boolean) =>
+      ipcRenderer.invoke('canvas:archive-course', id, archived),
     read: (id: string) => ipcRenderer.invoke('canvas:read', id),
     download: (id: string) => ipcRenderer.invoke('canvas:download', id),
     openLink: (url: string) => ipcRenderer.invoke('canvas:open-link', url),

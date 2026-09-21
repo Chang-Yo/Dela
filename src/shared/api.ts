@@ -629,6 +629,8 @@ export interface CanvasCourse {
   code: string;
   syncedAt: string | null;
   error: string | null;
+  /** 已归档课程不再自动同步、不再提示同步错误，仅保留本地数据。 */
+  archived?: boolean;
 }
 
 export interface SourceItem {
@@ -667,6 +669,7 @@ export interface CanvasApi {
   disconnect(): Promise<void>;
   syncCourses(): Promise<CanvasState>;
   syncCourse(id: number): Promise<CanvasState>;
+  archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
   read(sourceId: string): Promise<DocumentContent>;
   download(sourceId: string): Promise<void>;
   openLink(url: string): Promise<void>;

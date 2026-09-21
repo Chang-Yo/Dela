@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ellipsis, Download, FileText, Link2 } from 'lucide-react';
+import { Archive, Ellipsis, Download, FileText, Link2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +24,7 @@ export function SourceList({
   query,
   bySource,
   archived = false,
+  onArchive,
   onLink,
 }: {
   expanded: string[];
@@ -33,6 +34,8 @@ export function SourceList({
   query: string;
   bySource: boolean;
   archived?: boolean;
+  /** 课程归档成功后回调（用于展开上层「归档」区）。 */
+  onArchive?: () => void;
   onLink: (key: string) => void;
 }) {
   const canvas = useWorkspace((s) => s.canvas);
@@ -52,15 +55,36 @@ export function SourceList({
       name: term,
       container: true,
     });
+  // 各课程内的「文件」根目录是全部文件的平铺集合，与模块等组织视图重复；本地不展示。
+  const fileRoots = new Set(canvas.courses.map((c) => `${c.id}:files`));
+  const parentOfItem = new Map(canvas.items.map((item) => [item.id, item.parentId]));
+  const inFlatFiles = (item: (typeof canvas.items)[number]) => {
+    if (fileRoots.has(item.id)) return true;
+    for (let id: string | null | undefined = item.parentId; id; id = parentOfItem.get(id))
+      if (fileRoots.has(id)) return true;
+    return false;
+  };
+  const shownItems = canvas.items.filter((item) => !inFlatFiles(item));
   for (const course of canvas.courses)
-    nodes.push({
-      id: `course:${course.id}`,
-      parentId: `term:${course.term}`,
-      name: course.name,
-      container: true,
-      badge: loading.includes(course.id) ? '…' : course.error ? '!' : undefined,
-    });
-  for (const item of canvas.items)
+    if (!course.archived)
+      nodes.push({
+        id: `course:${course.id}`,
+        parentId: `term:${course.term}`,
+        name: course.name,
+        container: true,
+        badge: loading.includes(course.id) ? '…' : course.error ? '!' : undefined,
+      });
+  // 归档课程不占用学期目录，统一移入底部「归档」区平铺展示，并在该处恢复（取消归档）。
+  if (archived)
+    for (const course of canvas.courses)
+      if (course.archived)
+        nodes.push({
+          id: `course:${course.id}`,
+          parentId: bySource ? 'canvas' : null,
+          name: course.name,
+          container: true,
+        });
+  for (const item of shownItems)
     nodes.push({
       id: item.id,
       parentId: item.parentId ?? `course:${item.courseId}`,
@@ -101,7 +125,9 @@ export function SourceList({
     onExpand(id, open);
     if (open && id.startsWith('course:')) {
       const courseId = Number(id.slice(7));
-      if (!canvas.courses.find((c) => c.id === courseId)?.syncedAt) void sync(courseId);
+      const course = canvas.courses.find((c) => c.id === courseId);
+      // 已归档课程不再自动同步（令牌可能已失效），需要时可手动恢复归档后再同步。
+      if (course && !course.archived && !course.syncedAt) void sync(courseId);
     }
   };
   return (
@@ -117,8 +143,6 @@ export function SourceList({
           const item = canvas.items.find((i) => i.id === node.id);
           const sourceId = item?.sourceId;
           if (!course && !sourceId) return null;
-          // 课程菜单只剩同步信息；尚无信息可看的课程不渲染"更多"触发器。
-          if (course && !course.syncedAt && !course.error) return null;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -146,6 +170,26 @@ export function SourceList({
                         {course.error}
                       </p>
                     )}
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const message = course.archived
+                          ? `取消归档「${course.name}」？课程将恢复到原学期目录。`
+                          : `归档「${course.name}」？归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。`;
+                        if (!window.confirm(message)) return;
+                        const wasArchived = course.archived;
+                        void window.dela?.canvas
+                          .archiveCourse(course.id, !wasArchived)
+                          .then(useWorkspace.getState().setCanvas)
+                          .then(() => {
+                            // 归档成功后展开底部「归档」区，让课程直接出现在归档文件夹中。
+                            if (!wasArchived) onArchive?.();
+                          })
+                          .catch(useWorkspace.getState().setError);
+                      }}
+                    >
+                      <Archive />
+                      {course.archived ? '取消归档' : '归档'}
+                    </DropdownMenuItem>
                   </>
                 ) : (
                   sourceId && (

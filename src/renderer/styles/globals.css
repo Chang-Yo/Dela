@@ -37,6 +37,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* 拖拽落点区域强调色：蓝色调，与选中态等中性灰强调区分。 */
+  --drop-target: oklch(0.935 0.022 250);
   /* 日历候选色：低饱和灰调，浅底深字，供课程哈希分配与事件手动选择。 */
   --cal-rose-bg: oklch(0.941 0.024 18);
   --cal-rose-text: oklch(0.42 0.083 18);
@@ -98,6 +100,7 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --drop-target: oklch(0.297 0.036 255);
     --cal-rose-bg: oklch(0.304 0.032 18);
     --cal-rose-text: oklch(0.871 0.048 18);
     --cal-peach-bg: oklch(0.304 0.032 55);
@@ -156,6 +159,7 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --drop-target: oklch(0.297 0.036 255);
   --cal-rose-bg: oklch(0.304 0.032 18);
   --cal-rose-text: oklch(0.871 0.048 18);
   --cal-peach-bg: oklch(0.304 0.032 55);
@@ -249,6 +253,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-drop-target: var(--drop-target);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

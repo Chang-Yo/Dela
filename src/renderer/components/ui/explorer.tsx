@@ -89,6 +89,22 @@ export function Explorer({
     }
   };
   walk(null, 1);
+  // 缩进对齐线：亮段跟随选中项的祖先链（含自身），同 VS Code 的 active guide。
+  const parentOf = new Map(items.map((item) => [item.id, item.parentId]));
+  const trailOf = (id: string | null): string[] => {
+    const chain: string[] = [];
+    for (let current = id; current; current = parentOf.get(current) ?? null) chain.unshift(current);
+    return chain;
+  };
+  const selectedTrail = new Set<string>();
+  for (
+    let current: string | null | undefined = selected;
+    current;
+    current = parentOf.get(current) ?? null
+  ) {
+    if (selectedTrail.has(current)) break;
+    selectedTrail.add(current);
+  }
   const typeahead = useRef({ query: '', at: 0 });
   const resetDrag = () => {
     setDragId(null);
@@ -140,6 +156,12 @@ export function Explorer({
   };
   const droppable = (drag: string, target: string) =>
     drag !== target && (!canDrop || canDrop(drag, target));
+  // 拖拽悬停叶子行时，落点解析到所属目录（VS Code 式：整块目录区域都是落点）；
+  // 内部拖拽中所属目录不可落（如拖动目录本身悬停在其子项上）则返回 null。
+  const anchorBranch = (item: ExplorerItem, drag: string | null): string | null =>
+    item.parentId !== null && (drag === null || droppable(drag, item.parentId))
+      ? item.parentId
+      : null;
   const isFileDrag = (event: DragEvent) => event.dataTransfer.types.includes('Files');
   const dragProps =
     onMove || onImportFiles
@@ -158,36 +180,52 @@ export function Explorer({
             resetDrag();
           },
           onDragOver: (event: DragEvent) => {
-            if (onImportFiles && branch && isFileDrag(event)) {
+            if (onImportFiles && isFileDrag(event)) {
+              const target = branch ? item.id : anchorBranch(item, null);
+              if (target === null) {
+                if (externalDropTarget !== null) setExternalDropTarget(null);
+                return;
+              }
               event.preventDefault();
               event.dataTransfer.dropEffect = 'copy';
-              if (externalDropTarget !== item.id) setExternalDropTarget(item.id);
+              if (externalDropTarget !== target) setExternalDropTarget(target);
               return;
             }
-            if (!branch || !dragId || !droppable(dragId, item.id)) return;
+            if (!dragId) return;
+            const target = branch
+              ? droppable(dragId, item.id)
+                ? item.id
+                : null
+              : anchorBranch(item, dragId);
+            if (target === null) {
+              if (dropTarget !== null) setDropTarget(null);
+              return;
+            }
             event.preventDefault();
             event.dataTransfer.dropEffect = 'move';
-            if (dropTarget !== item.id) setDropTarget(item.id);
-          },
-          onDragLeave: (event: DragEvent) => {
-            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-            if (dropTarget === item.id) setDropTarget(null);
-            if (externalDropTarget === item.id) setExternalDropTarget(null);
+            if (dropTarget !== target) setDropTarget(target);
           },
           onDrop: (event: DragEvent) => {
-            if (onImportFiles && branch && isFileDrag(event)) {
+            if (onImportFiles && isFileDrag(event)) {
+              const target = branch ? item.id : anchorBranch(item, null);
+              // 顶层叶子行不接收，交给树根落点。
+              if (target === null) return;
               event.preventDefault();
-              onImportFiles(Array.from(event.dataTransfer.files), item.id);
+              onImportFiles(Array.from(event.dataTransfer.files), target);
               resetDrag();
               return;
             }
             event.preventDefault();
             const drag = dragId ?? event.dataTransfer.getData(explorerDragType);
-            if (drag && onMove && branch && droppable(drag, item.id)) onMove(drag, item.id);
+            const target = branch ? item.id : anchorBranch(item, drag);
+            if (drag && onMove && target !== null && droppable(drag, target)) onMove(drag, target);
             resetDrag();
           },
         })
       : undefined;
+  // 落点区域：目标目录行与其全部可见后代行连成一块高亮（VS Code 式），
+  // 叶子行悬停时经由 anchorBranch 落到所属目录，区域因此覆盖整个子树。
+  const activeDrop = dropTarget ?? externalDropTarget;
   return (
     <div
       ref={root}
@@ -195,13 +233,9 @@ export function Explorer({
       aria-label={label}
       className="grid content-start gap-0 p-1"
       onDragLeave={(event) => {
-        if (
-          onImportFiles &&
-          isFileDrag(event) &&
-          !event.currentTarget.contains(event.relatedTarget as Node | null)
-        ) {
-          resetDrag();
-        }
+        // 指针离开整棵树才清除落点；行间移动由各行的 onDragOver 接力更新。
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        resetDrag();
       }}
       onDragEnd={resetDrag}
       onDragOver={(event) => {
@@ -220,6 +254,8 @@ export function Explorer({
     >
       {visible.map(({ item, level }, index) => {
         const branch = Boolean(item.container || children.has(item.id));
+        // 目录 icon 只保留到第二层（学期/课程这类主目录），更深的子目录只留
+        // 折叠箭头与文字；叶子文件 icon 不受影响。
         const Icon = item.project
           ? FolderKanban
           : branch
@@ -227,6 +263,10 @@ export function Explorer({
               ? FolderOpen
               : Folder
             : (item.icon ?? FileText);
+        const showIcon = !branch || level <= 2;
+        const ancestors = trailOf(item.parentId);
+        const dropRegion =
+          activeDrop !== null && (activeDrop === item.id || ancestors.includes(activeDrop));
         return (
           <div
             key={item.id}
@@ -260,15 +300,27 @@ export function Explorer({
               }
             }}
             className={cn(
-              'group flex h-7 min-w-0 cursor-default items-center gap-1 rounded-sm pr-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+              'group relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-sm pr-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
               selected === item.id
-                ? 'bg-accent font-medium text-accent-foreground'
+                ? 'bg-foreground/10 font-medium text-foreground'
                 : 'text-foreground/75 hover:bg-accent/60',
-              (dropTarget === item.id || externalDropTarget === item.id) &&
-                'bg-accent/60 text-foreground',
+              // 落点区域行去圆角，使目录子树区域连成一块整色；蓝色调与选中态的
+              // 中性灰区分（--drop-target，globals.css 三作用域定义）。
+              dropRegion && 'rounded-none bg-drop-target text-foreground',
             )}
             style={{ paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})` }}
           >
+            {Array.from({ length: level - 1 }, (_, guide) => (
+              <span
+                key={guide}
+                aria-hidden
+                className={cn(
+                  'absolute inset-y-0 w-px -translate-x-1/2',
+                  selectedTrail.has(ancestors[guide] ?? '') ? 'bg-foreground/25' : 'bg-border',
+                )}
+                style={{ left: `calc(var(--spacing) * ${4 + guide * 4})` }}
+              />
+            ))}
             <button
               type="button"
               aria-label={`${open.has(item.id) ? '收起' : '展开'} ${item.name}`}
@@ -286,7 +338,9 @@ export function Explorer({
                 )}
               />
             </button>
-            <Icon className="mr-1 size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+            {showIcon && (
+              <Icon className="mr-1 size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+            )}
             <span className="min-w-0 flex-1 truncate" title={item.name}>
               {item.name}
             </span>

@@ -107,6 +107,7 @@ export async function syncCanvasCourses(): Promise<CanvasState> {
         code: str(course.course_code),
         syncedAt: previous?.syncedAt ?? null,
         error: previous?.error ?? null,
+        archived: previous?.archived ?? false,
       };
       insert.run(id, JSON.stringify(data));
     }
@@ -375,6 +376,17 @@ async function syncCourse(id: number): Promise<CanvasState> {
     const insert = db.prepare('INSERT OR REPLACE INTO canvas_sources VALUES (?, ?, ?)');
     for (const source of sources.values()) insert.run(source.id, id, JSON.stringify(source));
   })();
+  return getCanvasState();
+}
+
+/** 归档/取消归档课程：归档后不参与自动同步，仅保留本地已同步数据。 */
+export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
+  const db = getDatabase();
+  const rowById = db.prepare('SELECT data FROM canvas_courses WHERE id=?').get(id) as
+    { data: string } | undefined;
+  if (!rowById) throw new Error('课程不存在，请刷新课程列表');
+  const course: CanvasCourse = { ...JSON.parse(rowById.data), archived };
+  db.prepare('UPDATE canvas_courses SET data=? WHERE id=?').run(JSON.stringify(course), id);
   return getCanvasState();
 }
 
