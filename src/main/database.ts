@@ -165,6 +165,16 @@ const migrations: string[][] = [
       PRIMARY KEY (source, account_key)
     )`,
   ],
+  [
+    `CREATE TABLE todo_items (
+      id TEXT PRIMARY KEY,
+      owner TEXT NOT NULL,
+      data TEXT NOT NULL,
+      read_at TEXT,
+      notice_at TEXT
+    )`,
+    `CREATE INDEX idx_todo_owner ON todo_items(owner)`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {

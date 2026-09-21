@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { broadcastTodos, refreshTodos } from '../todo';
 import { getDatabase } from '../database';
 import { clearCanvasToken } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
@@ -40,8 +41,15 @@ export function registerCanvasIpc() {
     }
     return getCanvasState();
   });
-  handle('configure', (token) => configureCanvas(z.string().parse(token)));
-  handle('disconnect', () => clearCanvasToken());
+  handle('configure', async (token) => {
+    await configureCanvas(z.string().parse(token));
+    broadcastTodos();
+    void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
+  });
+  handle('disconnect', () => {
+    clearCanvasToken();
+    broadcastTodos();
+  });
   handle('sync-courses', syncCanvasCourses);
   handle('sync-course', (id) => syncCanvasCourse(z.number().int().positive().parse(id)));
   handle('archive-course', (id, archived) =>

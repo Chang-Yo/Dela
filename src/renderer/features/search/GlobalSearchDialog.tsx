@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import {
+  CircleCheckBig,
   FileText,
   FolderKanban,
   LoaderCircle,
@@ -26,6 +27,7 @@ const resultGroups: ReadonlyArray<{
   { kind: 'chat', label: '聊天对话', icon: MessageSquare, note: '最多 10 条' },
   { kind: 'mail', label: '邮件', icon: Mail, note: '最多 10 条' },
   { kind: 'course-file', label: '课程资料', icon: FileText, note: '最多 10 条' },
+  { kind: 'todo', label: 'TODO / 作业', icon: CircleCheckBig, note: '最多 10 条' },
   { kind: 'setting', label: '设置', icon: Settings },
 ];
 

@@ -1,3 +1,4 @@
+import { TodoView } from './features/todo/TodoView';
 import { leaveComposer } from './features/mail/compose-close';
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
@@ -44,6 +45,7 @@ function initialFontScale(): FontScalePreference {
 }
 
 export default function App() {
+  const [todoRequest, setTodoRequest] = useState<{ id: string }>();
   const [view, setView] = useState<ViewId>('home');
   const [searchOpen, setSearchOpen] = useState(false);
   const [mailRequest, setMailRequest] = useState<{ messageId: number }>();
@@ -80,6 +82,17 @@ export default function App() {
       setNotificationNow(Date.now());
       if (active) setNotifications(state);
     });
+    const unsubscribeTodos = window.dela?.todo.onUpdate(() => {
+      const requested = ++version;
+      void api
+        .getState()
+        .then((state) => {
+          if (active && requested === version) setNotifications(state);
+        })
+        .catch((error: unknown) => {
+          if (active) setNotificationError(errorText(error));
+        });
+    });
     void api
       .getState()
       .then((state) => {
@@ -102,6 +115,7 @@ export default function App() {
     return () => {
       active = false;
       unsubscribe();
+      unsubscribeTodos?.();
       window.clearInterval(timer);
     };
   }, [launchStage]);
@@ -281,6 +295,8 @@ export default function App() {
         active: key,
         tabs: saved.tabs.includes(key) ? saved.tabs : [...saved.tabs, key],
       });
+    } else if (target.page === 'todo') {
+      if (navigate('todo')) setTodoRequest({ id: target.todoId });
     } else if (target.page === 'settings') {
       if (navigate('settings')) setSettingsRequest({ section: target.section });
     } else {
@@ -304,7 +320,10 @@ export default function App() {
   const openNotification = (item: NotificationItem) => {
     if (!leaveComposer(() => openNotification(item))) return;
     const target = item.href;
-    if (target.kind === 'mail') {
+    if (target.kind === 'todo') {
+      if (!navigate('todo')) return;
+      setTodoRequest({ id: target.todoId });
+    } else if (target.kind === 'mail') {
       if (!navigate('mail')) return;
       setMailRequest({ messageId: target.messageId });
     } else {
@@ -389,8 +408,15 @@ export default function App() {
                     onMobileDrawerClose={() => setMobileDrawer(null)}
                   />
                 )}
-                {view === 'timetable' && <TimetableView />}
+                {view === 'timetable' && (
+                  <TimetableView
+                    onOpenTodo={(todoId) => {
+                      if (navigate('todo')) setTodoRequest({ id: todoId });
+                    }}
+                  />
+                )}
                 {view === 'shuiyuan' && <ShuiyuanView />}
+                {view === 'todo' && <TodoView request={todoRequest} />}
                 {view === 'notifications' && (
                   <NotificationsView
                     state={notifications}

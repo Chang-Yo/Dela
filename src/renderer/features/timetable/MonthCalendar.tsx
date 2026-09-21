@@ -102,7 +102,8 @@ export function MonthCalendar({
               title: event.title,
               time:
                 dateKey(new Date(event.startAt)) === dateKey(date)
-                  ? formatTime(new Date(event.startAt))
+                  ? // 待办块止于截止时刻，pill 上显示的是截止时间而非合成的开始时间。
+                    formatTime(new Date(event.todoId ? event.endAt : event.startAt))
                   : null,
               tone: eventTone(event.color),
             })),

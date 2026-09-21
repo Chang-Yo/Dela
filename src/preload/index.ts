@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { version } from '../../package.json';
 import type {
   DelaApi,
+  TodoState,
+  TodoSaveInput,
   CalendarEventInput,
   ChatAskInput,
   ChatCommandView,
@@ -31,6 +33,18 @@ import type {
 contextBridge.exposeInMainWorld('dela', {
   version,
   firstLaunch: process.argv.includes('--dela-first-launch'),
+  todo: {
+    getState: () => ipcRenderer.invoke('todo:get-state'),
+    refresh: () => ipcRenderer.invoke('todo:refresh'),
+    save: (input: TodoSaveInput) => ipcRenderer.invoke('todo:save', input),
+    remove: (id: string) => ipcRenderer.invoke('todo:remove', id),
+    markRead: (id: string) => ipcRenderer.invoke('todo:mark-read', id),
+    onUpdate: (listener: (state: TodoState) => void) => {
+      const subscription = (_event: unknown, state: TodoState) => listener(state);
+      ipcRenderer.on('todo:state', subscription);
+      return () => ipcRenderer.removeListener('todo:state', subscription);
+    },
+  },
   search: {
     query: (query: string) => ipcRenderer.invoke('search:query', query),
   },

@@ -50,7 +50,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
               <ol className="list-decimal space-y-1.5 ps-4 text-[13px] leading-relaxed text-neutral-500">
                 <li>浏览器打开 Canvas（oc.sjtu.edu.cn）并登录</li>
                 <li>点击头像，进入「设置」</li>
-                <li>在「批准的集成」处点「+ 创建新的访问许可证」</li>
+                <li>在「允许融入使用的外部软件」处点「+ 创建新的访问许可证」</li>
                 <li>用途自己取名，过期时间留空</li>
                 <li>复制生成的字符串密钥</li>
               </ol>

@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
 import type { GlobalSearchResult } from '../shared/api';
+import { getTodoState } from './todo';
+import { todoStatusLabels } from '../shared/todo';
 import { getDatabase } from './database';
 import { checkWorkspaceSender } from './ipc';
 
@@ -83,7 +85,21 @@ export function queryGlobalSearch(query: string): GlobalSearchResult[] {
           .all(perKindLimit)
   ) as CanvasFileRow[];
 
+  const todos = getTodoState()
+    .items.filter((item) =>
+      `${item.title} ${item.notes} ${item.courseName ?? ''}`
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase()),
+    )
+    .slice(0, perKindLimit);
   return [
+    ...todos.map((item) => ({
+      kind: 'todo' as const,
+      id: item.id,
+      title: item.title,
+      subtitle: `${item.courseName ?? '个人待办'} · ${todoStatusLabels[item.status]}${item.dueAt ? ` · ${item.dueAt}` : ''}`,
+      target: { page: 'todo' as const, todoId: item.id },
+    })),
     ...projects.map((row) => ({
       kind: 'project' as const,
       id: row.id,

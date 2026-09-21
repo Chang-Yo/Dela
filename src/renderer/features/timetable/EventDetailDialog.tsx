@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import { CalendarRange, Clock, GraduationCap, MapPin, Trash2, User, X } from 'lucide-react';
+import {
+  CalendarRange,
+  CircleCheckBig,
+  Clock,
+  GraduationCap,
+  MapPin,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react';
 import type { CalendarEvent } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import {
@@ -15,21 +24,26 @@ import {
 import type { CalendarItemDetail } from './WeekCalendar';
 
 // 点击周视图条目后的详情弹窗：排版参考 Google Calendar 的事件卡
-// （色点标题 + 小图标信息行）。课程只读；自建事件的删除需二次确认。
+// （色点标题 + 小图标信息行）。课程只读；自建事件的删除需二次确认；
+// 待办派生事件不可删，提供跳转 TODO 的入口。
 export function EventDetailDialog({
   detail,
   onClose,
   onDeleted,
+  onOpenTodo,
 }: {
   detail: CalendarItemDetail;
   onClose: () => void;
   onDeleted: () => void;
+  onOpenTodo?: (todoId: string) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const deleteEvent = async (event: CalendarEvent) => {
+    // 待办派生事件的删除只能发生在 TODO 视图；此入口只接受数字 id 的自建事件。
+    if (typeof event.id !== 'number') return;
     setDeleting(true);
     setError(null);
     try {
@@ -48,14 +62,14 @@ export function EventDetailDialog({
       : calendarToneKey(detail.event.color);
 
   let timeText;
-  if (detail.kind === 'event') {
-    timeText = formatEventRange(detail.event);
-  } else {
+  if (detail.kind === 'lesson') {
     const start = periodBoundary(detail.lesson.startPeriod, 'start');
     const end = periodBoundary(detail.lesson.endPeriod, 'end');
     timeText = detail.date
       ? `${formatMonthDay(detail.date)}（${weekdayName(detail.date)}）${formatMinuteOfDay(start)} – ${formatMinuteOfDay(end)}`
       : `${formatMinuteOfDay(start)} – ${formatMinuteOfDay(end)}`;
+  } else {
+    timeText = formatEventRange(detail.event);
   }
 
   return (
@@ -88,7 +102,13 @@ export function EventDetailDialog({
               <Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <span className="tabular-nums">{timeText}</span>
             </div>
-            {detail.kind === 'event' ? (
+            {detail.kind === 'todo' ? (
+              <div className="flex items-start gap-2">
+                <CircleCheckBig className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span>来自个人待办的截止时间</span>
+              </div>
+            ) : null}
+            {detail.kind !== 'lesson' ? (
               detail.event.location ? (
                 <div className="flex items-start gap-2">
                   <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -162,6 +182,20 @@ export function EventDetailDialog({
                   删除
                 </Button>
               )}
+            </div>
+          ) : null}
+          {detail.kind === 'todo' && detail.event.todoId && onOpenTodo ? (
+            <div className="mt-5 flex items-center">
+              <Button
+                onClick={() => {
+                  onOpenTodo(detail.event.todoId!);
+                  onClose();
+                }}
+                size="sm"
+                variant="outline"
+              >
+                <CircleCheckBig className="size-3.5" />在 TODO 中查看
+              </Button>
             </div>
           ) : null}
         </DialogPrimitive.Content>

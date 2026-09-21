@@ -9,6 +9,7 @@ import {
   shell,
   Tray,
 } from 'electron';
+import { registerTodoIpc, refreshTodos } from './todo';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
@@ -157,6 +158,8 @@ const smokeTest = process.argv.includes('--smoke-test');
 // 水源通知每分钟更新；IMAP 沿用现有增量同步，每五分钟检查一次。
 const NOTIFICATION_REFRESH_MS = 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
+const TODO_REFRESH_MS = 15 * 60_000;
+let todoTimer: ReturnType<typeof setInterval> | undefined;
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
 let tray: Tray | undefined;
@@ -192,6 +195,7 @@ app.whenReady().then(() => {
   registerWorkspaceIpc();
   registerSearchIpc();
   registerNotificationsIpc();
+  registerTodoIpc();
   initializeNotifications();
   // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
   gcChatMedia();
@@ -208,6 +212,11 @@ app.whenReady().then(() => {
         console.error('Mail background sync failed', error);
       }
     };
+    const syncTodos = () => {
+      void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
+    };
+    syncTodos();
+    todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
     refresh();
     syncMail();
     notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
@@ -391,6 +400,7 @@ app.on('before-quit', () => {
 });
 app.on('will-quit', () => {
   tray?.destroy();
+  clearInterval(todoTimer);
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
   closeDatabase();

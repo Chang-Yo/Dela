@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronLeft, ChevronRight, LogIn, Plus, RefreshCw } from 'lucide-react';
-import type { CalendarEvent, TimetableLesson, TimetableState } from '../../../shared/api';
+import type { CalendarEvent, TimetableLesson, TimetableState, TodoItem } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import {
@@ -38,7 +38,7 @@ type CalendarMode = 'week' | 'month';
 let semesterRequest = 0;
 let eventsRequest = 0;
 
-export function TimetableView() {
+export function TimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) => void }) {
   if (!window.dela) {
     return (
       <DesktopOnlyNotice
@@ -47,14 +47,15 @@ export function TimetableView() {
       />
     );
   }
-  return <DesktopTimetableView />;
+  return <DesktopTimetableView onOpenTodo={onOpenTodo} />;
 }
 
-function DesktopTimetableView() {
+function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) => void }) {
   const timetable = window.dela!.timetable;
   const [state, setState] = useState<TimetableState | null>(null);
   const [lessons, setLessons] = useState<TimetableLesson[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [semester, setSemester] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [month, setMonth] = useState(() => startOfDay(new Date()));
@@ -102,6 +103,31 @@ function DesktopTimetableView() {
   const eventRangeStart = mode === 'week' ? visibleWeekStart : monthGridStart;
   const eventRangeEnd = mode === 'week' ? addDays(visibleWeekStart, 7) : monthGridEnd;
 
+  // 写入日历的个人待办派生为 30 分钟事件块、止于截止时刻；id 走 `todo:` 前缀命名空间。
+  const todoEvents = useMemo(() => {
+    const rangeStart = eventRangeStart.getTime();
+    const rangeEnd = eventRangeEnd.getTime();
+    return todoItems.flatMap((todo) => {
+      if (todo.source !== 'personal' || !todo.calendar || !todo.dueAt) return [];
+      const dueAt = Date.parse(todo.dueAt);
+      if (dueAt < rangeStart || dueAt > rangeEnd) return [];
+      return [
+        {
+          id: `todo:${todo.id}`,
+          todoId: todo.id,
+          title: todo.title,
+          startAt: new Date(dueAt - 30 * 60_000).toISOString(),
+          endAt: todo.dueAt,
+          location: null,
+          color: todo.color ?? null,
+        } satisfies CalendarEvent,
+      ];
+    });
+    // 依赖写法沿用 .getTime() 内联形式：React Compiler 无法证明派生数值稳定，具名 deps 会触发
+    // preserve-manual-memoization 告警。
+  }, [todoItems, eventRangeStart.getTime(), eventRangeEnd.getTime()]);
+  const calendarEvents = useMemo(() => [...events, ...todoEvents], [events, todoEvents]);
+
   const loadEvents = useCallback(async () => {
     const request = ++eventsRequest;
     const nextEvents = await timetable.listEvents(
@@ -127,6 +153,24 @@ function DesktopTimetableView() {
       }),
     [loadEvents],
   );
+
+  // 写入日历的个人待办由待办状态广播驱动：增删改后无需手动刷新日历。
+  useEffect(() => {
+    const api = window.dela?.todo;
+    if (!api) return;
+    let active = true;
+    const off = api.onUpdate((value) => setTodoItems(value.items));
+    void api
+      .getState()
+      .then((value) => {
+        if (active) setTodoItems(value.items);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      off();
+    };
+  }, []);
 
   const weeks = useMemo(() => {
     const found = [...new Set(lessons.flatMap((lesson) => lesson.weekNumbers))].sort(
@@ -349,14 +393,14 @@ function DesktopTimetableView() {
 
       {mode === 'week' ? (
         <WeekCalendar
-          events={semesterWeekStart ? events : []}
+          events={semesterWeekStart ? calendarEvents : []}
           lessons={weekLessons}
           onOpen={setDetail}
           weekStart={semesterWeekStart}
         />
       ) : (
         <MonthCalendar
-          events={events}
+          events={calendarEvents}
           lessons={lessons}
           month={month}
           onCreate={openNewEvent}
@@ -398,6 +442,10 @@ function DesktopTimetableView() {
           onDeleted={() => {
             setDetail(null);
             void loadEvents();
+          }}
+          onOpenTodo={(todoId) => {
+            setDetail(null);
+            onOpenTodo?.(todoId);
           }}
         />
       ) : null}

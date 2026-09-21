@@ -616,3 +616,23 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
     updatedAt: source.updatedAt,
   };
 }
+
+// TODO 独立刷新作业，避免定时轮询触发文件、模块和页面的全量同步。
+export async function listTodoCanvasCourses() {
+  const courses = await list('courses?enrollment_state=active&per_page=50');
+  const archived = new Set(
+    getCanvasState()
+      .courses.filter((c) => c.archived)
+      .map((c) => c.id),
+  );
+  return courses
+    .filter((c) => num(c.id) > 0 && !archived.has(num(c.id)))
+    .map((c) => ({
+      id: num(c.id),
+      name: str(c.name) || str(c.course_code) || `课程 ${num(c.id)}`,
+    }));
+}
+
+export function listTodoCanvasAssignments(courseId: number) {
+  return list(`courses/${courseId}/assignments?include[]=submission&per_page=50`);
+}

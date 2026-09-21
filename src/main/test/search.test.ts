@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let database: DatabaseSync;
 
+vi.mock('../todo', () => ({ getTodoState: vi.fn(() => ({ items: [] })) }));
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }));
 vi.mock('../database', () => ({ getDatabase: () => database }));
 vi.mock('../ipc', () => ({ checkWorkspaceSender: vi.fn() }));

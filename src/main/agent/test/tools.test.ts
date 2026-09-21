@@ -6,6 +6,15 @@ import { parseDocumentFile, renderPdfPages } from '../../resource-parse';
 import { searchWeb } from '../web-search';
 import { executeAgentTool, modelToolDefinitions } from '../tools';
 
+vi.mock('../../todo', async () => {
+  const { z } = await import('zod');
+  return {
+    getTodoState: vi.fn(),
+    refreshTodos: vi.fn(),
+    saveTodo: vi.fn(),
+    todoSaveSchema: z.object({ title: z.string() }),
+  };
+});
 vi.mock('../../canvas/api', () => ({
   getCanvasState: vi.fn(),
   readCanvasSource: vi.fn(),

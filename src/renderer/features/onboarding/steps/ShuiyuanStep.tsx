@@ -61,7 +61,7 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
             content: (
               <div className="grid gap-3">
                 <p className="text-sm leading-relaxed text-neutral-500">
-                  在独立窗口登录 jAccount 并点击「授权」，然后复制页面显示的密钥。
+                  在独立窗口登录 jAccount 并点击「授权」，然后复制页面显示的密钥并关闭弹窗。
                 </p>
                 <button
                   className="h-10 w-full rounded-lg border border-neutral-300 bg-white text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"

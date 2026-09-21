@@ -215,12 +215,15 @@ export const calendarEventColors = [
 export type CalendarEventColor = (typeof calendarEventColors)[number];
 
 export interface CalendarEvent {
-  readonly id: number;
+  /** 自建事件为数据库自增 id；来自个人待办的派生事件是 `todo:{todoId}` 字符串。 */
+  readonly id: number | string;
   readonly title: string;
   readonly startAt: string;
   readonly endAt: string;
   readonly location: string | null;
   readonly color: CalendarEventColor | null;
+  /** 非空表示这条事件由个人待办派生，值为待办 id；删除须走待办而非日历。 */
+  readonly todoId?: string;
 }
 
 export interface CalendarEventInput {
@@ -526,6 +529,7 @@ export type GlobalSearchResult = {
   | { kind: 'project'; id: string; target: { page: 'projects'; entryId: string } }
   | { kind: 'chat'; id: string; target: { page: 'chat'; scope: string; sessionId: string } }
   | { kind: 'mail'; id: number; target: { page: 'mail'; messageId: number } }
+  | { kind: 'todo'; id: string; target: { page: 'todo'; todoId: string } }
   | { kind: 'course-file'; id: string; target: { page: 'sources'; sourceId: string } }
   | {
       kind: 'setting';
@@ -538,7 +542,7 @@ export interface SearchApi {
   query(query: string): Promise<GlobalSearchResult[]>;
 }
 
-export type NotificationSource = 'mail' | 'shuiyuan';
+export type NotificationSource = 'mail' | 'shuiyuan' | 'todo';
 export type NotificationFilter = 'all' | NotificationSource;
 export interface NotificationItem {
   id: string;
@@ -548,6 +552,7 @@ export interface NotificationItem {
   createdAt: string;
   readAt: string | null;
   href:
+    | { kind: 'todo'; todoId: string }
     | { kind: 'mail'; messageId: number }
     | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null };
 }
@@ -606,6 +611,7 @@ export interface ChatApi {
 }
 
 export interface DelaApi {
+  readonly todo: TodoApi;
   readonly version: string;
   /** 主进程在数据库初始化前判定；已有用户数据的更新和重启均为 false。 */
   readonly firstLaunch: boolean;
@@ -799,4 +805,51 @@ export interface WorkspaceChat {
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
     stopped?: boolean;
   }[];
+}
+
+export type TodoStatus =
+  'pending' | 'completed' | 'submitted' | 'graded' | 'excused' | 'resubmit' | 'offline' | 'unknown';
+export interface TodoItem {
+  id: string;
+  source: 'personal' | 'canvas';
+  title: string;
+  notes: string;
+  dueAt: string | null;
+  status: TodoStatus;
+  readAt: string | null;
+  createdAt: string;
+  /** 仅个人待办：开启后在日历（周/月视图）中按截止时间显示。 */
+  calendar?: boolean;
+  /** 仅个人待办：写入日历时的候选色；未选时渲染回退石墨色。 */
+  color?: CalendarEventColor;
+  courseId?: number;
+  courseName?: string;
+  assignmentId?: number;
+  url?: string;
+  submittedAt?: string | null;
+  syncedAt?: string;
+}
+export interface TodoState {
+  items: TodoItem[];
+  connected: boolean;
+  syncing: boolean;
+  syncedAt: string | null;
+  error: string | null;
+}
+export interface TodoSaveInput {
+  id?: string;
+  title: string;
+  notes?: string;
+  dueAt?: string | null;
+  completed?: boolean;
+  calendar?: boolean;
+  color?: CalendarEventColor;
+}
+export interface TodoApi {
+  getState(): Promise<TodoState>;
+  refresh(): Promise<TodoState>;
+  save(input: TodoSaveInput): Promise<TodoState>;
+  remove(id: string): Promise<TodoState>;
+  markRead(id: string): Promise<TodoState>;
+  onUpdate(listener: (state: TodoState) => void): () => void;
 }

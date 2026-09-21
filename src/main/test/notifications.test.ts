@@ -1,6 +1,11 @@
 import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../todo', () => ({
+  getTodoState: () => ({ syncedAt: null, error: null }),
+  todoNotifications: () => [],
+  markTodoRead: vi.fn(),
+}));
 vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: { handle: vi.fn() },
