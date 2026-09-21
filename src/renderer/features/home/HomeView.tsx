@@ -286,7 +286,6 @@ export function HomeView({
         onOpenSession={chatState.openSession}
         open={sessionsOpen}
         scope="home"
-        variant="panel"
       />
     </div>
   );

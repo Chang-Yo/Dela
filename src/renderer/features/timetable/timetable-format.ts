@@ -58,6 +58,12 @@ export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+export function roundToMinute(date: Date): Date {
+  const next = new Date(date);
+  next.setSeconds(0, 0);
+  return next;
+}
+
 export function addDays(date: Date, amount: number): Date {
   const next = new Date(date);
   next.setDate(next.getDate() + amount);

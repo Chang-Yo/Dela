@@ -5,7 +5,7 @@ import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
-import { eventPalette } from '../timetable/timetable-format';
+import { eventPalette, roundToMinute } from '../timetable/timetable-format';
 import { DateTimeStepper } from './DateTimeStepper';
 
 function dateLabel(value: string | null) {
@@ -21,12 +21,6 @@ function dateLabel(value: string | null) {
 
 const inputClass =
   'w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
-function roundToMinute(date: Date) {
-  const next = new Date(date);
-  next.setSeconds(0, 0);
-  return next;
-}
 
 function Switch({
   checked,
@@ -238,7 +232,7 @@ function TodoComposer({
     >
       <div
         aria-hidden="true"
-        className="absolute inset-0 animate-in fade-in bg-black/20 duration-200"
+        className="absolute inset-0"
         onMouseDown={onCancel}
       />
       <section

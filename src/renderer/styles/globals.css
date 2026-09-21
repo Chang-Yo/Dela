@@ -219,6 +219,7 @@
   --font-script: Italianno, cursive;
   /* 字号档位缩放：值内联进 text-* 工具类，line-height 沿用默认的无单位比值自动跟随。
      任意值写法（text-[13px] 等）不走这组变量，是已知不缩放范围。 */
+  --text-2xs: calc(0.6875rem * var(--font-scale));
   --text-xs: calc(0.75rem * var(--font-scale));
   --text-sm: calc(0.875rem * var(--font-scale));
   --text-base: calc(1rem * var(--font-scale));

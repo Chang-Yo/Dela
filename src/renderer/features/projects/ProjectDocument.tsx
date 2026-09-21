@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronRight,
   CopyPlus,
-  Ellipsis,
   Clock,
   Code,
   Download,
@@ -15,12 +14,6 @@ import {
   RefreshCw,
   Save,
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
 import { SourceDetail } from '../sources/SourceDetail';
 import { ShuiyuanSourceDoc } from '../shuiyuan/SourceRefCard';
@@ -205,10 +198,10 @@ export function ProjectDocument({
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       aria-label={`文档：${entry?.name ?? draft.content.title}`}
     >
-      <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-1 border-b px-3 py-1">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-3 py-1 text-2xs">
         <nav
           aria-label="所在位置"
-          className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap text-xs text-muted-foreground"
+          className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap text-muted-foreground"
         >
           {crumbs.map((crumb, index) => (
             <span key={crumb.key} className="flex min-w-0 items-center gap-1">
@@ -228,6 +221,12 @@ export function ProjectDocument({
               )}
             </span>
           ))}
+        </nav>
+        <div
+          className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1"
+          role="toolbar"
+          aria-label="文档操作"
+        >
           {draft.content.dueAt && (
             <span className="ml-1 flex shrink-0 items-center gap-1">
               <Clock className="size-3" />
@@ -244,106 +243,125 @@ export function ProjectDocument({
             {draft.saving && <LoaderCircle className="size-3 animate-spin" />}
             {!editable ? '只读' : draft.saving ? '保存中…' : dirty ? '未保存' : '已保存'}
           </span>
-        </nav>
-        {editable && markdown && effectiveMode !== 'source' && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title={effectiveMode === 'read' ? '编辑' : '阅读模式'}
-            aria-label={effectiveMode === 'read' ? '编辑' : '阅读模式'}
-            onClick={() => changeMode(effectiveMode === 'read' ? 'rich' : 'read')}
-          >
-            {effectiveMode === 'read' ? <PenLine /> : <Eye />}
-          </Button>
-        )}
-        {fileEntry && entry && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
-            aria-label={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
-            onClick={openExternally}
-          >
-            {openTarget === 'vscode' ? <Code /> : <ExternalLink />}
-          </Button>
-        )}
-        {editable && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title={
-              draft.saving ? '保存中…' : draft.text === draft.saved ? '已保存' : '保存 (Ctrl+S)'
-            }
-            aria-label="保存笔记"
-            disabled={draft.saving || !dirty}
-            onClick={() => run(useWorkspace.getState().save(documentKey))}
-          >
-            <Save />
-          </Button>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon-sm" variant="ghost" title="文档操作" aria-label="文档操作">
-              <Ellipsis />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {sourceId && (
-              <DropdownMenuItem onSelect={() => onLinkSource(documentKey)}>
-                <Link2 />
-                加入文件夹或项目
-              </DropdownMenuItem>
-            )}
-            {sourceId?.startsWith('file:') && (
-              <DropdownMenuItem
-                onSelect={() => window.dela && run(window.dela.canvas.download(sourceId))}
-              >
-                <Download />
-                下载文件
-              </DropdownMenuItem>
-            )}
-            {draft.content.url && (
-              <DropdownMenuItem onSelect={() => link(draft.content.url!)}>
-                <ExternalLink />
-                打开原文
-              </DropdownMenuItem>
-            )}
-            {editable && markdown && !forcedSource && (
-              <DropdownMenuItem
-                onSelect={() => changeMode(effectiveMode === 'source' ? 'rich' : 'source')}
-              >
-                <Code />
-                {effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
-              </DropdownMenuItem>
-            )}
-            {(entry?.kind === 'local' || entry?.kind === 'imported') && markdown && (
-              <DropdownMenuItem onSelect={createCopy}>
-                <CopyPlus />
-                创建可编辑副本
-              </DropdownMenuItem>
-            )}
-            {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
-              <DropdownMenuItem
-                onSelect={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
-              >
-                <FolderOpen />
-                在文件夹中显示
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onSelect={() => {
-                if (
-                  draft.text === draft.saved ||
-                  window.confirm('重新载入会抛弃当前未保存的草稿，是否继续？')
-                )
-                  run(useWorkspace.getState().read(documentKey, true));
-              }}
+          {editable && markdown && effectiveMode !== 'source' && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title={effectiveMode === 'read' ? '编辑' : '阅读模式'}
+              aria-label={effectiveMode === 'read' ? '编辑' : '阅读模式'}
+              onClick={() => changeMode(effectiveMode === 'read' ? 'rich' : 'read')}
             >
-              <RefreshCw />
-              重新载入
-            </DropdownMenuItem>{' '}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {effectiveMode === 'read' ? <PenLine /> : <Eye />}
+            </Button>
+          )}
+          {fileEntry && entry && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
+              aria-label={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
+              onClick={openExternally}
+            >
+              {openTarget === 'vscode' ? <Code /> : <ExternalLink />}
+            </Button>
+          )}
+          {editable && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title={
+                draft.saving ? '保存中…' : draft.text === draft.saved ? '已保存' : '保存 (Ctrl+S)'
+              }
+              aria-label="保存笔记"
+              disabled={draft.saving || !dirty}
+              onClick={() => run(useWorkspace.getState().save(documentKey))}
+            >
+              <Save />
+            </Button>
+          )}
+          {sourceId && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title="加入文件夹或项目"
+              aria-label="加入文件夹或项目"
+              onClick={() => onLinkSource(documentKey)}
+            >
+              <Link2 />
+            </Button>
+          )}
+          {sourceId?.startsWith('file:') && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title="下载文件"
+              aria-label="下载文件"
+              onClick={() => window.dela && run(window.dela.canvas.download(sourceId))}
+            >
+              <Download />
+            </Button>
+          )}
+          {draft.content.url && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title="打开原文"
+              aria-label="打开原文"
+              onClick={() => link(draft.content.url!)}
+            >
+              <ExternalLink />
+            </Button>
+          )}
+          {editable && markdown && !forcedSource && (
+            <Button
+              size="icon-sm"
+              variant={effectiveMode === 'source' ? 'secondary' : 'ghost'}
+              title={effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
+              aria-label={effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
+              aria-pressed={effectiveMode === 'source'}
+              onClick={() => changeMode(effectiveMode === 'source' ? 'rich' : 'source')}
+            >
+              <Code />
+            </Button>
+          )}
+          {(entry?.kind === 'local' || entry?.kind === 'imported') && markdown && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title="创建可编辑副本"
+              aria-label="创建可编辑副本"
+              onClick={createCopy}
+            >
+              <CopyPlus />
+            </Button>
+          )}
+          {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              title="在文件夹中显示"
+              aria-label="在文件夹中显示"
+              onClick={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
+            >
+              <FolderOpen />
+            </Button>
+          )}
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title="重新载入"
+            aria-label="重新载入"
+            onClick={() => {
+              if (
+                draft.text === draft.saved ||
+                window.confirm('重新载入会抛弃当前未保存的草稿，是否继续？')
+              )
+                run(useWorkspace.getState().read(documentKey, true));
+            }}
+          >
+            <RefreshCw />
+          </Button>
+        </div>
       </div>
       {(error || draft.error) && (
         <div

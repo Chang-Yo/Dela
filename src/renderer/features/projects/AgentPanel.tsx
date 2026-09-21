@@ -59,7 +59,17 @@ export function AgentPanel({
       aria-label="学习生活助手"
       className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/40"
     >
-      <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3">
+      <div className="flex h-10 shrink-0 items-center gap-1 border-b px-3">
+        {onCollapse && (
+          <PanelToggleButton
+            className="lg:hidden"
+            collapsed={false}
+            controlsId="workspace-agent"
+            label="助手"
+            side="right"
+            onToggle={onCollapse}
+          />
+        )}
         <strong className="flex-1 text-xs font-medium">助手</strong>
         <Button
           aria-label="历史对话"
@@ -82,15 +92,6 @@ export function AgentPanel({
         >
           <SquarePen />
         </Button>
-        {onCollapse && (
-          <PanelToggleButton
-            collapsed={false}
-            controlsId="workspace-agent"
-            label="助手"
-            side="right"
-            onToggle={onCollapse}
-          />
-        )}
       </div>
       {!chat?.configured && <ModelKeyForm onConfigured={chatState.refresh} />}
       {conversation ? (
@@ -102,7 +103,7 @@ export function AgentPanel({
           </p>
         </div>
       )}
-      <div className="shrink-0 border-t p-3">
+      <div className="shrink-0 p-3">
         <ChatComposer
           attachments={chatState.attachments}
           busy={busy}
@@ -129,9 +130,6 @@ export function AgentPanel({
             {error}
           </p>
         )}
-        <p className="mt-2 text-xs text-muted-foreground">
-          对话、引用资料及工具读取的内容会提供给{chat?.providerName ?? '模型服务'}。
-        </p>
       </div>
       <ChatSessions
         currentSessionId={chat?.sessionId ?? null}
@@ -141,6 +139,7 @@ export function AgentPanel({
         onOpenSession={chatState.openSession}
         open={sessionsOpen}
         scope={scope}
+        side="right"
       />
     </aside>
   );

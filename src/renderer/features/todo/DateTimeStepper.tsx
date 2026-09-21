@@ -42,7 +42,10 @@ function step(date: Date, field: StepperField, delta: 1 | -1): Date {
 }
 
 // 按住连发：立刻执行一次，短暂延迟后以固定间隔重复，松开或移出按钮即停止。
+// 经 ref 转发最新回调，否则 interval 持有按下时的旧闭包，连发只会基于旧值原地重复。
 function useHoldRepeat(action: () => void) {
+  const actionRef = useRef(action);
+  actionRef.current = action;
   const timeout = useRef<number | undefined>(undefined);
   const interval = useRef<number | undefined>(undefined);
   useEffect(
@@ -58,9 +61,9 @@ function useHoldRepeat(action: () => void) {
   };
   const start = () => {
     stop();
-    action();
+    actionRef.current();
     timeout.current = window.setTimeout(() => {
-      interval.current = window.setInterval(action, 64);
+      interval.current = window.setInterval(() => actionRef.current(), 64);
     }, 400);
   };
   return { onPointerDown: start, onPointerUp: stop, onPointerLeave: stop } as const;
@@ -99,9 +102,11 @@ function StepperColumn({
 
 /** 年/月/日/时/分 五列步进选择器：每列上方 ^ 增、下方 v 减，按住可连发。 */
 export function DateTimeStepper({
+  label = '截止时间',
   value,
   onChange,
 }: {
+  label?: string;
   value: Date;
   onChange: (date: Date) => void;
 }) {
@@ -114,7 +119,7 @@ export function DateTimeStepper({
     { display: `${pad(value.getMinutes())}分`, field: 'minute', label: '分钟' },
   ];
   return (
-    <div aria-label="截止时间" className="flex items-start justify-center gap-1" role="group">
+    <div aria-label={label} className="flex items-start justify-center gap-1" role="group">
       {columns.map((column) => (
         <StepperColumn
           display={column.display}

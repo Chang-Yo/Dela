@@ -18,7 +18,7 @@ import {
   FolderInput,
   FolderPlus,
   GraduationCap,
-  MessageSquare,
+  Square,
   RefreshCw,
   Search,
   Ellipsis,
@@ -37,6 +37,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
@@ -126,10 +128,7 @@ function defaultEditorLayout(
         group?.active && groupTabs.includes(group.active)
           ? group.active
           : (groupTabs.at(-1) ?? null),
-      preview:
-        typeof group?.preview === 'string' && groupTabs.includes(group.preview)
-          ? group.preview
-          : null,
+      preview: null,
     };
   };
   const groups = {
@@ -139,7 +138,8 @@ function defaultEditorLayout(
   const seen = new Set<string>();
   for (const group of [groups.primary, groups.secondary]) {
     group.tabs = group.tabs.filter((key) => {
-      if (seen.has(key) || seen.size >= MAX_EDITOR_TABS) return false;
+      // 同一文档可以在两个编辑组各有一个标签；上限仍按文档去重计数。
+      if (!seen.has(key) && seen.size >= MAX_EDITOR_TABS) return false;
       seen.add(key);
       return true;
     });
@@ -382,12 +382,11 @@ export function ProjectView({
         width,
         Math.max(SIDEBAR_MIN_WIDTH, shellWidth - EDITOR_MIN_WIDTH - (agentOpen ? agentWidth : 0)),
       );
-  const effectiveAgentWidth = agentOpen
-    ? Math.min(
-        agentWidth,
-        Math.max(AGENT_MIN_WIDTH, shellWidth - EDITOR_MIN_WIDTH - effectiveSidebarWidth),
-      )
-    : 0;
+  const availableAgentWidth = Math.min(
+    agentWidth,
+    Math.max(AGENT_MIN_WIDTH, shellWidth - EDITOR_MIN_WIDTH - effectiveSidebarWidth),
+  );
+  const effectiveAgentWidth = agentOpen ? availableAgentWidth : 0;
   useEffect(
     () => () => {
       if (scrollTimer.current) clearTimeout(scrollTimer.current);
@@ -452,7 +451,7 @@ export function ProjectView({
     const active = next.groups[next.focus].active;
     updateView({ tabs: layoutTabs(next), active });
   };
-  const open = (key: string, group: EditorGroupId = focusedGroup, pin = false) => {
+  const open = (key: string, group: EditorGroupId = focusedGroup, pin = true) => {
     /* 与 closeTab 一致：从 ref 读布局、从 store 读草稿。submit 在 await 之后调用本函数时，
        渲染闭包里的 editorLayout/drafts 已过期，直接用会把旧布局写回去。 */
     const layout = editorLayoutRef.current;
@@ -576,8 +575,8 @@ export function ProjectView({
     persistEditorLayout(next);
     syncView(next);
   };
-  const toggleSplit = () => {
-    if (editorLayout.split) {
+  const toggleSplit = (orientation?: SplitOrientation) => {
+    if (editorLayout.split && !orientation) {
       // 合并时分栏的标签并入主组，避免留下任何界面都看不到的“幽灵”标签。
       const primary = editorLayout.groups.primary;
       const secondary = editorLayout.groups.secondary;
@@ -594,6 +593,7 @@ export function ProjectView({
             active: focused.active ?? other.active,
             preview: focused.preview ?? other.preview,
           },
+          secondary: { tabs: [], active: null, preview: null },
         },
       };
       persistEditorLayout(next);
@@ -605,7 +605,8 @@ export function ProjectView({
     const next = {
       ...editorLayout,
       split: true,
-      focus: 'secondary' as EditorGroupId,
+      orientation: orientation ?? editorLayout.orientation,
+      focus: editorLayout.split ? focusedGroup : ('secondary' as EditorGroupId),
       groups: {
         ...editorLayout.groups,
         secondary: {
@@ -897,113 +898,187 @@ export function ProjectView({
   const renderTabs = (group: EditorGroupId) => {
     const state = editorLayout.groups[group];
     return (
-      <div
-        role="tablist"
-        aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器标签页`}
-        className="flex h-10 min-w-0 shrink-0 overflow-x-auto border-b bg-muted/20 [scrollbar-width:none]"
-        onWheel={(event) => {
-          // 纵向滚轮在标签栏内转为横向滚动（VSCode 行为），触控板横向滚动原生支持。
-          if (event.deltaY !== 0) event.currentTarget.scrollLeft += event.deltaY;
-        }}
-        onDragOver={(event) => {
-          if (event.dataTransfer.types.includes('application/x-dela-editor-tab')) {
+      <div className="flex h-10 min-w-0 shrink-0 border-b bg-muted/20">
+        {group === 'primary' && (
+          <Button
+            className="my-auto md:hidden"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="打开目录"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Folder />
+          </Button>
+        )}
+        <div
+          role="tablist"
+          aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器标签页`}
+          className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"
+          onWheel={(event) => {
+            // 纵向滚轮在标签栏内转为横向滚动（VSCode 行为），触控板横向滚动原生支持。
+            if (event.deltaY !== 0) event.currentTarget.scrollLeft += event.deltaY;
+          }}
+          onDragOver={(event) => {
+            if (event.dataTransfer.types.includes('application/x-dela-editor-tab')) {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+            }
+          }}
+          onDrop={(event) => {
             event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-          }
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
-          if (!raw) return;
-          try {
-            const payload = JSON.parse(raw) as { key?: string; group?: EditorGroupId };
-            if (!payload.key || (payload.group !== 'primary' && payload.group !== 'secondary'))
-              return;
-            const target = (event.target as HTMLElement).closest('[data-editor-tab]');
-            const index = target
-              ? Array.from(event.currentTarget.querySelectorAll('[data-editor-tab]')).indexOf(
-                  target,
-                )
-              : state.tabs.length;
-            moveTab(payload.key, payload.group, group, index);
-          } catch {
-            // Ignore data from unrelated drag sources.
-          }
-        }}
-        onDoubleClick={(event) => {
-          if (event.target === event.currentTarget) newNote('');
-        }}
-      >
-        {state.tabs.map((key) => {
-          const dirty = Boolean(drafts[key] && drafts[key].text !== drafts[key].saved);
-          const active = state.active === key;
-          return (
-            <ContextMenu key={key}>
-              <ContextMenuTrigger asChild>
-                <div
-                  data-editor-tab
-                  draggable
-                  className={cn(
-                    'group/tab flex h-10 max-w-56 shrink-0 items-center border-r border-b-2 px-1',
-                    active ? 'border-b-foreground bg-background' : 'border-b-transparent',
-                  )}
-                  onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData(
-                      'application/x-dela-editor-tab',
-                      JSON.stringify({ key, group }),
-                    );
-                  }}
-                  onAuxClick={(event) => {
-                    if (event.button === 1) {
-                      event.preventDefault();
-                      void closeTab(key, group);
-                    }
-                  }}
-                  onDoubleClick={() => pinTab(key, group)}
-                >
-                  <button
-                    role="tab"
-                    aria-selected={active}
-                    className="min-w-0 flex-1 truncate px-2 text-left text-xs"
-                    title={title(key)}
-                    onClick={() => open(key, group)}
+            const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
+            if (!raw) return;
+            try {
+              const payload = JSON.parse(raw) as { key?: string; group?: EditorGroupId };
+              if (!payload.key || (payload.group !== 'primary' && payload.group !== 'secondary'))
+                return;
+              const target = (event.target as HTMLElement).closest('[data-editor-tab]');
+              const index = target
+                ? Array.from(event.currentTarget.querySelectorAll('[data-editor-tab]')).indexOf(
+                    target,
+                  )
+                : state.tabs.length;
+              moveTab(payload.key, payload.group, group, index);
+            } catch {
+              // Ignore data from unrelated drag sources.
+            }
+          }}
+          onDoubleClick={(event) => {
+            if (event.target === event.currentTarget) newNote('');
+          }}
+        >
+          {state.tabs.map((key) => {
+            const dirty = Boolean(drafts[key] && drafts[key].text !== drafts[key].saved);
+            const active = state.active === key;
+            return (
+              <ContextMenu key={key}>
+                <ContextMenuTrigger asChild>
+                  <div
+                    data-editor-tab
+                    draggable
+                    className={cn(
+                      'group/tab flex h-10 max-w-56 shrink-0 items-center border-r border-b-2 px-1',
+                      active ? 'border-b-foreground bg-background' : 'border-b-transparent',
+                    )}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData(
+                        'application/x-dela-editor-tab',
+                        JSON.stringify({ key, group }),
+                      );
+                    }}
+                    onAuxClick={(event) => {
+                      if (event.button === 1) {
+                        event.preventDefault();
+                        void closeTab(key, group);
+                      }
+                    }}
+                    onDoubleClick={() => pinTab(key, group)}
                   >
-                    <span className={cn(state.preview === key && 'italic')}>{title(key)}</span>
-                  </button>
-                  <button
-                    className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted"
-                    aria-label={`关闭 ${title(key)}`}
-                    title={dirty ? '关闭（将先保存修改）' : '关闭'}
-                    onClick={() => void closeTab(key, group)}
-                  >
-                    {dirty ? (
-                      <span
-                        className="size-2 rounded-full bg-foreground group-hover/tab:hidden"
-                        aria-hidden
+                    <button
+                      role="tab"
+                      aria-selected={active}
+                      className="min-w-0 flex-1 truncate px-2 text-left text-xs"
+                      title={title(key)}
+                      onClick={() => open(key, group)}
+                    >
+                      <span className={cn(state.preview === key && 'italic')}>{title(key)}</span>
+                    </button>
+                    <button
+                      className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted"
+                      aria-label={`关闭 ${title(key)}`}
+                      title={dirty ? '关闭（将先保存修改）' : '关闭'}
+                      onClick={() => void closeTab(key, group)}
+                    >
+                      {dirty ? (
+                        <span
+                          className="size-2 rounded-full bg-foreground group-hover/tab:hidden"
+                          aria-hidden
+                        />
+                      ) : null}
+                      <X
+                        className={cn('size-3', dirty ? 'hidden group-hover/tab:block' : 'block')}
                       />
-                    ) : null}
-                    <X className={cn('size-3', dirty ? 'hidden group-hover/tab:block' : 'block')} />
-                  </button>
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem onSelect={() => void closeTab(key, group)}>关闭</ContextMenuItem>
-                <ContextMenuItem onSelect={() => void closeTabs(key, group, 'others')}>
-                  关闭其他
-                </ContextMenuItem>
-                <ContextMenuItem onSelect={() => void closeTabs(key, group, 'right')}>
-                  关闭右侧
-                </ContextMenuItem>
-                <ContextMenuItem onSelect={() => void closeTabs(key, group, 'all')}>
-                  关闭全部
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          );
-        })}
-        {!state.tabs.length && (
-          <span className="flex items-center px-3 text-xs text-muted-foreground">未打开文件</span>
+                    </button>
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onSelect={() => void closeTab(key, group)}>关闭</ContextMenuItem>
+                  <ContextMenuItem onSelect={() => void closeTabs(key, group, 'others')}>
+                    关闭其他
+                  </ContextMenuItem>
+                  <ContextMenuItem onSelect={() => void closeTabs(key, group, 'right')}>
+                    关闭右侧
+                  </ContextMenuItem>
+                  <ContextMenuItem onSelect={() => void closeTabs(key, group, 'all')}>
+                    关闭全部
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            );
+          })}
+          {!state.tabs.length && (
+            <span className="flex items-center px-3 text-xs text-muted-foreground">未打开文件</span>
+          )}
+        </div>
+        {group ===
+          (editorLayout.split && editorLayout.orientation === 'vertical'
+            ? 'secondary'
+            : 'primary') && (
+          <div
+            className="flex shrink-0 items-center gap-1 px-1"
+            role="toolbar"
+            aria-label="工作区布局"
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant={editorLayout.split ? 'secondary' : 'ghost'}
+                  title="编辑器布局"
+                  aria-label={`编辑器布局：${!editorLayout.split ? '单栏' : editorLayout.orientation === 'vertical' ? '左右分栏' : '上下分栏'}`}
+                >
+                  {!editorLayout.split ? (
+                    <Square />
+                  ) : editorLayout.orientation === 'vertical' ? (
+                    <Columns2 />
+                  ) : (
+                    <Rows2 />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuRadioGroup
+                  value={editorLayout.split ? editorLayout.orientation : 'single'}
+                  onValueChange={(value) => {
+                    if (value === 'single') {
+                      if (editorLayout.split) toggleSplit();
+                    } else if (value === 'vertical' || value === 'horizontal') toggleSplit(value);
+                  }}
+                >
+                  <DropdownMenuRadioItem value="single">
+                    <Square />
+                    单栏（合并编辑组）
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="vertical">
+                    <Columns2 />
+                    左右分栏
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="horizontal">
+                    <Rows2 />
+                    上下分栏
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <PanelToggleButton
+              collapsed={!agentOpen}
+              controlsId="workspace-agent"
+              label="助手"
+              side="right"
+              onToggle={() => setAgentOpen((value) => !value)}
+            />
+          </div>
         )}
       </div>
     );
@@ -1409,55 +1484,6 @@ export function ProjectView({
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex h-11 shrink-0 items-center border-b px-2">
-          <Button
-            className="md:hidden"
-            size="icon-sm"
-            variant="ghost"
-            aria-label="打开目录"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Folder />
-          </Button>
-          <span className="min-w-0 flex-1 truncate px-2 text-xs font-medium text-muted-foreground">
-            {activeKey ? title(activeKey) : '编辑器'}
-          </span>
-          <Button
-            size="icon-sm"
-            variant={editorLayout.split ? 'secondary' : 'ghost'}
-            title={editorLayout.split ? '合并编辑组' : '拆分编辑组（Ctrl/Cmd+\\）'}
-            aria-label={editorLayout.split ? '合并编辑组' : '拆分编辑组'}
-            onClick={toggleSplit}
-          >
-            <Columns2 />
-          </Button>
-          {editorLayout.split && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title={editorLayout.orientation === 'vertical' ? '改为上下分栏' : '改为左右分栏'}
-              aria-label="切换分栏方向"
-              onClick={() =>
-                persistEditorLayout({
-                  ...editorLayout,
-                  orientation: editorLayout.orientation === 'vertical' ? 'horizontal' : 'vertical',
-                })
-              }
-            >
-              <Rows2 />
-            </Button>
-          )}
-          <Button
-            className={cn(!activeKey && 'ml-auto')}
-            size="icon-sm"
-            variant="ghost"
-            title="助手"
-            aria-label="打开助手"
-            onClick={() => setAgentOpen((value) => !value)}
-          >
-            <MessageSquare />
-          </Button>
-        </div>
         {globalError && (
           <div
             role="alert"
@@ -1503,32 +1529,42 @@ export function ProjectView({
         </div>
       </div>
       {agentOpen && (
-        <>
-          <Resizer
-            className="max-lg:hidden"
-            label="调整助手宽度"
-            min={AGENT_MIN_WIDTH}
-            max={Math.min(520, Math.max(AGENT_MIN_WIDTH, shellWidth * 0.45))}
-            defaultValue={AGENT_DEFAULT_WIDTH}
-            direction={-1}
-            value={agentWidth}
-            onChange={setAgentWidth}
-          />
-          <div
-            className="flex min-h-0 shrink-0 border-l max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:!w-full max-lg:bg-background"
-            style={{ width: effectiveAgentWidth }}
-          >
-            <AgentPanel
-              scope={scope}
-              tabs={allTabs}
-              chatRequest={chatRequest}
-              onCollapse={() => setAgentOpen(false)}
-              onSaveNote={(text) => show({ action: 'note', id: currentContainer(), text })}
-              onOpen={(key) => open(key, focusedGroup, true)}
-            />
-          </div>
-        </>
+        <Resizer
+          className="max-lg:hidden"
+          label="调整助手宽度"
+          min={AGENT_MIN_WIDTH}
+          max={Math.min(520, Math.max(AGENT_MIN_WIDTH, shellWidth * 0.45))}
+          defaultValue={AGENT_DEFAULT_WIDTH}
+          direction={-1}
+          value={agentWidth}
+          onChange={setAgentWidth}
+          onResizingChange={setResizing}
+        />
       )}
+      <div
+        inert={!agentOpen}
+        aria-hidden={!agentOpen}
+        className={cn(
+          'flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-150 ease-out motion-reduce:transition-none max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:bg-background',
+          resizing && 'transition-none',
+          agentOpen ? 'max-lg:!w-full' : 'max-lg:!w-0',
+        )}
+        style={{ width: effectiveAgentWidth }}
+      >
+        <div
+          className="flex min-h-0 shrink-0 border-l max-lg:!w-full"
+          style={{ width: availableAgentWidth }}
+        >
+          <AgentPanel
+            scope={scope}
+            tabs={allTabs}
+            chatRequest={chatRequest}
+            onCollapse={() => setAgentOpen(false)}
+            onSaveNote={(text) => show({ action: 'note', id: currentContainer(), text })}
+            onOpen={(key) => open(key, focusedGroup, true)}
+          />
+        </div>
+      </div>
       <Dialog.Root
         open={modal !== null}
         onOpenChange={(value) => {
