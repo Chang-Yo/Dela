@@ -292,6 +292,8 @@ export interface ShuiyuanPost {
   readonly cooked: string;
   readonly replyToPostNumber: number | null;
   readonly likeCount: number | null;
+  /** 当前用户是否已点赞（actions_summary id=2 acted）。 */
+  readonly liked: boolean;
   readonly yours: boolean;
 }
 
@@ -327,9 +329,16 @@ export interface ShuiyuanTag {
   readonly topicCount: number | null;
 }
 
+/** 站点自定义 emoji（site.json custom_emoji）；标题里内联为远程图片。 */
+export interface ShuiyuanCustomEmoji {
+  readonly name: string;
+  readonly url: string;
+}
+
 export interface ShuiyuanSiteStructure {
   readonly categories: readonly ShuiyuanCategory[];
   readonly tags: readonly ShuiyuanTag[];
+  readonly customEmoji: readonly ShuiyuanCustomEmoji[];
 }
 
 export interface ShuiyuanNotificationItem {
@@ -410,6 +419,12 @@ export interface ShuiyuanApi {
   getCounts(): Promise<ShuiyuanCounts>;
   /** 回复主题或私信会话；返回新楼层。replyToPostNumber 为楼层级回复目标（Discourse reply_to_post_number）。 */
   createReply(topicId: number, raw: string, replyToPostNumber?: number): Promise<ShuiyuanPost>;
+  /**
+   * 点赞/取消点赞楼层（Discourse post_action_type_id=2）。
+   * 实测（2026-09-21）：点赞 200；取消点赞被站点以 403 拒绝（User API Key write scope 不含
+   * post_actions#destroy），已点赞状态只能去网页端撤销。
+   */
+  setLiked(postId: number, liked: boolean): Promise<void>;
   /**
    * 上传 Composer 附件（Discourse `/uploads.json` multipart）。
    * 该端点未实测：站点若禁用匿名上传路径或调整限制，以错误提示暴露。

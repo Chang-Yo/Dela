@@ -1,5 +1,6 @@
 import { Eye, Mail, MessageSquare, Pin } from 'lucide-react';
 import type { ShuiyuanTopicSummary } from '../../../shared/api';
+import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, useShuiyuan } from './store';
 import { formatCount, formatListDate } from './shuiyuan-format';
 
@@ -17,47 +18,52 @@ function TopicRow({ topic, showExcerpt }: { topic: ShuiyuanTopicSummary; showExc
         {topic.pinned ? (
           <Pin aria-label="置顶" className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
         ) : null}
-        <span className="line-clamp-2 text-[15px] font-medium leading-snug">{topic.title}</span>
+        <span className="line-clamp-2 text-[15px] font-medium leading-snug">
+          <ShuiyuanTitle text={topic.title} />
+        </span>
       </div>
       {showExcerpt && topic.excerpt ? (
         <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
           {topic.excerpt}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] tabular-nums text-muted-foreground">
-        {category ? (
-          <span className="flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className="size-2 rounded-full"
-              style={{ backgroundColor: category.color }}
-            />
-            {category.name}
+      <div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 text-[11px] tabular-nums text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          {category ? (
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="size-2 rounded-full"
+                style={{ backgroundColor: category.color }}
+              />
+              {category.name}
+            </span>
+          ) : null}
+          {topic.archetype === 'private_message' ? (
+            <span className="flex items-center gap-1">
+              <Mail className="size-3" />
+              私信
+            </span>
+          ) : null}
+          {topic.tags.slice(0, 2).map((tag) => (
+            <span className="rounded bg-muted px-1.5 py-px" key={tag}>
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-2.5">
+          <span className="flex items-center gap-1" title="回复数">
+            <MessageSquare aria-hidden="true" className="size-3" strokeWidth={1.8} />
+            {topic.postsCount > 1 ? topic.postsCount - 1 : 0}
+            <span className="sr-only">回复</span>
           </span>
-        ) : null}
-        {topic.archetype === 'private_message' ? (
-          <span className="flex items-center gap-1">
-            <Mail className="size-3" />
-            私信
+          <span className="flex items-center gap-1" title="浏览数">
+            <Eye aria-hidden="true" className="size-3" strokeWidth={1.8} />
+            {formatCount(topic.views)}
+            <span className="sr-only">浏览</span>
           </span>
-        ) : null}
-        {topic.tags.slice(0, 2).map((tag) => (
-          <span className="rounded bg-muted px-1.5 py-px" key={tag}>
-            {tag}
-          </span>
-        ))}
-        <span className="flex items-center gap-1" title="回复数">
-          <MessageSquare aria-hidden="true" className="size-3" strokeWidth={1.8} />
-          {topic.postsCount > 1 ? topic.postsCount - 1 : 0}
-          <span className="sr-only">回复</span>
-        </span>
-        <span className="flex items-center gap-1" title="浏览数">
-          <Eye aria-hidden="true" className="size-3" strokeWidth={1.8} />
-          {formatCount(topic.views)}
-          <span className="sr-only">浏览</span>
-        </span>
-        <span aria-hidden="true">·</span>
-        <span>{formatListDate(topic.lastPostedAt ?? topic.createdAt)}</span>
+          <span>{formatListDate(topic.lastPostedAt ?? topic.createdAt)}</span>
+        </div>
       </div>
     </button>
   );

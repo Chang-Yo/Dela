@@ -184,6 +184,8 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('shuiyuan:create-message', [...to], title, raw),
     setBookmarked: (topicId: number, on: boolean) =>
       ipcRenderer.invoke('shuiyuan:set-bookmarked', topicId, on),
+    setLiked: (postId: number, liked: boolean) =>
+      ipcRenderer.invoke('shuiyuan:set-liked', postId, liked),
     addSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:add-source-ref', topicId),
     getSourceRef: (topicId: number) => ipcRenderer.invoke('shuiyuan:get-source-ref', topicId),
     readSource: (topicId: number) => ipcRenderer.invoke('shuiyuan:read-source', topicId),

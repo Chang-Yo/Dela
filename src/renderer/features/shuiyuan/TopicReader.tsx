@@ -14,14 +14,72 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
+import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, useShuiyuan } from './store';
 import { avatarUrl, formatCount, formatListDate } from './shuiyuan-format';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ReplyComposer } from './ReplyComposer';
 import { AddToProjectDialog } from './AddToProjectDialog';
+import type { ShuiyuanPost } from '../../../shared/api';
 
 function stripToText(html: string): string {
   return new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+}
+
+type PostActionsProps = {
+  post: ShuiyuanPost;
+  onLike: (postId: number, liked: boolean) => void;
+  onQuote: (post: ShuiyuanPost) => void;
+  onReply: (post: ShuiyuanPost) => void;
+};
+
+/**
+ * 楼层操作行（常驻可见，不依赖悬停）：喜爱 / 引用 / 回复。
+ * 站点实测（2026-09-21）：点赞可用；User API Key 无法取消点赞，已赞状态按钮不可再点。
+ */
+function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
+  const likeCount = post.likeCount ?? 0;
+  return (
+    <footer className="mt-2.5 flex items-center justify-end gap-1">
+      <button
+        aria-label={post.liked ? '已喜爱（取消需到水源网页端）' : '喜爱'}
+        className={cn(
+          'flex h-7 items-center gap-1 rounded-md px-1.5 text-xs tabular-nums transition-colors',
+          post.liked
+            ? 'cursor-default text-destructive'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+        )}
+        disabled={post.liked}
+        onClick={() => onLike(post.id, true)}
+        title={post.liked ? '已喜爱（站点限制：取消点赞需到水源网页端）' : '喜爱'}
+        type="button"
+      >
+        <Heart
+          aria-hidden="true"
+          className={cn('size-3.5', post.liked && 'fill-current')}
+          strokeWidth={1.8}
+        />
+        {likeCount > 0 ? likeCount : null}
+      </button>
+      <button
+        aria-label={`引用第 ${post.postNumber} 楼`}
+        className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        onClick={() => onQuote(post)}
+        title="引用"
+        type="button"
+      >
+        <Quote className="size-3.5" strokeWidth={1.8} />
+      </button>
+      <button
+        className="flex h-7 items-center gap-1.5 rounded-md bg-muted/60 px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-accent hover:text-foreground"
+        onClick={() => onReply(post)}
+        type="button"
+      >
+        <Reply aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
+        回复
+      </button>
+    </footer>
+  );
 }
 
 /** 宽屏（≥1024px）时回复器停靠右侧栏（按需展开）；窄屏退回底部折叠条。 */
@@ -67,7 +125,7 @@ export function TopicReaderHeader() {
       ) : null}
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-[13px] font-semibold leading-tight">
-          {detail?.title ?? '正在加载…'}
+          {detail ? <ShuiyuanTitle text={detail.title} /> : '正在加载…'}
         </h1>
         {detail ? (
           <p className="mt-0.5 flex items-center gap-x-2 truncate text-[11px] tabular-nums text-muted-foreground">
@@ -163,6 +221,7 @@ export function TopicReader() {
   const openTopic = useShuiyuan((state) => state.openTopic);
   const loadMorePosts = useShuiyuan((state) => state.loadMorePosts);
   const submitReply = useShuiyuan((state) => state.submitReply);
+  const setLiked = useShuiyuan((state) => state.setLiked);
   const docked = useDockedComposer();
   const [draft, setDraft] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
@@ -300,33 +359,6 @@ export function TopicReader() {
                         </span>
                       ) : null}
                       <div className="flex-1" />
-                      {post.likeCount ? (
-                        <span className="flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
-                          <Heart aria-hidden="true" className="size-3" />
-                          {post.likeCount}
-                        </span>
-                      ) : null}
-                      <button
-                        aria-label={`回复第 ${post.postNumber} 楼`}
-                        className="grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-100"
-                        onClick={() => {
-                          setReplyTarget({ postNumber: post.postNumber, username: post.username });
-                          setComposerOpen(true);
-                        }}
-                        title="回复"
-                        type="button"
-                      >
-                        <Reply className="size-3.5" />
-                      </button>
-                      <button
-                        aria-label={`引用第 ${post.postNumber} 楼`}
-                        className="grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-100"
-                        onClick={() => quote(post.username, post.postNumber, post.cooked)}
-                        title="引用"
-                        type="button"
-                      >
-                        <Quote className="size-3.5" />
-                      </button>
                     </div>
                     <div className="mt-2">
                       <ShuiyuanHtmlBody
@@ -335,6 +367,18 @@ export function TopicReader() {
                         title={`第 ${post.postNumber} 楼`}
                       />
                     </div>
+                    <PostActions
+                      onQuote={(target) => quote(target.username, target.postNumber, target.cooked)}
+                      onLike={(postId, liked) => void setLiked(postId, liked)}
+                      onReply={(target) => {
+                        setReplyTarget({
+                          postNumber: target.postNumber,
+                          username: target.username,
+                        });
+                        setComposerOpen(true);
+                      }}
+                      post={post}
+                    />
                   </article>
                 );
               })}
@@ -356,7 +400,7 @@ export function TopicReader() {
           {docked && detail && !composerOpen && !detail.closed ? (
             <div className="border-t bg-background px-5 py-3 max-md:px-4">
               <button
-                className="mx-auto flex h-9 w-full max-w-2xl items-center gap-2 rounded-xl border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent/50"
+                className="mx-auto flex h-10 w-full max-w-2xl items-center gap-2 rounded-xl border border-input bg-background px-3.5 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:border-ring/40 hover:bg-accent/50"
                 onClick={() => setComposerOpen(true)}
                 type="button"
               >

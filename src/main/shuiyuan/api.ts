@@ -7,6 +7,7 @@ import type {
   ShuiyuanBookmarkItem,
   ShuiyuanCategory,
   ShuiyuanCounts,
+  ShuiyuanCustomEmoji,
   ShuiyuanFeed,
   ShuiyuanNotificationItem,
   ShuiyuanPost,
@@ -243,7 +244,16 @@ const rawPostSchema = z
     reply_to_post_number: z.number().nullish(),
     yours: z.boolean().nullish(),
     actions_summary: z
-      .array(z.object({ id: z.number(), count: z.number().nullish() }).passthrough())
+      .array(
+        z
+          .object({
+            id: z.number(),
+            count: z.number().nullish(),
+            acted: z.boolean().nullish(),
+            can_act: z.boolean().nullish(),
+          })
+          .passthrough(),
+      )
       .nullish(),
   })
   .passthrough();
@@ -333,6 +343,7 @@ function mapPost(raw: z.infer<typeof rawPostSchema>): ShuiyuanPost {
     cooked: raw.cooked ?? '',
     replyToPostNumber: raw.reply_to_post_number ?? null,
     likeCount: like?.count ?? null,
+    liked: like?.acted ?? false,
     yours: raw.yours ?? false,
   };
 }
@@ -378,6 +389,7 @@ export async function getShuiyuanSiteStructure(): Promise<ShuiyuanSiteStructure>
   const site = (await shuiyuanRequest('/site.json')) as {
     categories?: Array<Record<string, unknown>>;
     top_tags?: Array<Record<string, unknown>>;
+    custom_emoji?: Array<Record<string, unknown>>;
   } | null;
   const categories: ShuiyuanCategory[] = (site?.categories ?? [])
     .map((raw) => ({
@@ -396,7 +408,13 @@ export async function getShuiyuanSiteStructure(): Promise<ShuiyuanSiteStructure>
       topicCount: typeof raw.topic_count === 'number' ? (raw.topic_count as number) : null,
     }))
     .filter((tag) => tag.name);
-  cachedStructure = { value: { categories, tags }, at: Date.now() };
+  const customEmoji: ShuiyuanCustomEmoji[] = (site?.custom_emoji ?? [])
+    .map((raw) => ({
+      name: typeof raw.name === 'string' ? raw.name : '',
+      url: typeof raw.url === 'string' ? raw.url : '',
+    }))
+    .filter((emoji) => emoji.name && emoji.url);
+  cachedStructure = { value: { categories, tags, customEmoji }, at: Date.now() };
   return cachedStructure.value;
 }
 
@@ -628,6 +646,26 @@ export async function createShuiyuanReply(
     }),
   });
   return mapPost(rawPostSchema.parse(payload));
+}
+
+/**
+ * 点赞/取消点赞楼层（Discourse post_action_type_id=2）。
+ * 2026-09-21 以真实 key 实测：POST /post_actions.json 200；DELETE 被站点 403 拒绝
+ * （write scope 不含 post_actions#destroy），取消只能引导用户去网页端操作。
+ */
+export async function setShuiyuanLiked(postIdInput: unknown, likedInput: unknown): Promise<void> {
+  const postId = z.number().int().positive().parse(postIdInput);
+  const liked = z.boolean().parse(likedInput);
+  if (liked) {
+    await shuiyuanRequest('/post_actions.json', {
+      method: 'POST',
+      body: JSON.stringify({ id: postId, post_action_type_id: 2 }),
+    });
+  } else {
+    await shuiyuanRequest(`/post_actions/${postId}.json?post_action_type_id=2`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 const UPLOAD_TIMEOUT_MS = 60000;

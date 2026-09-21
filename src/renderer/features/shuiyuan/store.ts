@@ -54,6 +54,8 @@ type Store = {
   closeReading: () => void;
   loadMorePosts: () => Promise<void>;
   toggleBookmark: (topicId: number, current: boolean) => Promise<void>;
+  /** 点赞楼层（乐观更新，失败回滚并暴露错误）。站点限制：API Key 无法取消已点的赞。 */
+  setLiked: (postId: number, liked: boolean) => Promise<void>;
   submitReply: (raw: string, replyToPostNumber?: number) => Promise<void>;
   consumeTopicRequest: (request: { topicId: number; postNumber: number | null }) => void;
   /** App 层「在水源页打开」入口：记录请求并随后由视图消费。 */
@@ -295,6 +297,40 @@ export const useShuiyuan = create<Store>((set, get) => {
                   detail: { ...currentReading.detail, bookmarked: current },
                 }
               : currentReading,
+          listError: errorText(error),
+        });
+      }
+    },
+
+    setLiked: async (postId, liked) => {
+      const api = window.dela?.shuiyuan;
+      const reading = get().reading;
+      if (!api || !reading?.detail) return;
+      const postsBefore = reading.detail.posts;
+      set({
+        reading: {
+          ...reading,
+          detail: {
+            ...reading.detail,
+            posts: postsBefore.map((post) =>
+              post.id === postId
+                ? {
+                    ...post,
+                    liked,
+                    likeCount: Math.max(0, (post.likeCount ?? 0) + (liked ? 1 : -1)),
+                  }
+                : post,
+            ),
+          },
+        },
+      });
+      try {
+        await api.setLiked(postId, liked);
+      } catch (error) {
+        // 期间切帖则当前 reading 已不属于本帖，不还原；否则回滚乐观值并暴露错误。
+        if (get().reading !== reading) return;
+        set({
+          reading: { ...reading, detail: { ...reading.detail, posts: postsBefore } },
           listError: errorText(error),
         });
       }

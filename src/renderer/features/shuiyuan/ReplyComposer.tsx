@@ -332,7 +332,7 @@ export function ReplyComposer({
     return (
       <div className="border-t bg-background px-4 py-3 max-md:px-3">
         <button
-          className="mx-auto flex h-9 w-full max-w-3xl items-center gap-2 rounded-xl border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent/50"
+          className="mx-auto flex h-10 w-full max-w-3xl items-center gap-2 rounded-xl border border-input bg-background px-3.5 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:border-ring/40 hover:bg-accent/50"
           onClick={() => onExpandedChange(true)}
           type="button"
         >
