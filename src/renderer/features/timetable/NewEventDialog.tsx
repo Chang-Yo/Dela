@@ -87,10 +87,7 @@ export function NewEventDialog({
             <X />
           </Button>
         </div>
-        <form
-          className="mt-4 flex flex-col gap-4"
-          onSubmit={(event) => void submit(event)}
-        >
+        <form className="mt-4 flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
           <Input
             autoFocus
             className="h-10 border-0 bg-transparent px-0 text-[15px] font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"

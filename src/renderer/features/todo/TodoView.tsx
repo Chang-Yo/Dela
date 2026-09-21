@@ -230,11 +230,7 @@ function TodoComposer({
         if (event.key === 'Escape') onCancel();
       }}
     >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0"
-        onMouseDown={onCancel}
-      />
+      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onCancel} />
       <section
         aria-label="新建待办"
         className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl animate-in flex-col overflow-y-auto rounded-t-2xl border bg-card p-5 shadow-2xl fade-in slide-in-from-bottom-6 duration-200 max-md:px-4"
