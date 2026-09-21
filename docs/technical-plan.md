@@ -3,6 +3,8 @@
 日期：2026-09-09 制定；2026-09-18 修订（开发记录移至 [devlog.md](devlog.md)）。
 状态：本文描述产品定位、技术基线、进程边界与架构契约，是开发的首要依据。功能演进、设计裁决与验证边界的时间线见[开发记录](devlog.md)；用户最新明确决定优先于本文。
 
+2026-09-20 编辑器方向调整：目标改为以 Markdown 为持久化正文的所见即所得笔记编辑器，代码文件以只读预览和外部 VS Code 打开为主。具体目标、边界、依赖清理与实施阶段见根目录 [plan.md](../plan.md)。该计划已于 2026-09-20 实施完成（内核选型、笔记闭环、代码文件入口与集成检查，过程与验证边界见[开发记录](devlog.md)）；此前 `.dela` / Notion 式编辑器的探索不再作为后续产品目标。经核查本机无受应用管理的 `.dela` 数据，未开发迁移。
+
 ## 1. 产品定位与范围
 
 Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，提供轻量编辑与 Agent 协作的桌面工作台。
@@ -14,7 +16,7 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 - 本地单用户应用，不建设账号服务器和多租户系统。
 - 使用 Electron，保持跨平台实现，首先在 Windows 完成验收。跨平台能力不等于已经验证各平台安装包。
 - 优先完成主动打开使用的桌面工作台。移动端不纳入当前规划，也不为其提前抽象。
-- 支持 Markdown、笔记、计划、检查清单和简单文本编辑。代码开发、运行调试与复杂文档编辑交给 VS Code 等专业软件。
+- 支持 Markdown 所见即所得笔记编辑（阅读态/源码模式可切），持久化正文始终是纯 Markdown；代码文件提供只读预览与外部 VS Code 打开，代码开发、运行调试与复杂文档编辑交给专业软件。
 - 校园资料按需关联进项目；不把每封邮件、每门课程自动创建成项目。
 - 使用个人可取得的接口、标准协议和本人登录会话。以无法取得 jAccount client_id 为固定前提，不将申请官方应用凭据写入路线图。
 
@@ -28,39 +30,43 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 
 下表版本来自本次讨论期间对官方文档和 npm 元数据的核对。版本存在和声明范围兼容，不代表整个组合已通过运行验证。初始化时使用精确版本，不使用 `latest`、`^`、`~` 作为直接依赖约束；提交锁文件。
 
-| 层面          | 选型                          | 固定版本              | 职责                                                 |
-| ------------- | ----------------------------- | --------------------- | ---------------------------------------------------- |
-| 桌面运行时    | Electron                      | 44.3.0                | 窗口、Session、系统能力                              |
-| 开发运行时    | Node.js                       | 24.21.0               | 安装、开发与构建                                     |
-| 包管理        | pnpm                          | 12.3.4                | 单包依赖管理                                         |
-| 语言          | TypeScript                    | 7.0.2                 | 类型检查、共享契约                                   |
-| 构建          | Vite                          | 8.2.2                 | main/preload/renderer 构建                           |
-| React 插件    | @vitejs/plugin-react          | 6.1.1                 | JSX 转换与开发刷新                                   |
-| 界面          | react / react-dom             | 19.2.8                | 工作台 UI                                            |
-| 基础交互      | radix-ui                      | 1.6.7                 | 菜单、对话框、提示等                                 |
-| 样式          | CSS Modules + CSS Variables   | 无独立包              | 组件样式、主题变量                                   |
-| 类名组合      | clsx                          | 2.1.1                 | 组合 CSS Modules 状态与变体                          |
-| 界面过渡      | framer-motion                 | 13.2.0                | 面板、抽屉与页面切换动画                             |
-| 界面状态      | zustand                       | 5.0.15                | 面板、标签页、当前选择                               |
-| 参数校验      | zod                           | 4.5.4                 | IPC、工具参数与必要的外部数据校验                    |
-| 数据库驱动    | better-sqlite3                | 13.0.3                | 本地 SQLite 访问                                     |
-| Markdown 编辑 | @codemirror/view              | 6.43.11               | 编辑器视图                                           |
-| Markdown 语言 | @codemirror/lang-markdown     | 6.5.2                 | Markdown 编辑支持                                    |
-| 编辑器内核    | @codemirror/state             | 6.7.4                 | 编辑器状态与事务                                     |
-| 编辑器语言    | @codemirror/language          | 6.12.4                | 高亮系统（HighlightStyle）                           |
-| 编辑器命令    | @codemirror/commands          | 6.11.0                | 撤销/重做与默认键位                                  |
-| 代码块语言    | @codemirror/language-data     | 6.5.2                 | 围栏代码块语言按需加载                               |
-| 高亮标签      | @lezer/highlight              | 1.2.3                 | 语法标签定义                                         |
-| Markdown 展示 | react-markdown                | 10.1.0                | 来源详情与回复预览渲染                               |
-| 对话 Markdown | streamdown                    | 2.6.0                 | 聊天流式渲染与代码块控件                             |
-| 对话渲染插件  | @streamdown/code/math/mermaid | 1.1.1 / 1.0.2 / 1.0.2 | shiki 双主题高亮、KaTeX 公式、mermaid 图表（懒加载） |
-| 数学公式      | katex                         | 0.16.47               | LaTeX 排版内核与字体                                 |
-| GFM           | remark-gfm                    | 4.0.1                 | 表格、任务清单等                                     |
-| 代码高亮      | highlight.js                  | 11.12.0               | Markdown 代码块展示                                  |
-| 邮箱读取      | imapflow                      | 2.0.0                 | IMAP 同步与查询                                      |
-| 邮件发送      | nodemailer                    | 10.0.1                | SMTP 发送与 MIME 构建                                |
-| 安装包        | electron-builder              | 26.15.3               | 打包和分发产物                                       |
-| 逻辑测试      | vitest                        | 5.0.0                 | 状态、同步和工具执行测试                             |
+| 层面          | 选型                          | 固定版本              | 职责                                                               |
+| ------------- | ----------------------------- | --------------------- | ------------------------------------------------------------------ |
+| 桌面运行时    | Electron                      | 44.3.0                | 窗口、Session、系统能力                                            |
+| 开发运行时    | Node.js                       | 24.21.0               | 安装、开发与构建                                                   |
+| 包管理        | pnpm                          | 12.3.4                | 单包依赖管理                                                       |
+| 语言          | TypeScript                    | 7.0.2                 | 类型检查、共享契约                                                 |
+| 构建          | Vite                          | 8.2.2                 | main/preload/renderer 构建                                         |
+| React 插件    | @vitejs/plugin-react          | 6.1.1                 | JSX 转换与开发刷新                                                 |
+| 界面          | react / react-dom             | 19.2.8                | 工作台 UI                                                          |
+| 基础交互      | radix-ui                      | 1.6.7                 | 菜单、对话框、提示等                                               |
+| 样式          | CSS Modules + CSS Variables   | 无独立包              | 组件样式、主题变量                                                 |
+| 类名组合      | clsx                          | 2.1.1                 | 组合 CSS Modules 状态与变体                                        |
+| 界面过渡      | framer-motion                 | 13.2.0                | 面板、抽屉与页面切换动画                                           |
+| 界面状态      | zustand                       | 5.0.15                | 面板、标签页、当前选择                                             |
+| 参数校验      | zod                           | 4.5.4                 | IPC、工具参数与必要的外部数据校验                                  |
+| 数据库驱动    | better-sqlite3                | 13.0.3                | 本地 SQLite 访问                                                   |
+| Markdown 编辑 | @codemirror/view              | 6.43.11               | 编辑器视图                                                         |
+| Markdown 语言 | @codemirror/lang-markdown     | 6.5.2                 | Markdown 编辑支持                                                  |
+| 编辑器内核    | @codemirror/state             | 6.7.4                 | 编辑器状态与事务                                                   |
+| 编辑器语言    | @codemirror/language          | 6.12.4                | 高亮系统（HighlightStyle）                                         |
+| 编辑器命令    | @codemirror/commands          | 6.11.0                | 撤销/重做与默认键位                                                |
+| 编辑器搜索    | @codemirror/search            | 6.7.2                 | 源码模式与代码文件预览的查找面板                                   |
+| 代码块语言    | @codemirror/language-data     | 6.5.2                 | 围栏代码块语言按需加载                                             |
+| 高亮标签      | @lezer/highlight              | 1.2.3                 | 语法标签定义                                                       |
+| 所见即所得    | @milkdown/crepe               | 7.22.1                | 笔记富文本内核（ProseMirror+remark，经 @milkdown/kit 7.22.1 组装） |
+| Markdown 展示 | react-markdown                | 10.1.0                | 来源详情与回复预览渲染                                             |
+| 对话 Markdown | streamdown                    | 2.6.0                 | 聊天流式渲染与代码块控件                                           |
+| 对话渲染插件  | @streamdown/code/math/mermaid | 1.1.1 / 1.0.2 / 1.0.2 | shiki 双主题高亮、KaTeX 公式、mermaid 图表（懒加载）               |
+| 数学公式      | katex                         | 0.16.47               | LaTeX 排版内核与字体                                               |
+| GFM           | remark-gfm                    | 4.0.1                 | 表格、任务清单等                                                   |
+| emoji 映射    | gemoji                        | 8.1.0                 | 水源标题 Discourse 短代码 → Unicode emoji（纯数据表）              |
+| 代码高亮      | highlight.js                  | 11.12.0               | Markdown 代码块展示                                                |
+| 邮箱读取      | imapflow                      | 2.0.0                 | IMAP 同步与查询                                                    |
+| 邮件发送      | nodemailer                    | 10.0.1                | SMTP 发送与 MIME 构建                                              |
+| 安装包        | electron-builder              | 26.15.3               | 打包和分发产物                                                     |
+| 逻辑测试      | vitest                        | 5.0.0                 | 状态、同步和工具执行测试                                           |
+| 编辑器单测    | jsdom                         | 30.1.0                | Crepe 往返保真测试的 DOM 环境（devDependency）                     |
 
 HTTP 和模型请求使用运行时 `fetch`；凭据保护使用 Electron `safeStorage`；文件操作使用 Node.js API。不额外引入 HTTP 服务端、ORM、Agent 框架或客户端请求框架。
 
