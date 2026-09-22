@@ -258,38 +258,40 @@ function managedPath(item: WorkspaceEntry): string | null {
   return path;
 }
 
+/** 根目录迁移/移动后，把库里记录的所有受管路径改写到新位置之下；须在调用方事务内执行。 */
+function rewriteStoredPaths(from: string, to: string) {
+  const db = getDatabase();
+  const relocate = (path: string) => {
+    const suffix = relative(from, path);
+    return !isAbsolute(suffix) && suffix !== '..' && !suffix.startsWith(`..${sep}`)
+      ? join(to, suffix)
+      : path;
+  };
+  const entries = db
+    .prepare('SELECT id, local_path AS path FROM workspace_entries WHERE local_path IS NOT NULL')
+    .all() as { id: string; path: string }[];
+  for (const item of entries) {
+    const path = relocate(item.path);
+    if (path !== item.path)
+      db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, item.id);
+  }
+  const notes = db.prepare('SELECT id, path FROM workspace_notes').all() as {
+    id: string;
+    path: string;
+  }[];
+  for (const note of notes) {
+    const path = relocate(note.path);
+    if (path !== note.path)
+      db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, note.id);
+  }
+}
+
 function migrateWorkspaceRoot() {
   const oldRoot = join(directory(), '工作区');
   const root = join(directory(), 'workspace');
   if (!existsSync(oldRoot) || existsSync(root)) return;
   renameSync(oldRoot, root);
-  const replaceRoot = (path: string) => {
-    const suffix = relative(oldRoot, path);
-    return suffix === '' ||
-      (!isAbsolute(suffix) && suffix !== '..' && !suffix.startsWith(`..${sep}`))
-      ? join(root, suffix)
-      : path;
-  };
-  const db = getDatabase();
-  db.transaction(() => {
-    const entries = db
-      .prepare('SELECT id, local_path AS path FROM workspace_entries WHERE local_path IS NOT NULL')
-      .all() as { id: string; path: string }[];
-    for (const item of entries) {
-      const path = replaceRoot(item.path);
-      if (path !== item.path)
-        db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, item.id);
-    }
-    const notes = db.prepare('SELECT id, path FROM workspace_notes').all() as {
-      id: string;
-      path: string;
-    }[];
-    for (const note of notes) {
-      const path = replaceRoot(note.path);
-      if (path !== note.path)
-        db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, note.id);
-    }
-  })();
+  getDatabase().transaction(() => rewriteStoredPaths(oldRoot, root))();
 }
 
 type PendingMove = {
@@ -303,32 +305,8 @@ type PendingMove = {
 
 function finishMove(move: PendingMove) {
   const db = getDatabase();
-  const relocate = (path: string) => {
-    const suffix = relative(move.from, path);
-    return suffix === ''
-      ? move.to
-      : !isAbsolute(suffix) && suffix !== '..' && !suffix.startsWith(`..${sep}`)
-        ? join(move.to, suffix)
-        : path;
-  };
   db.transaction(() => {
-    const rows = db
-      .prepare('SELECT id, local_path AS path FROM workspace_entries WHERE local_path IS NOT NULL')
-      .all() as { id: string; path: string }[];
-    for (const row of rows) {
-      const path = relocate(row.path);
-      if (path !== row.path)
-        db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, row.id);
-    }
-    const notes = db.prepare('SELECT id, path FROM workspace_notes').all() as {
-      id: string;
-      path: string;
-    }[];
-    for (const note of notes) {
-      const path = relocate(note.path);
-      if (path !== note.path)
-        db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, note.id);
-    }
+    rewriteStoredPaths(move.from, move.to);
     db.prepare(
       'UPDATE workspace_entries SET name=?, parent_id=?, kind=?, updated_at=? WHERE id=?',
     ).run(move.name, move.parentId, move.kind, new Date().toISOString(), move.id);
@@ -494,13 +472,7 @@ export function updateWorkspaceEntry(id: string, input: unknown) {
   }
   getDatabase()
     .prepare('UPDATE workspace_entries SET name=?, parent_id=?, kind=?, updated_at=? WHERE id=?')
-    .run(
-      parsed.name ?? current.name,
-      parsed.parentId === undefined ? current.parentId : parsed.parentId,
-      parsed.kind ?? current.kind,
-      new Date().toISOString(),
-      id,
-    );
+    .run(name, parentId, parsed.kind ?? current.kind, new Date().toISOString(), id);
 }
 
 export function importWorkspaceFiles(parentId: string | null, paths: string[]): WorkspaceEntry[] {
@@ -544,11 +516,9 @@ export function workspacePdfPath(id: string): string {
   prepareStorage();
   const item = entry(idSchema.parse(id));
   if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('文档不是本地 PDF');
-  const stored = getDatabase()
-    .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
-    .get(id) as { path: string };
-  if (extname(stored.path).toLowerCase() !== '.pdf') throw new Error('文档不是本地 PDF');
-  return stored.path;
+  const path = entryLocalPath(item);
+  if (extname(path).toLowerCase() !== '.pdf') throw new Error('文档不是本地 PDF');
+  return path;
 }
 
 export async function workspaceFilePath(id: string): Promise<string> {
@@ -560,11 +530,9 @@ export async function workspaceFilePath(id: string): Promise<string> {
     throw new Error('条目不是文件');
   if (item.kind === 'source' && item.sourceId) return canvasFilePath(item.sourceId);
   if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('条目不是文件');
-  const stored = getDatabase()
-    .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
-    .get(id) as { path: string | null };
-  if (!stored.path || !statSync(stored.path).isFile()) throw new Error('文件不存在');
-  return stored.path;
+  const path = entryLocalPath(item);
+  if (!statSync(path).isFile()) throw new Error('文件不存在');
+  return path;
 }
 
 export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
@@ -588,10 +556,8 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
     };
   }
   if (item.kind === 'local' || item.kind === 'imported') {
-    const stored = getDatabase()
-      .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
-      .get(id) as { path: string };
-    const ext = extname(stored.path).toLowerCase();
+    const path = entryLocalPath(item);
+    const ext = extname(path).toLowerCase();
     const format =
       ext === '.pdf'
         ? 'pdf'
@@ -603,7 +569,7 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
               ? 'text'
               : 'unsupported';
     if (format === 'unsupported') return { title: item.name, format };
-    const stats = statSync(stored.path);
+    const stats = statSync(path);
     if (format === 'pdf')
       return {
         title: item.name,
@@ -613,7 +579,7 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
         revision: `${stats.mtimeMs}-${stats.size}`,
       };
     if (stats.size > 128 * 1024 * 1024) throw new Error('文件较大，请在外部应用中打开');
-    const bytes = readFileSync(stored.path);
+    const bytes = readFileSync(path);
     return {
       title: item.name,
       format,

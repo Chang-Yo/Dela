@@ -26,7 +26,6 @@ type ReadingState = {
 
 type Store = {
   connected: boolean;
-  username: string | null;
   structure: ShuiyuanSiteStructure | null;
   counts: ShuiyuanCounts | null;
   list: ListSelection;
@@ -37,9 +36,7 @@ type Store = {
   listLoading: boolean;
   listError: string | null;
   bookmarks: readonly ShuiyuanBookmarkItem[];
-  bookmarksLoading: boolean;
   notifications: readonly ShuiyuanNotificationItem[];
-  notificationsLoading: boolean;
   reading: ReadingState;
   /** App 层“在水源页打开”请求；视图消费后清空。 */
   topicRequest: { topicId: number; postNumber: number | null } | null;
@@ -111,7 +108,6 @@ export const useShuiyuan = create<Store>((set, get) => {
 
   return {
     connected: false,
-    username: null,
     structure: null,
     counts: null,
     list: { kind: 'latest' },
@@ -121,9 +117,7 @@ export const useShuiyuan = create<Store>((set, get) => {
     listLoading: false,
     listError: null,
     bookmarks: [],
-    bookmarksLoading: false,
     notifications: [],
-    notificationsLoading: false,
     reading: null,
     topicRequest: null,
 
@@ -141,7 +135,6 @@ export const useShuiyuan = create<Store>((set, get) => {
           : ({ connected: false, username: null, boundAt: null } satisfies ShuiyuanState);
       set({
         connected: bound.connected,
-        username: bound.username,
         structure: structure.status === 'fulfilled' ? structure.value : null,
         counts: counts.status === 'fulfilled' ? counts.value : null,
       });

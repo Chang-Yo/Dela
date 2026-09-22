@@ -82,8 +82,7 @@ export const textFileExtensions = [
   'gradle',
 ];
 
-export type ChatBlock =
-  { type: 'text'; text: string } | { type: 'image'; id: string; name: string };
+type ChatBlock = { type: 'text'; text: string } | { type: 'image'; id: string; name: string };
 
 // UUID 严格匹配主进程生成的 id，避免误吞普通 Markdown 图片链接。
 const chatImageTokenRe =

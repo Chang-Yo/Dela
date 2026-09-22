@@ -5,7 +5,7 @@ import { SHUIYUAN_ORIGIN } from './shuiyuan-format';
 import { useShuiyuan } from './store';
 
 /** 标题段：字符串为已替换的文本，对象为站点自定义 emoji（远程图片）。 */
-export type ShuiyuanTitleSegment = string | { name: string; url: string };
+type ShuiyuanTitleSegment = string | { name: string; url: string };
 
 // Discourse 标题短代码形如 :ocean:；前后不接 ASCII 字母数字，避免误吃 14:30:00 这类时间。
 const SHORTCODE_PATTERN = /(?<![a-zA-Z0-9]):([\p{L}\p{N}_+-]+):(?![a-zA-Z0-9])/gu;

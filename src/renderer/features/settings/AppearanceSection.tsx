@@ -80,6 +80,25 @@ function OptionCard({
   );
 }
 
+// 每个外观选项（主题/图标/缩放/字号）独立的写入状态：互不阻塞，失败提示各归其位。
+function useOptionSave(failMessage: string) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async (operation: () => Promise<void>) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await operation();
+    } catch {
+      setError(failMessage);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, error, save };
+}
+
 export function AppearanceSection({
   fontScale,
   onFontScaleChange,
@@ -95,15 +114,11 @@ export function AppearanceSection({
   theme: ThemePreference;
   zoom: ZoomPreference;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [icon, setIcon] = useState<IconPreference>('white');
-  const [iconBusy, setIconBusy] = useState(false);
-  const [iconError, setIconError] = useState<string | null>(null);
-  const [zoomBusy, setZoomBusy] = useState(false);
-  const [zoomError, setZoomError] = useState<string | null>(null);
-  const [fontBusy, setFontBusy] = useState(false);
-  const [fontError, setFontError] = useState<string | null>(null);
+  const themeSave = useOptionSave('主题保存失败，请重试。');
+  const iconSave = useOptionSave('图标设置保存失败，请重试。');
+  const zoomSave = useOptionSave('缩放设置保存失败，请重试。');
+  const fontSave = useOptionSave('字号设置保存失败，请重试。');
 
   useEffect(() => {
     void window.dela?.settings
@@ -112,57 +127,27 @@ export function AppearanceSection({
       .catch(() => {});
   }, []);
 
-  const selectTheme = async (next: ThemePreference) => {
-    if (next === theme || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await onThemeChange(next);
-    } catch {
-      setError('主题保存失败，请重试。');
-    } finally {
-      setBusy(false);
-    }
+  const selectTheme = (next: ThemePreference) => {
+    if (next === theme || themeSave.busy) return;
+    void themeSave.save(() => onThemeChange(next));
   };
 
   // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化。
-  const selectIcon = async (next: IconPreference) => {
-    if (next === icon || iconBusy) return;
-    setIconBusy(true);
-    setIconError(null);
-    try {
+  const selectIcon = (next: IconPreference) => {
+    if (next === icon || iconSave.busy) return;
+    void iconSave.save(async () => {
       setIcon(window.dela ? await window.dela.settings.setIcon(next) : next);
-    } catch {
-      setIconError('图标设置保存失败，请重试。');
-    } finally {
-      setIconBusy(false);
-    }
+    });
   };
 
-  const selectZoom = async (next: ZoomPreference) => {
-    if (next === zoom || zoomBusy) return;
-    setZoomBusy(true);
-    setZoomError(null);
-    try {
-      await onZoomChange(next);
-    } catch {
-      setZoomError('缩放设置保存失败，请重试。');
-    } finally {
-      setZoomBusy(false);
-    }
+  const selectZoom = (next: ZoomPreference) => {
+    if (next === zoom || zoomSave.busy) return;
+    void zoomSave.save(() => onZoomChange(next));
   };
 
-  const selectFontScale = async (next: FontScalePreference) => {
-    if (next === fontScale || fontBusy) return;
-    setFontBusy(true);
-    setFontError(null);
-    try {
-      await onFontScaleChange(next);
-    } catch {
-      setFontError('字号设置保存失败，请重试。');
-    } finally {
-      setFontBusy(false);
-    }
+  const selectFontScale = (next: FontScalePreference) => {
+    if (next === fontScale || fontSave.busy) return;
+    void fontSave.save(() => onFontScaleChange(next));
   };
 
   return (
@@ -178,19 +163,19 @@ export function AppearanceSection({
         <div aria-label="主题" className="flex flex-wrap gap-3" role="radiogroup">
           {themes.map(({ id, label, preview }) => (
             <OptionCard
-              busy={busy}
+              busy={themeSave.busy}
               key={id}
               label={label}
-              onSelect={() => void selectTheme(id)}
+              onSelect={() => selectTheme(id)}
               selected={theme === id}
             >
               <span className={cn('h-14 rounded-md border border-black/10', preview)} />
             </OptionCard>
           ))}
         </div>
-        {error && (
+        {themeSave.error && (
           <p className="col-span-full text-xs text-destructive" role="alert">
-            {error}
+            {themeSave.error}
           </p>
         )}
       </section>
@@ -206,8 +191,8 @@ export function AppearanceSection({
           <select
             aria-label="页面缩放"
             className="h-9 w-24 rounded-md border bg-background px-3 text-sm text-foreground"
-            disabled={zoomBusy}
-            onChange={(event) => void selectZoom(Number(event.target.value) as ZoomPreference)}
+            disabled={zoomSave.busy}
+            onChange={(event) => selectZoom(Number(event.target.value) as ZoomPreference)}
             value={zoom}
           >
             {zoomOptions.map(({ id, label }) => (
@@ -217,9 +202,9 @@ export function AppearanceSection({
             ))}
           </select>
         </div>
-        {zoomError && (
+        {zoomSave.error && (
           <p className="col-span-full text-xs text-destructive" role="alert">
-            {zoomError}
+            {zoomSave.error}
           </p>
         )}
       </section>
@@ -235,10 +220,8 @@ export function AppearanceSection({
           <select
             aria-label="字号"
             className="h-9 w-24 rounded-md border bg-background px-3 text-sm text-foreground"
-            disabled={fontBusy}
-            onChange={(event) =>
-              void selectFontScale(Number(event.target.value) as FontScalePreference)
-            }
+            disabled={fontSave.busy}
+            onChange={(event) => selectFontScale(Number(event.target.value) as FontScalePreference)}
             value={fontScale}
           >
             {fontScaleLevels.map((level) => (
@@ -248,9 +231,9 @@ export function AppearanceSection({
             ))}
           </select>
         </div>
-        {fontError && (
+        {fontSave.error && (
           <p className="col-span-full text-xs text-destructive" role="alert">
-            {fontError}
+            {fontSave.error}
           </p>
         )}
       </section>
@@ -264,10 +247,10 @@ export function AppearanceSection({
         <div aria-label="应用图标" className="flex flex-wrap gap-3" role="radiogroup">
           {icons.map(({ id, label, src }) => (
             <OptionCard
-              busy={iconBusy}
+              busy={iconSave.busy}
               key={id}
               label={label}
-              onSelect={() => void selectIcon(id)}
+              onSelect={() => selectIcon(id)}
               selected={icon === id}
             >
               <img
@@ -278,9 +261,9 @@ export function AppearanceSection({
             </OptionCard>
           ))}
         </div>
-        {iconError && (
+        {iconSave.error && (
           <p className="col-span-full text-xs text-destructive" role="alert">
-            {iconError}
+            {iconSave.error}
           </p>
         )}
       </section>

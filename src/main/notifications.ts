@@ -76,37 +76,25 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
   const items = rows.flatMap((row): NotificationItem[] => {
     try {
       const href = JSON.parse(row.href) as NotificationItem['href'];
-      const readAt = row.read_at;
-      if (href.kind === 'mail' && typeof href.messageId === 'number') {
-        return [
-          {
-            id: row.id,
-            source: row.source,
-            title: row.title,
-            body: row.body,
-            createdAt: row.created_at,
-            readAt,
-            href,
-          },
-        ];
-      }
-      if (href.kind === 'shuiyuan' && typeof href.topicId === 'number') {
-        return [
-          {
-            id: row.id,
-            source: row.source,
-            title: row.title,
-            body: row.body,
-            createdAt: row.created_at,
-            readAt,
-            href,
-          },
-        ];
-      }
+      const knownHref =
+        (href.kind === 'mail' && typeof href.messageId === 'number') ||
+        (href.kind === 'shuiyuan' && typeof href.topicId === 'number');
+      if (!knownHref) return [];
+      return [
+        {
+          id: row.id,
+          source: row.source,
+          title: row.title,
+          body: row.body,
+          createdAt: row.created_at,
+          readAt: row.read_at,
+          href,
+        },
+      ];
     } catch {
       // A corrupt legacy row must not make the notifications workspace unusable.
+      return [];
     }
-    return [];
   });
   const counts = db
     .prepare(
@@ -114,10 +102,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
     )
     .get(...bindings) as { totalCount: number; unreadCount: number };
   const { totalCount, unreadCount } = counts;
-  const snoozedUntil = z
-    .string()
-    .datetime()
-    .nullable()
+  const snoozedUntil = snoozeSchema
     .catch(null)
     .parse(
       (
@@ -303,40 +288,36 @@ export function refreshNotifications(): Promise<NotificationState> {
   return activeRefresh;
 }
 
-export function markNotificationRead(idInput: unknown): NotificationState {
+// 只更新当前账号名下的通知行；id 为 null 时更新全部，与 todo.ts 的 markTodoRead 同一模式。
+function markNotificationRowsRead(id: string | null): void {
+  const accounts = currentAccounts();
+  const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
+  if (clauses.length === 0) return;
+  getDatabase()
+    .prepare(
+      `UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE (? IS NULL OR id = ?) AND (${clauses.join(' OR ')})`,
+    )
+    .run(
+      new Date().toISOString(),
+      id,
+      id,
+      ...accounts.flatMap((account) => [account.source, account.key]),
+    );
+}
+
+function markNotificationRead(idInput: unknown): NotificationState {
   const id = z.string().min(1).max(1000).parse(idInput);
   if (id.startsWith('todo:')) {
     markTodoRead(id.slice(5));
     return broadcast();
   }
-  const accounts = currentAccounts();
-  const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
-  if (clauses.length)
-    getDatabase()
-      .prepare(
-        `UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE id = ? AND (${clauses.join(' OR ')})`,
-      )
-      .run(
-        new Date().toISOString(),
-        id,
-        ...accounts.flatMap((account) => [account.source, account.key]),
-      );
+  markNotificationRowsRead(id);
   return broadcast();
 }
 
 export function markAllNotificationsRead(): NotificationState {
   markTodoRead();
-  const accounts = currentAccounts();
-  const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
-  if (clauses.length)
-    getDatabase()
-      .prepare(
-        `UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE ${clauses.join(' OR ')}`,
-      )
-      .run(
-        new Date().toISOString(),
-        ...accounts.flatMap((account) => [account.source, account.key]),
-      );
+  markNotificationRowsRead(null);
   return broadcast();
 }
 

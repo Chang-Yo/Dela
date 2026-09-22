@@ -5,7 +5,8 @@ import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
-import { eventPalette, roundToMinute } from '../timetable/timetable-format';
+import { EventColorRow } from '../timetable/EventColorRow';
+import { roundToMinute } from '../timetable/timetable-format';
 import { DateTimeStepper } from './DateTimeStepper';
 
 function dateLabel(value: string | null) {
@@ -67,26 +68,7 @@ function CalendarOptionRows({
 }) {
   return (
     <>
-      <div className="flex h-11 items-center gap-2 px-3">
-        <span className="w-8 shrink-0 text-xs text-muted-foreground">颜色</span>
-        <div className="flex flex-1 items-center gap-1.5">
-          {eventPalette.map(({ key, label }) => (
-            <button
-              aria-label={label}
-              aria-pressed={color === key}
-              className={cn(
-                'size-5 rounded-full outline-offset-2 transition-transform hover:scale-110',
-                color === key && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
-              )}
-              key={key}
-              onClick={() => onColorChange(key)}
-              style={{ backgroundColor: `var(--cal-${key}-bg)` }}
-              title={label}
-              type="button"
-            />
-          ))}
-        </div>
-      </div>
+      <EventColorRow onColorChange={onColorChange} value={color} />
       <div className="flex h-11 items-center gap-2 px-3">
         <span className="w-8 shrink-0 text-xs text-muted-foreground">日历</span>
         <div className="flex flex-1 items-center justify-between gap-2">

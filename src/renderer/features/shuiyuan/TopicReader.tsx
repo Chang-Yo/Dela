@@ -16,7 +16,7 @@ import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, useShuiyuan } from './store';
-import { avatarUrl, formatCount, formatListDate } from './shuiyuan-format';
+import { SHUIYUAN_ORIGIN, avatarUrl, formatCount, formatListDate } from './shuiyuan-format';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ReplyComposer } from './ReplyComposer';
 import { AddToProjectDialog } from './AddToProjectDialog';
@@ -190,11 +190,7 @@ export function TopicReaderHeader() {
         <Button
           aria-label="打开原帖"
           onClick={() =>
-            window.open(
-              `${'https://shuiyuan.sjtu.edu.cn'}/t/topic/${detail.id}`,
-              '_blank',
-              'noopener',
-            )
+            window.open(`${SHUIYUAN_ORIGIN}/t/topic/${detail.id}`, '_blank', 'noopener')
           }
           size="icon-sm"
           variant="ghost"

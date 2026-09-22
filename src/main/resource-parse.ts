@@ -288,7 +288,7 @@ function slideText(xml: string): string {
     .trim();
 }
 
-export function decodeXmlEntities(value: string): string {
+function decodeXmlEntities(value: string): string {
   return value
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>')

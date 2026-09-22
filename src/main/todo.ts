@@ -71,9 +71,8 @@ export function broadcastTodos(): TodoState {
     if (window.isDestroyed()) continue;
     const url = window.webContents.getURL();
     if (
-      !window.isDestroyed() &&
-      (url.startsWith('http://127.0.0.1:5173/') ||
-        (url.startsWith('file:') && /\/renderer\/index\.html(?:\?|$)/.test(url)))
+      url.startsWith('http://127.0.0.1:5173/') ||
+      (url.startsWith('file:') && /\/renderer\/index\.html(?:\?|$)/.test(url))
     ) {
       window.webContents.send('todo:state', state);
     }

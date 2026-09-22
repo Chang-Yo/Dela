@@ -79,6 +79,10 @@ const viewShortcuts: Record<string, ViewId> = {
 // 快捷键弹窗的按键提示按运行平台显示 Ctrl 或 ⌘。
 const modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
+/** 标题栏菜单（文件/资料/视图/帮助）触发按钮的共用样式。 */
+const titleMenuButtonClass =
+  'h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground';
+
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section aria-label={title}>
@@ -268,8 +272,7 @@ export function AppShell({
       return;
     }
     const index = zoomLevels.indexOf(zoom);
-    const next = zoomLevels[Math.max(0, Math.min(index + direction, zoomLevels.length - 1))];
-    if (next !== undefined) onZoomChange(next);
+    onZoomChange(zoomLevels[Math.max(0, Math.min(index + direction, zoomLevels.length - 1))]!);
   };
 
   const updateMenu = (menu: TitleMenuId, open: boolean) => {
@@ -391,7 +394,7 @@ export function AppShell({
             >
               <DropdownMenuTrigger asChild>
                 <button
-                  className="h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                  className={titleMenuButtonClass}
                   onPointerEnter={() => hoverMenu('file')}
                   type="button"
                 >
@@ -421,7 +424,7 @@ export function AppShell({
             >
               <DropdownMenuTrigger asChild>
                 <button
-                  className="h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                  className={titleMenuButtonClass}
                   onPointerEnter={() => hoverMenu('sources')}
                   type="button"
                 >
@@ -450,7 +453,7 @@ export function AppShell({
             >
               <DropdownMenuTrigger asChild>
                 <button
-                  className="h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                  className={titleMenuButtonClass}
                   onPointerEnter={() => hoverMenu('view')}
                   type="button"
                 >
@@ -481,7 +484,10 @@ export function AppShell({
           >
             <DropdownMenuTrigger asChild>
               <button
-                className="[-webkit-app-region:no-drag] ml-0.5 grid h-7 min-w-12 shrink-0 place-items-center rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
+                className={cn(
+                  titleMenuButtonClass,
+                  '[-webkit-app-region:no-drag] ml-0.5 grid shrink-0 place-items-center',
+                )}
                 onPointerEnter={() => hoverMenu('help')}
                 type="button"
               >

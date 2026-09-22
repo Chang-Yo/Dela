@@ -37,26 +37,13 @@ export function LlmSection() {
 
   useEffect(refresh, []);
 
-  const activate = async (id: string) => {
+  // 启用与删除共用同一套 busy/错误处理，成功后都刷新列表。
+  const run = async (operation: () => Promise<void>) => {
     if (!window.dela) return;
     setBusy(true);
     setError(null);
     try {
-      await window.dela.llm.setActive(id);
-      refresh();
-    } catch (cause) {
-      setError(errorText(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (id: string) => {
-    if (!window.dela) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await window.dela.llm.remove(id);
+      await operation();
       refresh();
     } catch (cause) {
       setError(errorText(cause));
@@ -116,7 +103,7 @@ export function LlmSection() {
                 ) : (
                   <Button
                     disabled={busy}
-                    onClick={() => void activate(provider.id)}
+                    onClick={() => void run(() => window.dela!.llm.setActive(provider.id))}
                     size="sm"
                     variant="secondary"
                   >
@@ -135,7 +122,7 @@ export function LlmSection() {
                   <>
                     <Button
                       disabled={busy}
-                      onClick={() => void remove(provider.id)}
+                      onClick={() => void run(() => window.dela!.llm.remove(provider.id))}
                       size="sm"
                       variant="destructive"
                     >

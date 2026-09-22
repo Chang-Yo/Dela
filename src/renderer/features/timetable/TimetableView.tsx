@@ -227,10 +227,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   if (!state.connected && lessons.length === 0) {
     return (
       <div className="grid h-full place-items-center p-6">
-        <TimetableConnectCard
-          semester={semester ?? undefined}
-          onSuccess={() => void loadSemester(semester ?? undefined)}
-        />
+        <TimetableConnectCard semester={semester} onSuccess={() => void loadSemester(semester)} />
       </div>
     );
   }

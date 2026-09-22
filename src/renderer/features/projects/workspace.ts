@@ -7,7 +7,7 @@ import type {
 } from '../../../shared/api';
 
 export const emptyView: WorkspaceViewState = { tabs: [], active: null, expanded: [], scroll: {} };
-export type Draft = {
+type Draft = {
   content: DocumentContent;
   text: string;
   saved: string;

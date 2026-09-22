@@ -1,4 +1,3 @@
-import type { TimetableState } from '../../shared/api';
 import { BrowserWindow, net, type WebContents } from 'electron';
 import { z } from 'zod';
 import {
@@ -6,6 +5,7 @@ import {
   type CalendarEvent,
   type TimetableLesson,
   type TimetableResult,
+  type TimetableState,
 } from '../../shared/api';
 import { getDatabase } from '../database';
 import { lessonOccurrences } from '../../shared/schedule';
@@ -40,7 +40,7 @@ const responseSchema = z
     rqazcList: z.array(z.unknown()).optional(),
   })
   .passthrough();
-export const semesterSchema = z.string().regex(/^\d{4}-\d{4}-[123]$/);
+const semesterSchema = z.string().regex(/^\d{4}-\d{4}-[123]$/);
 const dateTimeSchema = z.string().datetime();
 const calendarEventSchema = z
   .object({
@@ -127,6 +127,19 @@ export function currentSemester(now = new Date()): string {
   if (month <= 2) return `${year - 1}-${year}-1`;
   if (month <= 7) return `${year - 1}-${year}-2`;
   return `${year - 1}-${year}-3`;
+}
+
+/** 未指定学期时取当前学期；指定值仍走学期格式校验。 */
+export function resolveSemester(requested: unknown): string {
+  return requested === undefined ? currentSemester() : semesterSchema.parse(requested);
+}
+
+function syncRow(
+  semester: string,
+): { last_synced_at: string; semester_start: string | null } | undefined {
+  return getDatabase()
+    .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
+    .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
 }
 
 function semesterParams(semester: string): { xnm: string; xqm: string } {
@@ -410,9 +423,7 @@ export const scheduleQuerySchema = z
 export function querySchedule(input: unknown) {
   const args = scheduleQuerySchema.parse(input);
   const semester = args.semester ?? currentSemester();
-  const row = getDatabase()
-    .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
-    .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
+  const row = syncRow(semester);
   const courses = lessonOccurrences(
     listLessons(semester),
     row?.semester_start ?? null,
@@ -482,10 +493,8 @@ export function deleteCalendarEvent(id: unknown) {
 }
 
 export async function getTimetableState(requested?: unknown): Promise<TimetableState> {
-  const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);
-  const row = getDatabase()
-    .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
-    .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
+  const semester = resolveSemester(requested);
+  const row = syncRow(semester);
   return {
     connected: await isConnected(),
     semester,

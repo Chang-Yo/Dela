@@ -1,4 +1,14 @@
+import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -12,16 +22,6 @@ import {
   restoreComposeFile,
   snapshotComposeFiles,
 } from './send';
-import { app } from 'electron';
-import {
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  renameSync,
-  existsSync,
-  unlinkSync,
-  statSync,
-} from 'node:fs';
 
 const localDraftSchema = z.object({
   id: z.string().uuid(),
@@ -43,8 +43,9 @@ const localDraftSchema = z.object({
     .max(50),
 });
 
+/** 调用方均已将 id 校验为 uuid；此函数只负责拼出草稿文件路径。 */
 function draftPath(id: string) {
-  return join(app.getPath('userData'), 'mail-drafts', `${z.string().uuid().parse(id)}.json`);
+  return join(app.getPath('userData'), 'mail-drafts', `${id}.json`);
 }
 
 export function saveLocalDraft(input: unknown): MailDraftSummary {

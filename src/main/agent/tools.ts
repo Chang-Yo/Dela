@@ -48,7 +48,7 @@ function match(value: string, keyword: string) {
   return value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
 }
 
-export const agentTools = {
+const agentTools = {
   prepare_email: tool(
     '准备可供用户检查和发送的邮件草稿。可附加项目文件、Canvas 文件或邮件附件引用；不会发送邮件。附件在用户打开草稿时加载。',
     emailDraftSchema,
@@ -272,6 +272,19 @@ export const agentTools = {
       const isPdf =
         content.format === 'pdf' ||
         (content.format === 'unsupported' && parsableDocumentExtension(content.title) === 'pdf');
+      // 渲染/解析失败（文件缺失、格式损坏）时退回原能力边界，不把预览链接当作正文。
+      const parseFailure = (error: unknown, fallback: string) => ({
+        ref,
+        title: content.title,
+        format: content.format,
+        revision: content.revision,
+        url: content.url,
+        readable: false,
+        text: undefined,
+        totalCharacters: null,
+        nextOffset: null,
+        parseError: error instanceof Error ? error.message : fallback,
+      });
       if (pages?.length) {
         if (!isPdf) throw new Error('pages 仅支持 PDF 文档');
         // images 携带 data URL，由 agent loop 摘出转成图片消息；持久化输出只保留 pageImages 元数据。
@@ -290,18 +303,7 @@ export const agentTools = {
             note: '页面图像已作为图片消息附后；文字层内容可用不带 pages 的调用读取。',
           };
         } catch (error) {
-          return {
-            ref,
-            title: content.title,
-            format: content.format,
-            revision: content.revision,
-            url: content.url,
-            readable: false,
-            text: undefined,
-            totalCharacters: null,
-            nextOffset: null,
-            parseError: error instanceof Error ? error.message : '页面渲染失败',
-          };
+          return parseFailure(error, '页面渲染失败');
         }
       }
       if (
@@ -329,19 +331,7 @@ export const agentTools = {
             nextOffset: parsed.hasTextLayer && offset + limit < text.length ? offset + limit : null,
           };
         } catch (error) {
-          // 解析失败（文件缺失、格式损坏）时退回原能力边界，不把预览链接当作正文。
-          return {
-            ref,
-            title: content.title,
-            format: content.format,
-            revision: content.revision,
-            url: content.url,
-            readable: false,
-            text: undefined,
-            totalCharacters: null,
-            nextOffset: null,
-            parseError: error instanceof Error ? error.message : '文档解析失败',
-          };
+          return parseFailure(error, '文档解析失败');
         }
       }
       const text = content.text;

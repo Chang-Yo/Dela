@@ -244,15 +244,12 @@ export function MailComposer({
   useEffect(() => {
     void dela.mail.setComposeActive(true);
     const unsubscribe = dela.mail.onRequestClose(() => {
-      if (
-        !leaveComposer(() => {
-          allowUnload.current = true;
-          void dela.mail.setComposeActive(false).then(() => dela.window.close());
-        })
-      )
-        return;
-      allowUnload.current = true;
-      void dela.mail.setComposeActive(false).then(() => dela.window.close());
+      const close = () => {
+        allowUnload.current = true;
+        void dela.mail.setComposeActive(false).then(() => dela.window.close());
+      };
+      if (!leaveComposer(close)) return;
+      close();
     });
     return () => {
       unsubscribe();

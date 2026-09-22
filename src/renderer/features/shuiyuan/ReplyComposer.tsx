@@ -245,14 +245,12 @@ export function ReplyComposer({
 
   const errorLine = error ? <p className="text-xs text-destructive">{error}</p> : null;
 
+  // 预览正文排版：docked 撑满剩余高度，floating 限高滚动；prose 部分两态共用。
+  const previewProseClass =
+    'overflow-y-auto rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5';
+
   const previewBody = (fill: boolean) => (
-    <div
-      className={
-        fill
-          ? 'min-h-0 flex-1 overflow-y-auto rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5'
-          : 'max-h-40 overflow-y-auto rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5'
-      }
-    >
+    <div className={`${fill ? 'min-h-0 flex-1' : 'max-h-40'} ${previewProseClass}`}>
       {previewSource.trim() ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewSource}</ReactMarkdown>
       ) : (

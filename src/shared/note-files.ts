@@ -4,7 +4,7 @@ import { textFileExtensions } from './chat-input';
 /** Markdown 图片引用 `![alt](path "title")`；alt 与 title 内不再容忍括号换行。 */
 const markdownImageRefRe = /!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 
-export interface MarkdownImageRef {
+interface MarkdownImageRef {
   /** 括号内的原始路径（未解码）。 */
   path: string;
   /** alt 文本。 */

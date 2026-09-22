@@ -24,7 +24,7 @@ import { markdownHighlightStyle } from '../projects/MarkdownEditor';
 import { getChatMediaPreview } from './media';
 
 /** 容器注入的菜单键盘协议：返回 true 表示已消费该按键。 */
-export type ComposerMenuApi = {
+type ComposerMenuApi = {
   onKey: (key: 'down' | 'up' | 'select' | 'close') => boolean;
 };
 

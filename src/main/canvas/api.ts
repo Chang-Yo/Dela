@@ -14,7 +14,7 @@ import type { CanvasCourse, CanvasState, DocumentContent, SourceItem } from '../
 const origin = 'https://oc.sjtu.edu.cn';
 const apiRoot = `${origin}/api/v1/`;
 type Row = Record<string, unknown>;
-export const rowSchema = z.record(z.string(), z.unknown());
+const rowSchema = z.record(z.string(), z.unknown());
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 const num = (value: unknown) => (typeof value === 'number' ? value : 0);
 const row = (value: unknown): Row => rowSchema.safeParse(value).data ?? {};
@@ -539,12 +539,9 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
     throw error;
   }
   db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(cacheKey, path);
-  const mime = str(metadata['content-type']) || 'application/octet-stream';
-  source.mime = mime;
-  getDatabase()
-    .prepare('UPDATE canvas_sources SET data=? WHERE id=?')
-    .run(JSON.stringify(source), source.id);
-  return { path, mime };
+  source.mime = str(metadata['content-type']) || 'application/octet-stream';
+  db.prepare('UPDATE canvas_sources SET data=? WHERE id=?').run(JSON.stringify(source), source.id);
+  return { path, mime: source.mime };
 }
 
 async function isPdf(path: string): Promise<boolean> {

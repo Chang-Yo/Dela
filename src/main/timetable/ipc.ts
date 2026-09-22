@@ -1,8 +1,7 @@
 import {
   setSemesterStart,
   getTimetableState,
-  semesterSchema,
-  currentSemester,
+  resolveSemester,
   openLoginWindow,
   syncTimetable,
   listLessons,
@@ -24,10 +23,9 @@ export function registerTimetableIpc(): void {
     await clearCampusSession();
     return { ok: true };
   });
-  ipcMain.handle('timetable:list-lessons', (_event, requested?: unknown) => {
-    const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);
-    return listLessons(semester);
-  });
+  ipcMain.handle('timetable:list-lessons', (_event, requested?: unknown) =>
+    listLessons(resolveSemester(requested)),
+  );
   ipcMain.handle('timetable:list-events', (_event, startValue: unknown, endValue: unknown) =>
     listCalendarEvents(startValue, endValue),
   );
@@ -40,8 +38,7 @@ export function registerTimetableIpc(): void {
   ipcMain.handle('timetable:set-semester-start', (_event, requested?: unknown, value?: unknown) =>
     setSemesterStart(requested, value),
   );
-  ipcMain.handle('timetable:sync', (_event, requested?: unknown) => {
-    const semester = requested === undefined ? currentSemester() : semesterSchema.parse(requested);
-    return syncTimetable(semester);
-  });
+  ipcMain.handle('timetable:sync', (_event, requested?: unknown) =>
+    syncTimetable(resolveSemester(requested)),
+  );
 }

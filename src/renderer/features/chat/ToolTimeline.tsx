@@ -27,7 +27,7 @@ import { cn } from '../../lib/utils';
 import { ChatMarkdown } from './markdown';
 import styles from './timeline.module.css';
 
-export type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
+type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 
 const toolDisplay: Record<string, { label: string; icon: LucideIcon }> = {
   prepare_email: { label: '准备邮件草稿', icon: MailPlus },
@@ -95,6 +95,7 @@ function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean
   const { label, icon: Icon } = display(result.name);
   const state = stepState(result, live);
   const output = result.output as ToolOutput | undefined;
+  const chip = stepChip(result);
   return (
     <li className="relative animate-in fade-in pl-6 duration-300 motion-reduce:animate-none slide-in-from-bottom-1">
       <span className="absolute left-0 top-1 grid size-3.5 place-items-center">
@@ -122,10 +123,8 @@ function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean
         ) : (
           <span className="shrink-0 font-medium">{label}</span>
         )}
-        {state !== 'failed' && state !== 'interrupted' && stepChip(result) && (
-          <span className="min-w-0 truncate text-xs text-muted-foreground">
-            「{stepChip(result)}」
-          </span>
+        {state !== 'failed' && state !== 'interrupted' && chip && (
+          <span className="min-w-0 truncate text-xs text-muted-foreground">「{chip}」</span>
         )}
         {state === 'failed' && output?.error?.message && (
           <span className="min-w-0 truncate text-xs text-destructive">{output.error.message}</span>

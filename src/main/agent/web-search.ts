@@ -11,13 +11,13 @@ const MAX_REDIRECTS = 5;
 // 与 Agent 循环回灌上限一致：fetch_page 在工具侧先截断并报告总长。
 const TEXT_LIMIT = 20000;
 
-export interface WebSearchResult {
+interface WebSearchResult {
   title: string;
   url: string;
   snippet: string;
 }
 
-export interface WebPageContent {
+interface WebPageContent {
   url: string;
   title: string | null;
   contentType: string;
@@ -257,7 +257,7 @@ export function htmlToText(html: string): { title: string | null; text: string }
   return { title, text };
 }
 
-export function decodeHtmlEntities(value: string): string {
+function decodeHtmlEntities(value: string): string {
   return value
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>')

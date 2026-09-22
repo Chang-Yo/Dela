@@ -10,6 +10,16 @@
 
 ---
 
+## 2026-09-22 全仓架构深度清理（9 个并行切片）
+
+9 个并行 code-clean 切片覆盖全部代码层：main 根模块、agent、mail、shuiyuan、canvas/timetable/workspace、renderer 外壳与 components/ui、chat/projects、mail/shuiyuan/sources features、其余 7 个 features、shared/preload/scripts。统一约束为**行为零变化**（不改 IPC 通道、数据库 schema、存储/凭据格式、错误文案、UI 语义），每处删除均经全仓 grep 确认零引用。合计 48 文件，+567/−887（净 −320 行）：
+
+- 死代码：删除零引用的 `components/ui/separator.tsx`、dropdown-menu 4 个子组件、globals.css 的 `.page` 规则；shuiyuan store 三个死状态字段（`username`/`bookmarksLoading`/`notificationsLoading`）；timetable 遗留 `timeInput()`；mail `syncFolder` 死参数；MailView 死 prop `onComposeDirtyChange`；chat-smoke.cjs 三段调试输出。约 30 个仅模块内使用的导出收窄为非导出（`shared/api.ts` 契约面逐条核查后零改动）。
+- 真实重复合并（均多处调用方）：credentials 四组凭据的加密密封样板收敛为 `writeSealed/readSealed/removeSealed`；通知已读 UPDATE 与 todo 同构模式对齐；mail 的文件夹排序/消息行查询/正文下载三组重复各收敛为单一函数；workspace 两处存储路径批量改写合并为 `rewriteStoredPaths`；timetable 三处学期解析收敛为 `resolveSemester`；TodoView 与 NewEventDialog 的调色板提取为共享 `EventColorRow`；AppearanceSection 四组 try/catch 收敛为局部 `useOptionSave`；LlmSection 两个同构句柄合并。
+- 复杂度简化：mail `syncFolder` 去掉 IIFE 包装；AppShell 标题菜单类名、shuiyuan 预览 prose 类链等长字符串常量化；App.tsx 三处导航请求清理合并。
+- 已验证：三端 typecheck、全仓 oxlint 0 警告、prettier 全通过、vitest 184/184、`pnpm build` 三端产物构建通过。
+- 待验证：运行时冒烟未跑（本轮无 IPC/schema 改动，风险面小）。留档观察项：mail/shuiyuan/sources 三套 HTML 消毒逻辑重复（跨 feature，需单独切片）；`errorText` 寄居 `features/projects/workspace` 但被 76 处跨 feature 引用；timetable 与 mail 的 IPC 通道仅部分调用 `checkWorkspaceSender`，来源校验策略不一致；`scripts/capture-preview.mjs` 零接线待用户裁决去留。
+
 ## 2026-09-22 编辑器非核心功能产品审查修复（已 stage 待提交）
 
 以产品视角审查编辑器的标签/分屏/拖拽/面包屑与右栏助手交互，修复确认的缺陷：

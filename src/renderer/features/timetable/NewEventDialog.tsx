@@ -3,9 +3,9 @@ import { X } from 'lucide-react';
 import type { CalendarEventColor } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { cn } from '../../lib/utils';
 import { DateTimeStepper } from '../todo/DateTimeStepper';
-import { eventPalette, roundToMinute } from './timetable-format';
+import { EventColorRow } from './EventColorRow';
+import { roundToMinute } from './timetable-format';
 
 const HOUR_MS = 3_600_000;
 
@@ -120,26 +120,7 @@ export function NewEventDialog({
                 value={location}
               />
             </div>
-            <div className="flex h-11 items-center gap-2 px-3 transition-colors">
-              <span className="w-8 shrink-0 text-xs text-muted-foreground">颜色</span>
-              <div className="flex flex-1 items-center gap-1.5">
-                {eventPalette.map(({ key, label }) => (
-                  <button
-                    aria-label={label}
-                    aria-pressed={color === key}
-                    className={cn(
-                      'size-5 rounded-full outline-offset-2 transition-transform hover:scale-110',
-                      color === key && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
-                    )}
-                    key={key}
-                    onClick={() => setColor(key)}
-                    style={{ backgroundColor: `var(--cal-${key}-bg)` }}
-                    title={label}
-                    type="button"
-                  />
-                ))}
-              </div>
-            </div>
+            <EventColorRow className="transition-colors" onColorChange={setColor} value={color} />
           </div>
           {error ? (
             <p className="break-words text-xs text-destructive" role="alert">

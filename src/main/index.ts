@@ -224,6 +224,18 @@ app.whenReady().then(() => {
   }
 });
 
+// 只把 http(s) 链接交给系统浏览器；无法解析的目标一律留在应用边界内。
+function openExternalUrl(url: string): void {
+  try {
+    const external = new URL(url);
+    if (external.protocol === 'https:' || external.protocol === 'http:') {
+      void shell.openExternal(external.href);
+    }
+  } catch {
+    // Keep unparseable targets inside the application boundary.
+  }
+}
+
 async function createWindow(): Promise<void> {
   if (!hasSingleInstanceLock) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -257,26 +269,12 @@ async function createWindow(): Promise<void> {
     window.hide();
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const external = new URL(url);
-      if (external.protocol === 'https:' || external.protocol === 'http:') {
-        void shell.openExternal(external.href);
-      }
-    } catch {
-      // Keep unparseable popup targets inside the application boundary.
-    }
+    openExternalUrl(url);
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, url) => {
     event.preventDefault();
-    try {
-      const external = new URL(url);
-      if (external.protocol === 'https:' || external.protocol === 'http:') {
-        void shell.openExternal(external.href);
-      }
-    } catch {
-      // Keep unparseable navigation targets inside the application boundary.
-    }
+    openExternalUrl(url);
   });
   window.webContents.on('will-prevent-unload', (event) => {
     if (hasMailComposer(window.webContents.id)) {

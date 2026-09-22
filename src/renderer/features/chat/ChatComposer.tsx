@@ -169,6 +169,14 @@ export function ChatComposer({
     editorRef.current?.insertAt(caret, '@');
   };
 
+  /** 插入一张已暂存的内联图片 token，返回新的插入位置（批量拖入时逐张顺延）。 */
+  const insertImageView = (view: ChatMediaView, pos: number) => {
+    setChatMediaPreview(view.id, view.previewUrl);
+    const token = `${chatImageToken(view.id, view.name)} `;
+    editorRef.current?.insertAt(pos, token);
+    return pos + token.length;
+  };
+
   const addFiles = async (files: File[], pos: number) => {
     if (!window.dela) return;
     let insertPos = pos;
@@ -186,10 +194,7 @@ export function ChatComposer({
             throw new Error(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
           const bytes = new Uint8Array(await file.arrayBuffer());
           const view = await window.dela.chat.stageMedia({ name: file.name, bytes });
-          setChatMediaPreview(view.id, view.previewUrl);
-          const token = `${chatImageToken(view.id, view.name)} `;
-          editorRef.current?.insertAt(insertPos, token);
-          insertPos += token.length;
+          insertPos = insertImageView(view, insertPos);
           imageCount += 1;
         } else {
           await onAddAttachmentFile(file);
@@ -214,10 +219,7 @@ export function ChatComposer({
               setFileError(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
               continue;
             }
-            setChatMediaPreview(view.id, view.previewUrl);
-            const token = `${chatImageToken(view.id, view.name)} `;
-            editorRef.current?.insertAt(insertPos, token);
-            insertPos += token.length;
+            insertPos = insertImageView(view, insertPos);
             imageCount += 1;
           } else {
             onAddAttachmentView(view);

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export type ChatReference = { key: string; title: string };
 
-export type ChatDraft = { prompt: string; references: ChatReference[] };
+type ChatDraft = { prompt: string; references: ChatReference[] };
 
 export const emptyDraft: ChatDraft = { prompt: '', references: [] };
 

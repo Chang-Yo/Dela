@@ -219,15 +219,20 @@ export default function App() {
     setFontScale(await window.dela.settings.setFontScale(next));
   };
 
+  // 切换视图时清空各功能的定位请求指针（邮件/会话/设置分区）。
+  const clearNavigationRequests = () => {
+    setMailRequest(undefined);
+    setChatRequest(undefined);
+    setSettingsRequest(undefined);
+  };
+
   const navigate = (next: ViewId) => {
     if (next === view) return true;
     if (!leaveComposer(() => navigate(next))) return false;
     setBackStack((stack) => [...stack, view]);
     setForwardStack([]);
     setView(next);
-    setMailRequest(undefined);
-    setChatRequest(undefined);
-    setSettingsRequest(undefined);
+    clearNavigationRequests();
     setNavigationError(null);
     return true;
   };
@@ -254,9 +259,7 @@ export default function App() {
     setForwardStack((stack) => [view, ...stack]);
     setView(prev);
     // 与 navigate 的清理对齐：往返导航不清请求指针，搜索定位的旧目标会被重复应用。
-    setMailRequest(undefined);
-    setChatRequest(undefined);
-    setSettingsRequest(undefined);
+    clearNavigationRequests();
   };
 
   const goForward = () => {
@@ -265,9 +268,7 @@ export default function App() {
     setBackStack((stack) => [...stack, view]);
     setForwardStack((stack) => stack.slice(1));
     setView(next);
-    setMailRequest(undefined);
-    setChatRequest(undefined);
-    setSettingsRequest(undefined);
+    clearNavigationRequests();
   };
 
   // 项目里水源引用卡片的「在水源页打开」：切视图并请求定位到该帖。

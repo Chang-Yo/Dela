@@ -32,7 +32,7 @@ const lazyMermaidPlugin: DiagramPlugin = {
  * 数学公式启用 KaTeX（含单美元行内公式，LLM 输出惯例）；
  * mermaid 图表按需加载；对象式 controls 的子项默认开启，download 需显式关闭。
  */
-export const chatStreamdownPlugins = {
+const chatStreamdownPlugins = {
   code: createCodePlugin({ themes: ['github-light', 'github-dark'] }),
   math: createMathPlugin({ singleDollarTextMath: true }),
   mermaid: lazyMermaidPlugin,
@@ -81,7 +81,7 @@ const chatComponents = { table: ChatTable };
  * （复制按钮悬浮显示，sticky 跟随长代码块滚动）；滚动条都在 body 的可视窗口边缘，
  * 不再挂在内容底部。公式超宽时横向滚动。
  */
-export const markdownStyles =
+const markdownStyles =
   '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_[data-streamdown=code-block]]:grid [&_[data-streamdown=code-block]]:grid-cols-[1fr_auto] [&_[data-streamdown=code-block]]:rounded-none [&_[data-streamdown=code-block]]:border-none [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block]]:p-0 [&_[data-streamdown=code-block-header]]:justify-end [&_[data-streamdown=code-block]>div:nth-child(2)]:col-start-2 [&_[data-streamdown=code-block]>div:nth-child(2)]:row-start-1 [&_[data-streamdown=code-block]>div:nth-child(2)]:row-span-2 [&_[data-streamdown=code-block]>div:nth-child(2)]:mt-0 [&_[data-streamdown=code-block-body]]:col-span-2 [&_[data-streamdown=code-block-body]]:rounded-none [&_[data-streamdown=code-block-body]]:border-none [&_[data-streamdown=code-block-body]]:bg-transparent [&_[data-streamdown=code-block-body]]:p-0 [&_[data-streamdown=code-block-actions]]:opacity-0 [&_[data-streamdown=code-block-actions]]:transition-opacity [&_[data-streamdown=code-block]:focus-within_[data-streamdown=code-block-actions]]:opacity-100 [&_[data-streamdown=code-block]:hover_[data-streamdown=code-block-actions]]:opacity-100 [&_[data-streamdown=unordered-list]]:list-outside [&_[data-streamdown=unordered-list]]:pl-5 [&_[data-streamdown=ordered-list]]:list-outside [&_[data-streamdown=ordered-list]]:pl-5';
 
 /** 聊天区 Markdown 统一入口：插件、控件、表格组件与文案只在此配置一次。 */

@@ -9,26 +9,33 @@ export interface MailCredential {
   password: string;
 }
 
+// 下方各组凭据文件共用的密封读写样板；错误文案是既有契约。
+function writeSealed(path: string, plaintext: string): void {
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
+  writeFileSync(path, safeStorage.encryptString(plaintext));
+}
+
+function readSealed(path: string): string | null {
+  if (!existsSync(path)) return null;
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
+  return safeStorage.decryptString(readFileSync(path));
+}
+
+function removeSealed(path: string): void {
+  if (existsSync(path)) unlinkSync(path);
+}
+
 function credentialPath(): string {
   return join(app.getPath('userData'), 'mail-credentials.bin');
 }
 
 export function saveMailCredentials(credential: MailCredential): void {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('当前系统不支持凭据加密存储');
-  }
-  const sealed = safeStorage.encryptString(JSON.stringify(credential));
-  writeFileSync(credentialPath(), sealed);
+  writeSealed(credentialPath(), JSON.stringify(credential));
 }
 
 export function loadMailCredentials(): MailCredential | null {
-  const path = credentialPath();
-  if (!existsSync(path)) return null;
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('当前系统不支持凭据解密');
-  }
-  const sealed = readFileSync(path);
-  const payload = safeStorage.decryptString(sealed);
+  const payload = readSealed(credentialPath());
+  if (payload === null) return null;
   const parsed = JSON.parse(payload) as Partial<MailCredential>;
   if (typeof parsed.address !== 'string' || typeof parsed.password !== 'string') {
     return null;
@@ -37,28 +44,23 @@ export function loadMailCredentials(): MailCredential | null {
 }
 
 export function clearMailCredentials(): void {
-  const path = credentialPath();
-  if (existsSync(path)) unlinkSync(path);
+  removeSealed(credentialPath());
+}
+
+function canvasTokenPath(): string {
+  return join(app.getPath('userData'), 'canvas-token.bin');
 }
 
 export function saveCanvasToken(token: string): void {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
-  writeFileSync(
-    join(app.getPath('userData'), 'canvas-token.bin'),
-    safeStorage.encryptString(token),
-  );
+  writeSealed(canvasTokenPath(), token);
 }
 
 export function loadCanvasToken(): string | null {
-  const path = join(app.getPath('userData'), 'canvas-token.bin');
-  if (!existsSync(path)) return null;
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
-  return safeStorage.decryptString(readFileSync(path));
+  return readSealed(canvasTokenPath());
 }
 
 export function clearCanvasToken(): void {
-  const path = join(app.getPath('userData'), 'canvas-token.bin');
-  if (existsSync(path)) unlinkSync(path);
+  removeSealed(canvasTokenPath());
 }
 
 /** 水源 User API Key 的本地形态；key 只存在主进程，不进 renderer 或数据库。 */
@@ -74,17 +76,13 @@ function shuiyuanPath(): string {
 }
 
 export function saveShuiyuanCredential(credential: ShuiyuanCredential): void {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
-  writeFileSync(shuiyuanPath(), safeStorage.encryptString(JSON.stringify(credential)));
+  writeSealed(shuiyuanPath(), JSON.stringify(credential));
 }
 
 export function loadShuiyuanCredential(): ShuiyuanCredential | null {
-  const path = shuiyuanPath();
-  if (!existsSync(path)) return null;
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
-  const parsed = JSON.parse(
-    safeStorage.decryptString(readFileSync(path)),
-  ) as Partial<ShuiyuanCredential>;
+  const payload = readSealed(shuiyuanPath());
+  if (payload === null) return null;
+  const parsed = JSON.parse(payload) as Partial<ShuiyuanCredential>;
   if (
     typeof parsed.key !== 'string' ||
     typeof parsed.clientId !== 'string' ||
@@ -102,8 +100,7 @@ export function loadShuiyuanCredential(): ShuiyuanCredential | null {
 }
 
 export function clearShuiyuanCredential(): void {
-  const path = shuiyuanPath();
-  if (existsSync(path)) unlinkSync(path);
+  removeSealed(shuiyuanPath());
 }
 
 /** 主进程持久化的 LLM 提供商配置实例；apiKey 只存在这里，不进 renderer 或 SQLite。 */
@@ -145,15 +142,13 @@ function validProvider(value: unknown): value is StoredLlmProvider {
 }
 
 export function saveLlmConfig(config: StoredLlmConfig): void {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
-  writeFileSync(llmConfigPath(), safeStorage.encryptString(JSON.stringify(config)));
+  writeSealed(llmConfigPath(), JSON.stringify(config));
 }
 
 export function loadLlmConfig(): StoredLlmConfig {
-  const path = llmConfigPath();
-  if (!existsSync(path)) return migrateLegacyModelCredential();
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
-  return parseLlmConfig(safeStorage.decryptString(readFileSync(path)));
+  const payload = readSealed(llmConfigPath());
+  if (payload === null) return migrateLegacyModelCredential();
+  return parseLlmConfig(payload);
 }
 
 function parseLlmConfig(payload: string): StoredLlmConfig {
@@ -177,9 +172,9 @@ function parseLlmConfig(payload: string): StoredLlmConfig {
 /** 旧版单凭据（致远一号 key+model）迁移为多提供商配置；写入成功后删除旧文件。 */
 function migrateLegacyModelCredential(): StoredLlmConfig {
   const legacyPath = join(app.getPath('userData'), 'model-credential.bin');
-  if (!existsSync(legacyPath)) return { providers: [], activeId: null };
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
-  const parsed = JSON.parse(safeStorage.decryptString(readFileSync(legacyPath))) as {
+  const payload = readSealed(legacyPath);
+  if (payload === null) return { providers: [], activeId: null };
+  const parsed = JSON.parse(payload) as {
     key?: unknown;
     model?: unknown;
   };

@@ -1,4 +1,4 @@
-import { BrowserWindow, app, dialog, nativeImage } from 'electron';
+import { BrowserWindow, app, dialog, nativeImage, type NativeImage } from 'electron';
 import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -26,12 +26,11 @@ function safeExtension(name: string): string {
   return (/\.[A-Za-z0-9]+$/.exec(name)?.[0] ?? '').toLowerCase();
 }
 
-function imagePreview(bytes: Buffer): string | null {
-  const image = nativeImage.createFromBuffer(bytes);
+/** 宽超 480px 的图片先缩到 480 再转 data URL 预览；空图返回 null。 */
+function previewDataUrl(image: NativeImage): string | null {
   if (image.isEmpty()) return null;
   const size = image.getSize();
-  const preview = size.width > 480 ? image.resize({ width: 480, quality: 'good' }) : image;
-  return preview.toDataURL();
+  return (size.width > 480 ? image.resize({ width: 480, quality: 'good' }) : image).toDataURL();
 }
 
 function isUuid(value: string): boolean {
@@ -45,7 +44,13 @@ export function stageChatMedia(name: string, bytes: Buffer): ChatMediaView {
     if (bytes.length > CHAT_IMAGE_MAX_BYTES) throw new Error('图片超过 5 MB 上限');
     const id = randomUUID();
     writeFileSync(join(mediaDir(), id + safeExtension(name)), bytes);
-    return { id, name, size: bytes.length, kind: 'image', previewUrl: imagePreview(bytes) };
+    return {
+      id,
+      name,
+      size: bytes.length,
+      kind: 'image',
+      previewUrl: previewDataUrl(nativeImage.createFromBuffer(bytes)),
+    };
   }
   if (bytes.length > CHAT_TEXT_ATTACHMENT_MAX_BYTES) throw new Error('文本附件超过 1 MB 上限');
   const id = randomUUID();
@@ -89,11 +94,7 @@ export function readChatMediaPreview(id: string): string | null {
   if (!isUuid(id)) return null;
   for (const file of readdirSync(mediaDir())) {
     if (!file.startsWith(id)) continue;
-    const image = nativeImage.createFromPath(join(mediaDir(), file));
-    if (image.isEmpty()) return null;
-    const size = image.getSize();
-    const preview = size.width > 480 ? image.resize({ width: 480, quality: 'good' }) : image;
-    return preview.toDataURL();
+    return previewDataUrl(nativeImage.createFromPath(join(mediaDir(), file)));
   }
   return null;
 }

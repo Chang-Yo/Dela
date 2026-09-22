@@ -633,6 +633,18 @@ export function ProjectView({
     persistEditorLayout(next);
     syncView(next);
   };
+  /** 解析编辑器标签拖拽负载并移动标签；数据缺失或来自无关拖拽源时静默忽略。 */
+  const dropEditorTab = (event: DragEvent, group: EditorGroupId, targetIndex: number) => {
+    const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
+    if (!raw) return;
+    try {
+      const payload = JSON.parse(raw) as { key?: string; group?: EditorGroupId };
+      if (!payload.key || (payload.group !== 'primary' && payload.group !== 'secondary')) return;
+      moveTab(payload.key, payload.group, group, targetIndex);
+    } catch {
+      // Ignore data from unrelated drag sources.
+    }
+  };
   const title = (key: string) =>
     workspace.entries.find((e) => e.id === key)?.name ??
     canvas.items.find((i) => `source:${i.sourceId}` === key)?.name ??
@@ -833,14 +845,13 @@ export function ProjectView({
           await setCanvas(await window.dela!.canvas.syncCourse(course.id));
     }).finally(() => setSyncing(false));
   };
-  const renderDocument = (key: string, group: EditorGroupId, readOnly = false) => {
+  const renderDocument = (key: string, group: EditorGroupId) => {
     const scrollKey = viewScrollKey(group, key);
     return (
       <ProjectDocument
         key={`${group}:${key}`}
         documentKey={key}
         viewId={`${scope}:${group}`}
-        readOnly={readOnly}
         scroll={
           // 仅挂载时消费一次、非响应式：pending 值优先于已落盘滚动位置，其后经 recordScroll 异步落盘。
           scrollPending.current[scrollKey] ??
@@ -892,22 +903,13 @@ export function ProjectView({
             event.preventDefault();
             // 已由行内落点处理时不再冒泡给编辑组（落正文 = 追加到组尾）。
             event.stopPropagation();
-            const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
-            if (!raw) return;
-            try {
-              const payload = JSON.parse(raw) as { key?: string; group?: EditorGroupId };
-              if (!payload.key || (payload.group !== 'primary' && payload.group !== 'secondary'))
-                return;
-              const target = (event.target as HTMLElement).closest('[data-editor-tab]');
-              const index = target
-                ? Array.from(event.currentTarget.querySelectorAll('[data-editor-tab]')).indexOf(
-                    target,
-                  )
-                : state.tabs.length;
-              moveTab(payload.key, payload.group, group, index);
-            } catch {
-              // Ignore data from unrelated drag sources.
-            }
+            const target = (event.target as HTMLElement).closest('[data-editor-tab]');
+            const index = target
+              ? Array.from(event.currentTarget.querySelectorAll('[data-editor-tab]')).indexOf(
+                  target,
+                )
+              : state.tabs.length;
+            dropEditorTab(event, group, index);
           }}
           onDoubleClick={(event) => {
             if (event.target === event.currentTarget) newNote('');
@@ -1078,16 +1080,7 @@ export function ProjectView({
         event.preventDefault();
         setDragOverGroup(null);
         if (event.defaultPrevented) return;
-        const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
-        if (!raw) return;
-        try {
-          const payload = JSON.parse(raw) as { key?: string; group?: EditorGroupId };
-          if (!payload.key || (payload.group !== 'primary' && payload.group !== 'secondary'))
-            return;
-          moveTab(payload.key, payload.group, group, state.tabs.length);
-        } catch {
-          // Ignore data from unrelated drag sources.
-        }
+        dropEditorTab(event, group, state.tabs.length);
       },
     };
     return (
@@ -1231,7 +1224,6 @@ export function ProjectView({
             >
               {mode === 'project' && (
                 <>
-                  {' '}
                   <HeaderAction label="新建笔记" onClick={() => action('note', currentContainer())}>
                     <FilePlus2 />
                   </HeaderAction>

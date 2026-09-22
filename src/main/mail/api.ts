@@ -27,7 +27,7 @@ const BODY_PRELOAD = 30;
 const BODY_MAX_BYTES = 2_000_000;
 const SNIPPET_MAX_LENGTH = 220;
 
-export const SPECIAL_USE_LABELS: Record<string, string> = {
+const SPECIAL_USE_LABELS: Record<string, string> = {
   '\\Inbox': '收件箱',
   '\\Flagged': '重要',
   '\\Drafts': '草稿箱',
@@ -37,7 +37,7 @@ export const SPECIAL_USE_LABELS: Record<string, string> = {
   '\\Archive': '归档',
 };
 
-export const SPECIAL_USE_ORDER: Record<string, number> = {
+const SPECIAL_USE_ORDER: Record<string, number> = {
   '\\Inbox': 0,
   '\\Drafts': 1,
   '\\Sent': 2,
@@ -54,7 +54,7 @@ interface AccountRow {
   last_synced_at: string | null;
 }
 
-export interface FolderRow {
+interface FolderRow {
   id: number;
   path: string;
   name: string;
@@ -62,7 +62,7 @@ export interface FolderRow {
   uid_validity: string | null;
 }
 
-export interface MessageRow {
+interface MessageRow {
   id: number;
   folder_id: number;
   uid: number;
@@ -123,7 +123,7 @@ export function friendlyError(error: unknown): string {
   return String(error);
 }
 
-export function connectImap(address: string, password: string): ImapFlow {
+function connectImap(address: string, password: string): ImapFlow {
   const client = new ImapFlow({
     host: IMAP_HOST,
     port: IMAP_PORT,
@@ -257,6 +257,23 @@ interface AttachmentItem {
   part: string | null;
 }
 
+/** 下载正文 part 并内联 CID 图片；返回纯文本与（HTML 邮件时的）原始 HTML。 */
+async function downloadMessageBody(
+  client: ImapFlow,
+  uid: number,
+  textPart: TextPart,
+  structure: MessageStructureObject | undefined,
+): Promise<{ text: string; html: string | null }> {
+  const download = await client.download(uid, textPart.part, {
+    uid: true,
+    maxBytes: BODY_MAX_BYTES,
+  });
+  let content = (await drainStream(download.content)).toString('utf8');
+  if (textPart.type !== 'text/html') return { text: content, html: null };
+  content = await downloadHtmlImages(client, uid, structure, content);
+  return { text: stripHtml(content), html: content };
+}
+
 function collectAttachments(node: MessageStructureObject | undefined): AttachmentItem[] {
   const result: AttachmentItem[] = [];
   if (!node) return result;
@@ -325,7 +342,7 @@ function parseAttachments(json: string | null): MailMessageDetail['attachments']
   }
 }
 
-export function getAccountRow(): AccountRow | null {
+function getAccountRow(): AccountRow | null {
   return (
     (getDatabase()
       .prepare(
@@ -386,155 +403,154 @@ function toSummary(row: MessageRow): MailMessageSummary {
   };
 }
 
+/** 特殊用途文件夹的排序档位；未知或普通文件夹固定 90。 */
+function specialUseRank(specialUse: string | false | null | undefined): number {
+  return specialUse ? (SPECIAL_USE_ORDER[specialUse] ?? 90) : 90;
+}
+
 function orderFolders(folders: ListResponse[]): ListResponse[] {
   return [...folders].sort((a, b) => {
-    const rankA = a.specialUse ? (SPECIAL_USE_ORDER[a.specialUse] ?? 90) : 90;
-    const rankB = b.specialUse ? (SPECIAL_USE_ORDER[b.specialUse] ?? 90) : 90;
+    const rankA = specialUseRank(a.specialUse);
+    const rankB = specialUseRank(b.specialUse);
     if (rankA !== rankB) return rankA - rankB;
     return a.path.localeCompare(b.path);
   });
 }
 
-function syncFolder(
+async function syncFolder(
   db: ReturnType<typeof getDatabase>,
   client: ImapFlow,
-  account: AccountRow,
   folder: FolderRow,
   generation: number,
 ): Promise<void> {
   const isStale = () => generation !== syncGeneration;
-  return (async () => {
-    const status = await client.status(folder.path, {
-      messages: true,
-      uidValidity: true,
-      uidNext: true,
-    });
-    if (isStale()) return;
-    const uidValidity = status.uidValidity !== undefined ? String(status.uidValidity) : null;
-    if (folder.uid_validity && uidValidity && folder.uid_validity !== uidValidity) {
-      db.prepare('DELETE FROM mail_messages WHERE folder_id = ?').run(folder.id);
+  const status = await client.status(folder.path, {
+    messages: true,
+    uidValidity: true,
+    uidNext: true,
+  });
+  if (isStale()) return;
+  const uidValidity = status.uidValidity !== undefined ? String(status.uidValidity) : null;
+  if (folder.uid_validity && uidValidity && folder.uid_validity !== uidValidity) {
+    db.prepare('DELETE FROM mail_messages WHERE folder_id = ?').run(folder.id);
+  }
+  // 未读数从本地表统计（排除本地已删除行），不盲信服务器计数。
+  db.prepare(
+    `UPDATE mail_folders SET uid_validity = ?, total = ?,
+      unread = (SELECT COUNT(*) FROM mail_messages
+        WHERE folder_id = mail_folders.id AND deleted_at IS NULL AND seen = 0),
+      synced_at = ?
+     WHERE id = ?`,
+  ).run(uidValidity, status.messages ?? null, new Date().toISOString(), folder.id);
+  if (!status.messages || status.messages === 0) return;
+
+  const uidNext = status.uidNext !== undefined ? Number(status.uidNext) : 1;
+  const highest = Math.max(1, uidNext - 1);
+  const start = Math.max(1, highest - SYNC_WINDOW + 1);
+
+  const lock = await client.getMailboxLock(folder.path);
+  try {
+    const headers = await client.fetchAll(
+      { uid: `${start}:*` },
+      {
+        uid: true,
+        flags: true,
+        envelope: true,
+        internalDate: true,
+        size: true,
+        bodyStructure: true,
+      },
+      { uid: true },
+    );
+    updateSync({ folderPath: folder.path, processed: 0, total: headers.length });
+    const upsert = db.prepare(
+      `INSERT INTO mail_messages
+        (folder_id, uid, message_id, subject, sender_name, sender_address, to_addresses, cc_addresses,
+         date, seen, flagged, has_attachments, attachments, size)
+       VALUES
+        (@folderId, @uid, @messageId, @subject, @senderName, @senderAddress, @toAddresses, @ccAddresses,
+         @date, @seen, @flagged, @hasAttachments, @attachments, @size)
+       ON CONFLICT(folder_id, uid) DO UPDATE SET
+        message_id = excluded.message_id,
+        subject = excluded.subject,
+        sender_name = excluded.sender_name,
+        sender_address = excluded.sender_address,
+        to_addresses = excluded.to_addresses,
+        cc_addresses = excluded.cc_addresses,
+        date = excluded.date,
+        seen = excluded.seen,
+        flagged = excluded.flagged,
+        has_attachments = excluded.has_attachments,
+        attachments = excluded.attachments,
+        size = excluded.size`,
+    );
+    const textParts: Array<TextPart | null> = [];
+    let processed = 0;
+    for (const message of headers) {
+      if (isStale()) return;
+      const envelope = message.envelope;
+      const from = envelope?.from?.[0];
+      const textPart = pickTextPart(message.bodyStructure);
+      const attachments = collectAttachments(message.bodyStructure);
+      upsert.run({
+        folderId: folder.id,
+        uid: message.uid,
+        messageId: envelope?.messageId ?? null,
+        subject: envelope?.subject ?? null,
+        senderName: from?.name ?? null,
+        senderAddress: from?.address ?? null,
+        toAddresses: addressJson(envelope?.to as MailAddress[] | undefined),
+        ccAddresses: addressJson(envelope?.cc as MailAddress[] | undefined),
+        date: toIso(message.internalDate ?? envelope?.date),
+        seen: message.flags?.has('\\Seen') ? 1 : 0,
+        flagged: message.flags?.has('\\Flagged') ? 1 : 0,
+        hasAttachments: attachments.length > 0 ? 1 : 0,
+        attachments: attachments.length > 0 ? JSON.stringify(attachments) : null,
+        size: message.size ?? null,
+      });
+      textParts.push(textPart);
+      processed += 1;
+      if (processed % 25 === 0) updateSync({ processed });
     }
-    // 未读数从本地表统计（排除本地已删除行），不盲信服务器计数。
+    db.prepare('DELETE FROM mail_messages WHERE folder_id = ? AND uid < ?').run(folder.id, start);
     db.prepare(
-      `UPDATE mail_folders SET uid_validity = ?, total = ?,
-        unread = (SELECT COUNT(*) FROM mail_messages
-          WHERE folder_id = mail_folders.id AND deleted_at IS NULL AND seen = 0),
-        synced_at = ?
+      `UPDATE mail_folders SET unread =
+        (SELECT COUNT(*) FROM mail_messages
+         WHERE folder_id = mail_folders.id AND deleted_at IS NULL AND seen = 0)
        WHERE id = ?`,
-    ).run(uidValidity, status.messages ?? null, new Date().toISOString(), folder.id);
-    if (!status.messages || status.messages === 0) return;
+    ).run(folder.id);
 
-    const uidNext = status.uidNext !== undefined ? Number(status.uidNext) : 1;
-    const highest = Math.max(1, uidNext - 1);
-    const start = Math.max(1, highest - SYNC_WINDOW + 1);
-
-    const lock = await client.getMailboxLock(folder.path);
-    try {
-      const headers = await client.fetchAll(
-        { uid: `${start}:*` },
-        {
-          uid: true,
-          flags: true,
-          envelope: true,
-          internalDate: true,
-          size: true,
-          bodyStructure: true,
-        },
-        { uid: true },
-      );
-      updateSync({ folderPath: folder.path, processed: 0, total: headers.length });
-      const upsert = db.prepare(
-        `INSERT INTO mail_messages
-          (folder_id, uid, message_id, subject, sender_name, sender_address, to_addresses, cc_addresses,
-           date, seen, flagged, has_attachments, attachments, size)
-         VALUES
-          (@folderId, @uid, @messageId, @subject, @senderName, @senderAddress, @toAddresses, @ccAddresses,
-           @date, @seen, @flagged, @hasAttachments, @attachments, @size)
-         ON CONFLICT(folder_id, uid) DO UPDATE SET
-          message_id = excluded.message_id,
-          subject = excluded.subject,
-          sender_name = excluded.sender_name,
-          sender_address = excluded.sender_address,
-          to_addresses = excluded.to_addresses,
-          cc_addresses = excluded.cc_addresses,
-          date = excluded.date,
-          seen = excluded.seen,
-          flagged = excluded.flagged,
-          has_attachments = excluded.has_attachments,
-          attachments = excluded.attachments,
-          size = excluded.size`,
-      );
-      const textParts: Array<TextPart | null> = [];
-      let processed = 0;
-      for (const message of headers) {
-        if (isStale()) return;
-        const envelope = message.envelope;
-        const from = envelope?.from?.[0];
-        const textPart = pickTextPart(message.bodyStructure);
-        const attachments = collectAttachments(message.bodyStructure);
-        upsert.run({
-          folderId: folder.id,
-          uid: message.uid,
-          messageId: envelope?.messageId ?? null,
-          subject: envelope?.subject ?? null,
-          senderName: from?.name ?? null,
-          senderAddress: from?.address ?? null,
-          toAddresses: addressJson(envelope?.to as MailAddress[] | undefined),
-          ccAddresses: addressJson(envelope?.cc as MailAddress[] | undefined),
-          date: toIso(message.internalDate ?? envelope?.date),
-          seen: message.flags?.has('\\Seen') ? 1 : 0,
-          flagged: message.flags?.has('\\Flagged') ? 1 : 0,
-          hasAttachments: attachments.length > 0 ? 1 : 0,
-          attachments: attachments.length > 0 ? JSON.stringify(attachments) : null,
-          size: message.size ?? null,
-        });
-        textParts.push(textPart);
-        processed += 1;
-        if (processed % 25 === 0) updateSync({ processed });
+    // 从最新一封开始预取正文，保证打开页面即可阅读。
+    const updateBody = db.prepare(
+      `UPDATE mail_messages
+       SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)
+       WHERE folder_id = ? AND uid = ?`,
+    );
+    for (
+      let index = headers.length - 1;
+      index >= Math.max(0, headers.length - BODY_PRELOAD);
+      index -= 1
+    ) {
+      if (isStale()) return;
+      const uid = headers[index]?.uid;
+      const textPart = textParts[index];
+      if (uid === undefined || !textPart) continue;
+      try {
+        const body = await downloadMessageBody(
+          client,
+          uid,
+          textPart,
+          headers[index]?.bodyStructure,
+        );
+        updateBody.run(body.text, body.html, makeSnippet(body.text), folder.id, uid);
+      } catch {
+        // 单封正文获取失败不阻塞同步；打开邮件时会再次尝试。
       }
-      db.prepare('DELETE FROM mail_messages WHERE folder_id = ? AND uid < ?').run(folder.id, start);
-      db.prepare(
-        `UPDATE mail_folders SET unread =
-          (SELECT COUNT(*) FROM mail_messages
-           WHERE folder_id = mail_folders.id AND deleted_at IS NULL AND seen = 0)
-         WHERE id = ?`,
-      ).run(folder.id);
-
-      // 从最新一封开始预取正文，保证打开页面即可阅读。
-      const updateBody = db.prepare(
-        `UPDATE mail_messages
-         SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)
-         WHERE folder_id = ? AND uid = ?`,
-      );
-      for (
-        let index = headers.length - 1;
-        index >= Math.max(0, headers.length - BODY_PRELOAD);
-        index -= 1
-      ) {
-        if (isStale()) return;
-        const uid = headers[index]?.uid;
-        const textPart = textParts[index];
-        if (uid === undefined || !textPart) continue;
-        try {
-          const download = await client.download(uid, textPart.part, {
-            uid: true,
-            maxBytes: BODY_MAX_BYTES,
-          });
-          let content = (await drainStream(download.content)).toString('utf8');
-          const isHtml = textPart.type === 'text/html';
-          if (isHtml)
-            content = await downloadHtmlImages(client, uid, headers[index]?.bodyStructure, content);
-          const plain = isHtml ? stripHtml(content) : content;
-          updateBody.run(plain, isHtml ? content : null, makeSnippet(plain), folder.id, uid);
-        } catch {
-          // 单封正文获取失败不阻塞同步；打开邮件时会再次尝试。
-        }
-      }
-      updateSync({ processed });
-    } finally {
-      lock.release();
     }
-  })();
+    updateSync({ processed });
+  } finally {
+    lock.release();
+  }
 }
 
 // 服务器草稿箱一次性清理（用户已授权真删）：仅在键值不匹配当前账号时执行，
@@ -623,7 +639,7 @@ async function runSync(account: AccountRow, password: string): Promise<void> {
 
     for (const folderRow of folderRows) {
       if (isStale()) return;
-      await syncFolder(db, client, account, folderRow, generation);
+      await syncFolder(db, client, folderRow, generation);
     }
     if (isStale()) return;
     applyTrashRetention(db);
@@ -651,6 +667,18 @@ async function runSync(account: AccountRow, password: string): Promise<void> {
   }
 }
 
+function getMessageRow(
+  db: ReturnType<typeof getDatabase>,
+  id: number,
+): (MessageRow & { folder_path: string }) | undefined {
+  return db
+    .prepare(
+      `SELECT m.*, f.path AS folder_path FROM mail_messages m
+       JOIN mail_folders f ON f.id = m.folder_id WHERE m.id = ?`,
+    )
+    .get(id) as (MessageRow & { folder_path: string }) | undefined;
+}
+
 async function fetchMissingBody(row: MessageRow, folderPath: string): Promise<void> {
   const account = getAccountRow();
   const credential = account ? loadMailCredentials() : null;
@@ -667,24 +695,16 @@ async function fetchMissingBody(row: MessageRow, folderPath: string): Promise<vo
       );
       const textPart = message ? pickTextPart(message.bodyStructure) : null;
       if (!message || !textPart) throw new Error('邮件没有可显示的正文');
-      const download = await client.download(row.uid, textPart.part, {
-        uid: true,
-        maxBytes: BODY_MAX_BYTES,
-      });
-      let content = (await drainStream(download.content)).toString('utf8');
-      const isHtml = textPart.type === 'text/html';
-      if (isHtml)
-        content = await downloadHtmlImages(client, row.uid, message.bodyStructure, content);
-      const plain = isHtml ? stripHtml(content) : content;
+      const body = await downloadMessageBody(client, row.uid, textPart, message.bodyStructure);
       getDatabase()
         .prepare(
           `UPDATE mail_messages
            SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)
            WHERE id = ?`,
         )
-        .run(plain, isHtml ? content : null, makeSnippet(plain), row.id);
-      row.body_html = isHtml ? content : null;
-      row.body_text = plain;
+        .run(body.text, body.html, makeSnippet(body.text), row.id);
+      row.body_html = body.html;
+      row.body_text = body.text;
     } finally {
       lock.release();
     }
@@ -856,20 +876,14 @@ export function listMailMessages(folderId: unknown, limit: unknown = 100): MailM
        ORDER BY (date IS NULL), date DESC, uid DESC LIMIT ?`,
     )
     .all(parsedFolderId.data, parsedLimit.data) as MessageRow[];
-  const summaries: MailMessageSummary[] = rows.map(toSummary);
-  return summaries;
+  return rows.map(toSummary);
 }
 
 export async function readMailMessage(messageId: unknown): Promise<MailMessageDetail> {
   const parsed = z.number().int().positive().safeParse(messageId);
   if (!parsed.success) throw new Error('参数无效');
   const db = getDatabase();
-  const row = db
-    .prepare(
-      `SELECT m.*, f.path AS folder_path FROM mail_messages m
-     JOIN mail_folders f ON f.id = m.folder_id WHERE m.id = ?`,
-    )
-    .get(parsed.data) as (MessageRow & { folder_path: string }) | undefined;
+  const row = getMessageRow(db, parsed.data);
   if (!row) throw new Error('邮件不存在');
   const mutableRow: MessageRow & { folder_path: string } = { ...row };
   if (mutableRow.body_text === null && mutableRow.body_html === null) {
@@ -899,13 +913,7 @@ export function mailAttachment(messageId: unknown, part: unknown) {
     .regex(/^\d+(?:\.\d+)*$/)
     .safeParse(part);
   if (!parsedMessageId.success || !parsedPart.success) throw new Error('参数无效');
-  const db = getDatabase();
-  const row = db
-    .prepare(
-      `SELECT m.*, f.path AS folder_path FROM mail_messages m
-       JOIN mail_folders f ON f.id = m.folder_id WHERE m.id = ?`,
-    )
-    .get(parsedMessageId.data) as (MessageRow & { folder_path: string }) | undefined;
+  const row = getMessageRow(getDatabase(), parsedMessageId.data);
   const attachment = row
     ? parseAttachments(row.attachments).find((item) => item.part === parsedPart.data)
     : null;
@@ -981,8 +989,8 @@ export function listMailFolders() {
       lastSyncedAt: row.synced_at,
     }))
     .sort((a, b) => {
-      const rankA = a.specialUse ? (SPECIAL_USE_ORDER[a.specialUse] ?? 90) : 90;
-      const rankB = b.specialUse ? (SPECIAL_USE_ORDER[b.specialUse] ?? 90) : 90;
+      const rankA = specialUseRank(a.specialUse);
+      const rankB = specialUseRank(b.specialUse);
       if (rankA !== rankB) return rankA - rankB;
       return a.path.localeCompare(b.path);
     });
@@ -992,12 +1000,7 @@ export async function markMailSeen(messageId: unknown): Promise<MailResult> {
   const parsed = z.number().int().positive().safeParse(messageId);
   if (!parsed.success) return { ok: false, error: '参数无效' };
   const db = getDatabase();
-  const row = db
-    .prepare(
-      `SELECT m.*, f.path AS folder_path FROM mail_messages m
-       JOIN mail_folders f ON f.id = m.folder_id WHERE m.id = ?`,
-    )
-    .get(parsed.data) as (MessageRow & { folder_path: string }) | undefined;
+  const row = getMessageRow(db, parsed.data);
   if (!row) return { ok: false, error: '邮件不存在' };
   const account = getAccountRow();
   const credential = account ? loadMailCredentials() : null;
@@ -1107,24 +1110,24 @@ export function listMailTrash(): MailTrashItem[] {
   }));
 }
 
-export function sendMessage(input: unknown): Promise<MailResult> {
+export async function sendMessage(input: unknown): Promise<MailResult> {
   let credential;
   try {
     credential = loadMailCredentials();
   } catch {
-    return Promise.resolve({ ok: false, error: '邮箱凭据无法解密，请退出后重新登录' });
+    return { ok: false, error: '邮箱凭据无法解密，请退出后重新登录' };
   }
-  if (!credential) return Promise.resolve({ ok: false, error: '邮箱未配置' });
+  if (!credential) return { ok: false, error: '邮箱未配置' };
   const account = getAccountRow();
-  const sentPath = account
-    ? ((
-        getDatabase()
-          .prepare(
-            "SELECT path FROM mail_folders WHERE account_id = ? AND special_use = '\\Sent' LIMIT 1",
-          )
-          .get(account.id) as { path: string } | undefined
-      )?.path ?? null)
-    : null;
+  let sentPath: string | null = null;
+  if (account) {
+    const sent = getDatabase()
+      .prepare(
+        "SELECT path FROM mail_folders WHERE account_id = ? AND special_use = '\\Sent' LIMIT 1",
+      )
+      .get(account.id) as { path: string } | undefined;
+    sentPath = sent?.path ?? null;
+  }
   return sendMailMessage(credential, input, async (message) => {
     const client = connectImap(credential.address, credential.password);
     try {

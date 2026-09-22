@@ -7,10 +7,10 @@
  * 测量 body.scrollHeight 而非 documentElement：后者不会小于 iframe 视口高，
  * 短楼层会被垫出大片空白；两处消费方的 body 均为 margin:0 的内容自适应高度。
  */
-export const FRAME_HEIGHT_SOURCE = 'dela-frame-height';
-export const FRAME_LINK_SOURCE = 'dela-frame-link';
+const FRAME_HEIGHT_SOURCE = 'dela-frame-height';
+const FRAME_LINK_SOURCE = 'dela-frame-link';
 
-export const FRAME_HEIGHT_SCRIPT =
+const FRAME_HEIGHT_SCRIPT =
   '(function(){var send=function(){var b=document.body;var h=(b?b.scrollHeight:document.documentElement.scrollHeight)||0;window.parent.postMessage({source:\'dela-frame-height\',height:h},"*")};document.addEventListener("click",function(e){var t=e.target;var a=t&&t.closest?t.closest("a[href]"):null;var host=document.documentElement.getAttribute("data-dela-internal-link-host");if(!a||!host)return;try{var u=new URL(a.href);var p=u.pathname.split("/").filter(Boolean);if((u.protocol==="https:"||u.protocol==="http:")&&u.hostname===host&&p[0]==="t"&&(/^\\d+$/.test(p[1]||"")||/^\\d+$/.test(p[2]||""))){e.preventDefault();window.parent.postMessage({source:\'dela-frame-link\',href:u.href},"*")}}catch(_){}});if("ResizeObserver" in window){new ResizeObserver(send).observe(document.documentElement)}send()})();';
 
 /** 在已消毒文档中注入高度上报脚本；必须在 sanitize 之后调用，避免被剥除。 */

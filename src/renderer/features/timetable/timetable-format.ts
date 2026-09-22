@@ -82,10 +82,6 @@ export function dateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function timeInput(date: Date): string {
-  return `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}`;
-}
-
 export function formatTime(date: Date): string {
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date);
 }

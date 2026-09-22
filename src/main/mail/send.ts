@@ -30,8 +30,10 @@ const sendInputSchema = z.object({
   inlineImageIds: z.array(z.string().uuid()).max(20),
 });
 
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+
 function imageExtensionSupported(path: string): boolean {
-  return ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(extname(path).toLowerCase());
+  return IMAGE_EXTENSIONS.includes(extname(path).toLowerCase());
 }
 
 function previewImage(path: string): string | null {
@@ -107,15 +109,15 @@ export function restoreComposeFile(
 ): MailComposeFile {
   let file = addComposeAttachment(name, content);
   if (kind === 'inline') {
-    const ext = extname(name).slice(1).toLowerCase();
-    if (!['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+    const ext = extname(name).toLowerCase();
+    if (!IMAGE_EXTENSIONS.includes(ext)) {
       releaseComposeFiles([file.id]);
       throw new Error('草稿图片格式不支持');
     }
     file = {
       ...file,
       kind,
-      previewUrl: `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${content.toString('base64')}`,
+      previewUrl: `data:image/${ext === '.jpg' ? 'jpeg' : ext.slice(1)};base64,${content.toString('base64')}`,
     };
     selectedFiles.set(file.id, { ...file, content });
   }

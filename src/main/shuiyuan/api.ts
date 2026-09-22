@@ -419,7 +419,7 @@ export async function getShuiyuanSiteStructure(): Promise<ShuiyuanSiteStructure>
 }
 
 /** 把 Discourse 返回的 more_topics_url 规整为同源 .json 路径（下一页）。 */
-function moreUrlToPath(moreUrl: string): string {
+function moreUrlToPath(moreUrl: unknown): string {
   const parsed = moreUrlSchema.parse(moreUrl);
   const url = new URL(parsed, SHUIYUAN_ORIGIN);
   if (url.origin !== SHUIYUAN_ORIGIN) throw new Error('分页地址无效');
@@ -438,17 +438,16 @@ export async function listShuiyuanTopics(
   moreUrlInput?: unknown,
 ): Promise<ShuiyuanTopicPage> {
   const feed = feedInputSchema.parse(feedInput) as ShuiyuanFeed;
-  const morePath =
-    moreUrlInput === undefined ? null : moreUrlToPath(moreUrlSchema.parse(moreUrlInput));
+  const morePath = moreUrlInput === undefined ? null : moreUrlToPath(moreUrlInput);
   if (feed.kind === 'search') {
     // 搜索分页用 page 参数，moreUrl 由这里生成并在下一页原样回传。
-    let page = 1;
-    if (morePath)
-      page = z
-        .number()
-        .int()
-        .positive()
-        .parse(new URL(morePath, SHUIYUAN_ORIGIN).searchParams.get('page') ?? 1);
+    const page = morePath
+      ? z
+          .number()
+          .int()
+          .positive()
+          .parse(new URL(morePath, SHUIYUAN_ORIGIN).searchParams.get('page') ?? 1)
+      : 1;
     return mapSearchResult(
       await shuiyuanRequest(`/search.json?q=${encodeURIComponent(feed.query)}&page=${page}`),
       feed.query,

@@ -21,8 +21,6 @@ export const reasoningEffortLevels = [
   'ultra',
 ] as const;
 
-export type ReasoningEffortLevel = (typeof reasoningEffortLevels)[number];
-
 export const llmProviderPresets: readonly LlmProviderPreset[] = [
   {
     id: 'zhiyuan',

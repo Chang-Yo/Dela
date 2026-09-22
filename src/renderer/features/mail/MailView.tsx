@@ -39,7 +39,6 @@ const STACKED_THRESHOLD = 760;
 const AUTO_COLLAPSE_THRESHOLD = 1000;
 /** 窄屏媒体查询:窗口宽度决定走 AppShell 抽屉的单列布局。 */
 const NARROW_MEDIA_QUERY = '(max-width: 767px)';
-const ignoreComposeDirty = () => {};
 
 /** 回复预填不是本地草稿：不带 savedLocally，避免触发既有草稿的覆盖保存/发送后删除。 */
 function replyDraft(source: MailMessageDetail): PreparedEmail {
@@ -59,8 +58,11 @@ function replyDraft(source: MailMessageDetail): PreparedEmail {
   };
 }
 
+/** 服务器 \Drafts/\Trash 不再显示:侧栏这两个位置由本地草稿与本地回收站取代。 */
+const visibleFolders = (list: readonly MailFolderInfo[]) =>
+  list.filter((folder) => folder.specialUse !== '\\Drafts' && folder.specialUse !== '\\Trash');
+
 type MailViewProps = {
-  onComposeDirtyChange?: (dirty: boolean) => void;
   openRequest?: { messageId: number };
   /** 窄屏邮箱级抽屉是否展开,受控于 App 的 mobileDrawer。 */
   mobileDrawerOpen?: boolean;
@@ -82,7 +84,6 @@ function MailUnavailable() {
 }
 
 export function MailView({
-  onComposeDirtyChange,
   mobileDrawerOpen = false,
   onMobileDrawerClose,
   openRequest,
@@ -92,14 +93,12 @@ export function MailView({
     <DesktopMailView
       mobileDrawerOpen={mobileDrawerOpen}
       onMobileDrawerClose={onMobileDrawerClose}
-      onComposeDirtyChange={onComposeDirtyChange}
       openRequest={openRequest}
     />
   );
 }
 
 function DesktopMailView({
-  onComposeDirtyChange = ignoreComposeDirty,
   mobileDrawerOpen = false,
   onMobileDrawerClose,
   openRequest,
@@ -154,14 +153,6 @@ function DesktopMailView({
   const navigationRequest = useRef(0);
   const processedOpenRequest = useRef<{ messageId: number } | undefined>(undefined);
 
-  const updateComposeDirty = useCallback(
-    (dirty: boolean) => {
-      setComposeDirty(dirty);
-      onComposeDirtyChange(dirty);
-    },
-    [onComposeDirtyChange],
-  );
-
   /** 瞬时提示,样式沿用发送成功通知;新提示顶掉旧提示并接管其定时器。 */
   const notify = useCallback((text: string) => {
     setSendNotice(text);
@@ -202,7 +193,7 @@ function DesktopMailView({
 
   const closeComposer = useCallback(() => {
     const close = () => {
-      updateComposeDirty(false);
+      setComposeDirty(false);
       setComposing(false);
       setDraft(undefined);
       // 编辑器内可能保存过草稿,刷新侧栏草稿数。
@@ -211,7 +202,7 @@ function DesktopMailView({
     if (!leaveComposer(close)) return false;
     close();
     return true;
-  }, [accountAddress, loadDrafts, updateComposeDirty]);
+  }, [accountAddress, loadDrafts]);
   const openDrafts = () => {
     if (!leaveComposer(openDrafts)) return;
     navigationRequest.current += 1;
@@ -278,10 +269,6 @@ function DesktopMailView({
   useEffect(() => {
     setDrawerSlot(document.getElementById('mail-drawer-slot'));
   }, []);
-
-  // 服务器 \Drafts/\Trash 不再显示:侧栏这两个位置由本地草稿与本地回收站取代。
-  const visibleFolders = (list: readonly MailFolderInfo[]) =>
-    list.filter((folder) => folder.specialUse !== '\\Drafts' && folder.specialUse !== '\\Trash');
 
   const refreshFolders = useCallback(async () => {
     setFolders([...visibleFolders(await dela.mail.listFolders())]);
@@ -644,7 +631,7 @@ function DesktopMailView({
         // 走保存/放弃确认后再切换,不允许静默丢内容。
         const apply = () => {
           if (request !== navigationRequest.current) return;
-          updateComposeDirty(false);
+          setComposeDirty(false);
           setComposing(false);
           setDraft(undefined);
           setSearch('');
@@ -667,16 +654,7 @@ function DesktopMailView({
         if (request === navigationRequest.current)
           setDetailError(reason instanceof Error ? reason.message : String(reason));
       });
-  }, [
-    account,
-    dela.mail,
-    folders,
-    loadMessages,
-    openMessage,
-    openRequest,
-    stacked,
-    updateComposeDirty,
-  ]);
+  }, [account, dela.mail, folders, loadMessages, openMessage, openRequest, stacked]);
 
   if (state !== null && !account) {
     return (
@@ -742,9 +720,9 @@ function DesktopMailView({
             draft={draft}
             accountAddress={account?.address ?? ''}
             onClose={() => void closeComposer()}
-            onDirtyChange={updateComposeDirty}
+            onDirtyChange={setComposeDirty}
             onSent={(warning) => {
-              updateComposeDirty(false);
+              setComposeDirty(false);
               setComposing(false);
               setDraft(undefined);
               notify(warning ?? '邮件已发送');
