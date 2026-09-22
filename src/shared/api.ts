@@ -573,6 +573,7 @@ export interface NotificationsApi {
   markAllRead(): Promise<NotificationState>;
   setSnooze(until: string | null): Promise<NotificationState>;
   onUpdate(listener: (state: NotificationState) => void): () => void;
+  onOpen(listener: (item: NotificationItem) => void): () => void;
 }
 
 /** Composer 发送载荷：markdown 文本（内联图片以 dela-img token 嵌入）、暂存附件与 @ 引用。 */

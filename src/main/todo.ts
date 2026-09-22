@@ -8,6 +8,7 @@ import { listTodoCanvasAssignments, listTodoCanvasCourses } from './canvas/api';
 import { canvasTodoStatus } from '../shared/todo';
 import { calendarEventColors } from '../shared/api';
 import type { NotificationItem, TodoItem, TodoState } from '../shared/api';
+import { systemNotifyItem } from './system-notify';
 
 const idSchema = z.string().min(1).max(512);
 export const todoSaveSchema = z
@@ -180,6 +181,17 @@ async function syncCanvasTodos(): Promise<TodoState> {
         if (canvasOwner() !== owner) return getTodoState();
         const now = new Date().toISOString();
         const ids = new Set<string>();
+        // 已知课程新增作业（INSERT 且 notice_at=now）是通知产生时刻，弹系统桌面通知。
+        const existingIds = new Set(
+          (
+            db
+              .prepare(
+                "SELECT id FROM todo_items WHERE owner=? AND json_extract(data, '$.courseId')=?",
+              )
+              .all(owner, course.id) as { id: string }[]
+          ).map((row) => row.id),
+        );
+        const freshNotices: { id: string; title: string }[] = [];
         db.transaction(() => {
           for (const a of assignments) {
             if (typeof a.id !== 'number' || a.published === false) continue;
@@ -212,6 +224,8 @@ async function syncCanvasTodos(): Promise<TodoState> {
               successful.has(course.id) ? null : now,
               successful.has(course.id) ? now : null,
             );
+            if (successful.has(course.id) && !existingIds.has(id))
+              freshNotices.push({ id, title: item.title });
           }
           const old = db
             .prepare(
@@ -221,6 +235,17 @@ async function syncCanvasTodos(): Promise<TodoState> {
           for (const item of old)
             if (!ids.has(item.id)) db.prepare('DELETE FROM todo_items WHERE id=?').run(item.id);
         })();
+        for (const notice of freshNotices) {
+          systemNotifyItem({
+            id: `todo:${notice.id}`,
+            source: 'todo',
+            title: notice.title,
+            body: `${course.name} · 新作业`,
+            createdAt: now,
+            readAt: null,
+            href: { kind: 'todo', todoId: notice.id },
+          });
+        }
         successful.add(course.id);
       } catch (error) {
         errors.push(`${course.name}：${error instanceof Error ? error.message : String(error)}`);

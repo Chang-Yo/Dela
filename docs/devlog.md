@@ -10,6 +10,16 @@
 
 ---
 
+## 2026-09-22 系统桌面通知与邮件已读状态打通
+
+用户反馈两件事：希望通知能推到系统桌面（只显示标题，点击直接进入对应界面，如邮件通知落到那封邮件）；通知面板「全部已读」后邮件列表仍显示未读。根因：邮件通知的已读存在 `notifications.read_at`，邮件本身已读存在 `mail_messages.seen`（随 IMAP 同步），两套状态互不联动，双向都不同步。
+
+- **邮件通知已读改为派生状态**：`notificationState` 的邮件行 LEFT JOIN `mail_messages`，已读与否直接取 `seen`（本地删除的邮件通知随之隐藏），不再维护第二份 read_at（水源仍用通知行 read_at，远端已读不回推的现状不变）。通知面板点单条 ✓ 委托 `markMailSeen`、点「全部已读」委托新增的 `markAllMailSeen`（一次 IMAP 连接给收件箱全部未读批量加 `\Seen` 再本地落库）——语义上通知面板标记已读即在**服务器**真正标为已读，手机/网页端同步变化；服务器不可达时保留未读，经既有来源错误行提示。`markMailSeen` 增加已读 fast-path，通知跳转与邮件视图自动标已读不再重复建连。派生切换后 `notifications.source_unread` 列在全仓只写不读（彻底变死是本次切断最后一处 SELECT 引用所致；删列需 schema 迁移，本轮不动，列为后续独立清理候选）。
+- **反向同步（读邮件 → 通知红点）**：`mail/api` 新增 `onMailCacheChanged` 回调注册，读信、删除、恢复、同步完成（含他端已读）后触发，notifications 侧注册后立即重播 `notifications:state`。用回调而非直接互导是为避免 mail/api ↔ notifications 循环依赖。
+- **系统桌面通知**：新模块 `src/main/system-notify.ts`，邮件/水源/TODO 新增通知三处接入（前两处在 refresh 时对已入库 id 做差集，TODO 在已知课程新增作业的 INSERT 分支）。守卫链：启动首轮刷新为基线不弹（armSystemNotifications 之后才弹）→ 未处暂停通知 → 主窗口未聚焦（聚焦时靠应用内红点，收起到托盘/后台正常弹）→ 只显示标题。点击恢复聚焦主窗口并发 `notifications:open`，preload 新增 `notifications.onOpen`，App.tsx 复用通知面板的 `openNotification`（跳转 + 标已读）。Windows 侧 `app.setAppUserModelId('io.dela.desktop')`（与 electron-builder appId 一致，开发运行同样需要）。
+- 已验证：三端类型检查、oxlint 0 警告、vitest 192/192（新增派生已读、markAllMailSeen 批量范围与 fast-path、单条委托、服务器失败保留未读、本地删除隐藏通知等用例；通知测试补 mail/api 与 system-notify mock）、`pnpm build` 三端产物构建通过。
+- 待验证（实机，用户审阅）：系统通知在 Windows 通知中心的弹出与点击跳转、聚焦抑制与暂停抑制、启动基线不弹；通知面板全部已读后邮件列表/文件夹未读数联动、读邮件后铃铛红点即时消失。系统通知聚焦策略与覆盖来源（三来源全覆盖、未聚焦才弹）为本轮采纳的推荐默认，实机体验后可调整。
+
 ## 2026-09-22 全仓架构深度清理（9 个并行切片）
 
 9 个并行 code-clean 切片覆盖全部代码层：main 根模块、agent、mail、shuiyuan、canvas/timetable/workspace、renderer 外壳与 components/ui、chat/projects、mail/shuiyuan/sources features、其余 7 个 features、shared/preload/scripts。统一约束为**行为零变化**（不改 IPC 通道、数据库 schema、存储/凭据格式、错误文案、UI 语义），每处删除均经全仓 grep 确认零引用。合计 48 文件，+567/−887（净 −320 行）：

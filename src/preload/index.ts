@@ -27,6 +27,7 @@ import type {
   ZoomPreference,
   FontScalePreference,
   NotificationFilter,
+  NotificationItem,
   NotificationState,
 } from '../shared/api';
 
@@ -59,6 +60,11 @@ contextBridge.exposeInMainWorld('dela', {
       const subscription = (_event: unknown, state: NotificationState) => listener(state);
       ipcRenderer.on('notifications:state', subscription);
       return () => ipcRenderer.removeListener('notifications:state', subscription);
+    },
+    onOpen: (listener: (item: NotificationItem) => void) => {
+      const subscription = (_event: unknown, item: NotificationItem) => listener(item);
+      ipcRenderer.on('notifications:open', subscription);
+      return () => ipcRenderer.removeListener('notifications:open', subscription);
     },
   },
   window: {

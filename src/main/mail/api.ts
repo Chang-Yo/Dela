@@ -98,6 +98,18 @@ export let syncStatus: MailSyncStatus = {
 let syncGeneration = 0;
 let activeSync: Promise<void> | null = null;
 
+// 邮件缓存变化（读信、删除、恢复、同步完成）会改变派生的通知状态；
+// notifications.ts 注册监听后重播通知状态，回调在数据库事务提交后触发。
+const mailCacheListeners = new Set<() => void>();
+
+export function onMailCacheChanged(listener: () => void): void {
+  mailCacheListeners.add(listener);
+}
+
+function emitMailCacheChanged(): void {
+  for (const listener of mailCacheListeners) listener();
+}
+
 function pushSyncStatus(): void {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) window.webContents.send('mail:sync-status', syncStatus);
@@ -664,6 +676,8 @@ async function runSync(account: AccountRow, password: string): Promise<void> {
     });
   } finally {
     client.close();
+    // 同步会改写 seen 标志（含他端已读），通知面板的派生已读需随之刷新。
+    emitMailCacheChanged();
   }
 }
 
@@ -1002,6 +1016,8 @@ export async function markMailSeen(messageId: unknown): Promise<MailResult> {
   const db = getDatabase();
   const row = getMessageRow(db, parsed.data);
   if (!row) return { ok: false, error: '邮件不存在' };
+  // 已读直接返回；通知跳转与邮件视图打开都会触发标记，避免重复建立 IMAP 连接。
+  if (row.seen === 1) return { ok: true };
   const account = getAccountRow();
   const credential = account ? loadMailCredentials() : null;
   if (!account || !credential) return { ok: false, error: '邮箱未配置' };
@@ -1027,6 +1043,69 @@ export async function markMailSeen(messageId: unknown): Promise<MailResult> {
        WHERE id = ?`,
     ).run(row.folder_id);
   })();
+  emitMailCacheChanged();
+  return { ok: true };
+}
+
+/** 通知中心「全部已读」：收件箱全部未读（未本地删除）在服务器标记 \\Seen，一次连接完成。 */
+export async function markAllMailSeen(): Promise<MailResult> {
+  const account = getAccountRow();
+  const credential = account ? loadMailCredentials() : null;
+  if (!account || !credential) return { ok: false, error: '邮箱未配置' };
+  const db = getDatabase();
+  const rows = db
+    .prepare(
+      `SELECT m.id, m.uid, m.folder_id FROM mail_messages m
+       JOIN mail_folders f ON f.id = m.folder_id
+       WHERE f.account_id = ? AND f.special_use = '\\Inbox'
+         AND m.deleted_at IS NULL AND m.seen = 0`,
+    )
+    .all(account.id) as { id: number; uid: number; folder_id: number }[];
+  if (rows.length === 0) return { ok: true };
+  const byFolder = new Map<number, { uids: number[]; ids: number[]; path: string }>();
+  for (const row of rows) {
+    let group = byFolder.get(row.folder_id);
+    if (!group) {
+      const folder = db.prepare('SELECT path FROM mail_folders WHERE id = ?').get(row.folder_id) as
+        { path: string } | undefined;
+      if (!folder) continue;
+      group = { uids: [], ids: [], path: folder.path };
+      byFolder.set(row.folder_id, group);
+    }
+    group.uids.push(row.uid);
+    group.ids.push(row.id);
+  }
+  const client = connectImap(account.address, credential.password);
+  try {
+    await client.connect();
+    for (const group of byFolder.values()) {
+      const lock = await client.getMailboxLock(group.path);
+      try {
+        await client.messageFlagsAdd({ uid: group.uids.join(',') }, ['\\Seen'], { uid: true });
+      } finally {
+        lock.release();
+      }
+    }
+    client.close();
+  } catch (error) {
+    client.close();
+    return { ok: false, error: friendlyError(error) };
+  }
+  db.transaction(() => {
+    for (const [folderId, group] of byFolder) {
+      const placeholders = group.ids.map(() => '?').join(', ');
+      db.prepare(`UPDATE mail_messages SET seen = 1 WHERE id IN (${placeholders})`).run(
+        ...group.ids,
+      );
+      db.prepare(
+        `UPDATE mail_folders SET unread =
+          (SELECT COUNT(*) FROM mail_messages
+           WHERE folder_id = mail_folders.id AND deleted_at IS NULL AND seen = 0)
+         WHERE id = ?`,
+      ).run(folderId);
+    }
+  })();
+  emitMailCacheChanged();
   return { ok: true };
 }
 
@@ -1053,6 +1132,8 @@ export function deleteMailMessage(messageId: unknown): MailResult {
       ).run(row.folder_id);
     }
   })();
+  // 删除会让对应邮件通知从列表消失（派生查询按未删除过滤）。
+  emitMailCacheChanged();
   return { ok: true };
 }
 
@@ -1078,6 +1159,7 @@ export function restoreMailMessage(messageId: unknown): MailResult {
       ).run(row.folder_id);
     }
   })();
+  emitMailCacheChanged();
   return { ok: true };
 }
 

@@ -180,6 +180,9 @@ if (smokeTest) {
 // 注册业务 IPC；数据库在应用就绪后可用。
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
+  // Windows 系统通知按 AppUserModelID 识别应用；与 electron-builder.yml 的 appId 一致，
+  // 开发运行（未走安装器）也需要显式设置才能弹通知。
+  if (process.platform === 'win32') app.setAppUserModelId('io.dela.desktop');
   // 标题栏内已有应用菜单；移除 Electron 默认菜单，避免额外的系统“退出”入口绕过托盘。
   Menu.setApplicationMenu(null);
   // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。

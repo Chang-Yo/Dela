@@ -348,6 +348,12 @@ export default function App() {
     notifications?.snoozedUntil && Date.parse(notifications.snoozedUntil) > notificationNow
       ? 0
       : (notifications?.unreadCount ?? 0);
+  useEffect(() => {
+    // 系统桌面通知点击：主进程已唤起并聚焦窗口，这里复用通知面板的跳转与已读逻辑。
+    // 首启引导期间主界面尚未挂载，只聚焦窗口不导航。
+    if (launchStage !== 'app') return;
+    return window.dela?.notifications?.onOpen((item) => openNotification(item));
+  }, [launchStage, openNotification]);
 
   return (
     <>

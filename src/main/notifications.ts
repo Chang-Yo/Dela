@@ -11,8 +11,14 @@ import { getTodoState, markTodoRead, todoNotifications } from './todo';
 import { getDatabase } from './database';
 import { loadShuiyuanCredential } from './credentials';
 import { checkWorkspaceSender } from './ipc';
-import { getMailState } from './mail/api';
+import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from './mail/api';
 import { listShuiyuanNotifications } from './shuiyuan/api';
+import {
+  armSystemNotifications,
+  isWorkspaceWindow,
+  systemNotifyItem,
+  NOTIFICATIONS_SNOOZE_KEY,
+} from './system-notify';
 
 const filterSchema = z.union([
   z.literal('all'),
@@ -32,7 +38,7 @@ interface NotificationRow {
   body: string;
   created_at: string;
   read_at: string | null;
-  source_unread: number;
+  mail_seen: number | null;
   href: string;
 }
 
@@ -59,18 +65,23 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
   const db = getDatabase();
   const accounts = currentAccounts();
   const active = accounts.filter((account) => filter === 'all' || account.source === filter);
-  const clauses = active.map(() => '(source = ? AND account_key = ?)');
+  const clauses = active.map(() => '(n.source = ? AND n.account_key = ?)');
   const bindings = active.flatMap((account) => [account.source, account.key]);
+  // 邮件通知的已读派生自邮件本身的 seen 标志（本地删除的邮件不显示通知）；
+  // 水源通知继续使用通知行的 read_at。
+  const mailJoin =
+    "LEFT JOIN mail_messages m ON n.source = 'mail' AND m.id = json_extract(n.href, '$.messageId') AND m.deleted_at IS NULL";
   const where = clauses.length
-    ? `(${clauses.join(' OR ')}) AND (source != 'mail' OR EXISTS (SELECT 1 FROM mail_messages m WHERE m.id = json_extract(notifications.href, '$.messageId') AND m.deleted_at IS NULL))`
+    ? `(${clauses.join(' OR ')}) AND (n.source != 'mail' OR m.id IS NOT NULL)`
     : '0';
   const rows =
     clauses.length === 0
       ? []
       : (db
           .prepare(
-            `SELECT id, source, title, body, created_at, read_at, source_unread, href FROM notifications
-             WHERE ${where} ORDER BY created_at DESC, id DESC LIMIT 200`,
+            `SELECT n.id, n.source, n.title, n.body, n.created_at, n.read_at, n.href, m.seen AS mail_seen
+             FROM notifications n ${mailJoin}
+             WHERE ${where} ORDER BY n.created_at DESC, n.id DESC LIMIT 200`,
           )
           .all(...bindings) as NotificationRow[]);
   const items = rows.flatMap((row): NotificationItem[] => {
@@ -80,6 +91,13 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
         (href.kind === 'mail' && typeof href.messageId === 'number') ||
         (href.kind === 'shuiyuan' && typeof href.topicId === 'number');
       if (!knownHref) return [];
+      const readAt =
+        row.source === 'mail'
+          ? row.mail_seen === 1
+            ? // readAt 只区分已读/未读；邮件本身不记录已读时刻，用通知行时间占位。
+              (row.read_at ?? row.created_at)
+            : null
+          : row.read_at;
       return [
         {
           id: row.id,
@@ -87,7 +105,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
           title: row.title,
           body: row.body,
           createdAt: row.created_at,
-          readAt: row.read_at,
+          readAt,
           href,
         },
       ];
@@ -98,7 +116,10 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
   });
   const counts = db
     .prepare(
-      `SELECT COUNT(*) AS totalCount, COALESCE(SUM(read_at IS NULL), 0) AS unreadCount FROM notifications WHERE ${where}`,
+      `SELECT COUNT(*) AS totalCount, COALESCE(SUM(
+         CASE WHEN n.source = 'mail' THEN m.seen = 0 ELSE n.read_at IS NULL END
+       ), 0) AS unreadCount
+       FROM notifications n ${mailJoin} WHERE ${where}`,
     )
     .get(...bindings) as { totalCount: number; unreadCount: number };
   const { totalCount, unreadCount } = counts;
@@ -107,8 +128,8 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
     .parse(
       (
         db
-          .prepare("SELECT value FROM workspace_settings WHERE key = 'notifications-snoozed-until'")
-          .get() as { value?: string } | undefined
+          .prepare('SELECT value FROM workspace_settings WHERE key = ?')
+          .get(NOTIFICATIONS_SNOOZE_KEY) as { value?: string } | undefined
       )?.value ?? null,
     );
   const refresh = Object.fromEntries(
@@ -151,18 +172,6 @@ function broadcast(): NotificationState {
   return state;
 }
 
-function isWorkspaceWindow(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (
-      (url.protocol === 'file:' && url.pathname.endsWith('/renderer/index.html')) ||
-      url.origin === 'http://127.0.0.1:5173'
-    );
-  } catch {
-    return false;
-  }
-}
-
 function saveRefresh(source: NotificationSource, key: string, error: string | null): void {
   const now = new Date().toISOString();
   getDatabase()
@@ -194,6 +203,16 @@ function upsert(
     .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href));
 }
 
+function existingNotificationIds(source: NotificationSource, key: string): Set<string> {
+  return new Set(
+    (
+      getDatabase()
+        .prepare('SELECT id FROM notifications WHERE source = ? AND account_key = ?')
+        .all(source, key) as { id: string }[]
+    ).map((row) => row.id),
+  );
+}
+
 function refreshMail(recordSuccess = true): void {
   const key = accountFor('mail');
   if (!key) return;
@@ -213,17 +232,18 @@ function refreshMail(recordSuccess = true): void {
     snippet: string | null;
     date: string | null;
   }>;
+  const existing = existingNotificationIds('mail', key);
   for (const message of unread) {
     const sender = message.sender_name || message.sender_address || '新邮件';
-    upsert(
-      'mail',
-      key,
-      `mail:${key}:${message.id}`,
-      message.subject || '无主题邮件',
-      message.snippet || sender,
-      message.date || new Date().toISOString(),
-      { kind: 'mail', messageId: message.id },
-    );
+    const id = `mail:${key}:${message.id}`;
+    const title = message.subject || '无主题邮件';
+    const body = message.snippet || sender;
+    const createdAt = message.date || new Date().toISOString();
+    const href: NotificationItem['href'] = { kind: 'mail', messageId: message.id };
+    upsert('mail', key, id, title, body, createdAt, href);
+    // 首次入库的未读邮件弹系统通知；启动基线等守卫由 system-notify 判断。
+    if (!existing.has(id))
+      systemNotifyItem({ id, source: 'mail', title, body, createdAt, readAt: null, href });
   }
   const sync = getMailState().sync;
   if (sync.phase === 'error') saveRefresh('mail', key, sync.error ?? '邮箱同步失败');
@@ -241,20 +261,31 @@ async function refreshShuiyuan(): Promise<void> {
   try {
     const remote = await listShuiyuanNotifications();
     if (accountFor('shuiyuan') !== key) return;
+    const existing = existingNotificationIds('shuiyuan', key);
     for (const item of remote) {
       if (item.read || item.topicId === null) continue;
-      upsert(
-        'shuiyuan',
-        key,
-        `shuiyuan:${key}:${item.id}`,
-        shuiyuanTitle(item),
-        item.displayUsername ?? '',
-        item.createdAt || new Date().toISOString(),
-        { kind: 'shuiyuan', topicId: item.topicId, postNumber: item.postNumber },
-      );
+      const id = `shuiyuan:${key}:${item.id}`;
+      const title = shuiyuanTitle(item);
+      const createdAt = item.createdAt || new Date().toISOString();
+      const href: NotificationItem['href'] = {
+        kind: 'shuiyuan',
+        topicId: item.topicId,
+        postNumber: item.postNumber,
+      };
+      upsert('shuiyuan', key, id, title, item.displayUsername ?? '', createdAt, href);
+      if (!existing.has(id))
+        systemNotifyItem({
+          id,
+          source: 'shuiyuan',
+          title,
+          body: item.displayUsername ?? '',
+          createdAt,
+          readAt: null,
+          href,
+        });
     }
     // `/notifications.json?recent=true` is a bounded page. Absence from it does not mean a
-    // persisted notification was read, so source_unread/read_at are never changed here.
+    // persisted notification was read, so read_at is never changed here.
     saveRefresh('shuiyuan', key, null);
   } catch (error) {
     saveRefresh('shuiyuan', key, error instanceof Error ? error.message : String(error));
@@ -265,6 +296,8 @@ export function initializeNotifications(): void {
   // Database initialization creates the schema. Existing unread mail is intentionally included as passive local inbox state.
   refreshMail(false);
   broadcast();
+  // 邮件已读派生自邮件缓存：读信、删除、恢复与同步完成都会改变通知状态，需立即重播。
+  onMailCacheChanged(() => broadcast());
 }
 
 export function getNotificationState(filter?: unknown): NotificationState {
@@ -281,6 +314,8 @@ export function refreshNotifications(): Promise<NotificationState> {
       if (key) saveRefresh('mail', key, error instanceof Error ? error.message : String(error));
     }
     await refreshShuiyuan();
+    // 首轮刷新构成启动基线；此后新增的通知才弹系统桌面通知。
+    armSystemNotifications();
     return broadcast();
   })().finally(() => {
     activeRefresh = null;
@@ -305,19 +340,46 @@ function markNotificationRowsRead(id: string | null): void {
     );
 }
 
-function markNotificationRead(idInput: unknown): NotificationState {
+export async function markNotificationRead(idInput: unknown): Promise<NotificationState> {
   const id = z.string().min(1).max(1000).parse(idInput);
   if (id.startsWith('todo:')) {
     markTodoRead(id.slice(5));
     return broadcast();
   }
+  // 邮件通知的已读以邮件本身为准：委托 markMailSeen 在服务器标记 \Seen 并更新本地缓存；
+  // 失败时保留未读，经来源错误行提示。
+  const row = getDatabase()
+    .prepare('SELECT source, href FROM notifications WHERE id = ?')
+    .get(id) as { source: string; href: string } | undefined;
+  if (row?.source === 'mail') {
+    let messageId: number | null = null;
+    try {
+      const href = JSON.parse(row.href) as { kind?: unknown; messageId?: unknown };
+      if (href.kind === 'mail' && typeof href.messageId === 'number') messageId = href.messageId;
+    } catch {
+      // 损坏的 href 行走普通通知已读标记；对邮件行该写入不影响派生已读，仅作保底。
+    }
+    if (messageId !== null) {
+      const result = await markMailSeen(messageId);
+      if (!result.ok) {
+        const key = accountFor('mail');
+        if (key) saveRefresh('mail', key, result.error);
+      }
+      return broadcast();
+    }
+  }
   markNotificationRowsRead(id);
   return broadcast();
 }
 
-export function markAllNotificationsRead(): NotificationState {
+export async function markAllNotificationsRead(): Promise<NotificationState> {
   markTodoRead();
   markNotificationRowsRead(null);
+  const result = await markAllMailSeen();
+  if (!result.ok) {
+    const key = accountFor('mail');
+    if (key) saveRefresh('mail', key, result.error);
+  }
   return broadcast();
 }
 
@@ -325,11 +387,12 @@ export function setNotificationSnooze(untilInput: unknown): NotificationState {
   const until = snoozeSchema.parse(untilInput);
   const db = getDatabase();
   if (until === null)
-    db.prepare("DELETE FROM workspace_settings WHERE key = 'notifications-snoozed-until'").run();
+    db.prepare('DELETE FROM workspace_settings WHERE key = ?').run(NOTIFICATIONS_SNOOZE_KEY);
   else
-    db.prepare(
-      "INSERT OR REPLACE INTO workspace_settings VALUES ('notifications-snoozed-until', ?)",
-    ).run(until);
+    db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(
+      NOTIFICATIONS_SNOOZE_KEY,
+      until,
+    );
   return broadcast();
 }
 
