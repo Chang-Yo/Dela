@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Archive, Ellipsis, Download, FileText, Link2 } from 'lucide-react';
+import { Archive, Columns2, Ellipsis, Download, FileText, Link2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ export function SourceList({
   expanded,
   onExpand,
   onOpen,
+  onOpenToSide,
   selected,
   query,
   bySource,
@@ -30,6 +31,8 @@ export function SourceList({
   expanded: string[];
   onExpand: (id: string, open: boolean) => void;
   onOpen: (key: string) => void;
+  /** 修饰键单击/菜单「在另一栏打开」时在副编辑组打开（key 为 source: 前缀键）。 */
+  onOpenToSide?: (key: string) => void;
   selected: string | null;
   query: string;
   bySource: boolean;
@@ -138,6 +141,13 @@ export function SourceList({
         expanded={effectiveExpanded}
         selected={canvas.items.find((i) => `source:${i.sourceId}` === selected)?.id ?? null}
         onExpand={expand}
+        onOpenToSide={
+          onOpenToSide &&
+          ((id: string) => {
+            const item = canvas.items.find((i) => i.id === id);
+            if (item?.sourceId) onOpenToSide(`source:${item.sourceId}`);
+          })
+        }
         actions={(node) => {
           const course = canvas.courses.find((c) => `course:${c.id}` === node.id);
           const item = canvas.items.find((i) => i.id === node.id);
@@ -198,6 +208,12 @@ export function SourceList({
                         <FileText />
                         在标签页中打开
                       </DropdownMenuItem>
+                      {onOpenToSide && (
+                        <DropdownMenuItem onSelect={() => onOpenToSide(`source:${sourceId}`)}>
+                          <Columns2 />
+                          在另一栏打开
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onSelect={() => onLink(`source:${sourceId}`)}>
                         <Link2 />
                         加入文件夹或项目

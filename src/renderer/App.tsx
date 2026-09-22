@@ -187,6 +187,8 @@ export default function App() {
     if (!navigate('project')) return;
     setProjectId(id || null);
     localStorage.setItem('dela.workspace.project', id);
+    // navigate 在同视图切换时早退不清请求；换项目后旧会话指针不该再把用户拉回去。
+    setChatRequest(undefined);
   };
   const newProject = () => {
     if (!leaveComposer(newProject)) return;
@@ -251,6 +253,10 @@ export default function App() {
     setBackStack((stack) => stack.slice(0, -1));
     setForwardStack((stack) => [view, ...stack]);
     setView(prev);
+    // 与 navigate 的清理对齐：往返导航不清请求指针，搜索定位的旧目标会被重复应用。
+    setMailRequest(undefined);
+    setChatRequest(undefined);
+    setSettingsRequest(undefined);
   };
 
   const goForward = () => {
@@ -259,6 +265,9 @@ export default function App() {
     setBackStack((stack) => [...stack, view]);
     setForwardStack((stack) => stack.slice(1));
     setView(next);
+    setMailRequest(undefined);
+    setChatRequest(undefined);
+    setSettingsRequest(undefined);
   };
 
   // 项目里水源引用卡片的「在水源页打开」：切视图并请求定位到该帖。

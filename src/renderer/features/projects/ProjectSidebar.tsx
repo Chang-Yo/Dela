@@ -34,7 +34,6 @@ export function ProjectSidebar({
   canDrop,
   onImportFiles,
   onOpenToSide,
-  onDoubleClick,
   query,
   excludeIds = [],
   archived = false,
@@ -50,7 +49,6 @@ export function ProjectSidebar({
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
   onOpenToSide?: (id: string) => void;
-  onDoubleClick?: (id: string) => void;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
@@ -107,7 +105,6 @@ export function ProjectSidebar({
       canDrop={canDrop}
       onImportFiles={onImportFiles}
       onOpenToSide={onOpenToSide}
-      onDoubleClick={onDoubleClick}
       sortItems
       actions={(item) => (
         <DropdownMenu>

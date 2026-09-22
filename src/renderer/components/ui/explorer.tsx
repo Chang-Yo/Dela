@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type ComponentType,
@@ -39,7 +40,6 @@ export function Explorer({
   canDrop,
   onImportFiles,
   onOpenToSide,
-  onDoubleClick,
   sortItems = false,
 }: {
   items: ExplorerItem[];
@@ -54,8 +54,6 @@ export function Explorer({
   onImportFiles?: (files: File[], targetId: string | null) => void;
   /** 修饰键单击时在另一编辑器组打开条目。 */
   onOpenToSide?: (id: string) => void;
-  /** 双击条目时由上层决定固定/打开行为。 */
-  onDoubleClick?: (id: string) => void;
   /** 仅对不依赖业务顺序的树启用文件夹优先自然排序。 */
   sortItems?: boolean;
 }) {
@@ -63,6 +61,13 @@ export function Explorer({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [externalDropTarget, setExternalDropTarget] = useState<string | null>(null);
+  // 定位（面包屑 reveal 等）只展开祖先链不滚动树；选中行在视口外时滚到可见，否则点了像没反应。
+  useEffect(() => {
+    if (!selected) return;
+    root.current
+      ?.querySelector('[role="treeitem"][aria-selected="true"]')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [selected]);
   const children = new Map<string | null, ExplorerItem[]>();
   for (const item of items) {
     const group = children.get(item.parentId) ?? [];
@@ -289,7 +294,6 @@ export function Explorer({
               if (event.altKey && onOpenToSide) onOpenToSide(item.id);
               else onSelect(item.id);
             }}
-            onDoubleClick={() => onDoubleClick?.(item.id)}
             onContextMenu={(event) => {
               const trigger = event.currentTarget.querySelector<HTMLButtonElement>(
                 '[data-slot="dropdown-menu-trigger"]',

@@ -26,7 +26,7 @@ function SessionList({
   onDeleteSession,
   onClose,
 }: {
-  sessions: ChatSessionSummary[];
+  sessions: ChatSessionSummary[] | null;
   query: string;
   currentSessionId: string | null;
   onOpenSession: (sessionId: string) => void;
@@ -46,12 +46,13 @@ function SessionList({
   }, [confirmingId]);
   return (
     <>
-      {sessions.length === 0 && (
+      {/* null = 首次结果未返回：留白即可，先闪「还没有历史对话」像对话丢了。 */}
+      {sessions !== null && sessions.length === 0 && (
         <p className="px-3 py-6 text-center text-sm text-muted-foreground">
           {query ? '没有匹配的对话' : '还没有历史对话'}
         </p>
       )}
-      {sessions.map((session) => (
+      {sessions?.map((session) => (
         <div
           className="group flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-accent/60"
           key={session.id}
@@ -133,7 +134,8 @@ export function ChatSessions({
   side?: 'left' | 'right';
 }) {
   const [query, setQuery] = useState('');
-  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
+  // null = 尚无结果：面板打开与查询期间不闪空态文案，保留旧列表直到新结果到达。
+  const [sessions, setSessions] = useState<ChatSessionSummary[] | null>(null);
   const [listVersion, setListVersion] = useState(0);
 
   useEffect(() => {
@@ -147,7 +149,7 @@ export function ChatSessions({
         })
         .catch((e) => {
           if (active) {
-            setSessions([]);
+            setSessions(null);
             console.error(errorText(e));
           }
         });
@@ -172,7 +174,7 @@ export function ChatSessions({
     onDeleteSession(sessionId);
     // 面板保持打开时列表仍可见：先乐观移除，再重取列表覆盖在途旧请求，
     // 也让删除失败（IPC 报错）时该行按服务端事实恢复。
-    setSessions((current) => current.filter((item) => item.id !== sessionId));
+    setSessions((current) => (current ? current.filter((item) => item.id !== sessionId) : current));
     setListVersion((version) => version + 1);
   };
 

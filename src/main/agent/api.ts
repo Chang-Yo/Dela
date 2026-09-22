@@ -118,6 +118,10 @@ export function openChat(scope: string, sessionId: string): WorkspaceChat {
 export function deleteChat(scope: string, sessionId: string): void {
   const row = sessionRow(sessionId);
   if (!row || row.scope !== scope) return;
+  // 删除正在流式输出的当前会话时先中断本轮（与停止按钮同路径），否则删除后仍会
+  // 推送「running 且无消息」的僵尸忙碌态，直到这轮自然跑完。
+  if (asking.has(scope) && activeSession.get(scope) === sessionId)
+    asking.get(scope)?.controller.abort();
   getDatabase().prepare('DELETE FROM chat_sessions WHERE id=?').run(sessionId);
   if (activeSession.get(scope) === sessionId) activeSession.set(scope, null);
   publishChat(scope);

@@ -18,7 +18,8 @@ export type { ChatReference };
 
 /** 首页与项目助手共用的对话状态：会话加载、推送订阅、发送、附件暂存与多会话管理。
  *  输入草稿存于 useChatDrafts（按 scope 持久化），切换页面或重启后不丢失；
- *  图片与附件是暂存资源，不随草稿持久化，离开视图时剥离并释放。 */
+ *  附件 chip 随组件状态丢失，离开视图时释放暂存文件；内联图片随草稿文本保留
+ *  （切走再回来不丢图），文件由启动 GC 回收，重启后残留 token 降级为占位 chip。 */
 export function useChat(scope: string, chatRequest?: { sessionId: string }) {
   const [chat, setChat] = useState<WorkspaceChat | null>(null);
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
@@ -33,8 +34,15 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
 
-  // 离开视图（切换 scope、卸载）时释放暂存文件，并把图片 token 从持久化草稿中剥离：
-  // 落盘图片由启动 GC 回收，留下的 token 重启后会指向不存在的文件。
+  // 附件 chip 不持久化，离开视图/切换 scope 即随状态丢弃：释放其暂存文件并清空。
+  const releaseAttachments = useCallback(() => {
+    const ids = attachmentsRef.current.map((file) => file.id);
+    if (ids.length) void window.dela?.chat.releaseMedia(ids);
+    setAttachments([]);
+  }, []);
+
+  // 新对话时才把内联图片 token 从草稿剥离并释放落盘文件；平时的视图切换不触碰，
+  // 否则「切去邮箱查个东西再回来」会把用户贴的截图静默销毁。
   const releaseDraft = useCallback(() => {
     const ids = attachmentsRef.current.map((file) => file.id);
     const stored = useChatDrafts.getState().drafts[scope];
@@ -48,7 +56,7 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
 
   useEffect(() => {
     activeScope.current = scope;
-    releaseDraft();
+    releaseAttachments();
     setChat(null);
     setError(null);
     setPending(false);
@@ -75,9 +83,9 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
       active = false;
       loadRequest.current += 1;
       unsubscribe?.();
-      releaseDraft();
+      releaseAttachments();
     };
-  }, [chatRequest, scope, releaseDraft]);
+  }, [chatRequest, scope, releaseAttachments]);
 
   const busy = pending || Boolean(chat?.running);
   const prompt = draft.prompt;

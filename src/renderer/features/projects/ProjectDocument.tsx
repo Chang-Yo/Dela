@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Dialog } from 'radix-ui';
 import {
   ChevronRight,
   CopyPlus,
@@ -64,6 +65,7 @@ export function ProjectDocument({
   const canvas = useWorkspace((s) => s.canvas);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmReload, setConfirmReload] = useState(false);
   const [mode, setMode] = useState<NoteMode>(() => noteModes.get(documentKey) ?? 'rich');
   const sourceId = documentKey.startsWith('source:') ? documentKey.slice(7) : entry?.sourceId;
   const shuiyuanTopicId = sourceId?.startsWith('shuiyuan-topic:')
@@ -357,11 +359,9 @@ export function ProjectDocument({
             title="重新载入"
             aria-label="重新载入"
             onClick={() => {
-              if (
-                draft.text === draft.saved ||
-                window.confirm('重新载入会抛弃当前未保存的草稿，是否继续？')
-              )
-                run(useWorkspace.getState().read(documentKey, true));
+              // 有未保存草稿时先经应用内确认（与移除内容等危险操作一致），不用系统原生弹窗。
+              if (draft.text === draft.saved) run(useWorkspace.getState().read(documentKey, true));
+              else setConfirmReload(true);
             }}
           >
             <RefreshCw />
@@ -448,6 +448,31 @@ export function ProjectDocument({
           }
         />
       )}
+      <Dialog.Root onOpenChange={setConfirmReload} open={confirmReload}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+            <Dialog.Title className="text-base font-semibold">重新载入</Dialog.Title>
+            <Dialog.Description className="mt-2 text-xs text-muted-foreground">
+              重新载入会抛弃当前未保存的草稿，是否继续？
+            </Dialog.Description>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button onClick={() => setConfirmReload(false)} variant="ghost">
+                取消
+              </Button>
+              <Button
+                onClick={() => {
+                  setConfirmReload(false);
+                  run(useWorkspace.getState().read(documentKey, true));
+                }}
+                variant="destructive"
+              >
+                重新载入
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </section>
   );
 }

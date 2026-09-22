@@ -93,7 +93,8 @@ export function AgentPanel({
           <SquarePen />
         </Button>
       </div>
-      {!chat?.configured && <ModelKeyForm onConfigured={chatState.refresh} />}
+      {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进项目都闪现 Key 表单。 */}
+      {chat && !chat.configured && <ModelKeyForm onConfigured={chatState.refresh} />}
       {conversation ? (
         <ChatThread chat={chat} onOpenSource={onOpen} onSaveNote={onSaveNote} />
       ) : (

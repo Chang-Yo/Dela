@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type DragEvent,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -74,7 +75,7 @@ const titles: Record<Modal['action'], string> = {
 
 type EditorGroupId = 'primary' | 'secondary';
 type SplitOrientation = 'vertical' | 'horizontal';
-type EditorGroup = { tabs: string[]; active: string | null; preview: string | null };
+type EditorGroup = { tabs: string[]; active: string | null };
 type EditorLayout = {
   split: boolean;
   orientation: SplitOrientation;
@@ -128,7 +129,6 @@ function defaultEditorLayout(
         group?.active && groupTabs.includes(group.active)
           ? group.active
           : (groupTabs.at(-1) ?? null),
-      preview: null,
     };
   };
   const groups = {
@@ -145,7 +145,6 @@ function defaultEditorLayout(
     });
     if (group.active && !group.tabs.includes(group.active))
       group.active = group.tabs.at(-1) ?? null;
-    if (group.preview && !group.tabs.includes(group.preview)) group.preview = null;
   }
   const orientation = stored?.orientation === 'horizontal' ? 'horizontal' : 'vertical';
   const ratio =
@@ -208,6 +207,8 @@ export function ProjectView({
     () => localStorage.getItem('dela.workspace.collapsed') === 'true',
   );
   const [resizing, setResizing] = useState(false);
+  // 拖拽标签悬停的编辑组：给整组高亮，提示松手会移入该组。
+  const [dragOverGroup, setDragOverGroup] = useState<EditorGroupId | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [bySource, setBySource] = useState(false);
@@ -276,6 +277,19 @@ export function ProjectView({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+  // 激活的标签滚动到可见区（VSCode 行为）：标签栏溢出时新开/激活的标签落在视口外毫无反馈。
+  const primaryActive = editorLayout.groups.primary.active;
+  const secondaryActive = editorLayout.groups.secondary.active;
+  useEffect(() => {
+    for (const group of ['primary', 'secondary'] as const) {
+      const key = editorLayoutRef.current.groups[group].active;
+      if (!key) continue;
+      const bar = shellRef.current?.querySelector(`[data-editor-tabs="${group}"]`);
+      bar
+        ?.querySelector(`[data-editor-tab="${key}"]`)
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [primaryActive, secondaryActive]);
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
@@ -367,26 +381,6 @@ export function ProjectView({
     scopeRef.current = scope;
     closeRequest.current += 1;
   }, [scope]);
-  /* 预览标签一旦被编辑就转正（VSCode 语义）。从 ref 读当前布局：
-     ref 与 persistEditorLayout 同源，StrictMode 重跑时仍能读到上一次已持久化的结果。 */
-  useEffect(() => {
-    const layout = editorLayoutRef.current;
-    const pinned = (group: EditorGroupId) => {
-      const preview = layout.groups[group].preview;
-      return preview && drafts[preview]?.text !== drafts[preview]?.saved ? null : preview;
-    };
-    const primary = pinned('primary');
-    const secondary = pinned('secondary');
-    if (primary === layout.groups.primary.preview && secondary === layout.groups.secondary.preview)
-      return;
-    persistEditorLayout({
-      ...layout,
-      groups: {
-        primary: { ...layout.groups.primary, preview: primary },
-        secondary: { ...layout.groups.secondary, preview: secondary },
-      },
-    });
-  }, [drafts]);
   const effectiveSidebarWidth = collapsed
     ? SIDEBAR_COLLAPSED_WIDTH
     : Math.min(
@@ -465,27 +459,17 @@ export function ProjectView({
     const active = next.groups[next.focus].active;
     updateView({ tabs: layoutTabs(next), active });
   };
-  const open = (key: string, group: EditorGroupId = focusedGroup, pin = true) => {
+  const open = (key: string, group: EditorGroupId = focusedGroup) => {
     /* 与 closeTab 一致：从 ref 读布局、从 store 读草稿。submit 在 await 之后调用本函数时，
        渲染闭包里的 editorLayout/drafts 已过期，直接用会把旧布局写回去。 */
     const layout = editorLayoutRef.current;
-    const currentDrafts = useWorkspace.getState().drafts;
     const current = layout.groups[group];
     const alreadyOpen = current.tabs.includes(key);
-    const previewToReplace =
-      !pin && current.preview && current.preview !== key ? current.preview : null;
-    const canReplacePreview =
-      previewToReplace &&
-      !(
-        currentDrafts[previewToReplace] &&
-        currentDrafts[previewToReplace].text !== currentDrafts[previewToReplace].saved
-      );
     const openEverywhere = layoutTabs(layout);
     if (!alreadyOpen && !openEverywhere.includes(key) && openEverywhere.length >= MAX_EDITOR_TABS) {
       useWorkspace.getState().setError(`最多打开 ${MAX_EDITOR_TABS} 个文档`);
       return;
     }
-    const tabs = current.tabs.filter((tab) => !canReplacePreview || tab !== previewToReplace);
     const next: EditorLayout = {
       ...layout,
       split: layout.split || group === 'secondary',
@@ -493,15 +477,8 @@ export function ProjectView({
       groups: {
         ...layout.groups,
         [group]: {
-          tabs: alreadyOpen ? current.tabs : [...tabs, key],
+          tabs: alreadyOpen ? current.tabs : [...current.tabs, key],
           active: key,
-          preview: pin
-            ? current.preview === key
-              ? null
-              : current.preview
-            : alreadyOpen
-              ? current.preview
-              : key,
         },
       },
     };
@@ -509,15 +486,6 @@ export function ProjectView({
     syncView(next);
     setSelected(key);
     setMobileOpen(false);
-    if (
-      canReplacePreview &&
-      previewToReplace &&
-      !next.groups.primary.tabs.includes(previewToReplace) &&
-      !next.groups.secondary.tabs.includes(previewToReplace)
-    ) {
-      void useWorkspace.getState().release(previewToReplace);
-      forgetDocumentSessions(previewToReplace, scope);
-    }
   };
   /* ProjectDocument 在两编辑器组各持有独立 CodeMirror / 所见即所得会话；文档彻底关闭后
      连撤销历史一起清理，否则 sessions 表随开关标签无限增长。 */
@@ -533,7 +501,11 @@ export function ProjectView({
     const otherGroup = group === 'primary' ? 'secondary' : 'primary';
     const stillOpenElsewhere = editorLayoutRef.current.groups[otherGroup].tabs.includes(key);
     // 彻底关闭前先冲盘并释放草稿；保存失败则保留标签，脏草稿不能变得不可达。
-    if (!stillOpenElsewhere && !(await useWorkspace.getState().release(key))) return;
+    if (!stillOpenElsewhere && !(await useWorkspace.getState().release(key))) {
+      // 后台脏标签保存失败时其文档不在 DOM，面板内错误无处显示，靠全局横幅告知。
+      useWorkspace.getState().setError(`关闭「${title(key)}」前保存失败，请先打开处理未保存的修改`);
+      return;
+    }
     if (request !== closeRequest.current || closeScope !== scopeRef.current) return;
     const currentLayout = editorLayoutRef.current;
     const currentGroup = currentLayout.groups[group];
@@ -549,7 +521,6 @@ export function ProjectView({
         [group]: {
           tabs,
           active,
-          preview: currentGroup.preview === key ? null : currentGroup.preview,
         },
       },
       focus: currentLayout.focus === group ? group : currentLayout.focus,
@@ -605,9 +576,8 @@ export function ProjectView({
           primary: {
             tabs: Array.from(new Set([...primary.tabs, ...secondary.tabs])),
             active: focused.active ?? other.active,
-            preview: focused.preview ?? other.preview,
           },
-          secondary: { tabs: [], active: null, preview: null },
+          secondary: { tabs: [], active: null },
         },
       };
       persistEditorLayout(next);
@@ -626,7 +596,6 @@ export function ProjectView({
         secondary: {
           tabs: secondary.tabs.length ? secondary.tabs : active ? [active] : [],
           active: secondary.active ?? active ?? null,
-          preview: secondary.preview ?? null,
         },
       },
     };
@@ -636,7 +605,6 @@ export function ProjectView({
   const moveTab = (key: string, from: EditorGroupId, to: EditorGroupId, targetIndex?: number) => {
     const source = editorLayout.groups[from];
     if (!source.tabs.includes(key)) return;
-    const movingPreview = source.preview === key;
     const sourceTabs = source.tabs.filter((id) => id !== key);
     const destination = editorLayout.groups[to];
     const destinationTabs = destination.tabs.filter((id) => id !== key);
@@ -651,16 +619,14 @@ export function ProjectView({
       focus: to,
       groups: {
         ...editorLayout.groups,
+        // from===to 时该键覆盖上面的值。
         [from]: {
           tabs: sourceTabs,
           active: source.active === key ? (sourceTabs.at(-1) ?? null) : source.active,
-          preview: movingPreview && from !== to ? null : source.preview,
         },
-        // from===to 时该键覆盖上面的值；预览状态在组内重排和跨组移动时都保留。
         [to]: {
           tabs: destinationTabs,
           active: key,
-          preview: from === to ? source.preview : movingPreview ? key : destination.preview,
         },
       },
     };
@@ -738,15 +704,7 @@ export function ProjectView({
       onOpenProject(id);
       return;
     }
-    open(id, 'secondary', true);
-  };
-  const pinEntry = (id: string) => {
-    const item = workspace.entries.find((entry) => entry.id === id);
-    if (item?.kind === 'folder' || item?.kind === 'project') {
-      selectEntry(id);
-      return;
-    }
-    open(id, focusedGroup, true);
+    open(id, 'secondary');
   };
   const newNote = (text: string) => {
     const sourceId = activeKey?.startsWith('source:')
@@ -787,7 +745,6 @@ export function ProjectView({
           return {
             tabs,
             active: current.active && keep(current.active) ? current.active : (tabs.at(-1) ?? null),
-            preview: current.preview && keep(current.preview) ? current.preview : null,
           };
         };
         const removedLayout = editorLayoutRef.current;
@@ -827,7 +784,7 @@ export function ProjectView({
       if (created) {
         if (created.parentId) expand(created.parentId, true);
         if (created.kind === 'project') onOpenProject(created.id);
-        else if (created.kind === 'note') open(created.id, focusedGroup, true);
+        else if (created.kind === 'note') open(created.id, focusedGroup);
         else if (created.kind === 'folder') {
           setSelected(created.id);
           updateView({ active: null });
@@ -897,17 +854,9 @@ export function ProjectView({
         onNewNote={newNote}
         onOpenSource={open}
         onOpenShuiyuanTopic={onOpenShuiyuanTopic}
-        onOpenEntry={(id) => open(id, group, true)}
+        onOpenEntry={(id) => open(id, group)}
       />
     );
-  };
-  const pinTab = (key: string, group: EditorGroupId) => {
-    const state = editorLayout.groups[group];
-    if (state.preview !== key) return;
-    persistEditorLayout({
-      ...editorLayout,
-      groups: { ...editorLayout.groups, [group]: { ...state, preview: null } },
-    });
   };
   const renderTabs = (group: EditorGroupId) => {
     const state = editorLayout.groups[group];
@@ -927,6 +876,7 @@ export function ProjectView({
         <div
           role="tablist"
           aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器标签页`}
+          data-editor-tabs={group}
           className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"
           onWheel={(event) => {
             // 纵向滚轮在标签栏内转为横向滚动（VSCode 行为），触控板横向滚动原生支持。
@@ -940,6 +890,8 @@ export function ProjectView({
           }}
           onDrop={(event) => {
             event.preventDefault();
+            // 已由行内落点处理时不再冒泡给编辑组（落正文 = 追加到组尾）。
+            event.stopPropagation();
             const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
             if (!raw) return;
             try {
@@ -964,11 +916,13 @@ export function ProjectView({
           {state.tabs.map((key) => {
             const dirty = Boolean(drafts[key] && drafts[key].text !== drafts[key].saved);
             const active = state.active === key;
+            // 分屏时非焦点组的标签降不透明度，让「下一个文件会开进哪组」可预判（VSCode 行为）。
+            const unfocused = editorLayout.split && editorLayout.focus !== group;
             return (
               <ContextMenu key={key}>
                 <ContextMenuTrigger asChild>
                   <div
-                    data-editor-tab
+                    data-editor-tab={key}
                     draggable
                     className={cn(
                       'group/tab flex h-10 max-w-56 shrink-0 items-center border-r border-b-2 px-1',
@@ -987,16 +941,18 @@ export function ProjectView({
                         void closeTab(key, group);
                       }
                     }}
-                    onDoubleClick={() => pinTab(key, group)}
                   >
                     <button
                       role="tab"
                       aria-selected={active}
-                      className="min-w-0 flex-1 truncate px-2 text-left text-xs"
+                      className={cn(
+                        'min-w-0 flex-1 truncate px-2 text-left text-xs',
+                        unfocused && 'opacity-55',
+                      )}
                       title={title(key)}
                       onClick={() => open(key, group)}
                     >
-                      <span className={cn(state.preview === key && 'italic')}>{title(key)}</span>
+                      {title(key)}
                     </button>
                     <button
                       className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted"
@@ -1017,6 +973,11 @@ export function ProjectView({
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
+                  <ContextMenuItem
+                    onSelect={() => open(key, group === 'primary' ? 'secondary' : 'primary')}
+                  >
+                    在另一栏打开
+                  </ContextMenuItem>
                   <ContextMenuItem onSelect={() => void closeTab(key, group)}>关闭</ContextMenuItem>
                   <ContextMenuItem onSelect={() => void closeTabs(key, group, 'others')}>
                     关闭其他
@@ -1049,7 +1010,7 @@ export function ProjectView({
                 <Button
                   size="icon-sm"
                   variant={editorLayout.split ? 'secondary' : 'ghost'}
-                  title="编辑器布局"
+                  title="编辑器布局（Ctrl+\ 切换分栏）"
                   aria-label={`编辑器布局：${!editorLayout.split ? '单栏' : editorLayout.orientation === 'vertical' ? '左右分栏' : '上下分栏'}`}
                 >
                   {!editorLayout.split ? (
@@ -1099,10 +1060,43 @@ export function ProjectView({
   };
   const renderGroup = (group: EditorGroupId) => {
     const state = editorLayout.groups[group];
+    // 落点接收编辑器标签拖拽：正文区松手 = 移入该组末尾（VSCode 行为），不只依赖 40px 标签栏。
+    const dropProps = {
+      onDragOver: (event: DragEvent) => {
+        if (!event.dataTransfer.types.includes('application/x-dela-editor-tab')) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        setDragOverGroup(group);
+      },
+      onDragLeave: (event: DragEvent) => {
+        // 标签栏 → 正文属于组内移动，只有离开整组才清除高亮。
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          setDragOverGroup(null);
+      },
+      onDrop: (event: DragEvent) => {
+        if (!event.dataTransfer.types.includes('application/x-dela-editor-tab')) return;
+        event.preventDefault();
+        setDragOverGroup(null);
+        if (event.defaultPrevented) return;
+        const raw = event.dataTransfer.getData('application/x-dela-editor-tab');
+        if (!raw) return;
+        try {
+          const payload = JSON.parse(raw) as { key?: string; group?: EditorGroupId };
+          if (!payload.key || (payload.group !== 'primary' && payload.group !== 'secondary'))
+            return;
+          moveTab(payload.key, payload.group, group, state.tabs.length);
+        } catch {
+          // Ignore data from unrelated drag sources.
+        }
+      },
+    };
     return (
       <section
         key={group}
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+        className={cn(
+          'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+          dragOverGroup === group && 'ring-1 ring-inset ring-border bg-accent/30',
+        )}
         style={{
           flexBasis: editorLayout.split ? `${editorLayout.ratio * 100}%` : undefined,
           // 编辑区容不下两组 EDITOR_MIN_* 时用 splitMinimum 同步放宽，避免副组被裁切。
@@ -1117,6 +1111,7 @@ export function ProjectView({
         }}
         aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器`}
         onPointerDown={() => focusGroup(group)}
+        {...dropProps}
       >
         {renderTabs(group)}
         {state.active ? (
@@ -1367,6 +1362,7 @@ export function ProjectView({
                       expanded={saved.expanded}
                       onExpand={expand}
                       onOpen={open}
+                      onOpenToSide={(key) => open(key, 'secondary')}
                       onLink={(id) => show({ action: 'link', id })}
                       selected={activeKey}
                       query={query}
@@ -1429,7 +1425,6 @@ export function ProjectView({
                   canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
                   onImportFiles={mode === 'project' ? importDroppedFiles : undefined}
                   onOpenToSide={openToSide}
-                  onDoubleClick={pinEntry}
                   query={query}
                   excludeIds={mode === 'sources' ? [workspaceArchiveId] : []}
                 />
@@ -1458,6 +1453,7 @@ export function ProjectView({
                         expanded={saved.expanded}
                         onExpand={expand}
                         onOpen={open}
+                        onOpenToSide={(key) => open(key, 'secondary')}
                         onLink={(id) => show({ action: 'link', id })}
                         selected={activeKey}
                         query={query}
@@ -1474,7 +1470,6 @@ export function ProjectView({
                         onMove={move}
                         canDrop={(dragId, targetId) => !isDescendant(targetId, dragId)}
                         onOpenToSide={openToSide}
-                        onDoubleClick={pinEntry}
                         query={query}
                         archived
                       />
@@ -1576,7 +1571,7 @@ export function ProjectView({
             chatRequest={chatRequest}
             onCollapse={() => setAgentOpen(false)}
             onSaveNote={(text) => show({ action: 'note', id: currentContainer(), text })}
-            onOpen={(key) => open(key, focusedGroup, true)}
+            onOpen={(key) => open(key, focusedGroup)}
           />
         </div>
       </div>
