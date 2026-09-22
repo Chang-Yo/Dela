@@ -469,4 +469,5 @@ Prettier、Oxlint 0 告警、三组类型检查、构建、**182 项单元测试
 - **素材组织**：作者与赞赏素材从 `assets/` 根目录移入 `assets/credits/changyo/`（avatar.jpg、wechat.png、alipay.png），按 `credits/<人物id>/` 约定扩充；纯 JSON 无法引用打包资产，故数据文件用 TS 模块静态 import 图片。
 - **图标注册表**：`socialLinkMeta`/`sponsorChannelMeta` 按 kind 映射图标与默认文案（`Record<SocialLinkKind, …>` 穷举，新增 kind 未注册图标时类型报错）；lucide 无品牌图标，GitHub/知乎标记内联自 simple-icons。
 - **渲染泛化**：赞赏弹窗参数化为 `SponsorDialog`（按人渲染通道与备注，note 缺省时不渲染描述行）；栏目统一渲染为「标题 → 标题下分隔线（`pb-2`）→ 成员行」（成员行 = 左头像姓名 `PersonIdentity`、右链接图标+「赞赏」按钮 `PersonActions`），栏目间距放大（根 gap 5→8）形成分组亲密性。布局经两轮实机审阅收敛：初版 chips、其后 featured/grid 双布局均被推翻，按用户示意稿定稿为单一格式，`CreditSection` 的 `id`/`layout` 字段因与 title 重复/不再需要而移除。新增栏目 = 数据文件加一个 section，不碰组件。
+- **示例数据**：Sponsors 栏目加入首位赞助者「冰啤史莱姆」（知乎链接，暂无收款通道）。
 - 已验证：Prettier、Oxlint、三组类型检查、单测、生产构建。待验证：标题下划线与栏目间距观感（实机审阅）。

@@ -1,6 +1,7 @@
 import alipayQr from '../../../../assets/credits/changyo/alipay.png';
 import authorAvatar from '../../../../assets/credits/changyo/avatar.jpg';
 import wechatQr from '../../../../assets/credits/changyo/wechat.png';
+import icebeerAvatar from '../../../../assets/credits/icebeer/avatar.jpg';
 
 export type SocialLinkKind = 'github' | 'blog' | 'zhihu';
 
@@ -53,6 +54,16 @@ export const creditSections: CreditSection[] = [
           ],
           note: '请作者喝一杯',
         },
+      },
+    ],
+  },
+  {
+    title: 'Sponsors',
+    people: [
+      {
+        name: '冰啤史莱姆',
+        avatar: icebeerAvatar,
+        links: [{ kind: 'zhihu', url: 'https://www.zhihu.com/people/66-72-53-62-30' }],
       },
     ],
   },
