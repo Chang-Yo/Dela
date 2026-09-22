@@ -110,7 +110,7 @@ Dela/
 |-- AGENTS.md                         # 编码约束（CLAUDE.md 指向它）
 |-- knowledge/
 |   `-- SJTU_API_References.md        # 公开参考索引
-|-- assets/                           # 品牌图、作者与赞赏素材；字体等随应用分发
+|-- assets/                           # 品牌图；credits/<id>/ 保存关于页人物素材（头像/收款码），字体等随应用分发
 |-- docs/                             # 背景约束、技术规划、开发/发布指南、开发记录与专题审查
 |-- src/
 |   |-- main/

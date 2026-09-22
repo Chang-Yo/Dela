@@ -460,3 +460,13 @@ Prettier、Oxlint 0 告警、三组类型检查、构建、**182 项单元测试
 
 - 用户反馈变暗覆盖层与「释放以导入到项目」浮块遮挡内容。整体移除该覆盖层（含 `draggingFiles` 状态、`onDragEnter`/`onDragLeave` 处理器与孤立的 `DragEvent` 类型导入）；拖入本地文件时唯一的视觉反馈即 Explorer 的蓝色落点区域高亮（`--drop-target`）。树的滚动容器仍是唯一 drop 入口（`onDragOver` 的 Files 分支保留 preventDefault 以允许落点），行为不变。
 - 已验证：Prettier、Oxlint、三组类型检查、170 项单测、生产构建。待验证：无覆盖层后拖入引导是否足够直观（实机审阅）。
+
+## 2026-09-22 关于页致谢名单数据化（credits）
+
+关于页 Author 区此前全部硬编码（姓名/链接/头像/收款码写死在 `AboutSection.tsx`），无法扩展协作者、赞助者等栏目。改为声明式数据驱动，为后续栏目预留结构。
+
+- **数据模型**：新增 `features/settings/credits.ts`，`CreditSection`（title/people）→ `CreditPerson`（name/avatar/links?/sponsor?）→ `SocialLink`（kind/url/label?）与 `SponsorChannel`（kind/qr/label?）。数据与类型同文件、随源码打包进渲染产物：更新名单走 PR + 发版，用户端无法修改（不走外部 JSON 运行时读取；若未来需要免发版更新名单，升级路径为同一 schema 挪远端 + Ed25519 签名校验 + 内置公钥，UI 不动）。
+- **素材组织**：作者与赞赏素材从 `assets/` 根目录移入 `assets/credits/changyo/`（avatar.jpg、wechat.png、alipay.png），按 `credits/<人物id>/` 约定扩充；纯 JSON 无法引用打包资产，故数据文件用 TS 模块静态 import 图片。
+- **图标注册表**：`socialLinkMeta`/`sponsorChannelMeta` 按 kind 映射图标与默认文案（`Record<SocialLinkKind, …>` 穷举，新增 kind 未注册图标时类型报错）；lucide 无品牌图标，GitHub/知乎标记内联自 simple-icons。
+- **渲染泛化**：赞赏弹窗参数化为 `SponsorDialog`（按人渲染通道与备注，note 缺省时不渲染描述行）；栏目统一渲染为「标题 → 标题下分隔线（`pb-2`）→ 成员行」（成员行 = 左头像姓名 `PersonIdentity`、右链接图标+「赞赏」按钮 `PersonActions`），栏目间距放大（根 gap 5→8）形成分组亲密性。布局经两轮实机审阅收敛：初版 chips、其后 featured/grid 双布局均被推翻，按用户示意稿定稿为单一格式，`CreditSection` 的 `id`/`layout` 字段因与 title 重复/不再需要而移除。新增栏目 = 数据文件加一个 section，不碰组件。
+- 已验证：Prettier、Oxlint、三组类型检查、单测、生产构建。待验证：标题下划线与栏目间距观感（实机审阅）。
