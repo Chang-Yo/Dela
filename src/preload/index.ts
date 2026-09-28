@@ -99,6 +99,8 @@ contextBridge.exposeInMainWorld('dela', {
     getFontScale: () => ipcRenderer.invoke('settings:get-font-scale'),
     setFontScale: (scale: FontScalePreference) =>
       ipcRenderer.invoke('settings:set-font-scale', scale),
+    getOpenAtLogin: () => ipcRenderer.invoke('settings:get-open-at-login'),
+    setOpenAtLogin: (enabled: boolean) => ipcRenderer.invoke('settings:set-open-at-login', enabled),
   },
   llm: {
     list: () => ipcRenderer.invoke('llm:list'),

@@ -466,6 +466,9 @@ export interface SettingsApi {
   setZoom(zoom: ZoomPreference): Promise<ZoomPreference>;
   getFontScale(): Promise<FontScalePreference>;
   setFontScale(scale: FontScalePreference): Promise<FontScalePreference>;
+  /** 开机自启状态；打包版以系统启动项为准，开发运行读本地偏好。 */
+  getOpenAtLogin(): Promise<boolean>;
+  setOpenAtLogin(enabled: boolean): Promise<boolean>;
 }
 
 /** LLM 提供商的脱敏视图：密钥永不返回 renderer。 */
@@ -522,7 +525,8 @@ export interface LlmApi {
   verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
 }
 
-export type SettingsSectionId = 'connections' | 'llm' | 'plugins' | 'appearance' | 'about';
+export type SettingsSectionId =
+  'general' | 'connections' | 'llm' | 'plugins' | 'appearance' | 'about';
 
 export type GlobalSearchResult = {
   title: string;
