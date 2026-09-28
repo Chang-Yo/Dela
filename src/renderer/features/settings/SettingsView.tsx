@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { ConnectionsSection } from './ConnectionsSection';
+import { GeneralSection } from './GeneralSection';
 import { LlmSection } from './LlmSection';
 import { PluginsSection } from './PluginsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
@@ -33,7 +34,7 @@ export function SettingsView({
   theme,
   zoom,
 }: SettingsViewProps) {
-  const [section, setSection] = useState<SettingsSectionId>('connections');
+  const [section, setSection] = useState<SettingsSectionId>('general');
 
   useEffect(() => {
     if (sectionRequest) setSection(sectionRequest.section);
@@ -44,6 +45,7 @@ export function SettingsView({
       <SettingsNav onSectionChange={setSection} value={section} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[760px] px-4 py-5 md:px-10 md:py-8">
+          {section === 'general' && <GeneralSection />}
           {section === 'connections' && (
             <ConnectionsSection
               onOpenMail={onOpenMail}

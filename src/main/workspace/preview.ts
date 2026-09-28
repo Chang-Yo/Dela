@@ -1,10 +1,12 @@
 import { protocol } from 'electron';
 import { createReadStream } from 'node:fs';
 import { stat as fileStat } from 'node:fs/promises';
+import { extname } from 'node:path';
 import { Readable } from 'node:stream';
-import { canvasPdfPath } from '../canvas/api';
+import { canvasPreviewPath } from '../canvas/api';
+import { officeZipMime } from '../resource-parse';
 import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
-import { resolveWorkspaceAsset, workspacePdfPath } from './api';
+import { resolveWorkspaceAsset, workspacePreviewPath } from './api';
 
 const previewScheme = 'dela-resource';
 
@@ -22,15 +24,24 @@ export function registerPreviewScheme(): void {
     },
   ]);
 }
-async function pdfResponse(path: string, request: Request): Promise<Response> {
+// 预览协议放行的文件类型与响应 content-type；路径放行由 canvasPreviewPath/workspacePreviewPath 决定。
+const previewContentType: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.docx': officeZipMime.docx,
+  '.xlsx': officeZipMime.xlsx,
+  '.pptx': officeZipMime.pptx,
+};
+
+async function fileResponse(path: string, request: Request): Promise<Response> {
   const size = (await fileStat(path)).size;
+  const contentType = previewContentType[extname(path).toLowerCase()] ?? 'application/octet-stream';
   const headers = new Headers({
     'accept-ranges': 'bytes',
     'access-control-allow-origin':
       request.headers.get('origin') === 'http://127.0.0.1:5173' ? 'http://127.0.0.1:5173' : 'null',
     'access-control-expose-headers': 'Accept-Ranges, Content-Length, Content-Range',
     'content-disposition': 'inline',
-    'content-type': 'application/pdf',
+    'content-type': contentType,
     'x-content-type-options': 'nosniff',
   });
   let start = 0;
@@ -102,12 +113,12 @@ export function registerPreviewProtocol(): void {
       if (!id || id.includes('/') || id.includes('\\')) throw new Error('无效的文档地址');
       const path =
         url.hostname === 'canvas'
-          ? await canvasPdfPath(id)
+          ? await canvasPreviewPath(id)
           : url.hostname === 'workspace'
-            ? workspacePdfPath(id)
+            ? workspacePreviewPath(id)
             : null;
       if (!path) throw new Error('无效的文档地址');
-      return await pdfResponse(path, request);
+      return await fileResponse(path, request);
     } catch {
       return new Response(null, { status: 404 });
     }

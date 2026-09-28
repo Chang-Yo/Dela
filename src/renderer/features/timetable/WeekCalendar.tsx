@@ -66,10 +66,12 @@ export function WeekCalendar({
   const hours = Array.from({ length: 13 }, (_, index) => 8 + index);
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <div className="hidden min-w-[860px] md:block">
+    <div className="@container min-h-0 flex-1 overflow-auto">
+      {/* 容器查询按内容区实际宽度切换桌面网格/按日堆叠：窗口断点会被主导航侧栏（200–360px）顶掉，
+          窗口 768–1050px 时内容区不足 860px 仍渲染桌面网格，必然出现横向滚动。 */}
+      <div className="hidden min-w-[860px] @min-[860px]:block">
         <div className="sticky top-0 z-30 grid grid-cols-[58px_repeat(7,minmax(110px,1fr))] border-b bg-background/95 backdrop-blur">
-          {/* 横向滚动（内容窄于 860px）时刻度列常驻左缘。 */}
+          {/* 防御：滚动条占宽等边缘情况引发横向滚动时，时刻度列常驻左缘。 */}
           <div className="sticky left-0 bg-background" />
           {weekDays.map((day, index) => {
             const date = weekStart ? addDays(weekStart, index) : null;
@@ -166,7 +168,7 @@ export function WeekCalendar({
           })}
         </div>
       </div>
-      <div className="grid gap-5 p-3 md:hidden">
+      <div className="hidden gap-5 p-3 @max-[860px]:grid">
         {weekDays.map((day, index) => {
           const date = weekStart ? addDays(weekStart, index) : null;
           const dailyLessons = lessons.filter((lesson) => lesson.weekday === index + 1);

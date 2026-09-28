@@ -95,7 +95,7 @@ function ShortcutSection({ children, title }: { children: ReactNode; title: stri
 function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; label: string }) {
   return (
     <div className="flex h-9 items-center justify-between gap-8">
-      <span className="text-sm text-foreground/80">{label}</span>
+      <span className="min-w-0 truncate text-sm text-foreground/80">{label}</span>
       {keys ? (
         <span className="flex shrink-0 items-center gap-1">
           {keys.map((key) => (
@@ -324,7 +324,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-background transition-[grid-template-columns] duration-200 ease-out',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-sidebar transition-[grid-template-columns] duration-200 ease-out',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -335,8 +335,8 @@ export function AppShell({
     >
       <header
         className={cn(
-          'col-span-full flex items-center justify-between border-b border-sidebar-border bg-sidebar',
-          'user-select-none [-webkit-app-region:drag]',
+          'col-span-full flex items-center justify-between bg-sidebar',
+          'select-none [-webkit-app-region:drag]',
         )}
       >
         <div className="flex h-full items-center">
@@ -504,7 +504,14 @@ export function AppShell({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <WindowControls />
+        <div className="flex h-full items-center">
+          {/* 各视图经 portal 往这里挂工作区级动作（目录/布局/助手），挂在窗口控制按钮左侧。 */}
+          <div
+            id="titlebar-actions"
+            className="[-webkit-app-region:no-drag] flex h-full items-center gap-1"
+          />
+          <WindowControls />
+        </div>
       </header>
       <Dialog.Root onOpenChange={setHelpOpen} open={helpOpen}>
         <Dialog.Portal>
@@ -771,8 +778,10 @@ export function AppShell({
       </aside>
       <Resizer
         className={cn(
-          'col-start-2 row-start-2',
-          (sidebarCollapsed || narrow) && 'pointer-events-none',
+          'col-start-2 row-start-2 bg-transparent',
+          // 折叠/窄屏时间隔条整体隐藏（网格列为固定 1px，不影响布局）：
+          // 仅 pointer-events-none 时键盘仍可聚焦，方向键调整是看不见的假反馈。
+          (sidebarCollapsed || narrow) && 'hidden',
         )}
         label="调整侧边栏宽度"
         max={360}
@@ -782,8 +791,12 @@ export function AppShell({
         value={sidebarWidth}
       />
       {/* relative + id：供页内悬浮面板（如首页历史对话）portal 锚定到内容区。 */}
+      {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。 */}
       <main
-        className="relative col-start-3 row-start-2 flex min-w-0 flex-col overflow-hidden bg-background"
+        className={cn(
+          'relative col-start-3 row-start-2 mt-1.5 mr-1.5 ml-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-xl border border-b-0 border-border/70 bg-background shadow-xs',
+          'max-md:mt-0 max-md:mr-0 max-md:ml-0 max-md:rounded-none max-md:border-0',
+        )}
         id="app-main"
       >
         {children}

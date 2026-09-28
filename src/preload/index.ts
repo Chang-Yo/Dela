@@ -29,7 +29,9 @@ import type {
   NotificationFilter,
   NotificationItem,
   NotificationState,
+  OfficeExportEvent,
 } from '../shared/api';
+import type { ResourceRef } from '../shared/resources';
 
 contextBridge.exposeInMainWorld('dela', {
   version,
@@ -97,6 +99,8 @@ contextBridge.exposeInMainWorld('dela', {
     getFontScale: () => ipcRenderer.invoke('settings:get-font-scale'),
     setFontScale: (scale: FontScalePreference) =>
       ipcRenderer.invoke('settings:set-font-scale', scale),
+    getOpenAtLogin: () => ipcRenderer.invoke('settings:get-open-at-login'),
+    setOpenAtLogin: (enabled: boolean) => ipcRenderer.invoke('settings:set-open-at-login', enabled),
   },
   llm: {
     list: () => ipcRenderer.invoke('llm:list'),
@@ -239,6 +243,15 @@ contextBridge.exposeInMainWorld('dela', {
       ipcRenderer.invoke('workspace:create-note-copy', id, parentId ?? null),
     openExternal: (id: string) =>
       ipcRenderer.invoke('workspace:open-external', id) as Promise<'vscode' | 'system'>,
+    exportOfficePdf: (ref: ResourceRef) => ipcRenderer.invoke('workspace:export-office-pdf', ref),
+    onOfficeExportProgress: (listener: (event: OfficeExportEvent) => void) => {
+      const subscription = (_event: unknown, payload: OfficeExportEvent) => listener(payload);
+      ipcRenderer.on('workspace:export-office-progress', subscription);
+      return () => {
+        ipcRenderer.removeListener('workspace:export-office-progress', subscription);
+      };
+    },
+    quickLookFile: (ref: ResourceRef) => ipcRenderer.invoke('workspace:quick-look', ref),
     importFiles: (parentId: string | null) =>
       ipcRenderer.invoke('workspace:import-files', parentId),
     importDroppedFiles: (parentId: string | null, files: File[]) => {

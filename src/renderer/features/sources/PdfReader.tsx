@@ -190,7 +190,8 @@ export function PdfReader({
   };
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-1 text-xs">
+      {/* safe 居中：工具组窄于容器时居中，放不下时对齐起点并横向滚动（居中溢出会把两侧按钮裁成不可达）。 */}
+      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-xs">
         <Button
           size="icon-sm"
           variant="ghost"

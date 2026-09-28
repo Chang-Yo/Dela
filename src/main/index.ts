@@ -73,6 +73,11 @@ const zoomSchema = z.number().refine((value) => (zoomLevels as readonly number[]
 const fontScaleSchema = z
   .number()
   .refine((value) => (fontScaleLevels as readonly number[]).includes(value));
+// 持久化为 '1'/'0'；键不存在（老版本升级、首次使用）视为默认开启。
+const openAtLoginSchema = z
+  .string()
+  .transform((value) => value === '1')
+  .catch(true);
 
 function readSetting(key: string): string | undefined {
   const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
@@ -94,6 +99,10 @@ function savedZoom(): number {
 
 function savedFontScale(): number {
   return fontScaleSchema.catch(1).parse(Number(readSetting('font-scale')));
+}
+
+function savedOpenAtLogin(): boolean {
+  return openAtLoginSchema.parse(readSetting('open-at-login'));
 }
 
 function applyTheme(theme: ThemePreference): ThemePreference {
@@ -152,6 +161,20 @@ function registerSettingsIpc(): void {
       .run(String(scale));
     return scale;
   });
+  // 开机自启：打包后以系统启动项为准（含任务管理器改动），开发运行不注册 electron.exe。
+  ipcMain.handle('settings:get-open-at-login', (event) => {
+    checkWorkspaceSender(event);
+    return app.isPackaged ? app.getLoginItemSettings().openAtLogin : savedOpenAtLogin();
+  });
+  ipcMain.handle('settings:set-open-at-login', (event, value) => {
+    checkWorkspaceSender(event);
+    const enabled = z.boolean().parse(value);
+    getDatabase()
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
+      .run(enabled ? '1' : '0');
+    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: enabled });
+    return enabled;
+  });
 }
 
 const smokeTest = process.argv.includes('--smoke-test');
@@ -190,6 +213,14 @@ app.whenReady().then(() => {
   getDatabase();
   registerPreviewProtocol();
   applyTheme(savedTheme());
+  // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
+  // 之后不再于启动时改写，用户经任务管理器或本页开关的改动均以系统为准。
+  if (app.isPackaged && readSetting('open-at-login') === undefined) {
+    getDatabase()
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
+      .run('1');
+    app.setLoginItemSettings({ openAtLogin: true });
+  }
   registerSettingsIpc();
   registerMailIpc();
   registerTimetableIpc();

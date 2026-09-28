@@ -245,11 +245,13 @@ export function HomeView({
         </div>
       </motion.div>
       {!conversation && (
-        <div className="mx-auto w-full max-w-3xl shrink-0 px-6 pb-12">
+        <div className="@container mx-auto w-full max-w-3xl shrink-0 px-6 pb-12">
+          {/* 列数按内容区实际宽度分档（容器查询）：
+              主导航侧栏拖宽 200–360px 时，窗口断点会与卡片实际宽度脱节。 */}
           {/* 区块语义由卡片自解释，去掉大标题；aria-label 保留读屏上下文。 */}
           <section
             aria-label="最近项目"
-            className="mt-8 grid grid-cols-3 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1"
+            className="mt-8 grid gap-4 @xl:grid-cols-2 @2xl:grid-cols-3"
           >
             {projects.map((project) => {
               const view = workspace.views[project.id];

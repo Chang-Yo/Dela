@@ -10,6 +10,116 @@
 
 ---
 
+## 2026-09-28 目录开关回归侧栏头：折叠态展开入口回落标签栏
+
+用户实机后反馈：目录开关放在标题栏右侧（第四轮决策）离它控制的面板太远，要求放回「tree view 上方」——即第四轮统一收纳前、侧栏头第一格的旧位置。按用户意见部分回退第四轮的「统一标题栏」：
+
+- **展开态**：目录开关常驻侧栏头第一格（28px 按钮 + 14px PanelLeft 图标、灰底显式 `hover:bg-foreground/10`，与头部动作组一致）；`aria-expanded` 按视口取值（<md 抽屉开合、≥md 折叠列）。
+- **折叠态**：面板归零隐藏时开关随面板消失，展开入口由标签栏左端的折叠态开关接管（恢复第三轮方案：常驻挂载 + 宽度/透明度 150ms 双向过渡，仅 `md:` 生效）——避免「有文件打开 + 折叠」时只剩 Ctrl/⌘B 一条不可见回流路径（第三轮消灭的死胡同不回归）。第三轮的 `ml-2` 对齐已被第四轮标签栏 `px-2` 取代——叠加会成 16px 双重边距（用户实机指出），现去 `ml-2` 后按钮与侧栏头开关同处 x=8px，收展切换原地淡入淡出、位置不动。空态「打开目录」按钮与移动端标签栏 Folder 按钮不变。
+- **标题栏**：目录开关移除，保留编辑器布局与助手开关两钮。
+- 已验证：三端 typecheck、oxlint 0 警告、prettier、`pnpm build`、24 个测试文件 202 项单测。待验证：实机确认展开/折叠两个方向的开关位置交替观感（侧栏头 ↔ 标签栏左端）。
+
+## 2026-09-28（第五轮）响应式残余缺陷修复：断点锚定内容区实际宽度
+
+同日四路只读响应式审查（全局外壳 / Chat·设置 / 邮箱·水源 / 项目·资料·TODO·课表）确认无 P0 崩坏，但指出系统性根因：**断点普遍锚定窗口宽度而非内容区实际宽度**——主导航侧栏可拖 200–360px，窗口断点与内容区最多偏差 160px。目录栏折叠与顶栏重构收尾后按清单落地修复，推广仓库既有的两种正确范式（MailView 的 ResizeObserver 实测、MonthCalendar 的 `@container` 容器查询）：
+
+- **首页项目卡片网格（HomeView）**：网格列数由窗口断点改容器查询（`@container` 挂网格外层，`@xl`(576px) 起两列、`@2xl`(672px) 起三列）。原窗口 lg 断点在侧栏 360px 时仍三列、每列仅 ~160px；分档阈值按卡片实际舒适宽度（~213px 起）重定，不再直接沿用窗口阈值——网格本身受 `max-w-3xl`(768px) 封顶，直接平移 1024/768 会永远到不了三列。
+- **设置对话框（PluginsSection/ConnectionsSection）**：`Dialog.Content` 补 `max-h-[85vh] overflow-y-auto`（对齐 LlmSection 既有写法），最小窗口 + 1.25 字号缩放下保存按钮不再被裁出视口。
+- **ChatComposer 底部工具行**：思考强度按钮补 `min-w-0 shrink` + 文案 truncate（与模型按钮同为可收缩件，Button 基类自带 `shrink-0`），窄面板（助手 280px 最小宽）降级为仅剩图标，不再整行溢出；模型按钮补 `title`，截断到只剩箭头时悬停可见全名。
+- **水源阅读页停靠回复栏（TopicReader）**：`useDockedComposer` 由窗口 matchMedia(≥1024) 改为阅读区根节点 ResizeObserver 实测（useLayoutEffect 挂载同步测量防首帧闪变）——窗口 ≥1024 但阅读区不足时退回底部折叠条，楼层正文不再被固定 340px 停靠栏挤到 ~284px。
+- **预览工具栏（PdfReader/SheetPreview/DocxPreview）**：`justify-center` 改 `justify-center-safe` + `overflow-x-auto`——放得下时保持居中，放不下时对齐起点并横向滚动（居中溢出会把两侧按钮裁成不可达）。
+- **助手并排判定（ProjectView）**：`agentInline` 由窗口 matchMedia 改壳宽实测（`shellWidth >= 1024`）——窗口 1024 + 侧栏 200 时壳仅 824px，仍并排会让目录栏最小宽优先、编辑器被压穿自声明的 320px 下限；1024 阈值与助手拖拽上限（壳宽 45%）共同保证并排时编辑器恒 ≥320px。shellWidth 观察改 useLayoutEffect + 挂载即同步测量（消除首帧按 0 宽布局的闪变）；助手面板的 `max-lg:*` 窗口断点类全部改为 agentInline 条件类联动（覆盖态 absolute 全宽遮罩 / 并排态宽度扣减共用同一判定）。
+- **周课表（WeekCalendar）**：桌面网格/按日堆叠由窗口 md 断点改容器查询（`@min-[860px]` / `@max-[860px]`）——窗口 768–1050px 时内容区不足 860px 仍渲染桌面网格，必然横向滚动；现已写好的按日堆叠布局真正挂上。
+- **P2 快修**：AppShell 侧栏折叠时 Resizer 由 `pointer-events-none` 改 `hidden`（键盘不再可聚焦、方向键不再产生看不见的假反馈；网格列为固定 1px 不影响布局，同 MailView 范式）；快捷键弹窗 label 补 `min-w-0 truncate`；标题栏死类 `user-select-none` 修正为 `select-none`；水源阅读页头部分类/标签链补 `min-w-0`/`shrink`/`truncate`，窄时先于标题收缩；文档面包屑末位（当前文档名）`shrink-0`，祖先层级先截断、当前文档保持可读。
+- **审查项未修（非响应式或属其他待办）**：邮件正文 iframe 恒白底（暗色主题刺眼，属主题适配）；月历「+N」热区 20px（触控目标尺寸）；TODO 行尾三图标窄屏占位（上一轮已记待实机审阅）。
+- 已验证：三端 typecheck、oxlint 0 警告、prettier、`pnpm build`、24 个测试文件 202 项单测；容器查询产物在构建 CSS 中确认——`@min-[860px]`/`@max-[860px]` 生成 `(width>=860px)` / `not (width>=860px)` 区间语法，完美互补无边界缝隙（避免小数宽度下两态同显或全隐）；`justify-content:safe center`、`container-type:inline-size` 均已生成。待验证：侧栏拖宽/窗口缩放时首页网格、周课表网格/堆叠、助手并排/覆盖的切换时机与观感（实机审阅）。
+
+## 2026-09-28（第四轮）顶栏去线条化：浮岛内容卡片 + 标题栏功能收纳 + 圆角标签
+
+用户指出工作区顶栏三条行带高度不一、边框线过多且无区分度、工作区名重复出现、图标无分组，整体观感粗糙；定调借鉴 VS Code（功能键入标题栏、图标缩小）与 Chrome/Edge 的圆角标签观感。确立线条规则：灰白相邻靠色差不画线、白上白保留一条淡线（编辑分栏、邮件列表/阅读）、全应用只保留浮岛卡片外圈一圈细边框。
+
+- **浮岛画布（全局）**：AppShell 根色改 `bg-sidebar` 作画布，标题栏去 `border-b`；`main` 内容区变圆角卡片（`rounded-t-xl border border-b-0 border-border/70 shadow-xs`，上、右留 6px 画布缝，`max-md` 退化全铺），首页/项目/邮箱/课表/TODO/设置全部视图统一。导航栏宽 Resizer 透明化。
+- **标题栏功能收纳（VS Code 式）**：header 右侧新增 `#titlebar-actions` portal 宿主，ProjectView 经 `TitleBarPortal`（mounted 后取宿主节点）挂目录开关、编辑器布局下拉、助手开关三个 size-7 按钮；目录头开关、标签栏左端折叠态开关、标签栏右端布局+助手按钮组全部移除，AgentPanel 的窄屏关闭钮（`onCollapse`）一并移除，统一由标题栏接管。
+- **Chrome 式圆角标签**：标签带与目录列统一 `bg-muted` 灰色 chrome 区（去标签带 `border-b`/`bg-muted/20`、标签竖线与活动下划线）；标签改 h-8 圆角浮起 pill，活动态 `bg-background shadow-xs rounded-t-lg` 融入下方白色页面；标签栏末尾新增「+」新建按钮（与双击空白新建等价）；关闭钮 24→20px。
+- **目录列收敛**：侧栏头 h-11→h-10；新建笔记/新建文件夹/导入收进「+」下拉（「全部收起」保留平铺）；搜索框改灰底白色胶囊（去边框）；树行 hover 由 `bg-accent/60`（与 muted 同值、灰底上不可见）改 `bg-foreground/5`；灰底上的 ghost 按钮（目录头、标签栏 +/抽屉开关、助手头部、资料列表行操作）hover 显式改 `bg-foreground/10`，否则 ghost 默认 `hover:bg-accent` 在 `bg-muted` 上同样无反馈。
+- **文档工具栏**：去 `border-b`、字号 11px→12px；面包屑跳过顶层项目（与目录头重名不重复展示）；按钮 icon-sm(32px)→新增 `icon-xs`(28px、图标 14px)，按视图/内容/位置三组排列、组间 `gap-2`；保存状态「已保存」文字改 Check 小图标（保存中/只读/未保存仍为文字），Save 按钮保持常显、仅脏时可用——避免按钮出现/消失引起行内位移，偏离计划中「脏时才显示」的初稿。
+- **配套**：Button 新增 `icon-xs` 尺寸；Resizer 默认 `bg-border`→`bg-transparent`（白上白处显式传 `bg-border/60`：编辑分栏、邮件列表与阅读区——列表白、阅读区灰染，此线兼作两侧底色分界）；AgentPanel 底色 `bg-muted/40`→`bg-muted`、头部去 `border-b`、按钮 icon-xs。
+- **四路并行评审修复（同日）**：窄屏(<md)下标题栏目录开关原实现走 collapsed 分支毫无反馈——新增 `explorerDrawer` 断点状态，抽屉/折叠列按视口分流（空态「打开目录」按钮同修，aria-expanded 按视口取值）；标签「+」移出 `role=tablist`（ARIA content model 不容非 tab 子元素）；标签关闭钮视觉 20px 用 after 伪元素扩回热区；资料侧栏「Canvas 操作」「添加我的资料」两个漏改的 icon-sm ghost 下拉钮统一 icon-xs + hover 显式色；助手面板 bg-muted 全面化后内部三处同色失配（工具调用 pre、图片占位、引用 chip hover）改白底/foreground 叠加；ProjectSidebar 行操作 hover 与 SourceList 对齐；面包屑改跳「无父级的项目」，嵌套项目（原地升级保留父级）不丢层级；保存按钮 tooltip 恢复三态、状态文案只读优先于保存中（防御性对齐旧版）、Check 补 sr-only；panel-toggle 的 `inert` prop 因唯一调用方（标签栏开关）迁走成为死 API 而移除；标题栏动作区与窗口按钮间距 pr-1→pr-1.5；浮岛卡片补 ml-1.5 左缝对称。评审确认的误报：React portal 合成事件沿 React 树冒泡，portal 按钮聚焦时 Ctrl+\ 等工作区快捷键仍可达 `handleWorkspaceKeyDown`，无需焦点补丁。遗留决策：深色主题画布亮于卡片呈「嵌入」观感（与 VS Code 深色明暗关系一致），待实机确认是否接受；设置导航/月历图例/TODO·水源·课表头部的全强度 border-b 属其他视图内部样式，不在本轮范围。
+- 已验证：三端 typecheck、oxlint 0 警告、prettier、`pnpm build`、24 个测试文件 202 项单测。待验证：实机观感——亮/暗主题下浮岛卡片边界、活动标签与页面融合、灰白分界在低对比屏幕上的可见度（若偏弱，目录列右侧可补 `border-border/40` 淡线兜底）、标题栏 portal 按钮与拖拽区互不干扰。
+
+## 2026-09-28（第三轮）目录栏折叠重构：完全隐藏 + 标签栏开关 + Ctrl/⌘B
+
+用户指出折叠态 48px 图标栏全高只放一个开关按钮既丑又浪费，且收展动画的中间帧会把完整面板挤进窄条（悬浮的工具图标、树行文字残影、挤出滚动条）——根因是「宽度参与动画、内容参与布局」：单一 DOM 靠 width 过渡挤过每个中间宽度，显隐靠 `invisible` 瞬时切换与 150ms 宽度动画错位。按对比（Obsidian/Notion 完全隐藏、VS Code/ChatGPT 功能图标栏、悬停暂现）选定「完全隐藏」方向：
+
+- **折叠即隐藏**：`SIDEBAR_COLLAPSED_WIDTH(48)` 移除，折叠宽度归零，不再有图标栏；折叠态加 `inert` 移出焦点序，`border-r-transparent` 消除零宽残留边线。
+- **壳动内容不动**：内容层宽度在折叠动画期间固定为展开宽度，由外壳 `overflow-hidden` 裁切并整体淡出（`transition-opacity`），不再跟随挤压 reflow——中间帧从「破碎挤压」变为「落幕/揭幕」。
+- **开关位移淡化**：目录开关折叠后转移到编辑器标签栏左端（`PanelToggleButton` 常驻挂载，宽度+透明度随收展双向过渡，`overflow-hidden` 裁切图标），避免按钮在目录头与标签栏两处位置间跳变；展开方向同样平滑淡出，不产生标签页瞬移。移动端抽屉开关（Folder 按钮）不变。
+- **配套**：空态（未打开文件）在折叠时出现「打开目录」按钮，消除「从左侧目录打开文件」的死胡同文案；新增 `Ctrl/⌘B` 切换目录栏（编辑器内让位给加粗：焦点在 `.cm-editor`/contenteditable 时不拦截）。
+- 已验证：Prettier、Oxlint 0 警告、三端 typecheck、24 个测试文件 202 项单测。待验证：收展动画手感与开关淡入淡出（动画不做自动化视觉验证，实机审阅）。
+
+## 2026-09-28（第二轮）TODO 详情回归为底部卡片：作业描述入 TodoItem 与行尾快捷操作
+
+用户在上一轮「移除详情面板」基础上进一步提出：点击待办卡片自底部滑出详情卡片（与新建待办同壳），显示标题、DDL 与作业描述；行尾悬浮图标再加几个。
+
+- **作业描述入缓存**：`TodoItem` 新增 `description`（仅 Canvas 作业，描述原始 HTML）。todo 同步本就请求作业列表、Canvas 响应自带 description，此前被丢弃——补齐字段零额外请求；旧缓存条目待下次同步（≤15 分钟轮询或手动刷新）补齐。agent 工具 query_todos/query_assignments 返回前剥离 description（HTML 不进模型上下文，正文需要时经 readCanvasSource）。
+- **详情卡片**：底部滑出壳提取为 `TodoSheet`（遮罩+卡片+标题行+关闭），新建/编辑与详情共用。详情 = 标题、元信息行（BookOpen 课程·状态、CalendarClock 截止、CircleCheckBig 提交于、CalendarCheck 已写入日历）、元信息下 divider 接描述正文（Canvas 作业：无边框沙箱 iframe 渲染清洗后 HTML，链接点击转 openLink；个人待办：备注文本）、页脚操作（个人：删除/编辑；Canvas：在 Canvas 中打开）。初版描述为固定 288px 边框卡片内部滚动，用户实机反馈长文截断——根因是阅读器默认样式禁文档纵向滚动（`html{overflow-y:hidden}`，邮件场景为高度上报让外层滚动的约定），固定高度盒子因此必然裁切；改为 body 挂 ResizeObserver 量高、iframe 高度自适应（父侧测量，无需邮件那套 postMessage 脚本与 CSP hash 注入，sandbox 保持仅 allow-same-origin）。其后高度方案定稿：卡片固定为所在视图 85% 高（overflow-hidden，标题与元信息行固定不滚动，页脚钉底），描述区占卡片剩余空间、超出内部滚动——用户在知晓「固定整卡高度对短内容会有留白」的取舍后选定此组合；iframe 仍自适应高度，滚轮经不可滚动的文档链到描述区。HTML 清洗逻辑自 SourceDetail 提取为 `lib/sanitize-html.ts`，资料详情改为复用，行为不变。
+- **行尾图标扩充**：个人待办 1→3（写入日历快捷开关 CalendarPlus/CalendarCheck、编辑、删除，均直接操作），Canvas 保持外链一个（本地无其他可动动作）。整行点击从「编辑/打开 Canvas」改为打开详情卡片并标记已读；搜索/通知深链（request.id）恢复打开详情（上一轮曾降级为仅落地列表）。
+- 已验证：Prettier、Oxlint 0 警告（TodoDetail 渲染期 Date.now 触发 react purity 警告，改由 TodoView 传入分钟级 `now` prop）、三端 typecheck、`pnpm build`、24 个测试文件 202 项单测。待验证：详情卡片固定高度（85%）+ 描述区限高内部滚动的观感（含滚轮悬于 iframe 上的滚动链）、行尾三图标窄屏占位、深链滑出卡片的时机（实机审阅）。疑似同源隐患：资料详情（SourceDetail）的 Canvas iframe 同样受 `overflow-y:hidden` 约束而自身不增长，长文是否可滚动待实机确认，若确认截断可将同一量高机制移植。
+
+## 2026-09-28 TODO 详情面板移除：行尾悬停操作 + 新建/编辑共用底部面板
+
+用户反馈点击待办展开的右侧「待办详情」观感差：内容与列表行完全重复（标题/课程·状态/截止），占约半宽却大面积留白。按「行即操作」收敛，去掉第二栏：
+
+- **详情面板整体移除**：selectedId、详情节与双栏布局拆除，列表恢复全宽。整行点击执行主操作并标记已读——Canvas 作业直接在 Canvas 中打开（原详情面板唯一动作即此外链，三步并一步），个人待办打开编辑面板。
+- **行尾操作图标**：每行右侧悬停浮现单个图标（Canvas 作业 ExternalLink、个人待办 Pencil），图标始终占位（仅 opacity 过渡）避免行内容位移，键盘聚焦（group-focus-within）同样浮现，窄屏常显（max-md:opacity-100）。曾考虑行尾「完成」图标后否决：个人待办的完成开关即左侧圆圈，Canvas 状态由 Canvas 同步决定（未完成/已提交/已批改/需重交…），本地打勾会与同步冲突。
+- **新建/编辑共用 TodoComposer**：详情面板内的编辑表单 TodoForm 移除；TodoComposer 接受可选 item，标题随「新建待办」/「编辑待办」切换。截止时间支持清除与重设（编辑无截止待办时出现「设置截止时间」按钮，原 TodoForm 能力保留）；编辑态页脚左侧新增删除（原详情面板动作迁移），新建默认截止时刻不变。
+- **深链行为变化**：搜索/通知跳转（request.id）不再打开详情，落地 TODO 列表并标记已读；详情面板移除后无选中态，未加临时高亮。
+- 已验证：Prettier、Oxlint、三端 typecheck、`pnpm build`、24 个测试文件 202 项单测。待验证：悬停浮现时机与行内容无位移、整行打开 Canvas 的手感、编辑/删除面板实机观感（实机审阅；悬停交互不做自动化视觉验证）。
+
+## 2026-09-28 设置新增「通用」分区与开机自启动（默认开启）
+
+设置导航在首位新增「通用」分区并成为设置页默认落点，当前包含「开机自启动」开关（描述「登录系统后自动启动 Dela」）。主进程经 `app.setLoginItemSettings`/`app.getLoginItemSettings` 读写系统启动项：仅打包版执行系统注册（开发运行不注册 electron.exe，读写本地偏好）；偏好存 `workspace_settings` KV `open-at-login`（'1'/'0'，键不存在视为开启，覆盖老版本升级场景）。打包版首次启动登记默认开启并注册启动项，之后不在启动时改写——避免覆盖用户在任务管理器或设置页的改动，状态以系统为准。
+
+- **renderer**：新 `GeneralSection`（沿用外观分区的行式布局与独立保存态/失败提示）；TodoView 的私有 `Switch` 提取为共享 `components/ui/switch.tsx`（新增 `disabled` 属性，加载未完成与保存中时禁用），两处调用方。
+- 已验证：三端 typecheck、oxlint 0 警告、vitest 197/197、`pnpm build` 三端产物构建通过、`pnpm smoke` 通过（开发运行不触及系统注册，行为与此前一致）。
+- 待验证（需打包实机）：安装版首次启动写入 HKCU Run 键并在 Windows「启动应用」中可见；设置页开关与任务管理器的启停联动；UI 状态与系统注册项一致。
+- 边界：`getLoginItemSettings().openAtLogin` 只反映 Run 键存在性，Windows 任务管理器的「禁用」走 StartupApproved 标记、不改 Run 键，届时设置页可能显示与实际启动行为不一致（Windows 平台已知差异，Electron 生态通行行为）；Linux 上 Electron 的 setLoginItemSettings 为 no-op（Linux 分发已暂停）；自启动拉起完整窗口，不做「启动到托盘」的隐藏参数。
+
+## 2026-09-28 Canvas 资料 Office 文件预览（pptx / docx / xlsx）
+
+资料面板的文件预览此前只支持 PDF/图片；本轮增加三类 OOXML 只读预览，覆盖 Canvas 课程文件与「我的资料」导入文件两个来源。docx/xlsx 为纯 renderer 渲染（新依赖 docx-preview 与 SheetJS——SheetJS 官方已不在 npm 发新版，按官方 CDN tgz 精确锁 `xlsx-0.20.3`，含 CVE-2023-30533 修复）；pptx 不直接渲染：Windows 经 `powershell.exe`（Windows 内置 5.1，脚本无 PS7 独有语法）调 PowerPoint COM 后台打开另存为 PDF（`SaveAs` 格式 32，输入/输出路径走环境变量防注入），macOS 调 `BrowserWindow.previewFile`（Quick Look）。均由确认卡片按钮触发，不自动执行。
+
+- **格式识别**：Canvas 文件沿用魔数路线——`%PDF-` 之后增加 `PK\x03\x04` 嗅探，`resource-parse.ts` 新增只读 zip 中央目录条目名的分类助手（`word/document.xml`/`ppt/slides/`/`xl/workbook.xml`），文件按尾部读取识别（容忍 zip 末尾追加字节）；本地文件按扩展名。`DocumentContent.format` 增加 `'docx' | 'xlsx' | 'pptx'`。
+- **受限协议放宽**：`dela-resource://` 的 canvas/workspace 主机从"仅 PDF"放宽为 PDF+三类 OOXML（`canvasPdfPath`/`workspacePdfPath` 改名 `canvasPreviewPath`/`workspacePreviewPath`），响应 content-type 按扩展名给出，仍不暴露磁盘路径。
+- **pptx 导出与关联**：导出 PDF 存入「我的资料/预览导出」（固定文件夹，id 记在 settings、可重命名找回；条目 kind='imported' 可见可管理）。关联存 `workspace_settings` KV `preview-export:<canvas|workspace>:<id>`（值含 entryId/path/version/exportedAt；无新表无迁移）。重复导出覆盖同一文件（先写临时名再改名，失败不破坏上次导出）；in-flight Map 防并发重复。再点开源 pptx 直接在同一标签页内渲染导出的 PDF，顶部细提示「已打开导出的 A.pdf」；源版本变化（Canvas updatedAt / 本地 mtime-size）时提示可能过期并给「重新导出」。新 IPC：`workspace:export-office-pdf`、`workspace:quick-look`（后者需 sender 定位窗口，单独注册）。
+- **renderer**：`DocxPreview`（docx-preview，`.docx-wrapper` 灰底覆盖为透明露出 bg-muted）、`SheetPreview`（SheetJS 读字节 + 底部工作表标签切换 + `sheet_to_html` token 化表格样式）、`OfficePrompt`（确认卡片/关联提示条，平台判断沿用 `navigator.platform` 模式）；`SourceDetail` 增加 docx/xlsx/pptx 分支，`ProjectDocument` 计算 officeRef（Canvas 用 sourceId、本地条目用条目 id）并传刷新回调。三组件均懒加载分包（xlsx 约 363KB、docx-preview 约 173KB 不进主包）。
+- 已验证：三端 typecheck、oxlint 0 警告、prettier 通过、vitest 197/197（新增 OOXML zip 分类 2 例 + 导出关联 KV 读写/损坏容错/stale 判定 3 例）、`pnpm build` 三端产物构建通过且分包生效。
+- **评审与实机反馈修复（同日第二轮，3 个并行评审 + jsdom 探针实证）**：
+  - zip 分类尾窗 bug：EOCD 的中央目录偏移相对文件起点，>1MB 文件按尾部缓冲直接索引必然越界 → 全部误判"不支持"（绝大多数真实课件带图超过 1MB）。`classifyOfficeZip` 增加尾窗起点换算，补 1.5MB 随机数据 fixture 用例。
+  - docx 内嵌图片不显示：探针实证 docx-preview 默认 blob 路径不产出 img src、`useBase64URL: true` 稳定输出 data: URL；统一切 base64（CSP 的 img-src/font-src 均放行 data:，顺带解决内嵌字体被 font-src 拦截的问题），并 `renderAltChunks: false` 关闭无 sandbox 的 srcdoc iframe 面。
+  - xlsx 注入面：SheetJS 0.20.3 源码级确认富文本 `cell.h` 与 `data-z` 属性两处未转义（当前仅靠 CSP 兜底）；`cellHTML: false` 关掉 `.h` 生成 + `sheet_to_html` 输出经 DOMParser 清理（与邮件 HTML 预览同模式，剥 script/iframe/on* 属性/危险协议链接）。注意 HTML 序列化规范对属性值只转义 `&` 和 `"`——重新解析无注入元素才是正确判定，已按此写测试断言。
+  - pptx 生命周期：超时改为 `taskkill /T /F` 连进程树杀掉（原实现只 reject，挂起的 PowerPoint 常驻后台）；失败清理 `.part.pdf` 临时文件；导出条目被删除后（仓库约定删条目不删文件）关联校验条目存在性、缺失回退确认卡片；条目被重命名后重新导出同步 `local_path`（原实现只改 name，渲染停留在旧文件）；PowerPoint COM 单实例冲突以 Promise 链串行化转换。
+  - 体验：docx/xlsx 增加与 PdfReader 同款缩放工具栏（10% 步进、50%–300%、点击百分比重置，CSS zoom 缩放内容层）；xlsx 增加空工作簿提示与 2000 行截断提示；pptx 导出增加进度反馈——main 侧 `workspace:export-office-progress` 事件（准备/转换中/写入中三阶段，1.5s 轮询输出文件字节数），确认卡片显示旋转指示 + 阶段文案 + 已进行秒数 + 已写入 KB/MB。
+  - 已验证（第二轮后全量）：typecheck、oxlint 0 警告、prettier、`pnpm build`、vitest 202/202（新增 >1MB 分类、条目删除回退、sanitizeTableHtml 四例）。
+- **实机反馈修复（同日第三轮）**：
+  - 导出状态随标签页丢失：`exporting/progress` 原存组件 useState，切标签页卸载组件后后台仍在转换但界面回到初始按钮（失败原因同样丢给已卸载组件）。导出状态移入模块级 zustand store（按 `ref` 键控），进度事件改为组件外常驻订阅、载荷附带 `ref`（`OfficeExportEvent`，并发导出进度可归属），切回页面即恢复「进行中」显示；已进行秒数由 `startedAt` 推算（重挂载跳到真实耗时而非从 0 计）。失败记录保留到下次发起，切走再切回仍能看到失败原因。
+  - 导出的 PDF 在我的资料看不到：导出确实落盘并登记了 `workspace_entries`，但目录树只在 ProjectView 挂载时 `load()` 一次，导出完成后无人刷新。`onOfficeRefresh` 现在同时 `read`（文档进入关联渲染）与 `refresh()`（侧栏目录树出现「预览导出」）。
+  - 已验证：typecheck、oxlint 0 警告、prettier、`pnpm build`、vitest 202/202。待实机复验：切标签页往返的进行中显示、导出完成后侧栏立即出现「预览导出/A.pdf」。
+- **实机反馈修复（同日第四轮）**：
+  - 触控板双指缩放：docx/xlsx 预览此前只有工具栏按钮。新 `use-pinch-zoom` 共享 hook（两个调用方，非 passive 监听拦下 Chromium 对捏合的整页缩放）——Chromium 把双指捏合派发为 ctrl+wheel，像素模式按 Mozilla 通用查看器同款公式 `exp(-deltaY/100)` 比例缩放，行模式（Ctrl+滚轮）按工具栏同款 10% 步进；普通滚轮不受影响保持原生滚动；仍受 50%–300% 边界约束。PdfReader 原生已支持（PDF.js `updateScale`）无需改动。
+  - 导出完成到 PDF 打开之间的过渡：完成判定本就基于 PS 进程退出码（退出码 0 且输出文件存在；1.5s 轮询只上报已写字节数，不做完成判定）。原先成功后立即清掉进行中状态，卡片在文档重读翻转到 PDF 前会闪回「导出」按钮（误点会重复导出）。增加 `opening` 过渡态：退出成功 →「导出完成，正在打开…」保持旋转指示，待 `onExported` 的重读完成后才清除；期间重复触发被忽略。
+  - 已验证：typecheck、oxlint 0 警告、prettier、`pnpm build`、vitest 202/202。待实机复验：触控板捏合手感（Windows 精确触控板 / macOS）、导出结束到 PDF 自动打开的衔接。
+- 待验证（无法自动化，需实机/真实课件）：Windows PowerPoint 实际导出与未装 PowerPoint 时的报错文案（友好映射已写：0x80040154→提示安装）、PowerShell 5.1 实机运行、macOS Quick Look、Canvas 真实 office 文件的内容识别（CI 无样本）、docx/xlsx 复杂排版与合并单元格的渲染质量。
+- 边界：只读不做编辑；不处理 .doc/.xls/.ppt 老格式与加密文档；Linux 无预览动作仅保留下载/外部打开。
+
+## 2026-09-28 CI 暂停 Linux 安装包分发
+
+暂时停止 Linux（Ubuntu 24.04 x64）平台的安装包构建与分发，两个 workflow 的 Linux 矩阵项注释停用（保留注释便于恢复），Linux 专属步骤（Xvfb 冒烟、AppArmor 放开、桌面运行时安装）以 `runner.os == 'Linux'` 条件原样保留、自然失效。连带调整：`check.yaml` 的 `pnpm format:check` 与 `pnpm lint` 原本只挂在 Linux 任务上，随矩阵停用会彻底消失，移至 Windows 任务执行一次。发布流程中的 prepare/release/publish-public 任务仍在 ubuntu runner 上运行——它们只做 tag 校验与 gh CLI 上传，不构建应用。
+
+- 已验证：workflow 注释保持 YAML 结构有效（矩阵解析为 win-x64、mac-x64、mac-arm64 三项）；README 下载表、`docs/release.md` CI/发布/平台基线说明同步更新。
+- 待验证：真实 GitHub Actions 运行（下次 PR/push 到 main 触发 `Check win/mac ×3`，下次发 tag 产出 `.exe` + 两个 `.dmg`）；若 main 分支保护将 `Check linux-x64` 设为必需检查，需在 GitHub 设置中移除，否则 PR 将无法合并。
+- 恢复路径：取消两个 workflow 中的矩阵注释，并把 `check.yaml` 的 format/lint 条件从 Windows 移回 Linux。
+
 ## 2026-09-22 系统桌面通知与邮件已读状态打通
 
 用户反馈两件事：希望通知能推到系统桌面（只显示标题，点击直接进入对应界面，如邮件通知落到那封邮件）；通知面板「全部已读」后邮件列表仍显示未读。根因：邮件通知的已读存在 `notifications.read_at`，邮件本身已读存在 `mail_messages.seen`（随 IMAP 同步），两套状态互不联动，双向都不同步。

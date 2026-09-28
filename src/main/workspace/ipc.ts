@@ -18,6 +18,8 @@ import {
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
 import { subscribeChat } from '../agent/api';
+import { exportOfficePdf, quickLookFile } from '../office-export';
+import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell } from 'electron';
 import { z } from 'zod';
 import { getDatabase } from '../database';
@@ -67,6 +69,22 @@ export function registerWorkspaceIpc() {
     createMarkdownNoteCopy(idSchema.parse(id), idSchema.nullable().parse(parentId ?? null)),
   );
   handle('open-external', (id) => openEntryExternally(idSchema.parse(id)));
+  // 导出过程要把阶段事件推给发起窗口，与 quick-look 一样需要 event，走独立注册。
+  ipcMain.handle('workspace:export-office-pdf', (event, ref) => {
+    checkWorkspaceSender(event);
+    subscribeChat(event.sender);
+    // 事件带资源引用：并发导出时 renderer 能把进度归到对应文件。
+    const parsed = resourceRefSchema.parse(ref);
+    return exportOfficePdf(parsed, (progress) =>
+      event.sender.send('workspace:export-office-progress', { ...progress, ref: parsed }),
+    );
+  });
+  // Quick Look 需要 sender 定位所属窗口，走独立注册而非丢弃 event 的 handle 包装。
+  ipcMain.handle('workspace:quick-look', (event, ref) => {
+    checkWorkspaceSender(event);
+    subscribeChat(event.sender);
+    return quickLookFile(event.sender, ref);
+  });
   handle('import-files', async (value) => {
     const parentId = idSchema.nullable().parse(value);
     const picked = await dialog.showOpenDialog({

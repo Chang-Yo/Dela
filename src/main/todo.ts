@@ -210,6 +210,7 @@ async function syncCanvasTodos(): Promise<TodoState> {
               status: canvasTodoStatus(a),
               submittedAt: typeof sub?.submitted_at === 'string' ? sub.submitted_at : null,
               url: typeof a.html_url === 'string' ? a.html_url : undefined,
+              description: typeof a.description === 'string' ? a.description : undefined,
               createdAt: typeof a.created_at === 'string' ? a.created_at : now,
               syncedAt: now,
               readAt: null,

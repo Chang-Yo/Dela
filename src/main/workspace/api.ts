@@ -17,7 +17,13 @@ import { z } from 'zod';
 import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
-import { availablePath, storageDirectory as directory } from '../storage';
+import {
+  availablePath,
+  officeExportPreviewInfo,
+  readOfficeExportLink,
+  storageDirectory as directory,
+} from '../storage';
+import { officeZipMime } from '../resource-parse';
 import { workspaceArchiveId } from '../../shared/api';
 import { textFileExtensions } from '../../shared/chat-input';
 import {
@@ -512,12 +518,21 @@ export function notePath(item: WorkspaceEntry): string {
   return note.path;
 }
 
-export function workspacePdfPath(id: string): string {
+// 受限预览协议放行的本地文件扩展名：PDF 与三类 OOXML。
+const previewExtensions = new Set(['.pdf', '.docx', '.xlsx', '.pptx']);
+const officeFormats: Record<string, 'docx' | 'xlsx' | 'pptx'> = {
+  '.docx': 'docx',
+  '.xlsx': 'xlsx',
+  '.pptx': 'pptx',
+};
+
+/** 受限预览协议的解析入口：本地/导入条目按扩展名放行 PDF 与三类 OOXML。 */
+export function workspacePreviewPath(id: string): string {
   prepareStorage();
   const item = entry(idSchema.parse(id));
-  if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('文档不是本地 PDF');
+  if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('文档不是可预览文件');
   const path = entryLocalPath(item);
-  if (extname(path).toLowerCase() !== '.pdf') throw new Error('文档不是本地 PDF');
+  if (!previewExtensions.has(extname(path).toLowerCase())) throw new Error('文档不是可预览文件');
   return path;
 }
 
@@ -558,6 +573,7 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   if (item.kind === 'local' || item.kind === 'imported') {
     const path = entryLocalPath(item);
     const ext = extname(path).toLowerCase();
+    const office = officeFormats[ext];
     const format =
       ext === '.pdf'
         ? 'pdf'
@@ -567,17 +583,30 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
             ? 'markdown'
             : textExtensions.has(ext)
               ? 'text'
-              : 'unsupported';
+              : (office ?? 'unsupported');
     if (format === 'unsupported') return { title: item.name, format };
     const stats = statSync(path);
+    const version = `${stats.mtimeMs}-${stats.size}`;
     if (format === 'pdf')
       return {
         title: item.name,
         format,
-        previewUrl: `dela-resource://workspace/${encodeURIComponent(id)}?v=${stats.mtimeMs}-${stats.size}`,
+        previewUrl: `dela-resource://workspace/${encodeURIComponent(id)}?v=${version}`,
         mime: 'application/pdf',
-        revision: `${stats.mtimeMs}-${stats.size}`,
+        revision: version,
       };
+    if (office) {
+      const link = office === 'pptx' ? readOfficeExportLink('workspace', id) : null;
+      const exported = link ? officeExportPreviewInfo(link, version) : null;
+      return {
+        title: item.name,
+        format,
+        previewUrl: `dela-resource://workspace/${encodeURIComponent(id)}?v=${version}`,
+        mime: officeZipMime[office],
+        revision: version,
+        office: exported ? { export: exported } : undefined,
+      };
+    }
     if (stats.size > 128 * 1024 * 1024) throw new Error('文件较大，请在外部应用中打开');
     const bytes = readFileSync(path);
     return {

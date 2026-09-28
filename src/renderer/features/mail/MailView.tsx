@@ -813,7 +813,7 @@ function DesktopMailView({
               />
             )}
             <Resizer
-              className={stacked ? 'hidden' : undefined}
+              className={stacked ? 'hidden' : 'bg-border/60'}
               label="调整邮件列表宽度"
               max={480}
               min={320}
