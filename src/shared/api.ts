@@ -859,6 +859,8 @@ export interface TodoItem {
   courseName?: string;
   assignmentId?: number;
   url?: string;
+  /** 仅 Canvas 作业：作业描述原始 HTML，随作业同步缓存，renderer 经沙箱 iframe 渲染。 */
+  description?: string;
   submittedAt?: string | null;
   syncedAt?: string;
 }

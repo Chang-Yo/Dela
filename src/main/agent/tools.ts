@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getTodoState, refreshTodos, saveTodo, todoSaveSchema } from '../todo';
 import { todoCompleted } from '../../shared/todo';
+import type { TodoItem } from '../../shared/api';
 import { resourceRefSchema } from '../../shared/resources';
 import {
   getCanvasState,
@@ -35,6 +36,9 @@ function page<T>(items: T[], start: number, count: number) {
     nextOffset: start + count < items.length ? start + count : null,
   };
 }
+
+// 作业描述 HTML 体积大且面向渲染，不进入模型上下文；需要正文时经 readCanvasSource 读取。
+const slimTodo = ({ description: _omit, ...item }: TodoItem): Omit<TodoItem, 'description'> => item;
 
 function tool<T extends z.ZodType>(
   description: string,
@@ -72,7 +76,11 @@ const agentTools = {
               ? todoCompleted(item.status)
               : ['pending', 'resubmit'].includes(item.status))),
       );
-      return { ...page(items, offset, limit), syncedAt: state.syncedAt, error: state.error };
+      return {
+        ...page(items.map(slimTodo), offset, limit),
+        syncedAt: state.syncedAt,
+        error: state.error,
+      };
     },
   ),
   save_todo: tool(
@@ -111,7 +119,7 @@ const agentTools = {
               : ['pending', 'resubmit'].includes(item.status))),
       );
       return {
-        ...page(items, offset, limit),
+        ...page(items.map(slimTodo), offset, limit),
         coverage: 'cached_assignments',
         syncedAt: state.syncedAt,
         error: state.error,

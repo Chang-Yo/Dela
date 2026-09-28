@@ -1,60 +1,37 @@
 import { useEffect, useState } from 'react';
-import { Circle, CircleCheckBig, ExternalLink, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import {
+  CalendarCheck,
+  CalendarPlus,
+  Circle,
+  CircleCheckBig,
+  ExternalLink,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+} from 'lucide-react';
 import type { CalendarEventColor, TodoItem, TodoSaveInput, TodoState } from '../../../shared/api';
 import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Switch } from '../../components/ui/switch';
 import { cn } from '../../lib/utils';
 import { EventColorRow } from '../timetable/EventColorRow';
 import { roundToMinute } from '../timetable/timetable-format';
 import { DateTimeStepper } from './DateTimeStepper';
-
-function dateLabel(value: string | null) {
-  return value
-    ? new Date(value).toLocaleString('zh-CN', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '无截止日期';
-}
+import { TodoDetail } from './TodoDetail';
+import { TodoSheet } from './TodoSheet';
+import { dateLabel } from './todo-format';
 
 const inputClass =
   'w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
-function Switch({
-  checked,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  label: string;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <button
-      aria-checked={checked}
-      aria-label={label}
-      className={cn(
-        'h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-        checked ? 'bg-primary' : 'bg-input',
-      )}
-      onClick={() => onChange(!checked)}
-      role="switch"
-      type="button"
-    >
-      <span
-        className={cn(
-          'block size-4 rounded-full bg-background shadow-sm transition-transform',
-          checked && 'translate-x-4',
-        )}
-      />
-    </button>
-  );
-}
+// 行尾操作图标：始终占位避免悬停时行内容位移，悬停/键盘聚焦时浮现，触屏常显。
+const rowActionClass =
+  'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100';
 
-// 颜色与「写入日历」两行在新建面板和编辑表单共用，结构与日历新建事件的分组行一致。
+// 颜色与「写入日历」两行在新建和编辑面板共用，结构与日历新建事件的分组行一致。
 function CalendarOptionRows({
   calendar,
   color,
@@ -80,194 +57,118 @@ function CalendarOptionRows({
   );
 }
 
-function DeadlineField({
-  dueAt,
-  onChange,
-}: {
-  dueAt: Date | null;
-  onChange: (value: Date | null) => void;
-}) {
-  return (
-    <div className="space-y-2 text-sm">
-      <div className="flex items-center justify-between">
-        <span>截止时间</span>
-        {dueAt !== null && (
-          <button
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => onChange(null)}
-            type="button"
-          >
-            <X className="size-3" />
-            清除
-          </button>
-        )}
-      </div>
-      {dueAt === null ? (
-        <Button type="button" variant="outline" onClick={() => onChange(roundToMinute(new Date()))}>
-          <Plus className="size-4" />
-          设置截止时间
-        </Button>
-      ) : (
-        <DateTimeStepper onChange={onChange} value={dueAt} />
-      )}
-    </div>
-  );
-}
-
-function TodoForm({
+/** 新建/编辑待办共用的底部滑出面板：标题、备注、截止时间、颜色与写入日历开关。 */
+function TodoComposer({
   item,
-  onSave,
-  onCancel,
   busy,
+  onCancel,
+  onDelete,
+  onSave,
 }: {
   item?: TodoItem;
-  onSave: (input: TodoSaveInput) => void;
-  onCancel: () => void;
   busy: boolean;
+  onCancel: () => void;
+  onDelete?: () => void;
+  onSave: (input: TodoSaveInput) => void;
 }) {
   const [title, setTitle] = useState(item?.title ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
+  // 新建默认取创建时刻（向下取整到分钟）；编辑保留原值，允许为空。
   const [dueAt, setDueAt] = useState<Date | null>(() =>
-    item?.dueAt ? roundToMinute(new Date(item.dueAt)) : null,
+    item ? (item.dueAt ? roundToMinute(new Date(item.dueAt)) : null) : roundToMinute(new Date()),
   );
   const [calendar, setCalendar] = useState(item?.calendar ?? false);
   const [color, setColor] = useState<CalendarEventColor>(item?.color ?? 'slate');
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave({
-          id: item?.id,
-          title,
-          notes,
-          dueAt: dueAt ? dueAt.toISOString() : null,
-          calendar,
-          color,
-        });
-      }}
+    <TodoSheet
+      label={item ? '编辑待办' : '新建待办'}
+      title={item ? '编辑待办' : '新建待办'}
+      onClose={onCancel}
     >
-      <label className="block space-y-2 text-sm">
-        <span>标题</span>
-        <input
-          autoFocus
-          required
-          maxLength={200}
-          className={inputClass}
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-        />
-      </label>
-      <DeadlineField dueAt={dueAt} onChange={setDueAt} />
-      <div className="overflow-hidden rounded-lg border">
-        <CalendarOptionRows
-          calendar={calendar}
-          color={color}
-          onCalendarChange={setCalendar}
-          onColorChange={setColor}
-        />
-      </div>
-      <label className="block space-y-2 text-sm">
-        <span>备注</span>
-        <textarea
-          rows={4}
-          maxLength={10000}
-          className={inputClass}
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-        />
-      </label>
-      <div className="flex gap-2">
-        <Button disabled={busy || !title.trim()} type="submit">
-          保存
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          取消
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-/** 新建待办的底部滑出面板：标题、备注、步进式截止时间、颜色与写入日历开关。 */
-function TodoComposer({
-  busy,
-  onCancel,
-  onSave,
-}: {
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (input: TodoSaveInput) => void;
-}) {
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
-  // 默认取创建时刻的系统时间（向下取整到分钟），再经步进微调。
-  const [dueAt, setDueAt] = useState(() => roundToMinute(new Date()));
-  const [calendar, setCalendar] = useState(false);
-  const [color, setColor] = useState<CalendarEventColor>('slate');
-  return (
-    <div
-      className="absolute inset-0 z-40"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onCancel();
-      }}
-    >
-      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onCancel} />
-      <section
-        aria-label="新建待办"
-        className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl animate-in flex-col overflow-y-auto rounded-t-2xl border bg-card p-5 shadow-2xl fade-in slide-in-from-bottom-6 duration-200 max-md:px-4"
+      <form
+        className="mt-4 flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave({
+            id: item?.id,
+            title,
+            notes,
+            dueAt: dueAt ? dueAt.toISOString() : null,
+            calendar,
+            color,
+          });
+        }}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold tracking-tight">新建待办</h2>
-          <Button
-            aria-label="关闭"
-            className="-mr-2"
-            onClick={onCancel}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <X />
-          </Button>
-        </div>
-        <form
-          className="mt-4 flex flex-col gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSave({ title, notes, dueAt: dueAt.toISOString(), calendar, color });
-          }}
-        >
-          <Input
-            autoFocus
-            className="h-10 border-0 bg-transparent px-0 text-[15px] font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"
-            maxLength={200}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="例如：准备小组展示"
-            value={title}
-          />
-          <div className="grid divide-y overflow-hidden rounded-lg border">
-            <div className="flex items-start gap-2 px-3 py-3">
-              <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">截止</span>
-              <div className="flex-1">
-                <DateTimeStepper onChange={setDueAt} value={dueAt} />
-              </div>
+        <Input
+          autoFocus
+          className="h-10 border-0 bg-transparent px-0 text-[15px] font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"
+          maxLength={200}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="例如：准备小组展示"
+          value={title}
+        />
+        <div className="grid divide-y overflow-hidden rounded-lg border">
+          <div className="flex items-start gap-2 px-3 py-3">
+            <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">截止</span>
+            <div className="min-w-0 flex-1">
+              {dueAt === null ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDueAt(roundToMinute(new Date()))}
+                >
+                  <Plus className="size-4" />
+                  设置截止时间
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <DateTimeStepper onChange={setDueAt} value={dueAt} />
+                  </div>
+                  <button
+                    className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => setDueAt(null)}
+                    type="button"
+                  >
+                    <X className="size-3" />
+                    清除
+                  </button>
+                </div>
+              )}
             </div>
-            <CalendarOptionRows
-              calendar={calendar}
-              color={color}
-              onCalendarChange={setCalendar}
-              onColorChange={setColor}
-            />
           </div>
-          <textarea
-            aria-label="备注"
-            className={cn(inputClass, 'min-h-20 resize-y')}
-            maxLength={10000}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="备注"
-            rows={3}
-            value={notes}
+          <CalendarOptionRows
+            calendar={calendar}
+            color={color}
+            onCalendarChange={setCalendar}
+            onColorChange={setColor}
           />
-          <div className="flex justify-end gap-2">
+        </div>
+        <textarea
+          aria-label="备注"
+          className={cn(inputClass, 'min-h-20 resize-y')}
+          maxLength={10000}
+          onChange={(event) => setNotes(event.target.value)}
+          placeholder="备注"
+          rows={3}
+          value={notes}
+        />
+        <div className="flex items-center justify-between gap-2">
+          {item && onDelete ? (
+            <Button
+              variant="ghost"
+              aria-label="删除待办"
+              title="删除待办"
+              disabled={busy}
+              onClick={onDelete}
+            >
+              <Trash2 className="size-4" />
+              删除
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={onCancel}>
               取消
             </Button>
@@ -275,9 +176,9 @@ function TodoComposer({
               保存
             </Button>
           </div>
-        </form>
-      </section>
-    </div>
+        </div>
+      </form>
+    </TodoSheet>
   );
 }
 
@@ -292,8 +193,8 @@ export function TodoView({ request }: { request?: { id: string } }) {
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'all' | 'personal' | 'canvas'>('all');
   const [showCompleted, setShowCompleted] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   useEffect(() => {
     const api = window.dela?.todo;
@@ -319,9 +220,9 @@ export function TodoView({ request }: { request?: { id: string } }) {
   }, []);
   useEffect(() => {
     if (!request) return;
-    setSelectedId(request.id);
     setCreating(false);
-    setEditing(false);
+    setEditingId(null);
+    setDetailId(request.id);
     let active = true;
     void window.dela?.todo.markRead(request.id).catch((error: unknown) => {
       if (active) setError(String(error));
@@ -342,7 +243,8 @@ export function TodoView({ request }: { request?: { id: string } }) {
       setBusy(false);
     }
   };
-  const selected = state?.items.find((item) => item.id === selectedId);
+  const detail = state?.items.find((item) => item.id === detailId);
+  const editing = state?.items.find((item) => item.id === editingId);
   const items =
     state?.items.filter(
       (item) =>
@@ -350,7 +252,6 @@ export function TodoView({ request }: { request?: { id: string } }) {
         (showCompleted || !todoCompleted(item.status)),
     ) ?? [];
   const completedCount = state?.items.filter((item) => todoCompleted(item.status)).length ?? 0;
-  const detailOpen = selectedId !== null;
   return (
     <div className="relative mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden px-6 py-6 max-md:px-4">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
@@ -380,8 +281,8 @@ export function TodoView({ request }: { request?: { id: string } }) {
             disabled={!window.dela?.todo}
             onClick={() => {
               setCreating(true);
-              setEditing(false);
-              setSelectedId(null);
+              setEditingId(null);
+              setDetailId(null);
             }}
           >
             <Plus className="size-4" />
@@ -415,222 +316,217 @@ export function TodoView({ request }: { request?: { id: string } }) {
           显示已完成（{completedCount}）
         </label>
       </div>
-      <div className="flex min-h-0 flex-1 gap-6 max-md:flex-col max-md:overflow-y-auto">
-        <div
-          className={cn(
-            'min-w-0 flex-1 overflow-y-auto max-md:overflow-visible',
-            detailOpen && 'max-md:hidden',
-          )}
-        >
-          {!state ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
-            </p>
-          ) : !items.length ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无符合条件的待办</p>
-          ) : (
-            <ul className="space-y-1">
-              {items.map((item) => {
-                const done = todoCompleted(item.status);
-                const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
-                return (
-                  <li
-                    key={item.id}
-                    className={cn(
-                      'flex items-start gap-3 rounded-lg px-3 py-3',
-                      selectedId === item.id ? 'bg-accent' : 'hover:bg-muted/50',
-                    )}
-                  >
-                    {item.source === 'personal' ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
-                        aria-label={done ? `重新打开 ${item.title}` : `完成 ${item.title}`}
-                        onClick={() =>
-                          void run(() =>
-                            window.dela!.todo.save({
-                              id: item.id,
-                              title: item.title,
-                              completed: !done,
-                            }),
-                          )
-                        }
-                      >
-                        {done ? (
-                          <CircleCheckBig className="size-5" />
-                        ) : (
-                          <Circle className="size-5" />
-                        )}
-                      </button>
-                    ) : (
-                      <CircleCheckBig
-                        aria-hidden="true"
-                        className={cn(
-                          'mt-0.5 size-5 shrink-0',
-                          done ? 'text-primary' : 'text-muted-foreground',
-                        )}
-                      />
-                    )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {!state ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
+          </p>
+        ) : !items.length ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">暂无符合条件的待办</p>
+        ) : (
+          <ul className="space-y-1">
+            {items.map((item) => {
+              const done = todoCompleted(item.status);
+              const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
+              const personal = item.source === 'personal';
+              return (
+                <li
+                  key={item.id}
+                  className="group flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/50"
+                >
+                  {personal ? (
                     <button
                       type="button"
-                      className="min-w-0 flex-1 text-left"
-                      onClick={() => {
-                        setSelectedId(item.id);
-                        setCreating(false);
-                        setEditing(false);
-                        void run(() => window.dela!.todo.markRead(item.id));
-                      }}
+                      disabled={busy}
+                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label={done ? `重新打开 ${item.title}` : `完成 ${item.title}`}
+                      onClick={() =>
+                        void run(() =>
+                          window.dela!.todo.save({
+                            id: item.id,
+                            title: item.title,
+                            completed: !done,
+                          }),
+                        )
+                      }
                     >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            'break-words text-sm font-medium',
-                            done && 'text-muted-foreground',
-                          )}
-                        >
-                          {item.title}
-                        </span>
-                        {!item.readAt && (
-                          <span
-                            aria-label="未读"
-                            className="size-1.5 shrink-0 rounded-full bg-primary"
-                          />
-                        )}
-                        {item.source === 'personal' && item.calendar && (
-                          <span
-                            aria-label="已写入日历"
-                            className="size-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: `var(--cal-${item.color ?? 'slate'}-bg)` }}
-                          />
-                        )}
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
-                      </p>
-                      <p
-                        className={cn(
-                          'mt-1 text-xs',
-                          overdue ? 'text-destructive' : 'text-muted-foreground',
-                        )}
-                      >
-                        {overdue ? '已过截止时间 · ' : ''}
-                        {dateLabel(item.dueAt)}
-                      </p>
+                      {done ? <CircleCheckBig className="size-5" /> : <Circle className="size-5" />}
                     </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-        {detailOpen && (
-          <section
-            aria-label="待办详情"
-            className="min-w-0 flex-1 overflow-y-auto border-l pl-6 max-md:border-l-0 max-md:pl-0"
-          >
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-base font-medium">待办详情</h2>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                aria-label="关闭详情"
-                onClick={() => {
-                  setEditing(false);
-                  setSelectedId(null);
-                }}
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
-            {editing && selected?.source === 'personal' ? (
-              <TodoForm
-                key={selected.id}
-                item={selected}
-                busy={busy}
-                onCancel={() => setEditing(false)}
-                onSave={(input) =>
-                  void run(
-                    () => window.dela!.todo.save(input),
-                    () => setEditing(false),
-                  )
-                }
-              />
-            ) : selected ? (
-              <>
-                <h3 className="break-words text-lg font-medium">{selected.title}</h3>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {selected.courseName ?? '个人待办'} · {todoStatusLabels[selected.status]}
-                </p>
-                <p className="mt-2 text-sm">截止：{dateLabel(selected.dueAt)}</p>
-                {selected.source === 'personal' && selected.calendar && (
-                  <p className="mt-2 text-xs text-muted-foreground">已写入日历</p>
-                )}
-                {selected.submittedAt && (
-                  <p className="mt-2 text-sm">提交于：{dateLabel(selected.submittedAt)}</p>
-                )}
-                {selected.syncedAt && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    状态更新于 {dateLabel(selected.syncedAt)}
-                  </p>
-                )}
-                {selected.notes && (
-                  <p className="mt-4 whitespace-pre-wrap break-words text-sm">{selected.notes}</p>
-                )}
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {selected.source === 'canvas' ? (
-                    selected.url && (
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          void window.dela?.canvas
-                            .openLink(selected.url!)
-                            .catch((error: unknown) => setError(String(error)))
-                        }
-                      >
-                        <ExternalLink className="size-4" />在 Canvas 中查看
-                      </Button>
-                    )
                   ) : (
-                    <>
-                      <Button variant="outline" onClick={() => setEditing(true)}>
-                        编辑
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label="删除待办"
-                        title="删除待办"
-                        disabled={busy}
-                        onClick={() =>
-                          void run(
-                            () => window.dela!.todo.remove(selected.id),
-                            () => setSelectedId(null),
-                          )
-                        }
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </>
+                    <CircleCheckBig
+                      aria-hidden="true"
+                      className={cn(
+                        'mt-0.5 size-5 shrink-0',
+                        done ? 'text-primary' : 'text-muted-foreground',
+                      )}
+                    />
                   )}
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                这条待办已不存在或不属于当前 Canvas 连接。
-              </p>
-            )}
-          </section>
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => {
+                      setDetailId(item.id);
+                      void run(() => window.dela!.todo.markRead(item.id));
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'break-words text-sm font-medium',
+                          done && 'text-muted-foreground',
+                        )}
+                      >
+                        {item.title}
+                      </span>
+                      {!item.readAt && (
+                        <span
+                          aria-label="未读"
+                          className="size-1.5 shrink-0 rounded-full bg-primary"
+                        />
+                      )}
+                      {item.source === 'personal' && item.calendar && (
+                        <span
+                          aria-label="已写入日历"
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: `var(--cal-${item.color ?? 'slate'}-bg)` }}
+                        />
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
+                    </p>
+                    <p
+                      className={cn(
+                        'mt-1 text-xs',
+                        overdue ? 'text-destructive' : 'text-muted-foreground',
+                      )}
+                    >
+                      {overdue ? '已过截止时间 · ' : ''}
+                      {dateLabel(item.dueAt)}
+                    </p>
+                  </button>
+                  <div className="flex shrink-0 items-center gap-0.5 self-center">
+                    {personal ? (
+                      <>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={busy}
+                          className={rowActionClass}
+                          aria-label={
+                            item.calendar ? `取消写入日历 ${item.title}` : `写入日历 ${item.title}`
+                          }
+                          title={item.calendar ? '取消写入日历' : '写入日历'}
+                          onClick={() =>
+                            void run(() =>
+                              window.dela!.todo.save({
+                                id: item.id,
+                                title: item.title,
+                                calendar: !item.calendar,
+                              }),
+                            )
+                          }
+                        >
+                          {item.calendar ? (
+                            <CalendarCheck className="size-4" />
+                          ) : (
+                            <CalendarPlus className="size-4" />
+                          )}
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={busy}
+                          className={rowActionClass}
+                          aria-label={`编辑 ${item.title}`}
+                          title="编辑"
+                          onClick={() => {
+                            setDetailId(null);
+                            setEditingId(item.id);
+                            void run(() => window.dela!.todo.markRead(item.id));
+                          }}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={busy}
+                          className={rowActionClass}
+                          aria-label={`删除 ${item.title}`}
+                          title="删除"
+                          onClick={() => void run(() => window.dela!.todo.remove(item.id))}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      item.url && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className={rowActionClass}
+                          aria-label="在 Canvas 中打开"
+                          title="在 Canvas 中打开"
+                          onClick={() =>
+                            void window.dela?.canvas
+                              .openLink(item.url!)
+                              .catch((error: unknown) => setError(String(error)))
+                          }
+                        >
+                          <ExternalLink className="size-4" />
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
-      {creating && (
+      {detail && (
+        <TodoDetail
+          item={detail}
+          now={now}
+          onClose={() => setDetailId(null)}
+          onEdit={() => {
+            setDetailId(null);
+            setEditingId(detail.id);
+          }}
+          onDelete={() => void run(() => window.dela!.todo.remove(detail.id))}
+          onOpenLink={(url) =>
+            void window.dela?.canvas
+              .openLink(url)
+              .catch((error: unknown) => setError(String(error)))
+          }
+        />
+      )}
+      {(creating || editing) && (
         <TodoComposer
+          key={editing ? editing.id : 'new'}
+          item={editing}
           busy={busy}
-          onCancel={() => setCreating(false)}
+          onCancel={() => {
+            setCreating(false);
+            setEditingId(null);
+          }}
+          onDelete={
+            editing
+              ? () =>
+                  void run(
+                    () => window.dela!.todo.remove(editing.id),
+                    () => setEditingId(null),
+                  )
+              : undefined
+          }
           onSave={(input) =>
             void run(
               () => window.dela!.todo.save(input),
-              () => setCreating(false),
+              () => {
+                setCreating(false);
+                setEditingId(null);
+              },
             )
           }
         />
