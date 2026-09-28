@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { History, SquarePen } from 'lucide-react';
-import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Button } from '../../components/ui/button';
 import { useWorkspace } from './workspace';
 import {
@@ -16,14 +15,12 @@ import {
 export function AgentPanel({
   scope,
   tabs,
-  onCollapse,
   onSaveNote,
   onOpen,
   chatRequest,
 }: {
   scope: string;
   tabs: string[];
-  onCollapse?: () => void;
   onSaveNote: (text: string) => void;
   onOpen: (key: string) => void;
   chatRequest?: { sessionId: string };
@@ -57,27 +54,18 @@ export function AgentPanel({
     <aside
       id="workspace-agent"
       aria-label="学习生活助手"
-      className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/40"
+      className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted"
     >
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b px-3">
-        {onCollapse && (
-          <PanelToggleButton
-            className="lg:hidden"
-            collapsed={false}
-            controlsId="workspace-agent"
-            label="助手"
-            side="right"
-            onToggle={onCollapse}
-          />
-        )}
+      <div className="flex h-10 shrink-0 items-center gap-1 px-3">
         <strong className="flex-1 text-xs font-medium">助手</strong>
         <Button
           aria-label="历史对话"
           onClick={() => setSessionsOpen(true)}
-          size="icon-sm"
+          size="icon-xs"
           title="历史对话"
           type="button"
           variant="ghost"
+          className="hover:bg-foreground/10"
         >
           <History />
         </Button>
@@ -85,10 +73,11 @@ export function AgentPanel({
           aria-label="新对话"
           disabled={busy}
           onClick={chatState.newChat}
-          size="icon-sm"
+          size="icon-xs"
           title="新对话"
           type="button"
           variant="ghost"
+          className="hover:bg-foreground/10"
         >
           <SquarePen />
         </Button>

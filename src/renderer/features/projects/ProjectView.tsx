@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type DragEvent,
@@ -7,6 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Dialog } from 'radix-ui';
 import {
   Archive,
@@ -19,6 +21,8 @@ import {
   FolderInput,
   FolderPlus,
   GraduationCap,
+  PanelLeft,
+  PanelRight,
   Square,
   RefreshCw,
   Search,
@@ -43,8 +47,8 @@ import {
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
+import { Input } from '../../components/ui/input';
 import { Resizer } from '../../components/ui/resizer';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
@@ -94,7 +98,6 @@ const EDITOR_MIN_WIDTH = 320;
 const EDITOR_MIN_HEIGHT = 240;
 const SIDEBAR_DEFAULT_WIDTH = 300;
 const SIDEBAR_MIN_WIDTH = 240;
-const SIDEBAR_COLLAPSED_WIDTH = 48;
 const AGENT_DEFAULT_WIDTH = 340;
 const AGENT_MIN_WIDTH = 280;
 /** ProjectDocument 以此格式生成 CodeMirror 会话键（viewId = `${scope}:${group}`）。 */
@@ -216,13 +219,18 @@ export function ProjectView({
   const [personalOpen, setPersonalOpen] = useState(true);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [shellWidth, setShellWidth] = useState(0);
-  // 助手栏 ≥lg 与编辑器并排、<lg 覆盖在编辑区上；宽度扣减只在并排时参与。
-  const [agentInline, setAgentInline] = useState(
-    () => window.matchMedia('(min-width: 1024px)').matches,
+  // 助手栏与编辑器并排还是覆盖，以工作区壳实测宽度而非窗口宽度判定：
+  // 主导航侧栏（200–360px）会占用窗口宽度，窗口 ≥1024 但壳不足时仍并排会把编辑器压穿 320px 最小宽。
+  // 1024 与助手拖拽上限（壳宽 45%）共同保证并排时编辑器始终 ≥EDITOR_MIN_WIDTH。
+  const agentInline = shellWidth >= 1024;
+  // <md 目录是覆盖抽屉（由 mobileOpen 驱动），≥md 是可折叠列（由 collapsed 驱动）；
+  // 标题栏的目录开关两种视口共用，需要按当前断点分流。
+  const [explorerDrawer, setExplorerDrawer] = useState(
+    () => window.matchMedia('(max-width: 767px)').matches,
   );
   useEffect(() => {
-    const media = window.matchMedia('(min-width: 1024px)');
-    const update = () => setAgentInline(media.matches);
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setExplorerDrawer(media.matches);
     update();
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
@@ -348,9 +356,11 @@ export function ProjectView({
     media.addEventListener('change', reset);
     return () => media.removeEventListener('change', reset);
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = shellRef.current;
     if (!node) return;
+    // 挂载即同步测量一次，避免首帧按 0 宽布局（助手并排/覆盖判定随之闪变）；后续交给 ResizeObserver。
+    setShellWidth(node.clientWidth);
     const observer = new ResizeObserver(([entry]) => {
       if (entry) setShellWidth(entry.contentRect.width);
     });
@@ -381,8 +391,9 @@ export function ProjectView({
     scopeRef.current = scope;
     closeRequest.current += 1;
   }, [scope]);
+  // 折叠即完全隐藏（宽度归零），不保留图标栏；开关转移到编辑器标签栏左端。
   const effectiveSidebarWidth = collapsed
-    ? SIDEBAR_COLLAPSED_WIDTH
+    ? 0
     : Math.min(
         width,
         Math.max(
@@ -872,23 +883,39 @@ export function ProjectView({
   const renderTabs = (group: EditorGroupId) => {
     const state = editorLayout.groups[group];
     return (
-      <div className="flex h-10 min-w-0 shrink-0 border-b bg-muted/20">
+      // 标签带与目录列同为 bg-muted 的 chrome 区；活动标签以白色圆角浮起并融入下方页面（Chrome 式）。
+      <div className="flex h-10 min-w-0 shrink-0 bg-muted px-2 pt-1">
         {group === 'primary' && (
-          <Button
-            className="my-auto md:hidden"
-            size="icon-sm"
-            variant="ghost"
-            aria-label="打开目录"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Folder />
-          </Button>
+          <>
+            <Button
+              className="my-auto hover:bg-foreground/10 md:hidden"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="打开目录"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Folder />
+            </Button>
+            {/* 目录折叠（面板整体隐藏）后，展开开关转移到标签栏左端：宽度/透明度随收展动画过渡。
+                标签栏自身 px-2 已使按钮与侧栏头开关同处 x=8px，收展切换原地淡入淡出、位置不动。
+                移动端抽屉开关由上方 Folder 按钮负责。 */}
+            <PanelToggleButton
+              collapsed={collapsed}
+              controlsId="workspace-explorer"
+              label="目录"
+              className={cn(
+                'my-auto hidden overflow-hidden transition-[width,opacity] duration-150 ease-out motion-reduce:transition-none md:grid md:hover:bg-foreground/10',
+                collapsed ? 'md:opacity-100' : 'md:pointer-events-none md:w-0 md:opacity-0',
+              )}
+              onToggle={() => (mobileOpen ? setMobileOpen(false) : setCollapsed(false))}
+            />
+          </>
         )}
         <div
           role="tablist"
           aria-label={`${group === 'primary' ? '主' : '分栏'}编辑器标签页`}
           data-editor-tabs={group}
-          className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"
+          className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
           onWheel={(event) => {
             // 纵向滚轮在标签栏内转为横向滚动（VSCode 行为），触控板横向滚动原生支持。
             if (event.deltaY !== 0) event.currentTarget.scrollLeft += event.deltaY;
@@ -927,8 +954,10 @@ export function ProjectView({
                     data-editor-tab={key}
                     draggable
                     className={cn(
-                      'group/tab flex h-10 max-w-56 shrink-0 items-center border-r border-b-2 px-1',
-                      active ? 'border-b-foreground bg-background' : 'border-b-transparent',
+                      'group/tab flex h-8 max-w-56 shrink-0 items-center rounded-t-lg px-1.5',
+                      active
+                        ? 'bg-background shadow-xs'
+                        : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground',
                     )}
                     onDragStart={(event) => {
                       event.dataTransfer.effectAllowed = 'move';
@@ -948,7 +977,7 @@ export function ProjectView({
                       role="tab"
                       aria-selected={active}
                       className={cn(
-                        'min-w-0 flex-1 truncate px-2 text-left text-xs',
+                        'min-w-0 flex-1 truncate px-1 text-left text-xs',
                         unfocused && 'opacity-55',
                       )}
                       title={title(key)}
@@ -957,7 +986,7 @@ export function ProjectView({
                       {title(key)}
                     </button>
                     <button
-                      className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted"
+                      className="relative grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-foreground/10 hover:text-foreground after:absolute after:-inset-1 after:content-['']"
                       aria-label={`关闭 ${title(key)}`}
                       title={dirty ? '关闭（将先保存修改）' : '关闭'}
                       onClick={() => void closeTab(key, group)}
@@ -995,68 +1024,21 @@ export function ProjectView({
             );
           })}
           {!state.tabs.length && (
-            <span className="flex items-center px-3 text-xs text-muted-foreground">未打开文件</span>
+            <span className="self-center px-3 text-xs text-muted-foreground">未打开文件</span>
           )}
         </div>
-        {group ===
-          (editorLayout.split && editorLayout.orientation === 'vertical'
-            ? 'secondary'
-            : 'primary') && (
-          <div
-            className="flex shrink-0 items-center gap-1 px-1"
-            role="toolbar"
-            aria-label="工作区布局"
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="icon-sm"
-                  variant={editorLayout.split ? 'secondary' : 'ghost'}
-                  title="编辑器布局（Ctrl+\ 切换分栏）"
-                  aria-label={`编辑器布局：${!editorLayout.split ? '单栏' : editorLayout.orientation === 'vertical' ? '左右分栏' : '上下分栏'}`}
-                >
-                  {!editorLayout.split ? (
-                    <Square />
-                  ) : editorLayout.orientation === 'vertical' ? (
-                    <Columns2 />
-                  ) : (
-                    <Rows2 />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup
-                  value={editorLayout.split ? editorLayout.orientation : 'single'}
-                  onValueChange={(value) => {
-                    if (value === 'single') {
-                      if (editorLayout.split) toggleSplit();
-                    } else if (value === 'vertical' || value === 'horizontal') toggleSplit(value);
-                  }}
-                >
-                  <DropdownMenuRadioItem value="single">
-                    <Square />
-                    单栏（合并编辑组）
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="vertical">
-                    <Columns2 />
-                    左右分栏
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="horizontal">
-                    <Rows2 />
-                    上下分栏
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <PanelToggleButton
-              collapsed={!agentOpen}
-              controlsId="workspace-agent"
-              label="助手"
-              side="right"
-              onToggle={() => setAgentOpen((value) => !value)}
-            />
-          </div>
-        )}
+        {/* 新建入口与标签同排（Chrome 的 + ）：与双击标签栏空白处新建等价。
+            放在 tablist 外，避免 role=tablist 混入非 tab 元素。 */}
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          className="self-end text-muted-foreground hover:bg-foreground/10"
+          aria-label="新建笔记"
+          title="新建笔记"
+          onClick={() => newNote('')}
+        >
+          <Plus />
+        </Button>
       </div>
     );
   };
@@ -1114,6 +1096,21 @@ export function ProjectView({
             <FilePlus2 className="size-7 opacity-45" />
             <p>从左侧目录打开文件</p>
             <p className="text-xs opacity-75">拖动标签页可调整顺序或移动到另一栏</p>
+            {/* 目录折叠/收起时空态给出直达入口，避免「从左侧目录打开」成为死胡同。
+                窄屏抽屉与宽屏折叠列的开启路径不同，按断点分流。 */}
+            {collapsed && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-1"
+                onClick={() => {
+                  if (explorerDrawer) setMobileOpen(true);
+                  else setCollapsed(false);
+                }}
+              >
+                打开目录
+              </Button>
+            )}
           </div>
         )}
       </section>
@@ -1159,11 +1156,19 @@ export function ProjectView({
       const current = Math.max(0, group.tabs.indexOf(group.active ?? group.tabs[0]!));
       const offset = event.key === 'PageDown' ? 1 : -1;
       open(group.tabs[(current + offset + group.tabs.length) % group.tabs.length]!, focusedGroup);
+    } else if (event.key.toLowerCase() === 'b') {
+      // Ctrl/Cmd+B 切换目录栏（VS Code 同款）。编辑器内该键是加粗，让位。
+      if (target?.closest('.cm-editor, [contenteditable="true"]')) return;
+      event.preventDefault();
+      if (mobileOpen) setMobileOpen(false);
+      else setCollapsed((value) => !value);
     } else if (event.key.toLowerCase() === 'w' && activeKey) {
       event.preventDefault();
       void closeTab(activeKey, focusedGroup);
     }
   };
+  // 目录开关（侧栏头）的展开态按当前视口语义取值（<md 抽屉、≥md 折叠列）。
+  const explorerExpanded = explorerDrawer ? mobileOpen : !collapsed;
   if (!window.dela)
     return (
       <DesktopOnlyNotice
@@ -1186,24 +1191,41 @@ export function ProjectView({
         />
       )}
       <aside
+        inert={collapsed && !mobileOpen}
         className={cn(
-          'flex min-h-0 shrink-0 flex-col overflow-hidden border-r bg-muted/40 transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl',
+          // 与标签带同为 bg-muted 的 chrome 区，与白色页面之间靠色差分隔，不再画边框线。
+          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl',
           resizing && 'transition-none',
           !mobileOpen && 'max-md:hidden',
         )}
         style={{ width: effectiveSidebarWidth }}
       >
         <div
-          className="flex min-h-0 flex-1 flex-col max-md:!w-full"
-          style={{ width: effectiveSidebarWidth }}
+          className={cn(
+            // 壳动内容不动：折叠动画中内容保持展开宽度、被外壳裁切并淡出，
+            // 不跟随宽度挤压 reflow（挤压会产生文字残影等破碎中间帧）。
+            'flex min-h-0 flex-1 flex-col transition-opacity duration-150 motion-reduce:transition-none max-md:!w-full',
+            collapsed && !mobileOpen && 'opacity-0',
+          )}
+          style={{ width: collapsed ? width : effectiveSidebarWidth }}
         >
-          <div className="flex h-11 shrink-0 items-center gap-1 px-2">
-            <PanelToggleButton
-              collapsed={collapsed}
-              controlsId="workspace-explorer"
-              label="目录"
-              onToggle={() => (mobileOpen ? setMobileOpen(false) : setCollapsed((value) => !value))}
-            />
+          <div className="flex h-10 shrink-0 items-center gap-1 px-2">
+            {/* 目录开关常驻侧栏头第一格（tree view 上方）；折叠后随面板整体隐藏，
+                展开入口由标签栏左端的折叠态开关接管（见 renderTabs）。 */}
+            <button
+              aria-controls="workspace-explorer"
+              aria-expanded={explorerExpanded}
+              aria-label={explorerExpanded ? '收起目录' : '展开目录'}
+              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+              onClick={() => {
+                if (explorerDrawer) setMobileOpen(false);
+                else setCollapsed((value) => !value);
+              }}
+              title={explorerExpanded ? '收起目录' : '展开目录'}
+              type="button"
+            >
+              <PanelLeft className="size-3.5" strokeWidth={1.8} />
+            </button>
             <button
               className={cn(
                 'min-w-0 flex-1 truncate text-left text-xs font-medium text-muted-foreground hover:text-foreground',
@@ -1223,23 +1245,33 @@ export function ProjectView({
               )}
             >
               {mode === 'project' && (
-                <>
-                  <HeaderAction label="新建笔记" onClick={() => action('note', currentContainer())}>
-                    <FilePlus2 />
-                  </HeaderAction>
-                  <HeaderAction
-                    label="新建文件夹"
-                    onClick={() => action('folder', currentContainer())}
-                  >
-                    <FolderPlus />
-                  </HeaderAction>
-                  <HeaderAction
-                    label="导入本地文件"
-                    onClick={() => action('import', currentContainer())}
-                  >
-                    <FolderInput />
-                  </HeaderAction>
-                </>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      className="hover:bg-foreground/10"
+                      aria-label="新建"
+                      title="新建"
+                    >
+                      <Plus />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => action('note', currentContainer())}>
+                      <FilePlus2 />
+                      新建笔记
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => action('folder', currentContainer())}>
+                      <FolderPlus />
+                      新建文件夹
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => action('import', currentContainer())}>
+                      <FolderInput />
+                      导入本地文件
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               <HeaderAction label="全部收起" onClick={collapseAll}>
                 <ChevronsDownUp />
@@ -1250,10 +1282,10 @@ export function ProjectView({
             id="workspace-explorer"
             className={cn('flex min-h-0 flex-1 flex-col', collapsed && !mobileOpen && 'invisible')}
           >
-            <div className="relative mx-3 mb-2">
+            <div className="relative mx-2 mb-1">
               <Search className="pointer-events-none absolute left-2 top-2 size-3.5 text-muted-foreground" />
               <Input
-                className="h-8 pl-7 text-xs"
+                className="h-8 rounded-lg border-0 bg-background pl-7 text-xs shadow-xs dark:bg-background"
                 aria-label="筛选已同步内容"
                 placeholder="筛选已同步内容…"
                 value={query}
@@ -1310,8 +1342,9 @@ export function ProjectView({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          size="icon-sm"
+                          size="icon-xs"
                           variant="ghost"
+                          className="hover:bg-foreground/10"
                           aria-label="Canvas 操作"
                           title="Canvas 操作"
                         >
@@ -1378,8 +1411,9 @@ export function ProjectView({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          size="icon-sm"
+                          size="icon-xs"
                           variant="ghost"
+                          className="hover:bg-foreground/10"
                           aria-label="添加我的资料"
                           title="添加我的资料"
                         >
@@ -1517,7 +1551,11 @@ export function ProjectView({
               max={splitMaximum}
               defaultValue={splitDimension / 2}
               onChange={setSplitValue}
-              className={editorLayout.orientation === 'vertical' ? 'w-px' : 'h-px'}
+              className={cn(
+                // 两个白色页面相邻，保留一条淡线作分界（灰白相邻处则不画线）。
+                'bg-border/60',
+                editorLayout.orientation === 'vertical' ? 'w-px' : 'h-px',
+              )}
             />
           )}
           {editorLayout.split && (
@@ -1532,7 +1570,7 @@ export function ProjectView({
       </div>
       {agentOpen && (
         <Resizer
-          className="max-lg:hidden"
+          className={agentInline ? undefined : 'hidden'}
           label="调整助手宽度"
           min={AGENT_MIN_WIDTH}
           max={Math.min(520, Math.max(AGENT_MIN_WIDTH, shellWidth * 0.45))}
@@ -1547,26 +1585,92 @@ export function ProjectView({
         inert={!agentOpen}
         aria-hidden={!agentOpen}
         className={cn(
-          'flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-150 ease-out motion-reduce:transition-none max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:bg-background',
+          'flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-150 ease-out motion-reduce:transition-none',
           resizing && 'transition-none',
-          agentOpen ? 'max-lg:!w-full' : 'max-lg:!w-0',
+          // 壳宽不足以并排时助手覆盖在编辑区上（全宽遮罩），覆盖/并排与宽度扣减共用 agentInline 判定。
+          !agentInline && 'absolute inset-y-0 right-0 z-40 bg-background',
+          !agentInline && (agentOpen ? '!w-full' : '!w-0'),
         )}
         style={{ width: effectiveAgentWidth }}
       >
         <div
-          className="flex min-h-0 shrink-0 border-l max-lg:!w-full"
+          className={cn('flex min-h-0 shrink-0', !agentInline && '!w-full')}
           style={{ width: availableAgentWidth }}
         >
           <AgentPanel
             scope={scope}
             tabs={allTabs}
             chatRequest={chatRequest}
-            onCollapse={() => setAgentOpen(false)}
             onSaveNote={(text) => show({ action: 'note', id: currentContainer(), text })}
             onOpen={(key) => open(key, focusedGroup)}
           />
         </div>
       </div>
+      {/* 编辑器布局与助手开关收纳在标题栏右侧（参照 VS Code）；目录开关在侧栏头第一格
+          （折叠态转移到标签栏左端，见 renderTabs），贴近它所控制的面板。 */}
+      <TitleBarPortal>
+        <div
+          className="flex h-full items-center gap-1 pr-1.5"
+          role="toolbar"
+          aria-label="工作区布局"
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                aria-label={`编辑器布局：${!editorLayout.split ? '单栏' : editorLayout.orientation === 'vertical' ? '左右分栏' : '上下分栏'}`}
+                className={cn(
+                  'grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground',
+                  editorLayout.split && 'bg-sidebar-accent text-foreground',
+                )}
+                title="编辑器布局（Ctrl+\ 切换分栏）"
+                type="button"
+              >
+                {!editorLayout.split ? (
+                  <Square className="size-4" strokeWidth={1.8} />
+                ) : editorLayout.orientation === 'vertical' ? (
+                  <Columns2 className="size-4" strokeWidth={1.8} />
+                ) : (
+                  <Rows2 className="size-4" strokeWidth={1.8} />
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuRadioGroup
+                value={editorLayout.split ? editorLayout.orientation : 'single'}
+                onValueChange={(value) => {
+                  if (value === 'single') {
+                    if (editorLayout.split) toggleSplit();
+                  } else if (value === 'vertical' || value === 'horizontal') toggleSplit(value);
+                }}
+              >
+                <DropdownMenuRadioItem value="single">
+                  <Square />
+                  单栏（合并编辑组）
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="vertical">
+                  <Columns2 />
+                  左右分栏
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="horizontal">
+                  <Rows2 />
+                  上下分栏
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            aria-controls="workspace-agent"
+            aria-expanded={agentOpen}
+            aria-label={agentOpen ? '收起助手' : '展开助手'}
+            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            onClick={() => setAgentOpen((value) => !value)}
+            title={agentOpen ? '收起助手' : '展开助手'}
+            type="button"
+          >
+            <PanelRight className="size-4" strokeWidth={1.8} />
+          </button>
+        </div>
+      </TitleBarPortal>
       <Dialog.Root
         open={modal !== null}
         onOpenChange={(value) => {
@@ -1657,6 +1761,15 @@ export function ProjectView({
   );
 }
 
+/** 把视图内的动作挂到 AppShell 标题栏右侧；等 AppShell 挂载完成再取宿主节点，视图卸载时随之撤下。 */
+function TitleBarPortal({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  const host = document.getElementById('titlebar-actions');
+  return host ? createPortal(children, host) : null;
+}
+
 function HeaderAction({
   label,
   onClick,
@@ -1669,7 +1782,14 @@ function HeaderAction({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button size="icon-sm" variant="ghost" aria-label={label} onClick={onClick}>
+        {/* 目录列为 bg-muted，ghost 默认 hover:bg-accent 与其同值无反馈，显式覆盖。 */}
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          className="hover:bg-foreground/10"
+          aria-label={label}
+          onClick={onClick}
+        >
           {children}
         </Button>
       </TooltipTrigger>

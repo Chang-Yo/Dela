@@ -88,7 +88,7 @@ function MessageImage({ id, name }: { id: string; name: string }) {
     />
   ) : (
     <span
-      className="grid size-20 place-items-center rounded-xl border bg-muted text-[11px] text-muted-foreground"
+      className="grid size-20 place-items-center rounded-xl border bg-background/60 text-[11px] text-muted-foreground"
       title={name || undefined}
     >
       图片
@@ -136,7 +136,7 @@ function UserMessage({
           {message.sources.map((source) => (
             <button
               key={source.key}
-              className="max-w-full truncate rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+              className="max-w-full truncate rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/10"
               onClick={() => onOpenSource(source.key)}
             >
               {source.title}

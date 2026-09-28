@@ -158,7 +158,7 @@ export function SourceList({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="grid size-6 place-items-center rounded hover:bg-muted"
+                  className="grid size-6 place-items-center rounded hover:bg-foreground/10"
                   aria-label={`${node.name} 的操作`}
                 >
                   <Ellipsis className="size-4" />

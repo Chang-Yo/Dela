@@ -307,7 +307,8 @@ export function Explorer({
               'group relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-sm pr-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
               selected === item.id
                 ? 'bg-foreground/10 font-medium text-foreground'
-                : 'text-foreground/75 hover:bg-accent/60',
+                : // 目录列底色为 bg-muted，accent 与其同值，hover 改用 foreground 叠加才可见。
+                  'text-foreground/75 hover:bg-foreground/5',
               // 落点区域行去圆角，使目录子树区域连成一块整色；蓝色调与选中态的
               // 中性灰区分（--drop-target，globals.css 三作用域定义）。
               dropRegion && 'rounded-none bg-drop-target text-foreground',

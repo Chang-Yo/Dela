@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import {
+  Check,
   ChevronRight,
   CopyPlus,
   Clock,
@@ -16,6 +17,7 @@ import {
   Save,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { cn } from '../../lib/utils';
 import { SourceDetail } from '../sources/SourceDetail';
 import { ShuiyuanSourceDoc } from '../shuiyuan/SourceRefCard';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -27,6 +29,7 @@ import {
   markdownRequiresSourceMode,
   noteAssetUrl,
 } from '../../../shared/note-files';
+import type { ResourceRef } from '../../../shared/resources';
 
 /* 笔记编辑模式（本次会话内按文档记忆；含 frontmatter 等不支持语法的文档强制源码模式）。 */
 type NoteMode = 'rich' | 'read' | 'source';
@@ -68,6 +71,15 @@ export function ProjectDocument({
   const [confirmReload, setConfirmReload] = useState(false);
   const [mode, setMode] = useState<NoteMode>(() => noteModes.get(documentKey) ?? 'rich');
   const sourceId = documentKey.startsWith('source:') ? documentKey.slice(7) : entry?.sourceId;
+  // pptx 的导出/快速预览定位：Canvas 资料用 sourceId，我的资料本地条目用条目 id。
+  const officeRef = useMemo(() => {
+    if (draft?.content.format !== 'pptx') return undefined;
+    if (sourceId && !sourceId.startsWith('shuiyuan-topic:'))
+      return { type: 'canvas', id: sourceId } satisfies ResourceRef;
+    if (entry && (entry.kind === 'local' || entry.kind === 'imported'))
+      return { type: 'workspace', id: entry.id } satisfies ResourceRef;
+    return undefined;
+  }, [draft?.content.format, sourceId, entry]);
   const shuiyuanTopicId = sourceId?.startsWith('shuiyuan-topic:')
     ? Number(sourceId.slice('shuiyuan-topic:'.length))
     : null;
@@ -91,7 +103,10 @@ export function ProjectDocument({
     while (parent) {
       const node = entries.find((e) => e.id === parent);
       if (!node) break;
-      list.unshift({ key: node.id, label: node.name, onOpen: () => onReveal(node.id) });
+      // 顶层项目名与目录侧栏头重复，不在面包屑中重复展示；嵌套项目（原地升级、
+      // 保留父级）是有效层级，仍需展示。
+      if (node.kind !== 'project' || node.parentId)
+        list.unshift({ key: node.id, label: node.name, onOpen: () => onReveal(node.id) });
       parent = node.parentId;
     }
     if (course) list.push({ key: `course:${course.id}`, label: `${course.name} · Canvas` });
@@ -200,13 +215,20 @@ export function ProjectDocument({
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       aria-label={`文档：${entry?.name ?? draft.content.title}`}
     >
-      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-3 py-1 text-2xs">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 text-xs">
         <nav
           aria-label="所在位置"
           className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap text-muted-foreground"
         >
           {crumbs.map((crumb, index) => (
-            <span key={crumb.key} className="flex min-w-0 items-center gap-1">
+            <span
+              key={crumb.key}
+              // 末位是当前文档名，shrink-0 让祖先层级先截断，自己保持可读。
+              className={cn(
+                'flex min-w-0 items-center gap-1',
+                index === crumbs.length - 1 && 'shrink-0',
+              )}
+            >
               {index > 0 && <ChevronRight className="size-3 shrink-0 opacity-60" />}
               {crumb.onOpen ? (
                 <button
@@ -225,13 +247,13 @@ export function ProjectDocument({
           ))}
         </nav>
         <div
-          className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1"
+          className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1"
           role="toolbar"
           aria-label="文档操作"
         >
           {draft.content.dueAt && (
             <span
-              className="ml-1 flex min-w-0 shrink items-center gap-1"
+              className="flex min-w-0 shrink items-center gap-1 text-muted-foreground"
               title={`截止 ${new Date(draft.content.dueAt).toLocaleString('zh-CN')}`}
             >
               <Clock className="size-3 shrink-0" />
@@ -241,40 +263,34 @@ export function ProjectDocument({
             </span>
           )}
           <span
-            className={`ml-auto flex shrink-0 items-center gap-1 ${
-              draft.error ? 'text-destructive' : 'text-muted-foreground'
-            }`}
+            className={cn(
+              'flex shrink-0 items-center gap-1 text-muted-foreground',
+              draft.error && 'text-destructive',
+            )}
             role="status"
             aria-live="polite"
           >
-            {draft.saving && <LoaderCircle className="size-3 animate-spin" />}
-            {!editable ? '只读' : draft.saving ? '保存中…' : dirty ? '未保存' : '已保存'}
+            {/* 只读优先于保存态，与旧版一致：只读窗格不因别处保存而误显「保存中…」。 */}
+            {!editable ? (
+              '只读'
+            ) : draft.saving ? (
+              <>
+                <LoaderCircle className="size-3 animate-spin" />
+                保存中…
+              </>
+            ) : dirty ? (
+              '未保存'
+            ) : (
+              <>
+                <Check className="size-3.5" aria-hidden />
+                {/* 图标对读屏不够可靠，补一段仅读屏可见的文本。 */}
+                <span className="sr-only">已保存</span>
+              </>
+            )}
           </span>
-          {editable && markdown && effectiveMode !== 'source' && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title={effectiveMode === 'read' ? '编辑' : '阅读模式'}
-              aria-label={effectiveMode === 'read' ? '编辑' : '阅读模式'}
-              onClick={() => changeMode(effectiveMode === 'read' ? 'rich' : 'read')}
-            >
-              {effectiveMode === 'read' ? <PenLine /> : <Eye />}
-            </Button>
-          )}
-          {fileEntry && entry && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
-              aria-label={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
-              onClick={openExternally}
-            >
-              {openTarget === 'vscode' ? <Code /> : <ExternalLink />}
-            </Button>
-          )}
           {editable && (
             <Button
-              size="icon-sm"
+              size="icon-xs"
               variant="ghost"
               title={
                 draft.saving ? '保存中…' : draft.text === draft.saved ? '已保存' : '保存 (Ctrl+S)'
@@ -286,86 +302,121 @@ export function ProjectDocument({
               <Save />
             </Button>
           )}
-          {sourceId && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title="加入文件夹或项目"
-              aria-label="加入文件夹或项目"
-              onClick={() => onLinkSource(documentKey)}
-            >
-              <Link2 />
-            </Button>
-          )}
-          {sourceId?.startsWith('file:') && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title="下载文件"
-              aria-label="下载文件"
-              onClick={() => window.dela && run(window.dela.canvas.download(sourceId))}
-            >
-              <Download />
-            </Button>
-          )}
-          {draft.content.url && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title="打开原文"
-              aria-label="打开原文"
-              onClick={() => link(draft.content.url!)}
-            >
-              <ExternalLink />
-            </Button>
-          )}
           {editable && markdown && !forcedSource && (
-            <Button
-              size="icon-sm"
-              variant={effectiveMode === 'source' ? 'secondary' : 'ghost'}
-              title={effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
-              aria-label={effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
-              aria-pressed={effectiveMode === 'source'}
-              onClick={() => changeMode(effectiveMode === 'source' ? 'rich' : 'source')}
-            >
-              <Code />
-            </Button>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {editable && markdown && effectiveMode !== 'source' && (
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  title={effectiveMode === 'read' ? '编辑' : '阅读模式'}
+                  aria-label={effectiveMode === 'read' ? '编辑' : '阅读模式'}
+                  onClick={() => changeMode(effectiveMode === 'read' ? 'rich' : 'read')}
+                >
+                  {effectiveMode === 'read' ? <PenLine /> : <Eye />}
+                </Button>
+              )}
+              {editable && markdown && !forcedSource && (
+                <Button
+                  size="icon-xs"
+                  variant={effectiveMode === 'source' ? 'secondary' : 'ghost'}
+                  title={effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
+                  aria-label={effectiveMode === 'source' ? '返回所见即所得' : '源码模式'}
+                  aria-pressed={effectiveMode === 'source'}
+                  onClick={() => changeMode(effectiveMode === 'source' ? 'rich' : 'source')}
+                >
+                  <Code />
+                </Button>
+              )}
+            </div>
           )}
-          {(entry?.kind === 'local' || entry?.kind === 'imported') && markdown && (
+          {(sourceId ||
+            draft.content.url ||
+            ((entry?.kind === 'local' || entry?.kind === 'imported') && markdown)) && (
+            <div className="flex shrink-0 items-center gap-0.5">
+              {sourceId && (
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  title="加入文件夹或项目"
+                  aria-label="加入文件夹或项目"
+                  onClick={() => onLinkSource(documentKey)}
+                >
+                  <Link2 />
+                </Button>
+              )}
+              {sourceId?.startsWith('file:') && (
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  title="下载文件"
+                  aria-label="下载文件"
+                  onClick={() => window.dela && run(window.dela.canvas.download(sourceId))}
+                >
+                  <Download />
+                </Button>
+              )}
+              {draft.content.url && (
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  title="打开原文"
+                  aria-label="打开原文"
+                  onClick={() => link(draft.content.url!)}
+                >
+                  <ExternalLink />
+                </Button>
+              )}
+              {(entry?.kind === 'local' || entry?.kind === 'imported') && markdown && (
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  title="创建可编辑副本"
+                  aria-label="创建可编辑副本"
+                  onClick={createCopy}
+                >
+                  <CopyPlus />
+                </Button>
+              )}
+            </div>
+          )}
+          <div className="flex shrink-0 items-center gap-0.5">
+            {fileEntry && entry && (
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                title={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
+                aria-label={openTarget === 'vscode' ? '在 VS Code 中打开' : '在默认应用中打开'}
+                onClick={openExternally}
+              >
+                {openTarget === 'vscode' ? <Code /> : <ExternalLink />}
+              </Button>
+            )}
+            {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                title="在文件夹中显示"
+                aria-label="在文件夹中显示"
+                onClick={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
+              >
+                <FolderOpen />
+              </Button>
+            )}
             <Button
-              size="icon-sm"
+              size="icon-xs"
               variant="ghost"
-              title="创建可编辑副本"
-              aria-label="创建可编辑副本"
-              onClick={createCopy}
+              title="重新载入"
+              aria-label="重新载入"
+              onClick={() => {
+                // 有未保存草稿时先经应用内确认（与移除内容等危险操作一致），不用系统原生弹窗。
+                if (draft.text === draft.saved)
+                  run(useWorkspace.getState().read(documentKey, true));
+                else setConfirmReload(true);
+              }}
             >
-              <CopyPlus />
+              <RefreshCw />
             </Button>
-          )}
-          {(entry?.kind === 'local' || entry?.kind === 'imported' || entry?.kind === 'note') && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title="在文件夹中显示"
-              aria-label="在文件夹中显示"
-              onClick={() => window.dela && run(window.dela.workspace.openLocal(documentKey))}
-            >
-              <FolderOpen />
-            </Button>
-          )}
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="重新载入"
-            aria-label="重新载入"
-            onClick={() => {
-              // 有未保存草稿时先经应用内确认（与移除内容等危险操作一致），不用系统原生弹窗。
-              if (draft.text === draft.saved) run(useWorkspace.getState().read(documentKey, true));
-              else setConfirmReload(true);
-            }}
-          >
-            <RefreshCw />
-          </Button>
+          </div>
         </div>
       </div>
       {(error || draft.error) && (
@@ -441,6 +492,16 @@ export function ProjectDocument({
           onLink={link}
           scroll={scroll}
           onScroll={onScroll}
+          officeRef={officeRef}
+          onOfficeRefresh={() => {
+            // 导出会在我的资料里新增「预览导出」条目，目录树需一并刷新，否则侧栏看不到导出的 PDF。
+            run(
+              Promise.all([
+                useWorkspace.getState().read(documentKey, true),
+                useWorkspace.getState().refresh(),
+              ]),
+            );
+          }}
           resolveImage={
             (entry?.kind === 'local' || entry?.kind === 'imported') && entry
               ? resolveImage

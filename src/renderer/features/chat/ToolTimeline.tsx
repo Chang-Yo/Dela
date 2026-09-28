@@ -138,7 +138,7 @@ function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean
         />
       </button>
       <div id={detailId} hidden={!open}>
-        <pre className="my-1 max-h-48 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 text-xs text-muted-foreground">
+        <pre className="my-1 max-h-48 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-all rounded-md bg-background p-3 text-xs text-muted-foreground">
           {JSON.stringify({ input: result.input, output: result.output }, null, 2)}
         </pre>
       </div>

@@ -56,7 +56,7 @@ export function Resizer({
       aria-valuemin={min}
       aria-valuenow={value}
       className={cn(
-        'relative touch-none bg-border transition-colors focus-visible:outline-none',
+        'relative touch-none bg-transparent transition-colors focus-visible:outline-none',
         horizontal
           ? 'cursor-ns-resize before:absolute before:inset-x-0 before:-inset-y-2.5'
           : 'cursor-ew-resize before:absolute before:inset-y-0 before:-inset-x-2.5',
