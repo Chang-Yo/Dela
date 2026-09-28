@@ -9,7 +9,7 @@
 
 轻量编辑 · Agent 协作 · 本地优先
 
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#下载安装)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue)](#下载安装)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F?logo=electron&logoColor=white)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -47,11 +47,12 @@ Dela 以单实例运行：重复启动快捷方式会打开已有主窗口。关
 
 从 [Releases](https://github.com/Chang-Yo/Dela/releases) 下载对应平台安装包（公开镜像：[Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases)）：
 
-| 平台    | 系统要求                              | 产物               |
-| ------- | ------------------------------------- | ------------------ |
-| Windows | Windows 10+ (x64)                     | NSIS `.exe` 安装包 |
-| macOS   | macOS 13+ (Intel / Apple Silicon)     | `.dmg`             |
-| Linux   | Ubuntu 24.04+ (x64，需 `libfuse2t64`) | `.AppImage`        |
+| 平台    | 系统要求                          | 产物               |
+| ------- | --------------------------------- | ------------------ |
+| Windows | Windows 10+ (x64)                 | NSIS `.exe` 安装包 |
+| macOS   | macOS 13+ (Intel / Apple Silicon) | `.dmg`             |
+
+> Linux `.AppImage` 暂时停止分发（CI 不再构建 Linux 安装包），恢复后重新上线。
 
 > 项目处于早期开发阶段（v0.x），安装包尚未做代码签名，Windows 可能出现 SmartScreen、macOS 可能出现 Gatekeeper 提示，选择「仍要运行」即可。
 

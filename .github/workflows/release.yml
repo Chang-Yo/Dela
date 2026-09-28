@@ -68,10 +68,11 @@ jobs:
             platform: mac
             arch: arm64
             executable: dist/mac-arm64/Dela.app/Contents/MacOS/Dela
-          - os: ubuntu-24.04
-            platform: linux
-            arch: x64
-            executable: dist/linux-unpacked/dela
+          # Linux builds suspended (2026-09-28); uncomment to re-enable.
+          # - os: ubuntu-24.04
+          #   platform: linux
+          #   arch: x64
+          #   executable: dist/linux-unpacked/dela
     defaults:
       run:
         shell: bash

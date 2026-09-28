@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-09-28 CI 暂停 Linux 安装包分发
+
+暂时停止 Linux（Ubuntu 24.04 x64）平台的安装包构建与分发，两个 workflow 的 Linux 矩阵项注释停用（保留注释便于恢复），Linux 专属步骤（Xvfb 冒烟、AppArmor 放开、桌面运行时安装）以 `runner.os == 'Linux'` 条件原样保留、自然失效。连带调整：`check.yaml` 的 `pnpm format:check` 与 `pnpm lint` 原本只挂在 Linux 任务上，随矩阵停用会彻底消失，移至 Windows 任务执行一次。发布流程中的 prepare/release/publish-public 任务仍在 ubuntu runner 上运行——它们只做 tag 校验与 gh CLI 上传，不构建应用。
+
+- 已验证：workflow 注释保持 YAML 结构有效（矩阵解析为 win-x64、mac-x64、mac-arm64 三项）；README 下载表、`docs/release.md` CI/发布/平台基线说明同步更新。
+- 待验证：真实 GitHub Actions 运行（下次 PR/push 到 main 触发 `Check win/mac ×3`，下次发 tag 产出 `.exe` + 两个 `.dmg`）；若 main 分支保护将 `Check linux-x64` 设为必需检查，需在 GitHub 设置中移除，否则 PR 将无法合并。
+- 恢复路径：取消两个 workflow 中的矩阵注释，并把 `check.yaml` 的 format/lint 条件从 Windows 移回 Linux。
+
 ## 2026-09-22 系统桌面通知与邮件已读状态打通
 
 用户反馈两件事：希望通知能推到系统桌面（只显示标题，点击直接进入对应界面，如邮件通知落到那封邮件）；通知面板「全部已读」后邮件列表仍显示未读。根因：邮件通知的已读存在 `notifications.read_at`，邮件本身已读存在 `mail_messages.seen`（随 IMAP 同步），两套状态互不联动，双向都不同步。
