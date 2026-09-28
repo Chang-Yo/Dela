@@ -412,6 +412,12 @@
   overflow-y: scroll;
 }
 
+/* docx-preview 运行时注入 .docx-wrapper 的默认灰底与页面主题冲突；
+   页面间距交给注入样式，底色统一为透明（露出滚动容器的 bg-muted）。 */
+.docx-wrapper {
+  background: transparent !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

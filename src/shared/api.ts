@@ -1,3 +1,5 @@
+import type { ResourceRef } from './resources';
+
 export interface WindowState {
   readonly maximized: boolean;
 }
@@ -659,7 +661,7 @@ export interface CanvasState {
 
 export interface DocumentContent {
   title: string;
-  format: 'html' | 'markdown' | 'text' | 'pdf' | 'image' | 'unsupported';
+  format: 'html' | 'markdown' | 'text' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'unsupported';
   text?: string;
   bytes?: Uint8Array;
   previewUrl?: string;
@@ -668,6 +670,26 @@ export interface DocumentContent {
   dueAt?: string | null;
   updatedAt?: string | null;
   revision?: string;
+  /** pptx 的导出关联；存在 export 时直接内嵌渲染导出的 PDF。 */
+  office?: { export?: OfficeExportInfo };
+}
+
+/** 已导出 PDF 与源 pptx 的关联信息；stale 表示源文件在导出后更新过。 */
+export interface OfficeExportInfo {
+  previewUrl: string;
+  title: string;
+  stale: boolean;
+}
+
+/** pptx 导出过程阶段；bytes 为输出 PDF 已写入的字节数（仅 writing 阶段）。 */
+export interface OfficeExportProgress {
+  phase: 'preparing' | 'converting' | 'writing';
+  bytes?: number;
+}
+
+/** 进度事件载荷：附带上报时定位用的资源引用，并发导出时可区分归属。 */
+export interface OfficeExportEvent extends OfficeExportProgress {
+  ref: ResourceRef;
 }
 
 export interface CanvasApi {
@@ -737,6 +759,12 @@ export interface WorkspaceApi {
   createNoteCopy(id: string, parentId?: string | null): Promise<MarkdownNoteCopyResult>;
   /** 在 VS Code 或系统默认应用中打开条目文件。 */
   openExternal(id: string): Promise<'vscode' | 'system'>;
+  /** 把 pptx 经 PowerPoint 导出为 PDF（仅 Windows）：存入「预览导出」并建立关联。 */
+  exportOfficePdf(ref: ResourceRef): Promise<void>;
+  /** pptx 导出过程的阶段与进度通知。 */
+  onOfficeExportProgress(listener: (event: OfficeExportEvent) => void): () => void;
+  /** 用系统 Quick Look 预览条目文件（仅 macOS）。 */
+  quickLookFile(ref: ResourceRef): Promise<void>;
   importFiles(parentId: string | null): Promise<void>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;

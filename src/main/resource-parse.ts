@@ -1,8 +1,83 @@
-import { readFile, stat } from 'node:fs/promises';
+import { open, readFile, stat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 
 export type ParsedDocumentKind = 'pdf' | 'docx' | 'pptx';
+
+/** OOXML（zip 容器）可识别的文档类型；doc/xls/ppt 老二进制格式不在内。 */
+export type OfficeZipKind = 'docx' | 'pptx' | 'xlsx';
+
+export const officeZipMime: Record<OfficeZipKind, string> = {
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+};
+
+/**
+ * 只读 zip 中央目录的条目名，不解压内容；损坏时抛错，由调用方按不可识别处理。
+ * baseOffset 为缓冲区首字节在原文件中的位置（按文件尾读取时中央目录偏移需换算）。
+ */
+function readZipEntryNames(bytes: Buffer, baseOffset: number): string[] {
+  let eocd = -1;
+  const earliest = Math.max(0, bytes.length - 22 - 0xffff);
+  for (let index = bytes.length - 22; index >= earliest; index -= 1) {
+    if (bytes.readUInt32LE(index) === 0x06054b50) {
+      eocd = index;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error('压缩包损坏：找不到目录结尾');
+  const entryCount = bytes.readUInt16LE(eocd + 10);
+  let cursor = bytes.readUInt32LE(eocd + 16) - baseOffset;
+  if (cursor < 0) throw new Error('压缩包损坏：目录不完整');
+  const names: string[] = [];
+  for (let index = 0; index < entryCount; index += 1) {
+    if (cursor + 46 > bytes.length || bytes.readUInt32LE(cursor) !== 0x02014b50)
+      throw new Error('压缩包损坏：目录不完整');
+    const nameLength = bytes.readUInt16LE(cursor + 28);
+    const extraLength = bytes.readUInt16LE(cursor + 30);
+    const commentLength = bytes.readUInt16LE(cursor + 32);
+    if (cursor + 46 + nameLength > bytes.length) throw new Error('压缩包损坏：目录不完整');
+    names.push(bytes.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8'));
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  return names;
+}
+
+/** 按 zip 中央目录条目识别 OOXML 类型；输入须为完整 zip 字节，不认识返回 null。 */
+export function classifyOfficeZip(bytes: Buffer, baseOffset = 0): OfficeZipKind | null {
+  let names: string[];
+  try {
+    names = readZipEntryNames(bytes, baseOffset);
+  } catch {
+    return null;
+  }
+  if (names.includes('word/document.xml')) return 'docx';
+  if (names.some((name) => name.startsWith('ppt/slides/'))) return 'pptx';
+  if (names.includes('xl/workbook.xml')) return 'xlsx';
+  return null;
+}
+
+const CLASSIFY_TAIL_BYTES = 1024 * 1024;
+
+/** 按内容识别文件的 OOXML 类型；只读文件尾部（zip 目录位于末尾），无法识别返回 null。 */
+export async function classifyOfficeFile(path: string): Promise<OfficeZipKind | null> {
+  const handle = await open(path, 'r');
+  try {
+    const { size } = await handle.stat();
+    // 先确认头四个字节是 zip 魔数（PK\x03\x04），再读尾部扫中央目录。
+    const header = Buffer.alloc(4);
+    const { bytesRead } = await handle.read(header, 0, 4, 0);
+    if (bytesRead < 4 || header.readUInt32LE(0) !== 0x04034b50) return null;
+    const length = Math.min(size, CLASSIFY_TAIL_BYTES);
+    const tail = Buffer.alloc(length);
+    await handle.read(tail, 0, length, size - length);
+    // 中央目录偏移相对文件起点，尾部缓冲需按起点换算（整文件时 baseOffset 为 0）。
+    return classifyOfficeZip(tail, size - length);
+  } finally {
+    await handle.close();
+  }
+}
 
 export interface ParsedDocument {
   kind: ParsedDocumentKind;

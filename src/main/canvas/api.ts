@@ -7,7 +7,14 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { getDatabase } from '../database';
-import { availablePath, diskName, storageDirectory } from '../storage';
+import {
+  availablePath,
+  diskName,
+  officeExportPreviewInfo,
+  readOfficeExportLink,
+  storageDirectory,
+} from '../storage';
+import { classifyOfficeFile, officeZipMime } from '../resource-parse';
 import { loadCanvasToken, saveCanvasToken } from '../credentials';
 import type { CanvasCourse, CanvasState, DocumentContent, SourceItem } from '../../shared/api';
 
@@ -561,12 +568,13 @@ export async function canvasFilePath(id: string): Promise<string> {
   return (await cachedFile(source)).path;
 }
 
-export async function canvasPdfPath(id: string): Promise<string> {
+/** 受限预览协议的解析入口：返回 Canvas 文件的缓存路径，只放行 PDF 与可识别的 OOXML。 */
+export async function canvasPreviewPath(id: string): Promise<string> {
   const source = getSource(z.string().max(512).parse(id));
-  if (source.kind !== 'file') throw new Error('资料不是 PDF 文件');
+  if (source.kind !== 'file') throw new Error('资料不是可预览文件');
   const cached = await cachedFile(source);
-  if (!(await isPdf(cached.path))) throw new Error('资料不是 PDF 文件');
-  return cached.path;
+  if ((await isPdf(cached.path)) || (await classifyOfficeFile(cached.path))) return cached.path;
+  throw new Error('资料不是可预览文件');
 }
 
 export async function readCanvasSource(id: string): Promise<DocumentContent> {
@@ -575,15 +583,20 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
     const cached = await cachedFile(source);
     const pdf = await isPdf(cached.path);
     const image = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(cached.mime);
+    const office = pdf || image ? null : await classifyOfficeFile(cached.path);
+    const link = office === 'pptx' ? readOfficeExportLink('canvas', id) : null;
+    const exported = link ? officeExportPreviewInfo(link, source.updatedAt ?? '') : null;
     const bytes = image ? new Uint8Array(await readFile(cached.path)) : undefined;
     return {
       title: source.title,
-      format: pdf ? 'pdf' : image ? 'image' : 'unsupported',
+      format: pdf ? 'pdf' : image ? 'image' : (office ?? 'unsupported'),
       bytes,
-      previewUrl: pdf
-        ? `dela-resource://canvas/${encodeURIComponent(id)}?v=${encodeURIComponent(source.updatedAt ?? '')}`
-        : undefined,
-      mime: pdf ? 'application/pdf' : cached.mime,
+      previewUrl:
+        pdf || office
+          ? `dela-resource://canvas/${encodeURIComponent(id)}?v=${encodeURIComponent(source.updatedAt ?? '')}`
+          : undefined,
+      mime: pdf ? 'application/pdf' : office ? officeZipMime[office] : cached.mime,
+      office: exported ? { export: exported } : undefined,
       updatedAt: source.updatedAt,
     };
   }

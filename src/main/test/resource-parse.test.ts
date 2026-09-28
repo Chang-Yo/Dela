@@ -1,30 +1,38 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { extractDocumentBytes, parsableDocumentExtension, renderPdfPages } from '../resource-parse';
+import {
+  classifyOfficeFile,
+  classifyOfficeZip,
+  extractDocumentBytes,
+  parsableDocumentExtension,
+  renderPdfPages,
+} from '../resource-parse';
 
 /** 构造最小可用 zip：deflate 条目 + 中央目录，CRC 置零（解析器不校验）。 */
-function buildZip(entries: Record<string, string>): Buffer {
+function buildZip(entries: Record<string, string | Buffer>): Buffer {
   const localParts: Buffer[] = [];
   const centralParts: Buffer[] = [];
   let offset = 0;
   for (const [name, content] of Object.entries(entries)) {
     const nameBuffer = Buffer.from(name);
-    const data = deflateRawSync(Buffer.from(content, 'utf8'));
+    const raw = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
+    const data = deflateRawSync(raw);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(8, 8);
     local.writeUInt32LE(data.length, 18);
-    local.writeUInt32LE(Buffer.byteLength(content), 22);
+    local.writeUInt32LE(raw.length, 22);
     local.writeUInt16LE(nameBuffer.length, 26);
     localParts.push(local, nameBuffer, data);
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(8, 10);
     central.writeUInt32LE(data.length, 20);
-    central.writeUInt32LE(Buffer.byteLength(content), 24);
+    central.writeUInt32LE(raw.length, 24);
     central.writeUInt16LE(nameBuffer.length, 28);
     central.writeUInt32LE(offset, 42);
     centralParts.push(central, nameBuffer);
@@ -64,6 +72,51 @@ describe('resource parsing', () => {
     expect(parsableDocumentExtension('c.pptx')).toBe('pptx');
     expect(parsableDocumentExtension('d.txt')).toBeNull();
     expect(parsableDocumentExtension('noext')).toBeNull();
+  });
+
+  it('classifies OOXML zips by central directory entries', () => {
+    expect(classifyOfficeZip(buildZip({ 'word/document.xml': '<w/>' }))).toBe('docx');
+    expect(classifyOfficeZip(buildZip({ 'ppt/slides/slide1.xml': '<p/>' }))).toBe('pptx');
+    expect(classifyOfficeZip(buildZip({ 'xl/workbook.xml': '<x/>' }))).toBe('xlsx');
+    expect(classifyOfficeZip(buildZip({ 'hello.txt': 'x' }))).toBeNull();
+    expect(classifyOfficeZip(Buffer.from('not a zip'))).toBeNull();
+  });
+
+  it('classifies office files from disk, tolerating trailing bytes', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dela-office-'));
+    try {
+      const docx = buildZip({ 'word/document.xml': '<w:document/>' });
+      const docxPath = join(dir, 'doc.docx');
+      await writeFile(docxPath, docx);
+      expect(await classifyOfficeFile(docxPath)).toBe('docx');
+      // 部分工具会在 zip 末尾追加数据；EOCD 扫描应仍能识别。
+      const padded = Buffer.concat([docx, Buffer.alloc(64, 0)]);
+      const paddedPath = join(dir, 'padded.docx');
+      await writeFile(paddedPath, padded);
+      expect(await classifyOfficeFile(paddedPath)).toBe('docx');
+      const plain = join(dir, 'plain.txt');
+      await writeFile(plain, 'hello');
+      expect(await classifyOfficeFile(plain)).toBeNull();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('classifies office files larger than the tail window (randomBytes keep zip big)', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dela-office-big-'));
+    try {
+      // 1.5MB 不可压缩内容让磁盘文件超过 1MB 尾窗，验证中央目录偏移按尾窗起点换算。
+      const big = buildZip({
+        'word/document.xml': '<w:document/>',
+        'word/media/image1.bin': randomBytes(1536 * 1024),
+      });
+      expect(big.length).toBeGreaterThan(1024 * 1024);
+      const path = join(dir, 'big.docx');
+      await writeFile(path, big);
+      expect(await classifyOfficeFile(path)).toBe('docx');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('rejects unsupported document types before parsing', async () => {
