@@ -389,6 +389,7 @@ export function ChatComposer({
               <Button
                 className="min-w-0 shrink gap-1 text-xs text-muted-foreground"
                 size="sm"
+                title={model}
                 type="button"
                 variant="ghost"
               >
@@ -474,14 +475,15 @@ export function ChatComposer({
             <Popover.Trigger asChild>
               <Button
                 aria-label="思考强度"
-                className="gap-1 text-xs text-muted-foreground"
+                // 底部工具行与模型按钮同为可收缩件：窄面板下降级为仅剩图标，不再整行溢出。
+                className="min-w-0 shrink gap-1 text-xs text-muted-foreground"
                 disabled={effortLevels.length === 0}
                 size="sm"
                 title={effortLevels.length ? '思考强度' : '在设置 › 模型服务 中开启推理强度后可选'}
                 type="button"
                 variant="ghost"
               >
-                {effort ?? 'default'}
+                <span className="truncate">{effort ?? 'default'}</span>
                 <ChevronDown className="size-3" />
               </Button>
             </Popover.Trigger>

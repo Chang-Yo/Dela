@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -82,16 +82,26 @@ function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
   );
 }
 
-/** 宽屏（≥1024px）时回复器停靠右侧栏（按需展开）；窄屏退回底部折叠条。 */
-function useDockedComposer(): boolean {
-  const [docked, setDocked] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 1024px)');
-    const onChange = () => setDocked(media.matches);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
+/**
+ * 阅读区实际宽度 ≥1024px 时回复器停靠右侧栏（按需展开）；不足时退回底部折叠条。
+ * 锚定阅读区而非窗口：主导航侧栏（200–360px）会占用窗口宽度，
+ * 窗口达标但阅读区不足时停靠（固定 340px）会把楼层正文挤到 ~300px。
+ */
+function useDockedComposer(): { docked: boolean; readerRef: RefObject<HTMLDivElement | null> } {
+  const readerRef = useRef<HTMLDivElement>(null);
+  const [docked, setDocked] = useState(false);
+  useLayoutEffect(() => {
+    const node = readerRef.current;
+    if (!node) return;
+    // 挂载即同步测量一次，避免按旧宽度先渲染再闪烁；后续交给 ResizeObserver。
+    setDocked(node.clientWidth >= 1024);
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setDocked(entry.contentRect.width >= 1024);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
-  return docked;
+  return { docked, readerRef };
 }
 
 /**
@@ -137,26 +147,29 @@ export function TopicReaderHeader() {
         ) : null}
       </div>
       {detail ? (
-        <div aria-label="分类与标签" className="hidden items-center gap-1.5 md:flex">
+        <div aria-label="分类与标签" className="hidden min-w-0 shrink items-center gap-1.5 md:flex">
           {isPM ? (
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Mail aria-hidden="true" className="size-3" />
               私信
             </span>
           ) : category ? (
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
               <span
                 aria-hidden="true"
-                className="size-2 rounded-full"
+                className="size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: category.color }}
               />
-              {category.name}
+              <span className="truncate">{category.name}</span>
             </span>
           ) : null}
           {detail.tags.slice(0, 3).map((tag) => (
-            <span className="flex items-center gap-1.5" key={tag}>
-              <ChevronRight aria-hidden="true" className="size-3 text-muted-foreground/50" />
-              <span className="rounded bg-muted px-1.5 py-px text-[11px] text-muted-foreground">
+            <span className="flex min-w-0 items-center gap-1.5" key={tag}>
+              <ChevronRight
+                aria-hidden="true"
+                className="size-3 shrink-0 text-muted-foreground/50"
+              />
+              <span className="truncate rounded bg-muted px-1.5 py-px text-[11px] text-muted-foreground">
                 {tag}
               </span>
             </span>
@@ -218,7 +231,7 @@ export function TopicReader() {
   const loadMorePosts = useShuiyuan((state) => state.loadMorePosts);
   const submitReply = useShuiyuan((state) => state.submitReply);
   const setLiked = useShuiyuan((state) => state.setLiked);
-  const docked = useDockedComposer();
+  const { docked, readerRef } = useDockedComposer();
   const [draft, setDraft] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
   /** 楼层级回复目标；null 为主题级回复。 */
@@ -302,7 +315,7 @@ export function TopicReader() {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background" ref={readerRef}>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
