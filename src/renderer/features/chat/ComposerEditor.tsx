@@ -13,12 +13,12 @@ import {
   Decoration,
   EditorView,
   keymap,
-  placeholder,
   ViewPlugin,
   WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
+import { cn } from '../../lib/utils';
 import { matchChatImageTokens } from '../../../shared/chat-input';
 import { markdownHighlightStyle } from '../projects/MarkdownEditor';
 import { getChatMediaPreview } from './media';
@@ -123,6 +123,9 @@ const imagePlugin = ViewPlugin.fromClass(
   { decorations: (value) => value.decorations },
 );
 
+// 编辑区内边距：.cm-scroller 与占位符覆盖层共用，避免两处漂移。
+const SCROLLER_PADDING = { x: 16, top: 14 };
+
 const composerTheme = EditorView.theme({
   '&': { fontSize: 'calc(14px * var(--font-scale, 1))', backgroundColor: 'transparent' },
   '&.cm-focused': { outline: 'none' },
@@ -131,10 +134,12 @@ const composerTheme = EditorView.theme({
     lineHeight: '1.65',
     overflowY: 'auto',
     maxHeight: '224px',
-    padding: '14px 16px 6px',
+    padding: `${SCROLLER_PADDING.top}px ${SCROLLER_PADDING.x}px 6px`,
   },
-  '.cm-content': { caretColor: 'inherit' },
-  '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
+  // CM 默认给 .cm-content 上下 4px、.cm-line 左 6px 右 2px 的内边距，会让光标/正文
+  // 相对自绘占位符整体偏移（下 4px、右 6px），统一归零，正文与占位符共用同一原点。
+  '.cm-content': { caretColor: 'inherit', padding: '0' },
+  '.cm-line': { padding: '0' },
   '.dela-chat-image': {
     position: 'relative',
     display: 'inline-flex',
@@ -255,7 +260,6 @@ export function ComposerEditor({
           history(),
           markdown({ codeLanguages: languages }),
           EditorView.lineWrapping,
-          placeholder(placeholderText),
           imagePlugin,
           EditorView.atomicRanges.of(
             (target) => target.plugin(imagePlugin)?.decorations ?? Decoration.none,
@@ -348,5 +352,27 @@ export function ComposerEditor({
   useEffect(() => {
     syncValue();
   }, [value]);
-  return <div className={className} ref={host} />;
+  // 占位符用自绘覆盖层而不是 CM 内置 placeholder：内置实现把占位文本作为行内原子
+  // widget 插在光标同位（side 1），空文档点击时光标视觉上落在占位文字右侧，与实际
+  // 插入点（文档开头）不一致；覆盖层不参与布局，光标始终停在行首。
+  const empty = value.length === 0;
+  return (
+    <div className={cn('relative', className)} ref={host}>
+      {empty && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute select-none break-words text-muted-foreground"
+          style={{
+            fontSize: 'calc(14px * var(--font-scale, 1))',
+            left: SCROLLER_PADDING.x,
+            lineHeight: '1.65',
+            right: SCROLLER_PADDING.x,
+            top: SCROLLER_PADDING.top,
+          }}
+        >
+          {placeholderText}
+        </div>
+      )}
+    </div>
+  );
 }
