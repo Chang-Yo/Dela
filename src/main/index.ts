@@ -28,7 +28,8 @@ import {
   refreshNotifications,
 } from './notifications';
 import { getMailState, startMailSync } from './mail/api';
-import { gcChatMedia } from './agent/media';
+import { registerAgentIpc } from './agent';
+import { gcChatMedia } from './agent/session/media';
 import type { IconPreference, ThemePreference } from '../shared/api';
 import { fontScaleLevels, zoomLevels } from '../shared/api';
 
@@ -226,6 +227,7 @@ app.whenReady().then(() => {
   registerTimetableIpc();
   registerCanvasIpc();
   registerShuiyuanIpc();
+  registerAgentIpc();
   registerWorkspaceIpc();
   registerSearchIpc();
   registerNotificationsIpc();

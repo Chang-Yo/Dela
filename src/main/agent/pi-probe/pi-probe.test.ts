@@ -3,23 +3,10 @@
  * 用本地 mock OpenAI 兼容 SSE 服务实测关键路径；不含任何真实密钥或个人数据。
  * 各用例结论汇总见 docs/refactor/pi-integration-report.md。
  */
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
-import { Agent, BACKGROUND_CONTEXT } from '@earendil-works/pi-agent-core';
-import type { AgentTool, ThinkingLevel } from '@earendil-works/pi-agent-core';
+import { Agent } from '@earendil-works/pi-agent-core';
+import type { AgentMessage, AgentTool, ThinkingLevel } from '@earendil-works/pi-agent-core';
 import type { AssistantMessage, Model } from '@earendil-works/pi-ai';
-import {
-  createNodeSqliteFactory,
-  SqliteSessionRepo,
-} from '@earendil-works/pi-session-backend-sqlite-node';
-import type {
-  SqliteDatabase,
-  SqliteDatabaseFactory,
-  SqliteStatement,
-} from '@earendil-works/pi-session-backend-sqlite-node';
 import { z } from 'zod';
 import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
 import {
@@ -318,96 +305,51 @@ describe('Pi Agent Core 接入探针', () => {
     expect(server.requests.length - before).toBe(2);
   });
 
-  describe('e. SQLite 会话持久化续接', () => {
-    /** better-sqlite3 适配 pi 后端的 SqliteDatabase 接口（默认实现走 node:sqlite）。 */
-    const wrapBetterSqlite = (db: Database.Database): SqliteDatabase => ({
-      exec: (sql) => db.exec(sql),
-      prepare: (sql) => db.prepare(sql) as unknown as SqliteStatement,
-      transaction: (callback) => db.transaction(callback)(),
-      close: () => db.close(),
+  it('e. 历史续接：从 JSON 持久化重建 initialState.messages 后携带完整上下文', async () => {
+    // 依 docs/refactor/decisions-phase1.md 总裁决 2：不引入 Pi 的 SQLite Session 后端，
+    // Pi 会话对象是 Run 生命周期内的内存执行态，从 Dela 持久历史（sessions.messages
+    // JSON 列）重建。本用例以 JSON 序列化往返模拟该持久层，验证续接语义。
+    server.enqueue({
+      kind: 'sse',
+      frames: [
+        mockFrames.toolCallDelta({ index: 0, id: 'call-e-1', name: 'echo' }),
+        mockFrames.toolCallDelta({ index: 0, arguments: '{"value":"历史"}' }),
+        mockFrames.finishFrame('tool_calls'),
+      ],
     });
-    const betterSqliteFactory: SqliteDatabaseFactory = {
-      open: async (path) => wrapBetterSqlite(new Database(path)),
-      openExisting: async (path) => wrapBetterSqlite(new Database(path)),
-      openReadOnly: async (path) => wrapBetterSqlite(new Database(path, { readonly: true })),
-    };
-
-    async function persistenceRoundTrip(factory: SqliteDatabaseFactory): Promise<void> {
-      // 第一段：跑一轮「工具 + 回答」，把 Agent 消息写入会话存储
-      server.enqueue({
-        kind: 'sse',
-        frames: [
-          mockFrames.toolCallDelta({ index: 0, id: 'call-e-1', name: 'echo' }),
-          mockFrames.toolCallDelta({ index: 0, arguments: '{"value":"历史"}' }),
-          mockFrames.finishFrame('tool_calls'),
-        ],
-      });
-      server.enqueue({
-        kind: 'sse',
-        frames: [mockFrames.textDelta('第一答'), mockFrames.finishFrame('stop')],
-      });
-      const agent1 = makeAgent({ tools: [echoTool] });
-      await agent1.prompt('第一问');
-
-      const directory = mkdtempSync(join(tmpdir(), 'dela-pi-probe-'));
-      const repo = new SqliteSessionRepo({ directory, databaseFactory: factory });
-      const session = await repo.create(undefined, BACKGROUND_CONTEXT);
-      const branch = await session.createBranch('main', null, BACKGROUND_CONTEXT);
-      for (const message of agent1.state.messages) {
-        await branch.appendMessage(message, BACKGROUND_CONTEXT);
-      }
-      const stats = await session.getStats(BACKGROUND_CONTEXT);
-      expect(stats.messageCount).toBe(agent1.state.messages.length);
-      await session.close(BACKGROUND_CONTEXT);
-      await repo.close(BACKGROUND_CONTEXT);
-
-      // 第二段：全新 repo/Agent 从磁盘恢复，继续对话须能引用此前上下文
-      const repo2 = new SqliteSessionRepo({ directory, databaseFactory: factory });
-      const listed = await repo2.list(undefined, BACKGROUND_CONTEXT);
-      expect(listed).toHaveLength(1);
-      const session2 = await repo2.open(listed[0]!, BACKGROUND_CONTEXT);
-      const entries = await session2.findEntries(
-        { type: 'message', order: 'asc' },
-        BACKGROUND_CONTEXT,
-      );
-      const restored = entries.flatMap((entry) =>
-        entry.type === 'message' ? [entry.message] : [],
-      );
-
-      server.enqueue({
-        kind: 'sse',
-        frames: [mockFrames.textDelta('第二答'), mockFrames.finishFrame('stop')],
-      });
-      const model = buildOpenAiCompatibleModel({ baseUrl: server.baseUrl, modelId: 'probe-model' });
-      const agent2 = new Agent({
-        initialState: { messages: restored, model, tools: [echoTool] },
-        streamFn: openAiCompatibleStreamFn,
-        getApiKey: () => PROBE_KEY,
-      });
-      await agent2.prompt('第二问');
-      await session2.close(BACKGROUND_CONTEXT);
-      await repo2.close(BACKGROUND_CONTEXT);
-      rmSync(directory, { recursive: true, force: true });
-
-      const request = server.requests.at(-1)!;
-      const roles = bodyOf(request).messages?.map((message) => message.role);
-      expect(roles).toEqual(['system', 'user', 'assistant', 'tool', 'assistant', 'user']);
-      const firstAnswer = bodyOf(request).messages?.find((message) => message.content === '第一答');
-      expect(firstAnswer?.role).toBe('assistant');
-      // 恢复后的请求带上第一轮问答与工具结果：续接成立
-      const restoredTool = bodyOf(request).messages?.find((message) => message.role === 'tool');
-      expect(restoredTool?.tool_call_id).toBe('call-e-1');
-      expect(restoredTool?.content).toContain('历史');
-      expect(textOf(agent2.state.messages.at(-1) as AssistantMessage)).toBe('第二答');
-    }
-
-    it('使用 node:sqlite 工厂（后端默认）', { timeout: 30000 }, async () => {
-      await persistenceRoundTrip(createNodeSqliteFactory());
+    server.enqueue({
+      kind: 'sse',
+      frames: [mockFrames.textDelta('第一答'), mockFrames.finishFrame('stop')],
     });
+    const agent1 = makeAgent({ tools: [echoTool] });
+    await agent1.prompt('第一问');
 
-    it('使用 better-sqlite3 适配工厂（复用 Dela 现有驱动）', { timeout: 30000 }, async () => {
-      await persistenceRoundTrip(betterSqliteFactory);
+    // Dela 侧持久化形状：消息数组整体 JSON 序列化
+    const reconstructed = JSON.parse(JSON.stringify(agent1.state.messages)) as AgentMessage[];
+
+    // 第二段：全新 Agent 从持久历史重建 initialState，继续对话须能引用此前上下文
+    server.enqueue({
+      kind: 'sse',
+      frames: [mockFrames.textDelta('第二答'), mockFrames.finishFrame('stop')],
     });
+    const model = buildOpenAiCompatibleModel({ baseUrl: server.baseUrl, modelId: 'probe-model' });
+    const agent2 = new Agent({
+      initialState: { messages: reconstructed, model, tools: [echoTool] },
+      streamFn: openAiCompatibleStreamFn,
+      getApiKey: () => PROBE_KEY,
+    });
+    await agent2.prompt('第二问');
+
+    const request = server.requests.at(-1)!;
+    const roles = bodyOf(request).messages?.map((message) => message.role);
+    expect(roles).toEqual(['system', 'user', 'assistant', 'tool', 'assistant', 'user']);
+    const firstAnswer = bodyOf(request).messages?.find((message) => message.content === '第一答');
+    expect(firstAnswer?.role).toBe('assistant');
+    // 重建后的请求带上第一轮问答与工具结果：续接成立
+    const restoredTool = bodyOf(request).messages?.find((message) => message.role === 'tool');
+    expect(restoredTool?.tool_call_id).toBe('call-e-1');
+    expect(restoredTool?.content).toContain('历史');
+    expect(textOf(agent2.state.messages.at(-1) as AssistantMessage)).toBe('第二答');
   });
 
   it('f. DeepSeek 风格 provider：reasoning_content 增量与 reasoning_effort 映射', async () => {

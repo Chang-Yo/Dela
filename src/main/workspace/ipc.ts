@@ -1,4 +1,3 @@
-import { registerAgentIpc } from '../agent/ipc';
 import {
   saveWorkspaceView,
   removeWorkspaceEntry,
@@ -17,7 +16,7 @@ import {
   openEntryExternally,
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
-import { subscribeChat } from '../agent/api';
+import { subscribeChat } from '../agent/session/subscriptions';
 import { exportOfficePdf, quickLookFile } from '../office-export';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell } from 'electron';
@@ -27,7 +26,6 @@ import { storageDirectory as directory } from '../storage';
 import type { WorkspaceCreateInput } from '../../shared/api';
 
 export function registerWorkspaceIpc() {
-  registerAgentIpc();
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`workspace:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);

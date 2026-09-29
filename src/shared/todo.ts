@@ -1,4 +1,53 @@
-import type { TodoStatus } from './api';
+import type { CalendarEventColor } from './timetable';
+
+export type TodoStatus =
+  'pending' | 'completed' | 'submitted' | 'graded' | 'excused' | 'resubmit' | 'offline' | 'unknown';
+export interface TodoItem {
+  id: string;
+  source: 'personal' | 'canvas';
+  title: string;
+  notes: string;
+  dueAt: string | null;
+  status: TodoStatus;
+  readAt: string | null;
+  createdAt: string;
+  /** 仅个人待办：开启后在日历（周/月视图）中按截止时间显示。 */
+  calendar?: boolean;
+  /** 仅个人待办：写入日历时的候选色；未选时渲染回退石墨色。 */
+  color?: CalendarEventColor;
+  courseId?: number;
+  courseName?: string;
+  assignmentId?: number;
+  url?: string;
+  /** 仅 Canvas 作业：作业描述原始 HTML，随作业同步缓存，renderer 经沙箱 iframe 渲染。 */
+  description?: string;
+  submittedAt?: string | null;
+  syncedAt?: string;
+}
+export interface TodoState {
+  items: TodoItem[];
+  connected: boolean;
+  syncing: boolean;
+  syncedAt: string | null;
+  error: string | null;
+}
+export interface TodoSaveInput {
+  id?: string;
+  title: string;
+  notes?: string;
+  dueAt?: string | null;
+  completed?: boolean;
+  calendar?: boolean;
+  color?: CalendarEventColor;
+}
+export interface TodoApi {
+  getState(): Promise<TodoState>;
+  refresh(): Promise<TodoState>;
+  save(input: TodoSaveInput): Promise<TodoState>;
+  remove(id: string): Promise<TodoState>;
+  markRead(id: string): Promise<TodoState>;
+  onUpdate(listener: (state: TodoState) => void): () => void;
+}
 
 export const todoStatusLabels: Record<TodoStatus, string> = {
   pending: '未完成',
