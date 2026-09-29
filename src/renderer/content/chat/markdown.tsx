@@ -1,0 +1,131 @@
+import 'katex/dist/katex.min.css';
+
+import type { ComponentProps } from 'react';
+import { createCodePlugin } from '@streamdown/code';
+import { createMathPlugin } from '@streamdown/math';
+import type { MermaidConfig } from '@streamdown/mermaid';
+import {
+  Streamdown,
+  defaultTranslations,
+  type ControlsConfig,
+  type DiagramPlugin,
+} from 'streamdown';
+import { cn } from '../../lib/utils';
+
+// mermaid 本体体积大，这里只注册插件对象，首次渲染图表时才动态加载真正的库。
+const lazyMermaidPlugin: DiagramPlugin = {
+  name: 'mermaid',
+  type: 'diagram',
+  language: 'mermaid',
+  getMermaid: (config?: MermaidConfig) => ({
+    initialize: () => {},
+    render: async (id: string, chart: string) => {
+      const { mermaid } = await import('@streamdown/mermaid');
+      return mermaid.getMermaid(config).render(id, chart);
+    },
+  }),
+};
+
+/**
+ * 聊天区 Markdown 渲染的共享配置。
+ * 代码高亮用 shiki 双主题（与编辑器一致的 GitHub 配色）跟随明暗；
+ * 数学公式启用 KaTeX（含单美元行内公式，LLM 输出惯例）；
+ * mermaid 图表按需加载，用 streamdown 内置全屏查看（拖拽平移 + 滚轮缩放 + Esc 退出）；
+ * 对象式 controls 的子项默认开启，不需要的需显式关闭。
+ */
+const chatStreamdownPlugins = {
+  code: createCodePlugin({ themes: ['github-light', 'github-dark'] }),
+  math: createMathPlugin({ singleDollarTextMath: true }),
+  mermaid: lazyMermaidPlugin,
+};
+
+const chatControls: ControlsConfig = {
+  code: { copy: true, download: false },
+  table: false,
+  // mermaid：streamdown 内置全屏查看默认开启——块右上角按钮进入 portal 全屏
+  // （拖拽平移、滚轮/按钮缩放、Esc 退出），无需自研；复制/下载按钮用不到，显式关闭。
+  mermaid: { copy: false, download: false },
+  image: false,
+};
+
+// mermaid 只在初始化时读主题；配置对象按当前明暗缓存，主题切换时引用变化触发图表重绘。
+// mermaid 渲染的 svg 文本默认用 trebuchet ms 等字体，与界面割裂；这里显式给定与应用一致的
+// sans 栈（与 globals.css 的 --font-sans 手工同步，那边改动需带这边）。
+const MERMAID_FONT_FAMILY = "Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif";
+let mermaidTheme: { dark: boolean; options: { config: MermaidConfig } } | null = null;
+function mermaidOptions() {
+  const dark = document.documentElement.classList.contains('dark');
+  if (!mermaidTheme || mermaidTheme.dark !== dark) {
+    mermaidTheme = {
+      dark,
+      options: { config: { theme: dark ? 'dark' : 'default', fontFamily: MERMAID_FONT_FAMILY } },
+    };
+  }
+  return mermaidTheme.options;
+}
+
+const chatTranslations = {
+  ...defaultTranslations,
+  copyCode: '复制代码',
+  copied: '已复制',
+  viewFullscreen: '全屏查看',
+  exitFullscreen: '退出全屏',
+  zoomIn: '放大',
+  zoomOut: '缩小',
+  resetView: '重置视图',
+};
+
+/** 表格不套 streamdown 默认的卡片容器与双层边框：原生表格，超宽时横向滚动。 */
+function ChatTable({
+  children,
+  className,
+  node: _node,
+  ...props
+}: ComponentProps<'table'> & { node?: unknown }) {
+  return (
+    <div className="my-2 w-full overflow-x-auto">
+      <table className={cn('w-full text-xs', className)} {...props}>
+        {children}
+      </table>
+    </div>
+  );
+}
+
+const chatComponents = { table: ChatTable };
+
+/**
+ * 聊天区消息体的 Markdown 版式（聊天气泡、回答、工作过程说明共用）。
+ * 代码块：参照 DeepSeek 网页版的无界一体化卡片——容器只用 bg-muted + rounded-lg 描面，
+ * 不画边框，头部与代码之间也不加分隔线，语言标签与复制按钮同处容器头部一行。头部自身
+ * sticky top-2 + bg-muted（与 streamdown 复制按钮同位同层），长块滚动时语言标签和
+ * 复制按钮一起钉在块顶；复制按钮沿用 streamdown 的负 margin 叠加机制（-mt-8 对齐
+ * h-8 头部行）。不用 grid 重排——容器带 content-visibility: auto 时 grid 列会塌缩
+ * （实测复现）；容器不用 overflow-hidden（破坏 sticky），圆角由 header/pre 各自分担。
+ * 复制按钮：streamdown 自带的底色小胶囊与卡片不搭，压成纯图标——常态透明，悬浮时显
+ * bg-foreground/10；点击后由 streamdown 自带的逻辑把图标换成 check，保持正常配色。
+ * （写剪贴板依赖主进程放行 clipboard-sanitized-write，否则点击无任何反应。）
+ * 代码块不设高度上限（codeBlockMaxHeight=0）：完整展开、随外层聊天区滚动，块内不出现
+ * 自己的滚动条（默认 400px 内滚会在钉住头部右上露出滚动条与内容）。
+ * 公式超宽时横向滚动。
+ */
+const markdownStyles =
+  '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_[data-streamdown=code-block]]:gap-0 [&_[data-streamdown=code-block]]:rounded-lg [&_[data-streamdown=code-block]]:border-0 [&_[data-streamdown=code-block]]:bg-muted [&_[data-streamdown=code-block]]:p-0 [&_[data-streamdown=code-block-header]]:sticky [&_[data-streamdown=code-block-header]]:top-0 [&_[data-streamdown=code-block-header]]:z-10 [&_[data-streamdown=code-block-header]]:justify-start [&_[data-streamdown=code-block-header]]:rounded-t-lg [&_[data-streamdown=code-block-header]]:bg-muted [&_[data-streamdown=code-block-header]]:px-2 [&_[data-streamdown=code-block]>div:nth-child(2)]:-mt-8 [&_[data-streamdown=code-block]>div:nth-child(2)]:pr-3 [&_[data-streamdown=code-block]>div:nth-child(2)]:top-0 [&_[data-streamdown=code-block-body]]:rounded-none [&_[data-streamdown=code-block-body]]:border-none [&_[data-streamdown=code-block-body]]:bg-transparent [&_[data-streamdown=code-block-body]]:p-0 [&_[data-streamdown=code-block-body]_pre]:my-0 [&_[data-streamdown=code-block-body]_pre]:rounded-none [&_[data-streamdown=code-block-body]_pre]:rounded-b-lg [&_[data-streamdown=code-block-actions]]:opacity-0 [&_[data-streamdown=code-block-actions]]:transition-opacity [&_[data-streamdown=code-block]:focus-within_[data-streamdown=code-block-actions]]:opacity-100 [&_[data-streamdown=code-block]:hover_[data-streamdown=code-block-actions]]:opacity-100 [&_div[data-streamdown=code-block-actions]]:border-0 [&_div[data-streamdown=code-block-actions]]:bg-transparent [&_div[data-streamdown=code-block-actions]]:p-0 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]]:rounded-md [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]_svg]:size-3.5 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]:hover]:bg-foreground/10 [&_[data-streamdown=unordered-list]]:list-outside [&_[data-streamdown=unordered-list]]:pl-5 [&_[data-streamdown=ordered-list]]:list-outside [&_[data-streamdown=ordered-list]]:pl-5';
+
+/** 聊天区 Markdown 统一入口：插件、控件、表格组件与文案只在此配置一次。 */
+export function ChatMarkdown({ children, className, ...props }: ComponentProps<typeof Streamdown>) {
+  return (
+    <Streamdown
+      className={cn(markdownStyles, className)}
+      codeBlockMaxHeight={0}
+      components={chatComponents}
+      controls={chatControls}
+      mermaid={mermaidOptions()}
+      plugins={chatStreamdownPlugins}
+      skipHtml
+      translations={chatTranslations}
+      {...props}
+    >
+      {children}
+    </Streamdown>
+  );
+}

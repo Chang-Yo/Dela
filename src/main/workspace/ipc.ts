@@ -16,6 +16,7 @@ import {
   openEntryExternally,
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
+import { registerLayoutIpc } from './layout';
 import { subscribeChat } from '../agent/session/subscriptions';
 import { exportOfficePdf, quickLookFile } from '../office-export';
 import { resourceRefSchema } from '../../shared/resources';
@@ -124,4 +125,5 @@ export function registerWorkspaceIpc() {
     return directory();
   });
   handle('save-view', (scope, input) => saveWorkspaceView(scope, input));
+  registerLayoutIpc();
 }

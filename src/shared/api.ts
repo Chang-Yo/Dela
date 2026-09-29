@@ -3,6 +3,7 @@
 // 领域类型的变化请直接改对应领域文件，不在此处添加逻辑。
 import type { CanvasApi } from './canvas';
 import type { ChatApi } from './chat';
+import type { LayoutApi } from './layout';
 import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
 import type { NotificationsApi } from './notifications';
@@ -30,6 +31,7 @@ export interface DelaApi {
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
+  readonly layout: LayoutApi;
   readonly search: SearchApi;
   readonly notifications: NotificationsApi;
 }
@@ -140,5 +142,16 @@ export type {
   RunEvent,
   RunStatus,
 } from './session';
+
+export type {
+  TabKind,
+  TabId,
+  SplitOrientation,
+  GroupNode,
+  SplitNode,
+  LayoutNode,
+  WorkbenchLayout,
+  LayoutApi,
+} from './layout';
 
 export type { TodoStatus, TodoItem, TodoState, TodoSaveInput, TodoApi } from './todo';

@@ -1,0 +1,275 @@
+/* Crepe 编辑器配色与版式适配：结构样式来自 @milkdown/crepe/theme/common，
+   这里把 --crepe-* 变量映射到 Dela 设计 token（明暗随全局变量翻转），
+   并增强各块级类型的对比度、边界与背景，便于区分文档结构。 */
+
+.note-editor-host {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: transparent;
+}
+
+.note-editor-host .milkdown {
+  --crepe-color-background: var(--color-background, var(--background));
+  --crepe-color-on-background: var(--color-foreground, var(--foreground));
+  --crepe-color-surface: var(--color-muted, var(--muted));
+  --crepe-color-surface-low: var(--color-muted, var(--muted));
+  --crepe-color-on-surface: var(--color-foreground, var(--foreground));
+  --crepe-color-on-surface-variant: var(--color-muted-foreground, var(--muted-foreground));
+  --crepe-color-outline: var(--color-muted-foreground, var(--muted-foreground));
+  --crepe-color-primary: var(--color-primary, var(--primary));
+  --crepe-color-on-primary: var(--color-primary-foreground, var(--primary-foreground));
+  --crepe-color-secondary: var(--color-secondary, var(--secondary));
+  --crepe-color-on-secondary: var(--color-secondary-foreground, var(--secondary-foreground));
+  --crepe-color-inverse: var(--color-foreground, var(--foreground));
+  --crepe-color-on-inverse: var(--color-background, var(--background));
+  --crepe-color-inline-code: var(--color-destructive, var(--destructive));
+  --crepe-color-error: var(--color-destructive, var(--destructive));
+  --crepe-color-hover: var(--color-accent, var(--accent));
+  /* 选中文字用主题蓝的半透明底（::selection、选中节点等），对比度高于中性灰。 */
+  --crepe-color-selected: color-mix(
+    in srgb,
+    var(--syntax-caret, var(--color-primary)) 30%,
+    transparent
+  );
+  --crepe-color-inline-area: var(--color-muted, var(--muted));
+
+  --crepe-base-font-size: calc(0.875rem * var(--font-scale, 1));
+  --crepe-font-title: var(--font-sans, inherit);
+  --crepe-font-default: var(--font-sans, inherit);
+  --crepe-font-code: var(--font-mono, ui-monospace, monospace);
+  --crepe-shadow-1: 0 1px 2px rgb(0 0 0 / 8%);
+  --crepe-shadow-2: 0 4px 12px rgb(0 0 0 / 12%);
+
+  /* 书写区在画布内居中；max-width 放宽以减少宽屏两侧空白。 */
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 16px 48px 40vh;
+  color: var(--color-foreground, var(--foreground));
+  caret-color: var(--color-foreground, var(--foreground));
+}
+
+/* 主题默认给内层 ProseMirror 加 60px/120px 大内边距；水平方向由 .milkdown 统一提供。 */
+.note-editor-host .milkdown .ProseMirror {
+  padding: 0;
+}
+
+.note-editor-host .milkdown .ProseMirror h1,
+.note-editor-host .milkdown .ProseMirror h2,
+.note-editor-host .milkdown .ProseMirror h3,
+.note-editor-host .milkdown .ProseMirror h4,
+.note-editor-host .milkdown .ProseMirror h5 {
+  font-weight: 600;
+}
+
+/* 链接跟随 GitHub 蓝（--syntax-caret 随明暗主题翻转），区别于正文黑色。 */
+.note-editor-host .milkdown .ProseMirror a {
+  color: var(--syntax-caret, var(--color-primary));
+}
+
+/* 块引用：深色竖条 + 浅底，边界明确。 */
+.note-editor-host .milkdown .ProseMirror blockquote {
+  padding: 4px 16px 4px 20px;
+  margin: 4px 0;
+  background: var(--color-muted, var(--muted));
+  border-radius: 0 8px 8px 0;
+}
+
+.note-editor-host .milkdown .ProseMirror blockquote::before {
+  width: 3px;
+  background: var(--color-primary, var(--primary));
+}
+
+/* 分隔线：实色可见（主题默认 outline 透明 80%，几乎看不见）。 */
+.note-editor-host .milkdown .ProseMirror hr {
+  background-color: var(--color-border, var(--border));
+}
+
+/* 列表：标记与行号用中层灰，标签列收窄使文本更贴近正文缩进。 */
+.note-editor-host .milkdown .milkdown-list-item-block li {
+  gap: 4px;
+}
+
+.note-editor-host .milkdown .milkdown-list-item-block li .label-wrapper {
+  width: 20px;
+  color: var(--color-muted-foreground, var(--muted-foreground));
+}
+
+.note-editor-host .milkdown .milkdown-list-item-block li .label-wrapper .label {
+  width: 20px;
+}
+
+.note-editor-host .milkdown .milkdown-list-item-block li .label-wrapper svg {
+  fill: var(--color-muted-foreground, var(--muted-foreground));
+}
+
+/* 代码块：GitHub Light/Dark 双主题卡片，跟随应用明暗切换。
+   语法色 --syntax-* 直接继承全局 token（globals.css 已备 GitHub 两套色板），
+   此处提供两套中性表面色（卡片、边框、芯片、行高亮叠加）；
+   深色作用域与 globals.css 一致：手动 .dark，或系统深色且未强制 .light。 */
+.note-editor-host .milkdown .milkdown-code-block {
+  --crepe-color-surface: #ffffff;
+  --crepe-color-surface-low: #eff2f5;
+  --crepe-color-on-surface: #1f2328;
+  --crepe-color-on-surface-variant: #59636e;
+  --crepe-color-outline: #8c959f;
+  --crepe-color-secondary: #eff2f5;
+  --crepe-color-on-secondary: #1f2328;
+  --crepe-color-hover: rgb(0 0 0 / 6%);
+  --code-line-overlay: rgb(0 0 0 / 4%);
+  --code-gutter-overlay: rgb(0 0 0 / 8%);
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 4px 16px 16px;
+  color: #1f2328;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .note-editor-host .milkdown .milkdown-code-block {
+    --crepe-color-surface: #161b22;
+    --crepe-color-surface-low: #21262d;
+    --crepe-color-on-surface: #e6edf3;
+    --crepe-color-on-surface-variant: #9198a1;
+    --crepe-color-outline: #6e7681;
+    --crepe-color-secondary: #21262d;
+    --crepe-color-on-secondary: #e6edf3;
+    --crepe-color-hover: rgb(255 255 255 / 10%);
+    --code-line-overlay: rgb(255 255 255 / 8%);
+    --code-gutter-overlay: rgb(255 255 255 / 14%);
+    background: #0d1117;
+    border-color: #30363d;
+    color: #e6edf3;
+  }
+}
+
+:root.dark .note-editor-host .milkdown .milkdown-code-block {
+  --crepe-color-surface: #161b22;
+  --crepe-color-surface-low: #21262d;
+  --crepe-color-on-surface: #e6edf3;
+  --crepe-color-on-surface-variant: #9198a1;
+  --crepe-color-outline: #6e7681;
+  --crepe-color-secondary: #21262d;
+  --crepe-color-on-secondary: #e6edf3;
+  --crepe-color-hover: rgb(255 255 255 / 10%);
+  --code-line-overlay: rgb(255 255 255 / 8%);
+  --code-gutter-overlay: rgb(255 255 255 / 14%);
+  background: #0d1117;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+.note-editor-host .milkdown .milkdown-code-block .cm-editor {
+  background: transparent;
+}
+
+.note-editor-host .milkdown .milkdown-code-block .cm-gutters {
+  background: transparent;
+  border-right: none;
+}
+
+.note-editor-host .milkdown .milkdown-code-block .cm-lineNumbers .cm-gutterElement {
+  color: var(--syntax-comment);
+}
+
+/* 当前行强调：中性叠加带 + 行号提亮，替代 CM 的浅蓝默认。 */
+.note-editor-host .milkdown .milkdown-code-block .cm-activeLine {
+  background: var(--code-line-overlay);
+}
+
+.note-editor-host .milkdown .milkdown-code-block .cm-activeLineGutter {
+  background: var(--code-gutter-overlay);
+}
+
+.note-editor-host
+  .milkdown
+  .milkdown-code-block
+  .cm-lineNumbers
+  .cm-gutterElement.cm-activeLineGutter {
+  color: var(--crepe-color-on-surface);
+}
+
+/* CM 自绘选区与光标跟随主题蓝（drawSelection 会隐藏原生选区与光标）。 */
+.note-editor-host .milkdown .milkdown-code-block .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--syntax-caret) 30%, transparent);
+}
+
+.note-editor-host .milkdown .milkdown-code-block .cm-cursor,
+.note-editor-host .milkdown .milkdown-code-block .cm-dropCursor {
+  border-left-color: var(--syntax-caret);
+}
+
+/* 数学公式块复用代码块容器与预览面板：输入区等宽、预览区留白居中。 */
+.note-editor-host .milkdown .milkdown-code-block .preview-panel .preview-divider {
+  opacity: 0.6;
+}
+
+.note-editor-host .milkdown .milkdown-code-block .preview-panel .preview {
+  padding: 12px 0 4px;
+}
+
+/* 行内公式悬浮框确认按钮：主题固定 24px 宽（为图标设计），中文文字会折行溢出，
+   改为随内容展开。 */
+.note-editor-host .milkdown .milkdown-latex-inline-edit .container button {
+  width: auto;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* 代码块工具行统一为一组头部芯片：同高、同圆角、同底色；
+   复制按钮仅显示图标（文字保留给读屏，font-size: 0 隐藏）。 */
+.note-editor-host .milkdown .milkdown-code-block .tools .language-button {
+  height: 24px;
+  margin-bottom: 0;
+  padding: 0 6px 0 8px;
+  border-radius: 6px;
+}
+
+.note-editor-host .milkdown .milkdown-code-block .tools .tools-button-group button {
+  height: 24px;
+  padding: 0 6px;
+  background: var(--crepe-color-surface-low);
+  border-radius: 6px;
+}
+
+.note-editor-host .milkdown .milkdown-code-block .tools .tools-button-group .copy-button {
+  font-size: 0;
+  gap: 0;
+}
+
+/* 悬浮工具栏：加边框与深阴影提升和画布的对比；悬停时底色与图标加深，带 120ms 过渡。 */
+.note-editor-host .milkdown .milkdown-toolbar {
+  border: 1px solid var(--color-border, var(--border));
+  box-shadow: var(--crepe-shadow-2);
+}
+
+.note-editor-host .milkdown .milkdown-toolbar .toolbar-item {
+  transition: background-color 0.12s ease;
+}
+
+.note-editor-host .milkdown .milkdown-toolbar .toolbar-item svg {
+  transition:
+    color 0.12s ease,
+    fill 0.12s ease;
+}
+
+.note-editor-host .milkdown .milkdown-toolbar .toolbar-item:hover {
+  background: color-mix(in srgb, var(--color-foreground, var(--foreground)) 12%, transparent);
+}
+
+.note-editor-host .milkdown .milkdown-toolbar .toolbar-item:hover svg {
+  color: var(--color-foreground, var(--foreground));
+  fill: var(--color-foreground, var(--foreground));
+}
+
+/* 阅读态：去掉编辑期的块手柄交互占位，保留版式。 */
+.note-editor-host[data-readonly='true'] .milkdown {
+  padding-bottom: 24px;
+}

@@ -1,0 +1,194 @@
+// 笔记草稿生命周期 store（迁移自 features/projects/workspace.ts 后半；
+// docs/refactor/structure.md §3.4）。read/edit/save/release 的防抖与互斥语义逐一保持：
+// 这是「同一文档多入口共享正文与版本」的关键。相对旧实现仅有一处扩展——
+// acquire/release 带引用计数：旧 ProjectView 在关闭标签时用 stillOpenElsewhere 手工判断
+// 「另一组还开着就不释放」，新架构把这个计数下沉到 store，content/note 组件挂载时
+// acquire、卸载时 release，最后一个引用释放时才冲盘并移除草稿。
+import { create } from 'zustand';
+import type { DocumentContent } from '../../shared/api';
+import { errorText } from './store';
+
+export type NoteDraft = {
+  content: DocumentContent;
+  text: string;
+  saved: string;
+  saving: boolean;
+  error: string | null;
+};
+
+type Store = {
+  drafts: Record<string, NoteDraft>;
+  /** 读取（或复用）一份草稿；force 时先等在途保存结束再重读（旧 read 语义）。 */
+  acquire: (key: string, force?: boolean) => Promise<void>;
+  /** Flush a draft before releasing it. False means it is still present and dirty. */
+  release: (key: string) => Promise<boolean>;
+  edit: (key: string, text: string) => void;
+  /** Resolves true only when the current draft is clean (or was already clean). */
+  save: (key: string) => Promise<boolean>;
+};
+
+const loading = new Map<string, Promise<void>>();
+const scheduledSaves = new Map<string, ReturnType<typeof setTimeout>>();
+const saving = new Map<string, Promise<boolean>>();
+/** 每个 key 的持有入口数；最后一个引用释放时才冲盘移除。 */
+const refcounts = new Map<string, number>();
+
+export const useNoteDrafts = create<Store>((set, get) => ({
+  drafts: {},
+  acquire: async (key, force = false) => {
+    refcounts.set(key, (refcounts.get(key) ?? 0) + 1);
+    if (!window.dela || (!force && get().drafts[key])) return;
+    if (force && get().drafts[key]?.saving) {
+      const pending = saving.get(key);
+      if (!pending || !(await pending)) return;
+    }
+    const pending = loading.get(key);
+    if (pending) return pending;
+    const started = get().drafts[key];
+    const work = (async () => {
+      const api = window.dela!;
+      const sourceId = key.startsWith('source:') ? key.slice(7) : null;
+      const content = sourceId
+        ? sourceId.startsWith('shuiyuan-topic:')
+          ? await api.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
+          : await api.canvas.read(sourceId)
+        : await api.workspace.read(key);
+      const current = get().drafts[key];
+      // A refresh must never replace edits made while it was reading. A confirmed
+      // reload may discard the snapshot that existed when it started, but a newer
+      // edit always wins.
+      if (
+        started &&
+        current &&
+        (current.text !== started.text ||
+          current.content.revision !== started.content.revision ||
+          current.saving)
+      )
+        return;
+      set((s) => ({
+        drafts: {
+          ...s.drafts,
+          [key]: {
+            content,
+            text: content.text ?? '',
+            saved: content.text ?? '',
+            saving: false,
+            error: null,
+          },
+        },
+      }));
+    })().finally(() => loading.delete(key));
+    loading.set(key, work);
+    return work;
+  },
+  release: async (key) => {
+    const refs = refcounts.get(key) ?? 0;
+    // 其他入口仍持有同一草稿：不冲盘不移除（旧实现由调用方以 stillOpenElsewhere 判断）。
+    if (refs > 1) {
+      refcounts.set(key, refs - 1);
+      return true;
+    }
+    refcounts.delete(key);
+    const timer = scheduledSaves.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      scheduledSaves.delete(key);
+    }
+    const draft = get().drafts[key];
+    if (!draft) return true;
+    if (draft.saving || draft.text !== draft.saved) {
+      if (!(await get().save(key))) return false;
+    }
+    const current = get().drafts[key];
+    if (!current || current.saving || current.text !== current.saved) return false;
+    set((state) => {
+      const drafts = { ...state.drafts };
+      delete drafts[key];
+      return { drafts };
+    });
+    return true;
+  },
+  edit: (key, text) => {
+    if (!get().drafts[key]) return;
+    set((s) => ({ drafts: { ...s.drafts, [key]: { ...s.drafts[key]!, text, error: null } } }));
+    clearTimeout(scheduledSaves.get(key));
+    scheduledSaves.set(
+      key,
+      setTimeout(() => {
+        scheduledSaves.delete(key);
+        void get().save(key);
+      }, 600),
+    );
+  },
+  save: (key) => {
+    const existing = saving.get(key);
+    if (existing) return existing;
+    const timer = scheduledSaves.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      scheduledSaves.delete(key);
+    }
+    const task = (async (): Promise<boolean> => {
+      while (true) {
+        const draft = get().drafts[key];
+        if (!draft) return true;
+        if (draft.text === draft.saved) return true;
+        if (!window.dela) return false;
+        if (!draft.content.revision) {
+          const message = '此文档没有可用的保存版本。';
+          set((s) => ({
+            drafts: s.drafts[key]
+              ? { ...s.drafts, [key]: { ...s.drafts[key]!, saving: false, error: message } }
+              : s.drafts,
+          }));
+          return false;
+        }
+        const text = draft.text;
+        set((s) => ({
+          drafts: s.drafts[key]
+            ? { ...s.drafts, [key]: { ...s.drafts[key]!, saving: true } }
+            : s.drafts,
+        }));
+        try {
+          const revision = await window.dela.workspace.saveNote(key, text, draft.content.revision);
+          set((s) => {
+            const current = s.drafts[key];
+            if (!current) return s;
+            return {
+              drafts: {
+                ...s.drafts,
+                [key]: {
+                  ...current,
+                  saved: text,
+                  content: { ...current.content, revision },
+                  saving: false,
+                  error: null,
+                },
+              },
+            };
+          });
+        } catch (error) {
+          set((s) => ({
+            drafts: s.drafts[key]
+              ? {
+                  ...s.drafts,
+                  [key]: { ...s.drafts[key]!, saving: false, error: errorText(error) },
+                }
+              : s.drafts,
+          }));
+          return false;
+        }
+      }
+    })();
+    saving.set(key, task);
+    void task.then(
+      () => {
+        if (saving.get(key) === task) saving.delete(key);
+      },
+      () => {
+        if (saving.get(key) === task) saving.delete(key);
+      },
+    );
+    return task;
+  },
+}));
