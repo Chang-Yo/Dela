@@ -3,8 +3,14 @@ saveExact: true
 engineStrict: true
 strictPeerDependencies: true
 allowBuilds:
+  # pi-agent-core 传递依赖：仅用 OpenAI 兼容路径，不触发这些包的安装脚本；
+  # esbuild 二进制来自 @esbuild/win32-x64 optional 依赖，protobufjs/@google/genai 的
+  # postinstall 只做生成物校验，均可安全跳过。
+  '@google/genai': false
   better-sqlite3: false
   electron-winstaller: false
+  esbuild: false
+  protobufjs: false
 minimumReleaseAgeExclude:
   - electron@44.3.0
   - lucide-react@1.44.0

@@ -10,6 +10,12 @@
 
 ---
 
+## 2026-09-29（第十轮）Pi Agent Core 最小接入验证（阶段一）
+
+落实 [重构计划](agent-workspace-plan.md) §5.1 的最小接入验证，报告见 [pi-integration-report.md](refactor/pi-integration-report.md)。新增精确依赖 `@earendil-works/pi-agent-core`、`pi-ai`、`pi-session-backend-sqlite-node`（均 0.87.1；`pi-ai` 为验证中追加——自定义 OpenAI 兼容 provider 必需，计划未列出）；探针代码 `src/main/agent/pi-probe/`（mock SSE 服务 + 装配层 + vitest 用例，不接入应用入口）。七个用例全部实测通过：流式增量、工具往返（TypeBox 与 zod→JSON Schema 两种参数）、中途 abort 保留已产出内容、500/429 错误事件、SQLite 会话持久化续接（node:sqlite 与 better-sqlite3 适配双工厂）、DeepSeek 风格 reasoning 映射、图片输入。结论：**可替换 loop.ts，无关键不成立项**；重要差异三条——Pi 会把 thinking 以 `reasoning_content` 回灌（与 DeepSeek「不回传」策略相反，需在 convertToLlm 剥离）、错误/中止是事件而非异常（默认不重试，重试归 Dela 外层）、`maxTokens` 未在 Agent 层暴露（需 streamFn 包装注入）。
+
+- 已验证：探针 8/8 通过、`pnpm typecheck`、`pnpm lint`（0 警告）、`pnpm build`（main bundle 零 pi 引用）、全量 212 项单测；`node:sqlite` 在 Node 24.21.0 与 Electron 44 内嵌 Node 24.20.0（ELECTRON_RUN_AS_NODE）可 import。安装踩坑两处已记录：pnpm 12 `allowBuilds` 需把 `@google/genai`/`esbuild`/`protobufjs` 显式置 false；pi-ai 双实例断链用 `pnpm dedupe` 修复。待验证：真实提供商端点（重点 reasoning 回灌容忍度）、Electron 主进程/打包后运行、接入时的 external 配置与 asar 体积。
+
 ## 2026-09-29（第九轮）移除选区引用「回复此内容」悬浮钮
 
 实机审阅后用户裁决放弃该功能：悬浮钮在沙箱 iframe（高度=内容高度、不可滚动）里定位反复修补——先贴底截断、翻转修复后矮楼层整钮消失、跨楼选区清除又需引入父页中继协议——复杂度收益比不划算。移除全部相关代码：注入脚本选区段与 postMessage 通道（frame-height.ts 与 index.html 的 CSP hash 回退为功能引入前的值）、ShuiyuanHtmlBody 的 onSelectionQuote 与 iframe 注册表中继、TopicReader 的接线。楼层操作条「引用」按钮（PostActions）不受影响；第三、五轮记录保留作为过程存档。
