@@ -471,7 +471,7 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 | `sync_sources`                  | 可选 courseId                     | 同步课程列表或指定课程资料                                                                                               |
 | `search_sources`                | query、courseId、kind、分页       | 缓存标题搜索                                                                                                             |
 | `search_workspace`              | query、parentId、分页             | 工作区条目名称搜索                                                                                                       |
-| `web_search`                    | query、region、count              | DuckDuckGo lite 结果；限流明确报错                                                                                       |
+| `web_search`                    | query、region、count              | 自建 SearXNG（阿里云 ECS）JSON 结果；HTTP 错误与全部引擎无响应均明确报错                                                 |
 | `fetch_page`                    | url                               | 网页转文本；PDF 直链提取文字；仅公网 http(s)                                                                             |
 | `search_mail`                   | query、from、folderId、时间、分页 | 主题/摘要缓存搜索；UID 窗口与同步信息                                                                                    |
 | `read_resource`                 | ref、offset、limit、pages         | 正文分页；PDF/DOCX/PPTX 提取文字层；PDF `pages`（每次 ≤6 页）整页渲染为图像以合成 user 消息附给视觉模型，单次运行 ≤12 张 |

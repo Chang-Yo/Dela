@@ -581,3 +581,11 @@ Prettier、Oxlint 0 告警、三组类型检查、构建、**182 项单元测试
 - **渲染泛化**：赞赏弹窗参数化为 `SponsorDialog`（按人渲染通道与备注，note 缺省时不渲染描述行）；栏目统一渲染为「标题 → 标题下分隔线（`pb-2`）→ 成员行」（成员行 = 左头像姓名 `PersonIdentity`、右链接图标+「赞赏」按钮 `PersonActions`），栏目间距放大（根 gap 5→8）形成分组亲密性。布局经两轮实机审阅收敛：初版 chips、其后 featured/grid 双布局均被推翻，按用户示意稿定稿为单一格式，`CreditSection` 的 `id`/`layout` 字段因与 title 重复/不再需要而移除。新增栏目 = 数据文件加一个 section，不碰组件。
 - **示例数据**：Sponsors 栏目加入首位赞助者「冰啤史莱姆」（知乎链接，暂无收款通道）。
 - 已验证：Prettier、Oxlint、三组类型检查、单测、生产构建。待验证：标题下划线与栏目间距观感（实机审阅）。
+
+## 2026-09-29 web_search 后端切换到自建 SearXNG
+
+用户在阿里云 ECS 部署了 SearXNG（`http://47.117.158.218:8778`），`web_search` 从抓取 DuckDuckGo lite HTML 改为调用其 JSON API。
+
+- **实现**：`searchWeb` 改为 GET `/search?format=json`（region 映射为 SearXNG `language` 参数），15s 超时；DDG 专用代码整体移除（Cookie 复用、lite 结果页/跳转链接解析、防机器人检测）。`fetch_page` 与 URL 安全校验不变。
+- **错误语义**：HTTP 非 200 明确报错，403 单独提示服务端 `search.formats` 未含 json；结果为空且 `unresponsive_engines` 非空时报「全部引擎无响应」并列出引擎名，不静默返回空结果。
+- 已验证（客户端）：web-search 单测（JSON 映射、请求参数、错误路径）、Oxlint、三组类型检查。待验证：实例搜索能力——2026-09-29 实测该实例所有查询（含 `q=test`）瞬时返回空 `results` 且 `unresponsive_engines` 为空，即服务端未选中任何引擎（疑似引擎被禁用或容器出网受阻，需服务端排查 `settings.yml` 引擎配置与出网）；实例修好后客户端无需改动。另注意该实例无鉴权、公网可访问。

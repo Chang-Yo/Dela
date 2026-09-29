@@ -1,78 +1,92 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   assertPublicHttpUrl,
-  decodeDdgUrl,
   fetchWebPage,
   htmlToText,
-  parseDdgLiteResults,
+  parseSearxngResults,
   searchWeb,
 } from '../web-search';
 
-// 结构取自 2026-09-18 抓取的 lite.duckduckgo.com 真实响应（脱敏缩减）。
-const ddgLiteFixture = `
-<form action="/lite/" method="post">
-  <input class='query' type="text" name="q" value="sjtu canvas">
-</form>
-<a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Foc.sjtu.edu.cn%2Flogin%2Fcanvas&amp;rut=abc" class='result-link'>登录到 Canvas - SJTU</a>
-</td>
-<tr><td>&nbsp;&nbsp;&nbsp;</td><td class='result-snippet'>
-  请登录<b>Canvas</b>以访问上海交通大学的在线学习平台和课程资源。
-</td></tr>
-<a rel="nofollow" href="https://example.com/direct-page" class='result-link'>Direct &amp; Co</a>
-</td>
-<tr><td class='result-snippet'>plain snippet</td></tr>
-<a rel="nofollow" href="//duckduckgo.com/ad?ad_domain=spam.example" class='result-link'>Ad</a>
-`;
+// 结构取自 SearXNG /search?format=json 实际响应（脱敏缩减）。
+const searxngFixture = {
+  query: 'sjtu canvas',
+  results: [
+    {
+      url: 'https://oc.sjtu.edu.cn/login/canvas',
+      title: '登录到 Canvas - SJTU',
+      content: '请登录 Canvas 以访问\n  上海交通大学的在线学习平台。',
+    },
+    { url: 'https://example.com/no-title', title: null, content: null },
+    { title: '无链接项应被丢弃', content: 'snippet' },
+  ],
+  answers: [],
+  corrections: [],
+  infoboxes: [],
+  suggestions: [],
+  unresponsive_engines: [],
+};
 
 describe('web search', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('parses lite results with decoded redirect URLs and clean snippets', () => {
-    const results = parseDdgLiteResults(ddgLiteFixture);
-    expect(results).toHaveLength(2);
-    expect(results[0]).toMatchObject({
-      title: '登录到 Canvas - SJTU',
-      url: 'https://oc.sjtu.edu.cn/login/canvas',
-      snippet: '请登录Canvas以访问上海交通大学的在线学习平台和课程资源。',
-    });
-    expect(results[1]).toMatchObject({
-      title: 'Direct & Co',
-      url: 'https://example.com/direct-page',
-      snippet: 'plain snippet',
-    });
+  it('maps searxng results, drops link-less items and normalizes snippets', () => {
+    const results = parseSearxngResults(searxngFixture);
+    expect(results).toEqual([
+      {
+        title: '登录到 Canvas - SJTU',
+        url: 'https://oc.sjtu.edu.cn/login/canvas',
+        snippet: '请登录 Canvas 以访问 上海交通大学的在线学习平台。',
+      },
+      { title: 'https://example.com/no-title', url: 'https://example.com/no-title', snippet: '' },
+    ]);
   });
 
-  it('decodes or rejects DDG redirect hrefs', () => {
-    expect(decodeDdgUrl('//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fa%3Fb%3D1')).toBe(
-      'https://example.com/a?b=1',
-    );
-    expect(decodeDdgUrl('http://example.com/plain')).toBe('http://example.com/plain');
-    expect(decodeDdgUrl('//duckduckgo.com/l/?rut=missing-target')).toBeNull();
-    expect(decodeDdgUrl('//duckduckgo.com/ad?ad_domain=spam.example')).toBeNull();
-    expect(decodeDdgUrl('javascript:alert(1)')).toBeNull();
-    expect(decodeDdgUrl('not a url')).toBeNull();
-  });
-
-  it('posts the query and returns parsed results', async () => {
+  it('requests the searxng json api with query and language', async () => {
     const fetchMock = vi.fn(
       async () =>
-        new Response(ddgLiteFixture, { headers: { 'content-type': 'text/html; charset=utf-8' } }),
+        new Response(JSON.stringify(searxngFixture), {
+          headers: { 'content-type': 'application/json' },
+        }),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const results = await searchWeb('sjtu canvas');
+    const results = await searchWeb('sjtu canvas', 'zh-cn');
     const [url, init] = fetchMock.mock.calls[0]! as unknown as [string, RequestInit];
-    expect(url).toBe('https://lite.duckduckgo.com/lite/');
-    expect(init.method).toBe('POST');
-    expect(String(init.body)).toContain('q=sjtu+canvas');
+    expect(url).toBe('http://47.117.158.218:8778/search?q=sjtu+canvas&format=json&language=zh-cn');
+    expect(init.method).toBeUndefined();
     expect(results).toHaveLength(2);
   });
 
-  it('reports rate limiting when DDG answers with an anomaly page', async () => {
+  it('reports unresponsive engines when no result came back', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response('<html>anomaly challenge page</html>', { status: 200 })),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              results: [],
+              unresponsive_engines: [
+                ['google', 'timeout'],
+                ['bing', 'captcha'],
+              ],
+            }),
+            { headers: { 'content-type': 'application/json' } },
+          ),
+      ),
     );
-    await expect(searchWeb('anything')).rejects.toThrow('暂时限制');
+    await expect(searchWeb('anything')).rejects.toThrow('google、bing');
+  });
+
+  it('reports http errors, with a dedicated hint for json-disabled instances', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('forbidden', { status: 403 })),
+    );
+    await expect(searchWeb('anything')).rejects.toThrow('search.formats');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('boom', { status: 502 })),
+    );
+    await expect(searchWeb('anything')).rejects.toThrow('HTTP 502');
   });
 
   it('allows public http(s) URLs and blocks local or private targets', () => {

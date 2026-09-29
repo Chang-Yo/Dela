@@ -1,8 +1,9 @@
 import { isIP } from 'node:net';
 import { extractDocumentBytes } from '../resource-parse';
 
-const DDG_LITE_URL = 'https://lite.duckduckgo.com/lite/';
-// 抓取接口没有官方契约；使用桌面 Chrome UA 并复用会话 Cookie，降低被判定为机器人的概率。
+// 自建 SearXNG 实例（阿里云 ECS）；JSON 输出需服务端 settings.yml 的 search.formats 包含 json。
+const SEARXNG_URL = 'http://47.117.158.218:8778/search';
+// fetch_page 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT_MS = 15000;
@@ -27,92 +28,49 @@ interface WebPageContent {
   pages?: number;
 }
 
+interface SearxngResponse {
+  results?: { url?: string | null; title?: string | null; content?: string | null }[];
+  // SearXNG 把无响应引擎序列化为 [引擎名, 错误文案] 元组的数组。
+  unresponsive_engines?: (string | [string, string])[];
+}
+
 export async function searchWeb(query: string, region?: string): Promise<WebSearchResult[]> {
-  const body = new URLSearchParams({ q: query });
-  if (region) body.set('kl', region);
-  const response = await fetch(DDG_LITE_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded',
-      'user-agent': BROWSER_UA,
-      ...ddgCookieHeader(),
-    },
-    body: body.toString(),
+  const params = new URLSearchParams({ q: query, format: 'json' });
+  if (region) params.set('language', region);
+  const response = await fetch(`${SEARXNG_URL}?${params}`, {
+    headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  absorbDdgCookies(response);
-  if (!response.ok) throw new Error(`DuckDuckGo 搜索失败（HTTP ${response.status}）`);
-  const html = await response.text();
-  const results = parseDdgLiteResults(html);
-  if (results.length === 0 && /anomaly|challenge|bots/i.test(html))
-    throw new Error('DuckDuckGo 暂时限制了本机的搜索请求，请稍后再试');
-  return results;
-}
-
-const ddgCookies = new Map<string, string>();
-
-function absorbDdgCookies(response: Response) {
-  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
-  for (const cookie of headers.getSetCookie?.() ?? []) {
-    const pair = cookie.split(';')[0]!;
-    const separator = pair.indexOf('=');
-    if (separator > 0)
-      ddgCookies.set(pair.slice(0, separator).trim(), pair.slice(separator + 1).trim());
+  if (!response.ok) {
+    if (response.status === 403)
+      throw new Error('SearXNG 拒绝了 JSON 输出（HTTP 403），请检查服务端 search.formats 配置');
+    throw new Error(`SearXNG 搜索失败（HTTP ${response.status}）`);
   }
-}
-
-function ddgCookieHeader(): Record<string, string> {
-  if (ddgCookies.size === 0) return {};
-  return { cookie: [...ddgCookies].map(([name, value]) => `${name}=${value}`).join('; ') };
-}
-
-/**
- * 解析 lite.duckduckgo.com 结果页：结果行是 `class='result-link'` 锚点，
- * 摘要在其后的 `result-snippet` 单元格。链接经 duckduckgo.com/l/?uddg= 跳转包裹。
- */
-export function parseDdgLiteResults(html: string): WebSearchResult[] {
-  const results: WebSearchResult[] = [];
-  const anchors = [...html.matchAll(/<a\b[^>]*class='result-link'[^>]*>[\s\S]*?<\/a>/g)];
-  for (const anchor of anchors) {
-    const tag = anchor[0];
-    const href = /href=(['"])(.*?)\1/.exec(tag)?.[2];
-    const url = href ? decodeDdgUrl(href) : null;
-    if (!url) continue;
-    const title = decodeHtmlEntities(tag.slice(tag.indexOf('>') + 1, tag.lastIndexOf('</'))).trim();
-    results.push({ title, url, snippet: snippetAfter(html, anchor.index! + tag.length) });
+  const payload = (await response.json()) as SearxngResponse;
+  const results = parseSearxngResults(payload);
+  if (results.length === 0 && (payload.unresponsive_engines?.length ?? 0) > 0) {
+    const engines = payload
+      .unresponsive_engines!.map((entry) => (Array.isArray(entry) ? entry[0] : entry))
+      .filter(Boolean);
+    throw new Error(
+      `SearXNG 全部引擎无响应（${engines.join('、')}），请检查实例引擎配置或服务器出网`,
+    );
   }
   return results;
 }
 
-function snippetAfter(html: string, from: number): string {
-  const marker = html.indexOf("class='result-snippet'", from);
-  if (marker < 0) return '';
-  const end = html.indexOf('</td>', marker);
-  if (end < 0) return '';
-  return decodeHtmlEntities(html.slice(html.indexOf('>', marker) + 1, end).replace(/<[^>]*>/g, ''))
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/** 解出结果的真实地址；站内地址（广告、翻页）与非 http(s) 链接返回 null。 */
-export function decodeDdgUrl(href: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(decodeHtmlEntities(href).trim(), 'https://duckduckgo.com');
-  } catch {
-    return null;
-  }
-  if (url.hostname === 'duckduckgo.com' || url.hostname === 'www.duckduckgo.com') {
-    if (url.pathname !== '/l/') return null;
-    const target = url.searchParams.get('uddg');
-    if (!target) return null;
-    try {
-      url = new URL(target);
-    } catch {
-      return null;
-    }
-  }
-  return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+/** 映射 SearXNG JSON 的 results：丢弃无链接项，缺标题回退为链接，摘要压缩空白。 */
+export function parseSearxngResults(payload: SearxngResponse): WebSearchResult[] {
+  return (payload.results ?? []).flatMap((item) => {
+    if (!item.url) return [];
+    return [
+      {
+        url: item.url,
+        title: (item.title ?? '').trim() || item.url,
+        snippet: (item.content ?? '').replace(/\s+/g, ' ').trim(),
+      },
+    ];
+  });
 }
 
 export async function fetchWebPage(rawUrl: string): Promise<WebPageContent> {
