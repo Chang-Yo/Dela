@@ -327,8 +327,14 @@ async function createWindow(): Promise<void> {
     if (choice === 0) event.preventDefault();
   });
   const session = window.webContents.session;
-  session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-  session.setPermissionCheckHandler(() => false);
+  // 渲染进程的 navigator.clipboard.writeText 走 clipboard-sanitized-write 权限；
+  // 其余权限（通知、定位等）一律拒绝。
+  const allowClipboard = (_contents: unknown, permission: string) =>
+    permission === 'clipboard-sanitized-write';
+  session.setPermissionRequestHandler((contents, permission, callback) =>
+    callback(allowClipboard(contents, permission)),
+  );
+  session.setPermissionCheckHandler(allowClipboard);
 
   const sendWindowState = () => {
     window.webContents.send('window:state', { maximized: window.isMaximized() });
