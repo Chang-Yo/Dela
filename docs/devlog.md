@@ -595,3 +595,27 @@ Prettier、Oxlint 0 告警、三组类型检查、构建、**182 项单元测试
 - **实现**：`searchWeb` 改为 GET `/search?format=json`（region 映射为 SearXNG `language` 参数），15s 超时；DDG 专用代码整体移除（Cookie 复用、lite 结果页/跳转链接解析、防机器人检测）。`fetch_page` 与 URL 安全校验不变。
 - **错误语义**：HTTP 非 200 明确报错，403 单独提示服务端 `search.formats` 未含 json；结果为空且 `unresponsive_engines` 非空时报「全部引擎无响应」并列出引擎名，不静默返回空结果。
 - 已验证（客户端）：web-search 单测（JSON 映射、请求参数、错误路径）、Oxlint、三组类型检查。待验证：实例搜索能力——2026-09-29 实测该实例所有查询（含 `q=test`）瞬时返回空 `results` 且 `unresponsive_engines` 为空，即服务端未选中任何引擎（疑似引擎被禁用或容器出网受阻，需服务端排查 `settings.yml` 引擎配置与出网）；实例修好后客户端无需改动。另注意该实例无鉴权、公网可访问。
+
+## 2026-09-29（第二轮）右键菜单、用户消息复制/编辑、composer 光标与代码块头部
+
+- **右键菜单**：应用菜单为 null 时全应用没有任何剪切/复制/粘贴入口。新增 `attachContextMenu`（`src/main/ipc.ts`）挂到主窗口与水源授权/教务登录两个窗口：按 `editFlags` 动态出项（撤销/重做/剪切/复制/粘贴/全选），链接处追加「复制链接地址」；无可操作项时不弹。
+- **用户消息操作**：气泡下新增悬停操作行（`group/user`，与回答的 MessageActions 同款显隐）——复制（所有用户消息）；最新一条用户消息另有「编辑并重新发送」。编辑为内联 textarea（Enter 发送、Shift+Enter 换行、Esc 取消，IME 组词中的 Enter 不触发），确认后走新增 `editAsk` IPC：主进程在 `ask()` 内定位最后一条用户消息并截断其后内容（含该消息），以新文本重跑原流程——仅改内存快照，持久化仍发生在流式输出阶段，失败时数据库保持原样。原图经 token 按原样补回（`message.images` → `dela-img` token），附件与 @ 引用不保留、需重加；截图中的媒体文件在截断到重新持久化之间仍被旧消息引用，无 GC 风险。
+- **composer 光标**：CM6 内置 `placeholder()` 是 pos 0 上的 side-1 原子 widget，空文档点击时光标视觉上落在占位文字右侧而实际插入点在文档开头。改为自绘覆盖层（`pointer-events-none` 绝对定位，随 `value` 为空显隐），与 `.cm-scroller` 内边距共用同一常量；光标始终停在行首，点击行为与 ChatGPT 一致。
+- **代码块头部**：原版式把语言标签挤在整行空白头部的右端（容器 gap-2 + body 内 pre 的 my-2 叠加出约 80px 空带）。参照 DeepSeek 网页版改为无界一体化卡片：容器只用 `bg-muted + rounded-lg` 描面，并显式 `border-0` 压掉 streamdown 自带边框类（只删自己的覆盖类压不住它）；头部与代码之间不画分隔线。头部（左侧语言标签）自身 `sticky top-2 z-10 bg-muted`，与 streamdown 复制按钮（同为 sticky top-2 z-10、经 `-mt-8` 负 margin 叠到头部行）同位同层——长块滚动时语言标签和复制按钮一起钉在块顶，代码从其下滚过。语言标签经 header `px-2` + span 自带 `ml-1` 与代码 `p-3` 左缘对齐，复制按钮行加 `pr-3` 与代码右缘对齐。容器不用 `overflow-hidden`（破坏 sticky），圆角由 header（上）/pre（下）分担。
+- **代码块布局踩坑（grid 塌缩）**：第一版用 grid（`grid-cols-[1fr_auto]` + header/body `col-span-2` + actions `col-start-2 row-span-2`）重排，实机整块错乱（语言标签/复制按钮/代码整体右移，左侧大片空白）。用构建产物 CSS + streamdown 真实 DOM 搭最小复现页实测：code-block 容器带 streamdown 自带的 `content-visibility: auto`，其上 grid 的 `auto` 列塌缩为 0px，`span N/span N` 型放置（tailwind `col-span-2`）还会落进隐式第 3/4 列；去掉 content-visibility 也不恢复正确列数。结论：不要在这个容器上用 grid 重排，旧版式一直靠 flex-col + 复制按钮包装层的负 margin 叠加工作。最终版回归该机制，仅把 `-mt-10` 收紧为 `-mt-8`（配合 body 内 pre `my-0`，正好叠住 h-8 头部行）。复现页已删除。
+- 已验证：Prettier、Oxlint 0 警告、三组类型检查、202 项单测；DeepSeek 式代码块另经真实浏览器复现页测量与截图验证（无边框无分隔线、语言标签与代码左缘对齐、滚动 400px 后 header 与复制按钮行同位钉在 y=8）。待验证（实机审阅）：右键菜单各项在实际选区/可编辑区的出项、用户消息编辑重发的端到端（含带图消息）、空 composer 点击光标位置、代码块在明暗主题下的观感与长块滚动钉住效果。
+
+## 2026-09-29（第三轮）mermaid 全屏查看、复制按钮轻量化与 mermaid 字体
+
+- **mermaid 全屏**：streamdown 的 mermaid 块自带全套查看能力（右上角按钮 → portal 全屏：拖拽平移、滚轮/按钮缩放 0.5–3.0、Esc/按钮/点击遮罩退出，全屏期间锁定页面滚动），此前被 `controls.mermaid: false` 整体关闭。改为 `mermaid: { copy: false, download: false }`——fullscreen 与 panZoom 未设置即默认开启，只关掉用不到的复制/下载；工具文案补中文（全屏查看/退出全屏/放大/缩小/重置视图）。复现页实测：放大按钮 1→1.1、拖拽 translate +130/+100、滚轮 1.1→1.2、X 与 Esc（document keydown）退出、点击全屏层内容不误关。注意 streamdown 默认行为：非全屏的内联查看器上滚轮是缩放而非滚动页面（min 0.5–max 3）。
+- **复制按钮**：streamdown 自带的底色小胶囊（border + bg-sidebar/80 + backdrop-blur + px/py）在无界卡片上突兀且偏大。压成纯图标：容器 `border-0/bg-transparent/p-0`，按钮图标 16→`size-3.5`（14px，贴近 cpp 标签字号）+ `rounded-md`，悬浮才显 `bg-foreground/10`；点击反馈用 `:has(output)`——streamdown 复制成功时会短暂渲染 sr-only 的 `<output>` 播报元素，据此把按钮染成绿色（明 `text-emerald-600`/暗 `text-emerald-400`，与消息气泡复制按钮一致；图标 svg 无 class，无法直接定位 check 图标）。选择器用 `div[data-streamdown=…]` 提高特异性，压过自带的 `supports-[backdrop-filter]` 变体。mermaid 块的动作胶囊保留底色（其头部不 sticky，浮动在图上需要可读背景）。
+- **mermaid 字体**：默认 trebuchet ms 一族与界面割裂。`MermaidConfig.fontFamily` 显式设为应用 sans 栈 `Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif`（与 globals.css `--font-sans` 手工同步，那边改动需带这边）；复现页实测 svg text 计算字体已是该栈。
+- 已验证：Prettier、Oxlint、三组类型检查、202 项单测；交互经真实 `ChatMarkdown` 组件的 vite 复现页端到端验证（复现页已删除）。待验证（实机审阅）：全屏查看与复制按钮的实机观感、mermaid 图内中文字体。
+
+## 2026-09-29（第四轮）实机反馈修复：sticky 头部漏字、复制无反应与 composer 光标偏移
+
+- **sticky 头部漏字**：钉住用 `top-2` 时，头部上方留 8px 缝，代码从缝里滚过（用户截图实锤）。header 与复制按钮行统一改 `top-0`，钉在滚动容器裁剪缘，上方无暴露区。
+- **复制按钮无反应**：主进程 `src/main/index.ts:330` 起把全部权限请求/检查一律拒绝，`navigator.clipboard.writeText` 所需的 `clipboard-sanitized-write` 也被拒，复制静默失败（check 图标永远不出现，消息气泡的复制同样受害）。改为仅放行 `clipboard-sanitized-write`，其余维持拒绝；绿色 check 反馈按用户要求撤掉，保持正常配色（图标 Copy→Check 交换即反馈）。
+- **composer 光标偏移**：CM6 基础主题自带 `.cm-content { padding: 4px 0 }` 与 `.cm-line { padding: 0 2px 0 6px }`，使光标/正文相对自绘占位符整体偏移（下 4px、右 6px）。主题里把两者归零，正文、光标与占位符共用同一原点。
+- 已验证：Prettier、Oxlint、三组类型检查、202 项单测、`pnpm build`、`pnpm smoke`；top-0 规则确认编译进产物。待验证（实机审阅）：长代码块滚动不再漏字、复制按钮点击出 check 且剪贴板真实写入、composer 空态光标与占位文字对齐。
+- **代码块取消高度上限（用户裁决）**：streamdown 默认 `codeBlockMaxHeight: 400` 让块体内部滚动，块内自带滚动条在钉住头部右上露出，顶部缝隙仍会漏内容（用户第二轮截图实锤）。`ChatMarkdown` 显式传 `codeBlockMaxHeight={0}`（falsy 即不加 maxHeight 与 `overflow-y-auto`）：代码块完整展开、随外层聊天区滚动，块内不再出现自己的滚动条；钉住头部的 sticky 保留（外层滚动时仍有用）。超宽代码仍横向滚动。
