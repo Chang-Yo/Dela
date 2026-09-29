@@ -587,6 +587,8 @@ export interface ChatAskInput {
   text: string;
   attachments: string[];
   context: string[];
+  /** 编辑重发：丢弃会话中最后一条用户消息及其后内容，以 text 重新发起。 */
+  replaceLastUser?: boolean;
 }
 
 /** 暂存到主进程的图片/附件：图片持久化到磁盘供历史展示，附件发送后即释放。 */
@@ -780,6 +782,8 @@ export interface WorkspaceApi {
   openChat(scope: string, sessionId: string): Promise<WorkspaceChat>;
   deleteChat(scope: string, sessionId: string): Promise<void>;
   ask(scope: string, input: ChatAskInput): Promise<WorkspaceChat>;
+  /** 编辑最后一条用户消息并重新生成回答；原文中的内联图片按原样保留。 */
+  editAsk(scope: string, text: string): Promise<WorkspaceChat>;
   cancelAsk(scope: string): Promise<void>;
   onChatUpdate(listener: (scope: string, chat: WorkspaceChat) => void): () => void;
 }

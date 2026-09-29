@@ -1,16 +1,20 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
+  ArrowUp,
   ArrowUpRight,
   Check,
   Copy,
   FileText,
   LoaderCircle,
   NotebookPen,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { useReducedMotion } from 'framer-motion';
 import { Dialog } from 'radix-ui';
 import type { PreparedEmail, WorkspaceChat } from '../../../shared/api';
+import { chatImageToken } from '../../../shared/chat-input';
 import { MailComposer } from '../mail/MailComposer';
 import { leaveComposer } from '../mail/compose-close';
 import { Button } from '../../components/ui/button';
@@ -99,12 +103,85 @@ function MessageImage({ id, name }: { id: string; name: string }) {
 function UserMessage({
   message,
   onOpenSource,
+  onEdit,
+  editable,
 }: {
   message: WorkspaceChat['messages'][number];
   onOpenSource: (key: string) => void;
+  onEdit: (text: string) => void;
+  editable: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(message.content);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  // 已发送消息的正文不含图片 token；编辑重发时按原消息把图片补回尾部，原图随新消息保留。
+  const confirmEdit = () => {
+    const tokens = (message.images ?? [])
+      .map((image) => chatImageToken(image.id, image.name))
+      .join('\n');
+    const next = [text.trim(), tokens].filter(Boolean).join('\n');
+    setEditing(false);
+    onEdit(next);
+  };
+  if (editing) {
+    return (
+      <div className="mb-5 flex flex-col items-end">
+        <textarea
+          autoFocus
+          className="max-h-64 w-[85%] resize-none rounded-2xl border border-ring/60 bg-card px-4 py-2.5 text-sm leading-relaxed outline-none [field-sizing:content]"
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              confirmEdit();
+            }
+            if (event.key === 'Escape') setEditing(false);
+          }}
+          rows={2}
+          value={text}
+        />
+        <div className="mt-1.5 flex items-center gap-1">
+          <Button
+            aria-label="取消编辑"
+            className="text-muted-foreground"
+            onClick={() => setEditing(false)}
+            size="icon-sm"
+            title="取消"
+            type="button"
+            variant="ghost"
+          >
+            <X />
+          </Button>
+          <Button
+            aria-label="重新发送"
+            className="rounded-full"
+            disabled={!text.trim() && !message.images?.length}
+            onClick={confirmEdit}
+            size="icon-sm"
+            title="重新发送"
+            type="button"
+          >
+            <ArrowUp />
+          </Button>
+        </div>
+        {message.images?.length ? (
+          <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
+            {message.images.map((image) => (
+              <MessageImage id={image.id} key={image.id} name={image.name} />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
   return (
-    <div className="mb-5 flex flex-col items-end">
+    <div className="group/user mb-5 flex flex-col items-end">
       {message.content ? (
         <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere]">
           <ChatMarkdown>{message.content}</ChatMarkdown>
@@ -144,6 +221,40 @@ function UserMessage({
           ))}
         </div>
       ) : null}
+      <div className="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/user:opacity-100 group-hover/user:opacity-100">
+        {message.content ? (
+          <Button
+            aria-label="复制消息"
+            className="text-muted-foreground"
+            onClick={() => {
+              void navigator.clipboard.writeText(message.content);
+              setCopied(true);
+            }}
+            size="icon-sm"
+            title="复制"
+            type="button"
+            variant="ghost"
+          >
+            {copied ? <Check className="text-emerald-600 dark:text-emerald-400" /> : <Copy />}
+          </Button>
+        ) : null}
+        {editable && (
+          <Button
+            aria-label="编辑消息"
+            className="text-muted-foreground"
+            onClick={() => {
+              setText(message.content);
+              setEditing(true);
+            }}
+            size="icon-sm"
+            title="编辑并重新发送"
+            type="button"
+            variant="ghost"
+          >
+            <Pencil />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -311,11 +422,13 @@ export function ChatThread({
   chat,
   onOpenSource,
   onSaveNote,
+  onEditLast,
   className,
 }: {
   chat: WorkspaceChat;
   onOpenSource: (key: string) => void;
   onSaveNote: (text: string) => void;
+  onEditLast?: (text: string) => void;
   className?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -422,6 +535,8 @@ export function ChatThread({
                 key={`${chat.sessionId}:${index}`}
                 message={message}
                 onOpenSource={onOpenSource}
+                onEdit={(text) => onEditLast?.(text)}
+                editable={index === lastUserIndex && !streaming && onEditLast !== undefined}
               />
             ) : (
               <AssistantMessage

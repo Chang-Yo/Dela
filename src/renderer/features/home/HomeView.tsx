@@ -171,6 +171,7 @@ export function HomeView({
         >
           <ChatThread
             chat={chat}
+            onEditLast={(text) => void chatState.editLast(text)}
             onOpenSource={openSource}
             onSaveNote={(text) => {
               void window.dela?.workspace

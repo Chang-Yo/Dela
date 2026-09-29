@@ -179,6 +179,22 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
     void window.dela?.workspace.cancelAsk(scope).catch((e) => setError(errorText(e)));
   };
 
+  // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
+  const editLast = async (text: string) => {
+    if (!window.dela || busy) return;
+    const requested = scope;
+    setPending(true);
+    setError(null);
+    try {
+      const result = await window.dela.workspace.editAsk(requested, text);
+      if (activeScope.current === requested) setChat(result);
+    } catch (e) {
+      if (activeScope.current === requested) setError(errorText(e));
+    } finally {
+      if (activeScope.current === requested) setPending(false);
+    }
+  };
+
   // 两列模型面板的提交：非使用中提供商先 setActive，再设置模型并刷新会话状态。
   const selectModel = (provider: LlmProviderView, model: string) => {
     const dela = window.dela;
@@ -268,6 +284,7 @@ export function useChat(scope: string, chatRequest?: { sessionId: string }) {
     error,
     send,
     stop,
+    editLast,
     selectModel,
     selectEffort,
     newChat,

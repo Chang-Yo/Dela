@@ -62,6 +62,7 @@ export function registerAgentIpc() {
           text: z.string().max(20000),
           attachments: z.array(idSchema).max(5),
           context: z.array(z.string().max(512)).max(10),
+          replaceLastUser: z.boolean().optional(),
         })
         .parse(input),
     ),

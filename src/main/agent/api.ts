@@ -207,7 +207,7 @@ const imageMimeByExtension: Record<string, string> = {
 
 export async function ask(
   scope: string,
-  input: { text: string; attachments: string[]; context: string[] },
+  input: { text: string; attachments: string[]; context: string[]; replaceLastUser?: boolean },
 ): Promise<WorkspaceChat> {
   if (asking.has(scope)) throw new Error('请等待当前回答完成');
   const provider = getActiveLlmProvider();
@@ -255,6 +255,7 @@ export async function ask(
       throw new Error('所选资料与附件过长，请减少资料或粘贴相关段落');
     let row = resolveSession(scope);
     if (!row) {
+      if (input.replaceLastUser) throw new Error('没有可编辑的消息');
       row = {
         id: randomUUID(),
         scope,
@@ -271,6 +272,12 @@ export async function ask(
       activeSession.set(scope, row.id);
     }
     const chat = snapshot(row);
+    if (input.replaceLastUser) {
+      // 编辑重发：丢弃最后一条用户消息及其后的回答，引用/附件以本次输入为准。
+      const lastUserIndex = chat.messages.map((message) => message.role).lastIndexOf('user');
+      if (lastUserIndex < 0) throw new Error('没有可编辑的消息');
+      chat.messages.length = lastUserIndex;
+    }
     const { runAgent } = await import('./loop');
     const { modelToolDefinitions, executeAgentTool } = await import('./tools');
     // 模型侧用户消息：引用资料与附件作为前言，其后按用户输入顺序排列文字与图片。

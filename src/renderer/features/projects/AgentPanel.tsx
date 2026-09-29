@@ -85,7 +85,12 @@ export function AgentPanel({
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进项目都闪现 Key 表单。 */}
       {chat && !chat.configured && <ModelKeyForm onConfigured={chatState.refresh} />}
       {conversation ? (
-        <ChatThread chat={chat} onOpenSource={onOpen} onSaveNote={onSaveNote} />
+        <ChatThread
+          chat={chat}
+          onEditLast={(text) => void chatState.editLast(text)}
+          onOpenSource={onOpen}
+          onSaveNote={onSaveNote}
+        />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <p className="text-sm leading-relaxed text-muted-foreground">

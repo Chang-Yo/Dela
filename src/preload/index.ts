@@ -273,6 +273,13 @@ contextBridge.exposeInMainWorld('dela', {
     deleteChat: (scope: string, sessionId: string) =>
       ipcRenderer.invoke('workspace:delete-chat', scope, sessionId),
     ask: (scope: string, input: ChatAskInput) => ipcRenderer.invoke('workspace:ask', scope, input),
+    editAsk: (scope: string, text: string) =>
+      ipcRenderer.invoke('workspace:ask', scope, {
+        text,
+        attachments: [],
+        context: [],
+        replaceLastUser: true,
+      }),
     cancelAsk: (scope: string) => ipcRenderer.invoke('workspace:cancel-ask', scope),
     onChatUpdate: (listener: (scope: string, chat: WorkspaceChat) => void) => {
       const subscription = (_event: unknown, scope: string, chat: WorkspaceChat) =>
