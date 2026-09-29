@@ -25,8 +25,10 @@ import {
   buildPiModel,
   classifyStreamFailure,
   createDelaStreamFn,
+  createToolResultPruner,
   DEFAULT_RETRY_DELAYS,
   stripThinking,
+  type PrunePolicy,
 } from './pi';
 
 const MAX_ROUNDS = 12;
@@ -152,6 +154,11 @@ export async function runAgent(options: {
   onText?: (text: string) => void;
   onReasoning?: (text: string) => void;
   retryDelays?: number[];
+  /**
+   * 运行内修剪（可选）：设置后经 transformContext 在每次模型请求前修剪较早的工具结果，
+   * 使消息总量回到预算内；缺省不启用，行为与此前一致。
+   */
+  prunePolicy?: PrunePolicy;
 }) {
   options.signal.throwIfAborted();
   const thinking = effortToThinking(options.effort);
@@ -350,6 +357,9 @@ export async function runAgent(options: {
     streamFn: createDelaStreamFn({ retryDelays: options.retryDelays ?? DEFAULT_RETRY_DELAYS }),
     getApiKey: () => options.key,
     convertToLlm: stripThinking,
+    ...(options.prunePolicy
+      ? { transformContext: createToolResultPruner(options.prunePolicy) }
+      : {}),
     // 旧循环按序执行工具调用；保持串行避免并发写库与事件乱序。
     toolExecution: 'sequential',
     finishTurn,

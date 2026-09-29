@@ -25,6 +25,11 @@ export function ensureProjectProfile(id: string): void {
     .run(id, new Date().toISOString(), new Date().toISOString());
 }
 
+/** 删除档案行（project→folder 降格）：sessions/runs 的 project_id 经 FK 置 NULL，会话降级通用。 */
+export function deleteProjectProfile(id: string): void {
+  getDatabase().prepare('DELETE FROM projects WHERE id=?').run(id);
+}
+
 /** 读取项目档案；条目不存在或不是 project 时返回 null。 */
 export function getProjectProfile(id: string): ProjectProfile | null {
   const entry = getDatabase().prepare('SELECT kind FROM workspace_entries WHERE id=?').get(id) as

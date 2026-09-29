@@ -8,7 +8,21 @@ import type { AgentToolResult, ChatSessionSummary, WorkspaceChat } from '../../.
 import { getDatabase } from '../../database';
 import { getActiveLlmProvider } from '../core/providers';
 import type { ChatContentPart } from '../core/run';
-import { SYSTEM_PROMPT, historyWindow, referencePreamble } from '../context/assemble';
+import {
+  assembleModelContext,
+  compactSplitIndex,
+  SYSTEM_PROMPT,
+  referencePreamble,
+  summaryContextText,
+} from '../context/assemble';
+import {
+  IMAGE_TOKEN_EST,
+  SUMMARY_RESERVE_TOKENS,
+  contextBudget,
+  estimateTokens,
+  shouldCompact,
+} from '../context/budget';
+import { parseSessionSummary, summarizeHistory, type SessionSummary } from '../context/compaction';
 import { readAskReferences } from '../context/references';
 import { ensureProjectProfile } from '../../workspace/projects';
 import { readChatMediaBytes, releaseChatAttachments } from './media';
@@ -22,7 +36,15 @@ import {
   type ActiveRun,
   type RunRequest,
 } from './runs';
-import { activeSession, persistSession, resolveSession, sessionRow, snapshot } from './store';
+import {
+  activeSession,
+  compactingSessions,
+  persistSession,
+  resolveSession,
+  saveSessionSummary,
+  sessionRow,
+  snapshot,
+} from './store';
 import type { SessionRow } from './store';
 import {
   clearOriginScope,
@@ -60,6 +82,7 @@ function createSessionRow(projectId: string | null): SessionRow {
     project_id: projectId,
     title: '新对话',
     messages: '[]',
+    summary: null,
     created_at: nowIso(),
     updated_at: nowIso(),
   };
@@ -186,9 +209,68 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
         });
       }
     }
+    // ===== 上下文预算与压缩（计划 §6.1）：估算计入指令、工具定义、摘要、全量历史、本轮引用与图片 =====
+    const toolTokens = estimateTokens(JSON.stringify(modelToolDefinitions()));
+    const currentRoundTokens = contentParts.reduce(
+      (total, part) => total + (part.type === 'text' ? estimateTokens(part.text) : IMAGE_TOKEN_EST),
+      0,
+    );
+    let summary: SessionSummary | null = parseSessionSummary(row.summary);
+    const estimate =
+      estimateTokens(
+        summary ? `${SYSTEM_PROMPT}\n\n${summaryContextText(summary)}` : SYSTEM_PROMPT,
+      ) +
+      chat.messages.reduce((total, message) => total + estimateTokens(message.content), 0) +
+      currentRoundTokens +
+      toolTokens;
+    if (shouldCompact(estimate)) {
+      // 覆盖范围 = 本次估算中放不进触发阈值的较早历史（为输出、工具交互与摘要块留余量）。
+      const { budget, compactThreshold } = contextBudget();
+      const affordable =
+        compactThreshold -
+        currentRoundTokens -
+        toolTokens -
+        estimateTokens(SYSTEM_PROMPT) -
+        SUMMARY_RESERVE_TOKENS;
+      const priorCovered = summary?.coveredUpTo ?? 0;
+      const splitIndex = compactSplitIndex(chat.messages, priorCovered, affordable);
+      if (splitIndex > priorCovered) {
+        compactingSessions.add(sessionId);
+        publishSession(sessionId);
+        try {
+          const generated = await summarizeHistory(
+            { baseUrl: provider.baseUrl, key: provider.apiKey, model: provider.model },
+            {
+              messages: chat.messages.slice(priorCovered, splitIndex),
+              startIndex: priorCovered,
+              messageCount: chat.messages.length,
+              priorSummary: summary,
+            },
+          );
+          // 压缩成功才替换模型上下文：摘要持久化后跨 Run 生效（重启续接读取同一列）。
+          summary = generated;
+          row.summary = JSON.stringify(generated);
+          saveSessionSummary(sessionId, row.summary);
+        } catch (error) {
+          // 失败保留原始历史；不压缩也放得下时照常发送，放不下则明确失败，不静默回退条数截断。
+          if (estimate > budget)
+            throw new Error(
+              `上下文压缩失败，请重试或减少引用资料（${error instanceof Error ? error.message : '未知错误'}）`,
+            );
+        } finally {
+          compactingSessions.delete(sessionId);
+          publishSession(sessionId);
+        }
+      }
+    }
+    const assembled = assembleModelContext({
+      history: chat.messages,
+      summary,
+      reservedTokens: currentRoundTokens + toolTokens,
+    });
     const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...historyWindow(chat.messages),
+      { role: 'system', content: assembled.system },
+      ...assembled.history,
       { role: 'user', content: contentParts },
     ];
     const reply: WorkspaceChat['messages'][number] = {
@@ -260,6 +342,8 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
         tools: modelToolDefinitions(),
         signal: run.controller.signal,
         execute: executeAgentTool,
+        // 运行内修剪：多轮工具结果撑大上下文时在每次模型请求前修剪较早工具结果（core/pi.ts）。
+        prunePolicy: {},
         onText: (text) => {
           updateText(text);
           publishStream();

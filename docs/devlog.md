@@ -10,6 +10,17 @@
 
 ---
 
+## 2026-09-29（第十一轮）上下文压缩落地：按预算触发替代固定 12 条窗口（阶段二·批次 2C）
+
+落实 [重构计划](agent-workspace-plan.md) §6.1 与 [decisions-phase1.md](refactor/decisions-phase1.md) 批次 2B 压缩骨架的完整实现，`historyWindow` 的 `slice(-12)` 退役删除。按目录拆分：`context/budget.ts`（估算与预算口径）、`context/compaction.ts`（摘要生成）、`context/assemble.ts` 重写（预算组装），`session/{manager,store}.ts` 接线，`core/{run,pi}.ts` 加运行内修剪。
+
+- **预算口径**（budget.ts）：token 启发式估算——CJK 1 token/字、其他 4 字符/token、图片固定 1000 token/张；窗口保守常量 32768（后续接 provider 配置，不按模型名猜测）；预留 = 输出 8192 + 工具交互余量 4096，输入预算 20480；触发阈值 = 预算 × 0.7 = 14336，另为摘要块预留 2048（摘要请求 max_tokens 1536 封顶，保证摘要永远放得进预留）。
+- **摘要生成**（compaction.ts）：独立非流式 fetch POST 到 provider 的 `/chat/completions`（不走 Pi、无工具、120s 超时、失败抛错）。摘要 JSON 存 `sessions.summary`：`{ coveredUpTo（覆盖到的消息索引锚点）, createdAt, model, content: { goals, decisions, completed, pending, resources[] }, messageCount }`，六要素覆盖计划 §6.1「保留任务连续性」；提示词要求只从给定历史提取、不虚构、资料内指令不算用户要求、未完成不得写成已完成；附带旧摘要时合并覆盖（增量压缩不丢早期要素）；输出剥离 ```json 围栏后经 zod 校验。
+- **组装**（assemble.ts）：system + 摘要前置块（存在且锚点未超过当前历史长度时合并进 system，明确标注「历史摘要，非资源最新状态」）+ 从最新向前按预算容纳的完整历史（选择起点为摘要锚点，不重复注入已摘要区间）+ 本轮引用前言与用户消息（永不压缩或丢弃）；预算内全部保留（20 条小历史全量注入，无 12 条上限）；最新一条历史单独超限时截断并标注（沿用「请用更具体的过滤或分页参数重新查询」语义）；本轮输入加 system 超出预算时明确抛错，不静默截断。
+- **接线**（manager.ts）：askSession 在 runAgent 前读 `sessions.summary` → 估算（system+摘要+全量历史+本轮+工具定义）→ 超阈值时计算覆盖范围（放不进触发阈值的较早历史前缀）→ 压缩期间快照带 `compacting: true`（store 的 `compactingSessions` 集合，沿用现有推送通道，`WorkspaceChat` 仅可选追加字段）→ 成功才持久化摘要并以新上下文组装；失败且不压缩也放得下（估算 ≤ 预算）照常发送全量历史，失败且放不下则本次请求明确报「上下文压缩失败，请重试或减少引用资料」，不静默回退条数截断。摘要跨 Run 生效：重启后新 Run 从持久历史 + 摘要重建（现有逻辑），下次 ask 直接读取。
+- **运行内修剪**（pi.ts + run.ts 可选 `prunePolicy`）：Pi Agent 的 `transformContext` 钩子在每次模型请求前估算消息总量，超预算时把较早轮次（最近 2 轮完整）的工具结果内容替换为「[已修剪的工具结果：工具名，关键结果保留前 500 字符]」占位（图片一并剥离），不做运行中模型调用；返回值只影响发出的请求、不改会话状态。`prunePolicy` 缺省时不挂钩子，runAgent 签名与缺省行为不变。
+- 已验证：context/session/core 全部 21 个测试文件 216 项单测（新增 budget 6、compaction 7、assemble 11、prune 5、manager 压缩 5；摘要模型调用全部 fetch stub 不走真网）、`pnpm typecheck` 三组零错、oxlint 0 警告、prettier。待验证：真实提供商下摘要质量与触发频率（估算启发式 vs 实际 tokenizer 的偏差）、压缩期间 UI 的 compacting 状态实机观感、`pnpm build` 与打包后运行（本轮未涉及原生依赖，风险低）。
+
 ## 2026-09-29（第十轮）Pi Agent Core 最小接入验证（阶段一）
 
 落实 [重构计划](agent-workspace-plan.md) §5.1 的最小接入验证，报告见 [pi-integration-report.md](refactor/pi-integration-report.md)。新增精确依赖 `@earendil-works/pi-agent-core`、`pi-ai`、`pi-session-backend-sqlite-node`（均 0.87.1；`pi-ai` 为验证中追加——自定义 OpenAI 兼容 provider 必需，计划未列出）；探针代码 `src/main/agent/pi-probe/`（mock SSE 服务 + 装配层 + vitest 用例，不接入应用入口）。七个用例全部实测通过：流式增量、工具往返（TypeBox 与 zod→JSON Schema 两种参数）、中途 abort 保留已产出内容、500/429 错误事件、SQLite 会话持久化续接（node:sqlite 与 better-sqlite3 适配双工厂）、DeepSeek 风格 reasoning 映射、图片输入。结论：**可替换 loop.ts，无关键不成立项**；重要差异三条——Pi 会把 thinking 以 `reasoning_content` 回灌（与 DeepSeek「不回传」策略相反，需在 convertToLlm 剥离）、错误/中止是事件而非异常（默认不重试，重试归 Dela 外层）、`maxTokens` 未在 Agent 层暴露（需 streamFn 包装注入）。

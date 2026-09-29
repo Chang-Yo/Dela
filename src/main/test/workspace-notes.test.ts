@@ -1,5 +1,6 @@
 // 笔记文件能力的主进程行为：默认 .md、图片落盘 assets/、受限资源解析的边界、
-// Markdown 副本携带图片、笔记移动时按原相对路径携带图片且正文不变。
+// Markdown 副本携带图片、笔记移动时按原相对路径携带图片且正文不变、
+// folder↔project 原地互转时的 projects 档案行维护（state-model.md §2.1）。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -27,6 +28,7 @@ const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
   db.exec(`
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
@@ -36,6 +38,25 @@ function createDb(): Database.Database {
     CREATE TABLE workspace_notes (id TEXT PRIMARY KEY, path TEXT NOT NULL);
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE INDEX workspace_parent ON workspace_entries(parent_id);
+    CREATE TABLE projects (
+      id TEXT PRIMARY KEY REFERENCES workspace_entries(id) ON DELETE CASCADE,
+      background TEXT NOT NULL DEFAULT '',
+      goal TEXT NOT NULL DEFAULT '',
+      workdir TEXT,
+      capabilities TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+      title TEXT NOT NULL DEFAULT '新对话',
+      messages TEXT NOT NULL DEFAULT '[]',
+      summary TEXT,
+      archived_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -209,5 +230,40 @@ describe('saveWorkspaceNote 外部冲突', () => {
     const next = saveWorkspaceNote(note.id, 'v2', before.revision!);
     expect(readFileSync(localPathOf(note.id), 'utf8')).toBe('v2');
     expect(next).not.toBe(before.revision);
+  });
+});
+
+describe('folder↔project 转换维护档案行', () => {
+  it('升格补插空档案行，降格删除档案行', () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
+    updateWorkspaceEntry(folder.id, { kind: 'project' });
+    expect(
+      db.prepare('SELECT background, goal, capabilities FROM projects WHERE id=?').get(folder.id),
+    ).toEqual({ background: '', goal: '', capabilities: '{}' });
+    updateWorkspaceEntry(folder.id, { kind: 'folder' });
+    expect(db.prepare('SELECT 1 FROM projects WHERE id=?').get(folder.id)).toBeUndefined();
+  });
+
+  it('转换伴随重命名（目录移动路径）时同样维护档案行', () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
+    updateWorkspaceEntry(folder.id, { name: '毕业设计', kind: 'project' });
+    expect(existsSync(join(workspaceRoot(), '毕业设计'))).toBe(true);
+    expect(db.prepare('SELECT 1 FROM projects WHERE id=?').get(folder.id)).toBeDefined();
+    updateWorkspaceEntry(folder.id, { name: '归档课题', kind: 'folder' });
+    expect(existsSync(join(workspaceRoot(), '归档课题'))).toBe(true);
+    expect(db.prepare('SELECT 1 FROM projects WHERE id=?').get(folder.id)).toBeUndefined();
+  });
+
+  it('降格后项目会话经外键降级为通用', () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
+    updateWorkspaceEntry(folder.id, { kind: 'project' });
+    const iso = '2026-09-29T00:00:00.000Z';
+    db.prepare(
+      'INSERT INTO sessions (id, project_id, title, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run('s-1', folder.id, '项目会话', '[]', iso, iso);
+    updateWorkspaceEntry(folder.id, { kind: 'folder' });
+    expect(
+      db.prepare('SELECT project_id AS projectId FROM sessions WHERE id=?').get('s-1'),
+    ).toEqual({ projectId: null });
   });
 });

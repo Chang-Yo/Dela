@@ -3,7 +3,9 @@
  * - buildPiModel：Dela 提供商配置 → pi-ai openai-completions Model；
  * - createDelaStreamFn：streamFn 包装——注入 maxTokens 与请求超时，承担 Pi 不做的
  *   max_tokens 降参重发（L3）与瞬时错误退避重试（L4）；
- * - stripThinking：convertToLlm 钩子，一律剥离思考回灌（裁决 L1，对齐 DeepSeek 不回传策略）。
+ * - stripThinking：convertToLlm 钩子，一律剥离思考回灌（裁决 L1，对齐 DeepSeek 不回传策略）；
+ * - createToolResultPruner：transformContext 钩子——每次模型请求前按预算修剪较早的工具
+ *   结果（计划 §6.1「每次模型请求前检查」的运行内落点），只影响发出的请求，不改会话状态。
  */
 import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core';
 // 根入口同时被 types.d.ts 以 `export type` 转出 AssistantMessageEventStream（类型）与
@@ -18,6 +20,7 @@ import type {
   ThinkingLevelMap,
 } from '@earendil-works/pi-ai';
 import { stream as openAiCompletionsStream } from '@earendil-works/pi-ai/api/openai-completions';
+import { IMAGE_TOKEN_EST, contextBudget, estimateTokens } from '../context/budget';
 
 // 单次回复的输出上限；8192 只够中等长度回答，长文档与大段工具参数会被截断，取主流模型量级。
 export const MAX_OUTPUT_TOKENS = 32768;
@@ -208,6 +211,115 @@ export function stripThinking(messages: AgentMessage[]): Message[] {
       ? [message]
       : [];
   });
+}
+
+// ===== 运行内修剪（transformContext 钩子，计划 §6.1「每次模型请求前检查」） =====
+
+/** 修剪后每条工具结果保留的字符数（关键结果前缀）。 */
+export const PRUNE_KEEP_CHARS = 500;
+/** 完整保留的最近轮数（assistant 轮为界；更早轮的工具结果可被修剪）。 */
+export const PRUNE_KEEP_ROUNDS = 2;
+
+export interface PrunePolicy {
+  /** 输入预算（token）；缺省 contextBudget().budget。 */
+  budgetTokens?: number;
+  /** 修剪后保留的字符数；缺省 PRUNE_KEEP_CHARS。 */
+  keepChars?: number;
+  /** 完整保留的最近轮数；缺省 PRUNE_KEEP_ROUNDS。 */
+  keepRounds?: number;
+}
+
+/** 单条 AgentMessage 的 token 估算（与 context/budget 同口径；图片按固定值）。 */
+export function estimateAgentMessageTokens(message: AgentMessage): number {
+  switch (message.role) {
+    case 'system':
+    case 'user':
+      return typeof message.content === 'string'
+        ? estimateTokens(message.content)
+        : message.content.reduce(
+            (total, block) =>
+              total + (block.type === 'text' ? estimateTokens(block.text) : IMAGE_TOKEN_EST),
+            0,
+          );
+    case 'assistant':
+      return message.content.reduce((total, block) => {
+        if (block.type === 'text') return total + estimateTokens(block.text);
+        if (block.type === 'thinking') return total + estimateTokens(block.thinking);
+        return total + estimateTokens(JSON.stringify(block.arguments));
+      }, 0);
+    case 'toolResult':
+      return message.content.reduce(
+        (total, block) =>
+          total + (block.type === 'text' ? estimateTokens(block.text) : IMAGE_TOKEN_EST),
+        0,
+      );
+    default:
+      return 0;
+  }
+}
+
+function estimateAgentMessages(messages: AgentMessage[]): number {
+  return messages.reduce((total, message) => total + estimateAgentMessageTokens(message), 0);
+}
+
+function textOfToolResult(message: Extract<AgentMessage, { role: 'toolResult' }>): string {
+  return message.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('\n');
+}
+
+/**
+ * 运行内修剪：估算总量超预算时，把较早轮次（保留最近 keepRounds 轮完整）的工具结果
+ * 消息内容替换为占位（工具名 + 关键结果前 keepChars 字符），不做运行中模型调用，
+ * 也不改 Agent 会话状态——transformContext 的返回值只用于本次发出的请求。
+ * 修剪后仍超预算时原样返回（无更多可安全修剪项；宁可继续请求也不破坏调用关联）。
+ */
+export function pruneToolResults(
+  messages: AgentMessage[],
+  config: { budget: number; keepChars: number; keepRounds: number },
+): AgentMessage[] {
+  let total = estimateAgentMessages(messages);
+  if (total <= config.budget) return messages;
+  const assistants = messages
+    .map((message, index) => (message.role === 'assistant' ? index : -1))
+    .filter((index) => index >= 0);
+  // 最近 keepRounds 轮（自该 assistant 起的消息，含其工具结果）保持完整；
+  // keepRounds 为 0 时不保护任何轮（全部可修剪）。
+  const cutoffIndex = assistants.length - config.keepRounds;
+  const cutoff =
+    cutoffIndex >= assistants.length
+      ? Number.POSITIVE_INFINITY
+      : (assistants[Math.max(0, cutoffIndex)] ?? Number.POSITIVE_INFINITY);
+  const working = messages.slice();
+  for (let index = 0; index < working.length && total > config.budget; index += 1) {
+    const message = working[index];
+    if (!message || message.role !== 'toolResult' || index >= cutoff) continue;
+    const kept = textOfToolResult(message).slice(0, config.keepChars);
+    const pruned: Extract<AgentMessage, { role: 'toolResult' }> = {
+      ...message,
+      content: [
+        {
+          type: 'text',
+          text: `[已修剪的工具结果：${message.toolName}，关键结果保留前 ${config.keepChars} 字符]\n${kept}`,
+        },
+      ],
+    };
+    total += estimateAgentMessageTokens(pruned) - estimateAgentMessageTokens(message);
+    working[index] = pruned;
+  }
+  return working;
+}
+
+/** transformContext 钩子工厂：runAgent 的可选 prunePolicy 缺省时不启用（行为不变）。 */
+export function createToolResultPruner(policy: PrunePolicy = {}) {
+  const config = {
+    budget: policy.budgetTokens ?? contextBudget().budget,
+    keepChars: policy.keepChars ?? PRUNE_KEEP_CHARS,
+    keepRounds: policy.keepRounds ?? PRUNE_KEEP_ROUNDS,
+  };
+  return (messages: AgentMessage[]): Promise<AgentMessage[]> =>
+    Promise.resolve(pruneToolResults(messages, config));
 }
 
 function assistantFailure(model: Model<'openai-completions'>, message: string): AssistantMessage {

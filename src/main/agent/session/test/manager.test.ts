@@ -1,7 +1,10 @@
 // Session/Run 新身份的主进程行为：run 生命周期落库（pending→running→终态）、步骤索引、
-// 同 session 串行/跨 session 并行、旧 scope 通道委托（scope→project_id 映射）与项目档案。
-// 数据库用真实 database.ts（electron app.getPath 指向临时目录，迁移直建 v13）。
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+// 同 session 串行/跨 session 并行、旧 scope 通道委托（scope→project_id 映射）与项目档案，
+// 以及上下文预算压缩（触发/失败回退/摘要持久化续接/compacting 状态）。
+// 数据库用真实 database.ts（electron app.getPath 指向临时目录，迁移直建 v13）；
+// 摘要生成的模型调用用 fetch stub（不走真网）。
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -99,6 +102,11 @@ beforeEach(() => {
   activeSession.clear();
   activeRuns.clear();
   fixtures.run.mockReset();
+  fixtures.run.mockImplementation(async () => ({ content: '好的', toolResults: [] }));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('run lifecycle', () => {
@@ -443,3 +451,160 @@ describe('project profiles', () => {
     expect(getProjectProfile('nonexistent')).toBeNull();
   });
 });
+
+// ===== 上下文预算压缩（计划 §6.1；摘要模型调用 fetch stub，不走真网） =====
+
+const compactPayload = {
+  goals: '整理毕业设计资料',
+  decisions: '先课件后邮件',
+  completed: '已检索 Canvas 课件',
+  pending: '待整理成笔记',
+  resources: [{ key: 'note-1', title: '复习笔记' }],
+};
+
+/** 预置长历史会话（每条约 chars 个 CJK 字 ≈ chars token）。 */
+function seedHistory(count: number, chars: number): string {
+  const messages = Array.from({ length: count }, (_, index) => ({
+    role: index % 2 === 0 ? 'user' : 'assistant',
+    content: `历史${index}。`.padEnd(chars, '备'),
+  }));
+  const iso = '2026-09-29T00:00:00.000Z';
+  const id = randomUUID();
+  getDatabase()
+    .prepare(
+      'INSERT INTO sessions (id, project_id, title, messages, summary, created_at, updated_at) VALUES (?, NULL, ?, ?, NULL, ?, ?)',
+    )
+    .run(id, '长对话', JSON.stringify(messages), iso, iso);
+  return id;
+}
+
+const summaryResponse = () =>
+  new Response(
+    JSON.stringify({ choices: [{ message: { content: JSON.stringify(compactPayload) } }] }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+  );
+
+function askOptions() {
+  return { text: '继续', attachments: [], context: [] };
+}
+
+describe('context compaction', () => {
+  it('长对话超阈值触发压缩：摘要生成、持久化并以摘要+近期历史组装', async () => {
+    // 20 条 × 1000 token ≈ 20000：超过触发阈值 14336。
+    const sessionId = seedHistory(20, 1000);
+    const fetchMock = vi.fn().mockResolvedValue(summaryResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    await askSession(sessionId, askOptions());
+    // 独立非流式请求打到 provider 的 /chat/completions，带鉴权。
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toBe('https://example.test/chat/completions');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer fixture');
+    const body = JSON.parse(init.body as string);
+    expect(body.stream).toBe(false);
+    expect(body.model).toBe('fixture');
+    expect(body.messages[1].content).toContain('【待压缩的对话历史（第 1–8 条消息）】');
+    // 摘要持久化到 sessions.summary（跨 Run 生效）。
+    const stored = JSON.parse(sessionRow(sessionId)!.summary!) as {
+      coveredUpTo: number;
+      messageCount: number;
+    };
+    expect(stored).toMatchObject({ coveredUpTo: 8, messageCount: 20 });
+    // 组装：system 含摘要前置块（标注非资源最新状态），历史从覆盖锚点之后注入。
+    const messages = fixtures.run.mock.calls.at(-1)![0]!.messages;
+    expect(messages[0]!.role).toBe('system');
+    expect(messages[0]!.content).toContain('本会话较早历史摘要');
+    expect(messages[0]!.content).toContain('不是任何资源的最新状态');
+    expect(messages[0]!.content).toContain('整理毕业设计资料');
+    expect(messages.length).toBe(1 + 12 + 1);
+    expect(messages[1]!.content).toContain('历史8。');
+    expect(messages.at(-2)!.content).toContain('历史19。');
+    expect(runRowOf(sessionId).status).toBe('completed');
+  });
+
+  it('压缩失败且放不下时请求明确失败：保留原始历史，不静默回退条数截断', async () => {
+    // 30 条 × 1000 token ≈ 30000：超出输入预算 20480，压缩是唯一出路。
+    const sessionId = seedHistory(30, 1000);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('网络中断')));
+    await expect(askSession(sessionId, askOptions())).rejects.toThrow(
+      '上下文压缩失败，请重试或减少引用资料',
+    );
+    expect(fetchMockRan()).toBe(true);
+    // 未调用模型执行、历史与摘要保持原样、run 落 failed。
+    expect(fixtures.run).not.toHaveBeenCalled();
+    expect(JSON.parse(sessionRow(sessionId)!.messages)).toHaveLength(30);
+    expect(sessionRow(sessionId)!.summary).toBeNull();
+    const run = runRowOf(sessionId);
+    expect(run.status).toBe('failed');
+    expect(run.error).toContain('上下文压缩失败');
+    expect(openSession(sessionId).running).toBe(false);
+  });
+
+  it('压缩失败但不压缩也放得下时照常发送全量历史', async () => {
+    // 10 条 × 1500 token ≈ 15000：超过阈值 14336 但在预算 20480 内。
+    const sessionId = seedHistory(10, 1500);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('网络中断')));
+    const chat = await askSession(sessionId, askOptions());
+    expect(chat.running).toBe(false);
+    // 全量历史照常发送（无摘要块），摘要不落库。
+    const messages = fixtures.run.mock.calls.at(-1)![0]!.messages;
+    expect(messages).toHaveLength(1 + 10 + 1);
+    expect(messages[0]!.content).not.toContain('本会话较早历史摘要');
+    expect(messages[1]!.content).toContain('历史0。');
+    expect(messages.at(-2)!.content).toContain('历史9。');
+    expect(sessionRow(sessionId)!.summary).toBeNull();
+    expect(runRowOf(sessionId).status).toBe('completed');
+  });
+
+  it('重启续接：持久化的摘要在新 Run 组装时生效（不再触发压缩）', async () => {
+    // 模拟此前压缩过的会话：18 条已被摘要覆盖，仅 2 条近期历史。
+    const sessionId = seedHistory(20, 100);
+    getDatabase()
+      .prepare('UPDATE sessions SET summary=? WHERE id=?')
+      .run(
+        JSON.stringify({
+          coveredUpTo: 18,
+          createdAt: '2026-09-29T00:00:00.000Z',
+          model: 'fixture',
+          content: compactPayload,
+          messageCount: 18,
+        }),
+        sessionId,
+      );
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await askSession(sessionId, askOptions());
+    // 估算低于阈值：不再请求摘要模型。
+    expect(fetchMock).not.toHaveBeenCalled();
+    const messages = fixtures.run.mock.calls.at(-1)![0]!.messages;
+    expect(messages[0]!.content).toContain('本会话较早历史摘要');
+    expect(messages[0]!.content).toContain('第 1–18 条消息');
+    // 只注入覆盖锚点之后的近期历史。
+    expect(messages).toHaveLength(1 + 2 + 1);
+    expect(messages[1]!.content).toContain('历史18。');
+  });
+
+  it('compacting 状态在压缩期间为 true，结束后回落', async () => {
+    const sessionId = seedHistory(20, 1000);
+    let release!: (response: Response) => void;
+    const gate = new Promise<Response>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => gate),
+    );
+    const asking = askSession(sessionId, askOptions());
+    await vi.waitFor(() => expect(openSession(sessionId).compacting).toBe(true));
+    release(summaryResponse());
+    await asking;
+    expect(openSession(sessionId).compacting).toBe(false);
+    expect(sessionRow(sessionId)!.summary).not.toBeNull();
+  });
+});
+
+/** 断言辅助：stub 的 fetch 是否被调用过（失败用例中确认压缩确实发起过）。 */
+function fetchMockRan(): boolean {
+  const mocked = globalThis.fetch as unknown as { mock?: { calls: unknown[] } };
+  return Boolean(mocked?.mock?.calls?.length);
+}

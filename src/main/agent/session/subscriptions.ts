@@ -13,6 +13,7 @@ export function subscribeChat(client: WebContents) {
 
 // 过渡期（阶段三移除）：旧通道的 scope 路由。由旧 scope 入口发起的会话按该入口广播，
 // 其余（session:* 新通道）由 session.project_id 推导，无项目回退 'home'。
+// TODO(阶段三): renderer 迁移 session:* 通道后移除
 const originScopes = new Map<string, string>();
 
 export function setOriginScope(sessionId: string, scope: string) {

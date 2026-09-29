@@ -18,6 +18,7 @@ import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
 import { toolError } from '../agent/tools/shared';
+import { deleteProjectProfile, ensureProjectProfile } from './projects';
 import {
   availablePath,
   officeExportPreviewInfo,
@@ -378,6 +379,13 @@ function checkParent(parentId: string | null, movingId?: string) {
   }
 }
 
+/** folder↔project 原地互转时维护 projects 档案行（state-model.md §2.1）：
+ *  升格补插（无则建），降格删除（会话经 FK 置 NULL 降级通用）。 */
+function maintainProjectArchive(id: string, fromKind: string, toKind: string) {
+  if (fromKind === 'folder' && toKind === 'project') ensureProjectProfile(id);
+  else if (fromKind === 'project' && toKind === 'folder') deleteProjectProfile(id);
+}
+
 export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntry {
   const parsed = z
     .object({
@@ -475,11 +483,13 @@ export function updateWorkspaceEntry(id: string, input: unknown) {
       throw error;
     }
     finishMove(move);
+    maintainProjectArchive(id, current.kind, move.kind);
     return;
   }
   getDatabase()
     .prepare('UPDATE workspace_entries SET name=?, parent_id=?, kind=?, updated_at=? WHERE id=?')
     .run(name, parentId, parsed.kind ?? current.kind, new Date().toISOString(), id);
+  maintainProjectArchive(id, current.kind, parsed.kind ?? current.kind);
 }
 
 export function importWorkspaceFiles(parentId: string | null, paths: string[]): WorkspaceEntry[] {

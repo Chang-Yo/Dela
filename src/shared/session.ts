@@ -25,6 +25,8 @@ export interface WorkspaceChat {
   sessionId: string | null;
   running?: boolean;
   activeTool?: string;
+  /** 上下文压缩进行中（低干扰状态，压缩期间短暂为 true）。 */
+  compacting?: boolean;
   configured: boolean;
   /** 当前使用中的提供商名称；未配置时为 null。 */
   providerName: string | null;
