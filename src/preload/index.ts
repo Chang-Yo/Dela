@@ -7,6 +7,7 @@ import { llm } from './llm';
 import { mail } from './mail';
 import { notifications } from './notifications';
 import { search } from './search';
+import { session } from './session';
 import { settings } from './settings';
 import { shuiyuan } from './shuiyuan';
 import { timetable } from './timetable';
@@ -29,4 +30,5 @@ contextBridge.exposeInMainWorld('dela', {
   shuiyuan,
   canvas,
   workspace,
+  session,
 } satisfies DelaApi);

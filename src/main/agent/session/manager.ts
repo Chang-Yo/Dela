@@ -4,48 +4,109 @@ import {
   parseChatBlocks,
   stripChatImageTokens,
 } from '../../../shared/chat-input';
-import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
+import type { AgentToolResult, ChatSessionSummary, WorkspaceChat } from '../../../shared/api';
 import { getDatabase } from '../../database';
 import { getActiveLlmProvider } from '../core/providers';
 import type { ChatContentPart } from '../core/run';
 import { SYSTEM_PROMPT, historyWindow, referencePreamble } from '../context/assemble';
 import { readAskReferences } from '../context/references';
+import { ensureProjectProfile } from '../../workspace/projects';
 import { readChatMediaBytes, releaseChatAttachments } from './media';
-import { asking } from './runs';
+import {
+  activeRuns,
+  appendRunStep,
+  completeRunStep,
+  createRun,
+  finishRun,
+  markRunRunning,
+  type ActiveRun,
+  type RunRequest,
+} from './runs';
 import { activeSession, persistSession, resolveSession, sessionRow, snapshot } from './store';
-import { publishChat } from './subscriptions';
+import type { SessionRow } from './store';
+import {
+  clearOriginScope,
+  publishChat,
+  publishRunEvent,
+  publishSession,
+  setOriginScope,
+} from './subscriptions';
 
-export function newChat(scope: string): WorkspaceChat {
-  if (asking.has(scope)) throw new Error('请等待当前回答完成');
-  const current = resolveSession(scope);
-  // 空会话不进入历史：点“新对话”时清掉上一条从未发送过消息的会话。
-  if (current && current.messages === '[]') {
-    getDatabase().prepare('DELETE FROM chat_sessions WHERE id=?').run(current.id);
-  }
-  activeSession.set(scope, null);
-  publishChat(scope);
-  return snapshot(resolveSession(scope));
+type AskInput = {
+  text: string;
+  attachments: string[];
+  context: string[];
+  replaceLastUser?: boolean;
+};
+
+function nowIso(): string {
+  return new Date().toISOString();
 }
 
-export function openChat(scope: string, sessionId: string): WorkspaceChat {
+// ===== Session 新身份 API（session:* 通道；renderer 阶段三接入） =====
+
+/** 新建会话：显式身份（区别于旧入口的懒创建）；projectId 需为现存 project 条目。 */
+function createSessionRow(projectId: string | null): SessionRow {
+  if (projectId !== null) {
+    const entry = getDatabase()
+      .prepare('SELECT kind FROM workspace_entries WHERE id=?')
+      .get(projectId) as { kind: string } | undefined;
+    if (!entry || entry.kind !== 'project') throw new Error('项目不存在');
+    // v13 后新建/由 folder 转换的项目条目没有档案行，首次挂会话时补建。
+    ensureProjectProfile(projectId);
+  }
+  const row: SessionRow = {
+    id: randomUUID(),
+    project_id: projectId,
+    title: '新对话',
+    messages: '[]',
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  };
+  getDatabase()
+    .prepare(
+      'INSERT INTO sessions (id, project_id, title, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+    .run(row.id, row.project_id, row.title, row.messages, row.created_at, row.updated_at);
+  return row;
+}
+
+export function newSession(projectId: string | null): WorkspaceChat {
+  return snapshot(createSessionRow(projectId));
+}
+
+export function openSession(sessionId: string): WorkspaceChat {
   const row = sessionRow(sessionId);
-  if (!row || row.scope !== scope) throw new Error('会话不存在');
-  if (asking.has(scope) && activeSession.get(scope) !== sessionId)
-    throw new Error('请等待当前回答完成');
-  activeSession.set(scope, sessionId);
+  if (!row) throw new Error('会话不存在');
   return snapshot(row);
 }
 
-export function deleteChat(scope: string, sessionId: string): void {
+/** 删除会话（运行中先中断本轮）；关联 Run 行经外键级联删除。 */
+export function deleteSession(sessionId: string): void {
   const row = sessionRow(sessionId);
-  if (!row || row.scope !== scope) return;
-  // 删除正在流式输出的当前会话时先中断本轮（与停止按钮同路径），否则删除后仍会
-  // 推送「running 且无消息」的僵尸忙碌态，直到这轮自然跑完。
-  if (asking.has(scope) && activeSession.get(scope) === sessionId)
-    asking.get(scope)?.controller.abort();
-  getDatabase().prepare('DELETE FROM chat_sessions WHERE id=?').run(sessionId);
-  if (activeSession.get(scope) === sessionId) activeSession.set(scope, null);
-  publishChat(scope);
+  if (!row) return;
+  // 与停止按钮同路径：避免删除后仍推送「running 且无消息」的僵尸忙碌态。
+  activeRuns.get(sessionId)?.controller.abort();
+  getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(sessionId);
+  for (const [scope, current] of activeSession) {
+    if (current === sessionId) activeSession.set(scope, null);
+  }
+}
+
+export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
+  const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+  const sql = query
+    ? "SELECT id, title, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM sessions WHERE project_id IS ? AND (title LIKE ? ESCAPE '\\' OR messages LIKE ? ESCAPE '\\') ORDER BY updated_at DESC LIMIT 100"
+    : 'SELECT id, title, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM sessions WHERE project_id IS ? ORDER BY updated_at DESC LIMIT 100';
+  return getDatabase()
+    .prepare(sql)
+    .all(
+      ...(query ? [projectId, pattern, pattern] : [projectId]),
+    ) as unknown as ChatSessionSummary[];
+}
+
+export function cancelRun(sessionId: string) {
+  activeRuns.get(sessionId)?.controller.abort();
 }
 
 // 图片扩展名 → data URL 的 MIME。
@@ -57,16 +118,27 @@ const imageMimeByExtension: Record<string, string> = {
   webp: 'image/webp',
 };
 
-export async function ask(
-  scope: string,
-  input: { text: string; attachments: string[]; context: string[]; replaceLastUser?: boolean },
-): Promise<WorkspaceChat> {
-  if (asking.has(scope)) throw new Error('请等待当前回答完成');
-  const provider = getActiveLlmProvider();
-  if (!provider) throw new Error('请先在设置中配置模型服务');
-  const run = { controller: new AbortController(), tool: undefined as string | undefined };
-  asking.set(scope, run);
+/** 发起一轮执行：同 session 串行（活跃 Run 互斥）、跨 session 并行；Run 生命周期落 runs 表。 */
+export async function askSession(sessionId: string, input: AskInput): Promise<WorkspaceChat> {
+  if (activeRuns.has(sessionId)) throw new Error('请等待当前回答完成');
+  const row = sessionRow(sessionId);
+  if (!row) throw new Error('会话不存在');
+  // Run 先落 pending：发送前校验失败（未配置模型、输入解析、引用读取）由此态转 failed。
+  const run: ActiveRun = {
+    runId: createRun(sessionId, row.project_id, {
+      text: stripChatImageTokens(input.text).slice(0, 200),
+    }),
+    controller: new AbortController(),
+    steps: [],
+  };
+  activeRuns.set(sessionId, run);
+  publishRunEvent(sessionId, run.runId, 'pending');
+  // 终态在出口统一写库：成功 completed、用户停止 stopped、其余 failed。
+  let terminal: 'completed' | 'stopped' | 'failed' = 'failed';
+  let runError: string | undefined;
   try {
+    const provider = getActiveLlmProvider();
+    if (!provider) throw new Error('请先在设置中配置模型服务');
     // 图文混排：按出现顺序拆分 blocks；图片 token 之外的文字作为消息正文。
     const blocks = parseChatBlocks(input.text);
     const images = blocks.filter((block) => block.type === 'image');
@@ -75,30 +147,25 @@ export async function ask(
     const userText = stripChatImageTokens(input.text);
     if (!userText && !images.length) throw new Error('请输入内容或添加图片');
     const { documents, attachmentDocs } = await readAskReferences(input.context, input.attachments);
-    let row = resolveSession(scope);
-    if (!row) {
-      if (input.replaceLastUser) throw new Error('没有可编辑的消息');
-      row = {
-        id: randomUUID(),
-        scope,
-        title: (userText || '图片请求').slice(0, 60),
-        messages: '[]',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      getDatabase()
-        .prepare(
-          'INSERT INTO chat_sessions (id, scope, title, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-        )
-        .run(row.id, row.scope, row.title, row.messages, row.created_at, row.updated_at);
-      activeSession.set(scope, row.id);
-    }
     const chat = snapshot(row);
     if (input.replaceLastUser) {
       // 编辑重发：丢弃最后一条用户消息及其后的回答，引用/附件以本次输入为准。
       const lastUserIndex = chat.messages.map((message) => message.role).lastIndexOf('user');
       if (lastUserIndex < 0) throw new Error('没有可编辑的消息');
       chat.messages.length = lastUserIndex;
+    }
+    // 引用读取与输入校验通过、首次模型请求前转 running，并写请求摘要（不含正文全文）。
+    const request: RunRequest = {
+      text: userText.slice(0, 200),
+      sources: documents.map(({ key, title }) => ({ key, title })),
+      attachments: attachmentDocs.map(({ name }) => ({ name })),
+    };
+    markRunRunning(run.runId, request);
+    publishRunEvent(sessionId, run.runId, 'running');
+    // 首条消息为会话命名（沿用旧懒创建路径的标题语义）。
+    if (row.messages === '[]') {
+      row.title = (userText || '图片请求').slice(0, 60);
+      getDatabase().prepare('UPDATE sessions SET title=? WHERE id=?').run(row.title, row.id);
     }
     const { runAgent } = await import('../core/run');
     const { modelToolDefinitions, executeAgentTool } = await import('../tools/registry');
@@ -142,9 +209,9 @@ export async function ask(
       reply,
     );
     const persist = () => {
-      row!.messages = JSON.stringify(chat.messages);
-      persistSession(row!);
-      publishChat(scope);
+      row.messages = JSON.stringify(chat.messages);
+      persistSession(row);
+      publishSession(sessionId, { messages: chat.messages });
     };
     // 思考与正文增量共用 ~100ms 节流推送；工具事件与最终结果即时持久化并推送。
     let lastStreamPublish = 0;
@@ -153,7 +220,7 @@ export async function ask(
       if (now - lastStreamPublish < 100) return;
       lastStreamPublish = now;
       // 携带内存中的活跃消息数组：持久化的 row.messages 尚未更新，直接读库会回退内容。
-      publishChat(scope, { messages: chat.messages, running: true, activeTool: run.tool });
+      publishSession(sessionId, { messages: chat.messages, running: true, activeTool: run.tool });
     };
     // 思考段进入正文或工具阶段时收尾计时，供 UI 显示“已思考 · X 秒”。
     const closeTrailingReasoning = () => {
@@ -203,6 +270,8 @@ export async function ask(
         },
         onToolStart: (call) => {
           run.tool = call.name;
+          appendRunStep(run, call);
+          publishRunEvent(sessionId, run.runId, 'running', call.name);
           closeTrailingReasoning();
           if (reply.parts!.at(-1)?.type !== 'tools')
             reply.parts!.push({ type: 'tools', results: [] });
@@ -219,6 +288,12 @@ export async function ask(
         },
         onToolResult: (result) => {
           run.tool = undefined;
+          const failed =
+            typeof result.output === 'object' &&
+            result.output !== null &&
+            (result.output as { ok?: unknown }).ok === false;
+          completeRunStep(run, result.id, failed);
+          publishRunEvent(sessionId, run.runId, 'running');
           const last = reply.parts!.at(-1);
           const group = last && last.type === 'tools' ? last : undefined;
           const placeholder = group?.results.find((item) => item.id === result.id);
@@ -239,14 +314,15 @@ export async function ask(
         // 用户主动停止：保留已生成的部分内容并正常返回，不追加中断说明；
         // 请求超时用 AbortSignal.timeout 的独立信号，不会误入此分支。
         reply.stopped = true;
+        terminal = 'stopped';
       } else {
         reply.interrupted = true;
+        runError = error instanceof Error ? error.message : '未知错误';
+        terminal = 'failed';
         // 中断文案以新 text 部分落地前，先为流式中的思考段收尾计时。
         closeTrailingReasoning();
         reply.parts!.push({ type: 'text', text: '' });
-        updateText(
-          `本次执行中断：${error instanceof Error ? error.message : '未知错误'}。已完成的操作保留，请查看工具结果。`,
-        );
+        updateText(`本次执行中断：${runError}。已完成的操作保留，请查看工具结果。`);
         throw error;
       }
     } finally {
@@ -255,17 +331,84 @@ export async function ask(
       reply.finishedAt = Date.now();
       persist();
     }
+    // 内层未抛错即成功收尾；stopped 已在中止分支写好。
+    if (terminal !== 'stopped') terminal = 'completed';
     return { ...chat, running: false, activeTool: undefined };
   } catch (error) {
+    if (runError === undefined) runError = error instanceof Error ? error.message : '未知错误';
     if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'TypeError'))
       throw new Error('模型请求超时或网络连接失败，请重试');
     throw error;
   } finally {
-    asking.delete(scope);
-    publishChat(scope);
+    activeRuns.delete(sessionId);
+    finishRun(run.runId, terminal, runError);
+    publishRunEvent(sessionId, run.runId, terminal);
+    publishSession(sessionId);
   }
 }
 
+// ===== 旧 scope 语义 shim（过渡兼容，阶段三随 renderer 接入 session:* 移除） =====
+
+/** scope → project_id：'home'/'sources'/'projects' 并入通用池（NULL），project 条目 UUID 原样。 */
+export function scopeToProjectId(scope: string): string | null {
+  return scope === 'home' || scope === 'sources' || scope === 'projects' ? null : scope;
+}
+
+/** 旧入口的互斥语义：scope 当前打开的会话正在执行时拒绝操作（指针在执行期不可切换）。 */
+function scopeBusy(scope: string): boolean {
+  const current = activeSession.get(scope);
+  return current !== undefined && current !== null && activeRuns.has(current);
+}
+
+export function newChat(scope: string): WorkspaceChat {
+  if (scopeBusy(scope)) throw new Error('请等待当前回答完成');
+  const current = resolveSession(scope);
+  // 空会话不进入历史：点“新对话”时清掉上一条从未发送过消息的会话。
+  if (current && current.messages === '[]') deleteSession(current.id);
+  activeSession.set(scope, null);
+  publishChat(scope);
+  return snapshot(resolveSession(scope));
+}
+
+export function openChat(scope: string, sessionId: string): WorkspaceChat {
+  const row = sessionRow(sessionId);
+  if (!row || row.project_id !== scopeToProjectId(scope)) throw new Error('会话不存在');
+  if (scopeBusy(scope) && activeSession.get(scope) !== sessionId)
+    throw new Error('请等待当前回答完成');
+  activeSession.set(scope, sessionId);
+  return snapshot(row);
+}
+
+export function deleteChat(scope: string, sessionId: string): void {
+  const row = sessionRow(sessionId);
+  if (!row || row.project_id !== scopeToProjectId(scope)) return;
+  deleteSession(sessionId);
+  publishChat(scope);
+}
+
+export function listChats(scope: string, query: string): ChatSessionSummary[] {
+  return listSessions(scopeToProjectId(scope), query);
+}
+
 export function cancelAsk(scope: string) {
-  asking.get(scope)?.controller.abort();
+  const current = activeSession.get(scope);
+  if (current) cancelRun(current);
+}
+
+export async function ask(scope: string, input: AskInput): Promise<WorkspaceChat> {
+  if (scopeBusy(scope)) throw new Error('请等待当前回答完成');
+  let sessionId = activeSession.get(scope) ?? null;
+  if (!sessionId || !sessionRow(sessionId)) {
+    // 旧入口懒创建：首次发送时落会话行并记住指针（新对话闲置态到此结束）。
+    sessionId = createSessionRow(scopeToProjectId(scope)).id;
+    activeSession.set(scope, sessionId);
+  }
+  // 过渡期：旧通道按发起入口的 scope 广播该会话的更新。
+  setOriginScope(sessionId, scope);
+  try {
+    return await askSession(sessionId, input);
+  } finally {
+    clearOriginScope(sessionId);
+    publishChat(scope);
+  }
 }

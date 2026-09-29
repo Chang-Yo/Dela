@@ -899,6 +899,12 @@ export async function addShuiyuanSourceRef(topicIdInput: unknown): Promise<Shuiy
   return ref;
 }
 
+/** 水源主题的稳定入口 URL（与引用行一致），供来源引用元数据与外部打开使用。 */
+export function shuiyuanTopicUrl(topicIdInput: unknown): string {
+  const topicId = z.number().int().positive().parse(topicIdInput);
+  return `${SHUIYUAN_ORIGIN}/t/topic/${topicId}`;
+}
+
 export function getShuiyuanSourceRef(topicIdInput: unknown): ShuiyuanSourceRef | null {
   const topicId = z.number().int().positive().parse(topicIdInput);
   const row = getDatabase()

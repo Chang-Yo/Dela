@@ -11,14 +11,34 @@ import {
   verifyLlm,
 } from '../core/providers';
 import { deleteChatCommand, listChatCommands, saveChatCommand } from './commands';
-import { ask, cancelAsk, deleteChat, newChat, openChat } from './manager';
+import {
+  ask,
+  askSession,
+  cancelAsk,
+  cancelRun,
+  deleteChat,
+  deleteSession,
+  listChats,
+  listSessions,
+  newChat,
+  newSession,
+  openChat,
+  openSession,
+} from './manager';
 import { pickChatMedia, readChatMediaPreview, releaseChatMedia, stageChatMedia } from './media';
-import { getChat, listChats } from './store';
+import { getChat } from './store';
 import { subscribeChat } from './subscriptions';
 
 const idSchema = z.string().uuid();
+const askInputSchema = z.object({
+  text: z.string().max(20000),
+  attachments: z.array(idSchema).max(5),
+  context: z.array(z.string().max(512)).max(10),
+  replaceLastUser: z.boolean().optional(),
+});
 
-export function registerAgentIpc() {
+/** 注册 agent 域全部 IPC 通道：旧 workspace:* 委托 scope shim，新 session:* 走会话身份。 */
+export function registerAgentChannels() {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`workspace:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);
@@ -46,18 +66,36 @@ export function registerAgentIpc() {
     cancelAsk(z.string().max(100).parse(scope));
   });
   handle('ask', (scope, input) =>
-    ask(
-      z.string().max(100).parse(scope),
+    ask(z.string().max(100).parse(scope), askInputSchema.parse(input)),
+  );
+  // 会话新身份通道（renderer 阶段三接入）。
+  const sessionHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
+    ipcMain.handle(`session:${name}`, (event, ...args) => {
+      checkWorkspaceSender(event);
+      subscribeChat(event.sender);
+      return fn(...args);
+    });
+  const projectIdSchema = z.string().uuid().nullable();
+  sessionHandle('list', (projectId, query) =>
+    listSessions(
+      projectIdSchema.parse(projectId),
       z
-        .object({
-          text: z.string().max(20000),
-          attachments: z.array(idSchema).max(5),
-          context: z.array(z.string().max(512)).max(10),
-          replaceLastUser: z.boolean().optional(),
-        })
-        .parse(input),
+        .string()
+        .max(200)
+        .parse(query ?? ''),
     ),
   );
+  sessionHandle('create', (projectId) => newSession(projectIdSchema.parse(projectId)));
+  sessionHandle('open', (sessionId) => openSession(idSchema.parse(sessionId)));
+  sessionHandle('remove', (sessionId) => {
+    deleteSession(idSchema.parse(sessionId));
+  });
+  sessionHandle('ask', (sessionId, input) =>
+    askSession(idSchema.parse(sessionId), askInputSchema.parse(input)),
+  );
+  sessionHandle('cancel-run', (sessionId) => {
+    cancelRun(idSchema.parse(sessionId));
+  });
   // Composer 暂存文件与自定义指令。
   const chatHandle = (
     name: string,

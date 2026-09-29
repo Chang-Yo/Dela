@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 
 /**
- * 可编程的本地 OpenAI 兼容 SSE mock 服务，仅用于 Pi Agent 接入探针测试。
+ * 可编程的本地 OpenAI 兼容 SSE mock 服务，用于 core 运行时（Pi Agent Core 桥接层）测试。
  * 测试按顺序 enqueue 脚本化响应；服务记录每个请求的 URL、认证头与解析后的请求体，
  * 不包含任何真实密钥或个人数据（密钥固定为测试占位值）。
  */

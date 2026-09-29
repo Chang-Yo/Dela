@@ -265,7 +265,12 @@ describe('Agent tool contracts', () => {
     });
     expect(await executeAgentTool('search_sources', { query: 'slides' })).toMatchObject({
       ok: true,
-      result: { total: 1, coverage: 'cached_titles', courses: [{ id: 1, error: '文件同步失败' }] },
+      result: {
+        renamedFrom: 'search_sources',
+        total: 1,
+        coverage: { scope: 'cached_titles', complete: true },
+        courses: [{ id: 1, error: '文件同步失败' }],
+      },
     });
   });
 });

@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { getCanvasState } from '../../../canvas/api';
-import { limit, match, offset, page, query, tool } from '../shared';
+import { coverage, freshness, limit, match, offset, page, query, tool } from '../shared';
+import { requireCanvasConfigured } from './helpers';
 
-export const searchSourcesTool = tool(
-  '按标题查找已缓存的 Canvas 资料，返回可传给 read_resource 的引用。不是正文全文检索。',
+export const searchCanvasSourcesTool = tool(
+  '按标题查找已缓存的 Canvas 资料（只读本地缓存；只匹配缓存标题，不是正文全文检索）。返回的 ref 可直接传给 read_resource；未同步或同步出错的课程在 courses 中标注。',
   z
     .object({
       query,
@@ -15,6 +16,7 @@ export const searchSourcesTool = tool(
     .strict(),
   ({ query, courseId, kind, offset, limit }) => {
     const state = getCanvasState();
+    requireCanvasConfigured(state);
     const unique = new Map(
       state.items
         .filter(
@@ -27,7 +29,7 @@ export const searchSourcesTool = tool(
         .map((item) => [
           item.sourceId!,
           {
-            ref: { type: 'canvas', id: item.sourceId! },
+            ref: { type: 'canvas' as const, id: item.sourceId! },
             title: item.name,
             courseId: item.courseId,
             kind: item.kind,
@@ -37,10 +39,17 @@ export const searchSourcesTool = tool(
     );
     return {
       ...page([...unique.values()], offset, limit),
-      coverage: 'cached_titles',
+      freshness: freshness('cached', state.syncedAt),
+      coverage: coverage('cached_titles', true),
       courses: state.courses
-        .filter((c) => courseId === undefined || c.id === courseId)
-        .map((c) => ({ id: c.id, syncedAt: c.syncedAt, error: c.error })),
+        .filter((course) => courseId === undefined || course.id === courseId)
+        .map((course) => ({
+          id: course.id,
+          name: course.name,
+          contentSyncedAt: course.syncedAt,
+          error: course.error,
+          archived: course.archived ?? false,
+        })),
     };
   },
 );

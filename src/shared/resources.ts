@@ -12,6 +12,7 @@ export const resourceRefSchema = z.discriminatedUnion('type', [
       part: z.string().regex(/^\d+(?:\.\d+)*$/),
     })
     .strict(),
+  z.object({ type: z.literal('shuiyuan-topic'), id: z.number().int().positive() }).strict(),
 ]);
 
 export type ResourceRef = z.infer<typeof resourceRefSchema>;

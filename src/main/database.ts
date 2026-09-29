@@ -175,6 +175,64 @@ const migrations: string[][] = [
     )`,
     `CREATE INDEX idx_todo_owner ON todo_items(owner)`,
   ],
+  [
+    // Session/Run 新身份（docs/refactor/state-model.md §3）：projects 档案、sessions 取代
+    // chat_sessions（旧表停写保留，一个发布周期后单独迁移 DROP，见裁决 10）、runs 落库、note_versions。
+    `CREATE TABLE projects (
+      id TEXT PRIMARY KEY REFERENCES workspace_entries(id) ON DELETE CASCADE,
+      background TEXT NOT NULL DEFAULT '',
+      goal TEXT NOT NULL DEFAULT '',
+      workdir TEXT,
+      capabilities TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX idx_projects_updated ON projects(updated_at DESC)`,
+    `CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+      title TEXT NOT NULL DEFAULT '新对话',
+      messages TEXT NOT NULL DEFAULT '[]',
+      summary TEXT,
+      archived_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX idx_sessions_project ON sessions(project_id, updated_at DESC)`,
+    `CREATE INDEX idx_sessions_updated ON sessions(updated_at DESC)`,
+    `CREATE TABLE runs (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending','running','waiting_input','completed','failed','stopped','interrupted')),
+      request TEXT NOT NULL DEFAULT '{}',
+      steps TEXT NOT NULL DEFAULT '[]',
+      error TEXT,
+      started_at TEXT NOT NULL,
+      ended_at TEXT
+    )`,
+    `CREATE INDEX idx_runs_session ON runs(session_id, started_at DESC)`,
+    `CREATE INDEX idx_runs_project ON runs(project_id, started_at DESC)`,
+    `CREATE TABLE note_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      note_id TEXT NOT NULL REFERENCES workspace_notes(id) ON DELETE CASCADE,
+      revision TEXT NOT NULL,
+      text TEXT NOT NULL,
+      run_id TEXT REFERENCES runs(id) ON DELETE SET NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX idx_note_versions_note ON note_versions(note_id, created_at DESC)`,
+    // 为现存 project 条目建档案行（folder/note 等其他 kind 不建档）。
+    `INSERT INTO projects (id, created_at, updated_at)
+      SELECT id, updated_at, updated_at FROM workspace_entries WHERE kind='project'`,
+    // 会话迁移 scope → project_id：'home'/'sources'/'projects' 与孤儿（条目已删除或非 project）
+    // 不命中 JOIN，落入 NULL 通用池（裁决 5）；消息 JSON 原样保留。
+    `INSERT INTO sessions (id, project_id, title, messages, created_at, updated_at)
+      SELECT c.id, p.id, c.title, c.messages, c.created_at, c.updated_at
+      FROM chat_sessions c LEFT JOIN projects p ON p.id = c.scope`,
+    // 旧表只读保留（回滚窗口），停用其索引；后续迁移版本再 DROP TABLE chat_sessions。
+    `DROP INDEX idx_chat_sessions_scope`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {

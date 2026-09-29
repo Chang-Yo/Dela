@@ -1,47 +1,133 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runAgent } from '../run';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { runAgent, type ChatContentPart } from '../run';
+import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
 
-afterEach(() => vi.unstubAllGlobals());
-const answer = (message: unknown) =>
-  new Response(JSON.stringify({ choices: [{ message }] }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
-const call = (args = '{"id":1}') => ({
-  content: null,
-  tool_calls: [
-    { id: 'call1', type: 'function', function: { name: 'read_resource', arguments: args } },
-  ],
-});
-// SSE 流式响应：每个事件一行 data: 载荷，末尾补 [DONE] 结束流。
-const stream = (payloads: unknown[]) =>
-  new Response(
-    [...payloads.map((payload) => `data: ${JSON.stringify(payload)}\n\n`), 'data: [DONE]\n\n'].join(
-      '',
-    ),
-    { headers: { 'Content-Type': 'text/event-stream' } },
-  );
-const delta = (partial: object) => ({ choices: [{ delta: partial }] });
-const options = () => ({
-  baseUrl: 'https://model.example.test/v1',
-  model: 'test',
+type ChatPart = { type: string; text?: string; image_url?: { url: string } };
+type ChatMessage = {
+  role: string;
+  content: unknown;
+  tool_calls?: { id: string; type: string; function: { name: string; arguments: string } }[];
+  tool_call_id?: string;
+  reasoning_content?: string;
+};
+type ChatRequestBody = {
+  model?: string;
+  stream?: boolean;
+  store?: boolean;
+  messages?: ChatMessage[];
+  tools?: { type: string; function: { name: string; parameters: Record<string, unknown> } }[];
+  reasoning_effort?: string;
+  max_tokens?: number;
+  max_completion_tokens?: number;
+};
+const bodyOf = (request: RecordedRequest) => request.body as ChatRequestBody;
+const NUDGE =
+  '已接近本次执行步数上限，请直接总结已完成的工作并给出最终回答，不要发起新的工具调用。';
+
+const readTool = {
+  type: 'function' as const,
+  function: {
+    name: 'read_resource',
+    description: '读取资源',
+    parameters: {
+      type: 'object',
+      properties: { id: { type: 'number', description: '资源 ID' } },
+      required: ['id'],
+    },
+  },
+};
+
+let server: MockOpenAiServer;
+
+const makeOptions = () => ({
+  baseUrl: server.baseUrl,
+  model: 'test-model',
   key: 'test-only',
-  messages: [{ role: 'user', content: 'read' }],
-  tools: [],
+  messages: [
+    { role: 'system', content: '你是测试助手' },
+    { role: 'user', content: 'read' },
+  ],
+  tools: [readTool],
   signal: new AbortController().signal,
   execute: vi.fn().mockResolvedValue({ ok: true, result: 'body' }),
-  retryDelays: [0, 0],
+  // 默认不重试：错误分支要么断言单次失败，要么显式传入 0 延迟退避。
+  retryDelays: [] as number[],
 });
 
-describe('Agent loop', () => {
-  it('feeds the matching tool result into the next model turn', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(answer(call()))
-      .mockResolvedValueOnce(answer({ content: 'Done' }));
-    vi.stubGlobal('fetch', fetcher);
-    const input = options();
+/** 一轮工具调用响应：按 index 聚合的 name + arguments 分片，finish 为 tool_calls。 */
+const toolCallSse = (id: string, name = 'read_resource', args = '{"id":1}') => ({
+  kind: 'sse' as const,
+  frames: [
+    mockFrames.toolCallDelta({ index: 0, id, name }),
+    mockFrames.toolCallDelta({ index: 0, arguments: args }),
+    mockFrames.finishFrame('tool_calls'),
+  ],
+});
+const textSse = (text: string) => ({
+  kind: 'sse' as const,
+  frames: [mockFrames.textDelta(text), mockFrames.finishFrame('stop')],
+});
+
+describe('runAgent（Pi Agent Core 桥）', () => {
+  beforeAll(async () => {
+    server = await MockOpenAiServer.start();
+  });
+
+  afterAll(async () => {
+    await server.close();
+  });
+
+  it('a. 流式文本：onText 收到本轮累计文本，请求装配带模型与输出上限', async () => {
+    const before = server.requests.length;
+    server.enqueue({
+      kind: 'sse',
+      frames: [
+        mockFrames.textDelta('你'),
+        mockFrames.textDelta('好'),
+        mockFrames.textDelta('！'),
+        mockFrames.finishFrame('stop'),
+      ],
+    });
+    const onText = vi.fn();
+    const result = await runAgent({ ...makeOptions(), onText });
+    expect(onText.mock.calls.map(([text]) => text)).toEqual(['你', '你好', '你好！']);
+    expect(result.content).toBe('你好！');
+    expect(result.toolResults).toEqual([]);
+    const first = server.requests[before]!;
+    expect(first.url).toBe('/v1/chat/completions');
+    expect(first.authorization).toBe('Bearer test-only');
+    const body = bodyOf(first);
+    expect(body.model).toBe('test-model');
+    expect(body.stream).toBe(true);
+    expect(body.messages?.[0]?.role).toBe('system');
+    expect(body.messages?.at(-1)?.role).toBe('user');
+    // 未开启推理强度时不携带 reasoning_effort；输出上限按 streamFn 包装注入。
+    expect(body.reasoning_effort).toBeUndefined();
+    expect(body.max_completion_tokens).toBe(32768);
+  });
+
+  it('effort 档位随每个请求下发，none 视为关闭不下发', async () => {
+    const before = server.requests.length;
+    server.enqueue(toolCallSse('call-effort'));
+    server.enqueue(textSse('Done'));
+    await runAgent({ ...makeOptions(), effort: 'high' });
+    for (const request of server.requests.slice(before)) {
+      expect(bodyOf(request).reasoning_effort).toBe('high');
+      expect(bodyOf(request).max_completion_tokens).toBe(32768);
+    }
+    server.enqueue(textSse('Quiet'));
+    await runAgent({ ...makeOptions(), effort: 'none' });
+    expect(bodyOf(server.requests.at(-1)!).reasoning_effort).toBeUndefined();
+  });
+
+  it('b. 工具往返：入参已解析、结果以 JSON 回灌、事件形状对齐持久化层', async () => {
+    const before = server.requests.length;
+    server.enqueue(toolCallSse('call1'));
+    server.enqueue(textSse('Done'));
+    const input = makeOptions();
     const onToolStart = vi.fn();
-    const result = await runAgent({ ...input, onToolStart });
+    const onToolResult = vi.fn();
+    const result = await runAgent({ ...input, onToolStart, onToolResult });
     // 开始执行即收到解析后的输入：时间线可以先行展示动作摘要。
     expect(onToolStart).toHaveBeenCalledWith({
       id: 'call1',
@@ -50,182 +136,64 @@ describe('Agent loop', () => {
     });
     expect(input.execute).toHaveBeenCalledWith('read_resource', { id: 1 });
     expect(result.content).toBe('Done');
-    // 端点由提供商配置拼接：{baseUrl}/chat/completions。
-    expect(fetcher.mock.calls[0]![0]).toBe('https://model.example.test/v1/chat/completions');
-    // 未开启推理强度时不携带 reasoning_effort 字段。
-    expect(JSON.parse(fetcher.mock.calls[0]![1].body).reasoning_effort).toBeUndefined();
-    const second = JSON.parse(fetcher.mock.calls[1]![1].body);
-    expect(second.messages.at(-1)).toEqual({
+    // 工具声明：JSON Schema 原样进入 function.parameters。
+    const first = bodyOf(server.requests[before]!);
+    expect(first.tools?.[0]?.function).toMatchObject({ name: 'read_resource' });
+    expect(first.tools?.[0]?.function.parameters).toMatchObject({
+      type: 'object',
+      properties: { id: { type: 'number' } },
+      required: ['id'],
+    });
+    // 回灌：assistant 携带 tool_calls，其后跟 role:'tool' 的结果消息。
+    const second = bodyOf(server.requests[before + 1]!);
+    const toolMessage = second.messages?.find((message) => message.role === 'tool');
+    expect(toolMessage).toMatchObject({
       role: 'tool',
       tool_call_id: 'call1',
       content: JSON.stringify({ ok: true, result: 'body' }),
     });
     expect(result.toolResults).toHaveLength(1);
+    expect(result.toolResults[0]).toMatchObject({
+      id: 'call1',
+      name: 'read_resource',
+      input: { id: 1 },
+      output: { ok: true, result: 'body' },
+    });
+    expect(onToolResult).toHaveBeenCalledWith(result.toolResults[0]);
   });
 
-  it('sends reasoning_effort on every model request when an effort level is set', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(answer(call()))
-      .mockResolvedValueOnce(answer({ content: 'Done' }));
-    vi.stubGlobal('fetch', fetcher);
-    await runAgent({ ...options(), effort: 'high' });
-    for (const call of fetcher.mock.calls) {
-      expect(JSON.parse(call[1].body).reasoning_effort).toBe('high');
-    }
-  });
-
-  it('returns malformed arguments to the model without executing them', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(answer(call('invalid')))
-        .mockResolvedValueOnce(answer({ content: 'Corrected' })),
-    );
-    const input = options();
+  it('b. 非法工具参数不执行，以 INVALID_INPUT 外壳回灌模型', async () => {
+    server.enqueue(toolCallSse('call-bad', 'read_resource', '{}'));
+    server.enqueue(textSse('Corrected'));
+    const input = makeOptions();
     const result = await runAgent(input);
     expect(input.execute).not.toHaveBeenCalled();
     expect(result.toolResults[0]!.output).toMatchObject({
       ok: false,
-      error: { code: 'INVALID_JSON' },
+      error: { code: 'INVALID_INPUT' },
+    });
+    const toolMessage = bodyOf(server.requests.at(-1)!).messages!.find(
+      (message) => message.role === 'tool',
+    )!;
+    expect(String(toolMessage.content)).toContain('Validation failed');
+  });
+
+  it('b. 未知工具名映射为 UNKNOWN_TOOL 外壳', async () => {
+    server.enqueue(toolCallSse('call-unknown', 'nonexistent', '{}'));
+    server.enqueue(textSse('Fine'));
+    const input = makeOptions();
+    const result = await runAgent(input);
+    expect(input.execute).not.toHaveBeenCalled();
+    expect(result.toolResults[0]!.output).toMatchObject({
+      ok: false,
+      error: { code: 'UNKNOWN_TOOL' },
     });
   });
 
-  it('honors cancellation before making a request', async () => {
-    const fetcher = vi.fn();
-    vi.stubGlobal('fetch', fetcher);
-    await expect(runAgent({ ...options(), signal: AbortSignal.abort() })).rejects.toThrow();
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it('does not repeat completed mutations when the next model request fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(answer(call()))
-        .mockResolvedValue(new Response('', { status: 503 })),
-    );
-    const input = options();
-    const onToolResult = vi.fn();
-    await expect(runAgent({ ...input, onToolResult })).rejects.toThrow('503');
-    expect(input.execute).toHaveBeenCalledTimes(1);
-    expect(onToolResult).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries transient server errors without re-executing tools', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(new Response('', { status: 503 }))
-      .mockResolvedValueOnce(new Response('', { status: 429 }))
-      .mockResolvedValueOnce(answer({ content: 'Recovered' }));
-    vi.stubGlobal('fetch', fetcher);
-    const input = options();
-    const result = await runAgent(input);
-    expect(result.content).toBe('Recovered');
-    expect(input.execute).not.toHaveBeenCalled();
-    expect(fetcher).toHaveBeenCalledTimes(3);
-  });
-
-  it('does not retry permanent client errors', async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 400 }));
-    vi.stubGlobal('fetch', fetcher);
-    await expect(runAgent(options())).rejects.toThrow('400');
-    expect(fetcher).toHaveBeenCalledTimes(1);
-  });
-
-  it('requests the raised output ceiling on every round', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(answer(call()))
-      .mockResolvedValueOnce(answer({ content: 'Done' }));
-    vi.stubGlobal('fetch', fetcher);
-    await runAgent(options());
-    for (const call of fetcher.mock.calls) {
-      expect(JSON.parse(call[1].body).max_tokens).toBe(32768);
-    }
-  });
-
-  it('falls back to the safe ceiling when the provider rejects max_tokens', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response('{"error":{"message":"max_tokens must be less than or equal to 8192"}}', {
-          status: 400,
-        }),
-      )
-      .mockResolvedValueOnce(answer({ content: 'Done' }));
-    vi.stubGlobal('fetch', fetcher);
-    const input = options();
-    const result = await runAgent(input);
-    expect(result.content).toBe('Done');
-    expect(input.execute).not.toHaveBeenCalled();
-    expect(JSON.parse(fetcher.mock.calls[0]![1].body).max_tokens).toBe(32768);
-    expect(JSON.parse(fetcher.mock.calls[1]![1].body).max_tokens).toBe(8192);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-  });
-
-  it('keeps a max_tokens rejection at the fallback ceiling as a failure', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response('{"error":{"message":"max_tokens is too large"}}', { status: 400 }),
-      );
-    vi.stubGlobal('fetch', fetcher);
-    await expect(runAgent(options())).rejects.toThrow('400');
-    expect(fetcher).toHaveBeenCalledTimes(2);
-  });
-
-  it('streams reasoning_content deltas as accumulated onReasoning text', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          stream([
-            delta({ reasoning_content: '想' }),
-            delta({ reasoning_content: '一下' }),
-            delta({ content: '答' }),
-            delta({ content: '案' }),
-          ]),
-        ),
-    );
-    const onReasoning = vi.fn();
-    const result = await runAgent({ ...options(), onReasoning });
-    expect(onReasoning.mock.calls.map(([text]) => text)).toEqual(['想', '想一下']);
-    expect(result.content).toBe('答案');
-  });
-
-  it('accepts OpenRouter-style reasoning deltas', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(stream([delta({ reasoning: '思考' }), delta({ content: '回' })])),
-    );
-    const onReasoning = vi.fn();
-    const result = await runAgent({ ...options(), onReasoning });
-    expect(onReasoning).toHaveBeenCalledWith('思考');
-    expect(result.content).toBe('回');
-  });
-
-  it('reads reasoning_content from non-streaming responses', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValueOnce(answer({ content: 'Ok', reasoning_content: '想了想' })),
-    );
-    const onReasoning = vi.fn();
-    const result = await runAgent({ ...options(), onReasoning });
-    expect(onReasoning).toHaveBeenCalledWith('想了想');
-    expect(result.content).toBe('Ok');
-  });
-
-  it('attaches tool page images as a synthetic user message after tool results', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(answer(call()))
-      .mockResolvedValueOnce(answer({ content: 'Seen' }));
-    vi.stubGlobal('fetch', fetcher);
-    const input = options();
+  it('b. 工具页图像经合成 user 消息附出，工具结果与持久化输出只留元数据', async () => {
+    server.enqueue(toolCallSse('call-img'));
+    server.enqueue(textSse('Seen'));
+    const input = makeOptions();
     input.execute.mockResolvedValueOnce({
       ok: true,
       result: {
@@ -237,30 +205,27 @@ describe('Agent loop', () => {
     const onToolResult = vi.fn();
     const result = await runAgent({ ...input, onToolResult });
     expect(result.content).toBe('Seen');
-    const second = JSON.parse(fetcher.mock.calls[1]![1].body);
-    const toolMessage = second.messages.find(
-      (message: { role: string }) => message.role === 'tool',
-    );
-    // tool 消息与持久化输出只留元数据，base64 不进字符串结果与数据库。
-    expect(toolMessage.content).not.toContain('data:image');
+    const second = bodyOf(server.requests.at(-1)!);
+    const toolMessage = second.messages!.find((message) => message.role === 'tool')!;
+    expect(String(toolMessage.content)).not.toContain('data:image');
+    expect(String(toolMessage.content)).toContain('【read_resource 附图】《Scan.pdf》第 1 页');
     expect(JSON.stringify(onToolResult.mock.calls[0]![0].output)).not.toContain('data:image');
     // 页图像走标准多模态 parts：以合成 user 消息附在工具结果之后。
-    expect(second.messages.at(-1)).toEqual({
-      role: 'user',
-      content: [
-        { type: 'text', text: '【read_resource 附图】《Scan.pdf》第 1 页' },
-        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,QUJD' } },
-      ],
-    });
+    const attachment = second.messages!.at(-1)!;
+    expect(attachment.role).toBe('user');
+    const parts = attachment.content as ChatPart[];
+    expect(
+      parts.some(
+        (part) =>
+          part.type === 'image_url' && part.image_url?.url === 'data:image/jpeg;base64,QUJD',
+      ),
+    ).toBe(true);
   });
 
-  it('caps attached page images per run and reports the remainder', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(answer(call()))
-      .mockResolvedValueOnce(answer({ content: 'Enough' }));
-    vi.stubGlobal('fetch', fetcher);
-    const input = options();
+  it('b. 附图按每运行 12 张封顶并提示余量', async () => {
+    server.enqueue(toolCallSse('call-big'));
+    server.enqueue(textSse('Enough'));
+    const input = makeOptions();
     input.execute.mockResolvedValueOnce({
       ok: true,
       result: {
@@ -272,46 +237,250 @@ describe('Agent loop', () => {
       },
     });
     await runAgent(input);
-    const second = JSON.parse(fetcher.mock.calls[1]![1].body);
-    const attachment = second.messages.at(-1);
+    const second = bodyOf(server.requests.at(-1)!);
+    const attachment = second.messages!.at(-1)!;
     expect(attachment.role).toBe('user');
     expect(
-      attachment.content.filter((part: { type: string }) => part.type === 'image_url'),
+      (attachment.content as ChatPart[]).filter((part) => part.type === 'image_url'),
     ).toHaveLength(12);
-    expect(attachment.content.at(-1).text).toContain('上限');
+    const toolMessage = second.messages!.find((message) => message.role === 'tool')!;
+    expect(String(toolMessage.content)).toContain('上限');
   });
 
-  it('reports each round reasoning separately and never feeds reasoning back to the model', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(
-        stream([
-          delta({ reasoning_content: '第一轮思考' }),
-          delta({ tool_calls: [{ index: 0, ...call().tool_calls[0] }] }),
-        ]),
-      )
-      .mockResolvedValueOnce(
-        stream([delta({ reasoning_content: '第二轮思考' }), delta({ content: '完成' })]),
-      );
-    vi.stubGlobal('fetch', fetcher);
+  it('b. 超长工具结果回灌时截断，持久化输出保留全文', async () => {
+    server.enqueue(toolCallSse('call-large'));
+    server.enqueue(textSse('Ok'));
+    const input = makeOptions();
+    input.execute.mockResolvedValueOnce({ ok: true, result: 'x'.repeat(21000) });
+    const onToolResult = vi.fn();
+    await runAgent({ ...input, onToolResult });
+    const toolMessage = bodyOf(server.requests.at(-1)!).messages!.find(
+      (message) => message.role === 'tool',
+    )!;
+    const fedBack = String(toolMessage.content);
+    expect(fedBack.length).toBeLessThanOrEqual(21000);
+    expect(fedBack).toContain('结果过大已截断');
+    expect((onToolResult.mock.calls[0]![0].output as { result: string }).result).toHaveLength(
+      21000,
+    );
+  });
+
+  it('c. 用户中途 abort：runAgent 抛出，已产出内容已回调', async () => {
+    server.enqueue({
+      kind: 'sse',
+      frames: [
+        mockFrames.textDelta('部分回答'),
+        // 慢流：第二个增量前挂起，收到第一个增量后取消。
+        { data: { choices: [{ index: 0, delta: { content: '迟到内容' } }] }, delayMs: 8000 },
+        mockFrames.finishFrame('stop'),
+      ],
+    });
+    const controller = new AbortController();
+    const onText = vi.fn((text: string) => {
+      if (text === '部分回答') controller.abort();
+    });
+    // abort 以异常形式抛出（manager 靠 catch + signal.aborted 判断 stopped）。
+    await expect(
+      runAgent({ ...makeOptions(), signal: controller.signal, onText }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(onText).toHaveBeenCalledWith('部分回答');
+  });
+
+  it('c. 请求发出前已取消则直接抛出，不发请求', async () => {
+    const before = server.requests.length;
+    await expect(runAgent({ ...makeOptions(), signal: AbortSignal.abort() })).rejects.toThrow();
+    expect(server.requests.length).toBe(before);
+  });
+
+  it('d. 永久性客户端错误不重试，抛出含状态码的中文错误', async () => {
+    const before = server.requests.length;
+    server.enqueue({
+      kind: 'status',
+      status: 400,
+      json: { error: { message: 'bad request' } },
+    });
+    await expect(runAgent(makeOptions())).rejects.toThrow('模型请求失败（HTTP 400）');
+    expect(server.requests.length - before).toBe(1);
+  });
+
+  it('d. 429/5xx 瞬时错误按退避重试后恢复，不重复执行工具', async () => {
+    const before = server.requests.length;
+    server.enqueue({ kind: 'status', status: 503 });
+    server.enqueue({ kind: 'status', status: 429 });
+    server.enqueue(textSse('Recovered'));
+    const result = await runAgent({ ...makeOptions(), retryDelays: [0, 0] });
+    expect(result.content).toBe('Recovered');
+    expect(server.requests.length - before).toBe(3);
+  });
+
+  it('d. 重试耗尽后抛出，仍含状态码', async () => {
+    const before = server.requests.length;
+    server.enqueue({ kind: 'status', status: 429 });
+    server.enqueue({ kind: 'status', status: 429 });
+    server.enqueue({ kind: 'status', status: 429 });
+    await expect(runAgent({ ...makeOptions(), retryDelays: [0, 0] })).rejects.toThrow(
+      '模型请求失败（HTTP 429）',
+    );
+    expect(server.requests.length - before).toBe(3);
+  });
+
+  it('d. 工具完成后的下一轮请求失败不重复执行已完成变更', async () => {
+    server.enqueue(toolCallSse('call-mid'));
+    server.enqueue({ kind: 'status', status: 503 });
+    const input = makeOptions();
+    const onToolResult = vi.fn();
+    await expect(runAgent({ ...input, onToolResult })).rejects.toThrow('模型请求失败（HTTP 503）');
+    expect(input.execute).toHaveBeenCalledTimes(1);
+    expect(onToolResult).toHaveBeenCalledTimes(1);
+  });
+
+  it('e. max_tokens 被拒时降参到 8192 重发', async () => {
+    const before = server.requests.length;
+    server.enqueue({
+      kind: 'status',
+      status: 400,
+      json: {
+        error: { message: 'max_completion_tokens must be less than or equal to 8192' },
+      },
+    });
+    server.enqueue(textSse('Done'));
+    const result = await runAgent(makeOptions());
+    expect(result.content).toBe('Done');
+    expect(bodyOf(server.requests[before]!).max_completion_tokens).toBe(32768);
+    expect(bodyOf(server.requests[before + 1]!).max_completion_tokens).toBe(8192);
+    expect(server.requests.length - before).toBe(2);
+  });
+
+  it('e. 降参后仍被拒则失败，不再无限降级', async () => {
+    const before = server.requests.length;
+    server.enqueue({
+      kind: 'status',
+      status: 400,
+      json: { error: { message: 'max_completion_tokens is too large' } },
+    });
+    server.enqueue({
+      kind: 'status',
+      status: 400,
+      json: { error: { message: 'max_completion_tokens is too large' } },
+    });
+    await expect(runAgent(makeOptions())).rejects.toThrow('模型请求失败（HTTP 400）');
+    expect(server.requests.length - before).toBe(2);
+  });
+
+  it('f. 思考增量按轮回调，回灌请求不携带 reasoning_content（L1 剥离）', async () => {
+    const before = server.requests.length;
+    server.enqueue({
+      kind: 'sse',
+      frames: [
+        mockFrames.reasoningDelta('第一轮思考'),
+        mockFrames.toolCallDelta({ index: 0, id: 'call-f', name: 'read_resource' }),
+        mockFrames.toolCallDelta({ index: 0, arguments: '{"id":1}' }),
+        mockFrames.finishFrame('tool_calls'),
+      ],
+    });
+    server.enqueue({
+      kind: 'sse',
+      frames: [
+        mockFrames.reasoningDelta('第二轮思考'),
+        mockFrames.textDelta('完成'),
+        mockFrames.finishFrame('stop'),
+      ],
+    });
     const onReasoning = vi.fn();
-    const result = await runAgent({ ...options(), onReasoning });
+    const result = await runAgent({ ...makeOptions(), onReasoning });
     expect(onReasoning.mock.calls.map(([text]) => text)).toEqual(['第一轮思考', '第二轮思考']);
     expect(result.content).toBe('完成');
+    const second = bodyOf(server.requests[before + 1]!);
+    const assistant = second.messages!.find((message) => message.role === 'assistant')!;
     // 回灌给模型的 assistant 消息不得携带 reasoning_content（DeepSeek 明确要求不回传）。
-    const second = JSON.parse(fetcher.mock.calls[1]![1].body);
-    expect(second.messages).toEqual([
-      { role: 'user', content: 'read' },
-      {
-        role: 'assistant',
-        content: '',
-        tool_calls: call().tool_calls,
-      },
-      {
-        role: 'tool',
-        tool_call_id: 'call1',
-        content: JSON.stringify({ ok: true, result: 'body' }),
-      },
+    expect(assistant.reasoning_content).toBeUndefined();
+    expect(assistant.tool_calls).toMatchObject([
+      { id: 'call-f', type: 'function', function: { name: 'read_resource' } },
     ]);
+  });
+
+  it('g. 第 12 轮前注入收尾提示，第 12 轮仍调工具则按上限结束', async () => {
+    const before = server.requests.length;
+    for (let round = 1; round <= 12; round += 1) {
+      server.enqueue(toolCallSse(`call-${round}`));
+    }
+    const input = makeOptions();
+    const result = await runAgent(input);
+    expect(server.requests.length - before).toBe(12);
+    // 前 11 轮没有提示；第 12 轮请求在工具结果之后带收尾提示 user 消息。
+    for (let index = 0; index < 11; index += 1) {
+      const messages = bodyOf(server.requests[before + index]!).messages!;
+      expect(messages.some((message) => message.role === 'user' && message.content === NUDGE)).toBe(
+        false,
+      );
+    }
+    const twelfth = bodyOf(server.requests[before + 11]!).messages!;
+    expect(twelfth.some((message) => message.role === 'user' && message.content === NUDGE)).toBe(
+      true,
+    );
+    // 第 12 轮的工具调用仍执行（结果保留），随后以上限文案收尾。
+    expect(input.execute).toHaveBeenCalledTimes(12);
+    expect(result.toolResults).toHaveLength(12);
+    expect(result.content).toBe('已达到本次执行步数上限。已完成的操作保留，请查看工具结果后继续。');
+  });
+
+  it('g. 第 12 轮不再调用工具则正常返回该轮回答', async () => {
+    const before = server.requests.length;
+    for (let round = 1; round <= 11; round += 1) {
+      server.enqueue(toolCallSse(`call-final-${round}`));
+    }
+    server.enqueue(textSse('总结收尾'));
+    const result = await runAgent(makeOptions());
+    expect(server.requests.length - before).toBe(12);
+    expect(result.content).toBe('总结收尾');
+  });
+
+  it('末轮输出被长度上限截断时按旧语义报错', async () => {
+    server.enqueue({
+      kind: 'sse',
+      frames: [mockFrames.textDelta('半截回答'), mockFrames.finishFrame('length')],
+    });
+    await expect(runAgent(makeOptions())).rejects.toThrow('模型输出达到长度限制');
+  });
+
+  it('携带重建的历史消息上下文', async () => {
+    const before = server.requests.length;
+    server.enqueue(textSse('第二答'));
+    const result = await runAgent({
+      ...makeOptions(),
+      messages: [
+        { role: 'system', content: '你是测试助手' },
+        { role: 'user', content: '第一问' },
+        { role: 'assistant', content: '第一答' },
+        { role: 'user', content: '第二问' },
+      ],
+    });
+    expect(result.content).toBe('第二答');
+    const roles = bodyOf(server.requests[before]!).messages!.map((message) => message.role);
+    expect(roles).toEqual(['system', 'user', 'assistant', 'user']);
+  });
+
+  it('用户消息里的内联图片以多模态 parts 下发', async () => {
+    const before = server.requests.length;
+    server.enqueue(textSse('看到图片'));
+    const content: ChatContentPart[] = [
+      { type: 'text', text: '看图' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,QUJD' } },
+    ];
+    await runAgent({
+      ...makeOptions(),
+      messages: [
+        { role: 'system', content: '你是测试助手' },
+        { role: 'user', content },
+      ],
+    });
+    const user = bodyOf(server.requests[before]!).messages!.at(-1)!;
+    const parts = user.content as ChatPart[];
+    expect(parts.some((part) => part.type === 'text' && part.text === '看图')).toBe(true);
+    expect(
+      parts.some(
+        (part) => part.type === 'image_url' && part.image_url?.url === 'data:image/png;base64,QUJD',
+      ),
+    ).toBe(true);
   });
 });

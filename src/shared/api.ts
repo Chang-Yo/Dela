@@ -7,6 +7,7 @@ import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
 import type { NotificationsApi } from './notifications';
 import type { SearchApi } from './search';
+import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
@@ -28,6 +29,7 @@ export interface DelaApi {
   readonly shuiyuan: ShuiyuanApi;
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
+  readonly session: SessionApi;
   readonly search: SearchApi;
   readonly notifications: NotificationsApi;
 }
@@ -130,6 +132,13 @@ export type {
 } from './workspace';
 export { workspaceArchiveId } from './workspace';
 
-export type { AgentToolResult, ChatSessionSummary, WorkspaceChat } from './session';
+export type {
+  AgentToolResult,
+  ChatSessionSummary,
+  WorkspaceChat,
+  SessionApi,
+  RunEvent,
+  RunStatus,
+} from './session';
 
 export type { TodoStatus, TodoItem, TodoState, TodoSaveInput, TodoApi } from './todo';

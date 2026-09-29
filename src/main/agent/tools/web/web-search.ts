@@ -3,7 +3,7 @@ import { tool } from '../shared';
 import { searchWeb } from './searxng';
 
 export const webSearchTool = tool(
-  '联网搜索网页，返回标题、链接和摘要；需要具体内容时对链接调用 fetch_page。中英文均可。',
+  '联网搜索网页，返回标题、链接和摘要；只读。需要具体内容时对链接调用 fetch_page。中英文均可。',
   z
     .object({
       query: z.string().trim().min(1).max(400),

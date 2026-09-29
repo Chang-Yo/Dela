@@ -1,12 +1,19 @@
 import { z } from 'zod';
 import { saveWorkspaceNote } from '../../../workspace/api';
-import { tool, uuid } from '../shared';
+import { tool, toolError, uuid } from '../shared';
 
 export const writeNoteTool = tool(
-  '替换 Markdown 笔记正文。必须先读取并提供当前 revision；版本不匹配时重新读取，不盲目重试。',
+  '整篇替换 Markdown 笔记正文（本地写）。必须先用 read_resource 读取并携带返回的 revision；版本不匹配（VERSION_CONFLICT）说明笔记已在外部变化，重新读取最新内容后再写，不要盲目重试。小改动优先用 edit_note。',
   z.object({ id: uuid, text: z.string().max(1000000), revision: z.string().min(1) }).strict(),
-  ({ id, text, revision }) => ({
-    ref: { type: 'workspace', id },
-    revision: saveWorkspaceNote(id, text, revision),
-  }),
+  async ({ id, text, revision }) => {
+    try {
+      const next = saveWorkspaceNote(id, text, revision, { recordVersion: true });
+      return { ref: { type: 'workspace', id }, revision: next };
+    } catch (error) {
+      // saveWorkspaceNote 的版本冲突消息保持原文，错误码统一为 VERSION_CONFLICT。
+      if (error instanceof Error && error.message.includes('外部修改'))
+        throw toolError('VERSION_CONFLICT', error.message);
+      throw error;
+    }
+  },
 );

@@ -117,7 +117,8 @@ export function releaseChatAttachments(ids: readonly string[]): void {
 /** 删除没有被任何会话消息引用的图片文件；在应用启动、数据库可用后调用。 */
 export function gcChatMedia(): void {
   const referenced = new Set<string>();
-  const rows = getDatabase().prepare('SELECT messages FROM chat_sessions').all() as {
+  // v13 起会话历史在 sessions 表（chat_sessions 已停写保留）。
+  const rows = getDatabase().prepare('SELECT messages FROM sessions').all() as {
     messages: string;
   }[];
   for (const row of rows) {

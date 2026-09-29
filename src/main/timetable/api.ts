@@ -494,6 +494,53 @@ export function deleteCalendarEvent(id: unknown) {
   getDatabase().prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
 }
 
+/** 读取单条自建日历事件（calendar_events 表只读视图）；不存在返回 null。 */
+export function getCalendarEvent(idInput: unknown): CalendarEvent | null {
+  const id = z.number().int().positive().parse(idInput);
+  const row = getDatabase()
+    .prepare(
+      'SELECT id, title, start_at, end_at, location, color FROM calendar_events WHERE id = ?',
+    )
+    .get(id) as CalendarEventRow | undefined;
+  return row ? mapEvent(row) : null;
+}
+
+/** 已同步学期状态（timetable_sync 表只读视图；手动补设学期日期会产生 last_synced_at 为空的行）。 */
+export interface SemesterSyncStatus {
+  readonly semester: string;
+  readonly lastSyncedAt: string | null;
+  readonly semesterStart: string | null;
+}
+
+export function listSyncedSemesters(): SemesterSyncStatus[] {
+  const rows = getDatabase()
+    .prepare(
+      'SELECT semester, last_synced_at, semester_start FROM timetable_sync ORDER BY semester',
+    )
+    .all() as { semester: string; last_synced_at: string; semester_start: string | null }[];
+  return rows.map((row) => ({
+    semester: row.semester,
+    lastSyncedAt: row.last_synced_at || null,
+    semesterStart: row.semester_start,
+  }));
+}
+
+/** 按本地时钟推断当前学期并显式给出推断依据（系统时间错误会让推断出错）。 */
+export function currentSemesterInfo(now = new Date()): { semester: string; basis: string } {
+  const semester = currentSemester(now);
+  const month = now.getMonth() + 1;
+  const label =
+    month >= 9
+      ? '9 月及以后属第一学期'
+      : month <= 2
+        ? '1–2 月仍属上一学年第一学期'
+        : month <= 7
+          ? '3–7 月属第二学期'
+          : '8 月属第三学期（暑期）';
+  const date = `${now.getFullYear()}-${String(month).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return { semester, basis: `按本机时钟 ${date} 推断：${label}` };
+}
+
 export async function getTimetableState(requested?: unknown): Promise<TimetableState> {
   const semester = resolveSemester(requested);
   const row = syncRow(semester);
