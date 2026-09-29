@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { errorText } from '../../projects/workspace';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepTextarea, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
 

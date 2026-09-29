@@ -10,7 +10,7 @@ import type {
   ShuiyuanTopicDetail,
   ShuiyuanTopicSummary,
 } from '../../../shared/api';
-import { errorText } from '../projects/workspace';
+import { errorText } from '../../workspace/store';
 
 /** 信息流来源：站点 feed（latest/featured/category/tag/search）或个人列表。 */
 export type ListSelection =

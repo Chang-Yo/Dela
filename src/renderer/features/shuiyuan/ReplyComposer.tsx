@@ -16,8 +16,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
-import { MarkdownEditor } from '../projects/MarkdownEditor';
-import { errorText } from '../projects/workspace';
+import { MarkdownEditor } from '../../content/note/MarkdownEditor';
+import { errorText } from '../../workspace/store';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 

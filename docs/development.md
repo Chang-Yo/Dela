@@ -60,7 +60,6 @@ pnpm dev
 | `pnpm smoke`                                | 生产构建产物在 Electron 内的 SQLite 读写、React 渲染与 preload 隔离                                                                                          |
 | `pnpm smoke:workspace`                      | 工作区全链路：分页与失败缓存、共享来源引用、文件夹转项目、移动循环校验、外部编辑冲突、删除关联保留原件、标签/滚动/会话恢复、模型上下文范围、磁盘目录树与迁移 |
 | `pnpm exec electron scripts/mail-smoke.cjs` | 邮箱 UI：HTML 隔离、侧栏折叠、写邮件交互、未读数、请求竞态、窄屏布局与两级抽屉                                                                               |
-| `pnpm exec electron scripts/chat-smoke.cjs` | 聊天 UI：composer 候选菜单、图文输入、动作时间线折叠、思考流展开/收起、草稿持久化                                                                            |
 | `pnpm smoke:pdf`                            | PDF.js 集成：合成 300 页文档的多标签、位置恢复、分段读取、画布内存上限；可传入 `app.asar` 路径验证包内资源                                                   |
 | `pnpm smoke:shuiyuan`                       | 水源：信息流、分页、阅读推入、楼层 iframe 隔离、通知已读、搜索                                                                                               |
 | `node scripts/campus-session-smoke.mjs`     | 校园会话加密快照：三个进程间的 Cookie 恢复、保留与断开清除                                                                                                   |

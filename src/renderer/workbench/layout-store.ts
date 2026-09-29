@@ -19,6 +19,7 @@ import {
   nodeAtPath,
   parseWorkbenchLayout,
   removeGroup,
+  removeStoredLegacyLayout,
   replaceAtPath,
   replaceGroupNode,
   seedLayoutFromLegacy,
@@ -57,6 +58,20 @@ type Store = {
 
 // 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+// 当前项目布局成功落库后要清的旧视图键（3C）：dela.editor.layout.{scope} 是旧 ProjectView
+// 的布局事实（已迁移到 layout:{projectId}），agentOpen/agentWidth 是旧助手面板死键。
+// 布局保存失败不清理（下次变更重试）；项目快速切换时只清最后落库项目的键，
+// 未保存项目的旧键保留，供下次进入该项目时再次种子。
+let pendingLegacyScope: string | null = null;
+
+function clearLegacyViewKeys() {
+  if (pendingLegacyScope === null || typeof localStorage === 'undefined') return;
+  removeStoredLegacyLayout(pendingLegacyScope);
+  localStorage.removeItem('dela.workspace.agentOpen');
+  localStorage.removeItem('dela.workspace.agentWidth');
+  pendingLegacyScope = null;
+}
+
 function schedulePersist() {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
@@ -66,7 +81,8 @@ function schedulePersist() {
     const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
     void api
       .save(projectId, { root, focus, maximized })
-      // 持久化失败不打断布局操作；下次变更会重试。
+      // 持久化失败不打断布局操作；下次变更会重试。首次成功后清除旧视图 localStorage 键。
+      .then(clearLegacyViewKeys)
       .catch(() => {});
   }, PERSIST_DEBOUNCE_MS);
 }
@@ -94,6 +110,8 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const next =
       parseWorkbenchLayout(saved) ??
       (legacy ? seedLayoutFromLegacy(legacy) : createDefaultLayout());
+    // 无论本次布局来自保存还是旧数据种子，落库成功后该项目的旧布局键都已成为死键。
+    pendingLegacyScope = legacy?.scope ?? null;
     set({ projectId, root: next.root, focus: next.focus, maximized: next.maximized, ready: true });
     // 种子（含旧数据迁移）写回一次；loaded 场景写回相同数据无副作用。
     schedulePersist();

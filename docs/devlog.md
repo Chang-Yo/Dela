@@ -10,6 +10,18 @@
 
 ---
 
+## 2026-09-29（第十四轮）旧 features 退役与通道收敛：home/projects/sources/chat 删除、旧 scope 通道与 save-view 下线（阶段三·批次 3C）
+
+落实 [structure.md](refactor/structure.md) §6 第 3 步表与批次 3B 残留清单。应用已在 3B 切到 app/workbench/content/sessions/navigation/workspace 新架构，本批逐项 grep 验证零活引用后删除死代码并收敛旧通道。
+
+- **旧 features 全删**（37 文件）：`features/home/**`、`features/projects/**`（ProjectView/workspace/ProjectSidebar/ProjectDocument/AgentPanel/MarkdownEditor/NoteEditor/note-editor.css/index.ts 与旧 workspace.test.ts）、`features/sources/**`（SourcesView/SourceList/SourceDetail/CanvasTokenForm/canvas-connect/PdfReader/DocxPreview/SheetPreview/OfficePrompt/use-pinch-zoom/index.ts）、`features/chat/**` 全部。测试迁移：`note-editor.test.ts` → `content/note/`、`sheet-preview.test.ts` → `content/preview/`（两者相对导入同名文件，原样迁移；新目录此前无对应覆盖）。`workspace.test.ts` 场景已在 3A 移植进 `renderer/workspace/test/`，旧文件直接删。
+- **活引用改指**（删除前的 grep 验出，共 9 个文件）：`features/shuiyuan`（store/ReplyComposer/BindCard/NewMessageDialog/AddToProjectDialog）与 onboarding 四个 Step 的 `errorText` 改自 `workspace/store`；`MarkdownEditor` 改自 `content/note`（与旧文件逐字节一致）；AddToProjectDialog 的 `useWorkspace` → `useWorkspaceStore`（同字段签名）。onboarding CanvasStep 确认已指 `settings/connections`（3B 完成），仅剩 errorText 改指。
+- **旧 scope 通道下线**（`workspace:get-chat/new-chat/list-chats/open-chat/delete-chat/ask/cancel-ask` 7 个 invoke + preload 方法 + `WorkspaceApi` 对应签名）：main 侧删除 `session/manager.ts` 的 shim 段（scopeToProjectId/scopeBusy/newChat/openChat/deleteChat/listChats/cancelAsk/ask）、`session/ipc.ts` 的 workspace:* handle 包装、`store.ts` 的 `activeSession`/`resolveSession`/`getChat`、`subscriptions.ts` 的 `originScopes` 机制与 `publishChat`。**保留 `workspace:chat-update` 推送**：唯一活订阅者是 TimetableView（run 结束后刷新课表，agent 可能写日历），`publishSession` 改从 `session.project_id ?? 'home'` 推导 scope（originScopes 随旧 ask 通道删除而失去写者），preload `onChatUpdate` 与 `WorkspaceApi.onChatUpdate` 保留并在注释标注迁移方向（TimetableView 改订阅 session:on-run-event 终态后删除）。
+- **`workspace:save-view` 通道删除**：旧 ProjectView 是唯一写者。删 preload `saveView`、`WorkspaceApi.saveView`、main ipc handle 与 `saveWorkspaceView`；`view:%` 读路径保留（getWorkspaceState 仍返回 views 供 workbench 布局种子）。`shared/api.ts` 聚合中 `WorkspaceViewState` re-export 变零消费，一并移除（类型本体留在 shared/workspace.ts 供 WorkspaceState.views）。
+- **localStorage 死键清理**（layout-store.ts）：init 记录本项目的旧 scope，首次 `layout:save` 成功后清除 `dela.editor.layout.{scope}` 与助手面板死键 `dela.workspace.agentOpen/agentWidth`（读取残留随 ProjectView 删除已不存在）；保存失败不清理，快速切换项目时只清最后落库项目的键，未保存项目的旧键保留供下次种子。新增单测覆盖「失败保留、成功清除」。
+- **测试调整**：manager.test.ts 删除 7 项旧 scope shim 用例（activeSession 指针/互斥/懒创建语义随通道消亡），新增 2 项 newSession 项目归属用例（补建档案行、非 project 条目拒绝）保住仍存活语义的覆盖；integration.test.ts 的 `workspace:chat-update` 断言不改（通用会话推导 scope='home'，行为不变）。pdf-smoke 删除 `workspace:save-view` mock 路由（因本批失效）；chat-smoke/shuiyuan-smoke 中 `workspace:get-chat` mock 自 3B 起已无人调用，属预存残留未动。
+- 已验证：`pnpm typecheck` 三组零错、oxlint 0 警告、52 文件 461 项单测全绿（468 − 7 shim − 3 旧 workspace.test 重复 + 3 新增）、`pnpm build` 三 bundle、`pnpm smoke`（SQLite/renderer/preload 隔离）通过。待验证（实机）：TimetableView 经保留推送的课表刷新；旧用户首次进入项目后 localStorage 旧键清除（自动化仅 jsdom 级）。
+
 ## 2026-09-29（第十三轮）设置域重构：八分类、搜索直达、通知/工作区偏好与 run 终态提醒（阶段三·批次 3B）
 
 落实 [重构计划](agent-workspace-plan.md) §4.4 与 [structure.md](refactor/structure.md) §3.6/§2.4。`SettingsSectionId` 扩为 `general|appearance|notifications|workspace|llm|connections|plugins|about`；「数据与服务」拆解（工作目录→工作区；Canvas/邮箱/教务/水源四卡→连接）；`features/settings/` 重组为 `sections/`（七 Section）+ `connections/`（收编自 sources 复制迁入的 CanvasTokenForm/canvas-connect，原文件留待 3C 删除，首启向导 CanvasStep 已改指新处）。

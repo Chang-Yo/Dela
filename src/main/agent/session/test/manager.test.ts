@@ -1,5 +1,5 @@
-// Session/Run 新身份的主进程行为：run 生命周期落库（pending→running→终态）、步骤索引、
-// 同 session 串行/跨 session 并行、旧 scope 通道委托（scope→project_id 映射）与项目档案，
+// Session/Run 身份的主进程行为：run 生命周期落库（pending→running→终态）、步骤索引、
+// 同 session 串行/跨 session 并行、newSession 的项目归属与项目档案，
 // 以及上下文预算压缩（触发/失败回退/摘要持久化续接/compacting 状态）。
 // 数据库用真实 database.ts（electron app.getPath 指向临时目录，迁移直建 v13）；
 // 摘要生成的模型调用用 fetch stub（不走真网）。
@@ -39,22 +39,15 @@ vi.mock('../media', () => ({
 }));
 import { closeDatabase, getDatabase } from '../../../database';
 import {
-  ask,
   askSession,
-  cancelAsk,
   cancelRun,
-  deleteChat,
   deleteSession,
-  listChats,
   listSessions,
-  newChat,
   newSession,
-  openChat,
   openSession,
-  scopeToProjectId,
 } from '../manager';
 import { activeRuns, interruptStaleRuns } from '../runs';
-import { activeSession, getChat, sessionRow } from '../store';
+import { sessionRow } from '../store';
 import { getProjectProfile, updateProjectProfile } from '../../../workspace/projects';
 import type { runAgent } from '../../core/run';
 type Callbacks = Parameters<typeof runAgent>[0];
@@ -99,7 +92,6 @@ beforeEach(() => {
     'DELETE FROM runs; DELETE FROM sessions; DELETE FROM projects; DELETE FROM workspace_entries',
   );
   seedEntries();
-  activeSession.clear();
   activeRuns.clear();
   fixtures.run.mockReset();
   fixtures.run.mockImplementation(async () => ({ content: '好的', toolResults: [] }));
@@ -328,104 +320,22 @@ describe('multimodal ask input', () => {
   });
 });
 
-describe('legacy scope shim (transitional)', () => {
-  it('maps scopes to project ids per the migration rule', () => {
-    expect(scopeToProjectId('home')).toBeNull();
-    expect(scopeToProjectId('sources')).toBeNull();
-    expect(scopeToProjectId('projects')).toBeNull();
-    expect(scopeToProjectId(PROJECT_ID)).toBe(PROJECT_ID);
-  });
-
-  it('lazily creates a general session on first ask from a legacy scope', async () => {
-    fixtures.run.mockImplementation(async () => ({ content: '好的', toolResults: [] }));
-    const chat = await ask('home', { text: '查找资料', attachments: [], context: [] });
-    expect(chat.sessionId).toBeTruthy();
-    expect(sessionRow(chat.sessionId!)!.project_id).toBeNull();
-    expect(getChat('home').sessionId).toBe(chat.sessionId);
-    expect(sessionRow(chat.sessionId!)!.title).toBe('查找资料');
-    // 通用池列表可见，项目列表不可见。
-    expect(listChats('home', '')).toHaveLength(1);
-    expect(listChats(PROJECT_ID, '')).toEqual([]);
-    // 搜索按标题过滤。
-    getDatabase()
-      .prepare('UPDATE sessions SET title=? WHERE id=?')
-      .run('资料讨论', chat.sessionId!);
-    expect(listSessions(null, '资料讨论')).toHaveLength(1);
-    expect(listSessions(null, '不存在的话题')).toEqual([]);
-  });
-
-  it('attaches sessions to the project for project scopes and ensures the archive row', async () => {
-    fixtures.run.mockImplementation(async () => ({ content: '好的', toolResults: [] }));
-    const chat = await ask(PROJECT_ID, { text: '推进项目', attachments: [], context: [] });
+describe('newSession ownership', () => {
+  it('attaches sessions to existing projects and ensures the archive row', async () => {
+    const chat = newSession(PROJECT_ID);
     expect(sessionRow(chat.sessionId!)!.project_id).toBe(PROJECT_ID);
     // v13 后新建的项目条目在首次挂会话时补建档案行。
     expect(
       getDatabase().prepare('SELECT id FROM projects WHERE id=?').get(PROJECT_ID),
     ).toBeDefined();
-    expect(listChats(PROJECT_ID, '')).toHaveLength(1);
+    // 通用池列表可见，项目列表不可见。
+    expect(listSessions(PROJECT_ID, '')).toHaveLength(1);
+    expect(listSessions(null, '')).toEqual([]);
   });
 
-  it('rejects asks for scopes that are not existing project entries', async () => {
-    await expect(ask(FOLDER_ID, { text: '问题', attachments: [], context: [] })).rejects.toThrow(
-      '项目不存在',
-    );
-    await expect(
-      ask('garbage-scope', { text: '问题', attachments: [], context: [] }),
-    ).rejects.toThrow('项目不存在');
-  });
-
-  it('keeps per-scope busy semantics on the pointer session and stops via cancelAsk', async () => {
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    fixtures.run.mockImplementationOnce(async (options: Callbacks) => {
-      await gate;
-      if (options.signal.aborted)
-        throw new DOMException('This operation was aborted', 'AbortError');
-      return { content: 'x', toolResults: [] };
-    });
-    const first = ask('home', { text: '问题', attachments: [], context: [] });
-    await expect(ask('home', { text: '再问', attachments: [], context: [] })).rejects.toThrow(
-      '请等待当前回答完成',
-    );
-    // newChat/openChat 是同步函数：执行期抛错需用 toThrow 断言。
-    expect(() => newChat('home')).toThrow('请等待当前回答完成');
-    const other = newSession(null).sessionId!;
-    expect(() => openChat('home', other)).toThrow('请等待当前回答完成');
-    cancelAsk('home');
-    release();
-    const chat = await first;
-    expect(chat.messages.at(-1)?.stopped).toBe(true);
-    expect(runRowOf(chat.sessionId!).status).toBe('stopped');
-  });
-
-  it('clears empty pointer sessions on newChat and resets the scope to idle', async () => {
-    // 无效输入的 ask 留下空会话与 failed run（旧入口懒创建的过渡差异）。
-    await expect(ask('home', { text: '   ', attachments: [], context: [] })).rejects.toThrow(
-      '请输入内容或添加图片',
-    );
-    expect(listChats('home', '')).toHaveLength(1);
-    const chat = newChat('home');
-    expect(chat.sessionId).toBeNull();
-    expect(getChat('home').sessionId).toBeNull();
-    expect(listChats('home', '')).toEqual([]);
-  });
-
-  it('guards openChat/deleteChat by project ownership', async () => {
-    fixtures.run.mockImplementation(async () => ({ content: '好的', toolResults: [] }));
-    const projectChat = await ask(PROJECT_ID, { text: '推进项目', attachments: [], context: [] });
-    const generalChat = await ask('home', { text: '闲聊', attachments: [], context: [] });
-    // 同步函数：项目会话不属于通用 scope，open/delete 静默/报错不越权。
-    expect(() => openChat('home', projectChat.sessionId!)).toThrow('会话不存在');
-    expect(() => deleteChat('home', projectChat.sessionId!)).not.toThrow();
-    expect(sessionRow(projectChat.sessionId!)).not.toBeNull();
-    // 通用池（home/sources/projects）互通；删除当前会话后指针回闲置。
-    expect(openChat('sources', generalChat.sessionId!).sessionId).toBe(generalChat.sessionId);
-    activeSession.set('home', generalChat.sessionId);
-    deleteChat('home', generalChat.sessionId!);
-    expect(sessionRow(generalChat.sessionId!)).toBeNull();
-    expect(getChat('home').sessionId).toBeNull();
+  it('rejects creation for ids that are not existing project entries', () => {
+    expect(() => newSession(FOLDER_ID)).toThrow('项目不存在');
+    expect(() => newSession('garbage-scope')).toThrow('项目不存在');
   });
 });
 

@@ -12,21 +12,14 @@ import {
 } from '../core/providers';
 import { deleteChatCommand, listChatCommands, saveChatCommand } from './commands';
 import {
-  ask,
   askSession,
-  cancelAsk,
   cancelRun,
-  deleteChat,
   deleteSession,
-  listChats,
   listSessions,
-  newChat,
   newSession,
-  openChat,
   openSession,
 } from './manager';
 import { pickChatMedia, readChatMediaPreview, releaseChatMedia, stageChatMedia } from './media';
-import { getChat } from './store';
 import { subscribeChat } from './subscriptions';
 
 const idSchema = z.string().uuid();
@@ -37,38 +30,9 @@ const askInputSchema = z.object({
   replaceLastUser: z.boolean().optional(),
 });
 
-/** 注册 agent 域全部 IPC 通道：旧 workspace:* 委托 scope shim，新 session:* 走会话身份。 */
+/** 注册 agent 域 IPC 通道：session:*（会话身份）、chat:*（媒体与指令）与 llm:*（模型配置）。 */
 export function registerAgentChannels() {
-  const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
-    ipcMain.handle(`workspace:${name}`, (event, ...args) => {
-      checkWorkspaceSender(event);
-      subscribeChat(event.sender);
-      return fn(...args);
-    });
-  handle('get-chat', (scope) => getChat(z.string().max(100).parse(scope)));
-  handle('new-chat', (scope) => newChat(z.string().max(100).parse(scope)));
-  handle('list-chats', (scope, query) =>
-    listChats(
-      z.string().max(100).parse(scope),
-      z
-        .string()
-        .max(200)
-        .parse(query ?? ''),
-    ),
-  );
-  handle('open-chat', (scope, sessionId) =>
-    openChat(z.string().max(100).parse(scope), z.string().min(1).max(64).parse(sessionId)),
-  );
-  handle('delete-chat', (scope, sessionId) =>
-    deleteChat(z.string().max(100).parse(scope), z.string().min(1).max(64).parse(sessionId)),
-  );
-  handle('cancel-ask', (scope) => {
-    cancelAsk(z.string().max(100).parse(scope));
-  });
-  handle('ask', (scope, input) =>
-    ask(z.string().max(100).parse(scope), askInputSchema.parse(input)),
-  );
-  // 会话新身份通道（renderer 阶段三接入）。
+  // 会话通道。
   const sessionHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`session:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);

@@ -3,7 +3,7 @@ import { Dialog } from 'radix-ui';
 import { X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { errorText, useWorkspace } from '../projects/workspace';
+import { errorText, useWorkspaceStore } from '../../workspace/store';
 
 /**
  * 把当前帖子作为来源引用添加到项目/文件夹：先写 shuiyuan_topics 引用行，
@@ -20,9 +20,9 @@ export function AddToProjectDialog({
   topicId: number | null;
   topicTitle: string;
 }) {
-  const entries = useWorkspace((state) => state.workspace.entries);
-  const refresh = useWorkspace((state) => state.refresh);
-  const setError = useWorkspace((state) => state.setError);
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
+  const refresh = useWorkspaceStore((state) => state.refresh);
+  const setError = useWorkspaceStore((state) => state.setError);
   const [target, setTarget] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);

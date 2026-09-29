@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { errorText } from '../../projects/workspace';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, type StepButtonState } from './step-controls';
 
 /** 向导 · 邮箱步骤：验证 IMAP 登录，成功后后台开始首次同步，按钮转为「下一步」。 */

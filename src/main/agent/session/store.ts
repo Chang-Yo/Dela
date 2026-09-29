@@ -15,10 +15,6 @@ export type SessionRow = {
   updated_at: string;
 };
 
-// 过渡期（阶段三移除）：旧 scope 语义的「当前打开会话」指针，仅供旧通道 shim 使用；
-// 新 session:* API 不经过它。null 表示新对话闲置态；指针缺失视为新对话，不回退最近会话。
-export const activeSession = new Map<string, string | null>();
-
 /** 正在进行上下文压缩的会话（低干扰状态，随快照推送）。 */
 export const compactingSessions = new Set<string>();
 
@@ -27,12 +23,6 @@ export function sessionRow(id: string): SessionRow | null {
     (getDatabase().prepare('SELECT * FROM sessions WHERE id=?').get(id) as
       SessionRow | undefined) ?? null
   );
-}
-
-export function resolveSession(scope: string): SessionRow | null {
-  const known = activeSession.get(scope);
-  if (known === undefined) activeSession.set(scope, null);
-  return known ? sessionRow(known) : null;
 }
 
 /** 会话快照：WorkspaceChat 形状不变（renderer 兼容）；running/activeTool 取自该 session 的活跃 Run。 */
@@ -53,10 +43,6 @@ export function snapshot(row: SessionRow | null): WorkspaceChat {
     activeTool: run?.tool,
     compacting: row ? compactingSessions.has(row.id) : false,
   };
-}
-
-export function getChat(scope: string): WorkspaceChat {
-  return snapshot(resolveSession(scope));
 }
 
 export function persistSession(row: SessionRow) {

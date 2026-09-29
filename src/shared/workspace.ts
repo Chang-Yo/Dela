@@ -1,7 +1,6 @@
-import type { ChatAskInput } from './chat';
 import type { DocumentContent, OfficeExportEvent } from './documents';
 import type { ResourceRef } from './resources';
-import type { ChatSessionSummary, WorkspaceChat } from './session';
+import type { WorkspaceChat } from './session';
 
 export interface WorkspaceEntry {
   id: string;
@@ -68,15 +67,6 @@ export interface WorkspaceApi {
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;
-  saveView(scope: string, state: WorkspaceViewState): Promise<void>;
-  getChat(scope: string): Promise<WorkspaceChat>;
-  newChat(scope: string): Promise<WorkspaceChat>;
-  listChats(scope: string, query: string): Promise<ChatSessionSummary[]>;
-  openChat(scope: string, sessionId: string): Promise<WorkspaceChat>;
-  deleteChat(scope: string, sessionId: string): Promise<void>;
-  ask(scope: string, input: ChatAskInput): Promise<WorkspaceChat>;
-  /** 编辑最后一条用户消息并重新生成回答；原文中的内联图片按原样保留。 */
-  editAsk(scope: string, text: string): Promise<WorkspaceChat>;
-  cancelAsk(scope: string): Promise<void>;
+  /** 旧 scope 通道推送（TimetableView 刷新课表用）；迁移方向见 preload/workspace.ts。 */
   onChatUpdate(listener: (scope: string, chat: WorkspaceChat) => void): () => void;
 }

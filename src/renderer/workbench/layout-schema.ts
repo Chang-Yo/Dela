@@ -161,6 +161,12 @@ export function readStoredLegacyLayout(scope: string): LegacyEditorLayout | null
   }
 }
 
+/** 布局成功落库（layout:{projectId}）后清除旧 ProjectView 的 localStorage 布局键（3C）。 */
+export function removeStoredLegacyLayout(scope: string): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.removeItem(legacyLayoutKey(scope));
+}
+
 /** 旧标签键 → TabId：`source:*` 只读预览；entryId 由 resolveEntryKind 判定，缺省 note。 */
 export function mapLegacyTabKey(
   key: string,

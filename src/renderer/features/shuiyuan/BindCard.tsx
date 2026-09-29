@@ -3,7 +3,7 @@ import { KeyRound, LogIn } from 'lucide-react';
 import type { ShuiyuanState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
-import { errorText } from '../projects/workspace';
+import { errorText } from '../../workspace/store';
 import { useShuiyuan } from './store';
 
 /** 未绑定时的授权卡：发起授权窗口 → 粘贴密文 → 绑定。 */

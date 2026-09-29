@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
 import { connectCanvas } from '../../settings/connections/canvas-connect';
-import { errorText } from '../../projects/workspace';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
 

@@ -792,18 +792,3 @@ export function removeWorkspaceEntry(value: unknown) {
   // Only remove application references. Notes and imported files stay on disk.
   getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(id);
 }
-
-export function saveWorkspaceView(scope: unknown, input: unknown) {
-  const key = z.string().max(100).parse(scope);
-  const state = z
-    .object({
-      tabs: z.array(z.string().max(512)).max(100),
-      active: z.string().max(512).nullable(),
-      expanded: z.array(z.string().max(512)).max(10000),
-      scroll: z.record(z.string().max(512), z.number().nonnegative()),
-    })
-    .parse(input);
-  getDatabase()
-    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
-    .run(`view:${key}`, JSON.stringify(state));
-}

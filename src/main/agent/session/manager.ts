@@ -38,22 +38,14 @@ import {
   type RunRequest,
 } from './runs';
 import {
-  activeSession,
   compactingSessions,
   persistSession,
-  resolveSession,
   saveSessionSummary,
   sessionRow,
   snapshot,
 } from './store';
 import type { SessionRow } from './store';
-import {
-  clearOriginScope,
-  publishChat,
-  publishRunEvent,
-  publishSession,
-  setOriginScope,
-} from './subscriptions';
+import { publishRunEvent, publishSession } from './subscriptions';
 
 type AskInput = {
   text: string;
@@ -66,7 +58,7 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-// ===== Session 新身份 API（session:* 通道；renderer 阶段三接入） =====
+// ===== Session 身份 API（session:* 通道） =====
 
 /** 新建会话：显式身份（区别于旧入口的懒创建）；projectId 需为现存 project 条目。 */
 function createSessionRow(projectId: string | null): SessionRow {
@@ -112,9 +104,6 @@ export function deleteSession(sessionId: string): void {
   // 与停止按钮同路径：避免删除后仍推送「running 且无消息」的僵尸忙碌态。
   activeRuns.get(sessionId)?.controller.abort();
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(sessionId);
-  for (const [scope, current] of activeSession) {
-    if (current === sessionId) activeSession.set(scope, null);
-  }
 }
 
 export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
@@ -431,71 +420,5 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
     publishSession(sessionId);
     // 任务通知（§4.4）：completed/failed 按偏好发系统提醒；stopped 不打扰。
     if (terminal === 'completed' || terminal === 'failed') notifyRunFinished(sessionId, terminal);
-  }
-}
-
-// ===== 旧 scope 语义 shim（过渡兼容，阶段三随 renderer 接入 session:* 移除） =====
-
-/** scope → project_id：'home'/'sources'/'projects' 并入通用池（NULL），project 条目 UUID 原样。 */
-export function scopeToProjectId(scope: string): string | null {
-  return scope === 'home' || scope === 'sources' || scope === 'projects' ? null : scope;
-}
-
-/** 旧入口的互斥语义：scope 当前打开的会话正在执行时拒绝操作（指针在执行期不可切换）。 */
-function scopeBusy(scope: string): boolean {
-  const current = activeSession.get(scope);
-  return current !== undefined && current !== null && activeRuns.has(current);
-}
-
-export function newChat(scope: string): WorkspaceChat {
-  if (scopeBusy(scope)) throw new Error('请等待当前回答完成');
-  const current = resolveSession(scope);
-  // 空会话不进入历史：点“新对话”时清掉上一条从未发送过消息的会话。
-  if (current && current.messages === '[]') deleteSession(current.id);
-  activeSession.set(scope, null);
-  publishChat(scope);
-  return snapshot(resolveSession(scope));
-}
-
-export function openChat(scope: string, sessionId: string): WorkspaceChat {
-  const row = sessionRow(sessionId);
-  if (!row || row.project_id !== scopeToProjectId(scope)) throw new Error('会话不存在');
-  if (scopeBusy(scope) && activeSession.get(scope) !== sessionId)
-    throw new Error('请等待当前回答完成');
-  activeSession.set(scope, sessionId);
-  return snapshot(row);
-}
-
-export function deleteChat(scope: string, sessionId: string): void {
-  const row = sessionRow(sessionId);
-  if (!row || row.project_id !== scopeToProjectId(scope)) return;
-  deleteSession(sessionId);
-  publishChat(scope);
-}
-
-export function listChats(scope: string, query: string): ChatSessionSummary[] {
-  return listSessions(scopeToProjectId(scope), query);
-}
-
-export function cancelAsk(scope: string) {
-  const current = activeSession.get(scope);
-  if (current) cancelRun(current);
-}
-
-export async function ask(scope: string, input: AskInput): Promise<WorkspaceChat> {
-  if (scopeBusy(scope)) throw new Error('请等待当前回答完成');
-  let sessionId = activeSession.get(scope) ?? null;
-  if (!sessionId || !sessionRow(sessionId)) {
-    // 旧入口懒创建：首次发送时落会话行并记住指针（新对话闲置态到此结束）。
-    sessionId = createSessionRow(scopeToProjectId(scope)).id;
-    activeSession.set(scope, sessionId);
-  }
-  // 过渡期：旧通道按发起入口的 scope 广播该会话的更新。
-  setOriginScope(sessionId, scope);
-  try {
-    return await askSession(sessionId, input);
-  } finally {
-    clearOriginScope(sessionId);
-    publishChat(scope);
   }
 }

@@ -125,9 +125,6 @@ let failRange = false;
 const routes = {
   'workspace:get-state': () => workspace,
   'canvas:get-state': () => canvas,
-  'workspace:save-view': (_, scope, view) => {
-    workspace.views[scope] = view;
-  },
   'canvas:read': (_, id) => ({
     title: id,
     format: 'pdf',

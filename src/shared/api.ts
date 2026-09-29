@@ -129,7 +129,6 @@ export type {
 
 export type {
   WorkspaceEntry,
-  WorkspaceViewState,
   WorkspaceState,
   WorkspaceCreateInput,
   MarkdownNoteCopyResult,

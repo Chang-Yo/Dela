@@ -1,5 +1,4 @@
 import {
-  saveWorkspaceView,
   removeWorkspaceEntry,
   idSchema,
   prepareStorage,
@@ -124,6 +123,5 @@ export function registerWorkspaceIpc() {
         .run(path);
     return directory();
   });
-  handle('save-view', (scope, input) => saveWorkspaceView(scope, input));
   registerLayoutIpc();
 }

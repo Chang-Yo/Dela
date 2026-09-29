@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CircleCheck, CircleX, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { errorText } from '../../projects/workspace';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, StepSelect, type StepButtonState } from './step-controls';
 import { llmProviderPresets, findLlmPreset } from '../../../../shared/llm-presets';
 import type { LlmVerifyResult } from '../../../../shared/api';

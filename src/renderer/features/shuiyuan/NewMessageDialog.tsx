@@ -3,8 +3,8 @@ import { Dialog } from 'radix-ui';
 import { Send, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { MarkdownEditor } from '../projects/MarkdownEditor';
-import { errorText } from '../projects/workspace';
+import { MarkdownEditor } from '../../content/note/MarkdownEditor';
+import { errorText } from '../../workspace/store';
 import { useShuiyuan } from './store';
 
 /** 发起新私信：收件人用户名（逗号分隔）+ 标题 + Markdown 正文。 */
