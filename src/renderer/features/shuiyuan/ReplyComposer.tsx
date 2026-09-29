@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -6,14 +6,16 @@ import {
   FileWarning,
   Loader2,
   Lock,
+  Maximize2,
+  Minimize2,
   Paperclip,
-  PanelRightClose,
   PenLine,
   Reply,
   Send,
   X,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { cn } from '../../lib/utils';
 import { MarkdownEditor } from '../projects/MarkdownEditor';
 import { errorText } from '../projects/workspace';
 
@@ -34,16 +36,9 @@ type ReplyComposerProps = {
   submitLabel: string;
   /** 帖子关闭/归档等不可回复情形的提示；非空时输入区只读。 */
   disabledHint: string | null;
-  /**
-   * docked：宽屏阅读页右侧停靠栏，按需展开、编辑器撑满；
-   * floating：窄屏底部折叠条，展开为卡片。
-   */
-  variant: 'docked' | 'floating';
   /** 楼层级回复目标；非空时在编辑器上方展示目标准条。 */
   replyTarget: { postNumber: number; username: string } | null;
   onClearReplyTarget: () => void;
-  /** docked 收起回复栏回调（保留草稿）；floating 不使用。 */
-  onCollapse?: () => void;
 };
 
 function readAsBase64(file: File): Promise<string> {
@@ -68,14 +63,13 @@ export function ReplyComposer({
   placeholder,
   submitLabel,
   disabledHint,
-  variant,
   replyTarget,
   onClearReplyTarget,
-  onCollapse,
 }: ReplyComposerProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  const [maximized, setMaximized] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 一次选中多个文件时串行追加；value prop 在循环内不会即时更新，用链式副本接力。
@@ -89,12 +83,23 @@ export function ReplyComposer({
     setError(null);
     try {
       await onSubmit();
+      setMaximized(false);
     } catch (reason) {
       setError(errorText(reason));
     } finally {
       setBusy(false);
     }
   };
+
+  // 全屏书写时 Esc 退出；挂在 window 上，焦点在编辑器内时同样生效。
+  useEffect(() => {
+    if (!maximized) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMaximized(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [maximized]);
 
   const uploadFiles = async (files: FileList | null) => {
     const api = window.dela?.shuiyuan;
@@ -180,16 +185,39 @@ export function ReplyComposer({
     </div>
   ) : null;
 
-  const collapseButton = (
-    <Button
-      aria-label="收起回复栏"
-      onClick={() => onCollapse?.()}
-      size="icon-sm"
-      type="button"
-      variant="ghost"
-    >
-      <PanelRightClose aria-hidden="true" className="size-4" strokeWidth={1.8} />
-    </Button>
+  // 右上角窗口钮组：全屏书写 + 收起，悬在编辑/预览卡片角上，不占工具栏位置。
+  const windowButtons = (isMaximized: boolean) => (
+    <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+      <Button
+        aria-label={isMaximized ? '退出全屏' : '全屏书写'}
+        className="bg-background/90 shadow-xs hover:bg-accent"
+        onClick={() => setMaximized(!isMaximized)}
+        size="icon-sm"
+        title={isMaximized ? '退出全屏' : '全屏书写'}
+        type="button"
+        variant="ghost"
+      >
+        {isMaximized ? (
+          <Minimize2 aria-hidden="true" className="size-4" strokeWidth={1.8} />
+        ) : (
+          <Maximize2 aria-hidden="true" className="size-4" strokeWidth={1.8} />
+        )}
+      </Button>
+      <Button
+        aria-label="收起回复框"
+        className="bg-background/90 shadow-xs hover:bg-accent"
+        onClick={() => {
+          onExpandedChange(false);
+          setPreview(false);
+          setMaximized(false);
+        }}
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <X aria-hidden="true" className="size-4" strokeWidth={1.8} />
+      </Button>
+    </div>
   );
 
   const toolbar = (
@@ -218,20 +246,6 @@ export function ReplyComposer({
         )}
       </button>
       <div className="flex-1" />
-      {variant === 'docked' ? collapseButton : null}
-      {variant === 'floating' ? (
-        <Button
-          onClick={() => {
-            onExpandedChange(false);
-            setPreview(false);
-          }}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          收起
-        </Button>
-      ) : null}
       <Button disabled={busy || !value.trim()} size="sm" type="submit">
         {busy ? (
           <Loader2 aria-hidden="true" className="size-4 animate-spin" />
@@ -245,12 +259,30 @@ export function ReplyComposer({
 
   const errorLine = error ? <p className="text-xs text-destructive">{error}</p> : null;
 
-  // 预览正文排版：docked 撑满剩余高度，floating 限高滚动；prose 部分两态共用。
-  const previewProseClass =
-    'overflow-y-auto rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5';
+  // 编辑壳必须是 flex 列：MarkdownEditor 的 flex-1 链依赖约束高度，内部 scroller 才会滚动。
+  const editorHost = (shellClass: string) => (
+    <div className={cn('flex flex-col overflow-hidden rounded-lg border shadow-xs', shellClass)}>
+      <MarkdownEditor
+        ariaLabel="回复编辑器"
+        lineNumbers={false}
+        onChange={onChange}
+        onSave={() => void submit()}
+        onScroll={() => {}}
+        placeholderText={placeholder}
+        saveOnBlur={false}
+        scroll={0}
+        value={value}
+      />
+    </div>
+  );
 
-  const previewBody = (fill: boolean) => (
-    <div className={`${fill ? 'min-h-0 flex-1' : 'max-h-40'} ${previewProseClass}`}>
+  const previewBody = (isMaximized: boolean) => (
+    <div
+      className={cn(
+        'overflow-y-auto rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5',
+        isMaximized ? 'min-h-0 flex-1' : 'max-h-40',
+      )}
+    >
       {previewSource.trim() ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewSource}</ReactMarkdown>
       ) : (
@@ -259,56 +291,19 @@ export function ReplyComposer({
     </div>
   );
 
-  if (disabledHint) {
-    if (variant === 'docked') {
-      return (
-        <aside className="flex min-h-0 flex-1 flex-col border-l bg-background">
-          {/* 不可回复时也保留收起入口，避免楼层按钮展开后无处关闭。 */}
-          <div className="flex justify-end px-3 pt-3">{collapseButton}</div>
-          <div className="grid flex-1 place-items-center px-6">
-            <p className="flex items-center gap-2 text-center text-xs text-muted-foreground">
-              <Lock aria-hidden="true" className="size-3.5" />
-              {disabledHint}
-            </p>
-          </div>
-        </aside>
-      );
-    }
+  // 全屏书写：表单铺满阅读区（TopicReader 根需 relative 作锚点），编辑器吃满剩余高度。
+  if (maximized) {
     return (
-      <div className="border-t bg-background px-4 py-3 max-md:px-3">
-        <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 text-center text-xs text-muted-foreground">
-          <Lock aria-hidden="true" className="size-3.5" />
-          {disabledHint}
-        </p>
-      </div>
-    );
-  }
-
-  if (variant === 'docked') {
-    return (
-      <aside className="flex min-h-0 flex-1 flex-col border-l bg-background">
-        <form
-          className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3 pt-3"
-          onSubmit={(e) => void submit(e)}
-        >
+      <form
+        className="absolute inset-0 z-30 flex flex-col bg-background"
+        onSubmit={(e) => void submit(e)}
+      >
+        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-2 px-4 py-4 max-md:px-3">
           {replyTargetBanner}
-          {preview ? (
-            previewBody(true)
-          ) : (
-            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border shadow-xs transition-colors focus-within:border-ring/60">
-              <MarkdownEditor
-                ariaLabel="回复编辑器"
-                lineNumbers={false}
-                onChange={onChange}
-                onSave={() => void submit()}
-                onScroll={() => {}}
-                placeholderText={placeholder}
-                saveOnBlur={false}
-                scroll={0}
-                value={value}
-              />
-            </div>
-          )}
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {windowButtons(true)}
+            {preview ? previewBody(true) : editorHost('min-h-0 flex-1')}
+          </div>
           {uploadChips}
           {errorLine}
           {toolbar}
@@ -321,8 +316,19 @@ export function ReplyComposer({
             tabIndex={-1}
             type="file"
           />
-        </form>
-      </aside>
+        </div>
+      </form>
+    );
+  }
+
+  if (disabledHint) {
+    return (
+      <div className="border-t bg-background px-4 py-3 max-md:px-3">
+        <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+          <Lock aria-hidden="true" className="size-3.5" />
+          {disabledHint}
+        </p>
+      </div>
     );
   }
 
@@ -345,23 +351,10 @@ export function ReplyComposer({
     <form className="border-t bg-background px-4 py-3 max-md:px-3" onSubmit={(e) => void submit(e)}>
       <div className="mx-auto grid w-full max-w-3xl gap-2">
         {replyTargetBanner}
-        {preview ? (
-          previewBody(false)
-        ) : (
-          <div className="h-44 overflow-hidden rounded-lg border shadow-xs">
-            <MarkdownEditor
-              ariaLabel="回复编辑器"
-              lineNumbers={false}
-              onChange={onChange}
-              onSave={() => void submit()}
-              onScroll={() => {}}
-              placeholderText={placeholder}
-              saveOnBlur={false}
-              scroll={0}
-              value={value}
-            />
-          </div>
-        )}
+        <div className="relative">
+          {windowButtons(false)}
+          {preview ? previewBody(false) : editorHost('h-44')}
+        </div>
         {uploadChips}
         {errorLine}
         {toolbar}
