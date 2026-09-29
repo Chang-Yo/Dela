@@ -4,30 +4,27 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
-  CalendarDays,
-  CircleCheckBig,
   ChevronLeft,
   Copy,
-  FolderKanban,
-  FolderOpen,
-  House,
-  Mail,
   Menu,
   Minus,
   PanelLeft,
   PanelLeftClose,
-  Plus,
   Search,
   Settings,
   Square,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
 import { DelaBrand } from '../ui/dela-brand';
-import { ShuiyuanIcon } from '../ui/shuiyuan-icon';
 import { cn } from '../../lib/utils';
-import { useWorkspace } from '../../features/projects/workspace';
+import { type AppView, type MobileDrawer } from '../../app/navigation';
+import {
+  ProjectSessionNav,
+  type BusinessNavId,
+  type NavSessionSummary,
+  type SessionRunBadge,
+} from '../../navigation/ProjectSessionNav';
 import { zoomLevels, type ZoomPreference } from '../../../shared/api';
 import {
   DropdownMenu,
@@ -38,48 +35,23 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-export type ViewId =
-  | 'home'
-  | 'project'
-  | 'sources'
-  | 'mail'
-  | 'timetable'
-  | 'shuiyuan'
-  | 'settings'
-  | 'notifications'
-  | 'todo';
-
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
-export type MobileDrawer = 'nav' | 'mail';
-type TitleMenuId = 'file' | 'sources' | 'view' | 'help';
-type ShuiyuanIconType = typeof ShuiyuanIcon;
-
-const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon | ShuiyuanIconType }> = [
-  { id: 'home', label: '首页', icon: House },
-  { id: 'project', label: '项目', icon: FolderKanban },
-  { id: 'sources', label: '资料', icon: FolderOpen },
-  { id: 'mail', label: '邮箱', icon: Mail },
-  { id: 'timetable', label: '课表', icon: CalendarDays },
-  { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
-  { id: 'todo', label: 'TODO', icon: CircleCheckBig },
-];
+type TitleMenuId = 'file' | 'view' | 'help';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
 
-/** Ctrl/⌘+数字直达的主视图,序号与侧栏 primaryNav 排布一致。 */
-const viewShortcuts: Record<string, ViewId> = {
-  '1': 'home',
-  '2': 'project',
-  '3': 'sources',
-  '4': 'mail',
-  '5': 'timetable',
+/** Ctrl/⌘+数字直达的主视图,序号与侧栏排布一致。 */
+const viewShortcuts: Record<string, AppView> = {
+  '1': 'workbench',
+  '2': 'mail',
+  '3': 'timetable',
 };
 
 // 快捷键弹窗的按键提示按运行平台显示 Ctrl 或 ⌘。
 const modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
-/** 标题栏菜单（文件/资料/视图/帮助）触发按钮的共用样式。 */
+/** 标题栏菜单（文件/视图/帮助）触发按钮的共用样式。 */
 const titleMenuButtonClass =
   'h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground';
 
@@ -170,8 +142,8 @@ function WindowControls() {
 }
 
 type AppShellProps = {
-  view: ViewId;
-  onNavigate: (view: ViewId) => void;
+  view: AppView;
+  onNavigate: (view: AppView) => void;
   mobileDrawer?: MobileDrawer | null;
   onMobileDrawerChange?: (drawer: MobileDrawer | null) => void;
   onBack: () => void;
@@ -181,11 +153,21 @@ type AppShellProps = {
   zoom: ZoomPreference;
   onZoomChange: (zoom: ZoomPreference) => void;
   children: ReactNode;
-  projectId: string | null;
-  onOpenProject: (id: string) => void;
+  /** 工作台导入目标（当前项目）；无项目时导入到根。 */
+  onImportFiles: () => void;
   onNewProject: () => void;
   onSearch: () => void;
   notificationCount: number;
+  /** 项目会话导航（sessions/runs 镜像数据与跳转回调由 App 装配后传入）。 */
+  sessionsByProject: Record<string, NavSessionSummary[]>;
+  runBadge: (sessionId: string) => SessionRunBadge;
+  activeSessionId?: string | null;
+  projectId: string | null;
+  onOpenProject: (id: string) => void;
+  onOpenSession: (sessionId: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onOpenGeneralChat: () => void;
+  onNavigateBusiness: (id: BusinessNavId) => void;
 };
 
 export function AppShell({
@@ -200,15 +182,20 @@ export function AppShell({
   zoom,
   onZoomChange,
   children,
-  projectId,
-  onOpenProject,
+  onImportFiles,
   onNewProject,
   onSearch,
   notificationCount,
+  sessionsByProject,
+  runBadge,
+  activeSessionId = null,
+  projectId,
+  onOpenProject,
+  onOpenSession,
+  onDeleteSession,
+  onOpenGeneralChat,
+  onNavigateBusiness,
 }: AppShellProps) {
-  const entries = useWorkspace((state) => state.workspace.entries);
-  const drafts = useWorkspace((state) => state.drafts);
-  const projects = entries.filter((entry) => entry.kind === 'project');
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -222,7 +209,6 @@ export function AppShell({
   const drawer = mobileDrawer ?? null;
   const [helpOpen, setHelpOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<TitleMenuId | null>(null);
-  const hasSaveableNote = Object.values(drafts).some((draft) => Boolean(draft.content.revision));
 
   useEffect(() => {
     try {
@@ -248,21 +234,9 @@ export function AppShell({
 
   const navHidden = narrow ? drawer === null : sidebarCollapsed;
 
-  const navigate = (next: ViewId) => {
+  const navigate = (next: AppView) => {
     onNavigate(next);
     if (narrow) onMobileDrawerChange?.(next === 'mail' ? 'mail' : null);
-  };
-
-  const importFiles = () => {
-    if (!window.dela) return;
-    void window.dela.workspace
-      .importFiles(view === 'project' ? projectId : null)
-      .then(() => useWorkspace.getState().refresh())
-      .catch(useWorkspace.getState().setError);
-  };
-
-  const saveAllNotes = () => {
-    void Promise.all(Object.keys(drafts).map((key) => useWorkspace.getState().save(key)));
   };
 
   // Ctrl/⌘ +/-/0 的缩放步进：在设置页同一组档位间移动，两端保持不动；0 重置。
@@ -289,25 +263,21 @@ export function AppShell({
   };
 
   // 快捷键回调经 ref 取最新值：keydown 监听只注册一次，避免每次渲染重绑。
-  const shortcutsRef = useRef({ importFiles, navigate, onNewProject, saveAllNotes, stepZoom });
+  const shortcutsRef = useRef({ navigate, onImportFiles, onNewProject, stepZoom });
   useEffect(() => {
-    shortcutsRef.current = { importFiles, navigate, onNewProject, saveAllNotes, stepZoom };
+    shortcutsRef.current = { navigate, onImportFiles, onNewProject, stepZoom };
   });
-
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
-      const { importFiles, navigate, onNewProject, saveAllNotes, stepZoom } = shortcutsRef.current;
+      const { navigate, onImportFiles, onNewProject, stepZoom } = shortcutsRef.current;
       const key = event.key.toLowerCase();
       if (key === 'n' && event.shiftKey) {
         event.preventDefault();
         onNewProject();
       } else if (key === 'o' && !event.shiftKey) {
         event.preventDefault();
-        importFiles();
-      } else if (key === 's' && !event.shiftKey) {
-        event.preventDefault();
-        saveAllNotes();
+        onImportFiles();
       } else if (!event.shiftKey && (key === '=' || key === '+' || key === '-' || key === '0')) {
         event.preventDefault();
         stepZoom(key === '-' ? -1 : key === '0' ? 0 : 1);
@@ -408,43 +378,9 @@ export function AppShell({
                   新建项目
                   <DropdownMenuShortcut>Ctrl/⌘⇧N</DropdownMenuShortcut>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(importFiles)}>
+                <DropdownMenuItem onSelect={selectMenu(onImportFiles)}>
                   导入本地文件
                   <DropdownMenuShortcut>Ctrl/⌘O</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={!hasSaveableNote} onSelect={selectMenu(saveAllNotes)}>
-                  保存所有已打开笔记
-                  <DropdownMenuShortcut>Ctrl/⌘S</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu
-              modal={false}
-              onOpenChange={(open) => updateMenu('sources', open)}
-              open={openMenu === 'sources'}
-            >
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={titleMenuButtonClass}
-                  onPointerEnter={() => hoverMenu('sources')}
-                  type="button"
-                >
-                  资料
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('sources'))}>
-                  Canvas 资料
-                  <DropdownMenuShortcut>Ctrl/⌘3</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('mail'))}>
-                  邮箱
-                  <DropdownMenuShortcut>Ctrl/⌘4</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('timetable'))}>
-                  课表
-                  <DropdownMenuShortcut>Ctrl/⌘5</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -463,13 +399,17 @@ export function AppShell({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('home'))}>
-                  首页
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('workbench'))}>
+                  工作台
                   <DropdownMenuShortcut>Ctrl/⌘1</DropdownMenuShortcut>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('project'))}>
-                  项目
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('mail'))}>
+                  邮箱
                   <DropdownMenuShortcut>Ctrl/⌘2</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('timetable'))}>
+                  课表
+                  <DropdownMenuShortcut>Ctrl/⌘3</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
@@ -507,7 +447,7 @@ export function AppShell({
           </DropdownMenu>
         </div>
         <div className="flex h-full items-center">
-          {/* 各视图经 portal 往这里挂工作区级动作（目录/布局/助手），挂在窗口控制按钮左侧。 */}
+          {/* 各视图经 portal 往这里挂工作区级动作（目录/布局），挂在窗口控制按钮左侧。 */}
           <div
             id="titlebar-actions"
             className="[-webkit-app-region:no-drag] flex h-full items-center gap-1"
@@ -538,25 +478,25 @@ export function AppShell({
             </div>
             <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
               <ShortcutSection title="导航">
-                <ShortcutRow keys={[modKey, '1']} label="首页" />
-                <ShortcutRow keys={[modKey, '2']} label="项目" />
-                <ShortcutRow keys={[modKey, '3']} label="Canvas 资料" />
-                <ShortcutRow keys={[modKey, '4']} label="邮箱" />
-                <ShortcutRow keys={[modKey, '5']} label="课表" />
+                <ShortcutRow keys={[modKey, '1']} label="工作台" />
+                <ShortcutRow keys={[modKey, '2']} label="邮箱" />
+                <ShortcutRow keys={[modKey, '3']} label="课表" />
                 <ShortcutRow keys={[modKey, ',']} label="设置" />
               </ShortcutSection>
               <div className="flex flex-col gap-8">
                 <ShortcutSection title="通用">
                   <ShortcutRow keys={[modKey, '⇧', 'N']} label="新建项目" />
                   <ShortcutRow keys={[modKey, 'O']} label="导入本地文件" />
-                  <ShortcutRow keys={[modKey, 'S']} label="保存所有已打开笔记" />
                   <ShortcutRow keys={[modKey, '=']} label="放大" />
                   <ShortcutRow keys={[modKey, '-']} label="缩小" />
                   <ShortcutRow keys={[modKey, '0']} label="重置缩放" />
                 </ShortcutSection>
-                <ShortcutSection title="鼠标">
-                  <ShortcutRow hint="关闭文档" label="中键点击文档标签" />
-                  <ShortcutRow hint="新建笔记" label="双击标签栏或目录空白处" />
+                <ShortcutSection title="工作台">
+                  <ShortcutRow keys={[modKey, '\\']} label="向右分屏" />
+                  <ShortcutRow keys={[modKey, 'W']} label="关闭标签" />
+                  <ShortcutRow keys={['Alt', '1…9']} label="聚焦工作组" />
+                  <ShortcutRow hint="关闭标签" label="中键点击标签" />
+                  <ShortcutRow hint="新建笔记" label="双击目录空白处" />
                 </ShortcutSection>
               </div>
             </div>
@@ -598,8 +538,8 @@ export function AppShell({
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
             <button
               className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-sidebar-accent"
-              onClick={() => navigate('home')}
-              title="回到首页"
+              onClick={() => navigate('workbench')}
+              title="回到工作台"
               type="button"
             >
               <DelaBrand className="h-[18px] w-auto" />
@@ -646,94 +586,35 @@ export function AppShell({
               <Search className="size-4" strokeWidth={1.8} />
             </button>
           </div>
-          <nav aria-label="功能导航" className="mt-1 grid gap-0.5">
-            {primaryNav.map((item) => {
-              const Icon = item.icon;
-              const active = view === item.id;
-              return (
-                <button
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'flex h-8 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                    active
-                      ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-                  )}
-                  key={item.id}
-                  onClick={() => navigate(item.id)}
-                  type="button"
-                >
-                  <Icon
-                    className={cn(
-                      'size-4 shrink-0',
-                      active ? 'text-foreground' : 'text-muted-foreground',
-                    )}
-                    strokeWidth={1.8}
-                  />
-                  <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-          <section aria-labelledby="project-nav-title" className="mt-5">
-            <div className="flex items-center justify-between px-2 pb-1">
-              <span
-                id="project-nav-title"
-                className={cn(
-                  'whitespace-nowrap text-xs font-medium text-muted-foreground',
-                  labelFade,
-                  sidebarCollapsed && 'opacity-0',
-                )}
-              >
-                项目
-              </span>
-              <button
-                aria-label="新建项目"
-                className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                title="新建项目"
-                onClick={() => {
-                  onNewProject();
-                  if (narrow) onMobileDrawerChange?.(null);
-                }}
-                type="button"
-              >
-                <Plus className="size-3.5" strokeWidth={1.8} />
-              </button>
-            </div>
-            <div className="grid gap-0.5">
-              {projects.map((project) => {
-                const current = view === 'project' && project.id === projectId;
-                return (
-                  <button
-                    aria-current={current ? 'page' : undefined}
-                    className={cn(
-                      'flex h-8 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                      current
-                        ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                        : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-                    )}
-                    key={project.id}
-                    onClick={() => {
-                      onOpenProject(project.id);
-                      if (narrow) onMobileDrawerChange?.(null);
-                    }}
-                    type="button"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="size-2 shrink-0 rounded-full bg-muted-foreground"
-                    />
-                    <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
-                      {project.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-          <div className="mt-auto grid gap-0.5 pt-4">
+          <ProjectSessionNav
+            activeBusinessId={
+              view === 'mail' || view === 'timetable' || view === 'shuiyuan' || view === 'todo'
+                ? view
+                : null
+            }
+            activeProjectId={view === 'workbench' ? projectId : null}
+            activeSessionId={activeSessionId}
+            collapsed={!narrow && sidebarCollapsed}
+            generalChatActive={view === 'workbench' && projectId === null}
+            onDeleteSession={onDeleteSession}
+            onNavigateBusiness={onNavigateBusiness}
+            onNewProject={() => {
+              onNewProject();
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
+            onOpenGeneralChat={() => {
+              onOpenGeneralChat();
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
+            onOpenProject={(id) => {
+              onOpenProject(id);
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
+            onOpenSession={onOpenSession}
+            runBadge={runBadge}
+            sessionsByProject={sessionsByProject}
+          />
+          <div className="grid shrink-0 gap-0.5 pt-2">
             <button
               aria-current={view === 'settings' ? 'page' : undefined}
               className={cn(
@@ -792,7 +673,7 @@ export function AppShell({
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      {/* relative + id：供页内悬浮面板（如首页历史对话）portal 锚定到内容区。 */}
+      {/* relative + id：供页内悬浮面板（如会话历史）portal 锚定到内容区。 */}
       {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。
           左侧留白由网格的 0.375rem 间隙列提供，拖拽条列因此紧贴卡片边框，避免高亮线与分界线分离。 */}
       <main

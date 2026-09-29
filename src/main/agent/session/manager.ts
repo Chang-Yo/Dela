@@ -25,6 +25,7 @@ import {
 import { parseSessionSummary, summarizeHistory, type SessionSummary } from '../context/compaction';
 import { readAskReferences } from '../context/references';
 import { ensureProjectProfile } from '../../workspace/projects';
+import { notifyRunFinished } from '../../settings/task-notify';
 import { readChatMediaBytes, releaseChatAttachments } from './media';
 import {
   activeRuns,
@@ -428,6 +429,8 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
     finishRun(run.runId, terminal, runError);
     publishRunEvent(sessionId, run.runId, terminal);
     publishSession(sessionId);
+    // 任务通知（§4.4）：completed/failed 按偏好发系统提醒；stopped 不打扰。
+    if (terminal === 'completed' || terminal === 'failed') notifyRunFinished(sessionId, terminal);
   }
 }
 

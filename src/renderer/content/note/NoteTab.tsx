@@ -6,6 +6,7 @@ import { errorText } from '../../workspace/store';
 import type { TabId } from '../../../shared/layout';
 import { markdownRequiresSourceMode } from '../../../shared/note-files';
 import { DocumentToolbar, type NoteMode } from './document-toolbar';
+import { getDefaultNoteEditMode } from './default-mode';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
 import { NoteEditor } from './NoteEditor';
@@ -31,7 +32,9 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmReload, setConfirmReload] = useState(false);
   const [mode, setMode] = useState<NoteMode>(() =>
-    entryId !== null ? (noteModes.get(entryId) ?? 'rich') : 'rich',
+    entryId !== null
+      ? (noteModes.get(entryId) ?? getDefaultNoteEditMode())
+      : getDefaultNoteEditMode(),
   );
   const draftRef = useRef(draft);
   draftRef.current = draft;

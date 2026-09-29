@@ -1,22 +1,11 @@
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  ipcMain,
-  Menu,
-  nativeImage,
-  nativeTheme,
-  shell,
-  Tray,
-} from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
 import { registerTodoIpc, refreshTodos } from './todo';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import { z } from 'zod';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
-import { checkWorkspaceSender, attachContextMenu } from './ipc';
+import { attachContextMenu } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
@@ -30,8 +19,14 @@ import {
 import { getMailState, startMailSync } from './mail/api';
 import { registerAgentIpc } from './agent';
 import { gcChatMedia } from './agent/session/media';
-import type { IconPreference, ThemePreference } from '../shared/api';
-import { fontScaleLevels, zoomLevels } from '../shared/api';
+import {
+  applyTheme,
+  readSetting,
+  registerSettingsIpc,
+  savedIcon,
+  savedTheme,
+  savedZoom,
+} from './settings';
 
 import Database from 'better-sqlite3';
 
@@ -67,116 +62,6 @@ ipcMain.on('window:close', (event) => {
 ipcMain.handle('window:get-state', (event) => ({
   maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false,
 }));
-
-const themeSchema = z.enum(['system', 'light', 'dark']);
-const iconSchema = z.enum(['white', 'black']);
-const zoomSchema = z.number().refine((value) => (zoomLevels as readonly number[]).includes(value));
-const fontScaleSchema = z
-  .number()
-  .refine((value) => (fontScaleLevels as readonly number[]).includes(value));
-// 持久化为 '1'/'0'；键不存在（老版本升级、首次使用）视为默认开启。
-const openAtLoginSchema = z
-  .string()
-  .transform((value) => value === '1')
-  .catch(true);
-
-function readSetting(key: string): string | undefined {
-  const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
-    { value: string } | undefined;
-  return row?.value;
-}
-
-function savedTheme(): ThemePreference {
-  return themeSchema.catch('system').parse(readSetting('theme'));
-}
-
-function savedIcon(): IconPreference {
-  return iconSchema.catch('white').parse(readSetting('icon'));
-}
-
-function savedZoom(): number {
-  return zoomSchema.catch(1).parse(Number(readSetting('zoom')));
-}
-
-function savedFontScale(): number {
-  return fontScaleSchema.catch(1).parse(Number(readSetting('font-scale')));
-}
-
-function savedOpenAtLogin(): boolean {
-  return openAtLoginSchema.parse(readSetting('open-at-login'));
-}
-
-function applyTheme(theme: ThemePreference): ThemePreference {
-  nativeTheme.themeSource = theme;
-  return theme;
-}
-
-function registerSettingsIpc(): void {
-  ipcMain.handle('settings:get-theme', (event) => {
-    checkWorkspaceSender(event);
-    return savedTheme();
-  });
-  ipcMain.handle('settings:set-theme', (event, value) => {
-    checkWorkspaceSender(event);
-    const theme = themeSchema.parse(value);
-    getDatabase()
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('theme', ?)")
-      .run(theme);
-    return applyTheme(theme);
-  });
-  // 图标偏好只持久化；窗口/任务栏图标在下次启动创建窗口时生效。
-  ipcMain.handle('settings:get-icon', (event) => {
-    checkWorkspaceSender(event);
-    return savedIcon();
-  });
-  ipcMain.handle('settings:set-icon', (event, value) => {
-    checkWorkspaceSender(event);
-    const icon = iconSchema.parse(value);
-    getDatabase().prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('icon', ?)").run(icon);
-    return icon;
-  });
-  // 页面缩放立即应用到调用窗口，并持久化供下次启动使用。
-  ipcMain.handle('settings:get-zoom', (event) => {
-    checkWorkspaceSender(event);
-    return savedZoom();
-  });
-  ipcMain.handle('settings:set-zoom', (event, value) => {
-    checkWorkspaceSender(event);
-    const zoom = zoomSchema.parse(value);
-    getDatabase()
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('zoom', ?)")
-      .run(String(zoom));
-    BrowserWindow.fromWebContents(event.sender)?.webContents.setZoomFactor(zoom);
-    return zoom;
-  });
-  // 字号缩放由 renderer 以 CSS 变量生效，这里只负责持久化。
-  ipcMain.handle('settings:get-font-scale', (event) => {
-    checkWorkspaceSender(event);
-    return savedFontScale();
-  });
-  ipcMain.handle('settings:set-font-scale', (event, value) => {
-    checkWorkspaceSender(event);
-    const scale = fontScaleSchema.parse(value);
-    getDatabase()
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('font-scale', ?)")
-      .run(String(scale));
-    return scale;
-  });
-  // 开机自启：打包后以系统启动项为准（含任务管理器改动），开发运行不注册 electron.exe。
-  ipcMain.handle('settings:get-open-at-login', (event) => {
-    checkWorkspaceSender(event);
-    return app.isPackaged ? app.getLoginItemSettings().openAtLogin : savedOpenAtLogin();
-  });
-  ipcMain.handle('settings:set-open-at-login', (event, value) => {
-    checkWorkspaceSender(event);
-    const enabled = z.boolean().parse(value);
-    getDatabase()
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
-      .run(enabled ? '1' : '0');
-    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: enabled });
-    return enabled;
-  });
-}
 
 const smokeTest = process.argv.includes('--smoke-test');
 // 水源通知每分钟更新；IMAP 沿用现有增量同步，每五分钟检查一次。

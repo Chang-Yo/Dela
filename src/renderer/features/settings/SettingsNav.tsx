@@ -1,16 +1,29 @@
-import { Bot, Info, Palette, Plug, Puzzle, SlidersHorizontal, type LucideIcon } from 'lucide-react';
-import type { SettingsSectionId } from '../../../shared/api';
+import {
+  Bell,
+  Bot,
+  Info,
+  LayoutGrid,
+  Palette,
+  Plug,
+  Puzzle,
+  SlidersHorizontal,
+  type LucideIcon,
+} from 'lucide-react';
+import type { SettingsSectionId } from '../../../shared/settings';
 import { cn } from '../../lib/utils';
+import { settingsSectionLabels } from './search-index';
 
 export type { SettingsSectionId };
 
-const sections: Array<{ id: SettingsSectionId; label: string; icon: LucideIcon }> = [
-  { id: 'general', label: '通用', icon: SlidersHorizontal },
-  { id: 'connections', label: '数据与服务', icon: Plug },
-  { id: 'llm', label: '模型服务', icon: Bot },
-  { id: 'plugins', label: '插件', icon: Puzzle },
-  { id: 'appearance', label: '外观', icon: Palette },
-  { id: 'about', label: '关于', icon: Info },
+const sections: Array<{ id: SettingsSectionId; icon: LucideIcon }> = [
+  { id: 'general', icon: SlidersHorizontal },
+  { id: 'appearance', icon: Palette },
+  { id: 'notifications', icon: Bell },
+  { id: 'workspace', icon: LayoutGrid },
+  { id: 'llm', icon: Bot },
+  { id: 'connections', icon: Plug },
+  { id: 'plugins', icon: Puzzle },
+  { id: 'about', icon: Info },
 ];
 
 type SettingsNavProps = {
@@ -28,7 +41,7 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
       <span className="hidden h-8 items-center px-2 text-xs font-medium text-muted-foreground md:flex">
         设置
       </span>
-      {sections.map(({ id, label, icon: Icon }) => {
+      {sections.map(({ id, icon: Icon }) => {
         const active = value === id;
         return (
           <button
@@ -44,7 +57,7 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
             type="button"
           >
             <Icon className="size-4 shrink-0" strokeWidth={1.8} />
-            <span className="truncate">{label}</span>
+            <span className="truncate">{settingsSectionLabels[id]}</span>
           </button>
         );
       })}

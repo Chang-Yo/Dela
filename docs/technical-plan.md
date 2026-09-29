@@ -346,7 +346,7 @@ Project 是用户主动围绕主题建立的持续工作空间，可以对应课
 
 任务详情可作为抽屉或面板，不要求独立页面。展示操作摘要、参数、结果和错误，不展示或依赖模型的内部思维过程。
 
-设置页分区为通用、数据与服务、模型服务、插件、外观、关于。「通用」当前包含开机自启动：主进程经 `app.setLoginItemSettings`/`app.getLoginItemSettings` 读写系统启动项，仅打包版操作（开发运行不注册 electron.exe）；偏好存 `workspace_settings` 的 `open-at-login`（缺省视为开启），打包版首次启动登记默认开启，此后不在启动时改写——用户经系统或设置页的改动以系统启动项为准。
+设置页分区为通用、外观、通知、工作区、模型服务、连接、插件、关于（2026-09-29 随工作台重构调整：原「数据与服务」拆为「连接」（Canvas/邮箱/教务/水源）与「工作区」（工作目录等），见 [agent-workspace-plan.md](agent-workspace-plan.md) §4.4 与 [structure.md](refactor/structure.md) §3.6）；设置通道统一由 `src/main/settings/ipc.ts` 注册。「通用」当前包含开机自启动：主进程经 `app.setLoginItemSettings`/`app.getLoginItemSettings` 读写系统启动项，仅打包版操作（开发运行不注册 electron.exe）；偏好存 `workspace_settings` 的 `open-at-login`（缺省视为开启），打包版首次启动登记默认开启，此后不在启动时改写——用户经系统或设置页的改动以系统启动项为准。「通知」含校园消息系统提醒（`campus-notifications` 键，关闭只停桌面弹窗、应用内列表不受影响）、Agent 任务通知（`task-notifications` 键，failed 默认开、completed 默认关，Run 终态经 `src/main/settings/task-notify.ts` 按偏好弹出）与暂停通知（与通知中心共用 `notifications-snoozed-until` 键，同一开关）。「工作区」含启动恢复与默认笔记编辑方式（`workspace-prefs` 键）与当前项目布局重置（经 `layout:save` 写回默认单组）。
 
 ### TODO 与作业状态
 

@@ -12,9 +12,10 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import type { GlobalSearchResult, SettingsSectionId } from '../../../shared/api';
+import type { GlobalSearchResult } from '../../../shared/api';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
+import { settingsResultsFor } from '../settings/search-index';
 
 const resultGroups: ReadonlyArray<{
   kind: GlobalSearchResult['kind'];
@@ -31,55 +32,7 @@ const resultGroups: ReadonlyArray<{
   { kind: 'setting', label: '设置', icon: Settings },
 ];
 
-/** 设置入口是渲染层静态数据,与主进程返回的同步数据在本地合并展示。 */
-const settingsEntries: ReadonlyArray<{
-  section: SettingsSectionId;
-  title: string;
-  subtitle: string;
-  keywords: string;
-}> = [
-  {
-    section: 'connections',
-    title: '数据与服务',
-    subtitle: '设置 · 邮箱、水源、课表与 Canvas 连接',
-    keywords: '连接 账号 jaccount 邮箱 水源 课表 canvas 数据服务',
-  },
-  {
-    section: 'llm',
-    title: '模型服务',
-    subtitle: '设置 · AI 模型与 API 提供商',
-    keywords: '模型 llm ai api 提供商',
-  },
-  {
-    section: 'appearance',
-    title: '外观',
-    subtitle: '设置 · 主题、缩放与字号',
-    keywords: '主题 深色 浅色 暗色 缩放 字号 外观',
-  },
-  {
-    section: 'about',
-    title: '关于',
-    subtitle: '设置 · 版本信息',
-    keywords: '版本 更新 关于',
-  },
-];
-
-function settingsResultsFor(query: string): GlobalSearchResult[] {
-  const keyword = query.trim().toLowerCase();
-  return settingsEntries
-    .filter(
-      (entry) =>
-        !keyword ||
-        `${entry.title} ${entry.subtitle} ${entry.keywords}`.toLowerCase().includes(keyword),
-    )
-    .map((entry) => ({
-      kind: 'setting',
-      id: entry.section,
-      title: entry.title,
-      subtitle: entry.subtitle,
-      target: { page: 'settings', section: entry.section },
-    }));
-}
+/** 设置入口是渲染层静态数据（设置域 search-index 单一来源）,与主进程返回的同步数据在本地合并展示。 */
 
 function ResultRow({
   active,

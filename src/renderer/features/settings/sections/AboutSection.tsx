@@ -1,8 +1,8 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Feather, Heart, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Button } from '../../components/ui/button';
-import { DelaBrand } from '../../components/ui/dela-brand';
+import { Button } from '../../../components/ui/button';
+import { DelaBrand } from '../../../components/ui/dela-brand';
 import {
   creditSections,
   type CreditPerson,
@@ -10,8 +10,8 @@ import {
   type SocialLink,
   type SocialLinkKind,
   type SponsorChannelKind,
-} from './credits';
-import { SectionHeader } from './SectionHeader';
+} from '../credits';
+import { SectionHeader } from '../SectionHeader';
 
 // lucide 不再提供品牌图标，GitHub/知乎标记内联自 simple-icons。
 function GithubMark() {
@@ -160,7 +160,7 @@ function CreditSectionBlock({ section }: { section: CreditSection }) {
 
 export function AboutSection() {
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-8" data-setting-id="about">
       <SectionHeader title="关于" />
       <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-12 text-center">
         <DelaBrand className="h-48 w-48" />

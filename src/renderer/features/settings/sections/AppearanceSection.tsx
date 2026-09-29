@@ -7,11 +7,11 @@ import {
   type IconPreference,
   type ThemePreference,
   type ZoomPreference,
-} from '../../../shared/api';
-import { cn } from '../../lib/utils';
-import blackLogo from '../../../../assets/Dela_black_bg.svg';
-import whiteLogo from '../../../../assets/Dela_white_bg.svg';
-import { SectionHeader } from './SectionHeader';
+} from '../../../../shared/api';
+import { cn } from '../../../lib/utils';
+import blackLogo from '../../../../../assets/Dela_black_bg.svg';
+import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
+import { SectionHeader } from '../SectionHeader';
 
 const themes: Array<{ id: ThemePreference; label: string; preview: string }> = [
   {
@@ -118,7 +118,7 @@ export function AppearanceSection({
   const themeSave = useOptionSave('主题保存失败，请重试。');
   const iconSave = useOptionSave('图标设置保存失败，请重试。');
   const zoomSave = useOptionSave('缩放设置保存失败，请重试。');
-  const fontSave = useOptionSave('字号设置保存失败，请重试。');
+  const fontSave = useOptionSave('字号保存失败，请重试。');
 
   useEffect(() => {
     void window.dela?.settings
@@ -153,7 +153,10 @@ export function AppearanceSection({
   return (
     <div className="grid gap-5">
       <SectionHeader description="主题立即应用；应用图标在重启应用后生效。" title="外观" />
-      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+      <section
+        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
+        data-setting-id="theme"
+      >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">主题</h2>
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -179,7 +182,10 @@ export function AppearanceSection({
           </p>
         )}
       </section>
-      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+      <section
+        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
+        data-setting-id="zoom"
+      >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">页面缩放</h2>
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -208,7 +214,10 @@ export function AppearanceSection({
           </p>
         )}
       </section>
-      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+      <section
+        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
+        data-setting-id="font-scale"
+      >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">字号</h2>
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -237,7 +246,10 @@ export function AppearanceSection({
           </p>
         )}
       </section>
-      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+      <section
+        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
+        data-setting-id="icon"
+      >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">应用图标</h2>
           <p className="text-xs leading-relaxed text-muted-foreground">

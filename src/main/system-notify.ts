@@ -3,13 +3,16 @@ import type { NotificationItem } from '../shared/api';
 import { getDatabase } from './database';
 
 // 系统桌面通知：仅提示标题，点击唤起主窗口并跳转对应界面。
-// 弹出条件：会话已过启动基线（armSystemNotifications）、未处暂停通知、主窗口未聚焦——
-// 聚焦时应用内铃铛红点已足够，避免同屏双重打扰。
+// 弹出条件：会话已过启动基线（armSystemNotifications）、未处暂停通知、校园提醒未关闭、
+// 主窗口未聚焦——聚焦时应用内铃铛红点已足够，避免同屏双重打扰。
 
 let armed = false;
 
 // workspace_settings 中暂停通知的键；notifications.ts 的读写与此处共用，避免裸字符串散落两模块。
 export const NOTIFICATIONS_SNOOZE_KEY = 'notifications-snoozed-until';
+// workspace_settings 中校园消息系统提醒的开关键；settings/ipc.ts 的读写共用。
+// '0' 关闭（只停桌面弹窗，应用内通知列表不受影响），缺省视为开启。
+export const CAMPUS_NOTIFICATIONS_KEY = 'campus-notifications';
 
 /** 启动首轮刷新完成后调用；此前收集到的存量通知作为基线，不弹系统通知。 */
 export function armSystemNotifications(): void {
@@ -44,20 +47,41 @@ function snoozed(): boolean {
   return !Number.isNaN(until) && until > Date.now();
 }
 
-/** 新增通知的桌面提示入口；守卫不满足时静默返回，不影响通知收集。 */
-export function systemNotifyItem(item: NotificationItem): void {
-  if (!armed || !Notification.isSupported() || snoozed()) return;
-  const window = workspaceWindow();
-  // 窗口不存在（尚未创建）或正被使用时不打扰；收起到托盘的窗口不聚焦，正常弹出。
-  if (!window || window.isFocused()) return;
-  const toast = new Notification({ title: item.title, body: '' });
+function campusNotificationsEnabled(): boolean {
+  const row = getDatabase()
+    .prepare('SELECT value FROM workspace_settings WHERE key = ?')
+    .get(CAMPUS_NOTIFICATIONS_KEY) as { value?: string } | undefined;
+  return row?.value !== '0';
+}
+
+function showToast(title: string, body: string, onClick: () => void): void {
+  const toast = new Notification({ title, body });
   toast.on('click', () => {
     const target = workspaceWindow();
     if (!target) return;
     if (target.isMinimized()) target.restore();
     target.show();
     target.focus();
-    target.webContents.send('notifications:open', item);
+    onClick();
   });
   toast.show();
+}
+
+/** 新增通知的桌面提示入口；守卫不满足时静默返回，不影响通知收集。 */
+export function systemNotifyItem(item: NotificationItem): void {
+  if (!armed || !Notification.isSupported() || snoozed() || !campusNotificationsEnabled()) return;
+  const window = workspaceWindow();
+  // 窗口不存在（尚未创建）或正被使用时不打扰；收起到托盘的窗口不聚焦，正常弹出。
+  if (!window || window.isFocused()) return;
+  showToast(item.title, '', () => {
+    workspaceWindow()?.webContents.send('notifications:open', item);
+  });
+}
+
+/** 非校园类系统提醒（Agent 任务通知等）：与校园通知同一套守卫，点击仅唤起主窗口。 */
+export function systemNotifyToast(title: string, body: string): void {
+  if (!armed || !Notification.isSupported() || snoozed()) return;
+  const window = workspaceWindow();
+  if (!window || window.isFocused()) return;
+  showToast(title, body, () => {});
 }

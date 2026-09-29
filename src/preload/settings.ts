@@ -2,7 +2,9 @@ import type {
   FontScalePreference,
   IconPreference,
   SettingsApi,
+  TaskNotificationPrefs,
   ThemePreference,
+  WorkspacePrefs,
   ZoomPreference,
 } from '../shared/api';
 import { invoke } from './lib';
@@ -18,4 +20,13 @@ export const settings = {
   setFontScale: (scale: FontScalePreference) => invoke('settings:set-font-scale', scale),
   getOpenAtLogin: () => invoke('settings:get-open-at-login'),
   setOpenAtLogin: (enabled: boolean) => invoke('settings:set-open-at-login', enabled),
+  getCampusNotifications: () => invoke('settings:get-campus-notifications'),
+  setCampusNotifications: (enabled: boolean) =>
+    invoke('settings:set-campus-notifications', enabled),
+  getTaskNotifications: () => invoke('settings:get-task-notifications'),
+  setTaskNotifications: (prefs: TaskNotificationPrefs) =>
+    invoke('settings:set-task-notifications', prefs),
+  getWorkspacePrefs: () => invoke('settings:get-workspace-prefs'),
+  setWorkspacePrefs: (prefs: Partial<WorkspacePrefs>) =>
+    invoke('settings:set-workspace-prefs', prefs),
 } satisfies SettingsApi;

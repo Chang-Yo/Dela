@@ -208,6 +208,9 @@ src/renderer/
     navigation.ts           # 视图路由 zustand store：view、back/forward 栈、定位请求脉冲、navigate()
     theme.ts                # 主题/缩放/字号的应用与 localStorage 镜像（迁移自 App.tsx 散落 effects）
     notifications.ts        # 通知镜像订阅与跳转 hook（迁移自 App.tsx 通知段）
+    workbench-shell.tsx     # 工作台装配（3B 新增）：三 Provider + EntryDialogs + 导航脉冲消费
+    workbench-explorer.tsx  # 工作台目录侧栏装配（3B 新增）：ProjectFileTree + SourcesTree + 归档区
+    mail-draft-dialog.tsx   # ChatTabSource.mailDialog 注入实现（3B 新增）：包装 MailComposer 为自包含弹窗
   workbench/                # 统一标签工作台（替换 ProjectView 的布局/标签职责）
     Workbench.tsx           # 工作台根：渲染 layout 根节点，接管现 ProjectView 的编辑区骨架
     layout-store.ts         # 分割树/标签/焦点/最大化 zustand store + 防抖持久化

@@ -96,6 +96,9 @@ export type {
   IconPreference,
   ZoomPreference,
   FontScalePreference,
+  TaskNotificationPrefs,
+  NoteEditModePreference,
+  WorkspacePrefs,
   SettingsApi,
   SettingsSectionId,
 } from './settings';

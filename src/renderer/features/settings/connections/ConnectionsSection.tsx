@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
-import { CalendarDays, Folder, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
-import { cn } from '../../lib/utils';
-import type { MailTrashRetention } from '../../../shared/api';
-import { CanvasTokenForm } from '../sources/CanvasTokenForm';
-import { SectionHeader } from './SectionHeader';
-import { errorText, useWorkspace } from '../projects/workspace';
+import { CalendarDays, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
+import { Button } from '../../../components/ui/button';
+import { ShuiyuanIcon } from '../../../components/ui/shuiyuan-icon';
+import { cn } from '../../../lib/utils';
+import type { MailTrashRetention } from '../../../../shared/api';
+import { CanvasTokenForm } from './CanvasTokenForm';
+import { SectionHeader } from '../SectionHeader';
+import { errorText, useWorkspaceStore } from '../../../workspace/store';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;
@@ -16,6 +16,8 @@ type ConnectionsSectionProps = {
 };
 
 type Connection = {
+  /** 搜索直达与高亮目标（data-setting-id）。 */
+  itemId: string;
   name: string;
   icon: LucideIcon | typeof ShuiyuanIcon;
   state: string;
@@ -27,13 +29,13 @@ type Connection = {
   extra?: ReactNode;
 };
 
+/** 设置 › 连接：Canvas、邮箱、教务、水源四张连接卡的容器（工作目录已迁往「工作区」）。 */
 export function ConnectionsSection({
   onOpenMail,
   onOpenShuiyuan,
   onOpenTimetable,
 }: ConnectionsSectionProps) {
-  const canvas = useWorkspace((state) => state.canvas);
-  const directory = useWorkspace((state) => state.workspace.directory);
+  const canvas = useWorkspaceStore((state) => state.canvas);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
   const [retentionError, setRetentionError] = useState<string | null>(null);
@@ -104,20 +106,13 @@ export function ConnectionsSection({
     setDisconnectError(null);
     try {
       await window.dela.canvas.disconnect();
-      useWorkspace.getState().setCanvas(await window.dela.canvas.getState());
+      useWorkspaceStore.getState().setCanvas(await window.dela.canvas.getState());
       setDialog(null);
     } catch (cause) {
       setDisconnectError(errorText(cause));
     } finally {
       setBusy(false);
     }
-  };
-
-  const chooseDirectory = () => {
-    void window.dela?.workspace
-      .chooseDirectory()
-      .then(() => useWorkspace.getState().refresh())
-      .catch(useWorkspace.getState().setError);
   };
 
   const changeRetention = async (value: MailTrashRetention) => {
@@ -135,6 +130,7 @@ export function ConnectionsSection({
 
   const connections: Connection[] = [
     {
+      itemId: 'canvas',
       name: 'Canvas',
       icon: GraduationCap,
       state: canvas.connected ? '已连接' : '未连接',
@@ -144,6 +140,7 @@ export function ConnectionsSection({
       onClick: openDialog,
     },
     {
+      itemId: 'mail',
       name: '学校邮箱',
       icon: Mail,
       state: mailAddress ? `已连接 · ${mailAddress}` : '未配置',
@@ -178,6 +175,7 @@ export function ConnectionsSection({
         ),
     },
     {
+      itemId: 'timetable',
       name: '教学信息服务网',
       icon: CalendarDays,
       state: timetableConnected ? '已连接' : '未连接',
@@ -187,6 +185,7 @@ export function ConnectionsSection({
       onClick: onOpenTimetable,
     },
     {
+      itemId: 'shuiyuan',
       name: '水源社区',
       icon: ShuiyuanIcon,
       state: shuiyuanUser ? `已绑定 · @${shuiyuanUser}` : '未绑定',
@@ -206,20 +205,11 @@ export function ConnectionsSection({
         </span>
       ) : undefined,
     },
-    {
-      name: '工作目录',
-      icon: Folder,
-      state: directory ? '已设置' : '未选择',
-      connected: Boolean(directory),
-      description: directory || '保存笔记与生成文件',
-      actionLabel: '选择',
-      onClick: chooseDirectory,
-    },
   ];
 
   return (
     <div className="grid gap-5">
-      <SectionHeader description="凭据经系统加密保存在本机。" title="数据与服务" />
+      <SectionHeader description="凭据经系统加密保存在本机。" title="连接" />
       {loadError && (
         <p className="text-xs text-destructive" role="alert">
           {loadError}
@@ -227,9 +217,20 @@ export function ConnectionsSection({
       )}
       <ul className="grid">
         {connections.map(
-          ({ name, icon: Icon, state, connected, description, actionLabel, onClick, extra }) => (
+          ({
+            itemId,
+            name,
+            icon: Icon,
+            state,
+            connected,
+            description,
+            actionLabel,
+            onClick,
+            extra,
+          }) => (
             <li
               className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0 max-md:items-start max-md:py-3"
+              data-setting-id={itemId}
               key={name}
             >
               <div className="flex min-w-0 items-center gap-3">

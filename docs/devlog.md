@@ -10,6 +10,33 @@
 
 ---
 
+## 2026-09-29（第十三轮）设置域重构：八分类、搜索直达、通知/工作区偏好与 run 终态提醒（阶段三·批次 3B）
+
+落实 [重构计划](agent-workspace-plan.md) §4.4 与 [structure.md](refactor/structure.md) §3.6/§2.4。`SettingsSectionId` 扩为 `general|appearance|notifications|workspace|llm|connections|plugins|about`；「数据与服务」拆解（工作目录→工作区；Canvas/邮箱/教务/水源四卡→连接）；`features/settings/` 重组为 `sections/`（七 Section）+ `connections/`（收编自 sources 复制迁入的 CanvasTokenForm/canvas-connect，原文件留待 3C 删除，首启向导 CanvasStep 已改指新处）。
+
+- **main 侧新目录 `src/main/settings/`**：`prefs.ts`（workspace_settings 读写：自 main/index.ts 迁出的主题/图标/缩放/字号/自启读取助手 + 新偏好）、`ipc.ts`（`registerSettingsIpc` 整体迁出，既有 10 通道行为不变；新增 `settings:get/set-campus-notifications`、`settings:get/set-task-notifications`、`settings:get/set-workspace-prefs` 六个处理器，全部 zod 校验）、`task-notify.ts`（run 终态提醒）、`index.ts`（对 main/index.ts 的组装出口：`registerSettingsIpc` + `readSetting`/`savedTheme`/`savedIcon`/`savedZoom`）。**main/index.ts 的内联设置段暂留原处**（该文件归并行批次，未接线；协调方需删除内联段并改为从 `./settings` import——同文件内两份 registerSettingsIpc 不会共存运行，接线前新通道不可用、旧通道行为不变）。
+- **任务通知（真实新能力）**：偏好键 `task-notifications`（JSON `{completed, failed}`，默认 failed=true/completed=false，低干扰原则）；`session/manager.ts` 的 askSession finally 在 `finishRun` 后对 completed/failed 调 `notifyRunFinished`（stopped 不提醒）——读偏好→取会话标题→`system-notify.ts` 新增 `systemNotifyToast`（复用既有 armed 启动基线/暂停/窗口聚焦守卫，点击仅唤起主窗口）；任何读取/弹出失败静默，不影响 Run 落库与推送。
+- **校园消息系统提醒**：偏好键 `campus-notifications`（'0' 关闭，缺省开启=现行为）；`systemNotifyItem` 增加该守卫——关闭只停桌面弹窗，通知收集与应用内列表不受影响。此通道为批次说明之外的新增（任务只点名 4 个新通道，但 §4.4 通知分类要求「校园消息提醒偏好」）。
+- **暂停通知共用状态**：通知 Section 直接读写 `notifications:set-snooze` / `getState().snoozedUntil` 并订阅 `notifications:state` 广播——与通知中心**同一份** `notifications-snoozed-until` 键，无第二开关，两端实时同步。
+- **工作区偏好**：键 `workspace-prefs`（JSON，缺省 `{restoreLastProject: true, defaultNoteEditMode: 'rich'}`，恢复默认与现行为一致）；`setWorkspacePrefs` 支持部分合并。工作目录卡自旧 ConnectionsSection 迁入；布局重置经现有 `layout:save` 把当前项目布局写回默认单组（两步确认；当前项目读 `localStorage['dela.workspace.project']`，与 app/navigation 的持久化键一致，空串=通用池 `_general`）。
+- **插件三类型骨架**：内部按 自定义指令（现功能原样迁入）/ Skills / MCP 切换；后两者只显示「即将支持（阶段四交付）」说明，无任何开关（「未实现不展示」红线）。
+- **搜索直达**：`SettingsSearch`（内容区顶部 sticky 搜索框 + 键盘导航下拉）按分类/选项标题/关键词过滤单一索引 `search-index.ts`（内置同义词表：主题→外观、API→模型服务、邮件→连接等；校园提醒卡刻意不含「邮件/水源」词，避免抢连接页目标），选中跳转 section 并给目标卡片 `data-setting-id` 加 1.8s ring 高亮 + scrollIntoView。全局搜索的 setting 入口改由同一索引派生（`settingsResultsFor` 按分类聚合，GlobalSearchDialog 删除本地重复表）——主进程 `search.ts` 本就不含 setting 目标（批次说明的「main 侧」定位有误，实际同步点是渲染层静态表）。
+- **行为红线核对**：简单偏好全部即时保存（开关/select 失败回滚原值并就地报错，无保存按钮）；主题/缩放/自启/模型服务等旧偏好键原样沿用（迁移零丢失）；错误引导「设置 › 模型服务」无需改动（section id `llm` 未变，llm 根节点带高亮锚点）。
+- 已验证：`pnpm typecheck` 三组零错、oxlint 0 警告、prettier（仅本批文件）、`pnpm build` 三 bundle、全量 468 项单测（新增 prefs 9、task-notify 5、search-index 9）；app/App.tsx（并行批次）传入的 SettingsView props 与本批签名兼容。待验证（实机审阅）：搜索高亮 ring 观感、通知/工作区各开关保存反馈、插件页签切换。待接线（协调方）：main/index.ts 设置段替换为 `./settings` import、app 启动消费 `getWorkspacePrefs()` 导航、content/note NoteTab 初始模式读 `defaultNoteEditMode`、3C 删除 sources 下 CanvasTokenForm/canvas-connect 旧文件。
+
+## 2026-09-29（第十二轮）应用装配切换：App 从旧三视图切到统一工作台（阶段三·批次 3B）
+
+切换批次：新入口 `src/renderer/app/` 落地并挂载，旧 `src/renderer/App.tsx` 删除（内容全部迁走）；3A 交付的 workbench/sessions/content/workspace/navigation 模块全部接通。features/** 旧文件原样保留，统一在批次 3C 退役。
+
+- **app/ 拆分**（structure.md §3.1，实际新增三个装配文件）：`navigation.ts` 视图路由 zustand——`view: 'workbench'|'mail'|'timetable'|'shuiyuan'|'todo'|'notifications'|'settings'`（'workbench' 统一取代旧 home/project/sources 三视图）+ back/forward 栈 + 当前项目（localStorage 键沿用 `dela.workspace.project`，null=通用池）+ 一次性定位脉冲（旧五类 chatRequest/mailRequest/todoRequest/settingsRequest/createProject 全部迁入，另增 reveal/generalChat 两个由工作台消费的脉冲）；`theme.ts`（主题/缩放/字号 effects 与 localStorage 镜像）；`notifications.ts`（通知镜像订阅、60s 暂停到期重读、桌面通知 onOpen 跳转经 navigation）；`App.tsx` 根组件（launch 阶段/onboarding/视图切换动画保持旧行为，含会话静默后的条目+Canvas+干净草稿刷新、beforeunload 草稿守卫、Ctrl+K）。
+- **工作台装配**（`workbench-shell.tsx`）：三个 Provider 挂工作台根部。ChatTabSource：referenceSource 候选=打开中标签的草稿标题优先+可读条目（note/imported/source，覆盖 Canvas 与水源引用条目，即旧 AgentPanel 拼装）、flushReference=草稿 save 失败抛错阻止发送（旧 use-chat 语义）、mailDialog=`mail-draft-dialog.tsx`（MailComposer 包装为自包含弹窗：openDraft+账号校验+leaveComposer 关闭守卫，即旧 ChatThread 内联 Dialog 段）、onOpenSource→openDocument 脉冲、onSaveNote→prefillNoteText 新建笔记弹窗；NoteDraftSource←workspace/drafts（acquire/edit/save/release/saveAsNewNote 直连）；ContentLoader：source:→canvas.read/水源 readSource、条目→workspace.read，officeRef（pptx）/watchesDisk（local/imported）/resolveImage（本地 Markdown 图片）与旧 ProjectDocument 同规则，openLink 保留 oc.sjtu.edu.cn files 站内分流，onExported 刷新条目树。`registry.ts` 标题解析接镜像（条目名/Canvas 资料名/会话标题；镜像变化的重渲染由 shell 订阅 entries/lists 触发）。
+- **目录侧栏**（`workbench-explorer.tsx`，替代旧 ProjectView/SourcesView 的 aside）：ProjectFileTree（项目模式 rootId=项目，通用模式根树）+ SourcesTree（课程资料，含刷新课程/连接 Canvas/按来源分组）+ 归档区；树状态用 navigation/store；EntryDialogs 接线（onCreated 展开父级+打开新笔记，onRemoved 清理已删条目标签+退出已删项目回通用池）；「在另一栏打开」=openTab+splitGroup。折叠态展开入口挂标题栏 `#titlebar-actions` portal（旧版在标签栏左端，TabBar 属 3A 冻结件）。
+- **AppShell 瘦身**：移除 useWorkspace 订阅、项目列表、「保存所有已打开笔记」（草稿自动保存取代，Ctrl+S 菜单项同步删除）；挂 ProjectSessionNav（sessions/runs 镜像数据与回调由 App 装配经 props 传入，AppShell 保持零 store 依赖）；标题菜单收敛为 文件/视图/帮助，Ctrl+1/2/3=工作台/邮箱/课表；邮箱移动端抽屉槽与标题栏 portal 机制保留。
+- **深链与托盘**：全局搜索 chat 深链的旧 scope 归一（home/sources/未知项目→通用池，旧「项目已不存在」错误态随会话新身份删除）；course-file→当前工作台开 preview:source 标签；note→openNote 按条目祖先自动归属项目；mail/todo/settings→对应视图+定位脉冲；通知点击同路径。托盘「新建对话」→openGeneralChat(true) 新建通用会话，「新建项目」→工作台新建项目弹窗——main 侧零改动（载荷复用）。
+- **通用聊天与项目会话**：导航「通用聊天」=定位已有的通用会话标签（无则新建）；项目下 ChatTab 新会话经 Provider 的 projectId 自动归属项目（session.create(projectId)）。
+- 修复一处装配层 bug：zustand 选择器内 `.filter()` 返回新数组触发 useSyncExternalStore 死循环（React #185），选择器改为返回稳定引用、过滤移到渲染期。
+- 已验证：`pnpm vitest run` 53 文件 468 项全绿；三 bundle vite 构建通过；`pnpm smoke`（打包产物）通过——SQLite/renderer/preload 隔离检查全过；dev 模式 smoke 实证旧 'sources' 视图种子迁移（布局种子+笔记标签渲染走通）。`pnpm typecheck` 除并行设置批次 in-flight 的 `features/settings/search-index.test.ts`（2 个错，非本批文件）外零错；本批文件 oxlint 0 警告（全仓 lint 的 1 个警告同样来自并行批次的 `main/settings/ipc.ts` 未用 import）。待验证（用户实机审阅清单见批次汇报）：布局拖拽与动画视线、目录侧栏折叠动线、项目切换工作现场恢复、通知/搜索深链实跳。
+
 ## 2026-09-29（第十一轮）上下文压缩落地：按预算触发替代固定 12 条窗口（阶段二·批次 2C）
 
 落实 [重构计划](agent-workspace-plan.md) §6.1 与 [decisions-phase1.md](refactor/decisions-phase1.md) 批次 2B 压缩骨架的完整实现，`historyWindow` 的 `slice(-12)` 退役删除。按目录拆分：`context/budget.ts`（估算与预算口径）、`context/compaction.ts`（摘要生成）、`context/assemble.ts` 重写（预算组装），`session/{manager,store}.ts` 接线，`core/{run,pi}.ts` 加运行内修剪。

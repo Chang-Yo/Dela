@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Check, LoaderCircle, Pencil, Plus, Server, Trash2 } from 'lucide-react';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { cn } from '../../lib/utils';
-import type { LlmProviderView, LlmVerifyResult } from '../../../shared/api';
+import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { cn } from '../../../lib/utils';
+import type { LlmProviderView, LlmVerifyResult } from '../../../../shared/api';
 import {
   findLlmPreset,
   llmProviderPresets,
   reasoningEffortLevels,
   type LlmProviderPreset,
-} from '../../../shared/llm-presets';
-import { SectionHeader } from './SectionHeader';
-import { errorText } from '../projects/workspace';
+} from '../../../../shared/llm-presets';
+import { SectionHeader } from '../SectionHeader';
+import { errorText } from '../../../workspace/store';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; provider: LlmProviderView } | null;
 
@@ -54,7 +54,7 @@ export function LlmSection() {
 
   if (!window.dela) {
     return (
-      <div className="grid gap-5">
+      <div className="grid gap-5" data-setting-id="llm">
         <SectionHeader
           description="配置对话助手使用的模型服务，支持多个 OpenAI 兼容提供商。"
           title="模型服务"
@@ -65,7 +65,7 @@ export function LlmSection() {
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5" data-setting-id="llm">
       <SectionHeader
         description="配置对话助手使用的模型服务。可保存多个提供商并随时切换；API Key 经系统加密保存在本机。"
         title="模型服务"
