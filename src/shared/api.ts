@@ -278,6 +278,9 @@ export interface ShuiyuanTopicSummary {
   readonly bookmarked: boolean;
   readonly archetype: string;
   readonly lastPosterUsername: string | null;
+  /** 楼主用户名与头像模板：posters[] 联查 topic_list 顶层 users[] 得到，可能缺省。 */
+  readonly authorUsername: string | null;
+  readonly authorAvatarTemplate: string | null;
 }
 
 export interface ShuiyuanTopicPage {

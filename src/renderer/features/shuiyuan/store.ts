@@ -37,6 +37,8 @@ type Store = {
   listError: string | null;
   bookmarks: readonly ShuiyuanBookmarkItem[];
   notifications: readonly ShuiyuanNotificationItem[];
+  /** 已读记录（localStorage 持久化），驱动列表未读加粗。 */
+  readMarks: Readonly<ReadMarks>;
   reading: ReadingState;
   /** App 层“在水源页打开”请求；视图消费后清空。 */
   topicRequest: { topicId: number; postNumber: number | null } | null;
@@ -62,6 +64,43 @@ type Store = {
 /** 列表请求序号：丢弃过期响应（与邮箱视图的 request guard 同法）。 */
 let listRequest = 0;
 let readingRequest = 0;
+
+/** 已读记录：topicId → 打开该帖时的最后活动时间（ISO）。超过保留期的旧记录丢弃。 */
+const READ_STORAGE_KEY = 'dela.shuiyuan.read';
+const READ_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+type ReadMarks = Record<string, string>;
+
+function loadReadMarks(): ReadMarks {
+  try {
+    const raw = localStorage.getItem(READ_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const cutoff = Date.now() - READ_RETENTION_MS;
+    const marks: ReadMarks = {};
+    for (const [topicId, seen] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof seen === 'string' && new Date(seen).getTime() > cutoff) marks[topicId] = seen;
+    }
+    return marks;
+  } catch {
+    return {};
+  }
+}
+
+function persistReadMarks(marks: ReadMarks): void {
+  try {
+    localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(marks));
+  } catch {
+    /* 隐私模式/配额满时放弃持久化，本次会话内仍生效。 */
+  }
+}
+
+/** 未读判定：从未打开过，或打开后又有新回复。 */
+export function isTopicUnread(marks: Readonly<ReadMarks>, topic: ShuiyuanTopicSummary): boolean {
+  const seen = marks[topic.id];
+  if (!seen) return true;
+  return (topic.lastPostedAt ?? topic.createdAt) > seen;
+}
 
 function sameList(a: ListSelection, b: ListSelection): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -118,6 +157,7 @@ export const useShuiyuan = create<Store>((set, get) => {
     listError: null,
     bookmarks: [],
     notifications: [],
+    readMarks: loadReadMarks(),
     reading: null,
     topicRequest: null,
 
@@ -207,11 +247,17 @@ export const useShuiyuan = create<Store>((set, get) => {
         set({
           reading: { topicId, postNumber: postNumber ?? null, detail, loading: false, error: null },
         });
+        // 打开即视为已读：记录此刻的最后活动时间，列表未读加粗随之取消。
+        const readMarks = {
+          ...get().readMarks,
+          [topicId]: detail.lastPostedAt || detail.createdAt || new Date().toISOString(),
+        };
+        persistReadMarks(readMarks);
         // 列表里的收藏态与详情同步（从阅读页切换后列表徽标一致）。
         const topics = get().topics.map((topic) =>
           topic.id === topicId ? { ...topic, bookmarked: detail.bookmarked } : topic,
         );
-        set({ topics });
+        set({ topics, readMarks });
       } catch (error) {
         if (readingRequest !== request) return;
         set({
