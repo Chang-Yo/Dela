@@ -65,7 +65,7 @@ function DesktopShuiyuanView() {
           ) : (
             <>
               {list.kind === 'messages' ? (
-                <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pb-1 pt-3 max-md:px-3">
+                <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 pb-1 pt-3 max-md:px-3">
                   <ListBackButton />
                   <Button onClick={() => setMessageOpen(true)} size="sm" variant="outline">
                     <PencilLine className="size-3.5" />

@@ -79,7 +79,7 @@ export function ShuiyuanHeader() {
     >
       <Icon className="size-4" strokeWidth={1.8} />
       {count && count > 0 ? (
-        <span className="absolute -right-1.5 -top-1 rounded-full bg-primary px-1 text-[9px] font-medium leading-[14px] tabular-nums text-primary-foreground">
+        <span className="absolute -right-1.5 -top-1 rounded-full bg-primary px-1 text-2xs font-medium leading-4 tabular-nums text-primary-foreground">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -87,9 +87,9 @@ export function ShuiyuanHeader() {
   );
 
   return (
-    <header className="border-b bg-background/95 px-4 py-2 backdrop-blur max-md:px-3">
-      {/* 宽屏三区网格（左入口 / 中筛选 / 右搜索）；窄屏两行：入口+刷新/搜索在上，
-          筛选器在下——操作语义归上、过滤语义归下。lg:contents 把首行包装拆散为网格项。 */}
+    <header className="border-b border-border/70 bg-background/95 px-4 py-2 backdrop-blur max-md:px-3">
+      {/* 宽屏三区网格（左入口 / 中列表切换与筛选+刷新 / 右搜索）；窄屏两行：入口/搜索在上，
+          列表切换、筛选与刷新在下。lg:contents 把首行包装拆散为网格项。 */}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
         <div className="flex items-center gap-2.5 lg:contents">
           <div className="flex flex-wrap items-center gap-0.5 lg:col-start-1 lg:row-start-1 lg:justify-self-start">
@@ -116,21 +116,6 @@ export function ShuiyuanHeader() {
             )}
           </div>
           <div className="ml-auto flex flex-1 flex-wrap items-center justify-end gap-2.5 lg:col-start-3 lg:row-start-1 lg:ml-0 lg:justify-self-end">
-            <button
-              aria-label="刷新"
-              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
-              onClick={() => {
-                void refreshList();
-                void refreshCounts();
-              }}
-              title="刷新"
-              type="button"
-            >
-              <RefreshCw
-                className={cn('size-4', listLoading && 'animate-spin')}
-                strokeWidth={1.8}
-              />
-            </button>
             <div className="relative min-w-32 max-w-56 flex-1">
               <Search
                 aria-hidden="true"
@@ -157,7 +142,7 @@ export function ShuiyuanHeader() {
             <button
               aria-pressed={feedKind === 'latest'}
               className={cn(
-                'h-7 rounded-md px-3 text-[13px] font-medium transition-all',
+                'h-7 rounded-md px-3 text-xs font-medium transition-all',
                 feedKind === 'latest'
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
@@ -170,7 +155,7 @@ export function ShuiyuanHeader() {
             <button
               aria-pressed={feedKind === 'featured'}
               className={cn(
-                'h-7 rounded-md px-3 text-[13px] font-medium transition-all',
+                'h-7 rounded-md px-3 text-xs font-medium transition-all',
                 feedKind === 'featured'
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
@@ -181,6 +166,8 @@ export function ShuiyuanHeader() {
               精品
             </button>
           </div>
+          {/* 切换与筛选分属两组操作，用细线隔开避免连成一簇。 */}
+          <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
           <Select
             onValueChange={(value) => {
               void selectList(
@@ -226,6 +213,19 @@ export function ShuiyuanHeader() {
               ))}
             </SelectContent>
           </Select>
+          {/* 刷新同属“当前列表”操作，紧随筛选器；与右侧搜索区分组。 */}
+          <button
+            aria-label="刷新"
+            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
+            onClick={() => {
+              void refreshList();
+              void refreshCounts();
+            }}
+            title="刷新"
+            type="button"
+          >
+            <RefreshCw className={cn('size-4', listLoading && 'animate-spin')} strokeWidth={1.8} />
+          </button>
         </div>
       </div>
     </header>

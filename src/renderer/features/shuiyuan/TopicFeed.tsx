@@ -1,71 +1,147 @@
-import { Eye, Mail, MessageSquare, Pin } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Bookmark, Loader2, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
 import type { ShuiyuanTopicSummary } from '../../../shared/api';
+import { cn } from '../../lib/utils';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
-import { categoryOf, useShuiyuan } from './store';
-import { formatCount, formatListDate } from './shuiyuan-format';
+import { categoryOf, isTopicUnread, useShuiyuan } from './store';
+import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 
-function TopicRow({ topic, showExcerpt }: { topic: ShuiyuanTopicSummary; showExcerpt: boolean }) {
+/** 分类色索引（Discourse 式）：12px 色方 + 文字，颜色只做索引不做底色。 */
+export function CategoryTag({ category }: { category: { name: string; color: string } }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className="size-2.5 shrink-0 rounded-[2px]"
+        style={{ backgroundColor: category.color }}
+      />
+      <span className="truncate">{category.name}</span>
+    </span>
+  );
+}
+
+/** 行首头像：远程头像直接渲染，缺省时退回首字母占位圆。 */
+function TopicAvatar({ topic }: { topic: ShuiyuanTopicSummary }) {
+  const url = avatarUrl(topic.authorAvatarTemplate, 96);
+  if (url) {
+    return (
+      <img
+        alt=""
+        className="mt-0.5 size-10 shrink-0 rounded-full object-cover max-md:size-8"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        src={url}
+      />
+    );
+  }
+  const initial = topic.authorUsername?.trim().charAt(0).toUpperCase();
+  return (
+    <span
+      aria-hidden="true"
+      className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground max-md:size-8"
+    >
+      {initial || '…'}
+    </span>
+  );
+}
+
+function TopicRow({
+  topic,
+  showExcerpt,
+  unread,
+}: {
+  topic: ShuiyuanTopicSummary;
+  showExcerpt: boolean;
+  unread: boolean;
+}) {
   const structure = useShuiyuan((state) => state.structure);
   const openTopic = useShuiyuan((state) => state.openTopic);
   const category = categoryOf(structure, topic.categoryId);
+  const isPM = topic.archetype === 'private_message';
   return (
     <button
-      className="flex w-full flex-col gap-1.5 border-b border-border/60 px-1 py-3.5 text-left transition-colors last:border-0 hover:bg-muted/40"
+      className={cn(
+        'flex w-full items-start gap-3.5 rounded-xl border p-5 text-left shadow-xs transition-colors max-md:p-4',
+        topic.pinned ? 'bg-muted/30 hover:bg-muted/50' : 'bg-card hover:bg-accent/40',
+      )}
       onClick={() => void openTopic(topic.id)}
       type="button"
     >
-      <div className="flex items-start gap-1.5">
-        {topic.pinned ? (
-          <Pin aria-label="置顶" className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
-        ) : null}
-        <span className="line-clamp-2 text-[15px] font-medium leading-snug">
-          <ShuiyuanTitle text={topic.title} />
-        </span>
-      </div>
-      {showExcerpt && topic.excerpt ? (
-        <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
-          {topic.excerpt}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 text-[11px] tabular-nums text-muted-foreground">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-          {category ? (
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="size-2 rounded-full"
-                style={{ backgroundColor: category.color }}
-              />
-              {category.name}
-            </span>
+      <TopicAvatar topic={topic} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex items-start gap-2">
+          {topic.pinned ? (
+            <Pin aria-label="置顶" className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
           ) : null}
-          {topic.archetype === 'private_message' ? (
-            <span className="flex items-center gap-1">
-              <Mail className="size-3" />
-              私信
-            </span>
+          {topic.closed ? (
+            <Lock aria-label="已关闭" className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
           ) : null}
-          {topic.tags.slice(0, 2).map((tag) => (
-            <span className="rounded bg-muted px-1.5 py-px" key={tag}>
-              {tag}
-            </span>
-          ))}
+          <span
+            className={cn(
+              'line-clamp-2 text-base leading-snug',
+              unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/75',
+            )}
+          >
+            <ShuiyuanTitle text={topic.title} />
+          </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2.5">
-          <span className="flex items-center gap-1" title="回复数">
-            <MessageSquare aria-hidden="true" className="size-3" strokeWidth={1.8} />
-            {topic.postsCount > 1 ? topic.postsCount - 1 : 0}
-            <span className="sr-only">回复</span>
-          </span>
-          <span className="flex items-center gap-1" title="浏览数">
-            <Eye aria-hidden="true" className="size-3" strokeWidth={1.8} />
-            {formatCount(topic.views)}
-            <span className="sr-only">浏览</span>
-          </span>
-          <span>{formatListDate(topic.lastPostedAt ?? topic.createdAt)}</span>
+        {showExcerpt && topic.excerpt ? (
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {topic.excerpt}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {/* 次级元信息一行排开：分类 · 作者 · 标签，纯文字弱化，标题是唯一主角。 */}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
+            {category && !isPM ? <CategoryTag category={category} /> : null}
+            {isPM ? (
+              <span className="flex items-center gap-1">
+                <Mail aria-hidden="true" className="size-3" strokeWidth={1.8} />
+                私信
+              </span>
+            ) : null}
+            {topic.authorUsername ? (
+              <span className="max-w-48 truncate">{topic.authorUsername}</span>
+            ) : null}
+            {topic.tags.slice(0, 2).map((tag) => (
+              <span className="flex items-center gap-1.5" key={tag}>
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 shrink-0 rounded-[2px]"
+                  style={{ backgroundColor: tagColor(tag) }}
+                />
+                {tag}
+              </span>
+            ))}
+          </div>
+          <div className="flex shrink-0 items-center gap-3 whitespace-nowrap tabular-nums">
+            <span className="flex min-w-14 items-center justify-end gap-1" title="回复数">
+              <MessageSquare aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
+              {formatCount(Math.max(topic.postsCount - 1, 0))}
+              <span className="sr-only">回复</span>
+            </span>
+            {topic.bookmarked ? (
+              <Bookmark aria-label="已收藏" className="size-3.5 fill-current" />
+            ) : null}
+            <span>{formatListDate(topic.lastPostedAt ?? topic.createdAt)}</span>
+          </div>
         </div>
       </div>
     </button>
+  );
+}
+
+function TopicCardSkeleton() {
+  return (
+    <div aria-hidden="true" className="rounded-xl border bg-card p-5 max-md:p-4">
+      <div className="flex items-start gap-3.5">
+        <div className="mt-0.5 size-10 shrink-0 animate-pulse rounded-full bg-muted max-md:size-8" />
+        <div className="flex min-w-0 flex-1 flex-col gap-3 py-0.5">
+          <div className="h-5 w-2/3 animate-pulse rounded-sm bg-muted" />
+          <div className="h-3 w-1/3 animate-pulse rounded-sm bg-muted" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -76,20 +152,49 @@ export function TopicFeed() {
   const moreUrl = useShuiyuan((state) => state.moreUrl);
   const loading = useShuiyuan((state) => state.listLoading);
   const error = useShuiyuan((state) => state.listError);
-  const loadMore = useShuiyuan((state) => state.loadMore);
+  const readMarks = useShuiyuan((state) => state.readMarks);
+  const reading = useShuiyuan((state) => state.reading !== null);
   const refreshList = useShuiyuan((state) => state.refreshList);
   const showExcerpt = list.kind === 'search' || list.kind === 'featured';
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // 滑到底部自动加载下一页。阅读页盖住列表期间暂停（几何上哨兵仍“可见”），
+  // 关闭阅读后依赖变化重建观察器即可恢复；出错也停住，交由错误横幅的重试。
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !moreUrl) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      const state = useShuiyuan.getState();
+      if (state.listLoading || state.listError || state.reading) return;
+      void state.loadMore();
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [moreUrl, loading, reading, topics.length]);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-1 max-md:px-3">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 pb-10 pt-4 max-md:px-3">
       {topics.map((topic) => (
         <TopicRow
           key={`${topic.id}-${topic.lastPostedAt ?? ''}`}
           topic={topic}
           showExcerpt={showExcerpt}
+          unread={isTopicUnread(readMarks, topic)}
         />
       ))}
-      {loading ? <p className="p-4 text-xs text-muted-foreground">加载中…</p> : null}
+      {loading && topics.length === 0
+        ? Array.from({ length: 5 }, (_, index) => <TopicCardSkeleton key={index} />)
+        : null}
+      {moreUrl && !error ? (
+        <div
+          aria-hidden={!loading}
+          className="flex h-9 items-center justify-center text-muted-foreground"
+          ref={sentinelRef}
+        >
+          {loading ? <Loader2 className="size-4 animate-spin" strokeWidth={1.8} /> : null}
+        </div>
+      ) : null}
       {!loading && !error && topics.length === 0 ? (
         <p className="px-1 py-8 text-center text-sm text-muted-foreground">
           {list.kind === 'search'
@@ -101,7 +206,7 @@ export function TopicFeed() {
       ) : null}
       {error ? (
         <div
-          className="mx-1 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           role="alert"
         >
           {error}
@@ -114,19 +219,6 @@ export function TopicFeed() {
           </button>
         </div>
       ) : null}
-      {moreUrl && !loading ? <ButtonOrDivider onMore={() => void loadMore()} /> : null}
     </div>
-  );
-}
-
-function ButtonOrDivider({ onMore }: { onMore: () => void }) {
-  return (
-    <button
-      className="mx-auto my-4 flex h-8 items-center rounded-md px-4 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      onClick={onMore}
-      type="button"
-    >
-      加载更多
-    </button>
   );
 }
