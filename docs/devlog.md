@@ -10,6 +10,61 @@
 
 ---
 
+## 2026-09-29（第九轮）移除选区引用「回复此内容」悬浮钮
+
+实机审阅后用户裁决放弃该功能：悬浮钮在沙箱 iframe（高度=内容高度、不可滚动）里定位反复修补——先贴底截断、翻转修复后矮楼层整钮消失、跨楼选区清除又需引入父页中继协议——复杂度收益比不划算。移除全部相关代码：注入脚本选区段与 postMessage 通道（frame-height.ts 与 index.html 的 CSP hash 回退为功能引入前的值）、ShuiyuanHtmlBody 的 onSelectionQuote 与 iframe 注册表中继、TopicReader 的接线。楼层操作条「引用」按钮（PostActions）不受影响；第三、五轮记录保留作为过程存档。
+
+- 已验证：oxlint 0 警告、prettier、`pnpm build`、24 文件 204 项单测、`pnpm smoke:shuiyuan` 通过（引用路径走楼层按钮，仍覆盖）。
+
+## 2026-09-29（第八轮）标签色块：按名称哈希每 tag 一色
+
+用户反馈列表里只有分类有色块、后面的 tag 是纯文本，期望每个 tag 都有自己的色块。Discourse API 的标签只有名字没有色值（色块是分类专属），故在 `shuiyuan-format.ts` 新增 `tagColor`：名称字符串哈希 → 固定色相（`hsl(H 62% 52%)`，中间调在深浅主题下均可读），同名标签永远同色。列表（TopicFeed）与阅读页标题区（TopicReader）的 tag 统一渲染为「色方 + 文字」，色方规格与分类一致（size-2.5 rounded-[2px]）。
+
+- 已验证：oxlint 0 警告、prettier、`pnpm build`、24 文件 203 项单测、`pnpm smoke:shuiyuan` 通过。待验证：实机观感（哈希色的整体观感由用户审阅）。
+
+## 2026-09-29（第七轮）回复编辑器修复滚动 + 全屏书写
+
+用户反馈：编辑区内容过长时无法滚动；要求在 X 左边加全屏钮，向上展开为大屏书写（对长文友好）。
+
+- **滚动修复**：根因是编辑壳 `h-44` 容器不是 flex，MarkdownEditor（CodeMirror）的 `flex-1` 高度链断了——内部 scroller 拿不到约束高度随内容长高，被壳的 `overflow-hidden` 裁掉。壳改为 `flex flex-col` 后内部滚动生效（预览的 `max-h-40 overflow-y-auto` 本就正常）。
+- **全屏书写**：X 左侧新增 Maximize2 钮（icon-sm ghost，与 X 同组悬于编辑卡右上角）；点击后表单 `absolute inset-0 z-30` 铺满阅读区（TopicReader 根补 `relative` 作锚点，只盖阅读页不遮全局外壳与标题栏），编辑器 `flex-1` 吃满剩余高度，内栏仍限 max-w-3xl 保行长；Esc 或 Minimize2 退出，X 收起整个回复框，发送成功自动退出全屏。编辑/预览/目标准条/附件/工具栏在全屏态全部可用（previewBody、editorHost 参数化避免双份 markup）。已知取舍：全屏切换会重挂 CodeMirror，正文保留但撤销历史清空。
+
+- 已验证：oxlint 0 警告、prettier、`pnpm build`、24 文件 203 项单测、`pnpm smoke:shuiyuan` 通过。待验证：实机长文滚动、全屏展开动线与 Esc 退出。
+
+## 2026-09-29（第六轮）水源卡片大气化：过量留白 + 字号对比
+
+用户引《Refactoring UI》「先过量留白再收敛」，反馈卡片空白与高度不足、有难以言说的狭窄感，要求用对比增强设计感。卡片整体放大一档：头像 24px→40px（窄屏 32px，头像请求尺寸随之 48→96 保清晰）、卡内边距 p-4→p-5（窄屏 p-4）、卡间距 gap-3→gap-4、容器 pt-3/pb-8→pt-4/pb-10、标题 text-sm→text-base（与 12px 元信息拉开字号对比）、标题行—元信息行间距 gap-1→gap-1.5、头像—正文沟槽 gap-3→gap-3.5、元信息列间距 gap-x-2→gap-x-2.5、右簇图标 3→3.5，骨架屏同步新形。
+
+- 已验证：oxlint 0 警告、prettier、`pnpm build`、24 文件 203 项单测、`pnpm smoke:shuiyuan` 通过。待验证：实机观感由用户审阅；如「过量」过头再逐档收敛。
+
+## 2026-09-29（第五轮）回复框收起钮上移 + 「回复此内容」截断与配色修复
+
+用户反馈两点：收起 X 应放进编辑区右上角而非工具栏；「回复此内容」悬浮按钮被截断（用户猜测 z-index 不当）且颜色与主题色相反。
+
+- **收起钮归位**：X 从底部工具栏移除，绝对定位悬在编辑/预览卡片右上角（`absolute top-2 right-2 z-10` + 半透明底），工具栏只剩附件/预览/发送。
+- **截断修复**：根因不是 z-index 而是垂直溢出——选区在楼层末行时按钮定位于 `r.bottom+6` 超出 iframe 底边，而 iframe `overflow-y: hidden` 直接裁掉。注入脚本改为量取按钮实际宽高（`offsetWidth/offsetHeight`），贴底时翻转到选区上方（`r.top - bh - 6`），水平按视口双向钳制。
+- **配色跟随主题**：原实现是 tooltip 式反色（浅色主题深底深景），观感「反了」；改为浅色主题白底深字、深色主题深灰底浅字，各带 1px 淡描边，阴影减弱。
+- 脚本文本变更 → 重算 sha256（`CY1Zt5lsZwKtZ0ndP/OBgWcDN4C+bkNVxzSXUE9cZyc=`）同步内外两层 CSP（frame-height.ts + index.html）。
+
+- 已验证：`pnpm smoke:shuiyuan` 通过（含 quote 路径 + 零渲染进程报错，CSP hash 无漂移）。待验证：实机选区悬浮钮的定位与深浅两套配色。
+
+## 2026-09-29（第四轮）水源信息流改逐条卡片：对齐通知中心样式
+
+用户认为列表整卡切行仍显丑，指定改为通知卡片的样式。信息流容器由「一张大卡 + divide-y 分隔行」改为通知中心同款逐条卡片（NotificationsView 规格）：容器 `flex flex-col gap-3`，每帖一张 `rounded-xl border bg-card shadow-xs hover:bg-accent/40` 卡（内边距 p-4、窄屏 p-3），置顶卡 `bg-muted/30`；骨架屏同步改卡片形（5 张）；行内内容结构（头像/标题/元信息/右簇统计）不变。第一轮的容器卡方案就此被用户裁决取代。
+
+- 已验证：oxlint 0 警告、prettier、`pnpm build`、203 项单测、`pnpm smoke:shuiyuan` 通过。待验证：实机观感（卡片间距与密度、hover 反馈）。
+
+## 2026-09-29（第三轮）水源阅读页交互精细化：选区引用、回复指向跳转、回复框归底
+
+用户反馈四点：用户名与正文无排版区分；回复框从右侧弹出不符合直觉应自底部展开；选中文字应有「回复此内容」悬浮引用；回复指向（reply-to）显示不全且不可跳转。
+
+- **用户名排版区分**：楼层头部用户名 `text-sm font-medium`→`text-xs font-semibold`（12px 加粗「标签」观感），与 iframe 内 15px/400 正文拉开字号+字重双层对比；头部行改 `items-center`。
+- **回复框归底**：移除宽屏停靠右侧栏方案（`useDockedComposer`/340px aside/`variant` 双态全部删除，属改动产生的孤立代码），回复框固定在阅读区底部、自底边向上展开，收起态即底部安静入口；收起按钮由「收起」文字/PanelRightClose 图标统一为 X 图标钮（icon-sm ghost）。
+- **选区引用**（Discourse 式「回复此内容」）：楼层是 `allow-scripts` 不透明源沙箱 iframe，父页面拿不到选区——复用 frame-height 注入脚本通道扩展：文档带 `data-dela-selection-quote` 属性时，iframe 内选中文字浮出「回复此内容」按钮（深浅主题各配色，mouseup 定位、selectionchange 消隐、mousedown preventDefault 保选区），点击 postMessage 上抛所选文本（折叠空白、截 200 字）；父侧新增 `frameQuoteFromEvent` 校验（source 校验同高度上报），插入 `> **@用户**（第 N 楼）：所选文本` 引用并展开回复框。**注入脚本文本变更 → 重算 sha256 并同步内外两层 CSP**（frame-height.ts + index.html，2234 字符，`hh85kTnQj03DBHF/...`），邮件正文不带属性不受影响，两视图仍共用一个 hash。
+- **回复指向跳转**：reply-to 指示从「仅目标已加载时显示灰文本」改为常显可点按钮（图标+目标用户名，目标未加载时显示「第 N 楼」）：已加载→本地平滑滚动+1.5s `bg-primary/5` 高亮；未加载→按楼层号重新打开该帖（既有 postNumber 滚动定位接管），不再出现「被回复楼层看不到」。
+- 冒烟脚本同步：分页断言从「点加载更多」改为「滚动触底自动加载」（上一轮无限滚动改造的遗漏补账），topic 桩补 `authorUsername`/`authorAvatarTemplate`。
+- 已验证：oxlint 0 警告、prettier、`pnpm build`（含三端 typecheck）、25 个测试文件 203 项单测、`pnpm smoke:shuiyuan` 通过（信息流/自动翻页/阅读页/引用/通知/搜索 + 零渲染进程报错，CSP hash 无漂移）。待验证：实机观感——选区悬浮按钮的定位与深色配色、跳转高亮、回复框底部展开动线。
+
 ## 2026-09-29 修复新注册用户被存量未读刷系统通知（邮件 + 水源）
 
 用户报告：新注册用户填完邮箱信息后不断收到未读邮件的系统桌面弹窗。根因是系统通知的"启动基线"（`armSystemNotifications`）在应用启动首轮刷新后即置位，而注册发生在应用运行中——首次邮件同步把服务器全部存量未读拉入缓存，每批入库都是通知表首见（`!existing.has(id)`），armed 已开于是逐批弹窗；老用户启动时存量未读在基线阶段入库，故无此问题。
@@ -18,6 +73,32 @@
 - **水源修复**（`refreshShuiyuan`，同口径）：以凭据自带的 `boundAt`（账号绑定时刻，绑定时 `toISOString()` 写入）为界，仅 `createdAt` 晚于绑定时刻的互动首次入库才弹；映射层 `createdAt` 可为空串，空串比较恒不晚于基线，自然不弹。实现上 `refreshShuiyuan` 改为直接读 `loadShuiyuanCredential()` 取 username 与 boundAt（损坏凭据吞异常视同未绑定，与 `currentAccounts` 口径一致）。
 - 回归测试：`notifications.test.ts` 新增"存量未读不弹、注册/绑定后到达才弹"邮件与水源头两条用例（测试表 `mail_accounts` 补 `created_at` 列）。
 - 已验证：`tsc -p tsconfig.main.json`、main 侧 14 个测试文件 140 项单测（notifications 11 项含新用例）、oxlint、prettier。待验证：真机新账号注册后的弹窗行为。renderer 侧 typecheck 因工作区未提交的水源改动报错，与本次无关。
+
+## 2026-09-29（第二轮）水源列表减负 + 阅读页重构：对齐 Discourse/Flarum 设计共识
+
+用户反馈列表仍拥挤、阅读页同样粗糙，要求先研究优秀开源实现再动手。两路联网调研取回 Discourse/Flarum/NodeBB 源码级规格（`_topic-list.scss`/`topic-post.scss`/`DiscussionListItem.less` 等）与 V2EX/中文排版规范（W3C CLREQ），按共识实施：
+
+- **列表减负**：分类 badge 由「色底胶囊+白/深字」改回 **Discourse 现行式「12px 色方+灰字」**（颜色只做索引不做底色，消除整页色彩噪音），色底叠字 helper `categoryBadgeTextColor` 随之删除；标签去底色改纯文字；**列表去掉赞数**（Discourse 列表不显示赞、每行只留一个主数字=回复数）；行距 py-3→py-3.5。元信息一行排开：分类 · 作者 · 标签（纯文字弱化），标题保持唯一主角。
+- **阅读页重构**（TopicReader）：
+  - 新增**话题标题区**（Discourse 式）：大标题 `text-xl font-semibold` + 分类色方/标签/楼层数/浏览/发布时间一行弱化；顶栏随之精简为「返回 + 截断标题 + 收藏/加入项目/外链」，移除 OP 小头像与分类标签簇（Reddit 式顶栏小标题+正文大标题并存）。
+  - 楼层改**固定头像沟槽布局**：40px 圆形头像独立左列（Discourse 45px 的贴近档，窄屏 32px），正文永不绕行到头像下方；用户名 `text-sm font-medium`，「你」徽章与回复对象跟排，`第 N 楼 · 时间` 右对齐到行尾。
+  - 操作行 **全 ghost**（去掉「回复」按钮的底色），默认 `opacity-60`、悬停/键盘聚焦所在楼层时浮现（Discourse 0.7 淡入共识，触屏常显）。
+  - 楼层间距 py-4→py-5 + 1px 淡线（Discourse 分隔手法：线或留白，无卡片包装）。
+- 调研关键依据：Discourse 列表标题常规字重不加粗、已读只降灰度；分类=0.75em 色方+深灰文字；标签默认纯文字；操作按钮全 ghost 右对齐；正文列 690px/45px 沟槽；Flarum 16px 标题+11px 元信息行+hover 显操作；V2EX 单数字原则；中文正文行长 17–40 字（CLREQ）。
+- 已验证：oxlint 0 警告、prettier、`pnpm build`（含三端 typecheck）、24 个测试文件 202 项单测。待验证：实机观感（列表密度、标题区层级、沟槽对齐、操作条浮现时机、深色主题），由用户审阅。
+
+## 2026-09-29 水源信息流列表重构：头像行 + 分类 badge + 未读标记 + 自动翻页
+
+用户认为水源列表样式粗糙。四路并行只读调查（列表实现 / 全局设计体系 / 数据层字段 / UX 截图像素评审）定位根因：信息密度低（约 92px 行高只装两行字、无作者头像锚点）、右侧统计不按列对齐且 k/万单位混用、宽窗约半幅死白、分类色点在白底不可辨（Discourse 色值本为色块设计）、元信息 11px 单一灰阶、任意值字号不随字号设置缩放（style-audit 点名重灾区）。按用户裁决实施：
+
+- **数据层**：`mapTopicList` 与搜索映射捕获 topic_list 顶层 `users[]`，按 `posters[]` 中 Original Poster 联查，`ShuiyuanTopicSummary` 新增 `authorUsername`/`authorAvatarTemplate`（store 原样透传，零 IPC 改动）。
+- **行重设计**（TopicFeed）：列表包 `rounded-lg border bg-card` 容器卡 + `divide-y` 分隔行（TodoView 范式）；行首 24px 楼主头像（复用 `avatarUrl` 管线，缺省退回首字母占位圆）；分类圆点升级 Discourse 式色底 badge，叠字色按亮度估算自动配白/深（浅黄等淡色分类不再隐形）；meta 行左簇=分类 badge+作者名+标签 chip、右簇=赞数（>0 才显示）+回复数（`min-w-14` 右对齐成列）+时间，数字统一 `tabular-nums`；置顶行淡底、已关闭加锁标、已收藏行实心书签角标；未读标题 `font-semibold`、已读降为 75% 前景。
+- **已读持久化**：store 新增 `readMarks`（localStorage `dela.shuiyuan.read`，90 天保留期），`openTopic` 成功后写入该帖 lastPostedAt；未读=从未打开或打开后又有新回复。
+- **格式统一**（shuiyuan-format，全局生效含阅读页）：`formatCount` 删 k 档、<1 万千分位、≥1 万用「万」；`formatListDate` 2 小时内显示「刚刚/n 分钟前/n 小时前」。
+- **交互**：底部哨兵 IntersectionObserver 滑到底自动加载下一页（阅读页覆盖列表期间暂停、出错停住交由错误横幅重试）；首屏加载改 6 行骨架屏；浏览量列按用户决定移除。
+- **顶栏**（ShuiyuanHeader）：刷新按钮移入中间「列表切换+筛选」簇，与右侧搜索分开；feed 分段控件与下拉之间加竖分隔线；头部 `border-b` 降为 `border-border/70`（向浮岛线条规则靠拢，第四轮遗留项之一收口）；头部与列表的 `text-[9px]/[13px]/[15px]/[11px]` 任意值字号全部 token 化（2xs/xs/sm），随用户字号设置缩放。
+- 内容列 `max-w-3xl`→`max-w-4xl`，私信工具栏同步加宽。
+- 已验证：三端 typecheck（pnpm build 内含）、oxlint 0 警告、prettier、`pnpm build`、24 个测试文件 202 项单测。待验证：实机观感——头像加载、badge 配色与深色主题表现、未读加粗/骨架屏/自动翻页的节奏，由用户亲自审阅；弱网下自动翻页连发行为。
 
 ## 2026-09-29 拖拽条紧贴浮岛卡片边框：高亮线与底色分界线合一
 
