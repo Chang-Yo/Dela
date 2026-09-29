@@ -38,12 +38,13 @@ import { getDatabase } from '../database';
 import { loadShuiyuanCredential } from '../credentials';
 import { listShuiyuanNotifications } from '../shuiyuan/api';
 import { markAllMailSeen, markMailSeen } from '../mail/api';
+import { systemNotifyItem } from '../system-notify';
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');
   db.exec(`
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL);
+    CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE mail_folders (id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL, special_use TEXT);
     CREATE TABLE mail_messages (id INTEGER PRIMARY KEY, folder_id INTEGER NOT NULL, subject TEXT, sender_name TEXT, sender_address TEXT, snippet TEXT, date TEXT, seen INTEGER NOT NULL, deleted_at TEXT);
     CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL);
@@ -53,7 +54,10 @@ function createDb(): Database.Database {
 }
 
 function insertUnreadInboxMail(db: Database.Database): void {
-  db.prepare('INSERT INTO mail_accounts VALUES (1, ?)').run('student@sjtu.edu.cn');
+  db.prepare('INSERT INTO mail_accounts (id, address, created_at) VALUES (1, ?, ?)').run(
+    'student@sjtu.edu.cn',
+    '2026-09-01T00:00:00.000Z',
+  );
   db.prepare("INSERT INTO mail_folders VALUES (1, 1, '\\Inbox')").run();
   db.prepare('INSERT INTO mail_messages VALUES (10, 1, ?, ?, ?, ?, ?, 0, NULL)').run(
     '作业提醒',
@@ -94,6 +98,35 @@ describe('local notification inbox', () => {
     await markAllNotificationsRead();
     await refreshNotifications();
     expect(getNotificationState().unreadCount).toBe(0);
+  });
+
+  it('skips system toasts for unread mail predating account signup but toasts later arrivals', async () => {
+    db.prepare('INSERT INTO mail_accounts (id, address, created_at) VALUES (1, ?, ?)').run(
+      'student@sjtu.edu.cn',
+      '2026-09-10T00:00:00.000Z',
+    );
+    db.prepare("INSERT INTO mail_folders VALUES (1, 1, '\\Inbox')").run();
+    // 注册前到达的存量未读与注册后到达的新邮件各一封。
+    db.prepare('INSERT INTO mail_messages VALUES (10, 1, ?, ?, ?, ?, ?, 0, NULL)').run(
+      '存量未读',
+      '课程组',
+      'course@sjtu.edu.cn',
+      '注册前的旧邮件',
+      '2026-09-03T00:00:00.000Z',
+    );
+    db.prepare('INSERT INTO mail_messages VALUES (11, 1, ?, ?, ?, ?, ?, 0, NULL)').run(
+      '新邮件',
+      '课程组',
+      'course@sjtu.edu.cn',
+      '注册后到达',
+      '2026-09-11T00:00:00.000Z',
+    );
+
+    await refreshNotifications();
+    // 存量未读仍进通知列表，但不弹系统桌面通知。
+    expect(getNotificationState().unreadCount).toBe(2);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(systemNotifyItem).mock.calls[0]![0].id).toBe('mail:student@sjtu.edu.cn:11');
   });
 
   it('derives mail notification read state from the message seen flag', async () => {
@@ -173,6 +206,46 @@ describe('local notification inbox', () => {
     expect(getNotificationState('shuiyuan').items[0]!.readAt).toBeNull();
     await markNotificationRead('shuiyuan:dela-user:7');
     expect(getNotificationState('shuiyuan').items[0]!.readAt).not.toBeNull();
+  });
+
+  it('skips system toasts for shuiyuan notifications predating the binding but toasts later ones', async () => {
+    vi.mocked(loadShuiyuanCredential).mockReturnValue({
+      username: 'dela-user',
+      key: 'test-key',
+      clientId: 'test-client',
+      boundAt: '2026-09-10T00:00:00.000Z',
+    });
+    // 绑定前已存在的互动与绑定后发生的新互动各一条。
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([
+      {
+        id: 7,
+        type: 1,
+        read: false,
+        highPriority: false,
+        createdAt: '2026-09-03T00:00:00.000Z',
+        topicId: 22,
+        postNumber: 3,
+        fancyTitle: '绑定前的旧互动',
+        displayUsername: 'alice',
+      },
+      {
+        id: 8,
+        type: 1,
+        read: false,
+        highPriority: false,
+        createdAt: '2026-09-11T00:00:00.000Z',
+        topicId: 23,
+        postNumber: 1,
+        fancyTitle: '绑定后的新互动',
+        displayUsername: 'bob',
+      },
+    ]);
+
+    await refreshNotifications();
+    // 存量互动仍进通知列表，但不弹系统桌面通知。
+    expect(getNotificationState('shuiyuan').items).toHaveLength(2);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(systemNotifyItem).mock.calls[0]![0].id).toBe('shuiyuan:dela-user:8');
   });
 
   it('keeps Shuiyuan errors and cached notifications without writing the remote read state', async () => {

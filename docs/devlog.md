@@ -10,6 +10,15 @@
 
 ---
 
+## 2026-09-29 修复新注册用户被存量未读刷系统通知（邮件 + 水源）
+
+用户报告：新注册用户填完邮箱信息后不断收到未读邮件的系统桌面弹窗。根因是系统通知的"启动基线"（`armSystemNotifications`）在应用启动首轮刷新后即置位，而注册发生在应用运行中——首次邮件同步把服务器全部存量未读拉入缓存，每批入库都是通知表首见（`!existing.has(id)`），armed 已开于是逐批弹窗；老用户启动时存量未读在基线阶段入库，故无此问题。
+
+- **邮件修复**（`notifications.ts` `refreshMail`）：以 `mail_accounts.created_at`（注册时刻）为界，仅 `date` 晚于注册时刻的未读首次入库才调 `systemNotifyItem`；存量未读仍 upsert 进通知列表（保持面板展示，`initializeNotifications` 既有语义），只是不弹桌面通知。`date` 缺失时保守不弹（通知列表仍可见）。
+- **水源修复**（`refreshShuiyuan`，同口径）：以凭据自带的 `boundAt`（账号绑定时刻，绑定时 `toISOString()` 写入）为界，仅 `createdAt` 晚于绑定时刻的互动首次入库才弹；映射层 `createdAt` 可为空串，空串比较恒不晚于基线，自然不弹。实现上 `refreshShuiyuan` 改为直接读 `loadShuiyuanCredential()` 取 username 与 boundAt（损坏凭据吞异常视同未绑定，与 `currentAccounts` 口径一致）。
+- 回归测试：`notifications.test.ts` 新增"存量未读不弹、注册/绑定后到达才弹"邮件与水源头两条用例（测试表 `mail_accounts` 补 `created_at` 列）。
+- 已验证：`tsc -p tsconfig.main.json`、main 侧 14 个测试文件 140 项单测（notifications 11 项含新用例）、oxlint、prettier。待验证：真机新账号注册后的弹窗行为。renderer 侧 typecheck 因工作区未提交的水源改动报错，与本次无关。
+
 ## 2026-09-29 拖拽条紧贴浮岛卡片边框：高亮线与底色分界线合一
 
 用户指出侧栏右侧的分隔线"有宽度且与背景分界线分离"。像素级排查确认那是两个元素的叠加：Resizer（悬停/聚焦态 `hover:bg-foreground/40` 呈 rgb(154) 灰线，静止态透明不可见）贴在侧栏边缘，而浮岛卡片左边框因 `ml-1.5` 右移 6px，两者之间夹着画布底色，视觉上连成一根错位的粗线。修复：AppShell 根网格由三列 `[sidebar_1px_1fr]` 改四列 `[sidebar_0.375rem_1px_1fr]`，浮岛左侧留白改由专用间隙列提供、`main` 去 `ml-1.5`，拖拽条列移到 `col-start-3` 紧贴卡片边框，高亮线与底色分界线重合；卡片几何位置不变，窄屏间隙列归 0 保持通栏，折叠态（间隙列+1px 空列）与原 `ml 6px+1px` 布局等宽。

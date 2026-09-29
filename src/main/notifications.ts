@@ -9,7 +9,7 @@ import type {
 } from '../shared/api';
 import { getTodoState, markTodoRead, todoNotifications } from './todo';
 import { getDatabase } from './database';
-import { loadShuiyuanCredential } from './credentials';
+import { loadShuiyuanCredential, type ShuiyuanCredential } from './credentials';
 import { checkWorkspaceSender } from './ipc';
 import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from './mail/api';
 import { listShuiyuanNotifications } from './shuiyuan/api';
@@ -214,8 +214,12 @@ function existingNotificationIds(source: NotificationSource, key: string): Set<s
 }
 
 function refreshMail(recordSuccess = true): void {
-  const key = accountFor('mail');
-  if (!key) return;
+  // created_at 是账号注册时刻：早于它的存量未读只进通知列表，不弹系统通知。
+  const account = getDatabase()
+    .prepare('SELECT address, created_at FROM mail_accounts ORDER BY id LIMIT 1')
+    .get() as { address: string; created_at: string } | undefined;
+  if (!account) return;
+  const key = account.address;
   const db = getDatabase();
   const unread = db
     .prepare(
@@ -241,8 +245,9 @@ function refreshMail(recordSuccess = true): void {
     const createdAt = message.date || new Date().toISOString();
     const href: NotificationItem['href'] = { kind: 'mail', messageId: message.id };
     upsert('mail', key, id, title, body, createdAt, href);
-    // 首次入库的未读邮件弹系统通知；启动基线等守卫由 system-notify 判断。
-    if (!existing.has(id))
+    // 注册后到达的未读首次入库才弹系统通知；启动基线等其余守卫由 system-notify 判断。
+    // date 缺失时无法证明晚于注册时刻，保守起见不弹（通知列表仍可见）。
+    if (!existing.has(id) && (message.date ?? '') > account.created_at)
       systemNotifyItem({ id, source: 'mail', title, body, createdAt, readAt: null, href });
   }
   const sync = getMailState().sync;
@@ -256,8 +261,15 @@ function shuiyuanTitle(item: ShuiyuanNotificationItem): string {
 }
 
 async function refreshShuiyuan(): Promise<void> {
-  const key = accountFor('shuiyuan');
-  if (!key) return;
+  // boundAt 是账号绑定时刻：早于它的存量未读只进通知列表，不弹系统通知。
+  let credential: ShuiyuanCredential | null = null;
+  try {
+    credential = loadShuiyuanCredential();
+  } catch {
+    // 损坏凭据视同未绑定，与 currentAccounts 的容忍口径一致。
+  }
+  if (!credential) return;
+  const key = credential.username;
   try {
     const remote = await listShuiyuanNotifications();
     if (accountFor('shuiyuan') !== key) return;
@@ -273,7 +285,8 @@ async function refreshShuiyuan(): Promise<void> {
         postNumber: item.postNumber,
       };
       upsert('shuiyuan', key, id, title, item.displayUsername ?? '', createdAt, href);
-      if (!existing.has(id))
+      // 绑定后发生的互动首次入库才弹系统通知；启动基线等其余守卫由 system-notify 判断。
+      if (!existing.has(id) && item.createdAt > credential.boundAt)
         systemNotifyItem({
           id,
           source: 'shuiyuan',
