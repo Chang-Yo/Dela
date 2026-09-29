@@ -18,6 +18,7 @@ import {
 } from './notifications';
 import { getMailState, startMailSync } from './mail/api';
 import { registerAgentIpc } from './agent';
+import { registerCapabilitiesIpc } from './agent/capabilities/ipc';
 import { gcChatMedia } from './agent/session/media';
 import {
   applyTheme,
@@ -113,6 +114,7 @@ app.whenReady().then(() => {
   registerCanvasIpc();
   registerShuiyuanIpc();
   registerAgentIpc();
+  registerCapabilitiesIpc();
   registerWorkspaceIpc();
   registerSearchIpc();
   registerNotificationsIpc();

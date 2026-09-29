@@ -8,9 +8,9 @@
  *   结果（计划 §6.1「每次模型请求前检查」的运行内落点），只影响发出的请求，不改会话状态。
  */
 import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core';
+import type { PiRuntime } from './pi-load';
 // 根入口同时被 types.d.ts 以 `export type` 转出 AssistantMessageEventStream（类型）与
 // event-stream.d.ts 的类声明（值），前者胜出导致类只能按类型导入；实例化走官方工厂函数。
-import { clampThinkingLevel, createAssistantMessageEventStream } from '@earendil-works/pi-ai';
 import type {
   AssistantMessage,
   AssistantMessageEvent,
@@ -19,7 +19,6 @@ import type {
   OpenAICompletionsOptions,
   ThinkingLevelMap,
 } from '@earendil-works/pi-ai';
-import { stream as openAiCompletionsStream } from '@earendil-works/pi-ai/api/openai-completions';
 import { IMAGE_TOKEN_EST, contextBudget, estimateTokens } from '../context/budget';
 
 // 单次回复的输出上限；8192 只够中等长度回答，长文档与大段工具参数会被截断，取主流模型量级。
@@ -94,23 +93,27 @@ export function classifyStreamFailure(message: string): StreamFailureClass {
  * - 429/5xx/网络错误在无部分产出的前提下按 retryDelays 指数退避重试，有产出不重试；
  * - 重试与降参对调用方透明：包装流只会向下游推送一份数据（重试前的事件全部丢弃）。
  */
-export function createDelaStreamFn(config: { retryDelays?: number[] } = {}): StreamFn {
+export function createDelaStreamFn(config: {
+  /** pi 系纯 ESM 包经 pi-load 动态加载后注入；主进程 CJS 产物不能静态 require。 */
+  runtime: PiRuntime;
+  retryDelays?: number[];
+}): StreamFn {
   const retryDelays = config.retryDelays ?? DEFAULT_RETRY_DELAYS;
   // 整个 runAgent 运行内粘滞：降级到 8192 后，后续轮次沿用低上限（对齐旧循环的整跑状态）。
   let maxTokens = MAX_OUTPUT_TOKENS;
   let usedFallback = false;
   return (model, context, options) => {
     const piModel = model as Model<'openai-completions'>;
-    const output = createAssistantMessageEventStream();
+    const output = config.runtime.createAssistantMessageEventStream();
     void (async () => {
       try {
         // 每个逻辑请求（同一 maxTokens 档位）独立的瞬时重试预算；降参重发时重置。
         let attempt = 0;
         for (;;) {
           const clamped = options?.reasoning
-            ? clampThinkingLevel(piModel, options.reasoning)
+            ? config.runtime.clampThinkingLevel(piModel, options.reasoning)
             : undefined;
-          const inner = openAiCompletionsStream(piModel, context, {
+          const inner = config.runtime.openAiCompletionsStream(piModel, context, {
             ...options,
             reasoningEffort: clamped === 'off' ? undefined : clamped,
             maxTokens,

@@ -14,3 +14,4 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - electron@44.3.0
   - lucide-react@1.44.0
+  - '@earendil-works/pi-mcp@0.99.0'

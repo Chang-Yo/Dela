@@ -1,6 +1,6 @@
 // 设置内搜索与全局搜索 setting 入口共用的索引（§4.4 查找与直达）：
 // 每项 = 一个可直达的设置卡（data-setting-id 高亮目标）+ 内置关键词（含同义与英文）。
-// 只收录已实现的选项；Skills/MCP 等未交付能力不入索引。
+// 只收录已实现的选项。
 import type { GlobalSearchResult } from '../../../shared/search';
 import type { SettingsSectionId } from '../../../shared/settings';
 
@@ -130,12 +130,23 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '水源社区',
     keywords: ['连接', '水源', '社区', '论坛', 'shuiyuan'],
   },
-  // 插件
+  // 插件（skills/mcp 关键词命中插件页签切换条 data-setting-id="plugins"，两类内容在页内切换）
   {
     id: 'plugins',
     section: 'plugins',
     title: '自定义指令',
-    keywords: ['插件', '指令', '提示词', 'prompt', '斜杠', '命令'],
+    keywords: [
+      '插件',
+      '指令',
+      '提示词',
+      'prompt',
+      '斜杠',
+      '命令',
+      'skills',
+      '技能',
+      'mcp',
+      '服务器',
+    ],
   },
   // 关于
   { id: 'about', section: 'about', title: '关于', keywords: ['版本', '更新', 'credits', '关于'] },
@@ -160,7 +171,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   workspace: '工作目录、启动恢复与布局',
   llm: 'AI 模型与 API 提供商',
   connections: 'Canvas、邮箱、教务与水源连接',
-  plugins: '自定义指令',
+  plugins: '自定义指令、Skills 与 MCP',
   about: '版本信息',
 };
 

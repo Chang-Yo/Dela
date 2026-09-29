@@ -136,6 +136,9 @@ importers:
       '@earendil-works/pi-ai':
         specifier: 0.87.1
         version: 0.87.1(supports-color@7.2.0)(ws@8.22.0)(zod@4.5.4)
+      '@earendil-works/pi-mcp':
+        specifier: 0.99.0
+        version: 0.99.0
       '@lezer/highlight':
         specifier: 1.2.3
         version: 1.2.3
@@ -547,6 +550,10 @@ packages:
     resolution: {integrity: sha512-X/3PfQBnnoeVdO9Cv8zHghUMglzlgNZYGNzoPnbRoGnHl3Rw3TlA2UKSUB7BRHUOxMryHXYa8dnjWZlbRheDZA==}
     engines: {node: '>=22.19.0'}
     hasBin: true
+
+  '@earendil-works/pi-mcp@0.99.0':
+    resolution: {integrity: sha512-9bt7QOZHMczU+bxO1VJdYMPeX54QdTSxE5Q+KbAi06GwOh+RUH2FTJCD7PZ1Av+oOJcTGTqr9CkvHtEUIFSuYg==}
+    engines: {node: '>=22.19.0'}
 
   '@earendil-works/pi-telemetry@0.87.1':
     resolution: {integrity: sha512-MC6TRQH5lgMXpcN+Vku2WMI2T8BsiUPzMQHGo81uqFZD3/9O79WWJAysEDGuzduP6R4tvtgwMLwmqIxynM10JQ==}
@@ -5617,6 +5624,10 @@ snapshots:
       - utf-8-validate
       - ws
       - zod
+
+  '@earendil-works/pi-mcp@0.99.0':
+    dependencies:
+      cross-spawn: 7.0.6
 
   '@earendil-works/pi-telemetry@0.87.1': {}
 

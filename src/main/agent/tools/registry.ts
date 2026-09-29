@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getCapabilityRuntime } from '../capabilities';
 import { agentTools } from './index';
 import { ToolError, type tool } from './shared';
 
@@ -20,7 +21,7 @@ function resolveToolName(name: string) {
 }
 
 export function modelToolDefinitions() {
-  return Object.entries(agentTools).map(([name, tool]) => ({
+  const definitions = Object.entries(agentTools).map(([name, tool]) => ({
     type: 'function' as const,
     function: {
       name,
@@ -28,9 +29,34 @@ export function modelToolDefinitions() {
       parameters: z.toJSONSchema(tool.schema, { io: 'input' }),
     },
   }));
+  // MCP 动态工具（mcp_<server>_<tool>）并入集合（阶段四 §5.3）；参数透传服务器声明的
+  // JSON Schema，缺省按空对象参数处理（归一到与内置工具相同的定义形状）。
+  const dynamic = getCapabilityRuntime()?.mcpToolDefinitions() ?? [];
+  type BuiltinDefinition = (typeof definitions)[number];
+  return [
+    ...definitions,
+    ...dynamic.map((definition): BuiltinDefinition => ({
+      type: 'function',
+      function: {
+        name: definition.function.name,
+        description: definition.function.description,
+        parameters: (definition.function.parameters ?? {
+          type: 'object',
+          properties: {},
+        }) as BuiltinDefinition['function']['parameters'],
+      },
+    })),
+  ];
 }
 
 export async function executeAgentTool(name: string, input: unknown) {
+  // MCP 工具按命名空间前缀转给能力层路由回对应服务器连接。
+  if (name.startsWith('mcp_')) {
+    const runtime = getCapabilityRuntime();
+    if (!runtime)
+      return { ok: false as const, error: { code: 'NOT_CONFIGURED', message: 'MCP 能力不可用' } };
+    return runtime.executeMcpTool(name, input);
+  }
   const resolved = resolveToolName(name);
   if (!Object.hasOwn(agentTools, resolved))
     return { ok: false, error: { code: 'UNKNOWN_TOOL', message: '工具不存在' } };

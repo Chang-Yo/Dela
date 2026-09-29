@@ -1,6 +1,7 @@
 // 聚合出口：领域契约已拆分到同目录领域文件（docs/refactor/structure.md §4）。
 // 本文件只 import 并 re-export，保证全仓既有 `from '../shared/api'` 等 import 不变；
 // 领域类型的变化请直接改对应领域文件，不在此处添加逻辑。
+import type { CapabilityApi } from './capabilities';
 import type { CanvasApi } from './canvas';
 import type { ChatApi } from './chat';
 import type { LayoutApi } from './layout';
@@ -10,6 +11,13 @@ import type { NotificationsApi } from './notifications';
 import type { SearchApi } from './search';
 import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
+export type {
+  CapabilityApi,
+  McpConnectionStatus,
+  McpServerConfig,
+  McpServerView,
+  SkillView,
+} from './capabilities';
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
 import type { TodoApi } from './todo';
@@ -17,6 +25,7 @@ import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
 export interface DelaApi {
+  capability: CapabilityApi;
   readonly todo: TodoApi;
   readonly version: string;
   /** 主进程在数据库初始化前判定；已有用户数据的更新和重启均为 false。 */

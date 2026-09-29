@@ -3,7 +3,6 @@
  * 职责边界：Pi 管循环、SSE 解析、工具调度与参数校验；这里管消息形状转换、事件到 Dela
  * 回调的映射、工具结果桥（{ok,result} ⇄ content blocks）、步数上限与 abort/错误语义。
  */
-import { Agent } from '@earendil-works/pi-agent-core';
 import type {
   AgentEvent,
   AgentMessage,
@@ -21,6 +20,7 @@ import type {
   UserMessage,
 } from '@earendil-works/pi-ai';
 import type { AgentToolResult } from '../../../shared/api';
+import { loadPiRuntime } from './pi-load';
 import {
   buildPiModel,
   classifyStreamFailure,
@@ -161,6 +161,7 @@ export async function runAgent(options: {
   prunePolicy?: PrunePolicy;
 }) {
   options.signal.throwIfAborted();
+  const piRuntime = await loadPiRuntime();
   const thinking = effortToThinking(options.effort);
   const piModel = buildPiModel({
     baseUrl: options.baseUrl,
@@ -346,7 +347,7 @@ export async function runAgent(options: {
     }
     return undefined;
   };
-  const agent = new Agent({
+  const agent = new piRuntime.Agent({
     initialState: {
       systemPrompt,
       model: piModel,
@@ -354,7 +355,10 @@ export async function runAgent(options: {
       ...(bridgedTools.length ? { tools: bridgedTools } : {}),
       ...(history.length ? { messages: history } : {}),
     },
-    streamFn: createDelaStreamFn({ retryDelays: options.retryDelays ?? DEFAULT_RETRY_DELAYS }),
+    streamFn: createDelaStreamFn({
+      runtime: piRuntime,
+      retryDelays: options.retryDelays ?? DEFAULT_RETRY_DELAYS,
+    }),
     getApiKey: () => options.key,
     convertToLlm: stripThinking,
     ...(options.prunePolicy

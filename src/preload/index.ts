@@ -4,6 +4,7 @@ import type { DelaApi } from '../shared/api';
 import { canvas } from './canvas';
 import { chat } from './chat';
 import { llm } from './llm';
+import { capabilityApi as capability } from './capabilities';
 import { layout } from './layout';
 import { mail } from './mail';
 import { notifications } from './notifications';
@@ -33,4 +34,5 @@ contextBridge.exposeInMainWorld('dela', {
   workspace,
   session,
   layout,
+  capability,
 } satisfies DelaApi);

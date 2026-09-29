@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Agent } from '@earendil-works/pi-agent-core';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 import { buildPiModel, createDelaStreamFn, stripThinking } from '../pi';
+import { loadPiRuntime } from '../pi-load';
 import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
 
 type ChatMessage = { role: string; content: unknown; reasoning_content?: string };
@@ -30,13 +31,14 @@ const PI_TEST_KEY = 'pi-test-key';
 
 let server: MockOpenAiServer;
 
-function makeAgent(input: {
+async function makeAgent(input: {
   modelId?: string;
   provider?: string;
   reasoning?: boolean;
   thinkingLevel?: 'high' | 'max';
   thinkingLevelMap?: Record<string, string | null>;
 }) {
+  const runtime = await loadPiRuntime();
   return new Agent({
     initialState: {
       systemPrompt: '你是测试助手',
@@ -49,7 +51,7 @@ function makeAgent(input: {
       }),
       ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
     },
-    streamFn: createDelaStreamFn({ retryDelays: [] }),
+    streamFn: createDelaStreamFn({ runtime, retryDelays: [] }),
     getApiKey: () => PI_TEST_KEY,
     convertToLlm: stripThinking,
   });
@@ -74,7 +76,7 @@ describe('Pi 桥层（buildPiModel + createDelaStreamFn + stripThinking）', () 
         mockFrames.usageFrame(12, 3),
       ],
     });
-    const agent = makeAgent({});
+    const agent = await makeAgent({});
     await agent.prompt('打个招呼');
     const body = bodyOf(server.requests[before]!);
     expect(body.store).toBe(false);
@@ -92,7 +94,7 @@ describe('Pi 桥层（buildPiModel + createDelaStreamFn + stripThinking）', () 
 
   it('DeepSeek 风格 provider：thinking/reasoning_effort/max_tokens 命中 compat 检测', async () => {
     const before = server.requests.length;
-    const agent = makeAgent({
+    const agent = await makeAgent({
       modelId: 'deepseek-reasoner',
       provider: 'deepseek',
       reasoning: true,
@@ -131,7 +133,7 @@ describe('Pi 桥层（buildPiModel + createDelaStreamFn + stripThinking）', () 
 
   it('扩展档位经 thinkingLevelMap 原样下发，不被压到 high', async () => {
     const before = server.requests.length;
-    const agent = makeAgent({
+    const agent = await makeAgent({
       modelId: 'glm-test',
       reasoning: true,
       thinkingLevel: 'max',

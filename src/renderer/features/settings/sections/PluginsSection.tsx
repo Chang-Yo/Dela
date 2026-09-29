@@ -4,6 +4,8 @@ import { Blocks, Pencil, Plus, Sparkles, Terminal, Trash2, type LucideIcon } fro
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import type { ChatCommandView } from '../../../../shared/api';
+import { McpTab } from './plugins/McpTab';
+import { SkillsTab } from './plugins/SkillsTab';
 import { SectionHeader } from '../SectionHeader';
 import { cn } from '../../../lib/utils';
 import { errorText } from '../../../workspace/store';
@@ -18,7 +20,7 @@ const pluginTabs: Array<{ id: PluginKind; label: string; icon: LucideIcon }> = [
   { id: 'mcp', label: 'MCP', icon: Blocks },
 ];
 
-/** 设置 › 插件：按 Skills / MCP / 自定义指令三类切换。Skills 与 MCP 属阶段四交付，只作说明不放开关。 */
+/** 设置 › 插件：按 Skills / MCP / 自定义指令三类切换（内容类型不同，§4.4），各页签自带列表与操作。 */
 export function PluginsSection() {
   const [tab, setTab] = useState<PluginKind>('commands');
   const [commands, setCommands] = useState<ChatCommandView[] | null>(null);
@@ -58,7 +60,7 @@ export function PluginsSection() {
   return (
     <div className="grid gap-5">
       <SectionHeader
-        description="为 Agent 扩展能力：自定义指令现在可用，Skills 与 MCP 将随后续版本加入。"
+        description="为 Agent 扩展能力：自定义指令、Skills 与 MCP 服务器。"
         title="插件"
       />
       <div
@@ -90,16 +92,10 @@ export function PluginsSection() {
         })}
       </div>
 
-      {tab === 'skills' || tab === 'mcp' ? (
-        <section className="grid gap-2 rounded-xl border border-dashed bg-card p-5">
-          <h2 className="text-sm font-medium">{tab === 'skills' ? 'Skills' : 'MCP'}</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {tab === 'skills'
-              ? 'Skill 描述适用场景与操作步骤，按任务需要加载。添加、启停与依赖状态检查将在后续版本提供。'
-              : 'MCP 接入外部工具与资源服务。服务器添加、连接检测与启停管理将在后续版本提供。'}
-          </p>
-          <p className="text-xs text-muted-foreground">即将支持，当前版本暂无可配置项。</p>
-        </section>
+      {tab === 'skills' ? (
+        <SkillsTab />
+      ) : tab === 'mcp' ? (
+        <McpTab />
       ) : !window.dela ? (
         <p className="text-sm text-muted-foreground">插件配置仅在桌面端可用。</p>
       ) : (
