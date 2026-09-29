@@ -1,6 +1,7 @@
 import { BrowserWindow, type WebContents } from 'electron';
 import { generateKeyPairSync, privateDecrypt, randomBytes, constants } from 'node:crypto';
 import { z } from 'zod';
+import { attachContextMenu } from '../ipc';
 import { getDatabase } from '../database';
 import type {
   DocumentContent,
@@ -84,6 +85,7 @@ export async function startShuiyuanAuth(sender: WebContents): Promise<void> {
       sandbox: true,
     },
   });
+  attachContextMenu(authWindow.webContents);
   try {
     await authWindow.loadURL(authorizeUrl);
   } catch (error) {

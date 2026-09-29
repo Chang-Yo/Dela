@@ -8,6 +8,7 @@ import {
   type TimetableState,
 } from '../../shared/api';
 import { getDatabase } from '../database';
+import { attachContextMenu } from '../ipc';
 import { lessonOccurrences } from '../../shared/schedule';
 import { CAMPUS_PARTITION, flushCampusSession, getCampusSession } from './session';
 
@@ -239,6 +240,7 @@ export async function openLoginWindow(sender: WebContents): Promise<TimetableRes
         sandbox: true,
       },
     });
+    attachContextMenu(loginWindow.webContents);
     let completed = false;
     const finish = (result: TimetableResult) => {
       if (completed) return;

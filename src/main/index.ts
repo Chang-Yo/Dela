@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
-import { checkWorkspaceSender } from './ipc';
+import { checkWorkspaceSender, attachContextMenu } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
@@ -294,6 +294,7 @@ async function createWindow(): Promise<void> {
     },
   });
   mainWindow = window;
+  attachContextMenu(window.webContents);
   window.on('closed', () => {
     mainWindow = undefined;
   });
