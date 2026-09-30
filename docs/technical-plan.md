@@ -5,7 +5,7 @@
 
 本轮 Agent Core 与工作区重构须主动按职责拆分文件和目录，精简、解耦并便于独立调试；不以少建文件或将逻辑集中在现有大文件为目标。具体要求见[重构计划文首](agent-workspace-plan.md)，单应用、单 package 与避免无用途抽象的约束继续有效。
 
-2026-09-29 Agent 与工作区重构方向确定，见 [Agent 与工作区重构计划](agent-workspace-plan.md)：项目下组织会话，聊天与文档共用标签和灵活分屏，精简高频功能键；设置保留现有分类侧栏与内容页结构，优化工作区、业务连接与插件的归属，补齐搜索直达和相关能力选项，具体分类待原型审阅；以复用 Pi Agent Core、借鉴 Codex 会话管理为技术路线，逐步接入 MCP 与 Skills。该计划尚未实施，替代本文相关的后续演进方向；下文现有布局、自研循环与工具契约仍用于描述当前实现，不代表新架构已交付。
+2026-09-29 Agent 与工作区重构（阶段一至四）已全部实施并提交：Pi Agent Core 运行时接入、Session/Run 身份模型（数据库 v13）与全领域工具重设计（阶段二）、按预算的上下文压缩、统一标签工作台与设置八分类（阶段三）、MCP 与 Skills 能力层（阶段四）。新架构与目录约定见 [Agent 与工作区重构计划](agent-workspace-plan.md) 与 [refactor/structure.md](refactor/structure.md)，各批次实施与验证边界见[开发记录](devlog.md) 2026-09-29 各轮条目。本文中仍描述重构前实现的段落（§6.1–6.3 旧三视图草图等）已就地标注为历史存档；§5 首段、§7 与附录描述当前实现。
 
 2026-09-20 编辑器方向调整：目标改为以 Markdown 为持久化正文的所见即所得笔记编辑器，代码文件以只读预览和外部 VS Code 打开为主。具体目标、边界、依赖清理与实施阶段见根目录 [plan.md](../plan.md)。该计划已于 2026-09-20 实施完成（内核选型、笔记闭环、代码文件入口与集成检查，过程与验证边界见[开发记录](devlog.md)）；此前 `.dela` / Notion 式编辑器的探索不再作为后续产品目标。经核查本机无受应用管理的 `.dela` 数据，未开发迁移。
 
@@ -50,6 +50,9 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 | 界面状态      | zustand                       | 5.0.15                | 面板、标签页、当前选择                                             |
 | 参数校验      | zod                           | 4.5.4                 | IPC、工具参数与必要的外部数据校验                                  |
 | 数据库驱动    | better-sqlite3                | 13.0.3                | 本地 SQLite 访问                                                   |
+| Agent 执行    | @earendil-works/pi-agent-core | 0.87.1                | Agent 执行循环（2026-09 阶段二接入，替换自研循环）                 |
+| 模型接口      | @earendil-works/pi-ai         | 0.87.1                | OpenAI 兼容流式模型接口（自定义 provider 经其装配）                |
+| MCP 客户端    | @earendil-works/pi-mcp        | 0.99.0                | MCP stdio 客户端传输（2026-09 阶段四接入）                         |
 | Markdown 编辑 | @codemirror/view              | 6.43.11               | 编辑器视图                                                         |
 | Markdown 语言 | @codemirror/lang-markdown     | 6.5.2                 | Markdown 编辑支持                                                  |
 | 编辑器内核    | @codemirror/state             | 6.7.4                 | 编辑器状态与事务                                                   |
@@ -72,7 +75,7 @@ Dela 是一个以 Project 为中心，连接交大校园信息和本地文件，
 | 逻辑测试      | vitest                        | 5.0.0                 | 状态、同步和工具执行测试                                           |
 | 编辑器单测    | jsdom                         | 30.1.0                | Crepe 往返保真测试的 DOM 环境（devDependency）                     |
 
-HTTP 和模型请求使用运行时 `fetch`；凭据保护使用 Electron `safeStorage`；文件操作使用 Node.js API。不额外引入 HTTP 服务端、ORM、Agent 框架或客户端请求框架。
+HTTP 请求使用运行时 `fetch`（模型请求经 `@earendil-works/pi-ai` 的 OpenAI 兼容接口发出；上下文压缩的摘要请求为独立非流式 fetch）；凭据保护使用 Electron `safeStorage`；文件操作使用 Node.js API。上表 pi 三依赖是 2026-09 重构引入的 Agent 运行时，在 `vite.main.config.ts` 中以 `/^@earendil-works\//` 正则保持 external、随 node_modules 打包进 asar（rolldown 的字符串 external 不匹配 `pi-ai/api/...` 等子路径导入，必须用正则；安装脚本处理见 [开发记录](devlog.md) 第十轮）。不额外引入 HTTP 服务端、ORM 或客户端请求框架。
 
 CodeMirror 的其他必需模块已于 2026-09-12 随 Markdown 编辑器落地核对并固定到 `package.json` 和锁文件（见上表）。文档预览选型已随 2026-09-28 的 Office 预览落地：PDF 用 pdfjs-dist（定制 viewer），DOCX 用 docx-preview、XLSX 用 SheetJS（官方 CDN tgz 精确锁版），PPTX 不直接渲染——Windows 经 PowerShell 5.1 调 PowerPoint 导出 PDF 后复用 PDF 预览，macOS 用系统 Quick Look；真实课件的渲染质量属持续验证项。
 
@@ -120,7 +123,7 @@ Dela/
 |   |-- main/
 |   |   |-- index.ts                  # 生命周期、主窗口、协议注册
 |   |   |-- ipc.ts                    # 共用 IPC 来源校验
-|   |   |-- database.ts               # 数据库初始化与迁移
+|   |   |-- database.ts               # 数据库初始化与迁移（v13：projects/sessions/runs/note_versions）
 |   |   |-- credentials.ts            # 凭据保护（邮箱/Canvas/LLM/水源/校园会话）
 |   |   |-- storage.ts                # 共用存储路径规则
 |   |   |-- resources.ts              # 跨业务文件流转
@@ -128,27 +131,44 @@ Dela/
 |   |   |-- office-export.ts          # pptx 经 PowerPoint 导出 PDF 与关联（Win/mac Quick Look）
 |   |   |-- search.ts                 # 全局搜索
 |   |   |-- notifications.ts          # 通知中心
+|   |   |-- system-notify.ts          # 系统桌面通知
+|   |   |-- todo.ts                   # Canvas 作业同步
+|   |   |-- settings/                 # 设置域（ipc / prefs / task-notify / index）
+|   |   |-- agent/                    # Agent 核心：core / session / context / tools / capabilities
+|   |   |                             # 五个子目录 + index.ts 组装入口（结构见附录）
 |   |   |-- mail/                     # 邮箱业务（api.ts / ipc.ts / send.ts / drafts.ts 等）
 |   |   |-- canvas/                   # Canvas 课程资料（api.ts / ipc.ts）
 |   |   |-- timetable/                # 课表与日程（api.ts / ipc.ts / session.ts）
-|   |   |-- workspace/                # 工作区条目、笔记与预览协议
-|   |   |-- shuiyuan/                 # 水源社区（api.ts / ipc.ts / 媒体代理）
-|   |   `-- agent/                    # 聊天会话、模型循环与工具（api / ipc / loop / tools / providers）
+|   |   |-- workspace/                # 工作区条目、笔记、预览协议与按项目布局（layout.ts）
+|   |   `-- shuiyuan/                 # 水源社区（api.ts / ipc.ts / 媒体代理）
 |   |-- preload/
-|   |   `-- index.ts                  # contextBridge
+|   |   |-- index.ts                  # contextBridge 聚合入口
+|   |   `-- lib.ts + 15 个命名空间文件 # canvas / capabilities / chat / layout / llm / mail /
+|   |                                 # notifications / search / session / settings / shuiyuan /
+|   |                                 # timetable / todo / window / workspace，通道名与 shared 契约对应
 |   |-- renderer/
 |   |   |-- index.html
 |   |   |-- main.tsx                  # 仅挂载 React
-|   |   |-- App.tsx                   # 应用外壳与页面入口
-|   |   |-- styles/                   # 设计 token、主题与窗口级全局规则
+|   |   |-- app/                      # 应用装配：App.tsx、navigation / theme / notifications、
+|   |   |                             # workbench-shell / workbench-explorer / mail-draft-dialog
+|   |   |-- workbench/                # 统一标签工作台：LayoutNode 分割树（layout-schema / layout-store）、
+|   |   |                             # SplitNode / TabBar / TabGroup / tab-dnd / GroupToolbar、
+|   |   |                             # registry 内容类型注册表
+|   |   |-- content/                  # 标签内容组件（按内容类型分域，互不 import）：
+|   |   |                             # chat / note / preview / review
+|   |   |-- navigation/               # 项目会话导航（ProjectSessionNav / SessionRow 状态徽标）、
+|   |   |                             # 项目文件树与 Canvas 资料树
+|   |   |-- sessions/                 # 会话快照与 Run 事件镜像（多入口共享，打开视图不产生执行）
+|   |   |-- workspace/                # 工作区数据与草稿生命周期（store / drafts / 弹窗 / 动作）
+|   |   |-- features/                 # 整页业务视图：mail / timetable / shuiyuan / todo /
+|   |   |                             # notifications / onboarding / search / settings
 |   |   |-- components/               # 跨功能共享 UI；样式就近放置
-|   |   `-- features/                 # home / projects / sources / mail / timetable /
-|   |                                 # shuiyuan / chat / search / notifications /
-|   |                                 # onboarding / settings
+|   |   `-- styles/ lib/              # 设计 token、主题与窗口级全局规则；前端纯函数
 |   `-- shared/
-|       |-- api.ts                    # IPC 类型和参数约定
-|       |-- llm-presets.ts            # 模型提供商预设
-|       `-- schedule.ts 等            # 进程间共享的纯函数
+|       |-- api.ts                    # 领域契约聚合 re-export，保持 import 面稳定
+|       |-- （领域契约文件）          # canvas / chat / documents / layout / llm / mail / notifications /
+|       |                             # session / settings / shuiyuan / timetable / todo / capabilities 等
+|       `-- resources.ts 等           # 进程间共享的纯函数
 |-- scripts/                          # 开发服务器与冒烟脚本
 |-- vite.main.config.ts 等三个构建配置
 |-- electron-builder.yml
@@ -156,7 +176,7 @@ Dela/
 `-- pnpm-workspace.yaml               # pnpm 12 设置，无子包
 ```
 
-这是目标组织约定，不要求预先建立空目录。React 组件使用同目录的 `*.module.css`，页面样式留在对应 feature；全局样式只保存设计 token、reset 和窗口级规则。模块可用 `index.ts` 暴露少量公共入口，但不建立导出整个 renderer 的总入口。`src/main/` 各级业务目录在对应的 `test/` 子目录集中放置单元测试，例如 `agent/test/run.test.ts`；测试样例必须脱敏。
+这是目标组织约定，不要求预先建立空目录。React 组件使用同目录的 `*.module.css`，页面样式留在对应 feature；全局样式只保存设计 token、reset 和窗口级规则。模块可用 `index.ts` 暴露少量公共入口，但不建立导出整个 renderer 的总入口。`src/main/` 各级业务目录在对应的 `test/` 子目录集中放置单元测试，例如 `src/main/agent/session/test/`、`src/main/agent/tools/todo/test/`；测试样例必须脱敏。
 
 不默认新增 Manager、Service、Factory、Adapter、Registry 等类型或层级。不创建无明确归属的巨大 `utils.ts`。界面样式与仅被本功能使用的组件放在对应 feature 中。
 
@@ -185,7 +205,7 @@ Dela/
 - preload 暴露具体操作，不透传任意 IPC channel、任意路径读取或任意命令执行。
 - main 校验 IPC 参数、调用来源和文件访问范围；共享类型不能替代运行时校验。
 - 采用 context isolation、沙箱和关闭 renderer Node integration 的配置。
-- 主窗口点击关闭时仅隐藏到系统托盘；退出仅由托盘右键菜单中的显式“退出”操作触发。托盘菜单可打开主窗口、新建首页对话或新建项目。
+- 主窗口点击关闭时仅隐藏到系统托盘；退出仅由托盘右键菜单中的显式“退出”操作触发。托盘菜单可打开主窗口、新建对话（通用会话）或新建项目。
 - 应用通过 Electron 单实例锁运行；重复启动快捷方式唤起已有主窗口（隐藏时显示、最小化时恢复并聚焦），不创建第二个托盘。托盘左键单击打开主窗口，右键单击显示上下文菜单。
 - 校园登录放在独立窗口与专用 Session 中，不挂载 Dela 的本地能力桥梁。失效后要求重新登录，不能把失效表现为无数据。
 - 应用菜单已整体移除（仅标题栏内自绘控件），剪切/复制/粘贴/全选等基本编辑操作由主窗口与两个校园登录窗的右键菜单提供（按 editFlags 动态出项，链接处可复制链接地址）。
@@ -193,7 +213,9 @@ Dela/
 
 ## 5. 项目、文件与持久化
 
-应用窗口为「画布 + 浮岛」骨架：标题栏与主导航侧栏同为画布色，内容区整体是浮于画布上的圆角卡片，仅保留外圈一圈细边框；内部灰白相邻边界靠色差分隔、不画线，白色相邻表面（编辑分栏、邮件列表与阅读区）保留一条淡线，宽度分隔条默认透明、悬停高亮。目录列与标签带同为灰色 chrome 区；工作区页头采用圆角浮起标签（活动标签白色融入页面）与面包屑操作行，面包屑不重复展示顶层项目名。目录、编辑器布局、助手三个面板开关统一收纳在标题栏右侧，由各视图经 portal 挂载。文件默认打开为保留标签，路径单行截断显示。编辑组维持单栏、左右双栏、上下双栏三种布局，合并不关闭文档，右栏复用左栏宽度过渡；窄屏覆盖模式经标题栏助手开关关闭。
+应用窗口为「画布 + 浮岛」骨架：标题栏与主导航侧栏同为画布色，内容区整体是浮于画布上的圆角卡片，仅保留外圈一圈细边框；内部灰白相邻边界靠色差分隔、不画线，白色相邻表面（分屏组之间、邮件列表与阅读区）保留一条淡线，宽度分隔条默认透明、悬停高亮。
+
+项目工作区与通用工作台已统一为标签工作台（2026-09-29 阶段三重构）：聊天、笔记与文件预览同为标签内容，每个工作组拥有自己的扁平标签栏与活动标签。标签可在组内排序、跨组拖拽分组；拖到组边缘或经组工具栏按钮创建横向、纵向分屏，横纵分割可嵌套组合出双屏、三屏布局，组间尺寸拖拽调整；任一组可最大化后恢复原布局。布局为按项目持久化的分割树（`layout:{projectId}` 键，通用会话池单独存储），切换项目时恢复各自的工作现场，旧编辑器布局数据自动迁移作种子。目录栏（项目文件、课程资料与归档区）开关在面板头部，折叠态的展开入口挂标题栏右侧，经 portal 挂载；窄屏目录退化为覆盖抽屉。
 
 ### 5.1 Project 的含义
 
@@ -233,6 +255,8 @@ Project 是用户主动围绕主题建立的持续工作空间，可以对应课
 ## 6. 主要界面草图
 
 草图描述信息结构与交互，不规定最终颜色、字体和精确尺寸。为保证等宽对齐，框内使用英文短标签，正式界面使用中文。
+
+> **历史存档（2026-09-29）**：§6.1–6.3 描绘的「首页 / 项目空间 / 资料入口」三个独立视图已随统一工作台重构删除（阶段三批次 3C，旧 `features/home|projects|sources` 全部退役），聊天、笔记与资料浏览现统一进入标签工作台。现行信息结构与交互方向见 [Agent 与工作区重构计划](agent-workspace-plan.md) §4（统一标签与分屏、项目与会话导航）与 [refactor/structure.md](refactor/structure.md) §3.1；以下草图仅作沿革对照保留。§6.4、§6.5 与 TODO 小节描述的能力仍然有效，交互外壳以工作台为准。
 
 ### 6.1 首页：继续工作
 
@@ -360,7 +384,7 @@ Project 是用户主动围绕主题建立的持续工作空间，可以对应课
 
 ## 7. Harness 的执行约定
 
-当前实现采用小型 TypeScript 执行循环，校园工具使用普通函数。后续按 [Agent 与工作区重构计划](agent-workspace-plan.md)验证并复用 Pi Agent Core，调整会话、上下文和工具边界，逐步接入外部 MCP 与 Skills；以下执行约定描述重构前的实现与限制。
+当前实现（2026-09 阶段二起）复用 Pi Agent Core 作为执行循环，Dela 自有 SQLite 持久化为唯一事实来源；会话与运行采用 Session/Run 身份模型（数据库 v13 的 sessions/runs 表，设计见 [refactor/state-model.md](refactor/state-model.md)）。工具按领域重设计为统一契约（见附录），外部能力经 MCP 与 Skills 接入（阶段四）。重构前的自研 SSE 循环（`agent/loop.ts`）与单文件工具表（`agent/tools.ts`）已删除，沿革见[开发记录](devlog.md)。
 
 ```text
 User request -> Create run -> Select context -> Model response
@@ -372,16 +396,20 @@ User request -> Create run -> Select context -> Model response
                                       needs input / done / failed
 ```
 
-- 模型请求经 `src/main/agent/loop.ts` 发往设置 › 模型服务中配置的 OpenAI 兼容提供商；API Key 不进入 renderer 或模型消息。
+现行约定：
+
+- 模型请求经 `src/main/agent/core/pi.ts`（Pi Agent Core 执行循环的适配层）发往设置 › 模型服务中配置的 OpenAI 兼容提供商；重试、max_tokens 回退与思考剥离（reasoning 不回灌）在包装层实现。轮次上限（12 轮、末轮注入收尾提示）与单条工具结果截断（20000 字符）在 `src/main/agent/core/run.ts`。pi 系纯 ESM 包经 `core/pi-load.ts` 动态 `import()` 加载（CJS 产物不能静态 require）。API Key 不进入 renderer 或模型消息。
 - 可用模型以提供商「检测连接」返回的模型列表为准；工具调用、流式、中断与上下文限制需逐个实测，不把模型名当作能力保证。
 - 上下文包括项目背景、当前请求、用户选中的资料和必要检索片段，不默认发送全部历史和全部文件。
 - 邮件、课件、网页是资料，其中的指令不能扩大工具权限。
-- 保存执行步骤和结果，支持取消、超时、步数限制以及错误显示。
-- 会话 JSON 保存消息 parts（正文、思考与工具步骤的交错顺序）和逐项工具结果；完整任务状态机暂缓。
+- Run 状态机落库（runs 表）：保存执行步骤与结果，支持取消、超时与步数限制；启动时未完成的 Run 标记 interrupted。会话消息持久化在 sessions 表（JSON parts 保存正文、思考与工具步骤的交错顺序和逐项工具结果）。
 - 重启后不自动恢复执行；用户提供后续背景。模型上下文按[重构计划](agent-workspace-plan.md)第 6.1 节以预算组装（已实施）：system + 历史摘要（`sessions.summary` 前置块，标注非资源最新状态）+ 从最新向前按预算容纳的完整历史 + 本轮引用与用户消息（永不压缩或丢弃），不再有固定条数上限；估算输入达阈值（窗口 32768 保守值 − 输出与工具预留 12288 后的 70%）时，把放不下的较早历史压缩为结构化摘要并持久化，压缩用独立非流式请求、失败保留原始历史且放不下时明确报错；持久历史与原始记录完整保留，摘要跨 Run 生效。窗口大小与估算口径在接入 provider 配置后校准。
-- 当前写入工具直接执行用户请求，笔记沿用 revision 校验，尚无修改差异预览；邮件工具只准备草稿，由用户在编辑器点击发送。不提供提交作业工具。
+- 写入工具直接执行用户请求：笔记沿用 revision 校验，`edit_note` 支持局部修改并把每次写入记入 note_versions；尚无修改差异预览（content/review 为占位标签）。邮件工具只准备草稿，由用户在编辑器点击发送。不提供提交作业工具。
+- 外部能力：MCP 工具以 `mcp_<server>_<tool>` 命名空间并入工具表，Skills 经 `read_skill`/`read_skill_file` 渐进加载（正文不常驻上下文，Skill 内容仅作资料参考、不执行其中的指令）。
 - 首版不开放任意 shell。未来增加命令执行时单独设计目录范围、进程管理和结果记录。
 - 本地存储不等于本地推理：发送给模型服务商的上下文会离开本机。界面应能让用户了解所选资料范围。
+
+历史存档：2026-09 重构前，模型请求由自研 TypeScript 循环（`agent/loop.ts` 的 SSE 解析与工具循环）直接执行，校园工具为 `agent/tools.ts` 单文件内的普通函数，会话按 scope 字符串组织、历史窗口固定截取最近 12 条。该实现已被上述架构取代，细节见 git 历史与[开发记录](devlog.md)。
 
 ## 8. 接口、同步与检索原则
 
@@ -445,51 +473,79 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 
 ## 附录：Agent 架构与工具契约
 
-本轮工具重构覆盖水源、课表、Canvas、TODO、邮件、工作区与网页等全部业务领域。先盘点覆盖缺口，再统一接口语义并按领域调整；edit 是其中一项，不以原样迁移现有工具到 Pi 作为完成。方向与验收见[重构计划第 5.2 节](agent-workspace-plan.md)。以下保留现有契约供迁移对照。
-
-当前实现保持单应用、单 package，尚未引入 HTTP 服务、MCP 服务或 Agent 框架依赖。后续重构继续保持单应用、单 package，能力接入方向以 [Agent 与工作区重构计划](agent-workspace-plan.md)为准。现有调用结构：
+工具重设计已随 2026-09 重构交付（阶段二批次 2B）：全业务工具按领域重落地为统一契约，阶段四又并入 MCP 动态工具与 Skills 读取工具。阶段一的覆盖缺口盘点与重设计依据见 [refactor/tools-inventory.md](refactor/tools-inventory.md) 与[重构计划第 5.2 节](agent-workspace-plan.md)。保持单应用、单 package，不引入 HTTP 服务或 MCP 服务端。当前调用结构：
 
 ```text
-页面 → preload / IPC → agent/api.ts（会话保存、取消、状态推送）
-    → agent/loop.ts（模型请求、SSE 解析、工具循环）
-    → agent/tools.ts（工具描述、zod 校验、领域调用）→ 各业务域 api.ts
+renderer（workbench / content / navigation / sessions 镜像）
+    → preload（session / chat / workspace / layout 等命名空间）
+    → agent/session/ipc.ts（session:* 通道注册与 zod 校验）
+    → agent/session/manager.ts（会话生命周期、上下文压缩接线、Run 编排）
+    → agent/core/pi.ts + core/run.ts（Pi Agent Core 执行循环、轮次与截断）
+    → agent/tools/registry.ts（工具定义、执行、旧名别名；MCP 动态工具并入）
+    → agent/tools/<领域>/ → 各业务域 api.ts（mail / canvas / timetable / workspace / shuiyuan）
 ```
 
-| 文件                               | 职责                                                     |
-| ---------------------------------- | -------------------------------------------------------- |
-| `src/main/agent/api.ts` / `ipc.ts` | 聊天保存、运行取消、状态推送（兼容 workspace 通道名）    |
-| `src/main/agent/loop.ts`           | 模型请求、SSE/JSON 解析、工具循环及执行边界              |
-| `src/main/agent/tools.ts`          | 工具描述、输入校验与执行结果                             |
-| `src/main/agent/providers.ts`      | 提供商列表/保存/删除/启用/检测（密钥只在主进程）         |
-| `src/main/agent/web-search.ts`     | `web_search` 与 `fetch_page` 联网工具                    |
-| `src/main/resource-parse.ts`       | PDF 文本提取与整页渲染（JPEG）、DOCX/PPTX 文本提取       |
-| `src/shared/resources.ts`          | 严格校验 workspace/canvas/mail/attachment/shuiyuan 引用  |
-| `src/renderer/features/chat/`      | 首页与项目助手共用的对话核心（线程、composer、会话管理） |
+| 模块                         | 职责                                                                                                                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent/core/`                | `pi.ts`（Pi 适配层）、`pi-load.ts`（纯 ESM 动态加载）、`run.ts`（轮次、取消、结果截断、运行内修剪）、`providers.ts`（模型服务配置与 llm:* 通道）                                                            |
+| `agent/session/`             | `manager.ts`（生命周期编排）、`store.ts`（会话表读写）、`runs.ts`（Run 记录与状态机）、`commands.ts`（自定义指令）、`media.ts`（图片暂存 GC）、`subscriptions.ts`（WebContents 推送）、`ipc.ts`（通道注册） |
+| `agent/context/`             | `references.ts`（@ 引用与附件读取）、`assemble.ts`（预算组装）、`budget.ts`（token 估算与预算口径）、`compaction.ts`（摘要生成）                                                                            |
+| `agent/tools/`               | 8 领域目录（canvas/common/mail/shuiyuan/timetable/todo/web/workspace）+ `registry.ts`（契约、聚合、旧名别名、MCP 并入）+ `shared.ts`（分页/匹配等契约助手）                                                 |
+| `agent/capabilities/`        | `skills.ts`（SKILL.md 发现与启停）、`skill-tools.ts`（system 索引装配）、`mcp.ts`（stdio 客户端生命周期）、`ipc.ts`（capabilities:* 通道，阶段四）                                                          |
+| `src/main/resource-parse.ts` | PDF 文本提取与整页渲染（JPEG）、DOCX/PPTX 文本提取、OOXML 类型识别                                                                                                                                          |
+| `src/shared/resources.ts`    | 严格校验 workspace/canvas/mail/attachment/shuiyuan-topic 引用                                                                                                                                               |
 
 资源引用使用对象，如 `{ type: 'workspace', id }`、`{ type: 'canvas', id: 'file:123' }`、`{ type: 'mail', id }`、`{ type: 'attachment', messageId, part }`、`{ type: 'shuiyuan-topic', id }`。引用不是磁盘路径或下载 URL，解析时验证资源仍存在；邮件缓存 ID 不承诺永久有效。
 
 ### 工具契约
 
-统一执行结果为 `{ ok: true, result }` 或 `{ ok: false, error: { code, message } }`；错误码 UNKNOWN_TOOL、INVALID_INPUT、OPERATION_FAILED、INVALID_JSON。
+统一执行结果为 `{ ok: true, result }` 或 `{ ok: false, error: { code, message } }`；通用错误码 UNKNOWN_TOOL、INVALID_INPUT、OPERATION_FAILED，领域工具另经 ToolError 返回细分码（NOT_CONFIGURED、AUTH_EXPIRED、NOT_FOUND、VERSION_CONFLICT 等）。只读联网/缓存工具普遍带 freshness 与 coverage 元信息，列表类工具统一 cursor/offset 分页。
 
-| 工具                            | 主要输入                          | 主要结果与范围                                                                                                           |
-| ------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `find_courses`                  | query、分页                       | 缓存课程 ID、名称、同步时间/错误                                                                                         |
-| `sync_sources`                  | 可选 courseId                     | 同步课程列表或指定课程资料                                                                                               |
-| `search_sources`                | query、courseId、kind、分页       | 缓存标题搜索                                                                                                             |
-| `search_workspace`              | query、parentId、分页             | 工作区条目名称搜索                                                                                                       |
-| `web_search`                    | query、region、count              | 自建 SearXNG（阿里云 ECS）JSON 结果；HTTP 错误与全部引擎无响应均明确报错                                                 |
-| `fetch_page`                    | url                               | 网页转文本；PDF 直链提取文字；仅公网 http(s)                                                                             |
-| `search_mail`                   | query、from、folderId、时间、分页 | 主题/摘要缓存搜索；UID 窗口与同步信息                                                                                    |
-| `read_resource`                 | ref、offset、limit、pages         | 正文分页；PDF/DOCX/PPTX 提取文字层；PDF `pages`（每次 ≤6 页）整页渲染为图像以合成 user 消息附给视觉模型，单次运行 ≤12 张 |
-| `query_assignments`             | courseId、截止时间范围、分页      | TODO 缓存作业、截止时间、提交状态及同步新鲜度                                                                            |
-| `query_schedule`                | semester、startAt、endAt          | 课程和个人事件（上海时区），缺失数据有警告                                                                               |
-| `create_event`                  | title、startAt、endAt、location   | 个人事件；不修改课程                                                                                                     |
-| `create_entry` / `update_entry` | parentId、kind、name 等           | 新建/重命名/移动条目                                                                                                     |
-| `write_note`                    | id、text、revision                | 保存笔记版本；冲突返回错误                                                                                               |
-| `link_source`                   | parentId、sourceId、name          | 保留来源的项目资料关联                                                                                                   |
-| `copy_file_to_project`          | source、parentId                  | 项目/Canvas/附件文件的独立导入副本                                                                                       |
-| `prepare_email`                 | to、subject、text、attachments    | 邮件草稿；只备稿不发送                                                                                                   |
+内置 38 个工具按领域分布（各 `src/main/agent/tools/<领域>/index.ts`）：
+
+| 领域                 | 工具                       | 说明                                                                                                                                      |
+| -------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| canvas（5）          | `get_canvas_status`        | 令牌与各课程同步时间/错误（只读本地）                                                                                                     |
+|                      | `list_canvas_courses`      | 已缓存课程列表，可按名称/学期过滤                                                                                                         |
+|                      | `search_canvas_sources`    | 按标题查缓存资料，返回可传 read_resource 的 ref                                                                                           |
+|                      | `refresh_canvas_courses`   | 联网刷新课程列表缓存（不含课程内容）                                                                                                      |
+|                      | `refresh_canvas_course`    | 联网同步单门课程内容，文件/作业/通知/模块分支独立报告成败                                                                                 |
+| common（5）          | `read_resource`            | 读资源正文（笔记/Canvas/邮件/附件/水源），按字符分页；PDF 可传 pages 渲染页图像                                                           |
+|                      | `write_note`               | 整篇替换笔记正文，携带 revision，冲突返回 VERSION_CONFLICT                                                                                |
+|                      | `edit_note`                | 局部修改（一组 oldText/newText，唯一匹配且不重叠），写入记 note_versions                                                                  |
+|                      | `read_skill`               | 读取 SKILL.md 正文（渐进加载，Skill 内容仅作资料参考）                                                                                    |
+|                      | `read_skill_file`          | 读取 Skill 目录内文本支持文件（仅文本扩展名，200KB 上限）                                                                                 |
+| mail（3）            | `search_mail`              | 按主题/摘要缓存搜索，可按发件人/日期/文件夹筛选                                                                                           |
+|                      | `list_mail_folders`        | 文件夹列表（id/总数/未读/同步时间）                                                                                                       |
+|                      | `prepare_email`            | 准备邮件草稿（只备稿不发送，可附项目/Canvas/附件引用）                                                                                    |
+| shuiyuan（7）        | `shuiyuan_status`          | 绑定状态（只读本地，未绑定时其余水源工具 NOT_CONFIGURED）                                                                                 |
+|                      | `search_shuiyuan_topics`   | 关键词实时搜索主题，返回摘要与 topicId                                                                                                    |
+|                      | `list_shuiyuan_topics`     | latest/featured/分类/标签浏览，cursor 分页                                                                                                |
+|                      | `list_shuiyuan_categories` | 分类树与常用标签（10 分钟缓存）                                                                                                           |
+|                      | `read_shuiyuan_topic`      | 主题详情与首段楼层，返回全量楼层 id stream 与续读游标                                                                                     |
+|                      | `read_shuiyuan_posts`      | 按楼层 post id 续读（每次至多 50 个）                                                                                                     |
+|                      | `link_shuiyuan_topic`      | 把主题关联到项目/文件夹（本地写引用条目）                                                                                                 |
+| timetable（5）       | `get_timetable_status`     | 课表连接/同步状态与当前学期推断（含真实在线试探）                                                                                         |
+|                      | `query_schedule`           | 时间范围内课程与个人事件（上海时区），缺数据带 coverage 警告                                                                              |
+|                      | `refresh_timetable`        | 同步指定学期课表缓存                                                                                                                      |
+|                      | `create_event`             | 创建个人日程（不修改课程课表）                                                                                                            |
+|                      | `delete_event`             | 删除自建日程（课程与待办派生事件不经此删除）                                                                                              |
+| todo（5）            | `query_todos`              | 统一待办清单（个人+Canvas 作业，本地缓存）                                                                                                |
+|                      | `query_assignments`        | Canvas 作业截止视图（含真实提交状态）                                                                                                     |
+|                      | `save_todo`                | 新建/修改个人待办（不能修改 Canvas 作业）                                                                                                 |
+|                      | `remove_todo`              | 删除个人待办（仅个人）                                                                                                                    |
+|                      | `refresh_todos`            | 联网刷新作业与提交状态缓存（新作业触发系统通知）                                                                                          |
+| web（2）             | `web_search`               | 自建 SearXNG（阿里云 ECS）JSON 结果；HTTP 错误与全部引擎无响应均明确报错                                                                  |
+|                      | `fetch_page`               | 网页转文本（http(s) 公网）；PDF 直链提取文字；超长分段返回                                                                                |
+| workspace（6）       | `list_workspace_entries`   | 浏览/弱过滤工作区条目，返回可传 read_resource 的引用                                                                                      |
+|                      | `create_entry`             | 创建项目、文件夹或 Markdown 笔记（可带初始正文）                                                                                          |
+|                      | `update_entry`             | 重命名/移动条目，或文件夹与项目原地互转                                                                                                   |
+|                      | `remove_entry`             | 移除条目引用（不删磁盘文件）                                                                                                              |
+|                      | `link_canvas_source`       | 保留来源的 Canvas 资料关联                                                                                                                |
+|                      | `copy_file_to_project`     | Canvas/项目文件或邮件附件复制为工作区文件                                                                                                 |
+| capabilities（动态） | `mcp_<server>_<tool>`      | 外部 MCP 服务器声明的工具经 stdio 接入，重名跳过；本地 echo-server 验证通过，真实外部服务器待实机验证（见[开发记录](devlog.md) 第十五轮） |
+
+旧工具名别名（`tools/registry.ts` 的 legacyAliases，阶段二重设计改名，保留一个发布窗口供旧会话上下文衔接）：`find_courses`→`list_canvas_courses`、`sync_sources`→`refresh_canvas_courses`、`search_sources`→`search_canvas_sources`、`search_workspace`→`list_workspace_entries`、`link_source`→`link_canvas_source`。
 
 ### 执行与上下文
 

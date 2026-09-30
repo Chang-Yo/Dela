@@ -10,6 +10,25 @@
 
 ---
 
+## 2026-09-30（第十六轮）总验收：四路 review 与收尾修复（重构收口）
+
+四阶段交付后派出四个并行 review agent（架构一致性 / 安全与权限 / 回归与数据迁移 / UX 与文档一致性）交叉审查，按 🔴/🟡/🟢 分级报告后统一裁决修复。安全与回归两路均无阻断项。
+
+- **架构红线修复（6 处）**：①`AgentTool` 类型从 tools/registry 下沉 tools/shared（断开 registry↔领域 index 的 type-only 环）；②registry 对 capabilities 的反向 import 改为 `setMcpRouting` 注入（MCP 工具并集与路由由 capabilities/index 装配时注入，capabilities→tools 单向）；③workspace/api 的 `toolError` 下沉 `src/shared/tool-errors.ts`（跨层错误码契约，agent/tools/shared re-export 保持领域工具 import 不变）；④workspace IPC 的会话订阅挂接上移 main/index.ts 装配层（经 agent 门面，不再 import agent/session/subscriptions）；⑤budget.ts 从 context/ 迁 core/（纯函数零依赖，core 不再 import context）；⑥references 的附件读取与 assemble 的 Skill 索引段改参数注入（context 不再 import session/capabilities）。dpdm 实测 main 与 preload 入口零循环。
+- **安全收紧（4 项）**：read_skill 正文与 listSkills 读取加上限（SKILL.md 头部 64KB 窗口 / 正文 200KB 截断标注）；Skill 路径守卫在字面包含判断后追加双方 realpath 复判（防目录联接越出 Skill 根）；fetch_page 的 SSRF 守卫补 DNS 解析校验（`dns.lookup({all:true})` 逐 IP 拦私网/环回，补 100.64.0.0/10 CGNAT 与 198.18.0.0/15）；MCP 工具执行路由改用 adopt 时登记的「归一化名→服务器」映射表（不再按最长前缀猜测，消除 `a` 的 `b_x` 与 `a-b` 的 `x` 归一化同名时的误配）。MCP env 明文入库与子进程环境继承两项经裁决保持现状，在表单中明示（见下）。
+- **回归修复（4 项）**：run 终态时刷新所属池的会话列表镜像（首条消息改名后导航标题不再陈旧）；publishSession 在 partial 自带 messages 时跳过整列 SELECT（消除逐工具事件的全量读放大）；smoke 新增 Agent runtime (ESM) 检查项（打包产物内动态 import pi 系验证自动化，实跑通过）；database.ts 记录回滚护栏注释（v14 DROP chat_sessions 前必须检查旧表 v13 后新增行）。flaky 测试隔离顺手修复（run.test.ts 请求捕获改每用例独立订阅）。
+- **renderer 修补**：globals.css 依 destructive 模式新增 success/warning 语义 token（深浅两档），会话状态徽标与模型「使用中」点改用语义类；SIDEBAR_MAX_WIDTH=360 收编裸常量；模型未配置空态加「打开设置 › 模型服务」直达按钮（复用 navigation store 深链，与全局搜索同通路）；TabBar 右键菜单补「关闭右侧」；笔记源码模式滚动位置按标签记忆（对齐 PreviewTab 的 scrollMemory）；MCP 表单 env 字段明示「子进程继承宿主环境变量、env 明文存本地数据库」。
+- **文档同步**：devlog 补记批次 2A/2B/3A 与阶段四（第十五轮）；technical-plan 状态声明改「已实施」、§2.1 补 pi 三依赖、§3 组织树按实际目录重画、§5/§7/附录改现行实现（loop.ts→core/pi.ts、38 内置工具逐名）并给历史段落加存档标注；README 统一工作台/AI 助手/设置八分类行重写；development.md 补 pi 打包注意（正则 external 原因、allowBuilds 清单）；structure.md 依赖图随红线修复更新。
+- 已验证：505 项单测全绿（净增 7 项：junction 守卫、SSRF DNS、MCP 命名空间冲突、正文上限等）、typecheck/oxlint 零告警、`pnpm build`、`pnpm smoke` 与 `pnpm package:dir` + win-unpacked 产物 `--smoke-test`（含 Agent runtime ESM 项）通过、dpdm main/preload 零循环。待验证（用户实机）：两主题下徽标新 token 观感、「关闭右侧」菜单、源码模式滚动保留、设置直达按钮落点、MCP 表单提示排版；真实 MCP 服务器与真实模型端点的端到端对话仍待实机使用覆盖。
+
+落实[重构计划](agent-workspace-plan.md) §5.3 与 [structure.md](refactor/structure.md) 第 4 步。`src/main/agent/capabilities/` 立起（index/ipc/types + skills/mcp/skill-tools），设置插件页从 3B 的「即将支持」骨架实装为能力管理。
+
+- **Skills 发现与渐进加载**（skills.ts + skill-tools.ts + tools/common/skill-read.ts）：工作目录 `skills/<name>/SKILL.md`（agentskills.io 规范；轻量 frontmatter 解析，不引 YAML 依赖），system 提示只注入名称+描述索引；`read_skill`（SKILL.md 正文）与 `read_skill_file`（Skill 目录内文本支持文件，仅文本扩展名、单文件 200KB 截断）按需读取，路径守卫拒绝越界；启停状态存 `workspace_settings` 的 `skills-disabled`（只存禁用清单，默认全启用）。
+- **MCP 客户端**（mcp.ts）：`@earendil-works/pi-mcp` 0.99.0 stdio 传输；惰性连接（启用且首次被询问时发起，10s 超时）+ 显式 refresh 重连 + 断连侦测（error 态需显式重连）；工具并入 registry 命名空间 `mcp_<server>_<tool>`，与内置工具重名跳过并在描述标注来源；参数透传服务器声明的 JSON Schema，缺省归一为空对象。
+- **通道与设置**：`capabilities:*` 7 通道（list/set-skills、list/add/update/remove/refresh-mcp-servers，zod 校验）+ preload `capabilities` 命名空间；插件页三页签实装——Skills 启停列表、MCP 服务器卡片（connecting/connected/disconnected/error 四态徽标、重连、编辑、删除确认、添加表单 mcp-logic.ts）。
+- **修复预存缺陷**：pi 系纯 ESM 包不能被 CJS 产物静态 `require`（首次模型请求即崩）——core 改经 `pi-load.ts` 动态 `import()` 加载，产物验证原生 `import()` 保留。
+- 已验证：MCP 用本地 echo-server（`capabilities/test/echo-server.mjs`，stdio JSON-RPC 无网络）验证连接、工具发现、命名空间、callTool 往返、isError 映射与未知工具边界；498 项单测、`pnpm build`、`pnpm smoke`（生产构建产物）通过。待验证（用户实机）：真实外部 MCP 服务器接入与断连恢复、真实对话中 Skill 命中与 `mcp_*` 工具表现、打包安装包内运行。
+
 ## 2026-09-29（第十四轮）旧 features 退役与通道收敛：home/projects/sources/chat 删除、旧 scope 通道与 save-view 下线（阶段三·批次 3C）
 
 落实 [structure.md](refactor/structure.md) §6 第 3 步表与批次 3B 残留清单。应用已在 3B 切到 app/workbench/content/sessions/navigation/workspace 新架构，本批逐项 grep 验证零活引用后删除死代码并收敛旧通道。
@@ -31,7 +50,7 @@
 - **校园消息系统提醒**：偏好键 `campus-notifications`（'0' 关闭，缺省开启=现行为）；`systemNotifyItem` 增加该守卫——关闭只停桌面弹窗，通知收集与应用内列表不受影响。此通道为批次说明之外的新增（任务只点名 4 个新通道，但 §4.4 通知分类要求「校园消息提醒偏好」）。
 - **暂停通知共用状态**：通知 Section 直接读写 `notifications:set-snooze` / `getState().snoozedUntil` 并订阅 `notifications:state` 广播——与通知中心**同一份** `notifications-snoozed-until` 键，无第二开关，两端实时同步。
 - **工作区偏好**：键 `workspace-prefs`（JSON，缺省 `{restoreLastProject: true, defaultNoteEditMode: 'rich'}`，恢复默认与现行为一致）；`setWorkspacePrefs` 支持部分合并。工作目录卡自旧 ConnectionsSection 迁入；布局重置经现有 `layout:save` 把当前项目布局写回默认单组（两步确认；当前项目读 `localStorage['dela.workspace.project']`，与 app/navigation 的持久化键一致，空串=通用池 `_general`）。
-- **插件三类型骨架**：内部按 自定义指令（现功能原样迁入）/ Skills / MCP 切换；后两者只显示「即将支持（阶段四交付）」说明，无任何开关（「未实现不展示」红线）。
+- **插件三类型骨架**：内部按 自定义指令（现功能原样迁入）/ Skills / MCP 切换；后两者只显示「即将支持（阶段四交付）」说明，无任何开关（「未实现不展示」红线）。（修订：阶段四即第十五轮已实装 Skills 启停列表与 MCP 服务器管理，本句为当时骨架状态的记载。）
 - **搜索直达**：`SettingsSearch`（内容区顶部 sticky 搜索框 + 键盘导航下拉）按分类/选项标题/关键词过滤单一索引 `search-index.ts`（内置同义词表：主题→外观、API→模型服务、邮件→连接等；校园提醒卡刻意不含「邮件/水源」词，避免抢连接页目标），选中跳转 section 并给目标卡片 `data-setting-id` 加 1.8s ring 高亮 + scrollIntoView。全局搜索的 setting 入口改由同一索引派生（`settingsResultsFor` 按分类聚合，GlobalSearchDialog 删除本地重复表）——主进程 `search.ts` 本就不含 setting 目标（批次说明的「main 侧」定位有误，实际同步点是渲染层静态表）。
 - **行为红线核对**：简单偏好全部即时保存（开关/select 失败回滚原值并就地报错，无保存按钮）；主题/缩放/自启/模型服务等旧偏好键原样沿用（迁移零丢失）；错误引导「设置 › 模型服务」无需改动（section id `llm` 未变，llm 根节点带高亮锚点）。
 - 已验证：`pnpm typecheck` 三组零错、oxlint 0 警告、prettier（仅本批文件）、`pnpm build` 三 bundle、全量 468 项单测（新增 prefs 9、task-notify 5、search-index 9）；app/App.tsx（并行批次）传入的 SettingsView props 与本批签名兼容。待验证（实机审阅）：搜索高亮 ring 观感、通知/工作区各开关保存反馈、插件页签切换。待接线（协调方）：main/index.ts 设置段替换为 `./settings` import、app 启动消费 `getWorkspacePrefs()` 导航、content/note NoteTab 初始模式读 `defaultNoteEditMode`、3C 删除 sources 下 CanvasTokenForm/canvas-connect 旧文件。
@@ -49,6 +68,16 @@
 - 修复一处装配层 bug：zustand 选择器内 `.filter()` 返回新数组触发 useSyncExternalStore 死循环（React #185），选择器改为返回稳定引用、过滤移到渲染期。
 - 已验证：`pnpm vitest run` 53 文件 468 项全绿；三 bundle vite 构建通过；`pnpm smoke`（打包产物）通过——SQLite/renderer/preload 隔离检查全过；dev 模式 smoke 实证旧 'sources' 视图种子迁移（布局种子+笔记标签渲染走通）。`pnpm typecheck` 除并行设置批次 in-flight 的 `features/settings/search-index.test.ts`（2 个错，非本批文件）外零错；本批文件 oxlint 0 警告（全仓 lint 的 1 个警告同样来自并行批次的 `main/settings/ipc.ts` 未用 import）。待验证（用户实机审阅清单见批次汇报）：布局拖拽与动画视线、目录侧栏折叠动线、项目切换工作现场恢复、通知/搜索深链实跳。
 
+## 2026-09-29（补记·阶段三批次 3A）统一工作台骨架与内容域迁移（并行建设）
+
+本条为事后补记：该批次实施时未同步开发记录，内容取自提交说明与变更清单（eed8c84）。与旧 features 并行建设、不改动旧文件，应用切换在批次 3B（第十二轮）完成。
+
+- **workbench/ 布局树引擎**：`layout-schema.ts`（LayoutNode 分割树/TabId 类型/校验/旧 `view:%` 与 localStorage 布局种子迁移）+ `layout-store.ts`（分割树/标签/焦点/最大化的 zustand store，防抖持久化）；`SplitNode.tsx` 递归渲染纵横分屏与组间尺寸拖拽，`TabBar.tsx` 标签排序拖拽与跨组拖放（`tab-dnd.ts` 拖拽负载协议），`GroupToolbar.tsx` 分屏方向/最大化/组菜单，`registry.ts` 内容类型注册表（TabKind → 组件/图标/标题解析，唯一 import content/ 之处）；`layout:get/save` 通道按项目持久化 `layout:{projectId}`（通用池 `layout:_general`，存 workspace_settings）。
+- **sessions/ 镜像**（store/runs）：会话快照与 Run 事件按 sessionId 归并，导航徽标与 ChatTab 多入口共享同一份状态，打开视图不产生执行。
+- **content/ 内容域**：chat（ChatTab/ChatThread/ChatComposer/use-chat 切 sessionId 身份 + 注入式引用源）、note（NoteTab + 低干扰保存状态）、preview（PreviewTab 按格式分流 + CodeViewer 代码预览）、review 占位（差异呈现随文档协作阶段细化，main 侧 edit_note/note_versions 已就绪）。
+- **workspace/ 与 navigation/**：条目树镜像、草稿生命周期（acquire/edit/save/release 与引用计数）、8 种 CRUD 弹窗与归档/升级项目/导入动作拆分，草稿语义逐条保持；项目会话导航（ProjectSessionNav/SessionRow 运行状态徽标）、项目文件树与资料树。
+- 已验证：446 项单测全绿（含布局 schema/store 35 项新增）。待验证：拖拽、分屏动画与视线稳定属交互项，留待实机审阅（第十二轮切换后统一核对）。
+
 ## 2026-09-29（第十一轮）上下文压缩落地：按预算触发替代固定 12 条窗口（阶段二·批次 2C）
 
 落实 [重构计划](agent-workspace-plan.md) §6.1 与 [decisions-phase1.md](refactor/decisions-phase1.md) 批次 2B 压缩骨架的完整实现，`historyWindow` 的 `slice(-12)` 退役删除。按目录拆分：`context/budget.ts`（估算与预算口径）、`context/compaction.ts`（摘要生成）、`context/assemble.ts` 重写（预算组装），`session/{manager,store}.ts` 接线，`core/{run,pi}.ts` 加运行内修剪。
@@ -59,6 +88,24 @@
 - **接线**（manager.ts）：askSession 在 runAgent 前读 `sessions.summary` → 估算（system+摘要+全量历史+本轮+工具定义）→ 超阈值时计算覆盖范围（放不进触发阈值的较早历史前缀）→ 压缩期间快照带 `compacting: true`（store 的 `compactingSessions` 集合，沿用现有推送通道，`WorkspaceChat` 仅可选追加字段）→ 成功才持久化摘要并以新上下文组装；失败且不压缩也放得下（估算 ≤ 预算）照常发送全量历史，失败且放不下则本次请求明确报「上下文压缩失败，请重试或减少引用资料」，不静默回退条数截断。摘要跨 Run 生效：重启后新 Run 从持久历史 + 摘要重建（现有逻辑），下次 ask 直接读取。
 - **运行内修剪**（pi.ts + run.ts 可选 `prunePolicy`）：Pi Agent 的 `transformContext` 钩子在每次模型请求前估算消息总量，超预算时把较早轮次（最近 2 轮完整）的工具结果内容替换为「[已修剪的工具结果：工具名，关键结果保留前 500 字符]」占位（图片一并剥离），不做运行中模型调用；返回值只影响发出的请求、不改会话状态。`prunePolicy` 缺省时不挂钩子，runAgent 签名与缺省行为不变。
 - 已验证：context/session/core 全部 21 个测试文件 216 项单测（新增 budget 6、compaction 7、assemble 11、prune 5、manager 压缩 5；摘要模型调用全部 fetch stub 不走真网）、`pnpm typecheck` 三组零错、oxlint 0 警告、prettier。待验证：真实提供商下摘要质量与触发频率（估算启发式 vs 实际 tokenizer 的偏差）、压缩期间 UI 的 compacting 状态实机观感、`pnpm build` 与打包后运行（本轮未涉及原生依赖，风险低）。
+
+## 2026-09-29（补记·阶段二批次 2B）Pi 运行时、Session/Run 身份与全领域工具重设计
+
+本条为事后补记：该批次实施时未同步开发记录，内容取自提交说明与变更清单（4fb5e38）。
+
+- **Pi 运行时正式接入**（core/pi.ts）：`@earendil-works/pi-agent-core` 0.87.1 替换自研 SSE 循环（2A 过渡产物 core/stream.ts 退役）；重试、max_tokens 回退（32768 被拒自动退 8192）、思考剥离（reasoning 不回灌）在包装层实现；12 轮上限经 prepareNextTurn/finishTurn 保持；第十轮探针并入 core/test（43 测试）。
+- **DB v13 与 Session/Run 身份**（设计见 [state-model.md](refactor/state-model.md)）：新增 projects/sessions/runs/note_versions 四表 + scope→project_id 迁移（chat_sessions 停写保留，作一个发布周期的回滚窗口）；Run 状态机落库，启动时未完成 Run 标记 interrupted。`session:*` 新通道上线（preload session 命名空间），旧 workspace:chat-* 委托新实现；同 session 串行、跨 session 并行。
+- **工具重设计**：34 个工具按 8 领域目录（canvas/common/mail/shuiyuan/timetable/todo/web/workspace）落地统一契约（错误码细分、freshness/coverage 标注、cursor 分页）；水源 7 工具补齐（此前水源只有业务 API 无自主工具链）、`edit_note` 局部修改（匹配校验 + note_versions 版本记录）、`read_resource` 扩展支持水源主题/邮件附件/图片输出；资源引用增加 shuiyuan-topic。registry 内置旧名别名 legacyAliases（一个发布窗口，见 tools/registry.ts）；tools/shared 提供契约助手。
+- 已验证：新增 session 迁移测试与 canvas/shuiyuan/timetable/todo/mail/web/workspace/note 各领域单测、core 探针 43 项（mock SSE，不走真网）。全量 typecheck/build 数字未单独记录（本批为 2C 与 3B 验证链的前置）。待验证：真实提供商端到端对话随 2C/3B 一并核对。
+
+## 2026-09-29（补记·阶段二批次 2A）shared/preload 契约拆分与 agent 目录机械重组
+
+本条为事后补记：该批次实施时未同步开发记录，内容取自提交说明与变更清单（dbeb6b8）。纯机械重组，行为零变化。
+
+- **契约拆分**：`shared/api.ts`（千行聚合）拆为 14 个领域文件，api.ts 保留聚合 re-export（68 处 import 零改动）；preload 拆为 lib.ts + 12 个命名空间文件，通道名零变化。
+- **agent 目录立起**（对齐 [structure.md](refactor/structure.md) §2.1 目标树）：main/agent 重组为 core/session/context/tools 四目录——20 个既有工具平移到 7 领域目录、loop.ts 拆为 core/run.ts + core/stream.ts、api.ts 拆为 `session/*`（manager/store/runs/commands/media/subscriptions/ipc）与 `context/*`（references/assemble），agent/index.ts 组装入口。历史窗口 `slice(-12)` 保留并标注待替换（2C 交付压缩后删除）。
+- **依赖调整**：移除 pi-session-backend-sqlite-node（第十轮引入；裁决 Dela 自有 SQLite 持久化为唯一事实来源）；vite external 预置 `@earendil-works`、openai、typebox（打包实测 pi 栈约 53MB）。
+- 已验证：探针修剪 sqlite 后端用例、历史续接改为 JSON 重建路径验证（7/7 通过）。行为零变化批次，全量检查数字未单独记录。
 
 ## 2026-09-29（第十轮）Pi Agent Core 最小接入验证（阶段一）
 

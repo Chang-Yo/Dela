@@ -27,6 +27,7 @@ pnpm dev
 
 - `pnpm install` 会通过 Electron 提供的 `install-electron` 命令下载运行时。
 - pnpm 仅允许明确的依赖脚本；原生依赖（`better-sqlite3`、`@napi-rs/canvas`）均使用随包提供的预编译模块，当前关闭源码重建（`npmRebuild: false`）。`@napi-rs/canvas` 需在 `vite.main.config.ts` 标记 external 并加入 electron-builder `asarUnpack`；pnpm 不会自动安装传递平台包，非当前平台的出包需在对应平台环境补齐（见 devlog 2026-09-18 第五轮）。
+- `@earendil-works/*` 三依赖（pi-agent-core / pi-ai / pi-mcp）在 `vite.main.config.ts` 以 `/^@earendil-works\//` 正则保持 external、随 node_modules 打包进 asar——rolldown 的字符串 external 不匹配 `pi-ai/api/...` 等子路径导入，必须用正则；pi 系为纯 ESM 包，main 的 CJS 产物经 `agent/core/pi-load.ts` 动态 `import()` 加载（静态 require 会崩）。pnpm 12 `allowBuilds`（`pnpm-workspace.yaml`）把 `@google/genai`、`esbuild`、`protobufjs` 三个 pi 传递依赖的安装脚本显式置 false（见 devlog 2026-09-29 第十轮）。
 - 开发模式（Vite dev 构建）下每次启动都会完整重播首启引导，便于查看；正式构建只在首次启动播放。URL 加 `?smoke-test=1` 可短路引导直接渲染主界面，供自动化使用。
 
 ## 常用命令
@@ -68,11 +69,11 @@ pnpm dev
 
 单仓库、单 `package.json`，三个进程分别构建（完整目录约定与设计理由见[技术规划书](technical-plan.md)第 3 节）：
 
-- `src/main/` — 主进程，按业务域分目录：`mail/`、`canvas/`、`timetable/`、`workspace/`、`agent/`、`shuiyuan/`，另有根级的数据库、凭据、搜索与通知等共用模块；每个业务域以 `api.ts`（业务入口）+ `ipc.ts`（通道注册）组织。
-- `src/preload/` — contextBridge，只暴露受控 API。
-- `src/renderer/` — React 界面，`features/<域名>/` 组织页面，`components/ui/` 放共享组件，样式用 Tailwind v4 + `styles/globals.css` 中的语义 token。
-- `src/shared/` — 进程间共享的 IPC 契约与纯函数。
-- 主进程测试集中放在各级目录的 `test/` 子目录（例如 `src/main/agent/test/`），`scripts/` 存放开发服务器与冒烟脚本。
+- `src/main/` — 主进程，按业务域分目录：`mail/`、`canvas/`、`timetable/`、`workspace/`、`shuiyuan/`、`settings/`，另有根级的数据库、凭据、搜索与通知等共用模块；每个业务域以 `api.ts`（业务入口）+ `ipc.ts`（通道注册）组织。`agent/` 为 Agent 核心，分 `core/`（Pi 执行循环与模型服务）、`session/`（会话与 Run 持久化及推送）、`context/`（上下文组装与压缩）、`tools/`（8 领域工具目录 + registry）、`capabilities/`（MCP 与 Skills）五个子目录。
+- `src/preload/` — contextBridge：`index.ts` 聚合入口 + 按命名空间拆分的分域文件，只暴露受控 API。
+- `src/renderer/` — React 界面：`app/`（应用装配与视图路由）、`workbench/`（统一标签工作台与布局树）、`content/`（chat / note / preview / review 标签内容）、`navigation/`（项目会话导航与文件/资料树）、`sessions/` 与 `workspace/`（会话/Run 镜像与工作区数据、草稿）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings 整页业务视图）；`components/ui/` 放共享组件，样式用 Tailwind v4 + `styles/globals.css` 中的语义 token。
+- `src/shared/` — 进程间共享的 IPC 契约与纯函数，按领域拆分文件（`api.ts` 聚合 re-export 保持 import 面稳定）。
+- 主进程测试集中放在各级目录的 `test/` 子目录（例如 `src/main/agent/session/test/`、`src/main/agent/tools/todo/test/`），`scripts/` 存放开发服务器与冒烟脚本。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 不自动加载仓库 `.env`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。
 
