@@ -78,6 +78,7 @@ export class MockOpenAiServer {
   private readonly server: Server;
   private readonly queue: ScriptedResponse[] = [];
   private readonly timers = new Set<NodeJS.Timeout>();
+  private readonly listeners = new Set<(request: RecordedRequest) => void>();
   private closed = false;
 
   private constructor() {
@@ -102,6 +103,13 @@ export class MockOpenAiServer {
 
   enqueue(response: ScriptedResponse): void {
     this.queue.push(response);
+  }
+
+  /** 每用例独立捕获：共享 requests 数组的按位切片存在跨用例竞态窗口，需要精确归属的
+   *  断言（如逐请求校验字段）改用监听器只收本用例运行期间到达的请求。 */
+  onRequest(listener: (request: RecordedRequest) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   async close(): Promise<void> {
@@ -134,12 +142,14 @@ export class MockOpenAiServer {
     } catch {
       body = undefined;
     }
-    this.requests.push({
+    const recorded: RecordedRequest = {
       method: request.method ?? '',
       url: request.url ?? '',
       authorization: request.headers.authorization ?? null,
       body,
-    });
+    };
+    this.requests.push(recorded);
+    for (const listener of this.listeners) listener(recorded);
     const scripted = this.queue.shift();
     if (!scripted) {
       response.writeHead(500, { 'Content-Type': 'application/json' });

@@ -29,36 +29,20 @@ export function tool<T extends z.ZodType>(
   return { description, schema, execute: (input: unknown) => execute(schema.parse(input)) };
 }
 
+/** 工具契约：description + zod schema + execute；registry 统一做校验与错误映射。
+ *  放 shared 而非 registry：领域 index 经 satisfies 引用此类型，若放 registry，
+ *  领域 index → registry → 领域 index 会构成（type-only）导入环。 */
+export type AgentTool = ReturnType<typeof tool>;
+
 export function match(value: string, keyword: string) {
   return value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
 }
 
 // —— 统一工具契约（docs/refactor/tools-inventory.md §8，decisions-phase1 裁决）——
 
-/** 细分错误码：业务域抛 ToolError 携带真实边界，registry 统一映射；消息保持中文可读文案。 */
-export type ToolErrorCode =
-  | 'INVALID_INPUT'
-  | 'NOT_CONFIGURED'
-  | 'AUTH_EXPIRED'
-  | 'NOT_FOUND'
-  | 'VERSION_CONFLICT'
-  | 'RATE_LIMITED'
-  | 'NETWORK_ERROR'
-  | 'UPSTREAM_ERROR'
-  | 'OPERATION_FAILED';
-
-export class ToolError extends Error {
-  constructor(
-    public code: ToolErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-export function toolError(code: ToolErrorCode, message: string): ToolError {
-  return new ToolError(code, message);
-}
+// 错误码契约下沉 shared/tool-errors（workspace/api 等业务目录也用它）；此处 re-export
+// 维持领域工具的 '../shared' import 路径不变。
+export { ToolError, toolError } from '../../../shared/tool-errors';
 
 /** cached=本地缓存查询；realtime=当次联网（水源、fetch_page、按需拉取的邮件正文）。 */
 export function freshness(kind: 'cached' | 'realtime', syncedAt?: string | null) {

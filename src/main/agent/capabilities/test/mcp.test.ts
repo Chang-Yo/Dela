@@ -146,6 +146,26 @@ describe('MCP 连接与工具发现', () => {
     expect(mcpToolDefinitions()).toHaveLength(3);
   }, 30000);
 
+  it('归一化同名冲突（服务器 a 的 b_x 与服务器 a-b 的 x）：路由按 adopt 登记执行，不猜最长前缀', async () => {
+    // 服务器 a 的 echo 工具经 DELA_TOOL_NAME 改名为 b_echo：归一化名 mcp_a_b_echo
+    // 与服务器 a-b 的 echo（mcp_a_b_echo）同名——先到者 a 收纳并登记路由，a-b 跳过。
+    await addMcpServer({ ...echoConfig, name: 'a', env: { DELA_TOOL_NAME: 'b_echo' } });
+    const views = await addMcpServer({ ...echoConfig, name: 'a-b' });
+    expect(views.find((view) => view.name === 'a-b')!.error).toContain('已跳过');
+    expect(mcpToolDefinitions()).toHaveLength(5);
+    // 最长前缀（mcp_a_b 长于 mcp_a）会把 mcp_a_b_echo 误配给 a-b 导致不可调用；
+    // 按登记路由应回到真正归属的服务器 a 并完成往返。
+    await expect(executeMcpTool('mcp_a_b_echo', { message: '你好' })).resolves.toMatchObject({
+      ok: true,
+      result: { text: 'echo:你好' },
+    });
+    // a-b 未被冲突影响的其余工具仍归 a-b 执行（fail 映射 UPSTREAM_ERROR）。
+    await expect(executeMcpTool('mcp_a_b_fail', {})).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'UPSTREAM_ERROR' },
+    });
+  }, 30000);
+
   it('重名服务器直接拒绝', async () => {
     await addMcpServer(echoConfig);
     await expect(addMcpServer(echoConfig)).rejects.toThrow('已有同名服务器');

@@ -107,17 +107,26 @@ describe('runAgent（Pi Agent Core 桥）', () => {
   });
 
   it('effort 档位随每个请求下发，none 视为关闭不下发', async () => {
-    const before = server.requests.length;
+    // 每用例独立捕获：共享 requests 数组的按位切片在冷启动等场景下可能混入相邻用例
+    // 的在途请求（曾致 reasoning_effort 偶发实收 undefined）。
+    const withHigh: RecordedRequest[] = [];
+    const stopHighCapture = server.onRequest((request) => withHigh.push(request));
     server.enqueue(toolCallSse('call-effort'));
     server.enqueue(textSse('Done'));
     await runAgent({ ...makeOptions(), effort: 'high' });
-    for (const request of server.requests.slice(before)) {
+    stopHighCapture();
+    expect(withHigh.length).toBeGreaterThan(0);
+    for (const request of withHigh) {
       expect(bodyOf(request).reasoning_effort).toBe('high');
       expect(bodyOf(request).max_completion_tokens).toBe(32768);
     }
+    const withNone: RecordedRequest[] = [];
+    const stopNoneCapture = server.onRequest((request) => withNone.push(request));
     server.enqueue(textSse('Quiet'));
     await runAgent({ ...makeOptions(), effort: 'none' });
-    expect(bodyOf(server.requests.at(-1)!).reasoning_effort).toBeUndefined();
+    stopNoneCapture();
+    expect(withNone).toHaveLength(1);
+    expect(bodyOf(withNone[0]!).reasoning_effort).toBeUndefined();
   });
 
   it('b. 工具往返：入参已解析、结果以 JSON 回灌、事件形状对齐持久化层', async () => {

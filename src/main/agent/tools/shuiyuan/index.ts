@@ -1,4 +1,4 @@
-import type { AgentTool } from '../registry';
+import type { AgentTool } from '../shared';
 import { listShuiyuanCategoriesTool } from './list-categories';
 import { listShuiyuanTopicsTool } from './list-topics';
 import { linkShuiyuanTopicTool } from './link-topic';

@@ -90,7 +90,7 @@ export default function App() {
   // 工作区镜像载入 + 会话静默后的条目/Canvas/干净草稿刷新（工具可能写过工作区）。
   useEffect(() => {
     void useWorkspaceStore.getState().load();
-    return window.dela?.session.onSessionUpdate((_sessionId, chat) => {
+    return window.dela?.session.onSessionUpdate((sessionId, chat) => {
       if (chat.running) return;
       const store = useWorkspaceStore.getState();
       void store.refresh().catch(store.setError);
@@ -98,6 +98,15 @@ export default function App() {
       for (const [id, draft] of Object.entries(useNoteDrafts.getState().drafts)) {
         if (draft.text === draft.saved)
           void useNoteDrafts.getState().acquire(id, true).catch(store.setError);
+      }
+      // 首条消息会给会话命名（标题在 run 开始时落库）：终态时重读所属池的列表镜像，
+      // 导航与会话列表的标题不再陈旧；只做终态刷新，运行中标题变化无即时展示需求。
+      const lists = useSessions.getState().lists;
+      for (const [pool, list] of Object.entries(lists)) {
+        if (list.some((session) => session.id === sessionId)) {
+          void useSessions.getState().refresh(pool === 'general' ? null : pool).catch(() => {});
+          break;
+        }
       }
     });
   }, []);

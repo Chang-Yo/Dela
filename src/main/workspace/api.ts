@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
-import { toolError } from '../agent/tools/shared';
+import { toolError } from '../../shared/tool-errors';
 import { deleteProjectProfile, ensureProjectProfile } from './projects';
 import {
   availablePath,

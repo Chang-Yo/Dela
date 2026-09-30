@@ -8,7 +8,7 @@ import {
   SYSTEM_PROMPT,
 } from '../assemble';
 import type { SessionSummary } from '../compaction';
-import { estimateTokens } from '../budget';
+import { estimateTokens } from '../../core/budget';
 
 function historyOf(count: number, chars = 100): WorkspaceChat['messages'] {
   return Array.from({ length: count }, (_, index) => ({
@@ -34,7 +34,7 @@ const summary = (coveredUpTo: number, messageCount: number): SessionSummary => (
 describe('assembleModelContext', () => {
   it('预算内历史全部保留，不再有 12 条上限', () => {
     const history = historyOf(20);
-    const result = assembleModelContext({ history, summary: null, reservedTokens: 0 });
+    const result = assembleModelContext({ history, summary: null, reservedTokens: 0, skillIndex: [] });
     expect(result.history).toHaveLength(20);
     expect(result.history[0]).toMatchObject({ role: 'user', content: history[0]!.content });
     expect(result.system).toBe(SYSTEM_PROMPT);
@@ -46,6 +46,7 @@ describe('assembleModelContext', () => {
       history,
       summary: summary(5, 8),
       reservedTokens: 0,
+      skillIndex: [],
     });
     expect(result.system).toContain(SYSTEM_PROMPT);
     expect(result.system).toContain('本会话较早历史摘要');
@@ -58,14 +59,14 @@ describe('assembleModelContext', () => {
 
   it('摘要覆盖锚点超出当前历史（编辑重发截断）时忽略摘要', () => {
     const history = historyOf(4);
-    const result = assembleModelContext({ history, summary: summary(9, 12), reservedTokens: 0 });
+    const result = assembleModelContext({ history, summary: summary(9, 12), reservedTokens: 0, skillIndex: [] });
     expect(result.system).toBe(SYSTEM_PROMPT);
     expect(result.history).toHaveLength(4);
   });
 
   it('预算不足时从最旧一侧开始放不下（由上游压缩覆盖，组装侧不静默截断其余消息）', () => {
     const history = historyOf(10, 4000); // 每条约 4000 token，预算 20480 只容最近 5 条。
-    const result = assembleModelContext({ history, summary: null, reservedTokens: 0 });
+    const result = assembleModelContext({ history, summary: null, reservedTokens: 0, skillIndex: [] });
     expect(result.history).toHaveLength(5);
     expect(result.history[0]!.content).toBe(history[5]!.content);
     expect(result.history.at(-1)!.content).toBe(history[9]!.content);
@@ -73,7 +74,7 @@ describe('assembleModelContext', () => {
 
   it('最新一条单独超预算时截断保留并标注', () => {
     const history = historyOf(2, 30000);
-    const result = assembleModelContext({ history, summary: null, reservedTokens: 0 });
+    const result = assembleModelContext({ history, summary: null, reservedTokens: 0, skillIndex: [] });
     expect(result.history).toHaveLength(1);
     expect(result.history[0]!.content).toContain('内容过大已截断');
     // 截断后的估算不超预算。
@@ -82,7 +83,7 @@ describe('assembleModelContext', () => {
 
   it('本轮输入（reservedTokens）加 system 超出预算时明确报错，不静默截断本轮', () => {
     const history = historyOf(3);
-    expect(() => assembleModelContext({ history, summary: null, reservedTokens: 20480 })).toThrow(
+    expect(() => assembleModelContext({ history, summary: null, reservedTokens: 20480, skillIndex: [] })).toThrow(
       '本轮输入超出模型上下文预算',
     );
   });

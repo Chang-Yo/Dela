@@ -1,10 +1,6 @@
 import { z } from 'zod';
-import { getCapabilityRuntime } from '../capabilities';
 import { agentTools } from './index';
-import { ToolError, type tool } from './shared';
-
-/** 工具契约：description + zod schema + execute；registry 统一做校验与错误映射。 */
-export type AgentTool = ReturnType<typeof tool>;
+import { ToolError } from './shared';
 
 // 旧会话上下文里的旧工具名 → 新名（阶段二重设计改名，decisions-phase1 裁决 9）。
 // 一个发布周期后移除。
@@ -20,6 +16,17 @@ function resolveToolName(name: string) {
   return legacyAliases[name] ?? name;
 }
 
+// MCP 工具并集与路由经注入获得（结构 §2.3：capabilities → tools 单向）。
+// 本模块若静态 import capabilities 会与 mcp.ts 的 agentTools 取用成环。
+export interface McpRouting {
+  mcpToolDefinitions(): { type: 'function'; function: { name: string; description: string; parameters?: unknown } }[];
+  executeMcpTool(name: string, input: unknown): Promise<{ ok: boolean; error?: { code: string; message: string } }>;
+}
+let mcpRouting: McpRouting | null = null;
+export function setMcpRouting(routing: McpRouting): void {
+  mcpRouting = routing;
+}
+
 export function modelToolDefinitions() {
   const definitions = Object.entries(agentTools).map(([name, tool]) => ({
     type: 'function' as const,
@@ -31,7 +38,7 @@ export function modelToolDefinitions() {
   }));
   // MCP 动态工具（mcp_<server>_<tool>）并入集合（阶段四 §5.3）；参数透传服务器声明的
   // JSON Schema，缺省按空对象参数处理（归一到与内置工具相同的定义形状）。
-  const dynamic = getCapabilityRuntime()?.mcpToolDefinitions() ?? [];
+  const dynamic = mcpRouting?.mcpToolDefinitions() ?? [];
   type BuiltinDefinition = (typeof definitions)[number];
   return [
     ...definitions,
@@ -52,10 +59,9 @@ export function modelToolDefinitions() {
 export async function executeAgentTool(name: string, input: unknown) {
   // MCP 工具按命名空间前缀转给能力层路由回对应服务器连接。
   if (name.startsWith('mcp_')) {
-    const runtime = getCapabilityRuntime();
-    if (!runtime)
+    if (!mcpRouting)
       return { ok: false as const, error: { code: 'NOT_CONFIGURED', message: 'MCP 能力不可用' } };
-    return runtime.executeMcpTool(name, input);
+    return mcpRouting.executeMcpTool(name, input);
   }
   const resolved = resolveToolName(name);
   if (!Object.hasOwn(agentTools, resolved))

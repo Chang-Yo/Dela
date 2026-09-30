@@ -21,12 +21,14 @@ import {
   contextBudget,
   estimateTokens,
   shouldCompact,
-} from '../context/budget';
+} from '../core/budget';
 import { parseSessionSummary, summarizeHistory, type SessionSummary } from '../context/compaction';
 import { readAskReferences } from '../context/references';
+// 能力层的 Skill 索引经 manager 编排注入 context/assemble（context 不回指 capabilities）。
+import { getCapabilityRuntime } from '../capabilities';
 import { ensureProjectProfile } from '../../workspace/projects';
 import { notifyRunFinished } from '../../settings/task-notify';
-import { readChatMediaBytes, releaseChatAttachments } from './media';
+import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import {
   activeRuns,
   appendRunStep,
@@ -159,7 +161,11 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       throw new Error(`一条消息最多插入 ${INLINE_IMAGE_MAX} 张图片`);
     const userText = stripChatImageTokens(input.text);
     if (!userText && !images.length) throw new Error('请输入内容或添加图片');
-    const { documents, attachmentDocs } = await readAskReferences(input.context, input.attachments);
+    const { documents, attachmentDocs } = await readAskReferences(
+      input.context,
+      input.attachments,
+      readChatAttachment,
+    );
     const chat = snapshot(row);
     if (input.replaceLastUser) {
       // 编辑重发：丢弃最后一条用户消息及其后的回答，引用/附件以本次输入为准。
@@ -257,6 +263,7 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       history: chat.messages,
       summary,
       reservedTokens: currentRoundTokens + toolTokens,
+      skillIndex: getCapabilityRuntime()?.skillIndex() ?? [],
     });
     const messages = [
       { role: 'system', content: assembled.system },

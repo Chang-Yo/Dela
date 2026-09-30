@@ -1,6 +1,6 @@
 // read_skill / read_skill_file 的实现（渐进加载的读取侧）：正文与目录内支持文件按需读取。
 // 依赖方向：tools/common/skill-read.ts 经 tool() 包装调用本文件；本文件不 import tools/registry。
-import { closeSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
 import { extname, isAbsolute, join, resolve, sep } from 'node:path';
 import { toolError } from '../tools/shared';
 import { enabledSkill, parseSkillMarkdown } from './skills';
@@ -33,11 +33,34 @@ const TEXT_EXTENSIONS = new Set([
 /** 单文件读取上限：超出部分截断并在结果中标注（防止支持文件撑爆上下文）。 */
 export const SKILL_FILE_LIMIT_BYTES = 200 * 1024;
 
-/** 读取 SKILL.md 正文（frontmatter 之后的部分）。 */
+/** 读取至多 limit 字节的文本（调用方已确认文件存在）；超限只读 limit 字节，不整读进内存。 */
+function readCappedText(path: string, size: number, limit: number): { text: string; truncated: boolean } {
+  const truncated = size > limit;
+  if (!truncated) return { text: readFileSync(path, 'utf8'), truncated };
+  const descriptor = openSync(path, 'r');
+  try {
+    const buffer = Buffer.alloc(limit);
+    // subarray 截到实读字节数：fill 会把已读入的数据清零，不能用它裁剪长度。
+    const read = readSync(descriptor, buffer, 0, limit, 0);
+    return { text: buffer.subarray(0, read).toString('utf8'), truncated };
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/** 读取 SKILL.md 正文（frontmatter 之后的部分）；与支持文件同享单文件上限，超限截断并在末尾标注。 */
 export function readSkillBody(name: string): string {
   const skill = enabledSkill(name);
   if (!skill) throw toolError('NOT_FOUND', `Skill 不存在或已停用：${name}`);
-  return parseSkillMarkdown(readFileSync(skill.path, 'utf8')).body;
+  const { text, truncated } = readCappedText(
+    skill.path,
+    statSync(skill.path).size,
+    SKILL_FILE_LIMIT_BYTES,
+  );
+  const body = parseSkillMarkdown(text).body;
+  return truncated
+    ? `${body}\n\n[Skill 说明超过 ${SKILL_FILE_LIMIT_BYTES} 字节，已截断；如需完整内容请让用户查看源文件]`
+    : body;
 }
 
 /**
@@ -68,22 +91,12 @@ export function readSkillFile(name: string, relativePath: string) {
   } catch {
     throw toolError('NOT_FOUND', `文件不存在：${relativePath}`);
   }
-  const truncated = size > SKILL_FILE_LIMIT_BYTES;
-  // 超限文件只读取上限字节数，不整读进内存。
-  let text: string;
-  if (truncated) {
-    const descriptor = openSync(path, 'r');
-    try {
-      const buffer = Buffer.alloc(SKILL_FILE_LIMIT_BYTES);
-      text = buffer
-        .fill(0, 0, readSync(descriptor, buffer, 0, SKILL_FILE_LIMIT_BYTES, 0))
-        .toString('utf8');
-    } finally {
-      closeSync(descriptor);
-    }
-  } else {
-    text = readFileSync(path, 'utf8');
-  }
+  // 字面包含判断可被目录联接/符号链接绕过：双方 realpath（此时均已存在）后复判包含。
+  const realRoot = realpathSync(directory);
+  const realPath = realpathSync(path);
+  if (realPath !== realRoot && !realPath.startsWith(realRoot + sep))
+    throw toolError('INVALID_INPUT', '路径不能越出 Skill 目录');
+  const { text, truncated } = readCappedText(path, size, SKILL_FILE_LIMIT_BYTES);
   return {
     name,
     path: relativePath,

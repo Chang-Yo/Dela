@@ -27,6 +27,8 @@ vi.mock('../../core/providers', () => ({
 vi.mock('../../tools/registry', () => ({
   modelToolDefinitions: () => [],
   executeAgentTool: vi.fn(),
+  // capabilities/index 装配时会注入 MCP 路由（mock 需提供该面）。
+  setMcpRouting: vi.fn(),
 }));
 vi.mock('../../core/run', () => ({ runAgent: fixtures.run }));
 vi.mock('../media', () => ({

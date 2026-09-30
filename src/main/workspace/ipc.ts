@@ -16,16 +16,16 @@ import {
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
-import { subscribeChat } from '../agent/session/subscriptions';
 import { exportOfficePdf, quickLookFile } from '../office-export';
 import { resourceRefSchema } from '../../shared/resources';
-import { dialog, ipcMain, shell } from 'electron';
+import { dialog, ipcMain, shell, type WebContents } from 'electron';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { storageDirectory as directory } from '../storage';
 import type { WorkspaceCreateInput } from '../../shared/api';
 
-export function registerWorkspaceIpc() {
+/** workspace 通道不依赖 agent 域：会话订阅挂钩由装配层（main/index.ts 经 agent 门面）注入。 */
+export function registerWorkspaceIpc(subscribeChat: (client: WebContents) => void) {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`workspace:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);

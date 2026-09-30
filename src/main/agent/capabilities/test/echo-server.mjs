@@ -1,14 +1,17 @@
 // 测试用最小 MCP echo 服务器（stdio：按行分隔的 JSON-RPC，无任何外部依赖）。
 // 工具：echo（正常往返）、fail（isError 结果）、die（应答后退出进程，模拟服务器崩溃）。
+// DELA_TOOL_NAME 可重命名 echo 工具（构造归一化同名冲突场景），缺省 'echo'。
 import process from 'node:process';
+
+const echoToolName = process.env.DELA_TOOL_NAME ?? 'echo';
 
 const TOOLS = [
   {
-    name: 'echo',
+    name: echoToolName,
     description: '回显消息',
     inputSchema: {
       type: 'object',
-      properties: { message: { type: 'string' } },
+      properties: { message: 'string' },
       required: ['message'],
     },
   },
@@ -49,7 +52,7 @@ function handle(message) {
   if (message.method === 'tools/call') {
     const name = message.params?.name;
     const args = message.params?.arguments ?? {};
-    if (name === 'echo') {
+    if (name === echoToolName) {
       write({
         jsonrpc: '2.0',
         id: message.id,

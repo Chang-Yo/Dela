@@ -1,4 +1,4 @@
-import type { AgentTool } from '../registry';
+import type { AgentTool } from '../shared';
 import { createEventTool } from './create-event';
 import { deleteEventTool } from './delete-event';
 import { queryScheduleTool } from './query-schedule';

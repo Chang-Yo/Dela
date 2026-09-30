@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { lookup } from 'node:dns/promises';
 import { z } from 'zod';
 import { extractDocumentBytes } from '../../../resource-parse';
 import { offset as offsetSchema, tool } from '../shared';
@@ -60,6 +61,8 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
   let url = assertPublicHttpUrl(rawUrl);
   let response: Response | null = null;
   for (let hop = 0; ; hop += 1) {
+    // DNS 解析校验在每一跳请求前执行：字面检查拦不住解析到私网/环回的公网域名。
+    await assertResolvesPublicly(url);
     response = await fetch(url, {
       redirect: 'manual',
       headers: {
@@ -122,6 +125,18 @@ export function assertPublicHttpUrl(raw: string): URL {
   return url;
 }
 
+/** 请求前解析主机名：任一解析结果落入私网/环回/链路本地（DNS 重绑定）即拒绝；解析失败交给 fetch 报错。 */
+async function assertResolvesPublicly(url: URL): Promise<void> {
+  let addresses: { address: string; family: number }[];
+  try {
+    addresses = await lookup(url.hostname, { all: true });
+  } catch {
+    return;
+  }
+  for (const { address } of addresses)
+    if (isPrivateHostname(address)) throw new Error('不允许访问内网或本机地址');
+}
+
 function isPrivateHostname(hostname: string): boolean {
   // WHATWG URL 的 IPv6 hostname 保留方括号，先剥掉再判断。
   const host = hostname
@@ -143,8 +158,10 @@ function isPrivateHostname(hostname: string): boolean {
 function isPrivateIPv4(host: string): boolean {
   const [a, b] = host.split('.').map(Number);
   if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 100 && b! >= 64 && b! <= 127) return true; // 100.64.0.0/10 CGNAT
   if (a === 172 && b! >= 16 && b! <= 31) return true;
   if (a === 192 && b === 168) return true;
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 基准测试网段
   return a === 169 && b === 254;
 }
 

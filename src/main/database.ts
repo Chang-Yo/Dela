@@ -231,6 +231,9 @@ const migrations: string[][] = [
       SELECT c.id, p.id, c.title, c.messages, c.created_at, c.updated_at
       FROM chat_sessions c LEFT JOIN projects p ON p.id = c.scope`,
     // 旧表只读保留（回滚窗口），停用其索引；后续迁移版本再 DROP TABLE chat_sessions。
+    // 回滚护栏：v13 之后若新增行（用户回滚旧版续用会话再升级），这些行只存在于旧表、
+    // 不会随本迁移的 INSERT INTO ... SELECT 进入 sessions；届时 DROP 前必须先检查旧表
+    // 在 v13 迁移时间点之后的新增行，有则先补迁移再 DROP，否则该批会话将永久丢失。
     `DROP INDEX idx_chat_sessions_scope`,
   ],
 ];

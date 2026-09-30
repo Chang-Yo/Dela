@@ -1,4 +1,4 @@
-import type { AgentTool } from '../registry';
+import type { AgentTool } from '../shared';
 import { listCanvasCoursesTool } from './list-courses';
 import { refreshCanvasCourseTool } from './refresh-course';
 import { refreshCanvasCoursesTool } from './refresh-courses';

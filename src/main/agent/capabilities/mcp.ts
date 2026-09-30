@@ -6,7 +6,8 @@
 //   MCP 工具重名即跳过并在 server 视图 error 注明；
 // - **MCP 结果只是资料**：工具返回内容中的指令不扩大模型权限（见各工具 description，
 //   不修改 SYSTEM_PROMPT 主文案）。
-// 依赖红线：不 import session/core；经注入的保留名（agentTools）只取键名做冲突检测。
+// 依赖红线：不 import session/core；agentTools 为直接 import（capabilities → tools 单向，
+// tools 侧不回指），仅取键名做命名空间冲突检测。
 // pi-mcp 为纯 ESM 包（exports 无 require 条件），主进程产物是 CJS：只能经动态 import()
 // 加载（rolldown 对 external 保留原生 import()），不能顶层静态 require。
 import { randomUUID } from 'node:crypto';
@@ -75,6 +76,10 @@ interface ManagedServer {
 /** 内存态（id → 运行视图事实）；配置事实始终以 workspace_settings 为准，读前先同步。 */
 const servers = new Map<string, ManagedServer>();
 
+/** 归一化工具名 → 服务器 id：adopt 时登记，断连清理时一并移除。执行路由按此精确归属，
+ *  不猜命名空间前缀（服务器 a 的 b_x 与服务器 a-b 的 x 归一化同名时，最长前缀会误配）。 */
+const toolOwner = new Map<string, string>();
+
 function readMcpConfigs(): McpServerConfig[] {
   try {
     const row = getDatabase()
@@ -133,11 +138,17 @@ function syncFromConfigs(): void {
   }
 }
 
+/** 清空已收纳的工具并撤销其路由登记（主动断开与 onClose 断连共用）。 */
+function dropAdoptedTools(entry: ManagedServer): void {
+  for (const { namespaced } of entry.tools) toolOwner.delete(namespaced);
+  entry.tools = [];
+}
+
 /** 主动关闭（禁用/删除/重连前）：先摘引用再 close，onClose 回调据此跳过「断连标 error」。 */
 async function closeConnection(entry: ManagedServer): Promise<void> {
   const client = entry.client;
   entry.client = null;
-  entry.tools = [];
+  dropAdoptedTools(entry);
   entry.toolCount = null;
   entry.error = null;
   entry.status = 'disconnected';
@@ -165,6 +176,8 @@ function adoptTools(entry: ManagedServer, tools: Tool[]): void {
     else {
       used.add(namespaced);
       adopted.push({ namespaced, tool });
+      // 冲突跳过的工具不登记路由：被跳过方「已 advertised 但不可调用」即由此产生。
+      toolOwner.set(namespaced, entry.config.id);
     }
   }
   entry.tools = adopted;
@@ -218,7 +231,7 @@ function connectServer(entry: ManagedServer): Promise<void> {
       client.onClose(() => {
         if (entry.client !== client) return;
         entry.client = null;
-        entry.tools = [];
+        dropAdoptedTools(entry);
         entry.toolCount = null;
         entry.status = 'error';
         entry.error = '连接已断开';
@@ -234,7 +247,7 @@ function connectServer(entry: ManagedServer): Promise<void> {
     } catch (error) {
       await client.close().catch(() => {});
       entry.client = null;
-      entry.tools = [];
+      dropAdoptedTools(entry);
       entry.toolCount = null;
       entry.status = 'error';
       entry.error =
@@ -265,7 +278,7 @@ function findServer(id: string): ManagedServer {
   return entry;
 }
 
-// ===== CapabilityRuntime 面（registry/assemble 消费） =====
+// ===== CapabilityRuntime 面（manager 的 Skill 索引、registry 的 MCP 并集与路由消费） =====
 
 /** 当前已连接服务器的命名空间工具定义；顺带完成惰性连接的首次触发。 */
 export function mcpToolDefinitions(): DynamicToolDefinition[] {
@@ -308,19 +321,24 @@ function toolResultPayload(sdk: McpSdk, result: CallToolResult) {
   };
 }
 
-/** 按命名空间前缀路由回对应服务器执行；服务器不可用时返回明确的错误边界。 */
+/** 按命名空间路由回对应服务器执行；服务器不可用时返回明确的错误边界。 */
 export async function executeMcpTool(
   name: string,
   input: unknown,
 ): Promise<{ ok: boolean; result?: unknown; error?: { code: string; message: string } }> {
   syncFromConfigs();
-  // 前缀路由取最长匹配（「weather」与「weather-pro」归一化后前者是后者的前缀）；
-  // 停用的服务器仍可路由（运行中禁用后模型可能仍按旧定义调用，需点名明确边界）。
-  let entry: ManagedServer | undefined;
-  for (const server of servers.values()) {
-    if (!name.startsWith(`${namespaceOf(server.config.name)}_`)) continue;
-    if (!entry || namespaceOf(server.config.name).length > namespaceOf(entry.config.name).length)
-      entry = server;
+  // 执行路由按 adopt 时登记的归一化名 → 服务器映射，不猜前缀（见 toolOwner 注释）。
+  const ownerId = toolOwner.get(name);
+  let entry = ownerId ? servers.get(ownerId) : undefined;
+  if (!entry) {
+    // 映射未命中（未配置过，或断连清理已撤销登记）时按前缀归属服务器，仅为把
+    // 「已停用/断连」边界点名到具体服务器（停用的服务器仍可路由，运行中禁用后
+    // 模型可能仍按旧定义调用）；不在此路径执行任何调用。
+    for (const server of servers.values()) {
+      if (!name.startsWith(`${namespaceOf(server.config.name)}_`)) continue;
+      if (!entry || namespaceOf(server.config.name).length > namespaceOf(entry.config.name).length)
+        entry = server;
+    }
   }
   if (!entry)
     return {

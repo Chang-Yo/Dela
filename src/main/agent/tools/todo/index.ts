@@ -1,4 +1,4 @@
-import type { AgentTool } from '../registry';
+import type { AgentTool } from '../shared';
 import { queryAssignmentsTool, queryTodosTool } from './query';
 import { refreshTodosTool } from './refresh';
 import { removeTodoTool } from './remove';

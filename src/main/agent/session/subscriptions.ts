@@ -1,6 +1,6 @@
 import type { WebContents } from 'electron';
 import type { RunEvent, RunStatus, WorkspaceChat } from '../../../shared/api';
-import { sessionRow, snapshot } from './store';
+import { sessionRow, sessionRowWithoutMessages, snapshot } from './store';
 
 const chatClients = new Set<WebContents>();
 
@@ -16,7 +16,8 @@ export function subscribeChat(client: WebContents) {
  *  推导（无项目回退 'home'）。迁移方向：改为订阅 session:on-run-event 的终态事件后删除本推送。
  *  会话已删除时不广播（快照无从生成）。 */
 export function publishSession(sessionId: string, partial?: Partial<WorkspaceChat>) {
-  const row = sessionRow(sessionId);
+  // partial 自带内存态消息时跳过 messages 列（该整列 SELECT 与 JSON.parse 的结果会被覆盖丢弃）。
+  const row = partial?.messages !== undefined ? sessionRowWithoutMessages(sessionId) : sessionRow(sessionId);
   if (!row) return;
   const chat = { ...snapshot(row), ...partial };
   const scope = row.project_id ?? 'home';

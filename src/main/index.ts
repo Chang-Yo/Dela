@@ -17,9 +17,8 @@ import {
   refreshNotifications,
 } from './notifications';
 import { getMailState, startMailSync } from './mail/api';
-import { registerAgentIpc } from './agent';
-import { registerCapabilitiesIpc } from './agent/capabilities/ipc';
-import { gcChatMedia } from './agent/session/media';
+// agent 域（含 capabilities 通道、聊天媒体回收、会话订阅挂钩与 Pi 运行时加载）统一经门面进出。
+import { gcChatMedia, loadPiRuntime, registerAgentIpc, subscribeChat } from './agent';
 import {
   applyTheme,
   readSetting,
@@ -114,8 +113,7 @@ app.whenReady().then(() => {
   registerCanvasIpc();
   registerShuiyuanIpc();
   registerAgentIpc();
-  registerCapabilitiesIpc();
-  registerWorkspaceIpc();
+  registerWorkspaceIpc(subscribeChat);
   registerSearchIpc();
   registerNotificationsIpc();
   registerTodoIpc();
@@ -261,7 +259,11 @@ async function createWindow(): Promise<void> {
         `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.dela?.settings.getZoom === 'function' && typeof window.dela?.settings.getFontScale === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
-      console.log('Smoke check passed: SQLite, renderer, preload isolation.');
+      // Pi 系纯 ESM 包只能经动态 import 在 CJS 产物中加载（agent/core/pi-load.ts）；
+      // 冒烟在 dev 与打包产物两条路径都跑，正好覆盖该加载真实可用。
+      const piRuntime = await loadPiRuntime();
+      if (typeof piRuntime.Agent !== 'function') throw new Error('Pi runtime smoke check failed');
+      console.log('Smoke check passed: SQLite, renderer, preload isolation, Agent runtime (ESM).');
     } finally {
       database.close();
     }

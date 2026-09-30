@@ -2,14 +2,14 @@
 // 禁用清单持久化、read_skill/read_skill_file 的路径守卫与超限截断。
 // 数据库用真实 database.ts（electron app.getPath 指向临时目录）。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 const state = vi.hoisted(() => ({ root: '' }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root } }));
 import { closeDatabase, getDatabase } from '../../../database';
-import { listSkills, setSkillEnabled, skillIndex, skillsDirectory } from '../skills';
+import { SKILL_HEAD_LIMIT_BYTES, listSkills, setSkillEnabled, skillIndex, skillsDirectory } from '../skills';
 import { SKILL_FILE_LIMIT_BYTES, readSkillBody, readSkillFile } from '../skill-tools';
 import { readSkillFileTool, readSkillTool } from '../../tools/common/skill-read';
 
@@ -81,6 +81,22 @@ describe('Skill 发现与 frontmatter 解析', () => {
     mkdirSync(join(skillsDirectory(), 'bad name'), { recursive: true });
     writeFileSync(join(skillsDirectory(), 'bad name', 'SKILL.md'), '---\ndescription: x\n---\n');
     expect(listSkills()).toHaveLength(0);
+  });
+
+  it('超大 SKILL.md 只读头部窗口解析 frontmatter（listSkills 不整读全量）', () => {
+    writeSkill('big-listed', `---\ndescription: 头部描述\n---\n${'x'.repeat(SKILL_HEAD_LIMIT_BYTES * 2)}`);
+    expect(listSkills()[0]).toMatchObject({ name: 'big-listed', description: '头部描述' });
+  });
+});
+
+describe('read_skill 正文上限', () => {
+  it('正文超过 200KB 时截断并在末尾标注', () => {
+    writeSkill('big', `---\ndescription: 大\n---\n${'x'.repeat(SKILL_FILE_LIMIT_BYTES + 512)}`);
+    const body = readSkillBody('big');
+    expect(body).toMatch(/^x+/);
+    expect(body).toContain('已截断');
+    expect(body.length).toBeGreaterThan(200_000);
+    expect(body.length).toBeLessThan(SKILL_FILE_LIMIT_BYTES + 100);
   });
 });
 
@@ -158,7 +174,7 @@ describe('read_skill_file 路径守卫', () => {
   it('超过 200KB 上限时截断并在结果中标注', () => {
     const result = readSkillFile('demo', 'big.txt');
     expect(result.truncated).toBe(true);
-    expect(result.text).toHaveLength(SKILL_FILE_LIMIT_BYTES);
+    expect(result.text).toBe('x'.repeat(SKILL_FILE_LIMIT_BYTES));
     expect(result.sizeBytes).toBe(SKILL_FILE_LIMIT_BYTES + 1024);
     expect((result as { note?: string }).note).toContain('已截断');
   });
@@ -170,5 +186,17 @@ describe('read_skill_file 路径守卫', () => {
     expect(() => readSkillFileTool.execute({ name: 'gone', path: 'a.md' })).toThrow(
       /不存在或已停用/,
     );
+  });
+
+  it('目录联接（junction）指向 Skill 根外时拒绝读取', () => {
+    // Windows 下 junction 无需特权：symlinkSync(type 'junction') 模拟目录联接穿越。
+    const outside = mkdtempSync(join(tmpdir(), 'dela-outside-'));
+    try {
+      writeFileSync(join(outside, 'secret.md'), '外部内容');
+      symlinkSync(outside, join(skillsDirectory(), 'demo', 'link'), 'junction');
+      expect(() => readSkillFile('demo', 'link/secret.md')).toThrow('路径不能越出 Skill 目录');
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 });

@@ -2,17 +2,20 @@ import { z } from 'zod';
 import { readCanvasSource } from '../../canvas/api';
 import { readShuiyuanSource } from '../../shuiyuan/api';
 import { readWorkspaceEntry } from '../../workspace/api';
-import { readChatAttachment } from '../session/media';
 
 const idSchema = z.string().uuid();
 
 export type ReferenceDocument = { key: string; title: string; text: string };
 export type AttachmentDocument = { name: string; text: string };
 
+/** 附件暂存的读取由调用方（session/manager）注入：context 不依赖 session。 */
+export type ReadAttachment = (id: string) => { name: string; bytes: Buffer };
+
 /** @ 引用与附件的读取、净化、体积校验；正文超限在持久化前拒绝。 */
 export async function readAskReferences(
   context: string[],
   attachments: string[],
+  readAttachment: ReadAttachment,
 ): Promise<{ documents: ReferenceDocument[]; attachmentDocs: AttachmentDocument[] }> {
   const documents = await Promise.all(
     context.map(async (key) => {
@@ -36,7 +39,7 @@ export async function readAskReferences(
   );
   // 附件是内存暂存：读出即消费；失败发生在持久化前，composer 会原样恢复草稿。
   const attachmentDocs = attachments.map((id) => {
-    const attachment = readChatAttachment(id);
+    const attachment = readAttachment(id);
     return { name: attachment.name, text: attachment.bytes.toString('utf8') };
   });
   if (

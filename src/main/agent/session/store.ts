@@ -25,8 +25,21 @@ export function sessionRow(id: string): SessionRow | null {
   );
 }
 
+/** 推送路径的行形态：省略 messages 列（partial 自带内存态消息时，整列 SELECT 与解析均属浪费）。 */
+export type SessionMetaRow = Omit<SessionRow, 'messages'>;
+
+export function sessionRowWithoutMessages(id: string): SessionMetaRow | null {
+  return (
+    (getDatabase()
+      .prepare(
+        'SELECT id, project_id, title, summary, created_at, updated_at FROM sessions WHERE id=?',
+      )
+      .get(id) as SessionMetaRow | undefined) ?? null
+  );
+}
+
 /** 会话快照：WorkspaceChat 形状不变（renderer 兼容）；running/activeTool 取自该 session 的活跃 Run。 */
-export function snapshot(row: SessionRow | null): WorkspaceChat {
+export function snapshot(row: SessionRow | SessionMetaRow | null): WorkspaceChat {
   const provider = getActiveLlmProvider();
   const effortLevels = provider?.effortLevels ?? [];
   const run = row ? activeRuns.get(row.id) : undefined;
@@ -38,7 +51,7 @@ export function snapshot(row: SessionRow | null): WorkspaceChat {
     models: provider?.models ?? [],
     effortLevels,
     effort: effortLevels.length ? (provider?.effort ?? effortLevels[0]!) : null,
-    messages: row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
+    messages: row && 'messages' in row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
     running: run !== undefined,
     activeTool: run?.tool,
     compacting: row ? compactingSessions.has(row.id) : false,

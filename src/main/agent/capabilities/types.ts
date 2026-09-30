@@ -2,7 +2,7 @@
 // 依赖方向：capabilities → tools/registry 的类型与 shared；不 import session/core。
 import type { SkillView, McpServerView } from '../../../shared/capabilities';
 
-/** 供 context/assemble 注入模型侧的 Skill 索引（渐进加载：先名与描述，正文按需读取）。 */
+/** 供 session/manager 取用后注入 context/assemble 的 Skill 索引（渐进加载：先名与描述，正文按需读取）。 */
 export interface SkillIndexEntry {
   name: string;
   description: string;

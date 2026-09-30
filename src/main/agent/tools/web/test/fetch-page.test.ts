@@ -1,12 +1,18 @@
 // fetch_page 的 offset 续读、source 来源元数据、PDF 直链与 2MB 截断报告。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// DNS 解析 mock：默认解析到公网地址，具体用例按需覆盖（SSRF 防线用例）。
+const dns = vi.hoisted(() => ({ lookup: vi.fn() }));
+vi.mock('node:dns/promises', () => ({ lookup: dns.lookup }));
 vi.mock('../../../../resource-parse', () => ({ extractDocumentBytes: vi.fn() }));
 
 import { extractDocumentBytes } from '../../../../resource-parse';
-import { fetchPageTool, fetchWebPage } from '../fetch-page';
+import { assertPublicHttpUrl, fetchPageTool, fetchWebPage } from '../fetch-page';
 
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  dns.lookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
+});
 afterEach(() => vi.unstubAllGlobals());
 
 /** 一页 25000 字符的 HTML 文档。 */
@@ -119,5 +125,41 @@ describe('fetch_page 读取上限', () => {
       truncated: true,
       note: expect.stringContaining('2MB'),
     });
+  });
+});
+
+describe('fetch_page SSRF 防线', () => {
+  it('私网字面地址含 CGNAT 与 198.18.0.0/15 网段', () => {
+    expect(() => assertPublicHttpUrl('http://100.64.0.1/')).toThrow('内网');
+    expect(() => assertPublicHttpUrl('http://100.127.255.255/')).toThrow('内网');
+    expect(() => assertPublicHttpUrl('http://198.18.0.5/')).toThrow('内网');
+    expect(() => assertPublicHttpUrl('http://198.19.255.1/')).toThrow('内网');
+    // 网段之外的公网地址不受影响。
+    expect(assertPublicHttpUrl('http://100.128.0.1/').hostname).toBe('100.128.0.1');
+    expect(assertPublicHttpUrl('http://100.63.0.1/').hostname).toBe('100.63.0.1');
+    expect(assertPublicHttpUrl('http://198.20.0.1/').hostname).toBe('198.20.0.1');
+  });
+
+  it('域名解析到私网地址（DNS 重绑定）在请求前拒绝', async () => {
+    dns.lookup.mockResolvedValue([
+      { address: '93.184.216.34', family: 4 },
+      { address: '10.0.0.8', family: 4 },
+    ]);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    await expect(fetchWebPage('https://rebind.example.com/doc')).rejects.toThrow('内网');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('重定向每跳复检 DNS：跳转到解析为环回的域名同样拒绝', async () => {
+    const fetchSpy = vi.fn(async () =>
+      Response.redirect('https://hop.example.com/next', 302),
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+    dns.lookup
+      .mockResolvedValueOnce([{ address: '93.184.216.34', family: 4 }])
+      .mockResolvedValueOnce([{ address: '127.0.0.1', family: 4 }]);
+    await expect(fetchWebPage('https://example.com/doc')).rejects.toThrow('内网');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

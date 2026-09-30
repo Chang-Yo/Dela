@@ -170,12 +170,12 @@ src/main/agent/
 ```
 src/main/index.ts（应用组装）
   └→ agent/index.ts ──→ session/、core/、context/、tools/、capabilities/
-        session/  ──→ core/（run + providers）、context/（类型与调用）、tools/（仅 registry 聚合入口）、业务读取 API
+        session/  ──→ core/（run + providers + budget）、context/（类型与调用）、tools/（仅 registry 聚合入口）、capabilities/（skillIndex，manager 取后注入 context/assemble）、业务读取 API
         core/     ──→ shared/（类型）；不 import session/tools/context/业务目录；不经由 electron IPC 感知 renderer
-        context/  ──→ shared/、业务读取 API（canvas/shuiyuan/workspace 的 read*）；不 import session/tools/core
+        context/  ──→ shared/、core/budget（预算与 token 估算归位 core）、业务读取 API（canvas/shuiyuan/workspace 的 read*）；不 import session/tools/capabilities
         tools/    ──→ 业务 API（../canvas、../mail、../timetable、../todo、../workspace）、shared/；不 import core/session/context
-        capabilities/ ──→ tools/registry 契约、shared/；不 import session/core
-业务目录（canvas/mail/timetable/shuiyuan/workspace/todo）──→ shared/、database；禁止 import agent/
+        capabilities/ ──→ tools/registry（setMcpRouting 注入与 agentTools 键名，单向——registry 不回指 capabilities，MCP 并集与路由经该注入获得）、shared/；不 import session/core/context
+业务目录（canvas/mail/timetable/shuiyuan/workspace/todo）──→ shared/、database；禁止 import agent/（跨层错误码契约在 shared/tool-errors.ts）
 ```
 
 具体红线：
@@ -475,7 +475,7 @@ src/preload/
 
 1. **renderer 不 import main，不访问凭据与数据库**：renderer/preload 只 import `src/shared/**` 的类型与常量；`src/renderer/**` 出现 `../main` 或 `../preload` import 即违规。
 2. **preload 保持有限面**：只透传 `shared/` 中声明的通道；新增通道必须同步类型与文档。
-3. **main 内单向依赖**：`agent/index.ts → {core, session, context, tools, capabilities}`；`session → core/context/tools(registry)`；`context → 业务读取 API`；`tools → 业务 API`；反向全部禁止。业务目录不 import `agent/`。
+3. **main 内单向依赖**：`agent/index.ts → {core, session, context, tools, capabilities}`；`session → core/context/tools(registry)/capabilities(仅 skillIndex)`；`context → core(仅 budget)/业务读取 API`；`tools → 业务 API`；`capabilities → tools/registry 与 shared`（单向——MCP 工具并集与路由经 `setMcpRouting` 注入，registry 不 import capabilities；领域工具的 `AgentTool` 类型在 `tools/shared.ts`）；反向全部禁止。业务目录不 import `agent/`，跨层错误码契约统一在 `shared/tool-errors.ts`。
 4. **tools 领域间不互相 import**；共享工具只进 `tools/shared.ts`。
 5. **content 域间不互相 import**；workbench 对 content 的引用只经 `workbench/registry.ts`。
 6. **features/（业务视图）与 workbench/ 互不 import**：业务数据经 `workspace/`、`sessions/` 镜像或 props 传入。

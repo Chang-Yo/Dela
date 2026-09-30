@@ -2,7 +2,7 @@
 // （agentskills.io 规范：YAML frontmatter name+description，正文 Markdown，同目录支持文件）。
 // 渐进加载：这里只产出名称与描述的索引，正文经 read_skill / read_skill_file 按需读取。
 // 启停状态持久化于 workspace_settings('skills-disabled')：只存禁用清单，默认全启用。
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readdirSync, readSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { SkillView } from '../../../shared/capabilities';
@@ -11,6 +11,22 @@ import { storageDirectory } from '../../storage';
 import type { SkillIndexEntry } from './types';
 
 export const SKILL_ENTRY_FILE = 'SKILL.md';
+
+/** listSkills 只解析 frontmatter：只读文件头部窗口，不把超大 SKILL.md 整读进内存。 */
+export const SKILL_HEAD_LIMIT_BYTES = 64 * 1024;
+
+/** 只读文件前 limit 字节；frontmatter 超出窗口（病态）视为无 frontmatter。 */
+function readFileHead(path: string): string {
+  const descriptor = openSync(path, 'r');
+  try {
+    const buffer = Buffer.alloc(SKILL_HEAD_LIMIT_BYTES);
+    // subarray 截到实读字节数：fill 会把已读入的数据清零，不能用它裁剪长度。
+    const read = readSync(descriptor, buffer, 0, SKILL_HEAD_LIMIT_BYTES, 0);
+    return buffer.subarray(0, read).toString('utf8');
+  } finally {
+    closeSync(descriptor);
+  }
+}
 
 /** Skill 目录名限制：作为 read_skill 标识与目录名，拒绝空白与路径分隔符。 */
 const skillNameSchema = z
@@ -85,7 +101,7 @@ export function listSkills(): SkillView[] {
     if (!existsSync(path)) continue;
     let description = '';
     try {
-      description = parseSkillMarkdown(readFileSync(path, 'utf8')).frontmatter.description;
+      description = parseSkillMarkdown(readFileHead(path)).frontmatter.description;
     } catch {
       // SKILL.md 不可读：保留条目供 UI 呈现来源，索引描述为空。
     }

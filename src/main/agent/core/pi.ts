@@ -19,7 +19,7 @@ import type {
   OpenAICompletionsOptions,
   ThinkingLevelMap,
 } from '@earendil-works/pi-ai';
-import { IMAGE_TOKEN_EST, contextBudget, estimateTokens } from '../context/budget';
+import { IMAGE_TOKEN_EST, contextBudget, estimateTokens } from './budget';
 
 // 单次回复的输出上限；8192 只够中等长度回答，长文档与大段工具参数会被截断，取主流模型量级。
 export const MAX_OUTPUT_TOKENS = 32768;
@@ -232,7 +232,7 @@ export interface PrunePolicy {
   keepRounds?: number;
 }
 
-/** 单条 AgentMessage 的 token 估算（与 context/budget 同口径；图片按固定值）。 */
+/** 单条 AgentMessage 的 token 估算（与 core/budget 同口径；图片按固定值）。 */
 export function estimateAgentMessageTokens(message: AgentMessage): number {
   switch (message.role) {
     case 'system':
