@@ -44,6 +44,8 @@ import { cn } from '../lib/utils';
 
 const SIDEBAR_DEFAULT_WIDTH = 300;
 const SIDEBAR_MIN_WIDTH = 240;
+/** 目录宽度上界：再宽会明显挤占右侧内容栏；沿用既有上界，与 3A 批次首次引入值一致。 */
+const SIDEBAR_MAX_WIDTH = 360;
 const widthStorageKey = 'dela.workspace.sidebarWidth';
 const collapsedStorageKey = 'dela.workspace.collapsed';
 /** 与旧 ProjectView 一致的窄屏断点：<768px 目录变覆盖抽屉。 */
@@ -483,7 +485,7 @@ export function WorkbenchExplorer({
       <Resizer
         className={cn('bg-transparent', !visible && 'hidden')}
         label="调整目录宽度"
-        max={360}
+        max={SIDEBAR_MAX_WIDTH}
         min={SIDEBAR_MIN_WIDTH}
         onChange={setWidth}
         onResizingChange={setResizing}

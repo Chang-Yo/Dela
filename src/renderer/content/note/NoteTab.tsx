@@ -20,6 +20,8 @@ export function parseNoteTabId(tabId: string): string | null {
 
 /* 编辑模式按笔记在本次会话内记忆（原 ProjectDocument 的模块级 noteModes）。 */
 const noteModes = new Map<string, NoteMode>();
+/* 源码模式滚动位置按 标签+组 记忆（PreviewTab.scrollMemory 同款内存 Map，不持久化）。 */
+const scrollMemory = new Map<string, number>();
 
 /**
  * 笔记标签内容：ProjectDocument 笔记分支的承接者。草稿经注入的 NoteDraftSource
@@ -27,6 +29,7 @@ const noteModes = new Map<string, NoteMode>();
  */
 export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const entryId = parseNoteTabId(tabId);
+  const scrollKey = `${tabId}:${groupId}`;
   const source = useNoteDraftSource();
   const draft = entryId !== null ? source?.useDraft(entryId) : undefined;
   const [error, setError] = useState<string | null>(null);
@@ -188,10 +191,10 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
           value={draft.text}
           filename={draft.content.title}
           editorStateKey={`document:${entryId}:${groupId}`}
-          scroll={0}
+          scroll={scrollMemory.get(scrollKey) ?? 0}
           onChange={(text) => source.edit(entryId, text)}
           onSave={() => void source.save(entryId)}
-          onScroll={() => {}}
+          onScroll={(top) => scrollMemory.set(scrollKey, top)}
         />
       )}
       <Dialog.Root onOpenChange={setConfirmReload} open={confirmReload}>

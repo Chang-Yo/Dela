@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
-import { ArrowUp, AtSign, Check, ChevronDown, FileText, Paperclip, Square } from 'lucide-react';
+import {
+  ArrowUp,
+  AtSign,
+  Check,
+  ChevronDown,
+  FileText,
+  Paperclip,
+  Settings,
+  Square,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
+import { useNavigationStore } from '../../app/navigation';
 import type { ChatCommandView, ChatMediaView, LlmProviderView } from '../../../shared/api';
 import {
   chatFileKind,
@@ -407,9 +417,24 @@ export function ChatComposer({
                 {providers === null ? (
                   <p className="px-2 py-3 text-xs text-muted-foreground">正在加载模型列表…</p>
                 ) : providers.length === 0 ? (
-                  <p className="px-2 py-3 text-xs text-muted-foreground">
-                    还没有配置模型服务，可在设置 › 模型服务 中添加。
-                  </p>
+                  <div className="grid gap-2 px-2 py-3">
+                    <p className="text-xs text-muted-foreground">
+                      还没有配置模型服务，可在设置 › 模型服务 中添加。
+                    </p>
+                    <Button
+                      className="w-full justify-start gap-1.5 text-xs"
+                      onClick={() => {
+                        setModelPickerOpen(false);
+                        useNavigationStore.getState().openSettings('llm');
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Settings className="size-3.5" />
+                      打开设置 › 模型服务
+                    </Button>
+                  </div>
                 ) : (
                   <div className="flex gap-0.5">
                     <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
@@ -429,7 +454,7 @@ export function ChatComposer({
                             {provider.active && (
                               <span
                                 aria-label="使用中"
-                                className="ms-auto size-1.5 shrink-0 rounded-full bg-emerald-500"
+                                className="ms-auto size-1.5 shrink-0 rounded-full bg-success"
                                 title="使用中"
                               />
                             )}

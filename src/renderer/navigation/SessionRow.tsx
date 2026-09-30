@@ -17,8 +17,8 @@ export type SessionRunBadge = RunStatus | null;
 const badgeVisual: Record<Exclude<SessionRunBadge, null>, { className: string; label: string }> = {
   pending: { className: 'bg-primary animate-pulse', label: '等待运行' },
   running: { className: 'bg-primary animate-pulse', label: '运行中' },
-  waiting_input: { className: 'bg-amber-500', label: '等待输入' },
-  completed: { className: 'bg-emerald-500', label: '已完成' },
+  waiting_input: { className: 'bg-warning', label: '等待输入' },
+  completed: { className: 'bg-success', label: '已完成' },
   failed: { className: 'bg-destructive', label: '运行失败' },
   stopped: { className: 'bg-muted-foreground', label: '已停止' },
   interrupted: { className: 'bg-muted-foreground', label: '已中断' },

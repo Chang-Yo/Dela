@@ -140,6 +140,13 @@ export function TabBar({ group, unfocused }: { group: GroupNode; unfocused: bool
                 <ContextMenuItem onSelect={() => closeTabs(group.id, 'others', tab)}>
                   关闭其他
                 </ContextMenuItem>
+                {/* 右侧没有标签时无对象可关，禁用与 closeTabs 的空切片边界一致。 */}
+                <ContextMenuItem
+                  disabled={group.tabs.indexOf(tab) === group.tabs.length - 1}
+                  onSelect={() => closeTabs(group.id, 'right', tab)}
+                >
+                  关闭右侧
+                </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
           );

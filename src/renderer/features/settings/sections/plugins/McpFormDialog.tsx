@@ -117,6 +117,9 @@ export function McpFormDialog({
                 spellCheck={false}
                 value={envText}
               />
+              <span className="text-xs leading-relaxed text-muted-foreground">
+                子进程默认继承 Dela 进程的环境变量；env 值将以明文保存在本地数据库中。
+              </span>
             </label>
             {error && (
               <p className="text-xs text-destructive" role="alert">
