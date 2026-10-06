@@ -1,10 +1,11 @@
 import type {
   ButtonHTMLAttributes,
+  ComponentProps,
   InputHTMLAttributes,
-  SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
 import { Check, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
 
 // 向导步骤的统一控件：纯白画布上使用固定中性配色，不随明暗主题变化。
@@ -65,8 +66,28 @@ export function StepInput({ className, ...rest }: InputHTMLAttributes<HTMLInputE
   return <input className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
 }
 
-export function StepSelect({ className, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
+/** 向导下拉：复用全局 Radix Select（弹窗样式全局统一），触发器保持向导的固定白底。 */
+export function StepSelect({
+  label,
+  children,
+  placeholder,
+  ...rest
+}: ComponentProps<typeof Select> & {
+  /** 触发器的可访问名称（Select 根不渲染 DOM，aria 属性需落在触发器上）。 */
+  label: string;
+  placeholder?: string;
+}) {
+  return (
+    <Select {...rest}>
+      <SelectTrigger
+        aria-label={label}
+        className="w-full rounded-lg border-neutral-200 bg-white text-sm text-neutral-900 data-[placeholder]:text-neutral-400"
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>{children}</SelectContent>
+    </Select>
+  );
 }
 
 export function StepTextarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

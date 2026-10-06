@@ -3,7 +3,17 @@ import { Dialog } from 'radix-ui';
 import { X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
+
+/** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
+const ROOT_SELECT_VALUE = '__root__';
 
 /**
  * 把当前帖子作为来源引用添加到项目/文件夹：先写 shuiyuan_topics 引用行，
@@ -92,20 +102,23 @@ export function AddToProjectDialog({
           <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
             <label className="grid gap-2 text-sm">
               位置
-              <select
-                aria-label="目标文件夹"
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                onChange={(event) => setTarget(event.target.value)}
-                value={target}
+              <Select
+                onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
+                value={target === '' ? ROOT_SELECT_VALUE : target}
               >
-                <option value="">我的内容</option>
-                {containers.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-                <option value="__new__">新建项目…</option>
-              </select>
+                <SelectTrigger aria-label="目标文件夹" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                  {containers.map((entry) => (
+                    <SelectItem key={entry.id} value={entry.id}>
+                      {entry.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__new__">新建项目…</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             {target === '__new__' ? (
               <label className="grid gap-2 text-sm">

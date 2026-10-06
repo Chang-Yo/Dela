@@ -3,9 +3,16 @@ import { Folder } from 'lucide-react';
 import type { NoteEditModePreference, WorkspacePrefs } from '../../../../shared/api';
 import type { WorkbenchLayout } from '../../../../shared/layout';
 import { Button } from '../../../components/ui/button';
-import { Switch } from '../../../components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
 import { SectionHeader } from '../SectionHeader';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
+import { ArchivedSessions } from './ArchivedSessions';
 
 /** 重置后的默认布局：单组空标签（workbench 的 createDefaultLayout 同构）。 */
 const defaultLayout: WorkbenchLayout = {
@@ -87,7 +94,8 @@ export function WorkspaceSection() {
 
   return (
     <div className="grid gap-5">
-      <SectionHeader description="工作目录、启动恢复与布局。" title="工作区" />
+      <SectionHeader title="工作区" />
+      <ArchivedSessions />
       {error && (
         <p className="text-xs text-destructive" role="alert">
           {error}
@@ -99,8 +107,9 @@ export function WorkspaceSection() {
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">工作目录</h2>
+          {/* 不迁移已有文件：改目录后旧笔记「消失」是用户最常见的误解，必须保留警示。 */}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            保存笔记与生成文件的位置；只影响之后新建的顶层内容和课程文件，不迁移已有文件。
+            仅影响之后新建的内容，不迁移已有文件。
           </p>
         </div>
         <div className="flex items-center justify-end gap-3">
@@ -118,18 +127,10 @@ export function WorkspaceSection() {
         data-setting-id="restore-last"
       >
         <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">启动恢复</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            启动时恢复上次打开的项目与标签布局；不自动继续未完成的任务。
-          </p>
+          <h2 className="text-sm font-medium">启动页面</h2>
         </div>
         <div className="flex items-center justify-end">
-          <Switch
-            checked={prefs?.restoreLastProject ?? true}
-            disabled={prefs === null || busy}
-            label="启动时恢复上次项目与标签"
-            onChange={(next) => void changePrefs({ restoreLastProject: next })}
-          />
+          <span className="text-sm text-muted-foreground">首页</span>
         </div>
       </section>
       <section
@@ -138,28 +139,30 @@ export function WorkspaceSection() {
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">默认笔记编辑方式</h2>
+          {/* frontmatter 强制源码：防止用户以为模式切换入口丢失。 */}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            打开 Markdown 笔记时进入的编辑方式；含 frontmatter 等语法的笔记始终停在源码模式。
+            含 frontmatter 等语法的笔记始终以源码模式打开。
           </p>
         </div>
         <div className="flex items-center justify-end">
-          <select
-            aria-label="默认笔记编辑方式"
-            className="h-9 w-32 rounded-md border bg-background px-3 text-sm text-foreground"
+          <Select
             disabled={prefs === null || busy}
-            onChange={(event) =>
-              void changePrefs({
-                defaultNoteEditMode: event.target.value as NoteEditModePreference,
-              })
+            onValueChange={(value) =>
+              void changePrefs({ defaultNoteEditMode: value as NoteEditModePreference })
             }
             value={prefs?.defaultNoteEditMode ?? 'rich'}
           >
-            {(Object.keys(editModeLabels) as NoteEditModePreference[]).map((mode) => (
-              <option key={mode} value={mode}>
-                {editModeLabels[mode]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="默认笔记编辑方式" className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(editModeLabels) as NoteEditModePreference[]).map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {editModeLabels[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </section>
       <section
@@ -168,9 +171,6 @@ export function WorkspaceSection() {
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">布局重置</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            清除当前项目的分屏与标签布局，恢复为单栏空标签；下次进入该项目或重启后生效。
-          </p>
         </div>
         <div className="grid content-start justify-items-end gap-1.5">
           {resetConfirm ? (

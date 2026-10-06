@@ -1,11 +1,10 @@
-// 设置内搜索与全局搜索 setting 入口共用的索引（§4.4 查找与直达）：
-// 每项 = 一个可直达的设置卡（data-setting-id 高亮目标）+ 内置关键词（含同义与英文）。
-// 只收录已实现的选项。
+// 全局搜索 setting 入口的单一索引：每项 = 一个已实现的设置选项（含内置关键词，
+// 覆盖同义词与英文），按 section 聚合后供 GlobalSearchDialog 匹配展示。
 import type { GlobalSearchResult } from '../../../shared/search';
 import type { SettingsSectionId } from '../../../shared/settings';
 
 export interface SettingsSearchItem {
-  /** 高亮目标：section 内卡片的 data-setting-id。 */
+  /** 索引项 id（稳定键）。 */
   id: string;
   section: SettingsSectionId;
   /** 选项标题。 */
@@ -75,6 +74,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
   },
   // 工作区
   {
+    id: 'archived-chats',
+    section: 'workspace',
+    title: '已归档对话',
+    keywords: ['归档', '恢复', '对话', '永久删除', '隐藏项目', 'archive'],
+  },
+  {
     id: 'work-directory',
     section: 'workspace',
     title: '工作目录',
@@ -83,8 +88,8 @@ export const settingsSearchItems: SettingsSearchItem[] = [
   {
     id: 'restore-last',
     section: 'workspace',
-    title: '启动恢复',
-    keywords: ['工作区', '启动', '恢复', '上次', '项目', '标签', 'restore'],
+    title: '启动页面',
+    keywords: ['工作区', '启动', '首页', '聊天', '项目', '标签', 'restore'],
   },
   {
     id: 'note-edit-mode',
@@ -130,23 +135,24 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '水源社区',
     keywords: ['连接', '水源', '社区', '论坛', 'shuiyuan'],
   },
-  // 插件（skills/mcp 关键词命中插件页签切换条 data-setting-id="plugins"，两类内容在页内切换）
+  // 插件
   {
     id: 'plugins',
     section: 'plugins',
     title: '自定义指令',
-    keywords: [
-      '插件',
-      '指令',
-      '提示词',
-      'prompt',
-      '斜杠',
-      '命令',
-      'skills',
-      '技能',
-      'mcp',
-      '服务器',
-    ],
+    keywords: ['插件', '指令', '提示词', 'prompt', '斜杠', '命令'],
+  },
+  {
+    id: 'plugins-skills',
+    section: 'plugins',
+    title: 'Skills',
+    keywords: ['插件', 'skills', '技能'],
+  },
+  {
+    id: 'plugins-mcp',
+    section: 'plugins',
+    title: 'MCP',
+    keywords: ['插件', 'mcp', '服务器'],
   },
   // 关于
   { id: 'about', section: 'about', title: '关于', keywords: ['版本', '更新', 'credits', '关于'] },
@@ -168,25 +174,14 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   general: '开机自启动',
   appearance: '主题、缩放、字号与图标',
   notifications: '校园消息与任务提醒',
-  workspace: '工作目录、启动恢复与布局',
+  workspace: '工作目录、启动页面与布局',
   llm: 'AI 模型与 API 提供商',
   connections: 'Canvas、邮箱、教务与水源连接',
   plugins: '自定义指令、Skills 与 MCP',
   about: '版本信息',
 };
 
-/** 按分类、选项标题与关键词过滤；空查询返回全部（供浏览/空态）。 */
-export function filterSettingsItems(query: string): SettingsSearchItem[] {
-  const keyword = query.trim().toLowerCase();
-  if (!keyword) return settingsSearchItems;
-  return settingsSearchItems.filter((item) =>
-    `${settingsSectionLabels[item.section]} ${item.title} ${item.keywords.join(' ')}`
-      .toLowerCase()
-      .includes(keyword),
-  );
-}
-
-/** 全局搜索的设置入口：按分类聚合（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */
+/** 按分类聚合的全局搜索设置入口（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */
 export function settingsResultsFor(query: string): GlobalSearchResult[] {
   const keyword = query.trim().toLowerCase();
   return (Object.keys(settingsSectionLabels) as SettingsSectionId[])

@@ -1,8 +1,9 @@
 // 工作台目录侧栏（装配层）：项目文件树（navigation/ProjectFileTree）+ Canvas 资料树
 // （navigation/SourcesTree）+ 归档区，替代旧 ProjectView/SourcesView 的目录侧栏。
-// 树的展开/筛选/选中态在 navigation/store；条目动作经 onAction 交给 EntryDialogs（壳）。
-import { useEffect, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+// 树的展开/筛选/选中态在 navigation/store；条目动作除归档/升级为项目/导入（直连
+// entry-actions）外，经 onAction 交给 EntryDialogs（壳）。
+// 折叠/窄屏抽屉开合在 workbench/explorer-state（展开入口在焦点组标签栏左侧）。
+import { useEffect, useRef, useState } from 'react';
 import {
   Archive,
   ChevronRight,
@@ -34,12 +35,15 @@ import { SourcesTree, latestTermOf } from '../navigation/SourcesTree';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from './navigation';
 import {
+  archiveEntry,
   importDroppedFiles,
   importFromDialog,
   isDescendant,
   moveEntry,
+  promoteEntry,
 } from '../workspace/entry-actions';
 import { useWorkspaceStore } from '../workspace/store';
+import { useExplorerState } from '../workbench/explorer-state';
 import { cn } from '../lib/utils';
 
 const SIDEBAR_DEFAULT_WIDTH = 300;
@@ -47,9 +51,6 @@ const SIDEBAR_MIN_WIDTH = 240;
 /** 目录宽度上界：再宽会明显挤占右侧内容栏；沿用既有上界，与 3A 批次首次引入值一致。 */
 const SIDEBAR_MAX_WIDTH = 360;
 const widthStorageKey = 'dela.workspace.sidebarWidth';
-const collapsedStorageKey = 'dela.workspace.collapsed';
-/** 与旧 ProjectView 一致的窄屏断点：<768px 目录变覆盖抽屉。 */
-const NARROW_QUERY = '(max-width: 767px)';
 
 /** 新建弹窗的目标容器：选中/活动文档所在文件夹，缺省回落到根（旧 currentContainer）。 */
 export function currentContainerOf(activeKey: string | null, rootId: string | null): string | null {
@@ -61,13 +62,8 @@ export function currentContainerOf(activeKey: string | null, rootId: string | nu
     : rootId;
 }
 
-function TitleBarPortal({ children }: { children: ReactNode }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-  const host = document.getElementById('titlebar-actions');
-  return host ? createPortal(children, host) : null;
-}
+/** 与旧 ProjectView 一致的窄屏断点：<768px 目录变覆盖抽屉。 */
+const NARROW_QUERY = '(max-width: 767px)';
 
 function useNarrow(): boolean {
   const [narrow, setNarrow] = useState(
@@ -107,14 +103,13 @@ export function WorkbenchExplorer({
     const stored = Number(localStorage.getItem(widthStorageKey));
     return Number.isFinite(stored) && stored > 0 ? stored : SIDEBAR_DEFAULT_WIDTH;
   });
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem(collapsedStorageKey) === 'true',
-  );
+  const collapsed = useExplorerState((s) => s.collapsed);
+  const mobileOpen = useExplorerState((s) => s.mobileOpen);
   const [resizing, setResizing] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const narrow = useNarrow();
+  const drawerRef = useRef<HTMLElement>(null);
   const [bySource, setBySource] = useState(false);
-  // 通用（无项目）工作台承接旧资料页：课程资料默认展开；项目工作台内默认收起。
+  // 课程资料只在通用（无项目）工作台显示（承接旧资料页），且默认展开；项目工作台不渲染课程资料。
   const [coursesOpen, setCoursesOpen] = useState(() => projectId === null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -129,16 +124,16 @@ export function WorkbenchExplorer({
     }, 300);
     return () => clearTimeout(timer);
   }, [width]);
+  // 窄屏抽屉打开时把焦点移入容器、Escape 收起；收起态由 aside 的 inert 兜底。
   useEffect(() => {
-    try {
-      localStorage.setItem(collapsedStorageKey, String(collapsed));
-    } catch {
-      /* localStorage 不可用时保持内存值。 */
-    }
-  }, [collapsed]);
-  useEffect(() => {
-    if (!narrow) setMobileOpen(false);
-  }, [narrow]);
+    if (!narrow || !mobileOpen) return;
+    drawerRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') useExplorerState.getState().setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [narrow, mobileOpen]);
 
   const expand = (id: string, open: boolean) => useTreeState.getState().expand(id, open);
   const container = () => currentContainerOf(selected ?? activeDocKey, rootId);
@@ -148,7 +143,7 @@ export function WorkbenchExplorer({
     if (!item) return;
     if (item.kind === 'project') {
       void useAppNavigation.getState().openProject(id);
-      setMobileOpen(false);
+      useExplorerState.getState().setMobileOpen(false);
     } else if (item.kind === 'folder') {
       useTreeState.getState().select(id);
       expand(id, !expanded.includes(id));
@@ -170,6 +165,15 @@ export function WorkbenchExplorer({
     importDroppedFiles(files, targetId, rootId, (target) => {
       if (target) expand(target, true);
     });
+  // 归档/升级为项目/导入不弹窗，直连 entry-actions（旧 ProjectView.action 的拦截语义）；
+  // 展开归档区、打开项目等后续 UI 也只有在这层接线才拿得到。
+  const treeAction = (action: EntryAction, id: string | null) => {
+    if (action === 'import') importFromDialog(id);
+    else if (action === 'archive' && id) archiveEntry(id, () => setArchiveOpen(true));
+    else if (action === 'promote' && id)
+      promoteEntry(id, (pid) => void useAppNavigation.getState().openProject(pid));
+    else onAction(action, id);
+  };
 
   const refreshCourses = () => {
     if (syncing || !canvas.connected || !window.dela) return;
@@ -192,7 +196,8 @@ export function WorkbenchExplorer({
     })();
   };
 
-  const visible = !collapsed && (!narrow || mobileOpen);
+  // 窄屏抽屉只看 mobileOpen：忽略宽屏折叠残留，否则折叠目录后缩窗会永远打不开目录。
+  const visible = narrow ? mobileOpen : !collapsed;
   const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-muted-foreground';
   const chevron = (open: boolean) => (
     <ChevronRight
@@ -206,25 +211,14 @@ export function WorkbenchExplorer({
 
   return (
     <>
-      <TitleBarPortal>
-        {/* 目录隐藏时的展开入口（宽屏折叠/窄屏抽屉共用；旧版放在标签栏左端）。 */}
-        {!visible && (
-          <button
-            aria-label="展开目录"
-            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-            onClick={() => (narrow ? setMobileOpen(true) : setCollapsed(false))}
-            title="展开目录"
-            type="button"
-          >
-            <PanelLeft className="size-4" strokeWidth={1.8} />
-          </button>
-        )}
-      </TitleBarPortal>
       <aside
+        ref={drawerRef}
         aria-label="工作台目录"
         inert={!visible}
+        tabIndex={-1}
         className={cn(
-          // 与标签带同为 bg-muted 的 chrome 区，与白色页面之间靠色差分隔，不再画边框线。
+          // 三级背景层次（用户裁决，勿压平）：侧栏画布 --sidebar(0.985) → 目录树 --muted(0.97)
+          // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
           'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl',
           resizing && 'transition-none',
           !visible && 'w-0 max-md:hidden',
@@ -235,7 +229,7 @@ export function WorkbenchExplorer({
           className={cn(
             // 壳动内容不动：折叠动画中内容保持展开宽度、被外壳裁切并淡出。
             'flex min-h-0 flex-1 flex-col transition-opacity duration-150 motion-reduce:transition-none max-md:!w-full',
-            collapsed && 'pointer-events-none opacity-0',
+            collapsed && !narrow && 'pointer-events-none opacity-0',
           )}
           style={narrow ? undefined : { width }}
         >
@@ -246,8 +240,8 @@ export function WorkbenchExplorer({
               aria-label={visible ? '收起目录' : '展开目录'}
               className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
               onClick={() => {
-                if (narrow) setMobileOpen(false);
-                else setCollapsed((value) => !value);
+                if (narrow) useExplorerState.getState().setMobileOpen(false);
+                else useExplorerState.getState().setCollapsed(!collapsed);
               }}
               title={visible ? '收起目录' : '展开目录'}
               type="button"
@@ -284,7 +278,7 @@ export function WorkbenchExplorer({
                     <FolderPlus />
                     新建文件夹
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onAction('import', container())}>
+                  <DropdownMenuItem onSelect={() => importFromDialog(container())}>
                     <FolderInput />
                     导入本地文件
                   </DropdownMenuItem>
@@ -342,91 +336,93 @@ export function WorkbenchExplorer({
                 if (drag) move(drag, null);
               }}
             >
-              <div className={cn(sectionClass, 'mt-1')}>
-                <button
-                  aria-expanded={sourcesOpen}
-                  className="flex min-w-0 flex-1 items-center gap-1 text-left hover:text-foreground"
-                  onClick={() => setCoursesOpen((value) => !value)}
-                  type="button"
-                >
-                  {chevron(sourcesOpen)}
-                  <GraduationCap className="size-4" />
-                  课程资料
-                </button>
-                <Button
-                  aria-label="刷新课程资料"
-                  className="hover:bg-foreground/10"
-                  disabled={!canvas.connected}
-                  onClick={refreshCourses}
-                  size="icon-xs"
-                  title="刷新课程资料"
-                  variant="ghost"
-                >
-                  <RefreshCw className={cn(syncing && 'animate-spin')} />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+              {/* 课程资料只在通用（无项目）工作台显示；项目工作台只呈现项目自己的文件。 */}
+              {projectId === null && (
+                <>
+                  <div className={cn(sectionClass, 'mt-1')}>
+                    <button
+                      aria-expanded={sourcesOpen}
+                      className="flex min-w-0 flex-1 items-center gap-1 text-left hover:text-foreground"
+                      onClick={() => setCoursesOpen((value) => !value)}
+                      type="button"
+                    >
+                      {chevron(sourcesOpen)}
+                      <GraduationCap className="size-4" />
+                      课程资料
+                    </button>
                     <Button
-                      aria-label="Canvas 操作"
+                      aria-label="刷新课程资料"
                       className="hover:bg-foreground/10"
+                      disabled={!canvas.connected}
+                      onClick={refreshCourses}
                       size="icon-xs"
-                      title="Canvas 操作"
+                      title="刷新课程资料"
                       variant="ghost"
                     >
-                      <Ellipsis />
+                      <RefreshCw className={cn(syncing && 'animate-spin')} />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onSelect={() => onAction('connect', null)}>
-                      <KeyRound />
-                      {canvas.connected ? '更换 Canvas 令牌' : '连接 Canvas'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        setBySource((value) => !value);
-                        if (!bySource) expand('canvas', true);
-                      }}
-                    >
-                      <Folder />
-                      {bySource ? '按课程分组' : '按来源分组'}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              {sourcesOpen &&
-                (canvas.connected ? (
-                  <SourcesTree
-                    bySource={bySource}
-                    expanded={expanded}
-                    onArchive={() => setArchiveOpen(true)}
-                    onExpand={expand}
-                    onLink={(id) => onAction('link', id)}
-                    onOpen={onOpenDocument}
-                    onOpenToSide={onOpenToSide}
-                    query={query}
-                    selected={activeDocKey}
-                  />
-                ) : (
-                  <div className="px-4 py-3 text-xs text-muted-foreground">
-                    <p>连接 Canvas，查看课程资料。</p>
-                    <Button
-                      className="mt-3"
-                      onClick={() => onAction('connect', null)}
-                      size="sm"
-                      variant="outline"
-                    >
-                      连接 Canvas
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          aria-label="Canvas 操作"
+                          className="hover:bg-foreground/10"
+                          size="icon-xs"
+                          title="Canvas 操作"
+                          variant="ghost"
+                        >
+                          <Ellipsis />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onSelect={() => onAction('connect', null)}>
+                          <KeyRound />
+                          {canvas.connected ? '更换 Canvas 令牌' : '连接 Canvas'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setBySource((value) => !value);
+                            if (!bySource) expand('canvas', true);
+                          }}
+                        >
+                          <Folder />
+                          {bySource ? '按课程分组' : '按来源分组'}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                ))}
+                  {sourcesOpen &&
+                    (canvas.connected ? (
+                      <SourcesTree
+                        bySource={bySource}
+                        expanded={expanded}
+                        onArchive={() => setArchiveOpen(true)}
+                        onExpand={expand}
+                        onLink={(id) => onAction('link', id)}
+                        onOpen={onOpenDocument}
+                        onOpenToSide={onOpenToSide}
+                        query={query}
+                        selected={activeDocKey}
+                      />
+                    ) : (
+                      <div className="px-4 py-3 text-xs text-muted-foreground">
+                        <p>连接 Canvas，查看课程资料。</p>
+                        <Button
+                          className="mt-3"
+                          onClick={() => onAction('connect', null)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          连接 Canvas
+                        </Button>
+                      </div>
+                    ))}
+                </>
+              )}
               <ProjectFileTree
                 canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
                 entries={entries}
                 expanded={expanded}
-                onAction={(action, id) => {
-                  if (action === 'import') importFromDialog(id);
-                  else onAction(action, id);
-                }}
+                onAction={treeAction}
                 onExpand={expand}
                 onImportFiles={rootId ? importDropped : undefined}
                 onMove={move}
@@ -448,26 +444,25 @@ export function WorkbenchExplorer({
               </button>
               {(archiveOpen || query.trim()) && (
                 <>
-                  <SourcesTree
-                    archived
-                    bySource={bySource}
-                    expanded={expanded}
-                    onExpand={expand}
-                    onLink={(id) => onAction('link', id)}
-                    onOpen={onOpenDocument}
-                    onOpenToSide={onOpenToSide}
-                    query={query}
-                    selected={activeDocKey}
-                  />
+                  {projectId === null && (
+                    <SourcesTree
+                      archived
+                      bySource={bySource}
+                      expanded={expanded}
+                      onExpand={expand}
+                      onLink={(id) => onAction('link', id)}
+                      onOpen={onOpenDocument}
+                      onOpenToSide={onOpenToSide}
+                      query={query}
+                      selected={activeDocKey}
+                    />
+                  )}
                   <ProjectFileTree
                     archived
                     canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
                     entries={entries}
                     expanded={expanded}
-                    onAction={(action, id) => {
-                      if (action === 'import') importFromDialog(id);
-                      else onAction(action, id);
-                    }}
+                    onAction={treeAction}
                     onExpand={expand}
                     onMove={move}
                     onOpenToSide={openToSide}

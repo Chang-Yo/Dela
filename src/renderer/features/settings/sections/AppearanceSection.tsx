@@ -9,6 +9,13 @@ import {
   type ZoomPreference,
 } from '../../../../shared/api';
 import { cn } from '../../../lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
 import blackLogo from '../../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from '../SectionHeader';
@@ -152,16 +159,13 @@ export function AppearanceSection({
 
   return (
     <div className="grid gap-5">
-      <SectionHeader description="主题立即应用；应用图标在重启应用后生效。" title="外观" />
+      <SectionHeader title="外观" />
       <section
         className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
         data-setting-id="theme"
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">主题</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            跟随系统自动切换，或固定为浅色/深色。
-          </p>
         </div>
         <div aria-label="主题" className="flex flex-wrap gap-3" role="radiogroup">
           {themes.map(({ id, label, preview }) => (
@@ -188,25 +192,25 @@ export function AppearanceSection({
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">页面缩放</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            整个界面按比例缩放，立即生效并持久保存；快捷键 Ctrl/⌘ + 放大、- 缩小、0 重置。
-          </p>
         </div>
         <div className="flex items-center justify-end">
           {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
-          <select
-            aria-label="页面缩放"
-            className="h-9 w-24 rounded-md border bg-background px-3 text-sm text-foreground"
+          <Select
             disabled={zoomSave.busy}
-            onChange={(event) => selectZoom(Number(event.target.value) as ZoomPreference)}
-            value={zoom}
+            onValueChange={(value) => selectZoom(Number(value) as ZoomPreference)}
+            value={String(zoom)}
           >
-            {zoomOptions.map(({ id, label }) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="页面缩放" className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {zoomOptions.map(({ id, label }) => (
+                <SelectItem key={id} value={String(id)}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {zoomSave.error && (
           <p className="col-span-full text-xs text-destructive" role="alert">
@@ -220,25 +224,25 @@ export function AppearanceSection({
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">字号</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            调整界面文字大小，不影响间距与图标。
-          </p>
         </div>
         <div className="flex items-center justify-end">
           {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
-          <select
-            aria-label="字号"
-            className="h-9 w-24 rounded-md border bg-background px-3 text-sm text-foreground"
+          <Select
             disabled={fontSave.busy}
-            onChange={(event) => selectFontScale(Number(event.target.value) as FontScalePreference)}
-            value={fontScale}
+            onValueChange={(value) => selectFontScale(Number(value) as FontScalePreference)}
+            value={String(fontScale)}
           >
-            {fontScaleLevels.map((level) => (
-              <option key={level} value={level}>
-                {fontScaleLabels[level]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="字号" className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {fontScaleLevels.map((level) => (
+                <SelectItem key={level} value={String(level)}>
+                  {fontScaleLabels[level]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {fontSave.error && (
           <p className="col-span-full text-xs text-destructive" role="alert">
@@ -252,9 +256,8 @@ export function AppearanceSection({
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">应用图标</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            应用窗口与任务栏图标的底色，重启应用后生效。
-          </p>
+          {/* 重启后才生效：不写会让用户以为选择无效。 */}
+          <p className="text-xs leading-relaxed text-muted-foreground">重启应用后生效。</p>
         </div>
         <div aria-label="应用图标" className="flex flex-wrap gap-3" role="radiogroup">
           {icons.map(({ id, label, src }) => (

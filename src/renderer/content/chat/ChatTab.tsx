@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
+import type { WorkspaceChat } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
 import { ChatComposer } from './ChatComposer';
 import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
-import { ModelKeyForm } from './ModelKeyForm';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
-import { useChat, useChatSession, type ChatReference } from './use-chat';
+import { useChat, useChatDraft, useChatSession, type ChatReference } from './use-chat';
+import { useNavigationStore } from '../../app/navigation';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
 export function parseChatTabId(tabId: string): string | null {
@@ -16,10 +24,20 @@ export function parseChatTabId(tabId: string): string | null {
   return sessionId || null;
 }
 
+/** Radix Select 的 Item 不接受空串值，通用池用哨兵表示。 */
+const GENERAL_SELECT_VALUE = '__general__';
+
 /** 会话作为标签内容（AgentPanel 去面板化：无 aside、无宽度与开关逻辑）。
  *  会话身份来自 tabId（chat:{sessionId}）；引用候选、邮件草稿弹窗与项目归属经
  *  ChatTabSourceProvider 注入（3B 接线），未挂 Provider 时按通用池、无注入运行。 */
-export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
+export function ChatTab({
+  tabId,
+  onConversation,
+}: {
+  tabId: TabId;
+  groupId: string;
+  onConversation?: () => void;
+}) {
   const sessionId = parseChatTabId(tabId);
   const source = useChatTabSource();
   const session = useChatSession(source?.projectId ?? null, sessionId ?? '');
@@ -53,7 +71,7 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
   }
   if (session.active === null) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
           <p className="text-sm text-muted-foreground">这个会话已被删除。</p>
           <Button onClick={() => void session.newSession()} size="sm" variant="outline">
@@ -74,11 +92,99 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
       referenceOptions={referenceOptions}
       referenceSource={referenceSource}
       session={session}
+      onConversation={onConversation}
     />
   );
 }
 
-function ChatSessionView({
+/** 输入区容器：输入草稿（prompt/引用）只在本层经 useChatDraft 订阅——打字每键仅重渲
+ *  本层与 ChatComposer，不再带动 ChatSessionView 与 ChatThread 的整棵消息树；
+ *  发送与失败恢复草稿仍由 useChat 在调用时读取，行为不变。 */
+function ChatComposerArea({
+  chat,
+  chatState,
+  error,
+  referenceOptions,
+  sessionId,
+  hero = false,
+}: {
+  /** 会话快照；IPC 返回前为 null，模型信息按空值降级。 */
+  chat: WorkspaceChat | null;
+  chatState: ReturnType<typeof useChat>;
+  /** 发送错误与会话级错误的合并展示；null = 无。 */
+  error: string | null;
+  referenceOptions: ChatReference[];
+  sessionId: string;
+  hero?: boolean;
+}) {
+  const { prompt, references } = useChatDraft(sessionId);
+  const source = useChatTabSource();
+  return (
+    <div className="mx-auto w-full max-w-3xl shrink-0 p-3">
+      <ChatComposer
+        hero={hero}
+        projectPicker={
+          source?.onSelectProject && (
+            <Select
+              disabled={
+                chatState.busy || Boolean(chat?.messages.length) || chatState.attachments.length > 0
+              }
+              onValueChange={(value) =>
+                void source.onSelectProject?.(
+                  value === GENERAL_SELECT_VALUE ? null : value,
+                  sessionId,
+                )
+              }
+              value={source.projectId ?? GENERAL_SELECT_VALUE}
+            >
+              <SelectTrigger
+                aria-label="对话项目"
+                className="max-w-40 text-muted-foreground"
+                title="选择对话项目"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={GENERAL_SELECT_VALUE}>随聊</SelectItem>
+                {source.projects?.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        }
+        attachments={chatState.attachments}
+        busy={chatState.busy}
+        configured={Boolean(chat?.configured)}
+        effort={chat?.effort ?? null}
+        effortLevels={chat?.effortLevels ?? []}
+        model={chat?.model ?? ''}
+        onAddAttachmentFile={chatState.addAttachmentFile}
+        onAddAttachmentView={chatState.addAttachmentView}
+        onAddReference={chatState.addReference}
+        onChange={chatState.setPrompt}
+        onEffortSelect={chatState.selectEffort}
+        onModelSelect={chatState.selectModel}
+        onRemoveAttachment={chatState.removeAttachment}
+        onRemoveReference={chatState.removeReference}
+        onSend={() => void chatState.send()}
+        onStop={chatState.stop}
+        referenceOptions={referenceOptions}
+        references={references}
+        value={prompt}
+      />
+      {error && (
+        <p className="mt-2 break-words text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const ChatSessionView = memo(function ChatSessionView({
   session,
   active,
   projectId,
@@ -87,6 +193,7 @@ function ChatSessionView({
   mailDialog,
   onOpenSource,
   onSaveNote,
+  onConversation,
 }: {
   session: ReturnType<typeof useChatSession>;
   /** 已收窄为非 null 的当前会话（父组件处理删除后的空态）。 */
@@ -97,19 +204,38 @@ function ChatSessionView({
   mailDialog?: MailDraftDialog;
   onOpenSource?: (key: string) => void;
   onSaveNote?: (text: string) => void;
+  onConversation?: () => void;
 }) {
   const chatState = useChat(active, referenceSource);
-  const { chat, busy } = chatState;
+  const { chat, busy, editLast } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
 
   // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
   const conversation = chat && (busy || chat.messages.length > 0 || chat.running);
+  useEffect(() => {
+    if (chat?.messages.length) onConversation?.();
+  }, [chat?.messages.length, onConversation]);
+
+  const composer = (hero: boolean) => (
+    <ChatComposerArea
+      chat={chat}
+      chatState={chatState}
+      error={chatState.error ?? session.error}
+      referenceOptions={referenceOptions}
+      sessionId={active}
+      hero={hero}
+    />
+  );
 
   return (
-    <div aria-label="对话" className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted">
+    <div
+      aria-label="对话"
+      className="flex min-h-0 min-w-0 flex-1 flex-col bg-background @container"
+    >
+      {/* @container 宿主：本标签空态与 ChatComposer 的 @max-[…] 降级都按此宽度生效。 */}
       {/* 会话切换条：标签标题由 workbench 标签栏承载，这里只留历史与新对话入口。 */}
-      <div className="flex h-10 shrink-0 items-center justify-end gap-1 px-3">
+      <div className="flex h-10 shrink-0 items-center gap-1 px-3">
         <Button
           aria-label="历史对话"
           className="hover:bg-foreground/10"
@@ -124,7 +250,11 @@ function ChatSessionView({
         <Button
           aria-label="新对话"
           className="hover:bg-foreground/10"
-          onClick={() => void session.newSession()}
+          onClick={() =>
+            projectId === null
+              ? useNavigationStore.getState().openGeneralChat(true)
+              : void useNavigationStore.getState().newChat(projectId)
+          }
           size="icon-xs"
           title="新对话"
           type="button"
@@ -134,59 +264,44 @@ function ChatSessionView({
         </Button>
       </div>
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}
-      {chat && !chat.configured && <ModelKeyForm onConfigured={chatState.refresh} />}
+      {chat && !chat.configured && (
+        <div className="flex items-center gap-2 px-3 text-xs text-muted-foreground">
+          <span>配置模型服务后即可开始对话</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => useNavigationStore.getState().openSettings('llm')}
+          >
+            配置模型
+          </Button>
+        </div>
+      )}
       {conversation ? (
         <ChatThread
           chat={chat}
           mailDialog={mailDialog}
-          onEditLast={(text) => void chatState.editLast(text)}
+          onEditLast={editLast}
           onOpenSource={onOpenSource}
           onSaveNote={onSaveNote}
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            询问问题或整理思路，@ 引用资料，回答可以保存为笔记。
-          </p>
+        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-3 pb-10">
+          <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight @max-[400px]:text-2xl">
+            现在想聊些什么？
+          </h1>
+          {composer(true)}
         </div>
       )}
-      <div className="shrink-0 p-3">
-        <ChatComposer
-          attachments={chatState.attachments}
-          busy={busy}
-          configured={Boolean(chat?.configured)}
-          effort={chat?.effort ?? null}
-          effortLevels={chat?.effortLevels ?? []}
-          model={chat?.model ?? ''}
-          onAddAttachmentFile={chatState.addAttachmentFile}
-          onAddAttachmentView={chatState.addAttachmentView}
-          onAddReference={chatState.addReference}
-          onChange={chatState.setPrompt}
-          onEffortSelect={chatState.selectEffort}
-          onModelSelect={chatState.selectModel}
-          onRemoveAttachment={chatState.removeAttachment}
-          onRemoveReference={chatState.removeReference}
-          onSend={() => void chatState.send()}
-          onStop={chatState.stop}
-          referenceOptions={referenceOptions}
-          references={chatState.references}
-          value={chatState.prompt}
-        />
-        {(chatState.error ?? session.error) && (
-          <p className="mt-2 break-words text-xs text-destructive" role="alert">
-            {chatState.error ?? session.error}
-          </p>
-        )}
-      </div>
+      {conversation && composer(false)}
       <ChatSessions
         currentSessionId={active}
         onDeleteSession={(id) => void session.deleteSession(id)}
         onOpenChange={setSessionsOpen}
-        onOpenSession={session.openSession}
+        onOpenSession={(id) => useNavigationStore.getState().openChat(id, projectId)}
         open={sessionsOpen}
         projectId={projectId}
         side="right"
       />
     </div>
   );
-}
+});

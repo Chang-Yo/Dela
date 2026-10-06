@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CircleCheck, CircleX, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
+import { SelectItem } from '../../../components/ui/select';
 import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, StepSelect, type StepButtonState } from './step-controls';
 import { llmProviderPresets, findLlmPreset } from '../../../../shared/llm-presets';
@@ -105,15 +106,11 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
         <section className="grid gap-5">
           <label className="grid gap-2">
             <span className="text-sm font-medium text-neutral-700">服务商</span>
-            <StepSelect
-              aria-label="服务商"
-              onChange={(event) => applyPreset(event.target.value)}
-              value={presetId}
-            >
+            <StepSelect label="服务商" onValueChange={applyPreset} value={presetId}>
               {llmProviderPresets.map((item) => (
-                <option key={item.id} value={item.id}>
+                <SelectItem key={item.id} value={item.id}>
                   {item.name}
-                </option>
+                </SelectItem>
               ))}
             </StepSelect>
           </label>
@@ -236,17 +233,18 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
           <label className="grid gap-2">
             <span className="text-sm font-medium text-neutral-700">模型</span>
             <StepSelect
-              aria-label="模型"
               disabled={models.length === 0}
-              onChange={(event) => setModel(event.target.value)}
-              required
-              value={model}
+              // 空模型列表（自定义未检测）与就绪态间切换时重挂载，避免受控值 undefined 化。
+              key={models.length === 0 ? 'empty' : 'ready'}
+              label="模型"
+              onValueChange={setModel}
+              placeholder="先检测连接，导入可用模型"
+              value={model === '' ? undefined : model}
             >
-              {models.length === 0 && <option value="">先检测连接，导入可用模型</option>}
               {models.map((item) => (
-                <option key={item} value={item}>
+                <SelectItem key={item} value={item}>
                   {item}
-                </option>
+                </SelectItem>
               ))}
             </StepSelect>
             {custom && models.length === 0 && (

@@ -7,10 +7,20 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { useNoteDrafts } from './drafts';
 import type { EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
+
+/** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
+const ROOT_SELECT_VALUE = '__root__';
 
 export interface EntryDialogRequest {
   action: EntryAction | 'link' | 'connect';
@@ -21,16 +31,14 @@ export interface EntryDialogRequest {
   initialTarget?: string;
 }
 
-const titles: Record<EntryDialogRequest['action'], string> = {
+// promote/import/archive 由接线处直连 entry-actions，永不入弹窗（旧 ProjectView.action 拦截）。
+const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
   folder: '新建文件夹',
   project: '新建项目',
   note: '新建笔记',
   rename: '重命名',
   move: '移动到',
   remove: '移除内容',
-  promote: '作为项目开展',
-  import: '导入本地文件',
-  archive: '归档',
   link: '加入文件夹或项目',
   connect: '连接 Canvas',
 };
@@ -94,6 +102,8 @@ export function EntryDialogs({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!request || !window.dela) return;
+    if (request.action === 'promote' || request.action === 'import' || request.action === 'archive')
+      return; // 类型上仍可能出现（壳的 openDialog 入参未收窄），但表单对它们没有意义。
     setBusy(true);
     setModalError(null);
     try {
@@ -159,7 +169,7 @@ export function EntryDialogs({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
           <Dialog.Title className="text-base font-semibold">
-            {request ? titles[request.action] : ''}
+            {request ? (titles[request.action] ?? '') : ''}
           </Dialog.Title>
           <Dialog.Description className="mt-2 text-xs text-muted-foreground">
             {request?.action === 'connect'
@@ -174,27 +184,33 @@ export function EntryDialogs({
           </Dialog.Description>
           <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
             {(request?.action === 'link' || request?.action === 'move') && (
-              <label className="grid gap-2 text-sm">
+              <div className="grid gap-2 text-sm">
                 位置
-                <select
-                  aria-label="目标文件夹"
-                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                  value={target}
-                  onChange={(e) => setTarget(e.target.value)}
+                <Select
+                  onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
+                  value={target === '' ? ROOT_SELECT_VALUE : target}
                 >
-                  <option value="">我的内容</option>
-                  {workspace.entries
-                    .filter(
-                      (e) => (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
-                    )
-                    .map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {pathName(e)}
-                      </option>
-                    ))}
-                  {request.action === 'link' && <option value="__new__">新建项目…</option>}
-                </select>
-              </label>
+                  <SelectTrigger aria-label="目标文件夹" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                    {workspace.entries
+                      .filter(
+                        (e) =>
+                          (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
+                      )
+                      .map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {pathName(e)}
+                        </SelectItem>
+                      ))}
+                    {request.action === 'link' && (
+                      <SelectItem value="__new__">新建项目…</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
             {request &&
               !['move', 'remove'].includes(request.action) &&
@@ -221,7 +237,11 @@ export function EntryDialogs({
               <Button variant="ghost" disabled={busy} onClick={onClose}>
                 取消
               </Button>
-              <Button type="submit" disabled={busy}>
+              <Button
+                type="submit"
+                disabled={busy}
+                variant={request?.action === 'remove' ? 'destructive' : undefined}
+              >
                 {busy
                   ? '处理中…'
                   : request?.action === 'remove'

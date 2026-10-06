@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import { Blocks, Pencil, Plus, Sparkles, Terminal, Trash2, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
@@ -10,24 +10,56 @@ import { SectionHeader } from '../SectionHeader';
 import { cn } from '../../../lib/utils';
 import { errorText } from '../../../workspace/store';
 
+/** 插件域子页签 id。 */
+export type PluginTabId = 'commands' | 'skills' | 'mcp';
+
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
-type PluginKind = 'commands' | 'skills' | 'mcp';
-
-const pluginTabs: Array<{ id: PluginKind; label: string; icon: LucideIcon }> = [
+const pluginTabs: Array<{ id: PluginTabId; label: string; icon: LucideIcon }> = [
   { id: 'commands', label: '自定义指令', icon: Terminal },
   { id: 'skills', label: 'Skills', icon: Sparkles },
   { id: 'mcp', label: 'MCP', icon: Blocks },
 ];
 
-/** 设置 › 插件：按 Skills / MCP / 自定义指令三类切换（内容类型不同，§4.4），各页签自带列表与操作。 */
+/** 页签面板 id：各页签 aria-controls 与内容区 role=tabpanel 共用。 */
+const TABPANEL_ID = 'plugins-tabpanel';
+
+/**
+ * 设置 › 插件：按 Skills / MCP / 自定义指令三类切换（内容类型不同，§4.4），各页签自带列表与操作。
+ */
 export function PluginsSection() {
-  const [tab, setTab] = useState<PluginKind>('commands');
+  const [tab, setTab] = useState<PluginTabId>('commands');
   const [commands, setCommands] = useState<ChatCommandView[] | null>(null);
   const [dialog, setDialog] = useState<EditState>(null);
   const [busy, setBusy] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  /* tablist 方向键导航（ARIA APG 自动激活）：移动焦点即切换页签。 */
+  const onTablistKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const current = pluginTabs.findIndex(({ id }) => id === tab);
+    let next: number;
+    switch (event.key) {
+      case 'ArrowRight':
+        next = (current + 1) % pluginTabs.length;
+        break;
+      case 'ArrowLeft':
+        next = (current - 1 + pluginTabs.length) % pluginTabs.length;
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = pluginTabs.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    setTab(pluginTabs[next]!.id);
+    tabRefs.current[next]?.focus();
+  };
 
   const refresh = () => {
     void window.dela?.chat
@@ -59,20 +91,19 @@ export function PluginsSection() {
 
   return (
     <div className="grid gap-5">
-      <SectionHeader
-        description="为 Agent 扩展能力：自定义指令、Skills 与 MCP 服务器。"
-        title="插件"
-      />
+      <SectionHeader title="插件" />
       <div
         aria-label="插件类型"
         className="flex w-fit gap-1 rounded-lg bg-muted/60 p-1"
         data-setting-id="plugins"
+        onKeyDown={onTablistKeyDown}
         role="tablist"
       >
-        {pluginTabs.map(({ id, label, icon: Icon }) => {
+        {pluginTabs.map(({ id, label, icon: Icon }, index) => {
           const active = tab === id;
           return (
             <button
+              aria-controls={TABPANEL_ID}
               aria-selected={active}
               className={cn(
                 'flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors',
@@ -80,9 +111,16 @@ export function PluginsSection() {
                   ? 'bg-background font-medium text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
               )}
+              data-setting-id={`plugins-${id}`}
+              id={`plugins-tab-${id}`}
               key={id}
               onClick={() => setTab(id)}
+              ref={(el) => {
+                tabRefs.current[index] = el;
+              }}
               role="tab"
+              /* roving tabindex：仅活动页签可 Tab 聚焦，其余用方向键到达。 */
+              tabIndex={active ? 0 : -1}
               type="button"
             >
               <Icon className="size-4 shrink-0" strokeWidth={1.8} />
@@ -92,95 +130,106 @@ export function PluginsSection() {
         })}
       </div>
 
-      {tab === 'skills' ? (
-        <SkillsTab />
-      ) : tab === 'mcp' ? (
-        <McpTab />
-      ) : !window.dela ? (
-        <p className="text-sm text-muted-foreground">插件配置仅在桌面端可用。</p>
-      ) : (
-        <>
-          <div className="flex items-center justify-between gap-2">
-            <Button onClick={() => setDialog({ mode: 'create' })} size="sm">
-              <Plus />
-              新建指令
-            </Button>
-          </div>
-          {commands !== null && commands.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              还没有自定义指令。例如新建「周报」：每周帮我汇总本周的日程、作业与未读邮件。
-            </p>
-          )}
-          {commands !== null && commands.length > 0 && (
-            <ul className="grid">
-              {commands.map((command) => (
-                <li
-                  className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0"
-                  key={command.id}
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-                      <Terminal className="size-4 text-muted-foreground" strokeWidth={1.8} />
-                    </span>
-                    <div className="grid min-w-0 gap-0.5">
-                      <strong className="truncate text-sm">/{command.name}</strong>
-                      <span
-                        className="truncate text-xs text-muted-foreground"
-                        title={command.prompt}
-                      >
-                        {command.prompt}
+      <div
+        aria-labelledby={`plugins-tab-${tab}`}
+        className="grid gap-5"
+        id={TABPANEL_ID}
+        role="tabpanel"
+      >
+        {tab === 'skills' ? (
+          <SkillsTab />
+        ) : tab === 'mcp' ? (
+          <McpTab />
+        ) : !window.dela ? (
+          <p className="text-sm text-muted-foreground">插件配置仅在桌面端可用。</p>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <Button onClick={() => setDialog({ mode: 'create' })} size="sm">
+                <Plus />
+                新建指令
+              </Button>
+            </div>
+            {commands !== null && commands.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                还没有自定义指令。例如新建「周报」：每周帮我汇总本周的日程、作业与未读邮件。
+              </p>
+            )}
+            {commands !== null && commands.length > 0 && (
+              <ul className="grid">
+                {commands.map((command) => (
+                  <li
+                    className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0"
+                    key={command.id}
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
+                        <Terminal className="size-4 text-muted-foreground" strokeWidth={1.8} />
                       </span>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      aria-label={`编辑 ${command.name}`}
-                      onClick={() => setDialog({ mode: 'edit', command })}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <Pencil />
-                    </Button>
-                    {confirmId === command.id ? (
-                      <>
-                        <Button
-                          disabled={busy}
-                          onClick={() => void remove(command.id)}
-                          size="sm"
-                          variant="destructive"
+                      <div className="grid min-w-0 gap-0.5">
+                        <strong className="truncate text-sm">/{command.name}</strong>
+                        <span
+                          className="truncate text-xs text-muted-foreground"
+                          title={command.prompt}
                         >
-                          确认删除
-                        </Button>
-                        <Button onClick={() => setConfirmId(null)} size="sm" variant="ghost">
-                          取消
-                        </Button>
-                      </>
-                    ) : (
+                          {command.prompt}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
                       <Button
-                        aria-label={`删除 ${command.name}`}
-                        disabled={busy}
-                        onClick={() => setConfirmId(command.id)}
+                        aria-label={`编辑 ${command.name}`}
+                        onClick={() => setDialog({ mode: 'edit', command })}
                         size="icon-sm"
                         variant="ghost"
                       >
-                        <Trash2 />
+                        <Pencil />
                       </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {error && (
-            <p className="text-xs text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          {dialog && (
-            <CommandFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={refresh} />
-          )}
-        </>
-      )}
+                      {confirmId === command.id ? (
+                        <>
+                          <Button
+                            disabled={busy}
+                            onClick={() => void remove(command.id)}
+                            size="sm"
+                            variant="destructive"
+                          >
+                            确认删除
+                          </Button>
+                          <Button onClick={() => setConfirmId(null)} size="sm" variant="ghost">
+                            取消
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          aria-label={`删除 ${command.name}`}
+                          disabled={busy}
+                          onClick={() => setConfirmId(command.id)}
+                          size="icon-sm"
+                          variant="ghost"
+                        >
+                          <Trash2 />
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {error && (
+              <p className="text-xs text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+            {dialog && (
+              <CommandFormDialog
+                editing={dialog}
+                onClose={() => setDialog(null)}
+                onSaved={refresh}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

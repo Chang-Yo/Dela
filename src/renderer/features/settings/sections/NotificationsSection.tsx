@@ -113,7 +113,7 @@ export function NotificationsSection() {
 
   return (
     <div className="grid gap-5">
-      <SectionHeader description="校园消息与 Agent 任务的提醒偏好。" title="通知" />
+      <SectionHeader title="通知" />
       {error && (
         <p className="text-xs text-destructive" role="alert">
           {error}
@@ -125,8 +125,9 @@ export function NotificationsSection() {
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">校园消息系统提醒</h2>
+          {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            新邮件与水源互动的桌面通知。关闭后不再弹出，但通知中心仍会收集全部消息。
+            关闭后仅停用桌面弹窗，通知中心仍会收集。
           </p>
         </div>
         <div className="flex items-center justify-end">
@@ -141,8 +142,9 @@ export function NotificationsSection() {
       <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">Agent 任务通知</h2>
+          {/* 仅未聚焦时弹出：解释「明明完成了怎么没弹窗」。 */}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            委托任务结束时的系统提醒；仅窗口未聚焦时弹出，关闭提醒不影响会话记录与侧栏状态。
+            仅窗口未聚焦时弹出；关闭提醒不影响会话记录与侧栏状态。
           </p>
         </div>
         <div className="grid content-start gap-3">
@@ -178,8 +180,9 @@ export function NotificationsSection() {
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">暂停通知</h2>
+          {/* 与通知中心同一状态：防止用户在两处看到不同暂停状态时困惑。 */}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            暂停期间不弹任何系统提醒，通知仍会收集；与通知中心共用同一暂停状态。
+            暂停期间仍会收集通知；与通知中心共用同一暂停状态。
           </p>
         </div>
         <div className="grid content-start gap-2">

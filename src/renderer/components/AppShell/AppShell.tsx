@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
+  Check,
   ChevronLeft,
   Copy,
   Menu,
@@ -16,9 +17,10 @@ import {
   X,
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
+import { useEditorSettings } from '../../content/editor-settings';
 import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
-import { type AppView, type MobileDrawer } from '../../app/navigation';
+import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
 import {
   ProjectSessionNav,
   type BusinessNavId,
@@ -43,7 +45,7 @@ const labelFade = 'transition-opacity duration-200 ease-out';
 
 /** Ctrl/⌘+数字直达的主视图,序号与侧栏排布一致。 */
 const viewShortcuts: Record<string, AppView> = {
-  '1': 'workbench',
+  '1': 'home',
   '2': 'mail',
   '3': 'timetable',
 };
@@ -167,6 +169,10 @@ type AppShellProps = {
   onOpenSession: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onOpenGeneralChat: () => void;
+  /** 「资料」入口：进入通用（资料）工作台。 */
+  onOpenSources: () => void;
+  /** 焦点工作组的活动标签是否为会话；通用池内据此互斥高亮「通用聊天/资料」。 */
+  activeTabIsChat: boolean;
   onNavigateBusiness: (id: BusinessNavId) => void;
 };
 
@@ -194,9 +200,12 @@ export function AppShell({
   onOpenSession,
   onDeleteSession,
   onOpenGeneralChat,
+  onOpenSources,
+  activeTabIsChat,
   onNavigateBusiness,
 }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(200);
+  const wordWrap = useEditorSettings((state) => state.wordWrap);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('dela.shell.sidebar-collapsed') === 'true';
@@ -269,6 +278,18 @@ export function AppShell({
   });
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) return;
+      if (
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'z'
+      ) {
+        event.preventDefault();
+        useEditorSettings.getState().toggleWordWrap();
+        return;
+      }
       if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
       const { navigate, onImportFiles, onNewProject, stepZoom } = shortcutsRef.current;
       const key = event.key.toLowerCase();
@@ -294,9 +315,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0.375rem_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-sidebar transition-[grid-template-columns] duration-200 ease-out',
-        // 窄屏内容区通栏，去掉浮岛左侧间隙列
-        narrow && 'grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)]',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-sidebar transition-[grid-template-columns] duration-200 ease-out',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -399,8 +418,8 @@ export function AppShell({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('workbench'))}>
-                  工作台
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('home'))}>
+                  首页
                   <DropdownMenuShortcut>Ctrl/⌘1</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={selectMenu(() => navigate('mail'))}>
@@ -410,6 +429,16 @@ export function AppShell({
                 <DropdownMenuItem onSelect={selectMenu(() => navigate('timetable'))}>
                   课表
                   <DropdownMenuShortcut>Ctrl/⌘3</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  role="menuitemcheckbox"
+                  aria-checked={wordWrap}
+                  onSelect={selectMenu(() => useEditorSettings.getState().toggleWordWrap())}
+                >
+                  <Check className={cn('size-4', !wordWrap && 'invisible')} />
+                  自动换行
+                  <DropdownMenuShortcut>Alt+Z</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
@@ -495,6 +524,7 @@ export function AppShell({
                   <ShortcutRow keys={[modKey, '\\']} label="向右分屏" />
                   <ShortcutRow keys={[modKey, 'W']} label="关闭标签" />
                   <ShortcutRow keys={['Alt', '1…9']} label="聚焦工作组" />
+                  <ShortcutRow keys={['Alt', 'Z']} label="切换源码 / 文本自动换行" />
                   <ShortcutRow hint="关闭标签" label="中键点击标签" />
                   <ShortcutRow hint="新建笔记" label="双击目录空白处" />
                 </ShortcutSection>
@@ -538,8 +568,8 @@ export function AppShell({
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
             <button
               className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-sidebar-accent"
-              onClick={() => navigate('workbench')}
-              title="回到工作台"
+              onClick={onOpenGeneralChat}
+              title="回到首页"
               type="button"
             >
               <DelaBrand className="h-[18px] w-auto" />
@@ -593,10 +623,11 @@ export function AppShell({
                 : null
             }
             activeProjectId={view === 'workbench' ? projectId : null}
-            activeSessionId={activeSessionId}
+            activeSessionId={view === 'home' ? null : activeSessionId}
             collapsed={!narrow && sidebarCollapsed}
-            generalChatActive={view === 'workbench' && projectId === null}
+            generalChatActive={view === 'home'}
             onDeleteSession={onDeleteSession}
+            onNewChat={(id) => void useNavigationStore.getState().newChat(id)}
             onNavigateBusiness={onNavigateBusiness}
             onNewProject={() => {
               onNewProject();
@@ -611,8 +642,13 @@ export function AppShell({
               if (narrow) onMobileDrawerChange?.(null);
             }}
             onOpenSession={onOpenSession}
+            onOpenSources={() => {
+              onOpenSources();
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
             runBadge={runBadge}
             sessionsByProject={sessionsByProject}
+            sourcesActive={view === 'workbench' && projectId === null && !activeTabIsChat}
           />
           <div className="grid shrink-0 gap-0.5 pt-2">
             <button
@@ -675,7 +711,7 @@ export function AppShell({
       />
       {/* relative + id：供页内悬浮面板（如会话历史）portal 锚定到内容区。 */}
       {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。
-          左侧留白由网格的 0.375rem 间隙列提供，拖拽条列因此紧贴卡片边框，避免高亮线与分界线分离。 */}
+          侧栏不额外预留间隙；分隔线仅占 1px，拖动命中范围由 Resizer 的透明伪元素扩展。 */}
       <main
         className={cn(
           'relative col-start-4 row-start-2 mt-1.5 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-xl border border-b-0 border-border/70 bg-background shadow-xs',

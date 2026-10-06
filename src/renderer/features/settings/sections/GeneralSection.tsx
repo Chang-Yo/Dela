@@ -31,14 +31,13 @@ export function GeneralSection() {
 
   return (
     <div className="grid gap-5">
-      <SectionHeader description="应用的基础行为设置。" title="通用" />
+      <SectionHeader title="通用" />
       <section
         className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
         data-setting-id="open-at-login"
       >
         <div className="grid content-start gap-2">
           <h2 className="text-sm font-medium">开机自启动</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">登录系统后自动启动 Dela。</p>
         </div>
         <div className="flex items-center justify-end">
           <Switch
