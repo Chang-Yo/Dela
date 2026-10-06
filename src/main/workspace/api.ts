@@ -190,6 +190,53 @@ export async function openEntryExternally(id: string): Promise<'vscode' | 'syste
   return 'system';
 }
 
+/** 只接受项目身份；磁盘路径由 main 从条目解析，不接受 renderer 传入路径或命令。 */
+export async function openProjectDirectory(id: unknown, target: unknown): Promise<void> {
+  const projectId = idSchema.parse(id);
+  const action = z.enum(['vscode', 'explorer', 'terminal']).parse(target);
+  prepareStorage();
+  const item = entry(projectId);
+  if (item.kind !== 'project') throw new Error('只有项目可以使用此入口');
+  const path = entryLocalPath(item);
+  if (!statSync(path).isDirectory()) throw new Error('项目目录不存在');
+  if (action === 'vscode') return openInVsCode(path);
+  if (action === 'explorer') {
+    const error = await shell.openPath(path);
+    if (error) throw new Error(`无法打开项目目录：${error}`);
+    return;
+  }
+  const launch = (command: string, args: string[]) =>
+    new Promise<void>((resolve, reject) => {
+      execFile(
+        command,
+        args,
+        {
+          cwd: path,
+          windowsHide: true,
+          env: { ...process.env, DELA_PROJECT_DIRECTORY: path },
+        },
+        (error) => (error ? reject(error) : resolve()),
+      );
+    });
+  if (process.platform === 'win32') {
+    try {
+      // 使用 cwd + '.'，避免 Windows Terminal 把目录中的分号解析为多个命令。
+      await launch('wt.exe', ['-w', 'new', 'new-tab', '-d', '.']);
+    } catch {
+      // 辅助进程隐藏；Start-Process 创建用户请求的可见交互终端。
+      await launch('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Start-Process powershell.exe -WorkingDirectory $env:DELA_PROJECT_DIRECTORY',
+      ]);
+    }
+    return;
+  }
+  if (process.platform === 'darwin') return launch('open', ['-a', 'Terminal', path]);
+  throw new Error('当前平台暂不支持打开终端');
+}
+
 async function openInVsCode(path: string): Promise<void> {
   const locate = (finder: string) =>
     new Promise<string>((resolve, reject) => {
@@ -205,9 +252,27 @@ async function openInVsCode(path: string): Promise<void> {
       });
     });
   const cli = await locate(process.platform === 'win32' ? 'where' : 'which');
+  // Windows CLI 是批处理脚本；直接启动同安装目录的 Code.exe，路径不经 shell 展开。
+  const executable = process.platform === 'win32' ? join(dirname(cli), '..', 'Code.exe') : cli;
+  if (process.platform === 'win32' && !existsSync(executable))
+    throw new Error('未找到 VS Code 程序，可改用资源管理器打开项目。');
+  if (process.platform === 'win32') {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(executable, [path], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      child.once('error', (error) => reject(new Error(`启动 VS Code 失败：${error.message}`)));
+      child.once('spawn', () => {
+        child.unref();
+        resolve();
+      });
+    });
+    return;
+  }
   await new Promise<void>((resolve, reject) => {
-    // Windows 的 code 是 .cmd 脚本，必须经 shell 启动；路径中不允许引号，手工加引号安全。
-    const child = spawn(`"${cli}" "${path}"`, { shell: true, stdio: 'ignore', windowsHide: true });
+    const child = spawn(executable, [path], { stdio: 'ignore', windowsHide: true });
     const timer = setTimeout(() => {
       // CLI 偶发不退出（更新提示等）；能运行到超时说明命令本身已找到并启动，按成功处理。
       child.removeAllListeners();

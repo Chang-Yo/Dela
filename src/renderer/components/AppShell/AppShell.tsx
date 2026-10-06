@@ -5,8 +5,11 @@ import {
   ArrowRight,
   Bell,
   Check,
+  ChevronDown,
   ChevronLeft,
+  CodeXml,
   Copy,
+  FolderOpen,
   Menu,
   Minus,
   PanelLeft,
@@ -14,10 +17,12 @@ import {
   Search,
   Settings,
   Square,
+  SquareTerminal,
   X,
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
 import { useEditorSettings } from '../../content/editor-settings';
+import { errorText } from '../../workspace/store';
 import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
@@ -215,6 +220,15 @@ export function AppShell({
   const drawer = mobileDrawer ?? null;
   const [helpOpen, setHelpOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<TitleMenuId | null>(null);
+  const [projectOpenTarget, setProjectOpenTarget] = useState<'vscode' | 'explorer'>(() => {
+    try {
+      return localStorage.getItem('dela.project.open-target') === 'explorer'
+        ? 'explorer'
+        : 'vscode';
+    } catch {
+      return 'vscode';
+    }
+  });
   const explorerMobileOpen = useExplorerState((s) => s.mobileOpen);
   const viewportWidth = useViewportWidth();
 
@@ -259,6 +273,22 @@ export function AppShell({
   }, [drawer, narrow, onMobileDrawerChange, view]);
 
   const navHidden = narrow ? drawer === null : sidebarCollapsed;
+
+  const openProjectDirectory = (target: 'vscode' | 'explorer' | 'terminal') => {
+    if (view !== 'workbench' || !projectId || !window.dela) return;
+    if (target !== 'terminal') {
+      setProjectOpenTarget(target);
+      try {
+        localStorage.setItem('dela.project.open-target', target);
+      } catch {
+        /* Storage may be unavailable. */
+      }
+    }
+    useNavigationStore.getState().setNavigationError(null);
+    void window.dela.workspace.openProjectDirectory(projectId, target).catch((cause: unknown) => {
+      useNavigationStore.getState().setNavigationError(errorText(cause));
+    });
+  };
 
   const navigate = (next: AppView) => {
     onNavigate(next);
@@ -539,6 +569,62 @@ export function AppShell({
                 type="button"
               >
                 <Search className="size-4" strokeWidth={1.8} />
+              </button>
+            </div>
+          )}
+          {view === 'workbench' && projectId && window.dela && (
+            <div className="[-webkit-app-region:no-drag] flex shrink-0 items-center gap-1 px-2">
+              <div className="flex h-7 items-center rounded-md border border-border">
+                <button
+                  aria-label={
+                    projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
+                  }
+                  className="grid size-7 place-items-center rounded-l-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+                  onClick={() => openProjectDirectory(projectOpenTarget)}
+                  title={
+                    projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
+                  }
+                  type="button"
+                >
+                  {projectOpenTarget === 'vscode' ? (
+                    <CodeXml className="size-4 text-primary" />
+                  ) : (
+                    <FolderOpen className="size-4" />
+                  )}
+                </button>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      aria-label="选择项目打开方式"
+                      className="grid h-full w-6 place-items-center rounded-r-md border-l border-border text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+                      title="选择项目打开方式"
+                      type="button"
+                    >
+                      <ChevronDown className="size-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => openProjectDirectory('explorer')}>
+                      <FolderOpen />
+                      资源管理器
+                      {projectOpenTarget === 'explorer' && <Check className="ml-auto" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => openProjectDirectory('vscode')}>
+                      <CodeXml className="text-primary" />
+                      VS Code
+                      {projectOpenTarget === 'vscode' && <Check className="ml-auto" />}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <button
+                aria-label="打开项目终端"
+                className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+                onClick={() => openProjectDirectory('terminal')}
+                title="打开项目终端"
+                type="button"
+              >
+                <SquareTerminal className="size-4" strokeWidth={1.8} />
               </button>
             </div>
           )}

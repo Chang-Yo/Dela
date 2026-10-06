@@ -212,6 +212,8 @@ function createSession(
         confirmButton: '确定',
       },
       [Crepe.Feature.BlockEdit]: {
+        // 只关闭悬浮添加/拖拽手柄，保留同一功能中的 / 插入菜单。
+        blockHandle: { shouldShow: () => false },
         textGroup: {
           label: '文本',
           text: { label: '正文' },

@@ -25,6 +25,8 @@ export const workspace = {
     invoke('workspace:create-note-copy', id, parentId ?? null),
   openExternal: (id: string) =>
     invoke('workspace:open-external', id) as Promise<'vscode' | 'system'>,
+  openProjectDirectory: (id: string, target: 'vscode' | 'explorer' | 'terminal') =>
+    invoke('workspace:open-project-directory', id, target),
   exportOfficePdf: (ref: ResourceRef) => invoke('workspace:export-office-pdf', ref),
   onOfficeExportProgress: (listener: (event: OfficeExportEvent) => void) =>
     on<OfficeExportEvent>('workspace:export-office-progress', listener),

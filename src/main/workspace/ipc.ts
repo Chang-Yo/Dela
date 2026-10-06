@@ -13,6 +13,7 @@ import {
   saveNoteImage,
   createMarkdownNoteCopy,
   openEntryExternally,
+  openProjectDirectory,
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
@@ -67,6 +68,7 @@ export function registerWorkspaceIpc(subscribeChat: (client: WebContents) => voi
     createMarkdownNoteCopy(idSchema.parse(id), idSchema.nullable().parse(parentId ?? null)),
   );
   handle('open-external', (id) => openEntryExternally(idSchema.parse(id)));
+  handle('open-project-directory', openProjectDirectory);
   // 导出过程要把阶段事件推给发起窗口，与 quick-look 一样需要 event，走独立注册。
   ipcMain.handle('workspace:export-office-pdf', (event, ref) => {
     checkWorkspaceSender(event);

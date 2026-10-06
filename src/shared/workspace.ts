@@ -57,6 +57,8 @@ export interface WorkspaceApi {
   createNoteCopy(id: string, parentId?: string | null): Promise<MarkdownNoteCopyResult>;
   /** 在 VS Code 或系统默认应用中打开条目文件。 */
   openExternal(id: string): Promise<'vscode' | 'system'>;
+  /** 打开项目目录，main 验证项目身份并解析本地路径。 */
+  openProjectDirectory(id: string, target: 'vscode' | 'explorer' | 'terminal'): Promise<void>;
   /** 把 pptx 经 PowerPoint 导出为 PDF（仅 Windows）：存入「预览导出」并建立关联。 */
   exportOfficePdf(ref: ResourceRef): Promise<void>;
   /** pptx 导出过程的阶段与进度通知。 */

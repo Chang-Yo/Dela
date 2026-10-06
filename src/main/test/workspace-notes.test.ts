@@ -6,8 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { shell } from 'electron';
+import { EventEmitter } from 'node:events';
 
-const state = vi.hoisted(() => ({ root: '' }));
+const state = vi.hoisted(() => ({ root: '', execFile: vi.fn(), spawn: vi.fn() }));
+vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPath: vi.fn() } }));
 vi.mock('../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
@@ -22,6 +25,7 @@ import {
   saveNoteImage,
   saveWorkspaceNote,
   updateWorkspaceEntry,
+  openProjectDirectory,
 } from '../workspace/api';
 
 const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
@@ -94,6 +98,96 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(state.root, { recursive: true, force: true });
+});
+
+describe('打开项目目录', () => {
+  it('VS Code 接收完整路径参数，不把特殊字符交给 shell', async () => {
+    if (process.platform !== 'win32') return;
+    const project = createWorkspaceEntry({
+      parentId: null,
+      name: '项目 % & 中文',
+      kind: 'project',
+    });
+    const code = join(state.root, 'VS Code', 'Code.exe');
+    mkdirSync(dirname(code), { recursive: true });
+    writeFileSync(code, '');
+    state.execFile.mockImplementation((_command, _args, callback) => {
+      callback(null, join(dirname(code), 'bin', 'code.cmd'));
+    });
+    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+    state.spawn.mockImplementation(() => {
+      queueMicrotask(() => child.emit('spawn'));
+      return child;
+    });
+    await openProjectDirectory(project.id, 'vscode');
+    expect(state.spawn).toHaveBeenLastCalledWith(code, [join(workspaceRoot(), '项目 % & 中文')], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+  });
+
+  it('Windows Terminal 启动失败时回退 PowerShell，并安全传递项目工作目录', async () => {
+    if (process.platform !== 'win32') return;
+    const project = createWorkspaceEntry({
+      parentId: null,
+      name: '项目 ; & 中文',
+      kind: 'project',
+    });
+    state.execFile.mockImplementation((command, _args, _options, callback) => {
+      callback(command === 'wt.exe' ? new Error('ENOENT') : null);
+    });
+    await openProjectDirectory(project.id, 'terminal');
+    expect(state.execFile).toHaveBeenCalledWith(
+      'wt.exe',
+      ['-w', 'new', 'new-tab', '-d', '.'],
+      expect.objectContaining({ cwd: join(workspaceRoot(), '项目 ; & 中文'), windowsHide: true }),
+      expect.any(Function),
+    );
+    expect(state.execFile).toHaveBeenLastCalledWith(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Start-Process powershell.exe -WorkingDirectory $env:DELA_PROJECT_DIRECTORY',
+      ],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          DELA_PROJECT_DIRECTORY: join(workspaceRoot(), '项目 ; & 中文'),
+        }),
+      }),
+      expect.any(Function),
+    );
+  });
+
+  it('打开项目当前目录，重命名后使用新路径', async () => {
+    const project = createWorkspaceEntry({
+      parentId: null,
+      name: '项目 % & 中文',
+      kind: 'project',
+    });
+    vi.mocked(shell.openPath).mockResolvedValue('');
+    await openProjectDirectory(project.id, 'explorer');
+    expect(shell.openPath).toHaveBeenLastCalledWith(join(workspaceRoot(), '项目 % & 中文'));
+    updateWorkspaceEntry(project.id, { name: '新项目' });
+    await openProjectDirectory(project.id, 'explorer');
+    expect(shell.openPath).toHaveBeenLastCalledWith(join(workspaceRoot(), '新项目'));
+  });
+
+  it('拒绝普通文件夹、无效项目 ID 和未知打开方式', async () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: '资料', kind: 'folder' });
+    await expect(openProjectDirectory(folder.id, 'explorer')).rejects.toThrow('只有项目');
+    await expect(openProjectDirectory('invalid', 'explorer')).rejects.toThrow();
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    await expect(openProjectDirectory(project.id, 'unknown')).rejects.toThrow();
+  });
+
+  it('系统打开失败时报告错误', async () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    vi.mocked(shell.openPath).mockResolvedValueOnce('目录无法打开');
+    await expect(openProjectDirectory(project.id, 'explorer')).rejects.toThrow('目录无法打开');
+  });
 });
 
 describe('createWorkspaceEntry', () => {

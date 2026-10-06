@@ -10,6 +10,15 @@
 
 ---
 
+## 2026-10-06（第六笔）项目标题栏快捷入口与编辑器手柄移除
+
+- 按用户裁决隐藏笔记正文旁的悬浮添加与拖拽手柄，使用 Milkdown 官方 shouldShow 配置，保留同一 BlockEdit 功能内的 `/` 菜单及中文菜单配置。
+- 标题栏最小化左侧增加项目目录分体按钮（VS Code / 资源管理器，记住选择并标记当前项）与独立终端图标；仅项目工作台显示，复用现有尺寸、主题 token、Radix 菜单与导航错误提示。
+- 新增有限 workspace:open-project-directory IPC：main 校验 UUID、项目类型和目标枚举，读取项目当前 local_path，重命名后使用新目录；renderer 不接触本地路径。Windows 使用 wt 新窗口，cwd + `-d .` 避免分号目录被当作多个命令，失败时通过固定 PowerShell 命令与环境变量传递目录；macOS 调系统 Terminal。
+- VS Code 沿用现有 code 命令查找，Windows 由标准安装目录的 Code.exe 直接接受路径参数，启动后解除父子进程绑定；不再经 shell 拼接路径，避免 `%`、`&` 等项目名被解释。
+- 已验证：项目目录与重命名、非项目/无效 ID/未知目标拒绝、系统打开错误，以及 Windows VS Code 路径参数与终端回退/工作目录的针对性回归；工作区笔记与编辑器往返测试合计 22 项通过，三组类型检查与 lint 通过。外部应用在单测中使用桩，未进行外部应用实际启动及界面视觉验收；未运行全量测试、构建、smoke 或打包。
+- 参考：[Milkdown Crepe API](https://milkdown.dev/docs/api/crepe)、[VS Code CLI](https://code.visualstudio.com/docs/configure/command-line)、[Windows Terminal 参数](https://learn.microsoft.com/en-us/windows/terminal/command-line-arguments)，并核对本地安装版本的 BlockEdit 源码。
+
 ## 2026-10-06（第五笔）设置审阅修复：密钥目标绑定、异步保存与快捷键冲突
 
 - 模型密钥检测沿用存储密钥时，main 校验请求地址与已保存地址一致，并使用存储地址发出请求；更改地址后要求显式填写密钥。保存提供商同步禁止在更改地址时沿用旧密钥，拒绝前不修改配置。仅末尾斜杠差异允许沿用。
@@ -980,4 +989,3 @@ Prettier、Oxlint 0 告警、三组类型检查、构建、**182 项单元测试
 - UI 基座批次：新建共享 Textarea（token 对齐 input，BindCard/McpFormDialog 三处迁移）；SelectTrigger 加 min-w-0 max-w-full；全局滚动槽位规则排除 Radix 浮层内容容器（`[data-slot$="-content"]`）。
 - 用户实测发现两处回归并修复（d20d201）：视口钳制误把钳制值同时作为拖拽条 value/max，窄窗下 min==max==value 拖拽锁死且会把钳制值写回偏好（主侧栏与目录两处，恢复绑定偏好值与原上限）；「展开目录」按钮的 @max-[240px]:hidden 使窄组下唯一重开目录的入口消失（撤销该隐藏）。另确认侧栏「项目」分区、项目行点击、文件菜单「新建项目」均在，仅项目悬停菜单删除「打开项目文件/新建对话」两项（行点击与悬停按钮替代，有意去冗余）。
 - 已验证：三组类型检查、Oxlint（397 文件 0 警告）、64 文件 588 项单测、`pnpm build`。待验证（实机审阅）：月历窄容器压缩态与色点观感、步进器横向行的折行表现、遮罩变暗与抽屉动画、设置导航渐隐遮罩、PDF 新「适合宽度」按钮位置、导出横幅紧凑形态；动画一律由用户审阅。遗留：仓库另有 4 处手写 textarea（ChatThread / step-controls / CommandsSection / TodoView）未迁移，待后续统一。
-
