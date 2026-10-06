@@ -108,6 +108,11 @@ export function registerWorkspaceIpc(subscribeChat: (client: WebContents) => voi
       .get(id) as { path: string | null };
     const path = item.kind === 'note' ? notePath(item) : stored.path;
     if (!path) throw new Error('此内容没有本地文件');
+    if (item.kind === 'project' || item.kind === 'folder') {
+      const error = await shell.openPath(path);
+      if (error) throw new Error(error);
+      return;
+    }
     shell.showItemInFolder(path);
   });
   handle('choose-directory', async () => {

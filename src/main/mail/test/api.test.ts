@@ -290,6 +290,24 @@ describe('mail local trash and folder sync', () => {
       }
     });
 
+  it('reports credential failure as sync state without throwing or losing cached mail', () => {
+    const folderId = insertFolder(db, 'INBOX', '\\Inbox');
+    insertMessage(db, folderId, 10);
+    vi.mocked(loadMailCredentials).mockImplementationOnce(() => {
+      throw new Error('凭据无法解密');
+    });
+    expect(() => startMailSync()).not.toThrow();
+    expect(syncStatus).toMatchObject({ phase: 'error', error: '凭据无法解密' });
+    expect(listMailMessages(folderId)).toHaveLength(1);
+  });
+
+  it('shows the configure entry when credentials have been cleared, keeping the cached account', () => {
+    vi.mocked(loadMailCredentials).mockReturnValueOnce(null);
+    expect(getMailState().account).toBeNull();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM mail_accounts').get()).toEqual({ n: 1 });
+    expect(getMailState().account?.address).toBe('reader@example.com');
+  });
+
   it('runSync purges server drafts once, skips \\Drafts/\\Trash, and cascades stale local rows', async () => {
     imapHarness.folders = [
       asFolder('INBOX', '\\Inbox'),

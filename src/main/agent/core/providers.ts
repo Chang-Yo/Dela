@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { LlmProviderView, LlmVerifyResult } from '../../../shared/api';
 import { reasoningEffortLevels } from '../../../shared/llm-presets';
 import {
+  CredentialDecryptionError,
   loadLlmConfig,
   saveLlmConfig,
   type StoredLlmConfig,
@@ -74,7 +75,14 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
   const baseUrl = parsed.baseUrl.replace(/\/+$/, '');
   const presetId = parsed.presetId ?? null;
   const effortLevels = normalizeEffortLevels(parsed.effortLevels);
-  const config = loadLlmConfig();
+  let config: StoredLlmConfig;
+  try {
+    config = loadLlmConfig();
+  } catch (cause) {
+    // 添加提供商可重新建立失效配置；编辑已有提供商仍需能读到原配置，不能伪造其内容。
+    if (parsed.id || !(cause instanceof CredentialDecryptionError)) throw cause;
+    config = { providers: [], activeId: null };
+  }
   let provider: StoredLlmProvider | undefined;
   if (parsed.id) {
     provider = config.providers.find(({ id }) => id === parsed.id);

@@ -794,8 +794,18 @@ export function startMailSync(): void {
   if (activeSync) return;
   const account = getAccountRow();
   if (!account) throw new Error('未配置邮箱账号');
-  const credential = loadMailCredentials();
-  if (!credential) throw new Error('未找到邮箱凭据');
+  let credential;
+  try {
+    credential = loadMailCredentials();
+    if (!credential) throw new Error('未找到邮箱凭据，请在设置中重新登录邮箱');
+  } catch (cause) {
+    updateSync({
+      phase: 'error',
+      error: friendlyError(cause),
+      finishedAt: new Date().toISOString(),
+    });
+    return;
+  }
   syncGeneration += 1;
   activeSync = runSync(account, credential.password).finally(() => {
     activeSync = null;
@@ -968,6 +978,15 @@ export async function saveMailAttachment(
 export function getMailState() {
   const db = getDatabase();
   const account = getAccountRow();
+  let configured = false;
+  let credentialError: string | null = null;
+  if (account) {
+    try {
+      configured = loadMailCredentials() !== null;
+    } catch (cause) {
+      credentialError = friendlyError(cause);
+    }
+  }
   if (account) {
     // 读取路径顺带做本地清理：升级后不等下次同步，服务器草稿箱/已删除立即从侧栏消失。
     db.prepare(
@@ -976,8 +995,13 @@ export function getMailState() {
     applyTrashRetention(db);
   }
   return {
-    account: account ? { address: account.address, lastSyncedAt: account.last_synced_at } : null,
-    sync: syncStatus,
+    account:
+      account && configured
+        ? { address: account.address, lastSyncedAt: account.last_synced_at }
+        : null,
+    sync: credentialError
+      ? { ...syncStatus, phase: 'error' as const, error: credentialError }
+      : syncStatus,
   };
 }
 

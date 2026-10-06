@@ -55,6 +55,8 @@ export function registerMailIpc(): void {
     checkWorkspaceSender(event);
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (!owner) return 'cancel';
+    // 隐藏窗口（如托盘退出触发）上的模态对话框不可见，问题永远无人应答会把渲染侧导航闸门卡死。
+    if (!owner.isVisible()) owner.show();
     const { response } = await dialog.showMessageBox(owner, {
       type: 'question',
       title: '保存邮件草稿',

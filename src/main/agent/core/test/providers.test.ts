@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../../../credentials';
+import {
+  CredentialDecryptionError,
+  loadLlmConfig,
+  saveLlmConfig,
+  type StoredLlmConfig,
+} from '../../../credentials';
 import {
   listLlmProviders,
   modelListEndpoints,
@@ -13,6 +18,7 @@ import {
 } from '../providers';
 
 vi.mock('../../../credentials', () => ({
+  CredentialDecryptionError: class extends Error {},
   loadLlmConfig: vi.fn(),
   saveLlmConfig: vi.fn(),
 }));
@@ -42,6 +48,32 @@ const input = {
 };
 
 describe('LLM provider config', () => {
+  it('can add a provider after the old encrypted config becomes unreadable', () => {
+    loadMock.mockImplementation(() => {
+      throw new CredentialDecryptionError('unreadable', undefined);
+    });
+    expect(saveLlmProvider(input).name).toBe(input.name);
+    expect(config.providers).toHaveLength(1);
+    expect(config.providers[0]!.apiKey).toBe(input.apiKey);
+  });
+
+  it('does not replace an unreadable config when editing an existing provider', () => {
+    loadMock.mockImplementation(() => {
+      throw new CredentialDecryptionError('unreadable', undefined);
+    });
+    const writes = saveMock.mock.calls.length;
+    expect(() => saveLlmProvider({ ...input, id: '00000000-0000-4000-8000-000000000001' })).toThrow(
+      'unreadable',
+    );
+    expect(saveMock.mock.calls).toHaveLength(writes);
+  });
+
+  it('does not treat unrelated read failures as an empty config', () => {
+    loadMock.mockImplementation(() => {
+      throw new Error('EACCES');
+    });
+    expect(() => saveLlmProvider(input)).toThrow('EACCES');
+  });
   it('saves a new provider with a generated id and returns the masked view', () => {
     const view = saveLlmProvider(input);
     expect(view).toEqual({
