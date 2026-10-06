@@ -3,6 +3,7 @@ import { KeyRound, LogIn } from 'lucide-react';
 import type { ShuiyuanState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
+import { Textarea } from '../../components/ui/textarea';
 import { errorText } from '../../workspace/store';
 import { useShuiyuan } from './store';
 
@@ -81,9 +82,9 @@ export function BindCard() {
             <KeyRound className="size-3.5" />
             在窗口中点击「授权」后，复制页面显示的密钥并粘贴到这里
           </label>
-          <textarea
+          <Textarea
             aria-invalid={Boolean(error)}
-            className="min-h-20 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:border-destructive dark:bg-input/30"
+            className="min-h-20 resize-y py-2 font-mono text-xs"
             id="shuiyuan-payload"
             onChange={(event) => setPayload(event.target.value)}
             placeholder="粘贴授权密文"

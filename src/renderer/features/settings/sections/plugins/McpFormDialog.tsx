@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
+import { Textarea } from '../../../../components/ui/textarea';
 import type { McpServerView } from '../../../../../shared/api';
 import { errorText } from '../../../../workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
-/** code 类 textarea（args/env），样式与连接页令牌输入一致。 */
-const codeAreaClass =
-  'min-h-20 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:border-destructive dark:bg-input/30';
+/** code 类 textarea（args/env）共用特化：等宽小字号、代码区最小高度可拉伸。 */
+const codeAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 
 /** MCP 添加/编辑共用表单：新建提交 addMcpServer；编辑提交部分补丁（command/args/env 留空保持原值，视图不携带现值）。 */
 export function McpFormDialog({
@@ -98,7 +98,7 @@ export function McpFormDialog({
             </label>
             <label className="grid gap-2 text-sm">
               参数（每行一个）
-              <textarea
+              <Textarea
                 className={codeAreaClass}
                 onChange={(event) => setArgsText(event.target.value)}
                 placeholder={'-y\n@modelcontextprotocol/server-weather'}
@@ -109,7 +109,7 @@ export function McpFormDialog({
             </label>
             <label className="grid gap-2 text-sm">
               环境变量（每行 KEY=VALUE）
-              <textarea
+              <Textarea
                 className={codeAreaClass}
                 onChange={(event) => setEnvText(event.target.value)}
                 placeholder={'WEATHER_API_KEY=…'}

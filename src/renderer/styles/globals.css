@@ -417,9 +417,11 @@
 
 /* 滚动容器常驻竖向滚动条槽位：轨道透明，未溢出时不可见；内容增长只淡入滑块，
    不再挤占内容宽度触发重排。置于层外以覆盖 Tailwind 的 overflow-y:auto，
-   新增滚动区域自动获得此行为；横向滚动条仍按需出现，不预留高度。 */
-.overflow-y-auto,
-.overflow-auto {
+   新增滚动区域自动获得此行为；横向滚动条仍按需出现，不预留高度。
+   例外：Radix 浮层内容容器（data-slot 以 -content 结尾，如 Select / DropdownMenu
+   的弹层）尺寸紧贴内容，常驻槽位会在面板内多出一条空竖槽，故排除，滚动条按需出现。 */
+.overflow-y-auto:not([data-slot$='-content']),
+.overflow-auto:not([data-slot$='-content']) {
   overflow-y: scroll;
 }
 
