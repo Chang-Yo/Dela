@@ -12,7 +12,7 @@ import {
 } from '../../../components/ui/select';
 import { SectionHeader } from '../SectionHeader';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
-import { ArchivedSessions } from './ArchivedSessions';
+import { useProjectNavPrefs } from '../../../navigation/store';
 
 /** 重置后的默认布局：单组空标签（workbench 的 createDefaultLayout 同构）。 */
 const defaultLayout: WorkbenchLayout = {
@@ -33,9 +33,15 @@ const editModeLabels: Record<NoteEditModePreference, string> = {
   source: 'Markdown 源码',
 };
 
-/** 设置 › 工作区：工作目录、启动恢复、默认笔记编辑方式与当前项目布局重置。 */
+/** 设置 › 工作区：工作目录、启动恢复、默认笔记编辑方式、当前项目布局重置与隐藏项目恢复。 */
 export function WorkspaceSection() {
   const directory = useWorkspaceStore((state) => state.workspace.directory);
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
+  const projectPrefs = useProjectNavPrefs((state) => state.projects);
+  const setProject = useProjectNavPrefs((state) => state.setProject);
+  const hiddenProjects = entries.filter(
+    (entry) => entry.kind === 'project' && projectPrefs[entry.id]?.hidden,
+  );
   // null 表示尚未读到当前状态，控件保持禁用避免闪烁出错误的默认值。
   const [prefs, setPrefs] = useState<WorkspacePrefs | null>(null);
   const [busy, setBusy] = useState(false);
@@ -95,7 +101,6 @@ export function WorkspaceSection() {
   return (
     <div className="grid gap-5">
       <SectionHeader title="工作区" />
-      <ArchivedSessions />
       {error && (
         <p className="text-xs text-destructive" role="alert">
           {error}
@@ -207,6 +212,26 @@ export function WorkspaceSection() {
           ) : null}
         </div>
       </section>
+      {/* 隐藏只收起导航入口，项目文件与会话都还在；此处提供恢复。 */}
+      {hiddenProjects.length > 0 && (
+        <section className="grid gap-3 rounded-xl border bg-card p-5 max-md:p-4">
+          <h2 className="text-sm font-medium">已隐藏项目</h2>
+          <div className="grid gap-2">
+            {hiddenProjects.map((project) => (
+              <div className="flex items-center gap-3" key={project.id}>
+                <span className="min-w-0 flex-1 truncate text-sm">{project.name}</span>
+                <Button
+                  onClick={() => setProject(project.id, { hidden: false })}
+                  size="sm"
+                  variant="secondary"
+                >
+                  恢复入口
+                </Button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

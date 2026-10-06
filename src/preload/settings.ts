@@ -1,6 +1,7 @@
 import type {
   FontScalePreference,
   IconPreference,
+  KeybindingOverrides,
   SettingsApi,
   TaskNotificationPrefs,
   ThemePreference,
@@ -29,4 +30,9 @@ export const settings = {
   getWorkspacePrefs: () => invoke('settings:get-workspace-prefs'),
   setWorkspacePrefs: (prefs: Partial<WorkspacePrefs>) =>
     invoke('settings:set-workspace-prefs', prefs),
+  getKeybindings: () => invoke('settings:get-keybindings'),
+  setKeybindings: (patch: KeybindingOverrides) => invoke('settings:set-keybindings', patch),
+  resetKeybindings: () => invoke('settings:reset-keybindings'),
+  getInstruction: () => invoke('settings:get-instruction'),
+  setInstruction: (text: string) => invoke('settings:set-instruction', text),
 } satisfies SettingsApi;

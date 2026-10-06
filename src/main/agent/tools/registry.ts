@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { agentTools } from './index';
+import { agentTools, toolDomains } from './index';
+import { isToolDisabled, readDisabledTools } from './disabled';
 import { ToolError } from './shared';
 
 // 旧会话上下文里的旧工具名 → 新名（阶段二重设计改名，decisions-phase1 裁决 9）。
@@ -19,8 +20,14 @@ function resolveToolName(name: string) {
 // MCP 工具并集与路由经注入获得（结构 §2.3：capabilities → tools 单向）。
 // 本模块若静态 import capabilities 会与 mcp.ts 的 agentTools 取用成环。
 export interface McpRouting {
-  mcpToolDefinitions(): { type: 'function'; function: { name: string; description: string; parameters?: unknown } }[];
-  executeMcpTool(name: string, input: unknown): Promise<{ ok: boolean; error?: { code: string; message: string } }>;
+  mcpToolDefinitions(): {
+    type: 'function';
+    function: { name: string; description: string; parameters?: unknown };
+  }[];
+  executeMcpTool(
+    name: string,
+    input: unknown,
+  ): Promise<{ ok: boolean; error?: { code: string; message: string } }>;
 }
 let mcpRouting: McpRouting | null = null;
 export function setMcpRouting(routing: McpRouting): void {
@@ -28,14 +35,18 @@ export function setMcpRouting(routing: McpRouting): void {
 }
 
 export function modelToolDefinitions() {
-  const definitions = Object.entries(agentTools).map(([name, tool]) => ({
-    type: 'function' as const,
-    function: {
-      name,
-      description: tool.description,
-      parameters: z.toJSONSchema(tool.schema, { io: 'input' }),
-    },
-  }));
+  // 用户在设置 › 内置能力中关闭的工具不下发给模型（本轮 Run 即时生效，无启动期缓存）。
+  const disabled = readDisabledTools();
+  const definitions = Object.entries(agentTools)
+    .filter(([name]) => !disabled.has(name))
+    .map(([name, tool]) => ({
+      type: 'function' as const,
+      function: {
+        name,
+        description: tool.description,
+        parameters: z.toJSONSchema(tool.schema, { io: 'input' }),
+      },
+    }));
   // MCP 动态工具（mcp_<server>_<tool>）并入集合（阶段四 §5.3）；参数透传服务器声明的
   // JSON Schema，缺省按空对象参数处理（归一到与内置工具相同的定义形状）。
   const dynamic = mcpRouting?.mcpToolDefinitions() ?? [];
@@ -56,6 +67,17 @@ export function modelToolDefinitions() {
   ];
 }
 
+/** 内置能力清单（设置 › 内置能力）：工具名、描述与所属领域，按 toolDomains 声明顺序返回。 */
+export function listBuiltinTools(): Array<{ name: string; description: string; domain: string }> {
+  return toolDomains.flatMap((domain) =>
+    Object.entries(domain.tools).map(([name, tool]) => ({
+      name,
+      description: tool.description,
+      domain: domain.id,
+    })),
+  );
+}
+
 export async function executeAgentTool(name: string, input: unknown) {
   // MCP 工具按命名空间前缀转给能力层路由回对应服务器连接。
   if (name.startsWith('mcp_')) {
@@ -66,6 +88,13 @@ export async function executeAgentTool(name: string, input: unknown) {
   const resolved = resolveToolName(name);
   if (!Object.hasOwn(agentTools, resolved))
     return { ok: false, error: { code: 'UNKNOWN_TOOL', message: '工具不存在' } };
+  // 执行侧门禁在别名解析之后：运行中被关闭的能力仍可能按旧定义被模型调用（MCP 同款边界），
+  // 用可区分的错误码而不是 UNKNOWN_TOOL，让模型知道这是用户的开关而不是它用错了名字。
+  if (isToolDisabled(resolved))
+    return {
+      ok: false,
+      error: { code: 'DISABLED', message: '该能力已被用户在设置 › 内置能力中关闭，请不要重试' },
+    };
   try {
     const result = await agentTools[resolved as keyof typeof agentTools].execute(input);
     return {

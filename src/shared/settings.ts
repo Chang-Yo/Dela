@@ -1,3 +1,5 @@
+import type { KeybindingOverrides } from './keybindings';
+
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 /** 应用图标底色：white 对应 Dela_white_bg.png，black 对应 Dela_black_bg.png。 */
@@ -47,14 +49,27 @@ export interface SettingsApi {
   getWorkspacePrefs(): Promise<WorkspacePrefs>;
   /** 部分更新：只改传入的字段，其余保持现值。 */
   setWorkspacePrefs(prefs: Partial<WorkspacePrefs>): Promise<WorkspacePrefs>;
+  /** 快捷键覆盖项（只存与默认不同的动作）；null 表示显式解绑。 */
+  getKeybindings(): Promise<KeybindingOverrides>;
+  setKeybindings(patch: KeybindingOverrides): Promise<KeybindingOverrides>;
+  /** 清空全部覆盖，回到默认键位。 */
+  resetKeybindings(): Promise<KeybindingOverrides>;
+  /** Agent 的全局附加 Instruction（设置 › 自定义指令）；空串表示不注入。 */
+  getInstruction(): Promise<string>;
+  setInstruction(text: string): Promise<string>;
 }
 
 export type SettingsSectionId =
   | 'general'
   | 'appearance'
-  | 'notifications'
+  | 'shortcuts'
   | 'workspace'
-  | 'llm'
+  | 'archived'
   | 'connections'
-  | 'plugins'
-  | 'about';
+  | 'providers'
+  | 'capabilities'
+  | 'commands'
+  | 'skills'
+  | 'mcp'
+  | 'about'
+  | 'privacy';

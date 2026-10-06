@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { errorText } from '../../workspace/store';
 
-/** 模型服务快捷配置：选预设厂商并填入 API Key 即可开始对话；完整管理在设置 › 模型服务。 */
+/** 模型服务快捷配置：选预设厂商并填入 API Key 即可开始对话；完整管理在设置 › 模型供应商。 */
 export function ModelKeyForm({ onConfigured }: { onConfigured: () => void }) {
   const [presetId, setPresetId] = useState(llmProviderPresets[0]!.id);
   const [key, setKey] = useState('');

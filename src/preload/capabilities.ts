@@ -10,4 +10,8 @@ export const capabilityApi: CapabilityApi = {
   updateMcpServer: (id, patch) => invoke('capabilities:update-mcp-server', id, patch),
   removeMcpServer: (id) => invoke('capabilities:remove-mcp-server', id),
   refreshMcpServer: (id) => invoke('capabilities:refresh-mcp-server', id),
+  listBuiltinCapabilities: () => invoke('capabilities:list-builtin-capabilities'),
+  setBuiltinCapability: (name, enabled) =>
+    invoke('capabilities:set-builtin-capability', name, enabled),
+  setBuiltinDomain: (domain, enabled) => invoke('capabilities:set-builtin-domain', domain, enabled),
 };

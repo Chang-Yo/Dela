@@ -2,12 +2,15 @@
 // 布局载入（init）由装配层 workbench-shell 负责：home 视图不挂载本组件，若等首条
 // 消息切入工作台才 init，切换会闪一次空白重载；装配层预热后此处首帧即有布局。
 import { type KeyboardEvent } from 'react';
+import type { KeybindingMap } from '../../shared/keybindings';
+import { digitFromEvent, matchShortcut } from '../../shared/keybindings';
 import { useWorkbenchLayout } from './layout-store';
 import { findGroup, walkGroups } from './layout-schema';
 import { SplitNodeView } from './SplitNode';
 import { TabGroup } from './TabGroup';
 
-export function Workbench() {
+/** 键位表由装配层传入（workbench 不反向依赖 app 的快捷键 store）。 */
+export function Workbench({ bindings }: { bindings: KeybindingMap }) {
   const ready = useWorkbenchLayout((s) => s.ready);
   const root = useWorkbenchLayout((s) => s.root);
   const maximized = useWorkbenchLayout((s) => s.maximized);
@@ -17,37 +20,40 @@ export function Workbench() {
     const target = event.target instanceof HTMLElement ? event.target : null;
     if (target?.closest('[role="dialog"], input, textarea, .cm-editor, [contenteditable="true"]'))
       return;
+    const action = matchShortcut(bindings, event.nativeEvent, 'workbench');
+    if (!action) return;
     const store = useWorkbenchLayout.getState();
-    const modifier = event.metaKey || event.ctrlKey;
     // Alt+数字聚焦第 N 组（沿用旧 Alt+1/2，泛化到 N 组）。
-    if (event.altKey && !modifier && /^[1-9]$/.test(event.key)) {
-      const group = walkGroups(store.root)[Number(event.key) - 1];
-      if (group) {
-        event.preventDefault();
-        store.focusGroup(group.id);
-      }
+    if (action === 'focus-group') {
+      const digit = digitFromEvent(event.nativeEvent);
+      const group = digit === null ? undefined : walkGroups(store.root)[digit - 1];
+      if (!group) return;
+      event.preventDefault();
+      store.focusGroup(group.id);
       return;
     }
-    if (!modifier) return;
-    if (event.key === '\\') {
+    if (action === 'split-right') {
       event.preventDefault();
       store.splitGroup(store.focus, 'vertical');
-    } else if (event.key === 'PageDown' || event.key === 'PageUp') {
-      const group = findGroup(store.root, store.focus);
-      if (!group || group.tabs.length < 2) return;
-      event.preventDefault();
-      const current = Math.max(0, group.tabs.indexOf(group.active ?? group.tabs[0]!));
-      const offset = event.key === 'PageDown' ? 1 : -1;
-      store.openTab(
-        group.tabs[(current + offset + group.tabs.length) % group.tabs.length]!,
-        group.id,
-      );
-    } else if (event.key.toLowerCase() === 'w') {
-      const group = findGroup(store.root, store.focus);
+      return;
+    }
+    const group = findGroup(store.root, store.focus);
+    if (action === 'close-tab') {
       if (group?.active) {
         event.preventDefault();
         store.closeTab(group.active, group.id);
       }
+      return;
+    }
+    if (action === 'next-tab' || action === 'previous-tab') {
+      if (!group || group.tabs.length < 2) return;
+      event.preventDefault();
+      const current = Math.max(0, group.tabs.indexOf(group.active ?? group.tabs[0]!));
+      const offset = action === 'next-tab' ? 1 : -1;
+      store.openTab(
+        group.tabs[(current + offset + group.tabs.length) % group.tabs.length]!,
+        group.id,
+      );
     }
   };
 

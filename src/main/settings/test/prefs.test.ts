@@ -7,10 +7,15 @@ let database: DatabaseSync;
 vi.mock('../../database', () => ({ getDatabase: () => database }));
 
 import {
+  getAgentInstruction,
+  getKeybindingOverrides,
   getTaskNotificationPrefs,
   getWorkspacePrefs,
+  resetKeybindingOverrides,
   savedCampusNotifications,
+  setAgentInstruction,
   setCampusNotifications,
+  setKeybindingOverrides,
   setTaskNotificationPrefs,
   setWorkspacePrefs,
 } from '../prefs';
@@ -84,5 +89,84 @@ describe('workspace prefs', () => {
   it('rejects invalid enum values', () => {
     expect(() => setWorkspacePrefs({ defaultNoteEditMode: 'wysiwyg' })).toThrow();
     expect(getWorkspacePrefs()).toEqual({ restoreLastProject: true, defaultNoteEditMode: 'rich' });
+  });
+});
+
+describe('keybinding overrides', () => {
+  it('defaults to no overrides', () => {
+    expect(getKeybindingOverrides()).toEqual({});
+  });
+
+  it('merges patches without touching stored actions', () => {
+    expect(setKeybindingOverrides({ 'global-search': 'Mod+Shift+K' })).toEqual({
+      'global-search': 'Mod+Shift+K',
+    });
+    expect(setKeybindingOverrides({ 'open-home': 'Mod+Shift+H' })).toEqual({
+      'global-search': 'Mod+Shift+K',
+      'open-home': 'Mod+Shift+H',
+    });
+    expect(getKeybindingOverrides()).toEqual({
+      'global-search': 'Mod+Shift+K',
+      'open-home': 'Mod+Shift+H',
+    });
+  });
+
+  it('round-trips an explicit unbind', () => {
+    expect(setKeybindingOverrides({ 'close-tab': null })).toEqual({ 'close-tab': null });
+    expect(getKeybindingOverrides()).toEqual({ 'close-tab': null });
+  });
+
+  it('falls back to empty overrides on corrupt stored JSON', () => {
+    insert("INSERT INTO workspace_settings VALUES ('keybindings', 'not-json')");
+    expect(getKeybindingOverrides()).toEqual({});
+    // 'null' 能通过 JSON.parse 但不是覆盖项对象，读取路径同样不能抛错。
+    insert("INSERT OR REPLACE INTO workspace_settings VALUES ('keybindings', 'null')");
+    expect(getKeybindingOverrides()).toEqual({});
+  });
+
+  it('drops unknown action ids and invalid accelerators inside stored JSON', () => {
+    insert(
+      `INSERT INTO workspace_settings VALUES ('keybindings', '{"not-an-action":"Mod+K","zoom-in":"Nope","open-mail":"Mod+2","close-tab":null}')`,
+    );
+    expect(getKeybindingOverrides()).toEqual({ 'open-mail': 'Mod+2', 'close-tab': null });
+  });
+
+  it('rejects unknown action ids and invalid accelerators instead of persisting them', () => {
+    expect(() => setKeybindingOverrides({ 'not-an-action': 'Mod+K' })).toThrow();
+    expect(() => setKeybindingOverrides({ 'zoom-in': 'Nope' })).toThrow();
+    expect(getKeybindingOverrides()).toEqual({});
+  });
+
+  it('reset clears every override', () => {
+    setKeybindingOverrides({ 'zoom-in': 'Mod+Shift+=', 'close-tab': null });
+    expect(resetKeybindingOverrides()).toEqual({});
+    expect(getKeybindingOverrides()).toEqual({});
+  });
+});
+
+describe('agent instruction', () => {
+  it('defaults to empty so nothing is injected', () => {
+    expect(getAgentInstruction()).toBe('');
+  });
+
+  it('round-trips text and trims surrounding whitespace', () => {
+    expect(setAgentInstruction('  回答先给结论。  ')).toBe('回答先给结论。');
+    expect(getAgentInstruction()).toBe('回答先给结论。');
+  });
+
+  it('rejects over-long text instead of persisting it', () => {
+    expect(() => setAgentInstruction('x'.repeat(2001))).toThrow();
+    expect(getAgentInstruction()).toBe('');
+  });
+
+  it('falls back to empty on corrupted or over-long stored values', () => {
+    insert("INSERT INTO workspace_settings VALUES ('agent-instruction', ?)", 'y'.repeat(2001));
+    expect(getAgentInstruction()).toBe('');
+  });
+
+  it('clearing writes an empty value that stays empty', () => {
+    setAgentInstruction('先给结论。');
+    expect(setAgentInstruction('')).toBe('');
+    expect(getAgentInstruction()).toBe('');
   });
 });

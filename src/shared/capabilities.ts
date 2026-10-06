@@ -35,6 +35,21 @@ export interface McpServerView {
   error: string | null;
 }
 
+/** Agent 内置能力的运行视图（工具表 + 启用态，设置 › 内置能力）。 */
+export interface AgentCapabilityView {
+  /** 工具名，模型侧唯一标识。 */
+  name: string;
+  /** 所属领域 id（canvas / mail / …），设置页按域分组与批量开关。 */
+  domain: string;
+  /** 领域显示名。 */
+  domainLabel: string;
+  /** 提供给模型的工具描述（UI 摘要）。 */
+  description: string;
+  enabled: boolean;
+  /** 常驻能力：被其他工具依赖，不可关闭（UI 只读展示 + 原因）。 */
+  lockedReason?: string;
+}
+
 export interface CapabilityApi {
   listSkills(): Promise<SkillView[]>;
   /** 启停 Skill；返回最新列表（未知名抛错）。 */
@@ -60,4 +75,10 @@ export interface CapabilityApi {
   removeMcpServer(id: string): Promise<McpServerView[]>;
   /** 显式重连并刷新工具列表（连接失败时给模型明确的不可用边界）。 */
   refreshMcpServer(id: string): Promise<McpServerView[]>;
+  /** 内置 Agent 能力（工具）清单与启用态。 */
+  listBuiltinCapabilities(): Promise<AgentCapabilityView[]>;
+  /** 单个内置能力启停；返回最新清单（未知名或常驻能力抛错）。 */
+  setBuiltinCapability(name: string, enabled: boolean): Promise<AgentCapabilityView[]>;
+  /** 按领域批量启停（跳过常驻能力）；返回最新清单。 */
+  setBuiltinDomain(domain: string, enabled: boolean): Promise<AgentCapabilityView[]>;
 }

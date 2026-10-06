@@ -21,6 +21,7 @@ import { useEditorSettings } from '../../content/editor-settings';
 import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
+import { useShortcuts } from '../../app/shortcuts';
 import {
   ProjectSessionNav,
   type BusinessNavId,
@@ -28,6 +29,7 @@ import {
   type SessionRunBadge,
 } from '../../navigation/ProjectSessionNav';
 import { zoomLevels, type ZoomPreference } from '../../../shared/api';
+import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../../shared/keybindings';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,15 +45,8 @@ type TitleMenuId = 'file' | 'view' | 'help';
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
 
-/** Ctrl/⌘+数字直达的主视图,序号与侧栏排布一致。 */
-const viewShortcuts: Record<string, AppView> = {
-  '1': 'home',
-  '2': 'mail',
-  '3': 'timetable',
-};
-
-// 快捷键弹窗的按键提示按运行平台显示 Ctrl 或 ⌘。
-const modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+// 快捷键提示按运行平台显示 ⌘ 或 Ctrl（键位串里的 Mod 由 acceleratorKeys 展开）。
+const platform = /Mac|iPhone|iPad/.test(navigator.platform) ? ('mac' as const) : ('other' as const);
 
 /** 标题栏菜单（文件/视图/帮助）触发按钮的共用样式。 */
 const titleMenuButtonClass =
@@ -206,6 +201,7 @@ export function AppShell({
 }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const wordWrap = useEditorSettings((state) => state.wordWrap);
+  const bindings = useShortcuts((state) => state.bindings);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('dela.shell.sidebar-collapsed') === 'true';
@@ -272,40 +268,57 @@ export function AppShell({
   };
 
   // 快捷键回调经 ref 取最新值：keydown 监听只注册一次，避免每次渲染重绑。
-  const shortcutsRef = useRef({ navigate, onImportFiles, onNewProject, stepZoom });
+  const shortcutsRef = useRef({ navigate, onImportFiles, onNewProject, onSearch, stepZoom });
   useEffect(() => {
-    shortcutsRef.current = { navigate, onImportFiles, onNewProject, stepZoom };
+    shortcutsRef.current = { navigate, onImportFiles, onNewProject, onSearch, stepZoom };
   });
+  useEffect(() => {
+    // 启动时读取一次用户覆盖的键位（默认值首帧即可用）。
+    void useShortcuts.getState().load();
+  }, []);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
-      if (
-        event.altKey &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.shiftKey &&
-        event.key.toLowerCase() === 'z'
-      ) {
-        event.preventDefault();
-        useEditorSettings.getState().toggleWordWrap();
-        return;
-      }
-      if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
-      const { navigate, onImportFiles, onNewProject, stepZoom } = shortcutsRef.current;
-      const key = event.key.toLowerCase();
-      if (key === 'n' && event.shiftKey) {
-        event.preventDefault();
-        onNewProject();
-      } else if (key === 'o' && !event.shiftKey) {
-        event.preventDefault();
-        onImportFiles();
-      } else if (!event.shiftKey && (key === '=' || key === '+' || key === '-' || key === '0')) {
-        event.preventDefault();
-        stepZoom(key === '-' ? -1 : key === '0' ? 0 : 1);
-      } else if (!event.shiftKey && (key === ',' || viewShortcuts[key])) {
-        event.preventDefault();
-        setOpenMenu(null);
-        navigate(key === ',' ? 'settings' : viewShortcuts[key]!);
+      // 动作由键位表解析：用户改键后此处无需改动，未绑定/未命中即不拦截。
+      const action = matchShortcut(useShortcuts.getState().bindings, event, 'global');
+      if (!action) return;
+      const { navigate, onImportFiles, onNewProject, onSearch, stepZoom } = shortcutsRef.current;
+      event.preventDefault();
+      switch (action) {
+        case 'new-project':
+          onNewProject();
+          break;
+        case 'import-files':
+          onImportFiles();
+          break;
+        case 'global-search':
+          setOpenMenu(null);
+          onSearch();
+          break;
+        case 'zoom-in':
+          stepZoom(1);
+          break;
+        case 'zoom-out':
+          stepZoom(-1);
+          break;
+        case 'zoom-reset':
+          stepZoom(0);
+          break;
+        case 'toggle-word-wrap':
+          useEditorSettings.getState().toggleWordWrap();
+          break;
+        case 'open-home':
+          navigate('home');
+          break;
+        case 'open-mail':
+          navigate('mail');
+          break;
+        case 'open-timetable':
+          navigate('timetable');
+          break;
+        case 'open-settings':
+          navigate('settings');
+          break;
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -492,7 +505,7 @@ export function AppShell({
               <div>
                 <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
                 <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-                  以下快捷键在任何界面均直接生效。
+                  与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
                 </Dialog.Description>
               </div>
               <Dialog.Close asChild>
@@ -506,29 +519,28 @@ export function AppShell({
               </Dialog.Close>
             </div>
             <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
-              <ShortcutSection title="导航">
-                <ShortcutRow keys={[modKey, '1']} label="工作台" />
-                <ShortcutRow keys={[modKey, '2']} label="邮箱" />
-                <ShortcutRow keys={[modKey, '3']} label="课表" />
-                <ShortcutRow keys={[modKey, ',']} label="设置" />
+              {/* 提示按当前生效键位渲染：用户在设置里改键后此处同步。 */}
+              {shortcutGroups().map((group) => (
+                <ShortcutSection key={group.title} title={group.title}>
+                  {group.actions.map((action) => {
+                    const keys = bindings[action.id]
+                      ? acceleratorKeys(bindings[action.id], platform, action.family)
+                      : null;
+                    return (
+                      <ShortcutRow
+                        hint={keys ? undefined : '未绑定'}
+                        key={action.id}
+                        keys={keys ?? undefined}
+                        label={action.label}
+                      />
+                    );
+                  })}
+                </ShortcutSection>
+              ))}
+              <ShortcutSection title="鼠标">
+                <ShortcutRow hint="关闭标签" label="中键点击标签" />
+                <ShortcutRow hint="新建笔记" label="双击目录空白处" />
               </ShortcutSection>
-              <div className="flex flex-col gap-8">
-                <ShortcutSection title="通用">
-                  <ShortcutRow keys={[modKey, '⇧', 'N']} label="新建项目" />
-                  <ShortcutRow keys={[modKey, 'O']} label="导入本地文件" />
-                  <ShortcutRow keys={[modKey, '=']} label="放大" />
-                  <ShortcutRow keys={[modKey, '-']} label="缩小" />
-                  <ShortcutRow keys={[modKey, '0']} label="重置缩放" />
-                </ShortcutSection>
-                <ShortcutSection title="工作台">
-                  <ShortcutRow keys={[modKey, '\\']} label="向右分屏" />
-                  <ShortcutRow keys={[modKey, 'W']} label="关闭标签" />
-                  <ShortcutRow keys={['Alt', '1…9']} label="聚焦工作组" />
-                  <ShortcutRow keys={['Alt', 'Z']} label="切换源码 / 文本自动换行" />
-                  <ShortcutRow hint="关闭标签" label="中键点击标签" />
-                  <ShortcutRow hint="新建笔记" label="双击目录空白处" />
-                </ShortcutSection>
-              </div>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

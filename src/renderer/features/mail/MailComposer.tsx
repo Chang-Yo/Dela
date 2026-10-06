@@ -490,6 +490,8 @@ export function MailComposer({
       hasEditableSelection(editor)
     ) {
       event.preventDefault();
+      // 链接键与全局搜索同键：就地消费，避免正文里按 Ctrl/⌘+K 同时弹出搜索框。
+      event.stopPropagation();
       openLinkDraft();
     }
   };

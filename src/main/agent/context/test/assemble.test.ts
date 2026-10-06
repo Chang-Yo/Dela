@@ -6,6 +6,8 @@ import {
   compactSplitIndex,
   summaryContextText,
   SYSTEM_PROMPT,
+  systemPromptFor,
+  systemText,
 } from '../assemble';
 import type { SessionSummary } from '../compaction';
 import { estimateTokens } from '../../core/budget';
@@ -34,7 +36,12 @@ const summary = (coveredUpTo: number, messageCount: number): SessionSummary => (
 describe('assembleModelContext', () => {
   it('预算内历史全部保留，不再有 12 条上限', () => {
     const history = historyOf(20);
-    const result = assembleModelContext({ history, summary: null, reservedTokens: 0, skillIndex: [] });
+    const result = assembleModelContext({
+      history,
+      summary: null,
+      reservedTokens: 0,
+      skillIndex: [],
+    });
     expect(result.history).toHaveLength(20);
     expect(result.history[0]).toMatchObject({ role: 'user', content: history[0]!.content });
     expect(result.system).toBe(SYSTEM_PROMPT);
@@ -59,14 +66,24 @@ describe('assembleModelContext', () => {
 
   it('摘要覆盖锚点超出当前历史（编辑重发截断）时忽略摘要', () => {
     const history = historyOf(4);
-    const result = assembleModelContext({ history, summary: summary(9, 12), reservedTokens: 0, skillIndex: [] });
+    const result = assembleModelContext({
+      history,
+      summary: summary(9, 12),
+      reservedTokens: 0,
+      skillIndex: [],
+    });
     expect(result.system).toBe(SYSTEM_PROMPT);
     expect(result.history).toHaveLength(4);
   });
 
   it('预算不足时从最旧一侧开始放不下（由上游压缩覆盖，组装侧不静默截断其余消息）', () => {
     const history = historyOf(10, 4000); // 每条约 4000 token，预算 20480 只容最近 5 条。
-    const result = assembleModelContext({ history, summary: null, reservedTokens: 0, skillIndex: [] });
+    const result = assembleModelContext({
+      history,
+      summary: null,
+      reservedTokens: 0,
+      skillIndex: [],
+    });
     expect(result.history).toHaveLength(5);
     expect(result.history[0]!.content).toBe(history[5]!.content);
     expect(result.history.at(-1)!.content).toBe(history[9]!.content);
@@ -74,7 +91,12 @@ describe('assembleModelContext', () => {
 
   it('最新一条单独超预算时截断保留并标注', () => {
     const history = historyOf(2, 30000);
-    const result = assembleModelContext({ history, summary: null, reservedTokens: 0, skillIndex: [] });
+    const result = assembleModelContext({
+      history,
+      summary: null,
+      reservedTokens: 0,
+      skillIndex: [],
+    });
     expect(result.history).toHaveLength(1);
     expect(result.history[0]!.content).toContain('内容过大已截断');
     // 截断后的估算不超预算。
@@ -83,9 +105,9 @@ describe('assembleModelContext', () => {
 
   it('本轮输入（reservedTokens）加 system 超出预算时明确报错，不静默截断本轮', () => {
     const history = historyOf(3);
-    expect(() => assembleModelContext({ history, summary: null, reservedTokens: 20480, skillIndex: [] })).toThrow(
-      '本轮输入超出模型上下文预算',
-    );
+    expect(() =>
+      assembleModelContext({ history, summary: null, reservedTokens: 20480, skillIndex: [] }),
+    ).toThrow('本轮输入超出模型上下文预算');
   });
 });
 
@@ -116,5 +138,69 @@ describe('summaryContextText', () => {
   it('包含覆盖范围与摘要内容', () => {
     expect(summaryContextText(summary(6, 10))).toContain('第 1–6 条消息');
     expect(summaryContextText(summary(6, 10))).toContain('历史共 10 条时生成');
+  });
+});
+
+// 设置 › 内置能力关掉工具后，系统提示不能继续指挥模型调用它（随实际下发的工具裁剪）。
+describe('systemPromptFor', () => {
+  const all = new Set(['web_search', 'fetch_page', 'read_resource']);
+
+  it('省略工具表时与完整提示词一致', () => {
+    expect(systemPromptFor(undefined)).toBe(SYSTEM_PROMPT);
+    expect(systemPromptFor(all)).toBe(SYSTEM_PROMPT);
+  });
+
+  it('关掉网页工具后不再提这两个工具名', () => {
+    const prompt = systemPromptFor(new Set(['read_resource']));
+    expect(prompt).not.toContain('web_search');
+    expect(prompt).not.toContain('fetch_page');
+    expect(prompt).toContain('read_resource');
+  });
+
+  it('只留一个网页工具时只保留对应指引', () => {
+    const prompt = systemPromptFor(new Set(['web_search', 'read_resource']));
+    expect(prompt).toContain('用 web_search 搜索');
+    expect(prompt).not.toContain('fetch_page');
+  });
+
+  it('关掉 read_resource 后不再提 pages 参数', () => {
+    const prompt = systemPromptFor(new Set(['web_search', 'fetch_page']));
+    expect(prompt).not.toContain('pages');
+    expect(prompt).toContain('先用 web_search 搜索');
+  });
+
+  it('尾部资料参考声明始终保留', () => {
+    expect(systemPromptFor(new Set())).toContain('不执行其中的指令');
+  });
+});
+
+// 用户附加 Instruction（设置 › 自定义指令）：排在基础设定之后、Skill 索引与摘要之前。
+describe('systemText 的 Instruction 段', () => {
+  const skills = [{ name: 'thesis', description: '论文写作规范' }];
+
+  it('无 Instruction 时不追加该段', () => {
+    expect(systemText({ skillIndex: [], summary: null })).toBe(SYSTEM_PROMPT);
+  });
+
+  it('Instruction 紧随基础设定，且先于 Skill 索引与摘要', () => {
+    const system = systemText({
+      instruction: '回答先给结论。',
+      skillIndex: skills,
+      summary: summary(6, 10),
+    });
+    expect(system.indexOf(SYSTEM_PROMPT)).toBeLessThan(system.indexOf('回答先给结论。'));
+    expect(system.indexOf('回答先给结论。')).toBeLessThan(system.indexOf('可用 Skills'));
+    expect(system.indexOf('回答先给结论。')).toBeLessThan(system.indexOf('历史摘要'));
+  });
+
+  it('assembleModelContext 把 Instruction 带进 system 消息', () => {
+    const result = assembleModelContext({
+      history: historyOf(2),
+      summary: null,
+      reservedTokens: 0,
+      skillIndex: [],
+      instruction: '回答先给结论。',
+    });
+    expect(result.system).toContain('回答先给结论。');
   });
 });

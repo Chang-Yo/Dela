@@ -14,12 +14,37 @@ export interface SettingsSearchItem {
 }
 
 export const settingsSearchItems: SettingsSearchItem[] = [
-  // 通用
+  // 通用（含系统通知子节）
   {
     id: 'open-at-login',
     section: 'general',
     title: '开机自启动',
     keywords: ['通用', '自启动', '开机', '启动', 'login', 'auto'],
+  },
+  {
+    id: 'campus-notifications',
+    section: 'general',
+    title: '校园消息系统提醒',
+    // 不含「邮件/水源」：这两个词的首要意图是连接页的邮箱/水源卡片。
+    keywords: ['通用', '通知', '提醒', '消息', '弹窗', '桌面通知', 'notify'],
+  },
+  {
+    id: 'notify-run-failed',
+    section: 'general',
+    title: '任务失败时提醒',
+    keywords: ['通用', '通知', '任务', '失败', 'agent', '提醒', '错误'],
+  },
+  {
+    id: 'notify-run-completed',
+    section: 'general',
+    title: '任务完成时提醒',
+    keywords: ['通用', '通知', '任务', '完成', 'agent', '提醒'],
+  },
+  {
+    id: 'snooze',
+    section: 'general',
+    title: '暂停通知',
+    keywords: ['通用', '通知', '暂停', '免打扰', '静音', 'snooze'],
   },
   // 外观
   {
@@ -46,39 +71,14 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '应用图标',
     keywords: ['外观', '图标', 'logo', 'icon'],
   },
-  // 通知
+  // 快捷键
   {
-    id: 'campus-notifications',
-    section: 'notifications',
-    title: '校园消息系统提醒',
-    // 不含「邮件/水源」：这两个词的首要意图是连接页的邮箱/水源卡片。
-    keywords: ['通知', '提醒', '消息', '弹窗', '桌面通知', 'notify'],
-  },
-  {
-    id: 'notify-run-failed',
-    section: 'notifications',
-    title: '任务失败时提醒',
-    keywords: ['通知', '任务', '失败', 'agent', '提醒', '错误'],
-  },
-  {
-    id: 'notify-run-completed',
-    section: 'notifications',
-    title: '任务完成时提醒',
-    keywords: ['通知', '任务', '完成', 'agent', '提醒'],
-  },
-  {
-    id: 'snooze',
-    section: 'notifications',
-    title: '暂停通知',
-    keywords: ['通知', '暂停', '免打扰', '静音', 'snooze'],
+    id: 'shortcuts',
+    section: 'shortcuts',
+    title: '快捷键',
+    keywords: ['快捷键', '键位', '按键', '热键', 'shortcut', 'key', 'keybinding'],
   },
   // 工作区
-  {
-    id: 'archived-chats',
-    section: 'workspace',
-    title: '已归档对话',
-    keywords: ['归档', '恢复', '对话', '永久删除', '隐藏项目', 'archive'],
-  },
   {
     id: 'work-directory',
     section: 'workspace',
@@ -103,12 +103,18 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '布局重置',
     keywords: ['工作区', '布局', '重置', '分屏', '标签', 'reset'],
   },
-  // 模型服务
   {
-    id: 'llm',
-    section: 'llm',
-    title: '模型服务',
-    keywords: ['模型', 'llm', 'ai', 'api', '提供商', '密钥', 'key', '推理'],
+    id: 'hidden-projects',
+    section: 'workspace',
+    title: '已隐藏项目',
+    keywords: ['工作区', '隐藏', '项目', '恢复入口', 'hide'],
+  },
+  // 已归档
+  {
+    id: 'archived-chats',
+    section: 'archived',
+    title: '已归档对话',
+    keywords: ['归档', '恢复', '对话', '永久删除', '全部删除', 'archive'],
   },
   // 连接
   {
@@ -135,50 +141,85 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '水源社区',
     keywords: ['连接', '水源', '社区', '论坛', 'shuiyuan'],
   },
-  // 插件
+  // 模型服务
   {
-    id: 'plugins',
-    section: 'plugins',
-    title: '自定义指令',
-    keywords: ['插件', '指令', '提示词', 'prompt', '斜杠', '命令'],
+    id: 'providers',
+    section: 'providers',
+    title: '模型供应商',
+    keywords: ['模型', 'llm', 'ai', 'api', '提供商', '供应商', '密钥', 'key', '推理'],
+  },
+  // 模型组内的能力管理（原「插件」分组，2026-10-06 并入模型）；「插件」仍作为搜索同义词保留
+  {
+    id: 'capabilities',
+    section: 'capabilities',
+    title: '内置能力',
+    keywords: ['插件', '能力', '工具', '开关', '权限', 'tool', 'capability'],
   },
   {
-    id: 'plugins-skills',
-    section: 'plugins',
+    id: 'commands',
+    section: 'commands',
+    title: '自定义指令',
+    keywords: ['插件', '指令', '提示词', 'prompt', '斜杠', '命令', 'command'],
+  },
+  {
+    id: 'instruction',
+    section: 'commands',
+    title: 'Instruction',
+    keywords: ['插件', '指令', '附加指令', '全局指令', '长期偏好', '人格', '风格', 'instruction'],
+  },
+  {
+    id: 'skills',
+    section: 'skills',
     title: 'Skills',
     keywords: ['插件', 'skills', '技能'],
   },
   {
-    id: 'plugins-mcp',
-    section: 'plugins',
-    title: 'MCP',
-    keywords: ['插件', 'mcp', '服务器'],
+    id: 'mcp',
+    section: 'mcp',
+    title: 'MCP Server',
+    keywords: ['插件', 'mcp', '服务器', 'server'],
   },
   // 关于
   { id: 'about', section: 'about', title: '关于', keywords: ['版本', '更新', 'credits', '关于'] },
+  {
+    id: 'privacy',
+    section: 'privacy',
+    title: '隐私条款',
+    keywords: ['隐私', '数据', '安全', '条款', 'privacy'],
+  },
 ];
 
 export const settingsSectionLabels: Record<SettingsSectionId, string> = {
   general: '通用',
   appearance: '外观',
-  notifications: '通知',
+  shortcuts: '快捷键',
   workspace: '工作区',
-  llm: '模型服务',
+  archived: '已归档',
   connections: '连接',
-  plugins: '插件',
+  providers: '模型供应商',
+  capabilities: '内置能力',
+  commands: '自定义指令',
+  skills: 'Skills',
+  mcp: 'MCP Server',
   about: '关于',
+  privacy: '隐私条款',
 };
 
 /** 全局搜索 setting 入口的分组摘要（与设置内搜索共用同一份关键词）。 */
 export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
-  general: '开机自启动',
+  general: '开机自启动与系统通知',
   appearance: '主题、缩放、字号与图标',
-  notifications: '校园消息与任务提醒',
+  shortcuts: '查看与修改快捷键',
   workspace: '工作目录、启动页面与布局',
-  llm: 'AI 模型与 API 提供商',
+  archived: '恢复或永久删除已归档对话',
   connections: 'Canvas、邮箱、教务与水源连接',
-  plugins: '自定义指令、Skills 与 MCP',
+  providers: 'AI 模型与 API 提供商',
+  capabilities: '内置 Agent 能力开关',
+  commands: '全局 Instruction 与快捷指令模板',
+  skills: '工作目录中的技能',
+  mcp: 'MCP 服务器与工具',
   about: '版本信息',
+  privacy: '数据存放与外发说明',
 };
 
 /** 按分类聚合的全局搜索设置入口（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */

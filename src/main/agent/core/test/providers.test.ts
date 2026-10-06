@@ -48,6 +48,31 @@ const input = {
 };
 
 describe('LLM provider config', () => {
+  it('rejects changing the endpoint while reusing the stored key', () => {
+    const created = saveLlmProvider(input);
+    expect(() =>
+      saveLlmProvider({
+        ...input,
+        id: created.id,
+        baseUrl: 'https://other.example',
+        apiKey: undefined,
+      }),
+    ).toThrow('API 地址');
+    expect(listLlmProviders()[0]?.baseUrl).toBe(input.baseUrl);
+  });
+
+  it('allows changing the endpoint with an explicitly supplied key', () => {
+    const created = saveLlmProvider(input);
+    const saved = saveLlmProvider({
+      ...input,
+      id: created.id,
+      baseUrl: 'https://other.example',
+      apiKey: 'new-test-key',
+    });
+    expect(saved.baseUrl).toBe('https://other.example');
+    expect(config.providers[0]?.apiKey).toBe('new-test-key');
+  });
+
   it('can add a provider after the old encrypted config becomes unreadable', () => {
     loadMock.mockImplementation(() => {
       throw new CredentialDecryptionError('unreadable', undefined);
@@ -201,6 +226,41 @@ describe('verifyLlm', () => {
       status,
       headers: { 'Content-Type': 'application/json' },
     });
+
+  it.each(['https://other.example', `${input.baseUrl}/other`, 'http://api.deepseek.com'])(
+    'does not send a stored key to a different endpoint: %s',
+    async (baseUrl) => {
+      const created = saveLlmProvider(input);
+      const fetcher = vi.fn().mockResolvedValue(json({ data: [] }));
+      vi.stubGlobal('fetch', fetcher);
+      const result = await verifyLlm({ id: created.id, baseUrl });
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('API 地址');
+      expect(fetcher).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows a trailing slash when verifying with the stored key', async () => {
+    const created = saveLlmProvider(input);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ data: [] })));
+    expect((await verifyLlm({ id: created.id, baseUrl: `${input.baseUrl}/` })).ok).toBe(true);
+  });
+
+  it('allows verification at a new endpoint with an explicit key', async () => {
+    const created = saveLlmProvider(input);
+    const fetcher = vi.fn().mockResolvedValue(json({ data: [] }));
+    vi.stubGlobal('fetch', fetcher);
+    expect(
+      (
+        await verifyLlm({
+          id: created.id,
+          baseUrl: 'https://other.example',
+          apiKey: 'new-test-key',
+        })
+      ).ok,
+    ).toBe(true);
+    expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer new-test-key' });
+  });
 
   it('reports invalid keys on 401 without trying other candidates', async () => {
     const fetcher = vi.fn().mockResolvedValue(json({ error: {} }, 401));

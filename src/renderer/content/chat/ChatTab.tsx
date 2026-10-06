@@ -266,11 +266,11 @@ const ChatSessionView = memo(function ChatSessionView({
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}
       {chat && !chat.configured && (
         <div className="flex items-center gap-2 px-3 text-xs text-muted-foreground">
-          <span>配置模型服务后即可开始对话</span>
+          <span>配置模型供应商后即可开始对话</span>
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => useNavigationStore.getState().openSettings('llm')}
+            onClick={() => useNavigationStore.getState().openSettings('providers')}
           >
             配置模型
           </Button>

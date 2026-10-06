@@ -12,6 +12,7 @@ import type { SearchApi } from './search';
 import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
 export type {
+  AgentCapabilityView,
   CapabilityApi,
   McpConnectionStatus,
   McpServerConfig,
@@ -112,6 +113,15 @@ export type {
   SettingsSectionId,
 } from './settings';
 export { zoomLevels, fontScaleLevels } from './settings';
+
+export type {
+  KeybindingMap,
+  KeybindingOverrides,
+  ShortcutAction,
+  ShortcutActionId,
+  ShortcutConflict,
+  ShortcutScope,
+} from './keybindings';
 
 export type { LlmProviderView, LlmSaveInput, LlmVerifyInput, LlmVerifyResult, LlmApi } from './llm';
 

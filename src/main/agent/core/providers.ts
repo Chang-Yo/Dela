@@ -87,6 +87,9 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
   if (parsed.id) {
     provider = config.providers.find(({ id }) => id === parsed.id);
     if (!provider) throw new Error('要编辑的提供商不存在');
+    if (!parsed.apiKey?.trim() && baseUrl !== provider.baseUrl.replace(/\/+$/, '')) {
+      throw new Error('API 地址已更改，请重新填写 API Key');
+    }
     Object.assign(provider, {
       name: parsed.name,
       baseUrl,
@@ -198,12 +201,21 @@ export async function verifyLlm(input: {
     .object({ id: idSchema.optional(), baseUrl: baseUrlSchema, apiKey: apiKeySchema.optional() })
     .parse(input);
   let key = parsed.apiKey?.trim() ?? '';
+  let baseUrl = parsed.baseUrl;
   if (!key && parsed.id) {
-    key = loadLlmConfig().providers.find(({ id }) => id === parsed.id)?.apiKey ?? '';
+    const provider = loadLlmConfig().providers.find(({ id }) => id === parsed.id);
+    if (provider) {
+      if (baseUrl.replace(/\/+$/, '') !== provider.baseUrl.replace(/\/+$/, '')) {
+        return { ok: false, message: 'API 地址已更改，请重新填写 API Key' };
+      }
+      // 沿用存储密钥时，网络目标也必须来自同一份存储配置。
+      baseUrl = provider.baseUrl;
+      key = provider.apiKey;
+    }
   }
   if (!key) return { ok: false, message: '请先填写 API Key' };
   let unreachable = false;
-  for (const url of modelListEndpoints(parsed.baseUrl)) {
+  for (const url of modelListEndpoints(baseUrl)) {
     try {
       const response = await fetch(url, {
         redirect: 'error',

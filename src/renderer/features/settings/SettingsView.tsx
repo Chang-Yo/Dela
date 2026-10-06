@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
 import { AboutSection } from './sections/AboutSection';
 import { AppearanceSection } from './sections/AppearanceSection';
+import { ArchivedSection } from './sections/ArchivedSection';
+import { CapabilitiesSection } from './sections/CapabilitiesSection';
+import { CommandsSection } from './sections/CommandsSection';
 import { GeneralSection } from './sections/GeneralSection';
 import { LlmSection } from './sections/LlmSection';
-import { NotificationsSection } from './sections/NotificationsSection';
-import { PluginsSection } from './sections/PluginsSection';
+import { McpSection } from './sections/McpSection';
+import { PrivacySection } from './sections/PrivacySection';
+import { ShortcutsSection } from './sections/ShortcutsSection';
+import { SkillsSection } from './sections/SkillsSection';
 import { WorkspaceSection } from './sections/WorkspaceSection';
 import { ConnectionsSection } from './connections/ConnectionsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
@@ -46,7 +51,8 @@ export function SettingsView({
     <div className="flex min-h-0 flex-1 flex-col bg-background md:flex-row">
       <SettingsNav onSectionChange={setSection} value={section} />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-5 md:px-10 md:pt-8">
+        {/* 内容宽度 912px = 原 760px 增大 20%（用户裁决，2026-10-06）。 */}
+        <div className="mx-auto w-full max-w-[912px] px-4 pb-8 pt-5 md:px-10 md:pt-8">
           {section === 'general' && <GeneralSection />}
           {section === 'appearance' && (
             <AppearanceSection
@@ -58,9 +64,9 @@ export function SettingsView({
               zoom={zoom}
             />
           )}
-          {section === 'notifications' && <NotificationsSection />}
+          {section === 'shortcuts' && <ShortcutsSection />}
           {section === 'workspace' && <WorkspaceSection />}
-          {section === 'llm' && <LlmSection />}
+          {section === 'archived' && <ArchivedSection />}
           {section === 'connections' && (
             <ConnectionsSection
               onOpenMail={onOpenMail}
@@ -68,8 +74,13 @@ export function SettingsView({
               onOpenTimetable={onOpenTimetable}
             />
           )}
-          {section === 'plugins' && <PluginsSection />}
+          {section === 'providers' && <LlmSection />}
+          {section === 'capabilities' && <CapabilitiesSection />}
+          {section === 'commands' && <CommandsSection />}
+          {section === 'skills' && <SkillsSection />}
+          {section === 'mcp' && <McpSection />}
           {section === 'about' && <AboutSection />}
+          {section === 'privacy' && <PrivacySection />}
         </div>
       </div>
     </div>

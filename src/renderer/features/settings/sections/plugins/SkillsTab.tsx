@@ -5,7 +5,7 @@ import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { errorText } from '../../../../workspace/store';
 
-/** 插件 › Skills：工作目录 skills/ 下自动发现，文件系统管理（UI 只读 + 启停）。 */
+/** 设置 › Skills：工作目录 skills/ 下自动发现，文件系统管理（UI 只读 + 启停）。 */
 export function SkillsTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [skills, setSkills] = useState<SkillView[] | null>(null);

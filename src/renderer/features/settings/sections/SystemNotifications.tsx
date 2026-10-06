@@ -3,7 +3,6 @@ import { BellOff } from 'lucide-react';
 import type { NotificationState, TaskNotificationPrefs } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
 import { Switch } from '../../../components/ui/switch';
-import { SectionHeader } from '../SectionHeader';
 import { errorText } from '../../../workspace/store';
 
 /** 暂停期限选项与通知中心一致（同一份 workspace_settings 暂停状态）。 */
@@ -18,8 +17,8 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
   return until.toISOString();
 }
 
-/** 设置 › 通知：校园消息与 Agent 任务的提醒偏好、暂停通知（与通知中心同一状态源）。 */
-export function NotificationsSection() {
+/** 通用 › 系统通知：校园消息与 Agent 任务的提醒偏好、暂停通知（与通知中心同一状态源）。 */
+export function SystemNotifications() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [campus, setCampus] = useState<boolean | null>(null);
   const [task, setTask] = useState<TaskNotificationPrefs | null>(null);
@@ -112,87 +111,66 @@ export function NotificationsSection() {
   };
 
   return (
-    <div className="grid gap-5">
-      <SectionHeader title="通知" />
-      {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="campus-notifications"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">校园消息系统提醒</h2>
-          {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            关闭后仅停用桌面弹窗，通知中心仍会收集。
-          </p>
-        </div>
-        <div className="flex items-center justify-end">
+    <section
+      className="grid gap-3 rounded-xl border bg-card p-5 max-md:p-4"
+      data-setting-id="system-notifications"
+    >
+      <h2 className="text-sm font-medium">系统通知</h2>
+      {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        关闭只停用桌面弹窗，通知中心仍会收集；暂停与通知中心共用同一状态。
+      </p>
+      <div className="grid gap-3">
+        <div
+          className="flex items-center justify-between gap-3 border-b pb-3"
+          data-setting-id="campus-notifications"
+        >
+          <span className="text-sm">校园消息提醒</span>
           <Switch
             checked={campus ?? true}
             disabled={campus === null || busy}
-            label="校园消息系统提醒"
+            label="校园消息提醒"
             onChange={(next) => void toggleCampus(next)}
           />
         </div>
-      </section>
-      <section className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">Agent 任务通知</h2>
-          {/* 仅未聚焦时弹出：解释「明明完成了怎么没弹窗」。 */}
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            仅窗口未聚焦时弹出；关闭提醒不影响会话记录与侧栏状态。
-          </p>
+        <div
+          className="flex items-center justify-between gap-3 border-b pb-3"
+          data-setting-id="notify-run-failed"
+        >
+          <span className="text-sm">任务失败时提醒</span>
+          <Switch
+            checked={task?.failed ?? true}
+            disabled={task === null || busy}
+            label="任务失败时提醒"
+            onChange={(next) => void toggleTask('failed', next)}
+          />
         </div>
-        <div className="grid content-start gap-3">
-          <div
-            className="flex items-center justify-between gap-3"
-            data-setting-id="notify-run-failed"
-          >
-            <span className="text-sm">任务失败时提醒</span>
-            <Switch
-              checked={task?.failed ?? true}
-              disabled={task === null || busy}
-              label="任务失败时提醒"
-              onChange={(next) => void toggleTask('failed', next)}
-            />
-          </div>
-          <div
-            className="flex items-center justify-between gap-3"
-            data-setting-id="notify-run-completed"
-          >
-            <span className="text-sm">任务完成时提醒</span>
-            <Switch
-              checked={task?.completed ?? false}
-              disabled={task === null || busy}
-              label="任务完成时提醒"
-              onChange={(next) => void toggleTask('completed', next)}
-            />
-          </div>
+        <div
+          className="flex items-center justify-between gap-3 border-b pb-3"
+          data-setting-id="notify-run-completed"
+        >
+          <span className="text-sm">任务完成时提醒</span>
+          <Switch
+            checked={task?.completed ?? false}
+            disabled={task === null || busy}
+            label="任务完成时提醒"
+            onChange={(next) => void toggleTask('completed', next)}
+          />
         </div>
-      </section>
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="snooze"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">暂停通知</h2>
-          {/* 与通知中心同一状态：防止用户在两处看到不同暂停状态时困惑。 */}
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            暂停期间仍会收集通知；与通知中心共用同一暂停状态。
-          </p>
-        </div>
-        <div className="grid content-start gap-2">
-          {snoozedUntil ? (
-            <p className={snoozeActive ? 'text-xs text-muted-foreground' : 'sr-only'} role="status">
-              {snoozeActive
-                ? `已暂停至 ${new Date(snoozedUntil).toLocaleString('zh-CN')}`
-                : '上次的暂停已到期。'}
-            </p>
-          ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3" data-setting-id="snooze">
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm">暂停通知</span>
+            {snoozedUntil ? (
+              <span
+                className={snoozeActive ? 'text-xs text-muted-foreground' : 'sr-only'}
+                role="status"
+              >
+                {snoozeActive
+                  ? `已暂停至 ${new Date(snoozedUntil).toLocaleString('zh-CN')}`
+                  : '上次的暂停已到期。'}
+              </span>
+            ) : null}
+          </span>
           <div className="flex flex-wrap items-center gap-2">
             {window.dela ? (
               <>
@@ -233,11 +211,16 @@ export function NotificationsSection() {
                 ) : null}
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">暂停状态仅在桌面端可用。</p>
+              <span className="text-xs text-muted-foreground">暂停状态仅在桌面端可用。</span>
             )}
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+      {error && (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }

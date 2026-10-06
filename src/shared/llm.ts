@@ -17,7 +17,7 @@ export interface LlmSaveInput {
   id?: string;
   name: string;
   baseUrl: string;
-  /** 留空且 id 已存在时保留已保存密钥；新建时必填。 */
+  /** 留空且 id 已存在、地址未变时保留已保存密钥；新建或更改地址时必填。 */
   apiKey?: string;
   models: string[];
   model: string;
@@ -27,7 +27,7 @@ export interface LlmSaveInput {
 }
 
 export interface LlmVerifyInput {
-  /** 已保存的提供商 id；apiKey 留空时取其存储密钥。 */
+  /** 已保存的提供商 id；apiKey 留空时仅允许在其已保存地址检测存储密钥。 */
   id?: string;
   baseUrl: string;
   apiKey?: string;

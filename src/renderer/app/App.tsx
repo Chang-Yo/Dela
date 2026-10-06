@@ -156,19 +156,13 @@ export default function App() {
     });
   }, []);
 
-  useEffect(() => {
-    // 仅主界面阶段响应；completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
+  // 全局搜索入口交给 AppShell 的快捷键派发（Ctrl/⌘+K 可改键）；此处只守卫引导阶段：
+  // completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
+  const openSearch = () => {
     if (launchStage !== 'app') return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setMobileDrawer(null);
-        setSearchOpen(true);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [launchStage]);
+    setMobileDrawer(null);
+    setSearchOpen(true);
+  };
 
   // 稳定引用：CompletionOverlay 以它为依赖设一次性定时器，避免 App 重渲染重置计时。
   const finishCompletion = useCallback(() => setLaunchStage('app'), []);
@@ -225,7 +219,7 @@ export default function App() {
           onOpenProject={(id) => void useNavigationStore.getState().openProject(id)}
           onNewProject={() => void useNavigationStore.getState().newProject()}
           onImportFiles={importFiles}
-          onSearch={() => setSearchOpen(true)}
+          onSearch={openSearch}
           onOpenSources={openSources}
           activeTabIsChat={activeTabIsChat}
           notificationCount={notifications.count}

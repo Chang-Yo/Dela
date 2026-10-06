@@ -9,7 +9,7 @@ import { errorText } from '../../../../workspace/store';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
 
-/** 插件 › MCP：stdio 服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
+/** 设置 › MCP Server：stdio 服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [servers, setServers] = useState<McpServerView[] | null>(null);

@@ -1,21 +1,28 @@
 // settings:* 通道注册（自 src/main/index.ts 内联的 registerSettingsIpc 迁出，
 // 既有通道与行为不变；docs/refactor/structure.md §2.4/§5.2）。
-// 新增：campus-notifications、task-notifications、workspace-prefs 三组偏好读写。
+// 新增：campus-notifications、task-notifications、workspace-prefs、keybindings 四组偏好读写。
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
 import {
   fontScaleSchema,
+  getAgentInstruction,
+  getKeybindingOverrides,
   getTaskNotificationPrefs,
   getWorkspacePrefs,
   iconSchema,
+  instructionSchema,
+  keybindingOverridesSchema,
+  resetKeybindingOverrides,
   savedCampusNotifications,
   savedFontScale,
   savedIcon,
   savedOpenAtLogin,
   savedTheme,
   savedZoom,
+  setAgentInstruction,
   setCampusNotifications,
+  setKeybindingOverrides,
   setTaskNotificationPrefs,
   setWorkspacePrefs,
   taskNotificationsSchema,
@@ -113,5 +120,27 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:set-workspace-prefs', (event, value) => {
     checkWorkspaceSender(event);
     return setWorkspacePrefs(workspacePrefsSchema.partial().parse(value));
+  });
+  // 快捷键覆盖项：renderer 用默认表合并后派发；这里只负责校验与持久化。
+  ipcMain.handle('settings:get-keybindings', (event) => {
+    checkWorkspaceSender(event);
+    return getKeybindingOverrides();
+  });
+  ipcMain.handle('settings:set-keybindings', (event, value) => {
+    checkWorkspaceSender(event);
+    return setKeybindingOverrides(keybindingOverridesSchema.parse(value));
+  });
+  ipcMain.handle('settings:reset-keybindings', (event) => {
+    checkWorkspaceSender(event);
+    return resetKeybindingOverrides();
+  });
+  // 用户附加 Instruction：随系统提示注入每次 Run（空串表示不注入）。
+  ipcMain.handle('settings:get-instruction', (event) => {
+    checkWorkspaceSender(event);
+    return getAgentInstruction();
+  });
+  ipcMain.handle('settings:set-instruction', (event, value) => {
+    checkWorkspaceSender(event);
+    return setAgentInstruction(instructionSchema.parse(value));
   });
 }

@@ -4,6 +4,11 @@
 import { z } from 'zod';
 import type { ThemePreference, IconPreference } from '../../shared/api';
 import { fontScaleLevels, zoomLevels } from '../../shared/api';
+import {
+  isAccelerator,
+  isShortcutActionId,
+  type KeybindingOverrides,
+} from '../../shared/keybindings';
 import { type TaskNotificationPrefs, type WorkspacePrefs } from '../../shared/settings';
 import { getDatabase } from '../database';
 
@@ -128,4 +133,76 @@ export function setWorkspacePrefs(input: unknown): WorkspacePrefs {
   const next = { ...getWorkspacePrefs(), ...partial };
   writeSetting('workspace-prefs', JSON.stringify(next));
   return next;
+}
+
+// ---------------------------------------------------------------------------
+// 快捷键覆盖项（只存用户改过的动作；默认键位留在 shared/keybindings.ts，
+// 后续调整默认值仍能到达既有用户）。
+// ---------------------------------------------------------------------------
+
+const keybindingOverridesDefaults: KeybindingOverrides = {};
+
+// 键须是目录内的动作 id（未知 id 报错而不是静默丢弃）；值要么是 null（显式解绑），
+// 要么是合法键位串。与默认值相同的覆盖项照原样保存，不裁剪（见下）。
+export const keybindingOverridesSchema = z.record(
+  z.string().refine(isShortcutActionId),
+  z.union([z.null(), z.string().refine(isAccelerator)]),
+);
+
+/** 键缺失或 JSON 损坏回退空覆盖；未知动作 id / 非法键位串逐条丢弃，合法兄弟项保留。 */
+export function getKeybindingOverrides(): KeybindingOverrides {
+  const raw = readSetting('keybindings');
+  if (raw === undefined) return { ...keybindingOverridesDefaults };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ...keybindingOverridesDefaults };
+  }
+  // 'null'、数组、标量都能通过 JSON.parse，但不是覆盖项对象；逐条过滤前先挡住。
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { ...keybindingOverridesDefaults };
+  }
+  const overrides: KeybindingOverrides = {};
+  for (const [id, value] of Object.entries(parsed)) {
+    if (!isShortcutActionId(id)) continue;
+    if (value === null || isAccelerator(value)) overrides[id] = value;
+  }
+  return overrides;
+}
+
+/**
+ * 部分合并：只写传入的动作，未传动作保持现值。
+ * 不做“与默认值相同就不存”的裁剪——那会让写入结果依赖当前默认表，
+ * 默认值一改旧覆盖项的语义就变了；多存一条冗余项换来可预测的读写。
+ */
+export function setKeybindingOverrides(input: unknown): KeybindingOverrides {
+  const patch = keybindingOverridesSchema.parse(input);
+  const next = { ...getKeybindingOverrides(), ...patch };
+  writeSetting('keybindings', JSON.stringify(next));
+  return next;
+}
+
+/** 清空全部覆盖：写空对象而不是删键，读取路径只有一种形态。 */
+export function resetKeybindingOverrides(): KeybindingOverrides {
+  writeSetting('keybindings', JSON.stringify(keybindingOverridesDefaults));
+  return { ...keybindingOverridesDefaults };
+}
+
+// ---------------------------------------------------------------------------
+// 用户附加 Instruction（设置 › 自定义指令）：随系统提示注入每次 Run，缺省为空
+// （空串 = 不注入）。上限与自定义指令正文一致，避免一条偏好挤占过多上下文预算。
+// ---------------------------------------------------------------------------
+
+export const instructionSchema = z.string().trim().max(2000);
+
+/** 键缺失、超长或数据损坏一律回退空串：注入端只关心“有没有内容”。 */
+export function getAgentInstruction(): string {
+  return instructionSchema.catch('').parse(readSetting('agent-instruction') ?? '');
+}
+
+export function setAgentInstruction(input: unknown): string {
+  const text = instructionSchema.parse(input);
+  writeSetting('agent-instruction', text);
+  return text;
 }

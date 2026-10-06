@@ -22,6 +22,7 @@ import {
 import { parsePreviewTabId } from '../content/preview/tab-id';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
+import { useShortcuts } from './shortcuts';
 import { walkGroups, type LegacySeedInput } from '../workbench/layout-schema';
 import { Workbench } from '../workbench/Workbench';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
@@ -53,6 +54,8 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const ready = useWorkbenchLayout((s) => s.ready);
   const layoutProjectId = useWorkbenchLayout((s) => s.projectId);
   const loaded = useWorkspaceStore((s) => s.loaded);
+  // 订阅键位表：用户改键后工作台快捷键立即跟随（Workbench 不自行订阅 app 的 store）。
+  const bindings = useShortcuts((s) => s.bindings);
   const workspaceError = useWorkspaceStore((s) => s.error);
   // 订阅镜像仅为让标签标题随条目/会话变化重渲染（registry 的 title 是同步读取）。
   const entries = useWorkspaceStore((s) => s.workspace.entries);
@@ -404,7 +407,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
                     }}
                     projectId={projectId}
                   />
-                  <Workbench />
+                  <Workbench bindings={bindings} />
                 </>
               )}
             </div>

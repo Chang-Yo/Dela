@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Switch } from '../../../components/ui/switch';
 import { SectionHeader } from '../SectionHeader';
+import { SystemNotifications } from './SystemNotifications';
 
+/** 设置 › 通用：应用行为（开机自启动）与系统通知偏好。 */
 export function GeneralSection() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
@@ -33,13 +35,11 @@ export function GeneralSection() {
     <div className="grid gap-5">
       <SectionHeader title="通用" />
       <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
+        className="grid gap-3 rounded-xl border bg-card p-5 max-md:p-4"
         data-setting-id="open-at-login"
       >
-        <div className="grid content-start gap-2">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-medium">开机自启动</h2>
-        </div>
-        <div className="flex items-center justify-end">
           <Switch
             checked={openAtLogin ?? true}
             disabled={openAtLogin === null || busy}
@@ -48,11 +48,12 @@ export function GeneralSection() {
           />
         </div>
         {error && (
-          <p className="col-span-full text-xs text-destructive" role="alert">
+          <p className="text-xs text-destructive" role="alert">
             {error}
           </p>
         )}
       </section>
+      <SystemNotifications />
     </div>
   );
 }

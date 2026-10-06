@@ -13,9 +13,12 @@ import {
   updateMcpServer,
 } from './mcp';
 import { listSkills, setSkillEnabled } from './skills';
+import { listBuiltinCapabilities, setBuiltinCapability, setBuiltinDomain } from './tools';
 
 const skillName = z.string().trim().min(1).max(100);
 const serverId = z.string().uuid();
+const toolName = z.string().trim().min(1).max(64);
+const domainId = z.string().trim().min(1).max(32);
 
 export function registerCapabilitiesIpc() {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
@@ -34,4 +37,11 @@ export function registerCapabilitiesIpc() {
   );
   handle('remove-mcp-server', (id) => removeMcpServer(serverId.parse(id)));
   handle('refresh-mcp-server', (id) => refreshMcpServer(serverId.parse(id)));
+  handle('list-builtin-capabilities', () => listBuiltinCapabilities());
+  handle('set-builtin-capability', (name, enabled) =>
+    setBuiltinCapability(toolName.parse(name), z.boolean().parse(enabled)),
+  );
+  handle('set-builtin-domain', (domain, enabled) =>
+    setBuiltinDomain(domainId.parse(domain), z.boolean().parse(enabled)),
+  );
 }

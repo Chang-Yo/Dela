@@ -436,20 +436,20 @@ export function ChatComposer({
                 ) : providers.length === 0 ? (
                   <div className="grid gap-2 px-2 py-3">
                     <p className="text-xs text-muted-foreground">
-                      还没有配置模型服务，可在设置 › 模型服务 中添加。
+                      还没有配置模型供应商，可在设置 › 模型供应商 中添加。
                     </p>
                     <Button
                       className="w-full justify-start gap-1.5 text-xs"
                       onClick={() => {
                         setModelPickerOpen(false);
-                        useNavigationStore.getState().openSettings('llm');
+                        useNavigationStore.getState().openSettings('providers');
                       }}
                       size="sm"
                       type="button"
                       variant="outline"
                     >
                       <Settings className="size-3.5" />
-                      打开设置 › 模型服务
+                      打开设置 › 模型供应商
                     </Button>
                   </div>
                 ) : (
@@ -521,7 +521,9 @@ export function ChatComposer({
                 className="min-w-0 shrink gap-1 text-xs text-muted-foreground @max-[260px]:px-1.5 @max-[160px]:hidden"
                 disabled={effortLevels.length === 0}
                 size="sm"
-                title={effortLevels.length ? '思考强度' : '在设置 › 模型服务 中开启推理强度后可选'}
+                title={
+                  effortLevels.length ? '思考强度' : '在设置 › 模型供应商 中开启推理强度后可选'
+                }
                 type="button"
                 variant="ghost"
               >

@@ -11,9 +11,9 @@ import type { ChatContentPart } from '../core/run';
 import {
   assembleModelContext,
   compactSplitIndex,
-  SYSTEM_PROMPT,
   referencePreamble,
   summaryContextText,
+  systemText,
 } from '../context/assemble';
 import {
   IMAGE_TOKEN_EST,
@@ -27,6 +27,7 @@ import { readAskReferences } from '../context/references';
 // 能力层的 Skill 索引经 manager 编排注入 context/assemble（context 不回指 capabilities）。
 import { getCapabilityRuntime } from '../capabilities';
 import { ensureProjectProfile } from '../../workspace/projects';
+import { getAgentInstruction } from '../../settings/prefs';
 import { notifyRunFinished } from '../../settings/task-notify';
 import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import {
@@ -245,16 +246,21 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       }
     }
     // ===== 上下文预算与压缩（计划 §6.1）：估算计入指令、工具定义、摘要、全量历史、本轮引用与图片 =====
-    const toolTokens = estimateTokens(JSON.stringify(modelToolDefinitions()));
+    // 工具表、系统提示与用户附加 Instruction 只在此处取一次，供预算估算与下方实际下发共用，
+    // 避免估算与下发漂移（设置 › 内置能力关闭的工具、设置 › 自定义指令的改动即时生效）。
+    const toolDefinitions = modelToolDefinitions();
+    const toolNames = new Set(toolDefinitions.map(({ function: definition }) => definition.name));
+    const instruction = getAgentInstruction();
+    // system 的固定部分（不含摘要与 Skill 索引）；Skill 索引在下方组装时才从能力层取。
+    const fixedSystem = systemText({ toolNames, instruction, skillIndex: [], summary: null });
+    const toolTokens = estimateTokens(JSON.stringify(toolDefinitions));
     const currentRoundTokens = contentParts.reduce(
       (total, part) => total + (part.type === 'text' ? estimateTokens(part.text) : IMAGE_TOKEN_EST),
       0,
     );
     let summary: SessionSummary | null = parseSessionSummary(row.summary);
     const estimate =
-      estimateTokens(
-        summary ? `${SYSTEM_PROMPT}\n\n${summaryContextText(summary)}` : SYSTEM_PROMPT,
-      ) +
+      estimateTokens(summary ? `${fixedSystem}\n\n${summaryContextText(summary)}` : fixedSystem) +
       chat.messages.reduce((total, message) => total + estimateTokens(message.content), 0) +
       currentRoundTokens +
       toolTokens;
@@ -265,7 +271,7 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
         compactThreshold -
         currentRoundTokens -
         toolTokens -
-        estimateTokens(SYSTEM_PROMPT) -
+        estimateTokens(fixedSystem) -
         SUMMARY_RESERVE_TOKENS;
       const priorCovered = summary?.coveredUpTo ?? 0;
       const splitIndex = compactSplitIndex(chat.messages, priorCovered, affordable);
@@ -303,6 +309,8 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       summary,
       reservedTokens: currentRoundTokens + toolTokens,
       skillIndex: getCapabilityRuntime()?.skillIndex() ?? [],
+      toolNames,
+      instruction,
     });
     const messages = [
       { role: 'system', content: assembled.system },
@@ -375,7 +383,7 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
           ? (provider.effort ?? provider.effortLevels[0]!)
           : undefined,
         messages,
-        tools: modelToolDefinitions(),
+        tools: toolDefinitions,
         signal: run.controller.signal,
         execute: executeAgentTool,
         // 运行内修剪：多轮工具结果撑大上下文时在每次模型请求前修剪较早工具结果（core/pi.ts）。

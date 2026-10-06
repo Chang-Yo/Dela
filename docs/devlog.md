@@ -10,6 +10,44 @@
 
 ---
 
+## 2026-10-06（第五笔）设置审阅修复：密钥目标绑定、异步保存与快捷键冲突
+
+- 模型密钥检测沿用存储密钥时，main 校验请求地址与已保存地址一致，并使用存储地址发出请求；更改地址后要求显式填写密钥。保存提供商同步禁止在更改地址时沿用旧密钥，拒绝前不修改配置。仅末尾斜杠差异允许沿用。
+- 模型详情的保存回调记录原详情身份：结果仍并入列表，但用户已切换详情时不抢回选择、不卸载新表单草稿。
+- 快捷键录制与单条恢复默认共用完整候选键位表冲突检查，数字组展开 1…9 后比较，拒绝与其他动作冲突的绑定。
+- 回归覆盖：不同主机、路径和协议不能取得存储密钥；原地址尾斜杠与显式新密钥仍可检测；异步保存期间切换提供商后保留选中项和草稿；数字组录制及恢复默认冲突被拒绝。外部网络与凭据在测试中使用脱敏桩，未发送真实密钥。
+- 已验证：针对性测试先复现上述缺陷，再随修复通过；全量单测 64 文件、588 项通过，三组类型检查及 lint 通过，本轮文件格式检查通过。未运行构建、smoke 或打包，未做实机视觉验收。
+
+## 2026-10-06（第四笔）设置实机审阅反馈：分组收敛、已归档独立分区与呈现重排
+
+用户实机审阅上一批设置改动后提出的七项修订：
+
+- **取消「插件」分组标题**：其四个分区（内置能力、自定义指令、Skills、MCP Server）并入「模型」组，侧栏由五组收敛为四组（基本 / 数据 / 模型 / 关于）。
+- **已归档拆为独立分区**（`archived`，`sections/ArchivedSection.tsx`，原 `ArchivedSessions.tsx` 删除）：仿参照实现做归类——顶部搜索框（按标题）、项目筛选下拉（全部项目 + 归档数据中出现过的项目）、`全部删除`（两步确认，逐条走 `session:remove`）；列表按项目分组，组头为项目名 + 条数，行内显示标题与更新时间（`toLocaleString('zh-CN')`，与仓库既有日期写法一致），操作为查看 / 恢复 / 永久删除（两步确认）。「工作区」因此不再承载归档数据，只保留卡片式的「已隐藏项目」入口恢复（仅在存在隐藏项目时出现）。
+- **自定义指令页去冗余**：Instruction 说明压到一行、textarea 由 5 行降到 4 行（`min-h-24`）、「快捷指令」标题与「新建指令」按钮并排、副说明缩为「输入 / 名称手动触发，仅该轮生效。」、空态示例缩短、指令列表行高 `min-h-16` → `min-h-14`。
+- **Select 下拉高亮块内边距不对称修正**（`components/ui/select.tsx`）：`SelectItem` 原为 `py-1.5 pr-8 pl-2`——右侧 32px 内边距是 shadcn 里让指示器占位的写法，但本实现的指示器是**绝对定位**的，等于白白多留 24px，选中项背景块因而左窄右宽。改为左右对称 `px-2.5`，长文本由 `ItemText` 的 `pe-6` 避让指示器。
+- **内置能力呈现重排**（`sections/CapabilitiesSection.tsx`）：改为 **tool_name 作标题**（等宽字体）+ 描述小字（`line-clamp-2`，原先单行截断把模型侧描述截成半句）+ 常驻原因单独一行，开关与文本顶部对齐。
+- **设置内容宽度 760px → 912px**（用户裁决「增大 20%」，已在代码注释标注来源）。
+- 同步：`INTERFACES.md`（分组表、已归档行、工作区行）、[技术规划](technical-plan.md) 顶部裁决与 §6.5（十二 → 十三分区、分组改为四组）、README（设置行与归档说明）、`search-index.ts`（新增 archived 分区与已隐藏项目条目，工作区条目重排）。
+- 已验证：`pnpm typecheck` 三组零错；`pnpm lint` 0 告警；全量单测 63 文件 578 项通过（`search-index.test.ts` 断言更新为十三个分区）；本批文件 prettier 通过。未运行 `pnpm build`、`pnpm smoke` 与打包启动。
+- 待验证（实机）：已归档分区的搜索/筛选/分组观感与「全部删除」确认流（未在真实归档数据上执行过批量永久删除）、Select 下拉修正后的观感（全局复用，影响所有下拉）、内置能力行高与描述两行截断的密度、912px 宽度在窄屏与 1.25 字号下的表现。
+- 新增行为待用户裁决：`全部删除` 与行内 `恢复` 是仿参照实现新增的批量/快捷操作，若不需要可移除。
+
+## 2026-10-06（第三笔）设置结构重构：十二分区、快捷键可改与内置能力开关
+
+用户裁决的层级结构，取代 2026-09-29 的八分类（用户提供的参照为分组式设置侧栏与「提供商列表 + 详情」两栏模型页）。
+
+- **分区与分组**：`SettingsSectionId` 由 8 个扩为 12 个，侧栏按五组归拢——基本（通用、外观、快捷键）、数据（工作区、连接）、模型（模型供应商）、插件（内置能力、自定义指令、Skills、MCP Server 四个独立入口）、关于（关于、隐私条款）。「通知」分区取消，系统通知（校园消息、任务失败/完成提醒、暂停通知）收进「通用」子节（`sections/SystemNotifications.tsx`）；「模型服务」更名「模型供应商」；`PluginsSection.tsx` 的三页签拆为 `CommandsSection`/`SkillsSection`/`McpSection`，页签宿主与其 `PluginTabId` 一并删除；新增 `PrivacySection.tsx` 占位说明页（按当前实现陈述数据存放、凭据加密、外发内容、联网出口与不存在的功能，页面自述非正式条款）。深链随之更新：ChatTab/ChatComposer 的「配置模型」与全局搜索的 setting 目标改指 `providers`。
+- **快捷键可修改**（新增能力）：`shared/keybindings.ts` 为动作目录与默认键位的单一事实来源——16 个动作（文件/导航/视图 11 个全局 + 工作台 5 个），键位串形如 `Mod+Shift+N`（Mod 在 macOS 为 ⌘）；纯函数负责事件规范化、合并覆盖、匹配与冲突检测。`Alt+数字` 聚焦工作组为 digit 族：只固定修饰键、末位接受 1…9，并按物理键 `code` 判定以避 macOS Alt+数字输入其他字符。用户覆盖存 `workspace_settings('keybindings')`，**只存与默认不同的动作**，null 表示显式解绑；读取失败或损坏回退全默认。`app/shortcuts.ts` 持 renderer 镜像，AppShell 经该表派发窗口级动作（原 `viewShortcuts` 表与内联 if 链删除），Workbench 经装配层传入的键位表派发工作台动作（不反向依赖 app）；帮助弹窗改为按当前生效键位渲染，不再手写清单。录制界面 `sections/ShortcutsSection.tsx` 在捕获阶段消费按键（避免边录制边触发动作），拒绝与同表内其他动作冲突的组合、支持单条与全部恢复默认。范围边界：编辑器内部键位（CodeMirror/Milkdown 的复制、保存、查找等）与鼠标手势不纳入重映射。
+- **内置能力开关**（新增能力）：38 个内置 Agent 工具按 8 个能力域分组呈现（`sections/CapabilitiesSection.tsx`），支持单工具与整域开关（整域为三态显示：部分开启时 `Switch` 走 mixed 轨道）。停用项存 `workspace_settings('tools-disabled')`（只存停用项，缺键或损坏即全开，读取失败不阻断工具表组装）。`modelToolDefinitions()` 过滤停用工具，`executeAgentTool()` 在**别名解析之后**加执行门禁并返回可区分的 `DISABLED`（旧名 `find_courses` 等无法绕过）；`session/manager.ts` 原先两次独立调用工具表（预算估算与下发）收敛为一次，消除估算与下发漂移；`assemble.ts` 新增 `systemPromptFor(toolNames)`，按本轮实际下发的工具裁剪网页检索与 PDF 页图像指引，避免提示词指挥模型调用已关闭的工具。**`read_resource`/`read_skill`/`read_skill_file` 为常驻能力不可关闭**（写笔记要求先取 revision、Skills 索引指向 read_skill），UI 只读展示原因——这条与 `tools/common/skill-read.ts` 既有的「工具常驻注册、避免动态增删让模型混乱」决定部分相左，属新增开关带来的局部例外，已在此记录。
+- **模型供应商布局**：改为左列表（按预设/自定义分组）× 右详情，沿用现有字段与 API（`list/save/remove/setActive/verify`）——不新增 API 格式、每模型开关或上下文窗口（用户裁决「先做布局与交互重排」）；每轮请求的模型与推理强度切换仍由对话输入框负责。
+- **用户附加 Instruction**（追加请求）：设置 › 自定义指令新增 Instruction 卡片（`sections/CommandsSection.tsx`，快捷指令列表与 Instruction 各带小标题），默认为空、显式「保存」按钮（自由文本不做逐字保存），上限 2000 字符（与同页快捷指令正文一致），存 `agent-instruction` 行（纯文本，写入前 trim，键缺失/超长/损坏回退空串）。注入点在 `context/assemble.ts` 新增的 `systemText()`：基础系统设定 → **Instruction** → Skill 索引 → 历史摘要，即「重要性仅次于 system prompt」；段首写明不得越过基础设定中的安全与权限边界（用户指令不能放开权限）。`session/manager.ts` 的预算估算与压缩余量改走同一函数，避免估算与下发口径漂移（原先 `SYSTEM_PROMPT` 常量与组装串在两处各写一遍）。项目级项目档案（`projects.background/goal`）仍未注入模型，全局 Instruction 是第一条常驻的附加提示。
+- 顺带修复：邮件正文的 `Ctrl/⌘+K`（插入链接）与全局搜索同键，前者 `preventDefault` 不阻止 window 监听，此前会同时弹出链接输入与搜索框；现就地 `stopPropagation`。`Switch` 新增可选 `indeterminate` 供整域三态使用。
+- 以上同时更新：`src/renderer/features/settings/INTERFACES.md`（重写为十二分区表 + 三组新 API）、[技术规划](technical-plan.md) 顶部裁决与 §6.5、[agent-workspace-plan.md](agent-workspace-plan.md) §4.4 加更新提示、README 设置行。
+- 已验证：`pnpm typecheck` 三组零错；`pnpm lint` 0 告警（395 文件）；全量单测 63 文件 578 项通过（新增 `shared/keybindings.test.ts` 13 项、`main/agent/capabilities/test/tools.test.ts` 9 项、`assemble.test.ts` 的 systemPromptFor 5 项与 Instruction 段 3 项、prefs 的键位 7 项与 Instruction 5 项）；本批新文件与改动文件 prettier 通过。未运行 `pnpm build`、`pnpm smoke` 与打包启动；未做视觉验收。
+- 待验证（实机）：快捷键录制交互与改键后各处提示同步、改键/解绑后的实际触发与冲突提示、内置能力关闭后模型侧的真实行为（工具消失与 `DISABLED` 回灌）、整域三态开关观感、模型供应商两栏布局在 760px 内容宽与窄屏堆叠下的排版、隐私页文案审阅、通用分区的系统通知子节密度、Instruction 保存后的实际遵循效果（含与快捷指令的区分是否清晰）。
+- 已知遗留（本批未处理，需用户裁决）：`data-setting-id` 仍无消费者（页内搜索已移除，现仅分区级跳转）；`WorkspacePrefs.restoreLastProject` 与「启动页面」说明卡仍为保留项；`pnpm format:check` 在 4 个本批未触碰的既有文件上失败（`skill-tools.ts`、`capabilities/test/skills.test.ts`、`session/subscriptions.ts`、`tools/web/test/fetch-page.test.ts`），属工作区既有状态。
+
 ## 2026-10-06（第二笔）聊天首条消息重载闪页修复与消息区滚动跟随重构
 
 - **重载闪页根因**：首页发首条 prompt 后 `onConversation → openChat` 触发 home→workbench 视图切换，而 App 视图层的 `motion.div key={view}` 给两个视图发了不同 key——`AnimatePresence mode="wait"` 先整壳淡出、再全新挂载 WorkbenchShell；且 home 视图不渲染 `<Workbench>`，layout store 从未 init，切入后要走 `ready=false → layout:get IPC → reveal 重开标签` 才能看见会话。用户看到的是：会话消失 → 空白 → 会话在新标签里「重新加载」。三处修复：①两个视图共用同一 motion key（`'workspace'`），切换只翻装配壳内部内容，不再整壳淡出重挂；②`init` 对已就绪的同项目布局早退（跨视图往复不再重复 IPC 与 ready=false 空窗），Workbench 的 init 职责上移装配层——WorkbenchShell 挂载即预热（home 模式也预热，等号 `loaded` 门控种子正确性），Workbench 改纯渲染组件（去掉 projectId/legacy props）；③reveal 脉冲消费改 `useLayoutEffect`，开标签赶在首帧绘制前，消除先画一帧空组再跳会话的闪动。附带收益：工作台 ⇄ 首页往复切换不再闪空白重载。

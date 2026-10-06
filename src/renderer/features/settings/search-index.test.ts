@@ -6,16 +6,21 @@ import { settingsResultsFor, settingsSearchItems, settingsSectionLabels } from '
 const sectionIds = Object.keys(settingsSectionLabels) as SettingsSectionId[];
 
 describe('settings search index integrity', () => {
-  it('covers all eight sections with unique item ids', () => {
+  it('covers all thirteen sections with unique item ids', () => {
     expect(sectionIds).toEqual([
       'general',
       'appearance',
-      'notifications',
+      'shortcuts',
       'workspace',
-      'llm',
+      'archived',
       'connections',
-      'plugins',
+      'providers',
+      'capabilities',
+      'commands',
+      'skills',
+      'mcp',
       'about',
+      'privacy',
     ]);
     const ids = settingsSearchItems.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -26,7 +31,7 @@ describe('settings search index integrity', () => {
 });
 
 describe('settingsResultsFor (global search)', () => {
-  it('targets the new section set and matches keywords', () => {
+  it('targets the current section set and matches keywords', () => {
     const results = settingsResultsFor('邮件');
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({
@@ -36,16 +41,23 @@ describe('settingsResultsFor (global search)', () => {
     });
   });
 
-  it('maps model/API queries to the llm section', () => {
+  it('maps model/API queries to the provider section', () => {
     const api = settingsResultsFor('api')[0];
     const model = settingsResultsFor('模型')[0];
     expect(api?.kind).toBe('setting');
     expect(model?.kind).toBe('setting');
-    expect(api?.kind === 'setting' && api.target.section).toBe('llm');
-    expect(model?.kind === 'setting' && model.target.section).toBe('llm');
+    expect(api?.kind === 'setting' && api.target.section).toBe('providers');
+    expect(model?.kind === 'setting' && model.target.section).toBe('providers');
   });
 
-  it('returns all eight sections for an empty query', () => {
-    expect(settingsResultsFor('')).toHaveLength(8);
+  it('routes capability and shortcut queries to their own sections', () => {
+    const capability = settingsResultsFor('能力')[0];
+    const shortcut = settingsResultsFor('快捷键')[0];
+    expect(capability?.kind === 'setting' && capability.target.section).toBe('capabilities');
+    expect(shortcut?.kind === 'setting' && shortcut.target.section).toBe('shortcuts');
+  });
+
+  it('returns all thirteen sections for an empty query', () => {
+    expect(settingsResultsFor('')).toHaveLength(13);
   });
 });

@@ -63,7 +63,9 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        // 左右内边距对称：选中指示器是绝对定位的，不需要再为它预留右侧内边距
+        // （原 pr-8 会让高亮块右内边距远大于左侧）。长文本用 ItemText 的 pe-6 避让指示器。
+        "focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm px-2.5 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       data-slot="select-item"
@@ -74,7 +76,7 @@ function SelectItem({
           <CheckIcon className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemText className="pe-6">{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   );
 }
