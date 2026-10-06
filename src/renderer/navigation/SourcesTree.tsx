@@ -1,7 +1,9 @@
 // Canvas 资料树（迁移自 features/sources/SourceList.tsx；structure.md §3.3）。
 // 订阅 workspace/store 的 Canvas 概览镜像，同步/归档/下载经 preload canvas:* 通道直连。
 import { useState } from 'react';
+import { AlertDialog } from 'radix-ui';
 import { Archive, Columns2, Ellipsis, Download, FileText, Link2 } from 'lucide-react';
+import { Button } from '../components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +47,10 @@ export function SourcesTree({
 }) {
   const canvas = useWorkspaceStore((s) => s.canvas);
   const [loading, setLoading] = useState<number[]>([]);
+  // 待确认归档的课程 id；课程对象从 canvas 现查，确认时以最新归档态为准。
+  const [confirmCourseId, setConfirmCourseId] = useState<number | null>(null);
+  const confirmCourse =
+    confirmCourseId === null ? undefined : canvas.courses.find((c) => c.id === confirmCourseId);
   const nodes: ExplorerItem[] = [];
   if (bySource) nodes.push({ id: 'canvas', parentId: null, name: 'Canvas', container: true });
   const terms = [...new Set(canvas.courses.map((c) => c.term))].sort((a, b) => b.localeCompare(a));
@@ -182,23 +188,7 @@ export function SourcesTree({
                         {course.error}
                       </p>
                     )}
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        const message = course.archived
-                          ? `取消归档「${course.name}」？课程将恢复到原学期目录。`
-                          : `归档「${course.name}」？归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。`;
-                        if (!window.confirm(message)) return;
-                        const wasArchived = course.archived;
-                        void window.dela?.canvas
-                          .archiveCourse(course.id, !wasArchived)
-                          .then(useWorkspaceStore.getState().setCanvas)
-                          .then(() => {
-                            // 归档成功后展开底部「归档」区，让课程直接出现在归档文件夹中。
-                            if (!wasArchived) onArchive?.();
-                          })
-                          .catch(useWorkspaceStore.getState().setError);
-                      }}
-                    >
+                    <DropdownMenuItem onSelect={() => setConfirmCourseId(course.id)}>
                       <Archive />
                       {course.archived ? '取消归档' : '归档'}
                     </DropdownMenuItem>
@@ -247,6 +237,47 @@ export function SourcesTree({
       />
       {query && filtered.length === 0 && (
         <p className="px-4 py-3 text-xs text-muted-foreground">已同步资料中没有匹配内容</p>
+      )}
+      {/* 确认框放在下拉菜单之外：DropdownMenuContent 关闭即卸载，挂在内层会被连同销毁。 */}
+      {confirmCourse && (
+        <AlertDialog.Root open onOpenChange={(open) => !open && setConfirmCourseId(null)}>
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
+            <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+              <AlertDialog.Title className="text-base font-semibold">
+                {confirmCourse.archived
+                  ? `取消归档「${confirmCourse.name}」？`
+                  : `归档「${confirmCourse.name}」？`}
+              </AlertDialog.Title>
+              <AlertDialog.Description className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {confirmCourse.archived
+                  ? '课程将恢复到原学期目录。'
+                  : '归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。'}
+              </AlertDialog.Description>
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <Button onClick={() => setConfirmCourseId(null)} variant="ghost">
+                  取消
+                </Button>
+                <Button
+                  onClick={() => {
+                    const wasArchived = confirmCourse.archived;
+                    setConfirmCourseId(null);
+                    void window.dela?.canvas
+                      .archiveCourse(confirmCourse.id, !wasArchived)
+                      .then(useWorkspaceStore.getState().setCanvas)
+                      .then(() => {
+                        // 归档成功后展开底部「归档」区，让课程直接出现在归档文件夹中。
+                        if (!wasArchived) onArchive?.();
+                      })
+                      .catch(useWorkspaceStore.getState().setError);
+                  }}
+                >
+                  {confirmCourse.archived ? '取消归档' : '归档'}
+                </Button>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
       )}
     </>
   );
