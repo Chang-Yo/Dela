@@ -213,10 +213,13 @@ export function WorkingSection({
         onClick={() => setOverride(!open)}
         type="button"
       >
-        {live ? (
+        {live && !open ? (
+          // 展开态下步骤行自带运行中闪烁，头部再闪一处是重复进度指示，故仅在折叠时显示。
           <span className={`shrink-0 ${styles.shimmer}`} role="status">
             正在工作
           </span>
+        ) : live ? (
+          <span className="sr-only">正在工作</span>
         ) : (
           <span className="truncate tabular-nums">
             {status === 'interrupted' ? '工作中断' : status === 'stopped' ? '已停止' : '已工作'}

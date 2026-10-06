@@ -169,7 +169,8 @@ const composerTheme = EditorView.theme({
     fontFamily: 'inherit',
     lineHeight: '1.65',
     overflowY: 'auto',
-    maxHeight: '224px',
+    // 高度按视口封顶：440px 最小窗口下 224px 满高编辑器会把消息流挤没。
+    maxHeight: 'min(224px, 38vh)',
     padding: `${SCROLLER_PADDING.top}px ${SCROLLER_PADDING.x}px 6px`,
   },
   // CM 默认给 .cm-content 上下 4px、.cm-line 左 6px 右 2px 的内边距，会让光标/正文
@@ -186,7 +187,8 @@ const composerTheme = EditorView.theme({
     display: 'block',
     maxHeight: '76px',
     maxWidth: '180px',
-    borderRadius: '8px',
+    // 与消息流内联图片同档圆角（rounded-xl），发送前后不跳变。
+    borderRadius: 'var(--radius-xl)',
     border: '1px solid var(--color-border)',
   },
   '.dela-chat-image-fallback': {

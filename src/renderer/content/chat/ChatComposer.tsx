@@ -286,7 +286,7 @@ export function ChatComposer({
   return (
     <div
       className={cn(
-        'relative rounded-3xl border bg-card shadow-xs transition-colors focus-within:border-ring/60',
+        '@container relative rounded-3xl border bg-card shadow-xs transition-colors focus-within:border-ring/60',
         dragging && 'border-transparent',
         className,
       )}
@@ -316,7 +316,7 @@ export function ChatComposer({
         <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
           {attachments.map((item) => (
             <span
-              className="flex min-w-0 max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+              className="flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
               key={item.id}
             >
               <FileText className="size-3 shrink-0 text-muted-foreground" />
@@ -340,7 +340,7 @@ export function ChatComposer({
         <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
           {references.map((ref) => (
             <span
-              className="flex min-w-0 max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+              className="flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
               key={ref.key}
             >
               <AtSign className="size-3 shrink-0 text-muted-foreground" />

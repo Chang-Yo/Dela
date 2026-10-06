@@ -6,7 +6,6 @@ import {
   Check,
   Copy,
   FileText,
-  LoaderCircle,
   NotebookPen,
   Pencil,
   X,
@@ -187,7 +186,10 @@ const UserMessage = memo(function UserMessage({
     <div className="group/user mb-5 flex flex-col items-end">
       {message.content ? (
         <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere]">
-          <ChatMarkdown>{message.content}</ChatMarkdown>
+          {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
+          <ChatMarkdown className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent">
+            {message.content}
+          </ChatMarkdown>
         </div>
       ) : null}
       {message.images?.length ? (
@@ -415,14 +417,7 @@ const AssistantMessage = memo(function AssistantMessage({
           ) : null,
         )
       )}
-      {live &&
-        !activeTool &&
-        !parts.some((part) => (part.type === 'text' || part.type === 'reasoning') && part.text) && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <LoaderCircle className="size-4 motion-safe:animate-spin" />
-            正在思考…
-          </p>
-        )}
+      {/* 运行中状态由状态行（无过程时）与 WorkingSection 的步骤行承载，不再叠加「正在思考…」。 */}
       {!live && message.content && (
         <MessageActions content={message.content} onSaveNote={onSaveNote} />
       )}

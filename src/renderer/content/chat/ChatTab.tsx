@@ -233,7 +233,8 @@ const ChatSessionView = memo(function ChatSessionView({
       aria-label="对话"
       className="flex min-h-0 min-w-0 flex-1 flex-col bg-background @container"
     >
-      {/* @container 宿主：本标签空态与 ChatComposer 的 @max-[…] 降级都按此宽度生效。 */}
+      {/* @container 宿主：空态标题的 @max-[…] 按此宽度生效；ChatComposer 自身另有
+          @container 宿主，其内部降级断点测量 composer 实宽（外层 p-3 会造成 24px 死区）。 */}
       {/* 会话切换条：标签标题由 workbench 标签栏承载，这里只留历史与新对话入口。 */}
       <div className="flex h-10 shrink-0 items-center gap-1 px-3">
         <Button
@@ -285,11 +286,14 @@ const ChatSessionView = memo(function ChatSessionView({
           onSaveNote={onSaveNote}
         />
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-3 pb-10">
-          <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight @max-[400px]:text-2xl">
-            现在想聊些什么？
-          </h1>
-          {composer(true)}
+        // my-auto 而非 justify-center：内容高于容器（矮窗+大字号）时顶部仍可滚动到达。
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-10">
+          <div className="my-auto">
+            <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight @max-[400px]:text-2xl">
+              现在想聊些什么？
+            </h1>
+            {composer(true)}
+          </div>
         </div>
       )}
       {conversation && composer(false)}
