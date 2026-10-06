@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { LoaderCircle, Lock } from 'lucide-react';
 import type { AgentCapabilityView } from '../../../../shared/api';
 import { Switch } from '../../../components/ui/switch';
+import { cn } from '../../../lib/utils';
 import { SectionHeader } from '../SectionHeader';
 import { errorText } from '../../../workspace/store';
 
@@ -77,7 +78,7 @@ export function CapabilitiesSection() {
                   data-setting-id={`capabilities-${group.id}`}
                   key={group.id}
                 >
-                  <div className="flex items-center justify-between gap-3 border-b pb-2">
+                  <div className="flex items-center justify-between gap-3">
                     <h2 className="text-sm font-medium">{group.label}</h2>
                     <Switch
                       checked={allEnabled}
@@ -89,9 +90,13 @@ export function CapabilitiesSection() {
                       }
                     />
                   </div>
-                  {group.items.map((capability) => (
+                  {/* 与 SystemNotifications 同一分隔策略：标题无边框、行间 border-b。 */}
+                  {group.items.map((capability, index) => (
                     <div
-                      className="flex items-start justify-between gap-4 py-1.5"
+                      className={cn(
+                        'flex items-start justify-between gap-4 py-1.5',
+                        index < group.items.length - 1 && 'border-b pb-3',
+                      )}
                       data-setting-id={`capability-${capability.name}`}
                       key={capability.name}
                     >

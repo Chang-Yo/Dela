@@ -111,10 +111,8 @@ export function SystemNotifications() {
   };
 
   return (
-    <section
-      className="grid gap-3 rounded-xl border bg-card p-5 max-md:p-4"
-      data-setting-id="system-notifications"
-    >
+    // 外层不再自带卡壳：由通用分区的合并卡承载；data-setting-id 供设置搜索定位。
+    <div className="grid gap-3" data-setting-id="system-notifications">
       <h2 className="text-sm font-medium">系统通知</h2>
       {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
       <p className="text-xs leading-relaxed text-muted-foreground">
@@ -221,6 +219,6 @@ export function SystemNotifications() {
           {error}
         </p>
       )}
-    </section>
+    </div>
   );
 }

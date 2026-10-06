@@ -58,7 +58,7 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
   return (
     <nav
       aria-label="设置分区"
-      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-muted/40 p-2 md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-muted/40 p-2 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
     >
       {sectionGroups.map((group, index) => (
         <div className="flex shrink-0 gap-1 md:grid md:gap-1" key={group.title}>

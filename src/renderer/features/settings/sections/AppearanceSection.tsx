@@ -19,6 +19,7 @@ import {
 import blackLogo from '../../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from '../SectionHeader';
+import { SettingRow } from '../SettingRow';
 
 const themes: Array<{ id: ThemePreference; label: string; preview: string }> = [
   {
@@ -61,16 +62,16 @@ function OptionCard({
   onSelect: () => void;
   selected: boolean;
 }) {
+  // toggle 按钮模式（aria-pressed）：不带 radiogroup 的方向键语义就不冒充 radio。
   return (
     <button
-      aria-checked={selected}
+      aria-pressed={selected}
       className={cn(
         'grid w-[120px] gap-2 rounded-lg border p-2 text-left transition-colors',
         selected ? 'border-foreground/60 bg-muted/50' : 'border-border hover:bg-muted/50',
       )}
       disabled={busy}
       onClick={onSelect}
-      role="radio"
       type="button"
     >
       {children}
@@ -160,127 +161,103 @@ export function AppearanceSection({
   return (
     <div className="grid gap-5">
       <SectionHeader title="外观" />
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="theme"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">主题</h2>
-        </div>
-        <div aria-label="主题" className="flex flex-wrap gap-3" role="radiogroup">
-          {themes.map(({ id, label, preview }) => (
-            <OptionCard
-              busy={themeSave.busy}
-              key={id}
-              label={label}
-              onSelect={() => selectTheme(id)}
-              selected={theme === id}
+      {/* 四个设置项合并在一张卡内，行间分隔线承担边界，消除卡片套卡片的视觉噪音。 */}
+      <section className="grid gap-5 rounded-xl border bg-card p-5 max-md:p-4">
+        <SettingRow settingId="theme" title="主题">
+          <div aria-label="主题" className="flex flex-wrap gap-3" role="group">
+            {themes.map(({ id, label, preview }) => (
+              <OptionCard
+                busy={themeSave.busy}
+                key={id}
+                label={label}
+                onSelect={() => selectTheme(id)}
+                selected={theme === id}
+              >
+                <span className={cn('h-14 rounded-md border border-border', preview)} />
+              </OptionCard>
+            ))}
+          </div>
+          {themeSave.error && (
+            <p className="text-xs text-destructive" role="alert">
+              {themeSave.error}
+            </p>
+          )}
+        </SettingRow>
+        <SettingRow settingId="zoom" title="页面缩放">
+          <div className="flex items-center justify-end">
+            {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
+            <Select
+              disabled={zoomSave.busy}
+              onValueChange={(value) => selectZoom(Number(value) as ZoomPreference)}
+              value={String(zoom)}
             >
-              <span className={cn('h-14 rounded-md border border-border', preview)} />
-            </OptionCard>
-          ))}
-        </div>
-        {themeSave.error && (
-          <p className="col-span-full text-xs text-destructive" role="alert">
-            {themeSave.error}
-          </p>
-        )}
-      </section>
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="zoom"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">页面缩放</h2>
-        </div>
-        <div className="flex items-center justify-end">
-          {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
-          <Select
-            disabled={zoomSave.busy}
-            onValueChange={(value) => selectZoom(Number(value) as ZoomPreference)}
-            value={String(zoom)}
-          >
-            <SelectTrigger aria-label="页面缩放" className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {zoomOptions.map(({ id, label }) => (
-                <SelectItem key={id} value={String(id)}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {zoomSave.error && (
-          <p className="col-span-full text-xs text-destructive" role="alert">
-            {zoomSave.error}
-          </p>
-        )}
-      </section>
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="font-scale"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">字号</h2>
-        </div>
-        <div className="flex items-center justify-end">
-          {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
-          <Select
-            disabled={fontSave.busy}
-            onValueChange={(value) => selectFontScale(Number(value) as FontScalePreference)}
-            value={String(fontScale)}
-          >
-            <SelectTrigger aria-label="字号" className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fontScaleLevels.map((level) => (
-                <SelectItem key={level} value={String(level)}>
-                  {fontScaleLabels[level]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {fontSave.error && (
-          <p className="col-span-full text-xs text-destructive" role="alert">
-            {fontSave.error}
-          </p>
-        )}
-      </section>
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="icon"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">应用图标</h2>
-          {/* 重启后才生效：不写会让用户以为选择无效。 */}
-          <p className="text-xs leading-relaxed text-muted-foreground">重启应用后生效。</p>
-        </div>
-        <div aria-label="应用图标" className="flex flex-wrap gap-3" role="radiogroup">
-          {icons.map(({ id, label, src }) => (
-            <OptionCard
-              busy={iconSave.busy}
-              key={id}
-              label={label}
-              onSelect={() => selectIcon(id)}
-              selected={icon === id}
+              <SelectTrigger aria-label="页面缩放" className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {zoomOptions.map(({ id, label }) => (
+                  <SelectItem key={id} value={String(id)}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {zoomSave.error && (
+            <p className="text-xs text-destructive" role="alert">
+              {zoomSave.error}
+            </p>
+          )}
+        </SettingRow>
+        <SettingRow settingId="font-scale" title="字号">
+          <div className="flex items-center justify-end">
+            <Select
+              disabled={fontSave.busy}
+              onValueChange={(value) => selectFontScale(Number(value) as FontScalePreference)}
+              value={String(fontScale)}
             >
-              <img
-                alt=""
-                className="h-14 w-14 justify-self-center rounded-md border border-border"
-                src={src}
-              />
-            </OptionCard>
-          ))}
-        </div>
-        {iconSave.error && (
-          <p className="col-span-full text-xs text-destructive" role="alert">
-            {iconSave.error}
-          </p>
-        )}
+              <SelectTrigger aria-label="字号" className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fontScaleLevels.map((level) => (
+                  <SelectItem key={level} value={String(level)}>
+                    {fontScaleLabels[level]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {fontSave.error && (
+            <p className="text-xs text-destructive" role="alert">
+              {fontSave.error}
+            </p>
+          )}
+        </SettingRow>
+        <SettingRow description="重启应用后生效。" settingId="icon" title="应用图标">
+          <div aria-label="应用图标" className="flex flex-wrap gap-3" role="group">
+            {icons.map(({ id, label, src }) => (
+              <OptionCard
+                busy={iconSave.busy}
+                key={id}
+                label={label}
+                onSelect={() => selectIcon(id)}
+                selected={icon === id}
+              >
+                <img
+                  alt=""
+                  className="h-14 w-14 justify-self-center rounded-md border border-border"
+                  src={src}
+                />
+              </OptionCard>
+            ))}
+          </div>
+          {iconSave.error && (
+            <p className="text-xs text-destructive" role="alert">
+              {iconSave.error}
+            </p>
+          )}
+        </SettingRow>
       </section>
     </div>
   );

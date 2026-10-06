@@ -114,8 +114,8 @@ export function LlmSection() {
   return (
     <div className="grid gap-5" data-setting-id="providers">
       <SectionHeader title="模型供应商" />
-      {/* 主从两栏：左栏固定 15rem（w-60 档）承载列表，右栏是详情表单；窄屏改为上下堆叠。 */}
-      <div className="grid grid-cols-[15rem_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4">
+      {/* 主从两栏：左栏固定 15rem（w-60 档）承载列表，右栏是详情表单；中屏以下改为上下堆叠。 */}
+      <div className="grid gap-4 rounded-xl border bg-card p-5 max-md:p-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6">
         <div className="grid content-start gap-1">
           <Button
             className="justify-self-start"
@@ -465,10 +465,10 @@ function ProviderDetail({
           <div className="flex flex-wrap gap-1.5">
             {models.map((item) => (
               <span
-                className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+                className="flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
                 key={item}
               >
-                {item}
+                <span className="min-w-0 truncate">{item}</span>
                 <button
                   aria-label={`移除模型 ${item}`}
                   className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground"

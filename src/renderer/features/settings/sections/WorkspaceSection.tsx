@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { SectionHeader } from '../SectionHeader';
+import { SettingRow } from '../SettingRow';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { useProjectNavPrefs } from '../../../navigation/store';
 
@@ -106,121 +107,106 @@ export function WorkspaceSection() {
           {error}
         </p>
       )}
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="work-directory"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">工作目录</h2>
-          {/* 不迁移已有文件：改目录后旧笔记「消失」是用户最常见的误解，必须保留警示。 */}
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            仅影响之后新建的内容，不迁移已有文件。
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-3">
-          <span className="truncate text-xs text-muted-foreground" title={directory || undefined}>
-            {directory || '未选择'}
-          </span>
-          <Button onClick={chooseDirectory} size="sm" variant="secondary">
-            <Folder />
-            选择
-          </Button>
-        </div>
-      </section>
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="note-edit-mode"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">默认笔记编辑方式</h2>
-          {/* frontmatter 强制源码：防止用户以为模式切换入口丢失。 */}
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            含 frontmatter 等语法的笔记始终以源码模式打开。
-          </p>
-        </div>
-        <div className="flex items-center justify-end">
-          <Select
-            disabled={prefs === null || busy}
-            onValueChange={(value) =>
-              void changePrefs({ defaultNoteEditMode: value as NoteEditModePreference })
-            }
-            value={prefs?.defaultNoteEditMode ?? 'rich'}
-          >
-            <SelectTrigger aria-label="默认笔记编辑方式" className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(editModeLabels) as NoteEditModePreference[]).map((mode) => (
-                <SelectItem key={mode} value={mode}>
-                  {editModeLabels[mode]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </section>
-      <section
-        className="grid grid-cols-[210px_minmax(0,1fr)] gap-6 rounded-xl border bg-card p-5 max-md:grid-cols-1 max-md:gap-4 max-md:p-4"
-        data-setting-id="reset-layout"
-      >
-        <div className="grid content-start gap-2">
-          <h2 className="text-sm font-medium">布局重置</h2>
-        </div>
-        <div className="grid content-start justify-items-end gap-1.5">
-          {resetConfirm ? (
-            <div className="flex items-center gap-2">
-              <Button
-                disabled={busy}
-                onClick={() => void resetLayout()}
-                size="sm"
-                variant="destructive"
-              >
-                确认重置
-              </Button>
-              <Button onClick={() => setResetConfirm(false)} size="sm" variant="ghost">
-                取消
-              </Button>
-            </div>
-          ) : (
-            <Button
-              disabled={busy || !window.dela}
-              onClick={() => {
-                setResetConfirm(true);
-                setResetDone(false);
-              }}
-              size="sm"
-              variant="secondary"
-            >
-              重置当前项目布局
+      <section className="grid gap-5 rounded-xl border bg-card p-5 max-md:p-4">
+        {/* 不迁移已有文件：改目录后旧笔记「消失」是用户最常见的误解，必须保留警示。 */}
+        <SettingRow
+          description="仅影响之后新建的内容，不迁移已有文件。"
+          settingId="work-directory"
+          title="工作目录"
+        >
+          <div className="flex items-center justify-end gap-3">
+            <span className="truncate text-xs text-muted-foreground" title={directory || undefined}>
+              {directory || '未选择'}
+            </span>
+            <Button onClick={chooseDirectory} size="sm" variant="secondary">
+              <Folder />
+              选择
             </Button>
-          )}
-          {resetDone ? (
-            <p className="text-xs text-muted-foreground" role="status">
-              已重置，下次进入该项目时生效。
-            </p>
-          ) : null}
-        </div>
-      </section>
-      {/* 隐藏只收起导航入口，项目文件与会话都还在；此处提供恢复。 */}
-      {hiddenProjects.length > 0 && (
-        <section className="grid gap-3 rounded-xl border bg-card p-5 max-md:p-4">
-          <h2 className="text-sm font-medium">已隐藏项目</h2>
-          <div className="grid gap-2">
-            {hiddenProjects.map((project) => (
-              <div className="flex items-center gap-3" key={project.id}>
-                <span className="min-w-0 flex-1 truncate text-sm">{project.name}</span>
+          </div>
+        </SettingRow>
+        {/* frontmatter 强制源码：防止用户以为模式切换入口丢失。 */}
+        <SettingRow
+          description="含 frontmatter 等语法的笔记始终以源码模式打开。"
+          settingId="note-edit-mode"
+          title="默认笔记编辑方式"
+        >
+          <div className="flex items-center justify-end">
+            <Select
+              disabled={prefs === null || busy}
+              onValueChange={(value) =>
+                void changePrefs({ defaultNoteEditMode: value as NoteEditModePreference })
+              }
+              value={prefs?.defaultNoteEditMode ?? 'rich'}
+            >
+              <SelectTrigger aria-label="默认笔记编辑方式" className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(editModeLabels) as NoteEditModePreference[]).map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {editModeLabels[mode]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </SettingRow>
+        <SettingRow settingId="reset-layout" title="布局重置">
+          <div className="grid content-start justify-items-end gap-1.5">
+            {resetConfirm ? (
+              <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => setProject(project.id, { hidden: false })}
+                  disabled={busy}
+                  onClick={() => void resetLayout()}
                   size="sm"
-                  variant="secondary"
+                  variant="destructive"
                 >
-                  恢复入口
+                  确认重置
+                </Button>
+                <Button onClick={() => setResetConfirm(false)} size="sm" variant="ghost">
+                  取消
                 </Button>
               </div>
-            ))}
+            ) : (
+              <Button
+                disabled={busy || !window.dela}
+                onClick={() => {
+                  setResetConfirm(true);
+                  setResetDone(false);
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                重置当前项目布局
+              </Button>
+            )}
+            {resetDone ? (
+              <p className="text-xs text-muted-foreground" role="status">
+                已重置，下次进入该项目时生效。
+              </p>
+            ) : null}
           </div>
-        </section>
-      )}
+        </SettingRow>
+        {/* 隐藏只收起导航入口，项目文件与会话都还在；此处提供恢复。 */}
+        {hiddenProjects.length > 0 && (
+          <SettingRow settingId="hidden-projects" title="已隐藏项目">
+            <div className="grid content-start gap-2">
+              {hiddenProjects.map((project) => (
+                <div className="flex items-center gap-3" key={project.id}>
+                  <span className="min-w-0 flex-1 truncate text-sm">{project.name}</span>
+                  <Button
+                    onClick={() => setProject(project.id, { hidden: false })}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    恢复入口
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </SettingRow>
+        )}
+      </section>
     </div>
   );
 }

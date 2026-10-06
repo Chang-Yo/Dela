@@ -34,11 +34,12 @@ export function GeneralSection() {
   return (
     <div className="grid gap-5">
       <SectionHeader title="通用" />
-      <section
-        className="grid gap-3 rounded-xl border bg-card p-5 max-md:p-4"
-        data-setting-id="open-at-login"
-      >
-        <div className="flex items-center justify-between gap-3">
+      {/* 开机自启动与系统通知合并为一卡，行间分隔线承担边界。 */}
+      <section className="grid gap-3 rounded-xl border bg-card p-5 max-md:p-4">
+        <div
+          className="flex items-center justify-between gap-3 border-b pb-3"
+          data-setting-id="open-at-login"
+        >
           <h2 className="text-sm font-medium">开机自启动</h2>
           <Switch
             checked={openAtLogin ?? true}
@@ -52,8 +53,8 @@ export function GeneralSection() {
             {error}
           </p>
         )}
+        <SystemNotifications />
       </section>
-      <SystemNotifications />
     </div>
   );
 }

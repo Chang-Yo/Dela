@@ -118,12 +118,15 @@ export function McpTab() {
         </section>
       )}
       {servers !== null && servers.length > 0 && (
-        <ul className="grid gap-3">
+        <ul className="grid">
           {servers.map((server) => {
             const badge = mcpStatusBadge(server.status, server.toolCount);
             return (
-              <li className="grid gap-2 rounded-xl border bg-card p-4" key={server.id}>
-                <div className="flex items-center justify-between gap-3">
+              <li
+                className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0"
+                key={server.id}
+              >
+                <div className="grid min-w-0 gap-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <strong className="truncate text-sm">{server.name}</strong>
                     <span
@@ -138,48 +141,48 @@ export function McpTab() {
                       {badge.label}
                     </span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Switch
-                      checked={server.enabled}
-                      disabled={busy}
-                      label={`启用 ${server.name}`}
-                      onChange={(next) => void toggle(server, next)}
-                    />
-                    <Button
-                      aria-label={`重连 ${server.name}`}
-                      disabled={busy || !server.enabled}
-                      onClick={() => void reconnect(server.id)}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <RefreshCw />
-                    </Button>
-                    <Button
-                      aria-label={`编辑 ${server.name}`}
-                      disabled={busy}
-                      onClick={() => setDialog({ mode: 'edit', server })}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      aria-label={`删除 ${server.name}`}
-                      disabled={busy}
-                      onClick={() => setConfirmId(server.id)}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
+                  {/* error=红点 + 摘要可见、完整消息悬停可见（依赖状态说明原因，§4.4）。 */}
+                  {server.status === 'error' && server.error ? (
+                    <p className="truncate text-xs text-destructive" title={server.error}>
+                      {server.error}
+                    </p>
+                  ) : null}
                 </div>
-                {/* error=红点 + 摘要可见、完整消息悬停可见（依赖状态说明原因，§4.4）。 */}
-                {server.status === 'error' && server.error ? (
-                  <p className="truncate text-xs text-destructive" title={server.error}>
-                    {server.error}
-                  </p>
-                ) : null}
+                <div className="flex shrink-0 items-center gap-1">
+                  <Switch
+                    checked={server.enabled}
+                    disabled={busy}
+                    label={`启用 ${server.name}`}
+                    onChange={(next) => void toggle(server, next)}
+                  />
+                  <Button
+                    aria-label={`重连 ${server.name}`}
+                    disabled={busy || !server.enabled}
+                    onClick={() => void reconnect(server.id)}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <RefreshCw />
+                  </Button>
+                  <Button
+                    aria-label={`编辑 ${server.name}`}
+                    disabled={busy}
+                    onClick={() => setDialog({ mode: 'edit', server })}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    aria-label={`删除 ${server.name}`}
+                    disabled={busy}
+                    onClick={() => setConfirmId(server.id)}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
                 <AlertDialog.Root
                   onOpenChange={(open) => !open && !busy && setConfirmId(null)}
                   open={confirmId === server.id}
