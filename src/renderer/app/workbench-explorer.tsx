@@ -43,7 +43,7 @@ import {
   promoteEntry,
 } from '../workspace/entry-actions';
 import { useWorkspaceStore } from '../workspace/store';
-import { useExplorerState } from '../workbench/explorer-state';
+import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
 import { cn } from '../lib/utils';
 
 const SIDEBAR_DEFAULT_WIDTH = 300;
@@ -107,6 +107,7 @@ export function WorkbenchExplorer({
   const mobileOpen = useExplorerState((s) => s.mobileOpen);
   const [resizing, setResizing] = useState(false);
   const narrow = useNarrow();
+  const viewportWidth = useViewportWidth();
   const drawerRef = useRef<HTMLElement>(null);
   const [bySource, setBySource] = useState(false);
   // 课程资料只在通用（无项目）工作台显示（承接旧资料页），且默认展开；项目工作台不渲染课程资料。
@@ -198,6 +199,9 @@ export function WorkbenchExplorer({
 
   // 窄屏抽屉只看 mobileOpen：忽略宽屏折叠残留，否则折叠目录后缩窗会永远打不开目录。
   const visible = narrow ? mobileOpen : !collapsed;
+  // 视口钳制：目录渲染宽度不超过视口约 28%（下限 200），窄窗口下给内容区保留可用宽度；
+  // 用户拖拽偏好仍按原值持久化，仅在渲染时钳制。
+  const effectiveWidth = Math.min(width, Math.max(200, Math.round(viewportWidth * 0.28)));
   const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-muted-foreground';
   const chevron = (open: boolean) => (
     <ChevronRight
@@ -211,6 +215,14 @@ export function WorkbenchExplorer({
 
   return (
     <>
+      {/* 窄屏抽屉遮罩：点外关闭，与主导航抽屉同一交互模型。 */}
+      {narrow && mobileOpen && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 z-20 bg-black/30 animate-in fade-in duration-150"
+          onMouseDown={() => useExplorerState.getState().setMobileOpen(false)}
+        />
+      )}
       <aside
         ref={drawerRef}
         aria-label="工作台目录"
@@ -219,11 +231,11 @@ export function WorkbenchExplorer({
         className={cn(
           // 三级背景层次（用户裁决，勿压平）：侧栏画布 --sidebar(0.985) → 目录树 --muted(0.97)
           // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
-          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl',
+          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl max-md:animate-in max-md:fade-in max-md:slide-in-from-left-6 max-md:duration-150',
           resizing && 'transition-none',
           !visible && 'w-0 max-md:hidden',
         )}
-        style={narrow || collapsed ? undefined : { width }}
+        style={narrow || collapsed ? undefined : { width: effectiveWidth }}
       >
         <div
           className={cn(
@@ -231,7 +243,7 @@ export function WorkbenchExplorer({
             'flex min-h-0 flex-1 flex-col transition-opacity duration-150 motion-reduce:transition-none max-md:!w-full',
             collapsed && !narrow && 'pointer-events-none opacity-0',
           )}
-          style={narrow ? undefined : { width }}
+          style={narrow ? undefined : { width: effectiveWidth }}
         >
           <div className="flex h-10 shrink-0 items-center gap-1 px-2">
             <button
@@ -480,11 +492,11 @@ export function WorkbenchExplorer({
       <Resizer
         className={cn('bg-transparent', !visible && 'hidden')}
         label="调整目录宽度"
-        max={SIDEBAR_MAX_WIDTH}
+        max={Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, effectiveWidth))}
         min={SIDEBAR_MIN_WIDTH}
         onChange={setWidth}
         onResizingChange={setResizing}
-        value={width}
+        value={effectiveWidth}
       />
     </>
   );

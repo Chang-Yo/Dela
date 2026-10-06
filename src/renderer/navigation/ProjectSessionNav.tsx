@@ -363,7 +363,8 @@ export function ProjectSessionNav({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    // 侧栏唯一的滚动容器：功能入口/置顶/项目随整栏滚动，替代 aside+置顶+项目三层滚动嵌套。
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
       <nav aria-label="功能入口" className="grid shrink-0 gap-0.5">
         <button
           aria-current={generalChatActive ? 'page' : undefined}
@@ -410,7 +411,7 @@ export function ProjectSessionNav({
         projects.some((project) =>
           sessionsByProject[project.id]?.some((session) => session.pinned),
         )) && (
-        <section aria-label="置顶" className="mt-5 grid min-h-0 shrink gap-0.5 overflow-y-auto">
+        <section aria-label="置顶" className="mt-5 grid shrink-0 gap-0.5">
           <p
             className={cn(
               'px-2 pb-1 text-xs font-medium text-muted-foreground',
@@ -448,10 +449,7 @@ export function ProjectSessionNav({
           )}
         </section>
       )}
-      <section
-        aria-labelledby="project-session-nav-title"
-        className="mt-5 flex min-h-0 flex-1 flex-col"
-      >
+      <section aria-labelledby="project-session-nav-title" className="mt-5 flex flex-col">
         <div className="flex items-center justify-between px-2 pb-1">
           <span
             className={cn(
@@ -473,7 +471,7 @@ export function ProjectSessionNav({
             <Plus className="size-3.5" strokeWidth={1.8} />
           </button>
         </div>
-        <div className="grid min-h-0 grid-cols-1 flex-1 content-start gap-0.5 overflow-x-hidden overflow-y-auto">
+        <div className="grid grid-cols-1 content-start gap-0.5">
           {['', ...sectionNames].map((section) => (
             <div key={section} className="min-w-0">
               {section &&

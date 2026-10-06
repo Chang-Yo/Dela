@@ -22,6 +22,7 @@ import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
 import { useShortcuts } from '../../app/shortcuts';
+import { useExplorerState, useViewportWidth } from '../../workbench/explorer-state';
 import {
   ProjectSessionNav,
   type BusinessNavId,
@@ -214,6 +215,26 @@ export function AppShell({
   const drawer = mobileDrawer ?? null;
   const [helpOpen, setHelpOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<TitleMenuId | null>(null);
+  const explorerMobileOpen = useExplorerState((s) => s.mobileOpen);
+  const viewportWidth = useViewportWidth();
+
+  // 窄屏双抽屉互斥：两个抽屉都锚定屏幕左侧，叠开会出「点了没反应/凭空出现」的假象。
+  // 目录抽屉只在 workbench 视图挂载，互斥也只在该视图生效，避免残留状态误关其他视图的抽屉。
+  useEffect(() => {
+    if (!narrow || view !== 'workbench' || !explorerMobileOpen || drawer === null) return;
+    onMobileDrawerChange?.(null);
+  }, [drawer, narrow, view, explorerMobileOpen, onMobileDrawerChange]);
+  useEffect(() => {
+    if (!narrow || drawer === null) return;
+    if (useExplorerState.getState().mobileOpen) useExplorerState.getState().setMobileOpen(false);
+  }, [drawer, narrow]);
+
+  // 视口钳制：壳侧栏渲染宽度不超过视口约 28%（下限 200），给内容区保留可用宽度；
+  // 用户拖拽偏好保留原值，仅渲染时钳制（与目录侧栏的钳制合计 ≤ 约 56% 视口）。
+  const effectiveSidebarWidth = Math.min(
+    sidebarWidth,
+    Math.max(200, Math.round(viewportWidth * 0.28)),
+  );
 
   useEffect(() => {
     try {
@@ -333,7 +354,8 @@ export function AppShell({
       )}
       style={
         {
-          '--sidebar-width': narrow || sidebarCollapsed ? '0px' : `${sidebarWidth}px`,
+          '--sidebar-width':
+            narrow || sidebarCollapsed ? '0px' : `${effectiveSidebarWidth}px`,
         } as CSSProperties
       }
     >
@@ -490,6 +512,36 @@ export function AppShell({
             id="titlebar-actions"
             className="[-webkit-app-region:no-drag] flex h-full items-center gap-1"
           />
+          {/* 侧栏折叠后铃铛/搜索随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}
+          {!narrow && sidebarCollapsed && (
+            <div className="[-webkit-app-region:no-drag] flex h-full items-center gap-1 pr-1">
+              <button
+                aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
+                aria-current={view === 'notifications' ? 'page' : undefined}
+                className="relative grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                onClick={() => navigate('notifications')}
+                title="通知"
+                type="button"
+              >
+                <Bell className="size-4" strokeWidth={1.8} />
+                {notificationCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-sidebar"
+                  />
+                )}
+              </button>
+              <button
+                aria-label="搜索"
+                className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                onClick={onSearch}
+                title="全局搜索 (Ctrl/⌘+K)"
+                type="button"
+              >
+                <Search className="size-4" strokeWidth={1.8} />
+              </button>
+            </div>
+          )}
           <WindowControls />
         </div>
       </header>
@@ -551,10 +603,11 @@ export function AppShell({
       <aside
         aria-label="主导航"
         className={cn(
-          'flex min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-sidebar pb-3 text-sidebar-foreground',
+          // 滚动收敛在 ProjectSessionNav 内部的单一滚动容器，避免 aside/置顶/项目三层滚动嵌套。
+          'flex min-h-0 flex-col overflow-hidden bg-sidebar pb-3 text-sidebar-foreground',
           narrow
             ? cn(
-                'animate-in fade-in slide-in-from-left-6 duration-150 absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] border-r border-sidebar-border px-2 shadow-2xl',
+                'animate-in fade-in slide-in-from-left-6 duration-150 absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] px-2 shadow-xl',
                 drawer === null && 'hidden',
               )
             : cn(
@@ -571,7 +624,7 @@ export function AppShell({
             'flex min-h-0 flex-1 flex-col',
             narrow ? cn('min-w-0', drawer === 'mail' && 'hidden') : 'px-2',
           )}
-          style={narrow ? undefined : { width: sidebarWidth }}
+          style={narrow ? undefined : { width: effectiveSidebarWidth }}
         >
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
             {/* 纯品牌展示；回首页由下方「首页」行承担，避免相邻双入口。 */}
@@ -707,11 +760,11 @@ export function AppShell({
           (sidebarCollapsed || narrow) && 'hidden',
         )}
         label="调整侧边栏宽度"
-        max={360}
+        max={Math.min(360, Math.max(200, effectiveSidebarWidth))}
         min={200}
         onChange={setSidebarWidth}
         onResizingChange={setSidebarResizing}
-        value={sidebarWidth}
+        value={effectiveSidebarWidth}
       />
       {/* relative + id：供页内悬浮面板（如会话历史）portal 锚定到内容区。 */}
       {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。
