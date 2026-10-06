@@ -1,6 +1,15 @@
-import { app, safeStorage, session, type Cookie, type Session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  safeStorage,
+  session,
+  type Cookie,
+  type Session,
+  type WebContents,
+} from 'electron';
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { attachContextMenu } from '../ipc';
 
 export const CAMPUS_PARTITION = 'persist:dela-campus';
 let ready: Promise<Session> | undefined;
@@ -80,4 +89,80 @@ export async function clearCampusSession(): Promise<void> {
   rmSync(snapshotPath(), { force: true });
   rmSync(`${snapshotPath()}.tmp`, { force: true });
   persistenceError = undefined;
+}
+
+export interface CampusLoginOptions {
+  readonly sender: WebContents;
+  readonly title: string;
+  /** 登录窗加载的入口地址（校园域内会触发 jAccount SSO）。 */
+  readonly url: string;
+  /** 导航 URL 是否已到达目标校园域（登录页自身不算）。 */
+  readonly reached: (url: string) => boolean;
+  /** 到达后探测登录是否真正生效；reject 即失败收场。 */
+  readonly probe: () => Promise<void>;
+  /**
+   * 入口页本身就在目标域时（课堂视频）：首次导航必然尚未登录，
+   * 探测失败不关窗，保持窗口等 SSO 回跳后的下一次导航再探。
+   */
+  readonly retryProbe?: boolean;
+}
+
+/** 校园域登录窗（课表与课堂视频共用）：到达目标域后探测，成功即关闭并清空待决结果。 */
+export async function openCampusLoginWindow(
+  options: CampusLoginOptions,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await getCampusSession();
+  return new Promise((resolve) => {
+    const parent = BrowserWindow.fromWebContents(options.sender) ?? undefined;
+    const loginWindow = new BrowserWindow({
+      width: 920,
+      height: 720,
+      minWidth: 680,
+      minHeight: 520,
+      parent,
+      modal: parent !== undefined,
+      autoHideMenuBar: true,
+      title: options.title,
+      webPreferences: {
+        partition: CAMPUS_PARTITION,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+    attachContextMenu(loginWindow.webContents);
+    let completed = false;
+    const finish = (result: { ok: true } | { ok: false; error: string }) => {
+      if (completed) return;
+      completed = true;
+      resolve(result);
+      if (!loginWindow.isDestroyed()) loginWindow.close();
+    };
+    let checking = false;
+    const checkNavigation = async (url: string) => {
+      if (options.reached(url) && !checking && !completed) {
+        checking = true;
+        try {
+          await options.probe();
+          finish({ ok: true });
+        } catch (error) {
+          if (options.retryProbe) {
+            checking = false;
+            return;
+          }
+          finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+    };
+    loginWindow.webContents.on('did-navigate', (_event, url) => void checkNavigation(url));
+    loginWindow.on('closed', () => {
+      if (!completed) {
+        completed = true;
+        resolve({ ok: false, error: '未完成登录' });
+      }
+    });
+    void loginWindow.loadURL(options.url).catch((error: unknown) => {
+      finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    });
+  });
 }

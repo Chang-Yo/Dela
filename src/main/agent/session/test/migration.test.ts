@@ -163,11 +163,11 @@ describe('v13 migration: upgrade from chat_sessions', () => {
         )
         .get(),
     ).toBeUndefined();
-    expect(db.pragma('user_version', { simple: true })).toBe(14);
+    expect(db.pragma('user_version', { simple: true })).toBe(15);
   });
 
   it('creates a backup file before upgrading', () => {
-    expect(existsSync(join(roots[0]!, 'dela-before-v14.db'))).toBe(true);
+    expect(existsSync(join(roots[0]!, 'dela-before-v15.db'))).toBe(true);
   });
 
   it('cascades project deletion: archive row removed, session downgraded to general', () => {
@@ -192,7 +192,8 @@ describe('v14 migration: upgrade an existing v13 session', () => {
       'INSERT INTO sessions(id, project_id, title, messages, summary, created_at, updated_at) VALUES (?, NULL, ?, ?, ?, ?, ?)',
     ).run(id, '旧会话', messages, '旧摘要', '2026-09-29', '2026-09-29');
     db.exec(
-      'DROP INDEX idx_sessions_visibility; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN pinned',
+      `DROP INDEX idx_sessions_visibility; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN pinned;
+       DROP TABLE vsjtu_sync; DROP TABLE vsjtu_courses; DROP TABLE vsjtu_videos; DROP TABLE vsjtu_video_refs`,
     );
     db.pragma('user_version = 13');
     closeDatabase();
@@ -200,7 +201,7 @@ describe('v14 migration: upgrade an existing v13 session', () => {
     expect(
       db.prepare('SELECT messages, summary, archived, pinned FROM sessions WHERE id=?').get(id),
     ).toEqual({ messages, summary: '旧摘要', archived: 0, pinned: 0 });
-    expect(existsSync(join(state.root, 'dela-before-v14.db'))).toBe(true);
+    expect(existsSync(join(state.root, 'dela-before-v15.db'))).toBe(true);
   });
 });
 
@@ -211,9 +212,9 @@ describe('v14 migration: fresh install', () => {
     getDatabase();
   });
 
-  it('builds the current schema directly at v14 with empty tables', () => {
+  it('builds the current schema directly at v15 with empty tables', () => {
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(14);
+    expect(db.pragma('user_version', { simple: true })).toBe(15);
     for (const table of ['projects', 'sessions', 'runs', 'note_versions']) {
       expect(
         db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table),

@@ -9,6 +9,7 @@ import { registerTimetableIpc } from './timetable/ipc';
 import { attachContextMenu } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
+import { registerVsjtuIpc } from './vsjtu/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
@@ -123,6 +124,7 @@ app.whenReady().then(() => {
   registerTimetableIpc();
   registerCanvasIpc();
   registerShuiyuanIpc();
+  registerVsjtuIpc();
   registerAgentIpc();
   registerWorkspaceIpc(subscribeChat);
   registerTerminalIpc();
@@ -227,13 +229,13 @@ async function createWindow(): Promise<void> {
   });
   const session = window.webContents.session;
   // 渲染进程的 navigator.clipboard.writeText 走 clipboard-sanitized-write 权限；
-  // 其余权限（通知、定位等）一律拒绝。
-  const allowClipboard = (_contents: unknown, permission: string) =>
-    permission === 'clipboard-sanitized-write';
+  // 课堂视频 <video> 的原生全屏按钮走 fullscreen 权限；其余（通知、定位等）一律拒绝。
+  const allowClipboardAndFullscreen = (_contents: unknown, permission: string) =>
+    permission === 'clipboard-sanitized-write' || permission === 'fullscreen';
   session.setPermissionRequestHandler((contents, permission, callback) =>
-    callback(allowClipboard(contents, permission)),
+    callback(allowClipboardAndFullscreen(contents, permission)),
   );
-  session.setPermissionCheckHandler(allowClipboard);
+  session.setPermissionCheckHandler(allowClipboardAndFullscreen);
 
   const sendWindowState = () => {
     window.webContents.send('window:state', { maximized: window.isMaximized() });

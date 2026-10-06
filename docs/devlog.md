@@ -10,6 +10,17 @@
 
 ---
 
+## 2026-10-06（第十笔）课堂视频：录播浏览、双流播放与复习面板（M1+M2）
+
+- 依据用户当日对 v.sjtu.edu.cn 课堂视频接口的第一手实测报告（VSJTU_Classroom_Video_API.md，含个人会话样本，不入库）接入侧栏「课堂视频」视图：位于课表与水源之间，MonitorPlay 图标。curriculum 取已选课程，subject_vod_list_new 按每批 10 个 teclId 逗号拼接取录播场次；课程栏按用户裁决只显示有录播的课程。同步落 v15 迁移（vsjtu_sync / vsjtu_courses / vsjtu_videos / vsjtu_video_refs），失败保留缓存并记错误，升级备份文件名随之变为 dela-before-v15.db（迁移测试同步更新）。
+- 会话复用课表的 persist:dela-campus 校园分区；从课表登录窗提取共享 openCampusLoginWindow（课表与课堂视频各自传 reached/probe 回调，行为不变）。鉴权按报告约束：先探 authority/me；平台未登录返回空响应体而非 401，空体与 3xx 重定向一律按「校园会话已失效，请重新登录」处理，不把空列表当无录课。
+- 实机修复登录窗闪退：课堂视频入口页本身就在目标域，首航即满足 reached、探测必然未登录，共享窗原「探测失败即关窗」语义导致窗口闪现即关且界面无反馈。为共用窗新增 retryProbe 选项（课堂视频传入：探测失败不关窗、等 jAccount SSO 回跳后的下一次导航再探；课表默认语义不变），登录卡片补显登录失败原因。
+- 播放页双流（教师/学生机位）切换保留进度与播放状态；右侧复习面板四页签：信息（元信息 + 「Dela 内播放不计入官方观看记录」说明）、章节（AI mindmap 时间段树，点击跳转）、字幕（机器转写逐句高亮）、课件（PPT 切片图 + OCR，按进度高亮）。后三个页签懒加载，取过（含空结果与失败）不重拉。M1 右栏不带字幕，遵循用户「纯播放，可以纯粹些」的裁决。
+- 完整性约束：绝不调用 addVodWatchRecord / recordPlayInfo / keepAlive 等观看上报接口；MP4 直链现取现用不缓存（报告称 TTL ≥ 8h、免 cookie），CSP media-src 仅放行 live.sjtu.edu.cn，全屏按钮经 permission handler 放行。
+- 「加入项目」写 vsjtu_video_refs 引用行（标题=课程 日期 第N节）并建 `vsjtu-video:` 来源条目；预览中不播放视频，引用文档与目录点击经深链指回「课堂视频」播放页。未实现 M3（Agent 工具读取字幕/章节/课件）。
+- 已验证：新增单测 24 项（主进程 envelope/行键宽容解析、同步落库、401 与空体保留缓存、引用行、共享登录窗 retryProbe/默认关窗/手动关闭三态；renderer 播放竞态守卫、页签懒加载一次、同步失败保缓存、init 首次自动同步）；全量 68 文件 632 项、三组类型检查与 lint 通过。
+- 待验证：真实会话回归——envelope 包裹键与字段候选名基于报告样本（records/rows/list、mindmap 时间段与子节点候选键）、curriculum 默认 acteId 与学期过滤行为、teclId 逗号分隔参数、直链 TTL 与免 cookie 播放均待实机确认；未运行构建、smoke 与打包；界面视觉与动画由用户审阅。
+
 ## 2026-10-06（第九笔）修复实机 PSReadLine 加载与鼠标交互
 
 - 用户截图确认 Windows PowerShell 提示 Cannot load PSReadLine。上轮只在 smoke 脚本删除宿主 PSModulePath，产品代码仍完整继承 PowerShell 7 模块路径，导致测试没有覆盖实际启动条件；明确纠正这一遗漏。

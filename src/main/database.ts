@@ -241,6 +241,45 @@ const migrations: string[][] = [
     'ALTER TABLE sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
     'CREATE INDEX idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at)',
   ],
+  [
+    // 课堂视频：课程/场次同步缓存（直链不入库，播放时现取）+ 添加到项目时的引用行
+    // （对齐 shuiyuan_topics：只在用户添加时写入，不是同步缓存）。
+    `CREATE TABLE vsjtu_sync (
+      id INTEGER PRIMARY KEY CHECK(id = 1),
+      last_synced_at TEXT,
+      acte_id TEXT,
+      error TEXT
+    )`,
+    `CREATE TABLE vsjtu_courses (
+      tecl_id INTEGER PRIMARY KEY,
+      subj_code TEXT,
+      subj_name TEXT NOT NULL
+    )`,
+    `CREATE TABLE vsjtu_videos (
+      course_id INTEGER PRIMARY KEY,
+      tecl_id INTEGER NOT NULL,
+      begin_time TEXT NOT NULL,
+      end_time TEXT,
+      leti_number INTEGER,
+      classroom TEXT,
+      teacher TEXT,
+      vod_time REAL,
+      thumb_url TEXT,
+      transfer_ready INTEGER NOT NULL DEFAULT 0,
+      ppt_ready INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX idx_vsjtu_videos_tecl ON vsjtu_videos(tecl_id, begin_time DESC)`,
+    `CREATE TABLE vsjtu_video_refs (
+      course_id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL,
+      course_name TEXT,
+      begin_time TEXT,
+      leti_number INTEGER,
+      vod_time REAL,
+      added_at TEXT NOT NULL
+    )`,
+  ],
 ];
 
 export function getDatabase(): Database.Database {

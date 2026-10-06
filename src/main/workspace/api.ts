@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
+import { readVsjtuVideoSource } from '../vsjtu/api';
 import { toolError } from '../../shared/tool-errors';
 import { deleteProjectProfile, ensureProjectProfile } from './projects';
 import {
@@ -436,7 +437,7 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   prepareStorage();
   const db = getDatabase();
   if (parsed.kind === 'source') {
-    // 来源引用按前缀区分平台：水源引用行在 shuiyuan_topics，其余仍是 Canvas 资料表。
+    // 来源引用按前缀区分平台：水源/课堂视频引用行各自落表，其余仍是 Canvas 资料表。
     if (parsed.sourceId?.startsWith('shuiyuan-topic:')) {
       const topicId = Number(parsed.sourceId.slice('shuiyuan-topic:'.length));
       if (
@@ -445,6 +446,14 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
         !db.prepare('SELECT 1 FROM shuiyuan_topics WHERE topic_id=?').get(topicId)
       )
         throw new Error('水源帖子引用不存在，请回到水源页重新添加');
+    } else if (parsed.sourceId?.startsWith('vsjtu-video:')) {
+      const videoId = Number(parsed.sourceId.slice('vsjtu-video:'.length));
+      if (
+        !Number.isInteger(videoId) ||
+        videoId <= 0 ||
+        !db.prepare('SELECT 1 FROM vsjtu_video_refs WHERE course_id=?').get(videoId)
+      )
+        throw new Error('课堂视频引用不存在，请回到课堂视频页重新添加');
     } else if (
       !parsed.sourceId ||
       !db.prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(parsed.sourceId)
@@ -587,8 +596,11 @@ export async function workspaceFilePath(id: string): Promise<string> {
   prepareStorage();
   const item = entry(idSchema.parse(id));
   if (item.kind === 'note') return notePath(item);
-  // 水源来源是实时拉取的帖子，没有本地文件路径。
-  if (item.kind === 'source' && item.sourceId?.startsWith('shuiyuan-topic:'))
+  // 水源/课堂视频来源是实时引用，没有本地文件路径。
+  if (
+    item.kind === 'source' &&
+    (item.sourceId?.startsWith('shuiyuan-topic:') || item.sourceId?.startsWith('vsjtu-video:'))
+  )
     throw new Error('条目不是文件');
   if (item.kind === 'source' && item.sourceId) return canvasFilePath(item.sourceId);
   if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('条目不是文件');
@@ -603,6 +615,9 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   if (item.kind === 'source' && item.sourceId) {
     if (item.sourceId.startsWith('shuiyuan-topic:')) {
       return readShuiyuanSource(Number(item.sourceId.slice('shuiyuan-topic:'.length)));
+    }
+    if (item.sourceId.startsWith('vsjtu-video:')) {
+      return readVsjtuVideoSource(Number(item.sourceId.slice('vsjtu-video:'.length)));
     }
     return readCanvasSource(item.sourceId);
   }

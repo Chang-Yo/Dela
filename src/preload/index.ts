@@ -15,6 +15,7 @@ import { shuiyuan } from './shuiyuan';
 import { timetable } from './timetable';
 import { todo } from './todo';
 import { terminal } from './terminal';
+import { vsjtu } from './vsjtu';
 import { windowApi } from './window';
 import { workspace } from './workspace';
 
@@ -32,6 +33,7 @@ contextBridge.exposeInMainWorld('dela', {
   mail,
   timetable,
   shuiyuan,
+  vsjtu,
   canvas,
   workspace,
   session,

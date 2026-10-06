@@ -147,7 +147,7 @@ Dela/
 |   |-- main/
 |   |   |-- index.ts                  # 生命周期、主窗口、协议注册
 |   |   |-- ipc.ts                    # 共用 IPC 来源校验
-|   |   |-- database.ts               # 数据库初始化与迁移（v13：projects/sessions/runs/note_versions）
+|   |   |-- database.ts               # 数据库初始化与迁移（至 v15：projects/sessions/runs/note_versions/vsjtu_*）
 |   |   |-- credentials.ts            # 凭据保护（邮箱/Canvas/LLM/水源/校园会话）
 |   |   |-- storage.ts                # 共用存储路径规则
 |   |   |-- resources.ts              # 跨业务文件流转
@@ -162,14 +162,16 @@ Dela/
 |   |   |                             # 五个子目录 + index.ts 组装入口（结构见附录）
 |   |   |-- mail/                     # 邮箱业务（api.ts / ipc.ts / send.ts / drafts.ts 等）
 |   |   |-- canvas/                   # Canvas 课程资料（api.ts / ipc.ts）
-|   |   |-- timetable/                # 课表与日程（api.ts / ipc.ts / session.ts）
+|   |   |-- timetable/                # 课表与日程（api.ts / ipc.ts / session.ts：校园分区与登录窗）
 |   |   |-- workspace/                # 工作区条目、笔记、预览协议与按项目布局（layout.ts）
-|   |   `-- shuiyuan/                 # 水源社区（api.ts / ipc.ts / 媒体代理）
+|   |   |-- shuiyuan/                 # 水源社区（api.ts / ipc.ts / 媒体代理）
+|   |   `-- vsjtu/                    # 课堂视频录播（api.ts / ipc.ts，复用校园会话）
 |   |-- preload/
 |   |   |-- index.ts                  # contextBridge 聚合入口
-|   |   `-- lib.ts + 15 个命名空间文件 # canvas / capabilities / chat / layout / llm / mail /
+|   |   `-- lib.ts + 17 个命名空间文件 # canvas / capabilities / chat / layout / llm / mail /
 |   |                                 # notifications / search / session / settings / shuiyuan /
-|   |                                 # timetable / todo / window / workspace，通道名与 shared 契约对应
+|   |                                 # terminal / timetable / todo / vsjtu / window / workspace，
+|   |                                 # 通道名与 shared 契约对应
 |   |-- renderer/
 |   |   |-- index.html
 |   |   |-- main.tsx                  # 仅挂载 React
@@ -184,14 +186,14 @@ Dela/
 |   |   |                             # 项目文件树与 Canvas 资料树
 |   |   |-- sessions/                 # 会话快照与 Run 事件镜像（多入口共享，打开视图不产生执行）
 |   |   |-- workspace/                # 工作区数据与草稿生命周期（store / drafts / 弹窗 / 动作）
-|   |   |-- features/                 # 整页业务视图：mail / timetable / shuiyuan / todo /
+|   |   |-- features/                 # 整页业务视图：mail / timetable / videos / shuiyuan / todo /
 |   |   |                             # notifications / onboarding / search / settings
 |   |   |-- components/               # 跨功能共享 UI；样式就近放置
 |   |   `-- styles/ lib/              # 设计 token、主题与窗口级全局规则；前端纯函数
 |   `-- shared/
 |       |-- api.ts                    # 领域契约聚合 re-export，保持 import 面稳定
 |       |-- （领域契约文件）          # canvas / chat / documents / layout / llm / mail / notifications /
-|       |                             # session / settings / shuiyuan / timetable / todo / capabilities 等
+|       |                             # session / settings / shuiyuan / timetable / todo / vsjtu / capabilities 等
 |       `-- resources.ts 等           # 进程间共享的纯函数
 |-- scripts/                          # 开发服务器与冒烟脚本
 |-- vite.main.config.ts 等三个构建配置
@@ -410,6 +412,15 @@ Project 是用户主动围绕主题建立的持续工作空间，可以对应课
 - SQLite todo_items 保存个人待办与作业缓存，read_at 和状态分开；Canvas 缓存按令牌摘要隔离，更换令牌重新建立基线，断开连接隐藏该连接的作业。
 - 全局搜索纳入 TODO，搜索和通知跳转打开同一详情卡片并标记已读。LLM 使用 query_todos、save_todo、refresh_todos 与扩展后的 query_assignments（两者返回剥离作业描述 HTML，正文经 readCanvasSource 读取）；不提供作业提交入口或工具。
 
+### 课堂视频（侧栏业务视图）
+
+- 侧栏入口位于课表与水源之间，标签「课堂视频」，图标 MonitorPlay。数据来自 v.sjtu.edu.cn 录播平台，复用课表的校园会话（persist:dela-campus 分区，共享 openCampusLoginWindow 登录窗）；连接探活 authority/me，平台未登录的空响应与 3xx 重定向都按会话失效提示重新登录，不把空列表当无录课。
+- 同步取已选课程（curriculum）与录播场次（subject_vod_list_new，每批 10 个 teclId），课程栏只显示有录播的课程（用户裁决）；失败保留本地缓存并显示同步错误。场次卡片显示缩略图、日期节次、教室与「转写生成中/课件处理中」状态位。
+- 播放页双流（教师/学生机位）切换保留进度与播放状态；右侧复习面板四页签：信息、章节（AI mindmap 时间段树，点击跳转）、字幕（机器转写逐句高亮）、课件（PPT 切片 + OCR，按进度高亮），后三者懒加载一次。MP4 直链现取现用不缓存（免 cookie、live.sjtu.edu.cn），CSP media-src 仅放行该域。
+- Dela 内播放不调用平台观看上报接口（addVodWatchRecord / recordPlayInfo / keepAlive），不计入官方观看记录，信息页签明示这一点。
+- 「加入项目」写 vsjtu_video_refs 引用行并建 `vsjtu-video:<courseId>` 来源条目（MonitorPlay 图标）；预览中不播放视频，引用文档与目录点击经深链指回「课堂视频」播放页定位场次。
+- 后续设想（未实现，M3）：Agent 工具读取字幕/章节/课件作为对话上下文。
+
 ## 7. Harness 的执行约定
 
 当前实现（2026-09 阶段二起）复用 Pi Agent Core 作为执行循环，Dela 自有 SQLite 持久化为唯一事实来源；会话与运行采用 Session/Run 身份模型（数据库 v13 的 sessions/runs 表，设计见 [refactor/state-model.md](refactor/state-model.md)）。工具按领域重设计为统一契约（见附录），外部能力经 MCP 与 Skills 接入（阶段四）。重构前的自研 SSE 循环（`agent/loop.ts`）与单文件工具表（`agent/tools.ts`）已删除，沿革见[开发记录](devlog.md)。
@@ -450,6 +461,7 @@ User request -> Create run -> Select context -> Model response
 - 同一事项跨平台关联不完全依赖标题相似度；不确定关联由用户修正。
 - 通知中心聚合邮件、水源与 TODO。邮件通知的已读派生自邮件本身的 seen 状态：通知面板标记已读即在邮件服务器标记 `\Seen`（他端读信经同步后通知红点随之清除），读信、删除与同步完成都会即时重播通知状态。系统桌面通知仅提示标题、点击直达对应内容；启动首轮刷新为基线不弹，主窗口聚焦或暂停通知期间不弹。
 - 首版按项目、来源和文件名定位资料，辅以文本检索。SQLite 全文搜索作为后续按需能力，中文检索质量实测后决定；不预先部署向量数据库。
+- 课堂视频直链现取现用不落库；应用内播放不调用平台观看上报接口，官方观看记录不受影响。
 - 模型、网络或某个来源不可用时，仍可浏览本地已有项目和成果，并显示新鲜度。
 
 ## 9. 工程与交付约束
@@ -484,6 +496,7 @@ M0 的接口探针仅用于验证可行性，不构成完整业务集成。某�
 4. 真实 PDF/PPTX 的文字、公式、图片和表格提取质量；不要预先承诺完整理解。
 5. macOS/Linux 安装、凭据保护、外部打开及签名等平台行为，在对应平台验收前不宣称支持完成。
 6. 2026-10-06 UX 审查批次的响应式与交互改动需实机审阅：月历窄容器压缩态（色点课程条）、日期步进器横向折行、抽屉/弹窗遮罩变暗动画、设置导航右缘渐隐、PDF 独立「适合宽度」按钮、导出横幅紧凑形态。动画类观感由用户审阅。
+7. 课堂视频真实会话回归：envelope 包裹键与字段候选名（records/rows/list、mindmap 时间段/子节点候选键、转写/课件字段）、curriculum 默认 acteId 与学期过滤行为、teclId 逗号分隔参数、直链 TTL 与免 cookie 播放，均基于 2026-10-06 用户报告样本实现，待实机验证。
 
 ## 12. 参考与约束优先级
 

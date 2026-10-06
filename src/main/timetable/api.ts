@@ -1,4 +1,4 @@
-import { BrowserWindow, net, type WebContents } from 'electron';
+import { net, type WebContents } from 'electron';
 import { z } from 'zod';
 import {
   calendarEventColors,
@@ -8,9 +8,8 @@ import {
   type TimetableState,
 } from '../../shared/api';
 import { getDatabase } from '../database';
-import { attachContextMenu } from '../ipc';
 import { lessonOccurrences } from '../../shared/schedule';
-import { CAMPUS_PARTITION, flushCampusSession, getCampusSession } from './session';
+import { flushCampusSession, getCampusSession, openCampusLoginWindow } from './session';
 
 const CAMPUS_ORIGIN = 'https://i.sjtu.edu.cn';
 const LOGIN_URL = `${CAMPUS_ORIGIN}/jaccountlogin`;
@@ -220,59 +219,18 @@ export async function isConnected(): Promise<boolean> {
   }
 }
 
-export async function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
-  await getCampusSession();
-  return new Promise((resolve) => {
-    const parent = BrowserWindow.fromWebContents(sender) ?? undefined;
-    const loginWindow = new BrowserWindow({
-      width: 920,
-      height: 720,
-      minWidth: 680,
-      minHeight: 520,
-      parent,
-      modal: parent !== undefined,
-      autoHideMenuBar: true,
-      title: '登录教学信息服务网',
-      webPreferences: {
-        partition: CAMPUS_PARTITION,
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-      },
-    });
-    attachContextMenu(loginWindow.webContents);
-    let completed = false;
-    const finish = (result: TimetableResult) => {
-      if (completed) return;
-      completed = true;
-      resolve(result);
-      if (!loginWindow.isDestroyed()) loginWindow.close();
-    };
-    let checking = false;
-    const checkNavigation = async (url: string) => {
-      const reachedCampus =
-        url.startsWith('https://i.sjtu.edu.cn/') || url.startsWith('http://i.sjtu.edu.cn/');
-      if (reachedCampus && !url.includes('/jaccountlogin') && !checking && !completed) {
-        checking = true;
-        try {
-          await fetchTimetable(currentSemester());
-          await flushCampusSession();
-          finish({ ok: true });
-        } catch (error) {
-          finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
-        }
-      }
-    };
-    loginWindow.webContents.on('did-navigate', (_event, url) => checkNavigation(url));
-    loginWindow.on('closed', () => {
-      if (!completed) {
-        completed = true;
-        resolve({ ok: false, error: '未完成登录' });
-      }
-    });
-    void loginWindow.loadURL(LOGIN_URL).catch((error: unknown) => {
-      finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
-    });
+export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
+  return openCampusLoginWindow({
+    sender,
+    title: '登录教学信息服务网',
+    url: LOGIN_URL,
+    reached: (url) =>
+      (url.startsWith('https://i.sjtu.edu.cn/') || url.startsWith('http://i.sjtu.edu.cn/')) &&
+      !url.includes('/jaccountlogin'),
+    probe: async () => {
+      await fetchTimetable(currentSemester());
+      await flushCampusSession();
+    },
   });
 }
 

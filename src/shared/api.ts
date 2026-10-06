@@ -23,6 +23,7 @@ import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
 import type { TodoApi } from './todo';
 import type { TerminalApi } from './terminal';
+import type { VsjtuApi } from './vsjtu';
 import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
@@ -40,6 +41,7 @@ export interface DelaApi {
   readonly mail: MailApi;
   readonly timetable: TimetableApi;
   readonly shuiyuan: ShuiyuanApi;
+  readonly vsjtu: VsjtuApi;
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
@@ -102,6 +104,22 @@ export type {
   ShuiyuanUpload,
   ShuiyuanApi,
 } from './shuiyuan';
+
+export type {
+  VsjtuState,
+  VsjtuCourse,
+  VsjtuVideo,
+  VsjtuPlayView,
+  VsjtuPlayInfo,
+  VsjtuTranscriptLine,
+  VsjtuTimeRange,
+  VsjtuChapterNode,
+  VsjtuPptPage,
+  VsjtuList,
+  VsjtuResult,
+  VsjtuSourceRef,
+  VsjtuApi,
+} from './vsjtu';
 
 export type {
   ThemePreference,

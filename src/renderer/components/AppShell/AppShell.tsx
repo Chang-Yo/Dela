@@ -762,7 +762,11 @@ export function AppShell({
           </div>
           <ProjectSessionNav
             activeBusinessId={
-              view === 'mail' || view === 'timetable' || view === 'shuiyuan' || view === 'todo'
+              view === 'mail' ||
+              view === 'timetable' ||
+              view === 'videos' ||
+              view === 'shuiyuan' ||
+              view === 'todo'
                 ? view
                 : null
             }

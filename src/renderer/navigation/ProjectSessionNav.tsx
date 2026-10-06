@@ -15,6 +15,7 @@ import {
   FolderOpen,
   House,
   Mail,
+  MonitorPlay,
   MoreHorizontal,
   Plus,
   SquarePen,
@@ -43,8 +44,8 @@ import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
 
 export type { NavSessionSummary, SessionRunBadge };
 
-/** 底部业务入口 id（邮箱/课表/水源/TODO；跳转由 onNavigateBusiness 注入）。 */
-export type BusinessNavId = 'mail' | 'timetable' | 'shuiyuan' | 'todo';
+/** 底部业务入口 id（邮箱/课表/课堂视频/水源/TODO；跳转由 onNavigateBusiness 注入）。 */
+export type BusinessNavId = 'mail' | 'timetable' | 'videos' | 'shuiyuan' | 'todo';
 
 /** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
 export const RECENT_SESSIONS = 3;
@@ -52,6 +53,7 @@ export const RECENT_SESSIONS = 3;
 const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }> = [
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
+  { id: 'videos', label: '课堂视频', icon: MonitorPlay },
   { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
   { id: 'todo', label: 'TODO', icon: CircleCheckBig },
 ];

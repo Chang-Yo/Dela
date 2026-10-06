@@ -6,6 +6,7 @@ import {
   FilePlus2,
   FolderPlus,
   FolderKanban,
+  MonitorPlay,
   Pencil,
   Trash2,
   FolderInput,
@@ -74,9 +75,13 @@ export function ProjectFileTree({
       name: e.name,
       project: e.kind === 'project',
       container: e.kind === 'folder' || e.kind === 'project',
-      // 水源来源条目显示水滴图标，与其余资料区分。
+      // 水源来源条目显示水滴图标，课堂视频显示播放器图标，与其余资料区分。
       icon:
-        e.kind === 'source' && e.sourceId?.startsWith('shuiyuan-topic:') ? ShuiyuanIcon : undefined,
+        e.kind === 'source' && e.sourceId?.startsWith('shuiyuan-topic:')
+          ? ShuiyuanIcon
+          : e.kind === 'source' && e.sourceId?.startsWith('vsjtu-video:')
+            ? MonitorPlay
+            : undefined,
     }));
   let filtered = nodes;
   let open = expanded;

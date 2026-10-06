@@ -319,7 +319,10 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       const content: DocumentContent = sourceId
         ? sourceId.startsWith('shuiyuan-topic:')
           ? await dela.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
-          : await dela.canvas.read(sourceId)
+          : // 课堂视频引用经 workspace.read 落到引用元数据 HTML（正常入口已被目录层拦截直达播放页）。
+            sourceId.startsWith('vsjtu-video:')
+            ? await dela.workspace.read(entryId!)
+            : await dela.canvas.read(sourceId)
         : await dela.workspace.read(entryId!);
       // pptx 的导出/快速预览定位：Canvas 资料用 sourceId，本地条目用条目 id。
       const officeRef: ResourceRef | undefined =

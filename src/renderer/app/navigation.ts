@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { leaveComposer } from '../features/mail/compose-close';
 import { useShuiyuan } from '../features/shuiyuan/store';
+import { useVideos } from '../features/videos/store';
 import { ancestorChainOf } from '../navigation/store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
@@ -15,7 +16,15 @@ import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 
 export type AppView =
-  'home' | 'workbench' | 'mail' | 'timetable' | 'shuiyuan' | 'todo' | 'notifications' | 'settings';
+  | 'home'
+  | 'workbench'
+  | 'mail'
+  | 'timetable'
+  | 'videos'
+  | 'shuiyuan'
+  | 'todo'
+  | 'notifications'
+  | 'settings';
 
 /** 窄屏抽屉层级：null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱视图可达）。 */
 export type MobileDrawer = 'nav' | 'mail';
@@ -69,6 +78,8 @@ interface NavigationState {
   openTodo(id: string): boolean;
   openSettings(section?: SettingsSectionId): boolean;
   openShuiyuanTopic(topicId: number, postNumber?: number): void;
+  /** 跳到课堂视频页并打开指定场次播放（项目树引用深链）。 */
+  openVideo(videoId: number): void;
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
   setCreateProject(value: boolean): void;
@@ -261,6 +272,11 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     openShuiyuanTopic: (topicId, postNumber) => {
       get().navigate('shuiyuan');
       useShuiyuan.getState().requestTopic(topicId, postNumber);
+    },
+
+    openVideo: (videoId) => {
+      get().navigate('videos');
+      useVideos.getState().requestVideo(videoId);
     },
 
     newProject: () => {
