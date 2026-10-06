@@ -1,19 +1,25 @@
 // 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏 +
 // EntryDialogs + 导航脉冲消费都在这里（保持 app/App.tsx 小）。对照对象是旧
 // ProjectView/SourcesView 的装配职责；布局与标签本体在 workbench/（3A）。
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
 import type { ResourceRef } from '../../shared/resources';
-import { ChatTabSourceProvider, type ChatTabSource, type ReferenceSource } from '../content/chat';
-import { NoteDraftSourceProvider, type NoteDraftSource } from '../content/note';
+// Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/milkdown/
+// highlight.js），静态引入会让 registry 的懒加载分包失效。
+import {
+  ChatTabSourceProvider,
+  type ChatTabSource,
+  type ReferenceSource,
+} from '../content/chat/chat-source';
+import { NoteDraftSourceProvider, type NoteDraftSource } from '../content/note/draft-source';
 import {
   ContentLoaderProvider,
-  parsePreviewTabId,
   type ContentLoader,
   type LoadedDocument,
-} from '../content/preview';
+} from '../content/preview/loader';
+import { parsePreviewTabId } from '../content/preview/tab-id';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups, type LegacySeedInput } from '../workbench/layout-schema';
@@ -22,9 +28,11 @@ import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialog
 import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useNoteDrafts } from '../workspace/drafts';
-import { useNavigationStore as useTreeState } from '../navigation/store';
+import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { documentTabId, useNavigationStore } from './navigation';
 import { MailDraftDialog } from './mail-draft-dialog';
+import { ChatHome } from '../content/chat/ChatHome';
+import { useChatDrafts } from '../content/chat/drafts';
 import { currentContainerOf, WorkbenchExplorer } from './workbench-explorer';
 
 const emptyViewState = { tabs: [], active: null, expanded: [], scroll: {} };
@@ -37,8 +45,8 @@ function tabDocumentKey(tabId: TabId | null): string | null {
   return null;
 }
 
-export function WorkbenchShell() {
-  const projectId = useNavigationStore((s) => s.projectId);
+export function WorkbenchShell({ home = false }: { home?: boolean }) {
+  const projectId = useNavigationStore((s) => (home ? null : s.projectId));
   const reveal = useNavigationStore((s) => s.reveal);
   const generalChat = useNavigationStore((s) => s.generalChat);
   const createProject = useNavigationStore((s) => s.createProject);
@@ -47,7 +55,7 @@ export function WorkbenchShell() {
   const loaded = useWorkspaceStore((s) => s.loaded);
   const workspaceError = useWorkspaceStore((s) => s.error);
   // 订阅镜像仅为让标签标题随条目/会话变化重渲染（registry 的 title 是同步读取）。
-  useWorkspaceStore((s) => s.workspace.entries);
+  const entries = useWorkspaceStore((s) => s.workspace.entries);
   useSessions((s) => s.lists);
   const [dialog, setDialog] = useState<EntryDialogRequest | null>(null);
 
@@ -56,21 +64,29 @@ export function WorkbenchShell() {
     return group?.active ?? null;
   });
   const activeDocKey = tabDocumentKey(activeTab);
+  // 当前文档键经 ref 读取：chatSource/draftSource 不随切标签重建（Provider 值一变，
+  // 全部 ChatTab/NoteTab 都会重渲）。
+  const activeDocKeyRef = useRef(activeDocKey);
+  activeDocKeyRef.current = activeDocKey;
   const rootId = useWorkspaceStore((s) =>
     s.workspace.entries.some((entry) => entry.id === projectId) ? projectId : null,
   );
 
   // -------------------------------------------------------------------------
   // 导航脉冲消费：等工作台布局载入当前项目后再开标签，避免 init 覆盖掉新开的标签。
+  // useLayoutEffect：首条消息从首页切入工作台时布局已预热就绪，开标签须赶在
+  // 首帧绘制前，否则先画一帧空组再跳到会话标签。
   // -------------------------------------------------------------------------
-  useEffect(() => {
-    if (!reveal || !ready || layoutProjectId !== projectId) return;
-    useWorkbenchLayout.getState().openTab(reveal.tabId);
+  useLayoutEffect(() => {
+    const layout = useWorkbenchLayout.getState();
+    // 子组件的 init effect 已开始加载时，本次 render 的 ready 仍可能是旧值。
+    if (!reveal || !layout.ready || layout.projectId !== projectId) return;
+    layout.openTab(reveal.tabId);
     useNavigationStore.getState().consumeReveal();
   }, [reveal, ready, layoutProjectId, projectId]);
 
   useEffect(() => {
-    if (!generalChat || !ready || layoutProjectId !== null) return;
+    if (home || !generalChat || !ready || layoutProjectId !== null) return;
     let active = true;
     void (async () => {
       const dela = window.dela;
@@ -115,7 +131,7 @@ export function WorkbenchShell() {
     return () => {
       active = false;
     };
-  }, [generalChat, ready, layoutProjectId]);
+  }, [home, generalChat, ready, layoutProjectId]);
 
   useEffect(() => {
     if (!createProject || !loaded) return;
@@ -126,16 +142,22 @@ export function WorkbenchShell() {
   // -------------------------------------------------------------------------
   // 弹窗接线（workspace/entry-dialogs 的回调由这里接手旧 ProjectView 的后续动作）。
   // -------------------------------------------------------------------------
-  const openDialog = (action: EntryAction | 'link' | 'connect', id: string | null, text?: string) =>
-    setDialog({
-      action,
-      id,
-      text,
-      initialTarget:
-        action === 'move' || action === 'link'
-          ? (currentContainerOf(useTreeState.getState().selected ?? activeDocKey, rootId) ?? '')
-          : undefined,
-    });
+  const openDialog = useCallback(
+    (action: EntryAction | 'link' | 'connect', id: string | null, text?: string) =>
+      setDialog({
+        action,
+        id,
+        text,
+        initialTarget:
+          action === 'move' || action === 'link'
+            ? (currentContainerOf(
+                useTreeState.getState().selected ?? activeDocKeyRef.current,
+                rootId,
+              ) ?? '')
+            : undefined,
+      }),
+    [rootId],
+  );
 
   const onCreated = (entry: WorkspaceEntry) => {
     if (entry.kind === 'project') return; // EntryDialogs 已回调 onOpenProject。
@@ -180,6 +202,16 @@ export function WorkbenchShell() {
     };
   }, [projectId, loaded]);
 
+  // -------------------------------------------------------------------------
+  // 布局预热（含 home 视图）：home 不挂载 Workbench，若等首条消息切入工作台才载布局，
+  // 切换瞬间工作台空白一次（ready=false → IPC → 标签经 reveal 重开），观感如同整页重载。
+  // init 对已就绪的同项目布局早退，视图往复切换不重复走 IPC。
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!loaded) return;
+    void useWorkbenchLayout.getState().init(projectId, legacy);
+  }, [loaded, projectId, legacy]);
+
   const referenceSource: ReferenceSource = useMemo(
     () => ({
       // @ 引用候选：打开中的文档（有草稿标题）优先，其次可读条目（笔记/导入副本/Canvas 与
@@ -218,21 +250,36 @@ export function WorkbenchShell() {
   const chatSource = useMemo<ChatTabSource>(
     () => ({
       projectId,
+      projects: entries
+        .filter((entry) => entry.kind === 'project')
+        .map(({ id, name }) => ({ id, name })),
+      onSelectProject: async (target, sessionId) => {
+        const draft = useChatDrafts.getState().drafts[sessionId];
+        const nextId = await useNavigationStore.getState().newChat(target);
+        if (nextId && draft) useChatDrafts.getState().update(nextId, draft);
+      },
       referenceSource,
       mailDialog: MailDraftDialog,
       onOpenSource: (key) => void useNavigationStore.getState().openDocument(key),
       onSaveNote: (text) =>
         openDialog(
           'note',
-          currentContainerOf(useTreeState.getState().selected ?? activeDocKey, rootId),
-          prefillNoteText(activeDocKey, text),
+          currentContainerOf(useTreeState.getState().selected ?? activeDocKeyRef.current, rootId),
+          prefillNoteText(activeDocKeyRef.current, text),
         ),
     }),
-    [projectId, referenceSource, activeDocKey, rootId],
+    [projectId, openDialog, referenceSource, rootId, entries],
   );
 
   const draftSource = useMemo<NoteDraftSource>(
     () => ({
+      usePath: (entryId) => {
+        const entries = useWorkspaceStore((state) => state.workspace.entries);
+        return ancestorChainOf(entries, entryId).flatMap((id) => {
+          const entry = entries.find((entry) => entry.id === id);
+          return entry ? [entry.name] : [];
+        });
+      },
       useDraft: (entryId) => useNoteDrafts((state) => state.drafts[entryId]),
       acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
       release: (key) => useNoteDrafts.getState().release(key),
@@ -241,11 +288,11 @@ export function WorkbenchShell() {
       saveAsNewNote: (entryId, text) =>
         openDialog(
           'note',
-          currentContainerOf(useTreeState.getState().selected ?? activeDocKey, rootId),
+          currentContainerOf(useTreeState.getState().selected ?? activeDocKeyRef.current, rootId),
           prefillNoteText(entryId, text),
         ),
     }),
-    [activeDocKey, rootId],
+    [openDialog, rootId],
   );
 
   const loader = useMemo<ContentLoader>(() => {
@@ -340,20 +387,26 @@ export function WorkbenchShell() {
               </p>
             )}
             <div className="relative flex min-h-0 flex-1">
-              <WorkbenchExplorer
-                activeDocKey={activeDocKey}
-                onAction={openDialog}
-                onOpenDocument={(key) => void useNavigationStore.getState().openDocument(key)}
-                onOpenToSide={(key) => {
-                  // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，TabBar.splitTo 同款）。
-                  const tabId = documentTabId(key);
-                  const store = useWorkbenchLayout.getState();
-                  store.openTab(tabId, store.focus);
-                  store.splitGroup(store.focus, 'vertical');
-                }}
-                projectId={projectId}
-              />
-              <Workbench legacy={legacy} projectId={projectId} />
+              {home ? (
+                <ChatHome />
+              ) : (
+                <>
+                  <WorkbenchExplorer
+                    activeDocKey={activeDocKey}
+                    onAction={openDialog}
+                    onOpenDocument={(key) => void useNavigationStore.getState().openDocument(key)}
+                    onOpenToSide={(key) => {
+                      // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，TabBar.splitTo 同款）。
+                      const tabId = documentTabId(key);
+                      const store = useWorkbenchLayout.getState();
+                      store.openTab(tabId, store.focus);
+                      store.splitGroup(store.focus, 'vertical');
+                    }}
+                    projectId={projectId}
+                  />
+                  <Workbench />
+                </>
+              )}
             </div>
             <EntryDialogs
               onClose={() => setDialog(null)}

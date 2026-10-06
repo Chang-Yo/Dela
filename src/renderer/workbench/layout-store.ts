@@ -10,6 +10,7 @@ import type {
 } from '../../shared/layout';
 import {
   clampRatio,
+  collapseEmptyGroups,
   countNodes,
   createDefaultLayout,
   findGroup,
@@ -30,6 +31,10 @@ import {
 import type { EdgeZone } from './tab-dnd';
 
 const PERSIST_DEBOUNCE_MS = 800;
+
+// 容量超限（单组 maxTabsPerGroup / 全树 maxLayoutNodes）此前静默 return（评审 6）。
+// 无现成 toast 子系统，取 console.warn 作最小反馈；不为此改动三个动作的返回签名。
+const CAPACITY_LIMIT_REACHED = '工作组容量已达上限，已忽略本次操作';
 
 type Store = {
   projectId: string | null;
@@ -72,19 +77,31 @@ function clearLegacyViewKeys() {
   pendingLegacyScope = null;
 }
 
+function saveLayoutNow() {
+  const api = typeof window === 'undefined' ? undefined : window.dela?.layout;
+  if (!api) return;
+  const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
+  void api
+    .save(projectId, { root, focus, maximized })
+    // 持久化失败不打断布局操作；下次变更会重试。首次成功后清除旧视图 localStorage 键。
+    .then(clearLegacyViewKeys)
+    .catch(() => {});
+}
+
 function schedulePersist() {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
     persistTimer = null;
-    const api = typeof window === 'undefined' ? undefined : window.dela?.layout;
-    if (!api) return;
-    const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
-    void api
-      .save(projectId, { root, focus, maximized })
-      // 持久化失败不打断布局操作；下次变更会重试。首次成功后清除旧视图 localStorage 键。
-      .then(clearLegacyViewKeys)
-      .catch(() => {});
+    saveLayoutNow();
   }, PERSIST_DEBOUNCE_MS);
+}
+
+/** 去抖窗口内项目切换时冲刷在途保存：此刻快照仍属旧项目（init 尚未覆盖状态），立即落库。 */
+function flushPersist() {
+  if (!persistTimer) return;
+  clearTimeout(persistTimer);
+  persistTimer = null;
+  saveLayoutNow();
 }
 
 let initToken = 0;
@@ -97,7 +114,13 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
   ready: false,
 
   init: async (projectId, legacy) => {
+    // 同项目布局已在用（home↔工作台切换会重挂载宿主）：复用现态直接返回，不再置
+    // ready=false 重走 IPC——那会让切换瞬间工作台空白一次，观感如同整页重载。
+    if (get().ready && get().projectId === projectId) return;
+    // 先冲刷上个项目在途的布局保存（快照仍属旧项目），否则 800ms 内切项目会丢该次变更。
+    flushPersist();
     const token = ++initToken;
+    set({ ready: false });
     let saved: WorkbenchLayout | null = null;
     if (typeof window !== 'undefined' && window.dela?.layout) {
       try {
@@ -107,9 +130,10 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       }
     }
     if (token !== initToken) return;
-    const next =
+    const next = collapseEmptyGroups(
       parseWorkbenchLayout(saved) ??
-      (legacy ? seedLayoutFromLegacy(legacy) : createDefaultLayout());
+        (legacy ? seedLayoutFromLegacy(legacy) : createDefaultLayout()),
+    );
     // 无论本次布局来自保存还是旧数据种子，落库成功后该项目的旧布局键都已成为死键。
     pendingLegacyScope = legacy?.scope ?? null;
     set({ projectId, root: next.root, focus: next.focus, maximized: next.maximized, ready: true });
@@ -136,7 +160,10 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     if (!fallback) return;
     const groupId = targetGroupId && findGroup(root, targetGroupId) ? targetGroupId : fallback.id;
     if (!findGroup(root, groupId)!.tabs.includes(tabId)) {
-      if (findGroup(root, groupId)!.tabs.length >= maxTabsPerGroup) return;
+      if (findGroup(root, groupId)!.tabs.length >= maxTabsPerGroup) {
+        console.warn(CAPACITY_LIMIT_REACHED, groupId);
+        return;
+      }
       set({
         root: updateGroup(root, groupId, (group) => ({
           ...group,
@@ -221,7 +248,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
         tabs: destinationTabs,
         active: tabId,
       }));
-    set({ root: nextRoot, focus: toGroupId });
+    set(collapseEmptyGroups({ root: nextRoot, focus: toGroupId, maximized: get().maximized }));
     schedulePersist();
   },
 
@@ -229,6 +256,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const { root } = get();
     const target = findGroup(root, targetGroupId);
     if (!target || !findGroup(root, fromGroupId)?.tabs.includes(tabId)) return;
+    if (fromGroupId === targetGroupId && target.tabs.length === 1) return;
     const orientation: SplitOrientation =
       zone === 'left' || zone === 'right' ? 'vertical' : 'horizontal';
     const newGroup: GroupNode = { type: 'group', id: nextGroupId(root), tabs: [], active: null };
@@ -239,15 +267,18 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       ratio: 0.5,
       children,
     }));
-    if (countNodes(nextRoot) > maxLayoutNodes) return;
-    set({ root: nextRoot });
+    if (countNodes(nextRoot) > maxLayoutNodes) {
+      console.warn(CAPACITY_LIMIT_REACHED, targetGroupId);
+      return;
+    }
+    set({ root: nextRoot, maximized: null });
     get().moveTab(tabId, fromGroupId, newGroup.id);
   },
 
   splitGroup: (groupId, orientation) => {
     const { root } = get();
     const group = findGroup(root, groupId);
-    if (!group) return;
+    if (!group?.active) return;
     const newGroup: GroupNode = {
       type: 'group',
       id: nextGroupId(root),
@@ -260,7 +291,10 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       ratio: 0.5,
       children: [group, newGroup],
     }));
-    if (countNodes(nextRoot) > maxLayoutNodes) return;
+    if (countNodes(nextRoot) > maxLayoutNodes) {
+      console.warn(CAPACITY_LIMIT_REACHED, groupId);
+      return;
+    }
     // 分屏后需要看到两侧：清掉最大化态。
     set({ root: nextRoot, focus: newGroup.id, maximized: null });
     schedulePersist();

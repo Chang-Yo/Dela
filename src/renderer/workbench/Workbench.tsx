@@ -1,44 +1,16 @@
-// 工作台根：载入项目布局、渲染根节点（或最大化组/窄屏单列），承接布局类快捷键。
-// 挂载入口在批次 3B 由 App 切换；本组件不 import 任何 features/。
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { cn } from '../lib/utils';
+// 工作台根：渲染项目布局（或最大化组/窄屏单列），承接布局类快捷键。
+// 布局载入（init）由装配层 workbench-shell 负责：home 视图不挂载本组件，若等首条
+// 消息切入工作台才 init，切换会闪一次空白重载；装配层预热后此处首帧即有布局。
+import { type KeyboardEvent } from 'react';
 import { useWorkbenchLayout } from './layout-store';
-import type { LegacySeedInput } from './layout-schema';
 import { findGroup, walkGroups } from './layout-schema';
 import { SplitNodeView } from './SplitNode';
 import { TabGroup } from './TabGroup';
 
-/** 窄屏断点：多组不再压缩，改为单列滚动（计划 §4.2：优先收纳次要控件）。 */
-const NARROW_QUERY = '(max-width: 899px)';
-
-export function Workbench({
-  projectId = null,
-  legacy,
-}: {
-  projectId?: string | null;
-  legacy?: LegacySeedInput;
-}) {
+export function Workbench() {
   const ready = useWorkbenchLayout((s) => s.ready);
   const root = useWorkbenchLayout((s) => s.root);
   const maximized = useWorkbenchLayout((s) => s.maximized);
-  // legacy 每次渲染都可能是新对象引用（父组件内联构造）；init 只随项目切换触发。
-  const legacyRef = useRef(legacy);
-  legacyRef.current = legacy;
-  const [narrow, setNarrow] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches,
-  );
-
-  useEffect(() => {
-    void useWorkbenchLayout.getState().init(projectId, legacyRef.current);
-  }, [projectId]);
-
-  useEffect(() => {
-    const media = window.matchMedia(NARROW_QUERY);
-    const update = () => setNarrow(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing) return;
@@ -86,12 +58,6 @@ export function Workbench({
   const maximizedGroup = maximized ? findGroup(root, maximized) : null;
   const content = maximizedGroup ? (
     <TabGroup group={maximizedGroup} />
-  ) : narrow ? (
-    walkGroups(root).map((group) => (
-      <div key={group.id} className="flex h-full shrink-0 flex-col">
-        <TabGroup group={group} />
-      </div>
-    ))
   ) : (
     <SplitNodeView node={root} path={[]} />
   );
@@ -100,10 +66,7 @@ export function Workbench({
     <div
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      className={cn(
-        'relative flex min-h-0 flex-1 overflow-hidden bg-background outline-none',
-        narrow && !maximizedGroup ? 'flex-col overflow-y-auto' : undefined,
-      )}
+      className="relative flex min-h-0 flex-1 overflow-hidden bg-background outline-none"
     >
       {content}
     </div>

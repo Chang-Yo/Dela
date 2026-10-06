@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -24,8 +24,11 @@ import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
 
+/** 复制成功对勾的自动复位时长（消息复制按钮共用）。 */
+const COPY_FEEDBACK_MS = 1500;
+
 /** 消息悬停操作栏：复制与保存为笔记，参照 assistant-ui ActionBar 的自动显隐。 */
-function MessageActions({
+const MessageActions = memo(function MessageActions({
   content,
   onSaveNote,
 }: {
@@ -35,7 +38,7 @@ function MessageActions({
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1500);
+    const timer = setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
     return () => clearTimeout(timer);
   }, [copied]);
   return (
@@ -51,7 +54,7 @@ function MessageActions({
         title="复制"
         variant="ghost"
       >
-        {copied ? <Check className="text-emerald-600 dark:text-emerald-400" /> : <Copy />}
+        {copied ? <Check className="text-success" /> : <Copy />}
       </Button>
       {onSaveNote && (
         <Button
@@ -67,10 +70,10 @@ function MessageActions({
       )}
     </div>
   );
-}
+});
 
 /** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图。 */
-function MessageImage({ id, name }: { id: string; name: string }) {
+const MessageImage = memo(function MessageImage({ id, name }: { id: string; name: string }) {
   const [url, setUrl] = useState(() => getChatMediaPreview(id) ?? null);
   useEffect(() => {
     if (url) return;
@@ -97,9 +100,10 @@ function MessageImage({ id, name }: { id: string; name: string }) {
       图片
     </span>
   );
-}
+});
 
-function UserMessage({
+/** 用户消息：编辑态在组件内部（key 随会话/索引变化时重置）。 */
+const UserMessage = memo(function UserMessage({
   message,
   onOpenSource,
   onEdit,
@@ -115,7 +119,7 @@ function UserMessage({
   const [text, setText] = useState(message.content);
   useEffect(() => {
     if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1500);
+    const timer = setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
     return () => clearTimeout(timer);
   }, [copied]);
   // 已发送消息的正文不含图片 token；编辑重发时按原消息把图片补回尾部，原图随新消息保留。
@@ -243,7 +247,7 @@ function UserMessage({
             type="button"
             variant="ghost"
           >
-            {copied ? <Check className="text-emerald-600 dark:text-emerald-400" /> : <Copy />}
+            {copied ? <Check className="text-success" /> : <Copy />}
           </Button>
         ) : null}
         {editable && (
@@ -265,9 +269,9 @@ function UserMessage({
       </div>
     </div>
   );
-}
+});
 
-function AssistantMessage({
+const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
   activeTool,
@@ -425,10 +429,12 @@ function AssistantMessage({
       )}
     </div>
   );
-}
+});
 
-/** 对话消息流：发送后用户消息锚定视口顶部，回复在其下生长；工具步骤折叠展示。 */
-export function ChatThread({
+/** 对话消息流：发送后用户消息锚定视口顶部，回复在其下生长；工具步骤折叠展示。
+ *  memo：props 全为稳定引用/原始值（草稿订阅已下沉到 ChatComposerArea），
+ *  会话视图内输入区、错误提示等局部变化不带动消息列表重渲。 */
+export const ChatThread = memo(function ChatThread({
   chat,
   onOpenSource,
   onSaveNote,
@@ -464,14 +470,25 @@ export function ChatThread({
     return -1;
   }, [messages]);
 
-  // 以一行正文高度作为到底部容差，避免固定像素阈值随字号失效。
-  const onScroll = () => {
+  // 以一行正文高度作为到底部容差，避免固定像素阈值随字号失效；行高只读一次后缓存，
+  // 内容尺寸变化（含字号设置改变引发的重排）时在 resize 中失效重算。
+  const lineHeightRef = useRef(0);
+  const lastScrollTop = useRef(0);
+  const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const line =
-      parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize);
-    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight <= line);
-  };
+    if (!lineHeightRef.current) {
+      const style = getComputedStyle(el);
+      lineHeightRef.current = parseFloat(style.lineHeight) || parseFloat(style.fontSize);
+    }
+    const atBottomNow = el.scrollHeight - el.scrollTop - el.clientHeight <= lineHeightRef.current;
+    setAtBottom(atBottomNow);
+    // 跟随只由滚动位置驱动：滚轮/触摸/键盘/滚动条的用户滚动都触发 scroll 事件——上滚
+    // 退出跟随，回到容差内的底部恢复跟随；点按消息内按钮不产生滚动，不打断跟随。
+    if (atBottomNow) followBottom.current = true;
+    else if (el.scrollTop < lastScrollTop.current) followBottom.current = false;
+    lastScrollTop.current = el.scrollTop;
+  }, []);
 
   const anchoredKey = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -479,16 +496,20 @@ export function ChatThread({
     const content = contentRef.current;
     const spacer = spacerRef.current;
     if (!viewport || !content || !spacer) return;
-    const key = `${chat.sessionId}:${lastUserIndex}`;
+    // 回合身份 = 会话 + 最后一条用户消息索引 + 回复行 startedAt：editLast 按同索引
+    // 整表重发时回复行重建（startedAt 更新），据此重新锚定；流式增长不动这个键。
+    const key = `${chat.sessionId}:${lastUserIndex}:${messages[lastUserIndex + 1]?.startedAt ?? ''}`;
     if (anchoredKey.current !== key) {
       anchoredKey.current = key;
       spacer.style.height = '0px';
       // ChatGPT 式：新回合贴底展示（用户消息下方就是流式输出），流式期间自动跟随
-      // 最新内容；上滚/触摸/方向键退出跟随，「回到底部」按钮恢复跟随。
+      // 最新内容；用户上滚即退出跟随（见 onScroll），回到底部或点按钮恢复。
       followBottom.current = streaming;
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
     }
     const resize = () => {
+      // 字号可能已变：行高缓存失效，本次随 onScroll 重新计算。
+      lineHeightRef.current = 0;
       // 保留当前滚动位置所需的最小空白；回答增长时逐渐消耗，不在结束时突然归零。
       const heightWithoutReserve = content.scrollHeight - spacer.offsetHeight;
       spacer.style.height = `${Math.max(0, viewport.scrollTop + viewport.clientHeight - heightWithoutReserve)}px`;
@@ -512,6 +533,9 @@ export function ChatThread({
   // 邮件草稿弹窗由容器注入：读取草稿、账号校验、关闭守卫与发送都在注入组件内完成，
   // 本组件只负责入口与发送后的提示文案。
   const MailDialog = mailDialog;
+  // 消息组件 memo 后回调必须稳定，弹窗/编辑入口的局部状态才不带动消息列表重渲。
+  const openDraft = useCallback((id: string) => setDraftId(id), []);
+  const handleEditLast = useCallback((text: string) => onEditLast?.(text), [onEditLast]);
 
   return (
     <div className={`relative min-h-0 flex-1 ${className ?? ''}`}>
@@ -519,28 +543,17 @@ export function ChatThread({
         ref={scrollRef}
         className="size-full overflow-y-auto [overflow-anchor:none]"
         aria-label="对话消息"
-        onWheel={() => {
-          followBottom.current = false;
-        }}
-        onTouchStart={() => {
-          followBottom.current = false;
-        }}
-        onPointerDown={() => {
-          followBottom.current = false;
-        }}
-        onKeyDown={(event) => {
-          if (['ArrowUp', 'PageUp', 'Home'].includes(event.key)) followBottom.current = false;
-        }}
         onScroll={onScroll}
       >
         <div ref={contentRef} className="relative mx-auto w-full max-w-3xl px-4 py-4">
+          {/* 消息无稳定 id，key 用 sessionId:index：依赖列表 append-only（editLast 截断重发按同索引整表替换），勿在中间插入/删除。 */}
           {messages.map((message, index) =>
             message.role === 'user' ? (
               <UserMessage
                 key={`${chat.sessionId}:${index}`}
                 message={message}
                 onOpenSource={onOpenSource}
-                onEdit={(text) => onEditLast?.(text)}
+                onEdit={handleEditLast}
                 editable={index === lastUserIndex && !streaming && onEditLast !== undefined}
               />
             ) : (
@@ -549,7 +562,7 @@ export function ChatThread({
                 live={streaming && index === messages.length - 1}
                 message={message}
                 activeTool={chat.activeTool}
-                onOpenDraft={MailDialog ? (id) => setDraftId(id) : undefined}
+                onOpenDraft={MailDialog ? openDraft : undefined}
                 onSaveNote={onSaveNote}
               />
             ),
@@ -592,4 +605,4 @@ export function ChatThread({
       )}
     </div>
   );
-}
+});

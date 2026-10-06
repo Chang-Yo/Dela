@@ -22,7 +22,8 @@ function resetStore() {
     root: createDefaultLayout().root,
     focus: 'primary',
     maximized: null,
-    ready: true,
+    // init 对已就绪的同项目布局早退；测试统一从未就绪起步，保证每个用例都走真实加载路径。
+    ready: false,
   });
 }
 
@@ -35,6 +36,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // 先让在途防抖回调跑完再清：clearAllTimers 不会触发回调置空 store 的 persistTimer，
+  // 残留句柄会让下一个用例的 init 冲刷误判有在途保存。
+  vi.runAllTimers();
   vi.clearAllTimers();
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -42,7 +46,22 @@ afterEach(() => {
 });
 
 describe('init', () => {
-  it('使用已保存布局（按项目键控）', async () => {
+  it('布局加载期间关闭 ready，防止导航提前消费聊天标签', async () => {
+    installLayoutApi(() => null);
+    let finish!: (layout: WorkbenchLayout | null) => void;
+    const pending = new Promise<WorkbenchLayout | null>((resolve) => {
+      finish = resolve;
+    });
+    vi.spyOn(window.dela!.layout, 'get').mockReturnValue(pending);
+    const loading = state().init(uuid);
+    expect(state().ready).toBe(false);
+    finish(null);
+    await loading;
+    expect(state().ready).toBe(true);
+    expect(state().projectId).toBe(uuid);
+  });
+
+  it('按项目恢复有内容的标签，合并旧空组并修复焦点', async () => {
     const saved: WorkbenchLayout = {
       root: {
         type: 'split',
@@ -63,8 +82,13 @@ describe('init', () => {
     });
     await state().init(uuid);
     expect(seen).toEqual([uuid]);
-    expect(state().root).toEqual(saved.root);
-    expect(state().focus).toBe('secondary');
+    expect(state().root).toEqual({
+      type: 'group',
+      id: 'primary',
+      tabs: ['note:a'],
+      active: 'note:a',
+    });
+    expect(state().focus).toBe('primary');
     expect(state().ready).toBe(true);
   });
 
@@ -88,6 +112,27 @@ describe('init', () => {
     await state().init(null);
     expect(state().root).toEqual(createDefaultLayout().root);
     expect(state().projectId).toBeNull();
+  });
+
+  it('旧布局全为空组时收敛为一个空根组并清除最大化', async () => {
+    installLayoutApi(() => ({
+      root: {
+        type: 'split',
+        orientation: 'vertical',
+        ratio: 0.5,
+        children: [
+          { type: 'group', id: 'primary', tabs: [], active: null },
+          { type: 'group', id: 'secondary', tabs: [], active: null },
+        ],
+      },
+      focus: 'secondary',
+      maximized: 'secondary',
+    }));
+    await state().init(uuid);
+    expect(groups()).toHaveLength(1);
+    expect(groups()[0]!.tabs).toEqual([]);
+    expect(state().focus).toBe('primary');
+    expect(state().maximized).toBeNull();
   });
 });
 
@@ -203,15 +248,38 @@ describe('moveTab / moveTabToEdge', () => {
 
   it('下缘拖放产生横向 split', () => {
     state().openTab('note:a');
+    state().openTab('note:b');
     state().moveTabToEdge('note:a', 'primary', 'primary', 'bottom');
     const root = state().root;
     expect(root.type).toBe('split');
     if (root.type === 'split') expect(root.orientation).toBe('horizontal');
   });
+
+  it('移走最后一个标签时移除来源组，保留目标的内容与焦点', () => {
+    state().openTab('note:a');
+    state().splitGroup('primary', 'vertical');
+    const side = groups()[1]!;
+    state().moveTab('note:a', 'primary', side.id, 0);
+    expect(groups()).toHaveLength(1);
+    expect(state().root).toMatchObject({ id: side.id, tabs: ['note:a'] });
+    expect(state().focus).toBe(side.id);
+  });
+
+  it('唯一标签拖到自己的边缘不留下空组', () => {
+    state().openTab('note:a');
+    state().moveTabToEdge('note:a', 'primary', 'primary', 'bottom');
+    expect(groups()).toHaveLength(1);
+    expect(groups()[0]!.tabs).toEqual(['note:a']);
+  });
 });
 
 describe('splitGroup / setMaximized / setRatio', () => {
   beforeEach(() => installLayoutApi(() => null));
+
+  it('空组不能继续分屏', () => {
+    state().splitGroup('primary', 'vertical');
+    expect(groups()).toHaveLength(1);
+  });
 
   it('split 包裹目标组、复制活动标签、焦点落到新组', () => {
     state().openTab('note:a');
@@ -275,6 +343,31 @@ describe('持久化', () => {
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith(uuid, {
       root: { type: 'group', id: 'primary', tabs: ['note:z', 'note:w'], active: 'note:w' },
+      focus: 'primary',
+      maximized: null,
+    });
+  });
+
+  it('800ms 去抖窗口内切换项目：init 冲刷在途保存并按旧项目键控', async () => {
+    const other = '00000000-0000-4000-8000-000000000003';
+    const { save } = installLayoutApi(() => null);
+    await state().init(uuid, { scope: uuid, viewTabs: [], viewActive: null });
+    await vi.advanceTimersByTimeAsync(800); // init 自身的种子写回
+    expect(save).toHaveBeenCalledTimes(1);
+    state().openTab('note:z');
+    await state().init(other);
+    // 在途保存立即按旧项目落库；否则去抖结束后快照已是新项目状态，旧项目丢失该次变更。
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenNthCalledWith(2, uuid, {
+      root: { type: 'group', id: 'primary', tabs: ['note:z'], active: 'note:z' },
+      focus: 'primary',
+      maximized: null,
+    });
+    // 新项目的种子写回仍按新项目键控。
+    await vi.advanceTimersByTimeAsync(800);
+    expect(save).toHaveBeenCalledTimes(3);
+    expect(save).toHaveBeenNthCalledWith(3, other, {
+      root: { type: 'group', id: 'primary', tabs: [], active: null },
       focus: 'primary',
       maximized: null,
     });
