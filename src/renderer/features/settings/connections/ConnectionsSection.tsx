@@ -3,6 +3,13 @@ import { Dialog } from 'radix-ui';
 import { CalendarDays, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { ShuiyuanIcon } from '../../../components/ui/shuiyuan-icon';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
 import type { MailTrashRetention } from '../../../../shared/api';
 import { CanvasTokenForm } from './CanvasTokenForm';
@@ -22,7 +29,8 @@ type Connection = {
   icon: LucideIcon | typeof ShuiyuanIcon;
   state: string;
   connected: boolean;
-  description: string;
+  /** 防误解的关键说明（如授权范围）；其余连接不显示描述。 */
+  description?: string;
   actionLabel: string;
   onClick: () => void;
   /** 条目右侧的内联设置(如保留期);仅在相应数据就绪时渲染。 */
@@ -135,7 +143,6 @@ export function ConnectionsSection({
       icon: GraduationCap,
       state: canvas.connected ? '已连接' : '未连接',
       connected: canvas.connected,
-      description: '连接课程、作业与文件',
       actionLabel: canvas.connected ? '管理' : '配置',
       onClick: openDialog,
     },
@@ -145,7 +152,6 @@ export function ConnectionsSection({
       icon: Mail,
       state: mailAddress ? `已连接 · ${mailAddress}` : '未配置',
       connected: Boolean(mailAddress),
-      description: '通过 IMAP 读取交大邮箱',
       actionLabel: '前往',
       onClick: onOpenMail,
       // 仅在邮箱已连接且保留期已读取时显示;浏览器预览无 window.dela,自然不渲染。
@@ -153,19 +159,20 @@ export function ConnectionsSection({
         trashRetention === null ? undefined : (
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground max-md:hidden">已删除保留</span>
-            <select
-              aria-label="已删除邮件保留"
-              className="h-8 rounded-md border bg-background px-1.5 text-xs text-foreground"
-              onChange={(event) =>
-                void changeRetention(Number(event.target.value) as MailTrashRetention)
-              }
-              value={trashRetention}
+            <Select
+              onValueChange={(value) => void changeRetention(Number(value) as MailTrashRetention)}
+              value={String(trashRetention)}
             >
-              <option value={7}>7 天</option>
-              <option value={30}>30 天</option>
-              <option value={90}>90 天</option>
-              <option value={0}>永久</option>
-            </select>
+              <SelectTrigger aria-label="已删除邮件保留" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 天</SelectItem>
+                <SelectItem value="30">30 天</SelectItem>
+                <SelectItem value="90">90 天</SelectItem>
+                <SelectItem value="0">永久</SelectItem>
+              </SelectContent>
+            </Select>
             {retentionError && (
               <span className="text-xs text-destructive" role="alert">
                 {retentionError}
@@ -180,7 +187,6 @@ export function ConnectionsSection({
       icon: CalendarDays,
       state: timetableConnected ? '已连接' : '未连接',
       connected: timetableConnected,
-      description: '同步个人课表与教学安排',
       actionLabel: '前往',
       onClick: onOpenTimetable,
     },
@@ -190,7 +196,8 @@ export function ConnectionsSection({
       icon: ShuiyuanIcon,
       state: shuiyuanUser ? `已绑定 · @${shuiyuanUser}` : '未绑定',
       connected: Boolean(shuiyuanUser),
-      description: '浏览帖子、回复与私信（读取 + 写入授权）',
+      // 授权范围是绑定前的知情要件，保留。
+      description: '读取与写入授权（浏览、回复、私信）',
       actionLabel: shuiyuanUser
         ? shuiyuanBusy
           ? '解除中…'
@@ -209,7 +216,7 @@ export function ConnectionsSection({
 
   return (
     <div className="grid gap-5">
-      <SectionHeader description="凭据经系统加密保存在本机。" title="连接" />
+      <SectionHeader title="连接" />
       {loadError && (
         <p className="text-xs text-destructive" role="alert">
           {loadError}
@@ -239,9 +246,11 @@ export function ConnectionsSection({
                 </span>
                 <div className="grid min-w-0 gap-0.5">
                   <strong className="text-sm">{name}</strong>
-                  <span className="truncate text-xs text-muted-foreground" title={description}>
-                    {description}
-                  </span>
+                  {description && (
+                    <span className="truncate text-xs text-muted-foreground" title={description}>
+                      {description}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -274,8 +283,8 @@ export function ConnectionsSection({
             <Dialog.Title className="text-base font-semibold">配置 Canvas</Dialog.Title>
             <Dialog.Description className="mt-2 text-xs leading-relaxed text-muted-foreground">
               {canvas.connected
-                ? '输入新的个人 Access Token 以替换当前连接，或断开并删除当前凭据。'
-                : '输入个人 Access Token。验证成功后会读取课程列表，凭据仅由主进程加密保存。'}
+                ? '输入新的个人 Access Token 以替换当前连接。'
+                : '输入个人 Access Token，验证成功后读取课程列表；凭据加密保存在本机。'}
             </Dialog.Description>
             <CanvasTokenForm
               actions={
