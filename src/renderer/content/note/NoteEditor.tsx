@@ -181,7 +181,7 @@ const codeHighlightStyle = HighlightStyle.define([
   },
   { tag: [t.typeName, t.className, t.tagName], color: 'var(--syntax-tag)' },
   { tag: [t.propertyName, t.attributeName], color: 'var(--syntax-constant)' },
-  { tag: [t.variableName, t.labelName, t.operator, t.name], color: '#e6edf3' },
+  { tag: [t.variableName, t.labelName, t.operator, t.name], color: 'var(--syntax-variable)' },
 ]);
 
 function createSession(

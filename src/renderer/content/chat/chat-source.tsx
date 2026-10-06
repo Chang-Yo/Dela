@@ -30,6 +30,8 @@ export type MailDraftDialog = ComponentType<MailDraftDialogProps>;
 export interface ChatTabSource {
   /** 会话所属项目；null = 通用池。会话切换条据此列出项目会话与通用入口。 */
   projectId: string | null;
+  projects?: { id: string; name: string }[];
+  onSelectProject?(projectId: string | null, sessionId: string): Promise<void>;
   /** @ 引用数据源；未提供时 composer 无 @ 候选、发送前不冲盘引用草稿。 */
   referenceSource?: ReferenceSource;
   /** 邮件草稿检查弹窗；未提供时隐藏「检查并发送邮件」入口。 */

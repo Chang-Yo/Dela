@@ -245,6 +245,7 @@ export function ComposerEditor({
   onFiles,
   onDropHandled,
   menu,
+  menuAria,
   placeholderText,
   hero = false,
   handleRef,
@@ -257,6 +258,8 @@ export function ComposerEditor({
   onFiles: (files: File[], pos: number) => void;
   onDropHandled?: () => void;
   menu: ComposerMenuApi;
+  /** @/斜杠候选菜单的 combobox 状态：展开与当前高亮同步到编辑器内容元素，读屏可感知。 */
+  menuAria?: { open: boolean; listId: string; activeId: string | null };
   placeholderText: string;
   hero?: boolean;
   handleRef: RefObject<ComposerEditorHandle | null>;
@@ -388,6 +391,22 @@ export function ComposerEditor({
   useEffect(() => {
     syncValue();
   }, [value]);
+  // combobox 语义落在 CM 内容元素（编辑焦点所在）：role 与 aria-controls 常驻，
+  // expanded/activedescendant 随候选菜单开合与高亮移动（对照 GlobalSearchDialog 输入框）。
+  // 这几个属性 CM 不管理，直接命令式同步；拆出原始值做依赖，打字时不重复写 DOM。
+  const menuAriaOpen = menuAria?.open ?? false;
+  const menuAriaListId = menuAria?.listId ?? '';
+  const menuAriaActiveId = menuAria?.activeId ?? null;
+  useEffect(() => {
+    const content = view.current?.contentDOM;
+    if (!content) return;
+    content.setAttribute('role', 'combobox');
+    content.setAttribute('aria-expanded', String(menuAriaOpen));
+    content.setAttribute('aria-controls', menuAriaListId);
+    if (menuAriaOpen && menuAriaActiveId)
+      content.setAttribute('aria-activedescendant', menuAriaActiveId);
+    else content.removeAttribute('aria-activedescendant');
+  }, [menuAriaActiveId, menuAriaListId, menuAriaOpen]);
   // 占位符用自绘覆盖层而不是 CM 内置 placeholder：内置实现把占位文本作为行内原子
   // widget 插在光标同位（side 1），空文档点击时光标视觉上落在占位文字右侧，与实际
   // 插入点（文档开头）不一致；覆盖层不参与布局，光标始终停在行首。

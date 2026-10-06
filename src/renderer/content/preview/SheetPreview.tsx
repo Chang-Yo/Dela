@@ -30,9 +30,16 @@ export function sanitizeTableHtml(html: string): string {
     for (const attr of Array.from(el.attributes))
       if (attr.name.startsWith('on') || attr.name === 'srcdoc') el.removeAttribute(attr.name);
   });
+  // 链接协议走 URL 白名单而非正则黑名单：URL 解析会剥掉 scheme 内的 tab/换行，
+  // `java&#9;script:` 这类实体编码可绕过黑名单（解析后即 javascript:）。
   doc.querySelectorAll('a[href]').forEach((a) => {
-    if (/^\s*(javascript|vbscript|data):/i.test(a.getAttribute('href') ?? ''))
+    try {
+      // 无文档基址：相对链接一并剥除，只保留绝对 http(s)。
+      if (!['https:', 'http:'].includes(new URL(a.getAttribute('href')!).protocol))
+        a.removeAttribute('href');
+    } catch {
       a.removeAttribute('href');
+    }
   });
   return doc.body.innerHTML;
 }

@@ -45,4 +45,18 @@ describe('sanitizeTableHtml', () => {
     expect(clean).not.toContain('data:text/html');
     expect(clean).toContain('href="https://example.com"');
   });
+
+  it('blocks entity-encoded scheme smuggling that defeats a regex blacklist', () => {
+    // 实体解码后的 tab/换行会被 URL 解析从 scheme 中剥掉（java\tscript: → javascript:），
+    // 正则黑名单匹配不到；白名单须按解析后的 protocol 判定。相对链接同样剥除。
+    const html =
+      '<table><tr>' +
+      '<td><a href="java&#9;script:alert(1)">a</a></td>' +
+      '<td><a href="jav&#10;ascript:alert(1)">b</a></td>' +
+      '<td><a href="vbs&#13;cript:msgbox(1)">c</a></td>' +
+      '<td><a href="page.html">d</a></td>' +
+      '</tr></table>';
+    const reparsed = new DOMParser().parseFromString(sanitizeTableHtml(html), 'text/html');
+    expect(reparsed.querySelectorAll('a[href]')).toHaveLength(0);
+  });
 });

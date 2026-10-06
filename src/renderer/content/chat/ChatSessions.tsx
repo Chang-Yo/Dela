@@ -1,23 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Search, Trash2, X } from 'lucide-react';
+import { Archive, MessageSquare, Search, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
 import { poolKey, querySessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';
-
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  if (date.toDateString() === now.toDateString())
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) return '昨天';
-  return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
-}
 
 function SessionList({
   sessions,
@@ -32,16 +21,15 @@ function SessionList({
   onDeleteSession: (sessionId: string) => void;
   onClose: () => void;
 }) {
-  // 删除二次确认：点垃圾桶先在原位变成「确认删除」，点它才真删；点到别处即还原。
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   useEffect(() => {
     if (confirmingId === null) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!(event.target instanceof Element && event.target.closest('[data-delete-confirm]')))
+    const cancel = (event: PointerEvent) => {
+      if (!(event.target instanceof Element && event.target.closest('[data-archive-confirm]')))
         setConfirmingId(null);
     };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
+    document.addEventListener('pointerdown', cancel);
+    return () => document.removeEventListener('pointerdown', cancel);
   }, [confirmingId]);
   return (
     <>
@@ -72,14 +60,10 @@ function SessionList({
             >
               {session.title || '新对话'}
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {formatTime(session.updatedAt)}
-            </span>
           </button>
           {confirmingId === session.id ? (
             <Button
-              className="h-7 px-2 text-xs"
-              data-delete-confirm=""
+              data-archive-confirm=""
               size="sm"
               variant="destructive"
               onClick={() => {
@@ -87,16 +71,17 @@ function SessionList({
                 onDeleteSession(session.id);
               }}
             >
-              确认删除
+              确认归档
             </Button>
           ) : (
             <button
-              aria-label={`删除对话 ${session.title}`}
-              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+              aria-label={`归档对话 ${session.title}`}
+              title="归档对话"
+              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
               onClick={() => setConfirmingId(session.id)}
               type="button"
             >
-              <Trash2 className="size-3.5" />
+              <Archive className="size-3.5" />
             </button>
           )}
         </div>
@@ -130,6 +115,8 @@ export function ChatSessions({
   // null = 尚无结果：面板打开与查询期间不闪空态文案，保留旧列表直到新结果到达。
   const [results, setResults] = useState<Record<string, ChatSessionSummary[] | null>>({});
   const [listVersion, setListVersion] = useState(0);
+  // 查询失败不静默呈现为空态：给一行错误与重试；新查询成功即复位。
+  const [loadError, setLoadError] = useState(false);
 
   const pools = useMemo(() => (projectId === null ? [null] : [projectId, null]), [projectId]);
 
@@ -146,10 +133,12 @@ export function ChatSessions({
             next[poolKey(pool)] = lists[index] ?? null;
           });
           setResults(next);
+          setLoadError(false);
         })
         .catch((e) => {
           if (active) {
             setResults({});
+            setLoadError(true);
             console.error(errorText(e));
           }
         });
@@ -238,6 +227,18 @@ export function ChatSessions({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto border-t p-2">
+          {loadError && (
+            <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
+              <span role="alert">历史对话加载失败</span>
+              <Button
+                onClick={() => setListVersion((version) => version + 1)}
+                size="sm"
+                variant="outline"
+              >
+                重试
+              </Button>
+            </div>
+          )}
           {allLoaded && totalCount === 0 && (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               {query ? '没有匹配的对话' : '还没有历史对话'}

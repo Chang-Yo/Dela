@@ -60,6 +60,12 @@ export function sessionRunBadge(sessionId: string): 'running' | 'failed' | 'comp
   return run ? runBadge(run.status) : null;
 }
 
+/** 按行订阅某会话的 run 状态原始值：applyRunEvent 只替换目标键，其余会话的行不重渲
+ *  （导航徽标用；App 层不再订阅 bySession 对象，避免每个 run 事件全 App 重渲）。 */
+export function useSessionRunStatus(sessionId: string): RunStatus | null {
+  return useRuns((state) => state.bySession[sessionId]?.status ?? null);
+}
+
 let runEventSubscription: (() => void) | null = null;
 
 /** 订阅 session:on-run-event（幂等）。模块加载时自动挂接；测试环境先装 window mock 再手动调用。 */

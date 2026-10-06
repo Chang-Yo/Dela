@@ -257,7 +257,7 @@ export function PdfReader({
           ref={host}
           className="absolute inset-0 overflow-auto overscroll-contain bg-muted [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
-          <div ref={pages} className="pdfViewer" />
+          <div ref={pages} className="pdfViewer dela-pdf-pages" />
         </div>
         {error && (
           <p

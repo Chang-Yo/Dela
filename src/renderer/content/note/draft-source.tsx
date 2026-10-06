@@ -16,6 +16,8 @@ export type NoteDraft = {
  * 计数持有，edit 进入 600ms 防抖保存队列，save 立即冲盘。NoteTab 不感知 store 形态。
  */
 export interface NoteDraftSource {
+  /** 订阅文档的工作区层级路径；由装配层解析目录，内容层只负责展示。 */
+  usePath?(entryId: string): string[];
   /** 订阅草稿状态；尚未建立时为 undefined。 */
   useDraft(entryId: string): NoteDraft | undefined;
   /** 建立或刷新草稿；force 时等在途保存结束后重读磁盘。 */

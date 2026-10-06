@@ -9,9 +9,13 @@ import { ancestorChainOf } from '../navigation/store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { useWorkspaceStore } from '../workspace/store';
+import { useSessions } from '../sessions/store';
+import { errorText } from '../workspace/store';
+import { useWorkbenchLayout } from '../workbench/layout-store';
+import { walkGroups } from '../workbench/layout-schema';
 
 export type AppView =
-  'workbench' | 'mail' | 'timetable' | 'shuiyuan' | 'todo' | 'notifications' | 'settings';
+  'home' | 'workbench' | 'mail' | 'timetable' | 'shuiyuan' | 'todo' | 'notifications' | 'settings';
 
 /** 窄屏抽屉层级：null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱视图可达）。 */
 export type MobileDrawer = 'nav' | 'mail';
@@ -53,6 +57,7 @@ interface NavigationState {
   openProject(id: string): boolean;
   /** 通用聊天入口（导航「通用聊天」/托盘「新建对话」）。 */
   openGeneralChat(create: boolean): boolean;
+  newChat(projectId: string | null): Promise<string | null>;
   /** 打开会话标签；projectId 决定工作台池。 */
   openChat(sessionId: string, projectId: string | null): boolean;
   /** 打开笔记标签，自动归属其所在项目。 */
@@ -99,14 +104,8 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     return true;
   };
   return {
-    view: 'workbench',
-    projectId: (() => {
-      try {
-        return localStorage.getItem(projectStorageKey) || null;
-      } catch {
-        return null;
-      }
-    })(),
+    view: 'home',
+    projectId: null,
     backStack: [],
     forwardStack: [],
     navigationError: null,
@@ -123,6 +122,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       if (!leaveComposer(() => get().navigate(next))) return false;
       set({
         view: next,
+        ...(next === 'home' ? { projectId: null } : {}),
         backStack: [...state.backStack, state.view],
         forwardStack: [],
         mailRequest: null,
@@ -184,11 +184,44 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     openGeneralChat: (create) => {
-      if (get().projectId !== null) {
-        if (!get().openProject('')) return false;
-      } else if (!get().navigate('workbench')) return false;
-      set({ generalChat: { create, seq: ++pulseSeq } });
+      if (!get().navigate('home')) return false;
+      set({ projectId: null, generalChat: { create, seq: ++pulseSeq } });
       return true;
+    },
+
+    newChat: async (projectId) => {
+      if (!window.dela || !get().navigate('workbench')) return null;
+      try {
+        const chat = await window.dela.session.create(projectId);
+        if (!chat.sessionId) throw new Error('会话创建失败');
+        useSessions.getState().putChat(chat.sessionId, chat);
+        // 兼容此前连续新建留下的空标签；仅关闭视图，不删除会话和输入草稿。
+        const layout = useWorkbenchLayout.getState();
+        if (layout.ready && layout.projectId === projectId) {
+          const tabs = walkGroups(layout.root).flatMap((group) =>
+            group.tabs
+              .filter((tab) => tab.startsWith('chat:') && tab !== `chat:${chat.sessionId}`)
+              .map((tab) => ({ tab, groupId: group.id })),
+          );
+          for (const { tab, groupId } of tabs) {
+            const id = tab.slice('chat:'.length);
+            const previous =
+              useSessions.getState().chats[id] ??
+              (await window.dela.session.open(id).catch(() => null));
+            if (previous && previous.messages.length === 0 && !previous.running)
+              useWorkbenchLayout.getState().closeTab(tab, groupId);
+          }
+        }
+        void useSessions
+          .getState()
+          .refresh(projectId)
+          .catch(() => {});
+        get().openChat(chat.sessionId, projectId);
+        return chat.sessionId;
+      } catch (cause) {
+        set({ navigationError: errorText(cause) });
+        return null;
+      }
     },
 
     openChat: (sessionId, projectId) => revealInProject(`chat:${sessionId}`, projectId),

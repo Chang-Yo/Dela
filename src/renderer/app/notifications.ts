@@ -12,24 +12,27 @@ export function useNotifications(active: boolean) {
   const [now, setNow] = useState(Date.now);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 订阅与 run() 共用的读取序号：await 落地时序号已前进则结果过期，不得覆盖。 */
+  const versionRef = useRef(0);
 
   useEffect(() => {
     if (!active) return;
     const api = window.dela?.notifications;
     if (!api) return;
     let alive = true;
-    let version = 0;
+    // 重新订阅时归零，保持初始读取的 version===0 守卫语义。
+    versionRef.current = 0;
     const unsubscribe = api.onUpdate((state) => {
-      version += 1;
+      versionRef.current += 1;
       setNow(Date.now);
       if (alive) setNotifications(state);
     });
     const unsubscribeTodos = window.dela?.todo.onUpdate(() => {
-      const requested = ++version;
+      const requested = ++versionRef.current;
       void api
         .getState()
         .then((state) => {
-          if (alive && requested === version) setNotifications(state);
+          if (alive && requested === versionRef.current) setNotifications(state);
         })
         .catch((cause: unknown) => {
           if (alive) setError(errorText(cause));
@@ -38,7 +41,7 @@ export function useNotifications(active: boolean) {
     void api
       .getState()
       .then((state) => {
-        if (alive && version === 0) setNotifications(state);
+        if (alive && versionRef.current === 0) setNotifications(state);
       })
       .catch((cause) => {
         if (alive) setError(errorText(cause));
@@ -46,11 +49,11 @@ export function useNotifications(active: boolean) {
     // 暂停到期时重新读取，使铃铛无需等待下一次网络刷新即可恢复。
     const timer = window.setInterval(() => {
       setNow(Date.now);
-      const requested = version;
+      const requested = versionRef.current;
       void api
         .getState()
         .then((state) => {
-          if (alive && version === requested) setNotifications(state);
+          if (alive && versionRef.current === requested) setNotifications(state);
         })
         .catch(() => {});
     }, 60_000);
@@ -65,8 +68,11 @@ export function useNotifications(active: boolean) {
   const run = async (action: () => Promise<NotificationState>) => {
     setLoading(true);
     setError(null);
+    // 与订阅路径同一竞态守卫：await 期间有推送/其他读取落地时丢弃本次结果。
+    const requested = ++versionRef.current;
     try {
-      setNotifications(await action());
+      const state = await action();
+      if (requested === versionRef.current) setNotifications(state);
     } catch (cause) {
       setError(errorText(cause));
     } finally {

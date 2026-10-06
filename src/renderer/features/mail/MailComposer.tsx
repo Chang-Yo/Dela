@@ -131,6 +131,8 @@ export function MailComposer({
   const [saving, setSaving] = useState(false);
   const savingDraft = useRef(false);
   const [savedNotice, setSavedNotice] = useState(false);
+  // 发送/保存期间尝试离开被闸门拒绝时给出可见反馈，避免"点了没反应"。
+  const [leaveBlocked, setLeaveBlocked] = useState(false);
   const savedId = useRef(draft?.savedLocally ? draft.id : undefined);
   const savedContent = useRef('');
   const allowUnload = useRef(false);
@@ -229,7 +231,10 @@ export function MailComposer({
     }
   };
   latestClose.current = async () => {
-    if (sending || saving) return false;
+    if (sending || saving) {
+      setLeaveBlocked(true);
+      return false;
+    }
     if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
     try {
       const choice = await dela.mail.confirmDraftClose();
@@ -241,6 +246,9 @@ export function MailComposer({
     }
   };
   useEffect(() => registerComposeClose(() => latestClose.current()), []);
+  useEffect(() => {
+    if (!sending && !saving) setLeaveBlocked(false);
+  }, [sending, saving]);
   useEffect(() => {
     void dela.mail.setComposeActive(true);
     const unsubscribe = dela.mail.onRequestClose(() => {
@@ -539,6 +547,11 @@ export function MailComposer({
         {savedNotice && (
           <span role="status" className="text-xs text-muted-foreground">
             草稿已保存
+          </span>
+        )}
+        {leaveBlocked && (
+          <span role="status" className="text-xs text-muted-foreground">
+            正在发送/保存邮件，完成后即可离开
           </span>
         )}
         <Button

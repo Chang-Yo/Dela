@@ -1,5 +1,6 @@
 import {
   Check,
+  ChevronRight,
   Clock,
   Code,
   Eye,
@@ -20,6 +21,7 @@ export type NoteMode = 'rich' | 'read' | 'source';
  * 失败重试与「另存为新笔记」入口在 NoteTab 的错误条中提供。
  */
 export function DocumentToolbar({
+  path,
   markdown,
   forcedSource,
   mode,
@@ -31,6 +33,7 @@ export function DocumentToolbar({
   onOpenInFolder,
   onReload,
 }: {
+  path: string[];
   /** Markdown 笔记才有富文本/阅读/源码切换；纯文本笔记始终是源码编辑器。 */
   markdown: boolean;
   /** frontmatter 等语法强制源码模式，切换入口整体隐藏。 */
@@ -47,10 +50,29 @@ export function DocumentToolbar({
 }) {
   return (
     <div
-      className="flex shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1 px-3 py-1.5 text-xs"
+      className="flex min-w-0 shrink-0 items-center gap-2 px-3 py-1.5 text-xs"
       role="toolbar"
       aria-label="笔记操作"
     >
+      <nav
+        aria-label="文件路径"
+        className="min-w-0 flex-1 text-muted-foreground"
+        title={path.join(' / ')}
+      >
+        <ol className="flex min-w-0 items-center gap-1 overflow-hidden">
+          {path.map((name, index) => (
+            <li key={index} className="flex min-w-0 items-center gap-1 last:text-foreground/80">
+              {index > 0 && <ChevronRight aria-hidden className="size-3 shrink-0" />}
+              <span
+                className="truncate"
+                aria-current={index === path.length - 1 ? 'page' : undefined}
+              >
+                {name}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </nav>
       {dueAt && (
         <span
           className="flex min-w-0 shrink items-center gap-1 text-muted-foreground"

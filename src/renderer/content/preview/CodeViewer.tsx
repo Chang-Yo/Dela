@@ -6,6 +6,7 @@ import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
 import { tags as t } from '@lezer/highlight';
+import { useEditorSettings } from '../editor-settings';
 
 /* 代码高亮配色与 note 域编辑器共用同一套 --syntax-* token（GitHub Light/Dark，
    定义在 styles/globals.css，随系统明暗主题翻转）；标签按代码文件所需取子集。 */
@@ -35,7 +36,7 @@ const codeHighlightStyle = HighlightStyle.define([
   { tag: t.tagName, color: 'var(--syntax-tag)' },
 ]);
 
-/* 版式与 note 域 MarkdownEditor 同款：透明底、60rem 居中行宽、无框行号。 */
+/* 代码从行号旁开始，正文随面板宽度展开；行号背景与正文区分。 */
 const viewerTheme = EditorView.theme({
   '&': {
     height: '100%',
@@ -48,10 +49,10 @@ const viewerTheme = EditorView.theme({
     lineHeight: '1.625',
     padding: '24px',
   },
-  '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
+  '.cm-content': { caretColor: 'var(--syntax-caret)', margin: '0', textAlign: 'left' },
   '.cm-gutters': {
-    border: 'none',
-    backgroundColor: 'transparent',
+    borderRight: '1px solid var(--color-border)',
+    backgroundColor: 'var(--color-muted)',
     color: 'var(--color-muted-foreground)',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 8px 0 4px' },
@@ -82,6 +83,8 @@ export function CodeViewer({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const wrappingConf = useRef(new Compartment()).current;
+  const wordWrap = useEditorSettings((state) => state.wordWrap);
 
   useEffect(() => {
     const element = host.current!;
@@ -95,7 +98,7 @@ export function CodeViewer({
           EditorState.readOnly.of(true),
           languageConf.of([]),
           lineNumbers(),
-          EditorView.lineWrapping,
+          wrappingConf.of(wordWrap ? EditorView.lineWrapping : []),
           search({ top: true }),
           keymap.of([...searchKeymap, ...defaultKeymap]),
           viewerTheme,
@@ -120,6 +123,12 @@ export function CodeViewer({
     };
     // value/filename/scroll 仅取初值：标签切换由上层重挂载，外部重读走下方同步。
   }, []);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: wrappingConf.reconfigure(wordWrap ? EditorView.lineWrapping : []),
+    });
+  }, [wordWrap, wrappingConf]);
 
   /* 聚焦刷新等外部重读后的整篇替换：保持滚动位置，不计入编辑（只读本无编辑）。 */
   useEffect(() => {

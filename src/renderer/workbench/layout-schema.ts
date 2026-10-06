@@ -121,6 +121,26 @@ export function createDefaultLayout(): WorkbenchLayout {
   return { root, focus: 'primary', maximized: null };
 }
 
+/** 载入旧布局或拖走最后一个标签后，只保留有内容的组；根空组仍可接收打开内容。 */
+export function collapseEmptyGroups(layout: WorkbenchLayout): WorkbenchLayout {
+  const prune = (node: LayoutNode): LayoutNode | null => {
+    if (node.type === 'group') return node.tabs.length ? node : null;
+    const children = node.children
+      .map(prune)
+      .filter((child): child is LayoutNode => child !== null);
+    if (!children.length) return null;
+    if (children.length === 1) return children[0]!;
+    return { ...node, children };
+  };
+  const root = prune(layout.root) ?? walkGroups(layout.root)[0] ?? createDefaultLayout().root;
+  const groups = walkGroups(root);
+  return {
+    root,
+    focus: groups.some((group) => group.id === layout.focus) ? layout.focus : groups[0]!.id,
+    maximized: groups.some((group) => group.id === layout.maximized) ? layout.maximized : null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 旧数据种子：EditorLayout（localStorage 双组形态）+ view:% tabs → WorkbenchLayout。
 // 映射规则：`source:{id}` → `preview:source:{id}`；entryId 默认 `note:{entryId}`，

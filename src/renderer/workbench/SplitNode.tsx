@@ -1,17 +1,34 @@
 // 分割节点：递归渲染纵横分屏，组间比例经 ui/resizer 拖拽调整（px ↔ ratio 换算沿用旧
 // EditorLayout 的做法）。store 只产生二元 split（三屏经嵌套），渲染兼容 ≥2 子节点。
-import { useLayoutEffect, useRef, useState } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import type { LayoutNode } from '../../shared/layout';
 import { Resizer } from '../components/ui/resizer';
 import { cn } from '../lib/utils';
 import { useWorkbenchLayout } from './layout-store';
 import { TabGroup } from './TabGroup';
 
-// 单组需要的最小可读尺寸（与旧 EDITOR_MIN_WIDTH/HEIGHT 一致，防止组被拖到不可读）。
-const GROUP_MIN_WIDTH = 320;
-const GROUP_MIN_HEIGHT = 240;
+// 单组宽度下限提高到 240（与现有目录默认宽度一致），避免正文被挤成窄条。
+// 高 64 ≈ 标签栏 h-10（40px）+ 少量正文；空间不足时下限退化为容器的一半。
+const GROUP_MIN_WIDTH = 240;
+const GROUP_MIN_HEIGHT = 64;
 
-export function SplitNodeView({ node, path = [] }: { node: LayoutNode; path?: number[] }) {
+interface SplitNodeProps {
+  node: LayoutNode;
+  path?: number[];
+}
+
+/** memo 比较：node 按引用、path 逐位相等（递归处每次展开新数组，默认浅比较必失效）。
+ *  setRatio 经 replaceAtPath 只替换路径上的节点，兄弟子树引用保留 → 拖分屏条时未受影响
+ *  的子树（含其 TabGroup）整枝跳过重渲。 */
+function areSplitNodePropsEqual(prev: SplitNodeProps, next: SplitNodeProps): boolean {
+  return (
+    prev.node === next.node &&
+    prev.path?.length === next.path?.length &&
+    (prev.path ?? []).every((value, index) => value === next.path?.[index])
+  );
+}
+
+export const SplitNodeView = memo(function SplitNodeView({ node, path = [] }: SplitNodeProps) {
   const setRatio = useWorkbenchLayout((s) => s.setRatio);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimension, setDimension] = useState(0);
@@ -38,6 +55,7 @@ export function SplitNodeView({ node, path = [] }: { node: LayoutNode; path?: nu
   );
   const maximum = Math.max(minimum, dimension - minimum);
   const value = Math.min(maximum, Math.max(minimum, dimension * node.ratio));
+  const ratio = dimension > 0 ? value / dimension : node.ratio;
 
   return (
     <div
@@ -48,8 +66,8 @@ export function SplitNodeView({ node, path = [] }: { node: LayoutNode; path?: nu
       )}
     >
       <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-        style={{ flexBasis: `${node.ratio * 100}%` }}
+        className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+        style={{ flex: `${ratio} 1 0%` }}
       >
         <SplitNodeView node={node.children[0]!} path={[...path, 0]} />
       </div>
@@ -72,11 +90,12 @@ export function SplitNodeView({ node, path = [] }: { node: LayoutNode; path?: nu
       {node.children.slice(1).map((child, index) => (
         <div
           key={child.type === 'group' ? child.id : `split-${path.join('.')}-${index + 1}`}
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+          style={{ flex: `${(1 - ratio) / (node.children.length - 1)} 1 0%` }}
         >
           <SplitNodeView node={child} path={[...path, index + 1]} />
         </div>
       ))}
     </div>
   );
-}
+}, areSplitNodePropsEqual);

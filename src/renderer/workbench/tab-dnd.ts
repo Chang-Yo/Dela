@@ -40,3 +40,26 @@ export function hasTabDrag(dataTransfer: { types: readonly string[] }): boolean 
 /** 边缘拖放分屏的目标区：left/right → 左右（vertical），top/bottom → 上下（horizontal）。 */
 export const edgeZones = ['left', 'right', 'top', 'bottom'] as const;
 export type EdgeZone = (typeof edgeZones)[number];
+
+// VS Code editorDropTarget：标签进入外沿 10% 才分屏，左右方向在角落占宽度的三分之一。
+// 触发带和预览尺寸分开：预览应显示最终的二等分范围。
+const EDGE_DROP_BAND = 0.1;
+
+export function tabDropZone(x: number, y: number): EdgeZone | null {
+  if (x > EDGE_DROP_BAND && x < 1 - EDGE_DROP_BAND && y > EDGE_DROP_BAND && y < 1 - EDGE_DROP_BAND)
+    return null;
+  if (x < 1 / 3) return 'left';
+  if (x > 2 / 3) return 'right';
+  return y < 0.5 ? 'top' : 'bottom';
+}
+
+// dragover 阶段浏览器隐藏 DataTransfer 正文，内部拖拽身份从 dragstart 保存到 dragend。
+let currentTabDrag: TabDragPayload | null = null;
+
+export function setCurrentTabDrag(payload: TabDragPayload | null): void {
+  currentTabDrag = payload;
+}
+
+export function getCurrentTabDrag(): TabDragPayload | null {
+  return currentTabDrag;
+}

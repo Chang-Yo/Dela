@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ChatMediaView,
   ChatSessionSummary,
@@ -10,7 +10,7 @@ import {
   hasChatImages,
   stripChatImageTokens,
 } from '../../../shared/chat-input';
-import { poolKey, useSessions } from '../../sessions/store';
+import { poolKey, useSessions, updateSession } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
 import { errorText } from '../../workspace/store';
 import { emptyDraft, useChatDrafts, type ChatReference } from './drafts';
@@ -36,16 +36,22 @@ export function isEmptySession(chat: WorkspaceChat | null): boolean {
   return Boolean(chat && chat.messages.length === 0);
 }
 
+/** 输入草稿的响应式订阅：只在 composer 容器层调用——打字每键仅重渲输入区，
+ *  不带动消息列表；useChat 内部一律经 useChatDrafts.getState() 命令式读取。 */
+export function useChatDraft(sessionId: string) {
+  return useChatDrafts((state) => state.drafts[sessionId] ?? emptyDraft);
+}
+
 /** 单个会话的对话状态：快照与更新经 sessions 镜像（session:on-update 全局订阅，
  *  同一会话多个入口共享），发送走 session:ask、停止走 session:cancel-run。
- *  输入草稿按 sessionId 持久化（drafts.ts）；附件 chip 随视图状态丢失，切换会话时
- *  释放暂存文件；内联图片随草稿文本保留（图片文件由启动 GC 回收）。 */
+ *  输入草稿按 sessionId 持久化（drafts.ts），本 hook 不订阅草稿（订阅在 useChatDraft）；
+ *  附件 chip 随视图状态丢失，切换会话时释放暂存文件；内联图片随草稿文本保留
+ *  （图片文件由启动 GC 回收）。 */
 export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
   const chat = useSessions((state) => state.chats[sessionId] ?? null);
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const draft = useChatDrafts((state) => state.drafts[sessionId] ?? emptyDraft);
   const updateDraft = useChatDrafts((state) => state.update);
   const clearDraft = useChatDrafts((state) => state.clear);
   const activeSession = useRef(sessionId);
@@ -99,8 +105,6 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
   }, [run, sessionId]);
 
   const busy = pending || Boolean(chat?.running);
-  const prompt = draft.prompt;
-  const references = draft.references;
   const setPrompt = useCallback(
     (text: string) => updateDraft(sessionId, { prompt: text }),
     [sessionId, updateDraft],
@@ -130,12 +134,14 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     void window.dela?.chat.releaseMedia([id]);
   };
 
-  // 可选参数供快捷入口直接发送：绕过 prompt state 的异步时序，单击即发。
+  // 可选参数供快捷入口直接发送：绕过草稿的响应式时序，单击即发。
   const send = async (directText?: string) => {
-    const text = directText ?? prompt;
+    // 发送时点读取草稿（不依赖渲染期闭包）：拿到的一定是最后一次按键的值。
+    const draft = useChatDrafts.getState().drafts[sessionId] ?? emptyDraft;
+    const text = directText ?? draft.prompt;
     if (!window.dela || !canSendInput(text, directText !== undefined) || busy) return;
     const requested = sessionId;
-    const sentReferences = references;
+    const sentReferences = draft.references;
     const sentAttachments = attachments;
     try {
       if (flushReference) {
@@ -183,25 +189,29 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
   };
 
   // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
-  const editLast = async (text: string) => {
-    if (!window.dela || busy) return;
-    const requested = sessionId;
-    setPending(true);
-    setError(null);
-    try {
-      const result = await window.dela.session.ask(requested, {
-        text,
-        attachments: [],
-        context: [],
-        replaceLastUser: true,
-      });
-      if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
-    } catch (e) {
-      if (activeSession.current === requested) setError(errorText(e));
-    } finally {
-      if (activeSession.current === requested) setPending(false);
-    }
-  };
+  // useCallback 保持引用稳定：ChatThread 与消息组件 memo 后，编辑重发入口不带动整树重渲。
+  const editLast = useCallback(
+    async (text: string) => {
+      if (!window.dela || busy) return;
+      const requested = sessionId;
+      setPending(true);
+      setError(null);
+      try {
+        const result = await window.dela.session.ask(requested, {
+          text,
+          attachments: [],
+          context: [],
+          replaceLastUser: true,
+        });
+        if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
+      } catch (e) {
+        if (activeSession.current === requested) setError(errorText(e));
+      } finally {
+        if (activeSession.current === requested) setPending(false);
+      }
+    },
+    [busy, sessionId],
+  );
 
   // 模型/思考强度切换的乐观更新直接写镜像缓存，所有入口立即看到新值。
   const optimisticChat = (patch: Partial<WorkspaceChat>) => {
@@ -241,13 +251,11 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
   return {
     chat,
     busy,
-    prompt,
     setPrompt,
     attachments,
     addAttachmentFile,
     addAttachmentView,
     removeAttachment,
-    references,
     addReference: (ref: ChatReference) => {
       const current = useChatDrafts.getState().drafts[sessionId]?.references ?? [];
       if (current.some((item) => item.key === ref.key)) return;
@@ -291,15 +299,11 @@ export function useChatSession(projectId: string | null, sessionId: string) {
       .catch(() => {});
   }, [projectId]);
 
-  const newSession = async () => {
+  const newSession = useCallback(async () => {
     const dela = window.dela;
     if (!dela) return;
     try {
-      // 空会话不进历史：切换前移除从未发送过消息的当前会话（沿用旧「新对话」语义）。
-      if (active && isEmptySession(useSessions.getState().chats[active] ?? null)) {
-        await dela.session.remove(active);
-        useSessions.getState().forgetSession(active);
-      }
+      // main 复用项目的空会话，重复点击不删除当前输入草稿。
       const chat = await dela.session.create(projectId);
       if (!chat.sessionId) throw new Error('会话创建失败');
       useSessions.getState().putChat(chat.sessionId, chat);
@@ -311,34 +315,41 @@ export function useChatSession(projectId: string | null, sessionId: string) {
     } catch (e) {
       setError(errorText(e));
     }
-  };
+  }, [active, projectId]);
 
-  const deleteSession = async (target: string) => {
-    const dela = window.dela;
-    if (!dela) return;
-    try {
-      await dela.session.remove(target);
-      useSessions.getState().forgetSession(target);
-      void useSessions
-        .getState()
-        .refresh(projectId)
-        .catch(() => {});
-      // 删除的是当前会话：进入空态，由用户显式开新对话（新身份模型下发送必须有会话）。
-      if (active === target) setActive(null);
-    } catch (e) {
-      setError(errorText(e));
-    }
-  };
+  const deleteSession = useCallback(
+    async (target: string) => {
+      const dela = window.dela;
+      if (!dela) return;
+      try {
+        await updateSession(target, { archived: true });
+        void useSessions
+          .getState()
+          .refresh(projectId)
+          .catch(() => {});
+        // 删除的是当前会话：进入空态，由用户显式开新对话（新身份模型下发送必须有会话）。
+        if (active === target) setActive(null);
+      } catch (e) {
+        setError(errorText(e));
+      }
+    },
+    [active, projectId],
+  );
 
-  return {
-    /** 会话池的摘要列表镜像（null = 尚未加载）。 */
-    sessions: sessions as ChatSessionSummary[] | null,
-    /** 当前视图展示的会话；null = 当前会话已被删除。 */
-    active,
-    /** 切换本视图展示的会话（纯本地状态切换）。 */
-    openSession: setActive,
-    newSession,
-    deleteSession,
-    error,
-  };
+  // 返回值保持引用稳定（ChatSessionView 整体接收并 memo）：列表刷新、输入等无关
+  // 变化不再穿透到会话视图。
+  return useMemo(
+    () => ({
+      /** 会话池的摘要列表镜像（null = 尚未加载）。 */
+      sessions: sessions as ChatSessionSummary[] | null,
+      /** 当前视图展示的会话；null = 当前会话已被删除。 */
+      active,
+      /** 切换本视图展示的会话（纯本地状态切换）。 */
+      openSession: setActive,
+      newSession,
+      deleteSession,
+      error,
+    }),
+    [active, deleteSession, error, newSession, sessions],
+  );
 }

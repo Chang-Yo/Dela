@@ -2,16 +2,26 @@
 // workbench 引用 content/ 的唯一入口（structure.md §3.1）。标题解析（3B 接线）同步读取
 // workspace/sessions 镜像：条目名 / Canvas 资料名 / 会话标题；镜像变化的即时刷新由
 // 装配层（app/workbench-shell）订阅镜像触发重渲染完成。
-import type { ComponentType } from 'react';
+import { lazy, type ComponentType } from 'react';
 import { Eye, FileText, GitCompare, MessageSquare } from 'lucide-react';
 import type { TabId, TabKind } from '../../shared/layout';
 import { useSessions } from '../sessions/store';
 import { useNoteDrafts } from '../workspace/drafts';
 import { useWorkspaceStore } from '../workspace/store';
-import { ChatTab } from '../content/chat';
-import { NoteTab } from '../content/note';
-import { PreviewTab } from '../content/preview';
-import { ReviewTab } from '../content/review';
+
+// 四个内容域懒加载：组件首次渲染时才求值对应模块（TabGroup 渲染处有 Suspense 骨架兜底）。
+const ChatTab: ComponentType<TabComponentProps> = lazy(() =>
+  import('../content/chat').then((m) => ({ default: m.ChatTab })),
+);
+const NoteTab: ComponentType<TabComponentProps> = lazy(() =>
+  import('../content/note').then((m) => ({ default: m.NoteTab })),
+);
+const PreviewTab: ComponentType<TabComponentProps> = lazy(() =>
+  import('../content/preview').then((m) => ({ default: m.PreviewTab })),
+);
+const ReviewTab: ComponentType<TabComponentProps> = lazy(() =>
+  import('../content/review').then((m) => ({ default: m.ReviewTab })),
+);
 
 /** 内容组件契约：tabId 定位数据，groupId 用于按组隔离的编辑器会话键（TabId+groupId）。 */
 export interface TabComponentProps {
@@ -43,7 +53,8 @@ function chatTitleOf(sessionId: string): string {
     const hit = list.find((session) => session.id === sessionId);
     if (hit) return hit.title || '新对话';
   }
-  return '对话';
+  const chat = useSessions.getState().chats[sessionId];
+  return chat && chat.messages.length === 0 ? '新对话' : '对话';
 }
 
 const payloadOf = (tabId: TabId) => tabId.slice(tabId.indexOf(':') + 1);

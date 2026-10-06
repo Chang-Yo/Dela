@@ -13,11 +13,29 @@ const STORAGE_KEY = 'dela.session.drafts';
 // 会话草稿数量上限：超出时丢弃最早写入的草稿，避免无限增长。
 const MAX_SESSIONS = 30;
 
+/** 逐条校验持久化草稿形状；渲染期 references.map 不容错，脏条目必须在此丢弃。 */
+function asChatDraft(value: unknown): ChatDraft | null {
+  if (!value || typeof value !== 'object') return null;
+  const { prompt, references } = value as Record<string, unknown>;
+  if (typeof prompt !== 'string' || !Array.isArray(references)) return null;
+  for (const ref of references) {
+    if (!ref || typeof ref !== 'object') return null;
+    const { key, title } = ref as Record<string, unknown>;
+    if (typeof key !== 'string' || typeof title !== 'string') return null;
+  }
+  return { prompt, references: references as ChatReference[] };
+}
+
 function loadStored(): Record<string, ChatDraft> {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    return parsed as Record<string, ChatDraft>;
+    const drafts: Record<string, ChatDraft> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const draft = asChatDraft(value);
+      if (draft) drafts[key] = draft;
+    }
+    return drafts;
   } catch {
     return {};
   }

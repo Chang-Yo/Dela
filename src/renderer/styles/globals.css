@@ -419,10 +419,46 @@
   overflow-y: scroll;
 }
 
+.sidebar-title {
+  overflow: hidden;
+  white-space: nowrap;
+  /* 沿用 size-6 按钮的间距尺度，只让尾部文字渐隐，不模糊正文。 */
+  mask-image: linear-gradient(to right, black calc(100% - var(--spacing) * 6), transparent);
+}
+
+.group\/nav:hover .sidebar-title,
+.group\/nav:focus-within .sidebar-title,
+.group\/nav:has([data-state='open']) .sidebar-title {
+  mask-image: linear-gradient(
+    to right,
+    black calc(100% - var(--spacing) * 14),
+    transparent calc(100% - var(--spacing) * 12)
+  );
+}
+
+@media (width < 48rem) {
+  .group\/nav .sidebar-title {
+    mask-image: linear-gradient(
+      to right,
+      black calc(100% - var(--spacing) * 14),
+      transparent calc(100% - var(--spacing) * 12)
+    );
+  }
+}
+
 /* docx-preview 运行时注入 .docx-wrapper 的默认灰底与页面主题冲突；
    页面间距交给注入样式，底色统一为透明（露出滚动容器的 bg-muted）。 */
 .docx-wrapper {
   background: transparent !important;
+}
+
+/* 非 Markdown 文件的预览靠左，PDF / Word 页内原有排版保持不变。 */
+.pdfViewer.dela-pdf-pages .page {
+  margin-left: 0;
+}
+
+.docx-preview-host .docx-wrapper {
+  align-items: flex-start;
 }
 
 @media (prefers-reduced-motion: reduce) {

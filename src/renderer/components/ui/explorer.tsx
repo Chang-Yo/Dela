@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type KeyboardEvent,
   type DragEvent,
+  type CSSProperties,
 } from 'react';
 import { ChevronRight, FileText, Folder, FolderOpen, FolderKanban } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -304,16 +305,22 @@ export function Explorer({
               }
             }}
             className={cn(
-              'group relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-sm pr-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+              'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-sm pr-1 text-sm outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-sm before:transition-colors focus-visible:ring-2 focus-visible:ring-ring',
               selected === item.id
-                ? 'bg-foreground/10 font-medium text-foreground'
+                ? 'before:bg-foreground/5 font-medium text-foreground'
                 : // 目录列底色为 bg-muted，accent 与其同值，hover 改用 foreground 叠加才可见。
-                  'text-foreground/75 hover:bg-foreground/5',
+                  'text-foreground/75 hover:before:bg-foreground/5',
               // 落点区域行去圆角，使目录子树区域连成一块整色；蓝色调与选中态的
               // 中性灰区分（--drop-target，globals.css 三作用域定义）。
               dropRegion && 'rounded-none bg-drop-target text-foreground',
             )}
-            style={{ paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})` }}
+            style={
+              {
+                paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})`,
+                // 叶子行保留图标前一格内边距；目录行包含折叠箭头。
+                '--highlight-left': `calc(var(--spacing) * ${(branch ? 2 : 6) + (level - 1) * 4})`,
+              } as CSSProperties
+            }
           >
             {Array.from({ length: level - 1 }, (_, guide) => (
               <span
@@ -321,7 +328,7 @@ export function Explorer({
                 aria-hidden
                 className={cn(
                   'absolute inset-y-0 w-px -translate-x-1/2',
-                  selectedTrail.has(ancestors[guide] ?? '') ? 'bg-foreground/25' : 'bg-border',
+                  selectedTrail.has(ancestors[guide] ?? '') ? 'bg-foreground/10' : 'bg-border/50',
                 )}
                 style={{ left: `calc(var(--spacing) * ${4 + guide * 4})` }}
               />

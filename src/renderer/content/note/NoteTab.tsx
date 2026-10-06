@@ -32,6 +32,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const scrollKey = `${tabId}:${groupId}`;
   const source = useNoteDraftSource();
   const draft = entryId !== null ? source?.useDraft(entryId) : undefined;
+  const path = source?.usePath?.(entryId ?? '');
   const [error, setError] = useState<string | null>(null);
   const [confirmReload, setConfirmReload] = useState(false);
   const [mode, setMode] = useState<NoteMode>(() =>
@@ -128,6 +129,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
       aria-label={`笔记：${draft.content.title}`}
     >
       <DocumentToolbar
+        path={path?.length ? path : [draft.content.title]}
         markdown={markdown}
         forcedSource={forcedSource}
         mode={effectiveMode}

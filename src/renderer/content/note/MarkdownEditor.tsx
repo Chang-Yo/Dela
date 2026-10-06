@@ -8,6 +8,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
 import { tags as t } from '@lezer/highlight';
+import { useEditorSettings } from '../editor-settings';
 
 /* 语法高亮配色（GitHub Light/Dark，Primer prettylights）：色值定义在
    styles/globals.css 的 --syntax-*，跟随系统明暗主题，无需在此区分。
@@ -58,12 +59,17 @@ const editorTheme = EditorView.theme({
   },
   // 与富文本（note-editor.css 的 60rem 居中）一致，超宽窗口下行宽不无限拉伸。
   '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
+  '&.cm-source-file .cm-content': { maxWidth: 'none', margin: '0', textAlign: 'left' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
   '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
   '.cm-gutters': {
     border: 'none',
     backgroundColor: 'transparent',
     color: 'var(--color-muted-foreground)',
+  },
+  '&.cm-source-file .cm-gutters': {
+    backgroundColor: 'var(--color-muted)',
+    borderRight: '1px solid var(--color-border)',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 8px 0 4px' },
 });
@@ -75,6 +81,8 @@ type ResolvedLanguage =
 
 const languageConf = new Compartment();
 const placeholderConf = new Compartment();
+const wrappingConf = new Compartment();
+const layoutConf = new Compartment();
 const externalSync = Annotation.define<boolean>();
 
 type EditorHandlers = {
@@ -155,6 +163,7 @@ export function MarkdownEditor({
   const view = useRef<EditorView | null>(null);
   const instanceKey = useRef(editorStateKey ?? `markdown-editor-${nextEditorId++}`).current;
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
+  const wordWrap = useEditorSettings((state) => state.wordWrap);
   const handlersRef = useRef({ onChange, onSave, onScroll });
   handlersRef.current = { onChange, onSave, onScroll };
   const latestValue = useRef(value);
@@ -204,7 +213,12 @@ export function MarkdownEditor({
       EditorState.readOnly.of(readOnly),
       languageConf.of(initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []),
       ...(showLineNumbers ? [lineNumbers()] : []),
-      EditorView.lineWrapping,
+      wrappingConf.of(wordWrap ? EditorView.lineWrapping : []),
+      layoutConf.of(
+        EditorView.editorAttributes.of({
+          class: initial.kind === 'markdown' ? '' : 'cm-source-file',
+        }),
+      ),
       placeholderConf.of(placeholder(placeholderText)),
       search({ top: true }),
       keymap.of([
@@ -312,6 +326,20 @@ export function MarkdownEditor({
     // value/filename/scroll 初始装配一次（代码语言的异步加载见 loadLanguage）；
     // 此后由下方 effect 单向同步外部变更。
   }, []);
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: wrappingConf.reconfigure(wordWrap ? EditorView.lineWrapping : []),
+    });
+  }, [wordWrap]);
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: layoutConf.reconfigure(
+        EditorView.editorAttributes.of({
+          class: languageForFilename(filename).kind === 'markdown' ? '' : 'cm-source-file',
+        }),
+      ),
+    });
+  }, [filename]);
   useEffect(() => {
     const current = view.current;
     if (!current) return;

@@ -18,7 +18,7 @@ export type NoteDraft = {
 
 type Store = {
   drafts: Record<string, NoteDraft>;
-  /** 读取（或复用）一份草稿；force 时先等在途保存结束再重读（旧 read 语义）。 */
+  /** 读取（或复用）一份草稿；force 时先等在途保存结束再重读（旧 read 语义），不新增引用计数。 */
   acquire: (key: string, force?: boolean) => Promise<void>;
   /** Flush a draft before releasing it. False means it is still present and dirty. */
   release: (key: string) => Promise<boolean>;
@@ -36,7 +36,9 @@ const refcounts = new Map<string, number>();
 export const useNoteDrafts = create<Store>((set, get) => ({
   drafts: {},
   acquire: async (key, force = false) => {
-    refcounts.set(key, (refcounts.get(key) ?? 0) + 1);
+    // force 语义是「强制重读磁盘」而非新持有入口（NoteTab 窗口聚焦刷新、App 会话终态
+    // 刷新都复用它且无配对 release）：不计数，否则草稿被永久持有、重开时复用过期快照。
+    if (!force) refcounts.set(key, (refcounts.get(key) ?? 0) + 1);
     if (!window.dela || (!force && get().drafts[key])) return;
     if (force && get().drafts[key]?.saving) {
       const pending = saving.get(key);
@@ -101,6 +103,9 @@ export const useNoteDrafts = create<Store>((set, get) => ({
     }
     const current = get().drafts[key];
     if (!current || current.saving || current.text !== current.saved) return false;
+    // 冲盘 await 期间可能被重新 acquire（切走又切回）：新持有入口在场时只冲盘不删除，
+    // 否则新入口拿不到草稿会永久停在「正在打开…」。
+    if (refcounts.has(key)) return true;
     set((state) => {
       const drafts = { ...state.drafts };
       delete drafts[key];

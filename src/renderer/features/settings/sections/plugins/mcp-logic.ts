@@ -94,7 +94,7 @@ export function mcpStatusBadge(
     case 'connected':
       return {
         label: toolCount === null ? '已连接' : `已连接 · ${toolCount} 个工具`,
-        dotClass: 'bg-emerald-500',
+        dotClass: 'bg-success',
         spin: false,
       };
     case 'disconnected':

@@ -1,106 +1,168 @@
 // 标签组：标签栏 + 内容宿主（经 registry 解析组件）+ 边缘拖放分屏。
 // 同组只挂载活动标签（沿用旧 EditorLayout 行为）；组内非活动标签状态由内容组件本地保留与否自决。
-import { useState, type DragEvent } from 'react';
-import type { GroupNode } from '../../shared/layout';
+import { memo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
+import type { GroupNode, TabId } from '../../shared/layout';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { cn } from '../lib/utils';
 import { EmptyState } from './EmptyState';
 import { useWorkbenchLayout } from './layout-store';
-import { kindOf, registry } from './registry';
+import { kindOf, registry, titleOf } from './registry';
 import { TabBar } from './TabBar';
-import { hasTabDrag, parseTabDrag, tabDragType, type EdgeZone } from './tab-dnd';
+import {
+  getCurrentTabDrag,
+  hasTabDrag,
+  parseTabDrag,
+  setCurrentTabDrag,
+  tabDragType,
+  tabDropZone,
+  type EdgeZone,
+} from './tab-dnd';
 
-/** 距组边缘的比例带宽：光标进入该带内松手 = 在该侧分出新组（VS Code 同款 quarter 约量级）。 */
-const EDGE_DROP_BAND = 0.25;
+/** 懒加载内容域的首帧占位：静态色块骨架，不做动画（foreground/5 在白底上仍可辨）。 */
+function TabSuspenseFallback() {
+  return <div className="min-h-0 min-w-0 flex-1 bg-foreground/5" />;
+}
 
-const edgeZoneClass: Record<EdgeZone, string> = {
-  left: 'inset-y-0 left-0 w-1/4',
-  right: 'inset-y-0 right-0 w-1/4',
-  top: 'inset-x-0 top-0 h-1/4',
-  bottom: 'inset-x-0 bottom-0 h-1/4',
+/** 活动标签内容宿主：props 全为原始值，组的 chrome 重渲（聚焦切换、悬停反馈）不牵连内容组件。 */
+const GroupTabContent = memo(function GroupTabContent({
+  groupId,
+  tabId,
+}: {
+  groupId: string;
+  tabId: TabId;
+}) {
+  const Component = registry[kindOf(tabId)].component;
+  return (
+    <Suspense fallback={<TabSuspenseFallback />}>
+      <Component key={`${groupId}:${tabId}`} groupId={groupId} tabId={tabId} />
+    </Suspense>
+  );
+});
+
+const dropPreviewClass: Record<EdgeZone | 'center', string> = {
+  left: 'top-0 left-0 h-full w-1/2',
+  right: 'top-0 left-1/2 h-full w-1/2',
+  top: 'top-0 left-0 h-1/2 w-full',
+  bottom: 'top-1/2 left-0 h-1/2 w-full',
+  center: 'top-0 left-0 h-full w-full',
 };
 
-export function TabGroup({ group }: { group: GroupNode }) {
-  const focus = useWorkbenchLayout((s) => s.focus);
-  const maximized = useWorkbenchLayout((s) => s.maximized);
+export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) {
+  // 订阅派生布尔而非 focus/maximized 原值：只有本组的未聚焦态翻转时才重渲（评审 1）。
+  const unfocused = useWorkbenchLayout((s) => s.maximized === null && s.focus !== group.id);
   const focusGroup = useWorkbenchLayout((s) => s.focusGroup);
   const moveTab = useWorkbenchLayout((s) => s.moveTab);
   const moveTabToEdge = useWorkbenchLayout((s) => s.moveTabToEdge);
-  const [edgeZone, setEdgeZone] = useState<EdgeZone | null>(null);
-  const [dragOver, setDragOver] = useState(false);
+  const [dropPreview, setDropPreview] = useState<{ zone: EdgeZone | 'center'; visible: boolean }>({
+    zone: 'center',
+    visible: false,
+  });
+  const contentRef = useRef<HTMLDivElement>(null);
+  const clearDropPreview = () =>
+    setDropPreview((previous) => (previous.visible ? { ...previous, visible: false } : previous));
+
+  useEffect(() => {
+    if (!dropPreview.visible) return;
+    const clear = () => setDropPreview((previous) => ({ ...previous, visible: false }));
+    window.addEventListener('dragend', clear);
+    window.addEventListener('drop', clear);
+    return () => {
+      window.removeEventListener('dragend', clear);
+      window.removeEventListener('drop', clear);
+    };
+  }, [dropPreview.visible]);
+
+  const zoneAt = (event: DragEvent<HTMLElement>) => {
+    const rect = contentRef.current!.getBoundingClientRect();
+    return tabDropZone(
+      (event.clientX - rect.left) / rect.width,
+      (event.clientY - rect.top) / rect.height,
+    );
+  };
 
   const onDragOver = (event: DragEvent<HTMLElement>) => {
     if (!hasTabDrag(event.dataTransfer)) return;
+    if (!contentRef.current?.contains(event.target as Node)) {
+      clearDropPreview();
+      return;
+    }
     event.preventDefault();
+    event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
-    setDragOver(true);
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-    setEdgeZone(
-      x < EDGE_DROP_BAND
-        ? 'left'
-        : x > 1 - EDGE_DROP_BAND
-          ? 'right'
-          : y < EDGE_DROP_BAND
-            ? 'top'
-            : y > 1 - EDGE_DROP_BAND
-              ? 'bottom'
-              : null,
+    const zone = zoneAt(event);
+    const sameGroup = getCurrentTabDrag()?.fromGroup === group.id;
+    // 原组中央没有移动效果；单标签也不能向自身分出空组。
+    if (sameGroup && (!zone || group.tabs.length === 1)) {
+      clearDropPreview();
+      return;
+    }
+    const previewZone = zone ?? 'center';
+    setDropPreview((previous) =>
+      previous.visible && previous.zone === previewZone
+        ? previous
+        : { zone: previewZone, visible: true },
     );
   };
   const onDragLeave = (event: DragEvent<HTMLElement>) => {
     // 标签栏 → 正文属于组内移动，只有离开整组才清除反馈。
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      setEdgeZone(null);
-      setDragOver(false);
+      clearDropPreview();
     }
   };
   const onDrop = (event: DragEvent<HTMLElement>) => {
     if (!hasTabDrag(event.dataTransfer)) return;
-    if (event.defaultPrevented) return;
+    if (!contentRef.current?.contains(event.target as Node)) return;
     event.preventDefault();
-    const zone = edgeZone;
-    setEdgeZone(null);
-    setDragOver(false);
+    event.stopPropagation();
+    const zone = zoneAt(event);
+    clearDropPreview();
     const payload = parseTabDrag(event.dataTransfer.getData(tabDragType));
+    setCurrentTabDrag(null);
     if (!payload) return;
+    if (!zone && payload.fromGroup === group.id) return;
     if (zone) moveTabToEdge(payload.tabId, payload.fromGroup, group.id, zone);
     else moveTab(payload.tabId, payload.fromGroup, group.id);
   };
 
-  const unfocused = maximized === null && focus !== group.id;
   const active = group.active;
-  const ActiveTab = active ? registry[kindOf(active)].component : null;
 
   return (
     <section
-      aria-label="工作组"
-      className={cn(
-        'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
-        // 拖拽悬停整组高亮：提示松手会移入该组（反馈克制，仅色调变化）。
-        dragOver && 'ring-1 ring-inset ring-border bg-accent/30',
-      )}
+      aria-label={active ? `工作组：${titleOf(active)}` : '工作组'}
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden @container"
       onPointerDown={() => focusGroup(group.id)}
-      onDragOver={onDragOver}
+      onDragOverCapture={onDragOver}
       onDragLeave={onDragLeave}
-      onDrop={onDrop}
+      onDropCapture={onDrop}
     >
       <TabBar group={group} unfocused={unfocused} />
-      {active && ActiveTab ? (
-        <ActiveTab key={`${group.id}:${active}`} tabId={active} groupId={group.id} />
-      ) : (
-        <EmptyState />
-      )}
-      {/* 边缘分屏落点反馈：静态色块，不改变任何既有元素位置。 */}
-      {edgeZone && (
+      <div ref={contentRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {active ? (
+          <div
+            aria-labelledby={`tab-${group.id}-${active}`}
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+            id={`tabpanel-${group.id}`}
+            role="tabpanel"
+          >
+            {/* 单标签崩溃只降级该标签；key 随活动标签切换，旧错误态不污染新标签。 */}
+            <ErrorBoundary key={active} title="此标签遇到错误">
+              <GroupTabContent groupId={group.id} tabId={active} />
+            </ErrorBoundary>
+          </div>
+        ) : (
+          <EmptyState />
+        )}
+        {/* 预览覆盖正文、不染组背景；半屏与实际二等分结果一致。
+            复用现有明暗主题蓝色 token，15% 不透明度保持正文可读。 */}
         <div
           aria-hidden
           className={cn(
-            'pointer-events-none absolute z-10 bg-accent/30 ring-1 ring-inset ring-accent',
-            edgeZoneClass[edgeZone],
+            'pointer-events-none absolute z-10 rounded-lg bg-(--cal-blue-text)/15 ring-1 ring-inset ring-foreground/15 transition-[top,left,width,height,opacity] duration-150 ease-out motion-reduce:transition-none',
+            dropPreviewClass[dropPreview.zone],
+            dropPreview.visible ? 'opacity-100' : 'opacity-0',
           )}
         />
-      )}
+      </div>
     </section>
   );
-}
+});

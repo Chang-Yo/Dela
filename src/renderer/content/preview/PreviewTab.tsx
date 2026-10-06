@@ -11,6 +11,7 @@ import type { TabId } from '../../../shared/layout';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
+import { parsePreviewTabId } from './tab-id';
 
 const PdfReader = lazy(() =>
   import('./PdfReader').then((module) => ({ default: module.PdfReader })),
@@ -21,20 +22,6 @@ const DocxPreview = lazy(() =>
 const SheetPreview = lazy(() =>
   import('./SheetPreview').then((module) => ({ default: module.SheetPreview })),
 );
-
-/** preview:{entryId}（工作区条目）或 preview:source:{原 documentKey}（@ 引用型资料）。 */
-export type PreviewTabTarget = { entryId: string } | { sourceId: string };
-
-/** 解析预览标签键；载荷为空或 kind 不符时返回 null。 */
-export function parsePreviewTabId(tabId: string): PreviewTabTarget | null {
-  if (!tabId.startsWith('preview:')) return null;
-  const payload = tabId.slice('preview:'.length);
-  if (payload.startsWith('source:')) {
-    const sourceId = payload.slice('source:'.length);
-    return sourceId ? { sourceId } : null;
-  }
-  return payload ? { entryId: payload } : null;
-}
 
 /** 分流决策（纯函数）：水源来源优先于格式；本地文本/代码文件用语法高亮查看器。 */
 export type PreviewBranch =
@@ -125,9 +112,15 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
     setBlobUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [content?.bytes, content?.mime]);
+  /* HTML 消毒基址：Canvas 来源的相对地址补全到 Canvas 域；本地/导入条目（watchesDisk，
+     Loader 接线里即 entry kind local/imported 的近似标记）不补外域 base——空 base 下
+     绝对 http(s) 链接保留、相对地址剥除，避免相对地址被补到 Canvas 域造成跨域请求泄露。 */
   const html = useMemo(
-    () => (content?.format === 'html' ? sanitizeHtml(content.text, 'https://oc.sjtu.edu.cn') : ''),
-    [content],
+    () =>
+      content?.format === 'html'
+        ? sanitizeHtml(content.text, doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn')
+        : '',
+    [content, doc?.watchesDisk],
   );
 
   if (!loader)
@@ -224,7 +217,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         ))}
       {branch === 'image' && (
         <div className="min-h-0 flex-1 overflow-auto p-4">
-          {blobUrl && <img src={blobUrl} alt={content.title} className="mx-auto max-w-full" />}
+          {blobUrl && <img src={blobUrl} alt={content.title} className="max-w-full" />}
         </div>
       )}
       {(branch === 'docx' || branch === 'xlsx') &&
@@ -273,7 +266,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           此格式暂不支持内嵌预览，请下载文件或打开原文。
         </p>
       )}
-      {branch === 'code' && (
+      {(branch === 'code' || branch === 'text') && (
         <CodeViewer
           value={content.text ?? ''}
           filename={content.title}
@@ -281,50 +274,46 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           onScroll={onScroll}
         />
       )}
-      {(branch === 'markdown' || branch === 'text') && (
+      {branch === 'markdown' && (
         <div
           className="min-h-0 flex-1 overflow-auto p-6 text-sm leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
           ref={scrollContainer}
           onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
         >
-          {branch === 'markdown' ? (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a: ({ href, children }) => (
-                  <button className="text-primary underline" onClick={() => href && openLink(href)}>
-                    {children}
-                  </button>
-                ),
-                img: ({ src, alt }) =>
-                  src ? (
-                    <img
-                      src={doc.resolveImage?.(src) ?? src}
-                      alt={alt ?? ''}
-                      className="mx-auto max-w-full rounded-lg"
-                      loading="lazy"
-                    />
-                  ) : null,
-                code: ({ className, children }) => {
-                  const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
-                  if (!language || !hljs.getLanguage(language))
-                    return <code className={className}>{children}</code>;
-                  return (
-                    <code
-                      className={className}
-                      dangerouslySetInnerHTML={{
-                        __html: hljs.highlight(String(children), { language }).value,
-                      }}
-                    />
-                  );
-                },
-              }}
-            >
-              {content.text ?? ''}
-            </ReactMarkdown>
-          ) : (
-            <pre className="whitespace-pre-wrap font-mono">{content.text}</pre>
-          )}
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <button className="text-primary underline" onClick={() => href && openLink(href)}>
+                  {children}
+                </button>
+              ),
+              img: ({ src, alt }) =>
+                src ? (
+                  <img
+                    src={doc.resolveImage?.(src) ?? src}
+                    alt={alt ?? ''}
+                    className="mx-auto max-w-full rounded-lg"
+                    loading="lazy"
+                  />
+                ) : null,
+              code: ({ className, children }) => {
+                const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
+                if (!language || !hljs.getLanguage(language))
+                  return <code className={className}>{children}</code>;
+                return (
+                  <code
+                    className={className}
+                    dangerouslySetInnerHTML={{
+                      __html: hljs.highlight(String(children), { language }).value,
+                    }}
+                  />
+                );
+              },
+            }}
+          >
+            {content.text ?? ''}
+          </ReactMarkdown>
         </div>
       )}
     </section>

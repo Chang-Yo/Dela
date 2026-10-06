@@ -26,14 +26,25 @@ export function DocxPreview({ url }: { url: string }) {
       try {
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        if (!host.current) return;
-        host.current.replaceChildren();
+        const container = host.current;
+        if (!container) return;
+        container.replaceChildren();
         // useBase64URL：图片/字体以 data: URL 内联（CSP 的 img-src/font-src 均已放行 data:）。
         // 库默认的 blob 路径实测不产出 img src，且 font-src 未放行 blob:。
         // renderAltChunks:false：altChunk 默认渲染为无 sandbox 的 srcdoc iframe，直接关闭。
-        await renderAsync(await response.arrayBuffer(), host.current, undefined, {
+        await renderAsync(await response.arrayBuffer(), container, undefined, {
           useBase64URL: true,
           renderAltChunks: false,
+        });
+        // docx-preview 把渲染结果直接挂进主文档且不过滤超链接：统一按协议白名单剥除，
+        // 阻断文档内 javascript: 等链接经主文档点击触发（与 sanitize-html 同一白名单）。
+        container.querySelectorAll('a[href]').forEach((a) => {
+          try {
+            if (!['https:', 'http:'].includes(new URL(a.getAttribute('href')!).protocol))
+              a.removeAttribute('href');
+          } catch {
+            a.removeAttribute('href');
+          }
         });
       } catch (cause) {
         if (!controller.signal.aborted)

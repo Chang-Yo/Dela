@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Popover } from 'radix-ui';
 import {
   ArrowUp,
   AtSign,
+  Bot,
   Check,
   ChevronDown,
   FileText,
   Paperclip,
   Settings,
+  Sparkles,
   Square,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -72,6 +74,7 @@ export function ChatComposer({
   onAddAttachmentView,
   onRemoveAttachment,
   hero = false,
+  projectPicker,
   className,
 }: {
   value: string;
@@ -95,12 +98,17 @@ export function ChatComposer({
   onAddAttachmentView: (view: ChatMediaView) => void;
   onRemoveAttachment: (id: string) => void;
   hero?: boolean;
+  projectPicker?: ReactNode;
   className?: string;
 }) {
   const editorRef = useRef<ComposerEditorHandle | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [index, setIndex] = useState(0);
   const itemRef = useRef<HTMLLIElement>(null);
+  // 候选菜单 id 逐实例唯一（同页可同时挂多个会话的 composer），选项 id 按序号派生，
+  // 供编辑器的 aria-controls / aria-activedescendant 引用。
+  const menuListId = `${useId()}-list`;
+  const menuOptionId = (position: number) => `${menuListId}-option-${position}`;
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [customCommands, setCustomCommands] = useState<ChatCommandView[]>([]);
@@ -349,9 +357,15 @@ export function ChatComposer({
         </div>
       )}
       <ComposerEditor
+        className="@max-[220px]:[&_[aria-hidden='true']]:truncate"
         handleRef={editorRef}
         hero={hero}
         menu={menuApi}
+        menuAria={{
+          activeId: menuOpen && index < items.length ? menuOptionId(index) : null,
+          listId: menuListId,
+          open: menuOpen,
+        }}
         onChange={onChange}
         onCaret={handleCaret}
         onDropHandled={() => setDragging(false)}
@@ -369,10 +383,10 @@ export function ChatComposer({
           {fileError}
         </p>
       )}
-      <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1">
+      <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1 @max-[160px]:gap-0.5 @max-[160px]:px-1.5">
         <Button
           aria-label="添加图片或附件"
-          className="text-muted-foreground"
+          className="text-muted-foreground @max-[160px]:size-7"
           onClick={pickFiles}
           size="icon-sm"
           title="添加图片或附件"
@@ -383,7 +397,7 @@ export function ChatComposer({
         </Button>
         <Button
           aria-label="引用资料"
-          className="text-muted-foreground"
+          className="text-muted-foreground @max-[160px]:size-7"
           onClick={insertMention}
           size="icon-sm"
           title="引用资料（@）"
@@ -392,19 +406,22 @@ export function ChatComposer({
         >
           <AtSign />
         </Button>
+        {projectPicker}
         <div className="flex-1" />
         {configured && (
           <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
             <Popover.Trigger asChild>
               <Button
-                className="min-w-0 shrink gap-1 text-xs text-muted-foreground"
+                aria-label="模型服务"
+                className="min-w-0 shrink gap-1 text-xs text-muted-foreground @max-[220px]:px-1.5"
                 size="sm"
                 title={model}
                 type="button"
                 variant="ghost"
               >
-                <span className="truncate">{model}</span>
-                <ChevronDown className="size-3" />
+                <span className="truncate @max-[220px]:hidden">{model}</span>
+                <Bot className="hidden size-3.5 @max-[220px]:block" />
+                <ChevronDown className="size-3 @max-[220px]:hidden" />
               </Button>
             </Popover.Trigger>
             <Popover.Portal>
@@ -500,16 +517,17 @@ export function ChatComposer({
             <Popover.Trigger asChild>
               <Button
                 aria-label="思考强度"
-                // 底部工具行与模型按钮同为可收缩件：窄面板下降级为仅剩图标，不再整行溢出。
-                className="min-w-0 shrink gap-1 text-xs text-muted-foreground"
+                // 中窄容器（≤260px）收成图标而非整颗消失，极窄（≤160px）才随次要按钮退场。
+                className="min-w-0 shrink gap-1 text-xs text-muted-foreground @max-[260px]:px-1.5 @max-[160px]:hidden"
                 disabled={effortLevels.length === 0}
                 size="sm"
                 title={effortLevels.length ? '思考强度' : '在设置 › 模型服务 中开启推理强度后可选'}
                 type="button"
                 variant="ghost"
               >
-                <span className="truncate">{effort ?? 'default'}</span>
-                <ChevronDown className="size-3" />
+                <span className="truncate @max-[260px]:hidden">{effort ?? 'default'}</span>
+                <Sparkles className="hidden size-3.5 @max-[260px]:block" />
+                <ChevronDown className="size-3 @max-[260px]:hidden" />
               </Button>
             </Popover.Trigger>
             <Popover.Portal>
@@ -548,7 +566,7 @@ export function ChatComposer({
         {busy ? (
           <Button
             aria-label="停止执行"
-            className="rounded-full"
+            className="rounded-full @max-[160px]:size-7"
             onClick={onStop}
             size="icon-sm"
             type="button"
@@ -558,7 +576,7 @@ export function ChatComposer({
         ) : (
           <Button
             aria-label="发送"
-            className="rounded-full"
+            className="rounded-full @max-[160px]:size-7"
             disabled={!configured || !canSend}
             onClick={onSend}
             size="icon-sm"
@@ -568,33 +586,37 @@ export function ChatComposer({
           </Button>
         )}
       </div>
+      {/* min-w-56 下限在窄容器会越出 composer 边界（分屏时压到相邻组），≤260px 时收为贴容器宽。 */}
       {menuOpen && (
-        <ul className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-xl border bg-popover p-1 shadow-lg">
+        <ul
+          className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-xl border bg-popover p-1 shadow-lg @max-[260px]:min-w-0"
+          id={menuListId}
+          role="listbox"
+        >
           {items.map((item, position) => (
             <li
+              aria-selected={position === index}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm',
+                position === index ? 'bg-accent text-accent-foreground' : '',
+              )}
+              id={menuOptionId(position)}
               key={'name' in item ? item.name : item.key}
+              // 阻止点击选项时编辑器失焦。
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => handleSelect(position)}
               ref={position === index ? itemRef : undefined}
+              role="option"
             >
-              <button
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm',
-                  position === index ? 'bg-accent text-accent-foreground' : '',
-                )}
-                // 阻止点击选项时编辑器失焦。
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => handleSelect(position)}
-                type="button"
-              >
-                <AtSign className="size-3.5 shrink-0 text-muted-foreground" />
-                {'name' in item ? (
-                  <>
-                    <span className="shrink-0 font-medium">/{item.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">{item.hint}</span>
-                  </>
-                ) : (
-                  <span className="truncate">{item.title}</span>
-                )}
-              </button>
+              <AtSign className="size-3.5 shrink-0 text-muted-foreground" />
+              {'name' in item ? (
+                <>
+                  <span className="shrink-0 font-medium">/{item.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{item.hint}</span>
+                </>
+              ) : (
+                <span className="truncate">{item.title}</span>
+              )}
             </li>
           ))}
         </ul>

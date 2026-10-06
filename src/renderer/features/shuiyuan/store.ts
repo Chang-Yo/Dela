@@ -304,7 +304,6 @@ export const useShuiyuan = create<Store>((set, get) => {
       if (!api) return;
       const next = !current;
       // 乐观更新列表与阅读态；失败回滚。
-      const topicsBefore = get().topics;
       const apply = (value: boolean) => {
         set({
           topics: get().topics.map((topic) =>
@@ -325,10 +324,13 @@ export const useShuiyuan = create<Store>((set, get) => {
         apply(confirmed);
         if (get().list.kind === 'bookmarks') void get().refreshList();
       } catch (error) {
+        // 列表按 topic 粒度回写：await 期间 selectList 换流 / loadMore 追加页后，整份覆盖会丢新列表。
         // 期间切帖则当前 reading 已不属于本帖，不还原以免盖回旧阅读态；乐观标记按原值回退。
         const currentReading = get().reading;
         set({
-          topics: topicsBefore,
+          topics: get().topics.map((topic) =>
+            topic.id === topicId ? { ...topic, bookmarked: current } : topic,
+          ),
           reading:
             currentReading?.detail?.id === topicId
               ? {
@@ -345,13 +347,13 @@ export const useShuiyuan = create<Store>((set, get) => {
       const api = window.dela?.shuiyuan;
       const reading = get().reading;
       if (!api || !reading?.detail) return;
-      const postsBefore = reading.detail.posts;
+      const postBefore = reading.detail.posts.find((post) => post.id === postId);
       set({
         reading: {
           ...reading,
           detail: {
             ...reading.detail,
-            posts: postsBefore.map((post) =>
+            posts: reading.detail.posts.map((post) =>
               post.id === postId
                 ? {
                     ...post,
@@ -366,10 +368,20 @@ export const useShuiyuan = create<Store>((set, get) => {
       try {
         await api.setLiked(postId, liked);
       } catch (error) {
-        // 期间切帖则当前 reading 已不属于本帖，不还原；否则回滚乐观值并暴露错误。
-        if (get().reading !== reading) return;
+        // 乐观 set 已替换 reading 引用，不能按引用相等判过期；按帖子 id 守卫：期间切帖不还原，
+        // 否则按 post 粒度回写原楼层（整组覆盖会丢掉请求期间 loadMorePosts 合并进来的楼层）。
+        const currentReading = get().reading;
+        if (!postBefore || currentReading?.detail?.id !== reading.detail.id) return;
         set({
-          reading: { ...reading, detail: { ...reading.detail, posts: postsBefore } },
+          reading: {
+            ...currentReading,
+            detail: {
+              ...currentReading.detail,
+              posts: currentReading.detail.posts.map((post) =>
+                post.id === postId ? postBefore : post,
+              ),
+            },
+          },
           listError: errorText(error),
         });
       }
