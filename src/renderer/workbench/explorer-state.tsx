@@ -86,8 +86,6 @@ export function ExplorerRevealButton({ className }: { className?: string }) {
       aria-label="展开目录"
       className={cn(
         'grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground',
-        // 组宽 <240px 时固定开销吃掉标签可视区，隐藏入口（空态与组内仍有目录入口）。
-        '@max-[240px]:hidden',
         className,
       )}
       onClick={() => {

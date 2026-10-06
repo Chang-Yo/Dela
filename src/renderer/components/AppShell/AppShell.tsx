@@ -760,11 +760,13 @@ export function AppShell({
           (sidebarCollapsed || narrow) && 'hidden',
         )}
         label="调整侧边栏宽度"
-        max={Math.min(360, Math.max(200, effectiveSidebarWidth))}
+        // 拖拽绑定用户偏好值与原上限：渲染宽度另有视口钳制，若把钳制值当 max，
+        // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
+        max={360}
         min={200}
         onChange={setSidebarWidth}
         onResizingChange={setSidebarResizing}
-        value={effectiveSidebarWidth}
+        value={sidebarWidth}
       />
       {/* relative + id：供页内悬浮面板（如会话历史）portal 锚定到内容区。 */}
       {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。

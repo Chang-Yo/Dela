@@ -492,11 +492,13 @@ export function WorkbenchExplorer({
       <Resizer
         className={cn('bg-transparent', !visible && 'hidden')}
         label="调整目录宽度"
-        max={Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, effectiveWidth))}
+        // 拖拽绑定用户偏好值与原上限：渲染宽度另有视口钳制，若把钳制值当 max，
+        // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
+        max={SIDEBAR_MAX_WIDTH}
         min={SIDEBAR_MIN_WIDTH}
         onChange={setWidth}
         onResizingChange={setResizing}
-        value={effectiveWidth}
+        value={width}
       />
     </>
   );
