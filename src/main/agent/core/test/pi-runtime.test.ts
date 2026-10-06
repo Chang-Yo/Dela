@@ -37,6 +37,7 @@ async function makeAgent(input: {
   reasoning?: boolean;
   thinkingLevel?: 'high' | 'max';
   thinkingLevelMap?: Record<string, string | null>;
+  settings?: import('../../../../shared/llm').LlmModelSettings;
 }) {
   const runtime = await loadPiRuntime();
   return new Agent({
@@ -47,17 +48,35 @@ async function makeAgent(input: {
         modelId: input.modelId ?? 'test-model',
         ...(input.provider ? { provider: input.provider } : {}),
         reasoning: input.reasoning ?? false,
+        settings: input.settings,
         ...(input.thinkingLevelMap ? { thinkingLevelMap: input.thinkingLevelMap } : {}),
       }),
       ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
     },
-    streamFn: createDelaStreamFn({ runtime, retryDelays: [] }),
+    streamFn: createDelaStreamFn({
+      runtime,
+      retryDelays: [],
+      maxOutputTokens: input.settings?.maxOutputTokens,
+    }),
     getApiKey: () => PI_TEST_KEY,
     convertToLlm: stripThinking,
   });
 }
 
 describe('Pi 桥层（buildPiModel + createDelaStreamFn + stripThinking）', () => {
+  it('sends the selected model’s configured maximum output', async () => {
+    const before = server.requests.length;
+    const agent = await makeAgent({
+      settings: { contextWindow: 1000000, maxOutputTokens: 128000 },
+    });
+    server.enqueue({
+      kind: 'sse',
+      frames: [mockFrames.textDelta('OK'), mockFrames.finishFrame('stop')],
+    });
+    await agent.prompt('hello');
+    expect(agent.state.model?.contextWindow).toBe(1000000);
+    expect(bodyOf(server.requests[before]!).max_completion_tokens).toBe(128000);
+  });
   beforeAll(async () => {
     server = await MockOpenAiServer.start();
   });

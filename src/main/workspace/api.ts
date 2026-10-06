@@ -190,53 +190,24 @@ export async function openEntryExternally(id: string): Promise<'vscode' | 'syste
   return 'system';
 }
 
-/** 只接受项目身份；磁盘路径由 main 从条目解析，不接受 renderer 传入路径或命令。 */
-export async function openProjectDirectory(id: unknown, target: unknown): Promise<void> {
+/** 项目目录只由 main 根据条目身份解析，不接受 renderer 提供路径。 */
+export function projectDirectory(id: unknown): string {
   const projectId = idSchema.parse(id);
-  const action = z.enum(['vscode', 'explorer', 'terminal']).parse(target);
   prepareStorage();
   const item = entry(projectId);
   if (item.kind !== 'project') throw new Error('只有项目可以使用此入口');
   const path = entryLocalPath(item);
   if (!statSync(path).isDirectory()) throw new Error('项目目录不存在');
-  if (action === 'vscode') return openInVsCode(path);
-  if (action === 'explorer') {
-    const error = await shell.openPath(path);
-    if (error) throw new Error(`无法打开项目目录：${error}`);
-    return;
-  }
-  const launch = (command: string, args: string[]) =>
-    new Promise<void>((resolve, reject) => {
-      execFile(
-        command,
-        args,
-        {
-          cwd: path,
-          windowsHide: true,
-          env: { ...process.env, DELA_PROJECT_DIRECTORY: path },
-        },
-        (error) => (error ? reject(error) : resolve()),
-      );
-    });
-  if (process.platform === 'win32') {
-    try {
-      // 使用 cwd + '.'，避免 Windows Terminal 把目录中的分号解析为多个命令。
-      await launch('wt.exe', ['-w', 'new', 'new-tab', '-d', '.']);
-    } catch {
-      // 辅助进程隐藏；Start-Process 创建用户请求的可见交互终端。
-      await launch('powershell.exe', [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        'Start-Process powershell.exe -WorkingDirectory $env:DELA_PROJECT_DIRECTORY',
-      ]);
-    }
-    return;
-  }
-  if (process.platform === 'darwin') return launch('open', ['-a', 'Terminal', path]);
-  throw new Error('当前平台暂不支持打开终端');
+  return path;
 }
 
+export async function openProjectDirectory(id: unknown, target: unknown): Promise<void> {
+  const action = z.enum(['vscode', 'explorer']).parse(target);
+  const path = projectDirectory(id);
+  if (action === 'vscode') return openInVsCode(path);
+  const error = await shell.openPath(path);
+  if (error) throw new Error(`无法打开项目目录：${error}`);
+}
 async function openInVsCode(path: string): Promise<void> {
   const locate = (finder: string) =>
     new Promise<string>((resolve, reject) => {

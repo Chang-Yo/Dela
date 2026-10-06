@@ -172,6 +172,19 @@ describe('openTab', () => {
 describe('closeTab / closeTabs', () => {
   beforeEach(() => installLayoutApi(() => null));
 
+  it('Terminal 的最后一处标签关闭才结束项目终端，切换/分屏不结束', () => {
+    const closeProject = vi.fn(async () => {});
+    Object.assign(window.dela!, { terminal: { closeProject } });
+    const tab = `terminal:${uuid}` as const;
+    state().openTab(tab);
+    state().splitGroup('primary', 'vertical');
+    const side = groups()[1]!;
+    state().closeTab(tab, 'primary');
+    expect(closeProject).not.toHaveBeenCalled();
+    state().closeTab(tab, side.id);
+    expect(closeProject).toHaveBeenCalledExactlyOnceWith(uuid);
+  });
+
   it('关闭活动标签后激活滑入位置或前一个', () => {
     state().openTab('note:a');
     state().openTab('note:b');

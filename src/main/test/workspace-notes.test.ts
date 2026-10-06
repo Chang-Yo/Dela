@@ -127,40 +127,6 @@ describe('打开项目目录', () => {
     });
   });
 
-  it('Windows Terminal 启动失败时回退 PowerShell，并安全传递项目工作目录', async () => {
-    if (process.platform !== 'win32') return;
-    const project = createWorkspaceEntry({
-      parentId: null,
-      name: '项目 ; & 中文',
-      kind: 'project',
-    });
-    state.execFile.mockImplementation((command, _args, _options, callback) => {
-      callback(command === 'wt.exe' ? new Error('ENOENT') : null);
-    });
-    await openProjectDirectory(project.id, 'terminal');
-    expect(state.execFile).toHaveBeenCalledWith(
-      'wt.exe',
-      ['-w', 'new', 'new-tab', '-d', '.'],
-      expect.objectContaining({ cwd: join(workspaceRoot(), '项目 ; & 中文'), windowsHide: true }),
-      expect.any(Function),
-    );
-    expect(state.execFile).toHaveBeenLastCalledWith(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        'Start-Process powershell.exe -WorkingDirectory $env:DELA_PROJECT_DIRECTORY',
-      ],
-      expect.objectContaining({
-        env: expect.objectContaining({
-          DELA_PROJECT_DIRECTORY: join(workspaceRoot(), '项目 ; & 中文'),
-        }),
-      }),
-      expect.any(Function),
-    );
-  });
-
   it('打开项目当前目录，重命名后使用新路径', async () => {
     const project = createWorkspaceEntry({
       parentId: null,

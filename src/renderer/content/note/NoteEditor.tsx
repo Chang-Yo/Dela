@@ -4,6 +4,7 @@ import { tags as t } from '@lezer/highlight';
 import { Crepe } from '@milkdown/crepe';
 import { imageBlockSchema } from '@milkdown/kit/component/image-block';
 import { editorViewCtx } from '@milkdown/kit/core';
+import { blockPlugin } from '@milkdown/kit/plugin/block';
 import { InputRule, inputRules } from '@milkdown/kit/prose/inputrules';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { $prose, replaceAll } from '@milkdown/kit/utils';
@@ -212,8 +213,6 @@ function createSession(
         confirmButton: '确定',
       },
       [Crepe.Feature.BlockEdit]: {
-        // 只关闭悬浮添加/拖拽手柄，保留同一功能中的 / 插入菜单。
-        blockHandle: { shouldShow: () => false },
         textGroup: {
           label: '文本',
           text: { label: '正文' },
@@ -287,8 +286,10 @@ function createSession(
     // Milkdown 的通知有 200ms 去抖，回调时以当前文档为准。
     api.markdownUpdated(() => update(crepe.getMarkdown()));
   });
-  void crepe
-    .create()
+  // Crepe 将斜杠菜单和块手柄捆绑；创建前移除块插件，不注册其 DOM 和拖拽事件。
+  void crepe.editor
+    .remove(blockPlugin)
+    .then(() => crepe.create())
     .then(() => {
       if (session.disposed) {
         void crepe.destroy().catch(() => undefined);

@@ -156,6 +156,7 @@ export interface StoredLlmProvider {
   apiKey: string;
   models: string[];
   model: string;
+  modelConfigs?: Record<string, import('../shared/llm').LlmModelSettings>;
   /** 开启推理强度后暴露的档位子集；空数组表示未开启。 */
   effortLevels: string[];
   /** 当前选中的推理强度档位；未开启时为 undefined。 */

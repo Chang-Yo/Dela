@@ -64,6 +64,7 @@ interface NavigationState {
   openNote(entryId: string): boolean;
   /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台。 */
   openDocument(key: string): boolean;
+  openTerminal(projectId: string): boolean;
   openMail(messageId: number): boolean;
   openTodo(id: string): boolean;
   openSettings(section?: SettingsSectionId): boolean;
@@ -237,6 +238,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     openDocument: (key) => revealInProject(documentTabId(key), get().projectId),
+    openTerminal: (projectId) => revealInProject(`terminal:${projectId}`, projectId),
 
     openMail: (messageId) => {
       if (!get().navigate('mail')) return false;

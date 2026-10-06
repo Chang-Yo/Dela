@@ -9,6 +9,7 @@ import {
   setLlmEffort,
   setLlmModel,
   verifyLlm,
+  verifyLlmModel,
 } from '../core/providers';
 import { deleteChatCommand, listChatCommands, saveChatCommand } from './commands';
 import {
@@ -126,6 +127,7 @@ export function registerAgentChannels() {
   llmHandle('set-active', (id) => setActiveLlmProvider(idSchema.parse(id)));
   llmHandle('set-model', (model) => setLlmModel(z.string().trim().min(1).max(200).parse(model)));
   llmHandle('set-effort', (level) => setLlmEffort(z.string().trim().min(1).max(16).parse(level)));
+  llmHandle('verify-model', (input) => verifyLlmModel(input));
   llmHandle('verify', (input) =>
     verifyLlm(
       z

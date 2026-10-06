@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { LlmProviderView, LlmVerifyResult } from '../../../shared/api';
-import { reasoningEffortLevels } from '../../../shared/llm-presets';
+import {
+  LLM_MODEL_LIMIT,
+  LLM_DEFAULT_CONTEXT_WINDOW,
+  LLM_DEFAULT_OUTPUT_TOKENS,
+  llmModelSettings,
+  reasoningEffortLevels,
+} from '../../../shared/llm-presets';
+import { runAgent } from './run';
 import {
   CredentialDecryptionError,
   loadLlmConfig,
@@ -19,8 +26,30 @@ const baseUrlSchema = z
   .pipe(z.url({ protocol: /^https?$/ }));
 const apiKeySchema = z.string().max(4096);
 const modelIdSchema = z.string().trim().min(1).max(200);
-const modelsSchema = z.array(modelIdSchema).min(1).max(64);
+const modelsSchema = z.array(modelIdSchema).min(1).max(LLM_MODEL_LIMIT);
 const effortLevelsSchema = z.array(z.enum(reasoningEffortLevels)).max(8).optional();
+const modelSettingsSchema = z
+  .object({
+    contextWindow: z.number().int().positive().optional(),
+    maxOutputTokens: z.number().int().positive().optional(),
+    effortLevels: effortLevelsSchema,
+    effort: z.enum(reasoningEffortLevels).optional(),
+  })
+  .refine(
+    (value) =>
+      (value.contextWindow === undefined && value.maxOutputTokens === undefined) ||
+      (value.maxOutputTokens ?? LLM_DEFAULT_OUTPUT_TOKENS) <
+        (value.contextWindow ?? LLM_DEFAULT_CONTEXT_WINDOW),
+    {
+      message: '最大输出必须小于上下文窗口',
+    },
+  )
+  .refine(
+    (value) => !value.effort || !value.effortLevels || value.effortLevels.includes(value.effort),
+    {
+      message: '默认思考强度必须在模型档位中',
+    },
+  );
 
 const saveInputSchema = z
   .object({
@@ -30,12 +59,19 @@ const saveInputSchema = z
     apiKey: apiKeySchema.optional(),
     models: modelsSchema,
     model: modelIdSchema,
+    modelConfigs: z.record(modelIdSchema, modelSettingsSchema).optional(),
     effortLevels: effortLevelsSchema,
     presetId: z.string().max(64).nullable().optional(),
   })
   .refine((input) => input.models.includes(input.model), {
     message: '默认模型必须在模型列表中',
-  });
+  })
+  .refine(
+    (input) => Object.keys(input.modelConfigs ?? {}).every((id) => input.models.includes(id)),
+    {
+      message: '模型配置必须属于模型列表',
+    },
+  );
 
 /** 去重并按固定强度顺序排列，避免多选顺序影响存储与展示。 */
 function normalizeEffortLevels(levels: string[] | undefined): string[] {
@@ -44,15 +80,22 @@ function normalizeEffortLevels(levels: string[] | undefined): string[] {
 }
 
 function viewOf(provider: StoredLlmProvider, activeId: string | null): LlmProviderView {
-  const effortLevels = provider.effortLevels ?? [];
+  const { effortLevels, effort } = llmModelSettings(provider);
   return {
     id: provider.id,
     name: provider.name,
     baseUrl: provider.baseUrl,
     models: provider.models,
     model: provider.model,
+    ...(provider.modelConfigs
+      ? {
+          modelConfigs: Object.fromEntries(
+            provider.models.map((id) => [id, llmModelSettings(provider, id)]),
+          ),
+        }
+      : {}),
     effortLevels,
-    effort: effortLevels.length ? (provider.effort ?? effortLevels[0]!) : null,
+    effort: effort ?? null,
     presetId: provider.presetId,
     active: provider.id === activeId,
   };
@@ -67,7 +110,10 @@ export function listLlmProviders(): LlmProviderView[] {
 export function getActiveLlmProvider(): StoredLlmProvider | null {
   const config = loadLlmConfig();
   if (!config.activeId) return null;
-  return config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey) ?? null;
+  const provider = config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey);
+  if (!provider) return null;
+  const { effortLevels, effort } = llmModelSettings(provider);
+  return { ...provider, effortLevels, effort };
 }
 
 export function saveLlmProvider(input: unknown): LlmProviderView {
@@ -116,6 +162,23 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
   // 档位变化后收敛当前档位：仍在列表内则保留，否则回到第一档；关闭则清除。
   if (provider.effort && !effortLevels.includes(provider.effort)) provider.effort = undefined;
   if (!provider.effort && effortLevels.length) provider.effort = effortLevels[0];
+  if (parsed.modelConfigs) {
+    provider.modelConfigs = Object.fromEntries(
+      Object.entries(parsed.modelConfigs).map(([id, settings]) => [
+        id,
+        {
+          ...settings,
+          ...(settings.effortLevels
+            ? { effortLevels: normalizeEffortLevels(settings.effortLevels) }
+            : {}),
+        },
+      ]),
+    );
+  } else if (provider.modelConfigs) {
+    provider.modelConfigs = Object.fromEntries(
+      Object.entries(provider.modelConfigs).filter(([id]) => parsed.models.includes(id)),
+    );
+  }
   saveLlmConfig(config);
   return viewOf(provider, config.activeId);
 }
@@ -154,10 +217,12 @@ export function setLlmEffort(level: string): void {
   const config: StoredLlmConfig = loadLlmConfig();
   const provider = config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey);
   if (!provider) throw new Error('请先在设置中配置模型服务');
-  const levels = provider.effortLevels ?? [];
+  const levels = llmModelSettings(provider).effortLevels;
   if (!levels.includes(parsed))
     throw new Error('该档位不在当前提供商开启的推理强度列表中，请先在设置中勾选');
-  provider.effort = parsed;
+  const settings = provider.modelConfigs?.[provider.model];
+  if (settings?.effortLevels) settings.effort = parsed;
+  else provider.effort = parsed;
   saveLlmConfig(config);
 }
 
@@ -191,12 +256,12 @@ export function parseModelList(payload: unknown): string[] {
 
 const VERIFY_TIMEOUT = 15000;
 
-/** 轻量密钥检测：GET 模型列表端点，401/403 视为密钥无效，成功时顺带返回模型列表。 */
-export async function verifyLlm(input: {
+/** 两种检测共用密钥目标绑定，保证沿用存储密钥时只能访问其原地址。 */
+function verificationConnection(input: {
   id?: string;
   baseUrl: string;
   apiKey?: string;
-}): Promise<LlmVerifyResult> {
+}): { baseUrl: string; key: string } | { ok: false; message: string } {
   const parsed = z
     .object({ id: idSchema.optional(), baseUrl: baseUrlSchema, apiKey: apiKeySchema.optional() })
     .parse(input);
@@ -214,6 +279,18 @@ export async function verifyLlm(input: {
     }
   }
   if (!key) return { ok: false, message: '请先填写 API Key' };
+  return { baseUrl, key };
+}
+
+/** 轻量密钥检测：GET 模型列表端点，401/403 视为密钥无效，成功时顺带返回模型列表。 */
+export async function verifyLlm(input: {
+  id?: string;
+  baseUrl: string;
+  apiKey?: string;
+}): Promise<LlmVerifyResult> {
+  const connection = verificationConnection(input);
+  if ('ok' in connection) return connection;
+  const { baseUrl, key } = connection;
   let unreachable = false;
   for (const url of modelListEndpoints(baseUrl)) {
     try {
@@ -243,4 +320,58 @@ export async function verifyLlm(input: {
       ? '无法连接模型服务，请检查 API 地址和网络'
       : '该服务未提供模型列表接口，无法确认密钥有效性',
   };
+}
+
+/** 使用同一 Pi 请求链发出无工具的短请求；不创建会话，不保存回复。 */
+export async function verifyLlmModel(input: unknown): Promise<LlmVerifyResult> {
+  const parsed = z
+    .object({
+      id: idSchema.optional(),
+      baseUrl: baseUrlSchema,
+      apiKey: apiKeySchema.optional(),
+      model: modelIdSchema,
+      settings: modelSettingsSchema.optional(),
+    })
+    .parse(input);
+  const connection = verificationConnection(parsed);
+  if ('ok' in connection) return connection;
+  const settings = parsed.settings ?? {};
+  const effortLevels = settings.effortLevels ?? [];
+  const effort = settings.effort ?? effortLevels[0];
+  let receivedOutput = false;
+  try {
+    const result = await runAgent({
+      baseUrl: connection.baseUrl,
+      model: parsed.model,
+      key: connection.key,
+      effort,
+      modelSettings: {
+        ...settings,
+        maxOutputTokens: Math.min(settings.maxOutputTokens ?? 256, 256),
+      },
+      messages: [{ role: 'user', content: 'Reply with OK.' }],
+      tools: [],
+      signal: AbortSignal.timeout(30000),
+      retryDelays: [],
+      execute: async () => {
+        throw new Error('检测不支持工具调用');
+      },
+      onReasoning: (text) => {
+        receivedOutput ||= Boolean(text.trim());
+      },
+    });
+    return result.content.trim() || receivedOutput
+      ? { ok: true, message: '模型可用' }
+      : { ok: false, message: '请求完成但未返回内容，可用性待确认' };
+  } catch (cause) {
+    // 不回显上游报文，避免服务将认证头或其他敏感数据拼进错误。
+    const message = cause instanceof Error ? cause.message : '';
+    const status = /HTTP (\d{3})/.exec(message)?.[1];
+    return {
+      ok: false,
+      message: status
+        ? `模型检测失败（HTTP ${status}）`
+        : '模型检测失败，请检查模型 ID、权限、配置和网络',
+    };
+  }
 }

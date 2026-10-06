@@ -24,6 +24,15 @@ describe('estimateTokens', () => {
 });
 
 describe('contextBudget', () => {
+  it('uses a model’s configured context window and output reserve', () => {
+    expect(contextBudget({ contextWindow: 1000000, maxOutputTokens: 128000 })).toEqual({
+      window: 1000000,
+      reserve: 132096,
+      budget: 867904,
+      compactThreshold: 607532,
+    });
+    expect(shouldCompact(600000, { contextWindow: 1000000, maxOutputTokens: 128000 })).toBe(false);
+  });
   it('窗口 32768、预留 12288、预算 20480、阈值 14336', () => {
     expect(contextBudget()).toEqual({
       window: 32768,

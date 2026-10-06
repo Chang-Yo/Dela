@@ -9,4 +9,5 @@ export const llm = {
   setModel: (model: string) => invoke('llm:set-model', model),
   setEffort: (level: string) => invoke('llm:set-effort', level),
   verify: (input: LlmVerifyInput) => invoke('llm:verify', input),
+  verifyModel: (input: Parameters<LlmApi['verifyModel']>[0]) => invoke('llm:verify-model', input),
 } satisfies LlmApi;

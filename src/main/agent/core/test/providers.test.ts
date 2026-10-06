@@ -15,7 +15,9 @@ import {
   setLlmEffort,
   setLlmModel,
   verifyLlm,
+  verifyLlmModel,
 } from '../providers';
+import { MockOpenAiServer, mockFrames } from './mock-openai-server';
 
 vi.mock('../../../credentials', () => ({
   CredentialDecryptionError: class extends Error {},
@@ -38,6 +40,49 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('detects actual model output over the same streaming API as chat', async () => {
+  const server = await MockOpenAiServer.start();
+  try {
+    server.enqueue({
+      kind: 'sse',
+      frames: [mockFrames.textDelta('OK'), mockFrames.finishFrame('stop')],
+    });
+    expect(
+      await verifyLlmModel({ baseUrl: server.baseUrl, apiKey: 'test-only', model: 'test-model' }),
+    ).toEqual({ ok: true, message: '模型可用' });
+    expect(server.requests[0]?.url).toBe('/v1/chat/completions');
+    expect(server.requests[0]?.body).toMatchObject({
+      model: 'test-model',
+      max_completion_tokens: 256,
+    });
+    server.enqueue({
+      kind: 'status',
+      status: 403,
+      json: { error: { message: 'private-upstream-message' } },
+    });
+    const failure = await verifyLlmModel({
+      baseUrl: server.baseUrl,
+      apiKey: 'test-only',
+      model: 'forbidden',
+    });
+    expect(failure.ok).toBe(false);
+    expect(failure.message).not.toContain('private-upstream-message');
+  } finally {
+    await server.close();
+  }
+});
+
+it('does not send a stored key to a changed address during a model probe', async () => {
+  const created = saveLlmProvider(input);
+  const fetcher = vi.fn();
+  vi.stubGlobal('fetch', fetcher);
+  expect(
+    (await verifyLlmModel({ id: created.id, baseUrl: 'https://other.example', model: input.model }))
+      .ok,
+  ).toBe(false);
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
 const input = {
   name: 'DeepSeek',
   baseUrl: 'https://api.deepseek.com',
@@ -48,6 +93,55 @@ const input = {
 };
 
 describe('LLM provider config', () => {
+  it('stores per-model limits and switches to that model’s own reasoning levels', () => {
+    const created = saveLlmProvider({
+      ...input,
+      effortLevels: ['low'],
+      modelConfigs: {
+        'deepseek-v4-pro': {
+          contextWindow: 1000000,
+          maxOutputTokens: 128000,
+          effortLevels: ['high', 'max'],
+          effort: 'max',
+        },
+        'deepseek-flash': { effortLevels: [] },
+      },
+    });
+    expect(created.modelConfigs?.['deepseek-v4-pro']?.contextWindow).toBe(1000000);
+    expect(created.effortLevels).toEqual(['high', 'max']);
+    setActiveLlmProvider(created.id);
+    setLlmModel('deepseek-flash');
+    expect(listLlmProviders()[0]?.effortLevels).toEqual([]);
+    expect(() => setLlmEffort('low')).toThrow();
+    setLlmModel('deepseek-v4-pro');
+    setLlmEffort('high');
+    expect(listLlmProviders()[0]?.effort).toBe('high');
+    expect(config.providers[0]?.modelConfigs?.['deepseek-v4-pro']?.effort).toBe('high');
+  });
+
+  it('rejects invalid model limits and settings for models outside the list', () => {
+    expect(() =>
+      saveLlmProvider({
+        ...input,
+        modelConfigs: { 'deepseek-v4-pro': { maxOutputTokens: 128000 } },
+      }),
+    ).toThrow();
+    expect(() =>
+      saveLlmProvider({ ...input, modelConfigs: { 'deepseek-v4-pro': { contextWindow: 8192 } } }),
+    ).toThrow();
+    expect(() =>
+      saveLlmProvider({ ...input, modelConfigs: { 'deepseek-v4-pro': { contextWindow: -1 } } }),
+    ).toThrow();
+    expect(() =>
+      saveLlmProvider({
+        ...input,
+        modelConfigs: { 'deepseek-v4-pro': { contextWindow: 1000, maxOutputTokens: 2000 } },
+      }),
+    ).toThrow();
+    expect(() =>
+      saveLlmProvider({ ...input, modelConfigs: { unknown: { contextWindow: 1000000 } } }),
+    ).toThrow('模型配置必须属于模型列表');
+  });
   it('rejects changing the endpoint while reusing the stored key', () => {
     const created = saveLlmProvider(input);
     expect(() =>

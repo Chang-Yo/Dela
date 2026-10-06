@@ -22,12 +22,14 @@ export type {
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
 import type { TodoApi } from './todo';
+import type { TerminalApi } from './terminal';
 import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
 export interface DelaApi {
   capability: CapabilityApi;
   readonly todo: TodoApi;
+  readonly terminal: TerminalApi;
   readonly version: string;
   /** 主进程在数据库初始化前判定；已有用户数据的更新和重启均为 false。 */
   readonly firstLaunch: boolean;
@@ -123,7 +125,14 @@ export type {
   ShortcutScope,
 } from './keybindings';
 
-export type { LlmProviderView, LlmSaveInput, LlmVerifyInput, LlmVerifyResult, LlmApi } from './llm';
+export type {
+  LlmModelSettings,
+  LlmProviderView,
+  LlmSaveInput,
+  LlmVerifyInput,
+  LlmVerifyResult,
+  LlmApi,
+} from './llm';
 
 export type { GlobalSearchResult, SearchApi } from './search';
 

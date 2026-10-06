@@ -20,9 +20,11 @@ import type {
   ThinkingLevelMap,
 } from '@earendil-works/pi-ai';
 import { IMAGE_TOKEN_EST, contextBudget, estimateTokens } from './budget';
+import type { LlmModelSettings } from '../../../shared/llm';
+import { LLM_DEFAULT_CONTEXT_WINDOW, LLM_DEFAULT_OUTPUT_TOKENS } from '../../../shared/llm-presets';
 
 // 单次回复的输出上限；8192 只够中等长度回答，长文档与大段工具参数会被截断，取主流模型量级。
-export const MAX_OUTPUT_TOKENS = 32768;
+export const MAX_OUTPUT_TOKENS = LLM_DEFAULT_OUTPUT_TOKENS;
 // 模型上限较低的提供商（8k 级输出）会对超限的 max_tokens 直接 400，命中时退回此前验证过的值。
 export const FALLBACK_OUTPUT_TOKENS = 8192;
 // 仅对传输层瞬时错误（429/5xx/网络中断）重试；测试注入 0 延迟。
@@ -31,7 +33,7 @@ export const DEFAULT_RETRY_DELAYS = [1000, 3000];
 const REQUEST_TIMEOUT_MS = 120000;
 // 未知提供商的保守上下文窗口：仅作估算口径；输出上限由本包装直接注入，
 // 不走 streamSimple 的 buildBaseOptions（那会按窗口余量把 maxTokens 钳小）。
-const CONSERVATIVE_CONTEXT_WINDOW = 32768;
+const CONSERVATIVE_CONTEXT_WINDOW = LLM_DEFAULT_CONTEXT_WINDOW;
 // 400 报文里指向输出上限的关键字：兼容 max_tokens 与 max_completion_tokens 两种字段名。
 const MAX_TOKENS_REJECTION = /max_(?:completion_)?tokens/i;
 const HTTP_STATUS_PREFIX = /^\s*(\d{3})\b/;
@@ -53,6 +55,7 @@ export function buildPiModel(input: {
   reasoning: boolean;
   /** 档位映射：让 xhigh/max 等扩展档位原样下发（Pi 默认会把未映射的高档位压到 high）。 */
   thinkingLevelMap?: ThinkingLevelMap;
+  settings?: LlmModelSettings;
 }): Model<'openai-completions'> {
   return {
     id: input.modelId,
@@ -63,8 +66,8 @@ export function buildPiModel(input: {
     reasoning: input.reasoning,
     input: ['text', 'image'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: CONSERVATIVE_CONTEXT_WINDOW,
-    maxTokens: MAX_OUTPUT_TOKENS,
+    contextWindow: input.settings?.contextWindow ?? CONSERVATIVE_CONTEXT_WINDOW,
+    maxTokens: input.settings?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
     ...(input.thinkingLevelMap ? { thinkingLevelMap: input.thinkingLevelMap } : {}),
   };
 }
@@ -97,10 +100,11 @@ export function createDelaStreamFn(config: {
   /** pi 系纯 ESM 包经 pi-load 动态加载后注入；主进程 CJS 产物不能静态 require。 */
   runtime: PiRuntime;
   retryDelays?: number[];
+  maxOutputTokens?: number;
 }): StreamFn {
   const retryDelays = config.retryDelays ?? DEFAULT_RETRY_DELAYS;
   // 整个 runAgent 运行内粘滞：降级到 8192 后，后续轮次沿用低上限（对齐旧循环的整跑状态）。
-  let maxTokens = MAX_OUTPUT_TOKENS;
+  let maxTokens = config.maxOutputTokens ?? MAX_OUTPUT_TOKENS;
   let usedFallback = false;
   return (model, context, options) => {
     const piModel = model as Model<'openai-completions'>;
@@ -161,9 +165,10 @@ export function createDelaStreamFn(config: {
             if (
               classified.status === 400 &&
               !usedFallback &&
+              maxTokens > FALLBACK_OUTPUT_TOKENS &&
               MAX_TOKENS_REJECTION.test(errorMessage)
             ) {
-              maxTokens = FALLBACK_OUTPUT_TOKENS;
+              maxTokens = Math.min(maxTokens, FALLBACK_OUTPUT_TOKENS);
               usedFallback = true;
               attempt = 0;
               continue;

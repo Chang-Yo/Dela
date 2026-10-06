@@ -2,7 +2,12 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, LlmProviderView } from '../../../../shared/api';
+import type {
+  DelaApi,
+  LlmProviderView,
+  LlmSaveInput,
+  LlmVerifyResult,
+} from '../../../../shared/api';
 import { defaultKeybindings } from '../../../../shared/keybindings';
 import { useShortcuts } from '../../../app/shortcuts';
 import { LlmSection } from './LlmSection';
@@ -33,6 +38,135 @@ function button(text: string): HTMLButtonElement {
   if (!element) throw new Error(`Missing button: ${text}`);
   return element;
 }
+
+async function fill(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+it('searches detected models before adding one and saves per-model settings', async () => {
+  const provider: LlmProviderView = {
+    id: 'a',
+    name: 'Provider A',
+    baseUrl: 'https://example.com',
+    models: ['existing'],
+    model: 'existing',
+    effortLevels: [],
+    effort: null,
+    presetId: null,
+    active: false,
+  };
+  let saved: LlmSaveInput | undefined;
+  window.dela = {
+    llm: {
+      list: async () => [provider],
+      verify: async () => ({
+        ok: true,
+        message: '连接成功',
+        models: ['gpt-a', 'claude-a'],
+      }),
+      save: async (input: LlmSaveInput) => {
+        saved = input;
+        return { ...provider, ...input };
+      },
+    },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<LlmSection />));
+  await act(async () => button('添加模型').click());
+  await fill(document.querySelector<HTMLInputElement>('[aria-label="搜索或输入模型 ID"]')!, 'gpt');
+  expect(document.querySelector('[aria-label="添加模型 claude-a"]')).toBeNull();
+  await act(async () =>
+    document.querySelector<HTMLButtonElement>('[aria-label="添加模型 gpt-a"]')!.click(),
+  );
+  await act(async () =>
+    document.querySelector<HTMLButtonElement>('[aria-label="关闭添加模型"]')!.click(),
+  );
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('[aria-label="编辑模型 gpt-a"]')!.click(),
+  );
+  await fill(document.querySelector<HTMLInputElement>('[aria-label="上下文窗口"]')!, '1000000');
+  await fill(document.querySelector<HTMLInputElement>('[aria-label="最大输出"]')!, '128000');
+  const high = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+    (item) => item.textContent === 'high',
+  )!;
+  await act(async () => high.click());
+  const apply = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+    (item) => item.textContent === '应用',
+  )!;
+  await act(async () => apply.click());
+  await act(async () => button('保存').click());
+  expect(saved?.models).toEqual(['existing', 'gpt-a']);
+  expect(saved?.modelConfigs?.['gpt-a']).toEqual({
+    contextWindow: 1000000,
+    maxOutputTokens: 128000,
+    effortLevels: ['high'],
+    effort: 'high',
+  });
+});
+
+it('discards model detection results after the API address changes', async () => {
+  const provider: LlmProviderView = {
+    id: 'a',
+    name: 'Provider A',
+    baseUrl: 'https://example.com',
+    models: ['existing'],
+    model: 'existing',
+    effortLevels: [],
+    effort: null,
+    presetId: null,
+    active: false,
+  };
+  let finish!: (result: LlmVerifyResult) => void;
+  window.dela = {
+    llm: {
+      list: async () => [provider],
+      verify: () =>
+        new Promise<LlmVerifyResult>((resolve) => {
+          finish = resolve;
+        }),
+    },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<LlmSection />));
+  await act(async () => button('检测模型').click());
+  await fill(
+    container.querySelector<HTMLInputElement>('input[type="url"]')!,
+    'https://other.example',
+  );
+  await act(async () => finish({ ok: true, message: 'old result', models: ['old-model'] }));
+  expect(container.textContent).not.toContain('old result');
+  expect(container.textContent).not.toContain('一键导入');
+});
+
+it('caps model import at 64 and reports the omitted count', async () => {
+  const provider: LlmProviderView = {
+    id: 'a',
+    name: 'Provider A',
+    baseUrl: 'https://example.com',
+    models: ['existing'],
+    model: 'existing',
+    effortLevels: [],
+    effort: null,
+    presetId: null,
+    active: false,
+  };
+  window.dela = {
+    llm: {
+      list: async () => [provider],
+      verify: async () => ({
+        ok: true,
+        message: '连接成功',
+        models: Array.from({ length: 70 }, (_, i) => `model-${i}`),
+      }),
+    },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<LlmSection />));
+  await act(async () => button('检测模型').click());
+  await act(async () => button('一键导入').click());
+  expect(container.querySelectorAll('[aria-label^="编辑模型 "]')).toHaveLength(64);
+  expect(container.textContent).toContain('7 个未导入');
+});
 
 it('keeps the current provider and its draft when an earlier save finishes', async () => {
   const provider = (id: string, name: string): LlmProviderView => ({

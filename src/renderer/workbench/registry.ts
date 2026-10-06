@@ -3,13 +3,13 @@
 // workspace/sessions 镜像：条目名 / Canvas 资料名 / 会话标题；镜像变化的即时刷新由
 // 装配层（app/workbench-shell）订阅镜像触发重渲染完成。
 import { lazy, type ComponentType } from 'react';
-import { Eye, FileText, GitCompare, MessageSquare } from 'lucide-react';
+import { Eye, FileText, GitCompare, MessageSquare, SquareTerminal } from 'lucide-react';
 import type { TabId, TabKind } from '../../shared/layout';
 import { useSessions } from '../sessions/store';
 import { useNoteDrafts } from '../workspace/drafts';
 import { useWorkspaceStore } from '../workspace/store';
 
-// 四个内容域懒加载：组件首次渲染时才求值对应模块（TabGroup 渲染处有 Suspense 骨架兜底）。
+// 内容域懒加载：组件首次渲染时才求值对应模块（TabGroup 渲染处有 Suspense 骨架兜底）。
 const ChatTab: ComponentType<TabComponentProps> = lazy(() =>
   import('../content/chat').then((m) => ({ default: m.ChatTab })),
 );
@@ -21,6 +21,9 @@ const PreviewTab: ComponentType<TabComponentProps> = lazy(() =>
 );
 const ReviewTab: ComponentType<TabComponentProps> = lazy(() =>
   import('../content/review').then((m) => ({ default: m.ReviewTab })),
+);
+const TerminalTab: ComponentType<TabComponentProps> = lazy(() =>
+  import('../content/terminal/TerminalTab').then((m) => ({ default: m.TerminalTab })),
 );
 
 /** 内容组件契约：tabId 定位数据，groupId 用于按组隔离的编辑器会话键（TabId+groupId）。 */
@@ -77,6 +80,7 @@ export const registry: Record<TabKind, TabDescriptor> = {
     title: (tabId) => workspaceTitleOf(payloadOf(tabId)),
   },
   review: { component: ReviewTab, icon: GitCompare, title: payloadOf },
+  terminal: { component: TerminalTab, icon: SquareTerminal, title: () => 'Terminal' },
 };
 
 export function kindOf(tabId: TabId): TabKind {

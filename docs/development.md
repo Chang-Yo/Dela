@@ -50,6 +50,12 @@ pnpm dev
 
 打包目录可运行 `dist/win-unpacked/Dela.exe --smoke-test` 做与 `pnpm smoke` 相同的检查。
 
+内置终端新增精确依赖 node-pty 1.1.0、xterm 6.0.0、FitAddon 0.11.0。pnpm 允许 node-pty 安装脚本使用平台预编译产物，main 构建将其 external，打包解包整个 node-pty 目录（包含原生模块、ConPTY DLL 与辅助脚本）。其他平台缺少预编译产物时需按 [node-pty 官方说明](https://github.com/microsoft/node-pty)准备原生编译环境。
+
+Windows 内置终端检查：`pnpm exec electron scripts/terminal-smoke.cjs`。打包后使用 `pnpm exec electron scripts/terminal-smoke.cjs dist/win-unpacked/resources/app.asar` 加载包内 main/preload/renderer 和原生依赖。脚本使用独立 userData 与 documents 目录，覆盖标题栏打开、真实 xterm 键盘输入、中文/特殊字符项目 cwd、多会话、切换重挂载、主题及关闭清理；只截取静态界面，不检测动画。
+
+脚本保留宿主原始 PSModulePath，验证产品代码处理 PowerShell 7 → Electron → Windows PowerShell 的模块路径继承，必须确认 PSReadLine 已加载。另覆盖方向键/退格编辑、鼠标拖动选取、右键复制、复制/粘贴按钮及 Alt＋单击定位；剪贴板使用页面内隔离夹具，系统剪贴板权限及实际内容仍由用户实机审阅。
+
 应用启动不读取仓库 `.env`，邮箱/Canvas/模型等凭据只能在应用内配置；仓库文档、个人凭据与 `.tools/` 均不属于安装资源（打包白名单限定 `out/` 与包元数据）。
 
 ## 冒烟与回归脚本

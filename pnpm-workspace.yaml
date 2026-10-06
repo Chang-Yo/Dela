@@ -8,6 +8,7 @@ allowBuilds:
   # postinstall 只做生成物校验，均可安全跳过。
   '@google/genai': false
   better-sqlite3: false
+  node-pty: true
   electron-winstaller: false
   esbuild: false
   protobufjs: false

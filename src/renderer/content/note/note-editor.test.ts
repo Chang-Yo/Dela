@@ -32,6 +32,30 @@ beforeAll(() => {
 });
 
 describe('编辑器 IME 回传', () => {
+  it('正文不注册块拖拽手柄，保留斜杠菜单', async () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    root.render(
+      createElement(NoteEditor, {
+        documentKey: 'no-block-test',
+        editorStateKey: 'no-block-test',
+        value: '# 标题\n\n正文',
+        onChange: () => {},
+        onSave: () => {},
+      }),
+    );
+    try {
+      await vi.waitFor(() => expect(host.querySelector('.ProseMirror p')).not.toBeNull());
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(host.querySelector('.milkdown-block-handle')).toBeNull();
+      expect(host.querySelector('.milkdown-slash-menu')).not.toBeNull();
+    } finally {
+      root.unmount();
+      forgetNoteEditorState('no-block-test');
+      host.remove();
+    }
+  });
   it('富文本选词结束后不被组词期间回传的拼音覆盖', async () => {
     const host = document.createElement('div');
     document.body.append(host);

@@ -2,9 +2,9 @@
 // 类型按 §3.2 定义；zod schema 供 layout:* IPC 双侧校验（节点数上限、ratio 边界、组内标签去重）。
 import { z } from 'zod';
 
-export const tabKinds = ['chat', 'note', 'preview', 'review'] as const;
+export const tabKinds = ['chat', 'note', 'preview', 'review', 'terminal'] as const;
 export type TabKind = (typeof tabKinds)[number];
-/** chat:{sessionId} | note:{entryId} | preview:{sourceKey|entryId} | review:{...} */
+/** chat:{sessionId} | note:{entryId} | preview:{sourceKey|entryId} | review:{...} | terminal:{projectId} */
 export type TabId = `${TabKind}:${string}`;
 
 export type SplitOrientation = 'vertical' | 'horizontal';

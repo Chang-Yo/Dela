@@ -145,6 +145,7 @@ export async function runAgent(options: {
   key: string;
   /** 推理强度档位；设置时以 reasoning_effort 字段随请求下发。 */
   effort?: string;
+  modelSettings?: import('../../../shared/llm').LlmModelSettings;
   messages: { role: string; content: string | ChatContentPart[] }[];
   tools: unknown[];
   signal: AbortSignal;
@@ -167,6 +168,7 @@ export async function runAgent(options: {
     baseUrl: options.baseUrl,
     modelId: options.model,
     reasoning: thinking.reasoning,
+    settings: options.modelSettings,
     ...(thinking.map ? { thinkingLevelMap: thinking.map } : {}),
   });
   // 首条 system 进 initialState.systemPrompt（Pi 会把工具声明编码进同一条 system 消息）；
@@ -356,6 +358,7 @@ export async function runAgent(options: {
       ...(history.length ? { messages: history } : {}),
     },
     streamFn: createDelaStreamFn({
+      maxOutputTokens: options.modelSettings?.maxOutputTokens,
       runtime: piRuntime,
       retryDelays: options.retryDelays ?? DEFAULT_RETRY_DELAYS,
     }),

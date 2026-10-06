@@ -7,6 +7,7 @@ import {
 import type { AgentToolResult, ChatSessionSummary, WorkspaceChat } from '../../../shared/api';
 import { getDatabase } from '../../database';
 import { getActiveLlmProvider } from '../core/providers';
+import { llmModelSettings } from '../../../shared/llm-presets';
 import type { ChatContentPart } from '../core/run';
 import {
   assembleModelContext,
@@ -264,9 +265,10 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       chat.messages.reduce((total, message) => total + estimateTokens(message.content), 0) +
       currentRoundTokens +
       toolTokens;
-    if (shouldCompact(estimate)) {
+    const modelSettings = llmModelSettings(provider);
+    if (shouldCompact(estimate, modelSettings)) {
       // 覆盖范围 = 本次估算中放不进触发阈值的较早历史（为输出、工具交互与摘要块留余量）。
-      const { budget, compactThreshold } = contextBudget();
+      const { budget, compactThreshold } = contextBudget(modelSettings);
       const affordable =
         compactThreshold -
         currentRoundTokens -
@@ -280,7 +282,12 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
         publishSession(sessionId);
         try {
           const generated = await summarizeHistory(
-            { baseUrl: provider.baseUrl, key: provider.apiKey, model: provider.model },
+            {
+              baseUrl: provider.baseUrl,
+              key: provider.apiKey,
+              model: provider.model,
+              maxOutputTokens: modelSettings.maxOutputTokens,
+            },
             {
               messages: chat.messages.slice(priorCovered, splitIndex),
               startIndex: priorCovered,
@@ -308,6 +315,7 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       history: chat.messages,
       summary,
       reservedTokens: currentRoundTokens + toolTokens,
+      modelSettings,
       skillIndex: getCapabilityRuntime()?.skillIndex() ?? [],
       toolNames,
       instruction,
@@ -378,16 +386,15 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
         baseUrl: provider.baseUrl,
         model: provider.model,
         key: provider.apiKey,
+        modelSettings,
         // 已开启推理强度时随请求下发 reasoning_effort；未开启不携带该字段。
-        effort: provider.effortLevels?.length
-          ? (provider.effort ?? provider.effortLevels[0]!)
-          : undefined,
+        effort: modelSettings.effort,
         messages,
         tools: toolDefinitions,
         signal: run.controller.signal,
         execute: executeAgentTool,
         // 运行内修剪：多轮工具结果撑大上下文时在每次模型请求前修剪较早工具结果（core/pi.ts）。
-        prunePolicy: {},
+        prunePolicy: { budgetTokens: contextBudget(modelSettings).budget },
         onText: (text) => {
           updateText(text);
           publishStream();

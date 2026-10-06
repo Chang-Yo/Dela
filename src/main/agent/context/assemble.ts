@@ -135,6 +135,7 @@ export function assembleModelContext(input: {
   toolNames?: ReadonlySet<string>;
   /** 用户附加 Instruction（设置 › 自定义指令）；空串或省略时不追加该段。 */
   instruction?: string;
+  modelSettings?: { contextWindow?: number; maxOutputTokens?: number };
 }): AssembledContext {
   const summary = effectiveSummary(input.summary, input.history.length);
   const system = systemText({
@@ -143,7 +144,7 @@ export function assembleModelContext(input: {
     skillIndex: input.skillIndex,
     summary,
   });
-  const { budget } = contextBudget();
+  const { budget } = contextBudget(input.modelSettings);
   const available = budget - input.reservedTokens - estimateTokens(system);
   if (available < 0) throw new Error('本轮输入超出模型上下文预算，请减少引用资料或附件后重试');
   // 从最新向前按预算容纳；已由摘要覆盖的区间不再重复注入（摘要与之后的新消息共同组成上下文）。

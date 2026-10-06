@@ -201,6 +201,11 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       if (nextMaximized === group.id) nextMaximized = null;
     }
     set({ root: nextRoot, focus: nextFocus, maximized: nextMaximized });
+    if (
+      tabId.startsWith('terminal:') &&
+      !walkGroups(nextRoot).some((node) => node.tabs.includes(tabId))
+    )
+      void window.dela?.terminal.closeProject(tabId.slice('terminal:'.length)).catch(console.error);
     schedulePersist();
   },
 

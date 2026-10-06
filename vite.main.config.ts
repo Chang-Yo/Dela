@@ -18,6 +18,7 @@ export default defineConfig({
         'typebox',
         '@napi-rs/canvas',
         'better-sqlite3',
+        'node-pty',
         'imapflow',
         'nodemailer',
         ...builtinModules,

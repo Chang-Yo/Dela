@@ -104,7 +104,7 @@ export interface SummarizeInput {
  * 120s 超时；任何失败（网络/非 200/格式无效）抛错，由调用方回退。
  */
 export async function summarizeHistory(
-  provider: { baseUrl: string; key: string; model: string },
+  provider: { baseUrl: string; key: string; model: string; maxOutputTokens?: number },
   input: SummarizeInput,
 ): Promise<SessionSummary> {
   const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
@@ -124,7 +124,7 @@ export async function summarizeHistory(
     body: JSON.stringify({
       model: provider.model,
       stream: false,
-      max_tokens: SUMMARY_MAX_TOKENS,
+      max_tokens: Math.min(SUMMARY_MAX_TOKENS, provider.maxOutputTokens ?? SUMMARY_MAX_TOKENS),
       messages: [
         { role: 'system', content: SUMMARY_INSTRUCTION },
         { role: 'user', content: userContent },

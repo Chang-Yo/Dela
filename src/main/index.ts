@@ -1,7 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
 import { registerTodoIpc, refreshTodos } from './todo';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
@@ -10,6 +11,7 @@ import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
+import { registerTerminalIpc } from './terminal';
 import { registerSearchIpc } from './search';
 import {
   initializeNotifications,
@@ -63,7 +65,13 @@ ipcMain.handle('window:get-state', (event) => ({
   maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false,
 }));
 
-const smokeTest = process.argv.includes('--smoke-test');
+const terminalSmokeTest = process.argv.includes('--terminal-smoke-test');
+const smokeTest = process.argv.includes('--smoke-test') || terminalSmokeTest;
+if (smokeTest && !terminalSmokeTest) {
+  const profile = mkdtempSync(join(tmpdir(), 'dela-smoke-'));
+  app.setPath('userData', profile);
+  app.setPath('documents', profile);
+}
 // 水源通知每分钟更新；IMAP 沿用现有增量同步，每五分钟检查一次。
 const NOTIFICATION_REFRESH_MS = 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
@@ -80,10 +88,13 @@ app.on('second-instance', () => {
   // 窗口尚未创建时，正常启动流程会显示它，不另建窗口。
 });
 if (smokeTest) {
-  setTimeout(() => {
-    console.error('Smoke check timed out');
-    app.exit(1);
-  }, 15000).unref();
+  setTimeout(
+    () => {
+      console.error('Smoke check timed out');
+      app.exit(1);
+    },
+    terminalSmokeTest ? 60000 : 15000,
+  ).unref();
 }
 
 // 注册业务 IPC；数据库在应用就绪后可用。
@@ -114,6 +125,7 @@ app.whenReady().then(() => {
   registerShuiyuanIpc();
   registerAgentIpc();
   registerWorkspaceIpc(subscribeChat);
+  registerTerminalIpc();
   registerSearchIpc();
   registerNotificationsIpc();
   registerTodoIpc();
@@ -247,7 +259,7 @@ async function createWindow(): Promise<void> {
 
   if (!smokeTest) createTray(window);
 
-  if (smokeTest) {
+  if (smokeTest && !terminalSmokeTest) {
     const database = new Database(':memory:');
     try {
       database.exec('CREATE TABLE smoke (value TEXT NOT NULL)');

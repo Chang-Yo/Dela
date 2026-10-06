@@ -14,6 +14,7 @@ import { settings } from './settings';
 import { shuiyuan } from './shuiyuan';
 import { timetable } from './timetable';
 import { todo } from './todo';
+import { terminal } from './terminal';
 import { windowApi } from './window';
 import { workspace } from './workspace';
 
@@ -21,6 +22,7 @@ contextBridge.exposeInMainWorld('dela', {
   version,
   firstLaunch: process.argv.includes('--dela-first-launch'),
   todo,
+  terminal,
   search,
   notifications,
   window: windowApi,

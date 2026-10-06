@@ -10,6 +10,35 @@
 
 ---
 
+## 2026-10-06（第九笔）修复实机 PSReadLine 加载与鼠标交互
+
+- 用户截图确认 Windows PowerShell 提示 Cannot load PSReadLine。上轮只在 smoke 脚本删除宿主 PSModulePath，产品代码仍完整继承 PowerShell 7 模块路径，导致测试没有覆盖实际启动条件；明确纠正这一遗漏。
+- 依照微软关于“经中间进程启动 Windows PowerShell”的说明，仅从 Windows 子终端环境副本移除 PSModulePath（大小写不敏感），让 Shell 重建默认模块目录，其他环境仍继承。未修改用户 profile、执行策略、系统变量或安装新 Shell。
+- xterm 显式启用 Alt＋单击定位输入光标、竖线光标，支持拖动选取、右键复制选区/无选区粘贴；增加复制/粘贴图标和 Ctrl＋Shift＋C/V。复制只取终端选区，粘贴走 terminal.paste，保留其转义/括号粘贴处理；异步读取后检查当前终端身份，避免切换会话后粘错位置。普通单击保持终端选取语义。
+- 回归先复现错误的环境继承，再验证子环境不带旧模块路径且保留其他变量。真实 Electron smoke 保留原始继承环境，确认已加载 PSReadLine、方向键/退格编辑、鼠标拖动选取、右键复制、按钮复制/粘贴、Alt＋单击定位后编辑；剪贴板使用隔离夹具，未改写用户系统剪贴板。类型检查、lint、5 项终端主进程回归、构建、pnpm smoke 与目录打包通过；同一扩展 smoke 在包内 app.asar 通过，打包 Dela.exe 冒烟退出码 0。
+- 参考：[微软 PSModulePath 与中间进程](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath#starting-windows-powershell-from-powershell-7)、[xterm 鼠标定位选项](https://xtermjs.org/docs/api/terminal/interfaces/iterminaloptions/)。
+
+## 2026-10-06（第八笔）真正移除块手柄、项目内置终端
+
+- 用户实机确认第六笔隐藏配置无效；回归测试先复现仍创建带 draggable 的手柄 DOM。改为在 Crepe 创建前移除公开 blockPlugin，删除 shouldShow 隐藏配置；不创建悬浮添加/拖拽 DOM 或事件，保留独立斜杠菜单。没有用 CSS 遮盖手柄。
+- 删除外部 wt / PowerShell / macOS Terminal 启动分支及其测试，目录快捷入口只保留 VS Code / 资源管理器。SquareTerminal 标题栏按钮经现有导航脉冲打开 Terminal 工作台标签；其内部提供会话标签、新建和关闭。
+- node-pty + xterm / FitAddon 实现真实交互终端。main 解析项目当前目录并验证窗口所有权，窗口销毁/应用退出释放进程；标签切换只卸载终端视图，进程及最多约 100 万字符输出保留。关闭最后一处同身份标签结束项目内会话。恢复时按事件序号合并输出，回放不把旧设备查询响应写入 Shell。尺寸、主题、字号使用现有布局与样式 token。
+- 新增原生依赖及 asarUnpack；Windows 采用 node-pty 随包 ConPTY，与 VS Code 当前默认方式一致，避开系统 ConPTY 关闭时 AttachConsole 的已知竞态。smoke 检查使用独立用户目录与 documents，避免接触真实账户及项目；终端脚本加载真实应用及包内产物。
+- 已验证：4 文件 53 项相关测试、三组类型检查、lint、构建、独立目录 pnpm smoke、electron-builder --dir。开发构建与打包 app.asar 均验证标题栏打开、xterm 真实键盘输入、中文/特殊字符 cwd、多会话、标签恢复、主题和关闭清理；打包 Dela.exe --smoke-test 退出码 0。静态截图确认 Terminal 与内部会话标签显示正确。macOS / Linux 尚未实机验证；动画由用户审阅。
+- 常规 smoke 原先访问默认用户目录并报 SQLITE_CORRUPT，现改为独立 userData / documents 测试；没有修复或改写原库。测试早期仅隔离 userData，默认 documents 下留下 7 个空测试项目目录；已修正后续脚本为双目录隔离。删除这些空目录被自动审批拒绝（仅返回 blocked by policy），暂未清理；没有删除或重建用户数据库。
+- 参考：[Milkdown 公共块插件](https://milkdown.dev/docs/api/plugin-block)、[node-pty](https://github.com/microsoft/node-pty)、[xterm FitAddon](https://xtermjs.org/docs/guides/using-addons/)、[VS Code ConPTY 默认配置](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/common/terminalConfiguration.ts)。
+
+## 2026-10-06（第七笔）逐模型配置、搜索添加与可用性检测
+
+- 上一批项目快捷入口及编辑器手柄调整已提交为 `b6b471a`；按本次反馈将终端图标换为 Lucide `SquareTerminal` 后一并提交。
+- 模型列表改成逐行管理，显示显式上下文大小、默认模型与思考档位，提供检测、编辑、移除入口。添加对话框先检测列表，再在返回结果中搜索逐个添加；未提供列表接口时保留手动输入 ID。
+- 一键导入与已有模型合并去重，沿用总数 64 的持久化上限，只加入剩余容量内的模型；超出时显示未导入数量，已有模型设置不被覆盖。
+- 加密提供商配置增加可选 `modelConfigs`：逐模型上下文窗口、最大输出 tokens、思考档位与默认档位。旧配置无需数据库迁移，未覆盖模型继续沿用原提供商级档位；设置对话框先应用到草稿，最终随提供商保存。显式限制为正整数，最大输出须小于上下文窗口（缺省字段按已有 32768 默认值比较；完全未配置时保持旧行为）。
+- 切换模型后 composer 快照与 `setEffort` 使用当前模型档位；配置接入 Pi Model、流式请求输出限制、上下文预算、压缩触发、历史装配和运行内工具结果修剪。摘要生成也不超过显式配置的输出限制。max_tokens 降参回退只在当前上限高于 8192 时发生，不提高用户限制。
+- `llm:verify-model` 复用同一 Pi Chat Completions 请求链，发出无工具的短提示（最多 256 输出 tokens、30 秒超时），收到正文或思考内容才确认可用，不创建会话。列表检测和单模型检测共用存储密钥的 API 地址绑定，不回显服务端原始错误；修改地址/密钥、修改或移除模型时丢弃对应的旧检测结果。
+- 已验证：全量单测 64 文件、602 项通过，三组类型检查与 lint 通过。回归覆盖逐模型保存/切换档位、非法限制拒绝、搜索添加、导入截断与遗漏数量、旧地址检测结果丢弃、异步保存切换详情后草稿保留；本地 HTTP 模拟服务验证真实 Pi 流式请求、检测成功/失败与输出参数。密钥均为测试占位值，未调用真实供应商；未进行界面视觉验收、构建、smoke 或打包。
+- 参考：[OpenCode 逐模型 options / variants](https://opencode.ai/docs/models/)、[Pi 模型配置](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md)与[模型字段定义](https://github.com/badlogic/pi-mono/blob/main/packages/ai/src/types.ts)，实际适配以本仓库已锁定的 Pi 类型与本地 HTTP 回归为准。未新增依赖或未接通的智能配置、能力开关、参数映射占位功能。
+
 ## 2026-10-06（第六笔）项目标题栏快捷入口与编辑器手柄移除
 
 - 按用户裁决隐藏笔记正文旁的悬浮添加与拖拽手柄，使用 Milkdown 官方 shouldShow 配置，保留同一 BlockEdit 功能内的 `/` 菜单及中文菜单配置。

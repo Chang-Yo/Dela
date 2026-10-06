@@ -274,15 +274,13 @@ export function AppShell({
 
   const navHidden = narrow ? drawer === null : sidebarCollapsed;
 
-  const openProjectDirectory = (target: 'vscode' | 'explorer' | 'terminal') => {
+  const openProjectDirectory = (target: 'vscode' | 'explorer') => {
     if (view !== 'workbench' || !projectId || !window.dela) return;
-    if (target !== 'terminal') {
-      setProjectOpenTarget(target);
-      try {
-        localStorage.setItem('dela.project.open-target', target);
-      } catch {
-        /* Storage may be unavailable. */
-      }
+    setProjectOpenTarget(target);
+    try {
+      localStorage.setItem('dela.project.open-target', target);
+    } catch {
+      /* Storage may be unavailable. */
     }
     useNavigationStore.getState().setNavigationError(null);
     void window.dela.workspace.openProjectDirectory(projectId, target).catch((cause: unknown) => {
@@ -384,8 +382,7 @@ export function AppShell({
       )}
       style={
         {
-          '--sidebar-width':
-            narrow || sidebarCollapsed ? '0px' : `${effectiveSidebarWidth}px`,
+          '--sidebar-width': narrow || sidebarCollapsed ? '0px' : `${effectiveSidebarWidth}px`,
         } as CSSProperties
       }
     >
@@ -521,7 +518,11 @@ export function AppShell({
               open={openMenu === 'help'}
             >
               <DropdownMenuTrigger asChild>
-                <button className={titleMenuButtonClass} onPointerEnter={() => hoverMenu('help')} type="button">
+                <button
+                  className={titleMenuButtonClass}
+                  onPointerEnter={() => hoverMenu('help')}
+                  type="button"
+                >
                   帮助
                 </button>
               </DropdownMenuTrigger>
@@ -620,7 +621,7 @@ export function AppShell({
               <button
                 aria-label="打开项目终端"
                 className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
-                onClick={() => openProjectDirectory('terminal')}
+                onClick={() => projectId && useNavigationStore.getState().openTerminal(projectId)}
                 title="打开项目终端"
                 type="button"
               >

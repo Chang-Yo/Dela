@@ -1,5 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Check, LoaderCircle, Plus, Server, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Dialog } from 'radix-ui';
+import {
+  Check,
+  LoaderCircle,
+  Pencil,
+  PlugZap,
+  Plus,
+  Search,
+  Server,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -11,11 +22,15 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
-import type { LlmProviderView, LlmVerifyResult } from '../../../../shared/api';
+import type { LlmModelSettings, LlmProviderView, LlmVerifyResult } from '../../../../shared/api';
 import {
   findLlmPreset,
   llmProviderPresets,
   reasoningEffortLevels,
+  llmModelSettings,
+  LLM_MODEL_LIMIT,
+  LLM_DEFAULT_CONTEXT_WINDOW,
+  LLM_DEFAULT_OUTPUT_TOKENS,
   type LlmProviderPreset,
 } from '../../../../shared/llm-presets';
 import { SectionHeader } from '../SectionHeader';
@@ -28,6 +43,176 @@ type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 function defaultDetail(providers: LlmProviderView[]): Detail | null {
   const provider = providers.find(({ active }) => active) ?? providers[0];
   return provider ? { mode: 'edit', id: provider.id } : null;
+}
+
+/** 编辑单个模型的草稿；最终随提供商保存，取消不会改变已有配置。 */
+function ModelSettingsDialog({
+  model,
+  settings,
+  onClose,
+  onSave,
+}: {
+  model: string;
+  settings: LlmModelSettings;
+  onClose: () => void;
+  onSave: (settings: LlmModelSettings) => void;
+}) {
+  const [contextWindow, setContextWindow] = useState(settings.contextWindow?.toString() ?? '');
+  const [maxOutputTokens, setMaxOutputTokens] = useState(
+    settings.maxOutputTokens?.toString() ?? '',
+  );
+  const [effortLevels, setEffortLevels] = useState(settings.effortLevels ?? []);
+  const [effort, setEffort] = useState(settings.effort ?? settings.effortLevels?.[0] ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const levels = reasoningEffortLevels.filter((level) => effortLevels.includes(level));
+  const save = () => {
+    const context = contextWindow ? Number(contextWindow) : undefined;
+    const output = maxOutputTokens ? Number(maxOutputTokens) : undefined;
+    if (
+      (context !== undefined && (!Number.isSafeInteger(context) || context <= 0)) ||
+      (output !== undefined && (!Number.isSafeInteger(output) || output <= 0))
+    ) {
+      setError('Token 数必须是正整数');
+      return;
+    }
+    if (
+      (context !== undefined || output !== undefined) &&
+      (output ?? LLM_DEFAULT_OUTPUT_TOKENS) >= (context ?? LLM_DEFAULT_CONTEXT_WINDOW)
+    ) {
+      setError('最大输出必须小于上下文窗口');
+      return;
+    }
+    onSave({
+      ...(context ? { contextWindow: context } : {}),
+      ...(output ? { maxOutputTokens: output } : {}),
+      effortLevels: levels,
+      ...(levels.length
+        ? { effort: levels.includes(effort as (typeof levels)[number]) ? effort : levels[0] }
+        : {}),
+    });
+  };
+  return (
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+          <div className="flex items-center justify-between gap-2">
+            <Dialog.Title className="text-base font-semibold">编辑模型设置</Dialog.Title>
+            <Dialog.Close asChild>
+              <Button aria-label="关闭模型设置" size="icon-xs" variant="ghost">
+                <X />
+              </Button>
+            </Dialog.Close>
+          </div>
+          <Dialog.Description className="mt-2 text-xs text-muted-foreground">
+            模型设置随提供商一起保存。限制留空时沿用默认值；思考档位须由服务支持。
+          </Dialog.Description>
+          <form
+            className="mt-4 grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            <label className="grid gap-2 text-sm">
+              模型 ID
+              <Input readOnly value={model} />
+            </label>
+            <label className="grid gap-2 text-sm">
+              上下文窗口（tokens）
+              <Input
+                aria-label="上下文窗口"
+                type="number"
+                min="1"
+                step="1"
+                placeholder={`默认 ${LLM_DEFAULT_CONTEXT_WINDOW}`}
+                value={contextWindow}
+                onChange={(event) => setContextWindow(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              最大输出（tokens）
+              <Input
+                aria-label="最大输出"
+                type="number"
+                min="1"
+                step="1"
+                placeholder={`默认 ${LLM_DEFAULT_OUTPUT_TOKENS}`}
+                value={maxOutputTokens}
+                onChange={(event) => setMaxOutputTokens(event.target.value)}
+              />
+            </label>
+            <fieldset className="grid gap-2">
+              <legend className="mb-2 text-sm">思考强度档位</legend>
+              <div className="flex flex-wrap gap-1.5">
+                {reasoningEffortLevels.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    aria-pressed={effortLevels.includes(level)}
+                    className={cn(
+                      'rounded-md border px-2 py-1 text-xs transition-colors',
+                      effortLevels.includes(level)
+                        ? 'border-transparent bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent/40',
+                    )}
+                    onClick={() =>
+                      setEffortLevels((current) =>
+                        current.includes(level)
+                          ? current.filter((item) => item !== level)
+                          : [...current, level],
+                      )
+                    }
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                未勾选时关闭思考强度选择；已勾选的档位可在对话输入框旁切换。
+              </p>
+            </fieldset>
+            {levels.length > 0 && (
+              <label className="grid gap-2 text-sm">
+                默认思考强度
+                <Select
+                  value={levels.includes(effort as (typeof levels)[number]) ? effort : levels[0]}
+                  onValueChange={setEffort}
+                >
+                  <SelectTrigger aria-label="默认思考强度">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {levels.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {level}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            )}
+            {error && (
+              <p className="text-xs text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button onClick={onClose} variant="ghost">
+                取消
+              </Button>
+              <Button type="submit">应用</Button>
+            </div>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
 }
 
 /** 设置 › 模型供应商：左侧按预设/自定义分组列出提供商，右侧编辑选中的那一个。 */
@@ -218,17 +403,30 @@ function ProviderDetail({
   );
   const [model, setModel] = useState(provider?.model ?? initialPreset.models[0] ?? '');
   const [modelInput, setModelInput] = useState('');
-  const [effortEnabled, setEffortEnabled] = useState(
-    provider ? provider.effortLevels.length > 0 : false,
+  const [modelConfigs, setModelConfigs] = useState<Record<string, LlmModelSettings>>(() =>
+    provider
+      ? Object.fromEntries(provider.models.map((id) => [id, llmModelSettings(provider, id)]))
+      : {},
   );
-  const [effortLevels, setEffortLevels] = useState<string[]>(
-    provider ? [...provider.effortLevels] : [],
-  );
+  const [addingModel, setAddingModel] = useState(false);
+  const [editingModel, setEditingModel] = useState<string | null>(null);
+  const [modelResults, setModelResults] = useState<Record<string, LlmVerifyResult | 'pending'>>({});
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+  const connectionVersion = useRef(0);
+  const modelCheckVersion = useRef<Record<string, number>>({});
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<LlmVerifyResult | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const invalidateDetection = () => {
+    connectionVersion.current += 1;
+    setVerifying(false);
+    setVerifyResult(null);
+    setModelResults({});
+    setImportNotice(null);
+  };
 
   const applyPreset = (preset: LlmProviderPreset) => {
     setPresetId(preset.id);
@@ -236,17 +434,39 @@ function ProviderDetail({
     setBaseUrl(preset.baseUrl);
     setModels([...preset.models]);
     setModel(preset.models[0] ?? '');
-    setVerifyResult(null);
+    setModelConfigs({});
+    invalidateDetection();
   };
 
-  const addModel = () => {
-    const value = modelInput.trim();
-    if (!value || models.includes(value) || models.length >= 64) return;
+  const addModel = (id: string) => {
+    const value = id.trim();
+    if (!value || models.includes(value)) return;
+    if (value.length > 200) {
+      setImportNotice('模型 ID 不能超过 200 个字符');
+      return;
+    }
+    if (models.length >= LLM_MODEL_LIMIT) {
+      setImportNotice('模型数量已达 64 个，请先移除部分模型');
+      return;
+    }
     setModels((current) => [...current, value]);
+    if (!model) setModel(value);
     setModelInput('');
+    setImportNotice(null);
   };
 
   const removeModel = (value: string) => {
+    modelCheckVersion.current[value] = (modelCheckVersion.current[value] ?? 0) + 1;
+    setModelConfigs((current) => {
+      const next = { ...current };
+      delete next[value];
+      return next;
+    });
+    setModelResults((current) => {
+      const next = { ...current };
+      delete next[value];
+      return next;
+    });
     setModels((current) => {
       const next = current.filter((item) => item !== value);
       if (model === value) setModel(next[0] ?? '');
@@ -255,26 +475,59 @@ function ProviderDetail({
   };
 
   const importModels = (list: string[]) => {
-    setModels(list);
-    setModel(list.includes(model) ? model : (list[0] ?? ''));
+    const merged = [...new Set([...models, ...list])];
+    const imported = merged.slice(0, LLM_MODEL_LIMIT);
+    setModels(imported);
+    setModel(imported.includes(model) ? model : (imported[0] ?? ''));
+    setImportNotice(
+      merged.length > LLM_MODEL_LIMIT
+        ? `模型数量过多，最多保留 64 个，${merged.length - LLM_MODEL_LIMIT} 个未导入`
+        : `已导入 ${imported.length - models.length} 个模型`,
+    );
   };
 
   const verify = async () => {
     if (!window.dela || verifying) return;
     setVerifying(true);
     setVerifyResult(null);
+    const version = connectionVersion.current;
     try {
-      setVerifyResult(
-        await window.dela.llm.verify({
-          id: provider?.id,
-          baseUrl,
-          apiKey: apiKey || undefined,
-        }),
-      );
+      const result = await window.dela.llm.verify({
+        id: provider?.id,
+        baseUrl,
+        apiKey: apiKey || undefined,
+      });
+      if (version === connectionVersion.current) setVerifyResult(result);
     } catch (cause) {
-      setVerifyResult({ ok: false, message: errorText(cause) });
+      if (version === connectionVersion.current)
+        setVerifyResult({ ok: false, message: errorText(cause) });
     } finally {
-      setVerifying(false);
+      if (version === connectionVersion.current) setVerifying(false);
+    }
+  };
+
+  const verifyModel = async (id: string) => {
+    if (!window.dela || modelResults[id] === 'pending') return;
+    const version = connectionVersion.current;
+    const modelVersion = (modelCheckVersion.current[id] ?? 0) + 1;
+    modelCheckVersion.current[id] = modelVersion;
+    setModelResults((current) => ({ ...current, [id]: 'pending' }));
+    try {
+      const result = await window.dela.llm.verifyModel({
+        id: provider?.id,
+        baseUrl,
+        apiKey: apiKey || undefined,
+        model: id,
+        settings: modelConfigs[id],
+      });
+      if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id])
+        setModelResults((current) => ({ ...current, [id]: result }));
+    } catch (cause) {
+      if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id])
+        setModelResults((current) => ({
+          ...current,
+          [id]: { ok: false, message: errorText(cause) },
+        }));
     }
   };
 
@@ -286,9 +539,10 @@ function ProviderDetail({
     setModels([...source.models]);
     setModel(source.model);
     setModelInput('');
-    setEffortEnabled(source.effortLevels.length > 0);
-    setEffortLevels([...source.effortLevels]);
-    setVerifyResult(null);
+    setModelConfigs(
+      Object.fromEntries(source.models.map((id) => [id, llmModelSettings(source, id)])),
+    );
+    invalidateDetection();
     setError(null);
   };
 
@@ -312,7 +566,10 @@ function ProviderDetail({
         apiKey: apiKey || undefined,
         models,
         model,
-        effortLevels: effortEnabled ? effortLevels : [],
+        modelConfigs: Object.fromEntries(
+          models.map((id) => [id, modelConfigs[id] ?? { effortLevels: [] }]),
+        ),
+        effortLevels: [],
         presetId: provider ? provider.presetId : presetId === 'custom' ? null : presetId,
       });
       // 新建后立即启用；编辑不改当前选择。
@@ -426,7 +683,10 @@ function ProviderDetail({
           API 地址
           <Input
             autoComplete="off"
-            onChange={(event) => setBaseUrl(event.target.value)}
+            onChange={(event) => {
+              setBaseUrl(event.target.value);
+              invalidateDetection();
+            }}
             placeholder="https://…"
             required
             type="url"
@@ -449,7 +709,10 @@ function ProviderDetail({
           </div>
           <Input
             autoComplete="off"
-            onChange={(event) => setApiKey(event.target.value)}
+            onChange={(event) => {
+              setApiKey(event.target.value);
+              invalidateDetection();
+            }}
             placeholder={creating ? 'sk-…' : '已保存，留空保持不变'}
             required={creating}
             type="password"
@@ -461,38 +724,103 @@ function ProviderDetail({
           </p>
         </div>
         <div className="grid gap-2 text-sm">
-          <span>模型列表</span>
-          <div className="flex flex-wrap gap-1.5">
-            {models.map((item) => (
-              <span
-                className="flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
-                key={item}
-              >
-                <span className="min-w-0 truncate">{item}</span>
-                <button
-                  aria-label={`移除模型 ${item}`}
-                  className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground"
-                  onClick={() => removeModel(item)}
-                  type="button"
-                >
-                  ×
-                </button>
+          <div className="flex items-center justify-between gap-2">
+            <span>
+              模型列表{' '}
+              <span className="text-xs text-muted-foreground">
+                {models.length} / {LLM_MODEL_LIMIT}
               </span>
-            ))}
-            <input
-              aria-label="添加模型"
-              className="h-7 w-36 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring/60"
-              onChange={(event) => setModelInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  addModel();
-                }
+            </span>
+            <Button
+              onClick={() => {
+                setAddingModel(true);
+                if (!verifyResult && !verifying) void verify();
               }}
-              placeholder="添加模型…"
-              value={modelInput}
-            />
+              size="sm"
+              variant="secondary"
+            >
+              <Plus />
+              添加模型
+            </Button>
           </div>
+          <ul className="divide-y overflow-hidden rounded-lg border">
+            {models.map((id) => {
+              const settings = modelConfigs[id];
+              const result = modelResults[id];
+              return (
+                <li className="grid gap-1 px-3 py-2" key={id}>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                      {id}
+                    </span>
+                    {settings?.contextWindow && (
+                      <Badge variant="secondary">
+                        {Intl.NumberFormat('en', { notation: 'compact' }).format(
+                          settings.contextWindow,
+                        )}
+                      </Badge>
+                    )}
+                    {id === model && <Badge variant="secondary">默认</Badge>}
+                    <div className="flex shrink-0 items-center">
+                      <Button
+                        aria-label={`检测模型 ${id}`}
+                        disabled={!baseUrl || result === 'pending'}
+                        onClick={() => void verifyModel(id)}
+                        size="icon-xs"
+                        title="检测可用性"
+                        variant="ghost"
+                      >
+                        {result === 'pending' ? (
+                          <LoaderCircle className="animate-spin" />
+                        ) : (
+                          <PlugZap />
+                        )}
+                      </Button>
+                      <Button
+                        aria-label={`编辑模型 ${id}`}
+                        onClick={() => setEditingModel(id)}
+                        size="icon-xs"
+                        title="编辑模型"
+                        variant="ghost"
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        aria-label={`移除模型 ${id}`}
+                        onClick={() => removeModel(id)}
+                        size="icon-xs"
+                        title="移除模型"
+                        variant="ghost"
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </div>
+                  {settings?.effortLevels?.length ? (
+                    <span className="text-xs text-muted-foreground">
+                      思考：{settings.effortLevels.join(' · ')}
+                    </span>
+                  ) : null}
+                  {result && result !== 'pending' && (
+                    <p
+                      className={cn(
+                        'text-xs [overflow-wrap:anywhere]',
+                        result.ok ? 'text-success' : 'text-destructive',
+                      )}
+                      role="status"
+                    >
+                      {result.message}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {importNotice && (
+            <p className="text-xs text-muted-foreground" role="status">
+              {importNotice}
+            </p>
+          )}
         </div>
         <div className="grid gap-2 text-sm">
           默认模型
@@ -509,54 +837,9 @@ function ProviderDetail({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-2 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              checked={effortEnabled}
-              onChange={(event) => setEffortEnabled(event.target.checked)}
-              type="checkbox"
-            />
-            推理强度
-          </label>
-          {effortEnabled && (
-            <>
-              {/* 默认取第一档：解释档位的实际语义，防止误以为勾选顺序无意义。 */}
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                勾选要在对话中暴露的档位（多选）；默认取第一档，可在输入框旁切换。
-              </p>
-              <div aria-label="推理强度档位" className="flex flex-wrap gap-1.5" role="group">
-                {reasoningEffortLevels.map((level) => {
-                  const selected = effortLevels.includes(level);
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={cn(
-                        'rounded-md border px-2 py-1 text-xs transition-colors',
-                        selected
-                          ? 'border-transparent bg-accent text-accent-foreground'
-                          : 'text-muted-foreground hover:bg-accent/40',
-                      )}
-                      key={level}
-                      onClick={() =>
-                        setEffortLevels((current) =>
-                          current.includes(level)
-                            ? current.filter((item) => item !== level)
-                            : [...current, level],
-                        )
-                      }
-                      type="button"
-                    >
-                      {level}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm">密钥检测</span>
+            <span className="text-sm">可选模型</span>
             <Button
               disabled={verifying || !baseUrl}
               onClick={() => void verify()}
@@ -565,7 +848,7 @@ function ProviderDetail({
               variant="secondary"
             >
               {verifying ? <LoaderCircle className="animate-spin" /> : null}
-              {verifying ? '检测中…' : '检测密钥'}
+              {verifying ? '检测中…' : '检测模型'}
             </Button>
           </div>
           {verifyResult && (
@@ -584,13 +867,13 @@ function ProviderDetail({
                   onClick={() => importModels(verifyResult.models!)}
                   type="button"
                 >
-                  导入模型列表
+                  一键导入
                 </button>
               ) : null}
             </p>
           )}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            个别服务不校验该接口的密钥，检测结果仅供参考。
+            检测模型列表后可搜索添加；列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
           </p>
         </div>
         {error && (
@@ -602,14 +885,123 @@ function ProviderDetail({
           <Button disabled={saving} onClick={cancel} variant="ghost">
             取消
           </Button>
-          <Button
-            disabled={saving || !models.length || (effortEnabled && !effortLevels.length)}
-            type="submit"
-          >
+          <Button disabled={saving || !models.length} type="submit">
             {saving ? '处理中…' : '保存'}
           </Button>
         </div>
       </form>
+      {addingModel && (
+        <Dialog.Root
+          open
+          onOpenChange={(open) => {
+            if (!open) setAddingModel(false);
+          }}
+        >
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
+            <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+              <div className="flex items-center justify-between gap-2">
+                <Dialog.Title className="text-base font-semibold">添加模型</Dialog.Title>
+                <Dialog.Close asChild>
+                  <Button aria-label="关闭添加模型" size="icon-xs" variant="ghost">
+                    <X />
+                  </Button>
+                </Dialog.Close>
+              </div>
+              <Dialog.Description className="mt-2 text-xs text-muted-foreground">
+                先检测模型列表，再搜索添加；未提供列表接口时可手动输入模型 ID。
+              </Dialog.Description>
+              <div className="mt-4 grid gap-3">
+                <Button
+                  disabled={verifying || !baseUrl}
+                  onClick={() => void verify()}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {verifying ? <LoaderCircle className="animate-spin" /> : <Search />}{' '}
+                  {verifying ? '检测中…' : '检测模型'}
+                </Button>
+                <Input
+                  aria-label="搜索或输入模型 ID"
+                  value={modelInput}
+                  onChange={(event) => setModelInput(event.target.value)}
+                  placeholder="搜索或输入模型 ID…"
+                />
+                <ul className="max-h-60 overflow-y-auto divide-y rounded-lg border">
+                  {(verifyResult?.models ?? [])
+                    .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
+                    .map((id) => (
+                      <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
+                        <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                          {id}
+                        </span>
+                        <Button
+                          aria-label={`添加模型 ${id}`}
+                          disabled={models.includes(id) || models.length >= LLM_MODEL_LIMIT}
+                          onClick={() => addModel(id)}
+                          size="icon-xs"
+                          variant="ghost"
+                        >
+                          {models.includes(id) ? <Check /> : <Plus />}
+                        </Button>
+                      </li>
+                    ))}
+                </ul>
+                {verifyResult && (
+                  <p
+                    className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-destructive')}
+                    role="status"
+                  >
+                    {verifyResult.message}
+                  </p>
+                )}
+                {importNotice && (
+                  <p className="text-xs text-muted-foreground" role="status">
+                    {importNotice}
+                  </p>
+                )}
+                <div className="flex items-center justify-end gap-2">
+                  {verifyResult?.models?.length ? (
+                    <Button
+                      onClick={() => importModels(verifyResult.models!)}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      一键导入
+                    </Button>
+                  ) : null}
+                  <Button
+                    disabled={!modelInput.trim() || models.includes(modelInput.trim())}
+                    onClick={() => addModel(modelInput)}
+                    size="sm"
+                  >
+                    添加此 ID
+                  </Button>
+                </div>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
+      {editingModel && (
+        <ModelSettingsDialog
+          key={editingModel}
+          model={editingModel}
+          settings={modelConfigs[editingModel] ?? {}}
+          onClose={() => setEditingModel(null)}
+          onSave={(settings) => {
+            modelCheckVersion.current[editingModel] =
+              (modelCheckVersion.current[editingModel] ?? 0) + 1;
+            setModelConfigs((current) => ({ ...current, [editingModel]: settings }));
+            setModelResults((current) => {
+              const next = { ...current };
+              delete next[editingModel];
+              return next;
+            });
+            setEditingModel(null);
+          }}
+        />
+      )}
     </div>
   );
 }

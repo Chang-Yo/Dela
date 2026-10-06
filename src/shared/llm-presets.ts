@@ -1,4 +1,26 @@
 /** LLM 提供商预设：只承载默认值，不含密钥；密钥只存在主进程的配置实例里。 */
+import type { LlmModelSettings } from './llm';
+
+export const LLM_MODEL_LIMIT = 64;
+export const LLM_DEFAULT_CONTEXT_WINDOW = 32768;
+export const LLM_DEFAULT_OUTPUT_TOKENS = 32768;
+
+/** 按模型覆盖；没有覆盖时保留旧提供商的档位与当前选择。 */
+export function llmModelSettings(
+  provider: {
+    model: string;
+    modelConfigs?: Record<string, LlmModelSettings>;
+    effortLevels?: string[];
+    effort?: string | null;
+  },
+  model = provider.model,
+): LlmModelSettings & { effortLevels: string[] } {
+  const settings = provider.modelConfigs?.[model] ?? {};
+  const effortLevels = settings.effortLevels ?? provider.effortLevels ?? [];
+  const preferred = settings.effort ?? provider.effort;
+  const effort = preferred && effortLevels.includes(preferred) ? preferred : effortLevels[0];
+  return { ...settings, effortLevels, effort };
+}
 export interface LlmProviderPreset {
   id: string;
   name: string;
