@@ -177,30 +177,33 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           onOpenUrl={openLink}
         />
       )}
+      {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}
       {branch === 'html' && (
-        <iframe
-          title={content.title}
-          className="min-h-0 w-full flex-1 border-0 bg-white"
-          sandbox="allow-same-origin"
-          referrerPolicy="no-referrer"
-          srcDoc={html}
-          onLoad={(event) => {
-            const frame = event.currentTarget;
-            const frameDoc = frame.contentDocument;
-            if (!frameDoc) return;
-            frame.contentWindow?.scrollTo(0, scroll);
-            frameDoc.addEventListener('click', (e) => {
-              const target = (e.target as Element).closest?.('a[href]');
-              if (target) {
-                e.preventDefault();
-                openLink(target.getAttribute('href')!);
-              }
-            });
-            frame.contentWindow?.addEventListener('scroll', () =>
-              onScroll(frame.contentWindow?.scrollY ?? 0),
-            );
-          }}
-        />
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
+          <iframe
+            title={content.title}
+            className="size-full border-0 bg-white"
+            sandbox="allow-same-origin"
+            referrerPolicy="no-referrer"
+            srcDoc={html}
+            onLoad={(event) => {
+              const frame = event.currentTarget;
+              const frameDoc = frame.contentDocument;
+              if (!frameDoc) return;
+              frame.contentWindow?.scrollTo(0, scroll);
+              frameDoc.addEventListener('click', (e) => {
+                const target = (e.target as Element).closest?.('a[href]');
+                if (target) {
+                  e.preventDefault();
+                  openLink(target.getAttribute('href')!);
+                }
+              });
+              frame.contentWindow?.addEventListener('scroll', () =>
+                onScroll(frame.contentWindow?.scrollY ?? 0),
+              );
+            }}
+          />
+        </div>
       )}
       {branch === 'pdf' &&
         (content.previewUrl ? (

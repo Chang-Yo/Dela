@@ -101,15 +101,16 @@ function TodoComposer({
       >
         <Input
           autoFocus
-          className="h-10 border-0 bg-transparent px-0 text-[15px] font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"
+          className="h-10 px-0 text-[15px] font-medium"
           maxLength={200}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="例如：准备小组展示"
           value={title}
+          variant="ghost"
         />
         <div className="grid divide-y overflow-hidden rounded-lg border">
-          <div className="flex items-start gap-2 px-3 py-3">
-            <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">截止</span>
+          <div className="flex min-h-11 items-center gap-2 px-3">
+            <span className="w-8 shrink-0 text-xs text-muted-foreground">截止</span>
             <div className="min-w-0 flex-1">
               {dueAt === null ? (
                 <Button

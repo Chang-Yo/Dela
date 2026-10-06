@@ -8,7 +8,7 @@ import {
 } from 'pdfjs-dist';
 import { EventBus, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import 'pdfjs-dist/web/pdf_viewer.css';
 
@@ -233,15 +233,30 @@ export function PdfReader({
         >
           <Minus />
         </Button>
+        {/* 与 Docx/Sheet 预览统一：点击百分比重置为 100%，适合宽度走独立按钮。 */}
         <button
+          title="重置缩放到 100%"
+          aria-label="重置缩放到 100%"
+          disabled={!pageCount}
+          className="rounded-md px-2 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          onClick={() => {
+            if (viewer.current) viewer.current.currentScaleValue = '1';
+          }}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
           title="适合宽度"
+          aria-label="适合宽度"
           disabled={!pageCount}
           onClick={() => {
             if (viewer.current) viewer.current.currentScaleValue = 'page-width';
           }}
         >
-          {Math.round(zoom * 100)}%
-        </button>
+          <MoveHorizontal />
+        </Button>
         <Button
           size="icon-sm"
           variant="ghost"

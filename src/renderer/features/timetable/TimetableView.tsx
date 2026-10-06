@@ -261,11 +261,8 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
         <div className="flex flex-wrap items-center gap-2">
           <div className="mr-1 min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">{headerTitle}</h1>
-            <p className="text-[11px] text-muted-foreground">
-              {mode === 'week' && semesterWeekStart
-                ? `第 ${selectedWeek} 教学周 · ${semesterLabel(semester)}`
-                : semesterLabel(semester)}
-            </p>
+            {/* 周次信息已由下方「教学周」Select 展示，副标题只保留学期，避免同屏重复。 */}
+            <p className="text-[11px] text-muted-foreground">{semesterLabel(semester)}</p>
           </div>
           <div className="flex items-center rounded-md border bg-background shadow-xs">
             <Button

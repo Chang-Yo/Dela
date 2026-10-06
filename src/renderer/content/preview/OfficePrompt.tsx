@@ -189,22 +189,38 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
   );
 }
 
-/** 已建立导出关联时的细提示条：说明打开的是导出 PDF，源文件更新过则提示重新导出。 */
+/** 已建立导出关联时的提示：内容未过期时收纳为紧凑的重导出入口，过期/出错才完整展示警示条。 */
 export function OfficeExportBanner({
   exported,
   officeRef,
   onExported,
 }: Omit<OfficePromptProps, 'title'> & { exported: OfficeExportInfo }) {
   const { exporting, opening, error, run, progress } = useOfficeExport(officeRef, onExported);
+  /* 文档与导出内容一致时不占整行：仅保留重新导出入口（macOS 无导出能力，不展示任何元素）；
+     源文件更新过或上次导出失败时，才回到完整警示条说明情况。 */
+  if (!exported.stale) {
+    if (!isWindowsPlatform) return null;
+    return (
+      <div className="flex shrink-0 items-center justify-end gap-2 px-2 pt-1 text-2xs">
+        {error && (
+          <span role="alert" className="text-destructive">
+            {error}
+          </span>
+        )}
+        <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
+          {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
+          {exporting ? progressText(progress, opening) : '重新导出'}
+        </Button>
+      </div>
+    );
+  }
   return (
     <div
       role="status"
       className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1 text-2xs text-muted-foreground"
     >
       <span>已打开导出的 {exported.title}</span>
-      {exported.stale && (
-        <span className="text-foreground">源文件在导出后更新过，内容可能过期</span>
-      )}
+      <span className="text-foreground">源文件在导出后更新过，内容可能过期</span>
       {isWindowsPlatform && (
         <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
           {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}

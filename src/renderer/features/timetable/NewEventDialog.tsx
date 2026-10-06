@@ -70,7 +70,7 @@ export function NewEventDialog({
       }}
       role="dialog"
     >
-      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/30" onMouseDown={onClose} />
       <section
         aria-label="新建事件"
         className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl animate-in flex-col overflow-y-auto rounded-t-2xl border bg-card p-5 shadow-2xl fade-in slide-in-from-bottom-6 duration-200 max-md:px-4"
@@ -90,21 +90,22 @@ export function NewEventDialog({
         <form className="mt-4 flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
           <Input
             autoFocus
-            className="h-10 border-0 bg-transparent px-0 text-[15px] font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"
+            className="h-10 px-0 text-[15px] font-medium"
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="例如：小组讨论"
             value={title}
+            variant="ghost"
           />
           <div className="grid divide-y overflow-hidden rounded-lg border">
-            <div className="flex items-start gap-2 px-3 py-3">
-              <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">开始</span>
+            <div className="flex min-h-11 items-center gap-2 px-3">
+              <span className="w-8 shrink-0 text-xs text-muted-foreground">开始</span>
               <div className="flex-1">
                 <DateTimeStepper label="开始时间" onChange={changeStart} value={startAt} />
               </div>
             </div>
-            <div className="flex items-start gap-2 px-3 py-3">
-              <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">结束</span>
+            <div className="flex min-h-11 items-center gap-2 px-3">
+              <span className="w-8 shrink-0 text-xs text-muted-foreground">结束</span>
               <div className="flex-1">
                 <DateTimeStepper label="结束时间" onChange={setEndAt} value={endAt} />
               </div>

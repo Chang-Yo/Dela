@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type StepperField = 'year' | 'month' | 'day' | 'hour' | 'minute';
 
@@ -81,11 +81,11 @@ function StepperColumn({
   const increase = useHoldRepeat(() => onStep(1));
   const decrease = useHoldRepeat(() => onStep(-1));
   const buttonClass =
-    'grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 select-none';
+    'grid size-5 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 select-none';
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <button aria-label={`增加${label}`} className={buttonClass} type="button" {...increase}>
-        <ChevronUp className="size-4" strokeWidth={1.8} />
+    <div className="flex items-center gap-0.5">
+      <button aria-label={`减少${label}`} className={buttonClass} type="button" {...decrease}>
+        <ChevronLeft className="size-3.5" strokeWidth={1.8} />
       </button>
       <span
         aria-label={label}
@@ -93,14 +93,14 @@ function StepperColumn({
       >
         {display}
       </span>
-      <button aria-label={`减少${label}`} className={buttonClass} type="button" {...decrease}>
-        <ChevronDown className="size-4" strokeWidth={1.8} />
+      <button aria-label={`增加${label}`} className={buttonClass} type="button" {...increase}>
+        <ChevronRight className="size-3.5" strokeWidth={1.8} />
       </button>
     </div>
   );
 }
 
-/** 年/月/日/时/分 五列步进选择器：每列上方 ^ 增、下方 v 减，按住可连发。 */
+/** 年/月/日/时/分 五字段步进选择器：值左箭头减、右箭头增，按住可连发。 */
 export function DateTimeStepper({
   label = '截止时间',
   value,
@@ -119,7 +119,7 @@ export function DateTimeStepper({
     { display: `${pad(value.getMinutes())}分`, field: 'minute', label: '分钟' },
   ];
   return (
-    // flex-wrap：字体缩放或双栏窄列放不下五列时，年月日/时分自动换行。
+    // flex-wrap：字体缩放或窄容器放不下五个字段时自动换行。
     <div
       aria-label={label}
       className="flex flex-wrap items-start justify-center gap-1"

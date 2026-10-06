@@ -64,7 +64,7 @@ export function MonthCalendar({
   }, [drag, onCreate]);
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="@container min-h-0 flex-1 overflow-auto">
       {!semesterStart ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-5 py-2 text-xs text-muted-foreground max-md:px-3">
           <span>还没有开学日期，课程暂不显示在月历上。</span>
@@ -77,14 +77,14 @@ export function MonthCalendar({
           </button>
         </div>
       ) : null}
-      <div className="hidden border-b md:grid md:grid-cols-7">
+      <div className="grid grid-cols-7 border-b">
         {weekDays.map((day) => (
-          <div className="py-2 pl-2 text-xs font-semibold text-foreground" key={day}>
+          <div className="px-2 py-2 text-center text-[11px] text-muted-foreground @max-[320px]:px-1" key={day}>
             {day}
           </div>
         ))}
       </div>
-      <div className="grid select-none grid-cols-7 max-md:grid-cols-1">
+      <div className="grid select-none grid-cols-7">
         {days.map((date) => {
           const currentMonth = date.getMonth() === month.getMonth();
           const today = dateKey(date) === dateKey(new Date());
@@ -124,9 +124,9 @@ export function MonthCalendar({
               className={cn(
                 // button 默认垂直居中内容，改为 flex 顶对齐，日号稳定在左上角。
                 // 用 div + role 是为了能嵌套「更多」按钮，button 里不能再放交互元素。
-                'flex min-h-28 flex-col border-b p-2 text-left transition-colors hover:bg-accent/45 max-md:grid max-md:min-h-16 max-md:grid-cols-[44px_1fr] max-md:gap-2',
+                'flex min-h-28 flex-col border-b p-2 text-left transition-colors hover:bg-accent/45 @max-[320px]:min-h-16 @max-[320px]:p-1',
                 selected && 'bg-primary/10',
-                !currentMonth && 'bg-muted/25 text-muted-foreground max-md:hidden',
+                !currentMonth && 'bg-muted/25 text-muted-foreground',
               )}
               key={dateKey(date)}
               role="button"
@@ -155,7 +155,7 @@ export function MonthCalendar({
             >
               <span
                 className={cn(
-                  'mb-1 grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium max-md:mb-0',
+                  'mb-1 grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium',
                   today && 'bg-primary text-primary-foreground',
                 )}
               >
@@ -163,8 +163,10 @@ export function MonthCalendar({
               </span>
               <span className="grid min-w-0 gap-0.5">
                 {items.slice(0, 3).map((item) => (
+                  // 容器不足 320px 时课程条压成色点：格子只留日号与标记点，完整信息看「更多」弹层。
+                  // 注意点样式写在课程条自身（查询外层月历容器），内部文字交给条上的 overflow 裁掉。
                   <span
-                    className="@container flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-[11px]"
+                    className="@container flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-[11px] @max-[320px]:h-2 @max-[320px]:w-2 @max-[320px]:rounded-full @max-[320px]:overflow-hidden @max-[320px]:p-0"
                     key={item.id}
                     style={item.tone}
                   >
@@ -186,7 +188,8 @@ export function MonthCalendar({
                       // 不让「更多」上的按下冒泡成日格拖拽的起点。
                       onMouseDown={(event) => event.stopPropagation()}
                     >
-                      +{items.length - 3} 更多
+                      +{items.length - 3}
+                      <span className="@max-[320px]:hidden"> 更多</span>
                     </Popover.Trigger>
                     <Popover.Portal>
                       <Popover.Content

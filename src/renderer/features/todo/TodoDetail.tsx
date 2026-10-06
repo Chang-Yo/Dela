@@ -36,26 +36,29 @@ function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => v
     observer.observe(body);
     return () => observer.disconnect();
   }, [body]);
+  // 白底文档以圆角卡片呈现：暗色模式下避免白色大块与面板生硬相接。
   return (
-    <iframe
-      title="作业描述"
-      className="w-full border-0 bg-white"
-      referrerPolicy="no-referrer"
-      sandbox="allow-same-origin"
-      srcDoc={doc}
-      style={{ height }}
-      onLoad={(event) => {
-        const frame = event.currentTarget;
-        setBody(frame.contentDocument?.body ?? null);
-        frame.contentDocument?.addEventListener('click', (e) => {
-          const target = (e.target as Element).closest?.('a[href]');
-          if (target) {
-            e.preventDefault();
-            onLink(target.getAttribute('href')!);
-          }
-        });
-      }}
-    />
+    <div className="overflow-hidden rounded-lg border">
+      <iframe
+        title="作业描述"
+        className="w-full border-0 bg-white"
+        referrerPolicy="no-referrer"
+        sandbox="allow-same-origin"
+        srcDoc={doc}
+        style={{ height }}
+        onLoad={(event) => {
+          const frame = event.currentTarget;
+          setBody(frame.contentDocument?.body ?? null);
+          frame.contentDocument?.addEventListener('click', (e) => {
+            const target = (e.target as Element).closest?.('a[href]');
+            if (target) {
+              e.preventDefault();
+              onLink(target.getAttribute('href')!);
+            }
+          });
+        }}
+      />
+    </div>
   );
 }
 

@@ -63,7 +63,12 @@ export function DocxPreview({ url }: { url: string }) {
         <Button size="icon-sm" variant="ghost" aria-label="缩小文档" onClick={() => step(-1)}>
           <Minus />
         </Button>
-        <button title="重置缩放" onClick={() => setZoom(1)}>
+        <button
+          title="重置缩放到 100%"
+          aria-label="重置缩放到 100%"
+          className="rounded-md px-2 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          onClick={() => setZoom(1)}
+        >
           {Math.round(zoom * 100)}%
         </button>
         <Button size="icon-sm" variant="ghost" aria-label="放大文档" onClick={() => step(1)}>
