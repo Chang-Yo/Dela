@@ -10,6 +10,64 @@
 
 ---
 
+## 2026-10-06（第二笔）聊天首条消息重载闪页修复与消息区滚动跟随重构
+
+- **重载闪页根因**：首页发首条 prompt 后 `onConversation → openChat` 触发 home→workbench 视图切换，而 App 视图层的 `motion.div key={view}` 给两个视图发了不同 key——`AnimatePresence mode="wait"` 先整壳淡出、再全新挂载 WorkbenchShell；且 home 视图不渲染 `<Workbench>`，layout store 从未 init，切入后要走 `ready=false → layout:get IPC → reveal 重开标签` 才能看见会话。用户看到的是：会话消失 → 空白 → 会话在新标签里「重新加载」。三处修复：①两个视图共用同一 motion key（`'workspace'`），切换只翻装配壳内部内容，不再整壳淡出重挂；②`init` 对已就绪的同项目布局早退（跨视图往复不再重复 IPC 与 ready=false 空窗），Workbench 的 init 职责上移装配层——WorkbenchShell 挂载即预热（home 模式也预热，等号 `loaded` 门控种子正确性），Workbench 改纯渲染组件（去掉 projectId/legacy props）；③reveal 脉冲消费改 `useLayoutEffect`，开标签赶在首帧绘制前，消除先画一帧空组再跳会话的闪动。附带收益：工作台 ⇄ 首页往复切换不再闪空白重载。
+- **消息区滚动跟随重构**（ChatThread）：原实现用 onWheel/onTouchStart/onPointerDown/onKeyDown 四个交互处理器打断跟随——点消息内「复制/编辑」按钮也会静默打断流式跟随；且跟随一旦打断，手动滚回底部不会恢复，只能点「回到底部」。改为纯 onScroll 位置驱动：容差内到底即恢复跟随、上滚（scrollTop 减小）即退出，四个处理器删除（所有用户滚动途径都会产生 scroll 事件，嵌套滚动如代码块不波及外层）。锚定键由 `${sessionId}:${lastUserIndex}` 扩入回复行 `startedAt`：editLast 按同索引整表重发时回复行重建，据此重新锚定贴底——此前编辑重发后新回答在视口下方生长而视图不动。
+- 已验证：typecheck 三组、oxlint 0 告警、全量单测 535 项通过（layout-store 测试 resetStore 改为未就绪起步，init 早退条件下所有用例仍走真实加载路径）、改动文件 prettier 通过。待验证（实机）：首页发首条消息的切换观感（应无空白与整页淡出）、流式中点按钮不打断跟随、上滚退出/回底恢复、编辑重发重新贴底。
+
+## 2026-10-06 工作台与设置 UX 修订：折叠按钮归位、随聊入口移除、Select 统一、设置去冗余
+
+用户裁决的六项界面修订：
+
+- **目录折叠按钮移至标签栏左端**：折叠态的展开入口从 TitleBar 右上角（TitleBarPortal/`#titlebar-actions`）移到焦点组 TabBar 左端（视线跟随焦点组），空组（无标签栏）由 EmptyState 兜底渲染，窄屏抽屉仍从折叠目录展开。折叠态原由 WorkbenchExplorer 本地 state 持有，跨到 workbench 层后抽为 `workbench/explorer-state.tsx` 小 store（zustand + localStorage `dela.workspace.collapsed` 键不变，含窄屏媒体查询镜像；参照 editor-settings 先例，避免 workbench→app 反向依赖）。
+- **随聊（通用池）入口从侧栏移除**：随聊不属于任何项目，项目树不再承载其入口；置顶区随之删去通用池条目，「首页」与全局搜索仍可达。generalSessions prop 链（ProjectSessionNav/AppShell/useSessionNavData）清理，App 保留 `refresh(null)` 预热通用列表（chatTitleOf 标题解析与通用聊天定位仍依赖）。
+- **原生 select 全局统一为 Radix Select**：9 处——ChatTab 对话项目、设置的外观（缩放/字号）/工作区（默认编辑方式）/连接（保留期）/模型（预设/默认模型）、onboarding StepSelect 及其 LlmStep、水源「加入项目」与「我的内容」移动弹窗。Radix SelectItem 不接受空串，「根目录/通用池」用 `'__root__'`/`'__general__'` 哨兵值映射；aria-label 落在 SelectTrigger（Select.Root 不渲染 DOM）。
+- **设置页内搜索框删除**：全局搜索（Ctrl/⌘+K）已覆盖设置入口，SettingsSearch.tsx 删除，`filterSettingsItems`/pluginTab 直达路由随之移除；search-index 保留 `settingsResultsFor` 与索引数据供全局搜索，插件页签直达改由既有导航深链承担。
+- **侧栏折叠头内边距修正**：chevron 贴容器边框，`pl-1` → `pl-2`。
+- **设置描述文字去冗余**：按「选项名即可理解的描述删除，仅保留防误解必需」清理各分区；保留项均有不可从选项名推出的语义——应用图标需重启生效、工作目录只影响新建内容不迁移旧文件、含 frontmatter 的笔记强制源码模式、通知开关只停弹窗仍收集/暂停通知与通知中心共用状态、归档恢复可逆而永久删除不可逆、水源授权含写入（浏览回复私信）、密钥本机加密不回传且个别服务不校验检测接口。SectionHeader 删除 description prop，INTERFACES.md 同步。
+- 已验证：typecheck 三组、oxlint 0 告警、全量单测 535 项通过（首轮 4 例 main 集成测试超时为并行负载抖动，复跑全绿）、本批 9 个 renderer 文件 prettier 通过。待验证（实机）：折叠按钮视线引导、窄屏抽屉、各 Select 观感与键盘交互、设置页去描述后的排版密度。
+
+## 2026-10-01 项目菜单、会话置顶与归档管理
+
+- 项目菜单补齐置顶、编辑名称、自定义分组、资源管理器打开、批量归档与隐藏入口；导航偏好在本机持久化，项目文件与所属对话不因隐藏而删除。设置提供恢复隐藏项目入口。置顶项目与会话统一位于“项目”节上方，原分组不重复展示。
+- 会话行悬停提供置顶、归档图标与标题/所属项目/运行状态卡片。用户补充要求后，单条会话、历史面板、整项目归档统一恢复红色按钮二次确认，首次点击只切换确认态，点别处取消。永久删除仅在设置归档管理中提供，另需确认。
+- SQLite v14 增加归档与置顶标记：日常列表与搜索隐藏归档，置顶优先；归档保留消息、压缩摘要、归属和执行，关闭相关标签；恢复返回原项目。空会话创建排除归档行。IPC 补齐列表/状态修改/批量归档并拒绝直接永久删除未归档会话；兼容 v13 原样迁移的旧十六进制会话 ID。
+- 已验证：类型检查、所改代码 Oxlint、5 个相关测试文件共 48 项测试（归档恢复、置顶顺序、项目隔离、v12/v13 升级与备份、设置搜索与导航等）。桌面静态检查置顶区位置、项目完整菜单、首次批量归档红色确认、点击设置取消确认和归档管理列表。未在用户真实会话上执行永久删除；未检测动画或全量打包；新分组与资源管理器打开尚待实机复查。
+
+## 2026-10-01 单一新对话与会话侧栏细节
+
+- session:create 按项目（含通用池）复用最新空会话，重复点击保留身份和 composer 草稿；发送首条消息后新建下一会话。新建入口关闭旧版重复空标签，只关闭视图，不删除数据；既有消息和进行中的会话不受影响。空会话标签明确命名“新对话”。
+- 侧栏及历史面板隐藏日期但保留排序；项目图标统一为文件夹，保留悬停菜单/新建入口；侧栏会话删除移入“…”菜单，仍需原位二次确认。菜单复用现有 Radix 组件，参考其官方键盘与焦点交互。
+- 已验证：类型检查、所改代码 Oxlint、会话 manager 的 21 项测试（含空会话复用、项目隔离、首条消息后创建与并行执行）。桌面读屏确认侧栏不再显示日期，出现对话菜单和“新对话”标签。用户按 Escape 停止 Computer Use，连续点击与菜单操作的桌面验证未完成；未运行全量构建和打包。
+
+## 2026-10-01 目录树、活动标签与文档路径提示
+
+- 目录选中背景由 10% foreground 减为 5%，选中祖先层级线由 25% 减为 10%；高亮块按当前层级缩进，叶子文件从图标前一格内边距开始，保留整行点击、键盘导航与文件拖入区域。
+- 活动标签加顶部细横条，非聚焦组减淡；沿用主题 primary 与现有间距。文档操作栏左侧新增工作区面包屑，复用祖先链解析，由草稿数据源订阅目录变化，内容组件不直接依赖目录 store。窄栏文字省略，悬停可见完整路径。
+- 已验证：类型检查、所改代码 Oxlint；通过桌面版静态检查 test.cpp 与 tech report.md 的路径、活动标签横条、文件高亮起点与层级线。未运行全量构建、打包或动画检测；深色主题与窄分屏仍待实机审阅。
+- 另发现：打开旧项目会话触发 session:open 的 Invalid UUID 校验错误，本轮不扩展到会话迁移修复。
+
+## 2026-10-01（第十八轮）侧栏信息架构调整：功能入口上移、会话历史居中、「资料」入口回归
+
+用户裁决的主界面布局回调：设置沉底、其余入口全部置顶、中部留给会话历史，并恢复旧版「资料」面板（专门看课件）。
+
+- **侧栏三段式**（ProjectSessionNav）：顶部为功能入口区（通用聊天、资料、邮箱、课表、水源、TODO，`shrink-0`）；中部为会话历史视图——新增「通用对话」组列出通用池近期会话（复用「前 3 条 + 显示更多」与按行运行徽标，键 `'general'` 共用项目组的展开/更多状态，默认展开），下接原有项目组；整段 `flex-1 + overflow-y-auto` 可滚动，长列表不再把入口区推出视口。底部设置位不变（AppShell 原有）。项目/通用两组抽为共用 `sessionGroup` 渲染段，消除两份相同的折叠头+会话列表 JSX。
+- **「资料」入口**：不复活旧 `sources` 视图（统一工作台架构不回退），指向通用（无项目）工作台——其目录侧栏即旧资料页（课程资料/我的资料/归档 + 文档标签，布局按 null 项目键持久化，`openProject('')`）。已在通用池时点击改为聚焦已有的笔记/预览标签（与「通用聊天」定位已有标签的行为对称）；无文档标签则保持现状。通用池内高亮互斥：焦点组活动标签为会话（`chat:`）亮「通用聊天」，否则（笔记/预览/空）亮「资料」，由 App 新增 `activeTabIsChat` 布局订阅经 AppShell 下传。
+- **通用池历史可达性修复**：此前侧栏只列项目会话，未打开的通用会话没有任何入口（「通用聊天」按钮只定位已开标签或新建会话）。
+- **三级背景层次裁决**：主侧栏画布 `--sidebar`(0.985) → 目录树 `bg-muted`(0.97) 略深一档 → 内容区白(1.0) 的三级层次经用户裁决保留（同日并行配色批次曾把 `--sidebar` 加深至 0.96 并将目录树并入 sidebar 底色压成两级，按用户「要旧版三级配色」裁决整体回退，globals.css 恢复至 HEAD 原值，workbench-explorer 目录树恢复 `bg-muted` 并在注释标注「用户裁决，勿压平」）；标签带白底、活动标签融入内容区是此前另一条独立裁决，不受本条影响。
+- 已验证：renderer typecheck、oxlint 0 告警、全量单测 518 项通过。待验证（实机）：侧栏三段式观感与中部滚动、折叠态文字淡出、窄屏抽屉内资料入口、通用对话组删除会话的行内确认。
+
+## 2026-09-30（第十七轮）前端评审修复：六路并行评审 + 五路并行修复（重构收口后续）
+
+总验收后针对本轮 renderer 改动（`303103a^..HEAD`）派出六路并行评审 subagent（React 状态正确性 / 组件结构与渲染性能 / UX 交互 / 可访问性 / 视觉与 CSS token / 健壮性与渲染安全），汇总 3 个 P0 与约 12 个 P1 后按文件所有权划分五路互不交叠的批次并行修复。
+
+- **P0（3 项）**：①目录动作直连恢复——「归档 / 作为项目开展 / 导入本地文件」的旧视图拦截在迁移中丢失，点开后弹出误导性对话框且提交无动作；现于 workbench-explorer 接线层直调 entry-actions（import 复用 AppShell 顶栏同款文件选择通道），EntryDialogs 移除三个伪入口。②渲染性能系统性缺口——重构区零 `React.memo`，打字（每键）与流式（main 约 100ms 快照推送）都会全量重渲历史消息列表：SplitNode/TabGroup/TabBar/GroupToolbar/ChatThread/消息组件全面 memo 化（SplitNode 用自定义比较器按路径保留兄弟子树引用），prompt 草稿订阅下沉到 ChatComposerArea（打字不再穿过消息列表），SessionRow 改按行订阅 run 状态（run 事件不再扇出全 App）。③崩溃隔离——全应用零 ErrorBoundary 叠加聊天草稿持久化不校验形状构成可跨重启白屏链：TabGroup 内容区与 App 根各加一层 ErrorBoundary（降级为「此标签/视图遇到错误 + 重试」），`dela.session.drafts` 逐条形状校验、损坏条目在启动加载时丢弃。
+- **P1（12 项）**：workspace/drafts 引用计数配对修复（force 语义改为「强制重读、不新增引用计数」；release 冲盘 await 后复查计数，防把切回的新持有者脚下草稿删掉）；shuiyuan toggleBookmark/setLiked 失败回滚改按条目粒度（原整组覆盖会吞掉并发加载的列表/楼层；setLiked 原回滚分支实为不可达死代码，一并修复）；导航删会话补原位两步确认与失败回滚（对齐 ChatSessions 的防护等级）；TabBar tabs 模式按 APG 补齐（roving tabindex、方向键、aria-controls/tabpanel，关闭钮 aria-hidden 移出读屏树，键盘关闭走右键菜单）；ChatComposer 候选菜单与 SettingsSearch 补 combobox 协议（aria-activedescendant 等，照 GlobalSearchDialog 既有实现）；SheetPreview 链接协议黑名单改 `new URL` 白名单并补 `java&#9;script:` 类绕过用例，DocxPreview 渲染后剥除非 http(s) href；本地来源 HTML 不再一律补 Canvas 域 base（防跨域请求泄露）；NoteEditor 代码块硬编码 `#e6edf3` 改 `--syntax-variable`（浅色主题下原对比度约 1.07:1 近乎不可见）；mcp-logic/LlmSection 三处 emerald 残留收编 `--success`（1b94e39 token 收尾遗漏）。
+- **P2 若干**：registry 四内容域改 `React.lazy`，workbench-shell 的三个 Provider 改从轻量叶子模块导入、`parsePreviewTabId` 抽至 `tab-id.ts`（否则 barrel 静态连回重依赖使分包失效，vite `INEFFECTIVE_DYNAMIC_IMPORT` 归零）；layout-store init 前冲刷在途保存（800ms 去抖窗口内切项目不再丢布局）；workbench-shell 注入 context 值依赖收窄（切标签不再重渲旁侧 chat/note 标签）；notifications `run()` 补 version 竞态守卫；课程归档 `window.confirm` 换应用内 AlertDialog；移除条目确认按钮改 destructive；设置搜索命中后直达 MCP/Skills 子页签；窄屏目录抽屉焦点管理 + Esc 关闭；ChatSessions 历史搜索失败给出错误态；组容量超限（30 标签/31 布局节点）拒绝时 console.warn 留痕（无 toast 子系统，未为其新建通知层）。
+- **评审确认但本批未修（记录边界）**：流式期间 memo 对历史消息失效的根因在 main 的 publishSession 整快照推送（改增量属 main 侧工作）；MCP 编辑表单不回显既有 command/args/env（需跨层设计）；SessionRow/AppShell 的 badge prop 注入链已冗余可删；HEAD 既有的 8 处 prettier 偏差（7 个 src/main 文件 + App.tsx 一行历史格式）未顺手修。
+- 已验证：Oxlint 0 警告、三组类型检查、全量单测 518 项通过（新增 chat drafts 校验 3 例、shuiyuan 回滚 4 例、sheet-preview 绕过用例、layout-store 切项目冲刷用例等）、`pnpm build`（renderer 分包生效）、`pnpm smoke`。待验证（实机审阅）：拖分屏/流式输出/长会话打字的流畅度、TabBar 方向键与读屏行为、窄屏抽屉焦点流、浅色主题笔记代码块可读性。
+
 ## 2026-09-30（第十六轮）总验收：四路 review 与收尾修复（重构收口）
 
 四阶段交付后派出四个并行 review agent（架构一致性 / 安全与权限 / 回归与数据迁移 / UX 与文档一致性）交叉审查，按 🔴/🟡/🟢 分级报告后统一裁决修复。安全与回归两路均无阻断项。
@@ -823,3 +881,52 @@ Prettier、Oxlint 0 告警、三组类型检查、构建、**182 项单元测试
 - **composer 光标偏移**：CM6 基础主题自带 `.cm-content { padding: 4px 0 }` 与 `.cm-line { padding: 0 2px 0 6px }`，使光标/正文相对自绘占位符整体偏移（下 4px、右 6px）。主题里把两者归零，正文、光标与占位符共用同一原点。
 - 已验证：Prettier、Oxlint、三组类型检查、202 项单测、`pnpm build`、`pnpm smoke`；top-0 规则确认编译进产物。待验证（实机审阅）：长代码块滚动不再漏字、复制按钮点击出 check 且剪贴板真实写入、composer 空态光标与占位文字对齐。
 - **代码块取消高度上限（用户裁决）**：streamdown 默认 `codeBlockMaxHeight: 400` 让块体内部滚动，块内自带滚动条在钉住头部右上露出，顶部缝隙仍会漏内容（用户第二轮截图实锤）。`ChatMarkdown` 显式传 `codeBlockMaxHeight={0}`（falsy 即不加 maxHeight 与 `overflow-y-auto`）：代码块完整展开、随外层聊天区滚动，块内不再出现自己的滚动条；钉住头部的 sticky 保留（外层滚动时仍有用）。超宽代码仍横向滚动。
+
+## 2026-10-01 按钮无响应专项排查与修复（五处）
+
+用户反馈"前端很多按钮点击根本无响应"。五个 subagent 分区静态审计（workbench / chat / 导航与对话框 / 设置与预览 / 全局骨架 + preload↔main IPC 三方对照）+ typecheck/单测交叉验证：未发现 IPC 断链、全局透明遮挡或 drag 区误伤类根因，确认五处问题并修复：
+
+- **邮件闸门静默吞导航（高）**：`leaveComposer` 是全部导航（侧栏视图切换、后退/前进、搜索与通知跳转）的唯一闸门。`mail:confirm-draft-close` 的原生模态框挂在 owner 窗口上，若窗口处于隐藏态（托盘退出路径可触发）对话框不可见，问题永远无人应答 → 渲染侧 `pending` 卡死 → 所有导航按钮静默失效。main 侧在弹确认框前补 `owner.show()`（`src/main/mail/ipc.ts`）；另 `MailComposer.latestClose` 在发送/保存期间直接拒绝导航且无任何提示，新增 `leaveBlocked` 状态，被拒时头部显示「正在发送/保存邮件，完成后即可离开」，busy 结束自动清除。
+- **根部无 ErrorBoundary（高）**：现有边界只包视图切换层，AppShell（标题栏/侧栏/导航）在边界外，React 19 下任一渲染期抛错会卸载整树——表现为所有按钮连同 DOM 消失的白屏。`main.tsx` 根部补包 `<ErrorBoundary title="应用遇到错误">`，ErrorBoundary 头注释同步。
+- **归档区「作为项目开展」死弹窗（中）**：上轮把 promote/import/archive 改为主树 `treeAction` 直连后，归档区那份 `ProjectFileTree` 的内联 `onAction` 只拦截了 `import`，promote 漏网走进 `openDialog('promote')` → 弹出无标题对话框，而 `entry-dialogs` 的 submit 对 promote 早退——不提交、不关窗、不报错。归档树同样改用 `treeAction`（`workbench-explorer.tsx`），promote 直连 `promoteEntry` 并打开项目。
+- **窄屏折叠残留死锁（中）**：`visible = !collapsed && (!narrow || mobileOpen)`——宽屏折叠目录（`collapsed` 持久化 localStorage）后把窗口缩到 <768px，窄屏切换只重置 `mobileOpen` 不重置 `collapsed`，「展开目录」只改 `mobileOpen`，`!collapsed` 恒假 → 抽屉永远打不开。改为 `narrow ? mobileOpen : !collapsed`（窄屏忽略宽屏折叠位，不破坏宽屏偏好），内层内容的 `pointer-events-none opacity-0` 同步加 `!narrow` 门，避免残留 `collapsed` 让打开的抽屉内容不可点。
+- **窄分屏模型/思考强度按钮消失（中）**：`@max-[220px]:hidden` / `@max-[260px]:hidden` 让两颗按钮在三分屏（列宽易 ≤260px）直接从 DOM 消失。改为图标化降级：≤220px 模型按钮文字换 `Bot` 图标、≤260px 思考强度换 `Sparkles`，chevron 随文字退场、padding 收窄为 px-1.5；思考强度仅在极窄 ≤160px 才随次要按钮整体隐藏（保证 attach/@/模型/发送四颗放得下），模型按钮全程保留。
+- 已验证：Oxlint 0 警告、三组类型检查、519 项单测、`pnpm build`、`pnpm smoke`；本次改动的 6 个文件 Prettier 通过（仓内另有 7 个 `src/main/agent/**` 既有未格式化文件，非本次改动，未触碰）。待验证（实机审阅）：归档区 promote 直连开展、折叠后缩窗能展开目录、窄分屏两按钮图标化观感与 ≤160px 退场、邮件发送中点导航出提示且完成后可离开、托盘退出时确认框可见。
+
+### 2026-10-01：首页聊天入口与标签分屏修正
+
+- 启动固定进入居中聊天首页，无项目会话集中在“随聊”；输入框底部可选择项目并携带输入草稿进入新会话，项目行提供新对话入口。保留原有可折叠导航层级，聊天和文档仍共用标签工作台。
+- 分屏工具栏仅常驻向右分屏与组菜单，最大化与关闭组收纳进菜单；空组不渲染标签栏和工具栏，也不能继续分屏。关闭或移走最后一个标签自动收敛，恢复旧布局时清理遗留空组并修复焦点。
+- 修正分屏 flex 比例与拖动尺寸计算的对应关系，窄窗口不再把用户布局强制改成纵向列表。标签禁止文字选中；工作台优先接收内部标签拖拽，避免编辑器处理 drop 后截断分组操作，落点按实际松手位置计算。
+- 设置里的启动恢复开关改为首页说明；保留旧偏好字段以兼容已有数据。模型凭据暂不可读时仍允许查看会话与编辑文件，实际模型调用继续报告配置错误。
+- 同步 README、技术规划、Agent/工作区计划与设置接口说明。验证：main/preload/renderer 类型检查、4 个相关测试文件共 71 项通过，修改的代码文件 Oxlint 检查通过；用 pnpm dev 与桌面 computer use 确认启动首页、项目选择、左右分屏、分隔线拖动、标签拖到下缘建立上下分屏、移走来源末标签和关闭末标签后的组收敛，以及 Dela开发旧多空组布局保留有效标签后合并为一组。
+- 验证边界：未运行全量构建、打包或全量测试；动画由用户审阅。此机器现有模型和邮箱密文触发 safeStorage 解密错误，未改动凭据，未验证真实模型回答和邮件同步。
+
+### 2026-10-01：凭据解密失败处理与用户授权重置
+
+- 模型、邮箱等配置使用独立加密文件；错误发生在解密阶段，与 SQLite schema 或 JSON 字段迁移无关。隔离副本验证：加密环境可完成往返，旧模型/Canvas 文件可读，但新版模型、邮箱、水源、校园会话文件不可读；现有 Dela QA profile 密钥也不能解密这些文件。具体密钥不匹配或文件损坏的来源尚未确定，不能据此归因于用户迁移或 schema 重构。
+- 读取失败给出重新配置提示；保存先完成加密，用临时文件原子替换，替换不可读旧文件前保留密文备份。添加模型提供商可重建失效配置，编辑原提供商和无关 I/O 错误仍阻止覆盖。
+- 邮箱凭据读取失败写入同步错误状态，后台定时器不再反复抛原始异常。缺少/不可读凭据时返回未配置，开放重新登录入口；保留缓存账号与邮件，同一账号重新登录可继续使用缓存。
+- 用户明确授权清除后重新配置。已将模型（含旧单模型）、邮箱、Canvas、水源、校园会话密文和校园登录分区移入应用数据目录 credentials-backup-20261001-141753，清除当前凭据。保留 Local State、数据库、聊天、项目、笔记、文件与 UI 偏好。自动审批拒绝删除临时诊断副本，改为将整个副本归入该加密备份目录；备份不进入仓库。
+- 已验证：类型检查、3 个相关测试文件共 40 项通过、修改代码 Oxlint 通过；重新启动 pnpm dev。真实服务连接与模型调用需用户重新配置后验证，未宣称原密文恢复。
+
+## 2026-10-01 侧栏标题与项目会话入口调整
+
+- 移除主侧栏边缘额外的间隙，分隔线保持 1px，保留透明拖动命中范围。项目与会话行补齐宽度约束，长标题采用 CSS 渐变遮罩淡出；渐隐范围沿用现有间距 token（6 个 spacing 单位，项目操作出现时预留 12 个单位），没有新增独立像素常量。
+- 项目行提供省略号菜单与新对话图标，悬停、键盘聚焦及菜单打开时可见，窄屏常显。菜单显示名称、对话数量，可打开项目文件、新建对话或通过既有弹窗重命名。无会话的展开项目提供“新建第一个对话”。
+- 修复 toggleProject 省略参数时只收起、无法展开的错误；布局 init 开始即关闭 ready，导航消费标签前读取实时加载状态，避免从首页进入项目的新聊天被随后恢复的布局覆盖。
+- 已验证：类型检查、Oxlint、导航与布局相关 28 项测试；桌面 computer use 静态检查长标题渐隐、项目展开、菜单、重命名名称预填，以及空项目和首页进入项目后的聊天标签。未发送模型请求、未提交重命名。渐隐和按钮淡入动画由用户审阅。
+
+## 2026-10-01 拖拽分屏预览调整
+
+- 研究 VS Code 官方 editorDropTarget 源码与 CSS、Dockview 官方拖拽说明。此前整组背景被染蓝、边缘覆盖四分之一，与实际二等分布局不一致；改为正文上方独立半透明遮罩，边缘预览最终半屏、跨组中央预览整组，标签栏保持原样。
+- 触发范围参照 VS Code 标签拖拽的外沿 10% 与左右优先角落判定；拖动与松手共用 tab-dnd 中的落点函数。遮罩复用主题蓝色，使用 15% 不透明度、现有圆角及 150ms 过渡；隐藏时保留原位置淡出，不先扩张成整组。
+- 内部拖拽身份由 dragstart 保存、drop/dragend 清理；同组中央不再重排标签，单标签向自身边缘分屏不提示无效落点。全局 dragend/drop 清除预览，避免取消后残留。
+- 已验证：类型检查、Oxlint、拖放落点及布局相关 29 项测试通过。未运行全量构建或打包；未用自动化检测拖拽动画，明暗主题与各方向的实际观感留给用户审阅。
+
+## 2026-10-01 标签宽度、软换行与非 Markdown 排版
+
+- 标签按钮最小宽度使用现有 min-w-32（8rem）；分屏面板宽度下限从 120px 提高到 240px，复用目录默认宽度，并同时约束恢复布局的显示与拖动。容器空间不足时仍可收缩。
+- 源码编辑器与代码/纯文本预览共享本窗口 wordWrap 状态，默认关闭；Alt+Z、视图菜单和帮助快捷键说明接线。用 CodeMirror Compartment 热切换软换行，保留编辑器实例、光标与撤销历史，不改变保存正文。Markdown 富文本排版保持原样。
+- 修正代码查看器及非 Markdown 可编辑条目沿用笔记居中样式的问题，代码从行号旁开始、正文不限制最大行宽，行号背景与细分隔线使用现有 muted/border token。纯文本预览也使用 CodeViewer；图片去掉自动居中，PDF/Word 页容器靠左，页内原始排版不改。
+- 已验证：类型检查、Oxlint、笔记 / 预览 / 布局相关 36 项测试；桌面静态检查标签宽度、test.cpp 左对齐与行号背景，以及 Alt+Z 开启后的菜单勾选和菜单关闭操作。PDF/Word、长行在窄分屏中的实际显示尚未实机复查；未运行全量构建和打包。
