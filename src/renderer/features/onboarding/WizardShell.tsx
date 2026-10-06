@@ -45,11 +45,12 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
             ))}
           </div>
         </OnboardingWindowBar>
-        <div className="grid min-h-0 content-start justify-items-center overflow-y-auto p-6">
+        <div className="grid min-h-0 content-start justify-items-center overflow-y-auto p-6 [@media(max-height:560px)]:p-4">
           <AnimatePresence initial={false} mode="wait">
             <motion.div
               animate={{ opacity: 1, x: 0 }}
-              className="w-full max-w-[420px] pt-16"
+              // 顶部锚定保证各步标题起点一致；矮窗口下收缩留白，给表单内容让出高度。
+              className="w-full max-w-[420px] pt-16 [@media(max-height:560px)]:pt-6"
               exit={{ opacity: 0, x: -16 * direction }}
               initial={{ opacity: 0, x: 24 * direction }}
               key={step}
@@ -59,7 +60,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
             </motion.div>
           </AnimatePresence>
         </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center px-6 pb-7">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center px-6 pb-7 [@media(max-height:560px)]:pb-4">
           <div className="justify-self-start">
             {onBack && (
               <button

@@ -195,7 +195,7 @@ export function NotificationsView({
 
       {error ? (
         <div
-          className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           role="alert"
         >
           <p>{error}</p>
@@ -205,7 +205,11 @@ export function NotificationsView({
         </div>
       ) : null}
       {sourceErrors.map((message) => (
-        <p className="mt-3 text-sm text-muted-foreground" key={message} role="status">
+        <p
+          className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          key={message}
+          role="status"
+        >
           {message}
         </p>
       ))}
@@ -227,7 +231,8 @@ export function NotificationsView({
         </p>
       ) : null}
 
-      <section aria-label="通知列表" className="mt-4 flex flex-col gap-3 pb-6">
+      {/* 分隔线行而非行级卡片：通知是高频扫读的信息流，与邮件列表保持同一视觉重量。 */}
+      <section aria-label="通知列表" className="mt-4 flex flex-col pb-6">
         {state && state.totalCount > state.items.length && (
           <p className="text-xs text-muted-foreground">
             显示最近 {state.items.length} 条，共 {state.totalCount} 条通知。
@@ -235,7 +240,7 @@ export function NotificationsView({
         )}
         {items.map((item) => (
           <article
-            className="relative rounded-xl border bg-card shadow-xs transition-colors hover:bg-accent/40"
+            className="relative border-b transition-colors last:border-0 hover:bg-muted/50"
             key={item.id}
           >
             <button

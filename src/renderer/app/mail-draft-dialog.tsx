@@ -59,6 +59,7 @@ export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogPro
             <MailComposer
               accountAddress={state.address}
               draft={state.draft}
+              embedded
               key={state.draft.id}
               onClose={close}
               onDirtyChange={() => {}}

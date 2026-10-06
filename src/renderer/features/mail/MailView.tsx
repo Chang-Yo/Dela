@@ -33,10 +33,12 @@ const MESSAGE_LIMIT = 200;
 // 邮箱内容区分级降档阈值(单位 px,作用于 grid 容器实测宽度 W):
 // - STACKED_THRESHOLD = 760:折叠态四列的可读下限 = 48(图标栏) + 320(列表最小宽) + 1(分隔线)
 //   + 391(阅读区可读下限,在 380–400 间取整);W 再小则阅读区不可读,降为列表/详情二选一的单栏。
-// - AUTO_COLLAPSE_THRESHOLD = 1000:展开态四列的可读下限 = 220(展开侧栏) + 320(列表最小宽)
-//   + 1(分隔线) + 459(阅读区舒适下限);W 再小则强制折叠侧栏,把 172px 还给阅读区。
+// - 自动折叠阈值按实际 listWidth 动态计算 = 220(展开侧栏) + listWidth + 1(分隔线)
+//   + READER_COMFORT_WIDTH(阅读区舒适下限)。列表可被拖到 480,固定常数会在
+//   1000–1160px 区间漏判,把阅读区挤到 300px 以下。
 const STACKED_THRESHOLD = 760;
-const AUTO_COLLAPSE_THRESHOLD = 1000;
+const FOLDERS_WIDTH = 220;
+const READER_COMFORT_WIDTH = 459;
 /** 窄屏媒体查询:窗口宽度决定走 AppShell 抽屉的单列布局。 */
 const NARROW_MEDIA_QUERY = '(max-width: 767px)';
 
@@ -607,7 +609,9 @@ function DesktopMailView({
   // 单栏态(第二级降档):窗口本身窄屏,或容器实测宽度不足。
   const stacked = narrow || contentWidth < STACKED_THRESHOLD;
   // 第一级降档:非窄屏但容器偏窄时强制折叠文件夹栏;持久化偏好不动,宽度恢复后还原用户偏好。
-  const autoCollapseFolders = !narrow && contentWidth < AUTO_COLLAPSE_THRESHOLD;
+  // 阈值随当前列表宽度浮动:用户拖宽列表时同步收紧判定,避免阅读区被两头挤压。
+  const autoCollapseFolders =
+    !narrow && contentWidth < FOLDERS_WIDTH + listWidth + 1 + READER_COMFORT_WIDTH;
   const effectiveFoldersCollapsed = foldersCollapsed || autoCollapseFolders;
   // 单栏态下内容面板的网格占位:narrow 沿用第二行整行,非 narrow 单栏落到图标栏右侧一列。
   const stackedPlacement = narrow ? 'col-span-full row-start-2' : 'col-start-2';
@@ -732,50 +736,56 @@ function DesktopMailView({
           />
         ) : selection?.kind === 'drafts' ? (
           <section
-            className={cn('min-h-0 overflow-auto p-4', stacked ? stackedPlacement : 'col-span-3')}
+            className={cn('flex min-h-0 flex-col overflow-auto', stacked ? stackedPlacement : 'col-span-3')}
             aria-label="本地草稿"
           >
-            <h2 className="mb-4 flex items-center gap-2 text-sm font-medium">
-              <FilePenLine className="size-4" />
-              本地草稿
-            </h2>
-            {draftError && (
-              <p role="alert" className="text-sm text-destructive">
-                {draftError}
-              </p>
-            )}
-            {!localDrafts.length && <p className="text-sm text-muted-foreground">暂无草稿</p>}
-            {localDrafts.map((item) => (
-              <div key={item.id} className="flex items-center gap-2 border-b py-3">
-                <button
-                  disabled={openingDraft}
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => void editDraft(item.id)}
-                >
-                  <strong className="block truncate text-sm">{item.subject || '(无主题)'}</strong>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {item.recipientText || '未填写收件人'} ·{' '}
-                    {new Date(item.updatedAt).toLocaleString()}
-                  </span>
-                </button>
-                <button
-                  aria-label="删除草稿"
-                  title="删除草稿"
-                  className="rounded p-2 hover:bg-muted"
-                  onClick={() => {
-                    if (!window.confirm('删除这份本地草稿？')) return;
-                    void dela.mail
-                      .deleteDraft(item.id)
-                      .then(() =>
-                        setLocalDrafts((items) => items.filter((row) => row.id !== item.id)),
-                      )
-                      .catch((reason) => setDraftError(String(reason)));
-                  }}
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
+            {/* 与文件夹/列表/回收站同一 h-11 头部规格，含计数。 */}
+            <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
+              <h2 className="flex items-center gap-2 text-sm font-medium">
+                <FilePenLine className="size-4" />
+                本地草稿
+              </h2>
+              <small className="text-xs text-muted-foreground">{localDrafts.length} 份</small>
+            </div>
+            <div className="min-h-0 flex-1 p-4">
+              {draftError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {draftError}
+                </p>
+              )}
+              {!localDrafts.length && <p className="text-sm text-muted-foreground">暂无草稿</p>}
+              {localDrafts.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 border-b py-3">
+                  <button
+                    disabled={openingDraft}
+                    className="min-w-0 flex-1 rounded text-left transition-colors hover:bg-muted/50"
+                    onClick={() => void editDraft(item.id)}
+                  >
+                    <strong className="block truncate text-sm">{item.subject || '(无主题)'}</strong>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {item.recipientText || '未填写收件人'} ·{' '}
+                      {new Date(item.updatedAt).toLocaleString()}
+                    </span>
+                  </button>
+                  <button
+                    aria-label="删除草稿"
+                    title="删除草稿"
+                    className="rounded p-2 hover:bg-muted"
+                    onClick={() => {
+                      if (!window.confirm('删除这份本地草稿？')) return;
+                      void dela.mail
+                        .deleteDraft(item.id)
+                        .then(() =>
+                          setLocalDrafts((items) => items.filter((row) => row.id !== item.id)),
+                        )
+                        .catch((reason) => setDraftError(String(reason)));
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </section>
         ) : (
           <>

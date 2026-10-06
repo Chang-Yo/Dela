@@ -1,13 +1,13 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
-import type { GlobalSearchResult } from '../shared/api';
+import { GLOBAL_SEARCH_PER_KIND_LIMIT, type GlobalSearchResult } from '../shared/search';
 import { getTodoState } from './todo';
 import { todoStatusLabels } from '../shared/todo';
 import { getDatabase } from './database';
 import { checkWorkspaceSender } from './ipc';
 
 const querySchema = z.string().trim().max(200);
-const perKindLimit = 10;
+const perKindLimit = GLOBAL_SEARCH_PER_KIND_LIMIT;
 
 function likePattern(query: string): string {
   return `%${query.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_')}%`;

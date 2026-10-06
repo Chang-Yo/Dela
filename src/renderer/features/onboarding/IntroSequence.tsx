@@ -1,6 +1,8 @@
-import { MotionConfig, motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import logo from '../../../../assets/Dela_Logo.png';
 import { OnboardingWindowBar } from './onboarding-window-bar';
+import { cn } from '../../lib/utils';
 
 // 品牌名与 Quote 均用手写体 Italianno（--font-script）。
 const QUOTE_TEXT = 'In a shallow age, refuse to float.\u00A0\u00A0\u00A0\u00A0';
@@ -35,6 +37,18 @@ const ambience = {
 
 /** 首启引导的开场：氛围层之上，透明底 Logo、手写体品牌名与 Quote 依次复现。 */
 export function IntroSequence({ onStart }: { onStart: () => void }) {
+  // 动画期间就提供「跳过」，CTA 出现前不响应点击（避免隐 form 中误触、无可见反馈）。
+  const reduced = useReducedMotion();
+  const [ctaReady, setCtaReady] = useState(false);
+  useEffect(() => {
+    if (reduced) {
+      setCtaReady(true);
+      return;
+    }
+    const timer = setTimeout(() => setCtaReady(true), ctaAtSeconds * 1000);
+    return () => clearTimeout(timer);
+  }, [reduced]);
+
   return (
     <MotionConfig reducedMotion="user">
       <div
@@ -42,8 +56,16 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
         data-onboarding-intro=""
       >
         <OnboardingWindowBar />
-        {/* pb 让品牌列整体居中偏上，Logo 视觉重心落在画面上半部。 */}
-        <div className="relative grid place-items-center overflow-hidden pb-[10vh]">
+        {/* pb 让品牌列整体居中偏上，Logo 视觉重心落在画面上半部；矮窗口收缩留白与 Logo。 */}
+        <div className="relative grid place-items-center overflow-hidden pb-[10vh] [@media(max-height:560px)]:pb-4">
+          {/* 跳过动画：全程可点，不必等 CTA 出现。 */}
+          <button
+            className="absolute right-6 top-4 z-10 text-sm text-neutral-400 transition-colors hover:text-neutral-700"
+            onClick={onStart}
+            type="button"
+          >
+            跳过
+          </button>
           {/* 氛围层：视频或占位动效。溶解淡入后压暗，退为品牌层背后的氛围。 */}
           <motion.div
             animate={{ opacity: [0, 1, 0.28] }}
@@ -91,14 +113,14 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             <motion.img
               alt="Dela"
               animate={{ opacity: 1, y: 0 }}
-              className="size-[180px]"
+              className="size-[180px] [@media(max-height:560px)]:size-[132px]"
               initial={{ opacity: 0, y: 14 }}
               src={logo}
               transition={{ delay: logoAtSeconds, duration: logoSeconds, ease: 'easeOut' }}
             />
             <motion.h1
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 font-script text-6xl leading-none"
+              className="mt-6 font-script text-6xl leading-none [@media(max-height:560px)]:mt-3 [@media(max-height:560px)]:text-5xl"
               initial={{ opacity: 0, y: 10 }}
               transition={{ delay: nameAtSeconds, duration: nameSeconds, ease: 'easeOut' }}
             >
@@ -127,7 +149,10 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
 
           <motion.button
             animate={{ opacity: 1, y: 0 }}
-            className="absolute bottom-12 rounded-full bg-neutral-900 px-7 py-2.5 text-sm text-white transition-colors hover:bg-neutral-700"
+            className={cn(
+              'absolute bottom-12 rounded-full bg-neutral-900 px-7 py-2.5 text-sm text-white transition-colors hover:bg-neutral-700 [@media(max-height:560px)]:bottom-6',
+              !ctaReady && 'pointer-events-none',
+            )}
             initial={{ opacity: 0, y: 10 }}
             onClick={onStart}
             transition={{ delay: ctaAtSeconds, duration: 0.7, ease: 'easeOut' }}

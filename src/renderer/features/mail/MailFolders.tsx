@@ -203,7 +203,7 @@ export function MailFolders({
       )}
     >
       {!hideHeader && (
-        <div className="flex h-11 shrink-0 items-center p-2">
+        <div className="flex h-11 shrink-0 items-center px-3">
           <PanelToggleButton
             collapsed={foldersCollapsed}
             controlsId="mail-folders"

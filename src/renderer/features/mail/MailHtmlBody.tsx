@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Ellipsis } from 'lucide-react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
 import { cn } from '../../lib/utils';
 import { frameHeightFromEvent, injectFrameHeightReport } from '../../components/ui/frame-height';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 
 const toolbarToggle = cn(
   'h-7 rounded-full px-3 text-xs transition-colors',
@@ -14,7 +21,8 @@ const toolbarToggle = cn(
 const INITIAL_BODY_HEIGHT = 240;
 
 export function MailHtmlBody({ html, text }: { html: string; text: string | null }) {
-  const [remoteImages, setRemoteImages] = useState(true);
+  // 远程图片默认不加载:是跟踪像素的标准载体,主流客户端均默认阻止;每封邮件一键放行。
+  const [remoteImages, setRemoteImages] = useState(false);
   const [plain, setPlain] = useState(false);
   const [fitWidth, setFitWidth] = useState(false);
   const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
@@ -36,15 +44,8 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
 
   return (
     <div className="mt-3 flex flex-col">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <button
-          aria-pressed={fitWidth}
-          className={toolbarToggle}
-          onClick={() => setFitWidth(!fitWidth)}
-          type="button"
-        >
-          {fitWidth ? '适应宽度' : '原始布局'}
-        </button>
+      {/* 常驻只留两个高频开关；低频的「适应宽度」收进显示选项菜单。 */}
+      <div className="flex items-center gap-1.5">
         <button
           aria-pressed={plain}
           className={toolbarToggle}
@@ -59,11 +60,31 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
           onClick={() => setRemoteImages(!remoteImages)}
           type="button"
         >
-          远程图片：{remoteImages ? '显示' : '隐藏'}
+          {remoteImages ? '隐藏远程图片' : '加载远程图片'}
         </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label="显示选项"
+              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="显示选项"
+              type="button"
+            >
+              <Ellipsis className="size-4" strokeWidth={1.8} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuCheckboxItem
+              checked={fitWidth}
+              onCheckedChange={(value) => setFitWidth(value === true)}
+            >
+              适应宽度
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {plain ? (
-        <div className="mt-3 rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+        <div className="mt-3 rounded-t-lg border-x border-t p-4 text-sm leading-relaxed whitespace-pre-wrap break-words">
           {text ?? new DOMParser().parseFromString(html, 'text/html').body.textContent}
         </div>
       ) : (

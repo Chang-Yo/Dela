@@ -1,5 +1,8 @@
 import type { SettingsSectionId } from './settings';
 
+/** 全局搜索每类结果的上限：main 查询与弹窗「已截断」提示共用同一事实来源。 */
+export const GLOBAL_SEARCH_PER_KIND_LIMIT = 10;
+
 export type GlobalSearchResult = {
   title: string;
   subtitle: string | null;

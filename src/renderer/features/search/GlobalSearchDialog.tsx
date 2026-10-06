@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { GlobalSearchResult } from '../../../shared/api';
 import { cn } from '../../lib/utils';
+import { GLOBAL_SEARCH_PER_KIND_LIMIT } from '../../../shared/search';
 import { Button } from '../../components/ui/button';
 import { settingsResultsFor } from '../settings/search-index';
 
@@ -260,7 +261,9 @@ export function GlobalSearchDialog({
                     <section className="mt-1" key={group.kind}>
                       <h3 className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                         <GroupIcon aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-                        {group.note ? `${group.label}（${group.note}）` : group.label}
+                        {group.note && group.results.length >= GLOBAL_SEARCH_PER_KIND_LIMIT
+                      ? `${group.label}（${group.note}）`
+                      : group.label}
                       </h3>
                       {group.results.map((result) => {
                         const index = allResults.indexOf(result);

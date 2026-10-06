@@ -48,8 +48,12 @@ export function MailMessageList({
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
         <div className="flex min-w-0 items-baseline gap-1.5">
           <strong className="truncate text-sm">{selectedFolder?.name ?? '邮件'}</strong>
-          <small className="shrink-0 text-xs text-muted-foreground">
-            {filteredMessages.length} 封
+          {/* 同步进行中把计数换成进度文案：只有转圈图标时用户不知道在同步什么、进度如何。 */}
+          <small
+            className="shrink-0 truncate text-xs text-muted-foreground"
+            title={syncBusy ? syncLabel : undefined}
+          >
+            {syncBusy && syncLabel ? syncLabel : `${filteredMessages.length} 封`}
           </small>
         </div>
         <div className="flex-1" />

@@ -31,6 +31,8 @@ type Props = {
   onSent: (warning?: string) => void;
   /** 邮箱 grid 的占位类,由 MailView 按布局档位传入;Dialog 等非网格场景无需传。 */
   className?: string;
+  /** 弹窗场景:弹窗自身已是带边框的容器,去掉灰底画布与内卡描边,避免三层框嵌套。 */
+  embedded?: boolean;
 };
 
 const toolButtonClass =
@@ -118,6 +120,7 @@ export function MailComposer({
   onSent,
   draft,
   className,
+  embedded = false,
 }: Props) {
   const dela = window.dela!;
   const editorRef = useRef<HTMLDivElement>(null);
@@ -541,11 +544,16 @@ export function MailComposer({
   };
 
   return (
+    // @container 宿主：撰写卡内边距按面板实宽降档（max-md 看窗口宽度，列表拖宽后失效）。
     <form
-      className={cn('flex min-h-0 min-w-0 flex-col bg-muted/30 px-3 pb-3', className)}
+      className={cn(
+        '@container flex min-h-0 min-w-0 flex-col bg-muted/30 px-3 pb-3',
+        embedded && 'bg-transparent p-0',
+        className,
+      )}
       onSubmit={submit}
     >
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-4">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
         {savedNotice && (
           <span role="status" className="text-xs text-muted-foreground">
             草稿已保存
@@ -567,15 +575,16 @@ export function MailComposer({
         >
           <Save />
         </Button>
-        <button
-          aria-label="关闭写邮件"
-          className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          onClick={onClose}
-          title="关闭"
+        <Button
           type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label="关闭写邮件"
+          title="关闭"
+          onClick={onClose}
         >
-          <X className="size-4" strokeWidth={1.8} />
-        </button>
+          <X />
+        </Button>
         <div className="flex min-w-0 items-baseline gap-1.5">
           <strong className="text-sm">新邮件</strong>
           <span className="truncate text-xs text-muted-foreground max-md:hidden">
@@ -592,7 +601,12 @@ export function MailComposer({
         </Button>
       </header>
 
-      <div className="mx-auto mt-3 flex min-h-0 w-full max-w-[760px] flex-1 flex-col rounded-lg border bg-background px-8 pt-5 max-md:px-4 max-md:pt-3">
+      <div
+        className={cn(
+          'mx-auto mt-3 flex min-h-0 w-full max-w-[760px] flex-1 flex-col rounded-lg border bg-background px-4 pt-5 @min-[520px]:px-8 max-md:pt-3',
+          embedded && 'mt-0 max-w-none rounded-none border-0',
+        )}
+      >
         <label className="flex min-h-10 items-center border-b border-border/70 transition-colors focus-within:border-foreground/30">
           <span className="w-16 shrink-0 text-xs text-muted-foreground">收件人</span>
           <input
