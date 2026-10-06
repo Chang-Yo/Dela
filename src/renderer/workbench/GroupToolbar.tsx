@@ -1,6 +1,6 @@
-// 常驻只保留左右分屏；上下分屏通过标签拖放或上下文菜单完成。
+// 常驻只保留左右分屏；向下分屏与关闭等低频操作收进组菜单。
 import { memo } from 'react';
-import { Columns2, Ellipsis, Maximize2, Minimize2, X } from 'lucide-react';
+import { Columns2, Ellipsis, Maximize2, Minimize2, Rows2, X } from 'lucide-react';
 import type { GroupNode } from '../../shared/layout';
 import { Button } from '../components/ui/button';
 import {
@@ -36,9 +36,9 @@ export const GroupToolbar = memo(function GroupToolbar({ group }: { group: Group
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => splitGroup(group.id, 'vertical')}>
-            <Columns2 />
-            向右分屏
+          <DropdownMenuItem onSelect={() => splitGroup(group.id, 'horizontal')}>
+            <Rows2 />
+            向下分屏
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setMaximized(isMaximized ? null : group.id)}>
             {isMaximized ? <Minimize2 /> : <Maximize2 />}

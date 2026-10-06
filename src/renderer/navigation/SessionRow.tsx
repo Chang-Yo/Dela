@@ -105,7 +105,7 @@ export function SessionRow({
           <HoverCard.Content
             side="right"
             align="start"
-            className="z-50 grid max-w-80 gap-2 rounded-xl border bg-popover p-3 text-xs text-popover-foreground shadow-md"
+            className="z-50 grid max-w-80 gap-2 rounded-lg border bg-popover p-3 text-xs text-popover-foreground shadow-md"
           >
             <span className="break-words font-medium">{session.title || '新对话'}</span>
             <span className="flex items-center gap-2 text-muted-foreground">
@@ -121,7 +121,7 @@ export function SessionRow({
           data-archive-confirm=""
           size="sm"
           variant="destructive"
-          className="h-5 px-1.5 text-2xs"
+          className="h-6 px-2 text-2xs"
           disabled={busy}
           onClick={() => void change(true)}
         >

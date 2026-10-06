@@ -1,6 +1,7 @@
 // 项目文件树（迁移自 features/projects/ProjectSidebar.tsx；structure.md §3.3）：
 // 筛选/折叠/拖放移动/文件导入入口经 props 注入，条目动作回调交给接线方。
 import {
+  Archive,
   Ellipsis,
   FilePlus2,
   FolderPlus,
@@ -158,7 +159,7 @@ export function ProjectFileTree({
             </DropdownMenuItem>
             {!archived && (
               <DropdownMenuItem onSelect={() => onAction('archive', item.id)}>
-                <FolderInput />
+                <Archive />
                 归档
               </DropdownMenuItem>
             )}

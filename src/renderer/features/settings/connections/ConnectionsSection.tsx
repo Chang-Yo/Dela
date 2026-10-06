@@ -253,17 +253,18 @@ export function ConnectionsSection({
                   )}
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 {extra}
                 <span
                   className={cn(
-                    'min-w-[72px] text-xs max-md:min-w-0',
+                    'min-w-[72px] max-w-40 truncate text-xs max-md:min-w-0',
                     connected ? 'text-foreground' : 'text-muted-foreground',
                   )}
+                  title={state}
                 >
                   {state}
                 </span>
-                <Button onClick={onClick} size="sm" variant="secondary">
+                <Button className="shrink-0" onClick={onClick} size="sm" variant="secondary">
                   {actionLabel}
                 </Button>
               </div>

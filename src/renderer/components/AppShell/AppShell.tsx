@@ -461,32 +461,28 @@ export function AppShell({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <DropdownMenu
-            modal={false}
-            onOpenChange={(open) => updateMenu('help', open)}
-            open={openMenu === 'help'}
-          >
-            <DropdownMenuTrigger asChild>
-              <button
-                className={cn(
-                  titleMenuButtonClass,
-                  '[-webkit-app-region:no-drag] ml-0.5 grid shrink-0 place-items-center',
-                )}
-                onPointerEnter={() => hoverMenu('help')}
-                type="button"
-              >
-                帮助
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
-              <DropdownMenuItem onSelect={selectMenu(() => setHelpOpen(true))}>
-                快捷键
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
-                设置与关于
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* 窄窗口下与文件/视图菜单一并隐藏；帮助内容在设置中都有入口。 */}
+          <div className="[-webkit-app-region:no-drag] ml-0.5 hidden shrink-0 md:block">
+            <DropdownMenu
+              modal={false}
+              onOpenChange={(open) => updateMenu('help', open)}
+              open={openMenu === 'help'}
+            >
+              <DropdownMenuTrigger asChild>
+                <button className={titleMenuButtonClass} onPointerEnter={() => hoverMenu('help')} type="button">
+                  帮助
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
+                <DropdownMenuItem onSelect={selectMenu(() => setHelpOpen(true))}>
+                  快捷键
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
+                  设置与关于
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <div className="flex h-full items-center">
           {/* 各视图经 portal 往这里挂工作区级动作（目录/布局），挂在窗口控制按钮左侧。 */}
@@ -578,12 +574,8 @@ export function AppShell({
           style={narrow ? undefined : { width: sidebarWidth }}
         >
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
-            <button
-              className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-sidebar-accent"
-              onClick={onOpenGeneralChat}
-              title="回到首页"
-              type="button"
-            >
+            {/* 纯品牌展示；回首页由下方「首页」行承担，避免相邻双入口。 */}
+            <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
               <DelaBrand className="h-[18px] w-auto" />
               <span
                 className={cn(
@@ -594,7 +586,7 @@ export function AppShell({
               >
                 Dela
               </span>
-            </button>
+            </div>
             <div className="flex-1" />
             <button
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}

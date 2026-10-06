@@ -235,7 +235,7 @@ src/renderer/
     chat/                   # ← features/chat 全目录 + features/projects/AgentPanel.tsx
       ChatTab.tsx           # 会话作为标签内容（AgentPanel 去面板化：去掉 aside/宽度逻辑）
       ChatThread.tsx  ChatComposer.tsx  ComposerEditor.tsx  ChatSessions.tsx
-      ModelKeyForm.tsx  ToolTimeline.tsx  markdown.tsx  media.ts  drafts.ts
+      ToolTimeline.tsx  markdown.tsx  media.ts  drafts.ts
       use-chat.ts           # 改为按 sessionId 订阅 sessions/ 镜像，去掉 scope 参数
     note/                   # ← features/projects 的文档编辑部分
       NoteTab.tsx           # 笔记标签内容（ProjectDocument 的笔记分支 + 模式切换）

@@ -272,16 +272,7 @@ export function ProjectSessionNav({
                     在资源管理器中显示
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={onOpenGroup}>
-                    <FolderOpen />
-                    打开项目文件
-                  </DropdownMenuItem>
-                  {onNewChat && (
-                    <DropdownMenuItem onSelect={() => onNewChat(key)}>
-                      <SquarePen />
-                      新建对话
-                    </DropdownMenuItem>
-                  )}
+                  {/* 「打开项目文件」「新建对话」由行点击与悬停按钮承担，不进菜单。 */}
                   <DropdownMenuItem disabled={archiving} onSelect={() => setConfirmArchive(key)}>
                     <Archive />
                     归档项目对话
@@ -527,8 +518,8 @@ export function ProjectSessionNav({
         }}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-5 shadow-lg">
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-150 max-md:w-[calc(100%-2rem)]">
             <Dialog.Title className="text-sm font-medium">新建项目分组</Dialog.Title>
             <Dialog.Description className="mt-2 text-xs text-muted-foreground">
               将当前项目放入此分组。

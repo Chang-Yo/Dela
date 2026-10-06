@@ -222,6 +222,11 @@ function LessonBlock({
   const start = periodBoundary(lesson.startPeriod, 'start');
   const end = periodBoundary(lesson.endPeriod, 'end');
   const open = () => onOpen({ kind: 'lesson', lesson, date });
+  // 与 LocalEventBlock 同一阈值：44px 起显示第二行、60px 起显示节次行，
+  // 单节课 36px 块只留课程名，避免第三行被 overflow-hidden 裁半。
+  const height = (end - start) * pixelsPerMinute;
+  const showMeta = height >= 44;
+  const showPeriods = height >= 60;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -247,13 +252,17 @@ function LessonBlock({
           <strong className="block break-words text-xs font-semibold leading-tight">
             {lesson.courseName}
           </strong>
-          {/* 教师排在教室之前：并排窄列截断时保证教师可见。 */}
-          <span className="mt-0.5 block truncate text-[11px] leading-none opacity-75">
-            {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || '地点未定'}
-          </span>
-          <span className="block truncate text-[11px] leading-none opacity-75">
-            {lesson.periodsText}
-          </span>
+          {/* 教师排在教室之前：并排窄列截断时保证教师可见。矮块隐藏次要行，完整信息看 Tooltip。 */}
+          {showMeta && (
+            <span className="mt-0.5 block truncate text-[11px] leading-none opacity-75">
+              {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || '地点未定'}
+            </span>
+          )}
+          {showPeriods && (
+            <span className="block truncate text-[11px] leading-none opacity-75">
+              {lesson.periodsText}
+            </span>
+          )}
         </article>
       </TooltipTrigger>
       {/* 原生 title 不支持富文本与可靠换行，改用共享的 Radix Tooltip 展示完整信息。 */}

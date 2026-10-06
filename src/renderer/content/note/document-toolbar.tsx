@@ -1,5 +1,4 @@
 import {
-  Check,
   ChevronRight,
   Clock,
   Code,
@@ -98,11 +97,8 @@ export function DocumentToolbar({
         ) : dirty ? (
           '未保存'
         ) : (
-          <>
-            <Check className="size-3.5" aria-hidden />
-            {/* 图标对读屏不够可靠，补一段仅读屏可见的文本。 */}
-            <span className="sr-only">已保存</span>
-          </>
+          /* 正常态不常驻「已保存」图标：长期占位无信息增量；失败详情由 NoteTab 错误条承载。 */
+          null
         )}
       </span>
       {markdown && !forcedSource && (

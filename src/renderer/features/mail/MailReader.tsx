@@ -46,7 +46,7 @@ function RecipientRow({
   return (
     <div className="flex gap-3">
       <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">收件人</span>
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[13px] leading-5">
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-sm leading-5">
         <span className="break-all">{formatMailAddress(self.name, self.address)}</span>
         {foldedCount > 0 && (
           <Tooltip>
@@ -191,7 +191,7 @@ export function MailReader({
                 <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">
                   发件人
                 </span>
-                <span className="min-w-0 flex-1 break-all text-[13px] leading-5">
+                <span className="min-w-0 flex-1 break-all text-sm leading-5">
                   {detail.sender
                     ? formatMailAddress(detail.sender.name, detail.sender.address)
                     : '(未知发件人)'}
@@ -206,14 +206,14 @@ export function MailReader({
                   <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">
                     抄送
                   </span>
-                  <span className="min-w-0 flex-1 break-all text-[13px] leading-5">
+                  <span className="min-w-0 flex-1 break-all text-sm leading-5">
                     {detail.cc.map((cc) => formatMailAddress(cc.name, cc.address)).join(', ')}
                   </span>
                 </div>
               )}
               <div className="flex gap-3">
                 <span className="w-14 shrink-0 text-xs leading-5 text-muted-foreground">时间</span>
-                <span className="min-w-0 flex-1 break-all text-[13px] leading-5">
+                <span className="min-w-0 flex-1 break-all text-sm leading-5">
                   {formatFullDate(detail.date)}
                 </span>
               </div>
@@ -263,7 +263,7 @@ export function MailReader({
             {detail.bodyHtml ? (
               <MailHtmlBody key={detail.id} html={detail.bodyHtml} text={detail.bodyText} />
             ) : (
-              <div className="mt-4 rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+              <div className="mt-3 rounded-t-lg border-x border-t p-4 text-sm leading-relaxed whitespace-pre-wrap break-words">
                 {detail.bodyText ?? '(无正文)'}
               </div>
             )}

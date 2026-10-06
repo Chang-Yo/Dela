@@ -307,12 +307,9 @@ export function TodoView({ request }: { request?: { id: string } }) {
             {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
           </Button>
         ))}
+        {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            onChange={(event) => setShowCompleted(event.target.checked)}
-          />
+          <Switch checked={showCompleted} label="显示已完成" onChange={setShowCompleted} />
           显示已完成（{completedCount}）
         </label>
       </div>

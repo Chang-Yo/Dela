@@ -16,7 +16,7 @@ import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
 import { Button } from '../../components/ui/button';
 import type { MailDraftDialog } from './chat-source';
-import { WorkingSection, formatDuration, type ToolOutput } from './ToolTimeline';
+import { WorkingSection, type ToolOutput } from './ToolTimeline';
 import { ChatMarkdown } from './markdown';
 import styles from './timeline.module.css';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
@@ -136,7 +136,7 @@ const UserMessage = memo(function UserMessage({
       <div className="mb-5 flex flex-col items-end">
         <textarea
           autoFocus
-          className="max-h-64 w-[85%] resize-none rounded-2xl border border-ring/60 bg-card px-4 py-2.5 text-sm leading-relaxed outline-none [field-sizing:content]"
+          className="max-h-64 w-[85%] resize-none rounded-3xl border border-ring/60 bg-card px-4 py-2.5 text-sm leading-relaxed outline-none [field-sizing:content]"
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return;
@@ -359,23 +359,22 @@ const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
-      {!hasActivity && message.startedAt !== undefined && (
-        <div className="mb-4 text-xs text-muted-foreground">
-          {live ? (
-            <span className={styles.shimmer} role="status">
-              正在工作
-            </span>
-          ) : message.stopped ? (
-            <span>已停止</span>
-          ) : elapsedMs === null ? (
-            <span>执行中断</span>
-          ) : (
-            <span className="tabular-nums">
-              {message.interrupted ? '执行中断' : '用时'} · {formatDuration(elapsedMs)}
-            </span>
-          )}
-        </div>
-      )}
+      {/* 只有异常态（运行中/手动停止/中断）才占一行说明；正常完成不渲染「用时」噪音行。 */}
+      {!hasActivity &&
+        message.startedAt !== undefined &&
+        (live || message.stopped || message.interrupted || elapsedMs === null) && (
+          <div className="mb-4 text-xs text-muted-foreground">
+            {live ? (
+              <span className={styles.shimmer} role="status">
+                正在工作
+              </span>
+            ) : message.stopped ? (
+              <span>已停止</span>
+            ) : (
+              <span>执行中断</span>
+            )}
+          </div>
+        )}
       {hasActivity ? (
         <>
           <WorkingSection

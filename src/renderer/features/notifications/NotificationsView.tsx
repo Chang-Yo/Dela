@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { NotificationFilter, NotificationItem, NotificationState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
+import { cn } from '../../lib/utils';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import {
   DropdownMenu,
@@ -238,7 +239,10 @@ export function NotificationsView({
             key={item.id}
           >
             <button
-              className="flex w-full items-start gap-3 p-4 pr-14 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn(
+                'flex w-full items-start gap-3 p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                !item.readAt && 'pr-14',
+              )}
               onClick={() => onOpen(item)}
               type="button"
             >
@@ -247,7 +251,7 @@ export function NotificationsView({
                 <span
                   className={
                     item.readAt
-                      ? 'block break-words text-sm font-medium'
+                      ? 'block break-words text-sm font-normal'
                       : 'block break-words text-sm font-semibold'
                   }
                 >
@@ -263,7 +267,7 @@ export function NotificationsView({
               {!item.readAt ? (
                 <span
                   aria-label="未读"
-                  className="mt-1 size-2 shrink-0 rounded-full bg-primary"
+                  className="mt-1 size-2 shrink-0 rounded-full bg-foreground"
                   role="status"
                 />
               ) : null}

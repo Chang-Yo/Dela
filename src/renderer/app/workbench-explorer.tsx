@@ -10,7 +10,7 @@ import {
   ChevronsDownUp,
   Ellipsis,
   FilePlus2,
-  FolderInput,
+  FileInput,
   FolderPlus,
   GraduationCap,
   KeyRound,
@@ -279,7 +279,7 @@ export function WorkbenchExplorer({
                     新建文件夹
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => importFromDialog(container())}>
-                    <FolderInput />
+                    <FileInput />
                     导入本地文件
                   </DropdownMenuItem>
                 </DropdownMenuContent>

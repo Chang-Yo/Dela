@@ -287,6 +287,7 @@ export function ChatComposer({
     <div
       className={cn(
         'relative rounded-3xl border bg-card shadow-xs transition-colors focus-within:border-ring/60',
+        dragging && 'border-transparent',
         className,
       )}
       onDragOver={(event) => {
@@ -427,7 +428,7 @@ export function ChatComposer({
             <Popover.Portal>
               <Popover.Content
                 align="end"
-                className="z-50 w-80 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                className="z-50 w-80 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
                 side="bottom"
                 sideOffset={6}
               >
@@ -535,7 +536,7 @@ export function ChatComposer({
             <Popover.Portal>
               <Popover.Content
                 align="end"
-                className="z-50 w-32 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                className="z-50 w-32 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
                 side="bottom"
                 sideOffset={6}
               >
@@ -591,7 +592,7 @@ export function ChatComposer({
       {/* min-w-56 下限在窄容器会越出 composer 边界（分屏时压到相邻组），≤260px 时收为贴容器宽。 */}
       {menuOpen && (
         <ul
-          className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-xl border bg-popover p-1 shadow-lg @max-[260px]:min-w-0"
+          className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-lg border bg-popover p-1 shadow-lg @max-[260px]:min-w-0"
           id={menuListId}
           role="listbox"
         >

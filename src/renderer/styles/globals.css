@@ -301,6 +301,10 @@
     cursor: pointer;
   }
 
+  button:disabled {
+    cursor: default;
+  }
+
   button:focus-visible,
   textarea:focus-visible,
   input:focus-visible {

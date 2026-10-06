@@ -176,7 +176,7 @@ export function AppearanceSection({
               onSelect={() => selectTheme(id)}
               selected={theme === id}
             >
-              <span className={cn('h-14 rounded-md border border-black/10', preview)} />
+              <span className={cn('h-14 rounded-md border border-border', preview)} />
             </OptionCard>
           ))}
         </div>
@@ -270,7 +270,7 @@ export function AppearanceSection({
             >
               <img
                 alt=""
-                className="h-14 w-14 justify-self-center rounded-md border border-black/10"
+                className="h-14 w-14 justify-self-center rounded-md border border-border"
                 src={src}
               />
             </OptionCard>

@@ -19,7 +19,7 @@ export function Switch({
       aria-checked={indeterminate ? 'mixed' : checked}
       aria-label={label}
       className={cn(
-        'h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        'h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50',
         checked ? 'bg-primary' : indeterminate ? 'bg-primary/40' : 'bg-input',
       )}
       disabled={disabled}
