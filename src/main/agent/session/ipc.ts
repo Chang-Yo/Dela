@@ -18,11 +18,16 @@ import {
   listSessions,
   newSession,
   openSession,
+  archivedSessions,
+  updateSessionVisibility,
+  archiveProjectSessions,
 } from './manager';
 import { pickChatMedia, readChatMediaPreview, releaseChatMedia, stageChatMedia } from './media';
 import { subscribeChat } from './subscriptions';
 
 const idSchema = z.string().uuid();
+// v13 原样迁移的旧会话使用 32 位十六进制 ID；附件与项目仍要求 UUID。
+const sessionIdSchema = idSchema.or(z.string().regex(/^[a-f0-9]{32}$/i));
 const askInputSchema = z.object({
   text: z.string().max(20000),
   attachments: z.array(idSchema).max(5),
@@ -50,15 +55,29 @@ export function registerAgentChannels() {
     ),
   );
   sessionHandle('create', (projectId) => newSession(projectIdSchema.parse(projectId)));
-  sessionHandle('open', (sessionId) => openSession(idSchema.parse(sessionId)));
+  sessionHandle('archived', () => archivedSessions());
+  sessionHandle('update', (id, patch) =>
+    updateSessionVisibility(
+      sessionIdSchema.parse(id),
+      z
+        .object({ archived: z.boolean().optional(), pinned: z.boolean().optional() })
+        .strict()
+        .parse(patch),
+    ),
+  );
+  sessionHandle('archive-project', (id) => archiveProjectSessions(projectIdSchema.parse(id)));
+  sessionHandle('open', (sessionId) => openSession(sessionIdSchema.parse(sessionId)));
   sessionHandle('remove', (sessionId) => {
-    deleteSession(idSchema.parse(sessionId));
+    const id = sessionIdSchema.parse(sessionId);
+    if (!archivedSessions().some((session) => session.id === id))
+      throw new Error('请先归档，再从设置中永久删除');
+    deleteSession(id);
   });
   sessionHandle('ask', (sessionId, input) =>
-    askSession(idSchema.parse(sessionId), askInputSchema.parse(input)),
+    askSession(sessionIdSchema.parse(sessionId), askInputSchema.parse(input)),
   );
   sessionHandle('cancel-run', (sessionId) => {
-    cancelRun(idSchema.parse(sessionId));
+    cancelRun(sessionIdSchema.parse(sessionId));
   });
   // Composer 暂存文件与自定义指令。
   const chatHandle = (

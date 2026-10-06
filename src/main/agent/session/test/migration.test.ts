@@ -163,11 +163,11 @@ describe('v13 migration: upgrade from chat_sessions', () => {
         )
         .get(),
     ).toBeUndefined();
-    expect(db.pragma('user_version', { simple: true })).toBe(13);
+    expect(db.pragma('user_version', { simple: true })).toBe(14);
   });
 
   it('creates a backup file before upgrading', () => {
-    expect(existsSync(join(roots[0]!, 'dela-before-v13.db'))).toBe(true);
+    expect(existsSync(join(roots[0]!, 'dela-before-v14.db'))).toBe(true);
   });
 
   it('cascades project deletion: archive row removed, session downgraded to general', () => {
@@ -181,16 +181,39 @@ describe('v13 migration: upgrade from chat_sessions', () => {
   });
 });
 
-describe('v13 migration: fresh install', () => {
+describe('v14 migration: upgrade an existing v13 session', () => {
+  it('keeps messages and compaction while adding visible, unpinned defaults and a backup', () => {
+    closeDatabase();
+    state.root = freshRoot();
+    let db = getDatabase();
+    const id = '0123456789abcdef0123456789abcdef';
+    const messages = JSON.stringify([{ role: 'user', content: '保留原有消息' }]);
+    db.prepare(
+      'INSERT INTO sessions(id, project_id, title, messages, summary, created_at, updated_at) VALUES (?, NULL, ?, ?, ?, ?, ?)',
+    ).run(id, '旧会话', messages, '旧摘要', '2026-09-29', '2026-09-29');
+    db.exec(
+      'DROP INDEX idx_sessions_visibility; ALTER TABLE sessions DROP COLUMN archived; ALTER TABLE sessions DROP COLUMN pinned',
+    );
+    db.pragma('user_version = 13');
+    closeDatabase();
+    db = getDatabase();
+    expect(
+      db.prepare('SELECT messages, summary, archived, pinned FROM sessions WHERE id=?').get(id),
+    ).toEqual({ messages, summary: '旧摘要', archived: 0, pinned: 0 });
+    expect(existsSync(join(state.root, 'dela-before-v14.db'))).toBe(true);
+  });
+});
+
+describe('v14 migration: fresh install', () => {
   beforeAll(() => {
     closeDatabase();
     state.root = freshRoot();
     getDatabase();
   });
 
-  it('builds the new schema directly at v13 with empty tables', () => {
+  it('builds the current schema directly at v14 with empty tables', () => {
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(13);
+    expect(db.pragma('user_version', { simple: true })).toBe(14);
     for (const table of ['projects', 'sessions', 'runs', 'note_versions']) {
       expect(
         db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table),

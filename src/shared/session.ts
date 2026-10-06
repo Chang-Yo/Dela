@@ -19,6 +19,8 @@ export interface ChatSessionSummary {
   title: string;
   updatedAt: string;
   messageCount: number;
+  pinned?: boolean;
+  projectId?: string | null;
 }
 
 export interface WorkspaceChat {
@@ -75,14 +77,17 @@ export interface RunEvent {
 
 /** 会话新身份 API（session:* 通道；renderer 阶段三接入，本批仅主进程与 preload 就位）。 */
 export interface SessionApi {
+  archived(): Promise<ChatSessionSummary[]>;
+  update(sessionId: string, patch: { archived?: boolean; pinned?: boolean }): Promise<void>;
+  archiveProject(projectId: string | null): Promise<string[]>;
   /** 列出会话：projectId 为 null 列通用池；query 按标题或消息原文过滤。 */
   list(projectId: string | null, query?: string): Promise<ChatSessionSummary[]>;
-  /** 新建会话（显式身份；空会话会进入历史，由 remove 清理）。 */
+  /** 复用所属项目的空会话；空会话不进入历史。 */
   create(projectId: string | null): Promise<WorkspaceChat>;
   /** 打开会话：读取快照，不产生执行。 */
   open(sessionId: string): Promise<WorkspaceChat>;
-  /** 删除会话；运行中先中断本轮。 */
-  remove(sessionId: string): void;
+  /** 永久删除已归档会话；运行中先中断本轮，仅设置中的管理入口调用。 */
+  remove(sessionId: string): Promise<void>;
   /** 发起一轮执行（同 session 串行、跨 session 并行）。 */
   ask(sessionId: string, input: ChatAskInput): Promise<WorkspaceChat>;
   cancelRun(sessionId: string): void;

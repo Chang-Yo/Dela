@@ -40,7 +40,13 @@ export function sessionRowWithoutMessages(id: string): SessionMetaRow | null {
 
 /** 会话快照：WorkspaceChat 形状不变（renderer 兼容）；running/activeTool 取自该 session 的活跃 Run。 */
 export function snapshot(row: SessionRow | SessionMetaRow | null): WorkspaceChat {
-  const provider = getActiveLlmProvider();
+  // 凭据不可读不能阻断历史/首页；实际执行仍在 ask 路径报告配置错误。
+  let provider: ReturnType<typeof getActiveLlmProvider> = null;
+  try {
+    provider = getActiveLlmProvider();
+  } catch {
+    // 快照只展示未配置状态，不尝试修复或覆盖凭据。
+  }
   const effortLevels = provider?.effortLevels ?? [];
   const run = row ? activeRuns.get(row.id) : undefined;
   return {
@@ -51,7 +57,8 @@ export function snapshot(row: SessionRow | SessionMetaRow | null): WorkspaceChat
     models: provider?.models ?? [],
     effortLevels,
     effort: effortLevels.length ? (provider?.effort ?? effortLevels[0]!) : null,
-    messages: row && 'messages' in row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
+    messages:
+      row && 'messages' in row ? (JSON.parse(row.messages) as WorkspaceChat['messages']) : [],
     running: run !== undefined,
     activeTool: run?.tool,
     compacting: row ? compactingSessions.has(row.id) : false,

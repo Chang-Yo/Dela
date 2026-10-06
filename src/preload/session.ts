@@ -3,6 +3,10 @@ import type { ChatAskInput, RunEvent, SessionApi, WorkspaceChat } from '../share
 import { invoke, on } from './lib';
 
 export const session = {
+  archived: () => invoke('session:archived'),
+  update: (id: string, patch: { archived?: boolean; pinned?: boolean }) =>
+    invoke('session:update', id, patch),
+  archiveProject: (id: string | null) => invoke('session:archive-project', id),
   list: (projectId: string | null, query = '') => invoke('session:list', projectId, query),
   create: (projectId: string | null) => invoke('session:create', projectId),
   open: (sessionId: string) => invoke('session:open', sessionId),

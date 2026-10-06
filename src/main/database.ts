@@ -236,6 +236,11 @@ const migrations: string[][] = [
     // 在 v13 迁移时间点之后的新增行，有则先补迁移再 DROP，否则该批会话将永久丢失。
     `DROP INDEX idx_chat_sessions_scope`,
   ],
+  [
+    'ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
+    'CREATE INDEX idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at)',
+  ],
 ];
 
 export function getDatabase(): Database.Database {

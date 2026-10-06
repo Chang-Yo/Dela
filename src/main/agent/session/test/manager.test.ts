@@ -47,6 +47,9 @@ import {
   listSessions,
   newSession,
   openSession,
+  updateSessionVisibility,
+  archivedSessions,
+  archiveProjectSessions,
 } from '../manager';
 import { activeRuns, interruptStaleRuns } from '../runs';
 import { sessionRow } from '../store';
@@ -163,8 +166,8 @@ describe('run lifecycle', () => {
       return { content: '一', toolResults: [] };
     });
     const a = newSession(null).sessionId!;
-    const b = newSession(null).sessionId!;
     const first = askSession(a, { text: '问题A', attachments: [], context: [] });
+    const b = newSession(null).sessionId!;
     // 同 session 第二个请求被拒（沿用现状错误语义）。
     await expect(askSession(a, { text: '问题B', attachments: [], context: [] })).rejects.toThrow(
       '请等待当前回答完成',
@@ -323,6 +326,39 @@ describe('multimodal ask input', () => {
 });
 
 describe('newSession ownership', () => {
+  it('archives without deleting messages, restores ownership, and keeps pins before recent chats', async () => {
+    const first = newSession(PROJECT_ID).sessionId!;
+    await askSession(first, { text: '保存历史', attachments: [], context: [] });
+    const second = newSession(PROJECT_ID).sessionId!;
+    await askSession(second, { text: '较新历史', attachments: [], context: [] });
+    updateSessionVisibility(first, { pinned: true });
+    expect(listSessions(PROJECT_ID, '')[0]!.id).toBe(first);
+    const messages = openSession(first).messages;
+    updateSessionVisibility(first, { archived: true });
+    expect(listSessions(PROJECT_ID, '').map((session) => session.id)).toEqual([second]);
+    expect(listSessions(PROJECT_ID, '保存')).toEqual([]);
+    expect(archivedSessions()[0]).toMatchObject({ id: first, projectId: PROJECT_ID });
+    expect(openSession(first).messages).toEqual(messages);
+    updateSessionVisibility(first, { archived: false });
+    expect(listSessions(PROJECT_ID, '')[0]!.id).toBe(first);
+    const general = newSession(null).sessionId!;
+    expect(archiveProjectSessions(PROJECT_ID)).toEqual(expect.arrayContaining([first, second]));
+    expect(listSessions(PROJECT_ID, '')).toEqual([]);
+    expect(archivedSessions().map((session) => session.id)).not.toContain(general);
+    expect(newSession(PROJECT_ID).sessionId).not.toBe(first);
+  });
+  it('reuses the empty conversation per project and creates another after the first message', async () => {
+    const first = newSession(PROJECT_ID).sessionId!;
+    expect(newSession(PROJECT_ID).sessionId).toBe(first);
+    const general = newSession(null).sessionId!;
+    expect(general).not.toBe(first);
+    expect(newSession(null).sessionId).toBe(general);
+    await askSession(first, { text: '开始讨论', attachments: [], context: [] });
+    const next = newSession(PROJECT_ID).sessionId!;
+    expect(next).not.toBe(first);
+    expect(newSession(PROJECT_ID).sessionId).toBe(next);
+    expect(openSession(first).messages.length).toBeGreaterThan(0);
+  });
   it('attaches sessions to existing projects and ensures the archive row', async () => {
     const chat = newSession(PROJECT_ID);
     expect(sessionRow(chat.sessionId!)!.project_id).toBe(PROJECT_ID);
@@ -330,14 +366,27 @@ describe('newSession ownership', () => {
     expect(
       getDatabase().prepare('SELECT id FROM projects WHERE id=?').get(PROJECT_ID),
     ).toBeDefined();
-    // 通用池列表可见，项目列表不可见。
-    expect(listSessions(PROJECT_ID, '')).toHaveLength(1);
+    // 空会话不进历史列表（发送首条消息后才可见）。
+    expect(listSessions(PROJECT_ID, '')).toEqual([]);
     expect(listSessions(null, '')).toEqual([]);
   });
 
   it('rejects creation for ids that are not existing project entries', () => {
     expect(() => newSession(FOLDER_ID)).toThrow('项目不存在');
     expect(() => newSession('garbage-scope')).toThrow('项目不存在');
+  });
+});
+
+describe('listSessions empty-session filter', () => {
+  it('空会话不进列表，发送首条消息后出现', async () => {
+    const sessionId = newSession(null).sessionId!;
+    // 无 query 与按标题搜索（query 分支）都过滤空会话。
+    expect(listSessions(null, '')).toEqual([]);
+    expect(listSessions(null, '新对话')).toEqual([]);
+    await askSession(sessionId, { text: '检索策略讨论', attachments: [], context: [] });
+    // 首条消息为会话命名：无 query 与按标题搜索都命中。
+    expect(listSessions(null, '')).toHaveLength(1);
+    expect(listSessions(null, '检索策略')).toHaveLength(1);
   });
 });
 

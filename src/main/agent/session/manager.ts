@@ -90,6 +90,13 @@ function createSessionRow(projectId: string | null): SessionRow {
 }
 
 export function newSession(projectId: string | null): WorkspaceChat {
+  // 新对话是每个项目的单一空入口，首条消息发送后才需要创建下一个。
+  const empty = getDatabase()
+    .prepare(
+      'SELECT * FROM sessions WHERE project_id IS ? AND archived = 0 AND json_array_length(messages) = 0 ORDER BY updated_at DESC LIMIT 1',
+    )
+    .get(projectId) as SessionRow | undefined;
+  if (empty && !activeRuns.has(empty.id)) return snapshot(empty);
   return snapshot(createSessionRow(projectId));
 }
 
@@ -108,16 +115,48 @@ export function deleteSession(sessionId: string): void {
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(sessionId);
 }
 
+/** 历史列表只含已有消息的会话：空会话可创建、可绑定标签，发送首条消息后才对列表消费方可见。 */
 export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
   const sql = query
-    ? "SELECT id, title, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM sessions WHERE project_id IS ? AND (title LIKE ? ESCAPE '\\' OR messages LIKE ? ESCAPE '\\') ORDER BY updated_at DESC LIMIT 100"
-    : 'SELECT id, title, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM sessions WHERE project_id IS ? ORDER BY updated_at DESC LIMIT 100';
+    ? "SELECT id, title, pinned, project_id AS projectId, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM sessions WHERE project_id IS ? AND archived = 0 AND json_array_length(messages) > 0 AND (title LIKE ? ESCAPE '\\' OR messages LIKE ? ESCAPE '\\') ORDER BY pinned DESC, updated_at DESC LIMIT 100"
+    : 'SELECT id, title, pinned, project_id AS projectId, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM sessions WHERE project_id IS ? AND archived = 0 AND json_array_length(messages) > 0 ORDER BY pinned DESC, updated_at DESC LIMIT 100';
   return getDatabase()
     .prepare(sql)
     .all(
       ...(query ? [projectId, pattern, pattern] : [projectId]),
     ) as unknown as ChatSessionSummary[];
+}
+
+export function archivedSessions(): ChatSessionSummary[] {
+  return getDatabase()
+    .prepare(
+      'SELECT id, title, pinned, project_id AS projectId, updated_at AS updatedAt, json_array_length(messages) AS messageCount FROM sessions WHERE archived = 1 ORDER BY updated_at DESC',
+    )
+    .all() as ChatSessionSummary[];
+}
+
+export function updateSessionVisibility(
+  id: string,
+  patch: { archived?: boolean; pinned?: boolean },
+): void {
+  if (!sessionRow(id)) throw new Error('会话不存在');
+  const db = getDatabase();
+  db.transaction(() => {
+    if (patch.archived !== undefined)
+      db.prepare('UPDATE sessions SET archived=? WHERE id=?').run(Number(patch.archived), id);
+    if (patch.pinned !== undefined)
+      db.prepare('UPDATE sessions SET pinned=? WHERE id=?').run(Number(patch.pinned), id);
+  })();
+}
+
+export function archiveProjectSessions(projectId: string | null): string[] {
+  const db = getDatabase();
+  const ids = db
+    .prepare('SELECT id FROM sessions WHERE project_id IS ? AND archived = 0')
+    .all(projectId) as { id: string }[];
+  db.prepare('UPDATE sessions SET archived=1 WHERE project_id IS ?').run(projectId);
+  return ids.map(({ id }) => id);
 }
 
 export function cancelRun(sessionId: string) {
