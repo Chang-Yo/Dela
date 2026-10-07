@@ -425,7 +425,7 @@ const AssistantMessage = memo(function AssistantMessage({
   );
 });
 
-/** 对话消息流：发送后用户消息锚定视口顶部，回复在其下生长；工具步骤折叠展示。
+/** 对话消息流：发送后贴底展示，用户上滚时暂停跟随；工具步骤折叠展示。
  *  memo：props 全为稳定引用/原始值（草稿订阅已下沉到 ChatComposerArea），
  *  会话视图内输入区、错误提示等局部变化不带动消息列表重渲。 */
 export const ChatThread = memo(function ChatThread({
@@ -446,7 +446,6 @@ export const ChatThread = memo(function ChatThread({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const spacerRef = useRef<HTMLDivElement>(null);
   const followBottom = useRef(false);
   const [atBottom, setAtBottom] = useState(true);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -483,17 +482,16 @@ export const ChatThread = memo(function ChatThread({
   }, []);
 
   const anchoredKey = useRef<string | null>(null);
+  const replyStartedAt = messages[lastUserIndex + 1]?.startedAt;
   useLayoutEffect(() => {
     const viewport = scrollRef.current;
     const content = contentRef.current;
-    const spacer = spacerRef.current;
-    if (!viewport || !content || !spacer) return;
+    if (!viewport || !content) return;
     // 回合身份 = 会话 + 最后一条用户消息索引 + 回复行 startedAt：editLast 按同索引
     // 整表重发时回复行重建（startedAt 更新），据此重新锚定；流式增长不动这个键。
-    const key = `${chat.sessionId}:${lastUserIndex}:${messages[lastUserIndex + 1]?.startedAt ?? ''}`;
+    const key = `${chat.sessionId}:${lastUserIndex}:${replyStartedAt ?? ''}`;
     if (anchoredKey.current !== key) {
       anchoredKey.current = key;
-      spacer.style.height = '0px';
       // ChatGPT 式：新回合贴底展示（用户消息下方就是流式输出），流式期间自动跟随
       // 最新内容；用户上滚即退出跟随（见 onScroll），回到底部或点按钮恢复。
       followBottom.current = streaming;
@@ -502,9 +500,7 @@ export const ChatThread = memo(function ChatThread({
     const resize = () => {
       // 字号可能已变：行高缓存失效，本次随 onScroll 重新计算。
       lineHeightRef.current = 0;
-      // 保留当前滚动位置所需的最小空白；回答增长时逐渐消耗，不在结束时突然归零。
-      const heightWithoutReserve = content.scrollHeight - spacer.offsetHeight;
-      spacer.style.height = `${Math.max(0, viewport.scrollTop + viewport.clientHeight - heightWithoutReserve)}px`;
+      // 只跟随实际消息底部，不根据滚动位置改变被观察内容的高度。
       if (followBottom.current) viewport.scrollTop = viewport.scrollHeight;
       onScroll();
     };
@@ -520,7 +516,7 @@ export const ChatThread = memo(function ChatThread({
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [chat.sessionId, lastUserIndex, streaming]);
+  }, [chat.sessionId, lastUserIndex, replyStartedAt, streaming, onScroll]);
 
   // 邮件草稿弹窗由容器注入：读取草稿、账号校验、关闭守卫与发送都在注入组件内完成，
   // 本组件只负责入口与发送后的提示文案。
@@ -559,7 +555,6 @@ export const ChatThread = memo(function ChatThread({
               />
             ),
           )}
-          <div ref={spacerRef} aria-hidden="true" className="h-0" />
         </div>
       </div>
       {!atBottom && messages.length > 0 && (

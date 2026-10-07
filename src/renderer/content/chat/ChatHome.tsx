@@ -1,4 +1,4 @@
-// 首页只负责开始聊天；有消息后进入相同会话的标签，历史与运行状态仍由 sessions 管理。
+// 随聊的新建与发送留在首页聊天；历史与运行状态仍由 sessions 管理。
 import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceChat } from '../../../shared/api';
 import { useNavigationStore } from '../../app/navigation';
@@ -8,7 +8,7 @@ import { ChatTab } from './ChatTab';
 
 export function ChatHome() {
   const request = useNavigationStore((state) => state.generalChat);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [session, setSession] = useState<{ id: string; seq: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef<{ seq: number; promise: Promise<WorkspaceChat> } | null>(null);
   useEffect(() => {
@@ -35,7 +35,7 @@ export function ChatHome() {
         if (!active) return;
         if (!chat.sessionId) throw new Error('会话创建失败');
         useSessions.getState().putChat(chat.sessionId, chat);
-        setSessionId(chat.sessionId);
+        setSession({ id: chat.sessionId, seq });
         void useSessions
           .getState()
           .refresh(null)
@@ -48,7 +48,8 @@ export function ChatHome() {
       active = false;
     };
   }, [request]);
-  if (!sessionId)
+  // 新请求返回前不渲染旧会话，避免沿用旧输入状态或显示已完成的消息。
+  if (!session || session.seq !== (request?.seq ?? 0))
     return (
       <div
         className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground"
@@ -57,11 +58,5 @@ export function ChatHome() {
         {error ?? '正在打开对话…'}
       </div>
     );
-  return (
-    <ChatTab
-      tabId={`chat:${sessionId}`}
-      groupId="home"
-      onConversation={() => useNavigationStore.getState().openChat(sessionId, null)}
-    />
-  );
+  return <ChatTab key={session.id} tabId={`chat:${session.id}`} groupId="home" />;
 }

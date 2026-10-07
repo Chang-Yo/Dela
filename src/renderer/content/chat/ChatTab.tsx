@@ -30,14 +30,7 @@ const GENERAL_SELECT_VALUE = '__general__';
 /** 会话作为标签内容（AgentPanel 去面板化：无 aside、无宽度与开关逻辑）。
  *  会话身份来自 tabId（chat:{sessionId}）；引用候选、邮件草稿弹窗与项目归属经
  *  ChatTabSourceProvider 注入（3B 接线），未挂 Provider 时按通用池、无注入运行。 */
-export function ChatTab({
-  tabId,
-  onConversation,
-}: {
-  tabId: TabId;
-  groupId: string;
-  onConversation?: () => void;
-}) {
+export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
   const sessionId = parseChatTabId(tabId);
   const source = useChatTabSource();
   const session = useChatSession(source?.projectId ?? null, sessionId ?? '');
@@ -92,7 +85,6 @@ export function ChatTab({
       referenceOptions={referenceOptions}
       referenceSource={referenceSource}
       session={session}
-      onConversation={onConversation}
     />
   );
 }
@@ -193,7 +185,6 @@ const ChatSessionView = memo(function ChatSessionView({
   mailDialog,
   onOpenSource,
   onSaveNote,
-  onConversation,
 }: {
   session: ReturnType<typeof useChatSession>;
   /** 已收窄为非 null 的当前会话（父组件处理删除后的空态）。 */
@@ -204,7 +195,6 @@ const ChatSessionView = memo(function ChatSessionView({
   mailDialog?: MailDraftDialog;
   onOpenSource?: (key: string) => void;
   onSaveNote?: (text: string) => void;
-  onConversation?: () => void;
 }) {
   const chatState = useChat(active, referenceSource);
   const { chat, busy, editLast } = chatState;
@@ -213,9 +203,6 @@ const ChatSessionView = memo(function ChatSessionView({
   // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
   const conversation = chat && (busy || chat.messages.length > 0 || chat.running);
-  useEffect(() => {
-    if (chat?.messages.length) onConversation?.();
-  }, [chat?.messages.length, onConversation]);
 
   const composer = (hero: boolean) => (
     <ChatComposerArea

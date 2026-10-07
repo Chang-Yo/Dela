@@ -10,6 +10,21 @@
 
 ---
 
+## 2026-10-07 随聊发送后误切入资料工作台修复
+
+- 用户确认：回复仍在，但发送后出现课程资料/我的资料目录。原因是 `ChatHome` 通过 `onConversation` 在消息非空时调用 `openChat(sessionId, null)`，把首页切为带资料目录的通用工作台；同一会话仍在，页面外壳发生了自动切换。移除这条自动导航及仅用于它的回调传递；随聊发送后继续在首页展示消息与回复，历史和运行状态沿用 sessions 镜像。
+- 新对话请求携带序号，首页只渲染与当前请求对应的返回会话；等待期间显示打开状态，避免保留旧消息。`ChatTab` 按 sessionId 设置 key，切换身份时重置局部输入/弹窗状态，草稿仍按会话持久化。依据 [React 状态重置文档](https://react.dev/learn/preserving-and-resetting-state)。
+- **已验证**：回归先复现首条发送将 view 改为 workbench、新请求等待期间仍显示旧会话；修复后发送保持 home 且显示回复，新会话绑定其自身草稿。相关聊天 13 项测试、renderer TypeScript 与改动代码 lint 通过。
+- **待验证**：Electron 中随聊发送保持聊天页、连续新建的实际观感；本轮未执行构建或打包。
+
+## 2026-10-07 聊天区自动滚动与底部空白修复
+
+- 用户反馈发送消息后持续下滚、底部出现大量空白。`ChatThread` 已采用贴底跟随，仍保留旧的动态 spacer：以 `scrollTop + clientHeight - 内容高度` 填补空白，并将它计入下一次滚动目标；spacer 又处于 ResizeObserver 观察范围内，存在尺寸写入反馈。参照 [MDN ResizeObserver 的循环依赖说明](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver#observation_errors)，直接移除占位元素与高度写入，只对真实消息内容进行滚动跟随。
+- **已验证的复现**：尺寸边界模拟中，工作过程从 1200px 收起到 300px 时，旧实现生成 900px 空白、保留旧滚动底部；修复后滚动范围恢复为视口高度，位置回到真实消息区域。该测试证明额外空白问题，持续逐帧增长的真实触发条件尚未实机复现。
+- 保留上滚暂停跟随、回到底部恢复跟随及 observer/rAF 清理；将回复 `startedAt` 纳入 Effect 依赖，修复同索引编辑重发的新回复已就位而 `running` 未再次变化时不重新跟随的问题。
+- **已验证**：4 项 ChatThread 回归（空白、暂停/恢复、重复尺寸通知与卸载、同索引重发）及聊天发送/Run 镜像相关测试共 15 项通过；renderer TypeScript、改动代码 lint 与格式检查通过。
+- **待验证**：Electron 中流式回答、工作过程收起、手动上滚的实际滚动观感，由用户审阅；未使用 Playwright 或动画多帧探针，未执行构建或打包。
+
 ## 2026-10-07 空组「展开目录」按钮锚定修复
 
 - 用户截图反馈：项目无标签且目录折叠时，展开按钮落在内容区正中（空态居中栈把 ExplorerRevealButton 一并居中），视觉上像孤立悬浮图标。修复：按钮从 EmptyState 居中栈移除，改由 TabGroup 在空组内绝对定位到标签栏左端同一坐标（left/top 8px，与 TabBar 容器 px-2 pt-1 + 按钮 self-end mb-1 的落点逐像素一致）——最后一个标签关闭时按钮零位移；同时收敛到与 TabBar 相同的「只在焦点组出现」规则（空态原先不分焦点重复出现）。

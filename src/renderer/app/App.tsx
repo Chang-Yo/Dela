@@ -257,8 +257,8 @@ export default function App() {
                 className="flex min-h-0 flex-1 flex-col"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0, y: 4 }}
-                // home 与工作台共用同一装配壳（WorkbenchShell），key 分开会让首条消息
-                // 切入工作台时整壳淡出重挂、布局重新载入，闪一次如同整页重载。
+                // home 与工作台共用装配壳和 key；主动打开项目或资料时复用宿主，
+                // 避免整壳淡出重挂与布局重复载入。
                 key={view === 'home' || view === 'workbench' ? 'workspace' : view}
                 transition={{ duration: 0.16 }}
               >
