@@ -76,18 +76,20 @@ export function CommandsSection() {
   };
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-10">
       <SectionHeader title="自定义指令" />
       {!window.dela ? (
         <p className="text-sm text-muted-foreground">指令配置仅在桌面端可用。</p>
       ) : (
         <>
-          <section className="grid gap-2.5" data-setting-id="instruction">
-            <h2 className="text-sm font-medium">Instruction</h2>
-            {/* 说明注入时机与边界：用户指令优先于资料与历史，但不越过基础设定的安全约束。 */}
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              随每次对话发送给模型；优先级仅次于系统设定，留空则不发送。
-            </p>
+          <section className="grid gap-3" data-setting-id="instruction">
+            <div className="grid gap-1">
+              <h2 className="text-base font-semibold">Instruction</h2>
+              {/* 说明注入时机与边界：用户指令优先于资料与历史，但不越过基础设定的安全约束。 */}
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                随每次对话发送给模型；优先级仅次于系统设定，留空则不发送。
+              </p>
+            </div>
             <textarea
               aria-label="Instruction"
               className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:border-ring/60"
@@ -122,86 +124,88 @@ export function CommandsSection() {
               </p>
             )}
           </section>
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <h2 className="text-sm font-medium">快捷指令</h2>
-            <Button onClick={() => setDialog({ mode: 'create' })} size="sm" variant="secondary">
-              <Plus />
-              新建指令
-            </Button>
-          </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            输入 / 名称手动触发，仅该轮生效。
-          </p>
-          {commands !== null && commands.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              还没有自定义指令，例如「周报」：汇总本周日程与未读邮件。
+          <section className="grid gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">快捷指令</h2>
+              <Button onClick={() => setDialog({ mode: 'create' })} size="sm" variant="secondary">
+                <Plus />
+                新建指令
+              </Button>
+            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              输入 / 名称手动触发，仅该轮生效。
             </p>
-          )}
-          {commands !== null && commands.length > 0 && (
-            <ul className="grid">
-              {commands.map((command) => (
-                <li
-                  className="flex min-h-14 items-center justify-between gap-4 border-b last:border-0"
-                  key={command.id}
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-                      <Terminal className="size-4 text-muted-foreground" strokeWidth={1.8} />
-                    </span>
-                    <div className="grid min-w-0 gap-0.5">
-                      <strong className="truncate text-sm">/{command.name}</strong>
-                      <span
-                        className="truncate text-xs text-muted-foreground"
-                        title={command.prompt}
-                      >
-                        {command.prompt}
+            {commands !== null && commands.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                还没有自定义指令，例如「周报」：汇总本周日程与未读邮件。
+              </p>
+            )}
+            {commands !== null && commands.length > 0 && (
+              <ul className="grid">
+                {commands.map((command) => (
+                  <li
+                    className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
+                    key={command.id}
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
+                        <Terminal className="size-4 text-muted-foreground" strokeWidth={1.8} />
                       </span>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      aria-label={`编辑 ${command.name}`}
-                      onClick={() => setDialog({ mode: 'edit', command })}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <Pencil />
-                    </Button>
-                    {confirmId === command.id ? (
-                      <>
-                        <Button
-                          disabled={busy}
-                          onClick={() => void remove(command.id)}
-                          size="sm"
-                          variant="destructive"
+                      <div className="grid min-w-0 gap-0.5">
+                        <strong className="truncate text-sm">/{command.name}</strong>
+                        <span
+                          className="truncate text-xs text-muted-foreground"
+                          title={command.prompt}
                         >
-                          确认删除
-                        </Button>
-                        <Button onClick={() => setConfirmId(null)} size="sm" variant="ghost">
-                          取消
-                        </Button>
-                      </>
-                    ) : (
+                          {command.prompt}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
                       <Button
-                        aria-label={`删除 ${command.name}`}
-                        disabled={busy}
-                        onClick={() => setConfirmId(command.id)}
+                        aria-label={`编辑 ${command.name}`}
+                        onClick={() => setDialog({ mode: 'edit', command })}
                         size="icon-sm"
                         variant="ghost"
                       >
-                        <Trash2 />
+                        <Pencil />
                       </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {error && (
-            <p className="text-xs text-destructive" role="alert">
-              {error}
-            </p>
-          )}
+                      {confirmId === command.id ? (
+                        <>
+                          <Button
+                            disabled={busy}
+                            onClick={() => void remove(command.id)}
+                            size="sm"
+                            variant="destructive"
+                          >
+                            确认删除
+                          </Button>
+                          <Button onClick={() => setConfirmId(null)} size="sm" variant="ghost">
+                            取消
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          aria-label={`删除 ${command.name}`}
+                          disabled={busy}
+                          onClick={() => setConfirmId(command.id)}
+                          size="icon-sm"
+                          variant="ghost"
+                        >
+                          <Trash2 />
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {error && (
+              <p className="text-xs text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+          </section>
           {dialog && (
             <CommandFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={refresh} />
           )}

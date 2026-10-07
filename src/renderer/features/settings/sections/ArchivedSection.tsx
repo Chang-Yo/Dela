@@ -128,159 +128,163 @@ export function ArchivedSection() {
   );
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-10">
       <SectionHeader title="已归档" />
       {!window.dela ? (
         <p className="text-sm text-muted-foreground">已归档对话管理仅在桌面端可用。</p>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-52 flex-1">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                aria-label="搜索已归档对话"
-                className="pl-8"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索已归档对话"
-                value={query}
-              />
-            </div>
-            <Select onValueChange={setProjectFilter} value={projectFilter}>
-              <SelectTrigger aria-label="按项目筛选">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={allProjects}>全部项目</SelectItem>
-                {projectOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              disabled={busy || !sessions?.length}
-              onClick={() => setConfirm(confirm?.kind === 'all' ? null : { kind: 'all' })}
-              size="sm"
-              variant="ghost"
-            >
-              <Trash2 />
-              全部删除
-            </Button>
-          </div>
-          {/* 永久删除不可逆：破坏性操作的必要警示。 */}
-          <p className="text-xs text-muted-foreground">
-            恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
-          </p>
-          {confirm?.kind === 'all' && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
-              <span className="text-xs">
-                永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
-              </span>
-              <Button
-                disabled={busy}
-                onClick={() => void removeAll()}
-                size="sm"
-                variant="destructive"
-              >
-                确认全部删除
-              </Button>
-              <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
-                取消
-              </Button>
-            </div>
-          )}
-          {error && (
-            <p className="text-xs text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          {sessions !== null && sessions.length === 0 && (
-            <p className="text-sm text-muted-foreground">没有已归档对话</p>
-          )}
-          {sessions !== null && sessions.length > 0 && groups.length === 0 && (
-            <p className="text-sm text-muted-foreground">没有匹配的已归档对话</p>
-          )}
-          {groups.map((group) => (
-            <section className="grid gap-2" key={group.id ?? 'general'}>
-              <div className="flex items-center gap-2">
-                <Folder aria-hidden="true" className="size-3.5 text-muted-foreground" />
-                <h2 className="text-sm font-medium">{group.name}</h2>
-                <span className="text-xs text-muted-foreground">{group.sessions.length} 条</span>
+          <div className="grid gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-52 flex-1">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  aria-label="搜索已归档对话"
+                  className="pl-8"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="搜索已归档对话"
+                  value={query}
+                />
               </div>
-              <ul className="grid">
-                {group.sessions.map((session) => (
-                  <li
-                    className="flex items-center justify-between gap-3 border-b py-2.5 last:border-0"
-                    key={session.id}
-                  >
-                    <div className="grid min-w-0 gap-0.5">
-                      <span className="truncate text-sm" title={session.title}>
-                        {session.title || '新对话'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(session.updatedAt).toLocaleString('zh-CN')}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {confirm?.kind === 'one' && confirm.id === session.id ? (
-                        <>
-                          <Button
-                            disabled={busy}
-                            onClick={() => void change(session.id, true)}
-                            size="sm"
-                            variant="destructive"
-                          >
-                            确认永久删除
-                          </Button>
-                          <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
-                            取消
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            aria-label={`查看 ${session.title}`}
-                            onClick={() =>
-                              useNavigationStore
-                                .getState()
-                                .openChat(session.id, session.projectId ?? null)
-                            }
-                            size="icon-sm"
-                            title="查看对话"
-                            variant="ghost"
-                          >
-                            <Eye />
-                          </Button>
-                          <Button
-                            disabled={busy}
-                            onClick={() => void change(session.id, false)}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            恢复
-                          </Button>
-                          <Button
-                            aria-label={`永久删除 ${session.title}`}
-                            disabled={busy}
-                            onClick={() => setConfirm({ kind: 'one', id: session.id })}
-                            size="icon-sm"
-                            title="永久删除"
-                            variant="ghost"
-                          >
-                            <Trash2 />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+              <Select onValueChange={setProjectFilter} value={projectFilter}>
+                <SelectTrigger aria-label="按项目筛选">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={allProjects}>全部项目</SelectItem>
+                  {projectOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                disabled={busy || !sessions?.length}
+                onClick={() => setConfirm(confirm?.kind === 'all' ? null : { kind: 'all' })}
+                size="sm"
+                variant="ghost"
+              >
+                <Trash2 />
+                全部删除
+              </Button>
+            </div>
+            {/* 永久删除不可逆：破坏性操作的必要警示。 */}
+            <p className="text-xs text-muted-foreground">
+              恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
+            </p>
+            {confirm?.kind === 'all' && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+                <span className="text-xs">
+                  永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
+                </span>
+                <Button
+                  disabled={busy}
+                  onClick={() => void removeAll()}
+                  size="sm"
+                  variant="destructive"
+                >
+                  确认全部删除
+                </Button>
+                <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
+                  取消
+                </Button>
+              </div>
+            )}
+            {error && (
+              <p className="text-xs text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+            {sessions !== null && sessions.length === 0 && (
+              <p className="text-sm text-muted-foreground">没有已归档对话</p>
+            )}
+            {sessions !== null && sessions.length > 0 && groups.length === 0 && (
+              <p className="text-sm text-muted-foreground">没有匹配的已归档对话</p>
+            )}
+          </div>
+          <div className="grid gap-8">
+            {groups.map((group) => (
+              <section className="grid gap-2" key={group.id ?? 'general'}>
+                <div className="flex items-center gap-2">
+                  <Folder aria-hidden="true" className="size-4 text-muted-foreground" />
+                  <h2 className="text-base font-semibold">{group.name}</h2>
+                  <span className="text-xs text-muted-foreground">{group.sessions.length} 条</span>
+                </div>
+                <ul className="grid">
+                  {group.sessions.map((session) => (
+                    <li
+                      className="flex items-center justify-between gap-3 border-b py-3 last:border-0"
+                      key={session.id}
+                    >
+                      <div className="grid min-w-0 gap-0.5">
+                        <span className="truncate text-sm" title={session.title}>
+                          {session.title || '新对话'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(session.updatedAt).toLocaleString('zh-CN')}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {confirm?.kind === 'one' && confirm.id === session.id ? (
+                          <>
+                            <Button
+                              disabled={busy}
+                              onClick={() => void change(session.id, true)}
+                              size="sm"
+                              variant="destructive"
+                            >
+                              确认永久删除
+                            </Button>
+                            <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
+                              取消
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              aria-label={`查看 ${session.title}`}
+                              onClick={() =>
+                                useNavigationStore
+                                  .getState()
+                                  .openChat(session.id, session.projectId ?? null)
+                              }
+                              size="icon-sm"
+                              title="查看对话"
+                              variant="ghost"
+                            >
+                              <Eye />
+                            </Button>
+                            <Button
+                              disabled={busy}
+                              onClick={() => void change(session.id, false)}
+                              size="sm"
+                              variant="secondary"
+                            >
+                              恢复
+                            </Button>
+                            <Button
+                              aria-label={`永久删除 ${session.title}`}
+                              disabled={busy}
+                              onClick={() => setConfirm({ kind: 'one', id: session.id })}
+                              size="icon-sm"
+                              title="永久删除"
+                              variant="ghost"
+                            >
+                              <Trash2 />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
         </>
       )}
     </div>

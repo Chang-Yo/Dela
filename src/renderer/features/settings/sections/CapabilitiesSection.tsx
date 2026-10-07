@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { LoaderCircle, Lock } from 'lucide-react';
 import type { AgentCapabilityView } from '../../../../shared/api';
 import { Switch } from '../../../components/ui/switch';
-import { cn } from '../../../lib/utils';
 import { SectionHeader } from '../SectionHeader';
 import { errorText } from '../../../workspace/store';
 
@@ -51,12 +50,11 @@ export function CapabilitiesSection() {
   };
 
   return (
-    <div className="grid gap-5" data-setting-id="capabilities">
-      <SectionHeader title="内置能力" />
-      {/* 作用范围：只影响 Agent 的工具，不影响应用自身的同步与界面。 */}
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        内置 Agent 能力：关闭后不再提供给模型，应用自身的同步与界面不受影响。
-      </p>
+    <div className="grid gap-10" data-setting-id="capabilities">
+      <SectionHeader
+        description="关闭后不再提供给模型；应用自身的同步与界面不受影响。"
+        title="内置能力"
+      />
       {!window.dela ? (
         <p className="text-sm text-muted-foreground">内置能力配置仅在桌面端可用。</p>
       ) : (
@@ -68,19 +66,19 @@ export function CapabilitiesSection() {
             </p>
           ) : null}
           {capabilities && (
-            <div className="grid gap-5">
+            <div className="grid gap-10">
               {groupByDomain(capabilities).map((group) => {
                 const toggleable = group.items.filter((item) => !item.lockedReason);
                 const enabledCount = toggleable.filter((item) => item.enabled).length;
                 const allEnabled = enabledCount === toggleable.length && toggleable.length > 0;
                 return (
                   <section
-                    className="grid gap-2 border-b pb-5 last:border-0 last:pb-0"
+                    className="grid gap-2"
                     data-setting-id={`capabilities-${group.id}`}
                     key={group.id}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-sm font-medium">{group.label}</h2>
+                      <h2 className="text-base font-semibold">{group.label}</h2>
                       <Switch
                         checked={allEnabled}
                         disabled={busy || toggleable.length === 0}
@@ -91,13 +89,9 @@ export function CapabilitiesSection() {
                         }
                       />
                     </div>
-                    {/* 与 SystemNotifications 同一分隔策略：标题无边框、行间 border-b。 */}
-                    {group.items.map((capability, index) => (
+                    {group.items.map((capability) => (
                       <div
-                        className={cn(
-                          'flex items-start justify-between gap-4 py-1.5',
-                          index < group.items.length - 1 && 'border-b pb-3',
-                        )}
+                        className="flex items-start justify-between gap-4 border-b py-3 last:border-0"
                         data-setting-id={`capability-${capability.name}`}
                         key={capability.name}
                       >

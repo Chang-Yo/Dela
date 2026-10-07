@@ -265,7 +265,7 @@ export function LlmSection() {
 
   if (!window.dela) {
     return (
-      <div className="grid gap-5" data-setting-id="providers">
+      <div className="grid gap-10" data-setting-id="providers">
         <SectionHeader title="模型供应商" />
         <p className="text-sm text-muted-foreground">模型供应商配置仅在桌面端可用。</p>
       </div>
@@ -297,20 +297,19 @@ export function LlmSection() {
   };
 
   return (
-    <div className="grid gap-5" data-setting-id="providers">
-      <SectionHeader title="模型供应商" />
-      {/* 主从两栏：左栏固定 15rem（w-60 档）承载列表，右栏是详情表单；中屏以下改为上下堆叠。 */}
-      <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6">
-        <div className="grid content-start gap-1">
-          <Button
-            className="justify-self-start"
-            onClick={() => setDetail({ mode: 'create' })}
-            size="sm"
-            variant="secondary"
-          >
+    <div className="grid gap-10" data-setting-id="providers">
+      <SectionHeader
+        action={
+          <Button onClick={() => setDetail({ mode: 'create' })} size="sm" variant="secondary">
             <Plus />
             添加提供商
           </Button>
+        }
+        title="模型供应商"
+      />
+      {/* 主从两栏：左栏固定 15rem（w-60 档）承载列表，右栏是详情表单；中屏以下改为上下堆叠。 */}
+      <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6">
+        <div className="grid content-start gap-1">
           {groups.map(({ label, items }) =>
             items.length ? (
               <div className="grid" key={label}>
@@ -593,7 +592,9 @@ function ProviderDetail({
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
             <Server className="size-4 text-muted-foreground" strokeWidth={1.8} />
           </span>
-          <strong className="truncate text-sm">{provider?.name ?? '新建提供商'}</strong>
+          <strong className="truncate text-base font-semibold">
+            {provider?.name ?? '新建提供商'}
+          </strong>
         </div>
         {provider && (
           <div className="flex shrink-0 items-center gap-2">

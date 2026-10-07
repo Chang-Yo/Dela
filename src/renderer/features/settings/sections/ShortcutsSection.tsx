@@ -88,30 +88,29 @@ export function ShortcutsSection() {
   const conflicts = findShortcutConflicts(bindings);
 
   return (
-    <div className="grid gap-5" data-setting-id="shortcuts">
-      <SectionHeader title="快捷键" />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          点击键位后按下新组合即可修改；Esc 取消，Backspace
-          解除绑定。编辑器内键位与鼠标手势不在此表内。
-        </p>
-        <Button
-          disabled={busy}
-          onClick={() => {
-            setError(null);
-            setBusy(true);
-            void useShortcuts
-              .getState()
-              .resetAll()
-              .catch((cause) => setError(errorText(cause)))
-              .finally(() => setBusy(false));
-          }}
-          size="sm"
-          variant="secondary"
-        >
-          全部恢复默认
-        </Button>
-      </div>
+    <div className="grid gap-10" data-setting-id="shortcuts">
+      <SectionHeader
+        title="快捷键"
+        description="点击键位后按下新组合即可修改；Esc 取消，Backspace 解除绑定。编辑器内键位与鼠标手势不在此表内。"
+        action={
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setError(null);
+              setBusy(true);
+              void useShortcuts
+                .getState()
+                .resetAll()
+                .catch((cause) => setError(errorText(cause)))
+                .finally(() => setBusy(false));
+            }}
+            size="sm"
+            variant="secondary"
+          >
+            全部恢复默认
+          </Button>
+        }
+      />
       {error && (
         <p className="text-xs text-destructive" role="alert">
           {error}
@@ -131,14 +130,14 @@ export function ShortcutsSection() {
         </p>
       )}
       {shortcutGroups().map((group) => (
-        <section className="grid gap-1 border-b pb-5 last:border-0 last:pb-0" key={group.title}>
-          <h2 className="pb-1 text-sm font-medium">{group.title}</h2>
+        <section className="grid gap-2" key={group.title}>
+          <h2 className="text-base font-semibold">{group.title}</h2>
           {group.actions.map((action) => {
             const accelerator = bindings[action.id];
             const isRecording = recording === action.id;
             return (
               <div
-                className="flex min-h-9 items-center justify-between gap-3"
+                className="flex items-center justify-between gap-3 border-b py-3 last:border-0"
                 data-setting-id={`shortcut-${action.id}`}
                 key={action.id}
               >

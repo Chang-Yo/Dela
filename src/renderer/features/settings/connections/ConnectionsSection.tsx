@@ -215,7 +215,7 @@ export function ConnectionsSection({
   ];
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-10">
       <SectionHeader title="连接" />
       {loadError && (
         <p className="text-xs text-destructive" role="alert">
@@ -236,7 +236,7 @@ export function ConnectionsSection({
             extra,
           }) => (
             <li
-              className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0 max-md:items-start max-md:py-3"
+              className="flex items-center justify-between gap-4 border-b py-3 last:border-0 max-md:items-start"
               data-setting-id={itemId}
               key={name}
             >

@@ -6,6 +6,7 @@ import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { cn } from '../../../../lib/utils';
 import { errorText } from '../../../../workspace/store';
+import { SectionHeader } from '../../SectionHeader';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
 
@@ -97,23 +98,31 @@ export function McpTab() {
   };
 
   if (!window.dela) {
-    return <p className="text-sm text-muted-foreground">MCP 管理仅在桌面端可用。</p>;
+    return (
+      <div className="grid gap-10">
+        <SectionHeader title="MCP Server" />
+        <p className="text-sm text-muted-foreground">MCP 管理仅在桌面端可用。</p>
+      </div>
+    );
   }
 
   return (
-    <div className="grid gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <Button onClick={() => setDialog({ mode: 'create' })} size="sm" variant="secondary">
-          <Plus />
-          添加服务器
-        </Button>
-      </div>
+    <div className="grid gap-10">
+      <SectionHeader
+        action={
+          <Button onClick={() => setDialog({ mode: 'create' })} size="sm" variant="secondary">
+            <Plus />
+            添加服务器
+          </Button>
+        }
+        title="MCP Server"
+      />
       {servers !== null && servers.length === 0 && (
         <section className="grid gap-2">
-          <h2 className="text-sm font-medium">还没有 MCP 服务器</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            当前支持 stdio 形态的服务器：以本地命令（如 npx）启动的进程，为 Agent
-            提供外部工具与资源。添加后自动连接并检测可发现的工具。
+          <h2 className="text-base font-semibold">还没有 MCP 服务器</h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            支持以本地命令（如 npx）启动的 stdio 服务器，为 Agent
+            提供外部工具；添加后自动连接并检测可发现的工具。
           </p>
         </section>
       )}
@@ -123,7 +132,7 @@ export function McpTab() {
             const badge = mcpStatusBadge(server.status, server.toolCount);
             return (
               <li
-                className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0"
+                className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
                 key={server.id}
               >
                 <div className="grid min-w-0 gap-1">

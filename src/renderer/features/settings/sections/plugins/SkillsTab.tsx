@@ -4,6 +4,7 @@ import type { SkillView } from '../../../../../shared/api';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { errorText } from '../../../../workspace/store';
+import { SectionHeader } from '../../SectionHeader';
 
 /** 设置 › Skills：工作目录 skills/ 下自动发现，文件系统管理（UI 只读 + 启停）。 */
 export function SkillsTab() {
@@ -45,24 +46,29 @@ export function SkillsTab() {
   };
 
   if (!window.dela) {
-    return <p className="text-sm text-muted-foreground">Skills 仅在桌面端可用。</p>;
+    return (
+      <div className="grid gap-10">
+        <SectionHeader title="Skills" />
+        <p className="text-sm text-muted-foreground">Skills 仅在桌面端可用。</p>
+      </div>
+    );
   }
 
   return (
-    <div className="grid gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          把含 SKILL.md 的文件夹放入工作目录的 skills/ 即可被发现；Skills
-          由文件系统管理，移除文件夹即删除。
-        </p>
-        <Button aria-label="刷新技能列表" onClick={refresh} size="icon-sm" variant="ghost">
-          <RefreshCw />
-        </Button>
-      </div>
+    <div className="grid gap-10">
+      <SectionHeader
+        action={
+          <Button aria-label="刷新技能列表" onClick={refresh} size="icon-sm" variant="ghost">
+            <RefreshCw />
+          </Button>
+        }
+        description="把含 SKILL.md 的文件夹放入工作目录的 skills/ 即可被发现；移除文件夹即删除。"
+        title="Skills"
+      />
       {skills !== null && skills.length === 0 && (
         <section className="grid gap-2">
-          <h2 className="text-sm font-medium">还没有发现 Skill</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <h2 className="text-base font-semibold">还没有发现 Skill</h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">
             在工作目录下创建 skills/ 文件夹，放入包含 SKILL.md 的子文件夹（frontmatter 带 name 与
             description），回到此页刷新即可发现并按需启用。
           </p>
@@ -72,7 +78,7 @@ export function SkillsTab() {
         <ul className="grid">
           {skills.map((skill) => (
             <li
-              className="flex min-h-16 items-center justify-between gap-4 border-b last:border-0"
+              className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
               key={skill.name}
             >
               <div className="flex min-w-0 items-center gap-3">

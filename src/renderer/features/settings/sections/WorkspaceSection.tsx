@@ -100,14 +100,14 @@ export function WorkspaceSection() {
   };
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-10">
       <SectionHeader title="工作区" />
       {error && (
         <p className="text-xs text-destructive" role="alert">
           {error}
         </p>
       )}
-      <section className="grid gap-5">
+      <section className="grid">
         {/* 不迁移已有文件：改目录后旧笔记「消失」是用户最常见的误解，必须保留警示。 */}
         <SettingRow
           description="仅影响之后新建的内容，不迁移已有文件。"

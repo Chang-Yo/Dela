@@ -111,10 +111,10 @@ export function AppearanceSection({
   };
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-10">
       <SectionHeader title="外观" />
-      {/* 四个设置项一行一项，行间分隔线承担边界，不再套卡片容器。 */}
-      <section className="grid gap-5">
+      {/* 四个设置项一行一项：标签贴左、控件右对齐同一竖线，行间分隔线承担边界。 */}
+      <section className="grid">
         <SettingRow settingId="theme" title="主题">
           <div aria-label="主题" className="flex flex-wrap items-center gap-2" role="group">
             {themes.map(({ id, label, preview }) => (

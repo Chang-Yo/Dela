@@ -60,6 +60,8 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
       aria-label="设置分区"
       className="flex shrink-0 gap-1 overflow-x-auto border-b bg-muted/40 p-2 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
     >
+      {/* 壳层锚点：分区目录以「设置」标题开头（窄屏横向分区行不放标题）。 */}
+      <span className="hidden px-2 pb-1 text-sm font-semibold md:block">设置</span>
       {sectionGroups.map((group, index) => (
         <div className="flex shrink-0 gap-1 md:grid md:gap-1" key={group.title}>
           {index > 0 && (

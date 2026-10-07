@@ -111,19 +111,21 @@ export function SystemNotifications() {
   };
 
   return (
-    // 外层不再自带卡壳：由通用分区的合并卡承载；data-setting-id 供设置搜索定位。
-    <div className="grid gap-3" data-setting-id="system-notifications">
-      <h2 className="text-sm font-medium">系统通知</h2>
-      {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        关闭只停用桌面弹窗，通知中心仍会收集；暂停与通知中心共用同一状态。
-      </p>
-      <div className="grid gap-3">
+    // 系统通知组：组头（标题+导语）弱于页面标题、强于行标题，行间分隔线承担边界。
+    <section className="grid gap-2" data-setting-id="system-notifications">
+      <div className="grid gap-1">
+        <h2 className="text-base font-semibold">系统通知</h2>
+        {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          关闭只停用桌面弹窗，通知中心仍会收集。
+        </p>
+      </div>
+      <div className="grid">
         <div
-          className="flex items-center justify-between gap-3 border-b pb-3"
+          className="flex items-center justify-between gap-3 border-b py-3"
           data-setting-id="campus-notifications"
         >
-          <span className="text-sm">校园消息提醒</span>
+          <span className="text-sm font-medium">校园消息提醒</span>
           <Switch
             checked={campus ?? true}
             disabled={campus === null || busy}
@@ -132,10 +134,10 @@ export function SystemNotifications() {
           />
         </div>
         <div
-          className="flex items-center justify-between gap-3 border-b pb-3"
+          className="flex items-center justify-between gap-3 border-b py-3"
           data-setting-id="notify-run-failed"
         >
-          <span className="text-sm">任务失败时提醒</span>
+          <span className="text-sm font-medium">任务失败时提醒</span>
           <Switch
             checked={task?.failed ?? true}
             disabled={task === null || busy}
@@ -144,10 +146,10 @@ export function SystemNotifications() {
           />
         </div>
         <div
-          className="flex items-center justify-between gap-3 border-b pb-3"
+          className="flex items-center justify-between gap-3 border-b py-3"
           data-setting-id="notify-run-completed"
         >
-          <span className="text-sm">任务完成时提醒</span>
+          <span className="text-sm font-medium">任务完成时提醒</span>
           <Switch
             checked={task?.completed ?? false}
             disabled={task === null || busy}
@@ -155,9 +157,12 @@ export function SystemNotifications() {
             onChange={(next) => void toggleTask('completed', next)}
           />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3" data-setting-id="snooze">
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 py-3"
+          data-setting-id="snooze"
+        >
           <span className="flex flex-col gap-0.5">
-            <span className="text-sm">暂停通知</span>
+            <span className="text-sm font-medium">暂停通知</span>
             {snoozedUntil ? (
               <span
                 className={snoozeActive ? 'text-xs text-muted-foreground' : 'sr-only'}
@@ -219,6 +224,6 @@ export function SystemNotifications() {
           {error}
         </p>
       )}
-    </div>
+    </section>
   );
 }

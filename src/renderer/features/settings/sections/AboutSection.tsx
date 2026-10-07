@@ -146,10 +146,10 @@ function PersonActions({ person }: { person: CreditPerson }) {
 
 function CreditSectionBlock({ section }: { section: CreditSection }) {
   return (
-    <section className="grid gap-3">
-      <span className="border-b pb-2 text-base font-semibold tracking-tight">{section.title}</span>
+    <section className="grid gap-2">
+      <h2 className="text-base font-semibold">{section.title}</h2>
       {section.people.map((person) => (
-        <div className="flex items-center justify-between gap-3" key={person.name}>
+        <div className="flex items-center justify-between gap-3 py-1" key={person.name}>
           <PersonIdentity person={person} />
           <PersonActions person={person} />
         </div>
@@ -160,7 +160,7 @@ function CreditSectionBlock({ section }: { section: CreditSection }) {
 
 export function AboutSection() {
   return (
-    <div className="grid gap-8" data-setting-id="about">
+    <div className="grid gap-10" data-setting-id="about">
       <SectionHeader title="关于" />
       <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-12 text-center">
         <DelaBrand className="h-48 w-48" />

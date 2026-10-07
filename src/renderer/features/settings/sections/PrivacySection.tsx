@@ -7,14 +7,14 @@ import { SectionHeader } from '../SectionHeader';
  */
 export function PrivacySection() {
   return (
-    <div className="grid gap-5" data-setting-id="privacy">
-      <SectionHeader title="隐私条款" />
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        本页说明当前版本实际如何处理你的数据，内容依据本版本的代码实现整理，供你核对现状。正式的隐私条款尚未定稿：本页不是法律文件，也不代表对后续版本的承诺。
-      </p>
+    <div className="grid gap-10" data-setting-id="privacy">
+      <SectionHeader
+        description="本页依据当前版本的代码实现，说明数据实际如何存放与外发；正式条款尚未定稿，内容不代表后续版本的承诺。"
+        title="隐私条款"
+      />
 
-      <section className="grid gap-3 border-b pb-5 last:border-0 last:pb-0">
-        <h2 className="text-sm font-medium">数据保存在本机</h2>
+      <section className="grid gap-2">
+        <h2 className="text-base font-semibold">数据保存在本机</h2>
         <p className="text-xs leading-relaxed text-muted-foreground">
           应用没有远程数据库：对话、资料与凭据都写在本机。界面不直接读写数据库与凭据文件，只通过预加载接口请求主进程。
         </p>
@@ -44,8 +44,8 @@ export function PrivacySection() {
         </p>
       </section>
 
-      <section className="grid gap-3 border-b pb-5 last:border-0 last:pb-0">
-        <h2 className="text-sm font-medium">凭据如何保护</h2>
+      <section className="grid gap-2">
+        <h2 className="text-base font-semibold">凭据如何保护</h2>
         <ul className="grid list-disc gap-1 pl-4 text-xs leading-relaxed text-muted-foreground">
           <li>
             凭据文件用 Electron safeStorage
@@ -65,8 +65,8 @@ export function PrivacySection() {
         </ul>
       </section>
 
-      <section className="grid gap-3 border-b pb-5 last:border-0 last:pb-0">
-        <h2 className="text-sm font-medium">运行 Agent 时发送到模型服务的内容</h2>
+      <section className="grid gap-2">
+        <h2 className="text-base font-semibold">运行 Agent 时发送到模型服务的内容</h2>
         <p className="text-xs leading-relaxed text-muted-foreground">
           只有在你发送消息、让它继续执行，或在设置中检测密钥时，才会请求模型服务。请求由主进程直接发出，界面不持有密钥。
         </p>
@@ -88,8 +88,8 @@ export function PrivacySection() {
         </p>
       </section>
 
-      <section className="grid gap-3 border-b pb-5 last:border-0 last:pb-0">
-        <h2 className="text-sm font-medium">应用会联网的位置</h2>
+      <section className="grid gap-2">
+        <h2 className="text-base font-semibold">应用会联网的位置</h2>
         <ul className="grid list-disc gap-1 pl-4 text-xs leading-relaxed text-muted-foreground">
           <li>模型服务：设置 › 模型供应商 中配置的地址；对话、历史摘要与密钥检测都请求这里。</li>
           <li>学校邮箱 mail.sjtu.edu.cn：IMAP 993 收信、SMTP 465 发信，使用你保存的邮箱密码。</li>
@@ -117,8 +117,8 @@ export function PrivacySection() {
         </p>
       </section>
 
-      <section className="grid gap-3 border-b pb-5 last:border-0 last:pb-0">
-        <h2 className="text-sm font-medium">应用没有的功能</h2>
+      <section className="grid gap-2">
+        <h2 className="text-base font-semibold">应用没有的功能</h2>
         <ul className="grid list-disc gap-1 pl-4 text-xs leading-relaxed text-muted-foreground">
           <li>
             没有账号服务器：不需要注册或登录 Dela 账号，代码中也没有把数据上传到项目服务器的接口。
@@ -132,8 +132,8 @@ export function PrivacySection() {
         </ul>
       </section>
 
-      <section className="grid gap-3 border-b pb-5 last:border-0 last:pb-0">
-        <h2 className="text-sm font-medium">本机记录了什么</h2>
+      <section className="grid gap-2">
+        <h2 className="text-base font-semibold">本机记录了什么</h2>
         <p className="text-xs leading-relaxed text-muted-foreground">
           应用运行时不写日志文件（开发模式的控制台输出只打印在终端，不落盘）。Agent
           每次执行会在本机数据库留一条运行记录，包含：
