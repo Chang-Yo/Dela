@@ -21,6 +21,12 @@ function terminalColor(value: string): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+// 选区底色在前景色上叠透明度，亮暗主题下文字均保持可读；
+// terminalColor 只输出 rgb，透明色直接拼 rgba 字符串（xterm 主题原生支持），不再过画布取样。
+function withAlpha(color: string, alpha: number): string {
+  return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+}
+
 function applyEvent(session: TerminalSession, event: TerminalEvent): TerminalSession {
   if (event.sequence <= session.sequence) return session;
   return event.type === 'data'
@@ -161,17 +167,23 @@ export function TerminalTab({ tabId }: TabComponentProps) {
     const session = snapshots.current.find((item) => item.id === activeId);
     if (!api || !element || !session) return;
     const style = getComputedStyle(element);
+    const foreground = terminalColor(style.color);
     const terminal = new Terminal({
       fontFamily: style.fontFamily,
       fontSize: parseFloat(style.fontSize),
       theme: {
         background: terminalColor(style.backgroundColor),
-        foreground: terminalColor(style.color),
-        cursor: terminalColor(style.color),
+        foreground,
+        cursor: foreground,
+        // block 光标内文字取终端背景色，与光标块形成反色。
+        cursorAccent: terminalColor(style.backgroundColor),
+        selectionBackground: withAlpha(foreground, 0.28),
+        selectionInactiveBackground: withAlpha(foreground, 0.16),
       },
       disableStdin: session.exitCode !== null,
       altClickMovesCursor: true,
-      cursorStyle: 'bar',
+      cursorStyle: 'block',
+      cursorBlink: true,
       allowProposedApi: false,
     });
     const fit = new FitAddon();
@@ -212,10 +224,14 @@ export function TerminalTab({ tabId }: TabComponentProps) {
     observer.observe(element);
     const themeObserver = new MutationObserver(() => {
       const style = getComputedStyle(element);
+      const foreground = terminalColor(style.color);
       terminal.options.theme = {
         background: terminalColor(style.backgroundColor),
-        foreground: terminalColor(style.color),
-        cursor: terminalColor(style.color),
+        foreground,
+        cursor: foreground,
+        cursorAccent: terminalColor(style.backgroundColor),
+        selectionBackground: withAlpha(foreground, 0.28),
+        selectionInactiveBackground: withAlpha(foreground, 0.16),
       };
       terminal.options.fontSize = parseFloat(style.fontSize);
       resize();

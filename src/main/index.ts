@@ -234,9 +234,12 @@ async function createWindow(): Promise<void> {
   });
   const session = window.webContents.session;
   // 渲染进程的 navigator.clipboard.writeText 走 clipboard-sanitized-write 权限；
+  // 终端粘贴的 navigator.clipboard.readText 走 clipboard-read 权限；
   // 课堂视频 <video> 的原生全屏按钮走 fullscreen 权限；其余（通知、定位等）一律拒绝。
   const allowClipboardAndFullscreen = (_contents: unknown, permission: string) =>
-    permission === 'clipboard-sanitized-write' || permission === 'fullscreen';
+    permission === 'clipboard-sanitized-write' ||
+    permission === 'clipboard-read' ||
+    permission === 'fullscreen';
   session.setPermissionRequestHandler((contents, permission, callback) =>
     callback(allowClipboardAndFullscreen(contents, permission)),
   );

@@ -467,6 +467,13 @@
   align-items: flex-start;
 }
 
+/* 终端块状光标加圆角：DOM renderer 的光标是真实 DOM 节点（.xterm-rows 行内的
+   .xterm-cursor.xterm-cursor-block），CSS 可直接作用；xterm 注入样式只管底色/前景色，
+   不含圆角，无覆盖冲突。 */
+.xterm .xterm-rows .xterm-cursor-block {
+  border-radius: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
