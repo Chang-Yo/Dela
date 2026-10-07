@@ -15,7 +15,7 @@ import {
   FolderOpen,
   House,
   Mail,
-  MonitorPlay,
+  // MonitorPlay, // 课堂视频入口暂不上线，随 businessNav 条目一同注释（恢复时一起解开）。
   MoreHorizontal,
   Plus,
   SquarePen,
@@ -53,7 +53,8 @@ export const RECENT_SESSIONS = 3;
 const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }> = [
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
-  { id: 'videos', label: '课堂视频', icon: MonitorPlay },
+  // 课堂视频暂不上线：同步与登录还存在待实机确认的问题，入口先隐藏（恢复时连同 MonitorPlay 导入一起解开）。
+  // { id: 'videos', label: '课堂视频', icon: MonitorPlay },
   { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
   { id: 'todo', label: 'TODO', icon: CircleCheckBig },
 ];
