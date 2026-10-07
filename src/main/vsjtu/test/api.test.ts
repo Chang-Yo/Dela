@@ -98,7 +98,7 @@ describe('envelope 与列表行解析', () => {
     expect(rowsOf({ records: [1] })).toEqual([1]);
     expect(rowsOf(unwrapEnvelope({ ok: true, data: { rows: [2] } }))).toEqual([2]);
     expect(rowsOf({ list: [3] })).toEqual([3]);
-    expect(rowsOf({ x: 1 })).toEqual([]);
+    expect(() => rowsOf({ x: 1 })).toThrow('列表');
   });
 
   it('authority/me 取用户名，code 非 0 视为未登录', () => {
@@ -216,6 +216,64 @@ describe('同步与缓存', () => {
         3000, NULL, 1, 1, '2026-09-20T10:00:00Z')`,
     ).run();
   }
+
+  it('curriculum 同一教学班的多场排课只入库一次，录像翻页拉全', async () => {
+    const requestedClasses: Array<string | null> = [];
+    netState.respond = (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith('authority/me')) return authorityOk;
+      if (url.pathname.endsWith('myself/curriculum'))
+        return {
+          data: {
+            records: [
+              {
+                teclId: 9000,
+                subjCode: 'CS3313',
+                subjName: '计算理论',
+                courBeginTime: '2026-09-24',
+              },
+              {
+                teclId: 9000,
+                subjCode: 'CS3313',
+                subjName: '计算理论',
+                courBeginTime: '2026-10-08',
+              },
+            ],
+          },
+        };
+      if (url.pathname.endsWith('subject_vod_list_new')) {
+        requestedClasses.push(url.searchParams.get('teclIds'));
+        const page = Number(url.searchParams.get('page.pageIndex'));
+        return {
+          data: {
+            records:
+              page === 1
+                ? Array.from({ length: 100 }, (_, index) => ({ id: index + 1, teclId: 9000 }))
+                : [{ id: 101, teclId: 9000 }],
+          },
+        };
+      }
+      return { data: { acteId: 11 } };
+    };
+    expect(await syncVsjtu()).toEqual({ ok: true });
+    expect(listVsjtu().courses).toEqual([
+      expect.objectContaining({ teclId: 9000, videoCount: 101 }),
+    ]);
+    expect(listVsjtu().videos).toHaveLength(101);
+    expect(requestedClasses).toEqual(['9000', '9000']);
+  });
+
+  it('录像响应结构变化时报错并保留已有缓存', async () => {
+    seedCache();
+    netState.respond = (url) => {
+      if (url.includes('authority/me')) return authorityOk;
+      if (url.includes('myself/curriculum'))
+        return { data: [{ teclId: 9000, subjName: '计算理论' }] };
+      return { ok: true, data: { unexpected: [] } };
+    };
+    expect(await syncVsjtu()).toEqual({ ok: false, error: expect.stringContaining('列表') });
+    expect(listVsjtu().videos).toHaveLength(1);
+  });
 
   it('成功同步：课程/场次落库并聚合出有录播的课程列表', async () => {
     netState.respond = (url) => {

@@ -112,15 +112,15 @@ export function unwrapEnvelope(payload: unknown): unknown {
   throw new Error('课堂视频接口没有返回预期的数据');
 }
 
-/** 分页列表行：按常见包裹键（mybatis-plus records / rows / list）读取，找不到即空数组。 */
+/** 分页列表行：未知结构报错，不能当成无录像而清空缓存。 */
 export function rowsOf(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
-  if (!isRecord(value)) return [];
-  for (const key of ['records', 'rows', 'list', 'data']) {
-    const inner = value[key];
-    if (Array.isArray(inner)) return inner;
-  }
-  return [];
+  if (isRecord(value))
+    for (const key of ['records', 'rows', 'list', 'data']) {
+      const inner = value[key];
+      if (Array.isArray(inner)) return inner;
+    }
+  throw new Error('课堂视频接口没有返回预期的列表数据');
 }
 
 function text(value: unknown): string | null {
@@ -151,13 +151,13 @@ export function parseAuthorityUser(payload: unknown): string | null {
 /** curriculum 行 → 教学班（teclId/subjCode/subjName，courBeginTime 供排序参考）。 */
 export function parseCurriculumRows(payload: unknown): VsjtuCourse[] {
   const rows = rowsOf(unwrapEnvelope(payload));
-  const courses: VsjtuCourse[] = [];
+  const courses = new Map<number, VsjtuCourse>();
   for (const row of rows) {
     if (!isRecord(row)) continue;
     const teclId = positiveInt(row['teclId']);
     const subjName = text(row['subjName']) ?? text(row['subjname']);
     if (teclId === null || !subjName) continue;
-    courses.push({
+    courses.set(teclId, {
       teclId,
       subjCode: text(row['subjCode']) ?? text(row['subjcode']),
       subjName,
@@ -165,7 +165,7 @@ export function parseCurriculumRows(payload: unknown): VsjtuCourse[] {
       latestBeginTime: null,
     });
   }
-  return courses;
+  return [...courses.values()];
 }
 
 /** vod 场次行 → VsjtuVideo；行缺 id 或 teclId 时丢弃。 */
@@ -421,15 +421,15 @@ export async function syncVsjtu(): Promise<VsjtuResult> {
     const videos: VsjtuVideo[] = [];
     for (const batch of batches)
       videos.push(
-        ...parseVodRows(
-          await campusGet(
+        ...parseVodRows({
+          records: await fetchPaged((pageIndex) =>
             queryUrl(`${API_BASE}/subject_vod_list_new`, {
               teclIds: batch.join(','),
-              'page.pageIndex': '1',
+              'page.pageIndex': String(pageIndex),
               'page.pageSize': String(PAGE_SIZE),
             }),
           ),
-        ),
+        }),
       );
 
     // 学期 acteId 只在缺失时尝试补齐（一次教学班详情请求），供下次同步显式传参。
@@ -517,10 +517,10 @@ export function openVsjtuLoginWindow(sender: WebContents): Promise<VsjtuResult> 
   return openCampusLoginWindow({
     sender,
     title: '登录交大视频',
-    // 平台首页未登录会跳 jAccount SSO；已有校园会话时直达并立即探活通过。
+    // 通过平台入口完成 jAccount SSO；已有校园会话时探活通过即可收场。
     url: PORTAL_ORIGIN,
     reached: (url) => url.startsWith('https://v.sjtu.edu.cn/'),
-    // 入口页即目标域：首航必然未登录，探测失败不关窗（retryProbe），等 SSO 回跳再探。
+    // 入口页即目标域：未登录时保持窗口，覆盖 SSO 回跳、SPA 导航及异步登录。
     retryProbe: true,
     probe: async () => {
       await probeAuthority();

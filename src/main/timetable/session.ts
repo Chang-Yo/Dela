@@ -102,7 +102,7 @@ export interface CampusLoginOptions {
   readonly probe: () => Promise<void>;
   /**
    * 入口页本身就在目标域时（课堂视频）：首次导航必然尚未登录，
-   * 探测失败不关窗，保持窗口等 SSO 回跳后的下一次导航再探。
+   * 探测失败不关窗；页内导航及定时重探覆盖 SPA 与异步登录完成。
    */
   readonly retryProbe?: boolean;
 }
@@ -132,14 +132,18 @@ export async function openCampusLoginWindow(
     });
     attachContextMenu(loginWindow.webContents);
     let completed = false;
+    let retryTimer: ReturnType<typeof setInterval> | undefined;
     const finish = (result: { ok: true } | { ok: false; error: string }) => {
       if (completed) return;
       completed = true;
+      clearInterval(retryTimer);
       resolve(result);
       if (!loginWindow.isDestroyed()) loginWindow.close();
     };
     let checking = false;
+    let currentUrl = '';
     const checkNavigation = async (url: string) => {
+      currentUrl = url;
       if (options.reached(url) && !checking && !completed) {
         checking = true;
         try {
@@ -155,7 +159,15 @@ export async function openCampusLoginWindow(
       }
     };
     loginWindow.webContents.on('did-navigate', (_event, url) => void checkNavigation(url));
+    if (options.retryProbe) {
+      loginWindow.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
+        if (isMainFrame) void checkNavigation(url);
+      });
+      // SPA 可能通过异步请求完成登录而不导航。串行探测，窗口关闭即停止。
+      retryTimer = setInterval(() => void checkNavigation(currentUrl), 1000);
+    }
     loginWindow.on('closed', () => {
+      clearInterval(retryTimer);
       if (!completed) {
         completed = true;
         resolve({ ok: false, error: '未完成登录' });

@@ -1,10 +1,10 @@
 // 校园登录窗共用逻辑：到达目标域后探活收场。课堂视频的入口页本身就在目标域
-// （retryProbe）：首次导航必然未登录，探测失败不得关窗，等 jAccount SSO 回跳后再探；
+// （retryProbe）：未登录时探测失败不得关窗，覆盖 SSO 回跳、SPA 导航和异步登录；
 // 课表默认语义（加载登录页、到达即视为登录完成）探测失败即关窗返回错误。
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WebContents } from 'electron';
 
 const mock = vi.hoisted(() => ({ userData: '', lastWindow: undefined as unknown }));
@@ -78,7 +78,60 @@ beforeEach(() => {
   mock.lastWindow = undefined;
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('openCampusLoginWindow', () => {
+  it('SPA 页内登录完成后自动关闭登录窗', async () => {
+    vi.useFakeTimers();
+    let authenticated = false;
+    const pending = openCampusLoginWindow({
+      sender,
+      title: '登录交大视频',
+      url: 'https://v.sjtu.edu.cn/',
+      reached: (url) => url.startsWith('https://v.sjtu.edu.cn/'),
+      retryProbe: true,
+      probe: async () => {
+        if (!authenticated) throw new Error('未登录');
+      },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const loginWindow = asWindow();
+    loginWindow.webContents.emit('did-navigate', {}, 'https://v.sjtu.edu.cn/');
+    await vi.advanceTimersByTimeAsync(0);
+    authenticated = true;
+    loginWindow.webContents.emit('did-navigate-in-page', {}, 'https://v.sjtu.edu.cn/#/home', true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(loginWindow.closeCalled).toBe(true);
+    await expect(pending).resolves.toEqual({ ok: true });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('无后续导航的异步登录也会重探，成功后停止重试', async () => {
+    vi.useFakeTimers();
+    let authenticated = false;
+    const pending = openCampusLoginWindow({
+      sender,
+      title: '登录交大视频',
+      url: 'https://v.sjtu.edu.cn/',
+      reached: (url) => url.startsWith('https://v.sjtu.edu.cn/'),
+      retryProbe: true,
+      probe: async () => {
+        if (!authenticated) throw new Error('未登录');
+      },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const loginWindow = asWindow();
+    loginWindow.webContents.emit('did-navigate', {}, 'https://v.sjtu.edu.cn/');
+    await vi.advanceTimersByTimeAsync(0);
+    authenticated = true;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(loginWindow.closeCalled).toBe(true);
+    await expect(pending).resolves.toEqual({ ok: true });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('retryProbe（课堂视频）：入口页即目标域，未登录探测失败不关窗，SSO 回跳后再探成功', async () => {
     const probe = vi
       .fn()
@@ -131,6 +184,7 @@ describe('openCampusLoginWindow', () => {
   });
 
   it('用户直接关闭窗口按未完成登录收场', async () => {
+    vi.useFakeTimers();
     const pending = openCampusLoginWindow({
       sender,
       title: '登录交大视频',
@@ -139,10 +193,11 @@ describe('openCampusLoginWindow', () => {
       retryProbe: true,
       probe: vi.fn().mockRejectedValue(new Error('校园会话已失效，请重新登录')),
     });
-    await flush();
+    await vi.advanceTimersByTimeAsync(0);
     const loginWindow = asWindow();
     await loginWindow.loadURL();
     loginWindow.close();
     await expect(pending).resolves.toEqual({ ok: false, error: '未完成登录' });
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
