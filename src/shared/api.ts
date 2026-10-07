@@ -17,6 +17,7 @@ export type {
   McpConnectionStatus,
   McpServerConfig,
   McpServerView,
+  SkillScope,
   SkillView,
   WebSearchConfig,
 } from './capabilities';

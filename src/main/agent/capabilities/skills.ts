@@ -1,7 +1,7 @@
-// Skills 发现与启停：~/.dela/skills/<name>/SKILL.md 与
-// 旧工作目录 skills/（兼容已有用户数据）（agentskills.io 规范：YAML frontmatter
-// name+description，正文 Markdown，同目录支持文件）。
-// 渐进加载：这里只产出名称与描述的索引，正文经 read_skill / read_skill_file 按需读取。
+// Skills 发现与启停：扫描全局（~/.dela、~/.agents、~/.zcode 的 skills/）与
+// 项目（工作区 .agents/.zcode/skills 与旧版 skills/）下的 <name>/SKILL.md
+// （agentskills.io 规范：YAML frontmatter name+description，正文 Markdown，
+// 同目录支持文件）。渐进加载：这里只产出名称与描述的索引，正文经 ReadSkills 按需读取。
 // 启停状态持久化于 workspace_settings('skills-disabled')：只存禁用清单，默认全启用。
 import { app } from 'electron';
 import {
@@ -16,21 +16,35 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import type { SkillView } from '../../../shared/capabilities';
+import type { SkillScope, SkillView } from '../../../shared/capabilities';
 import { getDatabase } from '../../database';
 import { storageDirectory } from '../../storage';
 import type { SkillIndexEntry } from './types';
 
 export const SKILL_ENTRY_FILE = 'SKILL.md';
 
-/** 内置 Skill 根目录：~/.dela/skills（campus 随应用写入；用户自己的 Skill 也放这里）。 */
+/** 全局 Skill 根目录：~/.dela/skills（内置 Skill 随应用写入；用户自己的 Skill 也放这里）。 */
 export function builtinSkillsDirectory(): string {
   return join(app.getPath('home'), '.dela', 'skills');
 }
 
-/** 旧版用户 Skill 目录（工作目录 skills/）：继续扫描，与内置目录合并展示。 */
+/** 旧版用户 Skill 目录（工作目录 skills/）：继续扫描，作为项目范围的一部分。 */
 export function skillsDirectory(): string {
   return join(storageDirectory(), 'skills');
+}
+
+/** 发现来源（顺序即同名优先级：项目覆盖全局，同范围内先到者优先）。 */
+function skillSources(): { scope: SkillScope; directory: string }[] {
+  const home = app.getPath('home');
+  const workspace = storageDirectory();
+  return [
+    { scope: 'project', directory: join(workspace, '.agents', 'skills') },
+    { scope: 'project', directory: join(workspace, '.zcode', 'skills') },
+    { scope: 'project', directory: skillsDirectory() },
+    { scope: 'global', directory: builtinSkillsDirectory() },
+    { scope: 'global', directory: join(home, '.agents', 'skills') },
+    { scope: 'global', directory: join(home, '.zcode', 'skills') },
+  ];
 }
 
 /** 内置 Skill 正文：领域知识按业务拆分，正文教 agent 经 Bash 的 dela 命令操作（commands.ts）。 */
@@ -262,19 +276,19 @@ function writeDisabledSkills(names: Iterable<string>): void {
     .run(JSON.stringify([...names]));
 }
 
-/** 发现全部 Skill（含禁用）：~/.dela/skills 与旧工作目录 skills/ 下的 SKILL.md；
- * 重名以内置目录为准；畸形或不可读仍列出，描述置空。 */
+/** 发现全部 Skill（含禁用）：全局与项目来源目录下的 SKILL.md；同名项目覆盖全局
+ * （seen 集合按优先级顺序先占名）；畸形或不可读仍列出，描述置空。 */
 export function listSkills(): SkillView[] {
   ensureBuiltinSkills();
   const disabled = readDisabledSkills();
   const skills: SkillView[] = [];
   const seen = new Set<string>();
-  for (const directory of [builtinSkillsDirectory(), skillsDirectory()]) {
-    if (!existsSync(directory)) continue;
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+  for (const source of skillSources()) {
+    if (!existsSync(source.directory)) continue;
+    for (const entry of readdirSync(source.directory, { withFileTypes: true })) {
       if (!entry.isDirectory() || seen.has(entry.name)) continue;
       if (!skillNameSchema.safeParse(entry.name).success) continue;
-      const path = join(directory, entry.name, SKILL_ENTRY_FILE);
+      const path = join(source.directory, entry.name, SKILL_ENTRY_FILE);
       if (!existsSync(path)) continue;
       seen.add(entry.name);
       let description = '';
@@ -283,10 +297,18 @@ export function listSkills(): SkillView[] {
       } catch {
         // SKILL.md 不可读：保留条目供 UI 呈现来源，索引描述为空。
       }
-      skills.push({ name: entry.name, description, enabled: !disabled.has(entry.name), path });
+      skills.push({
+        name: entry.name,
+        description,
+        enabled: !disabled.has(entry.name),
+        path,
+        scope: source.scope,
+      });
     }
   }
-  return skills.sort((a, b) => a.name.localeCompare(b.name));
+  return skills.sort((a, b) =>
+    a.scope === b.scope ? a.name.localeCompare(b.name) : a.scope === 'global' ? -1 : 1,
+  );
 }
 
 /** 启停 Skill；返回最新列表（未知名抛错）。 */

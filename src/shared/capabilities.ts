@@ -1,7 +1,10 @@
 // 能力层契约（MCP 与 Skills）。
 // 类型归 shared：main 拥有事实（连接状态、启停、发现），renderer 只持镜像。
 
-/** 已发现的 Skill（来自 ~/.dela/skills 与旧工作目录 skills/ 的 SKILL.md，agentskills.io 规范）。 */
+/** Skill 来源范围：global 来自用户主目录（.dela/.agents/.zcode），project 来自当前工作区。 */
+export type SkillScope = 'global' | 'project';
+
+/** 已发现的 Skill（agentskills.io 规范的 SKILL.md 目录；同名时项目覆盖全局）。 */
 export interface SkillView {
   /** 目录名，同时是 ReadSkills 工具的 skill 参数。 */
   name: string;
@@ -10,6 +13,8 @@ export interface SkillView {
   enabled: boolean;
   /** SKILL.md 的绝对路径（供 UI 展示来源）。 */
   path: string;
+  /** 来源范围：全局或当前工作区。 */
+  scope: SkillScope;
 }
 
 export type McpConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';

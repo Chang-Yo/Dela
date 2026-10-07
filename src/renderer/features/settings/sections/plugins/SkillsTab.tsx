@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Sparkles } from 'lucide-react';
-import type { SkillView } from '../../../../../shared/api';
+import type { SkillScope, SkillView } from '../../../../../shared/api';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { errorText } from '../../../../workspace/store';
+import { cn } from '../../../../lib/utils';
 import { SectionHeader } from '../../SectionHeader';
 
-/** 设置 › Skills：~/.dela/skills 与旧工作目录 skills/ 下的技能发现与启停。 */
+const SCOPE_LABELS: Record<SkillScope, string> = { global: '全局', project: '项目' };
+
+/** 设置 › Skills：全局（~/.dela、~/.agents、~/.zcode）与项目（工作区）技能的发现与启停。 */
 export function SkillsTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [skills, setSkills] = useState<SkillView[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 范围过滤（参照 ZCode 的 Skills 面板）：全部 / 全局 / 项目。
+  const [scope, setScope] = useState<'all' | SkillScope>('all');
 
   const refresh = () => {
     void window.dela?.capability
@@ -54,6 +59,15 @@ export function SkillsTab() {
     );
   }
 
+  const visible = (skills ?? []).filter((skill) => scope === 'all' || skill.scope === scope);
+  const groups: { scope: SkillScope; items: SkillView[] }[] =
+    scope === 'all'
+      ? (['global', 'project'] as const).map((value) => ({
+          scope: value,
+          items: (skills ?? []).filter((skill) => skill.scope === value),
+        }))
+      : [{ scope, items: visible }];
+
   return (
     <div className="grid gap-10">
       <SectionHeader
@@ -62,51 +76,88 @@ export function SkillsTab() {
             <RefreshCw />
           </Button>
         }
-        description="把含 SKILL.md 的文件夹放入用户主目录的 .dela/skills 即可被发现；移除文件夹即删除。"
+        description="把含 SKILL.md 的文件夹放入 ~/.dela/skills、~/.agents/skills、~/.zcode/skills（全局）或工作区的 .agents/skills、.zcode/skills（项目）即可被发现；同名时项目覆盖全局，移除文件夹即删除。"
         title="Skills"
       />
+      {skills !== null && skills.length > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5" role="group">
+            {(['all', 'global', 'project'] as const).map((value) => (
+              <button
+                aria-pressed={scope === value}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs transition-colors',
+                  scope === value
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                key={value}
+                onClick={() => setScope(value)}
+                type="button"
+              >
+                {value === 'all' ? '全部' : SCOPE_LABELS[value]}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs tabular-nums text-muted-foreground">{visible.length} 项</span>
+        </div>
+      )}
       {skills !== null && skills.length === 0 && (
         <section className="grid gap-2">
           <h2 className="text-base font-semibold">还没有发现 Skill</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            在用户主目录下创建 .dela/skills 文件夹，放入包含 SKILL.md 的子文件夹（frontmatter 带
-            name 与 description），回到此页刷新即可发现并按需启用。
+            在用户主目录的 .dela/skills（或 .agents/skills、.zcode/skills）放入包含 SKILL.md
+            的子文件夹（frontmatter 带 name 与 description），或放入工作区的
+            .agents/skills，回到此页刷新即可发现并按需启用。
           </p>
         </section>
       )}
-      {skills !== null && skills.length > 0 && (
-        <ul className="grid">
-          {skills.map((skill) => (
-            <li
-              className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
-              key={skill.name}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-                  <Sparkles className="size-4 text-muted-foreground" strokeWidth={1.8} />
-                </span>
-                <div className="grid min-w-0 gap-0.5">
-                  <strong className="truncate text-sm">{skill.name}</strong>
-                  <span
-                    className="truncate text-xs text-muted-foreground"
-                    title={skill.description}
-                  >
-                    {skill.description || '（无描述）'}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground/70" title={skill.path}>
-                    {skill.path}
-                  </span>
-                </div>
-              </div>
-              <Switch
-                checked={skill.enabled}
-                disabled={busy}
-                label={`启用 ${skill.name}`}
-                onChange={(next) => void toggle(skill, next)}
-              />
-            </li>
-          ))}
-        </ul>
+      {skills !== null && skills.length > 0 && visible.length === 0 && (
+        <p className="text-sm text-muted-foreground">该范围下没有 Skill。</p>
+      )}
+      {groups.map((group) =>
+        group.items.length === 0 ? null : (
+          <section className="grid gap-1" key={group.scope}>
+            <h2 className="text-xs font-medium text-muted-foreground">
+              {SCOPE_LABELS[group.scope]} Skills
+            </h2>
+            <ul className="grid">
+              {group.items.map((skill) => (
+                <li
+                  className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
+                  key={skill.name}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
+                      <Sparkles className="size-4 text-muted-foreground" strokeWidth={1.8} />
+                    </span>
+                    <div className="grid min-w-0 gap-0.5">
+                      <strong className="truncate text-sm">{skill.name}</strong>
+                      <span
+                        className="truncate text-xs text-muted-foreground"
+                        title={skill.description}
+                      >
+                        {skill.description || '（无描述）'}
+                      </span>
+                      <span
+                        className="truncate text-xs text-muted-foreground/70"
+                        title={skill.path}
+                      >
+                        {skill.path}
+                      </span>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={skill.enabled}
+                    disabled={busy}
+                    label={`启用 ${skill.name}`}
+                    onChange={(next) => void toggle(skill, next)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ),
       )}
       {error && (
         <p className="text-xs text-destructive" role="alert">
