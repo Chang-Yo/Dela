@@ -9,10 +9,12 @@ import {
   CircleAlert,
   ClipboardList,
   CopyPlus,
+  FilePen,
   FilePenLine,
   FilePlus,
   FileText,
   FolderPen,
+  FolderSearch,
   Globe,
   GraduationCap,
   Link2,
@@ -21,17 +23,30 @@ import {
   MailPlus,
   RefreshCw,
   Search,
+  SquareTerminal,
+  TextSearch,
   Wrench,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
 import { cn } from '../../lib/utils';
 import { ChatMarkdown } from './markdown';
+import { ToolBody } from './tool-views';
 import styles from './timeline.module.css';
 
 type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 
-const toolDisplay: Record<string, { label: string; icon: LucideIcon }> = {
+const toolDisplay: Record<string, { label: string; icon: LucideIcon; verb?: string }> = {
+  // 内核工具行显示英文工具名（与工具表一致）；verb 只用于状态行"正在…"的中文动词。
+  Read: { label: 'Read', icon: FileText, verb: '读取文件' },
+  Write: { label: 'Write', icon: FilePen, verb: '写入文件' },
+  Edit: { label: 'Edit', icon: FilePenLine, verb: '编辑文件' },
+  Grep: { label: 'Grep', icon: TextSearch, verb: '搜索内容' },
+  Glob: { label: 'Glob', icon: FolderSearch, verb: '查找文件' },
+  Bash: { label: 'Bash', icon: SquareTerminal, verb: '执行命令' },
+  WebFetch: { label: 'WebFetch', icon: Globe, verb: '读取网页' },
+  WebSearch: { label: 'WebSearch', icon: Globe, verb: '搜索网页' },
+  ReadSkills: { label: 'ReadSkills', icon: BookOpen, verb: '读取 Skill' },
   prepare_email: { label: '准备邮件草稿', icon: MailPlus },
   query_schedule: { label: '查询日程', icon: CalendarDays },
   query_assignments: { label: '查询作业', icon: ClipboardList },
@@ -51,7 +66,7 @@ const toolDisplay: Record<string, { label: string; icon: LucideIcon }> = {
   create_event: { label: '创建日程', icon: CalendarPlus },
 };
 
-function display(name: string) {
+function display(name: string): { label: string; icon: LucideIcon; verb?: string } {
   return toolDisplay[name] ?? { label: name, icon: Wrench };
 }
 
@@ -61,20 +76,42 @@ export type ToolOutput = {
   result?: { draftId?: string };
 } | null;
 
-// 从工具输入提取一行摘要 chip；没有稳定字段的工具不显示。
+// 从工具输入提取一行摘要 chip：内核工具按类型取关键字段，其余工具按旧字段顺序兜底。
 function stepChip(result: AgentToolResult): string {
   const input = result.input as Record<string, unknown> | null;
   if (!input || typeof input !== 'object') return '';
-  const value = [
-    input.query,
-    input.title,
-    input.name,
-    input.subject,
-    input.url,
-    input.path,
-    input.command,
-  ].find((item): item is string => typeof item === 'string' && item.length > 0);
-  return value ?? '';
+  const text = (key: string) =>
+    typeof input[key] === 'string' && input[key] ? (input[key] as string) : '';
+  switch (result.name) {
+    case 'Bash':
+      if (text('command')) return text('command').split('\n')[0]!;
+      return input.cancel ? '取消任务' : '继续读取';
+    case 'Read':
+    case 'Write':
+    case 'Edit':
+      return text('path');
+    case 'Grep':
+    case 'Glob':
+      return text('pattern');
+    case 'WebFetch':
+      return text('url');
+    case 'WebSearch':
+      return text('query');
+    case 'ReadSkills':
+      return text('file') ? `${text('skill')} · ${text('file')}` : text('skill');
+    default: {
+      const value = [
+        text('query'),
+        text('title'),
+        text('name'),
+        text('subject'),
+        text('url'),
+        text('path'),
+        text('command'),
+      ].find(Boolean);
+      return value ?? '';
+    }
+  }
 }
 
 export function formatDuration(ms: number): string {
@@ -151,7 +188,11 @@ function ThoughtStep({
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            <div data-reasoning-body className="whitespace-pre-wrap py-0.5 leading-relaxed">
+            {/* 展开后限高滚动：思考很长时不把页面拖得过高。 */}
+            <div
+              data-reasoning-body
+              className="max-h-64 overflow-y-auto py-0.5 leading-relaxed whitespace-pre-wrap"
+            >
               {text}
             </div>
           </div>
@@ -180,7 +221,7 @@ function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean
       </RailNode>
       <div className="min-w-0 py-0.5">
         <details className="group/details">
-          <summary className="flex min-w-0 cursor-pointer list-none items-baseline gap-x-2 rounded-sm py-0.5 transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-w-0 cursor-pointer list-none items-center gap-x-2 rounded-sm py-0.5 transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
             <span className="shrink-0">{label}</span>
             {chip && (
               <span className="min-w-0 truncate text-xs text-muted-foreground" title={chip}>
@@ -194,9 +235,7 @@ function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean
               className="size-3 shrink-0 self-center transition-transform motion-reduce:transition-none group-open/details:rotate-90"
             />
           </summary>
-          <pre className="mb-1 mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-xs">
-            {JSON.stringify({ input: result.input, output: result.output }, null, 2)}
-          </pre>
+          <ToolBody result={result} />
         </details>
         {state === 'failed' && (
           <p className="mt-1 whitespace-pre-wrap text-xs text-destructive">
@@ -250,7 +289,7 @@ export function WorkingSection({
   const lastPart = parts.findLast((part) => part.type !== 'tools' && Boolean(part.text));
   const label = live
     ? active
-      ? `正在${display(active.name).label}`
+      ? `正在${display(active.name).verb ?? display(active.name).label}`
       : lastPart?.type === 'reasoning'
         ? '正在思考'
         : '正在工作'

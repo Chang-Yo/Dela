@@ -111,7 +111,8 @@ it('折叠态保留失败计数，展开后显示完整错误并将原始数据�
   expect(host.querySelector('details')?.open).toBe(false);
   await act(async () => host.querySelector('summary')!.click());
   expect(host.querySelector('details')?.open).toBe(true);
-  expect(host.querySelector('details pre')?.textContent).toContain('"query": "高等数学"');
+  // 兜底视图以"键: 值"展示输入，不再渲染原始 JSON 信封。
+  expect(host.querySelector('details')?.textContent).toContain('query: 高等数学');
   await act(async () => host.querySelector('summary')!.click());
   expect(host.querySelector('details')?.open).toBe(false);
 });
