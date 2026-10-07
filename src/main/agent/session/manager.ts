@@ -58,6 +58,8 @@ type AskInput = {
   replaceLastUser?: boolean;
 };
 
+type ChatPart = NonNullable<WorkspaceChat['messages'][number]['parts']>[number];
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -356,24 +358,48 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       // 携带内存中的活跃消息数组：持久化的 row.messages 尚未更新，直接读库会回退内容。
       publishSession(sessionId, { messages: chat.messages, running: true, activeTool: run.tool });
     };
+    // 轮内块引用：pi-ai 每条消息只产出一个思考块与一个正文块，GLM 类模型的思考/正文
+    // 增量会在消息内交错到达，必须并回同一 part——按「上一段类型」判断会把思考切碎、
+    // 把先前内容重复成新块；工具调用开启下一轮后引用作废，新一轮增量各开新块。
+    let roundReasoning: Extract<ChatPart, { type: 'reasoning' }> | null = null;
+    let roundText: Extract<ChatPart, { type: 'text' }> | null = null;
     // 思考段进入正文或工具阶段时收尾计时，供 UI 显示“已思考 · X 秒”。
     const closeTrailingReasoning = () => {
-      const last = reply.parts!.at(-1);
-      if (last?.type === 'reasoning' && last.finishedAt === undefined) last.finishedAt = Date.now();
+      if (roundReasoning && roundReasoning.finishedAt === undefined)
+        roundReasoning.finishedAt = Date.now();
     };
     // 思考内容独立于公开正文（content）：不进复制、笔记与回灌模型的上下文。
     const updateReasoning = (text: string) => {
       if (!text) return;
-      const last = reply.parts!.at(-1);
-      if (last?.type === 'reasoning') last.text = text;
-      else reply.parts!.push({ type: 'reasoning', text, startedAt: Date.now() });
+      if (roundReasoning) {
+        roundReasoning.text = text;
+        return;
+      }
+      const part: Extract<ChatPart, { type: 'reasoning' }> = {
+        type: 'reasoning',
+        text,
+        startedAt: Date.now(),
+      };
+      reply.parts!.push(part);
+      roundReasoning = part;
     };
     const updateText = (text: string) => {
       if (!text) return;
       closeTrailingReasoning();
-      const last = reply.parts!.at(-1);
-      if (last?.type === 'text') last.text = text;
-      else reply.parts!.push({ type: 'text', text });
+      if (roundText) {
+        roundText.text = text;
+      } else {
+        // 中断路径先落一个空 text part 再写文案，末尾 text part 直接改写即落在该空块上。
+        const last = reply.parts!.at(-1);
+        if (last?.type === 'text') {
+          last.text = text;
+          roundText = last;
+        } else {
+          const part: Extract<ChatPart, { type: 'text' }> = { type: 'text', text };
+          reply.parts!.push(part);
+          roundText = part;
+        }
+      }
       reply.content = reply
         .parts!.flatMap((part) => (part.type === 'text' ? [part.text] : []))
         .join('\n\n');
@@ -408,6 +434,9 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
           appendRunStep(run, call);
           publishRunEvent(sessionId, run.runId, 'running', call.name);
           closeTrailingReasoning();
+          // 工具调用开启下一轮：轮内块引用作废，下一轮的思考/正文各开新块。
+          roundReasoning = null;
+          roundText = null;
           if (reply.parts!.at(-1)?.type !== 'tools')
             reply.parts!.push({ type: 'tools', results: [] });
           const group = reply.parts!.at(-1);
@@ -454,8 +483,11 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
         reply.interrupted = true;
         runError = error instanceof Error ? error.message : '未知错误';
         terminal = 'failed';
-        // 中断文案以新 text 部分落地前，先为流式中的思考段收尾计时。
+        // 中断文案以新 text 部分落地前，先为流式中的思考段收尾计时；
+        // 轮内引用一并作废，避免文案改写到已流出的正文上。
         closeTrailingReasoning();
+        roundReasoning = null;
+        roundText = null;
         reply.parts!.push({ type: 'text', text: '' });
         updateText(`本次执行中断：${runError}。已完成的操作保留，请查看工具结果。`);
         throw error;

@@ -408,6 +408,30 @@ describe('runAgent（Pi Agent Core 桥）', () => {
     ]);
   });
 
+  it('f2. 同一消息内思考与正文增量交错：回调按消息累计（分段合并由会话层负责）', async () => {
+    server.enqueue({
+      kind: 'sse',
+      frames: [
+        mockFrames.reasoningDelta('第一段思考'),
+        mockFrames.textDelta('中间正文'),
+        mockFrames.reasoningDelta('第二段思考'),
+        mockFrames.textDelta('最终回答'),
+        mockFrames.finishFrame('stop'),
+      ],
+    });
+    const onText = vi.fn();
+    const onReasoning = vi.fn();
+    const result = await runAgent({ ...makeOptions(), onText, onReasoning });
+    // pi-ai 每条消息只产出一个思考块与一个正文块，交错增量按通道并入同一块：
+    // 回调必须携带消息内累计文本；若按通道切换清零，会切碎块并丢失前半段正文。
+    expect(onReasoning.mock.calls.map(([text]) => text)).toEqual([
+      '第一段思考',
+      '第一段思考第二段思考',
+    ]);
+    expect(onText.mock.calls.map(([text]) => text)).toEqual(['中间正文', '中间正文最终回答']);
+    expect(result.content).toBe('中间正文最终回答');
+  });
+
   it('g. 第 12 轮前注入收尾提示，第 12 轮仍调工具则按上限结束', async () => {
     const before = server.requests.length;
     for (let round = 1; round <= 12; round += 1) {

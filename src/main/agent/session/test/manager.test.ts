@@ -322,6 +322,36 @@ describe('multimodal ask input', () => {
     expect(reply.parts?.[1]).toEqual({ type: 'text', text: '回答正文' });
     expect(reply.content).toBe('回答正文');
   });
+
+  it('merges interleaved reasoning/text deltas within a round into single parts', async () => {
+    fixtures.run.mockImplementation(async (callbacks: Callbacks) => {
+      // GLM 类模型会在同一条消息内交替下发思考与正文增量；回调按消息累计
+      // （见 run.test f2），会话层必须把轮内交错增量并回同一块，切轮才新开。
+      callbacks.onReasoning?.('第一段思考');
+      callbacks.onText?.('中间正文');
+      callbacks.onReasoning?.('第一段思考第二段思考');
+      callbacks.onToolStart?.({ id: 'tool', name: 'search_sources', input: {} });
+      callbacks.onToolResult?.(result);
+      callbacks.onReasoning?.('第二轮思考');
+      callbacks.onText?.('最终回答');
+      return { content: '最终回答', toolResults: [result] };
+    });
+    const sessionId = newSession(null).sessionId!;
+    const chat = await askSession(sessionId, { text: '问题', attachments: [], context: [] });
+    const reply = chat.messages.at(-1)!;
+    expect(reply.parts).toEqual([
+      expect.objectContaining({
+        type: 'reasoning',
+        text: '第一段思考第二段思考',
+        finishedAt: expect.any(Number),
+      }),
+      { type: 'text', text: '中间正文' },
+      { type: 'tools', results: [expect.objectContaining({ id: 'tool' })] },
+      expect.objectContaining({ type: 'reasoning', text: '第二轮思考' }),
+      { type: 'text', text: '最终回答' },
+    ]);
+    expect(reply.content).toBe('中间正文\n\n最终回答');
+  });
 });
 
 describe('newSession ownership', () => {
