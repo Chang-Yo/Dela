@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import { Feather, Heart, X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Feather, Heart, RefreshCw, User, X } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { SponsorsState } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
 import { DelaBrand } from '../../../components/ui/dela-brand';
 import {
@@ -158,7 +159,142 @@ function CreditSectionBlock({ section }: { section: CreditSection }) {
   );
 }
 
+function DefaultSponsorAvatar() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-6 items-center justify-center rounded-full bg-muted"
+    >
+      <User className="size-3.5 text-muted-foreground" />
+    </span>
+  );
+}
+
+// 在线赞助名单（docs/sponsorship-plan.md §8）：缓存先展示，进入关于页、窗口重新
+// 聚焦与手动刷新时后台更新；首次无数据失败给重试入口，合法空名单给空态说明。
+// 线上名单接管前保留 credits.ts 中的本地赞助者展示。
+function SponsorsSection() {
+  const legacyPeople = creditSections.find((section) => section.title === 'Sponsors')?.people ?? [];
+  const api = window.dela?.sponsors;
+  const [state, setState] = useState<SponsorsState>({
+    sponsors: null,
+    checkedAt: null,
+    refreshing: true,
+    error: null,
+  });
+  const [failedAvatars, setFailedAvatars] = useState<ReadonlySet<string>>(() => new Set());
+
+  useEffect(() => {
+    if (!api) return;
+    let stale = false;
+    const apply = (next: SponsorsState) => {
+      if (!stale) setState(next);
+    };
+    void (async () => {
+      apply(await api.getState());
+      apply(await api.refresh());
+    })();
+    const onFocus = () => {
+      void api.refresh().then(apply);
+    };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      stale = true;
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [api]);
+
+  const refreshNow = () => {
+    void api?.refreshNow().then(setState);
+  };
+
+  const { error, refreshing, sponsors } = state;
+
+  return (
+    <section className="grid gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">Sponsors</h2>
+        <div className="flex items-center gap-1.5">
+          <Button
+            aria-label="刷新赞助名单"
+            disabled={!api}
+            onClick={refreshNow}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <RefreshCw className={refreshing ? 'size-4 motion-safe:animate-spin' : 'size-4'} />
+          </Button>
+          <Button
+            disabled={!api}
+            onClick={() => void api?.openSupportPage().catch(console.error)}
+            size="sm"
+            variant="secondary"
+          >
+            <Heart className="size-3.5" />
+            赞助
+          </Button>
+        </div>
+      </div>
+      {!api ? null : sponsors === null ? (
+        error ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+            <span role="alert">{error}</span>
+            <Button onClick={refreshNow} size="sm" variant="secondary">
+              重试
+            </Button>
+          </div>
+        ) : (
+          <p className="py-1 text-sm text-muted-foreground">正在获取赞助名单…</p>
+        )
+      ) : sponsors.length === 0 ? (
+        <p className="py-1 text-sm text-muted-foreground">
+          还没有公开的赞助者，赞助并选择公开后会出现在这里。
+        </p>
+      ) : (
+        <div className="grid gap-1.5">
+          <ul className="flex flex-wrap gap-x-5 gap-y-2.5">
+            {sponsors.map(({ avatarUrl, id, name }) => (
+              <li className="flex items-center gap-2.5" key={id}>
+                {avatarUrl && !failedAvatars.has(id) ? (
+                  <img
+                    alt=""
+                    aria-hidden="true"
+                    className="size-6 rounded-full object-cover"
+                    onError={() =>
+                      setFailedAvatars((previous) => {
+                        const next = new Set(previous);
+                        next.add(id);
+                        return next;
+                      })
+                    }
+                    src={avatarUrl}
+                  />
+                ) : (
+                  <DefaultSponsorAvatar />
+                )}
+                <span className="text-sm font-medium text-foreground">{name}</span>
+              </li>
+            ))}
+          </ul>
+          {error ? (
+            <p className="text-xs text-muted-foreground" role="status">
+              刷新失败，以上为本地缓存的名单。
+            </p>
+          ) : null}
+        </div>
+      )}
+      {legacyPeople.map((person) => (
+        <div className="flex items-center justify-between gap-3 py-1" key={person.name}>
+          <PersonIdentity person={person} />
+          <PersonActions person={person} />
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export function AboutSection() {
+  const authorSection = creditSections.find((section) => section.title === 'Author');
   return (
     <div className="grid gap-10" data-setting-id="about">
       <SectionHeader title="关于" />
@@ -172,9 +308,8 @@ export function AboutSection() {
           版本 {window.dela?.version ?? '浏览器预览'}
         </p>
       </section>
-      {creditSections.map((section) => (
-        <CreditSectionBlock key={section.title} section={section} />
-      ))}
+      {authorSection ? <CreditSectionBlock section={authorSection} /> : null}
+      <SponsorsSection />
     </div>
   );
 }

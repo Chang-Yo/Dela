@@ -11,6 +11,7 @@ import { notifications } from './notifications';
 import { search } from './search';
 import { session } from './session';
 import { settings } from './settings';
+import { sponsors } from './sponsors';
 import { shuiyuan } from './shuiyuan';
 import { timetable } from './timetable';
 import { todo } from './todo';
@@ -38,5 +39,6 @@ contextBridge.exposeInMainWorld('dela', {
   workspace,
   session,
   layout,
+  sponsors,
   capability,
 } satisfies DelaApi);

@@ -11,6 +11,7 @@ import type { NotificationsApi } from './notifications';
 import type { SearchApi } from './search';
 import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
+import type { SponsorsApi } from './sponsors';
 export type {
   AgentCapabilityView,
   CapabilityApi,
@@ -48,6 +49,7 @@ export interface DelaApi {
   readonly layout: LayoutApi;
   readonly search: SearchApi;
   readonly notifications: NotificationsApi;
+  readonly sponsors: SponsorsApi;
 }
 
 export type { WindowState, TrayAction, WindowApi } from './window';
@@ -202,3 +204,5 @@ export type {
 } from './layout';
 
 export type { TodoStatus, TodoItem, TodoState, TodoSaveInput, TodoApi } from './todo';
+
+export type { SponsorPersonView, SponsorsState, SponsorsApi } from './sponsors';

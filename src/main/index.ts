@@ -14,6 +14,7 @@ import { registerPreviewProtocol, registerPreviewScheme } from './workspace/prev
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
 import { registerSearchIpc } from './search';
+import { registerSponsorsIpc } from './sponsors';
 import {
   initializeNotifications,
   registerNotificationsIpc,
@@ -129,6 +130,7 @@ app.whenReady().then(() => {
   registerWorkspaceIpc(subscribeChat);
   registerTerminalIpc();
   registerSearchIpc();
+  registerSponsorsIpc();
   registerNotificationsIpc();
   registerTodoIpc();
   initializeNotifications();
