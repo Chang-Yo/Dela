@@ -5,6 +5,7 @@ import type { GroupNode, TabId } from '../../shared/layout';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { cn } from '../lib/utils';
 import { EmptyState } from './EmptyState';
+import { ExplorerRevealButton } from './explorer-state';
 import { useWorkbenchLayout } from './layout-store';
 import { kindOf, registry, titleOf } from './registry';
 import { TabBar } from './TabBar';
@@ -136,6 +137,12 @@ export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) 
       onDropCapture={onDrop}
     >
       <TabBar group={group} unfocused={unfocused} />
+      {/* 空组没有标签栏可挂展开入口：锚定在标签栏左端同一坐标（px-2 pt-1 + self-end mb-1
+          即左上 8px/8px），最后一个标签关闭时按钮不位移，也不落进空态的居中栈。
+          z-10 压过后方内容层（relative 且 DOM 靠后，会整层拦截指针）。 */}
+      {!unfocused && !group.tabs.length && (
+        <ExplorerRevealButton className="absolute left-2 top-2 z-10" />
+      )}
       <div ref={contentRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {active ? (
           <div
