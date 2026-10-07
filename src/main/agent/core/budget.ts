@@ -1,5 +1,5 @@
 /**
- * 上下文预算与 token 估算（agent-workspace-plan.md §6.1「按预算触发」；decisions-phase1.md 批次 2B）。
+ * 上下文预算与 token 估算「按预算触发」。
  * 窗口与输出预留可由当前模型配置覆盖；缺省沿用旧预算，未知窗口不按模型名猜测。
  */
 
@@ -11,7 +11,7 @@ export const CONTEXT_WINDOW_FALLBACK = LLM_DEFAULT_CONTEXT_WINDOW;
 export const OUTPUT_RESERVE_TOKENS = 8192;
 // 运行内工具交互余量：多轮工具调用会在请求之间持续追加消息，预算需为其留出空间。
 export const TOOL_MARGIN_TOKENS = 4096;
-// 触发阈值：估算输入 ≥（窗口−预留）× 0.7 时压缩较早历史（decisions-phase1.md 批次 2B）。
+// 触发阈值：估算输入 ≥（窗口−预留）× 0.7 时压缩较早历史。
 export const COMPACT_TRIGGER_RATIO = 0.7;
 // 摘要占位预留：压缩后摘要以 system 前置块进入上下文，为它预留的 token 上限
 //（compaction 请求的 max_tokens 上限小于该值，保证摘要永远放得进预留）。

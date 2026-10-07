@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getDatabase } from '../../database';
 
-/** Run 状态机（state-model.md §2.3）：pending → running → completed/stopped/failed/interrupted；
+/** Run 状态机：pending → running → completed/stopped/failed/interrupted；
  *  waiting_input 状态入模型、本轮不触发；interrupted 仅由启动时的中断识别写入。 */
 
 /** steps 轻量索引项：input/output 全文留在会话消息 JSON，避免双写（裁决 3）。 */

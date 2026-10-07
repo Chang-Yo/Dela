@@ -1,4 +1,4 @@
-// 布局类型 re-export、树操作纯函数与旧数据种子迁移（docs/refactor/structure.md §3.2）。
+// 布局类型 re-export、树操作纯函数与旧数据种子迁移。
 // 类型与校验 schema 的唯一事实来源是 shared/layout.ts；本文件是 renderer 侧的工作台适配层。
 import {
   maxTabsPerGroup,

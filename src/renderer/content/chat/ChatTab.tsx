@@ -3,13 +3,6 @@ import { History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
 import { ChatComposer } from './ChatComposer';
 import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
@@ -23,9 +16,6 @@ export function parseChatTabId(tabId: string): string | null {
   const sessionId = tabId.slice('chat:'.length);
   return sessionId || null;
 }
-
-/** Radix Select 的 Item 不接受空串值，通用池用哨兵表示。 */
-const GENERAL_SELECT_VALUE = '__general__';
 
 /** 会话作为标签内容（AgentPanel 去面板化：无 aside、无宽度与开关逻辑）。
  *  会话身份来自 tabId（chat:{sessionId}）；引用候选、邮件草稿弹窗与项目归属经
@@ -110,43 +100,10 @@ function ChatComposerArea({
   hero?: boolean;
 }) {
   const { prompt, references } = useChatDraft(sessionId);
-  const source = useChatTabSource();
   return (
     <div className="mx-auto w-full max-w-3xl shrink-0 p-3">
       <ChatComposer
         hero={hero}
-        projectPicker={
-          source?.onSelectProject && (
-            <Select
-              disabled={
-                chatState.busy || Boolean(chat?.messages.length) || chatState.attachments.length > 0
-              }
-              onValueChange={(value) =>
-                void source.onSelectProject?.(
-                  value === GENERAL_SELECT_VALUE ? null : value,
-                  sessionId,
-                )
-              }
-              value={source.projectId ?? GENERAL_SELECT_VALUE}
-            >
-              <SelectTrigger
-                aria-label="对话项目"
-                className="max-w-40 text-muted-foreground"
-                title="选择对话项目"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={GENERAL_SELECT_VALUE}>随聊</SelectItem>
-                {source.projects?.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )
-        }
         attachments={chatState.attachments}
         busy={chatState.busy}
         configured={Boolean(chat?.configured)}

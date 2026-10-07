@@ -1,5 +1,5 @@
 // 会话视图类型（拆分自 api.ts）。批次 2B 落地 Session/Run 新身份契约
-// （docs/refactor/state-model.md §2.2/§2.3、docs/refactor/decisions-phase1.md 裁决）。
+// 。
 import type { ChatAskInput } from './chat';
 
 export interface AgentToolResult {
@@ -62,7 +62,7 @@ export interface WorkspaceChat {
   }[];
 }
 
-/** Run 状态机（state-model.md §2.3）；waiting_input 本轮不触发，interrupted 仅启动时写入。 */
+/** Run 状态机；waiting_input 本轮不触发，interrupted 仅启动时写入。 */
 export type RunStatus =
   'pending' | 'running' | 'waiting_input' | 'completed' | 'failed' | 'stopped' | 'interrupted';
 

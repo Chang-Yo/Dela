@@ -7,7 +7,7 @@ import { shuiyuanTools } from './shuiyuan';
 import { timetableTools } from './timetable';
 import { todoTools } from './todo';
 import { workspaceTools } from './workspace';
-import { readResourceTool } from './common/read-resource';
+import { readResourceTool } from './read-resource';
 import type { AgentTool, ToolContext } from './shared';
 
 // 这些是 shell 的业务命令，不常驻模型工具表；复用应用已有的缓存、登录与操作边界。
@@ -133,16 +133,8 @@ const BLOCKED_PORTS = new Set([
 ]);
 const isBlockedPort = (port: number) => BLOCKED_PORTS.has(port);
 
-export const POWERSHELL_COMMAND_BRIDGE = `function dela {
-  param([Parameter(Position=0)][string]$Command, [Parameter(Position=1)][string]$Json = '{}')
-  $payload = @{ command = $Command; input = ($Json | ConvertFrom-Json) } | ConvertTo-Json -Depth 100 -Compress
-  $result = Invoke-RestMethod -Uri $env:DELA_COMMAND_URL -Method Post -Headers @{Authorization="Bearer $env:DELA_COMMAND_TOKEN"} -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($payload))
-  if (!$result.ok) { throw $result.error }
-  $result.result | ConvertTo-Json -Depth 100
-}`;
-
-export const POSIX_COMMAND_BRIDGE = `dela() {
+export const COMMAND_BRIDGE = `dela() {
   command_name="$1"
   command_json="\${2:-{}}"
-  curl --silent --show-error --fail -H "Authorization: Bearer $DELA_COMMAND_TOKEN" -H 'Content-Type: application/json' --data "{\\"command\\":\\"$command_name\\",\\"input\\":$command_json}" "$DELA_COMMAND_URL"
+  curl --silent --show-error --fail-with-body -H "Authorization: Bearer $DELA_COMMAND_TOKEN" -H 'Content-Type: application/json' --data "{\\"command\\":\\"$command_name\\",\\"input\\":$command_json}" "$DELA_COMMAND_URL"
 }`;

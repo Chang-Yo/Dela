@@ -143,35 +143,35 @@ describe('summaryContextText', () => {
 
 // 设置 › 内置能力关掉工具后，系统提示不能继续指挥模型调用它（随实际下发的工具裁剪）。
 describe('systemPromptFor', () => {
-  const all = new Set(['web_search', 'fetch_page', 'read_resource', 'shell']);
+  const all = new Set(['WebSearch', 'WebFetch', 'Read', 'Bash']);
 
   it('省略工具表时与完整提示词一致', () => {
     expect(systemPromptFor(undefined)).toBe(SYSTEM_PROMPT);
     expect(systemPromptFor(all)).toBe(SYSTEM_PROMPT);
   });
 
-  it('关掉 shell 后不再引导 dela 命令', () => {
-    const prompt = systemPromptFor(new Set(['read_resource', 'web_search']));
+  it('关掉 Bash 后不再引导 dela 命令', () => {
+    const prompt = systemPromptFor(new Set(['Read', 'WebSearch']));
     expect(prompt).not.toContain('dela');
   });
 
   it('关掉网页工具后不再提这两个工具名', () => {
-    const prompt = systemPromptFor(new Set(['read_resource']));
-    expect(prompt).not.toContain('web_search');
-    expect(prompt).not.toContain('fetch_page');
-    expect(prompt).toContain('read_resource');
+    const prompt = systemPromptFor(new Set(['Read']));
+    expect(prompt).not.toContain('WebSearch');
+    expect(prompt).not.toContain('WebFetch');
+    expect(prompt).toContain('Read 的 pages 参数');
   });
 
   it('只留一个网页工具时只保留对应指引', () => {
-    const prompt = systemPromptFor(new Set(['web_search', 'read_resource']));
-    expect(prompt).toContain('用 web_search 搜索');
-    expect(prompt).not.toContain('fetch_page');
+    const prompt = systemPromptFor(new Set(['WebSearch', 'Read']));
+    expect(prompt).toContain('用 WebSearch 搜索');
+    expect(prompt).not.toContain('WebFetch');
   });
 
-  it('关掉 read_resource 后不再提 pages 参数', () => {
-    const prompt = systemPromptFor(new Set(['web_search', 'fetch_page']));
+  it('关掉 Read 后不再提 pages 参数', () => {
+    const prompt = systemPromptFor(new Set(['WebSearch', 'WebFetch']));
     expect(prompt).not.toContain('pages');
-    expect(prompt).toContain('先用 web_search 搜索');
+    expect(prompt).toContain('先用 WebSearch 搜索');
   });
 
   it('尾部资料参考声明始终保留', () => {
@@ -207,5 +207,51 @@ describe('systemText 的 Instruction 段', () => {
       instruction: '回答先给结论。',
     });
     expect(result.system).toContain('回答先给结论。');
+  });
+});
+
+// 项目会话的【项目上下文】段：名称/目录/背景/目标，排在基础设定之后、Instruction 之前。
+describe('systemText 的项目上下文段', () => {
+  const project = {
+    name: '毕业设计',
+    directory: 'E:/projects/thesis',
+    background: '交大本科毕设项目。',
+    goal: '完成论文初稿。',
+  };
+
+  it('非项目会话（省略 project）不追加该段', () => {
+    expect(systemText({ skillIndex: [], summary: null })).not.toContain('【项目上下文】');
+  });
+
+  it('包含名称、目录、背景与目标', () => {
+    const system = systemText({ project, skillIndex: [], summary: null });
+    expect(system).toContain('【项目上下文】');
+    expect(system).toContain('当前项目：毕业设计');
+    expect(system).toContain('E:/projects/thesis');
+    expect(system).toContain('项目背景：交大本科毕设项目。');
+    expect(system).toContain('项目目标：完成论文初稿。');
+  });
+
+  it('背景或目标为空白时省略对应行', () => {
+    const system = systemText({
+      project: { ...project, background: '  ', goal: '' },
+      skillIndex: [],
+      summary: null,
+    });
+    expect(system).toContain('当前项目：毕业设计');
+    expect(system).not.toContain('项目背景');
+    expect(system).not.toContain('项目目标');
+  });
+
+  it('紧随基础设定，且先于 Instruction 与 Skill 索引', () => {
+    const system = systemText({
+      project,
+      instruction: '回答先给结论。',
+      skillIndex: [{ name: 'thesis', description: '论文写作规范' }],
+      summary: summary(6, 10),
+    });
+    expect(system.indexOf(SYSTEM_PROMPT)).toBeLessThan(system.indexOf('【项目上下文】'));
+    expect(system.indexOf('【项目上下文】')).toBeLessThan(system.indexOf('回答先给结论。'));
+    expect(system.indexOf('【项目上下文】')).toBeLessThan(system.indexOf('可用 Skills'));
   });
 });

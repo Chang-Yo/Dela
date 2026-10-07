@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { LoaderCircle, Lock } from 'lucide-react';
-import type { AgentCapabilityView } from '../../../../shared/api';
+import { LoaderCircle, Lock, SlidersHorizontal } from 'lucide-react';
+import type { AgentCapabilityView, WebSearchConfig } from '../../../../shared/api';
+import { Button } from '../../../components/ui/button';
 import { Switch } from '../../../components/ui/switch';
 import { SectionHeader } from '../SectionHeader';
 import { errorText } from '../../../workspace/store';
+import { SearchConfigDialog, webSearchProviderLabels } from './SearchConfigDialog';
 
 /** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
 function groupByDomain(capabilities: AgentCapabilityView[]) {
@@ -21,18 +23,25 @@ function groupByDomain(capabilities: AgentCapabilityView[]) {
   return [...groups.values()];
 }
 
-/** 设置 › 内置能力：Agent 可用的内置工具按域开关；关闭即从模型工具表移除。 */
+/** 设置 › 内置能力：Agent 可用的内置工具按域开关；关闭即从模型工具表移除。
+ *  WebSearch 的搜索服务注册入口在「网络」域头部，弹窗管理。 */
 export function CapabilitiesSection() {
   // null 表示尚未读到清单，避免闪烁出错误的“全开”状态。
   const [capabilities, setCapabilities] = useState<AgentCapabilityView[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchConfig, setSearchConfig] = useState<WebSearchConfig | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     void window.dela?.capability
       .listBuiltinCapabilities()
       .then(setCapabilities)
       .catch((cause) => setError(errorText(cause)));
+    void window.dela?.capability
+      .readWebSearchConfig()
+      .then(setSearchConfig)
+      .catch(() => {});
   }, []);
 
   // 即时保存 + 失败回滚（与 Skills / MCP 页签一致）。
@@ -79,15 +88,32 @@ export function CapabilitiesSection() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <h2 className="text-base font-semibold">{group.label}</h2>
-                      <Switch
-                        checked={allEnabled}
-                        disabled={busy || toggleable.length === 0}
-                        indeterminate={!allEnabled && enabledCount > 0}
-                        label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
-                        onChange={(next) =>
-                          void run(() => window.dela!.capability.setBuiltinDomain(group.id, next))
-                        }
-                      />
+                      <div className="flex items-center gap-1">
+                        {group.id === 'web' && (
+                          <Button
+                            aria-label="配置搜索服务"
+                            title={
+                              searchConfig
+                                ? `搜索服务：${webSearchProviderLabels[searchConfig.provider]}`
+                                : '尚未注册搜索服务，点击配置'
+                            }
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => setSearchOpen(true)}
+                          >
+                            <SlidersHorizontal className="size-4" strokeWidth={1.8} />
+                          </Button>
+                        )}
+                        <Switch
+                          checked={allEnabled}
+                          disabled={busy || toggleable.length === 0}
+                          indeterminate={!allEnabled && enabledCount > 0}
+                          label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
+                          onChange={(next) =>
+                            void run(() => window.dela!.capability.setBuiltinDomain(group.id, next))
+                          }
+                        />
+                      </div>
                     </div>
                     {group.items.map((capability) => (
                       <div
@@ -128,6 +154,13 @@ export function CapabilitiesSection() {
             <p className="text-xs text-destructive" role="alert">
               {error}
             </p>
+          )}
+          {searchOpen && (
+            <SearchConfigDialog
+              config={searchConfig}
+              onClose={() => setSearchOpen(false)}
+              onSaved={setSearchConfig}
+            />
           )}
         </>
       )}

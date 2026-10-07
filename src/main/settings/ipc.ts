@@ -1,5 +1,4 @@
-// settings:* 通道注册（自 src/main/index.ts 内联的 registerSettingsIpc 迁出，
-// 既有通道与行为不变；docs/refactor/structure.md §2.4/§5.2）。
+// settings:* 通道注册。
 // 新增：campus-notifications、task-notifications、workspace-prefs、keybindings 四组偏好读写。
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { z } from 'zod';

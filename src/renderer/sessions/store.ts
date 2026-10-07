@@ -3,7 +3,7 @@ import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 
-// 会话列表镜像（docs/refactor/structure.md §3.4）：renderer 只持有视图状态与镜像，
+// 会话列表镜像：renderer 只持有视图状态与镜像，
 // 会话事实（chat_sessions 表）在 main；本模块全部数据来自 session:list 与
 // session:on-update 订阅，只读不发起执行（「打开视图不启动执行」）。
 

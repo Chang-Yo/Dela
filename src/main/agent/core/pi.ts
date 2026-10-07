@@ -1,5 +1,5 @@
 /**
- * Pi Agent Core 运行时桥（docs/refactor/pi-integration-report.md §6 推荐集成面）：
+ * Pi Agent Core 运行时桥：
  * - buildPiModel：Dela 提供商配置 → pi-ai openai-completions Model；
  * - createDelaStreamFn：streamFn 包装——注入 maxTokens 与请求超时，承担 Pi 不做的
  *   max_tokens 降参重发（L3）与瞬时错误退避重试（L4）；

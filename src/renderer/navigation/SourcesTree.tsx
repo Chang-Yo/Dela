@@ -1,4 +1,4 @@
-// Canvas 资料树（迁移自 features/sources/SourceList.tsx；structure.md §3.3）。
+// Canvas 资料树。
 // 订阅 workspace/store 的 Canvas 概览镜像，同步/归档/下载经 preload canvas:* 通道直连。
 import { useState } from 'react';
 import { AlertDialog } from 'radix-ui';

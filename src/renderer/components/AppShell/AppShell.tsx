@@ -11,6 +11,7 @@ import {
   Copy,
   FolderOpen,
   Menu,
+  MessageCirclePlus,
   Minus,
   PanelLeft,
   PanelLeftClose,
@@ -51,8 +52,8 @@ type TitleMenuId = 'file' | 'view' | 'help';
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
 
-// 快捷键提示按运行平台显示 ⌘ 或 Ctrl（键位串里的 Mod 由 acceleratorKeys 展开）。
-const platform = /Mac|iPhone|iPad/.test(navigator.platform) ? ('mac' as const) : ('other' as const);
+// 快捷键提示的键位族（Windows-only，Mod 一律按 Ctrl 展开）。
+const platform = 'other' as const;
 
 /** 标题栏菜单（文件/视图/帮助）触发按钮的共用样式。 */
 const titleMenuButtonClass =
@@ -624,6 +625,18 @@ export function AppShell({
               </button>
             </div>
           )}
+          {/* 资料页（通用工作台）的聊天入口：非项目会话即首页网页式 chat，可 @ 资料文件。 */}
+          {view === 'workbench' && projectId === null && window.dela && (
+            <button
+              aria-label="新聊天"
+              className="[-webkit-app-region:no-drag] mr-1 grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+              onClick={() => useNavigationStore.getState().openGeneralChat(true)}
+              title="新聊天"
+              type="button"
+            >
+              <MessageCirclePlus className="size-4" strokeWidth={1.8} />
+            </button>
+          )}
           <WindowControls />
         </div>
       </header>
@@ -757,11 +770,7 @@ export function AppShell({
           </div>
           <ProjectSessionNav
             activeBusinessId={
-              view === 'mail' ||
-              view === 'timetable' ||
-              view === 'videos' ||
-              view === 'shuiyuan' ||
-              view === 'todo'
+              view === 'mail' || view === 'timetable' || view === 'shuiyuan' || view === 'todo'
                 ? view
                 : null
             }

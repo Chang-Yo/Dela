@@ -1,4 +1,4 @@
-// layout:* 通道与持久化（docs/refactor/structure.md §3.2/§5.2）。
+// layout:* 通道与持久化。
 // 键 `layout:{projectId}`（通用 = `layout:_general`）存 workspace_settings；
 // 读写都经 zod 校验，损坏数据回退 null，不抛错给 renderer。旧 `workspace:save-view`
 // 已随 ProjectView 退役删除（3C）；`view:%` 行仅剩读取（getWorkspaceState 的旧布局种子）。

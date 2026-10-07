@@ -16,7 +16,6 @@ import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../features/search/GlobalSearchDialog';
 import { TimetableView } from '../features/timetable';
 import { TodoView } from '../features/todo/TodoView';
-import { VideosView } from '../features/videos';
 import type { ChatSessionSummary, GlobalSearchResult } from '../../shared/api';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
 import { useRuns } from '../sessions/runs';
@@ -283,7 +282,6 @@ export default function App() {
                     />
                   )}
                   {view === 'shuiyuan' && <ShuiyuanView />}
-                  {view === 'videos' && <VideosView />}
                   {view === 'todo' && <TodoView request={todoRequest ?? undefined} />}
                   {view === 'notifications' && (
                     <NotificationsView

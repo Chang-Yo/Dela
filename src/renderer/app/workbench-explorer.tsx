@@ -20,7 +20,7 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react';
-import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
+import { workspaceArchiveId } from '../../shared/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Resizer } from '../components/ui/resizer';
@@ -122,13 +122,6 @@ export function WorkbenchExplorer({
   const expand = (id: string, open: boolean) => useTreeState.getState().expand(id, open);
   const container = () => currentContainerOf(selected ?? activeDocKey, rootId);
 
-  // 课堂视频引用不是文档：点击直达课堂视频页播放（深链），不走预览标签。
-  const openVsjtuEntry = (item: WorkspaceEntry) => {
-    const videoId = Number(item.sourceId?.slice('vsjtu-video:'.length));
-    if (Number.isInteger(videoId) && videoId > 0) useAppNavigation.getState().openVideo(videoId);
-    useExplorerState.getState().setMobileOpen(false);
-  };
-
   const selectEntry = (id: string) => {
     const item = entries.find((entry) => entry.id === id);
     if (!item) return;
@@ -138,17 +131,13 @@ export function WorkbenchExplorer({
     } else if (item.kind === 'folder') {
       useTreeState.getState().select(id);
       expand(id, !expanded.includes(id));
-    } else if (item.kind === 'source' && item.sourceId?.startsWith('vsjtu-video:'))
-      openVsjtuEntry(item);
-    else onOpenDocument(id);
+    } else onOpenDocument(id);
   };
 
   const openToSide = (key: string) => {
     const item = entries.find((entry) => entry.id === key);
     if (item?.kind === 'project') void useAppNavigation.getState().openProject(key);
     else if (item?.kind === 'folder') selectEntry(key);
-    else if (item?.kind === 'source' && item.sourceId?.startsWith('vsjtu-video:'))
-      openVsjtuEntry(item);
     else onOpenToSide(key);
   };
 

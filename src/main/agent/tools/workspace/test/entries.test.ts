@@ -68,7 +68,6 @@ describe('update_entry', () => {
           name: 'A',
           kind: 'project',
           sourceId: null,
-          noteId: null,
           updatedAt: '2026-01-01T00:00:00Z',
         },
       ],
@@ -95,7 +94,6 @@ describe('create_entry', () => {
       name: 'N',
       kind: 'note',
       sourceId: null,
-      noteId: 'n1',
       updatedAt: '2026-01-01T00:00:00Z',
     });
     await expect(
@@ -128,7 +126,6 @@ describe('list_workspace_entries', () => {
           name: '项目A',
           kind: 'project',
           sourceId: null,
-          noteId: null,
           updatedAt: '2026-01-01T00:00:00Z',
         },
         {
@@ -137,7 +134,6 @@ describe('list_workspace_entries', () => {
           name: '笔记B',
           kind: 'note',
           sourceId: null,
-          noteId: null,
           updatedAt: '2026-01-01T00:00:00Z',
         },
       ],
@@ -160,7 +156,6 @@ describe('link_canvas_source', () => {
       name: 'slides',
       kind: 'source',
       sourceId: 'file:1',
-      noteId: null,
       updatedAt: '2026-01-01T00:00:00Z',
     });
     await expect(

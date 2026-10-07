@@ -1,8 +1,13 @@
 import { app, ipcMain, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { checkWorkspaceSender } from './ipc';
 import { idSchema, projectDirectory } from './workspace/api';
+import { locateBash } from './agent/tools/kernel/bash';
+import { COMMAND_BRIDGE, startDomainBridge } from './agent/tools/commands';
 import type { TerminalEvent, TerminalSession } from '../shared/terminal';
 
 // 重挂载时回放最近输出；每个终端最多保留约 100 万字符，避免长期任务无限占用内存。
@@ -14,6 +19,8 @@ const sessions = new Map<
     owner: WebContents;
     pty: IPty;
     snapshot: TerminalSession;
+    /** 命令桥与 rcfile 临时目录随会话回收。 */
+    cleanup: () => void;
   }
 >();
 
@@ -22,12 +29,27 @@ function closeSession(id: string) {
   if (!session) return;
   sessions.delete(id);
   if (session.snapshot.exitCode === null) session.pty.kill();
+  session.cleanup();
 }
 
 function ownedSession(owner: WebContents, id: unknown) {
   const session = sessions.get(idSchema.parse(id));
   if (!session || session.owner !== owner) throw new Error('终端会话不存在');
   return session;
+}
+
+/** 终端与内核 Bash 同源（Git Bash）：经 --rcfile 链回标准初始化后注入 dela 命令桥，
+ *  使 skills 的领域命令在交互终端同样可用；桥的 URL/token 只进本会话环境。 */
+function writeRcfile(): { path: string; cleanup: () => void } {
+  const directory = mkdtempSync(join(tmpdir(), 'dela-terminal-'));
+  const path = join(directory, 'rc');
+  writeFileSync(
+    path,
+    '[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc\n[ -f ~/.bashrc ] && . ~/.bashrc\n' +
+      COMMAND_BRIDGE +
+      '\n',
+  );
+  return { path, cleanup: () => rmSync(directory, { force: true, recursive: true }) };
 }
 
 export function registerTerminalIpc() {
@@ -43,36 +65,45 @@ export function registerTerminalIpc() {
       .filter((session) => session.owner === owner && session.projectId === projectId)
       .map((session) => ({ ...session.snapshot }));
   });
-  handle('create', (owner, projectId, id) => {
+  handle('create', async (owner, projectId, id) => {
     const cwd = projectDirectory(projectId);
     const parsedId = idSchema.parse(id);
     if (sessions.has(parsedId)) throw new Error('终端会话已存在');
-    const windows = process.platform === 'win32';
-    const shell = windows ? 'powershell.exe' : process.env.SHELL || '/bin/bash';
-    // Electron 是中间进程，不能把 PowerShell 7 的模块目录传给 Windows PowerShell。
-    // 仅处理子进程副本，让 Windows PowerShell 按官方规则重建自己的默认模块路径。
-    const env = Object.fromEntries(
-      Object.entries(process.env).filter(
-        ([key]) => !windows || key.toLowerCase() !== 'psmodulepath',
-      ),
-    );
-    const pty = spawn(shell, windows ? ['-NoLogo'] : ['-l'], {
+    const bridge = await startDomainBridge({ cwd });
+    const rcfile = writeRcfile();
+    const pty = spawn(locateBash(), ['--rcfile', rcfile.path, '-i'], {
       name: 'xterm-256color',
       cwd,
       cols: 80,
       rows: 24,
       // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
-      ...(windows ? { useConptyDll: true } : {}),
-      env: { ...env, TERM: 'xterm-256color' },
+      useConptyDll: true,
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        // 对齐 Git Bash 快捷方式的行为（登录 shell 由 profile 处理 MSYSTEM）。
+        MSYSTEM: 'MINGW64',
+        DELA_COMMAND_URL: bridge.url,
+        DELA_COMMAND_TOKEN: bridge.token,
+      },
     });
     const snapshot: TerminalSession = {
       id: parsedId,
-      title: windows ? 'PowerShell' : shell.split('/').at(-1)!,
+      title: 'Git Bash',
       buffer: '',
       sequence: 0,
       exitCode: null,
     };
-    const session = { projectId: idSchema.parse(projectId), owner, pty, snapshot };
+    const session = {
+      projectId: idSchema.parse(projectId),
+      owner,
+      pty,
+      snapshot,
+      cleanup: () => {
+        bridge.close();
+        rcfile.cleanup();
+      },
+    };
     sessions.set(parsedId, session);
     const send = (event: TerminalEvent) => {
       if (sessions.get(parsedId) === session && !owner.isDestroyed())

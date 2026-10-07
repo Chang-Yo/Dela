@@ -1,5 +1,5 @@
-// read_skill / read_skill_file 的实现（渐进加载的读取侧）：正文与目录内支持文件按需读取。
-// 依赖方向：tools/common/skill-read.ts 经 tool() 包装调用本文件；本文件不 import tools/registry。
+// ReadSkills 工具的实现（渐进加载的读取侧）：正文与目录内支持文件按需读取。
+// 依赖方向：tools/kernel/skills.ts 经 tool() 包装调用本文件；本文件不 import tools/registry。
 import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
 import { extname, isAbsolute, join, resolve, sep } from 'node:path';
 import { toolError } from '../tools/shared';

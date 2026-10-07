@@ -1,5 +1,5 @@
 /**
- * runAgent：Dela 的模型执行循环，基于 Pi Agent Core（docs/refactor/decisions-phase1.md 总裁决 1）。
+ * runAgent：Dela 的模型执行循环，基于 Pi Agent Core。
  * 职责边界：Pi 管循环、SSE 解析、工具调度与参数校验；这里管消息形状转换、事件到 Dela
  * 回调的映射、工具结果桥（{ok,result} ⇄ content blocks）、步数上限与 abort/错误语义。
  */
@@ -88,7 +88,7 @@ function toUserContent(
 }
 
 /**
- * 摘出工具输出里的页图像（read_resource 的 pages 模式）：
+ * 摘出工具输出里的页图像（Read 的 pages 模式）：
  * data URL 不能进 role:'tool' 的字符串消息，改由 Pi 自动转成合成 user 图片消息。
  */
 function extractToolImages(output: unknown): {

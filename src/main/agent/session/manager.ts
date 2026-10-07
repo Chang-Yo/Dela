@@ -17,6 +17,7 @@ import {
   referencePreamble,
   summaryContextText,
   systemText,
+  type ProjectContextSection,
 } from '../context/assemble';
 import {
   IMAGE_TOKEN_EST,
@@ -237,6 +238,7 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
     // 工具执行上下文的 cwd：项目会话为项目目录，通用会话为工作区根目录；项目目录被
     // 外部删除时退回工作区根，让 shell/files 仍可工作。
     let toolCwd: string;
+    let projectContext: ProjectContextSection | undefined;
     try {
       toolCwd =
         row.project_id !== null
@@ -244,6 +246,23 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
           : join(storageDirectory(), 'workspace');
     } catch {
       toolCwd = join(storageDirectory(), 'workspace');
+    }
+    // 项目会话注入项目上下文（名称、目录、背景、目标），非项目会话不注入。
+    if (row.project_id !== null) {
+      const profile = getDatabase()
+        .prepare(
+          `SELECT p.background AS background, p.goal AS goal, e.name AS name
+             FROM projects p JOIN workspace_entries e ON e.id = p.id WHERE p.id = ?`,
+        )
+        .get(row.project_id) as { background: string; goal: string; name: string } | undefined;
+      if (profile) {
+        projectContext = {
+          name: profile.name,
+          directory: toolCwd,
+          background: profile.background,
+          goal: profile.goal,
+        };
+      }
     }
     // 模型侧用户消息：引用资料与附件作为前言，其后按用户输入顺序排列文字与图片。
     const contentParts: ChatContentPart[] = [
@@ -269,7 +288,13 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
     const toolNames = new Set(toolDefinitions.map(({ function: definition }) => definition.name));
     const instruction = getAgentInstruction();
     // system 的固定部分（不含摘要与 Skill 索引）；Skill 索引在下方组装时才从能力层取。
-    const fixedSystem = systemText({ toolNames, instruction, skillIndex: [], summary: null });
+    const fixedSystem = systemText({
+      toolNames,
+      project: projectContext,
+      instruction,
+      skillIndex: [],
+      summary: null,
+    });
     const toolTokens = estimateTokens(JSON.stringify(toolDefinitions));
     const currentRoundTokens = contentParts.reduce(
       (total, part) => total + (part.type === 'text' ? estimateTokens(part.text) : IMAGE_TOKEN_EST),
@@ -334,6 +359,7 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       modelSettings,
       skillIndex: skillIndex(),
       toolNames,
+      project: projectContext,
       instruction,
     });
     const messages = [

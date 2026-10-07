@@ -1,4 +1,4 @@
-// 导航 UI 状态（docs/refactor/structure.md §3.1）：树形导航的展开态/筛选/选中与
+// 导航 UI 状态：树形导航的展开态/筛选/选中与
 // 项目会话导航的展开、「显示更多」。只持视图状态，不持久化；条目与会话事实分别在
 // workspace/ 镜像与注入的 sessions 数据里。
 import { create } from 'zustand';

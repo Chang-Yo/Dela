@@ -10,10 +10,6 @@ import type {
 } from '../../../shared/api';
 import type { ResourceRef } from '../../../shared/resources';
 
-// 平台判断与 AppShell 同一模式；pptx 的可用动作按平台区分。
-const isMacPlatform = /Mac|iPhone|iPad/.test(navigator.platform);
-const isWindowsPlatform = /Win/.test(navigator.platform);
-
 function progressText(progress: OfficeExportProgress | null, opening = false): string {
   if (opening) return '导出完成，正在打开…';
   if (!progress) return '正在导出，可能需要几十秒…';
@@ -128,20 +124,12 @@ export interface OfficePromptProps {
   onExported: (() => void) | undefined;
 }
 
-/** pptx 的确认卡片：Windows 提供导出为 PDF，macOS 提供系统快速预览，均需用户主动触发。 */
+/** pptx 的确认卡片：Windows 经 PowerPoint 导出 PDF 预览，需用户主动触发。 */
 export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptProps) {
   const { exporting, opening, error, run, progress, elapsed } = useOfficeExport(
     officeRef,
     onExported,
   );
-  const [quickLookError, setQuickLookError] = useState('');
-  const quickLook = () => {
-    if (!officeRef || !window.dela) return;
-    setQuickLookError('');
-    window.dela.workspace
-      .quickLookFile(officeRef)
-      .catch((cause) => setQuickLookError(errorText(cause)));
-  };
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
       <Presentation className="size-10 text-muted-foreground" aria-hidden />
@@ -151,38 +139,24 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
           PowerPoint 演示文稿 · 只读，应用内不直接渲染
         </p>
       </div>
-      {isWindowsPlatform &&
-        (exporting ? (
-          <div
-            role="status"
-            className="flex flex-col items-center gap-1 text-xs text-muted-foreground"
-          >
-            <Loader2 aria-hidden className="size-5 animate-spin" />
-            <span>{progressText(progress, opening)}</span>
-            {!opening && <span className="text-2xs">已进行 {elapsed} 秒</span>}
-          </div>
-        ) : (
-          <Button size="sm" onClick={run}>
-            <FileDown aria-hidden />
-            导出为 PDF 预览
-          </Button>
-        ))}
-      {isMacPlatform && (
-        <Button size="sm" onClick={quickLook}>
-          系统快速预览
+      {exporting ? (
+        <div
+          role="status"
+          className="flex flex-col items-center gap-1 text-xs text-muted-foreground"
+        >
+          <Loader2 aria-hidden className="size-5 animate-spin" />
+          <span>{progressText(progress, opening)}</span>
+          {!opening && <span className="text-2xs">已进行 {elapsed} 秒</span>}
+        </div>
+      ) : (
+        <Button size="sm" onClick={run}>
+          <FileDown aria-hidden />
+          导出为 PDF 预览
         </Button>
-      )}
-      {!isWindowsPlatform && !isMacPlatform && (
-        <p className="text-xs text-muted-foreground">当前平台暂不支持预览，请下载文件后打开</p>
       )}
       {error && (
         <p role="alert" className="max-w-md break-words text-xs text-destructive">
           {error}
-        </p>
-      )}
-      {quickLookError && (
-        <p role="alert" className="max-w-md break-words text-xs text-destructive">
-          {quickLookError}
         </p>
       )}
     </div>
@@ -196,10 +170,9 @@ export function OfficeExportBanner({
   onExported,
 }: Omit<OfficePromptProps, 'title'> & { exported: OfficeExportInfo }) {
   const { exporting, opening, error, run, progress } = useOfficeExport(officeRef, onExported);
-  /* 文档与导出内容一致时不占整行：仅保留重新导出入口（macOS 无导出能力，不展示任何元素）；
+  /* 文档与导出内容一致时不占整行：仅保留重新导出入口；
      源文件更新过或上次导出失败时，才回到完整警示条说明情况。 */
   if (!exported.stale) {
-    if (!isWindowsPlatform) return null;
     return (
       <div className="flex shrink-0 items-center justify-end gap-2 px-2 pt-1 text-2xs">
         {error && (
@@ -221,12 +194,10 @@ export function OfficeExportBanner({
     >
       <span>已打开导出的 {exported.title}</span>
       <span className="text-foreground">源文件在导出后更新过，内容可能过期</span>
-      {isWindowsPlatform && (
-        <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
-          {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
-          {exporting ? progressText(progress, opening) : '重新导出'}
-        </Button>
-      )}
+      <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
+        {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
+        {exporting ? progressText(progress, opening) : '重新导出'}
+      </Button>
       {error && (
         <span role="alert" className="text-destructive">
           {error}

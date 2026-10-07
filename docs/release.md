@@ -6,11 +6,11 @@
 
 `.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行：
 
-- 矩阵覆盖 Windows x64、macOS x64/arm64，使用与发布一致的 runner 和固定 Node/pnpm 版本。Linux（Ubuntu x64）构建与分发暂时停止（2026-09-28 起），矩阵项以注释保留在 workflow 中。
-- 每个任务执行冻结锁文件安装、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包及打包后冒烟；`pnpm format:check` 与 `pnpm lint` 仅在 Windows 任务执行一次。
+- 仅 Windows x64（`windows-2022`），与发布一致的 runner 和固定 Node/pnpm 版本。
+- 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包及打包后冒烟。
 - 检查不生成安装包、不发布 Release，仅使用 `contents: read` 权限；同一 PR 或 main 分支的新提交会取消旧检查。
 
-若要限制合并，需在 GitHub 的 main 分支规则中将 `Check win-x64`、`Check mac-x64`、`Check mac-arm64` 设为必需检查（`Check linux-x64` 随 Linux 构建暂停不再产出）——仅添加 workflow 不会自动启用分支保护。
+若要限制合并，需在 GitHub 的 main 分支规则中将 `Check win-x64` 设为必需检查——仅添加 workflow 不会自动启用分支保护。
 
 ## 升版
 
@@ -31,7 +31,7 @@
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release：
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。
-2. 三个平台任务均执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟及打包目录启动检查，全部成功后统一创建 Release 并上传安装包（Linux 安装包暂时停止构建）。
+2. Windows 任务执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、打包目录启动检查与 NSIS 安装包构建，全部成功后统一创建 Release 并上传 `.exe`。
 3. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
 4. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 
@@ -50,19 +50,17 @@
 
 ## 平台基线
 
-| 平台    | 最低系统基线     | 架构                   | 产物                                          | GitHub runner                |
-| ------- | ---------------- | ---------------------- | --------------------------------------------- | ---------------------------- |
-| Windows | Windows 10       | x64                    | NSIS `.exe` 安装包                            | `windows-2022`               |
-| macOS   | macOS 13 Ventura | x64、arm64（分别构建） | `.dmg`                                        | `macos-15-intel`、`macos-15` |
-| Ubuntu  | Ubuntu 24.04 LTS | x64                    | `.AppImage`（需 `libfuse2t64`）——**暂停分发** | `ubuntu-24.04`               |
+| 平台    | 最低系统基线 | 架构 | 产物               | GitHub runner  |
+| ------- | ------------ | ---- | ------------------ | -------------- |
+| Windows | Windows 10   | x64  | NSIS `.exe` 安装包 | `windows-2022` |
 
-- 以上是项目选择的构建基线，不代表最低系统实机兼容性已验收；[Electron 44 要求 macOS 13 或以上](https://www.electronjs.org/blog/electron-44-0)，该下限也写入 electron-builder 配置。GitHub runner 是构建环境，与最低运行系统不同。
-- Linux（Ubuntu x64）安装包分发暂时停止（2026-09-28 起）：`check.yaml` 与 `release.yml` 中的矩阵项已注释停用，Linux 专属步骤（Xvfb 冒烟、AppArmor 放开等）以 `runner.os == 'Linux'` 条件原样保留。恢复时取消两个 workflow 中的矩阵注释，并把 `check.yaml` 的 `format:check`/`lint` 条件从 Windows 移回 Linux 即可。发布流程中的 prepare/release/publish-public 任务仍在 ubuntu runner 上运行，它们只做校验与 gh CLI 上传，不构建应用。
-- Linux 冒烟通过 Xvfb 运行，并仅在临时 runner 中放开 AppArmor 对用户命名空间的限制以运行 Electron sandbox（恢复 Linux 构建后适用）。
+- 以上是项目选择的构建基线，不代表最低系统实机兼容性已验收。GitHub runner 是构建环境，与最低运行系统不同。
 - 安装包名包含版本、系统和架构，避免产物重名。私有发布任务使用内置 `GITHUB_TOKEN`（`contents: write`），公开发布任务使用 `PUBLIC_RELEASE_TOKEN`，token 权限只覆盖公开仓库。
+- prepare 与 release 任务仍在 ubuntu runner 上运行，它们只做校验与 gh CLI 上传，不构建应用。
 
 ## 当前限制
 
-- 未配置 Windows 签名、Apple Developer ID 签名或公证，安装时可能遇到 SmartScreen / Gatekeeper 提示。
-- 工作流中的冒烟检查验证打包后程序及 SQLite/preload，不代替 NSIS 安装向导或 DMG/AppImage 的最低系统实机验收。
+- 未配置代码签名，安装时可能遇到 SmartScreen 提示。
+- 工作流中的冒烟检查验证打包后程序及 SQLite/preload，不代替 NSIS 安装向导的实机验收。
 - 自动更新元数据（`latest*.yml`、blockmap）暂不发布；`electron-updater` 等存在正式签名与更新渠道后再引入。
+- MSIX 打包与微软商店分发是后续计划，当前安装包为 NSIS `.exe`。

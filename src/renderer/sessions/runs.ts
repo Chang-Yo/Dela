@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { RunEvent, RunStatus } from '../../shared/api';
 
-// Run 状态镜像（docs/refactor/structure.md §3.4）：订阅 session:on-run-event，
+// Run 状态镜像：订阅 session:on-run-event，
 // 按 sessionId 归并运行状态，供导航行徽标与 ChatTab 共用；只订阅，不发起执行。
 
 export interface RunMirror {

@@ -1,4 +1,4 @@
-// 聚合出口：领域契约已拆分到同目录领域文件（docs/refactor/structure.md §4）。
+// 聚合出口：领域契约已拆分到同目录领域文件。
 // 本文件只 import 并 re-export，保证全仓既有 `from '../shared/api'` 等 import 不变；
 // 领域类型的变化请直接改对应领域文件，不在此处添加逻辑。
 import type { CapabilityApi } from './capabilities';
@@ -11,7 +11,6 @@ import type { NotificationsApi } from './notifications';
 import type { SearchApi } from './search';
 import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
-import type { SponsorsApi } from './sponsors';
 export type {
   AgentCapabilityView,
   CapabilityApi,
@@ -19,12 +18,12 @@ export type {
   McpServerConfig,
   McpServerView,
   SkillView,
+  WebSearchConfig,
 } from './capabilities';
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
 import type { TodoApi } from './todo';
 import type { TerminalApi } from './terminal';
-import type { VsjtuApi } from './vsjtu';
 import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
@@ -42,14 +41,12 @@ export interface DelaApi {
   readonly mail: MailApi;
   readonly timetable: TimetableApi;
   readonly shuiyuan: ShuiyuanApi;
-  readonly vsjtu: VsjtuApi;
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
   readonly layout: LayoutApi;
   readonly search: SearchApi;
   readonly notifications: NotificationsApi;
-  readonly sponsors: SponsorsApi;
 }
 
 export type { WindowState, TrayAction, WindowApi } from './window';
@@ -106,22 +103,6 @@ export type {
   ShuiyuanUpload,
   ShuiyuanApi,
 } from './shuiyuan';
-
-export type {
-  VsjtuState,
-  VsjtuCourse,
-  VsjtuVideo,
-  VsjtuPlayView,
-  VsjtuPlayInfo,
-  VsjtuTranscriptLine,
-  VsjtuTimeRange,
-  VsjtuChapterNode,
-  VsjtuPptPage,
-  VsjtuList,
-  VsjtuResult,
-  VsjtuSourceRef,
-  VsjtuApi,
-} from './vsjtu';
 
 export type {
   ThemePreference,
@@ -204,5 +185,3 @@ export type {
 } from './layout';
 
 export type { TodoStatus, TodoItem, TodoState, TodoSaveInput, TodoApi } from './todo';
-
-export type { SponsorPersonView, SponsorsState, SponsorsApi } from './sponsors';

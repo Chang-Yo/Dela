@@ -7,14 +7,16 @@ import { readDisabledTools, writeDisabledTools } from '../tools/disabled';
 import { listBuiltinTools } from '../tools/registry';
 
 /**
- * 常驻能力：被其他工具的描述显式依赖，单独关闭会让工具表自相矛盾
- * （写笔记要求先用 read_resource 取 revision；Skills 索引指向 read_skill 读取正文），
- * 因此不提供开关，UI 只读展示原因。
+ * 常驻能力：Read/Write/Edit/Bash 是 Agent 循环的最小工具集，不提供开关；
+ * ReadSkills 被 Skills 索引显式依赖，单独关闭会让工具表自相矛盾
+ * （索引指向 ReadSkills 读取正文）。UI 只读展示原因。
  */
 const lockedTools: Record<string, string> = {
-  read_resource: '写笔记与检索类工具都要求先用它读取正文与 revision',
-  read_skill: 'Skills 索引经它读取正文，关闭后索引会指向不存在的工具',
-  read_skill_file: 'Skill 的支持文件只能经它读取',
+  Read: 'Agent 内核最小工具集，不可关闭',
+  Write: 'Agent 内核最小工具集，不可关闭',
+  Edit: 'Agent 内核最小工具集，不可关闭',
+  Bash: 'Agent 内核最小工具集，不可关闭',
+  ReadSkills: 'Skills 索引经它读取正文，关闭后索引会指向不存在的工具',
 };
 
 const domainLabels = new Map(toolDomains.map((domain) => [domain.id, domain.label]));

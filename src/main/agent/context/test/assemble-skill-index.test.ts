@@ -15,7 +15,7 @@ describe('Skill 索引段注入 system', () => {
       ],
     });
     expect(result.system).toContain(SYSTEM_PROMPT);
-    expect(result.system).toContain('可用 Skills（需要时调用 read_skill 读取完整说明）');
+    expect(result.system).toContain('可用 Skills（需要时调用 ReadSkills 读取完整说明）');
     expect(result.system).toContain('- thesis: 论文写作规范');
     expect(result.system).toContain('- mail-etiquette: （无描述）');
     expect(result.system.indexOf(SYSTEM_PROMPT)).toBeLessThan(result.system.indexOf('可用 Skills'));

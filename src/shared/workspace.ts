@@ -33,7 +33,6 @@ export interface WorkspaceEntry {
   name: string;
   kind: 'folder' | 'project' | 'note' | 'source' | 'local' | 'imported';
   sourceId: string | null;
-  noteId: string | null;
   path?: string;
   updatedAt: string;
 }
@@ -80,8 +79,6 @@ export interface WorkspaceApi {
   exportOfficePdf(ref: ResourceRef): Promise<void>;
   /** pptx 导出过程的阶段与进度通知。 */
   onOfficeExportProgress(listener: (event: OfficeExportEvent) => void): () => void;
-  /** 用系统 Quick Look 预览条目文件（仅 macOS）。 */
-  quickLookFile(ref: ResourceRef): Promise<void>;
   importFiles(parentId: string | null): Promise<void>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;

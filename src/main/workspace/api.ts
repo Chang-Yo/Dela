@@ -1,4 +1,4 @@
-import { app, shell } from 'electron';
+import { shell } from 'electron';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
   constants,
@@ -18,7 +18,6 @@ import { z } from 'zod';
 import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
-import { readVsjtuVideoSource } from '../vsjtu/api';
 import { toolError } from '../../shared/tool-errors';
 import { deleteProjectProfile, ensureProjectProfile } from './projects';
 import {
@@ -42,7 +41,7 @@ import type {
 export const idSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(200);
 const entryColumns =
-  'id, parent_id AS parentId, name, kind, source_id AS sourceId, note_id AS noteId, updated_at AS updatedAt';
+  'id, parent_id AS parentId, name, kind, source_id AS sourceId, updated_at AS updatedAt';
 
 // 笔记按扩展名区分为 Markdown 或普通文本；其余内容一律按文本读写。
 const markdownExtensions = ['.md', '.markdown'];
@@ -151,9 +150,9 @@ export async function openProjectDirectory(id: unknown, target: unknown): Promis
   if (error) throw new Error(`无法打开项目目录：${error}`);
 }
 async function openInVsCode(path: string): Promise<void> {
-  const locate = (finder: string) =>
+  const locate = () =>
     new Promise<string>((resolve, reject) => {
-      execFile(finder, ['code'], (error, stdout) => {
+      execFile('where', ['code'], (error, stdout) => {
         const first = stdout.split(/\r?\n/).find((line) => line.trim());
         if (error || !first)
           reject(
@@ -164,42 +163,20 @@ async function openInVsCode(path: string): Promise<void> {
         else resolve(first.trim());
       });
     });
-  const cli = await locate(process.platform === 'win32' ? 'where' : 'which');
-  // Windows CLI 是批处理脚本；直接启动同安装目录的 Code.exe，路径不经 shell 展开。
-  const executable = process.platform === 'win32' ? join(dirname(cli), '..', 'Code.exe') : cli;
-  if (process.platform === 'win32' && !existsSync(executable))
-    throw new Error('未找到 VS Code 程序，可改用资源管理器打开项目。');
-  if (process.platform === 'win32') {
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(executable, [path], {
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true,
-      });
-      child.once('error', (error) => reject(new Error(`启动 VS Code 失败：${error.message}`)));
-      child.once('spawn', () => {
-        child.unref();
-        resolve();
-      });
-    });
-    return;
-  }
+  const cli = await locate();
+  // CLI 是批处理脚本；直接启动同安装目录的 Code.exe，路径不经 shell 展开。
+  const executable = join(dirname(cli), '..', 'Code.exe');
+  if (!existsSync(executable)) throw new Error('未找到 VS Code 程序，可改用资源管理器打开项目。');
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(executable, [path], { stdio: 'ignore', windowsHide: true });
-    const timer = setTimeout(() => {
-      // CLI 偶发不退出（更新提示等）；能运行到超时说明命令本身已找到并启动，按成功处理。
-      child.removeAllListeners();
-      child.kill();
-      resolve();
-    }, 5000);
-    child.once('error', (error) => {
-      clearTimeout(timer);
-      reject(new Error(`启动 VS Code 失败：${error.message}`));
+    const child = spawn(executable, [path], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
     });
-    child.once('close', (code) => {
-      clearTimeout(timer);
-      if (code === 0 || code === null) resolve();
-      else reject(new Error('VS Code 启动失败；可改用「在文件夹中显示」定位文件。'));
+    child.once('error', (error) => reject(new Error(`启动 VS Code 失败：${error.message}`)));
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
     });
   });
 }
@@ -222,27 +199,11 @@ function containerPath(parentId: string | null): string {
 
 function managedPath(item: WorkspaceEntry): string | null {
   if (item.path) return item.path;
-  if (!['folder', 'project', 'note', 'imported'].includes(item.kind)) return null;
-  const db = getDatabase();
-  const stored = db
+  if (item.kind !== 'project' && item.kind !== 'source') return null;
+  const stored = getDatabase()
     .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
     .get(item.id) as { path: string | null };
-  if (stored.path) return stored.path;
-  if (item.kind === 'imported') throw new Error('导入文件已丢失');
-  const folder = item.kind !== 'note';
-  const path = availablePath(containerPath(item.parentId), item.name, folder);
-  if (folder) mkdirSync(path);
-  else {
-    const original = notePath(item);
-    // Missing legacy files remain linked to their original location for recovery.
-    if (!existsSync(original)) return original;
-    copyFileSync(original, path, constants.COPYFILE_EXCL);
-  }
-  db.transaction(() => {
-    if (!folder) db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, item.noteId);
-    db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, item.id);
-  })();
-  return path;
+  return stored.path;
 }
 
 /** 根目录迁移/移动后，把库里记录的所有受管路径改写到新位置之下；须在调用方事务内执行。 */
@@ -261,15 +222,6 @@ function rewriteStoredPaths(from: string, to: string) {
     const path = relocate(item.path);
     if (path !== item.path)
       db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, item.id);
-  }
-  const notes = db.prepare('SELECT id, path FROM workspace_notes').all() as {
-    id: string;
-    path: string;
-  }[];
-  for (const note of notes) {
-    const path = relocate(note.path);
-    if (path !== note.path)
-      db.prepare('UPDATE workspace_notes SET path=? WHERE id=?').run(path, note.id);
   }
 }
 
@@ -301,26 +253,31 @@ function finishMove(move: PendingMove) {
   })();
 }
 
+/** 归档文件夹身份：种子行 local_path 缺失或目录丢失时重新落定（复用根目录已有「归档」，否则创建）。
+ *  只在行存在时生效（内存测试库无种子行）。路径落定一次后只读，改名/移除另有守卫。 */
+function ensureArchiveFolder() {
+  const db = getDatabase();
+  const stored = db
+    .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
+    .get(workspaceArchiveId) as { path: string | null } | undefined;
+  if (!stored) return;
+  if (stored.path && existsSync(stored.path)) return;
+  const path = join(containerPath(null), '归档');
+  if (!existsSync(path)) mkdirSync(path);
+  db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(path, workspaceArchiveId);
+}
+
 export function prepareStorage() {
   migrateWorkspaceRoot();
+  ensureArchiveFolder();
   const pending = setting('storage-move');
   if (pending) {
     const move: PendingMove = JSON.parse(pending);
-    if (!existsSync(move.from) && existsSync(move.to)) finishMove(move);
+    if (existsSync(move.from) && existsSync(move.to)) finishMove(move);
     else if (existsSync(move.from) && !existsSync(move.to))
       getDatabase().prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
     else throw new Error('文件移动尚未恢复，请检查原路径和目标路径，暂不继续修改文件。');
   }
-  const items = getDatabase()
-    .prepare(
-      `SELECT ${entryColumns} FROM workspace_entries WHERE local_path IS NULL AND kind IN ('folder','project','note')`,
-    )
-    .all() as WorkspaceEntry[];
-  if (items.length) {
-    const backup = join(app.getPath('userData'), 'dela-before-storage-tree.db');
-    if (!existsSync(backup)) getDatabase().exec(`VACUUM INTO '${backup.replaceAll("'", "''")}'`);
-  }
-  for (const item of items) managedPath(item);
 }
 
 export function getWorkspaceState(): WorkspaceState {
@@ -380,7 +337,8 @@ export function getWorkspaceState(): WorkspaceState {
     .prepare("SELECT key, value FROM workspace_settings WHERE key LIKE 'view:%'")
     .all() as { key: string; value: string }[];
   return {
-    entries,
+    // 归档文件夹自身不进条目列表（资料树只经归档区呈现它，子条目仍带其 parentId）。
+    entries: entries.filter((item) => item.id !== workspaceArchiveId),
     views: Object.fromEntries(views.map((v) => [v.key.slice(5), JSON.parse(v.value)])),
     directory: directory(),
   };
@@ -421,7 +379,6 @@ function fileEntry(
     name: basename(path),
     kind: stats.isDirectory() ? (stored?.kind ?? 'folder') : text ? 'note' : 'local',
     sourceId: null,
-    noteId: null,
     path,
     updatedAt: stats.mtime.toISOString(),
   };
@@ -447,7 +404,7 @@ function checkParent(parentId: string | null, movingId?: string) {
   }
 }
 
-/** folder↔project 原地互转时维护 projects 档案行（state-model.md §2.1）：
+/** folder↔project 原地互转时维护 projects 档案行：
  *  升格补插（无则建），降格删除（会话经 FK 置 NULL 降级通用）。 */
 export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntry {
   const parsed = z
@@ -463,7 +420,7 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   prepareStorage();
   const db = getDatabase();
   if (parsed.kind === 'source') {
-    // 来源引用按前缀区分平台：水源/课堂视频引用行各自落表，其余仍是 Canvas 资料表。
+    // 来源引用按前缀区分平台：水源引用行落表，其余仍是 Canvas 资料表。
     if (parsed.sourceId?.startsWith('shuiyuan-topic:')) {
       const topicId = Number(parsed.sourceId.slice('shuiyuan-topic:'.length));
       if (
@@ -472,14 +429,6 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
         !db.prepare('SELECT 1 FROM shuiyuan_topics WHERE topic_id=?').get(topicId)
       )
         throw new Error('水源帖子引用不存在，请回到水源页重新添加');
-    } else if (parsed.sourceId?.startsWith('vsjtu-video:')) {
-      const videoId = Number(parsed.sourceId.slice('vsjtu-video:'.length));
-      if (
-        !Number.isInteger(videoId) ||
-        videoId <= 0 ||
-        !db.prepare('SELECT 1 FROM vsjtu_video_refs WHERE course_id=?').get(videoId)
-      )
-        throw new Error('课堂视频引用不存在，请回到课堂视频页重新添加');
     } else if (
       !parsed.sourceId ||
       !db.prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(parsed.sourceId)
@@ -506,13 +455,12 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   }
   if (parsed.kind === 'folder' || parsed.kind === 'note') return fileEntry(path!, parsed.parentId);
   db.transaction(() => {
-    db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+    db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       id,
       parsed.parentId && !isAbsolute(parsed.parentId) ? parsed.parentId : null,
       parsed.name,
       parsed.kind,
       parsed.sourceId ?? null,
-      null,
       parsed.kind === 'source' ? containerPath(parsed.parentId) : path,
       new Date().toISOString(),
     );
@@ -597,7 +545,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     if (isAbsolute(current.id)) {
       const promoted = randomUUID();
       getDatabase()
-        .prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, NULL, ?, ?)')
+        .prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?)')
         .run(promoted, basename(to), 'project', to, new Date().toISOString());
       nextId = promoted;
     } else {
@@ -633,11 +581,7 @@ export function importWorkspaceFiles(parentId: string | null, paths: string[]): 
 
 export function notePath(item: WorkspaceEntry): string {
   if (item.path) return item.path;
-  const note = getDatabase()
-    .prepare('SELECT path FROM workspace_notes WHERE id=?')
-    .get(item.noteId) as { path: string } | undefined;
-  if (!note) throw new Error('笔记不存在');
-  return note.path;
+  throw new Error('笔记不存在');
 }
 
 // 受限预览协议放行的本地文件扩展名：PDF 与三类 OOXML。
@@ -662,11 +606,8 @@ export async function workspaceFilePath(id: string): Promise<string> {
   prepareStorage();
   const item = entry(workspaceEntryIdSchema.parse(id));
   if (item.kind === 'note') return notePath(item);
-  // 水源/课堂视频来源是实时引用，没有本地文件路径。
-  if (
-    item.kind === 'source' &&
-    (item.sourceId?.startsWith('shuiyuan-topic:') || item.sourceId?.startsWith('vsjtu-video:'))
-  )
+  // 水源来源是实时引用，没有本地文件路径。
+  if (item.kind === 'source' && item.sourceId?.startsWith('shuiyuan-topic:'))
     throw new Error('条目不是文件');
   if (item.kind === 'source' && item.sourceId) return canvasFilePath(item.sourceId);
   if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('条目不是文件');
@@ -681,9 +622,6 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   if (item.kind === 'source' && item.sourceId) {
     if (item.sourceId.startsWith('shuiyuan-topic:')) {
       return readShuiyuanSource(Number(item.sourceId.slice('shuiyuan-topic:'.length)));
-    }
-    if (item.sourceId.startsWith('vsjtu-video:')) {
-      return readVsjtuVideoSource(Number(item.sourceId.slice('vsjtu-video:'.length)));
     }
     return readCanvasSource(item.sourceId);
   }
@@ -749,13 +687,7 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   throw new Error('请选择要打开的文档');
 }
 
-export function saveWorkspaceNote(
-  id: string,
-  text: string,
-  revision: string,
-  // Agent 写入（write_note/edit_note 工具）传 recordVersion 记录 note_versions；用户编辑器保存缺省不记。
-  options?: { recordVersion?: boolean },
-): string {
+export function saveWorkspaceNote(id: string, text: string, revision: string): string {
   prepareStorage();
   const item = entry(id);
   const path = entryLocalPath(item);
@@ -767,33 +699,11 @@ export function saveWorkspaceNote(
   const temporary = `${path}.tmp`;
   writeFileSync(temporary, text);
   renameSync(temporary, path);
-  getDatabase()
-    .prepare('UPDATE workspace_entries SET updated_at=? WHERE note_id=?')
-    .run(new Date().toISOString(), item.noteId);
-  if (options?.recordVersion && item.noteId)
-    recordNoteVersion(item.noteId!, { revision, text: disk }, hash(text), text);
+  if (!isAbsolute(id))
+    getDatabase()
+      .prepare('UPDATE workspace_entries SET updated_at=? WHERE id=?')
+      .run(new Date().toISOString(), id);
   return hash(text);
-}
-
-/**
- * 记录笔记版本（note_versions，DB v13 起）：首次写入历史前把被覆盖前正文记为基线，
- * 再记录新版本全量快照。run_id 留空（工具执行尚无 Run 上下文，列允许 NULL）。
- */
-function recordNoteVersion(
-  noteId: string,
-  baseline: { revision: string; text: string },
-  revision: string,
-  text: string,
-): void {
-  const db = getDatabase();
-  db.transaction(() => {
-    const insert = db.prepare(
-      'INSERT INTO note_versions (note_id, revision, text, created_at) VALUES (?, ?, ?, ?)',
-    );
-    if (!db.prepare('SELECT 1 FROM note_versions WHERE note_id=?').get(noteId))
-      insert.run(noteId, baseline.revision, baseline.text, new Date().toISOString());
-    insert.run(noteId, revision, text, new Date().toISOString());
-  })();
 }
 
 export interface WorkspaceNoteEdit {
@@ -814,7 +724,7 @@ export interface WorkspaceNoteEditApplied {
   preview: string;
 }
 
-/** 局部修改结果：新 revision 与每处修改的定位摘要（docs/refactor/state-model.md §2.4）。 */
+/** 局部修改结果：新 revision 与每处修改的定位摘要。 */
 export interface WorkspaceNoteEditResult {
   revision: string;
   applied: WorkspaceNoteEditApplied[];
@@ -881,10 +791,10 @@ export function editWorkspaceNote(
   writeFileSync(temporary, text);
   renameSync(temporary, path);
   const nextRevision = hash(text);
-  getDatabase()
-    .prepare('UPDATE workspace_entries SET updated_at=? WHERE note_id=?')
-    .run(new Date().toISOString(), item.noteId);
-  if (item.noteId) recordNoteVersion(item.noteId, { revision, text: disk }, nextRevision, text);
+  if (!isAbsolute(id))
+    getDatabase()
+      .prepare('UPDATE workspace_entries SET updated_at=? WHERE id=?')
+      .run(new Date().toISOString(), id);
   // 按提交顺序返回定位；start/line 换算到修改后正文坐标（前面的修改会平移后面的区间）。
   let delta = 0;
   for (const edit of ordered) {

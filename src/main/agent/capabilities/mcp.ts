@@ -1,4 +1,4 @@
-// MCP 客户端接入（agent-workspace-plan.md §5.3，结构 §2.1 capabilities/mcp）：
+// MCP 客户端接入：
 // - stdio 服务器配置持久化于 workspace_settings('mcp-servers')，id=uuid；
 // - 惰性连接（启用且首次被询问时发起）+ 显式 refresh 重连，连接超时 10s；
 // - 断连标 error（含错误消息）、工具集清空；后续调用按当前可用性返回明确错误；

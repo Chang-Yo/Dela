@@ -4,6 +4,7 @@ import { createContext, useContext, type ComponentType, type ReactNode } from 'r
 // 注入模式）：workbench registry 只按 TabComponentProps 传 tabId/groupId，引用数据源、
 // 邮件草稿弹窗与项目归属都经 ChatTabSourceProvider 提供（3B 接线）。
 // chat 域不 import workspace store——对 workspace 的依赖只经这里的注入接口。
+// 会话的项目归属只经导航创建（侧栏项目 › 新对话），不支持会话内切换。
 
 /** @ 引用数据源：候选来自容器（3B 接 workspace 镜像），发送前冲盘未保存的引用草稿。 */
 export interface ReferenceSource {
@@ -30,8 +31,6 @@ export type MailDraftDialog = ComponentType<MailDraftDialogProps>;
 export interface ChatTabSource {
   /** 会话所属项目；null = 通用池。会话切换条据此列出项目会话与通用入口。 */
   projectId: string | null;
-  projects?: { id: string; name: string }[];
-  onSelectProject?(projectId: string | null, sessionId: string): Promise<void>;
   /** @ 引用数据源；未提供时 composer 无 @ 候选、发送前不冲盘引用草稿。 */
   referenceSource?: ReferenceSource;
   /** 邮件草稿检查弹窗；未提供时隐藏「检查并发送邮件」入口。 */

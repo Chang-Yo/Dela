@@ -9,12 +9,10 @@ import { registerTimetableIpc } from './timetable/ipc';
 import { attachContextMenu } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
-import { registerVsjtuIpc } from './vsjtu/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
 import { registerSearchIpc } from './search';
-import { registerSponsorsIpc } from './sponsors';
 import {
   initializeNotifications,
   registerNotificationsIpc,
@@ -111,7 +109,7 @@ app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
   // Windows 系统通知按 AppUserModelID 识别应用；与 electron-builder.yml 的 appId 一致，
   // 开发运行（未走安装器）也需要显式设置才能弹通知。
-  if (process.platform === 'win32') app.setAppUserModelId('io.dela.desktop');
+  app.setAppUserModelId('io.dela.desktop');
   // 标题栏内已有应用菜单；移除 Electron 默认菜单，避免额外的系统“退出”入口绕过托盘。
   Menu.setApplicationMenu(null);
   // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。
@@ -132,12 +130,10 @@ app.whenReady().then(() => {
   registerTimetableIpc();
   registerCanvasIpc();
   registerShuiyuanIpc();
-  registerVsjtuIpc();
   registerAgentIpc();
   registerWorkspaceIpc(subscribeChat);
   registerTerminalIpc();
   registerSearchIpc();
-  registerSponsorsIpc();
   registerNotificationsIpc();
   registerTodoIpc();
   initializeNotifications();
@@ -346,7 +342,7 @@ app
     app.exit(1);
   });
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin' || smokeTest) app.quit();
+  app.quit();
 });
 app.on('before-quit', () => {
   quitting = true;

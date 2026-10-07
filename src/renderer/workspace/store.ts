@@ -1,5 +1,4 @@
-// 条目树 + Canvas 概览镜像（迁移自 features/projects/workspace.ts 前半；
-// docs/refactor/structure.md §3.4）。视图持久化（setView）已移交 workbench 布局，
+// 条目树 + Canvas 概览镜像。视图持久化（setView）已移交 workbench 布局，
 // 笔记草稿生命周期在 ./drafts.ts，本 store 不再持有。
 import { create } from 'zustand';
 import type { CanvasState, WorkspaceState } from '../../shared/api';

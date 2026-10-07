@@ -5,7 +5,7 @@ import { gcChatMedia } from './session/media';
 import { subscribeChat } from './session/subscriptions';
 import { interruptStaleRuns } from './session/runs';
 import { loadPiRuntime } from './core/pi-load';
-import { cancelShellJobs } from './tools/common/shell';
+import { cancelShellJobs } from './tools/kernel/bash';
 
 // 装配层经此转发（workspace 等业务通道挂会话订阅、启动回收聊天媒体、冒烟验证 Pi 运行时
 // 的 ESM 加载），不深进 agent 目录。

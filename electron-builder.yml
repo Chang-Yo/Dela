@@ -18,6 +18,7 @@ asarUnpack:
   # 引导开场的可选视频；文件不存在时该行无副作用
   - out/renderer/assets/*.mp4
 npmRebuild: false
+# Windows-only。安装包暂用 NSIS（exe）；MSIX 与微软商店上架是后续计划。
 win:
   target:
     - target: nsis
@@ -26,8 +27,3 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-mac:
-  minimumSystemVersion: '13.0'
-  target: dmg
-linux:
-  target: AppImage

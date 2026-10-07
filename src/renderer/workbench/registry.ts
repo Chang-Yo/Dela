@@ -1,5 +1,5 @@
 // 内容类型注册表：TabKind → { 组件, 图标, 标题解析 }。
-// workbench 引用 content/ 的唯一入口（structure.md §3.1）。标题解析（3B 接线）同步读取
+// workbench 引用 content/ 的唯一入口。标题解析（3B 接线）同步读取
 // workspace/sessions 镜像：条目名 / Canvas 资料名 / 会话标题；镜像变化的即时刷新由
 // 装配层（app/workbench-shell）订阅镜像触发重渲染完成。
 import { lazy, type ComponentType } from 'react';

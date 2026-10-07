@@ -22,7 +22,6 @@ export const workspace = {
   exportOfficePdf: (ref: ResourceRef) => invoke('workspace:export-office-pdf', ref),
   onOfficeExportProgress: (listener: (event: OfficeExportEvent) => void) =>
     on<OfficeExportEvent>('workspace:export-office-progress', listener),
-  quickLookFile: (ref: ResourceRef) => invoke('workspace:quick-look', ref),
   importFiles: (parentId: string | null) => invoke('workspace:import-files', parentId),
   importDroppedFiles: (parentId: string | null, files: File[]) => {
     const paths = files.map((file) => webUtils.getPathForFile(file)).filter(Boolean);

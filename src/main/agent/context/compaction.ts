@@ -1,6 +1,6 @@
 /**
  * 上下文压缩：把放不进预算的较早历史提炼为结构化摘要，持久化到 sessions.summary
- * （agent-workspace-plan.md §6.1）。摘要生成用独立非流式 fetch POST 到 provider 的
+ * 。摘要生成用独立非流式 fetch POST 到 provider 的
  * /chat/completions——不走 Pi、不流式、无工具；失败抛错，由调用方决定回退路径
  * （压缩成功后才替换模型上下文，失败保留原始历史）。
  */
@@ -20,7 +20,7 @@ export interface SessionSummaryContent {
   resources: { key: string; title: string; version?: string }[];
 }
 
-/** sessions.summary 列的 JSON 结构（state-model.md §2.2）。 */
+/** sessions.summary 列的 JSON 结构。 */
 export interface SessionSummary {
   /** 覆盖范围锚点：摘要覆盖持久历史第 0..coveredUpTo-1 条消息（压缩时的绝对索引）。 */
   coveredUpTo: number;

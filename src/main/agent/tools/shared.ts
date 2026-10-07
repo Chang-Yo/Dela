@@ -48,7 +48,7 @@ export function match(value: string, keyword: string) {
   return value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
 }
 
-// —— 统一工具契约（docs/refactor/tools-inventory.md §8，decisions-phase1 裁决）——
+// —— 统一工具契约——
 
 // 错误码契约下沉 shared/tool-errors（workspace/api 等业务目录也用它）；此处 re-export
 // 维持领域工具的 '../shared' import 路径不变。

@@ -33,7 +33,6 @@ import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigati
 import { documentTabId, useNavigationStore } from './navigation';
 import { MailDraftDialog } from './mail-draft-dialog';
 import { ChatHome } from '../content/chat/ChatHome';
-import { useChatDrafts } from '../content/chat/drafts';
 import { currentContainerOf, WorkbenchExplorer } from './workbench-explorer';
 
 const emptyViewState = { tabs: [], active: null, expanded: [], scroll: {} };
@@ -58,7 +57,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const bindings = useShortcuts((s) => s.bindings);
   const workspaceError = useWorkspaceStore((s) => s.error);
   // 订阅镜像仅为让标签标题随条目/会话变化重渲染（registry 的 title 是同步读取）。
-  const entries = useWorkspaceStore((s) => s.workspace.entries);
+  useWorkspaceStore((s) => s.workspace.entries);
   useSessions((s) => s.lists);
   const [dialog, setDialog] = useState<EntryDialogRequest | null>(null);
 
@@ -277,14 +276,6 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const chatSource = useMemo<ChatTabSource>(
     () => ({
       projectId,
-      projects: entries
-        .filter((entry) => entry.kind === 'project')
-        .map(({ id, name }) => ({ id, name })),
-      onSelectProject: async (target, sessionId) => {
-        const draft = useChatDrafts.getState().drafts[sessionId];
-        const nextId = await useNavigationStore.getState().newChat(target);
-        if (nextId && draft) useChatDrafts.getState().update(nextId, draft);
-      },
       referenceSource,
       mailDialog: MailDraftDialog,
       onOpenSource: (key) => void useNavigationStore.getState().openDocument(key),
@@ -295,7 +286,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           prefillNoteText(activeDocKeyRef.current, text),
         ),
     }),
-    [projectId, openDialog, referenceSource, rootId, entries],
+    [projectId, openDialog, referenceSource, rootId],
   );
 
   const draftSource = useMemo<NoteDraftSource>(
@@ -342,10 +333,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       const content: DocumentContent = sourceId
         ? sourceId.startsWith('shuiyuan-topic:')
           ? await dela.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
-          : // 课堂视频引用经 workspace.read 落到引用元数据 HTML（正常入口已被目录层拦截直达播放页）。
-            sourceId.startsWith('vsjtu-video:')
-            ? await dela.workspace.read(entryId!)
-            : await dela.canvas.read(sourceId)
+          : await dela.canvas.read(sourceId)
         : await dela.workspace.read(entryId!);
       // pptx 的导出/快速预览定位：Canvas 资料用 sourceId，本地条目用条目 id。
       const officeRef: ResourceRef | undefined =

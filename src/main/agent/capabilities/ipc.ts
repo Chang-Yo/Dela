@@ -16,6 +16,11 @@ import { listSkills, setSkillEnabled } from './skills';
 import { listBuiltinCapabilities, setBuiltinCapability, setBuiltinDomain } from './tools';
 import { setMcpRouting } from '../tools/registry';
 import { mcpToolDefinitions, executeMcpTool } from './mcp';
+import {
+  readWebSearchConfig,
+  webSearchConfigSchema,
+  writeWebSearchConfig,
+} from '../tools/kernel/websearch';
 
 const skillName = z.string().trim().min(1).max(100);
 const serverId = z.string().uuid();
@@ -48,5 +53,9 @@ export function registerCapabilitiesIpc() {
   );
   handle('set-builtin-domain', (domain, enabled) =>
     setBuiltinDomain(domainId.parse(domain), z.boolean().parse(enabled)),
+  );
+  handle('read-web-search-config', () => readWebSearchConfig());
+  handle('write-web-search-config', (config) =>
+    writeWebSearchConfig(config === null ? null : webSearchConfigSchema.parse(config)),
   );
 }

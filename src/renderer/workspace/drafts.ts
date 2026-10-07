@@ -1,5 +1,4 @@
-// 笔记草稿生命周期 store（迁移自 features/projects/workspace.ts 后半；
-// docs/refactor/structure.md §3.4）。read/edit/save/release 的防抖与互斥语义逐一保持：
+// 笔记草稿生命周期 store。read/edit/save/release 的防抖与互斥语义逐一保持：
 // 这是「同一文档多入口共享正文与版本」的关键。相对旧实现仅有一处扩展——
 // acquire/release 带引用计数：旧 ProjectView 在关闭标签时用 stillOpenElsewhere 手工判断
 // 「另一组还开着就不释放」，新架构把这个计数下沉到 store，content/note 组件挂载时

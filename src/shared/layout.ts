@@ -1,4 +1,4 @@
-// 统一标签工作台的布局契约（docs/refactor/structure.md §3.2/§4）。
+// 统一标签工作台的布局契约。
 // 类型按 §3.2 定义；zod schema 供 layout:* IPC 双侧校验（节点数上限、ratio 边界、组内标签去重）。
 import { z } from 'zod';
 
@@ -103,7 +103,7 @@ export const workbenchLayoutSchema: z.ZodType<WorkbenchLayout> = z
       ctx.addIssue({ code: 'custom', path: ['maximized'], message: '最大化组不存在' });
   });
 
-/** layout:* IPC 面（structure.md §5.2；projectId 为 null 表示通用布局）。 */
+/** layout:* IPC 面。 */
 export interface LayoutApi {
   get(projectId: string | null): Promise<WorkbenchLayout | null>;
   save(projectId: string | null, state: WorkbenchLayout): Promise<void>;

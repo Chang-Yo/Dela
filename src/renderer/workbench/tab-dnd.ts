@@ -1,4 +1,4 @@
-// 统一标签拖拽协议（docs/refactor/structure.md §3.2）：application/x-dela-tab，
+// 统一标签拖拽协议：application/x-dela-tab，
 // 是旧 application/x-dela-editor-tab 的泛化（负载带 kind 的 TabId + 来源组）。
 import type { TabId } from '../../shared/layout';
 

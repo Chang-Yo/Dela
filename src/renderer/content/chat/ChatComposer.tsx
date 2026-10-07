@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
 import {
   ArrowUp,
@@ -74,7 +74,6 @@ export function ChatComposer({
   onAddAttachmentView,
   onRemoveAttachment,
   hero = false,
-  projectPicker,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -97,7 +96,6 @@ export function ChatComposer({
   onAddAttachmentView: (view: ChatMediaView) => void;
   onRemoveAttachment: (id: string) => void;
   hero?: boolean;
-  projectPicker?: ReactNode;
 }) {
   const editorRef = useRef<ComposerEditorHandle | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
@@ -404,7 +402,6 @@ export function ChatComposer({
         >
           <AtSign />
         </Button>
-        {projectPicker}
         <div className="flex-1" />
         {configured && (
           <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>

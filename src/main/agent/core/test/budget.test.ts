@@ -1,4 +1,4 @@
-// token 估算启发式与上下文预算口径（agent-workspace-plan.md §6.1「按预算触发」）。
+// token 估算启发式与上下文预算口径「按预算触发」。
 import { describe, expect, it } from 'vitest';
 import { contextBudget, estimateTokens, shouldCompact } from '../budget';
 

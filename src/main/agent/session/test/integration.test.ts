@@ -1,5 +1,5 @@
 // Session 层端到端集成：askSession 不 mock runAgent，经真实 core/run（Pi Agent Core 桥）
-// 打到本地 mock OpenAI SSE 服务；工具走真实 tools/registry（executeAgentTool → read_file
+// 打到本地 mock OpenAI SSE 服务；工具走真实 tools/registry（executeAgentTool → Read
 // 读临时目录真实文件）。场景：a 流式对话、b 工具往返、c 中断、d 失败重试耗尽、
 // e 历史续接。数据量保持很小，不触发上下文压缩（压缩分支属 context/ 领域，另有单测）。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -154,20 +154,20 @@ describe('session 集成：askSession → core/run（Pi）→ mock OpenAI', () =
     ]);
   });
 
-  it('b. 工具往返：真实 read_file 经 Pi 工具桥执行，steps 与 toolResults 全链落库', async () => {
+  it('b. 工具往返：真实 Read 经 Pi 工具桥执行，steps 与 toolResults 全链落库', async () => {
     const sessionId = newSession(null).sessionId!;
     const sample = join(state.root, 'sample.md');
     writeFileSync(sample, '集成样例\n');
-    server.enqueue(toolCallSse('call-read', 'read_file', JSON.stringify({ path: sample })));
+    server.enqueue(toolCallSse('call-read', 'Read', JSON.stringify({ path: sample })));
     server.enqueue(textSse('读到集成样例'));
     const chat = await askSession(sessionId, { text: '读一下文件', attachments: [], context: [] });
     const reply = chat.messages.at(-1)!;
     expect(reply.content).toBe('读到集成样例');
-    // 消息 toolResults 完整：真实 registry → read_file 的输出形状。
+    // 消息 toolResults 完整：真实 registry → Read 的输出形状。
     expect(reply.toolResults).toHaveLength(1);
     expect(reply.toolResults![0]).toMatchObject({
       id: 'call-read',
-      name: 'read_file',
+      name: 'Read',
       input: { path: sample },
       startedAt: expect.any(Number),
       finishedAt: expect.any(Number),
@@ -179,21 +179,21 @@ describe('session 集成：askSession → core/run（Pi）→ mock OpenAI', () =
     // parts 内工具组回填同一结果。
     const group = reply.parts?.find((part): part is ToolsPart => part.type === 'tools');
     expect(group?.results).toHaveLength(1);
-    expect(group?.results[0]).toMatchObject({ id: 'call-read', name: 'read_file' });
+    expect(group?.results[0]).toMatchObject({ id: 'call-read', name: 'Read' });
     // runs.steps 轻量索引落库。
     const run = runRowsOf(sessionId)[0]!;
     expect(run.status).toBe('completed');
     expect(JSON.parse(run.steps)).toEqual([
-      expect.objectContaining({ id: 'call-read', name: 'read_file', status: 'completed' }),
+      expect.objectContaining({ id: 'call-read', name: 'Read', status: 'completed' }),
     ]);
     // 全链贯通：模型侧工具声明进入首轮请求；次轮回灌 role:'tool' 的执行结果。
     const requests = server.requests.slice(-2).map((request) => request.body as ChatRequestBody);
-    expect(requests[0]!.tools?.map((tool) => tool.function.name)).toContain('read_file');
+    expect(requests[0]!.tools?.map((tool) => tool.function.name)).toContain('Read');
     const toolMessage = requests[1]!.messages!.find((message) => message.role === 'tool');
     expect(toolMessage).toMatchObject({ role: 'tool', tool_call_id: 'call-read' });
     expect(String(toolMessage!.content)).toContain('"ok":true');
     // run 事件带活跃工具名。
-    expect(runEventsOf(sessionId).some((event) => event.activeTool === 'read_file')).toBe(true);
+    expect(runEventsOf(sessionId).some((event) => event.activeTool === 'Read')).toBe(true);
   });
 
   it('c. 中断：慢流中途 cancelRun，run stopped 且已产出内容保留在消息', async () => {

@@ -1,4 +1,4 @@
-// 项目会话导航（docs/agent-workspace-plan.md §4.1、structure.md §3.1）：顶部为通用聊天 /
+// 项目会话导航：顶部为通用聊天 /
 // 资料 / 业务入口位，中部为按项目展开的会话历史（前 3 条 + 「显示更多」，可滚动）；
 // 通用池会话不入项目树（随聊不属于任何项目），经「首页」与全局搜索可达。
 // 底部设置位由 AppShell 提供。项目列表来自 workspace/ 条目镜像；
@@ -15,7 +15,6 @@ import {
   FolderOpen,
   House,
   Mail,
-  // MonitorPlay, // 课堂视频入口暂不上线，随 businessNav 条目一同注释（恢复时一起解开）。
   MoreHorizontal,
   Plus,
   SquarePen,
@@ -44,8 +43,8 @@ import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
 
 export type { NavSessionSummary, SessionRunBadge };
 
-/** 底部业务入口 id（邮箱/课表/课堂视频/水源/TODO；跳转由 onNavigateBusiness 注入）。 */
-export type BusinessNavId = 'mail' | 'timetable' | 'videos' | 'shuiyuan' | 'todo';
+/** 底部业务入口 id（邮箱/课表/水源/TODO；跳转由 onNavigateBusiness 注入）。 */
+export type BusinessNavId = 'mail' | 'timetable' | 'shuiyuan' | 'todo';
 
 /** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
 export const RECENT_SESSIONS = 3;
@@ -53,8 +52,6 @@ export const RECENT_SESSIONS = 3;
 const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }> = [
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
-  // 课堂视频暂不上线：同步与登录还存在待实机确认的问题，入口先隐藏（恢复时连同 MonitorPlay 导入一起解开）。
-  // { id: 'videos', label: '课堂视频', icon: MonitorPlay },
   { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
   { id: 'todo', label: 'TODO', icon: CircleCheckBig },
 ];

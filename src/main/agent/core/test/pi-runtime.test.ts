@@ -1,7 +1,7 @@
 /**
  * Pi 集成面（core/pi.ts）的桥层断言：Model 构造、compat 自动检测、streamFn 的
  * maxTokens 注入与档位映射、思考剥离。runAgent 的行为契约见 run.test.ts。
- * 迁移自阶段一探针（docs/refactor/pi-integration-report.md §3 的有用断言）。
+ * 迁移自阶段一探针。
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Agent } from '@earendil-works/pi-agent-core';

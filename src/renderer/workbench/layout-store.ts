@@ -1,5 +1,4 @@
-// 工作台布局 store（docs/refactor/structure.md §3.5：分割树/标签/焦点/最大化归 zustand，
-// 持久化经 IPC layout:save 防抖 800ms，按项目键控；事实落 main 侧 workspace_settings）。
+// 工作台布局 store。
 import { create } from 'zustand';
 import type {
   GroupNode,

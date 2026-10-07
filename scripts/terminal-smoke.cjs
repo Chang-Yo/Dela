@@ -37,7 +37,7 @@ async function run(window) {
     }
     console.error(
       await js(
-        `({ alerts: [...document.querySelectorAll('[role="alert"]')].map(e => e.textContent) })`,
+        `({ alerts: [...document.querySelectorAll('[role="alert"]')].map(e => e.textContent), copyDisabled: document.querySelector('button[aria-label="复制终端选区"]')?.disabled, selectionLayer: document.querySelectorAll('.xterm-selection > div').length, copied: window.terminalCopiedText ?? null })`,
       ),
     );
     if (globalThis.terminalProjectId)
@@ -69,20 +69,20 @@ async function run(window) {
   );
   const list = () => js(`window.dela.terminal.list('${project.id}')`);
   await wait(
-    `window.dela.terminal.list('${project.id}').then(items => items.length === 1 && items[0].buffer.includes('PS '))`,
-    'PowerShell ready',
+    `window.dela.terminal.list('${project.id}').then(items => items.length === 1 && /\\$\\s*$|MINGW64/.test(items[0].buffer))`,
+    'Git Bash prompt ready',
   );
   const first = (await list())[0];
-  assert.equal(first.buffer.includes('Cannot load PSReadLine'), false);
+  // dela 命令桥经 --rcfile 注入：type 应识别为函数。
   await js(
-    `window.dela.terminal.write('${first.id}', ${JSON.stringify("if (Get-Module PSReadLine) { Write-Output ('DELA_' + 'READLINE_OK') }\r")})`,
+    `window.dela.terminal.write('${first.id}', ${JSON.stringify('type dela >/dev/null && echo DELA_BRIDGE_OK\r')})`,
   );
   await wait(
-    `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_READLINE_OK'))`,
-    'PSReadLine loaded in inherited environment',
+    `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_BRIDGE_OK'))`,
+    'dela bridge function injected',
   );
   await js(`document.querySelector('.xterm-helper-textarea').focus()`);
-  for (const keyCode of "Write-Output ('DELA_' + 'INPUT')")
+  for (const keyCode of 'echo DELA_INPUT')
     window.webContents.sendInputEvent({ type: 'char', keyCode });
   window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
@@ -90,19 +90,19 @@ async function run(window) {
     `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_INPUT'))`,
     'xterm keyboard input / PTY output',
   );
-  for (const keyCode of "Write-Output ('DELA_' + 'EDITX')")
+  for (const keyCode of 'echo DELA_EDITX')
     window.webContents.sendInputEvent({ type: 'char', keyCode });
-  for (const keyCode of ['Left', 'Left', 'Backspace', 'Enter']) {
+  for (const keyCode of ['Left', 'Delete', 'Enter']) {
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode });
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode });
   }
   await wait(
     `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_EDIT\\r\\n'))`,
-    'PSReadLine cursor movement and editing',
+    'readline cursor movement and editing',
   );
   // 隔离剪贴板夹具，不改写真实系统剪贴板。
   await js(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
-    readText: async () => "Write-Output ('DELA_' + 'PASTE')",
+    readText: async () => "echo DELA_PASTE",
     writeText: async (text) => { window.terminalCopiedText = text; }
   } })`);
   await js(`document.querySelector('button[aria-label="粘贴到终端"]').click()`);
@@ -112,26 +112,35 @@ async function run(window) {
     `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_PASTE'))`,
     'paste button',
   );
+  // 拖选锚定最后一个非空白 span 的精确矩形：bash 的 PS1 带空行与换行，整行锚定会漂到空白行。
   const selectionBox = await js(`(() => {
-    const row = document.querySelector('.xterm-rows > div');
-    const rect = row.getBoundingClientRect();
-    return { x: Math.round(rect.left + 2), y: Math.round(rect.top + rect.height / 2) };
+    const span = [...document.querySelectorAll('.xterm-rows span')]
+      .filter(span => span.textContent.trim().length > 0)
+      .pop();
+    const row = span.closest('.xterm-rows > div').getBoundingClientRect();
+    const rect = span.getBoundingClientRect();
+    return {
+      x1: Math.round(rect.left + 1),
+      x2: Math.round(rect.right - 1),
+      y: Math.round(row.top + row.height / 2),
+    };
   })()`);
   window.webContents.sendInputEvent({
     type: 'mouseDown',
     button: 'left',
     clickCount: 1,
-    ...selectionBox,
+    x: selectionBox.x1,
+    y: selectionBox.y,
   });
   window.webContents.sendInputEvent({
     type: 'mouseMove',
-    x: selectionBox.x + 120,
+    x: selectionBox.x2,
     y: selectionBox.y,
     button: 'left',
   });
   window.webContents.sendInputEvent({
     type: 'mouseUp',
-    x: selectionBox.x + 120,
+    x: selectionBox.x2,
     y: selectionBox.y,
     button: 'left',
     clickCount: 1,
@@ -150,17 +159,19 @@ async function run(window) {
     type: 'mouseDown',
     button: 'right',
     clickCount: 1,
-    ...selectionBox,
+    x: selectionBox.x1,
+    y: selectionBox.y,
   });
   window.webContents.sendInputEvent({
     type: 'mouseUp',
     button: 'right',
     clickCount: 1,
-    ...selectionBox,
+    x: selectionBox.x1,
+    y: selectionBox.y,
   });
   await wait(`window.terminalCopiedText.length > 0`, 'right-click copies terminal selection');
   await js(`document.querySelector('.xterm-helper-textarea').focus()`);
-  for (const keyCode of "Write-Output ('DELA_' + 'MOUSEX')")
+  for (const keyCode of 'echo DELA_MOUSEX')
     window.webContents.sendInputEvent({ type: 'char', keyCode });
   await wait(
     `[...document.querySelectorAll('.xterm-rows span')].some(span => span.textContent.includes('MOUSEX'))`,
@@ -205,7 +216,7 @@ async function run(window) {
   );
   const second = (await list()).find((item) => item.id !== first.id);
   await js(
-    `window.dela.terminal.write('${second.id}', ${JSON.stringify("Write-Output ('DELA_' + 'SECOND'); (Get-Location).Path\r")})`,
+    `window.dela.terminal.write('${second.id}', ${JSON.stringify('echo DELA_SECOND; pwd\r')})`,
   );
   await wait(
     `window.dela.terminal.list('${project.id}').then(items => items.find(i => i.id === '${second.id}').buffer.includes('DELA_SECOND'))`,

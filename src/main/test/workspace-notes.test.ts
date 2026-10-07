@@ -1,6 +1,6 @@
 // 笔记文件能力的主进程行为：默认 .md、图片落盘 assets/、受限资源解析的边界、
 // Markdown 副本携带图片、笔记移动时按原相对路径携带图片且正文不变、
-// folder↔project 原地互转时的 projects 档案行维护（state-model.md §2.1）。
+// folder↔project 原地互转时的 projects 档案行维护。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -17,6 +17,7 @@ vi.mock('../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.
 vi.mock('../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
 
 import { getDatabase } from '../database';
+import { workspaceArchiveId } from '../../shared/workspace';
 import {
   createWorkspaceEntry,
   readWorkspaceEntry,
@@ -37,10 +38,9 @@ function createDb(): Database.Database {
   db.exec(`
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
-      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, note_id TEXT, local_path TEXT,
+      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT,
       updated_at TEXT NOT NULL
     );
-    CREATE TABLE workspace_notes (id TEXT PRIMARY KEY, path TEXT NOT NULL);
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE INDEX workspace_parent ON workspace_entries(parent_id);
     CREATE TABLE projects (
@@ -58,7 +58,8 @@ function createDb(): Database.Database {
       title TEXT NOT NULL DEFAULT '新对话',
       messages TEXT NOT NULL DEFAULT '[]',
       summary TEXT,
-      archived_at TEXT,
+      archived INTEGER NOT NULL DEFAULT 0,
+      pinned INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -68,7 +69,7 @@ function createDb(): Database.Database {
 
 function insertFileEntry(db: Database.Database, path: string, kind: 'local' | 'imported') {
   const id = crypto.randomUUID();
-  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, NULL, ?, ?)').run(
+  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?)').run(
     id,
     path.split(/[\\/]/).pop()!,
     kind,
@@ -108,7 +109,6 @@ describe('磁盘工作区', () => {
     const content = await readWorkspaceEntry(path);
     saveWorkspaceNote(path, '# edited', content.revision!);
     expect(readFileSync(path, 'utf8')).toBe('# edited');
-    expect(db.prepare('SELECT count(*) AS n FROM workspace_notes').get()).toEqual({ n: 0 });
     expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 1 });
   });
 
@@ -209,7 +209,7 @@ describe('createWorkspaceEntry', () => {
   it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
     db.prepare(
-      "INSERT INTO workspace_entries VALUES (?, NULL, '实验要求', 'source', 'assignment:4', NULL, ?, ?)",
+      "INSERT INTO workspace_entries VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, ?)",
     ).run(crypto.randomUUID(), folder.id, new Date().toISOString());
     expect(entry(folder.id).kind).toBe('folder');
     // 同容器继续创建内容不受影响（source 行曾把容器误判成 source 而拒绝操作）。
@@ -220,6 +220,49 @@ describe('createWorkspaceEntry', () => {
       text: '',
     });
     expect(isAbsolute(note.id)).toBe(true);
+  });
+});
+
+describe('归档文件夹', () => {
+  const archivePath = () => join(workspaceRoot(), '归档');
+  const seedArchive = () =>
+    db
+      .prepare(
+        "INSERT INTO workspace_entries VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, '2026-10-07T00:00:00.000Z')",
+      )
+      .run();
+
+  it('首次访问落定归档文件夹并持久化路径；条目列表不含归档行自身', () => {
+    seedArchive();
+    const state = getWorkspaceState();
+    expect(entry(workspaceArchiveId).path).toBe(archivePath());
+    expect(existsSync(archivePath())).toBe(true);
+    expect(state.entries.find((item) => item.id === workspaceArchiveId)).toBeUndefined();
+  });
+
+  it('重复访问不重建；local_path 悬空时重新落定', () => {
+    seedArchive();
+    getWorkspaceState();
+    const first = entry(workspaceArchiveId).path;
+    getWorkspaceState();
+    expect(entry(workspaceArchiveId).path).toBe(first);
+    rmSync(first!, { recursive: true, force: true });
+    db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(
+      join(workspaceRoot(), '已丢失'),
+      workspaceArchiveId,
+    );
+    getWorkspaceState();
+    expect(entry(workspaceArchiveId).path).toBe(archivePath());
+  });
+
+  it('移入归档：目录落到归档文件夹下，条目挂在归档行', () => {
+    seedArchive();
+    const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
+    updateWorkspaceEntry(folder.id, { parentId: workspaceArchiveId });
+    expect(existsSync(join(archivePath(), '资料夹'))).toBe(true);
+    expect(
+      getWorkspaceState().entries.find((item) => item.id === join(archivePath(), '资料夹')),
+    ).toMatchObject({ parentId: workspaceArchiveId });
   });
 });
 

@@ -1,11 +1,10 @@
-// 视图路由 zustand store（docs/refactor/structure.md §3.1）：view、back/forward 栈、
+// 视图路由 zustand store：view、back/forward 栈、
 // 当前工作台项目与一次性定位请求脉冲（旧 App.tsx 的 chatRequest/mailRequest/todoRequest/
 // settingsRequest/createProject 五类脉冲迁到这里）。'workbench' 统一取代旧 home/project/
 // sources 三视图；projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
 import { leaveComposer } from '../features/mail/compose-close';
 import { useShuiyuan } from '../features/shuiyuan/store';
-import { useVideos } from '../features/videos/store';
 import { ancestorChainOf } from '../navigation/store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
@@ -16,15 +15,7 @@ import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 
 export type AppView =
-  | 'home'
-  | 'workbench'
-  | 'mail'
-  | 'timetable'
-  | 'videos'
-  | 'shuiyuan'
-  | 'todo'
-  | 'notifications'
-  | 'settings';
+  'home' | 'workbench' | 'mail' | 'timetable' | 'shuiyuan' | 'todo' | 'notifications' | 'settings';
 
 /** 窄屏抽屉层级：null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱视图可达）。 */
 export type MobileDrawer = 'nav' | 'mail';
@@ -80,7 +71,6 @@ interface NavigationState {
   openSettings(section?: SettingsSectionId): boolean;
   openShuiyuanTopic(topicId: number, postNumber?: number): void;
   /** 跳到课堂视频页并打开指定场次播放（项目树引用深链）。 */
-  openVideo(videoId: number): void;
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
   setCreateProject(value: boolean): void;
@@ -282,11 +272,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     openShuiyuanTopic: (topicId, postNumber) => {
       get().navigate('shuiyuan');
       useShuiyuan.getState().requestTopic(topicId, postNumber);
-    },
-
-    openVideo: (videoId) => {
-      get().navigate('videos');
-      useVideos.getState().requestVideo(videoId);
     },
 
     newProject: () => {

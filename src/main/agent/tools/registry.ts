@@ -3,20 +3,6 @@ import { agentTools, toolDomains } from './index';
 import { isToolDisabled, readDisabledTools } from './disabled';
 import { ToolError, type ToolContext } from './shared';
 
-// 旧会话上下文里的旧工具名 → 新名（阶段二重设计改名，decisions-phase1 裁决 9）。
-// 一个发布周期后移除。
-const legacyAliases: Record<string, string> = {
-  find_courses: 'list_canvas_courses',
-  sync_sources: 'refresh_canvas_courses',
-  search_sources: 'search_canvas_sources',
-  search_workspace: 'list_workspace_entries',
-  link_source: 'link_canvas_source',
-};
-
-function resolveToolName(name: string) {
-  return legacyAliases[name] ?? name;
-}
-
 // MCP 工具并集与路由经注入获得（结构 §2.3：capabilities → tools 单向）。
 // 本模块若静态 import capabilities 会与 mcp.ts 的 agentTools 取用成环。
 export interface McpRouting {
@@ -85,22 +71,18 @@ export async function executeAgentTool(name: string, input: unknown, context: To
       return { ok: false as const, error: { code: 'NOT_CONFIGURED', message: 'MCP 能力不可用' } };
     return mcpRouting.executeMcpTool(name, input);
   }
-  const resolved = resolveToolName(name);
-  if (!Object.hasOwn(agentTools, resolved))
+  if (!Object.hasOwn(agentTools, name))
     return { ok: false, error: { code: 'UNKNOWN_TOOL', message: '工具不存在' } };
-  // 执行侧门禁在别名解析之后：运行中被关闭的能力仍可能按旧定义被模型调用（MCP 同款边界），
-  // 用可区分的错误码而不是 UNKNOWN_TOOL，让模型知道这是用户的开关而不是它用错了名字。
-  if (isToolDisabled(resolved))
+  // 运行中被关闭的能力仍可能按旧定义被模型调用（MCP 同款边界），用可区分的错误码
+  // 而不是 UNKNOWN_TOOL，让模型知道这是用户的开关而不是它用错了名字。
+  if (isToolDisabled(name))
     return {
       ok: false,
       error: { code: 'DISABLED', message: '该能力已被用户在设置 › 内置能力中关闭，请不要重试' },
     };
   try {
-    const result = await agentTools[resolved as keyof typeof agentTools].execute(input, context);
-    return {
-      ok: true as const,
-      result: resolved === name ? result : { ...asRecord(result), renamedFrom: name },
-    };
+    const result = await agentTools[name as keyof typeof agentTools].execute(input, context);
+    return { ok: true as const, result };
   } catch (error) {
     return {
       ok: false as const,
@@ -115,8 +97,4 @@ export async function executeAgentTool(name: string, input: unknown, context: To
       },
     };
   }
-}
-
-function asRecord(value: unknown) {
-  return value !== null && typeof value === 'object' ? (value as object) : { value };
 }

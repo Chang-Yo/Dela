@@ -1,5 +1,5 @@
-// 内置 Agent 能力的启停（设置 › 内置能力）：默认全开、单工具与整域开关、常驻能力保护、
-// 停用即从模型工具表移除并在执行侧返回 DISABLED（含旧名别名不可绕过）。
+// 内置 Agent 能力的启停（设置 › 内置能力）：九个内核工具、默认禁用网络域、单工具与
+// 整域开关、ReadSkills 常驻保护、停用即从模型工具表移除并在执行侧返回 DISABLED。
 // 数据库用真实 database.ts（electron app.getPath 指向临时目录），与 skills/mcp 测试一致。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -39,76 +39,76 @@ beforeEach(() => {
 });
 
 describe('内置能力清单', () => {
-  it('默认全部启用，并带上领域标签与描述', () => {
+  it('列出九个内核工具；网络域默认停用，基础域默认启用', () => {
     const capabilities = listBuiltinCapabilities();
-    // 精简后的常驻工具表：笔记资料 5 + 本地文件 3 + 命令执行 3 + 网页检索 2。
     expect(capabilities.map(({ name }) => name).sort()).toEqual(
       [
-        'read_resource',
-        'write_note',
-        'edit_note',
-        'read_skill',
-        'read_skill_file',
-        'read_file',
-        'write_file',
-        'edit_file',
-        'shell',
-        'shell_poll',
-        'shell_cancel',
-        'web_search',
-        'fetch_page',
+        'Read',
+        'Write',
+        'Edit',
+        'Grep',
+        'Glob',
+        'Bash',
+        'WebFetch',
+        'WebSearch',
+        'ReadSkills',
       ].sort(),
     );
-    expect(capabilities.every((capability) => capability.enabled)).toBe(true);
-    const readFile = capabilities.find((capability) => capability.name === 'read_file');
-    expect(readFile).toMatchObject({ domain: 'files', domainLabel: '本地文件' });
-    expect(readFile?.description.length).toBeGreaterThan(0);
-  });
-
-  it('承重工具标注常驻原因', () => {
-    const read = listBuiltinCapabilities().find(
-      (capability) => capability.name === 'read_resource',
+    expect(enabledNames().sort()).toEqual(
+      ['Read', 'Write', 'Edit', 'Grep', 'Glob', 'Bash', 'ReadSkills'].sort(),
     );
-    expect(read?.enabled).toBe(true);
-    expect(read?.lockedReason).toBeTruthy();
+    const bash = capabilities.find((capability) => capability.name === 'Bash');
+    expect(bash).toMatchObject({ domain: 'core', domainLabel: '基础' });
+    expect(bash?.description.length).toBeGreaterThan(0);
   });
 
-  it('停用名单损坏时视为全部启用', () => {
+  it('ReadSkills 与内核四工具标注常驻原因', () => {
+    const capabilities = listBuiltinCapabilities();
+    for (const name of ['Read', 'Write', 'Edit', 'Bash', 'ReadSkills']) {
+      const item = capabilities.find((capability) => capability.name === name);
+      expect(item?.enabled).toBe(true);
+      expect(item?.lockedReason).toBeTruthy();
+    }
+  });
+
+  it('停用名单损坏时回到默认（网络域停用）', () => {
     getDatabase()
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('tools-disabled', 'not-json')")
       .run();
-    expect(enabledNames().length).toBe(listBuiltinCapabilities().length);
+    expect(enabledNames()).not.toContain('WebFetch');
+    expect(enabledNames()).toContain('Read');
   });
 });
 
 describe('单工具与整域启停', () => {
-  it('关闭后从模型工具表移除，执行侧返回 DISABLED', async () => {
-    setBuiltinCapability('web_search', false);
-    expect(enabledNames()).not.toContain('web_search');
-    expect(definitionNames()).not.toContain('web_search');
-    expect(await executeAgentTool('web_search', { query: 'x' })).toMatchObject({
+  it('关闭后从模型工具表移除，执行侧返回 DISABLED；开启网络域后进入工具表', async () => {
+    setBuiltinCapability('Grep', false);
+    expect(enabledNames()).not.toContain('Grep');
+    expect(definitionNames()).not.toContain('Grep');
+    expect(await executeAgentTool('Grep', { pattern: 'x' })).toMatchObject({
       ok: false,
       error: { code: 'DISABLED' },
     });
+    setBuiltinCapability('WebFetch', true);
+    expect(definitionNames()).toContain('WebFetch');
+    // Grep 与 WebSearch 仍停用，其余启用。
+    expect(enabledNames()).not.toContain('Grep');
+    expect(enabledNames()).not.toContain('WebSearch');
+    expect(enabledNames()).toContain('Read');
   });
 
-  it('已移出工具表的校园业务名按 UNKNOWN_TOOL 拒绝（引导模型走 dela 命令）', async () => {
+  it('校园业务名按 UNKNOWN_TOOL 拒绝（引导模型走 dela 命令）', async () => {
     expect(await executeAgentTool('query_todos', {})).toMatchObject({
       ok: false,
       error: { code: 'UNKNOWN_TOOL' },
     });
-    expect(await executeAgentTool('find_courses', {})).toMatchObject({
-      ok: false,
-      error: { code: 'UNKNOWN_TOOL' },
-    });
   });
 
-  it('常驻能力拒绝关闭', () => {
-    expect(() => setBuiltinCapability('read_resource', false)).toThrow('常驻');
-    expect(() => setBuiltinCapability('read_skill', false)).toThrow('常驻');
-    expect(listBuiltinCapabilities().find((item) => item.name === 'read_resource')?.enabled).toBe(
-      true,
-    );
+  it('常驻能力拒绝关闭（ReadSkills 与内核四工具）', () => {
+    for (const name of ['ReadSkills', 'Read', 'Write', 'Edit', 'Bash']) {
+      expect(() => setBuiltinCapability(name, false)).toThrow('常驻');
+      expect(listBuiltinCapabilities().find((item) => item.name === name)?.enabled).toBe(true);
+    }
   });
 
   it('未知能力与未知分组抛错', () => {
@@ -116,22 +116,21 @@ describe('单工具与整域启停', () => {
     expect(() => setBuiltinDomain('no-such-domain', false)).toThrow('能力分组不存在');
   });
 
-  it('整域关闭只影响该域，恢复后回到全开', () => {
-    setBuiltinDomain('shell', false);
+  it('整域关闭只影响该域，常驻能力跳过；恢复后回到该域全开', () => {
+    setBuiltinDomain('core', false);
     const afterDisable = enabledNames();
-    expect(afterDisable).not.toContain('shell');
-    expect(afterDisable).toContain('read_file');
-    setBuiltinDomain('shell', true);
-    expect(enabledNames()).toContain('shell');
+    expect(afterDisable).not.toContain('Grep'); // core 域唯一可开关项
+    expect(afterDisable).toContain('Bash'); // 常驻能力跳过
+    expect(afterDisable).toContain('ReadSkills');
+    setBuiltinDomain('core', true);
+    expect(enabledNames()).toContain('Grep');
   });
 
-  it('整域关闭跳过常驻能力', () => {
-    setBuiltinDomain('common', false);
-    const common = listBuiltinCapabilities().filter((item) => item.domain === 'common');
-    expect(common.find((item) => item.name === 'read_resource')?.enabled).toBe(true);
-    expect(common.find((item) => item.name === 'write_note')?.enabled).toBe(false);
-    // 常驻能力不写入停用名单，重新启用整域后仍是全开。
-    setBuiltinDomain('common', true);
-    expect(enabledNames()).toContain('write_note');
+  it('整域开启网络域后 WebFetch/WebSearch 进入工具表', () => {
+    setBuiltinDomain('web', true);
+    expect(enabledNames()).toContain('WebFetch');
+    expect(enabledNames()).toContain('WebSearch');
+    setBuiltinDomain('web', false);
+    expect(enabledNames()).not.toContain('WebSearch');
   });
 });
