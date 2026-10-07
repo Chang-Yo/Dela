@@ -4,6 +4,37 @@
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { useNoteDrafts } from './drafts';
 import { useWorkspaceStore } from './store';
+import { useWorkbenchLayout } from '../workbench/layout-store';
+import { useNavigationStore as useTreeState } from '../navigation/store';
+import { relocateWorkspacePath } from '../../shared/workspace';
+
+/** 重命名前先冲盘，成功后一次迁移本窗口已知路径与草稿。 */
+export async function updateEntry(
+  id: string,
+  input: { name?: string; parentId?: string | null; kind?: 'folder' | 'project' },
+) {
+  const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === id);
+  const from = item?.path ?? id;
+  for (const key of Object.keys(useNoteDrafts.getState().drafts))
+    if (key === from || relocateWorkspacePath(key, from, '') !== key)
+      if (!(await useNoteDrafts.getState().save(key)))
+        throw new Error('文件尚未保存成功，请先保存后再移动或重命名');
+  const result = await window.dela!.workspace.update(id, input);
+  if (result?.fromPath && result.toPath) {
+    useNoteDrafts.getState().relocatePaths(result.fromPath, result.toPath);
+    useWorkbenchLayout.getState().relocatePaths(result.fromPath, result.toPath);
+    const tree = useTreeState.getState();
+    useTreeState.setState({
+      selected: tree.selected
+        ? relocateWorkspacePath(tree.selected, result.fromPath, result.toPath)
+        : null,
+      expanded: tree.expanded.map((path) =>
+        relocateWorkspacePath(path, result.fromPath!, result.toPath!),
+      ),
+    });
+  }
+  return result;
+}
 
 export type EntryAction =
   'folder' | 'project' | 'note' | 'rename' | 'move' | 'remove' | 'promote' | 'import' | 'archive';
@@ -37,7 +68,7 @@ export function moveEntry(
   const parentId = targetId ?? rootId;
   if (parentId === dragId || (parentId && isDescendant(entries, parentId, dragId))) return;
   void runEntryWork(async () => {
-    await window.dela!.workspace.update(dragId, { parentId });
+    await updateEntry(dragId, { parentId });
     await useWorkspaceStore.getState().refresh();
     onMoved?.(targetId);
   });
@@ -68,7 +99,7 @@ export function importFromDialog(parentId: string | null) {
 /** 归档条目（移入归档区）；onArchived 用于展开「归档」区。 */
 export function archiveEntry(id: string, onArchived?: () => void) {
   void runEntryWork(async () => {
-    await window.dela!.workspace.update(id, { parentId: workspaceArchiveId });
+    await updateEntry(id, { parentId: workspaceArchiveId });
     await useWorkspaceStore.getState().refresh();
     onArchived?.();
   });
@@ -77,9 +108,9 @@ export function archiveEntry(id: string, onArchived?: () => void) {
 /** 文件夹升级为项目并打开。 */
 export function promoteEntry(id: string, onOpenProject: (id: string) => void) {
   void runEntryWork(async () => {
-    await window.dela!.workspace.update(id, { kind: 'project' });
+    const result = await updateEntry(id, { kind: 'project' });
     await useWorkspaceStore.getState().refresh();
-    onOpenProject(id);
+    onOpenProject(result.id);
   });
 }
 

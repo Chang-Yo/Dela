@@ -79,7 +79,10 @@ export function MonthCalendar({
       ) : null}
       <div className="grid grid-cols-7 border-b">
         {weekDays.map((day) => (
-          <div className="px-2 py-2 text-center text-[11px] text-muted-foreground @max-[320px]:px-1" key={day}>
+          <div
+            className="px-2 py-2 text-center text-[11px] text-muted-foreground @max-[320px]:px-1"
+            key={day}
+          >
             {day}
           </div>
         ))}

@@ -110,7 +110,8 @@ export function registerPreviewProtocol(): void {
         return new Response(body, { status: 200, headers });
       }
       const id = decodeURIComponent(url.pathname.slice(1));
-      if (!id || id.includes('/') || id.includes('\\')) throw new Error('无效的文档地址');
+      if (!id || (url.hostname !== 'workspace' && (id.includes('/') || id.includes('\\'))))
+        throw new Error('无效的文档地址');
       const path =
         url.hostname === 'canvas'
           ? await canvasPreviewPath(id)

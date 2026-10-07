@@ -5,6 +5,7 @@ import { invoke, on } from './lib';
 
 export const workspace = {
   getState: () => invoke('workspace:get-state'),
+  onChanged: (listener: () => void) => on('workspace:changed', listener),
   create: (input: WorkspaceCreateInput) => invoke('workspace:create', input),
   update: (
     id: string,

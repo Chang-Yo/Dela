@@ -41,11 +41,28 @@ beforeEach(() => {
 describe('内置能力清单', () => {
   it('默认全部启用，并带上领域标签与描述', () => {
     const capabilities = listBuiltinCapabilities();
-    expect(capabilities.length).toBeGreaterThan(30);
+    // 精简后的常驻工具表：笔记资料 5 + 本地文件 3 + 命令执行 3 + 网页检索 2。
+    expect(capabilities.map(({ name }) => name).sort()).toEqual(
+      [
+        'read_resource',
+        'write_note',
+        'edit_note',
+        'read_skill',
+        'read_skill_file',
+        'read_file',
+        'write_file',
+        'edit_file',
+        'shell',
+        'shell_poll',
+        'shell_cancel',
+        'web_search',
+        'fetch_page',
+      ].sort(),
+    );
     expect(capabilities.every((capability) => capability.enabled)).toBe(true);
-    const querySchedule = capabilities.find((capability) => capability.name === 'query_schedule');
-    expect(querySchedule).toMatchObject({ domain: 'timetable', domainLabel: '课表与日程' });
-    expect(querySchedule?.description.length).toBeGreaterThan(0);
+    const readFile = capabilities.find((capability) => capability.name === 'read_file');
+    expect(readFile).toMatchObject({ domain: 'files', domainLabel: '本地文件' });
+    expect(readFile?.description.length).toBeGreaterThan(0);
   });
 
   it('承重工具标注常驻原因', () => {
@@ -75,15 +92,14 @@ describe('单工具与整域启停', () => {
     });
   });
 
-  it('旧名别名不能绕过停用门禁', async () => {
-    setBuiltinCapability('list_canvas_courses', false);
+  it('已移出工具表的校园业务名按 UNKNOWN_TOOL 拒绝（引导模型走 dela 命令）', async () => {
+    expect(await executeAgentTool('query_todos', {})).toMatchObject({
+      ok: false,
+      error: { code: 'UNKNOWN_TOOL' },
+    });
     expect(await executeAgentTool('find_courses', {})).toMatchObject({
       ok: false,
-      error: { code: 'DISABLED' },
-    });
-    expect(await executeAgentTool('list_canvas_courses', {})).toMatchObject({
-      ok: false,
-      error: { code: 'DISABLED' },
+      error: { code: 'UNKNOWN_TOOL' },
     });
   });
 
@@ -101,12 +117,12 @@ describe('单工具与整域启停', () => {
   });
 
   it('整域关闭只影响该域，恢复后回到全开', () => {
-    setBuiltinDomain('mail', false);
+    setBuiltinDomain('shell', false);
     const afterDisable = enabledNames();
-    expect(afterDisable).not.toContain('search_mail');
-    expect(afterDisable).toContain('query_todos');
-    setBuiltinDomain('mail', true);
-    expect(enabledNames()).toContain('search_mail');
+    expect(afterDisable).not.toContain('shell');
+    expect(afterDisable).toContain('read_file');
+    setBuiltinDomain('shell', true);
+    expect(enabledNames()).toContain('shell');
   });
 
   it('整域关闭跳过常驻能力', () => {

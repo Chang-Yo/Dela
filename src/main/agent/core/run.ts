@@ -31,7 +31,7 @@ import {
   type PrunePolicy,
 } from './pi';
 
-const MAX_ROUNDS = 12;
+const MAX_ROUNDS = 50;
 // 单条工具结果回灌给模型的上限；超出截断并引导模型改用过滤/分页，防止上下文被单次结果撑爆。
 const RESULT_CHAR_LIMIT = 20000;
 // 单次运行最多附出的工具页图像数：防止模型循环调页把请求体与上下文撑爆。
@@ -149,9 +149,15 @@ export async function runAgent(options: {
   messages: { role: string; content: string | ChatContentPart[] }[];
   tools: unknown[];
   signal: AbortSignal;
-  execute: (name: string, input: unknown) => Promise<unknown>;
+  /** 工具执行上下文（cwd、onUpdate）由此桥接；signal 由本层注入。 */
+  execute: (
+    name: string,
+    input: unknown,
+    context: { signal: AbortSignal; onUpdate?: (output: unknown) => void },
+  ) => Promise<unknown>;
   onToolResult?: (result: AgentToolResult) => void;
   onToolStart?: (call: { id: string; name: string; input: unknown }) => void;
+  onToolUpdate?: (update: { id: string; output: unknown }) => void;
   onText?: (text: string) => void;
   onReasoning?: (text: string) => void;
   retryDelays?: number[];
@@ -238,7 +244,11 @@ export async function runAgent(options: {
       async execute(toolCallId, params) {
         executedCalls.add(toolCallId);
         // 注册层保证返回 {ok,result}/{ok,error} 对象；null 兜底防止 undefined 序列化异常。
-        const output = (await options.execute(name, params)) ?? null;
+        const output =
+          (await options.execute(name, params, {
+            signal: options.signal,
+            onUpdate: (partial) => options.onToolUpdate?.({ id: toolCallId, output: partial }),
+          })) ?? null;
         // 页图像从输出中剥离：回灌字符串与持久化结果只留元数据，图像走 Pi 的合成 user 消息。
         const attachments = extractToolImages(output);
         let persisted: unknown = output;
@@ -322,9 +332,9 @@ export async function runAgent(options: {
       }
     }
   };
-  // 步数上限（对齐旧循环 MAX_ROUNDS=12）：Pi AgentOptions 无轮次上限机制，
-  // 在 finishTurn/prepareNextTurn 钩子里计数——第 12 轮前注入收尾提示，第 12 轮仍发起
-  // 工具调用则结束运行并返回上限文案。
+  // 步数上限：shell 长任务与多步文件操作需要更多轮转；配合上下文压缩与运行内修剪，
+  // 上限从旧循环的 12 提到 50。在 finishTurn/prepareNextTurn 钩子里计数——末轮前一轮
+  // 注入收尾提示，末轮仍发起工具调用则结束运行并返回上限文案。
   let roundCapped = false;
   const assistantTurns = (messages: AgentMessage[]) =>
     messages.filter((message) => message.role === 'assistant').length;

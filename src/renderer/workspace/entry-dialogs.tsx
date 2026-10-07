@@ -16,7 +16,7 @@ import {
 } from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { useNoteDrafts } from './drafts';
-import type { EntryAction } from './entry-actions';
+import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
@@ -113,9 +113,9 @@ export function EntryDialogs({
         await window.dela.canvas.configure(name);
         setName('');
         useWorkspaceStore.getState().setCanvas(await window.dela.canvas.syncCourses());
-      } else if (request.action === 'rename') await api.update(request.id!, { name });
+      } else if (request.action === 'rename') await updateEntry(request.id!, { name });
       else if (request.action === 'move')
-        await api.update(request.id!, { parentId: target || null });
+        await updateEntry(request.id!, { parentId: target || null });
       else if (request.action === 'remove') {
         await api.remove(request.id!);
         const remaining = (await api.getState()).entries;
@@ -175,7 +175,11 @@ export function EntryDialogs({
             {request?.action === 'connect'
               ? '使用个人 Access Token，凭据加密保存在本机。'
               : request?.action === 'remove'
-                ? '移除该内容及其子项的应用内记录。本地文件和 Canvas 原件会保留。'
+                ? workspace.entries.find((entry) => entry.id === request.id)?.kind === 'project'
+                  ? '取消项目身份，目录与文件保留，会话转入随聊。'
+                  : workspace.entries.find((entry) => entry.id === request.id)?.kind === 'source'
+                    ? '解除此处的资料关联，原始资料保留。'
+                    : '将文件或文件夹移至系统回收站。'
                 : request?.action === 'link'
                   ? '引用同一份资料，原位置保持不变。'
                   : request?.action === 'note'

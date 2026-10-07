@@ -143,11 +143,16 @@ describe('summaryContextText', () => {
 
 // 设置 › 内置能力关掉工具后，系统提示不能继续指挥模型调用它（随实际下发的工具裁剪）。
 describe('systemPromptFor', () => {
-  const all = new Set(['web_search', 'fetch_page', 'read_resource']);
+  const all = new Set(['web_search', 'fetch_page', 'read_resource', 'shell']);
 
   it('省略工具表时与完整提示词一致', () => {
     expect(systemPromptFor(undefined)).toBe(SYSTEM_PROMPT);
     expect(systemPromptFor(all)).toBe(SYSTEM_PROMPT);
+  });
+
+  it('关掉 shell 后不再引导 dela 命令', () => {
+    const prompt = systemPromptFor(new Set(['read_resource', 'web_search']));
+    expect(prompt).not.toContain('dela');
   });
 
   it('关掉网页工具后不再提这两个工具名', () => {

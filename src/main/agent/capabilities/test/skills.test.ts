@@ -9,7 +9,14 @@ import { dirname, join } from 'node:path';
 const state = vi.hoisted(() => ({ root: '' }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root } }));
 import { closeDatabase, getDatabase } from '../../../database';
-import { SKILL_HEAD_LIMIT_BYTES, listSkills, setSkillEnabled, skillIndex, skillsDirectory } from '../skills';
+import {
+  SKILL_HEAD_LIMIT_BYTES,
+  builtinSkillsDirectory,
+  listSkills,
+  setSkillEnabled,
+  skillIndex,
+  skillsDirectory,
+} from '../skills';
 import { SKILL_FILE_LIMIT_BYTES, readSkillBody, readSkillFile } from '../skill-tools';
 import { readSkillFileTool, readSkillTool } from '../../tools/common/skill-read';
 
@@ -28,6 +35,9 @@ beforeAll(() => {
   getDatabase()
     .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)")
     .run(state.root);
+  // 进程内首次发现即触发内置写入：campus 落在 ~/.dela/skills 且可经 read_skill 读取。
+  expect(listSkills().map(({ name }) => name)).toEqual(['campus']);
+  expect(readSkillBody('campus')).toContain('dela help');
 });
 
 afterAll(() => {
@@ -37,7 +47,34 @@ afterAll(() => {
 
 beforeEach(() => {
   getDatabase().prepare("DELETE FROM workspace_settings WHERE key='skills-disabled'").run();
+  // 内置写入只在进程内首次发现发生（ensureBuiltinSkills 的一次性语义）：先触发一次，
+  // 再清空两个目录，让后续用例只看到自己写入的内容；内置行为单独验证。
+  rmSync(builtinSkillsDirectory(), { recursive: true, force: true });
+  listSkills();
+  rmSync(builtinSkillsDirectory(), { recursive: true, force: true });
   rmSync(skillsDirectory(), { recursive: true, force: true });
+});
+
+describe('内置 Skill（~/.dela/skills）', () => {
+  it('已存在（用户编辑过）不覆盖', () => {
+    const entry = join(builtinSkillsDirectory(), 'campus', 'SKILL.md');
+    mkdirSync(dirname(entry), { recursive: true });
+    writeFileSync(entry, '---\ndescription: 自定义\n---\n正文');
+    expect(listSkills().find(({ name }) => name === 'campus')?.description).toBe('自定义');
+  });
+
+  it('内置目录与旧工作目录重名时以内置为准', () => {
+    mkdirSync(join(builtinSkillsDirectory(), 'campus'), { recursive: true });
+    writeFileSync(
+      join(builtinSkillsDirectory(), 'campus', 'SKILL.md'),
+      '---\ndescription: 内置副本\n---\n',
+    );
+    writeSkill('campus', '---\ndescription: 旧目录副本\n---\n');
+    const matches = listSkills().filter(({ name }) => name === 'campus');
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.description).toBe('内置副本');
+    expect(matches[0]?.path).toBe(join(builtinSkillsDirectory(), 'campus', 'SKILL.md'));
+  });
 });
 
 describe('Skill 发现与 frontmatter 解析', () => {
@@ -84,7 +121,10 @@ describe('Skill 发现与 frontmatter 解析', () => {
   });
 
   it('超大 SKILL.md 只读头部窗口解析 frontmatter（listSkills 不整读全量）', () => {
-    writeSkill('big-listed', `---\ndescription: 头部描述\n---\n${'x'.repeat(SKILL_HEAD_LIMIT_BYTES * 2)}`);
+    writeSkill(
+      'big-listed',
+      `---\ndescription: 头部描述\n---\n${'x'.repeat(SKILL_HEAD_LIMIT_BYTES * 2)}`,
+    );
     expect(listSkills()[0]).toMatchObject({ name: 'big-listed', description: '头部描述' });
   });
 });

@@ -14,7 +14,7 @@ const state = vi.hoisted(() => ({ root: '' }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root } }));
 vi.mock('../../../canvas/api', () => ({ readCanvasSource: vi.fn() }));
 vi.mock('../../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
-vi.mock('../../../workspace/api', () => ({ readWorkspaceEntry: vi.fn() }));
+vi.mock('../../../workspace/api', () => ({ entry: vi.fn(), readWorkspaceEntry: vi.fn() }));
 vi.mock('../../core/providers', () => ({
   getActiveLlmProvider: () => ({
     name: 'fixture',

@@ -29,6 +29,7 @@ import {
   type LegacySeedInput,
 } from './layout-schema';
 import type { EdgeZone } from './tab-dnd';
+import { relocateWorkspacePath } from '../../shared/workspace';
 
 const PERSIST_DEBOUNCE_MS = 800;
 
@@ -59,6 +60,7 @@ type Store = {
   setMaximized(groupId: string | null): void;
   setRatio(path: number[], ratio: number): void;
   focusGroup(groupId: string): void;
+  relocatePaths(from: string, to: string): void;
 };
 
 // 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
@@ -112,6 +114,23 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
   focus: 'primary',
   maximized: null,
   ready: false,
+
+  relocatePaths: (from, to) => {
+    const remapTab = (tab: TabId): TabId => {
+      if (!tab.startsWith('note:') && !tab.startsWith('preview:')) return tab;
+      const colon = tab.indexOf(':');
+      return `${tab.slice(0, colon)}:${relocateWorkspacePath(tab.slice(colon + 1), from, to)}` as TabId;
+    };
+    let root = get().root;
+    for (const group of walkGroups(root))
+      root = updateGroup(root, group.id, (current) => ({
+        ...current,
+        tabs: [...new Set(current.tabs.map(remapTab))],
+        active: current.active ? remapTab(current.active) : null,
+      }));
+    set({ root });
+    schedulePersist();
+  },
 
   init: async (projectId, legacy) => {
     // 同项目布局已在用（home↔工作台切换会重挂载宿主）：复用现态直接返回，不再置

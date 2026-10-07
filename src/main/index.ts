@@ -22,7 +22,13 @@ import {
 } from './notifications';
 import { getMailState, startMailSync } from './mail/api';
 // agent 域（含 capabilities 通道、聊天媒体回收、会话订阅挂钩与 Pi 运行时加载）统一经门面进出。
-import { gcChatMedia, loadPiRuntime, registerAgentIpc, subscribeChat } from './agent';
+import {
+  cancelShellJobs,
+  gcChatMedia,
+  loadPiRuntime,
+  registerAgentIpc,
+  subscribeChat,
+} from './agent';
 import {
   applyTheme,
   readSetting,
@@ -73,6 +79,7 @@ if (smokeTest && !terminalSmokeTest) {
   const profile = mkdtempSync(join(tmpdir(), 'dela-smoke-'));
   app.setPath('userData', profile);
   app.setPath('documents', profile);
+  app.setPath('home', profile);
 }
 // 水源通知每分钟更新；IMAP 沿用现有增量同步，每五分钟检查一次。
 const NOTIFICATION_REFRESH_MS = 60_000;
@@ -343,6 +350,7 @@ app.on('window-all-closed', () => {
 });
 app.on('before-quit', () => {
   quitting = true;
+  cancelShellJobs();
 });
 app.on('will-quit', () => {
   tray?.destroy();

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import {
   INLINE_IMAGE_MAX,
   parseChatBlocks,
@@ -6,6 +7,7 @@ import {
 } from '../../../shared/chat-input';
 import type { AgentToolResult, ChatSessionSummary, WorkspaceChat } from '../../../shared/api';
 import { getDatabase } from '../../database';
+import { storageDirectory } from '../../storage';
 import { getActiveLlmProvider } from '../core/providers';
 import { llmModelSettings } from '../../../shared/llm-presets';
 import type { ChatContentPart } from '../core/run';
@@ -231,6 +233,18 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
     }
     const { runAgent } = await import('../core/run');
     const { modelToolDefinitions, executeAgentTool } = await import('../tools/registry');
+    const { entry } = await import('../../workspace/api');
+    // 工具执行上下文的 cwd：项目会话为项目目录，通用会话为工作区根目录；项目目录被
+    // 外部删除时退回工作区根，让 shell/files 仍可工作。
+    let toolCwd: string;
+    try {
+      toolCwd =
+        row.project_id !== null
+          ? (entry(row.project_id).path ?? join(storageDirectory(), 'workspace'))
+          : join(storageDirectory(), 'workspace');
+    } catch {
+      toolCwd = join(storageDirectory(), 'workspace');
+    }
     // 模型侧用户消息：引用资料与附件作为前言，其后按用户输入顺序排列文字与图片。
     const contentParts: ChatContentPart[] = [
       { type: 'text', text: referencePreamble(documents, attachmentDocs) },
@@ -418,7 +432,8 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
         messages,
         tools: toolDefinitions,
         signal: run.controller.signal,
-        execute: executeAgentTool,
+        execute: (name, input, context) =>
+          executeAgentTool(name, input, { ...context, cwd: toolCwd }),
         // 运行内修剪：多轮工具结果撑大上下文时在每次模型请求前修剪较早工具结果（core/pi.ts）。
         prunePolicy: { budgetTokens: contextBudget(modelSettings).budget },
         onText: (text) => {
@@ -449,6 +464,20 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
               startedAt: Date.now(),
             });
           persist();
+        },
+        onToolUpdate: ({ id, output }) => {
+          // 长任务的中间输出（shell 增量）：只回填内存中的占位步骤并节流推送，
+          // 完成时经 onToolResult 统一落库。
+          for (let index = reply.parts!.length - 1; index >= 0; index -= 1) {
+            const part = reply.parts![index]!;
+            if (part.type !== 'tools') continue;
+            const step = part.results.find((item) => item.id === id);
+            if (step) {
+              step.output = output;
+              publishStream();
+            }
+            break;
+          }
         },
         onToolResult: (result) => {
           run.tool = undefined;

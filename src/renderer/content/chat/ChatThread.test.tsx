@@ -192,7 +192,7 @@ it('查看工作过程暂停贴底，展开和后续流式增长不会将过程�
   expect(viewport().scrollTop).toBe(1360);
 });
 
-it('最终回答保持在折叠区外，同索引重发会重置过程展开状态', async () => {
+it('正文始终在过程区外，同索引重发会重置过程展开状态', async () => {
   const traced: WorkspaceChat = {
     ...chat,
     messages: [
@@ -212,7 +212,6 @@ it('最终回答保持在折叠区外，同索引重发会重置过程展开状�
   expect(host.textContent).toContain('这是回答');
   expect(host.textContent).toContain('核对资料的过程');
   const trigger = host.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
-  expect(trigger.textContent).toContain('正在整理回答');
   expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('这是回答');
   await act(async () => trigger.click());
   await act(async () =>
@@ -227,3 +226,82 @@ it('最终回答保持在折叠区外，同索引重发会重置过程展开状�
   );
   expect(host.querySelector('button[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true');
 });
+
+it('正文从首个字到工具调用及结束均保持同一容器，中间文字不隐藏或搬移', async () => {
+  const reply: WorkspaceChat['messages'][number] = {
+    role: 'assistant',
+    content: '我来核对一下',
+    startedAt: 1,
+    parts: [{ type: 'text', text: '我来核对一下' }],
+  };
+  const renderReply = async (message: typeof reply, running = true) => {
+    await act(async () =>
+      root.render(
+        <ChatThread chat={{ ...chat, running, messages: [chat.messages[0]!, message] }} />,
+      ),
+    );
+  };
+  await renderReply(reply);
+  const body = host.querySelector('[data-assistant-body]');
+  expect(body).not.toBeNull();
+  expect(body?.textContent).toContain('我来核对一下');
+  expect(host.querySelector('[aria-label="工作过程"]')).toBeNull();
+  const toolPart = {
+    type: 'tools' as const,
+    results: [{ id: 'tool-1', name: 'search_sources', input: {}, output: { ok: true } }],
+  };
+  const afterTool = { ...reply, parts: [...reply.parts!, toolPart] };
+  await renderReply(afterTool);
+  expect(host.querySelector('[data-assistant-body]')).toBe(body);
+  expect(body?.textContent).toContain('我来核对一下');
+  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('我来核对一下');
+  expect(
+    body!.compareDocumentPosition(host.querySelector('[aria-label="工作过程"]')!) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  const finalReply = {
+    ...afterTool,
+    content: '我来核对一下\n\n核对结果',
+    parts: [...afterTool.parts, { type: 'text' as const, text: '核对结果' }],
+  };
+  await renderReply(finalReply);
+  expect(host.querySelectorAll('[data-assistant-body]')[1]?.textContent).toContain('核对结果');
+  await renderReply({ ...finalReply, finishedAt: 100 }, false);
+  expect(host.querySelector('[aria-label="工作过程"]')).toBeNull();
+  expect(host.textContent).toContain('核对结果');
+  expect(host.querySelector('[data-assistant-body]')).toBe(body);
+  expect(body?.textContent).toContain('我来核对一下');
+  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
+  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('我来核对一下');
+  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('核对结果');
+});
+
+it.each(['stopped', 'interrupted'] as const)(
+  '%s 保留已输出的正文及明确状态，不将文字收入折叠过程',
+  async (status) => {
+    await act(async () =>
+      root.render(
+        <ChatThread
+          chat={{
+            ...chat,
+            running: false,
+            messages: [
+              chat.messages[0]!,
+              {
+                role: 'assistant',
+                content: '尚未完成的片段',
+                startedAt: 1,
+                finishedAt: 100,
+                [status]: true,
+                parts: [{ type: 'text', text: '尚未完成的片段' }],
+              },
+            ],
+          }}
+        />,
+      ),
+    );
+    expect(host.querySelector('[data-assistant-body]')?.textContent).toContain('尚未完成的片段');
+    expect(host.textContent).toContain(status === 'stopped' ? '已停止' : '执行中断');
+    expect(host.querySelector('[aria-label="工作过程"]')).toBeNull();
+  },
+);

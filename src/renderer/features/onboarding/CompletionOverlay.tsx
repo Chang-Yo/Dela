@@ -15,7 +15,10 @@ export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
   const finishedRef = useRef(onFinished);
   finishedRef.current = onFinished;
   useEffect(() => {
-    const timer = window.setTimeout(() => finishedRef.current(), (fadeAtSeconds + fadeSeconds) * 1000);
+    const timer = window.setTimeout(
+      () => finishedRef.current(),
+      (fadeAtSeconds + fadeSeconds) * 1000,
+    );
     const skip = () => finishedRef.current();
     window.addEventListener('pointerdown', skip);
     window.addEventListener('keydown', skip);

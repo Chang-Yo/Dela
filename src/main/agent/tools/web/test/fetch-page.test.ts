@@ -152,9 +152,7 @@ describe('fetch_page SSRF 防线', () => {
   });
 
   it('重定向每跳复检 DNS：跳转到解析为环回的域名同样拒绝', async () => {
-    const fetchSpy = vi.fn(async () =>
-      Response.redirect('https://hop.example.com/next', 302),
-    );
+    const fetchSpy = vi.fn(async () => Response.redirect('https://hop.example.com/next', 302));
     vi.stubGlobal('fetch', fetchSpy);
     dns.lookup
       .mockResolvedValueOnce([{ address: '93.184.216.34', family: 4 }])

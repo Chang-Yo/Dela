@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import type { DocumentContent } from '../../shared/api';
 import { errorText } from './store';
+import { relocateWorkspacePath } from '../../shared/workspace';
 
 export type NoteDraft = {
   content: DocumentContent;
@@ -25,6 +26,7 @@ type Store = {
   edit: (key: string, text: string) => void;
   /** Resolves true only when the current draft is clean (or was already clean). */
   save: (key: string) => Promise<boolean>;
+  relocatePaths: (from: string, to: string) => void;
 };
 
 const loading = new Map<string, Promise<void>>();
@@ -35,6 +37,17 @@ const refcounts = new Map<string, number>();
 
 export const useNoteDrafts = create<Store>((set, get) => ({
   drafts: {},
+  relocatePaths: (from, to) => {
+    const drafts: Record<string, NoteDraft> = {};
+    for (const [key, draft] of Object.entries(get().drafts)) {
+      const next = relocateWorkspacePath(key, from, to);
+      drafts[next] =
+        next === key
+          ? draft
+          : { ...draft, content: { ...draft.content, title: next.split(/[\\/]/).at(-1)! } };
+    }
+    set({ drafts });
+  },
   acquire: async (key, force = false) => {
     // force 语义是「强制重读磁盘」而非新持有入口（NoteTab 窗口聚焦刷新、App 会话终态
     // 刷新都复用它且无配对 release）：不计数，否则草稿被永久持有、重开时复用过期快照。

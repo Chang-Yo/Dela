@@ -1,4 +1,4 @@
-// 随聊的新建与发送留在首页聊天；历史与运行状态仍由 sessions 管理。
+// 随聊的新建、发送与历史查看留在首页聊天；会话与运行状态由 sessions 管理。
 import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceChat } from '../../../shared/api';
 import { useNavigationStore } from '../../app/navigation';
@@ -17,17 +17,27 @@ export function ChatHome() {
     let active = true;
     const seq = request?.seq ?? 0;
     if (!pending.current || pending.current.seq !== seq) {
-      // 回到首页复用未发送的空会话；“新对话”显式创建，不打开旧的已完成聊天。
-      const empty = !request?.create
-        ? Object.values(useSessions.getState().chats).find(
-            (chat) =>
-              chat.sessionId &&
-              !chat.running &&
-              chat.messages.length === 0 &&
-              (useSessions.getState().lists.general ?? []).some((row) => row.id === chat.sessionId),
-          )
-        : undefined;
-      pending.current = { seq, promise: empty ? Promise.resolve(empty) : api.create(null) };
+      // 未指定历史时复用未发送的空会话；“新对话”显式创建。
+      const empty =
+        !request?.create && !request?.sessionId
+          ? Object.values(useSessions.getState().chats).find(
+              (chat) =>
+                chat.sessionId &&
+                !chat.running &&
+                chat.messages.length === 0 &&
+                (useSessions.getState().lists.general ?? []).some(
+                  (row) => row.id === chat.sessionId,
+                ),
+            )
+          : undefined;
+      pending.current = {
+        seq,
+        promise: request?.sessionId
+          ? api.open(request.sessionId)
+          : empty
+            ? Promise.resolve(empty)
+            : api.create(null),
+      };
     }
     setError(null);
     void pending.current.promise

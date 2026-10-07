@@ -117,3 +117,50 @@ it('新对话创建期间不显示旧会话，返回后绑定新身份', async (
   expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe('新会话草稿');
   expect(useNavigationStore.getState().view).toBe('home');
 });
+
+it('打开随聊历史留在首页，展示指定会话而不是创建空会话或资料标签', async () => {
+  const history = {
+    ...emptyChat('history'),
+    messages: [{ role: 'assistant' as const, content: '历史回复' }],
+  };
+  useSessions.getState().putChat('history', history);
+  const create = vi.spyOn(window.dela!.session, 'create');
+  await act(async () => useNavigationStore.getState().openChat('history', null));
+  await act(async () => root.render(<ChatHome />));
+  expect(useNavigationStore.getState().view).toBe('home');
+  expect(useNavigationStore.getState().reveal).toBeNull();
+  expect(host.querySelector('[aria-label="对话消息"]')?.textContent).toBe('历史回复');
+  expect(create).not.toHaveBeenCalled();
+});
+
+it('历史快速切换时延迟返回不能覆盖最新会话，项目历史仍进入项目工作台', async () => {
+  await act(async () => root.render(<ChatHome />));
+  let resolveOld!: (chat: WorkspaceChat) => void;
+  const latest = {
+    ...emptyChat('latest'),
+    messages: [{ role: 'assistant' as const, content: '最新选中的历史' }],
+  };
+  useSessions.getState().putChat('latest', latest);
+  window.dela!.session.open = (id) =>
+    id === 'slow'
+      ? new Promise((resolve) => {
+          resolveOld = resolve;
+        })
+      : Promise.resolve(latest);
+  await act(async () => useNavigationStore.getState().openChat('slow', null));
+  expect(host.querySelector('[aria-label="消息输入"]')).toBeNull();
+  await act(async () => useNavigationStore.getState().openChat('latest', null));
+  await act(async () =>
+    resolveOld({
+      ...emptyChat('slow'),
+      messages: [{ role: 'assistant', content: '较早选中的历史' }],
+    }),
+  );
+  expect(host.textContent).toContain('最新选中的历史');
+  expect(host.textContent).not.toContain('较早选中的历史');
+  expect(useNavigationStore.getState().view).toBe('home');
+  await act(async () => useNavigationStore.getState().openChat('project-history', 'project'));
+  expect(useNavigationStore.getState().view).toBe('workbench');
+  expect(useNavigationStore.getState().projectId).toBe('project');
+  expect(useNavigationStore.getState().reveal?.tabId).toBe('chat:project-history');
+});

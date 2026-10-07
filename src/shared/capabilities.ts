@@ -1,7 +1,7 @@
 // 能力层契约（阶段四：MCP 与 Skills，docs/agent-workspace-plan.md §5.3）。
 // 类型归 shared：main 拥有事实（连接状态、启停、发现），renderer 只持镜像。
 
-/** 已发现的 Skill（来自工作目录 skills/ 下的 SKILL.md，agentskills.io 规范）。 */
+/** 已发现的 Skill（来自 ~/.dela/skills 与旧工作目录 skills/ 的 SKILL.md，agentskills.io 规范）。 */
 export interface SkillView {
   /** 目录名，同时是 read_skill 工具的标识。 */
   name: string;

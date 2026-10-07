@@ -297,25 +297,13 @@ const AssistantMessage = memo(function AssistantMessage({
       : []),
     ...(message.content ? [{ type: 'text' as const, text: message.content }] : []),
   ];
-  // 最终回答 = 尾部最后一个非空正文部分（其后只有正文）；其余全部进入工作过程区，
-  // 由 WorkingSection 平铺展示并折叠——无需模型或协议显式标注。
-  let answerIndex = -1;
-  for (let index = parts.length - 1; index >= 0; index -= 1) {
-    const part = parts[index]!;
-    if (part.type !== 'text') break;
-    if (part.text) {
-      answerIndex = index;
-      break;
-    }
-  }
-  const workingParts =
-    answerIndex === -1 ? [...parts] : parts.filter((_, index) => index !== answerIndex);
+  // 按原始内容类型固定展示位置，工具到来与运行结束都不搬移已输出的正文。
+  const workingParts = parts.filter((part) => part.type !== 'text');
   const hasActivity = workingParts.some(
     (part) =>
       (part.type === 'tools' && part.results.length > 0) ||
-      (part.type === 'reasoning' && Boolean(part.text)),
+      (part.type !== 'tools' && Boolean(part.text)),
   );
-  const answer = answerIndex >= 0 ? parts[answerIndex] : null;
   // 用时只在结束后计算为静态值；运行中的头部不带跳动的秒数。
   const elapsedMs =
     !live && message.startedAt !== undefined && message.finishedAt !== undefined
@@ -351,18 +339,6 @@ const AssistantMessage = memo(function AssistantMessage({
     ),
   ].filter((id): id is string => Boolean(id));
 
-  const answerEl =
-    answer?.type === 'text' && answer.text ? (
-      <ChatMarkdown
-        className="my-4 min-w-0 first:mt-0"
-        mode="streaming"
-        isAnimating={live && !activeTool}
-        animated={live && !reduced ? textAnimation : false}
-      >
-        {answer.text}
-      </ChatMarkdown>
-    ) : null;
-
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
       {/* 只有异常态（运行中/手动停止/中断）才占一行说明；正常完成不渲染「用时」噪音行。 */}
@@ -381,48 +357,37 @@ const AssistantMessage = memo(function AssistantMessage({
             )}
           </div>
         )}
-      {hasActivity ? (
-        <>
-          <WorkingSection
-            key={message.startedAt}
-            onInspect={onInspectTrace}
-            elapsedMs={elapsedMs}
-            failed={failed}
-            live={live}
-            answering={answerIndex >= 0 && !activeTool}
-            parts={workingParts}
-            status={message.stopped ? 'stopped' : message.interrupted ? 'interrupted' : 'done'}
-          />
-          {onOpenDraft &&
-            draftIds.map((draftId) => (
-              <Button
-                key={draftId}
-                variant="outline"
-                size="sm"
-                className="mb-2 mt-0"
-                onClick={() => onOpenDraft(draftId)}
-              >
-                <ArrowUpRight />
-                检查并发送邮件
-              </Button>
-            ))}
-          {answerEl}
-        </>
-      ) : (
-        parts.map((part, index) =>
-          part.type === 'text' && part.text ? (
-            <ChatMarkdown
-              key={index}
-              className="my-4 min-w-0 first:mt-0"
-              mode="streaming"
-              isAnimating={live && !activeTool}
-              animated={live && !reduced ? textAnimation : false}
-            >
-              {part.text}
-            </ChatMarkdown>
-          ) : null,
-        )
-      )}
+      <WorkingSection
+        key={message.startedAt}
+        onInspect={onInspectTrace}
+        elapsedMs={elapsedMs}
+        failed={failed}
+        live={live}
+        parts={parts}
+        status={message.stopped ? 'stopped' : message.interrupted ? 'interrupted' : 'done'}
+        renderText={(text) => (
+          <ChatMarkdown
+            mode="streaming"
+            isAnimating={live && !activeTool}
+            animated={live && !reduced ? textAnimation : false}
+          >
+            {text}
+          </ChatMarkdown>
+        )}
+      />
+      {onOpenDraft &&
+        draftIds.map((draftId) => (
+          <Button
+            key={draftId}
+            variant="outline"
+            size="sm"
+            className="mb-2 mt-0"
+            onClick={() => onOpenDraft(draftId)}
+          >
+            <ArrowUpRight />
+            检查并发送邮件
+          </Button>
+        ))}
       {/* 运行进度由状态行或过程入口承载，正文不再叠加状态提示。 */}
       {!live && message.content && (
         <MessageActions content={message.content} onSaveNote={onSaveNote} />

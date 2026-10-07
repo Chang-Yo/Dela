@@ -6,7 +6,7 @@ import { Switch } from '../../../../components/ui/switch';
 import { errorText } from '../../../../workspace/store';
 import { SectionHeader } from '../../SectionHeader';
 
-/** 设置 › Skills：工作目录 skills/ 下自动发现，文件系统管理（UI 只读 + 启停）。 */
+/** 设置 › Skills：~/.dela/skills 与旧工作目录 skills/ 下的技能发现与启停。 */
 export function SkillsTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [skills, setSkills] = useState<SkillView[] | null>(null);
@@ -62,15 +62,15 @@ export function SkillsTab() {
             <RefreshCw />
           </Button>
         }
-        description="把含 SKILL.md 的文件夹放入工作目录的 skills/ 即可被发现；移除文件夹即删除。"
+        description="把含 SKILL.md 的文件夹放入用户主目录的 .dela/skills 即可被发现；移除文件夹即删除。"
         title="Skills"
       />
       {skills !== null && skills.length === 0 && (
         <section className="grid gap-2">
           <h2 className="text-base font-semibold">还没有发现 Skill</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            在工作目录下创建 skills/ 文件夹，放入包含 SKILL.md 的子文件夹（frontmatter 带 name 与
-            description），回到此页刷新即可发现并按需启用。
+            在用户主目录下创建 .dela/skills 文件夹，放入包含 SKILL.md 的子文件夹（frontmatter 带
+            name 与 description），回到此页刷新即可发现并按需启用。
           </p>
         </section>
       )}

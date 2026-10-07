@@ -736,7 +736,10 @@ function DesktopMailView({
           />
         ) : selection?.kind === 'drafts' ? (
           <section
-            className={cn('flex min-h-0 flex-col overflow-auto', stacked ? stackedPlacement : 'col-span-3')}
+            className={cn(
+              'flex min-h-0 flex-col overflow-auto',
+              stacked ? stackedPlacement : 'col-span-3',
+            )}
             aria-label="本地草稿"
           >
             {/* 与文件夹/列表/回收站同一 h-11 头部规格，含计数。 */}

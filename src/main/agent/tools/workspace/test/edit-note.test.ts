@@ -1,10 +1,10 @@
-// editWorkspaceNote 全部校验分支与 note_versions 记录策略（Agent 写入必记、首次记基线）。
+// editWorkspaceNote 全部校验分支与 note_versions 记录策略（旧 UUID 笔记必记、路径笔记不记）。
 // note_versions 表由 DB v13 迁移创建（列：note_id/revision/text/run_id 可空/created_at）；
 // 本测试的内存库尚未接入该迁移，setup 手动建同构表。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,12 +52,23 @@ function noteVersions(): { revision: string; text: string; runId: string | null 
     .all() as { revision: string; text: string; runId: string | null }[];
 }
 
-const noteFile = (id: string) =>
-  (
-    getDatabase()
-      .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
-      .get(id) as { path: string }
-  ).path;
+/** 旧版 UUID 笔记（workspace_notes + entries 行）：新路径笔记不写行，版本记录仅对它们保留。 */
+function insertLegacyNote(text: string): string {
+  const id = randomUUID();
+  const noteId = randomUUID();
+  const path = join(state.root, `${noteId}.md`);
+  writeFileSync(path, text);
+  db.prepare('INSERT INTO workspace_notes VALUES (?, ?)').run(noteId, path);
+  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?, ?)').run(
+    id,
+    '旧版笔记',
+    'note',
+    noteId,
+    path,
+    new Date().toISOString(),
+  );
+  return id;
+}
 
 let db: Database.Database;
 
@@ -72,7 +83,7 @@ afterEach(() => {
 });
 
 describe('editWorkspaceNote', () => {
-  it('一次提交多处修改：原子写入、返回定位摘要、记基线与新版本', async () => {
+  it('一次提交多处修改：原子写入、返回定位摘要；路径笔记不记 note_versions', async () => {
     const note = createWorkspaceEntry({
       parentId: null,
       name: '编辑笔记',
@@ -88,7 +99,7 @@ describe('editWorkspaceNote', () => {
       ],
       before.revision!,
     );
-    expect(readFileSync(noteFile(note.id), 'utf8')).toBe(
+    expect(readFileSync(note.id, 'utf8')).toBe(
       '# 新标题\n\n第一段内容。\n\n第二段已修改。\n\n新增一行。\n',
     );
     expect(result.applied).toEqual([
@@ -102,24 +113,23 @@ describe('editWorkspaceNote', () => {
         preview: '第二段已修改。\n\n新增一行。',
       },
     ]);
-    const versions = noteVersions();
-    expect(versions).toHaveLength(2);
-    expect(versions[0]).toMatchObject({
-      revision: before.revision!,
-      text: '# 标题\n\n第一段内容。\n\n第二段内容。\n',
-      runId: null,
-    });
-    expect(versions[1]).toMatchObject({ revision: result.revision });
-    expect(versions[1]!.text).toBe(readFileSync(noteFile(note.id), 'utf8'));
+    expect(noteVersions()).toHaveLength(0);
   });
 
-  it('第二次编辑不再重复记基线，只追加新版本', async () => {
-    const note = createWorkspaceEntry({ parentId: null, name: '笔记', kind: 'note', text: 'v1' });
-    const first = editWorkspaceNote(note.id, [{ oldText: 'v1', newText: 'v2' }], hashOf('v1'));
-    const second = editWorkspaceNote(note.id, [{ oldText: 'v2', newText: 'v3' }], first.revision);
+  it('旧 UUID 笔记的局部修改仍记基线与新版本（兼容旧引用）', () => {
+    const id = insertLegacyNote('# 旧正文\n');
+    const result = editWorkspaceNote(
+      id,
+      [{ oldText: '旧正文', newText: '新正文' }],
+      hashOf('# 旧正文\n'),
+    );
+    const row = getDatabase()
+      .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
+      .get(id) as { path: string };
+    expect(readFileSync(row.path, 'utf8')).toBe('# 新正文\n');
     const versions = noteVersions();
-    expect(versions.map((v) => v.text)).toEqual(['v1', 'v2', 'v3']);
-    expect(versions.at(-1)!.revision).toBe(second.revision);
+    expect(versions.map((v) => v.text)).toEqual(['# 旧正文\n', '# 新正文\n']);
+    expect(versions.at(-1)!.revision).toBe(result.revision);
   });
 
   it('oldText 不存在时全部失败：不落盘、不记版本、错误指明第几处', async () => {
@@ -134,7 +144,7 @@ describe('editWorkspaceNote', () => {
         hashOf('正文'),
       ),
     ).toThrow('第 2 处修改：原文在笔记中不存在');
-    expect(readFileSync(noteFile(note.id), 'utf8')).toBe('正文');
+    expect(readFileSync(note.id, 'utf8')).toBe('正文');
     expect(noteVersions()).toHaveLength(0);
   });
 
@@ -167,7 +177,7 @@ describe('editWorkspaceNote', () => {
         hashOf('abcdefghij'),
       ),
     ).toThrow('第 2 处与第 1 处修改区间重叠');
-    expect(readFileSync(noteFile(note.id), 'utf8')).toBe('abcdefghij');
+    expect(readFileSync(note.id, 'utf8')).toBe('abcdefghij');
   });
 
   it('base revision 不匹配报 VERSION_CONFLICT', () => {
@@ -178,7 +188,7 @@ describe('editWorkspaceNote', () => {
     } catch (error) {
       expect(error).toMatchObject({ code: 'VERSION_CONFLICT' });
     }
-    expect(readFileSync(noteFile(note.id), 'utf8')).toBe('正文');
+    expect(readFileSync(note.id, 'utf8')).toBe('正文');
   });
 
   it('条目不存在报 NOT_FOUND；非笔记条目拒绝编辑', () => {
@@ -194,15 +204,22 @@ describe('editWorkspaceNote', () => {
 });
 
 describe('saveWorkspaceNote 版本记录', () => {
-  it('缺省不记版本（用户编辑器保存路径行为不变）；recordVersion 时记基线与新版本', async () => {
+  it('路径笔记缺省与 recordVersion 都不记版本（无 workspace_notes 行）', async () => {
     const note = createWorkspaceEntry({ parentId: null, name: '笔记', kind: 'note', text: 'v1' });
     const before = (await readWorkspaceEntry(note.id)).revision!;
 
     saveWorkspaceNote(note.id, 'v2', before);
     expect(noteVersions()).toHaveLength(0);
 
-    const next = saveWorkspaceNote(note.id, 'v3', hashOf('v2'), { recordVersion: true });
-    expect(noteVersions().map((v) => v.text)).toEqual(['v2', 'v3']);
+    saveWorkspaceNote(note.id, 'v3', hashOf('v2'), { recordVersion: true });
+    expect(noteVersions()).toHaveLength(0);
+    expect(readFileSync(note.id, 'utf8')).toBe('v3');
+  });
+
+  it('旧 UUID 笔记 recordVersion 时记基线与新版本', () => {
+    const id = insertLegacyNote('v1');
+    const next = saveWorkspaceNote(id, 'v2', hashOf('v1'), { recordVersion: true });
+    expect(noteVersions().map((v) => v.text)).toEqual(['v1', 'v2']);
     expect(noteVersions()[1]!.revision).toBe(next);
   });
 });

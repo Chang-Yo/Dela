@@ -90,7 +90,7 @@ async function readAttachmentRef(ref: AttachmentRef, offset: number, limit: numb
       ...(parsed.hasTextLayer
         ? {}
         : {
-            hint: '附件无文本层（扫描件）；可先 copy_file_to_project 导入，再对导入的 PDF 传 pages 渲染页面图像',
+            hint: '附件无文本层（扫描件）；可先经 shell 的 copy_file_to_project 命令导入，再对导入的 PDF 传 pages 渲染页面图像',
           }),
       text: parsed.text.slice(offset, offset + limit),
       readable: parsed.hasTextLayer,
@@ -114,7 +114,7 @@ async function readAttachmentRef(ref: AttachmentRef, offset: number, limit: numb
       ...(kind
         ? {}
         : {
-            hint: '仅支持提取 PDF/DOCX/PPTX 附件的文字；其他类型可用 copy_file_to_project 导入项目',
+            hint: '仅支持提取 PDF/DOCX/PPTX 附件的文字；其他类型可用 shell 的 copy_file_to_project 命令导入项目',
           }),
     };
   }

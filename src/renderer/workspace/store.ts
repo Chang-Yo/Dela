@@ -21,6 +21,9 @@ export const errorText = (error: unknown) =>
     : String(error);
 
 let loadPromise: Promise<void> | null = null;
+// 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
+// 这里刷新条目镜像；编辑中的草稿独立持有，不受刷新影响。
+let subscribedChanges = false;
 
 export const useWorkspaceStore = create<Store>((set, get) => ({
   workspace: { entries: [], views: {}, directory: '' },
@@ -31,6 +34,12 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
   load: () => {
     const dela = window.dela;
     if (get().loaded || !dela) return Promise.resolve();
+    if (!subscribedChanges) {
+      subscribedChanges = true;
+      dela.workspace.onChanged(() => {
+        void get().refresh();
+      });
+    }
     // Concurrent callers (StrictMode double-invocation included) share one request;
     // cleared on settle so a failed load can be retried.
     if (!loadPromise) {

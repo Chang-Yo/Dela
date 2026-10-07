@@ -53,7 +53,13 @@ describe('remove_entry', () => {
 });
 
 describe('update_entry', () => {
-  it('把 kind folder↔project 转换传给业务层', async () => {
+  it('把 kind folder↔project 转换传给业务层，返回新 id 与路径映射', async () => {
+    vi.mocked(updateWorkspaceEntry).mockReturnValue({ id, kind: undefined, ...{} } as never);
+    vi.mocked(updateWorkspaceEntry).mockReturnValueOnce({
+      id,
+      fromPath: 'D:/ws/课题',
+      toPath: 'D:/ws/毕业设计',
+    });
     vi.mocked(getWorkspaceState).mockReturnValue({
       entries: [
         {
@@ -69,11 +75,15 @@ describe('update_entry', () => {
       views: {},
       directory: 'D:/ws',
     });
-    await expect(updateEntryTool.execute({ id, kind: 'project' })).resolves.toMatchObject({
+    await expect(
+      updateEntryTool.execute({ id: 'D:/ws/课题', kind: 'project' }),
+    ).resolves.toMatchObject({
       ref: { type: 'workspace', id },
+      fromPath: 'D:/ws/课题',
+      toPath: 'D:/ws/毕业设计',
       entry: { id, kind: 'project' },
     });
-    expect(updateWorkspaceEntry).toHaveBeenCalledWith(id, { kind: 'project' });
+    expect(updateWorkspaceEntry).toHaveBeenCalledWith('D:/ws/课题', { kind: 'project' });
   });
 });
 

@@ -1,14 +1,9 @@
 import type { AgentTool } from './shared';
-import { canvasTools } from './canvas';
-import { commonTools } from './common';
-import { mailTools } from './mail';
-import { shuiyuanTools } from './shuiyuan';
-import { timetableTools } from './timetable';
-import { todoTools } from './todo';
+import { commonTools, fileTools, shellTools } from './common';
 import { webTools } from './web';
-import { workspaceTools } from './workspace';
 
-/** 能力域：设置 › 内置能力按域分组与批量启停，顺序即界面展示顺序。 */
+/** 能力域：设置 › 内置能力按域分组与批量启停，顺序即界面展示顺序。
+ * 校园与工作区业务工具不常驻模型工具表，经 shell 的 dela 命令调用（commands.ts）。 */
 export interface ToolDomain {
   id: string;
   label: string;
@@ -16,23 +11,15 @@ export interface ToolDomain {
 }
 
 export const toolDomains: readonly ToolDomain[] = [
-  { id: 'workspace', label: '项目与文件', tools: workspaceTools },
   { id: 'common', label: '笔记与资料', tools: commonTools },
-  { id: 'canvas', label: 'Canvas 课程', tools: canvasTools },
-  { id: 'todo', label: '待办与作业', tools: todoTools },
-  { id: 'timetable', label: '课表与日程', tools: timetableTools },
-  { id: 'mail', label: '邮箱', tools: mailTools },
-  { id: 'shuiyuan', label: '水源社区', tools: shuiyuanTools },
+  { id: 'files', label: '本地文件', tools: fileTools },
+  { id: 'shell', label: '命令执行', tools: shellTools },
   { id: 'web', label: '网页检索', tools: webTools },
 ];
 
 export const agentTools = {
   ...commonTools,
-  ...canvasTools,
-  ...workspaceTools,
-  ...todoTools,
-  ...timetableTools,
-  ...mailTools,
+  ...fileTools,
+  ...shellTools,
   ...webTools,
-  ...shuiyuanTools,
 };

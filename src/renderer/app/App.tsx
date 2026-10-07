@@ -87,11 +87,14 @@ export default function App() {
   const { theme, zoom, fontScale, changeTheme, changeZoom, changeFontScale } = useAppearance();
   const notifications = useNotifications(launchStage !== 'flow');
   const { sessionsByProject } = useSessionNavData();
-  const activeSessionId = useWorkbenchLayout((state) => {
+  const homeSessionId = useNavigationStore((state) => state.generalChat?.sessionId ?? null);
+  const workbenchSessionId = useWorkbenchLayout((state) => {
     const group = walkGroups(state.root).find((node) => node.id === state.focus);
     const active = group?.active;
     return active?.startsWith('chat:') ? active.slice('chat:'.length) : null;
   });
+  const activeSessionId =
+    view === 'home' ? homeSessionId : view === 'workbench' ? workbenchSessionId : null;
   // 焦点组活动标签是否为会话：通用池里据此互斥高亮「通用聊天」（会话标签）与「资料」
   // （笔记/预览标签或空工作台）。
   const activeTabIsChat = useWorkbenchLayout((state) => {

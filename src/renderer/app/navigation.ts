@@ -37,9 +37,10 @@ export interface RevealPulse {
   seq: number;
 }
 
-/** 通用聊天入口脉冲：create=true 新建会话；否则定位已有的通用会话标签。 */
+/** 首页聊天请求：sessionId 打开指定历史；否则创建或复用空会话。 */
 export interface GeneralChatPulse {
   create: boolean;
+  sessionId?: string;
   seq: number;
 }
 
@@ -67,7 +68,7 @@ interface NavigationState {
   /** 通用聊天入口（导航「通用聊天」/托盘「新建对话」）。 */
   openGeneralChat(create: boolean): boolean;
   newChat(projectId: string | null): Promise<string | null>;
-  /** 打开会话标签；projectId 决定工作台池。 */
+  /** 随聊会话在首页打开，项目会话定位对应工作台标签。 */
   openChat(sessionId: string, projectId: string | null): boolean;
   /** 打开笔记标签，自动归属其所在项目。 */
   openNote(entryId: string): boolean;
@@ -202,7 +203,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     newChat: async (projectId) => {
-      if (!window.dela || !get().navigate('workbench')) return null;
+      if (!window.dela || !get().navigate(projectId === null ? 'home' : 'workbench')) return null;
       try {
         const chat = await window.dela.session.create(projectId);
         if (!chat.sessionId) throw new Error('会话创建失败');
@@ -236,7 +237,16 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       }
     },
 
-    openChat: (sessionId, projectId) => revealInProject(`chat:${sessionId}`, projectId),
+    openChat: (sessionId, projectId) => {
+      if (projectId !== null) return revealInProject(`chat:${sessionId}`, projectId);
+      if (!get().navigate('home')) return false;
+      set({
+        projectId: null,
+        reveal: null,
+        generalChat: { create: false, sessionId, seq: ++pulseSeq },
+      });
+      return true;
+    },
 
     openNote: (entryId) => {
       const entries = useWorkspaceStore.getState().workspace.entries;

@@ -143,7 +143,11 @@ describe('runAgent（Pi Agent Core 桥）', () => {
       name: 'read_resource',
       input: { id: 1 },
     });
-    expect(input.execute).toHaveBeenCalledWith('read_resource', { id: 1 });
+    expect(input.execute).toHaveBeenCalledWith(
+      'read_resource',
+      { id: 1 },
+      expect.objectContaining({ signal: expect.any(AbortSignal), onUpdate: expect.any(Function) }),
+    );
     expect(result.content).toBe('Done');
     // 工具声明：JSON Schema 原样进入 function.parameters。
     const first = bodyOf(server.requests[before]!);
@@ -432,39 +436,39 @@ describe('runAgent（Pi Agent Core 桥）', () => {
     expect(result.content).toBe('中间正文最终回答');
   });
 
-  it('g. 第 12 轮前注入收尾提示，第 12 轮仍调工具则按上限结束', async () => {
+  it('g. 末轮前注入收尾提示，末轮仍调工具则按上限结束', async () => {
     const before = server.requests.length;
-    for (let round = 1; round <= 12; round += 1) {
+    for (let round = 1; round <= 50; round += 1) {
       server.enqueue(toolCallSse(`call-${round}`));
     }
     const input = makeOptions();
     const result = await runAgent(input);
-    expect(server.requests.length - before).toBe(12);
-    // 前 11 轮没有提示；第 12 轮请求在工具结果之后带收尾提示 user 消息。
-    for (let index = 0; index < 11; index += 1) {
+    expect(server.requests.length - before).toBe(50);
+    // 前面的轮次没有提示；末轮请求在工具结果之后带收尾提示 user 消息。
+    for (let index = 0; index < 49; index += 1) {
       const messages = bodyOf(server.requests[before + index]!).messages!;
       expect(messages.some((message) => message.role === 'user' && message.content === NUDGE)).toBe(
         false,
       );
     }
-    const twelfth = bodyOf(server.requests[before + 11]!).messages!;
-    expect(twelfth.some((message) => message.role === 'user' && message.content === NUDGE)).toBe(
+    const final = bodyOf(server.requests[before + 49]!).messages!;
+    expect(final.some((message) => message.role === 'user' && message.content === NUDGE)).toBe(
       true,
     );
-    // 第 12 轮的工具调用仍执行（结果保留），随后以上限文案收尾。
-    expect(input.execute).toHaveBeenCalledTimes(12);
-    expect(result.toolResults).toHaveLength(12);
+    // 末轮的工具调用仍执行（结果保留），随后以上限文案收尾。
+    expect(input.execute).toHaveBeenCalledTimes(50);
+    expect(result.toolResults).toHaveLength(50);
     expect(result.content).toBe('已达到本次执行步数上限。已完成的操作保留，请查看工具结果后继续。');
   });
 
-  it('g. 第 12 轮不再调用工具则正常返回该轮回答', async () => {
+  it('g. 末轮不再调用工具则正常返回该轮回答', async () => {
     const before = server.requests.length;
-    for (let round = 1; round <= 11; round += 1) {
+    for (let round = 1; round <= 49; round += 1) {
       server.enqueue(toolCallSse(`call-final-${round}`));
     }
     server.enqueue(textSse('总结收尾'));
     const result = await runAgent(makeOptions());
-    expect(server.requests.length - before).toBe(12);
+    expect(server.requests.length - before).toBe(50);
     expect(result.content).toBe('总结收尾');
   });
 

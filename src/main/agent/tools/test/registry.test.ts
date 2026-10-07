@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCanvasState } from '../../../canvas/api';
 import { readWorkspaceEntry, saveWorkspaceNote } from '../../../workspace/api';
 import { withResourceFile } from '../../../resources';
 import { parseDocumentFile, renderPdfPages } from '../../../resource-parse';
@@ -246,31 +245,10 @@ describe('Agent tool contracts', () => {
     ).toMatchObject({ ok: false, error: { code: 'OPERATION_FAILED', message: '版本已改变' } });
   });
 
-  it('deduplicates Canvas sources and preserves partial sync evidence', async () => {
-    const source = {
-      id: 'node1',
-      sourceId: 'file:1',
-      parentId: null,
-      courseId: 1,
-      name: 'slides',
-      kind: 'file' as const,
-    };
-    vi.mocked(getCanvasState).mockReturnValue({
-      connected: true,
-      syncedAt: null,
-      courses: [
-        { id: 1, name: 'Course', code: 'C', term: 'Fall', syncedAt: null, error: '文件同步失败' },
-      ],
-      items: [source, { ...source, id: 'node2' }],
-    });
+  it('已移出工具表的校园业务命令名按 UNKNOWN_TOOL 拒绝（含旧名别名）', async () => {
     expect(await executeAgentTool('search_sources', { query: 'slides' })).toMatchObject({
-      ok: true,
-      result: {
-        renamedFrom: 'search_sources',
-        total: 1,
-        coverage: { scope: 'cached_titles', complete: true },
-        courses: [{ id: 1, error: '文件同步失败' }],
-      },
+      ok: false,
+      error: { code: 'UNKNOWN_TOOL' },
     });
   });
 });

@@ -1,5 +1,31 @@
 import type { DocumentContent, OfficeExportEvent } from './documents';
 import type { ResourceRef } from './resources';
+import { z } from 'zod';
+
+/** 普通文件使用绝对磁盘路径；UUID 仅用于项目、资料关联及旧引用。 */
+export const workspaceEntryIdSchema = z
+  .string()
+  .min(1)
+  .max(32_767)
+  .refine(
+    (value) =>
+      z.uuid().safeParse(value).success || /^(?:[a-z]:[\\/]|\\\\[^\\]+\\[^\\]+|\/)/i.test(value),
+    { message: '请选择工作区文件路径或有效的旧引用' },
+  );
+
+export interface WorkspaceEntryUpdate {
+  id: string;
+  /** 应用内移动/重命名时同步已有标签与草稿。 */
+  fromPath?: string;
+  toPath?: string;
+}
+
+export function relocateWorkspacePath(path: string, from: string, to: string): string {
+  if (path === from) return to;
+  if (path.startsWith(`${from}\\`) || path.startsWith(`${from}/`))
+    return `${to}${path.slice(from.length)}`;
+  return path;
+}
 
 export interface WorkspaceEntry {
   id: string;
@@ -8,6 +34,7 @@ export interface WorkspaceEntry {
   kind: 'folder' | 'project' | 'note' | 'source' | 'local' | 'imported';
   sourceId: string | null;
   noteId: string | null;
+  path?: string;
   updatedAt: string;
 }
 
@@ -40,7 +67,8 @@ export interface WorkspaceApi {
   update(
     id: string,
     input: { name?: string; parentId?: string | null; kind?: 'folder' | 'project' },
-  ): Promise<void>;
+  ): Promise<WorkspaceEntryUpdate>;
+  onChanged(listener: () => void): () => void;
   remove(id: string): Promise<void>;
   read(id: string): Promise<DocumentContent>;
   saveNote(id: string, text: string, revision: string): Promise<string>;

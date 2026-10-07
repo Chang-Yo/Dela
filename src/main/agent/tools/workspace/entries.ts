@@ -5,13 +5,14 @@ import {
   removeWorkspaceEntry,
   updateWorkspaceEntry,
 } from '../../../workspace/api';
-import { name, tool, toolError, uuid } from '../shared';
+import { workspaceEntryIdSchema } from '../../../../shared/workspace';
+import { name, tool, toolError } from '../shared';
 
 export const createEntryTool = tool(
   '创建项目、文件夹或 Markdown 笔记（本地写）。parentId 为 null 时创建在根目录；笔记可带初始正文 text。',
   z
     .object({
-      parentId: uuid.nullable(),
+      parentId: workspaceEntryIdSchema.nullable(),
       kind: z.enum(['project', 'folder', 'note']),
       name,
       text: z.string().max(2_000_000).optional(),
@@ -24,27 +25,28 @@ export const createEntryTool = tool(
 );
 
 export const updateEntryTool = tool(
-  '重命名、移动工作区条目，或在文件夹与项目之间原地转换（本地写；转换只改类型，目录与子条目不动）。返回更新后的条目。',
+  '重命名、移动工作区条目，或在文件夹与项目之间原地转换（本地写；转换只改类型，目录与子条目不动）。返回更新后的条目与路径映射。',
   z
     .object({
-      id: uuid,
+      id: workspaceEntryIdSchema,
       name: name.optional(),
-      parentId: uuid.nullable().optional(),
+      parentId: workspaceEntryIdSchema.nullable().optional(),
       kind: z.enum(['folder', 'project']).optional(),
     })
     .strict(),
   async ({ id, ...changes }) => {
-    updateWorkspaceEntry(id, changes);
+    const update = updateWorkspaceEntry(id, changes);
     return {
-      ref: { type: 'workspace', id },
-      entry: getWorkspaceState().entries.find((e) => e.id === id),
+      ref: { type: 'workspace', id: update.id },
+      ...(update.fromPath ? { fromPath: update.fromPath, toPath: update.toPath } : {}),
+      entry: getWorkspaceState().entries.find((e) => e.id === update.id),
     };
   },
 );
 
 export const removeEntryTool = tool(
-  '移除工作区条目引用（本地写）。只解除应用内的条目，不删除磁盘文件：笔记与导入文件保留在原位置。移除项目或文件夹会连同其子条目引用一起移除（同样不删文件）。归档文件夹不能移除。',
-  z.object({ id: uuid }).strict(),
+  '移除工作区条目（本地写）。普通文件与文件夹移入系统回收站；项目只取消项目身份，目录与会话保留；资料引用只解除关联。归档文件夹不能移除。',
+  z.object({ id: workspaceEntryIdSchema }).strict(),
   async ({ id }) => {
     try {
       removeWorkspaceEntry(id);

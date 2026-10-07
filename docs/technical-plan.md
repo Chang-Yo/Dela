@@ -3,11 +3,13 @@
 日期：2026-09-09 制定；2026-09-18 修订（开发记录移至 [devlog.md](devlog.md)）。
 状态：本文描述产品定位、技术基线、进程边界与架构契约，是开发的首要依据。功能演进、设计裁决与验证边界的时间线见[开发记录](devlog.md)；用户最新明确决定优先于本文。
 
+2026-10-07 通用 Agent 与工作区磁盘化（refactor/agent-core）：模型工具表从 38 个精简为 13 个（common 5 + files 3 + shell 3 + web 2，四个能力域），校园六域工具（canvas/mail/shuiyuan/timetable/todo/workspace）不再常驻工具表，改为 shell 工具内的 `dela <命令> '<JSON>'` 经本机 HTTP 桥（127.0.0.1 随机端口 + Bearer token，仅进入该子进程环境）调用原有实现；桥实现复用应用缓存、登录与操作边界，shell 每次执行临时启停。shell 支持长任务（taskId 让出、shell_poll 续读、shell_cancel 停止并保留输出，输出同时落盘 outputPath），250ms 节流 onUpdate 推送增量；轮次上限 12→50。内置 campus Skill 首次发现时写入 `~/.dela/skills`（旧工作目录 skills/ 兼容扫描，重名内置优先），设置页 Skills 分区文案同步。工作区条目身份改为路径为主：新建文件夹/笔记不再建 workspace_entries 行（id 即绝对路径），升格项目时补插 UUID 行并建档案，降格删除档案与条目行（sessions 经 FK 转通用）；路径笔记不写 workspace_notes、不记 note_versions（旧 UUID 笔记保留版本记录）；外部文件变化经 fs.watch（200ms 防抖）推 workspace:changed 刷新界面；source 引用行的 local_path 为容器去重键，entry(路径) 排除 source 行避免容器被误判。已验证：699 项回归、类型/lint/格式、pnpm build、pnpm smoke、shell 桥经真实 PowerShell 全链。待验证：打包后启动的 dela 命令（需 GUI 内真实会话）；scripts/workspace-smoke 旧数据模拟段尚有一处未适配（ENOENT，构建 external 与前序断言已修）。
+
 2026-10-07 在线赞助（Dela 侧 M1 已实施，服务端未部署）：用户接受跳转爱发电收款。由独立 ECS 应用核实订单、关联赞助者身份及管理公开昵称头像，Dela 只获取公开名单和打开网页，不建设通用云账号、不持有支付凭据。桌面侧已落地：`src/main/sponsors.ts` 请求固定 origin 的 `/api/v1/sponsors`（zod 严格校验、非法响应保留旧缓存、ETag 304 重验证、缓存存 workspace_settings 且 7 天上限、并发合并、自动刷新 60 秒冷却、429 按 Retry-After 退避），preload `sponsors` 命名空间暴露有限操作，关于页展示在线名单并在系统浏览器打开 `/support`；头像仅接受 origin 内 `/media/avatars/` 相对路径。超时、保留期与大小上限为暂定值，待 M0 契约冻结后对齐；本地 Sponsors 硬编码在迁移完成前保留。两端分工、接口草案、协作交接和验收阶段见[在线赞助协作计划书](sponsorship-plan.md)；OAuth 可用性、真实联调与支付闭环尚待验证，不能据此宣称上线。
 
-2026-10-07 Hybrid Collapsible Trace（用户补充开合裁决）：新一轮运行自动展开，整轮结束后自动折叠为紧凑进度入口，正文到达不提前收起，操作对象、操作数、失败计数和结束用时按已有消息数据派生；标题在展开状态仍常驻。用户展开后按原始 parts 顺序查看思考与工具记录；不展示工具前后的公开正文片段，原始工具数据降为明确的详情入口。尾部公开正文继续独立展示，不新增模型协议或结果推断。采用现有 Radix Collapsible；展开过程暂停贴底，回到底部恢复，重发的新回复重置展开状态。针对性自动化与实际观感的验证边界见开发记录。
+2026-10-07 Hybrid Collapsible Trace（取代按类型集中展示）：借鉴 [OpenCode AssistantParts / groupParts](https://github.com/anomalyco/opencode/blob/dev/packages/session-ui/src/components/message-part.tsx)，按原始 parts 顺序交错展示正文、思考和工具，只合并相邻过程条目，正文作为分段边界；不将全部工具提前或集中正文到末尾。保留 Dela 的主题、rail 与思考折叠，工具调用行直接展开输入输出，错误说明在收起时仍可见，未引入外部 UI 包。总进度入口采用原生可访问按钮控制过程组，新一轮自动展开、结束自动收起，正文节点与样式始终保留；手动展开暂停贴底，回到底部恢复，新回复重置开合。主进程继续复用 Pi 生命周期事件与轮内增量引用；已有会话回归确认思考、正文、工具按轮保存，不新增消息协议或伪造最终回答标签。[Codex AgentMessageItem](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/items.rs) 可使用可选 phase，但本项目当前 OpenAI 兼容流未提供该语义，因此不按尾部位置或运行结束猜测。纯文字回复无过程入口，停止或中断保留正文并标记状态。验证边界见开发记录。
 
-2026-10-07 随聊导航修正（取代此前“首条消息进入工作台”行为）：随聊的新建与发送保持首页聊天视图，消息到达不再触发 openChat 自动切入带资料目录的通用工作台。新对话返回前隐藏旧会话，按请求序号与 sessionId 绑定视图；显式打开历史会话、项目或文档仍使用工作台。针对性回归通过，实际观感待用户审阅。
+2026-10-07 随聊导航修正（取代此前随聊历史进入通用工作台的行为）：无项目会话的新建、发送和历史查看统一保持首页聊天视图；openChat(sessionId, null) 发出携带目标 sessionId 的首页请求，ChatHome 读取指定历史，不创建替代空会话。等待期间隐藏旧会话，按请求序号与 sessionId 绑定视图，过期返回不能覆盖最新选择；侧栏历史高亮跟随首页请求。项目会话继续使用对应项目工作台，资料与文档入口显式进入工作台。针对性回归通过，实际观感待用户审阅。
 
 2026-10-07 聊天滚动修复：消息区发送后贴底展示，流式增长仅跟随真实内容；用户上滚暂停、回到底部恢复。移除依赖滚动位置生成的动态底部空白，避免工作过程收起后仍滚入占位区域及尺寸观察反馈。同索引编辑重发以回复 startedAt 变化重新跟随。针对性回归通过，实际滚动观感待用户审阅，详见开发记录。
 
@@ -412,7 +414,7 @@ Project 是用户主动围绕主题建立的持续工作空间，可以对应课
 
 快捷键为可修改项（`keybindings` 键，只存与默认不同的动作，null 表示显式解绑）：动作目录与默认键位是 `shared/keybindings.ts` 的单一事实来源（16 个动作：文件/导航/视图 11 个全局 + 工作台 5 个），AppShell 经该表派发窗口级动作、Workbench 经装配层传入的键位表派发工作台动作；`Alt+数字` 聚焦工作组为 digit 族（末位接受 1…9）。编辑器内部键位（复制/粘贴/保存等）与鼠标手势不纳入重映射范围。
 
-内置能力开关（`tools-disabled` 键，只存停用项，缺键或损坏即全开）：列出 38 个内置 Agent 工具并按 8 个能力域分组，停用后工具从模型工具表移除，执行侧在旧名别名解析之后返回 `DISABLED`（与 MCP 的“运行中停用仍按旧定义调用”边界同款处理）；`read_resource`、`read_skill`、`read_skill_file` 为常驻能力（被其他工具描述与 Skill 索引依赖），只读展示原因、不可关闭；系统提示按本轮实际下发的工具裁剪网页检索与 PDF 页图像指引，避免提示词指挥模型调用已关闭的工具。开关只作用于 Agent 工具，不影响应用自身的同步与界面。
+内置能力开关（`tools-disabled` 键，只存停用项，缺键或损坏即全开）：列出 13 个内置 Agent 工具并按 4 个能力域（笔记与资料/本地文件/命令执行/网页检索）分组，停用后工具从模型工具表移除，执行侧在旧名别名解析之后返回 `DISABLED`（与 MCP 的“运行中停用仍按旧定义调用”边界同款处理）；`read_resource`、`read_skill`、`read_skill_file` 为常驻能力（被其他工具描述与 Skill 索引依赖），只读展示原因、不可关闭；系统提示按本轮实际下发的工具裁剪网页检索、PDF 页图像与 dela 命令指引，避免提示词指挥模型调用已关闭的工具。开关只作用于 Agent 工具，不影响应用自身的同步与界面。
 
 ### TODO 与作业状态
 
@@ -449,16 +451,16 @@ User request -> Create run -> Select context -> Model response
 
 现行约定：
 
-- 模型请求经 `src/main/agent/core/pi.ts`（Pi Agent Core 执行循环的适配层）发往设置 › 模型供应商中配置的 OpenAI 兼容提供商；重试、max_tokens 回退与思考剥离（reasoning 不回灌）在包装层实现。轮次上限（12 轮、末轮注入收尾提示）与单条工具结果截断（20000 字符）在 `src/main/agent/core/run.ts`。pi 系纯 ESM 包经 `core/pi-load.ts` 动态 `import()` 加载（CJS 产物不能静态 require）。API Key 不进入 renderer 或模型消息。
+- 模型请求经 `src/main/agent/core/pi.ts`（Pi Agent Core 执行循环的适配层）发往设置 › 模型供应商中配置的 OpenAI 兼容提供商；重试、max_tokens 回退与思考剥离（reasoning 不回灌）在包装层实现。轮次上限（50 轮、末轮注入收尾提示）与单条工具结果截断（20000 字符）在 `src/main/agent/core/run.ts`。pi 系纯 ESM 包经 `core/pi-load.ts` 动态 `import()` 加载（CJS 产物不能静态 require）。API Key 不进入 renderer 或模型消息。
 - 可用模型以提供商「检测连接」返回的模型列表为准；工具调用、流式、中断与上下文限制需逐个实测，不把模型名当作能力保证。
 - 上下文包括项目背景、当前请求、用户选中的资料和必要检索片段，不默认发送全部历史和全部文件。
 - 系统消息按固定次序拼装（`context/assemble.ts` 的 `systemText()`，预算估算与实际下发共用同一函数）：基础系统设定（按本轮实际下发的工具裁剪外部信息指引）→ **用户附加 Instruction**（设置 › 自定义指令，`agent-instruction` 键，缺省空串不注入，上限 2000 字符）→ 已启用 Skill 索引 → 历史摘要。Instruction 优先级仅次于基础设定，不能越过其中的安全与权限边界；内容随每次请求离开本机。
 - 邮件、课件、网页是资料，其中的指令不能扩大工具权限。
 - Run 状态机落库（runs 表）：保存执行步骤与结果，支持取消、超时与步数限制；启动时未完成的 Run 标记 interrupted。会话消息持久化在 sessions 表（JSON parts 保存正文、思考与工具步骤的交错顺序和逐项工具结果）。
 - 重启后不自动恢复执行；用户提供后续背景。模型上下文按[重构计划](agent-workspace-plan.md)第 6.1 节以预算组装（已实施）：system + 历史摘要（`sessions.summary` 前置块，标注非资源最新状态）+ 从最新向前按预算容纳的完整历史 + 本轮引用与用户消息（永不压缩或丢弃），不再有固定条数上限；估算输入达阈值（窗口 32768 保守值 − 输出与工具预留 12288 后的 70%）时，把放不下的较早历史压缩为结构化摘要并持久化，压缩用独立非流式请求、失败保留原始历史且放不下时明确报错；持久历史与原始记录完整保留，摘要跨 Run 生效。窗口大小与估算口径在接入 provider 配置后校准。
-- 写入工具直接执行用户请求：笔记沿用 revision 校验，`edit_note` 支持局部修改并把每次写入记入 note_versions；尚无修改差异预览（content/review 为占位标签）。邮件工具只准备草稿，由用户在编辑器点击发送。不提供提交作业工具。
-- 外部能力：MCP 工具以 `mcp_<server>_<tool>` 命名空间并入工具表，Skills 经 `read_skill`/`read_skill_file` 渐进加载（正文不常驻上下文，Skill 内容仅作资料参考、不执行其中的指令）。
-- 首版不开放任意 shell。未来增加命令执行时单独设计目录范围、进程管理和结果记录。
+- 写入工具直接执行用户请求：笔记沿用 revision 校验，`edit_note` 支持局部修改；路径笔记不记 note_versions（无 UI 消费方），旧 UUID 笔记保留版本记录；尚无修改差异预览（content/review 为占位标签）。邮件工具只准备草稿，由用户在编辑器点击发送。不提供提交作业工具。
+- 外部能力：MCP 工具以 `mcp_<server>_<tool>` 命名空间并入工具表，Skills 经 `read_skill`/`read_skill_file` 渐进加载（正文不常驻上下文，Skill 内容仅作资料参考、不执行其中的指令）。Skill 目录为 `~/.dela/skills`（内置 campus Skill 进程内首次发现时写入，已存在不覆盖），旧工作目录 `skills/` 兼容扫描，重名内置优先。
+- shell 工具执行本地命令（Windows 用真实 PowerShell，打包后同一入口，其他平台用系统 sh）：cwd 默认当前项目目录，工作目录受限为项目或工作区内（files 域 `resolveToolPath` 同款守卫）；输出增量推送（250ms 节流）并完整落盘；长任务以 taskId 让出，`shell_poll` 续读、`shell_cancel` 停止并返回全部输出；运行中止时同 signal 的任务一并终止并清理。校园业务命令经 `dela <命令> '<JSON>'` 走本机 HTTP 桥复用应用内实现（缓存、登录与操作边界不变），桥随机端口避开 fetch 受限端口。
 - 本地存储不等于本地推理：发送给模型服务商的上下文会离开本机。界面应能让用户了解所选资料范围。
 
 历史存档：2026-09 重构前，模型请求由自研 TypeScript 循环（`agent/loop.ts` 的 SSE 解析与工具循环）直接执行，校园工具为 `agent/tools.ts` 单文件内的普通函数，会话按 scope 字符串组织、历史窗口固定截取最近 12 条。该实现已被上述架构取代，细节见 git 历史与[开发记录](devlog.md)。
@@ -556,58 +558,34 @@ renderer（workbench / content / navigation / sessions 镜像）
 
 统一执行结果为 `{ ok: true, result }` 或 `{ ok: false, error: { code, message } }`；通用错误码 UNKNOWN_TOOL、INVALID_INPUT、OPERATION_FAILED，领域工具另经 ToolError 返回细分码（NOT_CONFIGURED、AUTH_EXPIRED、NOT_FOUND、VERSION_CONFLICT 等）。只读联网/缓存工具普遍带 freshness 与 coverage 元信息，列表类工具统一 cursor/offset 分页。
 
-内置 38 个工具按领域分布（各 `src/main/agent/tools/<领域>/index.ts`）：
+内置 13 个工具按领域分布（各 `src/main/agent/tools/<领域>/`）：
 
-| 领域                 | 工具                       | 说明                                                                                                                                      |
-| -------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| canvas（5）          | `get_canvas_status`        | 令牌与各课程同步时间/错误（只读本地）                                                                                                     |
-|                      | `list_canvas_courses`      | 已缓存课程列表，可按名称/学期过滤                                                                                                         |
-|                      | `search_canvas_sources`    | 按标题查缓存资料，返回可传 read_resource 的 ref                                                                                           |
-|                      | `refresh_canvas_courses`   | 联网刷新课程列表缓存（不含课程内容）                                                                                                      |
-|                      | `refresh_canvas_course`    | 联网同步单门课程内容，文件/作业/通知/模块分支独立报告成败                                                                                 |
-| common（5）          | `read_resource`            | 读资源正文（笔记/Canvas/邮件/附件/水源），按字符分页；PDF 可传 pages 渲染页图像                                                           |
-|                      | `write_note`               | 整篇替换笔记正文，携带 revision，冲突返回 VERSION_CONFLICT                                                                                |
-|                      | `edit_note`                | 局部修改（一组 oldText/newText，唯一匹配且不重叠），写入记 note_versions                                                                  |
-|                      | `read_skill`               | 读取 SKILL.md 正文（渐进加载，Skill 内容仅作资料参考）                                                                                    |
-|                      | `read_skill_file`          | 读取 Skill 目录内文本支持文件（仅文本扩展名，200KB 上限）                                                                                 |
-| mail（3）            | `search_mail`              | 按主题/摘要缓存搜索，可按发件人/日期/文件夹筛选                                                                                           |
-|                      | `list_mail_folders`        | 文件夹列表（id/总数/未读/同步时间）                                                                                                       |
-|                      | `prepare_email`            | 准备邮件草稿（只备稿不发送，可附项目/Canvas/附件引用）                                                                                    |
-| shuiyuan（7）        | `shuiyuan_status`          | 绑定状态（只读本地，未绑定时其余水源工具 NOT_CONFIGURED）                                                                                 |
-|                      | `search_shuiyuan_topics`   | 关键词实时搜索主题，返回摘要与 topicId                                                                                                    |
-|                      | `list_shuiyuan_topics`     | latest/featured/分类/标签浏览，cursor 分页                                                                                                |
-|                      | `list_shuiyuan_categories` | 分类树与常用标签（10 分钟缓存）                                                                                                           |
-|                      | `read_shuiyuan_topic`      | 主题详情与首段楼层，返回全量楼层 id stream 与续读游标                                                                                     |
-|                      | `read_shuiyuan_posts`      | 按楼层 post id 续读（每次至多 50 个）                                                                                                     |
-|                      | `link_shuiyuan_topic`      | 把主题关联到项目/文件夹（本地写引用条目）                                                                                                 |
-| timetable（5）       | `get_timetable_status`     | 课表连接/同步状态与当前学期推断（含真实在线试探）                                                                                         |
-|                      | `query_schedule`           | 时间范围内课程与个人事件（上海时区），缺数据带 coverage 警告                                                                              |
-|                      | `refresh_timetable`        | 同步指定学期课表缓存                                                                                                                      |
-|                      | `create_event`             | 创建个人日程（不修改课程课表）                                                                                                            |
-|                      | `delete_event`             | 删除自建日程（课程与待办派生事件不经此删除）                                                                                              |
-| todo（5）            | `query_todos`              | 统一待办清单（个人+Canvas 作业，本地缓存）                                                                                                |
-|                      | `query_assignments`        | Canvas 作业截止视图（含真实提交状态）                                                                                                     |
-|                      | `save_todo`                | 新建/修改个人待办（不能修改 Canvas 作业）                                                                                                 |
-|                      | `remove_todo`              | 删除个人待办（仅个人）                                                                                                                    |
-|                      | `refresh_todos`            | 联网刷新作业与提交状态缓存（新作业触发系统通知）                                                                                          |
-| web（2）             | `web_search`               | 自建 SearXNG（阿里云 ECS）JSON 结果；HTTP 错误与全部引擎无响应均明确报错                                                                  |
-|                      | `fetch_page`               | 网页转文本（http(s) 公网）；PDF 直链提取文字；超长分段返回                                                                                |
-| workspace（6）       | `list_workspace_entries`   | 浏览/弱过滤工作区条目，返回可传 read_resource 的引用                                                                                      |
-|                      | `create_entry`             | 创建项目、文件夹或 Markdown 笔记（可带初始正文）                                                                                          |
-|                      | `update_entry`             | 重命名/移动条目，或文件夹与项目原地互转                                                                                                   |
-|                      | `remove_entry`             | 移除条目引用（不删磁盘文件）                                                                                                              |
-|                      | `link_canvas_source`       | 保留来源的 Canvas 资料关联                                                                                                                |
-|                      | `copy_file_to_project`     | Canvas/项目文件或邮件附件复制为工作区文件                                                                                                 |
-| capabilities（动态） | `mcp_<server>_<tool>`      | 外部 MCP 服务器声明的工具经 stdio 接入，重名跳过；本地 echo-server 验证通过，真实外部服务器待实机验证（见[开发记录](devlog.md) 第十五轮） |
+| 领域                 | 工具                   | 说明                                                                                                                                                                     |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| common（5）          | `read_resource`        | 读资源正文（笔记/Canvas/邮件/附件/水源），按字符分页；PDF 可传 pages 渲染页图像                                                                                          |
+|                      | `write_note`           | 整篇替换笔记正文（UUID 或路径条目），携带 revision，冲突返回 VERSION_CONFLICT                                                                                            |
+|                      | `edit_note`            | 局部修改（一组 oldText/newText，唯一匹配且不重叠）；路径笔记不记 note_versions，旧 UUID 笔记保留                                                                         |
+|                      | `read_skill`           | 读取 SKILL.md 正文（渐进加载，Skill 内容仅作资料参考）                                                                                                                   |
+|                      | `read_skill_file`      | 读取 Skill 目录内文本支持文件（仅文本扩展名，200KB 上限）                                                                                                                |
+| files（3）           | `read_file`            | 读项目/工作区内文本文件（UTF-8，上限截断）                                                                                                                               |
+|                      | `write_file`           | 写入/新建项目/工作区内文件（父目录须存在）                                                                                                                               |
+|                      | `edit_file`            | 文本文件局部修改（oldText/newText，唯一匹配）                                                                                                                            |
+| shell（3）           | `shell`                | 执行本地命令（Windows 真实 PowerShell / 系统 sh），cwd 默认项目目录；长任务返回 taskId；输出 250ms 节流增量推送并落盘                                                    |
+|                      | `shell_poll`           | 续读长任务新输出，完成时返回退出码                                                                                                                                       |
+|                      | `shell_cancel`         | 停止任务及子进程，返回任务至今全部输出                                                                                                                                   |
+| web（2）             | `web_search`           | 自建 SearXNG（阿里云 ECS）JSON 结果；HTTP 错误与全部引擎无响应均明确报错                                                                                                 |
+|                      | `fetch_page`           | 网页转文本（http(s) 公网）；PDF 直链提取文字；超长分段返回                                                                                                               |
+| dela 命令            | `dela <命令> '<JSON>'` | 校园六域业务命令（canvas/mail/shuiyuan/timetable/todo/workspace，即原 38 工具表中六域 31 个工具的既有实现）经 shell 内本机 HTTP 桥调用；`dela help` 列命令与 JSON Schema |
+| capabilities（动态） | `mcp_<server>_<tool>`  | 外部 MCP 服务器声明的工具经 stdio 接入，重名跳过；本地 echo-server 验证通过，真实外部服务器待实机验证（见[开发记录](devlog.md) 第十五轮）                                |
 
 旧工具名别名（`tools/registry.ts` 的 legacyAliases，阶段二重设计改名，保留一个发布窗口供旧会话上下文衔接）：`find_courses`→`list_canvas_courses`、`sync_sources`→`refresh_canvas_courses`、`search_sources`→`search_canvas_sources`、`search_workspace`→`list_workspace_entries`、`link_source`→`link_canvas_source`。
 
 ### 执行与上下文
 
 - 上下文 = 用户请求（支持图文混排 parts，图片为 base64 data URL，仅当轮生效）+ @ 引用正文 + 历史摘要与按预算保留的近期对话角色/正文（估算口径：CJK 1 token/字、其他 4 字符/token、图片 1000 token/张，计入 system、工具定义、摘要与全量历史；触发压缩时摘要含目标约束、已作决定、已完成、未完成、资源引用与版本六要素）+ 本轮工具结果（PDF 页图像经 `role:'tool'` 无法承载，剥离 base64 后以合成 user 图片消息附后，持久化只留页码元数据）；不默认发送全部历史和全部文件。
-- 每轮模型请求独立 120s 超时；429/5xx/网络错误按 1s/3s 退避重试（4xx 与已产出内容后不重试）；最多 12 轮，末轮注入“总结收尾”提示；单条工具结果回灌前截断至 20000 字符；运行内每次模型请求前按预算修剪较早工具结果（最近 2 轮保持完整，修剪为占位并保留前 500 字符，不做运行中模型调用）；单次回复输出上限 32768 tokens，提供商以 400 拒绝该上限时自动退回 8192 重试。
+- 每轮模型请求独立 120s 超时；429/5xx/网络错误按 1s/3s 退避重试（4xx 与已产出内容后不重试）；最多 50 轮，末轮注入“总结收尾”提示；单条工具结果回灌前截断至 20000 字符；运行内每次模型请求前按预算修剪较早工具结果（最近 2 轮保持完整，修剪为占位并保留前 500 字符，不做运行中模型调用）；单次回复输出上限 32768 tokens，提供商以 400 拒绝该上限时自动退回 8192 重试。
 - 思考内容（`reasoning_content`/`reasoning`）仅展示、不回灌模型；用户停止标记 `stopped` 并正常返回，保留已生成内容；已执行的业务操作不回滚。
-- 边界：邮箱缓存仅每文件夹近期 300 UID 窗口；作业提交状态以 TODO 同步缓存为准，缺失时明确未知；缺失周次或学期日期时不猜测日期；邮件、课件、网页是指令不可执行的资料；不提供提交作业工具，不开放任意 shell。
+- 边界：邮箱缓存仅每文件夹近期 300 UID 窗口；作业提交状态以 TODO 同步缓存为准，缺失时明确未知；缺失周次或学期日期时不猜测日期；邮件、课件、网页是指令不可执行的资料；不提供提交作业工具。shell 在项目/工作区目录范围内执行（2026-10-07 起开放，见顶部决议与 §7），校园业务经 dela 命令复用应用内操作边界。
 - 本地存储不等于本地推理：发送给模型服务商的上下文会离开本机，界面让用户了解所选资料范围。
 
 实现细节的历史沿革与验证边界见[开发记录](devlog.md)。

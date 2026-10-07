@@ -34,7 +34,11 @@ const TEXT_EXTENSIONS = new Set([
 export const SKILL_FILE_LIMIT_BYTES = 200 * 1024;
 
 /** 读取至多 limit 字节的文本（调用方已确认文件存在）；超限只读 limit 字节，不整读进内存。 */
-function readCappedText(path: string, size: number, limit: number): { text: string; truncated: boolean } {
+function readCappedText(
+  path: string,
+  size: number,
+  limit: number,
+): { text: string; truncated: boolean } {
   const truncated = size > limit;
   if (!truncated) return { text: readFileSync(path, 'utf8'), truncated };
   const descriptor = openSync(path, 'r');

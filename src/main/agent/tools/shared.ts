@@ -24,9 +24,19 @@ export const slimTodo = ({
 export function tool<T extends z.ZodType>(
   description: string,
   schema: T,
-  execute: (input: z.output<T>) => unknown,
+  execute: (input: z.output<T>, context: ToolContext) => unknown,
 ) {
-  return { description, schema, execute: (input: unknown) => execute(schema.parse(input)) };
+  return {
+    description,
+    schema,
+    execute: (input: unknown, context: ToolContext = {}) => execute(schema.parse(input), context),
+  };
+}
+
+export interface ToolContext {
+  cwd?: string;
+  signal?: AbortSignal;
+  onUpdate?: (output: unknown) => void;
 }
 
 /** 工具契约：description + zod schema + execute；registry 统一做校验与错误映射。

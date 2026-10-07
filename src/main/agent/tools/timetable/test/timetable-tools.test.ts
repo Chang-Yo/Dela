@@ -248,7 +248,7 @@ describe('create_event', () => {
       color: 'teal' as const,
     };
     expect(timetableTools.create_event.execute(input)).toEqual(event);
-    expect(createEvent).toHaveBeenCalledWith(input);
+    expect(createEvent).toHaveBeenCalledWith(input, {});
   });
 
   it('rejects unknown color values', () => {

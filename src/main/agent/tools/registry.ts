@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { agentTools, toolDomains } from './index';
 import { isToolDisabled, readDisabledTools } from './disabled';
-import { ToolError } from './shared';
+import { ToolError, type ToolContext } from './shared';
 
 // 旧会话上下文里的旧工具名 → 新名（阶段二重设计改名，decisions-phase1 裁决 9）。
 // 一个发布周期后移除。
@@ -78,7 +78,7 @@ export function listBuiltinTools(): Array<{ name: string; description: string; d
   );
 }
 
-export async function executeAgentTool(name: string, input: unknown) {
+export async function executeAgentTool(name: string, input: unknown, context: ToolContext = {}) {
   // MCP 工具按命名空间前缀转给能力层路由回对应服务器连接。
   if (name.startsWith('mcp_')) {
     if (!mcpRouting)
@@ -96,7 +96,7 @@ export async function executeAgentTool(name: string, input: unknown) {
       error: { code: 'DISABLED', message: '该能力已被用户在设置 › 内置能力中关闭，请不要重试' },
     };
   try {
-    const result = await agentTools[resolved as keyof typeof agentTools].execute(input);
+    const result = await agentTools[resolved as keyof typeof agentTools].execute(input, context);
     return {
       ok: true as const,
       result: resolved === name ? result : { ...asRecord(result), renamedFrom: name },

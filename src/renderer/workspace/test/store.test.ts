@@ -12,11 +12,14 @@ function installDela(handlers: {
 }) {
   const getState = vi.fn(handlers.workspace ?? (async () => workspaceState));
   const getCanvasState = vi.fn(handlers.canvas ?? (async () => canvasState));
+  const onChanged = vi.fn(() => () => undefined);
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
-    value: { dela: { workspace: { getState }, canvas: { getState: getCanvasState } } },
+    value: {
+      dela: { workspace: { getState, onChanged }, canvas: { getState: getCanvasState } },
+    },
   });
-  return { getState, getCanvasState };
+  return { getState, getCanvasState, onChanged };
 }
 
 function resetStore() {
@@ -35,10 +38,12 @@ afterEach(() => {
 
 describe('workspace store mirror', () => {
   it('shares one request between concurrent load callers and mirrors both halves', async () => {
-    const { getState, getCanvasState } = installDela({});
+    const { getState, getCanvasState, onChanged } = installDela({});
     await Promise.all([useWorkspaceStore.getState().load(), useWorkspaceStore.getState().load()]);
     expect(getState).toHaveBeenCalledTimes(1);
     expect(getCanvasState).toHaveBeenCalledTimes(1);
+    // 外部文件变化订阅只注册一次（模块级去重），变化回调复用 refresh 通道。
+    expect(onChanged).toHaveBeenCalledTimes(1);
     expect(useWorkspaceStore.getState()).toMatchObject({
       loaded: true,
       workspace: workspaceState,

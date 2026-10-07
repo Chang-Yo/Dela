@@ -262,8 +262,8 @@ export function GlobalSearchDialog({
                       <h3 className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                         <GroupIcon aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
                         {group.note && group.results.length >= GLOBAL_SEARCH_PER_KIND_LIMIT
-                      ? `${group.label}（${group.note}）`
-                      : group.label}
+                          ? `${group.label}（${group.note}）`
+                          : group.label}
                       </h3>
                       {group.results.map((result) => {
                         const index = allResults.indexOf(result);
