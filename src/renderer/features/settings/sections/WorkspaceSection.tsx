@@ -107,7 +107,7 @@ export function WorkspaceSection() {
           {error}
         </p>
       )}
-      <section className="grid gap-5 rounded-xl border bg-card p-5 max-md:p-4">
+      <section className="grid gap-5">
         {/* 不迁移已有文件：改目录后旧笔记「消失」是用户最常见的误解，必须保留警示。 */}
         <SettingRow
           description="仅影响之后新建的内容，不迁移已有文件。"

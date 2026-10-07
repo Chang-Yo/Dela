@@ -103,13 +103,13 @@ export function McpTab() {
   return (
     <div className="grid gap-3">
       <div className="flex items-center justify-between gap-2">
-        <Button onClick={() => setDialog({ mode: 'create' })} size="sm">
+        <Button onClick={() => setDialog({ mode: 'create' })} size="sm" variant="secondary">
           <Plus />
           添加服务器
         </Button>
       </div>
       {servers !== null && servers.length === 0 && (
-        <section className="grid gap-2 rounded-xl border border-dashed bg-card p-5">
+        <section className="grid gap-2">
           <h2 className="text-sm font-medium">还没有 MCP 服务器</h2>
           <p className="text-xs leading-relaxed text-muted-foreground">
             当前支持 stdio 形态的服务器：以本地命令（如 npx）启动的进程，为 Agent

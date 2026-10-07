@@ -55,7 +55,7 @@ export function CapabilitiesSection() {
       <SectionHeader title="内置能力" />
       {/* 作用范围：只影响 Agent 的工具，不影响应用自身的同步与界面。 */}
       <p className="text-xs leading-relaxed text-muted-foreground">
-        这些是 Dela 内置的 Agent 能力；关闭后该能力不再提供给模型，应用自身的同步与界面不受影响。
+        内置 Agent 能力：关闭后不再提供给模型，应用自身的同步与界面不受影响。
       </p>
       {!window.dela ? (
         <p className="text-sm text-muted-foreground">内置能力配置仅在桌面端可用。</p>
@@ -67,66 +67,69 @@ export function CapabilitiesSection() {
               正在读取能力清单…
             </p>
           ) : null}
-          {capabilities &&
-            groupByDomain(capabilities).map((group) => {
-              const toggleable = group.items.filter((item) => !item.lockedReason);
-              const enabledCount = toggleable.filter((item) => item.enabled).length;
-              const allEnabled = enabledCount === toggleable.length && toggleable.length > 0;
-              return (
-                <section
-                  className="grid gap-2 rounded-xl border bg-card p-5 max-md:p-4"
-                  data-setting-id={`capabilities-${group.id}`}
-                  key={group.id}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-sm font-medium">{group.label}</h2>
-                    <Switch
-                      checked={allEnabled}
-                      disabled={busy || toggleable.length === 0}
-                      indeterminate={!allEnabled && enabledCount > 0}
-                      label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
-                      onChange={(next) =>
-                        void run(() => window.dela!.capability.setBuiltinDomain(group.id, next))
-                      }
-                    />
-                  </div>
-                  {/* 与 SystemNotifications 同一分隔策略：标题无边框、行间 border-b。 */}
-                  {group.items.map((capability, index) => (
-                    <div
-                      className={cn(
-                        'flex items-start justify-between gap-4 py-1.5',
-                        index < group.items.length - 1 && 'border-b pb-3',
-                      )}
-                      data-setting-id={`capability-${capability.name}`}
-                      key={capability.name}
-                    >
-                      <div className="grid min-w-0 gap-0.5">
-                        <span className="truncate font-mono text-sm">{capability.name}</span>
-                        <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                          {capability.description}
-                        </span>
-                        {capability.lockedReason ? (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground/80">
-                            <Lock aria-hidden="true" className="size-3 shrink-0" />
-                            常驻能力 · {capability.lockedReason}
-                          </span>
-                        ) : null}
-                      </div>
+          {capabilities && (
+            <div className="grid gap-5">
+              {groupByDomain(capabilities).map((group) => {
+                const toggleable = group.items.filter((item) => !item.lockedReason);
+                const enabledCount = toggleable.filter((item) => item.enabled).length;
+                const allEnabled = enabledCount === toggleable.length && toggleable.length > 0;
+                return (
+                  <section
+                    className="grid gap-2 border-b pb-5 last:border-0 last:pb-0"
+                    data-setting-id={`capabilities-${group.id}`}
+                    key={group.id}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-sm font-medium">{group.label}</h2>
                       <Switch
-                        checked={capability.enabled}
-                        disabled={busy || Boolean(capability.lockedReason)}
-                        label={capability.name}
+                        checked={allEnabled}
+                        disabled={busy || toggleable.length === 0}
+                        indeterminate={!allEnabled && enabledCount > 0}
+                        label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
                         onChange={(next) =>
-                          void run(() =>
-                            window.dela!.capability.setBuiltinCapability(capability.name, next),
-                          )
+                          void run(() => window.dela!.capability.setBuiltinDomain(group.id, next))
                         }
                       />
                     </div>
-                  ))}
-                </section>
-              );
-            })}
+                    {/* 与 SystemNotifications 同一分隔策略：标题无边框、行间 border-b。 */}
+                    {group.items.map((capability, index) => (
+                      <div
+                        className={cn(
+                          'flex items-start justify-between gap-4 py-1.5',
+                          index < group.items.length - 1 && 'border-b pb-3',
+                        )}
+                        data-setting-id={`capability-${capability.name}`}
+                        key={capability.name}
+                      >
+                        <div className="grid min-w-0 gap-0.5">
+                          <span className="truncate font-mono text-sm">{capability.name}</span>
+                          <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                            {capability.description}
+                          </span>
+                          {capability.lockedReason ? (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground/80">
+                              <Lock aria-hidden="true" className="size-3 shrink-0" />
+                              常驻能力 · {capability.lockedReason}
+                            </span>
+                          ) : null}
+                        </div>
+                        <Switch
+                          checked={capability.enabled}
+                          disabled={busy || Boolean(capability.lockedReason)}
+                          label={capability.name}
+                          onChange={(next) =>
+                            void run(() =>
+                              window.dela!.capability.setBuiltinCapability(capability.name, next),
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
+                  </section>
+                );
+              })}
+            </div>
+          )}
           {error && (
             <p className="text-xs text-destructive" role="alert">
               {error}

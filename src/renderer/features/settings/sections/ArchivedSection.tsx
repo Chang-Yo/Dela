@@ -211,10 +211,10 @@ export function ArchivedSection() {
                 <h2 className="text-sm font-medium">{group.name}</h2>
                 <span className="text-xs text-muted-foreground">{group.sessions.length} 条</span>
               </div>
-              <ul className="overflow-hidden rounded-xl border bg-card">
+              <ul className="grid">
                 {group.sessions.map((session) => (
                   <li
-                    className="flex items-center justify-between gap-3 border-b px-4 py-2.5 last:border-0"
+                    className="flex items-center justify-between gap-3 border-b py-2.5 last:border-0"
                     key={session.id}
                   >
                     <div className="grid min-w-0 gap-0.5">

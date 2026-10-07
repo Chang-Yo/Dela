@@ -60,7 +60,7 @@ export function SkillsTab() {
         </Button>
       </div>
       {skills !== null && skills.length === 0 && (
-        <section className="grid gap-2 rounded-xl border border-dashed bg-card p-5">
+        <section className="grid gap-2">
           <h2 className="text-sm font-medium">还没有发现 Skill</h2>
           <p className="text-xs leading-relaxed text-muted-foreground">
             在工作目录下创建 skills/ 文件夹，放入包含 SKILL.md 的子文件夹（frontmatter 带 name 与

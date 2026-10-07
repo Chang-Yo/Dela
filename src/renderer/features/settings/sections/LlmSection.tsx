@@ -300,12 +300,13 @@ export function LlmSection() {
     <div className="grid gap-5" data-setting-id="providers">
       <SectionHeader title="模型供应商" />
       {/* 主从两栏：左栏固定 15rem（w-60 档）承载列表，右栏是详情表单；中屏以下改为上下堆叠。 */}
-      <div className="grid gap-4 rounded-xl border bg-card p-5 max-md:p-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6">
+      <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6">
         <div className="grid content-start gap-1">
           <Button
             className="justify-self-start"
             onClick={() => setDetail({ mode: 'create' })}
             size="sm"
+            variant="secondary"
           >
             <Plus />
             添加提供商
@@ -743,7 +744,7 @@ function ProviderDetail({
               添加模型
             </Button>
           </div>
-          <ul className="divide-y overflow-hidden rounded-lg border">
+          <ul className="divide-y">
             {models.map((id) => {
               const settings = modelConfigs[id];
               const result = modelResults[id];
@@ -885,7 +886,7 @@ function ProviderDetail({
           <Button disabled={saving} onClick={cancel} variant="ghost">
             取消
           </Button>
-          <Button disabled={saving || !models.length} type="submit">
+          <Button disabled={saving || !models.length} type="submit" variant="secondary">
             {saving ? '处理中…' : '保存'}
           </Button>
         </div>

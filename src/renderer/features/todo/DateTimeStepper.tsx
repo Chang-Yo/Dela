@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { StepperControl } from '../../components/ui/stepper';
 
 type StepperField = 'year' | 'month' | 'day' | 'hour' | 'minute';
 
@@ -41,65 +40,6 @@ function step(date: Date, field: StepperField, delta: 1 | -1): Date {
   );
 }
 
-// 按住连发：立刻执行一次，短暂延迟后以固定间隔重复，松开或移出按钮即停止。
-// 经 ref 转发最新回调，否则 interval 持有按下时的旧闭包，连发只会基于旧值原地重复。
-function useHoldRepeat(action: () => void) {
-  const actionRef = useRef(action);
-  actionRef.current = action;
-  const timeout = useRef<number | undefined>(undefined);
-  const interval = useRef<number | undefined>(undefined);
-  useEffect(
-    () => () => {
-      window.clearTimeout(timeout.current);
-      window.clearInterval(interval.current);
-    },
-    [],
-  );
-  const stop = () => {
-    window.clearTimeout(timeout.current);
-    window.clearInterval(interval.current);
-  };
-  const start = () => {
-    stop();
-    actionRef.current();
-    timeout.current = window.setTimeout(() => {
-      interval.current = window.setInterval(() => actionRef.current(), 64);
-    }, 400);
-  };
-  return { onPointerDown: start, onPointerUp: stop, onPointerLeave: stop } as const;
-}
-
-function StepperColumn({
-  display,
-  label,
-  onStep,
-}: {
-  display: string;
-  label: string;
-  onStep: (delta: 1 | -1) => void;
-}) {
-  const increase = useHoldRepeat(() => onStep(1));
-  const decrease = useHoldRepeat(() => onStep(-1));
-  const buttonClass =
-    'grid size-5 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 select-none';
-  return (
-    <div className="flex items-center gap-0.5">
-      <button aria-label={`减少${label}`} className={buttonClass} type="button" {...decrease}>
-        <ChevronLeft className="size-3.5" strokeWidth={1.8} />
-      </button>
-      <span
-        aria-label={label}
-        className="grid h-8 min-w-10 place-items-center rounded-md bg-muted/60 px-1 text-sm font-medium tabular-nums"
-      >
-        {display}
-      </span>
-      <button aria-label={`增加${label}`} className={buttonClass} type="button" {...increase}>
-        <ChevronRight className="size-3.5" strokeWidth={1.8} />
-      </button>
-    </div>
-  );
-}
-
 /** 年/月/日/时/分 五字段步进选择器：值左箭头减、右箭头增，按住可连发。 */
 export function DateTimeStepper({
   label = '截止时间',
@@ -126,7 +66,7 @@ export function DateTimeStepper({
       role="group"
     >
       {columns.map((column) => (
-        <StepperColumn
+        <StepperControl
           display={column.display}
           key={column.field}
           label={column.label}

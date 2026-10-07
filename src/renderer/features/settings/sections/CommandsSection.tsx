@@ -82,14 +82,11 @@ export function CommandsSection() {
         <p className="text-sm text-muted-foreground">指令配置仅在桌面端可用。</p>
       ) : (
         <>
-          <section
-            className="grid gap-2.5 rounded-xl border bg-card p-5 max-md:p-4"
-            data-setting-id="instruction"
-          >
+          <section className="grid gap-2.5" data-setting-id="instruction">
             <h2 className="text-sm font-medium">Instruction</h2>
             {/* 说明注入时机与边界：用户指令优先于资料与历史，但不越过基础设定的安全约束。 */}
             <p className="text-xs leading-relaxed text-muted-foreground">
-              每次对话都会连同系统设定发送给模型，用于长期偏好（回答语言、写作风格、固定准则）；优先级仅次于系统设定，留空则不发送。
+              随每次对话发送给模型；优先级仅次于系统设定，留空则不发送。
             </p>
             <textarea
               aria-label="Instruction"
@@ -114,6 +111,7 @@ export function CommandsSection() {
                 disabled={instruction === null || instructionBusy || draft === instruction}
                 onClick={() => void saveInstruction()}
                 size="sm"
+                variant="secondary"
               >
                 {instructionBusy ? '保存中…' : '保存'}
               </Button>

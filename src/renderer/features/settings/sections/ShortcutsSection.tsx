@@ -93,7 +93,7 @@ export function ShortcutsSection() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs leading-relaxed text-muted-foreground">
           点击键位后按下新组合即可修改；Esc 取消，Backspace
-          解除绑定。编辑器内键位（复制、保存等）与鼠标手势不在此表内。
+          解除绑定。编辑器内键位与鼠标手势不在此表内。
         </p>
         <Button
           disabled={busy}
@@ -131,7 +131,7 @@ export function ShortcutsSection() {
         </p>
       )}
       {shortcutGroups().map((group) => (
-        <section className="grid gap-1 rounded-xl border bg-card p-5 max-md:p-4" key={group.title}>
+        <section className="grid gap-1 border-b pb-5 last:border-0 last:pb-0" key={group.title}>
           <h2 className="pb-1 text-sm font-medium">{group.title}</h2>
           {group.actions.map((action) => {
             const accelerator = bindings[action.id];

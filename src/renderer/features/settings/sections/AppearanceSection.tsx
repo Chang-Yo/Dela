@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import {
   fontScaleLevels,
@@ -9,13 +9,7 @@ import {
   type ZoomPreference,
 } from '../../../../shared/api';
 import { cn } from '../../../lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../components/ui/select';
+import { StepperControl } from '../../../components/ui/stepper';
 import blackLogo from '../../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from '../SectionHeader';
@@ -37,10 +31,7 @@ const icons: Array<{ id: IconPreference; label: string; src: string }> = [
 ];
 
 // 缩放档位标签直接由档位值换算为百分比，与系统显示缩放的写法一致。
-const zoomOptions: Array<{ id: ZoomPreference; label: string }> = zoomLevels.map((zoom) => ({
-  id: zoom,
-  label: `${Math.round(zoom * 100)}%`,
-}));
+const zoomLabel = (zoom: ZoomPreference) => `${Math.round(zoom * 100)}%`;
 
 const fontScaleLabels: Record<FontScalePreference, string> = {
   0.9: '小',
@@ -48,45 +39,6 @@ const fontScaleLabels: Record<FontScalePreference, string> = {
   1.1: '大',
   1.25: '特大',
 };
-
-function OptionCard({
-  busy,
-  children,
-  label,
-  onSelect,
-  selected,
-}: {
-  busy: boolean;
-  children: ReactNode;
-  label: string;
-  onSelect: () => void;
-  selected: boolean;
-}) {
-  // toggle 按钮模式（aria-pressed）：不带 radiogroup 的方向键语义就不冒充 radio。
-  return (
-    <button
-      aria-pressed={selected}
-      className={cn(
-        'grid w-[120px] gap-2 rounded-lg border p-2 text-left transition-colors',
-        selected ? 'border-foreground/60 bg-muted/50' : 'border-border hover:bg-muted/50',
-      )}
-      disabled={busy}
-      onClick={onSelect}
-      type="button"
-    >
-      {children}
-      <span
-        className={cn(
-          'flex items-center gap-1 text-xs',
-          selected ? 'font-medium text-foreground' : 'text-muted-foreground',
-        )}
-      >
-        {selected ? <Check className="size-3.5" strokeWidth={2} /> : null}
-        {label}
-      </span>
-    </button>
-  );
-}
 
 // 每个外观选项（主题/图标/缩放/字号）独立的写入状态：互不阻塞，失败提示各归其位。
 function useOptionSave(failMessage: string) {
@@ -161,20 +113,28 @@ export function AppearanceSection({
   return (
     <div className="grid gap-5">
       <SectionHeader title="外观" />
-      {/* 四个设置项合并在一张卡内，行间分隔线承担边界，消除卡片套卡片的视觉噪音。 */}
-      <section className="grid gap-5 rounded-xl border bg-card p-5 max-md:p-4">
+      {/* 四个设置项一行一项，行间分隔线承担边界，不再套卡片容器。 */}
+      <section className="grid gap-5">
         <SettingRow settingId="theme" title="主题">
-          <div aria-label="主题" className="flex flex-wrap gap-3" role="group">
+          <div aria-label="主题" className="flex flex-wrap items-center gap-2" role="group">
             {themes.map(({ id, label, preview }) => (
-              <OptionCard
-                busy={themeSave.busy}
+              <button
+                aria-pressed={theme === id}
+                className={cn(
+                  'flex h-9 items-center gap-2 rounded-lg border px-3 text-xs transition-colors',
+                  theme === id
+                    ? 'border-foreground/60 bg-muted/50 font-medium text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                )}
+                disabled={themeSave.busy}
                 key={id}
-                label={label}
-                onSelect={() => selectTheme(id)}
-                selected={theme === id}
+                onClick={() => selectTheme(id)}
+                type="button"
               >
-                <span className={cn('h-14 rounded-md border border-border', preview)} />
-              </OptionCard>
+                <span className={cn('size-4 rounded border border-border', preview)} />
+                {label}
+                {theme === id ? <Check className="size-3.5" strokeWidth={2} /> : null}
+              </button>
             ))}
           </div>
           {themeSave.error && (
@@ -184,25 +144,16 @@ export function AppearanceSection({
           )}
         </SettingRow>
         <SettingRow settingId="zoom" title="页面缩放">
-          <div className="flex items-center justify-end">
-            {/* 固定宽度（w-24，6rem/96px）避免选项长短不一导致切换时宽度跳动。 */}
-            <Select
-              disabled={zoomSave.busy}
-              onValueChange={(value) => selectZoom(Number(value) as ZoomPreference)}
-              value={String(zoom)}
-            >
-              <SelectTrigger aria-label="页面缩放" className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {zoomOptions.map(({ id, label }) => (
-                  <SelectItem key={id} value={String(id)}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <StepperControl
+            canDecrease={zoom > zoomLevels[0]}
+            canIncrease={zoom < zoomLevels.at(-1)!}
+            display={zoomLabel(zoom)}
+            label="页面缩放"
+            onStep={(delta) => {
+              const next = zoomLevels[zoomLevels.indexOf(zoom) + delta];
+              if (next) selectZoom(next);
+            }}
+          />
           {zoomSave.error && (
             <p className="text-xs text-destructive" role="alert">
               {zoomSave.error}
@@ -210,24 +161,16 @@ export function AppearanceSection({
           )}
         </SettingRow>
         <SettingRow settingId="font-scale" title="字号">
-          <div className="flex items-center justify-end">
-            <Select
-              disabled={fontSave.busy}
-              onValueChange={(value) => selectFontScale(Number(value) as FontScalePreference)}
-              value={String(fontScale)}
-            >
-              <SelectTrigger aria-label="字号" className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {fontScaleLevels.map((level) => (
-                  <SelectItem key={level} value={String(level)}>
-                    {fontScaleLabels[level]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <StepperControl
+            canDecrease={fontScale > fontScaleLevels[0]}
+            canIncrease={fontScale < fontScaleLevels.at(-1)!}
+            display={fontScaleLabels[fontScale]}
+            label="字号"
+            onStep={(delta) => {
+              const next = fontScaleLevels[fontScaleLevels.indexOf(fontScale) + delta];
+              if (next) selectFontScale(next);
+            }}
+          />
           {fontSave.error && (
             <p className="text-xs text-destructive" role="alert">
               {fontSave.error}
@@ -235,21 +178,30 @@ export function AppearanceSection({
           )}
         </SettingRow>
         <SettingRow description="重启应用后生效。" settingId="icon" title="应用图标">
-          <div aria-label="应用图标" className="flex flex-wrap gap-3" role="group">
+          <div aria-label="应用图标" className="flex flex-wrap items-center gap-2" role="group">
             {icons.map(({ id, label, src }) => (
-              <OptionCard
-                busy={iconSave.busy}
+              <button
+                aria-label={label}
+                aria-pressed={icon === id}
+                className={cn(
+                  'relative rounded-lg border p-2 transition-colors',
+                  icon === id
+                    ? 'border-foreground/60 bg-muted/50'
+                    : 'border-border hover:bg-muted/50',
+                )}
+                disabled={iconSave.busy}
                 key={id}
-                label={label}
-                onSelect={() => selectIcon(id)}
-                selected={icon === id}
+                onClick={() => selectIcon(id)}
+                title={label}
+                type="button"
               >
-                <img
-                  alt=""
-                  className="h-14 w-14 justify-self-center rounded-md border border-border"
-                  src={src}
-                />
-              </OptionCard>
+                <img alt="" className="size-12 rounded-md border border-border" src={src} />
+                {icon === id ? (
+                  <span className="absolute -right-1.5 -top-1.5 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground">
+                    <Check className="size-2.5" strokeWidth={2.5} />
+                  </span>
+                ) : null}
+              </button>
             ))}
           </div>
           {iconSave.error && (
