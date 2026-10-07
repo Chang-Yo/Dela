@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RunEvent } from '../../shared/api';
-import { applyRunEvent, initRunsMirror, runBadge, sessionRunBadge, useRuns } from './runs';
+import { initRunsMirror, runBadge, sessionRunBadge, useRuns } from './runs';
 
 // 与 store.test.ts 相同的模式：先装文件级 window mock，再手动挂接镜像订阅。
 const runEventListeners: Array<(event: RunEvent) => void> = [];
@@ -28,22 +28,13 @@ describe('runs mirror', () => {
   it('on-run-event 推送按 sessionId 归并为最新状态', () => {
     useRuns.setState({ bySession: {} });
     runEventListeners[0]!(event('s1', 'pending'));
-    runEventListeners[0]!(event('s1', 'running', 'search_mail'));
+    runEventListeners[0]!(event('s1', 'running'));
     runEventListeners[0]!(event('s2', 'running'));
     expect(useRuns.getState().bySession['s1']).toEqual({
       runId: 'r1',
       status: 'running',
-      activeTool: 'search_mail',
     });
     expect(useRuns.getState().bySession['s2']?.status).toBe('running');
-  });
-
-  it('新事件覆盖 activeTool（工具结束后的空闲段不再保留工具名）', () => {
-    const merged = applyRunEvent(
-      { s1: { runId: 'r1', status: 'running', activeTool: 'web_search' } },
-      event('s1', 'running'),
-    );
-    expect(merged['s1']).toEqual({ runId: 'r1', status: 'running', activeTool: undefined });
   });
 
   it('runBadge：pending/running → running，终态保留，stopped/interrupted 不出徽标', () => {
@@ -66,7 +57,7 @@ describe('runs mirror', () => {
     useRuns.setState({
       bySession: {
         done: { runId: 'r1', status: 'completed' },
-        live: { runId: 'r2', status: 'running', activeTool: 'web_search' },
+        live: { runId: 'r2', status: 'running' },
         stopped: { runId: 'r3', status: 'stopped' },
       },
     });

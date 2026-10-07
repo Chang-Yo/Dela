@@ -92,7 +92,7 @@ function SessionList({
 
 /** 历史对话：按标题或消息原文搜索，可打开或删除会话。项目会话在前，其后是通用入口；
  *  通用池会话（projectId 为 null）只列出通用一组。
- *  悬浮面板锚定内容区（main），side 决定从左/右缘滑出。 */
+ *  悬浮面板锚定内容区（main），从右缘滑出。 */
 export function ChatSessions({
   projectId,
   currentSessionId,
@@ -100,7 +100,6 @@ export function ChatSessions({
   onOpenChange,
   onOpenSession,
   onDeleteSession,
-  side = 'left',
 }: {
   /** 当前会话所属项目；非 null 时面板同时列出项目会话与通用对话入口。 */
   projectId: string | null;
@@ -109,7 +108,6 @@ export function ChatSessions({
   onOpenChange: (open: boolean) => void;
   onOpenSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
-  side?: 'left' | 'right';
 }) {
   const [query, setQuery] = useState('');
   // null = 尚无结果：面板打开与查询期间不闪空态文案，保留旧列表直到新结果到达。
@@ -196,10 +194,7 @@ export function ChatSessions({
       <aside
         aria-label="历史对话"
         className={cn(
-          'absolute inset-y-0 z-40 flex w-72 max-w-[85vw] animate-in flex-col bg-popover shadow-xl duration-150 fade-in',
-          side === 'left'
-            ? 'left-0 border-r slide-in-from-left-6'
-            : 'right-0 border-l slide-in-from-right-6',
+          'absolute inset-y-0 right-0 z-40 flex w-72 max-w-[85vw] animate-in flex-col border-l bg-popover shadow-xl duration-150 fade-in slide-in-from-right-6',
         )}
         role="dialog"
       >

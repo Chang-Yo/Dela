@@ -10,6 +10,23 @@
 
 ---
 
+## 2026-10-07 冗余代码、重复实现与过时文档清理
+
+按用户「清理冗余/过度设计/过度保护代码与无意义测试」的指令，五个侦察代理分域扫描 + 删除派/保留派两代理辩论后统一裁决执行。原则：删代码不减功能、不降性能、不变更用户可见行为；文案与行为差异（邮件收发错误提示、聊天/邮件的体积格式化）经辩论判定为故意差异，保留。
+
+- **死通道与死链（3C 重构遗留，全链四层删除）**：`workspace:create-note-copy`（preload 方法、shared 契约与 MarkdownNoteCopyResult、main handler 与 createMarkdownNoteCopy）与 `workspace:open-external`（同构四层，openEntryExternally）；连带 shared/note-files 的 buildMarkdownImage、externalOpenTarget 降为无消费者一并删除。`mail:open-draft` 注册（preload 实际走 workspace:open-email-draft，同一函数双注册）删除，mail-smoke 中对应 tripwire mock 与死通道 `mail:open-link`、pdf/shuiyuan-smoke 的 `workspace:get-chat` mock 一并清除（后者即 2026-09-29 记录的「预存残留」）。preload `openProjectDirectory` 类型残留的 `'terminal'` 分支（main 已 z.enum 拒绝）删除。
+- **旧推送通道迁移收尾**：`workspace:chat-update` 按 structure.md §5.3 既定方向完成迁移——TimetableView 改订阅 `session:on-run-event` 终态（completed/failed/stopped）刷新课表，删除 subscriptions 广播、preload onChatUpdate 与 shared 契约项；integration.test 断言同步。语义更准：旧通道对任意会话快照变更都触发课表重载，新触发集只在 Run 终态。
+- **能力注入层简化**：删除 capabilities/index.ts 的 setCapabilityRuntime/getCapabilityRuntime 单字段转发层与 CapabilityRuntime 接口；MCP 路由注册（setMcpRouting）从「manager import 副作用」迁至 capabilities/ipc.ts 注册函数内显式执行，manager 直连 skills.ts 的 skillIndex（依赖方向不变，dpdm 无环约束保持）。
+- **死代码与投机参数**：workspace/projects 的 getProjectProfile/updateProjectProfile（生产零调用、写入路径不存在，FK 骨架 ensure/delete 保留，DB 列不动）；tools/index 的 toolDomainOf；shared/keybindings 的 shortcutActionIds；settings ipc 四组外层重复 zod parse（setter 内部已校验，与 llm:save 模式对齐）；PrunePolicy 的 keepChars/keepRounds（生产只传 budgetTokens，测试直用内层 config 不受影响）；RunMirror.activeTool 只写字段；`#titlebar-actions` 空 portal 宿主（消费者 2026-10-06 已迁走）；forgetMarkdownEditorState；loadDocument 的无操作 force 参数（接口与三处调用同步）；MarkdownEditor 从未传入的 readOnly prop；panel-toggle side/className、resizer direction/step、ChatThread/ChatComposer className、ChatSessions side 等单调用方恒定 props；PreviewTab/NoteTab 生产不可达且文案失实的「3B 未接线」兜底屏（hook 收紧为非空 throw，消费方去掉可选链）。
+- **重复实现合并（真实重复 + 两个调用方）**：shuiyuan/videos 两份 95% 相同的 AddToProjectDialog 提取共享壳 renderer/workspace/add-to-project-dialog.tsx（域差异经 props 注入）；markdownHighlightStyle 双副本按注释承诺落 renderer/lib/markdown-highlight.ts；registry 的 workspaceTitleOf 与 entry-dialogs 的 titleOf 逐字重复，改 import；workbench-explorer 本地 useNarrow 重复订阅改用 explorer-state 的 narrow 镜像。
+- **测试清理**：settings search-index 的镜像完整性 describe（手抄键序 + 类型系统已保证的断言）与写死 13 长度的空查询断言；shuiyuan-tools 与 registry.test 重复的 schema 序列化契约 describe；runs.test 随 activeTool 删除同步。budget 公式 pin 测试经辩论保留（32768/12288/20480 是规划 §7 原文数字）；resources/layout-schema 两处低置信候选辩论后保留。
+- **死脚本**：scripts/test-shuiyuan-user-api-key.mjs（一次性探针，结论已沉淀 shuiyuan-api-findings.md）与 scripts/capture-preview.mjs（2026-09-29 记录的「待用户裁决去留」项，本轮清理指令即裁决，且自写截图探针与现行约束相抵）删除。
+- **过时文档与注释**：plan.md 与三份 refactor 设计稿的「尚未实施」状态行改为已实施（structure.md 同时标注 §3.6 八分类已被十三分区取代）；technical-plan 附录 budget.ts 归属 core/（原误写 context/）、§3 组织树补 terminal.ts 与 content/terminal；pi-integration-report 标注探针目录已并入 core/test、sqlite 后端依赖已移除；decisions-phase1 裁决 7 标注 read_mail_attachment 实际未实现（并入 read_resource）；README 删除 0.7.1 一次性热修复公告（历史归 devlog）；shared/session.ts 批次时态注释、devlog 补第十五轮标题（technical-plan 的「见第十五轮」交叉引用不再悬空）。
+- **笔记 Crepe 会话泄漏接线（同日用户裁决后补）**：NoteEditor 模块级会话 Map 的注释承诺「彻底关闭时由 forgetNoteEditorState 销毁」，但生产从未调用——关标签、跨组移动、项目切换换树、条目删除连带关标签均滞留 milkdown 实例。改为装配层（workbench-shell）订阅布局树做前后差集，孤儿键 `${tabId}:${groupId}` 经动态 import 调 forgetNoteEditorState 销毁（动态 import 与 registry 懒加载同 chunk，不扩大启动包；layering 规则禁止 layout-store 直连 content，故落装配层）。单点覆盖全部现存与未来的标签移除路径；MarkdownEditor 仅缓存 EditorState 数据（无实例无 DOM，量级为文档大小），未纳入回收。
+- 已验证：typecheck、oxlint 零告警、全量单测 624 项通过（净 -2：删除镜像/重复测试）、prettier 本轮触碰文件全部通过（仓库另有 8 处 HEAD 既有 prettier 偏差未动，与前轮记录一致）。待实机：TimetableView 的课表终态刷新、笔记会话回收的实际内存表现、终端/视频/水源回归（本轮未跑打包冒烟，未触及构建配置与原生依赖）。
+
+---
+
 ## 2026-10-06（第十笔）课堂视频：录播浏览、双流播放与复习面板（M1+M2）
 
 - 依据用户当日对 v.sjtu.edu.cn 课堂视频接口的第一手实测报告（VSJTU_Classroom_Video_API.md，含个人会话样本，不入库）接入侧栏「课堂视频」视图：位于课表与水源之间，MonitorPlay 图标。curriculum 取已选课程，subject_vod_list_new 按每批 10 个 teclId 逗号拼接取录播场次；课程栏按用户裁决只显示有录播的课程。同步落 v15 迁移（vsjtu_sync / vsjtu_courses / vsjtu_videos / vsjtu_video_refs），失败保留缓存并记错误，升级备份文件名随之变为 dela-before-v15.db（迁移测试同步更新）。
@@ -165,6 +182,8 @@
 - **renderer 修补**：globals.css 依 destructive 模式新增 success/warning 语义 token（深浅两档），会话状态徽标与模型「使用中」点改用语义类；SIDEBAR_MAX_WIDTH=360 收编裸常量；模型未配置空态加「打开设置 › 模型服务」直达按钮（复用 navigation store 深链，与全局搜索同通路）；TabBar 右键菜单补「关闭右侧」；笔记源码模式滚动位置按标签记忆（对齐 PreviewTab 的 scrollMemory）；MCP 表单 env 字段明示「子进程继承宿主环境变量、env 明文存本地数据库」。
 - **文档同步**：devlog 补记批次 2A/2B/3A 与阶段四（第十五轮）；technical-plan 状态声明改「已实施」、§2.1 补 pi 三依赖、§3 组织树按实际目录重画、§5/§7/附录改现行实现（loop.ts→core/pi.ts、38 内置工具逐名）并给历史段落加存档标注；README 统一工作台/AI 助手/设置八分类行重写；development.md 补 pi 打包注意（正则 external 原因、allowBuilds 清单）；structure.md 依赖图随红线修复更新。
 - 已验证：505 项单测全绿（净增 7 项：junction 守卫、SSRF DNS、MCP 命名空间冲突、正文上限等）、typecheck/oxlint 零告警、`pnpm build`、`pnpm smoke` 与 `pnpm package:dir` + win-unpacked 产物 `--smoke-test`（含 Agent runtime ESM 项）通过、dpdm main/preload 零循环。待验证（用户实机）：两主题下徽标新 token 观感、「关闭右侧」菜单、源码模式滚动保留、设置直达按钮落点、MCP 表单提示排版；真实 MCP 服务器与真实模型端点的端到端对话仍待实机使用覆盖。
+
+## 2026-09-29（第十五轮）阶段四：MCP 与 Skills 能力层
 
 落实[重构计划](agent-workspace-plan.md) §5.3 与 [structure.md](refactor/structure.md) 第 4 步。`src/main/agent/capabilities/` 立起（index/ipc/types + skills/mcp/skill-tools），设置插件页从 3B 的「即将支持」骨架实装为能力管理。
 

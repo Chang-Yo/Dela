@@ -157,6 +157,7 @@ Dela/
 |   |   |-- notifications.ts          # 通知中心
 |   |   |-- system-notify.ts          # 系统桌面通知
 |   |   |-- todo.ts                   # Canvas 作业同步
+|   |   |-- terminal.ts               # 项目 PTY 终端（node-pty 会话与事件）
 |   |   |-- settings/                 # 设置域（ipc / prefs / task-notify / index）
 |   |   |-- agent/                    # Agent 核心：core / session / context / tools / capabilities
 |   |   |                             # 五个子目录 + index.ts 组装入口（结构见附录）
@@ -181,7 +182,7 @@ Dela/
 |   |   |                             # SplitNode / TabBar / TabGroup / tab-dnd / GroupToolbar、
 |   |   |                             # registry 内容类型注册表
 |   |   |-- content/                  # 标签内容组件（按内容类型分域，互不 import）：
-|   |   |                             # chat / note / preview / review
+|   |   |                             # chat / note / preview / review / terminal
 |   |   |-- navigation/               # 项目会话导航（ProjectSessionNav / SessionRow 状态徽标）、
 |   |   |                             # 项目文件树与 Canvas 资料树
 |   |   |-- sessions/                 # 会话快照与 Run 事件镜像（多入口共享，打开视图不产生执行）
@@ -530,9 +531,9 @@ renderer（workbench / content / navigation / sessions 镜像）
 
 | 模块                         | 职责                                                                                                                                                                                                        |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent/core/`                | `pi.ts`（Pi 适配层）、`pi-load.ts`（纯 ESM 动态加载）、`run.ts`（轮次、取消、结果截断、运行内修剪）、`providers.ts`（模型服务配置与 llm:* 通道）                                                            |
+| `agent/core/`                | `pi.ts`（Pi 适配层）、`pi-load.ts`（纯 ESM 动态加载）、`run.ts`（轮次、取消、结果截断、运行内修剪）、`providers.ts`（模型服务配置与 llm:* 通道）、`budget.ts`（token 估算与预算口径）                       |
 | `agent/session/`             | `manager.ts`（生命周期编排）、`store.ts`（会话表读写）、`runs.ts`（Run 记录与状态机）、`commands.ts`（自定义指令）、`media.ts`（图片暂存 GC）、`subscriptions.ts`（WebContents 推送）、`ipc.ts`（通道注册） |
-| `agent/context/`             | `references.ts`（@ 引用与附件读取）、`assemble.ts`（预算组装）、`budget.ts`（token 估算与预算口径）、`compaction.ts`（摘要生成）                                                                            |
+| `agent/context/`             | `references.ts`（@ 引用与附件读取）、`assemble.ts`（预算组装）、`compaction.ts`（摘要生成）                                                                                                                 |
 | `agent/tools/`               | 8 领域目录（canvas/common/mail/shuiyuan/timetable/todo/web/workspace）+ `registry.ts`（契约、聚合、旧名别名、MCP 并入）+ `shared.ts`（分页/匹配等契约助手）                                                 |
 | `agent/capabilities/`        | `skills.ts`（SKILL.md 发现与启停）、`skill-tools.ts`（system 索引装配）、`mcp.ts`（stdio 客户端生命周期）、`ipc.ts`（capabilities:* 通道，阶段四）                                                          |
 | `src/main/resource-parse.ts` | PDF 文本提取与整页渲染（JPEG）、DOCX/PPTX 文本提取、OOXML 类型识别                                                                                                                                          |

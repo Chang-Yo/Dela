@@ -46,6 +46,8 @@ export function NoteDraftSourceProvider({
   );
 }
 
-export function useNoteDraftSource(): NoteDraftSource | null {
-  return useContext(NoteDraftSourceContext);
+export function useNoteDraftSource(): NoteDraftSource {
+  const source = useContext(NoteDraftSourceContext);
+  if (!source) throw new Error('NoteDraftSourceProvider 未挂载');
+  return source;
 }

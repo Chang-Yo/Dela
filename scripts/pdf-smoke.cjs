@@ -135,14 +135,6 @@ const routes = {
   'settings:get-theme': () => 'light',
   'settings:get-zoom': () => 1,
   'settings:get-font-scale': () => 1,
-  'workspace:get-chat': () => ({
-    messages: [],
-    running: false,
-    configured: false,
-    models: [],
-    model: '',
-  }),
-  'llm:list': () => ({ providers: [], activeId: null }),
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
 app

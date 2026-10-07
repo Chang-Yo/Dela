@@ -75,7 +75,7 @@ export interface RunEvent {
   activeTool?: string;
 }
 
-/** 会话新身份 API（session:* 通道；renderer 阶段三接入，本批仅主进程与 preload 就位）。 */
+/** 会话身份 API（session:* 通道）。 */
 export interface SessionApi {
   archived(): Promise<ChatSessionSummary[]>;
   update(sessionId: string, patch: { archived?: boolean; pinned?: boolean }): Promise<void>;

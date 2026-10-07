@@ -195,7 +195,7 @@ export function WorkingSection({
   parts: ChatParts;
   live: boolean;
   autoOpen: boolean;
-  status: 'working' | 'done' | 'interrupted' | 'stopped';
+  status: 'done' | 'interrupted' | 'stopped';
   elapsedMs: number | null;
   failed: number;
 }) {

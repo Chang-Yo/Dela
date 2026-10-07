@@ -39,7 +39,7 @@ export function countNodes(node: LayoutNode): number {
     : 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
 }
 
-/** split 嵌套深度（组 = 0；depth-1 split 即旧 EditorLayout 形态）。 */
+/** split 嵌套深度（组 = 0；depth-1 split 即旧 EditorLayout 形态）；测试断言布局嵌套用。 */
 export function splitDepth(node: LayoutNode): number {
   return node.type === 'group' ? 0 : 1 + Math.max(...node.children.map(splitDepth));
 }

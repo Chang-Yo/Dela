@@ -231,10 +231,6 @@ export const PRUNE_KEEP_ROUNDS = 2;
 export interface PrunePolicy {
   /** 输入预算（token）；缺省 contextBudget().budget。 */
   budgetTokens?: number;
-  /** 修剪后保留的字符数；缺省 PRUNE_KEEP_CHARS。 */
-  keepChars?: number;
-  /** 完整保留的最近轮数；缺省 PRUNE_KEEP_ROUNDS。 */
-  keepRounds?: number;
 }
 
 /** 单条 AgentMessage 的 token 估算（与 core/budget 同口径；图片按固定值）。 */
@@ -323,8 +319,8 @@ export function pruneToolResults(
 export function createToolResultPruner(policy: PrunePolicy = {}) {
   const config = {
     budget: policy.budgetTokens ?? contextBudget().budget,
-    keepChars: policy.keepChars ?? PRUNE_KEEP_CHARS,
-    keepRounds: policy.keepRounds ?? PRUNE_KEEP_ROUNDS,
+    keepChars: PRUNE_KEEP_CHARS,
+    keepRounds: PRUNE_KEEP_ROUNDS,
   };
   return (messages: AgentMessage[]): Promise<AgentMessage[]> =>
     Promise.resolve(pruneToolResults(messages, config));

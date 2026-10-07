@@ -22,8 +22,8 @@ export interface LoadedDocument {
  * preview:source:{原 documentKey}（@ 引用型资料）。
  */
 export interface ContentLoader {
-  /** 读取 TabKey 对应的文档；force 跳过缓存重读（重载/导出后刷新）。 */
-  loadDocument(tabKey: TabId, force?: boolean): Promise<LoadedDocument>;
+  /** 读取 TabKey 对应的文档（重载/导出后重读同一路径）。 */
+  loadDocument(tabKey: TabId): Promise<LoadedDocument>;
   /** 文档内链接分流：站内已同步 Canvas 文件开预览标签，其余交系统浏览器。 */
   openLink(url: string): void;
   /** 在水源页打开主题（跳转水源视图）。 */
@@ -44,6 +44,8 @@ export function ContentLoaderProvider({
   return <ContentLoaderContext.Provider value={loader}>{children}</ContentLoaderContext.Provider>;
 }
 
-export function useContentLoader(): ContentLoader | null {
-  return useContext(ContentLoaderContext);
+export function useContentLoader(): ContentLoader {
+  const loader = useContext(ContentLoaderContext);
+  if (!loader) throw new Error('ContentLoaderProvider 未挂载');
+  return loader;
 }

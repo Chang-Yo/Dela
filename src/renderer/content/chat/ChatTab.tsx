@@ -304,7 +304,6 @@ const ChatSessionView = memo(function ChatSessionView({
         onOpenSession={(id) => useNavigationStore.getState().openChat(id, projectId)}
         open={sessionsOpen}
         projectId={projectId}
-        side="right"
       />
     </div>
   );

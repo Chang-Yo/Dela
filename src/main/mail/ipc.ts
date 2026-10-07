@@ -21,7 +21,7 @@ import {
 } from './api';
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { checkWorkspaceSender } from '../ipc';
-import { saveLocalDraft, listLocalDrafts, deleteLocalDraft, openEmailDraft } from './drafts';
+import { saveLocalDraft, listLocalDrafts, deleteLocalDraft } from './drafts';
 import { basename } from 'node:path';
 import { z } from 'zod';
 import type { MailResult } from '../../shared/api';
@@ -41,7 +41,6 @@ export function registerMailIpc(): void {
   handle('save-draft', saveLocalDraft);
   handle('list-drafts', listLocalDrafts);
   handle('delete-draft', deleteLocalDraft);
-  handle('open-draft', openEmailDraft);
   ipcMain.handle('mail:compose-active', (event, active: unknown) => {
     checkWorkspaceSender(event);
     const senderId = event.sender.id;

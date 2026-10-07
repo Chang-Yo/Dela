@@ -146,10 +146,12 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
     );
   }, [loadEvents]);
 
+  // Run 终态后刷新课表（日历只可能被 Agent 工具在 run 中写入；个人待办另有 todo.onUpdate 驱动）。
   useEffect(
     () =>
-      window.dela?.workspace.onChatUpdate((_scope, chat) => {
-        if (!chat.running) void loadEvents().catch((reason) => setError(String(reason)));
+      window.dela?.session.onRunEvent((event) => {
+        if (event.status === 'completed' || event.status === 'failed' || event.status === 'stopped')
+          void loadEvents().catch((reason) => setError(String(reason)));
       }),
     [loadEvents],
   );

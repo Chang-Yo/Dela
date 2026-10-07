@@ -62,23 +62,6 @@ export function currentContainerOf(activeKey: string | null, rootId: string | nu
     : rootId;
 }
 
-/** 与旧 ProjectView 一致的窄屏断点：<768px 目录变覆盖抽屉。 */
-const NARROW_QUERY = '(max-width: 767px)';
-
-function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches,
-  );
-  useEffect(() => {
-    const media = window.matchMedia(NARROW_QUERY);
-    const update = () => setNarrow(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-  return narrow;
-}
-
 export function WorkbenchExplorer({
   projectId,
   activeDocKey,
@@ -106,7 +89,7 @@ export function WorkbenchExplorer({
   const collapsed = useExplorerState((s) => s.collapsed);
   const mobileOpen = useExplorerState((s) => s.mobileOpen);
   const [resizing, setResizing] = useState(false);
-  const narrow = useNarrow();
+  const narrow = useExplorerState((s) => s.narrow);
   const viewportWidth = useViewportWidth();
   const drawerRef = useRef<HTMLElement>(null);
   const [bySource, setBySource] = useState(false);

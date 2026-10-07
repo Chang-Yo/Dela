@@ -18,7 +18,6 @@ vi.mock('../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
 
 import { getDatabase } from '../database';
 import {
-  createMarkdownNoteCopy,
   createWorkspaceEntry,
   readWorkspaceEntry,
   resolveWorkspaceAsset,
@@ -210,43 +209,6 @@ describe('saveNoteImage / resolveWorkspaceAsset', () => {
     expect(resolveWorkspaceAsset(importedId, '外部.png').mime).toBe('image/png');
     writeFileSync(join(state.root, '逃逸.png'), PNG);
     expect(() => resolveWorkspaceAsset(importedId, '../逃逸.png')).toThrow('资源路径超出文档目录');
-  });
-});
-
-describe('createMarkdownNoteCopy', () => {
-  it('携带存在的本地图片（根级进 assets/，子目录保留结构），缺失项上报', async () => {
-    const sourceDir = join(state.root, '来源');
-    mkdirSync(join(sourceDir, 'img'), { recursive: true });
-    writeFileSync(
-      join(sourceDir, '导入文档.md'),
-      '# 导入\n\n![截图](pic.png)\n\n![子图](img/deep.png)\n\n![缺失](gone.png)\n',
-    );
-    writeFileSync(join(sourceDir, 'pic.png'), PNG);
-    writeFileSync(join(sourceDir, 'img', 'deep.png'), PNG);
-    const importedId = insertFileEntry(db, join(sourceDir, '导入文档.md'), 'imported');
-
-    const result = createMarkdownNoteCopy(importedId, null);
-    expect(result.missing).toEqual(['gone.png']);
-    expect(result.entry.kind).toBe('note');
-    expect(result.entry.name).toBe('导入文档.md');
-
-    const content = await readWorkspaceEntry(result.entry.id);
-    expect(content.text).toContain('![截图](assets/pic.png)');
-    expect(content.text).toContain('![子图](img/deep.png)');
-    expect(content.text).toContain('![缺失](gone.png)');
-    expect(existsSync(join(workspaceRoot(), 'assets', 'pic.png'))).toBe(true);
-    expect(existsSync(join(workspaceRoot(), 'img', 'deep.png'))).toBe(true);
-  });
-
-  it('只能对 Markdown 本地文件创建副本', () => {
-    const sourceDir = join(state.root, '来源');
-    mkdirSync(sourceDir);
-    writeFileSync(join(sourceDir, 'a.pdf'), PNG);
-    const pdfId = insertFileEntry(db, join(sourceDir, 'a.pdf'), 'imported');
-    expect(() => createMarkdownNoteCopy(pdfId, null)).toThrow('只能对 Markdown 文件创建笔记副本');
-
-    const note = createWorkspaceEntry({ parentId: null, name: '笔记', kind: 'note', text: '' });
-    expect(() => createMarkdownNoteCopy(note.id, null)).toThrow('只能从本地文件创建副本');
   });
 });
 

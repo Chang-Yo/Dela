@@ -538,11 +538,6 @@ export function AppShell({
           </div>
         </div>
         <div className="flex h-full items-center">
-          {/* 各视图经 portal 往这里挂工作区级动作（目录/布局），挂在窗口控制按钮左侧。 */}
-          <div
-            id="titlebar-actions"
-            className="[-webkit-app-region:no-drag] flex h-full items-center gap-1"
-          />
           {/* 侧栏折叠后铃铛/搜索随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] flex h-full items-center gap-1 pr-1">

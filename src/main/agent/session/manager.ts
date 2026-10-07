@@ -26,7 +26,7 @@ import {
 import { parseSessionSummary, summarizeHistory, type SessionSummary } from '../context/compaction';
 import { readAskReferences } from '../context/references';
 // 能力层的 Skill 索引经 manager 编排注入 context/assemble（context 不回指 capabilities）。
-import { getCapabilityRuntime } from '../capabilities';
+import { skillIndex } from '../capabilities/skills';
 import { ensureProjectProfile } from '../../workspace/projects';
 import { getAgentInstruction } from '../../settings/prefs';
 import { notifyRunFinished } from '../../settings/task-notify';
@@ -316,7 +316,7 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       summary,
       reservedTokens: currentRoundTokens + toolTokens,
       modelSettings,
-      skillIndex: getCapabilityRuntime()?.skillIndex() ?? [],
+      skillIndex: skillIndex(),
       toolNames,
       instruction,
     });

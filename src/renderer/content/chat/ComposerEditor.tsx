@@ -6,7 +6,7 @@ import {
   insertNewlineAndIndent,
 } from '@codemirror/commands';
 import { insertNewlineContinueMarkup, markdown } from '@codemirror/lang-markdown';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { EditorState, Prec, RangeSetBuilder } from '@codemirror/state';
 import {
@@ -18,46 +18,10 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
-import { tags as t } from '@lezer/highlight';
 import { cn } from '../../lib/utils';
+import { markdownHighlightStyle } from '../../lib/markdown-highlight';
 import { matchChatImageTokens } from '../../../shared/chat-input';
 import { getChatMediaPreview } from './media';
-
-/* 语法高亮配色（GitHub Light/Dark，Primer prettylights）：色值定义在
-   styles/globals.css 的 --syntax-*，跟随系统明暗主题，无需在此区分。
-   与 features/projects/MarkdownEditor 的同名定义内容一致——content 域互不 import
-   （structure.md §3.3）的边界下各持一份，统一落点（renderer/lib）由 3B 接线时定。 */
-const markdownHighlightStyle = HighlightStyle.define([
-  { tag: t.heading, color: 'var(--syntax-constant)', fontWeight: 'bold' },
-  { tag: t.strong, fontWeight: 'bold' },
-  { tag: t.emphasis, fontStyle: 'italic' },
-  { tag: t.strikethrough, textDecoration: 'line-through' },
-  { tag: t.link, color: 'var(--syntax-string)', textDecoration: 'underline' },
-  { tag: [t.url, t.monospace], color: 'var(--syntax-string)' },
-  {
-    tag: [t.quote, t.processingInstruction, t.contentSeparator],
-    color: 'var(--syntax-comment)',
-  },
-  { tag: [t.keyword, t.controlKeyword, t.moduleKeyword], color: 'var(--syntax-keyword)' },
-  { tag: [t.string, t.special(t.string)], color: 'var(--syntax-string)' },
-  { tag: t.regexp, color: 'var(--syntax-tag)' },
-  { tag: [t.number, t.bool, t.null, t.atom, t.escape], color: 'var(--syntax-constant)' },
-  {
-    tag: [t.function(t.variableName), t.function(t.definition(t.variableName))],
-    color: 'var(--syntax-function)',
-  },
-  {
-    tag: [t.definition(t.variableName), t.typeName, t.className, t.namespace],
-    color: 'var(--syntax-variable)',
-  },
-  {
-    tag: [t.propertyName, t.special(t.propertyName), t.attributeName],
-    color: 'var(--syntax-constant)',
-  },
-  { tag: t.tagName, color: 'var(--syntax-tag)' },
-  { tag: [t.meta, t.annotation], color: 'var(--syntax-comment)' },
-  { tag: t.comment, color: 'var(--syntax-comment)' },
-]);
 
 /** 容器注入的菜单键盘协议：返回 True 表示已消费该按键。 */
 type ComposerMenuApi = {

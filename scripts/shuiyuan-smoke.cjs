@@ -101,15 +101,6 @@ const routes = {
   'settings:get-theme': () => 'light',
   'settings:get-zoom': () => 1,
   'settings:get-font-scale': () => 1,
-  'workspace:get-chat': () => ({
-    sessionId: null,
-    configured: false,
-    providerName: null,
-    model: '',
-    models: [],
-    messages: [],
-  }),
-  'shuiyuan:get-state': () => ({ connected: true, username: 'tester', boundAt: iso(90) }),
   'shuiyuan:site-structure': () => ({
     categories: [
       {

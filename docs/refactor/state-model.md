@@ -1,6 +1,6 @@
 # 状态模型与迁移设计
 
-日期：2026-09-29。状态：设计稿，供架构师裁决；未实施。
+日期：2026-09-29。状态：已于 2026-09-29 随阶段二实施（数据库 v13 起）；本文保留为模型设计契约的记录。
 
 本文落实 [Agent 与工作区重构计划](../agent-workspace-plan.md) §3（共同的数据与状态边界）、§5.1（Pi Core 与 Dela 会话的衔接）、§7（迁移要求）中的数据模型部分，给出 Project / Session / Run / 文档版本的目标模型、SQLite DDL 草案与从现有实现的迁移步骤。
 
@@ -106,7 +106,7 @@ CREATE TABLE workspace_notes (id TEXT PRIMARY KEY, path TEXT NOT NULL);
 
 - `activeSession: Map<scope, string | null>`——每个 scope 一个「当前打开会话」指针，进程内存，重启即失（视为新对话闲置态）。
 - `asking: Map<scope, {controller: AbortController, tool?}>`——**按 scope 互斥**：同一 scope 同时至多一个运行；`cancelAsk` abort；删除正在运行的当前会话先 abort（避免僵尸忙碌态）；`asking` 期间不能 `openChat` 切到其他会话。
-- `publishChat` 经 `workspace:chat-update` 按 scope 广播给所有订阅 WebContents；`TimetableView` 也订阅它，在聊天不运行时刷新课表（因为工具可能写了日历）——目前没有独立的资源变化通知。
+- （2026-10-07 更新：`workspace:chat-update` 已删除，TimetableView 改订阅 `session:on-run-event` 终态刷新课表。）原文：`publishChat` 经 `workspace:chat-update` 按 scope 广播给所有订阅 WebContents；`TimetableView` 也订阅它，在聊天不运行时刷新课表（因为工具可能写了日历）——目前没有独立的资源变化通知。
 - **没有 Run 持久实体**：一次执行的进度内嵌在助手消息 JSON（parts 增量 + `persistSession` 节流/即时落库），进程退出后没有任何「中断」标记，重启后无识别与恢复入口（技术规划 §7 已注明「重启后不自动恢复执行；完整任务状态机暂缓」）。
 
 ### 1.6 文档与版本现状

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
 import type {
   ShuiyuanPost,
   ShuiyuanSiteStructure,
@@ -84,16 +83,6 @@ beforeEach(() => {
     connected: true,
     username: 'alice',
     boundAt: '2026-01-01T00:00:00.000Z',
-  });
-});
-
-describe('shuiyuan tools: model schema contract', () => {
-  it('exposes every tool as a serializable object schema', () => {
-    for (const [name, definition] of Object.entries(shuiyuanTools)) {
-      const json = z.toJSONSchema(definition.schema, { io: 'input' });
-      expect(JSON.parse(JSON.stringify(json)), name).toEqual(json);
-      expect(json.type, name).toBe('object');
-    }
   });
 });
 

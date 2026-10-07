@@ -75,9 +75,8 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const scroll = scrollMemory.get(scrollKey) ?? 0;
   const onScroll = (top: number) => scrollMemory.set(scrollKey, top);
 
-  const load = (force: boolean) => {
-    if (!loader) return;
-    void loader.loadDocument(tabId, force).then(
+  const load = () => {
+    void loader.loadDocument(tabId).then(
       (result) => {
         setDoc(result);
         setError(null);
@@ -87,11 +86,11 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   };
 
   useEffect(() => {
-    if (!loader || !parsePreviewTabId(tabId)) return;
-    load(false);
+    if (!parsePreviewTabId(tabId)) return;
+    load();
     // 本地磁盘文件可能被外部编辑：窗口聚焦时强制重读（只读预览无草稿，直接重读）。
     const onFocus = () => {
-      if (docRef.current?.watchesDisk) load(true);
+      if (docRef.current?.watchesDisk) load();
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -123,12 +122,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
     [content, doc?.watchesDisk],
   );
 
-  if (!loader)
-    return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-        文件预览尚未接入内容读取（ContentLoaderProvider，3B 接线）
-      </div>
-    );
   if (!parsePreviewTabId(tabId))
     return (
       <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
@@ -141,7 +134,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         {error ? (
           <div role="alert" className="min-w-0">
             <p className="break-words">{error}</p>
-            <Button variant="ghost" onClick={() => load(true)}>
+            <Button variant="ghost" onClick={() => load()}>
               重试
             </Button>
           </div>
@@ -159,7 +152,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const openLink = (url: string) => loader.openLink(url);
   /* pptx 导出完成：重读文档（翻转进导出 PDF 渲染）并通知接线方（目录树刷新等）。 */
   const onOfficeRefresh = () => {
-    load(true);
+    load();
     loader.onExported?.(tabId);
   };
 

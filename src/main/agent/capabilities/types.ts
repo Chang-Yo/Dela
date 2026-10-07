@@ -14,17 +14,4 @@ export interface DynamicToolDefinition {
   function: { name: string; description: string; parameters: unknown };
 }
 
-/** 能力层对执行循环暴露的聚合面。 */
-export interface CapabilityRuntime {
-  /** 已启用 Skill 的索引（无则空数组）。 */
-  skillIndex(): SkillIndexEntry[];
-  /** 当前已连接 MCP 服务器的工具定义（命名空间化：mcp_<server>_<tool>）。 */
-  mcpToolDefinitions(): DynamicToolDefinition[];
-  /** 执行 MCP 工具；非 MCP 工具名或服务器不可用时返回错误结果。 */
-  executeMcpTool(
-    name: string,
-    input: unknown,
-  ): Promise<{ ok: boolean; result?: unknown; error?: { code: string; message: string } }>;
-}
-
 export type { SkillView, McpServerView };

@@ -53,7 +53,6 @@ import {
 } from '../manager';
 import { activeRuns, interruptStaleRuns } from '../runs';
 import { sessionRow } from '../store';
-import { getProjectProfile, updateProjectProfile } from '../../../workspace/projects';
 import type { runAgent } from '../../core/run';
 type Callbacks = Parameters<typeof runAgent>[0];
 const result = { id: 'tool', name: 'search_sources', input: {}, output: { ok: true } };
@@ -387,29 +386,6 @@ describe('listSessions empty-session filter', () => {
     // 首条消息为会话命名：无 query 与按标题搜索都命中。
     expect(listSessions(null, '')).toHaveLength(1);
     expect(listSessions(null, '检索策略')).toHaveLength(1);
-  });
-});
-
-describe('project profiles', () => {
-  it('lazily creates and updates archive profiles for project entries only', () => {
-    // beforeEach 重建的 project 条目没有档案行（v13 后新建项目的情形）。
-    expect(getProjectProfile(PROJECT_ID)).toMatchObject({
-      background: '',
-      goal: '',
-      workdir: null,
-      capabilities: {},
-    });
-    expect(
-      updateProjectProfile(PROJECT_ID, { background: '毕业设计项目', workdir: 'E:\\lab' }),
-    ).toMatchObject({ background: '毕业设计项目', workdir: 'E:\\lab', goal: '' });
-    expect(getProjectProfile(PROJECT_ID)).toMatchObject({ background: '毕业设计项目' });
-    // workdir 传 null 清空、不传保留。
-    expect(updateProjectProfile(PROJECT_ID, { workdir: null })).toMatchObject({
-      background: '毕业设计项目',
-      workdir: null,
-    });
-    expect(getProjectProfile(FOLDER_ID)).toBeNull();
-    expect(getProjectProfile('nonexistent')).toBeNull();
   });
 });
 

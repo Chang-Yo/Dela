@@ -29,18 +29,18 @@
 
 ## 工具盘点裁决（tools-inventory.md §10 十项）
 
-| #   | 决定                                                                                                                                                                   |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | 阶段二注册全部重设计工具集（约 30 个，含三个 `*_status`），不做动态裁剪；"按项目/连接状态加载工具"留待阶段四能力管理统一处理。未连接领域工具返回 `NOT_CONFIGURED` 指引 |
-| 2   | 采纳：水源沿用 Discourse stream+post_ids 语义，不伪造 offset/total（豁免统一分页）                                                                                     |
-| 3   | 采纳：`refresh_mail` 不开放（无窄化 API，与"刷新目标一致"冲突）                                                                                                        |
-| 4   | 采纳：`get_timetable_status` 返回本地已同步学期列表 + 时钟推断学期（显式标注推断依据）；不允许模型探测性同步未来学期                                                   |
-| 5   | 采纳：开放 `remove_todo`、`remove_entry`；`set_semester_start`、`archive_canvas_course` 不开放                                                                         |
-| 6   | 采纳：`read_resource` 图片输出扩展到 canvas/workspace 图片文件（PDF pages 路径与 ≤12 张/运行预算共用）                                                                 |
-| 7   | 采纳：新增 `read_mail_attachment`（临时提取不留存）；`copy_file_to_project` 保留为沉淀路径，两者并存                                                                   |
-| 8   | 采纳：笔记插图不排期，仅记录                                                                                                                                           |
-| 9   | 旧工具名兼容：registry 维护一版 `legacyAliases` 映射（旧名→新名），执行时翻译并在结果中提示新名；一个发布周期后移除                                                    |
-| 10  | 采纳：`query_schedule` 接受 `YYYY-MM-DD` 日期（上海时区解释）与 UTC ISO 两种输入；schema description 说明优先用日期                                                    |
+| #   | 决定                                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 阶段二注册全部重设计工具集（约 30 个，含三个 `*_status`），不做动态裁剪；"按项目/连接状态加载工具"留待阶段四能力管理统一处理。未连接领域工具返回 `NOT_CONFIGURED` 指引                  |
+| 2   | 采纳：水源沿用 Discourse stream+post_ids 语义，不伪造 offset/total（豁免统一分页）                                                                                                      |
+| 3   | 采纳：`refresh_mail` 不开放（无窄化 API，与"刷新目标一致"冲突）                                                                                                                         |
+| 4   | 采纳：`get_timetable_status` 返回本地已同步学期列表 + 时钟推断学期（显式标注推断依据）；不允许模型探测性同步未来学期                                                                    |
+| 5   | 采纳：开放 `remove_todo`、`remove_entry`；`set_semester_start`、`archive_canvas_course` 不开放                                                                                          |
+| 6   | 采纳：`read_resource` 图片输出扩展到 canvas/workspace 图片文件（PDF pages 路径与 ≤12 张/运行预算共用）                                                                                  |
+| 7   | 采纳：新增 `read_mail_attachment`（临时提取不留存）；`copy_file_to_project` 保留为沉淀路径，两者并存。（后续落地偏差：独立工具未实现，附件直读并入 `read_resource` 的 attachment 引用） |
+| 8   | 采纳：笔记插图不排期，仅记录                                                                                                                                                            |
+| 9   | 旧工具名兼容：registry 维护一版 `legacyAliases` 映射（旧名→新名），执行时翻译并在结果中提示新名；一个发布周期后移除                                                                     |
+| 10  | 采纳：`query_schedule` 接受 `YYYY-MM-DD` 日期（上海时区解释）与 UTC ISO 两种输入；schema description 说明优先用日期                                                                     |
 
 工具契约按盘点 §8 执行：`{ok,result}` 外壳保留，错误码细化表（NOT_CONFIGURED/AUTH_EXPIRED/NOT_FOUND/VERSION_CONFLICT/RATE_LIMITED/NETWORK_ERROR/UPSTREAM_ERROR）由各业务域抛带 code 的错误、registry 统一映射；freshness/coverage/pagination 字段按 §8.3–8.4 形态统一。
 

@@ -10,7 +10,6 @@ import {
   parseWorkbenchLayout,
   removeGroup,
   seedLayoutFromLegacy,
-  splitDepth,
   walkGroups,
 } from '../layout-schema';
 
@@ -112,10 +111,9 @@ describe('树操作', () => {
     expect(nextGroupId(tree)).toBe('g3');
   });
 
-  it('walkGroups / splitDepth / countNodes', () => {
+  it('walkGroups / countNodes', () => {
     const tree = split([group('a'), split([group('b'), group('c')])]);
     expect(walkGroups(tree).map((g) => g.id)).toEqual(['a', 'b', 'c']);
-    expect(splitDepth(tree)).toBe(2);
     expect(countNodes(tree)).toBe(5);
   });
 });
@@ -155,7 +153,8 @@ describe('旧数据种子迁移', () => {
     });
     expect(layout.focus).toBe('secondary');
     expect(layout.maximized).toBeNull();
-    expect(splitDepth(layout.root)).toBe(1);
+    // 旧 EditorLayout 恒为 depth-1 split（两组合成一根分割）。
+    expect(layout.root).toMatchObject({ type: 'split' });
   });
 
   it('tab 键映射：source: → preview:，entryId 默认 note:，resolveEntryKind 可判 preview', () => {

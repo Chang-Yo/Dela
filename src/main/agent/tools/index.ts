@@ -36,8 +36,3 @@ export const agentTools = {
   ...webTools,
   ...shuiyuanTools,
 };
-
-/** 工具名 → 能力域；新增领域时需同时登记到上方 toolDomains。 */
-export const toolDomainOf: Record<string, string> = Object.fromEntries(
-  toolDomains.flatMap((domain) => Object.keys(domain.tools).map((name) => [name, domain.id])),
-);

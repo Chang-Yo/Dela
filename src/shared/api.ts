@@ -177,7 +177,6 @@ export type {
   WorkspaceEntry,
   WorkspaceState,
   WorkspaceCreateInput,
-  MarkdownNoteCopyResult,
   WorkspaceApi,
 } from './workspace';
 export { workspaceArchiveId } from './workspace';

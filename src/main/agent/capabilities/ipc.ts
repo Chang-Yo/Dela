@@ -14,6 +14,8 @@ import {
 } from './mcp';
 import { listSkills, setSkillEnabled } from './skills';
 import { listBuiltinCapabilities, setBuiltinCapability, setBuiltinDomain } from './tools';
+import { setMcpRouting } from '../tools/registry';
+import { mcpToolDefinitions, executeMcpTool } from './mcp';
 
 const skillName = z.string().trim().min(1).max(100);
 const serverId = z.string().uuid();
@@ -21,6 +23,9 @@ const toolName = z.string().trim().min(1).max(64);
 const domainId = z.string().trim().min(1).max(32);
 
 export function registerCapabilitiesIpc() {
+  // MCP 工具并集与路由经注入进入 tools/registry（结构 §2.3：capabilities → tools 单向，
+  // registry 静态 import capabilities 会与 mcp.ts 的 agentTools 取用成环）。
+  setMcpRouting({ mcpToolDefinitions, executeMcpTool });
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`capabilities:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);

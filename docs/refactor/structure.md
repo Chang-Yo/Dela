@@ -1,6 +1,6 @@
 # 重构目标目录结构与模块边界
 
-日期：2026-09-29。状态：设计稿，供 [Agent 与工作区重构计划](../agent-workspace-plan.md) 各阶段实施时执行；本文只定义目标结构与迁移路径，不代表任何部分已经落地。
+日期：2026-09-29。状态：各阶段已于 2026-09-29/30 实施完成（落地差异与后续调整以 [../technical-plan.md](../technical-plan.md) 与 [../devlog.md](../devlog.md) 为准，如 §3.6 设置八分类已被 2026-10-06 十三分区取代）；本文保留为结构契约的记录。
 
 本文落实计划文首的组织要求：执行核心、会话与持久化、上下文与压缩、业务工具、能力接入、工作台布局分别成目录；入口只负责组装；模块经明确接口协作。所有路径落到文件名级别。单应用、单 package 不变；新增目录不等于子包，`vite.*.config.ts` 的三个入口（`src/main/index.ts`、`src/preload/index.ts`、`src/renderer/index.html`）保持不变，`tsconfig.{main,preload,renderer}.json` 无需调整。
 

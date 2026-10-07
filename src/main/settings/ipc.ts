@@ -11,8 +11,6 @@ import {
   getTaskNotificationPrefs,
   getWorkspacePrefs,
   iconSchema,
-  instructionSchema,
-  keybindingOverridesSchema,
   resetKeybindingOverrides,
   savedCampusNotifications,
   savedFontScale,
@@ -25,10 +23,8 @@ import {
   setKeybindingOverrides,
   setTaskNotificationPrefs,
   setWorkspacePrefs,
-  taskNotificationsSchema,
   themeSchema,
   writeSetting,
-  workspacePrefsSchema,
   zoomSchema,
 } from './prefs';
 
@@ -110,7 +106,7 @@ export function registerSettingsIpc(): void {
   });
   ipcMain.handle('settings:set-task-notifications', (event, value) => {
     checkWorkspaceSender(event);
-    return setTaskNotificationPrefs(taskNotificationsSchema.parse(value));
+    return setTaskNotificationPrefs(value);
   });
   // 工作现场偏好：启动恢复上次项目与标签、默认笔记编辑方式。
   ipcMain.handle('settings:get-workspace-prefs', (event) => {
@@ -119,7 +115,7 @@ export function registerSettingsIpc(): void {
   });
   ipcMain.handle('settings:set-workspace-prefs', (event, value) => {
     checkWorkspaceSender(event);
-    return setWorkspacePrefs(workspacePrefsSchema.partial().parse(value));
+    return setWorkspacePrefs(value);
   });
   // 快捷键覆盖项：renderer 用默认表合并后派发；这里只负责校验与持久化。
   ipcMain.handle('settings:get-keybindings', (event) => {
@@ -128,7 +124,7 @@ export function registerSettingsIpc(): void {
   });
   ipcMain.handle('settings:set-keybindings', (event, value) => {
     checkWorkspaceSender(event);
-    return setKeybindingOverrides(keybindingOverridesSchema.parse(value));
+    return setKeybindingOverrides(value);
   });
   ipcMain.handle('settings:reset-keybindings', (event) => {
     checkWorkspaceSender(event);
@@ -141,6 +137,6 @@ export function registerSettingsIpc(): void {
   });
   ipcMain.handle('settings:set-instruction', (event, value) => {
     checkWorkspaceSender(event);
-    return setAgentInstruction(instructionSchema.parse(value));
+    return setAgentInstruction(value);
   });
 }

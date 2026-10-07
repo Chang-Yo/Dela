@@ -112,10 +112,6 @@ export const shortcutActions: readonly ShortcutAction[] = [
   },
 ];
 
-export const shortcutActionIds: readonly ShortcutActionId[] = shortcutActions.map(
-  (action) => action.id,
-);
-
 /** 用户覆盖：null 表示显式解绑（该动作不再响应键盘）。未出现的动作使用默认键位。 */
 export type KeybindingOverrides = Partial<Record<ShortcutActionId, string | null>>;
 

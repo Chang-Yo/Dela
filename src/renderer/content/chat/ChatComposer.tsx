@@ -75,7 +75,6 @@ export function ChatComposer({
   onRemoveAttachment,
   hero = false,
   projectPicker,
-  className,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -99,7 +98,6 @@ export function ChatComposer({
   onRemoveAttachment: (id: string) => void;
   hero?: boolean;
   projectPicker?: ReactNode;
-  className?: string;
 }) {
   const editorRef = useRef<ComposerEditorHandle | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
@@ -288,7 +286,6 @@ export function ChatComposer({
       className={cn(
         '@container relative rounded-3xl border bg-card shadow-xs transition-colors focus-within:border-ring/60',
         dragging && 'border-transparent',
-        className,
       )}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes('Files')) {

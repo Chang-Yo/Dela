@@ -8,5 +8,4 @@ export {
   type NoteDraftSource,
 } from './draft-source';
 /** 3B 关闭标签时按需清理编辑器会话（撤销历史/光标缓存）。 */
-export { forgetMarkdownEditorState } from './MarkdownEditor';
 export { forgetNoteEditorState } from './NoteEditor';

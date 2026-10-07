@@ -29,15 +29,9 @@ import {
 import { officeZipMime } from '../resource-parse';
 import { workspaceArchiveId } from '../../shared/api';
 import { textFileExtensions } from '../../shared/chat-input';
-import {
-  buildMarkdownImage,
-  externalOpenTarget,
-  isRelativeAssetPath,
-  matchMarkdownImageRefs,
-} from '../../shared/note-files';
+import { isRelativeAssetPath, matchMarkdownImageRefs } from '../../shared/note-files';
 import type {
   DocumentContent,
-  MarkdownNoteCopyResult,
   WorkspaceCreateInput,
   WorkspaceEntry,
   WorkspaceState,
@@ -132,63 +126,6 @@ function carryNoteAssets(fromFile: string, toFile: string, text: string): void {
     mkdirSync(dirname(target), { recursive: true });
     copyFileSync(source, target, constants.COPYFILE_EXCL);
   }
-}
-
-/** 导入/本地 Markdown 制作可编辑笔记副本，携带可访问的本地图片。 */
-export function createMarkdownNoteCopy(
-  id: string,
-  parentId: string | null,
-): MarkdownNoteCopyResult {
-  prepareStorage();
-  const item = entry(id);
-  if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('只能从本地文件创建副本');
-  const source = entryLocalPath(item);
-  if (!markdownExtensions.includes(extname(source).toLowerCase()))
-    throw new Error('只能对 Markdown 文件创建笔记副本');
-  const text = readFileSync(source, 'utf8');
-  const note = createWorkspaceEntry({ parentId, name: item.name, kind: 'note', text });
-  const noteFile = notePath(entry(note.id));
-  const missing: string[] = [];
-  let rewritten = text;
-  const refs = matchMarkdownImageRefs(text);
-  for (let index = refs.length - 1; index >= 0; index -= 1) {
-    const ref = refs[index]!;
-    const asset = join(dirname(source), ...ref.path.split('/'));
-    if (!existsSync(asset) || !statSync(asset).isFile()) {
-      missing.push(ref.path);
-      continue;
-    }
-    // 与新插入图片同约定：根级引用收进 assets/，子目录引用保留目录结构。
-    const assets = join(
-      dirname(noteFile),
-      dirname(ref.path) === '.' ? 'assets' : ref.path.split('/')[0]!,
-    );
-    mkdirSync(assets, { recursive: true });
-    const target = availablePath(assets, basename(ref.path), false);
-    copyFileSync(asset, target, constants.COPYFILE_EXCL);
-    const finalRef = relative(dirname(noteFile), target).split(sep).join('/');
-    if (finalRef !== ref.path)
-      rewritten =
-        rewritten.slice(0, ref.index) +
-        buildMarkdownImage(ref.alt, finalRef) +
-        rewritten.slice(ref.index + ref.length);
-  }
-  if (rewritten !== text) writeFileSync(noteFile, rewritten);
-  return { entry: note, missing };
-}
-
-/** 在外部应用中打开条目对应文件：代码文件进 VS Code，其余交给系统默认应用。 */
-export async function openEntryExternally(id: string): Promise<'vscode' | 'system'> {
-  prepareStorage();
-  const item = entry(id);
-  const path = await workspaceFilePath(id);
-  if (externalOpenTarget(item.name) === 'vscode') {
-    await openInVsCode(path);
-    return 'vscode';
-  }
-  const error = await shell.openPath(path);
-  if (error) throw new Error(`无法用默认应用打开：${error}`);
-  return 'system';
 }
 
 /** 项目目录只由 main 根据条目身份解析，不接受 renderer 提供路径。 */

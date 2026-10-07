@@ -7,8 +7,6 @@ import type { RunEvent, RunStatus } from '../../shared/api';
 export interface RunMirror {
   runId: string;
   status: RunStatus;
-  /** 状态为 running 时的当前工具名；空闲段为 undefined。 */
-  activeTool?: string;
 }
 
 /** 事件归并：同一 session 的最新事件覆盖旧状态（主进程对同一 session 串行，IPC 保序）。 */
@@ -21,7 +19,6 @@ export function applyRunEvent(
     [event.sessionId]: {
       runId: event.runId,
       status: event.status,
-      activeTool: event.activeTool,
     },
   };
 }

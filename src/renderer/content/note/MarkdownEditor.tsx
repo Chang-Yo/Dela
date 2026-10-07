@@ -1,49 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown, markdownKeymap } from '@codemirror/lang-markdown';
-import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
+import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { Annotation, Compartment, EditorState, Transaction } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
-import { tags as t } from '@lezer/highlight';
 import { useEditorSettings } from '../editor-settings';
-
-/* 语法高亮配色（GitHub Light/Dark，Primer prettylights）：色值定义在
-   styles/globals.css 的 --syntax-*，跟随系统明暗主题，无需在此区分。
-   助手 Composer（features/chat）复用同一份配色，编辑与预览观感一致。 */
-export const markdownHighlightStyle = HighlightStyle.define([
-  { tag: t.heading, color: 'var(--syntax-constant)', fontWeight: 'bold' },
-  { tag: t.strong, fontWeight: 'bold' },
-  { tag: t.emphasis, fontStyle: 'italic' },
-  { tag: t.strikethrough, textDecoration: 'line-through' },
-  { tag: t.link, color: 'var(--syntax-string)', textDecoration: 'underline' },
-  { tag: [t.url, t.monospace], color: 'var(--syntax-string)' },
-  {
-    tag: [t.quote, t.processingInstruction, t.contentSeparator],
-    color: 'var(--syntax-comment)',
-  },
-  { tag: [t.keyword, t.controlKeyword, t.moduleKeyword], color: 'var(--syntax-keyword)' },
-  { tag: [t.string, t.special(t.string)], color: 'var(--syntax-string)' },
-  { tag: t.regexp, color: 'var(--syntax-tag)' },
-  { tag: [t.number, t.bool, t.null, t.atom, t.escape], color: 'var(--syntax-constant)' },
-  {
-    tag: [t.function(t.variableName), t.function(t.definition(t.variableName))],
-    color: 'var(--syntax-function)',
-  },
-  {
-    tag: [t.definition(t.variableName), t.typeName, t.className, t.namespace],
-    color: 'var(--syntax-variable)',
-  },
-  {
-    tag: [t.propertyName, t.special(t.propertyName), t.attributeName],
-    color: 'var(--syntax-constant)',
-  },
-  { tag: t.tagName, color: 'var(--syntax-tag)' },
-  { tag: [t.meta, t.annotation], color: 'var(--syntax-comment)' },
-  { tag: t.comment, color: 'var(--syntax-comment)' },
-]);
+import { markdownHighlightStyle } from '../../lib/markdown-highlight';
 
 const editorTheme = EditorView.theme({
   '&': {
@@ -101,10 +66,6 @@ const sessions = new Map<string, EditorSession>();
 const handlers = new Map<string, EditorHandlers>();
 let nextEditorId = 0;
 
-export function forgetMarkdownEditorState(editorStateKey: string) {
-  sessions.delete(editorStateKey);
-}
-
 function replaceDocument(current: string, next: string) {
   let from = 0;
   while (from < current.length && from < next.length && current[from] === next[from]) from += 1;
@@ -137,7 +98,6 @@ export function MarkdownEditor({
   lineNumbers: showLineNumbers = true,
   ariaLabel = '笔记编辑器',
   saveOnBlur = true,
-  readOnly = false,
   editorStateKey,
 }: {
   value: string;
@@ -145,7 +105,7 @@ export function MarkdownEditor({
   onChange: (text: string) => void;
   onSave: () => void;
   onScroll: (top: number) => void;
-  /* scroll 与 lineNumbers/ariaLabel/saveOnBlur/readOnly 仅取初值：只装配于首次挂载，此后变化不生效。 */
+  /* scroll 与 lineNumbers/ariaLabel/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
   scroll: number;
   /** 占位文案；回复编辑器等非笔记场景使用，变化时热替换。 */
   placeholderText?: string;
@@ -154,8 +114,6 @@ export function MarkdownEditor({
   ariaLabel?: string;
   /** 失焦即保存是笔记语义；回复编辑器传 false 防止误触发发送。 */
   saveOnBlur?: boolean;
-  /** 只读预览（代码文件等）：不可编辑、不参与保存。 */
-  readOnly?: boolean;
   /** 传入后在切换标签时保留撤销历史、光标和滚动位置。每个编辑器组应使用不同值。 */
   editorStateKey?: string;
 }) {
@@ -209,8 +167,6 @@ export function MarkdownEditor({
     const previous = persistent ? sessions.get(instanceKey) : undefined;
     const extensions: Extension[] = [
       history(),
-      // 只读仅锁事务,不改 editable:保持可聚焦,搜索面板与键盘选择/复制可用(CM6 官方只读做法)。
-      EditorState.readOnly.of(readOnly),
       languageConf.of(initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []),
       ...(showLineNumbers ? [lineNumbers()] : []),
       wrappingConf.of(wordWrap ? EditorView.lineWrapping : []),

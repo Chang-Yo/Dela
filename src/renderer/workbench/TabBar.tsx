@@ -116,17 +116,10 @@ export const TabBar = memo(function TabBar({
     <div className="@container flex h-10 min-w-0 shrink-0 bg-background px-2 pt-1">
       {/* 目录折叠时的展开入口：只在焦点组的标签栏左端（视线跟随焦点，其他组不重复出现）。 */}
       {!unfocused && <ExplorerRevealButton className="mb-1 self-end" />}
-      {/* 空组时 tablist 无 tab 可拥有，role 一并撤下（占位文本不属于 tablist）。 */}
       <div
         ref={listRef}
-        role={group.tabs.length ? 'tablist' : undefined}
-        aria-label={
-          group.tabs.length
-            ? activeTab
-              ? `标签页：${titleOf(activeTab)}`
-              : '工作组标签页'
-            : undefined
-        }
+        role="tablist"
+        aria-label={activeTab ? `标签页：${titleOf(activeTab)}` : '工作组标签页'}
         className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
         onWheel={(event) => {
           // 纵向滚轮在标签栏内转为横向滚动（VS Code 行为），触控板横向滚动原生支持。

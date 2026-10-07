@@ -6,8 +6,7 @@ import { lazy, type ComponentType } from 'react';
 import { Eye, FileText, GitCompare, MessageSquare, SquareTerminal } from 'lucide-react';
 import type { TabId, TabKind } from '../../shared/layout';
 import { useSessions } from '../sessions/store';
-import { useNoteDrafts } from '../workspace/drafts';
-import { useWorkspaceStore } from '../workspace/store';
+import { titleOf as entryTitleOf } from '../workspace/entry-dialogs';
 
 // 内容域懒加载：组件首次渲染时才求值对应模块（TabGroup 渲染处有 Suspense 骨架兜底）。
 const ChatTab: ComponentType<TabComponentProps> = lazy(() =>
@@ -39,17 +38,6 @@ export interface TabDescriptor {
   title: (tabId: TabId) => string;
 }
 
-/** 条目/资料键（entryId 或 source:{sourceId}）→ 显示名（与 entry-dialogs 的 titleOf 同源）。 */
-function workspaceTitleOf(key: string): string {
-  const { workspace, canvas } = useWorkspaceStore.getState();
-  return (
-    workspace.entries.find((e) => e.id === key)?.name ??
-    canvas.items.find((i) => `source:${i.sourceId}` === key)?.name ??
-    useNoteDrafts.getState().drafts[key]?.content.title ??
-    '资料'
-  );
-}
-
 /** 会话标题：在各池摘要列表里找；列表未载入时给中性的「对话」。 */
 function chatTitleOf(sessionId: string): string {
   for (const list of Object.values(useSessions.getState().lists)) {
@@ -71,13 +59,13 @@ export const registry: Record<TabKind, TabDescriptor> = {
   note: {
     component: NoteTab,
     icon: FileText,
-    title: (tabId) => workspaceTitleOf(payloadOf(tabId)),
+    title: (tabId) => entryTitleOf(payloadOf(tabId)),
   },
   preview: {
     component: PreviewTab,
     icon: Eye,
-    // preview:source:{id} 的载荷即 source:{id} 文档键，workspaceTitleOf 直接可用。
-    title: (tabId) => workspaceTitleOf(payloadOf(tabId)),
+    // preview:source:{id} 的载荷即 source:{id} 文档键，entryTitleOf 直接可用。
+    title: (tabId) => entryTitleOf(payloadOf(tabId)),
   },
   review: { component: ReviewTab, icon: GitCompare, title: payloadOf },
   terminal: { component: TerminalTab, icon: SquareTerminal, title: () => 'Terminal' },

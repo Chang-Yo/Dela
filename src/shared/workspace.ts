@@ -1,6 +1,5 @@
 import type { DocumentContent, OfficeExportEvent } from './documents';
 import type { ResourceRef } from './resources';
-import type { WorkspaceChat } from './session';
 
 export interface WorkspaceEntry {
   id: string;
@@ -35,12 +34,6 @@ export interface WorkspaceCreateInput {
   text?: string;
 }
 
-/** 从本地/导入 Markdown 创建可编辑副本的结果；missing 为无法携带的图片引用。 */
-export interface MarkdownNoteCopyResult {
-  entry: WorkspaceEntry;
-  missing: string[];
-}
-
 export interface WorkspaceApi {
   getState(): Promise<WorkspaceState>;
   create(input: WorkspaceCreateInput): Promise<WorkspaceEntry>;
@@ -53,10 +46,6 @@ export interface WorkspaceApi {
   saveNote(id: string, text: string, revision: string): Promise<string>;
   /** 把新插入的本地图片存入笔记目录 assets/，返回相对路径。 */
   saveNoteImage(id: string, name: string, bytes: Uint8Array): Promise<string>;
-  /** 从本地/导入 Markdown 创建可编辑笔记副本（携带图片）。 */
-  createNoteCopy(id: string, parentId?: string | null): Promise<MarkdownNoteCopyResult>;
-  /** 在 VS Code 或系统默认应用中打开条目文件。 */
-  openExternal(id: string): Promise<'vscode' | 'system'>;
   /** 打开项目目录，main 验证项目身份并解析本地路径。 */
   openProjectDirectory(id: string, target: 'vscode' | 'explorer'): Promise<void>;
   /** 把 pptx 经 PowerPoint 导出为 PDF（仅 Windows）：存入「预览导出」并建立关联。 */
@@ -69,6 +58,4 @@ export interface WorkspaceApi {
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;
-  /** 旧 scope 通道推送（TimetableView 刷新课表用）；迁移方向见 preload/workspace.ts。 */
-  onChatUpdate(listener: (scope: string, chat: WorkspaceChat) => void): () => void;
 }

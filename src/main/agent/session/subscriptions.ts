@@ -4,27 +4,24 @@ import { sessionRow, sessionRowWithoutMessages, snapshot } from './store';
 
 const chatClients = new Set<WebContents>();
 
-/** 订阅会话事件推送（session:on-update / session:on-run-event 与旧 workspace:chat-update）。 */
+/** 订阅会话事件推送（session:on-update / session:on-run-event）。 */
 export function subscribeChat(client: WebContents) {
   if (chatClients.has(client)) return;
   chatClients.add(client);
   client.once('destroyed', () => chatClients.delete(client));
 }
 
-/** 会话快照变化：新通道按 sessionId 广播，同时保留旧 workspace:chat-update（scope, chat）。
- *  旧通道仅剩 TimetableView 一个订阅者（run 结束后刷新课表），scope 由 session.project_id
- *  推导（无项目回退 'home'）。迁移方向：改为订阅 session:on-run-event 的终态事件后删除本推送。
+/** 会话快照变化：按 sessionId 广播。
  *  会话已删除时不广播（快照无从生成）。 */
 export function publishSession(sessionId: string, partial?: Partial<WorkspaceChat>) {
   // partial 自带内存态消息时跳过 messages 列（该整列 SELECT 与 JSON.parse 的结果会被覆盖丢弃）。
-  const row = partial?.messages !== undefined ? sessionRowWithoutMessages(sessionId) : sessionRow(sessionId);
+  const row =
+    partial?.messages !== undefined ? sessionRowWithoutMessages(sessionId) : sessionRow(sessionId);
   if (!row) return;
   const chat = { ...snapshot(row), ...partial };
-  const scope = row.project_id ?? 'home';
   for (const client of chatClients) {
     if (client.isDestroyed()) continue;
     client.send('session:on-update', sessionId, chat);
-    client.send('workspace:chat-update', scope, chat);
   }
 }
 

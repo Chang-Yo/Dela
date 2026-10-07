@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildMarkdownImage,
-  externalOpenTarget,
   isRelativeAssetPath,
   markdownRequiresSourceMode,
   matchMarkdownImageRefs,
@@ -26,15 +24,6 @@ describe('matchMarkdownImageRefs', () => {
   });
 });
 
-describe('buildMarkdownImage', () => {
-  it('路径中的空格与括号被编码，alt 内方括号被清理', () => {
-    expect(buildMarkdownImage('截图', 'assets/my pic (1).png')).toBe(
-      '![截图](assets/my%20pic%20%281%29.png)',
-    );
-    expect(buildMarkdownImage('图[1]\n注', 'a.png')).toBe('![图 1  注](a.png)');
-  });
-});
-
 describe('isRelativeAssetPath', () => {
   it('接受仓库内相对路径', () => {
     expect(isRelativeAssetPath('assets/pic.png')).toBe(true);
@@ -56,18 +45,6 @@ describe('noteAssetUrl', () => {
     expect(noteAssetUrl('id-1', 'assets/my pic.png')).toBe(
       'dela-resource://note-asset/assets%2Fmy%20pic.png?id=id-1',
     );
-  });
-});
-
-describe('externalOpenTarget', () => {
-  it('文本/代码文件进 VS Code，Markdown 与二进制交给系统', () => {
-    expect(externalOpenTarget('main.cpp')).toBe('vscode');
-    expect(externalOpenTarget('App.tsx')).toBe('vscode');
-    expect(externalOpenTarget('data.json')).toBe('vscode');
-    expect(externalOpenTarget('笔记.md')).toBe('system');
-    expect(externalOpenTarget('论文.pdf')).toBe('system');
-    expect(externalOpenTarget('logo.png')).toBe('system');
-    expect(externalOpenTarget('README')).toBe('system');
   });
 });
 

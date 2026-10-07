@@ -142,16 +142,11 @@ describe('session 集成：askSession → core/run（Pi）→ mock OpenAI', () =
     expect(run.error).toBeNull();
     expect(JSON.parse(run.steps)).toEqual([]);
     expect(JSON.parse(run.request)).toMatchObject({ text: '打个招呼' });
-    // on-update 推送被触发：session 新通道按 sessionId 广播，终态快照非运行中。
+    // on-update 推送被触发：按 sessionId 广播，终态快照非运行中。
     const updates = sessionUpdates(sessionId);
     expect(updates.length).toBeGreaterThan(0);
     expect(updates.at(-1)).toMatchObject({ running: false });
-    // 旧 scope 通道同步广播（通用会话回 home）；run 事件按状态机推进。
-    expect(
-      send.mock.calls.some(
-        ([channel, scope]) => channel === 'workspace:chat-update' && scope === 'home',
-      ),
-    ).toBe(true);
+    // run 事件按状态机推进。
     expect(runEventsOf(sessionId).map((event) => event.status)).toEqual([
       'pending',
       'running',

@@ -31,8 +31,8 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const entryId = parseNoteTabId(tabId);
   const scrollKey = `${tabId}:${groupId}`;
   const source = useNoteDraftSource();
-  const draft = entryId !== null ? source?.useDraft(entryId) : undefined;
-  const path = source?.usePath?.(entryId ?? '');
+  const draft = entryId !== null ? source.useDraft(entryId) : undefined;
+  const path = source.usePath?.(entryId ?? '');
   const [error, setError] = useState<string | null>(null);
   const [confirmReload, setConfirmReload] = useState(false);
   const [mode, setMode] = useState<NoteMode>(() =>
@@ -44,7 +44,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   draftRef.current = draft;
 
   useEffect(() => {
-    if (entryId === null || !source) return;
+    if (entryId === null) return;
     let active = true;
     setError(null);
     const refresh = (force: boolean) => {
@@ -67,12 +67,6 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     };
   }, [entryId, source]);
 
-  if (!source)
-    return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-        笔记编辑尚未接入草稿数据源（NoteDraftSourceProvider，3B 接线）
-      </div>
-    );
   if (entryId === null)
     return (
       <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">

@@ -434,7 +434,6 @@ export const ChatThread = memo(function ChatThread({
   onSaveNote,
   onEditLast,
   mailDialog,
-  className,
 }: {
   chat: WorkspaceChat;
   /** 点击引用来源 chip 时打开对应文档；未提供时 chip 以纯文本呈现。 */
@@ -444,7 +443,6 @@ export const ChatThread = memo(function ChatThread({
   onEditLast?: (text: string) => void;
   /** 邮件草稿检查弹窗（容器注入，3B 接 features/mail）；未注入时隐藏草稿入口。 */
   mailDialog?: MailDraftDialog;
-  className?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -532,7 +530,7 @@ export const ChatThread = memo(function ChatThread({
   const handleEditLast = useCallback((text: string) => onEditLast?.(text), [onEditLast]);
 
   return (
-    <div className={`relative min-h-0 flex-1 ${className ?? ''}`}>
+    <div className="relative min-h-0 flex-1">
       <div
         ref={scrollRef}
         className="size-full overflow-y-auto [overflow-anchor:none]"

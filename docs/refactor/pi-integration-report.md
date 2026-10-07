@@ -2,7 +2,7 @@
 
 日期：2026-09-29。状态：阶段一交付；验证范围限于本地 mock OpenAI 兼容服务的协议路径，真实提供商实测待用户执行。
 
-本文落实 [Agent 与工作区重构计划](../agent-workspace-plan.md) §5.1 的「最小接入验证」：安装精确版本依赖、以本地 mock SSE 服务实测 Pi Agent 的关键路径、给出能否替换 `src/main/agent/loop.ts` 的结论。探针代码在 `src/main/agent/pi-probe/`（不接入应用入口）。
+本文落实 [Agent 与工作区重构计划](../agent-workspace-plan.md) §5.1 的「最小接入验证」：安装精确版本依赖、以本地 mock SSE 服务实测 Pi Agent 的关键路径、给出能否替换 `src/main/agent/loop.ts` 的结论。探针代码原在 `src/main/agent/pi-probe/`（不接入应用入口；2026-09-30 起有用断言已并入 `src/main/agent/core/test/pi-runtime.test.ts`，探针目录不再存在；报告所列 `pi-session-backend-sqlite-node` 依赖已按 [decisions-phase1.md](decisions-phase1.md) 总裁决 2 移除）。
 
 标注约定：**【实测】** 为本报告探针运行得出的结论；**【代码核查】** 为阅读安装后 `.d.ts`/实现得出的结论；**【待验证】** 为无法在 mock 层确认、留给真实服务或后续阶段的项。
 
