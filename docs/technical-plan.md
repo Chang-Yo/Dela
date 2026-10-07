@@ -3,7 +3,7 @@
 日期：2026-09-09 制定；2026-09-18 修订（开发记录移至 [devlog.md](devlog.md)）。
 状态：本文描述产品定位、技术基线、进程边界与架构契约，是开发的首要依据。功能演进、设计裁决与验证边界的时间线见[开发记录](devlog.md)；用户最新明确决定优先于本文。
 
-2026-10-07 在线赞助规划（未实施）：用户接受跳转爱发电收款。拟由独立 ECS 应用核实订单、关联赞助者身份及管理公开昵称头像，Dela 只获取公开名单和打开网页，不建设通用云账号、不持有支付凭据。两端分工、接口草案、权限前置条件、协作交接和验收阶段见[在线赞助协作计划书](sponsorship-plan.md)；OAuth 可用性、产品细节与真实支付闭环尚待验证，不能据此宣称上线。
+2026-10-07 在线赞助（Dela 侧 M1 已实施，服务端未部署）：用户接受跳转爱发电收款。由独立 ECS 应用核实订单、关联赞助者身份及管理公开昵称头像，Dela 只获取公开名单和打开网页，不建设通用云账号、不持有支付凭据。桌面侧已落地：`src/main/sponsors.ts` 请求固定 origin 的 `/api/v1/sponsors`（zod 严格校验、非法响应保留旧缓存、ETag 304 重验证、缓存存 workspace_settings 且 7 天上限、并发合并、自动刷新 60 秒冷却、429 按 Retry-After 退避），preload `sponsors` 命名空间暴露有限操作，关于页展示在线名单并在系统浏览器打开 `/support`；头像仅接受 origin 内 `/media/avatars/` 相对路径。超时、保留期与大小上限为暂定值，待 M0 契约冻结后对齐；本地 Sponsors 硬编码在迁移完成前保留。两端分工、接口草案、协作交接和验收阶段见[在线赞助协作计划书](sponsorship-plan.md)；OAuth 可用性、真实联调与支付闭环尚待验证，不能据此宣称上线。
 
 2026-10-07 Hybrid Collapsible Trace（用户补充开合裁决）：新一轮运行自动展开，整轮结束后自动折叠为紧凑进度入口，正文到达不提前收起，操作对象、操作数、失败计数和结束用时按已有消息数据派生；标题在展开状态仍常驻。用户展开后按原始 parts 顺序查看思考与工具记录；不展示工具前后的公开正文片段，原始工具数据降为明确的详情入口。尾部公开正文继续独立展示，不新增模型协议或结果推断。采用现有 Radix Collapsible；展开过程暂停贴底，回到底部恢复，重发的新回复重置展开状态。针对性自动化与实际观感的验证边界见开发记录。
 
@@ -164,6 +164,7 @@ Dela/
 |   |   |-- resource-parse.ts         # PDF/DOCX/PPTX 文本提取与 OOXML 类型识别
 |   |   |-- office-export.ts          # pptx 经 PowerPoint 导出 PDF 与关联（Win/mac Quick Look）
 |   |   |-- search.ts                 # 全局搜索
+|   |   |-- sponsors.ts               # 在线赞助名单（获取/校验/缓存/退避）
 |   |   |-- notifications.ts          # 通知中心
 |   |   |-- system-notify.ts          # 系统桌面通知
 |   |   |-- todo.ts                   # Canvas 作业同步
@@ -179,10 +180,10 @@ Dela/
 |   |   `-- vsjtu/                    # 课堂视频录播（api.ts / ipc.ts，复用校园会话）
 |   |-- preload/
 |   |   |-- index.ts                  # contextBridge 聚合入口
-|   |   `-- lib.ts + 17 个命名空间文件 # canvas / capabilities / chat / layout / llm / mail /
-|   |                                 # notifications / search / session / settings / shuiyuan /
-|   |                                 # terminal / timetable / todo / vsjtu / window / workspace，
-|   |                                 # 通道名与 shared 契约对应
+|   |   `-- lib.ts + 18 个命名空间文件 # canvas / capabilities / chat / layout / llm / mail /
+|   |                                 # notifications / search / session / settings / sponsors /
+|   |                                 # shuiyuan / terminal / timetable / todo / vsjtu / window /
+|   |                                 # workspace，通道名与 shared 契约对应
 |   |-- renderer/
 |   |   |-- index.html
 |   |   |-- main.tsx                  # 仅挂载 React
