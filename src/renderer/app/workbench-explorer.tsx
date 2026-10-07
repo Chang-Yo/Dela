@@ -186,6 +186,10 @@ export function WorkbenchExplorer({
   // 用户拖拽偏好仍按原值持久化，仅在渲染时钳制。
   const effectiveWidth = Math.min(width, Math.max(200, Math.round(viewportWidth * 0.28)));
   const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-muted-foreground';
+  // 区块小标题：比组头浅一档的分层提示（同步 / 文件两区），纯展示不可交互；归档区靠底部
+  // 分隔线 + 自身组头分层，不另加小标题以免与"归档"组头文字重复。
+  const eyebrowClass =
+    'px-3 pt-3 pb-1 text-[11px] font-medium tracking-wider text-muted-foreground/60';
   const chevron = (open: boolean) => (
     <ChevronRight
       className={cn(
@@ -334,7 +338,8 @@ export function WorkbenchExplorer({
               {/* 课程资料只在通用（无项目）工作台显示；项目工作台只呈现项目自己的文件。 */}
               {projectId === null && (
                 <>
-                  <div className={cn(sectionClass, 'mt-1')}>
+                  <div className={eyebrowClass}>同步</div>
+                  <div className={sectionClass}>
                     <button
                       aria-expanded={sourcesOpen}
                       className="flex min-w-0 flex-1 items-center gap-1 text-left hover:text-foreground"
@@ -413,6 +418,7 @@ export function WorkbenchExplorer({
                     ))}
                 </>
               )}
+              <div className={eyebrowClass}>文件</div>
               <ProjectFileTree
                 canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
                 entries={entries}
@@ -427,9 +433,14 @@ export function WorkbenchExplorer({
                 rootId={rootId}
                 selected={activeDocKey ?? selected}
               />
+            </div>
+            {/* 归档固定在侧栏最底部：不随上方滚动区滚动（flex 收尾自然贴底）；与滚动区之间
+                用一条极淡 hairline 分界（三区背景层次保持不变，此处作为固定底区的分界）；
+                展开后的两棵 archived 树整体限高滚动，避免撑爆侧栏。 */}
+            <div className="shrink-0 border-t border-border/60">
               <button
                 aria-expanded={archiveOpen || Boolean(query.trim())}
-                className={cn(sectionClass, 'mt-3 w-full hover:text-foreground')}
+                className={cn(sectionClass, 'w-full hover:text-foreground')}
                 onClick={() => setArchiveOpen((value) => !value)}
                 type="button"
               >
@@ -438,7 +449,7 @@ export function WorkbenchExplorer({
                 归档
               </button>
               {(archiveOpen || query.trim()) && (
-                <>
+                <div className="max-h-56 overflow-y-auto pb-1">
                   {projectId === null && (
                     <SourcesTree
                       archived
@@ -466,7 +477,7 @@ export function WorkbenchExplorer({
                     rootId={workspaceArchiveId}
                     selected={activeDocKey ?? selected}
                   />
-                </>
+                </div>
               )}
             </div>
           </div>
