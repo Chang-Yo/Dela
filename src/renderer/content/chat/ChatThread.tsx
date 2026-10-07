@@ -279,6 +279,7 @@ const AssistantMessage = memo(function AssistantMessage({
   activeTool,
   onSaveNote,
   onOpenDraft,
+  onInspectTrace,
 }: {
   message: WorkspaceChat['messages'][number];
   live: boolean;
@@ -286,6 +287,7 @@ const AssistantMessage = memo(function AssistantMessage({
   onSaveNote: ((text: string) => void) | undefined;
   /** 容器未注入邮件草稿弹窗时为 undefined，对应入口隐藏。 */
   onOpenDraft: ((draftId: string) => void) | undefined;
+  onInspectTrace: () => void;
 }) {
   const reduced = useReducedMotion();
   // 旧会话缺少顺序信息，仅按原来的工具组 + 正文展示，不虚构中间说明。
@@ -309,7 +311,9 @@ const AssistantMessage = memo(function AssistantMessage({
   const workingParts =
     answerIndex === -1 ? [...parts] : parts.filter((_, index) => index !== answerIndex);
   const hasActivity = workingParts.some(
-    (part) => part.type === 'tools' || part.type === 'reasoning',
+    (part) =>
+      (part.type === 'tools' && part.results.length > 0) ||
+      (part.type === 'reasoning' && Boolean(part.text)),
   );
   const answer = answerIndex >= 0 ? parts[answerIndex] : null;
   // 用时只在结束后计算为静态值；运行中的头部不带跳动的秒数。
@@ -380,10 +384,12 @@ const AssistantMessage = memo(function AssistantMessage({
       {hasActivity ? (
         <>
           <WorkingSection
+            key={message.startedAt}
+            onInspect={onInspectTrace}
             elapsedMs={elapsedMs}
             failed={failed}
             live={live}
-            autoOpen={live && answerIndex < 0}
+            answering={answerIndex >= 0 && !activeTool}
             parts={workingParts}
             status={message.stopped ? 'stopped' : message.interrupted ? 'interrupted' : 'done'}
           />
@@ -417,7 +423,7 @@ const AssistantMessage = memo(function AssistantMessage({
           ) : null,
         )
       )}
-      {/* 运行中状态由状态行（无过程时）与 WorkingSection 的步骤行承载，不再叠加「正在思考…」。 */}
+      {/* 运行进度由状态行或过程入口承载，正文不再叠加状态提示。 */}
       {!live && message.content && (
         <MessageActions content={message.content} onSaveNote={onSaveNote} />
       )}
@@ -475,7 +481,7 @@ export const ChatThread = memo(function ChatThread({
     const atBottomNow = el.scrollHeight - el.scrollTop - el.clientHeight <= lineHeightRef.current;
     setAtBottom(atBottomNow);
     // 跟随只由滚动位置驱动：滚轮/触摸/键盘/滚动条的用户滚动都触发 scroll 事件——上滚
-    // 退出跟随，回到容差内的底部恢复跟随；点按消息内按钮不产生滚动，不打断跟随。
+    // 退出跟随，回到容差内的底部恢复跟随；展开过程另由用户事件暂停跟随。
     if (atBottomNow) followBottom.current = true;
     else if (el.scrollTop < lastScrollTop.current) followBottom.current = false;
     lastScrollTop.current = el.scrollTop;
@@ -523,6 +529,9 @@ export const ChatThread = memo(function ChatThread({
   const MailDialog = mailDialog;
   // 消息组件 memo 后回调必须稳定，弹窗/编辑入口的局部状态才不带动消息列表重渲。
   const openDraft = useCallback((id: string) => setDraftId(id), []);
+  const inspectTrace = useCallback(() => {
+    followBottom.current = false;
+  }, []);
   const handleEditLast = useCallback((text: string) => onEditLast?.(text), [onEditLast]);
 
   return (
@@ -546,6 +555,7 @@ export const ChatThread = memo(function ChatThread({
               />
             ) : (
               <AssistantMessage
+                onInspectTrace={inspectTrace}
                 key={`${chat.sessionId}:${index}`}
                 live={streaming && index === messages.length - 1}
                 message={message}

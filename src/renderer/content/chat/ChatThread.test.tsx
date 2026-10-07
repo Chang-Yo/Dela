@@ -160,3 +160,70 @@ it('同索引编辑重发的新回复就位时重新跟随，而不是依赖 run
   await act(async () => root.render(<ChatThread chat={restarted} />));
   expect(viewport().scrollTop).toBe(560);
 });
+
+it('查看工作过程暂停贴底，展开和后续流式增长不会将过程入口推离视线', async () => {
+  const traced: WorkspaceChat = {
+    ...chat,
+    messages: [
+      chat.messages[0]!,
+      {
+        role: 'assistant',
+        content: '',
+        startedAt: 1,
+        parts: [
+          {
+            type: 'tools',
+            results: [{ id: 'tool-1', name: 'search_sources', input: { query: '课件' } }],
+          },
+        ],
+      },
+    ],
+  };
+  await act(async () => root.render(<ChatThread chat={traced} />));
+  const trigger = host.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+  await act(async () => trigger.click());
+  await act(async () => trigger.click());
+  await resizeTo(1600);
+  expect(viewport().scrollTop).toBe(560);
+  await resizeTo(1800);
+  expect(viewport().scrollTop).toBe(560);
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="回到底部"]')!.click());
+  await resizeTo(2000);
+  expect(viewport().scrollTop).toBe(1360);
+});
+
+it('最终回答保持在折叠区外，同索引重发会重置过程展开状态', async () => {
+  const traced: WorkspaceChat = {
+    ...chat,
+    messages: [
+      chat.messages[0]!,
+      {
+        role: 'assistant',
+        content: '这是回答',
+        startedAt: 1,
+        parts: [
+          { type: 'reasoning', text: '核对资料的过程' },
+          { type: 'text', text: '这是回答' },
+        ],
+      },
+    ],
+  };
+  await act(async () => root.render(<ChatThread chat={traced} />));
+  expect(host.textContent).toContain('这是回答');
+  expect(host.textContent).toContain('核对资料的过程');
+  const trigger = host.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+  expect(trigger.textContent).toContain('正在整理回答');
+  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('这是回答');
+  await act(async () => trigger.click());
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...traced,
+          messages: [traced.messages[0]!, { ...traced.messages[1]!, startedAt: 2 }],
+        }}
+      />,
+    ),
+  );
+  expect(host.querySelector('button[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true');
+});

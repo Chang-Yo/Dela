@@ -1,9 +1,12 @@
-import { useId, useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Collapsible } from 'radix-ui';
 import {
   BookOpen,
+  Brain,
   CalendarDays,
   CalendarPlus,
   ChevronRight,
+  Check,
   CircleAlert,
   ClipboardList,
   CopyPlus,
@@ -24,7 +27,6 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
 import { cn } from '../../lib/utils';
-import { ChatMarkdown } from './markdown';
 import styles from './timeline.module.css';
 
 type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
@@ -88,184 +90,237 @@ function stepState(result: AgentToolResult, live: boolean): StepState {
   return (result.output as ToolOutput)?.ok ? 'done' : 'failed';
 }
 
-/** 单个动作行：图标钉在左侧连线上，动词 + 摘要一行；点击展开原始输入输出。 */
+/** 左侧连线的图标节点：所有行共用一个槽位，保证 rail 对齐一致。 */
+function RailNode({ children }: { children: ReactNode }) {
+  return (
+    <span aria-hidden className="relative z-10 grid size-6 place-items-center bg-background">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * 思考段：过程叙事里最弱的一层。收起时只有一行小号弱化文案（思考 · N 秒），
+ * 点击展开全文；运行中尚未结束的思考默认展开（实时可见），结束后自动收起，
+ * 手动开合后尊重用户选择。
+ */
+function ThoughtStep({
+  text,
+  startedAt,
+  finishedAt,
+  live,
+}: {
+  text: string;
+  startedAt?: number;
+  finishedAt?: number;
+  live: boolean;
+}) {
+  const [override, setOverride] = useState<boolean | null>(null);
+  const open = override ?? (live && finishedAt === undefined);
+  const duration =
+    startedAt !== undefined && finishedAt !== undefined
+      ? formatDuration(finishedAt - startedAt)
+      : null;
+  return (
+    <li className="grid min-w-0 animate-in grid-cols-[auto_minmax(0,1fr)] gap-3 fade-in duration-300 motion-reduce:animate-none">
+      <RailNode>
+        <Brain className="size-3.5" />
+      </RailNode>
+      <div className="min-w-0 py-0.5">
+        <button
+          type="button"
+          aria-expanded={open}
+          className="flex items-center gap-1 rounded-sm py-0.5 text-left text-xs transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+          onClick={() => setOverride(!open)}
+        >
+          <span>思考</span>
+          {duration && <span className="tabular-nums">· {duration}</span>}
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              'size-3 transition-transform motion-reduce:transition-none',
+              open && 'rotate-90',
+            )}
+          />
+        </button>
+        <div
+          aria-hidden={!open}
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
+            open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div data-reasoning-body className="whitespace-pre-wrap py-0.5 leading-relaxed">
+              {text}
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** 工具动作：单行紧凑条目（图标 + 动词 + 一行摘要），成功不需要文字说明；
+ *  原始数据收进安静的「输入与结果」disclosure。 */
 function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean }) {
-  const [open, setOpen] = useState(false);
-  const detailId = useId();
   const { label, icon: Icon } = display(result.name);
   const state = stepState(result, live);
   const output = result.output as ToolOutput | undefined;
   const chip = stepChip(result);
   return (
-    <li className="relative animate-in fade-in pl-6 duration-300 motion-reduce:animate-none slide-in-from-bottom-1">
-      <span className="absolute left-0 top-1 grid size-3.5 place-items-center">
+    <li className="grid min-w-0 animate-in grid-cols-[auto_minmax(0,1fr)] gap-3 fade-in duration-300 motion-reduce:animate-none">
+      <RailNode>
         {state === 'running' ? (
           <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
         ) : state === 'failed' ? (
           <CircleAlert className="size-3.5 text-destructive" />
-        ) : state === 'interrupted' ? (
-          <CircleAlert className="size-3.5 text-muted-foreground" />
         ) : (
-          <Icon className="size-3.5 text-muted-foreground" />
+          <Icon className="size-3.5" />
         )}
-      </span>
-      <button
-        className="flex w-full min-w-0 items-center gap-2 rounded-md py-0.5 text-left transition-colors hover:text-foreground"
-        aria-expanded={open}
-        aria-controls={detailId}
-        onClick={() => setOpen((current) => !current)}
-        type="button"
-      >
-        {state === 'running' ? (
-          <span className={`shrink-0 font-medium ${styles.shimmer}`} role="status">
-            正在{label}…
-          </span>
-        ) : (
-          <span className="shrink-0 font-medium">{label}</span>
-        )}
-        {state !== 'failed' && state !== 'interrupted' && chip && (
-          <span className="min-w-0 truncate text-xs text-muted-foreground">「{chip}」</span>
-        )}
-        {state === 'failed' && output?.error?.message && (
-          <span className="min-w-0 truncate text-xs text-destructive">{output.error.message}</span>
-        )}
-        {state === 'interrupted' && <span className="text-xs text-muted-foreground">未完成</span>}
-        <ChevronRight
-          className={cn(
-            'ms-auto size-3 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none',
-            open && 'rotate-90',
+      </RailNode>
+      <div className="min-w-0 py-0.5">
+        <div className="flex min-w-0 items-baseline gap-x-2">
+          <span className="shrink-0">{label}</span>
+          {chip && (
+            <span className="min-w-0 truncate text-xs text-muted-foreground" title={chip}>
+              {chip}
+            </span>
           )}
-        />
-      </button>
-      <div id={detailId} hidden={!open}>
-        <pre className="my-1 max-h-48 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-all rounded-md bg-background p-3 text-xs text-muted-foreground">
-          {JSON.stringify({ input: result.input, output: result.output }, null, 2)}
-        </pre>
+          {state === 'running' && <span className="sr-only">进行中</span>}
+          {state === 'interrupted' && <span className="shrink-0 text-xs">未完成</span>}
+        </div>
+        {state === 'failed' && (
+          <p className="mt-1 whitespace-pre-wrap text-xs text-destructive">
+            {output?.error?.message || '工具未返回成功结果'}
+          </p>
+        )}
+        <details className="group/details text-xs">
+          <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-0.5 rounded-sm py-0.5 transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+            输入与结果
+            <ChevronRight
+              aria-hidden
+              className="size-3 transition-transform motion-reduce:transition-none group-open/details:rotate-90"
+            />
+          </summary>
+          <pre className="mb-1 mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3">
+            {JSON.stringify({ input: result.input, output: result.output }, null, 2)}
+          </pre>
+        </details>
       </div>
     </li>
   );
 }
 
-/** 思考段落：圆点钉在连线上，正文以弱化色阅读。 */
-function ThoughtRow({ text }: { text: string }) {
-  return (
-    <li className="relative pl-6">
-      <span
-        aria-hidden
-        className="absolute left-[4px] top-[9px] size-1.5 rounded-full bg-muted-foreground/50"
-      />
-      <div data-reasoning-body className="whitespace-pre-wrap py-0.5 text-sm leading-relaxed">
-        {text}
-      </div>
-    </li>
-  );
-}
-
-/** 工具之间的说明文字：与思考段落同级展示，但不带圆点。 */
-function NarrationRow({ text }: { text: string }) {
-  return (
-    <li className="relative pl-6">
-      <div className="py-0.5 [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0">
-        <ChatMarkdown
-          className="text-sm leading-relaxed"
-          mode="streaming"
-          isAnimating={false}
-          animated={false}
-        >
-          {text}
-        </ChatMarkdown>
-      </div>
-    </li>
-  );
-}
-
-/**
- * 工作过程区（DeepSeek 风格）：思考、动作与中间说明按发生顺序平铺在一条左侧连线上，
- * 整段只有一个折叠层级——消除此前“已工作 > 动作组 > 步骤”的冗余层级。
- * 运行中自动展开；尾部公开正文开始后整段自动收起；手动开合后尊重用户选择。
- */
+/** 新一轮自动展开，整轮结束后收起；运行期间保留手动开合选择。 */
 export function WorkingSection({
   parts,
   live,
-  autoOpen,
+  answering = false,
   status,
   elapsedMs,
   failed,
+  onInspect,
 }: {
   parts: ChatParts;
   live: boolean;
-  autoOpen: boolean;
+  answering?: boolean;
   status: 'done' | 'interrupted' | 'stopped';
   elapsedMs: number | null;
   failed: number;
+  onInspect?: () => void;
 }) {
-  // null 跟随 autoOpen 自动开合；首次手动点击后固定用户选择，不再被流式状态覆盖。
-  const [override, setOverride] = useState<boolean | null>(null);
-  const open = override ?? autoOpen;
-  const bodyId = useId();
+  const [disclosure, setDisclosure] = useState({ live, open: live });
+  // 只在运行阶段改变时重置开合，正文和工具更新不触发自动收起。
+  const open = disclosure.live === live ? disclosure.open : live;
+  if (disclosure.live !== live) setDisclosure({ live, open: live });
+  const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
+  const active = live ? tools.findLast((tool) => tool.output === undefined) : undefined;
+  const lastPart = parts.findLast((part) => part.type !== 'tools' && Boolean(part.text));
+  const label = live
+    ? active
+      ? `正在${display(active.name).label}`
+      : answering
+        ? '正在整理回答'
+        : lastPart?.type === 'reasoning'
+          ? '正在思考'
+          : '正在工作'
+    : status === 'interrupted'
+      ? '工作中断'
+      : status === 'stopped'
+        ? '已停止'
+        : '已完成';
+  const context = active ? stepChip(active) : '';
+  const StatusIcon = live ? LoaderCircle : status !== 'done' || failed > 0 ? CircleAlert : Check;
 
   return (
-    <div className="my-4 min-w-0 text-sm text-muted-foreground">
-      <button
-        aria-expanded={open}
-        aria-controls={bodyId}
-        className="flex max-w-full items-center gap-1.5 rounded-md py-1 text-left transition-colors hover:text-foreground"
-        onClick={() => setOverride(!open)}
-        type="button"
-      >
-        {live && !open ? (
-          // 展开态下步骤行自带运行中闪烁，头部再闪一处是重复进度指示，故仅在折叠时显示。
-          <span className={`shrink-0 ${styles.shimmer}`} role="status">
-            正在工作
-          </span>
-        ) : live ? (
-          <span className="sr-only">正在工作</span>
-        ) : (
-          <span className="truncate tabular-nums">
-            {status === 'interrupted' ? '工作中断' : status === 'stopped' ? '已停止' : '已工作'}
-            {elapsedMs !== null ? ` · ${formatDuration(elapsedMs)}` : ''}
-            {failed > 0 && <span className="text-destructive"> · {failed} 个失败</span>}
-          </span>
+    <Collapsible.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (next) onInspect?.();
+        setDisclosure({ live, open: next });
+      }}
+      className="my-4 min-w-0 text-sm text-muted-foreground"
+    >
+      {/* 汇总行收成一个左对齐的整簇：状态图标 + 结论 + 弱化的元信息 + 旋转指示，
+          不再把元信息推到右端割裂成两团。 */}
+      <Collapsible.Trigger className="flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 text-left transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring">
+        <StatusIcon
+          aria-hidden
+          className={cn(
+            'size-3.5 shrink-0',
+            live && 'motion-safe:animate-spin',
+            !live && failed > 0 && 'text-destructive',
+          )}
+        />
+        <span
+          className={cn('min-w-0 truncate', live && styles.shimmer)}
+          role={live ? 'status' : undefined}
+        >
+          {label}
+          {context && <span> · {context}</span>}
+        </span>
+        {tools.length > 0 && (
+          <span className="shrink-0 text-xs tabular-nums">· {tools.length} 项操作</span>
+        )}
+        {elapsedMs !== null && (
+          <span className="shrink-0 text-xs tabular-nums">· {formatDuration(elapsedMs)}</span>
+        )}
+        {failed > 0 && (
+          <span className="shrink-0 text-xs tabular-nums text-destructive">· {failed} 项失败</span>
         )}
         <ChevronRight
+          aria-hidden
           className={cn(
             'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
             open && 'rotate-90',
           )}
         />
-      </button>
-      <div
-        id={bodyId}
-        inert={!open}
-        className={cn(
-          'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-      >
-        <div data-worked-body className="min-h-0 overflow-hidden">
-          <div aria-label="工作过程" className="relative my-1 py-1">
-            <div
-              aria-hidden
-              className="absolute inset-y-0 left-[7px] w-px -translate-x-1/2 bg-border"
-            />
-            <ul className="space-y-1">
-              {parts.map((part, index) => {
-                if (part.type === 'tools') {
-                  return part.results.map((result) => (
-                    <TimelineStep key={result.id} live={live} result={result} />
-                  ));
-                }
-                if (!part.text) return null;
-                return part.type === 'reasoning' ? (
-                  <ThoughtRow key={index} text={part.text} />
-                ) : (
-                  <NarrationRow key={index} text={part.text} />
-                );
-              })}
-            </ul>
-          </div>
+      </Collapsible.Trigger>
+      <Collapsible.Content>
+        <div data-worked-body aria-label="工作过程" className="relative mt-3">
+          <div aria-hidden className="absolute inset-y-0 left-3 w-px -translate-x-1/2 bg-border" />
+          <ul className="space-y-2">
+            {parts.map((part, index) => {
+              if (part.type === 'tools')
+                return part.results.map((result) => (
+                  <TimelineStep key={result.id} live={live} result={result} />
+                ));
+              // 工具前后的公开正文可能只是流式短片段，不作为过程记录展示。
+              if (part.type !== 'reasoning' || !part.text) return null;
+              return (
+                <ThoughtStep
+                  key={index}
+                  text={part.text}
+                  startedAt={part.startedAt}
+                  finishedAt={part.finishedAt}
+                  live={live}
+                />
+              );
+            })}
+          </ul>
         </div>
-      </div>
-    </div>
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }
