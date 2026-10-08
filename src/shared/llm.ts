@@ -26,7 +26,7 @@ export interface LlmSaveInput {
   id?: string;
   name: string;
   baseUrl: string;
-  /** 留空且 id 已存在、地址未变时保留已保存密钥；新建或更改地址时必填。 */
+  /** 留空且 id 已存在时沿用已保存密钥（改地址同样不必重填）；新建时必填。 */
   apiKey?: string;
   models: string[];
   model: string;
@@ -48,6 +48,8 @@ export interface LlmVerifyResult {
   message: string;
   /** 检测成功时端点返回的模型 id 列表，可能为空。 */
   models?: string[];
+  /** 探测出的真实 API 根地址（例如裸源地址补上 /v1）；与填写值不同才出现，表单据此自动校正。 */
+  baseUrl?: string;
 }
 
 export interface LlmApi {

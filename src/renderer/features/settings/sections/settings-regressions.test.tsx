@@ -209,6 +209,70 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
   expect(container.querySelector<HTMLInputElement>('input')?.value).toBe('B draft');
 });
 
+it('adopts the versioned API base discovered while creating a provider', async () => {
+  let saved: LlmSaveInput | undefined;
+  window.dela = {
+    llm: {
+      list: async () => [],
+      verify: async () => ({
+        ok: true,
+        message: '连接成功，发现 1 个模型',
+        models: ['mimo-v2.6-flash'],
+        baseUrl: 'http://192.168.60.110:13000/v1',
+      }),
+      save: async (input: LlmSaveInput) => {
+        saved = input;
+        return { ...input, id: 'new', effortLevels: [], effort: null, active: true };
+      },
+      setActive: async () => {},
+    },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<LlmSection />));
+  await act(async () => button('添加提供商').click());
+  await fill(
+    container.querySelector<HTMLInputElement>('input[type="url"]')!,
+    'http://192.168.60.110:13000/',
+  );
+  await fill(container.querySelector<HTMLInputElement>('input[type="password"]')!, 'test-only');
+  await act(async () => button('检测模型').click());
+  expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.value).toBe(
+    'http://192.168.60.110:13000/v1',
+  );
+  await act(async () => button('保存').click());
+  expect(saved?.baseUrl).toBe('http://192.168.60.110:13000/v1');
+});
+
+it('rewrites an existing provider to the API base the service actually serves', async () => {
+  const provider: LlmProviderView = {
+    id: 'a',
+    name: '自建网关',
+    baseUrl: 'https://api.deepseek.com',
+    models: ['deepseek-chat'],
+    model: 'deepseek-chat',
+    effortLevels: [],
+    effort: null,
+    presetId: null,
+    active: true,
+  };
+  window.dela = {
+    llm: {
+      list: async () => [provider],
+      verify: async () => ({
+        ok: true,
+        message: '连接成功',
+        models: [],
+        baseUrl: 'https://api.deepseek.com/v1',
+      }),
+    },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<LlmSection />));
+  await act(async () => button('检测模型').click());
+  // 沿用已存密钥即可，改地址不再要求重填，所以编辑态也直接校正到位。
+  expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.value).toBe(
+    'https://api.deepseek.com/v1',
+  );
+});
+
 it('rejects a digit-family recording that conflicts at other digits', async () => {
   const writes: unknown[] = [];
   window.dela = {

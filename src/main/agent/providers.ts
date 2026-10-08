@@ -133,9 +133,6 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
   if (parsed.id) {
     provider = config.providers.find(({ id }) => id === parsed.id);
     if (!provider) throw new Error('要编辑的提供商不存在');
-    if (!parsed.apiKey?.trim() && baseUrl !== provider.baseUrl.replace(/\/+$/, '')) {
-      throw new Error('API 地址已更改，请重新填写 API Key');
-    }
     Object.assign(provider, {
       name: parsed.name,
       baseUrl,
@@ -226,21 +223,29 @@ export function setLlmEffort(level: string): void {
   saveLlmConfig(config);
 }
 
-/** 模型列表端点候选：以 /v数字 结尾时直接 {base}/models，否则先试 /v1/models 再 {base}/models。 */
-export function modelListEndpoints(baseUrl: string): string[] {
+/** 模型列表端点候选，并带上该候选对应的 OpenAI 兼容根地址：对话端点与模型列表同前缀，
+ *  所以「哪个 /models 应答了」就决定了实际该用哪个根地址发对话请求。 */
+export function modelListEndpoints(baseUrl: string): { models: string; apiBase: string }[] {
   const base = baseUrl.replace(/\/+$/, '');
-  return /\/v\d+$/.test(base) ? [`${base}/models`] : [`${base}/v1/models`, `${base}/models`];
+  return /\/v\d+$/.test(base)
+    ? [{ models: `${base}/models`, apiBase: base }]
+    : [
+        { models: `${base}/v1/models`, apiBase: `${base}/v1` },
+        { models: `${base}/models`, apiBase: base },
+      ];
 }
 
-/** 兼容 OpenAI {data:[{id}]}、智谱 {models:[{slug}]} 与裸数组三种模型列表形态。 */
-export function parseModelList(payload: unknown): string[] {
+/** 兼容 OpenAI {data:[{id}]}、智谱 {models:[{slug}]} 与裸数组三种模型列表形态。
+ *  形态不符返回 null 而非空列表：网关常把控制台首页以 200 返回，那不是「没有模型」，
+ *  而是「这个地址不是 API 根」，必须继续试下一个候选。 */
+export function parseModelList(payload: unknown): string[] | null {
   const source = Array.isArray(payload)
     ? payload
     : typeof payload === 'object' && payload !== null
       ? ((payload as { data?: unknown; models?: unknown }).data ??
         (payload as { models?: unknown }).models)
       : undefined;
-  if (!Array.isArray(source)) return [];
+  if (!Array.isArray(source)) return null;
   const ids = source
     .map((item) => {
       if (typeof item === 'string') return item;
@@ -256,7 +261,7 @@ export function parseModelList(payload: unknown): string[] {
 
 const VERIFY_TIMEOUT = 15000;
 
-/** 两种检测共用密钥目标绑定，保证沿用存储密钥时只能访问其原地址。 */
+/** 两种检测共用的取密钥逻辑：填了用填的，留空则沿用该提供商已存的密钥。 */
 function verificationConnection(input: {
   id?: string;
   baseUrl: string;
@@ -266,20 +271,11 @@ function verificationConnection(input: {
     .object({ id: idSchema.optional(), baseUrl: baseUrlSchema, apiKey: apiKeySchema.optional() })
     .parse(input);
   let key = parsed.apiKey?.trim() ?? '';
-  let baseUrl = parsed.baseUrl;
   if (!key && parsed.id) {
-    const provider = loadLlmConfig().providers.find(({ id }) => id === parsed.id);
-    if (provider) {
-      if (baseUrl.replace(/\/+$/, '') !== provider.baseUrl.replace(/\/+$/, '')) {
-        return { ok: false, message: 'API 地址已更改，请重新填写 API Key' };
-      }
-      // 沿用存储密钥时，网络目标也必须来自同一份存储配置。
-      baseUrl = provider.baseUrl;
-      key = provider.apiKey;
-    }
+    key = loadLlmConfig().providers.find(({ id }) => id === parsed.id)?.apiKey ?? '';
   }
   if (!key) return { ok: false, message: '请先填写 API Key' };
-  return { baseUrl, key };
+  return { baseUrl: parsed.baseUrl, key };
 }
 
 /** 轻量密钥检测：GET 模型列表端点，401/403 视为密钥无效，成功时顺带返回模型列表。 */
@@ -291,8 +287,9 @@ export async function verifyLlm(input: {
   const connection = verificationConnection(input);
   if ('ok' in connection) return connection;
   const { baseUrl, key } = connection;
+  const typed = baseUrl.replace(/\/+$/, '');
   let unreachable = false;
-  for (const url of modelListEndpoints(baseUrl)) {
+  for (const { models: url, apiBase } of modelListEndpoints(baseUrl)) {
     try {
       const response = await fetch(url, {
         redirect: 'error',
@@ -303,12 +300,16 @@ export async function verifyLlm(input: {
         return { ok: false, message: `密钥无效或无权限（HTTP ${response.status}）` };
       }
       if (response.ok) {
-        const models = parseModelList(await response.json());
-        return {
-          ok: true,
-          message: models.length ? `连接成功，发现 ${models.length} 个模型` : '连接成功',
-          models,
-        };
+        const models = parseModelList(await response.json().catch(() => null));
+        if (models) {
+          return {
+            ok: true,
+            message: models.length ? `连接成功，发现 ${models.length} 个模型` : '连接成功',
+            models,
+            // 应答的那个端点前缀才是真实 API 根，回传给表单校正。
+            ...(apiBase !== typed ? { baseUrl: apiBase } : {}),
+          };
+        }
       }
     } catch {
       unreachable = true;
@@ -318,7 +319,7 @@ export async function verifyLlm(input: {
     ok: false,
     message: unreachable
       ? '无法连接模型服务，请检查 API 地址和网络'
-      : '该服务未提供模型列表接口，无法确认密钥有效性',
+      : '该地址没有返回模型列表，请检查 API 地址（OpenAI 兼容服务通常要以 /v1 结尾）',
   };
 }
 
@@ -335,19 +336,25 @@ export async function verifyLlmModel(input: unknown): Promise<LlmVerifyResult> {
     .parse(input);
   const connection = verificationConnection(parsed);
   if ('ok' in connection) return connection;
+  // 裸源地址先按模型列表端点探出真实 API 根：对话端点与它同前缀，不校正会打到网关首页上。
+  const typed = connection.baseUrl.replace(/\/+$/, '');
+  const corrected = /\/v\d+$/.test(typed)
+    ? undefined
+    : (await verifyLlm({ baseUrl: typed, apiKey: connection.key })).baseUrl;
+  const correction = corrected ? { baseUrl: corrected } : {};
   const settings = parsed.settings ?? {};
   const effortLevels = settings.effortLevels ?? [];
   const effort = settings.effort ?? effortLevels[0];
   try {
     const text = await verifyModel({
-      baseUrl: connection.baseUrl,
+      baseUrl: corrected ?? typed,
       apiKey: connection.key,
       model: parsed.model,
       reasoning: Boolean(effort && effort !== 'none'),
     });
     return text.trim()
-      ? { ok: true, message: '模型可用' }
-      : { ok: false, message: '请求完成但未返回内容，可用性待确认' };
+      ? { ok: true, message: '模型可用', ...correction }
+      : { ok: false, message: '请求完成但未返回内容，可用性待确认', ...correction };
   } catch (cause) {
     // 不回显上游报文，避免服务将认证头或其他敏感数据拼进错误。
     const message = cause instanceof Error ? cause.message : '';
@@ -357,6 +364,7 @@ export async function verifyLlmModel(input: unknown): Promise<LlmVerifyResult> {
       message: status
         ? `模型检测失败（HTTP ${status}）`
         : '模型检测失败，请检查模型 ID、权限、配置和网络',
+      ...correction,
     };
   }
 }

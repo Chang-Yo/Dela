@@ -72,15 +72,17 @@ it('detects actual model output over the same streaming API as chat', async () =
   }
 });
 
-it('does not send a stored key to a changed address during a model probe', async () => {
+it('reuses the stored key for a model probe at any address', async () => {
   const created = saveLlmProvider(input);
-  const fetcher = vi.fn();
+  const fetcher = vi.fn().mockRejectedValue(new TypeError('network'));
   vi.stubGlobal('fetch', fetcher);
-  expect(
-    (await verifyLlmModel({ id: created.id, baseUrl: 'https://other.example', model: input.model }))
-      .ok,
-  ).toBe(false);
-  expect(fetcher).not.toHaveBeenCalled();
+  const result = await verifyLlmModel({
+    id: created.id,
+    baseUrl: 'https://other.example',
+    model: input.model,
+  });
+  expect(result.ok).toBe(false);
+  expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
 });
 
 const input = {
@@ -142,17 +144,16 @@ describe('LLM provider config', () => {
       saveLlmProvider({ ...input, modelConfigs: { unknown: { contextWindow: 1000000 } } }),
     ).toThrow('模型配置必须属于模型列表');
   });
-  it('rejects changing the endpoint while reusing the stored key', () => {
+  it('accepts a new server while keeping the stored key', () => {
     const created = saveLlmProvider(input);
-    expect(() =>
-      saveLlmProvider({
-        ...input,
-        id: created.id,
-        baseUrl: 'https://other.example',
-        apiKey: undefined,
-      }),
-    ).toThrow('API 地址');
-    expect(listLlmProviders()[0]?.baseUrl).toBe(input.baseUrl);
+    const saved = saveLlmProvider({
+      ...input,
+      id: created.id,
+      baseUrl: 'https://other.example/v1',
+      apiKey: undefined,
+    });
+    expect(saved.baseUrl).toBe('https://other.example/v1');
+    expect(config.providers[0]?.apiKey).toBe('test-only');
   });
 
   it('allows changing the endpoint with an explicitly supplied key', () => {
@@ -288,17 +289,20 @@ describe('LLM provider config', () => {
 describe('model list endpoints', () => {
   it('appends /models when the base already ends with a version segment', () => {
     expect(modelListEndpoints('https://api.minimaxi.com/v1')).toEqual([
-      'https://api.minimaxi.com/v1/models',
+      { models: 'https://api.minimaxi.com/v1/models', apiBase: 'https://api.minimaxi.com/v1' },
     ]);
     expect(modelListEndpoints('https://open.bigmodel.cn/api/coding/paas/v4/')).toEqual([
-      'https://open.bigmodel.cn/api/coding/paas/v4/models',
+      {
+        models: 'https://open.bigmodel.cn/api/coding/paas/v4/models',
+        apiBase: 'https://open.bigmodel.cn/api/coding/paas/v4',
+      },
     ]);
   });
 
   it('tries /v1/models before /models for plain origins', () => {
     expect(modelListEndpoints('https://api.deepseek.com')).toEqual([
-      'https://api.deepseek.com/v1/models',
-      'https://api.deepseek.com/models',
+      { models: 'https://api.deepseek.com/v1/models', apiBase: 'https://api.deepseek.com/v1' },
+      { models: 'https://api.deepseek.com/models', apiBase: 'https://api.deepseek.com' },
     ]);
   });
 
@@ -309,7 +313,8 @@ describe('model list endpoints', () => {
     ]);
     expect(parseModelList({ models: [{ slug: 'glm-5.2' }] })).toEqual(['glm-5.2']);
     expect(parseModelList(['a', { id: 'b' }, 3, null])).toEqual(['a', 'b']);
-    expect(parseModelList({ error: { message: 'x' } })).toEqual([]);
+    expect(parseModelList({ error: { message: 'x' } })).toBeNull();
+    expect(parseModelList('<!doctype html>')).toBeNull();
   });
 });
 
@@ -321,18 +326,16 @@ describe('verifyLlm', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-  it.each(['https://other.example', `${input.baseUrl}/other`, 'http://api.deepseek.com'])(
-    'does not send a stored key to a different endpoint: %s',
-    async (baseUrl) => {
-      const created = saveLlmProvider(input);
-      const fetcher = vi.fn().mockResolvedValue(json({ data: [] }));
-      vi.stubGlobal('fetch', fetcher);
-      const result = await verifyLlm({ id: created.id, baseUrl });
-      expect(result.ok).toBe(false);
-      expect(result.message).toContain('API 地址');
-      expect(fetcher).not.toHaveBeenCalled();
-    },
-  );
+  it('reuses the stored key at whatever address is given', async () => {
+    const created = saveLlmProvider(input);
+    const fetcher = vi.fn().mockResolvedValue(json({ data: [{ id: 'deepseek-chat' }] }));
+    vi.stubGlobal('fetch', fetcher);
+    const result = await verifyLlm({ id: created.id, baseUrl: 'https://gateway.internal/v1' });
+    expect(result.ok).toBe(true);
+    // 探测目标就是用户刚填的地址，不回写成原存储地址。
+    expect(fetcher.mock.calls[0]![0]).toBe('https://gateway.internal/v1/models');
+    expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
+  });
 
   it('allows a trailing slash when verifying with the stored key', async () => {
     const created = saveLlmProvider(input);
@@ -386,8 +389,75 @@ describe('verifyLlm', () => {
     const fetcher = vi.fn().mockResolvedValue(json({ data: [] }));
     vi.stubGlobal('fetch', fetcher);
     const result = await verifyLlm({ id: created.id, baseUrl: input.baseUrl });
-    expect(result).toEqual({ ok: true, message: '连接成功', models: [] });
+    expect(result).toEqual({
+      ok: true,
+      message: '连接成功',
+      models: [],
+      baseUrl: `${input.baseUrl}/v1`,
+    });
     expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
+  });
+
+  it('corrects a bare origin to the versioned root that actually serves the API', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ data: [{ id: 'mimo-v2.6-flash' }] })));
+    expect(
+      await verifyLlm({ baseUrl: 'http://192.168.60.110:13000/', apiKey: 'test-only' }),
+    ).toEqual({
+      ok: true,
+      message: '连接成功，发现 1 个模型',
+      models: ['mimo-v2.6-flash'],
+      baseUrl: 'http://192.168.60.110:13000/v1',
+    });
+  });
+
+  it('does not read a gateway HTML page as an empty model list', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<!doctype html><title>New API</title>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    );
+    const result = await verifyLlm(verifyInput);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('/v1');
+  });
+
+  it('probes the versioned root before a model request at a bare origin', async () => {
+    const server = await MockOpenAiServer.start();
+    // 只接管模型列表探测；对话请求仍走真实 fetch 打到 mock 服务。
+    const realFetch = globalThis.fetch;
+    try {
+      const origin = server.baseUrl.replace(/\/v1$/, '');
+      server.enqueue({
+        kind: 'sse',
+        frames: [mockFrames.textDelta('OK'), mockFrames.finishFrame('stop')],
+      });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((...args: Parameters<typeof fetch>) =>
+          String(args[0]).endsWith('/v1/models')
+            ? Promise.resolve(json({ data: [{ id: 'test-model' }] }))
+            : realFetch(...args),
+        ),
+      );
+      const result = await verifyLlmModel({
+        baseUrl: origin,
+        apiKey: 'test-only',
+        model: 'test-model',
+      });
+      expect(result).toEqual({
+        ok: true,
+        message: '模型可用',
+        baseUrl: `${origin}/v1`,
+      });
+      expect(server.requests[0]?.url).toBe('/v1/chat/completions');
+    } finally {
+      vi.unstubAllGlobals();
+      await server.close();
+    }
   });
 
   it('requires a key before contacting the endpoint', async () => {

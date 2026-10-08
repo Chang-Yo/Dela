@@ -502,7 +502,11 @@ function ProviderDetail({
         baseUrl,
         apiKey: apiKey || undefined,
       });
-      if (version === connectionVersion.current) setVerifyResult(result);
+      if (version === connectionVersion.current) {
+        setVerifyResult(result);
+        // 检测顺带探出的真实 API 根（裸源地址补 /v1）直接采用：对话端点与它同前缀。
+        if (result.baseUrl) setBaseUrl(result.baseUrl);
+      }
     } catch (cause) {
       if (version === connectionVersion.current)
         setVerifyResult({ ok: false, message: errorText(cause) });
@@ -525,8 +529,10 @@ function ProviderDetail({
         model: id,
         settings: modelConfigs[id],
       });
-      if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id])
+      if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id]) {
         setModelResults((current) => ({ ...current, [id]: result }));
+        if (result.baseUrl) setBaseUrl(result.baseUrl);
+      }
     } catch (cause) {
       if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id])
         setModelResults((current) => ({
@@ -696,7 +702,7 @@ function ProviderDetail({
               setBaseUrl(event.target.value);
               invalidateDetection();
             }}
-            placeholder="https://…"
+            placeholder="https://api.example.com/v1"
             required
             type="url"
             value={baseUrl}
@@ -729,7 +735,7 @@ function ProviderDetail({
           />
           {/* 密钥去向无法从输入框本身看出，保留原来的说明。 */}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            密钥经系统加密保存在本机，不会回传页面。更改 API 地址时需重新填写密钥。
+            密钥经系统加密保存在本机，不会回传页面。留空即沿用已保存的密钥。
           </p>
         </div>
         <div className="grid gap-2 text-sm">

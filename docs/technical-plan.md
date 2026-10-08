@@ -25,12 +25,13 @@
 
 ## 会话与上下文
 
-- 项目＝目录：项目是 `kind='project'` 的 workspace 条目，身份是条目 UUID，目录是其 `local_path`。会话 cwd 恒为该目录（通用会话为工作区根）；目录缺失时报错，不静默换目录。
+- 项目＝目录：项目是 `kind='project'` 的 workspace 条目，身份是条目 UUID，目录是其 `local_path`；目录可在工作区内新建，也可导入电脑上已有的文件夹（留在原处，重命名/移动按同一套语义真的动磁盘）。会话 cwd 恒为该目录（通用会话为工作区根）；目录缺失时报错，不静默换目录。
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
 - 会话归属在创建时确定，ChatTab 从会话快照取 projectId/cwd，不取当前工作台。
 - 上下文是 pull 模型：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；附件文本与图片随用户消息进入 Pi 会话。
 - 系统提示＝Pi 默认提示 + Dela 追加段（dela 命令说明、项目名与目录、用户自定义指令）。
 - 编辑重发在 Pi 会话树上分支，旧分支保留在 JSONL。
+- 自定义 OpenAI 兼容网关的 API 根由模型列表端点探测决定（`{base}/v1/models` 应答则根为 `{base}/v1`，网关把控制台首页以 200 返回时不算命中）；检测回传校正地址，表单直接采用。密钥留空一律沿用已存值，改地址不要求重填。
 
 ## 安全
 
