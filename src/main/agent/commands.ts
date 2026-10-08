@@ -130,6 +130,8 @@ const isBlockedPort = (port: number) => BLOCKED_PORTS.has(port);
 
 export const COMMAND_BRIDGE = `dela() {
   command_name="$1"
-  command_json="\${2:-{}}"
+  # 不能写 \${2:-{}}：bash 会把默认值截断在第一个 }，再拼出一个字面量 } 破坏 JSON。
+  command_json="$2"
+  [ -n "$command_json" ] || command_json='{}'
   curl --silent --show-error --fail-with-body -H "Authorization: Bearer $DELA_COMMAND_TOKEN" -H 'Content-Type: application/json' --data "{\\"command\\":\\"$command_name\\",\\"input\\":$command_json}" "$DELA_COMMAND_URL"
 }`;
