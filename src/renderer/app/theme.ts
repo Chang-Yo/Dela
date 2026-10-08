@@ -25,11 +25,21 @@ export function useAppearance() {
   const [zoom, setZoom] = useState<ZoomPreference>(1);
   const [fontScale, setFontScale] = useState<FontScalePreference>(initialFontScale);
 
+  // 生效主题只由 .dark / .light 表达：跟随系统时按媒体查询解析，让所有 token（含 beautiful-ui
+  // 只认 .dark 的那套）走同一条路径。
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-    root.classList.toggle('light', theme === 'light');
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const dark = theme === 'dark' || (theme === 'system' && media.matches);
+      root.classList.toggle('dark', dark);
+      root.classList.toggle('light', !dark);
+    };
+    apply();
     localStorage.setItem(themeStorageKey, theme);
+    if (theme !== 'system') return;
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
   }, [theme]);
 
   useEffect(() => {

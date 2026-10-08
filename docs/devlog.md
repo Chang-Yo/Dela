@@ -44,6 +44,13 @@
 - 已验证：468 项测试、构建、冒烟、真实模型
 - 待验证：动画与流式观感（需人工审阅）
 - 整轮结束后过程自动折叠，只留最终回复
+- shadcn 语义色全部映射到 beautiful-ui token
+- 跟随系统深色统一解析为 :root.dark
+- 基础件换 beautiful-ui 外观，API 不变
+- 浮层统一 pop-in 动效与 raised 面板
+- Badge 换 StatusPill，删除 badge.tsx
+- 已验证：470 项测试、构建、冒烟
+- 待验证：全页面明暗主题观感（需人工审阅）
 
 ---
 

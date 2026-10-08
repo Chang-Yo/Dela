@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { Badge } from '../../../components/ui/badge';
+import { StatusPill } from '@/components/ui/beautifului/atoms/StatusPill';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import {
@@ -335,7 +335,11 @@ export function LlmSection() {
                             strokeWidth={1.8}
                           />
                           <span className="truncate">{provider.name}</span>
-                          {provider.active && <Badge className="ms-auto">使用中</Badge>}
+                          {provider.active && (
+                            <StatusPill className="ms-auto h-5 px-2 text-[11.5px]" tone="green">
+                              使用中
+                            </StatusPill>
+                          )}
                         </button>
                       </li>
                     );
@@ -599,7 +603,9 @@ function ProviderDetail({
         {provider && (
           <div className="flex shrink-0 items-center gap-2">
             {provider.active ? (
-              <Badge>使用中</Badge>
+              <StatusPill className="h-5 px-2 text-[11.5px]" tone="green">
+                使用中
+              </StatusPill>
             ) : (
               <Button
                 disabled={busy}
@@ -756,13 +762,17 @@ function ProviderDetail({
                       {id}
                     </span>
                     {settings?.contextWindow && (
-                      <Badge variant="secondary">
+                      <StatusPill className="h-5 px-2 text-[11.5px]" dot={false}>
                         {Intl.NumberFormat('en', { notation: 'compact' }).format(
                           settings.contextWindow,
                         )}
-                      </Badge>
+                      </StatusPill>
                     )}
-                    {id === model && <Badge variant="secondary">默认</Badge>}
+                    {id === model && (
+                      <StatusPill className="h-5 px-2 text-[11.5px]" dot={false}>
+                        默认
+                      </StatusPill>
+                    )}
                     <div className="flex shrink-0 items-center">
                       <Button
                         aria-label={`检测模型 ${id}`}

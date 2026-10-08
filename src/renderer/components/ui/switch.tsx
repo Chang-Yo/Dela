@@ -18,9 +18,10 @@ export function Switch({
     <button
       aria-checked={indeterminate ? 'mixed' : checked}
       aria-label={label}
+      // 外观取自 beautiful-ui Switch（ink 轨道、白色滑块、ease-out-strong 位移），保留三态。
       className={cn(
-        'h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50',
-        checked ? 'bg-primary' : indeterminate ? 'bg-primary/40' : 'bg-input',
+        'h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent disabled:pointer-events-none disabled:opacity-50',
+        checked ? 'bg-ink' : indeterminate ? 'bg-ink/40' : 'bg-line-strong',
       )}
       disabled={disabled}
       onClick={() => onChange(!checked)}
@@ -29,7 +30,7 @@ export function Switch({
     >
       <span
         className={cn(
-          'block size-4 rounded-full bg-background shadow-sm transition-transform',
+          'block size-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-transform duration-200 ease-(--ease-out-strong)',
           checked ? 'translate-x-4' : indeterminate && 'translate-x-2',
         )}
       />
