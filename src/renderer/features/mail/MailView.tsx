@@ -75,9 +75,9 @@ function MailUnavailable() {
   return (
     <div className="grid h-full place-items-center p-8">
       <div className="grid w-full max-w-[460px] gap-2">
-        <p className="text-[11px] font-medium text-muted-foreground">浏览器预览</p>
+        <p className="text-[11px] font-medium text-ink-3">浏览器预览</p>
         <h2 className="text-lg font-semibold tracking-tight">邮箱仅在 Dela 桌面端可用</h2>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
+        <p className="text-[13px] leading-relaxed text-ink-3">
           邮件账户、凭据与本地缓存不会暴露给浏览器。请通过 Electron 窗口测试同步和阅读。
         </p>
       </div>
@@ -672,7 +672,7 @@ function DesktopMailView({
     <div className="relative flex h-full min-h-0 flex-col">
       {sync?.phase === 'error' && sync.error && (
         <p
-          className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="mx-4 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
           role="alert"
         >
           同步出现问题：{sync.error}
@@ -743,29 +743,31 @@ function DesktopMailView({
             aria-label="本地草稿"
           >
             {/* 与文件夹/列表/回收站同一 h-11 头部规格，含计数。 */}
-            <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
-              <h2 className="flex items-center gap-2 text-sm font-medium">
+            <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
+              <h2 className="flex items-center gap-2 text-[13px] font-medium">
                 <FilePenLine className="size-4" />
                 本地草稿
               </h2>
-              <small className="text-xs text-muted-foreground">{localDrafts.length} 份</small>
+              <small className="text-[12px] text-ink-3">{localDrafts.length} 份</small>
             </div>
             <div className="min-h-0 flex-1 p-4">
               {draftError && (
-                <p role="alert" className="text-sm text-destructive">
+                <p role="alert" className="text-[13px] text-red">
                   {draftError}
                 </p>
               )}
-              {!localDrafts.length && <p className="text-sm text-muted-foreground">暂无草稿</p>}
+              {!localDrafts.length && <p className="text-[13px] text-ink-3">暂无草稿</p>}
               {localDrafts.map((item) => (
                 <div key={item.id} className="flex items-center gap-2 border-b py-3">
                   <button
                     disabled={openingDraft}
-                    className="min-w-0 flex-1 rounded text-left transition-colors hover:bg-muted/50"
+                    className="min-w-0 flex-1 rounded text-left transition-colors hover:bg-hover-2"
                     onClick={() => void editDraft(item.id)}
                   >
-                    <strong className="block truncate text-sm">{item.subject || '(无主题)'}</strong>
-                    <span className="block truncate text-xs text-muted-foreground">
+                    <strong className="block truncate text-[13px]">
+                      {item.subject || '(无主题)'}
+                    </strong>
+                    <span className="block truncate text-[12px] text-ink-3">
                       {item.recipientText || '未填写收件人'} ·{' '}
                       {new Date(item.updatedAt).toLocaleString()}
                     </span>
@@ -773,7 +775,7 @@ function DesktopMailView({
                   <button
                     aria-label="删除草稿"
                     title="删除草稿"
-                    className="rounded p-2 hover:bg-muted"
+                    className="rounded p-2 hover:bg-hover-2"
                     onClick={() => {
                       if (!window.confirm('删除这份本地草稿？')) return;
                       void dela.mail
@@ -884,7 +886,7 @@ function DesktopMailView({
           drawerSlot,
         )}
       {sendNotice && (
-        <p className="pointer-events-none absolute right-5 bottom-5 rounded-md bg-foreground px-3 py-2 text-xs text-background shadow-lg">
+        <p className="pointer-events-none absolute right-5 bottom-5 rounded-control bg-(--tooltip-bg) px-3 py-2 text-[12px] text-(--tooltip-fg) shadow-raised animate-[pop-in_160ms_var(--ease-out-strong)_both]">
           {sendNotice}
         </p>
       )}

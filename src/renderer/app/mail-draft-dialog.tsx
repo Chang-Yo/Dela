@@ -56,7 +56,7 @@ export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogPro
         >
           <Dialog.Title className="sr-only">检查邮件草稿</Dialog.Title>
           {hint && !state && (
-            <p role="status" className="p-4 text-sm text-muted-foreground">
+            <p role="status" className="p-4 text-[13px] text-ink-3">
               {hint}
             </p>
           )}

@@ -12,9 +12,9 @@ import {
 } from '../../components/ui/dropdown-menu';
 
 const toolbarToggle = cn(
-  'h-7 rounded-full px-3 text-xs transition-colors',
-  'aria-pressed:bg-secondary aria-pressed:font-medium aria-pressed:text-secondary-foreground',
-  'aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:hover:bg-muted',
+  'h-7 rounded-full px-3 text-[12px] transition-colors',
+  'aria-pressed:bg-hover-2 aria-pressed:font-medium aria-pressed:text-ink',
+  'aria-[pressed=false]:text-ink-3 aria-[pressed=false]:hover:bg-hover',
 );
 
 /** 未收到高度上报前的初始正文高度(px),收到上报后替换为真实高度。 */
@@ -66,7 +66,7 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
           <DropdownMenuTrigger asChild>
             <button
               aria-label="显示选项"
-              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2 hover:text-ink"
               title="显示选项"
               type="button"
             >
@@ -84,7 +84,7 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
         </DropdownMenu>
       </div>
       {plain ? (
-        <div className="mt-3 rounded-t-lg border-x border-t p-4 text-sm leading-relaxed whitespace-pre-wrap break-words">
+        <div className="mt-3 rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
           {text ?? new DOMParser().parseFromString(html, 'text/html').body.textContent}
         </div>
       ) : (

@@ -63,6 +63,9 @@
 - 设置页全部换 beautiful-ui token 与字号档
 - 设置目录选中态改 surface 卡片 + hairline
 - 页标题 xl，行标题 13px，说明 12px
+- 邮件列表去分隔线，改圆角选中块
+- 未读改 accent 小点，已读降为 ink-2
+- 邮件文件夹/撰写/阅读/回收站换 token
 - 新建项目可导入电脑上已有的文件夹
 - 外部项目目录留原处，身份＝UUID＋local_path
 - 自定义网关 API 根按模型列表端点探测校正
