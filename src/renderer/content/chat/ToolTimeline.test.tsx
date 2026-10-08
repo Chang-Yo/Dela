@@ -18,7 +18,7 @@ const parts: NonNullable<WorkspaceChat['messages'][number]['parts']> = [
   { type: 'text' as const, text: '我来' },
   {
     type: 'tools' as const,
-    results: [{ id: 'tool-1', name: 'search_sources', input: { query: '高等数学' } }],
+    results: [{ id: 'tool-1', name: 'grep', input: { pattern: '高等数学' } }],
   },
 ];
 const render = async (live = true, failed = 0, trace = parts) => {
@@ -50,7 +50,7 @@ afterEach(async () => {
 it('新一轮运行自动展开，入口显示当前动作及其对象', async () => {
   await render();
   expect(trigger().getAttribute('aria-expanded')).toBe('true');
-  expect(trigger().textContent).toContain('正在查找资料');
+  expect(trigger().textContent).toContain('正在搜索内容');
   expect(trigger().textContent).toContain('高等数学');
   expect(host.querySelector('[aria-label="工作过程"]')).not.toBeNull();
 });
@@ -61,7 +61,7 @@ it('正文流式输出不提前收起，整轮完成才自动折叠且允许重�
   expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('查询本周作业');
   expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('我来');
   expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('进度说明');
-  expect(trigger().textContent).toContain('正在查找资料');
+  expect(trigger().textContent).toContain('正在搜索内容');
   await act(async () =>
     root.render(<WorkingSection parts={parts} live elapsedMs={null} failed={0} status="done" />),
   );
@@ -91,9 +91,10 @@ it('折叠态保留失败计数，展开后显示完整错误并将原始数据�
       results: [
         {
           id: 'tool-1',
-          name: 'search_sources',
+          name: 'mcp_docs_search',
           input: { query: '高等数学' },
-          output: { ok: false, error: { message: '资料尚未同步' } },
+          output: { text: '资料尚未同步', isError: true },
+          finishedAt: 1,
         },
       ],
     },
@@ -106,7 +107,7 @@ it('折叠态保留失败计数，展开后显示完整错误并将原始数据�
   expect(trigger().textContent).toContain('1 项失败');
   await act(async () => trigger().click());
   expect(host.querySelector('[aria-label="工作过程"]')?.textContent).toContain('资料尚未同步');
-  expect(host.querySelector('summary')?.textContent).toContain('查找资料');
+  expect(host.querySelector('summary')?.textContent).toContain('mcp_docs_search');
   expect(host.textContent).not.toContain('输入与结果');
   expect(host.querySelector('details')?.open).toBe(false);
   await act(async () => host.querySelector('summary')!.click());
@@ -159,12 +160,12 @@ it('按原始事件顺序交错正文与过程，仅合并相邻过程，折叠�
     { type: 'reasoning', text: '核对文件夹身份' },
     {
       type: 'tools',
-      results: [{ id: 'list', name: 'list_mail_folders', input: {}, output: { ok: true } }],
+      results: [{ id: 'list', name: 'ls', input: {}, output: { text: '' }, finishedAt: 1 }],
     },
     { type: 'text', text: '找到垃圾邮件文件夹，继续搜索' },
     {
       type: 'tools',
-      results: [{ id: 'search', name: 'search_mail', input: {}, output: { ok: true } }],
+      results: [{ id: 'search', name: 'grep', input: {}, output: { text: '' }, finishedAt: 1 }],
     },
     { type: 'text', text: '搜索结果如下' },
   ];
@@ -173,9 +174,9 @@ it('按原始事件顺序交错正文与过程，仅合并相邻过程，折叠�
   expect(rows).toHaveLength(5);
   expect(rows[0]?.textContent).toBe('先查看文件夹');
   expect(rows[1]?.textContent).toContain('核对文件夹身份');
-  expect(rows[1]?.textContent).toContain('list_mail_folders');
+  expect(rows[1]?.textContent).toContain('ls');
   expect(rows[2]?.textContent).toBe('找到垃圾邮件文件夹，继续搜索');
-  expect(rows[3]?.textContent).toContain('查找邮件');
+  expect(rows[3]?.textContent).toContain('grep');
   expect(rows[4]?.textContent).toBe('搜索结果如下');
   const textNodes = [...host.querySelectorAll('[data-assistant-body]')];
   await render(false, 0, trace);

@@ -6,6 +6,8 @@ import { canSendInput, isEmptySession, shouldRestoreDraft } from './use-chat';
 function chatWith(userTexts: string[]): WorkspaceChat {
   return {
     sessionId: 's1',
+    projectId: null,
+    cwd: null,
     configured: true,
     providerName: null,
     model: 'm',

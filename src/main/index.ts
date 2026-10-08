@@ -19,11 +19,11 @@ import {
   refreshNotifications,
 } from './notifications';
 import { getMailState, startMailSync } from './mail/api';
-// agent 域（含 capabilities 通道、聊天媒体回收、会话订阅挂钩与 Pi 运行时加载）统一经门面进出。
 import {
-  cancelShellJobs,
+  closeDomainBridge,
   gcChatMedia,
-  loadPiRuntime,
+  invalidateSessions,
+  loadPi,
   registerAgentIpc,
   subscribeChat,
 } from './agent';
@@ -131,7 +131,7 @@ app.whenReady().then(() => {
   registerCanvasIpc();
   registerShuiyuanIpc();
   registerAgentIpc();
-  registerWorkspaceIpc(subscribeChat);
+  registerWorkspaceIpc(subscribeChat, invalidateSessions);
   registerTerminalIpc();
   registerSearchIpc();
   registerNotificationsIpc();
@@ -281,10 +281,11 @@ async function createWindow(): Promise<void> {
         `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.dela?.settings.getZoom === 'function' && typeof window.dela?.settings.getFontScale === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
-      // Pi 系纯 ESM 包只能经动态 import 在 CJS 产物中加载（agent/core/pi-load.ts）；
-      // 冒烟在 dev 与打包产物两条路径都跑，正好覆盖该加载真实可用。
-      const piRuntime = await loadPiRuntime();
-      if (typeof piRuntime.Agent !== 'function') throw new Error('Pi runtime smoke check failed');
+      // Pi 是纯 ESM 包，只能经动态 import 在 CJS 产物中加载（agent/pi.ts）；
+      // 冒烟在 dev 与打包产物两条路径都跑，覆盖该加载真实可用。
+      const pi = await loadPi();
+      if (typeof pi.createAgentSession !== 'function')
+        throw new Error('Pi runtime smoke check failed');
       console.log('Smoke check passed: SQLite, renderer, preload isolation, Agent runtime (ESM).');
     } finally {
       database.close();
@@ -349,7 +350,7 @@ app.on('window-all-closed', () => {
 });
 app.on('before-quit', () => {
   quitting = true;
-  cancelShellJobs();
+  closeDomainBridge();
 });
 app.on('will-quit', () => {
   tray?.destroy();

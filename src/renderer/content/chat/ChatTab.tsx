@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import { History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
@@ -10,6 +10,7 @@ import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
 import { useChat, useChatDraft, useChatSession, type ChatReference } from './use-chat';
 import { useNavigationStore } from '../../app/navigation';
+import { useSessions } from '../../sessions/store';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
 export function parseChatTabId(tabId: string): string | null {
@@ -18,33 +19,16 @@ export function parseChatTabId(tabId: string): string | null {
   return sessionId || null;
 }
 
-/** 会话作为标签内容（AgentPanel 去面板化：无 aside、无宽度与开关逻辑）。
- *  会话身份来自 tabId（chat:{sessionId}）；引用候选、邮件草稿弹窗与项目归属经
- *  ChatTabSourceProvider 注入（3B 接线），未挂 Provider 时按通用池、无注入运行。 */
+/** 会话作为标签内容。会话身份来自 tabId（chat:{sessionId}），项目归属来自会话快照；
+ *  引用候选与邮件草稿弹窗经 ChatTabSourceProvider 注入。 */
 export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
   const sessionId = parseChatTabId(tabId);
   const source = useChatTabSource();
-  const session = useChatSession(source?.projectId ?? null, sessionId ?? '');
-
-  // @ 引用候选：容器注入的数据源，视图挂载时读取一次；候选随打开文档变化的刷新由容器负责。
-  const [referenceOptions, setReferenceOptions] = useState<ChatReference[]>([]);
+  const projectId = useSessions((state) =>
+    sessionId ? (state.chats[sessionId]?.projectId ?? null) : null,
+  );
+  const session = useChatSession(projectId, sessionId ?? '');
   const referenceSource = source?.referenceSource;
-  useEffect(() => {
-    let active = true;
-    if (!referenceSource) {
-      setReferenceOptions([]);
-      return;
-    }
-    void referenceSource
-      .loadEntries()
-      .then((entries) => {
-        if (active) setReferenceOptions(entries);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [referenceSource]);
 
   if (sessionId === null) {
     return (
@@ -77,8 +61,7 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
       mailDialog={source?.mailDialog}
       onOpenSource={source?.onOpenSource}
       onSaveNote={source?.onSaveNote}
-      projectId={source?.projectId ?? null}
-      referenceOptions={referenceOptions}
+      projectId={projectId}
       referenceSource={referenceSource}
       session={session}
     />
@@ -92,7 +75,7 @@ function ChatComposerArea({
   chat,
   chatState,
   error,
-  referenceOptions,
+  referenceSource,
   sessionId,
   hero = false,
 }: {
@@ -101,11 +84,12 @@ function ChatComposerArea({
   chatState: ReturnType<typeof useChat>;
   /** 发送错误与会话级错误的合并展示；null = 无。 */
   error: string | null;
-  referenceOptions: ChatReference[];
+  referenceSource?: ReferenceSource;
   sessionId: string;
   hero?: boolean;
 }) {
   const { prompt, references } = useChatDraft(sessionId);
+  const referenceOptions = useReferenceOptions(referenceSource, chat);
   return (
     <div className="mx-auto w-full max-w-3xl shrink-0 p-3">
       <ChatComposer
@@ -139,11 +123,17 @@ function ChatComposerArea({
   );
 }
 
+const noReferences: ChatReference[] = [];
+/** @ 候选：会话快照就位前（projectId/cwd 未知）不列候选，避免列出别的项目的文件。 */
+function useReferenceOptions(source: ReferenceSource | undefined, chat: WorkspaceChat | null) {
+  const options = source?.useEntries(chat?.projectId ?? null, chat?.cwd ?? null);
+  return chat && options ? options : noReferences;
+}
+
 const ChatSessionView = memo(function ChatSessionView({
   session,
   active,
   projectId,
-  referenceOptions,
   referenceSource,
   mailDialog,
   onOpenSource,
@@ -153,7 +143,6 @@ const ChatSessionView = memo(function ChatSessionView({
   /** 已收窄为非 null 的当前会话（父组件处理删除后的空态）。 */
   active: string;
   projectId: string | null;
-  referenceOptions: ChatReference[];
   referenceSource?: ReferenceSource;
   mailDialog?: MailDraftDialog;
   onOpenSource?: (key: string) => void;
@@ -172,7 +161,7 @@ const ChatSessionView = memo(function ChatSessionView({
       chat={chat}
       chatState={chatState}
       error={chatState.error ?? session.error}
-      referenceOptions={referenceOptions}
+      referenceSource={referenceSource}
       sessionId={active}
       hero={hero}
     />

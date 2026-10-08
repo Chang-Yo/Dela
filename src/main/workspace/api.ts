@@ -19,7 +19,6 @@ import { getDatabase } from '../database';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
 import { toolError } from '../../shared/tool-errors';
-import { deleteProjectProfile, ensureProjectProfile } from './projects';
 import {
   availablePath,
   officeExportPreviewInfo,
@@ -404,8 +403,6 @@ function checkParent(parentId: string | null, movingId?: string) {
   }
 }
 
-/** folder↔project 原地互转时维护 projects 档案行：
- *  升格补插（无则建），降格删除（会话经 FK 置 NULL 降级通用）。 */
 export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntry {
   const parsed = z
     .object({
@@ -541,7 +538,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       );
   let nextId = isAbsolute(id) ? to : id;
   if (parsed.kind === 'project' && current.kind === 'folder') {
-    // 升格：纯路径文件夹补建条目行；已有行（旧数据）只改 kind。档案行挂条目 UUID。
+    // 升格：纯路径文件夹补建条目行（项目身份 = 条目 UUID + local_path）；已有行只改 kind。
     if (isAbsolute(current.id)) {
       const promoted = randomUUID();
       getDatabase()
@@ -552,10 +549,8 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       nextId = current.id;
       getDatabase().prepare("UPDATE workspace_entries SET kind='project' WHERE id=?").run(nextId);
     }
-    ensureProjectProfile(nextId);
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
-    // 降格：删除档案行（项目会话经 FK 转为通用）与条目行，目录回到纯路径身份。
-    deleteProjectProfile(current.id);
+    // 降格：删除条目行（项目会话经 FK 转为通用），目录回到纯路径身份。
     getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
     nextId = to;
   }
@@ -819,9 +814,7 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
   if (id === workspaceArchiveId) throw new Error('归档文件夹不能移除');
   const item = entry(id);
   if (item.kind === 'project') {
-    // 「移除项目」即取消项目身份（同降格）：删除档案行与条目行，目录与文件保留，
-    // 项目会话经外键转为通用。
-    deleteProjectProfile(item.id);
+    // 「移除项目」即取消项目身份（同降格）：删除条目行，目录与文件保留，项目会话经外键转为通用。
     getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
     return;
   }

@@ -1,5 +1,5 @@
 // 破坏性重置：旧世界库（特征表 workspace_notes，user_version 为旧体系任意值）整库丢弃
-// 并以 v1 重建；全新目录直接建库；未来版本的库拒绝降级打开。
+// 并以当前 schema 重建；v1 库只重建会话表；全新目录直接建库；未来版本的库拒绝降级打开。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 describe('旧世界库重置', () => {
-  it('v15 旧库被丢弃并备份，v1 schema 重建', () => {
+  it('v15 旧库被丢弃并备份，当前 schema 重建', () => {
     const root = freshRoot();
     plantLegacyDb(root, 15);
     const db = getDatabase();
@@ -47,11 +47,11 @@ describe('旧世界库重置', () => {
       body: '旧笔记',
     });
     backup.close();
-    // 新 schema 可用：sessions 含 archived/pinned，归档种子行存在。
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    // 新 schema 可用：sessions 是 Pi 会话文件的索引，归档种子行存在。
+    expect(db.pragma('user_version', { simple: true })).toBe(2);
     const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
     expect(columns.map(({ name }) => name)).toEqual(
-      expect.arrayContaining(['archived', 'pinned', 'summary']),
+      expect.arrayContaining(['file', 'archived', 'pinned', 'message_count']),
     );
     expect(
       db.prepare("SELECT COUNT(*) AS count FROM workspace_entries WHERE name='归档'").get(),
@@ -66,20 +66,38 @@ describe('旧世界库重置', () => {
       db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workspace_notes'").get(),
     ).toBeUndefined();
     expect(existsSync(join(root, 'dela-legacy-backup.db'))).toBe(true);
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    expect(db.pragma('user_version', { simple: true })).toBe(2);
   });
 
-  it('全新目录直接建 v1 库，不产生备份', () => {
+  it('v1 库升级只重建会话表，领域缓存保留', () => {
+    const root = freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.exec('CREATE TABLE sessions (id TEXT PRIMARY KEY, messages TEXT)');
+    old.exec("INSERT INTO sessions VALUES ('s1', '[]')");
+    old.exec(
+      'CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT, data TEXT, read_at TEXT, notice_at TEXT)',
+    );
+    old.exec("INSERT INTO todo_items VALUES ('t1', 'me', '{}', NULL, NULL)");
+    old.pragma('user_version = 1');
+    old.close();
+    const db = getDatabase();
+    expect(db.prepare('SELECT COUNT(*) AS count FROM sessions').get()).toMatchObject({ count: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM todo_items').get()).toMatchObject({
+      count: 1,
+    });
+  });
+
+  it('全新目录直接建库，不产生备份', () => {
     freshRoot();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    expect(db.pragma('user_version', { simple: true })).toBe(2);
     expect(existsSync(join(state.root, 'dela-legacy-backup.db'))).toBe(false);
   });
 
   it('未来版本的库（无特征表）拒绝打开', () => {
     const root = freshRoot();
     const db = new Database(join(root, 'dela.db'));
-    db.pragma('user_version = 2');
+    db.pragma('user_version = 3');
     db.close();
     expect(() => getDatabase()).toThrow('更新版本');
   });

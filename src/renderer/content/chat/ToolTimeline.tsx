@@ -1,28 +1,16 @@
 import { useId, useState, type ReactNode } from 'react';
 import {
-  BookOpen,
   Brain,
-  CalendarDays,
-  CalendarPlus,
   Check,
   ChevronRight,
   CircleAlert,
-  ClipboardList,
-  CopyPlus,
   FilePen,
   FilePenLine,
-  FilePlus,
   FileText,
-  FolderPen,
+  FolderOpen,
   FolderSearch,
   Globe,
-  GraduationCap,
-  Link2,
   LoaderCircle,
-  Mail,
-  MailPlus,
-  RefreshCw,
-  Search,
   SquareTerminal,
   TextSearch,
   Wrench,
@@ -37,80 +25,41 @@ import { ToolBody } from './tool-views';
 type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 
 const toolDisplay: Record<string, { label: string; icon: LucideIcon; verb?: string }> = {
-  // 内核工具行显示英文工具名（与工具表一致）；verb 只用于状态行"正在…"的中文动词。
-  Read: { label: 'Read', icon: FileText, verb: '读取文件' },
-  Write: { label: 'Write', icon: FilePen, verb: '写入文件' },
-  Edit: { label: 'Edit', icon: FilePenLine, verb: '编辑文件' },
-  Grep: { label: 'Grep', icon: TextSearch, verb: '搜索内容' },
-  Glob: { label: 'Glob', icon: FolderSearch, verb: '查找文件' },
-  Bash: { label: 'Bash', icon: SquareTerminal, verb: '执行命令' },
-  WebFetch: { label: 'WebFetch', icon: Globe, verb: '读取网页' },
-  WebSearch: { label: 'WebSearch', icon: Globe, verb: '搜索网页' },
-  ReadSkills: { label: 'ReadSkills', icon: BookOpen, verb: '读取 Skill' },
-  prepare_email: { label: '准备邮件草稿', icon: MailPlus },
-  query_schedule: { label: '查询日程', icon: CalendarDays },
-  query_assignments: { label: '查询作业', icon: ClipboardList },
-  find_courses: { label: '查找课程', icon: GraduationCap },
-  sync_sources: { label: '同步课程资料', icon: RefreshCw },
-  search_sources: { label: '查找资料', icon: Search },
-  search_workspace: { label: '查找项目文件', icon: Search },
-  search_mail: { label: '查找邮件', icon: Mail },
-  read_resource: { label: '读取资料', icon: BookOpen },
-  web_search: { label: '搜索网页', icon: Globe },
-  fetch_page: { label: '读取网页', icon: FileText },
-  create_entry: { label: '创建条目', icon: FilePlus },
-  update_entry: { label: '整理条目', icon: FolderPen },
-  write_note: { label: '保存笔记', icon: FilePenLine },
-  link_source: { label: '关联资料', icon: Link2 },
-  copy_file_to_project: { label: '复制文件', icon: CopyPlus },
-  create_event: { label: '创建日程', icon: CalendarPlus },
+  // Pi 内置工具显示英文工具名；verb 只用于状态行"正在…"的中文动词。
+  read: { label: 'read', icon: FileText, verb: '读取文件' },
+  write: { label: 'write', icon: FilePen, verb: '写入文件' },
+  edit: { label: 'edit', icon: FilePenLine, verb: '编辑文件' },
+  grep: { label: 'grep', icon: TextSearch, verb: '搜索内容' },
+  find: { label: 'find', icon: FolderSearch, verb: '查找文件' },
+  ls: { label: 'ls', icon: FolderOpen, verb: '列出目录' },
+  bash: { label: 'bash', icon: SquareTerminal, verb: '执行命令' },
+  web_fetch: { label: 'web_fetch', icon: Globe, verb: '读取网页' },
+  web_search: { label: 'web_search', icon: Globe, verb: '搜索网页' },
 };
 
 function display(name: string): { label: string; icon: LucideIcon; verb?: string } {
   return toolDisplay[name] ?? { label: name, icon: Wrench };
 }
 
-export type ToolOutput = {
-  ok?: boolean;
-  error?: { message?: string };
-  result?: { draftId?: string };
-} | null;
-
-// 从工具输入提取一行摘要 chip：内核工具按类型取关键字段，其余工具按旧字段顺序兜底。
+// 从工具输入提取一行摘要 chip：内置工具按类型取关键字段，其余工具按常见字段兜底。
 function stepChip(result: AgentToolResult): string {
   const input = result.input as Record<string, unknown> | null;
   if (!input || typeof input !== 'object') return '';
   const text = (key: string) =>
     typeof input[key] === 'string' && input[key] ? (input[key] as string) : '';
   switch (result.name) {
-    case 'Bash':
-      if (text('command')) return text('command').split('\n')[0]!;
-      return input.cancel ? '取消任务' : '继续读取';
-    case 'Read':
-    case 'Write':
-    case 'Edit':
+    case 'bash':
+      return text('command').split('\n')[0]!;
+    case 'read':
+    case 'write':
+    case 'edit':
+    case 'ls':
       return text('path');
-    case 'Grep':
-    case 'Glob':
+    case 'grep':
+    case 'find':
       return text('pattern');
-    case 'WebFetch':
-      return text('url');
-    case 'WebSearch':
-      return text('query');
-    case 'ReadSkills':
-      return text('file') ? `${text('skill')} · ${text('file')}` : text('skill');
-    default: {
-      const value = [
-        text('query'),
-        text('title'),
-        text('name'),
-        text('subject'),
-        text('url'),
-        text('path'),
-        text('command'),
-      ].find(Boolean);
-      return value ?? '';
-    }
+    default:
+      return [text('query'), text('url'), text('path'), text('name')].find(Boolean) ?? '';
   }
 }
 
@@ -123,8 +72,8 @@ export function formatDuration(ms: number): string {
 type StepState = 'running' | 'done' | 'failed' | 'interrupted';
 
 function stepState(result: AgentToolResult, live: boolean): StepState {
-  if (result.output === undefined) return live ? 'running' : 'interrupted';
-  return (result.output as ToolOutput)?.ok ? 'done' : 'failed';
+  if (result.finishedAt === undefined) return live ? 'running' : 'interrupted';
+  return result.output?.isError ? 'failed' : 'done';
 }
 
 /**
@@ -174,7 +123,6 @@ function ThoughtStep({
 function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean }) {
   const { label, icon: Icon } = display(result.name);
   const state = stepState(result, live);
-  const output = result.output as ToolOutput | undefined;
   const chip = stepChip(result);
   return (
     <li className="min-w-0 animate-in fade-in duration-300 motion-reduce:animate-none">
@@ -223,8 +171,8 @@ function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean
         </div>
       </details>
       {state === 'failed' && (
-        <p className="mt-1 whitespace-pre-wrap text-[11.5px] text-red">
-          {output?.error?.message || '工具未返回成功结果'}
+        <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-[11.5px] text-red">
+          {result.output?.text || '工具未返回成功结果'}
         </p>
       )}
     </li>
@@ -269,7 +217,7 @@ export function WorkingSection({
       : part.type === 'reasoning' && Boolean(part.text),
   );
   const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
-  const active = live ? tools.findLast((tool) => tool.output === undefined) : undefined;
+  const active = live ? tools.findLast((tool) => tool.finishedAt === undefined) : undefined;
   const lastPart = parts.findLast((part) => part.type !== 'tools' && Boolean(part.text));
   // 折叠时中途的说明文字随过程一起收起，只保留最后一段正文（最终回答）。
   const lastTextKey = groups.findLast((group) => group.parts[0]?.type === 'text')?.key;

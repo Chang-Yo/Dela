@@ -77,7 +77,11 @@ function watchWorkspace(client: WebContents) {
 }
 
 /** workspace 通道不依赖 agent 域：会话订阅挂钩由装配层（main/index.ts 经 agent 门面）注入。 */
-export function registerWorkspaceIpc(subscribeChat: (client: WebContents) => void) {
+/** subscribeChat：工作区通道顺带订阅会话推送；invalidateSessions：项目目录变化后让空闲 agent 会话按新 cwd 重建。 */
+export function registerWorkspaceIpc(
+  subscribeChat: (client: WebContents) => void,
+  invalidateSessions: () => void,
+) {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`workspace:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);
@@ -95,8 +99,15 @@ export function registerWorkspaceIpc(subscribeChat: (client: WebContents) => voi
     return openEmailDraft(id);
   });
   handle('create', (input) => createWorkspaceEntry(input as WorkspaceCreateInput));
-  handle('update', (id, input) => updateWorkspaceEntry(workspaceEntryIdSchema.parse(id), input));
-  handle('remove', (value) => removeWorkspaceEntry(value));
+  handle('update', (id, input) => {
+    const result = updateWorkspaceEntry(workspaceEntryIdSchema.parse(id), input);
+    invalidateSessions();
+    return result;
+  });
+  handle('remove', async (value) => {
+    await removeWorkspaceEntry(value);
+    invalidateSessions();
+  });
   handle('read', (id) => readWorkspaceEntry(workspaceEntryIdSchema.parse(id)));
   handle('save-note', (id, text, revision) =>
     saveWorkspaceNote(

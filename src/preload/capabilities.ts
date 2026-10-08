@@ -1,7 +1,7 @@
 import type { CapabilityApi } from '../shared/capabilities';
 import { invoke } from './lib';
 
-// capabilities:* 通道透传（阶段四；主进程实现见 src/main/agent/capabilities/）。
+// capabilities:* 通道透传（主进程实现见 src/main/agent/index.ts）。
 export const capabilityApi: CapabilityApi = {
   listSkills: () => invoke('capabilities:list-skills'),
   setSkillEnabled: (name, enabled) => invoke('capabilities:set-skill-enabled', name, enabled),

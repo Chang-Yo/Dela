@@ -16,7 +16,7 @@ import { chatImageToken } from '../../../shared/chat-input';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
-import { WorkingSection, type ToolOutput } from './ToolTimeline';
+import { WorkingSection } from './ToolTimeline';
 import { ChatMarkdown } from './markdown';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 
@@ -282,35 +282,22 @@ const AssistantMessage = memo(function AssistantMessage({
     !live && message.startedAt !== undefined && message.finishedAt !== undefined
       ? message.finishedAt - message.startedAt
       : null;
-  const failed = parts.reduce(
-    (count, part) =>
-      part.type === 'tools'
-        ? count +
-          part.results.filter(
-            (result) => result.output !== undefined && !(result.output as ToolOutput)?.ok,
-          ).length
-        : count,
-    0,
-  );
+  const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
+  const failed = tools.filter((result) => result.output?.isError).length;
   // 邮件草稿入口放在工作过程区之外：折叠时不被 inert 隐藏。
+  // `dela prepare_email` 经 bash 调用，输出里带 "draftId":"<uuid>"。
   const draftIds = [
     ...new Set(
-      parts.flatMap((part) =>
-        part.type === 'tools'
-          ? part.results
-              .filter(
-                (result) =>
-                  result.name === 'prepare_email' && (result.output as ToolOutput | undefined)?.ok,
-              )
-              .map(
-                (result) =>
-                  ((result.output as ToolOutput | undefined)?.result as { draftId?: string })
-                    ?.draftId,
-              )
+      tools.flatMap((result) =>
+        result.name === 'bash' &&
+        (result.input as { command?: string } | null)?.command?.includes('prepare_email')
+          ? [...(result.output?.text ?? '').matchAll(/"draftId":"([0-9a-f-]{36})"/g)].map(
+              (match) => match[1]!,
+            )
           : [],
       ),
     ),
-  ].filter((id): id is string => Boolean(id));
+  ];
 
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">

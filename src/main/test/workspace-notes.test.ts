@@ -1,6 +1,6 @@
 // 笔记文件能力的主进程行为：默认 .md、图片落盘 assets/、受限资源解析的边界、
 // Markdown 副本携带图片、笔记移动时按原相对路径携带图片且正文不变、
-// folder↔project 原地互转时的 projects 档案行维护。
+// folder↔project 原地互转时的项目身份（条目 UUID + 项目目录）维护。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -43,21 +43,12 @@ function createDb(): Database.Database {
     );
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE INDEX workspace_parent ON workspace_entries(parent_id);
-    CREATE TABLE projects (
-      id TEXT PRIMARY KEY REFERENCES workspace_entries(id) ON DELETE CASCADE,
-      background TEXT NOT NULL DEFAULT '',
-      goal TEXT NOT NULL DEFAULT '',
-      workdir TEXT,
-      capabilities TEXT NOT NULL DEFAULT '{}',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
     CREATE TABLE sessions (
       id TEXT PRIMARY KEY,
-      project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+      project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
+      file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话',
-      messages TEXT NOT NULL DEFAULT '[]',
-      summary TEXT,
+      message_count INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0,
       pinned INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
@@ -341,34 +332,35 @@ describe('saveWorkspaceNote 外部冲突', () => {
   });
 });
 
-describe('folder↔project 转换维护档案行', () => {
-  it('升格补插空档案行并生成条目 UUID，降格删除档案行回到路径身份', () => {
+describe('folder↔project 转换', () => {
+  it('升格生成条目 UUID 并记录项目目录，降格回到路径身份', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
     expect(isAbsolute(folder.id)).toBe(true);
     const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
     expect(promoted.id).not.toBe(folder.id);
+    // 项目目录即 local_path：会话 cwd 从这里解析。
     expect(
-      db.prepare('SELECT background, goal, capabilities FROM projects WHERE id=?').get(promoted.id),
-    ).toEqual({ background: '', goal: '', capabilities: '{}' });
+      db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
+    ).toEqual({ path: folder.id });
     // 升格后路径与 UUID 都解析到同一项目身份。
     expect(entry(folder.id)).toMatchObject({ id: promoted.id, kind: 'project' });
     const demoted = updateWorkspaceEntry(promoted.id, { kind: 'folder' });
     expect(demoted.id).toBe(folder.id);
-    expect(db.prepare('SELECT 1 FROM projects WHERE id=?').get(promoted.id)).toBeUndefined();
     expect(
       db.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(promoted.id),
     ).toBeUndefined();
     expect(entry(folder.id).kind).toBe('folder');
   });
 
-  it('转换伴随重命名（目录移动路径）时同样维护档案行', () => {
+  it('转换伴随重命名时项目目录跟随移动', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
     const promoted = updateWorkspaceEntry(folder.id, { name: '毕业设计', kind: 'project' });
     expect(existsSync(join(workspaceRoot(), '毕业设计'))).toBe(true);
-    expect(db.prepare('SELECT 1 FROM projects WHERE id=?').get(promoted.id)).toBeDefined();
+    expect(
+      db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
+    ).toEqual({ path: join(workspaceRoot(), '毕业设计') });
     const demoted = updateWorkspaceEntry(promoted.id, { name: '归档课题', kind: 'folder' });
     expect(existsSync(join(workspaceRoot(), '归档课题'))).toBe(true);
-    expect(db.prepare('SELECT 1 FROM projects WHERE id=?').get(promoted.id)).toBeUndefined();
     expect(demoted.id).toBe(join(workspaceRoot(), '归档课题'));
   });
 
@@ -377,8 +369,8 @@ describe('folder↔project 转换维护档案行', () => {
     const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
     const iso = '2026-09-29T00:00:00.000Z';
     db.prepare(
-      'INSERT INTO sessions (id, project_id, title, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-    ).run('s-1', promoted.id, '项目会话', '[]', iso, iso);
+      'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run('s-1', promoted.id, '', iso, iso);
     updateWorkspaceEntry(promoted.id, { kind: 'folder' });
     expect(
       db.prepare('SELECT project_id AS projectId FROM sessions WHERE id=?').get('s-1'),

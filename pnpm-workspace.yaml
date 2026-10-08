@@ -15,4 +15,11 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - electron@44.3.0
   - lucide-react@1.44.0
-  - '@earendil-works/pi-mcp@0.99.0'
+  - '@earendil-works/pi-mcp@0.99.0 || 1.1.0'
+  - '@earendil-works/chord@1.1.0'
+  - '@earendil-works/pi-agent-core@1.1.0'
+  - '@earendil-works/pi-ai@1.1.0'
+  - '@earendil-works/pi-codemode@1.1.0'
+  - '@earendil-works/pi-coding-agent@1.1.0'
+  - '@earendil-works/pi-telemetry@1.1.0'
+  - '@earendil-works/pi-tui@1.1.0'

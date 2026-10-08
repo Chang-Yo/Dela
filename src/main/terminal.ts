@@ -1,14 +1,29 @@
 import { app, ipcMain, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { checkWorkspaceSender } from './ipc';
 import { idSchema, projectDirectory } from './workspace/api';
-import { locateBash } from './agent/tools/kernel/bash';
-import { COMMAND_BRIDGE, startDomainBridge } from './agent/tools/commands';
+import { COMMAND_BRIDGE } from './agent/commands';
+import { domainBridge } from './agent';
 import type { TerminalEvent, TerminalSession } from '../shared/terminal';
+
+/** 定位 Git Bash：常见安装位置探测；缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
+export function locateBash(): string {
+  const candidates = [
+    join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git\\bin\\bash.exe'),
+    join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git\\bin\\bash.exe'),
+    join(process.env.LOCALAPPDATA ?? '', 'Programs\\Git\\bin\\bash.exe'),
+  ];
+  const found = candidates.find((path) => existsSync(path));
+  if (!found)
+    throw new Error(
+      '未找到 Git Bash：请安装 Git for Windows（https://git-scm.com/download/win）后重试',
+    );
+  return found;
+}
 
 // 重挂载时回放最近输出；每个终端最多保留约 100 万字符，避免长期任务无限占用内存。
 const BUFFER_LIMIT = 1024 * 1024;
@@ -19,7 +34,7 @@ const sessions = new Map<
     owner: WebContents;
     pty: IPty;
     snapshot: TerminalSession;
-    /** 命令桥与 rcfile 临时目录随会话回收。 */
+    /** rcfile 临时目录随会话回收。 */
     cleanup: () => void;
   }
 >();
@@ -69,7 +84,7 @@ export function registerTerminalIpc() {
     const cwd = projectDirectory(projectId);
     const parsedId = idSchema.parse(id);
     if (sessions.has(parsedId)) throw new Error('终端会话已存在');
-    const bridge = await startDomainBridge({ cwd });
+    const bridge = await domainBridge();
     const rcfile = writeRcfile();
     const pty = spawn(locateBash(), ['--rcfile', rcfile.path, '-i'], {
       name: 'xterm-256color',
@@ -99,10 +114,7 @@ export function registerTerminalIpc() {
       owner,
       pty,
       snapshot,
-      cleanup: () => {
-        bridge.close();
-        rcfile.cleanup();
-      },
+      cleanup: rcfile.cleanup,
     };
     sessions.set(parsedId, session);
     const send = (event: TerminalEvent) => {

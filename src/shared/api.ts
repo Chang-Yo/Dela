@@ -166,6 +166,7 @@ export type {
 export { workspaceArchiveId } from './workspace';
 
 export type {
+  AgentToolOutput,
   AgentToolResult,
   ChatSessionSummary,
   WorkspaceChat,

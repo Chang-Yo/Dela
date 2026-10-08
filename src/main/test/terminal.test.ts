@@ -30,7 +30,7 @@ vi.mock('../workspace/api', async () => {
   return { idSchema: z.uuid(), projectDirectory: mocks.directory };
 });
 import { registerTerminalIpc } from '../terminal';
-import { locateBash } from '../agent/tools/kernel/bash';
+import { locateBash } from '../terminal';
 
 const state = vi.hoisted(() => ({ root: '' }));
 // kernel/bash → commands → 领域模块链用真实实现（桥服务器真实监听 127.0.0.1 随机端口）。

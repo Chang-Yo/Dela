@@ -1,15 +1,15 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 
 // ChatTab 的容器注入面（与 content/note 的 draft-source、content/preview 的 loader 同一
-// 注入模式）：workbench registry 只按 TabComponentProps 传 tabId/groupId，引用数据源、
-// 邮件草稿弹窗与项目归属都经 ChatTabSourceProvider 提供（3B 接线）。
-// chat 域不 import workspace store——对 workspace 的依赖只经这里的注入接口。
-// 会话的项目归属只经导航创建（侧栏项目 › 新对话），不支持会话内切换。
+// 注入模式）：workbench registry 只按 TabComponentProps 传 tabId/groupId，引用数据源与
+// 邮件草稿弹窗经 ChatTabSourceProvider 提供。chat 域不 import workspace store。
+// 会话的项目归属来自会话快照本身（WorkspaceChat.projectId），不取当前工作台。
 
-/** @ 引用数据源：候选来自容器（3B 接 workspace 镜像），发送前冲盘未保存的引用草稿。 */
+/** @ 引用数据源：候选来自容器（workspace 镜像），发送前冲盘未保存的引用草稿。 */
 export interface ReferenceSource {
-  /** @ 引用候选（打开中的文档优先，其次项目内可读条目）。 */
-  loadEntries(): Promise<{ key: string; title: string }[]>;
+  /** 会话项目内的 @ 引用候选：key 为绝对路径，title 为相对会话 cwd 的路径。
+   *  projectId 为 null 时列工作区全部文件。 */
+  useEntries(projectId: string | null, cwd: string | null): { key: string; title: string }[];
   /** 发送前冲盘引用文档的未保存草稿（笔记正文先落盘，模型才能读到最新内容）；
    *  仍无法保存时抛错阻止发送。`source:` 前缀的引用不经此方法（只读资料）。 */
   flushReference?(key: string): Promise<void>;
@@ -27,10 +27,8 @@ export type MailDraftDialogProps = {
 };
 export type MailDraftDialog = ComponentType<MailDraftDialogProps>;
 
-/** ChatTab 的容器注入面；未挂 Provider 时 ChatTab 按通用池、无引用与邮件注入运行。 */
+/** ChatTab 的容器注入面；未挂 Provider 时 ChatTab 无引用与邮件注入运行。 */
 export interface ChatTabSource {
-  /** 会话所属项目；null = 通用池。会话切换条据此列出项目会话与通用入口。 */
-  projectId: string | null;
   /** @ 引用数据源；未提供时 composer 无 @ 候选、发送前不冲盘引用草稿。 */
   referenceSource?: ReferenceSource;
   /** 邮件草稿检查弹窗；未提供时隐藏「检查并发送邮件」入口。 */

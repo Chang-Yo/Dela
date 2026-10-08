@@ -20,6 +20,8 @@ let nextFrame: FrameRequestCallback | undefined;
 
 const chat: WorkspaceChat = {
   sessionId: 'test-session',
+  projectId: null,
+  cwd: null,
   running: true,
   configured: true,
   providerName: null,
@@ -248,7 +250,7 @@ it('正文从首个字到工具调用及结束均保持同一容器，中间文�
   expect(host.querySelector('[aria-label="工作过程"]')).toBeNull();
   const toolPart = {
     type: 'tools' as const,
-    results: [{ id: 'tool-1', name: 'search_sources', input: {}, output: { ok: true } }],
+    results: [{ id: 'tool-1', name: 'grep', input: {}, output: { text: '' }, finishedAt: 2 }],
   };
   const afterTool = { ...reply, parts: [...reply.parts!, toolPart] };
   await renderReply(afterTool);

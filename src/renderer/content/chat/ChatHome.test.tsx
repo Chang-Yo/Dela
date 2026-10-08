@@ -34,6 +34,8 @@ let root: Root;
 function emptyChat(sessionId: string): WorkspaceChat {
   return {
     sessionId,
+    projectId: null,
+    cwd: null,
     configured: true,
     providerName: null,
     model: 'test',

@@ -180,47 +180,23 @@ const schema: string[] = [
     notice_at TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_todo_owner ON todo_items(owner)`,
-  // Project 档案与会话/运行。
-  `CREATE TABLE IF NOT EXISTS projects (
-    id TEXT PRIMARY KEY REFERENCES workspace_entries(id) ON DELETE CASCADE,
-    background TEXT NOT NULL DEFAULT '',
-    goal TEXT NOT NULL DEFAULT '',
-    workdir TEXT,
-    capabilities TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`,
-  `CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at DESC)`,
+  // 会话索引：完整记录是 Pi 的 JSONL 会话文件（file 列）；项目即 kind='project' 的条目，
+  // 会话 cwd 恒为该条目的 local_path。
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
-    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
+    file TEXT NOT NULL,
     title TEXT NOT NULL DEFAULT '新对话',
-    messages TEXT NOT NULL DEFAULT '[]',
-    summary TEXT,
+    message_count INTEGER NOT NULL DEFAULT 0,
     archived INTEGER NOT NULL DEFAULT 0,
     pinned INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
-  `CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id, updated_at DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
-  `CREATE TABLE IF NOT EXISTS runs (
-    id TEXT PRIMARY KEY,
-    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
-    status TEXT NOT NULL CHECK(status IN ('pending','running','waiting_input','completed','failed','stopped','interrupted')),
-    request TEXT NOT NULL DEFAULT '{}',
-    steps TEXT NOT NULL DEFAULT '[]',
-    error TEXT,
-    started_at TEXT NOT NULL,
-    ended_at TEXT
-  )`,
-  `CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_at DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_id, started_at DESC)`,
 ];
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export function getDatabase(): Database.Database {
   if (database) return database;
@@ -246,6 +222,12 @@ export function getDatabase(): Database.Database {
         db.pragma('foreign_keys = ON');
       } else if (version > SCHEMA_VERSION) {
         throw new Error('数据库由更新版本的 Dela 创建，请先升级应用');
+      } else if (version === 1) {
+        // v1→v2：会话改由 Pi JSONL 承载，旧会话/运行/项目档案表不迁移；领域缓存与条目保留。
+        db.transaction(() => {
+          for (const table of ['runs', 'sessions', 'projects'])
+            db.exec(`DROP TABLE IF EXISTS ${table}`);
+        })();
       }
       db.transaction(() => {
         for (const statement of schema) db.exec(statement);

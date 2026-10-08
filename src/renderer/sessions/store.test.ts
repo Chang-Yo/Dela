@@ -36,6 +36,8 @@ function summary(id: string, updatedAt = '2026-09-29T10:00:00.000Z'): ChatSessio
 function chat(sessionId: string, messageCount: number): WorkspaceChat {
   return {
     sessionId,
+    projectId: null,
+    cwd: null,
     configured: true,
     providerName: null,
     model: 'm',

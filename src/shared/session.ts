@@ -1,13 +1,20 @@
-// 会话视图类型（拆分自 api.ts）。批次 2B 落地 Session/Run 新身份契约
-// 。
+// 会话视图类型：WorkspaceChat 是 Pi 会话消息的投影（main/agent/session.ts）。
 import type { ChatAskInput } from './chat';
+
+/** 工具输出（Pi 工具结果的投影）：text 是回灌给模型的文本，details 是工具的结构化细节
+ *  （edit 的 diff 等），isError 标记失败。 */
+export interface AgentToolOutput {
+  text: string;
+  details?: unknown;
+  isError?: boolean;
+}
 
 export interface AgentToolResult {
   id: string;
   name: string;
   input: unknown;
-  /** 执行结果；运行中的占位步骤（startedAt 已有、output 尚缺）没有输出。 */
-  output?: unknown;
+  /** 执行结果；运行中的步骤只有流式部分输出（或尚无输出）。 */
+  output?: AgentToolOutput;
   /** 本步骤开始执行的 epoch 毫秒；旧会话与更早的记录没有。 */
   startedAt?: number;
   /** 本步骤完成的 epoch 毫秒；运行中或被中断的步骤没有。 */
@@ -25,6 +32,10 @@ export interface ChatSessionSummary {
 
 export interface WorkspaceChat {
   sessionId: string | null;
+  /** 会话所属项目（workspace 条目 id）；null = 通用会话。归属在创建时确定，不随视图变化。 */
+  projectId: string | null;
+  /** 会话 cwd（项目目录或工作区根）：@ 引用以它为相对路径基准。 */
+  cwd: string | null;
   running?: boolean;
   activeTool?: string;
   /** 上下文压缩进行中（低干扰状态，压缩期间短暂为 true）。 */
