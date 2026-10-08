@@ -23,6 +23,7 @@ export const workspace = {
   onOfficeExportProgress: (listener: (event: OfficeExportEvent) => void) =>
     on<OfficeExportEvent>('workspace:export-office-progress', listener),
   importFiles: (parentId: string | null) => invoke('workspace:import-files', parentId),
+  importProjectFolder: () => invoke('workspace:import-project-folder'),
   importDroppedFiles: (parentId: string | null, files: File[]) => {
     const paths = files.map((file) => webUtils.getPathForFile(file)).filter(Boolean);
     return paths.length

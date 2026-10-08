@@ -1,11 +1,12 @@
 // 笔记文件能力的主进程行为：默认 .md、图片落盘 assets/、受限资源解析的边界、
 // Markdown 副本携带图片、笔记移动时按原相对路径携带图片且正文不变、
-// folder↔project 原地互转时的项目身份（条目 UUID + 项目目录）维护。
+// folder↔project 原地互转时的项目身份（条目 UUID + 项目目录）维护、
+// 把电脑上已有的文件夹登记为项目（目录留在原处）。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join, sep } from 'node:path';
 import { shell } from 'electron';
 import { EventEmitter } from 'node:events';
 
@@ -20,7 +21,9 @@ import { getDatabase } from '../database';
 import { workspaceArchiveId } from '../../shared/workspace';
 import {
   createWorkspaceEntry,
+  linkProjectFolder,
   readWorkspaceEntry,
+  removeWorkspaceEntry,
   resolveWorkspaceAsset,
   saveNoteImage,
   saveWorkspaceNote,
@@ -375,5 +378,51 @@ describe('folder↔project 转换', () => {
     expect(
       db.prepare('SELECT project_id AS projectId FROM sessions WHERE id=?').get('s-1'),
     ).toEqual({ projectId: null });
+  });
+});
+
+describe('导入已有文件夹作为项目', () => {
+  const external = () => join(state.root, 'external', '我的代码');
+
+  beforeEach(() => {
+    mkdirSync(external(), { recursive: true });
+    writeFileSync(join(external(), 'README.md'), '# 我的代码');
+  });
+
+  it('目录留在原处，登记为项目并连同子文件出现在工作区状态里', () => {
+    const project = linkProjectFolder(external());
+    expect(project).toMatchObject({
+      name: '我的代码',
+      kind: 'project',
+      parentId: null,
+      path: external(),
+    });
+    // 项目身份 = 条目 UUID + local_path：会话 cwd 从这里解析，目录本身不搬动。
+    expect(isAbsolute(project.id)).toBe(false);
+    expect(
+      db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(project.id),
+    ).toEqual({ path: external() });
+    const entries = getWorkspaceState().entries;
+    expect(entries.find((item) => item.id === project.id)).toMatchObject({ kind: 'project' });
+    expect(entries.find((item) => item.id === join(external(), 'README.md'))).toMatchObject({
+      parentId: project.id,
+      kind: 'note',
+    });
+  });
+
+  it('重复导入同一目录沿用已有身份；移除项目身份后目录保留', async () => {
+    const first = linkProjectFolder(external());
+    expect(linkProjectFolder(`${external()}${sep}`).id).toBe(first.id);
+    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 1 });
+    await removeWorkspaceEntry(first.id);
+    expect(existsSync(join(external(), 'README.md'))).toBe(true);
+    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 0 });
+  });
+
+  it('拒绝文件、不存在的目录与工作区根目录本身', () => {
+    expect(() => linkProjectFolder(join(external(), 'README.md'))).toThrow('请选择一个文件夹');
+    expect(() => linkProjectFolder(join(state.root, 'missing'))).toThrow('请选择一个文件夹');
+    mkdirSync(workspaceRoot(), { recursive: true });
+    expect(() => linkProjectFolder(workspaceRoot())).toThrow('工作区目录');
   });
 });

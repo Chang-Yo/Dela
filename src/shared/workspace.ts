@@ -80,6 +80,8 @@ export interface WorkspaceApi {
   /** pptx 导出过程的阶段与进度通知。 */
   onOfficeExportProgress(listener: (event: OfficeExportEvent) => void): () => void;
   importFiles(parentId: string | null): Promise<void>;
+  /** 选择电脑上已有的文件夹登记为项目（目录留在原处）；取消选择返回 null。 */
+  importProjectFolder(): Promise<WorkspaceEntry | null>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;

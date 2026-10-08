@@ -465,6 +465,36 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   return entry(id);
 }
 
+/** 把电脑上已有的文件夹登记为项目：目录留在原处，只补一条项目身份行。
+ *  身份与受管项目完全等价，因此重命名、移动都会真的动这个目录。 */
+export function linkProjectFolder(path: unknown): WorkspaceEntry {
+  const resolved = resolve(z.string().min(1).max(32_767).parse(path));
+  prepareStorage();
+  if (!statSync(resolved, { throwIfNoEntry: false })?.isDirectory())
+    throw new Error('请选择一个文件夹');
+  if (resolved === resolve(containerPath(null)))
+    throw new Error('这是 Dela 的工作区目录本身，请在其中新建项目');
+  const db = getDatabase();
+  // 同一目录只登记一次：重复导入返回已有项目，不产生两个身份。
+  const existing = db
+    .prepare(
+      `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind='project'`,
+    )
+    .get(resolved) as WorkspaceEntry | undefined;
+  if (existing) return existing;
+  const id = randomUUID();
+  db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+    id,
+    null,
+    basename(resolved) || resolved,
+    'project',
+    null,
+    resolved,
+    new Date().toISOString(),
+  );
+  return entry(id);
+}
+
 export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntryUpdate {
   prepareStorage();
   const parsed = z

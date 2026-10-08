@@ -5,6 +5,7 @@
 // workbench/导航）接手——弹窗只负责表单与 workspace:*/canvas:* 通道调用。
 import { useEffect, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
+import { FolderOpen } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
@@ -101,6 +102,25 @@ export function EntryDialogs({
     return names.join(' / ');
   };
 
+  /** 导入电脑上已有的文件夹作为项目：目录留在原处，成功后与新建项目走同一套后续动作。 */
+  const importFolder = async () => {
+    if (!window.dela || busy) return;
+    setBusy(true);
+    setModalError(null);
+    try {
+      const created = await window.dela.workspace.importProjectFolder();
+      if (!created) return;
+      await useWorkspaceStore.getState().refresh();
+      onClose();
+      onOpenProject?.(created.id);
+      onCreated?.(created);
+    } catch (error) {
+      setModalError(errorText(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!request || !window.dela) return;
@@ -186,7 +206,9 @@ export function EntryDialogs({
                   ? '引用同一份资料，原位置保持不变。'
                   : request?.action === 'note'
                     ? `笔记保存到 ${workspace.directory}`
-                    : '按自己的主题组织内容。'}
+                    : request?.action === 'project'
+                      ? '新建空项目，或导入电脑上已有的文件夹。'
+                      : '按自己的主题组织内容。'}
           </Dialog.Description>
           <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
             {(request?.action === 'link' || request?.action === 'move') && (
@@ -234,6 +256,24 @@ export function EntryDialogs({
                   />
                 </label>
               )}
+            {request?.action === 'project' && (
+              <div className="grid gap-2">
+                <div aria-hidden="true" className="flex items-center gap-3 text-xs">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-muted-foreground">或</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                <Button
+                  disabled={busy}
+                  onClick={() => void importFolder()}
+                  type="button"
+                  variant="secondary"
+                >
+                  <FolderOpen />
+                  导入已有文件夹
+                </Button>
+              </div>
+            )}
             {modalError && (
               <p role="alert" className="text-xs [overflow-wrap:anywhere] text-destructive">
                 {modalError}

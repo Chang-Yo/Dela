@@ -6,6 +6,7 @@ import {
   createWorkspaceEntry,
   updateWorkspaceEntry,
   importWorkspaceFiles,
+  linkProjectFolder,
   workspaceFilePath,
   readWorkspaceEntry,
   saveWorkspaceNote,
@@ -150,6 +151,14 @@ export function registerWorkspaceIpc(
     });
     if (picked.canceled) return;
     importWorkspaceFiles(parentId, picked.filePaths);
+  });
+  handle('import-project-folder', async () => {
+    const picked = await dialog.showOpenDialog({
+      title: '选择要作为项目打开的文件夹',
+      properties: ['openDirectory'],
+    });
+    const path = picked.filePaths[0];
+    return picked.canceled || !path ? null : linkProjectFolder(path);
   });
   handle('import-dropped-files', (value, paths) => {
     const parentId = workspaceEntryIdSchema.nullable().parse(value);
