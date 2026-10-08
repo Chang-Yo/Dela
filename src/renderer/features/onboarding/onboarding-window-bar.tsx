@@ -18,7 +18,7 @@ export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
           <>
             <button
               aria-label="最小化"
-              className="grid h-full w-12 place-items-center text-neutral-500 transition-colors hover:bg-black/5 hover:text-neutral-700"
+              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-hover-2 hover:text-ink"
               onClick={() => window.dela?.window.minimize()}
               type="button"
             >
@@ -26,7 +26,7 @@ export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
             </button>
             <button
               aria-label="关闭"
-              className="grid h-full w-12 place-items-center text-neutral-500 transition-colors hover:bg-[#e81123] hover:text-white"
+              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-[#e81123] hover:text-white"
               onClick={() => window.dela?.window.close()}
               type="button"
             >

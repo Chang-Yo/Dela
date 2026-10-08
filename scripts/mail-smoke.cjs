@@ -92,7 +92,6 @@ const routes = {
   }),
   'mail:release-compose-files': () => {},
   'mail:send-message': () => ({ ok: true }),
-  'mail:open-link': () => {},
   // 本地草稿通道：脱敏桩不落盘，确认对话框映射回页面的 window.confirm，
   // 与既有断言（confirm=false 留在编辑器、confirm=true 保存后关闭）语义一致。
   'mail:compose-active': () => null,
@@ -102,9 +101,6 @@ const routes = {
       : 'cancel',
   'mail:save-draft': () => ({ id: 'smoke-draft-1' }),
   'mail:list-drafts': () => [],
-  'mail:open-draft': () => {
-    throw new Error('smoke 不覆盖 open-draft');
-  },
   'mail:delete-draft': () => null,
 };
 for (const [channel, handler] of Object.entries(routes)) ipcMain.handle(channel, handler);

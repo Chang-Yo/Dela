@@ -1,6 +1,8 @@
-import { MotionConfig, motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import logo from '../../../../assets/Dela_Logo.png';
 import { OnboardingWindowBar } from './onboarding-window-bar';
+import { cn } from '../../lib/utils';
 
 // 品牌名与 Quote 均用手写体 Italianno（--font-script）。
 const QUOTE_TEXT = 'In a shallow age, refuse to float.\u00A0\u00A0\u00A0\u00A0';
@@ -35,15 +37,35 @@ const ambience = {
 
 /** 首启引导的开场：氛围层之上，透明底 Logo、手写体品牌名与 Quote 依次复现。 */
 export function IntroSequence({ onStart }: { onStart: () => void }) {
+  // 动画期间就提供「跳过」，CTA 出现前不响应点击（避免隐 form 中误触、无可见反馈）。
+  const reduced = useReducedMotion();
+  const [ctaReady, setCtaReady] = useState(false);
+  useEffect(() => {
+    if (reduced) {
+      setCtaReady(true);
+      return;
+    }
+    const timer = setTimeout(() => setCtaReady(true), ctaAtSeconds * 1000);
+    return () => clearTimeout(timer);
+  }, [reduced]);
+
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="grid h-dvh grid-rows-[auto_1fr] bg-white text-neutral-900"
+        className="grid h-dvh grid-rows-[auto_1fr] bui-light bg-surface text-ink"
         data-onboarding-intro=""
       >
         <OnboardingWindowBar />
-        {/* pb 让品牌列整体居中偏上，Logo 视觉重心落在画面上半部。 */}
-        <div className="relative grid place-items-center overflow-hidden pb-[10vh]">
+        {/* pb 让品牌列整体居中偏上，Logo 视觉重心落在画面上半部；矮窗口收缩留白与 Logo。 */}
+        <div className="relative grid place-items-center overflow-hidden pb-[10vh] [@media(max-height:560px)]:pb-4">
+          {/* 跳过动画：全程可点，不必等 CTA 出现。 */}
+          <button
+            className="absolute right-6 top-4 z-10 text-[13px] text-ink-3 transition-colors hover:text-ink"
+            onClick={onStart}
+            type="button"
+          >
+            跳过
+          </button>
           {/* 氛围层：视频或占位动效。溶解淡入后压暗，退为品牌层背后的氛围。 */}
           <motion.div
             animate={{ opacity: [0, 1, 0.28] }}
@@ -74,12 +96,12 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
                 />
                 <motion.div
                   animate={{ x: [0, -110, 40, 0], y: [0, 60, -40, 0] }}
-                  className="absolute -right-28 bottom-0 size-[500px] rounded-full bg-neutral-200 blur-3xl"
+                  className="absolute -right-28 bottom-0 size-[500px] rounded-full bg-hover-2 blur-3xl"
                   transition={{ duration: 21, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <motion.div
                   animate={{ x: [0, 60, -90, 0], y: [0, 40, -60, 0] }}
-                  className="absolute left-1/3 top-2/3 size-[420px] rounded-full bg-neutral-100 blur-3xl"
+                  className="absolute left-1/3 top-2/3 size-[420px] rounded-full bg-hover blur-3xl"
                   transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
                 />
               </div>
@@ -91,14 +113,14 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             <motion.img
               alt="Dela"
               animate={{ opacity: 1, y: 0 }}
-              className="size-[180px]"
+              className="size-[180px] [@media(max-height:560px)]:size-[132px]"
               initial={{ opacity: 0, y: 14 }}
               src={logo}
               transition={{ delay: logoAtSeconds, duration: logoSeconds, ease: 'easeOut' }}
             />
             <motion.h1
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 font-script text-6xl leading-none"
+              className="mt-6 font-script text-6xl leading-none [@media(max-height:560px)]:mt-3 [@media(max-height:560px)]:text-5xl"
               initial={{ opacity: 0, y: 10 }}
               transition={{ delay: nameAtSeconds, duration: nameSeconds, ease: 'easeOut' }}
             >
@@ -108,7 +130,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             <div className="flex flex-col items-end">
               <motion.p
                 animate={{ clipPath: 'inset(0 0% 0 0)' }}
-                className="mt-4 font-script text-3xl text-neutral-600"
+                className="mt-4 font-script text-3xl text-ink-2"
                 initial={{ clipPath: 'inset(0 100% 0 0)' }}
                 transition={{ delay: quoteAtSeconds, duration: quoteSeconds, ease: 'easeInOut' }}
               >
@@ -116,7 +138,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
               </motion.p>
               <motion.p
                 animate={{ clipPath: 'inset(0 0% 0 0)' }}
-                className="mt-1 font-script text-2xl text-neutral-800"
+                className="mt-1 font-script text-2xl text-ink"
                 initial={{ clipPath: 'inset(0 100% 0 0)' }}
                 transition={{ delay: authorAtSeconds, duration: authorSeconds, ease: 'easeInOut' }}
               >
@@ -127,7 +149,10 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
 
           <motion.button
             animate={{ opacity: 1, y: 0 }}
-            className="absolute bottom-12 rounded-full bg-neutral-900 px-7 py-2.5 text-sm text-white transition-colors hover:bg-neutral-700"
+            className={cn(
+              'absolute bottom-12 rounded-full bg-ink px-7 py-2.5 text-[13px] text-surface transition-colors hover:opacity-90 [@media(max-height:560px)]:bottom-6',
+              !ctaReady && 'pointer-events-none',
+            )}
             initial={{ opacity: 0, y: 10 }}
             onClick={onStart}
             transition={{ delay: ctaAtSeconds, duration: 0.7, ease: 'easeOut' }}

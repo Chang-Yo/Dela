@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { errorText } from '../../projects/workspace';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, type StepButtonState } from './step-controls';
 
 /** 向导 · 邮箱步骤：验证 IMAP 登录，成功后后台开始首次同步，按钮转为「下一步」。 */
@@ -53,7 +53,7 @@ export function MailStep({ onDone }: { onDone: () => void }) {
         }}
       >
         <label className="grid gap-2">
-          <span className="text-sm font-medium text-neutral-700">邮箱地址</span>
+          <span className="text-[13px] font-medium text-ink-2">邮箱地址</span>
           <StepInput
             autoComplete="off"
             onChange={(event) => setAddress(event.target.value)}
@@ -64,7 +64,7 @@ export function MailStep({ onDone }: { onDone: () => void }) {
           />
         </label>
         <label className="grid gap-2">
-          <span className="text-sm font-medium text-neutral-700">密码</span>
+          <span className="text-[13px] font-medium text-ink-2">密码</span>
           <StepInput
             autoComplete="current-password"
             onChange={(event) => setPassword(event.target.value)}
@@ -75,7 +75,7 @@ export function MailStep({ onDone }: { onDone: () => void }) {
           />
         </label>
         {error && (
-          <p className="text-sm [overflow-wrap:anywhere] text-red-600" role="alert">
+          <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
             {error}
           </p>
         )}

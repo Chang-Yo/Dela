@@ -287,9 +287,9 @@ app
       '原文件',
     );
     assert.equal((await readWorkspaceEntry(imported!.id)).text, '原文件');
-    updateWorkspaceEntry(folder.id, { kind: 'project' });
+    const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
     assert.equal(
-      getWorkspaceState().entries.find((entry) => entry.id === folder.id)?.kind,
+      getWorkspaceState().entries.find((entry) => entry.id === promoted.id)?.kind,
       'project',
     );
     assert.throws(() => updateWorkspaceEntry(folder.id, { parentId: child.id }), /子文件夹/);
@@ -334,9 +334,8 @@ app
     assert.equal(ref1.sourceId, ref2.sourceId);
     const opened = await readWorkspaceEntry(note.id);
     const revision = saveWorkspaceNote(note.id, '# 恢复测试', opened.revision!);
-    let path = (
-      db.prepare('SELECT path FROM workspace_notes WHERE id=?').get(note.noteId) as { path: string }
-    ).path;
+    // 路径笔记不落 workspace_notes 行：文件路径即条目 id。
+    let path = note.id;
     assert.equal(path, join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记.md'));
     const duplicateNote = createWorkspaceEntry({
       name: '笔记.md',
@@ -348,12 +347,21 @@ app
     assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记 (2).md')));
     const legacyId = randomUUID();
     const legacyNoteId = randomUUID();
+    // 旧数据形态：文件夹带 UUID 行（local_path 指向磁盘目录），旧式笔记行挂其 parent_id。
+    const childRowId = randomUUID();
+    db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, NULL, ?, ?)').run(
+      childRowId,
+      '参考',
+      'folder',
+      child.id,
+      new Date().toISOString(),
+    );
     const legacyPath = join(profile, 'notes', `${legacyNoteId}.md`);
     writeFileSync(legacyPath, '旧版内容');
     db.prepare('INSERT INTO workspace_notes VALUES (?, ?)').run(legacyNoteId, legacyPath);
     db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, NULL, ?, NULL, ?)').run(
       legacyId,
-      child.id,
+      childRowId,
       '旧版笔记',
       'note',
       legacyNoteId,

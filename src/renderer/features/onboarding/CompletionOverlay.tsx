@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { MotionConfig, motion } from 'framer-motion';
 
 // 时间线（秒）：两行大标题错峰淡入 → 停留 → 整层淡出交还主界面。
@@ -9,18 +9,31 @@ const lineSeconds = 0.7;
 const fadeAtSeconds = 2.9;
 const fadeSeconds = 1;
 
-/** 引导完成的收尾动画：居中大标题显现后整层淡出，交还其下已挂载的主界面。 */
+/** 引导完成的收尾动画：居中大标题显现后整层淡出，交还其下已挂载的主界面。
+ *  点击或按任意键可立即跳过，不必等动画播完。 */
 export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
+  const finishedRef = useRef(onFinished);
+  finishedRef.current = onFinished;
   useEffect(() => {
-    const timer = window.setTimeout(onFinished, (fadeAtSeconds + fadeSeconds) * 1000);
-    return () => window.clearTimeout(timer);
-  }, [onFinished]);
+    const timer = window.setTimeout(
+      () => finishedRef.current(),
+      (fadeAtSeconds + fadeSeconds) * 1000,
+    );
+    const skip = () => finishedRef.current();
+    window.addEventListener('pointerdown', skip);
+    window.addEventListener('keydown', skip);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerdown', skip);
+      window.removeEventListener('keydown', skip);
+    };
+  }, []);
 
   return (
     <MotionConfig reducedMotion="user">
       <motion.div
         animate={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] grid place-items-center bg-white text-neutral-900"
+        className="fixed inset-0 z-[60] grid place-items-center bui-light bg-surface text-ink"
         data-onboarding-completion=""
         initial={{ opacity: 1 }}
         transition={{ delay: fadeAtSeconds, duration: fadeSeconds, ease: 'easeOut' }}

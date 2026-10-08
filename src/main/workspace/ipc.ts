@@ -1,58 +1,125 @@
-import { registerAgentIpc } from '../agent/ipc';
 import {
-  saveWorkspaceView,
   removeWorkspaceEntry,
-  idSchema,
   prepareStorage,
   getWorkspaceState,
   entry,
   createWorkspaceEntry,
   updateWorkspaceEntry,
   importWorkspaceFiles,
-  notePath,
+  linkProjectFolder,
+  workspaceFilePath,
   readWorkspaceEntry,
   saveWorkspaceNote,
   saveNoteImage,
-  createMarkdownNoteCopy,
-  openEntryExternally,
+  openProjectDirectory,
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
-import { subscribeChat } from '../agent/api';
-import { exportOfficePdf, quickLookFile } from '../office-export';
+import { registerLayoutIpc } from './layout';
+import { exportOfficePdf } from '../office-export';
 import { resourceRefSchema } from '../../shared/resources';
-import { dialog, ipcMain, shell } from 'electron';
+import { dialog, ipcMain, shell, type WebContents } from 'electron';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { storageDirectory as directory } from '../storage';
 import type { WorkspaceCreateInput } from '../../shared/api';
+import { workspaceEntryIdSchema } from '../../shared/workspace';
+import { watch, type FSWatcher } from 'node:fs';
+import { dirname, join } from 'node:path';
 
-export function registerWorkspaceIpc() {
-  registerAgentIpc();
+const watchers = new Map<string, FSWatcher>();
+const subscribers = new Set<WebContents>();
+let changedTimer: ReturnType<typeof setTimeout> | undefined;
+function watchWorkspace(client: WebContents) {
+  if (!subscribers.has(client)) {
+    subscribers.add(client);
+    client.once('destroyed', () => {
+      subscribers.delete(client);
+      if (!subscribers.size) {
+        for (const watcher of watchers.values()) watcher.close();
+        watchers.clear();
+      }
+    });
+  }
+  const state = getWorkspaceState();
+  const roots = new Set([
+    join(state.directory, 'workspace'),
+    ...state.entries
+      .filter((item) => item.parentId === null && item.path)
+      .map((item) =>
+        item.kind === 'folder' || item.kind === 'project' ? item.path! : dirname(item.path!),
+      ),
+  ]);
+  for (const root of roots) {
+    if (watchers.has(root)) continue;
+    try {
+      const watcher = watch(root, { recursive: true, persistent: false }, (_event, file) => {
+        if (
+          file &&
+          String(file)
+            .split(/[\\/]/)
+            .some((part) => part === '.git' || part === 'node_modules')
+        )
+          return;
+        clearTimeout(changedTimer);
+        changedTimer = setTimeout(() => {
+          for (const subscriber of subscribers)
+            if (!subscriber.isDestroyed()) subscriber.send('workspace:changed');
+        }, 200);
+      });
+      watcher.on('error', () => {
+        watcher.close();
+        watchers.delete(root);
+      });
+      watchers.set(root, watcher);
+    } catch {
+      /* 聚焦时重读仍可发现变化。 */
+    }
+  }
+}
+
+/** workspace 通道不依赖 agent 域：会话订阅挂钩由装配层（main/index.ts 经 agent 门面）注入。 */
+/** subscribeChat：工作区通道顺带订阅会话推送；invalidateSessions：项目目录变化后让空闲 agent 会话按新 cwd 重建。 */
+export function registerWorkspaceIpc(
+  subscribeChat: (client: WebContents) => void,
+  invalidateSessions: () => void,
+) {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`workspace:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);
       subscribeChat(event.sender);
       return fn(...args);
     });
-  handle('get-state', getWorkspaceState);
+  ipcMain.handle('workspace:get-state', (event) => {
+    checkWorkspaceSender(event);
+    subscribeChat(event.sender);
+    watchWorkspace(event.sender);
+    return getWorkspaceState();
+  });
   handle('open-email-draft', async (id) => {
     const { openEmailDraft } = await import('../mail/drafts');
     return openEmailDraft(id);
   });
   handle('create', (input) => createWorkspaceEntry(input as WorkspaceCreateInput));
-  handle('update', (id, input) => updateWorkspaceEntry(idSchema.parse(id), input));
-  handle('remove', (value) => removeWorkspaceEntry(value));
-  handle('read', (id) => readWorkspaceEntry(idSchema.parse(id)));
+  handle('update', (id, input) => {
+    const result = updateWorkspaceEntry(workspaceEntryIdSchema.parse(id), input);
+    invalidateSessions();
+    return result;
+  });
+  handle('remove', async (value) => {
+    await removeWorkspaceEntry(value);
+    invalidateSessions();
+  });
+  handle('read', (id) => readWorkspaceEntry(workspaceEntryIdSchema.parse(id)));
   handle('save-note', (id, text, revision) =>
     saveWorkspaceNote(
-      idSchema.parse(id),
+      workspaceEntryIdSchema.parse(id),
       z.string().max(2_000_000).parse(text),
       z.string().length(64).parse(revision),
     ),
   );
   handle('save-note-image', (id, name, bytes) =>
     saveNoteImage(
-      idSchema.parse(id),
+      workspaceEntryIdSchema.parse(id),
       z
         .string()
         .min(1)
@@ -65,11 +132,8 @@ export function registerWorkspaceIpc() {
         .parse(bytes),
     ),
   );
-  handle('create-note-copy', (id, parentId) =>
-    createMarkdownNoteCopy(idSchema.parse(id), idSchema.nullable().parse(parentId ?? null)),
-  );
-  handle('open-external', (id) => openEntryExternally(idSchema.parse(id)));
-  // 导出过程要把阶段事件推给发起窗口，与 quick-look 一样需要 event，走独立注册。
+  handle('open-project-directory', openProjectDirectory);
+  // 导出过程要把阶段事件推给发起窗口，需要 event，走独立注册。
   ipcMain.handle('workspace:export-office-pdf', (event, ref) => {
     checkWorkspaceSender(event);
     subscribeChat(event.sender);
@@ -79,14 +143,8 @@ export function registerWorkspaceIpc() {
       event.sender.send('workspace:export-office-progress', { ...progress, ref: parsed }),
     );
   });
-  // Quick Look 需要 sender 定位所属窗口，走独立注册而非丢弃 event 的 handle 包装。
-  ipcMain.handle('workspace:quick-look', (event, ref) => {
-    checkWorkspaceSender(event);
-    subscribeChat(event.sender);
-    return quickLookFile(event.sender, ref);
-  });
   handle('import-files', async (value) => {
-    const parentId = idSchema.nullable().parse(value);
+    const parentId = workspaceEntryIdSchema.nullable().parse(value);
     const picked = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       title: '导入本地文件',
@@ -94,8 +152,16 @@ export function registerWorkspaceIpc() {
     if (picked.canceled) return;
     importWorkspaceFiles(parentId, picked.filePaths);
   });
+  handle('import-project-folder', async () => {
+    const picked = await dialog.showOpenDialog({
+      title: '选择要作为项目打开的文件夹',
+      properties: ['openDirectory'],
+    });
+    const path = picked.filePaths[0];
+    return picked.canceled || !path ? null : linkProjectFolder(path);
+  });
   handle('import-dropped-files', (value, paths) => {
-    const parentId = idSchema.nullable().parse(value);
+    const parentId = workspaceEntryIdSchema.nullable().parse(value);
     importWorkspaceFiles(
       parentId,
       z.array(z.string().min(1).max(32_767)).min(1).max(100).parse(paths),
@@ -103,13 +169,16 @@ export function registerWorkspaceIpc() {
   });
   handle('open-local', async (value) => {
     prepareStorage();
-    const id = idSchema.parse(value);
+    const id = workspaceEntryIdSchema.parse(value);
     const item = entry(id);
-    const stored = getDatabase()
-      .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
-      .get(id) as { path: string | null };
-    const path = item.kind === 'note' ? notePath(item) : stored.path;
+    const path =
+      item.kind === 'project' || item.kind === 'folder' ? item.path : await workspaceFilePath(id);
     if (!path) throw new Error('此内容没有本地文件');
+    if (item.kind === 'project' || item.kind === 'folder') {
+      const error = await shell.openPath(path);
+      if (error) throw new Error(error);
+      return;
+    }
     shell.showItemInFolder(path);
   });
   handle('choose-directory', async () => {
@@ -125,5 +194,5 @@ export function registerWorkspaceIpc() {
         .run(path);
     return directory();
   });
-  handle('save-view', (scope, input) => saveWorkspaceView(scope, input));
+  registerLayoutIpc();
 }

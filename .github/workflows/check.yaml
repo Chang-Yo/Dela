@@ -15,31 +15,9 @@ concurrency:
 
 jobs:
   check:
-    name: Check ${{ matrix.platform }}-${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    name: Check win-x64
+    runs-on: windows-2022
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-2022
-            platform: win
-            arch: x64
-            executable: dist/win-unpacked/Dela.exe
-          - os: macos-15-intel
-            platform: mac
-            arch: x64
-            executable: dist/mac/Dela.app/Contents/MacOS/Dela
-          - os: macos-15
-            platform: mac
-            arch: arm64
-            executable: dist/mac-arm64/Dela.app/Contents/MacOS/Dela
-          # Linux builds suspended (2026-09-28); uncomment to re-enable
-          # (also move the format/lint steps below back to the Linux job).
-          # - os: ubuntu-24.04
-          #   platform: linux
-          #   arch: x64
-          #   executable: dist/linux-unpacked/dela
     defaults:
       run:
         shell: bash
@@ -58,37 +36,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check formatting
-        if: runner.os == 'Windows'
         run: pnpm format:check
       - name: Lint
-        if: runner.os == 'Windows'
         run: pnpm lint
-      - name: Prepare Linux desktop runtime
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes xvfb libgtk-3-0 libnss3 libasound2t64
-          # Allow Electron's sandbox in this ephemeral Ubuntu runner.
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Typecheck and build
         run: pnpm build
       - name: Run unit tests
         run: pnpm test
       - name: Smoke test Electron
-        run: |
-          if [[ "$RUNNER_OS" == Linux ]]; then
-            xvfb-run --auto-servernum pnpm smoke
-          else
-            pnpm smoke
-          fi
+        run: pnpm smoke
       - name: Package application directory
-        run: pnpm exec electron-builder --dir --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+        run: pnpm exec electron-builder --dir --win --x64 --publish never
       - name: Smoke test packaged app
         env:
-          PACKAGED_EXECUTABLE: ${{ matrix.executable }}
-        run: |
-          if [[ "$RUNNER_OS" == Linux ]]; then
-            xvfb-run --auto-servernum "$PACKAGED_EXECUTABLE" --smoke-test
-          else
-            "$PACKAGED_EXECUTABLE" --smoke-test
-          fi
+          PACKAGED_EXECUTABLE: dist/win-unpacked/Dela.exe
+        run: '"$PACKAGED_EXECUTABLE" --smoke-test'

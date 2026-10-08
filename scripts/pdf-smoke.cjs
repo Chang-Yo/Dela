@@ -125,9 +125,6 @@ let failRange = false;
 const routes = {
   'workspace:get-state': () => workspace,
   'canvas:get-state': () => canvas,
-  'workspace:save-view': (_, scope, view) => {
-    workspace.views[scope] = view;
-  },
   'canvas:read': (_, id) => ({
     title: id,
     format: 'pdf',
@@ -138,14 +135,6 @@ const routes = {
   'settings:get-theme': () => 'light',
   'settings:get-zoom': () => 1,
   'settings:get-font-scale': () => 1,
-  'workspace:get-chat': () => ({
-    messages: [],
-    running: false,
-    configured: false,
-    models: [],
-    model: '',
-  }),
-  'llm:list': () => ({ providers: [], activeId: null }),
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
 app

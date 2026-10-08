@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
-import { BrowserWindow, type WebContents } from 'electron';
 import { getDatabase } from './database';
 import { canvasFilePath, getSource } from './canvas/api';
 import { createWorkspaceEntry, workspaceFilePath } from './workspace/api';
@@ -221,8 +220,6 @@ async function runOfficeExport(
   ref: ResourceRef,
   onProgress: (progress: OfficeExportProgress) => void,
 ): Promise<void> {
-  if (process.platform !== 'win32')
-    throw new Error('导出为 PDF 仅支持 Windows；macOS 可使用系统快速预览');
   onProgress({ phase: 'preparing' });
   const source = await resolveSource(ref);
   if ((await classifyOfficeFile(source.path)) !== 'pptx')
@@ -290,12 +287,4 @@ export function exportOfficePdf(
   );
   inFlight.set(key, work);
   return work;
-}
-
-export async function quickLookFile(sender: WebContents, ref: unknown): Promise<void> {
-  if (process.platform !== 'darwin') throw new Error('系统快速预览仅支持 macOS');
-  const source = await resolveSource(resourceRefSchema.parse(ref));
-  const window = BrowserWindow.fromWebContents(sender);
-  if (!window) throw new Error('窗口不可用，无法预览');
-  window.previewFile(source.path, source.title);
 }

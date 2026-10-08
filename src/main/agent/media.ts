@@ -1,5 +1,13 @@
 import { BrowserWindow, app, dialog, nativeImage, type NativeImage } from 'electron';
-import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ChatMediaView } from '../../shared/api';
@@ -12,8 +20,8 @@ import {
 } from '../../shared/chat-input';
 import { getDatabase } from '../database';
 
-// 已发送的内联图片持久化在 userData/chat-media/<UUID>.<ext>，消息 JSON 只保存 id；
-// 文本附件只进内存并在发送后释放，不落盘。启动时按会话引用回收孤儿文件。
+// 内联图片暂存在 userData/chat-media/<UUID>.<ext>：模型拿到的是 base64（随 Pi 会话落盘），
+// 历史展示按 id 读这里的缩略图；文本附件只进内存并在发送后释放。启动时按会话引用回收孤儿文件。
 const attachments = new Map<string, { name: string; bytes: Buffer }>();
 
 function mediaDir(): string {
@@ -114,22 +122,19 @@ export function releaseChatAttachments(ids: readonly string[]): void {
   for (const id of ids) attachments.delete(id);
 }
 
-/** 删除没有被任何会话消息引用的图片文件；在应用启动、数据库可用后调用。 */
+/** 删除没有被任何会话引用的图片文件（引用记在 Pi 会话 JSONL 的用户消息元数据里）；启动时调用。 */
 export function gcChatMedia(): void {
   const referenced = new Set<string>();
-  const rows = getDatabase().prepare('SELECT messages FROM chat_sessions').all() as {
-    messages: string;
+  const rows = getDatabase().prepare("SELECT file FROM sessions WHERE file != ''").all() as {
+    file: string;
   }[];
-  for (const row of rows) {
-    try {
-      for (const message of JSON.parse(row.messages) as { images?: { id: string }[] }[]) {
-        for (const image of message.images ?? []) {
-          if (isUuid(image.id)) referenced.add(image.id);
-        }
-      }
-    } catch {
-      // 单条会话 JSON 异常不阻塞其余回收。
-    }
+  for (const { file } of rows) {
+    if (!existsSync(file)) continue;
+    // 图片 id 只出现在该会话用户消息的元数据里：按 UUID 形状整文件匹配即可。
+    for (const [id] of readFileSync(file, 'utf8').matchAll(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
+    ))
+      referenced.add(id);
   }
   for (const file of readdirSync(mediaDir())) {
     const id = file.slice(0, 36);

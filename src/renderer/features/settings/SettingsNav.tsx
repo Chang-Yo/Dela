@@ -1,53 +1,100 @@
-import { Bot, Info, Palette, Plug, Puzzle, SlidersHorizontal, type LucideIcon } from 'lucide-react';
-import type { SettingsSectionId } from '../../../shared/api';
+import {
+  Archive,
+  Blocks,
+  Bot,
+  Info,
+  Keyboard,
+  LayoutGrid,
+  Palette,
+  Plug,
+  Puzzle,
+  Server,
+  ShieldCheck,
+  SlidersHorizontal,
+  Terminal,
+  type LucideIcon,
+} from 'lucide-react';
+import type { SettingsSectionId } from '../../../shared/settings';
 import { cn } from '../../lib/utils';
+import { settingsSectionLabels } from './search-index';
 
 export type { SettingsSectionId };
 
-const sections: Array<{ id: SettingsSectionId; label: string; icon: LucideIcon }> = [
-  { id: 'general', label: '通用', icon: SlidersHorizontal },
-  { id: 'connections', label: '数据与服务', icon: Plug },
-  { id: 'llm', label: '模型服务', icon: Bot },
-  { id: 'plugins', label: '插件', icon: Puzzle },
-  { id: 'appearance', label: '外观', icon: Palette },
-  { id: 'about', label: '关于', icon: Info },
+/** 分区目录：group 为侧栏分组标题（设置内只有一层分类，分组仅作视觉归拢）。 */
+const sections: Array<{ id: SettingsSectionId; group: string; icon: LucideIcon }> = [
+  { id: 'general', group: '基本', icon: SlidersHorizontal },
+  { id: 'appearance', group: '基本', icon: Palette },
+  { id: 'shortcuts', group: '基本', icon: Keyboard },
+  { id: 'workspace', group: '数据', icon: LayoutGrid },
+  { id: 'archived', group: '数据', icon: Archive },
+  { id: 'connections', group: '数据', icon: Plug },
+  { id: 'providers', group: '模型', icon: Bot },
+  { id: 'capabilities', group: '模型', icon: Blocks },
+  { id: 'commands', group: '模型', icon: Terminal },
+  { id: 'skills', group: '模型', icon: Puzzle },
+  { id: 'mcp', group: '模型', icon: Server },
+  { id: 'about', group: '关于', icon: Info },
+  { id: 'privacy', group: '关于', icon: ShieldCheck },
 ];
+
+/** 按分组切分目录，保持目录顺序。 */
+const sectionGroups = sections.reduce<Array<{ title: string; items: typeof sections }>>(
+  (groups, section) => {
+    const last = groups.at(-1);
+    if (last && last.title === section.group) last.items.push(section);
+    else groups.push({ title: section.group, items: [section] });
+    return groups;
+  },
+  [],
+);
 
 type SettingsNavProps = {
   value: SettingsSectionId;
   onSectionChange: (section: SettingsSectionId) => void;
 };
 
-/** 宽屏为左侧纵列，窄屏为顶部横向分区行。 */
+/** 宽屏为左侧纵列（带分组标题），窄屏为顶部横向分区行（分组退化为分隔线）。 */
 export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
   return (
     <nav
       aria-label="设置分区"
-      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-muted/40 p-2 md:w-[200px] md:flex-col md:overflow-y-auto md:border-b-0 md:border-r"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-page p-2 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
     >
-      <span className="hidden h-8 items-center px-2 text-xs font-medium text-muted-foreground md:flex">
-        设置
-      </span>
-      {sections.map(({ id, label, icon: Icon }) => {
-        const active = value === id;
-        return (
-          <button
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'flex h-8 shrink-0 items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors',
-              active
-                ? 'bg-background font-medium text-foreground shadow-xs'
-                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground',
-            )}
-            key={id}
-            onClick={() => onSectionChange(id)}
-            type="button"
-          >
-            <Icon className="size-4 shrink-0" strokeWidth={1.8} />
-            <span className="truncate">{label}</span>
-          </button>
-        );
-      })}
+      {/* 壳层锚点：分区目录以「设置」标题开头（窄屏横向分区行不放标题）。 */}
+      <span className="hidden px-2 pb-1 text-[13px] font-semibold text-ink md:block">设置</span>
+      {sectionGroups.map((group, index) => (
+        <div className="flex shrink-0 gap-1 md:grid md:gap-1" key={group.title}>
+          {index > 0 && (
+            <span aria-hidden="true" className="mx-1 w-px shrink-0 bg-line md:hidden" />
+          )}
+          <span className="hidden h-6 items-center px-2 text-[11.5px] font-medium text-ink-3 md:flex">
+            {group.title}
+          </span>
+          {group.items.map(({ id, icon: Icon }) => {
+            const active = value === id;
+            return (
+              <button
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex h-8 shrink-0 items-center gap-2.5 rounded-control px-2.5 text-[13px] transition-colors duration-150',
+                  active
+                    ? 'bg-surface font-medium text-ink shadow-hairline'
+                    : 'text-ink-2 hover:bg-hover hover:text-ink',
+                )}
+                key={id}
+                onClick={() => onSectionChange(id)}
+                type="button"
+              >
+                <Icon
+                  className={cn('size-4 shrink-0', active ? 'text-ink' : 'text-ink-3')}
+                  strokeWidth={1.8}
+                />
+                <span className="truncate">{settingsSectionLabels[id]}</span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

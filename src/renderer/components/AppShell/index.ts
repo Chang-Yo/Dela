@@ -1,1 +1,1 @@
-export { AppShell, type MobileDrawer, type ViewId } from './AppShell';
+export { AppShell } from './AppShell';

@@ -8,12 +8,8 @@ type ResizerProps = {
   value: number;
   min: number;
   max: number;
-  /** direction=1 向右拖动增宽;direction=-1 向左拖动增宽(面板在右侧时)。 */
-  direction?: 1 | -1;
   /** 分隔条方向;默认垂直分隔左右面板。 */
   orientation?: 'vertical' | 'horizontal';
-  /** 键盘每次调整的步长,px。 */
-  step?: number;
   onChange: (value: number) => void;
   /** 拖拽开始/结束回调;容器用它暂停列宽过渡,避免拖动滞后。 */
   onResizingChange?: (resizing: boolean) => void;
@@ -27,9 +23,7 @@ export function Resizer({
   value,
   min,
   max,
-  direction = 1,
   orientation = 'vertical',
-  step = 20,
   onChange,
   onResizingChange,
   defaultValue,
@@ -60,7 +54,7 @@ export function Resizer({
         horizontal
           ? 'cursor-ns-resize before:absolute before:inset-x-0 before:-inset-y-2.5'
           : 'cursor-ew-resize before:absolute before:inset-y-0 before:-inset-x-2.5',
-        'hover:bg-foreground/40 focus-visible:bg-foreground/40',
+        'hover:bg-ink-3 focus-visible:bg-bui-accent',
         className,
       )}
       onKeyDown={(event) => {
@@ -78,7 +72,8 @@ export function Resizer({
         const negative = horizontal ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
         if (!positive && !negative) return;
         event.preventDefault();
-        onChange(clamp(value + direction * (positive ? step : -step)));
+        // 向右/下拖动增宽；键盘步长 20px。
+        onChange(clamp(value + (positive ? 20 : -20)));
       }}
       onDoubleClick={() => {
         if (defaultValue !== undefined) onChange(clamp(defaultValue));
@@ -99,7 +94,7 @@ export function Resizer({
         const begin = start.current;
         if (!begin || !event.isPrimary || event.pointerId !== begin.pointerId) return;
         const position = horizontal ? event.clientY : event.clientX;
-        onChange(clamp(begin.size + direction * (position - begin.position)));
+        onChange(clamp(begin.size + (position - begin.position)));
       }}
       onPointerUp={(event) => {
         if (!event.isPrimary || event.pointerId !== start.current?.pointerId) return;

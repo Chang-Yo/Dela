@@ -7,6 +7,7 @@ import { canvasFilePath } from './canvas/api';
 import { readMailMessage, saveMailAttachment } from './mail/api';
 import { importWorkspaceFiles, workspaceFilePath } from './workspace/api';
 import { diskName } from './storage';
+import { workspaceEntryIdSchema } from '../shared/workspace';
 
 export async function withResourceFile<T>(
   source: ResourceRef,
@@ -32,7 +33,7 @@ export async function withResourceFile<T>(
 
 export async function copyResourceToProject(input: unknown) {
   const { source, parentId } = z
-    .object({ source: resourceRefSchema, parentId: z.string().uuid() })
+    .object({ source: resourceRefSchema, parentId: workspaceEntryIdSchema })
     .strict()
     .parse(input);
   return withResourceFile(source, (path) => {

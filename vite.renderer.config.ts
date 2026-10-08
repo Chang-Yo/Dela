@@ -8,6 +8,7 @@ export default defineConfig({
   root: 'src/renderer',
   base: './',
   envDir: false,
+  resolve: { alias: { '@': resolve('src/renderer') } },
   define: {
     __PDF_ASSET_DIR__: JSON.stringify(resolve('node_modules/pdfjs-dist').replaceAll('\\', '/')),
   },

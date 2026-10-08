@@ -10,7 +10,7 @@ import type {
   ShuiyuanTopicDetail,
   ShuiyuanTopicSummary,
 } from '../../../shared/api';
-import { errorText } from '../projects/workspace';
+import { errorText } from '../../workspace/store';
 
 /** 信息流来源：站点 feed（latest/featured/category/tag/search）或个人列表。 */
 export type ListSelection =
@@ -37,6 +37,8 @@ type Store = {
   listError: string | null;
   bookmarks: readonly ShuiyuanBookmarkItem[];
   notifications: readonly ShuiyuanNotificationItem[];
+  /** 已读记录（localStorage 持久化），驱动列表未读加粗。 */
+  readMarks: Readonly<ReadMarks>;
   reading: ReadingState;
   /** App 层“在水源页打开”请求；视图消费后清空。 */
   topicRequest: { topicId: number; postNumber: number | null } | null;
@@ -62,6 +64,43 @@ type Store = {
 /** 列表请求序号：丢弃过期响应（与邮箱视图的 request guard 同法）。 */
 let listRequest = 0;
 let readingRequest = 0;
+
+/** 已读记录：topicId → 打开该帖时的最后活动时间（ISO）。超过保留期的旧记录丢弃。 */
+const READ_STORAGE_KEY = 'dela.shuiyuan.read';
+const READ_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+type ReadMarks = Record<string, string>;
+
+function loadReadMarks(): ReadMarks {
+  try {
+    const raw = localStorage.getItem(READ_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const cutoff = Date.now() - READ_RETENTION_MS;
+    const marks: ReadMarks = {};
+    for (const [topicId, seen] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof seen === 'string' && new Date(seen).getTime() > cutoff) marks[topicId] = seen;
+    }
+    return marks;
+  } catch {
+    return {};
+  }
+}
+
+function persistReadMarks(marks: ReadMarks): void {
+  try {
+    localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(marks));
+  } catch {
+    /* 隐私模式/配额满时放弃持久化，本次会话内仍生效。 */
+  }
+}
+
+/** 未读判定：从未打开过，或打开后又有新回复。 */
+export function isTopicUnread(marks: Readonly<ReadMarks>, topic: ShuiyuanTopicSummary): boolean {
+  const seen = marks[topic.id];
+  if (!seen) return true;
+  return (topic.lastPostedAt ?? topic.createdAt) > seen;
+}
 
 function sameList(a: ListSelection, b: ListSelection): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -118,6 +157,7 @@ export const useShuiyuan = create<Store>((set, get) => {
     listError: null,
     bookmarks: [],
     notifications: [],
+    readMarks: loadReadMarks(),
     reading: null,
     topicRequest: null,
 
@@ -207,11 +247,17 @@ export const useShuiyuan = create<Store>((set, get) => {
         set({
           reading: { topicId, postNumber: postNumber ?? null, detail, loading: false, error: null },
         });
+        // 打开即视为已读：记录此刻的最后活动时间，列表未读加粗随之取消。
+        const readMarks = {
+          ...get().readMarks,
+          [topicId]: detail.lastPostedAt || detail.createdAt || new Date().toISOString(),
+        };
+        persistReadMarks(readMarks);
         // 列表里的收藏态与详情同步（从阅读页切换后列表徽标一致）。
         const topics = get().topics.map((topic) =>
           topic.id === topicId ? { ...topic, bookmarked: detail.bookmarked } : topic,
         );
-        set({ topics });
+        set({ topics, readMarks });
       } catch (error) {
         if (readingRequest !== request) return;
         set({
@@ -258,7 +304,6 @@ export const useShuiyuan = create<Store>((set, get) => {
       if (!api) return;
       const next = !current;
       // 乐观更新列表与阅读态；失败回滚。
-      const topicsBefore = get().topics;
       const apply = (value: boolean) => {
         set({
           topics: get().topics.map((topic) =>
@@ -279,10 +324,13 @@ export const useShuiyuan = create<Store>((set, get) => {
         apply(confirmed);
         if (get().list.kind === 'bookmarks') void get().refreshList();
       } catch (error) {
+        // 列表按 topic 粒度回写：await 期间 selectList 换流 / loadMore 追加页后，整份覆盖会丢新列表。
         // 期间切帖则当前 reading 已不属于本帖，不还原以免盖回旧阅读态；乐观标记按原值回退。
         const currentReading = get().reading;
         set({
-          topics: topicsBefore,
+          topics: get().topics.map((topic) =>
+            topic.id === topicId ? { ...topic, bookmarked: current } : topic,
+          ),
           reading:
             currentReading?.detail?.id === topicId
               ? {
@@ -299,13 +347,13 @@ export const useShuiyuan = create<Store>((set, get) => {
       const api = window.dela?.shuiyuan;
       const reading = get().reading;
       if (!api || !reading?.detail) return;
-      const postsBefore = reading.detail.posts;
+      const postBefore = reading.detail.posts.find((post) => post.id === postId);
       set({
         reading: {
           ...reading,
           detail: {
             ...reading.detail,
-            posts: postsBefore.map((post) =>
+            posts: reading.detail.posts.map((post) =>
               post.id === postId
                 ? {
                     ...post,
@@ -320,10 +368,20 @@ export const useShuiyuan = create<Store>((set, get) => {
       try {
         await api.setLiked(postId, liked);
       } catch (error) {
-        // 期间切帖则当前 reading 已不属于本帖，不还原；否则回滚乐观值并暴露错误。
-        if (get().reading !== reading) return;
+        // 乐观 set 已替换 reading 引用，不能按引用相等判过期；按帖子 id 守卫：期间切帖不还原，
+        // 否则按 post 粒度回写原楼层（整组覆盖会丢掉请求期间 loadMorePosts 合并进来的楼层）。
+        const currentReading = get().reading;
+        if (!postBefore || currentReading?.detail?.id !== reading.detail.id) return;
         set({
-          reading: { ...reading, detail: { ...reading.detail, posts: postsBefore } },
+          reading: {
+            ...currentReading,
+            detail: {
+              ...currentReading.detail,
+              posts: currentReading.detail.posts.map((post) =>
+                post.id === postId ? postBefore : post,
+              ),
+            },
+          },
           listError: errorText(error),
         });
       }

@@ -4,31 +4,39 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
-  CalendarDays,
-  CircleCheckBig,
+  Check,
+  ChevronDown,
   ChevronLeft,
+  CodeXml,
   Copy,
-  FolderKanban,
   FolderOpen,
-  House,
-  Mail,
   Menu,
+  MessageCirclePlus,
   Minus,
   PanelLeft,
   PanelLeftClose,
-  Plus,
   Search,
   Settings,
   Square,
+  SquareTerminal,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
+import { useEditorSettings } from '../../content/editor-settings';
+import { errorText } from '../../workspace/store';
 import { DelaBrand } from '../ui/dela-brand';
-import { ShuiyuanIcon } from '../ui/shuiyuan-icon';
 import { cn } from '../../lib/utils';
-import { useWorkspace } from '../../features/projects/workspace';
+import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
+import { useShortcuts } from '../../app/shortcuts';
+import { useExplorerState, useViewportWidth } from '../../workbench/explorer-state';
+import {
+  ProjectSessionNav,
+  type BusinessNavId,
+  type NavSessionSummary,
+  type SessionRunBadge,
+} from '../../navigation/ProjectSessionNav';
 import { zoomLevels, type ZoomPreference } from '../../../shared/api';
+import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../../shared/keybindings';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,56 +45,26 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
-
-export type ViewId =
-  | 'home'
-  | 'project'
-  | 'sources'
-  | 'mail'
-  | 'timetable'
-  | 'shuiyuan'
-  | 'settings'
-  | 'notifications'
-  | 'todo';
+import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../ui/motion';
+import { chromeIconButton, navIcon, navRow } from '../../navigation/nav-styles';
 
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
-export type MobileDrawer = 'nav' | 'mail';
-type TitleMenuId = 'file' | 'sources' | 'view' | 'help';
-type ShuiyuanIconType = typeof ShuiyuanIcon;
-
-const primaryNav: Array<{ id: ViewId; label: string; icon: LucideIcon | ShuiyuanIconType }> = [
-  { id: 'home', label: '首页', icon: House },
-  { id: 'project', label: '项目', icon: FolderKanban },
-  { id: 'sources', label: '资料', icon: FolderOpen },
-  { id: 'mail', label: '邮箱', icon: Mail },
-  { id: 'timetable', label: '课表', icon: CalendarDays },
-  { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
-  { id: 'todo', label: 'TODO', icon: CircleCheckBig },
-];
+type TitleMenuId = 'file' | 'view' | 'help';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
 
-/** Ctrl/⌘+数字直达的主视图,序号与侧栏 primaryNav 排布一致。 */
-const viewShortcuts: Record<string, ViewId> = {
-  '1': 'home',
-  '2': 'project',
-  '3': 'sources',
-  '4': 'mail',
-  '5': 'timetable',
-};
+// 快捷键提示的键位族（Windows-only，Mod 一律按 Ctrl 展开）。
+const platform = 'other' as const;
 
-// 快捷键弹窗的按键提示按运行平台显示 Ctrl 或 ⌘。
-const modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
-
-/** 标题栏菜单（文件/资料/视图/帮助）触发按钮的共用样式。 */
+/** 标题栏菜单（文件/视图/帮助）触发按钮的共用样式。 */
 const titleMenuButtonClass =
-  'h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground';
+  'h-7 min-w-12 rounded-control px-2.5 text-[13px] text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink data-[state=open]:bg-hover-2 data-[state=open]:text-ink';
 
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section aria-label={title}>
-      <h3 className="text-xs font-medium tracking-[0.12em] text-muted-foreground">{title}</h3>
+      <h3 className="text-[11.5px] font-medium tracking-[0.12em] text-ink-3">{title}</h3>
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -95,12 +73,12 @@ function ShortcutSection({ children, title }: { children: ReactNode; title: stri
 function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; label: string }) {
   return (
     <div className="flex h-9 items-center justify-between gap-8">
-      <span className="min-w-0 truncate text-sm text-foreground/80">{label}</span>
+      <span className="min-w-0 truncate text-[13px] text-ink-2">{label}</span>
       {keys ? (
         <span className="flex shrink-0 items-center gap-1">
           {keys.map((key) => (
             <kbd
-              className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border bg-muted/50 px-1.5 text-xs font-medium text-foreground/80"
+              className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-[12px] font-medium text-ink-2 shadow-hairline"
               key={key}
             >
               {key}
@@ -108,7 +86,7 @@ function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; la
           ))}
         </span>
       ) : (
-        <span className="shrink-0 text-sm text-muted-foreground">{hint}</span>
+        <span className="shrink-0 text-[13px] text-ink-3">{hint}</span>
       )}
     </div>
   );
@@ -139,7 +117,7 @@ function WindowControls() {
     <div className="[-webkit-app-region:no-drag] flex h-full">
       <button
         aria-label="最小化"
-        className="grid h-full w-12 place-items-center text-foreground/70 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
         onClick={() => window.dela?.window.minimize()}
         type="button"
       >
@@ -147,7 +125,7 @@ function WindowControls() {
       </button>
       <button
         aria-label={maximized ? '还原' : '最大化'}
-        className="grid h-full w-12 place-items-center text-foreground/70 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
         onClick={() => window.dela?.window.toggleMaximize()}
         type="button"
       >
@@ -159,7 +137,7 @@ function WindowControls() {
       </button>
       <button
         aria-label="关闭"
-        className="grid h-full w-12 place-items-center text-foreground/70 transition-colors hover:bg-[#e81123] hover:text-white"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-[#e81123] hover:text-white"
         onClick={() => window.dela?.window.close()}
         type="button"
       >
@@ -170,8 +148,8 @@ function WindowControls() {
 }
 
 type AppShellProps = {
-  view: ViewId;
-  onNavigate: (view: ViewId) => void;
+  view: AppView;
+  onNavigate: (view: AppView) => void;
   mobileDrawer?: MobileDrawer | null;
   onMobileDrawerChange?: (drawer: MobileDrawer | null) => void;
   onBack: () => void;
@@ -181,11 +159,25 @@ type AppShellProps = {
   zoom: ZoomPreference;
   onZoomChange: (zoom: ZoomPreference) => void;
   children: ReactNode;
-  projectId: string | null;
-  onOpenProject: (id: string) => void;
+  /** 工作台导入目标（当前项目）；无项目时导入到根。 */
+  onImportFiles: () => void;
   onNewProject: () => void;
   onSearch: () => void;
   notificationCount: number;
+  /** 项目会话导航（sessions/runs 镜像数据与跳转回调由 App 装配后传入）。 */
+  sessionsByProject: Record<string, NavSessionSummary[]>;
+  runBadge: (sessionId: string) => SessionRunBadge;
+  activeSessionId?: string | null;
+  projectId: string | null;
+  onOpenProject: (id: string) => void;
+  onOpenSession: (sessionId: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onOpenGeneralChat: () => void;
+  /** 「资料」入口：进入通用（资料）工作台。 */
+  onOpenSources: () => void;
+  /** 焦点工作组的活动标签是否为会话；通用池内据此互斥高亮「通用聊天/资料」。 */
+  activeTabIsChat: boolean;
+  onNavigateBusiness: (id: BusinessNavId) => void;
 };
 
 export function AppShell({
@@ -200,16 +192,25 @@ export function AppShell({
   zoom,
   onZoomChange,
   children,
-  projectId,
-  onOpenProject,
+  onImportFiles,
   onNewProject,
   onSearch,
   notificationCount,
+  sessionsByProject,
+  runBadge,
+  activeSessionId = null,
+  projectId,
+  onOpenProject,
+  onOpenSession,
+  onDeleteSession,
+  onOpenGeneralChat,
+  onOpenSources,
+  activeTabIsChat,
+  onNavigateBusiness,
 }: AppShellProps) {
-  const entries = useWorkspace((state) => state.workspace.entries);
-  const drafts = useWorkspace((state) => state.drafts);
-  const projects = entries.filter((entry) => entry.kind === 'project');
   const [sidebarWidth, setSidebarWidth] = useState(200);
+  const wordWrap = useEditorSettings((state) => state.wordWrap);
+  const bindings = useShortcuts((state) => state.bindings);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('dela.shell.sidebar-collapsed') === 'true';
@@ -222,7 +223,35 @@ export function AppShell({
   const drawer = mobileDrawer ?? null;
   const [helpOpen, setHelpOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<TitleMenuId | null>(null);
-  const hasSaveableNote = Object.values(drafts).some((draft) => Boolean(draft.content.revision));
+  const [projectOpenTarget, setProjectOpenTarget] = useState<'vscode' | 'explorer'>(() => {
+    try {
+      return localStorage.getItem('dela.project.open-target') === 'explorer'
+        ? 'explorer'
+        : 'vscode';
+    } catch {
+      return 'vscode';
+    }
+  });
+  const explorerMobileOpen = useExplorerState((s) => s.mobileOpen);
+  const viewportWidth = useViewportWidth();
+
+  // 窄屏双抽屉互斥：两个抽屉都锚定屏幕左侧，叠开会出「点了没反应/凭空出现」的假象。
+  // 目录抽屉只在 workbench 视图挂载，互斥也只在该视图生效，避免残留状态误关其他视图的抽屉。
+  useEffect(() => {
+    if (!narrow || view !== 'workbench' || !explorerMobileOpen || drawer === null) return;
+    onMobileDrawerChange?.(null);
+  }, [drawer, narrow, view, explorerMobileOpen, onMobileDrawerChange]);
+  useEffect(() => {
+    if (!narrow || drawer === null) return;
+    if (useExplorerState.getState().mobileOpen) useExplorerState.getState().setMobileOpen(false);
+  }, [drawer, narrow]);
+
+  // 视口钳制：壳侧栏渲染宽度不超过视口约 28%（下限 200），给内容区保留可用宽度；
+  // 用户拖拽偏好保留原值，仅渲染时钳制（与目录侧栏的钳制合计 ≤ 约 56% 视口）。
+  const effectiveSidebarWidth = Math.min(
+    sidebarWidth,
+    Math.max(200, Math.round(viewportWidth * 0.28)),
+  );
 
   useEffect(() => {
     try {
@@ -248,21 +277,23 @@ export function AppShell({
 
   const navHidden = narrow ? drawer === null : sidebarCollapsed;
 
-  const navigate = (next: ViewId) => {
+  const openProjectDirectory = (target: 'vscode' | 'explorer') => {
+    if (view !== 'workbench' || !projectId || !window.dela) return;
+    setProjectOpenTarget(target);
+    try {
+      localStorage.setItem('dela.project.open-target', target);
+    } catch {
+      /* Storage may be unavailable. */
+    }
+    useNavigationStore.getState().setNavigationError(null);
+    void window.dela.workspace.openProjectDirectory(projectId, target).catch((cause: unknown) => {
+      useNavigationStore.getState().setNavigationError(errorText(cause));
+    });
+  };
+
+  const navigate = (next: AppView) => {
     onNavigate(next);
     if (narrow) onMobileDrawerChange?.(next === 'mail' ? 'mail' : null);
-  };
-
-  const importFiles = () => {
-    if (!window.dela) return;
-    void window.dela.workspace
-      .importFiles(view === 'project' ? projectId : null)
-      .then(() => useWorkspace.getState().refresh())
-      .catch(useWorkspace.getState().setError);
-  };
-
-  const saveAllNotes = () => {
-    void Promise.all(Object.keys(drafts).map((key) => useWorkspace.getState().save(key)));
   };
 
   // Ctrl/⌘ +/-/0 的缩放步进：在设置页同一组档位间移动，两端保持不动；0 重置。
@@ -289,32 +320,57 @@ export function AppShell({
   };
 
   // 快捷键回调经 ref 取最新值：keydown 监听只注册一次，避免每次渲染重绑。
-  const shortcutsRef = useRef({ importFiles, navigate, onNewProject, saveAllNotes, stepZoom });
+  const shortcutsRef = useRef({ navigate, onImportFiles, onNewProject, onSearch, stepZoom });
   useEffect(() => {
-    shortcutsRef.current = { importFiles, navigate, onNewProject, saveAllNotes, stepZoom };
+    shortcutsRef.current = { navigate, onImportFiles, onNewProject, onSearch, stepZoom };
   });
-
+  useEffect(() => {
+    // 启动时读取一次用户覆盖的键位（默认值首帧即可用）。
+    void useShortcuts.getState().load();
+  }, []);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
-      const { importFiles, navigate, onNewProject, saveAllNotes, stepZoom } = shortcutsRef.current;
-      const key = event.key.toLowerCase();
-      if (key === 'n' && event.shiftKey) {
-        event.preventDefault();
-        onNewProject();
-      } else if (key === 'o' && !event.shiftKey) {
-        event.preventDefault();
-        importFiles();
-      } else if (key === 's' && !event.shiftKey) {
-        event.preventDefault();
-        saveAllNotes();
-      } else if (!event.shiftKey && (key === '=' || key === '+' || key === '-' || key === '0')) {
-        event.preventDefault();
-        stepZoom(key === '-' ? -1 : key === '0' ? 0 : 1);
-      } else if (!event.shiftKey && (key === ',' || viewShortcuts[key])) {
-        event.preventDefault();
-        setOpenMenu(null);
-        navigate(key === ',' ? 'settings' : viewShortcuts[key]!);
+      if (event.isComposing) return;
+      // 动作由键位表解析：用户改键后此处无需改动，未绑定/未命中即不拦截。
+      const action = matchShortcut(useShortcuts.getState().bindings, event, 'global');
+      if (!action) return;
+      const { navigate, onImportFiles, onNewProject, onSearch, stepZoom } = shortcutsRef.current;
+      event.preventDefault();
+      switch (action) {
+        case 'new-project':
+          onNewProject();
+          break;
+        case 'import-files':
+          onImportFiles();
+          break;
+        case 'global-search':
+          setOpenMenu(null);
+          onSearch();
+          break;
+        case 'zoom-in':
+          stepZoom(1);
+          break;
+        case 'zoom-out':
+          stepZoom(-1);
+          break;
+        case 'zoom-reset':
+          stepZoom(0);
+          break;
+        case 'toggle-word-wrap':
+          useEditorSettings.getState().toggleWordWrap();
+          break;
+        case 'open-home':
+          navigate('home');
+          break;
+        case 'open-mail':
+          navigate('mail');
+          break;
+        case 'open-timetable':
+          navigate('timetable');
+          break;
+        case 'open-settings':
+          navigate('settings');
+          break;
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -324,18 +380,18 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-sidebar transition-[grid-template-columns] duration-200 ease-out',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
         sidebarResizing && 'transition-none',
       )}
       style={
         {
-          '--sidebar-width': narrow || sidebarCollapsed ? '0px' : `${sidebarWidth}px`,
+          '--sidebar-width': narrow || sidebarCollapsed ? '0px' : `${effectiveSidebarWidth}px`,
         } as CSSProperties
       }
     >
       <header
         className={cn(
-          'col-span-full flex items-center justify-between bg-sidebar',
+          'col-span-full flex items-center justify-between bg-page',
           'select-none [-webkit-app-region:drag]',
         )}
       >
@@ -345,7 +401,8 @@ export function AppShell({
             aria-expanded={!navHidden}
             aria-label={navHidden ? '展开侧边栏' : '收起侧边栏'}
             className={cn(
-              '[-webkit-app-region:no-drag] ml-2 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground',
+              chromeIconButton,
+              '[-webkit-app-region:no-drag] ml-2',
               !navHidden && 'opacity-70 hover:opacity-100',
             )}
             onClick={() =>
@@ -368,7 +425,7 @@ export function AppShell({
           </button>
           <button
             aria-label="后退"
-            className="[-webkit-app-region:no-drag] ml-1.5 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground disabled:opacity-40"
+            className={cn(chromeIconButton, '[-webkit-app-region:no-drag] ml-1.5')}
             disabled={!canBack}
             onClick={onBack}
             title="后退"
@@ -378,7 +435,7 @@ export function AppShell({
           </button>
           <button
             aria-label="前进"
-            className="[-webkit-app-region:no-drag] ml-0.5 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground disabled:opacity-40"
+            className={cn(chromeIconButton, '[-webkit-app-region:no-drag] ml-0.5')}
             disabled={!canForward}
             onClick={onForward}
             title="前进"
@@ -406,43 +463,9 @@ export function AppShell({
                   新建项目
                   <DropdownMenuShortcut>Ctrl/⌘⇧N</DropdownMenuShortcut>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(importFiles)}>
+                <DropdownMenuItem onSelect={selectMenu(onImportFiles)}>
                   导入本地文件
                   <DropdownMenuShortcut>Ctrl/⌘O</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={!hasSaveableNote} onSelect={selectMenu(saveAllNotes)}>
-                  保存所有已打开笔记
-                  <DropdownMenuShortcut>Ctrl/⌘S</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu
-              modal={false}
-              onOpenChange={(open) => updateMenu('sources', open)}
-              open={openMenu === 'sources'}
-            >
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={titleMenuButtonClass}
-                  onPointerEnter={() => hoverMenu('sources')}
-                  type="button"
-                >
-                  资料
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('sources'))}>
-                  Canvas 资料
-                  <DropdownMenuShortcut>Ctrl/⌘3</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('mail'))}>
-                  邮箱
-                  <DropdownMenuShortcut>Ctrl/⌘4</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('timetable'))}>
-                  课表
-                  <DropdownMenuShortcut>Ctrl/⌘5</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -465,9 +488,23 @@ export function AppShell({
                   首页
                   <DropdownMenuShortcut>Ctrl/⌘1</DropdownMenuShortcut>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={selectMenu(() => navigate('project'))}>
-                  项目
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('mail'))}>
+                  邮箱
                   <DropdownMenuShortcut>Ctrl/⌘2</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('timetable'))}>
+                  课表
+                  <DropdownMenuShortcut>Ctrl/⌘3</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  role="menuitemcheckbox"
+                  aria-checked={wordWrap}
+                  onSelect={selectMenu(() => useEditorSettings.getState().toggleWordWrap())}
+                >
+                  <Check className={cn('size-4', !wordWrap && 'invisible')} />
+                  自动换行
+                  <DropdownMenuShortcut>Alt+Z</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
@@ -477,57 +514,152 @@ export function AppShell({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <DropdownMenu
-            modal={false}
-            onOpenChange={(open) => updateMenu('help', open)}
-            open={openMenu === 'help'}
-          >
-            <DropdownMenuTrigger asChild>
-              <button
-                className={cn(
-                  titleMenuButtonClass,
-                  '[-webkit-app-region:no-drag] ml-0.5 grid shrink-0 place-items-center',
-                )}
-                onPointerEnter={() => hoverMenu('help')}
-                type="button"
-              >
-                帮助
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
-              <DropdownMenuItem onSelect={selectMenu(() => setHelpOpen(true))}>
-                快捷键
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
-                设置与关于
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* 窄窗口下与文件/视图菜单一并隐藏；帮助内容在设置中都有入口。 */}
+          <div className="[-webkit-app-region:no-drag] ml-0.5 hidden shrink-0 md:block">
+            <DropdownMenu
+              modal={false}
+              onOpenChange={(open) => updateMenu('help', open)}
+              open={openMenu === 'help'}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={titleMenuButtonClass}
+                  onPointerEnter={() => hoverMenu('help')}
+                  type="button"
+                >
+                  帮助
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-52" sideOffset={6}>
+                <DropdownMenuItem onSelect={selectMenu(() => setHelpOpen(true))}>
+                  快捷键
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={selectMenu(() => navigate('settings'))}>
+                  设置与关于
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <div className="flex h-full items-center">
-          {/* 各视图经 portal 往这里挂工作区级动作（目录/布局/助手），挂在窗口控制按钮左侧。 */}
-          <div
-            id="titlebar-actions"
-            className="[-webkit-app-region:no-drag] flex h-full items-center gap-1"
-          />
+          {/* 侧栏折叠后铃铛/搜索随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}
+          {!narrow && sidebarCollapsed && (
+            <div className="[-webkit-app-region:no-drag] flex h-full items-center gap-1 pr-1">
+              <button
+                aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
+                aria-current={view === 'notifications' ? 'page' : undefined}
+                className={cn(chromeIconButton, 'relative')}
+                onClick={() => navigate('notifications')}
+                title="通知"
+                type="button"
+              >
+                <Bell className="size-4" strokeWidth={1.8} />
+                {notificationCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
+                  />
+                )}
+              </button>
+              <button
+                aria-label="搜索"
+                className={chromeIconButton}
+                onClick={onSearch}
+                title="全局搜索 (Ctrl/⌘+K)"
+                type="button"
+              >
+                <Search className="size-4" strokeWidth={1.8} />
+              </button>
+            </div>
+          )}
+          {view === 'workbench' && projectId && window.dela && (
+            <div className="[-webkit-app-region:no-drag] flex shrink-0 items-center gap-1 px-2">
+              <div className="flex h-7 items-center rounded-control shadow-hairline">
+                <button
+                  aria-label={
+                    projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
+                  }
+                  className="grid size-7 place-items-center rounded-l-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
+                  onClick={() => openProjectDirectory(projectOpenTarget)}
+                  title={
+                    projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
+                  }
+                  type="button"
+                >
+                  {projectOpenTarget === 'vscode' ? (
+                    <CodeXml className="size-4 text-bui-accent" />
+                  ) : (
+                    <FolderOpen className="size-4" />
+                  )}
+                </button>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      aria-label="选择项目打开方式"
+                      className="grid h-full w-6 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink data-[state=open]:bg-hover-2"
+                      title="选择项目打开方式"
+                      type="button"
+                    >
+                      <ChevronDown className="size-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => openProjectDirectory('explorer')}>
+                      <FolderOpen />
+                      资源管理器
+                      {projectOpenTarget === 'explorer' && <Check className="ml-auto" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => openProjectDirectory('vscode')}>
+                      <CodeXml className="text-bui-accent" />
+                      VS Code
+                      {projectOpenTarget === 'vscode' && <Check className="ml-auto" />}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <button
+                aria-label="打开项目终端"
+                className={chromeIconButton}
+                onClick={() => projectId && useNavigationStore.getState().openTerminal(projectId)}
+                title="打开项目终端"
+                type="button"
+              >
+                <SquareTerminal className="size-4" strokeWidth={1.8} />
+              </button>
+            </div>
+          )}
+          {/* 资料页（通用工作台）的聊天入口：非项目会话即首页网页式 chat，可 @ 资料文件。 */}
+          {view === 'workbench' && projectId === null && window.dela && (
+            <button
+              aria-label="新聊天"
+              className={cn(chromeIconButton, '[-webkit-app-region:no-drag] mr-1')}
+              onClick={() => useNavigationStore.getState().openGeneralChat(true)}
+              title="新聊天"
+              type="button"
+            >
+              <MessageCirclePlus className="size-4" strokeWidth={1.8} />
+            </button>
+          )}
           <WindowControls />
         </div>
       </header>
       <Dialog.Root onOpenChange={setHelpOpen} open={helpOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-popover p-8 shadow-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-150 max-md:w-[calc(100%-2rem)] max-md:p-6">
+          <Dialog.Overlay className={dialogOverlay} />
+          <Dialog.Content
+            className={cn(dialogPanel, 'max-h-[85vh] max-w-2xl overflow-y-auto p-8 max-md:p-6')}
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
-                <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-                  以下快捷键在任何界面均直接生效。
+                <Dialog.Description className="mt-1 text-[13px] text-ink-3">
+                  与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
                 </Dialog.Description>
               </div>
               <Dialog.Close asChild>
                 <button
                   aria-label="关闭"
-                  className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className={cn(chromeIconButton, '-mr-1 -mt-1')}
                   type="button"
                 >
                   <X className="size-4" strokeWidth={1.8} />
@@ -535,28 +667,28 @@ export function AppShell({
               </Dialog.Close>
             </div>
             <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
-              <ShortcutSection title="导航">
-                <ShortcutRow keys={[modKey, '1']} label="首页" />
-                <ShortcutRow keys={[modKey, '2']} label="项目" />
-                <ShortcutRow keys={[modKey, '3']} label="Canvas 资料" />
-                <ShortcutRow keys={[modKey, '4']} label="邮箱" />
-                <ShortcutRow keys={[modKey, '5']} label="课表" />
-                <ShortcutRow keys={[modKey, ',']} label="设置" />
+              {/* 提示按当前生效键位渲染：用户在设置里改键后此处同步。 */}
+              {shortcutGroups().map((group) => (
+                <ShortcutSection key={group.title} title={group.title}>
+                  {group.actions.map((action) => {
+                    const keys = bindings[action.id]
+                      ? acceleratorKeys(bindings[action.id], platform, action.family)
+                      : null;
+                    return (
+                      <ShortcutRow
+                        hint={keys ? undefined : '未绑定'}
+                        key={action.id}
+                        keys={keys ?? undefined}
+                        label={action.label}
+                      />
+                    );
+                  })}
+                </ShortcutSection>
+              ))}
+              <ShortcutSection title="鼠标">
+                <ShortcutRow hint="关闭标签" label="中键点击标签" />
+                <ShortcutRow hint="新建笔记" label="双击目录空白处" />
               </ShortcutSection>
-              <div className="flex flex-col gap-8">
-                <ShortcutSection title="通用">
-                  <ShortcutRow keys={[modKey, '⇧', 'N']} label="新建项目" />
-                  <ShortcutRow keys={[modKey, 'O']} label="导入本地文件" />
-                  <ShortcutRow keys={[modKey, 'S']} label="保存所有已打开笔记" />
-                  <ShortcutRow keys={[modKey, '=']} label="放大" />
-                  <ShortcutRow keys={[modKey, '-']} label="缩小" />
-                  <ShortcutRow keys={[modKey, '0']} label="重置缩放" />
-                </ShortcutSection>
-                <ShortcutSection title="鼠标">
-                  <ShortcutRow hint="关闭文档" label="中键点击文档标签" />
-                  <ShortcutRow hint="新建笔记" label="双击标签栏或目录空白处" />
-                </ShortcutSection>
-              </div>
             </div>
           </Dialog.Content>
         </Dialog.Portal>
@@ -564,17 +696,19 @@ export function AppShell({
       {narrow && drawer !== null && (
         <div
           aria-hidden="true"
-          className="animate-in fade-in duration-150 absolute inset-x-0 bottom-0 top-10 z-30 bg-black/30"
+          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-30 bg-black/30')}
           onMouseDown={() => onMobileDrawerChange?.(null)}
         />
       )}
       <aside
         aria-label="主导航"
         className={cn(
-          'flex min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-sidebar pb-3 text-sidebar-foreground',
+          // 滚动收敛在 ProjectSessionNav 内部的单一滚动容器，避免 aside/置顶/项目三层滚动嵌套。
+          'flex min-h-0 flex-col overflow-hidden bg-page pb-3 text-ink',
           narrow
             ? cn(
-                'animate-in fade-in slide-in-from-left-6 duration-150 absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] border-r border-sidebar-border px-2 shadow-2xl',
+                drawerFromLeft,
+                'absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] px-2 shadow-overlay',
                 drawer === null && 'hidden',
               )
             : cn(
@@ -591,33 +725,30 @@ export function AppShell({
             'flex min-h-0 flex-1 flex-col',
             narrow ? cn('min-w-0', drawer === 'mail' && 'hidden') : 'px-2',
           )}
-          style={narrow ? undefined : { width: sidebarWidth }}
+          style={narrow ? undefined : { width: effectiveSidebarWidth }}
         >
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
-            <button
-              className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-sidebar-accent"
-              onClick={() => navigate('home')}
-              title="回到首页"
-              type="button"
-            >
+            {/* 纯品牌展示；回首页由下方「首页」行承担，避免相邻双入口。 */}
+            <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
               <DelaBrand className="h-[18px] w-auto" />
               <span
                 className={cn(
-                  'text-[15px] font-semibold tracking-tight',
+                  'text-[15px] font-semibold tracking-tight text-ink',
                   labelFade,
                   sidebarCollapsed && 'opacity-0',
                 )}
               >
                 Dela
               </span>
-            </button>
+            </div>
             <div className="flex-1" />
             <button
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
               aria-current={view === 'notifications' ? 'page' : undefined}
               className={cn(
-                'relative grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground',
-                view === 'notifications' && 'bg-sidebar-accent text-foreground',
+                chromeIconButton,
+                'relative',
+                view === 'notifications' && 'bg-hover-2 text-ink',
               )}
               onClick={() => navigate('notifications')}
               title="通知"
@@ -627,13 +758,13 @@ export function AppShell({
               {notificationCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-sidebar"
+                  className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
                 />
               )}
             </button>
             <button
               aria-label="搜索"
-              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+              className={chromeIconButton}
               onClick={() => {
                 onMobileDrawerChange?.(null);
                 onSearch();
@@ -644,112 +775,48 @@ export function AppShell({
               <Search className="size-4" strokeWidth={1.8} />
             </button>
           </div>
-          <nav aria-label="功能导航" className="mt-1 grid gap-0.5">
-            {primaryNav.map((item) => {
-              const Icon = item.icon;
-              const active = view === item.id;
-              return (
-                <button
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'flex h-8 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                    active
-                      ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-                  )}
-                  key={item.id}
-                  onClick={() => navigate(item.id)}
-                  type="button"
-                >
-                  <Icon
-                    className={cn(
-                      'size-4 shrink-0',
-                      active ? 'text-foreground' : 'text-muted-foreground',
-                    )}
-                    strokeWidth={1.8}
-                  />
-                  <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-          <section aria-labelledby="project-nav-title" className="mt-5">
-            <div className="flex items-center justify-between px-2 pb-1">
-              <span
-                id="project-nav-title"
-                className={cn(
-                  'whitespace-nowrap text-xs font-medium text-muted-foreground',
-                  labelFade,
-                  sidebarCollapsed && 'opacity-0',
-                )}
-              >
-                项目
-              </span>
-              <button
-                aria-label="新建项目"
-                className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                title="新建项目"
-                onClick={() => {
-                  onNewProject();
-                  if (narrow) onMobileDrawerChange?.(null);
-                }}
-                type="button"
-              >
-                <Plus className="size-3.5" strokeWidth={1.8} />
-              </button>
-            </div>
-            <div className="grid gap-0.5">
-              {projects.map((project) => {
-                const current = view === 'project' && project.id === projectId;
-                return (
-                  <button
-                    aria-current={current ? 'page' : undefined}
-                    className={cn(
-                      'flex h-8 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                      current
-                        ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                        : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-                    )}
-                    key={project.id}
-                    onClick={() => {
-                      onOpenProject(project.id);
-                      if (narrow) onMobileDrawerChange?.(null);
-                    }}
-                    type="button"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="size-2 shrink-0 rounded-full bg-muted-foreground"
-                    />
-                    <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
-                      {project.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-          <div className="mt-auto grid gap-0.5 pt-4">
+          <ProjectSessionNav
+            activeBusinessId={
+              view === 'mail' || view === 'timetable' || view === 'shuiyuan' || view === 'todo'
+                ? view
+                : null
+            }
+            activeProjectId={view === 'workbench' ? projectId : null}
+            activeSessionId={view === 'home' ? null : activeSessionId}
+            collapsed={!narrow && sidebarCollapsed}
+            generalChatActive={view === 'home'}
+            onDeleteSession={onDeleteSession}
+            onNewChat={(id) => void useNavigationStore.getState().newChat(id)}
+            onNavigateBusiness={onNavigateBusiness}
+            onNewProject={() => {
+              onNewProject();
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
+            onOpenGeneralChat={() => {
+              onOpenGeneralChat();
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
+            onOpenProject={(id) => {
+              onOpenProject(id);
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
+            onOpenSession={onOpenSession}
+            onOpenSources={() => {
+              onOpenSources();
+              if (narrow) onMobileDrawerChange?.(null);
+            }}
+            runBadge={runBadge}
+            sessionsByProject={sessionsByProject}
+            sourcesActive={view === 'workbench' && projectId === null && !activeTabIsChat}
+          />
+          <div className="grid shrink-0 gap-0.5 pt-2">
             <button
               aria-current={view === 'settings' ? 'page' : undefined}
-              className={cn(
-                'flex h-8 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                view === 'settings'
-                  ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-              )}
+              className={navRow(view === 'settings')}
               onClick={() => navigate('settings')}
               type="button"
             >
-              <Settings
-                className={cn(
-                  'size-4 shrink-0',
-                  view === 'settings' ? 'text-foreground' : 'text-muted-foreground',
-                )}
-                strokeWidth={1.8}
-              />
+              <Settings className={navIcon(view === 'settings')} strokeWidth={1.8} />
               <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
                 设置
               </span>
@@ -759,13 +826,13 @@ export function AppShell({
         <div
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
-            narrow && drawer === 'mail' ? 'flex animate-in fade-in duration-150' : 'hidden',
+            narrow && drawer === 'mail' ? cn('flex', fadeIn) : 'hidden',
           )}
         >
           <div className="flex h-11 shrink-0 items-center px-1">
             <button
               aria-label="返回主菜单"
-              className="flex h-8 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+              className={navRow(false)}
               onClick={() => onMobileDrawerChange?.('nav')}
               type="button"
             >
@@ -778,24 +845,27 @@ export function AppShell({
       </aside>
       <Resizer
         className={cn(
-          'col-start-2 row-start-2 bg-transparent',
+          'col-start-3 row-start-2 bg-transparent',
           // 折叠/窄屏时间隔条整体隐藏（网格列为固定 1px，不影响布局）：
           // 仅 pointer-events-none 时键盘仍可聚焦，方向键调整是看不见的假反馈。
           (sidebarCollapsed || narrow) && 'hidden',
         )}
         label="调整侧边栏宽度"
+        // 拖拽绑定用户偏好值与原上限：渲染宽度另有视口钳制，若把钳制值当 max，
+        // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
         max={360}
         min={200}
         onChange={setSidebarWidth}
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      {/* relative + id：供页内悬浮面板（如首页历史对话）portal 锚定到内容区。 */}
-      {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。 */}
+      {/* relative + id：供页内悬浮面板（如会话历史）portal 锚定到内容区。 */}
+      {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。
+          侧栏不额外预留间隙；分隔线仅占 1px，拖动命中范围由 Resizer 的透明伪元素扩展。 */}
       <main
         className={cn(
-          'relative col-start-3 row-start-2 mt-1.5 mr-1.5 ml-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-xl border border-b-0 border-border/70 bg-background shadow-xs',
-          'max-md:mt-0 max-md:mr-0 max-md:ml-0 max-md:rounded-none max-md:border-0',
+          'relative col-start-4 row-start-2 mt-1.5 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-window bg-surface shadow-hairline',
+          'max-md:mt-0 max-md:mr-0 max-md:rounded-none max-md:border-0',
         )}
         id="app-main"
       >

@@ -146,10 +146,12 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
     );
   }, [loadEvents]);
 
+  // Run 终态后刷新课表（日历只可能被 Agent 工具在 run 中写入；个人待办另有 todo.onUpdate 驱动）。
   useEffect(
     () =>
-      window.dela?.workspace.onChatUpdate((_scope, chat) => {
-        if (!chat.running) void loadEvents().catch((reason) => setError(String(reason)));
+      window.dela?.session.onRunEvent((event) => {
+        if (event.status === 'completed' || event.status === 'failed' || event.status === 'stopped')
+          void loadEvents().catch((reason) => setError(String(reason)));
       }),
     [loadEvents],
   );
@@ -218,9 +220,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
 
   if (!state || !semester) {
     return (
-      <div className="grid h-full place-items-center text-sm text-muted-foreground">
-        正在读取课表…
-      </div>
+      <div className="grid h-full place-items-center text-[13px] text-ink-3">正在读取课表…</div>
     );
   }
 
@@ -256,18 +256,15 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="border-b bg-background/95 px-4 py-2 backdrop-blur max-md:px-3">
+    <div className="flex h-full min-h-0 flex-col bg-surface">
+      <header className="border-b border-line bg-surface/95 px-4 py-2 backdrop-blur max-md:px-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="mr-1 min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">{headerTitle}</h1>
-            <p className="text-[11px] text-muted-foreground">
-              {mode === 'week' && semesterWeekStart
-                ? `第 ${selectedWeek} 教学周 · ${semesterLabel(semester)}`
-                : semesterLabel(semester)}
-            </p>
+            {/* 周次信息已由下方「教学周」Select 展示，副标题只保留学期，避免同屏重复。 */}
+            <p className="text-[11px] text-ink-3">{semesterLabel(semester)}</p>
           </div>
-          <div className="flex items-center rounded-md border bg-background shadow-xs">
+          <div className="flex items-center rounded-control border border-line bg-surface shadow-hairline">
             <Button
               aria-label="上一段时间"
               className="rounded-r-none"
@@ -306,14 +303,12 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
               )}
               {state.connected ? null : '重新登录'}
             </Button>
-            <div className="flex items-center rounded-md bg-secondary p-0.5">
+            <div className="flex items-center rounded-control bg-hover-2 p-0.5">
               {(['week', 'month'] as const).map((value) => (
                 <button
                   className={cn(
-                    'h-7 rounded px-3 text-xs font-medium transition-colors',
-                    mode === value
-                      ? 'bg-background shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground',
+                    'h-7 rounded px-3 text-[12px] font-medium transition-colors',
+                    mode === value ? 'bg-surface shadow-hairline' : 'text-ink-3 hover:text-ink',
                   )}
                   key={value}
                   onClick={() => setMode(value)}
@@ -367,11 +362,11 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
             </Select>
           ) : null}
           <button
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-secondary/70 px-2.5 text-xs font-medium text-secondary-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-hover-2 px-2.5 text-[12px] font-medium text-ink outline-none transition-colors hover:bg-hover-2 focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
             onClick={() => setSemesterDraft(true)}
             type="button"
           >
-            <CalendarRange className="size-3.5 text-muted-foreground" />
+            <CalendarRange className="size-3.5 text-ink-3" />
             {state.semesterStart
               ? `开学 ${formatMonthDay(parseDate(state.semesterStart))}`
               : '设置开学日期'}
@@ -381,7 +376,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
 
       {error ? (
         <p
-          className="mx-4 mt-3 break-words rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="mx-4 mt-3 break-words rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
           role="alert"
         >
           {error}

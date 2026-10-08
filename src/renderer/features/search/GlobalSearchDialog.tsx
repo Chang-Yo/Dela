@@ -12,9 +12,12 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import type { GlobalSearchResult, SettingsSectionId } from '../../../shared/api';
+import type { GlobalSearchResult } from '../../../shared/api';
 import { cn } from '../../lib/utils';
+import { GLOBAL_SEARCH_PER_KIND_LIMIT } from '../../../shared/search';
 import { Button } from '../../components/ui/button';
+import { settingsResultsFor } from '../settings/search-index';
+import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
 
 const resultGroups: ReadonlyArray<{
   kind: GlobalSearchResult['kind'];
@@ -31,55 +34,7 @@ const resultGroups: ReadonlyArray<{
   { kind: 'setting', label: '设置', icon: Settings },
 ];
 
-/** 设置入口是渲染层静态数据,与主进程返回的同步数据在本地合并展示。 */
-const settingsEntries: ReadonlyArray<{
-  section: SettingsSectionId;
-  title: string;
-  subtitle: string;
-  keywords: string;
-}> = [
-  {
-    section: 'connections',
-    title: '数据与服务',
-    subtitle: '设置 · 邮箱、水源、课表与 Canvas 连接',
-    keywords: '连接 账号 jaccount 邮箱 水源 课表 canvas 数据服务',
-  },
-  {
-    section: 'llm',
-    title: '模型服务',
-    subtitle: '设置 · AI 模型与 API 提供商',
-    keywords: '模型 llm ai api 提供商',
-  },
-  {
-    section: 'appearance',
-    title: '外观',
-    subtitle: '设置 · 主题、缩放与字号',
-    keywords: '主题 深色 浅色 暗色 缩放 字号 外观',
-  },
-  {
-    section: 'about',
-    title: '关于',
-    subtitle: '设置 · 版本信息',
-    keywords: '版本 更新 关于',
-  },
-];
-
-function settingsResultsFor(query: string): GlobalSearchResult[] {
-  const keyword = query.trim().toLowerCase();
-  return settingsEntries
-    .filter(
-      (entry) =>
-        !keyword ||
-        `${entry.title} ${entry.subtitle} ${entry.keywords}`.toLowerCase().includes(keyword),
-    )
-    .map((entry) => ({
-      kind: 'setting',
-      id: entry.section,
-      title: entry.title,
-      subtitle: entry.subtitle,
-      target: { page: 'settings', section: entry.section },
-    }));
-}
+/** 设置入口是渲染层静态数据（设置域 search-index 单一来源）,与主进程返回的同步数据在本地合并展示。 */
 
 function ResultRow({
   active,
@@ -98,8 +53,8 @@ function ResultRow({
     <div
       aria-selected={active}
       className={cn(
-        'flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 outline-none transition-colors',
-        active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/70',
+        'flex cursor-pointer items-center gap-2.5 rounded-card px-2.5 py-2 outline-none transition-colors',
+        active ? 'bg-hover-2 text-ink' : 'hover:bg-hover',
       )}
       id={`global-search-result-${index}`}
       onClick={() => onActivate(result)}
@@ -108,16 +63,14 @@ function ResultRow({
     >
       <span
         aria-hidden="true"
-        className="grid size-7 shrink-0 place-items-center rounded-md bg-muted"
+        className="grid size-7 shrink-0 place-items-center rounded-control bg-inset"
       >
         <ResultIcon kind={result.kind} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{result.title}</span>
+        <span className="block truncate text-[13px] font-medium">{result.title}</span>
         {result.subtitle ? (
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            {result.subtitle}
-          </span>
+          <span className="mt-0.5 block truncate text-[12px] text-ink-3">{result.subtitle}</span>
         ) : null}
       </span>
     </div>
@@ -126,7 +79,7 @@ function ResultRow({
 
 function ResultIcon({ kind }: { kind: GlobalSearchResult['kind'] }) {
   const Icon = resultGroups.find((group) => group.kind === kind)?.icon ?? Search;
-  return <Icon className="size-4 text-muted-foreground" strokeWidth={1.8} />;
+  return <Icon className="size-4 text-ink-3" strokeWidth={1.8} />;
 }
 
 export function GlobalSearchDialog({
@@ -228,20 +181,19 @@ export function GlobalSearchDialog({
   return (
     <Dialog.Root onOpenChange={onOpenChange} open={open}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+        <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-var(--spacing)*8)] w-[calc(100%-var(--spacing)*8)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-popover shadow-2xl outline-none duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
+          className={cn(
+            dialogPanel,
+            'flex max-h-[calc(100dvh-var(--spacing)*8)] w-[calc(100%-var(--spacing)*8)] max-w-xl flex-col overflow-hidden p-0',
+          )}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             inputRef.current?.focus();
           }}
         >
           <div className="flex items-center gap-2.5 border-b px-4 py-2.5">
-            <Search
-              aria-hidden="true"
-              className="size-4 shrink-0 text-muted-foreground"
-              strokeWidth={1.8}
-            />
+            <Search aria-hidden="true" className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
             <Dialog.Title className="sr-only">全局搜索</Dialog.Title>
             <Dialog.Description className="sr-only">
               搜索已同步到本机的项目、聊天、邮件、课程资料文件名和设置入口。
@@ -254,7 +206,7 @@ export function GlobalSearchDialog({
               aria-controls={resultListId}
               aria-expanded={hasContent}
               aria-label="全局搜索"
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-3"
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="搜索项目、聊天、邮件或课程资料…"
@@ -266,7 +218,7 @@ export function GlobalSearchDialog({
             {refreshing ? (
               <LoaderCircle
                 aria-hidden="true"
-                className="size-4 shrink-0 animate-spin text-muted-foreground"
+                className="size-4 shrink-0 animate-spin text-ink-3"
               />
             ) : null}
             <Dialog.Close asChild>
@@ -277,13 +229,13 @@ export function GlobalSearchDialog({
           </div>
           <div className="max-h-80 min-h-0 overflow-y-auto p-2">
             {error && !hasContent ? (
-              <p className="px-3 py-5 text-sm text-destructive" role="alert">
+              <p className="px-3 py-5 text-[13px] text-red" role="alert">
                 {error}
               </p>
             ) : null}
             {!hasContent && refreshing ? (
               <div
-                className="flex items-center gap-2 px-3 py-5 text-sm text-muted-foreground"
+                className="flex items-center gap-2 px-3 py-5 text-[13px] text-ink-3"
                 role="status"
               >
                 <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
@@ -291,13 +243,13 @@ export function GlobalSearchDialog({
               </div>
             ) : null}
             {!hasContent && !refreshing && !error ? (
-              <p className="px-3 py-5 text-sm text-muted-foreground">
+              <p className="px-3 py-5 text-[13px] text-ink-3">
                 {isRecent ? '还没有可显示的最近记录。' : '没有找到匹配的本地数据。'}
               </p>
             ) : null}
             {hasContent ? (
               <div id={resultListId} role="listbox">
-                <p className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
+                <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-ink-3">
                   {isRecent ? '本地记录' : '搜索结果'}
                 </p>
                 {groupedResults.map((group) => {
@@ -305,9 +257,11 @@ export function GlobalSearchDialog({
                   const GroupIcon = group.icon;
                   return (
                     <section className="mt-1" key={group.kind}>
-                      <h3 className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                      <h3 className="flex items-center gap-2 px-2.5 py-1 text-[12px] font-medium text-ink-3">
                         <GroupIcon aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-                        {group.note ? `${group.label}（${group.note}）` : group.label}
+                        {group.note && group.results.length >= GLOBAL_SEARCH_PER_KIND_LIMIT
+                          ? `${group.label}（${group.note}）`
+                          : group.label}
                       </h3>
                       {group.results.map((result) => {
                         const index = allResults.indexOf(result);
@@ -326,14 +280,14 @@ export function GlobalSearchDialog({
                   );
                 })}
                 {error ? (
-                  <p className="px-3 py-2 text-xs text-destructive" role="status">
+                  <p className="px-3 py-2 text-[12px] text-red" role="status">
                     {error}
                   </p>
                 ) : null}
               </div>
             ) : null}
           </div>
-          <div className="flex items-center gap-3 border-t px-4 py-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 border-t px-4 py-1.5 text-[12px] text-ink-3">
             <span>↑↓ 选择</span>
             <span>↵ 打开</span>
             <span className="ml-auto">Esc 关闭</span>

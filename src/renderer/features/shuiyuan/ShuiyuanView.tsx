@@ -44,15 +44,13 @@ function DesktopShuiyuanView() {
 
   if (!ready) {
     return (
-      <div className="grid h-full place-items-center text-sm text-muted-foreground">
-        正在读取绑定状态…
-      </div>
+      <div className="grid h-full place-items-center text-[13px] text-ink-3">正在读取绑定状态…</div>
     );
   }
   if (!connected) return <BindCard />;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-surface">
       {/* 顶部导航原地互换：阅读时直接换为阅读页顶栏，不做动画。 */}
       {reading ? <TopicReaderHeader /> : <ShuiyuanHeader />}
       <div className="relative min-h-0 flex-1">
@@ -65,7 +63,7 @@ function DesktopShuiyuanView() {
           ) : (
             <>
               {list.kind === 'messages' ? (
-                <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pb-1 pt-3 max-md:px-3">
+                <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 pb-1 pt-3 max-md:px-3">
                   <ListBackButton />
                   <Button onClick={() => setMessageOpen(true)} size="sm" variant="outline">
                     <PencilLine className="size-3.5" />
@@ -82,7 +80,7 @@ function DesktopShuiyuanView() {
             // key 随 topicId 变化：切帖重挂载阅读器，重挂载即重置草稿与回复目标。
             <motion.div
               animate={{ opacity: 1, x: 0 }}
-              className="absolute inset-0 z-10 bg-background"
+              className="absolute inset-0 z-10 bg-surface"
               exit={{ opacity: 0, x: 24 }}
               initial={{ opacity: 0, x: 24 }}
               key={reading.topicId}

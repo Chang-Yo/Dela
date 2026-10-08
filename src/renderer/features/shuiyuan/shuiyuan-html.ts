@@ -82,7 +82,7 @@ export function sanitizeShuiyuanHtml(html: string): Document {
 /**
  * 楼层文档的阅读样式。设计语言与全局一致：黑白灰阶梯 + 细线分隔 + 少量强调色，
  * 正文外的块（引用/onebox/代码/表格）用细边框和浅底承担层次，不做重卡片。
- * 色值手动镜像 styles/globals.css 的 token——iframe 取不到外层 CSS 变量；
+ * 色值手动镜像 beautiful-ui token（ink / ink-3 / line / inset / hover-2）——iframe 取不到外层 CSS 变量；
  * 链接色沿用日历蓝（--cal-blue-text），是全应用唯一的低饱和内容强调色。
  */
 export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
@@ -91,20 +91,20 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
   style.textContent = `
     :root {
       color-scheme: light;
-      --fg: oklch(14.5% 0 0);
-      --fg-muted: oklch(55.6% 0 0);
-      --line: oklch(92.2% 0 0);
-      --soft: oklch(97% 0 0);
-      --soft-2: oklch(94.6% 0 0);
+      --fg: oklch(0.247 0.006 258.361);
+      --fg-muted: oklch(0.695 0.009 264.505);
+      --line: oklch(0.946 0.003 264.542);
+      --soft: oklch(0.979 0.002 247.839);
+      --soft-2: oklch(0.933 0.003 247.86);
       --link: oklch(43% 0.083 255);
     }
     html.dark {
       color-scheme: dark;
-      --fg: oklch(98.5% 0 0);
-      --fg-muted: oklch(70.8% 0 0);
-      --line: oklch(1 0 0 / 12%);
-      --soft: oklch(20.5% 0 0);
-      --soft-2: oklch(26.9% 0 0);
+      --fg: oklch(0.964 0.002 247.839);
+      --fg-muted: oklch(0.541 0.01 264.484);
+      --line: oklch(0.308 0.006 258.354);
+      --soft: oklch(0.243 0.004 264.492);
+      --soft-2: oklch(0.318 0.007 274.747);
       --link: oklch(85.8% 0.052 255);
     }
     body {

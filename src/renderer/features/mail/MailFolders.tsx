@@ -19,6 +19,7 @@ import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../../../s
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../lib/utils';
+import { fadeIn } from '../../components/ui/motion';
 
 const FOLDER_ICONS: Record<string, LucideIcon> = {
   '\\Inbox': Inbox,
@@ -115,28 +116,26 @@ function SidebarRow({
         aria-current={selected ? 'page' : undefined}
         aria-label={hasCount ? `${label}，${countLabel}` : label}
         className={cn(
-          'relative flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
-          selected
-            ? 'bg-accent font-medium text-accent-foreground'
-            : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
+          'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-[13px] transition-colors duration-150',
+          selected ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
         )}
         onClick={onSelect}
         type="button"
       >
         <Icon
-          className={cn('size-4 shrink-0', selected ? '' : 'text-muted-foreground')}
+          className={cn('size-4 shrink-0', selected ? 'text-ink' : 'text-ink-3')}
           strokeWidth={1.8}
         />
         <RowLabel collapsed={collapsed}>{label}</RowLabel>
         {!collapsed && hasCount && (
-          <span className="ml-2.5 shrink-0 animate-in fade-in duration-150 text-xs tabular-nums text-muted-foreground">
+          <span className={cn(fadeIn, 'ml-2.5 shrink-0 text-[12px] tabular-nums text-ink-3')}>
             {count}
           </span>
         )}
         {collapsed && hasCount && (
           <span
             aria-hidden="true"
-            className="absolute top-1 right-1 size-1.5 rounded-full bg-foreground"
+            className="absolute top-1 right-1 size-1.5 rounded-full bg-ink"
           />
         )}
       </button>
@@ -197,13 +196,13 @@ export function MailFolders({
   return (
     <aside
       className={cn(
-        'flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border/70',
+        'flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-line',
         foldersCollapsed && 'items-stretch',
         className,
       )}
     >
       {!hideHeader && (
-        <div className="flex h-11 shrink-0 items-center p-2">
+        <div className="flex h-11 shrink-0 items-center px-3">
           <PanelToggleButton
             collapsed={foldersCollapsed}
             controlsId="mail-folders"
@@ -224,7 +223,7 @@ export function MailFolders({
         {folders.length === 0 && (
           <p
             className={cn(
-              'whitespace-nowrap p-2 text-xs text-muted-foreground',
+              'whitespace-nowrap p-2 text-[12px] text-ink-3',
               // 文字随折叠淡入/淡出;图标不参与,保持全程原位。
               'transition-opacity duration-150 ease-out',
               foldersCollapsed && 'opacity-0',
@@ -283,30 +282,30 @@ export function MailFolders({
             aria-current={composing ? 'page' : undefined}
             aria-label="发送邮件"
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-[13px] transition-colors duration-150',
               composing
-                ? 'bg-accent font-medium text-accent-foreground'
-                : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
+                ? 'bg-hover-2 font-medium text-ink'
+                : 'text-ink-2 hover:bg-hover hover:text-ink',
             )}
             onClick={onCompose}
             type="button"
           >
             <Pencil
-              className={cn('size-4 shrink-0', composing ? '' : 'text-muted-foreground')}
+              className={cn('size-4 shrink-0', composing ? 'text-ink' : 'text-ink-3')}
               strokeWidth={1.8}
             />
             <RowLabel collapsed={foldersCollapsed}>发送邮件</RowLabel>
           </button>
         </CollapsedTip>
-        <div aria-hidden="true" className="my-2 border-t border-border/70" />
+        <div aria-hidden="true" className="my-2 border-t border-line" />
         <CollapsedTip collapsed={foldersCollapsed} label={account?.address ?? '未配置'}>
           <div
-            className="flex h-11 min-w-0 items-center rounded-lg px-2 text-muted-foreground"
+            className="flex h-11 min-w-0 items-center rounded-card px-2 text-ink-3"
             title={!foldersCollapsed ? (account?.address ?? '未配置') : undefined}
           >
             <UserRound className="size-4 shrink-0" strokeWidth={1.8} />
             <RowLabel collapsed={foldersCollapsed}>
-              <span className="text-sm text-foreground">
+              <span className="text-[13px] text-ink">
                 {account ? account.address.split('@')[0] : '未配置'}
               </span>
             </RowLabel>
@@ -319,17 +318,17 @@ export function MailFolders({
           <button
             aria-label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-lg px-2 text-left text-sm transition-colors',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-[13px] transition-colors duration-150',
               confirmingDisconnect
-                ? 'bg-accent font-medium text-destructive'
-                : 'text-foreground/75 hover:bg-accent/60 hover:text-destructive',
+                ? 'bg-hover-2 font-medium text-red'
+                : 'text-ink-2 hover:bg-hover hover:text-red',
             )}
             onClick={() => void handleDisconnect()}
             data-mail-disconnect
             type="button"
           >
             <LogOut
-              className={cn('size-4 shrink-0', confirmingDisconnect ? '' : 'text-muted-foreground')}
+              className={cn('size-4 shrink-0', confirmingDisconnect ? '' : 'text-ink-3')}
               strokeWidth={1.8}
             />
             <RowLabel collapsed={foldersCollapsed}>

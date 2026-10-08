@@ -1,6 +1,7 @@
 import { BrowserWindow, type WebContents } from 'electron';
 import { generateKeyPairSync, privateDecrypt, randomBytes, constants } from 'node:crypto';
 import { z } from 'zod';
+import { attachContextMenu } from '../ipc';
 import { getDatabase } from '../database';
 import type {
   DocumentContent,
@@ -84,6 +85,7 @@ export async function startShuiyuanAuth(sender: WebContents): Promise<void> {
       sandbox: true,
     },
   });
+  attachContextMenu(authWindow.webContents);
   try {
     await authWindow.loadURL(authorizeUrl);
   } catch (error) {
@@ -210,6 +212,22 @@ const rawTagSchema = z.union([
     .transform((tag) => tag.name),
 ]);
 
+/** posters[].description 形如 "Original Poster, Most Recent Poster"。 */
+const rawPosterSchema = z
+  .object({ user_id: z.number().nullish(), description: z.string().nullish() })
+  .passthrough();
+
+/** topic_list 顶层 users[]：posters[].user_id 经此查到楼主用户名与头像。 */
+const rawUserSchema = z
+  .object({
+    id: z.number().nullish(),
+    username: z.string().nullish(),
+    avatar_template: z.string().nullish(),
+  })
+  .passthrough();
+
+type RawUser = z.infer<typeof rawUserSchema>;
+
 const rawTopicSchema = z
   .object({
     id: z.number(),
@@ -228,6 +246,7 @@ const rawTopicSchema = z
     bookmarked: z.boolean().nullish(),
     archetype: z.string().nullish(),
     last_poster_username: z.string().nullish(),
+    posters: z.array(rawPosterSchema).nullish(),
   })
   .passthrough();
 
@@ -267,6 +286,7 @@ const rawTopicListSchema = z
       })
       .passthrough()
       .nullish(),
+    users: z.array(rawUserSchema).nullish(),
   })
   .passthrough();
 
@@ -310,7 +330,18 @@ const rawBookmarkSchema = z
   })
   .passthrough();
 
-function mapTopic(raw: z.infer<typeof rawTopicSchema>): ShuiyuanTopicSummary {
+function mapTopic(
+  raw: z.infer<typeof rawTopicSchema>,
+  users: ReadonlyMap<number, RawUser>,
+): ShuiyuanTopicSummary {
+  // 楼主 = posters 中标注 Original Poster 的那位，缺标注时取第一位。
+  const opPoster =
+    raw.posters?.find((poster) => poster.description?.includes('Original Poster')) ??
+    raw.posters?.[0];
+  const author =
+    opPoster?.user_id === null || opPoster?.user_id === undefined
+      ? undefined
+      : users.get(opPoster.user_id);
   return {
     id: raw.id,
     title: raw.title ?? raw.fancy_title ?? '(无标题)',
@@ -327,7 +358,17 @@ function mapTopic(raw: z.infer<typeof rawTopicSchema>): ShuiyuanTopicSummary {
     bookmarked: raw.bookmarked ?? false,
     archetype: raw.archetype ?? 'regular',
     lastPosterUsername: raw.last_poster_username ?? null,
+    authorUsername: author?.username ?? null,
+    authorAvatarTemplate: author?.avatar_template ?? null,
   };
+}
+
+function usersById(payload: readonly RawUser[] | null | undefined): ReadonlyMap<number, RawUser> {
+  const map = new Map<number, RawUser>();
+  for (const user of payload ?? []) {
+    if (user.id !== null && user.id !== undefined) map.set(user.id, user);
+  }
+  return map;
 }
 
 function mapPost(raw: z.infer<typeof rawPostSchema>): ShuiyuanPost {
@@ -430,7 +471,8 @@ function mapTopicList(payload: unknown): ShuiyuanTopicPage {
   const parsed = rawTopicListSchema.parse(payload);
   const topics = parsed.topic_list?.topics ?? [];
   const more = parsed.topic_list?.more_topics_url ?? null;
-  return { topics: topics.map(mapTopic), moreUrl: more };
+  const users = usersById(parsed.users);
+  return { topics: topics.map((raw) => mapTopic(raw, users)), moreUrl: more };
 }
 
 export async function listShuiyuanTopics(
@@ -480,6 +522,7 @@ function mapSearchResult(payload: unknown, query: string, page: number): Shuiyua
           z.object({ topic_id: z.number().nullish(), blurb: z.string().nullish() }).passthrough(),
         )
         .nullish(),
+      users: z.array(rawUserSchema).nullish(),
       grouped_search_result: z
         .object({ more_full_page_results: z.boolean().nullish() })
         .passthrough()
@@ -493,8 +536,9 @@ function mapSearchResult(payload: unknown, query: string, page: number): Shuiyua
       blurbs.set(post.topic_id, post.blurb);
     }
   }
+  const users = usersById(parsed.users);
   const topics = (parsed.topics ?? []).map((raw) => {
-    const topic = mapTopic(raw);
+    const topic = mapTopic(raw, users);
     return blurbs.has(topic.id) ? { ...topic, excerpt: blurbs.get(topic.id)! } : topic;
   });
   return {
@@ -853,6 +897,12 @@ export async function addShuiyuanSourceRef(topicIdInput: unknown): Promise<Shuiy
     )
     .run(ref);
   return ref;
+}
+
+/** 水源主题的稳定入口 URL（与引用行一致），供来源引用元数据与外部打开使用。 */
+export function shuiyuanTopicUrl(topicIdInput: unknown): string {
+  const topicId = z.number().int().positive().parse(topicIdInput);
+  return `${SHUIYUAN_ORIGIN}/t/topic/${topicId}`;
 }
 
 export function getShuiyuanSourceRef(topicIdInput: unknown): ShuiyuanSourceRef | null {

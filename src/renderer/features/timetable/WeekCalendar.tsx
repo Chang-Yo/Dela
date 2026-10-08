@@ -70,20 +70,20 @@ export function WeekCalendar({
       {/* 容器查询按内容区实际宽度切换桌面网格/按日堆叠：窗口断点会被主导航侧栏（200–360px）顶掉，
           窗口 768–1050px 时内容区不足 860px 仍渲染桌面网格，必然出现横向滚动。 */}
       <div className="hidden min-w-[860px] @min-[860px]:block">
-        <div className="sticky top-0 z-30 grid grid-cols-[58px_repeat(7,minmax(110px,1fr))] border-b bg-background/95 backdrop-blur">
+        <div className="sticky top-0 z-30 grid grid-cols-[58px_repeat(7,minmax(110px,1fr))] border-b border-line bg-surface/95 backdrop-blur">
           {/* 防御：滚动条占宽等边缘情况引发横向滚动时，时刻度列常驻左缘。 */}
-          <div className="sticky left-0 bg-background" />
+          <div className="sticky left-0 bg-surface" />
           {weekDays.map((day, index) => {
             const date = weekStart ? addDays(weekStart, index) : null;
             const today = date ? dateKey(date) === dateKey(new Date()) : false;
             return (
               <div className="border-l px-2 py-2 text-center" key={day}>
-                <span className="text-[11px] text-muted-foreground">{day}</span>
+                <span className="text-[11px] text-ink-3">{day}</span>
                 {date ? (
                   <strong
                     className={cn(
-                      'mx-auto mt-0.5 grid size-7 place-items-center rounded-full text-sm font-semibold',
-                      today && 'bg-primary text-primary-foreground',
+                      'mx-auto mt-0.5 grid size-7 place-items-center rounded-full text-[13px] font-semibold',
+                      today && 'bg-ink text-surface',
                     )}
                   >
                     {date.getDate()}
@@ -97,11 +97,11 @@ export function WeekCalendar({
           className="relative grid grid-cols-[58px_repeat(7,minmax(110px,1fr))]"
           style={{ height: timelineHeight }}
         >
-          <div className="sticky left-0 z-20 bg-background">
+          <div className="sticky left-0 z-20 bg-surface">
             {hours.map((hour) => (
               <span
                 className={cn(
-                  'absolute right-2 text-[11px] tabular-nums text-muted-foreground',
+                  'absolute right-2 text-[11px] tabular-nums text-ink-3',
                   // 首个刻度在网格顶边，上移一半会被表头遮住。
                   hour * 60 > timelineStart && '-translate-y-1/2',
                 )}
@@ -176,10 +176,10 @@ export function WeekCalendar({
           if (!dailyLessons.length && !dailyEvents.length) return null;
           return (
             <section className="grid gap-2" key={day}>
-              <h2 className="flex items-baseline gap-2 text-sm font-semibold">
+              <h2 className="flex items-baseline gap-2 text-[13px] font-semibold">
                 <span>{day}</span>
                 {date ? (
-                  <span className="text-xs font-normal text-muted-foreground">
+                  <span className="text-[12px] font-normal text-ink-3">
                     {date.getMonth() + 1}月{date.getDate()}日
                   </span>
                 ) : null}
@@ -222,11 +222,16 @@ function LessonBlock({
   const start = periodBoundary(lesson.startPeriod, 'start');
   const end = periodBoundary(lesson.endPeriod, 'end');
   const open = () => onOpen({ kind: 'lesson', lesson, date });
+  // 与 LocalEventBlock 同一阈值：44px 起显示第二行、60px 起显示节次行，
+  // 单节课 36px 块只留课程名，避免第三行被 overflow-hidden 裁半。
+  const height = (end - start) * pixelsPerMinute;
+  const showMeta = height >= 44;
+  const showPeriods = height >= 60;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <article
-          className="absolute z-10 cursor-pointer overflow-hidden rounded-lg px-2 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="absolute z-10 cursor-pointer overflow-hidden rounded-card px-2 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
           onClick={open}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -244,16 +249,20 @@ function LessonBlock({
           }}
           tabIndex={0}
         >
-          <strong className="block break-words text-xs font-semibold leading-tight">
+          <strong className="block break-words text-[12px] font-semibold leading-tight">
             {lesson.courseName}
           </strong>
-          {/* 教师排在教室之前：并排窄列截断时保证教师可见。 */}
-          <span className="mt-0.5 block truncate text-[11px] leading-none opacity-75">
-            {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || '地点未定'}
-          </span>
-          <span className="block truncate text-[11px] leading-none opacity-75">
-            {lesson.periodsText}
-          </span>
+          {/* 教师排在教室之前：并排窄列截断时保证教师可见。矮块隐藏次要行，完整信息看 Tooltip。 */}
+          {showMeta && (
+            <span className="mt-0.5 block truncate text-[11px] leading-none opacity-75">
+              {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || '地点未定'}
+            </span>
+          )}
+          {showPeriods && (
+            <span className="block truncate text-[11px] leading-none opacity-75">
+              {lesson.periodsText}
+            </span>
+          )}
         </article>
       </TooltipTrigger>
       {/* 原生 title 不支持富文本与可靠换行，改用共享的 Radix Tooltip 展示完整信息。 */}
@@ -313,7 +322,7 @@ function LocalEventBlock({
       <TooltipTrigger asChild>
         <article
           className={cn(
-            'absolute z-10 cursor-pointer overflow-hidden px-2 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+            'absolute z-10 cursor-pointer overflow-hidden px-2 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint',
             bleedLeft ? 'rounded-l-none' : 'rounded-l-lg',
             bleedRight ? 'rounded-r-none' : 'rounded-r-lg',
           )}
@@ -333,7 +342,7 @@ function LocalEventBlock({
           }}
           tabIndex={0}
         >
-          <strong className="block break-words text-xs font-semibold leading-tight">
+          <strong className="block break-words text-[12px] font-semibold leading-tight">
             {event.title}
           </strong>
           {showTime ? (
@@ -372,7 +381,7 @@ function MobileLesson({
   const open = () => onOpen({ kind: 'lesson', lesson, date });
   return (
     <article
-      className="grid cursor-pointer grid-cols-[54px_1fr] overflow-hidden rounded-lg p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="grid cursor-pointer grid-cols-[54px_1fr] overflow-hidden rounded-card p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
       onClick={open}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -384,7 +393,7 @@ function MobileLesson({
       style={eventColorStyle(colorFor(lesson.courseCode || lesson.courseName))}
       tabIndex={0}
     >
-      <div className="border-r pr-3 text-xs tabular-nums opacity-75">
+      <div className="border-r pr-3 text-[12px] tabular-nums opacity-75">
         <strong className="block font-semibold text-inherit">
           {`${Math.floor(start / 60)}`.padStart(2, '0')}:{`${start % 60}`.padStart(2, '0')}
         </strong>
@@ -392,7 +401,7 @@ function MobileLesson({
       </div>
       <div className="min-w-0 pl-3">
         <strong className="block break-words">{lesson.courseName}</strong>
-        <p className="mt-1 flex flex-wrap gap-x-3 text-xs opacity-75">
+        <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] opacity-75">
           <span className="inline-flex items-center gap-1">
             <MapPin className="size-3" />
             {lesson.classroom || '地点未定'}
@@ -415,7 +424,7 @@ function MobileEvent({
   const open = () => onOpen(event.todoId ? { kind: 'todo', event } : { kind: 'event', event });
   return (
     <article
-      className="grid cursor-pointer grid-cols-[54px_1fr] rounded-lg p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="grid cursor-pointer grid-cols-[54px_1fr] rounded-card p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
       onClick={open}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -427,11 +436,11 @@ function MobileEvent({
       style={eventTone(event.color)}
       tabIndex={0}
     >
-      <div className="border-r pr-3 text-xs font-medium tabular-nums">{formatTime(start)}</div>
+      <div className="border-r pr-3 text-[12px] font-medium tabular-nums">{formatTime(start)}</div>
       <div className="min-w-0 pl-3">
         <strong className="block break-words">{event.title}</strong>
         {event.location ? (
-          <span className="mt-1 block truncate text-xs opacity-70">{event.location}</span>
+          <span className="mt-1 block truncate text-[12px] opacity-70">{event.location}</span>
         ) : null}
       </div>
     </article>

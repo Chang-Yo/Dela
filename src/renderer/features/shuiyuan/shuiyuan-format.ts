@@ -55,12 +55,21 @@ export function avatarUrl(template: string | null, size = 48): string | null {
   return filled.startsWith('/') ? `${SHUIYUAN_ORIGIN}${filled}` : filled;
 }
 
-/** 列表用相对时间：今天/昨天显示时刻，同年省年份，跨年补年份。 */
+/** 列表用相对时间：2 小时内说「n 分钟前」，当天显示时刻，同年省年份，跨年补年份。 */
+const RELATIVE_TIME_WINDOW_MS = 2 * 60 * 60 * 1000;
+
 export function formatListDate(iso: string): string {
   if (!iso) return '';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   const now = new Date();
+  const age = now.getTime() - date.getTime();
+  if (age >= 0 && age < RELATIVE_TIME_WINDOW_MS) {
+    const minutes = Math.floor(age / 60000);
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes} 分钟前`;
+    return `${Math.floor(minutes / 60)} 小时前`;
+  }
   const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
   const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   if (sameDay(date, now)) return `今天 ${time}`;
@@ -71,12 +80,21 @@ export function formatListDate(iso: string): string {
   return sameYear ? monthDay : `${date.getFullYear()}年${monthDay}`;
 }
 
-/** 浏览数等大数的紧凑展示（Discourse 同风格：1.2 万 / 3.4k）。 */
+/** 大数紧凑展示：≥1 万用「万」，其余千分位；全应用统一中文单位，不再用 k。 */
 export function formatCount(value: number | null): string {
   if (value === null || value === undefined) return '';
   if (value >= 10000) return `${(value / 10000).toFixed(1).replace(/\.0$/, '')} 万`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`;
-  return String(value);
+  return value.toLocaleString('en-US');
+}
+
+/** 标签色块：Discourse API 的标签只有名字没有色值，按名称哈希映射固定色相，
+ * 同名标签永远同色。饱和度 62%/亮度 52% 取中间调，深浅主题下都可读。 */
+export function tagColor(name: string): string {
+  let hash = 0;
+  for (let index = 0; index < name.length; index += 1) {
+    hash = (hash * 31 + name.charCodeAt(index)) | 0;
+  }
+  return `hsl(${Math.abs(hash) % 360} 62% 52%)`;
 }
 
 /** Discourse 通知类型 → 语义描述；未覆盖的类型给出兜底文案。 */

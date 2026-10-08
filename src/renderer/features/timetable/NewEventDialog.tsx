@@ -6,6 +6,8 @@ import { Input } from '../../components/ui/input';
 import { DateTimeStepper } from '../todo/DateTimeStepper';
 import { EventColorRow } from './EventColorRow';
 import { roundToMinute } from './timetable-format';
+import { sheetUp } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 const HOUR_MS = 3_600_000;
 
@@ -70,10 +72,13 @@ export function NewEventDialog({
       }}
       role="dialog"
     >
-      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/30" onMouseDown={onClose} />
       <section
         aria-label="新建事件"
-        className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl animate-in flex-col overflow-y-auto rounded-t-2xl border bg-card p-5 shadow-2xl fade-in slide-in-from-bottom-6 duration-200 max-md:px-4"
+        className={cn(
+          sheetUp,
+          'absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl flex-col overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-overlay max-md:px-4',
+        )}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold tracking-tight">新建事件</h2>
@@ -90,27 +95,28 @@ export function NewEventDialog({
         <form className="mt-4 flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
           <Input
             autoFocus
-            className="h-10 border-0 bg-transparent px-0 text-[15px] font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"
+            className="h-10 px-0 text-[15px] font-medium"
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="例如：小组讨论"
             value={title}
+            variant="ghost"
           />
-          <div className="grid divide-y overflow-hidden rounded-lg border">
-            <div className="flex items-start gap-2 px-3 py-3">
-              <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">开始</span>
+          <div className="grid divide-y overflow-hidden rounded-card border border-line">
+            <div className="flex min-h-11 items-center gap-2 px-3">
+              <span className="w-8 shrink-0 text-[12px] text-ink-3">开始</span>
               <div className="flex-1">
                 <DateTimeStepper label="开始时间" onChange={changeStart} value={startAt} />
               </div>
             </div>
-            <div className="flex items-start gap-2 px-3 py-3">
-              <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">结束</span>
+            <div className="flex min-h-11 items-center gap-2 px-3">
+              <span className="w-8 shrink-0 text-[12px] text-ink-3">结束</span>
               <div className="flex-1">
                 <DateTimeStepper label="结束时间" onChange={setEndAt} value={endAt} />
               </div>
             </div>
-            <div className="flex h-11 items-center gap-2 px-3 transition-colors has-[:focus-visible]:bg-accent/60">
-              <span className="w-8 shrink-0 text-xs text-muted-foreground">地点</span>
+            <div className="flex h-11 items-center gap-2 px-3 transition-colors has-[:focus-visible]:bg-hover">
+              <span className="w-8 shrink-0 text-[12px] text-ink-3">地点</span>
               <Input
                 aria-label="地点"
                 className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -123,7 +129,7 @@ export function NewEventDialog({
             <EventColorRow className="transition-colors" onColorChange={setColor} value={color} />
           </div>
           {error ? (
-            <p className="break-words text-xs text-destructive" role="alert">
+            <p className="break-words text-[12px] text-red" role="alert">
               {error}
             </p>
           ) : null}

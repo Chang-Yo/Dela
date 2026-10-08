@@ -31,10 +31,12 @@ type Props = {
   onSent: (warning?: string) => void;
   /** 邮箱 grid 的占位类,由 MailView 按布局档位传入;Dialog 等非网格场景无需传。 */
   className?: string;
+  /** 弹窗场景:弹窗自身已是带边框的容器,去掉灰底画布与内卡描边,避免三层框嵌套。 */
+  embedded?: boolean;
 };
 
 const toolButtonClass =
-  'grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground disabled:pointer-events-none disabled:opacity-40';
+  'grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2 hover:text-ink aria-pressed:bg-hover-2 aria-pressed:text-ink disabled:pointer-events-none disabled:opacity-40';
 
 function restoreSelection(editor: HTMLDivElement, range: Range | null): void {
   editor.focus();
@@ -118,6 +120,7 @@ export function MailComposer({
   onSent,
   draft,
   className,
+  embedded = false,
 }: Props) {
   const dela = window.dela!;
   const editorRef = useRef<HTMLDivElement>(null);
@@ -131,6 +134,8 @@ export function MailComposer({
   const [saving, setSaving] = useState(false);
   const savingDraft = useRef(false);
   const [savedNotice, setSavedNotice] = useState(false);
+  // 发送/保存期间尝试离开被闸门拒绝时给出可见反馈，避免"点了没反应"。
+  const [leaveBlocked, setLeaveBlocked] = useState(false);
   const savedId = useRef(draft?.savedLocally ? draft.id : undefined);
   const savedContent = useRef('');
   const allowUnload = useRef(false);
@@ -229,7 +234,10 @@ export function MailComposer({
     }
   };
   latestClose.current = async () => {
-    if (sending || saving) return false;
+    if (sending || saving) {
+      setLeaveBlocked(true);
+      return false;
+    }
     if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
     try {
       const choice = await dela.mail.confirmDraftClose();
@@ -241,6 +249,9 @@ export function MailComposer({
     }
   };
   useEffect(() => registerComposeClose(() => latestClose.current()), []);
+  useEffect(() => {
+    if (!sending && !saving) setLeaveBlocked(false);
+  }, [sending, saving]);
   useEffect(() => {
     void dela.mail.setComposeActive(true);
     const unsubscribe = dela.mail.onRequestClose(() => {
@@ -482,6 +493,8 @@ export function MailComposer({
       hasEditableSelection(editor)
     ) {
       event.preventDefault();
+      // 链接键与全局搜索同键：就地消费，避免正文里按 Ctrl/⌘+K 同时弹出搜索框。
+      event.stopPropagation();
       openLinkDraft();
     }
   };
@@ -531,14 +544,24 @@ export function MailComposer({
   };
 
   return (
+    // @container 宿主：撰写卡内边距按面板实宽降档（max-md 看窗口宽度，列表拖宽后失效）。
     <form
-      className={cn('flex min-h-0 min-w-0 flex-col bg-muted/30 px-3 pb-3', className)}
+      className={cn(
+        '@container flex min-h-0 min-w-0 flex-col bg-inset px-3 pb-3',
+        embedded && 'bg-transparent p-0',
+        className,
+      )}
       onSubmit={submit}
     >
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-4">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         {savedNotice && (
-          <span role="status" className="text-xs text-muted-foreground">
+          <span role="status" className="text-[12px] text-ink-3">
             草稿已保存
+          </span>
+        )}
+        {leaveBlocked && (
+          <span role="status" className="text-[12px] text-ink-3">
+            正在发送/保存邮件，完成后即可离开
           </span>
         )}
         <Button
@@ -552,18 +575,19 @@ export function MailComposer({
         >
           <Save />
         </Button>
-        <button
-          aria-label="关闭写邮件"
-          className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          onClick={onClose}
-          title="关闭"
+        <Button
           type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label="关闭写邮件"
+          title="关闭"
+          onClick={onClose}
         >
-          <X className="size-4" strokeWidth={1.8} />
-        </button>
+          <X />
+        </Button>
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <strong className="text-sm">新邮件</strong>
-          <span className="truncate text-xs text-muted-foreground max-md:hidden">
+          <strong className="text-[13px]">新邮件</strong>
+          <span className="truncate text-[12px] text-ink-3 max-md:hidden">
             从 {accountAddress} 发送
           </span>
         </div>
@@ -577,22 +601,27 @@ export function MailComposer({
         </Button>
       </header>
 
-      <div className="mx-auto mt-3 flex min-h-0 w-full max-w-[760px] flex-1 flex-col rounded-lg border bg-background px-8 pt-5 max-md:px-4 max-md:pt-3">
-        <label className="flex min-h-10 items-center border-b border-border/70 transition-colors focus-within:border-foreground/30">
-          <span className="w-16 shrink-0 text-xs text-muted-foreground">收件人</span>
+      <div
+        className={cn(
+          'mx-auto mt-3 flex min-h-0 w-full max-w-[760px] flex-1 flex-col rounded-card border border-line bg-surface px-4 pt-5 @min-[520px]:px-8 max-md:pt-3',
+          embedded && 'mt-0 max-w-none rounded-none border-0',
+        )}
+      >
+        <label className="flex min-h-10 items-center border-b border-line transition-colors focus-within:border-line-strong">
+          <span className="w-16 shrink-0 text-[12px] text-ink-3">收件人</span>
           <input
             autoFocus
-            className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-ink-3"
             onChange={(event) => setTo(event.target.value)}
             placeholder="多个地址用逗号分隔"
             type="text"
             value={to}
           />
         </label>
-        <label className="flex min-h-10 items-center border-b border-border/70 transition-colors focus-within:border-foreground/30">
-          <span className="w-16 shrink-0 text-xs text-muted-foreground">主题</span>
+        <label className="flex min-h-10 items-center border-b border-line transition-colors focus-within:border-line-strong">
+          <span className="w-16 shrink-0 text-[12px] text-ink-3">主题</span>
           <input
-            className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-ink-3"
             onChange={(event) => setSubject(event.target.value)}
             placeholder="邮件主题"
             type="text"
@@ -601,7 +630,7 @@ export function MailComposer({
         </label>
 
         {linkDraft === null ? (
-          <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border/70">
+          <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line">
             <button
               aria-label="加粗"
               aria-pressed={formatState.bold}
@@ -658,13 +687,13 @@ export function MailComposer({
             </button>
           </div>
         ) : (
-          <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border/70">
-            <Link className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+          <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line">
+            <Link className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
             <input
               autoFocus
               className={cn(
-                'min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-muted-foreground',
-                linkInvalid && 'text-destructive',
+                'min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-ink-3',
+                linkInvalid && 'text-red',
               )}
               onChange={(event) => {
                 setLinkDraft(event.target.value);
@@ -685,7 +714,7 @@ export function MailComposer({
               value={linkDraft}
             />
             {linkInvalid && (
-              <span className="min-w-0 shrink truncate text-xs text-destructive">
+              <span className="min-w-0 shrink truncate text-[12px] text-red">
                 请输入有效的链接地址
               </span>
             )}
@@ -701,7 +730,7 @@ export function MailComposer({
         <div
           aria-label="邮件正文"
           // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
-          className="min-h-0 flex-1 overflow-y-auto py-4 text-[13px] leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[520px] [&_img]:max-w-full [&_img]:rounded-md"
+          className="min-h-0 flex-1 overflow-y-auto py-4 text-[13px] leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[520px] [&_img]:max-w-full [&_img]:rounded-md"
           contentEditable
           onInput={handleEditorInput}
           onKeyDown={handleEditorKeyDown}
@@ -714,18 +743,18 @@ export function MailComposer({
         />
 
         {attachments.length > 0 && (
-          <div className="flex shrink-0 flex-wrap gap-2 border-t border-border/70 py-3">
+          <div className="flex shrink-0 flex-wrap gap-2 border-t border-line py-3">
             {attachments.map((file) => (
               <span
-                className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-control border border-line px-2 py-1 text-[12px]"
                 key={file.id}
               >
-                <Paperclip className="size-3 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+                <Paperclip className="size-3 shrink-0 text-ink-3" strokeWidth={1.8} />
                 <span className="max-w-56 truncate">{file.name}</span>
-                <span className="text-muted-foreground">{formatSize(file.size)}</span>
+                <span className="text-ink-3">{formatSize(file.size)}</span>
                 <button
                   aria-label={`移除 ${file.name}`}
-                  className="ml-1 grid size-4 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="ml-1 grid size-4 place-items-center rounded-chip text-ink-3 hover:bg-hover-2 hover:text-ink"
                   onClick={() => removeFile(file.id)}
                   type="button"
                 >
@@ -736,10 +765,7 @@ export function MailComposer({
           </div>
         )}
         {error && (
-          <p
-            className="shrink-0 border-t border-border/70 py-2 text-xs text-destructive"
-            role="alert"
-          >
+          <p className="shrink-0 border-t border-line py-2 text-[12px] text-red" role="alert">
             {error}
           </p>
         )}

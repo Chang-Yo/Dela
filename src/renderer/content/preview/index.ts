@@ -1,0 +1,10 @@
+// 文件预览内容域：PreviewTab 按格式分流到各预览器，
+// 文档加载与链接/导航分流经 ContentLoader 注入（3B 由 workspace/canvas 镜像接线）。
+export { PreviewTab, previewBranchOf, type PreviewBranch } from './PreviewTab';
+export { parsePreviewTabId, type PreviewTabTarget } from './tab-id';
+export {
+  ContentLoaderProvider,
+  useContentLoader,
+  type ContentLoader,
+  type LoadedDocument,
+} from './loader';

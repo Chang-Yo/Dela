@@ -1,10 +1,11 @@
 import type {
   ButtonHTMLAttributes,
+  ComponentProps,
   InputHTMLAttributes,
-  SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
 import { Check, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
 
 // 向导步骤的统一控件：纯白画布上使用固定中性配色，不随明暗主题变化。
@@ -39,11 +40,11 @@ export function StepButton({
   return (
     <button
       className={cn(
-        'grid h-10 w-full place-items-center rounded-lg text-sm font-medium text-white transition-all',
+        'grid h-10 w-full place-items-center rounded-card text-[13px] font-medium text-surface transition-all',
         state === 'success'
           ? 'bg-[var(--onboarding-accent)] hover:opacity-90'
-          : 'bg-neutral-900 hover:bg-neutral-700',
-        (disabled || state === 'busy') && 'cursor-not-allowed opacity-50 hover:bg-neutral-900',
+          : 'bg-ink hover:opacity-90',
+        (disabled || state === 'busy') && 'cursor-not-allowed opacity-50 hover:bg-ink',
       )}
       disabled={disabled || state === 'busy'}
       onClick={onClick}
@@ -59,20 +60,41 @@ export function StepButton({
 }
 
 const fieldClasses =
-  'w-full rounded-lg border border-neutral-200 bg-white text-sm text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-4 focus:ring-neutral-900/5 aria-invalid:border-red-400';
+  'w-full rounded-card bg-field text-[13px] text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 hover:shadow-[0_0_0_1px_var(--line-strong)] focus:bg-surface focus:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)] aria-invalid:shadow-[0_0_0_1px_var(--red)]';
 
 export function StepInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
 }
 
-export function StepSelect({ className, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
+/** 向导下拉：复用全局 Radix Select（弹窗样式全局统一），触发器保持向导的固定白底。 */
+export function StepSelect({
+  label,
+  children,
+  placeholder,
+  ...rest
+}: ComponentProps<typeof Select> & {
+  /** 触发器的可访问名称（Select 根不渲染 DOM，aria 属性需落在触发器上）。 */
+  label: string;
+  placeholder?: string;
+}) {
+  return (
+    <Select {...rest}>
+      <SelectTrigger
+        aria-label={label}
+        className="w-full rounded-card text-[13px] data-[placeholder]:text-ink-3"
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      {/* 弹层 portal 到 body，脱离向导的 .bui-light 作用域，需单独带上。 */}
+      <SelectContent className="bui-light">{children}</SelectContent>
+    </Select>
+  );
 }
 
 export function StepTextarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={cn(fieldClasses, 'min-h-24 resize-y px-3 py-2 font-mono text-xs', className)}
+      className={cn(fieldClasses, 'min-h-24 resize-y px-3 py-2 font-mono text-[12px]', className)}
       {...rest}
     />
   );

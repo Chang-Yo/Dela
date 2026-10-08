@@ -18,7 +18,7 @@ beforeEach(() => {
   database = new DatabaseSync(':memory:');
   database.exec(`
     CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, name TEXT, kind TEXT, updated_at TEXT);
-    CREATE TABLE chat_sessions (id TEXT PRIMARY KEY, scope TEXT, title TEXT, messages TEXT, updated_at TEXT);
+    CREATE TABLE sessions (id TEXT PRIMARY KEY, project_id TEXT, title TEXT, messages TEXT, updated_at TEXT);
     CREATE TABLE mail_messages (
       id INTEGER PRIMARY KEY, subject TEXT, sender_name TEXT, sender_address TEXT, snippet TEXT,
       body_text TEXT, date TEXT, deleted_at TEXT
@@ -67,7 +67,7 @@ describe('global search', () => {
       '2026-09-16T12:00:00.000Z',
     );
     insert(
-      'INSERT INTO chat_sessions VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO sessions VALUES (?, ?, ?, ?, ?)',
       'chat-content',
       'project-1',
       '资料讨论',
@@ -77,9 +77,9 @@ describe('global search', () => {
       '2026-09-16T12:00:00.000Z',
     );
     insert(
-      'INSERT INTO chat_sessions VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO sessions VALUES (?, ?, ?, ?, ?)',
       'chat-tools',
-      'home',
+      null,
       '工具结果',
       JSON.stringify([
         { role: 'assistant', content: '已完成', toolResults: [{ output: '仅工具载荷' }] },
@@ -89,7 +89,23 @@ describe('global search', () => {
 
     expect(queryGlobalSearch('散热方案')).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: 'chat', id: 'chat-content', subtitle: '毕业设计' }),
+        expect.objectContaining({
+          kind: 'chat',
+          id: 'chat-content',
+          subtitle: '毕业设计',
+          target: { page: 'chat', scope: 'project-1', sessionId: 'chat-content' },
+        }),
+      ]),
+    );
+    // 通用会话（project_id NULL，旧 home/sources/projects 入口并入）深链回退 'home'。
+    expect(queryGlobalSearch('工具结果')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'chat',
+          id: 'chat-tools',
+          subtitle: '首页',
+          target: { page: 'chat', scope: 'home', sessionId: 'chat-tools' },
+        }),
       ]),
     );
     expect(queryGlobalSearch('仅工具载荷').filter((item) => item.kind === 'chat')).toHaveLength(0);

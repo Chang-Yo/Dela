@@ -1,20 +1,26 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
-import type { GlobalSearchResult } from '../shared/api';
+import { GLOBAL_SEARCH_PER_KIND_LIMIT, type GlobalSearchResult } from '../shared/search';
 import { getTodoState } from './todo';
 import { todoStatusLabels } from '../shared/todo';
 import { getDatabase } from './database';
 import { checkWorkspaceSender } from './ipc';
 
 const querySchema = z.string().trim().max(200);
-const perKindLimit = 10;
+const perKindLimit = GLOBAL_SEARCH_PER_KIND_LIMIT;
 
 function likePattern(query: string): string {
   return `%${query.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_')}%`;
 }
 
 type ProjectRow = { id: string; title: string; updatedAt: string };
-type ChatRow = { id: string; scope: string; title: string; subtitle: string; updatedAt: string };
+type ChatRow = {
+  id: string;
+  projectId: string | null;
+  title: string;
+  subtitle: string;
+  updatedAt: string;
+};
 type MailRow = {
   id: number;
   subject: string | null;
@@ -45,16 +51,18 @@ export function queryGlobalSearch(query: string): GlobalSearchResult[] {
           )
           .all(perKindLimit)
   ) as ProjectRow[];
+  // 会话归属 projects 表（v13）：通用会话（project_id NULL，含旧 home/sources/projects 入口
+  // 与孤儿会话）深链回退 'home'，与旧通道的 scope 推导规则一致。
   const chats = (
     query
       ? db
           .prepare(
-            "SELECT chat_sessions.id, chat_sessions.scope, chat_sessions.title, coalesce(project.name, case chat_sessions.scope when 'home' then '首页' when 'sources' then '资料' when 'projects' then '项目' else '项目对话' end) AS subtitle, chat_sessions.updated_at AS updatedAt FROM chat_sessions LEFT JOIN workspace_entries AS project ON project.id=chat_sessions.scope AND project.kind='project' WHERE chat_sessions.title LIKE ? ESCAPE '!' OR (json_valid(chat_sessions.messages) AND EXISTS (SELECT 1 FROM json_each(chat_sessions.messages) WHERE json_extract(value, '$.content') LIKE ? ESCAPE '!')) ORDER BY chat_sessions.updated_at DESC LIMIT ?",
+            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' WHERE sessions.title LIKE ? ESCAPE '!' OR (json_valid(sessions.messages) AND EXISTS (SELECT 1 FROM json_each(sessions.messages) WHERE json_extract(value, '$.content') LIKE ? ESCAPE '!')) ORDER BY sessions.updated_at DESC LIMIT ?",
           )
           .all(pattern, pattern, perKindLimit)
       : db
           .prepare(
-            "SELECT chat_sessions.id, chat_sessions.scope, chat_sessions.title, coalesce(project.name, case chat_sessions.scope when 'home' then '首页' when 'sources' then '资料' when 'projects' then '项目对话' else '项目对话' end) AS subtitle, chat_sessions.updated_at AS updatedAt FROM chat_sessions LEFT JOIN workspace_entries AS project ON project.id=chat_sessions.scope AND project.kind='project' ORDER BY chat_sessions.updated_at DESC LIMIT ?",
+            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' ORDER BY sessions.updated_at DESC LIMIT ?",
           )
           .all(perKindLimit)
   ) as ChatRow[];
@@ -112,7 +120,7 @@ export function queryGlobalSearch(query: string): GlobalSearchResult[] {
       id: row.id,
       title: row.title,
       subtitle: row.subtitle,
-      target: { page: 'chat' as const, scope: row.scope, sessionId: row.id },
+      target: { page: 'chat' as const, scope: row.projectId ?? 'home', sessionId: row.id },
     })),
     ...mail.map((row) => ({
       kind: 'mail' as const,

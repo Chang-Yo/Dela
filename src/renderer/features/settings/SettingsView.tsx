@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
-import { AboutSection } from './AboutSection';
-import { AppearanceSection } from './AppearanceSection';
-import { ConnectionsSection } from './ConnectionsSection';
-import { GeneralSection } from './GeneralSection';
-import { LlmSection } from './LlmSection';
-import { PluginsSection } from './PluginsSection';
+import { AboutSection } from './sections/AboutSection';
+import { AppearanceSection } from './sections/AppearanceSection';
+import { ArchivedSection } from './sections/ArchivedSection';
+import { CapabilitiesSection } from './sections/CapabilitiesSection';
+import { CommandsSection } from './sections/CommandsSection';
+import { GeneralSection } from './sections/GeneralSection';
+import { LlmSection } from './sections/LlmSection';
+import { McpSection } from './sections/McpSection';
+import { PrivacySection } from './sections/PrivacySection';
+import { ShortcutsSection } from './sections/ShortcutsSection';
+import { SkillsSection } from './sections/SkillsSection';
+import { WorkspaceSection } from './sections/WorkspaceSection';
+import { ConnectionsSection } from './connections/ConnectionsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
 import type { FontScalePreference, ThemePreference, ZoomPreference } from '../../../shared/api';
 
@@ -41,20 +48,12 @@ export function SettingsView({
   }, [sectionRequest]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background md:flex-row">
+    <div className="flex min-h-0 flex-1 flex-col bg-surface md:flex-row">
       <SettingsNav onSectionChange={setSection} value={section} />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[760px] px-4 py-5 md:px-10 md:py-8">
+        {/* 内容宽度 912px = 原 760px 增大 20%（用户裁决，2026-10-06）。 */}
+        <div className="mx-auto w-full max-w-[912px] px-4 pb-8 pt-5 md:px-10 md:pt-8">
           {section === 'general' && <GeneralSection />}
-          {section === 'connections' && (
-            <ConnectionsSection
-              onOpenMail={onOpenMail}
-              onOpenShuiyuan={onOpenShuiyuan}
-              onOpenTimetable={onOpenTimetable}
-            />
-          )}
-          {section === 'llm' && <LlmSection />}
-          {section === 'plugins' && <PluginsSection />}
           {section === 'appearance' && (
             <AppearanceSection
               fontScale={fontScale}
@@ -65,7 +64,23 @@ export function SettingsView({
               zoom={zoom}
             />
           )}
+          {section === 'shortcuts' && <ShortcutsSection />}
+          {section === 'workspace' && <WorkspaceSection />}
+          {section === 'archived' && <ArchivedSection />}
+          {section === 'connections' && (
+            <ConnectionsSection
+              onOpenMail={onOpenMail}
+              onOpenShuiyuan={onOpenShuiyuan}
+              onOpenTimetable={onOpenTimetable}
+            />
+          )}
+          {section === 'providers' && <LlmSection />}
+          {section === 'capabilities' && <CapabilitiesSection />}
+          {section === 'commands' && <CommandsSection />}
+          {section === 'skills' && <SkillsSection />}
+          {section === 'mcp' && <McpSection />}
           {section === 'about' && <AboutSection />}
+          {section === 'privacy' && <PrivacySection />}
         </div>
       </div>
     </div>

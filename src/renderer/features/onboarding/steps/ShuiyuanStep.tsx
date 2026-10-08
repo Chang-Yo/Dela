@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { errorText } from '../../projects/workspace';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepTextarea, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
 
@@ -52,7 +52,7 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
     <div className="grid gap-7">
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">连接水源社区</h2>
-        <p className="text-sm leading-relaxed text-neutral-500">绑定后可浏览水源并回复、发私信。</p>
+        <p className="text-[13px] leading-relaxed text-ink-3">绑定后可浏览水源并回复、发私信。</p>
       </header>
       <StepGuide
         steps={[
@@ -60,11 +60,11 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
             title: '登录并授权',
             content: (
               <div className="grid gap-3">
-                <p className="text-sm leading-relaxed text-neutral-500">
+                <p className="text-[13px] leading-relaxed text-ink-3">
                   在独立窗口登录 jAccount 并点击「授权」，然后复制页面显示的密钥并关闭弹窗。
                 </p>
                 <button
-                  className="h-10 w-full rounded-lg border border-neutral-300 bg-white text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-10 w-full rounded-card border border-line border-line-strong bg-surface text-[13px] font-medium text-ink transition-colors hover:border-ink-3 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={authBusy}
                   onClick={() => void startAuth()}
                   type="button"
@@ -85,8 +85,8 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
                 }}
               >
                 <label className="grid gap-2">
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-700">
-                    <KeyRound className="size-3.5 text-neutral-400" aria-hidden="true" />
+                  <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink-2">
+                    <KeyRound className="size-3.5 text-ink-3" aria-hidden="true" />
                     授权密钥
                   </span>
                   <StepTextarea
@@ -99,7 +99,7 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
                   />
                 </label>
                 {error && (
-                  <p className="text-sm [overflow-wrap:anywhere] text-red-600" role="alert">
+                  <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
                     {error}
                   </p>
                 )}

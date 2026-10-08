@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { connectCanvas } from '../../sources/canvas-connect';
-import { errorText } from '../../projects/workspace';
+import { connectCanvas } from '../../settings/connections/canvas-connect';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
 
@@ -38,7 +38,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
     <div className="grid gap-7">
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">连接 Canvas</h2>
-        <p className="text-sm leading-relaxed text-neutral-500">
+        <p className="text-[13px] leading-relaxed text-ink-3">
           同步课程与作业，凭据加密保存在本机。
         </p>
       </header>
@@ -47,7 +47,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
           {
             title: '获取 Access Token',
             content: (
-              <ol className="list-decimal space-y-1.5 ps-4 text-[13px] leading-relaxed text-neutral-500">
+              <ol className="list-decimal space-y-1.5 ps-4 text-[13px] leading-relaxed text-ink-3">
                 <li>浏览器打开 Canvas（oc.sjtu.edu.cn）并登录</li>
                 <li>点击头像，进入「设置」</li>
                 <li>在「允许融入使用的外部软件」处点「+ 创建新的访问许可证」</li>
@@ -67,7 +67,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
                 }}
               >
                 <label className="grid gap-2">
-                  <span className="text-sm font-medium text-neutral-700">Access Token</span>
+                  <span className="text-[13px] font-medium text-ink-2">Access Token</span>
                   <StepInput
                     autoComplete="off"
                     autoFocus
@@ -79,7 +79,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
                   />
                 </label>
                 {error && (
-                  <p className="text-sm [overflow-wrap:anywhere] text-red-600" role="alert">
+                  <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
                     {error}
                   </p>
                 )}

@@ -21,7 +21,7 @@ import {
 } from './api';
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { checkWorkspaceSender } from '../ipc';
-import { saveLocalDraft, listLocalDrafts, deleteLocalDraft, openEmailDraft } from './drafts';
+import { saveLocalDraft, listLocalDrafts, deleteLocalDraft } from './drafts';
 import { basename } from 'node:path';
 import { z } from 'zod';
 import type { MailResult } from '../../shared/api';
@@ -41,7 +41,6 @@ export function registerMailIpc(): void {
   handle('save-draft', saveLocalDraft);
   handle('list-drafts', listLocalDrafts);
   handle('delete-draft', deleteLocalDraft);
-  handle('open-draft', openEmailDraft);
   ipcMain.handle('mail:compose-active', (event, active: unknown) => {
     checkWorkspaceSender(event);
     const senderId = event.sender.id;
@@ -55,6 +54,8 @@ export function registerMailIpc(): void {
     checkWorkspaceSender(event);
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (!owner) return 'cancel';
+    // 隐藏窗口（如托盘退出触发）上的模态对话框不可见，问题永远无人应答会把渲染侧导航闸门卡死。
+    if (!owner.isVisible()) owner.show();
     const { response } = await dialog.showMessageBox(owner, {
       type: 'question',
       title: '保存邮件草稿',

@@ -22,6 +22,8 @@ import {
   weekdayName,
 } from './timetable-format';
 import type { CalendarItemDetail } from './WeekCalendar';
+import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 // 点击周视图条目后的详情弹窗：排版参考 Google Calendar 的事件卡
 // （色点标题 + 小图标信息行）。课程只读；自建事件的删除需二次确认；
@@ -75,8 +77,13 @@ export function EventDetailDialog({
   return (
     <DialogPrimitive.Root onOpenChange={(open) => !open && !deleting && onClose()} open>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-card p-5 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95">
+        <DialogPrimitive.Overlay className={dialogOverlay} />
+        <DialogPrimitive.Content
+          className={cn(
+            dialogPanel,
+            'max-h-[calc(100dvh-2rem)] w-[400px] max-w-[calc(100vw-2rem)] overflow-y-auto p-5',
+          )}
+        >
           <div className="flex items-start gap-2.5">
             <span
               aria-hidden="true"
@@ -93,32 +100,32 @@ export function EventDetailDialog({
             </DialogPrimitive.Close>
           </div>
           {detail.kind === 'lesson' && (detail.lesson.className || detail.lesson.courseCode) ? (
-            <DialogPrimitive.Description className="mt-1 pl-5 text-xs text-muted-foreground">
+            <DialogPrimitive.Description className="mt-1 pl-5 text-[12px] text-ink-3">
               {[detail.lesson.className, detail.lesson.courseCode].filter(Boolean).join(' · ')}
             </DialogPrimitive.Description>
           ) : null}
           <div className="mt-4 grid gap-2.5 pl-5 text-[13px]">
             <div className="flex items-start gap-2">
-              <Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <Clock className="mt-0.5 size-4 shrink-0 text-ink-3" />
               <span className="tabular-nums">{timeText}</span>
             </div>
             {detail.kind === 'todo' ? (
               <div className="flex items-start gap-2">
-                <CircleCheckBig className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <CircleCheckBig className="mt-0.5 size-4 shrink-0 text-ink-3" />
                 <span>来自个人待办的截止时间</span>
               </div>
             ) : null}
             {detail.kind !== 'lesson' ? (
               detail.event.location ? (
                 <div className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
                   <span className="break-words">{detail.event.location}</span>
                 </div>
               ) : null
             ) : (
               <>
                 <div className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
                   <span className="break-words">
                     {[detail.lesson.classroom, detail.lesson.campus].filter(Boolean).join(' · ') ||
                       '地点未定'}
@@ -126,17 +133,17 @@ export function EventDetailDialog({
                 </div>
                 {detail.lesson.teacher ? (
                   <div className="flex items-start gap-2">
-                    <User className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <User className="mt-0.5 size-4 shrink-0 text-ink-3" />
                     <span className="break-words">{detail.lesson.teacher}</span>
                   </div>
                 ) : null}
                 <div className="flex items-start gap-2">
-                  <CalendarRange className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <CalendarRange className="mt-0.5 size-4 shrink-0 text-ink-3" />
                   <span>{detail.lesson.weeksText}</span>
                 </div>
                 {detail.lesson.credits != null ? (
                   <div className="flex items-start gap-2">
-                    <GraduationCap className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <GraduationCap className="mt-0.5 size-4 shrink-0 text-ink-3" />
                     <span>{detail.lesson.credits} 学分</span>
                   </div>
                 ) : null}
@@ -144,7 +151,7 @@ export function EventDetailDialog({
             )}
           </div>
           {error ? (
-            <p className="mt-3 break-words text-xs text-destructive" role="alert">
+            <p className="mt-3 break-words text-[12px] text-red" role="alert">
               {error}
             </p>
           ) : null}
@@ -153,7 +160,7 @@ export function EventDetailDialog({
             <div className="mt-5 flex items-center gap-1.5">
               {confirming ? (
                 <>
-                  <span className="text-xs text-muted-foreground">确认删除？</span>
+                  <span className="text-[12px] text-ink-3">确认删除？</span>
                   <Button
                     disabled={deleting}
                     onClick={() => void deleteEvent(detail.event)}
@@ -173,7 +180,7 @@ export function EventDetailDialog({
                 </>
               ) : (
                 <Button
-                  className="text-destructive hover:text-destructive"
+                  className="text-red hover:text-red"
                   onClick={() => setConfirming(true)}
                   size="sm"
                   variant="ghost"

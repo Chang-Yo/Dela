@@ -26,6 +26,8 @@ const topic = (id, title, extra = {}) => ({
   bookmarked: false,
   archetype: 'regular',
   lastPosterUsername: 'tester',
+  authorUsername: 'tester',
+  authorAvatarTemplate: null,
   ...extra,
 });
 const post = (id, number, username, cooked) => ({
@@ -99,15 +101,6 @@ const routes = {
   'settings:get-theme': () => 'light',
   'settings:get-zoom': () => 1,
   'settings:get-font-scale': () => 1,
-  'workspace:get-chat': () => ({
-    sessionId: null,
-    configured: false,
-    providerName: null,
-    model: '',
-    models: [],
-    messages: [],
-  }),
-  'shuiyuan:get-state': () => ({ connected: true, username: 'tester', boundAt: iso(90) }),
   'shuiyuan:site-structure': () => ({
     categories: [
       {
@@ -211,16 +204,19 @@ app
       /1/,
     );
 
-    // 分页：加载更多追加第二页并移除按钮。
-    await click(
-      "document.querySelector('button') && [...document.querySelectorAll('button')].find(b => b.textContent.includes('加载更多'))",
-    );
+    // 自动翻页：信息流滚动触底触发加载第二页；手动「加载更多」按钮已移除。
+    await evaluate(`(() => {
+      const scroller = document.querySelector('div.absolute.inset-0');
+      if (!scroller || scroller.scrollHeight <= scroller.clientHeight) return false;
+      scroller.scrollTop = scroller.scrollHeight;
+      return true;
+    })()`);
     await wait("document.body.innerText.includes('第二页帖子')");
     assert.ok(
       !(await evaluate(
         "[...document.querySelectorAll('button')].some(b => b.textContent.includes('加载更多'))",
       )),
-      'load-more button should disappear after last page',
+      'manual load-more button should be replaced by auto pagination',
     );
 
     // 阅读页推入：返回按钮、楼层 iframe、标题。

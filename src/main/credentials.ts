@@ -1,6 +1,13 @@
 import { app, safeStorage } from 'electron';
-import { join } from 'node:path';
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import {
+  copyFileSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+  unlinkSync,
+  existsSync,
+} from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { llmProviderPresets } from '../shared/llm-presets';
 
@@ -9,16 +16,54 @@ export interface MailCredential {
   password: string;
 }
 
-// 下方各组凭据文件共用的密封读写样板；错误文案是既有契约。
+export class CredentialDecryptionError extends Error {
+  constructor(path: string, cause: unknown) {
+    const label =
+      (
+        {
+          'llm-providers.bin': '模型服务配置',
+          'model-credential.bin': '旧版模型配置',
+          'mail-credentials.bin': '邮箱凭据',
+          'canvas-token.bin': 'Canvas 凭据',
+          'shuiyuan-key.bin': '水源凭据',
+        } as Record<string, string>
+      )[basename(path)] ?? '凭据';
+    super(`本机无法解密${label}，请在设置中重新配置。原加密文件仍保留，重新保存时会自动备份。`, {
+      cause,
+    });
+    this.name = 'CredentialDecryptionError';
+  }
+}
+
+// 加密完成后原子替换；无法解密的旧文件先备份，不因重新配置而丢失恢复机会。
 function writeSealed(path: string, plaintext: string): void {
   if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
-  writeFileSync(path, safeStorage.encryptString(plaintext));
+  const sealed = safeStorage.encryptString(plaintext);
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  try {
+    if (existsSync(path)) {
+      try {
+        safeStorage.decryptString(readFileSync(path));
+      } catch {
+        copyFileSync(path, `${path}.unreadable-${randomUUID()}.bak`);
+      }
+    }
+    writeFileSync(temporary, sealed);
+    renameSync(temporary, path);
+  } finally {
+    if (existsSync(temporary)) unlinkSync(temporary);
+  }
 }
 
 function readSealed(path: string): string | null {
   if (!existsSync(path)) return null;
   if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
-  return safeStorage.decryptString(readFileSync(path));
+  const sealed = readFileSync(path);
+  try {
+    return safeStorage.decryptString(sealed);
+  } catch (cause) {
+    throw new CredentialDecryptionError(path, cause);
+  }
 }
 
 function removeSealed(path: string): void {
@@ -111,6 +156,7 @@ export interface StoredLlmProvider {
   apiKey: string;
   models: string[];
   model: string;
+  modelConfigs?: Record<string, import('../shared/llm').LlmModelSettings>;
   /** 开启推理强度后暴露的档位子集；空数组表示未开启。 */
   effortLevels: string[];
   /** 当前选中的推理强度档位；未开启时为 undefined。 */

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CircleCheck, CircleX, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { errorText } from '../../projects/workspace';
+import { SelectItem } from '../../../components/ui/select';
+import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, StepSelect, type StepButtonState } from './step-controls';
 import { llmProviderPresets, findLlmPreset } from '../../../../shared/llm-presets';
 import type { LlmVerifyResult } from '../../../../shared/api';
@@ -91,7 +92,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     <div className="grid gap-7">
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">配置模型服务</h2>
-        <p className="text-sm leading-relaxed text-neutral-500">
+        <p className="text-[13px] leading-relaxed text-ink-3">
           选择服务商或自定义 OpenAI 兼容端点，密钥加密保存于本机。
         </p>
       </header>
@@ -104,16 +105,12 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
       >
         <section className="grid gap-5">
           <label className="grid gap-2">
-            <span className="text-sm font-medium text-neutral-700">服务商</span>
-            <StepSelect
-              aria-label="服务商"
-              onChange={(event) => applyPreset(event.target.value)}
-              value={presetId}
-            >
+            <span className="text-[13px] font-medium text-ink-2">服务商</span>
+            <StepSelect label="服务商" onValueChange={applyPreset} value={presetId}>
               {llmProviderPresets.map((item) => (
-                <option key={item.id} value={item.id}>
+                <SelectItem key={item.id} value={item.id}>
                   {item.name}
-                </option>
+                </SelectItem>
               ))}
             </StepSelect>
           </label>
@@ -129,7 +126,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
               >
                 <div className="grid gap-4">
                   <label className="grid gap-2">
-                    <span className="text-sm font-medium text-neutral-700">名称</span>
+                    <span className="text-[13px] font-medium text-ink-2">名称</span>
                     <StepInput
                       autoComplete="off"
                       onChange={(event) => setName(event.target.value)}
@@ -139,7 +136,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     />
                   </label>
                   <label className="grid gap-2">
-                    <span className="text-sm font-medium text-neutral-700">API 地址</span>
+                    <span className="text-[13px] font-medium text-ink-2">API 地址</span>
                     <StepInput
                       autoComplete="off"
                       onChange={(event) => setBaseUrl(event.target.value)}
@@ -154,16 +151,16 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
           </AnimatePresence>
         </section>
 
-        <hr className="border-t border-neutral-100" />
+        <hr className="border-t border-line-soft" />
 
         <section className="grid gap-2.5">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-neutral-700" htmlFor="llm-api-key">
+            <label className="text-[13px] font-medium text-ink-2" htmlFor="llm-api-key">
               API Key
             </label>
             {preset.keyUrl && (
               <a
-                className="flex items-center gap-1 text-xs text-neutral-500 transition-colors hover:text-neutral-800"
+                className="flex items-center gap-1 text-[12px] text-ink-3 transition-colors hover:text-ink"
                 href={preset.keyUrl}
                 rel="noreferrer"
                 target="_blank"
@@ -186,7 +183,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             />
             <button
               aria-label={showKey ? '隐藏 API Key' : '显示 API Key'}
-              className="absolute inset-y-0 right-1.5 my-auto grid size-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+              className="absolute inset-y-0 right-1.5 my-auto grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink-2"
               onClick={() => setShowKey((value) => !value)}
               type="button"
             >
@@ -199,7 +196,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <button
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-card border border-line border-line-strong bg-surface px-3 text-[12px] font-medium text-ink-2 transition-colors hover:border-ink-3 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={verifyBusy || !effectiveBaseUrl}
               onClick={() => void verify()}
               type="button"
@@ -209,7 +206,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             </button>
             {verifyResult && (
               <p
-                className={`flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-5 ${
+                className={`flex min-w-0 flex-1 items-start gap-1.5 text-[12px] leading-5 ${
                   verifyResult.ok ? 'text-emerald-600' : 'text-red-600'
                 }`}
                 role="status"
@@ -230,33 +227,34 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
           </div>
         </section>
 
-        <hr className="border-t border-neutral-100" />
+        <hr className="border-t border-line-soft" />
 
         <section className="grid gap-4">
           <label className="grid gap-2">
-            <span className="text-sm font-medium text-neutral-700">模型</span>
+            <span className="text-[13px] font-medium text-ink-2">模型</span>
             <StepSelect
-              aria-label="模型"
               disabled={models.length === 0}
-              onChange={(event) => setModel(event.target.value)}
-              required
-              value={model}
+              // 空模型列表（自定义未检测）与就绪态间切换时重挂载，避免受控值 undefined 化。
+              key={models.length === 0 ? 'empty' : 'ready'}
+              label="模型"
+              onValueChange={setModel}
+              placeholder="先检测连接，导入可用模型"
+              value={model === '' ? undefined : model}
             >
-              {models.length === 0 && <option value="">先检测连接，导入可用模型</option>}
               {models.map((item) => (
-                <option key={item} value={item}>
+                <SelectItem key={item} value={item}>
                   {item}
-                </option>
+                </SelectItem>
               ))}
             </StepSelect>
             {custom && models.length === 0 && (
-              <span className="text-xs text-neutral-400">
+              <span className="text-[12px] text-ink-3">
                 自定义服务没有预设模型，检测后自动导入。
               </span>
             )}
           </label>
           {error && (
-            <p className="text-sm [overflow-wrap:anywhere] text-red-600" role="alert">
+            <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
               {error}
             </p>
           )}

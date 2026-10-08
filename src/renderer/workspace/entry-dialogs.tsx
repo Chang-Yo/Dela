@@ -1,0 +1,305 @@
+// 工作区 CRUD 弹窗（迁移自 ProjectView 的 modal 段）：新建项目/文件夹/笔记、重命名、
+// 移动、移除、链接资料、连接 Canvas 共 8 种；表单状态与提交逻辑保持。
+// 与旧实现的差别只在「成功之后」：旧 submit 直接操作编辑器布局（清理被删条目的标签、
+// 打开新建的笔记），这里改为 onCreated/onRemoved/onOpenProject 回调，由接线方（3B
+// workbench/导航）接手——弹窗只负责表单与 workspace:*/canvas:* 通道调用。
+import { useEffect, useState, type FormEvent } from 'react';
+import { Dialog } from 'radix-ui';
+import { FolderOpen } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import type { WorkspaceEntry } from '../../shared/api';
+import { useNoteDrafts } from './drafts';
+import { updateEntry, type EntryAction } from './entry-actions';
+import { errorText, useWorkspaceStore } from './store';
+import { dialogOverlay, dialogPanel } from '../components/ui/motion';
+import { cn } from '../lib/utils';
+
+/** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
+const ROOT_SELECT_VALUE = '__root__';
+
+export interface EntryDialogRequest {
+  action: EntryAction | 'link' | 'connect';
+  id: string | null;
+  /** note 弹窗的正文预填（来源 header 等）。 */
+  text?: string;
+  /** link/move 打开时预选的目标位置（旧 show() 里 currentContainer() 的取值）。 */
+  initialTarget?: string;
+}
+
+// promote/import/archive 由接线处直连 entry-actions，永不入弹窗（旧 ProjectView.action 拦截）。
+const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
+  folder: '新建文件夹',
+  project: '新建项目',
+  note: '新建笔记',
+  rename: '重命名',
+  move: '移动到',
+  remove: '移除内容',
+  link: '加入文件夹或项目',
+  connect: '连接 Canvas',
+};
+
+/** 标签页与目录共用的条目标题解析（旧 ProjectView.title）。 */
+export function titleOf(key: string): string {
+  const { workspace, canvas } = useWorkspaceStore.getState();
+  return (
+    workspace.entries.find((e) => e.id === key)?.name ??
+    canvas.items.find((i) => `source:${i.sourceId}` === key)?.name ??
+    useNoteDrafts.getState().drafts[key]?.content.title ??
+    '资料'
+  );
+}
+
+export function EntryDialogs({
+  request,
+  onClose,
+  onCreated,
+  onRemoved,
+  onOpenProject,
+}: {
+  request: EntryDialogRequest | null;
+  /** 取消或成功提交后关闭；busy 期间不可关（旧 onOpenChange 行为）。 */
+  onClose: () => void;
+  /** create/link 成功后回调：打开新建笔记、展开父级等由接线方决定（旧 submit 尾段）。 */
+  onCreated?: (entry: WorkspaceEntry) => void;
+  /** remove 成功后回调仍存活的条目 id 集合；接线方据此清理标签与草稿、退出已删项目。 */
+  onRemoved?: (liveIds: Set<string>) => void;
+  /** 新建项目后打开（promote 的打开在 entry-actions.promoteEntry 回调）。 */
+  onOpenProject?: (id: string) => void;
+}) {
+  const workspace = useWorkspaceStore((s) => s.workspace);
+  const [name, setName] = useState('');
+  const [target, setTarget] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+
+  // 旧 show()：打开时重置表单；rename 预填当前名，target 预选调用方给的位置。
+  useEffect(() => {
+    setName(
+      request?.action === 'rename'
+        ? (useWorkspaceStore.getState().workspace.entries.find((e) => e.id === request.id)?.name ??
+            '')
+        : '',
+    );
+    setTarget(request?.initialTarget ?? '');
+    setModalError(null);
+  }, [request]);
+
+  const pathName = (entry: WorkspaceEntry): string => {
+    const names = [entry.name];
+    let parent = workspace.entries.find((e) => e.id === entry.parentId);
+    while (parent) {
+      names.unshift(parent.name);
+      parent = workspace.entries.find((e) => e.id === parent!.parentId);
+    }
+    return names.join(' / ');
+  };
+
+  /** 导入电脑上已有的文件夹作为项目：目录留在原处，成功后与新建项目走同一套后续动作。 */
+  const importFolder = async () => {
+    if (!window.dela || busy) return;
+    setBusy(true);
+    setModalError(null);
+    try {
+      const created = await window.dela.workspace.importProjectFolder();
+      if (!created) return;
+      await useWorkspaceStore.getState().refresh();
+      onClose();
+      onOpenProject?.(created.id);
+      onCreated?.(created);
+    } catch (error) {
+      setModalError(errorText(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!request || !window.dela) return;
+    if (request.action === 'promote' || request.action === 'import' || request.action === 'archive')
+      return; // 类型上仍可能出现（壳的 openDialog 入参未收窄），但表单对它们没有意义。
+    setBusy(true);
+    setModalError(null);
+    try {
+      const api = window.dela.workspace;
+      let created: WorkspaceEntry | undefined;
+      if (request.action === 'connect') {
+        await window.dela.canvas.configure(name);
+        setName('');
+        useWorkspaceStore.getState().setCanvas(await window.dela.canvas.syncCourses());
+      } else if (request.action === 'rename') await updateEntry(request.id!, { name });
+      else if (request.action === 'move')
+        await updateEntry(request.id!, { parentId: target || null });
+      else if (request.action === 'remove') {
+        await api.remove(request.id!);
+        const remaining = (await api.getState()).entries;
+        onRemoved?.(new Set(remaining.map((e) => e.id)));
+      } else if (request.action === 'link') {
+        const sourceId = request.id!.startsWith('source:')
+          ? request.id!.slice(7)
+          : workspace.entries.find((e) => e.id === request.id)?.sourceId;
+        if (!sourceId) throw new Error('请选择来源资料');
+        let parentId = target || null;
+        if (target === '__new__')
+          parentId = (await api.create({ name, parentId: null, kind: 'project' })).id;
+        created = await api.create({
+          name: titleOf(request.id!),
+          parentId,
+          kind: 'source',
+          sourceId,
+        });
+      } else if (
+        request.action === 'folder' ||
+        request.action === 'project' ||
+        request.action === 'note'
+      )
+        created = await api.create({
+          name,
+          parentId: request.id,
+          kind: request.action,
+          text: request.text,
+        });
+      await useWorkspaceStore.getState().refresh();
+      onClose();
+      if (created) {
+        if (created.kind === 'project') onOpenProject?.(created.id);
+        onCreated?.(created);
+      }
+    } catch (error) {
+      setModalError(errorText(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog.Root
+      open={request !== null}
+      onOpenChange={(value) => {
+        if (!value && !busy) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
+          <Dialog.Title className="text-base font-semibold">
+            {request ? (titles[request.action] ?? '') : ''}
+          </Dialog.Title>
+          <Dialog.Description className="mt-2 text-[12px] text-ink-3">
+            {request?.action === 'connect'
+              ? '使用个人 Access Token，凭据加密保存在本机。'
+              : request?.action === 'remove'
+                ? workspace.entries.find((entry) => entry.id === request.id)?.kind === 'project'
+                  ? '取消项目身份，目录与文件保留，会话转入随聊。'
+                  : workspace.entries.find((entry) => entry.id === request.id)?.kind === 'source'
+                    ? '解除此处的资料关联，原始资料保留。'
+                    : '将文件或文件夹移至系统回收站。'
+                : request?.action === 'link'
+                  ? '引用同一份资料，原位置保持不变。'
+                  : request?.action === 'note'
+                    ? `笔记保存到 ${workspace.directory}`
+                    : request?.action === 'project'
+                      ? '新建空项目，或导入电脑上已有的文件夹。'
+                      : '按自己的主题组织内容。'}
+          </Dialog.Description>
+          <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
+            {(request?.action === 'link' || request?.action === 'move') && (
+              <div className="grid gap-2 text-[13px]">
+                位置
+                <Select
+                  onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
+                  value={target === '' ? ROOT_SELECT_VALUE : target}
+                >
+                  <SelectTrigger aria-label="目标文件夹" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                    {workspace.entries
+                      .filter(
+                        (e) =>
+                          (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
+                      )
+                      .map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {pathName(e)}
+                        </SelectItem>
+                      ))}
+                    {request.action === 'link' && (
+                      <SelectItem value="__new__">新建项目…</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {request &&
+              !['move', 'remove'].includes(request.action) &&
+              (request.action !== 'link' || target === '__new__') && (
+                <label className="grid gap-2 text-[13px]">
+                  {request.action === 'connect' ? 'Access Token' : '名称'}
+                  <Input
+                    autoFocus
+                    autoComplete="off"
+                    type={request.action === 'connect' ? 'password' : 'text'}
+                    aria-label={request.action === 'connect' ? 'Canvas Access Token' : '名称'}
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </label>
+              )}
+            {request?.action === 'project' && (
+              <div className="grid gap-2">
+                <div aria-hidden="true" className="flex items-center gap-3 text-[12px]">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-ink-3">或</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                <Button
+                  disabled={busy}
+                  onClick={() => void importFolder()}
+                  type="button"
+                  variant="secondary"
+                >
+                  <FolderOpen />
+                  导入已有文件夹
+                </Button>
+              </div>
+            )}
+            {modalError && (
+              <p role="alert" className="text-[12px] [overflow-wrap:anywhere] text-red">
+                {modalError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" disabled={busy} onClick={onClose}>
+                取消
+              </Button>
+              <Button
+                type="submit"
+                disabled={busy}
+                variant={request?.action === 'remove' ? 'destructive' : undefined}
+              >
+                {busy
+                  ? '处理中…'
+                  : request?.action === 'remove'
+                    ? '移除'
+                    : request?.action === 'connect'
+                      ? '连接'
+                      : '确定'}
+              </Button>
+            </div>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}

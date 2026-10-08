@@ -15,7 +15,17 @@ await build({
       formats: ['cjs'],
       fileName: () => 'workspace-smoke.cjs',
     },
-    rolldownOptions: { external: ['electron', 'better-sqlite3', ...builtinModules, /^node:/] },
+    rolldownOptions: {
+      external: [
+        'electron',
+        'better-sqlite3',
+        // office-export 经 resource-parse 动态加载原生画布；与 vite.main.config.ts 同样外置，
+        // 否则 rolldown 会把 .node 二进制当模块文本加载。
+        '@napi-rs/canvas',
+        ...builtinModules,
+        /^node:/,
+      ],
+    },
   },
 });
 const require = createRequire(import.meta.url);

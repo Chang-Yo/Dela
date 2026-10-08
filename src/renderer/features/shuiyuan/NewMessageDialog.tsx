@@ -3,9 +3,11 @@ import { Dialog } from 'radix-ui';
 import { Send, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { MarkdownEditor } from '../projects/MarkdownEditor';
-import { errorText } from '../projects/workspace';
+import { MarkdownEditor } from '../../content/note/MarkdownEditor';
+import { errorText } from '../../workspace/store';
 import { useShuiyuan } from './store';
+import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 /** 发起新私信：收件人用户名（逗号分隔）+ 标题 + Markdown 正文。 */
 export function NewMessageDialog({
@@ -52,25 +54,25 @@ export function NewMessageDialog({
   return (
     <Dialog.Root onOpenChange={onOpenChange} open={open}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-lg overflow-y-auto')}>
           <div className="flex items-center justify-between">
             <Dialog.Title className="text-base font-semibold">新私信</Dialog.Title>
             <Dialog.Close asChild>
               <button
                 aria-label="关闭"
-                className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="grid size-8 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
                 type="button"
               >
                 <X className="size-4" />
               </button>
             </Dialog.Close>
           </div>
-          <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+          <Dialog.Description className="mt-1 text-[12px] text-ink-3">
             私信只发送给你填写的收件人，支持多个用户名（逗号分隔）。
           </Dialog.Description>
           <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-            <label className="grid gap-2 text-sm">
+            <label className="grid gap-2 text-[13px]">
               收件人
               <Input
                 aria-label="收件人用户名"
@@ -81,7 +83,7 @@ export function NewMessageDialog({
                 value={to}
               />
             </label>
-            <label className="grid gap-2 text-sm">
+            <label className="grid gap-2 text-[13px]">
               标题
               <Input
                 aria-label="私信标题"
@@ -91,9 +93,9 @@ export function NewMessageDialog({
                 value={title}
               />
             </label>
-            <div className="grid gap-2 text-sm">
+            <div className="grid gap-2 text-[13px]">
               正文
-              <div className="h-40 overflow-hidden rounded-md border shadow-xs">
+              <div className="h-40 overflow-hidden rounded-control border border-line shadow-hairline">
                 <MarkdownEditor
                   ariaLabel="私信正文编辑器"
                   lineNumbers={false}
@@ -107,7 +109,7 @@ export function NewMessageDialog({
                 />
               </div>
             </div>
-            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+            {error ? <p className="text-[12px] text-red">{error}</p> : null}
             <div className="flex justify-end gap-2">
               <Button disabled={busy} type="submit">
                 <Send className="size-4" />
