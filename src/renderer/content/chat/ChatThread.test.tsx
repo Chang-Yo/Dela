@@ -215,7 +215,10 @@ it('思考默认收起，正文始终可见', async () => {
   await act(async () => root.render(<ChatThread chat={traced} />));
   expect(host.textContent).toContain('这是回答');
   expect(host.textContent).not.toContain('核对资料的过程');
+  // 结束后先展开折叠的过程，再展开思考。
   await act(async () => host.querySelector<HTMLButtonElement>('[data-trace-toggle]')!.click());
+  const thought = [...host.querySelectorAll<HTMLButtonElement>('[data-trace-toggle]')][1]!;
+  await act(async () => thought.click());
   expect(host.textContent).toContain('核对资料的过程');
 });
 
@@ -281,9 +284,14 @@ it('正文从首个字到工具调用及结束均保持同一节点，工具行�
     content: '我来核对一下\n\n核对结果',
     parts: [...afterTool.parts, { type: 'text' as const, text: '核对结果' }],
   };
+  await renderReply(finalReply);
+  const answer = host.querySelectorAll('[data-assistant-body]')[1]!;
+  expect(answer.textContent).toBe('核对结果');
+  // 结束：中间说明与工具折叠，最终回复节点保持不变且可见。
   await renderReply({ ...finalReply, finishedAt: 100 }, false);
-  expect(host.querySelector('[data-assistant-body]')).toBe(body);
-  expect(host.querySelectorAll('[data-assistant-body]')[1]?.textContent).toBe('核对结果');
+  expect(host.querySelectorAll('[data-assistant-body]')[1]).toBe(answer);
+  expect(answer.closest('[hidden]')).toBeNull();
+  expect(host.querySelector('[data-assistant-body]')!.closest('[hidden]')).not.toBeNull();
 });
 
 it('停止的回复保留已输出正文并标注已停止', async () => {

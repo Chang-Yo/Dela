@@ -331,6 +331,7 @@ const AssistantMessage = memo(function AssistantMessage({
         </p>
       )}
       <ReplyTrace
+        key={message.startedAt}
         live={live}
         parts={parts}
         renderText={(text) => (

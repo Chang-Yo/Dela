@@ -270,9 +270,50 @@ export function ReplyTrace({
     if (part.type === 'reasoning') return <Reasoning key={key} live={blockLive} part={part} />;
     return <ToolGroup key={key} live={blockLive} results={part.results} />;
   };
+  // 整轮结束且以正文收尾：之前的说明、思考与工具自动折进一行，只留最终回复。
+  // 过程块保持原位只是隐藏，最终正文节点与运行中是同一个，折叠时不重建、不跳动。
+  const foldable = !live && blocks.length > 1 && blocks[lastIndex]!.part.type === 'text';
+  const [expanded, setExpanded] = useState(false);
+  const folded = foldable && !expanded;
+  const tools = blocks.flatMap(({ part }) => (part.type === 'tools' ? part.results : []));
   return (
     <div aria-label="对话过程" className="min-w-0">
-      {blocks.map(renderBlock)}
+      {foldable && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          data-trace-toggle
+          onClick={() => setExpanded(!expanded)}
+          className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-[13px] text-ink-3 transition-colors duration-150 hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
+        >
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              'size-3.5 shrink-0 opacity-60 transition-transform duration-150 group-hover/row:opacity-100 motion-reduce:transition-none',
+              expanded && 'rotate-90',
+            )}
+          />
+          <span className="min-w-0 truncate">
+            {tools.length ? `已处理 · ${summarize(tools)}` : '已思考'}
+          </span>
+          {tools.some((result) => result.output?.isError) && (
+            <span className="shrink-0 text-red">有失败</span>
+          )}
+        </button>
+      )}
+      {blocks.map((block, index) =>
+        foldable && index < lastIndex ? (
+          <div
+            key={block.key}
+            hidden={folded}
+            className="ml-[7px] border-l border-line pl-[11px] animate-in fade-in duration-150 motion-reduce:animate-none"
+          >
+            {renderBlock(block, index)}
+          </div>
+        ) : (
+          renderBlock(block, index)
+        ),
+      )}
     </div>
   );
 }

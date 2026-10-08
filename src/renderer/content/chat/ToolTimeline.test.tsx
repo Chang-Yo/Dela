@@ -61,12 +61,18 @@ it('完成后连续工具收成摘要行，展开看到每一步', async () => {
     },
     { type: 'text', text: '改好了' },
   ]);
-  expect(rows()).toHaveLength(1);
-  expect(rows()[0]!.textContent).toBe('读取 2 个文件，编辑 1 个文件');
+  // 结束后过程整体折叠：只剩一行摘要和最终回复。
+  const visible = () => rows().filter((row) => !row.closest('[hidden]'));
+  expect(visible()).toHaveLength(1);
+  expect(visible()[0]!.textContent).toBe('已处理 · 读取 2 个文件，编辑 1 个文件');
+  expect(host.querySelector('[data-assistant-body]')!.closest('[hidden]')).not.toBeNull();
+  expect([...host.querySelectorAll('[data-assistant-body]')].at(-1)!.textContent).toBe('改好了');
   // 不出现操作数、失败数这类统计。
   expect(host.textContent).not.toMatch(/项操作|项失败/);
-  await act(async () => rows()[0]!.click());
-  expect(rows().map((row) => row.textContent)).toContain('编辑a.md+2 −1');
+  await act(async () => visible()[0]!.click());
+  expect(visible().map((row) => row.textContent)).toContain('读取 2 个文件，编辑 1 个文件');
+  await act(async () => visible()[1]!.click());
+  expect(visible().map((row) => row.textContent)).toContain('编辑a.md+2 −1');
 });
 
 it('失败只在步骤行尾标注，原因在展开后可见', async () => {
@@ -88,6 +94,31 @@ it('失败只在步骤行尾标注，原因在展开后可见', async () => {
   expect(host.textContent).not.toContain('oldText 不存在');
   await act(async () => rows()[0]!.click());
   expect(host.textContent).toContain('oldText 不存在');
+});
+
+it('运行中不折叠；结束后折叠过程，最终正文节点不重建', async () => {
+  const trace: Parts = [
+    { type: 'reasoning', text: '想一想' },
+    { type: 'tools', results: [read('a', 'a.md')] },
+    { type: 'text', text: '结论' },
+  ];
+  await render(trace, true);
+  expect(host.querySelector('[hidden]')).toBeNull();
+  const answer = host.querySelector('[data-assistant-body]')!;
+  await render(trace, false);
+  expect(host.querySelector('[data-assistant-body]')).toBe(answer);
+  expect(answer.closest('[hidden]')).toBeNull();
+  expect(host.querySelectorAll('[hidden]')).toHaveLength(2);
+});
+
+it('只有正文、或以工具收尾时不折叠', async () => {
+  await render([{ type: 'text', text: '直接回答' }]);
+  expect(rows()).toHaveLength(0);
+  await render([
+    { type: 'text', text: '我去改' },
+    { type: 'tools', results: [read('a', 'a.md')] },
+  ]);
+  expect(host.querySelector('[hidden]')).toBeNull();
 });
 
 it('正文与过程按顺序交错，流式增长不重建正文节点', async () => {
