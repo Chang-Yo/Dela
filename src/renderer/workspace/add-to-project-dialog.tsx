@@ -95,14 +95,14 @@ export function AddToProjectDialogBase({
           <div className="flex items-start justify-between gap-4">
             <div>
               <Dialog.Title className="text-base font-semibold">添加到项目</Dialog.Title>
-              <Dialog.Description className="mt-2 text-xs text-muted-foreground">
+              <Dialog.Description className="mt-2 text-[12px] text-ink-3">
                 {description}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <button
                 aria-label="关闭"
-                className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="grid size-8 shrink-0 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
                 type="button"
               >
                 <X className="size-4" />
@@ -110,7 +110,7 @@ export function AddToProjectDialogBase({
             </Dialog.Close>
           </div>
           <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-            <label className="grid gap-2 text-sm">
+            <label className="grid gap-2 text-[13px]">
               位置
               <Select
                 onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
@@ -131,7 +131,7 @@ export function AddToProjectDialogBase({
               </Select>
             </label>
             {target === '__new__' ? (
-              <label className="grid gap-2 text-sm">
+              <label className="grid gap-2 text-[13px]">
                 名称
                 <Input
                   aria-label="新项目名称"
@@ -142,7 +142,7 @@ export function AddToProjectDialogBase({
                 />
               </label>
             ) : null}
-            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+            {error ? <p className="text-[12px] text-red">{error}</p> : null}
             <div className="flex justify-end">
               <Button disabled={busy} type="submit">
                 {busy ? '添加中…' : '添加'}

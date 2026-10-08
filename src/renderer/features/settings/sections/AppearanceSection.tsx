@@ -123,8 +123,8 @@ export function AppearanceSection({
                 className={cn(
                   'flex h-9 items-center gap-2 rounded-card border border-line px-3 text-[12px] transition-colors',
                   theme === id
-                    ? 'border-foreground/60 bg-inset font-medium text-ink'
-                    : 'border-line text-ink-3 hover:bg-inset hover:text-ink',
+                    ? 'border-ink bg-hover font-medium text-ink'
+                    : 'border-line text-ink-3 hover:bg-hover hover:text-ink',
                 )}
                 disabled={themeSave.busy}
                 key={id}
@@ -185,7 +185,7 @@ export function AppearanceSection({
                 aria-pressed={icon === id}
                 className={cn(
                   'relative rounded-card border border-line p-2 transition-colors',
-                  icon === id ? 'border-foreground/60 bg-inset' : 'border-line hover:bg-inset',
+                  icon === id ? 'border-ink bg-hover' : 'border-line hover:bg-hover',
                 )}
                 disabled={iconSave.busy}
                 key={id}

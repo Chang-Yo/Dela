@@ -391,7 +391,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   if (!loaded && workspaceError === null && window.dela)
     // 工作区镜像载入前不渲染：布局种子与标题解析都依赖条目树（旧 ProjectView 的
     // workspaceLoaded 种子门控）。
-    return <div className="min-h-0 flex-1 bg-background" />;
+    return <div className="min-h-0 flex-1 bg-surface" />;
 
   return (
     <ChatTabSourceProvider source={chatSource}>
@@ -399,7 +399,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         <ContentLoaderProvider loader={loader}>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {workspaceError && (
-              <p className="px-4 py-2 text-sm text-destructive" role="alert">
+              <p className="px-4 py-2 text-[13px] text-red" role="alert">
                 {workspaceError}
               </p>
             )}

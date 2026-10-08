@@ -102,14 +102,14 @@ export function SheetPreview({ url }: { url: string }) {
   const current = sheets[active];
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-xs">
+      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-[12px]">
         <Button size="icon-sm" variant="ghost" aria-label="缩小表格" onClick={() => step(-1)}>
           <Minus />
         </Button>
         <button
           title="重置缩放到 100%"
           aria-label="重置缩放到 100%"
-          className="rounded-md px-2 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent"
           onClick={() => setZoom(1)}
         >
           {Math.round(zoom * 100)}%
@@ -121,20 +121,20 @@ export function SheetPreview({ url }: { url: string }) {
       <div className="relative min-h-0 flex-1">
         <div
           ref={scroller}
-          className="absolute inset-0 overflow-auto overscroll-contain bg-background [overflow-anchor:none] [scrollbar-gutter:stable]"
+          className="absolute inset-0 overflow-auto overscroll-contain bg-surface [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
           {loaded && !sheets.length && (
-            <p className="p-6 text-sm text-muted-foreground">工作簿没有工作表。</p>
+            <p className="p-6 text-[13px] text-ink-3">工作簿没有工作表。</p>
           )}
           {current && (
-            <div style={{ zoom }} className="inline-block min-w-full p-4 text-xs">
+            <div style={{ zoom }} className="inline-block min-w-full p-4 text-[12px]">
               {current.truncated && (
-                <p role="status" className="mb-2 text-muted-foreground">
+                <p role="status" className="mb-2 text-ink-3">
                   表格较大，仅显示前 {SHEET_ROW_LIMIT} 行。
                 </p>
               )}
               <div
-                className="[&_table]:border-collapse [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1"
+                className="[&_table]:border-collapse [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:bg-inset [&_th]:px-2 [&_th]:py-1"
                 dangerouslySetInnerHTML={{ __html: current.table }}
               />
             </div>
@@ -143,7 +143,7 @@ export function SheetPreview({ url }: { url: string }) {
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-background p-3 text-sm text-destructive"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-[13px] text-red"
           >
             表格打开失败：{error}
             <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
@@ -152,7 +152,7 @@ export function SheetPreview({ url }: { url: string }) {
           </p>
         )}
         {!loaded && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-muted-foreground">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-[13px] text-ink-3">
             正在加载表格…
           </p>
         )}

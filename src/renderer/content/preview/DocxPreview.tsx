@@ -59,14 +59,14 @@ export function DocxPreview({ url }: { url: string }) {
     setZoom((value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value + direction * ZOOM_STEP)));
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-xs">
+      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-[12px]">
         <Button size="icon-sm" variant="ghost" aria-label="缩小文档" onClick={() => step(-1)}>
           <Minus />
         </Button>
         <button
           title="重置缩放到 100%"
           aria-label="重置缩放到 100%"
-          className="rounded-md px-2 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent"
           onClick={() => setZoom(1)}
         >
           {Math.round(zoom * 100)}%
@@ -78,14 +78,14 @@ export function DocxPreview({ url }: { url: string }) {
       <div className="relative min-h-0 flex-1">
         <div
           ref={scroller}
-          className="absolute inset-0 overflow-auto overscroll-contain bg-muted [overflow-anchor:none] [scrollbar-gutter:stable]"
+          className="absolute inset-0 overflow-auto overscroll-contain bg-inset [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
           <div ref={host} style={{ zoom }} className="docx-preview-host min-h-full" />
         </div>
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-background p-3 text-sm text-destructive"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-[13px] text-red"
           >
             文档打开失败：{error}
             <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
@@ -94,7 +94,7 @@ export function DocxPreview({ url }: { url: string }) {
           </p>
         )}
         {loading && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-muted-foreground">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-[13px] text-ink-3">
             正在加载文档…
           </p>
         )}

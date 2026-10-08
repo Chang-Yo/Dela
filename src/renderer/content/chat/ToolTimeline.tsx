@@ -255,7 +255,7 @@ export function ReplyTrace({
         <div
           key={key}
           data-assistant-body
-          className="my-3 min-w-0 text-sm leading-7 text-ink first:mt-0"
+          className="my-3 min-w-0 text-[13px] leading-7 text-ink first:mt-0"
         >
           {renderText ? (
             renderText(part.text)

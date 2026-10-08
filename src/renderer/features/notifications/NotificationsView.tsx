@@ -67,7 +67,7 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
 
 function SourceIcon({ source }: { source: NotificationItem['source'] }) {
   const Icon = source === 'mail' ? Mail : source === 'todo' ? CircleCheckBig : ShuiyuanIcon;
-  return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-muted-foreground" />;
+  return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-3" />;
 }
 
 export function NotificationsView({
@@ -103,9 +103,7 @@ export function NotificationsView({
         <div className="flex items-baseline gap-2">
           <h1 className="text-xl font-semibold tracking-tight">通知</h1>
           {state?.unreadCount ? (
-            <span className="text-sm tabular-nums text-muted-foreground">
-              {state.unreadCount} 未读
-            </span>
+            <span className="text-[13px] tabular-nums text-ink-3">{state.unreadCount} 未读</span>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1">
@@ -187,7 +185,7 @@ export function NotificationsView({
       </header>
 
       {snoozed ? (
-        <div className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+        <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-inset px-4 py-3 text-[13px] text-ink-3">
           <BellOff aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           <p>已暂停至 {new Date(state!.snoozedUntil!).toLocaleString('zh-CN')}；仍会收集新通知。</p>
         </div>
@@ -195,7 +193,7 @@ export function NotificationsView({
 
       {error ? (
         <div
-          className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="mt-4 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
           role="alert"
         >
           <p>{error}</p>
@@ -206,7 +204,7 @@ export function NotificationsView({
       ) : null}
       {sourceErrors.map((message) => (
         <p
-          className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
           key={message}
           role="status"
         >
@@ -215,10 +213,10 @@ export function NotificationsView({
       ))}
 
       {(loading || initialLoading) && !state ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">正在获取通知…</p>
+        <p className="py-12 text-center text-[13px] text-ink-3">正在获取通知…</p>
       ) : null}
       {!loading && !state && !error && !initialLoading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
+        <div className="py-12 text-center text-[13px] text-ink-3">
           <p>通知服务暂不可用。</p>
           <Button className="mt-3" onClick={onRefresh} size="sm" variant="outline">
             重新连接
@@ -226,7 +224,7 @@ export function NotificationsView({
         </div>
       ) : null}
       {state && !loading && items.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
+        <p className="py-12 text-center text-[13px] text-ink-3">
           {filter === 'all' ? '暂时没有通知。' : `没有${filterLabels[filter]}通知。`}
         </p>
       ) : null}
@@ -234,18 +232,18 @@ export function NotificationsView({
       {/* 分隔线行而非行级卡片：通知是高频扫读的信息流，与邮件列表保持同一视觉重量。 */}
       <section aria-label="通知列表" className="mt-4 flex flex-col pb-6">
         {state && state.totalCount > state.items.length && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[12px] text-ink-3">
             显示最近 {state.items.length} 条，共 {state.totalCount} 条通知。
           </p>
         )}
         {items.map((item) => (
           <article
-            className="relative border-b transition-colors last:border-0 hover:bg-muted/50"
+            className="relative border-b transition-colors last:border-0 hover:bg-hover"
             key={item.id}
           >
             <button
               className={cn(
-                'flex w-full items-start gap-3 p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'flex w-full items-start gap-3 p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
                 !item.readAt && 'pr-14',
               )}
               onClick={() => onOpen(item)}
@@ -256,23 +254,23 @@ export function NotificationsView({
                 <span
                   className={
                     item.readAt
-                      ? 'block break-words text-sm font-normal'
-                      : 'block break-words text-sm font-semibold'
+                      ? 'block break-words text-[13px] font-normal'
+                      : 'block break-words text-[13px] font-semibold'
                   }
                 >
                   {item.title}
                 </span>
-                <span className="mt-1 block break-words text-sm leading-relaxed text-muted-foreground line-clamp-3">
+                <span className="mt-1 block break-words text-[13px] leading-relaxed text-ink-3 line-clamp-3">
                   {item.body}
                 </span>
-                <span className="mt-2 block text-xs tabular-nums text-muted-foreground">
+                <span className="mt-2 block text-[12px] tabular-nums text-ink-3">
                   {filterLabels[item.source]} · {formatTime(item.createdAt)}
                 </span>
               </span>
               {!item.readAt ? (
                 <span
                   aria-label="未读"
-                  className="mt-1 size-2 shrink-0 rounded-full bg-foreground"
+                  className="mt-1 size-2 shrink-0 rounded-full bg-ink"
                   role="status"
                 />
               ) : null}

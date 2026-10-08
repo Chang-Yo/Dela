@@ -61,7 +61,10 @@ export function ChatHome() {
   // 新请求返回前不渲染旧会话，避免沿用旧输入状态或显示已完成的消息。
   if (!session || session.seq !== (request?.seq ?? 0))
     return (
-      <div className="flex flex-1 items-center justify-center p-6 text-sm text-ink-3" role="status">
+      <div
+        className="flex flex-1 items-center justify-center p-6 text-[13px] text-ink-3"
+        role="status"
+      >
         {error ?? '正在打开对话…'}
       </div>
     );

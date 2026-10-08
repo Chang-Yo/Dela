@@ -14,7 +14,7 @@ const buttonVariants = cva(
           'bg-ink text-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:opacity-90',
         destructive:
           'bg-red text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:brightness-95',
-        outline: 'bg-surface text-ink shadow-btn hover:bg-inset aria-expanded:bg-hover',
+        outline: 'bg-surface text-ink shadow-btn hover:bg-hover aria-expanded:bg-hover-2',
         secondary: 'bg-hover-2 text-ink hover:bg-line-strong',
         ghost: 'text-ink-2 hover:bg-hover hover:text-ink aria-expanded:bg-hover',
         link: 'text-bui-accent-ink underline-offset-4 hover:underline active:scale-100',

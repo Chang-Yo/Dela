@@ -276,7 +276,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
+    <div className="flex min-h-0 flex-1 flex-col bg-surface">
       <div className="flex shrink-0 items-center gap-1 border-b px-2 py-1">
         <div
           aria-label="终端会话"
@@ -287,13 +287,13 @@ export function TerminalTab({ tabId }: TabComponentProps) {
             <div
               key={session.id}
               className={cn(
-                'flex shrink-0 items-center rounded-md text-sm text-muted-foreground',
-                session.id === activeId && 'bg-accent text-foreground',
+                'flex shrink-0 items-center rounded-control text-[13px] text-ink-3',
+                session.id === activeId && 'bg-hover text-ink',
               )}
             >
               <button
                 aria-selected={session.id === activeId}
-                className="flex items-center gap-2 rounded-md px-3 py-1.5 focus-visible:outline focus-visible:outline-ring"
+                className="flex items-center gap-2 rounded-control px-3 py-1.5 focus-visible:outline focus-visible:outline-ring"
                 role="tab"
                 type="button"
                 onClick={() => select(session.id)}
@@ -301,7 +301,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
                 <SquareTerminal className="size-4" />
                 {session.title} {index + 1}
                 {session.exitCode !== null && (
-                  <span className="text-xs text-muted-foreground">已结束</span>
+                  <span className="text-[12px] text-ink-3">已结束</span>
                 )}
               </button>
               <Button
@@ -348,17 +348,17 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         </Button>
       </div>
       {error && (
-        <p className="shrink-0 px-3 py-2 text-sm text-destructive" role="alert">
+        <p className="shrink-0 px-3 py-2 text-[13px] text-red" role="alert">
           {error}
         </p>
       )}
       {active?.exitCode !== null && active && (
-        <p className="shrink-0 px-3 py-1 text-xs text-muted-foreground">
+        <p className="shrink-0 px-3 py-1 text-[12px] text-ink-3">
           进程已结束，退出码 {active.exitCode}。可新建终端继续操作。
         </p>
       )}
       {!activeId && (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center text-[13px] text-ink-3">
           {busy ? '正在打开终端…' : '点击 + 新建终端'}
         </div>
       )}
@@ -372,7 +372,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
           else void paste();
         }}
         className={cn(
-          'min-h-0 flex-1 overflow-hidden bg-background p-2 font-mono text-sm text-foreground',
+          'min-h-0 flex-1 overflow-hidden bg-surface p-2 font-mono text-[13px] text-ink',
           !activeId && 'hidden',
         )}
       />

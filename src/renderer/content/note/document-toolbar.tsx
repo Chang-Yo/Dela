@@ -49,18 +49,14 @@ export function DocumentToolbar({
 }) {
   return (
     <div
-      className="flex min-w-0 shrink-0 items-center gap-2 px-3 py-1.5 text-xs"
+      className="flex min-w-0 shrink-0 items-center gap-2 px-3 py-1.5 text-[12px]"
       role="toolbar"
       aria-label="笔记操作"
     >
-      <nav
-        aria-label="文件路径"
-        className="min-w-0 flex-1 text-muted-foreground"
-        title={path.join(' / ')}
-      >
+      <nav aria-label="文件路径" className="min-w-0 flex-1 text-ink-3" title={path.join(' / ')}>
         <ol className="flex min-w-0 items-center gap-1 overflow-hidden">
           {path.map((name, index) => (
-            <li key={index} className="flex min-w-0 items-center gap-1 last:text-foreground/80">
+            <li key={index} className="flex min-w-0 items-center gap-1 last:text-ink-2">
               {index > 0 && <ChevronRight aria-hidden className="size-3 shrink-0" />}
               <span
                 className="truncate"
@@ -74,7 +70,7 @@ export function DocumentToolbar({
       </nav>
       {dueAt && (
         <span
-          className="flex min-w-0 shrink items-center gap-1 text-muted-foreground"
+          className="flex min-w-0 shrink items-center gap-1 text-ink-3"
           title={`截止 ${new Date(dueAt).toLocaleString('zh-CN')}`}
         >
           <Clock className="size-3 shrink-0" />
@@ -82,10 +78,7 @@ export function DocumentToolbar({
         </span>
       )}
       <span
-        className={cn(
-          'flex shrink-0 items-center gap-1 text-muted-foreground',
-          failed && 'text-destructive',
-        )}
+        className={cn('flex shrink-0 items-center gap-1 text-ink-3', failed && 'text-red')}
         role="status"
         aria-live="polite"
       >

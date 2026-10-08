@@ -191,7 +191,7 @@ export function PdfReader({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* safe 居中：工具组窄于容器时居中，放不下时对齐起点并横向滚动（居中溢出会把两侧按钮裁成不可达）。 */}
-      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-xs">
+      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-[12px]">
         <Button
           size="icon-sm"
           variant="ghost"
@@ -209,11 +209,11 @@ export function PdfReader({
         >
           <input
             aria-label="PDF 页码"
-            className="w-12 rounded border bg-background px-1 text-center"
+            className="w-12 rounded border border-line bg-surface px-1 text-center"
             value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
           />
-          <span className="ml-2 text-muted-foreground">/ {pageCount || '…'}</span>
+          <span className="ml-2 text-ink-3">/ {pageCount || '…'}</span>
         </form>
         <Button
           size="icon-sm"
@@ -238,7 +238,7 @@ export function PdfReader({
           title="重置缩放到 100%"
           aria-label="重置缩放到 100%"
           disabled={!pageCount}
-          className="rounded-md px-2 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent"
           onClick={() => {
             if (viewer.current) viewer.current.currentScaleValue = '1';
           }}
@@ -270,14 +270,14 @@ export function PdfReader({
       <div className="relative min-h-0 flex-1">
         <div
           ref={host}
-          className="absolute inset-0 overflow-auto overscroll-contain bg-muted [overflow-anchor:none] [scrollbar-gutter:stable]"
+          className="absolute inset-0 overflow-auto overscroll-contain bg-inset [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
           <div ref={pages} className="pdfViewer dela-pdf-pages" />
         </div>
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-background p-3 text-sm text-destructive"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-[13px] text-red"
           >
             PDF 打开失败：{error}
             <button
@@ -293,7 +293,7 @@ export function PdfReader({
           </p>
         )}
         {!pageCount && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-muted-foreground">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-[13px] text-ink-3">
             正在加载 PDF…
           </p>
         )}

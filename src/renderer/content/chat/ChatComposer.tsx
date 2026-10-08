@@ -334,7 +334,7 @@ export function ChatComposer({
         }}
       >
         {dragging && (
-          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[14px] border-2 border-dashed border-line-strong bg-page/80 text-sm text-ink-3">
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[14px] border-2 border-dashed border-line-strong bg-page/80 text-[13px] text-ink-3">
             松开以添加图片或附件
           </div>
         )}

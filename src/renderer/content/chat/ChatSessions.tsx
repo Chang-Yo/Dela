@@ -220,7 +220,7 @@ export function ChatSessions({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-line p-2">
           {loadError && (
-            <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-ink-3">
+            <div className="flex items-center justify-center gap-2 px-3 py-6 text-[13px] text-ink-3">
               <span role="alert">历史对话加载失败</span>
               <Button onClick={() => setListVersion((version) => version + 1)} size="xs">
                 重试

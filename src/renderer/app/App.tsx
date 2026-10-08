@@ -248,7 +248,7 @@ export default function App() {
           onNavigateBusiness={(id) => void useNavigationStore.getState().navigate(id)}
         >
           {navigationError && (
-            <p className="px-4 py-2 text-sm text-destructive" role="alert">
+            <p className="px-4 py-2 text-[13px] text-red" role="alert">
               {navigationError}
             </p>
           )}

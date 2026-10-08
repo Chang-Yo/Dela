@@ -333,7 +333,7 @@ export function MarkdownEditor({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div ref={host} className="min-h-0 w-full flex-1 overflow-hidden" />
       {editorStateKey !== undefined && (
-        <div className="flex h-6 shrink-0 items-center justify-end border-t px-3 text-xs text-muted-foreground">
+        <div className="flex h-6 shrink-0 items-center justify-end border-t px-3 text-[12px] text-ink-3">
           行 {cursor.line}，列 {cursor.column}
         </div>
       )}

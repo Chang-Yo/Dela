@@ -218,7 +218,7 @@ export function WorkbenchExplorer({
         className={cn(
           // 三级背景层次（用户裁决，勿压平）：侧栏画布 --page → 目录树 --muted(=--inset)
           // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
-          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl max-md:animate-[drawer-left_200ms_var(--ease-out-strong)_both]',
+          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-overlay max-md:animate-[drawer-left_200ms_var(--ease-out-strong)_both]',
           resizing && 'transition-none',
           !visible && 'w-0 max-md:hidden',
         )}

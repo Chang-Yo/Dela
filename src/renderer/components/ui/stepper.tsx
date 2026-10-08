@@ -46,7 +46,7 @@ export function StepperControl({
   const increase = useHoldRepeat(() => onStep(1));
   const decrease = useHoldRepeat(() => onStep(-1));
   const buttonClass =
-    'grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 select-none disabled:pointer-events-none disabled:opacity-40';
+    'grid size-7 place-items-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent select-none disabled:pointer-events-none disabled:opacity-40';
   return (
     <div aria-label={label} className="flex items-center gap-0.5" role="group">
       <button
@@ -58,7 +58,7 @@ export function StepperControl({
       >
         <ChevronLeft className="size-3.5" strokeWidth={1.8} />
       </button>
-      <span className="grid h-8 min-w-16 place-items-center rounded-md bg-muted/60 px-2 text-sm font-medium tabular-nums">
+      <span className="grid h-8 min-w-16 place-items-center rounded-control bg-field px-2 text-[13px] font-medium tabular-nums text-ink shadow-hairline">
         {display}
       </span>
       <button

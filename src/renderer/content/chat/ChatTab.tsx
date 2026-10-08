@@ -32,16 +32,16 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
 
   if (sessionId === null) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-sm text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-[13px] text-ink-3">
         无效的会话标签
       </div>
     );
   }
   if (session.active === null) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-sm text-ink-3">这个会话已被删除。</p>
+          <p className="text-[13px] text-ink-3">这个会话已被删除。</p>
           <Button
             className="[&_svg]:size-3.5"
             onClick={() => void session.newSession()}
@@ -165,10 +165,7 @@ const ChatSessionView = memo(function ChatSessionView({
   );
 
   return (
-    <div
-      aria-label="对话"
-      className="flex min-h-0 min-w-0 flex-1 flex-col bg-background @container"
-    >
+    <div aria-label="对话" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface @container">
       {/* @container 宿主：空态标题的 @max-[…] 按此宽度生效；ChatComposer 自身另有
           @container 宿主，其内部降级断点测量 composer 实宽（外层 p-3 会造成 24px 死区）。 */}
       {/* 会话切换条：标签标题由 workbench 标签栏承载，这里只留历史与新对话入口。 */}
@@ -190,7 +187,7 @@ const ChatSessionView = memo(function ChatSessionView({
       </div>
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}
       {chat && !chat.configured && (
-        <div className="flex items-center gap-2 px-3 text-xs text-ink-3">
+        <div className="flex items-center gap-2 px-3 text-[12px] text-ink-3">
           <span>配置模型供应商后即可开始对话</span>
           <Button
             size="xs"

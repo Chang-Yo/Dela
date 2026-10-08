@@ -25,7 +25,7 @@ import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
 const inputClass =
-  'w-full rounded-control border border-line bg-surface px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  'w-full rounded-control bg-field px-2.5 py-1.5 text-[13px] text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]';
 
 // 行尾操作图标：始终占位避免悬停时行内容位移，悬停/键盘聚焦时浮现，触屏常显。
 const rowActionClass =

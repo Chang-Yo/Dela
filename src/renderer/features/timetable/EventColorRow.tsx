@@ -22,7 +22,7 @@ export function EventColorRow({
             aria-pressed={value === key}
             className={cn(
               'size-5 rounded-full outline-offset-2 transition-transform hover:scale-110',
-              value === key && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
+              value === key && 'ring-2 ring-ink ring-offset-2 ring-offset-surface',
             )}
             key={key}
             onClick={() => onColorChange(key)}

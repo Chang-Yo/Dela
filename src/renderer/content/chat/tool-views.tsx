@@ -162,7 +162,7 @@ function GenericView({ result }: { result: AgentToolResult }) {
   return (
     <div className="mb-1 mt-1 min-w-0 space-y-1">
       {entries.map(([key, value]) => (
-        <p key={key} className="break-words text-xs leading-5">
+        <p key={key} className="break-words text-[12px] leading-5">
           <span className="text-ink-3">{key}: </span>
           <span className="text-ink-2">
             {typeof value === 'string' ? value : JSON.stringify(value)}
