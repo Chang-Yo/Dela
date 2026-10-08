@@ -63,6 +63,21 @@ export function initSessionsMirror(): void {
   sessionUpdateSubscription = window.dela.session.onSessionUpdate((sessionId, chat) => {
     useSessions.getState().putChat(sessionId, chat);
   });
+  // 流式增量只改末条 assistant 消息：历史消息保持对象身份，memo 化的消息组件
+  // 不重渲（全量推送会让整线程每 100ms 重新解析一次 markdown）。
+  window.dela.session.onStream(({ sessionId, message, activeTool }) => {
+    const current = useSessions.getState().chats[sessionId];
+    // 无缓存（会话未打开）或非运行态：丢弃增量，等待工具边界/终态的全量推送兜底。
+    if (!current?.running) return;
+    const last = current.messages.at(-1);
+    const messages =
+      last?.role === 'assistant' &&
+      last.startedAt === message.startedAt &&
+      last.finishedAt === undefined
+        ? [...current.messages.slice(0, -1), message]
+        : [...current.messages, message];
+    useSessions.getState().putChat(sessionId, { ...current, messages, activeTool });
+  });
 }
 
 initSessionsMirror();

@@ -109,7 +109,15 @@ export function registerTerminalIpc() {
       if (sessions.get(parsedId) === session && !owner.isDestroyed())
         owner.send('terminal:event', event);
     };
-    pty.onData((data) => {
+    // ConPTY 高吞吐时每个小块一条 IPC，主进程回放缓冲与渲染端都要逐块拼接；
+    // 8ms 合并成批：对交互延迟无感，IPC 频率与重复拼接都降一个数量级以上。
+    let pendingData = '';
+    let dataFlushTimer: ReturnType<typeof setTimeout> | undefined;
+    const flushData = () => {
+      dataFlushTimer = undefined;
+      if (!pendingData) return;
+      const data = pendingData;
+      pendingData = '';
       snapshot.buffer = (snapshot.buffer + data).slice(-BUFFER_LIMIT);
       send({
         type: 'data',
@@ -118,8 +126,17 @@ export function registerTerminalIpc() {
         sequence: ++snapshot.sequence,
         data,
       });
+    };
+    pty.onData((data) => {
+      pendingData += data;
+      if (dataFlushTimer === undefined) dataFlushTimer = setTimeout(flushData, 8);
     });
     pty.onExit(({ exitCode }) => {
+      if (dataFlushTimer !== undefined) {
+        clearTimeout(dataFlushTimer);
+        // 退出前先冲刷积压数据，保证渲染端按序收到全部输出。
+        flushData();
+      }
       snapshot.exitCode = exitCode;
       send({
         type: 'exit',

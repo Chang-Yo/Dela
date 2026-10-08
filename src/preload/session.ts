@@ -1,5 +1,11 @@
 import { ipcRenderer } from 'electron';
-import type { ChatAskInput, RunEvent, SessionApi, WorkspaceChat } from '../shared/api';
+import type {
+  ChatAskInput,
+  ChatStreamEvent,
+  RunEvent,
+  SessionApi,
+  WorkspaceChat,
+} from '../shared/api';
 import { invoke, on } from './lib';
 
 export const session = {
@@ -23,4 +29,5 @@ export const session = {
     };
   },
   onRunEvent: (listener: (event: RunEvent) => void) => on('session:on-run-event', listener),
+  onStream: (listener: (event: ChatStreamEvent) => void) => on('session:on-stream', listener),
 } satisfies SessionApi;

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
+import type { ChatSessionSummary, ChatStreamEvent, WorkspaceChat } from '../../shared/api';
 import { initSessionsMirror, poolKey, querySessions, useSessions } from './store';
 
 // 镜像订阅在模块加载时因无 window 而跳过；测试先装 mock（文件级，全文件共享）再手动挂接，
@@ -7,6 +7,7 @@ import { initSessionsMirror, poolKey, querySessions, useSessions } from './store
 const sessionList =
   vi.fn<(projectId: string | null, query: string) => Promise<ChatSessionSummary[]>>();
 const updateListeners: Array<(sessionId: string, chat: WorkspaceChat) => void> = [];
+const streamListeners: Array<(event: ChatStreamEvent) => void> = [];
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
@@ -16,6 +17,10 @@ Object.defineProperty(globalThis, 'window', {
         list: (...args: Parameters<typeof sessionList>) => sessionList(...args),
         onSessionUpdate: (listener: (sessionId: string, chat: WorkspaceChat) => void) => {
           updateListeners.push(listener);
+          return () => {};
+        },
+        onStream: (listener: (event: ChatStreamEvent) => void) => {
+          streamListeners.push(listener);
           return () => {};
         },
       },
@@ -71,6 +76,38 @@ describe('sessions mirror store', () => {
     expect(useSessions.getState().chats['s1']?.messages).toHaveLength(2);
     updateListeners[0]!('s1', chat('s1', 3));
     expect(useSessions.getState().chats['s1']?.messages).toHaveLength(3);
+  });
+
+  it('流式增量只替换运行中会话的末条 assistant 消息，历史消息保持对象身份', () => {
+    useSessions.setState({ chats: {} });
+    updateListeners[0]!('s1', {
+      ...chat('s1', 1),
+      running: true,
+      messages: [
+        { role: 'user', content: '问' },
+        { role: 'assistant', content: '', startedAt: 100, parts: [] },
+      ],
+    });
+    const history = useSessions.getState().chats['s1']!;
+    const userMessage = history.messages[0]!;
+    streamListeners[0]!({
+      sessionId: 's1',
+      activeTool: 'Read',
+      message: { role: 'assistant', content: '正在回答', startedAt: 100, parts: [] },
+    });
+    const merged = useSessions.getState().chats['s1']!;
+    expect(merged.messages).toHaveLength(2);
+    expect(merged.messages[1]).toMatchObject({ content: '正在回答' });
+    expect(merged.activeTool).toBe('Read');
+    // 历史消息对象身份不变：memo 化的消息组件依赖引用相等跳过重渲。
+    expect(merged.messages[0]).toBe(userMessage);
+    // 非运行态（终态已到或未开始）的增量被丢弃，等待全量推送兜底。
+    useSessions.setState({ chats: { s2: { ...chat('s2', 1), running: false } } });
+    streamListeners[0]!({
+      sessionId: 's2',
+      message: { role: 'assistant', content: '迟到增量', startedAt: 200, parts: [] },
+    });
+    expect(useSessions.getState().chats['s2']?.messages).toHaveLength(1);
   });
 
   it('forgetSession 同时清出快照缓存与各池列表条目', () => {

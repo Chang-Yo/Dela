@@ -128,9 +128,13 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       if (event.sequence <= item.sequence) return;
       const next = applyEvent(item, event);
       snapshots.current = snapshots.current.map((item) => (item.id === event.id ? next : item));
+      // 纯输出不进 React 状态：UI 只消费 title/exitCode，回放缓冲由 ref 持有；
+      // 逐块 setState 会把每次输出放大成整个终端区（含百万字符 buffer）的重渲。
+      if (event.type === 'data') {
+        if (screen.current?.id === event.id) screen.current.terminal.write(event.data);
+        return;
+      }
       setSessions(snapshots.current);
-      if (event.type === 'data' && screen.current?.id === event.id)
-        screen.current.terminal.write(event.data);
     });
     void api
       .list(projectId)

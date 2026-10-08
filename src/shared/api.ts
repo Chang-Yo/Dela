@@ -172,6 +172,7 @@ export type {
   SessionApi,
   RunEvent,
   RunStatus,
+  ChatStreamEvent,
 } from './session';
 
 export type {

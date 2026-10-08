@@ -1,5 +1,5 @@
 import type { WebContents } from 'electron';
-import type { RunEvent, RunStatus, WorkspaceChat } from '../../../shared/api';
+import type { ChatStreamEvent, RunEvent, RunStatus, WorkspaceChat } from '../../../shared/api';
 import { sessionRow, sessionRowWithoutMessages, snapshot } from './store';
 
 const chatClients = new Set<WebContents>();
@@ -35,5 +35,18 @@ export function publishRunEvent(
   const event: RunEvent = { sessionId, runId, status, activeTool };
   for (const client of chatClients) {
     if (!client.isDestroyed()) client.send('session:on-run-event', event);
+  }
+}
+
+/** 流式增量：只发本轮末条 assistant 消息。渲染端把增量合并进镜像缓存，
+ *  会话未打开（无缓存）时丢弃——工具边界与终态仍有全量快照推送兜底。 */
+export function publishStreamEvent(
+  sessionId: string,
+  message: ChatStreamEvent['message'],
+  activeTool?: string,
+) {
+  const event: ChatStreamEvent = { sessionId, message, activeTool };
+  for (const client of chatClients) {
+    if (!client.isDestroyed()) client.send('session:on-stream', event);
   }
 }

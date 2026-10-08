@@ -113,13 +113,19 @@ describe('项目内置终端', () => {
     expect(pty.resize).toHaveBeenCalledWith(120, 40);
     expect(() => invoke('resize', owner, id, 0, 40)).toThrow();
     expect(() => invoke('write', other, id, 'x')).toThrow('终端会话不存在');
+    // 输出按 8ms 合并成批发送：多条小块只产生一条 IPC，回放缓冲也只拼接一次。
+    vi.useFakeTimers();
     data('输出中文');
+    data('，追加');
+    vi.advanceTimersByTime(8);
+    vi.useRealTimers();
+    expect(owner.send).toHaveBeenCalledTimes(1);
     expect(owner.send).toHaveBeenLastCalledWith(
       'terminal:event',
-      expect.objectContaining({ type: 'data', id, data: '输出中文', sequence: 1 }),
+      expect.objectContaining({ type: 'data', id, data: '输出中文，追加', sequence: 1 }),
     );
     expect(await invoke('list', owner, projectId)).toEqual([
-      expect.objectContaining({ id, buffer: '输出中文', sequence: 1 }),
+      expect.objectContaining({ id, buffer: '输出中文，追加', sequence: 1 }),
     ]);
     expect(await invoke('list', other, projectId)).toEqual([]);
   });

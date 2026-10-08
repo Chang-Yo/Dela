@@ -75,6 +75,16 @@ export interface RunEvent {
   activeTool?: string;
 }
 
+/** session:on-stream 载荷：流式增量只携带本轮正在生成的末条 assistant 消息，
+ *  渲染端合并进已缓存快照——全量历史广播的代价随会话长度线性放大，流式期每
+ *  ~100ms 一次会导致 IPC 巨包与渲染端整线程重渲。 */
+export interface ChatStreamEvent {
+  sessionId: string;
+  message: WorkspaceChat['messages'][number];
+  /** 当前执行中的工具名；空闲段为 undefined。 */
+  activeTool?: string;
+}
+
 /** 会话身份 API（session:* 通道）。 */
 export interface SessionApi {
   archived(): Promise<ChatSessionSummary[]>;
@@ -93,6 +103,8 @@ export interface SessionApi {
   cancelRun(sessionId: string): void;
   /** 会话快照变化推送（sessionId + WorkspaceChat）。 */
   onSessionUpdate(listener: (sessionId: string, chat: WorkspaceChat) => void): () => void;
+  /** 流式增量推送（仅末条 assistant 消息）：合并进镜像缓存，不广播全量历史。 */
+  onStream(listener: (event: ChatStreamEvent) => void): () => void;
   /** Run 状态/活跃工具变化推送。 */
   onRunEvent(listener: (event: RunEvent) => void): () => void;
 }

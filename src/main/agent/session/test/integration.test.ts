@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { WebContents } from 'electron';
-import type { RunEvent, WorkspaceChat } from '../../../../shared/api';
+import type { ChatStreamEvent, RunEvent, WorkspaceChat } from '../../../../shared/api';
 import { MockOpenAiServer, mockFrames } from '../../core/test/mock-openai-server';
 
 const state = vi.hoisted(() => ({ root: '', baseUrl: '' }));
@@ -82,11 +82,14 @@ const runEventsOf = (sessionId: string): RunEvent[] =>
     .filter(([channel]) => channel === 'session:on-run-event')
     .map(([, event]) => event as RunEvent)
     .filter((event) => event.sessionId === sessionId);
-/** 流式内容是否已推送到订阅方（中断场景用它等待首个增量后再取消）。 */
+/** 流式内容是否已推送到订阅方（中断场景用它等待首个增量后再取消）：流式增量走
+ *  session:on-stream（仅末条消息），工具边界与终态仍走 session:on-update 全量。 */
 const sawStreamContent = (sessionId: string, fragment: string) =>
-  sessionUpdates(sessionId).some((chat) =>
-    (chat.messages.at(-1)?.content ?? '').includes(fragment),
-  );
+  send.mock.calls
+    .filter(([channel]) => channel === 'session:on-stream')
+    .map(([, payload]) => payload as ChatStreamEvent)
+    .filter((event) => event.sessionId === sessionId)
+    .some((event) => (event.message.content ?? '').includes(fragment));
 
 beforeAll(async () => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-int-'));

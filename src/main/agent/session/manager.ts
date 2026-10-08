@@ -52,7 +52,7 @@ import {
   snapshot,
 } from './store';
 import type { SessionRow } from './store';
-import { publishRunEvent, publishSession } from './subscriptions';
+import { publishRunEvent, publishSession, publishStreamEvent } from './subscriptions';
 
 type AskInput = {
   text: string;
@@ -395,8 +395,9 @@ export async function askSession(sessionId: string, input: AskInput): Promise<Wo
       const now = Date.now();
       if (now - lastStreamPublish < 100) return;
       lastStreamPublish = now;
-      // 携带内存中的活跃消息数组：持久化的 row.messages 尚未更新，直接读库会回退内容。
-      publishSession(sessionId, { messages: chat.messages, running: true, activeTool: run.tool });
+      // 增量只带本轮末条 assistant 消息：全量 messages 广播的 IPC 序列化与渲染端
+      // 整线程重渲都随会话长度线性放大，长会话流式期会明显掉帧。
+      publishStreamEvent(sessionId, reply, run.tool);
     };
     // 轮内块引用：pi-ai 每条消息只产出一个思考块与一个正文块，GLM 类模型的思考/正文
     // 增量会在消息内交错到达，必须并回同一 part——按「上一段类型」判断会把思考切碎、
