@@ -8,10 +8,7 @@ import { SectionHeader } from '../SectionHeader';
 export function PrivacySection() {
   return (
     <div className="grid gap-10" data-setting-id="privacy">
-      <SectionHeader
-        description="本页依据当前版本的代码实现，说明数据实际如何存放与外发；正式条款尚未定稿，内容不代表后续版本的承诺。"
-        title="隐私条款"
-      />
+      <SectionHeader description="依据当前实现整理，非正式条款。" title="隐私条款" />
 
       <section className="grid gap-2">
         <h2 className="text-base font-semibold">数据保存在本机</h2>

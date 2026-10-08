@@ -121,8 +121,7 @@ export function McpTab() {
         <section className="grid gap-2">
           <h2 className="text-base font-semibold">还没有 MCP 服务器</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            支持以本地命令（如 npx）启动的 stdio 服务器，为 Agent
-            提供外部工具；添加后自动连接并检测可发现的工具。
+            支持以本地命令（如 npx）启动的 stdio 服务器，添加后自动连接并检测工具。
           </p>
         </section>
       )}

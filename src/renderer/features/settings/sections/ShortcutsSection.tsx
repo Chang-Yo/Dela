@@ -91,7 +91,6 @@ export function ShortcutsSection() {
     <div className="grid gap-10" data-setting-id="shortcuts">
       <SectionHeader
         title="快捷键"
-        description="点击键位后按下新组合即可修改；Esc 取消，Backspace 解除绑定。编辑器内键位与鼠标手势不在此表内。"
         action={
           <Button
             disabled={busy}

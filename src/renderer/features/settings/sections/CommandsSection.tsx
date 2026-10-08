@@ -82,12 +82,12 @@ export function CommandsSection() {
         <p className="text-sm text-muted-foreground">指令配置仅在桌面端可用。</p>
       ) : (
         <>
-          <section className="grid gap-3" data-setting-id="instruction">
+          <section className="grid gap-2" data-setting-id="instruction">
             <div className="grid gap-1">
               <h2 className="text-base font-semibold">Instruction</h2>
-              {/* 说明注入时机与边界：用户指令优先于资料与历史，但不越过基础设定的安全约束。 */}
+              {/* 说明注入时机：随每轮对话发送，留空不注入。 */}
               <p className="text-sm leading-relaxed text-muted-foreground">
-                随每次对话发送给模型；优先级仅次于系统设定，留空则不发送。
+                随每次对话发送给模型，留空则不发送。
               </p>
             </div>
             <textarea

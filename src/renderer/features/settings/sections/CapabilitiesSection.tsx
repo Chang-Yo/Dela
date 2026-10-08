@@ -60,10 +60,7 @@ export function CapabilitiesSection() {
 
   return (
     <div className="grid gap-10" data-setting-id="capabilities">
-      <SectionHeader
-        description="关闭后不再提供给模型；应用自身的同步与界面不受影响。"
-        title="内置能力"
-      />
+      <SectionHeader title="内置能力" />
       {!window.dela ? (
         <p className="text-sm text-muted-foreground">内置能力配置仅在桌面端可用。</p>
       ) : (

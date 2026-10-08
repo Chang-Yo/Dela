@@ -76,7 +76,6 @@ export function SkillsTab() {
             <RefreshCw />
           </Button>
         }
-        description="把含 SKILL.md 的文件夹放入 ~/.dela/skills、~/.agents/skills、~/.zcode/skills（全局）或工作区的 .agents/skills、.zcode/skills（项目）即可被发现；同名时项目覆盖全局，移除文件夹即删除。"
         title="Skills"
       />
       {skills !== null && skills.length > 0 && (
@@ -117,10 +116,8 @@ export function SkillsTab() {
       )}
       {groups.map((group) =>
         group.items.length === 0 ? null : (
-          <section className="grid gap-1" key={group.scope}>
-            <h2 className="text-xs font-medium text-muted-foreground">
-              {SCOPE_LABELS[group.scope]} Skills
-            </h2>
+          <section className="grid gap-2" key={group.scope}>
+            <h2 className="text-base font-semibold">{SCOPE_LABELS[group.scope]} Skills</h2>
             <ul className="grid">
               {group.items.map((skill) => (
                 <li

@@ -875,7 +875,7 @@ function ProviderDetail({
             </p>
           )}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            检测模型列表后可搜索添加；列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
+            列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
           </p>
         </div>
         {error && (
