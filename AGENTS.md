@@ -64,6 +64,7 @@
 ## 5. subagents
 
 - 当你需要开启subaget并且提交给subagents的任务是多个重复类型的任务时，考虑增加subagent的数量并行执行提高速度
+- 记住，你最多同时开始5个subagents，控制好你的并发数
 
 ## 6. 视觉检测
 
