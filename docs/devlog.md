@@ -68,6 +68,8 @@
 - 邮件文件夹/撰写/阅读/回收站换 token
 - 课表周/月视图、日程弹窗、TODO 换 token
 - 月视图选中日改 accent-tint，非本月 inset
+- 水源页面与楼层 iframe 色值换 beautiful-ui
+- 置顶话题悬停改 hover-2，定位楼层 accent-tint
 - 新建项目可导入电脑上已有的文件夹
 - 外部项目目录留原处，身份＝UUID＋local_path
 - 自定义网关 API 根按模型列表端点探测校正

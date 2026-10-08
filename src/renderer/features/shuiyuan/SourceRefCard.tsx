@@ -49,11 +49,11 @@ export function ShuiyuanSourceDoc({
       <div className="mx-auto grid w-full max-w-3xl gap-4">
         <section
           aria-label="水源来源"
-          className="flex flex-wrap items-start gap-3 rounded-xl border bg-card p-4"
+          className="flex flex-wrap items-start gap-3 rounded-card border border-line bg-surface p-4"
         >
-          <ShuiyuanIcon className="size-10 shrink-0 rounded-lg" />
+          <ShuiyuanIcon className="size-10 shrink-0 rounded-card" />
           <div className="grid min-w-0 flex-1 gap-1">
-            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-[11px] text-ink-3">
               <span className="font-medium">水源社区</span>
               {ref?.categoryName ? (
                 <>
@@ -62,12 +62,10 @@ export function ShuiyuanSourceDoc({
                 </>
               ) : null}
             </p>
-            <p className="line-clamp-2 text-sm font-semibold leading-snug">
+            <p className="line-clamp-2 text-[13px] font-semibold leading-snug">
               <ShuiyuanTitle text={ref?.title ?? content.title} />
             </p>
-            <p className="text-[11px] text-muted-foreground">
-              {meta.join(' · ') || '来自水源社区的帖子'}
-            </p>
+            <p className="text-[11px] text-ink-3">{meta.join(' · ') || '来自水源社区的帖子'}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -90,7 +88,7 @@ export function ShuiyuanSourceDoc({
         {content.format === 'html' ? (
           <ShuiyuanHtmlBody html={text} onOpenTopic={onOpenInShuiyuan} title="帖子内容" />
         ) : (
-          <pre className="whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-4 text-sm leading-relaxed">
+          <pre className="whitespace-pre-wrap break-words rounded-control border border-line bg-inset p-4 text-[13px] leading-relaxed">
             {text}
           </pre>
         )}

@@ -38,7 +38,7 @@ function TopicAvatar({ topic }: { topic: ShuiyuanTopicSummary }) {
   return (
     <span
       aria-hidden="true"
-      className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground max-md:size-8"
+      className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-inset text-[13px] font-medium text-ink-3 max-md:size-8"
     >
       {initial || '…'}
     </span>
@@ -61,8 +61,8 @@ function TopicRow({
   return (
     <button
       className={cn(
-        'flex w-full items-start gap-3.5 rounded-xl border p-5 text-left shadow-xs transition-colors max-md:p-4',
-        topic.pinned ? 'bg-muted/30 hover:bg-muted/50' : 'bg-card hover:bg-accent/40',
+        'flex w-full items-start gap-3.5 rounded-card border border-line p-5 text-left shadow-hairline transition-colors max-md:p-4',
+        topic.pinned ? 'bg-inset hover:bg-hover-2' : 'bg-surface hover:bg-hover',
       )}
       onClick={() => void openTopic(topic.id)}
       type="button"
@@ -71,26 +71,24 @@ function TopicRow({
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-start gap-2">
           {topic.pinned ? (
-            <Pin aria-label="置顶" className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+            <Pin aria-label="置顶" className="mt-1 size-3.5 shrink-0 text-ink-3" />
           ) : null}
           {topic.closed ? (
-            <Lock aria-label="已关闭" className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+            <Lock aria-label="已关闭" className="mt-1 size-3.5 shrink-0 text-ink-3" />
           ) : null}
           <span
             className={cn(
               'line-clamp-2 text-base leading-snug',
-              unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/75',
+              unread ? 'font-semibold text-ink' : 'font-medium text-ink-2',
             )}
           >
             <ShuiyuanTitle text={topic.title} />
           </span>
         </div>
         {showExcerpt && topic.excerpt ? (
-          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-            {topic.excerpt}
-          </p>
+          <p className="line-clamp-2 text-[12px] leading-relaxed text-ink-3">{topic.excerpt}</p>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12px] text-ink-3">
           {/* 次级元信息一行排开：分类 · 作者 · 标签，纯文字弱化，标题是唯一主角。 */}
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
             {category && !isPM ? <CategoryTag category={category} /> : null}
@@ -133,12 +131,12 @@ function TopicRow({
 
 function TopicCardSkeleton() {
   return (
-    <div aria-hidden="true" className="rounded-xl border bg-card p-5 max-md:p-4">
+    <div aria-hidden="true" className="rounded-card border border-line bg-surface p-5 max-md:p-4">
       <div className="flex items-start gap-3.5">
-        <div className="mt-0.5 size-10 shrink-0 animate-pulse rounded-full bg-muted max-md:size-8" />
+        <div className="mt-0.5 size-10 shrink-0 animate-pulse rounded-full bg-inset max-md:size-8" />
         <div className="flex min-w-0 flex-1 flex-col gap-3 py-0.5">
-          <div className="h-5 w-2/3 animate-pulse rounded-sm bg-muted" />
-          <div className="h-3 w-1/3 animate-pulse rounded-sm bg-muted" />
+          <div className="h-5 w-2/3 animate-pulse rounded-chip bg-inset" />
+          <div className="h-3 w-1/3 animate-pulse rounded-chip bg-inset" />
         </div>
       </div>
     </div>
@@ -189,14 +187,14 @@ export function TopicFeed() {
       {moreUrl && !error ? (
         <div
           aria-hidden={!loading}
-          className="flex h-9 items-center justify-center text-muted-foreground"
+          className="flex h-9 items-center justify-center text-ink-3"
           ref={sentinelRef}
         >
           {loading ? <Loader2 className="size-4 animate-spin" strokeWidth={1.8} /> : null}
         </div>
       ) : null}
       {!loading && !error && topics.length === 0 ? (
-        <p className="px-1 py-8 text-center text-sm text-muted-foreground">
+        <p className="px-1 py-8 text-center text-[13px] text-ink-3">
           {list.kind === 'search'
             ? '没有匹配的帖子'
             : list.kind === 'messages'
@@ -206,7 +204,7 @@ export function TopicFeed() {
       ) : null}
       {error ? (
         <div
-          className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
           role="alert"
         >
           {error}

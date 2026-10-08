@@ -68,10 +68,10 @@ export function ShuiyuanHeader() {
     <button
       aria-current={active ? 'true' : undefined}
       className={cn(
-        'relative grid size-8 place-items-center rounded-md transition-colors',
+        'relative grid size-8 place-items-center rounded-control transition-colors',
         active
-          ? 'bg-sidebar-accent text-foreground'
-          : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground',
+          ? 'bg-sidebar-accent text-ink'
+          : 'text-ink-3 hover:bg-sidebar-accent/60 hover:text-ink',
       )}
       onClick={onClick}
       title={label}
@@ -79,7 +79,7 @@ export function ShuiyuanHeader() {
     >
       <Icon className="size-4" strokeWidth={1.8} />
       {count && count > 0 ? (
-        <span className="absolute -right-1.5 -top-1 rounded-full bg-primary px-1 text-2xs font-medium leading-4 tabular-nums text-primary-foreground">
+        <span className="absolute -right-1.5 -top-1 rounded-full bg-ink px-1 text-[11px] font-medium leading-4 tabular-nums text-surface">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -87,7 +87,7 @@ export function ShuiyuanHeader() {
   );
 
   return (
-    <header className="border-b border-border/70 bg-background/95 px-4 py-2 backdrop-blur max-md:px-3">
+    <header className="border-b border-line bg-surface/95 px-4 py-2 backdrop-blur max-md:px-3">
       {/* 宽屏三区网格（左入口 / 中列表切换与筛选+刷新 / 右搜索）；窄屏两行：入口/搜索在上，
           列表切换、筛选与刷新在下。lg:contents 把首行包装拆散为网格项。 */}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
@@ -119,11 +119,11 @@ export function ShuiyuanHeader() {
             <div className="relative min-w-32 max-w-56 flex-1">
               <Search
                 aria-hidden="true"
-                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-3"
               />
               <Input
                 aria-label="搜索水源"
-                className="h-8 pl-8 text-xs"
+                className="h-8 pl-8 text-[12px]"
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="搜索帖子"
                 type="search"
@@ -136,16 +136,16 @@ export function ShuiyuanHeader() {
           {/* 分段控件：底槽 + 浮起的活动段，替代描边按钮组。 */}
           <div
             aria-label="信息流类型"
-            className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+            className="flex items-center gap-0.5 rounded-card bg-inset p-0.5"
             role="group"
           >
             <button
               aria-pressed={feedKind === 'latest'}
               className={cn(
-                'h-7 rounded-md px-3 text-xs font-medium transition-all',
+                'h-7 rounded-control px-3 text-[12px] font-medium transition-all',
                 feedKind === 'latest'
-                  ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-surface text-ink shadow-hairline'
+                  : 'text-ink-3 hover:text-ink',
               )}
               onClick={() => void selectList({ kind: 'latest' })}
               type="button"
@@ -155,10 +155,10 @@ export function ShuiyuanHeader() {
             <button
               aria-pressed={feedKind === 'featured'}
               className={cn(
-                'h-7 rounded-md px-3 text-xs font-medium transition-all',
+                'h-7 rounded-control px-3 text-[12px] font-medium transition-all',
                 feedKind === 'featured'
-                  ? 'bg-background text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-surface text-ink shadow-hairline'
+                  : 'text-ink-3 hover:text-ink',
               )}
               onClick={() => void selectList({ kind: 'featured' })}
               type="button"
@@ -178,7 +178,7 @@ export function ShuiyuanHeader() {
             }}
             value={categoryValue}
           >
-            <SelectTrigger aria-label="类别" className="h-8 w-28 text-xs">
+            <SelectTrigger aria-label="类别" className="h-8 w-28 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -201,7 +201,7 @@ export function ShuiyuanHeader() {
             }}
             value={tagValue}
           >
-            <SelectTrigger aria-label="标签" className="h-8 w-28 text-xs">
+            <SelectTrigger aria-label="标签" className="h-8 w-28 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -216,7 +216,7 @@ export function ShuiyuanHeader() {
           {/* 刷新同属“当前列表”操作，紧随筛选器；与右侧搜索区分组。 */}
           <button
             aria-label="刷新"
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
+            className="grid size-8 place-items-center rounded-control text-ink-3 transition-colors hover:bg-sidebar-accent/60 hover:text-ink"
             onClick={() => {
               void refreshList();
               void refreshCounts();

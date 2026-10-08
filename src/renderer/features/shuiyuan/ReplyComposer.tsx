@@ -22,7 +22,7 @@ import { errorText } from '../../workspace/store';
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 const toolbarButton =
-  'grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-pressed:bg-muted aria-pressed:font-medium aria-pressed:text-foreground';
+  'grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink aria-pressed:bg-inset aria-pressed:font-medium aria-pressed:text-ink';
 
 type UploadItem = { key: string; name: string; error: string | null };
 
@@ -144,19 +144,19 @@ export function ReplyComposer({
       <div className="flex flex-wrap gap-1.5">
         {uploads.map((item) => (
           <span
-            className="flex max-w-full items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1 text-xs text-muted-foreground"
+            className="flex max-w-full items-center gap-1.5 rounded-control border border-line bg-inset px-2 py-1 text-[12px] text-ink-3"
             key={item.key}
           >
             {item.error ? (
-              <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
+              <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-red" />
             ) : (
               <Loader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
             )}
             <span className="max-w-44 truncate">{item.name}</span>
-            {item.error ? <span className="text-destructive">{item.error}</span> : null}
+            {item.error ? <span className="text-red">{item.error}</span> : null}
             <button
               aria-label={`移除 ${item.name}`}
-              className="grid size-4 shrink-0 place-items-center rounded transition-colors hover:text-foreground"
+              className="grid size-4 shrink-0 place-items-center rounded transition-colors hover:text-ink"
               onClick={() => setUploads((current) => current.filter((u) => u.key !== item.key))}
               type="button"
             >
@@ -169,14 +169,14 @@ export function ReplyComposer({
 
   // 楼层级回复目标准条：X 清除后回到主题级回复。
   const replyTargetBanner = replyTarget ? (
-    <div className="flex shrink-0 items-center gap-1.5 rounded-md bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+    <div className="flex shrink-0 items-center gap-1.5 rounded-control bg-inset px-2 py-1 text-[12px] text-ink-3">
       <Reply aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={1.8} />
       <span className="min-w-0 truncate tabular-nums">
         回复 @{replyTarget.username} · 第 {replyTarget.postNumber} 楼
       </span>
       <button
         aria-label="取消回复该楼层"
-        className="ml-auto grid size-4 shrink-0 place-items-center rounded transition-colors hover:text-foreground"
+        className="ml-auto grid size-4 shrink-0 place-items-center rounded transition-colors hover:text-ink"
         onClick={onClearReplyTarget}
         type="button"
       >
@@ -190,7 +190,7 @@ export function ReplyComposer({
     <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
       <Button
         aria-label={isMaximized ? '退出全屏' : '全屏书写'}
-        className="bg-background/90 shadow-xs hover:bg-accent"
+        className="bg-surface/90 shadow-hairline hover:bg-hover"
         onClick={() => setMaximized(!isMaximized)}
         size="icon-sm"
         title={isMaximized ? '退出全屏' : '全屏书写'}
@@ -205,7 +205,7 @@ export function ReplyComposer({
       </Button>
       <Button
         aria-label="收起回复框"
-        className="bg-background/90 shadow-xs hover:bg-accent"
+        className="bg-surface/90 shadow-hairline hover:bg-hover"
         onClick={() => {
           onExpandedChange(false);
           setPreview(false);
@@ -257,11 +257,16 @@ export function ReplyComposer({
     </div>
   );
 
-  const errorLine = error ? <p className="text-xs text-destructive">{error}</p> : null;
+  const errorLine = error ? <p className="text-[12px] text-red">{error}</p> : null;
 
   // 编辑壳必须是 flex 列：MarkdownEditor 的 flex-1 链依赖约束高度，内部 scroller 才会滚动。
   const editorHost = (shellClass: string) => (
-    <div className={cn('flex flex-col overflow-hidden rounded-lg border shadow-xs', shellClass)}>
+    <div
+      className={cn(
+        'flex flex-col overflow-hidden rounded-card border border-line shadow-hairline',
+        shellClass,
+      )}
+    >
       <MarkdownEditor
         ariaLabel="回复编辑器"
         lineNumbers={false}
@@ -279,14 +284,14 @@ export function ReplyComposer({
   const previewBody = (isMaximized: boolean) => (
     <div
       className={cn(
-        'overflow-y-auto rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5',
+        'overflow-y-auto rounded-card border border-line bg-inset p-3 text-[13px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-ink-3 [&_code]:rounded-chip [&_code]:bg-hover-2 [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-control [&_pre]:bg-hover-2 [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5',
         isMaximized ? 'min-h-0 flex-1' : 'max-h-40',
       )}
     >
       {previewSource.trim() ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewSource}</ReactMarkdown>
       ) : (
-        <p className="text-muted-foreground">暂无内容</p>
+        <p className="text-ink-3">暂无内容</p>
       )}
     </div>
   );
@@ -295,7 +300,7 @@ export function ReplyComposer({
   if (maximized) {
     return (
       <form
-        className="absolute inset-0 z-30 flex flex-col bg-background"
+        className="absolute inset-0 z-30 flex flex-col bg-surface"
         onSubmit={(e) => void submit(e)}
       >
         <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-2 px-4 py-4 max-md:px-3">
@@ -323,8 +328,8 @@ export function ReplyComposer({
 
   if (disabledHint) {
     return (
-      <div className="border-t bg-background px-4 py-3 max-md:px-3">
-        <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+      <div className="border-t bg-surface px-4 py-3 max-md:px-3">
+        <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 text-center text-[12px] text-ink-3">
           <Lock aria-hidden="true" className="size-3.5" />
           {disabledHint}
         </p>
@@ -334,9 +339,9 @@ export function ReplyComposer({
 
   if (!expanded) {
     return (
-      <div className="border-t bg-background px-4 py-3 max-md:px-3">
+      <div className="border-t bg-surface px-4 py-3 max-md:px-3">
         <button
-          className="mx-auto flex h-10 w-full max-w-3xl items-center gap-2 rounded-xl border border-input bg-background px-3.5 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:border-ring/40 hover:bg-accent/50"
+          className="mx-auto flex h-10 w-full max-w-3xl items-center gap-2 rounded-card border border-line-strong bg-surface px-3.5 text-left text-[13px] text-ink-3 shadow-hairline transition-colors hover:border-ring/40 hover:bg-accent/50"
           onClick={() => onExpandedChange(true)}
           type="button"
         >
@@ -348,7 +353,7 @@ export function ReplyComposer({
   }
 
   return (
-    <form className="border-t bg-background px-4 py-3 max-md:px-3" onSubmit={(e) => void submit(e)}>
+    <form className="border-t bg-surface px-4 py-3 max-md:px-3" onSubmit={(e) => void submit(e)}>
       <div className="mx-auto grid w-full max-w-3xl gap-2">
         {replyTargetBanner}
         <div className="relative">
