@@ -37,7 +37,7 @@ const headersText = (headers: Record<string, string> | undefined) =>
     .map(([key, value]) => `${key}: ${value}`)
     .join('\n');
 
-const headerAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
+const headerAreaClass = 'min-h-20 resize-y py-2 font-mono text-[12px]';
 
 /** 搜索服务注册弹窗：WebSearch 同一时刻至多一个生效；保存与清除走 capability 通道。 */
 export function SearchConfigDialog({
@@ -97,7 +97,7 @@ export function SearchConfigDialog({
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
           <Dialog.Title className="text-base font-semibold">搜索服务</Dialog.Title>
-          <Dialog.Description className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          <Dialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
             注册一个搜索服务供 WebSearch 使用；Dela 不内置搜索服务，凭据仅保存在本地数据库。
             自定义端点需返回 {'{ results: [{ title, url, content }] }'} 形状的 JSON（SearXNG
             兼容）。
@@ -124,7 +124,7 @@ export function SearchConfigDialog({
               ))}
             </div>
             {provider === 'brave' && (
-              <label className="grid gap-2 text-sm">
+              <label className="grid gap-2 text-[13px]">
                 API Key
                 <Input
                   autoComplete="off"
@@ -135,7 +135,7 @@ export function SearchConfigDialog({
                   type="password"
                   value={apiKey}
                 />
-                <span className="text-xs leading-relaxed text-muted-foreground">
+                <span className="text-[12px] leading-relaxed text-ink-3">
                   走 Brave 为大模型设计的 LLM Context 端点（res/v1/llm/context），结果是从页面
                   抽取的内容片段，而非普通搜索摘要。
                 </span>
@@ -143,7 +143,7 @@ export function SearchConfigDialog({
             )}
             {provider === 'google' && (
               <>
-                <label className="grid gap-2 text-sm">
+                <label className="grid gap-2 text-[13px]">
                   API Key
                   <Input
                     autoComplete="off"
@@ -155,7 +155,7 @@ export function SearchConfigDialog({
                     value={apiKey}
                   />
                 </label>
-                <label className="grid gap-2 text-sm">
+                <label className="grid gap-2 text-[13px]">
                   搜索引擎 ID（cx）
                   <Input
                     autoComplete="off"
@@ -170,7 +170,7 @@ export function SearchConfigDialog({
             )}
             {provider === 'custom' && (
               <>
-                <label className="grid gap-2 text-sm">
+                <label className="grid gap-2 text-[13px]">
                   端点地址
                   <Input
                     autoComplete="off"
@@ -182,7 +182,7 @@ export function SearchConfigDialog({
                     value={url}
                   />
                 </label>
-                <label className="grid gap-2 text-sm">
+                <label className="grid gap-2 text-[13px]">
                   自定义请求头（可选，每行 Key: Value）
                   <Textarea
                     className={headerAreaClass}
@@ -192,14 +192,14 @@ export function SearchConfigDialog({
                     spellCheck={false}
                     value={headers}
                   />
-                  <span className="text-xs leading-relaxed text-muted-foreground">
+                  <span className="text-[12px] leading-relaxed text-ink-3">
                     随每次搜索请求发送，用于适配你自己的鉴权或加密策略；与查询参数一同传出。
                   </span>
                 </label>
               </>
             )}
             {error && (
-              <p className="text-xs text-destructive" role="alert">
+              <p className="text-[12px] text-red" role="alert">
                 {error}
               </p>
             )}

@@ -48,7 +48,7 @@ export function SettingsView({
   }, [sectionRequest]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background md:flex-row">
+    <div className="flex min-h-0 flex-1 flex-col bg-surface md:flex-row">
       <SettingsNav onSectionChange={setSection} value={section} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* 内容宽度 912px = 原 760px 增大 20%（用户裁决，2026-10-06）。 */}

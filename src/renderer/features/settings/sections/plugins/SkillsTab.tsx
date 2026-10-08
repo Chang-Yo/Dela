@@ -54,7 +54,7 @@ export function SkillsTab() {
     return (
       <div className="grid gap-10">
         <SectionHeader title="Skills" />
-        <p className="text-sm text-muted-foreground">Skills 仅在桌面端可用。</p>
+        <p className="text-[13px] text-ink-3">Skills 仅在桌面端可用。</p>
       </div>
     );
   }
@@ -80,15 +80,15 @@ export function SkillsTab() {
       />
       {skills !== null && skills.length > 0 && (
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5" role="group">
+          <div className="flex items-center gap-0.5 rounded-card bg-inset p-0.5" role="group">
             {(['all', 'global', 'project'] as const).map((value) => (
               <button
                 aria-pressed={scope === value}
                 className={cn(
-                  'rounded-md px-2.5 py-1 text-xs transition-colors',
+                  'rounded-control px-2.5 py-1 text-[12px] transition-colors',
                   scope === value
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
+                    ? 'bg-surface text-ink shadow-hairline'
+                    : 'text-ink-3 hover:text-ink',
                 )}
                 key={value}
                 onClick={() => setScope(value)}
@@ -98,13 +98,13 @@ export function SkillsTab() {
               </button>
             ))}
           </div>
-          <span className="text-xs tabular-nums text-muted-foreground">{visible.length} 项</span>
+          <span className="text-[12px] tabular-nums text-ink-3">{visible.length} 项</span>
         </div>
       )}
       {skills !== null && skills.length === 0 && (
         <section className="grid gap-2">
           <h2 className="text-base font-semibold">还没有发现 Skill</h2>
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="text-[13px] leading-relaxed text-ink-3">
             在用户主目录的 .dela/skills（或 .agents/skills、.zcode/skills）放入包含 SKILL.md
             的子文件夹（frontmatter 带 name 与 description），或放入工作区的
             .agents/skills，回到此页刷新即可发现并按需启用。
@@ -112,7 +112,7 @@ export function SkillsTab() {
         </section>
       )}
       {skills !== null && skills.length > 0 && visible.length === 0 && (
-        <p className="text-sm text-muted-foreground">该范围下没有 Skill。</p>
+        <p className="text-[13px] text-ink-3">该范围下没有 Skill。</p>
       )}
       {groups.map((group) =>
         group.items.length === 0 ? null : (
@@ -125,21 +125,15 @@ export function SkillsTab() {
                   key={skill.name}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-                      <Sparkles className="size-4 text-muted-foreground" strokeWidth={1.8} />
+                    <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
+                      <Sparkles className="size-4 text-ink-3" strokeWidth={1.8} />
                     </span>
                     <div className="grid min-w-0 gap-0.5">
-                      <strong className="truncate text-sm">{skill.name}</strong>
-                      <span
-                        className="truncate text-xs text-muted-foreground"
-                        title={skill.description}
-                      >
+                      <strong className="truncate text-[13px]">{skill.name}</strong>
+                      <span className="truncate text-[12px] text-ink-3" title={skill.description}>
                         {skill.description || '（无描述）'}
                       </span>
-                      <span
-                        className="truncate text-xs text-muted-foreground/70"
-                        title={skill.path}
-                      >
+                      <span className="truncate text-[12px] text-ink-3" title={skill.path}>
                         {skill.path}
                       </span>
                     </div>
@@ -157,7 +151,7 @@ export function SkillsTab() {
         ),
       )}
       {error && (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-[12px] text-red" role="alert">
           {error}
         </p>
       )}

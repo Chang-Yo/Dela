@@ -62,11 +62,11 @@ export function CapabilitiesSection() {
     <div className="grid gap-10" data-setting-id="capabilities">
       <SectionHeader title="内置能力" />
       {!window.dela ? (
-        <p className="text-sm text-muted-foreground">内置能力配置仅在桌面端可用。</p>
+        <p className="text-[13px] text-ink-3">内置能力配置仅在桌面端可用。</p>
       ) : (
         <>
           {capabilities === null && !error ? (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+            <p className="flex items-center gap-2 text-[12px] text-ink-3" role="status">
               <LoaderCircle className="size-4 animate-spin" />
               正在读取能力清单…
             </p>
@@ -119,12 +119,12 @@ export function CapabilitiesSection() {
                         key={capability.name}
                       >
                         <div className="grid min-w-0 gap-0.5">
-                          <span className="truncate font-mono text-sm">{capability.name}</span>
-                          <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          <span className="truncate font-mono text-[13px]">{capability.name}</span>
+                          <span className="line-clamp-2 text-[12px] leading-relaxed text-ink-3">
                             {capability.description}
                           </span>
                           {capability.lockedReason ? (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground/80">
+                            <span className="flex items-center gap-1 text-[12px] text-ink-3">
                               <Lock aria-hidden="true" className="size-3 shrink-0" />
                               常驻能力 · {capability.lockedReason}
                             </span>
@@ -148,7 +148,7 @@ export function CapabilitiesSection() {
             </div>
           )}
           {error && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-[12px] text-red" role="alert">
               {error}
             </p>
           )}

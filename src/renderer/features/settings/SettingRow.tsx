@@ -16,13 +16,11 @@ export function SettingRow({
   title: string;
 }) {
   return (
-    <div className="border-b py-3 last:border-0" data-setting-id={settingId}>
+    <div className="border-b border-line py-3.5 last:border-0" data-setting-id={settingId}>
       <div className="grid items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:gap-6">
         <div className="grid content-start gap-1">
-          <h3 className="text-sm font-medium">{title}</h3>
-          {description && (
-            <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
-          )}
+          <h3 className="text-[13px] font-medium text-ink">{title}</h3>
+          {description && <p className="text-[12px] leading-relaxed text-ink-3">{description}</p>}
         </div>
         <div className="grid content-start justify-items-start gap-2 md:justify-items-end">
           {children}

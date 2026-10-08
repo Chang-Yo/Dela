@@ -60,6 +60,9 @@
 - 侧栏行样式集中到 navigation/nav-styles.ts
 - 一级 13px、会话 12.5px、分组标题 11.5px
 - 运行状态点改语义色：accent/green/red/orange
+- 设置页全部换 beautiful-ui token 与字号档
+- 设置目录选中态改 surface 卡片 + hairline
+- 页标题 xl，行标题 13px，说明 12px
 - 新建项目可导入电脑上已有的文件夹
 - 外部项目目录留原处，身份＝UUID＋local_path
 - 自定义网关 API 根按模型列表端点探测校正

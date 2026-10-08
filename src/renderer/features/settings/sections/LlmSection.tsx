@@ -110,7 +110,7 @@ function ModelSettingsDialog({
               </Button>
             </Dialog.Close>
           </div>
-          <Dialog.Description className="mt-2 text-xs text-muted-foreground">
+          <Dialog.Description className="mt-2 text-[12px] text-ink-3">
             模型设置随提供商一起保存。限制留空时沿用默认值；思考档位须由服务支持。
           </Dialog.Description>
           <form
@@ -120,11 +120,11 @@ function ModelSettingsDialog({
               save();
             }}
           >
-            <label className="grid gap-2 text-sm">
+            <label className="grid gap-2 text-[13px]">
               模型 ID
               <Input readOnly value={model} />
             </label>
-            <label className="grid gap-2 text-sm">
+            <label className="grid gap-2 text-[13px]">
               上下文窗口（tokens）
               <Input
                 aria-label="上下文窗口"
@@ -136,7 +136,7 @@ function ModelSettingsDialog({
                 onChange={(event) => setContextWindow(event.target.value)}
               />
             </label>
-            <label className="grid gap-2 text-sm">
+            <label className="grid gap-2 text-[13px]">
               最大输出（tokens）
               <Input
                 aria-label="最大输出"
@@ -149,7 +149,7 @@ function ModelSettingsDialog({
               />
             </label>
             <fieldset className="grid gap-2">
-              <legend className="mb-2 text-sm">思考强度档位</legend>
+              <legend className="mb-2 text-[13px]">思考强度档位</legend>
               <div className="flex flex-wrap gap-1.5">
                 {reasoningEffortLevels.map((level) => (
                   <button
@@ -157,10 +157,10 @@ function ModelSettingsDialog({
                     type="button"
                     aria-pressed={effortLevels.includes(level)}
                     className={cn(
-                      'rounded-md border px-2 py-1 text-xs transition-colors',
+                      'rounded-control border border-line px-2 py-1 text-[12px] transition-colors',
                       effortLevels.includes(level)
-                        ? 'border-transparent bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent/40',
+                        ? 'border-transparent bg-hover text-accent-foreground'
+                        : 'text-ink-3 hover:bg-hover',
                     )}
                     onClick={() =>
                       setEffortLevels((current) =>
@@ -174,12 +174,12 @@ function ModelSettingsDialog({
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[12px] text-ink-3">
                 未勾选时关闭思考强度选择；已勾选的档位可在对话输入框旁切换。
               </p>
             </fieldset>
             {levels.length > 0 && (
-              <label className="grid gap-2 text-sm">
+              <label className="grid gap-2 text-[13px]">
                 默认思考强度
                 <Select
                   value={levels.includes(effort as (typeof levels)[number]) ? effort : levels[0]}
@@ -199,7 +199,7 @@ function ModelSettingsDialog({
               </label>
             )}
             {error && (
-              <p className="text-xs text-destructive" role="alert">
+              <p className="text-[12px] text-red" role="alert">
                 {error}
               </p>
             )}
@@ -268,7 +268,7 @@ export function LlmSection() {
     return (
       <div className="grid gap-10" data-setting-id="providers">
         <SectionHeader title="模型供应商" />
-        <p className="text-sm text-muted-foreground">模型供应商配置仅在桌面端可用。</p>
+        <p className="text-[13px] text-ink-3">模型供应商配置仅在桌面端可用。</p>
       </div>
     );
   }
@@ -314,7 +314,7 @@ export function LlmSection() {
           {groups.map(({ label, items }) =>
             items.length ? (
               <div className="grid" key={label}>
-                <p className="px-2 pb-1 pt-3 text-xs font-medium text-muted-foreground">{label}</p>
+                <p className="px-2 pb-1 pt-3 text-[12px] font-medium text-ink-3">{label}</p>
                 <ul className="grid gap-0.5">
                   {items.map((provider) => {
                     const active = detail?.mode === 'edit' && detail.id === provider.id;
@@ -323,16 +323,16 @@ export function LlmSection() {
                         <button
                           aria-current={active ? 'true' : undefined}
                           className={cn(
-                            'flex h-8 w-full min-w-0 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
+                            'flex h-8 w-full min-w-0 items-center gap-2.5 rounded-card px-2 text-left text-[13px] transition-colors',
                             active
-                              ? 'bg-accent font-medium text-accent-foreground'
-                              : 'text-foreground/75 hover:bg-accent/60 hover:text-foreground',
+                              ? 'bg-hover font-medium text-accent-foreground'
+                              : 'text-ink-2 hover:bg-hover hover:text-ink',
                           )}
                           onClick={() => setDetail({ mode: 'edit', id: provider.id })}
                           type="button"
                         >
                           <Server
-                            className={cn('size-4 shrink-0', active ? '' : 'text-muted-foreground')}
+                            className={cn('size-4 shrink-0', active ? '' : 'text-ink-3')}
                             strokeWidth={1.8}
                           />
                           <span className="truncate">{provider.name}</span>
@@ -361,13 +361,11 @@ export function LlmSection() {
             provider={detailProvider}
           />
         ) : providers?.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            还没有配置提供商。添加一个以启用对话助手。
-          </p>
+          <p className="text-[13px] text-ink-3">还没有配置提供商。添加一个以启用对话助手。</p>
         ) : null}
       </div>
       {error && (
-        <p className="text-xs [overflow-wrap:anywhere] text-destructive" role="alert">
+        <p className="text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
           {error}
         </p>
       )}
@@ -600,8 +598,8 @@ function ProviderDetail({
     <div className="grid content-start gap-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-            <Server className="size-4 text-muted-foreground" strokeWidth={1.8} />
+          <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
+            <Server className="size-4 text-ink-3" strokeWidth={1.8} />
           </span>
           <strong className="truncate text-base font-semibold">
             {provider?.name ?? '新建提供商'}
@@ -664,7 +662,7 @@ function ProviderDetail({
         }}
       >
         {creating && (
-          <div className="grid gap-2 text-sm">
+          <div className="grid gap-2 text-[13px]">
             预设
             <Select
               onValueChange={(value) =>
@@ -685,7 +683,7 @@ function ProviderDetail({
             </Select>
           </div>
         )}
-        <label className="grid gap-2 text-sm">
+        <label className="grid gap-2 text-[13px]">
           名称
           <Input
             autoComplete="off"
@@ -694,7 +692,7 @@ function ProviderDetail({
             value={name}
           />
         </label>
-        <label className="grid gap-2 text-sm">
+        <label className="grid gap-2 text-[13px]">
           API 地址
           <Input
             autoComplete="off"
@@ -708,12 +706,12 @@ function ProviderDetail({
             value={baseUrl}
           />
         </label>
-        <div className="grid gap-2 text-sm">
+        <div className="grid gap-2 text-[13px]">
           <div className="flex items-center justify-between">
             <span>API Key</span>
             {preset?.keyUrl && (
               <a
-                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                className="text-[12px] text-ink-3 underline-offset-2 hover:underline"
                 href={preset.keyUrl}
                 rel="noreferrer"
                 target="_blank"
@@ -734,15 +732,15 @@ function ProviderDetail({
             value={apiKey}
           />
           {/* 密钥去向无法从输入框本身看出，保留原来的说明。 */}
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <p className="text-[12px] leading-relaxed text-ink-3">
             密钥经系统加密保存在本机，不会回传页面。留空即沿用已保存的密钥。
           </p>
         </div>
-        <div className="grid gap-2 text-sm">
+        <div className="grid gap-2 text-[13px]">
           <div className="flex items-center justify-between gap-2">
             <span>
               模型列表{' '}
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[12px] text-ink-3">
                 {models.length} / {LLM_MODEL_LIMIT}
               </span>
             </span>
@@ -765,7 +763,7 @@ function ProviderDetail({
               return (
                 <li className="grid gap-1 px-3 py-2" key={id}>
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                    <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={id}>
                       {id}
                     </span>
                     {settings?.contextWindow && (
@@ -816,15 +814,15 @@ function ProviderDetail({
                     </div>
                   </div>
                   {settings?.effortLevels?.length ? (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[12px] text-ink-3">
                       思考：{settings.effortLevels.join(' · ')}
                     </span>
                   ) : null}
                   {result && result !== 'pending' && (
                     <p
                       className={cn(
-                        'text-xs [overflow-wrap:anywhere]',
-                        result.ok ? 'text-success' : 'text-destructive',
+                        'text-[12px] [overflow-wrap:anywhere]',
+                        result.ok ? 'text-success' : 'text-red',
                       )}
                       role="status"
                     >
@@ -836,12 +834,12 @@ function ProviderDetail({
             })}
           </ul>
           {importNotice && (
-            <p className="text-xs text-muted-foreground" role="status">
+            <p className="text-[12px] text-ink-3" role="status">
               {importNotice}
             </p>
           )}
         </div>
-        <div className="grid gap-2 text-sm">
+        <div className="grid gap-2 text-[13px]">
           默认模型
           <Select disabled={!models.length} onValueChange={setModel} value={model}>
             <SelectTrigger aria-label="默认模型">
@@ -858,7 +856,7 @@ function ProviderDetail({
         </div>
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm">可选模型</span>
+            <span className="text-[13px]">可选模型</span>
             <Button
               disabled={verifying || !baseUrl}
               onClick={() => void verify()}
@@ -873,8 +871,8 @@ function ProviderDetail({
           {verifyResult && (
             <p
               className={cn(
-                'flex flex-wrap items-center gap-1.5 text-xs [overflow-wrap:anywhere]',
-                verifyResult.ok ? 'text-success' : 'text-destructive',
+                'flex flex-wrap items-center gap-1.5 text-[12px] [overflow-wrap:anywhere]',
+                verifyResult.ok ? 'text-success' : 'text-red',
               )}
               role="status"
             >
@@ -891,12 +889,12 @@ function ProviderDetail({
               ) : null}
             </p>
           )}
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <p className="text-[12px] leading-relaxed text-ink-3">
             列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
           </p>
         </div>
         {error && (
-          <p className="text-xs text-destructive" role="alert">
+          <p className="text-[12px] text-red" role="alert">
             {error}
           </p>
         )}
@@ -927,7 +925,7 @@ function ProviderDetail({
                   </Button>
                 </Dialog.Close>
               </div>
-              <Dialog.Description className="mt-2 text-xs text-muted-foreground">
+              <Dialog.Description className="mt-2 text-[12px] text-ink-3">
                 先检测模型列表，再搜索添加；未提供列表接口时可手动输入模型 ID。
               </Dialog.Description>
               <div className="mt-4 grid gap-3">
@@ -946,12 +944,12 @@ function ProviderDetail({
                   onChange={(event) => setModelInput(event.target.value)}
                   placeholder="搜索或输入模型 ID…"
                 />
-                <ul className="max-h-60 overflow-y-auto divide-y rounded-lg border">
+                <ul className="max-h-60 overflow-y-auto divide-y rounded-card border border-line">
                   {(verifyResult?.models ?? [])
                     .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
                     .map((id) => (
                       <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
-                        <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                        <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={id}>
                           {id}
                         </span>
                         <Button
@@ -968,14 +966,14 @@ function ProviderDetail({
                 </ul>
                 {verifyResult && (
                   <p
-                    className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-destructive')}
+                    className={cn('text-[12px]', verifyResult.ok ? 'text-success' : 'text-red')}
                     role="status"
                   >
                     {verifyResult.message}
                   </p>
                 )}
                 {importNotice && (
-                  <p className="text-xs text-muted-foreground" role="status">
+                  <p className="text-[12px] text-ink-3" role="status">
                     {importNotice}
                   </p>
                 )}

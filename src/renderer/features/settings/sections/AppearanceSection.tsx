@@ -121,24 +121,24 @@ export function AppearanceSection({
               <button
                 aria-pressed={theme === id}
                 className={cn(
-                  'flex h-9 items-center gap-2 rounded-lg border px-3 text-xs transition-colors',
+                  'flex h-9 items-center gap-2 rounded-card border border-line px-3 text-[12px] transition-colors',
                   theme === id
-                    ? 'border-foreground/60 bg-muted/50 font-medium text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                    ? 'border-foreground/60 bg-inset font-medium text-ink'
+                    : 'border-line text-ink-3 hover:bg-inset hover:text-ink',
                 )}
                 disabled={themeSave.busy}
                 key={id}
                 onClick={() => selectTheme(id)}
                 type="button"
               >
-                <span className={cn('size-4 rounded border border-border', preview)} />
+                <span className={cn('size-4 rounded border border-line', preview)} />
                 {label}
                 {theme === id ? <Check className="size-3.5" strokeWidth={2} /> : null}
               </button>
             ))}
           </div>
           {themeSave.error && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-[12px] text-red" role="alert">
               {themeSave.error}
             </p>
           )}
@@ -155,7 +155,7 @@ export function AppearanceSection({
             }}
           />
           {zoomSave.error && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-[12px] text-red" role="alert">
               {zoomSave.error}
             </p>
           )}
@@ -172,7 +172,7 @@ export function AppearanceSection({
             }}
           />
           {fontSave.error && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-[12px] text-red" role="alert">
               {fontSave.error}
             </p>
           )}
@@ -184,10 +184,8 @@ export function AppearanceSection({
                 aria-label={label}
                 aria-pressed={icon === id}
                 className={cn(
-                  'relative rounded-lg border p-2 transition-colors',
-                  icon === id
-                    ? 'border-foreground/60 bg-muted/50'
-                    : 'border-border hover:bg-muted/50',
+                  'relative rounded-card border border-line p-2 transition-colors',
+                  icon === id ? 'border-foreground/60 bg-inset' : 'border-line hover:bg-inset',
                 )}
                 disabled={iconSave.busy}
                 key={id}
@@ -195,9 +193,9 @@ export function AppearanceSection({
                 title={label}
                 type="button"
               >
-                <img alt="" className="size-12 rounded-md border border-border" src={src} />
+                <img alt="" className="size-12 rounded-control border border-line" src={src} />
                 {icon === id ? (
-                  <span className="absolute -right-1.5 -top-1.5 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground">
+                  <span className="absolute -right-1.5 -top-1.5 grid size-4 place-items-center rounded-full bg-ink text-surface">
                     <Check className="size-2.5" strokeWidth={2.5} />
                   </span>
                 ) : null}
@@ -205,7 +203,7 @@ export function AppearanceSection({
             ))}
           </div>
           {iconSave.error && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-[12px] text-red" role="alert">
               {iconSave.error}
             </p>
           )}

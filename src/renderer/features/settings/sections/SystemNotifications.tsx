@@ -116,7 +116,7 @@ export function SystemNotifications() {
       <div className="grid gap-1">
         <h2 className="text-base font-semibold">系统通知</h2>
         {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="text-[13px] leading-relaxed text-ink-3">
           关闭只停用桌面弹窗，通知中心仍会收集。
         </p>
       </div>
@@ -125,7 +125,7 @@ export function SystemNotifications() {
           className="flex items-center justify-between gap-3 border-b py-3"
           data-setting-id="campus-notifications"
         >
-          <span className="text-sm font-medium">校园消息提醒</span>
+          <span className="text-[13px] font-medium">校园消息提醒</span>
           <Switch
             checked={campus ?? true}
             disabled={campus === null || busy}
@@ -137,7 +137,7 @@ export function SystemNotifications() {
           className="flex items-center justify-between gap-3 border-b py-3"
           data-setting-id="notify-run-failed"
         >
-          <span className="text-sm font-medium">任务失败时提醒</span>
+          <span className="text-[13px] font-medium">任务失败时提醒</span>
           <Switch
             checked={task?.failed ?? true}
             disabled={task === null || busy}
@@ -149,7 +149,7 @@ export function SystemNotifications() {
           className="flex items-center justify-between gap-3 border-b py-3"
           data-setting-id="notify-run-completed"
         >
-          <span className="text-sm font-medium">任务完成时提醒</span>
+          <span className="text-[13px] font-medium">任务完成时提醒</span>
           <Switch
             checked={task?.completed ?? false}
             disabled={task === null || busy}
@@ -162,12 +162,9 @@ export function SystemNotifications() {
           data-setting-id="snooze"
         >
           <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">暂停通知</span>
+            <span className="text-[13px] font-medium">暂停通知</span>
             {snoozedUntil ? (
-              <span
-                className={snoozeActive ? 'text-xs text-muted-foreground' : 'sr-only'}
-                role="status"
-              >
+              <span className={snoozeActive ? 'text-[12px] text-ink-3' : 'sr-only'} role="status">
                 {snoozeActive
                   ? `已暂停至 ${new Date(snoozedUntil).toLocaleString('zh-CN')}`
                   : '上次的暂停已到期。'}
@@ -214,13 +211,13 @@ export function SystemNotifications() {
                 ) : null}
               </>
             ) : (
-              <span className="text-xs text-muted-foreground">暂停状态仅在桌面端可用。</span>
+              <span className="text-[12px] text-ink-3">暂停状态仅在桌面端可用。</span>
             )}
           </div>
         </div>
       </div>
       {error && (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-[12px] text-red" role="alert">
           {error}
         </p>
       )}

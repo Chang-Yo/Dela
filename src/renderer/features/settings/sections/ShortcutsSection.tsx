@@ -111,12 +111,12 @@ export function ShortcutsSection() {
         }
       />
       {error && (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-[12px] text-red" role="alert">
           {error}
         </p>
       )}
       {conflicts.length > 0 && (
-        <p className="text-xs text-warning" role="status">
+        <p className="text-[12px] text-warning" role="status">
           {conflicts
             .map((conflict) => {
               const labels = conflict.actionIds
@@ -140,11 +140,11 @@ export function ShortcutsSection() {
                 data-setting-id={`shortcut-${action.id}`}
                 key={action.id}
               >
-                <span className="min-w-0 truncate text-sm">{action.label}</span>
+                <span className="min-w-0 truncate text-[13px]">{action.label}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <button
                     aria-label={`修改「${action.label}」的快捷键`}
-                    className="rounded-md px-1 py-0.5 transition-colors hover:bg-accent"
+                    className="rounded-control px-1 py-0.5 transition-colors hover:bg-hover"
                     disabled={busy}
                     onClick={() => {
                       setError(null);
@@ -153,12 +153,12 @@ export function ShortcutsSection() {
                     type="button"
                   >
                     {isRecording ? (
-                      <span className="text-xs text-muted-foreground">按下新的按键…</span>
+                      <span className="text-[12px] text-ink-3">按下新的按键…</span>
                     ) : accelerator ? (
                       <span className="flex items-center gap-1">
                         {acceleratorKeys(accelerator, platform, action.family).map((key) => (
                           <kbd
-                            className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border bg-muted/50 px-1.5 text-xs font-medium text-foreground/80"
+                            className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-[12px] font-medium text-ink-2 shadow-hairline"
                             key={key}
                           >
                             {key}
@@ -166,7 +166,7 @@ export function ShortcutsSection() {
                         ))}
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">未绑定</span>
+                      <span className="text-[12px] text-ink-3">未绑定</span>
                     )}
                   </button>
                   {accelerator !== action.defaultKeys ? (

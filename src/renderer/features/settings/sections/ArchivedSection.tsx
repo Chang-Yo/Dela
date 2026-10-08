@@ -131,7 +131,7 @@ export function ArchivedSection() {
     <div className="grid gap-10">
       <SectionHeader title="已归档" />
       {!window.dela ? (
-        <p className="text-sm text-muted-foreground">已归档对话管理仅在桌面端可用。</p>
+        <p className="text-[13px] text-ink-3">已归档对话管理仅在桌面端可用。</p>
       ) : (
         <>
           <div className="grid gap-3">
@@ -139,7 +139,7 @@ export function ArchivedSection() {
               <div className="relative min-w-52 flex-1">
                 <Search
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-3"
                 />
                 <Input
                   aria-label="搜索已归档对话"
@@ -173,12 +173,12 @@ export function ArchivedSection() {
               </Button>
             </div>
             {/* 永久删除不可逆：破坏性操作的必要警示。 */}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[12px] text-ink-3">
               恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
             </p>
             {confirm?.kind === 'all' && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
-                <span className="text-xs">
+              <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-destructive/40 bg-red-tint p-3">
+                <span className="text-[12px]">
                   永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
                 </span>
                 <Button
@@ -195,24 +195,24 @@ export function ArchivedSection() {
               </div>
             )}
             {error && (
-              <p className="text-xs text-destructive" role="alert">
+              <p className="text-[12px] text-red" role="alert">
                 {error}
               </p>
             )}
             {sessions !== null && sessions.length === 0 && (
-              <p className="text-sm text-muted-foreground">没有已归档对话</p>
+              <p className="text-[13px] text-ink-3">没有已归档对话</p>
             )}
             {sessions !== null && sessions.length > 0 && groups.length === 0 && (
-              <p className="text-sm text-muted-foreground">没有匹配的已归档对话</p>
+              <p className="text-[13px] text-ink-3">没有匹配的已归档对话</p>
             )}
           </div>
           <div className="grid gap-8">
             {groups.map((group) => (
               <section className="grid gap-2" key={group.id ?? 'general'}>
                 <div className="flex items-center gap-2">
-                  <Folder aria-hidden="true" className="size-4 text-muted-foreground" />
+                  <Folder aria-hidden="true" className="size-4 text-ink-3" />
                   <h2 className="text-base font-semibold">{group.name}</h2>
-                  <span className="text-xs text-muted-foreground">{group.sessions.length} 条</span>
+                  <span className="text-[12px] text-ink-3">{group.sessions.length} 条</span>
                 </div>
                 <ul className="grid">
                   {group.sessions.map((session) => (
@@ -221,10 +221,10 @@ export function ArchivedSection() {
                       key={session.id}
                     >
                       <div className="grid min-w-0 gap-0.5">
-                        <span className="truncate text-sm" title={session.title}>
+                        <span className="truncate text-[13px]" title={session.title}>
                           {session.title || '新对话'}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[12px] text-ink-3">
                           {new Date(session.updatedAt).toLocaleString('zh-CN')}
                         </span>
                       </div>

@@ -58,16 +58,16 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
   return (
     <nav
       aria-label="设置分区"
-      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-muted/40 p-2 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-page p-2 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
     >
       {/* 壳层锚点：分区目录以「设置」标题开头（窄屏横向分区行不放标题）。 */}
-      <span className="hidden px-2 pb-1 text-sm font-semibold md:block">设置</span>
+      <span className="hidden px-2 pb-1 text-[13px] font-semibold text-ink md:block">设置</span>
       {sectionGroups.map((group, index) => (
         <div className="flex shrink-0 gap-1 md:grid md:gap-1" key={group.title}>
           {index > 0 && (
-            <span aria-hidden="true" className="mx-1 w-px shrink-0 bg-border md:hidden" />
+            <span aria-hidden="true" className="mx-1 w-px shrink-0 bg-line md:hidden" />
           )}
-          <span className="hidden h-6 items-center px-2 text-xs font-medium text-muted-foreground md:flex">
+          <span className="hidden h-6 items-center px-2 text-[11.5px] font-medium text-ink-3 md:flex">
             {group.title}
           </span>
           {group.items.map(({ id, icon: Icon }) => {
@@ -76,16 +76,19 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
               <button
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-8 shrink-0 items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors',
+                  'flex h-8 shrink-0 items-center gap-2.5 rounded-control px-2.5 text-[13px] transition-colors duration-150',
                   active
-                    ? 'bg-background font-medium text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground',
+                    ? 'bg-surface font-medium text-ink shadow-hairline'
+                    : 'text-ink-2 hover:bg-hover hover:text-ink',
                 )}
                 key={id}
                 onClick={() => onSectionChange(id)}
                 type="button"
               >
-                <Icon className="size-4 shrink-0" strokeWidth={1.8} />
+                <Icon
+                  className={cn('size-4 shrink-0', active ? 'text-ink' : 'text-ink-3')}
+                  strokeWidth={1.8}
+                />
                 <span className="truncate">{settingsSectionLabels[id]}</span>
               </button>
             );

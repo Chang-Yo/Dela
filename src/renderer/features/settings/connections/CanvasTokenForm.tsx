@@ -39,7 +39,7 @@ export function CanvasTokenForm({ onSuccess, actions }: CanvasTokenFormProps) {
         void configure();
       }}
     >
-      <label className="grid gap-2 text-sm">
+      <label className="grid gap-2 text-[13px]">
         Access Token
         <Input
           autoComplete="off"
@@ -51,7 +51,7 @@ export function CanvasTokenForm({ onSuccess, actions }: CanvasTokenFormProps) {
         />
       </label>
       {error && (
-        <p className="text-xs [overflow-wrap:anywhere] text-destructive" role="alert">
+        <p className="text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
           {error}
         </p>
       )}

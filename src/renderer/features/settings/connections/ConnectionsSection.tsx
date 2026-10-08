@@ -159,12 +159,12 @@ export function ConnectionsSection({
       extra:
         trashRetention === null ? undefined : (
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground max-md:hidden">已删除保留</span>
+            <span className="text-[12px] text-ink-3 max-md:hidden">已删除保留</span>
             <Select
               onValueChange={(value) => void changeRetention(Number(value) as MailTrashRetention)}
               value={String(trashRetention)}
             >
-              <SelectTrigger aria-label="已删除邮件保留" className="h-8 text-xs">
+              <SelectTrigger aria-label="已删除邮件保留" className="h-8 text-[12px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -175,7 +175,7 @@ export function ConnectionsSection({
               </SelectContent>
             </Select>
             {retentionError && (
-              <span className="text-xs text-destructive" role="alert">
+              <span className="text-[12px] text-red" role="alert">
                 {retentionError}
               </span>
             )}
@@ -208,7 +208,7 @@ export function ConnectionsSection({
         : '去绑定',
       onClick: shuiyuanUser ? () => void unbindShuiyuan() : onOpenShuiyuan,
       extra: shuiyuanError ? (
-        <span className="text-xs text-destructive" role="alert">
+        <span className="text-[12px] text-red" role="alert">
           {shuiyuanError}
         </span>
       ) : undefined,
@@ -219,7 +219,7 @@ export function ConnectionsSection({
     <div className="grid gap-10">
       <SectionHeader title="连接" />
       {loadError && (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-[12px] text-red" role="alert">
           {loadError}
         </p>
       )}
@@ -242,13 +242,13 @@ export function ConnectionsSection({
               key={name}
             >
               <div className="flex min-w-0 items-center gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-secondary">
-                  <Icon className="size-4 text-muted-foreground" strokeWidth={1.8} />
+                <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
+                  <Icon className="size-4 text-ink-3" strokeWidth={1.8} />
                 </span>
                 <div className="grid min-w-0 gap-0.5">
-                  <strong className="text-sm">{name}</strong>
+                  <strong className="text-[13px]">{name}</strong>
                   {description && (
-                    <span className="truncate text-xs text-muted-foreground" title={description}>
+                    <span className="truncate text-[12px] text-ink-3" title={description}>
                       {description}
                     </span>
                   )}
@@ -258,8 +258,8 @@ export function ConnectionsSection({
                 {extra}
                 <span
                   className={cn(
-                    'min-w-[72px] max-w-40 truncate text-xs max-md:min-w-0',
-                    connected ? 'text-foreground' : 'text-muted-foreground',
+                    'min-w-[72px] max-w-40 truncate text-[12px] max-md:min-w-0',
+                    connected ? 'text-ink' : 'text-ink-3',
                   )}
                   title={state}
                 >
@@ -283,7 +283,7 @@ export function ConnectionsSection({
           <Dialog.Overlay className={dialogOverlay} />
           <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
             <Dialog.Title className="text-base font-semibold">配置 Canvas</Dialog.Title>
-            <Dialog.Description className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            <Dialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
               {canvas.connected
                 ? '输入新的个人 Access Token 以替换当前连接。'
                 : '输入个人 Access Token，验证成功后读取课程列表；凭据加密保存在本机。'}
@@ -304,7 +304,7 @@ export function ConnectionsSection({
               onSuccess={() => setDialog(null)}
             />
             {disconnectError && (
-              <p className="mt-2 text-xs text-destructive" role="alert">
+              <p className="mt-2 text-[12px] text-red" role="alert">
                 {disconnectError}
               </p>
             )}

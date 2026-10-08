@@ -40,7 +40,7 @@ export function GeneralSection() {
           className="flex items-center justify-between gap-3 border-b py-3 last:border-0"
           data-setting-id="open-at-login"
         >
-          <h3 className="text-sm font-medium">开机自启动</h3>
+          <h3 className="text-[13px] font-medium">开机自启动</h3>
           <Switch
             checked={openAtLogin ?? true}
             disabled={openAtLogin === null || busy}
@@ -49,7 +49,7 @@ export function GeneralSection() {
           />
         </div>
         {error && (
-          <p className="text-xs text-destructive" role="alert">
+          <p className="text-[12px] text-red" role="alert">
             {error}
           </p>
         )}
