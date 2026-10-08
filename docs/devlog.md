@@ -70,6 +70,11 @@
 - 月视图选中日改 accent-tint，非本月 inset
 - 水源页面与楼层 iframe 色值换 beautiful-ui
 - 置顶话题悬停改 hover-2，定位楼层 accent-tint
+- 引导页 neutral 灰阶全部换 beautiful-ui token
+- 新增 .bui-light 固定浅色作用域，引导恒白
+- 引导表单改字段样式与 accent 聚焦
+- 第 4 步逐页精修完成（6 页各自提交）
+- 待验证：各页明暗观感与动画（需人工审阅）
 - 新建项目可导入电脑上已有的文件夹
 - 外部项目目录留原处，身份＝UUID＋local_path
 - 自定义网关 API 根按模型列表端点探测校正

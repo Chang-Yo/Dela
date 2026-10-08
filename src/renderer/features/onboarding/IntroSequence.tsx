@@ -52,7 +52,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="grid h-dvh grid-rows-[auto_1fr] bg-white text-neutral-900"
+        className="grid h-dvh grid-rows-[auto_1fr] bui-light bg-surface text-ink"
         data-onboarding-intro=""
       >
         <OnboardingWindowBar />
@@ -60,7 +60,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
         <div className="relative grid place-items-center overflow-hidden pb-[10vh] [@media(max-height:560px)]:pb-4">
           {/* 跳过动画：全程可点，不必等 CTA 出现。 */}
           <button
-            className="absolute right-6 top-4 z-10 text-sm text-neutral-400 transition-colors hover:text-neutral-700"
+            className="absolute right-6 top-4 z-10 text-[13px] text-ink-3 transition-colors hover:text-ink"
             onClick={onStart}
             type="button"
           >
@@ -96,12 +96,12 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
                 />
                 <motion.div
                   animate={{ x: [0, -110, 40, 0], y: [0, 60, -40, 0] }}
-                  className="absolute -right-28 bottom-0 size-[500px] rounded-full bg-neutral-200 blur-3xl"
+                  className="absolute -right-28 bottom-0 size-[500px] rounded-full bg-hover-2 blur-3xl"
                   transition={{ duration: 21, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <motion.div
                   animate={{ x: [0, 60, -90, 0], y: [0, 40, -60, 0] }}
-                  className="absolute left-1/3 top-2/3 size-[420px] rounded-full bg-neutral-100 blur-3xl"
+                  className="absolute left-1/3 top-2/3 size-[420px] rounded-full bg-hover blur-3xl"
                   transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
                 />
               </div>
@@ -130,7 +130,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             <div className="flex flex-col items-end">
               <motion.p
                 animate={{ clipPath: 'inset(0 0% 0 0)' }}
-                className="mt-4 font-script text-3xl text-neutral-600"
+                className="mt-4 font-script text-3xl text-ink-2"
                 initial={{ clipPath: 'inset(0 100% 0 0)' }}
                 transition={{ delay: quoteAtSeconds, duration: quoteSeconds, ease: 'easeInOut' }}
               >
@@ -138,7 +138,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
               </motion.p>
               <motion.p
                 animate={{ clipPath: 'inset(0 0% 0 0)' }}
-                className="mt-1 font-script text-2xl text-neutral-800"
+                className="mt-1 font-script text-2xl text-ink"
                 initial={{ clipPath: 'inset(0 100% 0 0)' }}
                 transition={{ delay: authorAtSeconds, duration: authorSeconds, ease: 'easeInOut' }}
               >
@@ -150,7 +150,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
           <motion.button
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-              'absolute bottom-12 rounded-full bg-neutral-900 px-7 py-2.5 text-sm text-white transition-colors hover:bg-neutral-700 [@media(max-height:560px)]:bottom-6',
+              'absolute bottom-12 rounded-full bg-ink px-7 py-2.5 text-[13px] text-surface transition-colors hover:opacity-90 [@media(max-height:560px)]:bottom-6',
               !ctaReady && 'pointer-events-none',
             )}
             initial={{ opacity: 0, y: 10 }}

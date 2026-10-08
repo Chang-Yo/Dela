@@ -33,7 +33,7 @@ export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
     <MotionConfig reducedMotion="user">
       <motion.div
         animate={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] grid place-items-center bg-white text-neutral-900"
+        className="fixed inset-0 z-[60] grid place-items-center bui-light bg-surface text-ink"
         data-onboarding-completion=""
         initial={{ opacity: 1 }}
         transition={{ delay: fadeAtSeconds, duration: fadeSeconds, ease: 'easeOut' }}

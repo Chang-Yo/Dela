@@ -105,6 +105,40 @@
   --syntax-caret: #58a6ff;
 }
 
+/* 固定浅色作用域（beautifului.css 的 .bui-light）：语义变量在 :root 已解析成深色值，
+   作用域内重新声明一次，才能取到浅色 token。 */
+.bui-light {
+  --background: var(--surface);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--surface);
+  --secondary: var(--field);
+  --secondary-foreground: var(--ink);
+  --muted: var(--inset);
+  --muted-foreground: var(--ink-3);
+  --accent: var(--hover);
+  --accent-foreground: var(--ink);
+  --destructive: var(--red);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: var(--green);
+  --warning: var(--orange);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--bui-accent);
+  --sidebar: var(--page);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--surface);
+  --sidebar-accent: var(--hover-2);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--bui-accent);
+}
+
 /* 对话框入场（components/ui/motion.ts）：只动独立的 scale 属性，不与居中用的
    translate 冲突；观感对齐 beautiful-ui 的 pop-in。 */
 @keyframes dialog-in {

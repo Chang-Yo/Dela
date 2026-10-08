@@ -26,7 +26,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="grid h-dvh grid-rows-[auto_1fr_auto] bg-white text-neutral-900">
+      <div className="grid h-dvh grid-rows-[auto_1fr_auto] bui-light bg-surface text-ink">
         <OnboardingWindowBar>
           <div
             aria-label={`第 ${step + 1} 步，共 ${stepCount} 步`}
@@ -38,7 +38,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
                 aria-current={index === step ? 'step' : undefined}
                 className={cn(
                   'h-1.5 rounded-full transition-all duration-300',
-                  index === step ? 'w-5 bg-[var(--onboarding-accent)]' : 'w-1.5 bg-neutral-300',
+                  index === step ? 'w-5 bg-[var(--onboarding-accent)]' : 'w-1.5 bg-line-strong',
                 )}
                 key={index}
               />
@@ -64,7 +64,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
           <div className="justify-self-start">
             {onBack && (
               <button
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-sm text-neutral-500 transition-colors hover:text-neutral-700"
+                className="inline-flex items-center gap-1.5 rounded-control px-2 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
                 onClick={onBack}
                 type="button"
               >
@@ -74,7 +74,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
             )}
           </div>
           <button
-            className="rounded-md px-4 py-2 text-sm text-neutral-500 transition-colors hover:text-neutral-700"
+            className="rounded-control px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
             onClick={onSkip}
             type="button"
           >

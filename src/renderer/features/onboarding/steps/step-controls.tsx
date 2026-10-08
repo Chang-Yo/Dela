@@ -40,11 +40,11 @@ export function StepButton({
   return (
     <button
       className={cn(
-        'grid h-10 w-full place-items-center rounded-lg text-sm font-medium text-white transition-all',
+        'grid h-10 w-full place-items-center rounded-card text-[13px] font-medium text-surface transition-all',
         state === 'success'
           ? 'bg-[var(--onboarding-accent)] hover:opacity-90'
-          : 'bg-neutral-900 hover:bg-neutral-700',
-        (disabled || state === 'busy') && 'cursor-not-allowed opacity-50 hover:bg-neutral-900',
+          : 'bg-ink hover:opacity-90',
+        (disabled || state === 'busy') && 'cursor-not-allowed opacity-50 hover:bg-ink',
       )}
       disabled={disabled || state === 'busy'}
       onClick={onClick}
@@ -60,7 +60,7 @@ export function StepButton({
 }
 
 const fieldClasses =
-  'w-full rounded-lg border border-neutral-200 bg-white text-sm text-neutral-900 outline-none transition-[border-color,box-shadow] placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-4 focus:ring-neutral-900/5 aria-invalid:border-red-400';
+  'w-full rounded-card bg-field text-[13px] text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 hover:shadow-[0_0_0_1px_var(--line-strong)] focus:bg-surface focus:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)] aria-invalid:shadow-[0_0_0_1px_var(--red)]';
 
 export function StepInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
@@ -81,11 +81,12 @@ export function StepSelect({
     <Select {...rest}>
       <SelectTrigger
         aria-label={label}
-        className="w-full rounded-lg border-neutral-200 bg-white text-sm text-neutral-900 data-[placeholder]:text-neutral-400"
+        className="w-full rounded-card text-[13px] data-[placeholder]:text-ink-3"
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>{children}</SelectContent>
+      {/* 弹层 portal 到 body，脱离向导的 .bui-light 作用域，需单独带上。 */}
+      <SelectContent className="bui-light">{children}</SelectContent>
     </Select>
   );
 }
@@ -93,7 +94,7 @@ export function StepSelect({
 export function StepTextarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={cn(fieldClasses, 'min-h-24 resize-y px-3 py-2 font-mono text-xs', className)}
+      className={cn(fieldClasses, 'min-h-24 resize-y px-3 py-2 font-mono text-[12px]', className)}
       {...rest}
     />
   );
