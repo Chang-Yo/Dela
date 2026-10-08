@@ -187,15 +187,24 @@ importers:
       gemoji:
         specifier: 8.1.0
         version: 8.1.0
+      glimm:
+        specifier: 0.3.1
+        version: 0.3.1(react@19.2.8)
       highlight.js:
         specifier: 11.12.0
         version: 11.12.0
+      iconoir-react:
+        specifier: 7.12.1
+        version: 7.12.1(react@19.2.8)
       imapflow:
         specifier: 2.0.0
         version: 2.0.0
       katex:
         specifier: 0.16.47
         version: 0.16.47
+      liveline:
+        specifier: 0.0.7
+        version: 0.0.7(react@19.2.8)
       lucide-react:
         specifier: 1.44.0
         version: 1.44.0(react@19.2.8)
@@ -3301,6 +3310,18 @@ packages:
     resolution: {integrity: sha512-nBF+F1rAZVCu/p7rjzgA+Yb4lfYXrpl7a6VmJrU8wF9I1CKvP/QwPNZHnOlwbTkY6dvtFIzFMSyQXbLoTQPRpA==}
     engines: {node: '>=8'}
 
+  glimm@0.3.1:
+    resolution: {integrity: sha512-7O+Ga+cqqP8FEFDa63X+BXCYKndlnZZEMjTl1DhMfQ3yWweDgl8nC+ImP/zLo351YEn/6WpnOL6jKfvFWmnyDg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      next: '>=14'
+      react: '>=18'
+    peerDependenciesMeta:
+      next:
+        optional: true
+      react:
+        optional: true
+
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
     deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
@@ -3436,6 +3457,11 @@ packages:
   https-proxy-agent@9.1.0:
     resolution: {integrity: sha512-ag87y7cJJ9/3+GxFr8Oy4O5faDsGRGnBGsJj/YjOSsSx/5eadKLYTMPlzuR6obgoCDDm0abAAZitXXQkMOPSpA==}
     engines: {node: '>= 20'}
+
+  iconoir-react@7.12.1:
+    resolution: {integrity: sha512-e+Lwgqr10ruCwrCrFjG5RD0axwENFxPzLP1cESiQPEMH9UC/W6dk6u0MYwLoG0MBVsmBYAhVBb5GqO1aSljeGQ==}
+    peerDependencies:
+      react: 18 || 19
 
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
@@ -3765,6 +3791,12 @@ packages:
   lightningcss@1.33.0:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
+
+  liveline@0.0.7:
+    resolution: {integrity: sha512-S1Weo1kmefiOCNaW/WFXErqJXlV8A/ldIkIthaOeT57I2ZhqhKLKQDJ1wfabtMSK9vJeU8PeMNHd8Sr8TLByWQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: '>=18'
 
   lodash-es@4.18.1:
     resolution: {integrity: sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A==}
@@ -8620,6 +8652,10 @@ snapshots:
     dependencies:
       pump: 3.0.4
 
+  glimm@0.3.1(react@19.2.8):
+    optionalDependencies:
+      react: 19.2.8
+
   glob@7.2.3:
     dependencies:
       fs.realpath: 1.0.0
@@ -8875,6 +8911,10 @@ snapshots:
     transitivePeerDependencies:
       - kerberos
       - supports-color
+
+  iconoir-react@7.12.1(react@19.2.8):
+    dependencies:
+      react: 19.2.8
 
   iconv-lite@0.6.3:
     dependencies:
@@ -9160,6 +9200,10 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  liveline@0.0.7(react@19.2.8):
+    dependencies:
+      react: 19.2.8
 
   lodash-es@4.18.1: {}
 

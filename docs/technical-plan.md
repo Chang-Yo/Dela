@@ -22,7 +22,7 @@
 
 **3. skills**：纯文档领域知识。shuiyuan / Canvas / Mail / TODO / curriculum 五域，正文教 agent 何时、如何组合命令与文件；跨域关联（如 Canvas 课件挂进项目）是资料层行为。系统提示只注入启用项索引。
 
-**4. GUI**：标签工作台（聊天/笔记/预览/终端），经 IPC 消费同一套领域实现，不另写业务。
+**4. GUI**：标签工作台（聊天/笔记/预览/终端），经 IPC 消费同一套领域实现，不另写业务。UI 组件统一以 vendored beautiful-ui（`@/components/ui/beautifului/`，见其 README 的适配清单）为基座：聊天界面已整体迁移（ThinkingState 工作过程、CodeBlock 工具卡、PromptBar 视觉的 composer 与菜单、IconButton/Button atoms），其余界面渐进替换；被替代的自研 UI 必须清理（AGENTS.md 规则）。
 
 ## 会话与上下文
 

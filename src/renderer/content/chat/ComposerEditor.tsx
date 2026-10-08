@@ -153,7 +153,7 @@ const composerTheme = EditorView.theme({
     maxWidth: '180px',
     // 与消息流内联图片同档圆角（rounded-xl），发送前后不跳变。
     borderRadius: 'var(--radius-xl)',
-    border: '1px solid var(--color-border)',
+    border: '1px solid var(--color-line)',
   },
   '.dela-chat-image-fallback': {
     display: 'inline-block',
@@ -163,8 +163,8 @@ const composerTheme = EditorView.theme({
     whiteSpace: 'nowrap',
     padding: '4px 10px',
     borderRadius: '8px',
-    border: '1px dashed var(--color-border)',
-    color: 'var(--color-muted-foreground)',
+    border: '1px dashed var(--color-line)',
+    color: 'var(--color-ink-3)',
     fontSize: '12px',
   },
   '.dela-chat-image button': {
@@ -176,15 +176,15 @@ const composerTheme = EditorView.theme({
     width: '16px',
     height: '16px',
     borderRadius: '9999px',
-    backgroundColor: 'var(--color-background)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-muted-foreground)',
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-line)',
+    color: 'var(--color-ink-3)',
     fontFamily: 'inherit',
     fontSize: '11px',
     lineHeight: '1',
     cursor: 'pointer',
   },
-  '.dela-chat-image button:hover': { color: 'var(--color-foreground)' },
+  '.dela-chat-image button:hover': { color: 'var(--color-ink)' },
 });
 
 const heroTheme = EditorView.theme({
@@ -382,7 +382,7 @@ export function ComposerEditor({
       {empty && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute select-none break-words text-muted-foreground"
+          className="pointer-events-none absolute select-none break-words text-ink-3"
           style={{
             fontSize: 'calc(14px * var(--font-scale, 1))',
             left: SCROLLER_PADDING.x,

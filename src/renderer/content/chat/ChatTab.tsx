@@ -2,7 +2,8 @@ import { memo, useEffect, useState } from 'react';
 import { History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
+import { Button } from '@/components/ui/beautifului/atoms/Button';
+import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ChatComposer } from './ChatComposer';
 import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
@@ -47,7 +48,7 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
 
   if (sessionId === null) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-sm text-ink-3">
         无效的会话标签
       </div>
     );
@@ -56,8 +57,13 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-sm text-muted-foreground">这个会话已被删除。</p>
-          <Button onClick={() => void session.newSession()} size="sm" variant="outline">
+          <p className="text-sm text-ink-3">这个会话已被删除。</p>
+          <Button
+            className="[&_svg]:size-3.5"
+            onClick={() => void session.newSession()}
+            size="sm"
+            variant="secondary"
+          >
             <SquarePen />
             新对话
           </Button>
@@ -125,7 +131,7 @@ function ChatComposerArea({
         value={prompt}
       />
       {error && (
-        <p className="mt-2 break-words text-xs text-destructive" role="alert">
+        <p className="mt-2 break-words text-xs text-red" role="alert">
           {error}
         </p>
       )}
@@ -181,40 +187,28 @@ const ChatSessionView = memo(function ChatSessionView({
           @container 宿主，其内部降级断点测量 composer 实宽（外层 p-3 会造成 24px 死区）。 */}
       {/* 会话切换条：标签标题由 workbench 标签栏承载，这里只留历史与新对话入口。 */}
       <div className="flex h-10 shrink-0 items-center gap-1 px-3">
-        <Button
-          aria-label="历史对话"
-          className="hover:bg-foreground/10"
-          onClick={() => setSessionsOpen(true)}
-          size="icon-xs"
-          title="历史对话"
-          type="button"
-          variant="ghost"
-        >
+        <IconButton aria-label="历史对话" onClick={() => setSessionsOpen(true)} title="历史对话">
           <History />
-        </Button>
-        <Button
+        </IconButton>
+        <IconButton
           aria-label="新对话"
-          className="hover:bg-foreground/10"
           onClick={() =>
             projectId === null
               ? useNavigationStore.getState().openGeneralChat(true)
               : void useNavigationStore.getState().newChat(projectId)
           }
-          size="icon-xs"
           title="新对话"
-          type="button"
-          variant="ghost"
         >
           <SquarePen />
-        </Button>
+        </IconButton>
       </div>
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}
       {chat && !chat.configured && (
-        <div className="flex items-center gap-2 px-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 px-3 text-xs text-ink-3">
           <span>配置模型供应商后即可开始对话</span>
           <Button
-            size="sm"
-            variant="ghost"
+            size="xs"
+            variant="quiet"
             onClick={() => useNavigationStore.getState().openSettings('providers')}
           >
             配置模型

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Archive, MessageSquare, Search, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
+import { Button } from '@/components/ui/beautifului/atoms/Button';
+import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { cn } from '../../lib/utils';
 import { poolKey, querySessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';
@@ -35,7 +35,7 @@ function SessionList({
     <>
       {sessions.map((session) => (
         <div
-          className="group flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-accent/60"
+          className="group flex items-center gap-2 rounded-[6px] px-2 py-1.5 transition-colors hover:bg-hover"
           key={session.id}
         >
           <button
@@ -49,12 +49,12 @@ function SessionList({
             <MessageSquare
               className={cn(
                 'size-4 shrink-0',
-                session.id === currentSessionId ? 'text-foreground' : 'text-muted-foreground',
+                session.id === currentSessionId ? 'text-ink' : 'text-ink-3',
               )}
             />
             <span
               className={cn(
-                'min-w-0 flex-1 truncate text-sm',
+                'min-w-0 flex-1 truncate text-[13px] text-ink',
                 session.id === currentSessionId && 'font-medium',
               )}
             >
@@ -63,26 +63,26 @@ function SessionList({
           </button>
           {confirmingId === session.id ? (
             <Button
+              className="bg-red text-canvas"
               data-archive-confirm=""
-              size="sm"
-              variant="destructive"
               onClick={() => {
                 setConfirmingId(null);
                 onDeleteSession(session.id);
               }}
+              size="xs"
+              variant="primary"
             >
               确认归档
             </Button>
           ) : (
-            <button
+            <IconButton
               aria-label={`归档对话 ${session.title}`}
-              title="归档对话"
-              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
+              className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
               onClick={() => setConfirmingId(session.id)}
-              type="button"
+              title="归档对话"
             >
               <Archive className="size-3.5" />
-            </button>
+            </IconButton>
           )}
         </div>
       ))}
@@ -194,7 +194,7 @@ export function ChatSessions({
       <aside
         aria-label="历史对话"
         className={cn(
-          'absolute inset-y-0 right-0 z-40 flex w-72 max-w-[85vw] animate-in flex-col border-l bg-popover shadow-xl duration-150 fade-in slide-in-from-right-6',
+          'absolute inset-y-0 right-0 z-40 flex w-72 max-w-[85vw] animate-in flex-col border-l border-line bg-surface shadow-raised duration-150 fade-in slide-in-from-right-6',
         )}
         role="dialog"
       >
@@ -202,40 +202,31 @@ export function ChatSessions({
         <p className="sr-only">搜索并打开当前项目的会话，或进入通用对话</p>
         <div className="flex shrink-0 items-center gap-1 p-2">
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-3" />
+            <input
               aria-label="搜索历史对话"
               autoFocus
-              className="pl-8"
+              className="h-8 w-full rounded-[8px] bg-field pl-8 pr-2 text-[13px] text-ink shadow-hairline outline-none placeholder:text-ink-3 focus:shadow-btn"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索对话内容…"
               value={query}
             />
           </div>
-          <button
-            aria-label="关闭"
-            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => onOpenChange(false)}
-            type="button"
-          >
-            <X className="size-4" strokeWidth={1.8} />
-          </button>
+          <IconButton aria-label="关闭" onClick={() => onOpenChange(false)}>
+            <X strokeWidth={1.8} />
+          </IconButton>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto border-t p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-line p-2">
           {loadError && (
-            <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-ink-3">
               <span role="alert">历史对话加载失败</span>
-              <Button
-                onClick={() => setListVersion((version) => version + 1)}
-                size="sm"
-                variant="outline"
-              >
+              <Button onClick={() => setListVersion((version) => version + 1)} size="xs">
                 重试
               </Button>
             </div>
           )}
           {allLoaded && totalCount === 0 && (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="px-3 py-6 text-center text-[13px] text-ink-3">
               {query ? '没有匹配的对话' : '还没有历史对话'}
             </p>
           )}
@@ -243,7 +234,7 @@ export function ChatSessions({
             section.list && section.list.length > 0 ? (
               <section key={section.key} aria-label={section.label ?? '项目会话'}>
                 {section.label && (
-                  <h3 className="px-3 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+                  <h3 className="px-2 pb-1 pt-2 text-[11px] font-medium text-ink-3">
                     {section.label}
                   </h3>
                 )}

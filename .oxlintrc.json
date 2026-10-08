@@ -7,5 +7,6 @@
     "react/set-state-in-effect": "off",
     "react/refs": "off",
     "react/use-memo": "off"
-  }
+  },
+  "ignorePatterns": ["src/renderer/components/ui/beautifului/**"]
 }

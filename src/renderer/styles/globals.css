@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'streamdown/styles.css';
+@import '../components/ui/beautifului/beautifului.css';
 @source '../../../node_modules/streamdown/dist/*.js';
 
 :root {

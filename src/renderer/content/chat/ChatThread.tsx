@@ -13,11 +13,11 @@ import {
 import { useReducedMotion } from 'framer-motion';
 import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
-import { Button } from '../../components/ui/button';
+import { Button } from '@/components/ui/beautifului/atoms/Button';
+import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
 import { WorkingSection, type ToolOutput } from './ToolTimeline';
 import { ChatMarkdown } from './markdown';
-import styles from './timeline.module.css';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
@@ -42,30 +42,20 @@ const MessageActions = memo(function MessageActions({
   }, [copied]);
   return (
     <div className="mt-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100">
-      <Button
+      <IconButton
         aria-label="复制回答"
-        className="text-muted-foreground"
         onClick={() => {
           void navigator.clipboard.writeText(content);
           setCopied(true);
         }}
-        size="icon-sm"
         title="复制"
-        variant="ghost"
       >
-        {copied ? <Check className="text-success" /> : <Copy />}
-      </Button>
+        {copied ? <Check className="text-green" /> : <Copy />}
+      </IconButton>
       {onSaveNote && (
-        <Button
-          aria-label="保存为笔记"
-          className="text-muted-foreground"
-          onClick={() => onSaveNote(content)}
-          size="icon-sm"
-          title="保存为笔记"
-          variant="ghost"
-        >
+        <IconButton aria-label="保存为笔记" onClick={() => onSaveNote(content)} title="保存为笔记">
           <NotebookPen />
-        </Button>
+        </IconButton>
       )}
     </div>
   );
@@ -87,13 +77,13 @@ const MessageImage = memo(function MessageImage({ id, name }: { id: string; name
   return url ? (
     <img
       alt={name}
-      className="size-20 rounded-xl border object-cover"
+      className="size-20 rounded-xl border border-line/60 object-cover"
       src={url}
       title={name || undefined}
     />
   ) : (
     <span
-      className="grid size-20 place-items-center rounded-xl border bg-background/60 text-[11px] text-muted-foreground"
+      className="grid size-20 place-items-center rounded-xl border border-line/60 bg-inset text-[11px] text-ink-3"
       title={name || undefined}
     >
       图片
@@ -135,7 +125,7 @@ const UserMessage = memo(function UserMessage({
       <div className="mb-5 flex flex-col items-end">
         <textarea
           autoFocus
-          className="max-h-64 w-[85%] resize-none rounded-3xl border border-ring/60 bg-card px-4 py-2.5 text-sm leading-relaxed outline-none [field-sizing:content]"
+          className="max-h-64 w-[85%] resize-none rounded-card border border-line-strong bg-surface px-3.5 py-2 text-[13px] leading-relaxed text-ink shadow-card outline-none [field-sizing:content]"
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return;
@@ -149,25 +139,16 @@ const UserMessage = memo(function UserMessage({
           value={text}
         />
         <div className="mt-1.5 flex items-center gap-1">
-          <Button
-            aria-label="取消编辑"
-            className="text-muted-foreground"
-            onClick={() => setEditing(false)}
-            size="icon-sm"
-            title="取消"
-            type="button"
-            variant="ghost"
-          >
+          <IconButton aria-label="取消编辑" onClick={() => setEditing(false)} title="取消">
             <X />
-          </Button>
+          </IconButton>
           <Button
             aria-label="重新发送"
-            className="rounded-full"
+            className="size-6 gap-0 rounded-full p-0 [&_svg]:size-3.5"
             disabled={!text.trim() && !message.images?.length}
             onClick={confirmEdit}
-            size="icon-sm"
             title="重新发送"
-            type="button"
+            variant="primary"
           >
             <ArrowUp />
           </Button>
@@ -185,7 +166,7 @@ const UserMessage = memo(function UserMessage({
   return (
     <div className="group/user mb-5 flex flex-col items-end">
       {message.content ? (
-        <div className="max-w-[85%] rounded-3xl bg-secondary px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere]">
+        <div className="max-w-[85%] rounded-xl bg-field px-3.5 py-2 text-[13px] leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
           {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
           <ChatMarkdown className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent">
             {message.content}
@@ -203,11 +184,11 @@ const UserMessage = memo(function UserMessage({
         <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
           {message.attachments.map((attachment, index) => (
             <span
-              className="flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
+              className="flex min-w-0 max-w-full items-center gap-1 rounded-chip bg-field px-1.5 py-0.5 text-[11.5px] text-ink-2 shadow-hairline"
               key={`${attachment.name}:${index}`}
               title={attachment.name}
             >
-              <FileText className="size-3 shrink-0" />
+              <FileText className="size-3 shrink-0 text-ink-3" />
               <span className="truncate">{attachment.name}</span>
             </span>
           ))}
@@ -219,7 +200,7 @@ const UserMessage = memo(function UserMessage({
             onOpenSource ? (
               <button
                 key={source.key}
-                className="max-w-full truncate rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/10"
+                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-[11.5px] text-ink-2 shadow-hairline transition-colors hover:bg-hover-2 hover:text-ink"
                 onClick={() => onOpenSource(source.key)}
               >
                 {source.title}
@@ -227,7 +208,7 @@ const UserMessage = memo(function UserMessage({
             ) : (
               <span
                 key={source.key}
-                className="max-w-full truncate rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
+                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-[11.5px] text-ink-2 shadow-hairline"
               >
                 {source.title}
               </span>
@@ -237,36 +218,28 @@ const UserMessage = memo(function UserMessage({
       ) : null}
       <div className="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/user:opacity-100 group-hover/user:opacity-100">
         {message.content ? (
-          <Button
+          <IconButton
             aria-label="复制消息"
-            className="text-muted-foreground"
             onClick={() => {
               void navigator.clipboard.writeText(message.content);
               setCopied(true);
             }}
-            size="icon-sm"
             title="复制"
-            type="button"
-            variant="ghost"
           >
-            {copied ? <Check className="text-success" /> : <Copy />}
-          </Button>
+            {copied ? <Check className="text-green" /> : <Copy />}
+          </IconButton>
         ) : null}
         {editable && (
-          <Button
+          <IconButton
             aria-label="编辑消息"
-            className="text-muted-foreground"
             onClick={() => {
               setText(message.content);
               setEditing(true);
             }}
-            size="icon-sm"
             title="编辑并重新发送"
-            type="button"
-            variant="ghost"
           >
             <Pencil />
-          </Button>
+          </IconButton>
         )}
       </div>
     </div>
@@ -345,9 +318,18 @@ const AssistantMessage = memo(function AssistantMessage({
       {!hasActivity &&
         message.startedAt !== undefined &&
         (live || message.stopped || message.interrupted || elapsedMs === null) && (
-          <div className="mb-4 text-xs text-muted-foreground">
+          <div className="mb-4 text-[12.5px] text-ink-3">
             {live ? (
-              <span className={styles.shimmer} role="status">
+              <span
+                className="bg-clip-text text-transparent"
+                role="status"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%)',
+                  backgroundSize: '200% 100%',
+                  animation: 'shimmer-text 1.4s linear infinite',
+                }}
+              >
                 正在工作
               </span>
             ) : message.stopped ? (
@@ -379,9 +361,9 @@ const AssistantMessage = memo(function AssistantMessage({
         draftIds.map((draftId) => (
           <Button
             key={draftId}
-            variant="outline"
+            variant="secondary"
             size="sm"
-            className="mb-2 mt-0"
+            className="mb-2 mt-0 [&_svg]:size-3.5"
             onClick={() => onOpenDraft(draftId)}
           >
             <ArrowUpRight />
@@ -535,7 +517,7 @@ export const ChatThread = memo(function ChatThread({
       {!atBottom && messages.length > 0 && (
         <button
           aria-label="回到底部"
-          className="absolute bottom-3 left-1/2 z-10 grid size-8 -translate-x-1/2 place-items-center rounded-full border bg-background shadow-md transition-colors hover:bg-muted/60"
+          className="absolute bottom-3 left-1/2 z-10 grid size-8 -translate-x-1/2 place-items-center rounded-full border border-line bg-surface text-ink-2 shadow-raised transition-colors hover:bg-hover-2 hover:text-ink"
           onClick={() => {
             followBottom.current = true;
             const el = scrollRef.current;
@@ -548,10 +530,7 @@ export const ChatThread = memo(function ChatThread({
         </button>
       )}
       {hint && (
-        <p
-          role="status"
-          className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-muted-foreground"
-        >
+        <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-ink-3">
           {hint}
         </p>
       )}

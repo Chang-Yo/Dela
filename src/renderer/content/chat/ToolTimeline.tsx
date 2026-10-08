@@ -4,8 +4,8 @@ import {
   Brain,
   CalendarDays,
   CalendarPlus,
-  ChevronRight,
   Check,
+  ChevronRight,
   CircleAlert,
   ClipboardList,
   CopyPlus,
@@ -30,9 +30,9 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
 import { cn } from '../../lib/utils';
+import ThinkingState from '@/components/ui/beautifului/primitives/ThinkingState';
 import { ChatMarkdown } from './markdown';
 import { ToolBody } from './tool-views';
-import styles from './timeline.module.css';
 
 type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 
@@ -127,19 +127,10 @@ function stepState(result: AgentToolResult, live: boolean): StepState {
   return (result.output as ToolOutput)?.ok ? 'done' : 'failed';
 }
 
-/** 左侧连线的图标节点：所有行共用一个槽位，保证 rail 对齐一致。 */
-function RailNode({ children }: { children: ReactNode }) {
-  return (
-    <span aria-hidden className="relative z-10 grid size-6 place-items-center bg-background">
-      {children}
-    </span>
-  );
-}
-
 /**
- * 思考段：过程叙事里最弱的一层。收起时只有一行小号弱化文案（思考 · N 秒），
- * 点击展开全文；运行中尚未结束的思考默认展开（实时可见），结束后自动收起，
- * 手动开合后尊重用户选择。
+ * 思考段：基于 beautiful-ui ThinkingState 的受控用法。收起时只有一行小号弱化文案
+ * （思考 · N 秒），点击展开全文；运行中尚未结束的思考默认展开（实时可见），结束后
+ * 自动收起，手动开合后尊重用户选择。
  */
 function ThoughtStep({
   text,
@@ -152,97 +143,90 @@ function ThoughtStep({
   finishedAt?: number;
   live: boolean;
 }) {
-  const [override, setOverride] = useState<boolean | null>(null);
-  const open = override ?? (live && finishedAt === undefined);
   const duration =
     startedAt !== undefined && finishedAt !== undefined
       ? formatDuration(finishedAt - startedAt)
       : null;
   return (
-    <li className="grid min-w-0 animate-in grid-cols-[auto_minmax(0,1fr)] gap-3 fade-in duration-300 motion-reduce:animate-none">
-      <RailNode>
-        <Brain className="size-3.5" />
-      </RailNode>
-      <div className="min-w-0 py-0.5">
-        <button
-          type="button"
-          aria-expanded={open}
-          className="flex items-center gap-1 rounded-sm py-0.5 text-left text-xs transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring"
-          onClick={() => setOverride(!open)}
-        >
-          <span>思考</span>
-          {duration && <span className="tabular-nums">· {duration}</span>}
-          <ChevronRight
-            aria-hidden
-            className={cn(
-              'size-3 transition-transform motion-reduce:transition-none',
-              open && 'rotate-90',
-            )}
-          />
-        </button>
-        <div
-          aria-hidden={!open}
-          className={cn(
-            'grid transition-[grid-template-rows,opacity] motion-reduce:transition-none',
-            open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-          )}
-        >
-          <div className="min-h-0 overflow-hidden">
-            {/* 展开后限高滚动：思考很长时不把页面拖得过高。 */}
-            <div
-              data-reasoning-body
-              className="max-h-64 overflow-y-auto py-0.5 leading-relaxed whitespace-pre-wrap"
-            >
-              {text}
-            </div>
+    <li className="min-w-0 animate-in fade-in duration-300 motion-reduce:animate-none">
+      <ThinkingState
+        variant="Reasoning"
+        active="思考中"
+        done={duration ? `思考 · ${duration}` : '思考'}
+        fill
+        icon={<Brain className="size-4" />}
+        working={live && finishedAt === undefined}
+        rows={[{ primary: text }]}
+        renderBody={() => (
+          <div
+            data-reasoning-body
+            className="max-h-64 overflow-y-auto px-1.5 py-0.5 text-[12.5px] leading-relaxed whitespace-pre-wrap text-ink-2"
+          >
+            {text}
           </div>
-        </div>
-      </div>
+        )}
+      />
     </li>
   );
 }
 
-/** 工具动作行直接展开输入输出，错误说明始终可见。 */
+/** 工具动作行直接展开输入输出，错误说明始终可见；行样式取自 beautiful-ui ToolChips。 */
 function TimelineStep({ result, live }: { result: AgentToolResult; live: boolean }) {
   const { label, icon: Icon } = display(result.name);
   const state = stepState(result, live);
   const output = result.output as ToolOutput | undefined;
   const chip = stepChip(result);
   return (
-    <li className="grid min-w-0 animate-in grid-cols-[auto_minmax(0,1fr)] gap-3 fade-in duration-300 motion-reduce:animate-none">
-      <RailNode>
-        {state === 'running' ? (
-          <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
-        ) : state === 'failed' ? (
-          <CircleAlert className="size-3.5 text-destructive" />
-        ) : (
-          <Icon className="size-3.5" />
-        )}
-      </RailNode>
-      <div className="min-w-0 py-0.5">
-        <details className="group/details">
-          <summary className="flex min-w-0 cursor-pointer list-none items-center gap-x-2 rounded-sm py-0.5 transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-            <span className="shrink-0">{label}</span>
-            {chip && (
-              <span className="min-w-0 truncate text-xs text-muted-foreground" title={chip}>
-                {chip}
-              </span>
-            )}
-            {state === 'running' && <span className="sr-only">进行中</span>}
-            {state === 'interrupted' && <span className="shrink-0 text-xs">未完成</span>}
+    <li className="min-w-0 animate-in fade-in duration-300 motion-reduce:animate-none">
+      <details className="group/details">
+        <summary
+          className="-mx-[3px] flex h-7 w-[calc(100%+6px)] min-w-0 cursor-pointer list-none
+            items-center gap-2 rounded-control px-[3px] text-left text-ink transition-colors
+            duration-100 hover:bg-hover-2 focus-visible:outline focus-visible:outline-2
+            focus-visible:outline-bui-accent [&::-webkit-details-marker]:hidden"
+        >
+          {/* 图标槽：常态显示工具/状态图标，悬浮或展开时切出旋转箭头（ToolChips 行模式）。 */}
+          <span className="relative flex size-4 shrink-0 items-center justify-center">
+            <span
+              aria-hidden
+              className="flex size-3.5 items-center justify-center text-ink-3 transition-opacity duration-100 group-hover/details:opacity-0 group-open/details:opacity-0"
+            >
+              {state === 'running' ? (
+                <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
+              ) : state === 'failed' ? (
+                <CircleAlert className="size-3.5 text-red" />
+              ) : (
+                <Icon className="size-3.5" />
+              )}
+            </span>
             <ChevronRight
               aria-hidden
-              className="size-3 shrink-0 self-center transition-transform motion-reduce:transition-none group-open/details:rotate-90"
+              className="absolute size-3 opacity-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none group-hover/details:opacity-100 group-open/details:rotate-90 group-open/details:opacity-100"
             />
-          </summary>
+          </span>
+          <span className="shrink-0 text-[12.5px] font-medium">{label}</span>
+          {chip && (
+            <span
+              className="inline-flex h-5.5 min-w-0 flex-1 items-center truncate rounded-chip bg-field px-1.5 font-mono text-[11.5px] text-ink-2 shadow-hairline"
+              title={chip}
+            >
+              {chip}
+            </span>
+          )}
+          {state === 'running' && <span className="sr-only">进行中</span>}
+          {state === 'interrupted' && (
+            <span className="shrink-0 text-[11.5px] text-ink-3">未完成</span>
+          )}
+        </summary>
+        <div className="mt-0.5 mb-1 ml-2 border-l border-line py-0.5 pl-3.5">
           <ToolBody result={result} />
-        </details>
-        {state === 'failed' && (
-          <p className="mt-1 whitespace-pre-wrap text-xs text-destructive">
-            {output?.error?.message || '工具未返回成功结果'}
-          </p>
-        )}
-      </div>
+        </div>
+      </details>
+      {state === 'failed' && (
+        <p className="mt-1 whitespace-pre-wrap text-[11.5px] text-red">
+          {output?.error?.message || '工具未返回成功结果'}
+        </p>
+      )}
     </li>
   );
 }
@@ -287,6 +271,8 @@ export function WorkingSection({
   const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
   const active = live ? tools.findLast((tool) => tool.output === undefined) : undefined;
   const lastPart = parts.findLast((part) => part.type !== 'tools' && Boolean(part.text));
+  // 折叠时中途的说明文字随过程一起收起，只保留最后一段正文（最终回答）。
+  const lastTextKey = groups.findLast((group) => group.parts[0]?.type === 'text')?.key;
   const label = live
     ? active
       ? `正在${display(active.name).verb ?? display(active.name).label}`
@@ -302,9 +288,9 @@ export function WorkingSection({
   const StatusIcon = live ? LoaderCircle : status !== 'done' || failed > 0 ? CircleAlert : Check;
 
   return (
-    <div className="min-w-0 text-sm text-muted-foreground">
-      {/* 汇总行收成一个左对齐的整簇：状态图标 + 结论 + 弱化的元信息 + 旋转指示，
-          不再把元信息推到右端割裂成两团。 */}
+    <div className="min-w-0 text-[13px] text-ink-2">
+      {/* 汇总行收成一个左对齐的整簇（ThinkingState 头部样式）：状态图标 + 结论 +
+          弱化的元信息 + 旋转指示，运行中结论走库的 shimmer-text 渐变。 */}
       {hasActivity && (
         <button
           type="button"
@@ -314,44 +300,60 @@ export function WorkingSection({
             if (!open) onInspect?.();
             setDisclosure({ live, open: !open });
           }}
-          className="my-4 flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 text-left transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+          className="-mx-1.5 my-4 flex w-full min-w-0 items-center gap-1.5 rounded-control px-1.5 py-1 text-left transition-colors duration-100 hover:bg-hover-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-bui-accent"
         >
           <StatusIcon
             aria-hidden
             className={cn(
               'size-3.5 shrink-0',
-              live && 'motion-safe:animate-spin',
-              !live && failed > 0 && 'text-destructive',
+              live ? 'motion-safe:animate-spin text-ink-2' : '',
+              !live && failed > 0 && 'text-red',
+              !live && status === 'done' && failed === 0 && 'text-green',
             )}
           />
           <span
-            className={cn('min-w-0 truncate', live && styles.shimmer)}
+            className={cn('min-w-0 truncate font-medium', !live && 'text-ink-2')}
             role={live ? 'status' : undefined}
           >
-            {label}
+            {/* 渐变与 bg-clip-text 必须同元素：背景在外层会把整个盒子涂满而非裁进文字。 */}
+            <span
+              className={live ? 'bg-clip-text text-transparent' : undefined}
+              style={
+                live
+                  ? {
+                      backgroundImage:
+                        'linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%)',
+                      backgroundSize: '200% 100%',
+                      animation: 'shimmer-text 1.4s linear infinite',
+                    }
+                  : undefined
+              }
+            >
+              {label}
+            </span>
             {context && <span> · {context}</span>}
           </span>
           {tools.length > 0 && (
-            <span className="shrink-0 text-xs tabular-nums">· {tools.length} 项操作</span>
+            <span className="shrink-0 text-[11.5px] tabular-nums text-ink-3">
+              · {tools.length} 项操作
+            </span>
           )}
           {elapsedMs !== null && (
-            <span className="shrink-0 text-xs tabular-nums">· {formatDuration(elapsedMs)}</span>
+            <span className="shrink-0 text-[11.5px] tabular-nums text-ink-3">
+              · {formatDuration(elapsedMs)}
+            </span>
           )}
           {failed > 0 && (
-            <span className="shrink-0 text-xs tabular-nums text-destructive">
-              · {failed} 项失败
-            </span>
+            <span className="shrink-0 text-[11.5px] tabular-nums text-red">· {failed} 项失败</span>
           )}
           <ChevronRight
             aria-hidden
-            className={cn(
-              'size-3.5 shrink-0 transition-transform motion-reduce:transition-none',
-              open && 'rotate-90',
-            )}
+            className="size-3.5 shrink-0 text-ink-3 transition-transform motion-reduce:transition-none"
+            style={{ transform: open ? 'rotate(90deg)' : undefined }}
           />
         </button>
       )}
-      <ul id={bodyId} aria-label="对话过程" className="space-y-2">
+      <ul id={bodyId} aria-label="对话过程" className="space-y-1">
         {groups.map((group) => {
           const first = group.parts[0]!;
           if (first.type === 'text')
@@ -359,7 +361,8 @@ export function WorkingSection({
               <li
                 key={group.key}
                 data-assistant-body
-                className="my-4 min-w-0 text-foreground leading-7"
+                hidden={!open && group.key !== lastTextKey}
+                className="my-4 min-w-0 text-sm leading-7 text-ink"
               >
                 {renderText ? (
                   renderText(first.text)
@@ -371,12 +374,8 @@ export function WorkingSection({
           return (
             <li key={group.key} hidden={!open}>
               {open && (
-                <div data-worked-body aria-label="工作过程" className="relative">
-                  <div
-                    aria-hidden
-                    className="absolute inset-y-0 left-3 w-px -translate-x-1/2 bg-border"
-                  />
-                  <ul className="space-y-2">
+                <div data-worked-body aria-label="工作过程" className="min-w-0">
+                  <ul className="space-y-1">
                     {group.parts.map((part, index) => {
                       if (part.type === 'tools')
                         return part.results.map((result) => (
