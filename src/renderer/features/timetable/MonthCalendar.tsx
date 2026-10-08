@@ -67,10 +67,10 @@ export function MonthCalendar({
   return (
     <div className="@container min-h-0 flex-1 overflow-auto">
       {!semesterStart ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-5 py-2 text-xs text-muted-foreground max-md:px-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-inset px-5 py-2 text-[12px] text-ink-3 max-md:px-3">
           <span>还没有开学日期，课程暂不显示在月历上。</span>
           <button
-            className="font-medium text-primary underline-offset-2 hover:underline"
+            className="font-medium text-ink underline-offset-2 hover:underline"
             onClick={onEditSemesterStart}
             type="button"
           >
@@ -80,10 +80,7 @@ export function MonthCalendar({
       ) : null}
       <div className="grid grid-cols-7 border-b">
         {weekDays.map((day) => (
-          <div
-            className="px-2 py-2 text-center text-[11px] text-muted-foreground @max-[320px]:px-1"
-            key={day}
-          >
+          <div className="px-2 py-2 text-center text-[11px] text-ink-3 @max-[320px]:px-1" key={day}>
             {day}
           </div>
         ))}
@@ -128,9 +125,9 @@ export function MonthCalendar({
               className={cn(
                 // button 默认垂直居中内容，改为 flex 顶对齐，日号稳定在左上角。
                 // 用 div + role 是为了能嵌套「更多」按钮，button 里不能再放交互元素。
-                'flex min-h-28 flex-col border-b p-2 text-left transition-colors hover:bg-accent/45 @max-[320px]:min-h-16 @max-[320px]:p-1',
-                selected && 'bg-primary/10',
-                !currentMonth && 'bg-muted/25 text-muted-foreground',
+                'flex min-h-28 flex-col border-b border-line p-2 text-left transition-colors duration-150 hover:bg-hover @max-[320px]:min-h-16 @max-[320px]:p-1',
+                selected && 'bg-bui-accent-tint',
+                !currentMonth && 'bg-inset text-ink-3',
               )}
               key={dateKey(date)}
               role="button"
@@ -159,8 +156,8 @@ export function MonthCalendar({
             >
               <span
                 className={cn(
-                  'mb-1 grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium',
-                  today && 'bg-primary text-primary-foreground',
+                  'mb-1 grid size-6 shrink-0 place-items-center rounded-full text-[12px] font-medium',
+                  today && 'bg-ink text-surface',
                 )}
               >
                 {date.getDate()}
@@ -188,7 +185,7 @@ export function MonthCalendar({
                 {items.length > 3 ? (
                   <Popover.Root>
                     <Popover.Trigger
-                      className="flex h-5 items-center rounded px-1.5 text-left text-[10px] text-muted-foreground outline-none transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="flex h-5 items-center rounded-chip px-1.5 text-left text-[11px] text-ink-3 outline-none transition-colors duration-100 hover:bg-hover-2 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
                       // 不让「更多」上的按下冒泡成日格拖拽的起点。
                       onMouseDown={(event) => event.stopPropagation()}
                     >
@@ -204,13 +201,13 @@ export function MonthCalendar({
                         )}
                         sideOffset={4}
                       >
-                        <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+                        <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-ink-3">
                           {formatMonthDay(date)}
                         </p>
                         <ul className="grid gap-0.5 p-1">
                           {items.map((item) => (
                             <li
-                              className="flex h-6 min-w-0 items-center gap-1.5 rounded px-1.5 text-xs"
+                              className="flex h-6 min-w-0 items-center gap-1.5 rounded px-1.5 text-[12px]"
                               key={item.id}
                               style={item.tone}
                             >

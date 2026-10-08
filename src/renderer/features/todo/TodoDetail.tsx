@@ -38,7 +38,7 @@ function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => v
   }, [body]);
   // 白底文档以圆角卡片呈现：暗色模式下避免白色大块与面板生硬相接。
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="overflow-hidden rounded-card border border-line">
       <iframe
         title="作业描述"
         className="w-full border-0 bg-white"
@@ -83,14 +83,14 @@ export function TodoDetail({
   const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
   return (
     <TodoSheet fixedHeight label="待办详情" title={item.title} onClose={onClose}>
-      <div className="mt-3 shrink-0 space-y-1.5 text-sm text-muted-foreground">
+      <div className="mt-3 shrink-0 space-y-1.5 text-[13px] text-ink-3">
         <p className="flex items-start gap-1.5">
           <BookOpen className="mt-0.5 size-3.5 shrink-0" />
           <span className="break-words">
             {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
           </span>
         </p>
-        <p className={cn('flex items-center gap-1.5', overdue && 'text-destructive')}>
+        <p className={cn('flex items-center gap-1.5', overdue && 'text-red')}>
           <CalendarClock className="size-3.5 shrink-0" />
           截止：{dateLabel(item.dueAt)}
         </p>
@@ -109,7 +109,7 @@ export function TodoDetail({
       </div>
       {personal ? (
         item.notes && (
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-sm">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-[13px]">
             {item.notes}
           </div>
         )

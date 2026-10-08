@@ -25,7 +25,7 @@ import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
 const inputClass =
-  'w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  'w-full rounded-control border border-line bg-surface px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 // 行尾操作图标：始终占位避免悬停时行内容位移，悬停/键盘聚焦时浮现，触屏常显。
 const rowActionClass =
@@ -47,9 +47,9 @@ function CalendarOptionRows({
     <>
       <EventColorRow onColorChange={onColorChange} value={color} />
       <div className="flex h-11 items-center gap-2 px-3">
-        <span className="w-8 shrink-0 text-xs text-muted-foreground">日历</span>
+        <span className="w-8 shrink-0 text-[12px] text-ink-3">日历</span>
         <div className="flex flex-1 items-center justify-between gap-2">
-          <span className="text-sm">写入日历</span>
+          <span className="text-[13px]">写入日历</span>
           <Switch checked={calendar} label="写入日历" onChange={onCalendarChange} />
         </div>
       </div>
@@ -108,9 +108,9 @@ function TodoComposer({
           value={title}
           variant="ghost"
         />
-        <div className="grid divide-y overflow-hidden rounded-lg border">
+        <div className="grid divide-y overflow-hidden rounded-card border border-line">
           <div className="flex min-h-11 items-center gap-2 px-3">
-            <span className="w-8 shrink-0 text-xs text-muted-foreground">截止</span>
+            <span className="w-8 shrink-0 text-[12px] text-ink-3">截止</span>
             <div className="min-w-0 flex-1">
               {dueAt === null ? (
                 <Button
@@ -127,7 +127,7 @@ function TodoComposer({
                     <DateTimeStepper onChange={setDueAt} value={dueAt} />
                   </div>
                   <button
-                    className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex shrink-0 items-center gap-1 text-[12px] text-ink-3 transition-colors hover:text-ink"
                     onClick={() => setDueAt(null)}
                     type="button"
                   >
@@ -258,7 +258,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">TODO</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-[12px] text-ink-3">
             {state?.syncedAt
               ? `Canvas 更新于 ${dateLabel(state.syncedAt)}`
               : state?.connected
@@ -292,7 +292,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
         </div>
       </header>
       {(error || state?.error) && (
-        <p role="alert" className="mt-3 whitespace-pre-wrap text-sm text-destructive">
+        <p role="alert" className="mt-3 whitespace-pre-wrap text-[13px] text-red">
           {error || state?.error}
         </p>
       )}
@@ -309,18 +309,18 @@ export function TodoView({ request }: { request?: { id: string } }) {
           </Button>
         ))}
         {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
-        <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+        <label className="ml-auto flex items-center gap-2 text-[12px] text-ink-3">
           <Switch checked={showCompleted} label="显示已完成" onChange={setShowCompleted} />
           显示已完成（{completedCount}）
         </label>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {!state ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-[13px] text-ink-3">
             {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
           </p>
         ) : !items.length ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无符合条件的待办</p>
+          <p className="py-8 text-center text-[13px] text-ink-3">暂无符合条件的待办</p>
         ) : (
           <ul className="space-y-1">
             {items.map((item) => {
@@ -330,13 +330,13 @@ export function TodoView({ request }: { request?: { id: string } }) {
               return (
                 <li
                   key={item.id}
-                  className="group flex items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/50"
+                  className="group flex items-start gap-3 rounded-card px-3 py-2.5 transition-colors duration-150 hover:bg-hover"
                 >
                   {personal ? (
                     <button
                       type="button"
                       disabled={busy}
-                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                      className="mt-0.5 shrink-0 text-ink-3 hover:text-ink"
                       aria-label={done ? `重新打开 ${item.title}` : `完成 ${item.title}`}
                       onClick={() =>
                         void run(() =>
@@ -353,10 +353,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                   ) : (
                     <CircleCheckBig
                       aria-hidden="true"
-                      className={cn(
-                        'mt-0.5 size-5 shrink-0',
-                        done ? 'text-primary' : 'text-muted-foreground',
-                      )}
+                      className={cn('mt-0.5 size-5 shrink-0', done ? 'text-ink' : 'text-ink-3')}
                     />
                   )}
                   <button
@@ -369,18 +366,12 @@ export function TodoView({ request }: { request?: { id: string } }) {
                   >
                     <div className="flex items-center gap-2">
                       <span
-                        className={cn(
-                          'break-words text-sm font-medium',
-                          done && 'text-muted-foreground',
-                        )}
+                        className={cn('break-words text-[13px] font-medium', done && 'text-ink-3')}
                       >
                         {item.title}
                       </span>
                       {!item.readAt && (
-                        <span
-                          aria-label="未读"
-                          className="size-1.5 shrink-0 rounded-full bg-primary"
-                        />
+                        <span aria-label="未读" className="size-1.5 shrink-0 rounded-full bg-ink" />
                       )}
                       {item.source === 'personal' && item.calendar && (
                         <span
@@ -390,15 +381,10 @@ export function TodoView({ request }: { request?: { id: string } }) {
                         />
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-[12px] text-ink-3">
                       {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
                     </p>
-                    <p
-                      className={cn(
-                        'mt-1 text-xs',
-                        overdue ? 'text-destructive' : 'text-muted-foreground',
-                      )}
-                    >
+                    <p className={cn('mt-1 text-[12px]', overdue ? 'text-red' : 'text-ink-3')}>
                       {overdue ? '已过截止时间 · ' : ''}
                       {dateLabel(item.dueAt)}
                     </p>

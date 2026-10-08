@@ -28,17 +28,17 @@ export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCa
   };
 
   return (
-    <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-xl border bg-card p-6">
-      <div className="grid size-10 place-items-center rounded-lg bg-secondary">
+    <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-card border border-line bg-surface p-6">
+      <div className="grid size-10 place-items-center rounded-card bg-hover-2">
         <CalendarDays className="size-5" />
       </div>
       <div className="grid gap-1">
         <h2 className="text-lg font-semibold tracking-tight">连接教学信息服务网</h2>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
+        <p className="text-[13px] leading-relaxed text-ink-3">
           登录后读取课程、教师、教室、节次和教学周。登录在独立窗口完成。
         </p>
       </div>
-      {error ? <p className="break-words text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="break-words text-[12px] text-red">{error}</p> : null}
       <Button disabled={busy} onClick={() => void connectAndSync()}>
         <LogIn className="size-4" />
         {busy ? '等待登录…' : '登录并同步'}

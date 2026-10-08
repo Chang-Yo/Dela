@@ -68,18 +68,18 @@ export function SemesterStartDialog({
           </Button>
         </div>
         <div className="grid gap-2">
-          <div className="border-input dark:bg-input/30 flex h-9 w-full items-center rounded-md border bg-transparent px-3 text-sm shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
+          <div className="flex h-8 w-full items-center rounded-control bg-field px-2.5 text-[13px] text-ink shadow-hairline transition-[background-color,box-shadow] duration-150 focus-within:bg-surface focus-within:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]">
             <DateInput autoFocus label="开学日期" onChange={setValue} value={value} />
           </div>
           {firstWeek ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[12px] text-ink-3">
               第 1 教学周：{formatMonthDay(firstWeek)} –{' '}
               {formatMonthDay(new Date(firstWeek.getTime() + 6 * dayMilliseconds))}
             </p>
           ) : null}
         </div>
         {error ? (
-          <p className="break-words text-xs text-destructive" role="alert">
+          <p className="break-words text-[12px] text-red" role="alert">
             {error}
           </p>
         ) : null}

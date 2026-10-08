@@ -94,14 +94,14 @@ export function DateInput({
   return (
     <div
       aria-label={label}
-      className={cn('flex items-center gap-1 text-sm tabular-nums', className)}
+      className={cn('flex items-center gap-1 text-[13px] tabular-nums', className)}
       data-slot="date-input"
       role="group"
     >
       {fields.map((field, index) => (
         <Fragment key={field.key}>
           {index > 0 ? (
-            <span aria-hidden="true" className="text-muted-foreground">
+            <span aria-hidden="true" className="text-ink-3">
               /
             </span>
           ) : null}
@@ -109,7 +109,7 @@ export function DateInput({
             aria-label={field.suffix}
             autoFocus={autoFocus && index === 0}
             className={cn(
-              'bg-transparent text-center outline-none placeholder:text-muted-foreground/60',
+              'bg-transparent text-center outline-none placeholder:text-ink-3',
               field.width,
             )}
             inputMode="numeric"
