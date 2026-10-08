@@ -77,6 +77,8 @@ export function CapabilitiesSection() {
                 const toggleable = group.items.filter((item) => !item.lockedReason);
                 const enabledCount = toggleable.filter((item) => item.enabled).length;
                 const allEnabled = enabledCount === toggleable.length && toggleable.length > 0;
+                // 常驻原因整组只说明一次；锁定行不再渲染假开关。
+                const lockedReason = group.items.find((item) => item.lockedReason)?.lockedReason;
                 return (
                   <section
                     className="grid gap-2"
@@ -101,17 +103,27 @@ export function CapabilitiesSection() {
                             <SlidersHorizontal className="size-4" strokeWidth={1.8} />
                           </Button>
                         )}
-                        <Switch
-                          checked={allEnabled}
-                          disabled={busy || toggleable.length === 0}
-                          indeterminate={!allEnabled && enabledCount > 0}
-                          label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
-                          onChange={(next) =>
-                            void run(() => window.dela!.capability.setBuiltinDomain(group.id, next))
-                          }
-                        />
+                        {toggleable.length > 0 && (
+                          <Switch
+                            checked={allEnabled}
+                            disabled={busy}
+                            indeterminate={!allEnabled && enabledCount > 0}
+                            label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
+                            onChange={(next) =>
+                              void run(() =>
+                                window.dela!.capability.setBuiltinDomain(group.id, next),
+                              )
+                            }
+                          />
+                        )}
                       </div>
                     </div>
+                    {lockedReason && (
+                      <p className="flex items-center gap-1.5 text-[12px] text-ink-3">
+                        <Lock aria-hidden="true" className="size-3 shrink-0" />
+                        常驻能力 · {lockedReason}
+                      </p>
+                    )}
                     {group.items.map((capability) => (
                       <div
                         className="flex items-start justify-between gap-4 border-b py-3 last:border-0"
@@ -119,27 +131,35 @@ export function CapabilitiesSection() {
                         key={capability.name}
                       >
                         <div className="grid min-w-0 gap-0.5">
-                          <span className="truncate font-mono text-[13px]">{capability.name}</span>
+                          <div className="flex min-w-0 items-baseline gap-2">
+                            <span className="truncate text-[13px] font-medium">
+                              {capability.label}
+                            </span>
+                            <span className="truncate font-mono text-[11.5px] text-ink-3">
+                              {capability.name}
+                            </span>
+                          </div>
                           <span className="line-clamp-2 text-[12px] leading-relaxed text-ink-3">
                             {capability.description}
                           </span>
-                          {capability.lockedReason ? (
-                            <span className="flex items-center gap-1 text-[12px] text-ink-3">
-                              <Lock aria-hidden="true" className="size-3 shrink-0" />
-                              常驻能力 · {capability.lockedReason}
-                            </span>
-                          ) : null}
                         </div>
-                        <Switch
-                          checked={capability.enabled}
-                          disabled={busy || Boolean(capability.lockedReason)}
-                          label={capability.name}
-                          onChange={(next) =>
-                            void run(() =>
-                              window.dela!.capability.setBuiltinCapability(capability.name, next),
-                            )
-                          }
-                        />
+                        {capability.lockedReason ? (
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-inset px-2 py-1 text-[11.5px] text-ink-3">
+                            <Lock aria-hidden="true" className="size-3" />
+                            常驻
+                          </span>
+                        ) : (
+                          <Switch
+                            checked={capability.enabled}
+                            disabled={busy}
+                            label={capability.label}
+                            onChange={(next) =>
+                              void run(() =>
+                                window.dela!.capability.setBuiltinCapability(capability.name, next),
+                              )
+                            }
+                          />
+                        )}
                       </div>
                     ))}
                   </section>

@@ -2,6 +2,8 @@
 export interface LlmModelSettings {
   contextWindow?: number;
   maxOutputTokens?: number;
+  /** 模型可读图片（视觉输入）；文本输入固定开启，不另设字段。 */
+  vision?: boolean;
   effortLevels?: string[];
   effort?: string;
 }

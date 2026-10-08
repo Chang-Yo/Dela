@@ -1,6 +1,6 @@
 // Skills：发现、加载与渐进注入由 Pi 完成（agentskills.io 规范）。这里只负责
 // 把 Dela 内置的领域 skill 写进 ~/.dela/skills、给设置页列出可见 skill、维护禁用名单。
-import { app } from 'electron';
+import { app, shell } from 'electron';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
@@ -209,4 +209,19 @@ export function setSkillEnabled(name: string, enabled: boolean): SkillView[] {
     .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('skills-disabled', ?)")
     .run(JSON.stringify([...disabled]));
   return listSkills();
+}
+
+/** 按名单独解析再读文件：渲染端不传路径，避免任意路径读取。 */
+function findSkill(name: string): SkillView {
+  const skill = listSkills().find((item) => item.name === name);
+  if (!skill) throw new Error(`Skill 不存在：${name}`);
+  return skill;
+}
+
+export function readSkill(name: string): string {
+  return readFileSync(findSkill(name).path, 'utf8');
+}
+
+export function revealSkill(name: string): void {
+  shell.showItemInFolder(findSkill(name).path);
 }

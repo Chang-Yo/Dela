@@ -44,6 +44,8 @@ export interface McpServerView {
 export interface AgentCapabilityView {
   /** 工具名，模型侧唯一标识。 */
   name: string;
+  /** 面向人的显示名（设置页标题；工具名降级为次要标识）。 */
+  label: string;
   /** 所属领域 id（canvas / mail / …），设置页按域分组与批量开关。 */
   domain: string;
   /** 领域显示名。 */
@@ -70,6 +72,10 @@ export interface CapabilityApi {
   listSkills(): Promise<SkillView[]>;
   /** 启停 Skill；返回最新列表（未知名抛错）。 */
   setSkillEnabled(name: string, enabled: boolean): Promise<SkillView[]>;
+  /** 读取 SKILL.md 全文（按名单独解析，渲染端不传路径）。 */
+  readSkill(name: string): Promise<string>;
+  /** 在系统文件管理器中显示 SKILL.md 所在位置。 */
+  revealSkill(name: string): Promise<void>;
   listMcpServers(): Promise<McpServerView[]>;
   addMcpServer(config: {
     name: string;

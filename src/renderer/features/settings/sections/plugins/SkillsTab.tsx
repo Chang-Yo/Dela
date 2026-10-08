@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, Sparkles } from 'lucide-react';
+import { Dialog } from 'radix-ui';
+import { FileText, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
 import type { SkillScope, SkillView } from '../../../../../shared/api';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { errorText } from '../../../../workspace/store';
 import { cn } from '../../../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
 import { SectionHeader } from '../../SectionHeader';
 
 const SCOPE_LABELS: Record<SkillScope, string> = { global: '全局', project: '项目' };
@@ -17,6 +19,8 @@ export function SkillsTab() {
   const [error, setError] = useState<string | null>(null);
   // 范围过滤（参照 ZCode 的 Skills 面板）：全部 / 全局 / 项目。
   const [scope, setScope] = useState<'all' | SkillScope>('all');
+  // 非 null 时弹出 SKILL.md 内容查看。
+  const [viewing, setViewing] = useState<SkillView | null>(null);
 
   const refresh = () => {
     void window.dela?.capability
@@ -48,6 +52,13 @@ export function SkillsTab() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // 在文件管理器中显示 SKILL.md；失败（如目录已被删除）走同一错误条。
+  const reveal = (skill: SkillView) => {
+    void window.dela?.capability
+      .revealSkill(skill.name)
+      .catch((cause) => setError(errorText(cause)));
   };
 
   if (!window.dela) {
@@ -125,25 +136,51 @@ export function SkillsTab() {
                   key={skill.name}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
-                      <Sparkles className="size-4 text-ink-3" strokeWidth={1.8} />
+                    <span
+                      aria-hidden="true"
+                      className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2 text-[13px] font-medium uppercase text-ink-2"
+                    >
+                      {skill.name.charAt(0)}
                     </span>
                     <div className="grid min-w-0 gap-0.5">
                       <strong className="truncate text-[13px]">{skill.name}</strong>
                       <span className="truncate text-[12px] text-ink-3" title={skill.description}>
                         {skill.description || '（无描述）'}
                       </span>
-                      <span className="truncate text-[12px] text-ink-3" title={skill.path}>
+                      <span
+                        className="truncate font-mono text-[11.5px] text-ink-3"
+                        title={skill.path}
+                      >
                         {skill.path}
                       </span>
                     </div>
                   </div>
-                  <Switch
-                    checked={skill.enabled}
-                    disabled={busy}
-                    label={`启用 ${skill.name}`}
-                    onChange={(next) => void toggle(skill, next)}
-                  />
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      aria-label={`查看 ${skill.name}`}
+                      onClick={() => setViewing(skill)}
+                      size="icon-sm"
+                      title="查看 SKILL.md"
+                      variant="ghost"
+                    >
+                      <FileText />
+                    </Button>
+                    <Button
+                      aria-label={`打开 ${skill.name} 所在位置`}
+                      onClick={() => reveal(skill)}
+                      size="icon-sm"
+                      title="打开所在位置"
+                      variant="ghost"
+                    >
+                      <FolderOpen />
+                    </Button>
+                    <Switch
+                      checked={skill.enabled}
+                      disabled={busy}
+                      label={`启用 ${skill.name}`}
+                      onChange={(next) => void toggle(skill, next)}
+                    />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -155,6 +192,88 @@ export function SkillsTab() {
           {error}
         </p>
       )}
+      {viewing && (
+        <SkillContentView
+          onClose={() => setViewing(null)}
+          onReveal={() => reveal(viewing)}
+          skill={viewing}
+        />
+      )}
     </div>
+  );
+}
+
+/** SKILL.md 内容查看：主进程按名单独解析路径，渲染端只传名字。 */
+function SkillContentView({
+  onClose,
+  onReveal,
+  skill,
+}: {
+  onClose: () => void;
+  onReveal: () => void;
+  skill: SkillView;
+}) {
+  // null 表示正在读取；读取失败时展示错误并保留关闭入口。
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void window.dela?.capability
+      .readSkill(skill.name)
+      .then(setContent)
+      .catch((cause) => setError(errorText(cause)));
+  }, [skill.name]);
+
+  return (
+    <Dialog.Root
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      open
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content
+          className={cn(
+            dialogPanel,
+            'grid max-h-[85vh] max-w-2xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-y-auto',
+          )}
+        >
+          <Dialog.Title className="text-base font-semibold">{skill.name}</Dialog.Title>
+          <Dialog.Description
+            className="mt-1 truncate font-mono text-[11.5px] text-ink-3"
+            title={skill.path}
+          >
+            {skill.path}
+          </Dialog.Description>
+          <div className="mt-3 min-h-32 overflow-y-auto rounded-card bg-inset p-3">
+            {content === null && !error ? (
+              <p className="flex items-center gap-2 text-[12px] text-ink-3" role="status">
+                <LoaderCircle className="size-4 animate-spin" />
+                正在读取…
+              </p>
+            ) : (
+              <pre className="font-mono text-[12px] leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-ink-2">
+                {content}
+              </pre>
+            )}
+            {error && (
+              <p className="text-[12px] text-red" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <Button onClick={onReveal} size="sm" variant="ghost">
+              <FolderOpen />
+              打开所在位置
+            </Button>
+            <Button onClick={onClose} size="sm" variant="secondary">
+              关闭
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

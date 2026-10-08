@@ -32,6 +32,7 @@ const modelSettingsSchema = z
   .object({
     contextWindow: z.number().int().positive().optional(),
     maxOutputTokens: z.number().int().positive().optional(),
+    vision: z.boolean().optional(),
     effortLevels: effortLevelsSchema,
     effort: z.enum(reasoningEffortLevels).optional(),
   })

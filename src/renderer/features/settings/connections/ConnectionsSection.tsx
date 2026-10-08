@@ -256,14 +256,22 @@ export function ConnectionsSection({
               </div>
               <div className="flex min-w-0 items-center gap-2">
                 {extra}
+                {/* 状态用颜色说话：绿点=已连接，灰点=未连接；文字只补充细节。 */}
                 <span
                   className={cn(
-                    'min-w-[72px] max-w-40 truncate text-[12px] max-md:min-w-0',
+                    'flex min-w-[72px] max-w-40 items-center gap-1.5 text-[12px] max-md:min-w-0',
                     connected ? 'text-ink' : 'text-ink-3',
                   )}
                   title={state}
                 >
-                  {state}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'size-1.5 shrink-0 rounded-full',
+                      connected ? 'bg-green' : 'bg-ink-3',
+                    )}
+                  />
+                  <span className="truncate">{state}</span>
                 </span>
                 <Button className="shrink-0" onClick={onClick} size="sm" variant="secondary">
                   {actionLabel}

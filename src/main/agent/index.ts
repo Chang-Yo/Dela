@@ -35,7 +35,7 @@ import {
   stageChatMedia,
   gcChatMedia,
 } from './media';
-import { listSkills, setSkillEnabled } from './skills';
+import { listSkills, readSkill, revealSkill, setSkillEnabled } from './skills';
 import {
   addMcpServer,
   listMcpServers,
@@ -170,6 +170,8 @@ export function registerAgentIpc() {
   handle('capabilities:set-skill-enabled', (skill, enabled) =>
     invalidating(() => setSkillEnabled(name.parse(skill), z.boolean().parse(enabled))),
   );
+  handle('capabilities:read-skill', (skill) => readSkill(name.parse(skill)));
+  handle('capabilities:reveal-skill', (skill) => revealSkill(name.parse(skill)));
   handle('capabilities:list-mcp-servers', () => listMcpServers());
   handle('capabilities:add-mcp-server', (config) =>
     invalidating(() => addMcpServer(mcpServerInputSchema.parse(config))),

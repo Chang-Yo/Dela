@@ -5,6 +5,8 @@ import { invoke } from './lib';
 export const capabilityApi: CapabilityApi = {
   listSkills: () => invoke('capabilities:list-skills'),
   setSkillEnabled: (name, enabled) => invoke('capabilities:set-skill-enabled', name, enabled),
+  readSkill: (name) => invoke('capabilities:read-skill', name),
+  revealSkill: (name) => invoke('capabilities:reveal-skill', name),
   listMcpServers: () => invoke('capabilities:list-mcp-servers'),
   addMcpServer: (config) => invoke('capabilities:add-mcp-server', config),
   updateMcpServer: (id, patch) => invoke('capabilities:update-mcp-server', id, patch),

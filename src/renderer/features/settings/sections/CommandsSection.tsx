@@ -11,7 +11,7 @@ import { cn } from '../../../lib/utils';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
-/** 设置 › 自定义指令：用户附加 Instruction（每次对话生效）+ 可复用的 / 指令模板。 */
+/** 设置 › 自定义指令：用户附加的全局指令（每次对话生效）+ 可复用的 / 指令模板。 */
 export function CommandsSection() {
   const [commands, setCommands] = useState<ChatCommandView[] | null>(null);
   const [dialog, setDialog] = useState<EditState>(null);
@@ -86,14 +86,14 @@ export function CommandsSection() {
         <>
           <section className="grid gap-2" data-setting-id="instruction">
             <div className="grid gap-1">
-              <h2 className="text-base font-semibold">Instruction</h2>
+              <h2 className="text-base font-semibold">全局指令</h2>
               {/* 说明注入时机：随每轮对话发送，留空不注入。 */}
               <p className="text-[13px] leading-relaxed text-ink-3">
                 随每次对话发送给模型，留空则不发送。
               </p>
             </div>
             <textarea
-              aria-label="Instruction"
+              aria-label="全局指令"
               className="min-h-24 rounded-control bg-field px-2.5 py-1.5 text-[13px] leading-relaxed text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]"
               disabled={instruction === null || instructionBusy}
               maxLength={2000}
@@ -115,7 +115,6 @@ export function CommandsSection() {
                 disabled={instruction === null || instructionBusy || draft === instruction}
                 onClick={() => void saveInstruction()}
                 size="sm"
-                variant="secondary"
               >
                 {instructionBusy ? '保存中…' : '保存'}
               </Button>

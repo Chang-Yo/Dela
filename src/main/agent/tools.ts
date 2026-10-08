@@ -9,25 +9,69 @@ const KEY = 'tools-disabled';
 const DEFAULT_DISABLED = ['web_search', 'web_fetch'];
 
 const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
-  { name: 'read', description: '读取文件与图片', domain: 'core', domainLabel: '基础' },
-  { name: 'write', description: '创建或覆盖文件', domain: 'core', domainLabel: '基础' },
-  { name: 'edit', description: '精确替换文件中的文本', domain: 'core', domainLabel: '基础' },
+  {
+    name: 'read',
+    label: '读取文件',
+    description: '读取文件与图片',
+    domain: 'core',
+    domainLabel: '基础',
+  },
+  {
+    name: 'write',
+    label: '写入文件',
+    description: '创建或覆盖文件',
+    domain: 'core',
+    domainLabel: '基础',
+  },
+  {
+    name: 'edit',
+    label: '编辑文件',
+    description: '精确替换文件中的文本',
+    domain: 'core',
+    domainLabel: '基础',
+  },
   {
     name: 'bash',
+    label: '执行命令',
     description: '在 Git Bash 中执行命令（含 dela 校园命令）',
     domain: 'core',
     domainLabel: '基础',
   },
-  { name: 'grep', description: '按内容搜索文件（ripgrep）', domain: 'search', domainLabel: '搜索' },
-  { name: 'find', description: '按文件名模式查找文件', domain: 'search', domainLabel: '搜索' },
-  { name: 'ls', description: '列出目录内容', domain: 'search', domainLabel: '搜索' },
+  {
+    name: 'grep',
+    label: '搜索内容',
+    description: '按内容搜索文件（ripgrep）',
+    domain: 'search',
+    domainLabel: '搜索',
+  },
+  {
+    name: 'find',
+    label: '查找文件',
+    description: '按文件名模式查找文件',
+    domain: 'search',
+    domainLabel: '搜索',
+  },
+  {
+    name: 'ls',
+    label: '列出目录',
+    description: '列出目录内容',
+    domain: 'search',
+    domainLabel: '搜索',
+  },
   {
     name: 'web_search',
+    label: '联网搜索',
     description: '联网搜索（需注册搜索服务）',
     domain: 'web',
     domainLabel: '网络',
   },
-  { name: 'web_fetch', description: '读取网页与 PDF 直链', domain: 'web', domainLabel: '网络' },
+  {
+    name: 'web_fetch',
+    label: '读取网页',
+    description: '读取网页与 PDF 直链',
+    domain: 'web',
+    domainLabel: '网络',
+  },
 ].map((tool) =>
   ['read', 'write', 'edit', 'bash'].includes(tool.name)
     ? { ...tool, lockedReason: 'Agent 最小工具集，不可关闭' }

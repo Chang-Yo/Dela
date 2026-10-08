@@ -194,7 +194,12 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
   } as unknown as DelaApi;
   await act(async () => root.render(<LlmSection />));
   await act(async () => button('保存').click());
-  await act(async () => button('Provider B').click());
+  // 列表行按钮含首字母块，按包含匹配提供商名。
+  await act(async () =>
+    [...container.querySelectorAll('button')]
+      .find((item) => item.textContent?.includes('Provider B'))!
+      .click(),
+  );
   const nameInput = container.querySelector<HTMLInputElement>('input')!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
@@ -205,7 +210,9 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
   });
   expect(nameInput.value).toBe('B draft');
   await act(async () => finishSave(a));
-  expect(container.querySelector('button[aria-current="true"]')?.textContent).toBe('Provider B');
+  expect(container.querySelector('button[aria-current="true"]')?.textContent).toContain(
+    'Provider B',
+  );
   expect(container.querySelector<HTMLInputElement>('input')?.value).toBe('B draft');
 });
 

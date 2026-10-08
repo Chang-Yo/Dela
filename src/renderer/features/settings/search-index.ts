@@ -158,7 +158,7 @@ export const settingsSearchItems: SettingsSearchItem[] = [
   {
     id: 'instruction',
     section: 'commands',
-    title: 'Instruction',
+    title: '全局指令',
     keywords: ['插件', '指令', '附加指令', '全局指令', '长期偏好', '人格', '风格', 'instruction'],
   },
   {
@@ -209,7 +209,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   connections: 'Canvas、邮箱、教务与水源连接',
   providers: 'AI 模型与 API 提供商',
   capabilities: '内置 Agent 能力开关',
-  commands: '全局 Instruction 与快捷指令模板',
+  commands: '全局指令与快捷指令模板',
   skills: '工作目录中的技能',
   mcp: 'MCP 服务器与工具',
   about: '版本信息',

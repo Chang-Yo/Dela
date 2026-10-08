@@ -1,16 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import {
-  Check,
-  LoaderCircle,
-  Pencil,
-  PlugZap,
-  Plus,
-  Search,
-  Server,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Check, LoaderCircle, Lock, Pencil, PlugZap, Plus, Search, Trash2, X } from 'lucide-react';
 import { StatusPill } from '@/components/ui/beautifului/atoms/StatusPill';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -40,6 +30,21 @@ import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 /** 详情区目标：新建草稿，或某个已保存提供商的 id。 */
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
+/** 提供商首字母块（学 ZCode 的品牌位）：没有品牌图标时的身份标识。 */
+function ProviderMonogram({ name, size }: { name: string; size: 'sm' | 'md' }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'grid shrink-0 place-items-center rounded-card bg-hover-2 font-medium text-ink-2',
+        size === 'sm' ? 'size-6 text-[11px]' : 'size-8 text-[13px]',
+      )}
+    >
+      {(name.trim()[0] ?? '新').toUpperCase()}
+    </span>
+  );
+}
+
 /** 默认详情：当前使用中的提供商，其次列表第一个；列表为空时返回 null。 */
 function defaultDetail(providers: LlmProviderView[]): Detail | null {
   const provider = providers.find(({ active }) => active) ?? providers[0];
@@ -64,6 +69,7 @@ function ModelSettingsDialog({
   );
   const [effortLevels, setEffortLevels] = useState(settings.effortLevels ?? []);
   const [effort, setEffort] = useState(settings.effort ?? settings.effortLevels?.[0] ?? '');
+  const [vision, setVision] = useState(settings.vision ?? false);
   const [error, setError] = useState<string | null>(null);
   const levels = reasoningEffortLevels.filter((level) => effortLevels.includes(level));
   const save = () => {
@@ -86,6 +92,7 @@ function ModelSettingsDialog({
     onSave({
       ...(context ? { contextWindow: context } : {}),
       ...(output ? { maxOutputTokens: output } : {}),
+      ...(vision ? { vision: true } : {}),
       effortLevels: levels,
       ...(levels.length
         ? { effort: levels.includes(effort as (typeof levels)[number]) ? effort : levels[0] }
@@ -148,6 +155,33 @@ function ModelSettingsDialog({
                 onChange={(event) => setMaxOutputTokens(event.target.value)}
               />
             </label>
+            <fieldset className="grid gap-2">
+              <legend className="mb-2 text-[13px]">输入类型</legend>
+              <div className="flex flex-wrap gap-1.5">
+                {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
+                <span
+                  className="flex items-center gap-1 rounded-control border border-transparent bg-hover px-2 py-1 text-[12px] text-accent-foreground"
+                  title="文本输入固定开启"
+                >
+                  文本
+                  <Lock aria-hidden="true" className="size-3" />
+                </span>
+                <button
+                  type="button"
+                  aria-pressed={vision}
+                  className={cn(
+                    'rounded-control border border-line px-2 py-1 text-[12px] transition-colors',
+                    vision
+                      ? 'border-transparent bg-hover text-accent-foreground'
+                      : 'text-ink-3 hover:bg-hover',
+                  )}
+                  onClick={() => setVision((current) => !current)}
+                >
+                  视觉
+                </button>
+              </div>
+              <p className="text-[12px] text-ink-3">勾选视觉表示模型可读图片；文本固定开启。</p>
+            </fieldset>
             <fieldset className="grid gap-2">
               <legend className="mb-2 text-[13px]">思考强度档位</legend>
               <div className="flex flex-wrap gap-1.5">
@@ -301,7 +335,7 @@ export function LlmSection() {
     <div className="grid gap-10" data-setting-id="providers">
       <SectionHeader
         action={
-          <Button onClick={() => setDetail({ mode: 'create' })} size="sm" variant="secondary">
+          <Button onClick={() => setDetail({ mode: 'create' })} size="sm">
             <Plus />
             添加提供商
           </Button>
@@ -331,16 +365,16 @@ export function LlmSection() {
                           onClick={() => setDetail({ mode: 'edit', id: provider.id })}
                           type="button"
                         >
-                          <Server
-                            className={cn('size-4 shrink-0', active ? '' : 'text-ink-3')}
-                            strokeWidth={1.8}
-                          />
+                          <ProviderMonogram name={provider.name} size="sm" />
                           <span className="truncate">{provider.name}</span>
-                          {provider.active && (
-                            <StatusPill className="ms-auto h-5 px-2 text-[11.5px]" tone="green">
-                              使用中
-                            </StatusPill>
-                          )}
+                          {/* 状态点：绿=使用中，灰=已配置未使用（与连接页同一语义）。 */}
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'ms-auto size-1.5 shrink-0 rounded-full',
+                              provider.active ? 'bg-green' : 'bg-line-strong',
+                            )}
+                          />
                         </button>
                       </li>
                     );
@@ -598,9 +632,7 @@ function ProviderDetail({
     <div className="grid content-start gap-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
-            <Server className="size-4 text-ink-3" strokeWidth={1.8} />
-          </span>
+          <ProviderMonogram name={provider?.name ?? name} size="md" />
           <strong className="truncate text-base font-semibold">
             {provider?.name ?? '新建提供商'}
           </strong>
@@ -744,18 +776,52 @@ function ProviderDetail({
                 {models.length} / {LLM_MODEL_LIMIT}
               </span>
             </span>
-            <Button
-              onClick={() => {
-                setAddingModel(true);
-                if (!verifyResult && !verifying) void verify();
-              }}
-              size="sm"
-              variant="secondary"
-            >
-              <Plus />
-              添加模型
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={verifying || !baseUrl}
+                onClick={() => void verify()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                {verifying ? <LoaderCircle className="animate-spin" /> : null}
+                {verifying ? '检测中…' : '检测模型'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setAddingModel(true);
+                  if (!verifyResult && !verifying) void verify();
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                <Plus />
+                添加模型
+              </Button>
+            </div>
           </div>
+          {/* 检测结果就地呈现：成功为绿色小字，附一键导入。 */}
+          {verifyResult && (
+            <p
+              className={cn(
+                'flex flex-wrap items-center gap-1.5 text-[12px] [overflow-wrap:anywhere]',
+                verifyResult.ok ? 'text-success' : 'text-red',
+              )}
+              role="status"
+            >
+              {verifyResult.ok && <Check className="size-3.5 shrink-0" />}
+              {verifyResult.message}
+              {verifyResult.ok && verifyResult.models?.length ? (
+                <button
+                  className="underline underline-offset-2"
+                  onClick={() => importModels(verifyResult.models!)}
+                  type="button"
+                >
+                  一键导入
+                </button>
+              ) : null}
+            </p>
+          )}
           <ul className="divide-y">
             {models.map((id) => {
               const settings = modelConfigs[id];
@@ -766,6 +832,11 @@ function ProviderDetail({
                     <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={id}>
                       {id}
                     </span>
+                    {settings?.vision && (
+                      <StatusPill className="h-5 px-2 text-[11.5px]" dot={false}>
+                        视觉
+                      </StatusPill>
+                    )}
                     {settings?.contextWindow && (
                       <StatusPill className="h-5 px-2 text-[11.5px]" dot={false}>
                         {Intl.NumberFormat('en', { notation: 'compact' }).format(
@@ -838,6 +909,9 @@ function ProviderDetail({
               {importNotice}
             </p>
           )}
+          <p className="text-[12px] leading-relaxed text-ink-3">
+            列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
+          </p>
         </div>
         <div className="grid gap-2 text-[13px]">
           默认模型
@@ -854,45 +928,6 @@ function ProviderDetail({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px]">可选模型</span>
-            <Button
-              disabled={verifying || !baseUrl}
-              onClick={() => void verify()}
-              size="sm"
-              type="button"
-              variant="secondary"
-            >
-              {verifying ? <LoaderCircle className="animate-spin" /> : null}
-              {verifying ? '检测中…' : '检测模型'}
-            </Button>
-          </div>
-          {verifyResult && (
-            <p
-              className={cn(
-                'flex flex-wrap items-center gap-1.5 text-[12px] [overflow-wrap:anywhere]',
-                verifyResult.ok ? 'text-success' : 'text-red',
-              )}
-              role="status"
-            >
-              {verifyResult.ok && <Check className="size-3.5 shrink-0" />}
-              {verifyResult.message}
-              {verifyResult.ok && verifyResult.models?.length ? (
-                <button
-                  className="underline underline-offset-2"
-                  onClick={() => importModels(verifyResult.models!)}
-                  type="button"
-                >
-                  一键导入
-                </button>
-              ) : null}
-            </p>
-          )}
-          <p className="text-[12px] leading-relaxed text-ink-3">
-            列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
-          </p>
-        </div>
         {error && (
           <p className="text-[12px] text-red" role="alert">
             {error}
@@ -902,7 +937,7 @@ function ProviderDetail({
           <Button disabled={saving} onClick={cancel} variant="ghost">
             取消
           </Button>
-          <Button disabled={saving || !models.length} type="submit" variant="secondary">
+          <Button disabled={saving || !models.length} type="submit">
             {saving ? '处理中…' : '保存'}
           </Button>
         </div>
