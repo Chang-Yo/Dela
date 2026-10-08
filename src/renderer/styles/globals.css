@@ -105,6 +105,39 @@
   --syntax-caret: #58a6ff;
 }
 
+/* 对话框入场（components/ui/motion.ts）：只动独立的 scale 属性，不与居中用的
+   translate 冲突；观感对齐 beautiful-ui 的 pop-in。 */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* 抽屉与底部面板入场：只动 translate 属性，沿用 ease-out-strong。 */
+@keyframes drawer-left {
+  from {
+    opacity: 0;
+    translate: -24px 0;
+  }
+}
+@keyframes drawer-right {
+  from {
+    opacity: 0;
+    translate: 24px 0;
+  }
+}
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    translate: 0 24px;
+  }
+}
+
 /* 品牌图随明暗主题切换：浅色用白底、深色用黑底。 */
 .dela-brand-dark {
   display: none;

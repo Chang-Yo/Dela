@@ -19,6 +19,7 @@ import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../../../s
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../lib/utils';
+import { fadeIn } from '../../components/ui/motion';
 
 const FOLDER_ICONS: Record<string, LucideIcon> = {
   '\\Inbox': Inbox,
@@ -129,7 +130,9 @@ function SidebarRow({
         />
         <RowLabel collapsed={collapsed}>{label}</RowLabel>
         {!collapsed && hasCount && (
-          <span className="ml-2.5 shrink-0 animate-in fade-in duration-150 text-xs tabular-nums text-muted-foreground">
+          <span
+            className={cn(fadeIn, 'ml-2.5 shrink-0 text-xs tabular-nums text-muted-foreground')}
+          >
             {count}
           </span>
         )}

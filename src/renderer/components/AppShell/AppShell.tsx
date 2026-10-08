@@ -45,6 +45,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../ui/motion';
 
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
 type TitleMenuId = 'file' | 'view' | 'help';
@@ -642,8 +643,10 @@ export function AppShell({
       </header>
       <Dialog.Root onOpenChange={setHelpOpen} open={helpOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-popover p-8 shadow-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-150 max-md:w-[calc(100%-2rem)] max-md:p-6">
+          <Dialog.Overlay className={dialogOverlay} />
+          <Dialog.Content
+            className={cn(dialogPanel, 'max-h-[85vh] max-w-2xl overflow-y-auto p-8 max-md:p-6')}
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
@@ -691,7 +694,7 @@ export function AppShell({
       {narrow && drawer !== null && (
         <div
           aria-hidden="true"
-          className="animate-in fade-in duration-150 absolute inset-x-0 bottom-0 top-10 z-30 bg-black/30"
+          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-30 bg-black/30')}
           onMouseDown={() => onMobileDrawerChange?.(null)}
         />
       )}
@@ -702,7 +705,8 @@ export function AppShell({
           'flex min-h-0 flex-col overflow-hidden bg-sidebar pb-3 text-sidebar-foreground',
           narrow
             ? cn(
-                'animate-in fade-in slide-in-from-left-6 duration-150 absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] px-2 shadow-xl',
+                drawerFromLeft,
+                'absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] px-2 shadow-overlay',
                 drawer === null && 'hidden',
               )
             : cn(
@@ -830,7 +834,7 @@ export function AppShell({
         <div
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
-            narrow && drawer === 'mail' ? 'flex animate-in fade-in duration-150' : 'hidden',
+            narrow && drawer === 'mail' ? cn('flex', fadeIn) : 'hidden',
           )}
         >
           <div className="flex h-11 shrink-0 items-center px-1">

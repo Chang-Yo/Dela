@@ -40,6 +40,7 @@ import { useWorkspaceStore } from '../workspace/store';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { useNavigationStore, useProjectNavPrefs } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
+import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 
 export type { NavSessionSummary, SessionRunBadge };
 
@@ -519,8 +520,8 @@ export function ProjectSessionNav({
         }}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-150 max-md:w-[calc(100%-2rem)]">
+          <Dialog.Overlay className={dialogOverlay} />
+          <Dialog.Content className={cn(dialogPanel, 'max-w-sm')}>
             <Dialog.Title className="text-sm font-medium">新建项目分组</Dialog.Title>
             <Dialog.Description className="mt-2 text-xs text-muted-foreground">
               将当前项目放入此分组。

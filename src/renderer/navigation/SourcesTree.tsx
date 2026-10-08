@@ -12,6 +12,8 @@ import {
 } from '../components/ui/dropdown-menu';
 import { Explorer, type ExplorerItem } from '../components/ui/explorer';
 import { useWorkspaceStore } from '../workspace/store';
+import { dialogOverlay, dialogPanel } from '../components/ui/motion';
+import { cn } from '../lib/utils';
 
 // 学期按名称降序取第一个非"未标注学期"，作为默认展开/刷新的"最新学期"。
 export function latestTermOf(courses: { term: string }[]): string | undefined {
@@ -242,8 +244,8 @@ export function SourcesTree({
       {confirmCourse && (
         <AlertDialog.Root open onOpenChange={(open) => !open && setConfirmCourseId(null)}>
           <AlertDialog.Portal>
-            <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-            <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+            <AlertDialog.Overlay className={dialogOverlay} />
+            <AlertDialog.Content className={cn(dialogPanel, 'max-w-sm')}>
               <AlertDialog.Title className="text-base font-semibold">
                 {confirmCourse.archived
                   ? `取消归档「${confirmCourse.name}」？`

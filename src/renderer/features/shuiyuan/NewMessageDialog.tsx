@@ -6,6 +6,8 @@ import { Input } from '../../components/ui/input';
 import { MarkdownEditor } from '../../content/note/MarkdownEditor';
 import { errorText } from '../../workspace/store';
 import { useShuiyuan } from './store';
+import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 /** 发起新私信：收件人用户名（逗号分隔）+ 标题 + Markdown 正文。 */
 export function NewMessageDialog({
@@ -52,8 +54,8 @@ export function NewMessageDialog({
   return (
     <Dialog.Root onOpenChange={onOpenChange} open={open}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-lg overflow-y-auto')}>
           <div className="flex items-center justify-between">
             <Dialog.Title className="text-base font-semibold">新私信</Dialog.Title>
             <Dialog.Close asChild>

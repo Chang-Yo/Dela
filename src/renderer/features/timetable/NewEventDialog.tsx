@@ -6,6 +6,8 @@ import { Input } from '../../components/ui/input';
 import { DateTimeStepper } from '../todo/DateTimeStepper';
 import { EventColorRow } from './EventColorRow';
 import { roundToMinute } from './timetable-format';
+import { sheetUp } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 const HOUR_MS = 3_600_000;
 
@@ -73,7 +75,10 @@ export function NewEventDialog({
       <div aria-hidden="true" className="absolute inset-0 bg-black/30" onMouseDown={onClose} />
       <section
         aria-label="新建事件"
-        className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl animate-in flex-col overflow-y-auto rounded-t-2xl border bg-card p-5 shadow-2xl fade-in slide-in-from-bottom-6 duration-200 max-md:px-4"
+        className={cn(
+          sheetUp,
+          'absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl flex-col overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-overlay max-md:px-4',
+        )}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold tracking-tight">新建事件</h2>

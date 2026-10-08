@@ -6,6 +6,8 @@ import { Textarea } from '../../../../components/ui/textarea';
 import type { McpServerView } from '../../../../../shared/api';
 import { errorText } from '../../../../workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
+import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
+import { cn } from '../../../../lib/utils';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
@@ -58,8 +60,8 @@ export function McpFormDialog({
   return (
     <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
           <Dialog.Title className="text-base font-semibold">
             {isEdit ? `编辑 ${editing.server.name}` : '添加 MCP 服务器'}
           </Dialog.Title>

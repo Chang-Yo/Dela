@@ -18,6 +18,8 @@ import type { WorkspaceEntry } from '../../shared/api';
 import { useNoteDrafts } from './drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
+import { dialogOverlay, dialogPanel } from '../components/ui/motion';
+import { cn } from '../lib/utils';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
@@ -166,8 +168,8 @@ export function EntryDialogs({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
           <Dialog.Title className="text-base font-semibold">
             {request ? (titles[request.action] ?? '') : ''}
           </Dialog.Title>

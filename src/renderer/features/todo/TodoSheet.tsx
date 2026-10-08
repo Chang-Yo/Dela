@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
+import { sheetUp } from '../../components/ui/motion';
 
 /** 新建/编辑与详情共用的底部滑出面板壳：遮罩、卡片容器、标题行与关闭按钮。 */
 export function TodoSheet({
@@ -38,7 +39,8 @@ export function TodoSheet({
         aria-label={label}
         aria-modal="true"
         className={cn(
-          'absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-xl animate-in flex-col rounded-t-2xl border bg-card p-5 shadow-2xl fade-in slide-in-from-bottom-6 duration-200 max-md:px-4',
+          sheetUp,
+          'absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-xl flex-col rounded-t-2xl bg-surface p-5 shadow-overlay max-md:px-4',
           fixedHeight ? 'h-[85%] overflow-hidden' : 'max-h-[calc(100%-2rem)] overflow-y-auto',
         )}
         ref={panelRef}

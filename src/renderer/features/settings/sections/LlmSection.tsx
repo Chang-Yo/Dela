@@ -35,6 +35,7 @@ import {
 } from '../../../../shared/llm-presets';
 import { SectionHeader } from '../SectionHeader';
 import { errorText } from '../../../workspace/store';
+import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 
 /** 详情区目标：新建草稿，或某个已保存提供商的 id。 */
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
@@ -99,8 +100,8 @@ function ModelSettingsDialog({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-lg overflow-y-auto')}>
           <div className="flex items-center justify-between gap-2">
             <Dialog.Title className="text-base font-semibold">编辑模型设置</Dialog.Title>
             <Dialog.Close asChild>
@@ -910,8 +911,8 @@ function ProviderDetail({
           }}
         >
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
-            <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+            <Dialog.Overlay className={dialogOverlay} />
+            <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
               <div className="flex items-center justify-between gap-2">
                 <Dialog.Title className="text-base font-semibold">添加模型</Dialog.Title>
                 <Dialog.Close asChild>

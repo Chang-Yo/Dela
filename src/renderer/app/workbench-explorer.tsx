@@ -45,6 +45,7 @@ import {
 import { useWorkspaceStore } from '../workspace/store';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
 import { cn } from '../lib/utils';
+import { overlayFade } from '../components/ui/motion';
 
 const SIDEBAR_DEFAULT_WIDTH = 300;
 const SIDEBAR_MIN_WIDTH = 240;
@@ -206,7 +207,7 @@ export function WorkbenchExplorer({
       {narrow && mobileOpen && (
         <div
           aria-hidden="true"
-          className="absolute inset-0 z-20 bg-black/30 animate-in fade-in duration-150"
+          className={cn(overlayFade, 'absolute inset-0 z-20 bg-black/30')}
           onMouseDown={() => useExplorerState.getState().setMobileOpen(false)}
         />
       )}
@@ -218,7 +219,7 @@ export function WorkbenchExplorer({
         className={cn(
           // 三级背景层次（用户裁决，勿压平）：侧栏画布 --sidebar(0.985) → 目录树 --muted(0.97)
           // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
-          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl max-md:animate-in max-md:fade-in max-md:slide-in-from-left-6 max-md:duration-150',
+          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl max-md:animate-[drawer-left_200ms_var(--ease-out-strong)_both]',
           resizing && 'transition-none',
           !visible && 'w-0 max-md:hidden',
         )}

@@ -8,6 +8,8 @@ import { MailComposer } from '../features/mail/MailComposer';
 import { leaveComposer } from '../features/mail/compose-close';
 import { errorText } from '../workspace/store';
 import type { MailDraftDialogProps } from '../content/chat';
+import { dialogIn, dialogOverlay } from '../components/ui/motion';
+import { cn } from '../lib/utils';
 
 export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogProps) {
   const [state, setState] = useState<{ draft: PreparedEmail; address: string } | null>(null);
@@ -44,10 +46,13 @@ export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogPro
   return (
     <Dialog.Root onOpenChange={(open) => !open && close()} open>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content
           aria-describedby={undefined}
-          className="fixed inset-4 z-50 flex flex-col overflow-hidden rounded-xl border bg-background shadow-xl"
+          className={cn(
+            dialogIn,
+            'fixed inset-4 z-50 flex flex-col overflow-hidden rounded-window bg-surface shadow-overlay',
+          )}
         >
           <Dialog.Title className="sr-only">检查邮件草稿</Dialog.Title>
           {hint && !state && (

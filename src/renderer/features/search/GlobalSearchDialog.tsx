@@ -17,6 +17,7 @@ import { cn } from '../../lib/utils';
 import { GLOBAL_SEARCH_PER_KIND_LIMIT } from '../../../shared/search';
 import { Button } from '../../components/ui/button';
 import { settingsResultsFor } from '../settings/search-index';
+import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
 
 const resultGroups: ReadonlyArray<{
   kind: GlobalSearchResult['kind'];
@@ -182,9 +183,12 @@ export function GlobalSearchDialog({
   return (
     <Dialog.Root onOpenChange={onOpenChange} open={open}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+        <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-var(--spacing)*8)] w-[calc(100%-var(--spacing)*8)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-popover shadow-2xl outline-none duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
+          className={cn(
+            dialogPanel,
+            'flex max-h-[calc(100dvh-var(--spacing)*8)] w-[calc(100%-var(--spacing)*8)] max-w-xl flex-col overflow-hidden p-0',
+          )}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             inputRef.current?.focus();

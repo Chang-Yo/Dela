@@ -10,6 +10,8 @@ import { getDefaultNoteEditMode } from './default-mode';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
 import { NoteEditor } from './NoteEditor';
+import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 /** 解析 note:{entryId} 标签键；无效载荷返回 null。 */
 export function parseNoteTabId(tabId: string): string | null {
@@ -195,8 +197,8 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
       )}
       <Dialog.Root onOpenChange={setConfirmReload} open={confirmReload}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+          <Dialog.Overlay className={dialogOverlay} />
+          <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
             <Dialog.Title className="text-base font-semibold">重新载入</Dialog.Title>
             <Dialog.Description className="mt-2 text-xs text-muted-foreground">
               重新载入会抛弃当前未保存的草稿，是否继续？

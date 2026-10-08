@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { DateInput } from './DateInput';
 import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-format';
+import { dialogIn, overlayFade } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 export function SemesterStartDialog({
   semester,
@@ -37,7 +39,7 @@ export function SemesterStartDialog({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-50 grid animate-in fade-in place-items-center bg-black/30 p-4 backdrop-blur-[2px] duration-200"
+      className={cn(overlayFade, 'fixed inset-0 z-50 grid place-items-center bg-black/30 p-4')}
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}
@@ -47,7 +49,10 @@ export function SemesterStartDialog({
       role="dialog"
     >
       <form
-        className="flex w-full max-w-[360px] animate-in fade-in zoom-in-95 flex-col gap-4 rounded-xl border bg-card p-5 shadow-2xl duration-200"
+        className={cn(
+          dialogIn,
+          'flex w-full max-w-[360px] flex-col gap-4 rounded-window bg-surface p-5 shadow-overlay',
+        )}
         onSubmit={(event) => void submit(event)}
       >
         <div className="flex items-center justify-between">

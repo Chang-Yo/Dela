@@ -6,6 +6,8 @@ import { Input } from '../../../components/ui/input';
 import type { ChatCommandView } from '../../../../shared/api';
 import { SectionHeader } from '../SectionHeader';
 import { errorText } from '../../../workspace/store';
+import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
+import { cn } from '../../../lib/utils';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
@@ -251,8 +253,8 @@ function CommandFormDialog({
   return (
     <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
           <Dialog.Title className="text-base font-semibold">
             {editing.mode === 'create' ? '新建指令' : `编辑 /${editing.command.name}`}
           </Dialog.Title>

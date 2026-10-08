@@ -5,6 +5,7 @@ import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
 import { cn } from '../../lib/utils';
 import { ChatMarkdown } from './markdown';
 import { ToolBody } from './tool-views';
+import { fadeIn } from '../../components/ui/motion';
 
 // 回复的行内轨迹（Codex / Claude 式）：思考与工具步骤按发生顺序夹在正文之间，
 // 每步一行「动词 + 对象」，点开看细节。运行中只有当前步骤带 shimmer；
@@ -109,11 +110,7 @@ function Disclosure({
         />
         {head}
       </button>
-      {open && (
-        <div className="mb-2 ml-[18px] min-w-0 animate-in fade-in duration-150 motion-reduce:animate-none">
-          {children}
-        </div>
-      )}
+      {open && <div className={cn(fadeIn, 'mb-2 ml-[18px] min-w-0')}>{children}</div>}
     </div>
   );
 }
@@ -306,7 +303,7 @@ export function ReplyTrace({
           <div
             key={block.key}
             hidden={folded}
-            className="ml-[7px] border-l border-line pl-[11px] animate-in fade-in duration-150 motion-reduce:animate-none"
+            className={cn(fadeIn, 'ml-[7px] border-l border-line pl-[11px]')}
           >
             {renderBlock(block, index)}
           </div>

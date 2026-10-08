@@ -51,6 +51,11 @@
 - Badge 换 StatusPill，删除 badge.tsx
 - 已验证：470 项测试、构建、冒烟
 - 待验证：全页面明暗主题观感（需人工审阅）
+- 动效收敛到 components/ui/motion.ts 一套常量
+- 18 个对话框统一遮罩/面板/dialog-in 入场
+- 抽屉、底部面板改 drawer/sheet keyframes
+- 已验证：470 项测试、类型、lint、构建
+- 待验证：冒烟（dev 实例占用单实例锁未跑）
 
 ---
 

@@ -16,6 +16,7 @@ import {
   weekDays,
   weekForDate,
 } from './timetable-format';
+import { menuPanel } from '../../components/ui/menu-styles';
 import { cn } from '../../lib/utils';
 
 export function MonthCalendar({
@@ -197,7 +198,10 @@ export function MonthCalendar({
                     <Popover.Portal>
                       <Popover.Content
                         align="start"
-                        className="z-50 max-h-(--radix-popover-content-available-height) w-56 overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                        className={cn(
+                          menuPanel,
+                          'max-h-(--radix-popover-content-available-height) w-56 origin-(--radix-popover-content-transform-origin)',
+                        )}
                         sideOffset={4}
                       >
                         <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-muted-foreground">

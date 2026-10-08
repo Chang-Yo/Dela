@@ -5,6 +5,8 @@ import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import type { WebSearchConfig } from '../../../../shared/api';
 import { errorText } from '../../../workspace/store';
+import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
+import { cn } from '../../../lib/utils';
 
 /** 三个注册选项的展示名（能力页入口按钮的 title 与表单共用）。 */
 export const webSearchProviderLabels: Record<WebSearchConfig['provider'], string> = {
@@ -92,8 +94,8 @@ export function SearchConfigDialog({
   return (
     <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
           <Dialog.Title className="text-base font-semibold">搜索服务</Dialog.Title>
           <Dialog.Description className="mt-2 text-xs leading-relaxed text-muted-foreground">
             注册一个搜索服务供 WebSearch 使用；Dela 不内置搜索服务，凭据仅保存在本地数据库。

@@ -7,6 +7,7 @@ import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { cn } from '../../lib/utils';
 import { poolKey, querySessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';
+import { drawerFromRight, overlayFade } from '../../components/ui/motion';
 
 function SessionList({
   sessions,
@@ -188,13 +189,14 @@ export function ChatSessions({
     <>
       <div
         aria-hidden="true"
-        className="absolute inset-0 z-30 animate-in bg-black/30 duration-150 fade-in"
+        className={cn(overlayFade, 'absolute inset-0 z-30 bg-black/30')}
         onMouseDown={() => onOpenChange(false)}
       />
       <aside
         aria-label="历史对话"
         className={cn(
-          'absolute inset-y-0 right-0 z-40 flex w-72 max-w-[85vw] animate-in flex-col border-l border-line bg-surface shadow-raised duration-150 fade-in slide-in-from-right-6',
+          drawerFromRight,
+          'absolute inset-y-0 right-0 z-40 flex w-72 max-w-[85vw] flex-col border-l border-line bg-surface shadow-raised',
         )}
         role="dialog"
       >

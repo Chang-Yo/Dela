@@ -22,6 +22,8 @@ import {
   weekdayName,
 } from './timetable-format';
 import type { CalendarItemDetail } from './WeekCalendar';
+import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { cn } from '../../lib/utils';
 
 // 点击周视图条目后的详情弹窗：排版参考 Google Calendar 的事件卡
 // （色点标题 + 小图标信息行）。课程只读；自建事件的删除需二次确认；
@@ -75,8 +77,13 @@ export function EventDetailDialog({
   return (
     <DialogPrimitive.Root onOpenChange={(open) => !open && !deleting && onClose()} open>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-card p-5 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95">
+        <DialogPrimitive.Overlay className={dialogOverlay} />
+        <DialogPrimitive.Content
+          className={cn(
+            dialogPanel,
+            'max-h-[calc(100dvh-2rem)] w-[400px] max-w-[calc(100vw-2rem)] overflow-y-auto p-5',
+          )}
+        >
           <div className="flex items-start gap-2.5">
             <span
               aria-hidden="true"

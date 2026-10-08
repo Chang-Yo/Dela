@@ -9,6 +9,7 @@ import { errorText } from '../../../../workspace/store';
 import { SectionHeader } from '../../SectionHeader';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
+import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
 
 /** 设置 › MCP Server：stdio 服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
@@ -196,8 +197,8 @@ export function McpTab() {
                   open={confirmId === server.id}
                 >
                   <AlertDialog.Portal>
-                    <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in duration-150" />
-                    <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl max-md:w-[calc(100%-2rem)]">
+                    <AlertDialog.Overlay className={dialogOverlay} />
+                    <AlertDialog.Content className={cn(dialogPanel, 'max-w-sm')}>
                       <AlertDialog.Title className="text-base font-semibold">
                         删除 {server.name}？
                       </AlertDialog.Title>
