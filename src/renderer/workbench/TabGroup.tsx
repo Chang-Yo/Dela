@@ -19,9 +19,9 @@ import {
   type EdgeZone,
 } from './tab-dnd';
 
-/** 懒加载内容域的首帧占位：静态色块骨架，不做动画（foreground/5 在白底上仍可辨）。 */
+/** 懒加载内容域的首帧占位：静态色块骨架（inset 底），不做动画。 */
 function TabSuspenseFallback() {
-  return <div className="min-h-0 min-w-0 flex-1 bg-foreground/5" />;
+  return <div className="min-h-0 min-w-0 flex-1 bg-inset" />;
 }
 
 /** 活动标签内容宿主：props 全为原始值，组的 chrome 重渲（聚焦切换、悬停反馈）不牵连内容组件。 */
@@ -164,7 +164,7 @@ export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) 
         <div
           aria-hidden
           className={cn(
-            'pointer-events-none absolute z-10 rounded-lg bg-(--cal-blue-text)/15 ring-1 ring-inset ring-foreground/15 transition-[top,left,width,height,opacity] duration-150 ease-out motion-reduce:transition-none',
+            'pointer-events-none absolute z-10 rounded-card bg-bui-accent-tint ring-1 ring-inset ring-bui-accent/30 transition-[top,left,width,height,opacity] duration-150 ease-out motion-reduce:transition-none',
             dropPreviewClass[dropPreview.zone],
             dropPreview.visible ? 'opacity-100' : 'opacity-0',
           )}

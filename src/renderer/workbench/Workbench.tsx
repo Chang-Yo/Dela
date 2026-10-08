@@ -59,7 +59,7 @@ export function Workbench({ bindings }: { bindings: KeybindingMap }) {
 
   if (!ready)
     // 布局加载中：保持工作台底色稳定，不闪默认空组。
-    return <div className="flex min-h-0 flex-1 overflow-hidden bg-background" />;
+    return <div className="flex min-h-0 flex-1 overflow-hidden bg-surface" />;
 
   const maximizedGroup = maximized ? findGroup(root, maximized) : null;
   const content = maximizedGroup ? (
@@ -72,7 +72,7 @@ export function Workbench({ bindings }: { bindings: KeybindingMap }) {
     <div
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      className="relative flex min-h-0 flex-1 overflow-hidden bg-background outline-none"
+      className="relative flex min-h-0 flex-1 overflow-hidden bg-surface outline-none"
     >
       {content}
     </div>

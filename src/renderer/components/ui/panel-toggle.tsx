@@ -21,7 +21,7 @@ export function PanelToggleButton({
       aria-controls={controlsId}
       aria-expanded={!collapsed}
       aria-label={collapsed ? `展开${label}` : `收起${label}`}
-      className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      className="grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
       onClick={onToggle}
       title={collapsed ? `展开${label}` : `收起${label}`}
       type="button"

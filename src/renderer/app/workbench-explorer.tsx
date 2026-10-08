@@ -186,11 +186,10 @@ export function WorkbenchExplorer({
   // 视口钳制：目录渲染宽度不超过视口约 28%（下限 200），窄窗口下给内容区保留可用宽度；
   // 用户拖拽偏好仍按原值持久化，仅在渲染时钳制。
   const effectiveWidth = Math.min(width, Math.max(200, Math.round(viewportWidth * 0.28)));
-  const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-muted-foreground';
+  const sectionClass = 'flex h-8 items-center gap-1 px-3 text-[11.5px] font-medium text-ink-3';
   // 区块小标题：比组头浅一档的分层提示（同步 / 文件两区），纯展示不可交互；归档区靠底部
   // 分隔线 + 自身组头分层，不另加小标题以免与"归档"组头文字重复。
-  const eyebrowClass =
-    'px-3 pt-3 pb-1 text-[11px] font-medium tracking-wider text-muted-foreground/60';
+  const eyebrowClass = 'px-3 pt-3 pb-1 text-[11px] font-medium tracking-wider text-ink-3/70';
   const chevron = (open: boolean) => (
     <ChevronRight
       className={cn(
@@ -217,7 +216,7 @@ export function WorkbenchExplorer({
         inert={!visible}
         tabIndex={-1}
         className={cn(
-          // 三级背景层次（用户裁决，勿压平）：侧栏画布 --sidebar(0.985) → 目录树 --muted(0.97)
+          // 三级背景层次（用户裁决，勿压平）：侧栏画布 --page → 目录树 --muted(=--inset)
           // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
           'flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-background max-md:shadow-xl max-md:animate-[drawer-left_200ms_var(--ease-out-strong)_both]',
           resizing && 'transition-none',
@@ -238,7 +237,7 @@ export function WorkbenchExplorer({
               aria-controls="workspace-explorer"
               aria-expanded={visible}
               aria-label={visible ? '收起目录' : '展开目录'}
-              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+              className="grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
               onClick={() => {
                 if (narrow) useExplorerState.getState().setMobileOpen(false);
                 else useExplorerState.getState().setCollapsed(!collapsed);
@@ -249,7 +248,7 @@ export function WorkbenchExplorer({
               <PanelLeft className="size-3.5" strokeWidth={1.8} />
             </button>
             <button
-              className="min-w-0 flex-1 truncate text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+              className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:text-ink"
               onClick={() => useTreeState.getState().select(rootId)}
               title={projectId ? (root?.name ?? '项目与文件夹') : '资料'}
               type="button"
@@ -261,7 +260,7 @@ export function WorkbenchExplorer({
                 <DropdownMenuTrigger asChild>
                   <Button
                     aria-label="新建"
-                    className="hover:bg-foreground/10"
+                    className="hover:bg-hover-2"
                     size="icon-xs"
                     title="新建"
                     variant="ghost"
@@ -286,7 +285,7 @@ export function WorkbenchExplorer({
               </DropdownMenu>
               <Button
                 aria-label="全部收起"
-                className="hover:bg-foreground/10"
+                className="hover:bg-hover-2"
                 onClick={() => useTreeState.getState().collapseAll()}
                 size="icon-xs"
                 title="全部收起"
@@ -298,10 +297,10 @@ export function WorkbenchExplorer({
           </div>
           <div className="flex min-h-0 flex-1 flex-col" id="workspace-explorer">
             <div className="relative mx-2 mb-1">
-              <Search className="pointer-events-none absolute left-2 top-2 size-3.5 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-2 top-2 size-3.5 text-ink-3" />
               <Input
                 aria-label="筛选已同步内容"
-                className="h-8 rounded-lg border-0 bg-background pl-7 text-xs shadow-xs dark:bg-background"
+                className="h-8 bg-surface pl-7 text-[12px]"
                 onChange={(e) => useTreeState.getState().setQuery(e.target.value)}
                 placeholder="筛选已同步内容…"
                 value={query}
@@ -343,7 +342,7 @@ export function WorkbenchExplorer({
                   <div className={sectionClass}>
                     <button
                       aria-expanded={sourcesOpen}
-                      className="flex min-w-0 flex-1 items-center gap-1 text-left hover:text-foreground"
+                      className="flex min-w-0 flex-1 items-center gap-1 text-left transition-colors duration-150 hover:text-ink"
                       onClick={() => setCoursesOpen((value) => !value)}
                       type="button"
                     >
@@ -353,7 +352,7 @@ export function WorkbenchExplorer({
                     </button>
                     <Button
                       aria-label="刷新课程资料"
-                      className="hover:bg-foreground/10"
+                      className="hover:bg-hover-2"
                       disabled={!canvas.connected}
                       onClick={refreshCourses}
                       size="icon-xs"
@@ -366,7 +365,7 @@ export function WorkbenchExplorer({
                       <DropdownMenuTrigger asChild>
                         <Button
                           aria-label="Canvas 操作"
-                          className="hover:bg-foreground/10"
+                          className="hover:bg-hover-2"
                           size="icon-xs"
                           title="Canvas 操作"
                           variant="ghost"
@@ -405,7 +404,7 @@ export function WorkbenchExplorer({
                         selected={activeDocKey}
                       />
                     ) : (
-                      <div className="px-4 py-3 text-xs text-muted-foreground">
+                      <div className="px-4 py-3 text-[12px] text-ink-3">
                         <p>连接 Canvas，查看课程资料。</p>
                         <Button
                           className="mt-3"
@@ -438,10 +437,13 @@ export function WorkbenchExplorer({
             {/* 归档固定在侧栏最底部：不随上方滚动区滚动（flex 收尾自然贴底）；与滚动区之间
                 用一条极淡 hairline 分界（三区背景层次保持不变，此处作为固定底区的分界）；
                 展开后的两棵 archived 树整体限高滚动，避免撑爆侧栏。 */}
-            <div className="shrink-0 border-t border-border/60">
+            <div className="shrink-0 border-t border-line">
               <button
                 aria-expanded={archiveOpen || Boolean(query.trim())}
-                className={cn(sectionClass, 'w-full hover:text-foreground')}
+                className={cn(
+                  sectionClass,
+                  'w-full transition-colors duration-150 hover:text-ink-2',
+                )}
                 onClick={() => setArchiveOpen((value) => !value)}
                 type="button"
               >

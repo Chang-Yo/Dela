@@ -56,6 +56,10 @@
 - 抽屉、底部面板改 drawer/sheet keyframes
 - 已验证：470 项测试、类型、lint、构建
 - 待验证：冒烟（dev 实例占用单实例锁未跑）
+- 外壳/侧栏/标签栏/目录树换 beautiful-ui token
+- 侧栏行样式集中到 navigation/nav-styles.ts
+- 一级 13px、会话 12.5px、分组标题 11.5px
+- 运行状态点改语义色：accent/green/red/orange
 - 新建项目可导入电脑上已有的文件夹
 - 外部项目目录留原处，身份＝UUID＋local_path
 - 自定义网关 API 根按模型列表端点探测校正

@@ -54,7 +54,7 @@ export function Resizer({
         horizontal
           ? 'cursor-ns-resize before:absolute before:inset-x-0 before:-inset-y-2.5'
           : 'cursor-ew-resize before:absolute before:inset-y-0 before:-inset-x-2.5',
-        'hover:bg-foreground/40 focus-visible:bg-foreground/40',
+        'hover:bg-ink-3 focus-visible:bg-bui-accent',
         className,
       )}
       onKeyDown={(event) => {

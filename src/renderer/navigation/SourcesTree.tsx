@@ -168,7 +168,7 @@ export function SourcesTree({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="grid size-6 place-items-center rounded hover:bg-foreground/10"
+                  className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
                   aria-label={`${node.name} 的操作`}
                 >
                   <Ellipsis className="size-4" />
@@ -178,14 +178,14 @@ export function SourcesTree({
                 {course ? (
                   <>
                     {course.syncedAt && (
-                      <p className="px-2 py-1 text-xs text-muted-foreground">
+                      <p className="px-2 py-1 text-[12px] text-ink-3">
                         更新于 {new Date(course.syncedAt).toLocaleString('zh-CN')}
                       </p>
                     )}
                     {course.error && (
                       <p
                         role="status"
-                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-xs text-destructive"
+                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-[12px] text-red"
                       >
                         {course.error}
                       </p>
@@ -238,7 +238,7 @@ export function SourcesTree({
         }}
       />
       {query && filtered.length === 0 && (
-        <p className="px-4 py-3 text-xs text-muted-foreground">已同步资料中没有匹配内容</p>
+        <p className="px-4 py-3 text-[12px] text-ink-3">已同步资料中没有匹配内容</p>
       )}
       {/* 确认框放在下拉菜单之外：DropdownMenuContent 关闭即卸载，挂在内层会被连同销毁。 */}
       {confirmCourse && (
@@ -251,7 +251,7 @@ export function SourcesTree({
                   ? `取消归档「${confirmCourse.name}」？`
                   : `归档「${confirmCourse.name}」？`}
               </AlertDialog.Title>
-              <AlertDialog.Description className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              <AlertDialog.Description className="mt-1 text-[13px] leading-relaxed text-ink-3">
                 {confirmCourse.archived
                   ? '课程将恢复到原学期目录。'
                   : '归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。'}

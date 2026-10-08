@@ -46,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../ui/motion';
+import { chromeIconButton, navIcon, navRow } from '../../navigation/nav-styles';
 
 /** 窄屏抽屉层级:null 关闭;nav 主导航;mail 邮箱功能层(仅邮箱视图可达)。 */
 type TitleMenuId = 'file' | 'view' | 'help';
@@ -58,12 +59,12 @@ const platform = 'other' as const;
 
 /** 标题栏菜单（文件/视图/帮助）触发按钮的共用样式。 */
 const titleMenuButtonClass =
-  'h-7 min-w-12 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground';
+  'h-7 min-w-12 rounded-control px-2.5 text-[13px] text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink data-[state=open]:bg-hover-2 data-[state=open]:text-ink';
 
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section aria-label={title}>
-      <h3 className="text-xs font-medium tracking-[0.12em] text-muted-foreground">{title}</h3>
+      <h3 className="text-[11.5px] font-medium tracking-[0.12em] text-ink-3">{title}</h3>
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -72,12 +73,12 @@ function ShortcutSection({ children, title }: { children: ReactNode; title: stri
 function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; label: string }) {
   return (
     <div className="flex h-9 items-center justify-between gap-8">
-      <span className="min-w-0 truncate text-sm text-foreground/80">{label}</span>
+      <span className="min-w-0 truncate text-[13px] text-ink-2">{label}</span>
       {keys ? (
         <span className="flex shrink-0 items-center gap-1">
           {keys.map((key) => (
             <kbd
-              className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border bg-muted/50 px-1.5 text-xs font-medium text-foreground/80"
+              className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-[12px] font-medium text-ink-2 shadow-hairline"
               key={key}
             >
               {key}
@@ -85,7 +86,7 @@ function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; la
           ))}
         </span>
       ) : (
-        <span className="shrink-0 text-sm text-muted-foreground">{hint}</span>
+        <span className="shrink-0 text-[13px] text-ink-3">{hint}</span>
       )}
     </div>
   );
@@ -116,7 +117,7 @@ function WindowControls() {
     <div className="[-webkit-app-region:no-drag] flex h-full">
       <button
         aria-label="最小化"
-        className="grid h-full w-12 place-items-center text-foreground/70 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
         onClick={() => window.dela?.window.minimize()}
         type="button"
       >
@@ -124,7 +125,7 @@ function WindowControls() {
       </button>
       <button
         aria-label={maximized ? '还原' : '最大化'}
-        className="grid h-full w-12 place-items-center text-foreground/70 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
         onClick={() => window.dela?.window.toggleMaximize()}
         type="button"
       >
@@ -136,7 +137,7 @@ function WindowControls() {
       </button>
       <button
         aria-label="关闭"
-        className="grid h-full w-12 place-items-center text-foreground/70 transition-colors hover:bg-[#e81123] hover:text-white"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-[#e81123] hover:text-white"
         onClick={() => window.dela?.window.close()}
         type="button"
       >
@@ -379,7 +380,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-sidebar transition-[grid-template-columns] duration-200 ease-out',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -390,7 +391,7 @@ export function AppShell({
     >
       <header
         className={cn(
-          'col-span-full flex items-center justify-between bg-sidebar',
+          'col-span-full flex items-center justify-between bg-page',
           'select-none [-webkit-app-region:drag]',
         )}
       >
@@ -400,7 +401,8 @@ export function AppShell({
             aria-expanded={!navHidden}
             aria-label={navHidden ? '展开侧边栏' : '收起侧边栏'}
             className={cn(
-              '[-webkit-app-region:no-drag] ml-2 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground',
+              chromeIconButton,
+              '[-webkit-app-region:no-drag] ml-2',
               !navHidden && 'opacity-70 hover:opacity-100',
             )}
             onClick={() =>
@@ -423,7 +425,7 @@ export function AppShell({
           </button>
           <button
             aria-label="后退"
-            className="[-webkit-app-region:no-drag] ml-1.5 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground disabled:opacity-40"
+            className={cn(chromeIconButton, '[-webkit-app-region:no-drag] ml-1.5')}
             disabled={!canBack}
             onClick={onBack}
             title="后退"
@@ -433,7 +435,7 @@ export function AppShell({
           </button>
           <button
             aria-label="前进"
-            className="[-webkit-app-region:no-drag] ml-0.5 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground disabled:opacity-40"
+            className={cn(chromeIconButton, '[-webkit-app-region:no-drag] ml-0.5')}
             disabled={!canForward}
             onClick={onForward}
             title="前进"
@@ -546,7 +548,7 @@ export function AppShell({
               <button
                 aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
                 aria-current={view === 'notifications' ? 'page' : undefined}
-                className="relative grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                className={cn(chromeIconButton, 'relative')}
                 onClick={() => navigate('notifications')}
                 title="通知"
                 type="button"
@@ -555,13 +557,13 @@ export function AppShell({
                 {notificationCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-sidebar"
+                    className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
                   />
                 )}
               </button>
               <button
                 aria-label="搜索"
-                className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                className={chromeIconButton}
                 onClick={onSearch}
                 title="全局搜索 (Ctrl/⌘+K)"
                 type="button"
@@ -572,12 +574,12 @@ export function AppShell({
           )}
           {view === 'workbench' && projectId && window.dela && (
             <div className="[-webkit-app-region:no-drag] flex shrink-0 items-center gap-1 px-2">
-              <div className="flex h-7 items-center rounded-md border border-border">
+              <div className="flex h-7 items-center rounded-control shadow-hairline">
                 <button
                   aria-label={
                     projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
                   }
-                  className="grid size-7 place-items-center rounded-l-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+                  className="grid size-7 place-items-center rounded-l-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
                   onClick={() => openProjectDirectory(projectOpenTarget)}
                   title={
                     projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
@@ -585,7 +587,7 @@ export function AppShell({
                   type="button"
                 >
                   {projectOpenTarget === 'vscode' ? (
-                    <CodeXml className="size-4 text-primary" />
+                    <CodeXml className="size-4 text-bui-accent" />
                   ) : (
                     <FolderOpen className="size-4" />
                   )}
@@ -594,7 +596,7 @@ export function AppShell({
                   <DropdownMenuTrigger asChild>
                     <button
                       aria-label="选择项目打开方式"
-                      className="grid h-full w-6 place-items-center rounded-r-md border-l border-border text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+                      className="grid h-full w-6 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink data-[state=open]:bg-hover-2"
                       title="选择项目打开方式"
                       type="button"
                     >
@@ -608,7 +610,7 @@ export function AppShell({
                       {projectOpenTarget === 'explorer' && <Check className="ml-auto" />}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => openProjectDirectory('vscode')}>
-                      <CodeXml className="text-primary" />
+                      <CodeXml className="text-bui-accent" />
                       VS Code
                       {projectOpenTarget === 'vscode' && <Check className="ml-auto" />}
                     </DropdownMenuItem>
@@ -617,7 +619,7 @@ export function AppShell({
               </div>
               <button
                 aria-label="打开项目终端"
-                className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+                className={chromeIconButton}
                 onClick={() => projectId && useNavigationStore.getState().openTerminal(projectId)}
                 title="打开项目终端"
                 type="button"
@@ -630,7 +632,7 @@ export function AppShell({
           {view === 'workbench' && projectId === null && window.dela && (
             <button
               aria-label="新聊天"
-              className="[-webkit-app-region:no-drag] mr-1 grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline focus-visible:outline-ring"
+              className={cn(chromeIconButton, '[-webkit-app-region:no-drag] mr-1')}
               onClick={() => useNavigationStore.getState().openGeneralChat(true)}
               title="新聊天"
               type="button"
@@ -650,14 +652,14 @@ export function AppShell({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
-                <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+                <Dialog.Description className="mt-1 text-[13px] text-ink-3">
                   与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
                 </Dialog.Description>
               </div>
               <Dialog.Close asChild>
                 <button
                   aria-label="关闭"
-                  className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className={cn(chromeIconButton, '-mr-1 -mt-1')}
                   type="button"
                 >
                   <X className="size-4" strokeWidth={1.8} />
@@ -702,7 +704,7 @@ export function AppShell({
         aria-label="主导航"
         className={cn(
           // 滚动收敛在 ProjectSessionNav 内部的单一滚动容器，避免 aside/置顶/项目三层滚动嵌套。
-          'flex min-h-0 flex-col overflow-hidden bg-sidebar pb-3 text-sidebar-foreground',
+          'flex min-h-0 flex-col overflow-hidden bg-page pb-3 text-ink',
           narrow
             ? cn(
                 drawerFromLeft,
@@ -731,7 +733,7 @@ export function AppShell({
               <DelaBrand className="h-[18px] w-auto" />
               <span
                 className={cn(
-                  'text-[15px] font-semibold tracking-tight',
+                  'text-[15px] font-semibold tracking-tight text-ink',
                   labelFade,
                   sidebarCollapsed && 'opacity-0',
                 )}
@@ -744,8 +746,9 @@ export function AppShell({
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
               aria-current={view === 'notifications' ? 'page' : undefined}
               className={cn(
-                'relative grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground',
-                view === 'notifications' && 'bg-sidebar-accent text-foreground',
+                chromeIconButton,
+                'relative',
+                view === 'notifications' && 'bg-hover-2 text-ink',
               )}
               onClick={() => navigate('notifications')}
               title="通知"
@@ -755,13 +758,13 @@ export function AppShell({
               {notificationCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute right-1 top-1 size-1.5 rounded-full bg-primary ring-2 ring-sidebar"
+                  className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
                 />
               )}
             </button>
             <button
               aria-label="搜索"
-              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+              className={chromeIconButton}
               onClick={() => {
                 onMobileDrawerChange?.(null);
                 onSearch();
@@ -809,22 +812,11 @@ export function AppShell({
           <div className="grid shrink-0 gap-0.5 pt-2">
             <button
               aria-current={view === 'settings' ? 'page' : undefined}
-              className={cn(
-                'flex h-8 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-                view === 'settings'
-                  ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-              )}
+              className={navRow(view === 'settings')}
               onClick={() => navigate('settings')}
               type="button"
             >
-              <Settings
-                className={cn(
-                  'size-4 shrink-0',
-                  view === 'settings' ? 'text-foreground' : 'text-muted-foreground',
-                )}
-                strokeWidth={1.8}
-              />
+              <Settings className={navIcon(view === 'settings')} strokeWidth={1.8} />
               <span className={cn('truncate', labelFade, sidebarCollapsed && 'opacity-0')}>
                 设置
               </span>
@@ -840,7 +832,7 @@ export function AppShell({
           <div className="flex h-11 shrink-0 items-center px-1">
             <button
               aria-label="返回主菜单"
-              className="flex h-8 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+              className={navRow(false)}
               onClick={() => onMobileDrawerChange?.('nav')}
               type="button"
             >
@@ -872,7 +864,7 @@ export function AppShell({
           侧栏不额外预留间隙；分隔线仅占 1px，拖动命中范围由 Resizer 的透明伪元素扩展。 */}
       <main
         className={cn(
-          'relative col-start-4 row-start-2 mt-1.5 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-xl border border-b-0 border-border/70 bg-background shadow-xs',
+          'relative col-start-4 row-start-2 mt-1.5 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-window bg-surface shadow-hairline',
           'max-md:mt-0 max-md:mr-0 max-md:rounded-none max-md:border-0',
         )}
         id="app-main"

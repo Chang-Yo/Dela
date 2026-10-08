@@ -6,12 +6,14 @@ import { LayoutGrid } from 'lucide-react';
  *  标签栏位置，不进本居中栈。 */
 export function EmptyState() {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-[13px] text-ink-3">
       <LayoutGrid className="size-7 opacity-45 @max-[180px]:size-5" />
-      <p className="@max-[180px]:max-w-full @max-[180px]:truncate @max-[180px]:text-xs">
+      <p className="@max-[180px]:max-w-full @max-[180px]:truncate @max-[180px]:text-[12px]">
         此组没有打开的标签
       </p>
-      <p className="text-xs opacity-75 @max-[280px]:hidden">拖动标签到此组，或从导航打开内容</p>
+      <p className="text-[12px] text-ink-3/80 @max-[280px]:hidden">
+        拖动标签到此组，或从导航打开内容
+      </p>
     </div>
   );
 }

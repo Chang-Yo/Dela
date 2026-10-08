@@ -113,7 +113,7 @@ export const TabBar = memo(function TabBar({
   if (!group.tabs.length) return null;
 
   return (
-    <div className="@container flex h-10 min-w-0 shrink-0 bg-background px-2 pt-1">
+    <div className="@container flex h-10 min-w-0 shrink-0 bg-surface px-2 pt-1">
       {/* 目录折叠时的展开入口：只在焦点组的标签栏左端（视线跟随焦点，其他组不重复出现）。 */}
       {!unfocused && <ExplorerRevealButton className="mb-1 self-end" />}
       <div
@@ -148,13 +148,13 @@ export const TabBar = memo(function TabBar({
                   role="tab"
                   tabIndex={active ? 0 : -1}
                   className={cn(
-                    'group/tab relative flex h-8 min-w-32 max-w-56 shrink-0 select-none items-center gap-1.5 px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                    'group/tab relative flex h-8 min-w-32 max-w-56 shrink-0 select-none items-center gap-1.5 px-1.5 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bui-accent',
                     active
-                      ? 'rounded-t-lg bg-background'
-                      : 'rounded-md bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
+                      ? 'rounded-t-card bg-surface text-ink'
+                      : 'rounded-control bg-hover text-ink-3 hover:bg-hover-2 hover:text-ink',
                     active &&
                       'before:absolute before:inset-x-1.5 before:top-0 before:h-0.5 before:rounded-full',
-                    active && (unfocused ? 'before:bg-primary/25' : 'before:bg-primary'),
+                    active && (unfocused ? 'before:bg-ink/25' : 'before:bg-ink'),
                   )}
                   onClick={() => openTab(tab, group.id)}
                   onKeyDown={(event) => onTabKeyDown(event, tab)}
@@ -177,7 +177,7 @@ export const TabBar = memo(function TabBar({
                   <Icon className="size-3.5 shrink-0 opacity-70" />
                   <span
                     className={cn(
-                      'min-w-0 flex-1 truncate px-0.5 text-left text-xs',
+                      'min-w-0 flex-1 truncate px-0.5 text-left text-[12px]',
                       unfocused && 'opacity-55',
                     )}
                     title={title}
@@ -186,7 +186,7 @@ export const TabBar = memo(function TabBar({
                   </span>
                   <button
                     aria-hidden
-                    className="relative grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-foreground/10 hover:text-foreground after:absolute after:-inset-1 after:content-['']"
+                    className="relative grid size-5 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink after:absolute after:-inset-1 after:content-['']"
                     tabIndex={-1}
                     onClick={(event) => {
                       event.stopPropagation();

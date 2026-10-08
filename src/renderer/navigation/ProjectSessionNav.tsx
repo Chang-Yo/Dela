@@ -41,6 +41,9 @@ import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './Sess
 import { useNavigationStore, useProjectNavPrefs } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
+import { Input } from '../components/ui/input';
+import { menuItem, menuPanel } from '../components/ui/menu-styles';
+import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './nav-styles';
 
 export type { NavSessionSummary, SessionRunBadge };
 
@@ -59,14 +62,6 @@ const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }
 
 /** 侧栏文字随折叠状态淡入/淡出（与 AppShell 壳的宽度过渡同步）。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
-
-const rowClass = (active: boolean) =>
-  cn(
-    'flex h-8 min-w-0 items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors',
-    active
-      ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-      : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-  );
 
 export function ProjectSessionNav({
   /** 按项目 id 注入的近期会话（近期优先排序）；3B 接线：来自 sessions/ 镜像。 */
@@ -170,11 +165,11 @@ export function ProjectSessionNav({
     const Icon = icon;
     return (
       <div key={key} className="min-w-0">
-        <div className={cn(rowClass(groupActive), 'group/nav relative pl-2')}>
+        <div className={cn(navRow(groupActive), 'group group/nav relative pl-1.5')}>
           <button
             aria-expanded={expanded}
             aria-label={`${expanded ? '收起' : '展开'} ${label} 的会话`}
-            className="grid size-4 shrink-0 place-items-center text-muted-foreground"
+            className="grid size-4 shrink-0 place-items-center text-ink-3"
             onClick={() => toggleProject(key)}
             type="button"
           >
@@ -193,7 +188,7 @@ export function ProjectSessionNav({
             title={label}
             type="button"
           >
-            <Icon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+            <Icon className={navIcon(groupActive)} strokeWidth={1.8} />
             <span
               className={cn('sidebar-title min-w-0 flex-1', labelFade, collapsed && 'opacity-0')}
             >
@@ -201,20 +196,20 @@ export function ProjectSessionNav({
             </span>
           </button>
           {!collapsed && (
-            <div className="pointer-events-none absolute right-1 flex items-center gap-0.5 rounded-md bg-sidebar opacity-0 transition-opacity duration-200 group-hover/nav:pointer-events-auto group-hover/nav:opacity-100 group-focus-within/nav:pointer-events-auto group-focus-within/nav:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 max-md:pointer-events-auto max-md:opacity-100">
+            <div className={cn(rowActions, groupActive ? 'bg-hover-2' : 'bg-hover')}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     aria-label={`${label} 的项目菜单`}
                     title="项目菜单"
-                    className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                    className={rowIconButton}
                     type="button"
                   >
-                    <MoreHorizontal className="size-3.5" />
+                    <MoreHorizontal />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="right" className="w-56">
-                  <DropdownMenuLabel className="break-words text-foreground">
+                  <DropdownMenuLabel className="break-words text-[13px] text-ink">
                     {label}
                   </DropdownMenuLabel>
                   <DropdownMenuLabel>{sessions.length} 个对话</DropdownMenuLabel>
@@ -236,13 +231,13 @@ export function ProjectSessionNav({
                     编辑项目
                   </DropdownMenuItem>
                   <Menu.Sub>
-                    <Menu.SubTrigger className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent">
-                      <List className="size-4" />
+                    <Menu.SubTrigger className={cn(menuItem, 'data-[state=open]:bg-hover')}>
+                      <List />
                       分组
-                      <ChevronRight className="ml-auto size-4" />
+                      <ChevronRight className="ml-auto" />
                     </Menu.SubTrigger>
                     <Menu.Portal>
-                      <Menu.SubContent className="z-50 min-w-40 rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+                      <Menu.SubContent className={cn(menuPanel, 'min-w-40')} sideOffset={4}>
                         <DropdownMenuItem
                           onSelect={() => setProjectPreference(key, { section: '' })}
                         >
@@ -294,18 +289,18 @@ export function ProjectSessionNav({
                 <button
                   aria-label={`在 ${label} 中新建对话`}
                   title="新对话"
-                  className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  className={rowIconButton}
                   onClick={() => onNewChat(key)}
                   type="button"
                 >
-                  <SquarePen className="size-3.5" />
+                  <SquarePen />
                 </button>
               )}
             </div>
           )}
         </div>
         {confirmArchive === key && (
-          <div className="flex items-center gap-2 px-2 py-1">
+          <div className="flex items-center gap-2 py-1 pl-8">
             <Button
               data-archive-confirm=""
               size="sm"
@@ -331,10 +326,10 @@ export function ProjectSessionNav({
           </div>
         )}
         {expanded && (
-          <div className="grid grid-cols-1 gap-0.5">
+          <div className="grid grid-cols-1 gap-px pb-1">
             {sessions.length === 0 && onNewChat && (
               <button
-                className="ml-6 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+                className="flex h-7 items-center gap-2 rounded-control pl-8 pr-2 text-left text-[12.5px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
                 onClick={() => onNewChat(key)}
                 type="button"
               >
@@ -355,7 +350,7 @@ export function ProjectSessionNav({
             ))}
             {unpinned.length > RECENT_SESSIONS && (
               <button
-                className="ml-6 rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
+                className="flex h-7 items-center rounded-control pl-8 pr-2 text-left text-[12px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
                 onClick={() => toggleFullSessionList(key)}
                 type="button"
               >
@@ -371,23 +366,23 @@ export function ProjectSessionNav({
   return (
     // 侧栏唯一的滚动容器：功能入口/置顶/项目随整栏滚动，替代 aside+置顶+项目三层滚动嵌套。
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-      <nav aria-label="功能入口" className="grid shrink-0 gap-0.5">
+      <nav aria-label="功能入口" className="grid shrink-0 gap-px">
         <button
           aria-current={generalChatActive ? 'page' : undefined}
-          className={rowClass(generalChatActive)}
+          className={navRow(generalChatActive)}
           onClick={onOpenGeneralChat}
           type="button"
         >
-          <House className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+          <House className={navIcon(generalChatActive)} strokeWidth={1.8} />
           <span className={hidden}>首页</span>
         </button>
         <button
           aria-current={sourcesActive ? 'page' : undefined}
-          className={rowClass(sourcesActive)}
+          className={navRow(sourcesActive)}
           onClick={onOpenSources}
           type="button"
         >
-          <FolderOpen className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+          <FolderOpen className={navIcon(sourcesActive)} strokeWidth={1.8} />
           <span className={hidden}>资料</span>
         </button>
         {businessNav.map((item) => {
@@ -396,18 +391,12 @@ export function ProjectSessionNav({
           return (
             <button
               aria-current={active ? 'page' : undefined}
-              className={rowClass(active)}
+              className={navRow(active)}
               key={item.id}
               onClick={() => onNavigateBusiness?.(item.id)}
               type="button"
             >
-              <Icon
-                className={cn(
-                  'size-4 shrink-0',
-                  active ? 'text-foreground' : 'text-muted-foreground',
-                )}
-                strokeWidth={1.8}
-              />
+              <Icon className={navIcon(active)} strokeWidth={1.8} />
               <span className={hidden}>{item.label}</span>
             </button>
           );
@@ -417,16 +406,8 @@ export function ProjectSessionNav({
         projects.some((project) =>
           sessionsByProject[project.id]?.some((session) => session.pinned),
         )) && (
-        <section aria-label="置顶" className="mt-5 grid shrink-0 gap-0.5">
-          <p
-            className={cn(
-              'px-2 pb-1 text-xs font-medium text-muted-foreground',
-              labelFade,
-              collapsed && 'opacity-0',
-            )}
-          >
-            置顶
-          </p>
+        <section aria-label="置顶" className="mt-5 grid shrink-0 gap-px">
+          <p className={cn(navSectionTitle, labelFade, collapsed && 'opacity-0')}>置顶</p>
           {projects
             .filter((project) => preferences[project.id]?.pinned)
             .map((project) =>
@@ -458,7 +439,7 @@ export function ProjectSessionNav({
         <div className="flex items-center justify-between px-2 pb-1">
           <span
             className={cn(
-              'whitespace-nowrap text-xs font-medium text-muted-foreground',
+              'whitespace-nowrap text-[11.5px] font-medium text-ink-3',
               labelFade,
               collapsed && 'opacity-0',
             )}
@@ -468,15 +449,15 @@ export function ProjectSessionNav({
           </span>
           <button
             aria-label="新建项目"
-            className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            className={rowIconButton}
             onClick={onNewProject}
             title="新建项目"
             type="button"
           >
-            <Plus className="size-3.5" strokeWidth={1.8} />
+            <Plus strokeWidth={1.8} />
           </button>
         </div>
-        <div className="grid grid-cols-1 content-start gap-0.5">
+        <div className="grid grid-cols-1 content-start gap-px">
           {['', ...sectionNames].map((section) => (
             <div key={section} className="min-w-0">
               {section &&
@@ -484,7 +465,7 @@ export function ProjectSessionNav({
                   (project) =>
                     !preferences[project.id]?.pinned &&
                     preferences[project.id]?.section === section,
-                ) && <p className="px-2 pb-1 pt-3 text-xs text-muted-foreground">{section}</p>}
+                ) && <p className={cn(navSectionTitle, 'pt-3 font-normal')}>{section}</p>}
               {projects
                 .filter(
                   (project) =>
@@ -509,7 +490,7 @@ export function ProjectSessionNav({
         onClose={() => setRenameProjectId(null)}
       />
       {actionError && (
-        <p role="alert" className="px-2 text-xs text-destructive">
+        <p role="alert" className="px-2 pt-2 text-[12px] text-red">
           {actionError}
         </p>
       )}
@@ -522,8 +503,8 @@ export function ProjectSessionNav({
         <Dialog.Portal>
           <Dialog.Overlay className={dialogOverlay} />
           <Dialog.Content className={cn(dialogPanel, 'max-w-sm')}>
-            <Dialog.Title className="text-sm font-medium">新建项目分组</Dialog.Title>
-            <Dialog.Description className="mt-2 text-xs text-muted-foreground">
+            <Dialog.Title className="text-base font-semibold">新建项目分组</Dialog.Title>
+            <Dialog.Description className="mt-1 text-[13px] text-ink-3">
               将当前项目放入此分组。
             </Dialog.Description>
             <form
@@ -536,23 +517,21 @@ export function ProjectSessionNav({
                 }
               }}
             >
-              <input
+              <Input
                 aria-label="分组名称"
-                className="my-4 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="my-4"
                 value={sectionName}
                 maxLength={80}
                 onChange={(event) => setSectionName(event.target.value)}
                 autoFocus
               />
-              <div className="flex justify-end gap-3">
-                <Dialog.Close className="text-sm">取消</Dialog.Close>
-                <button
-                  type="submit"
-                  disabled={!sectionName.trim()}
-                  className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
-                >
+              <div className="flex justify-end gap-2">
+                <Dialog.Close asChild>
+                  <Button variant="ghost">取消</Button>
+                </Dialog.Close>
+                <Button type="submit" disabled={!sectionName.trim()}>
                   创建
-                </button>
+                </Button>
               </div>
             </form>
           </Dialog.Content>

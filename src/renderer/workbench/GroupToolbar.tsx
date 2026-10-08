@@ -22,7 +22,7 @@ export const GroupToolbar = memo(function GroupToolbar({ group }: { group: Group
       <Button
         size="icon-xs"
         variant="ghost"
-        className="hover:bg-foreground/10 @max-[220px]:hidden"
+        className="hover:bg-hover-2 @max-[220px]:hidden"
         aria-label="向右分屏"
         title="向右分屏"
         onClick={() => splitGroup(group.id, 'vertical')}
