@@ -175,7 +175,7 @@ it('查看工作过程暂停贴底，展开和后续流式增长不会将过程�
         parts: [
           {
             type: 'tools',
-            results: [{ id: 'tool-1', name: 'search_sources', input: { query: '课件' } }],
+            results: [{ id: 'tool-1', name: 'read', input: { path: '课件.md' } }],
           },
         ],
       },
@@ -194,15 +194,17 @@ it('查看工作过程暂停贴底，展开和后续流式增长不会将过程�
   expect(viewport().scrollTop).toBe(1360);
 });
 
-it('正文始终在过程区外，同索引重发会重置过程展开状态', async () => {
+it('思考默认收起，正文始终可见', async () => {
   const traced: WorkspaceChat = {
     ...chat,
+    running: false,
     messages: [
       chat.messages[0]!,
       {
         role: 'assistant',
         content: '这是回答',
         startedAt: 1,
+        finishedAt: 2,
         parts: [
           { type: 'reasoning', text: '核对资料的过程' },
           { type: 'text', text: '这是回答' },
@@ -212,24 +214,43 @@ it('正文始终在过程区外，同索引重发会重置过程展开状态', a
   };
   await act(async () => root.render(<ChatThread chat={traced} />));
   expect(host.textContent).toContain('这是回答');
+  expect(host.textContent).not.toContain('核对资料的过程');
+  await act(async () => host.querySelector<HTMLButtonElement>('[data-trace-toggle]')!.click());
   expect(host.textContent).toContain('核对资料的过程');
-  const trigger = host.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('这是回答');
-  await act(async () => trigger.click());
+});
+
+it('整轮失败显示错误卡与重试，重试以原文重发', async () => {
+  const onEditLast = vi.fn();
   await act(async () =>
     root.render(
       <ChatThread
+        onEditLast={onEditLast}
         chat={{
-          ...traced,
-          messages: [traced.messages[0]!, { ...traced.messages[1]!, startedAt: 2 }],
+          ...chat,
+          running: false,
+          messages: [
+            chat.messages[0]!,
+            {
+              role: 'assistant',
+              content: '本次执行中断：模型请求失败（HTTP 401）',
+              interrupted: true,
+              startedAt: 1,
+              finishedAt: 2,
+              parts: [{ type: 'text', text: '本次执行中断：模型请求失败（HTTP 401）' }],
+            },
+          ],
         }}
       />,
     ),
   );
-  expect(host.querySelector('button[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true');
+  const alert = host.querySelector('[role="alert"]')!;
+  expect(alert.textContent).toContain('HTTP 401');
+  expect(host.textContent).not.toContain('本次执行中断');
+  await act(async () => alert.querySelector('button')!.click());
+  expect(onEditLast).toHaveBeenCalledWith('检查滚动');
 });
 
-it('正文从首个字到工具调用及结束均保持同一容器，中间文字不隐藏或搬移', async () => {
+it('正文从首个字到工具调用及结束均保持同一节点，工具行出现在其后', async () => {
   const reply: WorkspaceChat['messages'][number] = {
     role: 'assistant',
     content: '我来核对一下',
@@ -244,10 +265,8 @@ it('正文从首个字到工具调用及结束均保持同一容器，中间文�
     );
   };
   await renderReply(reply);
-  const body = host.querySelector('[data-assistant-body]');
-  expect(body).not.toBeNull();
-  expect(body?.textContent).toContain('我来核对一下');
-  expect(host.querySelector('[aria-label="工作过程"]')).toBeNull();
+  const body = host.querySelector('[data-assistant-body]')!;
+  expect(body.textContent).toContain('我来核对一下');
   const toolPart = {
     type: 'tools' as const,
     results: [{ id: 'tool-1', name: 'grep', input: {}, output: { text: '' }, finishedAt: 2 }],
@@ -255,55 +274,40 @@ it('正文从首个字到工具调用及结束均保持同一容器，中间文�
   const afterTool = { ...reply, parts: [...reply.parts!, toolPart] };
   await renderReply(afterTool);
   expect(host.querySelector('[data-assistant-body]')).toBe(body);
-  expect(body?.textContent).toContain('我来核对一下');
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('我来核对一下');
-  expect(
-    body!.compareDocumentPosition(host.querySelector('[aria-label="工作过程"]')!) &
-      Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
+  const step = host.querySelector('[data-trace-toggle]')!;
+  expect(body.compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   const finalReply = {
     ...afterTool,
     content: '我来核对一下\n\n核对结果',
     parts: [...afterTool.parts, { type: 'text' as const, text: '核对结果' }],
   };
-  await renderReply(finalReply);
-  expect(host.querySelectorAll('[data-assistant-body]')[1]?.textContent).toContain('核对结果');
   await renderReply({ ...finalReply, finishedAt: 100 }, false);
-  expect(host.querySelector('[aria-label="工作过程"]')).toBeNull();
-  expect(host.textContent).toContain('核对结果');
   expect(host.querySelector('[data-assistant-body]')).toBe(body);
-  expect(body?.textContent).toContain('我来核对一下');
-  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('我来核对一下');
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('核对结果');
+  expect(host.querySelectorAll('[data-assistant-body]')[1]?.textContent).toBe('核对结果');
 });
 
-it.each(['stopped', 'interrupted'] as const)(
-  '%s 保留已输出的正文及明确状态，不将文字收入折叠过程',
-  async (status) => {
-    await act(async () =>
-      root.render(
-        <ChatThread
-          chat={{
-            ...chat,
-            running: false,
-            messages: [
-              chat.messages[0]!,
-              {
-                role: 'assistant',
-                content: '尚未完成的片段',
-                startedAt: 1,
-                finishedAt: 100,
-                [status]: true,
-                parts: [{ type: 'text', text: '尚未完成的片段' }],
-              },
-            ],
-          }}
-        />,
-      ),
-    );
-    expect(host.querySelector('[data-assistant-body]')?.textContent).toContain('尚未完成的片段');
-    expect(host.textContent).toContain(status === 'stopped' ? '已停止' : '执行中断');
-    expect(host.querySelector('[aria-label="工作过程"]')).toBeNull();
-  },
-);
+it('停止的回复保留已输出正文并标注已停止', async () => {
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...chat,
+          running: false,
+          messages: [
+            chat.messages[0]!,
+            {
+              role: 'assistant',
+              content: '尚未完成的片段',
+              startedAt: 1,
+              finishedAt: 100,
+              stopped: true,
+              parts: [{ type: 'text', text: '尚未完成的片段' }],
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  expect(host.querySelector('[data-assistant-body]')?.textContent).toBe('尚未完成的片段');
+  expect(host.textContent).toContain('已停止');
+});

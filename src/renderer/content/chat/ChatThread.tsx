@@ -4,19 +4,22 @@ import {
   ArrowUp,
   ArrowUpRight,
   Check,
+  CircleAlert,
   Copy,
   FileText,
   NotebookPen,
   Pencil,
+  RotateCcw,
   X,
 } from 'lucide-react';
+import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
 import { useReducedMotion } from 'framer-motion';
 import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
-import { WorkingSection } from './ToolTimeline';
+import { ReplyTrace } from './ToolTimeline';
 import { ChatMarkdown } from './markdown';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 
@@ -246,13 +249,45 @@ const UserMessage = memo(function UserMessage({
   );
 });
 
+/** 整轮失败（模型/网络）：回复末尾一张错误卡，原因 + 重试。 */
+function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="my-3 flex items-start gap-2 rounded-card bg-red-tint px-3 py-2 text-[13px] leading-6 text-ink"
+    >
+      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-red" />
+      <p className="min-w-0 flex-1 break-words">{reason}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="-my-0.5 flex h-7 shrink-0 items-center gap-1 rounded-control px-2 text-[12px] font-medium text-ink-2 transition-colors hover:bg-surface hover:text-ink"
+        >
+          <RotateCcw aria-hidden className="size-3.5" />
+          重试
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** 投影层把中断原因拼在正文末尾（「本次执行中断：…」）：拆出来给错误卡，正文不重复。 */
+const INTERRUPT_PREFIX = '本次执行中断：';
+function splitInterrupt(parts: NonNullable<WorkspaceChat['messages'][number]['parts']>) {
+  const last = parts.at(-1);
+  if (last?.type === 'text' && last.text.startsWith(INTERRUPT_PREFIX))
+    return { parts: parts.slice(0, -1), reason: last.text.slice(INTERRUPT_PREFIX.length) };
+  return { parts, reason: null };
+}
+
 const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
   activeTool,
   onSaveNote,
   onOpenDraft,
-  onInspectTrace,
+  onRetry,
 }: {
   message: WorkspaceChat['messages'][number];
   live: boolean;
@@ -260,31 +295,17 @@ const AssistantMessage = memo(function AssistantMessage({
   onSaveNote: ((text: string) => void) | undefined;
   /** 容器未注入邮件草稿弹窗时为 undefined，对应入口隐藏。 */
   onOpenDraft: ((draftId: string) => void) | undefined;
-  onInspectTrace: () => void;
+  /** 仅最后一条回复可重试。 */
+  onRetry: (() => void) | undefined;
 }) {
   const reduced = useReducedMotion();
-  // 旧会话缺少顺序信息，仅按原来的工具组 + 正文展示，不虚构中间说明。
-  const parts = message.parts ?? [
-    ...(message.toolResults?.length
-      ? [{ type: 'tools' as const, results: message.toolResults }]
-      : []),
-    ...(message.content ? [{ type: 'text' as const, text: message.content }] : []),
-  ];
-  // 按原始内容类型固定展示位置，工具到来与运行结束都不搬移已输出的正文。
-  const workingParts = parts.filter((part) => part.type !== 'text');
-  const hasActivity = workingParts.some(
-    (part) =>
-      (part.type === 'tools' && part.results.length > 0) ||
-      (part.type !== 'tools' && Boolean(part.text)),
+  const split = splitInterrupt(message.parts ?? []);
+  const parts = split.parts;
+  const reason = message.interrupted ? (split.reason ?? '未知错误') : null;
+  const empty = !parts.some((part) =>
+    part.type === 'tools' ? part.results.length > 0 : Boolean(part.text.trim()),
   );
-  // 用时只在结束后计算为静态值；运行中的头部不带跳动的秒数。
-  const elapsedMs =
-    !live && message.startedAt !== undefined && message.finishedAt !== undefined
-      ? message.finishedAt - message.startedAt
-      : null;
   const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
-  const failed = tools.filter((result) => result.output?.isError).length;
-  // 邮件草稿入口放在工作过程区之外：折叠时不被 inert 隐藏。
   // `dela prepare_email` 经 bash 调用，输出里带 "draftId":"<uuid>"。
   const draftIds = [
     ...new Set(
@@ -298,42 +319,20 @@ const AssistantMessage = memo(function AssistantMessage({
       ),
     ),
   ];
+  const content = reason
+    ? parts.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n\n')
+    : message.content;
 
   return (
     <div className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]">
-      {/* 只有异常态（运行中/手动停止/中断）才占一行说明；正常完成不渲染「用时」噪音行。 */}
-      {!hasActivity &&
-        message.startedAt !== undefined &&
-        (live || message.stopped || message.interrupted || elapsedMs === null) && (
-          <div className="mb-4 text-[12.5px] text-ink-3">
-            {live ? (
-              <span
-                className="bg-clip-text text-transparent"
-                role="status"
-                style={{
-                  backgroundImage:
-                    'linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%)',
-                  backgroundSize: '200% 100%',
-                  animation: 'shimmer-text 1.4s linear infinite',
-                }}
-              >
-                正在工作
-              </span>
-            ) : message.stopped ? (
-              <span>已停止</span>
-            ) : (
-              <span>执行中断</span>
-            )}
-          </div>
-        )}
-      <WorkingSection
-        key={message.startedAt}
-        onInspect={onInspectTrace}
-        elapsedMs={elapsedMs}
-        failed={failed}
+      {live && empty && (
+        <p className="h-7 text-[13px] leading-7" role="status">
+          <Shimmer>正在思考</Shimmer>
+        </p>
+      )}
+      <ReplyTrace
         live={live}
         parts={parts}
-        status={message.stopped ? 'stopped' : message.interrupted ? 'interrupted' : 'done'}
         renderText={(text) => (
           <ChatMarkdown
             mode="streaming"
@@ -344,23 +343,22 @@ const AssistantMessage = memo(function AssistantMessage({
           </ChatMarkdown>
         )}
       />
+      {reason && <ErrorCard onRetry={onRetry} reason={reason} />}
+      {message.stopped && !live && <p className="my-2 text-[13px] text-ink-3">已停止</p>}
       {onOpenDraft &&
         draftIds.map((draftId) => (
           <Button
             key={draftId}
             variant="secondary"
             size="sm"
-            className="mb-2 mt-0 [&_svg]:size-3.5"
+            className="mb-2 mt-1 [&_svg]:size-3.5"
             onClick={() => onOpenDraft(draftId)}
           >
             <ArrowUpRight />
             检查并发送邮件
           </Button>
         ))}
-      {/* 运行进度由状态行或过程入口承载，正文不再叠加状态提示。 */}
-      {!live && message.content && (
-        <MessageActions content={message.content} onSaveNote={onSaveNote} />
-      )}
+      {!live && content && <MessageActions content={content} onSaveNote={onSaveNote} />}
     </div>
   );
 });
@@ -463,10 +461,15 @@ export const ChatThread = memo(function ChatThread({
   const MailDialog = mailDialog;
   // 消息组件 memo 后回调必须稳定，弹窗/编辑入口的局部状态才不带动消息列表重渲。
   const openDraft = useCallback((id: string) => setDraftId(id), []);
-  const inspectTrace = useCallback(() => {
-    followBottom.current = false;
-  }, []);
   const handleEditLast = useCallback((text: string) => onEditLast?.(text), [onEditLast]);
+  // 重试＝以最后一条用户消息原文重发（编辑重发同一路径，Pi 会话树保留失败分支）。
+  const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
+  const retry = useMemo(() => {
+    if (!onEditLast || !lastUser) return undefined;
+    const tokens = (lastUser.images ?? []).map((image) => chatImageToken(image.id, image.name));
+    const text = [lastUser.content, ...tokens].filter(Boolean).join('\n');
+    return () => onEditLast(text);
+  }, [lastUser, onEditLast]);
 
   return (
     <div className="relative min-h-0 flex-1">
@@ -475,6 +478,11 @@ export const ChatThread = memo(function ChatThread({
         className="size-full overflow-y-auto [overflow-anchor:none]"
         aria-label="对话消息"
         onScroll={onScroll}
+        // 展开过程细节时暂停贴底：内容变高不应把用户正在看的那一行推走。
+        onClickCapture={(event) => {
+          if ((event.target as HTMLElement).closest('[data-trace-toggle]'))
+            followBottom.current = false;
+        }}
       >
         <div ref={contentRef} className="relative mx-auto w-full max-w-3xl px-4 py-4">
           {/* 消息无稳定 id，key 用 sessionId:index：依赖列表 append-only（editLast 截断重发按同索引整表替换），勿在中间插入/删除。 */}
@@ -489,8 +497,8 @@ export const ChatThread = memo(function ChatThread({
               />
             ) : (
               <AssistantMessage
-                onInspectTrace={inspectTrace}
                 key={`${chat.sessionId}:${index}`}
+                onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
                 live={streaming && index === messages.length - 1}
                 message={message}
                 activeTool={chat.activeTool}

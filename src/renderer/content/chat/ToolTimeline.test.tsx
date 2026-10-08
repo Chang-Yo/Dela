@@ -2,39 +2,28 @@
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { WorkingSection } from './ToolTimeline';
-import type { WorkspaceChat } from '../../../shared/api';
+import { ReplyTrace } from './ToolTimeline';
+import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
 
 vi.mock('./markdown', () => ({
   ChatMarkdown: ({ children }: { children: ReactNode }) => children,
 }));
 
+type Parts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 let host: HTMLDivElement;
 let root: Root;
-const parts: NonNullable<WorkspaceChat['messages'][number]['parts']> = [
-  { type: 'reasoning' as const, text: '先核对资料' },
-  { type: 'text' as const, text: '查询本周作业' },
-  { type: 'text' as const, text: '我' },
-  { type: 'text' as const, text: '我来' },
-  {
-    type: 'tools' as const,
-    results: [{ id: 'tool-1', name: 'grep', input: { pattern: '高等数学' } }],
-  },
-];
-const render = async (live = true, failed = 0, trace = parts) => {
-  await act(async () =>
-    root.render(
-      <WorkingSection
-        parts={trace}
-        live={live}
-        elapsedMs={live ? null : 5200}
-        failed={failed}
-        status="done"
-      />,
-    ),
-  );
-};
-const trigger = () => host.querySelector<HTMLButtonElement>('button')!;
+
+const read = (id: string, path: string, done = true): AgentToolResult => ({
+  id,
+  name: 'read',
+  input: { path },
+  ...(done ? { output: { text: 'ok' }, finishedAt: 1 } : {}),
+});
+
+const render = (parts: Parts, live = false) =>
+  act(async () => root.render(<ReplyTrace live={live} parts={parts} />));
+const rows = () => [...host.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')];
+
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   host = document.createElement('div');
@@ -47,160 +36,82 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it('新一轮运行自动展开，入口显示当前动作及其对象', async () => {
-  await render();
-  expect(trigger().getAttribute('aria-expanded')).toBe('true');
-  expect(trigger().textContent).toContain('正在搜索内容');
-  expect(trigger().textContent).toContain('高等数学');
-  expect(host.querySelector('[aria-label="工作过程"]')).not.toBeNull();
+it('运行中逐行展示步骤：当前步骤用进行时，对象只显示文件名', async () => {
+  await render([{ type: 'tools', results: [read('a', 'D:/p/notes.md', false)] }], true);
+  expect(rows()[0]?.textContent).toContain('正在读取');
+  expect(rows()[0]?.textContent).toContain('notes.md');
+  expect(rows()[0]?.textContent).not.toContain('D:/p');
 });
 
-it('正文流式输出不提前收起，整轮完成才自动折叠且允许重新展开', async () => {
-  await render();
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).toContain('先核对资料');
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('查询本周作业');
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('我来');
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).not.toContain('进度说明');
-  expect(trigger().textContent).toContain('正在搜索内容');
-  await act(async () =>
-    root.render(<WorkingSection parts={parts} live elapsedMs={null} failed={0} status="done" />),
-  );
-  expect(trigger().getAttribute('aria-expanded')).toBe('true');
-  await render(false);
-  expect(trigger().getAttribute('aria-expanded')).toBe('false');
-  expect(trigger().textContent).toContain('已完成');
-  expect(trigger().textContent).toContain('5 秒');
-  await act(async () => trigger().click());
-  expect(host.querySelector('[aria-label="工作过程"]')).not.toBeNull();
-});
-
-it('运行中手动收起后不被流式更新打开，下一轮重新自动展开', async () => {
-  await render();
-  await act(async () => trigger().click());
-  await render();
-  expect(trigger().getAttribute('aria-expanded')).toBe('false');
-  await render(false);
-  await render();
-  expect(trigger().getAttribute('aria-expanded')).toBe('true');
-});
-
-it('折叠态保留失败计数，展开后显示完整错误并将原始数据置于明确的详情入口', async () => {
-  const failedParts = [
+it('完成后连续工具收成摘要行，展开看到每一步', async () => {
+  await render([
+    { type: 'text', text: '我先看看' },
+    { type: 'tools', results: [read('a', 'a.md'), read('b', 'b.md')] },
     {
-      type: 'tools' as const,
+      type: 'tools',
       results: [
         {
-          id: 'tool-1',
-          name: 'mcp_docs_search',
-          input: { query: '高等数学' },
-          output: { text: '资料尚未同步', isError: true },
+          id: 'c',
+          name: 'edit',
+          input: { path: 'a.md', edits: [{ oldText: 'x', newText: 'y\nz' }] },
+          output: { text: '' },
+          finishedAt: 2,
+        },
+      ],
+    },
+    { type: 'text', text: '改好了' },
+  ]);
+  expect(rows()).toHaveLength(1);
+  expect(rows()[0]!.textContent).toBe('读取 2 个文件，编辑 1 个文件');
+  // 不出现操作数、失败数这类统计。
+  expect(host.textContent).not.toMatch(/项操作|项失败/);
+  await act(async () => rows()[0]!.click());
+  expect(rows().map((row) => row.textContent)).toContain('编辑a.md+2 −1');
+});
+
+it('失败只在步骤行尾标注，原因在展开后可见', async () => {
+  await render([
+    {
+      type: 'tools',
+      results: [
+        {
+          id: 'e',
+          name: 'edit',
+          input: { path: 'a.md' },
+          output: { text: 'oldText 不存在', isError: true },
           finishedAt: 1,
         },
       ],
     },
-  ];
-  await act(async () =>
-    root.render(
-      <WorkingSection parts={failedParts} live={false} elapsedMs={1000} failed={1} status="done" />,
-    ),
-  );
-  expect(trigger().textContent).toContain('1 项失败');
-  await act(async () => trigger().click());
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).toContain('资料尚未同步');
-  expect(host.querySelector('summary')?.textContent).toContain('mcp_docs_search');
-  expect(host.textContent).not.toContain('输入与结果');
-  expect(host.querySelector('details')?.open).toBe(false);
-  await act(async () => host.querySelector('summary')!.click());
-  expect(host.querySelector('details')?.open).toBe(true);
-  // 兜底视图以"键: 值"展示输入，不再渲染原始 JSON 信封。
-  expect(host.querySelector('details')?.textContent).toContain('query: 高等数学');
-  await act(async () => host.querySelector('summary')!.click());
-  expect(host.querySelector('details')?.open).toBe(false);
+  ]);
+  expect(rows()[0]!.textContent).toContain('失败');
+  expect(host.textContent).not.toContain('oldText 不存在');
+  await act(async () => rows()[0]!.click());
+  expect(host.textContent).toContain('oldText 不存在');
 });
 
-it.each(['stopped', 'interrupted'] as const)(
-  '结束为 %s 时保留实际状态，未完成工具不伪装成功',
-  async (status) => {
-    await act(async () =>
-      root.render(
-        <WorkingSection parts={parts} live={false} elapsedMs={null} failed={0} status={status} />,
-      ),
-    );
-    expect(trigger().textContent).toContain(status === 'stopped' ? '已停止' : '工作中断');
-    await act(async () => trigger().click());
-    expect(
-      [...host.querySelectorAll('[aria-label="工作过程"]')]
-        .map((group) => group.textContent)
-        .join(''),
-    ).toContain('未完成');
-  },
-);
-
-it('完成的思考收成一行弱化文案，点击可展开全文', async () => {
-  const timed: typeof parts = [
-    { type: 'reasoning' as const, text: '先核对资料', startedAt: 0, finishedAt: 3000 },
+it('正文与过程按顺序交错，流式增长不重建正文节点', async () => {
+  const trace: Parts = [
+    { type: 'text', text: '先查看' },
+    { type: 'tools', results: [read('a', 'a.md')] },
+    { type: 'text', text: '找到了' },
   ];
-  await act(async () =>
-    root.render(
-      <WorkingSection parts={timed} live={false} elapsedMs={3000} failed={0} status="done" />,
-    ),
-  );
-  await act(async () => trigger().click());
-  expect(host.querySelector('[aria-label="工作过程"]')?.textContent).toContain('3 秒');
-  // 收起态：思考正文视觉隐藏（高度 0 + aria-hidden），仅剩一行摘要。
-  expect(host.querySelector('[aria-hidden="true"] [data-reasoning-body]')).not.toBeNull();
-  const thoughtToggle = () => host.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')[1]!;
-  await act(async () => thoughtToggle().click());
-  expect(host.querySelector('[aria-hidden="true"] [data-reasoning-body]')).toBeNull();
+  await render(trace, true);
+  const bodies = [...host.querySelectorAll('[data-assistant-body]')];
+  expect(bodies.map((node) => node.textContent)).toEqual(['先查看', '找到了']);
+  await render([...trace.slice(0, 2), { type: 'text', text: '找到了，继续' }], true);
+  expect([...host.querySelectorAll('[data-assistant-body]')]).toEqual(bodies);
 });
 
-it('按原始事件顺序交错正文与过程，仅合并相邻过程，折叠不移动正文节点', async () => {
-  const trace: NonNullable<WorkspaceChat['messages'][number]['parts']> = [
-    { type: 'text', text: '先查看文件夹' },
-    { type: 'reasoning', text: '核对文件夹身份' },
-    {
-      type: 'tools',
-      results: [{ id: 'list', name: 'ls', input: {}, output: { text: '' }, finishedAt: 1 }],
-    },
-    { type: 'text', text: '找到垃圾邮件文件夹，继续搜索' },
-    {
-      type: 'tools',
-      results: [{ id: 'search', name: 'grep', input: {}, output: { text: '' }, finishedAt: 1 }],
-    },
-    { type: 'text', text: '搜索结果如下' },
-  ];
-  await render(true, 0, trace);
-  const rows = [...host.querySelector('[aria-label="对话过程"]')!.children];
-  expect(rows).toHaveLength(5);
-  expect(rows[0]?.textContent).toBe('先查看文件夹');
-  expect(rows[1]?.textContent).toContain('核对文件夹身份');
-  expect(rows[1]?.textContent).toContain('ls');
-  expect(rows[2]?.textContent).toBe('找到垃圾邮件文件夹，继续搜索');
-  expect(rows[3]?.textContent).toContain('grep');
-  expect(rows[4]?.textContent).toBe('搜索结果如下');
-  const textNodes = [...host.querySelectorAll('[data-assistant-body]')];
-  await render(false, 0, trace);
-  expect([...host.querySelectorAll('[data-assistant-body]')]).toEqual(textNodes);
-  expect(host.querySelectorAll('[aria-label="工作过程"]')).toHaveLength(0);
-  expect(host.textContent).toContain('先查看文件夹');
-  expect(host.textContent).toContain('搜索结果如下');
-  await act(async () => trigger().click());
-  expect([...host.querySelectorAll('[data-assistant-body]')]).toEqual(textNodes);
-  expect(host.querySelectorAll('[aria-label="工作过程"]')).toHaveLength(2);
+it('思考默认收起，进行中显示正在思考', async () => {
+  await render([{ type: 'reasoning', text: '核对资料' }], true);
+  expect(rows()[0]!.textContent).toBe('正在思考');
+  expect(host.querySelector('[data-reasoning-body]')).toBeNull();
+  await act(async () => rows()[0]!.click());
+  expect(host.querySelector('[data-reasoning-body]')?.textContent).toBe('核对资料');
 });
 
-it('运行中的思考默认展开，正文随流式直接可见', async () => {
-  await act(async () =>
-    root.render(
-      <WorkingSection
-        parts={[{ type: 'reasoning' as const, text: '先核对资料' }]}
-        live
-        elapsedMs={null}
-        failed={0}
-        status="done"
-      />,
-    ),
-  );
-  expect(host.querySelector('[aria-hidden="true"] [data-reasoning-body]')).toBeNull();
-  expect(host.querySelector('[data-reasoning-body]')?.textContent).toContain('先核对资料');
+it('结束时未完成的步骤标注未完成', async () => {
+  await render([{ type: 'tools', results: [read('a', 'a.md', false)] }], false);
+  expect(rows()[0]!.textContent).toContain('未完成');
 });

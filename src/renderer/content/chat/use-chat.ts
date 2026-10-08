@@ -268,6 +268,7 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
         ),
       }),
     error,
+    clearError: () => setError(null),
     send,
     stop,
     editLast,

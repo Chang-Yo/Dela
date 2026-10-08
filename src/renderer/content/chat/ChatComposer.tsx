@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Popover } from 'radix-ui';
 import {
   ArrowUp,
@@ -6,6 +6,7 @@ import {
   Bot,
   Check,
   ChevronDown,
+  CircleAlert,
   FileText,
   Paperclip,
   Settings,
@@ -80,8 +81,13 @@ export function ChatComposer({
   onAddAttachmentFile,
   onAddAttachmentView,
   onRemoveAttachment,
+  notice = null,
+  onDismissNotice,
   hero = false,
 }: {
+  /** 发送前错误（会话层），显示在输入框上方；null = 无。 */
+  notice?: string | null;
+  onDismissNotice?: () => void;
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
@@ -297,361 +303,402 @@ export function ChatComposer({
   };
 
   return (
-    <div
-      className={cn(
-        '@container relative rounded-[14px] border border-line bg-surface shadow-card transition-colors duration-150 focus-within:border-line-strong',
-        dragging && 'border-transparent',
+    <div className="relative">
+      {/* 提示条浮在输入框上方，不推移输入框与消息列表。 */}
+      {(fileError ?? notice) && (
+        <ComposerNotice
+          message={(fileError ?? notice)!}
+          onDismiss={fileError ? () => setFileError(null) : onDismissNotice}
+        />
       )}
-      onDragOver={(event) => {
-        if (event.dataTransfer.types.includes('Files')) {
+      <div
+        className={cn(
+          '@container relative rounded-[14px] border border-line bg-surface shadow-card transition-colors duration-150 focus-within:border-line-strong',
+          dragging && 'border-transparent',
+        )}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('Files')) {
+            event.preventDefault();
+            setDragging(true);
+          }
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={(event) => {
+          setDragging(false);
+          const files = [...(event.dataTransfer?.files ?? [])];
+          if (!files.length) return;
           event.preventDefault();
-          setDragging(true);
-        }
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-      }}
-      onDrop={(event) => {
-        setDragging(false);
-        const files = [...(event.dataTransfer?.files ?? [])];
-        if (!files.length) return;
-        event.preventDefault();
-        void addFiles(files, editorRef.current?.selectionStart() ?? value.length);
-      }}
-    >
-      {dragging && (
-        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[14px] border-2 border-dashed border-line-strong bg-page/80 text-sm text-ink-3">
-          松开以添加图片或附件
-        </div>
-      )}
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-2 pt-2">
-          {attachments.map((item) => (
-            <span
-              className="flex h-6.5 min-w-0 max-w-full items-center gap-1.5 rounded-chip bg-field py-1 pr-1 pl-1.5 text-[11.5px] text-ink-2 shadow-hairline"
-              key={item.id}
-              style={{ animation: 'pop-in 200ms cubic-bezier(0.23,1,0.32,1) both' }}
-            >
-              <FileText className="size-3 shrink-0 text-ink-3" />
-              <span className="truncate" title={item.name}>
-                {item.name}
-              </span>
-              <span className="shrink-0 text-ink-3">{formatSize(item.size)}</span>
-              <button
-                aria-label={`移除附件 ${item.name}`}
-                className="-my-1 flex size-6 shrink-0 items-center justify-center rounded-[5px] text-ink-3 transition-colors duration-100 hover:bg-line/70 hover:text-ink"
-                onClick={() => onRemoveAttachment(item.id)}
-                type="button"
-              >
-                <X className="size-2.5" strokeWidth={2.5} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      {references.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-2 pt-2">
-          {references.map((ref) => (
-            <span
-              className="flex h-6.5 min-w-0 max-w-full items-center gap-1.5 rounded-chip bg-field py-1 pr-1 pl-1.5 text-[11.5px] text-ink-2 shadow-hairline"
-              key={ref.key}
-              style={{ animation: 'pop-in 200ms cubic-bezier(0.23,1,0.32,1) both' }}
-            >
-              <AtSign className="size-3 shrink-0 text-ink-3" />
-              <span className="truncate">{ref.title}</span>
-              <button
-                aria-label={`移除引用 ${ref.title}`}
-                className="-my-1 flex size-6 shrink-0 items-center justify-center rounded-[5px] text-ink-3 transition-colors duration-100 hover:bg-line/70 hover:text-ink"
-                onClick={() => onRemoveReference(ref.key)}
-                type="button"
-              >
-                <X className="size-2.5" strokeWidth={2.5} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <ComposerEditor
-        className="@max-[220px]:[&_[aria-hidden='true']]:truncate"
-        handleRef={editorRef}
-        hero={hero}
-        menu={menuApi}
-        menuAria={{
-          activeId: menuOpen && index < items.length ? menuOptionId(index) : null,
-          listId: menuListId,
-          open: menuOpen,
+          void addFiles(files, editorRef.current?.selectionStart() ?? value.length);
         }}
-        onChange={onChange}
-        onCaret={handleCaret}
-        onDropHandled={() => setDragging(false)}
-        onFiles={(files, pos) => void addFiles(files, pos)}
-        onSend={() => {
-          if (canSend) onSend();
-        }}
-        placeholderText={
-          hero ? '查找资料、安排日程，或继续一个项目…' : '继续对话，@ 引用资料，/ 使用指令…'
-        }
-        value={value}
-      />
-      {fileError && (
-        <p className="px-4 text-xs text-red" role="alert">
-          {fileError}
-        </p>
-      )}
-      <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1 @max-[160px]:gap-0.5 @max-[160px]:px-1.5">
-        <IconButton aria-label="添加图片或附件" onClick={pickFiles} title="添加图片或附件">
-          <Paperclip />
-        </IconButton>
-        <IconButton aria-label="引用资料" onClick={insertMention} title="引用资料（@）">
-          <AtSign />
-        </IconButton>
-        <div className="flex-1" />
-        {configured && (
-          <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
-            <Popover.Trigger asChild>
-              <button
-                aria-label="模型服务"
-                className={cn(triggerButton, '@max-[220px]:px-1.5')}
-                title={model}
-                type="button"
-              >
-                <span className="truncate @max-[220px]:hidden">{model}</span>
-                <Bot className="hidden size-3.5 @max-[220px]:block" />
-                <ChevronDown className="size-3 @max-[220px]:hidden" />
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                align="end"
-                className={cn('z-50 w-80', menuPanel)}
-                side="bottom"
-                sideOffset={6}
-                style={{
-                  animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-                  transformOrigin: 'top center',
-                }}
-              >
-                {providers === null ? (
-                  <p className="px-2 py-3 text-[12px] text-ink-3">正在加载模型列表…</p>
-                ) : providers.length === 0 ? (
-                  <div className="grid gap-2 px-1.5 py-2">
-                    <p className="text-[12px] text-ink-3">
-                      还没有配置模型供应商，可在设置 › 模型供应商 中添加。
-                    </p>
-                    <Button
-                      className="w-full justify-start [&_svg]:size-3.5"
-                      onClick={() => {
-                        setModelPickerOpen(false);
-                        useNavigationStore.getState().openSettings('providers');
-                      }}
-                      size="xs"
-                      type="button"
-                      variant="secondary"
-                    >
-                      <Settings />
-                      打开设置 › 模型供应商
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-0.5">
-                    <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
-                      {providers.map((provider) => (
-                        <li key={provider.id}>
-                          <button
-                            className={cn(
-                              'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
-                              provider.id === focusedId
-                                ? 'bg-hover font-medium text-ink'
-                                : 'text-ink-2 hover:bg-hover hover:text-ink',
-                            )}
-                            onClick={() => setFocusedId(provider.id)}
-                            type="button"
-                          >
-                            <span className="truncate">{provider.name}</span>
-                            {provider.active && (
-                              <span
-                                aria-label="使用中"
-                                className="ms-auto size-1.5 shrink-0 rounded-full bg-green"
-                                title="使用中"
-                              />
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                    <ul
-                      aria-label="模型"
-                      className="max-h-64 min-w-0 flex-1 overflow-y-auto border-l border-line pl-1.5"
-                    >
-                      {focused?.models.map((item) => (
-                        <li key={item}>
-                          <button
-                            className={cn(
-                              'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
-                              focused.active && model === item
-                                ? 'bg-hover font-medium text-ink'
-                                : 'text-ink-2 hover:bg-hover hover:text-ink',
-                            )}
-                            onClick={() => {
-                              setModelPickerOpen(false);
-                              onModelSelect(focused, item);
-                            }}
-                            type="button"
-                          >
-                            <span className="truncate">{item}</span>
-                            {focused.active && model === item && (
-                              <Check
-                                className="ms-auto size-3 shrink-0 text-ink"
-                                strokeWidth={2.5}
-                              />
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
+      >
+        {dragging && (
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[14px] border-2 border-dashed border-line-strong bg-page/80 text-sm text-ink-3">
+            松开以添加图片或附件
+          </div>
         )}
-        {configured && (
-          <Popover.Root onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
-            <Popover.Trigger asChild>
-              <button
-                aria-label="思考强度"
-                // 中窄容器（≤260px）收成图标而非整颗消失，极窄（≤160px）才随次要按钮退场。
-                className={cn(triggerButton, '@max-[260px]:px-1.5 @max-[160px]:hidden')}
-                disabled={effortLevels.length === 0}
-                title={
-                  effortLevels.length ? '思考强度' : '在设置 › 模型供应商 中开启推理强度后可选'
-                }
-                type="button"
-              >
-                <span className="truncate @max-[260px]:hidden">{effort ?? 'default'}</span>
-                <Sparkles className="hidden size-3.5 @max-[260px]:block" />
-                <ChevronDown className="size-3 @max-[260px]:hidden" />
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                align="end"
-                className={cn('z-50 w-32', menuPanel)}
-                side="bottom"
-                sideOffset={6}
-                style={{
-                  animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-                  transformOrigin: 'top center',
-                }}
-              >
-                <ul aria-label="思考强度">
-                  {effortLevels.map((level) => (
-                    <li key={level}>
-                      <button
-                        className={cn(
-                          'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
-                          level === effort
-                            ? 'bg-hover font-medium text-ink'
-                            : 'text-ink-2 hover:bg-hover hover:text-ink',
-                        )}
+        {(attachments.length > 0 || references.length > 0) && (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+            {references.map((ref) => (
+              <ComposerChip
+                icon={<AtSign />}
+                key={ref.key}
+                label={ref.title}
+                onRemove={() => onRemoveReference(ref.key)}
+                removeLabel={`移除引用 ${ref.title}`}
+              />
+            ))}
+            {attachments.map((item) => (
+              <ComposerChip
+                detail={formatSize(item.size)}
+                icon={<FileText />}
+                key={item.id}
+                label={item.name}
+                onRemove={() => onRemoveAttachment(item.id)}
+                removeLabel={`移除附件 ${item.name}`}
+              />
+            ))}
+          </div>
+        )}
+        <ComposerEditor
+          className="@max-[220px]:[&_[aria-hidden='true']]:truncate"
+          handleRef={editorRef}
+          hero={hero}
+          menu={menuApi}
+          menuAria={{
+            activeId: menuOpen && index < items.length ? menuOptionId(index) : null,
+            listId: menuListId,
+            open: menuOpen,
+          }}
+          onChange={onChange}
+          onCaret={handleCaret}
+          onDropHandled={() => setDragging(false)}
+          onFiles={(files, pos) => void addFiles(files, pos)}
+          onSend={() => {
+            if (canSend) onSend();
+          }}
+          placeholderText={hero ? '有什么可以帮你？' : '回复…  @ 引用文件，/ 指令'}
+          value={value}
+        />
+        <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1 @max-[160px]:gap-0.5 @max-[160px]:px-1.5">
+          <IconButton aria-label="添加图片或附件" onClick={pickFiles} title="添加图片或附件">
+            <Paperclip />
+          </IconButton>
+          <IconButton aria-label="引用资料" onClick={insertMention} title="引用资料（@）">
+            <AtSign />
+          </IconButton>
+          <div className="flex-1" />
+          {configured && (
+            <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
+              <Popover.Trigger asChild>
+                <button
+                  aria-label="模型服务"
+                  className={cn(triggerButton, '@max-[220px]:px-1.5')}
+                  title={model}
+                  type="button"
+                >
+                  <span className="truncate @max-[220px]:hidden">{model}</span>
+                  <Bot className="hidden size-3.5 @max-[220px]:block" />
+                  <ChevronDown className="size-3 @max-[220px]:hidden" />
+                </button>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  align="end"
+                  className={cn('z-50 w-80', menuPanel)}
+                  side="bottom"
+                  sideOffset={6}
+                  style={{
+                    animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+                    transformOrigin: 'top center',
+                  }}
+                >
+                  {providers === null ? (
+                    <p className="px-2 py-3 text-[12px] text-ink-3">正在加载模型列表…</p>
+                  ) : providers.length === 0 ? (
+                    <div className="grid gap-2 px-1.5 py-2">
+                      <p className="text-[12px] text-ink-3">
+                        还没有配置模型供应商，可在设置 › 模型供应商 中添加。
+                      </p>
+                      <Button
+                        className="w-full justify-start [&_svg]:size-3.5"
                         onClick={() => {
-                          setEffortPickerOpen(false);
-                          onEffortSelect(level);
+                          setModelPickerOpen(false);
+                          useNavigationStore.getState().openSettings('providers');
                         }}
+                        size="xs"
                         type="button"
+                        variant="secondary"
                       >
-                        <span className="truncate">{level}</span>
-                        {level === effort && (
-                          <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-        )}
-        {busy ? (
-          <button
-            aria-label="停止执行"
-            className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-ink text-surface transition-opacity duration-150 hover:opacity-90 active:scale-[0.94]"
-            onClick={onStop}
-            title="停止执行"
-            type="button"
-          >
-            <Square className="size-3 fill-current" />
-          </button>
-        ) : (
-          <button
-            aria-label="发送"
-            className="flex size-7 shrink-0 items-center justify-center rounded-[8px] transition-[background-color,color,transform] duration-200 enabled:active:scale-[0.94]"
-            disabled={!configured || !canSend}
-            onClick={onSend}
+                        <Settings />
+                        打开设置 › 模型供应商
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-0.5">
+                      <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
+                        {providers.map((provider) => (
+                          <li key={provider.id}>
+                            <button
+                              className={cn(
+                                'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
+                                provider.id === focusedId
+                                  ? 'bg-hover font-medium text-ink'
+                                  : 'text-ink-2 hover:bg-hover hover:text-ink',
+                              )}
+                              onClick={() => setFocusedId(provider.id)}
+                              type="button"
+                            >
+                              <span className="truncate">{provider.name}</span>
+                              {provider.active && (
+                                <span
+                                  aria-label="使用中"
+                                  className="ms-auto size-1.5 shrink-0 rounded-full bg-green"
+                                  title="使用中"
+                                />
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <ul
+                        aria-label="模型"
+                        className="max-h-64 min-w-0 flex-1 overflow-y-auto border-l border-line pl-1.5"
+                      >
+                        {focused?.models.map((item) => (
+                          <li key={item}>
+                            <button
+                              className={cn(
+                                'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
+                                focused.active && model === item
+                                  ? 'bg-hover font-medium text-ink'
+                                  : 'text-ink-2 hover:bg-hover hover:text-ink',
+                              )}
+                              onClick={() => {
+                                setModelPickerOpen(false);
+                                onModelSelect(focused, item);
+                              }}
+                              type="button"
+                            >
+                              <span className="truncate">{item}</span>
+                              {focused.active && model === item && (
+                                <Check
+                                  className="ms-auto size-3 shrink-0 text-ink"
+                                  strokeWidth={2.5}
+                                />
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          )}
+          {configured && (
+            <Popover.Root onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
+              <Popover.Trigger asChild>
+                <button
+                  aria-label="思考强度"
+                  // 中窄容器（≤260px）收成图标而非整颗消失，极窄（≤160px）才随次要按钮退场。
+                  className={cn(triggerButton, '@max-[260px]:px-1.5 @max-[160px]:hidden')}
+                  disabled={effortLevels.length === 0}
+                  title={
+                    effortLevels.length ? '思考强度' : '在设置 › 模型供应商 中开启推理强度后可选'
+                  }
+                  type="button"
+                >
+                  <span className="truncate @max-[260px]:hidden">{effort ?? 'default'}</span>
+                  <Sparkles className="hidden size-3.5 @max-[260px]:block" />
+                  <ChevronDown className="size-3 @max-[260px]:hidden" />
+                </button>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  align="end"
+                  className={cn('z-50 w-32', menuPanel)}
+                  side="bottom"
+                  sideOffset={6}
+                  style={{
+                    animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+                    transformOrigin: 'top center',
+                  }}
+                >
+                  <ul aria-label="思考强度">
+                    {effortLevels.map((level) => (
+                      <li key={level}>
+                        <button
+                          className={cn(
+                            'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
+                            level === effort
+                              ? 'bg-hover font-medium text-ink'
+                              : 'text-ink-2 hover:bg-hover hover:text-ink',
+                          )}
+                          onClick={() => {
+                            setEffortPickerOpen(false);
+                            onEffortSelect(level);
+                          }}
+                          type="button"
+                        >
+                          <span className="truncate">{level}</span>
+                          {level === effort && (
+                            <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          )}
+          {busy ? (
+            <button
+              aria-label="停止执行"
+              className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-ink text-surface transition-opacity duration-150 hover:opacity-90 active:scale-[0.94]"
+              onClick={onStop}
+              title="停止执行"
+              type="button"
+            >
+              <Square className="size-3 fill-current" />
+            </button>
+          ) : (
+            <button
+              aria-label="发送"
+              className="flex size-7 shrink-0 items-center justify-center rounded-[8px] transition-[background-color,color,transform] duration-200 enabled:active:scale-[0.94]"
+              disabled={!configured || !canSend}
+              onClick={onSend}
+              style={{
+                background: configured && canSend ? 'var(--ink)' : 'var(--line-strong)',
+                color: configured && canSend ? 'var(--surface)' : 'var(--ink-2)',
+              }}
+              title="发送"
+              type="button"
+            >
+              <ArrowUp className="size-4" strokeWidth={2.4} />
+            </button>
+          )}
+        </div>
+        {/* min-w-56 下限在窄容器会越出 composer 边界（分屏时压到相邻组），≤260px 时收为贴容器宽。 */}
+        {menuOpen && (
+          <ul
+            className="relative mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-[10px] bg-surface p-1 shadow-raised @max-[260px]:min-w-0 absolute bottom-full left-0 z-20"
+            id={menuListId}
+            role="listbox"
             style={{
-              background: configured && canSend ? 'var(--ink)' : 'var(--line-strong)',
-              color: configured && canSend ? 'var(--surface)' : 'var(--ink-2)',
+              animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+              transformOrigin: 'bottom center',
             }}
-            title="发送"
-            type="button"
           >
-            <ArrowUp className="size-4" strokeWidth={2.4} />
-          </button>
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-1 rounded-[6px] bg-hover"
+              style={{
+                top: rowBox?.top ?? 0,
+                height: rowBox?.height ?? 0,
+                opacity: rowBox ? 1 : 0,
+                transition:
+                  'top 220ms cubic-bezier(0.23,1,0.32,1), height 220ms cubic-bezier(0.23,1,0.32,1), opacity 150ms ease',
+              }}
+            />
+            {items.map((item, position) => (
+              <li
+                aria-selected={position === index}
+                className="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-[6px] px-2 text-left"
+                id={menuOptionId(position)}
+                key={'name' in item ? item.name : item.key}
+                // 阻止点击选项时编辑器失焦。
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setIndex(position)}
+                onClick={() => handleSelect(position)}
+                ref={position === index ? itemRef : undefined}
+                role="option"
+              >
+                {menu?.kind === 'mention' ? (
+                  <AtSign className="size-3.5 shrink-0 text-ink-3" />
+                ) : (
+                  <span className="shrink-0 font-mono text-[12.5px] text-ink-3">/</span>
+                )}
+                {'name' in item ? (
+                  <>
+                    <span className="shrink-0 text-[12.5px] font-medium text-ink">
+                      /{item.name}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">
+                      {item.hint}
+                    </span>
+                  </>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">
+                    {item.title}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-      {/* min-w-56 下限在窄容器会越出 composer 边界（分屏时压到相邻组），≤260px 时收为贴容器宽。 */}
-      {menuOpen && (
-        <ul
-          className="relative mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-[10px] bg-surface p-1 shadow-raised @max-[260px]:min-w-0 absolute bottom-full left-0 z-20"
-          id={menuListId}
-          role="listbox"
-          style={{
-            animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-            transformOrigin: 'bottom center',
-          }}
+    </div>
+  );
+}
+
+/** 引用与附件统一一种 chip：图标 + 名称 + 可选细节 + 移除。 */
+function ComposerChip({
+  icon,
+  label,
+  detail,
+  onRemove,
+  removeLabel,
+}: {
+  icon: ReactNode;
+  label: string;
+  detail?: string;
+  onRemove: () => void;
+  removeLabel: string;
+}) {
+  return (
+    <span
+      className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field pr-0.5 pl-2 text-[12px] text-ink-2 shadow-hairline [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-ink-3"
+      style={{ animation: 'pop-in 200ms cubic-bezier(0.23,1,0.32,1) both' }}
+      title={label}
+    >
+      {icon}
+      <span className="truncate">{label}</span>
+      {detail && <span className="shrink-0 text-ink-3">{detail}</span>}
+      <button
+        aria-label={removeLabel}
+        className="flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
+        onClick={onRemove}
+        type="button"
+      >
+        <X className="size-3" strokeWidth={2.2} />
+      </button>
+    </span>
+  );
+}
+
+/** composer 上方的提示条：发送前的错误（未配置、文件不支持、引用未保存）。 */
+function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
+  return (
+    <div
+      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--red-tint),var(--red-tint))] px-3 py-1.5 text-[13px] leading-6 text-ink shadow-hairline"
+      role="alert"
+      style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
+    >
+      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-red" />
+      <p className="min-w-0 flex-1 break-words">{message}</p>
+      {onDismiss && (
+        <button
+          aria-label="关闭提示"
+          className="-mr-1 flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-surface hover:text-ink"
+          onClick={onDismiss}
+          type="button"
         >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-1 rounded-[6px] bg-hover"
-            style={{
-              top: rowBox?.top ?? 0,
-              height: rowBox?.height ?? 0,
-              opacity: rowBox ? 1 : 0,
-              transition:
-                'top 220ms cubic-bezier(0.23,1,0.32,1), height 220ms cubic-bezier(0.23,1,0.32,1), opacity 150ms ease',
-            }}
-          />
-          {items.map((item, position) => (
-            <li
-              aria-selected={position === index}
-              className="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-[6px] px-2 text-left"
-              id={menuOptionId(position)}
-              key={'name' in item ? item.name : item.key}
-              // 阻止点击选项时编辑器失焦。
-              onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => setIndex(position)}
-              onClick={() => handleSelect(position)}
-              ref={position === index ? itemRef : undefined}
-              role="option"
-            >
-              {menu?.kind === 'mention' ? (
-                <AtSign className="size-3.5 shrink-0 text-ink-3" />
-              ) : (
-                <span className="shrink-0 font-mono text-[12.5px] text-ink-3">/</span>
-              )}
-              {'name' in item ? (
-                <>
-                  <span className="shrink-0 text-[12.5px] font-medium text-ink">/{item.name}</span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">
-                    {item.hint}
-                  </span>
-                </>
-              ) : (
-                <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{item.title}</span>
-              )}
-            </li>
-          ))}
-        </ul>
+          <X className="size-3" strokeWidth={2.2} />
+        </button>
       )}
     </div>
   );

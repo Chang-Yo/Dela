@@ -112,13 +112,10 @@ function ChatComposerArea({
         onStop={chatState.stop}
         referenceOptions={referenceOptions}
         references={references}
+        notice={error}
+        onDismissNotice={chatState.clearError}
         value={prompt}
       />
-      {error && (
-        <p className="mt-2 break-words text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
     </div>
   );
 }
