@@ -53,12 +53,8 @@ export function MailMessageList({
           <strong className="truncate text-[13px] font-semibold text-ink">
             {selectedFolder?.name ?? '邮件'}
           </strong>
-          {/* 同步进行中把计数换成进度文案：只有转圈图标时用户不知道在同步什么、进度如何。 */}
-          <small
-            className="shrink-0 truncate text-[12px] tabular-nums text-ink-3"
-            title={syncBusy ? syncLabel : undefined}
-          >
-            {syncBusy && syncLabel ? syncLabel : `${filteredMessages.length} 封`}
+          <small className="shrink-0 truncate text-[12px] tabular-nums text-ink-3">
+            {`${filteredMessages.length} 封`}
           </small>
         </div>
         <div className="flex-1" />
