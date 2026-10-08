@@ -153,13 +153,13 @@ export function ProjectSessionNav({
   };
   const hidden = cn('truncate', labelFade, collapsed && 'opacity-0');
 
-  /** 会话历史组（通用对话/项目）共用的一段：折叠头 + 近期会话 + 「显示更多」。 */
+  /** 会话历史组（通用对话/项目）共用的一段：折叠头 + 近期会话 + 「显示更多」。
+   *  行点击即展开/折叠该组；打开项目工作台走项目菜单的「打开项目」。 */
   const sessionGroup = (
     key: string,
     label: string,
     icon: typeof Mail,
     sessions: NavSessionSummary[],
-    onOpenGroup: () => void,
     groupActive: boolean,
   ) => {
     const expanded = openProjects.includes(key);
@@ -186,8 +186,9 @@ export function ProjectSessionNav({
           </button>
           <button
             aria-current={groupActive ? 'page' : undefined}
+            aria-expanded={expanded}
             className="flex min-w-0 flex-1 items-center gap-2 text-left"
-            onClick={onOpenGroup}
+            onClick={() => toggleProject(key)}
             title={label}
             type="button"
           >
@@ -217,6 +218,10 @@ export function ProjectSessionNav({
                   </DropdownMenuLabel>
                   <DropdownMenuLabel>{sessions.length} 个对话</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => onOpenProject(key)}>
+                    <FolderOpen />
+                    打开项目
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() =>
                       setProjectPreference(key, { pinned: !preferences[key]?.pinned })
@@ -272,7 +277,7 @@ export function ProjectSessionNav({
                     在资源管理器中显示
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {/* 「打开项目文件」「新建对话」由行点击与悬停按钮承担，不进菜单。 */}
+                  {/* 「新建对话」由悬停按钮承担，不进菜单；行点击用于展开/折叠会话组。 */}
                   <DropdownMenuItem disabled={archiving} onSelect={() => setConfirmArchive(key)}>
                     <Archive />
                     归档项目对话
@@ -429,7 +434,6 @@ export function ProjectSessionNav({
                 project.name,
                 Folder,
                 sessionsByProject[project.id] ?? [],
-                () => onOpenProject(project.id),
                 project.id === activeProjectId,
               ),
             )}
@@ -492,7 +496,6 @@ export function ProjectSessionNav({
                     project.name,
                     Folder,
                     sessionsByProject[project.id] ?? [],
-                    () => onOpenProject(project.id),
                     project.id === activeProjectId,
                   ),
                 )}
