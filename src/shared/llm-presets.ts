@@ -2,8 +2,8 @@
 import type { LlmModelSettings } from './llm';
 
 export const LLM_MODEL_LIMIT = 64;
-export const LLM_DEFAULT_CONTEXT_WINDOW = 32768;
-export const LLM_DEFAULT_OUTPUT_TOKENS = 32768;
+export const LLM_DEFAULT_CONTEXT_WINDOW = 256000;
+export const LLM_DEFAULT_OUTPUT_TOKENS = 128000;
 
 /** 按模型覆盖；没有覆盖时保留旧提供商的档位与当前选择。 */
 export function llmModelSettings(

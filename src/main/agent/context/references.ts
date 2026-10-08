@@ -1,9 +1,8 @@
-import { z } from 'zod';
 import { readCanvasSource } from '../../canvas/api';
 import { readShuiyuanSource } from '../../shuiyuan/api';
 import { readWorkspaceEntry } from '../../workspace/api';
-
-const idSchema = z.string().uuid();
+// 普通文件条目的 id 即磁盘绝对路径（shared/workspace）：@ 引用项目内文件走的就是它。
+import { workspaceEntryIdSchema } from '../../../shared/workspace';
 
 export type ReferenceDocument = { key: string; title: string; text: string };
 export type AttachmentDocument = { name: string; text: string };
@@ -24,7 +23,7 @@ export async function readAskReferences(
         ? sourceKey.startsWith('shuiyuan-topic:')
           ? await readShuiyuanSource(Number(sourceKey.slice('shuiyuan-topic:'.length)))
           : await readCanvasSource(sourceKey)
-        : await readWorkspaceEntry(idSchema.parse(key));
+        : await readWorkspaceEntry(workspaceEntryIdSchema.parse(key));
       if (!['markdown', 'text', 'html'].includes(content.format))
         throw new Error(`“${content.title}”暂不支持全文问答，可粘贴需要讨论的文字`);
       const text =

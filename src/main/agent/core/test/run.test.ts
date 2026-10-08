@@ -103,7 +103,7 @@ describe('runAgent（Pi Agent Core 桥）', () => {
     expect(body.messages?.at(-1)?.role).toBe('user');
     // 未开启推理强度时不携带 reasoning_effort；输出上限按 streamFn 包装注入。
     expect(body.reasoning_effort).toBeUndefined();
-    expect(body.max_completion_tokens).toBe(32768);
+    expect(body.max_completion_tokens).toBe(128000);
   });
 
   it('effort 档位随每个请求下发，none 视为关闭不下发', async () => {
@@ -118,7 +118,7 @@ describe('runAgent（Pi Agent Core 桥）', () => {
     expect(withHigh.length).toBeGreaterThan(0);
     for (const request of withHigh) {
       expect(bodyOf(request).reasoning_effort).toBe('high');
-      expect(bodyOf(request).max_completion_tokens).toBe(32768);
+      expect(bodyOf(request).max_completion_tokens).toBe(128000);
     }
     const withNone: RecordedRequest[] = [];
     const stopNoneCapture = server.onRequest((request) => withNone.push(request));
@@ -359,7 +359,7 @@ describe('runAgent（Pi Agent Core 桥）', () => {
     server.enqueue(textSse('Done'));
     const result = await runAgent(makeOptions());
     expect(result.content).toBe('Done');
-    expect(bodyOf(server.requests[before]!).max_completion_tokens).toBe(32768);
+    expect(bodyOf(server.requests[before]!).max_completion_tokens).toBe(128000);
     expect(bodyOf(server.requests[before + 1]!).max_completion_tokens).toBe(8192);
     expect(server.requests.length - before).toBe(2);
   });

@@ -123,7 +123,7 @@ describe('LLM provider config', () => {
     expect(() =>
       saveLlmProvider({
         ...input,
-        modelConfigs: { 'deepseek-v4-pro': { maxOutputTokens: 128000 } },
+        modelConfigs: { 'deepseek-v4-pro': { maxOutputTokens: 512000 } },
       }),
     ).toThrow();
     expect(() =>

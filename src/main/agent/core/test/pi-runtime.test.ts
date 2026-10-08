@@ -101,8 +101,8 @@ describe('Pi 桥层（buildPiModel + createDelaStreamFn + stripThinking）', () 
     expect(body.store).toBe(false);
     expect(body.stream_options).toEqual({ include_usage: true });
     expect(body.messages?.[0]?.role).toBe('system');
-    // 未知 baseUrl 走 OpenAI 默认 compat：max_completion_tokens 字段 + 注入的 32768 上限。
-    expect(body.max_completion_tokens).toBe(32768);
+    // 未知 baseUrl 走 OpenAI 默认 compat：max_completion_tokens 字段 + 注入的 128000 上限。
+    expect(body.max_completion_tokens).toBe(128000);
     expect(body.max_tokens).toBeUndefined();
     // usage 从流末帧解析。
     const last = agent.state.messages.at(-1) as AssistantMessage;
@@ -133,7 +133,7 @@ describe('Pi 桥层（buildPiModel + createDelaStreamFn + stripThinking）', () 
     expect(body.thinking).toEqual({ type: 'enabled' });
     expect(body.reasoning_effort).toBe('high');
     // DeepSeek 检测使用 max_tokens 字段（而非 max_completion_tokens）。
-    expect(body.max_tokens).toBe(32768);
+    expect(body.max_tokens).toBe(128000);
     expect(body.max_completion_tokens).toBeUndefined();
     const last = agent.state.messages.at(-1) as AssistantMessage;
     expect(last.content.map((block) => block.type)).toEqual(['thinking', 'text']);

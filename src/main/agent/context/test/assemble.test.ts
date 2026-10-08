@@ -77,7 +77,7 @@ describe('assembleModelContext', () => {
   });
 
   it('预算不足时从最旧一侧开始放不下（由上游压缩覆盖，组装侧不静默截断其余消息）', () => {
-    const history = historyOf(10, 4000); // 每条约 4000 token，预算 20480 只容最近 5 条。
+    const history = historyOf(10, 45000); // 每条约 45000 token，预算 243712 只容最近 5 条。
     const result = assembleModelContext({
       history,
       summary: null,
@@ -90,7 +90,7 @@ describe('assembleModelContext', () => {
   });
 
   it('最新一条单独超预算时截断保留并标注', () => {
-    const history = historyOf(2, 30000);
+    const history = historyOf(2, 250000);
     const result = assembleModelContext({
       history,
       summary: null,
@@ -100,13 +100,13 @@ describe('assembleModelContext', () => {
     expect(result.history).toHaveLength(1);
     expect(result.history[0]!.content).toContain('内容过大已截断');
     // 截断后的估算不超预算。
-    expect(estimateTokens(result.history[0]!.content)).toBeLessThanOrEqual(20480);
+    expect(estimateTokens(result.history[0]!.content)).toBeLessThanOrEqual(243712);
   });
 
   it('本轮输入（reservedTokens）加 system 超出预算时明确报错，不静默截断本轮', () => {
     const history = historyOf(3);
     expect(() =>
-      assembleModelContext({ history, summary: null, reservedTokens: 20480, skillIndex: [] }),
+      assembleModelContext({ history, summary: null, reservedTokens: 250000, skillIndex: [] }),
     ).toThrow('本轮输入超出模型上下文预算');
   });
 });

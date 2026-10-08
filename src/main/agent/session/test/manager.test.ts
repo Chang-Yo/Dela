@@ -457,8 +457,8 @@ function askOptions() {
 
 describe('context compaction', () => {
   it('长对话超阈值触发压缩：摘要生成、持久化并以摘要+近期历史组装', async () => {
-    // 20 条 × 1000 token ≈ 20000：超过触发阈值 14336。
-    const sessionId = seedHistory(20, 1000);
+    // 20 条 × 13500 token ≈ 270000：超过触发阈值 170598；近 12 条 ≈ 162000 在切分预算内。
+    const sessionId = seedHistory(20, 13500);
     const fetchMock = vi.fn().mockResolvedValue(summaryResponse());
     vi.stubGlobal('fetch', fetchMock);
     await askSession(sessionId, askOptions());
@@ -490,8 +490,8 @@ describe('context compaction', () => {
   });
 
   it('压缩失败且放不下时请求明确失败：保留原始历史，不静默回退条数截断', async () => {
-    // 30 条 × 1000 token ≈ 30000：超出输入预算 20480，压缩是唯一出路。
-    const sessionId = seedHistory(30, 1000);
+    // 30 条 × 10000 token ≈ 300000：超出输入预算 243712，压缩是唯一出路。
+    const sessionId = seedHistory(30, 10000);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('网络中断')));
     await expect(askSession(sessionId, askOptions())).rejects.toThrow(
       '上下文压缩失败，请重试或减少引用资料',
@@ -508,8 +508,8 @@ describe('context compaction', () => {
   });
 
   it('压缩失败但不压缩也放得下时照常发送全量历史', async () => {
-    // 10 条 × 1500 token ≈ 15000：超过阈值 14336 但在预算 20480 内。
-    const sessionId = seedHistory(10, 1500);
+    // 10 条 × 20000 token ≈ 200000：超过阈值 170598 但在预算 243712 内。
+    const sessionId = seedHistory(10, 20000);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('网络中断')));
     const chat = await askSession(sessionId, askOptions());
     expect(chat.running).toBe(false);
@@ -552,7 +552,7 @@ describe('context compaction', () => {
   });
 
   it('compacting 状态在压缩期间为 true，结束后回落', async () => {
-    const sessionId = seedHistory(20, 1000);
+    const sessionId = seedHistory(20, 13500);
     let release!: (response: Response) => void;
     const gate = new Promise<Response>((resolve) => {
       release = resolve;

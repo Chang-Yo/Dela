@@ -241,8 +241,22 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const referenceSource: ReferenceSource = useMemo(
     () => ({
       // @ 引用候选：打开中的文档（有草稿标题）优先，其次可读条目（笔记/导入副本/Canvas 与
-      // 水源引用条目）——旧 AgentPanel 的拼装逻辑。
+      // 水源引用条目/项目内磁盘文件）。项目会话只列当前项目子树，标题为相对项目根的路径
+      // （与项目会话的工具 cwd 一致，模型按相对路径即可读取）；通用会话列全部并带名称链。
       loadEntries: async () => {
+        const entries = useWorkspaceStore.getState().workspace.entries;
+        const nameOf = (id: string) => entries.find((entry) => entry.id === id)?.name ?? '';
+        const belongs = (id: string) =>
+          projectId === null || ancestorChainOf(entries, id).includes(projectId);
+        const titleOf = (id: string, leaf: string) => {
+          const chain = ancestorChainOf(entries, id);
+          const start = projectId !== null ? chain.indexOf(projectId) + 1 : 0;
+          const parts = chain
+            .slice(start)
+            .map((entryId) => (entryId === id ? leaf : nameOf(entryId)))
+            .filter(Boolean);
+          return parts.length > 0 ? parts.join('/') : leaf;
+        };
         const openKeys = new Set(
           walkGroups(useWorkbenchLayout.getState().root)
             .flatMap((group) => group.tabs)
@@ -253,15 +267,19 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         const drafts = useNoteDrafts.getState().drafts;
         for (const key of openKeys) {
           const title = drafts[key]?.content.title;
-          if (title) options.push({ key, title });
+          if (title)
+            options.push({ key, title: key.startsWith('source:') ? title : titleOf(key, title) });
         }
-        const entries = useWorkspaceStore.getState().workspace.entries;
         for (const entry of entries)
           if (
-            (entry.kind === 'note' || entry.kind === 'imported' || entry.kind === 'source') &&
-            !openKeys.has(entry.id)
+            (entry.kind === 'note' ||
+              entry.kind === 'imported' ||
+              entry.kind === 'source' ||
+              entry.kind === 'local') &&
+            !openKeys.has(entry.id) &&
+            belongs(entry.id)
           )
-            options.push({ key: entry.id, title: entry.name });
+            options.push({ key: entry.id, title: titleOf(entry.id, entry.name) });
         return options;
       },
       // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送（旧 use-chat 的 save + 校验）。
@@ -270,7 +288,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
       },
     }),
-    [],
+    [projectId],
   );
 
   const chatSource = useMemo<ChatTabSource>(

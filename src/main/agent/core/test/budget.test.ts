@@ -33,19 +33,19 @@ describe('contextBudget', () => {
     });
     expect(shouldCompact(600000, { contextWindow: 1000000, maxOutputTokens: 128000 })).toBe(false);
   });
-  it('窗口 32768、预留 12288、预算 20480、阈值 14336', () => {
+  it('窗口 256000、预留 12288、预算 243712、阈值 170598', () => {
     expect(contextBudget()).toEqual({
-      window: 32768,
+      window: 256000,
       reserve: 12288,
-      budget: 20480,
-      compactThreshold: 14336,
+      budget: 243712,
+      compactThreshold: 170598,
     });
   });
 });
 
 describe('shouldCompact', () => {
-  it('阈值边界：14335 不触发、14336 触发', () => {
-    expect(shouldCompact(14335)).toBe(false);
-    expect(shouldCompact(14336)).toBe(true);
+  it('阈值边界：170597 不触发、170598 触发', () => {
+    expect(shouldCompact(170597)).toBe(false);
+    expect(shouldCompact(170598)).toBe(true);
   });
 });
