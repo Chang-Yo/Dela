@@ -58,6 +58,11 @@ export async function resolveModel(provider: StoredLlmProvider, modelId = provid
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: model.contextWindow ?? LLM_DEFAULT_CONTEXT_WINDOW,
         maxTokens: model.maxOutputTokens ?? 32000,
+        // 开推理后 Pi 会把指令消息的 role 写成 OpenAI 专有的 developer，而 Dela 的提供商
+        // （DeepSeek/智谱/MiniMax/致远与自定义网关）只认 system，会直接 422 invalid_request_error。
+        // Pi 的自动识别靠提供商标识或 baseUrl 里的厂商域名，Dela 把所有提供商都注册成 dela，
+        // 识别不出来，只能显式关掉；system 是所有 OpenAI 兼容端点都接受的角色。
+        compat: { supportsDeveloperRole: false },
       };
     }),
   });
