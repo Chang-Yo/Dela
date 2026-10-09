@@ -27,6 +27,11 @@ extraResources:
       - 'LICENSE.txt'
       - 'NOTICE.txt'
       - 'README.md'
+  # 远端 helper 的静态二进制：Dela 上传到远端后经 ssh -L 隧道访问（主进程按 resources/dela-helper 探测）
+  - from: vendor/dela-helper
+    to: dela-helper
+    filter:
+      - 'dela-helper-*'
 npmRebuild: false
 # Windows-only。安装包暂用 NSIS（exe）；MSIX 与微软商店上架是后续计划。
 win:
