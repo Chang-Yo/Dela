@@ -160,10 +160,18 @@ export function ProjectSessionNav({
     const full = fullSessionLists.includes(key);
     const unpinned = sessions.filter((session) => !session.pinned);
     const visible = full ? unpinned : unpinned.slice(0, RECENT_SESSIONS);
+    // 会话行已高亮时项目行不再叠加底色：位置强调只落在最深的一个可见行上。
+    // 可见 = 置顶区的置顶会话，或展开后列出的近期会话（折叠、藏在「显示更多」后的不算）。
+    const shownActiveSession =
+      expanded && visible.some((session) => session.id === activeSessionId);
+    const rowActive =
+      groupActive &&
+      !shownActiveSession &&
+      !sessions.some((session) => session.pinned && session.id === activeSessionId);
     const Icon = icon;
     return (
       <div key={key} className="min-w-0">
-        <div className={cn(navRow(groupActive), 'group group/nav relative pl-1.5')}>
+        <div className={cn(navRow(rowActive), 'group group/nav relative pl-1.5')}>
           <button
             aria-expanded={expanded}
             aria-label={`${expanded ? '收起' : '展开'} ${label} 的会话`}
@@ -179,14 +187,14 @@ export function ProjectSessionNav({
             />
           </button>
           <button
-            aria-current={groupActive ? 'page' : undefined}
+            aria-current={rowActive ? 'page' : undefined}
             aria-expanded={expanded}
             className="flex min-w-0 flex-1 items-center gap-2 text-left"
             onClick={() => toggleProject(key)}
             title={label}
             type="button"
           >
-            <Icon className={navIcon(groupActive)} strokeWidth={1.8} />
+            <Icon className={navIcon(rowActive)} strokeWidth={1.8} />
             <span
               className={cn('sidebar-title min-w-0 flex-1', labelFade, collapsed && 'opacity-0')}
             >
@@ -194,7 +202,7 @@ export function ProjectSessionNav({
             </span>
           </button>
           {!collapsed && (
-            <div className={cn(rowActions, groupActive ? 'bg-hover-2' : 'bg-hover')}>
+            <div className={cn(rowActions, rowActive ? 'bg-hover-2' : 'bg-hover')}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
