@@ -41,6 +41,8 @@ interface Live {
   run?: { id: string; tool?: string };
   /** 本轮用户消息的展示元数据（引用、图片、附件），按 Pi 消息时间戳对齐。 */
   unsubscribe: () => void;
+  /** 运行中遇到配置变更：不打断本轮，结束时丢弃实例。 */
+  stale?: boolean;
 }
 
 const live = new Map<string, Live>();
@@ -104,14 +106,18 @@ async function ensureLive(id: string): Promise<Live> {
   return entry;
 }
 
-/** 模型或能力配置改变：丢弃空闲会话实例，下次使用时按新配置重建。 */
+/** 模型或能力配置改变：空闲实例立即丢弃，运行中的标记 stale、本轮结束后丢弃，
+ *  下次使用时按新配置重建。 */
 export function invalidateSessions() {
-  for (const [id, entry] of live)
+  for (const [id, entry] of live) {
     if (!entry.run) {
       entry.unsubscribe();
       entry.session.dispose();
       live.delete(id);
+    } else {
+      entry.stale = true;
     }
+  }
 }
 
 // ===== Pi 消息 → WorkspaceChat 投影 =====
@@ -561,6 +567,11 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     runEvent(id, status);
     publish(id);
     if (status !== 'stopped') notifyRunFinished(id, status);
+    if (entry.stale) {
+      entry.unsubscribe();
+      entry.session.dispose();
+      live.delete(id);
+    }
   }
   return snapshot(id);
 }
