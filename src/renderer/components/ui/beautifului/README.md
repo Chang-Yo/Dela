@@ -18,6 +18,7 @@
 7. **Dela 增补的受控/内容 props**（各组件内以 `Dela 适配` 注释标注）：
    - `primitives/ThinkingState.tsx`：`working`（受控进行态，接管演示时间线）、`defaultExpanded`、`renderBody`（自定义轨迹内容）、`fill`（满宽）；非受控用法与上游一致。
    - `primitives/CodeBlock.tsx`：`plain`（跳过内置语法高亮）、`fill`（满宽）、`bodyClassName`（追加到代码主体）。
+   - `atoms/ProgressRing.tsx`：`tone="ink"`（中性墨色档，低干扰进度，如 composer 上下文占用）。
 8. **Dela 新增文件**：`atoms/IconButton.tsx` — 从 PromptBar 控件按钮提炼的静默图标钮（上游无此 atom）。
 9. **全局 token 统一**（2026-10-08）：`styles/globals.css` 的 shadcn 语义变量（`--background`、`--muted-foreground`、`--border` 等）全部映射到本库 token，不再另定颜色值；跟随系统的深色由 `app/theme.ts` 解析为 `:root.dark`，与本库只认 `.dark` 的约定一致。`components/ui/` 下的 shadcn 基础件（button / input / textarea / switch / select / dropdown-menu / context-menu / tooltip）保留 API，外观改用本库 token、圆角与 `pop-in` 动效，浮层样式集中在 `components/ui/menu-styles.ts`。
 10. **`.bui-light` 固定浅色作用域**（2026-10-08）：`beautifului.css` 在 `.dark` 之后复制一份浅色 token 到 `.bui-light`，供首启引导这类恒白画布在深色主题下仍使用浅色 token。

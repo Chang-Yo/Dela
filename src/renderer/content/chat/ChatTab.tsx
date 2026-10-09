@@ -108,6 +108,7 @@ function ChatComposerArea({
         onModelSelect={chatState.selectModel}
         onRemoveAttachment={chatState.removeAttachment}
         onRemoveReference={chatState.removeReference}
+        contextUsage={chat?.contextUsage ?? null}
         onSend={() => void chatState.send()}
         onStop={chatState.stop}
         referenceOptions={referenceOptions}

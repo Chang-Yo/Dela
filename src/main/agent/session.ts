@@ -13,6 +13,7 @@ import type {
   AgentToolResult,
   ChatAskInput,
   ChatSessionSummary,
+  ContextUsageView,
   RunStatus,
   WorkspaceChat,
 } from '../../shared/api';
@@ -247,6 +248,7 @@ function snapshot(id: string): WorkspaceChat {
     models: provider?.models ?? [],
     effortLevels,
     effort: effortLevels.length ? (provider?.effort ?? effortLevels[0]!) : null,
+    contextUsage: usageOf(entry),
     messages: entry
       ? projectMessages(entry.session.messages, liveSteps.get(id), Boolean(entry.run))
       : readMessages(id),
@@ -254,6 +256,13 @@ function snapshot(id: string): WorkspaceChat {
     activeTool: entry?.run?.tool,
     compacting: entry?.session.isCompacting ?? false,
   };
+}
+
+function usageOf(entry: Live | undefined): ContextUsageView | null {
+  const usage = entry?.session.getContextUsage();
+  return usage
+    ? { tokens: usage.tokens, contextWindow: usage.contextWindow, percent: usage.percent }
+    : null;
 }
 
 /** 未打开的会话：直接读 JSONL 投影（不建 Pi 实例，避免打开历史就要求模型配置）。 */
@@ -348,7 +357,12 @@ function stream(id: string, entry: Live) {
   );
   const last = messages.at(-1);
   if (last?.role === 'assistant')
-    send('session:on-stream', { sessionId: id, message: last, activeTool: entry.run?.tool });
+    send('session:on-stream', {
+      sessionId: id,
+      message: last,
+      activeTool: entry.run?.tool,
+      contextUsage: usageOf(entry),
+    });
 }
 
 function touch(id: string, entry: Live) {

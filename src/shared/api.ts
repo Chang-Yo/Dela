@@ -169,6 +169,7 @@ export type {
   AgentToolOutput,
   AgentToolResult,
   ChatSessionSummary,
+  ContextUsageView,
   WorkspaceChat,
   SessionApi,
   RunEvent,

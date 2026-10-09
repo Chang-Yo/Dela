@@ -17,8 +17,14 @@ import {
 import { cn } from '../../lib/utils';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
+import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
 import { useNavigationStore } from '../../app/navigation';
-import type { ChatCommandView, ChatMediaView, LlmProviderView } from '../../../shared/api';
+import type {
+  ChatCommandView,
+  ChatMediaView,
+  ContextUsageView,
+  LlmProviderView,
+} from '../../../shared/api';
 import {
   chatFileKind,
   chatImageToken,
@@ -56,6 +62,17 @@ function formatSize(size: number): string {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
+function formatTokens(tokens: number): string {
+  return tokens < 1000 ? '0K' : `${(tokens / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+}
+
+function usageTone(percent: number | null): 'ink' | 'orange' | 'red' {
+  if (percent === null) return 'ink';
+  if (percent >= 90) return 'red';
+  if (percent >= 70) return 'orange';
+  return 'ink';
+}
+
 // beautiful-ui PromptBar 的控件样式：选择器触发钮与弹层容器（图标钮用 IconButton atom）。
 const triggerButton =
   'flex h-7 min-w-0 shrink items-center gap-1 rounded-[8px] px-1.5 text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
@@ -81,6 +98,7 @@ export function ChatComposer({
   onAddAttachmentFile,
   onAddAttachmentView,
   onRemoveAttachment,
+  contextUsage = null,
   notice = null,
   onDismissNotice,
   hero = false,
@@ -108,6 +126,7 @@ export function ChatComposer({
   onAddAttachmentFile: (file: File) => Promise<void>;
   onAddAttachmentView: (view: ChatMediaView) => void;
   onRemoveAttachment: (id: string) => void;
+  contextUsage?: ContextUsageView | null;
   hero?: boolean;
 }) {
   const editorRef = useRef<ComposerEditorHandle | null>(null);
@@ -389,6 +408,7 @@ export function ChatComposer({
             <AtSign />
           </IconButton>
           <div className="flex-1" />
+          {configured && contextUsage && <ContextIndicator usage={contextUsage} />}
           {configured && (
             <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
               <Popover.Trigger asChild>
@@ -701,5 +721,57 @@ function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: (
         </button>
       )}
     </div>
+  );
+}
+
+function ContextIndicator({ usage }: { usage: ContextUsageView }) {
+  const tone = usageTone(usage.percent);
+  const color =
+    tone === 'red' ? 'var(--red)' : tone === 'orange' ? 'var(--orange)' : 'var(--ink-2)';
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button
+          aria-label="上下文占用"
+          className="flex size-7 shrink-0 items-center justify-center rounded-[8px] transition-colors duration-150 hover:bg-hover"
+          title="上下文占用"
+          type="button"
+        >
+          <ProgressRing progress={(usage.percent ?? 0) / 100} size={18} tone={tone} />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="center"
+          aria-label="上下文占用"
+          className="z-50 w-60 rounded-[10px] bg-surface px-3 py-2.5 shadow-raised"
+          side="top"
+          sideOffset={6}
+          style={{
+            animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+            transformOrigin: 'bottom center',
+          }}
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[12.5px] font-medium text-ink">上下文</span>
+            <span className="text-[12px] tabular-nums text-ink-3">
+              {usage.tokens === null ? '—' : formatTokens(usage.tokens)} /{' '}
+              {formatTokens(usage.contextWindow)}
+              {usage.percent !== null && ` (${usage.percent.toFixed(1).replace(/\.0$/, '')}%)`}
+            </span>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-field">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, usage.percent ?? 0)}%`,
+                background: color,
+                transition: 'width 400ms cubic-bezier(0.23,1,0.32,1)',
+              }}
+            />
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

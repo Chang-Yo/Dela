@@ -30,6 +30,13 @@ export interface ChatSessionSummary {
   projectId?: string | null;
 }
 
+/** percent 为 0–100 百分数；tokens null = 暂不可知（如压缩后）。 */
+export interface ContextUsageView {
+  tokens: number | null;
+  contextWindow: number;
+  percent: number | null;
+}
+
 export interface WorkspaceChat {
   sessionId: string | null;
   /** 会话所属项目（workspace 条目 id）；null = 通用会话。归属在创建时确定，不随视图变化。 */
@@ -50,6 +57,7 @@ export interface WorkspaceChat {
   effortLevels: string[];
   /** 当前选中的推理强度档位；未开启时为 null。 */
   effort: string | null;
+  contextUsage?: ContextUsageView | null;
   messages: {
     role: 'user' | 'assistant';
     content: string;
@@ -94,6 +102,7 @@ export interface ChatStreamEvent {
   message: WorkspaceChat['messages'][number];
   /** 当前执行中的工具名；空闲段为 undefined。 */
   activeTool?: string;
+  contextUsage?: ContextUsageView | null;
 }
 
 /** 会话身份 API（session:* 通道）。 */
