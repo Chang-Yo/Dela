@@ -8,6 +8,7 @@ import type { LayoutApi } from './layout';
 import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
 import type { NotificationsApi } from './notifications';
+import type { RemoteApi } from './remotes';
 import type { SearchApi } from './search';
 import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
@@ -45,6 +46,7 @@ export interface DelaApi {
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
+  readonly remotes: RemoteApi;
   readonly layout: LayoutApi;
   readonly search: SearchApi;
   readonly notifications: NotificationsApi;
@@ -137,6 +139,15 @@ export type {
 } from './llm';
 
 export type { GlobalSearchResult, SearchApi } from './search';
+
+export type {
+  RemoteApi,
+  RemoteBrowseResult,
+  RemoteConnection,
+  RemoteDirectoryEntry,
+  RemoteDraft,
+  RemoteProbe,
+} from './remotes';
 
 export type {
   NotificationSource,

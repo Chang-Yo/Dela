@@ -7,6 +7,9 @@ import {
   updateWorkspaceEntry,
   importWorkspaceFiles,
   linkProjectFolder,
+  importRemoteProject,
+  projectLocation,
+  remoteProjectOf,
   workspaceFilePath,
   readWorkspaceEntry,
   saveWorkspaceNote,
@@ -16,6 +19,14 @@ import {
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
 import { exportOfficePdf } from '../office-export';
+import {
+  remoteById,
+  remoteFileIndex,
+  remoteJoin,
+  targetOf,
+  withinRemoteRoot,
+} from '../remotes/api';
+import { listDirectory } from '../remotes/transport';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell, type WebContents } from 'electron';
 import { z } from 'zod';
@@ -29,6 +40,8 @@ import { dirname, join } from 'node:path';
 const watchers = new Map<string, FSWatcher>();
 const subscribers = new Set<WebContents>();
 let changedTimer: ReturnType<typeof setTimeout> | undefined;
+/** @ 候选上限：超长索引没有实用价值，还会拖慢 composer。 */
+const REMOTE_REFERENCE_LIMIT = 3000;
 function watchWorkspace(client: WebContents) {
   if (!subscribers.has(client)) {
     subscribers.add(client);
@@ -44,7 +57,8 @@ function watchWorkspace(client: WebContents) {
   const roots = new Set([
     join(state.directory, 'workspace'),
     ...state.entries
-      .filter((item) => item.parentId === null && item.path)
+      // 远程项目的 path 是远端路径，本地没有可监听目录。
+      .filter((item) => item.parentId === null && item.path && !item.remoteId)
       .map((item) =>
         item.kind === 'folder' || item.kind === 'project' ? item.path! : dirname(item.path!),
       ),
@@ -160,6 +174,36 @@ export function registerWorkspaceIpc(
     const path = picked.filePaths[0];
     return picked.canceled || !path ? null : linkProjectFolder(path);
   });
+  handle('import-remote-project', async (remoteId, path) => {
+    const created = await importRemoteProject(remoteId, path);
+    invalidateSessions();
+    return created;
+  });
+  // 远程目录按需拉取：展开一层拉一层，主进程不缓存（远端是唯一事实来源）。
+  handle('list-remote', async (projectId, path) => {
+    const location = projectLocation(projectId);
+    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
+    const wanted = z.string().min(1).max(4096).parse(path).replace(/\/+$/, '') || '/';
+    if (!withinRemoteRoot(location.path, wanted)) throw new Error('只能浏览远程项目目录之内的路径');
+    const entries = await listDirectory(targetOf(remoteById(location.remoteId)), wanted);
+    return entries
+      .map((entry) => ({ ...entry, path: remoteJoin(wanted, entry.name) }))
+      .sort((left, right) =>
+        left.directory === right.directory
+          ? left.name.localeCompare(right.name)
+          : Number(right.directory) - Number(left.directory),
+      );
+  });
+  handle('remote-references', async (projectId) => {
+    const location = projectLocation(projectId);
+    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
+    const files = await remoteFileIndex(remoteById(location.remoteId), location.path);
+    // @ 候选上限：超长索引没有实用价值，还会拖慢 composer。
+    return files.slice(0, REMOTE_REFERENCE_LIMIT).map((file) => ({
+      key: remoteJoin(location.path, file),
+      title: file,
+    }));
+  });
   handle('import-dropped-files', (value, paths) => {
     const parentId = workspaceEntryIdSchema.nullable().parse(value);
     importWorkspaceFiles(
@@ -171,6 +215,8 @@ export function registerWorkspaceIpc(
     prepareStorage();
     const id = workspaceEntryIdSchema.parse(value);
     const item = entry(id);
+    if (item.kind === 'project' && remoteProjectOf(id))
+      throw new Error('远程项目不在本机，无法用资源管理器打开');
     const path =
       item.kind === 'project' || item.kind === 'folder' ? item.path : await workspaceFilePath(id);
     if (!path) throw new Error('此内容没有本地文件');

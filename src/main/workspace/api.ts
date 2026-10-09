@@ -1,5 +1,15 @@
 import { shell } from 'electron';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  posix,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
 import {
   constants,
   copyFileSync,
@@ -16,6 +26,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { z } from 'zod';
 import { getDatabase } from '../database';
+import { remoteById, targetOf } from '../remotes/api';
+import { locate } from '../remotes/transport';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
 import { toolError } from '../../shared/tool-errors';
@@ -27,6 +39,7 @@ import {
 } from '../storage';
 import { officeZipMime } from '../resource-parse';
 import { workspaceArchiveId } from '../../shared/api';
+import { parseRemoteNodeId } from '../../shared/remotes';
 import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../../shared/workspace';
 import { textFileExtensions } from '../../shared/chat-input';
 import { isRelativeAssetPath, matchMarkdownImageRefs } from '../../shared/note-files';
@@ -40,7 +53,7 @@ import type {
 export const idSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(200);
 const entryColumns =
-  'id, parent_id AS parentId, name, kind, source_id AS sourceId, updated_at AS updatedAt';
+  'id, parent_id AS parentId, name, kind, source_id AS sourceId, remote_id AS remoteId, updated_at AS updatedAt';
 
 // 笔记按扩展名区分为 Markdown 或普通文本；其余内容一律按文本读写。
 const markdownExtensions = ['.md', '.markdown'];
@@ -74,6 +87,85 @@ function entryLocalPath(item: WorkspaceEntry): string {
     .get(item.id) as { path: string | null };
   if (!stored.path) throw new Error('文件不存在');
   return stored.path;
+}
+
+type RemoteRoot = { id: string; path: string; remoteId: string };
+
+function remoteRoots(): RemoteRoot[] {
+  return getDatabase()
+    .prepare(
+      `SELECT id, local_path AS path, remote_id AS remoteId FROM workspace_entries
+       WHERE remote_id IS NOT NULL AND kind='project' AND local_path IS NOT NULL`,
+    )
+    .all() as RemoteRoot[];
+}
+
+const underRemoteRoot = (root: string, path: string) => {
+  const base = root.replace(/\/+$/, '');
+  return path === base || path.startsWith(`${base}/`);
+};
+
+/** 条目（项目 UUID、带项目身份的远端条目 id，或裸远端绝对路径）所属的远程项目根；
+ *  本地条目返回 null。所有会碰本地文件系统的入口都必须先问这里：远端路径 `/root/x`
+ *  在 Windows 上会被 isAbsolute 判真并解析成 `E:\root\x`，直接 statSync 就是读错位置。 */
+export function remoteProjectOf(id: string): RemoteRoot | null {
+  const roots = remoteRoots();
+  const byId = roots.find((root) => root.id === id);
+  if (byId) return byId;
+  // 远端条目 id 自带项目身份：两台连接上的同路径目录不会互相认领。
+  const node = parseRemoteNodeId(id);
+  if (node) {
+    const owner = roots.find((root) => root.id === node.projectId);
+    return owner && underRemoteRoot(owner.path, node.path) ? owner : null;
+  }
+  // 裸远端路径只在唯一匹配时归属：多个项目都装得下它时宁可报错也不猜。
+  const normalized = id.replace(/\\/g, '/');
+  const matches = roots.filter((root) => underRemoteRoot(root.path, normalized));
+  if (matches.length > 1) throw new Error('远端路径同时属于多个项目，无法确定归属');
+  return matches[0] ?? null;
+}
+
+/** 把远端目录登记为远程项目。目录留在远端，本地只补一条身份行；
+ *  项目与子条目的 `local_path` 是远端 POSIX 路径，`remoteId` 指向连接。 */
+export async function importRemoteProject(
+  remoteId: unknown,
+  path: unknown,
+): Promise<WorkspaceEntry> {
+  const connection = remoteById(z.string().uuid().parse(remoteId));
+  const remotePath = z
+    .string()
+    .min(1)
+    .max(4096)
+    .refine((value) => value.startsWith('/') && !value.includes('\0'), {
+      message: '远端项目路径必须是绝对路径',
+    })
+    .parse(path)
+    .replace(/\/+$/, '');
+  const location = await locate(targetOf(connection), remotePath);
+  if (!location.directory) throw new Error(`远端目录不存在：${remotePath}`);
+  const database = getDatabase();
+  // 同一远端目录只登记一次：重复导入返回已有项目。
+  const existing = database
+    .prepare(
+      `SELECT ${entryColumns}, local_path AS path FROM workspace_entries
+       WHERE remote_id=? AND local_path=? AND kind='project'`,
+    )
+    .get(connection.id, remotePath) as WorkspaceEntry | undefined;
+  if (existing) return existing;
+  const id = randomUUID();
+  database
+    .prepare(
+      `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at)
+       VALUES (?, NULL, ?, 'project', NULL, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      posix.basename(remotePath) || remotePath,
+      remotePath,
+      connection.id,
+      new Date().toISOString(),
+    );
+  return entry(id);
 }
 
 /** 图片/笔记资源的解析结果：受限资源协议按它读取文件，只服务图片格式。 */
@@ -136,9 +228,21 @@ export function projectDirectory(id: unknown): string {
   prepareStorage();
   const item = entry(projectId);
   if (item.kind !== 'project') throw new Error('只有项目可以使用此入口');
+  if (remoteProjectOf(projectId)) throw new Error('远程项目没有本地目录');
   const path = entryLocalPath(item);
   if (!statSync(path).isDirectory()) throw new Error('项目目录不存在');
   return path;
+}
+
+/** 项目位置：本地项目给出磁盘目录，远程项目给出远端路径与连接。
+ *  terminal、会话 cwd 与目录树都经这里分支，避免把远端路径当本地目录使用。 */
+export function projectLocation(
+  id: unknown,
+): { kind: 'local'; path: string } | { kind: 'remote'; remoteId: string; path: string } {
+  const projectId = workspaceEntryIdSchema.parse(id);
+  const root = remoteProjectOf(projectId);
+  if (root) return { kind: 'remote', remoteId: root.remoteId, path: root.path };
+  return { kind: 'local', path: projectDirectory(projectId) };
 }
 
 export async function openProjectDirectory(id: unknown, target: unknown): Promise<void> {
@@ -321,9 +425,14 @@ export function getWorkspaceState(): WorkspaceState {
   for (const child of readdirSync(root, { withFileTypes: true }))
     if (!child.isSymbolicLink()) scan(join(root, child.name), null);
   // 更改默认保存目录不会迁移旧目录；旧挂载点继续可见。
+  // 远程项目跳过本地扫描：它们的 local_path 是远端路径，本地没有对应文件；
+  // 子条目由渲染端展开时经 workspace:list-remote 逐层拉取。
   for (const item of stored)
-    if (item.kind !== 'source' && item.path && !visited.has(resolve(item.path)))
+    if (item.kind !== 'source' && item.path && !item.remoteId && !visited.has(resolve(item.path)))
       scan(item.path, null);
+  for (const item of stored)
+    if (item.remoteId)
+      entries.push({ ...item, parentId: null, path: item.path, updatedAt: item.updatedAt });
   const parentOf = (item: WorkspaceEntry): string | null => {
     const path =
       item.path ??
@@ -346,6 +455,8 @@ export function getWorkspaceState(): WorkspaceState {
 export function entry(id: string): WorkspaceEntry {
   workspaceEntryIdSchema.parse(id);
   if (isAbsolute(id)) {
+    // 远端路径在 Windows 上同样过 isAbsolute，必须先挡下来：本地没有这个文件。
+    if (remoteProjectOf(id)) throw new Error('远程条目请通过远程接口访问，本地没有对应文件');
     // 路径条目可能有数据库身份（升格的项目、资料引用、旧 UUID 行）：按 local_path 匹配，
     // 命中时沿用其 id 与 kind，未命中即纯磁盘文件夹/文件。source 行的 local_path 是其
     // 容器目录路径（去重键），不代表该目录的身份，必须排除，否则容器会被误判成 source。
@@ -415,6 +526,8 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
     .parse(input);
   checkParent(parsed.parentId);
   prepareStorage();
+  if (parsed.parentId && remoteProjectOf(parsed.parentId))
+    throw new Error('远程项目内暂不支持新建笔记与文件夹');
   const db = getDatabase();
   if (parsed.kind === 'source') {
     // 来源引用按前缀区分平台：水源引用行落表，其余仍是 Canvas 资料表。
@@ -452,7 +565,10 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   }
   if (parsed.kind === 'folder' || parsed.kind === 'note') return fileEntry(path!, parsed.parentId);
   db.transaction(() => {
-    db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+    db.prepare(
+      `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
       id,
       parsed.parentId && !isAbsolute(parsed.parentId) ? parsed.parentId : null,
       parsed.name,
@@ -483,7 +599,10 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
     .get(resolved) as WorkspaceEntry | undefined;
   if (existing) return existing;
   const id = randomUUID();
-  db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+  db.prepare(
+    `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
     id,
     null,
     basename(resolved) || resolved,
@@ -507,6 +626,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     .parse(input);
   const current = entry(id);
   if (id === workspaceArchiveId) throw new Error('归档文件夹不能修改');
+  if (remoteProjectOf(id)) throw new Error('远程项目暂不支持重命名或移动');
   if (parsed.parentId !== undefined)
     checkParent(parsed.parentId, current.kind === 'source' ? undefined : id);
   if (parsed.kind && current.kind !== 'folder' && current.kind !== 'project')
@@ -572,7 +692,10 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     if (isAbsolute(current.id)) {
       const promoted = randomUUID();
       getDatabase()
-        .prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?)')
+        .prepare(
+          `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
+           VALUES (?, NULL, ?, ?, NULL, ?, ?)`,
+        )
         .run(promoted, basename(to), 'project', to, new Date().toISOString());
       nextId = promoted;
     } else {

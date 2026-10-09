@@ -41,7 +41,7 @@ function createDb(): Database.Database {
   db.exec(`
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
-      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT,
+      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
       updated_at TEXT NOT NULL
     );
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -63,7 +63,7 @@ function createDb(): Database.Database {
 
 function insertFileEntry(db: Database.Database, path: string, kind: 'local' | 'imported') {
   const id = crypto.randomUUID();
-  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?)').run(
+  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, NULL, ?)').run(
     id,
     path.split(/[\\/]/).pop()!,
     kind,
@@ -203,7 +203,7 @@ describe('createWorkspaceEntry', () => {
   it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
     db.prepare(
-      "INSERT INTO workspace_entries VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, ?)",
+      "INSERT INTO workspace_entries VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, NULL, ?)",
     ).run(crypto.randomUUID(), folder.id, new Date().toISOString());
     expect(entry(folder.id).kind).toBe('folder');
     // 同容器继续创建内容不受影响（source 行曾把容器误判成 source 而拒绝操作）。
@@ -222,7 +222,7 @@ describe('归档文件夹', () => {
   const seedArchive = () =>
     db
       .prepare(
-        "INSERT INTO workspace_entries VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, '2026-10-07T00:00:00.000Z')",
+        "INSERT INTO workspace_entries VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, NULL, '2026-10-07T00:00:00.000Z')",
       )
       .run();
 

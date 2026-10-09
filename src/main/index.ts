@@ -12,6 +12,7 @@ import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
+import { registerRemoteIpc } from './remotes/ipc';
 import { registerSearchIpc } from './search';
 import {
   initializeNotifications,
@@ -134,6 +135,7 @@ app.whenReady().then(() => {
   registerAgentIpc();
   registerWorkspaceIpc(subscribeChat, invalidateSessions);
   registerTerminalIpc();
+  registerRemoteIpc();
   registerSearchIpc();
   registerNotificationsIpc();
   registerTodoIpc();

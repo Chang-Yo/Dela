@@ -17,7 +17,7 @@ vi.mock('electron', () => ({ app: { getPath: vi.fn(() => tmpdir()) } }));
 const db = new Database(':memory:');
 db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT)');
 db.exec(
-  'CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, kind TEXT, source_id TEXT, note_id TEXT, local_path TEXT, updated_at TEXT)',
+  'CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, kind TEXT, source_id TEXT, note_id TEXT, local_path TEXT, remote_id TEXT, updated_at TEXT)',
 );
 
 const link: OfficeExportLink = {

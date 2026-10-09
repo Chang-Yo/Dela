@@ -22,6 +22,7 @@ import { getDatabase } from '../database';
 import { getActiveLlmProvider } from './providers';
 import { openPiSession } from './pi';
 import { agentEnvironment } from './environment';
+import { remoteProjectOf } from '../workspace/api';
 import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import { notifyRunFinished } from '../settings/task-notify';
 
@@ -65,7 +66,8 @@ function row(id: string): SessionRow {
   return found;
 }
 
-/** 项目目录：项目条目的 local_path；通用会话用工作区根。缺失即报错。 */
+/** 项目目录：项目条目的 local_path；通用会话用工作区根。缺失即报错。
+ *  远程项目的路径在远端，本地没有对应目录，因此跳过本地存在性检查。 */
 function sessionCwd(projectId: string | null): string {
   const path =
     projectId === null
@@ -78,6 +80,7 @@ function sessionCwd(projectId: string | null): string {
             .get(projectId) as { path: string | null } | undefined
         )?.path;
   if (!path) throw new Error('项目不存在');
+  if (projectId && remoteProjectOf(projectId)) return path;
   if (!existsSync(path) || !statSync(path).isDirectory())
     throw new Error(`项目目录不存在：${path}`);
   return path;

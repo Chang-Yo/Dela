@@ -5,10 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { checkWorkspaceSender } from './ipc';
-import { idSchema, projectDirectory } from './workspace/api';
+import { idSchema, projectLocation } from './workspace/api';
+import { remoteById } from './remotes/api';
+import { locateSsh, shellQuote } from './remotes/transport';
 import { COMMAND_BRIDGE } from './agent/commands';
 import { domainBridge } from './agent';
 import type { TerminalEvent, TerminalSession } from '../shared/terminal';
+
+const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 
 /** 定位 Git Bash：常见安装位置探测；缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
 export function locateBash(): string {
@@ -75,36 +79,65 @@ export function registerTerminalIpc() {
       return fn(event.sender, ...args);
     });
   handle('list', (owner, projectId) => {
-    projectDirectory(projectId);
+    projectLocation(projectId);
     return [...sessions.values()]
       .filter((session) => session.owner === owner && session.projectId === projectId)
       .map((session) => ({ ...session.snapshot }));
   });
   handle('create', async (owner, projectId, id) => {
-    const cwd = projectDirectory(projectId);
+    const location = projectLocation(projectId);
     const parsedId = idSchema.parse(id);
     if (sessions.has(parsedId)) throw new Error('终端会话已存在');
-    const bridge = await domainBridge();
-    const rcfile = writeRcfile();
-    const pty = spawn(locateBash(), ['--rcfile', rcfile.path, '-i'], {
-      name: 'xterm-256color',
-      cwd,
-      cols: 80,
-      rows: 24,
-      // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
-      useConptyDll: true,
-      env: {
-        ...process.env,
-        TERM: 'xterm-256color',
-        // 对齐 Git Bash 快捷方式的行为（登录 shell 由 profile 处理 MSYSTEM）。
-        MSYSTEM: 'MINGW64',
-        DELA_COMMAND_URL: bridge.url,
-        DELA_COMMAND_TOKEN: bridge.token,
-      },
-    });
+    let pty: IPty;
+    let title: string;
+    let cleanup = () => {};
+    if (location.kind === 'remote') {
+      // 远程终端：本地 ssh -tt 申请远端 PTY，远端不需要部署 node-pty。
+      // 这里刻意不加 BatchMode：交互终端可以让 ssh 自己问密码或询问主机指纹。
+      const connection = remoteById(location.remoteId);
+      const sshArgs = [
+        '-tt',
+        '-o',
+        `ConnectTimeout=${SSH_CONNECT_TIMEOUT_SECONDS}`,
+        ...(connection.port ? ['-p', String(connection.port)] : []),
+        ...(connection.keyPath ? ['-i', connection.keyPath] : []),
+        connection.host,
+        `cd ${shellQuote(location.path)} && exec bash -li`,
+      ];
+      pty = spawn(locateSsh(), sshArgs, {
+        name: 'xterm-256color',
+        cwd: app.getPath('home'),
+        cols: 80,
+        rows: 24,
+        useConptyDll: true,
+        env: { ...process.env, TERM: 'xterm-256color' },
+      });
+      title = connection.label;
+    } else {
+      const bridge = await domainBridge();
+      const rcfile = writeRcfile();
+      cleanup = rcfile.cleanup;
+      pty = spawn(locateBash(), ['--rcfile', rcfile.path, '-i'], {
+        name: 'xterm-256color',
+        cwd: location.path,
+        cols: 80,
+        rows: 24,
+        // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
+        useConptyDll: true,
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          // 对齐 Git Bash 快捷方式的行为（登录 shell 由 profile 处理 MSYSTEM）。
+          MSYSTEM: 'MINGW64',
+          DELA_COMMAND_URL: bridge.url,
+          DELA_COMMAND_TOKEN: bridge.token,
+        },
+      });
+      title = 'Git Bash';
+    }
     const snapshot: TerminalSession = {
       id: parsedId,
-      title: 'Git Bash',
+      title,
       buffer: '',
       sequence: 0,
       exitCode: null,
@@ -114,7 +147,7 @@ export function registerTerminalIpc() {
       owner,
       pty,
       snapshot,
-      cleanup: rcfile.cleanup,
+      cleanup,
     };
     sessions.set(parsedId, session);
     const send = (event: TerminalEvent) => {

@@ -20,6 +20,7 @@ const legacyTables = [
   'vsjtu_video_refs',
   'workspace_notes',
   'workspace_entries',
+  'remotes',
   'workspace_settings',
   'todo_items',
   'notification_refreshes',
@@ -126,6 +127,17 @@ const schema: string[] = [
   )`,
   `CREATE TABLE IF NOT EXISTS canvas_sources (id TEXT PRIMARY KEY, course_id INTEGER NOT NULL, data TEXT NOT NULL)`,
   // 工作区：条目身份以路径为主，只有项目与来源引用建行；笔记不落库。
+  // 远程连接：项目条目经 remote_id 指向这里，local_path 存远程绝对路径（POSIX）。
+  // Dela 不保存任何 SSH 凭据：密钥、端口与跳板由 ssh 自己按 ~/.ssh/config 解析。
+  `CREATE TABLE IF NOT EXISTS remotes (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER,
+    key_path TEXT,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_remotes_host ON remotes(host, port)`,
   `CREATE TABLE IF NOT EXISTS workspace_entries (
     id TEXT PRIMARY KEY,
     parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
@@ -133,6 +145,7 @@ const schema: string[] = [
     kind TEXT NOT NULL,
     source_id TEXT,
     local_path TEXT,
+    remote_id TEXT REFERENCES remotes(id) ON DELETE RESTRICT,
     updated_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS workspace_parent ON workspace_entries(parent_id)`,
@@ -196,7 +209,17 @@ const schema: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
 ];
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
+
+/** v2→v3 只加列：远程项目不迁移已有数据，旧条目一律视为本地项目。
+ *  旧世界库刚被整库丢弃、v1 库本就没有条目表，这两种情况下表还不存在，直接跳过。 */
+function addColumnIfMissing(db: Database.Database, table: string, column: string, type: string) {
+  const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table);
+  if (!exists) return;
+  const columns = db.pragma(`table_info(${table})`) as { name: string }[];
+  if (columns.some((item) => item.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
 
 export function getDatabase(): Database.Database {
   if (database) return database;
@@ -234,6 +257,9 @@ export function getDatabase(): Database.Database {
         db.pragma(`user_version = ${SCHEMA_VERSION}`);
       })();
     }
+    // 列修复与版本号解耦：中途版本可能已经把 user_version 提到当前值却没加列（实测出现过），
+    // 只认版本号会让这种库永久缺列；这里每次打开都幂等补一次，缺列才执行 ALTER。
+    addColumnIfMissing(db, 'workspace_entries', 'remote_id', 'TEXT');
   } catch (error) {
     db.close();
     throw error;

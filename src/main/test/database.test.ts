@@ -48,7 +48,7 @@ describe('旧世界库重置', () => {
     });
     backup.close();
     // 新 schema 可用：sessions 是 Pi 会话文件的索引，归档种子行存在。
-    expect(db.pragma('user_version', { simple: true })).toBe(2);
+    expect(db.pragma('user_version', { simple: true })).toBe(3);
     const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
     expect(columns.map(({ name }) => name)).toEqual(
       expect.arrayContaining(['file', 'archived', 'pinned', 'message_count']),
@@ -66,7 +66,28 @@ describe('旧世界库重置', () => {
       db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workspace_notes'").get(),
     ).toBeUndefined();
     expect(existsSync(join(root, 'dela-legacy-backup.db'))).toBe(true);
-    expect(db.pragma('user_version', { simple: true })).toBe(2);
+    expect(db.pragma('user_version', { simple: true })).toBe(3);
+  });
+
+  it('版本号已是当前值但缺 remote_id 的库，打开时补列', () => {
+    // 实测出现过这种半途库：user_version 已是 3、remotes 表已建，但条目表没加列。
+    // 只认版本号会让它永久缺列，之后所有条目查询都会报 no such column。
+    const root = freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.exec(
+      `CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL,
+        kind TEXT NOT NULL, source_id TEXT, local_path TEXT, updated_at TEXT NOT NULL)`,
+    );
+    old.exec(
+      "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, 'E:\\proj', 'x')",
+    );
+    old.pragma('user_version = 3');
+    old.close();
+    const db = getDatabase();
+    const row = db
+      .prepare('SELECT name, remote_id AS remoteId FROM workspace_entries WHERE id=?')
+      .get('p1');
+    expect(row).toEqual({ name: '课题', remoteId: null });
   });
 
   it('v1 库升级只重建会话表，领域缓存保留', () => {
@@ -90,14 +111,14 @@ describe('旧世界库重置', () => {
   it('全新目录直接建库，不产生备份', () => {
     freshRoot();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(2);
+    expect(db.pragma('user_version', { simple: true })).toBe(3);
     expect(existsSync(join(state.root, 'dela-legacy-backup.db'))).toBe(false);
   });
 
   it('未来版本的库（无特征表）拒绝打开', () => {
     const root = freshRoot();
     const db = new Database(join(root, 'dela.db'));
-    db.pragma('user_version = 3');
+    db.pragma('user_version = 4');
     db.close();
     expect(() => getDatabase()).toThrow('更新版本');
   });

@@ -86,8 +86,8 @@ export interface OpenSessionInput {
   customTools: ToolDefinition[];
   /** Git Bash 路径（与终端同源）。 */
   shellPath: string;
-  /** bash 每条命令前置的脚本（dela 函数定义）。 */
-  commandPrefix: string;
+  /** bash 每条命令前置的脚本（dela 函数定义）。远程会话不注入。 */
+  commandPrefix?: string;
   /** 额外的 skill 目录（Dela 内置 skills）。 */
   skillPaths: string[];
   disabledSkills: ReadonlySet<string>;
