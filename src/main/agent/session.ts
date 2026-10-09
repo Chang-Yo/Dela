@@ -211,7 +211,12 @@ export function projectMessages(
       }
     } else if (message.role === 'compactionSummary') {
       // 压缩点之前的历史仍在 JSONL；投影只保留摘要后的上下文，开头标注一条。
-      out.push({ role: 'assistant', content: '（较早的对话已压缩为摘要）', parts: [] });
+      out.push({
+        role: 'assistant',
+        content: '（较早的对话已压缩为摘要）',
+        parts: [],
+        compacted: true,
+      });
       reply = null;
     }
   }
