@@ -10,7 +10,7 @@ import {
 export const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 export const dayMilliseconds = 86_400_000;
 export const timelineStart = 8 * 60;
-export const timelineEnd = 20 * 60 + 20;
+export const timelineEnd = 24 * 60;
 export const pixelsPerMinute = 0.8;
 
 // 候选配色与 globals.css 的 --cal-* token 对应：低饱和灰调，明暗主题各自成对。

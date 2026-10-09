@@ -63,7 +63,10 @@ export function WeekCalendar({
     currentDayIndex < 7 &&
     minuteOfDay(now) >= timelineStart &&
     minuteOfDay(now) <= timelineEnd;
-  const hours = Array.from({ length: 13 }, (_, index) => 8 + index);
+  const hours = Array.from(
+    { length: timelineEnd / 60 - timelineStart / 60 + 1 },
+    (_, index) => timelineStart / 60 + index,
+  );
 
   return (
     <div className="@container min-h-0 flex-1 overflow-auto">
