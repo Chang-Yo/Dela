@@ -22,9 +22,66 @@ import {
   type RemoteTarget,
 } from './transport';
 
-/** 还原远端 POSIX 路径：去盘符、反斜杠转正斜杠、合并重复斜杠。 */
+/**
+ * 上下文镜像路由：镜像里的路径要先翻译回远端路径，再做常规归一化。
+ *
+ * 远端 skills 与 AGENTS.md 必须落到本地文件，Pi 自己才读得到（`/skill:name` 展开是本地
+ * `readFileSync(skill.filePath)`）。于是远端内容镜像到本地，模型拿着镜像路径去 read/bash，
+ * 这里把它翻回远端真身。按项目 key 记路由：不同项目的镜像可以并存，最长前缀优先。
+ */
+const mirrorRoutes = new Map<string, { mirror: string; remote: string }[]>();
+
+/** 记下一个项目的镜像路由（同 key 覆盖，空数组即撤销）。mirror/remote 都是目录前缀。 */
+export function setContextMirrors(key: string, routes: { mirror: string; remote: string }[]): void {
+  if (routes.length === 0) mirrorRoutes.delete(key);
+  else mirrorRoutes.set(key, routes);
+}
+
+const trimSlash = (value: string) => value.replace(/\\/g, '/').replace(/\/+$/, '');
+
+function throughMirror(value: string): string | null {
+  const normalized = value.replace(/\\/g, '/');
+  const lower = normalized.toLowerCase();
+  let best: { mirror: string; remote: string } | undefined;
+  for (const routes of mirrorRoutes.values()) {
+    for (const route of routes) {
+      const prefix = trimSlash(route.mirror);
+      if (lower === prefix.toLowerCase() || lower.startsWith(`${prefix.toLowerCase()}/`)) {
+        if (!best || prefix.length > trimSlash(best.mirror).length) best = route;
+      }
+    }
+  }
+  return best
+    ? `${trimSlash(best.remote)}${normalized.slice(trimSlash(best.mirror).length)}`
+    : null;
+}
+
+/** 命令正文里的镜像路径也要翻回远端：模型可能直接 `cat <镜像路径>`。
+ *  路径分隔符可能是 `/` 或 `\`，Windows 盘符大小写不定，所以整段大小写不敏感。
+ *  换掉前缀后，同一段路径里剩下的 `\` 也要转成 `/`——bash 会把 `\` 当转义吃掉。 */
+export function mirrorCommandText(command: string): string {
+  const routes = [...mirrorRoutes.values()]
+    .flat()
+    .sort((left, right) => trimSlash(right.mirror).length - trimSlash(left.mirror).length);
+  let result = command;
+  for (const route of routes) {
+    const prefix = trimSlash(route.mirror)
+      .split('/')
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('[\\\\/]');
+    // 尾巴吃到引号或 shell 元字符为止，路径里的空格要一起带上（模型多半会加引号）。
+    result = result.replace(
+      new RegExp(`${prefix}([^"'|&;()<>\\n]*)`, 'gi'),
+      (_match, tail: string) => `${trimSlash(route.remote)}${tail.replace(/\\/g, '/')}`,
+    );
+  }
+  return result;
+}
+
+/** 还原远端 POSIX 路径：先翻镜像，再去盘符、反斜杠转正斜杠、合并重复斜杠。 */
 export function remotePath(value: string): string {
-  let path = value.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
+  const mapped = throughMirror(value);
+  let path = (mapped ?? value).replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
   path = path.replace(/\/{2,}/g, '/');
   if (!path.startsWith('/')) path = `/${path}`;
   return path.length > 1 ? path.replace(/\/+$/, '') || '/' : path;
@@ -158,6 +215,8 @@ export function remoteOperations(target: RemoteTarget) {
           .map(([key, value]) => [key, String(value)]),
       );
       const remoteCwd = remotePath(cwd);
+      // 命令正文里可能直接写着镜像路径（模型从技能的 <location> 抄来的），一并翻回远端。
+      const remoteCommand = mirrorCommandText(command);
       // Pi 传进来的是秒，两边的传输都收毫秒。
       const timeoutMs = options.timeout ? options.timeout * 1000 : undefined;
       // 登录 shell：远端命令要用用户自己的 PATH（nvm、conda 等都在 profile 里）。
@@ -168,7 +227,7 @@ export function remoteOperations(target: RemoteTarget) {
       const session = await helperSession(target);
       if (session) {
         try {
-          const result = await session.exec(command, {
+          const result = await session.exec(remoteCommand, {
             cwd: remoteCwd,
             signal: options.signal,
             timeoutMs,
@@ -189,7 +248,7 @@ export function remoteOperations(target: RemoteTarget) {
         }
       }
 
-      const inner = [...exported, `cd ${shellQuote(remoteCwd)}`, command].join(' && ');
+      const inner = [...exported, `cd ${shellQuote(remoteCwd)}`, remoteCommand].join(' && ');
       const result = await exec(target, `exec bash -lc ${shellQuote(inner)}`, {
         signal: options.signal,
         timeoutMs,

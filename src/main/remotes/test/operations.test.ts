@@ -9,7 +9,7 @@ vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
 
-import { remoteGrepTool, remoteOperations, remotePath } from '../operations';
+import { remoteGrepTool, remoteOperations, remotePath, setContextMirrors } from '../operations';
 import { exec, shellQuote, type RemoteTarget } from '../transport';
 
 const host = process.env.DELA_REMOTE_HOST;
@@ -32,13 +32,54 @@ describe('remotePath', () => {
     expect(remotePath('/')).toBe('/');
     expect(remotePath('//root//a')).toBe('/root/a');
   });
+
+  it('镜像路径翻回远端真身，普通远端路径不受影响', () => {
+    const mirror = 'C:\\Users\\me\\AppData\\Roaming\\dela\\remote-context\\r1\\p1';
+    setContextMirrors('r1:p1', [
+      { mirror: `${mirror}\\repo`, remote: '/root/proj' },
+      { mirror: `${mirror}\\home`, remote: '/root' },
+    ]);
+    try {
+      // 模型从技能的 <location> 里拿到的是镜像路径
+      expect(remotePath(`${mirror}\\repo\\.agents\\skills\\lint\\SKILL.md`)).toBe(
+        '/root/proj/.agents/skills/lint/SKILL.md',
+      );
+      // 大小写与混合分隔符都要认（Windows 盘符大小写不定）
+      expect(remotePath(`${mirror.toLowerCase()}/home/.dela/skills/x/SKILL.md`)).toBe(
+        '/root/.dela/skills/x/SKILL.md',
+      );
+      // 镜像根本身
+      expect(remotePath(`${mirror}\\repo`)).toBe('/root/proj');
+      // 远端绝对路径、被改写的相对路径都照旧
+      expect(remotePath('/tmp/x')).toBe('/tmp/x');
+      expect(remotePath('E:\\root\\proj\\src\\a.ts')).toBe('/root/proj/src/a.ts');
+    } finally {
+      setContextMirrors('r1:p1', []);
+    }
+    expect(remotePath(`${mirror}\\repo\\.agents\\skills\\lint\\SKILL.md`)).toBe(
+      '/Users/me/AppData/Roaming/dela/remote-context/r1/p1/repo/.agents/skills/lint/SKILL.md',
+    );
+  });
+
+  it('多个项目并存时取最长前缀', () => {
+    setContextMirrors('a', [{ mirror: 'C:\\mirror\\p', remote: '/srv/p' }]);
+    setContextMirrors('b', [{ mirror: 'C:\\mirror\\p\\sub', remote: '/srv/deep' }]);
+    try {
+      expect(remotePath('C:\\mirror\\p\\sub\\x.md')).toBe('/srv/deep/x.md');
+      expect(remotePath('C:\\mirror\\p\\y.md')).toBe('/srv/p/y.md');
+    } finally {
+      setContextMirrors('a', []);
+      setContextMirrors('b', []);
+    }
+  });
 });
 
 live('远程工具（需要 DELA_REMOTE_HOST）', () => {
   const ops = remoteOperations(target);
 
   beforeAll(async () => {
-    await ops.bash.exec(`mkdir -p ${shellQuote(root)} && rm -rf ${shellQuote(root)}/*`, root, {
+    // 建目录这一步不能用它自己当 cwd：目录还不存在时 helper 会以 bad_cwd 拒掉。
+    await ops.bash.exec(`mkdir -p ${shellQuote(root)} && rm -rf ${shellQuote(root)}/*`, '/', {
       onData: () => {},
     });
     await ops.write.writeFile(`${root}/a b.txt`, '你好 remote\n');
