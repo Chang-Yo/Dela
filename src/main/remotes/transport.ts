@@ -57,6 +57,10 @@ export interface RemoteLocation {
 /** 单条命令的兜底超时：远端挂住时不能让调用方永久等待。 */
 const DEFAULT_TIMEOUT_MS = 120_000;
 const CONNECT_TIMEOUT_SECONDS = 10;
+/** 静默超过这么久就发一个加密保活包：中间的 NAT/防火墙会把长时间没流量的连接丢掉，
+ *  实测一次 10 分钟无输出的远端命令会让会话被对端 reset，加上它就没再复现。 */
+const KEEPALIVE_SECONDS = 15;
+const KEEPALIVE_COUNT_MAX = 3;
 
 function binaryCandidates(binary: 'ssh' | 'sftp'): string[] {
   const name = `${binary}.exe`;
@@ -90,13 +94,26 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-export function sshArguments(target: RemoteTarget, command: string): string[] {
+/** 连接级参数：命令、终端与 helper 隧道都用同一套，避免某条路径漏掉认证或保活。 */
+export function sshBaseArguments(target: RemoteTarget): string[] {
   // BatchMode：不接受任何交互式提问，认证失败就立刻报错，不把窗口挂死。
-  const args = ['-o', 'BatchMode=yes', '-o', `ConnectTimeout=${CONNECT_TIMEOUT_SECONDS}`];
+  const args = [
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    `ConnectTimeout=${CONNECT_TIMEOUT_SECONDS}`,
+    '-o',
+    `ServerAliveInterval=${KEEPALIVE_SECONDS}`,
+    '-o',
+    `ServerAliveCountMax=${KEEPALIVE_COUNT_MAX}`,
+  ];
   if (target.port) args.push('-p', String(target.port));
   if (target.keyPath) args.push('-i', target.keyPath);
-  args.push(target.host, command);
   return args;
+}
+
+export function sshArguments(target: RemoteTarget, command: string): string[] {
+  return [...sshBaseArguments(target), target.host, command];
 }
 
 export function exec(
