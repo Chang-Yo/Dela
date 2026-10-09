@@ -5,7 +5,7 @@
 // workbench/导航）接手——弹窗只负责表单与 workspace:*/canvas:* 通道调用。
 import { useEffect, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
-import { FolderOpen } from 'lucide-react';
+import { Cloud, FolderOpen } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
@@ -19,6 +19,7 @@ import type { WorkspaceEntry } from '../../shared/api';
 import { useNoteDrafts } from './drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
+import { RemoteConnectionWizard } from './remote-wizard';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { cn } from '../lib/utils';
 
@@ -79,6 +80,8 @@ export function EntryDialogs({
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  /** 远程向导：自带对话框与进行中状态，打开时让出外层弹窗（避免两层遮罩叠在一起）。 */
+  const [wizard, setWizard] = useState(false);
 
   // 旧 show()：打开时重置表单；rename 预填当前名，target 预选调用方给的位置。
   useEffect(() => {
@@ -182,7 +185,7 @@ export function EntryDialogs({
 
   return (
     <Dialog.Root
-      open={request !== null}
+      open={request !== null && !wizard}
       onOpenChange={(value) => {
         if (!value && !busy) onClose();
       }}
@@ -198,7 +201,9 @@ export function EntryDialogs({
               ? '使用个人 Access Token，凭据加密保存在本机。'
               : request?.action === 'remove'
                 ? workspace.entries.find((entry) => entry.id === request.id)?.kind === 'project'
-                  ? '取消项目身份，目录与文件保留，会话转入随聊。'
+                  ? workspace.entries.find((entry) => entry.id === request.id)?.remoteId
+                    ? '只取消登记，远端目录与文件不会改动，会话转入随聊。'
+                    : '取消项目身份，目录与文件保留，会话转入随聊。'
                   : workspace.entries.find((entry) => entry.id === request.id)?.kind === 'source'
                     ? '解除此处的资料关联，原始资料保留。'
                     : '将文件或文件夹移至系统回收站。'
@@ -272,6 +277,15 @@ export function EntryDialogs({
                   <FolderOpen />
                   导入已有文件夹
                 </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => setWizard(true)}
+                  type="button"
+                  variant="secondary"
+                >
+                  <Cloud />
+                  连接远程目录
+                </Button>
               </div>
             )}
             {modalError && (
@@ -300,6 +314,18 @@ export function EntryDialogs({
           </form>
         </Dialog.Content>
       </Dialog.Portal>
+      {/* 向导有自己的对话框：外层弹窗打开它时关闭，取消后回到新建项目。 */}
+      <RemoteConnectionWizard
+        open={wizard}
+        onClose={() => setWizard(false)}
+        onImported={(entry) => {
+          // 与「导入已有文件夹」同一套后续动作：刷新镜像已由向导完成。
+          setWizard(false);
+          onClose();
+          onOpenProject?.(entry.id);
+          onCreated?.(entry);
+        }}
+      />
     </Dialog.Root>
   );
 }

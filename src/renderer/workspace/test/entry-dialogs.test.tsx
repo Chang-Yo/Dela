@@ -102,3 +102,16 @@ it('offers folder import only when creating a project', async () => {
   await render({ action: 'folder', id: null });
   expect(document.body.textContent).not.toContain('导入已有文件夹');
 });
+
+it('offers the remote wizard next to folder import and opens it', async () => {
+  window.dela = {
+    remotes: { list: async () => [] },
+    workspace: { getState: async () => emptyState },
+  } as unknown as DelaApi;
+  await render({ action: 'project', id: null });
+
+  await act(async () => dialogButton('连接远程目录').click());
+  // 向导接管：外层新建项目表单让出，第一步是「选择方式」。
+  expect(document.body.textContent).toContain('选择方式');
+  expect(document.body.textContent).not.toContain('导入已有文件夹');
+});

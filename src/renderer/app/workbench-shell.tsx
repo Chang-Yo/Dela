@@ -30,6 +30,7 @@ import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useNoteDrafts } from '../workspace/drafts';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
+import { useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from './navigation';
 import { MailDraftDialog } from './mail-draft-dialog';
 import { ChatHome } from '../content/chat/ChatHome';
@@ -248,10 +249,14 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     () => ({
       // @ 引用即文件路径：只列会话 cwd 之下的文件（项目会话 = 项目目录），key 为绝对路径，
       // title 为相对 cwd 的路径，与 agent 的工作目录一致。订阅 workspace 镜像，载入后自动出现。
-      useEntries: (_projectId, cwd) => {
+      useEntries: (projectId, cwd) => {
         const entries = useWorkspaceStore((state) => state.workspace.entries);
+        // 远程项目的 cwd 是远端路径，本地镜像里没有它的文件，候选改由远端索引提供。
+        const remote = entries.find((item) => item.id === projectId)?.remoteId;
+        const remoteEntries = useRemoteReferences(remote ? projectId : null);
         return useMemo(() => {
           if (!cwd) return [];
+          if (remote) return remoteEntries;
           const base = cwd.replace(/[\\/]+$/, '');
           const inside = (path: string) =>
             path.length > base.length &&
@@ -269,7 +274,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
               key: entry.path!,
               title: entry.path!.slice(base.length + 1).replaceAll('\\', '/'),
             }));
-        }, [entries, cwd]);
+        }, [entries, cwd, remote, remoteEntries]);
       },
       // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
       flushReference: async (key) => {

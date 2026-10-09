@@ -80,6 +80,9 @@ export function WorkbenchExplorer({
   const canvas = useWorkspaceStore((s) => s.canvas);
   const rootId = entries.some((entry) => entry.id === projectId) ? projectId : null;
   const root = entries.find((e) => e.id === rootId);
+  // 打开的若是远程项目，这棵树本轮只读：拖入的落点是远端 POSIX 路径，
+  // 本地写入入口（importDroppedFiles / moveEntry）会把它当本地目录，必须关掉。
+  const remoteRoot = Boolean(root?.remoteId);
   const selected = useTreeState((s) => s.selected);
   const expanded = useTreeState((s) => s.expanded);
   const query = useTreeState((s) => s.query);
@@ -312,6 +315,7 @@ export function WorkbenchExplorer({
                 if (event.target === event.currentTarget) onAction('note', container());
               }}
               onDragOver={(event) => {
+                if (remoteRoot) return;
                 if (event.dataTransfer.types.includes('Files')) {
                   event.preventDefault();
                   event.dataTransfer.dropEffect = 'copy';
@@ -323,6 +327,7 @@ export function WorkbenchExplorer({
                 event.dataTransfer.dropEffect = 'move';
               }}
               onDrop={(event) => {
+                if (remoteRoot) return;
                 if (event.dataTransfer.types.includes('Files')) {
                   if (event.defaultPrevented) return;
                   event.preventDefault();
@@ -425,8 +430,8 @@ export function WorkbenchExplorer({
                 expanded={expanded}
                 onAction={treeAction}
                 onExpand={expand}
-                onImportFiles={rootId ? importDropped : undefined}
-                onMove={move}
+                onImportFiles={rootId && !remoteRoot ? importDropped : undefined}
+                onMove={remoteRoot ? undefined : move}
                 onOpenToSide={openToSide}
                 onSelect={selectEntry}
                 query={query}

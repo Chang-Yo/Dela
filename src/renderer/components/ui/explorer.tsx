@@ -20,6 +20,12 @@ export interface ExplorerItem {
   badge?: string;
   /** 叶子条目的自定义图标（如水源来源的水滴）；默认 FileText。 */
   icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** 行尾小标记（如远端条目的云朵）；与本地条目用图标区分，不堆文字。 */
+  marker?: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** 行提示（默认条目名）；远端条目用它显示「目的地:路径」。 */
+  title?: string;
+  /** 只读条目：可展开可选中，但不参与拖拽与拖放落点（远端项目本轮只做浏览）。 */
+  readOnly?: boolean;
 }
 
 export const explorerDragType = 'application/x-dela-entry';
@@ -161,18 +167,22 @@ export function Explorer({
     focusItem(target);
   };
   const droppable = (drag: string, target: string) =>
-    drag !== target && (!canDrop || canDrop(drag, target));
+    drag !== target &&
+    !items.some((item) => item.id === target && item.readOnly) &&
+    (!canDrop || canDrop(drag, target));
   // 拖拽悬停叶子行时，落点解析到所属目录（VS Code 式：整块目录区域都是落点）；
   // 内部拖拽中所属目录不可落（如拖动目录本身悬停在其子项上）则返回 null。
   const anchorBranch = (item: ExplorerItem, drag: string | null): string | null =>
-    item.parentId !== null && (drag === null || droppable(drag, item.parentId))
+    item.parentId !== null &&
+    !items.some((candidate) => candidate.id === item.parentId && candidate.readOnly) &&
+    (drag === null || droppable(drag, item.parentId))
       ? item.parentId
       : null;
   const isFileDrag = (event: DragEvent) => event.dataTransfer.types.includes('Files');
   const dragProps =
     onMove || onImportFiles
       ? (item: ExplorerItem, branch: boolean) => ({
-          draggable: Boolean(onMove),
+          draggable: Boolean(onMove) && !item.readOnly,
           onDragStart: (event: DragEvent) => {
             if (!onMove) return;
             setDropTarget(null);
@@ -187,7 +197,7 @@ export function Explorer({
           },
           onDragOver: (event: DragEvent) => {
             if (onImportFiles && isFileDrag(event)) {
-              const target = branch ? item.id : anchorBranch(item, null);
+              const target = branch && !item.readOnly ? item.id : anchorBranch(item, null);
               if (target === null) {
                 if (externalDropTarget !== null) setExternalDropTarget(null);
                 return;
@@ -213,7 +223,7 @@ export function Explorer({
           },
           onDrop: (event: DragEvent) => {
             if (onImportFiles && isFileDrag(event)) {
-              const target = branch ? item.id : anchorBranch(item, null);
+              const target = branch && !item.readOnly ? item.id : anchorBranch(item, null);
               // 顶层叶子行不接收，交给树根落点。
               if (target === null) return;
               event.preventDefault();
@@ -270,6 +280,7 @@ export function Explorer({
               : Folder
             : (item.icon ?? FileText);
         const showIcon = !branch || level <= 2;
+        const Marker = item.marker;
         const ancestors = trailOf(item.parentId);
         const dropRegion =
           activeDrop !== null && (activeDrop === item.id || ancestors.includes(activeDrop));
@@ -351,9 +362,14 @@ export function Explorer({
               />
             </button>
             {showIcon && <Icon className="mr-1 size-4 shrink-0 text-ink-3" strokeWidth={1.8} />}
-            <span className="min-w-0 flex-1 truncate" title={item.name}>
+            <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
               {item.name}
             </span>
+            {Marker && (
+              <span aria-hidden="true" className="shrink-0 text-ink-3" title="远程">
+                <Marker className="size-3.5" strokeWidth={1.8} />
+              </span>
+            )}
             {item.badge && (
               <span className="text-[11.5px] tabular-nums text-ink-3">{item.badge}</span>
             )}

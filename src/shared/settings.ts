@@ -73,5 +73,6 @@ export type SettingsSectionId =
   | 'commands'
   | 'skills'
   | 'mcp'
+  | 'remotes'
   | 'about'
   | 'privacy';

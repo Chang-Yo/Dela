@@ -1,5 +1,6 @@
 import { webUtils } from 'electron';
 import type { OfficeExportEvent, WorkspaceApi, WorkspaceCreateInput } from '../shared/api';
+import type { RemoteDirectoryEntry } from '../shared/remotes';
 import type { ResourceRef } from '../shared/resources';
 import { invoke, on } from './lib';
 
@@ -24,6 +25,12 @@ export const workspace = {
     on<OfficeExportEvent>('workspace:export-office-progress', listener),
   importFiles: (parentId: string | null) => invoke('workspace:import-files', parentId),
   importProjectFolder: () => invoke('workspace:import-project-folder'),
+  importRemoteProject: (remoteId: string, path: string) =>
+    invoke('workspace:import-remote-project', remoteId, path),
+  listRemoteDirectory: (projectId: string, path: string) =>
+    invoke('workspace:list-remote', projectId, path) as Promise<RemoteDirectoryEntry[]>,
+  remoteReferences: (projectId: string) =>
+    invoke('workspace:remote-references', projectId) as Promise<{ key: string; title: string }[]>,
   importDroppedFiles: (parentId: string | null, files: File[]) => {
     const paths = files.map((file) => webUtils.getPathForFile(file)).filter(Boolean);
     return paths.length

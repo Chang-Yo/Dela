@@ -8,6 +8,7 @@ import { capabilityApi as capability } from './capabilities';
 import { layout } from './layout';
 import { mail } from './mail';
 import { notifications } from './notifications';
+import { remotes } from './remotes';
 import { search } from './search';
 import { session } from './session';
 import { settings } from './settings';
@@ -23,6 +24,7 @@ contextBridge.exposeInMainWorld('dela', {
   firstLaunch: process.argv.includes('--dela-first-launch'),
   todo,
   terminal,
+  remotes,
   search,
   notifications,
   window: windowApi,

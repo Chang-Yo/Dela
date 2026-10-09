@@ -1,4 +1,5 @@
 import type { DocumentContent, OfficeExportEvent } from './documents';
+import type { RemoteDirectoryEntry } from './remotes';
 import type { ResourceRef } from './resources';
 import { z } from 'zod';
 
@@ -34,6 +35,8 @@ export interface WorkspaceEntry {
   kind: 'folder' | 'project' | 'note' | 'source' | 'local' | 'imported';
   sourceId: string | null;
   path?: string;
+  /** 远程项目及其子条目标记：path 是远端 POSIX 绝对路径，本地磁盘上没有对应文件。 */
+  remoteId?: string | null;
   updatedAt: string;
 }
 
@@ -82,6 +85,12 @@ export interface WorkspaceApi {
   importFiles(parentId: string | null): Promise<void>;
   /** 选择电脑上已有的文件夹登记为项目（目录留在原处）；取消选择返回 null。 */
   importProjectFolder(): Promise<WorkspaceEntry | null>;
+  /** 把远端目录登记为远程项目：local_path 存远端绝对路径，工具经 SSH 在远端执行。 */
+  importRemoteProject(remoteId: string, path: string): Promise<WorkspaceEntry>;
+  /** 远程目录的一层内容（懒加载，展开时才拉）。 */
+  listRemoteDirectory(projectId: string, path: string): Promise<RemoteDirectoryEntry[]>;
+  /** 远程项目的 @ 候选：key 为远端绝对路径，title 为相对项目目录的路径。 */
+  remoteReferences(projectId: string): Promise<{ key: string; title: string }[]>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;
