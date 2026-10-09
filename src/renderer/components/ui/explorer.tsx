@@ -24,7 +24,7 @@ export interface ExplorerItem {
   marker?: ComponentType<{ className?: string; strokeWidth?: number }>;
   /** 行提示（默认条目名）；远端条目用它显示「目的地:路径」。 */
   title?: string;
-  /** 只读条目：可展开可选中，但不参与拖拽与拖放落点（远端条目只做浏览）。 */
+  /** 只读条目：可展开可选中，但不参与内部拖拽与拖放落点（远端条目只做浏览）。 */
   readOnly?: boolean;
   /** 只读但仍接收外部文件拖放（远端目录：本地文件上传到远端，内部移动照旧被 readOnly 拦住）。 */
   importable?: boolean;

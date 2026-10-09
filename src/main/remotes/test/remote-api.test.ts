@@ -62,9 +62,9 @@ live('远程项目主进程链路（需要 DELA_REMOTE_HOST）', () => {
     expect(listRemotes().map((item) => item.host)).toEqual([host]);
 
     const probe = await probeConnection({ host: host!, keyPath });
-    expect(probe).toMatchObject({ ok: true, hasBash: true });
-    expect(probe.home).toMatch(/^\//);
-    expect(probe.system).toMatch(/Linux|Darwin/);
+    expect(probe.ok).toBe(true);
+    // 摘要里带系统信息（`<主机名> · <系统> <架构>`）：探活失败时这里是给用户的原因。
+    expect(probe.message).toMatch(/Linux|Darwin/);
   }, 60_000);
 
   it('浏览从主目录起，能进能退', async () => {

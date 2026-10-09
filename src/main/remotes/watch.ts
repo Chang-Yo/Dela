@@ -17,7 +17,7 @@
  */
 import { notifyRemoteChange } from './events';
 import { helperSession, type HelperSession, type WatchEvent } from './helper';
-import type { RemoteTarget } from './transport';
+import { targetKey, type RemoteTarget } from './transport';
 
 export interface RemoteWatchInput {
   projectId: string;
@@ -39,10 +39,6 @@ const RECONNECT_MAX_MS = 30_000;
 const desired = new Map<string, WatchSet>();
 /** 当前正在跑事件流的目标；全局只有一条 helper 通道，所以最多一个。 */
 let serving: { key: string; target: RemoteTarget; controller: AbortController } | null = null;
-
-function targetKey(target: RemoteTarget): string {
-  return `${target.host}|${target.port ?? ''}|${target.keyPath ?? ''}`;
-}
 
 function setsOf(key: string): WatchSet[] {
   return [...desired.values()].filter((set) => set.targetKey === key);
@@ -70,11 +66,16 @@ async function apply(session: HelperSession, set: WatchSet): Promise<number> {
 /** 一个目标一条流：连上、重报它的所有集合、然后一直收事件，断了就退避重连。 */
 async function runStream(key: string, target: RemoteTarget, signal: AbortSignal): Promise<void> {
   let backoff = RECONNECT_MIN_MS;
+  let connected = false;
   while (!signal.aborted) {
     const session = await helperSession(target).catch(() => null);
     if (session) {
       // 重连后必须重报：换了 helper 实例，旧集合跟着旧进程一起没了。
       for (const set of setsOf(key)) await apply(session, set).catch(() => {});
+      // 断流期间没有订阅者，那段时间的事件 helper 侧直接丢掉了（队列都没有）：
+      // 重连后让目录树把根重读一遍，别指望下一轮事件把状态补齐。
+      if (connected) for (const set of setsOf(key)) notifyRemoteChange(set.root);
+      connected = true;
       try {
         await session.watchEvents(handleEvent, signal);
         backoff = RECONNECT_MIN_MS;

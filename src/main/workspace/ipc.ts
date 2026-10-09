@@ -185,13 +185,27 @@ export function registerWorkspaceIpc(
     invalidateSessions();
     return created;
   });
-  // 远程目录按需拉取：展开一层拉一层，主进程不缓存（远端是唯一事实来源）。
-  handle('list-remote', async (projectId, path) => {
+  // 远端通道共用的入口：projectId 解成目标与项目根，路径参数一律先判「在项目根之内」。
+  // 这段校验原本在每个远端通道里各抄一遍，谁漏一处就是越界读写。
+  const remoteTargetOf = (projectId: unknown) => {
     const location = projectLocation(projectId);
     if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
-    const wanted = z.string().min(1).max(4096).parse(path).replace(/\/+$/, '') || '/';
-    if (!withinRemoteRoot(location.path, wanted)) throw new Error('只能浏览远程项目目录之内的路径');
-    const entries = await listRemoteDirectory(targetOf(remoteById(location.remoteId)), wanted);
+    return {
+      target: targetOf(remoteById(location.remoteId)),
+      // 根目录去掉尾斜杠：归属判断与前缀拼接都按它做。
+      root: location.path.replace(/\/+$/, '') || '/',
+    };
+  };
+  const remotePathIn = (root: string, value: unknown) => {
+    const path = z.string().min(1).max(4096).parse(value).replace(/\/+$/, '') || '/';
+    if (!withinRemoteRoot(root, path)) throw new Error('只能访问远程项目目录之内的路径');
+    return path;
+  };
+  // 远程目录按需拉取：展开一层拉一层，主进程不缓存（远端是唯一事实来源）。
+  handle('list-remote', async (projectId, path) => {
+    const { target, root } = remoteTargetOf(projectId);
+    const wanted = remotePathIn(root, path);
+    const entries = await listRemoteDirectory(target, wanted);
     return entries
       .map((entry) => ({ ...entry, path: remoteJoin(wanted, entry.name) }))
       .sort((left, right) =>
@@ -203,32 +217,15 @@ export function registerWorkspaceIpc(
   // 远端文件预览：主进程只回 DocumentContent（文本给片段、PDF/Office 给 dela-resource://remote 地址），
   // 渲染端因此和本地条目走同一个预览标签。
   handle('read-remote-document', async (projectId, path) => {
-    const location = projectLocation(projectId);
-    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
-    const wanted = z.string().min(1).max(4096).parse(path);
-    if (!withinRemoteRoot(location.path, wanted)) throw new Error('只能读取远程项目目录之内的文件');
+    const { target, root } = remoteTargetOf(projectId);
     return readRemoteDocument(
       workspaceEntryIdSchema.parse(projectId),
-      targetOf(remoteById(location.remoteId)),
-      wanted,
+      target,
+      remotePathIn(root, path),
     );
   });
   // 远端文件传输：下载到本地（保存对话框 + 分块拉）、上传本地文件到远端目录、
-  // 用系统默认程序打开（下载到临时目录，退出时清理）。三个通道都先把路径限制在项目根内。
-  const remoteTargetOf = (projectId: unknown) => {
-    const location = projectLocation(projectId);
-    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
-    return {
-      target: targetOf(remoteById(location.remoteId)),
-      // 根目录去掉尾斜杠：归属判断与前缀拼接都按它做。
-      root: location.path.replace(/\/+$/, '') || '/',
-    };
-  };
-  const remotePathIn = (root: string, value: unknown) => {
-    const path = z.string().min(1).max(4096).parse(value);
-    if (!withinRemoteRoot(root, path)) throw new Error('只能操作远程项目目录之内的路径');
-    return path;
-  };
+  // 用系统默认程序打开（下载到临时目录，退出时清理）。
   handle('download-remote-file', async (projectId, path) => {
     const { target, root } = remoteTargetOf(projectId);
     const wanted = remotePathIn(root, path);
@@ -248,7 +245,7 @@ export function registerWorkspaceIpc(
   });
   handle('upload-remote-files', async (projectId, directory, paths) => {
     const { target, root } = remoteTargetOf(projectId);
-    const wanted = remotePathIn(root, directory).replace(/\/+$/, '') || '/';
+    const wanted = remotePathIn(root, directory);
     // paths 为 null 即「选文件上传」：对话框拿到路径后与拖放的路径走同一条写入。
     // 空数组是「拖进来的东西没有本地路径」，直接当作没上传，不去弹框。
     const chosen = paths
@@ -269,32 +266,27 @@ export function registerWorkspaceIpc(
   // 远端目录 watch：渲染端报「当前展开的目录」，helper 侧的变化推回来后走同一条
   // workspace:remote-change，所以 Dela 之外改的远端文件也能自己出现在树里。
   handle('watch-remote', async (projectId, paths) => {
-    const location = projectLocation(projectId);
-    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
+    const { target, root } = remoteTargetOf(projectId);
+    // 越界的路径直接丢掉（而不是报错）：集合来自渲染端的展开状态，报错只会让整棵树失联。
     const wanted = z
       .array(z.string().min(1).max(4096))
       .max(REMOTE_WATCH_LIMIT)
       .parse(paths)
       .map((path) => path.replace(/\/+$/, '') || '/')
-      .filter((path) => withinRemoteRoot(location.path, path));
-    const root = location.path.replace(/\/+$/, '') || '/';
+      .filter((path) => withinRemoteRoot(root, path));
     return watchRemoteProject({
       projectId: workspaceEntryIdSchema.parse(projectId),
-      target: targetOf(remoteById(location.remoteId)),
+      target,
       root,
       // 根永远在集合里：reset 时按它报一次，且根被折叠也不该整个失去监视。
       paths: wanted.includes(root) ? wanted : [root, ...wanted],
     });
   });
   handle('remote-references', async (projectId) => {
-    const location = projectLocation(projectId);
-    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
-    const files = await remoteFileIndex(remoteById(location.remoteId), location.path);
-    // @ 候选上限：超长索引没有实用价值，还会拖慢 composer。
-    return files.slice(0, REMOTE_REFERENCE_LIMIT).map((file) => ({
-      key: remoteJoin(location.path, file),
-      title: file,
-    }));
+    const { target, root } = remoteTargetOf(projectId);
+    // 上限下推到远端命令：@ 候选只要前 N 条，把整个仓库的索引传回来再截断是白付一次传输。
+    const files = await remoteFileIndex(target, root, REMOTE_REFERENCE_LIMIT);
+    return files.map((file) => ({ key: remoteJoin(root, file), title: file }));
   });
   handle('import-dropped-files', (value, paths) => {
     const parentId = workspaceEntryIdSchema.nullable().parse(value);

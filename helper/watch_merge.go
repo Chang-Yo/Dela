@@ -13,9 +13,6 @@ const (
 	watchMergeWindow = 200 * time.Millisecond
 	// 单条 change 最多带这么多目录。再多就不值得逐条列：让调用方整块重读更便宜。
 	watchMaxChangePaths = 256
-	// 每个 id 待发路径的硬上限。到顶就丢掉明细、只记「需要 reset」，这是防内存的兜底：
-	// 内核溢出前可能已经攒了几十万条事件，不能靠事件数决定内存占用。
-	watchMaxPendingPaths = 4096
 	// 每个订阅者的队列长度。进程内订阅者数量不设限（Dela 侧自己管），但队列必须有界。
 	watchSubscriberQueue = 256
 )
@@ -24,7 +21,6 @@ const (
 // 理由只是给调用方排查用。
 const (
 	watchReasonOverflow = "overflow"         // 内核队列溢出：所有 id 都得重读
-	watchReasonPending  = "pending-overflow" // 单个 id 的待发集合到顶，明细已不可信
 	watchReasonTooMany  = "too-many-changes" // 单批路径超过 watchMaxChangePaths
 	watchReasonSlowSub  = "subscriber-slow"  // 某个订阅者读得太慢，它的队列被丢弃
 )
@@ -53,8 +49,8 @@ func newWatchBatch() watchBatch {
 	return watchBatch{pending: map[string]*watchPending{}}
 }
 
-// note 记下 id 名下某个目录的结构变化。到顶就把明细换成一条 reset：
-// 宁可让调用方多读一次，也不能让待发集合无限长。
+// note 记下 id 名下某个目录的结构变化。明细长度天然有界：note 只在这个 id 正被监视的
+// 目录上调用，而那些目录由 watch.go 的 watchMaxPaths 封顶。
 func (b *watchBatch) note(id, path string) {
 	p := b.pending[id]
 	if p == nil {
@@ -62,11 +58,6 @@ func (b *watchBatch) note(id, path string) {
 		b.pending[id] = p
 	}
 	if p.reset != "" || p.paths[path] {
-		return
-	}
-	if len(p.paths) >= watchMaxPendingPaths {
-		p.paths = nil
-		p.reset = watchReasonPending
 		return
 	}
 	p.paths[path] = true

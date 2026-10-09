@@ -126,32 +126,18 @@ func TestWatchBatchChangePathLimit(t *testing.T) {
 	}
 }
 
-func TestWatchBatchPendingLimit(t *testing.T) {
+func TestWatchBatchResetIsOneShot(t *testing.T) {
 	batch := newWatchBatch()
-	for i := 0; i < watchMaxPendingPaths; i++ {
+	for i := 0; i <= watchMaxChangePaths; i++ {
 		batch.note("a", pathN(i))
 	}
-	batch.note("a", pathN(watchMaxPendingPaths)) // 第 4097 个不同路径：待发集合到顶
-	// 到顶时明细必须真的被丢掉，不是只打个标记：这是内存的硬上限
-	if pending := batch.pending["a"]; pending.paths != nil {
-		t.Errorf("到顶之后明细应该被丢掉，却还留着 %d 个路径", len(pending.paths))
-	}
-	// 同一窗口里再来的路径不该把 reset 挤成 change：明细已经不可信了
-	for i := 0; i < 10; i++ {
-		batch.note("a", pathN(watchMaxPendingPaths+i+1))
-	}
-	// 一个 id 到顶不影响别的 id
+	// 一个 id 换成 reset 不影响别的 id
 	batch.note("b", "/other")
 
 	events := batch.take()
-	if len(events) != 2 {
-		t.Fatalf("应该只有 a 的 reset 与 b 的 change 两条事件，得到 %+v", events)
-	}
-	if events[0].Type != "reset" || events[0].ID != "a" || events[0].Reason != watchReasonPending {
-		t.Errorf("a 应该是 reset(%s)，得到 %+v", watchReasonPending, events[0])
-	}
-	if events[1].Type != "change" || events[1].ID != "b" || strings.Join(events[1].Paths, ",") != "/other" {
-		t.Errorf("b 应该照常收到 change，得到 %+v", events[1])
+	if len(events) != 2 || events[0].Type != "reset" || events[0].ID != "a" ||
+		events[0].Reason != watchReasonTooMany || events[1].ID != "b" {
+		t.Fatalf("a 应该 reset(%s)、b 照常 change，得到 %+v", watchReasonTooMany, events)
 	}
 	// reset 是一次性的：它已经让调用方重读该 id 的全部内容，下一轮的新变化照常发 change
 	batch.note("a", "/late")

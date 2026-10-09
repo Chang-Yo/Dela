@@ -160,8 +160,14 @@ export function useRemoteTree(
   });
 
   // 树卸载（项目关掉、切走视图）时取消监视：远端不该继续为看不见的目录留 inotify watch。
+  // 待发的窗口也必须一起清掉：它在卸载后才触发时会把旧集合重报一遍，等于白取消。
   useEffect(
     () => () => {
+      if (watchTimer.current !== undefined) {
+        clearTimeout(watchTimer.current);
+        watchTimer.current = undefined;
+      }
+      listed.current.clear();
       const workspace = window.dela?.workspace;
       for (const projectId of watching.current.keys())
         void workspace?.watchRemoteDirectories(projectId, []).catch(() => {});
@@ -170,8 +176,8 @@ export function useRemoteTree(
     [],
   );
 
-  // 远端工具写过文件、跑过 bash，或远端自己变了（watch）：丢掉受影响的清单（含变化目录
-  // 自己的父目录，新条目要现出来），缺清单的展开目录由下面那个 effect 自动重拉。
+  // 远端工具写过文件、跑过 bash，或远端自己变了（watch）：丢掉受影响的清单（这层自己变了，
+  // 或它下面的目录变了——新条目要现出来），缺清单的展开目录由下面那个 effect 自动重拉。
   useEffect(() => {
     const workspace = window.dela?.workspace;
     if (!workspace?.onRemoteChange) return;
@@ -183,15 +189,8 @@ export function useRemoteTree(
         const paths = [...changed.current];
         changed.current.clear();
         const stale = new Set<string>();
-        for (const [key, { path: listedPath }] of listed.current) {
-          const parent = listedPath.slice(0, listedPath.lastIndexOf('/')) || '/';
-          if (
-            paths.some(
-              (changedPath) => withinChange(listedPath, changedPath) || parent === changedPath,
-            )
-          )
-            stale.add(key);
-        }
+        for (const [key, { path: listedPath }] of listed.current)
+          if (paths.some((changedPath) => withinChange(listedPath, changedPath))) stale.add(key);
         if (!stale.size) return;
         for (const key of stale) listed.current.delete(key);
         const drop = <T>(prev: Record<string, T>) =>
@@ -209,16 +208,23 @@ export function useRemoteTree(
     for (const node of pending) {
       if (inFlight.current.has(node.key)) continue;
       inFlight.current.add(node.key);
-      listed.current.set(node.key, { projectId: node.projectId, path: node.path });
+      // 这一层的「作废标记」：清单被丢掉（收起、或远端变化）之后，在途的旧响应不能把旧内容写回来。
+      const marker = { projectId: node.projectId, path: node.path };
+      listed.current.set(node.key, marker);
       void workspace
         .listRemoteDirectory(node.projectId, node.path)
         .then(
-          (items) => setListings((prev) => ({ ...prev, [node.key]: items })),
-          (cause) =>
+          (items) => {
+            if (listed.current.get(node.key) !== marker) return;
+            setListings((prev) => ({ ...prev, [node.key]: items }));
+          },
+          (cause) => {
+            if (listed.current.get(node.key) !== marker) return;
             setFailed((prev) => ({
               ...prev,
               [node.key]: `读取失败 ${node.path}：${errorText(cause)}`,
-            })),
+            }));
+          },
         )
         .finally(() => {
           inFlight.current.delete(node.key);

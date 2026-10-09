@@ -107,12 +107,6 @@ func (t *task) keep(size int64) bool {
 	return true
 }
 
-func (t *task) discardedCount() int64 {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.discarded
-}
-
 // finish 只生效一次：取消/超时先改了 state 的，退出码不再覆盖它。
 func (t *task) finish(code int, signal string) {
 	t.mu.Lock()
@@ -224,6 +218,20 @@ func (s *sseWriter) failed() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.broken
+}
+
+// comment 只写一条 SSE 注释帧（客户端会忽略它），用来在安静的连接上保活。
+func (s *sseWriter) comment(text string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.broken {
+		return
+	}
+	if _, err := fmt.Fprintf(s.w, ": %s\n\n", text); err != nil {
+		s.broken = true
+		return
+	}
+	s.flusher.Flush()
 }
 
 // 执行命令：流式回传 stdout/stderr，进程组可取消，超时由 helper 裁定。
@@ -373,23 +381,6 @@ func (s *server) handleExecAction(w http.ResponseWriter, r *http.Request) {
 	}
 	t.cancel(stateCancelled)
 	writeJSON(w, http.StatusOK, map[string]any{"taskId": id, "state": t.snapshot().State})
-}
-
-func (s *server) handleTasks(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	order := append([]string(nil), s.order...)
-	tasks := make(map[string]*task, len(s.tasks))
-	for id, t := range s.tasks {
-		tasks[id] = t
-	}
-	s.mu.Unlock()
-	views := make([]taskView, 0, len(order))
-	for _, id := range order {
-		if t, ok := tasks[id]; ok {
-			views = append(views, t.snapshot())
-		}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"tasks": views})
 }
 
 func exitStatus(err error) (int, string) {

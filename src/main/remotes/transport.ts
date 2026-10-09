@@ -19,6 +19,11 @@ export interface RemoteTarget {
   keyPath?: string | null;
 }
 
+/** 目标的身份：helper 通道与目录 watch 各自要判断「这是不是同一个连接」，两处必须是同一个算法。 */
+export function targetKey(target: RemoteTarget): string {
+  return `${target.host}|${target.port ?? ''}|${target.keyPath ?? ''}`;
+}
+
 export interface ExecOptions {
   stdin?: Buffer | string;
   signal?: AbortSignal;
@@ -306,11 +311,6 @@ export async function writeFile(
     `mv -f -- "$tmp" ${shellQuote(path)}`,
   ].join('\n');
   const result = await exec(target, script, { stdin: content });
-  if (result.code !== 0) throw new Error(sshErrorMessage(result));
-}
-
-export async function makeDirectory(target: RemoteTarget, path: string): Promise<void> {
-  const result = await exec(target, `mkdir -p -- ${shellQuote(path)}`);
   if (result.code !== 0) throw new Error(sshErrorMessage(result));
 }
 

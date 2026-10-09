@@ -1,12 +1,12 @@
 # 远程项目规划
 
-日期：2026-10-09。状态：阶段 0–4 已实施，实机（Ubuntu 24.04 / x86_64 / root）跑通传输层与七个工具；阶段 5 未做。参考 `tech-1.md`（SSH 客户端体积）与 `tech-2.md`（远端运行时架构）。
+日期：2026-10-09。状态：阶段 0–4 已实施，实机（Ubuntu 24.04 / x86_64 / root）跑通传输层与七个工具；阶段 5 的远端预览已在 6.3 做掉（见 `remote-helper.md`），笔记写回不做。参考 `tech-1.md`（SSH 客户端体积）与 `tech-2.md`（远端运行时架构）。
 
 ## 结论
 
 走「本地内核 + 远程执行」：Pi 内核、模型密钥、会话 JSONL、skills、系统提示留在本地，只有工具执行、终端与文件读写落到 SSH 远端。不把内核搬到远端（用户 2026-10-09 决定）。
 
-传输层用一个端口隔离：优先使用系统 OpenSSH（`ssh.exe`/`sftp.exe`），自带 OpenSSH 二进制作为回退接进同一端口（用户 2026-10-09 决定）。工具、终端、目录树、@ 候选都只依赖这个端口，因此回退只是换一个可执行文件路径。本轮交付阶段 0–4；远程预览与远程笔记写回（阶段 5）另外评估。
+传输层用一个端口隔离：优先使用系统 OpenSSH（`ssh.exe`/`sftp.exe`），自带 OpenSSH 二进制作为回退接进同一端口（用户 2026-10-09 决定）。工具、终端、目录树、@ 候选都只依赖这个端口，因此回退只是换一个可执行文件路径。阶段 5 的**远端文件预览已做**（6.3，见 `remote-helper.md`），远端笔记写回仍不做。
 
 依据（已核对 `@earendil-works/pi-coding-agent@1.1.0` 代码）：
 
@@ -36,11 +36,11 @@
 - 数据：`remotes(id,label,host,port,key_path,created_at)` + `workspace_entries.remote_id`（schema v3，只加列）。
 - 实测延迟：每次 ssh 调用约 0.3–0.6 秒（Windows OpenSSH 无 ControlMaster）；`createAgentSession` 以远端 POSIX 路径作 cwd 正常，七个工具名下的生效定义确为 Dela 注入的远程版本（`getAllTools()` 的 `sourceInfo.source='sdk'`）。
 - 实机用例（`DELA_REMOTE_HOST` 打开才跑）：传输层 6 项、七个工具 11 项、主进程链路 6 项（存连接与自检、从主目录浏览并能进能退、不存在目录的报错、登记项目并列一层目录与生成 @ 候选索引、重复登记去重、有项目在用连接时拒绝删除），另单独核对了远程终端命令 `ssh -tt <dest> "cd '<path>' && exec bash -li"` 在真实主机上确实进到项目目录并起交互登录 shell。
-- 真实窗口验收：`pnpm smoke:remote`（`DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`；未设则跳过并退出 0）用真 preload、真 renderer、真主进程 IPC 与真 ssh 走一遍——新建项目 › 连接远程目录 › 新建连接 › 填目的地与私钥 › 连接（自检显示主机名·系统·架构）› 选目录（列主目录，点进夹具目录）› 添加为项目，然后断言：目录树有远端文件、云朵提示是 `<目的地>:<远端绝对路径>`、点目录才懒加载下一层、点远端文件只给「远程文件的打开与预览在下一阶段」且不新开标签、`remoteId` 已到渲染端、@ 候选索引返回相对路径、远程终端（真 node-pty 起 `ssh -tt`）落在项目目录并能执行命令（`echo MARK-$(pwd)` 的绝对路径同时出现在事件流与终端快照里），最后断言控制台无 warning/error。
+- 真实窗口验收：`pnpm smoke:remote`（`DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`；未设则跳过并退出 0）用真 preload、真 renderer、真主进程 IPC 与真 ssh 走一遍——新建项目 › 连接远程目录 › 新建连接 › 填目的地与私钥 › 连接（自检显示主机名·系统·架构）› 选目录（列主目录，点进夹具目录）› 添加为项目，然后断言：目录树有远端文件、云朵提示是 `<目的地>:<远端绝对路径>`、点目录才懒加载下一层、`remoteId` 已到渲染端、@ 候选索引返回相对路径、远程终端（真 node-pty 起 `ssh -tt`）落在项目目录并能执行命令（`echo MARK-$(pwd)` 的绝对路径同时出现在事件流与终端快照里），最后断言控制台无 warning/error。（点远端文件只给提示这条断言已被 6.3 取代：现在会新开只读预览标签。）
 
 与原规划的偏差：不用 SFTP；`remotes` 表按主机/端口/密钥文件三列存（不是 `destination`+`extra_args`，因为要显示与校验，跳板仍由 `~/.ssh/config` 承担）；没有实现「会话创建时采集远端环境拼进系统提示」；远端目录树的刷新是收起再展开重读一层（渲染端按需加载，不轮询）；@ 候选来自 `remoteReferences` 的一次索引（上限 3000 条，按项目缓存在本次运行内）。
 
-未做：远端环境采集；阶段 5（远程文件预览与远程笔记写回）；密码与跳板认证（交互终端里 ssh 可以自己问密码，但工具调用只用密钥/BatchMode）。阶段 6（远端 Go helper、实时目录树与预览、远端 skills 进上下文）另见 `docs/remote-helper.md`：6.0 与 6.1 已实施（工具已改走 helper 通道），6.2–6.4 仍是草案。
+未做：远端环境采集（自检只回一行摘要，不拼进系统提示）；远端笔记写回；密码与跳板认证（交互终端里 ssh 可以自己问密码，但工具调用只用密钥/BatchMode）。阶段 6（远端 Go helper、实时目录树与预览、远端 skills 进上下文）另见 `docs/remote-helper.md`：**6.0–6.3 已全部实施**（工具、目录清单、watch、预览与传输都走 helper 通道），6.4 不做。
 
 ## 数据模型
 
@@ -61,7 +61,7 @@
 
 **阶段 4 · 工具远程化**：`main/remotes/operations.ts` 基于传输端口实现六个 `operations`；grep 自写同名工具（`{ ...createGrepToolDefinition(cwd), execute }` 保留 schema 与描述，搜索走远端 `rg`，无 rg 时退 `grep -rn`）；`agent/environment.ts` 在远程会话把这七个 `customTools` 交给 Pi，并按用户已关闭的能力名单裁剪。写入走临时文件加 `mv`；bash 的 `onData` 直接喂现有流式工具卡片。会话创建时一次采集远端环境（`uname -a; nproc; free -g; nvidia-smi -L; git -C <path> status --short`）拼进追加系统提示（借鉴 tech-2 §4）。
 
-**阶段 5 · 后续（本轮不做）· 文件读取、预览与远程笔记**：文档区打开远程文件（文本与代码只读、Markdown、图片与 PDF 走受限资源协议、改由传输端口供给）；远程项目内的新建笔记与编辑写回远端，需要把 `saveWorkspaceNote`/`editWorkspaceNote` 的本地 fs 路径改走端口并保留现有 revision 冲突语义。`code --remote ssh-remote+<dest> <path>` 作为外部打开入口。
+**阶段 5 · 文件读取与预览（已在 6.3 实施，笔记写回不做）**：文档区打开远端文件（文本与代码只读、Markdown、图片、PDF 与 Word/Excel 走受限资源协议，由 helper 通道按 Range 供给）；远端项目内的新建笔记与编辑写回远端不做，写路径只有「上传整份文件」与工具。`code --remote ssh-remote+<dest> <path>` 作为外部打开入口也未做。
 
 验收：路径归一化与 operations 命令串的单元测试（注入假 exec，不需要真实主机）；`pnpm check`；`pnpm build` 与打包后启动；一台真实 Linux 主机上逐项跑七个工具、远程终端、目录树展开与 @ 候选，以及断线时的报错文案。
 
@@ -70,7 +70,7 @@
 - **路径归一化（最高风险）**：工具在调用 operations 之前用宿主 `node:path` 解析参数。本机实测：`path.resolve('/home/u/proj','src/a.ts')` → `E:\home\u\proj\src\a.ts`；`path.resolve(cwd,'/home/u/x')` → `\home\u\x`。operations 必须先去盘符前缀、再把 `\` 换成 `/`、合并重复斜杠后才拼命令，并有单测覆盖这几组实测输出。这是唯一会静默改错文件的点。
 - 远程会话里没有 dela 校园命令（本地 127.0.0.1 桥远端不可达）；后续可选 `ssh -R` 反向转发，先评估暴露面。
 - 自带 OpenSSH 二进制实测：`ssh.exe` + `libcrypto.dll` 共 3.1MB（zip 5.4MB；NSIS 压缩后更小），导入表只依赖 Windows 自带 DLL，无 VC++ 运行库依赖；许可文本随包（`vendor/openssh/{LICENSE,NOTICE}.txt`）。只在系统缺少 `ssh.exe` 时启用。
-- 无远程文件监听：以懒加载加聚焦刷新近似，缓存失效要明确（否则树与 @ 候选显示过期内容）。
+- 无远程文件监听（阶段 0–4 时）：当时以懒加载加聚焦刷新近似。**6.3 已接 helper 的 `/v1/watch`**：展开的目录会被监视，Dela 之外的改动也会推回目录树（见 `remote-helper.md`）。
 - 连接是「一次调用一个 ssh 子进程」，没有多路复用。实测：短时间并发握手太多时主机会直接断开（`Connection closed by <host> port 22`），`pnpm vitest run src/main` 并行跑三个真机测试文件就会偶发；串行（`--fileParallelism=false`）稳定全过。App 侧一次工具调用只有一条连接，但若模型并发发起多个工具调用就可能撞上主机的 MaxStartups——是否加重试或限流待评估（重试要只针对握手层错误，不能掩盖认证失败）。
 - 真机测试的跑法：`. ./scripts/use-local-tools.ps1; $env:DELA_REMOTE_HOST='root@…'; $env:DELA_REMOTE_KEY='…'; pnpm vitest run src/main/remotes --fileParallelism=false`。
 - 远程条目 id 带项目身份（`<项目 UUID>:<远端路径>`），与本地「路径条目」共用同一命名空间；`entry()` 必须先判远程根，禁止把远程路径交给 `statSync`。裸远端路径只在唯一归属时可用，多个项目都装得下时 `remoteProjectOf` 直接报错。
@@ -78,6 +78,6 @@
 
 ## 已定与待决
 
-已定（2026-10-09）：本地内核 + 远程执行；系统 OpenSSH 优先、自带 OpenSSH 二进制回退；目录树与 @ 候选纳入本轮；本轮交付阶段 0–4。
+已定（2026-10-09）：本地内核 + 远程执行；系统 OpenSSH 优先、自带 OpenSSH 二进制回退；目录树与 @ 候选纳入本轮；阶段 0–4 交付，后续的 helper 与预览见 `remote-helper.md`。
 
-待决：目标主机是否只用密钥与 ssh agent（当前结论：工具调用只支持密钥/BatchMode，密码可以在远程终端里交互输入）；阶段 5 的排期。
+待决：目标主机是否只用密钥与 ssh agent（当前结论：工具调用只支持密钥/BatchMode，密码可以在远程终端里交互输入）；远端笔记写回是否值得做。

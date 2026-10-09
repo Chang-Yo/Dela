@@ -1,14 +1,14 @@
 # 远端工具服务（helper）：规划与 v1 实施记录
 
-日期：2026-10-09。状态：**草案，未实施**。前置：`docs/remote-projects.md`（阶段 0–4 已实施并实机验证）。本文只写规划，不含实现，不动核心代码。第二轮修订：吸收一份外部审阅意见（见文末「审阅意见处理」）。
+日期：2026-10-09 起。状态：**6.0–6.3 已实施并实机验证**（2026-10-09/10），6.4 仍是草案。前置：`docs/remote-projects.md`（阶段 0–4 已实施并实机验证）。第二轮修订：吸收一份外部审阅意见（见文末「审阅意见处理」）。
 
 ## 结论（已定）
 
 - helper 用 **Go** 写，纯静态二进制（`CGO_ENABLED=0`），一个架构一个文件。
 - 只有**两种执行方式**：helper 通道（主）与现有的一次性 ssh（引导 + 降级）。**不做**常驻 shell 协议档。
 - **不在远端跑 Agent**：内核、模型密钥、会话 JSONL、系统提示仍在本机。
-- 远端项目内**不支持新建笔记**（用户已接受）；**文件预览要做**。
-- 实施顺序：**6.0 远端文件身份已实施**（2026-10-09）；接着做最小 helper，然后上下文与 skills，最后 watch 与预览。
+- 远端项目内**不支持新建笔记**（用户已接受）；**文件预览已做**（6.3）。
+- 实施顺序：6.0 远端文件身份 → 6.1 最小 helper → 6.2 上下文与 skills → 6.3 目录树刷新、watch、预览与传输，**均已完成**；6.4（端口预览、JS 扩展宿主、arm64 与受限环境）不做，产品上够用即可。
 
 ## 审阅意见处理
 
@@ -37,7 +37,7 @@
 | 能力缺口（跟握手无关）     | 无文件监听、无法只取文件片段、二进制要 base64、`ls` 逐条 stat 只能靠 10 秒缓存、长任务无法取消                                                                 |
 | shell 行为差异             | 列目录依赖 GNU `find -printf`（无 GNU find 时退 `ls -A1p`）；远端普遍没有 `rg`；命令输出的编码/截断全在本机处理                                                |
 | 远端环境（采样一台）       | Ubuntu 24.04.5 / x86_64 / glibc 2.39 / root；`node v24.21.0`、`npm`、`python3`、`gcc`、`curl`、`tar`、`sha256sum`、`setsid`、`nohup` 均在；无 `rg`、无 `socat` |
-| 回环 + 隧道可行            | 远端 `127.0.0.1:19999` 监听成功；**本地 `ssh -L` 转发未完成实测**，实施第一步补测                                                                              |
+| 回环 + 隧道可行            | 远端 `127.0.0.1:19999` 监听成功；本地 `ssh -L` 转发**补测通过**（见 6.1 实测证据）                                                                             |
 
 **结论**：helper 的理由是**握手延迟 + 能力缺口 + 命令语义差异**，不是「主机拒绝并发」。既然 Windows 侧拿不到连接复用，远端常驻进程是唯一能同时解决这三条的路。
 
@@ -64,23 +64,23 @@
 
 下表的「状态」列区分**已实施**与**草案**，不要把草案当能力读。已实施部分的协议在 `helper/README.md` 有一份同样的表。
 
-| 状态   | 方法   | 路径                                | 用途                                 | 相对草案的偏差                                                         |
-| ------ | ------ | ----------------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
-| 已实施 | GET    | `/v1/hello`                         | 协议与版本协商                       | 无 `clientId`（见「helper 属于连接」一条）                             |
-| 已实施 | POST   | `/v1/heartbeat`                     | 客户端心跳                           | 无 `clientId`                                                          |
-| 已实施 | POST   | `/v1/fs/list`                       | 列一层（lstat 语义，符号链接算文件） | 只回 `{name,path,directory,size,modifiedAt}`，不回 mode                |
-| 已实施 | POST   | `/v1/fs/stat`                       | 批量状态（不存在的路径也回一条）     | 无                                                                     |
-| 已实施 | GET    | `/v1/fs/read?path=&offset=&length=` | 片段读取，字节流                     | 改 GET + 查询串（片段读天然是 GET 语义，curl 也好验）                  |
-| 已实施 | PUT    | `/v1/fs/write?path=`                | 原子写（同目录临时文件 + rename）    | 父目录必须先存在，建目录由调用方负责（与 Pi 的 mkdir 调用对齐）        |
-| 已实施 | POST   | `/v1/fs/hash`                       | 服务端 sha256                        | 无                                                                     |
-| 已实施 | POST   | `/v1/exec`                          | 起任务，SSE 流式输出                 | 事件类型固定为 `start`/`stdout`/`stderr`/`exit`，`data` 一律 base64    |
-| 已实施 | POST   | `/v1/exec/:id/cancel`               | 取消任务（终止整个进程组）           | 无                                                                     |
-| 已实施 | GET    | `/v1/tasks`                         | 任务状态（保留最近 100 条）          | 无                                                                     |
-| 已实施 | POST   | `/v1/watch`                         | 替换某个 id 的目录监视集合           | 幂等；只订结构变化（不进 `IN_MODIFY`）；返回 `watching` 与 `skipped[]` |
-| 已实施 | DELETE | `/v1/watch?id=`                     | 取消某个 id 的监视                   | id 不存在也算成功                                                      |
-| 已实施 | GET    | `/v1/watch`                         | 目录事件（SSE）                      | `data:` 里直接是 JSON（exec 那条是 base64）；事件 `change`/`reset`     |
-| 草案   | GET    | `/v1/ports`                         | 远端监听端口                         | 6.4 做                                                                 |
-| 已删   | POST   | `/v1/shutdown`                      | 显式停止                             | Dela 不发退出请求（用户 2026-10-09 定），SIGTERM 已足够                |
+| 状态   | 方法   | 路径                                | 用途                                                         | 相对草案的偏差                                                                                               |
+| ------ | ------ | ----------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| 已实施 | GET    | `/v1/hello`                         | 协议与版本协商（只回这两个字段）                             | 不回 features/pid/platform/home：唯一调用方只查版本                                                          |
+| 已实施 | POST   | `/v1/heartbeat`                     | 客户端心跳                                                   | 无 `clientId`                                                                                                |
+| 已实施 | POST   | `/v1/fs/list`                       | 列一层（lstat 语义，符号链接算文件）                         | 只回 `{name,path,directory,size,modifiedAt}`，不回 mode                                                      |
+| 已实施 | POST   | `/v1/fs/stat`                       | 批量状态（不存在的路径也回一条）；远端预览取 size/mtime 走它 | 无                                                                                                           |
+| 已实施 | GET    | `/v1/fs/read?path=&offset=&length=` | 片段读取，字节流                                             | 改 GET + 查询串（片段读天然是 GET 语义，curl 也好验）                                                        |
+| 已实施 | PUT    | `/v1/fs/write?path=`                | 原子写（同目录临时文件 + rename）                            | 父目录必须先存在，建目录由调用方负责（与 Pi 的 mkdir 调用对齐）                                              |
+| 已实施 | POST   | `/v1/exec`                          | 起任务，SSE 流式输出                                         | 事件类型固定为 `start`/`stdout`/`stderr`/`exit`，`data` 一律 base64                                          |
+| 已实施 | POST   | `/v1/exec/:id/cancel`               | 取消任务（终止整个进程组）                                   | 无                                                                                                           |
+| 已实施 | POST   | `/v1/watch`                         | 替换某个 id 的目录监视集合                                   | 幂等；只订结构变化（不进 `IN_MODIFY`）；返回 `watching` 与 `skipped[]`                                       |
+| 已实施 | DELETE | `/v1/watch?id=`                     | 取消某个 id 的监视                                           | id 不存在也算成功                                                                                            |
+| 已实施 | GET    | `/v1/watch`                         | 目录事件（SSE）                                              | `data:` 里直接是 JSON（exec 那条是 base64）；事件 `change`/`reset`；安静时每 30 秒一条 `: keep-alive` 注释帧 |
+| 草案   | GET    | `/v1/ports`                         | 远端监听端口                                                 | 6.4 做                                                                                                       |
+| 已删   | POST   | `/v1/shutdown`                      | 显式停止                                                     | Dela 不发退出请求（用户 2026-10-09 定），SIGTERM 已足够                                                      |
+| 已删   | POST   | `/v1/fs/hash`                       | 服务端 sha256                                                | 没有调用方：上传复核走一次性 ssh 的 `sha256sum`（2026-10-10 删）                                             |
+| 已删   | GET    | `/v1/tasks`                         | 任务状态                                                     | 没有调用方：取消走 `/v1/exec/:id/cancel`，状态在 SSE 的 `exit` 里（2026-10-10 删）                           |
 
 **任务模型（已实施）**
 
@@ -110,15 +110,15 @@
 | 4 启动   | 一条 ssh：写 `0600` token、`setsid nohup … --port 0 --run-file …`、读回端口与 pid | 起不来／`noexec`／SELinux → 带上日志尾部并降级 |
 | 5 转发   | `ssh -L`（`ExitOnForwardFailure=yes`，连接参数与其它调用同源）                    | 绑定失败／超时 → 降级                          |
 | 6 握手   | `GET /v1/hello` 校验协议号与 helper 版本                                          | 不匹配 → 抛错并降级（远端跑的不是这一版产物）  |
-| 7 常驻   | **只把工具（read/write/edit/bash/grep）接到通道上**                               | 通道不可用 → 这些调用退回一次性 ssh            |
+| 7 常驻   | 工具（read/write/edit/bash/grep）与目录清单、目录 watch、预览与传输都接在通道上   | 通道不可用 → 这些调用退回一次性 ssh            |
 
-**6.1 里没有接到通道上的**：@ 索引仍走一次性 `listDirectory`（一次 ssh，正确性没问题）；目录树的清单从 6.3 起走了通道；预览仍到 6.3 剩余部分。这在代码里是明写的，不是遗漏。
+**没接到通道上的**：@ 索引仍走一次性 `ssh`（一次调用，正确性没问题）。这在代码里是明写的，不是遗漏。
 
 **通道恢复与操作重试是两件事**：
 
-- **可自动重试**：建立通道、握手、只读查询（`fs.list`/`fs.stat`/`fs.read`/`fs.hash`）与 `write`（同内容重复写结果相同）。
+- **可自动重试**：建立通道、握手、只读查询（`fs.list`/`fs.stat`/`fs.read`）与 `write`（同内容重复写结果相同）。
 - **不可自动重放**：`exec`。通道在任务中途断掉时远端**可能已经执行**，自动再跑一次可能重复提交、重复部署。**已实施的行为**：`bash` 走通道失败时直接报错并丢掉通道（下次调用重新建立），绝不退回一次性 ssh 重跑；读与写才允许回退。
-- 「重新查询任务状态」需要先定义任务 id 的可见范围与保留时长；helper 内保留最近 100 条、进程重启即失效，第一版不做跨连接续查。
+- helper 用非 2xx 回的业务错误（路径不存在、参数越界）**不算通道故障**：原样抛给调用方，不拆通道也不重跑（`HelperHttpError`）。
 
 ## 远端文件身份（已实施 2026-10-09）
 
@@ -173,20 +173,20 @@
 
 ## 与现有代码的接缝
 
-| 文件                                                | 改动                                                                                                     |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `main/remotes/transport.ts`                         | 抽出「通道」概念；保留一次性 ssh 作为引导与降级；补「远端进程组终止」语义                                |
-| 新增 `main/remotes/helper.ts`                       | 探测、上传、校验、启动、转发、握手、心跳、显式停止、重连、降级                                           |
-| 新增 `main/remotes/context.ts`                      | 上下文镜像与路径映射（含远端 skills 扫描）                                                               |
-| `main/remotes/operations.ts`                        | 注入点不变，但要**接入** `fs.list`/`fs.stat`/`fs.read`/`fs.write`/`exec`（否则只是省了握手）             |
-| `main/agent/environment.ts`                         | 远程分支：镜像 `skillPaths`、去掉校园 skills、`agentsFilesOverride` 注入 `AGENTS.md`                     |
-| `main/agent/pi.ts`                                  | 透传 `agentsFilesOverride`                                                                               |
-| `renderer/navigation/remote-tree.ts`                | 复合身份（清单键、展开键、条目 id）——6.0 已实施                                                          |
-| `main/workspace/api.ts`                             | `remoteProjectOf` 按复合身份解析；`remoteRoots` 不变——6.0 已实施                                         |
-| `main/terminal.ts`                                  | 不改（继续 `ssh -tt`）                                                                                   |
-| `main/remotes/documents.ts`、`workspace/preview.ts` | 远端预览：格式判定与本地共用、`dela-resource://remote`（Range 分块）与 `remote-raw`（Markdown 相对图片） |
-| `main/remotes/transfer.ts`                          | 下载（分块 + `.part` 改名）、上传（一次 PUT）、系统默认程序打开（临时目录 + 退出清理）                   |
-| `workspace/ipc.ts`、`preload/*`、`shared/*`         | 预览、上传下载、远端技能相关通道                                                                         |
+| 文件                                                | 改动                                                                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `main/remotes/transport.ts`                         | 抽出「通道」概念；保留一次性 ssh 作为引导与降级；补「远端进程组终止」语义                                 |
+| 新增 `main/remotes/helper.ts`                       | 探测、上传、校验、启动、转发、握手、心跳、显式停止、重连、降级                                            |
+| 新增 `main/remotes/context.ts`                      | 上下文镜像与路径映射（含远端 skills 扫描）                                                                |
+| `main/remotes/operations.ts`                        | 注入点不变，内部改成**通道优先**：`fs.list`/`fs.stat`/`fs.read`/`fs.write`/`exec`，拿不到再退回一次性 ssh |
+| `main/agent/environment.ts`                         | 远程分支：镜像 `skillPaths`、去掉校园 skills、`agentsFilesOverride` 注入 `AGENTS.md`                      |
+| `main/agent/pi.ts`                                  | 透传 `agentsFilesOverride`                                                                                |
+| `renderer/navigation/remote-tree.ts`                | 复合身份（清单键、展开键、条目 id）——6.0 已实施                                                           |
+| `main/workspace/api.ts`                             | `remoteProjectOf` 按复合身份解析；`remoteRoots` 不变——6.0 已实施                                          |
+| `main/terminal.ts`                                  | 不改（继续 `ssh -tt`）                                                                                    |
+| `main/remotes/documents.ts`、`workspace/preview.ts` | 远端预览：格式判定与本地共用、`dela-resource://remote`（Range 分块）与 `remote-raw`（Markdown 相对图片）  |
+| `main/remotes/transfer.ts`                          | 下载（分块 + `.part` 改名）、上传（一次 PUT）、系统默认程序打开（临时目录 + 退出清理）                    |
+| `workspace/ipc.ts`、`preload/*`、`shared/*`         | 预览、上传下载、远端技能相关通道                                                                          |
 
 不改与远程无关的核心代码；替换前必须先有等价实现。
 
@@ -206,7 +206,7 @@
 
 - `ssh -L` 转发补测通过：本地 19997 → 远端 19998 的 HTTP 请求拿到 200（helper 路线上唯一没验证过的假设）。
 - helper 独立验证（真机 curl 直打回环）：401（无 token／错 token）、400（相对路径、坏 cwd、空命令）、416（offset 越界）、
-  sha256 与服务端 `sha256sum` 一致、1 MB 随机字节往返逐字节相同、含空格与中文的文件名可读写、`exit 7` 退出码正确。
+  1 MB 随机字节往返逐字节相同、含空格与中文的文件名可读写、`exit 7` 退出码正确。上传产物与本地 `sha256` 一致由上传步骤用一次性 ssh 的 `sha256sum` 复核（helper 没有哈希接口）。
 - 取消／超时／失联：`sleep 300 & sleep 300 & wait` 取消后进程数 2 → 0；`timeoutMs=1000` 时 `state=timeout`、`durationMs≈1001`、无残余；
   kill 掉客户端 curl 后远端进程 2 秒内消失；输出上限触发 `discarded=3769287`；三个并发任务全部正常结束。
 - 空闲自退：`--idle-timeout 5s` 的实例 12 秒后自行退出并清理 `run.json`。
@@ -255,14 +255,14 @@
 - 上传路径不做远端回读校验（逐字节一致由真机测试保证，不在产品路径上重复读一遍）。
 - 模型若在 bash 里写含空格的镜像路径又不加引号，翻译会吃掉整段路径——这是命令本身的写法问题，与不加翻译时的失败方式相同。
 
-**6.3 · watch、预览与传输 —— 三批都已实施（第一批目录树刷新与延迟、第二批目录 watch、第三批只读预览与二进制传输）**
+**6.3 · watch、预览与传输 —— 全部已实施（目录树刷新与延迟、目录 watch、只读预览与二进制传输）**
 草案：事件式刷新（含溢出重扫）、只读预览标签、二进制上传下载、系统默认程序打开。
-验收：远端 8 MB PDF 取片段即可预览首页；图片可预览；大文件不 OOM；点远端文件不再出现「下一阶段」；watch 溢出后能自愈。
+验收：**已验证**——点远端文件开只读预览（文本/Markdown/图片/PDF/Word/Excel）、二进制上传下载逐字节一致、大文件分块拉不整篇进内存、目录树随远端变化自动刷新、watch 撤销后不再推事件。**未验证**——「8 MB PDF 只取片段就渲染出首页」没有单独测过（测的是 3 MB 二进制跨 1 MB 分块的往返与 Range 请求），「watch 溢出后能自愈」只有纯逻辑单测（内核 `IN_Q_OVERFLOW` 造不出来），helper 缺席时的整条降级路径也没有真机证据。
 
 已实施的第一批（用户提出的两个问题：目录树更新慢、AI 建的文件不显示）：
 
 - **目录清单走 helper 通道**：`/v1/fs/list` 提到 `HelperSession.list`，`operations.listRemoteDirectory` 通道优先、拿不到退回一次性 ssh，`workspace:list-remote`（目录树唯一的清单入口）改走它。真机实测同一个目录连列 5 次取平均：**通道 28 ms / ssh 310 ms（约 11×）**；清单内容（名字、类型、大小、毫秒时间戳）与 ssh 完全一致——`modifiedAt` 两边都是毫秒，因为有测试逐条比对。
-- **远端变化广播**：`remotes/events.ts` 进程内广播，`write.writeFile` 推「写入所在目录」、`bash.exec` 推「命令的 cwd」（`mkdir`/`git clone`/`npm install` 都走 bash，只读命令多付一次很便宜的清单请求）。`registerRemoteIpc()` 把广播转成窗口事件 `workspace:remote-change`，preload 暴露 `onRemoteChange`，目录树收到后丢掉受影响的清单（变化目录、其子树、以及变化目录的父目录——新条目要现出来），缺清单的展开目录自动重拉；300 ms 合并窗口，一次工具调用连写多个文件只重读一次。
+- **远端变化广播**：`remotes/events.ts` 进程内广播，`write.writeFile` 推「写入所在目录」、`bash.exec` 推「命令的 cwd」（`mkdir`/`git clone`/`npm install` 都走 bash，只读命令多付一次很便宜的清单请求）。`registerRemoteIpc()` 把广播转成窗口事件 `workspace:remote-change`，preload 暴露 `onRemoteChange`，目录树收到后丢掉受影响的清单（变化目录本身与它下面的缓存层：新条目要现出来），缺清单的展开目录自动重拉；300 ms 合并窗口，一次工具调用连写多个文件只重读一次。
 - 这是本地项目早就有的东西的远端对应物：本地项目目录由主进程的 `watch(root, { recursive: true })` → `workspace:changed`（200 ms 合并）刷新，远端路径在本地不存在，只能由工具自己报。
 
 证据：真机单测 `helper.test.ts`「目录清单走通道」逐条比对内容并测延迟；`operations.test.ts` 新增「目录清单按远端原样返回，顺带把变化通知发出去」；渲染端 `ProjectFileTree.test.tsx`「refreshes a remote directory after the tools changed it」（无关目录不重读、子目录写入只重读那层、cwd 变化重读根与已展开子树）；`scripts/remote-smoke.ts` 第 7 步在真窗口里用主进程写一个远端文件，断言树里**自动出现** `fresh.txt`——主进程广播 → preload → 树重读 → DOM 整条链路真跑。

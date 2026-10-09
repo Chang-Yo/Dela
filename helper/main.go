@@ -16,7 +16,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -77,25 +76,16 @@ func (s *server) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/fs/stat", s.auth(s.handleStat))
 	mux.HandleFunc("/v1/fs/read", s.auth(s.handleRead))
 	mux.HandleFunc("/v1/fs/write", s.auth(s.handleWrite))
-	mux.HandleFunc("/v1/fs/hash", s.auth(s.handleHash))
 	mux.HandleFunc("/v1/watch", s.auth(s.handleWatch))
 	mux.HandleFunc("/v1/exec", s.auth(s.handleExec))
 	mux.HandleFunc("/v1/exec/", s.auth(s.handleExecAction))
-	mux.HandleFunc("/v1/tasks", s.auth(s.handleTasks))
 }
 
+// hello 只说握手需要的东西：版本对不上就不该继续用这条通道。
 func (s *server) handleHello(w http.ResponseWriter, r *http.Request) {
-	home, _ := os.UserHomeDir()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"protocol":      protocolVersion,
 		"helperVersion": helperVersion,
-		"pid":           os.Getpid(),
-		"platform":      runtime.GOOS + "/" + runtime.GOARCH,
-		"home":          home,
-		"features": []string{
-			"fs.list", "fs.stat.batch", "fs.read.range", "fs.write.atomic", "fs.hash",
-			"exec.stream", "exec.cancel", "tasks", "heartbeat", "watch",
-		},
 	})
 }
 

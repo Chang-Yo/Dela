@@ -38,13 +38,13 @@
 
 ## 远程项目
 
-- 形态：内核、密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端与目录读取落到远端 SSH 主机（`main/remotes/`）；不在远端部署常驻 runtime。
-- 传输：`transport.ts` 是唯一边界，系统 OpenSSH 优先、`vendor/openssh` 兜底（自带 `ssh.exe` + `libcrypto.dll` 经 `extraResources` 进 `resources/openssh`）；一次调用一个 ssh 子进程，实测每次 0.3–0.6 秒。
+- 形态：内核、密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端、目录读取与文件预览落到远端 SSH 主机（`main/remotes/`）；不在远端部署常驻 runtime，只放一个 Go 静态二进制（`~/.dela/helper/`，见 `docs/remote-helper.md`）。
+- 传输：`transport.ts` 是一次性 ssh 的唯一边界，系统 OpenSSH 优先、`vendor/openssh` 兜底（自带 `ssh.exe` + `libcrypto.dll` 经 `extraResources` 进 `resources/openssh`）；一次调用一个 ssh 子进程，实测每次 0.3–0.6 秒。日常调用走 helper：`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP，建好之后不再付握手钱（列目录实测 28 ms vs 310 ms）。
 - 工具：read/write/edit/bash/ls/find 复用 Pi 的工具定义、只换 `operations`；grep 在 Pi 内部固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute 在远端搜（rg 缺失时退回 grep -rnH）。同名自定义工具覆盖内置（`agent-session.js` 注册表后写覆盖，已按 1.1.0 产物核对），因此这七个名字不能进 `excludeTools`。
 - 路径：会话 cwd 就是远端 POSIX 绝对路径；工具传来的路径先经 `remotePath` 还原（Windows 会把 `/root/x` 解析成 `\root\x`）。
-- 本地不碰远端路径：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建/重命名/移动，目录不进本地扫描也不 fs.watch。远端条目 id 是「项目 id + 远端路径」（`shared/remotes.ts`），两台连接上的同路径目录不会混；裸远端路径只在唯一归属时解析。
+- 本地不碰远端路径：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建/重命名/移动，目录不进本地扫描也不 fs.watch。远端条目 id 是「项目 id + 远端路径」（`shared/remotes.ts`），两台连接上的同路径目录不会混；裸远端路径只在唯一归属时解析。远端目录的变化由 helper 的 inotify 事件流推给目录树（只监视展开的那几层）。
 - 认证：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
-- 阶段 6（远端工具服务 helper、实时目录树与预览、远端 skills 进上下文）：**6.0（远端文件身份）、6.1（最小 Go helper：上传校验、`ssh -L` 隧道、握手、心跳、片段读写、可取消的流式任务）、6.2（上下文镜像：远端 skills 与 `AGENTS.md` 进会话、镜像路径映射、设置页技能上传）与 6.3（目录清单走 helper 通道、远端工具改过文件后目录树自动重读；`/v1/watch` 的 inotify 事件流，Dela 之外改的远端文件也自动进树；远端文件只读预览、下载/上传与系统默认程序打开）已实施**，6.4（端口预览、JS 扩展宿主、arm64 与受限环境）仍是草案；见 `docs/remote-helper.md`（helper 定 Go 静态二进制，上下文先走逐项注入）。
+- 阶段 6（远端工具服务 helper、实时目录树与预览、远端 skills 进上下文）：**6.0（远端文件身份）、6.1（最小 Go helper：上传校验、`ssh -L` 隧道、握手、心跳、片段读写、可取消的流式任务）、6.2（上下文镜像：远端 skills 与 `AGENTS.md` 进会话、镜像路径映射、设置页技能上传）与 6.3（目录清单走 helper 通道、远端工具改过文件后目录树自动重读；`/v1/watch` 的 inotify 事件流，Dela 之外改的远端文件也自动进树；远端文件只读预览、下载/上传与系统默认程序打开）已全部实施**，6.4（端口预览、JS 扩展宿主、arm64 与受限环境）不做，产品上覆盖大部分场景即可；见 `docs/remote-helper.md`（helper 定 Go 静态二进制，上下文先走逐项注入）。
 
 ## 安全
 

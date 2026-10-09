@@ -21,6 +21,7 @@ import {
   locateSsh,
   shellQuote,
   sshBaseArguments,
+  targetKey,
   type RemoteDirEntry,
   type RemoteTarget,
 } from './transport';
@@ -61,7 +62,7 @@ export function helperArtifact(arch: string): string | null {
   return existsSync(path) ? path : null;
 }
 
-/** 远端目录按「版本-sha8」分家：换版本换目录，旧目录由 Dela 侧清理。 */
+/** 远端目录按「版本-sha8」分家：换版本换目录，旧目录留着（每版一个，便于回退，不自动清理）。 */
 export function helperRemoteDir(digest: string): string {
   return `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
 }
@@ -98,6 +99,15 @@ export interface HelperExecResult {
   discarded: number;
 }
 
+/** helper 的 stat 结果；路径不存在时 exists 为 false，其余字段为零值。 */
+export interface HelperStat {
+  path: string;
+  exists: boolean;
+  directory: boolean;
+  size: number;
+  modifiedAt: number;
+}
+
 export interface HelperSession {
   target: RemoteTarget;
   /** 隧道本地端口，仅用于诊断展示。 */
@@ -113,6 +123,8 @@ export interface HelperSession {
   writeFile(path: string, content: Buffer | string): Promise<void>;
   /** 目录清单（helper 的 `/v1/fs/list`）：一次 HTTP，不必为列一层付一次 ssh 握手。 */
   list(path: string, signal?: AbortSignal): Promise<RemoteDirEntry[]>;
+  /** 批量 stat（helper 的 `/v1/fs/stat`）：预览按 Range 取字节时每块都要 size/mtime，列父目录太贵。 */
+  stat(paths: string[], signal?: AbortSignal): Promise<HelperStat[]>;
   /** 替换某个 id 的目录监视集合（只监视这些目录本身，不递归）。 */
   setWatch(id: string, paths: string[]): Promise<{ watching: number; skipped: string[] }>;
   clearWatch(id: string): Promise<void>;
@@ -170,6 +182,22 @@ function sendRequest(
   options: { body?: Buffer | string; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<HttpResponse> {
   return new Promise((resolve, reject) => {
+    // 一次请求有三个可能落定的地方（request 出错、响应读完、响应中途断掉）。
+    // 定时器挂在 request 的 close 上，所以响应开始之后必须由 response 侧落定：
+    // 否则隧道半死（响应头到了、正文没读完）时这个 Promise 既不 resolve 也不 reject。
+    let settled = false;
+    let responded = false;
+    const cleanup = () => {
+      options.signal?.removeEventListener('abort', onAbort);
+    };
+    const settle = (error?: Error, value?: HttpResponse) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+      if (error) reject(error);
+      else resolve(value!);
+    };
     const request = httpRequest(
       {
         host: '127.0.0.1',
@@ -184,37 +212,42 @@ function sendRequest(
         },
       },
       (response) => {
+        responded = true;
         const chunks: Buffer[] = [];
         response.on('data', (chunk: Buffer) => chunks.push(chunk));
         response.on('end', () =>
-          resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks) }),
+          settle(undefined, { status: response.statusCode ?? 0, body: Buffer.concat(chunks) }),
         );
+        response.on('error', (error: Error) => settle(error));
+        response.on('close', () => settle(new Error('helper 连接中断')));
       },
     );
-    let settled = false;
-    const cleanup = () => {
-      options.signal?.removeEventListener('abort', onAbort);
-    };
     const timer = setTimeout(
       () => request.destroy(new Error('请求超时')),
       options.timeoutMs ?? REQUEST_TIMEOUT_MS,
     );
     const onAbort = () => request.destroy(new Error('aborted'));
     options.signal?.addEventListener('abort', onAbort, { once: true });
-    request.on('error', (error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      cleanup();
-      reject(error);
-    });
+    request.on('error', (error: Error) => settle(error));
     request.on('close', () => {
-      clearTimeout(timer);
-      cleanup();
+      // 还没拿到响应就关了：这就是连接中断，不能只清定时器（那会让调用方永远等）。
+      if (!responded) settle(new Error('helper 连接中断'));
+      else clearTimeout(timer);
     });
     if (options.body !== undefined) request.write(options.body);
     request.end();
   });
+}
+
+/** helper 用非 2xx 回答了一个业务问题（路径不存在、参数越界）：这是结果，不是通道故障。 */
+export class HelperHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'HelperHttpError';
+  }
 }
 
 /** 非 2xx 一律带上远端给的原因：它的错误文案比 HTTP 状态码有用。 */
@@ -227,7 +260,10 @@ function assertOk(response: HttpResponse, what: string): void {
   } catch {
     // 不是 JSON 就原样带上
   }
-  throw new Error(`${what}失败（HTTP ${response.status}）：${detail.slice(0, 300)}`);
+  throw new HelperHttpError(
+    `${what}失败（HTTP ${response.status}）：${detail.slice(0, 300)}`,
+    response.status,
+  );
 }
 
 async function jsonRequest<T>(
@@ -348,6 +384,15 @@ function createSession(target: RemoteTarget, port: number, token: string): Helpe
       assertOk(response, `列出 ${path}`);
       const body = JSON.parse(response.body.toString()) as { entries?: RemoteDirEntry[] };
       return body.entries ?? [];
+    },
+    async stat(paths, signal) {
+      const response = await sendRequest(port, token, 'POST', '/v1/fs/stat', {
+        body: Buffer.from(JSON.stringify({ paths }), 'utf8'),
+        signal,
+      });
+      assertOk(response, `查询 ${paths.length} 个路径`);
+      const body = JSON.parse(response.body.toString()) as { items?: HelperStat[] };
+      return body.items ?? [];
     },
     async setWatch(id, paths) {
       const response = await sendRequest(port, token, 'POST', '/v1/watch', {
@@ -621,21 +666,19 @@ async function ensure(target: RemoteTarget): Promise<ActiveChannel> {
 /** 同一时刻只保一条通道：切到别的连接就关掉旧的，避免 Dela 后面留一串 helper。 */
 let current: { key: string; channel: Promise<ActiveChannel | null> } | null = null;
 
-function targetKey(target: RemoteTarget): string {
-  return `${target.host}|${target.port ?? ''}|${target.keyPath ?? ''}`;
-}
-
 export async function helperSession(target: RemoteTarget): Promise<HelperSession | null> {
   const key = targetKey(target);
   if (current && current.key !== key) await closeHelper();
   if (!current) {
-    current = {
-      key,
-      channel: ensure(target).catch((error: unknown) => {
-        console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
-        return null;
-      }),
-    };
+    const channel = ensure(target).catch((error: unknown) => {
+      console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
+      return null;
+    });
+    current = { key, channel };
+    // 建立失败不留在 current 上：否则这一轮之后每次调用都立刻拿到 null，本进程再也不会重建通道。
+    void channel.then((active) => {
+      if (!active && current?.channel === channel) current = null;
+    });
   }
   const active = await current.channel;
   return active?.session ?? null;

@@ -1,7 +1,7 @@
 // 项目文件树：
 // 筛选/折叠/拖放移动/文件导入入口经 props 注入，条目动作回调交给接线方。
-// 远程项目的子目录在这里懒加载（见 ./remote-tree），远端条目只读：目录可展开，文件开只读预览，
-// 但不参与拖放写入。
+// 远程项目的子目录在这里懒加载（见 ./remote-tree），远端条目只读：目录可展开并接收本地
+// 文件拖放（上传），文件开只读预览，两者都不参与内部拖拽与移动。
 import {
   Archive,
   Cloud,
@@ -129,17 +129,27 @@ export function ProjectFileTree({
   // 失败出口与本地条目动作一致：接线方用 runEntryWork 收进 workspace store 的错误条。
   const runRemote = (action: 'download' | 'open' | 'upload', id: string) =>
     onRemoteAction?.(action, id);
+  /** 两个菜单共用的触发器与「在侧边打开」：本地菜单的其余项远端一个都不能给。 */
+  const menuTrigger = (name: string) => (
+    <DropdownMenuTrigger asChild>
+      <button
+        type="button"
+        className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
+        aria-label={`${name} 的操作`}
+      >
+        <Ellipsis className="size-4" />
+      </button>
+    </DropdownMenuTrigger>
+  );
+  const openToSideItem = (id: string) => (
+    <DropdownMenuItem onSelect={() => onOpenToSide?.(id)}>
+      <PanelRightOpen />
+      在侧边打开
+    </DropdownMenuItem>
+  );
   const remoteMenu = (item: ExplorerItem) => (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
-          aria-label={`${item.name} 的操作`}
-        >
-          <Ellipsis className="size-4" />
-        </button>
-      </DropdownMenuTrigger>
+      {menuTrigger(item.name)}
       <DropdownMenuContent align="start">
         {item.container ? (
           <DropdownMenuItem onSelect={() => runRemote('upload', item.id)}>
@@ -158,12 +168,7 @@ export function ProjectFileTree({
             </DropdownMenuItem>
           </>
         )}
-        {!item.container && onOpenToSide && (
-          <DropdownMenuItem onSelect={() => onOpenToSide(item.id)}>
-            <PanelRightOpen />
-            在侧边打开
-          </DropdownMenuItem>
-        )}
+        {!item.container && onOpenToSide && openToSideItem(item.id)}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -194,15 +199,7 @@ export function ProjectFileTree({
             ) : null
           ) : (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
-                  aria-label={`${item.name} 的操作`}
-                >
-                  <Ellipsis className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
+              {menuTrigger(item.name)}
               <DropdownMenuContent align="start">
                 {item.container && (
                   <>
@@ -226,12 +223,7 @@ export function ProjectFileTree({
                     作为项目开展
                   </DropdownMenuItem>
                 )}
-                {onOpenToSide && (
-                  <DropdownMenuItem onSelect={() => onOpenToSide(item.id)}>
-                    <PanelRightOpen />
-                    在侧边打开
-                  </DropdownMenuItem>
-                )}
+                {onOpenToSide && openToSideItem(item.id)}
                 <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>
                   <Pencil />
                   重命名

@@ -11,7 +11,7 @@
  */
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
-import { closeHelper, helperSession, type HelperSession } from './helper';
+import { closeHelper, HelperHttpError, helperSession, type HelperSession } from './helper';
 import { notifyRemoteChange } from './events';
 import { syncRemoteWatch } from './watch';
 import {
@@ -39,6 +39,9 @@ async function withHelper<T>(
     syncRemoteWatch(target);
     return await work(session);
   } catch (error) {
+    // helper 用非 2xx 回答的业务结果（路径不存在、参数越界）不是通道故障：
+    // 拆通道再走一遍一次性 ssh 只会把一次 404 放大成一次冷启动，还顺带掐断 watch 流。
+    if (error instanceof HelperHttpError) throw error;
     console.warn('[remotes] helper 通道调用失败，退回一次性 ssh', error);
     await closeHelper();
     return fallback();
@@ -58,14 +61,27 @@ export async function listRemoteDirectory(
   );
 }
 
-/** 远端文件的一条 stat。目录清单里本来就有 size/mtime，不必为它再开一条通道。 */
+/** 远端文件的一条 stat。通道可用时走 `/v1/fs/stat`（预览每取一块都要问一次 size/mtime，
+ *  列父目录整层太贵）；没有通道时退回父目录清单（一次性 ssh，本来就只有一次往返）。 */
 export async function statRemoteFile(target: RemoteTarget, path: string): Promise<RemoteDirEntry> {
-  const cut = path.lastIndexOf('/');
-  const entries = await listRemoteDirectory(target, cut <= 0 ? '/' : path.slice(0, cut));
-  const entry = entries.find((item) => item.name === path.slice(cut + 1));
-  if (!entry) throw new Error(`远端文件不存在：${path}`);
-  if (entry.directory) throw new Error(`这是目录，不是文件：${path}`);
-  return entry;
+  const name = path.slice(path.lastIndexOf('/') + 1);
+  return withHelper(
+    target,
+    async (session) => {
+      const [stat] = await session.stat([path]);
+      if (!stat?.exists) throw new Error(`远端文件不存在：${path}`);
+      if (stat.directory) throw new Error(`这是目录，不是文件：${path}`);
+      return { name, path, directory: false, size: stat.size, modifiedAt: stat.modifiedAt };
+    },
+    async () => {
+      const cut = path.lastIndexOf('/');
+      const entries = await listDirectory(target, cut <= 0 ? '/' : path.slice(0, cut));
+      const entry = entries.find((item) => item.name === name);
+      if (!entry) throw new Error(`远端文件不存在：${path}`);
+      if (entry.directory) throw new Error(`这是目录，不是文件：${path}`);
+      return entry;
+    },
+  );
 }
 
 /** 片段读取：预览用。helper 通道直接带 offset/length；没有通道时退回整文件读取再切片

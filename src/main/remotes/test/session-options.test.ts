@@ -50,7 +50,6 @@ vi.mock('../context', () => ({
       'C:\\data\\remote-context\\r1\\p-remote\\home\\.dela\\skills',
     ],
     agentsFiles: [{ path: '/root/proj/AGENTS.md', content: '暗号：菠萝' }],
-    mirrorRoot: 'C:\\data\\remote-context\\r1\\p-remote',
   }),
 }));
 vi.mock('../../agent/commands', () => ({

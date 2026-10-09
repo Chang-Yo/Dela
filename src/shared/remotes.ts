@@ -20,13 +20,8 @@ export interface RemoteDraft {
 
 export interface RemoteProbe {
   ok: boolean;
-  /** 失败时直接展示给用户的原因（主机不可达、认证失败、指纹未确认……）。 */
+  /** 成功时是一行环境摘要，失败时直接展示给用户的原因（主机不可达、认证失败、指纹未确认……）。 */
   message: string;
-  hostname?: string;
-  system?: string;
-  machine?: string;
-  home?: string;
-  hasBash?: boolean;
 }
 
 export interface RemoteDirectoryEntry {

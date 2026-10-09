@@ -66,7 +66,10 @@ export function agentEnvironment() {
       const project = projectContext(projectId, cwd);
       ensureBuiltinSkills();
       const remote = projectId ? remoteProjectOf(projectId) : null;
-      const prompts = [DELA_PROMPT, project, instruction && `用户附加指令：\n${instruction}`];
+      // 两个分支共用项目上下文与附加指令：远端多一条连接信息、换掉提示词，其余一样。
+      const shared = [project, instruction && `用户附加指令：\n${instruction}`].filter(
+        (part): part is string => Boolean(part),
+      );
       if (remote && projectId) {
         const connection = remoteById(remote.remoteId);
         const target = targetOf(connection);
@@ -82,9 +85,8 @@ export function agentEnvironment() {
           appendSystemPrompt: [
             DELA_REMOTE_PROMPT,
             `远端连接：${connection.label}（${connection.host}）\n远端项目目录：${cwd}`,
-            project,
-            instruction && `用户附加指令：\n${instruction}`,
-          ].filter((part): part is string => Boolean(part)),
+            ...shared,
+          ],
           shellPath: locateBash(),
           // 远端会话不挂本地校园 skills（正文教 dela 命令，远端没有），只加载镜像里的远端技能。
           skillPaths: context.skillPaths,
@@ -102,7 +104,7 @@ export function agentEnvironment() {
       }
       const handle = await domainBridge();
       return {
-        appendSystemPrompt: prompts.filter((part): part is string => Boolean(part)),
+        appendSystemPrompt: [DELA_PROMPT, ...shared],
         shellPath: locateBash(),
         commandPrefix: `export DELA_COMMAND_URL='${handle.url}' DELA_COMMAND_TOKEN='${handle.token}'\n${COMMAND_BRIDGE}`,
         skillPaths: [builtinSkillsDirectory()],

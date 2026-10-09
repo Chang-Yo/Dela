@@ -11,6 +11,7 @@ import type {
   RemoteDraft,
   RemoteProbe,
 } from '../../shared/remotes';
+import { withinRemotePath } from '../../shared/remotes';
 import {
   locate,
   probeRemote,
@@ -116,15 +117,8 @@ export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> 
   const parsed = remoteDraftSchema.parse(draft);
   try {
     const probe = await probeRemote(targetOf(parsed));
-    return {
-      ok: true,
-      message: `${probe.hostname} · ${probe.system} ${probe.machine}`,
-      hostname: probe.hostname,
-      system: probe.system,
-      machine: probe.machine,
-      home: probe.home,
-      hasBash: probe.bash.length > 0,
-    };
+    // 只回一行摘要：四个结构化字段没有任何消费方（界面要的就是这一行）。
+    return { ok: true, message: `${probe.hostname} · ${probe.system} ${probe.machine}` };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
@@ -143,10 +137,8 @@ export function remoteJoin(directory: string, name: string): string {
   return directory.endsWith('/') ? `${directory}${name}` : `${directory}/${name}`;
 }
 
-/** 目标路径是否就是项目根或在其之内；同为根时一律放行。 */
-export function withinRemoteRoot(root: string, path: string): boolean {
-  return path === root || path.startsWith(root === '/' ? '/' : `${root}/`);
-}
+/** 目标路径是否就是项目根或在其之内；同为根时一律放行。渲染端构造地址时用同一份判断。 */
+export const withinRemoteRoot = withinRemotePath;
 
 export async function browseRemote(
   draft: RemoteDraft,
@@ -173,13 +165,19 @@ export async function browseRemote(
   return { path: wanted, parent: parentOf(wanted), home, directory: true, directories };
 }
 
-/** 目录树与 @ 候选共用的文件索引：优先 ripgrep，缺失时退到 find。 */
-export async function remoteFileIndex(draft: RemoteDraft, path: string): Promise<string[]> {
-  const target = targetOf(remoteDraftSchema.parse(draft));
+/** 远端仓库文件索引（@ 候选）。limit 会下推到远端命令：整仓索引可能有几万条，
+ *  只取前 N 条时没必要先把它们传回来。 */
+export async function remoteFileIndex(
+  target: RemoteTarget,
+  path: string,
+  limit?: number,
+): Promise<string[]> {
   const script = [
     `cd ${shellQuote(path)} 2>/dev/null || exit 3`,
     `if command -v rg >/dev/null 2>&1; then rg --files --hidden -g '!.git' -g '!node_modules' 2>/dev/null`,
-    `else find . -type f -not -path './.git/*' -not -path './node_modules/*' 2>/dev/null | sed 's|^\\./||'; fi`,
+    `else find . -type f -not -path './.git/*' -not -path './node_modules/*' 2>/dev/null | sed 's|^\\./||'; fi${
+      limit ? ` | head -n ${limit}` : ''
+    }`,
   ].join('; ');
   const result = await exec(target, script, { timeoutMs: 60_000 });
   if (result.code === 3) throw new Error(`远端目录不存在：${path}`);

@@ -1,5 +1,7 @@
-// preload 打的通道与主进程注册的通道必须一一对应：两边各写一遍字符串，改一处漏一处
-// 只会在真实点击时表现为「一直转圈」，单元测试和类型检查都看不见。
+// remotes:* 这条线上，preload 打的通道与主进程注册的通道必须一一对应：两边各写一遍字符串，
+// 改一处漏一处只会在真实点击时表现为「一直转圈」，单元测试和类型检查都看不见。
+// 工作区那批远端通道（list-remote/read-remote-document/传输/watch）由真窗口冒烟覆盖：
+// 它们要连上真实远端才有意义，放进这里只能断言字符串，反而会漏掉「注册了但没人调」。
 import { describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ handled: [] as string[], invoked: [] as string[] }));

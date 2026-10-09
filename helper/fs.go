@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -243,46 +241,4 @@ func (s *server) handleWrite(w http.ResponseWriter, r *http.Request) {
 	}
 	tempName = ""
 	writeJSON(w, http.StatusOK, map[string]any{"path": path, "size": size})
-}
-
-func (s *server) handleHash(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Paths []string `json:"paths"`
-	}
-	if !decodeBody(w, r, &req) {
-		return
-	}
-	if len(req.Paths) == 0 || len(req.Paths) > statBatchLimit {
-		writeError(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("paths 需要 1 到 %d 个", statBatchLimit))
-		return
-	}
-	items := make([]map[string]any, 0, len(req.Paths))
-	for _, raw := range req.Paths {
-		path, err := requireAbsPath(raw)
-		if err != nil {
-			items = append(items, map[string]any{"path": raw, "error": err.Error()})
-			continue
-		}
-		sum, size, err := hashFile(path)
-		if err != nil {
-			items = append(items, map[string]any{"path": path, "error": err.Error()})
-			continue
-		}
-		items = append(items, map[string]any{"path": path, "sha256": sum, "size": size})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
-}
-
-func hashFile(path string) (string, int64, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", 0, err
-	}
-	defer file.Close()
-	hasher := sha256.New()
-	size, err := io.Copy(hasher, file)
-	if err != nil {
-		return "", 0, err
-	}
-	return hex.EncodeToString(hasher.Sum(nil)), size, nil
 }

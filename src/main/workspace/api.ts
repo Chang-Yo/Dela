@@ -713,6 +713,9 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
 
 export function importWorkspaceFiles(parentId: string | null, paths: string[]): WorkspaceEntry[] {
   checkParent(parentId);
+  // 远端项目的 local_path 是远端的 POSIX 路径：拿它当本地目录写会落到 `\home\u\…` 这种地方。
+  if (parentId && remoteProjectOf(parentId))
+    throw new Error('远程项目内暂不支持导入本地文件，请拖到远端目录上上传');
   prepareStorage();
   const imported: { id: string; name: string; path: string }[] = [];
   try {

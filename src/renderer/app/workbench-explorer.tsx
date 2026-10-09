@@ -159,13 +159,17 @@ export function WorkbenchExplorer({
     importDroppedFiles(files, targetId, rootId, (target) => {
       if (target) expand(target, true);
     });
-  // 拖放落到远端目录 = 上传到远端（走 helper 写字节），落到本地就是原来的导入。
+  // 拖放落到远端树 = 上传到远端（走 helper 写字节），落到本地就是原来的导入。
+  // 落点是远端条目就用它自己的项目与目录；落点是空白或远端项目行（远端树里 null 的那两种）
+  // 就落到打开的远端项目根：项目条目的 path 存的就是远端目录。
   const importDroppedAnywhere = (files: File[], targetId: string | null) => {
     const remote = targetId ? parseRemoteNodeId(targetId) : null;
-    if (!remote) return importDropped(files, targetId);
-    expand(targetId!, true);
-    return void runEntryWork(async () => {
-      await window.dela!.workspace.uploadRemoteFiles(remote.projectId, remote.path, files);
+    const projectId = remote?.projectId ?? (remoteRoot ? rootId : null);
+    const directory = remote?.path ?? (remoteRoot ? root?.path : null);
+    if (!projectId || !directory) return importDropped(files, targetId);
+    if (targetId) expand(targetId, true);
+    void runEntryWork(async () => {
+      await window.dela!.workspace.uploadRemoteFiles(projectId, directory, files);
     });
   };
   // 远端动作的失败与本地条目动作同一个出口（workspace store 的错误条）。
@@ -341,7 +345,6 @@ export function WorkbenchExplorer({
                 if (event.target === event.currentTarget) onAction('note', container());
               }}
               onDragOver={(event) => {
-                if (remoteRoot) return;
                 if (event.dataTransfer.types.includes('Files')) {
                   event.preventDefault();
                   event.dataTransfer.dropEffect = 'copy';
@@ -353,11 +356,10 @@ export function WorkbenchExplorer({
                 event.dataTransfer.dropEffect = 'move';
               }}
               onDrop={(event) => {
-                if (remoteRoot) return;
                 if (event.dataTransfer.types.includes('Files')) {
                   if (event.defaultPrevented) return;
                   event.preventDefault();
-                  importDropped(Array.from(event.dataTransfer.files), null);
+                  importDroppedAnywhere(Array.from(event.dataTransfer.files), null);
                   return;
                 }
                 if (event.target !== event.currentTarget) return;

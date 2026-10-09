@@ -35,9 +35,12 @@ const previewContentType: Record<string, string> = {
   '.pptx': officeZipMime.pptx,
 };
 
-async function fileResponse(path: string, request: Request): Promise<Response> {
-  const size = (await fileStat(path)).size;
-  const contentType = previewContentType[extname(path).toLowerCase()] ?? 'application/octet-stream';
+/** Range 请求的响应头与区间：本地文件与远端文件共用一份，416 直接返回 Response。 */
+function rangePlan(
+  request: Request,
+  size: number,
+  contentType: string,
+): { headers: Headers; start: number; end: number; status: number } | Response {
   const headers = documentHeaders(request, contentType);
   const range = rangeOf(request.headers.get('range'), size);
   if (!range) {
@@ -47,11 +50,19 @@ async function fileResponse(path: string, request: Request): Promise<Response> {
   if (range.status === 206)
     headers.set('content-range', `bytes ${range.start}-${range.end}/${size}`);
   headers.set('content-length', String(size ? range.end - range.start + 1 : 0));
+  return { headers, start: range.start, end: range.end, status: range.status };
+}
+
+async function fileResponse(path: string, request: Request): Promise<Response> {
+  const size = (await fileStat(path)).size;
+  const contentType = previewContentType[extname(path).toLowerCase()] ?? 'application/octet-stream';
+  const plan = rangePlan(request, size, contentType);
+  if (plan instanceof Response) return plan;
   const body =
     request.method === 'HEAD' || size === 0
       ? null
-      : (Readable.toWeb(createReadStream(path, { start: range.start, end: range.end })) as never);
-  return new Response(body, { status: range.status, headers });
+      : (Readable.toWeb(createReadStream(path, { start: plan.start, end: plan.end })) as never);
+  return new Response(body, { status: plan.status, headers: plan.headers });
 }
 
 function documentHeaders(request: Request, contentType: string): Headers {
@@ -107,21 +118,14 @@ async function remoteFileResponse(
   const target = targetOf(remoteById(location.remoteId));
   const entry = await statRemoteFile(target, path);
   const size = entry.size ?? 0;
-  const headers = documentHeaders(request, remoteDocumentMime(path));
-  const range = rangeOf(request.headers.get('range'), size);
-  if (!range) {
-    headers.set('content-range', `bytes */${size}`);
-    return new Response(null, { status: 416, headers });
-  }
-  if (range.status === 206)
-    headers.set('content-range', `bytes ${range.start}-${range.end}/${size}`);
-  headers.set('content-length', String(size ? range.end - range.start + 1 : 0));
+  const plan = rangePlan(request, size, remoteDocumentMime(path));
+  if (plan instanceof Response) return plan;
   if (request.method === 'HEAD' || size === 0)
-    return new Response(null, { status: range.status, headers });
-  let offset = range.start;
+    return new Response(null, { status: plan.status, headers: plan.headers });
+  let offset = plan.start;
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
-      if (offset > range.end) {
+      if (offset > plan.end) {
         controller.close();
         return;
       }
@@ -130,7 +134,7 @@ async function remoteFileResponse(
           target,
           path,
           offset,
-          Math.min(remoteChunkSize, range.end - offset + 1),
+          Math.min(remoteChunkSize, plan.end - offset + 1),
         );
         if (!chunk.length) {
           controller.close();
@@ -143,7 +147,7 @@ async function remoteFileResponse(
       }
     },
   });
-  return new Response(body as never, { status: range.status, headers });
+  return new Response(body as never, { status: plan.status, headers: plan.headers });
 }
 
 export function registerPreviewProtocol(): void {

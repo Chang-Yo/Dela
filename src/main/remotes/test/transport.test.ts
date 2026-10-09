@@ -11,7 +11,6 @@ import {
   listDirectory,
   locate,
   locateSsh,
-  makeDirectory,
   pathExists,
   probeRemote,
   readFile,
@@ -48,7 +47,7 @@ live('transport（需要 DELA_REMOTE_HOST）', () => {
 
   it('列目录解析 NUL 清单，含空格与中文名', async () => {
     const dir = '/tmp/dela transport 测试';
-    await makeDirectory(target, dir);
+    // writeFile 自己会 mkdir -p 父目录，这里不必先建目录。
     await writeFile(target, `${dir}/a b.txt`, 'hello');
     const entries = await listDirectory(target, dir);
     const names = entries.map((entry) => entry.name).sort();
@@ -58,7 +57,6 @@ live('transport（需要 DELA_REMOTE_HOST）', () => {
 
   it('读写往返保持二进制一致', async () => {
     const dir = '/tmp/dela-transport-bin';
-    await makeDirectory(target, dir);
     const bytes = Buffer.from([0, 1, 2, 250, 255, 10, 13, 0]);
     await writeFile(target, `${dir}/blob`, bytes);
     expect(await readFile(target, `${dir}/blob`)).toEqual(bytes);

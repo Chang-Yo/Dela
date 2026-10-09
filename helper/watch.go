@@ -22,6 +22,8 @@ const (
 	watchReadBuffer = 64 << 10
 	// 等 inotify 可读的超时。有事件时 epoll 立刻返回，这个超时只是让读循环能定期看到 stop。
 	watchWaitMs = 200
+	// 事件流上的保活间隔。见 watchStream 里的说明。
+	watchKeepAlive = 30 * time.Second
 )
 
 // watchMask 只订结构变化。远端文件树只显示名字与类型，构建工具写文件产生的 IN_MODIFY /
@@ -432,10 +434,21 @@ func (s *server) watchStream(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 	stream := &sseWriter{w: w, flusher: flusher}
 
+	// 保活：安静的目录可能几小时没有结构变化，而 Dela 侧把「这条流多久没有字节」当作
+	// 隧道半死的信号（心跳走的是另一条请求，不给这条流带数据）。注释帧不算事件，
+	// 客户端只认 data: 前缀，所以它既续了看门狗，又不会被当成变化。
+	keepAlive := time.NewTicker(watchKeepAlive)
+	defer keepAlive.Stop()
+
 	for {
 		select {
 		case <-r.Context().Done():
 			return // 客户端断开：退掉这一轮，defer 会清掉订阅者
+		case <-keepAlive.C:
+			stream.comment("keep-alive")
+			if stream.failed() {
+				return
+			}
 		case event := <-sub.ch:
 			stream.send(event)
 			if stream.failed() {

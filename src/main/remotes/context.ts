@@ -147,7 +147,6 @@ export interface RemoteContext {
   skillPaths: string[];
   /** 远端 AGENTS.md：内容给 Pi，path 写远端路径。 */
   agentsFiles: { path: string; content: string }[];
-  mirrorRoot: string;
 }
 
 /**
@@ -165,7 +164,7 @@ export async function syncRemoteContext(input: {
   home?: string | null;
 }): Promise<RemoteContext> {
   const mirrorRoot = contextMirrorRoot(input.remoteId, input.projectId);
-  const empty: RemoteContext = { skillPaths: [], agentsFiles: [], mirrorRoot };
+  const empty: RemoteContext = { skillPaths: [], agentsFiles: [] };
   try {
     const { exec } = remoteOperations(input.target).bash;
     const script = mirrorScript(
@@ -201,7 +200,7 @@ export async function syncRemoteContext(input: {
       { mirror: join(mirrorRoot, 'repo'), remote: input.remoteDir },
       { mirror: join(mirrorRoot, 'home'), remote: homeDir },
     ]);
-    return { skillPaths, agentsFiles, mirrorRoot };
+    return { skillPaths, agentsFiles };
   } catch (error) {
     console.warn('[remotes] 远端上下文镜像失败，本次会话不带远端 skills/AGENTS.md', error);
     setContextMirrors(input.key, []);
