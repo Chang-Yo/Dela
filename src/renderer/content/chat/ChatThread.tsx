@@ -335,6 +335,8 @@ const AssistantMessage = memo(function AssistantMessage({
         key={message.startedAt}
         live={live}
         parts={parts}
+        startedAt={message.startedAt}
+        finishedAt={message.finishedAt}
         renderText={(text) => (
           <ChatMarkdown
             mode="streaming"
