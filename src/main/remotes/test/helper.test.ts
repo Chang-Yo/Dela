@@ -7,7 +7,7 @@ vi.mock('electron', () => ({
 }));
 
 import { createConnection } from 'node:net';
-import { exec, locateSsh, type RemoteTarget } from '../transport';
+import { exec, listDirectory, locateSsh, type RemoteTarget } from '../transport';
 import {
   HELPER_VERSION,
   closeHelper,
@@ -123,6 +123,28 @@ live('helper 通道（需要 DELA_REMOTE_HOST）', () => {
     const leftover = await exec(target, 'pgrep -f "[s]leep 986" | wc -l');
     expect(leftover.stdout.toString().trim()).toBe('0');
   }, 60_000);
+
+  it('目录清单走通道：与一次性 ssh 同结果，且不再每条付一次握手', async () => {
+    const session = await helperSession(target);
+    expect(session).not.toBeNull();
+    const dir = '/etc';
+    const names = (items: { name: string; directory: boolean }[]) =>
+      items.map((item) => `${item.name}:${item.directory}`).sort();
+    expect(names(await session!.list(dir))).toEqual(names(await listDirectory(target, dir)));
+
+    // 目录树每展开一层都要列一次：通道是一次 HTTP，ssh 是一次握手，差在这里。
+    const average = async (run: () => Promise<unknown>) => {
+      const started = Date.now();
+      for (let round = 0; round < 5; round += 1) await run();
+      return (Date.now() - started) / 5;
+    };
+    // 先把 ssh 那条热身一次，别让首连的建连开销算进平均值。
+    await listDirectory(target, dir);
+    const channelMs = await average(() => session!.list(dir));
+    const sshMs = await average(() => listDirectory(target, dir));
+    console.log(`目录清单：通道 ${channelMs.toFixed(0)}ms / ssh ${sshMs.toFixed(0)}ms`);
+    expect(channelMs).toBeLessThan(sshMs);
+  }, 120_000);
 
   it('放掉通道只关本地隧道，远端 helper 交给空闲自退', async () => {
     const session = await helperSession(target);

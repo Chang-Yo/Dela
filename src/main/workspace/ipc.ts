@@ -26,7 +26,7 @@ import {
   targetOf,
   withinRemoteRoot,
 } from '../remotes/api';
-import { listDirectory } from '../remotes/transport';
+import { listRemoteDirectory } from '../remotes/operations';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell, type WebContents } from 'electron';
 import { z } from 'zod';
@@ -185,7 +185,7 @@ export function registerWorkspaceIpc(
     if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
     const wanted = z.string().min(1).max(4096).parse(path).replace(/\/+$/, '') || '/';
     if (!withinRemoteRoot(location.path, wanted)) throw new Error('只能浏览远程项目目录之内的路径');
-    const entries = await listDirectory(targetOf(remoteById(location.remoteId)), wanted);
+    const entries = await listRemoteDirectory(targetOf(remoteById(location.remoteId)), wanted);
     return entries
       .map((entry) => ({ ...entry, path: remoteJoin(wanted, entry.name) }))
       .sort((left, right) =>

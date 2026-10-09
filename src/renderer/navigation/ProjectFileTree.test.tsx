@@ -253,3 +253,50 @@ it('keeps two connections on the same remote path apart', async () => {
   await act(async () => row('src-a').click());
   expect(onExpand).toHaveBeenCalledWith('p-a:/home/u/proj/src-a', true);
 });
+
+it('refreshes a remote directory after the tools changed it', async () => {
+  // 远端没有文件监听：AI 新建的文件只靠这条通知才会出现在树里。
+  let notify: ((path: string) => void) | undefined;
+  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
+    path === '/home/u/proj'
+      ? [{ name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null }]
+      : [{ name: 'new.txt', path: `${path}/new.txt`, directory: false, size: 1, modifiedAt: null }],
+  );
+  window.dela = {
+    remotes: { list: async () => [] },
+    workspace: {
+      listRemoteDirectory,
+      onRemoteChange: (listener: (path: string) => void) => {
+        notify = listener;
+        return () => {};
+      },
+    },
+  } as unknown as DelaApi;
+
+  await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
+  expect(listRemoteDirectory).toHaveBeenCalledTimes(2);
+  expect(listRemoteDirectory).toHaveBeenLastCalledWith('p-remote', '/home/u/proj/src');
+
+  // 与已缓存目录无关的变化：一次都不重读。
+  await act(async () => {
+    notify!('/elsewhere/dir');
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(listRemoteDirectory).toHaveBeenCalledTimes(2);
+
+  // 子目录里多了文件（写入的是父目录）：只重读那一层。
+  await act(async () => {
+    notify!('/home/u/proj/src');
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(listRemoteDirectory).toHaveBeenCalledTimes(3);
+  expect(listRemoteDirectory).toHaveBeenLastCalledWith('p-remote', '/home/u/proj/src');
+
+  // bash 的 cwd 是项目根：根这一层（以及已展开的子树）都要重读。
+  await act(async () => {
+    notify!('/home/u/proj');
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj');
+  expect(listRemoteDirectory).toHaveBeenCalledTimes(5);
+});

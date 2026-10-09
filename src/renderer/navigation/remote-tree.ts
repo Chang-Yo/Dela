@@ -12,6 +12,13 @@ import { errorText } from '../workspace/store';
 /** 项目根的 path 可能带尾斜杠，远端子路径一律不带：统一后再作缓存与展开键。 */
 const trimSlash = (path: string) => path.replace(/\/+$/, '');
 
+/** 远端变化通知的合并窗口：一次工具调用常连写几个文件，攒一下再重读，别一文件一请求。 */
+const CHANGE_DEBOUNCE_MS = 300;
+
+/** 是否落在变化目录之内（含它自己）：这些清单都要重读。 */
+const withinChange = (path: string, changed: string) =>
+  path === changed || path.startsWith(`${changed}/`);
+
 /** 远端条目的行提示：有连接信息时显示「目的地:路径」，否则退回路径。 */
 export const remoteTitle = (destination: string | undefined, path: string) =>
   destination ? `${destination}:${trimSlash(path)}` : trimSlash(path);
@@ -39,6 +46,10 @@ export function useRemoteTree(
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [destinations, setDestinations] = useState<Record<string, string>>({});
   const inFlight = useRef(new Set<string>());
+  /** 已缓存清单对应的远端路径：变化通知按它判断哪些清单过期。 */
+  const listed = useRef(new Map<string, string>());
+  const changed = useRef(new Set<string>());
+  const flushTimer = useRef<number | undefined>(undefined);
   /** 项目自身的展开键与打开的项目 id 等价：项目打开时它必然展开，行本身不在树里。 */
   const isOpen = (key: string) => key === rootId || expanded.includes(key);
 
@@ -108,6 +119,38 @@ export function useRemoteTree(
     });
   }, [openKey]);
 
+  // 远端工具写过文件或跑过 bash：丢掉受影响的清单（含变化目录自己的父目录，新条目要现出来），
+  // 缺清单的展开目录由下面那个 effect 自动重拉。远端没有文件监听，这是唯一的刷新触发。
+  useEffect(() => {
+    const workspace = window.dela?.workspace;
+    if (!workspace?.onRemoteChange) return;
+    return workspace.onRemoteChange((path) => {
+      changed.current.add(trimSlash(path));
+      if (flushTimer.current !== undefined) return;
+      flushTimer.current = window.setTimeout(() => {
+        flushTimer.current = undefined;
+        const paths = [...changed.current];
+        changed.current.clear();
+        const stale = new Set<string>();
+        for (const [key, listedPath] of listed.current) {
+          const parent = listedPath.slice(0, listedPath.lastIndexOf('/')) || '/';
+          if (
+            paths.some(
+              (changedPath) => withinChange(listedPath, changedPath) || parent === changedPath,
+            )
+          )
+            stale.add(key);
+        }
+        if (!stale.size) return;
+        for (const key of stale) listed.current.delete(key);
+        const drop = <T>(prev: Record<string, T>) =>
+          Object.fromEntries(Object.entries(prev).filter(([key]) => !stale.has(key)));
+        setListings(drop);
+        setFailed(drop);
+      }, CHANGE_DEBOUNCE_MS);
+    });
+  }, []);
+
   // 展开的远端目录按需补齐：在途集合与失败记录保证不重复请求。
   useEffect(() => {
     const workspace = window.dela?.workspace;
@@ -115,6 +158,7 @@ export function useRemoteTree(
     for (const node of pending) {
       if (inFlight.current.has(node.key)) continue;
       inFlight.current.add(node.key);
+      listed.current.set(node.key, node.path);
       void workspace
         .listRemoteDirectory(node.projectId, node.path)
         .then(

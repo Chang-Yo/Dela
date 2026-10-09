@@ -29,6 +29,8 @@ export const workspace = {
     invoke('workspace:import-remote-project', remoteId, path),
   listRemoteDirectory: (projectId: string, path: string) =>
     invoke('workspace:list-remote', projectId, path) as Promise<RemoteDirectoryEntry[]>,
+  /** 远端某个目录可能变了（工具写过文件或跑过 bash）：目录树据此重读。 */
+  onRemoteChange: (listener: (path: string) => void) => on('workspace:remote-change', listener),
   remoteReferences: (projectId: string) =>
     invoke('workspace:remote-references', projectId) as Promise<{ key: string; title: string }[]>,
   importDroppedFiles: (parentId: string | null, files: File[]) => {

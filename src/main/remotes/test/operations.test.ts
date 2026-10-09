@@ -9,8 +9,15 @@ vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
 
-import { remoteGrepTool, remoteOperations, remotePath, setContextMirrors } from '../operations';
-import { exec, shellQuote, type RemoteTarget } from '../transport';
+import {
+  listRemoteDirectory,
+  remoteGrepTool,
+  remoteOperations,
+  remotePath,
+  setContextMirrors,
+} from '../operations';
+import { onRemoteChange } from '../events';
+import { exec, listDirectory, shellQuote, type RemoteTarget } from '../transport';
 
 const host = process.env.DELA_REMOTE_HOST;
 const target: RemoteTarget = {
@@ -207,5 +214,25 @@ live('远程工具（需要 DELA_REMOTE_HOST）', () => {
     });
     expect(result.exitCode).toBe(0);
     expect(output).toMatch(/已丢弃 \d+ 字节/);
+  }, 120_000);
+
+  it('目录清单按远端原样返回，顺带把变化通知发出去', async () => {
+    // 目录树走的就是这个入口：清单内容必须与一次性 ssh 完全一致，只是不再付一次握手。
+    const seen: string[] = [];
+    const stop = onRemoteChange((path) => seen.push(path));
+    try {
+      const entries = await listRemoteDirectory(target, root);
+      expect(entries.map((entry) => `${entry.name}:${entry.directory}`).sort()).toEqual(
+        (await listDirectory(target, root))
+          .map((entry) => `${entry.name}:${entry.directory}`)
+          .sort(),
+      );
+      await ops.write.writeFile(`${root}/notify.txt`, 'notify\n');
+      expect(seen).toContain(root);
+      await ops.bash.exec('echo shell', root, { onData: () => {} });
+      expect(seen.filter((path) => path === root).length).toBeGreaterThan(1);
+    } finally {
+      stop();
+    }
   }, 120_000);
 });

@@ -1,6 +1,7 @@
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
+import { onRemoteChange } from './events';
 import {
   browseRemote,
   listRemotes,
@@ -26,4 +27,9 @@ export function registerRemoteIpc() {
   handle('browse', (draft, path) =>
     browseRemote(remoteDraftSchema.parse(draft), z.string().max(4096).nullable().parse(path)),
   );
+  // 远端工具动过文件系统 → 广播给窗口，目录树据此丢掉那层清单再自动重拉。
+  onRemoteChange((path) => {
+    for (const window of BrowserWindow.getAllWindows())
+      if (!window.isDestroyed()) window.webContents.send('workspace:remote-change', path);
+  });
 }

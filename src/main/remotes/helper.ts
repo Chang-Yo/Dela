@@ -16,7 +16,14 @@ import { request as httpRequest } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
 import { app } from 'electron';
-import { exec, locateSsh, shellQuote, sshBaseArguments, type RemoteTarget } from './transport';
+import {
+  exec,
+  locateSsh,
+  shellQuote,
+  sshBaseArguments,
+  type RemoteDirEntry,
+  type RemoteTarget,
+} from './transport';
 
 /** 必须与 helper/main.go 的 helperVersion 一致：不匹配说明远端跑的不是这一版产物。 */
 export const HELPER_VERSION = '0.1.0';
@@ -91,6 +98,8 @@ export interface HelperSession {
   port: number;
   readFile(path: string, signal?: AbortSignal): Promise<Buffer>;
   writeFile(path: string, content: Buffer | string): Promise<void>;
+  /** 目录清单（helper 的 `/v1/fs/list`）：一次 HTTP，不必为列一层付一次 ssh 握手。 */
+  list(path: string, signal?: AbortSignal): Promise<RemoteDirEntry[]>;
   exec(command: string, options: HelperExecOptions): Promise<HelperExecResult>;
 }
 
@@ -305,6 +314,16 @@ function createSession(target: RemoteTarget, port: number, token: string): Helpe
         { body },
       );
       assertOk(response, `写入 ${path}`);
+    },
+    async list(path, signal) {
+      // 目录清单一律是 POST + JSON：远端路径里可能有引号或中文，不进 query。
+      const response = await sendRequest(port, token, 'POST', '/v1/fs/list', {
+        body: Buffer.from(JSON.stringify({ path }), 'utf8'),
+        signal,
+      });
+      assertOk(response, `列出 ${path}`);
+      const body = JSON.parse(response.body.toString()) as { entries?: RemoteDirEntry[] };
+      return body.entries ?? [];
     },
     exec: (command, options) => runExec(port, token, command, options),
   };

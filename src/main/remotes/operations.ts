@@ -12,6 +12,7 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
 import { closeHelper, helperSession, type HelperSession } from './helper';
+import { notifyRemoteChange } from './events';
 import {
   exec,
   listDirectory,
@@ -19,8 +20,40 @@ import {
   readFile,
   shellQuote,
   writeFile,
+  type RemoteDirEntry,
   type RemoteTarget,
 } from './transport';
+
+/** 通道优先、失败退回一次性 ssh：只用在「重跑一次没有副作用」的操作上。
+ *  远端命令一旦可能已经跑过，再发一次会变成重复执行（`git push` 跑两遍），那些调用方自己判。 */
+async function withHelper<T>(
+  target: RemoteTarget,
+  work: (session: HelperSession) => Promise<T>,
+  fallback: () => Promise<T>,
+): Promise<T> {
+  try {
+    const session = await helperSession(target);
+    if (!session) return await fallback();
+    return await work(session);
+  } catch (error) {
+    console.warn('[remotes] helper 通道调用失败，退回一次性 ssh', error);
+    await closeHelper();
+    return fallback();
+  }
+}
+
+/** 目录清单：helper 通道优先（一次 HTTP，约 60ms），拿不到再退回一次性 ssh（约 300ms）。
+ *  远端目录树每展开一层都走这里，这是用户能直接感觉到的延迟。 */
+export async function listRemoteDirectory(
+  target: RemoteTarget,
+  path: string,
+): Promise<RemoteDirEntry[]> {
+  return withHelper(
+    target,
+    (session) => session.list(path),
+    () => listDirectory(target, path),
+  );
+}
 
 /**
  * 上下文镜像路由：镜像里的路径要先翻译回远端路径，再做常规归一化。
@@ -130,23 +163,12 @@ function globToRegExp(glob: string): RegExp {
 export function remoteOperations(target: RemoteTarget) {
   const listings = new Map<string, { at: number; directories: Map<string, boolean> }>();
 
-  /** helper 通道：拿不到就返回 null，调用方退回一次性 ssh。
-   *  只在「读」和「写」这类重复执行无副作用的操作上回退：远端命令一旦可能已经跑过，
-   *  再发一次会变成重复执行（`git push` 跑两遍），所以 bash 走通道失败就直接报错。 */
-  const throughHelper = async <T>(
+  /** helper 通道：拿不到就返回 null，调用方退回一次性 ssh。只有「重跑一次没有副作用」的
+   *  操作才配回退；bash 的命令可能已经跑过，它自己判（见 bash.exec）。 */
+  const throughHelper = <T>(
     work: (session: HelperSession) => Promise<T>,
     fallback: () => Promise<T>,
-  ): Promise<T> => {
-    try {
-      const session = await helperSession(target);
-      if (!session) return await fallback();
-      return await work(session);
-    } catch (error) {
-      console.warn('[remotes] helper 通道调用失败，退回一次性 ssh', error);
-      await closeHelper();
-      return fallback();
-    }
-  };
+  ): Promise<T> => withHelper(target, work, fallback);
 
   const cacheListing = (path: string, entries: { name: string; directory: boolean }[]) => {
     if (listings.size > 64) listings.clear();
@@ -180,15 +202,20 @@ export function remoteOperations(target: RemoteTarget) {
   const write = {
     writeFile: (absolutePath: string, content: string) => {
       const path = remotePath(absolutePath);
-      return throughHelper(
+      const parent = path.slice(0, path.lastIndexOf('/')) || '/';
+      // 写完就通知目录树：远端没有文件监听，不推这一次，新文件要等用户收起再展开才出现。
+      const written = throughHelper(
         async (session) => {
           // helper 的写入只管落盘（不替调用方建目录），这里补上 Pi 期望的 mkdir -p。
-          const parent = path.slice(0, path.lastIndexOf('/')) || '/';
           await session.exec(`mkdir -p -- ${shellQuote(parent)}`, { cwd: '/' });
           await session.writeFile(path, content);
         },
         () => writeFile(target, path, content),
       );
+      return written.then((result) => {
+        notifyRemoteChange(parent);
+        return result;
+      });
     },
     // Pi 在 writeFile 之前会单独调一次 mkdir；transport.writeFile 自己就带着 mkdir -p，
     // 再跑一趟 ssh 只是白付一次握手。
@@ -238,6 +265,9 @@ export function remoteOperations(target: RemoteTarget) {
             options.onData(
               Buffer.from(`\n[远端输出过大，已丢弃 ${result.discarded} 字节]\n`, 'utf8'),
             );
+          // 命令可能建了目录或改了文件（mkdir / git clone / npm install 都走 bash）：
+          // 以 cwd 为界让目录树重读，命令是只读的也只是多一次很便宜的清单请求。
+          notifyRemoteChange(remoteCwd);
           if (options.signal?.aborted) throw new Error('aborted');
           if (result.state === 'timeout') throw new Error(`timeout:${options.timeout ?? 120}`);
           return { exitCode: result.code };
@@ -256,6 +286,7 @@ export function remoteOperations(target: RemoteTarget) {
         onStderr: options.onData,
         collect: false,
       });
+      notifyRemoteChange(remoteCwd);
       if (options.signal?.aborted) throw new Error('aborted');
       if (result.code === 124) throw new Error(`timeout:${options.timeout ?? 120}`);
       return { exitCode: result.code };

@@ -12,6 +12,7 @@ import { registerCanvasIpc } from '../src/main/canvas/ipc';
 import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerNotificationsIpc } from '../src/main/notifications';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
+import { remoteOperations } from '../src/main/remotes/operations';
 import { exec, probeRemote } from '../src/main/remotes/transport';
 import { registerSearchIpc } from '../src/main/search';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
@@ -32,6 +33,10 @@ const profile = mkdtempSync(join(tmpdir(), 'dela-remote-gui-'));
 app.setPath('userData', profile);
 app.setPath('documents', profile);
 app.setPath('home', profile);
+// 真实启动是 `electron .`，getAppPath() 就是仓库根；这里入口是 .tools/remote-smoke.cjs，
+// getAppPath() 会变成 .tools，于是 vendor/ 下的 helper 与随包 ssh 都找不到、静默降级成 ssh。
+// 对齐成仓库根，让冒烟真的走到 helper 通道。
+app.getAppPath = () => process.cwd();
 registerPreviewScheme();
 
 const errors: string[] = [];
@@ -161,6 +166,13 @@ app
     );
 
     // 4. 添加为项目 → 项目被打开，tree 顶层直接挂远端根的内容（打开的项目不显示项目行）。
+    //    目录树的清单从 6.3 起走 helper 通道：真列过就会在远端多一个 helper 进程，
+    //    这里比对前后数量（不杀掉别的运行实例留下的常驻进程，那种进程最多再活 5 分钟）。
+    const helperCount = async () =>
+      Number(
+        (await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l')).stdout.toString().trim(),
+      );
+    const helpersBefore = await helperCount();
     await click('添加为项目');
     await wait(
       `document.querySelector('[role="treeitem"][aria-label="a b.txt"]') !== null`,
@@ -186,6 +198,10 @@ app
       '第二层远端清单（点目录才拉）',
     );
     const tabsBefore = await evaluate(`document.querySelectorAll('[role="tab"]').length`);
+    assert.ok(
+      (await helperCount()) > helpersBefore,
+      '目录树的清单没有走 helper 通道：列一层不该再起一条 ssh',
+    );
     await evaluate(`document.querySelector('[role="treeitem"][aria-label="a b.txt"]').click()`);
     await wait(
       `document.querySelector('[role="status"]')?.textContent === '远程文件的打开与预览在下一阶段'`,
@@ -207,7 +223,15 @@ app
       `@ 候选缺少子目录文件：${JSON.stringify(references)}`,
     );
 
-    // 7. 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
+    // 7. 远端工具写过文件：主进程广播 → preload → 目录树自己重读，新文件直接出现在树里。
+    //    （远端没有文件监听，这一步断了就只能靠用户收起再展开。）
+    await remoteOperations(target).write.writeFile(`${root}/fresh.txt`, '新文件\n');
+    await wait(
+      `document.querySelector('[role="treeitem"][aria-label="fresh.txt"]') !== null`,
+      '刷新后自动出现的远端新文件',
+    );
+
+    // 8. 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
     await evaluate(`(async () => {
       window.__term = { id: crypto.randomUUID(), data: '' };
       window.dela.terminal.onEvent((event) => {
