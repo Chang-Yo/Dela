@@ -97,8 +97,9 @@ export function NotificationsView({
   // 初始抓取在途（有通知 API、尚无状态且无错误）时按加载态展示，避免闪现“暂不可用”。
   const initialLoading = !state && !error && Boolean(window.dela?.notifications);
 
+  // 隐藏滑块但保留 overflow-y:scroll 的常驻槽位，条目增减不引起内容横向位移。
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-6 py-6 max-md:px-4">
+    <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-6 py-6 [scrollbar-width:none] max-md:px-4">
       <header className="flex items-center justify-between gap-3 border-b pb-4 max-md:items-start max-md:flex-col">
         <div className="flex items-baseline gap-2">
           <h1 className="text-xl font-semibold tracking-tight">通知</h1>

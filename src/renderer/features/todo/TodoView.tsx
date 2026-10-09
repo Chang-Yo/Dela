@@ -314,7 +314,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
           显示已完成（{completedCount}）
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {!state ? (
           <p className="py-8 text-center text-[13px] text-ink-3">
             {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}

@@ -109,12 +109,12 @@ export function TodoDetail({
       </div>
       {personal ? (
         item.notes && (
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-[13px]">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-[13px] [scrollbar-width:none]">
             {item.notes}
           </div>
         )
       ) : (
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto border-t pt-3">
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto border-t pt-3 [scrollbar-width:none]">
           <CanvasHtml html={item.description ?? ''} onLink={onOpenLink} />
         </div>
       )}
