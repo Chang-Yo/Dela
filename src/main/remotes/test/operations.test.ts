@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
 }));
 
 import { remoteGrepTool, remoteOperations, remotePath } from '../operations';
-import { shellQuote, type RemoteTarget } from '../transport';
+import { exec, shellQuote, type RemoteTarget } from '../transport';
 
 const host = process.env.DELA_REMOTE_HOST;
 const target: RemoteTarget = {
@@ -144,4 +144,27 @@ live('远程工具（需要 DELA_REMOTE_HOST）', () => {
     )) as { content: { type: string; text: string }[] };
     expect(result.content[0]!.text).toBe('No matches found');
   }, 60_000);
+
+  it('工具调用真的走 helper 通道，而不是悄悄退回一次性 ssh', async () => {
+    await run('echo channel-check');
+    const alive = await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l');
+    expect(Number(alive.stdout.toString().trim())).toBeGreaterThan(0);
+  }, 60_000);
+
+  it('bash 超时映射成 Pi 认的 timeout 前缀', async () => {
+    await expect(ops.bash.exec('sleep 30', root, { onData: () => {}, timeout: 1 })).rejects.toThrow(
+      'timeout:1',
+    );
+  }, 60_000);
+
+  it('输出被远端丢弃时补一条说明，不假装完整', async () => {
+    let output = '';
+    const result = await ops.bash.exec('head -c 9000000 /dev/zero | base64', root, {
+      onData: (chunk) => {
+        output += chunk.toString();
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(output).toMatch(/已丢弃 \d+ 字节/);
+  }, 120_000);
 });
