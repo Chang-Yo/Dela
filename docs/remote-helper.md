@@ -153,7 +153,7 @@
 - **映射规则**：所有远端工具入口先把「落在镜像根下的路径」前缀翻译成对应远端路径，再做现有的归一化（`remotePath`）；`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` 全部走同一函数。这样模型拿 `<location>` 里的镜像路径去读、去跑，落到远端仍是正确文件。
 - **位置三分**要写清：本地镜像（发现用）、模型可见位置（`<location>`/`baseDir`，指向镜像，靠映射翻译）、脚本执行位置（远端真实路径）。
 - `AGENTS.md`：用 SDK 的 `agentsFilesOverride` 注入远端内容（`path` 写远端路径），不需要镜像，也不依赖本地存在该文件。
-- **校园 skills 在远程会话要摘掉**：现在远程分支仍传 `skillPaths: [builtinSkillsDirectory()]`，而内置技能正文教的是 `dela` 命令——远端没有。远程会话只加载镜像里的仓库/服务器技能。
+- **校园 skills 在远程会话要摘掉**：改前远程分支仍传 `skillPaths: [builtinSkillsDirectory()]`，而内置技能正文教的是 `dela` 命令——远端没有。现在远程会话只加载镜像里的仓库/服务器技能。
 - 刷新：会话开始时读一次；有 helper 时由 `watch` 事件刷新；无 helper 时在打开项目/手动刷新/每轮对话结束时读。
 
 **三处远端 skill 位置与优先级**：`<仓库>/.agents/skills`（Pi 原生）＞ `<仓库>/.dela/skills`（Dela 专属，随仓库进 git）＞ 服务器 `~/.dela/skills`（同服务器所有项目共享）。
@@ -217,9 +217,39 @@
 带保活后同样的 10 分钟静默没再复现。这也顺带解释了 6.0 之前那几次「并行真机测试偶发 connection closed」，先前只记作偶发，
 现在有了可复现的解释与修法。**心跳同时是隧道的保活包**：30 秒一次的心跳让隧道不会长时间静默。
 
-**6.2 · 上下文与 skills**
-镜像 + 路径映射 + `agentsFilesOverride` + 摘掉校园 skills + 三处扫描 + 上传入口。
-验收：见「上下文与 skills · 验收」。
+**6.2 · 上下文与 skills —— 已实施**
+
+代码：`src/main/remotes/context.ts`（镜像同步 + 上传）、`operations.ts`（镜像→远端映射 + 命令正文翻译）、
+`agent/pi.ts`（`agentsFilesOverride` 透传）、`agent/environment.ts`（远程分支接线）、`agent/skills.ts`（`skillDirectory`）、
+`agent/index.ts` + `shared/capabilities.ts` + `preload/capabilities.ts`（`capabilities:upload-skill-to-remote`）、设置页技能列表的上传入口。
+
+实现要点：
+
+- **一次 ssh 取回全部上下文**：一个远端脚本用 NUL 分隔的「路径 + base64 正文」记录输出三处 skills 与祖先目录的
+  `AGENTS.override.md`/`AGENTS.md`/`AGENTS.MD`/`CLAUDE.md`/`CLAUDE.MD`（每个目录取第一个命中的），`$HOME` 也在同一次里回传，
+  所以不额外付一次 `probeRemote`。软链接不跟随，单文件上限 1 MiB。
+- **镜像根**：`<userData>/remote-context/<remoteId>/<projectId>/`（项目 id 里的 `/`、`:` 等换成 `_`）；仓库内容进 `repo/`、主目录内容进 `home/`，
+  两条路由让镜像路径能一对一翻回远端。
+- **映射是唯一收口**：`remotePath()` 先翻镜像前缀再做原有归一化，七个工具（含 grep）的全部路径入口自动生效；
+  `bash` 的命令正文另有一段翻译（换掉前缀后，同一段路径里剩下的 `\` 也要转成 `/`，否则 bash 会把 `\` 当转义吃掉）。
+- **AGENTS.md 不落盘**：内容经 `agentsFilesOverride` 追加在本地全局上下文之后，`path` 写远端路径。
+- **远程会话不再挂本地校园 skills**：`skillPaths` 只给镜像里真实存在的那几处；Pi 自带的默认位置（本机 `~/.agents/skills`）仍会被发现——那是用户自己的技能，本阶段不动。
+- **上传**：目标 `<仓库>/.dela/skills/<名字>/`，逐文件 `mkdir -p` + 临时文件 + `mv`；已存在且未确认覆盖时抛「远端已存在：…」，由设置页弹二次确认；上传后让空闲会话按新配置重建。
+
+**实测证据（真机 `root@47.117.158.218`，2026-10-09）**
+
+- 三处远端技能（`<仓库>/.agents/skills`、`<仓库>/.dela/skills`、服务器 `~/.dela/skills`）取回本地**逐字节一致**；祖先目录的 `CLAUDE.md` 排在 cwd 的 `AGENTS.md` 之前（与 Pi 的注入顺序一致）。
+- 镜像路径翻回远端真身：`…/repo/.agents/skills/alpha/SKILL.md` → `<仓库>/.agents/skills/alpha/SKILL.md`；`…/home/…` → `<主目录>/…`；`/etc/hosts` 这类远端绝对路径不受影响。
+- 命令正文翻译端到端可用：`bash.exec('cat <镜像路径>')` 在远端读到正确内容（退出码 0）——证明模型从技能 `<location>` 抄下来的路径在 bash 里也能用。
+- 上传：2 个文件（含子目录）逐字节一致，`git status --porcelain -uall` 里出现 `.dela/skills/lint/SKILL.md`；同名再传被 `远端已存在：` 拦下，覆盖后再传正文已换。
+- 自动化：`test/context.test.ts` 4 条（1 条脱机验证 Pi 真的收下镜像 skills 与 AGENTS.md，3 条真机）、`test/session-options.test.ts` 新增 2 条（只挂镜像技能、远端 AGENTS.md 注入且本地全局上下文不丢）、`operations.test.ts` 的 `remotePath` 新增 3 条（镜像映射、最长前缀、撤销后复原）。真机串行 4 条全绿；全量单测 548 条通过。
+
+**未做与新的风险**
+
+- 只摘掉了 Dela 的校园 skills；Pi 默认位置里**本机 `~/.agents/skills` 仍会进远程会话**（脱机测试里观察到 14 个本机技能随之进来）。要不要一并摘掉取决于产品判断，见「未决」。
+- 镜像**只在会话开始时同步一次**；上传或远端改动要等空闲会话重建/下次打开才生效。watch 事件刷新与手动刷新归 6.3。
+- 上传路径不做远端回读校验（逐字节一致由真机测试保证，不在产品路径上重复读一遍）。
+- 模型若在 bash 里写含空格的镜像路径又不加引号，翻译会吃掉整段路径——这是命令本身的写法问题，与不加翻译时的失败方式相同。
 
 **6.3 · watch、预览与传输**
 事件式刷新（含溢出重扫）、只读预览标签、二进制上传下载、系统默认程序打开。
@@ -234,7 +264,7 @@
 - **受限环境**：`noexec`、SELinux、只读 `$HOME`、磁盘满 —— 代码路径都会降级（返回 null 退回一次性 ssh），但**只在本机做过路径遮罩式的验证，没有真在 noexec 机器上跑过**；文案目前只有一条 `console.warn`，用户界面上还没提示"当前用的是降级模式"。
 - **并发断连**：已定位为静默期连接被网络路径丢弃（见 6.1 的「顺带修的真问题」），保活已修；`sshd -T` 的 `maxstartups 10:30:100` 与那次失败无关。
 - **长任务语义**：进程组终止、输出上限、结果未知三件事现在都有真机测试覆盖。
-- **路径映射是新的静默风险点**（6.2）：映射错会把远端命令指到错误文件；需要与 `remotePath` 同级的单测覆盖（镜像路径、普通远端路径、相对路径、含空格与中文的路径）。
+- **路径映射是新的静默风险点**（6.2）：映射错会把远端命令指到错误文件。已按 `remotePath` 同级补单测（镜像路径、最长前缀、撤销后复原、普通远端路径不受影响），另有真机端到端用例覆盖「命令正文里的镜像路径」；**含空格路径需要模型自己加引号**这类写法边界仍在。
 - **arm64 未真机验证**：`pnpm build:helper --all` 确实能出 arm64 产物（构建已验证），但上传与启动只在 x86_64 上真跑过，**所以仓库只入库 x64 产物**，arm64 远端会降级；等有机器可验证再随包带上（6.4）。
 - **快速反复重启会在远端留几个「过期」helper**：Dela 退出不发退出请求，旧实例带着过期 token 最多再活 5 分钟；同一时刻只有一条通道可用，所以它们只是占位进程（实测一个 vitest 套件跑完留 8 个，5 分钟内全部按点自退）。
 - **helper 资源占用未实测**：常驻一个 Go 进程（约 10 MB 内存量级），未做压测。
