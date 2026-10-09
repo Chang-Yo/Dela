@@ -95,8 +95,8 @@ it('searches detected models before adding one and saves per-model settings', as
   const apply = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
     (item) => item.textContent === '应用',
   )!;
+  // 编辑态即时保存：模型设置「应用」后立即整体写入，无需再点保存。
   await act(async () => apply.click());
-  await act(async () => button('保存').click());
   expect(saved?.models).toEqual(['existing', 'gpt-a']);
   expect(saved?.modelConfigs?.['gpt-a']).toEqual({
     contextWindow: 1000000,
@@ -154,6 +154,7 @@ it('caps model import at 64 and reports the omitted count', async () => {
   window.dela = {
     llm: {
       list: async () => [provider],
+      save: async (input: LlmSaveInput) => ({ ...provider, ...input }),
       verify: async () => ({
         ok: true,
         message: '连接成功',
@@ -193,7 +194,11 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
     },
   } as unknown as DelaApi;
   await act(async () => root.render(<LlmSection />));
-  await act(async () => button('保存').click());
+  // 编辑态即时保存：名称失焦触发保存并挂起，此时切换提供商并输入草稿。
+  const nameA = container.querySelector<HTMLInputElement>('input')!;
+  await act(async () => nameA.focus());
+  await fill(nameA, 'A renamed');
+  await act(async () => nameA.blur());
   // 列表行按钮含首字母块，按包含匹配提供商名。
   await act(async () =>
     [...container.querySelectorAll('button')]
@@ -201,13 +206,7 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
       .click(),
   );
   const nameInput = container.querySelector<HTMLInputElement>('input')!;
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-      nameInput,
-      'B draft',
-    );
-    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  await fill(nameInput, 'B draft');
   expect(nameInput.value).toBe('B draft');
   await act(async () => finishSave(a));
   expect(container.querySelector('button[aria-current="true"]')?.textContent).toContain(
@@ -264,6 +263,7 @@ it('rewrites an existing provider to the API base the service actually serves', 
   window.dela = {
     llm: {
       list: async () => [provider],
+      save: async (input: LlmSaveInput) => ({ ...provider, ...input }),
       verify: async () => ({
         ok: true,
         message: '连接成功',
