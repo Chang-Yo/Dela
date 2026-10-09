@@ -30,6 +30,7 @@ import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from './workbench-shell';
 import { setDefaultNoteEditMode } from '../content/note/default-mode';
+import { useNoteSpellcheck } from '../content/note/note-spellcheck';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
  *  通用池（键 'general'）不入项目树，但保留镜像预热：会话标签标题解析（registry
@@ -134,6 +135,7 @@ export default function App() {
       .getWorkspacePrefs()
       .then((prefs) => {
         setDefaultNoteEditMode(prefs.defaultNoteEditMode);
+        useNoteSpellcheck.getState().setSpellcheck(prefs.noteSpellcheck);
       })
       .catch(() => {});
   }, []);

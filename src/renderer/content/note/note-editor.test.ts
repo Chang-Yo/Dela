@@ -13,6 +13,7 @@ import {
   NoteEditor,
 } from './NoteEditor';
 import { MarkdownEditor } from './MarkdownEditor';
+import { useNoteSpellcheck } from './note-spellcheck';
 import { EditorView } from '@codemirror/view';
 
 beforeAll(() => {
@@ -115,6 +116,63 @@ describe('编辑器 IME 回传', () => {
       root.render(createElement(MarkdownEditor, { ...props, value: '外部修改' }));
       await vi.waitFor(() => expect(view.state.doc.toString()).toBe('外部修改'));
     } finally {
+      root.unmount();
+      host.remove();
+    }
+  });
+});
+
+describe('笔记拼写检查', () => {
+  it('所见即所得：挂载按偏好设置，开关切换后即时生效', async () => {
+    useNoteSpellcheck.getState().setSpellcheck(false);
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    root.render(
+      createElement(NoteEditor, {
+        documentKey: 'spellcheck-test',
+        editorStateKey: 'spellcheck-test',
+        value: '正文',
+        onChange: () => {},
+        onSave: () => {},
+      }),
+    );
+    try {
+      await vi.waitFor(() => expect(host.querySelector('.ProseMirror p')).not.toBeNull());
+      const editor = host.querySelector<HTMLElement>('.ProseMirror')!;
+      expect(editor.spellcheck).toBe(false);
+      useNoteSpellcheck.getState().setSpellcheck(true);
+      await vi.waitFor(() => expect(editor.spellcheck).toBe(true));
+    } finally {
+      useNoteSpellcheck.getState().setSpellcheck(false);
+      root.unmount();
+      forgetNoteEditorState('spellcheck-test');
+      host.remove();
+    }
+  });
+
+  it('源码：开关切换后即时生效', async () => {
+    useNoteSpellcheck.getState().setSpellcheck(false);
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    root.render(
+      createElement(MarkdownEditor, {
+        value: '',
+        onChange: () => {},
+        onSave: () => {},
+        onScroll: () => {},
+        scroll: 0,
+      }),
+    );
+    try {
+      await vi.waitFor(() => expect(host.querySelector('.cm-content')).not.toBeNull());
+      const content = host.querySelector<HTMLElement>('.cm-content')!;
+      expect(content.getAttribute('spellcheck')).toBe('false');
+      useNoteSpellcheck.getState().setSpellcheck(true);
+      await vi.waitFor(() => expect(content.getAttribute('spellcheck')).toBe('true'));
+    } finally {
+      useNoteSpellcheck.getState().setSpellcheck(false);
       root.unmount();
       host.remove();
     }

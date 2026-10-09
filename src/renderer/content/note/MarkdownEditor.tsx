@@ -8,6 +8,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
 import { useEditorSettings } from '../editor-settings';
+import { useNoteSpellcheck } from './note-spellcheck';
 import { markdownHighlightStyle } from '../../lib/markdown-highlight';
 
 const editorTheme = EditorView.theme({
@@ -48,6 +49,7 @@ const languageConf = new Compartment();
 const placeholderConf = new Compartment();
 const wrappingConf = new Compartment();
 const layoutConf = new Compartment();
+const contentAttributesConf = new Compartment();
 const externalSync = Annotation.define<boolean>();
 
 type EditorHandlers = {
@@ -122,6 +124,7 @@ export function MarkdownEditor({
   const instanceKey = useRef(editorStateKey ?? `markdown-editor-${nextEditorId++}`).current;
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const wordWrap = useEditorSettings((state) => state.wordWrap);
+  const spellcheck = useNoteSpellcheck((state) => state.spellcheck);
   const handlersRef = useRef({ onChange, onSave, onScroll });
   handlersRef.current = { onChange, onSave, onScroll };
   const latestValue = useRef(value);
@@ -200,7 +203,12 @@ export function MarkdownEditor({
       ]),
       editorTheme,
       syntaxHighlighting(markdownHighlightStyle),
-      EditorView.contentAttributes.of({ spellcheck: 'false', 'aria-label': ariaLabel }),
+      contentAttributesConf.of(
+        EditorView.contentAttributes.of({
+          spellcheck: String(spellcheck),
+          'aria-label': ariaLabel,
+        }),
+      ),
       EditorView.updateListener.of((update) => {
         const session = sessions.get(instanceKey) ?? transient.current;
         if (session) session.state = update.state;
@@ -287,6 +295,17 @@ export function MarkdownEditor({
       effects: wrappingConf.reconfigure(wordWrap ? EditorView.lineWrapping : []),
     });
   }, [wordWrap]);
+  /* 拼写检查随设置页开关即时生效；两属性同处一个 compartment，故一并作依赖。 */
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: contentAttributesConf.reconfigure(
+        EditorView.contentAttributes.of({
+          spellcheck: String(spellcheck),
+          'aria-label': ariaLabel,
+        }),
+      ),
+    });
+  }, [spellcheck, ariaLabel]);
   useEffect(() => {
     view.current?.dispatch({
       effects: layoutConf.reconfigure(
