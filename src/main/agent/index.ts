@@ -35,7 +35,10 @@ import {
   stageChatMedia,
   gcChatMedia,
 } from './media';
-import { listSkills, readSkill, revealSkill, setSkillEnabled } from './skills';
+import { listSkills, readSkill, revealSkill, setSkillEnabled, skillDirectory } from './skills';
+import { remoteById, targetOf } from '../remotes/api';
+import { uploadSkillToRemote } from '../remotes/context';
+import { remoteProjectOf } from '../workspace/api';
 import {
   addMcpServer,
   listMcpServers,
@@ -172,6 +175,22 @@ export function registerAgentIpc() {
   );
   handle('capabilities:read-skill', (skill) => readSkill(name.parse(skill)));
   handle('capabilities:reveal-skill', (skill) => revealSkill(name.parse(skill)));
+  handle('capabilities:upload-skill-to-remote', (skill, remotePath, overwrite) =>
+    invalidating(async () => {
+      const skillName = name
+        .refine((value) => !/[/\\]/.test(value) && value !== '.' && value !== '..')
+        .parse(skill);
+      const project = remoteProjectOf(z.string().trim().min(1).max(4096).parse(remotePath));
+      if (!project) throw new Error('目标不是远端项目路径');
+      return uploadSkillToRemote({
+        target: targetOf(remoteById(project.remoteId)),
+        skillDir: skillDirectory(skillName),
+        name: skillName,
+        remoteDir: project.path,
+        overwrite: z.boolean().parse(overwrite),
+      });
+    }),
+  );
   handle('capabilities:list-mcp-servers', () => listMcpServers());
   handle('capabilities:add-mcp-server', (config) =>
     invalidating(() => addMcpServer(mcpServerInputSchema.parse(config))),

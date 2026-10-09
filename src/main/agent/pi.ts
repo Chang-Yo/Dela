@@ -95,6 +95,10 @@ export interface OpenSessionInput {
   commandPrefix?: string;
   /** 额外的 skill 目录（Dela 内置 skills）。 */
   skillPaths: string[];
+  /** 远端会话用：Pi 在本机读不到 AGENTS.md（cwd 是远端路径），由调用方注入远端内容。 */
+  agentsFilesOverride?: (base: { agentsFiles: { path: string; content: string }[] }) => {
+    agentsFiles: { path: string; content: string }[];
+  };
   disabledSkills: ReadonlySet<string>;
   disabledTools: string[];
 }
@@ -115,6 +119,7 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     settingsManager,
     additionalSkillPaths: input.skillPaths,
     appendSystemPrompt: input.appendSystemPrompt,
+    ...(input.agentsFilesOverride ? { agentsFilesOverride: input.agentsFilesOverride } : {}),
     skillsOverride: (base) => ({
       ...base,
       skills: base.skills.filter((skill) => !input.disabledSkills.has(skill.name)),

@@ -12,6 +12,7 @@ import { getAgentInstruction } from '../settings/prefs';
 import { remoteProjectOf } from '../workspace/api';
 import { remoteById, targetOf } from '../remotes/api';
 import { remoteTools } from '../remotes/operations';
+import { syncRemoteContext } from '../remotes/context';
 import { COMMAND_BRIDGE, startDomainBridge } from './commands';
 import { locateBash } from '../terminal';
 import { builtinSkillsDirectory, ensureBuiltinSkills, readDisabledSkills } from './skills';
@@ -66,8 +67,17 @@ export function agentEnvironment() {
       ensureBuiltinSkills();
       const remote = projectId ? remoteProjectOf(projectId) : null;
       const prompts = [DELA_PROMPT, project, instruction && `用户附加指令：\n${instruction}`];
-      if (remote) {
+      if (remote && projectId) {
         const connection = remoteById(remote.remoteId);
+        const target = targetOf(connection);
+        // 远端 skills 与 AGENTS.md 在本机不存在：镜像一份给 Pi 读，路径再由 remotePath 翻回远端。
+        const context = await syncRemoteContext({
+          target,
+          key: `${remote.remoteId}:${projectId}`,
+          remoteId: remote.remoteId,
+          projectId,
+          remoteDir: cwd,
+        });
         return {
           appendSystemPrompt: [
             DELA_REMOTE_PROMPT,
@@ -76,18 +86,18 @@ export function agentEnvironment() {
             instruction && `用户附加指令：\n${instruction}`,
           ].filter((part): part is string => Boolean(part)),
           shellPath: locateBash(),
-          skillPaths: [builtinSkillsDirectory()],
+          // 远端会话不挂本地校园 skills（正文教 dela 命令，远端没有），只加载镜像里的远端技能。
+          skillPaths: context.skillPaths,
+          agentsFilesOverride: (base: { agentsFiles: { path: string; content: string }[] }) => ({
+            agentsFiles: [...base.agentsFiles, ...context.agentsFiles],
+          }),
           disabledSkills: readDisabledSkills(),
           // 覆盖内置工具的定义不能被 excludeTools 过滤掉，先把这七个名字摘出来。
           disabledTools: [...readDisabledTools()].filter(
             (name) => !BUILTIN_TOOL_NAMES.includes(name),
           ),
           // 联网搜索与 MCP 都在本机跑，与项目在不在远端无关，照旧给上。
-          customTools: [
-            ...webTools,
-            ...mcpTools(),
-            ...(await remoteTools(cwd, targetOf(connection))),
-          ],
+          customTools: [...webTools, ...mcpTools(), ...(await remoteTools(cwd, target))],
         };
       }
       const handle = await domainBridge();

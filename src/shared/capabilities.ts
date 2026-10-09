@@ -68,6 +68,14 @@ export type WebSearchConfig =
   | { provider: 'google'; apiKey: string; cx: string }
   | { provider: 'custom'; url: string; headers?: Record<string, string> };
 
+/** 上传本地 Skill 到远端项目的结果。 */
+export interface RemoteSkillUpload {
+  /** 远端目标目录，例如 /root/proj/.dela/skills/lint。 */
+  path: string;
+  /** 写入的文件数（含附属文件）。 */
+  files: number;
+}
+
 export interface CapabilityApi {
   listSkills(): Promise<SkillView[]>;
   /** 启停 Skill；返回最新列表（未知名抛错）。 */
@@ -76,6 +84,13 @@ export interface CapabilityApi {
   readSkill(name: string): Promise<string>;
   /** 在系统文件管理器中显示 SKILL.md 所在位置。 */
   revealSkill(name: string): Promise<void>;
+  /** 把本地 Skill 目录（含附属文件）上传到远端项目的 .dela/skills/<name>/；
+   *  目标已存在且 overwrite=false 时抛「远端已存在：…」，供渲染端二次确认。 */
+  uploadSkillToRemote(
+    name: string,
+    remotePath: string,
+    overwrite: boolean,
+  ): Promise<RemoteSkillUpload>;
   listMcpServers(): Promise<McpServerView[]>;
   addMcpServer(config: {
     name: string;

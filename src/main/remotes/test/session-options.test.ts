@@ -42,6 +42,17 @@ vi.mock('../operations', () => ({
       execute: async () => ({ content: [], details: undefined }),
     })),
 }));
+// 镜像要真的 ssh：这里只验证「镜像结果怎么接给 Pi」。
+vi.mock('../context', () => ({
+  syncRemoteContext: async () => ({
+    skillPaths: [
+      'C:\\data\\remote-context\\r1\\p-remote\\repo\\.agents\\skills',
+      'C:\\data\\remote-context\\r1\\p-remote\\home\\.dela\\skills',
+    ],
+    agentsFiles: [{ path: '/root/proj/AGENTS.md', content: '暗号：菠萝' }],
+    mirrorRoot: 'C:\\data\\remote-context\\r1\\p-remote',
+  }),
+}));
 vi.mock('../../agent/commands', () => ({
   COMMAND_BRIDGE: 'dela() { :; }',
   startDomainBridge: () => ({ url: 'http://127.0.0.1:1', token: 'token' }),
@@ -79,6 +90,23 @@ describe('远程会话环境', () => {
     const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
     // web_fetch 仍按用户设置剔除；read 是内置名，必须保留（否则同名覆盖失效）。
     expect([...options.disabledTools]).toEqual(['web_fetch']);
+  });
+
+  it('只挂镜像里的远端技能，不挂本地校园技能', async () => {
+    const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
+    expect(options.skillPaths).toEqual([
+      'C:\\data\\remote-context\\r1\\p-remote\\repo\\.agents\\skills',
+      'C:\\data\\remote-context\\r1\\p-remote\\home\\.dela\\skills',
+    ]);
+    expect(options.skillPaths).not.toContain('C:\\skills');
+  });
+
+  it('远端 AGENTS.md 的内容与远端路径一起注入，本地全局上下文不丢', async () => {
+    const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
+    const base = [{ path: 'C:\\data\\AGENTS.md', content: '全局' }];
+    expect(options.agentsFilesOverride!({ agentsFiles: base })).toEqual({
+      agentsFiles: [...base, { path: '/root/proj/AGENTS.md', content: '暗号：菠萝' }],
+    });
   });
 });
 
