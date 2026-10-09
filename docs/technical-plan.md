@@ -44,7 +44,7 @@
 - 路径：会话 cwd 就是远端 POSIX 绝对路径；工具传来的路径先经 `remotePath` 还原（Windows 会把 `/root/x` 解析成 `\root\x`）。
 - 本地不碰远端路径：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建/重命名/移动，目录不进本地扫描也不 fs.watch。远端条目 id 是「项目 id + 远端路径」（`shared/remotes.ts`），两台连接上的同路径目录不会混；裸远端路径只在唯一归属时解析。
 - 认证：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
-- 阶段 6（远端工具服务 helper、实时目录树与预览、远端 skills 进上下文）：**6.0（远端文件身份）、6.1（最小 Go helper：上传校验、`ssh -L` 隧道、握手、心跳、片段读写、可取消的流式任务）与 6.2（上下文镜像：远端 skills 与 `AGENTS.md` 进会话、镜像路径映射、设置页技能上传）已实施**，6.3–6.4 仍是草案；见 `docs/remote-helper.md`（helper 定 Go 静态二进制，上下文先走逐项注入）。
+- 阶段 6（远端工具服务 helper、实时目录树与预览、远端 skills 进上下文）：**6.0（远端文件身份）、6.1（最小 Go helper：上传校验、`ssh -L` 隧道、握手、心跳、片段读写、可取消的流式任务）、6.2（上下文镜像：远端 skills 与 `AGENTS.md` 进会话、镜像路径映射、设置页技能上传）与 6.3 第一批（目录清单走 helper 通道、远端工具改过文件后目录树自动重读）已实施**，6.3 其余（watch 事件、预览、二进制传输）与 6.4 仍是草案；见 `docs/remote-helper.md`（helper 定 Go 静态二进制，上下文先走逐项注入）。
 
 ## 安全
 
