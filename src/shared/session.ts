@@ -78,7 +78,6 @@ export interface WorkspaceChat {
     interrupted?: boolean;
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
     stopped?: boolean;
-    /** 上下文压缩点：更早的历史已压成摘要，本条只是分隔标记，不是真实回复。 */
     compacted?: boolean;
   }[];
 }

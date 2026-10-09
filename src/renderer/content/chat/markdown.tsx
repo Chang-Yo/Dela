@@ -106,8 +106,7 @@ const chatComponents = { table: ChatTable };
  * （写剪贴板依赖主进程放行 clipboard-sanitized-write，否则点击无任何反应。）
  * 代码块不设高度上限（codeBlockMaxHeight=0）：完整展开、随外层聊天区滚动，块内不出现
  * 自己的滚动条（默认 400px 内滚会在钉住头部右上露出滚动条与内容）。
- * 无语言围栏的头部标签 CSS 兜底显示 txt：streamdown 对空语言渲染空 span，与下载
- * 扩展名的 txt 兜底同口径。
+ * 无语言围栏时 streamdown 渲染空 span，头部标签以 :after 兜底 txt。
  * 公式超宽时横向滚动。
  */
 const markdownStyles =

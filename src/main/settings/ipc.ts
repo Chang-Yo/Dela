@@ -86,7 +86,7 @@ export function registerSettingsIpc(): void {
     checkWorkspaceSender(event);
     const enabled = z.boolean().parse(value);
     writeSetting('open-at-login', enabled ? '1' : '0');
-    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: enabled });
+    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: enabled, args: ['--hidden'] });
     return enabled;
   });
   // 校园消息系统提醒：只影响 system-notify 的桌面弹窗，通知收集与应用内列表不受影响。

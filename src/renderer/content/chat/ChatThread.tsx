@@ -365,7 +365,6 @@ const AssistantMessage = memo(function AssistantMessage({
   );
 });
 
-/** 压缩点分隔线（已压缩）与压缩中提示共用一种视觉：居中横线 + 图标 + 文案。 */
 function CompactionDivider({ pending }: { pending?: boolean }) {
   return (
     <div className="my-6 flex items-center gap-3 text-[12px] text-ink-3" role="status">

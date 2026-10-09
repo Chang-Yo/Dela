@@ -73,6 +73,7 @@ ipcMain.handle('window:get-state', (event) => ({
 
 const terminalSmokeTest = process.argv.includes('--terminal-smoke-test');
 const smokeTest = process.argv.includes('--smoke-test') || terminalSmokeTest;
+const startHidden = process.argv.includes('--hidden');
 if (smokeTest && !terminalSmokeTest) {
   const profile = mkdtempSync(join(tmpdir(), 'dela-smoke-'));
   app.setPath('userData', profile);
@@ -123,7 +124,7 @@ app.whenReady().then(() => {
     getDatabase()
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
       .run('1');
-    app.setLoginItemSettings({ openAtLogin: true });
+    app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
   }
   registerSettingsIpc();
   registerMailIpc();
@@ -187,7 +188,7 @@ async function createWindow(): Promise<void> {
     height: 760,
     minWidth: 600,
     minHeight: 440,
-    show: !smokeTest,
+    show: !smokeTest && !startHidden,
     backgroundColor: '#f7f7f8',
     icon: join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
     titleBarStyle: 'hidden',

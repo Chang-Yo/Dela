@@ -18,7 +18,7 @@ export function ProgressRing({
     green: "var(--green)",
     red: "var(--red)",
     accent: "var(--bui-accent)",
-    // Dela 适配：中性墨色档，低干扰进度（如 composer 上下文占用）随底栏灰阶层融入。
+    // Dela 适配：中性墨色档。
     ink: "var(--ink-2)",
   };
   return (
