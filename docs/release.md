@@ -26,6 +26,7 @@
 - 单包 pnpm 锁文件不记录应用自身版本，升版无需修改锁文件。
 - preload 在构建时从 `package.json` 内联版本号，设置页关于与冒烟检查随之同步；升版后需重新构建，开发模式需重启。
 - 安装包会带上 `vendor/openssh` 里的 OpenSSH 客户端（`extraResources` 拷到 `resources/openssh`）。升级或更换它时按该目录 README 的步骤做，并在打包目录里实跑一次 `resources\openssh\ssh.exe -V` 与一次真实连接。
+- 安装包也会带上 `vendor/dela-helper/dela-helper-linux-*`（`extraResources` 拷到 `resources/dela-helper`）。这是远端 helper 的静态二进制，**只有它入库才能让不在本机装 Go 的贡献者照常构建**；发布前用 `pnpm build:helper` 重建（改了 `helper/` 里的 Go 代码时必须重建，版本号与哈希都会变），并在打包目录里确认 `resources\dela-helper\` 下有产物。
 
 ## 发布
 

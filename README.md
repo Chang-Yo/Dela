@@ -39,7 +39,7 @@ Dela 是为上海交通大学学生打造的本地个人 Agent：内核是 [Pi](
 
 联网搜索默认关闭：web_search 需要在「设置 › 内置能力」的「网络」分组中注册一个搜索服务（Brave Search API、Google 搜索或自定义 JSON 端点），Dela 不内置搜索服务。read / write / edit / bash 是常驻内核能力，不提供开关。
 
-**本地优先与安全边界**：数据保存在本机 SQLite；凭据经 Electron `safeStorage` 加密；renderer 不接触文件系统、数据库与凭据，一切经受控 IPC 通信。Agent 的 bash 与文件工具即本机权限，不设沙箱；Skill 启停只影响模型引导。远程项目只有被调用的那条命令会在远端执行，身份与权限由 ssh 决定；Dela 不保存远端密码；SSH 客户端优先用系统装的 OpenSSH，系统缺失时用随包分发的那份（`vendor/openssh`，BSD 许可，来源与版本见该目录 README）。
+**本地优先与安全边界**：数据保存在本机 SQLite；凭据经 Electron `safeStorage` 加密；renderer 不接触文件系统、数据库与凭据，一切经受控 IPC 通信。Agent 的 bash 与文件工具即本机权限，不设沙箱；Skill 启停只影响模型引导。远程项目只有被调用的那条命令会在远端执行，身份与权限由 ssh 决定；Dela 不保存远端密码；SSH 客户端优先用系统装的 OpenSSH，系统缺失时用随包分发的那份（`vendor/openssh`，BSD 许可，来源与版本见该目录 README）。远程项目还会在服务器上放一个 Dela 的常驻小程序（`~/.dela/helper/`，随包分发的 Go 静态二进制，`vendor/dela-helper`），它只绑定 `127.0.0.1`、每个请求都要 token、权限与那条 ssh 会话完全相同，连续 5 分钟收不到 Dela 的心跳就自己退出并结束它启动的命令；不装 systemd 服务、不写系统目录，删掉 `~/.dela/helper` 即彻底清理。
 
 远程项目当前只做浏览与执行：远端文件的打开、预览与笔记写回尚未实现（点击远端文件只给提示），远端目录不监听变化，需要手动收起再展开来刷新。
 
