@@ -11,6 +11,7 @@
  */
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
+import { closeHelper, helperSession, type HelperSession } from './helper';
 import {
   exec,
   listDirectory,
@@ -72,6 +73,24 @@ function globToRegExp(glob: string): RegExp {
 export function remoteOperations(target: RemoteTarget) {
   const listings = new Map<string, { at: number; directories: Map<string, boolean> }>();
 
+  /** helper 通道：拿不到就返回 null，调用方退回一次性 ssh。
+   *  只在「读」和「写」这类重复执行无副作用的操作上回退：远端命令一旦可能已经跑过，
+   *  再发一次会变成重复执行（`git push` 跑两遍），所以 bash 走通道失败就直接报错。 */
+  const throughHelper = async <T>(
+    work: (session: HelperSession) => Promise<T>,
+    fallback: () => Promise<T>,
+  ): Promise<T> => {
+    try {
+      const session = await helperSession(target);
+      if (!session) return await fallback();
+      return await work(session);
+    } catch (error) {
+      console.warn('[remotes] helper 通道调用失败，退回一次性 ssh', error);
+      await closeHelper();
+      return fallback();
+    }
+  };
+
   const cacheListing = (path: string, entries: { name: string; directory: boolean }[]) => {
     if (listings.size > 64) listings.clear();
     listings.set(path, {
@@ -87,7 +106,13 @@ export function remoteOperations(target: RemoteTarget) {
   };
 
   const read = {
-    readFile: (absolutePath: string) => readFile(target, remotePath(absolutePath)),
+    readFile: (absolutePath: string) => {
+      const path = remotePath(absolutePath);
+      return throughHelper(
+        (session) => session.readFile(path),
+        () => readFile(target, path),
+      );
+    },
     access: assertReadable,
     detectImageMimeType: (absolutePath: string) => {
       const match = /\.[A-Za-z0-9]+$/.exec(remotePath(absolutePath));
@@ -96,8 +121,18 @@ export function remoteOperations(target: RemoteTarget) {
   };
 
   const write = {
-    writeFile: (absolutePath: string, content: string) =>
-      writeFile(target, remotePath(absolutePath), content),
+    writeFile: (absolutePath: string, content: string) => {
+      const path = remotePath(absolutePath);
+      return throughHelper(
+        async (session) => {
+          // helper 的写入只管落盘（不替调用方建目录），这里补上 Pi 期望的 mkdir -p。
+          const parent = path.slice(0, path.lastIndexOf('/')) || '/';
+          await session.exec(`mkdir -p -- ${shellQuote(parent)}`, { cwd: '/' });
+          await session.writeFile(path, content);
+        },
+        () => writeFile(target, path, content),
+      );
+    },
     // Pi 在 writeFile 之前会单独调一次 mkdir；transport.writeFile 自己就带着 mkdir -p，
     // 再跑一趟 ssh 只是白付一次握手。
     mkdir: async (dir: string) => {
@@ -117,15 +152,47 @@ export function remoteOperations(target: RemoteTarget) {
       },
     ) => {
       // 只转发 Pi 的 PI_* 会话变量：把宿主整个环境变量搬到远端既无必要，也会外泄本地信息。
-      const exported = Object.entries(options.env ?? {})
-        .filter(([key]) => key.startsWith('PI_'))
-        .map(([key, value]) => `export ${key}=${shellQuote(String(value))}`);
-      const inner = [...exported, `cd ${shellQuote(remotePath(cwd))}`, command].join(' && ');
+      const forwarded = Object.fromEntries(
+        Object.entries(options.env ?? {})
+          .filter(([key]) => key.startsWith('PI_'))
+          .map(([key, value]) => [key, String(value)]),
+      );
+      const remoteCwd = remotePath(cwd);
+      // Pi 传进来的是秒，两边的传输都收毫秒。
+      const timeoutMs = options.timeout ? options.timeout * 1000 : undefined;
       // 登录 shell：远端命令要用用户自己的 PATH（nvm、conda 等都在 profile 里）。
+      const exported = Object.entries(forwarded).map(
+        ([key, value]) => `export ${key}=${shellQuote(value)}`,
+      );
+
+      const session = await helperSession(target);
+      if (session) {
+        try {
+          const result = await session.exec(command, {
+            cwd: remoteCwd,
+            signal: options.signal,
+            timeoutMs,
+            env: forwarded,
+            onData: options.onData,
+          });
+          if (result.discarded > 0)
+            options.onData(
+              Buffer.from(`\n[远端输出过大，已丢弃 ${result.discarded} 字节]\n`, 'utf8'),
+            );
+          if (options.signal?.aborted) throw new Error('aborted');
+          if (result.state === 'timeout') throw new Error(`timeout:${options.timeout ?? 120}`);
+          return { exitCode: result.code };
+        } catch (error) {
+          // 不退回 ssh：命令可能已经在远端跑过，重发等于重复执行。
+          await closeHelper();
+          throw error;
+        }
+      }
+
+      const inner = [...exported, `cd ${shellQuote(remoteCwd)}`, command].join(' && ');
       const result = await exec(target, `exec bash -lc ${shellQuote(inner)}`, {
         signal: options.signal,
-        // Pi 传进来的是秒，transport 收毫秒。
-        timeoutMs: options.timeout ? options.timeout * 1000 : undefined,
+        timeoutMs,
         onData: options.onData,
         onStderr: options.onData,
         collect: false,

@@ -12,6 +12,7 @@ import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
+import { closeHelper } from './remotes/helper';
 import { registerRemoteIpc } from './remotes/ipc';
 import { registerSearchIpc } from './search';
 import {
@@ -360,6 +361,8 @@ app.on('will-quit', () => {
   clearInterval(todoTimer);
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
+  // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
+  void closeHelper();
   closeDatabase();
 });
 app.on('activate', () => {
