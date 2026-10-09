@@ -13,6 +13,7 @@ import { registerPreviewProtocol, registerPreviewScheme } from './workspace/prev
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
 import { closeHelper } from './remotes/helper';
+import { closeRemoteWatch } from './remotes/watch';
 import { registerRemoteIpc } from './remotes/ipc';
 import { registerSearchIpc } from './search';
 import {
@@ -362,6 +363,8 @@ app.on('will-quit', () => {
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
+  // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。
+  closeRemoteWatch();
   void closeHelper();
   closeDatabase();
 });

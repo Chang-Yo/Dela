@@ -27,6 +27,7 @@ import {
   withinRemoteRoot,
 } from '../remotes/api';
 import { listRemoteDirectory } from '../remotes/operations';
+import { watchRemoteProject } from '../remotes/watch';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell, type WebContents } from 'electron';
 import { z } from 'zod';
@@ -42,6 +43,8 @@ const subscribers = new Set<WebContents>();
 let changedTimer: ReturnType<typeof setTimeout> | undefined;
 /** @ 候选上限：超长索引没有实用价值，还会拖慢 composer。 */
 const REMOTE_REFERENCE_LIMIT = 3000;
+/** 一次能报上去的监视目录数：真到这么多层说明树已经展开得很深，此时 inotify 额度也不宽裕。 */
+const REMOTE_WATCH_LIMIT = 4096;
 function watchWorkspace(client: WebContents) {
   if (!subscribers.has(client)) {
     subscribers.add(client);
@@ -193,6 +196,26 @@ export function registerWorkspaceIpc(
           ? left.name.localeCompare(right.name)
           : Number(right.directory) - Number(left.directory),
       );
+  });
+  // 远端目录 watch：渲染端报「当前展开的目录」，helper 侧的变化推回来后走同一条
+  // workspace:remote-change，所以 Dela 之外改的远端文件也能自己出现在树里。
+  handle('watch-remote', async (projectId, paths) => {
+    const location = projectLocation(projectId);
+    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
+    const wanted = z
+      .array(z.string().min(1).max(4096))
+      .max(REMOTE_WATCH_LIMIT)
+      .parse(paths)
+      .map((path) => path.replace(/\/+$/, '') || '/')
+      .filter((path) => withinRemoteRoot(location.path, path));
+    const root = location.path.replace(/\/+$/, '') || '/';
+    return watchRemoteProject({
+      projectId: workspaceEntryIdSchema.parse(projectId),
+      target: targetOf(remoteById(location.remoteId)),
+      root,
+      // 根永远在集合里：reset 时按它报一次，且根被折叠也不该整个失去监视。
+      paths: wanted.includes(root) ? wanted : [root, ...wanted],
+    });
   });
   handle('remote-references', async (projectId) => {
     const location = projectLocation(projectId);

@@ -300,3 +300,86 @@ it('refreshes a remote directory after the tools changed it', async () => {
   expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj');
   expect(listRemoteDirectory).toHaveBeenCalledTimes(5);
 });
+
+it('reports the expanded remote directories to watch, and cancels them on unmount', async () => {
+  // Dela 之外改的远端文件靠这条上报：远端只盯当前展开的目录。
+  const watchRemoteDirectories = vi.fn(async () => ({ watching: 1 }));
+  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
+    path === '/home/u/proj'
+      ? [{ name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null }]
+      : [],
+  );
+  window.dela = {
+    remotes: { list: async () => [] },
+    workspace: { listRemoteDirectory, watchRemoteDirectories },
+  } as unknown as DelaApi;
+
+  await act(async () => {
+    root.render(
+      <ProjectFileTree
+        entries={entries}
+        expanded={['p-remote', 'p-remote:/home/u/proj/src']}
+        onAction={() => {}}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        query=""
+        rootId={null}
+        selected={null}
+      />,
+    );
+  });
+  // effect 要等 act 作用域结束才跑，所以等合并窗口必须另开一个 act。
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  });
+  expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', [
+    '/home/u/proj',
+    '/home/u/proj/src',
+  ]);
+
+  // 同一份集合重复渲染不重报。
+  const calls = watchRemoteDirectories.mock.calls.length;
+  await act(async () => {
+    root.render(
+      <ProjectFileTree
+        entries={entries}
+        expanded={['p-remote', 'p-remote:/home/u/proj/src']}
+        onAction={() => {}}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        query=""
+        rootId={null}
+        selected={null}
+      />,
+    );
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  });
+  expect(watchRemoteDirectories.mock.calls.length).toBe(calls);
+
+  // 收起一层：集合变小，重新上报。
+  await act(async () => {
+    root.render(
+      <ProjectFileTree
+        entries={entries}
+        expanded={['p-remote']}
+        onAction={() => {}}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        query=""
+        rootId={null}
+        selected={null}
+      />,
+    );
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  });
+  expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', ['/home/u/proj']);
+
+  // 卸载：取消监视，远端不留 inotify watch。
+  await act(async () => root.unmount());
+  expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', []);
+  root = createRoot(container);
+});

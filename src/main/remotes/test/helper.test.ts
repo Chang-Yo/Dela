@@ -15,6 +15,7 @@ import {
   helperRemoteDir,
   helperSession,
   tunnelArguments,
+  type WatchEvent,
 } from '../helper';
 
 const host = process.env.DELA_REMOTE_HOST;
@@ -144,6 +145,56 @@ live('helper 通道（需要 DELA_REMOTE_HOST）', () => {
     const sshMs = await average(() => listDirectory(target, dir));
     console.log(`目录清单：通道 ${channelMs.toFixed(0)}ms / ssh ${sshMs.toFixed(0)}ms`);
     expect(channelMs).toBeLessThan(sshMs);
+  }, 120_000);
+
+  it('watch：远端自己改的目录会推事件，撤销后不再推', async () => {
+    const session = await helperSession(target);
+    expect(session).not.toBeNull();
+    const dir = '/tmp/dela-watch-test';
+    await exec(target, `rm -rf ${dir} && mkdir -p ${dir}`);
+    const events: WatchEvent[] = [];
+    const controller = new AbortController();
+    const stream = session!.watchEvents((event) => events.push(event), controller.signal);
+    /** 等到出现「新」事件为止。只看新增：合并窗口会晚几百毫秒才推，之前的事件不能算数。 */
+    const waitNew = async (label: string, from: number) => {
+      for (let i = 0; i < 60 && events.length <= from; i += 1)
+        await new Promise((r) => setTimeout(r, 100));
+      expect(events.length, `${label}（收到 ${JSON.stringify(events)}）`).toBeGreaterThan(from);
+    };
+    const changedDir = (from: number) =>
+      events.slice(from).some((event) => event.type === 'change' && event.paths.includes(dir));
+
+    const { watching } = await session!.setWatch('watch-test', [dir]);
+    expect(watching).toBe(1);
+    // 关键：这条 ssh 完全不经过 Dela 的工具路径——watch 就是要覆盖它。
+    let mark = events.length;
+    await exec(target, `touch ${dir}/outside.txt`);
+    await waitNew('远端自己在被监视目录里建文件后应有 change', mark);
+    expect(changedDir(mark)).toBe(true);
+
+    // 不递归：没被监视的子目录里怎么变都不推（折叠着的目录变了也看不见，不值得为它付 watch）。
+    mark = events.length;
+    await exec(target, `mkdir -p ${dir}/sub`);
+    await waitNew('子目录被创建时应报它所在的这一层', mark);
+    expect(changedDir(mark)).toBe(true);
+
+    mark = events.length;
+    await exec(target, `touch ${dir}/sub/inside.txt`);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(events.length, `不该收到未监视子目录的事件：${JSON.stringify(events.slice(mark))}`).toBe(
+      mark,
+    );
+
+    await session!.clearWatch('watch-test');
+    mark = events.length;
+    await exec(target, `touch ${dir}/after-unwatch.txt`);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(events.length).toBe(mark);
+
+    controller.abort();
+    // 取消或 helper 退出都会让流以错误收尾：这里只关心它确实收尾了。
+    await stream.catch(() => {});
+    await exec(target, `rm -rf ${dir}`);
   }, 120_000);
 
   it('放掉通道只关本地隧道，远端 helper 交给空闲自退', async () => {

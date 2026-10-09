@@ -15,6 +15,9 @@ const trimSlash = (path: string) => path.replace(/\/+$/, '');
 /** 远端变化通知的合并窗口：一次工具调用常连写几个文件，攒一下再重读，别一文件一请求。 */
 const CHANGE_DEBOUNCE_MS = 300;
 
+/** 上报 watch 的合并窗口：展开/收起常成串发生，攒一下只报最终集合。 */
+const WATCH_DEBOUNCE_MS = 150;
+
 /** 是否落在变化目录之内（含它自己）：这些清单都要重读。 */
 const withinChange = (path: string, changed: string) =>
   path === changed || path.startsWith(`${changed}/`);
@@ -46,10 +49,13 @@ export function useRemoteTree(
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [destinations, setDestinations] = useState<Record<string, string>>({});
   const inFlight = useRef(new Set<string>());
-  /** 已缓存清单对应的远端路径：变化通知按它判断哪些清单过期。 */
-  const listed = useRef(new Map<string, string>());
+  /** 已缓存清单：远端路径供变化通知判断过期，项目 id 供上报 watch 分组。 */
+  const listed = useRef(new Map<string, { projectId: string; path: string }>());
   const changed = useRef(new Set<string>());
   const flushTimer = useRef<number | undefined>(undefined);
+  /** 已经报给主进程的监视集合（项目 id → 路径列表）：没变就不重报。 */
+  const watching = useRef(new Map<string, string>());
+  const watchTimer = useRef<number | undefined>(undefined);
   /** 项目自身的展开键与打开的项目 id 等价：项目打开时它必然展开，行本身不在树里。 */
   const isOpen = (key: string) => key === rootId || expanded.includes(key);
 
@@ -99,10 +105,12 @@ export function useRemoteTree(
   }, [hasRemote]);
 
   // 收起时清掉失败记录：再次展开重试一次，避免一次网络抖动后目录永久打不开。
-  // 同理丢掉收起目录的清单：远端没有文件监听，收起再展开就是用户手动刷新的一层。
+  // 同理丢掉收起目录的清单与它的 watch：收起再展开就是用户手动刷新的一层。
   // 依赖用内容而不是集合本身：每次渲染都是新集合，直接入依赖会让副作用每帧都跑。
   const openKey = [...openKeys].sort().join('\n');
   useEffect(() => {
+    for (const key of [...listed.current.keys()])
+      if (!openKeys.has(key)) listed.current.delete(key);
     setFailed((prev) => {
       const stale = Object.keys(prev).filter((key) => !openKeys.has(key));
       if (!stale.length) return prev;
@@ -119,8 +127,51 @@ export function useRemoteTree(
     });
   }, [openKey]);
 
-  // 远端工具写过文件或跑过 bash：丢掉受影响的清单（含变化目录自己的父目录，新条目要现出来），
-  // 缺清单的展开目录由下面那个 effect 自动重拉。远端没有文件监听，这是唯一的刷新触发。
+  // 展开的远端目录报给主进程做 watch：Dela 之外改的远端文件因此也能自己出现在树里。
+  // 合并窗口内攒着发，序列化后没变就不重报；不再展开的项目补一次空集合取消监视。
+  useEffect(() => {
+    const workspace = window.dela?.workspace;
+    if (!workspace?.watchRemoteDirectories) return;
+    // 只在没有待发窗口时起一个：这个 effect 每次渲染都会跑，反复重置会让它永远发不出去。
+    if (watchTimer.current !== undefined) return;
+    watchTimer.current = window.setTimeout(() => {
+      watchTimer.current = undefined;
+      // 集合同在窗口结束时才读：这 150ms 里有清单刚拉回来，提前读会漏掉它们。
+      const byProject = new Map<string, Set<string>>();
+      for (const { projectId, path } of listed.current.values()) {
+        const paths = byProject.get(projectId) ?? new Set<string>();
+        paths.add(path);
+        byProject.set(projectId, paths);
+      }
+      for (const projectId of watching.current.keys())
+        if (!byProject.has(projectId)) byProject.set(projectId, new Set());
+      for (const [projectId, paths] of byProject) {
+        const wanted = [...paths].sort();
+        const serialized = wanted.join('\n');
+        if (watching.current.get(projectId) === serialized) continue;
+        watching.current.set(projectId, serialized);
+        void workspace.watchRemoteDirectories(projectId, wanted).catch((error: unknown) => {
+          // 报不上去只是少了实时刷新：工具改动那条路照常，不打扰用户，但留一条线索。
+          console.warn('[workspace] 上报远端监视目录失败', error);
+          watching.current.delete(projectId);
+        });
+      }
+    }, WATCH_DEBOUNCE_MS);
+  });
+
+  // 树卸载（项目关掉、切走视图）时取消监视：远端不该继续为看不见的目录留 inotify watch。
+  useEffect(
+    () => () => {
+      const workspace = window.dela?.workspace;
+      for (const projectId of watching.current.keys())
+        void workspace?.watchRemoteDirectories(projectId, []).catch(() => {});
+      watching.current.clear();
+    },
+    [],
+  );
+
+  // 远端工具写过文件、跑过 bash，或远端自己变了（watch）：丢掉受影响的清单（含变化目录
+  // 自己的父目录，新条目要现出来），缺清单的展开目录由下面那个 effect 自动重拉。
   useEffect(() => {
     const workspace = window.dela?.workspace;
     if (!workspace?.onRemoteChange) return;
@@ -132,7 +183,7 @@ export function useRemoteTree(
         const paths = [...changed.current];
         changed.current.clear();
         const stale = new Set<string>();
-        for (const [key, listedPath] of listed.current) {
+        for (const [key, { path: listedPath }] of listed.current) {
           const parent = listedPath.slice(0, listedPath.lastIndexOf('/')) || '/';
           if (
             paths.some(
@@ -158,7 +209,7 @@ export function useRemoteTree(
     for (const node of pending) {
       if (inFlight.current.has(node.key)) continue;
       inFlight.current.add(node.key);
-      listed.current.set(node.key, node.path);
+      listed.current.set(node.key, { projectId: node.projectId, path: node.path });
       void workspace
         .listRemoteDirectory(node.projectId, node.path)
         .then(

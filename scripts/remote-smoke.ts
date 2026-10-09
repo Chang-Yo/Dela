@@ -231,7 +231,19 @@ app
       '刷新后自动出现的远端新文件',
     );
 
-    // 8. 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
+    // 8. Dela 之外改的远端文件：只走一次性 ssh（完全不经过工具），靠 helper 的 inotify
+    //    watch 推回来。每轮重 touch 一次，避免「上报监视集合」和这一次改动抢跑。
+    const outside = `${root}/outside-watch.txt`;
+    const outsideShown = `document.querySelector('[role="treeitem"][aria-label="outside-watch.txt"]') !== null`;
+    let watched = false;
+    for (let attempt = 0; attempt < 12 && !watched; attempt++) {
+      await exec(target, `touch ${outside}`);
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      watched = await evaluate(outsideShown);
+    }
+    assert.ok(watched, 'Dela 之外建的文件没有出现在目录树里（watch 没生效）');
+
+    // 9. 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
     await evaluate(`(async () => {
       window.__term = { id: crypto.randomUUID(), data: '' };
       window.dela.terminal.onEvent((event) => {
@@ -269,7 +281,7 @@ app
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify(
-        { result: 'passed', profile, root, references, terminal: true, errors },
+        { result: 'passed', profile, root, references, terminal: true, watch: true, errors },
         null,
         2,
       ),

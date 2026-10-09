@@ -91,6 +91,8 @@ export interface WorkspaceApi {
   listRemoteDirectory(projectId: string, path: string): Promise<RemoteDirectoryEntry[]>;
   /** 远端某个目录可能变了（工具写过文件或跑过 bash）；返回取消订阅。 */
   onRemoteChange(listener: (path: string) => void): () => void;
+  /** 报上当前展开的远端目录做 watch（空数组 = 取消）；回报真正被监视的目录数。 */
+  watchRemoteDirectories(projectId: string, paths: string[]): Promise<{ watching: number }>;
   /** 远程项目的 @ 候选：key 为远端绝对路径，title 为相对项目目录的路径。 */
   remoteReferences(projectId: string): Promise<{ key: string; title: string }[]>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;

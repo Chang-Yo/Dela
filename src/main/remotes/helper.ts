@@ -26,7 +26,7 @@ import {
 } from './transport';
 
 /** 必须与 helper/main.go 的 helperVersion 一致：不匹配说明远端跑的不是这一版产物。 */
-export const HELPER_VERSION = '0.1.0';
+export const HELPER_VERSION = '0.2.0';
 const PROTOCOL_VERSION = 1;
 /** 客户端每 30 秒发一次心跳，helper 连续 5 分钟收不到就退出并终止在跑的任务。 */
 const HEARTBEAT_MS = 30_000;
@@ -38,6 +38,12 @@ const TUNNEL_READY_MS = 5_000;
 const STARTUP_WAIT_MS = 20_000;
 /** exec 的客户端兜底：比 helper 自己的超时多留一点，正常都由 helper 先判定。 */
 const EXEC_GRACE_MS = 5_000;
+/** watch 流没有事件多久算「隧道半死」：正常心跳是 30 秒一次，5 分钟足够宽松。 */
+const WATCH_IDLE_MS = 300_000;
+
+/** helper 推回来的目录事件：change 是「这几层要重读」，reset 是「丢过事件，整片重读」。 */
+export type WatchEvent =
+  { type: 'change'; id: string; paths: string[] } | { type: 'reset'; id: string; reason: string };
 
 /** 远端架构 → 产物名里的 GOARCH。helper 只有 Linux 版本，其它一律降级。 */
 function helperArch(machine: string): 'amd64' | 'arm64' | null {
@@ -100,6 +106,11 @@ export interface HelperSession {
   writeFile(path: string, content: Buffer | string): Promise<void>;
   /** 目录清单（helper 的 `/v1/fs/list`）：一次 HTTP，不必为列一层付一次 ssh 握手。 */
   list(path: string, signal?: AbortSignal): Promise<RemoteDirEntry[]>;
+  /** 替换某个 id 的目录监视集合（只监视这些目录本身，不递归）。 */
+  setWatch(id: string, paths: string[]): Promise<{ watching: number; skipped: string[] }>;
+  clearWatch(id: string): Promise<void>;
+  /** 目录事件流：resolve 表示流结束（通道断/helper 退出），由调用方决定是否重连。 */
+  watchEvents(onEvent: (event: WatchEvent) => void, signal?: AbortSignal): Promise<void>;
   exec(command: string, options: HelperExecOptions): Promise<HelperExecResult>;
 }
 
@@ -325,8 +336,109 @@ function createSession(target: RemoteTarget, port: number, token: string): Helpe
       const body = JSON.parse(response.body.toString()) as { entries?: RemoteDirEntry[] };
       return body.entries ?? [];
     },
+    async setWatch(id, paths) {
+      const response = await sendRequest(port, token, 'POST', '/v1/watch', {
+        body: Buffer.from(JSON.stringify({ id, paths }), 'utf8'),
+      });
+      assertOk(response, `监视 ${paths.length} 个目录`);
+      const body = JSON.parse(response.body.toString()) as {
+        watching?: number;
+        skipped?: string[];
+      };
+      // skipped = 没挂上 watch 的目录（不存在、不是目录、inotify 额度满）：调用方要知道。
+      return { watching: body.watching ?? 0, skipped: body.skipped ?? [] };
+    },
+    async clearWatch(id) {
+      const response = await sendRequest(
+        port,
+        token,
+        'DELETE',
+        `/v1/watch?id=${encodeURIComponent(id)}`,
+      );
+      assertOk(response, `取消监视 ${id}`);
+    },
+    watchEvents: (onEvent, signal) => runWatch(port, token, onEvent, signal),
     exec: (command, options) => runExec(port, token, command, options),
   };
+}
+
+/** 一次读一行 SSE 的公共骨架：`data: <json>\n\n` 分帧，其它字段忽略。 */
+function readSse(response: import('node:http').IncomingMessage, onJson: (value: unknown) => void) {
+  let buffer = '';
+  response.on('data', (chunk: Buffer) => {
+    buffer += chunk.toString('utf8');
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() ?? '';
+    for (const frame of frames) {
+      const line = frame.split('\n').find((item) => item.startsWith('data: '));
+      if (!line) continue;
+      try {
+        onJson(JSON.parse(line.slice(6)));
+      } catch {
+        /* 半截 JSON 只可能是分帧异常，丢掉这一帧不影响后续。 */
+      }
+    }
+  });
+}
+
+/**
+ * 目录事件流：一直挂着，直到通道断、helper 退出或被调用方取消。
+ * 这里不设客户端超时（它本来就该长挂），但设一个静默看门狗：隧道半死时不会永远等下去。
+ */
+function runWatch(
+  port: number,
+  token: string,
+  onEvent: (event: WatchEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let watchdog: NodeJS.Timeout | undefined;
+    const settle = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      signal?.removeEventListener('abort', onAbort);
+      if (error && !signal?.aborted) reject(error);
+      else resolve();
+    };
+    const request = httpRequest(
+      {
+        host: '127.0.0.1',
+        port,
+        method: 'GET',
+        path: '/v1/watch',
+        headers: { Authorization: `Bearer ${token}` },
+      },
+      (response) => {
+        if ((response.statusCode ?? 0) !== 200) {
+          const chunks: Buffer[] = [];
+          response.on('data', (chunk: Buffer) => chunks.push(chunk));
+          response.on('end', () =>
+            settle(new Error(`watch 失败：${chunks.join('').toString().trim().slice(0, 300)}`)),
+          );
+          return;
+        }
+        const arm = () => {
+          clearTimeout(watchdog);
+          watchdog = setTimeout(() => request.destroy(new Error('watch 静默超时')), WATCH_IDLE_MS);
+        };
+        arm();
+        response.on('data', () => arm());
+        readSse(response, (value) => onEvent(value as WatchEvent));
+        response.on('end', () => settle());
+        response.on('error', (error) => settle(error));
+        response.on('close', () => settle(new Error('watch 连接中断')));
+      },
+    );
+    const onAbort = () => {
+      request.destroy();
+      settle();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    request.on('error', (error) => settle(error));
+    request.end();
+  });
 }
 
 /** 流式执行：SSE 四类事件，data 一律 base64；退出状态由 exit 事件给定。 */

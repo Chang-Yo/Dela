@@ -13,6 +13,7 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
 import { closeHelper, helperSession, type HelperSession } from './helper';
 import { notifyRemoteChange } from './events';
+import { syncRemoteWatch } from './watch';
 import {
   exec,
   listDirectory,
@@ -34,6 +35,8 @@ async function withHelper<T>(
   try {
     const session = await helperSession(target);
     if (!session) return await fallback();
+    // 通道刚给了这个目标：顺带让 watch 也服务它（全局只有一条通道，同时只能盯一个目标）。
+    syncRemoteWatch(target);
     return await work(session);
   } catch (error) {
     console.warn('[remotes] helper 通道调用失败，退回一次性 ssh', error);
