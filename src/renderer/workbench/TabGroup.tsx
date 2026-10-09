@@ -48,7 +48,13 @@ const dropPreviewClass: Record<EdgeZone | 'center', string> = {
   center: 'top-0 left-0 h-full w-full',
 };
 
-export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) {
+export const TabGroup = memo(function TabGroup({
+  group,
+  onNewChat,
+}: {
+  group: GroupNode;
+  onNewChat: () => void;
+}) {
   // 订阅派生布尔而非 focus/maximized 原值：只有本组的未聚焦态翻转时才重渲（评审 1）。
   const unfocused = useWorkbenchLayout((s) => s.maximized === null && s.focus !== group.id);
   const focusGroup = useWorkbenchLayout((s) => s.focusGroup);
@@ -157,7 +163,7 @@ export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) 
             </ErrorBoundary>
           </div>
         ) : (
-          <EmptyState />
+          <EmptyState onNewChat={onNewChat} />
         )}
         {/* 预览覆盖正文、不染组背景；半屏与实际二等分结果一致。
             复用现有明暗主题蓝色 token，15% 不透明度保持正文可读。 */}

@@ -45,6 +45,12 @@ function tabDocumentKey(tabId: TabId | null): string | null {
   return null;
 }
 
+/** 空组空态的「新建对话」：与侧栏同一入口，按当前池落位（项目内落焦点组，通用池分屏）。
+ *  模块级函数引用稳定，不破坏 SplitNode/TabGroup 的 memo 比较。 */
+function newChatInCurrentPool() {
+  void useNavigationStore.getState().newChat(useWorkbenchLayout.getState().projectId);
+}
+
 export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
   const reveal = useNavigationStore((s) => s.reveal);
@@ -421,7 +427,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
                     }}
                     projectId={projectId}
                   />
-                  <Workbench bindings={bindings} />
+                  <Workbench bindings={bindings} onNewChat={newChatInCurrentPool} />
                 </>
               )}
             </div>

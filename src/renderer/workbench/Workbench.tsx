@@ -9,8 +9,14 @@ import { findGroup, walkGroups } from './layout-schema';
 import { SplitNodeView } from './SplitNode';
 import { TabGroup } from './TabGroup';
 
-/** 键位表由装配层传入（workbench 不反向依赖 app 的快捷键 store）。 */
-export function Workbench({ bindings }: { bindings: KeybindingMap }) {
+/** 键位表与「新建对话」由装配层传入（workbench 不反向依赖 app 的 store）。 */
+export function Workbench({
+  bindings,
+  onNewChat,
+}: {
+  bindings: KeybindingMap;
+  onNewChat: () => void;
+}) {
   const ready = useWorkbenchLayout((s) => s.ready);
   const root = useWorkbenchLayout((s) => s.root);
   const maximized = useWorkbenchLayout((s) => s.maximized);
@@ -63,9 +69,9 @@ export function Workbench({ bindings }: { bindings: KeybindingMap }) {
 
   const maximizedGroup = maximized ? findGroup(root, maximized) : null;
   const content = maximizedGroup ? (
-    <TabGroup group={maximizedGroup} />
+    <TabGroup group={maximizedGroup} onNewChat={onNewChat} />
   ) : (
-    <SplitNodeView node={root} path={[]} />
+    <SplitNodeView node={root} path={[]} onNewChat={onNewChat} />
   );
 
   return (

@@ -15,6 +15,8 @@ const GROUP_MIN_HEIGHT = 64;
 interface SplitNodeProps {
   node: LayoutNode;
   path?: number[];
+  /** 空组空态的「新建对话」（装配层注入，透传到叶子 TabGroup）。 */
+  onNewChat: () => void;
 }
 
 /** memo 比较：node 按引用、path 逐位相等（递归处每次展开新数组，默认浅比较必失效）。
@@ -23,12 +25,17 @@ interface SplitNodeProps {
 function areSplitNodePropsEqual(prev: SplitNodeProps, next: SplitNodeProps): boolean {
   return (
     prev.node === next.node &&
+    prev.onNewChat === next.onNewChat &&
     prev.path?.length === next.path?.length &&
     (prev.path ?? []).every((value, index) => value === next.path?.[index])
   );
 }
 
-export const SplitNodeView = memo(function SplitNodeView({ node, path = [] }: SplitNodeProps) {
+export const SplitNodeView = memo(function SplitNodeView({
+  node,
+  path = [],
+  onNewChat,
+}: SplitNodeProps) {
   const setRatio = useWorkbenchLayout((s) => s.setRatio);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimension, setDimension] = useState(0);
@@ -48,7 +55,7 @@ export const SplitNodeView = memo(function SplitNodeView({ node, path = [] }: Sp
     return () => observer.disconnect();
   }, [vertical]);
 
-  if (node.type === 'group') return <TabGroup group={node} />;
+  if (node.type === 'group') return <TabGroup group={node} onNewChat={onNewChat} />;
   const minimum = Math.min(
     vertical ? GROUP_MIN_WIDTH : GROUP_MIN_HEIGHT,
     Math.max(1, dimension / 2),
@@ -69,7 +76,7 @@ export const SplitNodeView = memo(function SplitNodeView({ node, path = [] }: Sp
         className="flex min-h-0 min-w-0 flex-col overflow-hidden"
         style={{ flex: `${ratio} 1 0%` }}
       >
-        <SplitNodeView node={node.children[0]!} path={[...path, 0]} />
+        <SplitNodeView node={node.children[0]!} path={[...path, 0]} onNewChat={onNewChat} />
       </div>
       <Resizer
         label="调整分屏比例"
@@ -93,7 +100,7 @@ export const SplitNodeView = memo(function SplitNodeView({ node, path = [] }: Sp
           className="flex min-h-0 min-w-0 flex-col overflow-hidden"
           style={{ flex: `${(1 - ratio) / (node.children.length - 1)} 1 0%` }}
         >
-          <SplitNodeView node={child} path={[...path, index + 1]} />
+          <SplitNodeView node={child} path={[...path, index + 1]} onNewChat={onNewChat} />
         </div>
       ))}
     </div>
