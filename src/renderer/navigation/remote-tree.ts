@@ -239,6 +239,8 @@ export function useRemoteTree(
           name: child.name,
           container: child.directory,
           readOnly: true,
+          // 远端目录接收本地文件拖放（上传）；内部移动仍被 readOnly 拦住。
+          importable: child.directory,
           marker: Cloud,
           title: remoteTitle(destination, child.path),
         });

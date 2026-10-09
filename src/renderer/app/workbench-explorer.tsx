@@ -21,6 +21,7 @@ import {
   Search,
 } from 'lucide-react';
 import { workspaceArchiveId } from '../../shared/api';
+import { parseRemoteNodeId } from '../../shared/remotes';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Resizer } from '../components/ui/resizer';
@@ -41,6 +42,7 @@ import {
   isDescendant,
   moveEntry,
   promoteEntry,
+  runEntryWork,
 } from '../workspace/entry-actions';
 import { useWorkspaceStore } from '../workspace/store';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
@@ -128,7 +130,11 @@ export function WorkbenchExplorer({
 
   const selectEntry = (id: string) => {
     const item = entries.find((entry) => entry.id === id);
-    if (!item) return;
+    if (!item) {
+      // 远端条目不在 entries 里：文件直接开只读预览（读取按「项目 id + 远端路径」走远端通道）。
+      if (parseRemoteNodeId(id)) onOpenDocument(id);
+      return;
+    }
     if (item.kind === 'project') {
       void useAppNavigation.getState().openProject(id);
       useExplorerState.getState().setMobileOpen(false);
@@ -153,6 +159,26 @@ export function WorkbenchExplorer({
     importDroppedFiles(files, targetId, rootId, (target) => {
       if (target) expand(target, true);
     });
+  // 拖放落到远端目录 = 上传到远端（走 helper 写字节），落到本地就是原来的导入。
+  const importDroppedAnywhere = (files: File[], targetId: string | null) => {
+    const remote = targetId ? parseRemoteNodeId(targetId) : null;
+    if (!remote) return importDropped(files, targetId);
+    expand(targetId!, true);
+    return void runEntryWork(async () => {
+      await window.dela!.workspace.uploadRemoteFiles(remote.projectId, remote.path, files);
+    });
+  };
+  // 远端动作的失败与本地条目动作同一个出口（workspace store 的错误条）。
+  const remoteAction = (action: 'download' | 'open' | 'upload', id: string) => {
+    const remote = parseRemoteNodeId(id);
+    if (!remote) return;
+    void runEntryWork(async () => {
+      const workspace = window.dela!.workspace;
+      if (action === 'download') await workspace.downloadRemoteFile(remote.projectId, remote.path);
+      else if (action === 'open') await workspace.openRemoteFile(remote.projectId, remote.path);
+      else await workspace.uploadRemoteFiles(remote.projectId, remote.path, null);
+    });
+  };
   // 归档/升级为项目/导入不弹窗，直连 entry-actions（旧 ProjectView.action 的拦截语义）；
   // 展开归档区、打开项目等后续 UI 也只有在这层接线才拿得到。
   const treeAction = (action: EntryAction, id: string | null) => {
@@ -430,9 +456,10 @@ export function WorkbenchExplorer({
                 expanded={expanded}
                 onAction={treeAction}
                 onExpand={expand}
-                onImportFiles={rootId && !remoteRoot ? importDropped : undefined}
+                onImportFiles={rootId ? importDroppedAnywhere : undefined}
                 onMove={remoteRoot ? undefined : move}
                 onOpenToSide={openToSide}
+                onRemoteAction={remoteAction}
                 onSelect={selectEntry}
                 query={query}
                 rootId={rootId}

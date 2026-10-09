@@ -45,6 +45,32 @@ export function remoteNodeId(projectId: string, path: string): string {
   return `${projectId}:${path}`;
 }
 
+/** 是否在远端项目根目录内（渲染端构造地址时用；主进程会再校验一次）。 */
+export function withinRemotePath(root: string, path: string): boolean {
+  return path === root || path.startsWith(root === '/' ? '/' : `${root}/`);
+}
+
+/** 远端 Markdown 里的相对图片：按 Markdown 所在目录解析成可取字节的地址（dela-resource://remote-raw）。
+ *  越界的相对路径与绝对地址原样返回，由渲染端按加载失败处理。 */
+export function remoteAssetUrl(
+  projectId: string,
+  root: string,
+  fromPath: string,
+  src: string,
+): string {
+  // 带协议的地址、协议相对地址与页内锚点都不是「远端相对文件」，原样交回。
+  if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('//') || src.startsWith('#')) return src;
+  const segments = fromPath.slice(0, fromPath.lastIndexOf('/')).split('/');
+  for (const part of src.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') segments.pop();
+    else segments.push(part);
+  }
+  const target = segments.join('/') || '/';
+  if (!withinRemotePath(root, target)) return src;
+  return `dela-resource://remote-raw/${encodeURIComponent(projectId)}?path=${encodeURIComponent(target)}`;
+}
+
 /** 条目 id 是否带项目身份（项目 id 是 UUID，与本地磁盘路径的盘符冒号不会混淆）。 */
 const remoteNodeIdPattern =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(\/.+)$/i;

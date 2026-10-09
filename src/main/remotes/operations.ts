@@ -58,6 +58,45 @@ export async function listRemoteDirectory(
   );
 }
 
+/** 远端文件的一条 stat。目录清单里本来就有 size/mtime，不必为它再开一条通道。 */
+export async function statRemoteFile(target: RemoteTarget, path: string): Promise<RemoteDirEntry> {
+  const cut = path.lastIndexOf('/');
+  const entries = await listRemoteDirectory(target, cut <= 0 ? '/' : path.slice(0, cut));
+  const entry = entries.find((item) => item.name === path.slice(cut + 1));
+  if (!entry) throw new Error(`远端文件不存在：${path}`);
+  if (entry.directory) throw new Error(`这是目录，不是文件：${path}`);
+  return entry;
+}
+
+/** 片段读取：预览用。helper 通道直接带 offset/length；没有通道时退回整文件读取再切片
+ *  （降级路径，只在 helper 不可用时兜底，大文件这一路会整篇进内存）。 */
+export async function readRemoteRange(
+  target: RemoteTarget,
+  path: string,
+  offset: number,
+  length: number,
+): Promise<Buffer> {
+  return withHelper(
+    target,
+    (session) => session.readFileRange(path, offset, length),
+    async () => (await readFile(target, path)).subarray(offset, offset + length),
+  );
+}
+
+/** 整文件写入：helper 通道一次 PUT（服务端同目录临时文件 + rename，失败不留半个文件），
+ *  没有通道时退回一次性 ssh。上传二进制走这里。 */
+export async function writeRemoteFile(
+  target: RemoteTarget,
+  path: string,
+  content: Buffer,
+): Promise<void> {
+  return withHelper(
+    target,
+    (session) => session.writeFile(path, content),
+    () => writeFile(target, path, content),
+  );
+}
+
 /**
  * 上下文镜像路由：镜像里的路径要先翻译回远端路径，再做常规归一化。
  *

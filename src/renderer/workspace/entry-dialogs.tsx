@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
+import { parseRemoteNodeId } from '../../shared/remotes';
 import { useNoteDrafts } from './drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
@@ -50,6 +51,9 @@ const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
 /** 标签页与目录共用的条目标题解析（旧 ProjectView.title）。 */
 export function titleOf(key: string): string {
   const { workspace, canvas } = useWorkspaceStore.getState();
+  // 远端预览标签的 key 是「项目 id + 远端绝对路径」，条目树里没有它，标题取文件名。
+  const remote = parseRemoteNodeId(key);
+  if (remote) return remote.path.slice(remote.path.lastIndexOf('/') + 1);
   return (
     workspace.entries.find((e) => e.id === key)?.name ??
     canvas.items.find((i) => `source:${i.sourceId}` === key)?.name ??

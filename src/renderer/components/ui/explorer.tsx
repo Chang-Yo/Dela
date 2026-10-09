@@ -24,8 +24,10 @@ export interface ExplorerItem {
   marker?: ComponentType<{ className?: string; strokeWidth?: number }>;
   /** 行提示（默认条目名）；远端条目用它显示「目的地:路径」。 */
   title?: string;
-  /** 只读条目：可展开可选中，但不参与拖拽与拖放落点（远端项目本轮只做浏览）。 */
+  /** 只读条目：可展开可选中，但不参与拖拽与拖放落点（远端条目只做浏览）。 */
   readOnly?: boolean;
+  /** 只读但仍接收外部文件拖放（远端目录：本地文件上传到远端，内部移动照旧被 readOnly 拦住）。 */
+  importable?: boolean;
 }
 
 export const explorerDragType = 'application/x-dela-entry';
@@ -172,13 +174,22 @@ export function Explorer({
     (!canDrop || canDrop(drag, target));
   // 拖拽悬停叶子行时，落点解析到所属目录（VS Code 式：整块目录区域都是落点）；
   // 内部拖拽中所属目录不可落（如拖动目录本身悬停在其子项上）则返回 null。
+  // 文件拖放（drag === null）额外允许「只读但可接收文件」的落点：远端目录能上传，但不接受内部移动。
   const anchorBranch = (item: ExplorerItem, drag: string | null): string | null =>
     item.parentId !== null &&
-    !items.some((candidate) => candidate.id === item.parentId && candidate.readOnly) &&
+    !items.some(
+      (candidate) =>
+        candidate.id === item.parentId &&
+        candidate.readOnly &&
+        !(drag === null && candidate.importable),
+    ) &&
     (drag === null || droppable(drag, item.parentId))
       ? item.parentId
       : null;
   const isFileDrag = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+  /** 文件拖放的落点：目录行本身（可接收文件的只读远端目录也算），否则落到所属目录。 */
+  const fileDropTarget = (item: ExplorerItem, branch: boolean): string | null =>
+    branch && (!item.readOnly || item.importable) ? item.id : anchorBranch(item, null);
   const dragProps =
     onMove || onImportFiles
       ? (item: ExplorerItem, branch: boolean) => ({
@@ -197,7 +208,7 @@ export function Explorer({
           },
           onDragOver: (event: DragEvent) => {
             if (onImportFiles && isFileDrag(event)) {
-              const target = branch && !item.readOnly ? item.id : anchorBranch(item, null);
+              const target = fileDropTarget(item, branch);
               if (target === null) {
                 if (externalDropTarget !== null) setExternalDropTarget(null);
                 return;
@@ -223,7 +234,7 @@ export function Explorer({
           },
           onDrop: (event: DragEvent) => {
             if (onImportFiles && isFileDrag(event)) {
-              const target = branch && !item.readOnly ? item.id : anchorBranch(item, null);
+              const target = fileDropTarget(item, branch);
               // 顶层叶子行不接收，交给树根落点。
               if (target === null) return;
               event.preventDefault();

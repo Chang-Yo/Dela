@@ -187,7 +187,7 @@ app
     assert.ok(entry.remoteId, `远程项目的 remoteId 没有传到渲染端：${JSON.stringify(entry)}`);
     assert.equal(entry.path, root);
 
-    // 5. 目录树：一层远端清单 → 云朵提示带目的地 → 点目录再懒加载一层 → 点文件只给只读提示。
+    // 5. 目录树：一层远端清单 → 云朵提示带目的地 → 点目录再懒加载一层 → 点文件开只读预览。
     const title = await evaluate(
       `document.querySelector('[role="treeitem"][aria-label="a b.txt"]').querySelector('[title]').getAttribute('title')`,
     );
@@ -203,15 +203,44 @@ app
       '目录树的清单没有走 helper 通道：列一层不该再起一条 ssh',
     );
     await evaluate(`document.querySelector('[role="treeitem"][aria-label="a b.txt"]').click()`);
+    // 预览内容就是远端那份文件：内容片段由 helper 读回，标签页标题取文件名。
     await wait(
-      `document.querySelector('[role="status"]')?.textContent === '远程文件的打开与预览在下一阶段'`,
-      '远程文件的只读提示',
+      `document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.includes('a b.txt')`,
+      '远端文件预览标签',
+    );
+    await wait(
+      `document.querySelector('section[aria-label="文档：a b.txt"]')?.textContent.includes('hello')`,
+      '预览里的远端文件内容',
     );
     assert.equal(
       await evaluate(`document.querySelectorAll('[role="tab"]').length`),
-      tabsBefore,
-      '点远端文件不应该新增标签',
+      tabsBefore + 1,
+      '点远端文件应该新增一个预览标签',
     );
+
+    // 5b. 远端条目的操作菜单：文件给「下载到本地 / 用系统默认程序打开」，目录给「上传本地文件」，
+    //     本地的重命名/移动/移除一个都不给（那些动作在远端子条目上只会失败）。
+    //     Radix 的菜单在 pointerdown 上开，不是 click。
+    const menuItems = `[...document.querySelectorAll('[role="menuitem"]')].map(i => i.textContent.trim()).join('|')`;
+    const openMenu = (label: string) =>
+      evaluate(`(() => {
+        const el = document.querySelector('[aria-label=${JSON.stringify(`${label} 的操作`)}]');
+        const init = { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse' };
+        el.dispatchEvent(new PointerEvent('pointerdown', init));
+        el.dispatchEvent(new PointerEvent('pointerup', init));
+      })()`);
+    const closeMenu = `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`;
+    await openMenu('a b.txt');
+    await wait(`${menuItems}.includes('下载到本地')`, '远端文件的下载入口');
+    const fileMenu = await evaluate(menuItems);
+    assert.ok(fileMenu.includes('用系统默认程序打开'), `远端文件菜单缺少打开入口：${fileMenu}`);
+    assert.ok(!fileMenu.includes('重命名'), `远端文件菜单不该出现本地动作：${fileMenu}`);
+    await evaluate(closeMenu);
+    await openMenu('sub');
+    await wait(`${menuItems}.includes('上传本地文件')`, '远端目录的上传入口');
+    const dirMenu = await evaluate(menuItems);
+    assert.ok(!dirMenu.includes('新建文件夹'), `远端目录菜单不该出现本地动作：${dirMenu}`);
+    await evaluate(closeMenu);
 
     // 6. @ 候选数据：走真实 preload 与主进程，远端索引返回相对路径。
     const references = await evaluate(
@@ -281,7 +310,16 @@ app
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify(
-        { result: 'passed', profile, root, references, terminal: true, watch: true, errors },
+        {
+          result: 'passed',
+          profile,
+          root,
+          references,
+          terminal: true,
+          watch: true,
+          preview: true,
+          errors,
+        },
         null,
         2,
       ),

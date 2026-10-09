@@ -103,6 +103,13 @@ export interface HelperSession {
   /** 隧道本地端口，仅用于诊断展示。 */
   port: number;
   readFile(path: string, signal?: AbortSignal): Promise<Buffer>;
+  /** 片段读取（预览大文件用）：只把请求的那一段拉回本地，不整篇进内存。 */
+  readFileRange(
+    path: string,
+    offset: number,
+    length: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer>;
   writeFile(path: string, content: Buffer | string): Promise<void>;
   /** 目录清单（helper 的 `/v1/fs/list`）：一次 HTTP，不必为列一层付一次 ssh 握手。 */
   list(path: string, signal?: AbortSignal): Promise<RemoteDirEntry[]>;
@@ -312,6 +319,12 @@ function createSession(target: RemoteTarget, port: number, token: string): Helpe
         `/v1/fs/read?path=${encodeURIComponent(path)}`,
         { signal },
       );
+      assertOk(response, `读取 ${path}`);
+      return response.body;
+    },
+    async readFileRange(path, offset, length, signal) {
+      const query = `path=${encodeURIComponent(path)}&offset=${offset}&length=${length}`;
+      const response = await sendRequest(port, token, 'GET', `/v1/fs/read?${query}`, { signal });
       assertOk(response, `读取 ${path}`);
       return response.body;
     },

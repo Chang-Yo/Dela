@@ -42,6 +42,7 @@ import { workspaceArchiveId } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../../shared/workspace';
 import { textFileExtensions } from '../../shared/chat-input';
+import { documentFormatOf } from '../../shared/documents';
 import { isRelativeAssetPath, matchMarkdownImageRefs } from '../../shared/note-files';
 import type {
   DocumentContent,
@@ -786,18 +787,9 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   }
   if (item.kind === 'local' || item.kind === 'imported') {
     const path = entryLocalPath(item);
-    const ext = extname(path).toLowerCase();
-    const office = officeFormats[ext];
-    const format =
-      ext === '.pdf'
-        ? 'pdf'
-        : ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)
-          ? 'image'
-          : markdownExtensions.includes(ext)
-            ? 'markdown'
-            : textExtensions.has(ext)
-              ? 'text'
-              : (office ?? 'unsupported');
+    // 格式判定与远端文件共用（shared/documents）：远端没有宿主 extname，两边保持同一套规则。
+    const format = documentFormatOf(path);
+    const office = officeFormats[extname(path).toLowerCase()];
     if (format === 'unsupported') return { title: item.name, format };
     const stats = statSync(path);
     const version = `${stats.mtimeMs}-${stats.size}`;
@@ -829,7 +821,10 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
       text: format === 'text' || format === 'markdown' ? bytes.toString('utf8') : undefined,
       revision: format === 'text' || format === 'markdown' ? hash(bytes.toString('utf8')) : version,
       bytes: format === 'text' ? undefined : new Uint8Array(bytes),
-      mime: format === 'image' ? `image/${ext === '.jpg' ? 'jpeg' : ext.slice(1)}` : undefined,
+      mime:
+        format === 'image'
+          ? `image/${extname(path).toLowerCase() === '.jpg' ? 'jpeg' : extname(path).slice(1)}`
+          : undefined,
     };
   }
   throw new Error('请选择要打开的文档');

@@ -27,6 +27,9 @@ import {
   withinRemoteRoot,
 } from '../remotes/api';
 import { listRemoteDirectory } from '../remotes/operations';
+import { readRemoteDocument } from '../remotes/documents';
+import { downloadRemoteFile, openRemoteFile, uploadLocalFile } from '../remotes/transfer';
+import { notifyRemoteChange } from '../remotes/events';
 import { watchRemoteProject } from '../remotes/watch';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell, type WebContents } from 'electron';
@@ -36,7 +39,7 @@ import { storageDirectory as directory } from '../storage';
 import type { WorkspaceCreateInput } from '../../shared/api';
 import { workspaceEntryIdSchema } from '../../shared/workspace';
 import { watch, type FSWatcher } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 const watchers = new Map<string, FSWatcher>();
 const subscribers = new Set<WebContents>();
@@ -196,6 +199,72 @@ export function registerWorkspaceIpc(
           ? left.name.localeCompare(right.name)
           : Number(right.directory) - Number(left.directory),
       );
+  });
+  // 远端文件预览：主进程只回 DocumentContent（文本给片段、PDF/Office 给 dela-resource://remote 地址），
+  // 渲染端因此和本地条目走同一个预览标签。
+  handle('read-remote-document', async (projectId, path) => {
+    const location = projectLocation(projectId);
+    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
+    const wanted = z.string().min(1).max(4096).parse(path);
+    if (!withinRemoteRoot(location.path, wanted)) throw new Error('只能读取远程项目目录之内的文件');
+    return readRemoteDocument(
+      workspaceEntryIdSchema.parse(projectId),
+      targetOf(remoteById(location.remoteId)),
+      wanted,
+    );
+  });
+  // 远端文件传输：下载到本地（保存对话框 + 分块拉）、上传本地文件到远端目录、
+  // 用系统默认程序打开（下载到临时目录，退出时清理）。三个通道都先把路径限制在项目根内。
+  const remoteTargetOf = (projectId: unknown) => {
+    const location = projectLocation(projectId);
+    if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
+    return {
+      target: targetOf(remoteById(location.remoteId)),
+      // 根目录去掉尾斜杠：归属判断与前缀拼接都按它做。
+      root: location.path.replace(/\/+$/, '') || '/',
+    };
+  };
+  const remotePathIn = (root: string, value: unknown) => {
+    const path = z.string().min(1).max(4096).parse(value);
+    if (!withinRemoteRoot(root, path)) throw new Error('只能操作远程项目目录之内的路径');
+    return path;
+  };
+  handle('download-remote-file', async (projectId, path) => {
+    const { target, root } = remoteTargetOf(projectId);
+    const wanted = remotePathIn(root, path);
+    const result = await dialog.showSaveDialog({
+      title: '下载到本地',
+      defaultPath: basename(wanted),
+    });
+    if (result.canceled || !result.filePath) return null;
+    await downloadRemoteFile(target, wanted, result.filePath);
+    // 下完直接定位到文件：应用里没有 toast 子系统，这就是「下载成功」的反馈。
+    shell.showItemInFolder(result.filePath);
+    return result.filePath;
+  });
+  handle('open-remote-file', async (projectId, path) => {
+    const { target, root } = remoteTargetOf(projectId);
+    await openRemoteFile(target, remotePathIn(root, path));
+  });
+  handle('upload-remote-files', async (projectId, directory, paths) => {
+    const { target, root } = remoteTargetOf(projectId);
+    const wanted = remotePathIn(root, directory).replace(/\/+$/, '') || '/';
+    // paths 为 null 即「选文件上传」：对话框拿到路径后与拖放的路径走同一条写入。
+    // 空数组是「拖进来的东西没有本地路径」，直接当作没上传，不去弹框。
+    const chosen = paths
+      ? z.array(z.string().min(1).max(32_767)).max(100).parse(paths)
+      : (
+          await dialog.showOpenDialog({
+            title: '上传到远端',
+            properties: ['openFile', 'multiSelections'],
+          })
+        ).filePaths;
+    if (!chosen.length) return [];
+    const written: string[] = [];
+    for (const local of chosen) written.push(await uploadLocalFile(target, local, wanted));
+    // 远端的 watch 也会推变化，这里先报一次：上传完的文件不用等推。
+    notifyRemoteChange(wanted);
+    return written;
   });
   // 远端目录 watch：渲染端报「当前展开的目录」，helper 侧的变化推回来后走同一条
   // workspace:remote-change，所以 Dela 之外改的远端文件也能自己出现在树里。

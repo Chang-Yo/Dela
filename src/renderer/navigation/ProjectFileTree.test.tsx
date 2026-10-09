@@ -99,12 +99,10 @@ it('loads one remote level when the project is expanded and browses without open
     'user@10.0.0.5:/home/u/proj/README.md',
   );
 
-  // 远程文件不打开：给出口提示，不回调 onSelect。
+  // 远程文件点击 = 打开只读预览：回调 onSelect（渲染端没有本地条目标识）。
   await act(async () => row('README.md').click());
-  expect(onSelect).not.toHaveBeenCalled();
-  expect(document.querySelector('[role="status"]')?.textContent).toBe(
-    '远程文件的打开与预览在下一阶段',
-  );
+  expect(onSelect).toHaveBeenCalledWith('p-remote:/home/u/proj/README.md');
+  expect(document.querySelector('[role="status"]')).toBeNull();
 
   // 远程目录点击 = 展开（第二层在展开后才拉取）；展开键带项目身份。
   await act(async () => row('src').click());

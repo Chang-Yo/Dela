@@ -89,6 +89,14 @@ export interface WorkspaceApi {
   importRemoteProject(remoteId: string, path: string): Promise<WorkspaceEntry>;
   /** 远程目录的一层内容（懒加载，展开时才拉）。 */
   listRemoteDirectory(projectId: string, path: string): Promise<RemoteDirectoryEntry[]>;
+  /** 远端文件的只读预览内容：文本给片段，PDF/Office 给按需分块的地址。 */
+  readRemoteDocument(projectId: string, path: string): Promise<DocumentContent>;
+  /** 下载远端文件到本地：弹保存对话框，取消返回 null。 */
+  downloadRemoteFile(projectId: string, path: string): Promise<string | null>;
+  /** 用系统默认程序打开远端文件（下载到临时目录后交给 shell）。 */
+  openRemoteFile(projectId: string, path: string): Promise<void>;
+  /** 上传本地文件到远端目录；files 为 null 时弹选择框。返回写好的远端路径。 */
+  uploadRemoteFiles(projectId: string, directory: string, files: File[] | null): Promise<string[]>;
   /** 远端某个目录可能变了（工具写过文件或跑过 bash）；返回取消订阅。 */
   onRemoteChange(listener: (path: string) => void): () => void;
   /** 报上当前展开的远端目录做 watch（空数组 = 取消）；回报真正被监视的目录数。 */

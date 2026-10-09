@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
+import { parseRemoteNodeId, remoteAssetUrl } from '../../shared/remotes';
 import type { ResourceRef } from '../../shared/resources';
 // Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/milkdown/
 // highlight.js），静态引入会让 registry 的懒加载分包失效。
@@ -338,6 +339,21 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       if ('sourceId' in target) sourceId = target.sourceId;
       else {
         entryId = target.entryId;
+        // 远端文件不在条目树里：读取走远端只读通道（远端内容变了不自动重读，需要时重开标签）。
+        const remote = parseRemoteNodeId(entryId);
+        if (remote) {
+          const root = entries.find((e) => e.id === remote.projectId)?.path ?? '/';
+          const content = await dela.workspace.readRemoteDocument(remote.projectId, remote.path);
+          return {
+            content,
+            watchesDisk: false,
+            // Markdown 里的相对图片同样从远端取（越界路径由主进程拒绝，这里保持原样）。
+            resolveImage: (src) =>
+              isRelativeAssetPath(src)
+                ? remoteAssetUrl(remote.projectId, root, remote.path, src)
+                : src,
+          };
+        }
         entry = entries.find((e) => e.id === entryId);
         sourceId = entry?.sourceId ?? null;
       }

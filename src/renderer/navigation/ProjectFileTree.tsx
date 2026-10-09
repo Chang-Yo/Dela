@@ -1,12 +1,13 @@
 // 项目文件树：
 // 筛选/折叠/拖放移动/文件导入入口经 props 注入，条目动作回调交给接线方。
-// 远程项目的子目录在这里懒加载（见 ./remote-tree），远端条目只读：可展开可选中，
-// 但不发起打开文档与拖放写入。
-import { useState } from 'react';
+// 远程项目的子目录在这里懒加载（见 ./remote-tree），远端条目只读：目录可展开，文件开只读预览，
+// 但不参与拖放写入。
 import {
   Archive,
   Cloud,
+  Download,
   Ellipsis,
+  ExternalLink,
   FilePlus2,
   FolderPlus,
   FolderKanban,
@@ -15,6 +16,7 @@ import {
   FolderInput,
   FileInput,
   PanelRightOpen,
+  Upload,
 } from 'lucide-react';
 import type { WorkspaceEntry } from '../../shared/api';
 import { Explorer, type ExplorerItem } from '../components/ui/explorer';
@@ -42,6 +44,7 @@ export function ProjectFileTree({
   canDrop,
   onImportFiles,
   onOpenToSide,
+  onRemoteAction,
   query,
   excludeIds = [],
   archived = false,
@@ -57,6 +60,8 @@ export function ProjectFileTree({
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
   onOpenToSide?: (id: string) => void;
+  /** 远端条目的动作：文件可下载/用系统程序打开，目录可上传本地文件。 */
+  onRemoteAction?: (action: 'download' | 'open' | 'upload', id: string) => void;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
@@ -78,7 +83,6 @@ export function ProjectFileTree({
     expanded,
     rootId,
   );
-  const [notice, setNotice] = useState<string | null>(null);
   const nodes: ExplorerItem[] = visible.map((e) => ({
     id: e.id,
     parentId: e.parentId === rootId ? null : e.parentId,
@@ -114,30 +118,60 @@ export function ProjectFileTree({
   }
   const remoteIds = new Set(remote.items.map((item) => item.id));
   const remoteDirs = new Set(remote.items.filter((item) => item.container).map((item) => item.id));
-  /** 远端条目只做浏览：目录点击展开/收起，文件给出口提示，不发起 openDocument。 */
+  /** 远端条目：目录点击展开/收起，文件走只读预览（读取在接线方）。 */
   const selectNode = (id: string) => {
     if (remoteDirs.has(id)) {
-      setNotice(null);
       onExpand(id, !expanded.includes(id));
       return;
     }
-    if (remoteIds.has(id)) {
-      setNotice('远程文件的打开与预览在下一阶段');
-      return;
-    }
-    setNotice(null);
     onSelect(id);
   };
+  // 失败出口与本地条目动作一致：接线方用 runEntryWork 收进 workspace store 的错误条。
+  const runRemote = (action: 'download' | 'open' | 'upload', id: string) =>
+    onRemoteAction?.(action, id);
+  const remoteMenu = (item: ExplorerItem) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
+          aria-label={`${item.name} 的操作`}
+        >
+          <Ellipsis className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {item.container ? (
+          <DropdownMenuItem onSelect={() => runRemote('upload', item.id)}>
+            <Upload />
+            上传本地文件
+          </DropdownMenuItem>
+        ) : (
+          <>
+            <DropdownMenuItem onSelect={() => runRemote('download', item.id)}>
+              <Download />
+              下载到本地
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => runRemote('open', item.id)}>
+              <ExternalLink />
+              用系统默认程序打开
+            </DropdownMenuItem>
+          </>
+        )}
+        {!item.container && onOpenToSide && (
+          <DropdownMenuItem onSelect={() => onOpenToSide(item.id)}>
+            <PanelRightOpen />
+            在侧边打开
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
   return (
     <>
       {remote.status && (
         <p className="px-3 py-2 text-[12px] [overflow-wrap:anywhere] text-ink-3" role="status">
           {remote.status}
-        </p>
-      )}
-      {notice && (
-        <p className="px-3 py-2 text-[12px] text-ink-3" role="status">
-          {notice}
         </p>
       )}
       <Explorer
@@ -153,8 +187,12 @@ export function ProjectFileTree({
         onOpenToSide={onOpenToSide}
         sortItems
         actions={(item) =>
-          // 远端子条目不是本地条目，菜单里的动作都会失败：本轮不给菜单，只提供浏览。
-          remoteIds.has(item.id) ? null : (
+          // 远端子条目不是本地条目：给远端自己的菜单（下载/打开/上传），本地动作一个不留。
+          remoteIds.has(item.id) ? (
+            onRemoteAction ? (
+              remoteMenu(item)
+            ) : null
+          ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

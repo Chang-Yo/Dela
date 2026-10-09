@@ -11,10 +11,12 @@ vi.mock('electron', () => ({
 
 import {
   listRemoteDirectory,
+  readRemoteRange,
   remoteGrepTool,
   remoteOperations,
   remotePath,
   setContextMirrors,
+  statRemoteFile,
 } from '../operations';
 import { onRemoteChange } from '../events';
 import { exec, listDirectory, shellQuote, type RemoteTarget } from '../transport';
@@ -214,6 +216,21 @@ live('远程工具（需要 DELA_REMOTE_HOST）', () => {
     });
     expect(result.exitCode).toBe(0);
     expect(output).toMatch(/已丢弃 \d+ 字节/);
+  }, 120_000);
+
+  it('预览用的 stat 与片段读取：只拉请求的那一段', async () => {
+    // 预览大文件靠这两个入口：stat 从目录清单拿 size/mtime，片段读取只回一段。
+    await ops.write.writeFile(`${root}/slice.txt`, '0123456789');
+    const stat = await statRemoteFile(target, `${root}/slice.txt`);
+    expect(stat).toMatchObject({ directory: false, size: 10 });
+    expect(stat.modifiedAt).toBeGreaterThan(0);
+    await expect(statRemoteFile(target, root)).rejects.toThrow('这是目录');
+    await expect(statRemoteFile(target, `${root}/nope.txt`)).rejects.toThrow('远端文件不存在');
+
+    expect((await readRemoteRange(target, `${root}/slice.txt`, 0, 4)).toString()).toBe('0123');
+    expect((await readRemoteRange(target, `${root}/slice.txt`, 8, 2)).toString()).toBe('89');
+    // 只回一段：整体长度不是文件的全部长度（整篇进内存就是在这里失守的）。
+    expect((await readRemoteRange(target, `${root}/slice.txt`, 2, 3)).length).toBe(3);
   }, 120_000);
 
   it('目录清单按远端原样返回，顺带把变化通知发出去', async () => {
