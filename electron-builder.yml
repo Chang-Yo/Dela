@@ -17,6 +17,16 @@ asarUnpack:
   - node_modules/@napi-rs/canvas*/**/*
   # 引导开场的可选视频；文件不存在时该行无副作用
   - out/renderer/assets/*.mp4
+# 自带 OpenSSH 客户端：系统没装时远程项目的回退（主进程按 resources/openssh 探测）
+extraResources:
+  - from: vendor/openssh
+    to: openssh
+    filter:
+      - 'ssh.exe'
+      - 'libcrypto.dll'
+      - 'LICENSE.txt'
+      - 'NOTICE.txt'
+      - 'README.md'
 npmRebuild: false
 # Windows-only。安装包暂用 NSIS（exe）；MSIX 与微软商店上架是后续计划。
 win:

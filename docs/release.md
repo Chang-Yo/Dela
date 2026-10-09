@@ -25,6 +25,7 @@
 - 命令只修改 `package.json` 版本（npm 负责 SemVer 校验），不自动创建 commit/tag，也不推送或发布。
 - 单包 pnpm 锁文件不记录应用自身版本，升版无需修改锁文件。
 - preload 在构建时从 `package.json` 内联版本号，设置页关于与冒烟检查随之同步；升版后需重新构建，开发模式需重启。
+- 安装包会带上 `vendor/openssh` 里的 OpenSSH 客户端（`extraResources` 拷到 `resources/openssh`）。升级或更换它时按该目录 README 的步骤做，并在打包目录里实跑一次 `resources\openssh\ssh.exe -V` 与一次真实连接。
 
 ## 发布
 
