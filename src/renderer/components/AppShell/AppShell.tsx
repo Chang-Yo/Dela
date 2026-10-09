@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Square,
+  SquareCheckBig,
   SquareTerminal,
   X,
 } from 'lucide-react';
@@ -164,6 +165,8 @@ type AppShellProps = {
   onNewProject: () => void;
   onSearch: () => void;
   notificationCount: number;
+  /** TODO 未读数（readAt === null）：顶栏 TODO 图标据此变蓝，判定同系统通知的 todo 口径。 */
+  todoUnreadCount: number;
   /** 项目会话导航（sessions/runs 镜像数据与跳转回调由 App 装配后传入）。 */
   sessionsByProject: Record<string, NavSessionSummary[]>;
   runBadge: (sessionId: string) => SessionRunBadge;
@@ -196,6 +199,7 @@ export function AppShell({
   onNewProject,
   onSearch,
   notificationCount,
+  todoUnreadCount,
   sessionsByProject,
   runBadge,
   activeSessionId = null,
@@ -546,6 +550,19 @@ export function AppShell({
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] flex h-full items-center gap-1 pr-1">
               <button
+                aria-current={view === 'todo' ? 'page' : undefined}
+                aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
+                className={chromeIconButton}
+                onClick={() => navigate('todo')}
+                title="TODO"
+                type="button"
+              >
+                <SquareCheckBig
+                  className={cn('size-4', todoUnreadCount > 0 && 'text-bui-accent')}
+                  strokeWidth={1.8}
+                />
+              </button>
+              <button
                 aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
                 aria-current={view === 'notifications' ? 'page' : undefined}
                 className={cn(chromeIconButton, 'relative')}
@@ -628,12 +645,12 @@ export function AppShell({
               </button>
             </div>
           )}
-          {/* 资料页（通用工作台）的聊天入口：非项目会话即首页网页式 chat，可 @ 资料文件。 */}
+          {/* 资料页（通用工作台）的聊天入口：新对话落为工作台标签，单组分屏、多组进最右组。 */}
           {view === 'workbench' && projectId === null && window.dela && (
             <button
               aria-label="新聊天"
               className={cn(chromeIconButton, '[-webkit-app-region:no-drag] mr-1')}
-              onClick={() => useNavigationStore.getState().openGeneralChat(true)}
+              onClick={() => void useNavigationStore.getState().newChat(null)}
               title="新聊天"
               type="button"
             >
@@ -743,6 +760,19 @@ export function AppShell({
             </div>
             <div className="flex-1" />
             <button
+              aria-current={view === 'todo' ? 'page' : undefined}
+              aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
+              className={chromeIconButton}
+              onClick={() => navigate('todo')}
+              title="TODO"
+              type="button"
+            >
+              <SquareCheckBig
+                className={cn('size-4', todoUnreadCount > 0 && 'text-bui-accent')}
+                strokeWidth={1.8}
+              />
+            </button>
+            <button
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
               aria-current={view === 'notifications' ? 'page' : undefined}
               className={cn(
@@ -777,9 +807,7 @@ export function AppShell({
           </div>
           <ProjectSessionNav
             activeBusinessId={
-              view === 'mail' || view === 'timetable' || view === 'shuiyuan' || view === 'todo'
-                ? view
-                : null
+              view === 'mail' || view === 'timetable' || view === 'shuiyuan' ? view : null
             }
             activeProjectId={view === 'workbench' ? projectId : null}
             activeSessionId={view === 'home' ? null : activeSessionId}

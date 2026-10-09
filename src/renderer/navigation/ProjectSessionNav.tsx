@@ -10,7 +10,6 @@ import { Dialog, DropdownMenu as Menu } from 'radix-ui';
 import {
   CalendarDays,
   ChevronRight,
-  CircleCheckBig,
   Folder,
   FolderOpen,
   House,
@@ -47,8 +46,8 @@ import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './n
 
 export type { NavSessionSummary, SessionRunBadge };
 
-/** 底部业务入口 id（邮箱/课表/水源/TODO；跳转由 onNavigateBusiness 注入）。 */
-export type BusinessNavId = 'mail' | 'timetable' | 'shuiyuan' | 'todo';
+/** 底部业务入口 id（邮箱/课表/水源；TODO 入口在顶栏铃铛旁，跳转由 onNavigateBusiness 注入）。 */
+export type BusinessNavId = 'mail' | 'timetable' | 'shuiyuan';
 
 /** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
 export const RECENT_SESSIONS = 3;
@@ -57,7 +56,6 @@ const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
   { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
-  { id: 'todo', label: 'TODO', icon: CircleCheckBig },
 ];
 
 /** 侧栏文字随折叠状态淡入/淡出（与 AppShell 壳的宽度过渡同步）。 */
@@ -81,7 +79,7 @@ export function ProjectSessionNav({
   onOpenSources,
   sourcesActive = false,
   activeProjectId = null,
-  /** 底部业务入口跳转（邮箱/课表/水源/TODO），由接线方注入。 */
+  /** 底部业务入口跳转（邮箱/课表/水源），由接线方注入。 */
   onNavigateBusiness,
   activeBusinessId = null,
   /** 侧栏折叠时文字淡出（与 AppShell 折叠动画同步）。 */

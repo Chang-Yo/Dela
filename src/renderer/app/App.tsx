@@ -226,6 +226,7 @@ export default function App() {
           onOpenSources={openSources}
           activeTabIsChat={activeTabIsChat}
           notificationCount={notifications.count}
+          todoUnreadCount={notifications.todoUnread}
           sessionsByProject={sessionsByProject}
           runBadge={(sessionId) => useRuns.getState().bySession[sessionId]?.status ?? null}
           activeSessionId={activeSessionId}
