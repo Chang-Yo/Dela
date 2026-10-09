@@ -219,6 +219,13 @@ func (s *sseWriter) send(value any) {
 	s.flusher.Flush()
 }
 
+// failed 报告这条流是不是已经写坏了，让长驻的流（watch）能早一步退出。
+func (s *sseWriter) failed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.broken
+}
+
 // 执行命令：流式回传 stdout/stderr，进程组可取消，超时由 helper 裁定。
 func (s *server) handleExec(w http.ResponseWriter, r *http.Request) {
 	var req struct {

@@ -25,7 +25,7 @@ import (
 
 const (
 	protocolVersion = 1
-	helperVersion   = "0.1.0"
+	helperVersion   = "0.2.0"
 	idleTick        = 10 * time.Second
 	minTokenLength  = 16
 )
@@ -35,6 +35,8 @@ type server struct {
 	idle   time.Duration
 	logger *log.Logger
 	http   *http.Server
+
+	watch *watchHub
 
 	mu       sync.Mutex
 	lastSeen time.Time
@@ -76,6 +78,7 @@ func (s *server) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/fs/read", s.auth(s.handleRead))
 	mux.HandleFunc("/v1/fs/write", s.auth(s.handleWrite))
 	mux.HandleFunc("/v1/fs/hash", s.auth(s.handleHash))
+	mux.HandleFunc("/v1/watch", s.auth(s.handleWatch))
 	mux.HandleFunc("/v1/exec", s.auth(s.handleExec))
 	mux.HandleFunc("/v1/exec/", s.auth(s.handleExecAction))
 	mux.HandleFunc("/v1/tasks", s.auth(s.handleTasks))
@@ -91,7 +94,7 @@ func (s *server) handleHello(w http.ResponseWriter, r *http.Request) {
 		"home":          home,
 		"features": []string{
 			"fs.list", "fs.stat.batch", "fs.read.range", "fs.write.atomic", "fs.hash",
-			"exec.stream", "exec.cancel", "tasks", "heartbeat",
+			"exec.stream", "exec.cancel", "tasks", "heartbeat", "watch",
 		},
 	})
 }
@@ -111,6 +114,7 @@ func (s *server) stop(reason string) {
 
 	s.logger.Printf("退出：%s", reason)
 	s.cancelAllTasks("服务退出")
+	s.watch.close()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := s.http.Shutdown(ctx); err != nil {
@@ -160,6 +164,7 @@ func main() {
 		logger:   logger,
 		lastSeen: time.Now(),
 		tasks:    map[string]*task{},
+		watch:    newWatchHub(logger),
 	}
 	mux := http.NewServeMux()
 	s.register(mux)
