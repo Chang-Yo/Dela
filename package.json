@@ -32,7 +32,8 @@
     "smoke": "electron . --smoke-test",
     "smoke:workspace": "node scripts/workspace-smoke.mjs",
     "smoke:pdf": "electron scripts/pdf-smoke.cjs",
-    "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs"
+    "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs",
+    "smoke:remote": "node scripts/remote-smoke.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",
