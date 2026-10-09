@@ -230,8 +230,7 @@ export function NotificationsView({
         </p>
       ) : null}
 
-      {/* 分隔线行而非行级卡片：通知是高频扫读的信息流，与邮件列表保持同一视觉重量。 */}
-      <section aria-label="通知列表" className="mt-4 flex flex-col pb-6">
+      <section aria-label="通知列表" className="mt-4 flex flex-col gap-1 pb-6">
         {state && state.totalCount > state.items.length && (
           <p className="text-[12px] text-ink-3">
             显示最近 {state.items.length} 条，共 {state.totalCount} 条通知。
@@ -239,12 +238,12 @@ export function NotificationsView({
         )}
         {items.map((item) => (
           <article
-            className="relative border-b transition-colors last:border-0 hover:bg-hover"
+            className="relative rounded-card transition-colors duration-150 hover:bg-hover"
             key={item.id}
           >
             <button
               className={cn(
-                'flex w-full items-start gap-3 p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+                'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
                 !item.readAt && 'pr-14',
               )}
               onClick={() => onOpen(item)}
@@ -279,7 +278,7 @@ export function NotificationsView({
             {!item.readAt ? (
               <Button
                 aria-label={`将“${item.title}”标为已读`}
-                className="absolute top-3 right-3"
+                className="absolute top-2.5 right-2.5"
                 disabled={loading}
                 onClick={() => onMarkRead(item.id)}
                 size="icon-sm"
