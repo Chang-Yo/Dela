@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 
@@ -15,7 +15,7 @@ type WizardShellProps = {
   children: ReactNode;
 };
 
-/** 全屏白色向导框架：顶部拖拽区与步骤进度点，顶部锚定的内容列（各步标题起点一致，切换时视线不跳），左下「上一步」、底部「跳过」。配色固定，不随主题。 */
+/** 全屏白色向导框架：顶部拖拽区与步骤进度点，顶部锚定的内容列（各步标题起点一致，切换时视线不跳），底部居中是本地存储说明，左下「← 上一步」与右下「跳过 →」左右对称。配色固定，不随主题。 */
 export function WizardShell({ step, stepCount, onBack, onSkip, children }: WizardShellProps) {
   // 进退方向决定内容滑入/滑出的水平朝向：前进从右进、后退从左回，与移动方向一致。
   const prevStepRef = useRef(step);
@@ -60,7 +60,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
             </motion.div>
           </AnimatePresence>
         </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center px-6 pb-7 [@media(max-height:560px)]:pb-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 pb-4 [@media(max-height:560px)]:pb-3">
           <div className="justify-self-start">
             {onBack && (
               <button
@@ -73,14 +73,15 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
               </button>
             )}
           </div>
+          <p className="text-[12px] text-ink-3">所有数据本地存储，不上传服务器</p>
           <button
-            className="rounded-control px-4 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+            className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
             onClick={onSkip}
             type="button"
           >
             跳过
+            <ArrowRight className="size-4" aria-hidden="true" />
           </button>
-          <span aria-hidden="true" />
         </div>
       </div>
     </MotionConfig>
