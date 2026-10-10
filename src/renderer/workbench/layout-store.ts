@@ -29,12 +29,17 @@ import {
 } from './layout-schema';
 import type { EdgeZone } from './tab-dnd';
 import { relocateWorkspacePath } from '../../shared/workspace';
+import { showToast } from '../app/toasts';
 
 const PERSIST_DEBOUNCE_MS = 800;
 
 // 容量超限（单组 maxTabsPerGroup / 全树 maxLayoutNodes）此前静默 return（评审 6）。
-// 无现成 toast 子系统，取 console.warn 作最小反馈；不为此改动三个动作的返回签名。
+// 走应用内通知浮窗提示；不为此改动三个动作的返回签名。
 const CAPACITY_LIMIT_REACHED = '工作组容量已达上限，已忽略本次操作';
+
+function notifyCapacityLimit() {
+  showToast({ variant: 'error', title: CAPACITY_LIMIT_REACHED });
+}
 
 type Store = {
   projectId: string | null;
@@ -179,7 +184,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const groupId = targetGroupId && findGroup(root, targetGroupId) ? targetGroupId : fallback.id;
     if (!findGroup(root, groupId)!.tabs.includes(tabId)) {
       if (findGroup(root, groupId)!.tabs.length >= maxTabsPerGroup) {
-        console.warn(CAPACITY_LIMIT_REACHED, groupId);
+        notifyCapacityLimit();
         return;
       }
       set({
@@ -291,7 +296,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       children,
     }));
     if (countNodes(nextRoot) > maxLayoutNodes) {
-      console.warn(CAPACITY_LIMIT_REACHED, targetGroupId);
+      notifyCapacityLimit();
       return;
     }
     set({ root: nextRoot, maximized: null });
@@ -315,7 +320,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       children: [group, newGroup],
     }));
     if (countNodes(nextRoot) > maxLayoutNodes) {
-      console.warn(CAPACITY_LIMIT_REACHED, groupId);
+      notifyCapacityLimit();
       return;
     }
     // 分屏后需要看到两侧：清掉最大化态。

@@ -3,10 +3,11 @@
 // 由接线方经回调决定，动作本身不碰视图状态。
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { useNoteDrafts } from './drafts';
-import { useWorkspaceStore } from './store';
+import { errorText, useWorkspaceStore } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { relocateWorkspacePath } from '../../shared/workspace';
+import { showToast } from '../app/toasts';
 
 /** 重命名前先冲盘，成功后一次迁移本窗口已知路径与草稿。 */
 export async function updateEntry(
@@ -43,7 +44,7 @@ export const runEntryWork = async (work: () => Promise<void>) => {
   try {
     await work();
   } catch (error) {
-    useWorkspaceStore.getState().setError(error);
+    showToast({ variant: 'error', title: '条目操作失败', description: errorText(error) });
   }
 };
 

@@ -23,7 +23,7 @@
 
 **3. skills**：纯文档领域知识，Pi 按 Agent Skills 规范发现；Dela 把五个内置领域 skill 写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi，设置页的禁用名单经 `skillsOverride` 过滤。
 
-**4. GUI**：标签工作台（聊天/笔记/预览/终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座，被替代的自研 UI 必须清理。设置页语义约定：状态用颜色点表达（绿=连接/使用中，灰=未连接）；页面主操作用主色（default）按钮；常驻能力整组说明一次、行内用锁徽标替代禁用开关；Skills 行支持查看 SKILL.md 与打开所在位置（`capabilities:read-skill` / `reveal-skill`，主进程按名单独解析路径，渲染端不传路径）；隐私页按文档排版（限宽、13px 正文、枚举两列表）。
+**4. GUI**：标签工作台（聊天/笔记/预览/终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座，被替代的自研 UI 必须清理。设置页语义约定：状态用颜色点表达（绿=连接/使用中，灰=未连接）；页面主操作用主色（default）按钮；常驻能力整组说明一次、行内用锁徽标替代禁用开关；Skills 行支持查看 SKILL.md 与打开所在位置（`capabilities:read-skill` / `reveal-skill`，主进程按名单独解析路径，渲染端不传路径）；隐私页按文档排版（限宽、13px 正文、枚举两列表）。瞬时动作失败的报错走应用内通知浮窗（`app/toasts.tsx` 的 `showToast`，内容区顶部居中滑入，error/success 变体，卡片为 beautifului `atoms/Toast.tsx`；error 8s / success 4s 自动消失，至多 4 条）；表单校验与持久态错误仍内联展示，不进浮窗。
 
 ## 会话与上下文
 

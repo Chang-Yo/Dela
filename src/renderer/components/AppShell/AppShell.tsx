@@ -28,6 +28,7 @@ import {
 import { Resizer } from '../ui/resizer';
 import { useEditorSettings } from '../../content/editor-settings';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
+import { showToast, ToastHost } from '../../app/toasts';
 import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
@@ -294,11 +295,14 @@ export function AppShell({
         /* Storage may be unavailable. */
       }
     }
-    useNavigationStore.getState().setNavigationError(null);
     void window.dela.workspace
       .openProjectDirectory(projectId, effective)
       .catch((cause: unknown) => {
-        useNavigationStore.getState().setNavigationError(errorText(cause));
+        showToast({
+          variant: 'error',
+          title: '打开项目目录失败',
+          description: errorText(cause),
+        });
       });
   };
 
@@ -854,6 +858,7 @@ export function AppShell({
         id="app-main"
       >
         {children}
+        <ToastHost />
       </main>
     </div>
   );

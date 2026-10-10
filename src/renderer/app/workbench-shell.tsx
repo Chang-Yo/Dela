@@ -33,6 +33,7 @@ import { useNoteDrafts } from '../workspace/drafts';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from './navigation';
+import { showToast } from './toasts';
 import { MailDraftDialog } from './mail-draft-dialog';
 import { ChatHome } from '../content/chat/ChatHome';
 import { currentContainerOf, WorkbenchExplorer } from './workbench-explorer';
@@ -134,7 +135,8 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           useNavigationStore.getState().consumeGeneralChat();
         }
       } catch (cause) {
-        if (active) useNavigationStore.getState().setNavigationError(errorText(cause));
+        if (active)
+          showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
         useNavigationStore.getState().consumeGeneralChat();
       }
     })();

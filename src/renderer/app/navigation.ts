@@ -8,11 +8,11 @@ import { useShuiyuan } from '../features/shuiyuan/store';
 import { ancestorChainOf } from '../navigation/store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
-import { useWorkspaceStore } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useSessions } from '../sessions/store';
-import { errorText } from '../workspace/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
+import { showToast } from './toasts';
 
 export type AppView =
   'home' | 'workbench' | 'mail' | 'timetable' | 'shuiyuan' | 'todo' | 'notifications' | 'settings';
@@ -41,7 +41,6 @@ interface NavigationState {
   projectId: string | null;
   backStack: NavigationRoute[];
   forwardStack: NavigationRoute[];
-  navigationError: string | null;
   mailRequest: { messageId: number } | null;
   todoRequest: { id: string } | null;
   /** 每次赋新对象，保证已在设置页时也能触发分区切换。 */
@@ -76,7 +75,6 @@ interface NavigationState {
   setCreateProject(value: boolean): void;
   consumeReveal(): void;
   consumeGeneralChat(): void;
-  setNavigationError(error: string | null): void;
 }
 
 /** 历史条目：视图 + 项目（后退要能回到同一个项目面板）。 */
@@ -138,7 +136,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     projectId: null,
     backStack: [],
     forwardStack: [],
-    navigationError: null,
     mailRequest: null,
     todoRequest: null,
     settingsRequest: null,
@@ -160,7 +157,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         settingsRequest: null,
         reveal: null,
         generalChat: null,
-        navigationError: null,
       });
       return true;
     },
@@ -257,7 +253,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         get().openChat(chat.sessionId, projectId);
         return chat.sessionId;
       } catch (cause) {
-        set({ navigationError: errorText(cause) });
+        showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
         return null;
       }
     },
@@ -318,6 +314,5 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     setCreateProject: (value) => set({ createProject: value }),
     consumeReveal: () => set({ reveal: null }),
     consumeGeneralChat: () => set({ generalChat: null }),
-    setNavigationError: (error) => set({ navigationError: error }),
   };
 });

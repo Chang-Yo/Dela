@@ -82,7 +82,6 @@ export default function App() {
   const mailRequest = useNavigationStore((state) => state.mailRequest);
   const todoRequest = useNavigationStore((state) => state.todoRequest);
   const settingsRequest = useNavigationStore((state) => state.settingsRequest);
-  const navigationError = useNavigationStore((state) => state.navigationError);
 
   const { theme, zoom, fontScale, changeTheme, changeZoom, changeFontScale } = useAppearance();
   const notifications = useNotifications(launchStage !== 'flow');
@@ -195,7 +194,6 @@ export default function App() {
   const openSearchResult = (result: GlobalSearchResult) => {
     if (!leaveComposer(() => openSearchResult(result))) return;
     const navigation = useNavigationStore.getState();
-    navigation.setNavigationError(null);
     const target = result.target;
     if (target.page === 'projects') navigation.openProject(target.entryId);
     else if (target.page === 'chat')
@@ -250,11 +248,6 @@ export default function App() {
           onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
           onNavigateBusiness={(id) => void useNavigationStore.getState().navigate(id)}
         >
-          {navigationError && (
-            <p className="px-4 py-2 text-[13px] text-red" role="alert">
-              {navigationError}
-            </p>
-          )}
           <MotionConfig reducedMotion="user">
             <AnimatePresence initial={false} mode="wait">
               <motion.div
