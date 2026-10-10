@@ -11,7 +11,6 @@ import {
   FilePlus2,
   FolderPlus,
   FolderKanban,
-  Globe,
   Pencil,
   Trash2,
   FolderInput,
@@ -63,8 +62,9 @@ export function ProjectFileTree({
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
   onOpenToSide?: (id: string) => void;
-  /** 远端条目的动作：文件可下载/用系统程序打开，目录可上传本地文件、预览远端端口。 */
-  onRemoteAction?: (action: 'download' | 'open' | 'upload' | 'ports', id: string) => void;
+  /** 远端条目的动作：文件可下载/用系统程序打开，目录可上传本地文件。
+   *  端口预览在文件树 header（项目级动作，与具体目录无关），不进条目菜单。 */
+  onRemoteAction?: (action: 'download' | 'open' | 'upload', id: string) => void;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
@@ -135,7 +135,7 @@ export function ProjectFileTree({
     onSelect(id);
   };
   // 失败出口与本地条目动作一致：接线方用 runEntryWork 收进 workspace store 的错误条。
-  const runRemote = (action: 'download' | 'open' | 'upload' | 'ports', id: string) =>
+  const runRemote = (action: 'download' | 'open' | 'upload', id: string) =>
     onRemoteAction?.(action, id);
   /** 两个菜单共用的触发器与「在侧边打开」：本地菜单的其余项远端一个都不能给。 */
   const menuTrigger = (name: string) => (
@@ -160,16 +160,10 @@ export function ProjectFileTree({
       {menuTrigger(item.name)}
       <DropdownMenuContent align="start">
         {item.container ? (
-          <>
-            <DropdownMenuItem onSelect={() => runRemote('ports', item.id)}>
-              <Globe />
-              预览远端端口…
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => runRemote('upload', item.id)}>
-              <Upload />
-              上传本地文件
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem onSelect={() => runRemote('upload', item.id)}>
+            <Upload />
+            上传本地文件
+          </DropdownMenuItem>
         ) : (
           <>
             <DropdownMenuItem onSelect={() => runRemote('download', item.id)}>

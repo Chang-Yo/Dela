@@ -12,6 +12,7 @@ import {
   FilePlus2,
   FileInput,
   FolderPlus,
+  Globe,
   GraduationCap,
   KeyRound,
   Folder,
@@ -19,6 +20,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Upload,
 } from 'lucide-react';
 import { workspaceArchiveId } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
@@ -175,14 +177,9 @@ export function WorkbenchExplorer({
   };
   // 远端动作的失败与本地条目动作同一个出口（workspace store 的错误条）。
   const [portsForProject, setPortsForProject] = useState<string | null>(null);
-  const remoteAction = (action: 'download' | 'open' | 'upload' | 'ports', id: string) => {
+  const remoteAction = (action: 'download' | 'open' | 'upload', id: string) => {
     const remote = parseRemoteNodeId(id);
     if (!remote) return;
-    // 端口预览是自己的弹窗，不进 runEntryWork 的错误条（面板里自己报错）。
-    if (action === 'ports') {
-      setPortsForProject(remote.projectId);
-      return;
-    }
     void runEntryWork(async () => {
       const workspace = window.dela!.workspace;
       if (action === 'download') await workspace.downloadRemoteFile(remote.projectId, remote.path);
@@ -296,6 +293,38 @@ export function WorkbenchExplorer({
               {projectId ? (root?.name ?? '项目与文件夹') : '资料'}
             </button>
             <div className="flex shrink-0 items-center gap-0.5">
+              {/* 远端项目的项目级动作放在 header：端口预览是跟着服务器走的，上传到项目根是
+                  最高频的上传场景；往子目录里传仍用目录行右键或拖放（那里才有目录语义）。 */}
+              {remoteRoot && rootId && (
+                <>
+                  <Button
+                    aria-label="预览远端端口"
+                    className="hover:bg-hover-2"
+                    onClick={() => setPortsForProject(rootId)}
+                    size="icon-xs"
+                    title="预览远端端口"
+                    variant="ghost"
+                  >
+                    <Globe />
+                  </Button>
+                  <Button
+                    aria-label="上传本地文件"
+                    className="hover:bg-hover-2"
+                    onClick={() => {
+                      const directory = root?.path;
+                      if (!directory) return;
+                      void runEntryWork(async () => {
+                        await window.dela!.workspace.uploadRemoteFiles(rootId, directory, null);
+                      });
+                    }}
+                    size="icon-xs"
+                    title="上传本地文件到项目根目录"
+                    variant="ghost"
+                  >
+                    <Upload />
+                  </Button>
+                </>
+              )}
               {/* 远端项目没有本地目录，新建/导入的落点只可能是本地路径：入口整个收掉。 */}
               {!remoteRoot && (
                 <DropdownMenu>
