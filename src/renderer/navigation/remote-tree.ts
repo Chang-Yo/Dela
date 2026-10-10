@@ -261,9 +261,8 @@ export function useRemoteTree(
     walk(trimSlash(project.path!), project.id === rootId ? null : project.id);
   }
 
-  const failure = Object.values(failed)[0];
-  const loading = pending[0];
-  const status = failure ?? (loading ? `正在读取 ${loading.path}…` : null);
+  // 只报失败：读取中的提示会在每次展开/收起时插进、抽走一行，整棵树跟着上下跳。
+  const status = Object.values(failed)[0] ?? null;
 
   return { items, destinations, status };
 }

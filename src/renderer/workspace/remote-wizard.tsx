@@ -35,6 +35,7 @@ import type {
   RemoteSetupStep,
   WorkspaceEntry,
 } from '../../shared/api';
+import { unhideProjectInNav } from '../navigation/store';
 import { errorText, useWorkspaceStore } from './store';
 
 /** 向导步骤：下标即步骤序号，与左栏顺序一一对应。 */
@@ -279,6 +280,8 @@ export function RemoteConnectionWizard({
     try {
       const created = await dela.workspace.importRemoteProject(connectionId, browse.path);
       await useWorkspaceStore.getState().refresh();
+      // 同一远端目录重复导入会复用原来那条项目行，它可能还带着「移除项目入口」的隐藏偏好。
+      unhideProjectInNav(created.id);
       onImported(created);
     } catch (cause) {
       setError(errorText(cause));

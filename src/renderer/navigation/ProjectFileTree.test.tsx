@@ -133,6 +133,37 @@ it('loads one remote level when the project is expanded and browses without open
   expect(listRemoteDirectory).toHaveBeenCalledTimes(1);
 });
 
+it('shows no status line while a remote level is loading', async () => {
+  const gate: { open?: () => void } = {};
+  let secondReadStarted = false;
+  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) => {
+    if (path === '/home/u/proj')
+      return [
+        { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
+      ];
+    // 第二层停在读取中：插一行「正在读取 …」会让整棵树随每次点击上下跳。
+    secondReadStarted = true;
+    await new Promise<void>((resolve) => {
+      gate.open = resolve;
+    });
+    return [];
+  });
+  window.dela = {
+    remotes: { list: async () => [] },
+    workspace: { listRemoteDirectory },
+  } as unknown as DelaApi;
+
+  await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
+  expect(row('src')).toBeTruthy();
+  await act(async () => {});
+  expect(secondReadStarted).toBe(true);
+  expect(document.querySelector('[role="status"]')).toBeNull();
+  expect(document.body.textContent).not.toContain('正在读取');
+
+  await act(async () => gate.open?.());
+  expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj/src');
+});
+
 it('marks a remote project row with its connection colour and leaves local rows alone', async () => {
   const localProject: WorkspaceEntry = {
     id: 'p-local',

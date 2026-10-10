@@ -15,6 +15,7 @@ import type {
 } from '../../../shared/api';
 import { RemoteConnectionWizard } from '../remote-wizard';
 import { useWorkspaceStore } from '../store';
+import { useProjectNavPrefs } from '../../navigation/store';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -241,6 +242,8 @@ it('saves a new connection only after a successful probe, then registers the dir
     },
     workspace: { importRemoteProject, getState },
   } as unknown as DelaApi;
+  // 这条项目行早先被侧栏的「移除项目入口」隐藏过：重新加进来时要能再看见。
+  useProjectNavPrefs.setState({ projects: { [created.id]: { hidden: true } } });
 
   const onImported = await renderWizard();
   await act(async () => button('新建连接', true).click());
@@ -276,6 +279,8 @@ it('saves a new connection only after a successful probe, then registers the dir
   expect(importRemoteProject).toHaveBeenCalledWith('r-9', '/home/u/proj');
   expect(getState).toHaveBeenCalledTimes(1);
   expect(onImported).toHaveBeenCalledWith(created);
+  // 「移除项目入口」只写隐藏偏好；同一远端目录重新导入会复用同一条，导入后必须撤掉隐藏。
+  expect(useProjectNavPrefs.getState().projects[created.id]?.hidden).toBe(false);
 });
 
 it('fills the key path from the picker and can clear it again', async () => {

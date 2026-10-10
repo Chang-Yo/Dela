@@ -17,6 +17,7 @@ import {
 } from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
+import { unhideProjectInNav } from '../navigation/store';
 import { useNoteDrafts } from './drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
@@ -177,7 +178,11 @@ export function EntryDialogs({
       await useWorkspaceStore.getState().refresh();
       onClose();
       if (created) {
-        if (created.kind === 'project') onOpenProject?.(created.id);
+        if (created.kind === 'project') {
+          // 导入的目录可能早先被「移除项目入口」隐藏过（同一目录只登记一次，加回来还是那一条）。
+          unhideProjectInNav(created.id);
+          onOpenProject?.(created.id);
+        }
         onCreated?.(created);
       }
     } catch (error) {
