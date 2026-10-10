@@ -10,6 +10,7 @@ import { Dialog, DropdownMenu as Menu } from 'radix-ui';
 import {
   CalendarDays,
   ChevronRight,
+  Cloud,
   Folder,
   FolderOpen,
   House,
@@ -34,6 +35,8 @@ import {
 } from '../components/ui/dropdown-menu';
 import { EntryDialogs } from '../workspace/entry-dialogs';
 import { cn } from '../lib/utils';
+import type { WorkspaceEntry } from '../../shared/api';
+import { remoteAccent } from './remote-color';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
 import { useWorkspaceStore } from '../workspace/store';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
@@ -148,14 +151,17 @@ export function ProjectSessionNav({
   const hidden = cn('truncate', labelFade, collapsed && 'opacity-0');
 
   /** 会话历史组（通用对话/项目）共用的一段：折叠头 + 近期会话 + 「显示更多」。
-   *  行点击即展开/折叠该组；打开项目工作台走项目菜单的「打开项目」。 */
+   *  行点击即展开/折叠该组；打开项目工作台走项目菜单的「打开项目」。
+   *  图标与配色跟着项目走：远端项目用云朵与该连接的配色，和资源管理器里是同一副样子。 */
   const sessionGroup = (
-    key: string,
-    label: string,
-    icon: typeof Mail,
+    project: WorkspaceEntry,
     sessions: NavSessionSummary[],
     groupActive: boolean,
   ) => {
+    const key = project.id;
+    const label = project.name;
+    const Icon = project.remoteId ? Cloud : Folder;
+    const accent = project.remoteId ? { color: remoteAccent(project.remoteId, 'text') } : undefined;
     const expanded = openProjects.includes(key);
     const full = fullSessionLists.includes(key);
     const unpinned = sessions.filter((session) => !session.pinned);
@@ -168,7 +174,6 @@ export function ProjectSessionNav({
       groupActive &&
       !shownActiveSession &&
       !sessions.some((session) => session.pinned && session.id === activeSessionId);
-    const Icon = icon;
     return (
       <div key={key} className="min-w-0">
         <div className={cn(navRow(rowActive), 'group group/nav relative pl-1.5')}>
@@ -194,7 +199,7 @@ export function ProjectSessionNav({
             title={label}
             type="button"
           >
-            <Icon className={navIcon(rowActive)} strokeWidth={1.8} />
+            <Icon className={navIcon(rowActive)} strokeWidth={1.8} style={accent} />
             <span
               className={cn('sidebar-title min-w-0 flex-1', labelFade, collapsed && 'opacity-0')}
             >
@@ -346,6 +351,7 @@ export function ProjectSessionNav({
             {visible.map((session) => (
               <SessionRow
                 projectName={label}
+                remoteId={project.remoteId}
                 active={session.id === activeSessionId}
                 badge={runBadge(session.id)}
                 key={session.id}
@@ -418,9 +424,7 @@ export function ProjectSessionNav({
             .filter((project) => preferences[project.id]?.pinned)
             .map((project) =>
               sessionGroup(
-                project.id,
-                project.name,
-                Folder,
+                project,
                 sessionsByProject[project.id] ?? [],
                 project.id === activeProjectId,
               ),
@@ -433,6 +437,7 @@ export function ProjectSessionNav({
                   key={session.id}
                   session={session}
                   projectName={project.name}
+                  remoteId={project.remoteId}
                   active={session.id === activeSessionId}
                   onOpen={onOpenSession}
                   onDelete={onDeleteSession}
@@ -480,9 +485,7 @@ export function ProjectSessionNav({
                 )
                 .map((project) =>
                   sessionGroup(
-                    project.id,
-                    project.name,
-                    Folder,
+                    project,
                     sessionsByProject[project.id] ?? [],
                     project.id === activeProjectId,
                   ),

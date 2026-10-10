@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
 import { HoverCard } from 'radix-ui';
-import { Archive, Folder, Pin, PinOff } from 'lucide-react';
+import { Archive, Cloud, Folder, Pin, PinOff } from 'lucide-react';
 import type { RunStatus } from '../../shared/api';
 import { cn } from '../lib/utils';
 import { menuPanel } from '../components/ui/menu-styles';
@@ -29,18 +29,22 @@ const badgeVisual: Record<RunStatus, { className: string; label: string }> = {
 export function SessionRow({
   session,
   projectName,
+  remoteId = null,
   active = false,
   onOpen,
   onDelete,
 }: {
   session: NavSessionSummary;
   projectName?: string;
+  /** 所属项目是远端时，悬停卡里的项目图标与侧栏一样用云朵。 */
+  remoteId?: string | null;
   badge?: SessionRunBadge;
   active?: boolean;
   onOpen: (id: string) => void;
   /** 兼容装配接口名；此回调现在仅归档。 */
   onDelete?: (id: string) => void | Promise<void>;
 }) {
+  const ProjectIcon = remoteId ? Cloud : Folder;
   const badge = useSessionRunStatus(session.id);
   const visual = badge === null ? null : badgeVisual[badge];
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +111,7 @@ export function SessionRow({
           >
             <span className="break-words font-medium">{session.title || '新对话'}</span>
             <span className="flex items-center gap-1.5 text-ink-3">
-              <Folder className="size-3.5" />
+              <ProjectIcon className="size-3.5" aria-hidden="true" />
               {projectName ?? '随聊'}
               {visual && ` · ${visual.label}`}
             </span>

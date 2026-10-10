@@ -117,3 +117,34 @@ it('hides the project background while a pinned session is highlighted in 置顶
   expect(highlighted(sessionRow('kankan?'))).toBe(true);
   expect(highlighted(projectRow())).toBe(false);
 });
+
+it('shows a remote project with the cloud icon and its connection colour', async () => {
+  // 侧栏与资源管理器同一个项目要用同一副样子：远端项目是云朵 + 该连接的颜色，本地项目仍是文件夹。
+  const remote: WorkspaceEntry = {
+    ...project,
+    id: 'p-remote',
+    name: '远端项目',
+    path: '/home/u/proj',
+    remoteId: 'r-1',
+  };
+  useWorkspaceStore.setState({
+    workspace: { entries: [project, remote], views: {}, directory: '/tmp/dela' } as WorkspaceState,
+    loaded: true,
+    error: null,
+  });
+  useNavigationStore.setState({ openProjects: ['general', project.id, remote.id] });
+  await render(null, recent);
+
+  const localRow = projectRow();
+  const remoteRow = (() => {
+    const button = [...document.querySelectorAll('button')].find(
+      (item) => item.title === remote.name,
+    );
+    if (!button) throw new Error('remote row missing');
+    return row(button);
+  })();
+  expect(localRow.querySelector('svg.lucide-cloud')).toBeNull();
+  expect(localRow.querySelector('svg.lucide-folder')).not.toBeNull();
+  const cloud = remoteRow.querySelector<SVGElement>('svg.lucide-cloud');
+  expect(cloud?.style.color).toMatch(/^var\(--cal-/);
+});
