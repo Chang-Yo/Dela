@@ -6,12 +6,17 @@ import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
+import { registerVsjtuIpc } from './vsjtu/ipc';
 import { attachContextMenu } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
+import { closeHelper } from './remotes/helper';
+import { closeRemoteWatch } from './remotes/watch';
+import { closeRemoteOpens } from './remotes/transfer';
+import { registerRemoteIpc } from './remotes/ipc';
 import { registerSearchIpc } from './search';
 import {
   initializeNotifications,
@@ -73,6 +78,7 @@ ipcMain.handle('window:get-state', (event) => ({
 
 const terminalSmokeTest = process.argv.includes('--terminal-smoke-test');
 const smokeTest = process.argv.includes('--smoke-test') || terminalSmokeTest;
+const startHidden = process.argv.includes('--hidden');
 if (smokeTest && !terminalSmokeTest) {
   const profile = mkdtempSync(join(tmpdir(), 'dela-smoke-'));
   app.setPath('userData', profile);
@@ -123,16 +129,18 @@ app.whenReady().then(() => {
     getDatabase()
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
       .run('1');
-    app.setLoginItemSettings({ openAtLogin: true });
+    app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
   }
   registerSettingsIpc();
   registerMailIpc();
   registerTimetableIpc();
+  registerVsjtuIpc();
   registerCanvasIpc();
   registerShuiyuanIpc();
   registerAgentIpc();
   registerWorkspaceIpc(subscribeChat, invalidateSessions);
   registerTerminalIpc();
+  registerRemoteIpc();
   registerSearchIpc();
   registerNotificationsIpc();
   registerTodoIpc();
@@ -186,8 +194,10 @@ async function createWindow(): Promise<void> {
     width: 1100,
     height: 760,
     minWidth: 600,
-    minHeight: 440,
-    show: !smokeTest,
+    // 最小高度要容得下「@ 候选菜单向上展开（最高 256px）+ composer + 头部」，
+    // 再紧就会像菜单顶出窗口上沿。
+    minHeight: 600,
+    show: !smokeTest && !startHidden,
     backgroundColor: '#f7f7f8',
     icon: join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
     titleBarStyle: 'hidden',
@@ -357,6 +367,12 @@ app.on('will-quit', () => {
   clearInterval(todoTimer);
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
+  // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
+  // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。
+  closeRemoteWatch();
+  void closeHelper();
+  // 为「用系统默认程序打开」下载的临时文件：系统程序可能还开着它，删失败就算了（临时目录）。
+  void closeRemoteOpens();
   closeDatabase();
 });
 app.on('activate', () => {

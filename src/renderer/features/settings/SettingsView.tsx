@@ -8,6 +8,7 @@ import { GeneralSection } from './sections/GeneralSection';
 import { LlmSection } from './sections/LlmSection';
 import { McpSection } from './sections/McpSection';
 import { PrivacySection } from './sections/PrivacySection';
+import { RemoteSection } from './sections/RemoteSection';
 import { ShortcutsSection } from './sections/ShortcutsSection';
 import { SkillsSection } from './sections/SkillsSection';
 import { WorkspaceSection } from './sections/WorkspaceSection';
@@ -75,6 +76,7 @@ export function SettingsView({
             />
           )}
           {section === 'providers' && <LlmSection />}
+          {section === 'remotes' && <RemoteSection />}
           {section === 'capabilities' && <CapabilitiesSection />}
           {section === 'commands' && <CommandsSection />}
           {section === 'skills' && <SkillsSection />}

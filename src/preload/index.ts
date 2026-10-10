@@ -8,6 +8,7 @@ import { capabilityApi as capability } from './capabilities';
 import { layout } from './layout';
 import { mail } from './mail';
 import { notifications } from './notifications';
+import { remotes } from './remotes';
 import { search } from './search';
 import { session } from './session';
 import { settings } from './settings';
@@ -17,12 +18,15 @@ import { todo } from './todo';
 import { terminal } from './terminal';
 import { windowApi } from './window';
 import { workspace } from './workspace';
+import { vsjtu } from './vsjtu';
 
 contextBridge.exposeInMainWorld('dela', {
+  vsjtu,
   version,
   firstLaunch: process.argv.includes('--dela-first-launch'),
   todo,
   terminal,
+  remotes,
   search,
   notifications,
   window: windowApi,

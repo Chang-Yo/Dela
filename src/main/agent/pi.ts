@@ -58,6 +58,11 @@ export async function resolveModel(provider: StoredLlmProvider, modelId = provid
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: model.contextWindow ?? LLM_DEFAULT_CONTEXT_WINDOW,
         maxTokens: model.maxOutputTokens ?? 32000,
+        // 开推理后 Pi 会把指令消息的 role 写成 OpenAI 专有的 developer，而 Dela 的提供商
+        // （DeepSeek/智谱/MiniMax/致远与自定义网关）只认 system，会直接 422 invalid_request_error。
+        // Pi 的自动识别靠提供商标识或 baseUrl 里的厂商域名，Dela 把所有提供商都注册成 dela，
+        // 识别不出来，只能显式关掉；system 是所有 OpenAI 兼容端点都接受的角色。
+        compat: { supportsDeveloperRole: false },
       };
     }),
   });
@@ -86,10 +91,14 @@ export interface OpenSessionInput {
   customTools: ToolDefinition[];
   /** Git Bash 路径（与终端同源）。 */
   shellPath: string;
-  /** bash 每条命令前置的脚本（dela 函数定义）。 */
-  commandPrefix: string;
+  /** bash 每条命令前置的脚本（dela 函数定义）。远程会话不注入。 */
+  commandPrefix?: string;
   /** 额外的 skill 目录（Dela 内置 skills）。 */
   skillPaths: string[];
+  /** 远端会话用：Pi 在本机读不到 AGENTS.md（cwd 是远端路径），由调用方注入远端内容。 */
+  agentsFilesOverride?: (base: { agentsFiles: { path: string; content: string }[] }) => {
+    agentsFiles: { path: string; content: string }[];
+  };
   disabledSkills: ReadonlySet<string>;
   disabledTools: string[];
 }
@@ -110,6 +119,7 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     settingsManager,
     additionalSkillPaths: input.skillPaths,
     appendSystemPrompt: input.appendSystemPrompt,
+    ...(input.agentsFilesOverride ? { agentsFilesOverride: input.agentsFilesOverride } : {}),
     skillsOverride: (base) => ({
       ...base,
       skills: base.skills.filter((skill) => !input.disabledSkills.has(skill.name)),

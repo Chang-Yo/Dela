@@ -4,10 +4,11 @@
 
 ## 工具链
 
-| 工具    | 固定版本 |
-| ------- | -------- |
-| Node.js | 24.21.0  |
-| pnpm    | 12.3.4   |
+| 工具    | 固定版本 | 何时需要                              |
+| ------- | -------- | ------------------------------------- |
+| Node.js | 24.21.0  | 总是                                  |
+| pnpm    | 12.3.4   | 总是                                  |
+| Go      | 1.22+    | 只在改远端 helper 时（本仓库用 1.27） |
 
 - 版本固定在 `package.json` 的 `engines` 与 `packageManager`；不要使用全局其他版本。
 - 作者本机把两者安装在被 Git 忽略的 `.tools/` 中，PowerShell 里执行以下命令为当前会话启用：
@@ -17,6 +18,7 @@
   ```
 
 - 新克隆的仓库不包含 `.tools/`，需自行安装上述版本。也可以将官方 Windows Node ZIP 解压到 `.tools/node-v24.21.0-win-x64`，再用该 Node 自带的 npm 执行 `npm install --prefix .tools/package-manager pnpm@12.3.4`。
+- 远端 helper（`helper/`）的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go；改了 `helper/` 下的 Go 代码后执行 `pnpm build:helper`（`--all` 同时出 arm64）重建并提交产物。构建细节与协议见 [helper/README.md](../helper/README.md)。
 
 ## 启动
 

@@ -21,6 +21,7 @@ import {
   Search,
 } from 'lucide-react';
 import { workspaceArchiveId } from '../../shared/api';
+import { parseRemoteNodeId } from '../../shared/remotes';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Resizer } from '../components/ui/resizer';
@@ -41,6 +42,7 @@ import {
   isDescendant,
   moveEntry,
   promoteEntry,
+  runEntryWork,
 } from '../workspace/entry-actions';
 import { useWorkspaceStore } from '../workspace/store';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
@@ -80,6 +82,9 @@ export function WorkbenchExplorer({
   const canvas = useWorkspaceStore((s) => s.canvas);
   const rootId = entries.some((entry) => entry.id === projectId) ? projectId : null;
   const root = entries.find((e) => e.id === rootId);
+  // 打开的若是远程项目，这棵树本轮只读：拖入的落点是远端 POSIX 路径，
+  // 本地写入入口（importDroppedFiles / moveEntry）会把它当本地目录，必须关掉。
+  const remoteRoot = Boolean(root?.remoteId);
   const selected = useTreeState((s) => s.selected);
   const expanded = useTreeState((s) => s.expanded);
   const query = useTreeState((s) => s.query);
@@ -125,7 +130,11 @@ export function WorkbenchExplorer({
 
   const selectEntry = (id: string) => {
     const item = entries.find((entry) => entry.id === id);
-    if (!item) return;
+    if (!item) {
+      // 远端条目不在 entries 里：文件直接开只读预览（读取按「项目 id + 远端路径」走远端通道）。
+      if (parseRemoteNodeId(id)) onOpenDocument(id);
+      return;
+    }
     if (item.kind === 'project') {
       void useAppNavigation.getState().openProject(id);
       useExplorerState.getState().setMobileOpen(false);
@@ -150,6 +159,30 @@ export function WorkbenchExplorer({
     importDroppedFiles(files, targetId, rootId, (target) => {
       if (target) expand(target, true);
     });
+  // 拖放落到远端树 = 上传到远端（走 helper 写字节），落到本地就是原来的导入。
+  // 落点是远端条目就用它自己的项目与目录；落点是空白或远端项目行（远端树里 null 的那两种）
+  // 就落到打开的远端项目根：项目条目的 path 存的就是远端目录。
+  const importDroppedAnywhere = (files: File[], targetId: string | null) => {
+    const remote = targetId ? parseRemoteNodeId(targetId) : null;
+    const projectId = remote?.projectId ?? (remoteRoot ? rootId : null);
+    const directory = remote?.path ?? (remoteRoot ? root?.path : null);
+    if (!projectId || !directory) return importDropped(files, targetId);
+    if (targetId) expand(targetId, true);
+    void runEntryWork(async () => {
+      await window.dela!.workspace.uploadRemoteFiles(projectId, directory, files);
+    });
+  };
+  // 远端动作的失败与本地条目动作同一个出口（workspace store 的错误条）。
+  const remoteAction = (action: 'download' | 'open' | 'upload', id: string) => {
+    const remote = parseRemoteNodeId(id);
+    if (!remote) return;
+    void runEntryWork(async () => {
+      const workspace = window.dela!.workspace;
+      if (action === 'download') await workspace.downloadRemoteFile(remote.projectId, remote.path);
+      else if (action === 'open') await workspace.openRemoteFile(remote.projectId, remote.path);
+      else await workspace.uploadRemoteFiles(remote.projectId, remote.path, null);
+    });
+  };
   // 归档/升级为项目/导入不弹窗，直连 entry-actions（旧 ProjectView.action 的拦截语义）；
   // 展开归档区、打开项目等后续 UI 也只有在这层接线才拿得到。
   const treeAction = (action: EntryAction, id: string | null) => {
@@ -256,33 +289,36 @@ export function WorkbenchExplorer({
               {projectId ? (root?.name ?? '项目与文件夹') : '资料'}
             </button>
             <div className="flex shrink-0 items-center gap-0.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    aria-label="新建"
-                    className="hover:bg-hover-2"
-                    size="icon-xs"
-                    title="新建"
-                    variant="ghost"
-                  >
-                    <Plus />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => onAction('note', container())}>
-                    <FilePlus2 />
-                    新建笔记
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onAction('folder', container())}>
-                    <FolderPlus />
-                    新建文件夹
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => importFromDialog(container())}>
-                    <FileInput />
-                    导入本地文件
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* 远端项目没有本地目录，新建/导入的落点只可能是本地路径：入口整个收掉。 */}
+              {!remoteRoot && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      aria-label="新建"
+                      className="hover:bg-hover-2"
+                      size="icon-xs"
+                      title="新建"
+                      variant="ghost"
+                    >
+                      <Plus />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onAction('note', container())}>
+                      <FilePlus2 />
+                      新建笔记
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onAction('folder', container())}>
+                      <FolderPlus />
+                      新建文件夹
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => importFromDialog(container())}>
+                      <FileInput />
+                      导入本地文件
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <Button
                 aria-label="全部收起"
                 className="hover:bg-hover-2"
@@ -309,6 +345,8 @@ export function WorkbenchExplorer({
             <div
               className="min-h-0 flex-1 overflow-y-auto"
               onDoubleClick={(event) => {
+                // 远端空白处的「新建笔记」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
+                if (remoteRoot) return;
                 if (event.target === event.currentTarget) onAction('note', container());
               }}
               onDragOver={(event) => {
@@ -326,7 +364,7 @@ export function WorkbenchExplorer({
                 if (event.dataTransfer.types.includes('Files')) {
                   if (event.defaultPrevented) return;
                   event.preventDefault();
-                  importDropped(Array.from(event.dataTransfer.files), null);
+                  importDroppedAnywhere(Array.from(event.dataTransfer.files), null);
                   return;
                 }
                 if (event.target !== event.currentTarget) return;
@@ -425,9 +463,10 @@ export function WorkbenchExplorer({
                 expanded={expanded}
                 onAction={treeAction}
                 onExpand={expand}
-                onImportFiles={rootId ? importDropped : undefined}
-                onMove={move}
+                onImportFiles={rootId ? importDroppedAnywhere : undefined}
+                onMove={remoteRoot ? undefined : move}
                 onOpenToSide={openToSide}
+                onRemoteAction={remoteAction}
                 onSelect={selectEntry}
                 query={query}
                 rootId={rootId}

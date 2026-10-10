@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  Archive,
   ArrowDown,
   ArrowUp,
   ArrowUpRight,
@@ -334,6 +335,8 @@ const AssistantMessage = memo(function AssistantMessage({
         key={message.startedAt}
         live={live}
         parts={parts}
+        startedAt={message.startedAt}
+        finishedAt={message.finishedAt}
         renderText={(text) => (
           <ChatMarkdown
             mode="streaming"
@@ -363,6 +366,17 @@ const AssistantMessage = memo(function AssistantMessage({
     </div>
   );
 });
+
+function CompactionDivider({ pending }: { pending?: boolean }) {
+  return (
+    <div className="my-6 flex items-center gap-3 text-[12px] text-ink-3" role="status">
+      <span className="h-px flex-1 bg-line" />
+      <Archive aria-hidden className="size-3.5 shrink-0" />
+      {pending ? <Shimmer>正在压缩上下文</Shimmer> : <span>上下文已自动压缩</span>}
+      <span className="h-px flex-1 bg-line" />
+    </div>
+  );
+}
 
 /** 对话消息流：发送后贴底展示，用户上滚时暂停跟随；工具步骤折叠展示。
  *  memo：props 全为稳定引用/原始值（草稿订阅已下沉到 ChatComposerArea），
@@ -488,7 +502,9 @@ export const ChatThread = memo(function ChatThread({
         <div ref={contentRef} className="relative mx-auto w-full max-w-3xl px-4 py-4">
           {/* 消息无稳定 id，key 用 sessionId:index：依赖列表 append-only（editLast 截断重发按同索引整表替换），勿在中间插入/删除。 */}
           {messages.map((message, index) =>
-            message.role === 'user' ? (
+            message.compacted ? (
+              <CompactionDivider key={`${chat.sessionId}:${index}`} />
+            ) : message.role === 'user' ? (
               <UserMessage
                 key={`${chat.sessionId}:${index}`}
                 message={message}
@@ -508,6 +524,7 @@ export const ChatThread = memo(function ChatThread({
               />
             ),
           )}
+          {chat.compacting && <CompactionDivider pending />}
         </div>
       </div>
       {!atBottom && messages.length > 0 && (

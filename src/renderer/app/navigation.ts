@@ -8,14 +8,22 @@ import { useShuiyuan } from '../features/shuiyuan/store';
 import { ancestorChainOf } from '../navigation/store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
-import { useWorkspaceStore } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useSessions } from '../sessions/store';
-import { errorText } from '../workspace/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
+import { showToast } from './toasts';
 
 export type AppView =
-  'home' | 'workbench' | 'mail' | 'timetable' | 'shuiyuan' | 'todo' | 'notifications' | 'settings';
+  | 'home'
+  | 'workbench'
+  | 'mail'
+  | 'timetable'
+  | 'classroom'
+  | 'shuiyuan'
+  | 'todo'
+  | 'notifications'
+  | 'settings';
 
 /** 窄屏抽屉层级：null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱视图可达）。 */
 export type MobileDrawer = 'nav' | 'mail';
@@ -39,9 +47,8 @@ interface NavigationState {
   view: AppView;
   /** 当前工作台项目；null = 通用池。 */
   projectId: string | null;
-  backStack: AppView[];
-  forwardStack: AppView[];
-  navigationError: string | null;
+  backStack: NavigationRoute[];
+  forwardStack: NavigationRoute[];
   mailRequest: { messageId: number } | null;
   todoRequest: { id: string } | null;
   /** 每次赋新对象，保证已在设置页时也能触发分区切换。 */
@@ -70,16 +77,41 @@ interface NavigationState {
   openTodo(id: string): boolean;
   openSettings(section?: SettingsSectionId): boolean;
   openShuiyuanTopic(topicId: number, postNumber?: number): void;
-  /** 跳到课堂视频页并打开指定场次播放（项目树引用深链）。 */
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
   setCreateProject(value: boolean): void;
   consumeReveal(): void;
   consumeGeneralChat(): void;
-  setNavigationError(error: string | null): void;
+}
+
+/** 历史条目：视图 + 项目（后退要能回到同一个项目面板）。 */
+interface NavigationRoute {
+  view: AppView;
+  projectId: string | null;
 }
 
 let pulseSeq = 0;
+
+function routeOf(state: NavigationState): NavigationRoute {
+  return { view: state.view, projectId: state.projectId };
+}
+
+/** 记住当前项目：设置页「重置当前项目布局」读取此键。 */
+function rememberProject(id: string | null): void {
+  try {
+    localStorage.setItem(projectStorageKey, id ?? '');
+  } catch {
+    /* localStorage 可用性不影响导航。 */
+  }
+}
+
+function currentProjectLive(): boolean {
+  const { projectId } = useNavigationStore.getState();
+  return (
+    projectId === null ||
+    useWorkspaceStore.getState().workspace.entries.some((entry) => entry.id === projectId)
+  );
+}
 
 /** 文档键（entryId 或 source:{sourceId}）→ TabId；笔记条目开 note 标签，其余只读预览。 */
 export function documentTabId(key: string): TabId {
@@ -111,7 +143,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     projectId: null,
     backStack: [],
     forwardStack: [],
-    navigationError: null,
     mailRequest: null,
     todoRequest: null,
     settingsRequest: null,
@@ -126,14 +157,13 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       set({
         view: next,
         ...(next === 'home' ? { projectId: null } : {}),
-        backStack: [...state.backStack, state.view],
+        backStack: [...state.backStack, routeOf(state)],
         forwardStack: [],
         mailRequest: null,
         todoRequest: null,
         settingsRequest: null,
         reveal: null,
         generalChat: null,
-        navigationError: null,
       });
       return true;
     },
@@ -142,10 +172,12 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       const state = get();
       const prev = state.backStack[state.backStack.length - 1];
       if (prev === undefined || !leaveComposer(() => get().goBack())) return false;
+      rememberProject(prev.projectId);
       set({
-        view: prev,
+        view: prev.view,
+        projectId: prev.projectId,
         backStack: state.backStack.slice(0, -1),
-        forwardStack: [state.view, ...state.forwardStack],
+        forwardStack: [routeOf(state), ...state.forwardStack],
         mailRequest: null,
         todoRequest: null,
         settingsRequest: null,
@@ -159,9 +191,11 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       const state = get();
       const next = state.forwardStack[0];
       if (next === undefined || !leaveComposer(() => get().goForward())) return false;
+      rememberProject(next.projectId);
       set({
-        view: next,
-        backStack: [...state.backStack, state.view],
+        view: next.view,
+        projectId: next.projectId,
+        backStack: [...state.backStack, routeOf(state)],
         forwardStack: state.forwardStack.slice(1),
         mailRequest: null,
         todoRequest: null,
@@ -173,14 +207,18 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     openProject: (id) => {
-      if (!get().navigate('workbench')) return false;
       const next = id || null;
-      if (get().projectId !== next) set({ projectId: next });
-      try {
-        localStorage.setItem(projectStorageKey, id);
-      } catch {
-        /* localStorage 可用性不影响导航。 */
+      const fromWorkbench = get().view === 'workbench';
+      if (!get().navigate('workbench')) return false;
+      if (get().projectId !== next) {
+        // 同视图换项目时 navigate 因视图未变而早退、不压栈，这里补记来源，否则从项目面板切走
+        // 就退不回来。来源项目已被删除（工作区自动回退通用池）时不记，避免后退跳回不存在的项目。
+        if (fromWorkbench && currentProjectLive()) {
+          set((state) => ({ backStack: [...state.backStack, routeOf(state)], forwardStack: [] }));
+        }
+        set({ projectId: next });
       }
+      rememberProject(id);
       // navigate 在同视图切换时早退不清请求；换项目后旧会话指针不该再把用户拉回去。
       set({ reveal: null, generalChat: null });
       return true;
@@ -222,7 +260,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         get().openChat(chat.sessionId, projectId);
         return chat.sessionId;
       } catch (cause) {
-        set({ navigationError: errorText(cause) });
+        showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
         return null;
       }
     },
@@ -283,6 +321,5 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     setCreateProject: (value) => set({ createProject: value }),
     consumeReveal: () => set({ reveal: null }),
     consumeGeneralChat: () => set({ generalChat: null }),
-    setNavigationError: (error) => set({ navigationError: error }),
   };
 });

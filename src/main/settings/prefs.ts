@@ -36,6 +36,26 @@ export function writeSetting(key: string, value: string): void {
   getDatabase().prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value);
 }
 
+export function savedExperimentalFeatures(): boolean {
+  return readSetting('experimental-features') === '1';
+}
+
+export function setExperimentalFeatures(enabled: boolean): boolean {
+  writeSetting('experimental-features', enabled ? '1' : '0');
+  return enabled;
+}
+
+// 试验子项（当前仅课堂视频）：键缺失或值损坏视为开启——总开关本身默认关闭，
+// 用户开启总开关即恢复子项可用，不必再逐项打开。
+export function savedExperimentalClassroom(): boolean {
+  return readSetting('experimental-classroom') !== '0';
+}
+
+export function setExperimentalClassroom(enabled: boolean): boolean {
+  writeSetting('experimental-classroom', enabled ? '1' : '0');
+  return enabled;
+}
+
 export function savedTheme(): ThemePreference {
   return themeSchema.catch('system').parse(readSetting('theme'));
 }
@@ -103,18 +123,22 @@ export function setTaskNotificationPrefs(input: unknown): TaskNotificationPrefs 
 }
 
 // ---------------------------------------------------------------------------
-// 工作现场偏好（启动恢复上次项目与标签、默认笔记编辑方式）。
+// 工作现场偏好（启动恢复上次项目与标签、默认笔记编辑方式、笔记拼写检查）。
 // ---------------------------------------------------------------------------
 
 const workspacePrefsDefaults: WorkspacePrefs = {
   // 现行为本就恢复上次项目（App 读 localStorage 的最后项目键），默认开启与其一致。
   restoreLastProject: true,
   defaultNoteEditMode: 'rich',
+  // 现行为本就关闭拼写检查（两个编辑器都硬编码 spellcheck=false）。
+  noteSpellcheck: false,
 };
 
 export const workspacePrefsSchema = z.object({
   restoreLastProject: z.boolean(),
   defaultNoteEditMode: z.enum(['rich', 'source']),
+  // 字段级 default：旧版存的 JSON 没有这个键，缺省补齐而不是让整条偏好回退默认值。
+  noteSpellcheck: z.boolean().default(false),
 });
 
 export function getWorkspacePrefs(): WorkspacePrefs {

@@ -41,10 +41,14 @@ function createDb(): Database.Database {
   db.exec(`
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
-      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT,
+      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
       updated_at TEXT NOT NULL
     );
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE remotes (
+      id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL, port INTEGER,
+      key_path TEXT, created_at TEXT NOT NULL
+    );
     CREATE INDEX workspace_parent ON workspace_entries(parent_id);
     CREATE TABLE sessions (
       id TEXT PRIMARY KEY,
@@ -63,7 +67,7 @@ function createDb(): Database.Database {
 
 function insertFileEntry(db: Database.Database, path: string, kind: 'local' | 'imported') {
   const id = crypto.randomUUID();
-  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?)').run(
+  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, NULL, ?)').run(
     id,
     path.split(/[\\/]/).pop()!,
     kind,
@@ -76,6 +80,43 @@ function insertFileEntry(db: Database.Database, path: string, kind: 'local' | 'i
 /** 工作区根目录（storageDirectory() 无自定义设置时为 <root>/Dela/workspace）。 */
 const workspaceRoot = () => join(state.root, 'Dela', 'workspace');
 const localPathOf = (id: string) => entry(id).path!;
+
+/** VS Code 已安装的替身：where code 指向 bin/code.cmd，同安装目录有 Code.exe；启动只报成功。 */
+function stubVsCode(): string {
+  const code = join(state.root, 'VS Code', 'Code.exe');
+  mkdirSync(dirname(code), { recursive: true });
+  writeFileSync(code, '');
+  state.execFile.mockImplementation((_command, _args, callback) => {
+    callback(null, join(dirname(code), 'bin', 'code.cmd'));
+  });
+  state.spawn.mockImplementation(() => {
+    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+    queueMicrotask(() => child.emit('spawn'));
+    return child;
+  });
+  return code;
+}
+
+/** 远端项目与它的连接记录（local_path 是远端 POSIX 路径，本地没有对应目录）。 */
+function insertRemoteProject(host: string, path: string): string {
+  const id = crypto.randomUUID();
+  const remoteId = crypto.randomUUID();
+  db.prepare('INSERT INTO remotes VALUES (?, ?, ?, NULL, NULL, ?)').run(
+    remoteId,
+    host,
+    host,
+    new Date().toISOString(),
+  );
+  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?, ?)').run(
+    id,
+    path.split('/').pop()!,
+    'project',
+    path,
+    remoteId,
+    new Date().toISOString(),
+  );
+  return id;
+}
 
 let db: Database.Database;
 
@@ -129,23 +170,36 @@ describe('打开项目目录', () => {
       name: '项目 % & 中文',
       kind: 'project',
     });
-    const code = join(state.root, 'VS Code', 'Code.exe');
-    mkdirSync(dirname(code), { recursive: true });
-    writeFileSync(code, '');
-    state.execFile.mockImplementation((_command, _args, callback) => {
-      callback(null, join(dirname(code), 'bin', 'code.cmd'));
-    });
-    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
-    state.spawn.mockImplementation(() => {
-      queueMicrotask(() => child.emit('spawn'));
-      return child;
-    });
+    const code = stubVsCode();
     await openProjectDirectory(project.id, 'vscode');
     expect(state.spawn).toHaveBeenLastCalledWith(code, [join(workspaceRoot(), '项目 % & 中文')], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
     });
+  });
+
+  it('远端项目经 Remote-SSH 打开远端路径，不交给本地 VS Code 当本地目录', async () => {
+    if (process.platform !== 'win32') return;
+    const project = insertRemoteProject('root@47.117.158.218', '/srv/app');
+    const code = stubVsCode();
+    vi.mocked(shell.openPath).mockClear();
+    await openProjectDirectory(project, 'vscode');
+    expect(state.spawn).toHaveBeenLastCalledWith(
+      code,
+      ['--remote', 'ssh-remote+root@47.117.158.218', '/srv/app'],
+      { detached: true, stdio: 'ignore', windowsHide: true },
+    );
+    // 远端目录没有本地对应物，资源管理器无从打开。
+    await expect(openProjectDirectory(project, 'explorer')).rejects.toThrow('没有本地目录');
+    expect(shell.openPath).not.toHaveBeenCalled();
+  });
+
+  it('未找到 VS Code 时提示远端项目需要 Remote - SSH 与 ssh config', async () => {
+    if (process.platform !== 'win32') return;
+    const project = insertRemoteProject('gpu-box', '/srv/app');
+    state.execFile.mockImplementation((_command, _args, callback) => callback(null, ''));
+    await expect(openProjectDirectory(project, 'vscode')).rejects.toThrow('Remote - SSH');
   });
 
   it('打开项目当前目录，重命名后使用新路径', async () => {
@@ -203,7 +257,7 @@ describe('createWorkspaceEntry', () => {
   it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
     db.prepare(
-      "INSERT INTO workspace_entries VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, ?)",
+      "INSERT INTO workspace_entries VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, NULL, ?)",
     ).run(crypto.randomUUID(), folder.id, new Date().toISOString());
     expect(entry(folder.id).kind).toBe('folder');
     // 同容器继续创建内容不受影响（source 行曾把容器误判成 source 而拒绝操作）。
@@ -222,7 +276,7 @@ describe('归档文件夹', () => {
   const seedArchive = () =>
     db
       .prepare(
-        "INSERT INTO workspace_entries VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, '2026-10-07T00:00:00.000Z')",
+        "INSERT INTO workspace_entries VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, NULL, '2026-10-07T00:00:00.000Z')",
       )
       .run();
 

@@ -16,7 +16,7 @@ describe('useChatDrafts 启动加载', () => {
     vi.resetModules();
   });
 
-  it('合法条目保留，形状损坏的条目丢弃', async () => {
+  it('合法条目保留，旧版 references 迁移为 @token，形状损坏的条目丢弃', async () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -25,11 +25,17 @@ describe('useChatDrafts 启动加载', () => {
         s3: 'junk',
         s4: { prompt: 42, references: [] },
         s5: { prompt: 'y', references: [{ key: 1, title: 't' }] },
+        s6: { prompt: 'z', references: [{ key: 'source:1', title: '资料' }] },
+        s7: { prompt: 'w' },
       }),
     );
     const { useChatDrafts } = await loadFresh();
     expect(useChatDrafts.getState().drafts).toEqual({
-      s1: { prompt: '你好', references: [{ key: 'k', title: '笔记' }] },
+      s1: { prompt: '你好 @笔记' },
+      s2: { prompt: 'x' },
+      s5: { prompt: 'y' },
+      s6: { prompt: 'z' },
+      s7: { prompt: 'w' },
     });
   });
 

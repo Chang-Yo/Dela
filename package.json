@@ -20,6 +20,7 @@
     "dev": "node scripts/dev.mjs",
     "typecheck": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json",
     "build": "pnpm typecheck && vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && vite build --config vite.renderer.config.ts",
+    "build:helper": "node scripts/build-helper.mjs",
     "start": "electron .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -32,7 +33,8 @@
     "smoke": "electron . --smoke-test",
     "smoke:workspace": "node scripts/workspace-smoke.mjs",
     "smoke:pdf": "electron scripts/pdf-smoke.cjs",
-    "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs"
+    "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs",
+    "smoke:remote": "node scripts/remote-smoke.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",

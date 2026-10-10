@@ -6,7 +6,7 @@ export function ProgressRing({
   size = 28,
 }: {
   progress: number; // 0..1
-  tone?: "orange" | "green" | "red" | "accent";
+  tone?: "orange" | "green" | "red" | "accent" | "ink";
   children?: React.ReactNode;
   size?: number;
 }) {
@@ -18,6 +18,8 @@ export function ProgressRing({
     green: "var(--green)",
     red: "var(--red)",
     accent: "var(--bui-accent)",
+    // Dela 适配：中性墨色档。
+    ink: "var(--ink-2)",
   };
   return (
     <span

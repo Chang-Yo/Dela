@@ -9,8 +9,9 @@ import { fadeIn } from '../../components/ui/motion';
 
 // 回复的行内轨迹（Codex / Claude 式）：思考与工具步骤按发生顺序夹在正文之间，
 // 每步一行「动词 + 对象」，点开看细节。运行中只有当前步骤带 shimmer；
-// 完成后连续的工具步骤收成一行摘要（「读取 3 个文件，编辑 1 个」）。
-// 不展示操作数、失败数、对勾：失败只在该步骤行尾标注，整轮失败由消息末尾的错误卡说明。
+// 完成后连续的工具步骤收成一行摘要（「读取 3 个文件，编辑 1 个」）；
+// 整轮结束后的折叠行只报用时，不回放工具清单、操作数与失败数：
+// 失败只在该步骤行尾标注，整轮失败由消息末尾的错误卡说明。
 //
 // 尺度（聊天区统一）：轨迹行 13px / ink-3，悬浮 ink-2；正文 14px / ink；行高 28px 节奏。
 
@@ -152,15 +153,11 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
 }
 
 function ToolStep({ result, live }: { result: AgentToolResult; live: boolean }) {
+  // 失败也走工具视图：bash 保持「$ 命令 + 输出」的代码块形态，
+  // 失败只由行尾标记与卡片色条提示，不再把正文整段染红。
   return (
     <Disclosure head={<StepHead result={result} live={live} />}>
-      {result.output?.isError ? (
-        <p className="whitespace-pre-wrap break-words py-1 text-[12px] leading-5 text-red">
-          {result.output.text || '工具没有返回原因'}
-        </p>
-      ) : (
-        <ToolBody result={result} />
-      )}
+      <ToolBody failed={Boolean(result.output?.isError)} result={result} />
     </Disclosure>
   );
 }
@@ -172,6 +169,15 @@ function summarize(results: AgentToolResult[]): string {
   return [...counts]
     .map(([name, count]) => `${verbOf(name).done} ${count} ${verbOf(name).noun}`)
     .join('，');
+}
+
+/** 折叠行的用时：不足 1 秒按 1 秒计，分钟以上带分。 */
+function formatDuration(ms: number): string {
+  const seconds = Math.max(1, Math.ceil(ms / 1000));
+  if (seconds < 60) return `${seconds} 秒`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} 分 ${seconds % 60} 秒`;
+  return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分`;
 }
 
 function ToolGroup({ results, live }: { results: AgentToolResult[]; live: boolean }) {
@@ -229,10 +235,15 @@ function Reasoning({ part, live }: { part: Extract<Part, { type: 'reasoning' }>;
 export function ReplyTrace({
   parts,
   live,
+  startedAt,
+  finishedAt,
   renderText,
 }: {
   parts: ChatParts;
   live: boolean;
+  /** 本轮的起止时刻（用户发问到回复落定）；旧会话没有，折叠行只报状态。 */
+  startedAt?: number;
+  finishedAt?: number;
   renderText?: (text: string) => ReactNode;
 }) {
   const blocks: { key: number; part: Part }[] = [];
@@ -272,7 +283,12 @@ export function ReplyTrace({
   const foldable = !live && blocks.length > 1 && blocks[lastIndex]!.part.type === 'text';
   const [expanded, setExpanded] = useState(false);
   const folded = foldable && !expanded;
-  const tools = blocks.flatMap(({ part }) => (part.type === 'tools' ? part.results : []));
+  const duration =
+    startedAt !== undefined && finishedAt !== undefined && finishedAt > startedAt
+      ? formatDuration(finishedAt - startedAt)
+      : null;
+  const hasTools = blocks.some(({ part }) => part.type === 'tools');
+  const foldLabel = `${hasTools ? '已处理' : '已思考'}${duration ? ` · 用时 ${duration}` : ''}`;
   return (
     <div aria-label="对话过程" className="min-w-0">
       {foldable && (
@@ -290,12 +306,7 @@ export function ReplyTrace({
               expanded && 'rotate-90',
             )}
           />
-          <span className="min-w-0 truncate">
-            {tools.length ? `已处理 · ${summarize(tools)}` : '已思考'}
-          </span>
-          {tools.some((result) => result.output?.isError) && (
-            <span className="shrink-0 text-red">有失败</span>
-          )}
+          <span className="min-w-0 truncate">{foldLabel}</span>
         </button>
       )}
       {blocks.map((block, index) =>

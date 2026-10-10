@@ -22,7 +22,8 @@ export type ShortcutActionId =
   | 'close-tab'
   | 'next-tab'
   | 'previous-tab'
-  | 'focus-group';
+  | 'focus-group'
+  | 'open-shortcuts';
 
 /** 动作作用域：global 在窗口级派发，workbench 只在工作台子树内派发。 */
 export type ShortcutScope = 'global' | 'workbench';
@@ -109,6 +110,14 @@ export const shortcutActions: readonly ShortcutAction[] = [
     label: '聚焦工作组',
     defaultKeys: 'Alt+1',
     family: 'digit',
+  },
+  {
+    id: 'open-shortcuts',
+    scope: 'global',
+    group: '帮助',
+    label: '快捷键一览',
+    // 标题栏不再有「帮助」菜单，浮层改由此键打开；Mod+/ 被 CodeMirror 的注释切换占用。
+    defaultKeys: 'F1',
   },
 ];
 

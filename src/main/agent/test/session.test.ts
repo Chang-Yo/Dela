@@ -22,7 +22,8 @@ beforeEach(() => {
   state.db.pragma('foreign_keys = ON');
   state.db.exec(`
     CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL,
-      kind TEXT NOT NULL, source_id TEXT, local_path TEXT, updated_at TEXT NOT NULL);
+      kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
+      updated_at TEXT NOT NULL);
     CREATE TABLE sessions (id TEXT PRIMARY KEY,
       project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL, file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
@@ -115,7 +116,7 @@ describe('会话归属与 cwd', () => {
   it('项目会话的 cwd 是项目目录；空会话入口每个项目只有一个', () => {
     state
       .db!.prepare(
-        "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, ?, 'x')",
+        "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
       )
       .run(state.root);
     const first = newSession('p1');
@@ -127,7 +128,7 @@ describe('会话归属与 cwd', () => {
   it('项目目录不存在时拒绝新建会话，不回退到其他目录', () => {
     state
       .db!.prepare(
-        "INSERT INTO workspace_entries VALUES ('p2', NULL, '丢失', 'project', NULL, ?, 'x')",
+        "INSERT INTO workspace_entries VALUES ('p2', NULL, '丢失', 'project', NULL, ?, NULL, 'x')",
       )
       .run(join(state.root, 'missing'));
     expect(() => newSession('p2')).toThrow('项目目录不存在');

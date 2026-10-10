@@ -18,8 +18,18 @@ export interface ExplorerItem {
   container?: boolean;
   project?: boolean;
   badge?: string;
-  /** 叶子条目的自定义图标（如水源来源的水滴）；默认 FileText。 */
+  /** 自定义行图标（如水源来源的水滴、远端项目的云朵）：给了就顶掉容器/项目的默认图标。 */
   icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** 行尾小标记（如远端条目的云朵）；与本地条目用图标区分，不堆文字。 */
+  marker?: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** 图标与标记的强调色（CSS 颜色值）：同源的多行共用一色，视觉上归为一组。 */
+  accent?: string;
+  /** 行提示（默认条目名）；远端条目用它显示「目的地:路径」。 */
+  title?: string;
+  /** 只读条目：可展开可选中，但不参与内部拖拽与拖放落点（远端条目只做浏览）。 */
+  readOnly?: boolean;
+  /** 只读但仍接收外部文件拖放（远端目录：本地文件上传到远端，内部移动照旧被 readOnly 拦住）。 */
+  importable?: boolean;
 }
 
 export const explorerDragType = 'application/x-dela-entry';
@@ -161,18 +171,31 @@ export function Explorer({
     focusItem(target);
   };
   const droppable = (drag: string, target: string) =>
-    drag !== target && (!canDrop || canDrop(drag, target));
+    drag !== target &&
+    !items.some((item) => item.id === target && item.readOnly) &&
+    (!canDrop || canDrop(drag, target));
   // 拖拽悬停叶子行时，落点解析到所属目录（VS Code 式：整块目录区域都是落点）；
   // 内部拖拽中所属目录不可落（如拖动目录本身悬停在其子项上）则返回 null。
+  // 文件拖放（drag === null）额外允许「只读但可接收文件」的落点：远端目录能上传，但不接受内部移动。
   const anchorBranch = (item: ExplorerItem, drag: string | null): string | null =>
-    item.parentId !== null && (drag === null || droppable(drag, item.parentId))
+    item.parentId !== null &&
+    !items.some(
+      (candidate) =>
+        candidate.id === item.parentId &&
+        candidate.readOnly &&
+        !(drag === null && candidate.importable),
+    ) &&
+    (drag === null || droppable(drag, item.parentId))
       ? item.parentId
       : null;
   const isFileDrag = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+  /** 文件拖放的落点：目录行本身（可接收文件的只读远端目录也算），否则落到所属目录。 */
+  const fileDropTarget = (item: ExplorerItem, branch: boolean): string | null =>
+    branch && (!item.readOnly || item.importable) ? item.id : anchorBranch(item, null);
   const dragProps =
     onMove || onImportFiles
       ? (item: ExplorerItem, branch: boolean) => ({
-          draggable: Boolean(onMove),
+          draggable: Boolean(onMove) && !item.readOnly,
           onDragStart: (event: DragEvent) => {
             if (!onMove) return;
             setDropTarget(null);
@@ -187,7 +210,7 @@ export function Explorer({
           },
           onDragOver: (event: DragEvent) => {
             if (onImportFiles && isFileDrag(event)) {
-              const target = branch ? item.id : anchorBranch(item, null);
+              const target = fileDropTarget(item, branch);
               if (target === null) {
                 if (externalDropTarget !== null) setExternalDropTarget(null);
                 return;
@@ -213,7 +236,7 @@ export function Explorer({
           },
           onDrop: (event: DragEvent) => {
             if (onImportFiles && isFileDrag(event)) {
-              const target = branch ? item.id : anchorBranch(item, null);
+              const target = fileDropTarget(item, branch);
               // 顶层叶子行不接收，交给树根落点。
               if (target === null) return;
               event.preventDefault();
@@ -262,14 +285,18 @@ export function Explorer({
         const branch = Boolean(item.container || children.has(item.id));
         // 目录 icon 只保留到第二层（学期/课程这类主目录），更深的子目录只留
         // 折叠箭头与文字；叶子文件 icon 不受影响。
-        const Icon = item.project
-          ? FolderKanban
-          : branch
-            ? open.has(item.id)
-              ? FolderOpen
-              : Folder
-            : (item.icon ?? FileText);
+        const Icon =
+          item.icon ??
+          (item.project
+            ? FolderKanban
+            : branch
+              ? open.has(item.id)
+                ? FolderOpen
+                : Folder
+              : FileText);
         const showIcon = !branch || level <= 2;
+        const Marker = item.marker;
+        const accent = item.accent ? { color: item.accent } : undefined;
         const ancestors = trailOf(item.parentId);
         const dropRegion =
           activeDrop !== null && (activeDrop === item.id || ancestors.includes(activeDrop));
@@ -350,10 +377,17 @@ export function Explorer({
                 )}
               />
             </button>
-            {showIcon && <Icon className="mr-1 size-4 shrink-0 text-ink-3" strokeWidth={1.8} />}
-            <span className="min-w-0 flex-1 truncate" title={item.name}>
+            {showIcon && (
+              <Icon className="mr-1 size-4 shrink-0 text-ink-3" strokeWidth={1.8} style={accent} />
+            )}
+            <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
               {item.name}
             </span>
+            {Marker && (
+              <span aria-hidden="true" className="shrink-0 text-ink-3" style={accent} title="远程">
+                <Marker className="size-3.5" strokeWidth={1.8} />
+              </span>
+            )}
             {item.badge && (
               <span className="text-[11.5px] tabular-nums text-ink-3">{item.badge}</span>
             )}

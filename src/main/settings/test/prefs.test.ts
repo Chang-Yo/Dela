@@ -13,8 +13,12 @@ import {
   getWorkspacePrefs,
   resetKeybindingOverrides,
   savedCampusNotifications,
+  savedExperimentalClassroom,
+  savedExperimentalFeatures,
   setAgentInstruction,
   setCampusNotifications,
+  setExperimentalClassroom,
+  setExperimentalFeatures,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
   setWorkspacePrefs,
@@ -27,6 +31,27 @@ function insert(sql: string, ...values: SQLInputValue[]) {
 beforeEach(() => {
   database = new DatabaseSync(':memory:');
   database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+});
+
+it('keeps experiments off for new or corrupt settings and persists an explicit opt-in', () => {
+  expect(savedExperimentalFeatures()).toBe(false);
+  insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
+  expect(savedExperimentalFeatures()).toBe(false);
+  setExperimentalFeatures(true);
+  expect(savedExperimentalFeatures()).toBe(true);
+  setExperimentalFeatures(false);
+  expect(savedExperimentalFeatures()).toBe(false);
+});
+
+it('keeps the classroom sub-item on by default and round-trips an explicit opt-out', () => {
+  // 子项缺省开启：总开关本身默认关，开启总开关即恢复子项可用。
+  expect(savedExperimentalClassroom()).toBe(true);
+  insert("INSERT INTO workspace_settings VALUES ('experimental-classroom', 'anything')");
+  expect(savedExperimentalClassroom()).toBe(true);
+  setExperimentalClassroom(false);
+  expect(savedExperimentalClassroom()).toBe(false);
+  setExperimentalClassroom(true);
+  expect(savedExperimentalClassroom()).toBe(true);
 });
 
 describe('task notification prefs', () => {
@@ -64,8 +89,21 @@ describe('campus notifications', () => {
 });
 
 describe('workspace prefs', () => {
-  it('defaults to restoring last project with rich editing', () => {
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: true, defaultNoteEditMode: 'rich' });
+  const defaults = { restoreLastProject: true, defaultNoteEditMode: 'rich', noteSpellcheck: false };
+
+  it('defaults to restoring last project, rich editing and spellcheck off', () => {
+    expect(getWorkspacePrefs()).toEqual(defaults);
+  });
+
+  it('fills the spellcheck field for prefs stored before it existed', () => {
+    insert(
+      'INSERT INTO workspace_settings VALUES (\'workspace-prefs\', \'{"restoreLastProject":false,"defaultNoteEditMode":"source"}\')',
+    );
+    expect(getWorkspacePrefs()).toEqual({
+      restoreLastProject: false,
+      defaultNoteEditMode: 'source',
+      noteSpellcheck: false,
+    });
   });
 
   it('merges partial updates without touching other fields', () => {
@@ -73,22 +111,30 @@ describe('workspace prefs', () => {
     expect(getWorkspacePrefs()).toEqual({
       restoreLastProject: true,
       defaultNoteEditMode: 'source',
+      noteSpellcheck: false,
     });
     setWorkspacePrefs({ restoreLastProject: false });
     expect(getWorkspacePrefs()).toEqual({
       restoreLastProject: false,
       defaultNoteEditMode: 'source',
+      noteSpellcheck: false,
+    });
+    setWorkspacePrefs({ noteSpellcheck: true });
+    expect(getWorkspacePrefs()).toEqual({
+      restoreLastProject: false,
+      defaultNoteEditMode: 'source',
+      noteSpellcheck: true,
     });
   });
 
   it('falls back to defaults on corrupt stored JSON', () => {
     insert("INSERT INTO workspace_settings VALUES ('workspace-prefs', 'broken-json')");
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: true, defaultNoteEditMode: 'rich' });
+    expect(getWorkspacePrefs()).toEqual(defaults);
   });
 
   it('rejects invalid enum values', () => {
     expect(() => setWorkspacePrefs({ defaultNoteEditMode: 'wysiwyg' })).toThrow();
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: true, defaultNoteEditMode: 'rich' });
+    expect(getWorkspacePrefs()).toEqual(defaults);
   });
 });
 

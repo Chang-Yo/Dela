@@ -225,3 +225,8 @@ export function readSkill(name: string): string {
 export function revealSkill(name: string): void {
   shell.showItemInFolder(findSkill(name).path);
 }
+
+/** 技能目录（SKILL.md 所在目录）：上传到远端时按目录整体带走。 */
+export function skillDirectory(name: string): string {
+  return dirname(findSkill(name).path);
+}

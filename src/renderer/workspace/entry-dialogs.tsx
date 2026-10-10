@@ -5,7 +5,7 @@
 // workbench/导航）接手——弹窗只负责表单与 workspace:*/canvas:* 通道调用。
 import { useEffect, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
-import { FolderOpen } from 'lucide-react';
+import { Cloud, FolderOpen } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
@@ -16,9 +16,12 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
+import { parseRemoteNodeId } from '../../shared/remotes';
+import { unhideProjectInNav } from '../navigation/store';
 import { useNoteDrafts } from './drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
+import { RemoteConnectionWizard } from './remote-wizard';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { cn } from '../lib/utils';
 
@@ -49,6 +52,9 @@ const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
 /** 标签页与目录共用的条目标题解析（旧 ProjectView.title）。 */
 export function titleOf(key: string): string {
   const { workspace, canvas } = useWorkspaceStore.getState();
+  // 远端预览标签的 key 是「项目 id + 远端绝对路径」，条目树里没有它，标题取文件名。
+  const remote = parseRemoteNodeId(key);
+  if (remote) return remote.path.slice(remote.path.lastIndexOf('/') + 1);
   return (
     workspace.entries.find((e) => e.id === key)?.name ??
     canvas.items.find((i) => `source:${i.sourceId}` === key)?.name ??
@@ -79,6 +85,8 @@ export function EntryDialogs({
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  /** 远程向导：自带对话框与进行中状态，打开时让出外层弹窗（避免两层遮罩叠在一起）。 */
+  const [wizard, setWizard] = useState(false);
 
   // 旧 show()：打开时重置表单；rename 预填当前名，target 预选调用方给的位置。
   useEffect(() => {
@@ -170,7 +178,11 @@ export function EntryDialogs({
       await useWorkspaceStore.getState().refresh();
       onClose();
       if (created) {
-        if (created.kind === 'project') onOpenProject?.(created.id);
+        if (created.kind === 'project') {
+          // 导入的目录可能早先被「移除项目入口」隐藏过（同一目录只登记一次，加回来还是那一条）。
+          unhideProjectInNav(created.id);
+          onOpenProject?.(created.id);
+        }
         onCreated?.(created);
       }
     } catch (error) {
@@ -182,7 +194,7 @@ export function EntryDialogs({
 
   return (
     <Dialog.Root
-      open={request !== null}
+      open={request !== null && !wizard}
       onOpenChange={(value) => {
         if (!value && !busy) onClose();
       }}
@@ -198,7 +210,9 @@ export function EntryDialogs({
               ? '使用个人 Access Token，凭据加密保存在本机。'
               : request?.action === 'remove'
                 ? workspace.entries.find((entry) => entry.id === request.id)?.kind === 'project'
-                  ? '取消项目身份，目录与文件保留，会话转入随聊。'
+                  ? workspace.entries.find((entry) => entry.id === request.id)?.remoteId
+                    ? '只取消登记，远端目录与文件不会改动，会话转入随聊。'
+                    : '取消项目身份，目录与文件保留，会话转入随聊。'
                   : workspace.entries.find((entry) => entry.id === request.id)?.kind === 'source'
                     ? '解除此处的资料关联，原始资料保留。'
                     : '将文件或文件夹移至系统回收站。'
@@ -272,6 +286,15 @@ export function EntryDialogs({
                   <FolderOpen />
                   导入已有文件夹
                 </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => setWizard(true)}
+                  type="button"
+                  variant="secondary"
+                >
+                  <Cloud />
+                  连接远程目录
+                </Button>
               </div>
             )}
             {modalError && (
@@ -300,6 +323,18 @@ export function EntryDialogs({
           </form>
         </Dialog.Content>
       </Dialog.Portal>
+      {/* 向导有自己的对话框：外层弹窗打开它时关闭，取消后回到新建项目。 */}
+      <RemoteConnectionWizard
+        open={wizard}
+        onClose={() => setWizard(false)}
+        onImported={(entry) => {
+          // 与「导入已有文件夹」同一套后续动作：刷新镜像已由向导完成。
+          setWizard(false);
+          onClose();
+          onOpenProject?.(entry.id);
+          onCreated?.(entry);
+        }}
+      />
     </Dialog.Root>
   );
 }

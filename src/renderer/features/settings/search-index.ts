@@ -14,6 +14,18 @@ export interface SettingsSearchItem {
 }
 
 export const settingsSearchItems: SettingsSearchItem[] = [
+  {
+    id: 'experimental-features',
+    section: 'general',
+    title: '试验功能',
+    keywords: ['通用', '实验', 'experimental'],
+  },
+  {
+    id: 'experimental-classroom',
+    section: 'general',
+    title: '课堂视频（试验）',
+    keywords: ['课堂', '录像', '交大视频', 'vsjtu', 'classroom'],
+  },
   // 通用（含系统通知子节）
   {
     id: 'open-at-login',
@@ -173,6 +185,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: 'MCP Server',
     keywords: ['插件', 'mcp', '服务器', 'server'],
   },
+  {
+    id: 'remote-connections',
+    section: 'remotes',
+    title: '远程连接',
+    keywords: ['远程', 'ssh', '主机', '服务器', '连接', 'remote'],
+  },
   // 关于
   { id: 'about', section: 'about', title: '关于', keywords: ['版本', '更新', 'credits', '关于'] },
   {
@@ -190,6 +208,7 @@ export const settingsSectionLabels: Record<SettingsSectionId, string> = {
   workspace: '工作区',
   archived: '已归档',
   connections: '连接',
+  remotes: '远程',
   providers: '模型供应商',
   capabilities: '内置能力',
   commands: '自定义指令',
@@ -207,6 +226,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   workspace: '工作目录、笔记编辑方式与布局',
   archived: '恢复或永久删除已归档对话',
   connections: 'Canvas、邮箱、教务与水源连接',
+  remotes: 'SSH 远程主机与连接',
   providers: 'AI 模型与 API 提供商',
   capabilities: '内置 Agent 能力开关',
   commands: '全局指令与快捷指令模板',
@@ -219,7 +239,8 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
 /** 按分类聚合的全局搜索设置入口（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */
 export function settingsResultsFor(query: string): GlobalSearchResult[] {
   const keyword = query.trim().toLowerCase();
-  return (Object.keys(settingsSectionLabels) as SettingsSectionId[])
+  const sections = Object.keys(settingsSectionLabels) as SettingsSectionId[];
+  return sections
     .map((section) => {
       const items = settingsSearchItems.filter((item) => item.section === section);
       const haystack = [

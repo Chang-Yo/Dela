@@ -13,6 +13,7 @@ import type {
   AgentToolResult,
   ChatAskInput,
   ChatSessionSummary,
+  ContextUsageView,
   RunStatus,
   WorkspaceChat,
 } from '../../shared/api';
@@ -21,6 +22,7 @@ import { getDatabase } from '../database';
 import { getActiveLlmProvider } from './providers';
 import { openPiSession } from './pi';
 import { agentEnvironment } from './environment';
+import { remoteProjectOf } from '../workspace/api';
 import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import { notifyRunFinished } from '../settings/task-notify';
 
@@ -40,6 +42,7 @@ interface Live {
   run?: { id: string; tool?: string };
   /** 本轮用户消息的展示元数据（引用、图片、附件），按 Pi 消息时间戳对齐。 */
   unsubscribe: () => void;
+  stale?: boolean;
 }
 
 const live = new Map<string, Live>();
@@ -63,7 +66,8 @@ function row(id: string): SessionRow {
   return found;
 }
 
-/** 项目目录：项目条目的 local_path；通用会话用工作区根。缺失即报错。 */
+/** 项目目录：项目条目的 local_path；通用会话用工作区根。缺失即报错。
+ *  远程项目的路径在远端，本地没有对应目录，因此跳过本地存在性检查。 */
 function sessionCwd(projectId: string | null): string {
   const path =
     projectId === null
@@ -76,6 +80,7 @@ function sessionCwd(projectId: string | null): string {
             .get(projectId) as { path: string | null } | undefined
         )?.path;
   if (!path) throw new Error('项目不存在');
+  if (projectId && remoteProjectOf(projectId)) return path;
   if (!existsSync(path) || !statSync(path).isDirectory())
     throw new Error(`项目目录不存在：${path}`);
   return path;
@@ -103,14 +108,17 @@ async function ensureLive(id: string): Promise<Live> {
   return entry;
 }
 
-/** 模型或能力配置改变：丢弃空闲会话实例，下次使用时按新配置重建。 */
+/** 模型或能力配置改变：空闲实例立即丢弃，运行中的轮末丢弃，下次使用时按新配置重建。 */
 export function invalidateSessions() {
-  for (const [id, entry] of live)
+  for (const [id, entry] of live) {
     if (!entry.run) {
       entry.unsubscribe();
       entry.session.dispose();
       live.delete(id);
+    } else {
+      entry.stale = true;
     }
+  }
 }
 
 // ===== Pi 消息 → WorkspaceChat 投影 =====
@@ -210,7 +218,12 @@ export function projectMessages(
       }
     } else if (message.role === 'compactionSummary') {
       // 压缩点之前的历史仍在 JSONL；投影只保留摘要后的上下文，开头标注一条。
-      out.push({ role: 'assistant', content: '（较早的对话已压缩为摘要）', parts: [] });
+      out.push({
+        role: 'assistant',
+        content: '（较早的对话已压缩为摘要）',
+        parts: [],
+        compacted: true,
+      });
       reply = null;
     }
   }
@@ -247,12 +260,32 @@ function snapshot(id: string): WorkspaceChat {
     models: provider?.models ?? [],
     effortLevels,
     effort: effortLevels.length ? (provider?.effort ?? effortLevels[0]!) : null,
+    contextUsage: usageOf(entry),
     messages: entry
       ? projectMessages(entry.session.messages, liveSteps.get(id), Boolean(entry.run))
       : readMessages(id),
     running: Boolean(entry?.run),
     activeTool: entry?.run?.tool,
     compacting: entry?.session.isCompacting ?? false,
+  };
+}
+
+function usageOf(entry: Live | undefined): ContextUsageView | null {
+  if (!entry) return null;
+  // 一次聚合同时取上下文占用与累计用量：getSessionStats 内部已算过 getContextUsage，
+  // 分开调用会把这件按消息估算的重活在同一个流式节拍里做两遍。
+  const stats = entry.session.getSessionStats();
+  const usage = stats.contextUsage;
+  if (!usage) return null;
+  // 缓存命中率的分子分母都取本会话累计：SessionStats 聚合会话文件里的全部条目（含已被
+  // 压缩或被分支抛弃的历史，那些请求确实按缓存价计过费）。提供商不上报缓存时这里恒为 0，
+  // 直接下发会被读成「一次都没命中」，所以只在出现过缓存读或写时才带上这两个字段。
+  const { input, cacheRead, cacheWrite } = stats.tokens;
+  return {
+    tokens: usage.tokens,
+    contextWindow: usage.contextWindow,
+    percent: usage.percent,
+    ...(cacheRead + cacheWrite > 0 ? { inputTokens: input, cachedTokens: cacheRead } : {}),
   };
 }
 
@@ -348,7 +381,12 @@ function stream(id: string, entry: Live) {
   );
   const last = messages.at(-1);
   if (last?.role === 'assistant')
-    send('session:on-stream', { sessionId: id, message: last, activeTool: entry.run?.tool });
+    send('session:on-stream', {
+      sessionId: id,
+      message: last,
+      activeTool: entry.run?.tool,
+      contextUsage: usageOf(entry),
+    });
 }
 
 function touch(id: string, entry: Live) {
@@ -542,6 +580,11 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     runEvent(id, status);
     publish(id);
     if (status !== 'stopped') notifyRunFinished(id, status);
+    if (entry.stale) {
+      entry.unsubscribe();
+      entry.session.dispose();
+      live.delete(id);
+    }
   }
   return snapshot(id);
 }

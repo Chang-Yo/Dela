@@ -1,0 +1,89 @@
+// @ 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」
+// 的连续文本是一个引用 token——编辑器按这里的规则高亮，发送时解析回绝对路径（key）。
+// 手打错误、已删除文件的 @路径不高亮也不进上下文，只是普通文本。
+import type { ChatReference } from './drafts';
+
+/** 文本中的一个引用 token：[start, end) 覆盖「@路径」全段（含 @，不含尾部标点）。 */
+export interface ReferenceToken {
+  start: number;
+  end: number;
+  ref: ChatReference;
+}
+
+// token 尾部这些标点视为句子成分而非路径的一部分（如「@a.md。」末尾的句号）。
+const TRAILING_PUNCT = new Set([
+  '.',
+  ',',
+  ';',
+  ':',
+  '!',
+  '?',
+  ')',
+  ']',
+  '}',
+  '"',
+  "'",
+  '`',
+  '、',
+  '，',
+  '。',
+  '；',
+  '：',
+  '！',
+  '？',
+  '）',
+  '】',
+  '》',
+  '」',
+  '’',
+  '”',
+]);
+
+// title 可含空格（文件名带空格合法）：run 未命中时向后按空白段扩展再试，最多 8 段。
+const MAX_SPACE_EXTENSIONS = 8;
+
+function trimTrailingPunct(value: string): string {
+  let end = value.length;
+  while (end > 0 && TRAILING_PUNCT.has(value[end - 1]!)) end -= 1;
+  return value.slice(0, end);
+}
+
+/** 扫描 text 中的全部引用 token（含重复）。@ 需位于行首或空白后，
+ * user@host.com 这类前置非空白的 @ 不参与。 */
+export function matchReferenceTokens(text: string, options: ChatReference[]): ReferenceToken[] {
+  const byTitle = new Map(options.map((ref) => [ref.title, ref]));
+  if (byTitle.size === 0) return [];
+  const tokens: ReferenceToken[] = [];
+  // @ 前必须是行首或空白：候选 run 到首个空白为止，之后按需跨空格扩展。
+  const run = /(?:^|\s)@([^\s]+)/g;
+  for (const match of text.matchAll(run)) {
+    const at = (match.index ?? 0) + match[0].length - match[1]!.length - 1;
+    let segEnd = at + 1 + match[1]!.length;
+    for (let extend = 0; ; extend += 1) {
+      const candidate = trimTrailingPunct(text.slice(at + 1, segEnd));
+      const ref = byTitle.get(candidate);
+      if (ref) {
+        tokens.push({ start: at, end: at + 1 + candidate.length, ref });
+        break;
+      }
+      if (extend === MAX_SPACE_EXTENSIONS) break;
+      const space = text.indexOf(' ', segEnd);
+      if (space < 0) break;
+      const nextBlank = /\s/.exec(text.slice(space + 1));
+      segEnd = nextBlank ? space + 1 + nextBlank.index : text.length;
+    }
+  }
+  return tokens;
+}
+
+/** 发送用：解析出的引用按 key 去重（同文件 @ 两次只进一次上下文），保持出现顺序。 */
+export function referenceContext(text: string, options: ChatReference[]): ChatReference[] {
+  const seen = new Set<string>();
+  const refs: ChatReference[] = [];
+  for (const token of matchReferenceTokens(text, options)) {
+    if (seen.has(token.ref.key)) continue;
+    seen.add(token.ref.key);
+    refs.push(token.ref);
+  }
+  return refs;
+}

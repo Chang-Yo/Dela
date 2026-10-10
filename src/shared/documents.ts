@@ -1,4 +1,30 @@
 import type { ResourceRef } from './resources';
+import { textFileExtensions } from './chat-input';
+
+const markdownExtensions = ['.md', '.markdown'];
+const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+const officeExtensions: Record<string, 'docx' | 'xlsx' | 'pptx'> = {
+  '.docx': 'docx',
+  '.xlsx': 'xlsx',
+  '.pptx': 'pptx',
+};
+
+/** 取扩展名（小写，含点）。纯字符串实现：渲染端也要用，不能引 node:path。 */
+function extensionOf(name: string): string {
+  const base = name.slice(name.lastIndexOf('/') + 1);
+  const dot = base.lastIndexOf('.');
+  return dot <= 0 ? '' : base.slice(dot).toLowerCase();
+}
+
+/** 按名字判定文档格式：本地条目与远端文件共用同一套规则（远端没有宿主 extname 可用）。 */
+export function documentFormatOf(name: string): DocumentContent['format'] {
+  const ext = extensionOf(name);
+  if (ext === '.pdf') return 'pdf';
+  if (imageExtensions.includes(ext)) return 'image';
+  if (markdownExtensions.includes(ext)) return 'markdown';
+  if (textFileExtensions.includes(ext.slice(1))) return 'text';
+  return officeExtensions[ext] ?? 'unsupported';
+}
 
 export interface DocumentContent {
   title: string;

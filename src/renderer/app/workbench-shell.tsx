@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
+import { parseRemoteNodeId, remoteAssetUrl } from '../../shared/remotes';
 import type { ResourceRef } from '../../shared/resources';
 // Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/milkdown/
 // highlight.js），静态引入会让 registry 的懒加载分包失效。
@@ -30,7 +31,9 @@ import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useNoteDrafts } from '../workspace/drafts';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
+import { useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from './navigation';
+import { showToast } from './toasts';
 import { MailDraftDialog } from './mail-draft-dialog';
 import { ChatHome } from '../content/chat/ChatHome';
 import { currentContainerOf, WorkbenchExplorer } from './workbench-explorer';
@@ -43,6 +46,12 @@ function tabDocumentKey(tabId: TabId | null): string | null {
   if (tabId.startsWith('preview:')) return tabId.slice('preview:'.length);
   if (tabId.startsWith('note:')) return tabId.slice('note:'.length);
   return null;
+}
+
+/** 空组空态的「新建对话」：与侧栏同一入口，按当前池落位（项目内落焦点组，通用池分屏）。
+ *  模块级函数引用稳定，不破坏 SplitNode/TabGroup 的 memo 比较。 */
+function newChatInCurrentPool() {
+  void useNavigationStore.getState().newChat(useWorkbenchLayout.getState().projectId);
 }
 
 export function WorkbenchShell({ home = false }: { home?: boolean }) {
@@ -126,7 +135,8 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           useNavigationStore.getState().consumeGeneralChat();
         }
       } catch (cause) {
-        if (active) useNavigationStore.getState().setNavigationError(errorText(cause));
+        if (active)
+          showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
         useNavigationStore.getState().consumeGeneralChat();
       }
     })();
@@ -242,10 +252,14 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     () => ({
       // @ 引用即文件路径：只列会话 cwd 之下的文件（项目会话 = 项目目录），key 为绝对路径，
       // title 为相对 cwd 的路径，与 agent 的工作目录一致。订阅 workspace 镜像，载入后自动出现。
-      useEntries: (_projectId, cwd) => {
+      useEntries: (projectId, cwd) => {
         const entries = useWorkspaceStore((state) => state.workspace.entries);
+        // 远程项目的 cwd 是远端路径，本地镜像里没有它的文件，候选改由远端索引提供。
+        const remote = entries.find((item) => item.id === projectId)?.remoteId;
+        const remoteEntries = useRemoteReferences(remote ? projectId : null);
         return useMemo(() => {
           if (!cwd) return [];
+          if (remote) return remoteEntries;
           const base = cwd.replace(/[\\/]+$/, '');
           const inside = (path: string) =>
             path.length > base.length &&
@@ -263,7 +277,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
               key: entry.path!,
               title: entry.path!.slice(base.length + 1).replaceAll('\\', '/'),
             }));
-        }, [entries, cwd]);
+        }, [entries, cwd, remote, remoteEntries]);
       },
       // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
       flushReference: async (key) => {
@@ -327,6 +341,21 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       if ('sourceId' in target) sourceId = target.sourceId;
       else {
         entryId = target.entryId;
+        // 远端文件不在条目树里：读取走远端只读通道（远端内容变了不自动重读，需要时重开标签）。
+        const remote = parseRemoteNodeId(entryId);
+        if (remote) {
+          const root = entries.find((e) => e.id === remote.projectId)?.path ?? '/';
+          const content = await dela.workspace.readRemoteDocument(remote.projectId, remote.path);
+          return {
+            content,
+            watchesDisk: false,
+            // Markdown 里的相对图片同样从远端取（越界路径由主进程拒绝，这里保持原样）。
+            resolveImage: (src) =>
+              isRelativeAssetPath(src)
+                ? remoteAssetUrl(remote.projectId, root, remote.path, src)
+                : src,
+          };
+        }
         entry = entries.find((e) => e.id === entryId);
         sourceId = entry?.sourceId ?? null;
       }
@@ -421,7 +450,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
                     }}
                     projectId={projectId}
                   />
-                  <Workbench bindings={bindings} />
+                  <Workbench bindings={bindings} onNewChat={newChatInCurrentPool} />
                 </>
               )}
             </div>

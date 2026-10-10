@@ -22,14 +22,21 @@ export interface TaskNotificationPrefs {
 /** 打开 Markdown 笔记时的默认编辑方式：所见即所得 / 源码。 */
 export type NoteEditModePreference = 'rich' | 'source';
 
-/** 工作现场偏好（§4.4）：启动恢复与笔记默认编辑方式。 */
+/** 工作现场偏好（§4.4）：启动恢复、笔记默认编辑方式与拼写检查。 */
 export interface WorkspacePrefs {
   /** 启动时恢复上次项目与标签；关闭后启动进入首页。 */
   restoreLastProject: boolean;
   defaultNoteEditMode: NoteEditModePreference;
+  /** 笔记编辑器（所见即所得与源码）的系统拼写检查；默认关，避免中文与技术词被标红。 */
+  noteSpellcheck: boolean;
 }
 
 export interface SettingsApi {
+  getExperimentalFeatures(): Promise<boolean>;
+  setExperimentalFeatures(enabled: boolean): Promise<boolean>;
+  /** 试验子项：课堂视频。总开关关闭时入口隐藏、操作被拒；键缺失视为开启。 */
+  getExperimentalClassroom(): Promise<boolean>;
+  setExperimentalClassroom(enabled: boolean): Promise<boolean>;
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
   getIcon(): Promise<IconPreference>;
@@ -71,5 +78,6 @@ export type SettingsSectionId =
   | 'commands'
   | 'skills'
   | 'mcp'
+  | 'remotes'
   | 'about'
   | 'privacy';

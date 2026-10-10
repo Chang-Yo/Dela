@@ -19,9 +19,11 @@ import { GroupToolbar } from './GroupToolbar';
 export const TabBar = memo(function TabBar({
   group,
   unfocused,
+  showReveal,
 }: {
   group: GroupNode;
   unfocused: boolean;
+  showReveal: boolean;
 }) {
   const openTab = useWorkbenchLayout((s) => s.openTab);
   const closeTab = useWorkbenchLayout((s) => s.closeTab);
@@ -114,8 +116,8 @@ export const TabBar = memo(function TabBar({
 
   return (
     <div className="@container flex h-10 min-w-0 shrink-0 bg-surface px-2 pt-1">
-      {/* 目录折叠时的展开入口：只在焦点组的标签栏左端（视线跟随焦点，其他组不重复出现）。 */}
-      {!unfocused && <ExplorerRevealButton className="mb-1 self-end" />}
+      {/* 目录折叠时的展开入口：只在最左上组的标签栏左端。 */}
+      {showReveal && <ExplorerRevealButton className="mb-1 self-end" />}
       <div
         ref={listRef}
         role="tablist"

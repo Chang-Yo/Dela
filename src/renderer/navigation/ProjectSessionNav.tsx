@@ -10,11 +10,12 @@ import { Dialog, DropdownMenu as Menu } from 'radix-ui';
 import {
   CalendarDays,
   ChevronRight,
-  CircleCheckBig,
+  Cloud,
   Folder,
   FolderOpen,
   House,
   Mail,
+  MonitorPlay,
   MoreHorizontal,
   Plus,
   SquarePen,
@@ -35,7 +36,10 @@ import {
 } from '../components/ui/dropdown-menu';
 import { EntryDialogs } from '../workspace/entry-dialogs';
 import { cn } from '../lib/utils';
+import type { WorkspaceEntry } from '../../shared/api';
+import { remoteAccent } from './remote-color';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
+import { useExperimental } from '../features/settings/experimental';
 import { useWorkspaceStore } from '../workspace/store';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { useNavigationStore, useProjectNavPrefs } from './store';
@@ -47,8 +51,8 @@ import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './n
 
 export type { NavSessionSummary, SessionRunBadge };
 
-/** 底部业务入口 id（邮箱/课表/水源/TODO；跳转由 onNavigateBusiness 注入）。 */
-export type BusinessNavId = 'mail' | 'timetable' | 'shuiyuan' | 'todo';
+/** 底部业务入口 id（邮箱/课表/课堂视频/水源；TODO 入口在顶栏铃铛旁，跳转由 onNavigateBusiness 注入）。 */
+export type BusinessNavId = 'mail' | 'timetable' | 'classroom' | 'shuiyuan';
 
 /** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
 export const RECENT_SESSIONS = 3;
@@ -56,8 +60,8 @@ export const RECENT_SESSIONS = 3;
 const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }> = [
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
+  { id: 'classroom', label: '课堂视频', icon: MonitorPlay },
   { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
-  { id: 'todo', label: 'TODO', icon: CircleCheckBig },
 ];
 
 /** 侧栏文字随折叠状态淡入/淡出（与 AppShell 壳的宽度过渡同步）。 */
@@ -81,7 +85,7 @@ export function ProjectSessionNav({
   onOpenSources,
   sourcesActive = false,
   activeProjectId = null,
-  /** 底部业务入口跳转（邮箱/课表/水源/TODO），由接线方注入。 */
+  /** 底部业务入口跳转（邮箱/课表/水源），由接线方注入。 */
   onNavigateBusiness,
   activeBusinessId = null,
   /** 侧栏折叠时文字淡出（与 AppShell 折叠动画同步）。 */
@@ -105,6 +109,12 @@ export function ProjectSessionNav({
   collapsed?: boolean;
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
+  // 试验功能子项可见性：总开关与「课堂视频」子项都开启才显示入口。
+  const experimentalMaster = useExperimental((state) => state.master);
+  const experimentalClassroom = useExperimental((state) => state.classroom);
+  useEffect(() => {
+    void useExperimental.getState().load();
+  }, []);
   const openProjects = useNavigationStore((s) => s.openProjects);
   const toggleProject = useNavigationStore((s) => s.toggleProject);
   const fullSessionLists = useNavigationStore((s) => s.fullSessionLists);
@@ -150,22 +160,32 @@ export function ProjectSessionNav({
   const hidden = cn('truncate', labelFade, collapsed && 'opacity-0');
 
   /** 会话历史组（通用对话/项目）共用的一段：折叠头 + 近期会话 + 「显示更多」。
-   *  行点击即展开/折叠该组；打开项目工作台走项目菜单的「打开项目」。 */
+   *  行点击即展开/折叠该组；打开项目工作台走项目菜单的「打开项目」。
+   *  图标与配色跟着项目走：远端项目用云朵与该连接的配色，和资源管理器里是同一副样子。 */
   const sessionGroup = (
-    key: string,
-    label: string,
-    icon: typeof Mail,
+    project: WorkspaceEntry,
     sessions: NavSessionSummary[],
     groupActive: boolean,
   ) => {
+    const key = project.id;
+    const label = project.name;
+    const Icon = project.remoteId ? Cloud : Folder;
+    const accent = project.remoteId ? { color: remoteAccent(project.remoteId, 'text') } : undefined;
     const expanded = openProjects.includes(key);
     const full = fullSessionLists.includes(key);
     const unpinned = sessions.filter((session) => !session.pinned);
     const visible = full ? unpinned : unpinned.slice(0, RECENT_SESSIONS);
-    const Icon = icon;
+    // 会话行已高亮时项目行不再叠加底色：位置强调只落在最深的一个可见行上。
+    // 可见 = 置顶区的置顶会话，或展开后列出的近期会话（折叠、藏在「显示更多」后的不算）。
+    const shownActiveSession =
+      expanded && visible.some((session) => session.id === activeSessionId);
+    const rowActive =
+      groupActive &&
+      !shownActiveSession &&
+      !sessions.some((session) => session.pinned && session.id === activeSessionId);
     return (
       <div key={key} className="min-w-0">
-        <div className={cn(navRow(groupActive), 'group group/nav relative pl-1.5')}>
+        <div className={cn(navRow(rowActive), 'group group/nav relative pl-1.5')}>
           <button
             aria-expanded={expanded}
             aria-label={`${expanded ? '收起' : '展开'} ${label} 的会话`}
@@ -181,14 +201,14 @@ export function ProjectSessionNav({
             />
           </button>
           <button
-            aria-current={groupActive ? 'page' : undefined}
+            aria-current={rowActive ? 'page' : undefined}
             aria-expanded={expanded}
             className="flex min-w-0 flex-1 items-center gap-2 text-left"
             onClick={() => toggleProject(key)}
             title={label}
             type="button"
           >
-            <Icon className={navIcon(groupActive)} strokeWidth={1.8} />
+            <Icon className={navIcon(rowActive)} strokeWidth={1.8} style={accent} />
             <span
               className={cn('sidebar-title min-w-0 flex-1', labelFade, collapsed && 'opacity-0')}
             >
@@ -196,7 +216,7 @@ export function ProjectSessionNav({
             </span>
           </button>
           {!collapsed && (
-            <div className={cn(rowActions, groupActive ? 'bg-hover-2' : 'bg-hover')}>
+            <div className={cn(rowActions, rowActive ? 'bg-hover-2' : 'bg-hover')}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -340,6 +360,7 @@ export function ProjectSessionNav({
             {visible.map((session) => (
               <SessionRow
                 projectName={label}
+                remoteId={project.remoteId}
                 active={session.id === activeSessionId}
                 badge={runBadge(session.id)}
                 key={session.id}
@@ -385,22 +406,27 @@ export function ProjectSessionNav({
           <FolderOpen className={navIcon(sourcesActive)} strokeWidth={1.8} />
           <span className={hidden}>资料</span>
         </button>
-        {businessNav.map((item) => {
-          const Icon = item.icon;
-          const active = item.id === activeBusinessId;
-          return (
-            <button
-              aria-current={active ? 'page' : undefined}
-              className={navRow(active)}
-              key={item.id}
-              onClick={() => onNavigateBusiness?.(item.id)}
-              type="button"
-            >
-              <Icon className={navIcon(active)} strokeWidth={1.8} />
-              <span className={hidden}>{item.label}</span>
-            </button>
-          );
-        })}
+        {businessNav
+          .filter(
+            (item) =>
+              item.id !== 'classroom' || (experimentalMaster === true && experimentalClassroom),
+          )
+          .map((item) => {
+            const Icon = item.icon;
+            const active = item.id === activeBusinessId;
+            return (
+              <button
+                aria-current={active ? 'page' : undefined}
+                className={navRow(active)}
+                key={item.id}
+                onClick={() => onNavigateBusiness?.(item.id)}
+                type="button"
+              >
+                <Icon className={navIcon(active)} strokeWidth={1.8} />
+                <span className={hidden}>{item.label}</span>
+              </button>
+            );
+          })}
       </nav>
       {(projects.some((project) => preferences[project.id]?.pinned) ||
         projects.some((project) =>
@@ -412,9 +438,7 @@ export function ProjectSessionNav({
             .filter((project) => preferences[project.id]?.pinned)
             .map((project) =>
               sessionGroup(
-                project.id,
-                project.name,
-                Folder,
+                project,
                 sessionsByProject[project.id] ?? [],
                 project.id === activeProjectId,
               ),
@@ -427,6 +451,7 @@ export function ProjectSessionNav({
                   key={session.id}
                   session={session}
                   projectName={project.name}
+                  remoteId={project.remoteId}
                   active={session.id === activeSessionId}
                   onOpen={onOpenSession}
                   onDelete={onDeleteSession}
@@ -474,9 +499,7 @@ export function ProjectSessionNav({
                 )
                 .map((project) =>
                   sessionGroup(
-                    project.id,
-                    project.name,
-                    Folder,
+                    project,
                     sessionsByProject[project.id] ?? [],
                     project.id === activeProjectId,
                   ),

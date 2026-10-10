@@ -12,6 +12,10 @@ import {
   iconSchema,
   resetKeybindingOverrides,
   savedCampusNotifications,
+  savedExperimentalClassroom,
+  savedExperimentalFeatures,
+  setExperimentalClassroom,
+  setExperimentalFeatures,
   savedFontScale,
   savedIcon,
   savedOpenAtLogin,
@@ -33,6 +37,22 @@ export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'ligh
 }
 
 export function registerSettingsIpc(): void {
+  ipcMain.handle('settings:get-experimental-features', (event) => {
+    checkWorkspaceSender(event);
+    return savedExperimentalFeatures();
+  });
+  ipcMain.handle('settings:set-experimental-features', (event, value) => {
+    checkWorkspaceSender(event);
+    return setExperimentalFeatures(z.boolean().parse(value));
+  });
+  ipcMain.handle('settings:get-experimental-classroom', (event) => {
+    checkWorkspaceSender(event);
+    return savedExperimentalClassroom();
+  });
+  ipcMain.handle('settings:set-experimental-classroom', (event, value) => {
+    checkWorkspaceSender(event);
+    return setExperimentalClassroom(z.boolean().parse(value));
+  });
   ipcMain.handle('settings:get-theme', (event) => {
     checkWorkspaceSender(event);
     return savedTheme();
@@ -86,7 +106,7 @@ export function registerSettingsIpc(): void {
     checkWorkspaceSender(event);
     const enabled = z.boolean().parse(value);
     writeSetting('open-at-login', enabled ? '1' : '0');
-    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: enabled });
+    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: enabled, args: ['--hidden'] });
     return enabled;
   });
   // 校园消息系统提醒：只影响 system-notify 的桌面弹窗，通知收集与应用内列表不受影响。

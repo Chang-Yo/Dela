@@ -30,6 +30,19 @@ export interface ChatSessionSummary {
   projectId?: string | null;
 }
 
+/** percent 为 0–100 百分数；tokens null = 暂不可知（如压缩后）。
+ *  inputTokens / cachedTokens 是本会话累计用量（Pi SessionStats.tokens 的 input / cacheRead，
+ *  含已被压缩掉的历史），仅在提供商确实上报过缓存时才带上，见 main/agent/session.ts 的 usageOf。 */
+export interface ContextUsageView {
+  tokens: number | null;
+  contextWindow: number;
+  percent: number | null;
+  /** 本会话累计输入 token（不含缓存读取）。 */
+  inputTokens?: number;
+  /** 本会话累计缓存读取 token；与 inputTokens 同时出现。 */
+  cachedTokens?: number;
+}
+
 export interface WorkspaceChat {
   sessionId: string | null;
   /** 会话所属项目（workspace 条目 id）；null = 通用会话。归属在创建时确定，不随视图变化。 */
@@ -50,6 +63,7 @@ export interface WorkspaceChat {
   effortLevels: string[];
   /** 当前选中的推理强度档位；未开启时为 null。 */
   effort: string | null;
+  contextUsage?: ContextUsageView | null;
   messages: {
     role: 'user' | 'assistant';
     content: string;
@@ -70,6 +84,7 @@ export interface WorkspaceChat {
     interrupted?: boolean;
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
     stopped?: boolean;
+    compacted?: boolean;
   }[];
 }
 
@@ -94,6 +109,7 @@ export interface ChatStreamEvent {
   message: WorkspaceChat['messages'][number];
   /** 当前执行中的工具名；空闲段为 undefined。 */
   activeTool?: string;
+  contextUsage?: ContextUsageView | null;
 }
 
 /** 会话身份 API（session:* 通道）。 */

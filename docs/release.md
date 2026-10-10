@@ -6,8 +6,10 @@
 
 `.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行：
 
-- 仅 Windows x64（`windows-2022`），与发布一致的 runner 和固定 Node/pnpm 版本。
+- 应用只构建 Windows x64（`windows-2022`），与发布一致的 runner 和固定 Node/pnpm 版本。
+- helper 在 `ubuntu-24.04` 用 Go 1.27.2 执行本机测试、构建 Linux amd64 静态产物并运行 `--version`；Windows 任务下载当次产物用于打包，并逐字节核对打包后的文件。
 - 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包及打包后冒烟。
+- Go 测试只使用 runner 本机临时目录、inotify 与回环 HTTP，不连接 SSH。Windows 任务明确留空 `DELA_REMOTE_HOST`，真实 SSH 联调继续手动运行，不作为发布前置条件。
 - 检查不生成安装包、不发布 Release，仅使用 `contents: read` 权限；同一 PR 或 main 分支的新提交会取消旧检查。
 
 若要限制合并，需在 GitHub 的 main 分支规则中将 `Check win-x64` 设为必需检查——仅添加 workflow 不会自动启用分支保护。
@@ -25,13 +27,15 @@
 - 命令只修改 `package.json` 版本（npm 负责 SemVer 校验），不自动创建 commit/tag，也不推送或发布。
 - 单包 pnpm 锁文件不记录应用自身版本，升版无需修改锁文件。
 - preload 在构建时从 `package.json` 内联版本号，设置页关于与冒烟检查随之同步；升版后需重新构建，开发模式需重启。
+- 安装包会带上 `vendor/openssh` 里的 OpenSSH 客户端（`extraResources` 拷到 `resources/openssh`）。升级或更换它时按该目录 README 的步骤做，并在打包目录里实跑一次 `resources\openssh\ssh.exe -V` 与一次真实连接。
+- 安装包也会带上 helper（`extraResources` 拷到 `resources/dela-helper`）。CI 与发布从本次源码构建 Linux amd64 产物，覆盖仓库中的预编译文件后打包，避免发布旧 helper。预编译文件仍保留供无 Go 的本地开发者使用；改了 `helper/` 后仍需用 `pnpm build:helper` 重建并提交，升级 helper 时同步 Go 与 TS 两端的版本常量。
 
 ## 发布
 
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release：
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。
-2. Windows 任务执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、打包目录启动检查与 NSIS 安装包构建，全部成功后统一创建 Release 并上传 `.exe`。
+2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、NSIS 构建、包内 helper 一致性检查与打包目录启动检查。全部成功后创建 Release 并上传 `.exe`。
 3. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
 4. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 

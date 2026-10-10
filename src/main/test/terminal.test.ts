@@ -27,7 +27,11 @@ vi.mock('node-pty', () => ({ spawn: mocks.spawn }));
 vi.mock('../ipc', () => ({ checkWorkspaceSender: mocks.check }));
 vi.mock('../workspace/api', async () => {
   const { z } = await import('zod');
-  return { idSchema: z.uuid(), projectDirectory: mocks.directory };
+  return {
+    idSchema: z.uuid(),
+    // 终端只认 projectLocation 的结果：本地项目给出磁盘目录。
+    projectLocation: (id: unknown) => ({ kind: 'local', path: mocks.directory(id) }),
+  };
 });
 import { registerTerminalIpc } from '../terminal';
 import { locateBash } from '../terminal';

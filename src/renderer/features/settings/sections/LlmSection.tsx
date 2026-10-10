@@ -118,7 +118,7 @@ function ModelSettingsDialog({
             </Dialog.Close>
           </div>
           <Dialog.Description className="mt-2 text-[12px] text-ink-3">
-            模型设置随提供商一起保存。限制留空时沿用默认值；思考档位须由服务支持。
+            限制留空时沿用默认值；思考档位须由服务支持。
           </Dialog.Description>
           <form
             className="mt-4 grid gap-4"
@@ -456,6 +456,8 @@ function ProviderDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 编辑态即时保存的提交快照：所有字段改动同步写这里，persist 读取它组装完整保存载荷。
+  const formRef = useRef({ name, baseUrl, apiKey, models, model, modelConfigs });
 
   const invalidateDetection = () => {
     connectionVersion.current += 1;
@@ -486,41 +488,58 @@ function ProviderDetail({
       setImportNotice('模型数量已达 64 个，请先移除部分模型');
       return;
     }
-    setModels((current) => [...current, value]);
-    if (!model) setModel(value);
+    const nextModels = [...models, value];
+    formRef.current.models = nextModels;
+    setModels(nextModels);
+    if (!model) {
+      formRef.current.model = value;
+      setModel(value);
+    }
     setModelInput('');
     setImportNotice(null);
+    void persist();
   };
 
   const removeModel = (value: string) => {
+    if (models.length <= 1) {
+      setImportNotice('至少保留一个模型');
+      return;
+    }
     modelCheckVersion.current[value] = (modelCheckVersion.current[value] ?? 0) + 1;
-    setModelConfigs((current) => {
-      const next = { ...current };
-      delete next[value];
-      return next;
-    });
+    const nextConfigs = { ...modelConfigs };
+    delete nextConfigs[value];
+    formRef.current.modelConfigs = nextConfigs;
+    setModelConfigs(nextConfigs);
     setModelResults((current) => {
       const next = { ...current };
       delete next[value];
       return next;
     });
-    setModels((current) => {
-      const next = current.filter((item) => item !== value);
-      if (model === value) setModel(next[0] ?? '');
-      return next;
-    });
+    const nextModels = models.filter((item) => item !== value);
+    formRef.current.models = nextModels;
+    setModels(nextModels);
+    if (model === value) {
+      const next = nextModels[0] ?? '';
+      formRef.current.model = next;
+      setModel(next);
+    }
+    void persist();
   };
 
   const importModels = (list: string[]) => {
     const merged = [...new Set([...models, ...list])];
     const imported = merged.slice(0, LLM_MODEL_LIMIT);
+    formRef.current.models = imported;
     setModels(imported);
-    setModel(imported.includes(model) ? model : (imported[0] ?? ''));
+    const next = imported.includes(model) ? model : (imported[0] ?? '');
+    formRef.current.model = next;
+    setModel(next);
     setImportNotice(
       merged.length > LLM_MODEL_LIMIT
         ? `模型数量过多，最多保留 64 个，${merged.length - LLM_MODEL_LIMIT} 个未导入`
         : `已导入 ${imported.length - models.length} 个模型`,
     );
+    void persist();
   };
 
   const verify = async () => {
@@ -537,7 +556,11 @@ function ProviderDetail({
       if (version === connectionVersion.current) {
         setVerifyResult(result);
         // 检测顺带探出的真实 API 根（裸源地址补 /v1）直接采用：对话端点与它同前缀。
-        if (result.baseUrl) setBaseUrl(result.baseUrl);
+        if (result.baseUrl) {
+          formRef.current.baseUrl = result.baseUrl;
+          setBaseUrl(result.baseUrl);
+          void persist();
+        }
       }
     } catch (cause) {
       if (version === connectionVersion.current)
@@ -563,7 +586,11 @@ function ProviderDetail({
       });
       if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id]) {
         setModelResults((current) => ({ ...current, [id]: result }));
-        if (result.baseUrl) setBaseUrl(result.baseUrl);
+        if (result.baseUrl) {
+          formRef.current.baseUrl = result.baseUrl;
+          setBaseUrl(result.baseUrl);
+          void persist();
+        }
       }
     } catch (cause) {
       if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id])
@@ -574,27 +601,55 @@ function ProviderDetail({
     }
   };
 
-  /** 放弃未保存的修改：各字段恢复为该提供商的已保存值；密钥不回显。 */
-  const reset = (source: LlmProviderView) => {
-    setName(source.name);
-    setBaseUrl(source.baseUrl);
-    setApiKey('');
-    setModels([...source.models]);
-    setModel(source.model);
-    setModelInput('');
-    setModelConfigs(
-      Object.fromEntries(source.models.map((id) => [id, llmModelSettings(source, id)])),
-    );
-    invalidateDetection();
-    setError(null);
-  };
-
-  const cancel = () => {
-    if (!provider) {
-      onCancelCreate();
+  /** 编辑态即时保存：整体写入当前表单；创建态不在此路径（由「保存」显式提交）。 */
+  const persist = async () => {
+    if (creating || !window.dela) return;
+    const d = formRef.current;
+    if (!d.name.trim()) {
+      setError('名称不能为空');
       return;
     }
-    reset(provider);
+    try {
+      new URL(d.baseUrl);
+    } catch {
+      setError('API 地址格式不正确');
+      return;
+    }
+    setError(null);
+    try {
+      const saved = await window.dela.llm.save({
+        id: provider.id,
+        name: d.name,
+        baseUrl: d.baseUrl,
+        apiKey: d.apiKey || undefined,
+        models: d.models,
+        model: d.model,
+        modelConfigs: Object.fromEntries(
+          d.models.map((id) => [id, d.modelConfigs[id] ?? { effortLevels: [] }]),
+        ),
+        effortLevels: [],
+        presetId: provider.presetId,
+      });
+      if (d.apiKey) {
+        d.apiKey = '';
+        setApiKey('');
+      }
+      onSaved(saved);
+    } catch (cause) {
+      setError(errorText(cause));
+    }
+  };
+
+  /** 文本字段失焦时的免打扰保存：与已保存值相同就跳过，不因单纯切焦而写盘。 */
+  const persistIfChanged = () => {
+    if (creating) return;
+    const d = formRef.current;
+    if (
+      d.name !== provider.name ||
+      d.baseUrl.replace(/\/+$/, '') !== provider.baseUrl ||
+      d.apiKey !== ''
+    )
+      void persist();
   };
 
   const save = async () => {
@@ -615,9 +670,8 @@ function ProviderDetail({
         effortLevels: [],
         presetId: provider ? provider.presetId : presetId === 'custom' ? null : presetId,
       });
-      // 新建后立即启用；编辑不改当前选择。
+      // 新建后立即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。
       if (creating) await window.dela.llm.setActive(saved.id);
-      reset(saved);
       onSaved(saved);
     } catch (cause) {
       setError(errorText(cause));
@@ -690,7 +744,8 @@ function ProviderDetail({
         className="grid gap-4"
         onSubmit={(event) => {
           event.preventDefault();
-          void save();
+          if (creating) void save();
+          else void persist();
         }}
       >
         {creating && (
@@ -719,7 +774,11 @@ function ProviderDetail({
           名称
           <Input
             autoComplete="off"
-            onChange={(event) => setName(event.target.value)}
+            onBlur={() => persistIfChanged()}
+            onChange={(event) => {
+              formRef.current.name = event.target.value;
+              setName(event.target.value);
+            }}
             required
             value={name}
           />
@@ -728,7 +787,9 @@ function ProviderDetail({
           API 地址
           <Input
             autoComplete="off"
+            onBlur={() => persistIfChanged()}
             onChange={(event) => {
+              formRef.current.baseUrl = event.target.value;
               setBaseUrl(event.target.value);
               invalidateDetection();
             }}
@@ -754,7 +815,9 @@ function ProviderDetail({
           </div>
           <Input
             autoComplete="off"
+            onBlur={() => persistIfChanged()}
             onChange={(event) => {
+              formRef.current.apiKey = event.target.value;
               setApiKey(event.target.value);
               invalidateDetection();
             }}
@@ -844,11 +907,6 @@ function ProviderDetail({
                         )}
                       </StatusPill>
                     )}
-                    {id === model && (
-                      <StatusPill className="h-5 px-2 text-[11.5px]" dot={false}>
-                        默认
-                      </StatusPill>
-                    )}
                     <div className="flex shrink-0 items-center">
                       <Button
                         aria-label={`检测模型 ${id}`}
@@ -913,34 +971,22 @@ function ProviderDetail({
             列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
           </p>
         </div>
-        <div className="grid gap-2 text-[13px]">
-          默认模型
-          <Select disabled={!models.length} onValueChange={setModel} value={model}>
-            <SelectTrigger aria-label="默认模型">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {models.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         {error && (
           <p className="text-[12px] text-red" role="alert">
             {error}
           </p>
         )}
-        <div className="flex items-center justify-end gap-2">
-          <Button disabled={saving} onClick={cancel} variant="ghost">
-            取消
-          </Button>
-          <Button disabled={saving || !models.length} type="submit">
-            {saving ? '处理中…' : '保存'}
-          </Button>
-        </div>
+        {/* 创建需一次性提交（密钥与地址无法逐键生效）；编辑态全部即时保存，没有底部按钮。 */}
+        {creating && (
+          <div className="flex items-center justify-end gap-2">
+            <Button onClick={onCancelCreate} variant="ghost">
+              取消
+            </Button>
+            <Button disabled={saving || !models.length} type="submit">
+              {saving ? '处理中…' : '保存'}
+            </Button>
+          </div>
+        )}
       </form>
       {addingModel && (
         <Dialog.Root
@@ -1044,13 +1090,16 @@ function ProviderDetail({
           onSave={(settings) => {
             modelCheckVersion.current[editingModel] =
               (modelCheckVersion.current[editingModel] ?? 0) + 1;
-            setModelConfigs((current) => ({ ...current, [editingModel]: settings }));
+            const nextConfigs = { ...modelConfigs, [editingModel]: settings };
+            formRef.current.modelConfigs = nextConfigs;
+            setModelConfigs(nextConfigs);
             setModelResults((current) => {
               const next = { ...current };
               delete next[editingModel];
               return next;
             });
             setEditingModel(null);
+            void persist();
           }}
         />
       )}

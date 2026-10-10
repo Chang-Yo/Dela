@@ -9,6 +9,7 @@ import { InputRule, inputRules } from '@milkdown/kit/prose/inputrules';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { $prose, replaceAll } from '@milkdown/kit/utils';
 import { isRelativeAssetPath, noteAssetUrl } from '../../../shared/note-files';
+import { useNoteSpellcheck } from './note-spellcheck';
 import './note-editor.css';
 
 // Crepe 公共结构样式（无配色）；配色由 note-editor.css 的变量映射到 Dela 设计 token。
@@ -23,6 +24,8 @@ type NoteEditorHandlers = {
 type CrepeSession = {
   crepe: Crepe;
   root: HTMLDivElement;
+  /** 就绪后的 ProseMirror 可编辑根：拼写检查属性挂在它上面。 */
+  contentEditable: HTMLElement | null;
   scrollTop: number;
   applying: boolean;
   composing: boolean;
@@ -45,6 +48,12 @@ function stagingRoot(): HTMLDivElement {
     document.body.append(staging);
   }
   return staging;
+}
+
+/** 把当前拼写检查偏好写到已就绪的编辑器根上；未就绪的会话在 create 完成时应用一次。 */
+function applySpellcheck(session: CrepeSession) {
+  if (session.contentEditable)
+    session.contentEditable.spellcheck = useNoteSpellcheck.getState().spellcheck;
 }
 
 export function forgetNoteEditorState(editorStateKey: string) {
@@ -269,6 +278,7 @@ function createSession(
   const session: CrepeSession = {
     crepe,
     root,
+    contentEditable: null,
     scrollTop: 0,
     applying: false,
     composing: false,
@@ -298,6 +308,10 @@ function createSession(
       session.ready = true;
       crepe.setReadonly(readOnly);
       const editor = root.querySelector('.milkdown');
+      // ProseMirror 只在创建视图时写 spellcheck，故挂载后直接改属性，避免重建编辑器。
+      const contentEditable = root.querySelector('[contenteditable="true"]');
+      session.contentEditable = contentEditable instanceof HTMLElement ? contentEditable : null;
+      applySpellcheck(session);
       editor?.addEventListener('compositionstart', () => {
         session.composing = true;
         if (session.syncTimer) clearTimeout(session.syncTimer);
@@ -393,6 +407,7 @@ export function NoteEditor({
   const key = editorStateKey ?? fallbackKey;
   const valueRef = useRef(value);
   valueRef.current = value;
+  const spellcheck = useNoteSpellcheck((state) => state.spellcheck);
 
   useEffect(() => {
     const node = host.current;
@@ -405,6 +420,7 @@ export function NoteEditor({
     handlersByKey.set(key, { onChange, onSave, onScroll: (top) => onScroll?.(top) });
     node.append(session.root);
     node.scrollTop = session.scrollTop;
+    applySpellcheck(session);
     if (session.ready) {
       applyExternalValue(key, value);
       if (autoFocus)
@@ -446,6 +462,12 @@ export function NoteEditor({
     const session = sessions.get(key);
     if (session?.ready) session.crepe.setReadonly(readOnly);
   }, [readOnly, key]);
+
+  useEffect(() => {
+    // 设置页切换后只作用于当前挂载的编辑器；暂存的会话在下次挂载时由装配 effect 补上。
+    const session = sessions.get(key);
+    if (session) applySpellcheck(session);
+  }, [spellcheck, key]);
 
   useEffect(() => {
     const session = sessions.get(key);

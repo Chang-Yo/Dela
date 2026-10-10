@@ -8,9 +8,11 @@ import type { LayoutApi } from './layout';
 import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
 import type { NotificationsApi } from './notifications';
+import type { RemoteApi } from './remotes';
 import type { SearchApi } from './search';
 import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
+import type { VsjtuApi } from './vsjtu';
 export type {
   AgentCapabilityView,
   CapabilityApi,
@@ -29,6 +31,7 @@ import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
 export interface DelaApi {
+  readonly vsjtu: VsjtuApi;
   capability: CapabilityApi;
   readonly todo: TodoApi;
   readonly terminal: TerminalApi;
@@ -45,6 +48,7 @@ export interface DelaApi {
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
+  readonly remotes: RemoteApi;
   readonly layout: LayoutApi;
   readonly search: SearchApi;
   readonly notifications: NotificationsApi;
@@ -139,6 +143,18 @@ export type {
 export type { GlobalSearchResult, SearchApi } from './search';
 
 export type {
+  RemoteApi,
+  RemoteBrowseResult,
+  RemoteConnection,
+  RemoteDirectoryEntry,
+  RemoteDraft,
+  RemotePrepare,
+  RemoteProbe,
+  RemoteSetupProgress,
+  RemoteSetupStep,
+} from './remotes';
+
+export type {
   NotificationSource,
   NotificationFilter,
   NotificationItem,
@@ -169,6 +185,7 @@ export type {
   AgentToolOutput,
   AgentToolResult,
   ChatSessionSummary,
+  ContextUsageView,
   WorkspaceChat,
   SessionApi,
   RunEvent,

@@ -20,8 +20,11 @@ const read = (id: string, path: string, done = true): AgentToolResult => ({
   ...(done ? { output: { text: 'ok' }, finishedAt: 1 } : {}),
 });
 
-const render = (parts: Parts, live = false) =>
-  act(async () => root.render(<ReplyTrace live={live} parts={parts} />));
+const render = (
+  parts: Parts,
+  live = false,
+  times: { startedAt?: number; finishedAt?: number } = {},
+) => act(async () => root.render(<ReplyTrace live={live} parts={parts} {...times} />));
 const rows = () => [...host.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')];
 
 beforeEach(() => {
@@ -44,27 +47,31 @@ it('运行中逐行展示步骤：当前步骤用进行时，对象只显示文�
 });
 
 it('完成后连续工具收成摘要行，展开看到每一步', async () => {
-  await render([
-    { type: 'text', text: '我先看看' },
-    { type: 'tools', results: [read('a', 'a.md'), read('b', 'b.md')] },
-    {
-      type: 'tools',
-      results: [
-        {
-          id: 'c',
-          name: 'edit',
-          input: { path: 'a.md', edits: [{ oldText: 'x', newText: 'y\nz' }] },
-          output: { text: '' },
-          finishedAt: 2,
-        },
-      ],
-    },
-    { type: 'text', text: '改好了' },
-  ]);
-  // 结束后过程整体折叠：只剩一行摘要和最终回复。
+  await render(
+    [
+      { type: 'text', text: '我先看看' },
+      { type: 'tools', results: [read('a', 'a.md'), read('b', 'b.md')] },
+      {
+        type: 'tools',
+        results: [
+          {
+            id: 'c',
+            name: 'edit',
+            input: { path: 'a.md', edits: [{ oldText: 'x', newText: 'y\nz' }] },
+            output: { text: '' },
+            finishedAt: 2,
+          },
+        ],
+      },
+      { type: 'text', text: '改好了' },
+    ],
+    false,
+    { startedAt: 1_000, finishedAt: 134_000 },
+  );
+  // 结束后过程整体折叠：只剩一行用时和最终回复。
   const visible = () => rows().filter((row) => !row.closest('[hidden]'));
   expect(visible()).toHaveLength(1);
-  expect(visible()[0]!.textContent).toBe('已处理 · 读取 2 个文件，编辑 1 个文件');
+  expect(visible()[0]!.textContent).toBe('已处理 · 用时 2 分 13 秒');
   expect(host.querySelector('[data-assistant-body]')!.closest('[hidden]')).not.toBeNull();
   expect([...host.querySelectorAll('[data-assistant-body]')].at(-1)!.textContent).toBe('改好了');
   // 不出现操作数、失败数这类统计。
@@ -73,6 +80,15 @@ it('完成后连续工具收成摘要行，展开看到每一步', async () => {
   expect(visible().map((row) => row.textContent)).toContain('读取 2 个文件，编辑 1 个文件');
   await act(async () => visible()[1]!.click());
   expect(visible().map((row) => row.textContent)).toContain('编辑a.md+2 −1');
+});
+
+it('折叠行缺时间戳时只报状态', async () => {
+  await render([
+    { type: 'text', text: '我先看看' },
+    { type: 'tools', results: [read('a', 'a.md')] },
+    { type: 'text', text: '好了' },
+  ]);
+  expect(rows()[0]!.textContent).toBe('已处理');
 });
 
 it('失败只在步骤行尾标注，原因在展开后可见', async () => {
@@ -94,6 +110,28 @@ it('失败只在步骤行尾标注，原因在展开后可见', async () => {
   expect(host.textContent).not.toContain('oldText 不存在');
   await act(async () => rows()[0]!.click());
   expect(host.textContent).toContain('oldText 不存在');
+});
+
+it('失败的 bash 也在代码块里显示命令与输出', async () => {
+  await render([
+    {
+      type: 'tools',
+      results: [
+        {
+          id: 'b',
+          name: 'bash',
+          input: { command: 'systemctl status dela' },
+          output: { text: 'Unit dela.service could not be found.', isError: true },
+          finishedAt: 1,
+        },
+      ],
+    },
+  ]);
+  expect(rows()[0]!.textContent).toContain('失败');
+  await act(async () => rows()[0]!.click());
+  const block = [...host.querySelectorAll('code')].map((node) => node.textContent).join('\n');
+  expect(block).toContain('$ systemctl status dela');
+  expect(block).toContain('Unit dela.service could not be found.');
 });
 
 it('运行中不折叠；结束后折叠过程，最终正文节点不重建', async () => {

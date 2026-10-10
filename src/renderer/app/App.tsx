@@ -6,6 +6,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { MailView } from '../features/mail';
+import { ClassroomView } from '../features/classroom';
 import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
@@ -30,6 +31,7 @@ import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from './workbench-shell';
 import { setDefaultNoteEditMode } from '../content/note/default-mode';
+import { useNoteSpellcheck } from '../content/note/note-spellcheck';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
  *  通用池（键 'general'）不入项目树，但保留镜像预热：会话标签标题解析（registry
@@ -81,7 +83,6 @@ export default function App() {
   const mailRequest = useNavigationStore((state) => state.mailRequest);
   const todoRequest = useNavigationStore((state) => state.todoRequest);
   const settingsRequest = useNavigationStore((state) => state.settingsRequest);
-  const navigationError = useNavigationStore((state) => state.navigationError);
 
   const { theme, zoom, fontScale, changeTheme, changeZoom, changeFontScale } = useAppearance();
   const notifications = useNotifications(launchStage !== 'flow');
@@ -134,6 +135,7 @@ export default function App() {
       .getWorkspacePrefs()
       .then((prefs) => {
         setDefaultNoteEditMode(prefs.defaultNoteEditMode);
+        useNoteSpellcheck.getState().setSpellcheck(prefs.noteSpellcheck);
       })
       .catch(() => {});
   }, []);
@@ -193,7 +195,6 @@ export default function App() {
   const openSearchResult = (result: GlobalSearchResult) => {
     if (!leaveComposer(() => openSearchResult(result))) return;
     const navigation = useNavigationStore.getState();
-    navigation.setNavigationError(null);
     const target = result.target;
     if (target.page === 'projects') navigation.openProject(target.entryId);
     else if (target.page === 'chat')
@@ -226,6 +227,7 @@ export default function App() {
           onOpenSources={openSources}
           activeTabIsChat={activeTabIsChat}
           notificationCount={notifications.count}
+          todoUnreadCount={notifications.todoUnread}
           sessionsByProject={sessionsByProject}
           runBadge={(sessionId) => useRuns.getState().bySession[sessionId]?.status ?? null}
           activeSessionId={activeSessionId}
@@ -247,11 +249,6 @@ export default function App() {
           onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
           onNavigateBusiness={(id) => void useNavigationStore.getState().navigate(id)}
         >
-          {navigationError && (
-            <p className="px-4 py-2 text-[13px] text-red" role="alert">
-              {navigationError}
-            </p>
-          )}
           <MotionConfig reducedMotion="user">
             <AnimatePresence initial={false} mode="wait">
               <motion.div
@@ -282,6 +279,7 @@ export default function App() {
                     />
                   )}
                   {view === 'shuiyuan' && <ShuiyuanView />}
+                  {view === 'classroom' && <ClassroomView />}
                   {view === 'todo' && <TodoView request={todoRequest ?? undefined} />}
                   {view === 'notifications' && (
                     <NotificationsView

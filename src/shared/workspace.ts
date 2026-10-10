@@ -1,4 +1,5 @@
 import type { DocumentContent, OfficeExportEvent } from './documents';
+import type { RemoteDirectoryEntry } from './remotes';
 import type { ResourceRef } from './resources';
 import { z } from 'zod';
 
@@ -34,6 +35,8 @@ export interface WorkspaceEntry {
   kind: 'folder' | 'project' | 'note' | 'source' | 'local' | 'imported';
   sourceId: string | null;
   path?: string;
+  /** 远程项目及其子条目标记：path 是远端 POSIX 绝对路径，本地磁盘上没有对应文件。 */
+  remoteId?: string | null;
   updatedAt: string;
 }
 
@@ -82,6 +85,24 @@ export interface WorkspaceApi {
   importFiles(parentId: string | null): Promise<void>;
   /** 选择电脑上已有的文件夹登记为项目（目录留在原处）；取消选择返回 null。 */
   importProjectFolder(): Promise<WorkspaceEntry | null>;
+  /** 把远端目录登记为远程项目：local_path 存远端绝对路径，工具经 SSH 在远端执行。 */
+  importRemoteProject(remoteId: string, path: string): Promise<WorkspaceEntry>;
+  /** 远程目录的一层内容（懒加载，展开时才拉）。 */
+  listRemoteDirectory(projectId: string, path: string): Promise<RemoteDirectoryEntry[]>;
+  /** 远端文件的只读预览内容：文本给片段，PDF/Office 给按需分块的地址。 */
+  readRemoteDocument(projectId: string, path: string): Promise<DocumentContent>;
+  /** 下载远端文件到本地：弹保存对话框，取消返回 null。 */
+  downloadRemoteFile(projectId: string, path: string): Promise<string | null>;
+  /** 用系统默认程序打开远端文件（下载到临时目录后交给 shell）。 */
+  openRemoteFile(projectId: string, path: string): Promise<void>;
+  /** 上传本地文件到远端目录；files 为 null 时弹选择框。返回写好的远端路径。 */
+  uploadRemoteFiles(projectId: string, directory: string, files: File[] | null): Promise<string[]>;
+  /** 远端某个目录可能变了（工具写过文件或跑过 bash）；返回取消订阅。 */
+  onRemoteChange(listener: (path: string) => void): () => void;
+  /** 报上当前展开的远端目录做 watch（空数组 = 取消）；回报真正被监视的目录数。 */
+  watchRemoteDirectories(projectId: string, paths: string[]): Promise<{ watching: number }>;
+  /** 远程项目的 @ 候选：key 为远端绝对路径，title 为相对项目目录的路径。 */
+  remoteReferences(projectId: string): Promise<{ key: string; title: string }[]>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;

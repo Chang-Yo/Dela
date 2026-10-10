@@ -6,6 +6,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { cn } from '../lib/utils';
 import { EmptyState } from './EmptyState';
 import { ExplorerRevealButton } from './explorer-state';
+import { walkGroups } from './layout-schema';
 import { useWorkbenchLayout } from './layout-store';
 import { kindOf, registry, titleOf } from './registry';
 import { TabBar } from './TabBar';
@@ -48,9 +49,18 @@ const dropPreviewClass: Record<EdgeZone | 'center', string> = {
   center: 'top-0 left-0 h-full w-full',
 };
 
-export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) {
+export const TabGroup = memo(function TabGroup({
+  group,
+  onNewChat,
+}: {
+  group: GroupNode;
+  onNewChat: () => void;
+}) {
   // 订阅派生布尔而非 focus/maximized 原值：只有本组的未聚焦态翻转时才重渲（评审 1）。
   const unfocused = useWorkbenchLayout((s) => s.maximized === null && s.focus !== group.id);
+  const revealAnchor = useWorkbenchLayout(
+    (s) => (s.maximized ?? walkGroups(s.root)[0]?.id ?? null) === group.id,
+  );
   const focusGroup = useWorkbenchLayout((s) => s.focusGroup);
   const moveTab = useWorkbenchLayout((s) => s.moveTab);
   const moveTabToEdge = useWorkbenchLayout((s) => s.moveTabToEdge);
@@ -136,11 +146,11 @@ export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) 
       onDragLeave={onDragLeave}
       onDropCapture={onDrop}
     >
-      <TabBar group={group} unfocused={unfocused} />
+      <TabBar group={group} unfocused={unfocused} showReveal={revealAnchor} />
       {/* 空组没有标签栏可挂展开入口：锚定在标签栏左端同一坐标（px-2 pt-1 + self-end mb-1
           即左上 8px/8px），最后一个标签关闭时按钮不位移，也不落进空态的居中栈。
           z-10 压过后方内容层（relative 且 DOM 靠后，会整层拦截指针）。 */}
-      {!unfocused && !group.tabs.length && (
+      {revealAnchor && !group.tabs.length && (
         <ExplorerRevealButton className="absolute left-2 top-2 z-10" />
       )}
       <div ref={contentRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -157,7 +167,7 @@ export const TabGroup = memo(function TabGroup({ group }: { group: GroupNode }) 
             </ErrorBoundary>
           </div>
         ) : (
-          <EmptyState />
+          <EmptyState onNewChat={onNewChat} />
         )}
         {/* 预览覆盖正文、不染组背景；半屏与实际二等分结果一致。
             复用现有明暗主题蓝色 token，15% 不透明度保持正文可读。 */}

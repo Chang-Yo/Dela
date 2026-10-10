@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-6ls+Tslxjo93SL4NSk/hvwnI1MIUdUKBi4JQp3N7X0o='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' dela-resource: ws://127.0.0.1:5173; img-src 'self' blob: data: dela-resource: http: https:; media-src 'self' https://live.sjtu.edu.cn; frame-src 'self' blob: dela-resource:; object-src blob:; base-uri 'none'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-6ls+Tslxjo93SL4NSk/hvwnI1MIUdUKBi4JQp3N7X0o='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' dela-resource: ws://127.0.0.1:5173; img-src 'self' blob: data: dela-resource: http: https:; media-src 'self' dela-resource:; frame-src 'self' blob: dela-resource:; object-src blob:; base-uri 'none'"
     />
     <!-- script-src 中的 sha256 只放行 components/ui/frame-height.ts 里那段沙箱 iframe
          高度/站内链接上报脚本（srcDoc 文档会继承本 CSP）。改动该脚本文本须重算 hash，

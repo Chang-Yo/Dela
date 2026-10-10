@@ -97,8 +97,9 @@ export function NotificationsView({
   // 初始抓取在途（有通知 API、尚无状态且无错误）时按加载态展示，避免闪现“暂不可用”。
   const initialLoading = !state && !error && Boolean(window.dela?.notifications);
 
+  // 隐藏滑块但保留 overflow-y:scroll 的常驻槽位，条目增减不引起内容横向位移。
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-6 py-6 max-md:px-4">
+    <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-6 py-6 [scrollbar-width:none] max-md:px-4">
       <header className="flex items-center justify-between gap-3 border-b pb-4 max-md:items-start max-md:flex-col">
         <div className="flex items-baseline gap-2">
           <h1 className="text-xl font-semibold tracking-tight">通知</h1>
@@ -229,8 +230,7 @@ export function NotificationsView({
         </p>
       ) : null}
 
-      {/* 分隔线行而非行级卡片：通知是高频扫读的信息流，与邮件列表保持同一视觉重量。 */}
-      <section aria-label="通知列表" className="mt-4 flex flex-col pb-6">
+      <section aria-label="通知列表" className="mt-4 flex flex-col gap-1 pb-6">
         {state && state.totalCount > state.items.length && (
           <p className="text-[12px] text-ink-3">
             显示最近 {state.items.length} 条，共 {state.totalCount} 条通知。
@@ -238,12 +238,12 @@ export function NotificationsView({
         )}
         {items.map((item) => (
           <article
-            className="relative border-b transition-colors last:border-0 hover:bg-hover"
+            className="relative rounded-card transition-colors duration-150 hover:bg-hover"
             key={item.id}
           >
             <button
               className={cn(
-                'flex w-full items-start gap-3 p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+                'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
                 !item.readAt && 'pr-14',
               )}
               onClick={() => onOpen(item)}
@@ -278,7 +278,7 @@ export function NotificationsView({
             {!item.readAt ? (
               <Button
                 aria-label={`将“${item.title}”标为已读`}
-                className="absolute top-3 right-3"
+                className="absolute top-2.5 right-2.5"
                 disabled={loading}
                 onClick={() => onMarkRead(item.id)}
                 size="icon-sm"

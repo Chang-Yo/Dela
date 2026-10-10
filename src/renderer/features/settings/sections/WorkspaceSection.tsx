@@ -12,6 +12,8 @@ import {
 } from '../../../components/ui/select';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
+import { Switch } from '../../../components/ui/switch';
+import { useNoteSpellcheck } from '../../../content/note/note-spellcheck';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { useProjectNavPrefs } from '../../../navigation/store';
 
@@ -34,7 +36,7 @@ const editModeLabels: Record<NoteEditModePreference, string> = {
   source: 'Markdown 源码',
 };
 
-/** 设置 › 工作区：工作目录、启动恢复、默认笔记编辑方式、当前项目布局重置与隐藏项目恢复。 */
+/** 设置 › 工作区：工作目录、启动恢复、默认笔记编辑方式、笔记拼写检查、当前项目布局重置与隐藏项目恢复。 */
 export function WorkspaceSection() {
   const directory = useWorkspaceStore((state) => state.workspace.directory);
   const entries = useWorkspaceStore((state) => state.workspace.entries);
@@ -65,9 +67,13 @@ export function WorkspaceSection() {
     const previous = prefs;
     setPrefs({ ...prefs, ...patch });
     try {
-      setPrefs(
-        window.dela ? await window.dela.settings.setWorkspacePrefs(patch) : { ...prefs, ...patch },
-      );
+      const saved = window.dela
+        ? await window.dela.settings.setWorkspacePrefs(patch)
+        : { ...prefs, ...patch };
+      setPrefs(saved);
+      // 已挂载的笔记编辑器读这个镜像：保存确认后再改，失败时不留下与磁盘不一致的状态。
+      if (patch.noteSpellcheck !== undefined)
+        useNoteSpellcheck.getState().setSpellcheck(saved.noteSpellcheck);
     } catch (cause) {
       setPrefs(previous);
       setError(errorText(cause));
@@ -150,6 +156,18 @@ export function WorkspaceSection() {
               </SelectContent>
             </Select>
           </div>
+        </SettingRow>
+        <SettingRow
+          description="所见即所得与源码模式共用；关闭后不显示拼写波浪线。"
+          settingId="note-spellcheck"
+          title="笔记拼写检查"
+        >
+          <Switch
+            checked={prefs?.noteSpellcheck ?? false}
+            disabled={prefs === null || busy}
+            label="笔记拼写检查"
+            onChange={(value) => void changePrefs({ noteSpellcheck: value })}
+          />
         </SettingRow>
         <SettingRow settingId="reset-layout" title="布局重置">
           <div className="grid content-start justify-items-end gap-1.5">

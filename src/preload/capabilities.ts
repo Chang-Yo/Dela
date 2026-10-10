@@ -7,6 +7,8 @@ export const capabilityApi: CapabilityApi = {
   setSkillEnabled: (name, enabled) => invoke('capabilities:set-skill-enabled', name, enabled),
   readSkill: (name) => invoke('capabilities:read-skill', name),
   revealSkill: (name) => invoke('capabilities:reveal-skill', name),
+  uploadSkillToRemote: (name, remotePath, overwrite) =>
+    invoke('capabilities:upload-skill-to-remote', name, remotePath, overwrite),
   listMcpServers: () => invoke('capabilities:list-mcp-servers'),
   addMcpServer: (config) => invoke('capabilities:add-mcp-server', config),
   updateMcpServer: (id, patch) => invoke('capabilities:update-mcp-server', id, patch),

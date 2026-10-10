@@ -106,5 +106,10 @@ export function useNotifications(active: boolean) {
       ? 0
       : (notifications?.unreadCount ?? 0);
 
-  return { notifications, count, loading, error, run, openNotification };
+  // TODO 新消息未读数（readAt === null），与主进程 unreadCount 的 todo 口径同源；
+  // 不受通知中心暂停（snooze）影响：暂停只静音铃铛，不清空待办本身。
+  const todoUnread =
+    notifications?.items.filter((item) => item.source === 'todo' && !item.readAt).length ?? 0;
+
+  return { notifications, count, todoUnread, loading, error, run, openNotification };
 }

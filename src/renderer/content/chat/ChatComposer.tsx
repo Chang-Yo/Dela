@@ -17,8 +17,14 @@ import {
 import { cn } from '../../lib/utils';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
+import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
 import { useNavigationStore } from '../../app/navigation';
-import type { ChatCommandView, ChatMediaView, LlmProviderView } from '../../../shared/api';
+import type {
+  ChatCommandView,
+  ChatMediaView,
+  ContextUsageView,
+  LlmProviderView,
+} from '../../../shared/api';
 import {
   chatFileKind,
   chatImageToken,
@@ -56,6 +62,26 @@ function formatSize(size: number): string {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
+function formatTokens(tokens: number): string {
+  return tokens < 1000 ? '0K' : `${(tokens / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+}
+
+function usageTone(percent: number | null): 'ink' | 'orange' | 'red' {
+  if (percent === null) return 'ink';
+  if (percent >= 90) return 'red';
+  if (percent >= 70) return 'orange';
+  return 'ink';
+}
+
+/** 本会话累计缓存命中率 = cacheRead / (输入 + cacheRead)。main 没给出缓存字段（提供商不上报
+ *  缓存）或分母为 0 时显示 —：写成 0% 会把「没有数据」说成「一次都没命中」。 */
+export function cacheHitRateText(usage: ContextUsageView): string {
+  const { inputTokens, cachedTokens } = usage;
+  if (inputTokens === undefined || cachedTokens === undefined) return '—';
+  const total = inputTokens + cachedTokens;
+  return total > 0 ? `${((cachedTokens / total) * 100).toFixed(1)}%` : '—';
+}
+
 // beautiful-ui PromptBar 的控件样式：选择器触发钮与弹层容器（图标钮用 IconButton atom）。
 const triggerButton =
   'flex h-7 min-w-0 shrink items-center gap-1 rounded-[8px] px-1.5 text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
@@ -73,14 +99,12 @@ export function ChatComposer({
   effort,
   effortLevels,
   onEffortSelect,
-  references,
-  onRemoveReference,
-  onAddReference,
   referenceOptions,
   attachments,
   onAddAttachmentFile,
   onAddAttachmentView,
   onRemoveAttachment,
+  contextUsage = null,
   notice = null,
   onDismissNotice,
   hero = false,
@@ -100,14 +124,12 @@ export function ChatComposer({
   effort: string | null;
   effortLevels: string[];
   onEffortSelect: (level: string) => void;
-  references: ChatReference[];
-  onRemoveReference: (key: string) => void;
-  onAddReference: (ref: ChatReference) => void;
   referenceOptions: ChatReference[];
   attachments: ChatMediaView[];
   onAddAttachmentFile: (file: File) => Promise<void>;
   onAddAttachmentView: (view: ChatMediaView) => void;
   onRemoveAttachment: (id: string) => void;
+  contextUsage?: ContextUsageView | null;
   hero?: boolean;
 }) {
   const editorRef = useRef<ComposerEditorHandle | null>(null);
@@ -153,11 +175,7 @@ export function ChatComposer({
   const mentionItems =
     menu?.kind === 'mention'
       ? referenceOptions
-          .filter(
-            (option) =>
-              !references.some((ref) => ref.key === option.key) &&
-              option.title.toLowerCase().includes(menu.query.toLowerCase()),
-          )
+          .filter((option) => option.title.toLowerCase().includes(menu.query.toLowerCase()))
           .slice(0, 8)
       : [];
   const items: (typeof slashItems)[number][] | ChatReference[] =
@@ -194,8 +212,8 @@ export function ChatComposer({
     } else {
       const option = mentionItems[position];
       if (!option) return;
-      onAddReference(option);
-      editorRef.current?.replaceRange(menu.start, caret, '');
+      // 引用即文本：原位留下「@相对路径」token（尾随空格隔开后续输入），发送时解析回 key。
+      editorRef.current?.replaceRange(menu.start, caret, `@${option.title} `);
     }
     setMenu(null);
     setIndex(0);
@@ -338,17 +356,8 @@ export function ChatComposer({
             松开以添加图片或附件
           </div>
         )}
-        {(attachments.length > 0 || references.length > 0) && (
+        {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-3 pt-3">
-            {references.map((ref) => (
-              <ComposerChip
-                icon={<AtSign />}
-                key={ref.key}
-                label={ref.title}
-                onRemove={() => onRemoveReference(ref.key)}
-                removeLabel={`移除引用 ${ref.title}`}
-              />
-            ))}
             {attachments.map((item) => (
               <ComposerChip
                 detail={formatSize(item.size)}
@@ -379,6 +388,7 @@ export function ChatComposer({
             if (canSend) onSend();
           }}
           placeholderText={hero ? '有什么可以帮你？' : '回复…  @ 引用文件，/ 指令'}
+          referenceOptions={referenceOptions}
           value={value}
         />
         <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1 @max-[160px]:gap-0.5 @max-[160px]:px-1.5">
@@ -389,6 +399,7 @@ export function ChatComposer({
             <AtSign />
           </IconButton>
           <div className="flex-1" />
+          {configured && contextUsage && <ContextIndicator usage={contextUsage} />}
           {configured && (
             <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
               <Popover.Trigger asChild>
@@ -585,7 +596,10 @@ export function ChatComposer({
         {/* min-w-56 下限在窄容器会越出 composer 边界（分屏时压到相邻组），≤260px 时收为贴容器宽。 */}
         {menuOpen && (
           <ul
-            className="relative mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-[10px] bg-surface p-1 shadow-raised @max-[260px]:min-w-0 absolute bottom-full left-0 z-20"
+            // 只保留 absolute：relative 与 absolute 同时写时生成 CSS 谁生效不确定，实测会掉回
+            // 文档流向下撑开布局；父容器（composer 外框）已是 relative，向上展开由 bottom-full 定住。
+            // 高亮块与 li 都靠本元素的绝对定位建立包含块，不能改成 static。
+            className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-[10px] bg-surface p-1 shadow-raised @max-[260px]:min-w-0"
             id={menuListId}
             role="listbox"
             style={{
@@ -618,7 +632,7 @@ export function ChatComposer({
                 role="option"
               >
                 {menu?.kind === 'mention' ? (
-                  <AtSign className="size-3.5 shrink-0 text-ink-3" />
+                  <FileText className="size-3.5 shrink-0 text-ink-3" />
                 ) : (
                   <span className="shrink-0 font-mono text-[12.5px] text-ink-3">/</span>
                 )}
@@ -632,9 +646,7 @@ export function ChatComposer({
                     </span>
                   </>
                 ) : (
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">
-                    {item.title}
-                  </span>
+                  <MentionTitle title={item.title} />
                 )}
               </li>
             ))}
@@ -642,6 +654,21 @@ export function ChatComposer({
         )}
       </div>
     </div>
+  );
+}
+
+/** 引用候选：文件名强调蓝加粗在前，所在目录以小字灰阶缀后（过长省略号截断）。 */
+function MentionTitle({ title }: { title: string }) {
+  const at = title.lastIndexOf('/');
+  const dir = at < 0 ? '' : title.slice(0, at + 1);
+  const name = at < 0 ? title : title.slice(at + 1);
+  return (
+    <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[12.5px]">
+      <span className="shrink-0 font-semibold" style={{ color: 'var(--cal-blue-text)' }}>
+        {name}
+      </span>
+      {dir && <span className="min-w-0 truncate text-[11px] text-ink-3">{dir}</span>}
+    </span>
   );
 }
 
@@ -701,5 +728,62 @@ function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: (
         </button>
       )}
     </div>
+  );
+}
+
+function ContextIndicator({ usage }: { usage: ContextUsageView }) {
+  const tone = usageTone(usage.percent);
+  const color =
+    tone === 'red' ? 'var(--red)' : tone === 'orange' ? 'var(--orange)' : 'var(--ink-2)';
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button
+          aria-label="上下文占用"
+          className="flex size-7 shrink-0 items-center justify-center rounded-[8px] transition-colors duration-150 hover:bg-hover"
+          title="上下文占用"
+          type="button"
+        >
+          <ProgressRing progress={(usage.percent ?? 0) / 100} size={18} tone={tone} />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="center"
+          aria-label="上下文占用"
+          className="z-50 w-60 rounded-[10px] bg-surface px-3 py-2.5 shadow-raised"
+          side="top"
+          sideOffset={6}
+          style={{
+            animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+            transformOrigin: 'bottom center',
+          }}
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[12.5px] font-medium text-ink">上下文</span>
+            <span className="text-[12px] tabular-nums text-ink-3">
+              {usage.tokens === null ? '—' : formatTokens(usage.tokens)} /{' '}
+              {formatTokens(usage.contextWindow)}
+              {usage.percent !== null && ` (${usage.percent.toFixed(1).replace(/\.0$/, '')}%)`}
+            </span>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-field">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, usage.percent ?? 0)}%`,
+                background: color,
+                transition: 'width 400ms cubic-bezier(0.23,1,0.32,1)',
+              }}
+            />
+          </div>
+          {/* 按本会话累计显示（不是最近一轮）：单轮命中率受该轮是否新建缓存影响，波动大、看不出趋势。 */}
+          <div className="mt-2 flex items-baseline justify-between gap-3">
+            <span className="text-[12.5px] text-ink-2">缓存命中率</span>
+            <span className="text-[12px] tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

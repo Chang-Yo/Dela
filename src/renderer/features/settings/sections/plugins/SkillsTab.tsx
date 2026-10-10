@@ -1,15 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { FileText, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
-import type { SkillScope, SkillView } from '../../../../../shared/api';
+import { Cloud, CloudUpload, FileText, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
+import type { SkillScope, SkillView, WorkspaceEntry } from '../../../../../shared/api';
+import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
-import { errorText } from '../../../../workspace/store';
+import { errorText, useWorkspaceStore } from '../../../../workspace/store';
 import { cn } from '../../../../lib/utils';
 import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
 import { SectionHeader } from '../../SectionHeader';
 
 const SCOPE_LABELS: Record<SkillScope, string> = { global: '全局', project: '项目' };
+
+/** 目标已存在时主进程拒绝的固定前缀：据此把冲突转成覆盖确认，而不是错误。 */
+const REMOTE_EXISTS_PREFIX = '远端已存在：';
+
+/** 可作上传目标的远端项目：path 是远端 POSIX 根目录，本地没有对应文件。 */
+const remoteProjectsOf = (entries: WorkspaceEntry[]) =>
+  entries.filter(
+    (entry): entry is WorkspaceEntry & { path: string } =>
+      entry.kind === 'project' && !!entry.remoteId && !!entry.path,
+  );
 
 /** 设置 › Skills：全局（~/.dela、~/.agents、~/.zcode）与项目（工作区）技能的发现与启停。 */
 export function SkillsTab() {
@@ -21,6 +32,8 @@ export function SkillsTab() {
   const [scope, setScope] = useState<'all' | SkillScope>('all');
   // 非 null 时弹出 SKILL.md 内容查看。
   const [viewing, setViewing] = useState<SkillView | null>(null);
+  // 非 null 时弹出「上传到远端项目」。
+  const [uploading, setUploading] = useState<SkillView | null>(null);
 
   const refresh = () => {
     void window.dela?.capability
@@ -174,6 +187,15 @@ export function SkillsTab() {
                     >
                       <FolderOpen />
                     </Button>
+                    <Button
+                      aria-label={`上传 ${skill.name} 到远端项目`}
+                      onClick={() => setUploading(skill)}
+                      size="icon-sm"
+                      title="上传到远端项目"
+                      variant="ghost"
+                    >
+                      <CloudUpload />
+                    </Button>
                     <Switch
                       checked={skill.enabled}
                       disabled={busy}
@@ -199,6 +221,7 @@ export function SkillsTab() {
           skill={viewing}
         />
       )}
+      {uploading && <SkillUploadDialog onClose={() => setUploading(null)} skill={uploading} />}
     </div>
   );
 }
@@ -269,6 +292,122 @@ function SkillContentView({
               打开所在位置
             </Button>
             <Button onClick={onClose} size="sm" variant="secondary">
+              关闭
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/** 上传 Skill 到远端项目：目标取自工作区里的远端项目，同名冲突时二次确认覆盖。 */
+function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: SkillView }) {
+  const projects = remoteProjectsOf(useWorkspaceStore((state) => state.workspace.entries));
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // true 表示远端已有同名技能：显示覆盖确认，点「覆盖」才用 overwrite=true 重试。
+  const [conflict, setConflict] = useState(false);
+  // 非 null 时展示上传结果，同一个弹窗里给出文件数与目标目录。
+  const [uploaded, setUploaded] = useState<RemoteSkillUpload | null>(null);
+  const project = projects.find((entry) => entry.id === projectId);
+
+  const upload = async (overwrite: boolean) => {
+    const dela = window.dela;
+    if (!dela || busy || !project) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setUploaded(await dela.capability.uploadSkillToRemote(skill.name, project.path, overwrite));
+      setConflict(false);
+    } catch (cause) {
+      const message = errorText(cause);
+      const exists = message.startsWith(REMOTE_EXISTS_PREFIX);
+      setConflict(exists);
+      setError(exists ? null : message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
+      <Dialog.Portal>
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
+          <Dialog.Title className="text-base font-semibold">上传到远端项目</Dialog.Title>
+          <Dialog.Description className="mt-1 text-[12px] leading-relaxed text-ink-3">
+            把技能 {skill.name} 的目录（含附属文件）上传到远端项目的 .dela/skills/{skill.name}
+            /，远端会话即可使用。
+          </Dialog.Description>
+          {uploaded ? (
+            <p className="mt-4 text-[12px] [overflow-wrap:anywhere] text-ink-2" role="status">
+              已上传 {uploaded.files} 个文件到 {uploaded.path}
+            </p>
+          ) : projects.length === 0 ? (
+            <p className="mt-4 text-[12px] text-ink-3">还没有远端项目。</p>
+          ) : (
+            <ul className="mt-4 grid gap-1">
+              {projects.map((entry) => (
+                <li key={entry.id}>
+                  <button
+                    aria-pressed={entry.id === projectId}
+                    className={cn(
+                      'flex w-full min-w-0 items-center gap-2.5 rounded-control border px-3 py-2 text-left transition-colors duration-150 disabled:opacity-50',
+                      entry.id === projectId
+                        ? 'border-line-strong bg-hover-2'
+                        : 'border-line hover:bg-hover',
+                    )}
+                    disabled={busy}
+                    onClick={() => {
+                      setProjectId(entry.id);
+                      setConflict(false);
+                      setError(null);
+                    }}
+                    type="button"
+                  >
+                    <Cloud className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
+                    <span className="grid min-w-0">
+                      <span className="truncate text-[13px] text-ink">{entry.name}</span>
+                      <span
+                        className="truncate font-mono text-[11.5px] text-ink-3"
+                        title={entry.path}
+                      >
+                        {entry.path}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {error && (
+            <p className="mt-3 text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="mt-4 flex items-center justify-end gap-2">
+            {conflict && !uploaded && (
+              <span className="mr-auto text-[12px] text-ink-2">远端已有同名技能，覆盖吗？</span>
+            )}
+            {!uploaded &&
+              (conflict ? (
+                <Button
+                  disabled={busy}
+                  onClick={() => void upload(true)}
+                  size="sm"
+                  variant="destructive"
+                >
+                  覆盖
+                </Button>
+              ) : (
+                <Button disabled={busy || !project} onClick={() => void upload(false)} size="sm">
+                  {busy && <LoaderCircle className="animate-spin" />}
+                  {busy ? '上传中…' : '上传'}
+                </Button>
+              ))}
+            <Button disabled={busy} onClick={onClose} size="sm" variant="ghost">
               关闭
             </Button>
           </div>

@@ -1,0 +1,174 @@
+import {
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  shell,
+  type DownloadItem,
+  type IpcMainInvokeEvent,
+} from 'electron';
+import { z } from 'zod';
+import type { VideoDownload } from '../../shared/vsjtu';
+import { checkWorkspaceSender } from '../ipc';
+import { savedExperimentalClassroom, savedExperimentalFeatures } from '../settings/prefs';
+import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../timetable/session';
+import { checkVideoLogin, getStreams, listCourses, listVideos, VIDEO_HOME } from './api';
+import { issuePlayback } from './playback';
+
+const id = z.number().int().positive();
+const downloads = new Map<string, { info: VideoDownload; item: DownloadItem; path: string }>();
+const pending = new Set<string>();
+function enabled(): void {
+  // 总开关与「课堂视频」子项都开启才可用；子项键缺失视为开启。
+  if (!savedExperimentalFeatures() || !savedExperimentalClassroom())
+    throw new Error('请先在设置 → 通用中开启试验功能');
+}
+function notify(info: VideoDownload): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    // 校园登录窗口不接收下载数据。
+    const url = window.webContents.getURL();
+    if (url.startsWith('file:') || url.startsWith('http://127.0.0.1:5173'))
+      window.webContents.send('vsjtu:download-changed', info);
+  }
+}
+
+async function downloadVideo(
+  event: IpcMainInvokeEvent,
+  videoId: number,
+  view: number,
+  suggestedName: string,
+): Promise<void> {
+  const key = `${videoId}/${view}`;
+  if (pending.has(key) || downloads.get(key)?.info.state === 'progressing')
+    throw new Error('该画面正在下载');
+  pending.add(key);
+  try {
+    const name = `${
+      suggestedName
+        .replace(/[<>:"/\\|?*\p{Cc}]/gu, '_')
+        .replace(/[. ]+$/g, '')
+        .slice(0, 100) || videoId
+    }-画面${view}.mp4`;
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: '下载课堂视频',
+      defaultPath: name,
+      filters: [{ name: 'MP4 视频', extensions: ['mp4'] }],
+    };
+    const selected = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options);
+    if (selected.canceled || !selected.filePath) return;
+    enabled();
+    const stream = (await getStreams(videoId)).find((stream) => stream.view === view);
+    if (!stream) throw new Error('该画面暂不可用');
+    const target = stream.url;
+    const campus = await getCampusSession();
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timer);
+        campus.removeListener('will-download', listener);
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('下载启动超时，请重试'));
+      }, 20000);
+      const listener = (_event: Electron.Event, item: DownloadItem) => {
+        if (item.getURL() !== target) return;
+        cleanup();
+        item.setSavePath(selected.filePath!);
+        const download = {
+          info: {
+            id: key,
+            name,
+            received: 0,
+            total: item.getTotalBytes(),
+            state: 'progressing' as VideoDownload['state'],
+          },
+          item,
+          path: selected.filePath!,
+        };
+        downloads.set(key, download);
+        const update = (state: VideoDownload['state']) => {
+          download.info = {
+            ...download.info,
+            received: item.getReceivedBytes(),
+            total: item.getTotalBytes(),
+            state,
+          };
+          notify(download.info);
+        };
+        let interrupted = false;
+        item.on('updated', (_event, state) => {
+          update(state);
+          // 首版不承诺跨链接续传，中断后由用户重新下载。
+          if (state === 'interrupted') {
+            interrupted = true;
+            item.cancel();
+          }
+        });
+        item.once('done', (_event, state) => update(interrupted ? 'interrupted' : state));
+        notify(download.info);
+        resolve();
+      };
+      campus.on('will-download', listener);
+      try {
+        campus.downloadURL(target);
+      } catch {
+        cleanup();
+        reject(new Error('无法启动视频下载'));
+      }
+    });
+  } finally {
+    pending.delete(key);
+  }
+}
+
+export function registerVsjtuIpc(): void {
+  const check = (event: IpcMainInvokeEvent) => {
+    checkWorkspaceSender(event);
+    enabled();
+  };
+  ipcMain.handle('vsjtu:connect', (event) => {
+    check(event);
+    return openCampusLoginWindow({
+      sender: event.sender,
+      title: '登录交大视频',
+      url: VIDEO_HOME,
+      reached: (url) => url.startsWith(VIDEO_HOME),
+      retryProbe: true,
+      probe: async () => {
+        await checkVideoLogin();
+        await flushCampusSession();
+      },
+    });
+  });
+  ipcMain.handle('vsjtu:list-courses', (event) => {
+    check(event);
+    return listCourses();
+  });
+  ipcMain.handle('vsjtu:list-videos', (event, courseId) => {
+    check(event);
+    return listVideos(id.parse(courseId));
+  });
+  ipcMain.handle('vsjtu:streams', async (event, videoId) => {
+    check(event);
+    return issuePlayback(id.parse(videoId));
+  });
+  ipcMain.handle('vsjtu:download', (event, videoId, view, name) => {
+    check(event);
+    return downloadVideo(event, id.parse(videoId), id.parse(view), z.string().max(200).parse(name));
+  });
+  ipcMain.handle('vsjtu:downloads', (event) => {
+    checkWorkspaceSender(event);
+    return [...downloads.values()].map((download) => download.info);
+  });
+  ipcMain.handle('vsjtu:cancel-download', (event, key) => {
+    checkWorkspaceSender(event);
+    downloads.get(z.string().parse(key))?.item.cancel();
+  });
+  ipcMain.handle('vsjtu:reveal-download', (event, key) => {
+    checkWorkspaceSender(event);
+    const download = downloads.get(z.string().parse(key));
+    if (download?.info.state === 'completed') shell.showItemInFolder(download.path);
+  });
+}

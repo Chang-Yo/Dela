@@ -1,10 +1,11 @@
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, SquarePen } from 'lucide-react';
+import { Button } from '../components/ui/button';
 
-/** 组空态：无导航入口（3B 接入），只提示可拖入标签。窄组按容器查询降级（容器标记在
- *  TabGroup 根 section）：≤280px 收起副文案；≤180px 再缩图标、主文案单行超宽省略，
- *  避免 CJK 文案在极窄组里竖排逐字换行。目录折叠时的展开入口由 TabGroup 锚定在
- *  标签栏位置，不进本居中栈。 */
-export function EmptyState() {
+/** 组空态：中央提示可拖入标签，并提供「新建对话」（与侧栏同一入口，回调由装配层注入）。
+ *  窄组按容器查询降级（容器标记在 TabGroup 根 section）：≤280px 收起副文案；≤180px 再缩
+ *  图标、主文案单行超宽省略，避免 CJK 文案在极窄组里竖排逐字换行。目录折叠时的展开入口
+ *  由 TabGroup 锚定在标签栏位置，不进本居中栈。 */
+export function EmptyState({ onNewChat }: { onNewChat: () => void }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-[13px] text-ink-3">
       <LayoutGrid className="size-7 opacity-45 @max-[180px]:size-5" />
@@ -14,6 +15,10 @@ export function EmptyState() {
       <p className="text-[12px] text-ink-3/80 @max-[280px]:hidden">
         拖动标签到此组，或从导航打开内容
       </p>
+      <Button className="mt-1" onClick={onNewChat} size="sm" variant="secondary">
+        <SquarePen className="size-3.5" />
+        新建对话
+      </Button>
     </div>
   );
 }

@@ -33,6 +33,13 @@ export function ancestorChainOf(entries: WorkspaceEntry[], id: string): string[]
   return chain;
 }
 
+/** 项目被重新登记（导入同一目录会复用原来那条）时撤掉「移除项目入口」留下的隐藏偏好：
+ *  否则项目加回来了，侧栏里还是看不见它，而会话又都还挂在它名下。 */
+export function unhideProjectInNav(id: string): void {
+  const { projects, setProject } = useProjectNavPrefs.getState();
+  if (projects[id]?.hidden) setProject(id, { hidden: false });
+}
+
 type Store = {
   query: string;
   setQuery: (query: string) => void;
