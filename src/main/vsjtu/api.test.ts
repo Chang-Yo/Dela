@@ -1,7 +1,11 @@
 import { EventEmitter } from 'node:events';
 import { beforeEach, expect, it, vi } from 'vitest';
 
-const server = vi.hoisted(() => ({ replies: [] as unknown[], urls: [] as string[] }));
+const server = vi.hoisted(() => ({
+  replies: [] as unknown[],
+  urls: [] as string[],
+  statuses: [] as number[],
+}));
 vi.mock('electron', () => ({
   net: {
     request: ({ url }: { url: string }) => {
@@ -15,7 +19,9 @@ vi.mock('electron', () => ({
       request.setHeader = () => {};
       request.end = () =>
         queueMicrotask(() => {
-          const response = Object.assign(new EventEmitter(), { statusCode: 200 });
+          const response = Object.assign(new EventEmitter(), {
+            statusCode: server.statuses.shift() ?? 200,
+          });
           request.emit('response', response);
           response.emit('data', Buffer.from(JSON.stringify(server.replies.shift())));
           response.emit('end');
@@ -25,13 +31,33 @@ vi.mock('electron', () => ({
   },
 }));
 vi.mock('../timetable/session', () => ({ getCampusSession: async () => ({}) }));
-import { listCourses, listVideos, parseStreams } from './api';
+import { checkVideoLogin, listCourses, listVideos, parseStreams } from './api';
 
 beforeEach(() => {
   server.replies = [];
   server.urls = [];
+  server.statuses = [];
 });
 const identity = { code: '0', result: { user: { code: 'test-user' } } };
+
+it('shares simultaneous identity checks without caching the login result across later calls', async () => {
+  server.replies = [identity, identity];
+  await Promise.all([checkVideoLogin(), checkVideoLogin()]);
+  expect(server.urls).toHaveLength(1);
+  await checkVideoLogin();
+  expect(server.urls).toHaveLength(2);
+});
+
+it('retries a temporary API failure but does not retry an expired session', async () => {
+  server.replies = [null, identity, []];
+  server.statuses = [503, 200, 200];
+  expect(await listCourses()).toEqual([]);
+  expect(server.urls[0]).toBe(server.urls[1]);
+  server.replies = [null];
+  server.statuses = [401];
+  await expect(checkVideoLogin()).rejects.toThrow('登录');
+  expect(server.urls).toHaveLength(4);
+});
 
 it('checks login before interpreting an empty curriculum as no courses', async () => {
   server.replies = [{ code: '-1', result: null }];

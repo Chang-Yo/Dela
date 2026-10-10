@@ -1,4 +1,5 @@
 import { net } from 'electron';
+import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import type { ClassroomVideo, VideoCourse } from '../../shared/vsjtu';
 import { getCampusSession } from '../timetable/session';
@@ -8,8 +9,29 @@ const BASE = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1';
 const loginError = () => new Error('校园会话已失效，请登录交大视频');
 const object = z.record(z.string(), z.unknown());
 const id = z.coerce.number().int().positive();
+const requests = new Map<string, Promise<unknown>>();
 
-async function requestJson(url: string): Promise<unknown> {
+function requestJson(url: string): Promise<unknown> {
+  const pending = requests.get(url);
+  if (pending) return pending;
+  const task = (async () => {
+    try {
+      try {
+        return await requestOnce(url);
+      } catch (error) {
+        if (!(error instanceof Error) || error.cause !== 'transient') throw error;
+        await delay(250);
+        return await requestOnce(url);
+      }
+    } finally {
+      requests.delete(url);
+    }
+  })();
+  requests.set(url, task);
+  return task;
+}
+
+async function requestOnce(url: string): Promise<unknown> {
   const campus = await getCampusSession();
   return new Promise((resolve, reject) => {
     const request = net.request({
@@ -18,13 +40,17 @@ async function requestJson(url: string): Promise<unknown> {
       useSessionCookies: true,
       redirect: 'manual',
     });
-    const fail = (error: Error) => {
+    let settled = false;
+    const fail = (error: Error, retryable = false) => {
+      if (settled) return;
+      settled = true;
+      if (retryable) error.cause = 'transient';
       clearTimeout(timer);
       reject(error);
       request.abort();
     };
-    const timer = setTimeout(() => fail(new Error('交大视频请求超时，请重试')), 15000);
-    request.on('error', () => fail(new Error('无法连接交大视频，请检查网络')));
+    const timer = setTimeout(() => fail(new Error('交大视频请求超时，请重试'), true), 15000);
+    request.on('error', () => fail(new Error('无法连接交大视频，请检查网络'), true));
     request.on('redirect', () => fail(loginError()));
     request.on('response', (response) => {
       if (
@@ -36,14 +62,19 @@ async function requestJson(url: string): Promise<unknown> {
         return;
       }
       if (response.statusCode !== 200) {
-        fail(new Error(`交大视频接口返回 ${response.statusCode}`));
+        fail(
+          new Error(`交大视频接口返回 ${response.statusCode}`),
+          [408, 500, 502, 503, 504].includes(response.statusCode),
+        );
         return;
       }
       const chunks: Buffer[] = [];
       response.on('data', (chunk: Buffer) => chunks.push(chunk));
-      response.on('error', () => fail(new Error('交大视频响应中断')));
-      response.on('aborted', () => fail(new Error('交大视频响应中断')));
+      response.on('error', () => fail(new Error('交大视频响应中断'), true));
+      response.on('aborted', () => fail(new Error('交大视频响应中断'), true));
       response.on('end', () => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         try {
           resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));

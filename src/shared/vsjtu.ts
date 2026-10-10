@@ -13,7 +13,7 @@ export interface ClassroomVideo {
 export interface VideoStream {
   view: number;
   duration: number;
-  /** dela-resource 播放代理地址（含一次性 token），renderer 只作 video.src 使用。 */
+  /** dela-resource 播放代理地址（token 在本次应用运行期间有效），renderer 只作 video.src 使用。 */
   playbackUrl: string;
 }
 export interface VideoDownload {

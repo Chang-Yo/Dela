@@ -2,23 +2,31 @@
 // 签名媒体地址与校园 cookie 都留在 main，renderer 只拿不透明的播放地址；
 // token 挡住 renderer 里远程内容（邮件 HTML 等）按可猜测的 videoId 盗播。
 // 拖拽进度条依赖 Range：原样转发给 live.sjtu.edu.cn 并透传 206。
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { savedExperimentalClassroom, savedExperimentalFeatures } from '../settings/prefs';
 import { getCampusSession } from '../timetable/session';
 import { getStreams } from './api';
 
 const URL_TTL_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 32;
+const NETWORK_TIMEOUT_MS = 15000;
+const playbackKey = randomBytes(32);
+
+// 授权凭据在本次应用运行期间有效，不随签名缓存淘汰而失效。
+function playbackToken(videoId: number): string {
+  return createHmac('sha256', playbackKey).update(String(videoId)).digest('hex').slice(0, 32);
+}
 
 interface PlaybackEntry {
-  token: string;
   streams: Array<{ view: number; duration: number; url: string }>;
   resolvedAt: number;
   usedAt: number;
 }
 
-// insertion order 即 LRU：读命中重新 set，超量淘汰最久未用。
+// 只限制签名元数据缓存；淘汰最久未用的条目，不撤销已签发的播放凭据。
 const entries = new Map<number, PlaybackEntry>();
+const resolving = new Map<number, Promise<PlaybackEntry>>();
 
 export interface PlaybackStream {
   view: number;
@@ -27,32 +35,30 @@ export interface PlaybackStream {
 }
 
 async function streamsOf(videoId: number, force = false): Promise<PlaybackEntry> {
+  const pending = resolving.get(videoId);
+  if (pending) return pending;
   const cached = entries.get(videoId);
   if (!force && cached && Date.now() - cached.resolvedAt < URL_TTL_MS) {
     cached.usedAt = Date.now();
     return cached;
   }
-  const streams = await getStreams(videoId);
-  // 刷新签名地址时保留原 token：播放中途的后续 Range 请求仍用旧地址，不能被打断。
-  const entry: PlaybackEntry = cached ?? {
-    token: randomBytes(16).toString('hex'),
-    streams: [],
-    resolvedAt: 0,
-    usedAt: 0,
-  };
-  entry.streams = streams.map((stream) => ({
-    view: stream.view,
-    duration: stream.duration,
-    url: stream.url,
-  }));
-  entry.resolvedAt = Date.now();
-  entry.usedAt = Date.now();
-  entries.set(videoId, entry);
-  if (entries.size > MAX_ENTRIES) {
-    const oldest = [...entries.values()].reduce((a, b) => (a.usedAt <= b.usedAt ? a : b));
-    for (const [key, value] of entries) if (value === oldest) entries.delete(key);
-  }
-  return entry;
+  const task = (async () => {
+    try {
+      const streams = await getStreams(videoId);
+      if (streams.length === 0) throw new Error('录像画面尚未就绪，请稍后重试');
+      const entry = { streams, resolvedAt: Date.now(), usedAt: Date.now() };
+      entries.set(videoId, entry);
+      if (entries.size > MAX_ENTRIES) {
+        const oldest = [...entries.values()].reduce((a, b) => (a.usedAt <= b.usedAt ? a : b));
+        for (const [key, value] of entries) if (value === oldest) entries.delete(key);
+      }
+      return entry;
+    } finally {
+      resolving.delete(videoId);
+    }
+  })();
+  resolving.set(videoId, task);
+  return task;
 }
 
 /** streams IPC 入口：返回带播放地址的画面列表（地址含 token，renderer 不解析）。 */
@@ -61,7 +67,7 @@ export async function issuePlayback(videoId: number): Promise<PlaybackStream[]> 
   return entry.streams.map((stream) => ({
     view: stream.view,
     duration: stream.duration,
-    playbackUrl: `dela-resource://vsjtu/video/${videoId}/${stream.view}?t=${entry.token}`,
+    playbackUrl: `dela-resource://vsjtu/video/${videoId}/${stream.view}?t=${playbackToken(videoId)}`,
   }));
 }
 
@@ -85,26 +91,45 @@ export async function handleVsjtuMediaRequest(request: Request): Promise<Respons
     const match = /^\/video\/(\d+)\/(\d+)$/.exec(url.pathname);
     const token = url.searchParams.get('t');
     const videoId = match ? Number(match[1]) : 0;
-    const entry = match ? entries.get(videoId) : undefined;
-    if (!match || !token || !entry || entry.token !== token)
+    if (
+      url.hostname !== 'vsjtu' ||
+      !match ||
+      !token ||
+      !/^[0-9a-f]{32}$/.test(token) ||
+      !timingSafeEqual(Buffer.from(token), Buffer.from(playbackToken(videoId)))
+    )
       return new Response(null, { status: 403 });
-    entry.usedAt = Date.now();
     const view = Number(match[2]);
-    const stream = entry.streams.find((value) => value.view === view);
-    if (!stream) return new Response(null, { status: 404 });
-    const range = request.headers.get('range');
-    let response = await fetchUp(stream.url, range, request.signal);
-    // 签名地址过期（401/403）：强制重取一次再试，避免播放中途断流。
-    if (response.status === 401 || response.status === 403) {
-      response.body?.cancel();
-      const fresh = await streamsOf(videoId, true);
-      const retry = fresh.streams.find((value) => value.view === view);
-      if (!retry) return new Response(null, { status: 404 });
-      response = await fetchUp(retry.url, range, request.signal);
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      request.signal.throwIfAborted();
+      const entry = await streamsOf(videoId);
+      const stream = entry.streams.find((value) => value.view === view);
+      if (!stream) return new Response(null, { status: 404 });
+      try {
+        response = await fetchUp(stream.url, request);
+      } catch (error) {
+        if (request.signal.aborted || attempt === 1) throw error;
+        await delay(250, undefined, { signal: request.signal });
+        continue;
+      }
+      if (attempt === 0 && (response.status === 401 || response.status === 403)) {
+        await response.body?.cancel();
+        // 其他 Range 可能已更新签名，避免每个旧请求各自重取。
+        if (entries.get(videoId) === entry) await streamsOf(videoId, true);
+        continue;
+      }
+      if (attempt === 0 && [408, 500, 502, 503, 504].includes(response.status)) {
+        await response.body?.cancel();
+        await delay(250, undefined, { signal: request.signal });
+        continue;
+      }
+      break;
     }
-    if (response.status !== 200 && response.status !== 206) {
-      response.body?.cancel();
-      return new Response(null, { status: response.status === 416 ? 416 : 404 });
+    if (!response) return new Response(null, { status: 502 });
+    if (![200, 206, 416].includes(response.status)) {
+      await response.body?.cancel();
+      return new Response(null, { status: 502 });
     }
     const headers = new Headers({
       'cache-control': 'no-store',
@@ -115,25 +140,80 @@ export async function handleVsjtuMediaRequest(request: Request): Promise<Respons
       const value = response.headers.get(name);
       if (value) headers.set(name, value);
     }
-    return new Response(request.method === 'HEAD' ? null : response.body, {
-      status: response.status,
-      headers,
+    if (response.status === 416) headers.set('content-length', '0');
+    if (request.method === 'HEAD' || response.status === 416) await response.body?.cancel();
+    return new Response(
+      request.method === 'HEAD' || response.status === 416 ? null : response.body,
+      {
+        status: response.status,
+        headers,
+      },
+    );
+  } catch (error) {
+    return new Response(null, {
+      status: error instanceof Error && error.name === 'TimeoutError' ? 504 : 502,
     });
-  } catch {
-    return new Response(null, { status: 404 });
   }
 }
 
-async function fetchUp(
-  target: string,
-  range: string | null,
-  signal: AbortSignal,
-): Promise<Response> {
+async function fetchUp(target: string, request: Request): Promise<Response> {
   const campus = await getCampusSession();
-  return campus.fetch(target, {
-    credentials: 'include',
-    headers: range ? { range } : undefined,
-    // 直接复用协议请求的 signal：video 元素 seek 取消当前 Range 请求时同步中止上游。
-    signal,
-  });
+  const controller = new AbortController();
+  const signal = AbortSignal.any([request.signal, controller.signal]);
+  const timeout = () =>
+    setTimeout(
+      () => controller.abort(new DOMException('视频响应超时', 'TimeoutError')),
+      NETWORK_TIMEOUT_MS,
+    );
+  const headers = new Headers();
+  for (const name of ['range', 'if-range']) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  const timer = timeout();
+  let response: Response;
+  try {
+    response = await campus.fetch(target, {
+      method: request.method,
+      credentials: 'omit',
+      cache: 'no-store',
+      redirect: 'error',
+      headers,
+      signal,
+    });
+  } catch (error) {
+    throw signal.aborted ? signal.reason : error;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (request.method === 'HEAD') {
+    await response.body?.cancel();
+    return new Response(null, { status: response.status, headers: response.headers });
+  }
+  const reader = response.body?.getReader();
+  if (!reader) return response;
+  const body = new ReadableStream<Uint8Array>(
+    {
+      async pull(output) {
+        // 仅在下游需要数据时计时；暂停播放造成的背压不算网络超时。
+        const timer = timeout();
+        try {
+          const chunk = await reader.read();
+          if (chunk.done) output.close();
+          else output.enqueue(chunk.value);
+        } catch (error) {
+          controller.abort();
+          output.error(error);
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+      cancel(reason) {
+        controller.abort();
+        return reader.cancel(reason);
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  return new Response(body, { status: response.status, headers: response.headers });
 }
