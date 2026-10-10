@@ -52,3 +52,4 @@ appx:
   publisher: 'CN=57320C20-35BA-45E0-8AB9-95D7D30D80AC'
   publisherDisplayName: 麦德映画 (MAD Film)
   applicationId: Dela
+  languages: ['zh-CN']

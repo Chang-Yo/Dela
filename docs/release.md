@@ -61,9 +61,17 @@
 3. 从该次运行的 Artifacts 下载 `store-package-win-x64`。
 4. 在 Partner Center 提交的 Packages 页上传该文件。
 
+### 提交前必须做
+
+- **替换三个身份值。** `appx.identityName`、`appx.publisher`、`appx.publisherDisplayName` 必须逐字等于 Partner Center「Product identity」页的 Package/Identity/Name、Package/Identity/Publisher、Package/Properties/PublisherDisplayName。官方要求「Values in the manifest are case-sensitive. Spaces and other punctuation must also match.」现在的值（`MADFilm.Dela`、`CN=57320C20-35BA-45E0-8AB9-95D7D30D80AC`、`麦德映画 (MAD Film)`）是占位符，已确认原样写进产物清单的 `Identity`，不改会被商店拒收。见 [View product identity details](https://learn.microsoft.com/en-us/windows/apps/publish/view-app-identity-details) 与 [App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)。
+- **版本号第一段不能为 0。** 清单 `Identity/@Version` 由 `package.json` 版本补成四段（`0.11.0` → `0.11.0.0`）。官方版本号规则为：最后一段必须为 0，其余各段取 0–65535，例外是「the first section, which cannot be 0」，且该规则对 `.msix`／`.appx` 同样适用（见上一段链接的 App package requirements → Package version numbering）。因此提交前需把应用版本升到 `1.0.0` 及以上。Partner Center 对这条的执行严格程度属待验证。
+- **替换包内图标。** `build/appx/` 不存在时，electron-builder 用自带的微软示例图（缓存中的 `SampleAppx.*`，带 Sample 水印）充当 `assets\StoreLogo.png`、`Square44x44Logo.png`、`Square150x150Logo.png`、`Wide310x150Logo.png`；其中后两张实际是 300×300 与 620×300。提交前把 Dela 自己的图放进 `build/appx/`，文件名用上述四个即可被自动采用。
+- **不需要自己签名。** 未配置证书时产物不含 `AppxSignature.p7x`，商店收包后用自己的证书重新签名（见下「不需要自己签名」）。
+
 要点（2026-10 核实）：
 
 - electron-builder 没有 `msix` 目标，商店包由 `appx` 目标产出，扩展名是 `.appx`；Windows 目标只有 `nsis`、`nsis-web`、`portable`、`appx`、`msi`、`msi-wrapped`、`squirrel`、`7z`、`zip`、`tar.*`、`dir`，传 `msix` 会报 `Unknown target: msix`（本仓库锁定的 electron-builder 26.15.3 的配置 schema 与 `winPackager` 源码）。
+- 可选，非推荐：确实需要 `.msix` 文件名时，只能设 `appx.artifactName`（例如 `${productName}-${version}-${os}-${arch}.msix`），因为该配置被逐字用作输出路径，而 `--win msix` 这类目标名不存在。扩展名只是文件名：实测同一支 makeappx（electron-builder 自带的 10.0.17763.1）用 `/p a.appx` 与 `/p b.msix` 产出的文件逐字节相同，设 `appx.artifactName` 得到的 `.msix` 与默认 `.appx` 的容器结构、清单完全一致，并非另一种格式，商店也接受 `.appx`。副作用：electron-builder 的签名分支按 `path.endsWith(".appx")` 判定，只有 `.appx` 强制 SHA-256，`.msix` 会落到默认的 `sha1`+`sha256`；当前未签名无影响，自己签名时才需留意。
 - Partner Center 的 Packages 页接受 `.msix`、`.msixupload`、`.msixbundle`、`.appx`、`.appxupload`、`.appxbundle`；官方建议 Windows 10 以上传 `.msixupload`／`.appxupload`，但单个 `.appx` 也可提交。见 [Upload MSIX app packages](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/upload-app-packages)。
 - 不需要自己签名：[App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements?pivots=store-installer-msix) 说明 MSIX/AppX 提交商店无需 CA 信任链证书，商店会在认证通过后用微软证书重新签名并替换原有签名；[Sign your MSIX package](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide) 的对照表也把「Microsoft Store distribution」写作「Signed by the Store on submission」。
 - `.msixupload`／`.appxupload` 是「包 + 符号文件」容器（同上文档），electron-builder 26.15.3 没有产出它的目标或选项。
@@ -75,10 +83,18 @@
 - 自签名包只能装在信任该证书的机器上，测试机要先把证书导入 `LocalMachine\TrustedPeople`；步骤见 [Sign your MSIX package: end-to-end guide](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide)。
 - 让 electron-builder 顺便签名：设 `WIN_CSC_LINK`（.pfx 路径、base64 或 https 地址）与 `WIN_CSC_KEY_PASSWORD`，再跑同一条 appx 命令；`.appx` 固定用 SHA-256 签名。
 
-尚未验证（本仓库没有 Windows 打包环境，未实跑）：
+已验证（2026-10，本机 Windows 10.0.26100 实跑）：
 
-- `.appx` 的真实构建、签名与安装；Partner Center 是否接受本流水线产出的包（须先替换占位身份）。
-- 清单里 `appx.languages` 未设置，默认只有 `en-US`；提交前需按实际情况决定要声明哪些语言。
+- **`.appx` 构建已实证**：`pnpm exec electron-builder --win --x64 --dir --publish never` 与 `pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked --publish never` 均退出码 0，产出 `dist/Dela-0.11.0-win-x64.appx`，308,131,695 字节，sha256 `3492B665B97D8038F375951E823374E8BA6F62DB7D5EFEB3DE6C6DCE923A82AD`。它是 zip 容器（538 个条目，根含 `AppxManifest.xml`、`AppxBlockMap.xml`、`[Content_Types].xml`），**未签名**：不含 `AppxSignature.p7x`，与日志 `AppX is not signed reason=Windows Store only build` 一致。
+- 清单中这些字段实测合格：根命名空间为 `http://schemas.microsoft.com/appx/manifest/foundation/windows10`（Windows 10，非 2010）；`<TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.14316.0" MaxVersionTested="10.0.14316.0" />`；`<Application Id="Dela" Executable="app\Dela.exe" EntryPoint="Windows.FullTrustApplication">`；`<Capabilities>` 含 `<rescap:Capability Name="runFullTrust"/>`。
+- 清单语言已设为 `zh-CN`：`appx.languages: ['zh-CN']`，产物清单里是 `<Resource Language="zh-CN" />`，默认的 `en-US` 已移除（未设置时 electron-builder 写 `en-US`）。
+
+尚未验证：
+
+- **签名与安装**：本机未签名、未安装、未做实机验收；Partner Center 是否接受本流水线产出的包也未验证（须先替换占位身份，并把版本第一段升到非 0）。
+- Partner Center 是否接受 `MinVersion=10.0.14316.0`（electron-builder 对 x64 的默认值）：官方只要求包针对商店支持的 Windows 版本，未给出具体下限。
+- CI 是否复现本机首次下载工具链时的告警：解 `winCodeSign-2.6.0.7z` 时报 `Cannot create symbolic link : A required privilege is not held by the client`（`darwin\10.12\lib\libcrypto.dylib`、`libssl.dylib`），electron-builder 容忍并继续，最终退出码 0。
+- 商店对声明语言与实际资源的匹配要求。
 
 ## 平台基线
 
