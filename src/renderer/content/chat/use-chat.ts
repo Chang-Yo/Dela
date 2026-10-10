@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ChatMediaView,
+  ChatScope,
   ChatSessionSummary,
   LlmProviderView,
   WorkspaceChat,
@@ -269,9 +270,10 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
 }
 
 /** 当前视图的会话管理：projectId 决定会话池（null = 通用），sessionId 为标签绑定的
- *  会话（workbench 换绑时跟随）；面板内切换只改本视图的 active，不产生执行。
+ *  会话（workbench 换绑时跟随）；scope 是通用会话的工作目录归属（首页随聊/资料页课程目录），
+ *  项目会话忽略它。面板内切换只改本视图的 active，不产生执行。
  *  新建/删除经 session:create/remove；打开视图不启动执行、切换视图不停止执行。 */
-export function useChatSession(projectId: string | null, sessionId: string) {
+export function useChatSession(projectId: string | null, sessionId: string, scope: ChatScope) {
   const [active, setActive] = useState<string | null>(sessionId);
   const [error, setError] = useState<string | null>(null);
   const pool = poolKey(projectId);
@@ -295,7 +297,7 @@ export function useChatSession(projectId: string | null, sessionId: string) {
     if (!dela) return;
     try {
       // main 复用项目的空会话，重复点击不删除当前输入草稿。
-      const chat = await dela.session.create(projectId);
+      const chat = await dela.session.create(projectId, scope);
       if (!chat.sessionId) throw new Error('会话创建失败');
       useSessions.getState().putChat(chat.sessionId, chat);
       setActive(chat.sessionId);
@@ -306,7 +308,7 @@ export function useChatSession(projectId: string | null, sessionId: string) {
     } catch (e) {
       setError(errorText(e));
     }
-  }, [active, projectId]);
+  }, [active, projectId, scope]);
 
   const deleteSession = useCallback(
     async (target: string) => {

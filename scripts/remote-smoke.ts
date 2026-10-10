@@ -213,7 +213,7 @@ app
     assert.ok(entry.remoteId, `远程项目的 remoteId 没有传到渲染端：${JSON.stringify(entry)}`);
     assert.equal(entry.path, root);
 
-    // 5. 目录树：一层远端清单 → 云朵提示带目的地 → 点目录再懒加载一层 → 点文件开只读预览。
+    // 5. 目录树：一层远端清单 → 行提示带目的地 → 点目录再懒加载一层 → 点文件开只读预览。
     const title = await evaluate(
       `document.querySelector('[role="treeitem"][aria-label="a b.txt"]').querySelector('[title]').getAttribute('title')`,
     );

@@ -14,6 +14,7 @@ import { registerPreviewProtocol, registerPreviewScheme } from './workspace/prev
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
 import { closeHelper } from './remotes/helper';
+import { closeAllPortTunnels } from './remotes/ports';
 import { closeRemoteWatch } from './remotes/watch';
 import { closeRemoteOpens } from './remotes/transfer';
 import { registerRemoteIpc } from './remotes/ipc';
@@ -371,6 +372,8 @@ app.on('will-quit', () => {
   // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。
   closeRemoteWatch();
   void closeHelper();
+  // 端口预览的独立隧道跟 helper 通道无关，也要收掉本地 ssh 进程。
+  closeAllPortTunnels();
   // 为「用系统默认程序打开」下载的临时文件：系统程序可能还开着它，删失败就算了（临时目录）。
   void closeRemoteOpens();
   closeDatabase();

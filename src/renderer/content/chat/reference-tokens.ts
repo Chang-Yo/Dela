@@ -1,6 +1,7 @@
 // @ 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」
 // 的连续文本是一个引用 token——编辑器按这里的规则高亮，发送时解析回绝对路径（key）。
 // 手打错误、已删除文件的 @路径不高亮也不进上下文，只是普通文本。
+import type { WorkspaceEntry } from '../../../shared/api';
 import type { ChatReference } from './drafts';
 
 /** 文本中的一个引用 token：[start, end) 覆盖「@路径」全段（含 @，不含尾部标点）。 */
@@ -84,6 +85,39 @@ export function referenceContext(text: string, options: ChatReference[]): ChatRe
     if (seen.has(token.ref.key)) continue;
     seen.add(token.ref.key);
     refs.push(token.ref);
+  }
+  return refs;
+}
+
+/** path 在 base 之下时返回相对 base 的路径（统一正斜杠），否则 null。 */
+function relativeTo(path: string, base: string): string | null {
+  const root = base.replace(/[\\/]+$/, '');
+  if (path.length <= root.length) return null;
+  if (path.slice(0, root.length).toLowerCase() !== root.toLowerCase()) return null;
+  if (!/[\\/]/.test(path[root.length]!)) return null;
+  return path.slice(root.length + 1).replaceAll('\\', '/');
+}
+
+/** @ 候选：会话 cwd 之下、且不属于其他项目目录的文件，title 为相对 cwd 的路径。
+ *  通用池的 cwd 是工作区根，而各项目目录就挂在工作区根下面——只按 cwd 过滤的话，
+ *  随聊的 @ 会列出别的项目的文件：上一个会话在哪个项目，看上去就像串了哪个会话的上下文。 */
+export function referenceCandidates(
+  entries: WorkspaceEntry[],
+  cwd: string | null,
+  projectId: string | null,
+): ChatReference[] {
+  if (!cwd) return [];
+  const foreign = entries
+    .filter((entry) => entry.kind === 'project' && entry.id !== projectId && entry.path)
+    .map((entry) => entry.path!);
+  const refs: ChatReference[] = [];
+  for (const entry of entries) {
+    const path = entry.path;
+    if (!path || entry.kind === 'folder' || entry.kind === 'project') continue;
+    const title = relativeTo(path, cwd);
+    if (title === null) continue;
+    if (foreign.some((root) => relativeTo(path, root) !== null)) continue;
+    refs.push({ key: path, title });
   }
   return refs;
 }

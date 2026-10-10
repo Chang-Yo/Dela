@@ -1,4 +1,5 @@
 import {
+  app,
   BrowserWindow,
   dialog,
   ipcMain,
@@ -6,10 +7,16 @@ import {
   type DownloadItem,
   type IpcMainInvokeEvent,
 } from 'electron';
+import { join } from 'node:path';
 import { z } from 'zod';
 import type { VideoDownload } from '../../shared/vsjtu';
 import { checkWorkspaceSender } from '../ipc';
-import { savedExperimentalClassroom, savedExperimentalFeatures } from '../settings/prefs';
+import {
+  savedExperimentalClassroom,
+  savedExperimentalFeatures,
+  savedVideoDownloadDirectory,
+  setVideoDownloadDirectory,
+} from '../settings/prefs';
 import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../timetable/session';
 import { checkVideoLogin, getStreams, listCourses, listVideos, VIDEO_HOME } from './api';
 import { issuePlayback } from './playback';
@@ -49,9 +56,11 @@ async function downloadVideo(
         .slice(0, 100) || videoId
     }-画面${view}.mp4`;
     const parent = BrowserWindow.fromWebContents(event.sender);
+    const directory = savedVideoDownloadDirectory();
     const options = {
       title: '下载课堂视频',
-      defaultPath: name,
+      // 设过默认目录就从那里开始，文件名仍按课程与画面拼。
+      defaultPath: directory ? join(directory, name) : name,
       filters: [{ name: 'MP4 视频', extensions: ['mp4'] }],
     };
     const selected = parent
@@ -170,5 +179,20 @@ export function registerVsjtuIpc(): void {
     checkWorkspaceSender(event);
     const download = downloads.get(z.string().parse(key));
     if (download?.info.state === 'completed') shell.showItemInFolder(download.path);
+  });
+  ipcMain.handle('vsjtu:get-download-directory', (event) => {
+    check(event);
+    return savedVideoDownloadDirectory();
+  });
+  ipcMain.handle('vsjtu:choose-download-directory', async (event) => {
+    check(event);
+    const result = await dialog.showOpenDialog({
+      title: '课堂录像的默认保存位置（每次下载仍可在保存对话框里改）',
+      defaultPath: savedVideoDownloadDirectory() || app.getPath('videos'),
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    const path = result.filePaths[0];
+    if (result.canceled || !path) return savedVideoDownloadDirectory();
+    return setVideoDownloadDirectory(path);
   });
 }

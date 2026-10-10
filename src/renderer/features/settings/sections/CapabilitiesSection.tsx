@@ -4,6 +4,7 @@ import type { AgentCapabilityView, WebSearchConfig } from '../../../../shared/ap
 import { Button } from '../../../components/ui/button';
 import { Switch } from '../../../components/ui/switch';
 import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { SearchConfigDialog, webSearchProviderLabels } from './SearchConfigDialog';
 
@@ -66,10 +67,12 @@ export function CapabilitiesSection() {
       ) : (
         <>
           {capabilities === null && !error ? (
-            <p className="flex items-center gap-2 text-[12px] text-ink-3" role="status">
-              <LoaderCircle className="size-4 animate-spin" />
-              正在读取能力清单…
-            </p>
+            <SettingsGroup>
+              <p className="flex items-center gap-2 py-3.5 text-[12px] text-ink-3" role="status">
+                <LoaderCircle className="size-4 animate-spin" />
+                正在读取能力清单…
+              </p>
+            </SettingsGroup>
           ) : null}
           {capabilities && (
             <div className="grid gap-10">
@@ -80,13 +83,8 @@ export function CapabilitiesSection() {
                 // 常驻原因整组只说明一次；锁定行不再渲染假开关。
                 const lockedReason = group.items.find((item) => item.lockedReason)?.lockedReason;
                 return (
-                  <section
-                    className="grid gap-2"
-                    data-setting-id={`capabilities-${group.id}`}
-                    key={group.id}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-base font-semibold">{group.label}</h2>
+                  <SettingsGroup
+                    action={
                       <div className="flex items-center gap-1">
                         {group.id === 'web' && (
                           <Button
@@ -117,13 +115,19 @@ export function CapabilitiesSection() {
                           />
                         )}
                       </div>
-                    </div>
-                    {lockedReason && (
-                      <p className="flex items-center gap-1.5 text-[12px] text-ink-3">
-                        <Lock aria-hidden="true" className="size-3 shrink-0" />
-                        常驻能力 · {lockedReason}
-                      </p>
-                    )}
+                    }
+                    description={
+                      lockedReason ? (
+                        <span className="flex items-center gap-1.5">
+                          <Lock aria-hidden="true" className="size-3 shrink-0" />
+                          常驻能力 · {lockedReason}
+                        </span>
+                      ) : undefined
+                    }
+                    key={group.id}
+                    settingId={`capabilities-${group.id}`}
+                    title={group.label}
+                  >
                     {group.items.map((capability) => (
                       <div
                         className="flex items-start justify-between gap-4 border-b py-3 last:border-0"
@@ -144,7 +148,8 @@ export function CapabilitiesSection() {
                           </span>
                         </div>
                         {capability.lockedReason ? (
-                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-inset px-2 py-1 text-[11.5px] text-ink-3">
+                          // 常驻徽标在容器底色上要再跳一级，否则和容器同色看不见。
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-hover-2 px-2 py-1 text-[11.5px] text-ink-3">
                             <Lock aria-hidden="true" className="size-3" />
                             常驻
                           </span>
@@ -162,7 +167,7 @@ export function CapabilitiesSection() {
                         )}
                       </div>
                     ))}
-                  </section>
+                  </SettingsGroup>
                 );
               })}
             </div>

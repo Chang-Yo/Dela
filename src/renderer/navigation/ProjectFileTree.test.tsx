@@ -4,9 +4,15 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, WorkspaceEntry } from '../../shared/api';
-import { ProjectFileTree } from './ProjectFileTree';
+import type {
+  DelaApi,
+  HelperDegradation,
+  RemoteDirectoryEntry,
+  WorkspaceEntry,
+} from '../../shared/api';
+import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
 import { remoteAccent } from './remote-color';
+import { useRemoteActivity } from './remote-activity';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -39,6 +45,8 @@ beforeEach(() => {
     },
   );
   window.addEventListener('blur', suppressStrayWindowBlur, true);
+  // 取数状态是模块级 store：逐条用例清空，免得「正在连接」从上一条带过来。
+  useRemoteActivity.setState({ byProject: {} });
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -133,6 +141,45 @@ it('loads one remote level when the project is expanded and browses without open
   expect(listRemoteDirectory).toHaveBeenCalledTimes(1);
 });
 
+it('shows the degraded hint only for projects on the failing destination', async () => {
+  let emit: (states: HelperDegradation[]) => void = () => {};
+  window.dela = {
+    remotes: {
+      list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }],
+      onHelperState: (listener: (states: HelperDegradation[]) => void) => {
+        emit = listener;
+        return () => {};
+      },
+    },
+    workspace: { listRemoteDirectory: vi.fn(async () => []) },
+  } as unknown as DelaApi;
+
+  await renderTree(['p-remote']);
+  expect(document.body.textContent).not.toContain('helper 通道不可用');
+
+  // 别的服务器降级：这棵树的项目连的不是那台，不提示。
+  await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
+  expect(document.body.textContent).not.toContain('helper 通道不可用');
+
+  // 多条通道可以同时降级：快照里两台都在，这棵树只显示自己那台。
+  await act(async () =>
+    emit([
+      { destination: 'other@10.9.9.9', reason: 'noexec' },
+      { destination: 'user@10.0.0.5', reason: 'helper 目录所在挂载点启用了 noexec' },
+    ]),
+  );
+  expect(document.body.textContent).toContain('user@10.0.0.5 的 helper 通道不可用');
+  expect(document.body.textContent).toContain('noexec');
+
+  // 这台的通道恢复（快照里只剩别台）：提示撤掉。
+  await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
+  expect(document.body.textContent).not.toContain('helper 通道不可用');
+
+  // 全恢复：快照清空。
+  await act(async () => emit([]));
+  expect(document.body.textContent).not.toContain('helper 通道不可用');
+});
+
 it('shows no status line while a remote level is loading', async () => {
   const gate: { open?: () => void } = {};
   let secondReadStarted = false;
@@ -213,14 +260,14 @@ it('marks a remote project row with its connection colour and leaves local rows 
   expect(row('另一台机器').querySelector<SVGElement>('svg.lucide-cloud')!.style.color).toBe(
     remoteAccent('r-2', 'text'),
   );
-  // 子条目的行尾云朵与项目行同色：同一台服务器看起来是一家人（色在标记外层，云朵随 currentColor）。
-  expect(row('src').querySelector<HTMLElement>('[title="远程"]')!.style.color).toBe(
+  // 子条目只靠图标颜色表示同源，行内不再挂云朵：整棵树本来就都是远端的，逐行标一遍是冗余。
+  expect(row('src').querySelector<SVGElement>('svg.lucide-folder')!.style.color).toBe(
     remoteAccent('r-1', 'text'),
   );
+  expect(row('src').querySelector('svg.lucide-cloud')).toBeNull();
   // 本地项目行照旧是文件夹图标、没有云朵与连接色。
   expect(row('本地项目').querySelector('svg.lucide-folder-kanban')).toBeTruthy();
   expect(row('本地项目').querySelector('svg.lucide-cloud')).toBeNull();
-  expect(row('本地项目').querySelector('[title="远程"]')).toBeNull();
 });
 
 it('lists a subdirectory lazily and collapses it again', async () => {
@@ -536,4 +583,45 @@ it('keeps rename and move on a local project row', async () => {
   await act(async () => openRowMenu('本地项目'));
   expect(menuLabels()).toContain('重命名');
   expect(menuLabels()).toContain('移动到…');
+});
+
+it('shows the connecting hint while a remote root is still being read', async () => {
+  // 冷启动要几秒：这段时间面板原本一片空白，会被当成「这个项目没有文件」。
+  let release: (items: RemoteDirectoryEntry[]) => void = () => {};
+  const listRemoteDirectory = vi.fn(
+    () => new Promise<RemoteDirectoryEntry[]>((resolve) => (release = resolve)),
+  );
+  window.dela = {
+    remotes: { list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }] },
+    workspace: { listRemoteDirectory },
+  } as unknown as DelaApi;
+  const slow: WorkspaceEntry = { ...remoteProject, id: 'p-slow', name: '慢项目' };
+
+  await act(async () =>
+    root.render(
+      <ProjectFileTree
+        entries={[slow]}
+        expanded={['p-slow']}
+        onAction={() => {}}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        query=""
+        rootId="p-slow"
+        selected={null}
+      />,
+    ),
+  );
+  // 热通道几十毫秒就回来：先什么都不画，避免每次打开都闪一下转圈。
+  expect(document.querySelector('[role="status"]')).toBeNull();
+  await act(async () => new Promise((resolve) => setTimeout(resolve, CONNECT_HINT_DELAY_MS + 50)));
+  expect(document.querySelector('[role="status"]')?.textContent).toContain('正在连接远端');
+
+  // 清单到手后过渡让位给内容。
+  await act(async () =>
+    release([
+      { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
+    ]),
+  );
+  expect(document.querySelector('[role="status"]')).toBeNull();
+  expect(row('src')).toBeTruthy();
 });

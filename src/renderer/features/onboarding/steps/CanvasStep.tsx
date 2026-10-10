@@ -57,7 +57,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
             ),
           },
           {
-            title: '粘贴并绑定',
+            title: '粘贴并绑定 Access Token',
             content: (
               <form
                 className="grid gap-5"
@@ -66,18 +66,16 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
                   void submit();
                 }}
               >
-                <label className="grid gap-2">
-                  <span className="text-[13px] font-medium text-ink-2">Access Token</span>
-                  <StepInput
-                    autoComplete="off"
-                    autoFocus
-                    onChange={(event) => setToken(event.target.value)}
-                    placeholder="粘贴 Access Token"
-                    required
-                    type="password"
-                    value={token}
-                  />
-                </label>
+                <StepInput
+                  aria-label="Access Token"
+                  autoComplete="off"
+                  autoFocus
+                  onChange={(event) => setToken(event.target.value)}
+                  placeholder="Access Token"
+                  required
+                  type="password"
+                  value={token}
+                />
                 {error && (
                   <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
                     {error}

@@ -1,10 +1,12 @@
 /**
- * 会话层：SQLite 只存索引（项目归属、标题、置顶、归档、JSONL 路径），完整记录是 Pi 的会话文件。
- * 每个打开的会话在内存里保留一个 Pi AgentSession；cwd 恒为会话所属项目的目录（通用会话为工作区根），
- * 解析失败直接报错，不静默换目录。renderer 看到的 WorkspaceChat 是 Pi 消息的投影。
+ * 会话层：SQLite 只存索引（项目归属、工作目录、标题、置顶、归档、JSONL 路径），完整记录是 Pi 的会话文件。
+ * 每个打开的会话在内存里保留一个 Pi AgentSession；cwd 取会话自己的 cwd 列（通用会话是 chat-sessions 下的
+ * 私有目录），该列为 NULL 时按项目目录解析（通用会话为工作区根），解析失败直接报错，不静默换目录。
+ * renderer 看到的 WorkspaceChat 是 Pi 消息的投影。
  */
 import { randomUUID } from 'node:crypto';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import type { WebContents } from 'electron';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
@@ -12,6 +14,7 @@ import type { ImageContent, TextContent } from '@earendil-works/pi-ai';
 import type {
   AgentToolResult,
   ChatAskInput,
+  ChatScope,
   ChatSessionSummary,
   ContextUsageView,
   RunStatus,
@@ -19,6 +22,7 @@ import type {
 } from '../../shared/api';
 import { parseChatBlocks, stripChatImageTokens } from '../../shared/chat-input';
 import { getDatabase } from '../database';
+import { storageDirectory } from '../storage';
 import { getActiveLlmProvider } from './providers';
 import { openPiSession } from './pi';
 import { agentEnvironment } from './environment';
@@ -31,6 +35,7 @@ type ChatMessage = WorkspaceChat['messages'][number];
 interface SessionRow {
   id: string;
   project_id: string | null;
+  cwd: string | null;
   file: string;
   title: string;
 }
@@ -60,15 +65,33 @@ function send(channel: string, ...args: unknown[]) {
 
 function row(id: string): SessionRow {
   const found = getDatabase()
-    .prepare('SELECT id, project_id, file, title FROM sessions WHERE id=?')
+    .prepare('SELECT id, project_id, cwd, file, title FROM sessions WHERE id=?')
     .get(id) as SessionRow | undefined;
   if (!found) throw new Error('会话不存在');
   return found;
 }
 
-/** 项目目录：项目条目的 local_path；通用会话用工作区根。缺失即报错。
+/** 资料页会话的工作目录：课件根目录，与 workspace 平级（Canvas 下载落在这里）。 */
+const coursesDirectory = () => join(storageDirectory(), 'courses');
+
+/** 通用会话的私有工作目录：与 workspace 平级的 chat-sessions/<会话 id>，建会话时建好。 */
+function chatSessionDirectory(id: string) {
+  const dir = join(storageDirectory(), 'chat-sessions', id);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** 资料页会话的工作目录：课程目录缺失时建好，会话因此直接看到全部课件。 */
+function libraryDirectory() {
+  const dir = coursesDirectory();
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** 会话工作目录：会话自己的 cwd 优先；为 NULL 时按项目条目解析（通用会话用工作区根）。缺失即报错。
  *  远程项目的路径在远端，本地没有对应目录，因此跳过本地存在性检查。 */
-function sessionCwd(projectId: string | null): string {
+function sessionCwd(projectId: string | null, stored: string | null): string {
+  if (stored) return stored;
   const path =
     projectId === null
       ? agentEnvironment().workspaceRoot()
@@ -92,7 +115,7 @@ async function ensureLive(id: string): Promise<Live> {
   const provider = getActiveLlmProvider();
   if (!provider) throw new Error('请先在设置中配置模型服务');
   const meta = row(id);
-  const cwd = sessionCwd(meta.project_id);
+  const cwd = sessionCwd(meta.project_id, meta.cwd);
   const environment = agentEnvironment();
   const session = await openPiSession({
     cwd,
@@ -245,7 +268,7 @@ function snapshot(id: string): WorkspaceChat {
   const meta = row(id);
   let cwd: string | null = entry?.cwd ?? null;
   try {
-    cwd ??= sessionCwd(meta.project_id);
+    cwd ??= sessionCwd(meta.project_id, meta.cwd);
   } catch {
     // 项目目录缺失：快照照常展示历史，发送时由 ensureLive 报出具体错误。
   }
@@ -408,8 +431,7 @@ function runEvent(sessionId: string, status: RunStatus, activeTool?: string) {
 
 // ===== Session API =====
 
-const summaryColumns =
-  'id, title, pinned, project_id AS projectId, updated_at AS updatedAt, message_count AS messageCount';
+const summaryColumns = 'id, title, pinned, project_id AS projectId, updated_at AS updatedAt';
 
 export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
@@ -427,22 +449,44 @@ export function archivedSessions(): ChatSessionSummary[] {
     .all() as ChatSessionSummary[];
 }
 
-/** 每个项目只保留一个空会话入口；文件在首条消息后由 Pi 写出。 */
-export function newSession(projectId: string | null): WorkspaceChat {
-  sessionCwd(projectId);
-  const empty = getDatabase()
+/** 通用池的空会话入口：cwd 是课件根目录的是资料页会话，其余非 NULL 的是随聊，两档互不复用；
+ *  cwd 为 NULL 的旧会话两边都不认，免得新会话落在别人的工作目录里。 */
+function emptyGeneralSessionId(scope: ChatScope): string | undefined {
+  const row = getDatabase()
     .prepare(
-      'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 ORDER BY updated_at DESC LIMIT 1',
+      `SELECT id FROM sessions WHERE project_id IS NULL AND archived = 0 AND message_count = 0
+       AND cwd IS NOT NULL AND cwd IS ${scope === 'library' ? '?' : 'NOT ?'}
+       ORDER BY updated_at DESC LIMIT 1`,
     )
-    .get(projectId) as { id: string } | undefined;
-  if (empty && !live.get(empty.id)?.run) return snapshot(empty.id);
+    .get(coursesDirectory()) as { id: string } | undefined;
+  return row?.id;
+}
+
+/** 每个项目只保留一个空会话入口；文件在首条消息后由 Pi 写出。
+ *  通用会话建自己的私有目录（随聊）或课件根目录（资料页）并写进 cwd 列，项目会话留 NULL
+ *  继续按项目目录解析。 */
+export function newSession(projectId: string | null, scope: ChatScope): WorkspaceChat {
+  if (projectId !== null) sessionCwd(projectId, null);
+  const empty =
+    projectId === null
+      ? emptyGeneralSessionId(scope)
+      : (
+          getDatabase()
+            .prepare(
+              'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 ORDER BY updated_at DESC LIMIT 1',
+            )
+            .get(projectId) as { id: string } | undefined
+        )?.id;
+  if (empty && !live.get(empty)?.run) return snapshot(empty);
   const id = randomUUID();
+  const cwd =
+    projectId !== null ? null : scope === 'library' ? libraryDirectory() : chatSessionDirectory(id);
   const now = new Date().toISOString();
   getDatabase()
     .prepare(
-      'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO sessions (id, project_id, cwd, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
-    .run(id, projectId, '', now, now);
+    .run(id, projectId, cwd, '', now, now);
   return snapshot(id);
 }
 

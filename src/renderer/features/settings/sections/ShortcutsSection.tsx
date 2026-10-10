@@ -12,6 +12,7 @@ import {
 } from '../../../../shared/keybindings';
 import { useShortcuts } from '../../../app/shortcuts';
 import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 
 const platform = /Mac|iPhone|iPad/.test(navigator.platform) ? ('mac' as const) : ('other' as const);
@@ -129,8 +130,7 @@ export function ShortcutsSection() {
         </p>
       )}
       {shortcutGroups().map((group) => (
-        <section className="grid gap-2" key={group.title}>
-          <h2 className="text-base font-semibold">{group.title}</h2>
+        <SettingsGroup key={group.title} title={group.title}>
           {group.actions.map((action) => {
             const accelerator = bindings[action.id];
             const isRecording = recording === action.id;
@@ -185,7 +185,7 @@ export function ShortcutsSection() {
               </div>
             );
           })}
-        </section>
+        </SettingsGroup>
       ))}
     </div>
   );

@@ -16,9 +16,21 @@ function insert(sql: string, ...values: SQLInputValue[]) {
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');
+  // 影子 schema 必须与 database.ts 的 schema 对齐：列写错会让「代码引用不存在的列」
+  // 这类缺陷静默通过（曾经如此：sessions 少了 messages 列时这里补过一列）。
   database.exec(`
     CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, name TEXT, kind TEXT, updated_at TEXT);
-    CREATE TABLE sessions (id TEXT PRIMARY KEY, project_id TEXT, title TEXT, messages TEXT, updated_at TEXT);
+    CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
+      file TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '新对话',
+      message_count INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0,
+      pinned INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
     CREATE TABLE mail_messages (
       id INTEGER PRIMARY KEY, subject TEXT, sender_name TEXT, sender_address TEXT, snippet TEXT,
       body_text TEXT, date TEXT, deleted_at TEXT
@@ -58,7 +70,7 @@ describe('global search', () => {
     ]);
   });
 
-  it('searches chat message content but excludes tool payload JSON and names project scopes', () => {
+  it('searches chat titles and names project scopes', () => {
     insert(
       'INSERT INTO workspace_entries VALUES (?, ?, ?, ?)',
       'project-1',
@@ -67,27 +79,25 @@ describe('global search', () => {
       '2026-09-16T12:00:00.000Z',
     );
     insert(
-      'INSERT INTO sessions VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO sessions (id, project_id, file, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
       'chat-content',
       'project-1',
+      'sessions/chat-content.jsonl',
       '资料讨论',
-      JSON.stringify([
-        { role: 'user', content: '寻找散热方案', toolResults: [{ output: '不要匹配' }] },
-      ]),
+      '2026-09-16T12:00:00.000Z',
       '2026-09-16T12:00:00.000Z',
     );
     insert(
-      'INSERT INTO sessions VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO sessions (id, project_id, file, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
       'chat-tools',
       null,
+      'sessions/chat-tools.jsonl',
       '工具结果',
-      JSON.stringify([
-        { role: 'assistant', content: '已完成', toolResults: [{ output: '仅工具载荷' }] },
-      ]),
+      '2026-09-16T11:00:00.000Z',
       '2026-09-16T11:00:00.000Z',
     );
 
-    expect(queryGlobalSearch('散热方案')).toEqual(
+    expect(queryGlobalSearch('资料讨论')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: 'chat',
@@ -108,7 +118,8 @@ describe('global search', () => {
         }),
       ]),
     );
-    expect(queryGlobalSearch('仅工具载荷').filter((item) => item.kind === 'chat')).toHaveLength(0);
+    // 正文在 Pi 的 JSONL 会话文件里，sessions 表不存消息，因此正文不参与匹配。
+    expect(queryGlobalSearch('散热方案').filter((item) => item.kind === 'chat')).toHaveLength(0);
   });
 
   it('returns cached Canvas filenames only and ignores deleted mail', () => {

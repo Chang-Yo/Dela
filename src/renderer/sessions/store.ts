@@ -56,12 +56,31 @@ export function querySessions(
 
 let sessionUpdateSubscription: (() => void) | null = null;
 
+/** 列表重读抖动（毫秒）：一轮问答里 on-update 会按工具边界多次到达，合并成一次查询。 */
+const listRefreshDelayMs = 300;
+let listRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 标题（首条消息才写）与「最近优先」排序都只体现在列表里，推送本身不带列表，
+ *  所以条数变化后重读该池；否则侧栏要等到新建会话或手动刷新才更新。 */
+function scheduleListRefresh(projectId: string | null): void {
+  if (listRefreshTimer !== null) clearTimeout(listRefreshTimer);
+  listRefreshTimer = setTimeout(() => {
+    listRefreshTimer = null;
+    void useSessions
+      .getState()
+      .refresh(projectId)
+      .catch(() => {});
+  }, listRefreshDelayMs);
+}
+
 /** 订阅 session:on-update（幂等）：快照推送写入镜像缓存，供同一会话的多个入口共享。
  *  模块加载时自动挂接；测试环境先装 window mock 再手动调用。 */
 export function initSessionsMirror(): void {
   if (sessionUpdateSubscription || typeof window === 'undefined' || !window.dela) return;
   sessionUpdateSubscription = window.dela.session.onSessionUpdate((sessionId, chat) => {
+    const previous = useSessions.getState().chats[sessionId];
     useSessions.getState().putChat(sessionId, chat);
+    if (previous?.messages.length !== chat.messages.length) scheduleListRefresh(chat.projectId);
   });
   // 流式增量只改末条 assistant 消息：历史消息保持对象身份，memo 化的消息组件
   // 不重渲（全量推送会让整线程每 100ms 重新解析一次 markdown）。

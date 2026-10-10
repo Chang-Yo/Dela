@@ -69,9 +69,29 @@ export function registerMailIpc(): void {
   ipcMain.handle('mail:get-state', () => getMailState());
 
   ipcMain.handle('mail:configure', (_event, input: unknown): Promise<MailResult> => {
-    const parsed = z.object({ address: z.string(), password: z.string() }).safeParse(input);
-    if (!parsed.success) return Promise.resolve({ ok: false, error: '请输入完整的邮箱地址和密码' });
-    return configureMailAccount(parsed.data.address, parsed.data.password);
+    const parsed = z
+      .object({
+        address: z.string(),
+        password: z.string(),
+        // 第三方 IMAP 自填服务器；不带 server 即交大邮箱预设。
+        server: z
+          .object({
+            imapHost: z.string().trim().min(1).max(253),
+            imapPort: z.number().int().min(1).max(65535),
+            smtpHost: z.string().trim().min(1).max(253),
+            smtpPort: z.number().int().min(1).max(65535),
+          })
+          .optional(),
+      })
+      .safeParse(input);
+    if (!parsed.success)
+      return Promise.resolve({
+        ok: false,
+        error: parsed.error.issues.some((issue) => issue.path[0] === 'server')
+          ? '请填写完整的服务器地址与端口'
+          : '请输入完整的邮箱地址和密码',
+      });
+    return configureMailAccount(parsed.data);
   });
 
   ipcMain.handle('mail:disconnect', (): MailResult => disconnectMailAccount());

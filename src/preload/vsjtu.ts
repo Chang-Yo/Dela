@@ -9,6 +9,8 @@ export const vsjtu = {
   downloads: () => invoke('vsjtu:downloads'),
   cancelDownload: (id: string) => invoke('vsjtu:cancel-download', id),
   revealDownload: (id: string) => invoke('vsjtu:reveal-download', id),
+  getDownloadDirectory: () => invoke('vsjtu:get-download-directory'),
+  chooseDownloadDirectory: () => invoke('vsjtu:choose-download-directory'),
   onDownload: (listener: (download: VideoDownload) => void) =>
     on('vsjtu:download-changed', listener),
 } satisfies VsjtuApi;

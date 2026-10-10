@@ -3,7 +3,6 @@ import {
   isRelativeAssetPath,
   markdownRequiresSourceMode,
   matchMarkdownImageRefs,
-  noteAssetUrl,
 } from './note-files';
 
 describe('matchMarkdownImageRefs', () => {
@@ -37,14 +36,6 @@ describe('isRelativeAssetPath', () => {
     expect(isRelativeAssetPath('\\abs\\a.png')).toBe(false);
     expect(isRelativeAssetPath('E:\\Users\\a.png')).toBe(false);
     expect(isRelativeAssetPath('')).toBe(false);
-  });
-});
-
-describe('noteAssetUrl', () => {
-  it('路径编码一次并携带条目 ID', () => {
-    expect(noteAssetUrl('id-1', 'assets/my pic.png')).toBe(
-      'dela-resource://note-asset/assets%2Fmy%20pic.png?id=id-1',
-    );
   });
 });
 

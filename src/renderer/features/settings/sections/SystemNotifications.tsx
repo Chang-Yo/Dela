@@ -3,6 +3,8 @@ import { BellOff } from 'lucide-react';
 import type { NotificationState, TaskNotificationPrefs } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
 import { Switch } from '../../../components/ui/switch';
+import { SettingRow } from '../SettingRow';
+import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 
 /** 暂停期限选项与通知中心一致（同一份 workspace_settings 暂停状态）。 */
@@ -111,66 +113,51 @@ export function SystemNotifications() {
   };
 
   return (
-    // 系统通知组：组头（标题+导语）弱于页面标题、强于行标题，行间分隔线承担边界。
-    <section className="grid gap-2" data-setting-id="system-notifications">
-      <div className="grid gap-1">
-        <h2 className="text-base font-semibold">系统通知</h2>
-        {/* 关闭≠停止收集：防止用户以为关掉后会漏掉通知中心里的消息。 */}
-        <p className="text-[13px] leading-relaxed text-ink-3">
-          关闭只停用桌面弹窗，通知中心仍会收集。
-        </p>
-      </div>
-      <div className="grid">
-        <div
-          className="flex items-center justify-between gap-3 border-b py-3"
-          data-setting-id="campus-notifications"
-        >
-          <span className="text-[13px] font-medium">校园消息提醒</span>
+    // 系统通知组：导语只对本组成立，所以跟组标题一起放在容器上方；容器底色承担分组边界。
+    // 导语那句「关闭≠停止收集」是为了防止用户以为关掉后会漏掉通知中心里的消息。
+    <div className="grid gap-2">
+      <SettingsGroup
+        description="关闭只停用桌面弹窗，通知中心仍会收集。"
+        settingId="system-notifications"
+        title="系统通知"
+      >
+        <SettingRow settingId="campus-notifications" title="校园消息提醒">
           <Switch
             checked={campus ?? true}
             disabled={campus === null || busy}
             label="校园消息提醒"
             onChange={(next) => void toggleCampus(next)}
           />
-        </div>
-        <div
-          className="flex items-center justify-between gap-3 border-b py-3"
-          data-setting-id="notify-run-failed"
-        >
-          <span className="text-[13px] font-medium">任务失败时提醒</span>
+        </SettingRow>
+        <SettingRow settingId="notify-run-failed" title="任务失败时提醒">
           <Switch
             checked={task?.failed ?? true}
             disabled={task === null || busy}
             label="任务失败时提醒"
             onChange={(next) => void toggleTask('failed', next)}
           />
-        </div>
-        <div
-          className="flex items-center justify-between gap-3 border-b py-3"
-          data-setting-id="notify-run-completed"
-        >
-          <span className="text-[13px] font-medium">任务完成时提醒</span>
+        </SettingRow>
+        <SettingRow settingId="notify-run-completed" title="任务完成时提醒">
           <Switch
             checked={task?.completed ?? false}
             disabled={task === null || busy}
             label="任务完成时提醒"
             onChange={(next) => void toggleTask('completed', next)}
           />
-        </div>
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 py-3"
-          data-setting-id="snooze"
-        >
-          <span className="flex flex-col gap-0.5">
-            <span className="text-[13px] font-medium">暂停通知</span>
-            {snoozedUntil ? (
-              <span className={snoozeActive ? 'text-[12px] text-ink-3' : 'sr-only'} role="status">
+        </SettingRow>
+        <SettingRow
+          description={
+            snoozedUntil ? (
+              <span className={snoozeActive ? undefined : 'sr-only'} role="status">
                 {snoozeActive
                   ? `已暂停至 ${new Date(snoozedUntil).toLocaleString('zh-CN')}`
                   : '上次的暂停已到期。'}
               </span>
-            ) : null}
-          </span>
+            ) : undefined
+          }
+          settingId="snooze"
+          title="暂停通知"
+        >
           <div className="flex flex-wrap items-center gap-2">
             {window.dela ? (
               <>
@@ -214,13 +201,13 @@ export function SystemNotifications() {
               <span className="text-[12px] text-ink-3">暂停状态仅在桌面端可用。</span>
             )}
           </div>
-        </div>
-      </div>
+        </SettingRow>
+      </SettingsGroup>
       {error && (
         <p className="text-[12px] text-red" role="alert">
           {error}
         </p>
       )}
-    </section>
+    </div>
   );
 }

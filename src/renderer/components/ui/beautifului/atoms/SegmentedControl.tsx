@@ -36,6 +36,8 @@ export function SegmentedControl<T extends string>({
           role="tab"
           aria-selected={opt === value}
           onClick={() => onChange(opt)}
+          // Dela 适配：分段控件现在也用在表单里（邮箱连接），无 type 会默认提交表单。
+          type="button"
           className={`relative z-10 rounded-full px-3 text-[13px] font-medium
             transition-colors duration-150
             ${opt === value ? "text-ink" : "text-ink-3 hover:text-ink-2"}`}

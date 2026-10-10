@@ -1,8 +1,7 @@
-// 快捷键纯函数：事件规范化、覆盖合并、digit 族匹配、冲突检测与显示片段。
+// 快捷键纯函数：事件规范化、覆盖合并、digit 族匹配与冲突检测。
 import { describe, expect, it } from 'vitest';
 import {
   acceleratorFromEvent,
-  acceleratorKeys,
   defaultKeybindings,
   findShortcutConflicts,
   isAccelerator,
@@ -113,15 +112,5 @@ describe('findShortcutConflicts', () => {
 
   it('默认键位表本身无冲突', () => {
     expect(findShortcutConflicts(defaultKeybindings())).toEqual([]);
-  });
-});
-
-describe('acceleratorKeys', () => {
-  it('展开为平台化片段，命名键与 digit 族使用简称', () => {
-    expect(acceleratorKeys('Mod+Shift+N', 'other')).toEqual(['Ctrl', '⇧', 'N']);
-    expect(acceleratorKeys('Mod+Shift+N', 'mac')).toEqual(['⌘', '⇧', 'N']);
-    expect(acceleratorKeys('Mod+PageDown', 'other')).toEqual(['Ctrl', 'PgDn']);
-    expect(acceleratorKeys('Alt+1', 'other', 'digit')).toEqual(['Alt', '1…9']);
-    expect(acceleratorKeys(null, 'other')).toEqual([]);
   });
 });

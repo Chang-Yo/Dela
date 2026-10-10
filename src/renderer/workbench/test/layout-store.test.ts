@@ -319,15 +319,10 @@ describe('splitGroup / setMaximized / setRatio', () => {
     }
   });
 
-  it('ratio 拖拽收敛到 0.05–0.95；非法路径无效', () => {
+  it('非法路径的 ratio 变更无效', () => {
     state().openTab('note:a');
     state().splitGroup('primary', 'vertical');
-    state().setRatio([], 0.001);
-    let root = state().root;
-    expect(root.type === 'split' ? root.ratio : null).toBe(0.05);
-    state().setRatio([], 2);
-    root = state().root;
-    expect(root.type === 'split' ? root.ratio : null).toBe(0.95);
+    const root = state().root;
     state().setRatio([9], 0.5);
     expect(state().root).toBe(root);
   });

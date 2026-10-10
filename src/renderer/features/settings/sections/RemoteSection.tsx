@@ -13,6 +13,7 @@ import { RemoteConnectionWizard } from '../../../workspace/remote-wizard';
 import { errorText } from '../../../workspace/store';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
+import { SettingsGroup } from '../SettingsGroup';
 
 /** 单条连接最近一次「测试连接」的结果；未测过时不显示状态点文字。 */
 type ProbeState = { ok: boolean; message: string };
@@ -119,15 +120,17 @@ export function RemoteSection() {
         </p>
       )}
       {connections !== null && connections.length === 0 && (
-        <section className="grid gap-2">
-          <h2 className="text-base font-semibold">还没有 SSH 连接</h2>
-          <p className="text-[13px] leading-relaxed text-ink-3">
-            点「新建连接」走一遍向导：填目的地并连上之后，选一个远端目录作为项目——连接就是从这里来的。
-          </p>
-        </section>
+        <SettingsGroup>
+          <div className="grid gap-1 py-3.5">
+            <span className="text-[13px] font-medium text-ink">还没有 SSH 连接</span>
+            <span className="text-[12px] leading-relaxed text-ink-3">
+              点「新建连接」走一遍向导：填目的地并连上之后，选一个远端目录作为项目——连接就是从这里来的。
+            </span>
+          </div>
+        </SettingsGroup>
       )}
       {connections !== null && connections.length > 0 && (
-        <section className="grid">
+        <SettingsGroup>
           {connections.map((connection) => {
             const probe = probes[connection.id];
             const status = statusOf(probe);
@@ -169,7 +172,7 @@ export function RemoteSection() {
                 settingId={`remote-${connection.id}`}
                 title={connection.label}
               >
-                <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <span className={cn('flex items-center gap-1.5 text-[12px]', status.tone)}>
                     <span
                       aria-hidden="true"
@@ -200,7 +203,7 @@ export function RemoteSection() {
               </SettingRow>
             );
           })}
-        </section>
+        </SettingsGroup>
       )}
       {/* 向导自带对话框与进行中状态；关闭后重列一次，因为它可能在半路就存下了连接。 */}
       <RemoteConnectionWizard

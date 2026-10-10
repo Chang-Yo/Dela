@@ -10,6 +10,7 @@ import {
   ContextMenuTrigger,
 } from '../components/ui/context-menu';
 import { cn } from '../lib/utils';
+import { useHorizontalWheel } from '../lib/use-horizontal-wheel';
 import { useWorkbenchLayout } from './layout-store';
 import { iconOf, titleOf } from './registry';
 import { ExplorerRevealButton } from './explorer-state';
@@ -30,7 +31,8 @@ export const TabBar = memo(function TabBar({
   const closeTabs = useWorkbenchLayout((s) => s.closeTabs);
   const moveTab = useWorkbenchLayout((s) => s.moveTab);
   const splitGroup = useWorkbenchLayout((s) => s.splitGroup);
-  const listRef = useRef<HTMLDivElement>(null);
+  // 标签多到溢出时接住纵向滚轮横滚（VS Code 行为），同一 ref 也用于激活标签滚入可见区。
+  const listRef = useHorizontalWheel<HTMLDivElement>();
   // roving tabindex 的焦点登记：方向键把焦点移到目标标签（选中态跟随，自动激活模式）。
   const tabRefs = useRef(new Map<TabId, HTMLDivElement>());
 
@@ -123,10 +125,6 @@ export const TabBar = memo(function TabBar({
         role="tablist"
         aria-label={activeTab ? `标签页：${titleOf(activeTab)}` : '工作组标签页'}
         className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
-        onWheel={(event) => {
-          // 纵向滚轮在标签栏内转为横向滚动（VS Code 行为），触控板横向滚动原生支持。
-          if (event.deltaY !== 0) event.currentTarget.scrollLeft += event.deltaY;
-        }}
         onDragOver={onDragOver}
         onDrop={onDrop}
       >

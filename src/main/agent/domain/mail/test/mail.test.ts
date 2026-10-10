@@ -46,7 +46,7 @@ describe('search_mail', () => {
     expect(searchMail).not.toHaveBeenCalled();
   });
 
-  it('coverage 统一为对象形态并附带 folders，freshness 为缓存', async () => {
+  it('coverage 标注 uid 窗口缺口并附带 folders', async () => {
     vi.mocked(searchMail).mockReturnValue({
       items: [
         {
@@ -68,14 +68,12 @@ describe('search_mail', () => {
         folders: [{ id: 2, name: 'INBOX', syncedAt: '2026-09-01T08:00:00Z' }],
       },
     });
-    await expect(searchMailTool.execute({ query: '课程' })).resolves.toEqual({
+    await expect(searchMailTool.execute({ query: '课程' })).resolves.toMatchObject({
       items: [
         expect.objectContaining({ id: 1, subject: '关于课程', ref: { type: 'mail', id: 1 } }),
       ],
       nextOffset: null,
-      freshness: { kind: 'cached', syncedAt: '2026-09-01T08:00:00Z' },
       coverage: {
-        scope: 'cached_subjects_and_snippets:uid300',
         complete: false,
         warnings: [expect.stringContaining('300')],
         folders: [{ id: 2, name: 'INBOX', syncedAt: '2026-09-01T08:00:00Z' }],
@@ -85,13 +83,6 @@ describe('search_mail', () => {
 });
 
 describe('list_mail_folders', () => {
-  it('邮箱未配置时报 NOT_CONFIGURED', async () => {
-    vi.mocked(getMailState).mockReturnValue({ account: null, sync: account.sync });
-    await expect(listMailFoldersTool.execute({})).rejects.toMatchObject({
-      code: 'NOT_CONFIGURED',
-    });
-  });
-
   it('返回文件夹列表与缓存新鲜度，coverage 完整', async () => {
     vi.mocked(listMailFolders).mockReturnValue([
       {

@@ -5,6 +5,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import type { ChatCommandView } from '../../../../shared/api';
 import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 import { cn } from '../../../lib/utils';
@@ -84,14 +85,11 @@ export function CommandsSection() {
         <p className="text-[13px] text-ink-3">指令配置仅在桌面端可用。</p>
       ) : (
         <>
-          <section className="grid gap-2" data-setting-id="instruction">
-            <div className="grid gap-1">
-              <h2 className="text-base font-semibold">全局指令</h2>
-              {/* 说明注入时机：随每轮对话发送，留空不注入。 */}
-              <p className="text-[13px] leading-relaxed text-ink-3">
-                随每次对话发送给模型，留空则不发送。
-              </p>
-            </div>
+          <div className="grid gap-2" data-setting-id="instruction">
+            <SettingsGroupLabel
+              description="随每次对话发送给模型，留空则不发送。"
+              title="全局指令"
+            />
             <textarea
               aria-label="全局指令"
               className="min-h-24 rounded-control bg-field px-2.5 py-1.5 text-[13px] leading-relaxed text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]"
@@ -124,86 +122,87 @@ export function CommandsSection() {
                 {instructionError}
               </p>
             )}
-          </section>
-          <section className="grid gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">快捷指令</h2>
-              <Button onClick={() => setDialog({ mode: 'create' })} size="sm" variant="secondary">
-                <Plus />
-                新建指令
-              </Button>
-            </div>
-            <p className="text-[13px] leading-relaxed text-ink-3">
-              输入 / 名称手动触发，仅该轮生效。
-            </p>
-            {commands !== null && commands.length === 0 && (
-              <p className="text-[13px] text-ink-3">
-                还没有自定义指令，例如「周报」：汇总本周日程与未读邮件。
-              </p>
-            )}
-            {commands !== null && commands.length > 0 && (
-              <ul className="grid">
-                {commands.map((command) => (
-                  <li
-                    className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
-                    key={command.id}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
-                        <Terminal className="size-4 text-ink-3" strokeWidth={1.8} />
-                      </span>
-                      <div className="grid min-w-0 gap-0.5">
-                        <strong className="truncate text-[13px]">/{command.name}</strong>
-                        <span className="truncate text-[12px] text-ink-3" title={command.prompt}>
-                          {command.prompt}
+          </div>
+          <div className="grid gap-2">
+            <SettingsGroup
+              action={
+                <Button onClick={() => setDialog({ mode: 'create' })} size="sm" variant="secondary">
+                  <Plus />
+                  新建指令
+                </Button>
+              }
+              description="输入 / 名称手动触发，仅该轮生效。"
+              title="快捷指令"
+            >
+              {commands !== null && commands.length === 0 && (
+                <p className="py-3.5 text-[13px] text-ink-3">
+                  还没有自定义指令，例如「周报」：汇总本周日程与未读邮件。
+                </p>
+              )}
+              {commands !== null && commands.length > 0 && (
+                <ul className="grid">
+                  {commands.map((command) => (
+                    <li
+                      className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
+                      key={command.id}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
+                          <Terminal className="size-4 text-ink-3" strokeWidth={1.8} />
                         </span>
+                        <div className="grid min-w-0 gap-0.5">
+                          <strong className="truncate text-[13px]">/{command.name}</strong>
+                          <span className="truncate text-[12px] text-ink-3" title={command.prompt}>
+                            {command.prompt}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button
-                        aria-label={`编辑 ${command.name}`}
-                        onClick={() => setDialog({ mode: 'edit', command })}
-                        size="icon-sm"
-                        variant="ghost"
-                      >
-                        <Pencil />
-                      </Button>
-                      {confirmId === command.id ? (
-                        <>
-                          <Button
-                            disabled={busy}
-                            onClick={() => void remove(command.id)}
-                            size="sm"
-                            variant="destructive"
-                          >
-                            确认删除
-                          </Button>
-                          <Button onClick={() => setConfirmId(null)} size="sm" variant="ghost">
-                            取消
-                          </Button>
-                        </>
-                      ) : (
+                      <div className="flex shrink-0 items-center gap-2">
                         <Button
-                          aria-label={`删除 ${command.name}`}
-                          disabled={busy}
-                          onClick={() => setConfirmId(command.id)}
+                          aria-label={`编辑 ${command.name}`}
+                          onClick={() => setDialog({ mode: 'edit', command })}
                           size="icon-sm"
                           variant="ghost"
                         >
-                          <Trash2 />
+                          <Pencil />
                         </Button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                        {confirmId === command.id ? (
+                          <>
+                            <Button
+                              disabled={busy}
+                              onClick={() => void remove(command.id)}
+                              size="sm"
+                              variant="destructive"
+                            >
+                              确认删除
+                            </Button>
+                            <Button onClick={() => setConfirmId(null)} size="sm" variant="ghost">
+                              取消
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            aria-label={`删除 ${command.name}`}
+                            disabled={busy}
+                            onClick={() => setConfirmId(command.id)}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            <Trash2 />
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SettingsGroup>
             {error && (
               <p className="text-[12px] text-red" role="alert">
                 {error}
               </p>
             )}
-          </section>
+          </div>
           {dialog && (
             <CommandFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={refresh} />
           )}

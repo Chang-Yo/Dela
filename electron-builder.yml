@@ -33,7 +33,7 @@ extraResources:
     filter:
       - 'dela-helper-*'
 npmRebuild: false
-# Windows-only。安装包暂用 NSIS（exe）；MSIX 与微软商店上架是后续计划。
+# Windows-only。自建分发用 NSIS（exe）；商店提交包由下面的 appx 目标单独构建（见 docs/release.md）。
 win:
   target:
     - target: nsis
@@ -42,3 +42,13 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+# 微软商店提交包：electron-builder 的 appx 目标，产物扩展名是 .appx。
+# 前三项必须逐字等于 Partner Center「应用概览 → 产品管理 → View app identity details」里的
+# Package/Identity/Name、Package/Identity/Publisher、Package/Properties/PublisherDisplayName，
+# 现为占位符，替换后才能提交（身份不匹配会被商店拒绝）。applicationId 是自己取的清单内标识。
+# 不需要仓库自带证书：未配置证书时构建出的是未签名包，签名由商店在收包后完成。
+appx:
+  identityName: MADFilm.Dela
+  publisher: 'CN=57320C20-35BA-45E0-8AB9-95D7D30D80AC'
+  publisherDisplayName: 麦德映画 (MAD Film)
+  applicationId: Dela

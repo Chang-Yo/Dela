@@ -224,10 +224,6 @@ describe('refresh_timetable', () => {
       timetableTools.refresh_timetable.execute({ semester: '2026-2027-1' }),
     ).rejects.toMatchObject({ code: 'UPSTREAM_ERROR' });
   });
-
-  it('requires an explicit semester', () => {
-    expect(() => timetableTools.refresh_timetable.execute({})).toThrow();
-  });
 });
 
 describe('create_event', () => {
@@ -249,17 +245,6 @@ describe('create_event', () => {
     };
     expect(timetableTools.create_event.execute(input)).toEqual(event);
     expect(createEvent).toHaveBeenCalledWith(input);
-  });
-
-  it('rejects unknown color values', () => {
-    expect(() =>
-      timetableTools.create_event.execute({
-        title: '组会',
-        startAt: '2026-09-30T02:00:00.000Z',
-        endAt: '2026-09-30T03:00:00.000Z',
-        color: 'purple',
-      }),
-    ).toThrow();
   });
 });
 

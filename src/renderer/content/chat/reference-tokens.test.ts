@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
+import type { WorkspaceEntry } from '../../../shared/api';
 import type { ChatReference } from './drafts';
-import { matchReferenceTokens, referenceContext } from './reference-tokens';
+import { matchReferenceTokens, referenceCandidates, referenceContext } from './reference-tokens';
 
 const ref = (key: string, title = key): ChatReference => ({ key, title });
 
@@ -61,5 +62,46 @@ describe('referenceContext（发送解析，按 key 去重）', () => {
   it('重复引用同一文件只保留一次，保持出现顺序', () => {
     const refs = referenceContext('@readme.md 和 @Test/authAPI.js 与 @readme.md', options);
     expect(refs).toEqual([options[2], options[0]]);
+  });
+});
+
+describe('referenceCandidates（@ 候选范围）', () => {
+  const entry = (
+    id: string,
+    path: string,
+    kind: WorkspaceEntry['kind'] = 'source',
+  ): WorkspaceEntry => ({
+    id,
+    parentId: null,
+    name: path.split('/').pop()!,
+    kind,
+    sourceId: null,
+    path,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+  });
+
+  // 通用池的 cwd 是工作区根，各项目目录都挂在它下面。
+  const tree = [
+    entry('n1', 'E:/repo/笔记.md', 'note'),
+    entry('dir', 'E:/repo/课程', 'folder'),
+    entry('p1', 'E:/repo/Test', 'project'),
+    entry('s1', 'E:/repo/Test/authAPI.js'),
+    entry('p2', 'E:/repo/ChangYo', 'project'),
+    entry('s2', 'E:/repo/ChangYo/main.py'),
+    entry('far', 'E:/other/outside.md'),
+  ];
+
+  it('通用池只列工作区根下的自有文件，不列别的项目目录里的文件', () => {
+    expect(referenceCandidates(tree, 'E:/repo', null)).toEqual([ref('E:/repo/笔记.md', '笔记.md')]);
+  });
+
+  it('项目会话列自己项目目录里的文件，title 相对项目目录', () => {
+    expect(referenceCandidates(tree, 'E:/repo/Test', 'p1')).toEqual([
+      ref('E:/repo/Test/authAPI.js', 'authAPI.js'),
+    ]);
+  });
+
+  it('cwd 未知（会话快照未到）时不列任何候选', () => {
+    expect(referenceCandidates(tree, null, null)).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ContextUsageView } from '../../../shared/api';
 import { ChatComposer, cacheHitRateText } from './ChatComposer';
+import type { ComposerContext } from './composer-context';
 import type { ComposerEditor } from './ComposerEditor';
 import type { ChatReference } from './use-chat';
 
@@ -51,9 +52,11 @@ let host: HTMLDivElement;
 let root: Root;
 
 function Harness({
+  context = null,
   contextUsage,
   referenceOptions = [],
 }: {
+  context?: ComposerContext | null;
   contextUsage: ContextUsageView;
   referenceOptions?: ChatReference[];
 }) {
@@ -63,6 +66,7 @@ function Harness({
       attachments={[]}
       busy={false}
       configured
+      context={context}
       contextUsage={contextUsage}
       effort={null}
       effortLevels={[]}
@@ -126,35 +130,6 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it('@ 候选菜单确定向上展开：绝对定位挂在 composer 外框上，不再掉回文档流', async () => {
-  await act(async () =>
-    root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),
-  );
-  typeMention();
-  const list = host.querySelector('[role="listbox"]')!;
-  const classes = list.className.split(/\s+/);
-  expect(classes).toContain('absolute');
-  expect(classes).toContain('bottom-full');
-  expect(classes).not.toContain('relative');
-  // 向上展开的锚点是 composer 外框自身的 relative，不能跟着被删掉。
-  expect(list.parentElement?.className).toContain('relative');
-});
-
-it('@ 候选：文件名强调蓝加粗在前，目录以小字灰阶缀后', async () => {
-  await act(async () =>
-    root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),
-  );
-  typeMention();
-  const spans = [...host.querySelectorAll('span')];
-  const name = spans.find((span) => span.textContent === 'authAPI.js')!;
-  const dir = spans.find((span) => span.textContent === 'Test/')!;
-  expect(name.className).toContain('font-semibold');
-  expect(name.getAttribute('style')).toContain('--cal-blue-text');
-  expect(dir.className).toContain('text-ink-3');
-  // 文件名在前、路径缀后（对照 Claude 候选样式）。
-  expect(name.compareDocumentPosition(dir) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-});
-
 it('选中 @ 候选后原位插入 @路径 token（尾随空格），菜单收起', async () => {
   await act(async () =>
     root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),
@@ -181,6 +156,21 @@ it('提供商没有缓存数据时命中率显示 —，不写成 0%', async () 
   openUsage();
   expect(document.body.textContent).toContain('缓存命中率—');
   expect(document.body.textContent).not.toContain('0.0%');
+});
+
+it('新对话浮岛显示项目胶囊（通用池为随聊）', async () => {
+  await act(async () =>
+    root.render(
+      <Harness context={{ projectId: null, name: '随聊', remote: false }} contextUsage={usage()} />,
+    ),
+  );
+  expect(host.textContent).toContain('随聊');
+});
+
+it('没有浮岛数据（已有历史）时不显示项目与分支', async () => {
+  await act(async () => root.render(<Harness contextUsage={usage()} />));
+  expect(host.textContent).not.toContain('Dela');
+  expect(host.textContent).not.toContain('feat/remote-multi-channel');
 });
 
 it('命中率文本只在拿到两个累计字段且分母大于 0 时才算数，其余留空', () => {

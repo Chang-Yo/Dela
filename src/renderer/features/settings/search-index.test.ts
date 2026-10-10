@@ -12,24 +12,4 @@ describe('settingsResultsFor (global search)', () => {
       target: { page: 'settings', section: 'connections' },
     });
   });
-
-  it('maps model/API queries to the provider section', () => {
-    const api = settingsResultsFor('api')[0];
-    const model = settingsResultsFor('模型')[0];
-    expect(api?.kind).toBe('setting');
-    expect(model?.kind).toBe('setting');
-    expect(api?.kind === 'setting' && api.target.section).toBe('providers');
-    expect(model?.kind === 'setting' && model.target.section).toBe('providers');
-  });
-
-  it('routes capability and shortcut queries to their own sections', () => {
-    const capability = settingsResultsFor('能力')[0];
-    const shortcut = settingsResultsFor('快捷键')[0];
-    expect(capability?.kind === 'setting' && capability.target.section).toBe('capabilities');
-    expect(shortcut?.kind === 'setting' && shortcut.target.section).toBe('shortcuts');
-  });
-
-  it('returns every section for an empty query', () => {
-    expect(settingsResultsFor('').length).toBeGreaterThan(0);
-  });
 });

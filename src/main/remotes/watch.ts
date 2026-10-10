@@ -6,11 +6,9 @@
  * **只监视展开的目录、不递归**：大仓库递归要几千个 inotify watch，而折叠着的目录变了
  * 也看不见，没有监视的价值。代价是「展开之后」才有实时性。
  *
- * **同时只服务一个目标，由「通道实际在用谁」决定**：Dela 全局只保一条 helper 通道
- * （切连接就放掉旧的），所以这里也只有一个目标在跑事件流 —— 否则两边的流会互相把通道
- * 抢回来，每次抢占都要在远端重起一个 helper。`operations.withHelper` 每次用到通道都会
- * 喊一声 `syncRemoteWatch`，于是「谁在用通道谁被监视」自动成立；集合按目标留着不丢，
- * 切回来就能立刻恢复。
+ * **每个目标一条流**：通道现在按连接各有一条（见 helper.ts），所以两个不同主机的项目可以同时
+ * 被监视——从前只有一条通道时后用的那个会让前一个的流让位。集合按项目留着不丢，`operations.withHelper`
+ * 每次用到通道都会喊一声 `syncRemoteWatch`，于是「谁在用通道谁被监视」自动成立。
  *
  * helper 起不来（远端非 Linux、noexec、缺产物）不是错误：watch 整条缺席，调用方拿到
  * watching=0，工具改动触发的刷新照常工作。
@@ -35,24 +33,23 @@ interface WatchSet extends RemoteWatchInput {
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
-/** 所有想要监视的集合（按目标分组留着：切走的那些等通道回到它身上再恢复）。 */
+/** 所有想要监视的集合（按目标分组）：有集合的目标各有一条流，收起/切走的那些留着等再报上来。 */
 const desired = new Map<string, WatchSet>();
-/** 当前正在跑事件流的目标；全局只有一条 helper 通道，所以最多一个。 */
-let serving: { key: string; target: RemoteTarget; controller: AbortController } | null = null;
+/** 正在跑事件流的目标：一个连接一条（一条通道一条流）。 */
+const streams = new Map<string, { target: RemoteTarget; controller: AbortController }>();
 
 function setsOf(key: string): WatchSet[] {
   return [...desired.values()].filter((set) => set.targetKey === key);
 }
 
-function handleEvent(event: WatchEvent): void {
-  if (!serving) return;
+function handleEvent(key: string, event: WatchEvent): void {
   if (event.type === 'change') {
     for (const path of event.paths) notifyRemoteChange(path);
     return;
   }
   // reset（内核队列溢出、订阅者卡住、丢事件）：按根路径报一次就够 ——
   // 目录树会把根以下所有已缓存的层重读，比逐层猜哪些丢了更省事也更可靠。
-  const affected = event.id === '*' ? setsOf(serving.key) : [desired.get(event.id)];
+  const affected = event.id === '*' ? setsOf(key) : [desired.get(event.id)];
   for (const set of affected) if (set) notifyRemoteChange(set.root);
 }
 
@@ -77,7 +74,7 @@ async function runStream(key: string, target: RemoteTarget, signal: AbortSignal)
       if (connected) for (const set of setsOf(key)) notifyRemoteChange(set.root);
       connected = true;
       try {
-        await session.watchEvents(handleEvent, signal);
+        await session.watchEvents((event) => handleEvent(key, event), signal);
         backoff = RECONNECT_MIN_MS;
       } catch (error) {
         if (!signal.aborted) console.warn('[remotes] watch 流中断，退避重连', error);
@@ -89,22 +86,22 @@ async function runStream(key: string, target: RemoteTarget, signal: AbortSignal)
   }
 }
 
-function stopServing(): void {
-  serving?.controller.abort();
-  serving = null;
+function stopStream(key: string): void {
+  const stream = streams.get(key);
+  if (!stream) return;
+  streams.delete(key);
+  stream.controller.abort();
 }
 
 /**
- * 让某个目标成为被监视的那个：别的目标的流收掉（它的集合留着），本目标有集合就起流。
+ * 让某个目标有事件流：本目标有集合就起一条，已经有了就什么都不做（别的目标的流不受影响）。
  * 由「通道刚被谁用了」驱动，所以既不会互相抢通道，也不会在 helper 不可用时反复重试。
  */
 export function syncRemoteWatch(target: RemoteTarget): void {
   const key = targetKey(target);
-  if (serving?.key === key) return;
-  stopServing();
-  if (!setsOf(key).length) return;
+  if (streams.has(key) || !setsOf(key).length) return;
   const controller = new AbortController();
-  serving = { key, target, controller };
+  streams.set(key, { target, controller });
   void runStream(key, target, controller.signal).catch((error: unknown) => {
     console.warn('[remotes] watch 循环退出', error);
   });
@@ -131,11 +128,11 @@ export async function unwatchRemoteProject(projectId: string): Promise<void> {
   const session = await helperSession(set.target).catch(() => null);
   await session?.clearWatch(projectId).catch(() => {});
   // 这个目标一套集合都不剩了：流收掉（helper 侧随上下文断开清理订阅者）。
-  if (serving?.key === set.targetKey && !setsOf(set.targetKey).length) stopServing();
+  if (!setsOf(set.targetKey).length) stopStream(set.targetKey);
 }
 
-/** 放掉通道/退出时收掉流与集合（不等远端回应，流一断 helper 自己就清理订阅者）。 */
+/** 放掉通道/退出时收掉所有流与集合（不等远端回应，流一断 helper 自己就清理订阅者）。 */
 export function closeRemoteWatch(): void {
-  stopServing();
+  for (const key of [...streams.keys()]) stopStream(key);
   desired.clear();
 }

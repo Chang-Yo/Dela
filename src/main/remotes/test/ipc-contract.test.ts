@@ -63,7 +63,12 @@ describe('远程 IPC 通道契约', () => {
 
     // 订阅走的不是 invoke：通道名写错同样只在真窗口里表现为「进度一条都不来」。
     const unsubscribe = remotes.onSetupProgress(() => {});
-    expect(state.listened).toEqual(['remotes:setup-progress']);
+    const unsubscribeState = remotes.onHelperState(() => {});
+    expect([...new Set(state.listened)].sort()).toEqual([
+      'remotes:helper-state',
+      'remotes:setup-progress',
+    ]);
     unsubscribe();
+    unsubscribeState();
   });
 });

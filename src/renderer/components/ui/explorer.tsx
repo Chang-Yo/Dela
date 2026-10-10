@@ -20,9 +20,7 @@ export interface ExplorerItem {
   badge?: string;
   /** 自定义行图标（如水源来源的水滴、远端项目的云朵）：给了就顶掉容器/项目的默认图标。 */
   icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
-  /** 行尾小标记（如远端条目的云朵）；与本地条目用图标区分，不堆文字。 */
-  marker?: ComponentType<{ className?: string; strokeWidth?: number }>;
-  /** 图标与标记的强调色（CSS 颜色值）：同源的多行共用一色，视觉上归为一组。 */
+  /** 行图标的强调色（CSS 颜色值）：同源的多行共用一色，视觉上归为一组。 */
   accent?: string;
   /** 行提示（默认条目名）；远端条目用它显示「目的地:路径」。 */
   title?: string;
@@ -295,7 +293,6 @@ export function Explorer({
                 : Folder
               : FileText);
         const showIcon = !branch || level <= 2;
-        const Marker = item.marker;
         const accent = item.accent ? { color: item.accent } : undefined;
         const ancestors = trailOf(item.parentId);
         const dropRegion =
@@ -383,11 +380,6 @@ export function Explorer({
             <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
               {item.name}
             </span>
-            {Marker && (
-              <span aria-hidden="true" className="shrink-0 text-ink-3" style={accent} title="远程">
-                <Marker className="size-3.5" strokeWidth={1.8} />
-              </span>
-            )}
             {item.badge && (
               <span className="text-[11.5px] tabular-nums text-ink-3">{item.badge}</span>
             )}

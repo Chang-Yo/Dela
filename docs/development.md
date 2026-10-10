@@ -18,7 +18,7 @@
   ```
 
 - 新克隆的仓库不包含 `.tools/`，需自行安装上述版本。也可以将官方 Windows Node ZIP 解压到 `.tools/node-v24.21.0-win-x64`，再用该 Node 自带的 npm 执行 `npm install --prefix .tools/package-manager pnpm@12.3.4`。
-- 远端 helper（`helper/`）的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go；改了 `helper/` 下的 Go 代码后执行 `pnpm build:helper`（`--all` 同时出 arm64）重建并提交产物。构建细节与协议见 [helper/README.md](../helper/README.md)。
+- 远端 helper（`helper/`）的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go；改了 `helper/` 下的 Go 代码后执行 `pnpm build:helper --all` 重建 amd64 与 arm64 两个产物并一并提交——只重建 amd64 会让仓库里的 arm64 停在旧版（发布时 CI 会覆盖，但本地对 arm64 远端的测试用的是旧版）。构建细节与协议见 [helper/README.md](../helper/README.md)。
 
 ## 启动
 
@@ -43,7 +43,8 @@ pnpm dev
 | `pnpm check`                                    | 格式检查 + Oxlint + 构建 + 单元测试的组合检查                      |
 | `pnpm format` / `pnpm format:check`             | Prettier 格式化 / 检查                                             |
 | `pnpm lint`                                     | Oxlint（TypeScript 正确性、未使用代码、React Hook 规则）           |
-| `pnpm test`                                     | Vitest 单元测试                                                    |
+| `pnpm test`                                     | Vitest 单元测试（不含真机远程套件）                                |
+| `pnpm test:remote`                              | 真机远程回归：需 `DELA_REMOTE_HOST`（如 `root@1.2.3.4`），CI 不跑  |
 | `pnpm smoke`                                    | Electron 冒烟：SQLite、React 渲染与 preload 隔离，自动退出         |
 | `pnpm smoke:workspace`                          | 工作区回归                                                         |
 | `pnpm smoke:pdf`                                | PDF.js 阅读器回归                                                  |
@@ -79,5 +80,7 @@ pnpm lint
 pnpm build
 pnpm test
 ```
+
+改动远端（`src/main/remotes/`、`helper/`、连接与上下文镜像）时，另用 `pnpm test:remote` 对着真机跑一遍：那批用例需要 `DELA_REMOTE_HOST`，默认套件与 CI 都会跳过它们（`vitest.remote.config.ts`）。
 
 涉及构建、原生依赖或打包时，另验证 `pnpm smoke` 与打包目录启动。重要功能改动同步更新 `docs/devlog.md`，面向使用者的变化更新 README。

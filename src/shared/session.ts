@@ -25,7 +25,6 @@ export interface ChatSessionSummary {
   id: string;
   title: string;
   updatedAt: string;
-  messageCount: number;
   pinned?: boolean;
   projectId?: string | null;
 }
@@ -47,7 +46,7 @@ export interface WorkspaceChat {
   sessionId: string | null;
   /** 会话所属项目（workspace 条目 id）；null = 通用会话。归属在创建时确定，不随视图变化。 */
   projectId: string | null;
-  /** 会话 cwd（项目目录或工作区根）：@ 引用以它为相对路径基准。 */
+  /** 会话 cwd（会话私有目录、项目目录或工作区根）：@ 引用以它为相对路径基准。 */
   cwd: string | null;
   running?: boolean;
   activeTool?: string;
@@ -112,6 +111,10 @@ export interface ChatStreamEvent {
   contextUsage?: ContextUsageView | null;
 }
 
+/** 通用会话的工作目录归属：'chat' = 首页随聊的私有目录，'library' = 资料页的课程目录。
+ *  项目会话（projectId 非空）由项目目录决定 cwd，忽略 scope。 */
+export type ChatScope = 'chat' | 'library';
+
 /** 会话身份 API（session:* 通道）。 */
 export interface SessionApi {
   archived(): Promise<ChatSessionSummary[]>;
@@ -120,7 +123,7 @@ export interface SessionApi {
   /** 列出会话：projectId 为 null 列通用池；query 按标题或消息原文过滤。 */
   list(projectId: string | null, query?: string): Promise<ChatSessionSummary[]>;
   /** 复用所属项目的空会话；空会话不进入历史。 */
-  create(projectId: string | null): Promise<WorkspaceChat>;
+  create(projectId: string | null, scope: ChatScope): Promise<WorkspaceChat>;
   /** 打开会话：读取快照，不产生执行。 */
   open(sessionId: string): Promise<WorkspaceChat>;
   /** 永久删除已归档会话；运行中先中断本轮，仅设置中的管理入口调用。 */

@@ -87,6 +87,7 @@ export function registerAgentIpc() {
       return fn(...args);
     });
   const projectId = uuid.nullable();
+  const chatScope = z.enum(['chat', 'library']);
 
   sessionHandle('list', (id, query) =>
     listSessions(
@@ -97,7 +98,7 @@ export function registerAgentIpc() {
         .parse(query ?? ''),
     ),
   );
-  sessionHandle('create', (id) => newSession(projectId.parse(id)));
+  sessionHandle('create', (id, scope) => newSession(projectId.parse(id), chatScope.parse(scope)));
   sessionHandle('archived', () => archivedSessions());
   sessionHandle('update', (id, patch) =>
     updateSessionVisibility(

@@ -246,6 +246,70 @@ export function projectLocation(
   return { kind: 'local', path: projectDirectory(projectId) };
 }
 
+/** 项目目录的当前 Git 分支：非仓库、目录不存在、git 缺失与分离 HEAD 都算「没有分支」。
+ *  用 symbolic-ref 而不是 rev-parse：刚 init、还没有首个提交的仓库也该显示出分支名。 */
+export async function gitBranchOf(directory: string): Promise<string | null> {
+  return new Promise<string | null>((resolve) => {
+    execFile(
+      'git',
+      ['symbolic-ref', '--short', 'HEAD'],
+      { cwd: directory, timeout: 3000, windowsHide: true },
+      (error, stdout) => resolve(error ? null : stdout.trim() || null),
+    );
+  });
+}
+
+/** 本地项目目录的分支；远端项目的目录在另一台机器上，不为显示一个名字去连它。 */
+export function projectGitBranch(id: unknown): Promise<string | null> {
+  const location = projectLocation(id);
+  return location.kind === 'local' ? gitBranchOf(location.path) : Promise.resolve(null);
+}
+
+/** 本地分支名列表，按名字排序（下拉里顺序稳定）；非仓库返回空数组。 */
+export async function gitBranchesOf(directory: string): Promise<string[]> {
+  return new Promise<string[]>((resolve) => {
+    execFile(
+      'git',
+      ['branch', '--format=%(refname:short)', '--sort=refname'],
+      { cwd: directory, timeout: 3000, windowsHide: true },
+      (error, stdout) =>
+        resolve(
+          error
+            ? []
+            : stdout
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean),
+        ),
+    );
+  });
+}
+
+/** 切换分支；失败时把 git 的 stderr 抛出去（工作区冲突、分支不存在都要让人看到原因）。 */
+export async function gitCheckout(directory: string, branch: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    execFile(
+      'git',
+      ['checkout', branch],
+      { cwd: directory, timeout: 10000, windowsHide: true },
+      (error, _stdout, stderr) =>
+        error ? reject(new Error(stderr.trim() || error.message)) : resolve(),
+    );
+  });
+}
+
+export function projectGitBranches(id: unknown): Promise<string[]> {
+  const location = projectLocation(id);
+  return location.kind === 'local' ? gitBranchesOf(location.path) : Promise.resolve([]);
+}
+
+/** 远端项目的仓库在另一台机器上：切分支要经 SSH，这里直接拒绝，不做半套。 */
+export function projectGitCheckout(id: unknown, branch: string): Promise<void> {
+  const location = projectLocation(id);
+  if (location.kind === 'remote') return Promise.reject(new Error('远程项目的分支需要在远端切换'));
+  return gitCheckout(location.path, branch);
+}
+
 /** 远端项目打开失败时的补充说明：VS Code 用自己的 ssh 配置连远端，Dela 的连接记录它读不到，
  *  端口与私钥必须由用户在 ssh config 里给出来。 */
 const remoteSshHint =

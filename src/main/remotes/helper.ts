@@ -16,7 +16,7 @@ import { request as httpRequest } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
 import { app } from 'electron';
-import type { RemoteSetupProgress } from '../../shared/remotes';
+import type { HelperDegradation, RemoteSetupProgress } from '../../shared/remotes';
 import {
   exec,
   locateSsh,
@@ -38,6 +38,10 @@ const UPLOAD_TIMEOUT_MS = 300_000;
 const REQUEST_TIMEOUT_MS = 120_000;
 const TUNNEL_READY_MS = 5_000;
 const STARTUP_WAIT_MS = 20_000;
+/** 调用失败后探活的上限：真断了会立刻连不上，半死的隧道才需要等到超时。 */
+const PROBE_TIMEOUT_MS = 3_000;
+/** 心跳连续失败几次算通道死了：一次失败可能只是通道被大任务占着（30 秒一次心跳）。 */
+const HEARTBEAT_FAILURES_BEFORE_DEAD = 3;
 /** exec 的客户端兜底：比 helper 自己的超时多留一点，正常都由 helper 先判定。 */
 const EXEC_GRACE_MS = 5_000;
 /** watch 流没有事件多久算「隧道半死」：正常心跳是 30 秒一次，5 分钟足够宽松。 */
@@ -68,6 +72,47 @@ export function helperRemoteDir(digest: string): string {
   return `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
 }
 
+/**
+ * 分类受限环境的诊断输出（一行 key=value，竖线分隔）。
+ * noexec／只读挂载／SELinux 的表象都一样——helper 起不来，原因必须单独问一次才说得清。
+ * 只有「直接执行也失败」时才谈得上执行被拦；分类不出返回 null，让原始错误自己说话。
+ */
+export function classifyEnvironment(output: string): string | null {
+  const values = new Map<string, string>();
+  for (const pair of output.split('|')) {
+    const cut = pair.indexOf('=');
+    if (cut > 0) values.set(pair.slice(0, cut).trim(), pair.slice(cut + 1).trim());
+  }
+  const options = (values.get('mount') ?? '').split(',').map((option) => option.trim());
+  const execDenied = (values.get('direct') ?? '').startsWith('exit-');
+  if (options.includes('noexec'))
+    return 'helper 目录所在挂载点启用了 noexec，服务器不允许执行这里的文件';
+  if (options.includes('ro')) return 'helper 目录所在挂载点是只读的（$HOME 可能被设为只读）';
+  if (values.get('writable') === 'no') return 'helper 目录不可写（权限不足或只读 $HOME）';
+  if (execDenied && values.get('selinux') === 'Enforcing')
+    return 'SELinux 处于 Enforcing，拦截了 helper 的执行';
+  if (execDenied) return '直接执行 helper 被拒绝（通常是 noexec 或安全模块拦截）';
+  return null;
+}
+
+/** 启动失败后的诊断：只读探查，不改动远端任何东西；诊断本身失败不影响原有错误信息。 */
+async function diagnoseEnvironment(target: RemoteTarget, dir: string): Promise<string | null> {
+  try {
+    const script = [
+      `dir=${dir}`,
+      `printf 'mount='; findmnt -no OPTIONS -T "$dir" 2>/dev/null || true`,
+      `printf '|writable='; [ -w "$dir" ] && echo yes || echo no`,
+      `printf '|selinux='; getenforce 2>/dev/null || echo absent`,
+      `printf '|direct='; "$dir/dela-helper" --version >/dev/null 2>&1 && echo ok || echo "exit-$?"`,
+    ].join('\n');
+    const result = await exec(target, script, { timeoutMs: BOOTSTRAP_TIMEOUT_MS });
+    if (result.code !== 0) return null;
+    return classifyEnvironment(result.stdout.toString());
+  } catch {
+    return null;
+  }
+}
+
 /** 隧道参数：与一次性调用的连接参数同源，只多一个 -L 与 -N。 */
 export function tunnelArguments(
   target: RemoteTarget,
@@ -83,6 +128,42 @@ export function tunnelArguments(
     `127.0.0.1:${localPort}:127.0.0.1:${remotePort}`,
     target.host,
   ];
+}
+
+/**
+ * 端口预览用的独立隧道：只做本地收尾，与 helper 通道无关——通道切换、放掉都不影响它，
+ * 生命周期归调用方（显式停止或应用退出）。远端服务死了隧道还在：它只是一条转发管道，
+ * 连不上时浏览器报连接拒绝，这就是准确的反馈，不值得为此探活。
+ */
+export async function openPortTunnel(
+  target: RemoteTarget,
+  remotePort: number,
+): Promise<PortTunnel> {
+  const localPort = await freePort();
+  const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
+    windowsHide: true,
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  let stderr = '';
+  tunnel.stderr?.on('data', (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  try {
+    await waitForPort(localPort, TUNNEL_READY_MS);
+  } catch (error) {
+    tunnel.kill();
+    const detail = stderr.trim();
+    throw detail ? new Error(`${String(error)}｜${detail}`) : error;
+  }
+  let closed = false;
+  return {
+    localPort,
+    close() {
+      if (closed) return;
+      closed = true;
+      tunnel.kill();
+    },
+  };
 }
 
 export interface HelperExecOptions {
@@ -109,6 +190,19 @@ export interface HelperStat {
   modifiedAt: number;
 }
 
+/** 远端监听端口（/v1/ports）：pid 与进程名拿不到（别的用户）时缺省。 */
+export interface HelperPort {
+  port: number;
+  pid?: number;
+  process?: string;
+}
+
+/** 端口预览的独立隧道：与 helper 通道无关，通道切换不影响它。 */
+export interface PortTunnel {
+  localPort: number;
+  close(): void;
+}
+
 export interface HelperSession {
   target: RemoteTarget;
   /** 隧道本地端口，仅用于诊断展示。 */
@@ -129,6 +223,8 @@ export interface HelperSession {
   /** 替换某个 id 的目录监视集合（只监视这些目录本身，不递归）。 */
   setWatch(id: string, paths: string[]): Promise<{ watching: number; skipped: string[] }>;
   clearWatch(id: string): Promise<void>;
+  /** 远端监听端口（回环与通配地址，helper 自己的除外）：端口预览用。 */
+  listPorts(): Promise<HelperPort[]>;
   /** 目录事件流：resolve 表示流结束（通道断/helper 退出），由调用方决定是否重连。 */
   watchEvents(onEvent: (event: WatchEvent) => void, signal?: AbortSignal): Promise<void>;
   exec(command: string, options: HelperExecOptions): Promise<HelperExecResult>;
@@ -432,6 +528,12 @@ function createSession(target: RemoteTarget, port: number, token: string): Helpe
     },
     watchEvents: (onEvent, signal) => runWatch(port, token, onEvent, signal),
     exec: (command, options) => runExec(port, token, command, options),
+    async listPorts() {
+      const response = await sendRequest(port, token, 'GET', '/v1/ports');
+      assertOk(response, '列出远端端口');
+      const body = JSON.parse(response.body.toString()) as { ports?: HelperPort[] };
+      return body.ports ?? [];
+    },
   };
 }
 
@@ -625,7 +727,11 @@ function runExec(
 }
 
 interface ActiveChannel {
+  /** 这条通道属于哪个连接：并发调用下用它核对拿到的会话是不是自己要的那一台。 */
+  key: string;
   session: HelperSession;
+  /** 探活用：隧道可能半死（本地端口在、远端不回），只有真发一次请求才分得清。 */
+  token: string;
   timer: NodeJS.Timeout;
   tunnel: ReturnType<typeof spawn>;
 }
@@ -633,6 +739,8 @@ interface ActiveChannel {
 async function ensure(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
+  /** 通道死了（隧道退出、心跳连续失败）时回调：注册表据此把它摘掉，下一次调用重建。 */
+  onDead?: () => void,
 ): Promise<ActiveChannel> {
   // 每一步失败都带着「是哪一步、为什么」报出去：向导的日志区就靠它说清楚停在哪里。
   const fail: (step: RemoteSetupProgress['step'], error: unknown) => never = (step, error) => {
@@ -660,9 +768,13 @@ async function ensure(
   await ensureArtifact(target, dir, artifact, digest, onProgress);
 
   const token = randomBytes(24).toString('hex');
-  const remotePort = await startHelper(target, dir, token).catch((error: unknown) =>
-    fail('start', error),
-  );
+  const remotePort = await startHelper(target, dir, token).catch(async (error: unknown) => {
+    // 起不来的最常见原因是受限环境（noexec／只读挂载／SELinux），表象全是同一个：
+    // 先问一次远端把原因分类出来，向导日志与降级提示才有的放矢。
+    const message = error instanceof Error ? error.message : String(error);
+    const diagnosis = await diagnoseEnvironment(target, dir);
+    fail('start', diagnosis ? new Error(`${message}（诊断：${diagnosis}）`) : error);
+  });
   onProgress?.({ step: 'start', ok: true, detail: `远端 127.0.0.1:${remotePort}` });
   const localPort = await freePort();
   const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
@@ -705,36 +817,102 @@ async function ensure(
     );
   }
   const session = createSession(target, localPort, token);
+  // 心跳兼作死亡探测：连续几次没有回应就报死，而不是把死会话一直发下去——watch 的重连循环与
+  // 端口面板直接调 helperSession，它们没有「失败后退回一次性 ssh」那条路来顺带丢掉死通道。
+  let failures = 0;
   const timer = setInterval(() => {
-    void sendRequest(localPort, token, 'POST', '/v1/heartbeat', { timeoutMs: 10_000 }).catch(
-      () => {},
-    );
+    void sendRequest(localPort, token, 'POST', '/v1/heartbeat', { timeoutMs: 10_000 })
+      .then(() => {
+        failures = 0;
+      })
+      .catch(() => {
+        if (++failures >= HEARTBEAT_FAILURES_BEFORE_DEAD) onDead?.();
+      });
   }, HEARTBEAT_MS);
-  return { session, timer, tunnel };
+  // 隧道进程退出（网络断、ssh 崩）：同样立刻报死。
+  tunnel.once('exit', () => onDead?.());
+  return { key: targetKey(target), token, session, timer, tunnel };
 }
 
-/** 同一时刻只保一条通道：切到别的连接就关掉旧的，避免 Dela 后面留一串 helper。 */
-let current: { key: string; channel: Promise<ActiveChannel | null> } | null = null;
+/**
+ * 一个连接一条通道，同时可以有几条。
+ *
+ * 多通道不是优化，是并行会话的前提：两个不同主机的会话同时工作时，单通道会被每一次远端操作
+ * 切走，而隧道一断 helper 就按请求上下文断开取消进程组——另一台上正在跑的构建会被 TERM，
+ * 且按既定策略不重放。条目按连接 key 分开，各带各的心跳与降级提示。
+ *
+ * 值就是那条通道的 promise（identity 即条目本身）：摘除、失效、失败清理都先核对「表里还是不是
+ * 这一条」，避免把后来新建的那条误杀。取或建是同步的，没有读改写窗口。
+ */
+const channels = new Map<string, Promise<ActiveChannel | null>>();
 
-export async function helperSession(
+/** 身份核对：拿到的通道必须就是请求者的目标。核对不上当作「通道不可用」，让调用方退回一次性
+ *  ssh——宁可慢，也不能把命令或写入送到另一台服务器上。 */
+export function sessionFor(
+  active: { key: string; session: HelperSession } | null,
+  key: string,
+): HelperSession | null {
+  return active && active.key === key ? active.session : null;
+}
+
+/** 每个连接各自的降级状态（key → 原因）。多通道下必须分开：一台服务器重新建立成功，不该把
+ *  另一台的提示一起撤掉。推给界面的是整份快照，渲染端按目的地对准自己的项目。 */
+const degradations = new Map<string, HelperDegradation>();
+
+const degradationListeners = new Set<(degradations: HelperDegradation[]) => void>();
+
+export function onHelperDegradation(
+  listener: (degradations: HelperDegradation[]) => void,
+): () => void {
+  degradationListeners.add(listener);
+  return () => degradationListeners.delete(listener);
+}
+
+function broadcastDegradations(): void {
+  const snapshot = [...degradations.values()];
+  for (const listener of degradationListeners) listener(snapshot);
+}
+
+/** 丢掉一条通道：先把它从表里摘掉，再停心跳、关隧道。表里已经不是它就什么都不做——那是新建的
+ *  那条，误杀会连带掐断它正在跑的命令。 */
+async function dropChannel(key: string, channel: Promise<ActiveChannel | null>): Promise<void> {
+  if (channels.get(key) !== channel) return;
+  channels.delete(key);
+  const active = await channel;
+  if (!active) return;
+  clearInterval(active.timer);
+  active.tunnel.kill();
+}
+
+export function helperSession(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
 ): Promise<HelperSession | null> {
   const key = targetKey(target);
-  if (current && current.key !== key) await closeHelper();
-  if (!current) {
-    const channel = ensure(target, onProgress).catch((error: unknown) => {
+  const existing = channels.get(key);
+  if (existing) return existing.then((active) => sessionFor(active, key));
+  const channel: Promise<ActiveChannel | null> = ensure(target, onProgress, () => {
+    void dropChannel(key, channel);
+  })
+    .catch((error: unknown) => {
       console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
+      // 降级提示按目的地对准项目：哪台服务器的 helper 用不了，哪台的项目知道。
+      degradations.set(key, {
+        destination: target.host,
+        reason: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+      });
+      broadcastDegradations();
       return null;
+    })
+    .then((active) => {
+      // 建立失败不留条目：否则这个连接之后每次调用都立刻拿到 null，本进程再也不会重建通道。
+      if (active) {
+        if (degradations.delete(key)) broadcastDegradations();
+      } else if (channels.get(key) === channel) channels.delete(key);
+      return active;
     });
-    current = { key, channel };
-    // 建立失败不留在 current 上：否则这一轮之后每次调用都立刻拿到 null，本进程再也不会重建通道。
-    void channel.then((active) => {
-      if (!active && current?.channel === channel) current = null;
-    });
-  }
-  const active = await current.channel;
-  return active?.session ?? null;
+  channels.set(key, channel);
+  return channel.then((active) => sessionFor(active, key));
 }
 
 /**
@@ -757,18 +935,48 @@ export async function prepareHelper(
 }
 
 /**
- * 放掉当前通道：只做本地收尾（停心跳、关隧道），**不向远端发退出请求**。
+ * 放掉通道：只做本地收尾（停心跳、关隧道），**不向远端发退出请求**。
  *
  * 远端的 helper 靠心跳判活：心跳一停，它最多再活 IDLE_TIMEOUT 就自己退出（顺带终止在跑的任务）。
  * 少一次远端往返就少一类失败——请求发不出去时远端本来就只能等空闲自退，本地再写一套兜底反而
- * 会在切换连接、通道出错时留下说不清的半开状态。
+ * 会在通道出错时留下说不清的半开状态。
+ *
+ * 不带 target 是应用退出：所有连接都关。带 target 只关那一个连接。
  */
-export async function closeHelper(): Promise<void> {
-  const active = current;
-  current = null;
-  if (!active) return;
-  const channel = await active.channel;
+export function closeHelper(target?: RemoteTarget): Promise<void> {
+  const keys = target ? [targetKey(target)] : [...channels.keys()];
+  return Promise.all(
+    keys.map((key) => {
+      const channel = channels.get(key);
+      return channel ? dropChannel(key, channel) : undefined;
+    }),
+  ).then(() => undefined);
+}
+
+/**
+ * 一次调用失败后决定要不要丢掉通道：先探一次活。
+ *
+ * 多条会话共用一条通道，把「这次请求失败」直接当成「通道死了」会连带掐断别的会话正在远端跑的
+ * 命令——helper 靠请求上下文断开取消进程组，隧道一断那边就 TERM。所以只在这条通道真的不通时
+ * 才拆，而且只拆它自己那条。
+ */
+export async function discardHelperIfDead(target: RemoteTarget): Promise<void> {
+  const key = targetKey(target);
+  const channel = channels.get(key);
   if (!channel) return;
-  clearInterval(channel.timer);
-  channel.tunnel.kill();
+  const active = await channel;
+  if (!active || (await probeAlive(active))) return;
+  await dropChannel(key, channel);
+}
+
+/** 探活：一次 `/v1/hello`。超时也算死——半死的隧道只有这个办法能分辨。 */
+async function probeAlive(channel: ActiveChannel): Promise<boolean> {
+  try {
+    const response = await sendRequest(channel.session.port, channel.token, 'GET', '/v1/hello', {
+      timeoutMs: PROBE_TIMEOUT_MS,
+    });
+    return response.status >= 200 && response.status < 300;
+  } catch {
+    return false;
+  }
 }

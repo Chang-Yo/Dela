@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ImapFlow, ListResponse, MessageStructureObject } from 'imapflow';
 import {
+  configureMailAccount,
   deleteMailMessage,
   downloadHtmlImages,
   emptyMailTrash,
@@ -22,6 +23,8 @@ import {
 } from '../api';
 import { getDatabase } from '../../database';
 import { loadMailCredentials } from '../../credentials';
+import { storedMailServer } from '../server';
+import { SJTU_MAIL_SERVER } from '../../../shared/mail';
 
 vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] },
@@ -45,6 +48,7 @@ const imapHarness = vi.hoisted(() => {
   };
   return {
     folders: [] as ListResponse[],
+    options: [] as unknown[],
     status: (_path: string): StatusResult => ({
       messages: 0,
       unseen: 0,
@@ -61,6 +65,9 @@ const imapHarness = vi.hoisted(() => {
 
 vi.mock('imapflow', () => ({
   ImapFlow: class {
+    constructor(options: unknown) {
+      imapHarness.options.push(options);
+    }
     on() {}
     async connect() {}
     close() {}
@@ -161,6 +168,8 @@ function createMailDb(): Database.Database {
       address TEXT NOT NULL UNIQUE,
       imap_host TEXT NOT NULL,
       imap_port INTEGER NOT NULL,
+      smtp_host TEXT,
+      smtp_port INTEGER,
       created_at TEXT NOT NULL,
       last_synced_at TEXT
     );
@@ -558,5 +567,66 @@ describe('mail local trash and folder sync', () => {
     setMailTrashRetention(0);
     getMailState();
     expect(db.prepare('SELECT COUNT(*) AS c FROM mail_messages').get()).toEqual({ c: 2 });
+  });
+});
+
+describe('mail server settings', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = createMailDb();
+    vi.mocked(getDatabase).mockReturnValue(db);
+    vi.mocked(loadMailCredentials).mockReturnValue({
+      address: 'reader@example.com',
+      password: 'pw',
+    });
+    imapHarness.options = [];
+  });
+
+  it('falls back to the SJTU preset when the account has no SMTP columns filled', () => {
+    expect(storedMailServer()).toEqual(SJTU_MAIL_SERVER);
+    db.prepare('UPDATE mail_accounts SET smtp_host = NULL, smtp_port = NULL').run();
+    expect(storedMailServer()).toEqual(SJTU_MAIL_SERVER);
+  });
+
+  it('connects a third-party account to its own servers and keeps them for sending', async () => {
+    const server = {
+      imapHost: 'imap.example.com',
+      imapPort: 143,
+      smtpHost: 'smtp.example.com',
+      smtpPort: 587,
+    };
+    expect(
+      await configureMailAccount({ address: 'me@example.com', password: 'pw', server }),
+    ).toEqual({ ok: true });
+    // 连接用的就是用户填的服务器，而不是交大预设。
+    expect(imapHarness.options.at(-1)).toMatchObject({
+      host: 'imap.example.com',
+      port: 143,
+      secure: true,
+      auth: { user: 'me@example.com', pass: 'pw' },
+    });
+    expect(storedMailServer()).toEqual(server);
+    expect(db.prepare('SELECT address, smtp_host, smtp_port FROM mail_accounts').get()).toEqual({
+      address: 'me@example.com',
+      smtp_host: 'smtp.example.com',
+      smtp_port: 587,
+    });
+  });
+
+  it('keeps the campus-only guard for the preset path and accepts any address with explicit servers', async () => {
+    expect(await configureMailAccount({ address: 'me@example.com', password: 'pw' })).toEqual({
+      ok: false,
+      error: '交大邮箱地址需以 @sjtu.edu.cn 结尾，或改选第三方 IMAP',
+    });
+    expect(imapHarness.options).toHaveLength(0);
+    expect(await configureMailAccount({ address: 'Me@SJTU.edu.cn', password: 'pw' })).toEqual({
+      ok: true,
+    });
+    expect(imapHarness.options.at(-1)).toMatchObject({
+      host: SJTU_MAIL_SERVER.imapHost,
+      port: SJTU_MAIL_SERVER.imapPort,
+      auth: { user: 'me@sjtu.edu.cn' },
+    });
   });
 });

@@ -9,6 +9,7 @@ import { errorText, useWorkspaceStore } from '../../../../workspace/store';
 import { cn } from '../../../../lib/utils';
 import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
 import { SectionHeader } from '../../SectionHeader';
+import { SettingsGroup } from '../../SettingsGroup';
 
 const SCOPE_LABELS: Record<SkillScope, string> = { global: '全局', project: '项目' };
 
@@ -126,22 +127,25 @@ export function SkillsTab() {
         </div>
       )}
       {skills !== null && skills.length === 0 && (
-        <section className="grid gap-2">
-          <h2 className="text-base font-semibold">还没有发现 Skill</h2>
-          <p className="text-[13px] leading-relaxed text-ink-3">
-            在用户主目录的 .dela/skills（或 .agents/skills、.zcode/skills）放入包含 SKILL.md
-            的子文件夹（frontmatter 带 name 与 description），或放入工作区的
-            .agents/skills，回到此页刷新即可发现并按需启用。
-          </p>
-        </section>
+        <SettingsGroup>
+          <div className="grid gap-1 py-3.5">
+            <span className="text-[13px] font-medium text-ink">还没有发现 Skill</span>
+            <span className="text-[12px] leading-relaxed text-ink-3">
+              在用户主目录的 .dela/skills（或 .agents/skills、.zcode/skills）放入包含 SKILL.md
+              的子文件夹（frontmatter 带 name 与 description），或放入工作区的
+              .agents/skills，回到此页刷新即可发现并按需启用。
+            </span>
+          </div>
+        </SettingsGroup>
       )}
       {skills !== null && skills.length > 0 && visible.length === 0 && (
-        <p className="text-[13px] text-ink-3">该范围下没有 Skill。</p>
+        <SettingsGroup>
+          <p className="py-3.5 text-[13px] text-ink-3">该范围下没有 Skill。</p>
+        </SettingsGroup>
       )}
       {groups.map((group) =>
         group.items.length === 0 ? null : (
-          <section className="grid gap-2" key={group.scope}>
-            <h2 className="text-base font-semibold">{SCOPE_LABELS[group.scope]} Skills</h2>
+          <SettingsGroup key={group.scope} title={`${SCOPE_LABELS[group.scope]} Skills`}>
             <ul className="grid">
               {group.items.map((skill) => (
                 <li
@@ -206,7 +210,7 @@ export function SkillsTab() {
                 </li>
               ))}
             </ul>
-          </section>
+          </SettingsGroup>
         ),
       )}
       {error && (

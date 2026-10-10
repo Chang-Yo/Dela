@@ -14,15 +14,12 @@ import blackLogo from '../../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
+import { SettingsGroup } from '../SettingsGroup';
 
-const themes: Array<{ id: ThemePreference; label: string; preview: string }> = [
-  {
-    id: 'system',
-    label: '跟随系统',
-    preview: 'bg-linear-to-br from-neutral-100 from-50% to-neutral-700 to-50%',
-  },
-  { id: 'light', label: '浅色', preview: 'bg-neutral-100' },
-  { id: 'dark', label: '深色', preview: 'bg-neutral-800' },
+const themes: Array<{ id: ThemePreference; label: string }> = [
+  { id: 'light', label: '浅色' },
+  { id: 'system', label: '跟随系统' },
+  { id: 'dark', label: '深色' },
 ];
 
 const icons: Array<{ id: IconPreference; label: string; src: string }> = [
@@ -39,6 +36,38 @@ const fontScaleLabels: Record<FontScalePreference, string> = {
   1.1: '大',
   1.25: '特大',
 };
+
+/**
+ * 主题卡片的缩略图：面板与三条骨架都取主题 token，靠 `bui-light` / `dark` 把卡片单独切到对应主题，
+ * 所以切到深色主题后浅色卡片仍是浅色。「跟随系统」左右各半，一眼看出是两套色。
+ */
+function ThemePreview({ mode }: { mode: ThemePreference }) {
+  const bars = (
+    <>
+      <span className="h-2 w-[70%] rounded-full bg-ink" />
+      <span className="h-2 w-[46%] rounded-full bg-bui-accent" />
+      <span className="h-2 w-[58%] rounded-full bg-ink-3" />
+    </>
+  );
+  if (mode === 'system') {
+    return (
+      <div className="grid grid-cols-2 overflow-hidden rounded-control shadow-hairline">
+        <div className="bui-light grid content-center gap-2 bg-surface px-3 py-4">{bars}</div>
+        <div className="dark grid content-center gap-2 bg-surface px-3 py-4">{bars}</div>
+      </div>
+    );
+  }
+  return (
+    <div
+      className={cn(
+        'grid content-center gap-2 rounded-control bg-surface px-3 py-4 shadow-hairline',
+        mode === 'dark' ? 'dark' : 'bui-light',
+      )}
+    >
+      {bars}
+    </div>
+  );
+}
 
 // 每个外观选项（主题/图标/缩放/字号）独立的写入状态：互不阻塞，失败提示各归其位。
 function useOptionSave(failMessage: string) {
@@ -113,27 +142,40 @@ export function AppearanceSection({
   return (
     <div className="grid gap-10">
       <SectionHeader title="外观" />
-      {/* 四个设置项一行一项：标签贴左、控件右对齐同一竖线，行间分隔线承担边界。 */}
-      <section className="grid">
-        <SettingRow settingId="theme" title="主题">
-          <div aria-label="主题" className="flex flex-wrap items-center gap-2" role="group">
-            {themes.map(({ id, label, preview }) => (
+      {/* 四个设置项一行一项：标签贴左、控件右对齐同一竖线，分组容器承担边界。 */}
+      <SettingsGroup>
+        {/* 主题三选一占满整行：缩略图卡片比色块更能说明「切过去长什么样」。 */}
+        <div className="grid gap-3 border-b border-line py-3.5" data-setting-id="theme">
+          <h3 className="text-[13px] font-medium text-ink">主题</h3>
+          {/* 恒三列：窗口最小宽 600px，三张卡片各约 180px 仍是可读缩略图，比堆成三行更好分辨。 */}
+          <div aria-label="主题" className="grid grid-cols-3 gap-2" role="group">
+            {themes.map(({ id, label }) => (
               <button
                 aria-pressed={theme === id}
                 className={cn(
-                  'flex h-9 items-center gap-2 rounded-card border border-line px-3 text-[12px] transition-colors',
-                  theme === id
-                    ? 'border-ink bg-hover font-medium text-ink'
-                    : 'border-line text-ink-3 hover:bg-hover hover:text-ink',
+                  'relative grid content-start gap-2 rounded-card border p-2 transition-colors',
+                  theme === id ? 'border-ink' : 'border-line hover:border-line-strong',
                 )}
                 disabled={themeSave.busy}
                 key={id}
                 onClick={() => selectTheme(id)}
                 type="button"
               >
-                <span className={cn('size-4 rounded border border-line', preview)} />
-                {label}
-                {theme === id ? <Check className="size-3.5" strokeWidth={2} /> : null}
+                <ThemePreview mode={id} />
+                {/* 选中标记贴在缩略图角上：文案不因勾选出现而位移。 */}
+                {theme === id ? (
+                  <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-ink text-surface">
+                    <Check className="size-2.5" strokeWidth={2.5} />
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    'text-center text-[12px]',
+                    theme === id ? 'font-medium text-ink' : 'text-ink-3',
+                  )}
+                >
+                  {label}
+                </span>
               </button>
             ))}
           </div>
@@ -142,7 +184,7 @@ export function AppearanceSection({
               {themeSave.error}
             </p>
           )}
-        </SettingRow>
+        </div>
         <SettingRow settingId="zoom" title="页面缩放">
           <StepperControl
             canDecrease={zoom > zoomLevels[0]}
@@ -208,7 +250,7 @@ export function AppearanceSection({
             </p>
           )}
         </SettingRow>
-      </section>
+      </SettingsGroup>
     </div>
   );
 }

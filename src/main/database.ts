@@ -43,6 +43,8 @@ const schema: string[] = [
     address TEXT NOT NULL UNIQUE,
     imap_host TEXT NOT NULL,
     imap_port INTEGER NOT NULL,
+    smtp_host TEXT,
+    smtp_port INTEGER,
     created_at TEXT NOT NULL,
     last_synced_at TEXT
   )`,
@@ -194,10 +196,11 @@ const schema: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_todo_owner ON todo_items(owner)`,
   // 会话索引：完整记录是 Pi 的 JSONL 会话文件（file 列）；项目即 kind='project' 的条目，
-  // 会话 cwd 恒为该条目的 local_path。
+  // 会话自带工作目录（通用会话是 chat-sessions 下的私有目录），cwd 为 NULL 时按条目 local_path 解析。
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
+    cwd TEXT,
     file TEXT NOT NULL,
     title TEXT NOT NULL DEFAULT '新对话',
     message_count INTEGER NOT NULL DEFAULT 0,
@@ -209,7 +212,7 @@ const schema: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
 ];
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 /** v2→v3 只加列：远程项目不迁移已有数据，旧条目一律视为本地项目。
  *  旧世界库刚被整库丢弃、v1 库本就没有条目表，这两种情况下表还不存在，直接跳过。 */
@@ -260,6 +263,11 @@ export function getDatabase(): Database.Database {
     // 列修复与版本号解耦：中途版本可能已经把 user_version 提到当前值却没加列（实测出现过），
     // 只认版本号会让这种库永久缺列；这里每次打开都幂等补一次，缺列才执行 ALTER。
     addColumnIfMissing(db, 'workspace_entries', 'remote_id', 'TEXT');
+    // v3→v4 只加列：会话自带工作目录，旧会话留 NULL 继续按项目目录解析。
+    addColumnIfMissing(db, 'sessions', 'cwd', 'TEXT');
+    // 第三方 IMAP 的 SMTP 参数：老库的 imap_host/imap_port 已存在，缺的是这两列。
+    addColumnIfMissing(db, 'mail_accounts', 'smtp_host', 'TEXT');
+    addColumnIfMissing(db, 'mail_accounts', 'smtp_port', 'INTEGER');
   } catch (error) {
     db.close();
     throw error;

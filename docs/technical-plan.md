@@ -4,7 +4,7 @@
 
 ## 产品
 
-本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 dela 命令，工作台 GUI 是壳。单用户、单应用、单 package；仅 Windows（跨平台明确放弃）；安装包暂用 NSIS（exe），MSIX 与微软商店分发是后续计划；无服务端，检索 API 由用户自配。
+本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 dela 命令，工作台 GUI 是壳。单用户、单应用、单 package；仅 Windows（跨平台明确放弃）；自建分发用 NSIS（exe），商店分发用 appx 包（提交 Partner Center，签名由商店完成，尚未验证）；无服务端，检索 API 由用户自配。
 
 ## 分层架构（建设顺序＝依赖方向，自下而上）
 
@@ -18,6 +18,8 @@
 | MCP 工具                   | Dela 连接 stdio 服务器后作为自定义工具注入                                     |
 
 远程项目会话（见下）把这七个工具的执行端换成 SSH 远端，工具名、schema 与描述都不变。
+
+`web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签，不用 minimal 的正文隔离和 Tailwind 过滤。PDF、编码处理、2MB 上限与 offset 续读沿用现有实现；不执行网页 JavaScript。`web_search` 仍由用户提供搜索服务。
 
 **2. dela 命令**：领域能力的 CLI 门面。应用生命周期内一个本机 HTTP 桥（127.0.0.1 随机端口 + Bearer token），经 Pi 的 `shellCommandPrefix` 注入 bash，终端同样可用；`dela help` 列命令与 JSON Schema。
 
@@ -48,7 +50,7 @@
 
 ## 课堂视频（试验）
 
-- 侧栏「课堂视频」入口（水源上方）默认隐藏：试验功能为「总开关 + 子项」结构（设置 › 通用，总开关默认关闭，关闭时隐藏全部子项），「课堂视频」是当前唯一子项，两者都开启后入口才出现（`renderer/features/settings/experimental` 为侧栏、设置区与页面共用的开关镜像）。`renderer/features/classroom` 为可折叠课程侧栏 + 播放器两栏（无页头；侧栏与资料面板同款：inset 底、紧凑头、可拖宽度、折叠态在播放器标题行给展开钮），支持选课选场次、在线播放、拖拽进度、音量与倍速、多画面切换及原始下载。主进程门禁检查两个开关的与：未开时拒绝新的登录、查询、播放与下载操作，已有下载仍可查询、取消或打开位置。子项键缺失或损坏视为开启（总开关本身默认关，开启总开关即恢复子项可用）。
+- 侧栏「课堂视频」入口（水源上方）随试验开关显隐：试验功能为「总开关 + 子项」结构（设置 › 通用，两者都默认开启），「课堂视频」是当前唯一子项，任一关闭即隐藏入口（`renderer/features/settings/experimental` 为侧栏、设置区与页面共用的开关镜像）。`renderer/features/classroom` 为可折叠课程侧栏 + 播放器两栏（无页头；侧栏与资料面板同款：inset 底、紧凑头、可拖宽度、折叠态在播放器标题行给展开钮），支持选课选场次、在线播放、拖拽进度、音量与倍速、多画面切换及原始下载（下载默认目录在总开关与子项都开启时出现，写入 `video-download-directory` 键，空值即由系统保存对话框决定；`vsjtu:get/choose-download-directory` 同样过门禁）。主进程门禁检查两个开关的与：未开时拒绝新的登录、查询、播放与下载操作，已有下载仍可查询、取消或打开位置。总开关与子项的键缺失或损坏都视为开启。
 - `main/vsjtu` 复用课表的加密校园会话，使用前探测身份；用户在官方窗口手动登录，会话在服务端有效期间复用。相同 API 的在途请求合并，短暂网络失败、超时与 408/500/502/503/504 延迟 250ms 后重试一次，登录失效或数据格式错误不重试。学期枚举兼容直接数组与 result 包装，列表逐页读取，课程按教学班去重。Cookie 与媒体签名留在 main。
 
 | preload API                                             | 保留能力                                                               |
@@ -80,7 +82,7 @@ schema v3：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话
 
 ## 工程与交付
 
-Node 24.21.0、pnpm 12.3.4（先执行 `. ./scripts/use-local-tools.ps1` 等价前置）；其余版本以 package.json 与锁文件为准，精确依赖。检查链：format + lint + typecheck + test + build + smoke。应用 CI 仅 Windows；helper 在 Ubuntu 用固定 Go 1.27.2 测试并构建 Linux amd64 静态产物，再传给 Windows 打包并核对包内文件。Go 测试只访问 runner 本机，CI 不启用真实 SSH 联调。electron-builder 产出 NSIS 安装包；better-sqlite3 与 node-pty 必须在打包产物中实测加载。密钥、个人数据与本地工具不进 Git 与安装包。
+Node 24.21.0、pnpm 12.3.4（先执行 `. ./scripts/use-local-tools.ps1` 等价前置）；其余版本以 package.json 与锁文件为准，精确依赖。检查链：format + lint + typecheck + test + build + smoke。应用 CI 仅 Windows；helper 在 Ubuntu 用固定 Go 1.27.2 测试并构建 Linux amd64 静态产物，再传给 Windows 打包并核对包内文件。Go 测试只访问 runner 本机，CI 不启用真实 SSH 联调；需要真机的远程用例集中在 `pnpm test:remote`（`DELA_REMOTE_HOST`），默认测试套件与 CI 都不收集它们。electron-builder 产出 NSIS 安装包；better-sqlite3 与 node-pty 必须在打包产物中实测加载。密钥、个人数据与本地工具不进 Git 与安装包。
 
 ## 本次删除清单（2026-10-08 基座重构）
 

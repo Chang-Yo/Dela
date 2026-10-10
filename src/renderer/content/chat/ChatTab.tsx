@@ -5,6 +5,7 @@ import type { WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ChatComposer } from './ChatComposer';
+import { composerContext } from './composer-context';
 import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
@@ -12,6 +13,7 @@ import { useChat, useChatDraft, useChatSession, type ChatReference } from './use
 import { referenceContext } from './reference-tokens';
 import { useNavigationStore } from '../../app/navigation';
 import { useSessions } from '../../sessions/store';
+import { useWorkspaceStore } from '../../workspace/store';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
 export function parseChatTabId(tabId: string): string | null {
@@ -28,7 +30,9 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
   const projectId = useSessions((state) =>
     sessionId ? (state.chats[sessionId]?.projectId ?? null) : null,
   );
-  const session = useChatSession(projectId, sessionId ?? '');
+  // 新建的通用会话跟着所在页走：首页是随聊私有目录，工作台（资料页）落资料树的课程目录。
+  const scope = useNavigationStore((state) => (state.view === 'home' ? 'chat' : 'library'));
+  const session = useChatSession(projectId, sessionId ?? '', scope);
   const referenceSource = source?.referenceSource;
 
   if (sessionId === null) {
@@ -96,6 +100,12 @@ function ChatComposerArea({
     () => referenceContext(prompt, referenceOptions),
     [prompt, referenceOptions],
   );
+  // 新对话的项目浮岛：项目名来自工作区条目，通用池显示「随聊」；分支由浮岛自己查。
+  const projectId = chat?.projectId ?? null;
+  const project = useWorkspaceStore(
+    (state) => state.workspace.entries.find((entry) => entry.id === projectId) ?? null,
+  );
+  const context = composerContext(chat, project, chatState.busy);
   return (
     <div className="mx-auto w-full max-w-3xl shrink-0 p-3">
       <ChatComposer
@@ -103,6 +113,7 @@ function ChatComposerArea({
         attachments={chatState.attachments}
         busy={chatState.busy}
         configured={Boolean(chat?.configured)}
+        context={context}
         effort={chat?.effort ?? null}
         effortLevels={chat?.effortLevels ?? []}
         model={chat?.model ?? ''}

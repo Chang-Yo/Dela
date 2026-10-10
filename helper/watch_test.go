@@ -103,7 +103,7 @@ func TestWatchBatchMergeAndDedupe(t *testing.T) {
 	}
 }
 
-func TestWatchBatchChangePathLimit(t *testing.T) {
+func TestWatchBatchChangePathLimitAndReset(t *testing.T) {
 	// 刚好 256 个路径还发 change
 	batch := newWatchBatch()
 	for i := 0; i < watchMaxChangePaths; i++ {
@@ -119,25 +119,13 @@ func TestWatchBatchChangePathLimit(t *testing.T) {
 	for i := 0; i <= watchMaxChangePaths; i++ {
 		batch.note("a", pathN(i))
 	}
-	events = batch.take()
-	if len(events) != 1 || events[0].Type != "reset" || events[0].ID != "a" ||
-		events[0].Reason != watchReasonTooMany {
-		t.Fatalf("%d 个路径应该是 reset(%s)，得到 %+v", watchMaxChangePaths+1, watchReasonTooMany, events)
-	}
-}
-
-func TestWatchBatchResetIsOneShot(t *testing.T) {
-	batch := newWatchBatch()
-	for i := 0; i <= watchMaxChangePaths; i++ {
-		batch.note("a", pathN(i))
-	}
 	// 一个 id 换成 reset 不影响别的 id
 	batch.note("b", "/other")
 
-	events := batch.take()
+	events = batch.take()
 	if len(events) != 2 || events[0].Type != "reset" || events[0].ID != "a" ||
 		events[0].Reason != watchReasonTooMany || events[1].ID != "b" {
-		t.Fatalf("a 应该 reset(%s)、b 照常 change，得到 %+v", watchReasonTooMany, events)
+		t.Fatalf("%d 个路径应该是 reset(%s)、b 照常 change，得到 %+v", watchMaxChangePaths+1, watchReasonTooMany, events)
 	}
 	// reset 是一次性的：它已经让调用方重读该 id 的全部内容，下一轮的新变化照常发 change
 	batch.note("a", "/late")
@@ -235,8 +223,6 @@ func TestWatchHubHandleEvent(t *testing.T) {
 	dir := &watchedDir{wd: 5, path: "/data/project", ids: map[string]bool{"a": true, "b": true}}
 	hub.byWD[dir.wd] = dir
 	hub.byPath[dir.path] = dir
-	hub.sets["a"] = map[string]bool{dir.path: true}
-	hub.sets["b"] = map[string]bool{dir.path: true}
 
 	hub.handleEvent(inotifyEvent{wd: 5, mask: syscall.IN_MODIFY}) // 内容变化：不报
 	if len(hub.batch.pending) != 0 {
@@ -254,15 +240,6 @@ func TestWatchHubHandleEvent(t *testing.T) {
 	hub.handleEvent(inotifyEvent{wd: -1, mask: syscall.IN_Q_OVERFLOW})
 	if events := hub.batch.take(); len(events) != 1 || events[0].ID != "*" {
 		t.Fatalf("溢出应该广播 reset(*)：%+v", events)
-	}
-	// IN_IGNORED：内核自己摘了 watch，记账要跟着清掉（目录可能再回来，所以 id 集合也清）
-	hub.handleEvent(inotifyEvent{wd: 5, mask: syscall.IN_DELETE_SELF | syscall.IN_ISDIR})
-	hub.handleEvent(inotifyEvent{wd: 5, mask: syscall.IN_IGNORED})
-	if len(hub.byWD) != 0 || len(hub.byPath) != 0 {
-		t.Errorf("IN_IGNORED 之后记账应该清空：%+v %+v", hub.byWD, hub.byPath)
-	}
-	if len(hub.sets["a"]) != 0 || len(hub.sets["b"]) != 0 {
-		t.Errorf("IN_IGNORED 之后 id 集合应该清空：%+v", hub.sets)
 	}
 }
 

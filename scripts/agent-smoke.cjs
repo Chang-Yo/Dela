@@ -70,7 +70,7 @@ async function run(window) {
     return chat;
   };
 
-  const a = await call(`window.dela.session.create(${JSON.stringify(alpha.id)})`);
+  const a = await call(`window.dela.session.create(${JSON.stringify(alpha.id)}, 'chat')`);
   assert.equal(a.cwd, alphaDir);
   await ask(
     a.sessionId,
@@ -81,7 +81,7 @@ async function run(window) {
   assert.ok(existsSync(join(alphaDir, 'todo.md')), 'todo.md 应在 alpha 项目目录内');
   assert.ok(!existsSync(join(betaDir, 'todo.md')), 'todo.md 不应出现在 beta');
 
-  const b = await call(`window.dela.session.create(${JSON.stringify(beta.id)})`);
+  const b = await call(`window.dela.session.create(${JSON.stringify(beta.id)}, 'chat')`);
   assert.equal(b.cwd, betaDir);
   await ask(b.sessionId, '在当前项目新建 hello.txt，内容是 beta。');
   assert.equal(readFileSync(join(betaDir, 'hello.txt'), 'utf8').trim(), 'beta');

@@ -6,6 +6,7 @@
 // 镜像提供，见下方 props 注释）。
 import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Dialog, DropdownMenu as Menu } from 'radix-ui';
 import {
   CalendarDays,
@@ -48,6 +49,9 @@ import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { Input } from '../components/ui/input';
 import { menuItem, menuPanel } from '../components/ui/menu-styles';
 import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './nav-styles';
+import { useRemoteActivity } from './remote-activity';
+import { RemoteConnectionTip } from './remote-connection-tip';
+import { useRemoteConnections } from './remote-connections';
 
 export type { NavSessionSummary, SessionRunBadge };
 
@@ -127,6 +131,14 @@ export function ProjectSessionNav({
       (a, b) =>
         Number(Boolean(preferences[b.id]?.pinned)) - Number(Boolean(preferences[a.id]?.pinned)),
     );
+  // 远端项目的悬浮提示要「连的是哪台」与「此刻在不在连」：连接列表按涉及到的连接拉一次，
+  // 取数状态由目录树写、这里读（两处说法因此一致）。
+  const remoteIdsKey = projects
+    .map((project) => project.remoteId)
+    .filter(Boolean)
+    .join('|');
+  const connections = useRemoteConnections(remoteIdsKey);
+  const activity = useRemoteActivity((state) => state.byProject);
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
   const [sectionProjectId, setSectionProjectId] = useState<string | null>(null);
   const [sectionName, setSectionName] = useState('');
@@ -183,6 +195,23 @@ export function ProjectSessionNav({
       groupActive &&
       !shownActiveSession &&
       !sessions.some((session) => session.pinned && session.id === activeSessionId);
+    // 远端项目行挂连接提示：连的是哪台、远端根在哪、此刻在不在连（本机行不需要）。
+    // 挂在项目名按钮上而不是整行：键盘聚焦时也能看到，而且鼠标移到右侧动作区时提示该让位。
+    const labelButton = (
+      <button
+        aria-current={rowActive ? 'page' : undefined}
+        aria-expanded={expanded}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        onClick={() => toggleProject(key)}
+        title={project.remoteId ? undefined : label}
+        type="button"
+      >
+        <Icon className={navIcon(rowActive)} strokeWidth={1.8} style={accent} />
+        <span className={cn('sidebar-title min-w-0 flex-1', labelFade, collapsed && 'opacity-0')}>
+          {label}
+        </span>
+      </button>
+    );
     return (
       <div key={key} className="min-w-0">
         <div className={cn(navRow(rowActive), 'group group/nav relative pl-1.5')}>
@@ -200,21 +229,20 @@ export function ProjectSessionNav({
               )}
             />
           </button>
-          <button
-            aria-current={rowActive ? 'page' : undefined}
-            aria-expanded={expanded}
-            className="flex min-w-0 flex-1 items-center gap-2 text-left"
-            onClick={() => toggleProject(key)}
-            title={label}
-            type="button"
-          >
-            <Icon className={navIcon(rowActive)} strokeWidth={1.8} style={accent} />
-            <span
-              className={cn('sidebar-title min-w-0 flex-1', labelFade, collapsed && 'opacity-0')}
-            >
-              {label}
-            </span>
-          </button>
+          {project.remoteId ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{labelButton}</TooltipTrigger>
+              <TooltipContent side="right" className="px-2.5 py-2">
+                <RemoteConnectionTip
+                  activity={activity[project.id]}
+                  connection={connections[project.remoteId]}
+                  project={project}
+                />
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            labelButton
+          )}
           {!collapsed && (
             <div className={cn(rowActions, rowActive ? 'bg-hover-2' : 'bg-hover')}>
               <DropdownMenu>

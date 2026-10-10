@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { SettingsSectionId } from '../../../shared/settings';
 import { cn } from '../../lib/utils';
+import { useHorizontalWheel } from '../../lib/use-horizontal-wheel';
 import { settingsSectionLabels } from './search-index';
 
 export type { SettingsSectionId };
@@ -57,10 +58,14 @@ type SettingsNavProps = {
 
 /** 宽屏为左侧纵列（带分组标题），窄屏为顶部横向分区行（分组退化为分隔线）。 */
 export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
+  // 窄屏那排横向分区行靠滚轮横滚；宽屏是纵列，不横向溢出，钩子自动放行。
+  const navRef = useHorizontalWheel<HTMLElement>();
+
   return (
     <nav
       aria-label="设置分区"
-      className="flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-page p-2 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-page p-2 [scrollbar-width:none] max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-[200px] md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
+      ref={navRef}
     >
       {/* 壳层锚点：分区目录以「设置」标题开头（窄屏横向分区行不放标题）。 */}
       <span className="hidden px-2 pb-1 text-[13px] font-semibold text-ink md:block">设置</span>

@@ -15,12 +15,14 @@ import {
   savedCampusNotifications,
   savedExperimentalClassroom,
   savedExperimentalFeatures,
+  savedVideoDownloadDirectory,
   setAgentInstruction,
   setCampusNotifications,
   setExperimentalClassroom,
   setExperimentalFeatures,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
+  setVideoDownloadDirectory,
   setWorkspacePrefs,
 } from '../prefs';
 
@@ -33,18 +35,18 @@ beforeEach(() => {
   database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
 });
 
-it('keeps experiments off for new or corrupt settings and persists an explicit opt-in', () => {
-  expect(savedExperimentalFeatures()).toBe(false);
+it('keeps experiments on for new or corrupt settings and persists an explicit opt-out', () => {
+  expect(savedExperimentalFeatures()).toBe(true);
   insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
-  expect(savedExperimentalFeatures()).toBe(false);
-  setExperimentalFeatures(true);
   expect(savedExperimentalFeatures()).toBe(true);
   setExperimentalFeatures(false);
   expect(savedExperimentalFeatures()).toBe(false);
+  setExperimentalFeatures(true);
+  expect(savedExperimentalFeatures()).toBe(true);
 });
 
 it('keeps the classroom sub-item on by default and round-trips an explicit opt-out', () => {
-  // 子项缺省开启：总开关本身默认关，开启总开关即恢复子项可用。
+  // 子项与总开关同档：缺省都开启。
   expect(savedExperimentalClassroom()).toBe(true);
   insert("INSERT INTO workspace_settings VALUES ('experimental-classroom', 'anything')");
   expect(savedExperimentalClassroom()).toBe(true);
@@ -214,5 +216,16 @@ describe('agent instruction', () => {
     setAgentInstruction('先给结论。');
     expect(setAgentInstruction('')).toBe('');
     expect(getAgentInstruction()).toBe('');
+  });
+});
+
+describe('classroom video download directory', () => {
+  it('defaults to empty so the save dialog keeps its own default', () => {
+    expect(savedVideoDownloadDirectory()).toBe('');
+  });
+
+  it('round-trips a chosen directory', () => {
+    expect(setVideoDownloadDirectory('D:\\课堂录像')).toBe('D:\\课堂录像');
+    expect(savedVideoDownloadDirectory()).toBe('D:\\课堂录像');
   });
 });

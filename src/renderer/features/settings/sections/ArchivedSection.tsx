@@ -14,6 +14,7 @@ import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
 import { useNavigationStore } from '../../../app/navigation';
 import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup } from '../SettingsGroup';
 
 /** 项目筛选哨兵：Radix Select 不接受空串，「全部」与「随聊」（无项目）各用一个哨兵值。 */
 const allProjects = '__all__';
@@ -200,20 +201,30 @@ export function ArchivedSection() {
               </p>
             )}
             {sessions !== null && sessions.length === 0 && (
-              <p className="text-[13px] text-ink-3">没有已归档对话</p>
+              <SettingsGroup>
+                <p className="py-3.5 text-[13px] text-ink-3">没有已归档对话</p>
+              </SettingsGroup>
             )}
             {sessions !== null && sessions.length > 0 && groups.length === 0 && (
-              <p className="text-[13px] text-ink-3">没有匹配的已归档对话</p>
+              <SettingsGroup>
+                <p className="py-3.5 text-[13px] text-ink-3">没有匹配的已归档对话</p>
+              </SettingsGroup>
             )}
           </div>
           <div className="grid gap-8">
             {groups.map((group) => (
-              <section className="grid gap-2" key={group.id ?? 'general'}>
-                <div className="flex items-center gap-2">
-                  <Folder aria-hidden="true" className="size-4 text-ink-3" />
-                  <h2 className="text-base font-semibold">{group.name}</h2>
-                  <span className="text-[12px] text-ink-3">{group.sessions.length} 条</span>
-                </div>
+              <SettingsGroup
+                key={group.id ?? 'general'}
+                title={
+                  <span className="flex items-center gap-2">
+                    <Folder aria-hidden="true" className="size-4 shrink-0 text-ink-3" />
+                    <span className="truncate">{group.name}</span>
+                    <span className="shrink-0 text-[12px] font-normal text-ink-3">
+                      {group.sessions.length} 条
+                    </span>
+                  </span>
+                }
+              >
                 <ul className="grid">
                   {group.sessions.map((session) => (
                     <li
@@ -282,7 +293,7 @@ export function ArchivedSection() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </SettingsGroup>
             ))}
           </div>
         </>

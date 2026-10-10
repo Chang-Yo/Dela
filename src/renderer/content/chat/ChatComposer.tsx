@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import type { ComposerContext } from './composer-context';
+import { ComposerContextBar } from './composer-context-bar';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
@@ -108,7 +110,10 @@ export function ChatComposer({
   notice = null,
   onDismissNotice,
   hero = false,
+  context = null,
 }: {
+  /** 新对话的项目浮岛数据；null = 不显示（已有历史或通用池没有项目）。 */
+  context?: ComposerContext | null;
   /** 发送前错误（会话层），显示在输入框上方；null = 无。 */
   notice?: string | null;
   onDismissNotice?: () => void;
@@ -322,6 +327,8 @@ export function ChatComposer({
 
   return (
     <div className="relative">
+      {/* 新对话的项目浮岛：项目与分支各一个可点胶囊；有历史后 context 为 null 就撤掉。 */}
+      {context && <ComposerContextBar context={context} />}
       {/* 提示条浮在输入框上方，不推移输入框与消息列表。 */}
       {(fileError ?? notice) && (
         <ComposerNotice

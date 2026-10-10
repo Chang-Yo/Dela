@@ -69,6 +69,7 @@ export type {
   MailAccountInfo,
   MailState,
   MailResult,
+  MailServerConfig,
   MailConfigureInput,
   MailComposeFileKind,
   MailComposeFile,
@@ -143,11 +144,15 @@ export type {
 export type { GlobalSearchResult, SearchApi } from './search';
 
 export type {
+  HelperDegradation,
   RemoteApi,
   RemoteBrowseResult,
   RemoteConnection,
   RemoteDirectoryEntry,
   RemoteDraft,
+  RemotePortEntry,
+  RemotePortTunnel,
+  RemotePortsState,
   RemotePrepare,
   RemoteProbe,
   RemoteSetupProgress,
@@ -184,6 +189,7 @@ export { workspaceArchiveId } from './workspace';
 export type {
   AgentToolOutput,
   AgentToolResult,
+  ChatScope,
   ChatSessionSummary,
   ContextUsageView,
   WorkspaceChat,

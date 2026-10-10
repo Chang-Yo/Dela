@@ -3,12 +3,13 @@
 // 子条目 id 是「项目 id + 远端绝对路径」（shared/remotes 的 remoteNodeId）：只用路径
 // 会让两台连接上的同路径目录串成同一个节点（清单、展开态、选中态都会混）。
 import { useEffect, useRef, useState } from 'react';
-import { Cloud } from 'lucide-react';
-import type { RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
+import type { HelperDegradation, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
 import type { ExplorerItem } from '../components/ui/explorer';
 import { errorText } from '../workspace/store';
+import { useRemoteActivity } from './remote-activity';
 import { remoteAccent } from './remote-color';
+import { useRemoteConnections } from './remote-connections';
 
 /** 项目根的 path 可能带尾斜杠，远端子路径一律不带：统一后再作缓存与展开键。 */
 const trimSlash = (path: string) => path.replace(/\/+$/, '');
@@ -34,6 +35,10 @@ export interface RemoteTree {
   destinations: Record<string, string>;
   /** 正在读取或读取失败的说明；无则 null。 */
   status: string | null;
+  /** helper 通道降级提示（对准这棵树里可见的项目）；无则 null。 */
+  degraded: string | null;
+  /** 打开的项目正在首次连接（冷启动几秒）且还没有任何内容：面板该给过渡而不是空着。 */
+  connecting: boolean;
 }
 
 /**
@@ -48,7 +53,18 @@ export function useRemoteTree(
 ): RemoteTree {
   const [listings, setListings] = useState<Record<string, RemoteDirectoryEntry[]>>({});
   const [failed, setFailed] = useState<Record<string, string>>({});
-  const [destinations, setDestinations] = useState<Record<string, string>>({});
+  const setPhase = useRemoteActivity((state) => state.setPhase);
+  const rootActivity = useRemoteActivity((state) => (rootId ? state.byProject[rootId] : undefined));
+  // 连接列表按「这棵树里涉及哪些连接」拉一次：目的地既给行提示，也给项目行与面板标题的悬浮提示。
+  const remoteIdsKey = entries
+    .filter((entry) => entry.kind === 'project' && entry.remoteId)
+    .map((entry) => entry.remoteId)
+    .join('|');
+  const connections = useRemoteConnections(remoteIdsKey);
+  const destinations = Object.fromEntries(
+    Object.entries(connections).map(([id, connection]) => [id, connection.host]),
+  );
+  const [degradations, setDegradations] = useState<HelperDegradation[]>([]);
   const inFlight = useRef(new Set<string>());
   /** 已缓存清单：远端路径供变化通知判断过期，项目 id 供上报 watch 分组。 */
   const listed = useRef(new Map<string, { projectId: string; path: string }>());
@@ -67,6 +83,8 @@ export function useRemoteTree(
    *  归属只由「从哪个项目走下来」决定，远端路径本身不再参与跨项目的解释。 */
   const keyOf = (project: WorkspaceEntry, path: string) =>
     trimSlash(project.path!) === path ? project.id : remoteNodeId(project.id, path);
+  /** 项目 id → 远端根：只有项目根这一层的读取代表「这台连接能不能用」（连服务器就发生在这里）。 */
+  const rootPaths = new Map(projects.map((project) => [project.id, trimSlash(project.path!)]));
 
   // 每个项目从自己的根往下走，收集仍展开的键与待拉取的目录。
   const openKeys = new Set<string>();
@@ -85,24 +103,12 @@ export function useRemoteTree(
   for (const project of projects) visit(project, trimSlash(project.path!), project.id);
 
   const hasRemote = projects.length > 0;
+
+  // helper 通道的降级状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器降级不打扰这棵树。
   useEffect(() => {
     const remotes = window.dela?.remotes;
-    if (!hasRemote || !remotes) return;
-    let live = true;
-    void remotes.list().then(
-      (connections) => {
-        if (live)
-          setDestinations(
-            Object.fromEntries(connections.map((connection) => [connection.id, connection.host])),
-          );
-      },
-      () => {
-        /* 读不到连接列表只是少一行提示，树本身照常可用。 */
-      },
-    );
-    return () => {
-      live = false;
-    };
+    if (!hasRemote || !remotes?.onHelperState) return;
+    return remotes.onHelperState(setDegradations);
   }, [hasRemote]);
 
   // 收起时清掉失败记录：再次展开重试一次，避免一次网络抖动后目录永久打不开。
@@ -212,19 +218,24 @@ export function useRemoteTree(
       // 这一层的「作废标记」：清单被丢掉（收起、或远端变化）之后，在途的旧响应不能把旧内容写回来。
       const marker = { projectId: node.projectId, path: node.path };
       listed.current.set(node.key, marker);
+      // 项目根这一层就是「连接」：冷启动（探测+上传+启动+隧道+握手）全在这里等，
+      // 所以在状态里报出来，让面板与悬浮提示说的是同一件事。重复读取也照报——
+      // 面板只在「没有任何内容」时才画过渡，热通道那几十毫秒够不到 200ms 的门槛。
+      const root = rootPaths.get(node.projectId) === node.path;
+      if (root) setPhase(node.projectId, 'connecting');
       void workspace
         .listRemoteDirectory(node.projectId, node.path)
         .then(
           (items) => {
             if (listed.current.get(node.key) !== marker) return;
+            if (root) setPhase(node.projectId, 'ready');
             setListings((prev) => ({ ...prev, [node.key]: items }));
           },
           (cause) => {
             if (listed.current.get(node.key) !== marker) return;
-            setFailed((prev) => ({
-              ...prev,
-              [node.key]: `读取失败 ${node.path}：${errorText(cause)}`,
-            }));
+            const reason = `读取失败 ${node.path}：${errorText(cause)}`;
+            if (root) setPhase(node.projectId, 'failed', reason);
+            setFailed((prev) => ({ ...prev, [node.key]: reason }));
           },
         )
         .finally(() => {
@@ -250,7 +261,6 @@ export function useRemoteTree(
           readOnly: true,
           // 远端目录接收本地文件拖放（上传）；内部移动仍被 readOnly 拦住。
           importable: child.directory,
-          marker: Cloud,
           accent,
           title: remoteTitle(destination, child.path),
         });
@@ -264,5 +274,18 @@ export function useRemoteTree(
   // 只报失败：读取中的提示会在每次展开/收起时插进、抽走一行，整棵树跟着上下跳。
   const status = Object.values(failed)[0] ?? null;
 
-  return { items, destinations, status };
+  // 降级提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
+  // 多条通道各自降级时，一台恢复只让它自己那条从快照里消失，别的提示不受影响。
+  const degraded = degradations.find((state) =>
+    projects.some((project) => destinations[project.remoteId!] === state.destination),
+  );
+  const degradedText = degraded
+    ? `${degraded.destination} 的 helper 通道不可用，已退回一次性 ssh：${degraded.reason}`
+    : null;
+
+  // 首次连接这台服务器时整棵树还没有内容：面板给一个过渡，而不是空着让人以为没有文件。
+  // 逐层展开的读取几十毫秒就回来（还有内容在），不在这里报——那会让树上下跳。
+  const connecting = rootActivity?.phase === 'connecting' && items.length === 0;
+
+  return { items, destinations, status, degraded: degradedText, connecting };
 }

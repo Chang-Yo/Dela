@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
 const boundary = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
@@ -8,9 +9,11 @@ const boundary = vi.hoisted(() => ({
   reveal: vi.fn(),
   enabled: true,
   classroom: true,
+  directory: '',
 }));
 let campus: EventEmitter;
 vi.mock('electron', () => ({
+  app: { getPath: () => 'C:/Videos' },
   ipcMain: {
     handle: (name: string, callback: (...args: unknown[]) => unknown) =>
       boundary.handlers.set(name, callback),
@@ -21,13 +24,15 @@ vi.mock('electron', () => ({
       { webContents: { getURL: () => 'file:///app/index.html', send: boundary.notify } },
     ],
   },
-  dialog: { showSaveDialog: boundary.choose },
+  dialog: { showSaveDialog: boundary.choose, showOpenDialog: boundary.choose },
   shell: { showItemInFolder: boundary.reveal },
 }));
 vi.mock('../ipc', () => ({ checkWorkspaceSender: () => {} }));
 vi.mock('../settings/prefs', () => ({
   savedExperimentalFeatures: () => boundary.enabled,
   savedExperimentalClassroom: () => boundary.classroom,
+  savedVideoDownloadDirectory: () => boundary.directory,
+  setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
 }));
 vi.mock('../timetable/session', () => ({
   getCampusSession: async () => Object.assign(campus, { downloadURL: boundary.download }),
@@ -43,6 +48,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   boundary.enabled = true;
   boundary.classroom = true;
+  boundary.directory = '';
   registerVsjtuIpc();
 });
 const call = (name: string, ...args: unknown[]) =>
@@ -65,6 +71,7 @@ it('blocks new video operations while experimental features are disabled', async
   boundary.enabled = false;
   await expect(call('streams', 60)).rejects.toThrow('试验功能');
   expect(() => call('download', 60, 5, '录像')).toThrow('试验功能');
+  expect(() => call('get-download-directory')).toThrow('试验功能');
   expect(boundary.choose).not.toHaveBeenCalled();
 });
 
@@ -77,6 +84,28 @@ it('does not start a transfer when the native save dialog is cancelled', async (
   boundary.choose.mockResolvedValue({ canceled: true });
   await call('download', 60, 5, '录像');
   expect(boundary.download).not.toHaveBeenCalled();
+});
+
+it('starts the save dialog in the configured video directory, or by file name alone when unset', async () => {
+  boundary.choose.mockResolvedValue({ canceled: true });
+  await call('download', 60, 5, '线性代数 第3讲');
+  expect(boundary.choose.mock.calls[0]?.[0]).toMatchObject({
+    defaultPath: '线性代数 第3讲-画面5.mp4',
+  });
+  boundary.directory = 'D:/课堂录像';
+  await call('download', 61, 5, '线性代数 第3讲');
+  expect(boundary.choose.mock.calls[1]?.[0]).toMatchObject({
+    defaultPath: join('D:/课堂录像', '线性代数 第3讲-画面5.mp4'),
+  });
+});
+
+it('round-trips the download directory through the picker and keeps the old value on cancel', async () => {
+  expect(await call('get-download-directory')).toBe('');
+  boundary.choose.mockResolvedValue({ canceled: false, filePaths: ['D:/课堂录像'] });
+  expect(await call('choose-download-directory')).toBe('D:/课堂录像');
+  expect(await call('get-download-directory')).toBe('D:/课堂录像');
+  boundary.choose.mockResolvedValue({ canceled: true, filePaths: [] });
+  expect(await call('choose-download-directory')).toBe('D:/课堂录像');
 });
 
 it('reports network interruption distinctly from a user cancellation and never reveals an incomplete file', async () => {

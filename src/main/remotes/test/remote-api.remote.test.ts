@@ -1,6 +1,6 @@
-// 远程项目的主进程链路（需要 DELA_REMOTE_HOST）：连接存取 → 自检 → 浏览目录 →
-// 登记项目 → 列远端目录 → @ 候选索引 → 删除保护。这里用假数据库 + 真实 ssh，
-// 覆盖渲染端调用到的那一层，而不是只测传输层。
+// 远程项目主进程链路的真机回归：连接存取 → 自检 → 浏览目录 → 登记项目 → 列远端目录 →
+// @ 候选索引 → 删除保护。这里用假数据库 + 真实 ssh，覆盖渲染端调用到的那一层。
+// 需要 DELA_REMOTE_HOST（如 root@1.2.3.4），由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -22,9 +22,8 @@ import { listDirectory } from '../transport';
 import { importRemoteProject, projectLocation } from '../../workspace/api';
 import { parentOf, targetOf } from '../api';
 
-const host = process.env.DELA_REMOTE_HOST;
+const host = process.env.DELA_REMOTE_HOST!;
 const keyPath = process.env.DELA_REMOTE_KEY ?? null;
-const live = describe.skipIf(!host);
 const testRoot = '/tmp/dela-api-test';
 
 function createDb(): Database.Database {
@@ -53,37 +52,35 @@ beforeAll(() => {
 });
 afterAll(() => rmSync(state.root, { force: true, recursive: true }));
 
-live('远程项目主进程链路（需要 DELA_REMOTE_HOST）', () => {
+describe('远程项目主进程链路（真机）', () => {
   let connectionId = '';
 
   it('保存连接并自检', async () => {
-    const saved = saveRemote({ label: '测试主机', host: host!, keyPath });
+    const saved = saveRemote({ label: '测试主机', host, keyPath });
     connectionId = saved.id;
     expect(listRemotes().map((item) => item.host)).toEqual([host]);
 
-    const probe = await probeConnection({ host: host!, keyPath });
+    const probe = await probeConnection({ host, keyPath });
     expect(probe.ok).toBe(true);
     // 摘要里带系统信息（`<主机名> · <系统> <架构>`）：探活失败时这里是给用户的原因。
     expect(probe.message).toMatch(/Linux|Darwin/);
   }, 60_000);
 
   it('浏览从主目录起，能进能退', async () => {
-    const home = await browseRemote({ host: host!, keyPath }, null);
+    const home = await browseRemote({ host, keyPath }, null);
     expect(home.path).toMatch(/^\//);
     expect(home.home).toBe(home.path);
     // 主目录里必然存在 .ssh（连得上就说明用过密钥）或至少是个可读目录。
     expect(home.directories.every((entry) => entry.path.startsWith(home.path))).toBe(true);
     if (home.directories.length) {
-      const child = await browseRemote({ host: host!, keyPath }, home.directories[0]!.path);
+      const child = await browseRemote({ host, keyPath }, home.directories[0]!.path);
       expect(parentOf(child.path)).toBe(home.path);
       expect(child.home).toBeNull();
     }
   }, 90_000);
 
   it('浏览到不存在的目录给出可读错误', async () => {
-    await expect(browseRemote({ host: host!, keyPath }, '/no/such/dir-9f3')).rejects.toThrow(
-      /不是目录/,
-    );
+    await expect(browseRemote({ host, keyPath }, '/no/such/dir-9f3')).rejects.toThrow(/不是目录/);
   }, 60_000);
 
   it('登记远端项目、列一层目录、生成 @ 候选索引', async () => {
@@ -95,11 +92,11 @@ live('远程项目主进程链路（需要 DELA_REMOTE_HOST）', () => {
       path: testRoot,
     });
 
-    const entries = await listDirectory(targetOf({ host: host!, keyPath }), testRoot);
+    const entries = await listDirectory(targetOf({ host, keyPath }), testRoot);
     expect(entries.some((entry) => entry.name === 'sub' && entry.directory)).toBe(true);
     expect(entries.some((entry) => entry.name === 'a b.txt' && !entry.directory)).toBe(true);
 
-    const files = await remoteFileIndex({ host: host!, keyPath }, testRoot);
+    const files = await remoteFileIndex({ host, keyPath }, testRoot);
     expect(files).toContain('a b.txt');
     expect(files).toContain('sub/nested.md');
     // 索引给的是相对路径，渲染端再与项目根拼成候选 key。
