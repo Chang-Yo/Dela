@@ -11,6 +11,7 @@ import {
   FilePlus2,
   FolderPlus,
   FolderKanban,
+  Loader2,
   Pencil,
   Trash2,
   FolderInput,
@@ -19,6 +20,7 @@ import {
   TriangleAlert,
   Upload,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { WorkspaceEntry } from '../../shared/api';
 import { Explorer, type ExplorerItem } from '../components/ui/explorer';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
@@ -33,6 +35,26 @@ import { remoteAccent } from './remote-color';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 
 export type { EntryAction };
+
+/** 连接过渡的延迟：热通道列一层只要几十毫秒，立刻画转圈等于每次打开都闪一下；
+ *  冷启动（实测 3 秒级）才会越过它，那时空白必须被解释清楚。 */
+export const CONNECT_HINT_DELAY_MS = 200;
+
+/** 首次连接远端时的过渡：只转圈，细节（连的是哪台）留给项目行的悬浮提示。 */
+function ConnectingHint() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlow(true), CONNECT_HINT_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!slow) return null;
+  return (
+    <p className="flex items-center gap-2 px-3 py-3 text-[12px] text-ink-3" role="status">
+      <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+      正在连接远端…
+    </p>
+  );
+}
 
 export function ProjectFileTree({
   entries,
@@ -193,6 +215,7 @@ export function ProjectFileTree({
           {remote.status}
         </p>
       )}
+      {remote.connecting && <ConnectingHint />}
       <Explorer
         label="我的内容"
         items={filtered}

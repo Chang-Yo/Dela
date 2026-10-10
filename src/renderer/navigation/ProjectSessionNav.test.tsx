@@ -136,15 +136,16 @@ it('shows a remote project with the cloud icon and its connection colour', async
   await render(null, recent);
 
   const localRow = projectRow();
-  const remoteRow = (() => {
-    const button = [...document.querySelectorAll('button')].find(
-      (item) => item.title === remote.name,
-    );
-    if (!button) throw new Error('remote row missing');
-    return row(button);
-  })();
+  const remoteLabel = [...document.querySelectorAll('button')].find(
+    (item) => item.textContent?.trim() === remote.name,
+  );
+  if (!remoteLabel) throw new Error('remote row missing');
+  const remoteRow = row(remoteLabel);
   expect(localRow.querySelector('svg.lucide-cloud')).toBeNull();
   expect(localRow.querySelector('svg.lucide-folder')).not.toBeNull();
   const cloud = remoteRow.querySelector<SVGElement>('svg.lucide-cloud');
   expect(cloud?.style.color).toMatch(/^var\(--cal-/);
+  // 远端行不再挂原生 title：连接信息（目的地、远端根、在不在连）交给悬浮提示。
+  expect(remoteLabel.title).toBe('');
+  expect(localRow.querySelector<HTMLButtonElement>('button[title]')?.title).toBe(project.name);
 });

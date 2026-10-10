@@ -27,6 +27,7 @@ import { parseRemoteNodeId } from '../../shared/remotes';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Resizer } from '../components/ui/resizer';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,9 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
+import { useRemoteActivity } from '../navigation/remote-activity';
+import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
+import { useRemoteConnections } from '../navigation/remote-connections';
 import { SourcesTree, latestTermOf } from '../navigation/SourcesTree';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from './navigation';
@@ -88,6 +92,9 @@ export function WorkbenchExplorer({
   // 打开的若是远程项目，这棵树本轮只读：拖入的落点是远端 POSIX 路径，
   // 本地写入入口（importDroppedFiles / moveEntry）会把它当本地目录，必须关掉。
   const remoteRoot = Boolean(root?.remoteId);
+  // 标题上的连接提示与目录树说同一件事：目的地来自连接列表，状态由目录树写进 store。
+  const connections = useRemoteConnections(root?.remoteId ?? '');
+  const activity = useRemoteActivity((s) => s.byProject);
   const selected = useTreeState((s) => s.selected);
   const expanded = useTreeState((s) => s.expanded);
   const query = useTreeState((s) => s.query);
@@ -284,14 +291,30 @@ export function WorkbenchExplorer({
             >
               <PanelLeft className="size-3.5" strokeWidth={1.8} />
             </button>
-            <button
-              className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:text-ink"
-              onClick={() => useTreeState.getState().select(rootId)}
-              title={projectId ? (root?.name ?? '项目与文件夹') : '资料'}
-              type="button"
-            >
-              {projectId ? (root?.name ?? '项目与文件夹') : '资料'}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:text-ink"
+                  onClick={() => useTreeState.getState().select(rootId)}
+                  title={
+                    remoteRoot ? undefined : projectId ? (root?.name ?? '项目与文件夹') : '资料'
+                  }
+                  type="button"
+                >
+                  {projectId ? (root?.name ?? '项目与文件夹') : '资料'}
+                </button>
+              </TooltipTrigger>
+              {/* 远端项目的标题挂着连接提示：空白期里「连的是哪台、在不在连」在这里能查到。 */}
+              {remoteRoot && root && (
+                <TooltipContent className="px-2.5 py-2" side="bottom">
+                  <RemoteConnectionTip
+                    activity={activity[root.id]}
+                    connection={connections[root.remoteId!]}
+                    project={root}
+                  />
+                </TooltipContent>
+              )}
+            </Tooltip>
             <div className="flex shrink-0 items-center gap-0.5">
               {/* 远端项目的项目级动作放在 header：端口预览是跟着服务器走的，上传到项目根是
                   最高频的上传场景；往子目录里传仍用目录行右键或拖放（那里才有目录语义）。 */}

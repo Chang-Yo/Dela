@@ -4,9 +4,15 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, HelperDegradation, WorkspaceEntry } from '../../shared/api';
-import { ProjectFileTree } from './ProjectFileTree';
+import type {
+  DelaApi,
+  HelperDegradation,
+  RemoteDirectoryEntry,
+  WorkspaceEntry,
+} from '../../shared/api';
+import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
 import { remoteAccent } from './remote-color';
+import { useRemoteActivity } from './remote-activity';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -39,6 +45,8 @@ beforeEach(() => {
     },
   );
   window.addEventListener('blur', suppressStrayWindowBlur, true);
+  // 取数状态是模块级 store：逐条用例清空，免得「正在连接」从上一条带过来。
+  useRemoteActivity.setState({ byProject: {} });
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -575,4 +583,45 @@ it('keeps rename and move on a local project row', async () => {
   await act(async () => openRowMenu('本地项目'));
   expect(menuLabels()).toContain('重命名');
   expect(menuLabels()).toContain('移动到…');
+});
+
+it('shows the connecting hint while a remote root is still being read', async () => {
+  // 冷启动要几秒：这段时间面板原本一片空白，会被当成「这个项目没有文件」。
+  let release: (items: RemoteDirectoryEntry[]) => void = () => {};
+  const listRemoteDirectory = vi.fn(
+    () => new Promise<RemoteDirectoryEntry[]>((resolve) => (release = resolve)),
+  );
+  window.dela = {
+    remotes: { list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }] },
+    workspace: { listRemoteDirectory },
+  } as unknown as DelaApi;
+  const slow: WorkspaceEntry = { ...remoteProject, id: 'p-slow', name: '慢项目' };
+
+  await act(async () =>
+    root.render(
+      <ProjectFileTree
+        entries={[slow]}
+        expanded={['p-slow']}
+        onAction={() => {}}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        query=""
+        rootId="p-slow"
+        selected={null}
+      />,
+    ),
+  );
+  // 热通道几十毫秒就回来：先什么都不画，避免每次打开都闪一下转圈。
+  expect(document.querySelector('[role="status"]')).toBeNull();
+  await act(async () => new Promise((resolve) => setTimeout(resolve, CONNECT_HINT_DELAY_MS + 50)));
+  expect(document.querySelector('[role="status"]')?.textContent).toContain('正在连接远端');
+
+  // 清单到手后过渡让位给内容。
+  await act(async () =>
+    release([
+      { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
+    ]),
+  );
+  expect(document.querySelector('[role="status"]')).toBeNull();
+  expect(row('src')).toBeTruthy();
 });
