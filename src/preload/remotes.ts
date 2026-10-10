@@ -1,4 +1,5 @@
 import type {
+  HelperDegradation,
   RemoteApi,
   RemoteBrowseResult,
   RemoteConnection,
@@ -17,4 +18,5 @@ export const remotes: RemoteApi = {
   pickKey: () => invoke('remotes:pick-key') as Promise<string | null>,
   prepare: (draft) => invoke('remotes:prepare', draft) as Promise<RemotePrepare>,
   onSetupProgress: (listener) => on<RemoteSetupProgress>('remotes:setup-progress', listener),
+  onHelperState: (listener) => on<HelperDegradation | null>('remotes:helper-state', listener),
 };

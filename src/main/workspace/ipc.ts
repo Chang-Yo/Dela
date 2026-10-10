@@ -29,6 +29,7 @@ import {
 import { listRemoteDirectory } from '../remotes/operations';
 import { readRemoteDocument } from '../remotes/documents';
 import { downloadRemoteFile, openRemoteFile, uploadLocalFile } from '../remotes/transfer';
+import { closeRemotePort, openRemotePort, remotePortsState } from '../remotes/ports';
 import { notifyRemoteChange } from '../remotes/events';
 import { watchRemoteProject } from '../remotes/watch';
 import { resourceRefSchema } from '../../shared/resources';
@@ -242,6 +243,21 @@ export function registerWorkspaceIpc(
   handle('open-remote-file', async (projectId, path) => {
     const { target, root } = remoteTargetOf(projectId);
     await openRemoteFile(target, remotePathIn(root, path));
+  });
+  // 端口预览：清单 + 已开隧道一次回；打开/停止按「项目目标 + 远端端口」定位同一条隧道。
+  // 隧道不经 helper 通道，helper 不可用只影响清单（面板把原因展示出来）。
+  handle('remote-ports', async (projectId) => {
+    const { target } = remoteTargetOf(projectId);
+    return remotePortsState(target);
+  });
+  handle('remote-port-open', async (projectId, port) => {
+    const { target } = remoteTargetOf(projectId);
+    const localPort = await openRemotePort(target, z.number().int().min(1).max(65535).parse(port));
+    return { localPort };
+  });
+  handle('remote-port-close', (projectId, port) => {
+    const { target } = remoteTargetOf(projectId);
+    closeRemotePort(target, z.number().int().min(1).max(65535).parse(port));
   });
   handle('upload-remote-files', async (projectId, directory, paths) => {
     const { target, root } = remoteTargetOf(projectId);

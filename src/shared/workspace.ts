@@ -1,5 +1,5 @@
 import type { DocumentContent, OfficeExportEvent } from './documents';
-import type { RemoteDirectoryEntry } from './remotes';
+import type { RemoteDirectoryEntry, RemotePortsState } from './remotes';
 import type { ResourceRef } from './resources';
 import { z } from 'zod';
 
@@ -99,6 +99,12 @@ export interface WorkspaceApi {
   uploadRemoteFiles(projectId: string, directory: string, files: File[] | null): Promise<string[]>;
   /** 远端某个目录可能变了（工具写过文件或跑过 bash）；返回取消订阅。 */
   onRemoteChange(listener: (path: string) => void): () => void;
+  /** 远端监听端口与已开隧道（端口预览面板一次拿全）；需要 helper 通道。 */
+  remotePorts(projectId: string): Promise<RemotePortsState>;
+  /** 开（或复用）一条远端端口隧道并在系统浏览器打开；返回本地端口。 */
+  openRemotePort(projectId: string, port: number): Promise<{ localPort: number }>;
+  /** 停掉这个项目的一条远端端口隧道。 */
+  closeRemotePort(projectId: string, port: number): Promise<void>;
   /** 报上当前展开的远端目录做 watch（空数组 = 取消）；回报真正被监视的目录数。 */
   watchRemoteDirectories(projectId: string, paths: string[]): Promise<{ watching: number }>;
   /** 远程项目的 @ 候选：key 为远端绝对路径，title 为相对项目目录的路径。 */

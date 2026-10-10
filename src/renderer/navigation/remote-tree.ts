@@ -3,7 +3,7 @@
 // 子条目 id 是「项目 id + 远端绝对路径」（shared/remotes 的 remoteNodeId）：只用路径
 // 会让两台连接上的同路径目录串成同一个节点（清单、展开态、选中态都会混）。
 import { useEffect, useRef, useState } from 'react';
-import type { RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
+import type { HelperDegradation, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
 import type { ExplorerItem } from '../components/ui/explorer';
 import { errorText } from '../workspace/store';
@@ -33,6 +33,8 @@ export interface RemoteTree {
   destinations: Record<string, string>;
   /** 正在读取或读取失败的说明；无则 null。 */
   status: string | null;
+  /** helper 通道降级提示（对准这棵树里可见的项目）；无则 null。 */
+  degraded: string | null;
 }
 
 /**
@@ -48,6 +50,7 @@ export function useRemoteTree(
   const [listings, setListings] = useState<Record<string, RemoteDirectoryEntry[]>>({});
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [destinations, setDestinations] = useState<Record<string, string>>({});
+  const [degradation, setDegradation] = useState<HelperDegradation | null>(null);
   const inFlight = useRef(new Set<string>());
   /** 已缓存清单：远端路径供变化通知判断过期，项目 id 供上报 watch 分组。 */
   const listed = useRef(new Map<string, { projectId: string; path: string }>());
@@ -102,6 +105,13 @@ export function useRemoteTree(
     return () => {
       live = false;
     };
+  }, [hasRemote]);
+
+  // helper 通道的降级状态由主进程推：只提示对得上目的地的项目，别的服务器降级不打扰这棵树。
+  useEffect(() => {
+    const remotes = window.dela?.remotes;
+    if (!hasRemote || !remotes?.onHelperState) return;
+    return remotes.onHelperState(setDegradation);
   }, [hasRemote]);
 
   // 收起时清掉失败记录：再次展开重试一次，避免一次网络抖动后目录永久打不开。
@@ -262,5 +272,12 @@ export function useRemoteTree(
   // 只报失败：读取中的提示会在每次展开/收起时插进、抽走一行，整棵树跟着上下跳。
   const status = Object.values(failed)[0] ?? null;
 
-  return { items, destinations, status };
+  // 降级提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
+  const degraded =
+    degradation &&
+    projects.some((project) => destinations[project.remoteId!] === degradation.destination)
+      ? `${degradation.destination} 的 helper 通道不可用，已退回一次性 ssh：${degradation.reason}`
+      : null;
+
+  return { items, destinations, status, degraded };
 }

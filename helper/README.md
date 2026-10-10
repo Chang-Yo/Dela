@@ -35,6 +35,7 @@ pnpm build:helper --all    # 同时出 linux/arm64
 | POST   | `/v1/fs/stat`                       | 批量状态（远端预览取 size/mtime）                               |
 | GET    | `/v1/fs/read?path=&offset=&length=` | 片段读取（二进制安全）                                          |
 | PUT    | `/v1/fs/write?path=`                | 原子写（同目录临时文件 + rename）                               |
+| GET    | `/v1/ports`                         | 回环与通配地址上监听的 TCP 端口（helper 自身除外，带 pid/进程） |
 | POST   | `/v1/watch`                         | 替换某个 id 的监视目录集合（不递归）                            |
 | DELETE | `/v1/watch?id=`                     | 停掉某 id 的全部监视（幂等）                                    |
 | GET    | `/v1/watch`                         | SSE：目录结构变化 / 需要重读；安静时每 30 秒一条 `: keep-alive` |

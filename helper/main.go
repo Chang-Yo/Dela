@@ -34,6 +34,8 @@ type server struct {
 	idle   time.Duration
 	logger *log.Logger
 	http   *http.Server
+	// bound：自己监听的端口。端口发现要把它从清单里排除（用户要预览的是别的服务）。
+	bound int
 
 	watch *watchHub
 
@@ -77,6 +79,7 @@ func (s *server) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/fs/read", s.auth(s.handleRead))
 	mux.HandleFunc("/v1/fs/write", s.auth(s.handleWrite))
 	mux.HandleFunc("/v1/watch", s.auth(s.handleWatch))
+	mux.HandleFunc("/v1/ports", s.auth(s.handlePorts))
 	mux.HandleFunc("/v1/exec", s.auth(s.handleExec))
 	mux.HandleFunc("/v1/exec/", s.auth(s.handleExecAction))
 }
@@ -152,6 +155,7 @@ func main() {
 		token:    token,
 		idle:     *idle,
 		logger:   logger,
+		bound:    bound,
 		lastSeen: time.Now(),
 		tasks:    map[string]*task{},
 		watch:    newWatchHub(logger),

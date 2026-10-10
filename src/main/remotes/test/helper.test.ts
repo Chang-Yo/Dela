@@ -197,6 +197,39 @@ live('helper 通道（需要 DELA_REMOTE_HOST）', () => {
     await exec(target, `rm -rf ${dir}`);
   }, 120_000);
 
+  it('端口发现：远端自己起的监听进程会出现在清单里，进程结束就消失', async () => {
+    const session = await helperSession(target);
+    expect(session).not.toBeNull();
+    const port = 18377;
+    const controller = new AbortController();
+    // python3 在采样的远端环境里都有；--bind 127.0.0.1 与 ssh -L 的转发目标一致。
+    const task = session!.exec(`python3 -m http.server ${port} --bind 127.0.0.1`, {
+      cwd: '/tmp',
+      signal: controller.signal,
+    });
+    try {
+      let found: { port: number; pid?: number; process?: string } | undefined;
+      for (let i = 0; i < 50 && !found; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        found = (await session!.listPorts()).find((entry) => entry.port === port);
+      }
+      expect(found, '远端 python3 起的端口应出现在清单里').toBeTruthy();
+      expect(found!.process).toBe('python3');
+
+      controller.abort();
+      await task.catch(() => {});
+      let gone = false;
+      for (let i = 0; i < 50 && !gone; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        gone = !(await session!.listPorts()).some((entry) => entry.port === port);
+      }
+      expect(gone, '进程退出后端口应从清单里消失').toBe(true);
+    } finally {
+      controller.abort();
+      await task.catch(() => {});
+    }
+  }, 60_000);
+
   it('放掉通道只关本地隧道，远端 helper 交给空闲自退', async () => {
     const session = await helperSession(target);
     const port = session!.port;

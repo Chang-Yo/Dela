@@ -1,7 +1,7 @@
 import { webUtils } from 'electron';
 import type { OfficeExportEvent, WorkspaceApi, WorkspaceCreateInput } from '../shared/api';
 import type { DocumentContent } from '../shared/documents';
-import type { RemoteDirectoryEntry } from '../shared/remotes';
+import type { RemoteDirectoryEntry, RemotePortsState } from '../shared/remotes';
 import type { ResourceRef } from '../shared/resources';
 import { invoke, on } from './lib';
 
@@ -45,6 +45,12 @@ export const workspace = {
   },
   /** 远端某个目录可能变了（工具写过文件或跑过 bash）：目录树据此重读。 */
   onRemoteChange: (listener: (path: string) => void) => on('workspace:remote-change', listener),
+  remotePorts: (projectId: string) =>
+    invoke('workspace:remote-ports', projectId) as Promise<RemotePortsState>,
+  openRemotePort: (projectId: string, port: number) =>
+    invoke('workspace:remote-port-open', projectId, port) as Promise<{ localPort: number }>,
+  closeRemotePort: (projectId: string, port: number) =>
+    invoke('workspace:remote-port-close', projectId, port) as Promise<void>,
   /** 报上当前展开的远端目录，让远端帮我们盯着它们（空数组 = 取消监视）。 */
   watchRemoteDirectories: (projectId: string, paths: string[]) =>
     invoke('workspace:watch-remote', projectId, paths) as Promise<{ watching: number }>,

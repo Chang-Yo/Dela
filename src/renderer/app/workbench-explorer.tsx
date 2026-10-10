@@ -45,6 +45,7 @@ import {
   runEntryWork,
 } from '../workspace/entry-actions';
 import { useWorkspaceStore } from '../workspace/store';
+import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
 import { cn } from '../lib/utils';
 import { overlayFade } from '../components/ui/motion';
@@ -173,9 +174,15 @@ export function WorkbenchExplorer({
     });
   };
   // 远端动作的失败与本地条目动作同一个出口（workspace store 的错误条）。
-  const remoteAction = (action: 'download' | 'open' | 'upload', id: string) => {
+  const [portsForProject, setPortsForProject] = useState<string | null>(null);
+  const remoteAction = (action: 'download' | 'open' | 'upload' | 'ports', id: string) => {
     const remote = parseRemoteNodeId(id);
     if (!remote) return;
+    // 端口预览是自己的弹窗，不进 runEntryWork 的错误条（面板里自己报错）。
+    if (action === 'ports') {
+      setPortsForProject(remote.projectId);
+      return;
+    }
     void runEntryWork(async () => {
       const workspace = window.dela!.workspace;
       if (action === 'download') await workspace.downloadRemoteFile(remote.projectId, remote.path);
@@ -536,6 +543,13 @@ export function WorkbenchExplorer({
         onResizingChange={setResizing}
         value={width}
       />
+      {portsForProject !== null && (
+        <RemotePortsDialog
+          onClose={() => setPortsForProject(null)}
+          open
+          projectId={portsForProject}
+        />
+      )}
     </>
   );
 }

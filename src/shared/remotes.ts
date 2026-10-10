@@ -47,6 +47,34 @@ export interface RemotePrepare {
   helper: boolean;
 }
 
+/** helper 通道的降级状态：通道建立失败后 Dela 正在用一次性 ssh。
+ *  哪台服务器用不了 helper，就按目的地对准哪台的项目提示；通道恢复后推 null。 */
+export interface HelperDegradation {
+  /** ssh 目的地（host），与连接里的 host 字段一致。 */
+  destination: string;
+  /** 给人看的原因：分类诊断（noexec／只读挂载／SELinux）或原始错误。 */
+  reason: string;
+}
+
+/** 远端监听端口（/v1/ports）：归属拿不到（别的用户的进程）时 pid/process 缺省。 */
+export interface RemotePortEntry {
+  port: number;
+  pid?: number;
+  process?: string;
+}
+
+/** 一条已建立的端口隧道：浏览器从本机回环访问远端端口。 */
+export interface RemotePortTunnel {
+  remotePort: number;
+  localPort: number;
+}
+
+/** 端口预览面板的一次快照：清单与已开隧道一起回，面板不用自己记状态。 */
+export interface RemotePortsState {
+  ports: RemotePortEntry[];
+  tunnels: RemotePortTunnel[];
+}
+
 export interface RemoteDirectoryEntry {
   name: string;
   /** 远端绝对路径（POSIX）。 */
@@ -125,4 +153,6 @@ export interface RemoteApi {
   prepare(draft: RemoteDraft): Promise<RemotePrepare>;
   /** 订阅引导进度；返回退订函数。 */
   onSetupProgress(listener: (progress: RemoteSetupProgress) => void): () => void;
+  /** 订阅 helper 降级状态；通道建立失败推原因，恢复或切换后推 null。 */
+  onHelperState(listener: (state: HelperDegradation | null) => void): () => void;
 }

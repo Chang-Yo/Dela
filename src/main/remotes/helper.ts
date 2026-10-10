@@ -16,7 +16,7 @@ import { request as httpRequest } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
 import { app } from 'electron';
-import type { RemoteSetupProgress } from '../../shared/remotes';
+import type { HelperDegradation, RemoteSetupProgress } from '../../shared/remotes';
 import {
   exec,
   locateSsh,
@@ -68,6 +68,47 @@ export function helperRemoteDir(digest: string): string {
   return `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
 }
 
+/**
+ * 分类受限环境的诊断输出（一行 key=value，竖线分隔）。
+ * noexec／只读挂载／SELinux 的表象都一样——helper 起不来，原因必须单独问一次才说得清。
+ * 只有「直接执行也失败」时才谈得上执行被拦；分类不出返回 null，让原始错误自己说话。
+ */
+export function classifyEnvironment(output: string): string | null {
+  const values = new Map<string, string>();
+  for (const pair of output.split('|')) {
+    const cut = pair.indexOf('=');
+    if (cut > 0) values.set(pair.slice(0, cut).trim(), pair.slice(cut + 1).trim());
+  }
+  const options = (values.get('mount') ?? '').split(',').map((option) => option.trim());
+  const execDenied = (values.get('direct') ?? '').startsWith('exit-');
+  if (options.includes('noexec'))
+    return 'helper 目录所在挂载点启用了 noexec，服务器不允许执行这里的文件';
+  if (options.includes('ro')) return 'helper 目录所在挂载点是只读的（$HOME 可能被设为只读）';
+  if (values.get('writable') === 'no') return 'helper 目录不可写（权限不足或只读 $HOME）';
+  if (execDenied && values.get('selinux') === 'Enforcing')
+    return 'SELinux 处于 Enforcing，拦截了 helper 的执行';
+  if (execDenied) return '直接执行 helper 被拒绝（通常是 noexec 或安全模块拦截）';
+  return null;
+}
+
+/** 启动失败后的诊断：只读探查，不改动远端任何东西；诊断本身失败不影响原有错误信息。 */
+async function diagnoseEnvironment(target: RemoteTarget, dir: string): Promise<string | null> {
+  try {
+    const script = [
+      `dir=${dir}`,
+      `printf 'mount='; findmnt -no OPTIONS -T "$dir" 2>/dev/null || true`,
+      `printf '|writable='; [ -w "$dir" ] && echo yes || echo no`,
+      `printf '|selinux='; getenforce 2>/dev/null || echo absent`,
+      `printf '|direct='; "$dir/dela-helper" --version >/dev/null 2>&1 && echo ok || echo "exit-$?"`,
+    ].join('\n');
+    const result = await exec(target, script, { timeoutMs: BOOTSTRAP_TIMEOUT_MS });
+    if (result.code !== 0) return null;
+    return classifyEnvironment(result.stdout.toString());
+  } catch {
+    return null;
+  }
+}
+
 /** 隧道参数：与一次性调用的连接参数同源，只多一个 -L 与 -N。 */
 export function tunnelArguments(
   target: RemoteTarget,
@@ -83,6 +124,42 @@ export function tunnelArguments(
     `127.0.0.1:${localPort}:127.0.0.1:${remotePort}`,
     target.host,
   ];
+}
+
+/**
+ * 端口预览用的独立隧道：只做本地收尾，与 helper 通道无关——通道切换、放掉都不影响它，
+ * 生命周期归调用方（显式停止或应用退出）。远端服务死了隧道还在：它只是一条转发管道，
+ * 连不上时浏览器报连接拒绝，这就是准确的反馈，不值得为此探活。
+ */
+export async function openPortTunnel(
+  target: RemoteTarget,
+  remotePort: number,
+): Promise<PortTunnel> {
+  const localPort = await freePort();
+  const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
+    windowsHide: true,
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  let stderr = '';
+  tunnel.stderr?.on('data', (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  try {
+    await waitForPort(localPort, TUNNEL_READY_MS);
+  } catch (error) {
+    tunnel.kill();
+    const detail = stderr.trim();
+    throw detail ? new Error(`${String(error)}｜${detail}`) : error;
+  }
+  let closed = false;
+  return {
+    localPort,
+    close() {
+      if (closed) return;
+      closed = true;
+      tunnel.kill();
+    },
+  };
 }
 
 export interface HelperExecOptions {
@@ -109,6 +186,19 @@ export interface HelperStat {
   modifiedAt: number;
 }
 
+/** 远端监听端口（/v1/ports）：pid 与进程名拿不到（别的用户）时缺省。 */
+export interface HelperPort {
+  port: number;
+  pid?: number;
+  process?: string;
+}
+
+/** 端口预览的独立隧道：与 helper 通道无关，通道切换不影响它。 */
+export interface PortTunnel {
+  localPort: number;
+  close(): void;
+}
+
 export interface HelperSession {
   target: RemoteTarget;
   /** 隧道本地端口，仅用于诊断展示。 */
@@ -129,6 +219,8 @@ export interface HelperSession {
   /** 替换某个 id 的目录监视集合（只监视这些目录本身，不递归）。 */
   setWatch(id: string, paths: string[]): Promise<{ watching: number; skipped: string[] }>;
   clearWatch(id: string): Promise<void>;
+  /** 远端监听端口（回环与通配地址，helper 自己的除外）：端口预览用。 */
+  listPorts(): Promise<HelperPort[]>;
   /** 目录事件流：resolve 表示流结束（通道断/helper 退出），由调用方决定是否重连。 */
   watchEvents(onEvent: (event: WatchEvent) => void, signal?: AbortSignal): Promise<void>;
   exec(command: string, options: HelperExecOptions): Promise<HelperExecResult>;
@@ -432,6 +524,12 @@ function createSession(target: RemoteTarget, port: number, token: string): Helpe
     },
     watchEvents: (onEvent, signal) => runWatch(port, token, onEvent, signal),
     exec: (command, options) => runExec(port, token, command, options),
+    async listPorts() {
+      const response = await sendRequest(port, token, 'GET', '/v1/ports');
+      assertOk(response, '列出远端端口');
+      const body = JSON.parse(response.body.toString()) as { ports?: HelperPort[] };
+      return body.ports ?? [];
+    },
   };
 }
 
@@ -660,9 +758,13 @@ async function ensure(
   await ensureArtifact(target, dir, artifact, digest, onProgress);
 
   const token = randomBytes(24).toString('hex');
-  const remotePort = await startHelper(target, dir, token).catch((error: unknown) =>
-    fail('start', error),
-  );
+  const remotePort = await startHelper(target, dir, token).catch(async (error: unknown) => {
+    // 起不来的最常见原因是受限环境（noexec／只读挂载／SELinux），表象全是同一个：
+    // 先问一次远端把原因分类出来，向导日志与降级提示才有的放矢。
+    const message = error instanceof Error ? error.message : String(error);
+    const diagnosis = await diagnoseEnvironment(target, dir);
+    fail('start', diagnosis ? new Error(`${message}（诊断：${diagnosis}）`) : error);
+  });
   onProgress?.({ step: 'start', ok: true, detail: `远端 127.0.0.1:${remotePort}` });
   const localPort = await freePort();
   const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
@@ -716,6 +818,20 @@ async function ensure(
 /** 同一时刻只保一条通道：切到别的连接就关掉旧的，避免 Dela 后面留一串 helper。 */
 let current: { key: string; channel: Promise<ActiveChannel | null> } | null = null;
 
+/** 降级状态变化（helper 通道建起来 / 建不起来）广播给界面：树与向导据此提示。 */
+const degradationListeners = new Set<(degradation: HelperDegradation | null) => void>();
+
+export function onHelperDegradation(
+  listener: (degradation: HelperDegradation | null) => void,
+): () => void {
+  degradationListeners.add(listener);
+  return () => degradationListeners.delete(listener);
+}
+
+function setDegradation(degradation: HelperDegradation | null): void {
+  for (const listener of degradationListeners) listener(degradation);
+}
+
 export async function helperSession(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
@@ -725,12 +841,18 @@ export async function helperSession(
   if (!current) {
     const channel = ensure(target, onProgress).catch((error: unknown) => {
       console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
+      // 降级提示按目的地对准项目：哪台服务器的 helper 用不了，哪台的项目知道。
+      setDegradation({
+        destination: target.host,
+        reason: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+      });
       return null;
     });
     current = { key, channel };
     // 建立失败不留在 current 上：否则这一轮之后每次调用都立刻拿到 null，本进程再也不会重建通道。
     void channel.then((active) => {
-      if (!active && current?.channel === channel) current = null;
+      if (active) setDegradation(null);
+      else if (current?.channel === channel) current = null;
     });
   }
   const active = await current.channel;

@@ -11,11 +11,13 @@ import {
   FilePlus2,
   FolderPlus,
   FolderKanban,
+  Globe,
   Pencil,
   Trash2,
   FolderInput,
   FileInput,
   PanelRightOpen,
+  TriangleAlert,
   Upload,
 } from 'lucide-react';
 import type { WorkspaceEntry } from '../../shared/api';
@@ -61,8 +63,8 @@ export function ProjectFileTree({
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
   onOpenToSide?: (id: string) => void;
-  /** 远端条目的动作：文件可下载/用系统程序打开，目录可上传本地文件。 */
-  onRemoteAction?: (action: 'download' | 'open' | 'upload', id: string) => void;
+  /** 远端条目的动作：文件可下载/用系统程序打开，目录可上传本地文件、预览远端端口。 */
+  onRemoteAction?: (action: 'download' | 'open' | 'upload' | 'ports', id: string) => void;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
@@ -133,7 +135,7 @@ export function ProjectFileTree({
     onSelect(id);
   };
   // 失败出口与本地条目动作一致：接线方用 runEntryWork 收进 workspace store 的错误条。
-  const runRemote = (action: 'download' | 'open' | 'upload', id: string) =>
+  const runRemote = (action: 'download' | 'open' | 'upload' | 'ports', id: string) =>
     onRemoteAction?.(action, id);
   /** 两个菜单共用的触发器与「在侧边打开」：本地菜单的其余项远端一个都不能给。 */
   const menuTrigger = (name: string) => (
@@ -158,10 +160,16 @@ export function ProjectFileTree({
       {menuTrigger(item.name)}
       <DropdownMenuContent align="start">
         {item.container ? (
-          <DropdownMenuItem onSelect={() => runRemote('upload', item.id)}>
-            <Upload />
-            上传本地文件
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem onSelect={() => runRemote('ports', item.id)}>
+              <Globe />
+              预览远端端口…
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => runRemote('upload', item.id)}>
+              <Upload />
+              上传本地文件
+            </DropdownMenuItem>
+          </>
         ) : (
           <>
             <DropdownMenuItem onSelect={() => runRemote('download', item.id)}>
@@ -180,6 +188,12 @@ export function ProjectFileTree({
   );
   return (
     <>
+      {remote.degraded && (
+        <p className="flex items-start gap-1.5 px-3 py-2 text-[12px] [overflow-wrap:anywhere] text-ink-3">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span>{remote.degraded}</span>
+        </p>
+      )}
       {remote.status && (
         <p className="px-3 py-2 text-[12px] [overflow-wrap:anywhere] text-ink-3" role="status">
           {remote.status}
