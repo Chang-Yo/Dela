@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron';
 import type {
   ChatAskInput,
+  ChatScope,
   ChatStreamEvent,
   RunEvent,
   SessionApi,
@@ -14,7 +15,8 @@ export const session = {
     invoke('session:update', id, patch),
   archiveProject: (id: string | null) => invoke('session:archive-project', id),
   list: (projectId: string | null, query = '') => invoke('session:list', projectId, query),
-  create: (projectId: string | null) => invoke('session:create', projectId),
+  create: (projectId: string | null, scope: ChatScope) =>
+    invoke('session:create', projectId, scope),
   open: (sessionId: string) => invoke('session:open', sessionId),
   remove: (sessionId: string) => invoke('session:remove', sessionId),
   ask: (sessionId: string, input: ChatAskInput) => invoke('session:ask', sessionId, input),

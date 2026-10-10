@@ -189,6 +189,7 @@ export { workspaceArchiveId } from './workspace';
 export type {
   AgentToolOutput,
   AgentToolResult,
+  ChatScope,
   ChatSessionSummary,
   ContextUsageView,
   WorkspaceChat,

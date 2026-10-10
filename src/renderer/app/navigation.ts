@@ -241,7 +241,11 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       const target = projectId === null && !openInWorkbench ? 'home' : 'workbench';
       if (!window.dela || !get().navigate(target)) return null;
       try {
-        const chat = await window.dela.session.create(projectId);
+        // 通用会话的工作目录跟着落位走：首页随聊用私有目录，资料页用资料树里的课程目录。
+        const chat = await window.dela.session.create(
+          projectId,
+          openInWorkbench ? 'library' : 'chat',
+        );
         if (!chat.sessionId) throw new Error('会话创建失败');
         useSessions.getState().putChat(chat.sessionId, chat);
         // 兼容此前连续新建留下的空标签；仅关闭视图，不删除会话和输入草稿。

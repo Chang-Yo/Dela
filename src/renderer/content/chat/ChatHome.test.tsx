@@ -138,6 +138,8 @@ it('回到首页接着上次会话，清空运行内存（重启）后才是新�
   await act(async () => useNavigationStore.setState({ lastHomeSessionId: null }));
   await act(async () => useNavigationStore.getState().openGeneralChat(false));
   expect(create).toHaveBeenCalledTimes(1);
+  // 首页发起的通用会话落在随聊私有目录，不认资料页那一档。
+  expect(create).toHaveBeenCalledWith(null, 'chat');
 });
 
 it('打开随聊历史留在首页，展示指定会话而不是创建空会话或资料标签', async () => {

@@ -98,6 +98,7 @@
 - 新增 workspace:project-branches 与 switch-project-branch；分支名在 main 侧校验，避免被当成 git 选项
 - 修复随聊 @ 候选串项目：通用池 cwd 是工作区根，改为排除其他项目目录里的文件
 - 会话 cwd 入库：随聊改用私有 chat-sessions 目录
+- 资料页会话 cwd 落资料树 courses，空会话分档不复用
 
 ## 2026-10-09
 

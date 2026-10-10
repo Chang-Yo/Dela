@@ -122,7 +122,8 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
               .find((id) => id !== null && generalIds.has(id)) ?? null;
         }
         if (!sessionId) {
-          const chat = await dela.session.create(null);
+          // 这里是资料页（通用工作台）的通用池，新会话落在资料树的课程目录。
+          const chat = await dela.session.create(null, 'library');
           if (!chat.sessionId) throw new Error('会话创建失败');
           useSessions.getState().putChat(chat.sessionId, chat);
           void useSessions

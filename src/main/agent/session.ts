@@ -14,6 +14,7 @@ import type { ImageContent, TextContent } from '@earendil-works/pi-ai';
 import type {
   AgentToolResult,
   ChatAskInput,
+  ChatScope,
   ChatSessionSummary,
   ContextUsageView,
   RunStatus,
@@ -70,9 +71,19 @@ function row(id: string): SessionRow {
   return found;
 }
 
+/** 资料页会话的工作目录：课件根目录，与 workspace 平级（Canvas 下载落在这里）。 */
+const coursesDirectory = () => join(storageDirectory(), 'courses');
+
 /** 通用会话的私有工作目录：与 workspace 平级的 chat-sessions/<会话 id>，建会话时建好。 */
 function chatSessionDirectory(id: string) {
   const dir = join(storageDirectory(), 'chat-sessions', id);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** 资料页会话的工作目录：课程目录缺失时建好，会话因此直接看到全部课件。 */
+function libraryDirectory() {
+  const dir = coursesDirectory();
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -438,18 +449,38 @@ export function archivedSessions(): ChatSessionSummary[] {
     .all() as ChatSessionSummary[];
 }
 
-/** 每个项目只保留一个空会话入口；文件在首条消息后由 Pi 写出。
- *  通用会话建自己的私有目录并写进 cwd 列，项目会话留 NULL 继续按项目目录解析。 */
-export function newSession(projectId: string | null): WorkspaceChat {
-  if (projectId !== null) sessionCwd(projectId, null);
-  const empty = getDatabase()
+/** 通用池的空会话入口：cwd 是课件根目录的是资料页会话，其余非 NULL 的是随聊，两档互不复用；
+ *  cwd 为 NULL 的旧会话两边都不认，免得新会话落在别人的工作目录里。 */
+function emptyGeneralSessionId(scope: ChatScope): string | undefined {
+  const row = getDatabase()
     .prepare(
-      'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 ORDER BY updated_at DESC LIMIT 1',
+      `SELECT id FROM sessions WHERE project_id IS NULL AND archived = 0 AND message_count = 0
+       AND cwd IS NOT NULL AND cwd IS ${scope === 'library' ? '?' : 'NOT ?'}
+       ORDER BY updated_at DESC LIMIT 1`,
     )
-    .get(projectId) as { id: string } | undefined;
-  if (empty && !live.get(empty.id)?.run) return snapshot(empty.id);
+    .get(coursesDirectory()) as { id: string } | undefined;
+  return row?.id;
+}
+
+/** 每个项目只保留一个空会话入口；文件在首条消息后由 Pi 写出。
+ *  通用会话建自己的私有目录（随聊）或课件根目录（资料页）并写进 cwd 列，项目会话留 NULL
+ *  继续按项目目录解析。 */
+export function newSession(projectId: string | null, scope: ChatScope): WorkspaceChat {
+  if (projectId !== null) sessionCwd(projectId, null);
+  const empty =
+    projectId === null
+      ? emptyGeneralSessionId(scope)
+      : (
+          getDatabase()
+            .prepare(
+              'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 ORDER BY updated_at DESC LIMIT 1',
+            )
+            .get(projectId) as { id: string } | undefined
+        )?.id;
+  if (empty && !live.get(empty)?.run) return snapshot(empty);
   const id = randomUUID();
-  const cwd = projectId === null ? chatSessionDirectory(id) : null;
+  const cwd =
+    projectId !== null ? null : scope === 'library' ? libraryDirectory() : chatSessionDirectory(id);
   const now = new Date().toISOString();
   getDatabase()
     .prepare(

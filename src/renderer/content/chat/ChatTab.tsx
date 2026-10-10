@@ -30,7 +30,9 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
   const projectId = useSessions((state) =>
     sessionId ? (state.chats[sessionId]?.projectId ?? null) : null,
   );
-  const session = useChatSession(projectId, sessionId ?? '');
+  // 新建的通用会话跟着所在页走：首页是随聊私有目录，工作台（资料页）落资料树的课程目录。
+  const scope = useNavigationStore((state) => (state.view === 'home' ? 'chat' : 'library'));
+  const session = useChatSession(projectId, sessionId ?? '', scope);
   const referenceSource = source?.referenceSource;
 
   if (sessionId === null) {

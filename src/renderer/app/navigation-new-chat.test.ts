@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 // 「新建对话」的落位：已在通用池工作台（资料页）里发起时就地开标签，用户不该被甩回首页；
 // 落位与资料页标题栏「新聊天」一致——单组向右分屏，多组进最右组。首页发起时仍回首页聊天。
+// 通用会话的工作目录归属跟着发起页走：资料页的落在课程目录，首页的落在随聊私有目录。
 import { beforeEach, expect, it } from 'vitest';
-import type { DelaApi, WorkspaceChat } from '../../shared/api';
+import type { ChatScope, DelaApi, WorkspaceChat } from '../../shared/api';
 import { useSessions } from '../sessions/store';
 import { createDefaultLayout, walkGroups } from '../workbench/layout-schema';
 import { useWorkbenchLayout } from '../workbench/layout-store';
@@ -24,8 +25,11 @@ function emptyChat(sessionId: string): WorkspaceChat {
 }
 
 const groups = () => walkGroups(useWorkbenchLayout.getState().root);
+/** 每次 session.create 的实参（通用会话的工作目录归属由它决定）。 */
+const creates: Array<[string | null, ChatScope]> = [];
 
 beforeEach(() => {
+  creates.length = 0;
   useNavigationStore.setState({
     view: 'home',
     projectId: null,
@@ -39,7 +43,10 @@ beforeEach(() => {
   window.dela = {
     layout: { get: async () => null, save: async () => {} },
     session: {
-      create: async () => emptyChat('new'),
+      create: async (projectId: string | null, scope: ChatScope) => {
+        creates.push([projectId, scope]);
+        return emptyChat('new');
+      },
       list: async () => [],
       open: async (id: string) => useSessions.getState().chats[id]!,
     },
@@ -88,4 +95,16 @@ it('首页新建对话仍落在首页聊天', async () => {
     sessionId: 'new',
   });
   expect(useNavigationStore.getState().reveal).toBeNull();
+});
+
+it('通用会话的归属跟着发起页走：资料页 library，首页 chat', async () => {
+  useNavigationStore.setState({ view: 'workbench', projectId: null });
+  await useNavigationStore.getState().newChat(null);
+  useNavigationStore.setState({ view: 'home' });
+  await useNavigationStore.getState().newChat(null);
+
+  expect(creates).toEqual([
+    [null, 'library'],
+    [null, 'chat'],
+  ]);
 });

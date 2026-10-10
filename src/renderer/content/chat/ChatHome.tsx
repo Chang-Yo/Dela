@@ -17,7 +17,7 @@ async function resolveHomeChat(
   request: GeneralChatPulse | null,
 ): Promise<WorkspaceChat> {
   if (request?.sessionId) return api.open(request.sessionId);
-  if (request?.create) return api.create(null);
+  if (request?.create) return api.create(null, 'chat');
   const remembered = useNavigationStore.getState().lastHomeSessionId;
   if (remembered) {
     const reopened = await api.open(remembered).catch(() => null);
@@ -31,7 +31,7 @@ async function resolveHomeChat(
       chat.messages.length === 0 &&
       (useSessions.getState().lists.general ?? []).some((row) => row.id === chat.sessionId),
   );
-  return empty ?? api.create(null);
+  return empty ?? api.create(null, 'chat');
 }
 
 export function ChatHome() {
