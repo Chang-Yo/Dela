@@ -9,15 +9,18 @@ import {
 import { z } from 'zod';
 import type { VideoDownload } from '../../shared/vsjtu';
 import { checkWorkspaceSender } from '../ipc';
-import { savedExperimentalFeatures } from '../settings/prefs';
+import { savedExperimentalClassroom, savedExperimentalFeatures } from '../settings/prefs';
 import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../timetable/session';
 import { checkVideoLogin, getStreams, listCourses, listVideos, VIDEO_HOME } from './api';
+import { issuePlayback } from './playback';
 
 const id = z.number().int().positive();
 const downloads = new Map<string, { info: VideoDownload; item: DownloadItem; path: string }>();
 const pending = new Set<string>();
 function enabled(): void {
-  if (!savedExperimentalFeatures()) throw new Error('请先在设置 → 通用中开启试验功能');
+  // 总开关与「课堂视频」子项都开启才可用；子项键缺失视为开启。
+  if (!savedExperimentalFeatures() || !savedExperimentalClassroom())
+    throw new Error('请先在设置 → 通用中开启试验功能');
 }
 function notify(info: VideoDownload): void {
   for (const window of BrowserWindow.getAllWindows()) {
@@ -149,12 +152,7 @@ export function registerVsjtuIpc(): void {
   });
   ipcMain.handle('vsjtu:streams', async (event, videoId) => {
     check(event);
-    const video = id.parse(videoId);
-    const streams = await getStreams(video);
-    return streams.map((stream) => ({
-      view: stream.view,
-      duration: stream.duration,
-    }));
+    return issuePlayback(id.parse(videoId));
   });
   ipcMain.handle('vsjtu:download', (event, videoId, view, name) => {
     check(event);

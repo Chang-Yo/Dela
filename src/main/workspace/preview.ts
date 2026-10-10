@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { canvasPreviewPath } from '../canvas/api';
 import { officeZipMime } from '../resource-parse';
 import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
+import { handleVsjtuMediaRequest } from '../vsjtu/playback';
 import { remoteById, targetOf, withinRemoteRoot } from '../remotes/api';
 import { readRemoteRange, statRemoteFile } from '../remotes/operations';
 import { remoteDocumentMime } from '../remotes/documents';
@@ -157,6 +158,8 @@ export function registerPreviewProtocol(): void {
         return new Response(null, { status: 405 });
       const url = new URL(request.url);
       if (url.hostname === 'shuiyuan') return handleShuiyuanMediaRequest(request);
+      // 课堂视频播放：dela-resource://vsjtu/video/<videoId>/<view>?t=<token>（Range 透传）。
+      if (url.hostname === 'vsjtu') return handleVsjtuMediaRequest(request);
       // 远端文档：dela-resource://remote/<projectId>?path=<远端绝对路径>（PDF/Office 按 Range 分块拉）；
       // remote-raw 同一实现，供 Markdown 里的相对图片取字节（都只放行项目根目录内的路径）。
       if (url.hostname === 'remote' || url.hostname === 'remote-raw') {

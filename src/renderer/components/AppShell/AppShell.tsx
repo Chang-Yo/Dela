@@ -767,7 +767,9 @@ export function AppShell({
           </div>
           <ProjectSessionNav
             activeBusinessId={
-              view === 'mail' || view === 'timetable' || view === 'shuiyuan' ? view : null
+              view === 'mail' || view === 'timetable' || view === 'classroom' || view === 'shuiyuan'
+                ? view
+                : null
             }
             activeProjectId={view === 'workbench' ? projectId : null}
             activeSessionId={view === 'home' ? null : activeSessionId}

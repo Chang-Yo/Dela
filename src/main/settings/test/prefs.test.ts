@@ -13,9 +13,11 @@ import {
   getWorkspacePrefs,
   resetKeybindingOverrides,
   savedCampusNotifications,
+  savedExperimentalClassroom,
   savedExperimentalFeatures,
   setAgentInstruction,
   setCampusNotifications,
+  setExperimentalClassroom,
   setExperimentalFeatures,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
@@ -39,6 +41,17 @@ it('keeps experiments off for new or corrupt settings and persists an explicit o
   expect(savedExperimentalFeatures()).toBe(true);
   setExperimentalFeatures(false);
   expect(savedExperimentalFeatures()).toBe(false);
+});
+
+it('keeps the classroom sub-item on by default and round-trips an explicit opt-out', () => {
+  // 子项缺省开启：总开关本身默认关，开启总开关即恢复子项可用。
+  expect(savedExperimentalClassroom()).toBe(true);
+  insert("INSERT INTO workspace_settings VALUES ('experimental-classroom', 'anything')");
+  expect(savedExperimentalClassroom()).toBe(true);
+  setExperimentalClassroom(false);
+  expect(savedExperimentalClassroom()).toBe(false);
+  setExperimentalClassroom(true);
+  expect(savedExperimentalClassroom()).toBe(true);
 });
 
 describe('task notification prefs', () => {

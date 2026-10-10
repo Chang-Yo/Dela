@@ -7,6 +7,7 @@ const boundary = vi.hoisted(() => ({
   notify: vi.fn(),
   reveal: vi.fn(),
   enabled: true,
+  classroom: true,
 }));
 let campus: EventEmitter;
 vi.mock('electron', () => ({
@@ -24,7 +25,10 @@ vi.mock('electron', () => ({
   shell: { showItemInFolder: boundary.reveal },
 }));
 vi.mock('../ipc', () => ({ checkWorkspaceSender: () => {} }));
-vi.mock('../settings/prefs', () => ({ savedExperimentalFeatures: () => boundary.enabled }));
+vi.mock('../settings/prefs', () => ({
+  savedExperimentalFeatures: () => boundary.enabled,
+  savedExperimentalClassroom: () => boundary.classroom,
+}));
 vi.mock('../timetable/session', () => ({
   getCampusSession: async () => Object.assign(campus, { downloadURL: boundary.download }),
 }));
@@ -38,13 +42,23 @@ beforeEach(() => {
   campus = new EventEmitter();
   vi.clearAllMocks();
   boundary.enabled = true;
+  boundary.classroom = true;
   registerVsjtuIpc();
 });
 const call = (name: string, ...args: unknown[]) =>
   boundary.handlers.get(`vsjtu:${name}`)!({ sender: {} }, ...args);
 
-it('returns available views and duration without a playback route or signed media address', async () => {
-  expect(await call('streams', 60)).toEqual([{ view: 5, duration: 3283 }]);
+it('returns available views and duration with an opaque playback route, never the signed media address', async () => {
+  const streams = (await call('streams', 60)) as Array<{
+    view: number;
+    duration: number;
+    playbackUrl: string;
+  }>;
+  expect(streams).toHaveLength(1);
+  const [stream] = streams;
+  expect(stream?.view).toBe(5);
+  expect(stream?.duration).toBe(3283);
+  expect(stream?.playbackUrl).toMatch(/^dela-resource:\/\/vsjtu\/video\/60\/5\?t=[0-9a-f]{32}$/);
 });
 
 it('blocks new video operations while experimental features are disabled', async () => {
@@ -52,6 +66,11 @@ it('blocks new video operations while experimental features are disabled', async
   await expect(call('streams', 60)).rejects.toThrow('试验功能');
   expect(() => call('download', 60, 5, '录像')).toThrow('试验功能');
   expect(boundary.choose).not.toHaveBeenCalled();
+});
+
+it('blocks new video operations when the classroom sub-item is off even with the master on', async () => {
+  boundary.classroom = false;
+  await expect(call('streams', 60)).rejects.toThrow('试验功能');
 });
 
 it('does not start a transfer when the native save dialog is cancelled', async () => {

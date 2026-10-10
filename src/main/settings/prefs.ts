@@ -45,6 +45,17 @@ export function setExperimentalFeatures(enabled: boolean): boolean {
   return enabled;
 }
 
+// 试验子项（当前仅课堂视频）：键缺失或值损坏视为开启——总开关本身默认关闭，
+// 用户开启总开关即恢复子项可用，不必再逐项打开。
+export function savedExperimentalClassroom(): boolean {
+  return readSetting('experimental-classroom') !== '0';
+}
+
+export function setExperimentalClassroom(enabled: boolean): boolean {
+  writeSetting('experimental-classroom', enabled ? '1' : '0');
+  return enabled;
+}
+
 export function savedTheme(): ThemePreference {
   return themeSchema.catch('system').parse(readSetting('theme'));
 }

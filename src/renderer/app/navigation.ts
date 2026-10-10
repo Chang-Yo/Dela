@@ -15,7 +15,15 @@ import { walkGroups } from '../workbench/layout-schema';
 import { showToast } from './toasts';
 
 export type AppView =
-  'home' | 'workbench' | 'mail' | 'timetable' | 'shuiyuan' | 'todo' | 'notifications' | 'settings';
+  | 'home'
+  | 'workbench'
+  | 'mail'
+  | 'timetable'
+  | 'classroom'
+  | 'shuiyuan'
+  | 'todo'
+  | 'notifications'
+  | 'settings';
 
 /** 窄屏抽屉层级：null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱视图可达）。 */
 export type MobileDrawer = 'nav' | 'mail';
@@ -69,7 +77,6 @@ interface NavigationState {
   openTodo(id: string): boolean;
   openSettings(section?: SettingsSectionId): boolean;
   openShuiyuanTopic(topicId: number, postNumber?: number): void;
-  /** 跳到课堂视频页并打开指定场次播放（项目树引用深链）。 */
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
   setCreateProject(value: boolean): void;

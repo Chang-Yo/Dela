@@ -34,6 +34,9 @@ export interface WorkspacePrefs {
 export interface SettingsApi {
   getExperimentalFeatures(): Promise<boolean>;
   setExperimentalFeatures(enabled: boolean): Promise<boolean>;
+  /** 试验子项：课堂视频。总开关关闭时入口隐藏、操作被拒；键缺失视为开启。 */
+  getExperimentalClassroom(): Promise<boolean>;
+  setExperimentalClassroom(enabled: boolean): Promise<boolean>;
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
   getIcon(): Promise<IconPreference>;

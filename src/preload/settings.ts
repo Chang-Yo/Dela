@@ -14,6 +14,9 @@ export const settings = {
   getExperimentalFeatures: () => invoke('settings:get-experimental-features'),
   setExperimentalFeatures: (enabled: boolean) =>
     invoke('settings:set-experimental-features', enabled),
+  getExperimentalClassroom: () => invoke('settings:get-experimental-classroom'),
+  setExperimentalClassroom: (enabled: boolean) =>
+    invoke('settings:set-experimental-classroom', enabled),
   getTheme: () => invoke('settings:get-theme'),
   setTheme: (theme: ThemePreference) => invoke('settings:set-theme', theme),
   getIcon: () => invoke('settings:get-icon'),

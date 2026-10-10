@@ -20,6 +20,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '试验功能',
     keywords: ['通用', '实验', 'experimental'],
   },
+  {
+    id: 'experimental-classroom',
+    section: 'general',
+    title: '课堂视频（试验）',
+    keywords: ['课堂', '录像', '交大视频', 'vsjtu', 'classroom'],
+  },
   // 通用（含系统通知子节）
   {
     id: 'open-at-login',

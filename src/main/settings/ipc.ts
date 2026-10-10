@@ -12,7 +12,9 @@ import {
   iconSchema,
   resetKeybindingOverrides,
   savedCampusNotifications,
+  savedExperimentalClassroom,
   savedExperimentalFeatures,
+  setExperimentalClassroom,
   setExperimentalFeatures,
   savedFontScale,
   savedIcon,
@@ -42,6 +44,14 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:set-experimental-features', (event, value) => {
     checkWorkspaceSender(event);
     return setExperimentalFeatures(z.boolean().parse(value));
+  });
+  ipcMain.handle('settings:get-experimental-classroom', (event) => {
+    checkWorkspaceSender(event);
+    return savedExperimentalClassroom();
+  });
+  ipcMain.handle('settings:set-experimental-classroom', (event, value) => {
+    checkWorkspaceSender(event);
+    return setExperimentalClassroom(z.boolean().parse(value));
   });
   ipcMain.handle('settings:get-theme', (event) => {
     checkWorkspaceSender(event);

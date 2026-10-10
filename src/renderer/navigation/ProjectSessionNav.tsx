@@ -15,6 +15,7 @@ import {
   FolderOpen,
   House,
   Mail,
+  MonitorPlay,
   MoreHorizontal,
   Plus,
   SquarePen,
@@ -38,6 +39,7 @@ import { cn } from '../lib/utils';
 import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from './remote-color';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
+import { useExperimental } from '../features/settings/experimental';
 import { useWorkspaceStore } from '../workspace/store';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { useNavigationStore, useProjectNavPrefs } from './store';
@@ -49,8 +51,8 @@ import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './n
 
 export type { NavSessionSummary, SessionRunBadge };
 
-/** 底部业务入口 id（邮箱/课表/水源；TODO 入口在顶栏铃铛旁，跳转由 onNavigateBusiness 注入）。 */
-export type BusinessNavId = 'mail' | 'timetable' | 'shuiyuan';
+/** 底部业务入口 id（邮箱/课表/课堂视频/水源；TODO 入口在顶栏铃铛旁，跳转由 onNavigateBusiness 注入）。 */
+export type BusinessNavId = 'mail' | 'timetable' | 'classroom' | 'shuiyuan';
 
 /** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
 export const RECENT_SESSIONS = 3;
@@ -58,6 +60,7 @@ export const RECENT_SESSIONS = 3;
 const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }> = [
   { id: 'mail', label: '邮箱', icon: Mail },
   { id: 'timetable', label: '课表', icon: CalendarDays },
+  { id: 'classroom', label: '课堂视频', icon: MonitorPlay },
   { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
 ];
 
@@ -106,6 +109,12 @@ export function ProjectSessionNav({
   collapsed?: boolean;
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
+  // 试验功能子项可见性：总开关与「课堂视频」子项都开启才显示入口。
+  const experimentalMaster = useExperimental((state) => state.master);
+  const experimentalClassroom = useExperimental((state) => state.classroom);
+  useEffect(() => {
+    void useExperimental.getState().load();
+  }, []);
   const openProjects = useNavigationStore((s) => s.openProjects);
   const toggleProject = useNavigationStore((s) => s.toggleProject);
   const fullSessionLists = useNavigationStore((s) => s.fullSessionLists);
@@ -397,22 +406,27 @@ export function ProjectSessionNav({
           <FolderOpen className={navIcon(sourcesActive)} strokeWidth={1.8} />
           <span className={hidden}>资料</span>
         </button>
-        {businessNav.map((item) => {
-          const Icon = item.icon;
-          const active = item.id === activeBusinessId;
-          return (
-            <button
-              aria-current={active ? 'page' : undefined}
-              className={navRow(active)}
-              key={item.id}
-              onClick={() => onNavigateBusiness?.(item.id)}
-              type="button"
-            >
-              <Icon className={navIcon(active)} strokeWidth={1.8} />
-              <span className={hidden}>{item.label}</span>
-            </button>
-          );
-        })}
+        {businessNav
+          .filter(
+            (item) =>
+              item.id !== 'classroom' || (experimentalMaster === true && experimentalClassroom),
+          )
+          .map((item) => {
+            const Icon = item.icon;
+            const active = item.id === activeBusinessId;
+            return (
+              <button
+                aria-current={active ? 'page' : undefined}
+                className={navRow(active)}
+                key={item.id}
+                onClick={() => onNavigateBusiness?.(item.id)}
+                type="button"
+              >
+                <Icon className={navIcon(active)} strokeWidth={1.8} />
+                <span className={hidden}>{item.label}</span>
+              </button>
+            );
+          })}
       </nav>
       {(projects.some((project) => preferences[project.id]?.pinned) ||
         projects.some((project) =>
