@@ -11,6 +11,14 @@
 - 重要改动同步更新 `docs/devlog.md`（开发记录）与技术规划；面向使用者的变化更新 README，开发/发布流程变化更新 `docs/development.md` 或 `docs/release.md`。区分已验证事实、待验证能力与产品设想，不能以占位结果宣称功能完成。
 - 每次产生大量的、具有统一主题的改动diff时，主动提醒用户是否需要提交commit
 
+## 仓库位置与姊妹仓库
+
+本仓库位于 `E:\GithubRepos\DelaProject\Dela`（2026-10 由 `E:\GithubRepos\Dela` 迁入）。同级的 `../Dela_Web` 是**另一个独立仓库**，负责产品官网（介绍、下载、更新日志）：
+
+- 两仓库互不 import，各自安装、构建、发版。Dela 仍是单应用、单 package，不因此变成 monorepo，也不引入 pnpm workspace 子包。
+- 跨仓库的**设计语言真源在本仓库**：`src/renderer/components/ui/beautifului/beautifului.css`。改配色、圆角、阴影、缓动后，需要同步到 `Dela_Web/src/app/globals.css`（单向）。
+- 分工与边界见 `../AGENTS.md`，官网侧约束见 `../Dela_Web/AGENTS.md`。
+
 # Coding core rules
 
 ## 1. 先思考再编码
