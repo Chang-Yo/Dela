@@ -33,18 +33,18 @@ beforeEach(() => {
   database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
 });
 
-it('keeps experiments off for new or corrupt settings and persists an explicit opt-in', () => {
-  expect(savedExperimentalFeatures()).toBe(false);
+it('keeps experiments on for new or corrupt settings and persists an explicit opt-out', () => {
+  expect(savedExperimentalFeatures()).toBe(true);
   insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
-  expect(savedExperimentalFeatures()).toBe(false);
-  setExperimentalFeatures(true);
   expect(savedExperimentalFeatures()).toBe(true);
   setExperimentalFeatures(false);
   expect(savedExperimentalFeatures()).toBe(false);
+  setExperimentalFeatures(true);
+  expect(savedExperimentalFeatures()).toBe(true);
 });
 
 it('keeps the classroom sub-item on by default and round-trips an explicit opt-out', () => {
-  // 子项缺省开启：总开关本身默认关，开启总开关即恢复子项可用。
+  // 子项与总开关同档：缺省都开启。
   expect(savedExperimentalClassroom()).toBe(true);
   insert("INSERT INTO workspace_settings VALUES ('experimental-classroom', 'anything')");
   expect(savedExperimentalClassroom()).toBe(true);

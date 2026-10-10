@@ -36,8 +36,9 @@ export function writeSetting(key: string, value: string): void {
   getDatabase().prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value);
 }
 
+// 试验功能默认开启：键缺失或值损坏都视为开启，只有显式写入 '0' 才关闭。
 export function savedExperimentalFeatures(): boolean {
-  return readSetting('experimental-features') === '1';
+  return readSetting('experimental-features') !== '0';
 }
 
 export function setExperimentalFeatures(enabled: boolean): boolean {
@@ -45,8 +46,7 @@ export function setExperimentalFeatures(enabled: boolean): boolean {
   return enabled;
 }
 
-// 试验子项（当前仅课堂视频）：键缺失或值损坏视为开启——总开关本身默认关闭，
-// 用户开启总开关即恢复子项可用，不必再逐项打开。
+// 试验子项（当前仅课堂视频）：键缺失或值损坏视为开启，与总开关同一档默认值。
 export function savedExperimentalClassroom(): boolean {
   return readSetting('experimental-classroom') !== '0';
 }
@@ -230,3 +230,4 @@ export function setAgentInstruction(input: unknown): string {
   writeSetting('agent-instruction', text);
   return text;
 }
+
