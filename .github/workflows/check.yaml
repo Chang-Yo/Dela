@@ -14,7 +14,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  helper:
+    name: Check helper linux-amd64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Test helper locally (no SSH)
+        working-directory: helper
+        run: go test -count=1 -timeout=2m ./...
+      - name: Build helper
+        run: node scripts/build-helper.mjs
+      - name: Smoke test helper executable
+        run: ./vendor/dela-helper/dela-helper-linux-amd64 --version
+      - uses: actions/upload-artifact@v6
+        with:
+          name: helper-linux-amd64
+          path: vendor/dela-helper/dela-helper-linux-amd64
+          if-no-files-found: error
+          retention-days: 7
+
   check:
+    needs: helper
     name: Check win-x64
     runs-on: windows-2022
     timeout-minutes: 30
@@ -23,10 +54,15 @@ jobs:
         shell: bash
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      DELA_REMOTE_HOST: ''
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@v6
+        with:
+          name: helper-linux-amd64
+          path: vendor/dela-helper
       - uses: actions/setup-node@v6
         with:
           node-version: '24.21.0'
@@ -47,6 +83,8 @@ jobs:
         run: pnpm smoke
       - name: Package application directory
         run: pnpm exec electron-builder --dir --win --x64 --publish never
+      - name: Verify packaged helper
+        run: cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64
       - name: Smoke test packaged app
         env:
           PACKAGED_EXECUTABLE: dist/win-unpacked/Dela.exe

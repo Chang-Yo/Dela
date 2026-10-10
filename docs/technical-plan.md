@@ -80,7 +80,7 @@ schema v3：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话
 
 ## 工程与交付
 
-Node 24.21.0、pnpm 12.3.4（先执行 `. ./scripts/use-local-tools.ps1` 等价前置）；其余版本以 package.json 与锁文件为准，精确依赖。检查链：format + lint + typecheck + test + build + smoke。CI 仅 Windows；electron-builder 产出 NSIS 安装包；better-sqlite3 与 node-pty 必须在打包产物中实测加载。密钥、个人数据与本地工具不进 Git 与安装包。
+Node 24.21.0、pnpm 12.3.4（先执行 `. ./scripts/use-local-tools.ps1` 等价前置）；其余版本以 package.json 与锁文件为准，精确依赖。检查链：format + lint + typecheck + test + build + smoke。应用 CI 仅 Windows；helper 在 Ubuntu 用固定 Go 1.27.2 测试并构建 Linux amd64 静态产物，再传给 Windows 打包并核对包内文件。Go 测试只访问 runner 本机，CI 不启用真实 SSH 联调。electron-builder 产出 NSIS 安装包；better-sqlite3 与 node-pty 必须在打包产物中实测加载。密钥、个人数据与本地工具不进 Git 与安装包。
 
 ## 本次删除清单（2026-10-08 基座重构）
 
