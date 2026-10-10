@@ -43,6 +43,8 @@ const schema: string[] = [
     address TEXT NOT NULL UNIQUE,
     imap_host TEXT NOT NULL,
     imap_port INTEGER NOT NULL,
+    smtp_host TEXT,
+    smtp_port INTEGER,
     created_at TEXT NOT NULL,
     last_synced_at TEXT
   )`,
@@ -260,6 +262,9 @@ export function getDatabase(): Database.Database {
     // 列修复与版本号解耦：中途版本可能已经把 user_version 提到当前值却没加列（实测出现过），
     // 只认版本号会让这种库永久缺列；这里每次打开都幂等补一次，缺列才执行 ALTER。
     addColumnIfMissing(db, 'workspace_entries', 'remote_id', 'TEXT');
+    // 第三方 IMAP 的 SMTP 参数：老库的 imap_host/imap_port 已存在，缺的是这两列。
+    addColumnIfMissing(db, 'mail_accounts', 'smtp_host', 'TEXT');
+    addColumnIfMissing(db, 'mail_accounts', 'smtp_port', 'INTEGER');
   } catch (error) {
     db.close();
     throw error;

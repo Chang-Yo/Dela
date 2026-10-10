@@ -10,18 +10,20 @@ import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import type {
   MailAddress,
+  MailConfigureInput,
   MailMessageDetail,
   MailMessageSummary,
   MailResult,
+  MailServerConfig,
   MailSyncStatus,
   MailTrashItem,
   MailTrashRetention,
 } from '../../shared/api';
+import { SJTU_MAIL_SERVER } from '../../shared/mail';
 import { getDatabase } from '../database';
 import { clearMailCredentials, loadMailCredentials, saveMailCredentials } from '../credentials';
+import { storedMailServer } from './server';
 
-const IMAP_HOST = 'mail.sjtu.edu.cn';
-const IMAP_PORT = 993;
 const SYNC_WINDOW = 300;
 const BODY_PRELOAD = 30;
 const BODY_MAX_BYTES = 2_000_000;
@@ -135,10 +137,14 @@ export function friendlyError(error: unknown): string {
   return String(error);
 }
 
-function connectImap(address: string, password: string): ImapFlow {
+function connectImap(
+  address: string,
+  password: string,
+  server: MailServerConfig = storedMailServer(),
+): ImapFlow {
   const client = new ImapFlow({
-    host: IMAP_HOST,
-    port: IMAP_PORT,
+    host: server.imapHost,
+    port: server.imapPort,
     secure: true,
     auth: { user: address, pass: password },
     logger: false,
@@ -727,16 +733,19 @@ async function fetchMissingBody(row: MessageRow, folderPath: string): Promise<vo
   }
 }
 
-export async function configureMailAccount(address: string, password: string): Promise<MailResult> {
+export async function configureMailAccount(input: MailConfigureInput): Promise<MailResult> {
+  const address = input.address.trim().toLowerCase();
+  const password = input.password;
   if (!z.email().safeParse(address).success || password.length === 0) {
     return { ok: false, error: '请输入完整的邮箱地址和密码' };
   }
-  const normalized = address.trim().toLowerCase();
-  if (!normalized.endsWith('@sjtu.edu.cn')) {
-    return { ok: false, error: '目前仅支持交大邮箱（@sjtu.edu.cn）' };
+  // 不带 server 就是交大邮箱：只接受校内地址。第三方账号服务器自填，地址不限。
+  const server = input.server ?? SJTU_MAIL_SERVER;
+  if (!input.server && !address.endsWith('@sjtu.edu.cn')) {
+    return { ok: false, error: '交大邮箱地址需以 @sjtu.edu.cn 结尾，或改选第三方 IMAP' };
   }
   const db = getDatabase();
-  const client = connectImap(normalized, password);
+  const client = connectImap(address, password, server);
   try {
     await client.connect();
   } catch (error) {
@@ -745,24 +754,29 @@ export async function configureMailAccount(address: string, password: string): P
   }
   client.close();
   const existing = getAccountRow();
-  if (existing && existing.address !== normalized) {
+  if (existing && existing.address !== address) {
     syncGeneration += 1;
     db.prepare('DELETE FROM mail_accounts').run();
     clearMailCredentials();
   }
-  if (existing && existing.address === normalized) {
-    db.prepare('UPDATE mail_accounts SET imap_host = ?, imap_port = ? WHERE id = ?').run(
-      IMAP_HOST,
-      IMAP_PORT,
-      existing.id,
-    );
+  if (existing && existing.address === address) {
+    db.prepare(
+      'UPDATE mail_accounts SET imap_host = ?, imap_port = ?, smtp_host = ?, smtp_port = ? WHERE id = ?',
+    ).run(server.imapHost, server.imapPort, server.smtpHost, server.smtpPort, existing.id);
   } else {
     db.prepare(
-      'INSERT INTO mail_accounts (address, imap_host, imap_port, created_at) VALUES (?, ?, ?, ?)',
-    ).run(normalized, IMAP_HOST, IMAP_PORT, new Date().toISOString());
+      'INSERT INTO mail_accounts (address, imap_host, imap_port, smtp_host, smtp_port, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(
+      address,
+      server.imapHost,
+      server.imapPort,
+      server.smtpHost,
+      server.smtpPort,
+      new Date().toISOString(),
+    );
   }
   try {
-    saveMailCredentials({ address: normalized, password });
+    saveMailCredentials({ address, password });
   } catch (error) {
     return { ok: false, error: friendlyError(error) };
   }

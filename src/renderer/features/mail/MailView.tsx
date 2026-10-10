@@ -1,5 +1,5 @@
 import { leaveComposer } from './compose-close';
-import type { PreparedEmail, MailDraftSummary } from '../../../shared/api';
+import type { PreparedEmail, MailDraftSummary, MailConfigureInput } from '../../../shared/api';
 import { FilePenLine, Trash2 } from 'lucide-react';
 import {
   useCallback,
@@ -18,7 +18,7 @@ import type {
   MailState,
   MailTrashItem,
 } from '../../../shared/api';
-import { ConfigureForm } from './MailConfigureForm';
+import { MailAccountForm } from './MailAccountForm';
 import { MailFolders, type MailSelection } from './MailFolders';
 import { MailMessageList } from './MailMessageList';
 import { MailReader } from './MailReader';
@@ -26,6 +26,7 @@ import { MailComposer } from './MailComposer';
 import { MailTrashList } from './MailTrashList';
 import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
 import { Resizer } from '../../components/ui/resizer';
+import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 
 const MESSAGE_LIMIT = 200;
@@ -427,11 +428,11 @@ function DesktopMailView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleConfigure = useCallback(async (address: string, password: string) => {
+  const handleConfigure = useCallback(async (input: MailConfigureInput) => {
     setConfiguring(true);
     setConfigureError(null);
     try {
-      const result = await dela.mail.configure({ address, password });
+      const result = await dela.mail.configure(input);
       if (!result.ok) {
         setConfigureError(result.error);
         return;
@@ -663,7 +664,25 @@ function DesktopMailView({
   if (state !== null && !account) {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <ConfigureForm busy={configuring} error={configureError} onSubmit={handleConfigure} />
+        <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="m-auto grid w-full max-w-[400px] gap-4 rounded-2xl border border-line bg-surface p-8 shadow-hairline">
+            <div className="grid gap-1.5">
+              <h2 className="text-lg font-semibold tracking-tight">连接邮箱</h2>
+              <p className="text-[13px] leading-relaxed text-ink-3">
+                交大邮箱用 jAccount 账号与密码；也可改用第三方 IMAP 服务器。凭据加密保存在本机。
+              </p>
+            </div>
+            <MailAccountForm
+              error={configureError}
+              onSubmit={(input) => void handleConfigure(input)}
+              submit={
+                <Button disabled={configuring} type="submit">
+                  {configuring ? '正在验证…' : '连接并同步'}
+                </Button>
+              }
+            />
+          </div>
+        </div>
       </div>
     );
   }

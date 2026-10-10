@@ -5,11 +5,10 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { MailComposeFile, MailComposeFileKind, MailResult } from '../../shared/api';
 import type { MailCredential } from '../credentials';
+import { storedMailServer } from './server';
 
 import nodemailer from 'nodemailer';
 
-const SMTP_HOST = 'mail.sjtu.edu.cn';
-const SMTP_PORT = 465;
 const SMTP_CONNECT_TIMEOUT = 15_000;
 const SMTP_SOCKET_TIMEOUT = 30_000;
 // The server advertises 100 MB attachments. Leave room for MIME/base64 expansion.
@@ -223,9 +222,10 @@ export async function sendMailMessage(
     return { ok: false, error: '附件总大小过大，请控制在 70 MB 以内' };
   }
 
+  const server = storedMailServer();
   const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
+    host: server.smtpHost,
+    port: server.smtpPort,
     secure: true,
     auth: { user: credential.address, pass: credential.password },
     connectionTimeout: SMTP_CONNECT_TIMEOUT,

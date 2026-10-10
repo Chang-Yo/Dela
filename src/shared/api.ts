@@ -69,6 +69,7 @@ export type {
   MailAccountInfo,
   MailState,
   MailResult,
+  MailServerConfig,
   MailConfigureInput,
   MailComposeFileKind,
   MailComposeFile,
