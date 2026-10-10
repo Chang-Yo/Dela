@@ -52,6 +52,7 @@ beforeEach(() => {
     view: 'home',
     projectId: null,
     generalChat: null,
+    lastHomeSessionId: null,
     reveal: null,
     backStack: [],
     forwardStack: [],
@@ -118,6 +119,25 @@ it('新对话创建期间不显示旧会话，返回后绑定新身份', async (
   await act(async () => useChatDrafts.getState().update('second', { prompt: '新会话草稿' }));
   expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe('新会话草稿');
   expect(useNavigationStore.getState().view).toBe('home');
+});
+
+it('回到首页接着上次会话，清空运行内存（重启）后才是新对话', async () => {
+  await act(async () => root.render(<ChatHome />));
+  await act(async () =>
+    useSessions.getState().putChat('first', {
+      ...emptyChat('first'),
+      messages: [{ role: 'assistant' as const, content: '上次的回复' }],
+    }),
+  );
+  const create = vi.spyOn(window.dela!.session, 'create');
+  // 切走再回首页（侧栏「首页」就是 openGeneralChat(false)）：接着上次的会话，不新建。
+  await act(async () => useNavigationStore.getState().openGeneralChat(false));
+  expect(host.querySelector('[aria-label="对话消息"]')?.textContent).toBe('上次的回复');
+  expect(create).not.toHaveBeenCalled();
+  // 重启等于这块内存没了：首页回到新对话。
+  await act(async () => useNavigationStore.setState({ lastHomeSessionId: null }));
+  await act(async () => useNavigationStore.getState().openGeneralChat(false));
+  expect(create).toHaveBeenCalledTimes(1);
 });
 
 it('打开随聊历史留在首页，展示指定会话而不是创建空会话或资料标签', async () => {

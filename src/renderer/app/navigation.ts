@@ -58,6 +58,8 @@ interface NavigationState {
   /** 工作台标签定位脉冲（chat/note/preview 深链）。 */
   reveal: RevealPulse | null;
   generalChat: GeneralChatPulse | null;
+  /** 首页上次停留的会话：切走再回首页接着上次，只活在本次运行内（重启后首页回到新对话）。 */
+  lastHomeSessionId: string | null;
   navigate(next: AppView): boolean;
   goBack(): boolean;
   goForward(): boolean;
@@ -68,6 +70,8 @@ interface NavigationState {
   newChat(projectId: string | null): Promise<string | null>;
   /** 随聊会话在首页打开，项目会话定位对应工作台标签。 */
   openChat(sessionId: string, projectId: string | null): boolean;
+  /** 记下首页当前停留在哪个会话。 */
+  rememberHomeSession(sessionId: string): void;
   /** 打开笔记标签，自动归属其所在项目。 */
   openNote(entryId: string): boolean;
   /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台。 */
@@ -149,6 +153,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     createProject: false,
     reveal: null,
     generalChat: null,
+    lastHomeSessionId: null,
 
     navigate: (next) => {
       const state = get();
@@ -321,5 +326,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     setCreateProject: (value) => set({ createProject: value }),
     consumeReveal: () => set({ reveal: null }),
     consumeGeneralChat: () => set({ generalChat: null }),
+    rememberHomeSession: (sessionId) => set({ lastHomeSessionId: sessionId }),
   };
 });
