@@ -48,7 +48,7 @@ nsis:
 # 现为占位符，替换后才能提交（身份不匹配会被商店拒绝）。applicationId 是自己取的清单内标识。
 # 不需要仓库自带证书：未配置证书时构建出的是未签名包，签名由商店在收包后完成。
 appx:
-  identityName: REPLACE-WITH-PARTNER-CENTER-IDENTITY-NAME
-  publisher: 'CN=REPLACE-WITH-PARTNER-CENTER-PUBLISHER'
-  publisherDisplayName: REPLACE-WITH-PARTNER-CENTER-PUBLISHER-DISPLAY-NAME
+  identityName: MADFilm.Dela
+  publisher: 'CN=57320C20-35BA-45E0-8AB9-95D7D30D80AC'
+  publisherDisplayName: 麦德映画 (MAD Film)
   applicationId: Dela
