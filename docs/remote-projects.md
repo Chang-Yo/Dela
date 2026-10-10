@@ -36,7 +36,7 @@
 - 数据：`remotes(id,label,host,port,key_path,created_at)` + `workspace_entries.remote_id`（schema v3，只加列）。
 - 实测延迟：每次 ssh 调用约 0.3–0.6 秒（Windows OpenSSH 无 ControlMaster）；`createAgentSession` 以远端 POSIX 路径作 cwd 正常，七个工具名下的生效定义确为 Dela 注入的远程版本（`getAllTools()` 的 `sourceInfo.source='sdk'`）。
 - 实机用例（`DELA_REMOTE_HOST` 打开才跑）：传输层 6 项、七个工具 11 项、主进程链路 6 项（存连接与自检、从主目录浏览并能进能退、不存在目录的报错、登记项目并列一层目录与生成 @ 候选索引、重复登记去重、有项目在用连接时拒绝删除），另单独核对了远程终端命令 `ssh -tt <dest> "cd '<path>' && exec bash -li"` 在真实主机上确实进到项目目录并起交互登录 shell。
-- 真实窗口验收：`pnpm smoke:remote`（`DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`；未设则跳过并退出 0）用真 preload、真 renderer、真主进程 IPC 与真 ssh 走一遍——新建项目 › 连接远程目录 › 新建连接 › 填目的地与私钥 › 连接（自检显示主机名·系统·架构）› 选目录（列主目录，点进夹具目录）› 添加为项目，然后断言：目录树有远端文件、云朵提示是 `<目的地>:<远端绝对路径>`、点目录才懒加载下一层、`remoteId` 已到渲染端、@ 候选索引返回相对路径、远程终端（真 node-pty 起 `ssh -tt`）落在项目目录并能执行命令（`echo MARK-$(pwd)` 的绝对路径同时出现在事件流与终端快照里），最后断言控制台无 warning/error。（点远端文件只给提示这条断言已被 6.3 取代：现在会新开只读预览标签。）
+- 真实窗口验收：`pnpm smoke:remote`（`DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`；未设则跳过并退出 0）用真 preload、真 renderer、真主进程 IPC 与真 ssh 走一遍——新建项目 › 连接远程目录 › 新建连接 › 填目的地与私钥 › 连接（自检显示主机名·系统·架构）› 选目录（列主目录，点进夹具目录）› 添加为项目，然后断言：目录树有远端文件、行提示是 `<目的地>:<远端绝对路径>`、点目录才懒加载下一层、`remoteId` 已到渲染端、@ 候选索引返回相对路径、远程终端（真 node-pty 起 `ssh -tt`）落在项目目录并能执行命令（`echo MARK-$(pwd)` 的绝对路径同时出现在事件流与终端快照里），最后断言控制台无 warning/error。（点远端文件只给提示这条断言已被 6.3 取代：现在会新开只读预览标签。）
 
 与原规划的偏差：不用 SFTP；`remotes` 表按主机/端口/密钥文件三列存（不是 `destination`+`extra_args`，因为要显示与校验，跳板仍由 `~/.ssh/config` 承担）；没有实现「会话创建时采集远端环境拼进系统提示」；远端目录树的刷新是收起再展开重读一层（渲染端按需加载，不轮询）；@ 候选来自 `remoteReferences` 的一次索引（上限 3000 条，按项目缓存在本次运行内）。
 

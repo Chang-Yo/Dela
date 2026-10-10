@@ -213,14 +213,14 @@ it('marks a remote project row with its connection colour and leaves local rows 
   expect(row('另一台机器').querySelector<SVGElement>('svg.lucide-cloud')!.style.color).toBe(
     remoteAccent('r-2', 'text'),
   );
-  // 子条目的行尾云朵与项目行同色：同一台服务器看起来是一家人（色在标记外层，云朵随 currentColor）。
-  expect(row('src').querySelector<HTMLElement>('[title="远程"]')!.style.color).toBe(
+  // 子条目只靠图标颜色表示同源，行内不再挂云朵：整棵树本来就都是远端的，逐行标一遍是冗余。
+  expect(row('src').querySelector<SVGElement>('svg.lucide-folder')!.style.color).toBe(
     remoteAccent('r-1', 'text'),
   );
+  expect(row('src').querySelector('svg.lucide-cloud')).toBeNull();
   // 本地项目行照旧是文件夹图标、没有云朵与连接色。
   expect(row('本地项目').querySelector('svg.lucide-folder-kanban')).toBeTruthy();
   expect(row('本地项目').querySelector('svg.lucide-cloud')).toBeNull();
-  expect(row('本地项目').querySelector('[title="远程"]')).toBeNull();
 });
 
 it('lists a subdirectory lazily and collapses it again', async () => {

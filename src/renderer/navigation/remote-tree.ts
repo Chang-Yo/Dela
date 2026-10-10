@@ -3,7 +3,6 @@
 // 子条目 id 是「项目 id + 远端绝对路径」（shared/remotes 的 remoteNodeId）：只用路径
 // 会让两台连接上的同路径目录串成同一个节点（清单、展开态、选中态都会混）。
 import { useEffect, useRef, useState } from 'react';
-import { Cloud } from 'lucide-react';
 import type { RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
 import type { ExplorerItem } from '../components/ui/explorer';
@@ -250,7 +249,6 @@ export function useRemoteTree(
           readOnly: true,
           // 远端目录接收本地文件拖放（上传）；内部移动仍被 readOnly 拦住。
           importable: child.directory,
-          marker: Cloud,
           accent,
           title: remoteTitle(destination, child.path),
         });

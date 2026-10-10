@@ -93,7 +93,7 @@ export function ProjectFileTree({
       name: e.name,
       project: e.kind === 'project',
       container: e.kind === 'folder' || e.kind === 'project',
-      // 水源来源条目显示水滴图标；远端项目行自己就是云朵，行尾再挂标记会变成两个云朵。
+      // 水源来源条目显示水滴图标；远端项目行自己就是云朵，行内不再另挂标记。
       icon: shuiyuan ? ShuiyuanIcon : e.remoteId ? Cloud : undefined,
       // 远端项目行提示「目的地:路径」，且不参与拖放写入。
       title:
