@@ -53,13 +53,14 @@ export function queryGlobalSearch(query: string): GlobalSearchResult[] {
   ) as ProjectRow[];
   // 会话归属 projects 表（v13）：通用会话（project_id NULL，含旧 home/sources/projects 入口
   // 与孤儿会话）深链回退 'home'，与旧通道的 scope 推导规则一致。
+  // 只按会话标题匹配：正文在 Pi 的 JSONL 会话文件里，sessions 表没有消息列。
   const chats = (
     query
       ? db
           .prepare(
-            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' WHERE sessions.title LIKE ? ESCAPE '!' OR (json_valid(sessions.messages) AND EXISTS (SELECT 1 FROM json_each(sessions.messages) WHERE json_extract(value, '$.content') LIKE ? ESCAPE '!')) ORDER BY sessions.updated_at DESC LIMIT ?",
+            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' WHERE sessions.title LIKE ? ESCAPE '!' ORDER BY sessions.updated_at DESC LIMIT ?",
           )
-          .all(pattern, pattern, perKindLimit)
+          .all(pattern, perKindLimit)
       : db
           .prepare(
             "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' ORDER BY sessions.updated_at DESC LIMIT ?",
