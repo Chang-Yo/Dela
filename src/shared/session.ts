@@ -46,7 +46,7 @@ export interface WorkspaceChat {
   sessionId: string | null;
   /** 会话所属项目（workspace 条目 id）；null = 通用会话。归属在创建时确定，不随视图变化。 */
   projectId: string | null;
-  /** 会话 cwd（项目目录或工作区根）：@ 引用以它为相对路径基准。 */
+  /** 会话 cwd（会话私有目录、项目目录或工作区根）：@ 引用以它为相对路径基准。 */
   cwd: string | null;
   running?: boolean;
   activeTool?: string;

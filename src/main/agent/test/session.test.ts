@@ -1,6 +1,7 @@
-// 会话层：Pi 消息 → WorkspaceChat 投影；会话 cwd 恒为项目目录，项目目录缺失时报错而不换目录。
+// 会话层：Pi 消息 → WorkspaceChat 投影；会话 cwd 取库里的 cwd 列（非项目会话是私有目录），
+// cwd 为 NULL 的旧会话按项目目录/工作区根解析，项目目录缺失时报错而不换目录。
 import Database from 'better-sqlite3';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,7 +12,13 @@ vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({ getActiveLlmProvider: () => null }));
 vi.mock('../environment', () => ({
-  agentEnvironment: () => ({ workspaceRoot: () => join(state.root, 'workspace') }),
+  agentEnvironment: () => ({
+    workspaceRoot: () => {
+      const root = join(state.root, 'Dela', 'workspace');
+      mkdirSync(root, { recursive: true });
+      return root;
+    },
+  }),
 }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 import { newSession, openSession, projectMessages } from '../session';
@@ -28,7 +35,8 @@ beforeEach(() => {
       project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL, file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      cwd TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
 });
 
@@ -123,6 +131,45 @@ describe('会话归属与 cwd', () => {
     expect(first).toMatchObject({ projectId: 'p1', cwd: state.root });
     expect(newSession('p1').sessionId).toBe(first.sessionId);
     expect(openSession(first.sessionId!).projectId).toBe('p1');
+  });
+
+  it('非项目会话的 cwd 是存储目录下 chat-sessions/<id> 的私有目录，目录随即建好', () => {
+    const chat = newSession(null);
+    const dir = join(state.root, 'Dela', 'chat-sessions', chat.sessionId!);
+    expect(chat.cwd).toBe(dir);
+    expect(statSync(dir).isDirectory()).toBe(true);
+    // 复用同一个空会话入口时沿用同一个私有目录。
+    expect(newSession(null).sessionId).toBe(chat.sessionId);
+    expect(openSession(chat.sessionId!).cwd).toBe(dir);
+  });
+
+  it('新项目会话的 cwd 仍解析到项目目录，库里的 cwd 保持 NULL', () => {
+    state
+      .db!.prepare(
+        "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
+      )
+      .run(state.root);
+    const session = newSession('p1');
+    expect(session.cwd).toBe(state.root);
+    expect(state.db!.prepare('SELECT cwd FROM sessions WHERE id=?').get(session.sessionId)).toEqual(
+      { cwd: null },
+    );
+  });
+
+  it('cwd 为 NULL 的旧会话仍按老规则解析：项目会话取项目目录，通用会话取工作区根', () => {
+    state
+      .db!.prepare(
+        "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
+      )
+      .run(state.root);
+    state
+      .db!.prepare(
+        `INSERT INTO sessions (id, project_id, file, cwd, created_at, updated_at)
+         VALUES ('old-project', 'p1', '', NULL, 'x', 'x'), ('old-chat', NULL, '', NULL, 'x', 'x')`,
+      )
+      .run();
+    expect(openSession('old-project').cwd).toBe(state.root);
+    expect(openSession('old-chat').cwd).toBe(join(state.root, 'Dela', 'workspace'));
   });
 
   it('项目目录不存在时拒绝新建会话，不回退到其他目录', () => {

@@ -48,7 +48,7 @@ describe('旧世界库重置', () => {
     });
     backup.close();
     // 新 schema 可用：sessions 是 Pi 会话文件的索引，归档种子行存在。
-    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    expect(db.pragma('user_version', { simple: true })).toBe(4);
     const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
     expect(columns.map(({ name }) => name)).toEqual(
       expect.arrayContaining(['file', 'archived', 'pinned', 'message_count']),
@@ -66,11 +66,52 @@ describe('旧世界库重置', () => {
       db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workspace_notes'").get(),
     ).toBeUndefined();
     expect(existsSync(join(root, 'dela-legacy-backup.db'))).toBe(true);
-    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    expect(db.pragma('user_version', { simple: true })).toBe(4);
+  });
+
+  it('v3 库补 cwd 列，旧会话读回 cwd 为 NULL 且照常可用', () => {
+    const root = freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.exec(`CREATE TABLE workspace_entries (
+      id TEXT PRIMARY KEY,
+      parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      source_id TEXT,
+      local_path TEXT,
+      remote_id TEXT,
+      updated_at TEXT NOT NULL
+    )`);
+    old.exec(`CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
+      file TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '新对话',
+      message_count INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0,
+      pinned INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    old.exec(
+      `INSERT INTO sessions (id, file, title, message_count, archived, pinned, created_at, updated_at)
+       VALUES ('s-old', '', '旧对话', 3, 0, 0, 'x', 'x')`,
+    );
+    old.pragma('user_version = 3');
+    old.close();
+    const db = getDatabase();
+    expect(db.pragma('user_version', { simple: true })).toBe(4);
+    const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
+    expect(columns.map(({ name }) => name)).toContain('cwd');
+    expect(
+      db
+        .prepare('SELECT id, project_id AS projectId, message_count AS count, cwd FROM sessions')
+        .all(),
+    ).toEqual([{ id: 's-old', projectId: null, count: 3, cwd: null }]);
   });
 
   it('版本号已是当前值但缺 remote_id 的库，打开时补列', () => {
-    // 实测出现过这种半途库：user_version 已是 3、remotes 表已建，但条目表没加列。
+    // 实测出现过这种半途库：user_version 已是当前值、remotes 表已建，但条目表没加列。
     // 只认版本号会让它永久缺列，之后所有条目查询都会报 no such column。
     const root = freshRoot();
     const old = new Database(join(root, 'dela.db'));
@@ -81,7 +122,7 @@ describe('旧世界库重置', () => {
     old.exec(
       "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, 'E:\\proj', 'x')",
     );
-    old.pragma('user_version = 3');
+    old.pragma('user_version = 4');
     old.close();
     const db = getDatabase();
     const row = db
@@ -111,14 +152,14 @@ describe('旧世界库重置', () => {
   it('全新目录直接建库，不产生备份', () => {
     freshRoot();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    expect(db.pragma('user_version', { simple: true })).toBe(4);
     expect(existsSync(join(state.root, 'dela-legacy-backup.db'))).toBe(false);
   });
 
   it('未来版本的库（无特征表）拒绝打开', () => {
     const root = freshRoot();
     const db = new Database(join(root, 'dela.db'));
-    db.pragma('user_version = 4');
+    db.pragma('user_version = 5');
     db.close();
     expect(() => getDatabase()).toThrow('更新版本');
   });

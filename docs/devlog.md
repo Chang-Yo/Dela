@@ -97,6 +97,7 @@
 - 浮岛拆成两个可点胶囊：项目胶囊换项目（新对话跟着落过去），分支胶囊列本地分支并真切换
 - 新增 workspace:project-branches 与 switch-project-branch；分支名在 main 侧校验，避免被当成 git 选项
 - 修复随聊 @ 候选串项目：通用池 cwd 是工作区根，改为排除其他项目目录里的文件
+- 会话 cwd 入库：随聊改用私有 chat-sessions 目录
 
 ## 2026-10-09
 
