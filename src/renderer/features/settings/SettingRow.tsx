@@ -6,6 +6,9 @@ import { cn } from '../../lib/utils';
  * 行间用分隔线承担边界（外观/工作区/远程共用）。控件与失败提示都落在右侧控件列。
  * `leading` 是标签列前面的身份方块（如远程连接的云朵头像），它属于标签列，不参与右侧对齐。
  * 分组容器（SettingsGroup）负责给这行留出左右内边距，所以分隔线在容器里自然内缩。
+ *
+ * 窄屏也保持「标签左、控件右」同一行：标签列给 11rem 起跳宽度（约 13 个汉字）撑住可读性，
+ * 控件放不下时自己换到下一行并右对齐，而不是把标签压成竖排。控件再宽也不会挤扁标签。
  */
 export function SettingRow({
   children,
@@ -35,18 +38,16 @@ export function SettingRow({
       className={cn('border-b border-line py-3.5 last:border-0', nested && 'ml-4')}
       data-setting-id={settingId}
     >
-      <div className="grid items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:gap-6">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         {leading ? (
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex w-44 min-w-0 grow items-center gap-3">
             {leading}
             {label}
           </div>
         ) : (
-          label
+          <div className="w-44 grow">{label}</div>
         )}
-        <div className="grid content-start justify-items-start gap-2 md:justify-items-end">
-          {children}
-        </div>
+        <div className="ml-auto grid content-start justify-items-end gap-2">{children}</div>
       </div>
     </div>
   );

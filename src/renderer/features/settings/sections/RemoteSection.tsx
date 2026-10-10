@@ -172,7 +172,7 @@ export function RemoteSection() {
                 settingId={`remote-${connection.id}`}
                 title={connection.label}
               >
-                <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <span className={cn('flex items-center gap-1.5 text-[12px]', status.tone)}>
                     <span
                       aria-hidden="true"
