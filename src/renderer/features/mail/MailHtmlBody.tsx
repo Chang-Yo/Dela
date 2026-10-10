@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Ellipsis } from 'lucide-react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
 import { cn } from '../../lib/utils';
 import { frameHeightFromEvent, injectFrameHeightReport } from '../../components/ui/frame-height';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
 
 const toolbarToggle = cn(
   'h-7 rounded-full px-3 text-[12px] transition-colors',
@@ -21,8 +14,9 @@ const toolbarToggle = cn(
 const INITIAL_BODY_HEIGHT = 240;
 
 export function MailHtmlBody({ html, text }: { html: string; text: string | null }) {
-  // 远程图片默认不加载:是跟踪像素的标准载体,主流客户端均默认阻止;每封邮件一键放行。
-  const [remoteImages, setRemoteImages] = useState(false);
+  // 远程图片默认加载（用户裁决，2026-10-10）：隐私页的说明本来就是「默认显示、可切换为隐藏」，
+  // 代码与它不一致。担心跟踪像素时按这封邮件一键隐藏，偏好不落盘。
+  const [remoteImages, setRemoteImages] = useState(true);
   const [plain, setPlain] = useState(false);
   const [fitWidth, setFitWidth] = useState(false);
   const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
@@ -44,7 +38,7 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
 
   return (
     <div className="mt-3 flex flex-col">
-      {/* 常驻只留两个高频开关；低频的「适应宽度」收进显示选项菜单。 */}
+      {/* 三个开关并列常驻：原先「适应宽度」收在只有它一项的「更多」菜单里，等于白多一次点击。 */}
       <div className="flex items-center gap-1.5">
         <button
           aria-pressed={plain}
@@ -55,6 +49,14 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
           纯文本
         </button>
         <button
+          aria-pressed={fitWidth}
+          className={toolbarToggle}
+          onClick={() => setFitWidth(!fitWidth)}
+          type="button"
+        >
+          适应宽度
+        </button>
+        <button
           aria-pressed={remoteImages}
           className={toolbarToggle}
           onClick={() => setRemoteImages(!remoteImages)}
@@ -62,26 +64,6 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
         >
           {remoteImages ? '隐藏远程图片' : '加载远程图片'}
         </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              aria-label="显示选项"
-              className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2 hover:text-ink"
-              title="显示选项"
-              type="button"
-            >
-              <Ellipsis className="size-4" strokeWidth={1.8} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuCheckboxItem
-              checked={fitWidth}
-              onCheckedChange={(value) => setFitWidth(value === true)}
-            >
-              适应宽度
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
       {plain ? (
         <div className="mt-3 rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
