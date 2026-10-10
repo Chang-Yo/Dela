@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'window', {
 initSessionsMirror();
 
 function summary(id: string, updatedAt = '2026-09-29T10:00:00.000Z'): ChatSessionSummary {
-  return { id, title: `会话 ${id}`, updatedAt, messageCount: 1 };
+  return { id, title: `会话 ${id}`, updatedAt };
 }
 
 function chat(sessionId: string, messageCount: number): WorkspaceChat {
@@ -110,6 +110,27 @@ describe('sessions mirror store', () => {
       message: { role: 'assistant', content: '迟到增量', startedAt: 200, parts: [] },
     });
     expect(useSessions.getState().chats['s2']?.messages).toHaveLength(1);
+  });
+
+  it('会话条数变化的推送触发该池列表重读，侧栏标题与排序才跟得上', async () => {
+    vi.useFakeTimers();
+    sessionList.mockResolvedValue([summary('s1')]);
+    useSessions.setState({ lists: {}, chats: {} });
+
+    // 首条消息落库（main 此刻才写标题，空会话本来就不在 list 里）。
+    updateListeners[0]!('s1', chat('s1', 1));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sessionList).toHaveBeenCalledWith(null, '');
+    expect(useSessions.getState().lists.general?.map((item) => item.id)).toEqual(['s1']);
+
+    // 条数没变（同一轮的工具边界重复推送）不重读列表，避免每个边界都查一次库。
+    sessionList.mockClear();
+    updateListeners[0]!('s1', chat('s1', 1));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sessionList).not.toHaveBeenCalled();
+
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('forgetSession 同时清出快照缓存与各池列表条目', () => {

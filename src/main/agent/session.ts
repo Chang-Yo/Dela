@@ -408,8 +408,7 @@ function runEvent(sessionId: string, status: RunStatus, activeTool?: string) {
 
 // ===== Session API =====
 
-const summaryColumns =
-  'id, title, pinned, project_id AS projectId, updated_at AS updatedAt, message_count AS messageCount';
+const summaryColumns = 'id, title, pinned, project_id AS projectId, updated_at AS updatedAt';
 
 export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;

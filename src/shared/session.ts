@@ -25,7 +25,6 @@ export interface ChatSessionSummary {
   id: string;
   title: string;
   updatedAt: string;
-  messageCount: number;
   pinned?: boolean;
   projectId?: string | null;
 }
