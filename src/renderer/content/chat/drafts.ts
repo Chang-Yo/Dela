@@ -2,9 +2,9 @@ import { create } from 'zustand';
 
 export type ChatReference = { key: string; title: string };
 
-type ChatDraft = { prompt: string; references: ChatReference[] };
+type ChatDraft = { prompt: string };
 
-export const emptyDraft: ChatDraft = { prompt: '', references: [] };
+export const emptyDraft: ChatDraft = { prompt: '' };
 
 // localStorage 键名沿用 dela.* 前缀约定；跨页面切换与重启保留输入。
 // 键从 scope 换成 sessionId（阶段三批次 3A 身份切换）：旧 dela.chat.drafts 的 scope 键
@@ -13,17 +13,23 @@ const STORAGE_KEY = 'dela.session.drafts';
 // 会话草稿数量上限：超出时丢弃最早写入的草稿，避免无限增长。
 const MAX_SESSIONS = 30;
 
-/** 逐条校验持久化草稿形状；渲染期 references.map 不容错，脏条目必须在此丢弃。 */
+/** 逐条校验持久化草稿形状，脏 prompt 整条丢弃。旧版把引用存在独立的 references 数组、
+ *  composer 上方 chips 展示；现引用即文本（@token 内联在 prompt 里），读到旧草稿时把
+ *  引用追加成 token 完成迁移。source: 资料引用已无生产入口，迁移时丢弃。 */
 function asChatDraft(value: unknown): ChatDraft | null {
   if (!value || typeof value !== 'object') return null;
   const { prompt, references } = value as Record<string, unknown>;
-  if (typeof prompt !== 'string' || !Array.isArray(references)) return null;
-  for (const ref of references) {
-    if (!ref || typeof ref !== 'object') return null;
-    const { key, title } = ref as Record<string, unknown>;
-    if (typeof key !== 'string' || typeof title !== 'string') return null;
+  if (typeof prompt !== 'string') return null;
+  if (!Array.isArray(references)) return { prompt };
+  let migrated = prompt;
+  for (const item of references) {
+    if (!item || typeof item !== 'object') continue;
+    const { key, title } = item as Record<string, unknown>;
+    if (typeof key !== 'string' || typeof title !== 'string') continue;
+    if (key.startsWith('source:') || title.includes('\n')) continue;
+    migrated += ` @${title}`;
   }
-  return { prompt, references: references as ChatReference[] };
+  return { prompt: migrated };
 }
 
 function loadStored(): Record<string, ChatDraft> {

@@ -134,14 +134,15 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     void window.dela?.chat.releaseMedia([id]);
   };
 
-  // 可选参数供快捷入口直接发送：绕过草稿的响应式时序，单击即发。
-  const send = async (directText?: string) => {
+  // 发送前从文本解析好的引用（ChatTab 经 referenceContext 算出）；引用即文本，
+  // 删除 = 删掉 @token，无需独立增删入口。
+  const send = async (references: ChatReference[]) => {
     // 发送时点读取草稿（不依赖渲染期闭包）：拿到的一定是最后一次按键的值。
     const draft = useChatDrafts.getState().drafts[sessionId] ?? emptyDraft;
-    const text = directText ?? draft.prompt;
-    if (!window.dela || !canSendInput(text, directText !== undefined) || busy) return;
+    const text = draft.prompt;
+    if (!window.dela || !canSendInput(text, false) || busy) return;
     const requested = sessionId;
-    const sentReferences = draft.references;
+    const sentReferences = references;
     const sentAttachments = attachments;
     try {
       if (flushReference) {
@@ -174,7 +175,7 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
         const fresh = await window.dela.session.open(requested).catch(() => null);
         if (fresh) useSessions.getState().putChat(requested, fresh);
         if (activeSession.current === requested && shouldRestoreDraft(fresh, text)) {
-          updateDraft(requested, { prompt: text, references: sentReferences });
+          updateDraft(requested, { prompt: text });
           setAttachments(sentAttachments);
         }
       }
@@ -256,17 +257,6 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     addAttachmentFile,
     addAttachmentView,
     removeAttachment,
-    addReference: (ref: ChatReference) => {
-      const current = useChatDrafts.getState().drafts[sessionId]?.references ?? [];
-      if (current.some((item) => item.key === ref.key)) return;
-      updateDraft(sessionId, { references: [...current, ref] });
-    },
-    removeReference: (key: string) =>
-      updateDraft(sessionId, {
-        references: (useChatDrafts.getState().drafts[sessionId]?.references ?? []).filter(
-          (item) => item.key !== key,
-        ),
-      }),
     error,
     clearError: () => setError(null),
     send,

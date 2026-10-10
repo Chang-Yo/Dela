@@ -7,20 +7,42 @@ import { ChatComposer, cacheHitRateText } from './ChatComposer';
 import type { ComposerEditor } from './ComposerEditor';
 import type { ChatReference } from './use-chat';
 
-// 编辑器（CodeMirror）不参与本次验证：换成 textarea，但文档变化与光标位置仍按真实编辑器的
-// 方式回调（真实实现里 docChanged / selectionSet 走的是同一个 updateListener）。
+// 编辑器（CodeMirror）不参与本次验证：换成 textarea，但文档变化、光标位置与 handleRef
+// 的编辑操作仍按真实编辑器的方式回调（真实实现里 docChanged / selectionSet 走的是同一个
+// updateListener，replaceRange 走 dispatch changes）。
 vi.mock('./ComposerEditor', () => ({
-  ComposerEditor: ({ value, onChange, onCaret }: ComponentProps<typeof ComposerEditor>) => (
-    <textarea
-      aria-label="发送给助手"
-      onChange={(event) => {
-        const next = event.target.value;
+  ComposerEditor: ({
+    value,
+    onChange,
+    onCaret,
+    handleRef,
+  }: ComponentProps<typeof ComposerEditor>) => {
+    handleRef.current = {
+      focus: () => {},
+      insertAt: (pos, text) => {
+        const next = value.slice(0, pos) + text + value.slice(pos);
         onChange(next);
-        onCaret(next, next.length);
-      }}
-      value={value}
-    />
-  ),
+        onCaret(next, pos + text.length);
+      },
+      replaceRange: (from, to, text) => {
+        const next = value.slice(0, from) + text + value.slice(to);
+        onChange(next);
+        onCaret(next, from + text.length);
+      },
+      selectionStart: () => value.length,
+    };
+    return (
+      <textarea
+        aria-label="发送给助手"
+        onChange={(event) => {
+          const next = event.target.value;
+          onChange(next);
+          onCaret(next, next.length);
+        }}
+        value={value}
+      />
+    );
+  },
 }));
 
 const reference: ChatReference = { key: 'E:/repo/Test/authAPI.js', title: 'Test/authAPI.js' };
@@ -47,16 +69,13 @@ function Harness({
       model="test-model"
       onAddAttachmentFile={async () => {}}
       onAddAttachmentView={() => {}}
-      onAddReference={() => {}}
       onChange={setValue}
       onEffortSelect={() => {}}
       onModelSelect={() => {}}
       onRemoveAttachment={() => {}}
-      onRemoveReference={() => {}}
       onSend={() => {}}
       onStop={() => {}}
       referenceOptions={referenceOptions}
-      references={[]}
       value={value}
     />
   );
@@ -121,7 +140,7 @@ it('@ 候选菜单确定向上展开：绝对定位挂在 composer 外框上，�
   expect(list.parentElement?.className).toContain('relative');
 });
 
-it('@ 候选的文件名用主题蓝加粗，目录保持灰阶', async () => {
+it('@ 候选：文件名强调蓝加粗在前，目录以小字灰阶缀后', async () => {
   await act(async () =>
     root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),
   );
@@ -132,7 +151,20 @@ it('@ 候选的文件名用主题蓝加粗，目录保持灰阶', async () => {
   expect(name.className).toContain('font-semibold');
   expect(name.getAttribute('style')).toContain('--cal-blue-text');
   expect(dir.className).toContain('text-ink-3');
-  expect(dir.getAttribute('style')).toBeNull();
+  // 文件名在前、路径缀后（对照 Claude 候选样式）。
+  expect(name.compareDocumentPosition(dir) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it('选中 @ 候选后原位插入 @路径 token（尾随空格），菜单收起', async () => {
+  await act(async () =>
+    root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),
+  );
+  typeMention();
+  const option = host.querySelector('[role="option"]')!;
+  await act(async () => option.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  const editor = host.querySelector<HTMLTextAreaElement>('textarea')!;
+  expect(editor.value).toBe('@Test/authAPI.js ');
+  expect(host.querySelector('[role="listbox"]')).toBeNull();
 });
 
 it('有缓存数据时显示本会话累计命中率，保留一位小数', async () => {

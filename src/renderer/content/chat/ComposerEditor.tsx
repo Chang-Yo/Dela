@@ -8,7 +8,14 @@ import {
 import { insertNewlineContinueMarkup, markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
-import { EditorState, Prec, RangeSetBuilder } from '@codemirror/state';
+import {
+  EditorState,
+  Prec,
+  RangeSetBuilder,
+  StateEffect,
+  StateField,
+  type Range,
+} from '@codemirror/state';
 import {
   Decoration,
   EditorView,
@@ -22,6 +29,8 @@ import { cn } from '../../lib/utils';
 import { markdownHighlightStyle } from '../../lib/markdown-highlight';
 import { matchChatImageTokens } from '../../../shared/chat-input';
 import { getChatMediaPreview } from './media';
+import type { ChatReference } from './drafts';
+import { matchReferenceTokens } from './reference-tokens';
 
 /** 容器注入的菜单键盘协议：返回 True 表示已消费该按键。 */
 type ComposerMenuApi = {
@@ -123,6 +132,83 @@ const imagePlugin = ViewPlugin.fromClass(
   { decorations: (value) => value.decorations },
 );
 
+// @ 引用 token：文档文本就是「@相对路径」，这里只负责把它画出来——@ 与目录前缀折叠成
+// 一个文件图标，只留文件名可见（悬停图标或文件名可看完整路径），并经 atomicRanges 让
+// 光标/退格把整段路径当作一个整体。
+const setReferenceOptions = StateEffect.define<ChatReference[]>();
+const referenceField = StateField.define<ChatReference[]>({
+  create: () => [],
+  update: (value, tr) => {
+    for (const effect of tr.effects) if (effect.is(setReferenceOptions)) return effect.value;
+    return value;
+  },
+});
+
+// 文件图标（lucide file-text 同形）：widget 里直接建 DOM，不经 React。
+const FILE_ICON_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
+
+class ReferenceIconWidget extends WidgetType {
+  constructor(readonly title: string) {
+    super();
+  }
+  eq(other: ReferenceIconWidget) {
+    return other.title === this.title;
+  }
+  toDOM() {
+    const span = document.createElement('span');
+    span.className = 'dela-ref-icon';
+    span.setAttribute('aria-hidden', 'true');
+    span.title = this.title;
+    span.innerHTML = FILE_ICON_SVG;
+    return span;
+  }
+}
+
+function referenceDecorations(view: EditorView): DecorationSet {
+  const options = view.state.field(referenceField, false) ?? [];
+  const builder = new RangeSetBuilder<Decoration>();
+  for (const token of matchReferenceTokens(view.state.doc.toString(), options)) {
+    const { start, end, ref } = token;
+    // @ 与目录前缀替换成文件图标，只留文件名文本（强调蓝）；悬停可看完整路径。
+    // 文本里仍是完整「@路径」，解析不受显示折叠影响。
+    const split = ref.title.lastIndexOf('/');
+    const nameStart = start + 1 + (split < 0 ? 0 : split + 1);
+    builder.add(
+      start,
+      nameStart,
+      Decoration.replace({ widget: new ReferenceIconWidget(ref.title) }),
+    );
+    builder.add(
+      nameStart,
+      end,
+      Decoration.mark({ attributes: { title: ref.title }, class: 'cm-ref-name' }),
+    );
+  }
+  return builder.finish();
+}
+
+const referencePlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = referenceDecorations(view);
+    }
+    update(update: ViewUpdate) {
+      if (
+        update.docChanged ||
+        update.viewportChanged ||
+        update.transactions.some((tr) =>
+          tr.effects.some((effect) => effect.is(setReferenceOptions)),
+        )
+      )
+        this.decorations = referenceDecorations(update.view);
+    }
+  },
+  { decorations: (value) => value.decorations },
+);
+
 // 编辑区内边距：.cm-scroller 与占位符覆盖层共用，避免两处漂移。
 const SCROLLER_PADDING = { x: 16, top: 14 };
 
@@ -133,7 +219,7 @@ const composerTheme = EditorView.theme({
     fontFamily: 'inherit',
     lineHeight: '1.65',
     overflowY: 'auto',
-    // 高度按视口封顶：440px 最小窗口下 224px 满高编辑器会把消息流挤没。
+    // 高度封顶：绝对 224px + 相对 38vh 双上限，避免满高编辑器把消息流挤没。
     maxHeight: 'min(224px, 38vh)',
     padding: `${SCROLLER_PADDING.top}px ${SCROLLER_PADDING.x}px 6px`,
   },
@@ -185,6 +271,15 @@ const composerTheme = EditorView.theme({
     cursor: 'pointer',
   },
   '.dela-chat-image button:hover': { color: 'var(--color-ink)' },
+  '.cm-ref-name': { color: 'var(--cal-blue-text)', fontWeight: 600 },
+  '.dela-ref-icon': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    marginRight: '2px',
+    color: 'var(--color-ink-2)',
+    verticalAlign: '-0.125em',
+  },
+  '.dela-ref-icon svg': { width: '1em', height: '1em' },
 });
 
 const heroTheme = EditorView.theme({
@@ -216,6 +311,7 @@ export function ComposerEditor({
   hero = false,
   handleRef,
   className,
+  referenceOptions,
 }: {
   value: string;
   onChange: (text: string) => void;
@@ -230,6 +326,8 @@ export function ComposerEditor({
   hero?: boolean;
   handleRef: RefObject<ComposerEditorHandle | null>;
   className?: string;
+  /** @ 引用候选：文本里命中候选 title 的 @路径高亮为引用 token。 */
+  referenceOptions: ChatReference[];
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -265,10 +363,21 @@ export function ComposerEditor({
           history(),
           markdown({ codeLanguages: languages }),
           EditorView.lineWrapping,
+          referenceField,
           imagePlugin,
-          EditorView.atomicRanges.of(
-            (target) => target.plugin(imagePlugin)?.decorations ?? Decoration.none,
-          ),
+          referencePlugin,
+          EditorView.atomicRanges.of((target) => {
+            const image = target.plugin(imagePlugin)?.decorations ?? Decoration.none;
+            const refs = target.plugin(referencePlugin)?.decorations ?? Decoration.none;
+            if (image === Decoration.none) return refs;
+            if (refs === Decoration.none) return image;
+            const ranges: Range<Decoration>[] = [];
+            for (let it = image.iter(); it.value; it.next())
+              ranges.push({ from: it.from, to: it.to, value: it.value });
+            for (let it = refs.iter(); it.value; it.next())
+              ranges.push({ from: it.from, to: it.to, value: it.value });
+            return Decoration.set(ranges, true);
+          }),
           Prec.highest(
             keymap.of([
               // 候选菜单打开时接管方向键/Enter/Tab/Esc；返回 false 回落到默认行为。
@@ -357,6 +466,10 @@ export function ComposerEditor({
   useEffect(() => {
     syncValue();
   }, [value]);
+  // 已知引用候选变化（镜像/远端索引载入）时同步进 CM state，重算 token 装饰。
+  useEffect(() => {
+    view.current?.dispatch({ effects: setReferenceOptions.of(referenceOptions) });
+  }, [referenceOptions]);
   // combobox 语义落在 CM 内容元素（编辑焦点所在）：role 与 aria-controls 常驻，
   // expanded/activedescendant 随候选菜单开合与高亮移动（对照 GlobalSearchDialog 输入框）。
   // 这几个属性 CM 不管理，直接命令式同步；拆出原始值做依赖，打字时不重复写 DOM。

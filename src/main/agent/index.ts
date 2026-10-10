@@ -59,7 +59,8 @@ const uuid = z.string().uuid();
 const askInputSchema = z.object({
   text: z.string().max(20000),
   attachments: z.array(uuid).max(5),
-  context: z.array(z.string().max(32_767)).max(10),
+  // 引用以 @token 内联在正文里、无数量上限（受 text 长度约束）；附件维持 5 个上限。
+  context: z.array(z.string().max(32_767)),
   replaceLastUser: z.boolean().optional(),
 });
 

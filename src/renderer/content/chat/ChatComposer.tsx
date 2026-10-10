@@ -99,9 +99,6 @@ export function ChatComposer({
   effort,
   effortLevels,
   onEffortSelect,
-  references,
-  onRemoveReference,
-  onAddReference,
   referenceOptions,
   attachments,
   onAddAttachmentFile,
@@ -127,9 +124,6 @@ export function ChatComposer({
   effort: string | null;
   effortLevels: string[];
   onEffortSelect: (level: string) => void;
-  references: ChatReference[];
-  onRemoveReference: (key: string) => void;
-  onAddReference: (ref: ChatReference) => void;
   referenceOptions: ChatReference[];
   attachments: ChatMediaView[];
   onAddAttachmentFile: (file: File) => Promise<void>;
@@ -181,11 +175,7 @@ export function ChatComposer({
   const mentionItems =
     menu?.kind === 'mention'
       ? referenceOptions
-          .filter(
-            (option) =>
-              !references.some((ref) => ref.key === option.key) &&
-              option.title.toLowerCase().includes(menu.query.toLowerCase()),
-          )
+          .filter((option) => option.title.toLowerCase().includes(menu.query.toLowerCase()))
           .slice(0, 8)
       : [];
   const items: (typeof slashItems)[number][] | ChatReference[] =
@@ -222,8 +212,8 @@ export function ChatComposer({
     } else {
       const option = mentionItems[position];
       if (!option) return;
-      onAddReference(option);
-      editorRef.current?.replaceRange(menu.start, caret, '');
+      // 引用即文本：原位留下「@相对路径」token（尾随空格隔开后续输入），发送时解析回 key。
+      editorRef.current?.replaceRange(menu.start, caret, `@${option.title} `);
     }
     setMenu(null);
     setIndex(0);
@@ -366,17 +356,8 @@ export function ChatComposer({
             松开以添加图片或附件
           </div>
         )}
-        {(attachments.length > 0 || references.length > 0) && (
+        {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-3 pt-3">
-            {references.map((ref) => (
-              <ComposerChip
-                icon={<AtSign />}
-                key={ref.key}
-                label={ref.title}
-                onRemove={() => onRemoveReference(ref.key)}
-                removeLabel={`移除引用 ${ref.title}`}
-              />
-            ))}
             {attachments.map((item) => (
               <ComposerChip
                 detail={formatSize(item.size)}
@@ -407,6 +388,7 @@ export function ChatComposer({
             if (canSend) onSend();
           }}
           placeholderText={hero ? '有什么可以帮你？' : '回复…  @ 引用文件，/ 指令'}
+          referenceOptions={referenceOptions}
           value={value}
         />
         <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1 @max-[160px]:gap-0.5 @max-[160px]:px-1.5">
@@ -650,7 +632,7 @@ export function ChatComposer({
                 role="option"
               >
                 {menu?.kind === 'mention' ? (
-                  <AtSign className="size-3.5 shrink-0 text-ink-3" />
+                  <FileText className="size-3.5 shrink-0 text-ink-3" />
                 ) : (
                   <span className="shrink-0 font-mono text-[12.5px] text-ink-3">/</span>
                 )}
@@ -675,17 +657,17 @@ export function ChatComposer({
   );
 }
 
-/** 引用候选的标题：目录留灰阶、文件名用强调蓝加粗——整条路径都上强调色反而找不到文件名。 */
+/** 引用候选：文件名强调蓝加粗在前，所在目录以小字灰阶缀后（过长省略号截断）。 */
 function MentionTitle({ title }: { title: string }) {
   const at = title.lastIndexOf('/');
   const dir = at < 0 ? '' : title.slice(0, at + 1);
   const name = at < 0 ? title : title.slice(at + 1);
   return (
-    <span className="min-w-0 flex-1 truncate text-[12.5px]">
-      <span className="text-ink-3">{dir}</span>
-      <span className="font-semibold" style={{ color: 'var(--cal-blue-text)' }}>
+    <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[12.5px]">
+      <span className="shrink-0 font-semibold" style={{ color: 'var(--cal-blue-text)' }}>
         {name}
       </span>
+      {dir && <span className="min-w-0 truncate text-[11px] text-ink-3">{dir}</span>}
     </span>
   );
 }

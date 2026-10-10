@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
@@ -9,6 +9,7 @@ import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
 import { useChat, useChatDraft, useChatSession, type ChatReference } from './use-chat';
+import { referenceContext } from './reference-tokens';
 import { useNavigationStore } from '../../app/navigation';
 import { useSessions } from '../../sessions/store';
 
@@ -68,9 +69,9 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
   );
 }
 
-/** 输入区容器：输入草稿（prompt/引用）只在本层经 useChatDraft 订阅——打字每键仅重渲
+/** 输入区容器：输入草稿（prompt）只在本层经 useChatDraft 订阅——打字每键仅重渲
  *  本层与 ChatComposer，不再带动 ChatSessionView 与 ChatThread 的整棵消息树；
- *  发送与失败恢复草稿仍由 useChat 在调用时读取，行为不变。 */
+ *  发送与失败恢复草稿仍由 useChat 在调用时读取，引用在发送前从文本解析。 */
 function ChatComposerArea({
   chat,
   chatState,
@@ -88,8 +89,13 @@ function ChatComposerArea({
   sessionId: string;
   hero?: boolean;
 }) {
-  const { prompt, references } = useChatDraft(sessionId);
+  const { prompt } = useChatDraft(sessionId);
   const referenceOptions = useReferenceOptions(referenceSource, chat);
+  // 引用即文本：发送前从草稿文本解析 @token，附件与引用自此分开计数（附件维持上限 5）。
+  const references = useMemo(
+    () => referenceContext(prompt, referenceOptions),
+    [prompt, referenceOptions],
+  );
   return (
     <div className="mx-auto w-full max-w-3xl shrink-0 p-3">
       <ChatComposer
@@ -102,17 +108,14 @@ function ChatComposerArea({
         model={chat?.model ?? ''}
         onAddAttachmentFile={chatState.addAttachmentFile}
         onAddAttachmentView={chatState.addAttachmentView}
-        onAddReference={chatState.addReference}
         onChange={chatState.setPrompt}
         onEffortSelect={chatState.selectEffort}
         onModelSelect={chatState.selectModel}
         onRemoveAttachment={chatState.removeAttachment}
-        onRemoveReference={chatState.removeReference}
         contextUsage={chat?.contextUsage ?? null}
-        onSend={() => void chatState.send()}
+        onSend={() => void chatState.send(references)}
         onStop={chatState.stop}
         referenceOptions={referenceOptions}
-        references={references}
         notice={error}
         onDismissNotice={chatState.clearError}
         value={prompt}

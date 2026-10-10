@@ -30,7 +30,7 @@
 - 项目＝目录：项目是 `kind='project'` 的 workspace 条目，身份是条目 UUID，目录是其 `local_path`；目录可在工作区内新建，也可导入电脑上已有的文件夹（留在原处，重命名/移动按同一套语义真的动磁盘）；远程项目的 `local_path` 是远端 POSIX 路径，本地没有这份目录（见「远程项目」）。会话 cwd 恒为该目录（通用会话为工作区根）；目录缺失时报错，不静默换目录（远程项目跳过本地存在性检查）。
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
 - 会话归属在创建时确定，ChatTab 从会话快照取 projectId/cwd，不取当前工作台。
-- 上下文是 pull 模型：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；附件文本与图片随用户消息进入 Pi 会话。
+- 上下文是 pull 模型：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；附件文本与图片随用户消息进入 Pi 会话。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入/粘贴附件维持在 composer 上方 chips、上限 5，与引用分开计数。
 - 上下文占用：快照与流式事件携带 `contextUsage`（Pi `getContextUsage` 的投影，仅打开中的会话有）；composer 底部圆环按占用显示进度，悬浮面板只报总量（SDK 无分类明细），压缩后 tokens 未知时显示「—」。
 - 系统提示＝Pi 默认提示 + Dela 追加段（dela 命令说明、项目名与目录、用户自定义指令）。
 - 编辑重发在 Pi 会话树上分支，旧分支保留在 JSONL。
