@@ -12,6 +12,8 @@ import {
   iconSchema,
   resetKeybindingOverrides,
   savedCampusNotifications,
+  savedExperimentalFeatures,
+  setExperimentalFeatures,
   savedFontScale,
   savedIcon,
   savedOpenAtLogin,
@@ -33,6 +35,14 @@ export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'ligh
 }
 
 export function registerSettingsIpc(): void {
+  ipcMain.handle('settings:get-experimental-features', (event) => {
+    checkWorkspaceSender(event);
+    return savedExperimentalFeatures();
+  });
+  ipcMain.handle('settings:set-experimental-features', (event, value) => {
+    checkWorkspaceSender(event);
+    return setExperimentalFeatures(z.boolean().parse(value));
+  });
   ipcMain.handle('settings:get-theme', (event) => {
     checkWorkspaceSender(event);
     return savedTheme();

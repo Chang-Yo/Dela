@@ -9,6 +9,41 @@ export function GeneralSection() {
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [experiments, setExperiments] = useState<boolean | null>(null);
+  const [experimentBusy, setExperimentBusy] = useState(false);
+  const [experimentError, setExperimentError] = useState<string | null>(null);
+
+  const toggleExperiments = async (next: boolean) => {
+    setExperimentBusy(true);
+    setExperimentError(null);
+    try {
+      const enabled = window.dela ? await window.dela.settings.setExperimentalFeatures(next) : next;
+      setExperiments(enabled);
+    } catch {
+      setExperimentError('试验功能设置保存失败，请重试。');
+    } finally {
+      setExperimentBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!window.dela) {
+      setExperiments(false);
+      return;
+    }
+    let active = true;
+    void window.dela.settings
+      .getExperimentalFeatures()
+      .then((enabled) => {
+        if (active) setExperiments(enabled);
+      })
+      .catch(() => {
+        if (active) setExperimentError('试验功能设置读取失败，请重新打开设置。');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     void window.dela?.settings
@@ -55,6 +90,25 @@ export function GeneralSection() {
         )}
       </section>
       <SystemNotifications />
+      <section className="grid gap-2" data-setting-id="experimental-features">
+        <div className="flex items-center justify-between gap-3 py-3">
+          <div className="grid gap-1">
+            <h2 className="text-[13px] font-medium">试验功能</h2>
+            <p className="text-[12px] text-ink-3">允许使用试验阶段的功能。</p>
+          </div>
+          <Switch
+            label="试验功能"
+            checked={experiments ?? false}
+            disabled={experiments === null || experimentBusy}
+            onChange={(next) => void toggleExperiments(next)}
+          />
+        </div>
+        {experimentError && (
+          <p className="text-[12px] text-red" role="alert">
+            {experimentError}
+          </p>
+        )}
+      </section>
     </div>
   );
 }

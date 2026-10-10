@@ -43,6 +43,8 @@ Dela 是为上海交通大学学生打造的本地个人 Agent：内核是 [Pi](
 
 远程项目：工具（read/write/edit/grep/bash 等）与终端都在远端执行；目录树展开时按需读取远端目录，远端有变化（包括你在服务器上自己改的）会自动刷新已展开的那几层；点远端文件开只读预览（文本、Markdown、图片、PDF 与 Word/Excel），可以下载到本地、交给系统默认程序打开，也可以把本地文件上传到远端目录（右键菜单或直接拖进去）。远端项目内仍不支持新建/编辑笔记，远端 PPTX 不支持内嵌预览（下载后用 PowerPoint 打开），打开着的预览不会自动跟随远端改动。
 
+**试验功能**：在「设置 → 通用」开启，默认关闭。课堂视频目前仅保留登录、课程与录像查询、原始 MP4 下载等后端接口，尚无课堂视频页面或播放入口。原始下载无需 FFmpeg；接口范围与验证状态见 [技术规划](docs/technical-plan.md#课堂视频后端试验)。
+
 ## 下载安装
 
 从 [Releases](https://github.com/Chang-Yo/Dela/releases) 下载 Windows 安装包（公开镜像：[Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases)）：

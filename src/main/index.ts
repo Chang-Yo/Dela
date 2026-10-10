@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
+import { registerVsjtuIpc } from './vsjtu/ipc';
 import { attachContextMenu } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
@@ -133,6 +134,7 @@ app.whenReady().then(() => {
   registerSettingsIpc();
   registerMailIpc();
   registerTimetableIpc();
+  registerVsjtuIpc();
   registerCanvasIpc();
   registerShuiyuanIpc();
   registerAgentIpc();

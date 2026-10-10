@@ -12,6 +12,7 @@ import type { RemoteApi } from './remotes';
 import type { SearchApi } from './search';
 import type { SessionApi } from './session';
 import type { SettingsApi } from './settings';
+import type { VsjtuApi } from './vsjtu';
 export type {
   AgentCapabilityView,
   CapabilityApi,
@@ -30,6 +31,7 @@ import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
 export interface DelaApi {
+  readonly vsjtu: VsjtuApi;
   capability: CapabilityApi;
   readonly todo: TodoApi;
   readonly terminal: TerminalApi;

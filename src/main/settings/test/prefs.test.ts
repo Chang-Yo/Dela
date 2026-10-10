@@ -13,8 +13,10 @@ import {
   getWorkspacePrefs,
   resetKeybindingOverrides,
   savedCampusNotifications,
+  savedExperimentalFeatures,
   setAgentInstruction,
   setCampusNotifications,
+  setExperimentalFeatures,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
   setWorkspacePrefs,
@@ -27,6 +29,16 @@ function insert(sql: string, ...values: SQLInputValue[]) {
 beforeEach(() => {
   database = new DatabaseSync(':memory:');
   database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+});
+
+it('keeps experiments off for new or corrupt settings and persists an explicit opt-in', () => {
+  expect(savedExperimentalFeatures()).toBe(false);
+  insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
+  expect(savedExperimentalFeatures()).toBe(false);
+  setExperimentalFeatures(true);
+  expect(savedExperimentalFeatures()).toBe(true);
+  setExperimentalFeatures(false);
+  expect(savedExperimentalFeatures()).toBe(false);
 });
 
 describe('task notification prefs', () => {

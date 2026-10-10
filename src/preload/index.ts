@@ -18,8 +18,10 @@ import { todo } from './todo';
 import { terminal } from './terminal';
 import { windowApi } from './window';
 import { workspace } from './workspace';
+import { vsjtu } from './vsjtu';
 
 contextBridge.exposeInMainWorld('dela', {
+  vsjtu,
   version,
   firstLaunch: process.argv.includes('--dela-first-launch'),
   todo,

@@ -36,6 +36,15 @@ export function writeSetting(key: string, value: string): void {
   getDatabase().prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value);
 }
 
+export function savedExperimentalFeatures(): boolean {
+  return readSetting('experimental-features') === '1';
+}
+
+export function setExperimentalFeatures(enabled: boolean): boolean {
+  writeSetting('experimental-features', enabled ? '1' : '0');
+  return enabled;
+}
+
 export function savedTheme(): ThemePreference {
   return themeSchema.catch('system').parse(readSetting('theme'));
 }

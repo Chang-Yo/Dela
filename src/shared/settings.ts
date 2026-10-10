@@ -32,6 +32,8 @@ export interface WorkspacePrefs {
 }
 
 export interface SettingsApi {
+  getExperimentalFeatures(): Promise<boolean>;
+  setExperimentalFeatures(enabled: boolean): Promise<boolean>;
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
   getIcon(): Promise<IconPreference>;

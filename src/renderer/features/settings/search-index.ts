@@ -14,6 +14,12 @@ export interface SettingsSearchItem {
 }
 
 export const settingsSearchItems: SettingsSearchItem[] = [
+  {
+    id: 'experimental-features',
+    section: 'general',
+    title: '试验功能',
+    keywords: ['通用', '实验', 'experimental'],
+  },
   // 通用（含系统通知子节）
   {
     id: 'open-at-login',
