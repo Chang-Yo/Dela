@@ -150,6 +150,18 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
+      # 商店提交包：复用上面已核对并冒烟过的 dist/win-unpacked，不重新打包应用，也不签名。
+      # 只作为 Actions artifact，不进 Release：未签名包无法直接安装，仅供提交 Partner Center。
+      - name: Build Store package (appx)
+        run: pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked --publish never
+      - uses: actions/upload-artifact@v6
+        with:
+          name: store-package-win-x64
+          path: |
+            dist/*.appx
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
 
   release:
     needs: [prepare, build]

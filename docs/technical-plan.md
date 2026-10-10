@@ -4,7 +4,7 @@
 
 ## 产品
 
-本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 dela 命令，工作台 GUI 是壳。单用户、单应用、单 package；仅 Windows（跨平台明确放弃）；安装包暂用 NSIS（exe），MSIX 与微软商店分发是后续计划；无服务端，检索 API 由用户自配。
+本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 dela 命令，工作台 GUI 是壳。单用户、单应用、单 package；仅 Windows（跨平台明确放弃）；自建分发用 NSIS（exe），商店分发用 appx 包（提交 Partner Center，签名由商店完成，尚未验证）；无服务端，检索 API 由用户自配。
 
 ## 分层架构（建设顺序＝依赖方向，自下而上）
 
