@@ -192,7 +192,9 @@ async function createWindow(): Promise<void> {
     width: 1100,
     height: 760,
     minWidth: 600,
-    minHeight: 440,
+    // 最小高度要容得下「@ 候选菜单向上展开（最高 256px）+ composer + 头部」，
+    // 再紧就会像菜单顶出窗口上沿。
+    minHeight: 600,
     show: !smokeTest && !startHidden,
     backgroundColor: '#f7f7f8',
     icon: join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
