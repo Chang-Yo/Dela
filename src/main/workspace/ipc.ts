@@ -15,6 +15,9 @@ import {
   saveWorkspaceNote,
   saveNoteImage,
   openProjectDirectory,
+  projectGitBranch,
+  projectGitBranches,
+  projectGitCheckout,
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
@@ -154,6 +157,20 @@ export function registerWorkspaceIpc(
     ),
   );
   handle('open-project-directory', openProjectDirectory);
+  handle('project-branch', (id) => projectGitBranch(id));
+  handle('project-branches', (id) => projectGitBranches(id));
+  // 分支名会直接作为 git 的参数：不允许以 - 开头，避免被当成选项。
+  handle('switch-project-branch', (id, branch) =>
+    projectGitCheckout(
+      id,
+      z
+        .string()
+        .min(1)
+        .max(255)
+        .refine((value) => !value.startsWith('-'))
+        .parse(branch),
+    ),
+  );
   // 导出过程要把阶段事件推给发起窗口，需要 event，走独立注册。
   ipcMain.handle('workspace:export-office-pdf', (event, ref) => {
     checkWorkspaceSender(event);

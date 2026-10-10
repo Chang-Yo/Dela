@@ -21,6 +21,10 @@ export const workspace = {
     invoke('workspace:save-note-image', id, name, bytes) as Promise<string>,
   openProjectDirectory: (id: string, target: 'vscode' | 'explorer') =>
     invoke('workspace:open-project-directory', id, target),
+  projectBranch: (id: string) => invoke('workspace:project-branch', id) as Promise<string | null>,
+  projectBranches: (id: string) => invoke('workspace:project-branches', id) as Promise<string[]>,
+  switchProjectBranch: (id: string, branch: string) =>
+    invoke('workspace:switch-project-branch', id, branch) as Promise<void>,
   exportOfficePdf: (ref: ResourceRef) => invoke('workspace:export-office-pdf', ref),
   onOfficeExportProgress: (listener: (event: OfficeExportEvent) => void) =>
     on<OfficeExportEvent>('workspace:export-office-progress', listener),
