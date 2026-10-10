@@ -153,15 +153,11 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
 }
 
 function ToolStep({ result, live }: { result: AgentToolResult; live: boolean }) {
+  // 失败也走工具视图：bash 保持「$ 命令 + 输出」的代码块形态，
+  // 失败只由行尾标记与卡片色条提示，不再把正文整段染红。
   return (
     <Disclosure head={<StepHead result={result} live={live} />}>
-      {result.output?.isError ? (
-        <p className="whitespace-pre-wrap break-words py-1 text-[12px] leading-5 text-red">
-          {result.output.text || '工具没有返回原因'}
-        </p>
-      ) : (
-        <ToolBody result={result} />
-      )}
+      <ToolBody failed={Boolean(result.output?.isError)} result={result} />
     </Disclosure>
   );
 }

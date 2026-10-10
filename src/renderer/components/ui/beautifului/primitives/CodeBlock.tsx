@@ -135,6 +135,8 @@ export type CodeBlockProps = {
   fill?: boolean;
   /** Dela 适配：追加到代码主体的类名（聊天内限高滚动等场景）。 */
   bodyClassName?: string;
+  /** Dela 适配：失败态——卡片左侧一条 --red 色条（沿用 Diff 视图增删色条的写法）。 */
+  tone?: "error";
 };
 
 export default function CodeBlock({
@@ -148,6 +150,7 @@ export default function CodeBlock({
   plain = false,
   fill = false,
   bodyClassName,
+  tone,
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const isDiff = variant === "Diff";
@@ -167,8 +170,12 @@ export default function CodeBlock({
 
   return (
     <div
-      className={`${fill ? "w-full" : "w-full max-w-105"} overflow-hidden rounded-card bg-surface shadow-card`}
+      className={`relative ${fill ? "w-full" : "w-full max-w-105"} overflow-hidden rounded-card bg-surface shadow-card`}
     >
+      {/* Dela 适配：失败态色条需盖住 Diff 的整行底色，故置于顶层。 */}
+      {tone === "error" && (
+        <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[3px] bg-red" />
+      )}
       {/* header — file · (diff stat | copy) */}
       <div className="flex h-11 items-center gap-2 border-b border-line px-4 text-[12.5px]">
         <span className="inline-flex min-w-0 items-center gap-[7px]">

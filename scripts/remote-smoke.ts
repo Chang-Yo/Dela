@@ -89,7 +89,9 @@ app
     });
     const evaluate = (code: string) => win.webContents.executeJavaScript(code, true);
     const wait = async (code: string, label = code) => {
-      for (let i = 0; i < 150; i++) {
+      // 30 秒：向导的「连接」现在会真的上传并启动 helper（第一次要传几 MB），
+      // 15 秒在慢链路上不够；条件一旦成立立刻返回，放宽只是让失败晚一点报出来。
+      for (let i = 0; i < 300; i++) {
         if (await evaluate(code)) return;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -140,15 +142,44 @@ app
       await click('新建连接');
     await wait(`document.querySelector('[aria-label="SSH 目的地"]') !== null`, '向导填写表单');
 
-    // 2. 填写连接 → 下一步 → 连接（真 ssh 自检）。
+    // 2. 填写连接 → 下一步 → 连接：这一步真的自检、上传并启动 helper，所以先记下远端 helper 进程数。
     await type('SSH 目的地', host!);
     if (target.keyPath) await type('私钥文件', target.keyPath);
     await click('下一步');
     await wait(`document.body.innerText.includes('目的地')`, '向导第二步');
+    const helperCount = async () =>
+      Number(
+        (await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l')).stdout.toString().trim(),
+      );
+    const helpersBefore = await helperCount();
     await click('连接');
+    // 自检结果与引导进度都落在日志区（role=log）里：自检那行是「主机名 · 系统 架构」。
     await wait(
-      `(() => { const el = document.querySelector('[role="status"]'); return el && el.textContent.includes('Linux'); })()`,
+      `(() => {
+        const el = document.querySelector('[role="log"]');
+        return !!el && el.innerText.includes('Linux');
+      })()`,
       '自检通过的提示（主机名 · 系统 架构）',
+    );
+    // 自检过了不等于 helper 起好：上传几 MB 产物要几十秒，必须等日志走到「就绪」那一步
+    // 再做判断，否则看到的是上传中途的快照。
+    await wait(
+      `(() => {
+        const el = document.querySelector('[role="log"]');
+        return !!el && el.innerText.includes('就绪');
+      })()`,
+      '引导日志走到就绪',
+    );
+    // 先看向导自己的结论：降级（helper 不可用）与就绪在日志里是不同的两行。
+    const ready = await evaluate(
+      `document.querySelector('[role="log"]').innerText.includes('helper 通道已就绪')`,
+    );
+    assert.ok(ready, '「连接」没有把 helper 引导起来：日志里应出现「helper 通道已就绪」');
+    // 再数一次远端进程作为旁证：留到现在的实例可能刚好到期，所以只要求不减少且至少有一个。
+    const helpersAfterConnect = await helperCount();
+    assert.ok(
+      helpersAfterConnect >= 1 && helpersAfterConnect >= helpersBefore,
+      '「连接」没有在服务器上留下 helper 进程：这一步就该上传并启动它',
     );
 
     // 3. 选择目录：从主目录点进夹具目录，读到远端真实清单。
@@ -166,13 +197,8 @@ app
     );
 
     // 4. 添加为项目 → 项目被打开，tree 顶层直接挂远端根的内容（打开的项目不显示项目行）。
-    //    目录树的清单从 6.3 起走 helper 通道：真列过就会在远端多一个 helper 进程，
-    //    这里比对前后数量（不杀掉别的运行实例留下的常驻进程，那种进程最多再活 5 分钟）。
-    const helperCount = async () =>
-      Number(
-        (await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l')).stdout.toString().trim(),
-      );
-    const helpersBefore = await helperCount();
+    //    目录树的清单从 6.3 起走 helper 通道，而从 2026-10-10 起这条通道在向导的「连接」
+    //    一步就建好了：这里断言列一层没有把它换掉（换掉就意味着又付了一次上传与启动）。
     await click('添加为项目');
     await wait(
       `document.querySelector('[role="treeitem"][aria-label="a b.txt"]') !== null`,
@@ -199,8 +225,8 @@ app
     );
     const tabsBefore = await evaluate(`document.querySelectorAll('[role="tab"]').length`);
     assert.ok(
-      (await helperCount()) > helpersBefore,
-      '目录树的清单没有走 helper 通道：列一层不该再起一条 ssh',
+      (await helperCount()) >= helpersAfterConnect,
+      '向导建立的那条 helper 通道没有留在原地：目录树列一层时它不见了',
     );
     await evaluate(`document.querySelector('[role="treeitem"][aria-label="a b.txt"]').click()`);
     // 预览内容就是远端那份文件：内容片段由 helper 读回，标签页标题取文件名。

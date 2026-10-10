@@ -105,7 +105,7 @@ it('offers folder import only when creating a project', async () => {
 
 it('offers the remote wizard next to folder import and opens it', async () => {
   window.dela = {
-    remotes: { list: async () => [] },
+    remotes: { list: async () => [], onSetupProgress: () => () => {} },
     workspace: { getState: async () => emptyState },
   } as unknown as DelaApi;
   await render({ action: 'project', id: null });

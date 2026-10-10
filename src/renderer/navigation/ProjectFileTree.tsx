@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import type { EntryAction } from '../workspace/entry-actions';
+import { remoteAccent } from './remote-color';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 
 export type { EntryAction };
@@ -83,20 +84,25 @@ export function ProjectFileTree({
     expanded,
     rootId,
   );
-  const nodes: ExplorerItem[] = visible.map((e) => ({
-    id: e.id,
-    parentId: e.parentId === rootId ? null : e.parentId,
-    name: e.name,
-    project: e.kind === 'project',
-    container: e.kind === 'folder' || e.kind === 'project',
-    // 水源来源条目显示水滴图标，与其余资料区分。
-    icon:
-      e.kind === 'source' && e.sourceId?.startsWith('shuiyuan-topic:') ? ShuiyuanIcon : undefined,
-    // 远端项目：云朵标记 + 「目的地:路径」提示，且不参与拖放写入。
-    marker: e.remoteId ? Cloud : undefined,
-    title: e.remoteId && e.path ? remoteTitle(remote.destinations[e.remoteId], e.path) : undefined,
-    readOnly: Boolean(e.remoteId),
-  }));
+  const nodes: ExplorerItem[] = visible.map((e) => {
+    const accent = e.remoteId ? remoteAccent(e.remoteId, 'text') : undefined;
+    const shuiyuan = e.kind === 'source' && Boolean(e.sourceId?.startsWith('shuiyuan-topic:'));
+    return {
+      id: e.id,
+      parentId: e.parentId === rootId ? null : e.parentId,
+      name: e.name,
+      project: e.kind === 'project',
+      container: e.kind === 'folder' || e.kind === 'project',
+      // 水源来源条目显示水滴图标；远端项目行自己就是云朵，行尾再挂标记会变成两个云朵。
+      icon: shuiyuan ? ShuiyuanIcon : e.remoteId ? Cloud : undefined,
+      // 远端项目行提示「目的地:路径」，且不参与拖放写入。
+      title:
+        e.remoteId && e.path ? remoteTitle(remote.destinations[e.remoteId], e.path) : undefined,
+      readOnly: Boolean(e.remoteId),
+      // 同一台服务器的行同色：取色只看连接 id，同连接的项目行与子条目自然一致。
+      accent,
+    };
+  });
   const all = [...nodes, ...remote.items];
   let filtered = all;
   let open = expanded;
@@ -201,7 +207,8 @@ export function ProjectFileTree({
             <DropdownMenu>
               {menuTrigger(item.name)}
               <DropdownMenuContent align="start">
-                {item.container && (
+                {/* 远端项目行没有本地目录，main 对它的新建一律拒绝，入口就不必给。 */}
+                {item.container && !item.readOnly && (
                   <>
                     <DropdownMenuItem onSelect={() => onAction('folder', item.id)}>
                       <FolderPlus />
@@ -224,19 +231,25 @@ export function ProjectFileTree({
                   </DropdownMenuItem>
                 )}
                 {onOpenToSide && openToSideItem(item.id)}
-                <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>
-                  <Pencil />
-                  重命名
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onAction('move', item.id)}>
-                  <FolderInput />
-                  移动到…
-                </DropdownMenuItem>
-                {!archived && (
-                  <DropdownMenuItem onSelect={() => onAction('archive', item.id)}>
-                    <Archive />
-                    归档
-                  </DropdownMenuItem>
+                {/* 远端项目的重命名/移动/归档都走 main 的 update，而那条路径对远端项目一律拒绝
+                    （改的只是本地登记行，改了也没意义）：远端项目行只留「移除」这条本地操作。 */}
+                {!item.readOnly && (
+                  <>
+                    <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>
+                      <Pencil />
+                      重命名
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onAction('move', item.id)}>
+                      <FolderInput />
+                      移动到…
+                    </DropdownMenuItem>
+                    {!archived && (
+                      <DropdownMenuItem onSelect={() => onAction('archive', item.id)}>
+                        <Archive />
+                        归档
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
                 <DropdownMenuItem
                   variant="destructive"

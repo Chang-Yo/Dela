@@ -146,7 +146,10 @@ export type {
   RemoteConnection,
   RemoteDirectoryEntry,
   RemoteDraft,
+  RemotePrepare,
   RemoteProbe,
+  RemoteSetupProgress,
+  RemoteSetupStep,
 } from './remotes';
 
 export type {

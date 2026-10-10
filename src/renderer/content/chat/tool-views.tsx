@@ -10,6 +10,9 @@ function Caption({ children }: { children: React.ReactNode }) {
   return <p className="text-[11.5px] text-ink-3">{children}</p>;
 }
 
+/** 视图公共入参：failed 让工具卡带失败态（CodeBlock 左侧色条），输入输出结构不变。 */
+type ViewProps = { result: AgentToolResult; failed: boolean };
+
 function outputText(result: AgentToolResult): string {
   return result.output?.text ?? '';
 }
@@ -68,7 +71,7 @@ function buildDiffRows(oldText: string, newText: string): DiffRow[] {
   return rows;
 }
 
-function BashView({ result }: { result: AgentToolResult }) {
+function BashView({ result, failed }: ViewProps) {
   const command = (result.input as { command?: string } | null)?.command ?? '';
   const stdout = outputText(result);
   if (!command && !stdout) return null;
@@ -87,13 +90,14 @@ function BashView({ result }: { result: AgentToolResult }) {
         fill
         lines={lines}
         plain
+        tone={failed ? 'error' : undefined}
       />
     </div>
   );
 }
 
 /** read/grep/find/ls：路径或模式做标题，文本输出原样展示。 */
-function TextView({ result, title }: { result: AgentToolResult; title: string }) {
+function TextView({ result, title, failed }: ViewProps & { title: string }) {
   const text = outputText(result);
   if (!text) return null;
   return (
@@ -104,12 +108,13 @@ function TextView({ result, title }: { result: AgentToolResult; title: string })
         fill
         lines={text.split('\n')}
         plain={result.name !== 'read'}
+        tone={failed ? 'error' : undefined}
       />
     </div>
   );
 }
 
-function WriteView({ result }: { result: AgentToolResult }) {
+function WriteView({ result, failed }: ViewProps) {
   const input = result.input as { path?: string; content?: string } | null;
   const text = input?.content ?? '';
   return (
@@ -120,6 +125,7 @@ function WriteView({ result }: { result: AgentToolResult }) {
           filename={input?.path ?? ''}
           fill
           lines={text.split('\n')}
+          tone={failed ? 'error' : undefined}
         />
       ) : (
         <Caption>（空文件）</Caption>
@@ -128,7 +134,7 @@ function WriteView({ result }: { result: AgentToolResult }) {
   );
 }
 
-function EditView({ result }: { result: AgentToolResult }) {
+function EditView({ result, failed }: ViewProps) {
   const input = result.input as {
     path?: string;
     edits?: { oldText?: string; newText?: string }[];
@@ -146,6 +152,7 @@ function EditView({ result }: { result: AgentToolResult }) {
           diff={buildDiffRows(edit.oldText!, edit.newText!)}
           filename={input?.path ?? ''}
           fill
+          tone={failed ? 'error' : undefined}
           variant="Diff"
         />
       ))}
@@ -154,7 +161,7 @@ function EditView({ result }: { result: AgentToolResult }) {
 }
 
 /** 兜底视图（MCP、联网等自定义工具）：输入键值对 + 文本输出。 */
-function GenericView({ result }: { result: AgentToolResult }) {
+function GenericView({ result, failed }: ViewProps) {
   const input = result.input;
   const entries =
     input && typeof input === 'object' ? Object.entries(input as Record<string, unknown>) : [];
@@ -176,30 +183,56 @@ function GenericView({ result }: { result: AgentToolResult }) {
           fill
           lines={text.split('\n')}
           plain
+          tone={failed ? 'error' : undefined}
         />
       )}
     </div>
   );
 }
 
-export function ToolBody({ result }: { result: AgentToolResult }) {
+/** 工具视图的主体：按工具把输入与输出渲染成代码块形态。 */
+function ToolView({ result, failed }: ViewProps) {
   const input = (result.input ?? {}) as Record<string, unknown>;
   const str = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
   switch (result.name) {
     case 'bash':
-      return <BashView result={result} />;
+      return <BashView failed={failed} result={result} />;
     case 'write':
-      return <WriteView result={result} />;
+      return <WriteView failed={failed} result={result} />;
     case 'edit':
-      return <EditView result={result} />;
+      return <EditView failed={failed} result={result} />;
     case 'read':
-      return <TextView result={result} title={str('path')} />;
+      return <TextView failed={failed} result={result} title={str('path')} />;
     case 'ls':
-      return <TextView result={result} title={str('path') || '.'} />;
+      return <TextView failed={failed} result={result} title={str('path') || '.'} />;
     case 'grep':
     case 'find':
-      return <TextView result={result} title={str('pattern')} />;
+      return <TextView failed={failed} result={result} title={str('pattern')} />;
     default:
-      return <GenericView result={result} />;
+      return <GenericView failed={failed} result={result} />;
   }
+}
+
+export function ToolBody({
+  result,
+  failed = false,
+}: {
+  result: AgentToolResult;
+  failed?: boolean;
+}) {
+  // 失败原因就是工具输出：bash/read/grep 等视图已把它放进卡内，不重复；
+  // write/edit 卡内是输入内容，输出为空时也无可看内容，这两种情况补一行说明，
+  // 保证失败原因不会因为改用工具视图而消失。
+  const reasonOutsideBlock =
+    failed && (result.name === 'write' || result.name === 'edit' || !outputText(result));
+  return (
+    <>
+      {reasonOutsideBlock && (
+        <p className="mb-1.5 break-words whitespace-pre-wrap text-[11.5px] leading-5 text-ink-3">
+          {outputText(result) || '工具没有返回原因'}
+        </p>
+      )}
+      <ToolView failed={failed} result={result} />
+    </>
+  );
 }

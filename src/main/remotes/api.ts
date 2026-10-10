@@ -9,9 +9,12 @@ import type {
   RemoteBrowseResult,
   RemoteConnection,
   RemoteDraft,
+  RemotePrepare,
   RemoteProbe,
+  RemoteSetupProgress,
 } from '../../shared/remotes';
 import { withinRemotePath } from '../../shared/remotes';
+import { prepareHelper } from './helper';
 import {
   locate,
   probeRemote,
@@ -122,6 +125,36 @@ export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> 
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/**
+ * 向导「连接」这一步：先自检（与设置页「测试连接」同一条 probe 路径），再真的把 helper 引导起来。
+ *
+ * helper 起不来不是失败：一次性 ssh 仍然承接全部远程能力，只是每次调用都要重新握手、
+ * 没有目录实时刷新与大文件片段读取（见 docs/remote-helper.md「引导与恢复」）。所以这里
+ * 只在自检不过时回 ok:false，降级走一条警告进度回去。
+ */
+export async function prepareRemote(
+  draft: RemoteDraft,
+  onProgress?: (progress: RemoteSetupProgress) => void,
+): Promise<RemotePrepare> {
+  const parsed = remoteDraftSchema.parse(draft);
+  onProgress?.({ step: 'probe', detail: '正在检测 SSH 连接' });
+  const probe = await probeConnection(parsed);
+  onProgress?.({ step: 'probe', ok: probe.ok, detail: probe.message });
+  if (!probe.ok) return { ok: false, message: probe.message, helper: false };
+
+  const { session, failure } = await prepareHelper(targetOf(parsed), onProgress);
+  if (!session) {
+    onProgress?.({
+      step: 'ready',
+      ok: false,
+      detail: `helper 通道不可用${failure?.detail ? `（${failure.detail}）` : ''}，改用一次性 ssh：功能仍在，只是每次调用重新握手，且没有目录实时刷新与大文件片段读取`,
+    });
+    return { ok: true, message: probe.message, helper: false };
+  }
+  onProgress?.({ step: 'ready', ok: true, detail: 'helper 通道已就绪' });
+  return { ok: true, message: probe.message, helper: true };
 }
 
 /** 上级目录：去掉最后一段；已经在根目录时返回 null。 */

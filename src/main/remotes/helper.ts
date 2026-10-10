@@ -16,6 +16,7 @@ import { request as httpRequest } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
 import { app } from 'electron';
+import type { RemoteSetupProgress } from '../../shared/remotes';
 import {
   exec,
   locateSsh,
@@ -286,6 +287,7 @@ async function ensureArtifact(
   dir: string,
   artifact: string,
   digest: string,
+  onProgress?: (progress: RemoteSetupProgress) => void,
 ): Promise<void> {
   const probe = await exec(
     target,
@@ -297,11 +299,21 @@ async function ensureArtifact(
     ].join('\n'),
     { timeoutMs: BOOTSTRAP_TIMEOUT_MS },
   );
-  if (probe.code !== 0) throw new Error(probe.stderr.trim() || '探测远端 helper 失败');
-  if (probe.stdout.toString().trim() === 'READY') return;
+  if (probe.code !== 0) {
+    const detail = probe.stderr.trim() || '探测远端 helper 失败';
+    onProgress?.({ step: 'verify', ok: false, detail });
+    throw new Error(detail);
+  }
+  if (probe.stdout.toString().trim() === 'READY') {
+    onProgress?.({ step: 'verify', ok: true, detail: '远端已有这一版产物，跳过上传' });
+    return;
+  }
 
   // base64 走 ssh 的 stdin：二进制内容不经过 shell 解析，落盘后再核一次 sha256。
-  const encoded = readFileSync(artifact).toString('base64');
+  // 上传进度只报「开始 / 完成（字节数）/ 校验」三档：ssh 的 stdin 写没有可用的进度回调，
+  // 为进度条去改上传协议得不偿失。
+  const body = readFileSync(artifact);
+  onProgress?.({ step: 'upload', detail: `开始上传 ${body.length} 字节` });
   const upload = await exec(
     target,
     [
@@ -313,13 +325,16 @@ async function ensureArtifact(
       'mv -f "$tmp" "$dir/dela-helper"',
       'sha256sum "$dir/dela-helper" | cut -d" " -f1',
     ].join('\n'),
-    { stdin: `${encoded}\n`, timeoutMs: UPLOAD_TIMEOUT_MS },
+    { stdin: `${body.toString('base64')}\n`, timeoutMs: UPLOAD_TIMEOUT_MS },
   );
   const uploaded = upload.stdout.toString().trim();
-  if (upload.code !== 0 || uploaded !== digest)
-    throw new Error(
-      `helper 上传校验失败：期望 ${digest.slice(0, 12)}，远端 ${uploaded.slice(0, 12) || upload.stderr.trim()}`,
-    );
+  if (upload.code !== 0 || uploaded !== digest) {
+    const detail = `helper 上传校验失败：期望 ${digest.slice(0, 12)}，远端 ${uploaded.slice(0, 12) || upload.stderr.trim()}`;
+    onProgress?.({ step: 'verify', ok: false, detail });
+    throw new Error(detail);
+  }
+  onProgress?.({ step: 'upload', ok: true, detail: `上传完成 ${body.length} 字节` });
+  onProgress?.({ step: 'verify', ok: true, detail: 'sha256 校验通过' });
 }
 
 /** 一次启动：写 token、拉起 helper、把 run.json 里的端口读回来。 */
@@ -615,21 +630,40 @@ interface ActiveChannel {
   tunnel: ReturnType<typeof spawn>;
 }
 
-async function ensure(target: RemoteTarget): Promise<ActiveChannel> {
-  const probe = await exec(target, 'uname -s; uname -m', { timeoutMs: BOOTSTRAP_TIMEOUT_MS });
-  if (probe.code !== 0) throw new Error(probe.stderr.trim() || '无法探测远端系统');
+async function ensure(
+  target: RemoteTarget,
+  onProgress?: (progress: RemoteSetupProgress) => void,
+): Promise<ActiveChannel> {
+  // 每一步失败都带着「是哪一步、为什么」报出去：向导的日志区就靠它说清楚停在哪里。
+  const fail: (step: RemoteSetupProgress['step'], error: unknown) => never = (step, error) => {
+    onProgress?.({
+      step,
+      ok: false,
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  };
+  const probe = await exec(target, 'uname -s; uname -m', { timeoutMs: BOOTSTRAP_TIMEOUT_MS }).catch(
+    (error: unknown) => fail('probe', error),
+  );
+  if (probe.code !== 0) fail('probe', new Error(probe.stderr.trim() || '无法探测远端系统'));
   const [system = '', machine = ''] = probe.stdout.toString().trim().split('\n');
-  if (system.trim() !== 'Linux') throw new Error(`helper 只支持 Linux，远端是 ${system.trim()}`);
+  if (system.trim() !== 'Linux')
+    fail('probe', new Error(`helper 只支持 Linux，远端是 ${system.trim()}`));
   const arch = helperArch(machine.trim());
-  if (!arch) throw new Error(`helper 没有 ${machine.trim()} 的产物`);
+  if (!arch) fail('probe', new Error(`helper 没有 ${machine.trim()} 的产物`));
   const artifact = helperArtifact(arch);
-  if (!artifact) throw new Error(`缺少 helper 产物：linux/${arch}`);
+  if (!artifact) fail('probe', new Error(`缺少 helper 产物：linux/${arch}`));
   const digest = sha256Of(readFileSync(artifact));
   const dir = helperRemoteDir(digest);
-  await ensureArtifact(target, dir, artifact, digest);
+  // 这里的探测不再单独报一行：向导的自检已经报过同一件事，重复两行只会让日志变吵。
+  await ensureArtifact(target, dir, artifact, digest, onProgress);
 
   const token = randomBytes(24).toString('hex');
-  const remotePort = await startHelper(target, dir, token);
+  const remotePort = await startHelper(target, dir, token).catch((error: unknown) =>
+    fail('start', error),
+  );
+  onProgress?.({ step: 'start', ok: true, detail: `远端 127.0.0.1:${remotePort}` });
   const localPort = await freePort();
   const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
     windowsHide: true,
@@ -639,8 +673,15 @@ async function ensure(target: RemoteTarget): Promise<ActiveChannel> {
   tunnel.stderr?.on('data', (chunk: Buffer) => {
     tunnelError += chunk.toString();
   });
+  let tunnelReady = false;
   try {
     await waitForPort(localPort, TUNNEL_READY_MS);
+    tunnelReady = true;
+    onProgress?.({
+      step: 'tunnel',
+      ok: true,
+      detail: `本地 127.0.0.1:${localPort} → 远端 127.0.0.1:${remotePort}`,
+    });
     const hello = await jsonRequest<{ protocol: number; helperVersion: string }>(
       localPort,
       token,
@@ -649,10 +690,19 @@ async function ensure(target: RemoteTarget): Promise<ActiveChannel> {
     );
     if (hello.protocol !== PROTOCOL_VERSION || hello.helperVersion !== HELPER_VERSION)
       throw new Error(`helper 版本不匹配：协议 ${hello.protocol}、版本 ${hello.helperVersion}`);
+    onProgress?.({
+      step: 'handshake',
+      ok: true,
+      detail: `协议 ${hello.protocol} · helper ${hello.helperVersion}`,
+    });
   } catch (error) {
     tunnel.kill();
     const detail = tunnelError.trim();
-    throw detail ? new Error(`${String(error)}｜${detail}`) : error;
+    // 端口没通算隧道失败，握手没过才算握手失败：两者给用户的排查方向不一样。
+    fail(
+      tunnelReady ? 'handshake' : 'tunnel',
+      detail ? new Error(`${String(error)}｜${detail}`) : error,
+    );
   }
   const session = createSession(target, localPort, token);
   const timer = setInterval(() => {
@@ -666,11 +716,14 @@ async function ensure(target: RemoteTarget): Promise<ActiveChannel> {
 /** 同一时刻只保一条通道：切到别的连接就关掉旧的，避免 Dela 后面留一串 helper。 */
 let current: { key: string; channel: Promise<ActiveChannel | null> } | null = null;
 
-export async function helperSession(target: RemoteTarget): Promise<HelperSession | null> {
+export async function helperSession(
+  target: RemoteTarget,
+  onProgress?: (progress: RemoteSetupProgress) => void,
+): Promise<HelperSession | null> {
   const key = targetKey(target);
   if (current && current.key !== key) await closeHelper();
   if (!current) {
-    const channel = ensure(target).catch((error: unknown) => {
+    const channel = ensure(target, onProgress).catch((error: unknown) => {
       console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
       return null;
     });
@@ -682,6 +735,25 @@ export async function helperSession(target: RemoteTarget): Promise<HelperSession
   }
   const active = await current.channel;
   return active?.session ?? null;
+}
+
+/**
+ * 向导「连接」用：完整走一遍引导，并把每一步报出去。
+ *
+ * helperSession 把失败吞掉换成 null（那正是「降级到一次性 ssh」，调用方不需要知道细节），
+ * 但向导要能说出「哪一步、为什么」，所以这里从进度流里把那条 ok:false 捞出来一并返回；
+ * 上传与启动仍然只有 helperSession 这一条路，不为向导另开旁路缓存。
+ */
+export async function prepareHelper(
+  target: RemoteTarget,
+  onProgress?: (progress: RemoteSetupProgress) => void,
+): Promise<{ session: HelperSession | null; failure: RemoteSetupProgress | null }> {
+  let failure: RemoteSetupProgress | null = null;
+  const session = await helperSession(target, (progress) => {
+    if (progress.ok === false) failure = progress;
+    onProgress?.(progress);
+  });
+  return { session, failure };
 }
 
 /**

@@ -112,6 +112,28 @@ it('失败只在步骤行尾标注，原因在展开后可见', async () => {
   expect(host.textContent).toContain('oldText 不存在');
 });
 
+it('失败的 bash 也在代码块里显示命令与输出', async () => {
+  await render([
+    {
+      type: 'tools',
+      results: [
+        {
+          id: 'b',
+          name: 'bash',
+          input: { command: 'systemctl status dela' },
+          output: { text: 'Unit dela.service could not be found.', isError: true },
+          finishedAt: 1,
+        },
+      ],
+    },
+  ]);
+  expect(rows()[0]!.textContent).toContain('失败');
+  await act(async () => rows()[0]!.click());
+  const block = [...host.querySelectorAll('code')].map((node) => node.textContent).join('\n');
+  expect(block).toContain('$ systemctl status dela');
+  expect(block).toContain('Unit dela.service could not be found.');
+});
+
 it('运行中不折叠；结束后折叠过程，最终正文节点不重建', async () => {
   const trace: Parts = [
     { type: 'reasoning', text: '想一想' },

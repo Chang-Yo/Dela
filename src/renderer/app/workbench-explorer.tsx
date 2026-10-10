@@ -289,33 +289,36 @@ export function WorkbenchExplorer({
               {projectId ? (root?.name ?? '项目与文件夹') : '资料'}
             </button>
             <div className="flex shrink-0 items-center gap-0.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    aria-label="新建"
-                    className="hover:bg-hover-2"
-                    size="icon-xs"
-                    title="新建"
-                    variant="ghost"
-                  >
-                    <Plus />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => onAction('note', container())}>
-                    <FilePlus2 />
-                    新建笔记
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onAction('folder', container())}>
-                    <FolderPlus />
-                    新建文件夹
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => importFromDialog(container())}>
-                    <FileInput />
-                    导入本地文件
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* 远端项目没有本地目录，新建/导入的落点只可能是本地路径：入口整个收掉。 */}
+              {!remoteRoot && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      aria-label="新建"
+                      className="hover:bg-hover-2"
+                      size="icon-xs"
+                      title="新建"
+                      variant="ghost"
+                    >
+                      <Plus />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onAction('note', container())}>
+                      <FilePlus2 />
+                      新建笔记
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onAction('folder', container())}>
+                      <FolderPlus />
+                      新建文件夹
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => importFromDialog(container())}>
+                      <FileInput />
+                      导入本地文件
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <Button
                 aria-label="全部收起"
                 className="hover:bg-hover-2"
@@ -342,6 +345,8 @@ export function WorkbenchExplorer({
             <div
               className="min-h-0 flex-1 overflow-y-auto"
               onDoubleClick={(event) => {
+                // 远端空白处的「新建笔记」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
+                if (remoteRoot) return;
                 if (event.target === event.currentTarget) onAction('note', container());
               }}
               onDragOver={(event) => {

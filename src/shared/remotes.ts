@@ -24,6 +24,29 @@ export interface RemoteProbe {
   message: string;
 }
 
+/** 引导 helper 的步骤：与「引导与恢复」的表格一一对应，也是日志区的行标签。 */
+export type RemoteSetupStep =
+  'probe' | 'upload' | 'verify' | 'start' | 'tunnel' | 'handshake' | 'ready';
+
+/** 一行引导进度：一步一次，成功与失败各报一次，不做百分比（上传本身也没有细粒度回报）。 */
+export interface RemoteSetupProgress {
+  step: RemoteSetupStep;
+  /** 给人看的一行细节：字节数、端口、失败原因。 */
+  detail?: string;
+  /** 缺省表示「这一步开始了」；true 成功；false 失败。 */
+  ok?: boolean;
+}
+
+/** 向导「连接」这一步的结果：自检不过就不能继续，helper 起不来只是降级。 */
+export interface RemotePrepare {
+  /** SSH 自检是否通过（连目录都列不出来时只能停下来改目的地）。 */
+  ok: boolean;
+  /** 自检失败的原因，或成功时的一行环境摘要。 */
+  message: string;
+  /** helper 通道是否就绪；false 表示本次会话退回一次性 ssh（功能仍在，见 docs/remote-helper.md）。 */
+  helper: boolean;
+}
+
 export interface RemoteDirectoryEntry {
   name: string;
   /** 远端绝对路径（POSIX）。 */
@@ -96,4 +119,10 @@ export interface RemoteApi {
   probe(draft: RemoteDraft): Promise<RemoteProbe>;
   /** 目录选择器：path 为 null 时从远端主目录开始。 */
   browse(draft: RemoteDraft, path: string | null): Promise<RemoteBrowseResult>;
+  /** 私钥文件选择器：取消返回 null。 */
+  pickKey(): Promise<string | null>;
+  /** 连接：自检 + 把 helper 真的引导起来，过程经 onSetupProgress 一行行送达。 */
+  prepare(draft: RemoteDraft): Promise<RemotePrepare>;
+  /** 订阅引导进度；返回退订函数。 */
+  onSetupProgress(listener: (progress: RemoteSetupProgress) => void): () => void;
 }

@@ -2,9 +2,26 @@
 // 事实来源全在主进程：探测（remotes:probe）成功才保存连接，浏览（remotes:browse）逐层拉
 // 远端目录，确认后经 workspace.importRemoteProject 登记项目。向导不落任何凭据，
 // 只保存目的地、端口与私钥路径——密码由 ssh 自己处理，Dela 不做密码登录。
-import { useEffect, useState, type FormEvent } from 'react';
+//
+// 第 3 步「连接」是行为变更：它不再只是自检，而是真的把 helper 上传并启动一遍
+// （探测 → 上传/校验 → 启动 → 隧道 → 握手），进度逐行进日志区。理由是连接的可用性取决于
+// 服务器上有没有这一版 helper：等到第一次调工具才失败的话，用户看到的是「远程项目打开了但
+// 又慢又不刷新」，而不是「这一步没有准备好」。helper 起不来不挡流程——那只是降级成一次性
+// ssh（见 docs/remote-helper.md「引导与恢复」），所以失败行之外还有一条降级警告行。
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
-import { ArrowLeft, ArrowUp, Check, Folder, House, Loader2, Plus, Server } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowUp,
+  Check,
+  Folder,
+  House,
+  Loader2,
+  Plus,
+  Server,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
@@ -13,7 +30,9 @@ import type {
   RemoteBrowseResult,
   RemoteConnection,
   RemoteDraft,
-  RemoteProbe,
+  RemotePrepare,
+  RemoteSetupProgress,
+  RemoteSetupStep,
   WorkspaceEntry,
 } from '../../shared/api';
 import { errorText, useWorkspaceStore } from './store';
@@ -25,7 +44,50 @@ const steps = ['选择方式', '填写连接', '连接', '选择目录'] as cons
 const MAX_PORT = 65535;
 
 /** 进行中的动作：按钮文案与禁用范围据此区分，不用假进度条。 */
-type WizardWork = 'probe' | 'browse' | 'import';
+type WizardWork = 'connect' | 'browse' | 'import';
+
+/** 引导步骤的中文名：日志行只在这里翻成人话，事件里传的是稳定标识。 */
+const stepLabels: Record<RemoteSetupStep, string> = {
+  probe: '探测',
+  upload: '上传',
+  verify: '校验',
+  start: '启动',
+  tunnel: '隧道',
+  handshake: '握手',
+  ready: '就绪',
+};
+
+/**
+ * 一行引导日志：等宽、逐行追加，像终端输出而不是进度条。
+ * 失败行（ok=false）用红色并挂 alert；只有 ready 的 ok=false 是降级警告——helper 用不了
+ * 会退回一次性 ssh，向导照旧往前走，所以那一行不能报成错误。
+ */
+function SetupLine({ progress }: { progress: RemoteSetupProgress }) {
+  const degraded = progress.step === 'ready' && progress.ok === false;
+  const failed = progress.ok === false && !degraded;
+  return (
+    <p
+      className={cn('flex min-w-0 gap-2', failed && 'text-red')}
+      role={failed ? 'alert' : undefined}
+    >
+      {progress.ok === true ? (
+        <Check className="mt-1 size-3 shrink-0 text-green" aria-hidden="true" />
+      ) : failed ? (
+        <X className="mt-1 size-3 shrink-0 text-red" aria-hidden="true" />
+      ) : degraded ? (
+        <TriangleAlert className="mt-1 size-3 shrink-0 text-ink-3" aria-hidden="true" />
+      ) : (
+        <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ink-3" />
+      )}
+      <span className={cn('shrink-0', progress.ok === false ? undefined : 'text-ink-3')}>
+        {stepLabels[progress.step]}
+      </span>
+      <span className={cn('min-w-0 [overflow-wrap:anywhere]', !failed && 'text-ink-2')}>
+        {progress.detail}
+      </span>
+    </p>
+  );
+}
 
 export function RemoteConnectionWizard({
   open,
@@ -45,12 +107,14 @@ export function RemoteConnectionWizard({
   const [host, setHost] = useState('');
   const [port, setPort] = useState('');
   const [keyPath, setKeyPath] = useState('');
-  const [probe, setProbe] = useState<RemoteProbe | null>(null);
+  const [prepared, setPrepared] = useState<RemotePrepare | null>(null);
+  const [setupLog, setSetupLog] = useState<RemoteSetupProgress[]>([]);
   const [browse, setBrowse] = useState<RemoteBrowseResult | null>(null);
   const [home, setHome] = useState<string | null>(null);
   const [work, setWork] = useState<WizardWork | null>(null);
   const [error, setError] = useState<string | null>(null);
   const working = work !== null;
+  const logRef = useRef<HTMLDivElement | null>(null);
 
   // 每次打开都从第一步开始：上次的探测结果与目录位置不能带进来。
   useEffect(() => {
@@ -62,7 +126,8 @@ export function RemoteConnectionWizard({
     setHost('');
     setPort('');
     setKeyPath('');
-    setProbe(null);
+    setPrepared(null);
+    setSetupLog([]);
     setBrowse(null);
     setHome(null);
     setWork(null);
@@ -87,6 +152,20 @@ export function RemoteConnectionWizard({
       live = false;
     };
   }, [open]);
+
+  // 引导进度由主进程推着走：订阅只在本向导打开期间有效。
+  useEffect(() => {
+    if (!open) return;
+    const remotes = window.dela?.remotes;
+    if (!remotes) return;
+    return remotes.onSetupProgress((progress) => setSetupLog((prev) => [...prev, progress]));
+  }, [open]);
+
+  // 新行进来就贴底：日志区固定高度，阅读位置跟着输出往前走。
+  useEffect(() => {
+    const node = logRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [setupLog]);
 
   const draftOf = (): RemoteDraft => ({
     label: label.trim() || undefined,
@@ -115,7 +194,8 @@ export function RemoteConnectionWizard({
     setHost(connection.host);
     setPort(connection.port === null ? '' : String(connection.port));
     setKeyPath(connection.keyPath ?? '');
-    setProbe(null);
+    setPrepared(null);
+    setSetupLog([]);
     setError(null);
     setStep(2);
   };
@@ -126,9 +206,22 @@ export function RemoteConnectionWizard({
     setHost('');
     setPort('');
     setKeyPath('');
-    setProbe(null);
+    setPrepared(null);
+    setSetupLog([]);
     setError(null);
     setStep(1);
+  };
+
+  /** 私钥选择器：取消返回 null，此时不动输入框里已有的内容。 */
+  const pickKey = async () => {
+    const remotes = window.dela?.remotes;
+    if (!remotes || working) return;
+    try {
+      const picked = await remotes.pickKey();
+      if (picked) setKeyPath(picked);
+    } catch (cause) {
+      setError(errorText(cause));
+    }
   };
 
   const connect = async () => {
@@ -139,13 +232,14 @@ export function RemoteConnectionWizard({
       setError(problem);
       return;
     }
-    setWork('probe');
+    setWork('connect');
     setError(null);
-    setProbe(null);
+    setPrepared(null);
+    setSetupLog([]);
     try {
       const draft = draftOf();
-      const result = await dela.remotes.probe(draft);
-      setProbe(result);
+      const result = await dela.remotes.prepare(draft);
+      setPrepared(result);
       // 探测成功才落库：已存在的连接不重复保存，新连接取回 id 供浏览与登记使用。
       if (result.ok && !connectionId) setConnectionId((await dela.remotes.save(draft)).id);
     } catch (cause) {
@@ -207,8 +301,8 @@ export function RemoteConnectionWizard({
       return;
     }
     if (step === 2) {
-      // 已测通且已拿到连接 id 才前进；否则本按钮就是「连接」。
-      if (probe?.ok && connectionId) openDirectoryPicker();
+      // 已连上且已拿到连接 id 才前进；否则本按钮就是「连接」。
+      if (prepared?.ok && connectionId) openDirectoryPicker();
       else void connect();
       return;
     }
@@ -216,7 +310,7 @@ export function RemoteConnectionWizard({
   };
 
   const primaryLabel =
-    work === 'probe'
+    work === 'connect'
       ? '连接中…'
       : work === 'browse'
         ? '读取中…'
@@ -225,7 +319,7 @@ export function RemoteConnectionWizard({
           : step === 1
             ? '下一步'
             : step === 2
-              ? probe?.ok && connectionId
+              ? prepared?.ok && connectionId
                 ? '下一步：选择目录'
                 : '连接'
               : '添加为项目';
@@ -348,13 +442,24 @@ export function RemoteConnectionWizard({
                   </label>
                   <label className="grid gap-2 text-[13px]">
                     私钥文件
-                    <Input
-                      aria-label="私钥文件"
-                      autoComplete="off"
-                      onChange={(event) => setKeyPath(event.target.value)}
-                      placeholder="留空由 ssh 按 config 与 agent 解析"
-                      value={keyPath}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        aria-label="私钥文件"
+                        autoComplete="off"
+                        onChange={(event) => setKeyPath(event.target.value)}
+                        placeholder="留空由 ssh 按 config 与 agent 解析"
+                        value={keyPath}
+                      />
+                      {/* 手输仍然保留：路径可能不在本机，或来自 ssh config 里的写法。 */}
+                      <Button
+                        onClick={() => void pickKey()}
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                      >
+                        选择…
+                      </Button>
+                    </div>
                   </label>
                   {/* 不提供密码输入：Dela 只支持密钥与 ssh agent，放一个点了没用的控件更糟。 */}
                   <p className="text-[12px] leading-relaxed text-ink-3">
@@ -365,34 +470,33 @@ export function RemoteConnectionWizard({
               )}
               {step === 2 && (
                 <>
-                  <dl className="grid gap-1 text-[12px] text-ink-3">
-                    <div className="flex min-w-0 gap-2">
-                      <dt className="shrink-0">目的地</dt>
-                      <dd className="min-w-0 truncate text-ink-2">{host.trim()}</dd>
-                    </div>
-                    <div className="flex min-w-0 gap-2">
-                      <dt className="shrink-0">端口</dt>
-                      <dd className="min-w-0 truncate text-ink-2">{port.trim() || '默认 22'}</dd>
-                    </div>
-                    <div className="flex min-w-0 gap-2">
-                      <dt className="shrink-0">私钥</dt>
-                      <dd className="min-w-0 truncate text-ink-2">
-                        {keyPath.trim() || 'ssh 默认'}
-                      </dd>
-                    </div>
-                  </dl>
-                  {probe?.ok ? (
-                    <p className="flex items-center gap-1.5 text-[12px] text-ink-2" role="status">
-                      <Check className="size-3.5 shrink-0 text-green" aria-hidden="true" />
-                      {probe.message}
-                    </p>
-                  ) : (
-                    probe && (
-                      <p className="text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
-                        {probe.message}
+                  <div className="flex min-w-0 items-baseline gap-2 text-[12px]">
+                    <span className="shrink-0 text-ink-3">目的地</span>
+                    <code
+                      className="min-w-0 truncate font-mono text-ink-2"
+                      title={`${host.trim()}${port.trim() ? `:${port.trim()}` : ''}`}
+                    >
+                      {host.trim()}
+                      {port.trim() ? `:${port.trim()}` : ''}
+                    </code>
+                  </div>
+                  {/* 日志区：固定高度，逐行追加，成功绿、失败红。 */}
+                  <div
+                    className="grid h-48 content-start gap-0.5 overflow-y-auto rounded-card border border-line bg-field px-3 py-2 font-mono text-[12px] leading-[1.7]"
+                    ref={logRef}
+                    role="log"
+                  >
+                    {setupLog.length === 0 ? (
+                      <p className="text-ink-3">
+                        点「连接」后在这里依次报告：探测 → 上传 → 校验 → 启动 → 隧道 →
+                        握手。第一次连接会把远端工具服务传到服务器上，之后按校验和命中缓存跳过上传。
                       </p>
-                    )
-                  )}
+                    ) : (
+                      setupLog.map((progress, index) => (
+                        <SetupLine key={`${index}-${progress.step}`} progress={progress} />
+                      ))
+                    )}
+                  </div>
                 </>
               )}
               {step === 3 && (

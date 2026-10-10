@@ -73,6 +73,15 @@ function usageTone(percent: number | null): 'ink' | 'orange' | 'red' {
   return 'ink';
 }
 
+/** 本会话累计缓存命中率 = cacheRead / (输入 + cacheRead)。main 没给出缓存字段（提供商不上报
+ *  缓存）或分母为 0 时显示 —：写成 0% 会把「没有数据」说成「一次都没命中」。 */
+export function cacheHitRateText(usage: ContextUsageView): string {
+  const { inputTokens, cachedTokens } = usage;
+  if (inputTokens === undefined || cachedTokens === undefined) return '—';
+  const total = inputTokens + cachedTokens;
+  return total > 0 ? `${((cachedTokens / total) * 100).toFixed(1)}%` : '—';
+}
+
 // beautiful-ui PromptBar 的控件样式：选择器触发钮与弹层容器（图标钮用 IconButton atom）。
 const triggerButton =
   'flex h-7 min-w-0 shrink items-center gap-1 rounded-[8px] px-1.5 text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
@@ -605,7 +614,10 @@ export function ChatComposer({
         {/* min-w-56 下限在窄容器会越出 composer 边界（分屏时压到相邻组），≤260px 时收为贴容器宽。 */}
         {menuOpen && (
           <ul
-            className="relative mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-[10px] bg-surface p-1 shadow-raised @max-[260px]:min-w-0 absolute bottom-full left-0 z-20"
+            // 只保留 absolute：relative 与 absolute 同时写时生成 CSS 谁生效不确定，实测会掉回
+            // 文档流向下撑开布局；父容器（composer 外框）已是 relative，向上展开由 bottom-full 定住。
+            // 高亮块与 li 都靠本元素的绝对定位建立包含块，不能改成 static。
+            className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-[10px] bg-surface p-1 shadow-raised @max-[260px]:min-w-0"
             id={menuListId}
             role="listbox"
             style={{
@@ -652,9 +664,7 @@ export function ChatComposer({
                     </span>
                   </>
                 ) : (
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">
-                    {item.title}
-                  </span>
+                  <MentionTitle title={item.title} />
                 )}
               </li>
             ))}
@@ -662,6 +672,21 @@ export function ChatComposer({
         )}
       </div>
     </div>
+  );
+}
+
+/** 引用候选的标题：目录留灰阶、文件名用强调蓝加粗——整条路径都上强调色反而找不到文件名。 */
+function MentionTitle({ title }: { title: string }) {
+  const at = title.lastIndexOf('/');
+  const dir = at < 0 ? '' : title.slice(0, at + 1);
+  const name = at < 0 ? title : title.slice(at + 1);
+  return (
+    <span className="min-w-0 flex-1 truncate text-[12.5px]">
+      <span className="text-ink-3">{dir}</span>
+      <span className="font-semibold" style={{ color: 'var(--cal-blue-text)' }}>
+        {name}
+      </span>
+    </span>
   );
 }
 
@@ -769,6 +794,11 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
                 transition: 'width 400ms cubic-bezier(0.23,1,0.32,1)',
               }}
             />
+          </div>
+          {/* 按本会话累计显示（不是最近一轮）：单轮命中率受该轮是否新建缓存影响，波动大、看不出趋势。 */}
+          <div className="mt-2 flex items-baseline justify-between gap-3">
+            <span className="text-[12.5px] text-ink-2">缓存命中率</span>
+            <span className="text-[12px] tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
           </div>
         </Popover.Content>
       </Popover.Portal>

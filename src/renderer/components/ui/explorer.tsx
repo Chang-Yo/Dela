@@ -18,10 +18,12 @@ export interface ExplorerItem {
   container?: boolean;
   project?: boolean;
   badge?: string;
-  /** 叶子条目的自定义图标（如水源来源的水滴）；默认 FileText。 */
+  /** 自定义行图标（如水源来源的水滴、远端项目的云朵）：给了就顶掉容器/项目的默认图标。 */
   icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
   /** 行尾小标记（如远端条目的云朵）；与本地条目用图标区分，不堆文字。 */
   marker?: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** 图标与标记的强调色（CSS 颜色值）：同源的多行共用一色，视觉上归为一组。 */
+  accent?: string;
   /** 行提示（默认条目名）；远端条目用它显示「目的地:路径」。 */
   title?: string;
   /** 只读条目：可展开可选中，但不参与内部拖拽与拖放落点（远端条目只做浏览）。 */
@@ -283,15 +285,18 @@ export function Explorer({
         const branch = Boolean(item.container || children.has(item.id));
         // 目录 icon 只保留到第二层（学期/课程这类主目录），更深的子目录只留
         // 折叠箭头与文字；叶子文件 icon 不受影响。
-        const Icon = item.project
-          ? FolderKanban
-          : branch
-            ? open.has(item.id)
-              ? FolderOpen
-              : Folder
-            : (item.icon ?? FileText);
+        const Icon =
+          item.icon ??
+          (item.project
+            ? FolderKanban
+            : branch
+              ? open.has(item.id)
+                ? FolderOpen
+                : Folder
+              : FileText);
         const showIcon = !branch || level <= 2;
         const Marker = item.marker;
+        const accent = item.accent ? { color: item.accent } : undefined;
         const ancestors = trailOf(item.parentId);
         const dropRegion =
           activeDrop !== null && (activeDrop === item.id || ancestors.includes(activeDrop));
@@ -372,12 +377,14 @@ export function Explorer({
                 )}
               />
             </button>
-            {showIcon && <Icon className="mr-1 size-4 shrink-0 text-ink-3" strokeWidth={1.8} />}
+            {showIcon && (
+              <Icon className="mr-1 size-4 shrink-0 text-ink-3" strokeWidth={1.8} style={accent} />
+            )}
             <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
               {item.name}
             </span>
             {Marker && (
-              <span aria-hidden="true" className="shrink-0 text-ink-3" title="远程">
+              <span aria-hidden="true" className="shrink-0 text-ink-3" style={accent} title="远程">
                 <Marker className="size-3.5" strokeWidth={1.8} />
               </span>
             )}

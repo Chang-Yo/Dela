@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry } from '../../shared/api';
 import { ProjectFileTree } from './ProjectFileTree';
+import { remoteAccent } from './remote-color';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -23,8 +24,21 @@ const remoteProject: WorkspaceEntry = {
 
 const entries: WorkspaceEntry[] = [remoteProject];
 
+/** jsdom 在第二个 root 里会莫名对 window 发 blur，Radix 收到就把刚打开的菜单收起：拦掉这个环境噪音。 */
+const suppressStrayWindowBlur = (event: Event) => event.stopImmediatePropagation();
+
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  // Radix 的浮层要量尺寸；jsdom 没有 ResizeObserver。
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  window.addEventListener('blur', suppressStrayWindowBlur, true);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -62,6 +76,15 @@ async function renderTree(
 
 const row = (name: string) =>
   document.querySelector<HTMLElement>(`[role="treeitem"][aria-label="${name}"]`)!;
+
+/** 打开某一行的右键菜单（Radix 菜单靠 pointerdown 展开，内容 Portal 到 body）。 */
+const openRowMenu = (name: string) =>
+  row(name)
+    .querySelector<HTMLButtonElement>('[data-slot="dropdown-menu-trigger"]')!
+    .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+
+const menuLabels = () =>
+  [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim());
 
 it('loads one remote level when the project is expanded and browses without opening files', async () => {
   const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
@@ -108,6 +131,65 @@ it('loads one remote level when the project is expanded and browses without open
   await act(async () => row('src').click());
   expect(onExpand).toHaveBeenCalledWith('p-remote:/home/u/proj/src', true);
   expect(listRemoteDirectory).toHaveBeenCalledTimes(1);
+});
+
+it('marks a remote project row with its connection colour and leaves local rows alone', async () => {
+  const localProject: WorkspaceEntry = {
+    id: 'p-local',
+    parentId: null,
+    name: '本地项目',
+    kind: 'project',
+    sourceId: null,
+    path: 'D:/code/本地项目',
+    remoteId: null,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+  };
+  // 另一台服务器上的项目：颜色必须跟着各自的连接走。
+  const otherRemote: WorkspaceEntry = {
+    ...remoteProject,
+    id: 'p-other',
+    name: '另一台机器',
+    remoteId: 'r-2',
+  };
+  const listRemoteDirectory = vi.fn(async () => [
+    { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
+  ]);
+  window.dela = {
+    remotes: { list: async () => [] },
+    workspace: { listRemoteDirectory },
+  } as unknown as DelaApi;
+
+  await act(async () =>
+    root.render(
+      <ProjectFileTree
+        entries={[...entries, otherRemote, localProject]}
+        expanded={['p-remote']}
+        onAction={() => {}}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        query=""
+        rootId={null}
+        selected={null}
+      />,
+    ),
+  );
+
+  // 远端项目行用云朵顶掉文件夹图标，颜色由各自的连接 id 决定。
+  const cloud = row('proj').querySelector<SVGElement>('svg.lucide-cloud')!;
+  expect(cloud).toBeTruthy();
+  expect(cloud.style.color).toBe(remoteAccent('r-1', 'text'));
+  expect(row('proj').querySelector('svg.lucide-folder-kanban')).toBeNull();
+  expect(row('另一台机器').querySelector<SVGElement>('svg.lucide-cloud')!.style.color).toBe(
+    remoteAccent('r-2', 'text'),
+  );
+  // 子条目的行尾云朵与项目行同色：同一台服务器看起来是一家人（色在标记外层，云朵随 currentColor）。
+  expect(row('src').querySelector<HTMLElement>('[title="远程"]')!.style.color).toBe(
+    remoteAccent('r-1', 'text'),
+  );
+  // 本地项目行照旧是文件夹图标、没有云朵与连接色。
+  expect(row('本地项目').querySelector('svg.lucide-folder-kanban')).toBeTruthy();
+  expect(row('本地项目').querySelector('svg.lucide-cloud')).toBeNull();
+  expect(row('本地项目').querySelector('[title="远程"]')).toBeNull();
 });
 
 it('lists a subdirectory lazily and collapses it again', async () => {
@@ -380,4 +462,47 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   await act(async () => root.unmount());
   expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', []);
   root = createRoot(container);
+});
+
+it('offers a remote project row no rename, move or archive', async () => {
+  // main 对远端条目的 update 一律拒绝（重命名/移动/归档都经 update）：这三项点了必然报错。
+  await renderTree([]);
+  await act(async () => openRowMenu('proj'));
+  const labels = menuLabels();
+  expect(labels).not.toContain('重命名');
+  expect(labels).not.toContain('移动到…');
+  expect(labels).not.toContain('归档');
+  // 移除只删本地登记行，保留；新建类入口也在前面已收掉。
+  expect(labels).toContain('移除');
+  expect(labels).not.toContain('新建文件夹');
+});
+
+it('keeps rename and move on a local project row', async () => {
+  const localProject: WorkspaceEntry = {
+    id: 'p-local',
+    parentId: null,
+    name: '本地项目',
+    kind: 'project',
+    sourceId: null,
+    path: 'D:/code/本地项目',
+    remoteId: null,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+  };
+  await act(async () =>
+    root.render(
+      <ProjectFileTree
+        entries={[localProject]}
+        expanded={[]}
+        onAction={() => {}}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        query=""
+        rootId={null}
+        selected={null}
+      />,
+    ),
+  );
+  await act(async () => openRowMenu('本地项目'));
+  expect(menuLabels()).toContain('重命名');
+  expect(menuLabels()).toContain('移动到…');
 });

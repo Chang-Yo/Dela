@@ -246,14 +246,28 @@ export function projectLocation(
   return { kind: 'local', path: projectDirectory(projectId) };
 }
 
+/** 远端项目打开失败时的补充说明：VS Code 用自己的 ssh 配置连远端，Dela 的连接记录它读不到，
+ *  端口与私钥必须由用户在 ssh config 里给出来。 */
+const remoteSshHint =
+  '远端项目还需在 VS Code 中安装 Remote - SSH 扩展，并把该主机配置进 ssh config。';
+
 export async function openProjectDirectory(id: unknown, target: unknown): Promise<void> {
   const action = z.enum(['vscode', 'explorer']).parse(target);
+  // 远端项目的 local_path 是远端 POSIX 路径：本地既没有这个目录，也不能拿它去开本地 VS Code。
+  const root = remoteProjectOf(workspaceEntryIdSchema.parse(id));
+  if (root) {
+    if (action !== 'vscode') throw new Error('远程项目没有本地目录');
+    // 目的地取连接里登记的 host（ssh config 别名或 user@host），其余交给 VS Code 自己解析。
+    return openInVsCode(root.path, `ssh-remote+${remoteById(root.remoteId).host}`);
+  }
   const path = projectDirectory(id);
   if (action === 'vscode') return openInVsCode(path);
   const error = await shell.openPath(path);
   if (error) throw new Error(`无法打开项目目录：${error}`);
 }
-async function openInVsCode(path: string): Promise<void> {
+/** remoteAuthority 非空表示远端项目：本地 Code.exe 收到远端 POSIX 路径只会去开本地同名目录，
+ *  只有 `--remote ssh-remote+<目的地>` 会让远端那台机器的 VS Code Server 打开它。 */
+async function openInVsCode(path: string, remoteAuthority: string | null = null): Promise<void> {
   const locate = () =>
     new Promise<string>((resolve, reject) => {
       execFile('where', ['code'], (error, stdout) => {
@@ -261,7 +275,9 @@ async function openInVsCode(path: string): Promise<void> {
         if (error || !first)
           reject(
             new Error(
-              '未找到 VS Code 命令（code）。可先安装 VS Code，或在文件夹中显示后手动打开。',
+              remoteAuthority
+                ? `未找到 VS Code 命令（code）。${remoteSshHint}`
+                : '未找到 VS Code 命令（code）。可先安装 VS Code，或在文件夹中显示后手动打开。',
             ),
           );
         else resolve(first.trim());
@@ -270,13 +286,22 @@ async function openInVsCode(path: string): Promise<void> {
   const cli = await locate();
   // CLI 是批处理脚本；直接启动同安装目录的 Code.exe，路径不经 shell 展开。
   const executable = join(dirname(cli), '..', 'Code.exe');
-  if (!existsSync(executable)) throw new Error('未找到 VS Code 程序，可改用资源管理器打开项目。');
+  if (!existsSync(executable))
+    throw new Error(
+      remoteAuthority
+        ? `未找到 VS Code 程序。${remoteSshHint}`
+        : '未找到 VS Code 程序，可改用资源管理器打开项目。',
+    );
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(executable, [path], {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-    });
+    const child = spawn(
+      executable,
+      remoteAuthority ? ['--remote', remoteAuthority, path] : [path],
+      {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      },
+    );
     child.once('error', (error) => reject(new Error(`启动 VS Code 失败：${error.message}`)));
     child.once('spawn', () => {
       child.unref();

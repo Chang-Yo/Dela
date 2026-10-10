@@ -8,6 +8,7 @@ import type { RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
 import type { ExplorerItem } from '../components/ui/explorer';
 import { errorText } from '../workspace/store';
+import { remoteAccent } from './remote-color';
 
 /** 项目根的 path 可能带尾斜杠，远端子路径一律不带：统一后再作缓存与展开键。 */
 const trimSlash = (path: string) => path.replace(/\/+$/, '');
@@ -236,6 +237,8 @@ export function useRemoteTree(
   for (const project of projects) {
     if (!isOpen(project.id)) continue;
     const destination = project.remoteId ? destinations[project.remoteId] : undefined;
+    // 与项目行的云朵取同一个连接色：同一台服务器的行看起来是一家人。
+    const accent = remoteAccent(project.remoteId, 'text');
     const walk = (path: string, parentId: string | null) => {
       for (const child of listings[keyOf(project, path)] ?? []) {
         const childKey = remoteNodeId(project.id, child.path);
@@ -248,6 +251,7 @@ export function useRemoteTree(
           // 远端目录接收本地文件拖放（上传）；内部移动仍被 readOnly 拦住。
           importable: child.directory,
           marker: Cloud,
+          accent,
           title: remoteTitle(destination, child.path),
         });
         if (child.directory && expanded.includes(childKey)) walk(child.path, childKey);

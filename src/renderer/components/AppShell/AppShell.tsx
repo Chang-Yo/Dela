@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Resizer } from '../ui/resizer';
 import { useEditorSettings } from '../../content/editor-settings';
-import { errorText } from '../../workspace/store';
+import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { DelaBrand } from '../ui/dela-brand';
 import { cn } from '../../lib/utils';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
@@ -230,6 +230,13 @@ export function AppShell({
   });
   const explorerMobileOpen = useExplorerState((s) => s.mobileOpen);
   const viewportWidth = useViewportWidth();
+  // 远端项目的目录在远端：VS Code 是经 Remote-SSH 打开的，文案必须写明，否则会被当成开本地目录。
+  const projectIsRemote = useWorkspaceStore(
+    (state) => state.workspace.entries.find((item) => item.id === projectId)?.remoteId != null,
+  );
+  // 远端项目在本地没有目录：资源管理器入口不渲染，快捷图标也只指向 VS Code(SSH)。
+  const effectiveOpenTarget: 'vscode' | 'explorer' = projectIsRemote ? 'vscode' : projectOpenTarget;
+  const vscodeOpenLabel = projectIsRemote ? '在 VS Code 中打开（SSH）' : '在 VS Code 打开项目';
 
   // 窄屏双抽屉互斥：两个抽屉都锚定屏幕左侧，叠开会出「点了没反应/凭空出现」的假象。
   // 目录抽屉只在 workbench 视图挂载，互斥也只在该视图生效，避免残留状态误关其他视图的抽屉。
@@ -277,16 +284,22 @@ export function AppShell({
 
   const openProjectDirectory = (target: 'vscode' | 'explorer') => {
     if (view !== 'workbench' || !projectId || !window.dela) return;
-    setProjectOpenTarget(target);
-    try {
-      localStorage.setItem('dela.project.open-target', target);
-    } catch {
-      /* Storage may be unavailable. */
+    // 远端项目没有本地目录：入口只留 VS Code(SSH)，这里再兜一层，快捷图标不会掉进必然失败的路径。
+    const effective: 'vscode' | 'explorer' = projectIsRemote ? 'vscode' : target;
+    if (effective === target) {
+      setProjectOpenTarget(target);
+      try {
+        localStorage.setItem('dela.project.open-target', target);
+      } catch {
+        /* Storage may be unavailable. */
+      }
     }
     useNavigationStore.getState().setNavigationError(null);
-    void window.dela.workspace.openProjectDirectory(projectId, target).catch((cause: unknown) => {
-      useNavigationStore.getState().setNavigationError(errorText(cause));
-    });
+    void window.dela.workspace
+      .openProjectDirectory(projectId, effective)
+      .catch((cause: unknown) => {
+        useNavigationStore.getState().setNavigationError(errorText(cause));
+      });
   };
 
   const navigate = (next: AppView) => {
@@ -535,16 +548,16 @@ export function AppShell({
               <div className="flex h-7 items-center rounded-control shadow-hairline">
                 <button
                   aria-label={
-                    projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
+                    effectiveOpenTarget === 'vscode' ? vscodeOpenLabel : '在资源管理器打开项目'
                   }
                   className="grid size-7 place-items-center rounded-l-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
-                  onClick={() => openProjectDirectory(projectOpenTarget)}
+                  onClick={() => openProjectDirectory(effectiveOpenTarget)}
                   title={
-                    projectOpenTarget === 'vscode' ? '在 VS Code 打开项目' : '在资源管理器打开项目'
+                    effectiveOpenTarget === 'vscode' ? vscodeOpenLabel : '在资源管理器打开项目'
                   }
                   type="button"
                 >
-                  {projectOpenTarget === 'vscode' ? (
+                  {effectiveOpenTarget === 'vscode' ? (
                     <CodeXml className="size-4 text-bui-accent" />
                   ) : (
                     <FolderOpen className="size-4" />
@@ -562,15 +575,17 @@ export function AppShell({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => openProjectDirectory('explorer')}>
-                      <FolderOpen />
-                      资源管理器
-                      {projectOpenTarget === 'explorer' && <Check className="ml-auto" />}
-                    </DropdownMenuItem>
+                    {!projectIsRemote && (
+                      <DropdownMenuItem onSelect={() => openProjectDirectory('explorer')}>
+                        <FolderOpen />
+                        资源管理器
+                        {effectiveOpenTarget === 'explorer' && <Check className="ml-auto" />}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onSelect={() => openProjectDirectory('vscode')}>
                       <CodeXml className="text-bui-accent" />
-                      VS Code
-                      {projectOpenTarget === 'vscode' && <Check className="ml-auto" />}
+                      {projectIsRemote ? 'VS Code（SSH）' : 'VS Code'}
+                      {effectiveOpenTarget === 'vscode' && <Check className="ml-auto" />}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

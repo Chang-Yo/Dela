@@ -271,10 +271,22 @@ function snapshot(id: string): WorkspaceChat {
 }
 
 function usageOf(entry: Live | undefined): ContextUsageView | null {
-  const usage = entry?.session.getContextUsage();
-  return usage
-    ? { tokens: usage.tokens, contextWindow: usage.contextWindow, percent: usage.percent }
-    : null;
+  if (!entry) return null;
+  // 一次聚合同时取上下文占用与累计用量：getSessionStats 内部已算过 getContextUsage，
+  // 分开调用会把这件按消息估算的重活在同一个流式节拍里做两遍。
+  const stats = entry.session.getSessionStats();
+  const usage = stats.contextUsage;
+  if (!usage) return null;
+  // 缓存命中率的分子分母都取本会话累计：SessionStats 聚合会话文件里的全部条目（含已被
+  // 压缩或被分支抛弃的历史，那些请求确实按缓存价计过费）。提供商不上报缓存时这里恒为 0，
+  // 直接下发会被读成「一次都没命中」，所以只在出现过缓存读或写时才带上这两个字段。
+  const { input, cacheRead, cacheWrite } = stats.tokens;
+  return {
+    tokens: usage.tokens,
+    contextWindow: usage.contextWindow,
+    percent: usage.percent,
+    ...(cacheRead + cacheWrite > 0 ? { inputTokens: input, cachedTokens: cacheRead } : {}),
+  };
 }
 
 /** 未打开的会话：直接读 JSONL 投影（不建 Pi 实例，避免打开历史就要求模型配置）。 */
