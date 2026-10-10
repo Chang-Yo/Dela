@@ -236,7 +236,10 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     newChat: async (projectId) => {
-      if (!window.dela || !get().navigate(projectId === null ? 'home' : 'workbench')) return null;
+      // 已经在通用池工作台里发起（资料页空组空态、标题栏「新聊天」）时就地开标签，不把用户甩回首页。
+      const openInWorkbench = projectId === null && get().view === 'workbench';
+      const target = projectId === null && !openInWorkbench ? 'home' : 'workbench';
+      if (!window.dela || !get().navigate(target)) return null;
       try {
         const chat = await window.dela.session.create(projectId);
         if (!chat.sessionId) throw new Error('会话创建失败');
@@ -262,7 +265,19 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
           .getState()
           .refresh(projectId)
           .catch(() => {});
-        get().openChat(chat.sessionId, projectId);
+        if (openInWorkbench) {
+          // 落位同标题栏「新聊天」：单组向右分屏（空组会拒绝分屏，新对话就地落进去），多组进最右组。
+          const current = useWorkbenchLayout.getState();
+          const groups = current.ready ? walkGroups(current.root) : [];
+          const rightmost = groups[groups.length - 1];
+          if (rightmost) {
+            if (groups.length === 1) current.splitGroup(rightmost.id, 'vertical');
+            else current.focusGroup(rightmost.id);
+          }
+          revealInProject(`chat:${chat.sessionId}`, null);
+        } else {
+          get().openChat(chat.sessionId, projectId);
+        }
         return chat.sessionId;
       } catch (cause) {
         showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
