@@ -19,6 +19,8 @@
 
 远程项目会话（见下）把这七个工具的执行端换成 SSH 远端，工具名、schema 与描述都不变。
 
+`web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签，不用 minimal 的正文隔离和 Tailwind 过滤。PDF、编码处理、2MB 上限与 offset 续读沿用现有实现；不执行网页 JavaScript。`web_search` 仍由用户提供搜索服务。
+
 **2. dela 命令**：领域能力的 CLI 门面。应用生命周期内一个本机 HTTP 桥（127.0.0.1 随机端口 + Bearer token），经 Pi 的 `shellCommandPrefix` 注入 bash，终端同样可用；`dela help` 列命令与 JSON Schema。
 
 **3. skills**：纯文档领域知识，Pi 按 Agent Skills 规范发现；Dela 把五个内置领域 skill 写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi，设置页的禁用名单经 `skillsOverride` 过滤。

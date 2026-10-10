@@ -13,6 +13,8 @@
 
 ## 2026-10-10
 
+- web_fetch 接入 mdream，保留 Markdown 结构
+- 网页转换四项测试与构建、打包启动通过
 - CI 补 helper 本机测试与源码构建，不连 SSH
 - Windows 打包采用当次 helper 并核对产物
 - helper 的 12 项测试在本机 Linux 通过

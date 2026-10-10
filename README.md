@@ -39,6 +39,8 @@ Dela 是为上海交通大学学生打造的本地个人 Agent：内核是 [Pi](
 
 联网搜索默认关闭：web_search 需要在「设置 › 内置能力」的「网络」分组中注册一个搜索服务（Brave Search API、Google 搜索或自定义 JSON 端点），Dela 不内置搜索服务。read / write / edit / bash 是常驻内核能力，不提供开关。
 
+web_fetch 无需搜索服务：HTML 经 mdream 转为 Markdown，保留链接、标题、表格与代码块；PDF 仍提取文本。超长内容可按 offset 续读，不执行网页 JavaScript。
+
 **本地优先与安全边界**：数据保存在本机 SQLite；凭据经 Electron `safeStorage` 加密；renderer 不接触文件系统、数据库与凭据，一切经受控 IPC 通信。Agent 的 bash 与文件工具即本机权限，不设沙箱；Skill 启停只影响模型引导。远程项目只有被调用的那条命令会在远端执行，身份与权限由 ssh 决定；Dela 不保存远端密码；SSH 客户端优先用系统装的 OpenSSH，系统缺失时用随包分发的那份（`vendor/openssh`，BSD 许可，来源与版本见该目录 README）。远程项目还会在服务器上放一个 Dela 的常驻小程序（`~/.dela/helper/`，随包分发的 Go 静态二进制，`vendor/dela-helper`），它只绑定 `127.0.0.1`、每个请求都要 token、权限与那条 ssh 会话完全相同，连续 5 分钟收不到 Dela 的心跳就自己退出并结束它启动的命令；不装 systemd 服务、不写系统目录，删掉 `~/.dela/helper` 即彻底清理。
 
 远程项目：工具（read/write/edit/grep/bash 等）与终端都在远端执行；目录树展开时按需读取远端目录，远端有变化（包括你在服务器上自己改的）会自动刷新已展开的那几层；点远端文件开只读预览（文本、Markdown、图片、PDF 与 Word/Excel），可以下载到本地、交给系统默认程序打开，也可以把本地文件上传到远端目录（右键菜单或直接拖进去）；打开远程项目后文件树顶栏有「预览远端端口」，可把远端正在跑的 dev server 经 SSH 隧道在本机浏览器打开。helper 通道起不来（例如服务器禁执行、SELinux 拦截）时自动退回一次性 ssh，目录树会显示原因；此时端口预览与远端改动实时刷新不可用，其余功能照常。远端项目内仍不支持新建/编辑笔记，远端 PPTX 不支持内嵌预览（下载后用 PowerPoint 打开），打开着的预览不会自动跟随远端改动。

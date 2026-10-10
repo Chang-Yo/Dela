@@ -1,3 +1,6 @@
+import { htmlToMarkdown } from '@mdream/js';
+import { clean } from '@mdream/js/clean';
+import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
 import { extractDocumentBytes } from '../resource-parse';
 
 // 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
@@ -97,7 +100,9 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
     source = new TextDecoder().decode(bytes);
   }
   const isMarkup = /text\/html|application\/xhtml/i.test(contentType) || !contentType;
-  const { title, text } = isMarkup ? htmlToText(source) : { title: null, text: source };
+  const { title, text } = isMarkup
+    ? htmlToPage(source, url.toString())
+    : { title: null, text: source };
   const normalized = text.replace(/\r\n/g, '\n');
   return finish(url, title, contentType || 'text/html', normalized, bytesTruncated);
 }
@@ -135,45 +140,22 @@ async function readCapped(response: Response): Promise<{ bytes: Uint8Array; trun
   return { bytes: Buffer.concat(chunks), truncated };
 }
 
-/** HTML 转纯文本：去脚本样式与注释、块级换行、实体解码。 */
-export function htmlToText(html: string): { title: string | null; text: string } {
-  const rawTitle = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? '';
-  const title = decodeHtmlEntities(rawTitle.replace(/<[^>]*>/g, '')).trim() || null;
-  let body = html.replace(/<!--[\s\S]*?-->/g, '');
-  body = body.replace(/<(script|style|noscript|svg|head|template|title)\b[\s\S]*?<\/\1\s*>/gi, '');
-  body = body.replace(/<br\b[^>]*\/?>/gi, '\n');
-  body = body.replace(
-    /<\/(p|div|li|tr|h[1-6]|section|article|aside|blockquote|pre|ul|ol|table|dd|dt|figcaption)\s*>/gi,
-    '\n',
-  );
-  body = body.replace(/<\/t[dh]\s*>/gi, ' ');
-  body = decodeHtmlEntities(body.replace(/<[^>]*>/g, ''));
-  const text = body
-    .replace(/[ \t]+/g, ' ')
-    .replace(/ ?\n ?/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+function htmlToPage(html: string, origin: string): { title: string | null; text: string } {
+  let title: string | null = null;
+  // 不用 minimal 的正文启发式与 Tailwind 过滤，避免无标题或定位布局的正文被误删。
+  const text = htmlToMarkdown(html, {
+    origin,
+    clean: clean(),
+    plugins: [
+      extractionPlugin({
+        title: (element) => {
+          title = element.textContent.trim() || null;
+        },
+      }),
+      filterPlugin({
+        exclude: ['nav', 'footer', 'script', 'style', 'noscript', 'svg', 'template'],
+      }),
+    ],
+  });
   return { title, text };
-}
-
-function decodeHtmlEntities(value: string): string {
-  return value
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&apos;', "'")
-    .replaceAll('&nbsp;', ' ')
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
-      safeCodePoint(parseInt(hex, 16), `&#x${hex};`),
-    )
-    .replace(/&#(\d+);/g, (_, decimal: string) => safeCodePoint(Number(decimal), `&#${decimal};`))
-    .replaceAll('&amp;', '&');
-}
-
-function safeCodePoint(code: number, fallback: string): string {
-  try {
-    return String.fromCodePoint(code);
-  } catch {
-    return fallback;
-  }
 }
