@@ -15,12 +15,14 @@ import {
   savedCampusNotifications,
   savedExperimentalClassroom,
   savedExperimentalFeatures,
+  savedVideoDownloadDirectory,
   setAgentInstruction,
   setCampusNotifications,
   setExperimentalClassroom,
   setExperimentalFeatures,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
+  setVideoDownloadDirectory,
   setWorkspacePrefs,
 } from '../prefs';
 
@@ -214,5 +216,16 @@ describe('agent instruction', () => {
     setAgentInstruction('先给结论。');
     expect(setAgentInstruction('')).toBe('');
     expect(getAgentInstruction()).toBe('');
+  });
+});
+
+describe('classroom video download directory', () => {
+  it('defaults to empty so the save dialog keeps its own default', () => {
+    expect(savedVideoDownloadDirectory()).toBe('');
+  });
+
+  it('round-trips a chosen directory', () => {
+    expect(setVideoDownloadDirectory('D:\\课堂录像')).toBe('D:\\课堂录像');
+    expect(savedVideoDownloadDirectory()).toBe('D:\\课堂录像');
   });
 });

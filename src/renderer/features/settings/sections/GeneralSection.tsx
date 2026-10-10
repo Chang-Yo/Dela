@@ -1,4 +1,6 @@
+import { Folder } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Button } from '../../../components/ui/button';
 import { Switch } from '../../../components/ui/switch';
 import { useExperimental } from '../experimental';
 import { SectionHeader } from '../SectionHeader';
@@ -18,6 +20,23 @@ export function GeneralSection() {
   const [experimentBusy, setExperimentBusy] = useState(false);
   const [classroomBusy, setClassroomBusy] = useState(false);
   const [experimentError, setExperimentError] = useState<string | null>(null);
+  // 空串 = 跟随系统默认；只在课堂视频开着时读，读失败保持空串不打扰用户。
+  const [downloadDirectory, setDownloadDirectory] = useState('');
+  const [directoryBusy, setDirectoryBusy] = useState(false);
+
+  const chooseDownloadDirectory = async () => {
+    if (directoryBusy) return;
+    setDirectoryBusy(true);
+    setExperimentError(null);
+    try {
+      const next = await window.dela?.vsjtu.chooseDownloadDirectory();
+      if (next !== undefined) setDownloadDirectory(next);
+    } catch {
+      setExperimentError('下载目录设置保存失败，请重试。');
+    } finally {
+      setDirectoryBusy(false);
+    }
+  };
 
   const toggleExperiments = async (next: boolean) => {
     setExperimentBusy(true);
@@ -46,6 +65,16 @@ export function GeneralSection() {
   useEffect(() => {
     void loadExperiments();
   }, [loadExperiments]);
+
+  // 目录行只在课堂视频开着时出现，跟着它读一次，不用常驻状态。
+  const directoryVisible = master === true && classroom;
+  useEffect(() => {
+    if (!directoryVisible) return;
+    void window.dela?.vsjtu
+      .getDownloadDirectory()
+      .then(setDownloadDirectory)
+      .catch(() => {});
+  }, [directoryVisible]);
 
   useEffect(() => {
     void window.dela?.settings
@@ -117,6 +146,32 @@ export function GeneralSection() {
                 label="课堂视频"
                 onChange={(next) => void toggleClassroom(next)}
               />
+            </SettingRow>
+          )}
+          {master && classroom && (
+            <SettingRow
+              description="下载课堂录像的默认保存位置；每次下载仍可在保存对话框里改。"
+              nested
+              settingId="experimental-download-directory"
+              title="视频默认下载目录"
+            >
+              <div className="flex items-center justify-end gap-3">
+                <span
+                  className="truncate text-[12px] text-ink-3"
+                  title={downloadDirectory || undefined}
+                >
+                  {downloadDirectory || '跟随系统默认'}
+                </span>
+                <Button
+                  disabled={directoryBusy}
+                  onClick={() => void chooseDownloadDirectory()}
+                  size="sm"
+                  variant="secondary"
+                >
+                  <Folder />
+                  选择
+                </Button>
+              </div>
             </SettingRow>
           )}
         </SettingsGroup>

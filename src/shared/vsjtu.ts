@@ -32,5 +32,9 @@ export interface VsjtuApi {
   downloads(): Promise<VideoDownload[]>;
   cancelDownload(id: string): Promise<void>;
   revealDownload(id: string): Promise<void>;
+  /** 课堂录像的默认保存位置；空串 = 未设置。 */
+  getDownloadDirectory(): Promise<string>;
+  /** 选一个默认保存位置；取消时返回当前值。 */
+  chooseDownloadDirectory(): Promise<string>;
   onDownload(listener: (download: VideoDownload) => void): () => void;
 }

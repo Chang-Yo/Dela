@@ -231,3 +231,16 @@ export function setAgentInstruction(input: unknown): string {
   return text;
 }
 
+// ---------------------------------------------------------------------------
+// 课堂视频默认下载目录（设置 › 通用 › 试验功能 › 课堂视频）：空串 = 没设过，
+// 下载时由系统保存对话框决定初始位置。值只来自主进程的目录选择器，不做校验。
+// ---------------------------------------------------------------------------
+
+export function savedVideoDownloadDirectory(): string {
+  return readSetting('video-download-directory') ?? '';
+}
+
+export function setVideoDownloadDirectory(value: string): string {
+  writeSetting('video-download-directory', value);
+  return value;
+}
