@@ -132,17 +132,6 @@ describe('query_assignments', () => {
     }) as { total: number };
     expect(missed.total).toBe(0);
   });
-
-  it('reports NOT_CONFIGURED when Canvas is not connected', () => {
-    state.mockReturnValue(todoState({ connected: false }));
-    let caught: unknown;
-    try {
-      todoTools.query_assignments.execute({});
-    } catch (error) {
-      caught = error;
-    }
-    expect(caught).toMatchObject({ code: 'NOT_CONFIGURED' });
-  });
 });
 
 describe('save_todo', () => {

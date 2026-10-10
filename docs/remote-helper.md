@@ -317,8 +317,8 @@
 
 - 真窗口冒烟（`pnpm smoke:remote`）：点远端文件后**新增一个预览标签**，标签里就是远端那份文件的内容（`section[aria-label="文档：a b.txt"]` 里能读到 `hello`）；远端文件的操作菜单给出「下载到本地 / 用系统默认程序打开」、目录给出「上传本地文件」，而本地的重命名/移动/新建文件夹一个都不出现。结果 `"preview": true`。
 - 离线单测 `src/main/remotes/test/documents.test.ts` 5 条：文本小文件全文 / 大文件截断说明 / Markdown 与代码扩展名判定 / PDF 与 Office 只给地址且**不拉字节**（`readRemoteRange` 一次都没被调用）/ 图片直传与超限报错；另有 `remoteAssetUrl` 的相对解析与越界放行。
-- 真机 `src/main/remotes/test/transfer.test.ts` 两条：3 MB + 10 字节的随机二进制（带 NUL 与非 UTF-8）**上传再下载，sha256 与长度都对得上**，跨过 1 MB 分块边界（顺带验证末尾 3 字节的片段读取不越界）；「系统默认程序打开」的落点是 `dela-remote-open/` 下带哈希前缀的原名、字节正确，`closeRemoteOpens()` 之后文件消失——这一条里 `shell.openPath` 是替身，不会真的弹程序。
-- 真机 `operations.test.ts` 新增一条：预览用的 `statRemoteFile`（从目录清单拿 size/mtime，目录与不存在的路径分别报错）与 `readRemoteRange`（只回请求的那一段）。
+- 真机 `src/main/remotes/test/transfer.remote.test.ts` 两条：3 MB + 10 字节的随机二进制（带 NUL 与非 UTF-8）**上传再下载，sha256 与长度都对得上**，跨过 1 MB 分块边界（顺带验证末尾 3 字节的片段读取不越界）；「系统默认程序打开」的落点是 `dela-remote-open/` 下带哈希前缀的原名、字节正确，`closeRemoteOpens()` 之后文件消失——这一条里 `shell.openPath` 是替身，不会真的弹程序。
+- 真机 `operations.remote.test.ts` 新增一条：预览用的 `statRemoteFile`（从目录清单拿 size/mtime，目录与不存在的路径分别报错）与 `readRemoteRange`（只回请求的那一段）。
 
 **已知边界（明说，不含糊）**
 

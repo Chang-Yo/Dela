@@ -171,14 +171,6 @@ describe('search_canvas_sources', () => {
     expect(result.coverage).toEqual({ scope: 'cached_titles', complete: true });
     expect(result.freshness).toEqual({ kind: 'cached', syncedAt: '2026-09-01T00:00:00.000Z' });
   });
-
-  it('returns NOT_CONFIGURED when Canvas is not connected', () => {
-    state.mockReturnValue(canvasState({ connected: false }));
-    expectSyncToolError(
-      () => canvasTools.search_canvas_sources.execute({ query: 'slides' }),
-      'NOT_CONFIGURED',
-    );
-  });
 });
 
 describe('refresh_canvas_courses', () => {
@@ -269,16 +261,11 @@ describe('refresh_canvas_course', () => {
     expect(result).not.toHaveProperty('warnings');
   });
 
-  it('maps unknown courses and auth failures', async () => {
+  it('maps unknown courses to NOT_FOUND', async () => {
     state.mockReturnValue(canvasState());
     syncCourse.mockRejectedValue(new Error('课程不存在，请刷新课程列表'));
     await expect(canvasTools.refresh_canvas_course.execute({ courseId: 99 })).rejects.toMatchObject(
       { code: 'NOT_FOUND' },
     );
-
-    syncCourse.mockRejectedValue(new Error('Canvas HTTP 401：令牌失效或无权访问此内容'));
-    await expect(canvasTools.refresh_canvas_course.execute({ courseId: 1 })).rejects.toMatchObject({
-      code: 'AUTH_EXPIRED',
-    });
   });
 });

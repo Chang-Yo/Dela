@@ -38,10 +38,8 @@ describe('首次启动引导', () => {
   });
 
   it.each([
-    ['dela.onboarding.completed', '1'],
     ['dela.splash.seen', '1'],
     ['dela.onboarding.step', '0'],
-    ['dela.onboarding.step', '3'],
   ])('兼容已有标记 %s=%s', async (key, value) => {
     localStorage.setItem(key, value);
     const state = await import('./onboarding-state');

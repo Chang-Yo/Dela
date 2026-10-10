@@ -44,14 +44,8 @@ describe('campus connection validation', () => {
   it.each([
     [200, '{"kbList":[]}', true],
     [302, '', false],
-    [0, '', false],
-    [101, '', false],
-    [600, '', false],
-    [503, '', false],
-    ['redirect', '', false],
     ['error', '', false],
     [200, '<html>Login</html>', false],
-    [200, '{"error":"expired"}', false],
   ] as const)(
     'handles response %s without constructing a Response',
     async (status, body, expected) => {

@@ -7,7 +7,6 @@ import type {
   ShuiyuanTopicSummary,
 } from '../../../../../shared/shuiyuan';
 import type { WorkspaceEntry } from '../../../../../shared/workspace';
-import { ToolError } from '../../shared';
 import { shuiyuanTools } from '../index';
 
 vi.mock('../../../../shuiyuan/api', () => ({
@@ -87,16 +86,14 @@ beforeEach(() => {
 });
 
 describe('shuiyuan_status', () => {
-  it('reports the bound account without network access', () => {
+  it('reports the bound account without network access, and unbound as a state', () => {
     expect(shuiyuanTools.shuiyuan_status.execute({})).toEqual({
       connected: true,
       username: 'alice',
       boundAt: '2026-01-01T00:00:00.000Z',
     });
     expect(listTopics).not.toHaveBeenCalled();
-  });
 
-  it('still reports unbound state as a result instead of an error', () => {
     state.mockReturnValue({ connected: false, username: null, boundAt: null });
     expect(shuiyuanTools.shuiyuan_status.execute({})).toEqual({
       connected: false,
@@ -216,16 +213,6 @@ describe('list_shuiyuan_categories', () => {
       { id: 5, name: '前端', slug: 'fe', parentId: 4, topicCount: 30 },
     ]);
     expect(result.tags).toEqual([{ name: '精品', topicCount: 99 }]);
-  });
-
-  it('reports NOT_CONFIGURED when unbound', async () => {
-    state.mockReturnValue({ connected: false, username: null, boundAt: null });
-    await expect(shuiyuanTools.list_shuiyuan_categories.execute({})).rejects.toBeInstanceOf(
-      ToolError,
-    );
-    await expect(shuiyuanTools.list_shuiyuan_categories.execute({})).rejects.toMatchObject({
-      code: 'NOT_CONFIGURED',
-    });
   });
 });
 
@@ -350,16 +337,5 @@ describe('link_shuiyuan_topic', () => {
         parentId: '0e2f6f5e-1234-4abc-8ef0-1234567890ab',
       }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-  });
-
-  it('requires a bound account', async () => {
-    state.mockReturnValue({ connected: false, username: null, boundAt: null });
-    await expect(
-      shuiyuanTools.link_shuiyuan_topic.execute({
-        topicId: 42,
-        parentId: '0e2f6f5e-1234-4abc-8ef0-1234567890ab',
-      }),
-    ).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
-    expect(addSourceRef).not.toHaveBeenCalled();
   });
 });

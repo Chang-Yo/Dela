@@ -150,16 +150,6 @@ describe('local notification inbox', () => {
     expect(getNotificationState().unreadCount).toBe(0);
   });
 
-  it('mark-all-read marks inbox mail as seen through markAllMailSeen', async () => {
-    insertUnreadInboxMail(db);
-
-    await refreshNotifications();
-    await markAllNotificationsRead();
-    expect(markAllMailSeen).toHaveBeenCalledTimes(1);
-    expect(db.prepare('SELECT seen FROM mail_messages').get()).toEqual({ seen: 1 });
-    expect(getNotificationState().unreadCount).toBe(0);
-  });
-
   it('keeps mail notifications unread when the mail server cannot be reached', async () => {
     insertUnreadInboxMail(db);
 

@@ -72,7 +72,7 @@
 - 自带 OpenSSH 二进制实测：`ssh.exe` + `libcrypto.dll` 共 3.1MB（zip 5.4MB；NSIS 压缩后更小），导入表只依赖 Windows 自带 DLL，无 VC++ 运行库依赖；许可文本随包（`vendor/openssh/{LICENSE,NOTICE}.txt`）。只在系统缺少 `ssh.exe` 时启用。
 - 无远程文件监听（阶段 0–4 时）：当时以懒加载加聚焦刷新近似。**6.3 已接 helper 的 `/v1/watch`**：展开的目录会被监视，Dela 之外的改动也会推回目录树（见 `remote-helper.md`）。
 - 连接是「一次调用一个 ssh 子进程」，没有多路复用。实测：短时间并发握手太多时主机会直接断开（`Connection closed by <host> port 22`），`pnpm vitest run src/main` 并行跑三个真机测试文件就会偶发；串行（`--fileParallelism=false`）稳定全过。App 侧一次工具调用只有一条连接，但若模型并发发起多个工具调用就可能撞上主机的 MaxStartups——是否加重试或限流待评估（重试要只针对握手层错误，不能掩盖认证失败）。
-- 真机测试的跑法：`. ./scripts/use-local-tools.ps1; $env:DELA_REMOTE_HOST='root@…'; $env:DELA_REMOTE_KEY='…'; pnpm vitest run src/main/remotes --fileParallelism=false`。
+- 真机测试的跑法：`. ./scripts/use-local-tools.ps1; $env:DELA_REMOTE_HOST='root@…'; $env:DELA_REMOTE_KEY='…'; pnpm test:remote`（只收集 `*.remote.test.ts`，并按上面那条经验逐个文件串行）。
 - 远程条目 id 带项目身份（`<项目 UUID>:<远端路径>`），与本地「路径条目」共用同一命名空间；`entry()` 必须先判远程根，禁止把远程路径交给 `statSync`。裸远端路径只在唯一归属时可用，多个项目都装得下时 `remoteProjectOf` 直接报错。
 - 连接断开即当前调用失败并给出明确错误，不做自动重连与续跑。
 

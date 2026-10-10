@@ -1,3 +1,5 @@
+// 远端文件传输真机回归：字节级往返与「用系统默认程序打开」的临时文件清理。
+// 需要 DELA_REMOTE_HOST（如 root@1.2.3.4），由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,18 +19,16 @@ import { closeRemoteOpens, downloadRemoteFile, openRemoteFile, uploadLocalFile }
 import { readRemoteRange, statRemoteFile } from '../operations';
 import type { RemoteTarget } from '../transport';
 
-const host = process.env.DELA_REMOTE_HOST;
 const target: RemoteTarget = {
-  host: host ?? 'root@127.0.0.1',
+  host: process.env.DELA_REMOTE_HOST!,
   keyPath: process.env.DELA_REMOTE_KEY ?? null,
 };
-const live = describe.skipIf(!host);
 const root = '/tmp/dela-transfer-test';
 const local = mkdtempSync(join(tmpdir(), 'dela-transfer-'));
 
 afterAll(() => rmSync(local, { recursive: true, force: true }));
 
-live('远端文件传输（需要 DELA_REMOTE_HOST）', () => {
+describe('远端文件传输（真机）', () => {
   it('二进制上传与下载：字节逐个相同，大小与 sha256 都对得上', async () => {
     // 3 MB 多一点的随机字节：跨过 1 MB 的分块边界，且带 NUL/非 UTF-8（文本通道会在这里变形）。
     const payload = Buffer.concat([randomBytes(3 * 1024 * 1024 + 7), Buffer.from([0, 255, 10])]);

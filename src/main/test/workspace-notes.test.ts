@@ -280,21 +280,16 @@ describe('归档文件夹', () => {
       )
       .run();
 
-  it('首次访问落定归档文件夹并持久化路径；条目列表不含归档行自身', () => {
+  it('首次访问落定归档文件夹并持久化路径；重复访问不重建，条目列表不含归档行自身', () => {
     seedArchive();
     const state = getWorkspaceState();
     expect(entry(workspaceArchiveId).path).toBe(archivePath());
     expect(existsSync(archivePath())).toBe(true);
     expect(state.entries.find((item) => item.id === workspaceArchiveId)).toBeUndefined();
-  });
-
-  it('重复访问不重建；local_path 悬空时重新落定', () => {
-    seedArchive();
+    // 重复访问不重建：路径不变；只有 local_path 悬空时才重新落定。
     getWorkspaceState();
-    const first = entry(workspaceArchiveId).path;
-    getWorkspaceState();
-    expect(entry(workspaceArchiveId).path).toBe(first);
-    rmSync(first!, { recursive: true, force: true });
+    expect(entry(workspaceArchiveId).path).toBe(archivePath());
+    rmSync(archivePath(), { recursive: true, force: true });
     db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(
       join(workspaceRoot(), '已丢失'),
       workspaceArchiveId,
@@ -390,7 +385,7 @@ describe('saveWorkspaceNote 外部冲突', () => {
 });
 
 describe('folder↔project 转换', () => {
-  it('升格生成条目 UUID 并记录项目目录，降格回到路径身份', () => {
+  it('升格生成条目 UUID 并记录项目目录；转换伴随重命名时项目目录跟随移动，降格回到路径身份', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
     expect(isAbsolute(folder.id)).toBe(true);
     const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
@@ -401,24 +396,23 @@ describe('folder↔project 转换', () => {
     ).toEqual({ path: folder.id });
     // 升格后路径与 UUID 都解析到同一项目身份。
     expect(entry(folder.id)).toMatchObject({ id: promoted.id, kind: 'project' });
-    const demoted = updateWorkspaceEntry(promoted.id, { kind: 'folder' });
-    expect(demoted.id).toBe(folder.id);
-    expect(
-      db.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(promoted.id),
-    ).toBeUndefined();
-    expect(entry(folder.id).kind).toBe('folder');
-  });
 
-  it('转换伴随重命名时项目目录跟随移动', () => {
-    const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
-    const promoted = updateWorkspaceEntry(folder.id, { name: '毕业设计', kind: 'project' });
+    // 转换伴随重命名：项目目录跟随移动。
+    updateWorkspaceEntry(promoted.id, { name: '毕业设计' });
     expect(existsSync(join(workspaceRoot(), '毕业设计'))).toBe(true);
     expect(
       db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
     ).toEqual({ path: join(workspaceRoot(), '毕业设计') });
+
+    // 降格回到路径身份，项目行随之消失。
     const demoted = updateWorkspaceEntry(promoted.id, { name: '归档课题', kind: 'folder' });
     expect(existsSync(join(workspaceRoot(), '归档课题'))).toBe(true);
+    expect(isAbsolute(demoted.id)).toBe(true);
     expect(demoted.id).toBe(join(workspaceRoot(), '归档课题'));
+    expect(
+      db.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(promoted.id),
+    ).toBeUndefined();
+    expect(entry(demoted.id).kind).toBe('folder');
   });
 
   it('降格后项目会话经外键降级为通用', () => {

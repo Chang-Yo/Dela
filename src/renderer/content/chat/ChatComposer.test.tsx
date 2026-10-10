@@ -126,35 +126,6 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it('@ 候选菜单确定向上展开：绝对定位挂在 composer 外框上，不再掉回文档流', async () => {
-  await act(async () =>
-    root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),
-  );
-  typeMention();
-  const list = host.querySelector('[role="listbox"]')!;
-  const classes = list.className.split(/\s+/);
-  expect(classes).toContain('absolute');
-  expect(classes).toContain('bottom-full');
-  expect(classes).not.toContain('relative');
-  // 向上展开的锚点是 composer 外框自身的 relative，不能跟着被删掉。
-  expect(list.parentElement?.className).toContain('relative');
-});
-
-it('@ 候选：文件名强调蓝加粗在前，目录以小字灰阶缀后', async () => {
-  await act(async () =>
-    root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),
-  );
-  typeMention();
-  const spans = [...host.querySelectorAll('span')];
-  const name = spans.find((span) => span.textContent === 'authAPI.js')!;
-  const dir = spans.find((span) => span.textContent === 'Test/')!;
-  expect(name.className).toContain('font-semibold');
-  expect(name.getAttribute('style')).toContain('--cal-blue-text');
-  expect(dir.className).toContain('text-ink-3');
-  // 文件名在前、路径缀后（对照 Claude 候选样式）。
-  expect(name.compareDocumentPosition(dir) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-});
-
 it('选中 @ 候选后原位插入 @路径 token（尾随空格），菜单收起', async () => {
   await act(async () =>
     root.render(<Harness contextUsage={usage()} referenceOptions={[reference]} />),

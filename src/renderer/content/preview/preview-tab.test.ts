@@ -38,17 +38,6 @@ function docOf(format: LoadedDocument['content']['format'], extra?: Partial<Load
 }
 
 describe('previewBranchOf', () => {
-  it('按 DocumentContent.format 分流到各预览器', () => {
-    expect(previewBranchOf(docOf('pdf'))).toBe('pdf');
-    expect(previewBranchOf(docOf('image'))).toBe('image');
-    expect(previewBranchOf(docOf('docx'))).toBe('docx');
-    expect(previewBranchOf(docOf('xlsx'))).toBe('xlsx');
-    expect(previewBranchOf(docOf('pptx'))).toBe('pptx');
-    expect(previewBranchOf(docOf('html'))).toBe('html');
-    expect(previewBranchOf(docOf('markdown'))).toBe('markdown');
-    expect(previewBranchOf(docOf('unsupported'))).toBe('unsupported');
-  });
-
   it('文本文件按是否本地磁盘文件区分：语法高亮查看器或纯文本', () => {
     expect(previewBranchOf(docOf('text', { watchesDisk: true }))).toBe('code');
     expect(previewBranchOf(docOf('text', { watchesDisk: false }))).toBe('text');

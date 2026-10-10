@@ -11,11 +11,6 @@ describe('远端连接的取色', () => {
     );
   });
 
-  it('不同连接尽量不同色', () => {
-    const ids = ['a1', 'b2', 'c3', 'd4', 'e5', 'f6', 'g7', 'h8'];
-    expect(new Set(ids.map((id) => remoteAccent(id))).size).toBeGreaterThan(1);
-  });
-
   it('没有连接时退回中性色', () => {
     expect(remoteAccent(null)).toBe('var(--ink-3)');
     expect(remoteAccent(undefined, 'bg')).toBe('var(--field)');

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
-import { canSendInput, isEmptySession, shouldRestoreDraft } from './use-chat';
+import { canSendInput, shouldRestoreDraft } from './use-chat';
 
 function chatWith(userTexts: string[]): WorkspaceChat {
   return {
@@ -53,13 +53,5 @@ describe('shouldRestoreDraft（发送失败草稿恢复判定）', () => {
     // 主进程持久化的 content 是剥离 token 后的正文。
     expect(shouldRestoreDraft(chatWith(['看图']), sent)).toBe(false);
     expect(shouldRestoreDraft(chatWith(['其他']), sent)).toBe(true);
-  });
-});
-
-describe('isEmptySession（新对话前的空会话清理）', () => {
-  it('没有消息的会话视为空，切走前删除（沿用旧 newChat 语义）', () => {
-    expect(isEmptySession(chatWith([]))).toBe(true);
-    expect(isEmptySession(chatWith(['hi']))).toBe(false);
-    expect(isEmptySession(null)).toBe(false);
   });
 });

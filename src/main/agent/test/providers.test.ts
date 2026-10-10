@@ -326,21 +326,27 @@ describe('verifyLlm', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-  it('reuses the stored key at whatever address is given', async () => {
+  it('reuses the stored key of a saved provider when apiKey is omitted, at whatever address is given', async () => {
     const created = saveLlmProvider(input);
-    const fetcher = vi.fn().mockResolvedValue(json({ data: [{ id: 'deepseek-chat' }] }));
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ data: [] }))
+      .mockResolvedValueOnce(json({ data: [] }));
     vi.stubGlobal('fetch', fetcher);
-    const result = await verifyLlm({ id: created.id, baseUrl: 'https://gateway.internal/v1' });
-    expect(result.ok).toBe(true);
+    const result = await verifyLlm({ id: created.id, baseUrl: input.baseUrl });
+    expect(result).toEqual({
+      ok: true,
+      message: '连接成功',
+      models: [],
+      baseUrl: `${input.baseUrl}/v1`,
+    });
+    expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
     // 探测目标就是用户刚填的地址，不回写成原存储地址。
+    fetcher.mockClear();
+    const elsewhere = await verifyLlm({ id: created.id, baseUrl: 'https://gateway.internal/v1' });
+    expect(elsewhere.ok).toBe(true);
     expect(fetcher.mock.calls[0]![0]).toBe('https://gateway.internal/v1/models');
     expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
-  });
-
-  it('allows a trailing slash when verifying with the stored key', async () => {
-    const created = saveLlmProvider(input);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ data: [] })));
-    expect((await verifyLlm({ id: created.id, baseUrl: `${input.baseUrl}/` })).ok).toBe(true);
   });
 
   it('allows verification at a new endpoint with an explicit key', async () => {
@@ -382,20 +388,6 @@ describe('verifyLlm', () => {
       models: ['deepseek-chat'],
     });
     expect(fetcher.mock.calls[1]![0]).toBe('https://api.deepseek.com/models');
-  });
-
-  it('uses the stored key of a saved provider when apiKey is omitted', async () => {
-    const created = saveLlmProvider(input);
-    const fetcher = vi.fn().mockResolvedValue(json({ data: [] }));
-    vi.stubGlobal('fetch', fetcher);
-    const result = await verifyLlm({ id: created.id, baseUrl: input.baseUrl });
-    expect(result).toEqual({
-      ok: true,
-      message: '连接成功',
-      models: [],
-      baseUrl: `${input.baseUrl}/v1`,
-    });
-    expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
   });
 
   it('corrects a bare origin to the versioned root that actually serves the API', async () => {

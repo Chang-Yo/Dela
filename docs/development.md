@@ -43,7 +43,8 @@ pnpm dev
 | `pnpm check`                                    | 格式检查 + Oxlint + 构建 + 单元测试的组合检查                      |
 | `pnpm format` / `pnpm format:check`             | Prettier 格式化 / 检查                                             |
 | `pnpm lint`                                     | Oxlint（TypeScript 正确性、未使用代码、React Hook 规则）           |
-| `pnpm test`                                     | Vitest 单元测试                                                    |
+| `pnpm test`                                     | Vitest 单元测试（不含真机远程套件）                                |
+| `pnpm test:remote`                              | 真机远程回归：需 `DELA_REMOTE_HOST`（如 `root@1.2.3.4`），CI 不跑  |
 | `pnpm smoke`                                    | Electron 冒烟：SQLite、React 渲染与 preload 隔离，自动退出         |
 | `pnpm smoke:workspace`                          | 工作区回归                                                         |
 | `pnpm smoke:pdf`                                | PDF.js 阅读器回归                                                  |
@@ -79,5 +80,7 @@ pnpm lint
 pnpm build
 pnpm test
 ```
+
+改动远端（`src/main/remotes/`、`helper/`、连接与上下文镜像）时，另用 `pnpm test:remote` 对着真机跑一遍：那批用例需要 `DELA_REMOTE_HOST`，默认套件与 CI 都会跳过它们（`vitest.remote.config.ts`）。
 
 涉及构建、原生依赖或打包时，另验证 `pnpm smoke` 与打包目录启动。重要功能改动同步更新 `docs/devlog.md`，面向使用者的变化更新 README。

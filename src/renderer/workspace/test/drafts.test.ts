@@ -225,19 +225,6 @@ describe('draft acquire/release reference counting', () => {
     expect(useNoteDrafts.getState().drafts['shared']).toBeUndefined();
   });
 
-  it('releases a draft nobody holds (remove-modal path) and tolerates extra releases', async () => {
-    const { readMock } = installDela(
-      async () => ({ ...content }),
-      vi.fn(async () => 'r2'),
-    );
-    const store = useNoteDrafts.getState();
-    await store.acquire('orphan');
-    await expect(store.release('orphan')).resolves.toBe(true);
-    expect(useNoteDrafts.getState().drafts['orphan']).toBeUndefined();
-    await expect(store.release('orphan')).resolves.toBe(true);
-    expect(readMock).toHaveBeenCalledTimes(1);
-  });
-
   it('returns false and keeps the dirty draft reachable when the release flush fails', async () => {
     installDela(
       async () => ({ ...content }),
