@@ -7,6 +7,7 @@ vi.mock('electron', () => ({
 }));
 
 import { createConnection } from 'node:net';
+import { listRemoteDirectory } from '../operations';
 import { exec, listDirectory, locateSsh, type RemoteTarget } from '../transport';
 import {
   HELPER_VERSION,
@@ -225,5 +226,26 @@ describe('helper 通道（真机）', () => {
     expect(session).not.toBeNull();
     expect(locateSsh()).toMatch(/ssh\.exe$/i);
     await closeHelper();
+  }, 180_000);
+
+  it('远端 helper 被杀后：下一次调用退回一次性 ssh，并丢掉死通道重建', async () => {
+    const first = await helperSession(target);
+    expect(first).not.toBeNull();
+    // 直接杀掉远端 helper：隧道还在、本地端口照样连得上，通道死没死只有探活能分辨。
+    const killed = await exec(
+      target,
+      'pkill -f "[d]ela-helper"; sleep 0.5; pgrep -f "[d]ela-helper" | wc -l',
+    );
+    expect(killed.stdout.toString().trim()).toBe('0');
+
+    // 这次调用失败 → 探活判定通道已死 → 丢掉它，退回一次性 ssh 把结果拿到。
+    const entries = await listRemoteDirectory(target, '/etc');
+    expect(entries.length).toBeGreaterThan(0);
+
+    // 死通道不再被复用：下一次调用重新建立，新通道确实能用。
+    const second = await helperSession(target);
+    expect(second).not.toBeNull();
+    expect(second).not.toBe(first);
+    expect((await second!.list('/etc')).length).toBeGreaterThan(0);
   }, 180_000);
 });

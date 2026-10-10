@@ -11,7 +11,7 @@
  */
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
-import { closeHelper, HelperHttpError, helperSession, type HelperSession } from './helper';
+import { discardHelperIfDead, HelperHttpError, helperSession, type HelperSession } from './helper';
 import { notifyRemoteChange } from './events';
 import { syncRemoteWatch } from './watch';
 import {
@@ -43,7 +43,8 @@ async function withHelper<T>(
     // 拆通道再走一遍一次性 ssh 只会把一次 404 放大成一次冷启动，还顺带掐断 watch 流。
     if (error instanceof HelperHttpError) throw error;
     console.warn('[remotes] helper 通道调用失败，退回一次性 ssh', error);
-    await closeHelper();
+    // 通道是多个会话共用的：先探活，只有它真的不通才拆，否则别把别人正在跑的命令一起掐了。
+    await discardHelperIfDead(target);
     return fallback();
   }
 }
@@ -331,7 +332,8 @@ export function remoteOperations(target: RemoteTarget) {
           return { exitCode: result.code };
         } catch (error) {
           // 不退回 ssh：命令可能已经在远端跑过，重发等于重复执行。
-          await closeHelper();
+          // 但要先探活再决定拆不拆通道——取消一条命令不该掐断别的会话的通道。
+          await discardHelperIfDead(target);
           throw error;
         }
       }
