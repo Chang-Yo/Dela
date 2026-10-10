@@ -43,9 +43,10 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 # 微软商店提交包：electron-builder 的 appx 目标，产物扩展名是 .appx。
-# 前三项必须逐字等于 Partner Center「应用概览 → 产品管理 → View app identity details」里的
-# Package/Identity/Name、Package/Identity/Publisher、Package/Properties/PublisherDisplayName，
-# 现为占位符，替换后才能提交（身份不匹配会被商店拒绝）。applicationId 是自己取的清单内标识。
+# 下面三项取自 Partner Center「应用概览 → 产品管理 → View app identity details」，是 Dela
+# 的真实产品标识（Package/Identity/Name、Package/Identity/Publisher、PublisherDisplayName）。
+# 三者必须逐字一致：大小写、空格、标点都算，在 Partner Center 改名后要同步这里，否则商店按
+# 身份不匹配拒收。applicationId 是自己取的清单内标识；包内图标见 build/appx/（docs/release.md）。
 # 不需要仓库自带证书：未配置证书时构建出的是未签名包，签名由商店在收包后完成。
 appx:
   identityName: MADFilm.Dela

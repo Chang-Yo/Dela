@@ -56,16 +56,16 @@
 
 发布流水线在 NSIS 之后额外产出商店提交包，作为 Actions artifact `store-package-win-x64` 上传（`build` 任务末尾），不随 Release 发布。
 
-1. 在 Partner Center 应用概览 → 产品管理 → View app identity details 抄下三项，填进 `electron-builder.yml` 的 `appx` 块：`identityName`（Package/Identity/Name）、`publisher`（Package/Identity/Publisher，形如 `CN=<GUID>`）、`publisherDisplayName`。三项必须逐字一致，大小写与标点都要对，否则商店拒收。
+1. `electron-builder.yml` 的 `appx` 块已按 Partner Center 应用概览 → 产品管理 → View app identity details 填好三项：`identityName`（Package/Identity/Name）、`publisher`（Package/Identity/Publisher，形如 `CN=<GUID>`）、`publisherDisplayName`（Package/Properties/PublisherDisplayName）。三项必须逐字一致，大小写与标点都要对，否则商店拒收；在 Partner Center 改名后要同步这里。
 2. 推送 `v*` tag 或手动重跑工作流。`build` 任务最后执行 `pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked`，产出 `Dela-<版本>-win-x64.appx`（复用的是上一步 NSIS 打包并冒烟过的 `dist/win-unpacked`，本地要复现需先跑一次 `pnpm exec electron-builder --dir --x64`）。
 3. 从该次运行的 Artifacts 下载 `store-package-win-x64`。
 4. 在 Partner Center 提交的 Packages 页上传该文件。
 
 ### 提交前必须做
 
-- **替换三个身份值。** `appx.identityName`、`appx.publisher`、`appx.publisherDisplayName` 必须逐字等于 Partner Center「Product identity」页的 Package/Identity/Name、Package/Identity/Publisher、Package/Properties/PublisherDisplayName。官方要求「Values in the manifest are case-sensitive. Spaces and other punctuation must also match.」现在的值（`MADFilm.Dela`、`CN=57320C20-35BA-45E0-8AB9-95D7D30D80AC`、`麦德映画 (MAD Film)`）是占位符，已确认原样写进产物清单的 `Identity`，不改会被商店拒收。见 [View product identity details](https://learn.microsoft.com/en-us/windows/apps/publish/view-app-identity-details) 与 [App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)。
-- **版本号第一段不能为 0。** 清单 `Identity/@Version` 由 `package.json` 版本补成四段（`0.11.0` → `0.11.0.0`）。官方版本号规则为：最后一段必须为 0，其余各段取 0–65535，例外是「the first section, which cannot be 0」，且该规则对 `.msix`／`.appx` 同样适用（见上一段链接的 App package requirements → Package version numbering）。因此提交前需把应用版本升到 `1.0.0` 及以上。Partner Center 对这条的执行严格程度属待验证。
-- **替换包内图标。** `build/appx/` 不存在时，electron-builder 用自带的微软示例图（缓存中的 `SampleAppx.*`，带 Sample 水印）充当 `assets\StoreLogo.png`、`Square44x44Logo.png`、`Square150x150Logo.png`、`Wide310x150Logo.png`；其中后两张实际是 300×300 与 620×300。提交前把 Dela 自己的图放进 `build/appx/`，文件名用上述四个即可被自动采用。
+- **三个身份值已在位，改动前先对 Partner Center。** `appx.identityName`、`appx.publisher`、`appx.publisherDisplayName` 取自 Partner Center「Product identity」页的 Package/Identity/Name、Package/Identity/Publisher、Package/Properties/PublisherDisplayName，当前值（`MADFilm.Dela`、`CN=57320C20-35BA-45E0-8AB9-95D7D30D80AC`、`麦德映画 (MAD Film)`）就是 Dela 的真实产品标识，已实测原样写进产物清单的 `Identity`／`PublisherDisplayName`。官方要求「Values in the manifest are case-sensitive. Spaces and other punctuation must also match.」，所以在 Partner Center 改名后必须逐字同步，否则商店拒收。见 [View product identity details](https://learn.microsoft.com/en-us/windows/apps/publish/view-app-identity-details) 与 [App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)。
+- **版本号第一段不能为 0（已满足）。** 清单 `Identity/@Version` 由 `package.json` 版本补成四段（实测 `1.0.0` → `1.0.0.0`）。官方版本号规则为：最后一段必须为 0，其余各段取 0–65535，例外是「the first section, which cannot be 0」，且该规则对 `.msix`／`.appx` 同样适用（见上一段链接的 App package requirements → Package version numbering）。仓库现为 `1.0.0`（tag `v1.0.0`），该条已满足；版本若回落到 `0.x` 会重新触发限制。Partner Center 对这条的执行严格程度属待验证。
+- **包内图标用 Dela 自己的。** `build/appx/` 下的文件按文件名逐字被采用：`StoreLogo.png`、`Square44x44Logo.png`、`Square150x150Logo.png`、`Wide310x150Logo.png` 是模板清单引用的四个槽位（electron-builder 按文件名子串替换自带的微软示例图 `SampleAppx.*`，那批图带 Sample 水印）；该目录不存在或为空时会退回示例图。当前已放入这四个基尺寸，另加 `Square44x44Logo`／`Square150x150Logo` 的 `.scale-200`／`.scale-400` 与 `StoreLogo`／`Wide310x150Logo` 的 `.scale-200`。宽图 310×150 是把方形图居中合成到 `appx.backgroundColor`（当前 `#464646`）上，不是缩放方形图；带 `.scale-` 的文件名会让 electron-builder 额外跑 `makepri.exe` 生成 `resources.pri`。
 - **不需要自己签名。** 未配置证书时产物不含 `AppxSignature.p7x`，商店收包后用自己的证书重新签名（见下「不需要自己签名」）。
 
 要点（2026-10 核实）：
@@ -85,15 +85,15 @@
 
 已验证（2026-10，本机 Windows 10.0.26100 实跑）：
 
-- **`.appx` 构建已实证**：`pnpm exec electron-builder --win --x64 --dir --publish never` 与 `pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked --publish never` 均退出码 0，产出 `dist/Dela-0.11.0-win-x64.appx`，308,131,695 字节，sha256 `3492B665B97D8038F375951E823374E8BA6F62DB7D5EFEB3DE6C6DCE923A82AD`。它是 zip 容器（538 个条目，根含 `AppxManifest.xml`、`AppxBlockMap.xml`、`[Content_Types].xml`），**未签名**：不含 `AppxSignature.p7x`，与日志 `AppX is not signed reason=Windows Store only build` 一致。
+- **`.appx` 构建已实证**：`pnpm exec electron-builder --win --x64 --dir --publish never` 与 `pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked --publish never` 均退出码 0，产出 `dist/Dela-1.0.0-win-x64.appx`，308,630,293 字节，sha256 `1B2F33D21897B096DC6AADD4987BB0A3CA7FC229EA2B1391144DD3D731ABC433`。它是 zip 容器（547 个条目，根含 `AppxManifest.xml`、`AppxBlockMap.xml`、`[Content_Types].xml`），**未签名**：不含 `AppxSignature.p7x`，与日志 `AppX is not signed reason=Windows Store only build` 一致。包内 `assets/` 是 Dela 自己的 10 张图（四个基尺寸加各档 `.scale-*`），无微软示例图；`.scale-` 文件名触发了 `makepri.exe`，根下另有 `resources.pri`、`resources.scale-200.pri`、`resources.scale-400.pri`。
 - 清单中这些字段实测合格：根命名空间为 `http://schemas.microsoft.com/appx/manifest/foundation/windows10`（Windows 10，非 2010）；`<TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.14316.0" MaxVersionTested="10.0.14316.0" />`；`<Application Id="Dela" Executable="app\Dela.exe" EntryPoint="Windows.FullTrustApplication">`；`<Capabilities>` 含 `<rescap:Capability Name="runFullTrust"/>`。
 - 清单语言已设为 `zh-CN`：`appx.languages: ['zh-CN']`，产物清单里是 `<Resource Language="zh-CN" />`，默认的 `en-US` 已移除（未设置时 electron-builder 写 `en-US`）。
+- 工具链解压告警只在首次下载时出现：本机首次解 `winCodeSign-2.6.0.7z` 时报 `Cannot create symbolic link : A required privilege is not held by the client`（`darwin\10.12\lib\libcrypto.dylib`、`libssl.dylib`），electron-builder 容忍并继续，最终退出码 0。CI 两次运行（v0.11.0、v1.0.0）都下载了同一压缩包，日志里没有任何 `symbolic link` 行（`gh run view <id> --log` 检索），即 CI 未复现该告警。
 
 尚未验证：
 
-- **签名与安装**：本机未签名、未安装、未做实机验收；Partner Center 是否接受本流水线产出的包也未验证（须先替换占位身份，并把版本第一段升到非 0）。
+- **签名与安装**：本机未签名、未安装、未做实机验收；Partner Center 是否接受本流水线产出的包也未验证（身份与版本已就位，仍须真实提交一次才知结果）。
 - Partner Center 是否接受 `MinVersion=10.0.14316.0`（electron-builder 对 x64 的默认值）：官方只要求包针对商店支持的 Windows 版本，未给出具体下限。
-- CI 是否复现本机首次下载工具链时的告警：解 `winCodeSign-2.6.0.7z` 时报 `Cannot create symbolic link : A required privilege is not held by the client`（`darwin\10.12\lib\libcrypto.dylib`、`libssl.dylib`），electron-builder 容忍并继续，最终退出码 0。
 - 商店对声明语言与实际资源的匹配要求。
 
 ## 平台基线
