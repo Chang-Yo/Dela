@@ -35,7 +35,7 @@ async function withHelper<T>(
   try {
     const session = await helperSession(target);
     if (!session) return await fallback();
-    // 通道刚给了这个目标：顺带让 watch 也服务它（全局只有一条通道，同时只能盯一个目标）。
+    // 通道刚给了这个目标：顺带让 watch 也为它起一条流（每个连接各一条，互不影响）。
     syncRemoteWatch(target);
     return await work(session);
   } catch (error) {

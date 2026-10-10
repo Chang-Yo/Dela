@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
 class FakeSession {
   sets = new Map<string, string[]>();
   cleared: string[] = [];
-  private listeners = new Set<(event: unknown) => void>();
+  listeners = new Set<(event: unknown) => void>();
 
   async setWatch(id: string, paths: string[]) {
     this.sets.set(id, paths);
@@ -36,9 +36,11 @@ class FakeSession {
   }
 }
 
-let session: FakeSession | null = null;
+/** 每个目标一个假会话：多通道下一个连接一条流，事件也只该回到自己那条流。 */
+const sessions = new Map<string, FakeSession>();
+
 vi.mock('../helper', () => ({
-  helperSession: async () => session,
+  helperSession: async (target: { host: string }) => sessions.get(target.host) ?? null,
 }));
 
 import { onRemoteChange } from '../events';
@@ -47,15 +49,21 @@ import { closeRemoteWatch, unwatchRemoteProject, watchRemoteProject } from '../w
 const target = { host: 'user@10.0.0.5', keyPath: null };
 const other = { host: 'user@10.0.0.6', keyPath: null };
 
+const fake = (host: string) => sessions.get(host)!;
+
 function collect() {
   const seen: string[] = [];
   const stop = onRemoteChange((path) => seen.push(path));
   return { seen, stop };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   closeRemoteWatch();
-  session = new FakeSession();
+  // 让上一条流的 abort 落地（假会话要等 abort 才摘掉监听器），免得上一条用例的事件串进来。
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  sessions.clear();
+  sessions.set(target.host, new FakeSession());
+  sessions.set(other.host, new FakeSession());
 });
 
 it('报上集合后 helper 收到监视，change 事件推成目录变化', async () => {
@@ -67,23 +75,23 @@ it('报上集合后 helper 收到监视，change 事件推成目录变化', asyn
     paths: ['/home/u/proj', '/home/u/proj/src'],
   });
   expect(result.watching).toBe(2);
-  expect(session!.sets.get('p-1')).toEqual(['/home/u/proj', '/home/u/proj/src']);
+  expect(fake(target.host).sets.get('p-1')).toEqual(['/home/u/proj', '/home/u/proj/src']);
 
-  await vi.waitFor(() => expect(session!.sets.get('p-1')).toBeTruthy());
-  session!.emit({ type: 'change', id: 'p-1', paths: ['/home/u/proj/src'] });
+  await vi.waitFor(() => expect(fake(target.host).sets.get('p-1')).toBeTruthy());
+  fake(target.host).emit({ type: 'change', id: 'p-1', paths: ['/home/u/proj/src'] });
   expect(seen).toEqual(['/home/u/proj/src']);
 
   // reset（内核队列溢出/订阅者卡住）：按项目根报一次就够，目录树会重读根以下所有层。
-  session!.emit({ type: 'reset', id: '*', reason: 'overflow' });
+  fake(target.host).emit({ type: 'reset', id: '*', reason: 'overflow' });
   expect(seen).toEqual(['/home/u/proj/src', '/home/u/proj']);
   stop();
 });
 
 it('撤销监视会告诉 helper，空集合等于取消', async () => {
   await watchRemoteProject({ projectId: 'p-1', target, root: '/home/u/proj', paths: ['/x'] });
-  await vi.waitFor(() => expect(session!.sets.get('p-1')).toBeTruthy());
+  await vi.waitFor(() => expect(fake(target.host).sets.get('p-1')).toBeTruthy());
   await unwatchRemoteProject('p-1');
-  expect(session!.cleared).toContain('p-1');
+  expect(fake(target.host).cleared).toContain('p-1');
 
   const empty = await watchRemoteProject({
     projectId: 'p-1',
@@ -95,7 +103,7 @@ it('撤销监视会告诉 helper，空集合等于取消', async () => {
 });
 
 it('helper 起不来时不报错，只是拿不到监视', async () => {
-  session = null;
+  sessions.clear();
   const result = await watchRemoteProject({
     projectId: 'p-1',
     target,
@@ -105,20 +113,25 @@ it('helper 起不来时不报错，只是拿不到监视', async () => {
   expect(result.watching).toBe(0);
 });
 
-it('换到另一个远端目标后只服务新目标，切回来能立刻恢复', async () => {
+it('两个目标各有一条流：一台的事件不回到另一台', async () => {
   const { seen, stop } = collect();
   await watchRemoteProject({ projectId: 'p-1', target, root: '/one', paths: ['/one'] });
-  await vi.waitFor(() => expect(session!.sets.get('p-1')).toBeTruthy());
-  // 另一个目标被用到（全局只有一条通道）：旧目标的流让位，但集合留着。
+  await vi.waitFor(() => expect(fake(target.host).sets.get('p-1')).toBeTruthy());
+  // 另一个目标被用到：它自己起一条流，第一台的流与集合都留着。
   await watchRemoteProject({ projectId: 'p-2', target: other, root: '/two', paths: ['/two'] });
-  await vi.waitFor(() => expect(session!.sets.get('p-2')).toBeTruthy());
-  session!.emit({ type: 'reset', id: '*', reason: 'overflow' });
-  expect(seen).toEqual(['/two']);
+  await vi.waitFor(() => expect(fake(other.host).sets.get('p-2')).toBeTruthy());
+  expect(fake(target.host).sets.get('p-1')).toEqual(['/one']);
 
-  // 切回来：集合重新报上（换了 helper 实例就没了），事件也跟着回来。
-  await watchRemoteProject({ projectId: 'p-1', target, root: '/one', paths: ['/one'] });
-  await vi.waitFor(() => expect(session!.sets.get('p-1')).toEqual(['/one']));
-  session!.emit({ type: 'change', id: 'p-1', paths: ['/one/sub'] });
+  fake(other.host).emit({ type: 'reset', id: '*', reason: 'overflow' });
+  expect(seen).toEqual(['/two']);
+  fake(target.host).emit({ type: 'change', id: 'p-1', paths: ['/one/sub'] });
   expect(seen).toEqual(['/two', '/one/sub']);
+
+  // 撤销其中一个项目的监视：只收它自己那条流，另一台照旧。
+  await unwatchRemoteProject('p-1');
+  await vi.waitFor(() => expect(fake(target.host).listeners.size).toBe(0));
+  fake(target.host).emit({ type: 'change', id: 'p-1', paths: ['/one/ignored'] });
+  fake(other.host).emit({ type: 'change', id: 'p-2', paths: ['/two/sub'] });
+  expect(seen).toEqual(['/two', '/one/sub', '/two/sub']);
   stop();
 });

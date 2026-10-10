@@ -60,8 +60,9 @@ export function registerRemoteIpc() {
       if (!window.isDestroyed()) window.webContents.send('workspace:remote-change', path);
   });
   // helper 通道建起来 / 建不起来 → 广播给窗口，目录树据此显示或撤掉降级提示。
-  onHelperDegradation((state) => {
+  // 每条连接各一条通道，所以送的是一整份快照（渲染端按目的地对准自己的项目）。
+  onHelperDegradation((states) => {
     for (const window of BrowserWindow.getAllWindows())
-      if (!window.isDestroyed()) window.webContents.send('remotes:helper-state', state);
+      if (!window.isDestroyed()) window.webContents.send('remotes:helper-state', states);
   });
 }

@@ -134,11 +134,11 @@ it('loads one remote level when the project is expanded and browses without open
 });
 
 it('shows the degraded hint only for projects on the failing destination', async () => {
-  let emit: (state: HelperDegradation | null) => void = () => {};
+  let emit: (states: HelperDegradation[]) => void = () => {};
   window.dela = {
     remotes: {
       list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }],
-      onHelperState: (listener: (state: HelperDegradation | null) => void) => {
+      onHelperState: (listener: (states: HelperDegradation[]) => void) => {
         emit = listener;
         return () => {};
       },
@@ -150,17 +150,25 @@ it('shows the degraded hint only for projects on the failing destination', async
   expect(document.body.textContent).not.toContain('helper 通道不可用');
 
   // 别的服务器降级：这棵树的项目连的不是那台，不提示。
-  await act(async () => emit({ destination: 'other@10.9.9.9', reason: 'noexec' }));
+  await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
   expect(document.body.textContent).not.toContain('helper 通道不可用');
 
+  // 多条通道可以同时降级：快照里两台都在，这棵树只显示自己那台。
   await act(async () =>
-    emit({ destination: 'user@10.0.0.5', reason: 'helper 目录所在挂载点启用了 noexec' }),
+    emit([
+      { destination: 'other@10.9.9.9', reason: 'noexec' },
+      { destination: 'user@10.0.0.5', reason: 'helper 目录所在挂载点启用了 noexec' },
+    ]),
   );
   expect(document.body.textContent).toContain('user@10.0.0.5 的 helper 通道不可用');
   expect(document.body.textContent).toContain('noexec');
 
-  // 通道恢复（或切到别的连接成功建立）：提示撤掉。
-  await act(async () => emit(null));
+  // 这台的通道恢复（快照里只剩别台）：提示撤掉。
+  await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
+  expect(document.body.textContent).not.toContain('helper 通道不可用');
+
+  // 全恢复：快照清空。
+  await act(async () => emit([]));
   expect(document.body.textContent).not.toContain('helper 通道不可用');
 });
 

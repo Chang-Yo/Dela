@@ -40,6 +40,8 @@ const TUNNEL_READY_MS = 5_000;
 const STARTUP_WAIT_MS = 20_000;
 /** 调用失败后探活的上限：真断了会立刻连不上，半死的隧道才需要等到超时。 */
 const PROBE_TIMEOUT_MS = 3_000;
+/** 心跳连续失败几次算通道死了：一次失败可能只是通道被大任务占着（30 秒一次心跳）。 */
+const HEARTBEAT_FAILURES_BEFORE_DEAD = 3;
 /** exec 的客户端兜底：比 helper 自己的超时多留一点，正常都由 helper 先判定。 */
 const EXEC_GRACE_MS = 5_000;
 /** watch 流没有事件多久算「隧道半死」：正常心跳是 30 秒一次，5 分钟足够宽松。 */
@@ -737,6 +739,8 @@ interface ActiveChannel {
 async function ensure(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
+  /** 通道死了（隧道退出、心跳连续失败）时回调：注册表据此把它摘掉，下一次调用重建。 */
+  onDead?: () => void,
 ): Promise<ActiveChannel> {
   // 每一步失败都带着「是哪一步、为什么」报出去：向导的日志区就靠它说清楚停在哪里。
   const fail: (step: RemoteSetupProgress['step'], error: unknown) => never = (step, error) => {
@@ -813,34 +817,34 @@ async function ensure(
     );
   }
   const session = createSession(target, localPort, token);
+  // 心跳兼作死亡探测：连续几次没有回应就报死，而不是把死会话一直发下去——watch 的重连循环与
+  // 端口面板直接调 helperSession，它们没有「失败后退回一次性 ssh」那条路来顺带丢掉死通道。
+  let failures = 0;
   const timer = setInterval(() => {
-    void sendRequest(localPort, token, 'POST', '/v1/heartbeat', { timeoutMs: 10_000 }).catch(
-      () => {},
-    );
+    void sendRequest(localPort, token, 'POST', '/v1/heartbeat', { timeoutMs: 10_000 })
+      .then(() => {
+        failures = 0;
+      })
+      .catch(() => {
+        if (++failures >= HEARTBEAT_FAILURES_BEFORE_DEAD) onDead?.();
+      });
   }, HEARTBEAT_MS);
+  // 隧道进程退出（网络断、ssh 崩）：同样立刻报死。
+  tunnel.once('exit', () => onDead?.());
   return { key: targetKey(target), token, session, timer, tunnel };
 }
 
 /**
- * 通道的身份与生命周期：`current` 只在闸门里读写。
+ * 一个连接一条通道，同时可以有几条。
  *
- * 建通道、切目标、失败后拆通道都是「读 current → await → 写 current」的复合动作。不串行化时，
- * 并发的两个调用会各自看到不同的 current：请求 B 在等旧通道关掉的期间 C 建好并占住了它，
- * B 回来就拿到 C 的会话——于是 B 的命令与写入落到另一台服务器上。
+ * 多通道不是优化，是并行会话的前提：两个不同主机的会话同时工作时，单通道会被每一次远端操作
+ * 切走，而隧道一断 helper 就按请求上下文断开取消进程组——另一台上正在跑的构建会被 TERM，
+ * 且按既定策略不重放。条目按连接 key 分开，各带各的心跳与降级提示。
+ *
+ * 值就是那条通道的 promise（identity 即条目本身）：摘除、失效、失败清理都先核对「表里还是不是
+ * 这一条」，避免把后来新建的那条误杀。取或建是同步的，没有读改写窗口。
  */
-let current: { key: string; channel: Promise<ActiveChannel | null> } | null = null;
-
-let gate: Promise<unknown> = Promise.resolve();
-
-/** 串行闸门：同一时刻只有一个通道动作在跑，后面的按顺序等（拆通道仍要等旧建立完成）。 */
-export function runExclusive<T>(work: () => Promise<T>): Promise<T> {
-  const run = gate.then(work);
-  gate = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
-}
+const channels = new Map<string, Promise<ActiveChannel | null>>();
 
 /** 身份核对：拿到的通道必须就是请求者的目标。核对不上当作「通道不可用」，让调用方退回一次性
  *  ssh——宁可慢，也不能把命令或写入送到另一台服务器上。 */
@@ -851,47 +855,64 @@ export function sessionFor(
   return active && active.key === key ? active.session : null;
 }
 
-/** 降级状态变化（helper 通道建起来 / 建不起来）广播给界面：树与向导据此提示。 */
-const degradationListeners = new Set<(degradation: HelperDegradation | null) => void>();
+/** 每个连接各自的降级状态（key → 原因）。多通道下必须分开：一台服务器重新建立成功，不该把
+ *  另一台的提示一起撤掉。推给界面的是整份快照，渲染端按目的地对准自己的项目。 */
+const degradations = new Map<string, HelperDegradation>();
+
+const degradationListeners = new Set<(degradations: HelperDegradation[]) => void>();
 
 export function onHelperDegradation(
-  listener: (degradation: HelperDegradation | null) => void,
+  listener: (degradations: HelperDegradation[]) => void,
 ): () => void {
   degradationListeners.add(listener);
   return () => degradationListeners.delete(listener);
 }
 
-function setDegradation(degradation: HelperDegradation | null): void {
-  for (const listener of degradationListeners) listener(degradation);
+function broadcastDegradations(): void {
+  const snapshot = [...degradations.values()];
+  for (const listener of degradationListeners) listener(snapshot);
+}
+
+/** 丢掉一条通道：先把它从表里摘掉，再停心跳、关隧道。表里已经不是它就什么都不做——那是新建的
+ *  那条，误杀会连带掐断它正在跑的命令。 */
+async function dropChannel(key: string, channel: Promise<ActiveChannel | null>): Promise<void> {
+  if (channels.get(key) !== channel) return;
+  channels.delete(key);
+  const active = await channel;
+  if (!active) return;
+  clearInterval(active.timer);
+  active.tunnel.kill();
 }
 
 export function helperSession(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
 ): Promise<HelperSession | null> {
-  return runExclusive(async () => {
-    const key = targetKey(target);
-    if (current && current.key !== key) await closeCurrent();
-    if (!current) {
-      const channel = ensure(target, onProgress).catch((error: unknown) => {
-        console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
-        // 降级提示按目的地对准项目：哪台服务器的 helper 用不了，哪台的项目知道。
-        setDegradation({
-          destination: target.host,
-          reason: (error instanceof Error ? error.message : String(error)).slice(0, 200),
-        });
-        return null;
+  const key = targetKey(target);
+  const existing = channels.get(key);
+  if (existing) return existing.then((active) => sessionFor(active, key));
+  const channel: Promise<ActiveChannel | null> = ensure(target, onProgress, () => {
+    void dropChannel(key, channel);
+  })
+    .catch((error: unknown) => {
+      console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
+      // 降级提示按目的地对准项目：哪台服务器的 helper 用不了，哪台的项目知道。
+      degradations.set(key, {
+        destination: target.host,
+        reason: (error instanceof Error ? error.message : String(error)).slice(0, 200),
       });
-      current = { key, channel };
-      // 建立失败不留在 current 上：否则这一轮之后每次调用都立刻拿到 null，本进程再也不会重建通道。
-      void channel.then((active) => {
-        if (active) setDegradation(null);
-        else if (current?.channel === channel) current = null;
-      });
-    }
-    const pending = current.channel;
-    return sessionFor(await pending, key);
-  });
+      broadcastDegradations();
+      return null;
+    })
+    .then((active) => {
+      // 建立失败不留条目：否则这个连接之后每次调用都立刻拿到 null，本进程再也不会重建通道。
+      if (active) {
+        if (degradations.delete(key)) broadcastDegradations();
+      } else if (channels.get(key) === channel) channels.delete(key);
+      return active;
+    });
+  channels.set(key, channel);
+  return channel.then((active) => sessionFor(active, key));
 }
 
 /**
@@ -914,44 +935,38 @@ export async function prepareHelper(
 }
 
 /**
- * 放掉当前通道：只做本地收尾（停心跳、关隧道），**不向远端发退出请求**。
+ * 放掉通道：只做本地收尾（停心跳、关隧道），**不向远端发退出请求**。
  *
  * 远端的 helper 靠心跳判活：心跳一停，它最多再活 IDLE_TIMEOUT 就自己退出（顺带终止在跑的任务）。
  * 少一次远端往返就少一类失败——请求发不出去时远端本来就只能等空闲自退，本地再写一套兜底反而
- * 会在切换连接、通道出错时留下说不清的半开状态。
+ * 会在通道出错时留下说不清的半开状态。
  *
- * 带 target 时只关它那一条：并发下 current 可能已被别的目标换走，无差别关会掐断另一台服务器上
- * 正在跑的通道。调用方必须已经在闸门里（`closeHelper` 负责）。
+ * 不带 target 是应用退出：所有连接都关。带 target 只关那一个连接。
  */
-async function closeCurrent(target?: RemoteTarget): Promise<void> {
-  if (!current || (target && current.key !== targetKey(target))) return;
-  const active = current;
-  current = null;
-  const channel = await active.channel;
-  if (!channel) return;
-  clearInterval(channel.timer);
-  channel.tunnel.kill();
-}
-
-/** 放掉通道：不带 target 关掉当前这条，带 target 只在它确实是当前那条时关。 */
 export function closeHelper(target?: RemoteTarget): Promise<void> {
-  return runExclusive(() => closeCurrent(target));
+  const keys = target ? [targetKey(target)] : [...channels.keys()];
+  return Promise.all(
+    keys.map((key) => {
+      const channel = channels.get(key);
+      return channel ? dropChannel(key, channel) : undefined;
+    }),
+  ).then(() => undefined);
 }
 
 /**
  * 一次调用失败后决定要不要丢掉通道：先探一次活。
  *
- * 多个会话共用一条通道，把「这次请求失败」直接当成「通道死了」会连带掐断别的会话正在远端跑的
+ * 多条会话共用一条通道，把「这次请求失败」直接当成「通道死了」会连带掐断别的会话正在远端跑的
  * 命令——helper 靠请求上下文断开取消进程组，隧道一断那边就 TERM。所以只在这条通道真的不通时
  * 才拆，而且只拆它自己那条。
  */
 export async function discardHelperIfDead(target: RemoteTarget): Promise<void> {
   const key = targetKey(target);
-  const pending = current?.key === key ? current.channel : null;
-  if (!pending) return;
-  const active = await pending;
+  const channel = channels.get(key);
+  if (!channel) return;
+  const active = await channel;
   if (!active || (await probeAlive(active))) return;
-  await closeHelper(target);
+  await dropChannel(key, channel);
 }
 
 /** 探活：一次 `/v1/hello`。超时也算死——半死的隧道只有这个办法能分辨。 */

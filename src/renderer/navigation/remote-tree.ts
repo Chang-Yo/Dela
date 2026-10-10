@@ -50,7 +50,7 @@ export function useRemoteTree(
   const [listings, setListings] = useState<Record<string, RemoteDirectoryEntry[]>>({});
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [destinations, setDestinations] = useState<Record<string, string>>({});
-  const [degradation, setDegradation] = useState<HelperDegradation | null>(null);
+  const [degradations, setDegradations] = useState<HelperDegradation[]>([]);
   const inFlight = useRef(new Set<string>());
   /** 已缓存清单：远端路径供变化通知判断过期，项目 id 供上报 watch 分组。 */
   const listed = useRef(new Map<string, { projectId: string; path: string }>());
@@ -107,11 +107,11 @@ export function useRemoteTree(
     };
   }, [hasRemote]);
 
-  // helper 通道的降级状态由主进程推：只提示对得上目的地的项目，别的服务器降级不打扰这棵树。
+  // helper 通道的降级状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器降级不打扰这棵树。
   useEffect(() => {
     const remotes = window.dela?.remotes;
     if (!hasRemote || !remotes?.onHelperState) return;
-    return remotes.onHelperState(setDegradation);
+    return remotes.onHelperState(setDegradations);
   }, [hasRemote]);
 
   // 收起时清掉失败记录：再次展开重试一次，避免一次网络抖动后目录永久打不开。
@@ -273,11 +273,13 @@ export function useRemoteTree(
   const status = Object.values(failed)[0] ?? null;
 
   // 降级提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
-  const degraded =
-    degradation &&
-    projects.some((project) => destinations[project.remoteId!] === degradation.destination)
-      ? `${degradation.destination} 的 helper 通道不可用，已退回一次性 ssh：${degradation.reason}`
-      : null;
+  // 多条通道各自降级时，一台恢复只让它自己那条从快照里消失，别的提示不受影响。
+  const degraded = degradations.find((state) =>
+    projects.some((project) => destinations[project.remoteId!] === state.destination),
+  );
+  const degradedText = degraded
+    ? `${degraded.destination} 的 helper 通道不可用，已退回一次性 ssh：${degraded.reason}`
+    : null;
 
-  return { items, destinations, status, degraded };
+  return { items, destinations, status, degraded: degradedText };
 }

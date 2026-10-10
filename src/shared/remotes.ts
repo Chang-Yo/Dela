@@ -47,8 +47,9 @@ export interface RemotePrepare {
   helper: boolean;
 }
 
-/** helper 通道的降级状态：通道建立失败后 Dela 正在用一次性 ssh。
- *  哪台服务器用不了 helper，就按目的地对准哪台的项目提示；通道恢复后推 null。 */
+/** helper 通道的降级状态：某条通道建立失败后 Dela 正在用一次性 ssh。
+ *  哪台服务器用不了 helper，就按目的地对准哪台的项目提示；该通道恢复后从快照里消失。
+ *  同时可能有几条通道，所以送到渲染端的是一整份快照（每个连接各一条通道）。 */
 export interface HelperDegradation {
   /** ssh 目的地（host），与连接里的 host 字段一致。 */
   destination: string;
@@ -153,6 +154,6 @@ export interface RemoteApi {
   prepare(draft: RemoteDraft): Promise<RemotePrepare>;
   /** 订阅引导进度；返回退订函数。 */
   onSetupProgress(listener: (progress: RemoteSetupProgress) => void): () => void;
-  /** 订阅 helper 降级状态；通道建立失败推原因，恢复或切换后推 null。 */
-  onHelperState(listener: (state: HelperDegradation | null) => void): () => void;
+  /** 订阅 helper 降级快照；某条通道建立失败时带上原因，恢复后它从快照里消失。 */
+  onHelperState(listener: (states: HelperDegradation[]) => void): () => void;
 }
