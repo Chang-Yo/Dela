@@ -7,6 +7,7 @@ import { Switch } from '../../../../components/ui/switch';
 import { cn } from '../../../../lib/utils';
 import { errorText } from '../../../../workspace/store';
 import { SectionHeader } from '../../SectionHeader';
+import { SettingsGroup } from '../../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
 import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
@@ -119,111 +120,119 @@ export function McpTab() {
         title="MCP Server"
       />
       {servers !== null && servers.length === 0 && (
-        <section className="grid gap-2">
-          <h2 className="text-base font-semibold">还没有 MCP 服务器</h2>
-          <p className="text-[13px] leading-relaxed text-ink-3">
-            支持以本地命令（如 npx）启动的 stdio 服务器，添加后自动连接并检测工具。
-          </p>
-        </section>
+        <SettingsGroup>
+          <div className="grid gap-1 py-3.5">
+            <span className="text-[13px] font-medium text-ink">还没有 MCP 服务器</span>
+            <span className="text-[12px] leading-relaxed text-ink-3">
+              支持以本地命令（如 npx）启动的 stdio 服务器，添加后自动连接并检测工具。
+            </span>
+          </div>
+        </SettingsGroup>
       )}
       {servers !== null && servers.length > 0 && (
-        <ul className="grid">
-          {servers.map((server) => {
-            const badge = mcpStatusBadge(server.status, server.toolCount);
-            return (
-              <li
-                className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
-                key={server.id}
-              >
-                <div className="grid min-w-0 gap-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <strong className="truncate text-[13px]">{server.name}</strong>
-                    <span
-                      className="inline-flex items-center gap-1.5 text-[12px] text-ink-3"
-                      title={server.error ?? undefined}
-                    >
-                      {badge.spin ? (
-                        <LoaderCircle className={cn('size-3 animate-spin', badge.dotClass)} />
-                      ) : (
-                        <span className={cn('size-2 shrink-0 rounded-full', badge.dotClass)} />
-                      )}
-                      {badge.label}
-                    </span>
-                  </div>
-                  {/* error=红点 + 摘要可见、完整消息悬停可见（依赖状态说明原因，§4.4）。 */}
-                  {server.status === 'error' && server.error ? (
-                    <p className="truncate text-[12px] text-red" title={server.error}>
-                      {server.error}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Switch
-                    checked={server.enabled}
-                    disabled={busy}
-                    label={`启用 ${server.name}`}
-                    onChange={(next) => void toggle(server, next)}
-                  />
-                  <Button
-                    aria-label={`重连 ${server.name}`}
-                    disabled={busy || !server.enabled}
-                    onClick={() => void reconnect(server.id)}
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <RefreshCw />
-                  </Button>
-                  <Button
-                    aria-label={`编辑 ${server.name}`}
-                    disabled={busy}
-                    onClick={() => setDialog({ mode: 'edit', server })}
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <Pencil />
-                  </Button>
-                  <Button
-                    aria-label={`删除 ${server.name}`}
-                    disabled={busy}
-                    onClick={() => setConfirmId(server.id)}
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-                <AlertDialog.Root
-                  onOpenChange={(open) => !open && !busy && setConfirmId(null)}
-                  open={confirmId === server.id}
+        <SettingsGroup>
+          <ul className="grid">
+            {servers.map((server) => {
+              const badge = mcpStatusBadge(server.status, server.toolCount);
+              return (
+                <li
+                  className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
+                  key={server.id}
                 >
-                  <AlertDialog.Portal>
-                    <AlertDialog.Overlay className={dialogOverlay} />
-                    <AlertDialog.Content className={cn(dialogPanel, 'max-w-sm')}>
-                      <AlertDialog.Title className="text-base font-semibold">
-                        删除 {server.name}？
-                      </AlertDialog.Title>
-                      <AlertDialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
-                        将移除该服务器配置并断开连接，Agent 不再能使用它的工具。此操作不可撤销。
-                      </AlertDialog.Description>
-                      <div className="mt-4 flex items-center justify-end gap-2">
-                        <Button disabled={busy} onClick={() => setConfirmId(null)} variant="ghost">
-                          取消
-                        </Button>
-                        <Button
-                          disabled={busy}
-                          onClick={() => void remove(server.id)}
-                          variant="destructive"
-                        >
-                          {busy ? '删除中…' : '删除'}
-                        </Button>
-                      </div>
-                    </AlertDialog.Content>
-                  </AlertDialog.Portal>
-                </AlertDialog.Root>
-              </li>
-            );
-          })}
-        </ul>
+                  <div className="grid min-w-0 gap-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <strong className="truncate text-[13px]">{server.name}</strong>
+                      <span
+                        className="inline-flex items-center gap-1.5 text-[12px] text-ink-3"
+                        title={server.error ?? undefined}
+                      >
+                        {badge.spin ? (
+                          <LoaderCircle className={cn('size-3 animate-spin', badge.dotClass)} />
+                        ) : (
+                          <span className={cn('size-2 shrink-0 rounded-full', badge.dotClass)} />
+                        )}
+                        {badge.label}
+                      </span>
+                    </div>
+                    {/* error=红点 + 摘要可见、完整消息悬停可见（依赖状态说明原因，§4.4）。 */}
+                    {server.status === 'error' && server.error ? (
+                      <p className="truncate text-[12px] text-red" title={server.error}>
+                        {server.error}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Switch
+                      checked={server.enabled}
+                      disabled={busy}
+                      label={`启用 ${server.name}`}
+                      onChange={(next) => void toggle(server, next)}
+                    />
+                    <Button
+                      aria-label={`重连 ${server.name}`}
+                      disabled={busy || !server.enabled}
+                      onClick={() => void reconnect(server.id)}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <RefreshCw />
+                    </Button>
+                    <Button
+                      aria-label={`编辑 ${server.name}`}
+                      disabled={busy}
+                      onClick={() => setDialog({ mode: 'edit', server })}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      aria-label={`删除 ${server.name}`}
+                      disabled={busy}
+                      onClick={() => setConfirmId(server.id)}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                  <AlertDialog.Root
+                    onOpenChange={(open) => !open && !busy && setConfirmId(null)}
+                    open={confirmId === server.id}
+                  >
+                    <AlertDialog.Portal>
+                      <AlertDialog.Overlay className={dialogOverlay} />
+                      <AlertDialog.Content className={cn(dialogPanel, 'max-w-sm')}>
+                        <AlertDialog.Title className="text-base font-semibold">
+                          删除 {server.name}？
+                        </AlertDialog.Title>
+                        <AlertDialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
+                          将移除该服务器配置并断开连接，Agent 不再能使用它的工具。此操作不可撤销。
+                        </AlertDialog.Description>
+                        <div className="mt-4 flex items-center justify-end gap-2">
+                          <Button
+                            disabled={busy}
+                            onClick={() => setConfirmId(null)}
+                            variant="ghost"
+                          >
+                            取消
+                          </Button>
+                          <Button
+                            disabled={busy}
+                            onClick={() => void remove(server.id)}
+                            variant="destructive"
+                          >
+                            {busy ? '删除中…' : '删除'}
+                          </Button>
+                        </div>
+                      </AlertDialog.Content>
+                    </AlertDialog.Portal>
+                  </AlertDialog.Root>
+                </li>
+              );
+            })}
+          </ul>
+        </SettingsGroup>
       )}
       {error && (
         <p className="text-[12px] text-red" role="alert">

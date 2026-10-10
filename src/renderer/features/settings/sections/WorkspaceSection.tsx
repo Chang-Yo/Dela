@@ -12,6 +12,7 @@ import {
 } from '../../../components/ui/select';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
+import { SettingsGroup } from '../SettingsGroup';
 import { Switch } from '../../../components/ui/switch';
 import { useNoteSpellcheck } from '../../../content/note/note-spellcheck';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
@@ -113,7 +114,7 @@ export function WorkspaceSection() {
           {error}
         </p>
       )}
-      <section className="grid">
+      <SettingsGroup>
         {/* 不迁移已有文件：改目录后旧笔记「消失」是用户最常见的误解，必须保留警示。 */}
         <SettingRow
           description="仅影响之后新建的内容，不迁移已有文件。"
@@ -224,7 +225,7 @@ export function WorkspaceSection() {
             </div>
           </SettingRow>
         )}
-      </section>
+      </SettingsGroup>
     </div>
   );
 }

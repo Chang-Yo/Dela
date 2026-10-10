@@ -24,6 +24,7 @@ import {
   type LlmProviderPreset,
 } from '../../../../shared/llm-presets';
 import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 
@@ -160,7 +161,7 @@ function ModelSettingsDialog({
               <div className="flex flex-wrap gap-1.5">
                 {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
                 <span
-                  className="flex items-center gap-1 rounded-control border border-transparent bg-hover px-2 py-1 text-[12px] text-accent-foreground"
+                  className="flex items-center gap-1 rounded-control border border-transparent bg-hover-2 px-2 py-1 text-[12px] text-accent-foreground"
                   title="文本输入固定开启"
                 >
                   文本
@@ -172,8 +173,8 @@ function ModelSettingsDialog({
                   className={cn(
                     'rounded-control border border-line px-2 py-1 text-[12px] transition-colors',
                     vision
-                      ? 'border-transparent bg-hover text-accent-foreground'
-                      : 'text-ink-3 hover:bg-hover',
+                      ? 'border-transparent bg-hover-2 text-accent-foreground'
+                      : 'text-ink-3 hover:bg-hover-2',
                   )}
                   onClick={() => setVision((current) => !current)}
                 >
@@ -193,8 +194,8 @@ function ModelSettingsDialog({
                     className={cn(
                       'rounded-control border border-line px-2 py-1 text-[12px] transition-colors',
                       effortLevels.includes(level)
-                        ? 'border-transparent bg-hover text-accent-foreground'
-                        : 'text-ink-3 hover:bg-hover',
+                        ? 'border-transparent bg-hover-2 text-accent-foreground'
+                        : 'text-ink-3 hover:bg-hover-2',
                     )}
                     onClick={() =>
                       setEffortLevels((current) =>
@@ -385,17 +386,26 @@ export function LlmSection() {
           )}
         </div>
         {detailOpen ? (
-          <ProviderDetail
-            busy={busy}
-            key={detailProvider?.id ?? 'create'}
-            onCancelCreate={() => setDetail(defaultDetail(providers ?? []))}
-            onRemove={(id) => void run(() => window.dela!.llm.remove(id))}
-            onSaved={(saved) => handleSaved(saved, detail!)}
-            onSetActive={(id) => void run(() => window.dela!.llm.setActive(id))}
-            provider={detailProvider}
-          />
+          // 详情面板自带底色块：窄屏下两栏堆叠时，它要和上面的提供商列表分得开。
+          <SettingsGroup>
+            <div className="py-4">
+              <ProviderDetail
+                busy={busy}
+                key={detailProvider?.id ?? 'create'}
+                onCancelCreate={() => setDetail(defaultDetail(providers ?? []))}
+                onRemove={(id) => void run(() => window.dela!.llm.remove(id))}
+                onSaved={(saved) => handleSaved(saved, detail!)}
+                onSetActive={(id) => void run(() => window.dela!.llm.setActive(id))}
+                provider={detailProvider}
+              />
+            </div>
+          </SettingsGroup>
         ) : providers?.length === 0 ? (
-          <p className="text-[13px] text-ink-3">还没有配置提供商。添加一个以启用对话助手。</p>
+          <SettingsGroup>
+            <p className="py-3.5 text-[13px] text-ink-3">
+              还没有配置提供商。添加一个以启用对话助手。
+            </p>
+          </SettingsGroup>
         ) : null}
       </div>
       {error && (
