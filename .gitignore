@@ -11,12 +11,10 @@ output/playwright/
 *.tsbuildinfo
 *.tgz
 
-# Credentials and private reference files (allow only the public index)
+# Credentials and private reference files
 .env
 .env.*
 !.env.example
-knowledge/*
-!knowledge/SJTU_API_References.md
 *.mobileconfig
 *.pem
 *.key

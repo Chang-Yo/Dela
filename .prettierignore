@@ -5,7 +5,6 @@ dist/
 coverage/
 pnpm-lock.yaml
 .env*
-knowledge/
 *.mobileconfig
 scripts/*.ps1
 # vendored 组件库，保留上游代码风格（见目录内 README）

@@ -21,6 +21,7 @@ Dela 的重要变更都记在这里。
 - 安装前保存现场：笔记、聊天文字草稿、邮件草稿与工作台布局会在安装前落盘。「下次启动时提醒」只准备更新并提示，下载完成后由用户决定何时安装，推迟后手动安装会先清除推迟标记。
 - 采用 GPL-3.0-or-later：新增 [LICENSE](LICENSE) 全文，`package.json` 的 `license` 字段同步；README、AGENTS 与新增的 [CONTRIBUTING.md](CONTRIBUTING.md) 写明授权范围与第三方代码的来源要求。
 - 新增 [CONTRIBUTING.md](CONTRIBUTING.md)：环境准备、常用命令、提交规范、许可证与当前提交途径。
+- 校园接口资料合并为 [docs/sjtu-apis.md](docs/sjtu-apis.md)：Canvas 实测记录与交大开放 API 全景索引并为一份，原 `docs/canvas-api-findings.md` 与 `knowledge/SJTU_API_References.md` 删除，`knowledge/` 目录随之取消。
 - 文档收敛为 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 与本文两份：前者是架构、子系统约定与构建发布流程的唯一真源，由原 technical-plan、development、release、background 及远程文档整理而成。删除 `plan.md`、`docs/background.md`、`docs/technical-plan.md`、`docs/release.md`、`docs/remote-projects.md`、`docs/remote-helper.md` 与 `docs/shuiyuan-api-findings.md`。
 
 ### Changed

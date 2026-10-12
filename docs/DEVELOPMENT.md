@@ -7,7 +7,7 @@
 - 按版本分节的变更记录：[CHANGELOG.md](../CHANGELOG.md)
 - 日常编码约束：[AGENTS.md](../AGENTS.md)
 - 远端 helper 的协议与端点表：[helper/README.md](../helper/README.md)
-- Canvas 接口实测数据结构：[canvas-api-findings.md](canvas-api-findings.md)
+- 校园接口实测与资料索引：[sjtu-apis.md](sjtu-apis.md)
 
 ## 1. 产品与边界
 
@@ -158,7 +158,6 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数（`api.ts` 聚合 re-export）。
 - `native/` — 原生模块（目前只有 `store-update/`），用 `pnpm build:native` 单独构建，与上面三个进程的构建互不影响。
 - `helper/` — 远端工具服务的 Go 模块，只依赖标准库。
-- `knowledge/` — 校园接口资料索引。
 - 测试放在各级 `test/` 子目录，`scripts/` 存放开发服务器与冒烟脚本。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 三个配置都写死 `envDir: false`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。打包白名单（`electron-builder.yml` 的 `files`）只含 `out/**/*`、`package.json` 与 `assets/` 下的两张品牌图——文档、个人凭据与 `.tools/` 都不进安装包。
