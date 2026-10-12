@@ -43,7 +43,7 @@ export interface RemotePrepare {
   ok: boolean;
   /** 自检失败的原因，或成功时的一行环境摘要。 */
   message: string;
-  /** helper 通道是否就绪；false 表示本次会话退回一次性 ssh（功能仍在，见 docs/remote-helper.md）。 */
+  /** helper 通道是否就绪；false 表示本次会话退回一次性 ssh（功能仍在，见 docs/DEVELOPMENT.md §4）。 */
   helper: boolean;
 }
 

@@ -35,7 +35,7 @@ extraResources:
     filter:
       - 'dela-helper-*'
 npmRebuild: false
-# Windows-only。自建分发用 NSIS（exe）；商店提交包由下面的 appx 目标单独构建（见 docs/release.md）。
+# Windows-only。自建分发用 NSIS（exe）；商店提交包由下面的 appx 目标单独构建（见 docs/DEVELOPMENT.md §17）。
 win:
   target:
     - target: nsis
@@ -48,7 +48,7 @@ nsis:
 # 下面三项取自 Partner Center「应用概览 → 产品管理 → View app identity details」，是 Dela
 # 的真实产品标识（Package/Identity/Name、Package/Identity/Publisher、PublisherDisplayName）。
 # 三者必须逐字一致：大小写、空格、标点都算，在 Partner Center 改名后要同步这里，否则商店按
-# 身份不匹配拒收。applicationId 是自己取的清单内标识；包内图标见 build/appx/（docs/release.md）。
+# 身份不匹配拒收。applicationId 是自己取的清单内标识；包内图标见 build/appx/（docs/DEVELOPMENT.md §17）。
 # 不需要仓库自带证书：未配置证书时构建出的是未签名包，签名由商店在收包后完成。
 appx:
   identityName: MADFilm.Dela

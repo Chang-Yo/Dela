@@ -29,7 +29,7 @@ import {
 import { CAMPUS_PARTITION, getCampusSession } from '../timetable/session';
 
 const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
-// 授权页请求形态与 docs/shuiyuan-api-findings.md 的实测一致；不带 auth_redirect，
+// 授权页请求形态：不带 auth_redirect，
 // 站点在页面内展示加密密文，由用户复制回 Dela 粘贴绑定。read+write：回复与私信需要写权限。
 const SHUIYUAN_SCOPES = 'read,write';
 const REQUEST_TIMEOUT_MS = 15000;
