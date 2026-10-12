@@ -4,7 +4,7 @@
 
 - 使用者视角：[README.md](../README.md)
 - 协作方式：[CONTRIBUTING.md](../CONTRIBUTING.md)
-- 按日期的变更记录：[CHANGELOG.md](../CHANGELOG.md)
+- 按版本分节的变更记录：[CHANGELOG.md](../CHANGELOG.md)
 - 日常编码约束：[AGENTS.md](../AGENTS.md)
 - 远端 helper 的协议与端点表：[helper/README.md](../helper/README.md)
 - Canvas 接口实测数据结构：[canvas-api-findings.md](canvas-api-findings.md)
