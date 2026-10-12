@@ -56,6 +56,10 @@ appx:
   publisherDisplayName: 麦德映画 (MAD Film)
   applicationId: Dela
   languages: ['zh-CN']
+  # 不配置时 electron-builder 写死 #464646（AppXOptions 的默认值），这个灰不属于 Dela：
+  # 它会出现在开始磁贴的透明四角，以及商店「应用说明」页。取图标自带的板色 #0A0A0A，
+  # 让磁贴与图标连成一片；build/appx 的宽图是透明底，不再把颜色烤进图片。
+  backgroundColor: '#0A0A0A'
   # 不配置时 electron-builder 写死 10.0.14316.0（Win10 1511），低于应用内更新所需基线：
   # StoreContext 的更新 API 要 1607(14393)，静默下载与下载进度回调要 1803(17134)。
   # 这里与 ChatGPT 桌面版取齐：Win10 2004 起可安装。
