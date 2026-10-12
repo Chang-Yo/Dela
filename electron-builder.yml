@@ -17,6 +17,8 @@ asarUnpack:
   - node_modules/@napi-rs/canvas*/**/*
   # 引导开场的可选视频；文件不存在时该行无副作用
   - out/renderer/assets/*.mp4
+  # 商店更新模块：原生 .node 必须落在 asar 外，Electron 才能 dlopen
+  - out/native/*.node
 # 自带 OpenSSH 客户端：系统没装时远程项目的回退（主进程按 resources/openssh 探测）
 extraResources:
   - from: vendor/openssh
@@ -54,3 +56,9 @@ appx:
   publisherDisplayName: 麦德映画 (MAD Film)
   applicationId: Dela
   languages: ['zh-CN']
+  # 不配置时 electron-builder 写死 10.0.14316.0（Win10 1511），低于应用内更新所需基线：
+  # StoreContext 的更新 API 要 1607(14393)，静默下载与下载进度回调要 1803(17134)。
+  # 这里与 ChatGPT 桌面版取齐：Win10 2004 起可安装。
+  minVersion: '10.0.19041.0'
+  # 仅声明「已测试过的上限」，不限制安装。
+  maxVersionTested: '10.0.26100.0'

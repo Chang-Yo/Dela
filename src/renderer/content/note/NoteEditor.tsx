@@ -41,6 +41,19 @@ const sessions = new Map<string, CrepeSession>();
 const handlersByKey = new Map<string, NoteEditorHandlers>();
 let staging: HTMLDivElement | null = null;
 
+export function flushNoteEditors(): void {
+  for (const [key, session] of sessions) {
+    const handlers = handlersByKey.get(key);
+    if (!handlers || !session.ready || session.disposed || session.applying || session.syncTimer)
+      continue;
+    if (session.composing) throw new Error('请先完成笔记中的输入，再安装更新。');
+    const markdown = session.crepe.getMarkdown();
+    if (markdown === session.lastPublishedValue) continue;
+    session.lastPublishedValue = markdown;
+    handlers.onChange(markdown);
+  }
+}
+
 function stagingRoot(): HTMLDivElement {
   if (!staging) {
     staging = document.createElement('div');

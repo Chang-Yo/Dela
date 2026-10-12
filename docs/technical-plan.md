@@ -4,7 +4,7 @@
 
 ## 产品
 
-本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 dela 命令，工作台 GUI 是壳。单用户、单应用、单 package；仅 Windows（跨平台明确放弃）；自建分发用 NSIS（exe），商店分发用 appx 包（提交 Partner Center，签名由商店完成，尚未验证）；无服务端，检索 API 由用户自配。
+本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 dela 命令，工作台 GUI 是壳。单用户、单应用、单 package；仅 Windows（跨平台明确放弃）；自建分发用 NSIS（exe），商店分发用 appx 包（提交 Partner Center，签名由商店完成，尚未验证），应用内更新只对商店版生效（见「应用内更新」）；无服务端，检索 API 由用户自配。
 
 ## 分层架构（建设顺序＝依赖方向，自下而上）
 
@@ -68,6 +68,16 @@
 - 下载沿用 Electron DownloadItem，重复任务拒绝启动；区分用户取消与网络中断，中断后需重新下载。任务列表仅驻留内存，无跨重启续传。不合并、不转码、不依赖外部 FFmpeg，不调用观看上报、AI、字幕、PPT、直播或旁听接口。
 - 真实联调已验证本学期 8 门课、计算理论 9 场录像与两路画面信息；2026-10-10 修复后，两路代理视频跳到第 10/27/50 分钟均就绪（200–461ms），连续快速跳转后播放继续且无媒体错误。该验证使用独立 video 元素调用同一代理，未验证整页交互和长时间弱网表现。此前一份 424,277,175 字节、3283.777 秒的原始录像下载完整，中段和结尾可解码；本次未重复完整下载。
 
+## 应用内更新
+
+- 只走微软商店：`StoreContext` 的检查/下载/安装 API 由商店校验并安装，签名问题随之消失；不自建 appcast，也不引入 `electron-updater`。
+- 分三步而非官方示例的一步式：先下载、再按用户动作安装。一步式调用时 `PackageDownloadProgress` 从 0.0 到 0.8 是下载、0.8 到 1.0 才是安装（官方文档），直接映射进度条会卡在 80%；拆开还把重启时机留给用户：下载完成弹一个应用级确认框，让用户选「现在安装」还是「下次启动时提醒」，不自己往下走。进度取 `TotalDownloadProgress`——按包上报的 `PackageDownloadProgress` 在多包更新时每个包都从 0 重来。
+- 原生模块 `native/store-update/`（C++/WinRT + N-API，`pnpm build:native`）只做四件事：校验包标识、给 `StoreContext` 绑属主窗口（不绑会拿到 0x80070578）、发起检查/下载/安装、把 WinRT 的进度与错误翻成普通对象。失败一律 resolve、不跨边界抛异常；`RequestDownload*` 必须在 UI 线程调用。
+- 权威状态机在主进程（`main/update/state.ts` 是纯函数）：下载可能持续几分钟，而设置页随时会被关掉。结果事件只在对应的进行中阶段生效；重复开始事件保持原状态，IPC 根据状态对象是否改变决定是否调用原生模块。下载和安装失败后允许重试原步骤；渲染层只读快照、只派发动作。
+- 通道判据是 `process.windowsStore`（等价于进程有包标识）；NSIS 安装版与开发运行只得到「前往商店」。appx 清单基线取 `MinVersion=10.0.19041.0`／`MaxVersionTested=10.0.26100.0`：更新 API 要 1607，静默下载与下载进度回调要 1803，取 2004 与 ChatGPT 桌面版一致，不配置时 electron-builder 写死 10.0.14316.0。安装会让系统结束 Dela 且不保证自动重启，界面在安装前统一保存已打开笔记、聊天文字草稿、邮件草稿与标签布局；富文本先回传正文，保存期间阻止编辑，任一步失败都不安装。运行中的 Agent、未发送聊天附件及图片阻止安装；终端进程无法恢复。用户选「下次启动时提醒」就落盘待装标记（`workspace_settings` 的 `pending-install`），下次启动 5 秒后检查并下载，完成后再次提示确认，绝不自动安装；准备更新前消费标记，手动安装前也清除标记。
+- 检查入口有两处，读主进程的同一份快照：设置 › 通用 的「软件更新」行，与标题栏左侧最右端的 `circle-arrow-up` 提示（只在可下载/下载中/待安装时亮，点击落到通用页）。主进程每两小时后台查一次、启动后 30 秒先查一次，且只在商店版与窗口已就位时查——否则会把「还没检查」推成「不支持」。两小时是照商店的检测限流取的间隔（见 development）。下载完成的确认框挂在应用层而不是这一行里：下载可能跑几分钟，弹的时候用户早已离开设置页。
+- 已验证：打包后 `process.dlopen` 经 asar 重定向能加载该模块，appx 清单版本与包内模块在位。未验证：进程真有包标识时商店调用的真实返回（Dela 尚未上架）；也因此「下载过但没装」的更新是否仍出现在 `GetAppAndOptionalStorePackageUpdatesAsync` 里没有实测过，下次启动准备更新依赖这一点。
+
 ## 安全
 
 诚实而非表演：给了 bash 就不设业务级守卫、无沙箱、无越权校验；skill 启停是引导层。保留进程级基本边界：renderer 隔离、凭据不进 renderer、preload 有限暴露。Pi 的全局目录放在 `userData/pi`，与用户自己的 `~/.pi` 隔离；模型密钥只在主进程内注册给 Pi 的运行时，不写入 `auth.json`。
@@ -82,7 +92,7 @@ schema v3：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话
 
 ## 工程与交付
 
-Node 24.21.0、pnpm 12.3.4（先执行 `. ./scripts/use-local-tools.ps1` 等价前置）；其余版本以 package.json 与锁文件为准，精确依赖。检查链：format + lint + typecheck + test + build + smoke。应用 CI 仅 Windows；helper 在 Ubuntu 用固定 Go 1.27.2 测试并构建 Linux amd64 静态产物，再传给 Windows 打包并核对包内文件。Go 测试只访问 runner 本机，CI 不启用真实 SSH 联调；需要真机的远程用例集中在 `pnpm test:remote`（`DELA_REMOTE_HOST`），默认测试套件与 CI 都不收集它们。electron-builder 产出 NSIS 安装包；better-sqlite3 与 node-pty 必须在打包产物中实测加载。密钥、个人数据与本地工具不进 Git 与安装包。
+Node 24.21.0、pnpm 12.3.4（先执行 `. ./scripts/use-local-tools.ps1` 等价前置）；其余版本以 package.json 与锁文件为准，精确依赖。检查链：format + lint + typecheck + test + build + smoke。应用 CI 仅 Windows；helper 在 Ubuntu 用固定 Go 1.27.2 测试并构建 Linux amd64 静态产物，再传给 Windows 打包并核对包内文件。Go 测试只访问 runner 本机，CI 不启用真实 SSH 联调；需要真机的远程用例集中在 `pnpm test:remote`（`DELA_REMOTE_HOST`），默认测试套件与 CI 都不收集它们。electron-builder 产出 NSIS 安装包与商店提交包（appx 目标，复用 `--dir` 打包并冒烟过的 `dist/win-unpacked`）；better-sqlite3、node-pty 与应用内更新的原生模块（`pnpm build:native`，经 `asarUnpack` 落在 asar 外）都必须在打包产物中实测加载。密钥、个人数据与本地工具不进 Git 与安装包。
 
 ## 本次删除清单（2026-10-08 基座重构）
 

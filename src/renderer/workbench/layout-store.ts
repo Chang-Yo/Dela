@@ -69,6 +69,7 @@ type Store = {
 
 // 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+const pendingSaves = new Set<Promise<boolean>>();
 // 当前项目布局成功落库后要清的旧视图键（3C）：dela.editor.layout.{scope} 是旧 ProjectView
 // 的布局事实（已迁移到 layout:{projectId}），agentOpen/agentWidth 是旧助手面板死键。
 // 布局保存失败不清理（下次变更重试）；项目快速切换时只清最后落库项目的键，
@@ -85,13 +86,28 @@ function clearLegacyViewKeys() {
 
 function saveLayoutNow() {
   const api = typeof window === 'undefined' ? undefined : window.dela?.layout;
-  if (!api) return;
+  if (!api) return Promise.resolve(false);
   const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
-  void api
+  const pending = api
     .save(projectId, { root, focus, maximized })
     // 持久化失败不打断布局操作；下次变更会重试。首次成功后清除旧视图 localStorage 键。
-    .then(clearLegacyViewKeys)
-    .catch(() => {});
+    .then(() => {
+      clearLegacyViewKeys();
+      return true;
+    })
+    .catch(() => false);
+  pendingSaves.add(pending);
+  void pending.then(() => pendingSaves.delete(pending));
+  return pending;
+}
+
+export async function saveWorkbenchLayout(): Promise<boolean> {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = null;
+  const previous = await Promise.all(pendingSaves);
+  if (previous.some((saved) => !saved)) return false;
+  if (!useWorkbenchLayout.getState().ready) return true;
+  return saveLayoutNow();
 }
 
 function schedulePersist() {

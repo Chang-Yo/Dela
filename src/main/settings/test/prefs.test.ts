@@ -15,12 +15,14 @@ import {
   savedCampusNotifications,
   savedExperimentalClassroom,
   savedExperimentalFeatures,
+  savedPendingInstall,
   savedVideoDownloadDirectory,
   setAgentInstruction,
   setCampusNotifications,
   setExperimentalClassroom,
   setExperimentalFeatures,
   setKeybindingOverrides,
+  setPendingInstall,
   setTaskNotificationPrefs,
   setVideoDownloadDirectory,
   setWorkspacePrefs,
@@ -227,5 +229,23 @@ describe('classroom video download directory', () => {
   it('round-trips a chosen directory', () => {
     expect(setVideoDownloadDirectory('D:\\课堂录像')).toBe('D:\\课堂录像');
     expect(savedVideoDownloadDirectory()).toBe('D:\\课堂录像');
+  });
+});
+
+describe('pending update install', () => {
+  it('reads as nothing pending until it is written', () => {
+    expect(savedPendingInstall()).toBe(false);
+  });
+
+  it('round-trips the deferred install flag', () => {
+    expect(setPendingInstall(true)).toBe(true);
+    expect(savedPendingInstall()).toBe(true);
+    expect(setPendingInstall(false)).toBe(false);
+    expect(savedPendingInstall()).toBe(false);
+  });
+
+  it('treats a corrupted value as nothing pending rather than trying to install', () => {
+    insert("INSERT INTO workspace_settings VALUES ('pending-install', 'yes')");
+    expect(savedPendingInstall()).toBe(false);
   });
 });

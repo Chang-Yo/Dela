@@ -8,7 +8,7 @@
 
 - 应用只构建 Windows x64（`windows-2022`），与发布一致的 runner 和固定 Node/pnpm 版本。
 - helper 在 `ubuntu-24.04` 用 Go 1.27.2 执行本机测试、构建 Linux amd64 静态产物并运行 `--version`；Windows 任务下载当次产物用于打包，并逐字节核对打包后的文件。
-- 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包及打包后冒烟。
+- 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、`pnpm build:native`、应用目录打包、包内原生模块检查及打包后冒烟。
 - Go 测试只使用 runner 本机临时目录、inotify 与回环 HTTP，不连接 SSH。Windows 任务明确留空 `DELA_REMOTE_HOST`，真实 SSH 联调继续手动运行，不作为发布前置条件。
 - 检查不生成安装包、不发布 Release，仅使用 `contents: read` 权限；同一 PR 或 main 分支的新提交会取消旧检查。
 
@@ -35,7 +35,7 @@
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release：
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。
-2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、NSIS 构建、包内 helper 一致性检查与打包目录启动检查。全部成功后创建 Release 并上传 `.exe`。
+2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、原生模块构建、单元测试、Electron 冒烟、NSIS 构建、包内 helper 一致性与原生模块存在性检查、打包目录启动检查。全部成功后创建 Release 并上传 `.exe`。
 3. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
 4. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 
@@ -67,6 +67,7 @@
 - **版本号第一段不能为 0（已满足）。** 清单 `Identity/@Version` 由 `package.json` 版本补成四段（实测 `1.0.0` → `1.0.0.0`）。官方版本号规则为：最后一段必须为 0，其余各段取 0–65535，例外是「the first section, which cannot be 0」，且该规则对 `.msix`／`.appx` 同样适用（见上一段链接的 App package requirements → Package version numbering）。仓库现为 `1.0.0`（tag `v1.0.0`），该条已满足；版本若回落到 `0.x` 会重新触发限制。Partner Center 对这条的执行严格程度属待验证。
 - **包内图标用 Dela 自己的。** `build/appx/` 下的文件按文件名逐字被采用：`StoreLogo.png`、`Square44x44Logo.png`、`Square150x150Logo.png`、`Wide310x150Logo.png` 是模板清单引用的四个槽位（electron-builder 按文件名子串替换自带的微软示例图 `SampleAppx.*`，那批图带 Sample 水印）；该目录不存在或为空时会退回示例图。当前已放入这四个基尺寸，另加 `Square44x44Logo`／`Square150x150Logo` 的 `.scale-200`／`.scale-400` 与 `StoreLogo`／`Wide310x150Logo` 的 `.scale-200`。宽图 310×150 是把方形图居中合成到 `appx.backgroundColor`（当前 `#464646`）上，不是缩放方形图；带 `.scale-` 的文件名会让 electron-builder 额外跑 `makepri.exe` 生成 `resources.pri`。
 - **不需要自己签名。** 未配置证书时产物不含 `AppxSignature.p7x`，商店收包后用自己的证书重新签名（见下「不需要自己签名」）。
+- **应用内更新要等商店里真的有新版才生效。** 设置页「通用」的检查更新走 `StoreContext`，它只认商店已发布的包：包没上架或商店还没发布更高版本时，检查失败或报「已是最新」。判据是 `process.windowsStore`（由 Electron 按进程有无包标识给出），所以只有商店安装版会走到这条路径；NSIS 安装版与开发运行在界面上只得到「前往商店」。发布新版本的流程见下「升版」。
 
 要点（2026-10 核实）：
 
@@ -85,15 +86,16 @@
 
 已验证（2026-10，本机 Windows 10.0.26100 实跑）：
 
-- **`.appx` 构建已实证**：`pnpm exec electron-builder --win --x64 --dir --publish never` 与 `pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked --publish never` 均退出码 0，产出 `dist/Dela-1.0.0-win-x64.appx`，308,630,293 字节，sha256 `1B2F33D21897B096DC6AADD4987BB0A3CA7FC229EA2B1391144DD3D731ABC433`。它是 zip 容器（547 个条目，根含 `AppxManifest.xml`、`AppxBlockMap.xml`、`[Content_Types].xml`），**未签名**：不含 `AppxSignature.p7x`，与日志 `AppX is not signed reason=Windows Store only build` 一致。包内 `assets/` 是 Dela 自己的 10 张图（四个基尺寸加各档 `.scale-*`），无微软示例图；`.scale-` 文件名触发了 `makepri.exe`，根下另有 `resources.pri`、`resources.scale-200.pri`、`resources.scale-400.pri`。
-- 清单中这些字段实测合格：根命名空间为 `http://schemas.microsoft.com/appx/manifest/foundation/windows10`（Windows 10，非 2010）；`<TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.14316.0" MaxVersionTested="10.0.14316.0" />`；`<Application Id="Dela" Executable="app\Dela.exe" EntryPoint="Windows.FullTrustApplication">`；`<Capabilities>` 含 `<rescap:Capability Name="runFullTrust"/>`。
+- **`.appx` 构建已实证**：`pnpm exec electron-builder --win --x64 --dir --publish never` 与 `pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked --publish never` 均退出码 0，产出 `dist/Dela-1.0.0-win-x64.appx`，308,746,767 字节，sha256 `6631217B4360B37AE93C1A9DC8FED0EF6D1614F10C8DA4F97F8A5E0BEFFE089E`（比接入应用内更新前的 308,630,293 字节多出原生模块）。它是 zip 容器（548 个条目，根含 `AppxManifest.xml`、`AppxBlockMap.xml`、`[Content_Types].xml`），**未签名**：不含 `AppxSignature.p7x`，与日志 `AppX is not signed reason=Windows Store only build` 一致。包内 `assets/` 是 Dela 自己的 10 张图（四个基尺寸加各档 `.scale-*`），无微软示例图；`.scale-` 文件名触发了 `makepri.exe`，根下另有 `resources.pri`、`resources.scale-200.pri`、`resources.scale-400.pri`。
+- 清单中这些字段实测合格：根命名空间为 `http://schemas.microsoft.com/appx/manifest/foundation/windows10`（Windows 10，非 2010）；`<TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />`（由 `appx.minVersion`／`appx.maxVersionTested` 指定，不配置时 electron-builder 写死 `10.0.14316.0`）；`<Application Id="Dela" Executable="app\Dela.exe" EntryPoint="Windows.FullTrustApplication">`；`<Capabilities>` 含 `<rescap:Capability Name="runFullTrust"/>`。
+- 包内 `app/resources/app.asar.unpacked/out/native/store_update.node`（233,472 字节）是应用内更新用的原生模块，说明 `asarUnpack` 对 appx 目标同样生效，且商店包的进程有包标识时能 `dlopen` 到它。
 - 清单语言已设为 `zh-CN`：`appx.languages: ['zh-CN']`，产物清单里是 `<Resource Language="zh-CN" />`，默认的 `en-US` 已移除（未设置时 electron-builder 写 `en-US`）。
 - 工具链解压告警只在首次下载时出现：本机首次解 `winCodeSign-2.6.0.7z` 时报 `Cannot create symbolic link : A required privilege is not held by the client`（`darwin\10.12\lib\libcrypto.dylib`、`libssl.dylib`），electron-builder 容忍并继续，最终退出码 0。CI 两次运行（v0.11.0、v1.0.0）都下载了同一压缩包，日志里没有任何 `symbolic link` 行（`gh run view <id> --log` 检索），即 CI 未复现该告警。
 
 尚未验证：
 
 - **签名与安装**：本机未签名、未安装、未做实机验收；Partner Center 是否接受本流水线产出的包也未验证（身份与版本已就位，仍须真实提交一次才知结果）。
-- Partner Center 是否接受 `MinVersion=10.0.14316.0`（electron-builder 对 x64 的默认值）：官方只要求包针对商店支持的 Windows 版本，未给出具体下限。
+- Partner Center 是否接受当前 `MinVersion=10.0.19041.0`：官方只要求包针对商店支持的 Windows 版本，未给出具体下限。这个值是为应用内更新取的——`StoreContext` 的更新 API 要在 1607（14393）以上，静默下载与下载进度回调要在 1803（17134）以上——与 ChatGPT 桌面版的清单取齐。
 - 商店对声明语言与实际资源的匹配要求。
 
 ## 平台基线
@@ -111,5 +113,5 @@
 
 - 未配置代码签名，安装时可能遇到 SmartScreen 提示。
 - 工作流中的冒烟检查验证打包后程序及 SQLite/preload，不代替 NSIS 安装向导的实机验收。
-- 自动更新元数据（`latest*.yml`、blockmap）暂不发布；`electron-updater` 等存在正式签名与更新渠道后再引入。
-- 商店包（`.appx`）已随流水线产出但尚未签名、尚未提交商店，见「通过 Partner Center 提交 MSIX」；面向用户的安装包仍是 NSIS `.exe`。
+- 自动更新元数据（`latest*.yml`、blockmap）不发布：走微软商店的应用内更新不需要它们，`electron-updater` 要等自建分发有正式签名与更新渠道后再谈。
+- 商店包（`.appx`）已随流水线产出但尚未签名、尚未提交商店，见「通过 Partner Center 提交 MSIX」；面向用户的安装包仍是 NSIS `.exe`。应用内更新的原生模块已随包构建与检查，但整条路径要等商店上架并有更高版本后才能实机验收。

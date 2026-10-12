@@ -112,7 +112,7 @@ export function stripChatImageTokens(text: string): string {
 }
 
 export function hasChatImages(text: string): boolean {
-  return chatImageTokenRe.test(text);
+  return text.search(chatImageTokenRe) !== -1;
 }
 
 /** 生成内联图片 token；alt 内的方括号与换行会破坏 Markdown 语法，先行清理。 */

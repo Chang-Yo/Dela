@@ -100,8 +100,12 @@ jobs:
         run: pnpm test
       - name: Smoke test Electron
         run: pnpm smoke
+      - name: Build native addon
+        run: pnpm build:native
       - name: Package application directory
         run: pnpm exec electron-builder --dir --win --x64 --publish never
+      - name: Verify packaged native addon
+        run: test -f dist/win-unpacked/resources/app.asar.unpacked/out/native/store_update.node
       - name: Verify packaged helper
         run: |
           cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64

@@ -244,3 +244,18 @@ export function setVideoDownloadDirectory(value: string): string {
   writeSetting('video-download-directory', value);
   return value;
 }
+
+// ---------------------------------------------------------------------------
+// 更新已下载、但用户选了「下次启动时提醒」的标记。主进程在启动后尽早准备更新，
+// 读到就清掉：只尝试一次，失败不无限重试（否则每次启动都会静默试一遍）。
+// ---------------------------------------------------------------------------
+
+/** 键缺失或值损坏都视为没有待装：只认显式写入的 '1'。 */
+export function savedPendingInstall(): boolean {
+  return readSetting('pending-install') === '1';
+}
+
+export function setPendingInstall(pending: boolean): boolean {
+  writeSetting('pending-install', pending ? '1' : '0');
+  return pending;
+}

@@ -50,6 +50,7 @@ import {
 } from '../ui/dropdown-menu';
 import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../ui/motion';
 import { chromeIconButton, navIcon, navRow } from '../../navigation/nav-styles';
+import { UpdateBadge } from '../../features/settings/UpdateBadge';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
@@ -502,6 +503,8 @@ export function AppShell({
               </button>
             </div>
           )}
+          {/* 更新提示固定排在左侧这一组的最右端：它是状态提示，不属于前进/后退那串导航动作。 */}
+          <UpdateBadge />
         </div>
         <div className="flex h-full items-center">
           {/* 侧栏折叠后铃铛/搜索随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}

@@ -1,0 +1,61 @@
+import { ExternalLink } from 'lucide-react';
+import { Button } from '../../components/ui/button';
+import { SettingRow } from './SettingRow';
+import { SettingsGroup } from './SettingsGroup';
+import { useUpdateState } from './update-state';
+import { runUpdateAction } from './update-commands';
+import { updateView } from './updateView';
+
+/**
+ * 通用 › 软件更新。
+ *
+ * 状态由主进程持有、经 update:state 广播，这里只读共享 store（标题栏提示读的是同一份）
+ * 并派发动作：页面卸载不会打断进行中的下载，重新进入设置页也能立刻看到当前进度。
+ * 浏览器预览没有 preload，此时整块不渲染。
+ */
+export function UpdateControl() {
+  const state = useUpdateState((snapshot) => snapshot.snapshot);
+
+  if (!state) return null;
+  const view = updateView(state);
+  const action = view.action;
+
+  return (
+    <SettingsGroup settingId="app-update">
+      <SettingRow
+        // 当前版本常驻：只报「已是最新」而不说自己是哪一版，用户没法判断有没有升上去。
+        // 第二行才是当前进展，role=status 让读屏在检查与下载途中播报变化。
+        description={
+          <span className="grid gap-0.5">
+            <span>当前版本 {state.currentVersion}</span>
+            {view.status ? <span role="status">{view.status}</span> : null}
+          </span>
+        }
+        settingId="check-update"
+        title="软件更新"
+      >
+        {view.progress !== null ? (
+          // 百分比已经由说明那句读出来了，进度条只是同一信息的视觉形态，不重复播报。
+          <div aria-hidden="true" className="h-1 w-40 overflow-hidden rounded-full bg-line">
+            <div
+              className="h-full rounded-full bg-ink-2 transition-[width] duration-300 ease-out"
+              style={{ width: `${Math.round(view.progress * 100)}%` }}
+            />
+          </div>
+        ) : null}
+        {action && view.label ? (
+          <Button
+            onClick={() => void runUpdateAction(action)}
+            size="sm"
+            // 下载与安装是这一页真正的主操作，用主色；其余（检查、重试、前往商店）用
+            // secondary，与「暂停通知」的 30 分钟按钮同一档——ghost 没有底色，看不出能点。
+            variant={action === 'download' || action === 'install' ? 'default' : 'secondary'}
+          >
+            {action === 'open-store' ? <ExternalLink /> : null}
+            {view.label}
+          </Button>
+        ) : null}
+      </SettingRow>
+    </SettingsGroup>
+  );
+}

@@ -9,7 +9,7 @@ import {
   Save,
   X,
 } from 'lucide-react';
-import { registerComposeClose, leaveComposer } from './compose-close';
+import { registerComposeClose, registerComposeSave, leaveComposer } from './compose-close';
 import {
   useEffect,
   useRef,
@@ -140,6 +140,7 @@ export function MailComposer({
   const savedContent = useRef('');
   const allowUnload = useRef(false);
   const latestClose = useRef<() => Promise<boolean>>(async () => true);
+  const latestSave = useRef<() => Promise<boolean>>(async () => true);
   const releaseTimerRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formatState, setFormatState] = useState({ bold: false, italic: false });
@@ -248,7 +249,14 @@ export function MailComposer({
       return false;
     }
   };
+  latestSave.current = async () => {
+    if (sending || savingDraft.current) return false;
+    if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
+    if (!(await saveDraft())) return false;
+    return JSON.stringify(snapshot()) === savedContent.current;
+  };
   useEffect(() => registerComposeClose(() => latestClose.current()), []);
+  useEffect(() => registerComposeSave(() => latestSave.current()), []);
   useEffect(() => {
     if (!sending && !saving) setLeaveBlocked(false);
   }, [sending, saving]);

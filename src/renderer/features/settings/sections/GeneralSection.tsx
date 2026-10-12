@@ -7,8 +7,9 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
 import { SystemNotifications } from './SystemNotifications';
+import { UpdateControl } from '../UpdateControl';
 
-/** 设置 › 通用：应用行为（开机自启动）、系统通知偏好与试验功能（总开关 + 子项）。 */
+/** 设置 › 通用：应用行为（开机自启动）、系统通知偏好、软件更新与试验功能（总开关 + 子项）。 */
 export function GeneralSection() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
@@ -118,6 +119,7 @@ export function GeneralSection() {
         )}
       </div>
       <SystemNotifications />
+      <UpdateControl />
       <div className="grid gap-2">
         {/* 有主语开关的组：标题做成容器内第一行，从属子项跟在后面（靠缩进表达层级，不再画竖线）。 */}
         <SettingsGroup settingId="experimental-features">

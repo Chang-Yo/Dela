@@ -58,6 +58,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '暂停通知',
     keywords: ['通用', '通知', '暂停', '免打扰', '静音', 'snooze'],
   },
+  {
+    id: 'check-update',
+    section: 'general',
+    title: '软件更新',
+    keywords: ['通用', '更新', '升级', '版本', '检查更新', 'update', 'upgrade'],
+  },
   // 外观
   {
     id: 'theme',

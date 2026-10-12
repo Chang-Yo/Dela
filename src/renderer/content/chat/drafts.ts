@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { hasChatImages } from '../../../shared/chat-input';
 
 export type ChatReference = { key: string; title: string };
 
@@ -12,6 +13,25 @@ export const emptyDraft: ChatDraft = { prompt: '' };
 const STORAGE_KEY = 'dela.session.drafts';
 // 会话草稿数量上限：超出时丢弃最早写入的草稿，避免无限增长。
 const MAX_SESSIONS = 30;
+const attachmentChecks = new Set<() => boolean>();
+
+export function registerChatAttachmentCheck(check: () => boolean): () => void {
+  attachmentChecks.add(check);
+  return () => {
+    attachmentChecks.delete(check);
+  };
+}
+
+export function saveChatDrafts(): void {
+  const drafts = useChatDrafts.getState().drafts;
+  if (
+    [...attachmentChecks].some((check) => check()) ||
+    Object.values(drafts).some((draft) => hasChatImages(draft.prompt))
+  ) {
+    throw new Error('聊天中有尚未发送的附件或图片，请先发送或移除，再安装更新。');
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
+}
 
 /** 逐条校验持久化草稿形状，脏 prompt 整条丢弃。旧版把引用存在独立的 references 数组、
  *  composer 上方 chips 展示；现引用即文本（@token 内联在 prompt 里），读到旧草稿时把

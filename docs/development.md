@@ -33,12 +33,26 @@ pnpm dev
 - 运行时依赖 Git for Windows：内核 Bash 工具与内置终端统一使用 Git Bash（`locateBash()` 探测安装位置，缺失时明确报错）。
 - 开发模式下每次启动都会完整重播首启引导；URL 加 `?smoke-test=1` 可短路引导，供自动化使用。
 
+## 商店更新的原生模块
+
+`native/store-update/` 是 C++/WinRT 写的 N-API 插件，调用 `Windows.Services.Store` 让微软商店替 Dela 校验并安装更新（签名交给商店，避开自签名问题）。它不在 `pnpm build` 覆盖范围内：
+
+- 构建用 `pnpm build:native`：`scripts/build-native.mjs` 找出版本最高、且带 `cppwinrt\winrt\Windows.Services.Store.h` 的 Windows SDK，再让 `node-gyp` 调 MSBuild，产物拷到 `out/native/store_update.node`。
+- 本机需要 Visual Studio 2022 的 C++ 生成工具与该 SDK；不需要 NuGet 包，也不需要为 Electron 重编（N-API 的 ABI 是稳定的）。
+- Windows SDK 自 10.0.17134.0 起自带 `cppwinrt\winrt` 投影头，MSBuild 会把它加进默认包含路径，所以 `binding.gyp` 不需要额外配置；CI 的 `windows-2022` 镜像装的四个 SDK 都满足这一点。`node-gyp` 版本固定在 devDependencies（12.4.0）：CI 的 Python 是 3.12，已经没有 `distutils`，需要 node-gyp 10 以上。
+- `electron-builder.yml` 的 `asarUnpack` 把它放到 `app.asar.unpacked`；Electron 会把 asar 内的 `dlopen` 路径重定向过去，因此 `src/main/update/native.ts` 直接按 `__dirname/../native` 拼路径即可（打包布局已实测）。
+- 只有从微软商店安装的包（`process.windowsStore === true`）才由商店接管更新；NSIS 安装版与开发运行会被状态机判为不支持，界面只引导去商店页面。
+- 主进程每两小时后台查一次（启动后 30 秒先查一次，且要窗口已就位），设置页的行与标题栏的提示读的是同一份快照。商店对检测接口限流：30 分钟内最多一次、24 小时最多十次，**超限返回上一次结果而不是报错**，所以连点检查可能拿到陈旧结论。两小时一次加启动那次，挂满一天约 13 次，会略微越过上限；要严格守住就把间隔改成三小时（一天 8 次）。
+- 用户选「下次启动时提醒」后，标记写在 `workspace_settings` 的 `pending-install`。下次启动 5 秒后检查并下载，完成后提示用户确认，绝不自动安装。准备更新前消费标记；手动安装前也清除标记，清除失败则不安装。
+- 所有界面安装入口统一经 `update-commands.ts` 保存笔记、聊天文字草稿、邮件草稿与工作台布局。富文本正文先同步到草稿；保存和安装期间弹窗阻止编辑。任一步保存失败都中止安装；运行中的 Agent、未发送聊天附件及图片会阻止安装。终端进程不能恢复，更新会终止它们。
+
 ## 常用命令
 
 | 命令                                            | 用途                                                               |
 | ----------------------------------------------- | ------------------------------------------------------------------ |
 | `pnpm dev`                                      | 启动开发服务器和窗口，监听主进程/preload 变更                      |
 | `pnpm build`                                    | 类型检查（三组 tsconfig）与 main/preload/renderer 三入口生产构建   |
+| `pnpm build:native`                             | 构建商店更新的原生模块到 `out/native/`（需 VS 2022 C++ 工具链）    |
 | `pnpm start`                                    | 启动已构建产物                                                     |
 | `pnpm check`                                    | 格式检查 + Oxlint + 构建 + 单元测试的组合检查                      |
 | `pnpm format` / `pnpm format:check`             | Prettier 格式化 / 检查                                             |
@@ -66,6 +80,7 @@ pnpm dev
 - `src/preload/` — contextBridge：`index.ts` 聚合入口 + 分域文件，只暴露受控 API。
 - `src/renderer/` — React 界面：`app/`（装配与视图路由）、`workbench/`（标签工作台与布局树）、`content/`（chat / note / preview / terminal 标签内容）、`navigation/`、`sessions/`、`workspace/`（镜像与草稿）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings 整页视图）；共享组件在 `components/ui/`，样式用 Tailwind v4 + 语义 token。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数（`api.ts` 聚合 re-export）。
+- `native/` — 原生模块（目前只有 `store-update/`），用 `pnpm build:native` 单独构建，与上面三个进程的构建互不影响。
 - 测试放在各级 `test/` 子目录，`scripts/` 存放开发服务器与冒烟脚本。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 不自动加载仓库 `.env`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。
@@ -83,4 +98,4 @@ pnpm test
 
 改动远端（`src/main/remotes/`、`helper/`、连接与上下文镜像）时，另用 `pnpm test:remote` 对着真机跑一遍：那批用例需要 `DELA_REMOTE_HOST`，默认套件与 CI 都会跳过它们（`vitest.remote.config.ts`）。
 
-涉及构建、原生依赖或打包时，另验证 `pnpm smoke` 与打包目录启动。重要功能改动同步更新 `docs/devlog.md`，面向使用者的变化更新 README。
+涉及构建、原生依赖或打包时，另验证 `pnpm smoke` 与打包目录启动。改动 `native/` 时另跑 `pnpm build:native`，并确认打包后的 `dist/win-unpacked/resources/app.asar.unpacked/out/native/` 里有对应 `.node`（CI 有同样的检查）。重要功能改动同步更新 `docs/devlog.md`，面向使用者的变化更新 README。

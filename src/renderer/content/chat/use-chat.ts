@@ -14,7 +14,12 @@ import {
 import { poolKey, useSessions, updateSession } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
 import { errorText } from '../../workspace/store';
-import { emptyDraft, useChatDrafts, type ChatReference } from './drafts';
+import {
+  emptyDraft,
+  registerChatAttachmentCheck,
+  useChatDrafts,
+  type ChatReference,
+} from './drafts';
 import type { ReferenceSource } from './chat-source';
 
 export type { ChatReference };
@@ -59,6 +64,7 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
   // 卸载/切换会话清理时读取最新附件，避免闭包捕获过期状态。
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
+  useEffect(() => registerChatAttachmentCheck(() => attachmentsRef.current.length > 0), []);
   const flushReference = referenceSource?.flushReference;
   const run = useRuns((state) => state.bySession[sessionId]);
 
