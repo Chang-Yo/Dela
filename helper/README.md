@@ -1,8 +1,8 @@
 # dela-helper
 
 Dela 在远端 Linux 主机上运行的常驻工具服务。Dela 把它上传到 `~/.dela/helper/<版本>-<sha8>/`，
-以 `--port 0 --token-file …` 启动，再经 `ssh -L` 隧道访问；协议与设计见
-[`docs/remote-helper.md`](../docs/remote-helper.md)。
+以 `--port 0 --token-file …` 启动，再经 `ssh -L` 隧道访问；它在 Dela 整体架构里的位置、
+降级边界与已知限制见 [`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md) §4，协议表在本文下方。
 
 它对 Dela 的价值只有三件事：复用一条连接（Windows OpenSSH 没有 ControlMaster，每次调用
 都要重新握手）、提供 shell 命令给不了的能力（文件监听、片段读取、批量 stat、可取消的长任务）、
@@ -10,12 +10,12 @@ Dela 在远端 Linux 主机上运行的常驻工具服务。Dela 把它上传到
 
 - **不做沙箱**：权限就是启动它的 SSH 用户的权限，和一次性的 `ssh <host> <命令>` 一样。
 - **只绑回环**：`127.0.0.1`，不对外监听；每个请求都要带 `Authorization: Bearer <token>`。
-- **不装服务**：没有 systemd 单元、没有开机自启；连续 5 分钟收不到心跳就自己退出（顺带终止在跑的任务）。Dela 退出时只停心跳、不向远端发退出请求 —— 少一次远端往返，也少一类"请求发不出去"的失败；要立刻收掉就 `kill` 它的 pid（SIGTERM 同样是优雅退出）。
+- **不装服务**：没有 systemd 单元、没有开机自启；连续 5 分钟收不到**任何请求**（空闲期只有心跳，所以效果等同于收不到心跳）就自己退出（顺带终止在跑的任务）。Dela 退出时只停心跳、不向远端发退出请求 —— 少一次远端往返，也少一类"请求发不出去"的失败；要立刻收掉就 `kill` 它的 pid（SIGTERM 同样是优雅退出）。
 - **只用标准库**：不拉任何 Go 依赖。
 
 ## 构建
 
-需要 Go 工具链（本仓库用 1.27 验证过，`go.mod` 要求 1.22 以上）。
+需要 Go 工具链（本仓库用 1.27.2 验证过，`go.mod` 要求 1.22 以上）。
 
 ```powershell
 pnpm build:helper          # linux/amd64，产物在 vendor/dela-helper/
@@ -30,7 +30,7 @@ pnpm build:helper --all    # 同时出 linux/arm64
 | 方法   | 路径                                | 用途                                                            |
 | ------ | ----------------------------------- | --------------------------------------------------------------- |
 | GET    | `/v1/hello`                         | 协议版本与 helper 版本（只这两项）                              |
-| POST   | `/v1/heartbeat`                     | 客户端保活；5 分钟没有它就退出                                  |
+| POST   | `/v1/heartbeat`                     | 客户端保活；5 分钟没有收到任何请求就退出                        |
 | POST   | `/v1/fs/list`                       | 列一层（带 stat）                                               |
 | POST   | `/v1/fs/stat`                       | 批量状态（远端预览取 size/mtime）                               |
 | GET    | `/v1/fs/read?path=&offset=&length=` | 片段读取（二进制安全）                                          |

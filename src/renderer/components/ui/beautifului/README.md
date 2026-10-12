@@ -34,7 +34,7 @@
 
 ## 升级方式
 
-官方除 GitHub 仓库外还提供 shadcn registry（`https://www.beautifului.dev/r/registry.json`，27 项 = foundation + 5 atoms + 21 primitives；`agentscreen` 仅仓库有）。两条渠道已核对一致（2026-10-07）：token/keyframes 与本目录逐项相同，差异仅为上文第 2、5 条适配。
+官方除 GitHub 仓库外还提供 shadcn registry（`https://www.beautifului.dev/r/registry.json`，27 项 = foundation + 6 个 `registry:ui` + 20 个 `registry:component`）。**两条渠道不是逐项对应的**：`agentscreen` 仅仓库有，且仓库里的 `atoms/Chip.tsx`、`Switch.tsx`、`ProgressRing.tsx`、`SegmentedControl.tsx`、`StatusPill.tsx`、`TextRow.tsx` 在 registry 中没有对应条目（逐个请求均 404）——它们来自同一次整库复制（2026-10-08），不是 Dela 的增补。token 与 keyframes 两条渠道一致；组件层面的差异见上文「相对上游的适配」。
 
 ```bash
 # 渠道一：clone 仓库（globals.css 为 shadow 展开后的完整样式，本目录即由此组装）

@@ -52,7 +52,7 @@
 - 两种列法：`GET /courses/:id/files`（全课程平铺，含所有子文件夹文件）或 `GET /folders/:fid/files`（按文件夹）。字段一致。
 - 关键字段：`id`、`uuid`、`folder_id`、`display_name`（界面名，中文常见）、`filename`、`content-type`、`size`（字节）、`created_at`/`updated_at`/`modified_at`、`mime_class`（`pdf`/`image`/`doc`…）、`category`、`hidden`/`locked`/`unlock_at`/`lock_at`、`thumbnail_url`（实测基本为 null）、`media_entry_id`（实测 null）、`url`。
 - 实测类型分布（约 420 个文件）：**PDF 约 80% 绝对主导**，PPTX/PPT 约 10%，其余 zip、Word、LaTeX、图片、极少量 mp4。
-- 课程视频不在 files 里：走 LTI 外部工具 tab（"课堂视频新版/旧版"），第一版文件同步不覆盖视频。
+- 课程视频不在 files 里：走 LTI 外部工具 tab（"课堂视频新版/旧版"）。Canvas 同步至今不覆盖视频——课堂录像由独立的「课堂视频」功能按课程查询与播放（见 [DEVELOPMENT.md](DEVELOPMENT.md) §5）。
 
 ### 6.3 下载链路
 
@@ -87,7 +87,7 @@
 
 ## 10. 对"一类文件如何组织呈现"的直接推论
 
-1. **分类主干**：`学期 (term) → 课程 (course) → [文件树 | 模块 | 作业]`。文件树是文件的主组织（folder 树），模块是可选的第二浏览轴，作业把"要求描述 + due + 我的提交附件"聚成一组。
+1. **分类主干**：`学期 (term) → 课程 (course) → [文件树 | 模块 | 作业 | 通知与讨论]`。文件树是文件的主组织（folder 树），模块是可选的第二浏览轴，作业把"要求描述 + due + 我的提交附件"聚成一组，通知与讨论是第四条分支。
 2. **同步策略**：每课一次 `folders`（扁平全量）+ 分页拉 `files` 平铺后按 `folder_id` 归位；所有列表端点统一走 Link 头分页（上限 50）。
 3. **文件去重与身份**：`(canvas_file_id, uuid)` 稳定；`folder_id` 表达位置；`updated_at` 表达变化。我提交的附件与课程文件同一结构，可共用一张文件表 + 来源字段。
 4. **下载**：verifier 链接长期稳定，S3 预签名 1 小时；下载放主进程，二段式请求，不落日志。
