@@ -31,7 +31,7 @@
 | web_search / web_fetch     | Dela 自定义工具；web_search 默认关闭（要自备搜索服务），web_fetch 默认开启；搜索服务在「网络」域注册（Brave / Google / 自定义） |
 | MCP 工具                   | Dela 连接 stdio 服务器后作为自定义工具注入                                                                                      |
 
-目录注意：rg/fd 落在 `~/.pi/agent/bin`，**不是** `userData/pi/bin`——Pi 只读 `PI_CODING_AGENT_DIR` 环境变量，Dela 不设置它。同理，Pi 的默认 skills 位置 `~/.pi/agent/skills` 也仍被扫描。`userData/pi` 里隔离的是 auth、models 与 sessions，不是 bin 与默认 skills 目录。
+目录注意：rg/fd 落在 `~/.pi/agent/bin`，**不是** `userData/pi/bin`——bin 只认 `PI_CODING_AGENT_DIR` 环境变量，Dela 不设置它。skills 不是同一套：Dela 把 `agentDir` 显式指到 `userData/pi`，Pi 的 agent 级 skills 目录随之变成 `<userData>/pi/skills`，而 SDK 里没有读 `~/.pi/agent/skills` 的代码路径。所以 `userData/pi` 里隔离的是 auth、models、sessions 与 skills，**bin 是唯一例外**。
 
 `web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签。PDF、编码处理、2MB 上限与 offset 续读沿用现有实现；不执行网页 JavaScript。`web_search` 由用户提供搜索服务。
 
@@ -41,7 +41,7 @@
 
 ### 2.3 skills
 
-纯文档领域知识，Pi 按 Agent Skills 规范发现。五个内置领域 skill（shuiyuan / canvas / mail / todo / curriculum）写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；设置页的禁用名单经 `skillsOverride` 过滤。扫描位置共三处：`~/.dela/skills`、`~/.agents/skills`、`<userData>/workspace/.agents/skills`。
+纯文档领域知识，Pi 按 Agent Skills 规范发现。五个内置领域 skill（shuiyuan / canvas / mail / todo / curriculum）写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；设置页的禁用名单经 `skillsOverride` 过滤。扫描位置共三处：`~/.dela/skills`、`~/.agents/skills`、`<工作目录>/workspace/.agents/skills`（`<工作目录>` 即设置 › 工作区里选定的位置，缺省 `文档\Dela`）。
 
 ### 2.4 GUI
 
@@ -59,7 +59,7 @@
 ## 3. 会话与上下文
 
 - **项目＝目录**：项目是 `kind='project'` 的 workspace 条目，身份是条目 UUID，目录是其 `local_path`；目录可在工作区内新建，也可导入电脑上已有的文件夹（留在原处，重命名 / 移动按同一套语义真的动磁盘）。远程项目的 `local_path` 是远端 POSIX 路径，本地没有这份目录（见 §4）。
-- **会话 cwd**：项目会话是该项目的目录；通用（随聊）会话是 `<userData>/chat-sessions/<会话 id>` 私有目录；资料页会话用 `<userData>/courses`；`sessions.cwd` 为 NULL 的旧会话才回退到工作区根。目录缺失时报错，不静默换目录（远程项目跳过本地存在性检查）。
+- **会话 cwd**：项目会话是该项目的目录；通用（随聊）会话是 `<工作目录>/chat-sessions/<会话 id>` 私有目录；资料页会话用 `<工作目录>/courses`；`sessions.cwd` 为 NULL 的旧会话才回退到工作区根。目录缺失时报错，不静默换目录（远程项目跳过本地存在性检查）。
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、cwd、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
 - 会话归属在创建时确定，ChatTab 从会话快照取 projectId/cwd，不取当前工作台。
 - **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；附件文本与图片随用户消息进入 Pi 会话。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入 / 粘贴附件维持在 composer 上方 chips、上限 5，与引用分开计数。
@@ -83,7 +83,7 @@
 
 开发注意（真机踩过的坑）：
 
-- 连接是「一次调用一个 ssh 子进程」，没有多路复用。短时间并发握手太多时主机会直接断开（`Connection closed by <host> port 22`），并行跑多个真机测试文件就会偶发；`pnpm test:remote` 因此要串行（`--fileParallelism=false`）。App 侧一次工具调用只有一条连接，但模型并发发起多个工具调用时可能撞上主机的 MaxStartups。
+- 连接是「一次调用一个 ssh 子进程」，没有多路复用。短时间并发握手太多时主机会直接断开（`Connection closed by <host> port 22`），并行跑多个真机测试文件就会偶发；`pnpm test:remote` 因此要串行（串行由 `vitest.remote.config.ts` 的 `fileParallelism: false` 保证）。App 侧一次工具调用只有一条连接，但模型并发发起多个工具调用时可能撞上主机的 MaxStartups。
 - `sshBaseArguments` 统一带 `ServerAliveInterval=15`、`ServerAliveCountMax=3`：一次 10 分钟无输出的远端命令会被对端 reset（`clientaliveinterval 0` + 客户端不发保活，中间的 NAT/防火墙丢连接）。心跳同时是隧道的保活包。
 - **路径归一化是最容易静默改错文件的点**：工具在调用 operations 之前用宿主 `node:path` 解析参数，本机实测 `path.resolve('/home/u/proj','src/a.ts')` → `E:\home\u\proj\src\a.ts`。operations 必须先去盘符前缀、再把 `\` 换成 `/`、合并重复斜杠后才拼命令。
 - 快速反复重启会在远端留几个「过期」helper：Dela 退出不发退出请求，旧实例带着过期 token 最多再活 5 分钟，拿不到请求，只是占位进程。
@@ -133,7 +133,7 @@ preload 暴露的 API：
 - 数据保存在本机 SQLite，凭据经 Electron `safeStorage` 加密（`src/main/credentials.ts`）。
 - renderer 不接触文件系统、数据库与凭据，一切经受控 IPC 通信。
 - Agent 的 bash 与文件工具即本机权限，不设沙箱。
-- Pi 的 auth / models / sessions 放在 `userData/pi`，与用户自己的 `~/.pi` 隔离（bin 与默认 skills 目录除外，见 §2.1）；模型密钥只在主进程内注册给 Pi 的运行时，不写入 `auth.json`。
+- Pi 的 auth / models / sessions / skills 放在 `userData/pi`，与用户自己的 `~/.pi` 隔离（只有 bin 例外，见 §2.1）；模型密钥只在主进程内注册给 Pi 的运行时，不写入 `auth.json`。
 - 应用启动**不读取仓库 `.env`**，凭据只能在应用内配置。
 
 ## 8. 持久化

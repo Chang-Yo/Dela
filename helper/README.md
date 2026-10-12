@@ -22,8 +22,10 @@ pnpm build:helper          # linux/amd64，产物在 vendor/dela-helper/
 pnpm build:helper --all    # 同时出 linux/arm64
 ```
 
-产物是静态二进制（`CGO_ENABLED=0`），glibc 与 musl 都能跑；升级 helper 时改 `helperVersion`
-并重新构建。远端按「版本-sha8」分目录放，**旧版本目录不自动清理**（每版一个，便于回退）。
+产物是静态二进制（`CGO_ENABLED=0`），glibc 与 musl 都能跑；升级 helper 时同时改 `helper/main.go`
+的 `helperVersion` 与 `src/main/remotes/helper.ts` 的 `HELPER_VERSION` 并重新构建——两者不一致会在
+握手时判为版本不匹配并整体降级。远端按「版本-sha8」分目录放，**旧版本目录不自动清理**
+（每版一个，便于回退）。
 
 ## 协议一览
 
@@ -51,8 +53,9 @@ pnpm build:helper --all    # 同时出 linux/arm64
 - **只订结构变化**：`IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF | IN_MOVE_SELF`；
   不订 `IN_MODIFY` / `IN_CLOSE_WRITE`，因为远端文件树只显示名字与类型，内容变化不需要刷新。
 - **合并 200ms**：一个 id 在这个窗口里的路径去重后合成一条 `change`，单条最多 256 个路径，
-  再多就改发 `reset(reason=too-many-changes)`；待发集合本身受单 id 的 4096 条监视上限约束
-  （`npm install` 这类会在几百毫秒里产生上万次事件，超过上限的路径进 `skipped`）。
+  再多就改发 `reset(reason=too-many-changes)`——`npm install` 这类在几百毫秒里产生上万次事件的
+  场景走的就是这条。另有一个独立的量：`POST /v1/watch` 单次 `paths` 最多 4096 个，超过整条请求
+  被拒（400 `bad_request`），与 `skipped` 无关。
 - **溢出**：内核 `IN_Q_OVERFLOW` → `reset(id="*", reason="overflow")` 并清空待发集合。
 - **慢订阅者**：某个 SSE 订阅者队列满时丢它的事件、补一条
   `reset(id="*", reason="subscriber-slow")`，绝不阻塞发布方。

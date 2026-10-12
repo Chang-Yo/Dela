@@ -98,7 +98,7 @@ chore(release): 1.0.0
 CI 定义在 `.github/workflows/check.yaml`，在 PR 的创建 / 更新 / 重新打开与推送到 `main` 时触发，分两个 job：
 
 - `Check helper linux (amd64 + arm64)`，`ubuntu-24.04`：Go 1.27.2 下执行 `go vet`（含 `linux/arm64` 交叉）、`go test`，构建两个架构的静态产物并跑 `--version`（arm64 走 qemu 用户态仿真），产物上传为 artifact。
-- `Check win-x64`，`windows-2022`，依赖 helper 产物：`pnpm install --frozen-lockfile` 后按顺序分步执行 `pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm test`、`pnpm smoke`、`pnpm build:native`，再用 `electron-builder --dir --win --x64 --publish never` 打包，核对包内原生模块与两个 helper 二进制，最后对打包后的 `Dela.exe` 运行 `--smoke-test`。
+- `Check win-x64`，`windows-2022`，依赖 helper 产物：`pnpm install --frozen-lockfile` 后按顺序分步执行 `pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm test`、`pnpm smoke`、`pnpm build:native`，再用 `pnpm exec electron-builder --dir --win --x64 --publish never` 打包，核对包内原生模块与两个 helper 二进制，最后对打包后的 `Dela.exe` 运行 `--smoke-test`。
 
 CI 是分步执行，不等同于 `pnpm check`：本地 `pnpm check` 通过不代表 CI 会通过，CI 还覆盖冻结锁文件安装、原生模块构建、打包布局核对与打包后启动。CI 的 Windows 任务把 `DELA_REMOTE_HOST` 留空，`pnpm test:remote` 不在 CI 中运行。仅添加 workflow 不会启用分支保护，若要限制合并需把 `Check win-x64` 设为必需检查。
 
