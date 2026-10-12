@@ -24,12 +24,12 @@
 
 `@earendil-works/pi-coding-agent` SDK 的 `createAgentSession` 就是 agent 内核。会话树（JSONL）、多轮工具上下文、自动压缩、重试、`AGENTS.md` 上下文文件、skills 发现与渐进加载都由 Pi 承担，Dela 不另写执行循环、上下文组装或压缩。
 
-| 工具                       | 来源                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------ |
-| read / write / edit / bash | Pi 内置，cwd＝会话所属项目目录；bash 用 Git Bash（与终端同源），不可关闭       |
-| grep / find / ls           | Pi 内置；首次使用时 Pi 自动下载 rg/fd（待验证离线体验）                        |
-| web_search / web_fetch     | Dela 自定义工具，默认关闭；搜索服务在「网络」域注册（Brave / Google / 自定义） |
-| MCP 工具                   | Dela 连接 stdio 服务器后作为自定义工具注入                                     |
+| 工具                       | 来源                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| read / write / edit / bash | Pi 内置，cwd＝会话所属项目目录；bash 用 Git Bash（与终端同源），不可关闭                                                        |
+| grep / find / ls           | Pi 内置；首次使用时 Pi 自动下载 rg/fd（待验证离线体验）                                                                         |
+| web_search / web_fetch     | Dela 自定义工具；web_search 默认关闭（要自备搜索服务），web_fetch 默认开启；搜索服务在「网络」域注册（Brave / Google / 自定义） |
+| MCP 工具                   | Dela 连接 stdio 服务器后作为自定义工具注入                                                                                      |
 
 目录注意：rg/fd 落在 `~/.pi/agent/bin`，**不是** `userData/pi/bin`——Pi 只读 `PI_CODING_AGENT_DIR` 环境变量，Dela 不设置它。同理，Pi 的默认 skills 位置 `~/.pi/agent/skills` 也仍被扫描。`userData/pi` 里隔离的是 auth、models 与 sessions，不是 bin 与默认 skills 目录。
 
