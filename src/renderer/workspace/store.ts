@@ -36,7 +36,10 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
     if (!subscribedChanges) {
       subscribedChanges = true;
       dela.workspace.onChanged(() => {
-        void get().refresh();
+        // 推送驱动的后台刷新失败不打扰用户，下一轮变更推送会重试。
+        void get()
+          .refresh()
+          .catch((cause) => console.error('[workspace] 刷新条目镜像失败', cause));
       });
     }
     // Concurrent callers (StrictMode double-invocation included) share one request;

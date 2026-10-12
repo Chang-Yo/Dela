@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardPaste, Copy, Plus, SquareTerminal, X } from 'lucide-react';
 import type { TerminalEvent, TerminalSession } from '../../../shared/terminal';
 import type { TabComponentProps } from '../../workbench/registry';
+import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
 import { errorText } from '../../workspace/store';
 import { cn } from '../../lib/utils';
@@ -60,7 +61,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
     try {
       await navigator.clipboard.writeText(text);
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '复制失败', description: errorText(cause) });
     }
   };
   const paste = async () => {
@@ -72,7 +73,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       current.terminal.paste(text);
       current.terminal.focus();
     } catch (cause) {
-      if (mounted.current) setError(errorText(cause));
+      showToast({ variant: 'error', title: '粘贴失败', description: errorText(cause) });
     }
   };
 
@@ -103,7 +104,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       install([...snapshots.current, item]);
       select(item.id);
     } catch (cause) {
-      if (mounted.current) setError(errorText(cause));
+      showToast({ variant: 'error', title: '新建终端失败', description: errorText(cause) });
     } finally {
       waitingIds.current.delete(id);
       if (mounted.current) setBusy(false);
@@ -271,7 +272,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       install(remaining);
       if (activeId === id) select(remaining[index]?.id ?? remaining[index - 1]?.id ?? null);
     } catch (cause) {
-      if (mounted.current) setError(errorText(cause));
+      showToast({ variant: 'error', title: '关闭终端失败', description: errorText(cause) });
     }
   };
 

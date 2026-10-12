@@ -1,6 +1,7 @@
 // 更新动作的派发：设置页那一行与「下载完成」确认弹窗共用同一套。
 // 安装前统一保存工作区；保存期间由应用级弹窗阻止继续编辑。
 import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 import { useNoteDrafts } from '../../workspace/drafts';
 import { saveChatDrafts } from '../../content/chat/drafts';
 import { saveComposers } from '../mail/compose-close';
@@ -67,6 +68,11 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
     // 主进程的正常失败都会以快照形式回来，走到这里说明 IPC 本身出了问题，
     // 保持原状态并留下日志，用户可以直接再点一次。
     console.error('Update action failed', error);
+    showToast({
+      variant: 'error',
+      title: '更新操作失败',
+      description: errorText(error),
+    });
     return false;
   } finally {
     if (action === 'install') useUpdateState.setState({ preparingInstall: false });
@@ -79,5 +85,10 @@ export async function deferInstall(): Promise<void> {
     await window.dela?.update.deferInstall();
   } catch (error) {
     console.error('Defer update install failed', error);
+    showToast({
+      variant: 'error',
+      title: '设置提醒失败',
+      description: errorText(error),
+    });
   }
 }

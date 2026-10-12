@@ -42,7 +42,6 @@ export function AddToProjectDialogBase({
 }) {
   const entries = useWorkspaceStore((state) => state.workspace.entries);
   const refresh = useWorkspaceStore((state) => state.refresh);
-  const setError = useWorkspaceStore((state) => state.setError);
   const [target, setTarget] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -77,9 +76,7 @@ export function AddToProjectDialogBase({
       setTarget('');
       setName('');
     } catch (reason) {
-      const message = errorText(reason);
-      setErrorLocal(message);
-      setError(message);
+      setErrorLocal(errorText(reason));
     } finally {
       setBusy(false);
     }

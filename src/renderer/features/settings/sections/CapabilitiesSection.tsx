@@ -6,6 +6,7 @@ import { Switch } from '../../../components/ui/switch';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { SearchConfigDialog, webSearchProviderLabels } from './SearchConfigDialog';
 
 /** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
@@ -49,11 +50,10 @@ export function CapabilitiesSection() {
   const run = async (operation: () => Promise<AgentCapabilityView[]>) => {
     if (!window.dela || busy) return;
     setBusy(true);
-    setError(null);
     try {
       setCapabilities(await operation());
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }

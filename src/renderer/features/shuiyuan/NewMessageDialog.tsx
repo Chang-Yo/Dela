@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { MarkdownEditor } from '../../content/note/MarkdownEditor';
 import { errorText } from '../../workspace/store';
+import { showToast } from '../../app/toasts';
 import { useShuiyuan } from './store';
 import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
 import { cn } from '../../lib/utils';
@@ -32,7 +33,8 @@ export function NewMessageDialog({
       .split(/[,，\s]+/)
       .map((name) => name.trim().replace(/^@/, ''))
       .filter(Boolean);
-    if (recipients.length === 0 || !title.trim() || !body.trim()) return;
+    if (recipients.length === 0 || !title.trim()) return;
+    if (!body.trim()) return setError('请输入正文');
     setBusy(true);
     setError(null);
     try {
@@ -45,7 +47,7 @@ export function NewMessageDialog({
       void openTopic(topicId);
       void refreshCounts();
     } catch (reason) {
-      setError(errorText(reason));
+      showToast({ variant: 'error', title: '发送私信失败', description: errorText(reason) });
     } finally {
       setBusy(false);
     }

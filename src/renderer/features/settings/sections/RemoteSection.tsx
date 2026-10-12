@@ -11,6 +11,7 @@ import { cn } from '../../../lib/utils';
 import { remoteAccent } from '../../../navigation/remote-color';
 import { RemoteConnectionWizard } from '../../../workspace/remote-wizard';
 import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
@@ -85,7 +86,6 @@ export function RemoteSection() {
     const remotes = window.dela?.remotes;
     if (!remotes || busyId) return;
     setBusyId(connection.id);
-    setError(null);
     try {
       await remotes.remove(connection.id);
       setConnections((prev) => (prev ?? []).filter((item) => item.id !== connection.id));
@@ -96,7 +96,7 @@ export function RemoteSection() {
       });
     } catch (cause) {
       // main 的拒绝原因（如「该连接下还有项目，请先移除项目」）原样显示。
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '删除连接失败', description: errorText(cause) });
     } finally {
       setBusyId(null);
     }

@@ -2,6 +2,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Button } from '../../components/ui/button';
+import { errorText } from '../../workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
 
 // 单工作表最多解析的行数：防超大表同步渲染冻结 renderer。
@@ -91,8 +92,7 @@ export function SheetPreview({ url }: { url: string }) {
         setActive(0);
         setLoaded(true);
       } catch (cause) {
-        if (!controller.signal.aborted)
-          setError(cause instanceof Error ? cause.message : String(cause));
+        if (!controller.signal.aborted) setError(errorText(cause));
       }
     })();
     return () => controller.abort();

@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { errorText } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
@@ -151,6 +152,7 @@ export function ChatComposer({
   // 两列模型面板：打开时读取设置配置保证新鲜；focusedId 是左列当前查看的提供商。
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
+  const [providersFailed, setProvidersFailed] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const focused = providers?.find((provider) => provider.id === focusedId) ?? null;
   const [effortPickerOpen, setEffortPickerOpen] = useState(false);
@@ -261,7 +263,7 @@ export function ChatComposer({
         }
         setFileError(null);
       } catch (e) {
-        setFileError(e instanceof Error ? e.message : String(e));
+        setFileError(errorText(e));
       }
     }
   };
@@ -286,7 +288,7 @@ export function ChatComposer({
           }
         }
       })
-      .catch((e) => setFileError(e instanceof Error ? e.message : String(e)));
+      .catch((e) => setFileError(errorText(e)));
   };
 
   // 候选菜单的键盘协议：菜单打开时消费按键并移动高亮，否则交回编辑器默认行为。
@@ -316,13 +318,14 @@ export function ChatComposer({
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
     if (!open || !window.dela) return;
+    setProvidersFailed(false);
     window.dela.llm
       .list()
       .then((views) => {
         setProviders(views);
         setFocusedId(views.find((view) => view.active)?.id ?? views[0]?.id ?? null);
       })
-      .catch(() => setProviders([]));
+      .catch(() => setProvidersFailed(true));
   };
 
   return (
@@ -433,7 +436,11 @@ export function ChatComposer({
                   }}
                 >
                   {providers === null ? (
-                    <p className="px-2 py-3 text-[12px] text-ink-3">正在加载模型列表…</p>
+                    providersFailed ? (
+                      <p className="px-2 py-3 text-[12px] text-ink-3">模型列表加载失败</p>
+                    ) : (
+                      <p className="px-2 py-3 text-[12px] text-ink-3">正在加载模型列表…</p>
+                    )
                   ) : providers.length === 0 ? (
                     <div className="grid gap-2 px-1.5 py-2">
                       <p className="text-[12px] text-ink-3">

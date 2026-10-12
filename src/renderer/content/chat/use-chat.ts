@@ -11,6 +11,7 @@ import {
   hasChatImages,
   stripChatImageTokens,
 } from '../../../shared/chat-input';
+import { showToast } from '../../app/toasts';
 import { poolKey, useSessions, updateSession } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
 import { errorText } from '../../workspace/store';
@@ -159,7 +160,7 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
         }
       }
     } catch (e) {
-      setError(errorText(e));
+      showToast({ variant: 'error', title: '发送失败', description: errorText(e) });
       return;
     }
     setPending(true);
@@ -213,7 +214,8 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
         });
         if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
       } catch (e) {
-        if (activeSession.current === requested) setError(errorText(e));
+        if (activeSession.current === requested)
+          showToast({ variant: 'error', title: '重新生成失败', description: errorText(e) });
       } finally {
         if (activeSession.current === requested) setPending(false);
       }
@@ -235,7 +237,11 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     const switchModel = provider.active
       ? dela.llm.setModel(model)
       : dela.llm.setActive(provider.id).then(() => dela.llm.setModel(model));
-    void switchModel.then(() => refresh()).catch((e) => setError(errorText(e)));
+    void switchModel
+      .then(() => refresh())
+      .catch((e) =>
+        showToast({ variant: 'error', title: '切换模型失败', description: errorText(e) }),
+      );
   };
 
   // 思考强度档位切换：乐观更新会话状态，持久化到当前使用中的提供商。
@@ -246,7 +252,9 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     void dela.llm
       .setEffort(level)
       .then(() => refresh())
-      .catch((e) => setError(errorText(e)));
+      .catch((e) =>
+        showToast({ variant: 'error', title: '切换思考强度失败', description: errorText(e) }),
+      );
   };
 
   const refresh = () => {
@@ -281,7 +289,6 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
  *  新建/删除经 session:create/remove；打开视图不启动执行、切换视图不停止执行。 */
 export function useChatSession(projectId: string | null, sessionId: string, scope: ChatScope) {
   const [active, setActive] = useState<string | null>(sessionId);
-  const [error, setError] = useState<string | null>(null);
   const pool = poolKey(projectId);
   const sessions = useSessions((state) => state.lists[pool] ?? null);
 
@@ -312,7 +319,7 @@ export function useChatSession(projectId: string | null, sessionId: string, scop
         .refresh(projectId)
         .catch(() => {});
     } catch (e) {
-      setError(errorText(e));
+      showToast({ variant: 'error', title: '新建会话失败', description: errorText(e) });
     }
   }, [active, projectId, scope]);
 
@@ -329,7 +336,7 @@ export function useChatSession(projectId: string | null, sessionId: string, scop
         // 删除的是当前会话：进入空态，由用户显式开新对话（新身份模型下发送必须有会话）。
         if (active === target) setActive(null);
       } catch (e) {
-        setError(errorText(e));
+        showToast({ variant: 'error', title: '删除会话失败', description: errorText(e) });
       }
     },
     [active, projectId],
@@ -347,8 +354,7 @@ export function useChatSession(projectId: string | null, sessionId: string, scop
       openSession: setActive,
       newSession,
       deleteSession,
-      error,
     }),
-    [active, deleteSession, error, newSession, sessions],
+    [active, deleteSession, newSession, sessions],
   );
 }

@@ -16,6 +16,7 @@ import { SettingsGroup } from '../SettingsGroup';
 import { Switch } from '../../../components/ui/switch';
 import { useNoteSpellcheck } from '../../../content/note/note-spellcheck';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { useProjectNavPrefs } from '../../../navigation/store';
 
 /** 重置后的默认布局：单组空标签（workbench 的 createDefaultLayout 同构）。 */
@@ -50,7 +51,6 @@ export function WorkspaceSection() {
   const [prefs, setPrefs] = useState<WorkspacePrefs | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
-  const [resetDone, setResetDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,7 +64,6 @@ export function WorkspaceSection() {
   const changePrefs = async (patch: Partial<WorkspacePrefs>) => {
     if (busy || prefs === null) return;
     setBusy(true);
-    setError(null);
     const previous = prefs;
     setPrefs({ ...prefs, ...patch });
     try {
@@ -77,7 +76,7 @@ export function WorkspaceSection() {
         useNoteSpellcheck.getState().setSpellcheck(saved.noteSpellcheck);
     } catch (cause) {
       setPrefs(previous);
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -87,20 +86,21 @@ export function WorkspaceSection() {
     void window.dela?.workspace
       .chooseDirectory()
       .then(() => useWorkspaceStore.getState().refresh())
-      .catch((cause) => setError(errorText(cause)));
+      .catch((cause) =>
+        showToast({ variant: 'error', title: '选择目录失败', description: errorText(cause) }),
+      );
   };
 
   // 重置 = 把当前项目布局写回默认单组：下次进入该项目（或重启）时生效。
   const resetLayout = async () => {
     if (!window.dela || busy) return;
     setBusy(true);
-    setError(null);
     try {
       await window.dela.layout.save(currentProjectId(), defaultLayout);
       setResetConfirm(false);
-      setResetDone(true);
+      showToast({ variant: 'success', title: '布局已重置', description: '下次进入该项目时生效。' });
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '重置失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -191,7 +191,6 @@ export function WorkspaceSection() {
                 disabled={busy || !window.dela}
                 onClick={() => {
                   setResetConfirm(true);
-                  setResetDone(false);
                 }}
                 size="sm"
                 variant="secondary"
@@ -199,11 +198,6 @@ export function WorkspaceSection() {
                 重置当前项目布局
               </Button>
             )}
-            {resetDone ? (
-              <p className="text-[12px] text-ink-3" role="status">
-                已重置，下次进入该项目时生效。
-              </p>
-            ) : null}
           </div>
         </SettingRow>
         {/* 隐藏只收起导航入口，项目文件与会话都还在；此处提供恢复。 */}

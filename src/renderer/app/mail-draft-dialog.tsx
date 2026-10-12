@@ -13,12 +13,12 @@ import { cn } from '../lib/utils';
 
 export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogProps) {
   const [state, setState] = useState<{ draft: PreparedEmail; address: string } | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<{ text: string; failed?: boolean } | null>(null);
 
   useEffect(() => {
     let active = true;
     setState(null);
-    setHint('正在打开草稿…');
+    setHint({ text: '正在打开草稿…' });
     void (async () => {
       try {
         const dela = window.dela;
@@ -31,7 +31,7 @@ export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogPro
           setHint(null);
         }
       } catch (cause) {
-        if (active) setHint(errorText(cause));
+        if (active) setHint({ text: errorText(cause), failed: true });
       }
     })();
     return () => {
@@ -56,8 +56,11 @@ export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogPro
         >
           <Dialog.Title className="sr-only">检查邮件草稿</Dialog.Title>
           {hint && !state && (
-            <p role="status" className="p-4 text-[13px] text-ink-3">
-              {hint}
+            <p
+              role={hint.failed ? 'alert' : 'status'}
+              className={cn('p-4 text-[13px]', hint.failed ? 'text-red' : 'text-ink-3')}
+            >
+              {hint.text}
             </p>
           )}
           {state && (

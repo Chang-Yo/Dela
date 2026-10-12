@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { NotificationItem, NotificationState } from '../../shared/api';
 import { leaveComposer } from '../features/mail/compose-close';
 import { errorText } from '../workspace/store';
+import { showToast } from './toasts';
 import { useNavigationStore } from './navigation';
 
 /** active 对应旧 launchStage 门控：'flow' 阶段不订阅（主界面未挂载），其余阶段镜像就绪。 */
@@ -67,14 +68,17 @@ export function useNotifications(active: boolean) {
 
   const run = async (action: () => Promise<NotificationState>) => {
     setLoading(true);
-    setError(null);
     // 与订阅路径同一竞态守卫：await 期间有推送/其他读取落地时丢弃本次结果。
     const requested = ++versionRef.current;
     try {
       const state = await action();
-      if (requested === versionRef.current) setNotifications(state);
+      // 操作成功时清掉初始加载遗留的错误条（重试按钮也走这里）。
+      if (requested === versionRef.current) {
+        setNotifications(state);
+        setError(null);
+      }
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '通知操作失败', description: errorText(cause) });
     } finally {
       setLoading(false);
     }

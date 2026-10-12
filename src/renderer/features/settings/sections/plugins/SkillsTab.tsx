@@ -6,6 +6,7 @@ import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { errorText, useWorkspaceStore } from '../../../../workspace/store';
+import { showToast } from '../../../../app/toasts';
 import { cn } from '../../../../lib/utils';
 import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
 import { SectionHeader } from '../../SectionHeader';
@@ -51,7 +52,6 @@ export function SkillsTab() {
   const toggle = async (skill: SkillView, next: boolean) => {
     if (!window.dela || busy) return;
     setBusy(true);
-    setError(null);
     const previous = skills;
     setSkills(
       (previous ?? []).map((item) =>
@@ -62,17 +62,19 @@ export function SkillsTab() {
       setSkills(await window.dela.capability.setSkillEnabled(skill.name, next));
     } catch (cause) {
       setSkills(previous);
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
   };
 
-  // 在文件管理器中显示 SKILL.md；失败（如目录已被删除）走同一错误条。
+  // 在文件管理器中显示 SKILL.md；失败（如目录已被删除）经 toast 提示。
   const reveal = (skill: SkillView) => {
     void window.dela?.capability
       .revealSkill(skill.name)
-      .catch((cause) => setError(errorText(cause)));
+      .catch((cause) =>
+        showToast({ variant: 'error', title: '打开所在位置失败', description: errorText(cause) }),
+      );
   };
 
   if (!window.dela) {
@@ -310,7 +312,6 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
   const projects = remoteProjectsOf(useWorkspaceStore((state) => state.workspace.entries));
   const [projectId, setProjectId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // true 表示远端已有同名技能：显示覆盖确认，点「覆盖」才用 overwrite=true 重试。
   const [conflict, setConflict] = useState(false);
   // 非 null 时展示上传结果，同一个弹窗里给出文件数与目标目录。
@@ -321,7 +322,6 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
     const dela = window.dela;
     if (!dela || busy || !project) return;
     setBusy(true);
-    setError(null);
     try {
       setUploaded(await dela.capability.uploadSkillToRemote(skill.name, project.path, overwrite));
       setConflict(false);
@@ -329,7 +329,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
       const message = errorText(cause);
       const exists = message.startsWith(REMOTE_EXISTS_PREFIX);
       setConflict(exists);
-      setError(exists ? null : message);
+      if (!exists) showToast({ variant: 'error', title: '上传失败', description: message });
     } finally {
       setBusy(false);
     }
@@ -367,7 +367,6 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
                     onClick={() => {
                       setProjectId(entry.id);
                       setConflict(false);
-                      setError(null);
                     }}
                     type="button"
                   >
@@ -385,11 +384,6 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
                 </li>
               ))}
             </ul>
-          )}
-          {error && (
-            <p className="mt-3 text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
-              {error}
-            </p>
           )}
           <div className="mt-4 flex items-center justify-end gap-2">
             {conflict && !uploaded && (

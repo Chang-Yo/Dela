@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
 import { useNavigationStore } from '../../../app/navigation';
 import { SectionHeader } from '../SectionHeader';
@@ -82,7 +83,6 @@ export function ArchivedSection() {
   const change = async (id: string, remove: boolean) => {
     if (busy || !window.dela) return;
     setBusy(true);
-    setError(null);
     try {
       if (remove) {
         await window.dela.session.remove(id);
@@ -92,7 +92,11 @@ export function ArchivedSection() {
       await refreshSessionLists();
       setConfirm(null);
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({
+        variant: 'error',
+        title: remove ? '删除失败' : '恢复失败',
+        description: errorText(cause),
+      });
     } finally {
       setBusy(false);
     }
@@ -101,7 +105,6 @@ export function ArchivedSection() {
   const removeAll = async () => {
     if (busy || !window.dela || !sessions?.length) return;
     setBusy(true);
-    setError(null);
     try {
       // 逐条永久删除：主进程拒绝未归档会话，这里的数据本就全部已归档。
       for (const session of sessions) {
@@ -112,7 +115,7 @@ export function ArchivedSection() {
       await refreshSessionLists();
       setConfirm(null);
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '删除失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }

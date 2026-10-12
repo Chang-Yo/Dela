@@ -27,7 +27,8 @@ import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
 import { useNoteDrafts } from '../workspace/drafts';
-import { useWorkspaceStore } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
+import { showToast } from './toasts';
 import { projectIdFromLegacyScope, useNavigationStore, type MobileDrawer } from './navigation';
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
@@ -115,11 +116,12 @@ export default function App() {
     return window.dela?.session.onSessionUpdate((sessionId, chat) => {
       if (chat.running) return;
       const store = useWorkspaceStore.getState();
-      void store.refresh().catch(store.setError);
-      void window.dela?.canvas.getState().then(store.setCanvas).catch(store.setError);
+      // 会话终态后的后台自动刷新失败不打扰用户（浮窗只留给用户主动的动作），仅留诊断线索。
+      void store.refresh().catch(console.error);
+      void window.dela?.canvas.getState().then(store.setCanvas).catch(console.error);
       for (const [id, draft] of Object.entries(useNoteDrafts.getState().drafts)) {
         if (draft.text === draft.saved)
-          void useNoteDrafts.getState().acquire(id, true).catch(store.setError);
+          void useNoteDrafts.getState().acquire(id, true).catch(console.error);
       }
       // 首条消息会给会话命名（标题在 run 开始时落库）：终态时重读所属池的列表镜像，
       // 导航与会话列表的标题不再陈旧；只做终态刷新，运行中标题变化无即时展示需求。
@@ -223,7 +225,11 @@ export default function App() {
           onForward={() => void useNavigationStore.getState().goForward()}
           onMobileDrawerChange={setMobileDrawer}
           onNavigate={(next) => void useNavigationStore.getState().navigate(next)}
-          onZoomChange={(next) => void changeZoom(next)}
+          onZoomChange={(next) =>
+            void changeZoom(next).catch((cause) =>
+              showToast({ variant: 'error', title: '调整缩放失败', description: errorText(cause) }),
+            )
+          }
           view={view}
           zoom={zoom}
           projectId={projectId}

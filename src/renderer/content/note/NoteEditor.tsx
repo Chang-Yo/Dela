@@ -9,6 +9,8 @@ import { InputRule, inputRules } from '@milkdown/kit/prose/inputrules';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { $prose, replaceAll } from '@milkdown/kit/utils';
 import { isRelativeAssetPath, noteAssetUrl } from '../../../shared/note-files';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 import { useNoteSpellcheck } from './note-spellcheck';
 import './note-editor.css';
 
@@ -353,7 +355,12 @@ function createSession(
         }, COPY_FEEDBACK_MS);
       });
     })
-    .catch(() => {
+    .catch((cause) => {
+      showToast({
+        variant: 'error',
+        title: '笔记编辑器初始化失败',
+        description: errorText(cause),
+      });
       sessions.delete(key);
       session.root.remove();
     });

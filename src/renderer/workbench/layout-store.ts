@@ -29,6 +29,7 @@ import {
 } from './layout-schema';
 import type { EdgeZone } from './tab-dnd';
 import { relocateWorkspacePath } from '../../shared/workspace';
+import { errorText } from '../workspace/store';
 import { showToast } from '../app/toasts';
 
 const PERSIST_DEBOUNCE_MS = 800;
@@ -161,11 +162,14 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const token = ++initToken;
     set({ ready: false });
     let saved: WorkbenchLayout | null = null;
+    // 读取失败时保留磁盘上的已存布局：把默认布局写回会覆盖掉实际存在的保存。
+    let loadFailed = false;
     if (typeof window !== 'undefined' && window.dela?.layout) {
       try {
         saved = await window.dela.layout.get(projectId);
-      } catch {
-        saved = null;
+      } catch (cause) {
+        loadFailed = true;
+        showToast({ variant: 'error', title: '布局载入失败', description: errorText(cause) });
       }
     }
     if (token !== initToken) return;
@@ -176,8 +180,8 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     // 无论本次布局来自保存还是旧数据种子，落库成功后该项目的旧布局键都已成为死键。
     pendingLegacyScope = legacy?.scope ?? null;
     set({ projectId, root: next.root, focus: next.focus, maximized: next.maximized, ready: true });
-    // 种子（含旧数据迁移）写回一次；loaded 场景写回相同数据无副作用。
-    schedulePersist();
+    // 种子（含旧数据迁移）写回一次；loaded 场景写回相同数据无副作用；读取失败则不写回。
+    if (!loadFailed) schedulePersist();
   },
 
   openTab: (tabId, targetGroupId) => {
@@ -244,7 +248,10 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       tabId.startsWith('terminal:') &&
       !walkGroups(nextRoot).some((node) => node.tabs.includes(tabId))
     )
-      void window.dela?.terminal.closeProject(tabId.slice('terminal:'.length)).catch(console.error);
+      void window.dela?.terminal.closeProject(tabId.slice('terminal:'.length)).catch((cause) => {
+        console.error(cause);
+        showToast({ variant: 'error', title: '关闭终端失败', description: errorText(cause) });
+      });
     schedulePersist();
   },
 

@@ -7,6 +7,7 @@ import type { ChatCommandView } from '../../../../shared/api';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 import { cn } from '../../../lib/utils';
 
@@ -23,7 +24,6 @@ export function CommandsSection() {
   const [instruction, setInstruction] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [instructionBusy, setInstructionBusy] = useState(false);
-  const [instructionSaved, setInstructionSaved] = useState(false);
   const [instructionError, setInstructionError] = useState<string | null>(null);
 
   const refresh = () => {
@@ -51,14 +51,13 @@ export function CommandsSection() {
   const saveInstruction = async () => {
     if (!window.dela || instructionBusy || instruction === null) return;
     setInstructionBusy(true);
-    setInstructionError(null);
     try {
       const saved = await window.dela.settings.setInstruction(draft);
       setInstruction(saved);
       setDraft(saved);
-      setInstructionSaved(true);
+      showToast({ variant: 'success', title: '已保存' });
     } catch (cause) {
-      setInstructionError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setInstructionBusy(false);
     }
@@ -67,12 +66,11 @@ export function CommandsSection() {
   const remove = async (id: string) => {
     if (!window.dela) return;
     setBusy(true);
-    setError(null);
     try {
       await window.dela.chat.deleteCommand(id);
       refresh();
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '删除失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -97,18 +95,12 @@ export function CommandsSection() {
               maxLength={2000}
               onChange={(event) => {
                 setDraft(event.target.value);
-                setInstructionSaved(false);
               }}
               placeholder="例如：回答先给结论再给依据，尽量简洁；涉及日期时使用北京时间。"
               rows={4}
               value={draft}
             />
             <div className="flex items-center justify-end gap-2">
-              {instructionSaved ? (
-                <span className="text-[12px] text-ink-3" role="status">
-                  已保存
-                </span>
-              ) : null}
               <Button
                 disabled={instruction === null || instructionBusy || draft === instruction}
                 onClick={() => void saveInstruction()}

@@ -6,6 +6,8 @@ import { formatMailAddress, formatFullDate, formatSize } from './mail-format';
 import { MailHtmlBody } from './MailHtmlBody';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../lib/utils';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 
 type Props = {
   className?: string;
@@ -103,22 +105,24 @@ export function MailReader({
   setMobileReading,
 }: Props) {
   const [downloadingPart, setDownloadingPart] = useState<string | null>(null);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   useEffect(() => {
-    setAttachmentError(null);
     setDownloadingPart(null);
   }, [detail?.id]);
 
   const saveAttachment = async (attachment: MailAttachmentInfo) => {
     if (!detail || !attachment.part) return;
     setDownloadingPart(attachment.part);
-    setAttachmentError(null);
     try {
       const result = await downloadAttachment(detail.id, attachment.part);
-      if (!result.ok) setAttachmentError(result.error ?? '附件下载失败');
+      if (!result.ok)
+        showToast({
+          variant: 'error',
+          title: '保存附件失败',
+          description: result.error ?? '附件下载失败',
+        });
     } catch (reason) {
-      setAttachmentError(reason instanceof Error ? reason.message : String(reason));
+      showToast({ variant: 'error', title: '保存附件失败', description: errorText(reason) });
     } finally {
       setDownloadingPart(null);
     }
@@ -242,11 +246,6 @@ export function MailReader({
                 </div>
               )}
             </div>
-            {attachmentError && (
-              <p className="mt-2 text-[12px] text-red" role="alert">
-                {attachmentError}
-              </p>
-            )}
             {detailError && (
               <p className="mt-2 text-[12px] text-red" role="alert">
                 {detailError}

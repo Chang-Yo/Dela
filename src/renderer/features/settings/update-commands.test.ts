@@ -8,7 +8,7 @@ import { useWorkbenchLayout } from '../../workbench/layout-store';
 import { useRuns } from '../../sessions/runs';
 import { useToastStore } from '../../app/toasts';
 import { useUpdateState } from './update-state';
-import { runUpdateAction } from './update-commands';
+import { runUpdateAction, deferInstall } from './update-commands';
 import { chatImageToken } from '../../../shared/chat-input';
 
 const mocks = vi.hoisted(() => ({ flushNoteEditors: vi.fn() }));
@@ -158,4 +158,37 @@ it('保存未完成时重复点击只保存和安装一次', async () => {
   complete(true);
   expect(await first).toBe(true);
   expect(install).toHaveBeenCalledTimes(1);
+});
+
+it('更新动作 IPC 失败时提示且保留日志，不静默', async () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  install = vi.fn(async () => {
+    throw new Error('ipc down');
+  });
+  window.dela = { update: { install } } as unknown as DelaApi;
+  expect(await runUpdateAction('install')).toBe(false);
+  expect(errorSpy).toHaveBeenCalled();
+  expect(useToastStore.getState().toasts[0]).toMatchObject({
+    variant: 'error',
+    title: '更新操作失败',
+    description: 'ipc down',
+  });
+});
+
+it('推迟提醒失败时提示，不静默', async () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  window.dela = {
+    update: {
+      deferInstall: async () => {
+        throw new Error('ipc down');
+      },
+    },
+  } as unknown as DelaApi;
+  await deferInstall();
+  expect(errorSpy).toHaveBeenCalled();
+  expect(useToastStore.getState().toasts[0]).toMatchObject({
+    variant: 'error',
+    title: '设置提醒失败',
+    description: 'ipc down',
+  });
 });

@@ -22,6 +22,8 @@ import type { MailComposeFile, PreparedEmail } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { formatSize } from './mail-format';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 
 type Props = {
   draft?: PreparedEmail;
@@ -133,7 +135,6 @@ export function MailComposer({
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingDraft = useRef(false);
-  const [savedNotice, setSavedNotice] = useState(false);
   // 发送/保存期间尝试离开被闸门拒绝时给出可见反馈，避免"点了没反应"。
   const [leaveBlocked, setLeaveBlocked] = useState(false);
   const savedId = useRef(draft?.savedLocally ? draft.id : undefined);
@@ -224,10 +225,10 @@ export function MailComposer({
       const result = await dela.mail.saveDraft({ ...content, id: savedId.current });
       savedId.current = result.id;
       savedContent.current = JSON.stringify(content);
-      setSavedNotice(true);
+      showToast({ variant: 'success', title: '草稿已保存' });
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      showToast({ variant: 'error', title: '保存草稿失败', description: errorText(reason) });
       return false;
     } finally {
       savingDraft.current = false;
@@ -245,7 +246,7 @@ export function MailComposer({
       if (choice === 'cancel') return false;
       return choice === 'discard' || (await saveDraft());
     } catch (reason) {
-      setError(String(reason));
+      showToast({ variant: 'error', title: '保存草稿失败', description: errorText(reason) });
       return false;
     }
   };
@@ -383,7 +384,14 @@ export function MailComposer({
   const pickFiles = async (kind: 'attachment' | 'inline') => {
     const editor = editorRef.current;
     if (editor) saveSelection();
-    const picked = [...(await dela.mail.pickComposeFiles(kind))];
+    let picked: readonly MailComposeFile[];
+    try {
+      picked = await dela.mail.pickComposeFiles(kind);
+    } catch (reason) {
+      // 用户取消在主进程 resolve 空数组，不会走到这里；reject 均为真实失败。
+      showToast({ variant: 'error', title: '选择附件失败', description: errorText(reason) });
+      return;
+    }
     if (!picked.length) return;
     setFiles((current) => [...current, ...picked]);
     if (kind === 'inline' && editor) {
@@ -436,7 +444,11 @@ export function MailComposer({
           setBodyHasContent(true);
         })
         .catch((pasteError) => {
-          setError(pasteError instanceof Error ? pasteError.message : String(pasteError));
+          showToast({
+            variant: 'error',
+            title: '插入图片失败',
+            description: errorText(pasteError),
+          });
         });
     });
     reader.readAsDataURL(file);
@@ -532,7 +544,7 @@ export function MailComposer({
         inlineImageIds: files.filter((file) => file.kind === 'inline').map((file) => file.id),
       });
       if (!result.ok) {
-        setError(result.error);
+        showToast({ variant: 'error', title: '发送邮件失败', description: result.error });
         return;
       }
       if (savedId.current) {
@@ -545,7 +557,7 @@ export function MailComposer({
       }
       onSent(result.warning);
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : String(sendError));
+      showToast({ variant: 'error', title: '发送邮件失败', description: errorText(sendError) });
     } finally {
       setSending(false);
     }
@@ -562,11 +574,6 @@ export function MailComposer({
       onSubmit={submit}
     >
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-        {savedNotice && (
-          <span role="status" className="text-[12px] text-ink-3">
-            草稿已保存
-          </span>
-        )}
         {leaveBlocked && (
           <span role="status" className="text-[12px] text-ink-3">
             正在发送/保存邮件，完成后即可离开

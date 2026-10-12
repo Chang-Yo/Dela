@@ -14,6 +14,7 @@ import { useShortcuts } from '../../../app/shortcuts';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 
 const platform = /Mac|iPhone|iPad/.test(navigator.platform) ? ('mac' as const) : ('other' as const);
 
@@ -50,7 +51,14 @@ export function ShortcutsSection() {
       await useShortcuts.getState().setBinding(id, accelerator);
       setRecording(null);
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({
+        variant: 'error',
+        title:
+          shortcutActions.find((item) => item.id === id)?.defaultKeys === accelerator
+            ? '恢复默认失败'
+            : '保存快捷键失败',
+        description: errorText(cause),
+      });
     } finally {
       setBusy(false);
     }
@@ -101,7 +109,13 @@ export function ShortcutsSection() {
               void useShortcuts
                 .getState()
                 .resetAll()
-                .catch((cause) => setError(errorText(cause)))
+                .catch((cause) =>
+                  showToast({
+                    variant: 'error',
+                    title: '恢复默认失败',
+                    description: errorText(cause),
+                  }),
+                )
                 .finally(() => setBusy(false));
             }}
             size="sm"

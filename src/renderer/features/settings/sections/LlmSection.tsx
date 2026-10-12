@@ -26,6 +26,7 @@ import {
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 
 /** 详情区目标：新建草稿，或某个已保存提供商的 id。 */
@@ -284,16 +285,15 @@ export function LlmSection() {
 
   useEffect(refresh, []);
 
-  // 启用与删除共用同一套 busy/错误处理，成功后都刷新列表。
+  // 启用与删除共用同一套 busy 处理，成功后都刷新列表。
   const run = async (operation: () => Promise<void>) => {
     if (!window.dela) return;
     setBusy(true);
-    setError(null);
     try {
       await operation();
       refresh();
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '供应商操作失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -646,7 +646,7 @@ function ProviderDetail({
       }
       onSaved(saved);
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     }
   };
 

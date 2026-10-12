@@ -7,6 +7,7 @@ import { DateTimeStepper } from '../todo/DateTimeStepper';
 import { EventColorRow } from './EventColorRow';
 import { roundToMinute } from './timetable-format';
 import { sheetUp } from '../../components/ui/motion';
+import { errorText } from '../../workspace/store';
 import { cn } from '../../lib/utils';
 
 const HOUR_MS = 3_600_000;
@@ -56,7 +57,7 @@ export function NewEventDialog({
       });
       onCreated();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(errorText(reason));
     } finally {
       setSaving(false);
     }
