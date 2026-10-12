@@ -4,13 +4,13 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { checkWorkspaceSender } from './ipc';
-import { idSchema, projectLocation } from './workspace/api';
-import { remoteById } from './remotes/api';
-import { locateSsh, shellQuote } from './remotes/transport';
-import { COMMAND_BRIDGE } from './agent/commands';
-import { domainBridge } from './agent';
-import type { TerminalEvent, TerminalSession } from '../shared/terminal';
+import { checkWorkspaceSender } from '../ipc';
+import { idSchema, projectLocation } from '../workspace/api';
+import { remoteById } from '../remotes/api';
+import { locateSsh, shellQuote } from '../remotes/transport';
+import { COMMAND_BRIDGE } from '../agent/commands';
+import { domainBridge } from '../agent';
+import type { TerminalEvent, TerminalSession } from '../../shared/terminal';
 
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 

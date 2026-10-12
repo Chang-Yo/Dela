@@ -22,7 +22,7 @@ Dela 是仅面向 Windows 的本地优先桌面应用：Electron 主进程加 Re
 
 脚本要求 `.tools/node-v24.21.0-win-x64/node.exe` 与 `.tools/package-manager/node_modules/@pnpm/exe.win32-x64/pnpm.exe` 同时存在，缺任一个会直接抛错。新克隆的仓库不含 `.tools/`，需自行安装上述版本。
 
-Git for Windows 是运行前提，不是可选项。`src/main/terminal.ts` 的 `locateBash()` 只在 `%ProgramFiles%\Git\bin`、`%ProgramFiles(x86)%\Git\bin`、`%LOCALAPPDATA%\Programs\Git\bin` 三处探测 `bash.exe`，缺失时不回退 PowerShell 或 `PATH` 上的 bash（可能是 WSL），而是报错「未找到 Git Bash：请安装 Git for Windows（https://git-scm.com/download/win）后重试」。
+Git for Windows 是运行前提，不是可选项。`src/main/terminal/index.ts` 的 `locateBash()` 只在 `%ProgramFiles%\Git\bin`、`%ProgramFiles(x86)%\Git\bin`、`%LOCALAPPDATA%\Programs\Git\bin` 三处探测 `bash.exe`，缺失时不回退 PowerShell 或 `PATH` 上的 bash（可能是 WSL），而是报错「未找到 Git Bash：请安装 Git for Windows（https://git-scm.com/download/win）后重试」。
 
 Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go。改动 `helper/` 下的 Go 代码后执行 `pnpm build:helper --all` 重建 amd64 与 arm64 两个产物并一并提交，只重建 amd64 会让入库的 arm64 停在旧版。
 
@@ -52,7 +52,7 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 
 单仓库、单 `package.json`：
 
-- `src/main/` — 主进程，按业务域分目录（`mail/`、`canvas/`、`timetable/`、`workspace/`、`shuiyuan/`、`remotes/`、`agent/` 等），根级有数据库、凭据、终端等共用模块。
+- `src/main/` — 主进程，按业务域分目录（`mail/`、`canvas/`、`timetable/`、`workspace/`、`shuiyuan/`、`remotes/`、`vsjtu/`、`update/`、`settings/`、`todo/`、`terminal/`、`search/`、`notifications/`、`documents/`、`agent/`）；根级只留不属于任何业务域的模块（`index.ts`、`database.ts`、`credentials.ts`、`storage.ts`、`ipc.ts`、`resources.ts`、`modules.d.ts`）。
 - `src/preload/` — contextBridge，`index.ts` 聚合入口加分域文件，只暴露受控 API。
 - `src/renderer/` — React 界面：`app/`、`workbench/`、`content/`、`navigation/`、`sessions/`、`workspace/`、`features/`、`components/`。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数。

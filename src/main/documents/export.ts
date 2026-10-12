@@ -2,18 +2,14 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
-import { getDatabase } from './database';
-import { canvasFilePath, getSource } from './canvas/api';
-import { createWorkspaceEntry, workspaceFilePath } from './workspace/api';
-import {
-  availablePath,
-  readOfficeExportLink,
-  writeOfficeExportLink,
-  type OfficeExportLink,
-} from './storage';
-import { classifyOfficeFile } from './resource-parse';
-import { resourceRefSchema, type ResourceRef } from '../shared/resources';
-import type { OfficeExportProgress } from '../shared/api';
+import { getDatabase } from '../database';
+import { canvasFilePath, getSource } from '../canvas/api';
+import { createWorkspaceEntry, workspaceFilePath } from '../workspace/api';
+import { availablePath } from '../storage';
+import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
+import { classifyOfficeFile } from './parse';
+import { resourceRefSchema, type ResourceRef } from '../../shared/resources';
+import type { OfficeExportProgress } from '../../shared/api';
 
 // 我的资料下集中存放导出 PDF 的固定文件夹；id 记在 settings，重命名后仍能找回。
 const EXPORT_FOLDER_NAME = '预览导出';

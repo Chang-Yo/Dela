@@ -28,6 +28,7 @@ Dela 的重要变更都记在这里。
 
 - `web_fetch` 改为默认开启：它不依赖任何注册，只受自身安全边界约束。`web_search` 仍默认关闭，因为它要求用户自备搜索服务，未注册时调用只会报错；该默认只在从没写过停用名单时生效。
 - 商店包改用 Dela 自有图标：补齐 100/125/150/200/400 全档，宽图改透明底，`appx.backgroundColor` 由 electron-builder 默认的 `#464646` 改为图标自带的 `#0A0A0A`，开始磁贴与商店应用说明页不再出现不属于 Dela 的灰。清单 `MinVersion` 提升到 19041。
+- 主进程目录收敛：`todo`、`terminal`、`search`、`notifications` 收进同名目录，`office-export` 与 `resource-parse` 合并为 `documents/`，office 导出关联记录从 `storage.ts` 拆到 `documents/links.ts`。`src/main/` 顶层松散文件由 14 个降到 7 个，对外接口与行为不变。
 
 ### Fixed
 

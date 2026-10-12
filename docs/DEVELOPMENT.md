@@ -152,13 +152,13 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 
 单仓库、单 `package.json`，三个进程分别构建：
 
-- `src/main/` — 主进程，按业务域分目录（`mail/`、`canvas/`、`timetable/`、`workspace/`、`shuiyuan/`、`remotes/`、`vsjtu/`、`update/`、`settings/` 等，每域 `api.ts` + `ipc.ts`）。`agent/` 为 Agent 基座：`pi.ts`（Pi SDK 接线与模型注册）、`session.ts`（会话索引、事件投影与 ask）、`environment.ts`（追加提示、dela 桥、skills、MCP 与联网工具）、`commands.ts` + `domain/`（dela 命令）、`index.ts`（`capabilities:*` 与 `chat:*` 通道注册）、`providers.ts`、`skills.ts`、`mcp.ts`、`tools.ts`（内置能力开关）、`media.ts`、`chat-commands.ts`、`web-fetch.ts`、`web-search.ts`、`tools/`（自写工具）。根级有数据库、凭据、终端、搜索、通知等共用模块。
+- `src/main/` — 主进程，按业务域分目录（`mail/`、`canvas/`、`timetable/`、`workspace/`、`shuiyuan/`、`remotes/`、`vsjtu/`、`update/`、`settings/`、`todo/`、`terminal/`、`search/`、`notifications/`、`documents/`），每域一个入口：`canvas/`、`mail/`、`remotes/`、`shuiyuan/`、`timetable/`、`workspace/`、`vsjtu/` 的入口叫 `api.ts`，`settings/`、`agent/`、`update/`、`todo/`、`terminal/`、`search/`、`notifications/` 叫 `index.ts`；`ipc.ts` 只在其中 8 个域与入口并列存在（上面七个 `api.ts` 域再加 `settings/`），其余域的 `register*Ipc()` 写在入口内部；`documents/` 无入口与 IPC，由其他域直接 import。`agent/` 为 Agent 基座：`pi.ts`（Pi SDK 接线与模型注册）、`session.ts`（会话索引、事件投影与 ask）、`environment.ts`（追加提示、dela 桥、skills、MCP 与联网工具）、`commands.ts` + `domain/`（dela 命令）、`index.ts`（`capabilities:*` 与 `chat:*` 通道注册）、`providers.ts`、`skills.ts`、`mcp.ts`、`tools.ts`（内置能力开关）、`media.ts`、`chat-commands.ts`、`web-fetch.ts`、`web-search.ts`（自写工具）。根级只留不属于任何业务域的模块：入口 `index.ts`、`database.ts`、`credentials.ts`、`storage.ts`（路径与文件名）、`ipc.ts`（调用来源校验与右键菜单）、`resources.ts`（跨域资源解析）与 `modules.d.ts`。
 - `src/preload/` — contextBridge：`index.ts` 聚合入口 + 分域文件，只暴露受控 API。
 - `src/renderer/` — React 界面：`app/`（装配与视图路由）、`workbench/`（标签工作台与布局树）、`content/`（chat / note / preview / review / terminal 标签内容）、`navigation/`、`sessions/`、`workspace/`（镜像与草稿）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings / classroom 整页视图）、`lib/`、`styles/`；共享组件在 `components/ui/`，样式用 Tailwind v4 + 语义 token。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数（`api.ts` 聚合 re-export）。
 - `native/` — 原生模块（目前只有 `store-update/`），用 `pnpm build:native` 单独构建，与上面三个进程的构建互不影响。
 - `helper/` — 远端工具服务的 Go 模块，只依赖标准库。
-- 测试放在各级 `test/` 子目录，`scripts/` 存放开发服务器与冒烟脚本。
+- 测试与被测代码同层，但摆法按层不同：`src/main/` 多数域用 `test/` 子目录（`update/`、`vsjtu/` 直接贴在源码旁），`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 三个配置都写死 `envDir: false`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。打包白名单（`electron-builder.yml` 的 `files`）只含 `out/**/*`、`package.json` 与 `assets/` 下的两张品牌图——文档、个人凭据与 `.tools/` 都不进安装包。
 

@@ -21,7 +21,7 @@ import {
 } from './api';
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
-import { exportOfficePdf } from '../office-export';
+import { exportOfficePdf } from '../documents/export';
 import {
   remoteById,
   remoteFileIndex,

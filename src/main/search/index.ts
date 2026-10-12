@@ -1,10 +1,10 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
-import { GLOBAL_SEARCH_PER_KIND_LIMIT, type GlobalSearchResult } from '../shared/search';
-import { getTodoState } from './todo';
-import { todoStatusLabels } from '../shared/todo';
-import { getDatabase } from './database';
-import { checkWorkspaceSender } from './ipc';
+import { GLOBAL_SEARCH_PER_KIND_LIMIT, type GlobalSearchResult } from '../../shared/search';
+import { getTodoState } from '../todo';
+import { todoStatusLabels } from '../../shared/todo';
+import { getDatabase } from '../database';
+import { checkWorkspaceSender } from '../ipc';
 
 const querySchema = z.string().trim().max(200);
 const perKindLimit = GLOBAL_SEARCH_PER_KIND_LIMIT;

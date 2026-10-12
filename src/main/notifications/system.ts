@@ -1,6 +1,6 @@
 import { BrowserWindow, Notification } from 'electron';
-import type { NotificationItem } from '../shared/api';
-import { getDatabase } from './database';
+import type { NotificationItem } from '../../shared/api';
+import { getDatabase } from '../database';
 
 // 系统桌面通知：仅提示标题，点击唤起主窗口并跳转对应界面。
 // 弹出条件：会话已过启动基线（armSystemNotifications）、未处暂停通知、校园提醒未关闭、
@@ -8,7 +8,7 @@ import { getDatabase } from './database';
 
 let armed = false;
 
-// workspace_settings 中暂停通知的键；notifications.ts 的读写与此处共用，避免裸字符串散落两模块。
+// workspace_settings 中暂停通知的键；notifications/index.ts 的读写与此处共用，避免裸字符串散落两模块。
 export const NOTIFICATIONS_SNOOZE_KEY = 'notifications-snoozed-until';
 // workspace_settings 中校园消息系统提醒的开关键；settings/ipc.ts 的读写共用。
 // '0' 关闭（只停桌面弹窗，应用内通知列表不受影响），缺省视为开启。

@@ -1,14 +1,14 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { getDatabase } from './database';
-import { loadCanvasToken } from './credentials';
-import { checkWorkspaceSender } from './ipc';
-import { listTodoCanvasAssignments, listTodoCanvasCourses } from './canvas/api';
-import { canvasTodoStatus } from '../shared/todo';
-import { calendarEventColors } from '../shared/api';
-import type { NotificationItem, TodoItem, TodoState } from '../shared/api';
-import { systemNotifyItem } from './system-notify';
+import { getDatabase } from '../database';
+import { loadCanvasToken } from '../credentials';
+import { checkWorkspaceSender } from '../ipc';
+import { listTodoCanvasAssignments, listTodoCanvasCourses } from '../canvas/api';
+import { canvasTodoStatus } from '../../shared/todo';
+import { calendarEventColors } from '../../shared/api';
+import type { NotificationItem, TodoItem, TodoState } from '../../shared/api';
+import { systemNotifyItem } from '../notifications/system';
 
 const idSchema = z.string().min(1).max(512);
 export const todoSaveSchema = z

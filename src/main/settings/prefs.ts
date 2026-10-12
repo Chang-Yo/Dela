@@ -77,7 +77,7 @@ export function savedOpenAtLogin(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// 校园消息系统提醒（键由 system-notify 的弹出守卫读取；默认开启维持既有行为）。
+// 校园消息系统提醒（键由 notifications/system.ts 的弹出守卫读取；默认开启维持既有行为）。
 // ---------------------------------------------------------------------------
 
 export const campusNotificationsSchema = z

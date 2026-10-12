@@ -31,13 +31,9 @@ import { locate } from '../remotes/transport';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
 import { toolError } from '../../shared/tool-errors';
-import {
-  availablePath,
-  officeExportPreviewInfo,
-  readOfficeExportLink,
-  storageDirectory as directory,
-} from '../storage';
-import { officeZipMime } from '../resource-parse';
+import { availablePath, storageDirectory as directory } from '../storage';
+import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
+import { officeZipMime } from '../documents/parse';
 import { workspaceArchiveId } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../../shared/workspace';

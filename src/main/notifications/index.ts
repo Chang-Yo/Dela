@@ -6,19 +6,19 @@ import type {
   NotificationSource,
   NotificationState,
   ShuiyuanNotificationItem,
-} from '../shared/api';
-import { getTodoState, markTodoRead, todoNotifications } from './todo';
-import { getDatabase } from './database';
-import { loadShuiyuanCredential, type ShuiyuanCredential } from './credentials';
-import { checkWorkspaceSender } from './ipc';
-import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from './mail/api';
-import { listShuiyuanNotifications } from './shuiyuan/api';
+} from '../../shared/api';
+import { getTodoState, markTodoRead, todoNotifications } from '../todo';
+import { getDatabase } from '../database';
+import { loadShuiyuanCredential, type ShuiyuanCredential } from '../credentials';
+import { checkWorkspaceSender } from '../ipc';
+import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from '../mail/api';
+import { listShuiyuanNotifications } from '../shuiyuan/api';
 import {
   armSystemNotifications,
   isWorkspaceWindow,
   systemNotifyItem,
   NOTIFICATIONS_SNOOZE_KEY,
-} from './system-notify';
+} from './system';
 
 const filterSchema = z.union([
   z.literal('all'),
@@ -245,7 +245,7 @@ function refreshMail(recordSuccess = true): void {
     const createdAt = message.date || new Date().toISOString();
     const href: NotificationItem['href'] = { kind: 'mail', messageId: message.id };
     upsert('mail', key, id, title, body, createdAt, href);
-    // 注册后到达的未读首次入库才弹系统通知；启动基线等其余守卫由 system-notify 判断。
+    // 注册后到达的未读首次入库才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
     // date 缺失时无法证明晚于注册时刻，保守起见不弹（通知列表仍可见）。
     if (!existing.has(id) && (message.date ?? '') > account.created_at)
       systemNotifyItem({ id, source: 'mail', title, body, createdAt, readAt: null, href });
@@ -285,7 +285,7 @@ async function refreshShuiyuan(): Promise<void> {
         postNumber: item.postNumber,
       };
       upsert('shuiyuan', key, id, title, item.displayUsername ?? '', createdAt, href);
-      // 绑定后发生的互动首次入库才弹系统通知；启动基线等其余守卫由 system-notify 判断。
+      // 绑定后发生的互动首次入库才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
       if (!existing.has(id) && item.createdAt > credential.boundAt)
         systemNotifyItem({
           id,
@@ -336,7 +336,7 @@ export function refreshNotifications(): Promise<NotificationState> {
   return activeRefresh;
 }
 
-// 只更新当前账号名下的通知行；id 为 null 时更新全部，与 todo.ts 的 markTodoRead 同一模式。
+// 只更新当前账号名下的通知行；id 为 null 时更新全部，与 todo/index.ts 的 markTodoRead 同一模式。
 function markNotificationRowsRead(id: string | null): void {
   const accounts = currentAccounts();
   const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
