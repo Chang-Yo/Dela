@@ -4,7 +4,7 @@
   "private": true,
   "description": "A local-first campus project workspace",
   "author": "Dela contributors",
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "main": "out/main/index.cjs",
   "packageManager": "pnpm@12.3.4",
