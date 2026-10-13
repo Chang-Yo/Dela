@@ -44,7 +44,7 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 | `pnpm build:helper`                                                      | 重建 `helper/` 的 Go 静态二进制                               |
 | `pnpm package:dir` / `pnpm package:dist`                                 | 生成未安装的可执行目录 / Windows 安装包                       |
 
-`pnpm package:dir` 与 `pnpm package:dist` 都会先跑 `pnpm build`，不再依赖商店更新的 C++/WinRT 构建工具链。
+`pnpm package:dir` 与 `pnpm package:dist` 都会先执行 `node scripts/prepare-runtime.mjs` 准备随包 MinGit 运行时，再跑 `pnpm build`。
 
 ## 代码组织
 
@@ -73,7 +73,7 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 仓库实际使用 Conventional Commits 形态，scope 取受影响的模块或业务域：
 
 ```
-feat(update): add Microsoft Store updates with workspace saving
+feat(update): migrate to NSIS updates with electron-updater
 fix(chat): 随聊 @ 候选不再列出其他项目的文件
 docs(release): 记录 NSIS 更新发布与验收流程
 build(release): 发布 NSIS 安装包和更新元数据

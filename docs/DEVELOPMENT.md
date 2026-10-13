@@ -14,7 +14,7 @@
 本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 `dela` 命令，工作台 GUI 是壳。
 
 - 单用户、单应用、单 package，仅 Windows（跨平台明确放弃）。
-- 仅通过 NSIS（`.exe`）分发 Windows x64 应用，不再构建或提交 Microsoft Store 包。应用内更新使用 electron-updater，从自有 CDN 获取正式 Release。
+- 仅通过 NSIS（`.exe`）分发 Windows x64 应用。应用内更新使用 electron-updater，从自有 CDN 获取正式 Release。
 - 无服务端，无账号系统。模型服务与检索 API 都由用户自己配置。
 - **固定约束**：交大 jAccount 开放平台的 `client_id` 已停止申请，不存在取得途径。凡是需要官方 jAccount 授权的方案都不可行；现有能力走 Canvas Personal Token、邮箱 IMAP/SMTP、致远一号 API 与个人会话型接口。
 
@@ -126,7 +126,7 @@ preload 暴露的 API：
 - `autoDownload=false`、`autoInstallOnAppQuit=false`：用户手动下载，下载完成后选择“现在安装”或“下次启动时提醒”。安装前保存笔记、聊天文字草稿、邮件草稿和工作台布局；运行中 Agent、未发送附件或保存失败会阻止安装。安装调用 `quitAndInstall(true, true)`，退出应用并在安装完成后重新启动；终端进程无法恢复。
 - 推迟标记仍为 workspace_settings 的 `pending-install`。下次启动 5 秒后检查并复用下载缓存，准备到 ready 后再次提示，绝不自动安装。安装器启动失败提供手动下载安装包入口。
 - 尚未配置 Authenticode 签名。SHA-512 只验证文件与元数据一致，不能替代发布者签名。下载源固定为 HTTPS，不随意关闭签名验证；未来启用签名时需保持发布者身份连续。
-- 旧 NSIS 版本没有此更新客户端，需手动覆盖安装一次新版本；现有 appId `io.dela.desktop` 保持不变。商店包不能通过 NSIS 直接原位更新，若有这类安装需单独验证数据迁移。
+- 旧 NSIS 版本没有此更新客户端，需手动覆盖安装一次新版本；现有 appId `io.dela.desktop` 保持不变。
 - **已验证（2026-10-13，本机）**：生产构建、lint、更新相关 102 个测试、Electron 与打包后启动冒烟；NSIS 1.0.1 的安装包、blockmap、latest.yml 与包内 app-update.yml 已生成。打包只包含 main / preload / renderer 三个入口产物，避免收进迁移前遗留的 out/native。
 - **待验证**：线上 CDN latest.yml、Range / 差分流量、两版真实安装后的覆盖升级、UAC 与重启。本次按产品决定推迟线上 Range 验证；不能把单元测试或打包启动视为端到端升级通过。
 

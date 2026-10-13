@@ -79,8 +79,6 @@ pnpm dev
 
 环境搭建细节、冒烟测试与代码组织约定见 [开发文档](docs/DEVELOPMENT.md)；版本与发布流程同样在其中。
 
-> 安装包不再构建商店专用原生模块；现有 SQLite、终端等依赖继续使用预编译产物。
-
 ## 文档
 
 | 文档                              | 内容                               | 读者           |
@@ -116,18 +114,6 @@ pnpm dev
     </td>
     <td valign="middle">
       <a href="https://www.frameneo.com/">Website</a>
-    </td>
-  </tr>
-  <tr>
-    <td width="90" align="center" valign="middle">
-      <img src="assets/sponsors/MAD-Producer.png" width="48" alt="MAD Producer logo">
-    </td>
-    <td valign="middle">
-      <a href="https://www.madproducer.cn/"><strong>MAD Producer</strong></a><br>
-      为 Dela 的微软商店发布尝试提供产品名授权与代理托管支持
-    </td>
-    <td valign="middle">
-      <a href="https://www.madproducer.cn/">Website</a>
     </td>
   </tr>
 </table>
