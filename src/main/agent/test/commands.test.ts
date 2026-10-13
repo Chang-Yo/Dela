@@ -7,7 +7,10 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('electron', () => ({ ipcMain: {}, app: { getPath: () => tmpdir() } }));
+vi.mock('electron', () => ({
+  ipcMain: {},
+  app: { getPath: () => tmpdir(), isPackaged: false, getAppPath: () => tmpdir() },
+}));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 import { COMMAND_BRIDGE } from '../commands';
 import { locateBash } from '../../terminal';

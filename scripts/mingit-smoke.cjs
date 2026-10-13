@@ -13,6 +13,8 @@ const sandbox = mkdtempSync(join(tmpdir(), 'dela-mingit-smoke-'));
 process.env.ProgramFiles = sandbox;
 process.env['ProgramFiles(x86)'] = sandbox;
 process.env.LOCALAPPDATA = sandbox;
+// 随包候选一并指进沙箱：本地打过包后 .build/mingit 存在，不隔离会跳过安装分支。
+process.env.DELA_DEV_MINGIT = join(sandbox, 'bundled');
 app.setPath('userData', join(sandbox, 'userdata'));
 app.setPath('documents', join(sandbox, 'userdata'));
 

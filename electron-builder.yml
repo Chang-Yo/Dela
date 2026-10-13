@@ -34,6 +34,13 @@ extraResources:
     to: dela-helper
     filter:
       - 'dela-helper-*'
+  # 随包 MinGit 运行时：scripts/prepare-runtime.mjs 在打包前下载并校验（主进程按 resources/mingit 探测），
+  # 让没装 Git for Windows 的机器开箱即用
+  - from: .build/mingit
+    to: mingit
+  # 随包搜索工具：内核 grep/find spawn 的 rg 与 fd（主进程启动时把 resources/bin 前插 PATH）
+  - from: vendor/bin
+    to: bin
 npmRebuild: false
 # Windows-only，NSIS 安装包与 electron-updater 更新元数据。
 publish:

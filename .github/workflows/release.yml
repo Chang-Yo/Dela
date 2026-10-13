@@ -132,6 +132,8 @@ jobs:
           pnpm test
       - name: Smoke test Electron
         run: pnpm smoke
+      - name: Prepare bundled runtime
+        run: node scripts/prepare-runtime.mjs
       - name: Build installer
         run: pnpm exec electron-builder --win --x64 --publish never
       - name: Verify update artifacts

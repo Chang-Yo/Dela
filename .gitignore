@@ -3,6 +3,7 @@ node_modules/
 .tools/
 out/
 dist/
+.build/
 coverage/
 # 保留对迁移前本地原生构建产物的忽略。
 native/*/build/

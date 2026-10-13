@@ -29,13 +29,14 @@
     "test:remote": "vitest run --config vitest.remote.config.ts",
     "check": "pnpm format:check && pnpm lint && pnpm build && pnpm test",
     "postinstall": "install-electron",
-    "package:dir": "pnpm build && electron-builder --dir --publish never",
-    "package:dist": "pnpm build && electron-builder --publish never",
+    "package:dir": "node scripts/prepare-runtime.mjs && pnpm build && electron-builder --dir --publish never",
+    "package:dist": "node scripts/prepare-runtime.mjs && pnpm build && electron-builder --publish never",
     "smoke": "electron . --smoke-test",
     "smoke:workspace": "node scripts/workspace-smoke.mjs",
     "smoke:pdf": "electron scripts/pdf-smoke.cjs",
     "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs",
-    "smoke:remote": "node scripts/remote-smoke.mjs"
+    "smoke:remote": "node scripts/remote-smoke.mjs",
+    "prepare:runtime": "node scripts/prepare-runtime.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",

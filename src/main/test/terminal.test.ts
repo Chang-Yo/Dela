@@ -21,6 +21,9 @@ vi.mock('electron', () => ({
   app: {
     on: (name: string, fn: () => void) => mocks.app.set(name, fn),
     getPath: () => state.root,
+    // 开发模式：随包 MinGit 与搜索工具分别探到 .build/mingit 与 vendor/bin（均相对 app 根）。
+    isPackaged: false,
+    getAppPath: () => state.root,
   },
 }));
 vi.mock('node-pty', () => ({ spawn: mocks.spawn }));
@@ -186,12 +189,22 @@ describe('Git Bash 运行时', () => {
     process.env.LOCALAPPDATA = state.root;
   });
 
-  it('locateBash：系统安装优先，缺失时回退 MinGit，都缺失时给出安装指引', () => {
-    const bash = join(mingitRoot(), 'usr', 'bin', 'bash.exe');
+  it('locateBash：系统安装优先，其次随包 MinGit，最后自装副本；都缺失时给出安装指引', () => {
+    const bundled = join(state.root, '.build', 'mingit', 'usr', 'bin', 'bash.exe');
+    const local = join(mingitRoot(), 'usr', 'bin', 'bash.exe');
+    const system = join(state.root, 'Git', 'bin', 'bash.exe');
     expect(() => locateBash()).toThrow('一键安装');
     mkdirSync(join(mingitRoot(), 'usr', 'bin'), { recursive: true });
-    writeFileSync(bash, '');
-    expect(locateBash()).toBe(bash);
+    writeFileSync(local, '');
+    expect(locateBash()).toBe(local);
+    mkdirSync(join(bundled, '..'), { recursive: true });
+    writeFileSync(bundled, '');
+    expect(locateBash()).toBe(bundled);
+    mkdirSync(join(system, '..'), { recursive: true });
+    writeFileSync(system, '');
+    expect(locateBash()).toBe(system);
+    rmSync(join(system, '..', '..'), { recursive: true, force: true });
+    rmSync(join(bundled, '..', '..', '..'), { recursive: true, force: true });
     rmSync(mingitRoot(), { recursive: true, force: true });
   });
 

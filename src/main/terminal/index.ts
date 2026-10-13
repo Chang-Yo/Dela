@@ -10,7 +10,7 @@ import { remoteById } from '../remotes/api';
 import { locateSsh, shellQuote } from '../remotes/transport';
 import { COMMAND_BRIDGE } from '../agent/commands';
 import { domainBridge } from '../agent';
-import { MINGIT_BYTES, installMinGit, mingitBash } from './mingit';
+import { MINGIT_BYTES, bundledBash, installMinGit, mingitBash } from './mingit';
 import type {
   BashInstallSnapshot,
   BashStatus,
@@ -29,11 +29,12 @@ function systemBash(): string | null {
   return candidates.find((path) => existsSync(path)) ?? null;
 }
 
-/** 定位 Git Bash：先系统安装（Git for Windows），再应用装的 MinGit 运行时；
+/** 定位 Git Bash：先系统安装（Git for Windows），再随包 MinGit，再应用自装的 MinGit 运行时；
  *  都缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
 export function locateBash(): string {
   return (
     systemBash() ??
+    bundledBash() ??
     mingitBash() ??
     (() => {
       throw new Error(
@@ -49,7 +50,10 @@ const installState: BashInstallSnapshot = { phase: 'idle', received: 0, total: 0
 let installController: AbortController | null = null;
 
 function bashStatus(): BashStatus {
-  return { found: (systemBash() ?? mingitBash()) !== null, install: { ...installState } };
+  return {
+    found: (systemBash() ?? bundledBash() ?? mingitBash()) !== null,
+    install: { ...installState },
+  };
 }
 
 async function runInstall(owner: WebContents): Promise<BashStatus> {
