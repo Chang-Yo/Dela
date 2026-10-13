@@ -14,6 +14,8 @@ Dela 的重要变更都记在这里。
 
 ## Unreleased
 
+## 1.0.1 - 2026-10-13
+
 ### Added
 
 - 系统没装 Git for Windows 时，终端页提供一键安装：下载固定版本的官方 MinGit 运行时（npmmirror 镜像直连，GitHub 兜底，SHA256 校验后由系统自带 tar 解压进用户目录，全程无需管理员权限），装完自动建终端，Agent 的 bash 内 git 同步可用；系统已装 Git for Windows 的行为不变。
