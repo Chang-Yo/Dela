@@ -1,46 +1,57 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { UpdateSnapshot } from '../../shared/update';
-import type { NativeCheckResult, NativeOperationResult } from './native';
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, () => Promise<UpdateSnapshot>>(),
-  check: vi.fn(),
-  download: vi.fn(),
-  install: vi.fn(),
+  listeners: new Map<string, (value: unknown) => void>(),
+  checkForUpdates: vi.fn(),
+  downloadUpdate: vi.fn(),
+  quitAndInstall: vi.fn(),
   setPendingInstall: vi.fn(),
+  isPackaged: true,
+  openExternal: vi.fn(),
 }));
-
 vi.mock('electron', () => ({
-  app: { isPackaged: true, getVersion: () => '1.0.0' },
+  app: {
+    get isPackaged() {
+      return mocks.isPackaged;
+    },
+    getVersion: () => '1.0.0',
+  },
   BrowserWindow: {
-    getAllWindows: () => [
-      {
-        isDestroyed: () => false,
-        getNativeWindowHandle: () => Buffer.alloc(8),
-        webContents: { send: vi.fn() },
-      },
-    ],
+    getAllWindows: () => [{ isDestroyed: () => false, webContents: { send: vi.fn() } }],
   },
   ipcMain: {
     handle: (name: string, handler: () => Promise<UpdateSnapshot>) =>
       mocks.handlers.set(name, handler),
   },
-  shell: { openExternal: vi.fn() },
+  shell: { openExternal: mocks.openExternal },
+}));
+vi.mock('electron-updater', () => ({
+  autoUpdater: {
+    checkForUpdates: mocks.checkForUpdates,
+    downloadUpdate: mocks.downloadUpdate,
+    quitAndInstall: mocks.quitAndInstall,
+    on: (name: string, listener: (value: unknown) => void) => mocks.listeners.set(name, listener),
+    autoDownload: true,
+    autoInstallOnAppQuit: true,
+    allowPrerelease: true,
+    allowDowngrade: true,
+    set channel(_value: string) {
+      this.allowDowngrade = true;
+    },
+  },
 }));
 vi.mock('../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
 vi.mock('../settings/prefs', () => ({
   savedPendingInstall: () => false,
   setPendingInstall: mocks.setPendingInstall,
 }));
-vi.mock('./native', () => ({ loadStoreUpdate: () => mocks }));
 
-function invoke(action: string) {
-  return mocks.handlers.get(`update:${action}`)!();
-}
-
-function pending<T>() {
-  let resolve!: (result: T) => void;
-  const promise = new Promise<T>((done) => {
+const invoke = (action: string) => mocks.handlers.get(`update:${action}`)!();
+function pending() {
+  let resolve!: (result: unknown) => void;
+  const promise = new Promise((done) => {
     resolve = done;
   });
   return { promise, resolve };
@@ -49,72 +60,123 @@ function pending<T>() {
 beforeEach(async () => {
   vi.resetModules();
   vi.resetAllMocks();
-  vi.stubGlobal('process', { ...process, windowsStore: true });
+  mocks.isPackaged = true;
   mocks.handlers.clear();
-  mocks.check.mockResolvedValue({
-    ok: true,
-    updates: [{ version: '1.0.1.0', mandatory: false, familyName: 'MADFilm.Dela_abc' }],
+  mocks.listeners.clear();
+  mocks.checkForUpdates.mockResolvedValue({
+    isUpdateAvailable: true,
+    updateInfo: { version: '1.0.1' },
   });
-  mocks.download.mockResolvedValue({ ok: true });
-  mocks.install.mockResolvedValue({ ok: true });
+  mocks.downloadUpdate.mockResolvedValue(['installer.exe']);
   const { registerUpdateIpc } = await import('./index');
   registerUpdateIpc();
-  await invoke('get-state');
-  vi.unstubAllGlobals();
 });
 
-it.each(['check', 'download', 'install'])(
-  '%s 进行中重复请求不调用原生模块，也不覆盖原结果',
-  async (action) => {
-    if (action !== 'check') await invoke('check');
-    if (action === 'install') await invoke('download');
-    const operation = pending<NativeCheckResult | NativeOperationResult>();
-    const method = mocks[action as 'check' | 'download' | 'install'];
-    method.mockReturnValueOnce(operation.promise);
-    const first = invoke(action);
-    const duplicate = await invoke(action);
-    expect(duplicate.phase).toBe(
-      { check: 'checking', download: 'downloading', install: 'installing' }[action],
-    );
-    expect(method).toHaveBeenCalledTimes(1);
-    operation.resolve(action === 'check' ? { ok: true, updates: [] } : { ok: true });
-    expect((await first).phase).toBe(
-      { check: 'up-to-date', download: 'ready', install: 'installed' }[action],
-    );
-  },
-);
+it('只检查正式版，关闭自动下载、退出安装和降级', async () => {
+  const state = await invoke('check');
+  expect(state.phase).toBe('available');
+  expect(state.version).toBe('1.0.1');
+  const { autoUpdater } = await import('electron-updater');
+  expect(autoUpdater.autoDownload).toBe(false);
+  expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
+  expect(autoUpdater.allowPrerelease).toBe(false);
+  expect(autoUpdater.allowDowngrade).toBe(false);
+  expect(mocks.downloadUpdate).not.toHaveBeenCalled();
+  expect(mocks.quitAndInstall).not.toHaveBeenCalled();
+});
 
-it.each(['download', 'install'])('%s 失败后直接重试能完成', async (action) => {
+it.each(['check', 'download'])('%s 进行中重复请求不重入', async (action) => {
+  if (action === 'download') await invoke('check');
+  const operation = pending();
+  const method = action === 'check' ? mocks.checkForUpdates : mocks.downloadUpdate;
+  method.mockReturnValueOnce(operation.promise);
+  const first = invoke(action);
+  expect((await invoke(action)).phase).toBe(action === 'check' ? 'checking' : 'downloading');
+  expect(method).toHaveBeenCalledTimes(1);
+  operation.resolve(
+    action === 'check'
+      ? { isUpdateAvailable: false, updateInfo: { version: '1.0.0' } }
+      : ['installer.exe'],
+  );
+  expect((await first).phase).toBe(action === 'check' ? 'up-to-date' : 'ready');
+});
+
+it('下载进度、失败重试与缓存命中均由同一状态流程处理', async () => {
   await invoke('check');
-  if (action === 'install') await invoke('download');
-  const method = mocks[action as 'download' | 'install'];
-  method.mockResolvedValueOnce({ ok: false, code: 0, state: 'Canceled', message: 'cancelled' });
-  const failed = await invoke(action);
-  expect(failed.phase).toBe('error');
-  expect(failed.failedAt).toBe(action);
-  const wrongAction = action === 'download' ? 'install' : 'download';
-  expect(await invoke(wrongAction)).toEqual(failed);
-  expect((await invoke(action)).phase).toBe(action === 'download' ? 'ready' : 'installed');
-  expect(method).toHaveBeenCalledTimes(2);
+  const operation = pending();
+  mocks.downloadUpdate.mockReturnValueOnce(operation.promise);
+  const downloading = invoke('download');
+  mocks.listeners.get('download-progress')!({ percent: 42 });
+  expect((await invoke('get-state')).progress).toBe(0.42);
+  operation.resolve(['cached-installer.exe']);
+  expect((await downloading).phase).toBe('ready');
+  expect(mocks.quitAndInstall).not.toHaveBeenCalled();
 });
 
-it('推迟只在下载完成后落盘，手动安装前清除标记', async () => {
+it('更新文件校验失败不会进入待安装，允许重新下载', async () => {
+  await invoke('check');
+  mocks.downloadUpdate.mockRejectedValueOnce(
+    Object.assign(new Error('checksum mismatch'), { code: 'ERR_CHECKSUM_MISMATCH' }),
+  );
+  const failed = await invoke('download');
+  expect(failed).toMatchObject({ phase: 'error', failedAt: 'download', reason: 'invalid-update' });
+  expect(await invoke('install')).toEqual(failed);
+  expect((await invoke('download')).phase).toBe('ready');
+  expect(mocks.quitAndInstall).not.toHaveBeenCalled();
+});
+
+it('缺少 latest.yml 是检查失败，不能报已是最新，且可重试', async () => {
+  mocks.checkForUpdates.mockRejectedValueOnce(
+    Object.assign(new Error('404'), { code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND' }),
+  );
+  expect(await invoke('check')).toMatchObject({
+    phase: 'error',
+    reason: 'feed-unavailable',
+    failedAt: 'check',
+  });
+  expect((await invoke('check')).phase).toBe('available');
+});
+
+it('开发运行不联网检查', async () => {
+  mocks.isPackaged = false;
+  expect((await invoke('check')).phase).toBe('unsupported');
+  expect(mocks.checkForUpdates).not.toHaveBeenCalled();
+});
+
+it('推迟只在 ready 落盘，安装先清标记且只启动一次，不提前宣称成功', async () => {
   await invoke('defer-install');
   expect(mocks.setPendingInstall).not.toHaveBeenCalled();
   await invoke('check');
   await invoke('download');
   await invoke('defer-install');
   expect(mocks.setPendingInstall).toHaveBeenCalledWith(true);
-  await invoke('install');
+  expect((await invoke('install')).phase).toBe('installing');
   expect(mocks.setPendingInstall).toHaveBeenLastCalledWith(false);
+  await invoke('install');
+  expect(mocks.quitAndInstall).toHaveBeenCalledExactlyOnceWith(true, true);
 });
 
-it('清除待装标记失败时不安装，状态可重试', async () => {
+it('安装器异步启动失败会解除安装中状态', async () => {
+  await invoke('check');
+  await invoke('download');
+  await invoke('install');
+  mocks.listeners.get('error')!(new Error('installer spawn failed'));
+  expect(await invoke('get-state')).toMatchObject({ phase: 'error', failedAt: 'install' });
+});
+
+it('清除待装标记失败时不启动安装器', async () => {
   await invoke('check');
   await invoke('download');
   mocks.setPendingInstall.mockImplementationOnce(() => {
     throw new Error('database failure');
   });
   expect((await invoke('install')).phase).toBe('error');
-  expect(mocks.install).not.toHaveBeenCalled();
+  expect(mocks.quitAndInstall).not.toHaveBeenCalled();
+});
+
+it('手动下载兜底指向 CDN 分享页', async () => {
+  await invoke('open-download-page');
+  expect(mocks.openExternal).toHaveBeenCalledWith(
+    'https://openlist.frameneo.com/@s/Dela_latest_release',
+  );
 });

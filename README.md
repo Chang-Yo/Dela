@@ -56,9 +56,9 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ## 下载安装
 
-Dela 已经成功上架微软应用商店，直接搜索 `Dela` 即可下载安装。欢迎大家前往微软商店反馈！
+从 [CDN 下载页](https://openlist.frameneo.com/@s/Dela_latest_release) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela_releases/releases/latest) 下载 Windows x64 的 NSIS（`.exe`）安装包。
 
-当前 Dela 的发行暂时只支持 MSIX 格式，如果您有 EXE 安装包的需求，可以自行下载源码编译构建。
+后续正式版支持在 设置 › 通用 › 软件更新 中检查、下载和安装。旧版需手动覆盖安装一次带新更新机制的版本。安装前会保存工作区，安装后重新启动；差分下载不可用时退回完整下载。线上自动更新链路仍待验证。
 
 ## 本地开发
 
@@ -79,7 +79,7 @@ pnpm dev
 
 环境搭建细节、冒烟测试与代码组织约定见 [开发文档](docs/DEVELOPMENT.md)；版本与发布流程同样在其中。
 
-> 生成安装包会先构建商店更新用的原生模块（`pnpm build:native`），需要 Visual Studio 2022 及以上的 C++ 生成工具与 Windows SDK；只跑 `pnpm dev`、`pnpm build`、`pnpm test` 不需要该工具链。
+> 安装包不再构建商店专用原生模块；现有 SQLite、终端等依赖继续使用预编译产物。
 
 ## 文档
 
@@ -124,7 +124,7 @@ pnpm dev
     </td>
     <td valign="middle">
       <a href="https://www.madproducer.cn/"><strong>MAD Producer</strong></a><br>
-      为 Dela 上架微软应用商店提供产品名授权，代理托管 Dela 的微软商店发步
+      为 Dela 的微软商店发布尝试提供产品名授权与代理托管支持
     </td>
     <td valign="middle">
       <a href="https://www.madproducer.cn/">Website</a>

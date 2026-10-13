@@ -4,7 +4,7 @@ node_modules/
 out/
 dist/
 coverage/
-# node-gyp 的原生模块构建产物（在 native/store-update/build 下）
+# 保留对迁移前本地原生构建产物的忽略。
 native/*/build/
 .playwright-cli/
 output/playwright/

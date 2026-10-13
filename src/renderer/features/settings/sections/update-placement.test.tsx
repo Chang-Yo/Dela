@@ -12,10 +12,8 @@ import { GeneralSection } from './GeneralSection';
 
 const idle: UpdateSnapshot = {
   phase: 'idle',
-  channel: 'store',
   currentVersion: '1.0.0',
   version: null,
-  mandatory: false,
   progress: 0,
   checkedAt: null,
   reason: null,
@@ -52,7 +50,7 @@ beforeEach(() => {
       check: async () => idle,
       download: async () => idle,
       install: async () => idle,
-      openStorePage: async () => {},
+      openDownloadPage: async () => {},
       onState: () => () => {},
     },
   } as unknown as DelaApi;

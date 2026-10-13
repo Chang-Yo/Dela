@@ -6,7 +6,7 @@
 import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../../shared/update';
 
 /** 更新那一条上可用的动作；组件负责把它映射到实际的 IPC 调用。 */
-export type UpdateAction = UpdateStep | 'open-store';
+export type UpdateAction = UpdateStep | 'open-download';
 
 export interface UpdateView {
   /** 版本号右侧的状态说明；null 表示当前不提。 */
@@ -21,38 +21,19 @@ export interface UpdateView {
 /** 失败与不可用原因到用户文案。 */
 const REASON_STATUS: Record<UpdateReason, string> = {
   'not-packaged': '开发运行不支持应用内更新',
-  'not-store': '当前安装方式不支持应用内更新',
-  'store-unknown': '商店里没有这个应用的更新信息',
-  'store-unavailable': '暂时连不上商店',
-  'addon-missing': '更新组件缺失，请重新安装 Dela',
-  'window-handle': '没能打开商店的窗口',
+  'feed-unavailable': '暂时无法获取更新信息，请稍后重试',
+  'invalid-update': '更新文件校验失败，请重新下载',
   cancelled: '已取消',
-  'low-battery': '电量过低，接上电源后再试',
-  'wifi-required': '需要在 Wi-Fi 下更新',
-  'wifi-recommended': '建议在 Wi-Fi 下更新',
   failed: '更新失败',
 };
 
-/**
- * 失败时给什么动作。
- * `not-store` 与 `store-unknown` 是能力问题，重试多少次都一样，只能把用户送去商店；
- * `not-packaged` 与 `addon-missing` 用户在这里做什么都没用，索性不给按钮。
- */
 function failureAction(
   reason: UpdateReason,
   failedAt: UpdateStep | null,
 ): { action: UpdateAction | null; label: string | null } {
-  switch (reason) {
-    case 'not-store':
-    case 'store-unknown':
-      return { action: 'open-store', label: '前往商店' };
-    case 'not-packaged':
-    case 'addon-missing':
-      return { action: null, label: null };
-    default:
-      // 回到失败的那一步，而不是一律从头检查。
-      return { action: failedAt ?? 'check', label: '重试' };
-  }
+  if (reason === 'not-packaged') return { action: null, label: null };
+  if (failedAt === 'install') return { action: 'open-download', label: '下载安装包' };
+  return { action: failedAt ?? 'check', label: '重试' };
 }
 
 export function updateView(state: UpdateSnapshot): UpdateView {
@@ -63,17 +44,13 @@ export function updateView(state: UpdateSnapshot): UpdateView {
       return { status: '正在检查…', action: null, label: null, progress: null };
     case 'up-to-date':
       return { status: '已是最新版本', action: 'check', label: '再检查一次', progress: null };
-    case 'available': {
-      const found = state.version ? `有新版本 ${state.version}` : '有新版本';
-      // 商店不会替应用强制更新，Dela 也没有任何禁用逻辑，所以只说「重要」，
-      // 不写成「必须更新」——那样的承诺兑现不了。
+    case 'available':
       return {
-        status: state.mandatory ? `${found}（重要更新）` : found,
+        status: state.version ? `有新版本 ${state.version}` : '有新版本',
         action: 'download',
         label: '下载更新',
         progress: null,
       };
-    }
     case 'downloading':
       return {
         status: `正在下载 ${Math.round(state.progress * 100)}%`,
@@ -82,17 +59,15 @@ export function updateView(state: UpdateSnapshot): UpdateView {
         progress: state.progress,
       };
     case 'ready':
-      // 安装期间系统会终止 Dela，且不保证自动重启，先讲清楚再让用户点。
+      // 安装器启动后退出，安装完成后重新启动。
       return {
-        status: '更新已下载，安装时 Dela 会关闭',
+        status: '更新已下载，安装后 Dela 将重新启动',
         action: 'install',
         label: '安装更新',
         progress: null,
       };
     case 'installing':
       return { status: '正在安装，Dela 即将关闭', action: null, label: null, progress: null };
-    case 'installed':
-      return { status: '更新已安装，请重新打开 Dela', action: null, label: null, progress: null };
     case 'unsupported':
     case 'error': {
       const reason = state.reason ?? 'failed';
@@ -110,7 +85,7 @@ export function updateView(state: UpdateSnapshot): UpdateView {
  *
  * 只在确实有东西等着用户处理时提示：可下载、下载中、待安装。下载中也算，
  * 因为用户点了下载之后多半就离开设置页去做别的事了。
- * `installing` / `installed` 不提示——更新已经在落地，再亮一个图标只是噪音；
+ * `installing` 不提示——更新已经在落地，再亮一个图标只是噪音；
  * 失败也不提示，否则标题栏会为一个用户可能永远修不掉的原因常亮。
  */
 export function pendingUpdate(state: UpdateSnapshot): boolean {

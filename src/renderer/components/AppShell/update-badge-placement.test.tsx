@@ -22,10 +22,8 @@ vi.hoisted(() => {
 
 const available: UpdateSnapshot = {
   phase: 'available',
-  channel: 'store',
   currentVersion: '1.0.0',
   version: '1.0.1',
-  mandatory: false,
   progress: 0,
   checkedAt: null,
   reason: null,

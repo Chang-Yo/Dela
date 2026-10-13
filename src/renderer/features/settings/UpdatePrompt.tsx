@@ -1,6 +1,6 @@
 // 下载完成后的确认弹窗。
 //
-// 装完系统会结束 Dela 且不保证自动重启，所以下载完不能自己往下走：必须让用户挑时机。
+// 安装会关闭并重新启动 Dela，所以下载完不能自己往下走：必须让用户挑时机。
 // 挂在应用层而不是设置页里——下载可能持续几分钟，用户早就离开设置页了。
 import { useEffect, useState } from 'react';
 import { Dialog } from 'radix-ui';
@@ -56,7 +56,7 @@ export function UpdatePrompt() {
           </Dialog.Title>
           <Dialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
             {busy
-              ? '保存成功后才会安装，安装期间 Dela 会关闭。'
+              ? '保存成功后才会安装，安装后 Dela 将重新启动。'
               : '安装前会保存工作区内容，安装期间 Dela 会关闭。也可以下次启动时再提醒。'}
           </Dialog.Description>
           {!busy && (

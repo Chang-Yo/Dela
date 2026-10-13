@@ -5,10 +5,8 @@ import type { UpdateReason, UpdateSnapshot } from '../../../shared/update';
 
 const snapshot = (patch: Partial<UpdateSnapshot>): UpdateSnapshot => ({
   phase: 'idle',
-  channel: 'store',
   currentVersion: '1.0.0',
   version: null,
-  mandatory: false,
   progress: 0,
   checkedAt: null,
   reason: null,
@@ -43,12 +41,6 @@ describe('updateView', () => {
     expect(view.action).toBe('download');
   });
 
-  it('商店标记为重要更新时只说重要，不承诺强制', () => {
-    // 商店不会替我们强制，Dela 也没做任何禁用逻辑，所以文案不能写成「必须更新」。
-    const view = updateView(snapshot({ phase: 'available', version: '1.0.1', mandatory: true }));
-    expect(view.status).toBe('有新版本 1.0.1（重要更新）');
-  });
-
   it('下载中报百分比，并把进度交给进度条', () => {
     const view = updateView(snapshot({ phase: 'downloading', version: '1.0.1', progress: 0.42 }));
     expect(view.status).toBe('正在下载 42%');
@@ -57,9 +49,9 @@ describe('updateView', () => {
   });
 
   it('下载完成后说明安装会让应用退出', () => {
-    // 安装期间系统会终止 Dela，且不保证自动重启，文案要提前说清。
+    // 安装期间退出并重新启动，文案要提前说清。
     const view = updateView(snapshot({ phase: 'ready', version: '1.0.1', progress: 1 }));
-    expect(view.status).toBe('更新已下载，安装时 Dela 会关闭');
+    expect(view.status).toBe('更新已下载，安装后 Dela 将重新启动');
     expect(view.action).toBe('install');
     expect(view.label).toBe('安装更新');
   });
@@ -70,29 +62,8 @@ describe('updateView', () => {
     expect(view.action).toBeNull();
   });
 
-  it('安装完成后提醒重新打开', () => {
-    const view = updateView(snapshot({ phase: 'installed', version: '1.0.1' }));
-    expect(view.status).toBe('更新已安装，请重新打开 Dela');
-    expect(view.action).toBeNull();
-  });
-
-  it('非商店安装引导去商店，而不是让用户反复重试', () => {
-    const view = updateView(
-      snapshot({ phase: 'unsupported', reason: 'not-store', failedAt: 'check' }),
-    );
-    expect(view.action).toBe('open-store');
-    expect(view.label).toBe('前往商店');
-  });
-
-  it('商店不认识这个包时同样引导去商店', () => {
-    const view = updateView(
-      snapshot({ phase: 'unsupported', reason: 'store-unknown', failedAt: 'check' }),
-    );
-    expect(view.action).toBe('open-store');
-  });
-
-  it('开发运行与缺少更新组件时不给动作：用户在这里做什么都没用', () => {
-    for (const reason of ['not-packaged', 'addon-missing'] as const) {
+  it('开发运行不给动作：用户在这里做什么都没用', () => {
+    for (const reason of ['not-packaged'] as const) {
       const view = updateView(snapshot({ phase: 'unsupported', reason, failedAt: 'check' }));
       expect(view.action).toBeNull();
       expect(view.label).toBeNull();
@@ -107,11 +78,11 @@ describe('updateView', () => {
     expect(view.label).toBe('重试');
   });
 
-  it('安装失败的重试回到安装', () => {
+  it('安装失败提供手动下载安装包的入口', () => {
     const view = updateView(
-      snapshot({ phase: 'error', reason: 'low-battery', failedAt: 'install', version: '1.0.1' }),
+      snapshot({ phase: 'error', reason: 'failed', failedAt: 'install', version: '1.0.1' }),
     );
-    expect(view.action).toBe('install');
+    expect(view.action).toBe('open-download');
   });
 
   it('没有记录失败步骤时按检查重试，至少不会卡死', () => {
@@ -122,15 +93,9 @@ describe('updateView', () => {
   it('每种失败原因都有文案，新增原因不会漏掉展示', () => {
     const reasons: UpdateReason[] = [
       'not-packaged',
-      'not-store',
-      'store-unknown',
-      'store-unavailable',
-      'addon-missing',
-      'window-handle',
+      'feed-unavailable',
+      'invalid-update',
       'cancelled',
-      'low-battery',
-      'wifi-required',
-      'wifi-recommended',
       'failed',
     ];
     for (const reason of reasons) {
@@ -150,13 +115,13 @@ describe('pendingUpdate', () => {
     }
   });
 
-  it('没有更新、正在检查或已装完都不提示', () => {
+  it('没有更新、正在检查或正在安装时不提示', () => {
     const quiet: UpdateSnapshot['phase'][] = [
       'idle',
       'checking',
       'up-to-date',
       'installing',
-      'installed',
+      'installing',
       'unsupported',
       'error',
     ];

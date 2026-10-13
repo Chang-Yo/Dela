@@ -14,10 +14,8 @@ vi.mock('../../content/note/NoteEditor', () => ({ flushNoteEditors: vi.fn() }));
 
 const readyState: UpdateSnapshot = {
   phase: 'ready',
-  channel: 'store',
   currentVersion: '1.0.0',
   version: '1.0.1',
-  mandatory: false,
   progress: 1,
   checkedAt: null,
   reason: null,
@@ -47,7 +45,7 @@ function mountUpdateApi() {
       download: async () => readyState,
       install,
       deferInstall,
-      openStorePage: async () => {},
+      openDownloadPage: async () => {},
       onState: () => () => {},
     },
   } as unknown as DelaApi;

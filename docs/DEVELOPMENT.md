@@ -14,7 +14,7 @@
 本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 `dela` 命令，工作台 GUI 是壳。
 
 - 单用户、单应用、单 package，仅 Windows（跨平台明确放弃）。
-- 分发两条线：自建分发用 NSIS（`.exe`），商店分发用 `.appx` 包（提交 Partner Center，签名由商店完成，**尚未真实提交验证**）。应用内更新只对商店版生效。
+- 仅通过 NSIS（`.exe`）分发 Windows x64 应用，不再构建或提交 Microsoft Store 包。应用内更新使用 electron-updater，从自有 CDN 获取正式 Release。
 - 无服务端，无账号系统。模型服务与检索 API 都由用户自己配置。
 - **固定约束**：交大 jAccount 开放平台的 `client_id` 已停止申请，不存在取得途径。凡是需要官方 jAccount 授权的方案都不可行；现有能力走 Canvas Personal Token、邮箱 IMAP/SMTP、致远一号 API 与个人会话型接口。
 
@@ -115,16 +115,20 @@ preload 暴露的 API：
 
 ## 6. 应用内更新
 
-只走微软商店：`StoreContext` 的检查 / 下载 / 安装 API 由商店校验并安装，签名问题随之消失；不自建 appcast，也不引入 `electron-updater`。
+使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 目标，不自行实现版本比较、差分下载或安装器。
 
-- **分三步而非官方示例的一步式**：先下载、再按用户动作安装。一步式调用时 `PackageDownloadProgress` 从 0.0 到 0.8 是下载、0.8 到 1.0 才是安装，直接映射进度条会卡在 80%；拆开还把重启时机留给用户：下载完成弹一个应用级确认框，让用户选「现在安装」还是「下次启动时提醒」。进度取 `TotalDownloadProgress`——按包上报的 `PackageDownloadProgress` 在多包更新时每个包都从 0 重来。
-- **原生模块** `native/store-update/`（C++/WinRT + N-API，`pnpm build:native`）只做四件事：校验包标识、给 `StoreContext` 绑属主窗口（不绑会拿到 0x80070578）、发起检查 / 下载 / 安装、把 WinRT 的进度与错误翻成普通对象。失败一律 resolve、不跨边界抛异常；`RequestDownload*` 必须在 UI 线程调用。
-- **权威状态机在主进程**（`main/update/state.ts` 是纯函数）：下载可能持续几分钟，而设置页随时会被关掉。结果事件只在对应的进行中阶段生效；重复开始事件保持原状态，IPC 根据状态对象是否改变决定是否调用原生模块。下载和安装失败后允许重试原步骤；渲染层只读快照、只派发动作。
-- **通道判据**是 `process.windowsStore`（等价于进程有包标识）；NSIS 安装版与开发运行只得到「前往商店」。
-- 检查入口有两处，读主进程的同一份快照：设置 › 通用 的「软件更新」行，与标题栏左侧最右端的 `circle-arrow-up` 提示（只在可下载 / 下载中 / 待安装时亮）。主进程每两小时后台查一次、启动后 30 秒先查一次，且只在商店版与窗口已就位时查。
-- 安装会让系统结束 Dela 且不保证自动重启。界面在安装前统一保存已打开笔记、聊天文字草稿、邮件草稿与**工作台布局**；富文本先回传正文，保存期间阻止编辑，任一步失败都不安装。运行中的 Agent、未发送聊天附件及图片阻止安装；终端进程无法恢复。
-- 用户选「下次启动时提醒」就落盘待装标记（`workspace_settings` 的 `pending-install`），下次启动 5 秒后检查并下载，完成后再次提示确认，**绝不自动安装**；准备更新前消费标记，手动安装前也清除标记。
-- **未验证**：Dela 尚未上架商店，进程真有包标识时商店调用的真实返回没有实测过。
+- 更新源为 `https://openlist.frameneo.com/sd/Dela_latest_release/`，通过 Generic provider 读取 `latest.yml`。下载页面为对应的 `/@s/Dela_latest_release` 分享页；客户端不解析分享页 HTML。构建时由 electron-builder 在 resources 中生成 `app-update.yml`，主进程构建将 electron-updater 保持 external。
+- CDN 定期拉取最新正式 GitHub Release 的文件并扁平存放，只保留最新版；上传和同步由 CDN 侧完成，CI 不持有 CDN 凭据。同步时安装包与 blockmap 应先于元数据就绪，避免元数据指向缺失文件。
+- Release 同时提供 `Dela-<版本>-win-x64.exe`、对应 `.exe.blockmap` 和渠道元数据。发布元数据统一为 `latest.yml`；预发布 Release 不进入 CDN 正式版目录，客户端固定 latest、拒绝预发布及降级。
+- 开启 NSIS differentialPackage，Generic provider 使用单段 Range 请求。更新器优先使用本地旧安装包和 blockmap 缓存，缺少缓存、旧 blockmap 或差分失败时退回全量下载；SHA-512 校验由更新器完成，不保证每次都是差分下载。
+- 主进程 `main/update/index.ts` 持有状态，检查与下载的 Promise 处理失败；进度和安装器异步启动错误通过事件接收。界面只读快照和派发动作，设置页关闭不会打断下载。发起安装后保持 installing，不把启动安装器当成安装成功。
+- 每两小时后台检查一次，启动后 30 秒先查一次；仅打包运行且已有窗口时执行。开发模式不联网检查。缺少或不可读的 latest.yml 显示检查失败，不显示“已是最新”。
+- `autoDownload=false`、`autoInstallOnAppQuit=false`：用户手动下载，下载完成后选择“现在安装”或“下次启动时提醒”。安装前保存笔记、聊天文字草稿、邮件草稿和工作台布局；运行中 Agent、未发送附件或保存失败会阻止安装。安装调用 `quitAndInstall(true, true)`，退出应用并在安装完成后重新启动；终端进程无法恢复。
+- 推迟标记仍为 workspace_settings 的 `pending-install`。下次启动 5 秒后检查并复用下载缓存，准备到 ready 后再次提示，绝不自动安装。安装器启动失败提供手动下载安装包入口。
+- 尚未配置 Authenticode 签名。SHA-512 只验证文件与元数据一致，不能替代发布者签名。下载源固定为 HTTPS，不随意关闭签名验证；未来启用签名时需保持发布者身份连续。
+- 旧 NSIS 版本没有此更新客户端，需手动覆盖安装一次新版本；现有 appId `io.dela.desktop` 保持不变。商店包不能通过 NSIS 直接原位更新，若有这类安装需单独验证数据迁移。
+- **已验证（2026-10-13，本机）**：生产构建、lint、更新相关 102 个测试、Electron 与打包后启动冒烟；NSIS 1.0.1 的安装包、blockmap、latest.yml 与包内 app-update.yml 已生成。打包只包含 main / preload / renderer 三个入口产物，避免收进迁移前遗留的 out/native。
+- **待验证**：线上 CDN latest.yml、Range / 差分流量、两版真实安装后的覆盖升级、UAC 与重启。本次按产品决定推迟线上 Range 验证；不能把单元测试或打包启动视为端到端升级通过。
 
 ## 7. 安全边界
 
@@ -158,7 +162,6 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - `src/preload/` — contextBridge：`index.ts` 聚合入口 + 分域文件，只暴露受控 API。
 - `src/renderer/` — React 界面：`app/`（装配与视图路由）、`workbench/`（标签工作台与布局树）、`content/`（chat / note / preview / review / terminal 标签内容）、`navigation/`、`sessions/`、`workspace/`（镜像与草稿）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings / classroom 整页视图）、`lib/`、`styles/`；共享组件在 `components/ui/`，样式用 Tailwind v4 + 语义 token。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数（`api.ts` 聚合 re-export）。
-- `native/` — 原生模块（目前只有 `store-update/`），用 `pnpm build:native` 单独构建，与上面三个进程的构建互不影响。
 - `helper/` — 远端工具服务的 Go 模块，只依赖标准库。
 - 测试与被测代码同层，但摆法按层不同：`src/main/` 多数域用 `test/` 子目录（`update/`、`vsjtu/` 直接贴在源码旁），`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本。
 
@@ -187,24 +190,13 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - 首启引导只由 `userData/dela.db` 是否存在决定：首次跑完即不再重播，开发模式也一样。URL 加 `?smoke-test=1` 可短路引导；冒烟会另开临时 profile。
 - 远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go；改了 `helper/` 下的 Go 代码后执行 `pnpm build:helper --all` 重建 amd64 与 arm64 两个产物并一并提交——只重建 amd64 会让仓库里的 arm64 停在旧版（发布时 CI 会覆盖，但本地对 arm64 远端的测试用的是旧版）。
 
-## 12. 商店更新的原生模块
-
-`native/store-update/` 是 C++/WinRT 写的 N-API 插件，调用 `Windows.Services.Store` 让微软商店替 Dela 校验并安装更新。它不在 `pnpm build` 覆盖范围内：
-
-- 构建用 `pnpm build:native`：`scripts/build-native.mjs` 找出版本最高、且带 `cppwinrt\winrt\Windows.Services.Store.h` 的 Windows SDK，把 SDK 头目录经 `DELA_WINRT_INCLUDE` 注入，再让 `node-gyp` 调 MSBuild，产物拷到 `out/native/store_update.node`。
-- `native/store-update/binding.gyp` **显式配置**了 `AdditionalIncludeDirectories`（`$(DELA_WINRT_INCLUDE)` 与 `$(WindowsSdkDir)Include\$(WindowsSDKVersion)cppwinrt`），不是依赖 MSBuild 的默认包含路径。
-- 本机需要 Visual Studio 2022 的 C++ 生成工具与该 SDK；不需要 NuGet 包，也不需要为 Electron 重编（N-API 的 ABI 是稳定的）。
-- `electron-builder.yml` 的 `asarUnpack` 把它放到 `app.asar.unpacked`；Electron 会把 asar 内的 `dlopen` 路径重定向过去，因此 `src/main/update/native.ts` 直接按 `__dirname/../native` 拼路径即可（打包布局已实测）。
-- 商店对检测接口限流：30 分钟内最多一次、24 小时最多十次，**超限返回上一次结果而不是报错**，所以连点检查可能拿到陈旧结论。两小时一次加启动那次，挂满一天约 13 次，会略微越过上限；要严格守住就把间隔改成三小时（一天 8 次）。
-
-## 13. 常用命令
+## 12. 常用命令
 
 | 命令                                            | 用途                                                               |
 | ----------------------------------------------- | ------------------------------------------------------------------ |
 | `pnpm dev`                                      | 启动开发服务器和窗口，监听主进程 / preload 变更                    |
 | `pnpm typecheck`                                | 三组 tsconfig 的类型检查                                           |
 | `pnpm build`                                    | 类型检查 + main / preload / renderer 三入口生产构建                |
-| `pnpm build:native`                             | 构建商店更新的原生模块到 `out/native/`（需 VS 2022 C++ 工具链）    |
 | `pnpm build:helper`                             | 重建远端 helper 的静态二进制（`--all` 含 arm64）                   |
 | `pnpm start`                                    | 启动已构建产物                                                     |
 | `pnpm check`                                    | `format:check` + `lint` + `build` + `test` 的组合检查              |
@@ -233,7 +225,7 @@ $env:DELA_REMOTE_HOST='root@…'
 pnpm test:remote
 ```
 
-## 14. 提交前检查
+## 13. 提交前检查
 
 改动后至少运行与其相关的检查（完整约束见 [AGENTS.md](../AGENTS.md)）：
 
@@ -246,22 +238,21 @@ pnpm test
 
 - 改动远端（`src/main/remotes/`、`helper/`、连接与上下文镜像）时，另用 `pnpm test:remote` 对着真机跑一遍：那批用例需要 `DELA_REMOTE_HOST`，默认套件与 CI 都会跳过它们（`vitest.remote.config.ts`）。
 - 涉及构建、原生依赖或打包时，另验证 `pnpm smoke` 与打包目录启动。
-- 改动 `native/` 时另跑 `pnpm build:native`，并确认打包后的 `dist/win-unpacked/resources/app.asar.unpacked/out/native/` 里有对应 `.node`（CI 有同样的检查）。
 - 重要改动同步更新 [CHANGELOG.md](../CHANGELOG.md)；面向使用者的变化更新 [README.md](../README.md)；架构与流程变化更新本文。
 
-## 15. CI
+## 14. CI
 
 `.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行，job 名 `Check win-x64`：
 
 - 应用只构建 Windows x64（`windows-2022`），与发布一致的 runner 和固定 Node / pnpm 版本。
 - helper 任务名即 `Check helper linux (amd64 + arm64)`，在 `ubuntu-24.04` 用 Go 1.27.2 执行 `go vet`（含交叉 `linux/arm64`）、`go test`、构建两个架构的静态产物并跑 `--version`（arm64 走 qemu 用户态仿真）。Windows 任务下载当次产物用于打包，并逐字节核对打包后的文件。
-- 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、`pnpm build:native`、应用目录打包、包内原生模块检查及打包后冒烟。**CI 是分步执行这些命令，不是调用 `pnpm check`。**
+- 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包、包内 helper 核对及打包后冒烟。**CI 是分步执行这些命令，不是调用 `pnpm check`。**
 - Go 测试只使用 runner 本机临时目录、inotify 与回环 HTTP，不连接 SSH。Windows 任务明确留空 `DELA_REMOTE_HOST`，真实 SSH 联调继续手动运行，不作为发布前置条件。
 - 检查不生成安装包、不发布 Release，仅使用 `contents: read` 权限；同一 PR 或 main 分支的新提交会取消旧检查。
 
 若要限制合并，需在 GitHub 的 main 分支规则中将 `Check win-x64` 设为必需检查——仅添加 workflow 不会自动启用分支保护。
 
-## 16. 版本与发布
+## 15. 版本与发布
 
 ### 升版
 
@@ -284,101 +275,33 @@ pnpm test
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release：
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。
-2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、原生模块构建、单元测试、Electron 冒烟、NSIS 构建、包内 helper 一致性与原生模块存在性检查、打包目录启动检查。全部成功后创建 Release 并上传 `.exe`。
+2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。全部成功后创建 Release，上传 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
 3. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
 4. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 
 `prepare` 与 `release` 任务是 Ubuntu runner，只做校验与 `gh` 上传，不构建应用；发布 job 会把 release notes 作为 artifact 上传，供 `publish-public` 复用，后者同样跑在 `ubuntu-24.04`。release 工作流的 `concurrency` 设了 `cancel-in-progress: false`，与 CI 相反。
 
-**重跑已有 tag**：私有与公开仓库已存在的 Release 不会被重建，而是以 `gh release upload --clobber` 覆盖同名安装包后重新公开。因此为历史 tag 补发可直接重跑。
+**重跑已有 tag**：现有流程仍用 `gh release upload --clobber` 覆盖同名产物。正式分发后不要覆盖重建安装包：CDN 缓存可能与新元数据不一致；程序变更应升版并发布新 tag。
 
-**公开镜像**：私有 Release 发布成功后，同一工作流会把同一批安装包和完全相同的 release notes 再发布到公开仓库 [Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases) 的同名 tag Release。公开仓库中的 tag 由 GitHub 自动创建在其默认分支最新提交上，仅作发布锚点，不对应源码。
+**公开镜像**：私有 Release 发布成功后，同一工作流会把同一批安装包、blockmap、更新元数据和完全相同的 release notes 再发布到公开仓库 [Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases) 的同名 tag Release。公开仓库中的 tag 由 GitHub 自动创建在其默认分支最新提交上，仅作发布锚点，不对应源码。
 
 首次使用前的准备：
 
 1. 公开仓库已有初始提交（例如 README）。
 2. 在本仓库 Settings → Secrets and variables → Actions 配置 `PUBLIC_RELEASE_TOKEN`：仅授权 `Chang-Yo/Dela_releases`、权限 Contents: Read and write 的 fine-grained PAT——内置 `GITHUB_TOKEN` 无法跨仓库发布。
 
-## 17. 通过 Partner Center 提交商店包
+## 16. 平台基线
 
-发布流水线在 NSIS 之后额外产出商店提交包，作为 Actions artifact `store-package-win-x64` 上传（`build` 任务末尾），不随 Release 发布。
-
-```sh
-pnpm exec electron-builder --win appx --x64 --prepackaged dist/win-unpacked --publish never
-```
-
-本地要复现需先跑一次 `pnpm exec electron-builder --dir --x64` 得到 `dist/win-unpacked`。
-
-1. `electron-builder.yml` 的 `appx` 块按 Partner Center 应用概览 → 产品管理 → View app identity details 填好三项：`identityName`（Package/Identity/Name）、`publisher`（Package/Identity/Publisher，形如 `CN=<GUID>`）、`publisherDisplayName`（Package/Properties/PublisherDisplayName）。三项必须逐字一致，大小写与标点都要对，否则商店拒收；在 Partner Center 改名后要同步这里。见 [View product identity details](https://learn.microsoft.com/en-us/windows/apps/publish/view-app-identity-details) 与 [App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)。
-2. 推送 `v*` tag 或手动重跑工作流，产出 `Dela-<版本>-win-x64.appx`。
-3. 从该次运行的 Artifacts 下载 `store-package-win-x64`。
-4. 在 Partner Center 提交的 Packages 页上传该文件。
-
-### 提交前必须做
-
-- **版本号第一段不能为 0。** 清单 `Identity/@Version` 由 `package.json` 版本补成四段（实测 `1.0.0` → `1.0.0.0`）。官方规则：最后一段必须为 0，其余各段取 0–65535，例外是「the first section, which cannot be 0」，对 `.msix` / `.appx` 同样适用。版本若回落到 `0.x` 会重新触发限制。Partner Center 对这条的执行严格程度属待验证。
-- **包内图标用 Dela 自己的。** `build/appx/` 下的文件按文件名逐字被采用：`StoreLogo.png`、`Square44x44Logo.png`、`Square150x150Logo.png`、`Wide310x150Logo.png` 是模板清单引用的四个槽位（electron-builder 按文件名子串替换自带的微软示例图 `SampleAppx.*`，那批图带 Sample 水印）；该目录不存在或为空时会退回示例图。当前 21 张，四个槽位都按 100/125/150/200/400 全档放入。带 `.scale-` 的文件名会让 electron-builder 额外跑 `makepri.exe`，按现存档位生成 `resources.pri` 与 `resources.scale-*.pri`。
-- **21 张图出自同一张母图。** `build/appx/Square150x150Logo.scale-400.png`（600×600）是唯一的源：验证方法是对任一现有文件与它按目标尺寸重采样后比平均 RGB（实测差 ≤ 0.07）。改图时从它重出整套，不要单独手改某一张。
-- **`StoreLogo.png` 基图故意是 200×200，不是 50×50。** App Installer 不认 `.scale-*`：它按清单 `<Properties><Logo>` 的字面路径只取这一张再自行缩放（实测安装对话框把 50×50 拉到了约 88px）。放大基图消掉这次上采样，另配 `StoreLogo.scale-100.png`（50×50）让 scale-100 的解析仍然合规。
-- **宽图是透明底，不烤背景色。** 310×150 是把方形母图缩到 150×150 后居中贴在透明画布上（x=80, y=0），各档按高度同法；不是拉伸方形图。
-- **`appx.backgroundColor` 必须显式设置。** 不配置时 electron-builder 用默认值 `#464646`，这个灰不属于 Dela：`uap:VisualElements` 的 BackgroundColor 会出现在开始磁贴的透明四角，也用于商店「应用说明」页。改它时要连 `Wide310x150Logo` 一起重出。
-- **已知缺口：没有 `targetsize-*` 与 `altform-unplated` / `altform-lightunplated` 档。** 官方图标规范要求补这套给任务栏与开始菜单用，缺了会把图标缩小、再垫一层系统底板；Dela 的图标本身带板，会变成两层。本次未做。
-- **不需要自己签名。** 未配置证书时产物不含 `AppxSignature.p7x`，商店收包后用自己的证书重新签名。
-- **应用内更新要等商店里真的有新版才生效。** `StoreContext` 只认商店已发布的包：包没上架或商店还没发布更高版本时，检查失败或报「已是最新」。判据是 `process.windowsStore`，所以只有商店安装版会走到这条路径。
-
-### 机制要点（2026-10 核实）
-
-- electron-builder 没有 `msix` 目标，商店包由 `appx` 目标产出，扩展名是 `.appx`；Windows 目标只有 `nsis`、`nsis-web`、`portable`、`appx`、`msi`、`msi-wrapped`、`squirrel`、`7z`、`zip`、`tar.*`、`dir`，传 `msix` 会报 `Unknown target: msix`（依据本仓库锁定的 electron-builder 26.15.3 的配置 schema 与 `winPackager` 源码）。
-- 可选、非推荐：确实需要 `.msix` 文件名时，只能设 `appx.artifactName`。扩展名只是文件名：实测同一支 makeappx（electron-builder 自带的 10.0.17763.1）用 `/p a.appx` 与 `/p b.msix` 产出的文件逐字节相同。副作用：electron-builder 的签名分支按 `path.endsWith(".appx")` 判定，只有 `.appx` 强制 SHA-256，`.msix` 会落到默认的 `sha1`+`sha256`。
-- Partner Center 的 Packages 页接受 `.msix`、`.msixupload`、`.msixbundle`、`.appx`、`.appxupload`、`.appxbundle`；官方建议 Windows 10 以上传 `.msixupload` / `.appxupload`，但单个 `.appx` 也可提交。见 [Upload MSIX app packages](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/upload-app-packages)。
-- 不需要自己签名：[App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements?pivots=store-installer-msix) 说明 MSIX/AppX 提交商店无需 CA 信任链证书，商店会在认证通过后用微软证书重新签名并替换原有签名。
-- `.msixupload` / `.appxupload` 是「包 + 符号文件」容器，electron-builder 26.15.3 没有产出它的目标或选项。
-- 未配置证书时 electron-builder 把 appx 当「Windows Store only build」构建，不签名（日志 `AppX is not signed`），并把 `appx.publisher` 原样写进清单 `Identity/@Publisher`。这一条来自读源码（`out/codeSign/windowsSignToolManager.js` 的 `computePublisherName`、`out/targets/AppxTarget.js`、`templates/appx/appxmanifest.xml`），非官方文档。
-- 清单字段实测合格：根命名空间为 `http://schemas.microsoft.com/appx/manifest/foundation/windows10`；`<TargetDeviceFamily Name="Windows.Desktop" MinVersion=… MaxVersionTested=… />` 由 `appx.minVersion` / `appx.maxVersionTested` 指定（不配置时 electron-builder 写死 `10.0.14316.0`）；`<Application Id="Dela" Executable="app\Dela.exe" EntryPoint="Windows.FullTrustApplication">`；`<Capabilities>` 含 `<rescap:Capability Name="runFullTrust"/>`；`appx.languages` 为 `['zh-CN']` 时清单里是 `<Resource Language="zh-CN" />`（不设置时 electron-builder 写 `en-US`）。
-- 工具链解压告警只在首次下载时出现：本机首次解 `winCodeSign-2.6.0.7z` 时报 `Cannot create symbolic link : A required privilege is not held by the client`，electron-builder 容忍并继续；CI 未复现。
-
-本地需要签名时（只为在本机安装测试，提交商店不需要）：
-
-- 先生成自签名证书，证书 Subject 必须逐字等于 `appx.publisher`（含 `CN=`）：用 `New-SelfSignedCertificate -Subject "<appx.publisher 的值>"`，再把证书导出成 `.pfx`。electron-builder 自带的 `create-self-signed-cert --publisher` 只接受不含 `CN=` 的名字。
-- 自签名包只能装在信任该证书的机器上，测试机要先把证书导入 `LocalMachine\TrustedPeople`；步骤见 [Sign your MSIX package: end-to-end guide](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide)。
-- 让 electron-builder 顺便签名：设 `WIN_CSC_LINK`（`.pfx` 路径、base64 或 https 地址）与 `WIN_CSC_KEY_PASSWORD`，再跑同一条 appx 命令；`.appx` 固定用 SHA-256 签名。
-
-### 已验证 / 尚未验证
-
-已验证（2026-10，本机 Windows 10.0.26100 实跑）：
-
-- `.appx` 构建退出码 0，产物是 zip 容器（根含 `AppxManifest.xml`、`AppxBlockMap.xml`、`[Content_Types].xml`），**未签名**（不含 `AppxSignature.p7x`，与日志 `AppX is not signed reason=Windows Store only build` 一致）。
-- 图标全档与背景色改动已复建通过：包内 `assets/` 是 21 张 Dela 图标、无微软示例图；清单 `<Properties><Logo>` 仍指向 `assets\StoreLogo.png`（现为 200×200）；`BackgroundColor="#0A0A0A"`；根下有 `resources.pri` 加 `resources.scale-125/150/200/400.pri`。
-- `makepri.exe` 接受「200×200 无限定符基图 + 50×50 的 `scale-100`」，构建日志无报错或告警。
-- 包内 `app/resources/app.asar.unpacked/out/native/store_update.node` 说明 `asarUnpack` 对 appx 目标同样生效，且商店包的进程有包标识时能 `dlopen` 到它。
-
-尚未验证：
-
-- **签名与安装**：本机未签名、未安装、未做实机验收；Partner Center 是否接受本流水线产出的包也未验证（身份与版本已就位，仍须真实提交一次才知结果）。
-- Partner Center 是否接受当前 `MinVersion=10.0.19041.0`：官方只要求包针对商店支持的 Windows 版本，未给出具体下限。这个值是为应用内更新取的——`StoreContext` 的更新 API 要在 1607（14393）以上，静默下载与下载进度回调要在 1803（17134）以上——与 ChatGPT 桌面版的清单取齐。
-- 商店对声明语言与实际资源的匹配要求。
-- `StoreLogo.png` 未限定基图放大到 200×200 后，商店包校验是否接受。
-- 安装对话框 LOGO 放大后的实际观感：要重新安装该 `.appx` 后在 App Installer 里目视确认。
-- 受限环境（`noexec`、只读 `$HOME`、磁盘满）只在代码路径与本机路径遮罩式验证过，没有真在 `noexec` 机器上跑过。
-- helper 的 arm64 产物只有 qemu 用户态仿真验证，真 arm64 机器上的上传与启动还没跑过。
-- 跨主机并行会话已可用，但需要真机环境才能跑那条用例；本机只有单台远端可选。
-- 心跳判死与隧道退出失效是新引入的失效路径，未在真机验证（连续 3 次心跳无回应约 1.5 分钟或隧道进程退出即丢通道）。
-- helper 资源占用未实测：常驻一个 Go 进程（约 10 MB 内存量级），未做压测。
-
-## 18. 平台基线
-
-| 平台    | 最低系统基线 | 架构 | 产物                                          | GitHub runner  |
-| ------- | ------------ | ---- | --------------------------------------------- | -------------- |
-| Windows | Windows 10   | x64  | NSIS `.exe` 安装包                            | `windows-2022` |
-| Windows | Windows 10   | x64  | 商店包 `.appx`（未签名，仅 Actions artifact） | `windows-2022` |
+| 平台    | 最低系统基线 | 架构 | 产物               | GitHub runner  |
+| ------- | ------------ | ---- | ------------------ | -------------- |
+| Windows | Windows 10   | x64  | NSIS `.exe` 安装包 | `windows-2022` |
 
 - 以上是项目选择的构建基线，不代表最低系统实机兼容性已验收。GitHub runner 是构建环境，与最低运行系统不同。
 - 安装包名包含版本、系统和架构，避免产物重名。私有发布任务使用内置 `GITHUB_TOKEN`（`contents: write`），公开发布任务使用 `PUBLIC_RELEASE_TOKEN`，token 权限只覆盖公开仓库。
 
-## 19. 当前限制
+## 17. 当前限制
 
+- CDN 的线上更新文件、Range 和两版覆盖升级尚未验收，检查失败时可从下载页手动获取安装包。
 - 未配置代码签名，安装时可能遇到 SmartScreen 提示。
 - 工作流中的冒烟检查验证打包后程序及 SQLite / preload，不代替 NSIS 安装向导的实机验收。
-- 自动更新元数据（`latest*.yml`、blockmap）不发布：走微软商店的应用内更新不需要它们，`electron-updater` 要等自建分发有正式签名与更新渠道后再谈。
-- 商店包（`.appx`）已随流水线产出但尚未签名、尚未提交商店；面向用户的安装包仍是 NSIS `.exe`。应用内更新的原生模块已随包构建与检查，但整条路径要等商店上架并有更高版本后才能实机验收。
 - 远端项目内不支持新建 / 编辑笔记；远端 PPTX 不支持内嵌预览；打开的预览不自动跟随远端改动。

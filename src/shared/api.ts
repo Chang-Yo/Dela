@@ -214,4 +214,4 @@ export type {
 
 export type { TodoStatus, TodoItem, TodoState, TodoSaveInput, TodoApi } from './todo';
 
-export type { UpdateApi, UpdateSnapshot, UpdatePhase, UpdateReason, UpdateChannel } from './update';
+export type { UpdateApi, UpdateSnapshot, UpdatePhase, UpdateReason } from './update';

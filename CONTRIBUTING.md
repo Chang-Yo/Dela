@@ -6,13 +6,12 @@ Dela 是仅面向 Windows 的本地优先桌面应用：Electron 主进程加 Re
 
 ## 环境准备
 
-| 工具                                          | 版本                               | 何时需要                 |
-| --------------------------------------------- | ---------------------------------- | ------------------------ |
-| Node.js                                       | 24.21.0                            | 总是                     |
-| pnpm                                          | 12.3.4                             | 总是                     |
-| Git for Windows                               | 不固定                             | 终端与内核 Bash 工具     |
-| Go                                            | `go.mod` 声明 1.22，CI 固定 1.27.2 | 只在改动 `helper/` 时    |
-| Visual Studio 2022 C++ 生成工具与 Windows SDK | 不固定                             | 只在构建原生模块与打包时 |
+| 工具            | 版本                               | 何时需要              |
+| --------------- | ---------------------------------- | --------------------- |
+| Node.js         | 24.21.0                            | 总是                  |
+| pnpm            | 12.3.4                             | 总是                  |
+| Git for Windows | 不固定                             | 终端与内核 Bash 工具  |
+| Go              | `go.mod` 声明 1.22，CI 固定 1.27.2 | 只在改动 `helper/` 时 |
 
 版本以 `package.json` 的 `engines`、`packageManager` 与 `.node-version` 为准；仓库启用了 `engineStrict`，其他版本会被拒绝。本机把 Node 与 pnpm 装在仓库内被 Git 忽略的 `.tools/`，在 PowerShell 中为当前会话启用：
 
@@ -42,11 +41,10 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 | `pnpm smoke`                                                             | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离 |
 | `pnpm smoke:workspace` / `smoke:pdf` / `smoke:shuiyuan` / `smoke:remote` | 分项回归                                                      |
 | `pnpm check`                                                             | `format:check`、`lint`、`build`、`test` 的组合                |
-| `pnpm build:native`                                                      | 构建 `native/store-update/` 的 N-API 插件到 `out/native/`     |
 | `pnpm build:helper`                                                      | 重建 `helper/` 的 Go 静态二进制                               |
 | `pnpm package:dir` / `pnpm package:dist`                                 | 生成未安装的可执行目录 / Windows 安装包                       |
 
-`pnpm package:dir` 与 `pnpm package:dist` 都会先跑 `pnpm build` 与 `pnpm build:native`，因此需要 Visual Studio 2022 的 C++ 工具链；只跑 `pnpm dev`、`pnpm build`、`pnpm test` 不需要。
+`pnpm package:dir` 与 `pnpm package:dist` 都会先跑 `pnpm build`，不再依赖商店更新的 C++/WinRT 构建工具链。
 
 ## 代码组织
 
@@ -56,7 +54,6 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 - `src/preload/` — contextBridge，`index.ts` 聚合入口加分域文件，只暴露受控 API。
 - `src/renderer/` — React 界面：`app/`、`workbench/`、`content/`、`navigation/`、`sessions/`、`workspace/`、`features/`、`components/`。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数。
-- `native/` — 原生模块，目前只有 `store-update/`，由 `pnpm build:native` 单独构建。
 - `helper/` — 远端工具服务的 Go 模块，只依赖标准库。
 
 硬约束，摘自 `AGENTS.md`：
@@ -78,8 +75,8 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 ```
 feat(update): add Microsoft Store updates with workspace saving
 fix(chat): 随聊 @ 候选不再列出其他项目的文件
-docs(release): 记录商店包实测结论与提交前清单
-build(release): 发布流水线产出商店包 appx，签名由商店完成
+docs(release): 记录 NSIS 更新发布与验收流程
+build(release): 发布 NSIS 安装包和更新元数据
 chore(release): 1.0.0
 ```
 
@@ -92,15 +89,14 @@ chore(release): 1.0.0
 本地至少运行与改动相关的检查，完整关卡是 `pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm test`，即 `pnpm check`。另外按改动面补充：
 
 - 涉及主进程终端、原生依赖或打包布局时，验证 `pnpm smoke` 与打包目录启动。
-- 改动 `native/` 时运行 `pnpm build:native`，并确认打包产物的 `app.asar.unpacked/out/native/` 里有对应 `.node`。
 - 改动 `src/main/remotes/`、`helper/` 或连接与上下文镜像时，用 `pnpm test:remote` 对真机跑一遍；默认套件与 CI 都会跳过这批用例。
 
 CI 定义在 `.github/workflows/check.yaml`，在 PR 的创建 / 更新 / 重新打开与推送到 `main` 时触发，分两个 job：
 
 - `Check helper linux (amd64 + arm64)`，`ubuntu-24.04`：Go 1.27.2 下执行 `go vet`（含 `linux/arm64` 交叉）、`go test`，构建两个架构的静态产物并跑 `--version`（arm64 走 qemu 用户态仿真），产物上传为 artifact。
-- `Check win-x64`，`windows-2022`，依赖 helper 产物：`pnpm install --frozen-lockfile` 后按顺序分步执行 `pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm test`、`pnpm smoke`、`pnpm build:native`，再用 `pnpm exec electron-builder --dir --win --x64 --publish never` 打包，核对包内原生模块与两个 helper 二进制，最后对打包后的 `Dela.exe` 运行 `--smoke-test`。
+- `Check win-x64`，`windows-2022`，依赖 helper 产物：`pnpm install --frozen-lockfile` 后按顺序分步执行 `pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm test`、`pnpm smoke`，再用 `pnpm exec electron-builder --dir --win --x64 --publish never` 打包，核对两个 helper 二进制，最后对打包后的 `Dela.exe` 运行 `--smoke-test`。
 
-CI 是分步执行，不等同于 `pnpm check`：本地 `pnpm check` 通过不代表 CI 会通过，CI 还覆盖冻结锁文件安装、原生模块构建、打包布局核对与打包后启动。CI 的 Windows 任务把 `DELA_REMOTE_HOST` 留空，`pnpm test:remote` 不在 CI 中运行。仅添加 workflow 不会启用分支保护，若要限制合并需把 `Check win-x64` 设为必需检查。
+CI 是分步执行，不等同于 `pnpm check`：本地 `pnpm check` 通过不代表 CI 会通过，CI 还覆盖冻结锁文件安装、打包布局核对与打包后启动。CI 的 Windows 任务把 `DELA_REMOTE_HOST` 留空，`pnpm test:remote` 不在 CI 中运行。仅添加 workflow 不会启用分支保护，若要限制合并需把 `Check win-x64` 设为必需检查。
 
 ## 许可证与版权
 

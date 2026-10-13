@@ -47,11 +47,11 @@ export function UpdateControl() {
           <Button
             onClick={() => void runUpdateAction(action)}
             size="sm"
-            // 下载与安装是这一页真正的主操作，用主色；其余（检查、重试、前往商店）用
+            // 下载与安装是这一页真正的主操作，用主色；其余（检查、重试、下载安装包）用
             // secondary，与「暂停通知」的 30 分钟按钮同一档——ghost 没有底色，看不出能点。
             variant={action === 'download' || action === 'install' ? 'default' : 'secondary'}
           >
-            {action === 'open-store' ? <ExternalLink /> : null}
+            {action === 'open-download' ? <ExternalLink /> : null}
             {view.label}
           </Button>
         ) : null}

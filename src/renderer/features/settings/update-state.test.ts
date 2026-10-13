@@ -6,10 +6,8 @@ import type { UpdateSnapshot } from '../../../shared/update';
 
 const base: UpdateSnapshot = {
   phase: 'idle',
-  channel: 'store',
   currentVersion: '1.0.0',
   version: null,
-  mandatory: false,
   progress: 0,
   checkedAt: null,
   reason: null,
@@ -32,7 +30,7 @@ function mountApi(read: () => Promise<UpdateSnapshot> = async () => base) {
       check: async () => base,
       download: async () => base,
       install: async () => base,
-      openStorePage: async () => {},
+      openDownloadPage: async () => {},
       onState: (listener: (state: UpdateSnapshot) => void) => {
         listeners.push(listener);
         return unsubscribe;

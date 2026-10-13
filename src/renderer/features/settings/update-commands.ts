@@ -59,8 +59,8 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
     }
   }
   try {
-    // 打开商店只借道系统浏览器，没有快照可回填。
-    if (action === 'open-store') await api.openStorePage();
+    // 打开下载页只借道系统浏览器，没有快照可回填。
+    if (action === 'open-download') await api.openDownloadPage();
     // 其余动作的新状态由主进程广播回来，这里不自己写快照，免得两处状态打架。
     else await api[action]();
     return true;

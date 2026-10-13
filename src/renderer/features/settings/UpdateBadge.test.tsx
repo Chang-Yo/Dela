@@ -10,10 +10,8 @@ import { useUpdateState } from './update-state';
 
 const base: UpdateSnapshot = {
   phase: 'idle',
-  channel: 'store',
   currentVersion: '1.0.0',
   version: null,
-  mandatory: false,
   progress: 0,
   checkedAt: null,
   reason: null,
@@ -54,7 +52,7 @@ it('没有更新待处理时不占位', async () => {
 });
 
 it('检查中与失败都不提示，避免常亮一个假的提醒', async () => {
-  for (const phase of ['checking', 'up-to-date', 'installing', 'installed'] as const) {
+  for (const phase of ['checking', 'up-to-date', 'installing', 'error'] as const) {
     await act(async () => {
       useUpdateState.setState({ snapshot: { ...base, phase } });
       root.render(<UpdateBadge />);

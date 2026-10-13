@@ -1,43 +1,25 @@
-// 更新状态机的纯逻辑测试。状态机不碰 Electron、不碰原生模块，
+// 更新状态机的纯逻辑测试。状态机不碰 Electron、不碰更新器，
 // 它要保证的核心只有一件事：任何迟到或乱序的事件都不能把状态改回错误的阶段。
 import { describe, expect, it } from 'vitest';
-import {
-  failureEvent,
-  formatPackageVersion,
-  initialUpdateState,
-  pickUpdateTarget,
-  reasonFromFailure,
-  reduceUpdate,
-  type UpdateEvent,
-} from './state';
-import type { StorePackageUpdateInfo, UpdateSnapshot, UpdateStep } from '../../shared/update';
+import { failureEvent, initialUpdateState, reduceUpdate, type UpdateEvent } from './state';
+import type { UpdateSnapshot, UpdateStep } from '../../shared/update';
 
 const at = '2026-10-12T00:00:00.000Z';
 
-const base = (channel: 'store' | 'standalone' = 'store') =>
-  initialUpdateState({ channel, currentVersion: '1.0.0' });
-
-const found = (version = '1.0.1.0', mandatory = false): StorePackageUpdateInfo[] => [
-  { version, mandatory, familyName: 'MADFilm.Dela_abc' },
-];
+const base = () => initialUpdateState({ currentVersion: '1.0.0' });
 
 /** 依次派发事件，返回末态。 */
 const run = (state: UpdateSnapshot, events: UpdateEvent[]) => events.reduce(reduceUpdate, state);
 
-const reachedAvailable = (version = '1.0.1.0', mandatory = false) =>
-  run(base(), [
-    { type: 'check/started' },
-    { type: 'check/available', updates: found(version, mandatory), checkedAt: at },
-  ]);
+const reachedAvailable = (version = '1.0.1') =>
+  run(base(), [{ type: 'check/started' }, { type: 'check/available', version, checkedAt: at }]);
 
 describe('initialUpdateState', () => {
   it('从 idle 起步，不预先判定能力', () => {
     expect(base()).toEqual({
       phase: 'idle',
-      channel: 'store',
       currentVersion: '1.0.0',
       version: null,
-      mandatory: false,
       progress: 0,
       checkedAt: null,
       reason: null,
@@ -46,19 +28,17 @@ describe('initialUpdateState', () => {
     });
   });
 
-  it('原样保留通道与当前版本', () => {
-    const state = initialUpdateState({ channel: 'standalone', currentVersion: '2.3.4' });
-    expect(state.channel).toBe('standalone');
+  it('保留当前版本', () => {
+    const state = initialUpdateState({ currentVersion: '2.3.4' });
     expect(state.currentVersion).toBe('2.3.4');
   });
 });
 
 describe('检查', () => {
-  it('商店有更新时进入 available，并带上版本与强制标记', () => {
-    const state = reachedAvailable('1.0.1.0', true);
+  it('有更新时进入 available 并带上版本', () => {
+    const state = reachedAvailable('1.0.1');
     expect(state.phase).toBe('available');
     expect(state.version).toBe('1.0.1');
-    expect(state.mandatory).toBe(true);
     expect(state.checkedAt).toBe(at);
     expect(state.reason).toBeNull();
   });
@@ -73,31 +53,23 @@ describe('检查', () => {
     expect(state.version).toBeNull();
   });
 
-  it('商店返回空列表按无更新处理，不留一个空 available', () => {
-    const state = run(base(), [
-      { type: 'check/started' },
-      { type: 'check/available', updates: [], checkedAt: at },
-    ]);
-    expect(state.phase).toBe('up-to-date');
-  });
-
   it('失败时进入 unsupported 并保留原因与排查细节', () => {
     const state = run(base(), [
       { type: 'check/started' },
-      { type: 'check/failed', reason: 'not-store', detail: 'raw' },
+      { type: 'check/failed', reason: 'not-packaged', detail: 'raw' },
     ]);
     expect(state.phase).toBe('unsupported');
-    expect(state.reason).toBe('not-store');
+    expect(state.reason).toBe('not-packaged');
     expect(state.detail).toBe('raw');
   });
 
-  it('商店暂时不可用是可重试的失败，不是能力缺失', () => {
+  it('更新源暂时不可用是可重试的失败，不是能力缺失', () => {
     const state = run(base(), [
       { type: 'check/started' },
-      { type: 'check/failed', reason: 'store-unavailable', detail: null },
+      { type: 'check/failed', reason: 'feed-unavailable', detail: null },
     ]);
     expect(state.phase).toBe('error');
-    expect(state.reason).toBe('store-unavailable');
+    expect(state.reason).toBe('feed-unavailable');
   });
 
   it('检查中重复的开始事件被忽略', () => {
@@ -113,7 +85,7 @@ describe('检查', () => {
     ]);
     const late = reduceUpdate(downloading, {
       type: 'check/available',
-      updates: found('9.9.9.0'),
+      version: '9.9.9',
       checkedAt: at,
     });
     expect(late).toBe(downloading);
@@ -208,19 +180,19 @@ describe('安装', () => {
     expect(reduceUpdate(available, { type: 'install/started' })).toBe(available);
   });
 
-  it('安装完成进入 installed 并保留目标版本', () => {
-    const state = run(ready(), [{ type: 'install/started' }, { type: 'install/finished' }]);
-    expect(state.phase).toBe('installed');
+  it('启动安装后保持 installing，不提前宣称完成', () => {
+    const state = run(ready(), [{ type: 'install/started' }]);
+    expect(state.phase).toBe('installing');
     expect(state.version).toBe('1.0.1');
   });
 
   it('安装失败进入 error 并保留原因', () => {
     const state = run(ready(), [
       { type: 'install/started' },
-      { type: 'install/failed', reason: 'low-battery', detail: null },
+      { type: 'install/failed', reason: 'failed', detail: null },
     ]);
     expect(state.phase).toBe('error');
-    expect(state.reason).toBe('low-battery');
+    expect(state.reason).toBe('failed');
   });
 
   it('安装中到达的下载事件被忽略', () => {
@@ -234,7 +206,7 @@ describe('失败步骤', () => {
   it('检查失败记在检查这一步', () => {
     const state = run(base(), [
       { type: 'check/started' },
-      { type: 'check/failed', reason: 'not-store', detail: null },
+      { type: 'check/failed', reason: 'not-packaged', detail: null },
     ]);
     expect(state.failedAt).toBe('check');
   });
@@ -255,7 +227,7 @@ describe('失败步骤', () => {
     ]);
     const state = run(ready, [
       { type: 'install/started' },
-      { type: 'install/failed', reason: 'low-battery', detail: null },
+      { type: 'install/failed', reason: 'failed', detail: null },
     ]);
     expect(state.failedAt).toBe('install');
   });
@@ -286,9 +258,9 @@ describe('failureEvent', () => {
       reason: 'cancelled',
       detail: null,
     });
-    expect(failureEvent('install', 'low-battery', null)).toEqual({
+    expect(failureEvent('install', 'failed', null)).toEqual({
       type: 'install/failed',
-      reason: 'low-battery',
+      reason: 'failed',
       detail: null,
     });
   });
@@ -305,87 +277,9 @@ describe('failureEvent', () => {
       ]),
     };
     for (const step of steps) {
-      const escaped = reduceUpdate(
-        inFlight[step],
-        failureEvent(step, 'failed', '原生模块抛了异常'),
-      );
+      const escaped = reduceUpdate(inFlight[step], failureEvent(step, 'failed', '更新器抛了异常'));
       expect(escaped.phase, step).toBe('error');
       expect(escaped.failedAt, step).toBe(step);
     }
-  });
-});
-
-describe('formatPackageVersion', () => {
-  it('去掉四段版本末尾的 0，与应用内版本号对齐', () => {
-    expect(formatPackageVersion('1.0.1.0')).toBe('1.0.1');
-    expect(formatPackageVersion('1.0.0.0')).toBe('1.0.0');
-  });
-
-  it('末段非零时完整保留', () => {
-    expect(formatPackageVersion('1.0.1.2')).toBe('1.0.1.2');
-  });
-
-  it('非四段输入原样返回', () => {
-    expect(formatPackageVersion('1.2')).toBe('1.2');
-    expect(formatPackageVersion('1.0.0.0.0')).toBe('1.0.0.0.0');
-  });
-
-  it('容忍空白', () => {
-    expect(formatPackageVersion('  1.0.1.0 ')).toBe('1.0.1');
-  });
-});
-
-describe('pickUpdateTarget', () => {
-  it('空列表返回 null', () => {
-    expect(pickUpdateTarget([])).toBeNull();
-  });
-
-  it('多个包时取最高版本', () => {
-    const target = pickUpdateTarget([
-      { version: '1.0.1.0', mandatory: false, familyName: 'a' },
-      { version: '1.0.10.0', mandatory: false, familyName: 'b' },
-      { version: '1.0.2.0', mandatory: false, familyName: 'c' },
-    ]);
-    expect(target).toEqual({ version: '1.0.10', mandatory: false });
-  });
-
-  it('任意一个包被标记为强制即视为强制', () => {
-    const target = pickUpdateTarget([
-      { version: '1.0.1.0', mandatory: false, familyName: 'a' },
-      { version: '1.0.2.0', mandatory: true, familyName: 'b' },
-    ]);
-    expect(target?.mandatory).toBe(true);
-  });
-});
-
-describe('reasonFromFailure', () => {
-  it('窗口句柄错误单独识别：桌面应用必须给商店对话框指定属主窗口', () => {
-    expect(reasonFromFailure({ code: 0x80070578 })).toBe('window-handle');
-  });
-
-  it('商店包状态映射到各自的原因', () => {
-    expect(reasonFromFailure({ state: 'Canceled' })).toBe('cancelled');
-    expect(reasonFromFailure({ state: 'ErrorLowBattery' })).toBe('low-battery');
-    expect(reasonFromFailure({ state: 'ErrorWiFiRequired' })).toBe('wifi-required');
-    expect(reasonFromFailure({ state: 'ErrorWiFiRecommended' })).toBe('wifi-recommended');
-    expect(reasonFromFailure({ state: 'OtherError' })).toBe('failed');
-  });
-
-  it('无信息时归为 failed', () => {
-    expect(reasonFromFailure({})).toBe('failed');
-    expect(reasonFromFailure({ code: null, state: null })).toBe('failed');
-    expect(reasonFromFailure({ code: -2147024774 })).toBe('failed');
-  });
-
-  it('原生模块的预检状态映射到对应原因', () => {
-    expect(reasonFromFailure({ state: 'NotPackaged' })).toBe('not-packaged');
-    expect(reasonFromFailure({ state: 'InvalidWindow' })).toBe('window-handle');
-    expect(reasonFromFailure({ state: 'ChannelFailed' })).toBe('failed');
-    expect(reasonFromFailure({ state: 'NoUpdates' })).toBe('failed');
-    expect(reasonFromFailure({ state: 'Busy' })).toBe('failed');
-  });
-
-  it('HRESULT 以有符号 32 位传入时也能识别', () => {
-    expect(reasonFromFailure({ code: 0x80070578 - 0x100000000 })).toBe('window-handle');
   });
 });

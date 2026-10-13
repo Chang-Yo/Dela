@@ -1,10 +1,9 @@
-// 后台检查循环：用户不打开设置页时也要能发现新版本，但只在真的问得到商店时才查。
+// 后台检查循环：用户不打开设置页时也要能发现新版本，仅在打包版已有窗口时检查。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   windows: [] as {
     isDestroyed: () => boolean;
-    getNativeWindowHandle: () => Buffer;
     webContents: { send: () => void };
   }[],
   check: vi.fn(),
@@ -31,19 +30,20 @@ vi.mock('../settings/prefs', () => ({
   savedPendingInstall: () => mocks.pendingInstall,
   setPendingInstall: mocks.setPendingInstall,
 }));
-vi.mock('./native', () => ({ loadStoreUpdate: () => mocks }));
+vi.mock('electron-updater', () => ({
+  autoUpdater: {
+    checkForUpdates: mocks.check,
+    downloadUpdate: mocks.download,
+    quitAndInstall: mocks.install,
+    on: () => {},
+  },
+}));
 
 function liveWindow() {
   return {
     isDestroyed: () => false,
-    getNativeWindowHandle: () => Buffer.alloc(8),
     webContents: { send: () => {} },
   };
-}
-
-/** process.windowsStore 由 Electron 在商店版里置位；这里手工模拟两种安装方式。 */
-function setStoreChannel(value: boolean) {
-  Object.defineProperty(process, 'windowsStore', { value, configurable: true, writable: true });
 }
 
 beforeEach(() => {
@@ -54,17 +54,15 @@ beforeEach(() => {
   mocks.pendingInstall = false;
   mocks.setPendingInstall.mockReset();
   mocks.check.mockReset();
-  mocks.check.mockResolvedValue({ ok: true, updates: [] });
+  mocks.check.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: '1.0.0' } });
   mocks.download.mockReset();
-  mocks.download.mockResolvedValue({ ok: true });
+  mocks.download.mockResolvedValue(['installer.exe']);
   mocks.install.mockReset();
   mocks.install.mockResolvedValue({ ok: true });
-  setStoreChannel(true);
 });
 
 afterEach(() => {
   vi.useRealTimers();
-  delete (process as { windowsStore?: boolean }).windowsStore;
 });
 
 describe('startBackgroundUpdateCheck', () => {
@@ -87,16 +85,7 @@ describe('startBackgroundUpdateCheck', () => {
     expect(mocks.check).toHaveBeenCalledTimes(2);
   });
 
-  it('自建安装版不问商店：问了只会把状态推成「不支持」', async () => {
-    setStoreChannel(false);
-    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('./index');
-    const stop = startBackgroundUpdateCheck();
-    await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY);
-    expect(mocks.check).not.toHaveBeenCalled();
-    stop();
-  });
-
-  it('开发运行不问商店', async () => {
+  it('开发运行不问CDN', async () => {
     mocks.isPackaged = false;
     const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('./index');
     const stop = startBackgroundUpdateCheck();
@@ -105,7 +94,7 @@ describe('startBackgroundUpdateCheck', () => {
     stop();
   });
 
-  it('没有窗口时跳过：商店对话框找不到属主会拿到 0x80070578', async () => {
+  it('没有窗口时跳过后台检查', async () => {
     mocks.windows = [];
     const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('./index');
     const stop = startBackgroundUpdateCheck();
@@ -117,11 +106,11 @@ describe('startBackgroundUpdateCheck', () => {
 
 // 上次推迟的更新只准备到 ready，由用户再次确认安装。
 describe('准备上次推迟的更新', () => {
-  const update = { version: '1.0.1.0', mandatory: false, familyName: 'MADFilm.Dela' };
+  const update = { version: '1.0.1' };
 
   it('启动后只检查和下载，并在准备前清除标记', async () => {
     mocks.pendingInstall = true;
-    mocks.check.mockResolvedValue({ ok: true, updates: [update] });
+    mocks.check.mockResolvedValue({ isUpdateAvailable: true, updateInfo: update });
     const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('./index');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
@@ -148,7 +137,7 @@ describe('准备上次推迟的更新', () => {
     const { startBackgroundUpdateCheck } = await import('./index');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(120_000);
-    complete({ ok: true, updates: [update] });
+    complete({ isUpdateAvailable: true, updateInfo: update });
     await vi.advanceTimersByTimeAsync(0);
     expect(mocks.download).toHaveBeenCalledTimes(1);
     expect(mocks.install).not.toHaveBeenCalled();
@@ -177,24 +166,13 @@ describe('准备上次推迟的更新', () => {
 
   it('窗口还没就位就留着标记，下次启动再试', async () => {
     mocks.pendingInstall = true;
-    mocks.check.mockResolvedValue({ ok: true, updates: [update] });
+    mocks.check.mockResolvedValue({ isUpdateAvailable: true, updateInfo: update });
     mocks.windows = [];
     const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('./index');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
     expect(mocks.check).not.toHaveBeenCalled();
     expect(mocks.setPendingInstall).not.toHaveBeenCalled();
-    stop();
-  });
-
-  it('自建安装版清掉标记：那里永远装不了，不该每次启动都试一遍', async () => {
-    mocks.pendingInstall = true;
-    setStoreChannel(false);
-    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('./index');
-    const stop = startBackgroundUpdateCheck();
-    await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
-    expect(mocks.setPendingInstall).toHaveBeenCalledWith(false);
-    expect(mocks.check).not.toHaveBeenCalled();
     stop();
   });
 });

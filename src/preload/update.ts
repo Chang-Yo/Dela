@@ -7,7 +7,7 @@ export const update = {
   download: () => invoke('update:download'),
   install: () => invoke('update:install'),
   deferInstall: () => invoke('update:defer-install'),
-  openStorePage: () => invoke('update:open-store-page'),
+  openDownloadPage: () => invoke('update:open-download-page'),
   onState: (listener: (state: UpdateSnapshot) => void) =>
     on<UpdateSnapshot>('update:state', listener),
 } satisfies UpdateApi;

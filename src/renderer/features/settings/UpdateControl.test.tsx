@@ -14,10 +14,8 @@ vi.mock('../../content/note/NoteEditor', () => ({ flushNoteEditors: vi.fn() }));
 
 const readyState: UpdateSnapshot = {
   phase: 'ready',
-  channel: 'store',
   currentVersion: '1.0.0',
   version: '1.0.1',
-  mandatory: false,
   progress: 1,
   checkedAt: null,
   reason: null,
@@ -45,7 +43,7 @@ function mountUpdateApi(overrides: Partial<DelaApi['update']> = {}) {
       check: async () => readyState,
       download: async () => readyState,
       install,
-      openStorePage: async () => {},
+      openDownloadPage: async () => {},
       onState: () => () => {},
       ...overrides,
     },
@@ -114,7 +112,7 @@ it('下载不碰笔记，只有安装才需要冲盘', async () => {
 });
 
 it('不拿 IPC 的返回值改写快照：状态只认主进程广播', async () => {
-  install = vi.fn(async () => ({ ...readyState, phase: 'installed' }));
+  install = vi.fn(async () => ({ ...readyState, phase: 'installing' }));
   mountUpdateApi();
   await act(async () => root.render(<UpdateControl />));
   await act(async () => button('安装更新').click());
