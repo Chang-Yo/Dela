@@ -16,6 +16,7 @@ import { shuiyuan } from './shuiyuan';
 import { timetable } from './timetable';
 import { todo } from './todo';
 import { terminal } from './terminal';
+import { update } from './update';
 import { windowApi } from './window';
 import { workspace } from './workspace';
 import { vsjtu } from './vsjtu';
@@ -41,4 +42,5 @@ contextBridge.exposeInMainWorld('dela', {
   session,
   layout,
   capability,
+  update,
 } satisfies DelaApi);

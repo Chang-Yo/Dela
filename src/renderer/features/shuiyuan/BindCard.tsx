@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { Textarea } from '../../components/ui/textarea';
 import { errorText } from '../../workspace/store';
+import { showToast } from '../../app/toasts';
 import { useShuiyuan } from './store';
 
 /** 未绑定时的授权卡：发起授权窗口 → 粘贴密文 → 绑定。 */
@@ -23,7 +24,7 @@ export function BindCard() {
     try {
       await shuiyuan.startAuth();
     } catch (reason) {
-      setError(errorText(reason));
+      showToast({ variant: 'error', title: '打开授权页面失败', description: errorText(reason) });
     } finally {
       setAuthBusy(false);
     }

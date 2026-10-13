@@ -1,7 +1,7 @@
 import { htmlToMarkdown } from '@mdream/js';
 import { clean } from '@mdream/js/clean';
 import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
-import { extractDocumentBytes } from '../resource-parse';
+import { extractDocumentBytes } from '../documents/parse';
 
 // 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
 const BROWSER_UA =

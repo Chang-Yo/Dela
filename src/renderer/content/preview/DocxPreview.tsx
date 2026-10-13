@@ -2,6 +2,7 @@ import { renderAsync } from 'docx-preview';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button';
+import { errorText } from '../../workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
 
 // 缩放范围与步进：与 PdfReader 的 10% 步进一致。
@@ -47,8 +48,7 @@ export function DocxPreview({ url }: { url: string }) {
           }
         });
       } catch (cause) {
-        if (!controller.signal.aborted)
-          setError(cause instanceof Error ? cause.message : String(cause));
+        if (!controller.signal.aborted) setError(errorText(cause));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }

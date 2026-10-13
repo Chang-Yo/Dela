@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry, WorkspaceState } from '../../../../../shared/api';
+import { useToastStore } from '../../../../app/toasts';
 import { useWorkspaceStore } from '../../../../workspace/store';
 import { SkillsTab } from './SkillsTab';
 
@@ -60,6 +61,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  useToastStore.setState({ toasts: [] });
   delete window.dela;
   vi.unstubAllGlobals();
 });
@@ -121,11 +123,15 @@ it('asks for overwrite when the remote skill exists', async () => {
   expect(document.body.textContent).toContain('已上传 2 个文件到 /root/proj/.dela/skills/lint');
 });
 
-it('shows other errors directly', async () => {
+it('reports other errors as a toast', async () => {
   const call = vi.fn().mockRejectedValue(new Error('ssh 连接失败'));
   await openDialog(call);
   await act(async () => buttonByText('远端课题').click());
   await act(async () => buttonByText('上传').click());
-  expect(document.body.textContent).toContain('ssh 连接失败');
+  expect(useToastStore.getState().toasts[0]).toMatchObject({
+    variant: 'error',
+    title: '上传失败',
+    description: 'ssh 连接失败',
+  });
   expect(document.body.textContent).not.toContain('覆盖吗？');
 });

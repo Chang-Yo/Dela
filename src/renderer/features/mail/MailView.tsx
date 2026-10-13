@@ -28,6 +28,8 @@ import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
 import { Resizer } from '../../components/ui/resizer';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 
 const MESSAGE_LIMIT = 200;
 
@@ -136,7 +138,6 @@ function DesktopMailView({
   const [draftError, setDraftError] = useState<string | null>(null);
   const [openingDraft, setOpeningDraft] = useState(false);
   const [composeDirty, setComposeDirty] = useState(false);
-  const [sendNotice, setSendNotice] = useState<string | null>(null);
   const [trashItems, setTrashItems] = useState<MailTrashItem[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
   const [trashError, setTrashError] = useState<string | null>(null);
@@ -152,19 +153,8 @@ function DesktopMailView({
   const listRequest = useRef(0);
   const trashRequest = useRef(0);
   const draftRequest = useRef(0);
-  const noticeTimer = useRef<number | null>(null);
   const navigationRequest = useRef(0);
   const processedOpenRequest = useRef<{ messageId: number } | undefined>(undefined);
-
-  /** 瞬时提示,样式沿用发送成功通知;新提示顶掉旧提示并接管其定时器。 */
-  const notify = useCallback((text: string) => {
-    setSendNotice(text);
-    if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current);
-    noticeTimer.current = window.setTimeout(() => {
-      noticeTimer.current = null;
-      setSendNotice(null);
-    }, 3000);
-  }, []);
 
   const loadDrafts = useCallback(async (account: string) => {
     const request = ++draftRequest.current;
@@ -172,7 +162,7 @@ function DesktopMailView({
       const loaded = await dela.mail.listDrafts(account);
       if (request === draftRequest.current) setLocalDrafts(loaded);
     } catch (reason) {
-      if (request === draftRequest.current) setDraftError(String(reason));
+      if (request === draftRequest.current) setDraftError(errorText(reason));
     }
   }, []);
 
@@ -186,7 +176,7 @@ function DesktopMailView({
         setTrashError(null);
       }
     } catch (reason) {
-      if (request === trashRequest.current) setTrashError(String(reason));
+      if (request === trashRequest.current) setTrashError(errorText(reason));
     } finally {
       if (request === trashRequest.current) setTrashLoading(false);
     }
@@ -234,7 +224,7 @@ function DesktopMailView({
       setDraft(await dela.mail.openDraft(id));
       setComposing(true);
     } catch (reason) {
-      setDraftError(String(reason));
+      showToast({ variant: 'error', title: '打开草稿失败', description: errorText(reason) });
     } finally {
       setOpeningDraft(false);
     }
@@ -274,7 +264,11 @@ function DesktopMailView({
   }, []);
 
   const refreshFolders = useCallback(async () => {
-    setFolders([...visibleFolders(await dela.mail.listFolders())]);
+    try {
+      setFolders([...visibleFolders(await dela.mail.listFolders())]);
+    } catch (reason) {
+      showToast({ variant: 'error', title: '刷新文件夹失败', description: errorText(reason) });
+    }
   }, []);
 
   const loadMessages = useCallback(async (folderId: number) => {
@@ -284,6 +278,9 @@ function DesktopMailView({
     try {
       const loaded = await dela.mail.listMessages(folderId, MESSAGE_LIMIT);
       if (request === listRequest.current) setMessages([...loaded]);
+    } catch (reason) {
+      if (request === listRequest.current)
+        showToast({ variant: 'error', title: '加载邮件失败', description: errorText(reason) });
     } finally {
       if (request === listRequest.current) setListLoading(false);
     }
@@ -315,13 +312,11 @@ function DesktopMailView({
   };
 
   const handleCompose = useCallback(() => {
-    setSendNotice(null);
     setComposing((current) => (current && composeDirty ? true : !current));
   }, [composeDirty]);
 
   const handleReply = useCallback((source: MailMessageDetail) => {
     const open = () => {
-      setSendNotice(null);
       setDraft(replyDraft(source));
       setComposing(true);
     };
@@ -343,34 +338,38 @@ function DesktopMailView({
       // 只读阅读(回收站)不标记已读:恢复时保留原未读状态。
       if (!loaded.seen && !options?.readonly) {
         const folderId = selectedFolderIdRef.current;
-        const result = await dela.mail.markSeen(messageId);
-        if (result.ok) {
-          if (selectedFolderIdRef.current === folderId) {
-            setMessages((prev) =>
-              prev.map((item) => (item.id === messageId ? { ...item, seen: true } : item)),
-            );
+        try {
+          const result = await dela.mail.markSeen(messageId);
+          if (result.ok) {
+            if (selectedFolderIdRef.current === folderId) {
+              setMessages((prev) =>
+                prev.map((item) => (item.id === messageId ? { ...item, seen: true } : item)),
+              );
+            }
+            if (folderId !== null) {
+              setFolders((prev) =>
+                prev.map((folder) =>
+                  folder.id === folderId && folder.unread !== null
+                    ? { ...folder, unread: Math.max(0, folder.unread - 1) }
+                    : folder,
+                ),
+              );
+            }
+            if (request === detailRequest.current) {
+              setDetail((current) =>
+                current?.id === messageId ? { ...current, seen: true } : current,
+              );
+            }
+          } else if (request === detailRequest.current) {
+            showToast({ variant: 'error', title: '标记已读失败', description: result.error });
           }
-          if (folderId !== null) {
-            setFolders((prev) =>
-              prev.map((folder) =>
-                folder.id === folderId && folder.unread !== null
-                  ? { ...folder, unread: Math.max(0, folder.unread - 1) }
-                  : folder,
-              ),
-            );
-          }
-          if (request === detailRequest.current) {
-            setDetail((current) =>
-              current?.id === messageId ? { ...current, seen: true } : current,
-            );
-          }
-        } else if (request === detailRequest.current) {
-          setDetailError(result.error);
+        } catch (reason) {
+          if (request === detailRequest.current)
+            showToast({ variant: 'error', title: '标记已读失败', description: errorText(reason) });
         }
       }
     } catch (error) {
-      if (request === detailRequest.current)
-        setDetailError(error instanceof Error ? error.message : String(error));
+      if (request === detailRequest.current) setDetailError(errorText(error));
     } finally {
       if (request === detailRequest.current) setDetailLoading(false);
     }
@@ -388,29 +387,35 @@ function DesktopMailView({
     let active = true;
     // 捕获导航计数:草稿/回收站按钮在 folders 到达前即可点击,加载完成后不得覆盖用户选择。
     const nav = navigationRequest.current;
-    void dela.mail.getState().then(async (initial) => {
-      if (!active) return;
-      setState(initial);
-      if (!initial.account) return;
-      const folderList = [...visibleFolders(await dela.mail.listFolders())];
-      if (!active) return;
-      setFolders(folderList);
-      const inbox =
-        folderList.find((folder) => folder.specialUse === '\\Inbox') ?? folderList[0] ?? null;
-      // 加载期间用户已切换草稿/回收站等视图时不再强制回到收件箱;后续草稿/回收站/自动同步仍需执行。
-      if (inbox && navigationRequest.current === nav) {
-        setSelection({ kind: 'folder', id: inbox.id });
-        await loadMessages(inbox.id);
-      }
-      void loadDrafts(initial.account.address);
-      void loadTrash();
-      if (!autoSyncedRef.current) {
-        autoSyncedRef.current = true;
-        void dela.mail.syncNow().catch(() => {
-          // 同步错误通过 mail:sync-status 事件展示。
-        });
-      }
-    });
+    void dela.mail
+      .getState()
+      .then(async (initial) => {
+        if (!active) return;
+        setState(initial);
+        if (!initial.account) return;
+        const folderList = [...visibleFolders(await dela.mail.listFolders())];
+        if (!active) return;
+        setFolders(folderList);
+        const inbox =
+          folderList.find((folder) => folder.specialUse === '\\Inbox') ?? folderList[0] ?? null;
+        // 加载期间用户已切换草稿/回收站等视图时不再强制回到收件箱;后续草稿/回收站/自动同步仍需执行。
+        if (inbox && navigationRequest.current === nav) {
+          setSelection({ kind: 'folder', id: inbox.id });
+          await loadMessages(inbox.id);
+        }
+        void loadDrafts(initial.account.address);
+        void loadTrash();
+        if (!autoSyncedRef.current) {
+          autoSyncedRef.current = true;
+          void dela.mail.syncNow().catch(() => {
+            // 同步错误通过 mail:sync-status 事件展示。
+          });
+        }
+      })
+      .catch((reason) => {
+        if (active)
+          showToast({ variant: 'error', title: '邮箱加载失败', description: errorText(reason) });
+      });
     const unsubscribe = dela.mail.onSyncStatus((status) => {
       setState((prev) => (prev ? { ...prev, sync: status } : prev));
       if (status.phase === 'idle' && status.finishedAt) void refreshAll();
@@ -443,6 +448,8 @@ function DesktopMailView({
       void dela.mail.syncNow().catch(() => {
         // 同步错误通过 mail:sync-status 事件展示。
       });
+    } catch (reason) {
+      setConfigureError(errorText(reason));
     } finally {
       setConfiguring(false);
     }
@@ -460,7 +467,12 @@ function DesktopMailView({
     )
       return;
     setConfirmingDisconnect(false);
-    await dela.mail.disconnect();
+    try {
+      await dela.mail.disconnect();
+    } catch (reason) {
+      showToast({ variant: 'error', title: '退出登录失败', description: errorText(reason) });
+      return;
+    }
     setFolders([]);
     setMessages([]);
     setDetail(null);
@@ -478,7 +490,7 @@ function DesktopMailView({
     try {
       const result = await dela.mail.deleteMessage(target.id);
       if (!result.ok) {
-        setDetailError(result.error);
+        showToast({ variant: 'error', title: '删除邮件失败', description: result.error });
         return;
       }
       const folderId = selectedFolderIdRef.current;
@@ -498,10 +510,10 @@ function DesktopMailView({
           ),
         );
       }
-      notify('已移入已删除');
+      showToast({ variant: 'success', title: '已移入已删除' });
       void loadTrash();
     } catch (reason) {
-      setDetailError(reason instanceof Error ? reason.message : String(reason));
+      showToast({ variant: 'error', title: '删除邮件失败', description: errorText(reason) });
     }
   };
 
@@ -509,15 +521,15 @@ function DesktopMailView({
     try {
       const result = await dela.mail.restoreMessage(item.id);
       if (!result.ok) {
-        setTrashError(result.error);
+        showToast({ variant: 'error', title: '恢复邮件失败', description: result.error });
         return;
       }
       setTrashItems((prev) => prev.filter((row) => row.id !== item.id));
-      notify(`已恢复到 ${item.folderName ?? '原文件夹'}`);
+      showToast({ variant: 'success', title: `已恢复到 ${item.folderName ?? '原文件夹'}` });
       // 原文件夹列表与未读数可能变化。
       void refreshAll();
     } catch (reason) {
-      setTrashError(String(reason));
+      showToast({ variant: 'error', title: '恢复邮件失败', description: errorText(reason) });
     }
   };
 
@@ -537,13 +549,13 @@ function DesktopMailView({
     try {
       const result = await dela.mail.purgeMessage(item.id);
       if (!result.ok) {
-        setTrashError(result.error);
+        showToast({ variant: 'error', title: '彻底删除失败', description: result.error });
         return;
       }
       clearReading(item.id);
       setTrashItems((prev) => prev.filter((row) => row.id !== item.id));
     } catch (reason) {
-      setTrashError(String(reason));
+      showToast({ variant: 'error', title: '彻底删除失败', description: errorText(reason) });
     }
   };
 
@@ -552,13 +564,13 @@ function DesktopMailView({
     try {
       const result = await dela.mail.emptyTrash();
       if (!result.ok) {
-        setTrashError(result.error);
+        showToast({ variant: 'error', title: '清空回收站失败', description: result.error });
         return;
       }
       if (selectedMessageId !== null) clearReading(selectedMessageId);
       setTrashItems([]);
     } catch (reason) {
-      setTrashError(String(reason));
+      showToast({ variant: 'error', title: '清空回收站失败', description: errorText(reason) });
     }
   };
 
@@ -656,8 +668,7 @@ function DesktopMailView({
         apply();
       })
       .catch((reason) => {
-        if (request === navigationRequest.current)
-          setDetailError(reason instanceof Error ? reason.message : String(reason));
+        if (request === navigationRequest.current) setDetailError(errorText(reason));
       });
   }, [account, dela.mail, folders, loadMessages, openMessage, openRequest, stacked]);
 
@@ -748,7 +759,13 @@ function DesktopMailView({
               setComposeDirty(false);
               setComposing(false);
               setDraft(undefined);
-              notify(warning ?? '邮件已发送');
+              showToast({ variant: 'success', title: '邮件已发送' });
+              if (warning)
+                showToast({
+                  variant: 'error',
+                  title: '本地草稿删除失败',
+                  description: warning,
+                });
               void dela.mail.syncNow().catch(() => {});
               void loadDrafts(account?.address ?? '');
             }}
@@ -802,7 +819,13 @@ function DesktopMailView({
                         .then(() =>
                           setLocalDrafts((items) => items.filter((row) => row.id !== item.id)),
                         )
-                        .catch((reason) => setDraftError(String(reason)));
+                        .catch((reason) =>
+                          showToast({
+                            variant: 'error',
+                            title: '删除草稿失败',
+                            description: errorText(reason),
+                          }),
+                        );
                     }}
                   >
                     <Trash2 className="size-4" />
@@ -904,11 +927,6 @@ function DesktopMailView({
           />,
           drawerSlot,
         )}
-      {sendNotice && (
-        <p className="pointer-events-none absolute right-5 bottom-5 rounded-control bg-(--tooltip-bg) px-3 py-2 text-[12px] text-(--tooltip-fg) shadow-raised animate-[pop-in_160ms_var(--ease-out-strong)_both]">
-          {sendNotice}
-        </p>
-      )}
     </div>
   );
 }

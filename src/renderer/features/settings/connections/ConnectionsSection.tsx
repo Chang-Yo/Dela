@@ -16,6 +16,7 @@ import { CanvasTokenForm } from './CanvasTokenForm';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 
 type ConnectionsSectionProps = {
@@ -48,15 +49,12 @@ export function ConnectionsSection({
   const canvas = useWorkspaceStore((state) => state.canvas);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
-  const [retentionError, setRetentionError] = useState<string | null>(null);
   const [timetableConnected, setTimetableConnected] = useState(false);
   const [shuiyuanUser, setShuiyuanUser] = useState<string | null>(null);
   const [shuiyuanBusy, setShuiyuanBusy] = useState(false);
   const [shuiyuanConfirm, setShuiyuanConfirm] = useState(false);
-  const [shuiyuanError, setShuiyuanError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'canvas' | null>(null);
   const [busy, setBusy] = useState(false);
-  const [disconnectError, setDisconnectError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,13 +91,12 @@ export function ConnectionsSection({
       return;
     }
     setShuiyuanBusy(true);
-    setShuiyuanError(null);
     try {
       await window.dela.shuiyuan.unbind();
       setShuiyuanUser(null);
       setShuiyuanConfirm(false);
     } catch (cause) {
-      setShuiyuanError(errorText(cause));
+      showToast({ variant: 'error', title: '解除绑定失败', description: errorText(cause) });
     } finally {
       setShuiyuanBusy(false);
     }
@@ -107,19 +104,17 @@ export function ConnectionsSection({
 
   const openDialog = () => {
     setDialog('canvas');
-    setDisconnectError(null);
   };
 
   const disconnectCanvas = async () => {
     if (!window.dela) return;
     setBusy(true);
-    setDisconnectError(null);
     try {
       await window.dela.canvas.disconnect();
       useWorkspaceStore.getState().setCanvas(await window.dela.canvas.getState());
       setDialog(null);
     } catch (cause) {
-      setDisconnectError(errorText(cause));
+      showToast({ variant: 'error', title: '断开连接失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -129,12 +124,11 @@ export function ConnectionsSection({
     if (!window.dela || trashRetention === null) return;
     const previous = trashRetention;
     setTrashRetention(value);
-    setRetentionError(null);
     try {
       setTrashRetention(await window.dela.mail.setTrashRetention(value));
     } catch (cause) {
       setTrashRetention(previous);
-      setRetentionError(errorText(cause));
+      showToast({ variant: 'error', title: '保存保留期失败', description: errorText(cause) });
     }
   };
 
@@ -175,11 +169,6 @@ export function ConnectionsSection({
                 <SelectItem value="0">永久</SelectItem>
               </SelectContent>
             </Select>
-            {retentionError && (
-              <span className="text-[12px] text-red" role="alert">
-                {retentionError}
-              </span>
-            )}
           </div>
         ),
     },
@@ -208,11 +197,6 @@ export function ConnectionsSection({
             : '解除绑定'
         : '去绑定',
       onClick: shuiyuanUser ? () => void unbindShuiyuan() : onOpenShuiyuan,
-      extra: shuiyuanError ? (
-        <span className="text-[12px] text-red" role="alert">
-          {shuiyuanError}
-        </span>
-      ) : undefined,
     },
   ];
 
@@ -314,11 +298,6 @@ export function ConnectionsSection({
               }
               onSuccess={() => setDialog(null)}
             />
-            {disconnectError && (
-              <p className="mt-2 text-[12px] text-red" role="alert">
-                {disconnectError}
-              </p>
-            )}
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

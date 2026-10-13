@@ -1,5 +1,5 @@
 // 全局搜索对着真库跑一遍：这条用例不搭影子 schema，直接用 database.ts 建出来的表。
-// 影子 schema 曾经凭空补过一个 sessions.messages 列，于是 search.ts 里写着不存在的列
+// 影子 schema 曾经凭空补过一个 sessions.messages 列，于是 search/index.ts 里写着不存在的列
 // 也能全绿——用户点开 Ctrl+K 才会看到「no such column」。真库才能挡住这一类缺陷。
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

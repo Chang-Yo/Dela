@@ -41,7 +41,8 @@ import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from './remote-color';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
 import { useExperimental } from '../features/settings/experimental';
-import { useWorkspaceStore } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
+import { showToast } from '../app/toasts';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { useNavigationStore, useProjectNavPrefs } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
@@ -142,7 +143,6 @@ export function ProjectSessionNav({
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
   const [sectionProjectId, setSectionProjectId] = useState<string | null>(null);
   const [sectionName, setSectionName] = useState('');
-  const [actionError, setActionError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null);
   useEffect(() => {
@@ -161,12 +161,11 @@ export function ProjectSessionNav({
         .filter((name): name is string => Boolean(name)),
     ),
   ];
-  const runAction = async (action: () => Promise<unknown>) => {
-    setActionError(null);
+  const runAction = async (title: string, action: () => Promise<unknown>) => {
     try {
       await action();
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error));
+    } catch (cause) {
+      showToast({ variant: 'error', title, description: errorText(cause) });
     }
   };
   const hidden = cn('truncate', labelFade, collapsed && 'opacity-0');
@@ -314,7 +313,9 @@ export function ProjectSessionNav({
                   </Menu.Sub>
                   <DropdownMenuItem
                     onSelect={() =>
-                      void runAction(async () => window.dela?.workspace.openLocal(key))
+                      void runAction('打开目录失败', async () =>
+                        window.dela?.workspace.openLocal(key),
+                      )
                     }
                   >
                     <FolderOpen />
@@ -355,7 +356,7 @@ export function ProjectSessionNav({
               variant="destructive"
               disabled={archiving}
               onClick={() =>
-                void runAction(async () => {
+                void runAction('归档失败', async () => {
                   if (!window.dela) throw new Error('会话管理仅在桌面端可用');
                   setArchiving(true);
                   try {
@@ -540,11 +541,6 @@ export function ProjectSessionNav({
         request={renameProjectId ? { action: 'rename', id: renameProjectId } : null}
         onClose={() => setRenameProjectId(null)}
       />
-      {actionError && (
-        <p role="alert" className="px-2 pt-2 text-[12px] text-red">
-          {actionError}
-        </p>
-      )}
       <Dialog.Root
         open={sectionProjectId !== null}
         onOpenChange={(open) => {

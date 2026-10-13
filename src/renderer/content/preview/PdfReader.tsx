@@ -10,6 +10,7 @@ import { EventBus, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { errorText } from '../../workspace/store';
 import 'pdfjs-dist/web/pdf_viewer.css';
 
 declare const __PDF_ASSET_DIR__: string;
@@ -64,7 +65,7 @@ export function PdfReader({
     let task: PDFDocumentLoadingTask | undefined;
     const fail = (error: unknown) => {
       if (disposed || controller.signal.aborted) return;
-      setError(String(error));
+      setError(errorText(error));
       initialized = false;
       setPageCount(0);
       controller.abort();

@@ -8,6 +8,7 @@ import { menuPanel } from '../components/ui/menu-styles';
 import { useSessionRunStatus } from '../sessions/runs';
 import { updateSession } from '../sessions/store';
 import { errorText } from '../workspace/store';
+import { showToast } from '../app/toasts';
 import { navSubRow, rowActions, rowIconButton } from './nav-styles';
 
 export interface NavSessionSummary {
@@ -47,7 +48,6 @@ export function SessionRow({
   const ProjectIcon = remoteId ? Cloud : Folder;
   const badge = useSessionRunStatus(session.id);
   const visual = badge === null ? null : badgeVisual[badge];
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   useEffect(() => {
@@ -67,12 +67,11 @@ export function SessionRow({
     }
     setConfirming(false);
     setBusy(true);
-    setError(null);
     try {
       if (archive) await onDelete?.(session.id);
       else await updateSession(session.id, { pinned: !session.pinned });
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '会话操作失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -154,11 +153,6 @@ export function SessionRow({
             </button>
           )}
         </div>
-      )}
-      {error && (
-        <span role="alert" className="max-w-24 truncate text-[11.5px] text-red" title={error}>
-          {error}
-        </span>
       )}
     </div>
   );

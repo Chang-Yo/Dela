@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { LoaderCircle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type { TabId } from '../../../shared/layout';
 import { markdownRequiresSourceMode } from '../../../shared/note-files';
@@ -116,7 +117,13 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   /* 笔记文件由应用管理：定位入口交给系统文件管理器。 */
   const openInFolder = () => {
     if (window.dela)
-      void window.dela.workspace.openLocal(entryId).catch((cause) => setError(errorText(cause)));
+      void window.dela.workspace.openLocal(entryId).catch((cause) =>
+        showToast({
+          variant: 'error',
+          title: '打开所在文件夹失败',
+          description: errorText(cause),
+        }),
+      );
   };
 
   return (

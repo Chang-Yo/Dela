@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 let database: DatabaseSync;
 
 vi.mock('../../database', () => ({ getDatabase: () => database }));
-vi.mock('../../system-notify', () => ({ systemNotifyToast: vi.fn() }));
+vi.mock('../../notifications/system', () => ({ systemNotifyToast: vi.fn() }));
 
-import { systemNotifyToast } from '../../system-notify';
+import { systemNotifyToast } from '../../notifications/system';
 import { notifyRunFinished } from '../task-notify';
 import { setTaskNotificationPrefs } from '../prefs';
 

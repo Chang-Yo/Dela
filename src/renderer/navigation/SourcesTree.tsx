@@ -11,7 +11,8 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { Explorer, type ExplorerItem } from '../components/ui/explorer';
-import { useWorkspaceStore } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
+import { showToast } from '../app/toasts';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { cn } from '../lib/utils';
 
@@ -128,8 +129,8 @@ export function SourcesTree({
     setLoading((ids) => [...ids, id]);
     try {
       useWorkspaceStore.getState().setCanvas(await window.dela.canvas.syncCourse(id));
-    } catch (error) {
-      useWorkspaceStore.getState().setError(error);
+    } catch (cause) {
+      showToast({ variant: 'error', title: '同步课程资料失败', description: errorText(cause) });
     } finally {
       setLoading((ids) => ids.filter((value) => value !== id));
     }
@@ -215,9 +216,13 @@ export function SourcesTree({
                       {sourceId.startsWith('file:') && (
                         <DropdownMenuItem
                           onSelect={() => {
-                            void window.dela?.canvas
-                              .download(sourceId)
-                              .catch(useWorkspaceStore.getState().setError);
+                            void window.dela?.canvas.download(sourceId).catch((cause) =>
+                              showToast({
+                                variant: 'error',
+                                title: '下载失败',
+                                description: errorText(cause),
+                              }),
+                            );
                           }}
                         >
                           <Download />
@@ -271,7 +276,13 @@ export function SourcesTree({
                         // 归档成功后展开底部「归档」区，让课程直接出现在归档文件夹中。
                         if (!wasArchived) onArchive?.();
                       })
-                      .catch(useWorkspaceStore.getState().setError);
+                      .catch((cause) =>
+                        showToast({
+                          variant: 'error',
+                          title: '归档课程失败',
+                          description: errorText(cause),
+                        }),
+                      );
                   }}
                 >
                   {confirmCourse.archived ? '取消归档' : '归档'}

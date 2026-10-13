@@ -29,6 +29,7 @@ import {
 } from './layout-schema';
 import type { EdgeZone } from './tab-dnd';
 import { relocateWorkspacePath } from '../../shared/workspace';
+import { errorText } from '../workspace/store';
 import { showToast } from '../app/toasts';
 
 const PERSIST_DEBOUNCE_MS = 800;
@@ -69,6 +70,7 @@ type Store = {
 
 // 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+const pendingSaves = new Set<Promise<boolean>>();
 // 当前项目布局成功落库后要清的旧视图键（3C）：dela.editor.layout.{scope} 是旧 ProjectView
 // 的布局事实（已迁移到 layout:{projectId}），agentOpen/agentWidth 是旧助手面板死键。
 // 布局保存失败不清理（下次变更重试）；项目快速切换时只清最后落库项目的键，
@@ -85,13 +87,28 @@ function clearLegacyViewKeys() {
 
 function saveLayoutNow() {
   const api = typeof window === 'undefined' ? undefined : window.dela?.layout;
-  if (!api) return;
+  if (!api) return Promise.resolve(false);
   const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
-  void api
+  const pending = api
     .save(projectId, { root, focus, maximized })
     // 持久化失败不打断布局操作；下次变更会重试。首次成功后清除旧视图 localStorage 键。
-    .then(clearLegacyViewKeys)
-    .catch(() => {});
+    .then(() => {
+      clearLegacyViewKeys();
+      return true;
+    })
+    .catch(() => false);
+  pendingSaves.add(pending);
+  void pending.then(() => pendingSaves.delete(pending));
+  return pending;
+}
+
+export async function saveWorkbenchLayout(): Promise<boolean> {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = null;
+  const previous = await Promise.all(pendingSaves);
+  if (previous.some((saved) => !saved)) return false;
+  if (!useWorkbenchLayout.getState().ready) return true;
+  return saveLayoutNow();
 }
 
 function schedulePersist() {
@@ -145,11 +162,14 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const token = ++initToken;
     set({ ready: false });
     let saved: WorkbenchLayout | null = null;
+    // 读取失败时保留磁盘上的已存布局：把默认布局写回会覆盖掉实际存在的保存。
+    let loadFailed = false;
     if (typeof window !== 'undefined' && window.dela?.layout) {
       try {
         saved = await window.dela.layout.get(projectId);
-      } catch {
-        saved = null;
+      } catch (cause) {
+        loadFailed = true;
+        showToast({ variant: 'error', title: '布局载入失败', description: errorText(cause) });
       }
     }
     if (token !== initToken) return;
@@ -160,8 +180,8 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     // 无论本次布局来自保存还是旧数据种子，落库成功后该项目的旧布局键都已成为死键。
     pendingLegacyScope = legacy?.scope ?? null;
     set({ projectId, root: next.root, focus: next.focus, maximized: next.maximized, ready: true });
-    // 种子（含旧数据迁移）写回一次；loaded 场景写回相同数据无副作用。
-    schedulePersist();
+    // 种子（含旧数据迁移）写回一次；loaded 场景写回相同数据无副作用；读取失败则不写回。
+    if (!loadFailed) schedulePersist();
   },
 
   openTab: (tabId, targetGroupId) => {
@@ -228,7 +248,10 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       tabId.startsWith('terminal:') &&
       !walkGroups(nextRoot).some((node) => node.tabs.includes(tabId))
     )
-      void window.dela?.terminal.closeProject(tabId.slice('terminal:'.length)).catch(console.error);
+      void window.dela?.terminal.closeProject(tabId.slice('terminal:'.length)).catch((cause) => {
+        console.error(cause);
+        showToast({ variant: 'error', title: '关闭终端失败', description: errorText(cause) });
+      });
     schedulePersist();
   },
 

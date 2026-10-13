@@ -63,7 +63,7 @@ const useOfficeExports = create<{
         try {
           await onExported?.();
         } catch {
-          /* 打开失败的错误由文档自身的错误通道呈现 */
+          /* 重读失败已在 PreviewTab 经浮窗提示；这里吞掉异常保证导出状态被清理 */
         }
         set((state) => {
           const runs = { ...state.runs };

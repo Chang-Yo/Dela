@@ -5,7 +5,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 
 let database: Database.Database | null = null;
 
-// 2026-10 破坏性重置：schema 从 v1 重开，不迁移旧世界数据（docs/technical-plan.md §持久化）。
+// 2026-10 破坏性重置：schema 从 v1 重开，不迁移旧世界数据（docs/DEVELOPMENT.md §8 持久化）。
 // 旧世界的特征表：workspace_notes（v5–v15 体系都有，新 schema 不再创建）。
 const LEGACY_MARKER = 'workspace_notes';
 const legacyTables = [

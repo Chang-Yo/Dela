@@ -131,7 +131,7 @@ export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> 
  * 向导「连接」这一步：先自检（与设置页「测试连接」同一条 probe 路径），再真的把 helper 引导起来。
  *
  * helper 起不来不是失败：一次性 ssh 仍然承接全部远程能力，只是每次调用都要重新握手、
- * 没有目录实时刷新与大文件片段读取（见 docs/remote-helper.md「引导与恢复」）。所以这里
+ * 没有目录实时刷新与大文件片段读取（见 docs/DEVELOPMENT.md §4）。所以这里
  * 只在自检不过时回 ok:false，降级走一条警告进度回去。
  */
 export async function prepareRemote(

@@ -50,7 +50,8 @@ import {
   promoteEntry,
   runEntryWork,
 } from '../workspace/entry-actions';
-import { useWorkspaceStore } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
+import { showToast } from './toasts';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
 import { cn } from '../lib/utils';
@@ -182,7 +183,7 @@ export function WorkbenchExplorer({
       await window.dela!.workspace.uploadRemoteFiles(projectId, directory, files);
     });
   };
-  // 远端动作的失败与本地条目动作同一个出口（workspace store 的错误条）。
+  // 远端动作的失败与本地条目动作同一个出口（entry-actions 的错误浮窗）。
   const [portsForProject, setPortsForProject] = useState<string | null>(null);
   const remoteAction = (action: 'download' | 'open' | 'upload', id: string) => {
     const remote = parseRemoteNodeId(id);
@@ -217,8 +218,8 @@ export function WorkbenchExplorer({
         for (const course of courses)
           if (course.term === latest && !course.archived)
             store.setCanvas(await window.dela!.canvas.syncCourse(course.id));
-      } catch (error) {
-        store.setError(error);
+      } catch (cause) {
+        showToast({ variant: 'error', title: '同步课程资料失败', description: errorText(cause) });
       } finally {
         setSyncing(false);
       }

@@ -4,7 +4,7 @@ import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } f
 import type { WorkspaceEntry } from '../../../shared/api';
 import { useNavigationStore } from '../../app/navigation';
 import { showToast } from '../../app/toasts';
-import { useWorkspaceStore } from '../../workspace/store';
+import { errorText, useWorkspaceStore } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 
 const pill =
@@ -32,6 +32,7 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
   const { projectId, remote } = context;
   const [current, setCurrent] = useState<string | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
+  const [branchesFailed, setBranchesFailed] = useState(false);
   const [projectQuery, setProjectQuery] = useState('');
   const [branchQuery, setBranchQuery] = useState('');
   const [projectOpen, setProjectOpen] = useState(false);
@@ -62,7 +63,9 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
       .then((list) => {
         if (active) setBranches(list);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setBranchesFailed(true);
+      });
     return () => {
       active = false;
     };
@@ -92,7 +95,7 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
         showToast({
           variant: 'error',
           title: '切换分支失败',
-          description: error instanceof Error ? error.message : String(error),
+          description: errorText(error),
         }),
       );
   };
@@ -201,7 +204,11 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
                     {branch === current && <Check aria-hidden className="size-3.5 shrink-0" />}
                   </button>
                 ))}
-                {visibleBranches.length === 0 && <p className={empty}>没有匹配的分支</p>}
+                {branchesFailed ? (
+                  <p className={empty}>分支列表加载失败</p>
+                ) : (
+                  visibleBranches.length === 0 && <p className={empty}>没有匹配的分支</p>
+                )}
               </div>
             </Popover.Content>
           </Popover.Portal>

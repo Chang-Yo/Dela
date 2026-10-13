@@ -6,6 +6,7 @@ import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { cn } from '../../../../lib/utils';
 import { errorText } from '../../../../workspace/store';
+import { showToast } from '../../../../app/toasts';
 import { SectionHeader } from '../../SectionHeader';
 import { SettingsGroup } from '../../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';
@@ -55,7 +56,6 @@ export function McpTab() {
   const toggle = async (server: McpServerView, next: boolean) => {
     if (!window.dela || busy) return;
     setBusy(true);
-    setError(null);
     const previous = servers;
     setServers(
       (previous ?? []).map((view) => (view.id === server.id ? { ...view, enabled: next } : view)),
@@ -64,7 +64,7 @@ export function McpTab() {
       settle(await window.dela.capability.updateMcpServer(server.id, { enabled: next }));
     } catch (cause) {
       setServers(previous);
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -73,11 +73,10 @@ export function McpTab() {
   const reconnect = async (id: string) => {
     if (!window.dela || busy) return;
     setBusy(true);
-    setError(null);
     try {
       settle(await window.dela.capability.refreshMcpServer(id));
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '重连失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -86,14 +85,13 @@ export function McpTab() {
   const remove = async (id: string) => {
     if (!window.dela || busy) return;
     setBusy(true);
-    setError(null);
     try {
       settle(await window.dela.capability.removeMcpServer(id));
       setConfirmId(null);
     } catch (cause) {
-      // 删除失败也要让用户看到原因：关闭确认框，页内报错。
+      // 删除失败也要让用户看到原因：关闭确认框，错误经 toast 提示。
       setConfirmId(null);
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '删除失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }

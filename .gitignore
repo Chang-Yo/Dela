@@ -4,17 +4,17 @@ node_modules/
 out/
 dist/
 coverage/
+# 保留对迁移前本地原生构建产物的忽略。
+native/*/build/
 .playwright-cli/
 output/playwright/
 *.tsbuildinfo
 *.tgz
 
-# Credentials and private reference files (allow only the public index)
+# Credentials and private reference files
 .env
 .env.*
 !.env.example
-knowledge/*
-!knowledge/SJTU_API_References.md
 *.mobileconfig
 *.pem
 *.key

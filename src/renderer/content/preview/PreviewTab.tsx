@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanSourceDoc } from '../../features/shuiyuan/SourceRefCard';
 import { sanitizeHtml } from '../../lib/sanitize-html';
+import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type { TabId } from '../../../shared/layout';
 import { CodeViewer } from './CodeViewer';
@@ -76,12 +77,22 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const onScroll = (top: number) => scrollMemory.set(scrollKey, top);
 
   const load = () => {
+    // 首次加载失败用占位错误（带重试）；已加载后的重读失败走浮窗，不打断当前内容。
+    const initial = docRef.current === null;
     void loader.loadDocument(tabId).then(
       (result) => {
         setDoc(result);
         setError(null);
       },
-      (cause) => setError(errorText(cause)),
+      (cause) => {
+        if (initial) setError(errorText(cause));
+        else
+          showToast({
+            variant: 'error',
+            title: '重新读取文件失败',
+            description: errorText(cause),
+          });
+      },
     );
   };
 

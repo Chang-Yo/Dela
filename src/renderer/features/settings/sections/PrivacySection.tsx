@@ -122,8 +122,12 @@ export function PrivacySection() {
               ['教学信息服务网', 'i.sjtu.edu.cn：使用登录窗口取得的会话 Cookie。'],
               ['水源社区', 'shuiyuan.sjtu.edu.cn：使用绑定时取得的 User API Key。'],
               [
+                '软件更新',
+                'openlist.frameneo.com：打包版定时检查正式版更新，用户选择后下载安装包与差分数据；不会发送邮件、课程、聊天或模型密钥。',
+              ],
+              [
                 '联网搜索',
-                '把搜索词发往项目自建的 SearXNG 实例，地址在代码中固定为 http://47.117.158.218:8778/search（明文 HTTP，无传输加密）。',
+                '把搜索词发往你在 设置 › 内置能力 › 网络 中注册的搜索服务：Brave（api.search.brave.com）、Google（www.googleapis.com/customsearch）或你填写的自定义 JSON 端点（可带自定义请求头）。Dela 不内置搜索服务，未注册时不发起任何搜索请求。',
               ],
               [
                 '读取网页',
@@ -146,7 +150,7 @@ export function PrivacySection() {
             ))}
           </div>
           <p>
-            上述内置能力（联网搜索、读取网页等）可在 设置 › 内置能力
+            联网搜索、读取网页等内置能力可在 设置 › 内置能力
             中逐项关闭；少数被其他工具依赖的能力固定开启，在该页只读展示。
           </p>
         </section>

@@ -22,14 +22,14 @@ Dela 的远程项目优先使用系统 OpenSSH（`%WINDIR%\System32\OpenSSH\ssh.
 DH-GEX 用内置默认组，带上是死重量。
 
 不带 `sshd.exe`、`ssh-keygen.exe`、`scp.exe`、`sftp.exe`：Dela 只用 `ssh` 建连接与跑命令，
-不用 SFTP（见 `docs/remote-projects.md`），也不生成密钥。
+不用 SFTP（见 `docs/DEVELOPMENT.md` §4），也不生成密钥。
 
 ## 升级步骤
 
 1. 从上面的 release 页下载新的 `OpenSSH-Win64.zip`，记下 SHA256。
 2. 解压后把 `ssh.exe`、`libcrypto.dll`、`LICENSE.txt`、`NOTICE.txt` 覆盖到本目录。
 3. 改本文件里的版本、来源与 SHA256，并在安装包上验证一次真实连接（见下）。
-4. 在 `docs/devlog.md` 记一行。
+4. 在 `CHANGELOG.md` 补一条变更记录。
 
 ## 验证回退真的能用
 

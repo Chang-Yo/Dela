@@ -6,20 +6,21 @@ import { useExperimental } from '../experimental';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
+import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 import { SystemNotifications } from './SystemNotifications';
+import { UpdateControl } from '../UpdateControl';
 
-/** 设置 › 通用：应用行为（开机自启动）、系统通知偏好与试验功能（总开关 + 子项）。 */
+/** 设置 › 通用：应用行为（开机自启动）、系统通知偏好、软件更新与试验功能（总开关 + 子项）。 */
 export function GeneralSection() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const master = useExperimental((state) => state.master);
   const classroom = useExperimental((state) => state.classroom);
   const loadExperiments = useExperimental((state) => state.load);
   const [experimentBusy, setExperimentBusy] = useState(false);
   const [classroomBusy, setClassroomBusy] = useState(false);
-  const [experimentError, setExperimentError] = useState<string | null>(null);
   // 空串 = 跟随系统默认；只在课堂视频开着时读，读失败保持空串不打扰用户。
   const [downloadDirectory, setDownloadDirectory] = useState('');
   const [directoryBusy, setDirectoryBusy] = useState(false);
@@ -27,12 +28,11 @@ export function GeneralSection() {
   const chooseDownloadDirectory = async () => {
     if (directoryBusy) return;
     setDirectoryBusy(true);
-    setExperimentError(null);
     try {
       const next = await window.dela?.vsjtu.chooseDownloadDirectory();
       if (next !== undefined) setDownloadDirectory(next);
-    } catch {
-      setExperimentError('下载目录设置保存失败，请重试。');
+    } catch (cause) {
+      showToast({ variant: 'error', title: '选择目录失败', description: errorText(cause) });
     } finally {
       setDirectoryBusy(false);
     }
@@ -40,11 +40,10 @@ export function GeneralSection() {
 
   const toggleExperiments = async (next: boolean) => {
     setExperimentBusy(true);
-    setExperimentError(null);
     try {
       await useExperimental.getState().setMaster(next);
     } catch (cause) {
-      setExperimentError(cause instanceof Error ? cause.message : '试验功能设置保存失败，请重试。');
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setExperimentBusy(false);
     }
@@ -52,11 +51,10 @@ export function GeneralSection() {
 
   const toggleClassroom = async (next: boolean) => {
     setClassroomBusy(true);
-    setExperimentError(null);
     try {
       await useExperimental.getState().setClassroom(next);
     } catch (cause) {
-      setExperimentError(cause instanceof Error ? cause.message : '课堂视频设置保存失败，请重试。');
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setClassroomBusy(false);
     }
@@ -87,11 +85,10 @@ export function GeneralSection() {
   const toggleOpenAtLogin = async (next: boolean) => {
     if (busy) return;
     setBusy(true);
-    setError(null);
     try {
       setOpenAtLogin(window.dela ? await window.dela.settings.setOpenAtLogin(next) : next);
-    } catch {
-      setError('开机自启动设置保存失败，请重试。');
+    } catch (cause) {
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -111,13 +108,9 @@ export function GeneralSection() {
             />
           </SettingRow>
         </SettingsGroup>
-        {error && (
-          <p className="text-[12px] text-red" role="alert">
-            {error}
-          </p>
-        )}
       </div>
       <SystemNotifications />
+      <UpdateControl />
       <div className="grid gap-2">
         {/* 有主语开关的组：标题做成容器内第一行，从属子项跟在后面（靠缩进表达层级，不再画竖线）。 */}
         <SettingsGroup settingId="experimental-features">
@@ -175,11 +168,6 @@ export function GeneralSection() {
             </SettingRow>
           )}
         </SettingsGroup>
-        {experimentError && (
-          <p className="text-[12px] text-red" role="alert">
-            {experimentError}
-          </p>
-        )}
       </div>
     </div>
   );

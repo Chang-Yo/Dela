@@ -7,7 +7,7 @@
 // （探测 → 上传/校验 → 启动 → 隧道 → 握手），进度逐行进日志区。理由是连接的可用性取决于
 // 服务器上有没有这一版 helper：等到第一次调工具才失败的话，用户看到的是「远程项目打开了但
 // 又慢又不刷新」，而不是「这一步没有准备好」。helper 起不来不挡流程——那只是降级成一次性
-// ssh（见 docs/remote-helper.md「引导与恢复」），所以失败行之外还有一条降级警告行。
+// ssh（见 docs/DEVELOPMENT.md §4 的降级说明），所以失败行之外还有一条降级警告行。
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import {

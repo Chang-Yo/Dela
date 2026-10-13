@@ -1,7 +1,7 @@
 // Run 终态的系统提醒入口（§4.4 任务通知）：由 agent/session/manager 在 finishRun 后调用。
 // 偏好读取失败或 Electron 通知不可用都不影响 Run 终态落库与推送。
 import { getDatabase } from '../database';
-import { systemNotifyToast } from '../system-notify';
+import { systemNotifyToast } from '../notifications/system';
 import { getTaskNotificationPrefs } from './prefs';
 
 /** completed/failed 按各自偏好提醒；stopped 为用户主动停止，不打扰。 */

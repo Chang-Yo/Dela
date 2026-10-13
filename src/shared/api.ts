@@ -27,6 +27,7 @@ import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
 import type { TodoApi } from './todo';
 import type { TerminalApi } from './terminal';
+import type { UpdateApi } from './update';
 import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
@@ -52,6 +53,7 @@ export interface DelaApi {
   readonly layout: LayoutApi;
   readonly search: SearchApi;
   readonly notifications: NotificationsApi;
+  readonly update: UpdateApi;
 }
 
 export type { WindowState, TrayAction, WindowApi } from './window';
@@ -211,3 +213,5 @@ export type {
 } from './layout';
 
 export type { TodoStatus, TodoItem, TodoState, TodoSaveInput, TodoApi } from './todo';
+
+export type { UpdateApi, UpdateSnapshot, UpdatePhase, UpdateReason } from './update';

@@ -1,0 +1,169 @@
+// 更新状态机：纯函数，不碰 Electron 与更新器。主进程是唯一持有者，
+// 渲染层只读快照。
+//
+// 这里唯一需要防守的事情是**迟到与乱序**：更新器异步回调、下载进度回调、
+// 以及 IPC 层都可能让一个结果事件在状态已经走远之后才到达。规则统一为
+// 「结果事件只在它对应的进行中阶段生效，其余一律丢弃并原样返回 state」，
+// 于是任何迟到事件都不可能把状态拉回错误阶段。
+import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../shared/update';
+
+export type UpdateEvent =
+  | { type: 'check/started' }
+  | { type: 'check/available'; version: string; checkedAt: string }
+  | { type: 'check/up-to-date'; checkedAt: string }
+  | { type: 'check/failed'; reason: UpdateReason; detail?: string | null }
+  | { type: 'download/started' }
+  | { type: 'download/progress'; progress: number }
+  | { type: 'download/finished' }
+  | { type: 'download/failed'; reason: UpdateReason; detail?: string | null }
+  | { type: 'install/started' }
+  | { type: 'install/failed'; reason: UpdateReason; detail?: string | null };
+
+/** 可以重新发起检查的阶段。下载与安装途中不接受新的检查。 */
+const CHECKABLE = new Set<UpdateSnapshot['phase']>([
+  'idle',
+  'up-to-date',
+  'available',
+  'unsupported',
+  'error',
+]);
+
+export function initialUpdateState(input: { currentVersion: string }): UpdateSnapshot {
+  return {
+    phase: 'idle',
+    currentVersion: input.currentVersion,
+    version: null,
+    progress: 0,
+    checkedAt: null,
+    reason: null,
+    detail: null,
+    failedAt: null,
+  };
+}
+
+/**
+ * 把「哪一步失败了」折成对应的事件。三个步骤的失败事件只有类型名不同，
+ * 收敛成一个入口，调用方（包括更新器意外抛异常时的兜底）就不必按步骤各写一遍。
+ */
+export function failureEvent(
+  step: UpdateStep,
+  reason: UpdateReason,
+  detail: string | null,
+): UpdateEvent {
+  if (step === 'check') return { type: 'check/failed', reason, detail };
+  if (step === 'download') return { type: 'download/failed', reason, detail };
+  return { type: 'install/failed', reason, detail };
+}
+
+export function reduceUpdate(state: UpdateSnapshot, event: UpdateEvent): UpdateSnapshot {
+  switch (event.type) {
+    case 'check/started': {
+      if (!CHECKABLE.has(state.phase)) return state;
+      return { ...state, phase: 'checking', reason: null, detail: null, failedAt: null };
+    }
+
+    case 'check/available': {
+      if (state.phase !== 'checking') return state;
+      return {
+        ...state,
+        phase: 'available',
+        version: event.version,
+        progress: 0,
+        checkedAt: event.checkedAt,
+        reason: null,
+        detail: null,
+      };
+    }
+
+    case 'check/up-to-date': {
+      if (state.phase !== 'checking') return state;
+      return {
+        ...state,
+        phase: 'up-to-date',
+        version: null,
+        progress: 0,
+        checkedAt: event.checkedAt,
+        reason: null,
+        detail: null,
+      };
+    }
+
+    case 'check/failed': {
+      if (state.phase !== 'checking') return state;
+      return {
+        ...state,
+        phase: event.reason === 'not-packaged' ? 'unsupported' : 'error',
+        version: null,
+        progress: 0,
+        reason: event.reason,
+        detail: event.detail ?? null,
+        failedAt: 'check',
+      };
+    }
+
+    case 'download/started': {
+      if (
+        state.phase !== 'available' &&
+        !(state.phase === 'error' && state.failedAt === 'download')
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        phase: 'downloading',
+        progress: 0,
+        reason: null,
+        detail: null,
+        failedAt: null,
+      };
+    }
+
+    case 'download/progress': {
+      if (state.phase !== 'downloading') return state;
+      if (!Number.isFinite(event.progress)) return state;
+      const progress = Math.min(1, Math.max(0, event.progress));
+      // 差分失败转全量下载可能重新计数，避免进度条回退。
+      if (progress <= state.progress) return state;
+      return { ...state, progress };
+    }
+
+    case 'download/finished': {
+      if (state.phase !== 'downloading') return state;
+      return { ...state, phase: 'ready', progress: 1, reason: null, detail: null, failedAt: null };
+    }
+
+    case 'download/failed': {
+      if (state.phase !== 'downloading') return state;
+      return {
+        ...state,
+        phase: 'error',
+        progress: 0,
+        reason: event.reason,
+        detail: event.detail ?? null,
+        failedAt: 'download',
+      };
+    }
+
+    case 'install/started': {
+      if (state.phase !== 'ready' && !(state.phase === 'error' && state.failedAt === 'install')) {
+        return state;
+      }
+      return { ...state, phase: 'installing', reason: null, detail: null, failedAt: null };
+    }
+
+    case 'install/failed': {
+      if (state.phase !== 'installing') return state;
+      return {
+        ...state,
+        phase: 'error',
+        progress: 0,
+        reason: event.reason,
+        detail: event.detail ?? null,
+        failedAt: 'install',
+      };
+    }
+
+    default:
+      return state;
+  }
+}

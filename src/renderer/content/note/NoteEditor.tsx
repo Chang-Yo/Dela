@@ -9,6 +9,8 @@ import { InputRule, inputRules } from '@milkdown/kit/prose/inputrules';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { $prose, replaceAll } from '@milkdown/kit/utils';
 import { isRelativeAssetPath, noteAssetUrl } from '../../../shared/note-files';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 import { useNoteSpellcheck } from './note-spellcheck';
 import './note-editor.css';
 
@@ -40,6 +42,19 @@ type CrepeSession = {
 const sessions = new Map<string, CrepeSession>();
 const handlersByKey = new Map<string, NoteEditorHandlers>();
 let staging: HTMLDivElement | null = null;
+
+export function flushNoteEditors(): void {
+  for (const [key, session] of sessions) {
+    const handlers = handlersByKey.get(key);
+    if (!handlers || !session.ready || session.disposed || session.applying || session.syncTimer)
+      continue;
+    if (session.composing) throw new Error('请先完成笔记中的输入，再安装更新。');
+    const markdown = session.crepe.getMarkdown();
+    if (markdown === session.lastPublishedValue) continue;
+    session.lastPublishedValue = markdown;
+    handlers.onChange(markdown);
+  }
+}
 
 function stagingRoot(): HTMLDivElement {
   if (!staging) {
@@ -340,7 +355,12 @@ function createSession(
         }, COPY_FEEDBACK_MS);
       });
     })
-    .catch(() => {
+    .catch((cause) => {
+      showToast({
+        variant: 'error',
+        title: '笔记编辑器初始化失败',
+        description: errorText(cause),
+      });
       sessions.delete(key);
       session.root.remove();
     });

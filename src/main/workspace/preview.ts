@@ -4,7 +4,7 @@ import { stat as fileStat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { Readable } from 'node:stream';
 import { canvasPreviewPath } from '../canvas/api';
-import { officeZipMime } from '../resource-parse';
+import { officeZipMime } from '../documents/parse';
 import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
 import { handleVsjtuMediaRequest } from '../vsjtu/playback';
 import { remoteById, targetOf, withinRemoteRoot } from '../remotes/api';

@@ -10,6 +10,7 @@ import {
   attachLinkInputRule,
   fixImageBlockSchema,
   forgetNoteEditorState,
+  flushNoteEditors,
   NoteEditor,
 } from './NoteEditor';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -33,6 +34,34 @@ beforeAll(() => {
 });
 
 describe('编辑器 IME 回传', () => {
+  it('更新前从编辑器读取尚未去抖回传的最新正文', async () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    const onChange = vi.fn();
+    root.render(
+      createElement(NoteEditor, {
+        documentKey: 'update-save',
+        editorStateKey: 'update-save',
+        value: '旧正文',
+        onChange,
+        onSave: () => {},
+      }),
+    );
+    try {
+      await vi.waitFor(() => expect(host.querySelector('.ProseMirror p')).not.toBeNull());
+      onChange.mockClear();
+      host.querySelector('.ProseMirror p')!.textContent = '最新正文';
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onChange).not.toHaveBeenCalledWith('最新正文\n');
+      flushNoteEditors();
+      expect(onChange).toHaveBeenCalledWith('最新正文\n');
+    } finally {
+      root.unmount();
+      forgetNoteEditorState('update-save');
+      host.remove();
+    }
+  });
   it('正文不注册块拖拽手柄，保留斜杠菜单', async () => {
     const host = document.createElement('div');
     document.body.append(host);

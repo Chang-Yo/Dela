@@ -84,6 +84,7 @@ describe('toggleBookmark 失败回滚', () => {
   it('await 期间 selectList 换流后只回写 bookmarked，不覆盖整份新列表', async () => {
     const fail = stubPendingApi('setBookmarked');
     const { useShuiyuan } = await import('./store');
+    const { useToastStore } = await import('../../app/toasts');
     useShuiyuan.setState({ topics: [makeTopic(1), makeTopic(2)] });
     const toggling = useShuiyuan.getState().toggleBookmark(1, false);
     // 用户切流：列表整体替换，且不含原 topic。
@@ -92,7 +93,10 @@ describe('toggleBookmark 失败回滚', () => {
     await toggling;
     const state = useShuiyuan.getState();
     expect(state.topics.map((topic) => topic.id)).toEqual([9, 10]);
-    expect(state.listError).toContain('network down');
+    expect(useToastStore.getState().toasts.at(-1)).toMatchObject({
+      title: '收藏失败',
+      description: 'network down',
+    });
   });
 
   it('await 期间 loadMore 追加页后保留追加页，本 topic 与阅读态按原值回退', async () => {

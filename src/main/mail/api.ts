@@ -101,7 +101,7 @@ let syncGeneration = 0;
 let activeSync: Promise<void> | null = null;
 
 // 邮件缓存变化（读信、删除、恢复、同步完成）会改变派生的通知状态；
-// notifications.ts 注册监听后重播通知状态，回调在数据库事务提交后触发。
+// notifications/index.ts 注册监听后重播通知状态，回调在数据库事务提交后触发。
 const mailCacheListeners = new Set<() => void>();
 
 export function onMailCacheChanged(listener: () => void): void {

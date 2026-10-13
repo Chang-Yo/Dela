@@ -20,7 +20,7 @@ vi.mock('../mail/api', () => ({
   onMailCacheChanged: vi.fn(),
 }));
 vi.mock('../shuiyuan/api', () => ({ listShuiyuanNotifications: vi.fn() }));
-vi.mock('../system-notify', () => ({
+vi.mock('../notifications/system', () => ({
   armSystemNotifications: vi.fn(),
   isWorkspaceWindow: () => false,
   systemNotifyItem: vi.fn(),
@@ -38,7 +38,7 @@ import { getDatabase } from '../database';
 import { loadShuiyuanCredential } from '../credentials';
 import { listShuiyuanNotifications } from '../shuiyuan/api';
 import { markAllMailSeen, markMailSeen } from '../mail/api';
-import { systemNotifyItem } from '../system-notify';
+import { systemNotifyItem } from '../notifications/system';
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');

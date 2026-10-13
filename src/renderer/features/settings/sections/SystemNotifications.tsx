@@ -6,6 +6,7 @@ import { Switch } from '../../../components/ui/switch';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 
 /** 暂停期限选项与通知中心一致（同一份 workspace_settings 暂停状态）。 */
 function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
@@ -66,14 +67,13 @@ export function SystemNotifications() {
   const toggleCampus = async (next: boolean) => {
     if (busy) return;
     setBusy(true);
-    setError(null);
     const previous = campus;
     setCampus(next);
     try {
       setCampus(window.dela ? await window.dela.settings.setCampusNotifications(next) : next);
     } catch (cause) {
       setCampus(previous);
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -82,7 +82,6 @@ export function SystemNotifications() {
   const toggleTask = async (key: 'completed' | 'failed', next: boolean) => {
     if (busy || task === null) return;
     setBusy(true);
-    setError(null);
     const previous = task;
     setTask({ ...task, [key]: next });
     try {
@@ -92,7 +91,7 @@ export function SystemNotifications() {
       setTask(saved);
     } catch (cause) {
       setTask(previous);
-      setError(errorText(cause));
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
@@ -101,12 +100,15 @@ export function SystemNotifications() {
   const changeSnooze = async (until: string | null) => {
     if (!window.dela) return;
     setBusy(true);
-    setError(null);
     try {
       const state = await window.dela.notifications.setSnooze(until);
       setSnoozedUntil(state.snoozedUntil);
     } catch (cause) {
-      setError(errorText(cause));
+      showToast({
+        variant: 'error',
+        title: until === null ? '恢复通知失败' : '暂停通知失败',
+        description: errorText(cause),
+      });
     } finally {
       setBusy(false);
     }

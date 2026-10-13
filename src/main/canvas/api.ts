@@ -7,14 +7,9 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { getDatabase } from '../database';
-import {
-  availablePath,
-  diskName,
-  officeExportPreviewInfo,
-  readOfficeExportLink,
-  storageDirectory,
-} from '../storage';
-import { classifyOfficeFile, officeZipMime } from '../resource-parse';
+import { availablePath, diskName, storageDirectory } from '../storage';
+import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
+import { classifyOfficeFile, officeZipMime } from '../documents/parse';
 import { loadCanvasToken, saveCanvasToken } from '../credentials';
 import type { CanvasCourse, CanvasState, DocumentContent, SourceItem } from '../../shared/api';
 

@@ -31,6 +31,8 @@ import {
   weekStartFor,
 } from './timetable-format';
 import { cn } from '../../lib/utils';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 
 type CalendarMode = 'week' | 'month';
 
@@ -89,9 +91,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   );
 
   useEffect(() => {
-    void loadSemester().catch((reason: unknown) =>
-      setError(reason instanceof Error ? reason.message : String(reason)),
-    );
+    void loadSemester().catch((reason: unknown) => setError(errorText(reason)));
   }, [loadSemester]);
 
   const semesterWeekStart = weekStartFor(state?.semesterStart ?? null, selectedWeek);
@@ -141,17 +141,18 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   }, [timetable, eventRangeStart.getTime(), eventRangeEnd.getTime()]);
 
   useEffect(() => {
-    void loadEvents().catch((reason: unknown) =>
-      setError(reason instanceof Error ? reason.message : String(reason)),
-    );
+    void loadEvents().catch((reason: unknown) => setError(errorText(reason)));
   }, [loadEvents]);
 
   // Run 终态后刷新课表（日历只可能被 Agent 工具在 run 中写入；个人待办另有 todo.onUpdate 驱动）。
+  // 后台自动刷新失败不写错误横幅（横幅只承载用户触发的加载失败），仅留诊断线索。
   useEffect(
     () =>
       window.dela?.session.onRunEvent((event) => {
         if (event.status === 'completed' || event.status === 'failed' || event.status === 'stopped')
-          void loadEvents().catch((reason) => setError(String(reason)));
+          void loadEvents().catch((reason) =>
+            console.error('[timetable] 自动刷新课表失败', reason),
+          );
       }),
     [loadEvents],
   );
@@ -167,7 +168,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
       .then((value) => {
         if (active) setTodoItems(value.items);
       })
-      .catch(() => {});
+      .catch((reason: unknown) => console.warn('[timetable] 加载个人待办失败', reason));
     return () => {
       active = false;
       off();
@@ -190,7 +191,10 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
     setError(null);
     try {
       const failure = await connectAndSyncTimetable(semester ?? undefined);
-      if (failure) return setError(failure);
+      if (failure) {
+        showToast({ variant: 'error', title: '登录同步失败', description: failure });
+        return;
+      }
       await loadSemester(semester ?? undefined);
     } finally {
       setBusy(false);
@@ -202,7 +206,14 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
     setError(null);
     try {
       const result = await timetable.syncNow(semester ?? undefined);
-      if (!result.ok) return setError(result.error ?? '同步失败');
+      if (!result.ok) {
+        showToast({
+          variant: 'error',
+          title: '同步课表失败',
+          description: result.error ?? '同步失败',
+        });
+        return;
+      }
       await loadSemester(semester ?? undefined);
     } finally {
       setBusy(false);
@@ -327,9 +338,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
           <Select
             onValueChange={(value) => {
               setError(null);
-              void loadSemester(value).catch((reason: unknown) =>
-                setError(reason instanceof Error ? reason.message : String(reason)),
-              );
+              void loadSemester(value).catch((reason: unknown) => setError(errorText(reason)));
             }}
             value={semester}
           >
@@ -418,9 +427,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
           onSaved={() => {
             setSemesterDraft(false);
             setError(null);
-            void loadSemester(semester).catch((reason: unknown) =>
-              setError(reason instanceof Error ? reason.message : String(reason)),
-            );
+            void loadSemester(semester).catch((reason: unknown) => setError(errorText(reason)));
           }}
           semester={semester}
           semesterStart={state.semesterStart}

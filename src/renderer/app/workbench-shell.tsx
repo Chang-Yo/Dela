@@ -388,16 +388,25 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
             void useNavigationStore.getState().openDocument(`source:file:${file}`);
             return;
           }
-          void window.dela?.canvas.openLink(url).catch(useWorkspaceStore.getState().setError);
+          void window.dela?.canvas
+            .openLink(url)
+            .catch((cause) =>
+              showToast({ variant: 'error', title: '打开链接失败', description: errorText(cause) }),
+            );
         } catch {
-          useWorkspaceStore.getState().setError('不支持的链接');
+          showToast({ variant: 'error', title: '打开链接失败', description: '不支持的链接' });
         }
       },
       openShuiyuanTopic: (topicId, postNumber) =>
         useNavigationStore.getState().openShuiyuanTopic(topicId, postNumber),
       onExported: () => {
         // 导出会在我的资料里新增「预览导出」条目，目录树需一并刷新。
-        void useWorkspaceStore.getState().refresh().catch(useWorkspaceStore.getState().setError);
+        void useWorkspaceStore
+          .getState()
+          .refresh()
+          .catch((cause) =>
+            showToast({ variant: 'error', title: '刷新目录失败', description: errorText(cause) }),
+          );
       },
     };
   }, []);

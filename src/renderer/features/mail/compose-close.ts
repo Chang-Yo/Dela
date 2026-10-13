@@ -2,6 +2,19 @@
 let confirmClose: (() => Promise<boolean>) | null = null;
 let pending = false;
 let allowed = false;
+const saveHandlers = new Set<() => Promise<boolean>>();
+
+export function registerComposeSave(handler: () => Promise<boolean>): () => void {
+  saveHandlers.add(handler);
+  return () => {
+    saveHandlers.delete(handler);
+  };
+}
+
+export async function saveComposers(): Promise<boolean> {
+  for (const save of saveHandlers) if (!(await save())) return false;
+  return true;
+}
 
 export function registerComposeClose(handler: () => Promise<boolean>) {
   confirmClose = handler;

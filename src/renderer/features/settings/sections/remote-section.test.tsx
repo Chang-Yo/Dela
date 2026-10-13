@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 // 设置 › 远程：列出已保存连接（目的地、端口、私钥）；「测试连接」的成功结果与
-// main 抛出的失败原因都原样显示；删除失败（连接下还有项目）也原样显示；
+// main 抛出的失败原因都原样显示；删除失败（连接下还有项目）经 toast 原样提示；
 // 没有连接时给一句引导与「新建连接」入口。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, RemoteConnection } from '../../../../shared/api';
+import { useToastStore } from '../../../app/toasts';
 import { RemoteSection } from './RemoteSection';
 
 let container: HTMLDivElement;
@@ -30,6 +31,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  useToastStore.setState({ toasts: [] });
   delete window.dela;
   vi.unstubAllGlobals();
 });
@@ -75,9 +77,11 @@ it('shows the reason main refused the removal verbatim', async () => {
   await act(async () => root.render(<RemoteSection />));
   await act(async () => button('删除').click());
   expect(remove).toHaveBeenCalledWith('r-1');
-  expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-    '该连接下还有项目，请先移除项目',
-  );
+  expect(useToastStore.getState().toasts[0]).toMatchObject({
+    variant: 'error',
+    title: '删除连接失败',
+    description: '该连接下还有项目，请先移除项目',
+  });
   expect(container.textContent).toContain('实验室主机');
 });
 

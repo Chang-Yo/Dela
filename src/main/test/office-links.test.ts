@@ -9,7 +9,7 @@ import {
   readOfficeExportLink,
   writeOfficeExportLink,
   type OfficeExportLink,
-} from '../storage';
+} from '../documents/links';
 
 vi.mock('../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('electron', () => ({ app: { getPath: vi.fn(() => tmpdir()) } }));

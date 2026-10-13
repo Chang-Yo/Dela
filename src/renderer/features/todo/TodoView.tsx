@@ -17,6 +17,8 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Switch } from '../../components/ui/switch';
 import { cn } from '../../lib/utils';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 import { EventColorRow } from '../timetable/EventColorRow';
 import { roundToMinute } from '../timetable/timetable-format';
 import { DateTimeStepper } from './DateTimeStepper';
@@ -212,7 +214,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
         if (active && !updated) setState(value);
       })
       .catch((error: unknown) => {
-        if (active) setError(String(error));
+        if (active) setError(errorText(error));
       });
     return () => {
       active = false;
@@ -224,22 +226,24 @@ export function TodoView({ request }: { request?: { id: string } }) {
     setCreating(false);
     setEditingId(null);
     setDetailId(request.id);
-    let active = true;
-    void window.dela?.todo.markRead(request.id).catch((error: unknown) => {
-      if (active) setError(String(error));
+    void window.dela?.todo.markRead(request.id).catch((reason: unknown) => {
+      showToast({ variant: 'error', title: '标记已读失败', description: errorText(reason) });
     });
-    return () => {
-      active = false;
-    };
   }, [request]);
-  const run = async (operation: () => Promise<TodoState>, after?: () => void) => {
+  const run = async (
+    operation: () => Promise<TodoState>,
+    options?: { after?: () => void; failTitle?: string },
+  ) => {
     setBusy(true);
-    setError(null);
     try {
       await operation();
-      after?.();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      options?.after?.();
+    } catch (reason) {
+      showToast({
+        variant: 'error',
+        title: options?.failTitle ?? '待办操作失败',
+        description: errorText(reason),
+      });
     } finally {
       setBusy(false);
     }
@@ -273,7 +277,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
             aria-label="同步作业"
             title="同步作业"
             disabled={busy || state?.syncing || !state?.connected}
-            onClick={() => void run(() => window.dela!.todo.refresh())}
+            onClick={() => void run(() => window.dela!.todo.refresh(), { failTitle: '同步失败' })}
           >
             <RefreshCw className={cn('size-4', state?.syncing && 'animate-spin')} />
           </Button>
@@ -361,7 +365,9 @@ export function TodoView({ request }: { request?: { id: string } }) {
                     className="min-w-0 flex-1 text-left"
                     onClick={() => {
                       setDetailId(item.id);
-                      void run(() => window.dela!.todo.markRead(item.id));
+                      void run(() => window.dela!.todo.markRead(item.id), {
+                        failTitle: '标记已读失败',
+                      });
                     }}
                   >
                     <div className="flex items-center gap-2">
@@ -427,7 +433,9 @@ export function TodoView({ request }: { request?: { id: string } }) {
                           onClick={() => {
                             setDetailId(null);
                             setEditingId(item.id);
-                            void run(() => window.dela!.todo.markRead(item.id));
+                            void run(() => window.dela!.todo.markRead(item.id), {
+                              failTitle: '标记已读失败',
+                            });
                           }}
                         >
                           <Pencil className="size-4" />
@@ -439,7 +447,11 @@ export function TodoView({ request }: { request?: { id: string } }) {
                           className={rowActionClass}
                           aria-label={`删除 ${item.title}`}
                           title="删除"
-                          onClick={() => void run(() => window.dela!.todo.remove(item.id))}
+                          onClick={() =>
+                            void run(() => window.dela!.todo.remove(item.id), {
+                              failTitle: '删除待办失败',
+                            })
+                          }
                         >
                           <Trash2 className="size-4" />
                         </Button>
@@ -453,9 +465,13 @@ export function TodoView({ request }: { request?: { id: string } }) {
                           aria-label="在 Canvas 中打开"
                           title="在 Canvas 中打开"
                           onClick={() =>
-                            void window.dela?.canvas
-                              .openLink(item.url!)
-                              .catch((error: unknown) => setError(String(error)))
+                            void window.dela?.canvas.openLink(item.url!).catch((reason: unknown) =>
+                              showToast({
+                                variant: 'error',
+                                title: '打开链接失败',
+                                description: errorText(reason),
+                              }),
+                            )
                           }
                         >
                           <ExternalLink className="size-4" />
@@ -478,11 +494,19 @@ export function TodoView({ request }: { request?: { id: string } }) {
             setDetailId(null);
             setEditingId(detail.id);
           }}
-          onDelete={() => void run(() => window.dela!.todo.remove(detail.id))}
+          onDelete={() =>
+            void run(() => window.dela!.todo.remove(detail.id), {
+              failTitle: '删除待办失败',
+            })
+          }
           onOpenLink={(url) =>
-            void window.dela?.canvas
-              .openLink(url)
-              .catch((error: unknown) => setError(String(error)))
+            void window.dela?.canvas.openLink(url).catch((reason: unknown) =>
+              showToast({
+                variant: 'error',
+                title: '打开链接失败',
+                description: errorText(reason),
+              }),
+            )
           }
         />
       )}
@@ -498,20 +522,20 @@ export function TodoView({ request }: { request?: { id: string } }) {
           onDelete={
             editing
               ? () =>
-                  void run(
-                    () => window.dela!.todo.remove(editing.id),
-                    () => setEditingId(null),
-                  )
+                  void run(() => window.dela!.todo.remove(editing.id), {
+                    after: () => setEditingId(null),
+                    failTitle: '删除待办失败',
+                  })
               : undefined
           }
           onSave={(input) =>
-            void run(
-              () => window.dela!.todo.save(input),
-              () => {
+            void run(() => window.dela!.todo.save(input), {
+              after: () => {
                 setCreating(false);
                 setEditingId(null);
               },
-            )
+              failTitle: '保存待办失败',
+            })
           }
         />
       )}

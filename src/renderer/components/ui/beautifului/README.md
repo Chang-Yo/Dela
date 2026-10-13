@@ -20,7 +20,7 @@
    - `primitives/CodeBlock.tsx`：`plain`（跳过内置语法高亮）、`fill`（满宽）、`bodyClassName`（追加到代码主体）、`tone="error"`（失败态左侧 `--red` 色条）。
    - `atoms/ProgressRing.tsx`：`tone="ink"`（中性墨色档，低干扰进度，如 composer 上下文占用）。
 8. **Dela 新增文件**：`atoms/IconButton.tsx` — 从 PromptBar 控件按钮提炼的静默图标钮（上游无此 atom）；`atoms/Toast.tsx` — 应用内通知浮窗卡片（error/success 两个变体，tint 圆底图标 + rounded-card 浮岛，纯展示，宿主在 `app/toasts.tsx`）；`atoms/Slider.tsx` — radix Slider 封装（上游无此 atom），按 Switch 的中性语言（`bg-line-strong` 槽 / `bg-ink` 填充 / 白色拇指），受控 `value`/`onValueChange`，用于课堂视频音量等连续值调节。
-9. **全局 token 统一**（2026-10-08）：`styles/globals.css` 的 shadcn 语义变量（`--background`、`--muted-foreground`、`--border` 等）全部映射到本库 token，不再另定颜色值；跟随系统的深色由 `app/theme.ts` 解析为 `:root.dark`，与本库只认 `.dark` 的约定一致。`components/ui/` 下的 shadcn 基础件（button / input / textarea / switch / select / dropdown-menu / context-menu / tooltip）保留 API，外观改用本库 token、圆角与 `pop-in` 动效，浮层样式集中在 `components/ui/menu-styles.ts`。
+9. **全局 token 统一**（2026-10-08）：`styles/globals.css` 的 shadcn 语义变量（`--background`、`--muted-foreground`、`--border` 等）全部映射到本库 token；唯一例外是 `--destructive-foreground`（本库没有对应档位，仍是裸色值）；跟随系统的深色由 `app/theme.ts` 解析为 `:root.dark`，与本库只认 `.dark` 的约定一致。`components/ui/` 下的 shadcn 基础件（button / input / textarea / switch / select / dropdown-menu / context-menu / tooltip）保留 API，外观改用本库 token、圆角与 `pop-in` 动效，浮层样式集中在 `components/ui/menu-styles.ts`。
 10. **`.bui-light` 固定浅色作用域**（2026-10-08）：`beautifului.css` 在 `.dark` 之后复制一份浅色 token 到 `.bui-light`，供首启引导这类恒白画布在深色主题下仍使用浅色 token。
 11. **`atoms/SegmentedControl.tsx` 的段按钮加 `type="button"`**（2026-10-10）：用于表单内（邮箱连接表单的交大邮箱 / 第三方 IMAP 切换）时，无 type 会默认提交表单。
 
@@ -34,7 +34,7 @@
 
 ## 升级方式
 
-官方除 GitHub 仓库外还提供 shadcn registry（`https://www.beautifului.dev/r/registry.json`，27 项 = foundation + 5 atoms + 21 primitives；`agentscreen` 仅仓库有）。两条渠道已核对一致（2026-10-07）：token/keyframes 与本目录逐项相同，差异仅为上文第 2、5 条适配。
+官方除 GitHub 仓库外还提供 shadcn registry（`https://www.beautifului.dev/r/registry.json`，27 项 = foundation + 6 个 `registry:ui` + 20 个 `registry:component`）。**两条渠道不是逐项对应的**：`agentscreen` 仅仓库有，且仓库里的 `atoms/Chip.tsx`、`Switch.tsx`、`ProgressRing.tsx`、`SegmentedControl.tsx`、`StatusPill.tsx`、`TextRow.tsx` 在 registry 中没有对应条目（逐个请求均 404）——它们来自同一次整库复制（2026-10-08），不是 Dela 的增补。token 与 keyframes 两条渠道一致；组件层面的差异见上文「相对上游的适配」。
 
 ```bash
 # 渠道一：clone 仓库（globals.css 为 shadow 展开后的完整样式，本目录即由此组装）

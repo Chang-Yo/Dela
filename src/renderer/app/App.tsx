@@ -13,6 +13,8 @@ import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboard
 import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
+import { UpdatePrompt } from '../features/settings/UpdatePrompt';
+import { useUpdateState } from '../features/settings/update-state';
 import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../features/search/GlobalSearchDialog';
 import { TimetableView } from '../features/timetable';
@@ -25,7 +27,8 @@ import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
 import { useNoteDrafts } from '../workspace/drafts';
-import { useWorkspaceStore } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
+import { showToast } from './toasts';
 import { projectIdFromLegacyScope, useNavigationStore, type MobileDrawer } from './navigation';
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
@@ -102,17 +105,23 @@ export default function App() {
     return group?.active?.startsWith('chat:') ?? false;
   });
 
+  // 更新快照的订阅属于应用而不是设置页：标题栏要在用户从没打开过设置页时也能提示有新版本。
+  useEffect(() => {
+    useUpdateState.getState().attach();
+  }, []);
+
   // 工作区镜像载入 + 会话静默后的条目/Canvas/干净草稿刷新（工具可能写过工作区）。
   useEffect(() => {
     void useWorkspaceStore.getState().load();
     return window.dela?.session.onSessionUpdate((sessionId, chat) => {
       if (chat.running) return;
       const store = useWorkspaceStore.getState();
-      void store.refresh().catch(store.setError);
-      void window.dela?.canvas.getState().then(store.setCanvas).catch(store.setError);
+      // 会话终态后的后台自动刷新失败不打扰用户（浮窗只留给用户主动的动作），仅留诊断线索。
+      void store.refresh().catch(console.error);
+      void window.dela?.canvas.getState().then(store.setCanvas).catch(console.error);
       for (const [id, draft] of Object.entries(useNoteDrafts.getState().drafts)) {
         if (draft.text === draft.saved)
-          void useNoteDrafts.getState().acquire(id, true).catch(store.setError);
+          void useNoteDrafts.getState().acquire(id, true).catch(console.error);
       }
       // 首条消息会给会话命名（标题在 run 开始时落库）：终态时重读所属池的列表镜像，
       // 导航与会话列表的标题不再陈旧；只做终态刷新，运行中标题变化无即时展示需求。
@@ -216,7 +225,11 @@ export default function App() {
           onForward={() => void useNavigationStore.getState().goForward()}
           onMobileDrawerChange={setMobileDrawer}
           onNavigate={(next) => void useNavigationStore.getState().navigate(next)}
-          onZoomChange={(next) => void changeZoom(next)}
+          onZoomChange={(next) =>
+            void changeZoom(next).catch((cause) =>
+              showToast({ variant: 'error', title: '调整缩放失败', description: errorText(cause) }),
+            )
+          }
           view={view}
           zoom={zoom}
           projectId={projectId}
@@ -337,6 +350,8 @@ export default function App() {
       {launchStage === 'flow' && (
         <OnboardingFlow onWizardDone={() => setLaunchStage('completion')} />
       )}
+      {/* 下载完成的确认弹窗挂在应用层：下载在后台跑完时，用户可能已经离开设置页。 */}
+      {launchStage !== 'flow' && <UpdatePrompt />}
       {launchStage === 'completion' && <CompletionOverlay onFinished={finishCompletion} />}
     </>
   );

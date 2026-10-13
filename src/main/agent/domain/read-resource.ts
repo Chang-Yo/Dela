@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { readCanvasSource } from '../../canvas/api';
 import { mailAttachment, readMailMessage } from '../../mail/api';
-import { parseDocumentFile, parsableDocumentExtension, renderPdfPages } from '../../resource-parse';
+import {
+  parseDocumentFile,
+  parsableDocumentExtension,
+  renderPdfPages,
+} from '../../documents/parse';
 import { withResourceFile } from '../../resources';
 import { readShuiyuanSource } from '../../shuiyuan/api';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';

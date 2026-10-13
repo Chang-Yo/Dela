@@ -17,6 +17,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { MarkdownEditor } from '../../content/note/MarkdownEditor';
+import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -67,7 +68,6 @@ export function ReplyComposer({
   onClearReplyTarget,
 }: ReplyComposerProps) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -80,12 +80,11 @@ export function ReplyComposer({
     event?.preventDefault();
     if (busy || !value.trim()) return;
     setBusy(true);
-    setError(null);
     try {
       await onSubmit();
       setMaximized(false);
     } catch (reason) {
-      setError(errorText(reason));
+      showToast({ variant: 'error', title: '回复发送失败', description: errorText(reason) });
     } finally {
       setBusy(false);
     }
@@ -107,8 +106,13 @@ export function ReplyComposer({
     for (const [index, file] of Array.from(files).entries()) {
       const key = `${file.name}-${uploads.length}-${index}-${file.lastModified}-${file.size}`;
       setUploads((current) => [...current, { key, name: file.name, error: null }]);
+      if (file.size > MAX_UPLOAD_BYTES) {
+        setUploads((current) =>
+          current.map((item) => (item.key === key ? { ...item, error: '附件超过 20MB' } : item)),
+        );
+        continue;
+      }
       try {
-        if (file.size > MAX_UPLOAD_BYTES) throw new Error('附件超过 20MB');
         const base64 = await readAsBase64(file);
         const upload = await api.uploadFile(file.name, base64);
         setUploads((current) => current.filter((item) => item.key !== key));
@@ -122,9 +126,8 @@ export function ReplyComposer({
         valueRef.current = next;
         onChange(next);
       } catch (reason) {
-        setUploads((current) =>
-          current.map((item) => (item.key === key ? { ...item, error: errorText(reason) } : item)),
-        );
+        setUploads((current) => current.filter((item) => item.key !== key));
+        showToast({ variant: 'error', title: '附件上传失败', description: errorText(reason) });
       }
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -257,8 +260,6 @@ export function ReplyComposer({
     </div>
   );
 
-  const errorLine = error ? <p className="text-[12px] text-red">{error}</p> : null;
-
   // 编辑壳必须是 flex 列：MarkdownEditor 的 flex-1 链依赖约束高度，内部 scroller 才会滚动。
   const editorHost = (shellClass: string) => (
     <div
@@ -310,7 +311,6 @@ export function ReplyComposer({
             {preview ? previewBody(true) : editorHost('min-h-0 flex-1')}
           </div>
           {uploadChips}
-          {errorLine}
           {toolbar}
           <input
             aria-hidden="true"
@@ -361,7 +361,6 @@ export function ReplyComposer({
           {preview ? previewBody(false) : editorHost('h-44')}
         </div>
         {uploadChips}
-        {errorLine}
         {toolbar}
         <input
           aria-hidden="true"

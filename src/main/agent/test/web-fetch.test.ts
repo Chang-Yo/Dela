@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchWebPage } from '../web-fetch';
 
-vi.mock('../../resource-parse', () => ({
+vi.mock('../../documents/parse', () => ({
   extractDocumentBytes: vi.fn(async () => ({ text: 'PDF 正文', pages: 1, hasTextLayer: true })),
 }));
 

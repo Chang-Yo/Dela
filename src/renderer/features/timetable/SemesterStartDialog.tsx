@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { DateInput } from './DateInput';
 import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-format';
 import { dialogIn, overlayFade } from '../../components/ui/motion';
+import { errorText } from '../../workspace/store';
 import { cn } from '../../lib/utils';
 
 export function SemesterStartDialog({
@@ -31,7 +32,7 @@ export function SemesterStartDialog({
       await window.dela!.timetable.setSemesterStart(semester, value);
       onSaved();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(errorText(reason));
       setSaving(false);
     }
   };

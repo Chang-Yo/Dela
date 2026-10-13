@@ -10,6 +10,7 @@ import type {
   ShuiyuanTopicDetail,
   ShuiyuanTopicSummary,
 } from '../../../shared/api';
+import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 
 /** 信息流来源：站点 feed（latest/featured/category/tag/search）或个人列表。 */
@@ -169,6 +170,13 @@ export const useShuiyuan = create<Store>((set, get) => {
         api.siteStructure(),
         api.getCounts(),
       ]);
+      if (state.status === 'rejected') {
+        showToast({
+          variant: 'error',
+          title: '水源状态加载失败',
+          description: errorText(state.reason),
+        });
+      }
       const bound =
         state.status === 'fulfilled'
           ? state.value
@@ -224,7 +232,7 @@ export const useShuiyuan = create<Store>((set, get) => {
         void get().refreshCounts();
       } catch (error) {
         void get().refreshList();
-        set({ listError: errorText(error) });
+        showToast({ variant: 'error', title: '全部标为已读失败', description: errorText(error) });
       }
     },
 
@@ -295,7 +303,7 @@ export const useShuiyuan = create<Store>((set, get) => {
         });
       } catch (error) {
         if (get().reading !== reading) return;
-        set({ reading: { ...reading, error: errorText(error) } });
+        showToast({ variant: 'error', title: '加载更多失败', description: errorText(error) });
       }
     },
 
@@ -324,6 +332,7 @@ export const useShuiyuan = create<Store>((set, get) => {
         apply(confirmed);
         if (get().list.kind === 'bookmarks') void get().refreshList();
       } catch (error) {
+        showToast({ variant: 'error', title: '收藏失败', description: errorText(error) });
         // 列表按 topic 粒度回写：await 期间 selectList 换流 / loadMore 追加页后，整份覆盖会丢新列表。
         // 期间切帖则当前 reading 已不属于本帖，不还原以免盖回旧阅读态；乐观标记按原值回退。
         const currentReading = get().reading;
@@ -338,7 +347,6 @@ export const useShuiyuan = create<Store>((set, get) => {
                   detail: { ...currentReading.detail, bookmarked: current },
                 }
               : currentReading,
-          listError: errorText(error),
         });
       }
     },
@@ -368,6 +376,7 @@ export const useShuiyuan = create<Store>((set, get) => {
       try {
         await api.setLiked(postId, liked);
       } catch (error) {
+        showToast({ variant: 'error', title: '点赞失败', description: errorText(error) });
         // 乐观 set 已替换 reading 引用，不能按引用相等判过期；按帖子 id 守卫：期间切帖不还原，
         // 否则按 post 粒度回写原楼层（整组覆盖会丢掉请求期间 loadMorePosts 合并进来的楼层）。
         const currentReading = get().reading;
@@ -382,7 +391,6 @@ export const useShuiyuan = create<Store>((set, get) => {
               ),
             },
           },
-          listError: errorText(error),
         });
       }
     },

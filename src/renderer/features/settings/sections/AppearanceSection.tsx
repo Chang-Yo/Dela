@@ -15,6 +15,8 @@ import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
+import { errorText } from '../../../workspace/store';
+import { showToast } from '../../../app/toasts';
 
 const themes: Array<{ id: ThemePreference; label: string }> = [
   { id: 'light', label: '浅色' },
@@ -69,23 +71,21 @@ function ThemePreview({ mode }: { mode: ThemePreference }) {
   );
 }
 
-// 每个外观选项（主题/图标/缩放/字号）独立的写入状态：互不阻塞，失败提示各归其位。
-function useOptionSave(failMessage: string) {
+// 每个外观选项（主题/图标/缩放/字号）独立的写入状态：互不阻塞，失败经 toast 提示。
+function useOptionSave() {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const save = async (operation: () => Promise<void>) => {
     if (busy) return;
     setBusy(true);
-    setError(null);
     try {
       await operation();
-    } catch {
-      setError(failMessage);
+    } catch (cause) {
+      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
     }
   };
-  return { busy, error, save };
+  return { busy, save };
 }
 
 export function AppearanceSection({
@@ -104,10 +104,10 @@ export function AppearanceSection({
   zoom: ZoomPreference;
 }) {
   const [icon, setIcon] = useState<IconPreference>('white');
-  const themeSave = useOptionSave('主题保存失败，请重试。');
-  const iconSave = useOptionSave('图标设置保存失败，请重试。');
-  const zoomSave = useOptionSave('缩放设置保存失败，请重试。');
-  const fontSave = useOptionSave('字号保存失败，请重试。');
+  const themeSave = useOptionSave();
+  const iconSave = useOptionSave();
+  const zoomSave = useOptionSave();
+  const fontSave = useOptionSave();
 
   useEffect(() => {
     void window.dela?.settings
@@ -179,11 +179,6 @@ export function AppearanceSection({
               </button>
             ))}
           </div>
-          {themeSave.error && (
-            <p className="text-[12px] text-red" role="alert">
-              {themeSave.error}
-            </p>
-          )}
         </div>
         <SettingRow settingId="zoom" title="页面缩放">
           <StepperControl
@@ -196,11 +191,6 @@ export function AppearanceSection({
               if (next) selectZoom(next);
             }}
           />
-          {zoomSave.error && (
-            <p className="text-[12px] text-red" role="alert">
-              {zoomSave.error}
-            </p>
-          )}
         </SettingRow>
         <SettingRow settingId="font-scale" title="字号">
           <StepperControl
@@ -213,11 +203,6 @@ export function AppearanceSection({
               if (next) selectFontScale(next);
             }}
           />
-          {fontSave.error && (
-            <p className="text-[12px] text-red" role="alert">
-              {fontSave.error}
-            </p>
-          )}
         </SettingRow>
         <SettingRow description="重启应用后生效。" settingId="icon" title="应用图标">
           <div aria-label="应用图标" className="flex flex-wrap items-center gap-2" role="group">
@@ -244,11 +229,6 @@ export function AppearanceSection({
               </button>
             ))}
           </div>
-          {iconSave.error && (
-            <p className="text-[12px] text-red" role="alert">
-              {iconSave.error}
-            </p>
-          )}
         </SettingRow>
       </SettingsGroup>
     </div>

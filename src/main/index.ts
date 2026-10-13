@@ -13,6 +13,7 @@ import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
+import { prependMinGitPath } from './terminal/mingit';
 import { closeHelper } from './remotes/helper';
 import { closeAllPortTunnels } from './remotes/ports';
 import { closeRemoteWatch } from './remotes/watch';
@@ -41,6 +42,7 @@ import {
   savedTheme,
   savedZoom,
 } from './settings';
+import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';
 
 import Database from 'better-sqlite3';
 
@@ -93,6 +95,7 @@ const TODO_REFRESH_MS = 15 * 60_000;
 let todoTimer: ReturnType<typeof setInterval> | undefined;
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
+let stopUpdateCheck: (() => void) | undefined;
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
@@ -122,6 +125,8 @@ app.whenReady().then(() => {
   // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。
   firstLaunch = !smokeTest && !existsSync(join(app.getPath('userData'), 'dela.db'));
   getDatabase();
+  // 系统没装 Git Bash 时用的是应用安装的 MinGit：让全部子进程一开始就能找到它的 git。
+  prependMinGitPath();
   registerPreviewProtocol();
   applyTheme(savedTheme());
   // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
@@ -145,6 +150,7 @@ app.whenReady().then(() => {
   registerSearchIpc();
   registerNotificationsIpc();
   registerTodoIpc();
+  registerUpdateIpc();
   initializeNotifications();
   // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
   gcChatMedia();
@@ -170,6 +176,7 @@ app.whenReady().then(() => {
     syncMail();
     notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
     mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
+    stopUpdateCheck = startBackgroundUpdateCheck();
   }
 });
 
@@ -368,6 +375,7 @@ app.on('will-quit', () => {
   clearInterval(todoTimer);
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
+  stopUpdateCheck?.();
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
   // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。
   closeRemoteWatch();

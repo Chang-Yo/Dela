@@ -87,7 +87,7 @@ function ChatComposerArea({
   /** 会话快照；IPC 返回前为 null，模型信息按空值降级。 */
   chat: WorkspaceChat | null;
   chatState: ReturnType<typeof useChat>;
-  /** 发送错误与会话级错误的合并展示；null = 无。 */
+  /** 会话层错误（快照读取失败、发送失败）；null = 无。 */
   error: string | null;
   referenceSource?: ReferenceSource;
   sessionId: string;
@@ -172,7 +172,7 @@ const ChatSessionView = memo(function ChatSessionView({
     <ChatComposerArea
       chat={chat}
       chatState={chatState}
-      error={chatState.error ?? session.error}
+      error={chatState.error}
       referenceSource={referenceSource}
       sessionId={active}
       hero={hero}

@@ -23,6 +23,8 @@ import {
 } from './timetable-format';
 import type { CalendarItemDetail } from './WeekCalendar';
 import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 import { cn } from '../../lib/utils';
 
 // 点击周视图条目后的详情弹窗：排版参考 Google Calendar 的事件卡
@@ -41,20 +43,18 @@ export function EventDetailDialog({
 }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const deleteEvent = async (event: CalendarEvent) => {
     // 待办派生事件的删除只能发生在 TODO 视图；此入口只接受数字 id 的自建事件。
     if (typeof event.id !== 'number') return;
     setDeleting(true);
-    setError(null);
     try {
       await window.dela!.timetable.deleteEvent(event.id);
       onDeleted();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
       setDeleting(false);
       setConfirming(false);
+      showToast({ variant: 'error', title: '删除事件失败', description: errorText(reason) });
     }
   };
 
@@ -150,11 +150,6 @@ export function EventDetailDialog({
               </>
             )}
           </div>
-          {error ? (
-            <p className="mt-3 break-words text-[12px] text-red" role="alert">
-              {error}
-            </p>
-          ) : null}
           {/* 底部只保留破坏性操作的确认区；关闭走右上角 X，避免重复入口。 */}
           {detail.kind === 'event' ? (
             <div className="mt-5 flex items-center gap-1.5">

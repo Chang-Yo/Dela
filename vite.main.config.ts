@@ -10,7 +10,8 @@ export default defineConfig({
     rolldownOptions: {
       external: [
         'electron',
-        // Pi 运行时依赖（docs/refactor/decisions-phase1.md L8）：保持外部 require，
+        'electron-updater',
+        // Pi 运行时依赖：保持外部 require，
         // 打包时随 node_modules 收进 asar。正则同时覆盖子路径导入
         // （如 pi-ai/api/openai-completions）；rolldown 的字符串 external 不匹配子路径。
         /^@earendil-works\//,
