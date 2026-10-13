@@ -359,7 +359,8 @@ async function openInVsCode(path: string, remoteAuthority: string | null = null)
       {
         detached: true,
         stdio: 'ignore',
-        windowsHide: true,
+        // windowsHide 也会隐藏首次启动的 GUI 窗口，VS Code 必须可见。
+        windowsHide: false,
       },
     );
     child.once('error', (error) => reject(new Error(`启动 VS Code 失败：${error.message}`)));

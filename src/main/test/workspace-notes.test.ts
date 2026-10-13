@@ -163,7 +163,7 @@ describe('磁盘工作区', () => {
 });
 
 describe('打开项目目录', () => {
-  it('VS Code 接收完整路径参数，不把特殊字符交给 shell', async () => {
+  it('VS Code 接收完整路径参数，不经 shell 且不隐藏首次启动的窗口', async () => {
     if (process.platform !== 'win32') return;
     const project = createWorkspaceEntry({
       parentId: null,
@@ -175,7 +175,7 @@ describe('打开项目目录', () => {
     expect(state.spawn).toHaveBeenLastCalledWith(code, [join(workspaceRoot(), '项目 % & 中文')], {
       detached: true,
       stdio: 'ignore',
-      windowsHide: true,
+      windowsHide: false,
     });
   });
 
@@ -188,7 +188,7 @@ describe('打开项目目录', () => {
     expect(state.spawn).toHaveBeenLastCalledWith(
       code,
       ['--remote', 'ssh-remote+root@47.117.158.218', '/srv/app'],
-      { detached: true, stdio: 'ignore', windowsHide: true },
+      { detached: true, stdio: 'ignore', windowsHide: false },
     );
     // 远端目录没有本地对应物，资源管理器无从打开。
     await expect(openProjectDirectory(project, 'explorer')).rejects.toThrow('没有本地目录');
@@ -200,6 +200,19 @@ describe('打开项目目录', () => {
     const project = insertRemoteProject('gpu-box', '/srv/app');
     state.execFile.mockImplementation((_command, _args, callback) => callback(null, ''));
     await expect(openProjectDirectory(project, 'vscode')).rejects.toThrow('Remote - SSH');
+  });
+
+  it('VS Code 进程启动失败时返回错误，供界面显示提示', async () => {
+    const project = insertRemoteProject('gpu-box', '/srv/app');
+    stubVsCode();
+    state.spawn.mockImplementationOnce(() => {
+      const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+      queueMicrotask(() => child.emit('error', new Error('spawn EACCES')));
+      return child;
+    });
+    await expect(openProjectDirectory(project, 'vscode')).rejects.toThrow(
+      '启动 VS Code 失败：spawn EACCES',
+    );
   });
 
   it('打开项目当前目录，重命名后使用新路径', async () => {
