@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -174,5 +174,63 @@ describe('项目内置终端', () => {
     });
     // 通道包装层同步校验调用来源（未进入 async 处理器）。
     expect(() => invoke('list', owner, projectId)).toThrow('不允许的调用来源');
+  });
+});
+
+describe('Git Bash 运行时', () => {
+  // 用环境变量把系统探测候选指到空目录，不需要 mock existsSync。
+  const mingitRoot = () => join(state.root, 'Dela', 'mingit', 'v2.56.0.2');
+  beforeEach(() => {
+    process.env.ProgramFiles = state.root;
+    process.env['ProgramFiles(x86)'] = state.root;
+    process.env.LOCALAPPDATA = state.root;
+  });
+
+  it('locateBash：系统安装优先，缺失时回退 MinGit，都缺失时给出安装指引', () => {
+    const bash = join(mingitRoot(), 'usr', 'bin', 'bash.exe');
+    expect(() => locateBash()).toThrow('一键安装');
+    mkdirSync(join(mingitRoot(), 'usr', 'bin'), { recursive: true });
+    writeFileSync(bash, '');
+    expect(locateBash()).toBe(bash);
+    rmSync(mingitRoot(), { recursive: true, force: true });
+  });
+
+  it('bash-status 报告缺失；一键安装逐源尝试，全部失败进 error 态并清理半成品', async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error('网络不可达');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await invoke('bash-status', owner)).toEqual({
+      found: false,
+      install: { phase: 'idle', received: 0, total: 0, error: null },
+    });
+    await expect(invoke('install-bash', owner)).rejects.toThrow('下载失败');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await invoke('bash-status', owner)).toMatchObject({
+      found: false,
+      install: { phase: 'error', error: expect.stringContaining('网络不可达') },
+    });
+    expect(existsSync(mingitRoot())).toBe(false);
+    expect(owner.send).toHaveBeenCalledWith(
+      'terminal:bash-install',
+      expect.objectContaining({ phase: 'error' }),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('安装中可取消，回到 idle 并清理', async () => {
+    const fetchMock = vi.fn(
+      (_url: unknown, init: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const installing = invoke('install-bash', owner);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await invoke('cancel-install-bash', owner);
+    expect(await installing).toMatchObject({ found: false, install: { phase: 'idle' } });
+    expect(existsSync(mingitRoot())).toBe(false);
+    vi.unstubAllGlobals();
   });
 });

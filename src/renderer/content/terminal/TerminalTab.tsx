@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { ClipboardPaste, Copy, Plus, SquareTerminal, X } from 'lucide-react';
-import type { TerminalEvent, TerminalSession } from '../../../shared/terminal';
+import { ClipboardPaste, Copy, Download, Plus, SquareTerminal, X } from 'lucide-react';
+import type { BashStatus, TerminalEvent, TerminalSession } from '../../../shared/terminal';
 import type { TabComponentProps } from '../../workbench/registry';
 import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
-import { errorText } from '../../workspace/store';
+import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { cn } from '../../lib/utils';
 import '@xterm/xterm/css/xterm.css';
 
@@ -42,11 +42,16 @@ function applyEvent(session: TerminalSession, event: TerminalEvent): TerminalSes
 export function TerminalTab({ tabId }: TabComponentProps) {
   const api = window.dela?.terminal;
   const projectId = tabId.slice('terminal:'.length);
+  // 远程项目的终端是本地 ssh，不依赖 Git Bash，不探测也不引导安装。
+  const isRemote = useWorkspaceStore(
+    (state) => state.workspace.entries.find((item) => item.id === projectId)?.remoteId != null,
+  );
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(activeByProject.get(projectId) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   const [hasSelection, setHasSelection] = useState(false);
+  const [bash, setBash] = useState<BashStatus | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const screen = useRef<{ id: string; terminal: Terminal } | null>(null);
   const snapshots = useRef<TerminalSession[]>([]);
@@ -104,11 +109,35 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       install([...snapshots.current, item]);
       select(item.id);
     } catch (cause) {
-      showToast({ variant: 'error', title: '新建终端失败', description: errorText(cause) });
+      const text = errorText(cause);
+      // Git Bash 缺失是可修复状态：交给安装卡片引导，不弹一次性浮窗。
+      if (text.includes('未找到 Git Bash')) {
+        setBash(
+          (prev) =>
+            prev ?? {
+              found: false,
+              install: { phase: 'idle', received: 0, total: 0, error: null },
+            },
+        );
+        return;
+      }
+      showToast({ variant: 'error', title: '新建终端失败', description: text });
     } finally {
       waitingIds.current.delete(id);
       if (mounted.current) setBusy(false);
     }
+  };
+
+  const installRuntime = () => {
+    if (!api) return;
+    // 失败详情经安装事件进卡片内联展示，这里不重复弹浮窗。
+    void api
+      .installBash()
+      .then((status) => setBash(status))
+      .catch(() => {});
+  };
+  const cancelInstall = () => {
+    void api?.cancelBashInstall().catch(() => {});
   };
 
   useEffect(() => {
@@ -137,12 +166,27 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       }
       setSessions(snapshots.current);
     });
-    void api
-      .list(projectId)
-      .then(async (items) => {
+    const unsubscribeInstall = api.onBashInstall((snapshot) => {
+      if (!alive) return;
+      setBash((prev) =>
+        snapshot.phase === 'done'
+          ? { found: true, install: snapshot }
+          : { found: prev?.found ?? false, install: snapshot },
+      );
+      if (snapshot.phase === 'done') void create();
+    });
+    // 本地项目先探测 Git Bash：缺失时不自动创建，交给安装卡片引导。
+    const status = isRemote ? Promise.resolve(null) : api.bashStatus();
+    void Promise.all([status, api.list(projectId)])
+      .then(async ([probed, items]) => {
         if (!alive) return;
         loading.current = false;
+        if (probed) setBash(probed);
         if (!items.length) {
+          if (probed && !probed.found) {
+            setBusy(false);
+            return;
+          }
           await create();
           return;
         }
@@ -161,10 +205,11 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       alive = false;
       mounted.current = false;
       unsubscribe();
+      unsubscribeInstall();
     };
     // 订阅的生命周期以项目为界；输出、活动会话通过 ref 接入，不反复建立 IPC 订阅。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, projectId]);
+  }, [api, isRemote, projectId]);
 
   const activeExists = sessions.some((item) => item.id === activeId);
   useEffect(() => {
@@ -258,6 +303,10 @@ export function TerminalTab({ tabId }: TabComponentProps) {
   }, [activeId, api, activeExists]);
 
   const active = sessions.find((item) => item.id === activeId);
+  const bashCard = !isRemote && bash !== null && !bash.found;
+  const installing = bash?.install.phase === 'downloading' || bash?.install.phase === 'extracting';
+  const progress = bash && bash.install.total > 0 ? bash.install.received / bash.install.total : 0;
+  const megabytes = (bytes: number) => `${(bytes / 1048576).toFixed(0)} MB`;
   useEffect(() => {
     if (screen.current) screen.current.terminal.options.disableStdin = active?.exitCode !== null;
   }, [active?.exitCode]);
@@ -358,9 +407,55 @@ export function TerminalTab({ tabId }: TabComponentProps) {
           进程已结束，退出码 {active.exitCode}。可新建终端继续操作。
         </p>
       )}
-      {!activeId && (
+      {!activeId && !bashCard && (
         <div className="flex flex-1 items-center justify-center text-[13px] text-ink-3">
           {busy ? '正在打开终端…' : '点击 + 新建终端'}
+        </div>
+      )}
+      {bashCard && bash && (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+          <div className="flex w-full max-w-[380px] flex-col items-center gap-3 text-center">
+            <Download className="size-7 opacity-45" />
+            <p className="text-[13px] text-ink">缺少终端运行时 Git Bash</p>
+            <p className="text-[12px] text-ink-3">
+              {
+                '内置终端与 Agent 的命令执行依赖 Git Bash。可一键安装 Dela 运行时（Git for Windows 官方 MinGit，约 40 MB，装入用户目录，无需管理员权限），或自行安装 Git for Windows。'
+              }
+            </p>
+            {installing ? (
+              <>
+                <div aria-hidden="true" className="h-1 w-40 overflow-hidden rounded-full bg-line">
+                  <div
+                    className="h-full rounded-full bg-ink-2 transition-[width] duration-300 ease-out"
+                    style={{ width: `${Math.round(progress * 100)}%` }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-ink-3" role="status">
+                    {bash.install.phase === 'downloading'
+                      ? `正在下载 ${megabytes(bash.install.received)} / ${megabytes(bash.install.total)}…`
+                      : '正在解压…'}
+                  </span>
+                  <Button onClick={cancelInstall} size="sm" variant="ghost">
+                    取消
+                  </Button>
+                </div>
+              </>
+            ) : bash.install.phase === 'error' ? (
+              <>
+                <p className="text-[12px] text-red" role="alert">
+                  {bash.install.error}
+                </p>
+                <Button onClick={installRuntime} size="sm" variant="default">
+                  重试安装
+                </Button>
+              </>
+            ) : (
+              <Button onClick={installRuntime} size="sm" variant="default">
+                一键安装
+              </Button>
+            )}
+          </div>
         </div>
       )}
       <div

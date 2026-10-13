@@ -144,7 +144,9 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 
 ## 9. 终端
 
-与 Bash 同源：Git Bash + node-pty（ConPTY）+ xterm.js，实现参考 VS Code / Hyper；dela 桥函数同样注入项目终端。本机须装 Git for Windows，缺失时明确报错（`locateBash()`），**不回退 PowerShell**。
+与 Bash 同源：Git Bash + node-pty（ConPTY）+ xterm.js，实现参考 VS Code / Hyper；dela 桥函数同样注入项目终端。Git Bash 探测顺序：系统 Git for Windows → 应用安装的 MinGit 运行时（下段），都缺失时明确报错（`locateBash()`），**不回退 PowerShell**。
+
+系统没装 Git for Windows 时，终端页可一键安装固定版本的官方 MinGit（`src/main/terminal/mingit.ts`）：从 npmmirror 镜像下载 zip（大陆 CDN 直连快，GitHub Releases 兜底，两者与官方发布物逐字节一致），SHA256 与版本号写死在源码（换版本必须成对更新），由系统自带 tar 解压进 `%LOCALAPPDATA%\Dela\mingit\v<版本>`，全程无需管理员权限。MinGit 只以 `sh.exe` 名义带 bash 本体，安装时复制出 `bash.exe`——argv[0] 决定 bash 是否走完整模式，`--rcfile` 注入 dela 桥依赖它；装成后把 `cmd/` 前插进主进程 PATH，终端与 Agent 的 bash 内 git 随即可用。失败与取消都清理半成品，换绑新版本安装时顺手删除旧版本目录。
 
 远程项目的终端是本地 `ssh -tt` 申请远端 PTY，远端不需要 node-pty；该终端不注入 dela 桥，但可以让 ssh 自己问密码与主机指纹。
 
@@ -181,7 +183,7 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - `pnpm install` 会通过 Electron 提供的 `install-electron` 命令下载运行时（`postinstall`）。
 - `@earendil-works/*`（pi-coding-agent / pi-agent-core / pi-ai / pi-mcp）在 main 构建中以正则保持 external、随 node_modules 打包进 asar；pi 系为纯 ESM 包，main 的 CJS 产物经 `agent/pi.ts` 动态 `import()` 加载。
 - `@napi-rs/canvas` 在 `vite.main.config.ts` 标记 external 并加入 electron-builder `asarUnpack`。
-- 运行时依赖 Git for Windows：内核 Bash 工具与内置终端统一使用 Git Bash，缺失时明确报错。
+- 运行时依赖 Git Bash：内核 Bash 工具与内置终端统一使用；系统没装 Git for Windows 时可在终端页一键安装 MinGit 运行时（见 §9），不必预装。
 - 首启引导只由 `userData/dela.db` 是否存在决定：首次跑完即不再重播，开发模式也一样。URL 加 `?smoke-test=1` 可短路引导；冒烟会另开临时 profile。
 - 远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go；改了 `helper/` 下的 Go 代码后执行 `pnpm build:helper --all` 重建 amd64 与 arm64 两个产物并一并提交——只重建 amd64 会让仓库里的 arm64 停在旧版（发布时 CI 会覆盖，但本地对 arm64 远端的测试用的是旧版）。
 
@@ -216,11 +218,12 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 | `pnpm smoke:shuiyuan`                           | 水源社区回归                                                       |
 | `pnpm smoke:remote`                             | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`      |
 | `pnpm exec electron scripts/terminal-smoke.cjs` | 内置终端回归（Git Bash、多会话、选取复制）                         |
+| `pnpm exec electron scripts/mingit-smoke.cjs`   | MinGit 一键安装回归：真实下载约 40MB，装进临时沙箱                 |
 | `pnpm exec electron scripts/agent-smoke.cjs`    | Agent 基座回归：需 `DELA_SMOKE_BASE_URL/API_KEY/MODEL`，发真实请求 |
 | `pnpm package:dir`                              | 生成未安装的可执行目录                                             |
 | `pnpm package:dist`                             | 生成 Windows 安装包                                                |
 
-打包目录可运行 `dist/win-unpacked/Dela.exe --smoke-test` 做与 `pnpm smoke` 相同的检查；终端冒烟加 `dist/win-unpacked/resources/app.asar` 参数可验证包内资源。冒烟脚本使用独立测试目录与脱敏数据；除 `agent-smoke` 外不发送真实请求。
+打包目录可运行 `dist/win-unpacked/Dela.exe --smoke-test` 做与 `pnpm smoke` 相同的检查；终端冒烟加 `dist/win-unpacked/resources/app.asar` 参数可验证包内资源。冒烟脚本使用独立测试目录与脱敏数据；除 `agent-smoke`（真实模型请求）与 `mingit-smoke`（真实下载 MinGit）外不发送真实请求。
 
 真机远程测试的跑法：
 

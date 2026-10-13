@@ -10,23 +10,96 @@ import { remoteById } from '../remotes/api';
 import { locateSsh, shellQuote } from '../remotes/transport';
 import { COMMAND_BRIDGE } from '../agent/commands';
 import { domainBridge } from '../agent';
-import type { TerminalEvent, TerminalSession } from '../../shared/terminal';
+import { MINGIT_BYTES, installMinGit, mingitBash } from './mingit';
+import type {
+  BashInstallSnapshot,
+  BashStatus,
+  TerminalEvent,
+  TerminalSession,
+} from '../../shared/terminal';
 
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 
-/** 定位 Git Bash：常见安装位置探测；缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
-export function locateBash(): string {
+function systemBash(): string | null {
   const candidates = [
     join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git\\bin\\bash.exe'),
     join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git\\bin\\bash.exe'),
     join(process.env.LOCALAPPDATA ?? '', 'Programs\\Git\\bin\\bash.exe'),
   ];
-  const found = candidates.find((path) => existsSync(path));
-  if (!found)
-    throw new Error(
-      '未找到 Git Bash：请安装 Git for Windows（https://git-scm.com/download/win）后重试',
-    );
-  return found;
+  return candidates.find((path) => existsSync(path)) ?? null;
+}
+
+/** 定位 Git Bash：先系统安装（Git for Windows），再应用装的 MinGit 运行时；
+ *  都缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
+export function locateBash(): string {
+  return (
+    systemBash() ??
+    mingitBash() ??
+    (() => {
+      throw new Error(
+        '未找到 Git Bash：可在终端页一键安装 Dela 运行时，或安装 Git for Windows（https://git-scm.com/download/win）后重试',
+      );
+    })()
+  );
+}
+
+// MinGit 一键安装：主进程持有安装状态机，终端页经 bash-status 查询、事件收进度。
+// 装完立即 prepend PATH，终端与 Agent 的 bash 内 git 随即可用。
+const installState: BashInstallSnapshot = { phase: 'idle', received: 0, total: 0, error: null };
+let installController: AbortController | null = null;
+
+function bashStatus(): BashStatus {
+  return { found: (systemBash() ?? mingitBash()) !== null, install: { ...installState } };
+}
+
+async function runInstall(owner: WebContents): Promise<BashStatus> {
+  const current = bashStatus();
+  // 已装或进行中：直接回报现状，不重复发起。
+  if (current.found || installController) return current;
+  const controller = new AbortController();
+  installController = controller;
+  Object.assign(installState, {
+    phase: 'downloading',
+    received: 0,
+    // headers 到达前先按已知的发布物大小展示进度，随后以 content-length 为准。
+    total: MINGIT_BYTES,
+    error: null,
+  });
+  // 高频进度节流到 100ms 一条 IPC，结束时再补发最终状态。
+  let lastPublish = 0;
+  const publish = (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastPublish < 100) return;
+    lastPublish = now;
+    if (!owner.isDestroyed()) owner.send('terminal:bash-install', { ...installState });
+  };
+  publish(true);
+  try {
+    await installMinGit({
+      signal: controller.signal,
+      onProgress: (received, total) => {
+        installState.received = received;
+        installState.total = total;
+        publish();
+      },
+      onExtract: () => {
+        installState.phase = 'extracting';
+        publish(true);
+      },
+    });
+    Object.assign(installState, { phase: 'done', error: null });
+  } catch (cause) {
+    const cancelled = controller.signal.aborted;
+    Object.assign(installState, {
+      phase: cancelled ? 'idle' : 'error',
+      error: cancelled ? null : cause instanceof Error ? cause.message : String(cause),
+    });
+    if (!cancelled) throw new Error(installState.error!);
+  } finally {
+    installController = null;
+    publish(true);
+  }
+  return bashStatus();
 }
 
 // 重挂载时回放最近输出；每个终端最多保留约 100 万字符，避免长期任务无限占用内存。
@@ -78,6 +151,9 @@ export function registerTerminalIpc() {
       checkWorkspaceSender(event);
       return fn(event.sender, ...args);
     });
+  handle('bash-status', () => bashStatus());
+  handle('install-bash', (owner) => runInstall(owner));
+  handle('cancel-install-bash', () => installController?.abort());
   handle('list', (owner, projectId) => {
     projectLocation(projectId);
     return [...sessions.values()]
