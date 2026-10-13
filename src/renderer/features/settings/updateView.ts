@@ -53,26 +53,33 @@ export function updateView(state: UpdateSnapshot): UpdateView {
       };
     case 'downloading':
       return {
-        status: `正在下载 ${Math.round(state.progress * 100)}%`,
+        status: '正在下载更新',
         action: null,
         label: null,
         progress: state.progress,
       };
     case 'ready':
-      // 安装器启动后退出，安装完成后重新启动。
       return {
-        status: '更新已下载，安装后 Dela 将重新启动',
+        status: '更新已下载，安装时将退出 Dela 并打开安装向导',
         action: 'install',
         label: '安装更新',
         progress: null,
       };
     case 'installing':
-      return { status: '正在安装，Dela 即将关闭', action: null, label: null, progress: null };
+      return {
+        status: '正在打开安装向导，Dela 即将退出',
+        action: null,
+        label: null,
+        progress: null,
+      };
     case 'unsupported':
     case 'error': {
       const reason = state.reason ?? 'failed';
       return {
-        status: REASON_STATUS[reason],
+        status:
+          state.failedAt === 'install'
+            ? '无法启动安装向导，请下载安装包后手动安装'
+            : REASON_STATUS[reason],
         ...failureAction(reason, state.failedAt),
         progress: null,
       };

@@ -39,6 +39,8 @@ export interface DelaApi {
   readonly version: string;
   /** 主进程在数据库初始化前判定；已有用户数据的更新和重启均为 false。 */
   readonly firstLaunch: boolean;
+  /** NSIS 更新安装完成后启动，供界面提示实际运行的版本。 */
+  readonly updatedOnLaunch: boolean;
   readonly window: WindowApi;
   readonly settings: SettingsApi;
   readonly llm: LlmApi;

@@ -192,3 +192,12 @@ it('推迟提醒失败时提示，不静默', async () => {
     description: 'ipc down',
   });
 });
+
+it('安装器启动失败的返回快照不当作成功', async () => {
+  window.dela = {
+    update: {
+      install: async () => ({ phase: 'error', failedAt: 'install', reason: 'failed' }),
+    },
+  } as unknown as DelaApi;
+  expect(await runUpdateAction('install')).toBe(false);
+});

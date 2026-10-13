@@ -17,6 +17,7 @@ const readyState: UpdateSnapshot = {
   currentVersion: '1.0.0',
   version: '1.0.1',
   progress: 1,
+  bytesPerSecond: null,
   checkedAt: null,
   reason: null,
   detail: null,
@@ -79,26 +80,20 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  useUpdateState.setState({ snapshot: null, preparingInstall: false });
+  useUpdateState.setState({ snapshot: null, preparingInstall: false, dismissedVersion: null });
   useNoteDrafts.setState({ drafts: {} });
   useToastStore.setState({ toasts: [] });
   delete window.dela;
   vi.unstubAllGlobals();
 });
 
-it('安装前先把未落盘的笔记冲一次，再交给系统安装', async () => {
+it('安装入口重新打开确认弹窗，确认前不保存或退出', async () => {
+  useUpdateState.setState({ dismissedVersion: readyState.version });
   await act(async () => root.render(<UpdateControl />));
   await act(async () => button('安装更新').click());
-  expect(saveDraft).toHaveBeenCalledWith('notes/a.md');
-  expect(install).toHaveBeenCalledTimes(1);
-});
-
-it('有笔记没保存成功就不安装：安装会结束进程，宁可先让用户处理', async () => {
-  saveDraft.mockResolvedValue(false);
-  await act(async () => root.render(<UpdateControl />));
-  await act(async () => button('安装更新').click());
+  expect(useUpdateState.getState().dismissedVersion).toBeNull();
+  expect(saveDraft).not.toHaveBeenCalled();
   expect(install).not.toHaveBeenCalled();
-  expect(useToastStore.getState().toasts[0]?.variant).toBe('error');
 });
 
 it('下载不碰笔记，只有安装才需要冲盘', async () => {
@@ -111,9 +106,7 @@ it('下载不碰笔记，只有安装才需要冲盘', async () => {
   expect(saveDraft).not.toHaveBeenCalled();
 });
 
-it('不拿 IPC 的返回值改写快照：状态只认主进程广播', async () => {
-  install = vi.fn(async () => ({ ...readyState, phase: 'installing' }));
-  mountUpdateApi();
+it('打开确认弹窗不改写主进程快照', async () => {
   await act(async () => root.render(<UpdateControl />));
   await act(async () => button('安装更新').click());
   expect(useUpdateState.getState().snapshot).toEqual(readyState);
@@ -151,4 +144,35 @@ it('有更新可下载时升级成主色按钮', async () => {
     root.render(<UpdateControl />);
   });
   expect(button('下载更新').className).toContain('bg-ink');
+});
+
+it('速度在进度条左侧，百分比在右侧，说明不重复百分比', async () => {
+  useUpdateState.setState({
+    snapshot: {
+      ...readyState,
+      phase: 'downloading',
+      progress: 0.42,
+      bytesPerSecond: 2 * 1024 * 1024,
+    },
+  });
+  await act(async () => root.render(<UpdateControl />));
+  const bar = container.querySelector('[role="progressbar"]')!;
+  expect(bar.previousElementSibling?.textContent).toBe('2.0 MB/s');
+  expect(bar.nextElementSibling?.textContent).toBe('42%');
+  expect(bar.getAttribute('aria-valuenow')).toBe('42');
+  expect(container.querySelector('[role="status"]')?.textContent).toBe('正在下载更新');
+});
+
+it.each([
+  [null, '计算中…'],
+  [0, '0 B/s'],
+  [2048, '2.0 KB/s'],
+] as const)('速度 %s 如实显示为 %s', async (bytesPerSecond, expected) => {
+  useUpdateState.setState({
+    snapshot: { ...readyState, phase: 'downloading', progress: 0, bytesPerSecond },
+  });
+  await act(async () => root.render(<UpdateControl />));
+  expect(container.querySelector('[role="progressbar"]')?.previousElementSibling?.textContent).toBe(
+    expected,
+  );
 });

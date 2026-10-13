@@ -8,6 +8,7 @@ const snapshot = (patch: Partial<UpdateSnapshot>): UpdateSnapshot => ({
   currentVersion: '1.0.0',
   version: null,
   progress: 0,
+  bytesPerSecond: null,
   checkedAt: null,
   reason: null,
   detail: null,
@@ -43,22 +44,22 @@ describe('updateView', () => {
 
   it('下载中报百分比，并把进度交给进度条', () => {
     const view = updateView(snapshot({ phase: 'downloading', version: '1.0.1', progress: 0.42 }));
-    expect(view.status).toBe('正在下载 42%');
+    expect(view.status).toBe('正在下载更新');
     expect(view.progress).toBe(0.42);
     expect(view.action).toBeNull();
   });
 
   it('下载完成后说明安装会让应用退出', () => {
-    // 安装期间退出并重新启动，文案要提前说清。
     const view = updateView(snapshot({ phase: 'ready', version: '1.0.1', progress: 1 }));
-    expect(view.status).toBe('更新已下载，安装后 Dela 将重新启动');
+    expect(view.status).toContain('退出 Dela 并打开安装向导');
     expect(view.action).toBe('install');
     expect(view.label).toBe('安装更新');
   });
 
   it('安装中提醒应用即将关闭，并不再给动作', () => {
     const view = updateView(snapshot({ phase: 'installing', version: '1.0.1' }));
-    expect(view.status).toBe('正在安装，Dela 即将关闭');
+    expect(view.status).toContain('正在打开安装向导');
+    expect(view.status).toContain('Dela 即将退出');
     expect(view.action).toBeNull();
   });
 

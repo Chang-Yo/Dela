@@ -54,6 +54,7 @@ win:
       arch:
         - x64
 nsis:
+  include: build/installer.nsh
   oneClick: false
   allowToChangeInstallationDirectory: true
   differentialPackage: true

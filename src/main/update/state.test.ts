@@ -14,6 +14,22 @@ const run = (state: UpdateSnapshot, events: UpdateEvent[]) => events.reduce(redu
 const reachedAvailable = (version = '1.0.1') =>
   run(base(), [{ type: 'check/started' }, { type: 'check/available', version, checkedAt: at }]);
 
+it('进度停滞或差分回退时仍更新速度，重试与完成清空旧速度', () => {
+  const first = run(reachedAvailable(), [
+    { type: 'download/started' },
+    { type: 'download/progress', progress: 0.6, bytesPerSecond: 2048 },
+  ]);
+  const slower = reduceUpdate(first, {
+    type: 'download/progress',
+    progress: 0.2,
+    bytesPerSecond: 512,
+  });
+  expect(slower).toMatchObject({ progress: 0.6, bytesPerSecond: 512 });
+  expect(reduceUpdate(slower, { type: 'download/finished' }).bytesPerSecond).toBeNull();
+  const failed = reduceUpdate(slower, { type: 'download/failed', reason: 'failed' });
+  expect(reduceUpdate(failed, { type: 'download/started' }).bytesPerSecond).toBeNull();
+});
+
 describe('initialUpdateState', () => {
   it('从 idle 起步，不预先判定能力', () => {
     expect(base()).toEqual({
@@ -21,6 +37,7 @@ describe('initialUpdateState', () => {
       currentVersion: '1.0.0',
       version: null,
       progress: 0,
+      bytesPerSecond: null,
       checkedAt: null,
       reason: null,
       detail: null,

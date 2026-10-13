@@ -209,14 +209,19 @@ async function createWindow(): Promise<void> {
     minHeight: 600,
     show: !smokeTest && !startHidden,
     backgroundColor: '#f7f7f8',
-    icon: join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
+    icon: nativeImage.createFromPath(
+      join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
+    ),
     titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      additionalArguments: firstLaunch ? ['--dela-first-launch'] : [],
+      additionalArguments: [
+        ...(firstLaunch ? ['--dela-first-launch'] : []),
+        ...(app.isPackaged && process.argv.includes('--updated') ? ['--dela-updated'] : []),
+      ],
     },
   });
   mainWindow = window;
@@ -290,6 +295,12 @@ async function createWindow(): Promise<void> {
   if (!smokeTest) createTray(window);
 
   if (smokeTest && !terminalSmokeTest) {
+    for (const name of ['white', 'black']) {
+      const iconPath = join(app.getAppPath(), 'assets', `Dela_${name}_bg.png`);
+      if (nativeImage.createFromPath(iconPath).isEmpty()) {
+        throw new Error(`Application icon failed to load: ${iconPath}`);
+      }
+    }
     const database = new Database(':memory:');
     try {
       database.exec('CREATE TABLE smoke (value TEXT NOT NULL)');

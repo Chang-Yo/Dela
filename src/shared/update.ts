@@ -31,6 +31,8 @@ export interface UpdateSnapshot {
   version: string | null;
   /** 下载进度 0..1；只有 downloading 阶段有意义。 */
   progress: number;
+  /** 更新器上报的下载字节数/秒；尚未收到进度时为 null。 */
+  bytesPerSecond: number | null;
   /** 最近一次检查完成的时刻（ISO）；从未成功检查为 null。 */
   checkedAt: string | null;
   /** 失败或不可用原因；其余阶段为 null。 */
@@ -47,7 +49,7 @@ export interface UpdateApi {
   check(): Promise<UpdateSnapshot>;
   /** 下载已发现的更新；应用保持运行。 */
   download(): Promise<UpdateSnapshot>;
-  /** 启动已下载的 NSIS 安装包，退出并在安装后重新启动。 */
+  /** 打开已下载的 NSIS 安装向导并退出；完成后可重新启动。 */
   install(): Promise<UpdateSnapshot>;
   /** 记下「下次启动时提醒」：下次启动准备更新，等待用户确认安装。 */
   deferInstall(): Promise<void>;

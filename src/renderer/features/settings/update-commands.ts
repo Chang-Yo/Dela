@@ -62,7 +62,12 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
     // 打开下载页只借道系统浏览器，没有快照可回填。
     if (action === 'open-download') await api.openDownloadPage();
     // 其余动作的新状态由主进程广播回来，这里不自己写快照，免得两处状态打架。
-    else await api[action]();
+    else {
+      const result = await api[action]();
+      if (result.phase === 'error' || result.phase === 'unsupported') {
+        return false;
+      }
+    }
     return true;
   } catch (error) {
     // 主进程的正常失败都会以快照形式回来，走到这里说明 IPC 本身出了问题，
@@ -80,9 +85,12 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
 }
 
 /** 记下「下次启动时提醒」。 */
-export async function deferInstall(): Promise<void> {
+export async function deferInstall(): Promise<boolean> {
   try {
-    await window.dela?.update.deferInstall();
+    const api = window.dela?.update;
+    if (!api) return false;
+    await api.deferInstall();
+    return true;
   } catch (error) {
     console.error('Defer update install failed', error);
     showToast({
@@ -90,5 +98,6 @@ export async function deferInstall(): Promise<void> {
       title: '设置提醒失败',
       description: errorText(error),
     });
+    return false;
   }
 }

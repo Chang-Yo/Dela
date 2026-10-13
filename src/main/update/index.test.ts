@@ -79,6 +79,7 @@ it('只检查正式版，关闭自动下载、退出安装和降级', async () =
   const { autoUpdater } = await import('electron-updater');
   expect(autoUpdater.autoDownload).toBe(false);
   expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
+  expect(autoUpdater.autoRunAppAfterInstall).toBe(true);
   expect(autoUpdater.allowPrerelease).toBe(false);
   expect(autoUpdater.allowDowngrade).toBe(false);
   expect(mocks.downloadUpdate).not.toHaveBeenCalled();
@@ -106,8 +107,9 @@ it('下载进度、失败重试与缓存命中均由同一状态流程处理', a
   const operation = pending();
   mocks.downloadUpdate.mockReturnValueOnce(operation.promise);
   const downloading = invoke('download');
-  mocks.listeners.get('download-progress')!({ percent: 42 });
+  mocks.listeners.get('download-progress')!({ percent: 42, bytesPerSecond: 2048 });
   expect((await invoke('get-state')).progress).toBe(0.42);
+  expect((await invoke('get-state')).bytesPerSecond).toBe(2048);
   operation.resolve(['cached-installer.exe']);
   expect((await downloading).phase).toBe('ready');
   expect(mocks.quitAndInstall).not.toHaveBeenCalled();
@@ -153,7 +155,7 @@ it('推迟只在 ready 落盘，安装先清标记且只启动一次，不提前
   expect((await invoke('install')).phase).toBe('installing');
   expect(mocks.setPendingInstall).toHaveBeenLastCalledWith(false);
   await invoke('install');
-  expect(mocks.quitAndInstall).toHaveBeenCalledExactlyOnceWith(true, true);
+  expect(mocks.quitAndInstall).toHaveBeenCalledExactlyOnceWith(false, true);
 });
 
 it('安装器异步启动失败会解除安装中状态', async () => {

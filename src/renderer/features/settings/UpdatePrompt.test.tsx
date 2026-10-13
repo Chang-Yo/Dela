@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 「新版本」确认弹窗：安装会结束 Dela 且不保证自动重启，所以时机必须由用户挑。
+// 下载完成与设置入口共用确认弹窗，退出前保存并说明安装向导的后续操作。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -8,6 +8,7 @@ import type { UpdateSnapshot } from '../../../shared/update';
 import { useToastStore } from '../../app/toasts';
 import { useNoteDrafts, type NoteDraft } from '../../workspace/drafts';
 import { UpdatePrompt } from './UpdatePrompt';
+import { UpdateControl } from './UpdateControl';
 import { useUpdateState } from './update-state';
 
 vi.mock('../../content/note/NoteEditor', () => ({ flushNoteEditors: vi.fn() }));
@@ -17,6 +18,7 @@ const readyState: UpdateSnapshot = {
   currentVersion: '1.0.0',
   version: '1.0.1',
   progress: 1,
+  bytesPerSecond: null,
   checkedAt: null,
   reason: null,
   detail: null,
@@ -72,7 +74,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  install = vi.fn(async () => readyState);
+  install = vi.fn(async () => ({ ...readyState, phase: 'installing' }));
   deferInstall = vi.fn(async () => {});
   saveDraft = vi.fn(async () => {
     useNoteDrafts.setState({ drafts: { 'notes/a.md': { ...draft, saved: draft.text } } });
@@ -88,7 +90,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  useUpdateState.setState({ snapshot: null, preparingInstall: false });
+  useUpdateState.setState({ snapshot: null, preparingInstall: false, dismissedVersion: null });
   useNoteDrafts.setState({ drafts: {} });
   useToastStore.setState({ toasts: [] });
   delete window.dela;
@@ -99,13 +101,15 @@ it('只有下载完成才弹：其它阶段都不打扰用户', async () => {
   const quiet = ['idle', 'checking', 'up-to-date', 'available', 'downloading'];
   for (const phase of quiet) {
     await show({ ...readyState, phase } as UpdateSnapshot);
-    expect(document.body.textContent, phase).not.toContain('下次启动时再提醒');
+    expect(document.body.textContent, phase).not.toContain('下次启动时提醒');
   }
 });
 
 it('说明里带上新版本号，用户才知道装的是哪一版', async () => {
   await show(readyState);
   expect(document.body.textContent).toContain('1.0.1');
+  expect(document.body.textContent).toContain('终端任务会结束');
+  expect(document.body.textContent).toContain('运行 Dela');
 });
 
 it('选「下次启动时提醒」只记标记，不安装', async () => {
@@ -114,12 +118,12 @@ it('选「下次启动时提醒」只记标记，不安装', async () => {
   expect(deferInstall).toHaveBeenCalledTimes(1);
   expect(install).not.toHaveBeenCalled();
   expect(saveDraft).not.toHaveBeenCalled();
-  expect(document.body.textContent).not.toContain('下次启动时再提醒');
+  expect(document.body.textContent).not.toContain('下次启动时提醒');
 });
 
-it('选「现在安装」先冲草稿再安装', async () => {
+it('选「退出并安装」先冲草稿再安装', async () => {
   await show(readyState);
-  await act(async () => button('现在安装').click());
+  await act(async () => button('退出并安装').click());
   expect(saveDraft).toHaveBeenCalledWith('notes/a.md');
   expect(install).toHaveBeenCalledTimes(1);
   expect(deferInstall).not.toHaveBeenCalled();
@@ -128,9 +132,10 @@ it('选「现在安装」先冲草稿再安装', async () => {
 it('笔记没冲成功就不安装，也不静默丢掉这次更新', async () => {
   saveDraft.mockResolvedValue(false);
   await show(readyState);
-  await act(async () => button('现在安装').click());
+  await act(async () => button('退出并安装').click());
   expect(install).not.toHaveBeenCalled();
   expect(useToastStore.getState().toasts[0]?.variant).toBe('error');
+  expect(document.body.textContent).toContain('退出并安装');
 });
 
 it('答过就不再出现，但下一版下载完会重新问', async () => {
@@ -138,7 +143,7 @@ it('答过就不再出现，但下一版下载完会重新问', async () => {
   await act(async () => button('下次启动时提醒').click());
   // 推迟不改状态机，快照仍是 ready，弹窗不该再冒出来。
   await show(readyState);
-  expect(document.body.textContent).not.toContain('下次启动时再提醒');
+  expect(document.body.textContent).not.toContain('下次启动时提醒');
 
   await show({ ...readyState, phase: 'downloading', progress: 0.5 });
   await show({ ...readyState, version: '1.0.2' });
@@ -152,7 +157,7 @@ it('按 Esc 只是关掉弹窗，不替用户决定装还是等', async () => {
   });
   expect(install).not.toHaveBeenCalled();
   expect(deferInstall).not.toHaveBeenCalled();
-  expect(document.body.textContent).not.toContain('下次启动时再提醒');
+  expect(document.body.textContent).not.toContain('下次启动时提醒');
 });
 
 it('保存与安装期间保持模态锁，Esc 不能解除', async () => {
@@ -164,5 +169,35 @@ it('保存与安装期间保持模态锁，Esc 不能解除', async () => {
   });
   expect(document.body.textContent).toContain('正在保存工作区');
   await show({ ...readyState, phase: 'installing' });
-  expect(document.body.textContent).toContain('正在安装更新');
+  expect(document.body.textContent).toContain('正在打开安装向导');
+});
+
+it('关闭提示后从设置安装会再次确认，不直接退出', async () => {
+  await show(readyState);
+  await act(async () => button('下次启动时提醒').click());
+  await act(async () =>
+    root.render(
+      <>
+        <UpdateControl />
+        <UpdatePrompt />
+      </>,
+    ),
+  );
+  expect(document.body.textContent).not.toContain('退出并安装');
+  await act(async () => button('安装更新').click());
+  expect(document.body.textContent).toContain('退出并安装');
+  expect(install).not.toHaveBeenCalled();
+  expect(saveDraft).not.toHaveBeenCalled();
+  await act(async () => button('退出并安装').click());
+  expect(install).toHaveBeenCalledTimes(1);
+});
+
+it('推迟提醒保存失败时保留确认弹窗', async () => {
+  deferInstall.mockRejectedValueOnce(new Error('ipc down'));
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await show(readyState);
+  await act(async () => button('下次启动时提醒').click());
+  expect(document.body.textContent).toContain('退出并安装');
+  expect(useToastStore.getState().toasts[0]?.title).toBe('设置提醒失败');
+  vi.restoreAllMocks();
 });

@@ -55,11 +55,12 @@ function configureUpdater(): void {
   // 检查、下载和安装分别由用户流程驱动，退出或推迟提醒不能绕过保存工作区。
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.autoRunAppAfterInstall = true;
   autoUpdater.allowPrerelease = false;
   autoUpdater.channel = 'latest';
   autoUpdater.allowDowngrade = false;
-  autoUpdater.on('download-progress', ({ percent }) => {
-    dispatch({ type: 'download/progress', progress: percent / 100 });
+  autoUpdater.on('download-progress', ({ percent, bytesPerSecond }) => {
+    dispatch({ type: 'download/progress', progress: percent / 100, bytesPerSecond });
   });
   autoUpdater.on('error', (error) => {
     // check/download 的 Promise 处理失败；安装器启动后只能通过事件报告错误。
@@ -108,7 +109,7 @@ async function beginInstall(): Promise<UpdateSnapshot> {
   try {
     setPendingInstall(false);
     // 返回只表示已请求安装，不能宣称安装成功；新进程会从实际版本重新开始。
-    autoUpdater.quitAndInstall(true, true);
+    autoUpdater.quitAndInstall(false, true);
     return currentState();
   } catch (error) {
     return fail('install', error);

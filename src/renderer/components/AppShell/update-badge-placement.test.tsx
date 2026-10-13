@@ -25,6 +25,7 @@ const available: UpdateSnapshot = {
   currentVersion: '1.0.0',
   version: '1.0.1',
   progress: 0,
+  bytesPerSecond: null,
   checkedAt: null,
   reason: null,
   detail: null,
