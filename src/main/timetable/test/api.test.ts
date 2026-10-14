@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Database } from 'better-sqlite3';
 import { deleteCalendarEvent, isConnected, parseSemesterStart, parseWeekNumbers } from '../api';
-import { getCampusSession } from '../session';
+import { getCampusSession } from '../../campus';
 import { getDatabase } from '../../database';
 import { net, type Session } from 'electron';
 import { EventEmitter } from 'node:events';
@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
   net: { request: vi.fn() },
 }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../session', () => ({ getCampusSession: vi.fn() }));
+vi.mock('../../campus', () => ({ getCampusSession: vi.fn() }));
 
 function mockRequest(status: number | 'redirect' | 'error', body = '') {
   const request = Object.assign(new EventEmitter(), {

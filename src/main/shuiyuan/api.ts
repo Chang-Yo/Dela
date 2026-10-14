@@ -26,7 +26,7 @@ import {
   loadShuiyuanCredential,
   saveShuiyuanCredential,
 } from '../credentials';
-import { CAMPUS_PARTITION, getCampusSession } from '../timetable/session';
+import { CAMPUS_PARTITION, getCampusSession } from '../campus';
 
 const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
 // 授权页请求形态：不带 auth_redirect，

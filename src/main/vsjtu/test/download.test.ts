@@ -27,22 +27,22 @@ vi.mock('electron', () => ({
   dialog: { showSaveDialog: boundary.choose, showOpenDialog: boundary.choose },
   shell: { showItemInFolder: boundary.reveal },
 }));
-vi.mock('../ipc', () => ({ checkWorkspaceSender: () => {} }));
-vi.mock('../settings/prefs', () => ({
+vi.mock('../../ipc', () => ({ checkWorkspaceSender: () => {} }));
+vi.mock('../../settings/prefs', () => ({
   savedExperimentalFeatures: () => boundary.enabled,
   savedExperimentalClassroom: () => boundary.classroom,
   savedVideoDownloadDirectory: () => boundary.directory,
   setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
 }));
-vi.mock('../timetable/session', () => ({
+vi.mock('../../campus', () => ({
   getCampusSession: async () => Object.assign(campus, { downloadURL: boundary.download }),
 }));
-vi.mock('./api', () => ({
+vi.mock('../api', () => ({
   getStreams: async () => [
     { view: 5, duration: 3283, url: 'https://live.sjtu.edu.cn/test.mp4?key=private' },
   ],
 }));
-import { registerVsjtuIpc } from './ipc';
+import { registerVsjtuIpc } from '../ipc';
 beforeEach(() => {
   campus = new EventEmitter();
   vi.clearAllMocks();

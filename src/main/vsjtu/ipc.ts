@@ -17,7 +17,7 @@ import {
   savedVideoDownloadDirectory,
   setVideoDownloadDirectory,
 } from '../settings/prefs';
-import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../timetable/session';
+import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../campus';
 import { checkVideoLogin, getStreams, listCourses, listVideos, VIDEO_HOME } from './api';
 import { issuePlayback } from './playback';
 

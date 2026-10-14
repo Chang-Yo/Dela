@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import type { UpdateSnapshot } from '../../shared/update';
+import type { UpdateSnapshot } from '../../../shared/update';
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, () => Promise<UpdateSnapshot>>(),
@@ -42,8 +42,8 @@ vi.mock('electron-updater', () => ({
     },
   },
 }));
-vi.mock('../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../settings/prefs', () => ({
+vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
+vi.mock('../../settings/prefs', () => ({
   savedPendingInstall: () => false,
   setPendingInstall: mocks.setPendingInstall,
 }));
@@ -68,7 +68,7 @@ beforeEach(async () => {
     updateInfo: { version: '1.0.1' },
   });
   mocks.downloadUpdate.mockResolvedValue(['installer.exe']);
-  const { registerUpdateIpc } = await import('./index');
+  const { registerUpdateIpc } = await import('../index');
   registerUpdateIpc();
 });
 

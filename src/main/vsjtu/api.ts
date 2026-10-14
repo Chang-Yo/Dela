@@ -2,7 +2,7 @@ import { net } from 'electron';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import type { ClassroomVideo, VideoCourse } from '../../shared/vsjtu';
-import { getCampusSession } from '../timetable/session';
+import { getCampusSession } from '../campus';
 
 export const VIDEO_HOME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/';
 const BASE = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1';

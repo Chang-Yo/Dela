@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../todo', () => ({
+vi.mock('../../todo', () => ({
   getTodoState: () => ({ syncedAt: null, error: null }),
   todoNotifications: () => [],
   markTodoRead: vi.fn(),
@@ -10,17 +10,17 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: { handle: vi.fn() },
 }));
-vi.mock('../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
-vi.mock('../mail/api', () => ({
+vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
+vi.mock('../../credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
+vi.mock('../../mail/api', () => ({
   getMailState: vi.fn(() => ({ sync: { phase: 'idle', error: null } })),
   markMailSeen: vi.fn(),
   markAllMailSeen: vi.fn(),
   onMailCacheChanged: vi.fn(),
 }));
-vi.mock('../shuiyuan/api', () => ({ listShuiyuanNotifications: vi.fn() }));
-vi.mock('../notifications/system', () => ({
+vi.mock('../../shuiyuan/api', () => ({ listShuiyuanNotifications: vi.fn() }));
+vi.mock('../system', () => ({
   armSystemNotifications: vi.fn(),
   isWorkspaceWindow: () => false,
   systemNotifyItem: vi.fn(),
@@ -33,12 +33,12 @@ import {
   markNotificationRead,
   refreshNotifications,
   setNotificationSnooze,
-} from '../notifications';
-import { getDatabase } from '../database';
-import { loadShuiyuanCredential } from '../credentials';
-import { listShuiyuanNotifications } from '../shuiyuan/api';
-import { markAllMailSeen, markMailSeen } from '../mail/api';
-import { systemNotifyItem } from '../notifications/system';
+} from '..';
+import { getDatabase } from '../../database';
+import { loadShuiyuanCredential } from '../../credentials';
+import { listShuiyuanNotifications } from '../../shuiyuan/api';
+import { markAllMailSeen, markMailSeen } from '../../mail/api';
+import { systemNotifyItem } from '../system';
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');

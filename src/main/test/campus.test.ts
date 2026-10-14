@@ -58,9 +58,9 @@ vi.mock('electron', () => {
     },
   };
 });
-vi.mock('../../ipc', () => ({ attachContextMenu: () => {} }));
+vi.mock('../ipc', () => ({ attachContextMenu: () => {} }));
 
-import { openCampusLoginWindow } from '../session';
+import { openCampusLoginWindow } from '../campus';
 
 interface LoginWindowMock {
   webContents: { emit: (event: string, ...args: unknown[]) => void };

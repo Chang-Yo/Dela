@@ -9,7 +9,7 @@ import {
 } from 'electron';
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { attachContextMenu } from '../ipc';
+import { attachContextMenu } from './ipc';
 
 export const CAMPUS_PARTITION = 'persist:dela-campus';
 let ready: Promise<Session> | undefined;

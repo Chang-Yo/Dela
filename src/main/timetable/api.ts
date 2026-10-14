@@ -9,7 +9,7 @@ import {
 } from '../../shared/api';
 import { getDatabase } from '../database';
 import { lessonOccurrences } from '../../shared/schedule';
-import { flushCampusSession, getCampusSession, openCampusLoginWindow } from './session';
+import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../campus';
 
 const CAMPUS_ORIGIN = 'https://i.sjtu.edu.cn';
 const LOGIN_URL = `${CAMPUS_ORIGIN}/jaccountlogin`;

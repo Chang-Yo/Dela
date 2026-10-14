@@ -3,15 +3,15 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getDatabase } from '../database';
+import { getDatabase } from '../../database';
 import {
   officeExportPreviewInfo,
   readOfficeExportLink,
   writeOfficeExportLink,
   type OfficeExportLink,
-} from '../documents/links';
+} from '../links';
 
-vi.mock('../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('electron', () => ({ app: { getPath: vi.fn(() => tmpdir()) } }));
 
 const db = new Database(':memory:');

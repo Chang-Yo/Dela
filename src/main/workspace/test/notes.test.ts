@@ -13,12 +13,12 @@ import { EventEmitter } from 'node:events';
 const state = vi.hoisted(() => ({ root: '', execFile: vi.fn(), spawn: vi.fn() }));
 vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPath: vi.fn() } }));
-vi.mock('../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
-vi.mock('../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
+vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
+vi.mock('../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
 
-import { getDatabase } from '../database';
-import { workspaceArchiveId } from '../../shared/workspace';
+import { getDatabase } from '../../database';
+import { workspaceArchiveId } from '../../../shared/workspace';
 import {
   createWorkspaceEntry,
   linkProjectFolder,
@@ -31,7 +31,7 @@ import {
   openProjectDirectory,
   getWorkspaceState,
   entry,
-} from '../workspace/api';
+} from '../api';
 
 const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 

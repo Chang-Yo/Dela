@@ -1,5 +1,5 @@
 import { loadShuiyuanCredential } from '../credentials';
-import { getCampusSession } from '../timetable/session';
+import { getCampusSession } from '../campus';
 
 const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
 const MEDIA_TIMEOUT_MS = 20000;

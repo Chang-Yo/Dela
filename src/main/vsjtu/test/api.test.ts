@@ -30,8 +30,8 @@ vi.mock('electron', () => ({
     },
   },
 }));
-vi.mock('../timetable/session', () => ({ getCampusSession: async () => ({}) }));
-import { checkVideoLogin, listCourses, listVideos, parseStreams } from './api';
+vi.mock('../../campus', () => ({ getCampusSession: async () => ({}) }));
+import { checkVideoLogin, listCourses, listVideos, parseStreams } from '../api';
 
 beforeEach(() => {
   server.replies = [];

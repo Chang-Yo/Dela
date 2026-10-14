@@ -10,7 +10,7 @@ import {
   deleteCalendarEvent,
 } from './api';
 import { ipcMain } from 'electron';
-import { clearCampusSession } from './session';
+import { clearCampusSession } from '../campus';
 import { checkWorkspaceSender } from '../ipc';
 import { type TimetableResult } from '../../shared/api';
 

@@ -5,16 +5,16 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: { handle: vi.fn() },
 }));
-vi.mock('../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../credentials', () => ({ loadCanvasToken: vi.fn(() => 'test-token') }));
-vi.mock('../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../canvas/api', () => ({
+vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../../credentials', () => ({ loadCanvasToken: vi.fn(() => 'test-token') }));
+vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
+vi.mock('../../canvas/api', () => ({
   listTodoCanvasCourses: vi.fn(),
   listTodoCanvasAssignments: vi.fn(),
 }));
-import { getDatabase } from '../database';
-import { loadCanvasToken } from '../credentials';
-import { listTodoCanvasAssignments, listTodoCanvasCourses } from '../canvas/api';
+import { getDatabase } from '../../database';
+import { loadCanvasToken } from '../../credentials';
+import { listTodoCanvasAssignments, listTodoCanvasCourses } from '../../canvas/api';
 import {
   getTodoState,
   markTodoRead,
@@ -22,7 +22,7 @@ import {
   removeTodo,
   saveTodo,
   todoNotifications,
-} from '../todo';
+} from '..';
 
 let db: DatabaseSync;
 const assignment = (id: number, submission = { workflow_state: 'unsubmitted' }) => ({

@@ -10,7 +10,7 @@ import {
   extractDocumentBytes,
   parsableDocumentExtension,
   renderPdfPages,
-} from '../documents/parse';
+} from '../parse';
 
 /** 构造最小可用 zip：deflate 条目 + 中央目录，CRC 置零（解析器不校验）。 */
 function buildZip(entries: Record<string, string | Buffer>): Buffer {

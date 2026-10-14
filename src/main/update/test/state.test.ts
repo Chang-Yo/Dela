@@ -1,8 +1,8 @@
 // 更新状态机的纯逻辑测试。状态机不碰 Electron、不碰更新器，
 // 它要保证的核心只有一件事：任何迟到或乱序的事件都不能把状态改回错误的阶段。
 import { describe, expect, it } from 'vitest';
-import { failureEvent, initialUpdateState, reduceUpdate, type UpdateEvent } from './state';
-import type { UpdateSnapshot, UpdateStep } from '../../shared/update';
+import { failureEvent, initialUpdateState, reduceUpdate, type UpdateEvent } from '../state';
+import type { UpdateSnapshot, UpdateStep } from '../../../shared/update';
 
 const at = '2026-10-12T00:00:00.000Z';
 

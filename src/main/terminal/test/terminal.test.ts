@@ -27,8 +27,8 @@ vi.mock('electron', () => ({
   },
 }));
 vi.mock('node-pty', () => ({ spawn: mocks.spawn }));
-vi.mock('../ipc', () => ({ checkWorkspaceSender: mocks.check }));
-vi.mock('../workspace/api', async () => {
+vi.mock('../../ipc', () => ({ checkWorkspaceSender: mocks.check }));
+vi.mock('../../workspace/api', async () => {
   const { z } = await import('zod');
   return {
     idSchema: z.uuid(),
@@ -36,8 +36,8 @@ vi.mock('../workspace/api', async () => {
     projectLocation: (id: unknown) => ({ kind: 'local', path: mocks.directory(id) }),
   };
 });
-import { registerTerminalIpc } from '../terminal';
-import { locateBash } from '../terminal';
+import { registerTerminalIpc } from '..';
+import { locateBash } from '..';
 
 const state = vi.hoisted(() => ({ root: '' }));
 // kernel/bash → commands → 领域模块链用真实实现（桥服务器真实监听 127.0.0.1 随机端口）。

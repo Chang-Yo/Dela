@@ -11,10 +11,10 @@ vi.mock('electron', () => ({
   app: { getPath: () => state.root, isPackaged: false, getAppPath: () => process.cwd() },
   ipcMain: { handle: vi.fn() },
 }));
-vi.mock('../todo', () => ({ getTodoState: () => ({ items: [] }) }));
+vi.mock('../../todo', () => ({ getTodoState: () => ({ items: [] }) }));
 
-import { closeDatabase, getDatabase } from '../database';
-import { queryGlobalSearch } from '../search';
+import { closeDatabase, getDatabase } from '../../database';
+import { queryGlobalSearch } from '..';
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-search-schema-'));

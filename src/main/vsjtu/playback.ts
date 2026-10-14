@@ -5,7 +5,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { savedExperimentalClassroom, savedExperimentalFeatures } from '../settings/prefs';
-import { getCampusSession } from '../timetable/session';
+import { getCampusSession } from '../campus';
 import { getStreams } from './api';
 
 const URL_TTL_MS = 10 * 60 * 1000;
