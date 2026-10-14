@@ -162,6 +162,45 @@ describe('磁盘工作区', () => {
   });
 });
 
+describe('移动中断后的恢复', () => {
+  const pending = (from: string, to: string) =>
+    db
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
+      .run(JSON.stringify({ from, to, id: to, name: '新位置', parentId: null, kind: 'folder' }));
+  const pendingMove = () =>
+    db.prepare("SELECT value FROM workspace_settings WHERE key='storage-move'").get();
+
+  it('磁盘已改名、数据库未提交：启动时补完移动并清除标记', () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    const from = join(localPathOf(project.id), '旧位置');
+    const to = join(localPathOf(project.id), '新位置');
+    mkdirSync(to);
+    pending(from, to);
+    expect(() => getWorkspaceState()).not.toThrow();
+    expect(pendingMove()).toBeUndefined();
+  });
+
+  it('磁盘尚未改名：放弃标记，原目录保留', () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    const from = join(localPathOf(project.id), '旧位置');
+    mkdirSync(from);
+    pending(from, join(localPathOf(project.id), '新位置'));
+    getWorkspaceState();
+    expect(pendingMove()).toBeUndefined();
+    expect(existsSync(from)).toBe(true);
+  });
+
+  it('两端都在或都不在：无法判断，拒绝继续修改文件', () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    const from = join(localPathOf(project.id), '旧位置');
+    const to = join(localPathOf(project.id), '新位置');
+    mkdirSync(from);
+    mkdirSync(to);
+    pending(from, to);
+    expect(() => getWorkspaceState()).toThrow(/文件移动尚未恢复/);
+  });
+});
+
 describe('打开项目目录', () => {
   it('VS Code 接收完整路径参数，不经 shell 且不隐藏首次启动的窗口', async () => {
     if (process.platform !== 'win32') return;

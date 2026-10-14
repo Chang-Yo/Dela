@@ -462,7 +462,7 @@ export function prepareStorage() {
   const pending = setting('storage-move');
   if (pending) {
     const move: PendingMove = JSON.parse(pending);
-    if (existsSync(move.from) && existsSync(move.to)) finishMove(move);
+    if (!existsSync(move.from) && existsSync(move.to)) finishMove(move);
     else if (existsSync(move.from) && !existsSync(move.to))
       getDatabase().prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
     else throw new Error('文件移动尚未恢复，请检查原路径和目标路径，暂不继续修改文件。');
