@@ -7,8 +7,7 @@ import { registerComposeSave } from '../mail/compose-close';
 import { useWorkbenchLayout } from '../../workbench/layout-store';
 import { useRuns } from '../../sessions/runs';
 import { useToastStore } from '../../app/toasts';
-import { useUpdateState } from './update-state';
-import { runUpdateAction, deferInstall } from './update-commands';
+import { useUpdateState, runUpdateAction, deferInstall } from './update';
 import { chatImageToken } from '../../../shared/chat-input';
 
 const mocks = vi.hoisted(() => ({ flushNoteEditors: vi.fn() }));

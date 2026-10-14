@@ -24,7 +24,7 @@ export function targetKey(target: RemoteTarget): string {
   return `${target.host}|${target.port ?? ''}|${target.keyPath ?? ''}`;
 }
 
-export interface ExecOptions {
+interface ExecOptions {
   stdin?: Buffer | string;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -36,7 +36,7 @@ export interface ExecOptions {
   collect?: boolean;
 }
 
-export interface ExecResult {
+interface ExecResult {
   code: number;
   stdout: Buffer;
   stderr: string;
@@ -49,7 +49,7 @@ export interface RemoteDirEntry {
   modifiedAt: number | null;
 }
 
-export interface RemoteLocation {
+interface RemoteLocation {
   /** 解析后的绝对路径（远端 POSIX 形态）。 */
   path: string;
   kind: 'directory' | 'file' | 'missing';
@@ -117,7 +117,7 @@ export function sshBaseArguments(target: RemoteTarget): string[] {
   return args;
 }
 
-export function sshArguments(target: RemoteTarget, command: string): string[] {
+function sshArguments(target: RemoteTarget, command: string): string[] {
   return [...sshBaseArguments(target), target.host, command];
 }
 
@@ -208,7 +208,7 @@ export async function probeRemote(target: RemoteTarget) {
   return { system, machine, hostname, bash, home: await remoteHome(target) };
 }
 
-export async function remoteHome(target: RemoteTarget): Promise<string> {
+async function remoteHome(target: RemoteTarget): Promise<string> {
   const result = await run(target, 'printf %s "$HOME"', { timeoutMs: 20_000 });
   const home = result.stdout.toString().trim();
   if (!home.startsWith('/')) throw new Error('未能解析远端主目录');

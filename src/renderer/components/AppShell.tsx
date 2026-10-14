@@ -25,32 +25,32 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { Resizer } from '../ui/resizer';
-import { useEditorSettings } from '../../content/editor-settings';
-import { errorText, useWorkspaceStore } from '../../workspace/store';
-import { showToast, ToastHost } from '../../app/toasts';
-import { DelaBrand } from '../ui/dela-brand';
-import { cn } from '../../lib/utils';
-import { useNavigationStore, type AppView, type MobileDrawer } from '../../app/navigation';
-import { useShortcuts } from '../../app/shortcuts';
-import { useExplorerState, useViewportWidth } from '../../workbench/explorer-state';
+import { Resizer } from './ui/resizer';
+import { useEditorSettings } from '../content/editor-settings';
+import { errorText, useWorkspaceStore } from '../workspace/store';
+import { showToast, ToastHost } from '../app/toasts';
+import { DelaBrand } from './ui/dela-brand';
+import { cn } from '../lib/utils';
+import { useNavigationStore, type AppView, type MobileDrawer } from '../app/navigation';
+import { useShortcuts } from '../app/shortcuts';
+import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
 import {
   ProjectSessionNav,
   type BusinessNavId,
   type NavSessionSummary,
   type SessionRunBadge,
-} from '../../navigation/ProjectSessionNav';
-import { zoomLevels, type ZoomPreference } from '../../../shared/api';
-import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../../shared/keybindings';
+} from '../navigation/ProjectSessionNav';
+import { zoomLevels, type ZoomPreference } from '../../shared/api';
+import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../shared/keybindings';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
-import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../ui/motion';
-import { chromeIconButton, navIcon, navRow } from '../../navigation/nav-styles';
-import { UpdateBadge } from '../../features/settings/UpdateBadge';
+} from './ui/dropdown-menu';
+import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from './ui/motion';
+import { chromeIconButton, navIcon, navRow } from '../navigation/nav-styles';
+import { UpdateBadge } from '../features/settings/UpdateBadge';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';

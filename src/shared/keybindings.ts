@@ -221,7 +221,7 @@ function modifierPart(accelerator: string): string {
  * 事件是否命中某动作的键位。
  * digit 族只比较修饰键部分，末位数字接受 1…9（动作按序号作用于第 N 个工作组）。
  */
-export function matchesAccelerator(
+function matchesAccelerator(
   accelerator: string | null,
   event: KeyEventLike,
   family?: 'digit',

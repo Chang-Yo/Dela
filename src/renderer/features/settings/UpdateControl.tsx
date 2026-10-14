@@ -2,9 +2,7 @@ import { ExternalLink } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
-import { useUpdateState } from './update-state';
-import { runUpdateAction } from './update-commands';
-import { updateView } from './updateView';
+import { useUpdateState, runUpdateAction, updateView } from './update';
 
 function downloadSpeed(bytes: number | null): string {
   if (bytes === null) return '计算中…';

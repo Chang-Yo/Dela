@@ -20,11 +20,11 @@ export function loadPi(): Promise<Sdk> {
 }
 
 /** Pi 的全局目录（auth/models/settings/skills/bin）：放在应用数据下，与用户的 ~/.pi 隔离。 */
-export function piAgentDir(): string {
+function piAgentDir(): string {
   return join(app.getPath('userData'), 'pi');
 }
 
-export function piSessionsDir(): string {
+function piSessionsDir(): string {
   return join(piAgentDir(), 'sessions');
 }
 
@@ -40,7 +40,7 @@ function thinkingLevel(effort: string | undefined) {
 }
 
 /** 当前提供商注册为 Pi 的 OpenAI 兼容提供商，返回当前模型与思考档位。 */
-export async function resolveModel(provider: StoredLlmProvider, modelId = provider.model) {
+async function resolveModel(provider: StoredLlmProvider, modelId = provider.model) {
   const runtime = await modelRuntime();
   const settings = llmModelSettings(provider, modelId);
   const reasoning = settings.effortLevels.length > 0;
@@ -81,7 +81,7 @@ async function modelRuntime() {
   return runtimePromise;
 }
 
-export interface OpenSessionInput {
+interface OpenSessionInput {
   cwd: string;
   /** 已有会话文件；缺省新建。 */
   file?: string;

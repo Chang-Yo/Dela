@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi } from '../../../../shared/api';
 import type { UpdateSnapshot } from '../../../../shared/update';
 import { useExperimental } from '../experimental';
-import { useUpdateState } from '../update-state';
+import { useUpdateState } from '../update';
 import { AboutSection } from './AboutSection';
 import { GeneralSection } from './GeneralSection';
 

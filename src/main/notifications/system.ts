@@ -12,7 +12,7 @@ let armed = false;
 export const NOTIFICATIONS_SNOOZE_KEY = 'notifications-snoozed-until';
 // workspace_settings 中校园消息系统提醒的开关键；settings/ipc.ts 的读写共用。
 // '0' 关闭（只停桌面弹窗，应用内通知列表不受影响），缺省视为开启。
-export const CAMPUS_NOTIFICATIONS_KEY = 'campus-notifications';
+const CAMPUS_NOTIFICATIONS_KEY = 'campus-notifications';
 
 /** 启动首轮刷新完成后调用；此前收集到的存量通知作为基线，不弹系统通知。 */
 export function armSystemNotifications(): void {

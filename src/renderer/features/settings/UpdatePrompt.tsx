@@ -6,8 +6,7 @@ import { Dialog } from 'radix-ui';
 import { Button } from '../../components/ui/button';
 import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
 import { cn } from '../../lib/utils';
-import { useUpdateState } from './update-state';
-import { deferInstall, runUpdateAction } from './update-commands';
+import { useUpdateState, deferInstall, runUpdateAction } from './update';
 
 export function UpdatePrompt() {
   const state = useUpdateState((snapshot) => snapshot.snapshot);

@@ -14,7 +14,7 @@ import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
-import { useUpdateState } from '../features/settings/update-state';
+import { useUpdateState } from '../features/settings/update';
 import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../features/search/GlobalSearchDialog';
 import { TimetableView } from '../features/timetable';

@@ -2,7 +2,7 @@
 // 类型按 §3.2 定义；zod schema 供 layout:* IPC 双侧校验（节点数上限、ratio 边界、组内标签去重）。
 import { z } from 'zod';
 
-export const tabKinds = ['chat', 'note', 'preview', 'review', 'terminal'] as const;
+const tabKinds = ['chat', 'note', 'preview', 'review', 'terminal'] as const;
 export type TabKind = (typeof tabKinds)[number];
 /** chat:{sessionId} | note:{entryId} | preview:{sourceKey|entryId} | review:{...} | terminal:{projectId} */
 export type TabId = `${TabKind}:${string}`;
@@ -44,7 +44,7 @@ export const maxLayoutNodes = 31;
 /** 单组标签上限，量级与旧 MAX_EDITOR_TABS 的单组实际占用一致。 */
 export const maxTabsPerGroup = 30;
 /** split 子节点数上限（schema 容忍历史多叉数据；store 本批只写二元）。 */
-export const maxSplitChildren = 4;
+const maxSplitChildren = 4;
 
 // 模板串类型 TabId 的运行时校验：templateLiteral 让推断类型就是 `${TabKind}:${string}`。
 const tabIdSchema = z
@@ -52,7 +52,7 @@ const tabIdSchema = z
   .refine((value) => value.length <= 512, { message: 'TabId 过长' });
 const groupIdSchema = z.string().min(1).max(64);
 
-export const groupNodeSchema = z
+const groupNodeSchema = z
   .object({
     type: z.literal('group'),
     id: groupIdSchema,
@@ -68,7 +68,7 @@ export const groupNodeSchema = z
     path: ['active'],
   });
 
-export const splitNodeSchema: z.ZodType<SplitNode> = z.object({
+const splitNodeSchema: z.ZodType<SplitNode> = z.object({
   type: z.literal('split'),
   orientation: z.enum(['vertical', 'horizontal']),
   ratio: z.number().min(ratioMin).max(ratioMax),
@@ -78,7 +78,7 @@ export const splitNodeSchema: z.ZodType<SplitNode> = z.object({
     .max(maxSplitChildren),
 });
 
-export const layoutNodeSchema: z.ZodType<LayoutNode> = z.union([groupNodeSchema, splitNodeSchema]);
+const layoutNodeSchema: z.ZodType<LayoutNode> = z.union([groupNodeSchema, splitNodeSchema]);
 
 export const workbenchLayoutSchema: z.ZodType<WorkbenchLayout> = z
   .object({

@@ -8,7 +8,7 @@ import type { UpdateSnapshot } from '../../../shared/update';
 import { useToastStore } from '../../app/toasts';
 import { useNoteDrafts, type NoteDraft } from '../../workspace/drafts';
 import { UpdateControl } from './UpdateControl';
-import { useUpdateState } from './update-state';
+import { useUpdateState } from './update';
 
 vi.mock('../../content/note/NoteEditor', () => ({ flushNoteEditors: vi.fn() }));
 

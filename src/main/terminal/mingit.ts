@@ -30,7 +30,7 @@ const MINGIT_URLS = [
 // 每个源连接 15 秒无响应即换下一个；响应开始后不再限时，完整下载只受用户取消控制。
 const CONNECT_TIMEOUT_MS = 15_000;
 
-export function mingitDir(): string {
+function mingitDir(): string {
   const local = process.env.LOCALAPPDATA ?? join(app.getPath('home'), 'AppData', 'Local');
   return join(local, 'Dela', 'mingit', `v${MINGIT_VERSION}`);
 }

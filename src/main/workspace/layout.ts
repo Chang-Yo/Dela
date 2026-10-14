@@ -9,12 +9,12 @@ import { checkWorkspaceSender } from '../ipc';
 import { workbenchLayoutSchema, type WorkbenchLayout } from '../../shared/layout';
 
 /** 项目布局键；通用（无项目）用固定键。 */
-export const generalLayoutKey = '_general';
+const generalLayoutKey = '_general';
 
 const layoutKey = (projectId: string | null) => `layout:${projectId ?? generalLayoutKey}`;
 const projectIdSchema = z.string().uuid().nullable();
 
-export function loadWorkspaceLayout(projectId: string | null): WorkbenchLayout | null {
+function loadWorkspaceLayout(projectId: string | null): WorkbenchLayout | null {
   const key = layoutKey(projectIdSchema.parse(projectId));
   const stored = getDatabase()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
@@ -29,7 +29,7 @@ export function loadWorkspaceLayout(projectId: string | null): WorkbenchLayout |
   }
 }
 
-export function saveWorkspaceLayout(projectId: string | null, input: unknown): void {
+function saveWorkspaceLayout(projectId: string | null, input: unknown): void {
   const key = layoutKey(projectIdSchema.parse(projectId));
   const layout = workbenchLayoutSchema.parse(input);
   getDatabase()

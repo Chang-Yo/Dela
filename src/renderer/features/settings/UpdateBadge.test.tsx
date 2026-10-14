@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { UpdateSnapshot } from '../../../shared/update';
 import { useNavigationStore } from '../../app/navigation';
 import { UpdateBadge } from './UpdateBadge';
-import { useUpdateState } from './update-state';
+import { useUpdateState } from './update';
 
 const base: UpdateSnapshot = {
   phase: 'idle',

@@ -11,7 +11,7 @@ import { readResourceTool } from './domain/read-resource';
 import type { AgentTool } from './domain/shared';
 
 // 这些是 shell 的业务命令，不常驻模型工具表；复用应用已有的缓存、登录与操作边界。
-export const commandDomains = [
+const commandDomains = [
   { name: 'canvas', description: '查询、同步 Canvas 课程与资料', commands: canvasTools },
   { name: 'mail', description: '检索邮件、读取附件与准备邮件草稿', commands: mailTools },
   { name: 'shuiyuan', description: '查看水源分类、话题、搜索与帖子内容', commands: shuiyuanTools },
@@ -33,7 +33,7 @@ const commands: Record<string, AgentTool> = Object.assign(
   ...commandDomains.map((domain) => domain.commands),
 );
 
-export async function executeDomainCommand(name: string, input: unknown) {
+async function executeDomainCommand(name: string, input: unknown) {
   if (name === 'help') {
     const selected =
       typeof input === 'object' && input !== null && 'command' in input

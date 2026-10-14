@@ -68,7 +68,7 @@ export function helperArtifact(arch: string): string | null {
 }
 
 /** 远端目录按「版本-sha8」分家：换版本换目录，旧目录留着（每版一个，便于回退，不自动清理）。 */
-export function helperRemoteDir(digest: string): string {
+function helperRemoteDir(digest: string): string {
   return `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
 }
 
@@ -114,11 +114,7 @@ async function diagnoseEnvironment(target: RemoteTarget, dir: string): Promise<s
 }
 
 /** 隧道参数：与一次性调用的连接参数同源，只多一个 -L 与 -N。 */
-export function tunnelArguments(
-  target: RemoteTarget,
-  localPort: number,
-  remotePort: number,
-): string[] {
+function tunnelArguments(target: RemoteTarget, localPort: number, remotePort: number): string[] {
   return [
     ...sshBaseArguments(target),
     '-o',

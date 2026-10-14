@@ -19,12 +19,12 @@ const TEXT_LIMIT = 4 * 1024 * 1024;
 /** 图片直传上限：再大就按不支持处理，避免整张图进主进程内存。 */
 const IMAGE_LIMIT = 32 * 1024 * 1024;
 
-export function remoteDocumentTitle(path: string): string {
+function remoteDocumentTitle(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
 }
 
 /** 远端文档的流式地址：projectId 定位连接与根目录，path 是远端绝对路径。 */
-export function remotePreviewUrl(projectId: string, path: string, revision: string): string {
+function remotePreviewUrl(projectId: string, path: string, revision: string): string {
   const query = `path=${encodeURIComponent(path)}&v=${encodeURIComponent(revision)}`;
   return `dela-resource://remote/${encodeURIComponent(projectId)}?${query}`;
 }

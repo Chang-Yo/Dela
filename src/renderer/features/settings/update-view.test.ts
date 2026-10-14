@@ -1,6 +1,6 @@
 // 更新状态的展示映射测试：文案、可用动作与标题栏提示都必须由快照推出，不能靠页面猜。
 import { describe, expect, it } from 'vitest';
-import { pendingUpdate, updateView } from './updateView';
+import { pendingUpdate, updateView } from './update';
 import type { UpdateReason, UpdateSnapshot } from '../../../shared/update';
 
 const snapshot = (patch: Partial<UpdateSnapshot>): UpdateSnapshot => ({
@@ -16,7 +16,7 @@ const snapshot = (patch: Partial<UpdateSnapshot>): UpdateSnapshot => ({
   ...patch,
 });
 
-describe('updateView', () => {
+describe('update', () => {
   it('未检查过时只给一个检查入口', () => {
     expect(updateView(snapshot({}))).toEqual({
       status: null,

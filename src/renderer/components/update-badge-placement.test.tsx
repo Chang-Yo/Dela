@@ -3,8 +3,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { UpdateSnapshot } from '../../../shared/update';
-import { useUpdateState } from '../../features/settings/update-state';
+import type { UpdateSnapshot } from '../../shared/update';
+import { useUpdateState } from '../features/settings/update';
 import { AppShell } from './AppShell';
 
 // explorer-state 在模块顶层就读 window.matchMedia，jsdom 不提供它；

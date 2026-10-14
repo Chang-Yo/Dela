@@ -2,8 +2,7 @@ import { CircleArrowUp } from 'lucide-react';
 import { useNavigationStore } from '../../app/navigation';
 import { cn } from '../../lib/utils';
 import { chromeIconButton } from '../../navigation/nav-styles';
-import { useUpdateState } from './update-state';
-import { pendingUpdate } from './updateView';
+import { useUpdateState, pendingUpdate } from './update';
 
 /**
  * 标题栏的更新提示：后台查到有新版本时亮起，点一下落到「设置 › 通用」。
