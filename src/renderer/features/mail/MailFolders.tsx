@@ -99,6 +99,7 @@ function SidebarRow({
   label,
   count,
   countLabel,
+  showDot = true,
   onSelect,
 }: {
   collapsed: boolean;
@@ -107,6 +108,7 @@ function SidebarRow({
   label: string;
   count: number | null;
   countLabel: string;
+  showDot?: boolean;
   onSelect: () => void;
 }) {
   const hasCount = count !== null && count > 0;
@@ -132,7 +134,7 @@ function SidebarRow({
             {count}
           </span>
         )}
-        {collapsed && hasCount && (
+        {collapsed && hasCount && showDot && (
           <span
             aria-hidden="true"
             className="absolute top-1 right-1 size-1.5 rounded-full bg-ink"
@@ -245,6 +247,7 @@ export function MailFolders({
                 label={folder.name}
                 onSelect={() => onSelect({ kind: 'folder', id: folder.id })}
                 selected={selection?.kind === 'folder' && selection.id === folder.id}
+                showDot={folder.specialUse !== '\\Junk'}
               />
             );
           }
@@ -259,6 +262,7 @@ export function MailFolders({
                 label="草稿箱"
                 onSelect={() => onSelect({ kind: 'drafts' })}
                 selected={selection?.kind === 'drafts'}
+                showDot={false}
               />
             );
           }
@@ -272,6 +276,7 @@ export function MailFolders({
               label="已删除"
               onSelect={() => onSelect({ kind: 'trash' })}
               selected={selection?.kind === 'trash'}
+              showDot={false}
             />
           );
         })}
