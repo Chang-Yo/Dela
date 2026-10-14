@@ -1,10 +1,16 @@
 // 主题/缩放/字号的应用与 localStorage 镜像（迁移自旧 App.tsx 的散落 effects）。
 import { useEffect, useState } from 'react';
-import type { FontScalePreference, ThemePreference, ZoomPreference } from '../../shared/api';
-import { fontScaleLevels } from '../../shared/api';
+import type { ThemePreference, ZoomPreference } from '../../shared/api';
+import { fontSizeDefault, fontSizeMax, fontSizeMin } from '../../shared/api';
 
 const themeStorageKey = 'dela.theme';
-const fontScaleStorageKey = 'dela.font-scale';
+const fontSizeStorageKey = 'dela.font-size';
+/** 旧版字号档位键：读到就按默认 16 换算成 px 并删除，只迁移一次。 */
+const legacyFontScaleStorageKey = 'dela.font-scale';
+
+function clampFontSize(value: number): number {
+  return Math.min(fontSizeMax, Math.max(fontSizeMin, Math.round(value)));
+}
 
 function initialTheme(): ThemePreference {
   const theme = localStorage.getItem(themeStorageKey);
@@ -12,18 +18,22 @@ function initialTheme(): ThemePreference {
 }
 
 // 与主题同理：localStorage 缓存避免启动瞬间回退默认字号。
-function initialFontScale(): FontScalePreference {
-  const value = Number(localStorage.getItem(fontScaleStorageKey));
-  return (fontScaleLevels as readonly number[]).includes(value)
-    ? (value as FontScalePreference)
-    : 1;
+function initialFontSize(): number {
+  const stored = Number(localStorage.getItem(fontSizeStorageKey));
+  if (Number.isFinite(stored) && stored > 0) return clampFontSize(stored);
+  const legacy = Number(localStorage.getItem(legacyFontScaleStorageKey));
+  if (!Number.isFinite(legacy) || legacy <= 0) return fontSizeDefault;
+  const migrated = clampFontSize(fontSizeDefault * legacy);
+  localStorage.setItem(fontSizeStorageKey, String(migrated));
+  localStorage.removeItem(legacyFontScaleStorageKey);
+  return migrated;
 }
 
 /** 桌面端主题/缩放事实在主进程 DB；这里持视图状态、应用 CSS 效果并镜像到 localStorage。 */
 export function useAppearance() {
   const [theme, setTheme] = useState<ThemePreference>(initialTheme);
   const [zoom, setZoom] = useState<ZoomPreference>(1);
-  const [fontScale, setFontScale] = useState<FontScalePreference>(initialFontScale);
+  const [fontSize, setFontSize] = useState<number>(initialFontSize);
 
   // 生效主题只由 .dark / .light 表达：跟随系统时按媒体查询解析，让所有 token（含 beautiful-ui
   // 只认 .dark 的那套）走同一条路径。
@@ -42,10 +52,11 @@ export function useAppearance() {
     return () => media.removeEventListener('change', apply);
   }, [theme]);
 
+  // 根元素字号即用户设置：rem 派生的文字、间距与图标一起缩放。
   useEffect(() => {
-    document.documentElement.style.setProperty('--font-scale', String(fontScale));
-    localStorage.setItem(fontScaleStorageKey, String(fontScale));
-  }, [fontScale]);
+    document.documentElement.style.fontSize = `${fontSize}px`;
+    localStorage.setItem(fontSizeStorageKey, String(fontSize));
+  }, [fontSize]);
 
   // 浏览器预览没有主进程缩放，用 CSS zoom 降级；桌面端由主进程 setZoomFactor 生效。
   useEffect(() => {
@@ -62,8 +73,8 @@ export function useAppearance() {
       .then(setZoom)
       .catch(() => {});
     void window.dela?.settings
-      .getFontScale()
-      .then(setFontScale)
+      .getFontSize()
+      .then(setFontSize)
       .catch(() => {});
   }, []);
 
@@ -83,13 +94,13 @@ export function useAppearance() {
     setZoom(await window.dela.settings.setZoom(next));
   };
 
-  const changeFontScale = async (next: FontScalePreference) => {
+  const changeFontSize = async (next: number) => {
     if (!window.dela) {
-      setFontScale(next);
+      setFontSize(clampFontSize(next));
       return;
     }
-    setFontScale(await window.dela.settings.setFontScale(next));
+    setFontSize(await window.dela.settings.setFontSize(next));
   };
 
-  return { theme, zoom, fontScale, changeTheme, changeZoom, changeFontScale };
+  return { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize };
 }

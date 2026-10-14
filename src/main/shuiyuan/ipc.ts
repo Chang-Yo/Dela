@@ -1,5 +1,6 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { checkWorkspaceSender } from '../ipc';
+import { assertShuiyuanEnabled } from '../settings/prefs';
 import {
   addShuiyuanSourceRef,
   bindShuiyuan,
@@ -28,6 +29,8 @@ export function registerShuiyuanIpc(): void {
   const handle = (name: string, fn: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown) =>
     ipcMain.handle(`shuiyuan:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);
+      // 绑定状态与解绑留给设置 › 连接，功能关闭时也能管理凭据。
+      if (name !== 'get-state' && name !== 'unbind') assertShuiyuanEnabled();
       return fn(event, ...args);
     });
   handle('get-state', () => getShuiyuanState());

@@ -134,7 +134,7 @@ const routes = {
   'window:get-state': () => ({ maximized: false }),
   'settings:get-theme': () => 'light',
   'settings:get-zoom': () => 1,
-  'settings:get-font-scale': () => 1,
+  'settings:get-font-size': () => 16,
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
 app

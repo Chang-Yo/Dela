@@ -230,9 +230,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   };
 
   if (!state || !semester) {
-    return (
-      <div className="grid h-full place-items-center text-[13px] text-ink-3">正在读取课表…</div>
-    );
+    return <div className="grid h-full place-items-center text-13 text-ink-3">正在读取课表…</div>;
   }
 
   if (!state.connected && lessons.length === 0) {
@@ -273,7 +271,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
           <div className="mr-1 min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">{headerTitle}</h1>
             {/* 周次信息已由下方「教学周」Select 展示，副标题只保留学期，避免同屏重复。 */}
-            <p className="text-[11px] text-ink-3">{semesterLabel(semester)}</p>
+            <p className="text-2xs text-ink-3">{semesterLabel(semester)}</p>
           </div>
           <div className="flex items-center rounded-control border border-line bg-surface shadow-hairline">
             <Button
@@ -318,7 +316,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
               {(['week', 'month'] as const).map((value) => (
                 <button
                   className={cn(
-                    'h-7 rounded px-3 text-[12px] font-medium transition-colors',
+                    'h-7 rounded px-3 text-xs font-medium transition-colors',
                     mode === value ? 'bg-surface shadow-hairline' : 'text-ink-3 hover:text-ink',
                   )}
                   key={value}
@@ -371,7 +369,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
             </Select>
           ) : null}
           <button
-            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-hover-2 px-2.5 text-[12px] font-medium text-ink outline-none transition-colors hover:bg-hover-2 focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
+            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-hover-2 px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:bg-hover-2 focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
             onClick={() => setSemesterDraft(true)}
             type="button"
           >
@@ -385,7 +383,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
 
       {error ? (
         <p
-          className="mx-4 mt-3 break-words rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
+          className="mx-4 mt-3 break-words rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}

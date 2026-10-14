@@ -15,7 +15,7 @@ import { remoteTools } from '../remotes/operations';
 import { syncRemoteContext } from '../remotes/context';
 import { COMMAND_BRIDGE, startDomainBridge } from './commands';
 import { locateBash } from '../terminal';
-import { builtinSkillsDirectory, ensureBuiltinSkills, readDisabledSkills } from './skills';
+import { builtinSkillsDirectory, effectiveDisabledSkills, ensureBuiltinSkills } from './skills';
 import { mcpToolDefinitions, executeMcpTool } from './mcp';
 import { readDisabledTools } from './tools';
 import { webSearch } from './web-search';
@@ -93,7 +93,7 @@ export function agentEnvironment() {
           agentsFilesOverride: (base: { agentsFiles: { path: string; content: string }[] }) => ({
             agentsFiles: [...base.agentsFiles, ...context.agentsFiles],
           }),
-          disabledSkills: readDisabledSkills(),
+          disabledSkills: effectiveDisabledSkills(),
           // 覆盖内置工具的定义不能被 excludeTools 过滤掉，先把这七个名字摘出来。
           disabledTools: [...readDisabledTools()].filter(
             (name) => !BUILTIN_TOOL_NAMES.includes(name),
@@ -108,7 +108,7 @@ export function agentEnvironment() {
         shellPath: locateBash(),
         commandPrefix: `export DELA_COMMAND_URL='${handle.url}' DELA_COMMAND_TOKEN='${handle.token}'\n${COMMAND_BRIDGE}`,
         skillPaths: [builtinSkillsDirectory()],
-        disabledSkills: readDisabledSkills(),
+        disabledSkills: effectiveDisabledSkills(),
         disabledTools: [...readDisabledTools()],
         customTools: [...webTools, ...mcpTools()],
       };

@@ -72,13 +72,13 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
 
   if (entryId === null)
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-[13px] text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
         无效的笔记标签：{tabId}
       </div>
     );
   if (!draft)
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-[13px] text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
         {error ? (
           <div role="alert" className="min-w-0">
             <p className="break-words">{error}</p>
@@ -149,7 +149,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         }}
       />
       {(error || draft.error) && (
-        <div role="alert" className="shrink-0 break-words border-b px-4 py-2 text-[12px] text-red">
+        <div role="alert" className="shrink-0 break-words border-b px-4 py-2 text-xs text-red">
           {error ?? draft.error}
           {error && (
             <button className="ml-3 underline" onClick={runReload}>
@@ -174,7 +174,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         </div>
       )}
       {forcedSource && (
-        <p className="shrink-0 border-b px-4 py-2 text-[12px] text-ink-3">
+        <p className="shrink-0 border-b px-4 py-2 text-xs text-ink-3">
           此笔记包含暂不支持所见即所得的语法（frontmatter），已停在源码模式，内容将原样保存。
         </p>
       )}
@@ -204,7 +204,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
           <Dialog.Overlay className={dialogOverlay} />
           <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
             <Dialog.Title className="text-base font-semibold">重新载入</Dialog.Title>
-            <Dialog.Description className="mt-2 text-[12px] text-ink-3">
+            <Dialog.Description className="mt-2 text-xs text-ink-3">
               重新载入会抛弃当前未保存的草稿，是否继续？
             </Dialog.Description>
             <div className="mt-4 flex justify-end gap-2">

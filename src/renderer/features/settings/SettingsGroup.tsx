@@ -54,8 +54,8 @@ export function SettingsGroupLabel({
     <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
       <div className="grid gap-1">
         {/* 与行标题同为 13px，靠字重与颜色（灰）分层。 */}
-        <h2 className="text-[13px] font-semibold text-ink-2">{title ?? ''}</h2>
-        {description && <p className="text-[12.5px] leading-relaxed text-ink-3">{description}</p>}
+        <h2 className="text-13 font-semibold text-ink-2">{title ?? ''}</h2>
+        {description && <p className="text-13 leading-relaxed text-ink-3">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

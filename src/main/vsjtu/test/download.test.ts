@@ -7,8 +7,7 @@ const boundary = vi.hoisted(() => ({
   download: vi.fn(),
   notify: vi.fn(),
   reveal: vi.fn(),
-  enabled: true,
-  classroom: true,
+  downloadEnabled: true,
   directory: '',
 }));
 let campus: EventEmitter;
@@ -29,8 +28,7 @@ vi.mock('electron', () => ({
 }));
 vi.mock('../../ipc', () => ({ checkWorkspaceSender: () => {} }));
 vi.mock('../../settings/prefs', () => ({
-  savedExperimentalFeatures: () => boundary.enabled,
-  savedExperimentalClassroom: () => boundary.classroom,
+  experimentEnabled: (key: string) => key === 'videoDownload' && boundary.downloadEnabled,
   savedVideoDownloadDirectory: () => boundary.directory,
   setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
 }));
@@ -42,12 +40,11 @@ vi.mock('../api', () => ({
     { view: 5, duration: 3283, url: 'https://live.sjtu.edu.cn/test.mp4?key=private' },
   ],
 }));
-import { registerVsjtuIpc } from '../ipc';
+import { cancelVideoDownloads, registerVsjtuIpc } from '../ipc';
 beforeEach(() => {
   campus = new EventEmitter();
   vi.clearAllMocks();
-  boundary.enabled = true;
-  boundary.classroom = true;
+  boundary.downloadEnabled = true;
   boundary.directory = '';
   registerVsjtuIpc();
 });
@@ -67,17 +64,27 @@ it('returns available views and duration with an opaque playback route, never th
   expect(stream?.playbackUrl).toMatch(/^dela-resource:\/\/vsjtu\/video\/60\/5\?t=[0-9a-f]{32}$/);
 });
 
-it('blocks new video operations while experimental features are disabled', async () => {
-  boundary.enabled = false;
-  await expect(call('streams', 60)).rejects.toThrow('试验功能');
-  expect(() => call('download', 60, 5, '录像')).toThrow('试验功能');
-  expect(() => call('get-download-directory')).toThrow('试验功能');
+it('keeps playback available but blocks downloads while the download experiment is off', async () => {
+  boundary.downloadEnabled = false;
+  await expect(call('streams', 60)).resolves.toHaveLength(1);
+  expect(() => call('download', 60, 5, '录像')).toThrow('课堂视频下载');
+  expect(() => call('get-download-directory')).toThrow('课堂视频下载');
   expect(boundary.choose).not.toHaveBeenCalled();
 });
 
-it('blocks new video operations when the classroom sub-item is off even with the master on', async () => {
-  boundary.classroom = false;
-  await expect(call('streams', 60)).rejects.toThrow('试验功能');
+it('cancels in-flight downloads when the download experiment is turned off', async () => {
+  boundary.choose.mockResolvedValue({ canceled: false, filePath: 'D:/录像.mp4' });
+  const item = Object.assign(new EventEmitter(), {
+    getURL: () => 'https://live.sjtu.edu.cn/test.mp4?key=private',
+    setSavePath: vi.fn(),
+    getTotalBytes: () => 100,
+    getReceivedBytes: () => 10,
+    cancel: vi.fn(),
+  });
+  boundary.download.mockImplementation(() => campus.emit('will-download', {}, item));
+  await call('download', 70, 5, '录像');
+  cancelVideoDownloads();
+  expect(item.cancel).toHaveBeenCalledTimes(1);
 });
 
 it('does not start a transfer when the native save dialog is cancelled', async () => {

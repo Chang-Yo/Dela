@@ -13,6 +13,7 @@ import { loadShuiyuanCredential, type ShuiyuanCredential } from '../credentials'
 import { checkWorkspaceSender } from '../ipc';
 import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from '../mail/api';
 import { listShuiyuanNotifications } from '../shuiyuan/api';
+import { experimentEnabled } from '../settings/prefs';
 import {
   armSystemNotifications,
   isWorkspaceWindow,
@@ -47,6 +48,8 @@ function currentAccounts(): ActiveAccount[] {
   const mail = db.prepare('SELECT address FROM mail_accounts ORDER BY id LIMIT 1').get() as
     { address: string } | undefined;
   const accounts: ActiveAccount[] = mail ? [{ source: 'mail', key: mail.address }] : [];
+  // 水源关闭：不轮询、不展示已有通知，凭据保留。
+  if (!experimentEnabled('shuiyuan')) return accounts;
   try {
     const credential = loadShuiyuanCredential();
     if (credential) accounts.push({ source: 'shuiyuan', key: credential.username });
@@ -261,6 +264,7 @@ function shuiyuanTitle(item: ShuiyuanNotificationItem): string {
 }
 
 async function refreshShuiyuan(): Promise<void> {
+  if (!experimentEnabled('shuiyuan')) return;
   // boundAt 是账号绑定时刻：早于它的存量未读只进通知列表，不弹系统通知。
   let credential: ShuiyuanCredential | null = null;
   try {

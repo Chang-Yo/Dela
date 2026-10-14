@@ -50,7 +50,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
             <motion.div
               animate={{ opacity: 1, x: 0 }}
               // 顶部锚定保证各步标题起点一致；矮窗口下收缩留白，给表单内容让出高度。
-              className="w-full max-w-[420px] pt-16 [@media(max-height:560px)]:pt-6"
+              className="w-full max-w-[26.25rem] pt-16 [@media(max-height:560px)]:pt-6"
               exit={{ opacity: 0, x: -16 * direction }}
               initial={{ opacity: 0, x: 24 * direction }}
               key={step}
@@ -64,7 +64,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
           <div className="justify-self-start">
             {onBack && (
               <button
-                className="inline-flex items-center gap-1.5 rounded-control px-2 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+                className="inline-flex items-center gap-1.5 rounded-control px-2 py-2 text-13 text-ink-3 transition-colors hover:text-ink"
                 onClick={onBack}
                 type="button"
               >
@@ -73,9 +73,9 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
               </button>
             )}
           </div>
-          <p className="text-[12px] text-ink-3">所有数据本地存储，不上传服务器</p>
+          <p className="text-xs text-ink-3">所有数据本地存储，不上传服务器</p>
           <button
-            className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+            className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-13 text-ink-3 transition-colors hover:text-ink"
             onClick={onSkip}
             type="button"
           >

@@ -68,9 +68,9 @@ function ResultRow({
         <ResultIcon kind={result.kind} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium">{result.title}</span>
+        <span className="block truncate text-13 font-medium">{result.title}</span>
         {result.subtitle ? (
-          <span className="mt-0.5 block truncate text-[12px] text-ink-3">{result.subtitle}</span>
+          <span className="mt-0.5 block truncate text-xs text-ink-3">{result.subtitle}</span>
         ) : null}
       </span>
     </div>
@@ -206,7 +206,7 @@ export function GlobalSearchDialog({
               aria-controls={resultListId}
               aria-expanded={hasContent}
               aria-label="全局搜索"
-              className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-3"
+              className="min-w-0 flex-1 bg-transparent text-13 outline-none placeholder:text-ink-3"
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="搜索项目、聊天、邮件或课程资料…"
@@ -229,27 +229,24 @@ export function GlobalSearchDialog({
           </div>
           <div className="max-h-80 min-h-0 overflow-y-auto p-2">
             {error && !hasContent ? (
-              <p className="px-3 py-5 text-[13px] text-red" role="alert">
+              <p className="px-3 py-5 text-13 text-red" role="alert">
                 {error}
               </p>
             ) : null}
             {!hasContent && refreshing ? (
-              <div
-                className="flex items-center gap-2 px-3 py-5 text-[13px] text-ink-3"
-                role="status"
-              >
+              <div className="flex items-center gap-2 px-3 py-5 text-13 text-ink-3" role="status">
                 <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
                 正在获取本地已同步的数据…
               </div>
             ) : null}
             {!hasContent && !refreshing && !error ? (
-              <p className="px-3 py-5 text-[13px] text-ink-3">
+              <p className="px-3 py-5 text-13 text-ink-3">
                 {isRecent ? '还没有可显示的最近记录。' : '没有找到匹配的本地数据。'}
               </p>
             ) : null}
             {hasContent ? (
               <div id={resultListId} role="listbox">
-                <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-ink-3">
+                <p className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-ink-3">
                   {isRecent ? '本地记录' : '搜索结果'}
                 </p>
                 {groupedResults.map((group) => {
@@ -257,7 +254,7 @@ export function GlobalSearchDialog({
                   const GroupIcon = group.icon;
                   return (
                     <section className="mt-1" key={group.kind}>
-                      <h3 className="flex items-center gap-2 px-2.5 py-1 text-[12px] font-medium text-ink-3">
+                      <h3 className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-ink-3">
                         <GroupIcon aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
                         {group.note && group.results.length >= GLOBAL_SEARCH_PER_KIND_LIMIT
                           ? `${group.label}（${group.note}）`
@@ -280,14 +277,14 @@ export function GlobalSearchDialog({
                   );
                 })}
                 {error ? (
-                  <p className="px-3 py-2 text-[12px] text-red" role="status">
+                  <p className="px-3 py-2 text-xs text-red" role="status">
                     {error}
                   </p>
                 ) : null}
               </div>
             ) : null}
           </div>
-          <div className="flex items-center gap-3 border-t px-4 py-1.5 text-[12px] text-ink-3">
+          <div className="flex items-center gap-3 border-t px-4 py-1.5 text-xs text-ink-3">
             <span>↑↓ 选择</span>
             <span>↵ 打开</span>
             <span className="ml-auto">Esc 关闭</span>

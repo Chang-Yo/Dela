@@ -118,7 +118,7 @@ function SidebarRow({
         aria-current={selected ? 'page' : undefined}
         aria-label={hasCount ? `${label}，${countLabel}` : label}
         className={cn(
-          'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-[13px] transition-colors duration-150',
+          'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-150',
           selected ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
         )}
         onClick={onSelect}
@@ -130,7 +130,7 @@ function SidebarRow({
         />
         <RowLabel collapsed={collapsed}>{label}</RowLabel>
         {!collapsed && hasCount && (
-          <span className={cn(fadeIn, 'ml-2.5 shrink-0 text-[12px] tabular-nums text-ink-3')}>
+          <span className={cn(fadeIn, 'ml-2.5 shrink-0 text-xs tabular-nums text-ink-3')}>
             {count}
           </span>
         )}
@@ -225,7 +225,7 @@ export function MailFolders({
         {folders.length === 0 && (
           <p
             className={cn(
-              'whitespace-nowrap p-2 text-[12px] text-ink-3',
+              'whitespace-nowrap p-2 text-xs text-ink-3',
               // 文字随折叠淡入/淡出;图标不参与,保持全程原位。
               'transition-opacity duration-150 ease-out',
               foldersCollapsed && 'opacity-0',
@@ -287,7 +287,7 @@ export function MailFolders({
             aria-current={composing ? 'page' : undefined}
             aria-label="发送邮件"
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-[13px] transition-colors duration-150',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-150',
               composing
                 ? 'bg-hover-2 font-medium text-ink'
                 : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -310,7 +310,7 @@ export function MailFolders({
           >
             <UserRound className="size-4 shrink-0" strokeWidth={1.8} />
             <RowLabel collapsed={foldersCollapsed}>
-              <span className="text-[13px] text-ink">
+              <span className="text-13 text-ink">
                 {account ? account.address.split('@')[0] : '未配置'}
               </span>
             </RowLabel>
@@ -323,7 +323,7 @@ export function MailFolders({
           <button
             aria-label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-[13px] transition-colors duration-150',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-150',
               confirmingDisconnect
                 ? 'bg-hover-2 font-medium text-red'
                 : 'text-ink-2 hover:bg-hover hover:text-red',

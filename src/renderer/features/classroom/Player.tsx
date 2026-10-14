@@ -185,10 +185,10 @@ export function Player({
           <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-ink">
+          <p className="truncate text-13 font-medium text-ink">
             {course.name} · {lectureTitle(video)}
           </p>
-          <p className="truncate text-[11.5px] tabular-nums text-ink-3">{lectureMeta(video)}</p>
+          <p className="truncate text-xs tabular-nums text-ink-3">{lectureMeta(video)}</p>
         </div>
         {streams && streams.length > 1 && (
           <SegmentedControl
@@ -237,7 +237,7 @@ export function Player({
         ) : failed ? (
           <div className="grid h-full place-items-center">
             <div className="flex flex-col items-center gap-2">
-              <p className="text-[13px] text-white/70">视频加载失败，请重试</p>
+              <p className="text-13 text-white/70">视频加载失败，请重试</p>
               <Button onClick={retry} size="sm" variant="secondary">
                 <RotateCcw className="size-3.5" />
                 重试
@@ -250,7 +250,7 @@ export function Player({
               <Loader2 className="size-5 animate-spin text-white/60" />
             ) : streamsError ? (
               <div className="flex flex-col items-center gap-2">
-                <p className="text-[13px] text-white/70">{streamsError}</p>
+                <p className="text-13 text-white/70">{streamsError}</p>
                 <Button onClick={() => void ensureStreams(video.id)} size="sm" variant="secondary">
                   <RotateCcw className="size-3.5" />
                   重试
@@ -264,7 +264,7 @@ export function Player({
         <IconButton aria-label={playing ? '暂停' : '播放'} onClick={togglePlay}>
           {playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         </IconButton>
-        <span className="shrink-0 text-[12px] tabular-nums text-ink-3">
+        <span className="shrink-0 text-xs tabular-nums text-ink-3">
           {formatTime(scrubTime ?? currentTime)}
         </span>
         <SeekBar
@@ -275,7 +275,7 @@ export function Player({
           onScrub={setScrubTime}
           onSeek={seek}
         />
-        <span className="shrink-0 text-[12px] tabular-nums text-ink-3">{formatTime(duration)}</span>
+        <span className="shrink-0 text-xs tabular-nums text-ink-3">{formatTime(duration)}</span>
         <VolumeControl onChange={applyVolume} value={volume} />
         <RateMenu onSelect={applyRate} rate={rate} />
         <IconButton
@@ -305,7 +305,7 @@ function VolumeControl({ value, onChange }: { value: number; onChange: (v: numbe
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content align="end" className={cn(menuPanel, 'w-44 px-3 py-2.5')} sideOffset={6}>
-          <div className="mb-1.5 flex items-center justify-between text-[11.5px] text-ink-3">
+          <div className="mb-1.5 flex items-center justify-between text-xs text-ink-3">
             <span>音量</span>
             <span className="tabular-nums">{Math.round(value * 100)}%</span>
           </div>
@@ -322,7 +322,7 @@ function RateMenu({ rate, onSelect }: { rate: number; onSelect: (rate: number) =
       <DropdownMenuTrigger asChild>
         <IconButton
           aria-label={`播放速度 ${rate}x`}
-          className="w-auto gap-0.5 px-2 text-[12px] font-medium tabular-nums"
+          className="w-auto gap-0.5 px-2 text-xs font-medium tabular-nums"
           title="播放速度"
         >
           {rate}x

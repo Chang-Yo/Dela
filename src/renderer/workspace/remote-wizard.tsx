@@ -337,12 +337,12 @@ export function RemoteConnectionWizard({
       <Dialog.Portal>
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content
-          className={cn(dialogPanel, 'max-w-2xl p-0 md:grid md:grid-cols-[168px_1fr]')}
+          className={cn(dialogPanel, 'max-w-2xl p-0 md:grid md:grid-cols-[10.5rem_1fr]')}
         >
           <div className="grid content-start gap-3 border-b border-line p-4 md:border-b-0 md:border-r">
             <div className="grid gap-1">
-              <Dialog.Title className="text-[13px] font-semibold">连接远程目录</Dialog.Title>
-              <Dialog.Description className="text-[12px] leading-relaxed text-ink-3">
+              <Dialog.Title className="text-13 font-semibold">连接远程目录</Dialog.Title>
+              <Dialog.Description className="text-xs leading-relaxed text-ink-3">
                 经 SSH 使用远端主机上的目录，文件不复制到本机。
               </Dialog.Description>
             </div>
@@ -351,7 +351,7 @@ export function RemoteConnectionWizard({
                 <li
                   aria-current={index === step ? 'step' : undefined}
                   className={cn(
-                    'flex items-center gap-2 rounded-control px-2 py-1.5 text-[12px]',
+                    'flex items-center gap-2 rounded-control px-2 py-1.5 text-xs',
                     index === step ? 'bg-hover-2 font-medium text-ink' : 'text-ink-3',
                   )}
                   key={title}
@@ -359,7 +359,7 @@ export function RemoteConnectionWizard({
                   {index < step ? (
                     <Check className="size-3.5 shrink-0" aria-hidden="true" />
                   ) : (
-                    <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong text-[10px] tabular-nums">
+                    <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong text-10 tabular-nums">
                       {index + 1}
                     </span>
                   )}
@@ -372,13 +372,13 @@ export function RemoteConnectionWizard({
             <div className="grid min-h-0 content-start gap-3">
               {step === 0 &&
                 (connections === null ? (
-                  <p className="text-[12px] text-ink-3" role="status">
+                  <p className="text-xs text-ink-3" role="status">
                     正在读取已保存的连接…
                   </p>
                 ) : (
                   <>
                     {connections.length === 0 ? (
-                      <p className="text-[12px] text-ink-3">还没有已保存的连接。</p>
+                      <p className="text-xs text-ink-3">还没有已保存的连接。</p>
                     ) : (
                       <ul className="grid gap-1">
                         {connections.map((connection) => (
@@ -390,10 +390,10 @@ export function RemoteConnectionWizard({
                             >
                               <Server className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
                               <span className="grid min-w-0">
-                                <span className="truncate text-[13px] text-ink">
+                                <span className="truncate text-13 text-ink">
                                   {connection.label}
                                 </span>
-                                <span className="truncate text-[12px] text-ink-3">
+                                <span className="truncate text-xs text-ink-3">
                                   {connection.host}
                                   {connection.port === null ? '' : `:${connection.port}`}
                                 </span>
@@ -411,7 +411,7 @@ export function RemoteConnectionWizard({
                 ))}
               {step === 1 && (
                 <>
-                  <label className="grid gap-2 text-[13px]">
+                  <label className="grid gap-2 text-13">
                     名称
                     <Input
                       aria-label="连接名称"
@@ -422,7 +422,7 @@ export function RemoteConnectionWizard({
                       value={label}
                     />
                   </label>
-                  <label className="grid gap-2 text-[13px]">
+                  <label className="grid gap-2 text-13">
                     SSH 目的地
                     <Input
                       aria-label="SSH 目的地"
@@ -432,7 +432,7 @@ export function RemoteConnectionWizard({
                       value={host}
                     />
                   </label>
-                  <label className="grid gap-2 text-[13px]">
+                  <label className="grid gap-2 text-13">
                     端口
                     <Input
                       aria-label="SSH 端口"
@@ -443,7 +443,7 @@ export function RemoteConnectionWizard({
                       value={port}
                     />
                   </label>
-                  <label className="grid gap-2 text-[13px]">
+                  <label className="grid gap-2 text-13">
                     私钥文件
                     <div className="flex items-center gap-2">
                       <Input
@@ -465,7 +465,7 @@ export function RemoteConnectionWizard({
                     </div>
                   </label>
                   {/* 不提供密码输入：Dela 只支持密钥与 ssh agent，放一个点了没用的控件更糟。 */}
-                  <p className="text-[12px] leading-relaxed text-ink-3">
+                  <p className="text-xs leading-relaxed text-ink-3">
                     暂不支持密码登录：请使用密钥或 ssh agent，或在 ~/.ssh/config
                     中为该主机配置好认证。
                   </p>
@@ -473,7 +473,7 @@ export function RemoteConnectionWizard({
               )}
               {step === 2 && (
                 <>
-                  <div className="flex min-w-0 items-baseline gap-2 text-[12px]">
+                  <div className="flex min-w-0 items-baseline gap-2 text-xs">
                     <span className="shrink-0 text-ink-3">目的地</span>
                     <code
                       className="min-w-0 truncate font-mono text-ink-2"
@@ -485,7 +485,7 @@ export function RemoteConnectionWizard({
                   </div>
                   {/* 日志区：固定高度，逐行追加，成功绿、失败红。 */}
                   <div
-                    className="grid h-48 content-start gap-0.5 overflow-y-auto rounded-card border border-line bg-field px-3 py-2 font-mono text-[12px] leading-[1.7]"
+                    className="grid h-48 content-start gap-0.5 overflow-y-auto rounded-card border border-line bg-field px-3 py-2 font-mono text-xs leading-[1.7]"
                     ref={logRef}
                     role="log"
                   >
@@ -526,7 +526,7 @@ export function RemoteConnectionWizard({
                       主目录
                     </Button>
                     <span
-                      className="min-w-0 flex-1 truncate text-right text-[12px] text-ink-3"
+                      className="min-w-0 flex-1 truncate text-right text-xs text-ink-3"
                       title={browse?.path}
                     >
                       {browse?.path ?? '正在读取主目录…'}
@@ -536,7 +536,7 @@ export function RemoteConnectionWizard({
                     {browse?.directories.map((entry) => (
                       <li key={entry.path}>
                         <button
-                          className="flex h-8 w-full min-w-0 items-center gap-2 px-3 text-left text-[13px] text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink disabled:opacity-50"
+                          className="flex h-8 w-full min-w-0 items-center gap-2 px-3 text-left text-13 text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink disabled:opacity-50"
                           disabled={working}
                           onClick={() => void loadDirectory(entry.path)}
                           title={entry.path}
@@ -548,16 +548,14 @@ export function RemoteConnectionWizard({
                       </li>
                     ))}
                     {browse && browse.directories.length === 0 && (
-                      <li className="px-3 py-2 text-[12px] text-ink-3">此目录下没有子目录。</li>
+                      <li className="px-3 py-2 text-xs text-ink-3">此目录下没有子目录。</li>
                     )}
                   </ul>
-                  <p className="text-[12px] text-ink-3">
-                    项目目录为当前路径；远端文件不会复制到本机。
-                  </p>
+                  <p className="text-xs text-ink-3">项目目录为当前路径；远端文件不会复制到本机。</p>
                 </>
               )}
               {error && (
-                <p className="text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
+                <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
                   {error}
                 </p>
               )}

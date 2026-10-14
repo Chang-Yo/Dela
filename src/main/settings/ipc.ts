@@ -4,19 +4,17 @@ import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
 import {
-  fontScaleSchema,
   getAgentInstruction,
   getKeybindingOverrides,
   getTaskNotificationPrefs,
   getWorkspacePrefs,
   iconSchema,
+  normalizeFontSize,
   resetKeybindingOverrides,
   savedCampusNotifications,
-  savedExperimentalClassroom,
-  savedExperimentalFeatures,
-  setExperimentalClassroom,
-  setExperimentalFeatures,
-  savedFontScale,
+  savedExperiments,
+  setExperiment,
+  savedFontSize,
   savedIcon,
   savedOpenAtLogin,
   savedTheme,
@@ -30,6 +28,7 @@ import {
   writeSetting,
   zoomSchema,
 } from './prefs';
+import { cancelVideoDownloads } from '../vsjtu/ipc';
 
 export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'light' | 'dark' {
   nativeTheme.themeSource = theme;
@@ -37,21 +36,19 @@ export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'ligh
 }
 
 export function registerSettingsIpc(): void {
-  ipcMain.handle('settings:get-experimental-features', (event) => {
+  ipcMain.handle('settings:get-experiments', (event) => {
     checkWorkspaceSender(event);
-    return savedExperimentalFeatures();
+    return savedExperiments();
   });
-  ipcMain.handle('settings:set-experimental-features', (event, value) => {
+  ipcMain.handle('settings:set-experiment', (event, key, value) => {
     checkWorkspaceSender(event);
-    return setExperimentalFeatures(z.boolean().parse(value));
-  });
-  ipcMain.handle('settings:get-experimental-classroom', (event) => {
-    checkWorkspaceSender(event);
-    return savedExperimentalClassroom();
-  });
-  ipcMain.handle('settings:set-experimental-classroom', (event, value) => {
-    checkWorkspaceSender(event);
-    return setExperimentalClassroom(z.boolean().parse(value));
+    const state = setExperiment(
+      z.enum(['master', 'shuiyuan', 'videoDownload']).parse(key),
+      z.boolean().parse(value),
+    );
+    // 下载关闭即取消进行中的任务（用户决定：立即取消，不等下完）。
+    if (!state.master || !state.videoDownload) cancelVideoDownloads();
+    return state;
   });
   ipcMain.handle('settings:get-theme', (event) => {
     checkWorkspaceSender(event);
@@ -86,16 +83,16 @@ export function registerSettingsIpc(): void {
     BrowserWindow.fromWebContents(event.sender)?.webContents.setZoomFactor(zoom);
     return zoom;
   });
-  // 字号缩放由 renderer 以 CSS 变量生效，这里只负责持久化。
-  ipcMain.handle('settings:get-font-scale', (event) => {
+  // 字号由 renderer 设到根元素 font-size 生效，这里只负责持久化。
+  ipcMain.handle('settings:get-font-size', (event) => {
     checkWorkspaceSender(event);
-    return savedFontScale();
+    return savedFontSize();
   });
-  ipcMain.handle('settings:set-font-scale', (event, value) => {
+  ipcMain.handle('settings:set-font-size', (event, value) => {
     checkWorkspaceSender(event);
-    const scale = fontScaleSchema.parse(value);
-    writeSetting('font-scale', String(scale));
-    return scale;
+    const size = normalizeFontSize(value);
+    writeSetting('font-size', String(size));
+    return size;
   });
   // 开机自启：打包后以系统启动项为准（含任务管理器改动），开发运行不注册 electron.exe。
   ipcMain.handle('settings:get-open-at-login', (event) => {

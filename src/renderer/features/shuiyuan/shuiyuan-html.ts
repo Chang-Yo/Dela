@@ -1,3 +1,4 @@
+import { rootFontSize } from '../../lib/root-font-size';
 import { SHUIYUAN_HOST, SHUIYUAN_ORIGIN } from './shuiyuan-format';
 
 /**
@@ -84,13 +85,20 @@ export function sanitizeShuiyuanHtml(html: string): Document {
  * 正文外的块（引用/onebox/代码/表格）用细边框和浅底承担层次，不做重卡片。
  * 色值手动镜像 beautiful-ui token（ink / ink-3 / line / inset / hover-2）——iframe 取不到外层 CSS 变量；
  * 链接色沿用日历蓝（--cal-blue-text），是全应用唯一的低饱和内容强调色。
+ * 尺寸一律 rem：rootSize 是外层根字号（iframe 是独立文档，rem 需自己定根），
+ * 字号设置变化时由调用方重新渲染。边框与阴影保留 px。
  */
-export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
+export function renderShuiyuanHtml(
+  doc: Document,
+  dark: boolean,
+  rootSize = rootFontSize(),
+): string {
   doc.documentElement.classList.toggle('dark', dark);
   const style = doc.createElement('style');
   style.textContent = `
     :root {
       color-scheme: light;
+      font-size: ${rootSize}px;
       --fg: oklch(0.247 0.006 258.361);
       --fg-muted: oklch(0.695 0.009 264.505);
       --line: oklch(0.946 0.003 264.542);
@@ -108,8 +116,8 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
       --link: oklch(85.8% 0.052 255);
     }
     body {
-      margin: 0; padding: 0 2px 2px; background: transparent; color: var(--fg);
-      font: 15px/1.8 -apple-system, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+      margin: 0; padding: 0 0.125rem 0.125rem; background: transparent; color: var(--fg);
+      font: 0.9375rem/1.8 -apple-system, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
       overflow-wrap: break-word;
     }
     /* 楼层 iframe 靠高度上报自适应增长，纵向滚动由外层话题区承担，内部滚动条禁止出现。 */
@@ -127,9 +135,9 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
     h4, h5, h6 { font-size: 1em; }
     ul, ol { margin: 0.75em 0; padding-left: 1.4em; }
     li { margin: 0.25em 0; }
-    a { color: var(--link); text-decoration: none; text-underline-offset: 2px; }
+    a { color: var(--link); text-decoration: none; text-underline-offset: 0.125rem; }
     a:hover { text-decoration: underline; }
-    img, video { max-width: 100%; height: auto; border-radius: 6px; }
+    img, video { max-width: 100%; height: auto; border-radius: 0.375rem; }
     img.emoji { display: inline-block; width: 1.3em; height: 1.3em; margin: 0 0.05em;
       vertical-align: -0.2em; border-radius: 0; }
     hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
@@ -137,9 +145,9 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
 
     /* 行内代码与代码块：浅底无描边，靠底色分层。 */
     code { font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
-      background: var(--soft); border-radius: 5px; padding: 0.12em 0.4em; font-size: 0.88em; }
-    pre { margin: 0.85em 0; padding: 0.75em 1em; background: var(--soft); border-radius: 8px;
-      overflow-x: auto; font-size: 13px; line-height: 1.65; }
+      background: var(--soft); border-radius: 0.3125rem; padding: 0.12em 0.4em; font-size: 0.88em; }
+    pre { margin: 0.85em 0; padding: 0.75em 1em; background: var(--soft); border-radius: 0.5rem;
+      overflow-x: auto; font-size: 0.8125rem; line-height: 1.65; }
     pre code { background: none; padding: 0; border-radius: 0; font-size: inherit; }
 
     blockquote { margin: 0.85em 0; padding: 0.05em 0 0.05em 0.9em;
@@ -147,45 +155,45 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
     blockquote > :last-child { margin-bottom: 0; }
 
     /* Discourse 引用：头部一条浅底 + 正文还原全色。 */
-    aside.quote { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 8px;
+    aside.quote { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 0.5rem;
       overflow: hidden; }
     aside.quote .title { display: flex; align-items: center; gap: 0.5em;
       padding: 0.4em 0.85em; background: var(--soft); color: var(--fg-muted);
       font-size: 0.86em; font-weight: 500; }
-    aside.quote .title img.avatar { width: 16px; height: 16px; border-radius: 50%; }
+    aside.quote .title img.avatar { width: 1rem; height: 1rem; border-radius: 50%; }
     aside.quote .title a { color: inherit; }
     aside.quote .title .quote-controls { display: none; }
     aside.quote blockquote { margin: 0; padding: 0.5em 0.9em; border: 0; color: var(--fg); }
     aside.quote aside.quote { margin: 0.75em 0.9em; }
 
     /* Discourse onebox（链接卡片）：细边框 + 头部来源行。 */
-    aside.onebox { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 8px;
+    aside.onebox { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 0.5rem;
       overflow: hidden; }
     aside.onebox header { display: flex; align-items: center; gap: 0.45em;
       padding: 0.4em 0.85em; background: var(--soft); color: var(--fg-muted); font-size: 0.85em; }
-    aside.onebox header img { width: 16px; height: 16px; border-radius: 4px; }
+    aside.onebox header img { width: 1rem; height: 1rem; border-radius: 0.25rem; }
     aside.onebox header a { color: inherit; }
     aside.onebox .onebox-body { padding: 0.65em 0.9em; }
     aside.onebox .onebox-body > :last-child { margin-bottom: 0; }
     aside.onebox h3, aside.onebox h4 { margin: 0 0 0.2em; font-size: 1em; }
     aside.onebox p { margin: 0 0 0.4em; color: var(--fg-muted); font-size: 0.92em; }
-    aside.onebox .thumbnail img { border-radius: 6px; }
+    aside.onebox .thumbnail img { border-radius: 0.375rem; }
     aside.onebox .aspect-img, aside.onebox .onebox-avatar { display: none; }
 
     /* 图片灯箱：隐藏尺寸/文件名 meta，只留图片本体。 */
     .lightbox-wrapper { margin: 0.85em 0; display: inline-block; max-width: 100%; }
     .lightbox-wrapper .meta { display: none; }
-    .img-fallback { display: inline-block; padding: 0 0.45em; border-radius: 4px;
+    .img-fallback { display: inline-block; padding: 0 0.45em; border-radius: 0.25rem;
       background: var(--soft); color: var(--fg-muted); font-size: 0.85em; }
 
     /* 提及与话题标签：安静的着色，不带图标。 */
     .mention { font-weight: 500; color: var(--link); background: var(--soft);
-      padding: 0 0.35em; border-radius: 5px; }
+      padding: 0 0.35em; border-radius: 0.3125rem; }
     .mention:hover { text-decoration: none; }
     .hashtag { color: var(--fg-muted); }
     .hashtag svg, a.hashtag .d-icon { display: none; }
 
-    details { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 8px;
+    details { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 0.5rem;
       padding: 0.4em 0.9em 0.2em; }
     summary { cursor: pointer; color: var(--fg-muted); font-weight: 500; padding: 0.15em 0; }
 
@@ -193,7 +201,7 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
     .poll { margin: 0.9em 0; }
     .poll ul { list-style: none; padding: 0; margin: 0.5em 0; }
     .poll li { margin: 0.35em 0; padding: 0.4em 0.7em; border: 1px solid var(--line);
-      border-radius: 6px; }
+      border-radius: 0.375rem; }
     .poll-title { font-weight: 600; margin-bottom: 0.3em; }
     .poll-info, .poll-results, .poll-footer { color: var(--fg-muted); font-size: 0.88em; }
 
@@ -207,7 +215,7 @@ export function renderShuiyuanHtml(doc: Document, dark: boolean): string {
     sup a { text-decoration: none; }
 
     audio { max-width: 100%; }
-    .dela-post-head { color: var(--fg-muted); font-size: 13px; margin: 0 0 2px; }
+    .dela-post-head { color: var(--fg-muted); font-size: 0.8125rem; margin: 0 0 0.125rem; }
     .dela-post-head b { color: var(--fg); }
   `;
   doc.head.append(style);

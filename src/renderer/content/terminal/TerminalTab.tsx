@@ -337,7 +337,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
             <div
               key={session.id}
               className={cn(
-                'flex shrink-0 items-center rounded-control text-[13px] text-ink-3',
+                'flex shrink-0 items-center rounded-control text-13 text-ink-3',
                 session.id === activeId && 'bg-hover text-ink',
               )}
             >
@@ -350,9 +350,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
               >
                 <SquareTerminal className="size-4" />
                 {session.title} {index + 1}
-                {session.exitCode !== null && (
-                  <span className="text-[12px] text-ink-3">已结束</span>
-                )}
+                {session.exitCode !== null && <span className="text-xs text-ink-3">已结束</span>}
               </button>
               <Button
                 aria-label={`关闭终端 ${index + 1}`}
@@ -398,26 +396,26 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         </Button>
       </div>
       {error && (
-        <p className="shrink-0 px-3 py-2 text-[13px] text-red" role="alert">
+        <p className="shrink-0 px-3 py-2 text-13 text-red" role="alert">
           {error}
         </p>
       )}
       {active?.exitCode !== null && active && (
-        <p className="shrink-0 px-3 py-1 text-[12px] text-ink-3">
+        <p className="shrink-0 px-3 py-1 text-xs text-ink-3">
           进程已结束，退出码 {active.exitCode}。可新建终端继续操作。
         </p>
       )}
       {!activeId && !bashCard && (
-        <div className="flex flex-1 items-center justify-center text-[13px] text-ink-3">
+        <div className="flex flex-1 items-center justify-center text-13 text-ink-3">
           {busy ? '正在打开终端…' : '点击 + 新建终端'}
         </div>
       )}
       {bashCard && bash && (
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-          <div className="flex w-full max-w-[380px] flex-col items-center gap-3 text-center">
+          <div className="flex w-full max-w-[23.75rem] flex-col items-center gap-3 text-center">
             <Download className="size-7 opacity-45" />
-            <p className="text-[13px] text-ink">缺少终端运行时 Git Bash</p>
-            <p className="text-[12px] text-ink-3">
+            <p className="text-13 text-ink">缺少终端运行时 Git Bash</p>
+            <p className="text-xs text-ink-3">
               {
                 '内置终端与 Agent 的命令执行依赖 Git Bash。可一键安装 Dela 运行时（Git for Windows 官方 MinGit，约 40 MB，装入用户目录，无需管理员权限），或自行安装 Git for Windows。'
               }
@@ -431,7 +429,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-ink-3" role="status">
+                  <span className="text-xs text-ink-3" role="status">
                     {bash.install.phase === 'downloading'
                       ? `正在下载 ${megabytes(bash.install.received)} / ${megabytes(bash.install.total)}…`
                       : '正在解压…'}
@@ -443,7 +441,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
               </>
             ) : bash.install.phase === 'error' ? (
               <>
-                <p className="text-[12px] text-red" role="alert">
+                <p className="text-xs text-red" role="alert">
                   {bash.install.error}
                 </p>
                 <Button onClick={installRuntime} size="sm" variant="default">
@@ -468,7 +466,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
           else void paste();
         }}
         className={cn(
-          'min-h-0 flex-1 overflow-hidden bg-surface p-2 font-mono text-[13px] text-ink',
+          'min-h-0 flex-1 overflow-hidden bg-surface p-2 font-mono text-13 text-ink',
           !activeId && 'hidden',
         )}
       />

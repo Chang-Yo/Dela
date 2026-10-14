@@ -14,14 +14,14 @@ import { markdownHighlightStyle } from '../../lib/markdown-highlight';
 const editorTheme = EditorView.theme({
   '&': {
     height: '100%',
-    fontSize: 'calc(14px * var(--font-scale, 1))',
+    fontSize: '0.875rem',
     backgroundColor: 'transparent',
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     lineHeight: '1.625',
-    padding: '24px',
+    padding: '1.5rem',
   },
   // 与富文本（note-editor.css 的 60rem 居中）一致，超宽窗口下行宽不无限拉伸。
   '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
@@ -37,7 +37,7 @@ const editorTheme = EditorView.theme({
     backgroundColor: 'var(--color-muted)',
     borderRight: '1px solid var(--color-border)',
   },
-  '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 8px 0 4px' },
+  '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
 /* 文件名 → 语言：空、无扩展名或 md/markdown 维持 Markdown；其余扩展名按
@@ -352,7 +352,7 @@ export function MarkdownEditor({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div ref={host} className="min-h-0 w-full flex-1 overflow-hidden" />
       {editorStateKey !== undefined && (
-        <div className="flex h-6 shrink-0 items-center justify-end border-t px-3 text-[12px] text-ink-3">
+        <div className="flex h-6 shrink-0 items-center justify-end border-t px-3 text-xs text-ink-3">
           行 {cursor.line}，列 {cursor.column}
         </div>
       )}

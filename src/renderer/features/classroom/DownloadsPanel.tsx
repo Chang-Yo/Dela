@@ -42,14 +42,14 @@ export function DownloadsPanel() {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content align="end" className={cn(menuPanel, 'w-80')} sideOffset={6}>
-          <p className="px-2 pb-1 pt-1.5 text-[11.5px] font-medium text-ink-3">
+          <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-ink-3">
             下载任务{activeCount > 0 ? ` · ${activeCount} 个进行中` : ''}
           </p>
           {list.length === 0 ? (
             <div className="flex flex-col items-center gap-1.5 px-4 pb-4 pt-2 text-ink-3">
               <Download aria-hidden className="size-5 opacity-40" />
-              <p className="text-[12px]">暂无下载任务</p>
-              <p className="text-[11.5px] text-ink-3/80">在录像行或播放器里点下载</p>
+              <p className="text-xs">暂无下载任务</p>
+              <p className="text-xs text-ink-3/80">在录像行或播放器里点下载</p>
             </div>
           ) : (
             <div className="flex flex-col">
@@ -106,17 +106,17 @@ function DownloadRow({
           : null;
 
   return (
-    <div className="flex items-center gap-2.5 rounded-[6px] px-2 py-2">
+    <div className="flex items-center gap-2.5 rounded-chip px-2 py-2">
       <ProgressRing progress={progress} size={28} tone={tone}>
         {download.state === 'progressing' ? (
-          <span className="text-[9px]">{percent}%</span>
+          <span className="text-9">{percent}%</span>
         ) : download.state === 'completed' ? (
           <Check aria-hidden className="size-3" />
         ) : null}
       </ProgressRing>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-[13px] text-ink">{download.name}</span>
-        <span className="truncate text-[11.5px] tabular-nums text-ink-3">
+        <span className="truncate text-13 text-ink">{download.name}</span>
+        <span className="truncate text-xs tabular-nums text-ink-3">
           {meta ? `${label} · ${meta}` : label}
         </span>
       </div>

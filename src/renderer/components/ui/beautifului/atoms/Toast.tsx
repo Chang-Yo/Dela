@@ -47,9 +47,9 @@ export function ToastCard({
         <Icon aria-hidden className="size-4" strokeWidth={1.8} />
       </span>
       <div className="min-w-0 flex-1 pt-0.5">
-        <p className="text-[13px] font-medium leading-5 text-ink">{title}</p>
+        <p className="text-13 font-medium leading-5 text-ink">{title}</p>
         {description && (
-          <p className="mt-0.5 break-words text-[12px] leading-[1.45] text-ink-2">
+          <p className="mt-0.5 break-words text-xs leading-[1.45] text-ink-2">
             {description}
           </p>
         )}

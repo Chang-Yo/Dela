@@ -11,16 +11,17 @@ import {
   getKeybindingOverrides,
   getTaskNotificationPrefs,
   getWorkspacePrefs,
+  normalizeFontSize,
   resetKeybindingOverrides,
   savedCampusNotifications,
-  savedExperimentalClassroom,
-  savedExperimentalFeatures,
+  savedFontSize,
+  experimentEnabled,
+  savedExperiments,
   savedPendingInstall,
   savedVideoDownloadDirectory,
   setAgentInstruction,
   setCampusNotifications,
-  setExperimentalClassroom,
-  setExperimentalFeatures,
+  setExperiment,
   setKeybindingOverrides,
   setPendingInstall,
   setTaskNotificationPrefs,
@@ -38,24 +39,63 @@ beforeEach(() => {
 });
 
 it('keeps experiments on for new or corrupt settings and persists an explicit opt-out', () => {
-  expect(savedExperimentalFeatures()).toBe(true);
+  expect(savedExperiments()).toEqual({ master: true, shuiyuan: true, videoDownload: true });
   insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
-  expect(savedExperimentalFeatures()).toBe(true);
-  setExperimentalFeatures(false);
-  expect(savedExperimentalFeatures()).toBe(false);
-  setExperimentalFeatures(true);
-  expect(savedExperimentalFeatures()).toBe(true);
+  expect(savedExperiments().master).toBe(true);
+  expect(setExperiment('shuiyuan', false).shuiyuan).toBe(false);
+  expect(setExperiment('shuiyuan', true).shuiyuan).toBe(true);
 });
 
-it('keeps the classroom sub-item on by default and round-trips an explicit opt-out', () => {
-  // 子项与总开关同档：缺省都开启。
-  expect(savedExperimentalClassroom()).toBe(true);
-  insert("INSERT INTO workspace_settings VALUES ('experimental-classroom', 'anything')");
-  expect(savedExperimentalClassroom()).toBe(true);
-  setExperimentalClassroom(false);
-  expect(savedExperimentalClassroom()).toBe(false);
-  setExperimentalClassroom(true);
-  expect(savedExperimentalClassroom()).toBe(true);
+it('treats a sub-item as unavailable while the master switch is off', () => {
+  expect(experimentEnabled('videoDownload')).toBe(true);
+  setExperiment('master', false);
+  expect(experimentEnabled('videoDownload')).toBe(false);
+  expect(experimentEnabled('shuiyuan')).toBe(false);
+  // 子项自身的选择保留，总开关重新打开后恢复。
+  expect(savedExperiments().videoDownload).toBe(true);
+  setExperiment('master', true);
+  setExperiment('videoDownload', false);
+  expect(experimentEnabled('videoDownload')).toBe(false);
+  expect(experimentEnabled('shuiyuan')).toBe(true);
+});
+
+describe('font size', () => {
+  it('defaults to the browser base of 16px', () => {
+    expect(savedFontSize()).toBe(16);
+  });
+
+  it('rounds and clamps any value into 12–20', () => {
+    insert("INSERT INTO workspace_settings VALUES ('font-size', '17')");
+    expect(savedFontSize()).toBe(17);
+    insert("INSERT OR REPLACE INTO workspace_settings VALUES ('font-size', '9')");
+    expect(savedFontSize()).toBe(12);
+    insert("INSERT OR REPLACE INTO workspace_settings VALUES ('font-size', '64')");
+    expect(savedFontSize()).toBe(20);
+    insert("INSERT OR REPLACE INTO workspace_settings VALUES ('font-size', 'broken')");
+    expect(savedFontSize()).toBe(16);
+    expect(normalizeFontSize(13.4)).toBe(13);
+    expect(normalizeFontSize(Number.NaN)).toBe(16);
+  });
+
+  it('migrates the old scale levels onto px', () => {
+    const levels: [scale: string, size: number][] = [
+      ['0.9', 14],
+      ['1', 16],
+      ['1.1', 18],
+      ['1.25', 20],
+    ];
+    for (const [scale, size] of levels) {
+      database.exec('DELETE FROM workspace_settings');
+      insert('INSERT INTO workspace_settings VALUES (?, ?)', 'font-scale', scale);
+      expect(savedFontSize()).toBe(size);
+    }
+  });
+
+  it('prefers the stored px value over the legacy scale key', () => {
+    insert("INSERT INTO workspace_settings VALUES ('font-scale', '1.25')");
+    insert("INSERT INTO workspace_settings VALUES ('font-size', '15')");
+    expect(savedFontSize()).toBe(15);
+  });
 });
 
 describe('task notification prefs', () => {

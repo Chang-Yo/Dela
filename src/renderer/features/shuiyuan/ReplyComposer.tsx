@@ -147,7 +147,7 @@ export function ReplyComposer({
       <div className="flex flex-wrap gap-1.5">
         {uploads.map((item) => (
           <span
-            className="flex max-w-full items-center gap-1.5 rounded-control border border-line bg-inset px-2 py-1 text-[12px] text-ink-3"
+            className="flex max-w-full items-center gap-1.5 rounded-control border border-line bg-inset px-2 py-1 text-xs text-ink-3"
             key={item.key}
           >
             {item.error ? (
@@ -172,7 +172,7 @@ export function ReplyComposer({
 
   // 楼层级回复目标准条：X 清除后回到主题级回复。
   const replyTargetBanner = replyTarget ? (
-    <div className="flex shrink-0 items-center gap-1.5 rounded-control bg-inset px-2 py-1 text-[12px] text-ink-3">
+    <div className="flex shrink-0 items-center gap-1.5 rounded-control bg-inset px-2 py-1 text-xs text-ink-3">
       <Reply aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={1.8} />
       <span className="min-w-0 truncate tabular-nums">
         回复 @{replyTarget.username} · 第 {replyTarget.postNumber} 楼
@@ -285,7 +285,7 @@ export function ReplyComposer({
   const previewBody = (isMaximized: boolean) => (
     <div
       className={cn(
-        'overflow-y-auto rounded-card border border-line bg-inset p-3 text-[13px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-ink-3 [&_code]:rounded-chip [&_code]:bg-hover-2 [&_code]:px-1 [&_code]:text-[13px] [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-control [&_pre]:bg-hover-2 [&_pre]:p-3 [&_pre]:text-[13px] [&_ul]:list-disc [&_ul]:pl-5',
+        'overflow-y-auto rounded-card border border-line bg-inset p-3 text-13 leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-ink-3 [&_code]:rounded-chip [&_code]:bg-hover-2 [&_code]:px-1 [&_code]:text-13 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-15 [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-control [&_pre]:bg-hover-2 [&_pre]:p-3 [&_pre]:text-13 [&_ul]:list-disc [&_ul]:pl-5',
         isMaximized ? 'min-h-0 flex-1' : 'max-h-40',
       )}
     >
@@ -329,7 +329,7 @@ export function ReplyComposer({
   if (disabledHint) {
     return (
       <div className="border-t bg-surface px-4 py-3 max-md:px-3">
-        <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 text-center text-[12px] text-ink-3">
+        <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 text-center text-xs text-ink-3">
           <Lock aria-hidden="true" className="size-3.5" />
           {disabledHint}
         </p>
@@ -341,7 +341,7 @@ export function ReplyComposer({
     return (
       <div className="border-t bg-surface px-4 py-3 max-md:px-3">
         <button
-          className="mx-auto flex h-10 w-full max-w-3xl items-center gap-2 rounded-card border border-line-strong bg-surface px-3.5 text-left text-[13px] text-ink-3 shadow-hairline transition-colors hover:border-ink-3 hover:bg-hover"
+          className="mx-auto flex h-10 w-full max-w-3xl items-center gap-2 rounded-card border border-line-strong bg-surface px-3.5 text-left text-13 text-ink-3 shadow-hairline transition-colors hover:border-ink-3 hover:bg-hover"
           onClick={() => onExpandedChange(true)}
           type="button"
         >

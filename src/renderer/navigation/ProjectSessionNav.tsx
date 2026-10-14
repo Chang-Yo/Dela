@@ -9,14 +9,11 @@ import { Button } from '../components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Dialog, DropdownMenu as Menu } from 'radix-ui';
 import {
-  CalendarDays,
   ChevronRight,
   Cloud,
   Folder,
   FolderOpen,
   House,
-  Mail,
-  MonitorPlay,
   MoreHorizontal,
   Plus,
   SquarePen,
@@ -39,8 +36,8 @@ import { EntryDialogs } from '../workspace/entry-dialogs';
 import { cn } from '../lib/utils';
 import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from './remote-color';
-import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
 import { useExperimental } from '../features/settings/experimental';
+import { useVisibleNavEntries, type NavEntryId } from './entries';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
@@ -57,17 +54,10 @@ import { useRemoteConnections } from './remote-connections';
 export type { NavSessionSummary, SessionRunBadge };
 
 /** 底部业务入口 id（邮箱/课表/课堂视频/水源；TODO 入口在顶栏铃铛旁，跳转由 onNavigateBusiness 注入）。 */
-export type BusinessNavId = 'mail' | 'timetable' | 'classroom' | 'shuiyuan';
+export type BusinessNavId = Exclude<NavEntryId, 'sources'>;
 
 /** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
 export const RECENT_SESSIONS = 3;
-
-const businessNav: Array<{ id: BusinessNavId; label: string; icon: typeof Mail }> = [
-  { id: 'mail', label: '邮箱', icon: Mail },
-  { id: 'timetable', label: '课表', icon: CalendarDays },
-  { id: 'classroom', label: '课堂视频', icon: MonitorPlay },
-  { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
-];
 
 /** 侧栏文字随折叠状态淡入/淡出（与 AppShell 壳的宽度过渡同步）。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
@@ -114,9 +104,7 @@ export function ProjectSessionNav({
   collapsed?: boolean;
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
-  // 试验功能子项可见性：总开关与「课堂视频」子项都开启才显示入口。
-  const experimentalMaster = useExperimental((state) => state.master);
-  const experimentalClassroom = useExperimental((state) => state.classroom);
+  const visibleEntries = useVisibleNavEntries();
   useEffect(() => {
     void useExperimental.getState().load();
   }, []);
@@ -256,7 +244,7 @@ export function ProjectSessionNav({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="right" className="w-56">
-                  <DropdownMenuLabel className="break-words text-[13px] text-ink">
+                  <DropdownMenuLabel className="break-words text-13 text-ink">
                     {label}
                   </DropdownMenuLabel>
                   <DropdownMenuLabel>{sessions.length} 个对话</DropdownMenuLabel>
@@ -378,7 +366,7 @@ export function ProjectSessionNav({
           <div className="grid grid-cols-1 gap-px pb-1">
             {sessions.length === 0 && onNewChat && (
               <button
-                className="flex h-7 items-center gap-2 rounded-control pl-8 pr-2 text-left text-[12.5px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
+                className="flex h-7 items-center gap-2 rounded-control pl-8 pr-2 text-left text-13 text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
                 onClick={() => onNewChat(key)}
                 type="button"
               >
@@ -400,7 +388,7 @@ export function ProjectSessionNav({
             ))}
             {unpinned.length > RECENT_SESSIONS && (
               <button
-                className="flex h-7 items-center rounded-control pl-8 pr-2 text-left text-[12px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
+                className="flex h-7 items-center rounded-control pl-8 pr-2 text-left text-xs text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
                 onClick={() => toggleFullSessionList(key)}
                 type="button"
               >
@@ -426,36 +414,24 @@ export function ProjectSessionNav({
           <House className={navIcon(generalChatActive)} strokeWidth={1.8} />
           <span className={hidden}>首页</span>
         </button>
-        <button
-          aria-current={sourcesActive ? 'page' : undefined}
-          className={navRow(sourcesActive)}
-          onClick={onOpenSources}
-          type="button"
-        >
-          <FolderOpen className={navIcon(sourcesActive)} strokeWidth={1.8} />
-          <span className={hidden}>资料</span>
-        </button>
-        {businessNav
-          .filter(
-            (item) =>
-              item.id !== 'classroom' || (experimentalMaster === true && experimentalClassroom),
-          )
-          .map((item) => {
-            const Icon = item.icon;
-            const active = item.id === activeBusinessId;
-            return (
-              <button
-                aria-current={active ? 'page' : undefined}
-                className={navRow(active)}
-                key={item.id}
-                onClick={() => onNavigateBusiness?.(item.id)}
-                type="button"
-              >
-                <Icon className={navIcon(active)} strokeWidth={1.8} />
-                <span className={hidden}>{item.label}</span>
-              </button>
-            );
-          })}
+        {visibleEntries.map((item) => {
+          const Icon = item.icon;
+          const active = item.id === 'sources' ? sourcesActive : item.id === activeBusinessId;
+          return (
+            <button
+              aria-current={active ? 'page' : undefined}
+              className={navRow(active)}
+              key={item.id}
+              onClick={() =>
+                item.id === 'sources' ? onOpenSources?.() : onNavigateBusiness?.(item.id)
+              }
+              type="button"
+            >
+              <Icon className={navIcon(active)} strokeWidth={1.8} />
+              <span className={hidden}>{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
       {(projects.some((project) => preferences[project.id]?.pinned) ||
         projects.some((project) =>
@@ -493,7 +469,7 @@ export function ProjectSessionNav({
         <div className="flex items-center justify-between px-2 pb-1">
           <span
             className={cn(
-              'whitespace-nowrap text-[11.5px] font-medium text-ink-3',
+              'whitespace-nowrap text-xs font-medium text-ink-3',
               labelFade,
               collapsed && 'opacity-0',
             )}
@@ -551,7 +527,7 @@ export function ProjectSessionNav({
           <Dialog.Overlay className={dialogOverlay} />
           <Dialog.Content className={cn(dialogPanel, 'max-w-sm')}>
             <Dialog.Title className="text-base font-semibold">新建项目分组</Dialog.Title>
-            <Dialog.Description className="mt-1 text-[13px] text-ink-3">
+            <Dialog.Description className="mt-1 text-13 text-ink-3">
               将当前项目放入此分组。
             </Dialog.Description>
             <form

@@ -9,9 +9,10 @@ export type IconPreference = 'white' | 'black';
 export const zoomLevels = [0.9, 1, 1.1, 1.25, 1.5] as const;
 export type ZoomPreference = (typeof zoomLevels)[number];
 
-/** 全局字号档位：作用于 rem 字号（--text-* 与 body 默认字号），不影响间距与图标。 */
-export const fontScaleLevels = [0.9, 1, 1.1, 1.25] as const;
-export type FontScalePreference = (typeof fontScaleLevels)[number];
+/** 全局字号（px）：直接作为根元素 font-size，rem 派生的文字、间距与图标一起缩放。 */
+export const fontSizeMin = 12;
+export const fontSizeMax = 20;
+export const fontSizeDefault = 16;
 
 /** Agent 任务（Run 终态）的系统提醒偏好；failed 默认开、completed 默认关（低干扰）。 */
 export interface TaskNotificationPrefs {
@@ -31,20 +32,21 @@ export interface WorkspacePrefs {
   noteSpellcheck: boolean;
 }
 
+/** 试验功能：总开关 + 子项（水源、课堂视频下载）；子项只在总开关开启时生效，键缺失视为开启。 */
+export type ExperimentKey = 'master' | 'shuiyuan' | 'videoDownload';
+export type ExperimentState = Record<ExperimentKey, boolean>;
+
 export interface SettingsApi {
-  getExperimentalFeatures(): Promise<boolean>;
-  setExperimentalFeatures(enabled: boolean): Promise<boolean>;
-  /** 试验子项：课堂视频。总开关关闭时入口隐藏、操作被拒；键缺失视为开启。 */
-  getExperimentalClassroom(): Promise<boolean>;
-  setExperimentalClassroom(enabled: boolean): Promise<boolean>;
+  getExperiments(): Promise<ExperimentState>;
+  setExperiment(key: ExperimentKey, enabled: boolean): Promise<ExperimentState>;
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
   getIcon(): Promise<IconPreference>;
   setIcon(icon: IconPreference): Promise<IconPreference>;
   getZoom(): Promise<ZoomPreference>;
   setZoom(zoom: ZoomPreference): Promise<ZoomPreference>;
-  getFontScale(): Promise<FontScalePreference>;
-  setFontScale(scale: FontScalePreference): Promise<FontScalePreference>;
+  getFontSize(): Promise<number>;
+  setFontSize(size: number): Promise<number>;
   /** 开机自启状态；打包版以系统启动项为准，开发运行读本地偏好。 */
   getOpenAtLogin(): Promise<boolean>;
   setOpenAtLogin(enabled: boolean): Promise<boolean>;

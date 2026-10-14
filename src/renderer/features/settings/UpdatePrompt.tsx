@@ -49,13 +49,12 @@ export function UpdatePrompt() {
                 ? `新版本 ${state.version}`
                 : '新版本'}
           </Dialog.Title>
-          <Dialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
-            {installing
-              ? 'Dela 即将退出。请在安装向导中查看进度，完成后保留“运行 Dela”选项并点击“完成”，即可重新打开应用。'
-              : preparing
-                ? '正在保存笔记、文字草稿、邮件草稿和工作台布局。保存成功后退出 Dela 并打开安装向导。'
-                : 'Dela 会先保存工作区，再退出并显示安装向导。终端任务会结束。安装完成后保留“运行 Dela”选项并点击“完成”，即可返回应用。'}
-          </Dialog.Description>
+          {/* 进行中不再解释细节：这一步用户只需等，保存与退出已经发生在点按钮之前。 */}
+          {!busy && (
+            <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
+              退出后自动安装，终端任务会结束。
+            </Dialog.Description>
+          )}
           {!busy && (
             <div className="mt-4 flex justify-end gap-2">
               {/* 默认聚焦「下次启动」：下载是在后台跑完的，用户可能正在别处打字，

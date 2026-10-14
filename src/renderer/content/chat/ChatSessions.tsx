@@ -36,7 +36,7 @@ function SessionList({
     <>
       {sessions.map((session) => (
         <div
-          className="group flex items-center gap-2 rounded-[6px] px-2 py-1.5 transition-colors hover:bg-hover"
+          className="group flex items-center gap-2 rounded-chip px-2 py-1.5 transition-colors hover:bg-hover"
           key={session.id}
         >
           <button
@@ -55,7 +55,7 @@ function SessionList({
             />
             <span
               className={cn(
-                'min-w-0 flex-1 truncate text-[13px] text-ink',
+                'min-w-0 flex-1 truncate text-13 text-ink',
                 session.id === currentSessionId && 'font-medium',
               )}
             >
@@ -207,7 +207,7 @@ export function ChatSessions({
             <input
               aria-label="搜索历史对话"
               autoFocus
-              className="h-8 w-full rounded-[8px] bg-field pl-8 pr-2 text-[13px] text-ink shadow-hairline outline-none placeholder:text-ink-3 focus:shadow-btn"
+              className="h-8 w-full rounded-control bg-field pl-8 pr-2 text-13 text-ink shadow-hairline outline-none placeholder:text-ink-3 focus:shadow-btn"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索对话内容…"
               value={query}
@@ -219,7 +219,7 @@ export function ChatSessions({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-line p-2">
           {loadError && (
-            <div className="flex items-center justify-center gap-2 px-3 py-6 text-[13px] text-ink-3">
+            <div className="flex items-center justify-center gap-2 px-3 py-6 text-13 text-ink-3">
               <span role="alert">历史对话加载失败</span>
               <Button
                 onClick={() => setListVersion((version) => version + 1)}
@@ -231,7 +231,7 @@ export function ChatSessions({
             </div>
           )}
           {allLoaded && totalCount === 0 && (
-            <p className="px-3 py-6 text-center text-[13px] text-ink-3">
+            <p className="px-3 py-6 text-center text-13 text-ink-3">
               {query ? '没有匹配的对话' : '还没有历史对话'}
             </p>
           )}
@@ -239,7 +239,7 @@ export function ChatSessions({
             section.list && section.list.length > 0 ? (
               <section key={section.key} aria-label={section.label ?? '项目会话'}>
                 {section.label && (
-                  <h3 className="px-2 pb-1 pt-2 text-[11px] font-medium text-ink-3">
+                  <h3 className="px-2 pb-1 pt-2 text-2xs font-medium text-ink-3">
                     {section.label}
                   </h3>
                 )}

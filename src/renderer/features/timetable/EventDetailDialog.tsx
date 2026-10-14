@@ -81,7 +81,7 @@ export function EventDetailDialog({
         <DialogPrimitive.Content
           className={cn(
             dialogPanel,
-            'max-h-[calc(100dvh-2rem)] w-[400px] max-w-[calc(100vw-2rem)] overflow-y-auto p-5',
+            'max-h-[calc(100dvh-2rem)] w-[25rem] max-w-[calc(100vw-2rem)] overflow-y-auto p-5',
           )}
         >
           <div className="flex items-start gap-2.5">
@@ -100,11 +100,11 @@ export function EventDetailDialog({
             </DialogPrimitive.Close>
           </div>
           {detail.kind === 'lesson' && (detail.lesson.className || detail.lesson.courseCode) ? (
-            <DialogPrimitive.Description className="mt-1 pl-5 text-[12px] text-ink-3">
+            <DialogPrimitive.Description className="mt-1 pl-5 text-xs text-ink-3">
               {[detail.lesson.className, detail.lesson.courseCode].filter(Boolean).join(' · ')}
             </DialogPrimitive.Description>
           ) : null}
-          <div className="mt-4 grid gap-2.5 pl-5 text-[13px]">
+          <div className="mt-4 grid gap-2.5 pl-5 text-13">
             <div className="flex items-start gap-2">
               <Clock className="mt-0.5 size-4 shrink-0 text-ink-3" />
               <span className="tabular-nums">{timeText}</span>
@@ -155,7 +155,7 @@ export function EventDetailDialog({
             <div className="mt-5 flex items-center gap-1.5">
               {confirming ? (
                 <>
-                  <span className="text-[12px] text-ink-3">确认删除？</span>
+                  <span className="text-xs text-ink-3">确认删除？</span>
                   <Button
                     disabled={deleting}
                     onClick={() => void deleteEvent(detail.event)}

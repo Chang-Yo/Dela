@@ -135,7 +135,7 @@ export function ArchivedSection() {
     <div className="grid gap-10">
       <SectionHeader title="已归档" />
       {!window.dela ? (
-        <p className="text-[13px] text-ink-3">已归档对话管理仅在桌面端可用。</p>
+        <p className="text-13 text-ink-3">已归档对话管理仅在桌面端可用。</p>
       ) : (
         <>
           <div className="grid gap-3">
@@ -177,12 +177,12 @@ export function ArchivedSection() {
               </Button>
             </div>
             {/* 永久删除不可逆：破坏性操作的必要警示。 */}
-            <p className="text-[12px] text-ink-3">
+            <p className="text-xs text-ink-3">
               恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
             </p>
             {confirm?.kind === 'all' && (
               <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-destructive/40 bg-red-tint p-3">
-                <span className="text-[12px]">
+                <span className="text-xs">
                   永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
                 </span>
                 <Button
@@ -199,18 +199,18 @@ export function ArchivedSection() {
               </div>
             )}
             {error && (
-              <p className="text-[12px] text-red" role="alert">
+              <p className="text-xs text-red" role="alert">
                 {error}
               </p>
             )}
             {sessions !== null && sessions.length === 0 && (
               <SettingsGroup>
-                <p className="py-3.5 text-[13px] text-ink-3">没有已归档对话</p>
+                <p className="py-3.5 text-13 text-ink-3">没有已归档对话</p>
               </SettingsGroup>
             )}
             {sessions !== null && sessions.length > 0 && groups.length === 0 && (
               <SettingsGroup>
-                <p className="py-3.5 text-[13px] text-ink-3">没有匹配的已归档对话</p>
+                <p className="py-3.5 text-13 text-ink-3">没有匹配的已归档对话</p>
               </SettingsGroup>
             )}
           </div>
@@ -222,7 +222,7 @@ export function ArchivedSection() {
                   <span className="flex items-center gap-2">
                     <Folder aria-hidden="true" className="size-4 shrink-0 text-ink-3" />
                     <span className="truncate">{group.name}</span>
-                    <span className="shrink-0 text-[12px] font-normal text-ink-3">
+                    <span className="shrink-0 text-xs font-normal text-ink-3">
                       {group.sessions.length} 条
                     </span>
                   </span>
@@ -235,10 +235,10 @@ export function ArchivedSection() {
                       key={session.id}
                     >
                       <div className="grid min-w-0 gap-0.5">
-                        <span className="truncate text-[13px]" title={session.title}>
+                        <span className="truncate text-13" title={session.title}>
                           {session.title || '新对话'}
                         </span>
-                        <span className="text-[12px] text-ink-3">
+                        <span className="text-xs text-ink-3">
                           {new Date(session.updatedAt).toLocaleString('zh-CN')}
                         </span>
                       </div>

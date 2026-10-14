@@ -38,16 +38,14 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
     <div className="grid gap-7">
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">连接 Canvas</h2>
-        <p className="text-[13px] leading-relaxed text-ink-3">
-          同步课程与作业，凭据加密保存在本机。
-        </p>
+        <p className="text-13 leading-relaxed text-ink-3">同步课程与作业，凭据加密保存在本机。</p>
       </header>
       <StepGuide
         steps={[
           {
             title: '获取 Access Token',
             content: (
-              <ol className="list-decimal space-y-1.5 ps-4 text-[13px] leading-relaxed text-ink-3">
+              <ol className="list-decimal space-y-1.5 ps-4 text-13 leading-relaxed text-ink-3">
                 <li>浏览器打开 Canvas（oc.sjtu.edu.cn）并登录</li>
                 <li>点击头像，进入「设置」</li>
                 <li>在「允许融入使用的外部软件」处点「+ 创建新的访问许可证」</li>
@@ -77,7 +75,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
                   value={token}
                 />
                 {error && (
-                  <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
+                  <p className="text-13 [overflow-wrap:anywhere] text-red-600" role="alert">
                     {error}
                   </p>
                 )}

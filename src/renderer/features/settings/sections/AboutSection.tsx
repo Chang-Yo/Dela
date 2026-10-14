@@ -68,12 +68,14 @@ function SponsorDialog({ person, trigger }: { person: CreditPerson; trigger: Rea
       <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={dialogOverlay} />
-        <DialogPrimitive.Content className={cn(dialogPanel, 'w-[380px] max-w-[calc(100vw-2rem)]')}>
+        <DialogPrimitive.Content
+          className={cn(dialogPanel, 'w-[23.75rem] max-w-[calc(100vw-2rem)]')}
+        >
           <DialogPrimitive.Title className="text-base font-semibold tracking-tight">
             赞赏
           </DialogPrimitive.Title>
           {sponsor.note ? (
-            <DialogPrimitive.Description className="mt-1 text-[12px] text-ink-3">
+            <DialogPrimitive.Description className="mt-1 text-xs text-ink-3">
               {sponsor.note}
             </DialogPrimitive.Description>
           ) : null}
@@ -89,7 +91,7 @@ function SponsorDialog({ person, trigger }: { person: CreditPerson; trigger: Rea
                       src={qr}
                     />
                   </div>
-                  <figcaption className="flex items-center gap-1.5 text-[12px] text-ink-3">
+                  <figcaption className="flex items-center gap-1.5 text-xs text-ink-3">
                     <span aria-hidden="true" className={`size-2 rounded-full ${meta.dotClass}`} />
                     {label ?? meta.label}
                   </figcaption>
@@ -122,7 +124,7 @@ function PersonIdentity({ person }: { person: CreditPerson }) {
         className="size-6 rounded-full object-cover"
         src={person.avatar}
       />
-      <span className="text-[13px] font-medium text-ink">{person.name}</span>
+      <span className="text-13 font-medium text-ink">{person.name}</span>
     </div>
   );
 }
@@ -169,8 +171,8 @@ export function AboutSection() {
       <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-12 text-center">
         <DelaBrand className="h-48 w-48" />
         <h2 className="text-4xl font-script tracking-tight">Dela</h2>
-        <p className="text-[13px] text-ink-3">The world keeps changing. Dela stays with you.</p>
-        <p className="mt-5 text-[12px] text-ink-3">版本 {window.dela?.version ?? '浏览器预览'}</p>
+        <p className="text-13 text-ink-3">The world keeps changing. Dela stays with you.</p>
+        <p className="mt-5 text-xs text-ink-3">版本 {window.dela?.version ?? '浏览器预览'}</p>
       </section>
       {authorSection ? <CreditSectionBlock section={authorSection} /> : null}
       {sponsorsSection ? <CreditSectionBlock section={sponsorsSection} /> : null}

@@ -6,6 +6,7 @@ import {
   injectFrameHeightReport,
 } from '../../components/ui/frame-height';
 import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from './shuiyuan-format';
+import { useRootFontSize } from '../../lib/root-font-size';
 
 const INITIAL_BODY_HEIGHT = 48;
 
@@ -51,14 +52,15 @@ export function ShuiyuanHtmlBody({
   onOpenTopic?: (topicId: number, postNumber?: number) => void;
 }) {
   const dark = useIsDarkTheme();
+  const rootSize = useRootFontSize();
   const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const internalNavigation = Boolean(onOpenTopic);
   const document = useMemo(() => {
     const doc = sanitizeShuiyuanHtml(html);
     injectFrameHeightReport(doc, internalNavigation ? SHUIYUAN_HOST : undefined);
-    return renderShuiyuanHtml(doc, dark);
-  }, [html, dark, internalNavigation]);
+    return renderShuiyuanHtml(doc, dark, rootSize);
+  }, [html, dark, rootSize, internalNavigation]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {

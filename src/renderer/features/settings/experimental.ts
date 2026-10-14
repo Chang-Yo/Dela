@@ -1,41 +1,35 @@
-// 试验功能开关镜像：总开关 + 子项（当前仅课堂视频）。
-// 侧栏入口显隐、设置 › 通用 的管理区与课堂视频页门禁共用此 store，
+// 试验功能开关镜像：总开关 + 子项（水源、课堂视频下载）。
+// 侧栏入口显隐、设置 › 通用 的管理区与课堂视频下载按钮共用此 store，
 // 设置里切换即时反映到侧栏，不需要重新挂载。
 import { create } from 'zustand';
+import type { ExperimentKey, ExperimentState } from '../../../shared/api';
 
-interface ExperimentalState {
-  /** 总开关；null = 尚未读到，开关保持禁用避免闪烁出错误默认值。 */
-  master: boolean | null;
-  /** 课堂视频子项；主开关关闭时该值不生效。 */
-  classroom: boolean;
+interface ExperimentalStore {
+  /** null = 尚未读到，开关保持禁用避免闪烁出错误默认值。 */
+  state: ExperimentState | null;
   load: () => Promise<void>;
-  setMaster: (value: boolean) => Promise<void>;
-  setClassroom: (value: boolean) => Promise<void>;
+  set: (key: ExperimentKey, value: boolean) => Promise<void>;
 }
 
+const allOff: ExperimentState = { master: false, shuiyuan: false, videoDownload: false };
 let loading: Promise<void> | null = null;
 
-export const useExperimental = create<ExperimentalState>((set, get) => ({
-  master: null,
-  classroom: true,
+export const useExperimental = create<ExperimentalStore>((set, get) => ({
+  state: null,
 
   load: () => {
-    if (get().master !== null) return Promise.resolve();
+    if (get().state !== null) return Promise.resolve();
     if (!loading) {
       loading = (async () => {
         // 浏览器预览没有 preload：视为全关，仅剩设置区的静态说明。
         if (!window.dela) {
-          set({ master: false, classroom: false });
+          set({ state: allOff });
           return;
         }
         try {
-          const [master, classroom] = await Promise.all([
-            window.dela.settings.getExperimentalFeatures(),
-            window.dela.settings.getExperimentalClassroom(),
-          ]);
-          set({ master, classroom });
+          set({ state: await window.dela.settings.getExperiments() });
         } catch {
-          set({ master: false, classroom: false });
+          set({ state: allOff });
         }
       })();
     }
@@ -43,27 +37,20 @@ export const useExperimental = create<ExperimentalState>((set, get) => ({
   },
 
   // 乐观更新 + 失败回滚；错误抛给设置区展示。
-  setMaster: async (value) => {
-    const previous = get().master;
-    set({ master: value });
+  set: async (key, value) => {
+    const previous = get().state;
+    if (!previous) return;
+    set({ state: { ...previous, [key]: value } });
     try {
-      const saved = await window.dela!.settings.setExperimentalFeatures(value);
-      set({ master: saved });
+      set({ state: await window.dela!.settings.setExperiment(key, value) });
     } catch {
-      set({ master: previous });
+      set({ state: previous });
       throw new Error('试验功能设置保存失败，请重试。');
     }
   },
-
-  setClassroom: async (value) => {
-    const previous = get().classroom;
-    set({ classroom: value });
-    try {
-      const saved = await window.dela!.settings.setExperimentalClassroom(value);
-      set({ classroom: saved });
-    } catch {
-      set({ classroom: previous });
-      throw new Error('课堂视频设置保存失败，请重试。');
-    }
-  },
 }));
+
+/** 子项的实际可用性：总开关与子项都开启。未读到时按关闭处理。 */
+export function useExperimentEnabled(key: Exclude<ExperimentKey, 'master'>): boolean {
+  return useExperimental((store) => Boolean(store.state?.master && store.state[key]));
+}

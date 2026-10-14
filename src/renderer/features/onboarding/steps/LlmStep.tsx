@@ -120,7 +120,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     >
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">配置模型服务</h2>
-        <p className="text-[13px] leading-relaxed text-ink-3">
+        <p className="text-13 leading-relaxed text-ink-3">
           选择服务商或自定义 OpenAI 兼容端点，密钥加密保存于本机。
         </p>
       </header>
@@ -149,7 +149,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     >
                       <div className="grid gap-4">
                         <label className="grid gap-2">
-                          <span className="text-[13px] font-medium text-ink-2">名称</span>
+                          <span className="text-13 font-medium text-ink-2">名称</span>
                           <StepInput
                             autoComplete="off"
                             onChange={(event) => setName(event.target.value)}
@@ -159,7 +159,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                           />
                         </label>
                         <label className="grid gap-2">
-                          <span className="text-[13px] font-medium text-ink-2">API 地址</span>
+                          <span className="text-13 font-medium text-ink-2">API 地址</span>
                           <StepInput
                             autoComplete="off"
                             onChange={(event) => setBaseUrl(event.target.value)}
@@ -182,7 +182,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                 {preset.keyUrl && (
                   <div className="flex justify-end">
                     <a
-                      className="flex items-center gap-1 text-[12px] text-ink-3 transition-colors hover:text-ink"
+                      className="flex items-center gap-1 text-xs text-ink-3 transition-colors hover:text-ink"
                       href={preset.keyUrl}
                       rel="noreferrer"
                       target="_blank"
@@ -237,7 +237,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                     {verifyResult && (
                       <p
-                        className={`flex min-w-0 flex-1 items-start gap-1.5 text-[12px] leading-5 ${
+                        className={`flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-5 ${
                           verifyResult.ok ? 'text-emerald-600' : 'text-red-600'
                         }`}
                         role="status"
@@ -252,7 +252,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     )}
                     {detected.length > 0 && (
                       <button
-                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-card border border-line border-line-strong bg-surface px-3 text-[12px] font-medium text-ink-2 transition-colors hover:border-ink-3"
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-card border border-line border-line-strong bg-surface px-3 text-xs font-medium text-ink-2 transition-colors hover:border-ink-3"
                         onClick={() => setImportOpen(true)}
                         type="button"
                       >
@@ -263,7 +263,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   </div>
                 )}
                 {importNotice && (
-                  <p className="text-[12px] text-ink-3" role="status">
+                  <p className="text-xs text-ink-3" role="status">
                     {importNotice}
                   </p>
                 )}
@@ -290,12 +290,12 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   ))}
                 </StepSelect>
                 {custom && models.length === 0 && (
-                  <span className="text-[12px] text-ink-3">
+                  <span className="text-xs text-ink-3">
                     自定义服务没有预设模型，检测后从列表导入。
                   </span>
                 )}
                 {error && (
-                  <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
+                  <p className="text-13 [overflow-wrap:anywhere] text-red-600" role="alert">
                     {error}
                   </p>
                 )}

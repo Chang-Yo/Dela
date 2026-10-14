@@ -23,6 +23,7 @@
 9. **全局 token 统一**（2026-10-08）：`styles/globals.css` 的 shadcn 语义变量（`--background`、`--muted-foreground`、`--border` 等）全部映射到本库 token；唯一例外是 `--destructive-foreground`（本库没有对应档位，仍是裸色值）；跟随系统的深色由 `app/theme.ts` 解析为 `:root.dark`，与本库只认 `.dark` 的约定一致。`components/ui/` 下的 shadcn 基础件（button / input / textarea / select / dropdown-menu / context-menu / tooltip）保留 API，外观改用本库 token、圆角与 `pop-in` 动效，浮层样式集中在 `components/ui/menu-styles.ts`。
 10. **`.bui-light` 固定浅色作用域**（2026-10-08）：`beautifului.css` 在 `.dark` 之后复制一份浅色 token 到 `.bui-light`，供首启引导这类恒白画布在深色主题下仍使用浅色 token。
 11. **`atoms/SegmentedControl.tsx` 的段按钮加 `type="button"`**（2026-10-10）：用于表单内（邮箱连接表单的交大邮箱 / 第三方 IMAP 切换）时，无 type 会默认提交表单。
+12. **圆角 token 改 rem**（2026-10-14）：`--radius-chip/control/card/window` 上游是 `6/8/10/14px`，改为 `0.375/0.5/0.625/0.875rem`，使圆角随「设置 › 外观 › 字号」的根字号缩放。默认 16px 根字号下与上游像素一致。
 
 ## 升级方式
 

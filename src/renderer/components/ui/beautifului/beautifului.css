@@ -198,11 +198,13 @@
 
   /* type */
 
-  /* radii — chips 6, controls 8, cards 10, windows 14, pills 999 */
-  --radius-chip: 6px;
-  --radius-control: 8px;
-  --radius-card: 10px;
-  --radius-window: 14px;
+  /* radii — chips 6, controls 8, cards 10, windows 14, pills 999
+   * Dela 适配：上游为 px 固定值，这里改为 rem，使圆角随设置 › 外观 › 字号的根字号一起缩放
+   * （默认 16px 根字号下与上游像素一致）。 */
+  --radius-chip: 0.375rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.625rem;
+  --radius-window: 0.875rem;
 
   /* easing — strong curves; built-ins are too weak */
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);

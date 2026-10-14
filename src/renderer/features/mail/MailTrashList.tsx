@@ -31,8 +31,8 @@ export function MailTrashList({
     <section aria-label="已删除邮件" className={cn('flex min-h-0 flex-col', className)}>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <strong className="truncate text-[13px]">已删除</strong>
-          <small className="shrink-0 text-[12px] text-ink-3">{items.length} 封</small>
+          <strong className="truncate text-13">已删除</strong>
+          <small className="shrink-0 text-xs text-ink-3">{items.length} 封</small>
         </div>
         <div className="flex-1" />
         <button
@@ -47,13 +47,13 @@ export function MailTrashList({
         </button>
       </div>
       {error && (
-        <p className="px-4 py-2 text-[12px] text-red" role="alert">
+        <p className="px-4 py-2 text-xs text-red" role="alert">
           {error}
         </p>
       )}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
-        {loading && <p className="p-4 text-[12px] text-ink-3">加载中…</p>}
-        {!loading && items.length === 0 && <p className="p-4 text-[12px] text-ink-3">回收站为空</p>}
+        {loading && <p className="p-4 text-xs text-ink-3">加载中…</p>}
+        {!loading && items.length === 0 && <p className="p-4 text-xs text-ink-3">回收站为空</p>}
         {!loading &&
           items.map((item) => {
             const selected = item.id === selectedMessageId;
@@ -73,22 +73,19 @@ export function MailTrashList({
                   <span className="flex min-w-0 items-baseline justify-between gap-3">
                     <strong
                       className={cn(
-                        'min-w-0 truncate text-[13px]',
+                        'min-w-0 truncate text-13',
                         item.seen ? 'font-normal text-ink-2' : 'font-semibold',
                       )}
                     >
                       {senderLabel(item)}
                     </strong>
-                    <span className="shrink-0 text-[11px] text-ink-3">
+                    <span className="shrink-0 text-2xs text-ink-3">
                       {formatMailDate(item.date)}
                     </span>
                   </span>
                   <span className="flex items-center gap-1.5 overflow-hidden">
                     <span
-                      className={cn(
-                        'truncate text-[13px]',
-                        item.seen ? 'text-ink-2' : 'font-medium',
-                      )}
+                      className={cn('truncate text-13', item.seen ? 'text-ink-2' : 'font-medium')}
                     >
                       {item.subject ?? '(无主题)'}
                     </span>
@@ -99,7 +96,7 @@ export function MailTrashList({
                         strokeWidth={1.8}
                       />
                     )}
-                    <span className="min-w-0 truncate text-[12px] text-ink-3">
+                    <span className="min-w-0 truncate text-xs text-ink-3">
                       {item.folderName ?? '未知文件夹'}
                     </span>
                   </span>

@@ -113,7 +113,7 @@ export function SeekBar({
       />
       {bubble !== null && (
         <div
-          className="pointer-events-none absolute -top-6 -translate-x-1/2 rounded-chip bg-(--tooltip-bg) px-1.5 py-0.5 text-[11px] tabular-nums text-(--tooltip-fg) shadow-overlay"
+          className="pointer-events-none absolute -top-6 -translate-x-1/2 rounded-chip bg-(--tooltip-bg) px-1.5 py-0.5 text-2xs tabular-nums text-(--tooltip-fg) shadow-overlay"
           style={{
             left: `${duration > 0 ? Math.min(1, Math.max(0, bubble / duration)) * 100 : 0}%`,
           }}

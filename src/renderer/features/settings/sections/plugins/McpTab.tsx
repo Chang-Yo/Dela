@@ -101,7 +101,7 @@ export function McpTab() {
     return (
       <div className="grid gap-10">
         <SectionHeader title="MCP Server" />
-        <p className="text-[13px] text-ink-3">MCP 管理仅在桌面端可用。</p>
+        <p className="text-13 text-ink-3">MCP 管理仅在桌面端可用。</p>
       </div>
     );
   }
@@ -120,8 +120,8 @@ export function McpTab() {
       {servers !== null && servers.length === 0 && (
         <SettingsGroup>
           <div className="grid gap-1 py-3.5">
-            <span className="text-[13px] font-medium text-ink">还没有 MCP 服务器</span>
-            <span className="text-[12px] leading-relaxed text-ink-3">
+            <span className="text-13 font-medium text-ink">还没有 MCP 服务器</span>
+            <span className="text-xs leading-relaxed text-ink-3">
               支持以本地命令（如 npx）启动的 stdio 服务器，添加后自动连接并检测工具。
             </span>
           </div>
@@ -139,9 +139,9 @@ export function McpTab() {
                 >
                   <div className="grid min-w-0 gap-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <strong className="truncate text-[13px]">{server.name}</strong>
+                      <strong className="truncate text-13">{server.name}</strong>
                       <span
-                        className="inline-flex items-center gap-1.5 text-[12px] text-ink-3"
+                        className="inline-flex items-center gap-1.5 text-xs text-ink-3"
                         title={server.error ?? undefined}
                       >
                         {badge.spin ? (
@@ -154,7 +154,7 @@ export function McpTab() {
                     </div>
                     {/* error=红点 + 摘要可见、完整消息悬停可见（依赖状态说明原因，§4.4）。 */}
                     {server.status === 'error' && server.error ? (
-                      <p className="truncate text-[12px] text-red" title={server.error}>
+                      <p className="truncate text-xs text-red" title={server.error}>
                         {server.error}
                       </p>
                     ) : null}
@@ -204,7 +204,7 @@ export function McpTab() {
                         <AlertDialog.Title className="text-base font-semibold">
                           删除 {server.name}？
                         </AlertDialog.Title>
-                        <AlertDialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
+                        <AlertDialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
                           将移除该服务器配置并断开连接，Agent 不再能使用它的工具。此操作不可撤销。
                         </AlertDialog.Description>
                         <div className="mt-4 flex items-center justify-end gap-2">
@@ -233,7 +233,7 @@ export function McpTab() {
         </SettingsGroup>
       )}
       {error && (
-        <p className="text-[12px] text-red" role="alert">
+        <p className="text-xs text-red" role="alert">
           {error}
         </p>
       )}

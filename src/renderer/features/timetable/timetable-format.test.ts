@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { eventDayEdges, formatEventRange, layoutDayColumns } from './timetable-format';
+import {
+  blockHeights,
+  eventDayEdges,
+  eventStyle,
+  formatEventRange,
+  layoutDayColumns,
+  minutesToRem,
+  timelineStart,
+} from './timetable-format';
 
 // 时间用一天内的分钟数表示，样例不对应任何真实课程。
 describe('layoutDayColumns', () => {
@@ -114,5 +122,21 @@ describe('formatEventRange', () => {
         endAt: new Date(2026, 8, 16, 10, 0).toISOString(),
       }),
     ).toBe('9月12日（周六）22:00 – 9月16日（周三）10:00');
+  });
+});
+
+// 块高与块内文字同为 rem，字号设置一变一起缩放；两者若脱节，大字号下文案会被裁。
+describe('eventStyle', () => {
+  it('按 rem 给出位置与高度，短时段的块高有下限', () => {
+    expect(eventStyle(timelineStart, timelineStart + 55)).toEqual({
+      top: '0rem',
+      height: 'max(1.75rem, 2.75rem)',
+    });
+    expect(eventStyle(timelineStart, timelineStart + 15).height).toBe('max(1.75rem, 0.75rem)');
+  });
+
+  it('55 分钟的课时正好落在显示第二行的阈值上', () => {
+    expect(minutesToRem(55)).toBe(blockHeights.twoRows);
+    expect(minutesToRem(75)).toBe(blockHeights.threeRows);
   });
 });

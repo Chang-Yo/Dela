@@ -44,7 +44,7 @@ function DesktopShuiyuanView() {
 
   if (!ready) {
     return (
-      <div className="grid h-full place-items-center text-[13px] text-ink-3">正在读取绑定状态…</div>
+      <div className="grid h-full place-items-center text-13 text-ink-3">正在读取绑定状态…</div>
     );
   }
   if (!connected) return <BindCard />;

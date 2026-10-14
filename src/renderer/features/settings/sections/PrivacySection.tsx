@@ -5,7 +5,7 @@ import { SectionHeader } from '../SectionHeader';
  * 正式隐私条款尚未定稿，本页只描述现状，不含承诺、营销表述与法律措辞；
  * 实现发生变化时必须同步核对本页每一条陈述。
  *
- * 本页按文档排版而非设置行：正文 13px/ink-2、限宽 672px（约 42rem）保证可读行宽；
+ * 本页按文档排版而非设置行：正文 text-13/ink-2、限宽 42rem 保证可读行宽；
  * 枚举（凭据文件、联网位置）用两列定义表呈现，条目名是「主语」，说明是「谓语」。
  */
 export function PrivacySection() {
@@ -13,7 +13,7 @@ export function PrivacySection() {
     <div className="grid gap-10" data-setting-id="privacy">
       <SectionHeader description="依据当前实现整理，非正式条款。" title="隐私条款" />
 
-      <article className="grid max-w-[672px] gap-10 text-[13px] leading-relaxed text-ink-2">
+      <article className="grid max-w-[42rem] gap-10 text-13 leading-relaxed text-ink-2">
         <section className="grid gap-3">
           <h2 className="text-base font-semibold text-ink">数据保存在本机</h2>
           <p>
@@ -38,14 +38,14 @@ export function PrivacySection() {
                 className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)] gap-x-4 border-b border-line py-2 last:border-0"
                 key={file}
               >
-                <code className="truncate font-mono text-[12px] text-ink" title={file}>
+                <code className="truncate font-mono text-xs text-ink" title={file}>
                   {file}
                 </code>
                 <span className="min-w-0">{content}</span>
               </div>
             ))}
           </div>
-          <p className="text-[12px] leading-relaxed text-ink-3">
+          <p className="text-xs leading-relaxed text-ink-3">
             旧版单凭据文件 model-credential.bin 在迁移为多提供商配置后删除。
           </p>
           <ul className="grid list-disc gap-1.5 pl-4">

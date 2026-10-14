@@ -58,7 +58,7 @@ export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogPro
           {hint && !state && (
             <p
               role={hint.failed ? 'alert' : 'status'}
-              className={cn('p-4 text-[13px]', hint.failed ? 'text-red' : 'text-ink-3')}
+              className={cn('p-4 text-13', hint.failed ? 'text-red' : 'text-ink-3')}
             >
               {hint.text}
             </p>

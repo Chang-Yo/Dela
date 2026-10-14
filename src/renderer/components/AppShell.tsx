@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
-  CalendarDays,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -12,7 +11,6 @@ import {
   Copy,
   FolderOpen,
   House,
-  Mail,
   Menu,
   MessageCirclePlus,
   Minus,
@@ -51,6 +49,7 @@ import {
 import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from './ui/motion';
 import { chromeIconButton, navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../features/settings/UpdateBadge';
+import { useVisibleNavEntries } from '../navigation/entries';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
@@ -61,7 +60,7 @@ const platform = 'other' as const;
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section aria-label={title}>
-      <h3 className="text-[11.5px] font-medium tracking-[0.12em] text-ink-3">{title}</h3>
+      <h3 className="text-xs font-medium tracking-[0.12em] text-ink-3">{title}</h3>
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -70,12 +69,12 @@ function ShortcutSection({ children, title }: { children: ReactNode; title: stri
 function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; label: string }) {
   return (
     <div className="flex h-9 items-center justify-between gap-8">
-      <span className="min-w-0 truncate text-[13px] text-ink-2">{label}</span>
+      <span className="min-w-0 truncate text-13 text-ink-2">{label}</span>
       {keys ? (
         <span className="flex shrink-0 items-center gap-1">
           {keys.map((key) => (
             <kbd
-              className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-[12px] font-medium text-ink-2 shadow-hairline"
+              className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-xs font-medium text-ink-2 shadow-hairline"
               key={key}
             >
               {key}
@@ -83,7 +82,7 @@ function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; la
           ))}
         </span>
       ) : (
-        <span className="shrink-0 text-[13px] text-ink-3">{hint}</span>
+        <span className="shrink-0 text-13 text-ink-3">{hint}</span>
       )}
     </div>
   );
@@ -281,6 +280,7 @@ export function AppShell({
   }, [drawer, narrow, onMobileDrawerChange, view]);
 
   const navHidden = narrow ? drawer === null : sidebarCollapsed;
+  const visibleEntries = useVisibleNavEntries();
   /** 「资料」入口高亮：通用池内看文档标签时才算资料（与会话标签互斥）。 */
   const sourcesActive = view === 'workbench' && projectId === null && !activeTabIsChat;
 
@@ -385,7 +385,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[2.5rem_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -448,7 +448,7 @@ export function AppShell({
           >
             <ArrowRight className="size-4" strokeWidth={1.8} />
           </button>
-          {/* 侧栏折叠后首页/资料/业务入口随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}
+          {/* 侧栏折叠后首页与功能入口随侧栏隐藏，这里补回可达入口（与侧栏同一份可见性，窄屏由抽屉承载）。 */}
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] ml-2 flex h-full items-center gap-1">
               <button
@@ -461,36 +461,25 @@ export function AppShell({
               >
                 <House className="size-4" strokeWidth={1.8} />
               </button>
-              <button
-                aria-current={sourcesActive ? 'page' : undefined}
-                aria-label="资料"
-                className={chromeIconButton}
-                onClick={onOpenSources}
-                title="资料"
-                type="button"
-              >
-                <FolderOpen className="size-4" strokeWidth={1.8} />
-              </button>
-              <button
-                aria-current={view === 'mail' ? 'page' : undefined}
-                aria-label="邮箱"
-                className={chromeIconButton}
-                onClick={() => onNavigateBusiness('mail')}
-                title="邮箱"
-                type="button"
-              >
-                <Mail className="size-4" strokeWidth={1.8} />
-              </button>
-              <button
-                aria-current={view === 'timetable' ? 'page' : undefined}
-                aria-label="课表"
-                className={chromeIconButton}
-                onClick={() => onNavigateBusiness('timetable')}
-                title="课表"
-                type="button"
-              >
-                <CalendarDays className="size-4" strokeWidth={1.8} />
-              </button>
+              {visibleEntries.map((item) => {
+                const Icon = item.icon;
+                const active = item.id === 'sources' ? sourcesActive : view === item.id;
+                return (
+                  <button
+                    aria-current={active ? 'page' : undefined}
+                    aria-label={item.label}
+                    className={chromeIconButton}
+                    key={item.id}
+                    onClick={() =>
+                      item.id === 'sources' ? onOpenSources() : onNavigateBusiness(item.id)
+                    }
+                    title={item.label}
+                    type="button"
+                  >
+                    <Icon className="size-4" strokeWidth={1.8} />
+                  </button>
+                );
+              })}
               <button
                 aria-current={view === 'settings' ? 'page' : undefined}
                 aria-label="设置"
@@ -632,7 +621,7 @@ export function AppShell({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
-                <Dialog.Description className="mt-1 text-[13px] text-ink-3">
+                <Dialog.Description className="mt-1 text-13 text-ink-3">
                   与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
                 </Dialog.Description>
               </div>
@@ -688,7 +677,7 @@ export function AppShell({
           narrow
             ? cn(
                 drawerFromLeft,
-                'absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] px-2 shadow-overlay',
+                'absolute bottom-0 left-0 top-10 z-40 w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
                 drawer === null && 'hidden',
               )
             : cn(
@@ -710,10 +699,10 @@ export function AppShell({
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
             {/* 纯品牌展示；回首页由下方「首页」行承担，避免相邻双入口。 */}
             <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
-              <DelaBrand className="h-[18px] w-auto" />
+              <DelaBrand className="h-[1.125rem] w-auto" />
               <span
                 className={cn(
-                  'text-[15px] font-semibold tracking-tight text-ink',
+                  'text-15 font-semibold tracking-tight text-ink',
                   labelFade,
                   sidebarCollapsed && 'opacity-0',
                 )}

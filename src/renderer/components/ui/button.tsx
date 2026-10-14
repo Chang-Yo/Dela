@@ -6,7 +6,7 @@ import { cn } from '../../lib/utils';
 // API 沿用 shadcn（variant/size 名不变），外观对齐 beautiful-ui：冷灰 token、8px 圆角、
 // 150ms 颜色过渡与按压微缩；聚焦环统一 bui-accent。
 const buttonVariants = cva(
-  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-[13px] font-medium transition-[background-color,color,box-shadow,transform,opacity] duration-150 ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-13 font-medium transition-[background-color,color,box-shadow,transform,opacity] duration-150 ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -21,7 +21,7 @@ const buttonVariants = cva(
       },
       size: {
         default: 'h-8 px-3 has-[>svg]:px-2.5',
-        sm: 'h-7 px-2.5 text-[12px] has-[>svg]:px-2',
+        sm: 'h-7 px-2.5 text-xs has-[>svg]:px-2',
         lg: 'h-9 px-4 text-sm has-[>svg]:px-3',
         icon: 'size-8',
         'icon-sm': 'size-7',

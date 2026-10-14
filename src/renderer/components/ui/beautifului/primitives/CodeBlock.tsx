@@ -85,11 +85,11 @@ function Pieces({ pieces }: { pieces: Piece[] }) {
           return (
             <span
               key={i}
-              className="rounded-[3px]"
+              className="rounded-[0.1875rem]"
               style={{
                 background: `color-mix(in srgb, var(--${add ? "green" : "red"}) 18%, transparent)`,
-                padding: "0 2px",
-                margin: "0 -1px",
+                padding: "0 0.125rem",
+                margin: "0 -0.0625rem",
                 boxDecorationBreak: "clone",
                 WebkitBoxDecorationBreak: "clone",
               }}
@@ -174,17 +174,17 @@ export default function CodeBlock({
     >
       {/* Dela 适配：失败态色条需盖住 Diff 的整行底色，故置于顶层。 */}
       {tone === "error" && (
-        <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[3px] bg-red" />
+        <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-red" />
       )}
       {/* header — file · (diff stat | copy) */}
-      <div className="flex h-11 items-center gap-2 border-b border-line px-4 text-[12.5px]">
-        <span className="inline-flex min-w-0 items-center gap-[7px]">
+      <div className="flex h-11 items-center gap-2 border-b border-line px-4 text-13">
+        <span className="inline-flex min-w-0 items-center gap-[0.4375rem]">
           <FileIcon />
           <span className="truncate font-mono leading-none text-ink">{filename}</span>
         </span>
 
         {isDiff ? (
-          <span className="ml-auto inline-flex items-center gap-2 font-mono text-[12px] leading-none tabular-nums">
+          <span className="ml-auto inline-flex items-center gap-2 font-mono text-xs leading-none tabular-nums">
             <span className="text-green">+{added}</span>
             <span className="text-red">-{removed}</span>
           </span>
@@ -193,7 +193,7 @@ export default function CodeBlock({
             type="button"
             aria-label="Copy code"
             onClick={copy}
-            className={`-mr-1 ml-auto flex h-6 items-center gap-1 rounded-[6px] px-1.5 text-[12px]
+            className={`-mr-1 ml-auto flex h-6 items-center gap-1 rounded-chip px-1.5 text-xs
               font-medium transition-colors duration-100 hover:bg-hover
               ${copied ? "text-green" : "text-ink-3 hover:text-ink"}`}
           >
@@ -208,7 +208,7 @@ export default function CodeBlock({
       </div>
 
       {/* body — equal 12px inset on top / left / right; lines wrap */}
-      <div className={`py-3 font-mono text-[12.5px] leading-[1.65] text-ink-2${bodyClassName ? ` ${bodyClassName}` : ""}`}>
+      <div className={`py-3 font-mono text-13 leading-[1.65] text-ink-2${bodyClassName ? ` ${bodyClassName}` : ""}`}>
         {isDiff ? (
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
@@ -220,13 +220,13 @@ export default function CodeBlock({
               return (
                 <div
                   key={i}
-                  className={`relative grid grid-cols-[20px_minmax(0,1fr)] items-start
+                  className={`relative grid grid-cols-[1.25rem_minmax(0,1fr)] items-start
                     ${add ? "bg-green-tint" : del ? "bg-red-tint" : ""}`}
                 >
                   {(add || del) && (
-                    <span className="absolute inset-y-0 left-0 w-[3px]" style={{ background: add ? "var(--green)" : HATCH }} />
+                    <span className="absolute inset-y-0 left-0 w-[0.1875rem]" style={{ background: add ? "var(--green)" : HATCH }} />
                   )}
-                  <span className={`select-none text-center text-[11px] ${add ? "text-green" : del ? "text-red" : "text-ink-3"}`}>{num ?? ""}</span>
+                  <span className={`select-none text-center text-2xs ${add ? "text-green" : del ? "text-red" : "text-ink-3"}`}>{num ?? ""}</span>
                   <code className="pr-3 pl-1 break-words whitespace-pre-wrap">
                     {plain ? r.pieces.map((piece, i) => <span key={i}>{piece.text}</span>) : <Pieces pieces={r.pieces} />}
                   </code>
@@ -238,8 +238,8 @@ export default function CodeBlock({
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
             {lines.map((line, i) => (
-              <div key={i} className="grid grid-cols-[20px_minmax(0,1fr)] items-start">
-                <span className="select-none text-center text-[11px] text-ink-3">{i + 1}</span>
+              <div key={i} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start">
+                <span className="select-none text-center text-2xs text-ink-3">{i + 1}</span>
                 <code className="pr-3 pl-1 break-words whitespace-pre-wrap">{plain ? line : highlight(line)}</code>
               </div>
             ))}

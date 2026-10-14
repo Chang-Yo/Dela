@@ -24,8 +24,8 @@ export function SegmentedControl<T extends string>({
         className="absolute inset-y-0.5 rounded-full bg-surface shadow-hairline
           transition-transform duration-200"
         style={{
-          width: `calc((100% - 4px) / ${options.length})`,
-          left: 2,
+          width: `calc((100% - 0.25rem) / ${options.length})`,
+          left: '0.125rem',
           transform: `translateX(${index * 100}%)`,
           transitionTimingFunction: "cubic-bezier(0.23, 1, 0.32, 1)",
         }}
@@ -38,7 +38,7 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(opt)}
           // Dela 适配：分段控件现在也用在表单里（邮箱连接），无 type 会默认提交表单。
           type="button"
-          className={`relative z-10 rounded-full px-3 text-[13px] font-medium
+          className={`relative z-10 rounded-full px-3 text-13 font-medium
             transition-colors duration-150
             ${opt === value ? "text-ink" : "text-ink-3 hover:text-ink-2"}`}
         >

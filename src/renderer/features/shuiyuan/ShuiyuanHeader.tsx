@@ -79,7 +79,7 @@ export function ShuiyuanHeader() {
     >
       <Icon className="size-4" strokeWidth={1.8} />
       {count && count > 0 ? (
-        <span className="absolute -right-1.5 -top-1 rounded-full bg-ink px-1 text-[11px] font-medium leading-4 tabular-nums text-surface">
+        <span className="absolute -right-1.5 -top-1 rounded-full bg-ink px-1 text-2xs font-medium leading-4 tabular-nums text-surface">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -123,7 +123,7 @@ export function ShuiyuanHeader() {
               />
               <Input
                 aria-label="搜索水源"
-                className="h-8 pl-8 text-[12px]"
+                className="h-8 pl-8 text-xs"
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="搜索帖子"
                 type="search"
@@ -142,7 +142,7 @@ export function ShuiyuanHeader() {
             <button
               aria-pressed={feedKind === 'latest'}
               className={cn(
-                'h-7 rounded-control px-3 text-[12px] font-medium transition-all',
+                'h-7 rounded-control px-3 text-xs font-medium transition-all',
                 feedKind === 'latest'
                   ? 'bg-surface text-ink shadow-hairline'
                   : 'text-ink-3 hover:text-ink',
@@ -155,7 +155,7 @@ export function ShuiyuanHeader() {
             <button
               aria-pressed={feedKind === 'featured'}
               className={cn(
-                'h-7 rounded-control px-3 text-[12px] font-medium transition-all',
+                'h-7 rounded-control px-3 text-xs font-medium transition-all',
                 feedKind === 'featured'
                   ? 'bg-surface text-ink shadow-hairline'
                   : 'text-ink-3 hover:text-ink',
@@ -178,7 +178,7 @@ export function ShuiyuanHeader() {
             }}
             value={categoryValue}
           >
-            <SelectTrigger aria-label="类别" className="h-8 w-28 text-[12px]">
+            <SelectTrigger aria-label="类别" className="h-8 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -201,7 +201,7 @@ export function ShuiyuanHeader() {
             }}
             value={tagValue}
           >
-            <SelectTrigger aria-label="标签" className="h-8 w-28 text-[12px]">
+            <SelectTrigger aria-label="标签" className="h-8 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -1,5 +1,5 @@
 import type {
-  FontScalePreference,
+  ExperimentKey,
   IconPreference,
   KeybindingOverrides,
   SettingsApi,
@@ -11,20 +11,17 @@ import type {
 import { invoke } from './lib';
 
 export const settings = {
-  getExperimentalFeatures: () => invoke('settings:get-experimental-features'),
-  setExperimentalFeatures: (enabled: boolean) =>
-    invoke('settings:set-experimental-features', enabled),
-  getExperimentalClassroom: () => invoke('settings:get-experimental-classroom'),
-  setExperimentalClassroom: (enabled: boolean) =>
-    invoke('settings:set-experimental-classroom', enabled),
+  getExperiments: () => invoke('settings:get-experiments'),
+  setExperiment: (key: ExperimentKey, enabled: boolean) =>
+    invoke('settings:set-experiment', key, enabled),
   getTheme: () => invoke('settings:get-theme'),
   setTheme: (theme: ThemePreference) => invoke('settings:set-theme', theme),
   getIcon: () => invoke('settings:get-icon'),
   setIcon: (icon: IconPreference) => invoke('settings:set-icon', icon),
   getZoom: () => invoke('settings:get-zoom'),
   setZoom: (zoom: ZoomPreference) => invoke('settings:set-zoom', zoom),
-  getFontScale: () => invoke('settings:get-font-scale'),
-  setFontScale: (scale: FontScalePreference) => invoke('settings:set-font-scale', scale),
+  getFontSize: () => invoke('settings:get-font-size'),
+  setFontSize: (size: number) => invoke('settings:set-font-size', size),
   getOpenAtLogin: () => invoke('settings:get-open-at-login'),
   setOpenAtLogin: (enabled: boolean) => invoke('settings:set-open-at-login', enabled),
   getCampusNotifications: () => invoke('settings:get-campus-notifications'),

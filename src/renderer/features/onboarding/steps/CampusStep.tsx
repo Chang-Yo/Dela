@@ -35,12 +35,12 @@ export function CampusStep({ onDone }: { onDone: () => void }) {
     <div className="grid gap-7">
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">连接教学信息服务网</h2>
-        <p className="text-[13px] leading-relaxed text-ink-3">
+        <p className="text-13 leading-relaxed text-ink-3">
           登录在独立窗口完成，Dela 只读取你的个人课表。
         </p>
       </header>
       {error && (
-        <p className="text-[13px] [overflow-wrap:anywhere] text-red-600" role="alert">
+        <p className="text-13 [overflow-wrap:anywhere] text-red-600" role="alert">
           {error}
         </p>
       )}

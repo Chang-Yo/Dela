@@ -48,7 +48,7 @@ function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
       <button
         aria-label={post.liked ? '已喜爱（取消需到水源网页端）' : '喜爱'}
         className={cn(
-          'flex h-7 items-center gap-1 rounded-control px-1.5 text-[12px] tabular-nums transition-colors hover:bg-hover',
+          'flex h-7 items-center gap-1 rounded-control px-1.5 text-xs tabular-nums transition-colors hover:bg-hover',
           post.liked ? 'cursor-default text-red' : 'text-ink-3 hover:text-ink',
         )}
         disabled={post.liked}
@@ -73,7 +73,7 @@ function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
         <Quote className="size-3.5" strokeWidth={1.8} />
       </button>
       <button
-        className="flex h-7 items-center gap-1.5 rounded-control px-2 text-[12px] text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+        className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
         onClick={() => onReply(post)}
         type="button"
       >
@@ -101,7 +101,7 @@ export function TopicReaderHeader() {
       <Button aria-label="返回信息流" onClick={closeReading} size="icon-sm" variant="ghost">
         <ArrowLeft className="size-4" strokeWidth={1.8} />
       </Button>
-      <h1 className="min-w-0 flex-1 truncate text-[13px] font-medium leading-tight">
+      <h1 className="min-w-0 flex-1 truncate text-13 font-medium leading-tight">
         {detail ? <ShuiyuanTitle text={detail.title} /> : '正在加载…'}
       </h1>
       {detail && !isPM ? (
@@ -166,7 +166,7 @@ function PostAvatar({ post }: { post: ShuiyuanPost }) {
   return (
     <span
       aria-hidden="true"
-      className="grid size-10 shrink-0 place-items-center rounded-full bg-inset text-[12px] font-medium text-ink-3 max-md:size-8"
+      className="grid size-10 shrink-0 place-items-center rounded-full bg-inset text-xs font-medium text-ink-3 max-md:size-8"
     >
       {post.username.trim().charAt(0).toUpperCase() || '…'}
     </span>
@@ -296,14 +296,14 @@ export function TopicReader() {
         <div className="mx-auto w-full max-w-2xl px-5 py-5 max-md:px-4">
           {reading?.error ? (
             <div
-              className="rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
+              className="rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
               role="alert"
             >
               {reading.error}
             </div>
           ) : null}
           {!detail && !reading?.error ? (
-            <p className="py-8 text-center text-[13px] text-ink-3">正在加载帖子…</p>
+            <p className="py-8 text-center text-13 text-ink-3">正在加载帖子…</p>
           ) : null}
           {detail ? (
             // 话题标题区：正文列同宽，分类/标签/统计一行弱化呈现（Discourse 式）。
@@ -311,7 +311,7 @@ export function TopicReader() {
               <h2 className="text-xl font-semibold leading-snug tracking-tight">
                 <ShuiyuanTitle text={detail.title} />
               </h2>
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-ink-3">
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-3">
                 {isPM ? (
                   <span className="flex items-center gap-1">
                     <Mail aria-hidden="true" className="size-3" strokeWidth={1.8} />
@@ -324,7 +324,7 @@ export function TopicReader() {
                   <span className="flex items-center gap-1.5" key={tag}>
                     <span
                       aria-hidden="true"
-                      className="size-2.5 shrink-0 rounded-[2px]"
+                      className="size-2.5 shrink-0 rounded-[0.125rem]"
                       style={{ backgroundColor: tagColor(tag) }}
                     />
                     {tag}
@@ -354,18 +354,18 @@ export function TopicReader() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     {/* 用户名压小加粗成「标签」，与 15px 常规正文的 iframe 内容拉开层级。 */}
-                    <span className="min-w-0 shrink truncate text-[12px] font-semibold">
+                    <span className="min-w-0 shrink truncate text-xs font-semibold">
                       {post.username}
                     </span>
                     {post.yours ? (
-                      <span className="shrink-0 rounded bg-inset px-1.5 py-px text-[11px] text-ink-3">
+                      <span className="shrink-0 rounded bg-inset px-1.5 py-px text-2xs text-ink-3">
                         你
                       </span>
                     ) : null}
                     {post.replyToPostNumber ? (
                       <button
                         aria-label={`跳到第 ${post.replyToPostNumber} 楼`}
-                        className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[12px] text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+                        className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
                         onClick={() => jumpToPost(post.replyToPostNumber!)}
                         title={
                           repliedTo
@@ -380,7 +380,7 @@ export function TopicReader() {
                         </span>
                       </button>
                     ) : null}
-                    <span className="ml-auto shrink-0 text-[12px] tabular-nums text-ink-3">
+                    <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-3">
                       第 {post.postNumber} 楼 · {formatListDate(post.createdAt)}
                     </span>
                   </div>
@@ -409,13 +409,11 @@ export function TopicReader() {
           })}
           {detail && hasMorePosts ? (
             <div className="grid h-10 place-items-center" ref={sentinelRef}>
-              {loadingMore ? <span className="text-[12px] text-ink-3">正在加载楼层…</span> : null}
+              {loadingMore ? <span className="text-xs text-ink-3">正在加载楼层…</span> : null}
             </div>
           ) : null}
           {detail && !hasMorePosts && detail.posts.length > 1 ? (
-            <p className="py-4 text-center text-[12px] text-ink-3">
-              已读到末尾 · 共 {totalCount} 楼
-            </p>
+            <p className="py-4 text-center text-xs text-ink-3">已读到末尾 · 共 {totalCount} 楼</p>
           ) : null}
         </div>
       </div>

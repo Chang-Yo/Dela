@@ -38,7 +38,7 @@ function TooltipContent({
       <TooltipPrimitive.Content
         className={cn(
           // beautiful-ui tooltip token：深底浅字，统一 pop-in 动效。
-          'z-50 w-fit max-w-80 rounded-control bg-(--tooltip-bg) px-2 py-1 text-[12px] font-medium text-(--tooltip-fg) shadow-[0_0_0_1px_var(--tooltip-border)] animate-[pop-in_160ms_var(--ease-out-strong)_both]',
+          'z-50 w-fit max-w-80 rounded-control bg-(--tooltip-bg) px-2 py-1 text-xs font-medium text-(--tooltip-fg) shadow-[0_0_0_1px_var(--tooltip-border)] animate-[pop-in_160ms_var(--ease-out-strong)_both]',
           className,
         )}
         data-slot="tooltip-content"

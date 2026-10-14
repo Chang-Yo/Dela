@@ -118,14 +118,15 @@ export type {
   ThemePreference,
   IconPreference,
   ZoomPreference,
-  FontScalePreference,
+  ExperimentKey,
+  ExperimentState,
   TaskNotificationPrefs,
   NoteEditModePreference,
   WorkspacePrefs,
   SettingsApi,
   SettingsSectionId,
 } from './settings';
-export { zoomLevels, fontScaleLevels } from './settings';
+export { zoomLevels, fontSizeMin, fontSizeMax, fontSizeDefault } from './settings';
 
 export type {
   KeybindingMap,

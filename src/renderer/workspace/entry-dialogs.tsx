@@ -205,7 +205,7 @@ export function EntryDialogs({
           <Dialog.Title className="text-base font-semibold">
             {request ? (titles[request.action] ?? '') : ''}
           </Dialog.Title>
-          <Dialog.Description className="mt-2 text-[12px] text-ink-3">
+          <Dialog.Description className="mt-2 text-xs text-ink-3">
             {request?.action === 'connect'
               ? '使用个人 Access Token，凭据加密保存在本机。'
               : request?.action === 'remove'
@@ -226,7 +226,7 @@ export function EntryDialogs({
           </Dialog.Description>
           <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
             {(request?.action === 'link' || request?.action === 'move') && (
-              <div className="grid gap-2 text-[13px]">
+              <div className="grid gap-2 text-13">
                 位置
                 <Select
                   onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
@@ -257,7 +257,7 @@ export function EntryDialogs({
             {request &&
               !['move', 'remove'].includes(request.action) &&
               (request.action !== 'link' || target === '__new__') && (
-                <label className="grid gap-2 text-[13px]">
+                <label className="grid gap-2 text-13">
                   {request.action === 'connect' ? 'Access Token' : '名称'}
                   <Input
                     autoFocus
@@ -272,7 +272,7 @@ export function EntryDialogs({
               )}
             {request?.action === 'project' && (
               <div className="grid gap-2">
-                <div aria-hidden="true" className="flex items-center gap-3 text-[12px]">
+                <div aria-hidden="true" className="flex items-center gap-3 text-xs">
                   <span className="h-px flex-1 bg-border" />
                   <span className="text-ink-3">或</span>
                   <span className="h-px flex-1 bg-border" />
@@ -298,7 +298,7 @@ export function EntryDialogs({
               </div>
             )}
             {modalError && (
-              <p role="alert" className="text-[12px] [overflow-wrap:anywhere] text-red">
+              <p role="alert" className="text-xs [overflow-wrap:anywhere] text-red">
                 {modalError}
               </p>
             )}

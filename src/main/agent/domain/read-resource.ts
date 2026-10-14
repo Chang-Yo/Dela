@@ -8,6 +8,7 @@ import {
 } from '../../documents/parse';
 import { withResourceFile } from '../../resources';
 import { readShuiyuanSource } from '../../shuiyuan/api';
+import { assertShuiyuanEnabled } from '../../settings/prefs';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
 import { readWorkspaceEntry } from '../../workspace/api';
 import { freshness, offset, tool, toolError } from './shared';
@@ -244,6 +245,7 @@ export const readResourceTool = tool(
         case 'mail':
           return await readMailRef(ref, offset, limit);
         case 'shuiyuan-topic':
+          assertShuiyuanEnabled();
           return await readShuiyuanRef(ref, offset, limit);
         case 'attachment':
           return await readAttachmentRef(ref, offset, limit);

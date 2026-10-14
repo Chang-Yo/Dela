@@ -40,7 +40,7 @@ export function StepButton({
   return (
     <button
       className={cn(
-        'grid h-10 w-full place-items-center rounded-card text-[13px] font-medium text-surface transition-all',
+        'grid h-10 w-full place-items-center rounded-card text-13 font-medium text-surface transition-all',
         state === 'success'
           ? 'bg-[var(--onboarding-accent)] hover:opacity-90'
           : 'bg-ink hover:opacity-90',
@@ -60,7 +60,7 @@ export function StepButton({
 }
 
 const fieldClasses =
-  'w-full rounded-card bg-field text-[13px] text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 hover:shadow-[0_0_0_1px_var(--line-strong)] focus:bg-surface focus:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)] aria-invalid:shadow-[0_0_0_1px_var(--red)]';
+  'w-full rounded-card bg-field text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 hover:shadow-[0_0_0_1px_var(--line-strong)] focus:bg-surface focus:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)] aria-invalid:shadow-[0_0_0_1px_var(--red)]';
 
 export function StepInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
@@ -81,7 +81,7 @@ export function StepSelect({
     <Select {...rest}>
       <SelectTrigger
         aria-label={label}
-        className="w-full rounded-card text-[13px] data-[placeholder]:text-ink-3"
+        className="w-full rounded-card text-13 data-[placeholder]:text-ink-3"
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
@@ -94,7 +94,7 @@ export function StepSelect({
 export function StepTextarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={cn(fieldClasses, 'min-h-24 resize-y px-3 py-2 font-mono text-[12px]', className)}
+      className={cn(fieldClasses, 'min-h-24 resize-y px-3 py-2 font-mono text-xs', className)}
       {...rest}
     />
   );

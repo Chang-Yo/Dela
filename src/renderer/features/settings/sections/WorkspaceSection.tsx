@@ -110,7 +110,7 @@ export function WorkspaceSection() {
     <div className="grid gap-10">
       <SectionHeader title="工作区" />
       {error && (
-        <p className="text-[12px] text-red" role="alert">
+        <p className="text-xs text-red" role="alert">
           {error}
         </p>
       )}
@@ -122,7 +122,7 @@ export function WorkspaceSection() {
           title="工作目录"
         >
           <div className="flex items-center justify-end gap-3">
-            <span className="truncate text-[12px] text-ink-3" title={directory || undefined}>
+            <span className="truncate text-xs text-ink-3" title={directory || undefined}>
               {directory || '未选择'}
             </span>
             <Button onClick={chooseDirectory} size="sm" variant="secondary">
@@ -206,7 +206,7 @@ export function WorkspaceSection() {
             <div className="grid content-start gap-2">
               {hiddenProjects.map((project) => (
                 <div className="flex items-center gap-3" key={project.id}>
-                  <span className="min-w-0 flex-1 truncate text-[13px]">{project.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-13">{project.name}</span>
                   <Button
                     onClick={() => setProject(project.id, { hidden: false })}
                     size="sm"

@@ -13,7 +13,7 @@ export function IconButton({
     <button
       type="button"
       className={cn(
-        `flex size-7 shrink-0 items-center justify-center rounded-[8px] text-ink-3
+        `flex size-7 shrink-0 items-center justify-center rounded-control text-ink-3
          transition-[background-color,color,transform] duration-150
          hover:bg-hover hover:text-ink active:scale-[0.94]
          disabled:pointer-events-none disabled:opacity-50

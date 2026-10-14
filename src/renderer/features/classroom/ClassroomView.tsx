@@ -1,8 +1,7 @@
-// 课堂视频页：试验开关 → 登录 → 可折叠课程侧栏 + 播放器 两栏（无页头，
+// 课堂视频页：登录 → 可折叠课程侧栏 + 播放器 两栏（无页头，
 // 侧栏对齐资料面板：inset 底、紧凑头、eyebrow 小节标签、可拖宽度）。
 import { useEffect, useState } from 'react';
 import { KeyRound, Loader2, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
-import { useNavigationStore } from '../../navigation/view';
 import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
@@ -10,6 +9,7 @@ import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Resizer } from '../../components/ui/resizer';
 import { useViewportWidth } from '../../workbench/explorer-state';
 import { cn } from '../../lib/utils';
+import { useExperimental, useExperimentEnabled } from '../settings/experimental';
 import { CourseList } from './CourseList';
 import { DownloadsPanel } from './DownloadsPanel';
 import { Player } from './Player';
@@ -41,6 +41,8 @@ function DesktopClassroomView() {
   const refresh = useClassroom((state) => state.refresh);
   const connect = useClassroom((state) => state.connect);
   const connectBusy = useClassroom((state) => state.connectBusy);
+  // 观看是常规功能；下载面板与下载按钮只在试验子项「课堂视频下载」开启时出现。
+  const downloadEnabled = useExperimentEnabled('videoDownload');
 
   const [width, setWidth] = useState(() => {
     const stored = Number(localStorage.getItem(widthStorageKey));
@@ -56,6 +58,7 @@ function DesktopClassroomView() {
 
   useEffect(() => {
     void init();
+    void useExperimental.getState().load();
   }, [init]);
 
   // 宽度偏好防抖落盘；渲染宽度对窄视口钳制（与资料侧栏同款）。
@@ -87,11 +90,10 @@ function DesktopClassroomView() {
   return (
     <div className="flex h-full min-h-0 bg-surface">
       {phase === 'loading' && (
-        <div className="grid h-full flex-1 place-items-center text-[13px] text-ink-3">
+        <div className="grid h-full flex-1 place-items-center text-13 text-ink-3">
           正在连接交大视频…
         </div>
       )}
-      {phase === 'experimental' && <ExperimentalCard />}
       {phase === 'connect' && <ConnectCard />}
       {phase === 'ready' && (
         <>
@@ -119,7 +121,7 @@ function DesktopClassroomView() {
                   label="课程列表"
                   onToggle={toggleSidebar}
                 />
-                <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink-2">
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink-2">
                   课堂视频
                 </span>
                 <div className="flex shrink-0 items-center gap-0.5">
@@ -145,7 +147,7 @@ function DesktopClassroomView() {
                       <KeyRound className="size-4" />
                     )}
                   </Button>
-                  <DownloadsPanel />
+                  {downloadEnabled && <DownloadsPanel />}
                   <Button
                     aria-label="刷新课程"
                     className="hover:bg-hover-2"
@@ -160,7 +162,7 @@ function DesktopClassroomView() {
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto" id="classroom-courses">
-                <div className="px-3 pb-1 pt-3 text-[11px] font-medium tracking-wider text-ink-3/70">
+                <div className="px-3 pb-1 pt-3 text-2xs font-medium tracking-wider text-ink-3/70">
                   课程{courses.length > 0 ? ` · 本学期 ${courses.length} 门` : ''}
                 </div>
                 <CourseList />
@@ -207,10 +209,10 @@ function PlayerSection({
             <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
           </div>
         )}
-        <div className="flex flex-col items-center gap-2 text-[13px] text-ink-3">
+        <div className="flex flex-col items-center gap-2 text-13 text-ink-3">
           <MonitorPlay aria-hidden className="size-7 opacity-45" />
           <p>从左侧选择一场录像开始观看</p>
-          <p className="text-[12px] text-ink-3/80">支持跳转、拖拽进度、音量与倍速，也可下载</p>
+          <p className="text-xs text-ink-3/80">支持跳转、拖拽进度、音量与倍速，也可下载</p>
         </div>
       </section>
     );
@@ -228,35 +230,6 @@ function PlayerSection({
   );
 }
 
-function ExperimentalCard() {
-  const off = useClassroom((state) => state.experimentalOff);
-  return (
-    <div className="grid flex-1 place-items-center p-6">
-      <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-card border border-line bg-surface p-6 shadow-hairline">
-        <div className="grid size-10 place-items-center rounded-card bg-hover-2">
-          <MonitorPlay className="size-5" />
-        </div>
-        <div className="grid gap-1">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {off === 'master' ? '课堂视频是试验功能' : '课堂视频未开启'}
-          </h2>
-          <p className="text-[13px] leading-relaxed text-ink-3">
-            {off === 'master'
-              ? '在 设置 → 通用 中开启「试验功能」后，可在线观看交大课堂录像并下载。'
-              : '在 设置 → 通用 的「试验功能」中开启「课堂视频」子项。'}
-          </p>
-        </div>
-        <Button
-          onClick={() => void useNavigationStore.getState().openSettings('general')}
-          size="sm"
-        >
-          去开启
-        </Button>
-      </section>
-    </div>
-  );
-}
-
 function ConnectCard() {
   const connectHint = useClassroom((state) => state.connectHint);
   const connectBusy = useClassroom((state) => state.connectBusy);
@@ -264,17 +237,17 @@ function ConnectCard() {
 
   return (
     <div className="grid flex-1 place-items-center p-6">
-      <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-card border border-line bg-surface p-6 shadow-hairline">
+      <section className="grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6 shadow-hairline">
         <div className="grid size-10 place-items-center rounded-card bg-hover-2">
           <MonitorPlay className="size-5" />
         </div>
         <div className="grid gap-1">
           <h2 className="text-lg font-semibold tracking-tight">登录交大视频</h2>
-          <p className="text-[13px] leading-relaxed text-ink-3">
+          <p className="text-13 leading-relaxed text-ink-3">
             登录后读取本学期课程与课堂录像。登录在官方窗口完成，校园会话与课表共用。
           </p>
         </div>
-        {connectHint ? <p className="break-words text-[12px] text-red">{connectHint}</p> : null}
+        {connectHint ? <p className="break-words text-xs text-red">{connectHint}</p> : null}
         <Button disabled={connectBusy} onClick={() => void connect()}>
           <LogIn className="size-4" />
           {connectBusy ? '等待登录…' : '登录'}
