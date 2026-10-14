@@ -177,6 +177,7 @@ preload 暴露的 API：
 - 窗口图标显式解码为 `NativeImage`；EXE 内嵌图标与应用内两张品牌 PNG 是不同资源。启动冒烟检查两张 PNG 均可从打包路径解码。本机已安装 1.0.2 的 EXE 图标与 PNG 完整，任务栏／窗口图标异常尚未复现，不能据此宣称已修复 Windows 图标缓存问题。
 - 推迟标记仍为 workspace_settings 的 `pending-install`。下次启动 5 秒后检查并复用下载缓存，准备到 ready 后再次提示，绝不自动安装。安装器启动失败提供手动下载安装包入口。
 - 尚未配置 Authenticode 签名。SHA-512 只验证文件与元数据一致，不能替代发布者签名。下载源固定为 HTTPS，不随意关闭签名验证；未来启用签名时需保持发布者身份连续。
+- 更新后首次启动的「更新内容」弹窗（`renderer/features/release-notes/`）：构建时以 `?raw` 内联 `CHANGELOG.md`，只取已发布版本的 `### 亮点` 小节；localStorage `dela.release-notes.last-seen` 记录已看过的版本，跨版本升级合并显示区间内各版本。首次安装只记录不弹，冒烟模式、没写亮点的版本不弹。亮点的写法约束见 AGENTS.md。
 - 旧 NSIS 版本没有此更新客户端，需手动覆盖安装一次新版本；现有 appId `io.dela.desktop` 保持不变。
 - **已验证（2026-10-13，本机）**：生产构建、lint、更新相关 102 个测试、Electron 与打包后启动冒烟；NSIS 1.0.1 的安装包、blockmap、latest.yml 与包内 app-update.yml 已生成。打包只包含 main / preload / renderer 三个入口产物，避免收进迁移前遗留的 out/native。
 - **待验证**：线上 CDN latest.yml、Range / 差分流量、两版真实安装后的覆盖升级、UAC 与重启。本次按产品决定推迟线上 Range 验证；不能把单元测试或打包启动视为端到端升级通过。
