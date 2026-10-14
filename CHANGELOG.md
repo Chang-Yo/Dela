@@ -14,6 +14,14 @@ Dela 的重要变更都记在这里。
 
 ## Unreleased
 
+### Changed
+
+- 整理仓库结构：校园会话从 `timetable/` 移到主进程根级 `campus.ts`；工作台装配与目录从 `app/` 移入 `workbench/`，视图路由移入 `navigation/view.ts`，笔记草稿移入 `content/note/`；主进程测试统一放进各域 `test/`；设置页接口说明并入开发文档；两个 TS 冒烟启动脚本合并为 `scripts/run-ts-smoke.mjs`。
+
+### Removed
+
+- 删除 beautifului 中未被引用的 27 个组件及其专属样式（约 8000 行），未接线的 `editWorkspaceNote`，孤立的邮件与校园会话冒烟脚本；合并只有一个调用方的抽象（添加到项目对话框、更新状态的三个小模块、`AppShell/` 目录），并收窄仅内部使用的导出。
+
 ## 1.0.3 - 2026-10-13
 
 ### Added
