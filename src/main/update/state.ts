@@ -13,7 +13,7 @@ export type UpdateEvent =
   | { type: 'check/up-to-date'; checkedAt: string }
   | { type: 'check/failed'; reason: UpdateReason; detail?: string | null }
   | { type: 'download/started' }
-  | { type: 'download/progress'; progress: number; bytesPerSecond?: number }
+  | { type: 'download/progress'; progress: number; transferred?: number; total?: number }
   | { type: 'download/finished' }
   | { type: 'download/failed'; reason: UpdateReason; detail?: string | null }
   | { type: 'install/started' }
@@ -34,7 +34,8 @@ export function initialUpdateState(input: { currentVersion: string }): UpdateSna
     currentVersion: input.currentVersion,
     version: null,
     progress: 0,
-    bytesPerSecond: null,
+    transferred: 0,
+    total: null,
     checkedAt: null,
     reason: null,
     detail: null,
@@ -113,7 +114,8 @@ export function reduceUpdate(state: UpdateSnapshot, event: UpdateEvent): UpdateS
         ...state,
         phase: 'downloading',
         progress: 0,
-        bytesPerSecond: null,
+        transferred: 0,
+        total: null,
         reason: null,
         detail: null,
         failedAt: null,
@@ -123,16 +125,20 @@ export function reduceUpdate(state: UpdateSnapshot, event: UpdateEvent): UpdateS
     case 'download/progress': {
       if (state.phase !== 'downloading') return state;
       if (!Number.isFinite(event.progress)) return state;
-      const progress = Math.max(state.progress, Math.min(1, Math.max(0, event.progress)));
-      const bytesPerSecond =
-        event.bytesPerSecond === undefined
-          ? state.bytesPerSecond
-          : Number.isFinite(event.bytesPerSecond) && event.bytesPerSecond >= 0
-            ? event.bytesPerSecond
-            : null;
-      // 差分失败转全量下载可能重新计数，避免进度条回退。
-      if (progress === state.progress && bytesPerSecond === state.bytesPerSecond) return state;
-      return { ...state, progress, bytesPerSecond };
+      const progress = Math.min(1, Math.max(0, event.progress));
+      const transferred =
+        event.transferred !== undefined &&
+        Number.isFinite(event.transferred) &&
+        event.transferred >= 0
+          ? event.transferred
+          : state.transferred;
+      const total =
+        event.total !== undefined && Number.isFinite(event.total) && event.total > 0
+          ? event.total
+          : state.total;
+      if (progress === state.progress && transferred === state.transferred && total === state.total)
+        return state;
+      return { ...state, progress, transferred, total };
     }
 
     case 'download/finished': {
@@ -141,7 +147,6 @@ export function reduceUpdate(state: UpdateSnapshot, event: UpdateEvent): UpdateS
         ...state,
         phase: 'ready',
         progress: 1,
-        bytesPerSecond: null,
         reason: null,
         detail: null,
         failedAt: null,
@@ -154,7 +159,8 @@ export function reduceUpdate(state: UpdateSnapshot, event: UpdateEvent): UpdateS
         ...state,
         phase: 'error',
         progress: 0,
-        bytesPerSecond: null,
+        transferred: 0,
+        total: null,
         reason: event.reason,
         detail: event.detail ?? null,
         failedAt: 'download',

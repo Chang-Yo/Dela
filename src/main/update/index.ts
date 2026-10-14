@@ -59,8 +59,11 @@ function configureUpdater(): void {
   autoUpdater.allowPrerelease = false;
   autoUpdater.channel = 'latest';
   autoUpdater.allowDowngrade = false;
-  autoUpdater.on('download-progress', ({ percent, bytesPerSecond }) => {
-    dispatch({ type: 'download/progress', progress: percent / 100, bytesPerSecond });
+  autoUpdater.on('download-progress', ({ percent, transferred, total }) => {
+    dispatch({ type: 'download/progress', progress: percent / 100, transferred, total });
+  });
+  autoUpdater.on('update-downloaded', ({ version }) => {
+    if (currentState().version === version) dispatch({ type: 'download/finished' });
   });
   autoUpdater.on('error', (error) => {
     // check/download 的 Promise 处理失败；安装器启动后只能通过事件报告错误。

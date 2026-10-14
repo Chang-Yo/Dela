@@ -4,11 +4,8 @@ import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { useUpdateState, runUpdateAction, updateView } from './update';
 
-function downloadSpeed(bytes: number | null): string {
-  if (bytes === null) return '计算中…';
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB/s`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB/s`;
-  return `${Math.round(bytes)} B/s`;
+function downloadSize(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} M`;
 }
 
 /**
@@ -41,24 +38,25 @@ export function UpdateControl() {
       >
         {view.progress !== null ? (
           <div className="flex items-center gap-2 text-xs tabular-nums text-ink-3">
-            <span className="w-20 shrink-0 whitespace-nowrap">
-              {downloadSpeed(state.bytesPerSecond)}
+            <span className="min-w-32 shrink-0 whitespace-nowrap">
+              {downloadSize(state.transferred)} /{' '}
+              {state.total === null ? '—' : downloadSize(state.total)}
             </span>
             <div
               aria-label="更新下载进度"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={Math.round(view.progress * 100)}
-              className="h-1 w-40 overflow-hidden rounded-full bg-line"
+              aria-valuenow={Math.floor(view.progress * 100)}
+              className="h-1 w-16 overflow-hidden rounded-full bg-line md:w-40"
               role="progressbar"
             >
               <div
                 className="h-full rounded-full bg-ink-2 transition-[width] duration-300 ease-out"
-                style={{ width: `${Math.round(view.progress * 100)}%` }}
+                style={{ width: `${Math.floor(view.progress * 100)}%` }}
               />
             </div>
             <span aria-hidden="true" className="w-10 shrink-0 text-right">
-              {Math.round(view.progress * 100)}%
+              {Math.floor(view.progress * 100)}%
             </span>
           </div>
         ) : null}

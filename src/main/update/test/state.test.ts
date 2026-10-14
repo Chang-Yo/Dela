@@ -14,20 +14,23 @@ const run = (state: UpdateSnapshot, events: UpdateEvent[]) => events.reduce(redu
 const reachedAvailable = (version = '1.0.1') =>
   run(base(), [{ type: 'check/started' }, { type: 'check/available', version, checkedAt: at }]);
 
-it('进度停滞或差分回退时仍更新速度，重试与完成清空旧速度', () => {
+it('差分回退时进度与传输量同步重置，重试清空旧传输量', () => {
   const first = run(reachedAvailable(), [
     { type: 'download/started' },
-    { type: 'download/progress', progress: 0.6, bytesPerSecond: 2048 },
+    { type: 'download/progress', progress: 0.6, transferred: 60, total: 100 },
   ]);
   const slower = reduceUpdate(first, {
     type: 'download/progress',
     progress: 0.2,
-    bytesPerSecond: 512,
+    transferred: 40,
+    total: 200,
   });
-  expect(slower).toMatchObject({ progress: 0.6, bytesPerSecond: 512 });
-  expect(reduceUpdate(slower, { type: 'download/finished' }).bytesPerSecond).toBeNull();
+  expect(slower).toMatchObject({ progress: 0.2, transferred: 40, total: 200 });
   const failed = reduceUpdate(slower, { type: 'download/failed', reason: 'failed' });
-  expect(reduceUpdate(failed, { type: 'download/started' }).bytesPerSecond).toBeNull();
+  expect(reduceUpdate(failed, { type: 'download/started' })).toMatchObject({
+    transferred: 0,
+    total: null,
+  });
 });
 
 describe('initialUpdateState', () => {
@@ -37,7 +40,8 @@ describe('initialUpdateState', () => {
       currentVersion: '1.0.0',
       version: null,
       progress: 0,
-      bytesPerSecond: null,
+      transferred: 0,
+      total: null,
       checkedAt: null,
       reason: null,
       detail: null,
@@ -128,7 +132,7 @@ describe('下载', () => {
     expect(reduceUpdate(upToDate, { type: 'download/started' })).toBe(upToDate);
   });
 
-  it('下载进度单调不回退，并夹在 0..1', () => {
+  it('下载进度夹在 0..1，达到 100% 不等于已准备好安装', () => {
     const state = run(reachedAvailable(), [
       { type: 'download/started' },
       { type: 'download/progress', progress: 0.6 },

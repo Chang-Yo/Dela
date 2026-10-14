@@ -31,8 +31,10 @@ export interface UpdateSnapshot {
   version: string | null;
   /** 下载进度 0..1；只有 downloading 阶段有意义。 */
   progress: number;
-  /** 更新器上报的下载字节数/秒；尚未收到进度时为 null。 */
-  bytesPerSecond: number | null;
+  /** 本次传输已下载的字节数；差分下载时是差分传输量。 */
+  transferred: number;
+  /** 本次传输总字节数；收到进度事件前未知。 */
+  total: number | null;
   /** 最近一次检查完成的时刻（ISO）；从未成功检查为 null。 */
   checkedAt: string | null;
   /** 失败或不可用原因；其余阶段为 null。 */

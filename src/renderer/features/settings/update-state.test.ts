@@ -12,7 +12,8 @@ const base: UpdateSnapshot = {
   currentVersion: '1.0.0',
   version: null,
   progress: 0,
-  bytesPerSecond: null,
+  transferred: 0,
+  total: null,
   checkedAt: null,
   reason: null,
   detail: null,
@@ -75,6 +76,35 @@ describe('useUpdateState', () => {
     await vi.waitFor(() => expect(store.getState().snapshot).toEqual(base));
     expect(listeners).toHaveLength(1);
     expect(getState).toHaveBeenCalledTimes(1);
+  });
+
+  it('迟到的初始下载快照不能覆盖已经推送的 ready 状态', async () => {
+    let resolve!: (snapshot: UpdateSnapshot) => void;
+    mountApi(
+      () =>
+        new Promise<UpdateSnapshot>((done) => {
+          resolve = done;
+        }),
+    );
+    const store = await load();
+    store.getState().attach();
+    const ready: UpdateSnapshot = { ...available, phase: 'ready', progress: 1 };
+    listeners[0]?.(ready);
+    resolve({ ...available, phase: 'downloading', progress: 1 });
+    await Promise.resolve();
+    expect(store.getState().snapshot).toEqual(ready);
+  });
+
+  it('漏掉 ready 广播时使用下载回执补齐，随后能显示安装入口', async () => {
+    const { useUpdateState, runUpdateAction } = await import('./update');
+    const ready: UpdateSnapshot = { ...available, phase: 'ready', progress: 1 };
+    window.dela!.update.download = async () => ready;
+    useUpdateState.setState({ snapshot: { ...available, phase: 'downloading', progress: 1 } });
+    expect(await runUpdateAction('download')).toBe(true);
+    expect(useUpdateState.getState().snapshot).toEqual(ready);
+    useUpdateState.setState({ snapshot: { ...ready, phase: 'installing' } });
+    await runUpdateAction('download');
+    expect(useUpdateState.getState().snapshot?.phase).toBe('installing');
   });
 
   it('安装器重启后只提示一次实际运行版本', async () => {

@@ -107,9 +107,9 @@ it('下载进度、失败重试与缓存命中均由同一状态流程处理', a
   const operation = pending();
   mocks.downloadUpdate.mockReturnValueOnce(operation.promise);
   const downloading = invoke('download');
-  mocks.listeners.get('download-progress')!({ percent: 42, bytesPerSecond: 2048 });
+  mocks.listeners.get('download-progress')!({ percent: 42, transferred: 42, total: 100 });
   expect((await invoke('get-state')).progress).toBe(0.42);
-  expect((await invoke('get-state')).bytesPerSecond).toBe(2048);
+  expect(await invoke('get-state')).toMatchObject({ transferred: 42, total: 100 });
   operation.resolve(['cached-installer.exe']);
   expect((await downloading).phase).toBe('ready');
   expect(mocks.quitAndInstall).not.toHaveBeenCalled();
@@ -125,6 +125,21 @@ it('更新文件校验失败不会进入待安装，允许重新下载', async (
   expect(await invoke('install')).toEqual(failed);
   expect((await invoke('download')).phase).toBe('ready');
   expect(mocks.quitAndInstall).not.toHaveBeenCalled();
+});
+
+it('100% 不直接允许安装，正式完成事件在 Promise 收尾前就能进入 ready', async () => {
+  await invoke('check');
+  const operation = pending();
+  mocks.downloadUpdate.mockReturnValueOnce(operation.promise);
+  const downloading = invoke('download');
+  mocks.listeners.get('download-progress')!({ percent: 100, transferred: 100, total: 100 });
+  expect((await invoke('get-state')).phase).toBe('downloading');
+  mocks.listeners.get('update-downloaded')!({ version: '0.9.0' });
+  expect((await invoke('get-state')).phase).toBe('downloading');
+  mocks.listeners.get('update-downloaded')!({ version: '1.0.1' });
+  expect((await invoke('get-state')).phase).toBe('ready');
+  operation.resolve(['installer.exe']);
+  expect((await downloading).phase).toBe('ready');
 });
 
 it('缺少 latest.yml 是检查失败，不能报已是最新，且可重试', async () => {
