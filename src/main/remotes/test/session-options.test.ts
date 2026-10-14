@@ -60,7 +60,7 @@ vi.mock('../../terminal', () => ({ locateBash: () => 'C:\\Git\\bash.exe' }));
 vi.mock('../../agent/skills', () => ({
   builtinSkillsDirectory: () => 'C:\\skills',
   ensureBuiltinSkills: () => {},
-  readDisabledSkills: () => new Set<string>(),
+  effectiveDisabledSkills: () => new Set<string>(),
 }));
 vi.mock('../../agent/mcp', () => ({ mcpToolDefinitions: () => [], executeMcpTool: vi.fn() }));
 vi.mock('../../agent/tools', () => ({ readDisabledTools: () => state.disabled }));

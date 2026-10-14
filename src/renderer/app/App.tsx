@@ -15,6 +15,8 @@ import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
 import { useUpdateState } from '../features/settings/update';
+import { useExperimental, useExperimentEnabled } from '../features/settings/experimental';
+import { parsePreviewTabId } from '../content/preview/tab-id';
 import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../features/search/GlobalSearchDialog';
 import { TimetableView } from '../features/timetable';
@@ -108,6 +110,32 @@ export default function App() {
     const group = walkGroups(state.root).find((node) => node.id === state.focus);
     return group?.active?.startsWith('chat:') ?? false;
   });
+
+  // 水源功能关闭：停在水源页的回首页，已打开的水源来源标签一并关闭（入口隐藏则不受影响）。
+  const shuiyuanEnabled = useExperimentEnabled('shuiyuan');
+  const experimentsLoaded = useExperimental((state) => state.state !== null);
+  useEffect(() => {
+    void useExperimental.getState().load();
+  }, []);
+  useEffect(() => {
+    if (!experimentsLoaded || shuiyuanEnabled) return;
+    if (useNavigationStore.getState().view === 'shuiyuan')
+      useNavigationStore.getState().openGeneralChat(false);
+    const entries = useWorkspaceStore.getState().workspace.entries;
+    const isShuiyuan = (sourceId?: string | null) =>
+      Boolean(sourceId?.startsWith('shuiyuan-topic:'));
+    const layout = useWorkbenchLayout.getState();
+    for (const group of walkGroups(layout.root))
+      for (const tab of group.tabs) {
+        const target = parsePreviewTabId(tab);
+        if (!target) continue;
+        const sourceId =
+          'sourceId' in target
+            ? target.sourceId
+            : entries.find((entry) => entry.id === target.entryId)?.sourceId;
+        if (isShuiyuan(sourceId)) layout.closeTab(tab, group.id);
+      }
+  }, [experimentsLoaded, shuiyuanEnabled]);
 
   // 更新快照的订阅属于应用而不是设置页：标题栏要在用户从没打开过设置页时也能提示有新版本。
   useEffect(() => {

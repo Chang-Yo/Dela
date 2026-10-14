@@ -12,10 +12,8 @@ import {
   iconSchema,
   resetKeybindingOverrides,
   savedCampusNotifications,
-  savedExperimentalClassroom,
-  savedExperimentalFeatures,
-  setExperimentalClassroom,
-  setExperimentalFeatures,
+  savedExperiments,
+  setExperiment,
   savedFontScale,
   savedIcon,
   savedOpenAtLogin,
@@ -30,6 +28,7 @@ import {
   writeSetting,
   zoomSchema,
 } from './prefs';
+import { cancelVideoDownloads } from '../vsjtu/ipc';
 
 export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'light' | 'dark' {
   nativeTheme.themeSource = theme;
@@ -37,21 +36,19 @@ export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'ligh
 }
 
 export function registerSettingsIpc(): void {
-  ipcMain.handle('settings:get-experimental-features', (event) => {
+  ipcMain.handle('settings:get-experiments', (event) => {
     checkWorkspaceSender(event);
-    return savedExperimentalFeatures();
+    return savedExperiments();
   });
-  ipcMain.handle('settings:set-experimental-features', (event, value) => {
+  ipcMain.handle('settings:set-experiment', (event, key, value) => {
     checkWorkspaceSender(event);
-    return setExperimentalFeatures(z.boolean().parse(value));
-  });
-  ipcMain.handle('settings:get-experimental-classroom', (event) => {
-    checkWorkspaceSender(event);
-    return savedExperimentalClassroom();
-  });
-  ipcMain.handle('settings:set-experimental-classroom', (event, value) => {
-    checkWorkspaceSender(event);
-    return setExperimentalClassroom(z.boolean().parse(value));
+    const state = setExperiment(
+      z.enum(['master', 'shuiyuan', 'videoDownload']).parse(key),
+      z.boolean().parse(value),
+    );
+    // 下载关闭即取消进行中的任务（用户决定：立即取消，不等下完）。
+    if (!state.master || !state.videoDownload) cancelVideoDownloads();
+    return state;
   });
   ipcMain.handle('settings:get-theme', (event) => {
     checkWorkspaceSender(event);

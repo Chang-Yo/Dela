@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
-  CalendarDays,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -12,7 +11,6 @@ import {
   Copy,
   FolderOpen,
   House,
-  Mail,
   Menu,
   MessageCirclePlus,
   Minus,
@@ -51,6 +49,7 @@ import {
 import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from './ui/motion';
 import { chromeIconButton, navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../features/settings/UpdateBadge';
+import { useVisibleNavEntries } from '../navigation/entries';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
@@ -281,6 +280,7 @@ export function AppShell({
   }, [drawer, narrow, onMobileDrawerChange, view]);
 
   const navHidden = narrow ? drawer === null : sidebarCollapsed;
+  const visibleEntries = useVisibleNavEntries();
   /** 「资料」入口高亮：通用池内看文档标签时才算资料（与会话标签互斥）。 */
   const sourcesActive = view === 'workbench' && projectId === null && !activeTabIsChat;
 
@@ -448,7 +448,7 @@ export function AppShell({
           >
             <ArrowRight className="size-4" strokeWidth={1.8} />
           </button>
-          {/* 侧栏折叠后首页/资料/业务入口随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}
+          {/* 侧栏折叠后首页与功能入口随侧栏隐藏，这里补回可达入口（与侧栏同一份可见性，窄屏由抽屉承载）。 */}
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] ml-2 flex h-full items-center gap-1">
               <button
@@ -461,36 +461,25 @@ export function AppShell({
               >
                 <House className="size-4" strokeWidth={1.8} />
               </button>
-              <button
-                aria-current={sourcesActive ? 'page' : undefined}
-                aria-label="资料"
-                className={chromeIconButton}
-                onClick={onOpenSources}
-                title="资料"
-                type="button"
-              >
-                <FolderOpen className="size-4" strokeWidth={1.8} />
-              </button>
-              <button
-                aria-current={view === 'mail' ? 'page' : undefined}
-                aria-label="邮箱"
-                className={chromeIconButton}
-                onClick={() => onNavigateBusiness('mail')}
-                title="邮箱"
-                type="button"
-              >
-                <Mail className="size-4" strokeWidth={1.8} />
-              </button>
-              <button
-                aria-current={view === 'timetable' ? 'page' : undefined}
-                aria-label="课表"
-                className={chromeIconButton}
-                onClick={() => onNavigateBusiness('timetable')}
-                title="课表"
-                type="button"
-              >
-                <CalendarDays className="size-4" strokeWidth={1.8} />
-              </button>
+              {visibleEntries.map((item) => {
+                const Icon = item.icon;
+                const active = item.id === 'sources' ? sourcesActive : view === item.id;
+                return (
+                  <button
+                    aria-current={active ? 'page' : undefined}
+                    aria-label={item.label}
+                    className={chromeIconButton}
+                    key={item.id}
+                    onClick={() =>
+                      item.id === 'sources' ? onOpenSources() : onNavigateBusiness(item.id)
+                    }
+                    title={item.label}
+                    type="button"
+                  >
+                    <Icon className="size-4" strokeWidth={1.8} />
+                  </button>
+                );
+              })}
               <button
                 aria-current={view === 'settings' ? 'page' : undefined}
                 aria-label="设置"

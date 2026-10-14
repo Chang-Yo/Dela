@@ -13,6 +13,7 @@ import { cn } from '../../lib/utils';
 import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
 import { formatTime, lectureMeta, lectureTitle } from './player-format';
 import { useClassroom } from './store';
+import { useExperimentEnabled } from '../settings/experimental';
 
 export function CourseList() {
   const courses = useClassroom((state) => state.courses);
@@ -99,6 +100,7 @@ function VideoRowSkeleton() {
 function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVideo }) {
   const selected = useClassroom((state) => state.selectedVideoId === video.id);
   const selectVideo = useClassroom((state) => state.selectVideo);
+  const downloadEnabled = useExperimentEnabled('videoDownload');
 
   return (
     // 行间不画分隔线：选中/悬停是圆角底色块，下载钮 hover 浮现。
@@ -120,7 +122,7 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
         </span>
         <span className="truncate text-[11.5px] tabular-nums text-ink-3">{lectureMeta(video)}</span>
       </button>
-      <DownloadButton course={course} video={video} />
+      {downloadEnabled && <DownloadButton course={course} video={video} />}
     </div>
   );
 }

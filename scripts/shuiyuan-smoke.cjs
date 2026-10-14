@@ -102,8 +102,7 @@ const routes = {
   'settings:get-zoom': () => 1,
   'settings:get-font-scale': () => 1,
   // 应用壳启动时读取的跨域通道：给出未配置 / 默认值，让界面安静装载。
-  'settings:get-experimental-features': () => true,
-  'settings:get-experimental-classroom': () => true,
+  'settings:get-experiments': () => ({ master: true, shuiyuan: true, videoDownload: true }),
   'settings:get-keybindings': () => ({}),
   'settings:get-workspace-prefs': () => ({
     restoreLastProject: false,

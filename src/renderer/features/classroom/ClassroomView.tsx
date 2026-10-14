@@ -1,8 +1,7 @@
-// 课堂视频页：试验开关 → 登录 → 可折叠课程侧栏 + 播放器 两栏（无页头，
+// 课堂视频页：登录 → 可折叠课程侧栏 + 播放器 两栏（无页头，
 // 侧栏对齐资料面板：inset 底、紧凑头、eyebrow 小节标签、可拖宽度）。
 import { useEffect, useState } from 'react';
 import { KeyRound, Loader2, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
-import { useNavigationStore } from '../../navigation/view';
 import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
@@ -10,6 +9,7 @@ import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Resizer } from '../../components/ui/resizer';
 import { useViewportWidth } from '../../workbench/explorer-state';
 import { cn } from '../../lib/utils';
+import { useExperimental, useExperimentEnabled } from '../settings/experimental';
 import { CourseList } from './CourseList';
 import { DownloadsPanel } from './DownloadsPanel';
 import { Player } from './Player';
@@ -41,6 +41,8 @@ function DesktopClassroomView() {
   const refresh = useClassroom((state) => state.refresh);
   const connect = useClassroom((state) => state.connect);
   const connectBusy = useClassroom((state) => state.connectBusy);
+  // 观看是常规功能；下载面板与下载按钮只在试验子项「课堂视频下载」开启时出现。
+  const downloadEnabled = useExperimentEnabled('videoDownload');
 
   const [width, setWidth] = useState(() => {
     const stored = Number(localStorage.getItem(widthStorageKey));
@@ -56,6 +58,7 @@ function DesktopClassroomView() {
 
   useEffect(() => {
     void init();
+    void useExperimental.getState().load();
   }, [init]);
 
   // 宽度偏好防抖落盘；渲染宽度对窄视口钳制（与资料侧栏同款）。
@@ -91,7 +94,6 @@ function DesktopClassroomView() {
           正在连接交大视频…
         </div>
       )}
-      {phase === 'experimental' && <ExperimentalCard />}
       {phase === 'connect' && <ConnectCard />}
       {phase === 'ready' && (
         <>
@@ -145,7 +147,7 @@ function DesktopClassroomView() {
                       <KeyRound className="size-4" />
                     )}
                   </Button>
-                  <DownloadsPanel />
+                  {downloadEnabled && <DownloadsPanel />}
                   <Button
                     aria-label="刷新课程"
                     className="hover:bg-hover-2"
@@ -225,35 +227,6 @@ function PlayerSection({
         video={video}
       />
     </section>
-  );
-}
-
-function ExperimentalCard() {
-  const off = useClassroom((state) => state.experimentalOff);
-  return (
-    <div className="grid flex-1 place-items-center p-6">
-      <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-card border border-line bg-surface p-6 shadow-hairline">
-        <div className="grid size-10 place-items-center rounded-card bg-hover-2">
-          <MonitorPlay className="size-5" />
-        </div>
-        <div className="grid gap-1">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {off === 'master' ? '课堂视频是试验功能' : '课堂视频未开启'}
-          </h2>
-          <p className="text-[13px] leading-relaxed text-ink-3">
-            {off === 'master'
-              ? '在 设置 → 通用 中开启「试验功能」后，可在线观看交大课堂录像并下载。'
-              : '在 设置 → 通用 的「试验功能」中开启「课堂视频」子项。'}
-          </p>
-        </div>
-        <Button
-          onClick={() => void useNavigationStore.getState().openSettings('general')}
-          size="sm"
-        >
-          去开启
-        </Button>
-      </section>
-    </div>
   );
 }
 

@@ -10,16 +10,11 @@ import type {
 } from '../../../shared/vsjtu';
 import { errorText } from '../../workspace/store';
 import { lectureFileName } from './player-format';
-import { useExperimental } from '../settings/experimental';
 
-export type ClassroomPhase = 'loading' | 'experimental' | 'connect' | 'ready';
-/** 提示卡文案依据：总开关未开，还是子项未开。 */
-export type ExperimentalOff = 'master' | 'classroom';
+export type ClassroomPhase = 'loading' | 'connect' | 'ready';
 
 interface ClassroomState {
   phase: ClassroomPhase;
-  /** 哪个试验开关未开启（phase 为 experimental 时的提示卡文案依据）。 */
-  experimentalOff: ExperimentalOff;
   /** 连接卡上的失败原因（登录失败或首次查询失败）。 */
   connectHint: string | null;
   connectBusy: boolean;
@@ -57,7 +52,6 @@ let downloadSubscribed = false;
 
 export const useClassroom = create<ClassroomState>((set, get) => ({
   phase: 'loading',
-  experimentalOff: 'master',
   connectHint: null,
   connectBusy: false,
   courses: [],
@@ -76,13 +70,6 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
 
   init: async () => {
     subscribeDownloads(set, get);
-    // 与侧栏共用同一份试验开关镜像；总开关与子项都开启才进入。
-    await useExperimental.getState().load();
-    const { master, classroom } = useExperimental.getState();
-    if (!master || !classroom) {
-      set({ phase: 'experimental', experimentalOff: master ? 'classroom' : 'master' });
-      return;
-    }
     if (get().courses.length > 0) {
       set({ phase: 'ready' });
       return;

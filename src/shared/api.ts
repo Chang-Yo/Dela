@@ -118,6 +118,8 @@ export type {
   ThemePreference,
   IconPreference,
   ZoomPreference,
+  ExperimentKey,
+  ExperimentState,
   FontScalePreference,
   TaskNotificationPrefs,
   NoteEditModePreference,

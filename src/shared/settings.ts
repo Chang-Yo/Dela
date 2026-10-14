@@ -31,12 +31,13 @@ export interface WorkspacePrefs {
   noteSpellcheck: boolean;
 }
 
+/** 试验功能：总开关 + 子项（水源、课堂视频下载）；子项只在总开关开启时生效，键缺失视为开启。 */
+export type ExperimentKey = 'master' | 'shuiyuan' | 'videoDownload';
+export type ExperimentState = Record<ExperimentKey, boolean>;
+
 export interface SettingsApi {
-  getExperimentalFeatures(): Promise<boolean>;
-  setExperimentalFeatures(enabled: boolean): Promise<boolean>;
-  /** 试验子项：课堂视频。总开关关闭时入口隐藏、操作被拒；键缺失视为开启。 */
-  getExperimentalClassroom(): Promise<boolean>;
-  setExperimentalClassroom(enabled: boolean): Promise<boolean>;
+  getExperiments(): Promise<ExperimentState>;
+  setExperiment(key: ExperimentKey, enabled: boolean): Promise<ExperimentState>;
   getTheme(): Promise<ThemePreference>;
   setTheme(theme: ThemePreference): Promise<ThemePreference>;
   getIcon(): Promise<IconPreference>;

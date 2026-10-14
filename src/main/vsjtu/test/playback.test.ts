@@ -5,10 +5,6 @@ vi.mock('node:timers/promises', () => ({
   setTimeout: async (_ms: number, _value: unknown, { signal }: { signal: AbortSignal }) =>
     signal.throwIfAborted(),
 }));
-vi.mock('../../settings/prefs', () => ({
-  savedExperimentalFeatures: () => true,
-  savedExperimentalClassroom: () => true,
-}));
 vi.mock('../../campus', () => ({
   getCampusSession: async () => ({ fetch: upstream.fetch }),
 }));

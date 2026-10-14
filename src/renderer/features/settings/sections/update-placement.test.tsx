@@ -30,15 +30,14 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  useExperimental.setState({ master: null, classroom: false });
+  useExperimental.setState({ state: null });
   // 更新行只在拿到快照后才占位（真实应用里由 App 挂载时接上广播）。
   useUpdateState.setState({ snapshot: idle });
   window.dela = {
     version: '1.0.0',
     settings: {
       getOpenAtLogin: async () => true,
-      getExperimentalFeatures: async () => false,
-      getExperimentalClassroom: async () => false,
+      getExperiments: async () => ({ master: false, shuiyuan: false, videoDownload: false }),
       getCampusNotifications: async () => true,
       getTaskNotifications: async () => ({ failed: true, completed: false }),
     },

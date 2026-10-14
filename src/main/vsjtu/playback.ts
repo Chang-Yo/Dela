@@ -4,7 +4,6 @@
 // 拖拽进度条依赖 Range：原样转发给 live.sjtu.edu.cn 并透传 206。
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { savedExperimentalClassroom, savedExperimentalFeatures } from '../settings/prefs';
 import { getCampusSession } from '../campus';
 import { getStreams } from './api';
 
@@ -85,8 +84,6 @@ export async function handleVsjtuMediaRequest(request: Request): Promise<Respons
   try {
     if (request.method !== 'GET' && request.method !== 'HEAD')
       return new Response(null, { status: 405 });
-    if (!savedExperimentalFeatures() || !savedExperimentalClassroom())
-      return new Response(null, { status: 404 });
     const url = new URL(request.url);
     const match = /^\/video\/(\d+)\/(\d+)$/.exec(url.pathname);
     const token = url.searchParams.get('t');

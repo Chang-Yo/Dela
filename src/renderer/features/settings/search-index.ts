@@ -21,10 +21,22 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['通用', '实验', 'experimental'],
   },
   {
-    id: 'experimental-classroom',
+    id: 'experimental-shuiyuan',
     section: 'general',
-    title: '课堂视频（试验）',
-    keywords: ['课堂', '录像', '交大视频', 'vsjtu', 'classroom'],
+    title: '水源社区（试验）',
+    keywords: ['实验', '水源', '社区', 'shuiyuan'],
+  },
+  {
+    id: 'experimental-video-download',
+    section: 'general',
+    title: '课堂视频下载（试验）',
+    keywords: ['课堂', '录像', '下载', '交大视频', 'vsjtu', 'classroom', 'download'],
+  },
+  {
+    id: 'nav-entries',
+    section: 'general',
+    title: '导航入口',
+    keywords: ['通用', '侧栏', '导航', '入口', '隐藏', '显示', 'sidebar', 'nav'],
   },
   // 通用（含系统通知子节）
   {

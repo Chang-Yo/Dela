@@ -13,14 +13,13 @@ import {
   getWorkspacePrefs,
   resetKeybindingOverrides,
   savedCampusNotifications,
-  savedExperimentalClassroom,
-  savedExperimentalFeatures,
+  experimentEnabled,
+  savedExperiments,
   savedPendingInstall,
   savedVideoDownloadDirectory,
   setAgentInstruction,
   setCampusNotifications,
-  setExperimentalClassroom,
-  setExperimentalFeatures,
+  setExperiment,
   setKeybindingOverrides,
   setPendingInstall,
   setTaskNotificationPrefs,
@@ -38,24 +37,24 @@ beforeEach(() => {
 });
 
 it('keeps experiments on for new or corrupt settings and persists an explicit opt-out', () => {
-  expect(savedExperimentalFeatures()).toBe(true);
+  expect(savedExperiments()).toEqual({ master: true, shuiyuan: true, videoDownload: true });
   insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
-  expect(savedExperimentalFeatures()).toBe(true);
-  setExperimentalFeatures(false);
-  expect(savedExperimentalFeatures()).toBe(false);
-  setExperimentalFeatures(true);
-  expect(savedExperimentalFeatures()).toBe(true);
+  expect(savedExperiments().master).toBe(true);
+  expect(setExperiment('shuiyuan', false).shuiyuan).toBe(false);
+  expect(setExperiment('shuiyuan', true).shuiyuan).toBe(true);
 });
 
-it('keeps the classroom sub-item on by default and round-trips an explicit opt-out', () => {
-  // 子项与总开关同档：缺省都开启。
-  expect(savedExperimentalClassroom()).toBe(true);
-  insert("INSERT INTO workspace_settings VALUES ('experimental-classroom', 'anything')");
-  expect(savedExperimentalClassroom()).toBe(true);
-  setExperimentalClassroom(false);
-  expect(savedExperimentalClassroom()).toBe(false);
-  setExperimentalClassroom(true);
-  expect(savedExperimentalClassroom()).toBe(true);
+it('treats a sub-item as unavailable while the master switch is off', () => {
+  expect(experimentEnabled('videoDownload')).toBe(true);
+  setExperiment('master', false);
+  expect(experimentEnabled('videoDownload')).toBe(false);
+  expect(experimentEnabled('shuiyuan')).toBe(false);
+  // 子项自身的选择保留，总开关重新打开后恢复。
+  expect(savedExperiments().videoDownload).toBe(true);
+  setExperiment('master', true);
+  setExperiment('videoDownload', false);
+  expect(experimentEnabled('videoDownload')).toBe(false);
+  expect(experimentEnabled('shuiyuan')).toBe(true);
 });
 
 describe('task notification prefs', () => {

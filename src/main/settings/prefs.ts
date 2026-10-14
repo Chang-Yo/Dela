@@ -9,7 +9,12 @@ import {
   isShortcutActionId,
   type KeybindingOverrides,
 } from '../../shared/keybindings';
-import { type TaskNotificationPrefs, type WorkspacePrefs } from '../../shared/settings';
+import {
+  type ExperimentKey,
+  type ExperimentState,
+  type TaskNotificationPrefs,
+  type WorkspacePrefs,
+} from '../../shared/settings';
 import { getDatabase } from '../database';
 
 export const themeSchema = z.enum(['system', 'light', 'dark']);
@@ -36,24 +41,37 @@ export function writeSetting(key: string, value: string): void {
   getDatabase().prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value);
 }
 
-// 试验功能默认开启：键缺失或值损坏都视为开启，只有显式写入 '0' 才关闭。
-export function savedExperimentalFeatures(): boolean {
-  return readSetting('experimental-features') !== '0';
+// 试验功能：总开关 + 子项，默认都开启；键缺失或值损坏都视为开启，只有显式写入 '0' 才关闭。
+// 子项只在总开关开启时生效，调用方用 experimentEnabled 取「实际是否可用」。
+const experimentKeys: Record<ExperimentKey, string> = {
+  master: 'experimental-features',
+  shuiyuan: 'experimental-shuiyuan',
+  videoDownload: 'experimental-video-download',
+};
+
+export function savedExperiments(): ExperimentState {
+  const read = (key: ExperimentKey) => readSetting(experimentKeys[key]) !== '0';
+  return {
+    master: read('master'),
+    shuiyuan: read('shuiyuan'),
+    videoDownload: read('videoDownload'),
+  };
 }
 
-export function setExperimentalFeatures(enabled: boolean): boolean {
-  writeSetting('experimental-features', enabled ? '1' : '0');
-  return enabled;
+export function setExperiment(key: ExperimentKey, enabled: boolean): ExperimentState {
+  writeSetting(experimentKeys[key], enabled ? '1' : '0');
+  return savedExperiments();
 }
 
-// 试验子项（当前仅课堂视频）：键缺失或值损坏视为开启，与总开关同一档默认值。
-export function savedExperimentalClassroom(): boolean {
-  return readSetting('experimental-classroom') !== '0';
+export function experimentEnabled(key: Exclude<ExperimentKey, 'master'>): boolean {
+  const state = savedExperiments();
+  return state.master && state[key];
 }
 
-export function setExperimentalClassroom(enabled: boolean): boolean {
-  writeSetting('experimental-classroom', enabled ? '1' : '0');
-  return enabled;
+/** 水源关闭时能力整体不可调用：IPC、Agent 命令与来源读取共用这一句报错。 */
+export function assertShuiyuanEnabled(): void {
+  if (!experimentEnabled('shuiyuan'))
+    throw new Error('水源功能已关闭，可在设置 → 通用的试验功能中开启');
 }
 
 export function savedTheme(): ThemePreference {
