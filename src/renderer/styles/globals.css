@@ -5,9 +5,6 @@
 @source '../../../node_modules/streamdown/dist/*.js';
 
 :root {
-  /* 全局字号缩放（设置 › 外观 › 字号）：仅作用于下方 @theme inline 的 --text-* 与 body 字号，
-     间距、图标等 rem 布局不受影响。 */
-  --font-scale: 1;
   /* 原生控件（日期/时间弹层、select 下拉）跟随主题亮暗渲染。 */
   color-scheme: light;
   /* shadcn 语义变量统一映射到 beautiful-ui token（beautifului.css）：两套组件共享同一组
@@ -194,16 +191,31 @@
 @theme inline {
   --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
   --font-script: Italianno, cursive;
-  /* 字号档位缩放：值内联进 text-* 工具类，line-height 沿用默认的无单位比值自动跟随。
-     任意值写法（text-[13px] 等）不走这组变量，是已知不缩放范围。 */
-  --text-2xs: calc(0.6875rem * var(--font-scale));
-  --text-xs: calc(0.75rem * var(--font-scale));
-  --text-sm: calc(0.875rem * var(--font-scale));
-  --text-base: calc(1rem * var(--font-scale));
-  --text-lg: calc(1.125rem * var(--font-scale));
-  --text-xl: calc(1.25rem * var(--font-scale));
-  --text-2xl: calc(1.5rem * var(--font-scale));
-  --text-3xl: calc(1.875rem * var(--font-scale));
+  /* 字号 token：数值即默认根字号（16px）下的像素，值一律由 rem 派生——设置 › 外观 › 字号
+     改的是根元素 font-size，这一组与全部 rem 间距、图标一起缩放。
+     其中由 text-[Npx] 迁移来的档位显式声明 line-height: inherit：任意值字号原本只给
+     font-size、行高继承父级的无单位比值，保持一致才能让默认字号下的外观不变。
+     text-sm / base / lg / xl / 2xl / 3xl 沿用 Tailwind 自带行高比（既有页面依赖，未改动）。 */
+  --text-9: 0.5625rem;
+  --text-9--line-height: inherit;
+  --text-10: 0.625rem;
+  --text-10--line-height: inherit;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: inherit;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: inherit;
+  --text-13: 0.8125rem;
+  --text-13--line-height: inherit;
+  --text-sm: 0.875rem;
+  --text-15: 0.9375rem;
+  --text-15--line-height: inherit;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-21: 1.3125rem;
+  --text-21--line-height: inherit;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -265,7 +277,7 @@
     overflow: hidden;
     background: var(--color-background);
     color: var(--color-foreground);
-    font-size: calc(0.875rem * var(--font-scale));
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 

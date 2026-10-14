@@ -11,8 +11,10 @@ import {
   getKeybindingOverrides,
   getTaskNotificationPrefs,
   getWorkspacePrefs,
+  normalizeFontSize,
   resetKeybindingOverrides,
   savedCampusNotifications,
+  savedFontSize,
   experimentEnabled,
   savedExperiments,
   savedPendingInstall,
@@ -55,6 +57,45 @@ it('treats a sub-item as unavailable while the master switch is off', () => {
   setExperiment('videoDownload', false);
   expect(experimentEnabled('videoDownload')).toBe(false);
   expect(experimentEnabled('shuiyuan')).toBe(true);
+});
+
+describe('font size', () => {
+  it('defaults to the browser base of 16px', () => {
+    expect(savedFontSize()).toBe(16);
+  });
+
+  it('rounds and clamps any value into 12–20', () => {
+    insert("INSERT INTO workspace_settings VALUES ('font-size', '17')");
+    expect(savedFontSize()).toBe(17);
+    insert("INSERT OR REPLACE INTO workspace_settings VALUES ('font-size', '9')");
+    expect(savedFontSize()).toBe(12);
+    insert("INSERT OR REPLACE INTO workspace_settings VALUES ('font-size', '64')");
+    expect(savedFontSize()).toBe(20);
+    insert("INSERT OR REPLACE INTO workspace_settings VALUES ('font-size', 'broken')");
+    expect(savedFontSize()).toBe(16);
+    expect(normalizeFontSize(13.4)).toBe(13);
+    expect(normalizeFontSize(Number.NaN)).toBe(16);
+  });
+
+  it('migrates the old scale levels onto px', () => {
+    const levels: [scale: string, size: number][] = [
+      ['0.9', 14],
+      ['1', 16],
+      ['1.1', 18],
+      ['1.25', 20],
+    ];
+    for (const [scale, size] of levels) {
+      database.exec('DELETE FROM workspace_settings');
+      insert('INSERT INTO workspace_settings VALUES (?, ?)', 'font-scale', scale);
+      expect(savedFontSize()).toBe(size);
+    }
+  });
+
+  it('prefers the stored px value over the legacy scale key', () => {
+    insert("INSERT INTO workspace_settings VALUES ('font-scale', '1.25')");
+    insert("INSERT INTO workspace_settings VALUES ('font-size', '15')");
+    expect(savedFontSize()).toBe(15);
+  });
 });
 
 describe('task notification prefs', () => {

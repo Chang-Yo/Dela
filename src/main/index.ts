@@ -309,7 +309,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.dela?.settings.getZoom === 'function' && typeof window.dela?.settings.getFontScale === 'function' && typeof window.require === 'undefined'`,
+        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.dela?.settings.getZoom === 'function' && typeof window.dela?.settings.getFontSize === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       // Pi 是纯 ESM 包，只能经动态 import 在 CJS 产物中加载（agent/pi.ts）；

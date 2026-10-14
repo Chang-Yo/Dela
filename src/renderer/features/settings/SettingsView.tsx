@@ -14,11 +14,11 @@ import { SkillsSection } from './sections/SkillsSection';
 import { WorkspaceSection } from './sections/WorkspaceSection';
 import { ConnectionsSection } from './connections/ConnectionsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
-import type { FontScalePreference, ThemePreference, ZoomPreference } from '../../../shared/api';
+import type { ThemePreference, ZoomPreference } from '../../../shared/api';
 
 type SettingsViewProps = {
-  fontScale: FontScalePreference;
-  onFontScaleChange: (scale: FontScalePreference) => Promise<void>;
+  fontSize: number;
+  onFontSizeChange: (size: number) => Promise<void>;
   onOpenMail: () => void;
   onOpenShuiyuan: () => void;
   onOpenTimetable: () => void;
@@ -31,8 +31,8 @@ type SettingsViewProps = {
 };
 
 export function SettingsView({
-  fontScale,
-  onFontScaleChange,
+  fontSize,
+  onFontSizeChange,
   onOpenMail,
   onOpenShuiyuan,
   onOpenTimetable,
@@ -53,12 +53,12 @@ export function SettingsView({
       <SettingsNav onSectionChange={setSection} value={section} />
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {/* 内容宽度 912px = 原 760px 增大 20%（用户裁决，2026-10-06）。 */}
-        <div className="mx-auto w-full max-w-[912px] px-4 pb-8 pt-5 md:px-10 md:pt-8">
+        <div className="mx-auto w-full max-w-[57rem] px-4 pb-8 pt-5 md:px-10 md:pt-8">
           {section === 'general' && <GeneralSection />}
           {section === 'appearance' && (
             <AppearanceSection
-              fontScale={fontScale}
-              onFontScaleChange={onFontScaleChange}
+              fontSize={fontSize}
+              onFontSizeChange={onFontSizeChange}
               onThemeChange={onThemeChange}
               onZoomChange={onZoomChange}
               theme={theme}

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import {
-  fontScaleLevels,
+  fontSizeMax,
+  fontSizeMin,
   zoomLevels,
-  type FontScalePreference,
   type IconPreference,
   type ThemePreference,
   type ZoomPreference,
@@ -31,13 +31,6 @@ const icons: Array<{ id: IconPreference; label: string; src: string }> = [
 
 // 缩放档位标签直接由档位值换算为百分比，与系统显示缩放的写法一致。
 const zoomLabel = (zoom: ZoomPreference) => `${Math.round(zoom * 100)}%`;
-
-const fontScaleLabels: Record<FontScalePreference, string> = {
-  0.9: '小',
-  1: '默认',
-  1.1: '大',
-  1.25: '特大',
-};
 
 /**
  * 主题卡片的缩略图：面板与三条骨架都取主题 token，靠 `bui-light` / `dark` 把卡片单独切到对应主题，
@@ -89,15 +82,15 @@ function useOptionSave() {
 }
 
 export function AppearanceSection({
-  fontScale,
-  onFontScaleChange,
+  fontSize,
+  onFontSizeChange,
   onThemeChange,
   onZoomChange,
   theme,
   zoom,
 }: {
-  fontScale: FontScalePreference;
-  onFontScaleChange: (scale: FontScalePreference) => Promise<void>;
+  fontSize: number;
+  onFontSizeChange: (size: number) => Promise<void>;
   onThemeChange: (theme: ThemePreference) => Promise<void>;
   onZoomChange: (zoom: ZoomPreference) => Promise<void>;
   theme: ThemePreference;
@@ -134,9 +127,9 @@ export function AppearanceSection({
     void zoomSave.save(() => onZoomChange(next));
   };
 
-  const selectFontScale = (next: FontScalePreference) => {
-    if (next === fontScale || fontSave.busy) return;
-    void fontSave.save(() => onFontScaleChange(next));
+  const selectFontSize = (next: number) => {
+    if (next === fontSize || fontSave.busy) return;
+    void fontSave.save(() => onFontSizeChange(next));
   };
 
   return (
@@ -146,7 +139,7 @@ export function AppearanceSection({
       <SettingsGroup>
         {/* 主题三选一占满整行：缩略图卡片比色块更能说明「切过去长什么样」。 */}
         <div className="grid gap-3 border-b border-line py-3.5" data-setting-id="theme">
-          <h3 className="text-[13px] font-medium text-ink">主题</h3>
+          <h3 className="text-13 font-medium text-ink">主题</h3>
           {/* 恒三列：窗口最小宽 600px，三张卡片各约 180px 仍是可读缩略图，比堆成三行更好分辨。 */}
           <div aria-label="主题" className="grid grid-cols-3 gap-2" role="group">
             {themes.map(({ id, label }) => (
@@ -170,7 +163,7 @@ export function AppearanceSection({
                 ) : null}
                 <span
                   className={cn(
-                    'text-center text-[12px]',
+                    'text-center text-xs',
                     theme === id ? 'font-medium text-ink' : 'text-ink-3',
                   )}
                 >
@@ -192,16 +185,21 @@ export function AppearanceSection({
             }}
           />
         </SettingRow>
-        <SettingRow settingId="font-scale" title="字号">
+        {/* 字号是全局基准：改它等于改根元素 font-size，文字、图标与间距一起缩放。 */}
+        <SettingRow settingId="font-size" title="字号">
           <StepperControl
-            canDecrease={fontScale > fontScaleLevels[0]}
-            canIncrease={fontScale < fontScaleLevels.at(-1)!}
-            display={fontScaleLabels[fontScale]}
-            label="字号"
-            onStep={(delta) => {
-              const next = fontScaleLevels[fontScaleLevels.indexOf(fontScale) + delta];
-              if (next) selectFontScale(next);
+            canDecrease={fontSize > fontSizeMin}
+            canIncrease={fontSize < fontSizeMax}
+            display={`${fontSize}px`}
+            input={{
+              min: fontSizeMin,
+              max: fontSizeMax,
+              unit: 'px',
+              value: fontSize,
+              onChange: selectFontSize,
             }}
+            label="字号"
+            onStep={(delta) => selectFontSize(fontSize + delta)}
           />
         </SettingRow>
         <SettingRow description="重启应用后生效。" settingId="icon" title="应用图标">

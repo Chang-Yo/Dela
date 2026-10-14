@@ -4,17 +4,17 @@ import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
 import {
-  fontScaleSchema,
   getAgentInstruction,
   getKeybindingOverrides,
   getTaskNotificationPrefs,
   getWorkspacePrefs,
   iconSchema,
+  normalizeFontSize,
   resetKeybindingOverrides,
   savedCampusNotifications,
   savedExperiments,
   setExperiment,
-  savedFontScale,
+  savedFontSize,
   savedIcon,
   savedOpenAtLogin,
   savedTheme,
@@ -83,16 +83,16 @@ export function registerSettingsIpc(): void {
     BrowserWindow.fromWebContents(event.sender)?.webContents.setZoomFactor(zoom);
     return zoom;
   });
-  // 字号缩放由 renderer 以 CSS 变量生效，这里只负责持久化。
-  ipcMain.handle('settings:get-font-scale', (event) => {
+  // 字号由 renderer 设到根元素 font-size 生效，这里只负责持久化。
+  ipcMain.handle('settings:get-font-size', (event) => {
     checkWorkspaceSender(event);
-    return savedFontScale();
+    return savedFontSize();
   });
-  ipcMain.handle('settings:set-font-scale', (event, value) => {
+  ipcMain.handle('settings:set-font-size', (event, value) => {
     checkWorkspaceSender(event);
-    const scale = fontScaleSchema.parse(value);
-    writeSetting('font-scale', String(scale));
-    return scale;
+    const size = normalizeFontSize(value);
+    writeSetting('font-size', String(size));
+    return size;
   });
   // 开机自启：打包后以系统启动项为准（含任务管理器改动），开发运行不注册 electron.exe。
   ipcMain.handle('settings:get-open-at-login', (event) => {

@@ -1,6 +1,5 @@
 import type {
   ExperimentKey,
-  FontScalePreference,
   IconPreference,
   KeybindingOverrides,
   SettingsApi,
@@ -21,8 +20,8 @@ export const settings = {
   setIcon: (icon: IconPreference) => invoke('settings:set-icon', icon),
   getZoom: () => invoke('settings:get-zoom'),
   setZoom: (zoom: ZoomPreference) => invoke('settings:set-zoom', zoom),
-  getFontScale: () => invoke('settings:get-font-scale'),
-  setFontScale: (scale: FontScalePreference) => invoke('settings:set-font-scale', scale),
+  getFontSize: () => invoke('settings:get-font-size'),
+  setFontSize: (size: number) => invoke('settings:set-font-size', size),
   getOpenAtLogin: () => invoke('settings:get-open-at-login'),
   setOpenAtLogin: (enabled: boolean) => invoke('settings:set-open-at-login', enabled),
   getCampusNotifications: () => invoke('settings:get-campus-notifications'),

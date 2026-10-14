@@ -94,7 +94,7 @@ export default function App() {
   const todoRequest = useNavigationStore((state) => state.todoRequest);
   const settingsRequest = useNavigationStore((state) => state.settingsRequest);
 
-  const { theme, zoom, fontScale, changeTheme, changeZoom, changeFontScale } = useAppearance();
+  const { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize } = useAppearance();
   const notifications = useNotifications(launchStage !== 'flow');
   const { sessionsByProject } = useSessionNavData();
   const homeSessionId = useNavigationStore((state) => state.generalChat?.sessionId ?? null);
@@ -353,8 +353,8 @@ export default function App() {
                   )}
                   {view === 'settings' && (
                     <SettingsView
-                      fontScale={fontScale}
-                      onFontScaleChange={changeFontScale}
+                      fontSize={fontSize}
+                      onFontSizeChange={changeFontSize}
                       onThemeChange={changeTheme}
                       onOpenMail={() => void useNavigationStore.getState().navigate('mail')}
                       onOpenShuiyuan={() => void useNavigationStore.getState().navigate('shuiyuan')}

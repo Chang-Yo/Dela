@@ -3,7 +3,7 @@
 // 键缺失或值损坏时回退默认值，不向调用方抛错。
 import { z } from 'zod';
 import type { ThemePreference, IconPreference } from '../../shared/api';
-import { fontScaleLevels, zoomLevels } from '../../shared/api';
+import { fontSizeDefault, fontSizeMax, fontSizeMin, zoomLevels } from '../../shared/api';
 import {
   isAccelerator,
   isShortcutActionId,
@@ -22,9 +22,6 @@ export const iconSchema = z.enum(['white', 'black']);
 export const zoomSchema = z
   .number()
   .refine((value) => (zoomLevels as readonly number[]).includes(value));
-export const fontScaleSchema = z
-  .number()
-  .refine((value) => (fontScaleLevels as readonly number[]).includes(value));
 // 持久化为 '1'/'0'；键不存在（老版本升级、首次使用）视为默认开启。
 export const openAtLoginSchema = z
   .string()
@@ -86,8 +83,23 @@ export function savedZoom(): number {
   return zoomSchema.catch(1).parse(Number(readSetting('zoom')));
 }
 
-export function savedFontScale(): number {
-  return fontScaleSchema.catch(1).parse(Number(readSetting('font-scale')));
+/** 字号（px）：取整并夹到 12–20；非数字（含 NaN、字符串垃圾）回落默认。 */
+export function normalizeFontSize(value: unknown): number {
+  const size = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(size)) return fontSizeDefault;
+  return Math.min(fontSizeMax, Math.max(fontSizeMin, Math.round(size)));
+}
+
+/**
+ * 字号 px。旧版存的是档位（'font-scale' 的 0.9/1/1.1/1.25），按默认 16 的基准换算成
+ * px（0.9→14、1→16、1.1→18、1.25→20），换到新键一写旧键即失效。
+ */
+export function savedFontSize(): number {
+  const stored = readSetting('font-size');
+  if (stored === undefined) {
+    return normalizeFontSize(fontSizeDefault * Number(readSetting('font-scale')));
+  }
+  return normalizeFontSize(Number(stored));
 }
 
 export function savedOpenAtLogin(): boolean {

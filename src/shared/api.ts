@@ -120,14 +120,13 @@ export type {
   ZoomPreference,
   ExperimentKey,
   ExperimentState,
-  FontScalePreference,
   TaskNotificationPrefs,
   NoteEditModePreference,
   WorkspacePrefs,
   SettingsApi,
   SettingsSectionId,
 } from './settings';
-export { zoomLevels, fontScaleLevels } from './settings';
+export { zoomLevels, fontSizeMin, fontSizeMax, fontSizeDefault } from './settings';
 
 export type {
   KeybindingMap,

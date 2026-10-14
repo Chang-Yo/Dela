@@ -90,7 +90,7 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['外观', '缩放', '放大', '缩小', 'zoom'],
   },
   {
-    id: 'font-scale',
+    id: 'font-size',
     section: 'appearance',
     title: '字号',
     keywords: ['外观', '字号', '文字大小', '字体', 'font'],
