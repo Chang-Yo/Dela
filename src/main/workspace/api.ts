@@ -30,7 +30,6 @@ import { remoteById, targetOf } from '../remotes/api';
 import { locate } from '../remotes/transport';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
-import { toolError } from '../../shared/tool-errors';
 import { availablePath, storageDirectory as directory } from '../storage';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { officeZipMime } from '../documents/parse';
@@ -936,114 +935,6 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
       .prepare('UPDATE workspace_entries SET updated_at=? WHERE id=?')
       .run(new Date().toISOString(), id);
   return hash(text);
-}
-
-export interface WorkspaceNoteEdit {
-  oldText: string;
-  newText: string;
-}
-
-export interface WorkspaceNoteEditApplied {
-  /** 提交顺序（1 起）。 */
-  index: number;
-  /** 修改后正文中的行号（1 起）。 */
-  line: number;
-  /** 修改后正文中的字符偏移。 */
-  start: number;
-  removed: number;
-  added: number;
-  /** 新文本前 160 字符预览。 */
-  preview: string;
-}
-
-/** 局部修改结果：新 revision 与每处修改的定位摘要。 */
-export interface WorkspaceNoteEditResult {
-  revision: string;
-  applied: WorkspaceNoteEditApplied[];
-}
-
-/**
- * 基于明确版本的笔记局部修改：每处 oldText 必须在正文中唯一匹配，多处修改区间不重叠，
- * base revision 不匹配报 VERSION_CONFLICT。任何校验失败不落盘；成功原子写并记录版本。
- */
-export function editWorkspaceNote(
-  id: string,
-  edits: WorkspaceNoteEdit[],
-  revision: string,
-): WorkspaceNoteEditResult {
-  prepareStorage();
-  let item: WorkspaceEntry;
-  try {
-    item = entry(id);
-  } catch {
-    throw toolError('NOT_FOUND', '条目不存在');
-  }
-  if (item.kind !== 'note') throw toolError('OPERATION_FAILED', '只有笔记可以编辑');
-  const path = notePath(item);
-  const disk = readFileSync(path, 'utf8');
-  if (hash(disk) !== revision)
-    throw toolError('VERSION_CONFLICT', '笔记已在外部修改，请重新读取最新内容后再提交修改。');
-  const located: Array<{
-    index: number;
-    start: number;
-    end: number;
-    newText: string;
-    newStart: number;
-  }> = edits.map((edit, index) => {
-    const first = disk.indexOf(edit.oldText);
-    if (first < 0)
-      throw toolError('OPERATION_FAILED', `第 ${index + 1} 处修改：原文在笔记中不存在`);
-    if (disk.indexOf(edit.oldText, first + 1) >= 0)
-      throw toolError(
-        'OPERATION_FAILED',
-        `第 ${index + 1} 处修改：原文出现多次，无法唯一定位，请扩大原文范围`,
-      );
-    return {
-      index,
-      start: first,
-      end: first + edit.oldText.length,
-      newText: edit.newText,
-      newStart: first,
-    };
-  });
-  const ordered = [...located].sort((a, b) => a.start - b.start);
-  for (let index = 1; index < ordered.length; index += 1)
-    if (ordered[index]!.start < ordered[index - 1]!.end)
-      throw toolError(
-        'OPERATION_FAILED',
-        `第 ${ordered[index - 1]!.index + 1} 处与第 ${ordered[index]!.index + 1} 处修改区间重叠`,
-      );
-  // 从后往前替换，避免前面的修改移动后面的区间。
-  let text = disk;
-  for (let index = ordered.length - 1; index >= 0; index -= 1) {
-    const edit = ordered[index]!;
-    text = text.slice(0, edit.start) + edit.newText + text.slice(edit.end);
-  }
-  const temporary = `${path}.tmp`;
-  writeFileSync(temporary, text);
-  renameSync(temporary, path);
-  const nextRevision = hash(text);
-  if (!isAbsolute(id))
-    getDatabase()
-      .prepare('UPDATE workspace_entries SET updated_at=? WHERE id=?')
-      .run(new Date().toISOString(), id);
-  // 按提交顺序返回定位；start/line 换算到修改后正文坐标（前面的修改会平移后面的区间）。
-  let delta = 0;
-  for (const edit of ordered) {
-    edit.newStart = edit.start + delta;
-    delta += edit.newText.length - (edit.end - edit.start);
-  }
-  return {
-    revision: nextRevision,
-    applied: located.map((edit) => ({
-      index: edit.index + 1,
-      line: text.slice(0, edit.newStart).split('\n').length,
-      start: edit.newStart,
-      removed: edit.end - edit.start,
-      added: edit.newText.length,
-      preview: edit.newText.length > 160 ? `${edit.newText.slice(0, 160)}…` : edit.newText,
-    })),
-  };
 }
 
 export async function removeWorkspaceEntry(value: unknown): Promise<void> {
