@@ -3,7 +3,7 @@ import { AlertDialog } from 'radix-ui';
 import { LoaderCircle, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { McpServerView } from '../../../../../shared/api';
 import { Button } from '../../../../components/ui/button';
-import { Switch } from '../../../../components/ui/switch';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { cn } from '../../../../lib/utils';
 import { errorText } from '../../../../workspace/store';
 import { showToast } from '../../../../app/toasts';

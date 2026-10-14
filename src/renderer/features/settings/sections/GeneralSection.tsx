@@ -1,7 +1,7 @@
 import { Folder } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '../../../components/ui/button';
-import { Switch } from '../../../components/ui/switch';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { useExperimental } from '../experimental';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';

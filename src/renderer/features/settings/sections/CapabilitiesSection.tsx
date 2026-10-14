@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { LoaderCircle, Lock, SlidersHorizontal } from 'lucide-react';
 import type { AgentCapabilityView, WebSearchConfig } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
-import { Switch } from '../../../components/ui/switch';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';

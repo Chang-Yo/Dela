@@ -15,7 +15,7 @@ import type { CalendarEventColor, TodoItem, TodoSaveInput, TodoState } from '../
 import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Switch } from '../../components/ui/switch';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { cn } from '../../lib/utils';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';

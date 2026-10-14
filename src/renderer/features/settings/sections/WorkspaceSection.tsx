@@ -13,7 +13,7 @@ import {
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
-import { Switch } from '../../../components/ui/switch';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { useNoteSpellcheck } from '../../../content/note/note-spellcheck';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';

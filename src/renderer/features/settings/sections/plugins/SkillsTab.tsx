@@ -4,7 +4,7 @@ import { Cloud, CloudUpload, FileText, FolderOpen, LoaderCircle, RefreshCw } fro
 import type { SkillScope, SkillView, WorkspaceEntry } from '../../../../../shared/api';
 import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
 import { Button } from '../../../../components/ui/button';
-import { Switch } from '../../../../components/ui/switch';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { errorText, useWorkspaceStore } from '../../../../workspace/store';
 import { showToast } from '../../../../app/toasts';
 import { cn } from '../../../../lib/utils';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { BellOff } from 'lucide-react';
 import type { NotificationState, TaskNotificationPrefs } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
-import { Switch } from '../../../components/ui/switch';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
