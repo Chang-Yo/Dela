@@ -14,6 +14,11 @@ Dela 的重要变更都记在这里。
 
 ## Unreleased
 
+### Fixed
+
+- 修复工作区移动中断后的恢复：文件已改名但数据库尚未提交时，下次启动会补完移动；此前判断条件写反，会报「文件移动尚未恢复」并阻止后续所有工作区操作。
+- 修复 `pnpm smoke:workspace` 自 schema v3 起一直失败的问题：脚本改为按列名插入，并跟上路径笔记 id、`.md` 补全、`layout:*` 布局持久化等现行行为；移除已不存在的旧版笔记迁移与 `saveView` / 工作区聊天断言。
+
 ### Changed
 
 - 整理仓库结构：校园会话从 `timetable/` 移到主进程根级 `campus.ts`；工作台装配与目录从 `app/` 移入 `workbench/`，视图路由移入 `navigation/view.ts`，笔记草稿移入 `content/note/`；主进程测试统一放进各域 `test/`；设置页接口说明并入开发文档；两个 TS 冒烟启动脚本合并为 `scripts/run-ts-smoke.mjs`。

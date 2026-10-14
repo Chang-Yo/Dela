@@ -33,6 +33,11 @@ import {
 } from '../src/main/workspace/api';
 import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
 import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
+import { registerSettingsIpc } from '../src/main/settings/ipc';
+import { registerRemoteIpc } from '../src/main/remotes/ipc';
+import { registerNotificationsIpc } from '../src/main/notifications';
+import { registerUpdateIpc } from '../src/main/update';
+import { listLlmProviders, setLlmModel, verifyLlm } from '../src/main/agent/providers';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);
@@ -40,7 +45,6 @@ registerPreviewScheme();
 const pdf = new TextEncoder().encode('%PDF-1.4\nfixture');
 let failFiles = false;
 let storageGets = 0;
-let modelCalls = 0;
 globalThis.fetch = async (input, init) => {
   const url = new URL(String(input));
   const json = (body: unknown, headers: Record<string, string> = {}) =>
@@ -50,20 +54,7 @@ globalThis.fetch = async (input, init) => {
   if (url.hostname === 'models.sjtu.edu.cn') {
     if (url.pathname === '/api/v1/models')
       return json({ data: [{ id: 'qwen' }, { id: 'minimax' }] });
-    modelCalls += 1;
-    const body = JSON.parse(String(init?.body));
-    // 用户消息现在是多模态 parts：文字块 + 内联图片块，前言在首个 text part。
-    const last = body.messages.at(-1);
-    const text = Array.isArray(last.content)
-      ? last.content
-          .filter((part: { type: string }) => part.type === 'text')
-          .map((part: { text: string }) => part.text)
-          .join('\n')
-      : last.content;
-    assert.match(text, /本次选中的资料/);
-    assert.match(text, /恢复测试/);
-    assert.doesNotMatch(text, /不应发送的资料/);
-    return json({ choices: [{ message: { content: '这是引用所选笔记的测试回答。' } }] });
+    throw new Error(`意外的模型请求：${url.pathname}`);
   }
   if (url.hostname === 's3.jcloud.sjtu.edu.cn') {
     assert.equal(new Headers(init?.headers).has('Authorization'), false);
@@ -210,13 +201,9 @@ app
     const largePdfSize = 256 * 1024 * 1024;
     writeFileSync(largePdfPath, pdf);
     truncateSync(largePdfPath, largePdfSize);
-    db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, NULL, ?, ?)').run(
-      largePdfId,
-      'large-fixture.pdf',
-      'local',
-      largePdfPath,
-      new Date().toISOString(),
-    );
+    db.prepare(
+      'INSERT INTO workspace_entries (id, name, kind, local_path, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(largePdfId, 'large-fixture.pdf', 'local', largePdfPath, new Date().toISOString());
     const largePdf = await readWorkspaceEntry(largePdfId);
     assert.equal(largePdf.format, 'pdf');
     assert.equal(largePdf.bytes, undefined);
@@ -345,50 +332,25 @@ app
     });
     assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
     assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记 (2).md')));
-    const legacyId = randomUUID();
-    const legacyNoteId = randomUUID();
-    // 旧数据形态：文件夹带 UUID 行（local_path 指向磁盘目录），旧式笔记行挂其 parent_id。
-    const childRowId = randomUUID();
-    db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, NULL, ?, ?)').run(
-      childRowId,
-      '参考',
-      'folder',
-      child.id,
-      new Date().toISOString(),
-    );
-    const legacyPath = join(profile, 'notes', `${legacyNoteId}.md`);
-    writeFileSync(legacyPath, '旧版内容');
-    db.prepare('INSERT INTO workspace_notes VALUES (?, ?)').run(legacyNoteId, legacyPath);
-    db.prepare('INSERT INTO workspace_entries VALUES (?, ?, ?, ?, NULL, ?, NULL, ?)').run(
-      legacyId,
-      childRowId,
-      '旧版笔记',
-      'note',
-      legacyNoteId,
-      new Date().toISOString(),
-    );
-    getWorkspaceState();
-    assert.equal((await readWorkspaceEntry(legacyId)).text, '旧版内容');
-    assert.equal(
-      readFileSync(join(profile, 'notes', 'workspace', '主题资料', '参考', '旧版笔记'), 'utf8'),
-      '旧版内容',
-    );
-    assert.equal(readFileSync(legacyPath, 'utf8'), '旧版内容');
     writeFileSync(path, '# 外部编辑');
     assert.throws(() => saveWorkspaceNote(note.id, '# 不覆盖', revision), /外部修改/);
     assert.equal(readFileSync(path, 'utf8'), '# 外部编辑');
     const disk = await readWorkspaceEntry(note.id);
     saveWorkspaceNote(note.id, '# 恢复测试', disk.revision!);
-    updateWorkspaceEntry(note.id, { parentId: folder.id, name: '记录.md' });
+    // 路径笔记移动后 id 随新路径变化，之后一律用 moved.id。
+    const moved = updateWorkspaceEntry(note.id, { parentId: folder.id, name: '记录.md' });
     assert(!existsSync(path));
     path = join(profile, 'notes', 'workspace', '主题资料', '记录.md');
     assert.equal(readFileSync(path, 'utf8'), '# 恢复测试');
     updateWorkspaceEntry(child.id, { name: '参考改名', parentId: other.id });
+    // 路径笔记的 id 即文件路径：随文件夹移动后按新位置读取。
     assert.equal(
-      readFileSync(join(profile, 'notes', 'workspace', '独立项目', '参考改名', '旧版笔记'), 'utf8'),
-      '旧版内容',
+      readFileSync(
+        join(profile, 'notes', 'workspace', '独立项目', '参考改名', '笔记 (2).md'),
+        'utf8',
+      ),
+      '独立副本',
     );
-    assert.equal((await readWorkspaceEntry(duplicateNote.id)).text, '独立副本');
     // Simulate a crash after the physical rename but before the database commit.
     const moveFrom = join(profile, 'notes', 'workspace', '独立项目', '参考改名');
     const moveTo = join(profile, 'notes', 'workspace', '独立项目', '恢复后的参考');
@@ -405,7 +367,6 @@ app
     renameSync(moveFrom, moveTo);
     closeDatabase();
     getWorkspaceState();
-    assert.equal((await readWorkspaceEntry(legacyId)).text, '旧版内容');
     assert(existsSync(join(moveTo, '笔记 (2).md')));
     const odd = createWorkspaceEntry({
       name: '../CON',
@@ -414,14 +375,11 @@ app
       text: '安全路径',
     });
     assert.equal((await readWorkspaceEntry(odd.id)).text, '安全路径');
-    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON')));
-    assert(existsSync(join(profile, 'dela-before-storage-tree.db')));
+    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON.md')));
     renameSync(path, `${path}.external`);
-    assert.throws(() => updateWorkspaceEntry(note.id, { name: '不应生效.md' }));
-    assert.equal(
-      getWorkspaceState().entries.find((entry) => entry.id === note.id)?.name,
-      '记录.md',
-    );
+    assert.throws(() => updateWorkspaceEntry(moved.id, { name: '不应生效.md' }));
+    // 目录树按磁盘扫描：文件被外部移走时不列出，重命名失败也不得在磁盘上留下新名字。
+    assert(!existsSync(join(dirname(path), '不应生效.md')));
     renameSync(`${path}.external`, path);
     createWorkspaceEntry({
       name: '未选资料',
@@ -431,8 +389,24 @@ app
     });
 
     registerCanvasIpc();
-    registerWorkspaceIpc();
+    // 会话订阅与索引失效属于 Agent 基座；本冒烟只验证工作区，传空实现。
+    registerWorkspaceIpc(
+      () => {},
+      () => {},
+    );
+    // 只接 llm:* 三个通道：完整的 registerAgentIpc 会预载 Pi 运行时，超出本冒烟范围。
+    ipcMain.handle('llm:list', () => listLlmProviders());
+    ipcMain.handle('llm:set-model', (_event, model: string) => setLlmModel(model));
+    ipcMain.handle('llm:verify', (_event, input: Parameters<typeof verifyLlm>[0]) =>
+      verifyLlm(input),
+    );
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
+    registerSettingsIpc();
+    registerRemoteIpc();
+    registerNotificationsIpc();
+    registerUpdateIpc();
+    // 会话通道属于 Agent 基座（完整注册会预载 Pi）；渲染端启动只需列表为空、新建可失败。
+    ipcMain.handle('session:list', () => []);
     const win = new BrowserWindow({
       show: false,
       webPreferences: {
@@ -454,8 +428,14 @@ app
     assert.equal(rendererRange.status, 206);
     assert.equal(rendererRange.text, '%PDF-');
     assert.match(rendererRange.range, /^bytes 0-4\//);
+    // 工作台布局经 layout:* 持久化（取代旧 workspace.saveView）。
+    const layout = {
+      root: { type: 'group', id: 'g1', tabs: [`note:${moved.id}`], active: `note:${moved.id}` },
+      focus: 'g1',
+      maximized: null,
+    };
     await invoke(
-      `await window.dela.workspace.saveView(${JSON.stringify(folder.id)}, {tabs:[${JSON.stringify(note.id)}], active:${JSON.stringify(note.id)}, expanded:[${JSON.stringify(child.id)}], scroll:{${JSON.stringify(note.id)}:120}});`,
+      `await window.dela.layout.save(${JSON.stringify(promoted.id)}, ${JSON.stringify(layout)});`,
     );
     // 旧版单凭据迁移：写入 model-credential.bin 后首次访问 llm 配置应转为致远一号提供商。
     writeFileSync(
@@ -474,21 +454,15 @@ app
     const verified = await invoke(
       `return await window.dela.llm.verify({ id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
     );
-    assert.equal(verified.ok, true);
+    assert.equal(verified.ok, true, verified.message);
     assert.deepEqual(verified.models, ['qwen', 'minimax']);
     await invoke(`await window.dela.llm.setModel('minimax');`);
-    const chat = await invoke(
-      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, { text: '总结所选笔记', attachments: [], context: [${JSON.stringify(note.id)}] });`,
-    );
-    assert.equal(chat.messages.length, 2);
-    assert.equal(chat.model, 'minimax');
-    assert.equal(chat.providerName, '致远一号');
-    assert.equal(modelCalls, 1);
+    assert.equal((await invoke(`return await window.dela.llm.list();`))[0].model, 'minimax');
     const email = prepareEmail({
       to: ['recipient@example.com'],
       subject: '报告草稿',
       text: '请查看附件',
-      attachments: [{ type: 'workspace', id: note.id }],
+      attachments: [{ type: 'workspace', id: moved.id }],
     });
     assert.equal(email.sent, false);
     const prepared = await invoke(
@@ -500,13 +474,11 @@ app
     assert.equal(prepared.files[0].size, Buffer.byteLength('# 恢复测试'));
     assert.equal('path' in prepared.files[0], false);
     releaseComposeFiles(prepared.files.map((file: { id: string }) => file.id));
-    assert.equal(chat.running, false);
-    assert.equal(await invoke(`return typeof window.dela.workspace.cancelAsk;`), 'function');
-    assert.equal(await invoke(`return typeof window.dela.workspace.onChatUpdate;`), 'function');
     await invoke(`await document.fonts.ready;`);
     assert.equal(
       await invoke(
-        `return Boolean(document.querySelector('.cm-content[aria-label="发送给助手"]'));`,
+        `for (let i = 0; i < 50 && !document.querySelector('aside[aria-label="主导航"]'); i++) await new Promise((r) => setTimeout(r, 100));
+         return Boolean(document.querySelector('main') && document.querySelector('aside[aria-label="主导航"]'));`,
       ),
       true,
     );
@@ -514,49 +486,19 @@ app
       join(process.cwd(), '.tools', 'agent-home.png'),
       (await win.webContents.capturePage()).toPNG(),
     );
-    await invoke(`await window.dela.workspace.remove(${JSON.stringify(child.id)});`);
+    await invoke(`await window.dela.workspace.remove(${JSON.stringify(moveTo)});`);
     assert.equal((await readWorkspaceEntry(ref2.id)).format, 'html');
     assert(existsSync(path));
-    assert.equal(readFileSync(join(moveTo, '旧版笔记'), 'utf8'), '旧版内容');
     closeDatabase();
-    const restored = getWorkspaceState();
-    assert.equal(restored.views[folder.id]?.active, note.id);
-    assert.equal(restored.views[folder.id]?.scroll[note.id], 120);
-    assert.equal((await readWorkspaceEntry(note.id)).text, '# 恢复测试');
-    const restoredChat = await invoke(
-      `return await window.dela.workspace.getChat(${JSON.stringify(folder.id)});`,
+    assert.deepEqual(
+      await invoke(`return await window.dela.layout.get(${JSON.stringify(promoted.id)});`),
+      layout,
     );
-    assert.equal(restoredChat.messages.length, 2);
-    // 多会话：新对话后旧会话保留在历史中，可搜索、重新打开与删除。
-    await invoke(`await window.dela.workspace.newChat(${JSON.stringify(folder.id)});`);
-    const secondAsk = await invoke(
-      `return await window.dela.workspace.ask(${JSON.stringify(folder.id)}, { text: '第二轮提问', attachments: [], context: [${JSON.stringify(note.id)}] });`,
-    );
-    assert.equal(secondAsk.messages.length, 2);
-    assert.notEqual(secondAsk.sessionId, restoredChat.sessionId);
-    const byQuery = await invoke(
-      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '第二轮');`,
-    );
-    assert.equal(byQuery.length, 1);
-    const allSessions = await invoke(
-      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '');`,
-    );
-    assert.equal(allSessions.length, 2);
-    const reopened = await invoke(
-      `return await window.dela.workspace.openChat(${JSON.stringify(folder.id)}, ${JSON.stringify(restoredChat.sessionId)});`,
-    );
-    assert.equal(reopened.messages.length, 2);
-    await invoke(
-      `await window.dela.workspace.deleteChat(${JSON.stringify(folder.id)}, ${JSON.stringify(secondAsk.sessionId)});`,
-    );
-    const remaining = await invoke(
-      `return await window.dela.workspace.listChats(${JSON.stringify(folder.id)}, '');`,
-    );
-    assert.equal(remaining.length, 1);
+    assert.equal((await readWorkspaceEntry(moved.id)).text, '# 恢复测试');
     win.destroy();
     closeDatabase();
     console.log(
-      'Workspace smoke passed: pagination, partial-sync cache, shared references, download isolation, folder conversion/moves, note conflict protection, persistent tabs/scroll/chat and selected model context.',
+      'Workspace smoke passed: pagination, partial-sync cache, shared references, download isolation, folder conversion/moves, note conflict protection, persistent workbench layout, model provider migration and mail draft attachments.',
     );
     app.quit();
   })
