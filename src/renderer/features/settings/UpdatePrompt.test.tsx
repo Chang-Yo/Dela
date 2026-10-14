@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 下载完成与设置入口共用确认弹窗，退出前保存并说明安装向导的后续操作。
+// 下载完成与设置入口共用确认弹窗，退出前保存并说明会结束终端任务。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -105,11 +105,10 @@ it('只有下载完成才弹：其它阶段都不打扰用户', async () => {
   }
 });
 
-it('说明里带上新版本号，用户才知道装的是哪一版', async () => {
+it('说明只有一行：新版本号与会结束的终端任务', async () => {
   await show(readyState);
   expect(document.body.textContent).toContain('1.0.1');
-  expect(document.body.textContent).toContain('终端任务会结束');
-  expect(document.body.textContent).toContain('运行 Dela');
+  expect(document.body.textContent).toContain('退出后自动安装，终端任务会结束。');
 });
 
 it('选「下次启动时提醒」只记标记，不安装', async () => {
@@ -160,16 +159,18 @@ it('按 Esc 只是关掉弹窗，不替用户决定装还是等', async () => {
   expect(document.body.textContent).not.toContain('下次启动时提醒');
 });
 
-it('保存与安装期间保持模态锁，Esc 不能解除', async () => {
+it('保存与安装期间保持模态锁，Esc 不能解除，也不再解释细节', async () => {
   await show(readyState);
   await act(async () => useUpdateState.setState({ preparingInstall: true }));
   expect(document.body.textContent).toContain('正在保存工作区');
+  expect(document.body.textContent).not.toContain('终端任务会结束');
   await act(async () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   });
   expect(document.body.textContent).toContain('正在保存工作区');
   await show({ ...readyState, phase: 'installing' });
   expect(document.body.textContent).toContain('正在打开安装向导');
+  expect(document.body.textContent).not.toContain('终端任务会结束');
 });
 
 it('关闭提示后从设置安装会再次确认，不直接退出', async () => {
