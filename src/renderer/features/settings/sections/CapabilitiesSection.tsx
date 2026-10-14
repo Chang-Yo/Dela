@@ -63,12 +63,12 @@ export function CapabilitiesSection() {
     <div className="grid gap-10" data-setting-id="capabilities">
       <SectionHeader title="内置能力" />
       {!window.dela ? (
-        <p className="text-[13px] text-ink-3">内置能力配置仅在桌面端可用。</p>
+        <p className="text-13 text-ink-3">内置能力配置仅在桌面端可用。</p>
       ) : (
         <>
           {capabilities === null && !error ? (
             <SettingsGroup>
-              <p className="flex items-center gap-2 py-3.5 text-[12px] text-ink-3" role="status">
+              <p className="flex items-center gap-2 py-3.5 text-xs text-ink-3" role="status">
                 <LoaderCircle className="size-4 animate-spin" />
                 正在读取能力清单…
               </p>
@@ -136,20 +136,18 @@ export function CapabilitiesSection() {
                       >
                         <div className="grid min-w-0 gap-0.5">
                           <div className="flex min-w-0 items-baseline gap-2">
-                            <span className="truncate text-[13px] font-medium">
-                              {capability.label}
-                            </span>
-                            <span className="truncate font-mono text-[11.5px] text-ink-3">
+                            <span className="truncate text-13 font-medium">{capability.label}</span>
+                            <span className="truncate font-mono text-xs text-ink-3">
                               {capability.name}
                             </span>
                           </div>
-                          <span className="line-clamp-2 text-[12px] leading-relaxed text-ink-3">
+                          <span className="line-clamp-2 text-xs leading-relaxed text-ink-3">
                             {capability.description}
                           </span>
                         </div>
                         {capability.lockedReason ? (
                           // 常驻徽标在容器底色上要再跳一级，否则和容器同色看不见。
-                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-hover-2 px-2 py-1 text-[11.5px] text-ink-3">
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-hover-2 px-2 py-1 text-xs text-ink-3">
                             <Lock aria-hidden="true" className="size-3" />
                             常驻
                           </span>
@@ -173,7 +171,7 @@ export function CapabilitiesSection() {
             </div>
           )}
           {error && (
-            <p className="text-[12px] text-red" role="alert">
+            <p className="text-xs text-red" role="alert">
               {error}
             </p>
           )}

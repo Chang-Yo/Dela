@@ -77,10 +77,10 @@ type MailViewProps = {
 function MailUnavailable() {
   return (
     <div className="grid h-full place-items-center p-8">
-      <div className="grid w-full max-w-[460px] gap-2">
-        <p className="text-[11px] font-medium text-ink-3">浏览器预览</p>
+      <div className="grid w-full max-w-[28.75rem] gap-2">
+        <p className="text-2xs font-medium text-ink-3">浏览器预览</p>
         <h2 className="text-lg font-semibold tracking-tight">邮箱仅在 Dela 桌面端可用</h2>
-        <p className="text-[13px] leading-relaxed text-ink-3">
+        <p className="text-13 leading-relaxed text-ink-3">
           邮件账户、凭据与本地缓存不会暴露给浏览器。请通过 Electron 窗口测试同步和阅读。
         </p>
       </div>
@@ -676,10 +676,10 @@ function DesktopMailView({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
-          <div className="m-auto grid w-full max-w-[400px] gap-4 rounded-2xl border border-line bg-surface p-8 shadow-hairline">
+          <div className="m-auto grid w-full max-w-[25rem] gap-4 rounded-2xl border border-line bg-surface p-8 shadow-hairline">
             <div className="grid gap-1.5">
               <h2 className="text-lg font-semibold tracking-tight">连接邮箱</h2>
-              <p className="text-[13px] leading-relaxed text-ink-3">
+              <p className="text-13 leading-relaxed text-ink-3">
                 交大邮箱用 jAccount 账号与密码；也可改用第三方 IMAP 服务器。凭据加密保存在本机。
               </p>
             </div>
@@ -702,7 +702,7 @@ function DesktopMailView({
     <div className="relative flex h-full min-h-0 flex-col">
       {sync?.phase === 'error' && sync.error && (
         <p
-          className="mx-4 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
+          className="mx-4 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           同步出现问题：{sync.error}
@@ -716,7 +716,7 @@ function DesktopMailView({
           narrow
             ? 'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]'
             : stacked
-              ? 'grid-cols-[48px_minmax(0,1fr)]'
+              ? 'grid-cols-[3rem_minmax(0,1fr)]'
               : 'grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_1px_minmax(0,1fr)]',
           listResizing && 'transition-none',
         )}
@@ -780,19 +780,19 @@ function DesktopMailView({
           >
             {/* 与文件夹/列表/回收站同一 h-11 头部规格，含计数。 */}
             <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-              <h2 className="flex items-center gap-2 text-[13px] font-medium">
+              <h2 className="flex items-center gap-2 text-13 font-medium">
                 <FilePenLine className="size-4" />
                 本地草稿
               </h2>
-              <small className="text-[12px] text-ink-3">{localDrafts.length} 份</small>
+              <small className="text-xs text-ink-3">{localDrafts.length} 份</small>
             </div>
             <div className="min-h-0 flex-1 p-4">
               {draftError && (
-                <p role="alert" className="text-[13px] text-red">
+                <p role="alert" className="text-13 text-red">
                   {draftError}
                 </p>
               )}
-              {!localDrafts.length && <p className="text-[13px] text-ink-3">暂无草稿</p>}
+              {!localDrafts.length && <p className="text-13 text-ink-3">暂无草稿</p>}
               {localDrafts.map((item) => (
                 <div key={item.id} className="flex items-center gap-2 border-b py-3">
                   <button
@@ -800,10 +800,8 @@ function DesktopMailView({
                     className="min-w-0 flex-1 rounded text-left transition-colors hover:bg-hover-2"
                     onClick={() => void editDraft(item.id)}
                   >
-                    <strong className="block truncate text-[13px]">
-                      {item.subject || '(无主题)'}
-                    </strong>
-                    <span className="block truncate text-[12px] text-ink-3">
+                    <strong className="block truncate text-13">{item.subject || '(无主题)'}</strong>
+                    <span className="block truncate text-xs text-ink-3">
                       {item.recipientText || '未填写收件人'} ·{' '}
                       {new Date(item.updatedAt).toLocaleString()}
                     </span>

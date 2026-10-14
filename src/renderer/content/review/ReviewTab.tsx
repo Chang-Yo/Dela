@@ -13,7 +13,7 @@ export function ReviewTab({ tabId }: { tabId: TabId; groupId: string }) {
     >
       <div
         role="status"
-        className="flex flex-1 items-center justify-center p-6 text-center text-[13px] text-ink-3"
+        className="flex flex-1 items-center justify-center p-6 text-center text-13 text-ink-3"
       >
         修改审阅将在此呈现
       </div>

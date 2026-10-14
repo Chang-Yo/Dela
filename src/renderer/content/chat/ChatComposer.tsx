@@ -87,8 +87,8 @@ export function cacheHitRateText(usage: ContextUsageView): string {
 
 // beautiful-ui PromptBar 的控件样式：选择器触发钮与弹层容器（图标钮用 IconButton atom）。
 const triggerButton =
-  'flex h-7 min-w-0 shrink items-center gap-1 rounded-[8px] px-1.5 text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
-const menuPanel = 'rounded-[10px] bg-surface p-1 shadow-raised';
+  'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
+const menuPanel = 'rounded-card bg-surface p-1 shadow-raised';
 
 export function ChatComposer({
   value,
@@ -341,7 +341,7 @@ export function ChatComposer({
       )}
       <div
         className={cn(
-          '@container relative rounded-[14px] border border-line bg-surface shadow-card transition-colors duration-150 focus-within:border-line-strong',
+          '@container relative rounded-window border border-line bg-surface shadow-card transition-colors duration-150 focus-within:border-line-strong',
           dragging && 'border-transparent',
         )}
         onDragOver={(event) => {
@@ -362,7 +362,7 @@ export function ChatComposer({
         }}
       >
         {dragging && (
-          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[14px] border-2 border-dashed border-line-strong bg-page/80 text-[13px] text-ink-3">
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-window border-2 border-dashed border-line-strong bg-page/80 text-13 text-ink-3">
             松开以添加图片或附件
           </div>
         )}
@@ -437,13 +437,13 @@ export function ChatComposer({
                 >
                   {providers === null ? (
                     providersFailed ? (
-                      <p className="px-2 py-3 text-[12px] text-ink-3">模型列表加载失败</p>
+                      <p className="px-2 py-3 text-xs text-ink-3">模型列表加载失败</p>
                     ) : (
-                      <p className="px-2 py-3 text-[12px] text-ink-3">正在加载模型列表…</p>
+                      <p className="px-2 py-3 text-xs text-ink-3">正在加载模型列表…</p>
                     )
                   ) : providers.length === 0 ? (
                     <div className="grid gap-2 px-1.5 py-2">
-                      <p className="text-[12px] text-ink-3">
+                      <p className="text-xs text-ink-3">
                         还没有配置模型供应商，可在设置 › 模型供应商 中添加。
                       </p>
                       <Button
@@ -466,7 +466,7 @@ export function ChatComposer({
                           <li key={provider.id}>
                             <button
                               className={cn(
-                                'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
+                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
                                 provider.id === focusedId
                                   ? 'bg-hover font-medium text-ink'
                                   : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -494,7 +494,7 @@ export function ChatComposer({
                           <li key={item}>
                             <button
                               className={cn(
-                                'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
+                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
                                 focused.active && model === item
                                   ? 'bg-hover font-medium text-ink'
                                   : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -556,7 +556,7 @@ export function ChatComposer({
                       <li key={level}>
                         <button
                           className={cn(
-                            'flex h-7.5 w-full items-center gap-1 rounded-[6px] px-2 text-left text-[12.5px] transition-colors',
+                            'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
                             level === effort
                               ? 'bg-hover font-medium text-ink'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -582,7 +582,7 @@ export function ChatComposer({
           {busy ? (
             <button
               aria-label="停止执行"
-              className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-ink text-surface transition-opacity duration-150 hover:opacity-90 active:scale-[0.94]"
+              className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-opacity duration-150 hover:opacity-90 active:scale-[0.94]"
               onClick={onStop}
               title="停止执行"
               type="button"
@@ -592,7 +592,7 @@ export function ChatComposer({
           ) : (
             <button
               aria-label="发送"
-              className="flex size-7 shrink-0 items-center justify-center rounded-[8px] transition-[background-color,color,transform] duration-200 enabled:active:scale-[0.94]"
+              className="flex size-7 shrink-0 items-center justify-center rounded-control transition-[background-color,color,transform] duration-200 enabled:active:scale-[0.94]"
               disabled={!configured || !canSend}
               onClick={onSend}
               style={{
@@ -612,7 +612,7 @@ export function ChatComposer({
             // 只保留 absolute：relative 与 absolute 同时写时生成 CSS 谁生效不确定，实测会掉回
             // 文档流向下撑开布局；父容器（composer 外框）已是 relative，向上展开由 bottom-full 定住。
             // 高亮块与 li 都靠本元素的绝对定位建立包含块，不能改成 static。
-            className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-[10px] bg-surface p-1 shadow-raised @max-[260px]:min-w-0"
+            className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-card bg-surface p-1 shadow-raised @max-[260px]:min-w-0"
             id={menuListId}
             role="listbox"
             style={{
@@ -622,7 +622,7 @@ export function ChatComposer({
           >
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-x-1 rounded-[6px] bg-hover"
+              className="pointer-events-none absolute inset-x-1 rounded-chip bg-hover"
               style={{
                 top: rowBox?.top ?? 0,
                 height: rowBox?.height ?? 0,
@@ -634,7 +634,7 @@ export function ChatComposer({
             {items.map((item, position) => (
               <li
                 aria-selected={position === index}
-                className="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-[6px] px-2 text-left"
+                className="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-chip px-2 text-left"
                 id={menuOptionId(position)}
                 key={'name' in item ? item.name : item.key}
                 // 阻止点击选项时编辑器失焦。
@@ -647,16 +647,12 @@ export function ChatComposer({
                 {menu?.kind === 'mention' ? (
                   <FileText className="size-3.5 shrink-0 text-ink-3" />
                 ) : (
-                  <span className="shrink-0 font-mono text-[12.5px] text-ink-3">/</span>
+                  <span className="shrink-0 font-mono text-13 text-ink-3">/</span>
                 )}
                 {'name' in item ? (
                   <>
-                    <span className="shrink-0 text-[12.5px] font-medium text-ink">
-                      /{item.name}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">
-                      {item.hint}
-                    </span>
+                    <span className="shrink-0 text-13 font-medium text-ink">/{item.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{item.hint}</span>
                   </>
                 ) : (
                   <MentionTitle title={item.title} />
@@ -676,11 +672,11 @@ function MentionTitle({ title }: { title: string }) {
   const dir = at < 0 ? '' : title.slice(0, at + 1);
   const name = at < 0 ? title : title.slice(at + 1);
   return (
-    <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[12.5px]">
+    <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-13">
       <span className="shrink-0 font-semibold" style={{ color: 'var(--cal-blue-text)' }}>
         {name}
       </span>
-      {dir && <span className="min-w-0 truncate text-[11px] text-ink-3">{dir}</span>}
+      {dir && <span className="min-w-0 truncate text-2xs text-ink-3">{dir}</span>}
     </span>
   );
 }
@@ -701,7 +697,7 @@ function ComposerChip({
 }) {
   return (
     <span
-      className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field pr-0.5 pl-2 text-[12px] text-ink-2 shadow-hairline [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-ink-3"
+      className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field pr-0.5 pl-2 text-xs text-ink-2 shadow-hairline [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-ink-3"
       style={{ animation: 'pop-in 200ms cubic-bezier(0.23,1,0.32,1) both' }}
       title={label}
     >
@@ -724,7 +720,7 @@ function ComposerChip({
 function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   return (
     <div
-      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--red-tint),var(--red-tint))] px-3 py-1.5 text-[13px] leading-6 text-ink shadow-hairline"
+      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--red-tint),var(--red-tint))] px-3 py-1.5 text-13 leading-6 text-ink shadow-hairline"
       role="alert"
       style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
     >
@@ -753,7 +749,7 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
       <Popover.Trigger asChild>
         <button
           aria-label="上下文占用"
-          className="flex size-7 shrink-0 items-center justify-center rounded-[8px] transition-colors duration-150 hover:bg-hover"
+          className="flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-150 hover:bg-hover"
           title="上下文占用"
           type="button"
         >
@@ -764,7 +760,7 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
         <Popover.Content
           align="center"
           aria-label="上下文占用"
-          className="z-50 w-60 rounded-[10px] bg-surface px-3 py-2.5 shadow-raised"
+          className="z-50 w-60 rounded-card bg-surface px-3 py-2.5 shadow-raised"
           side="top"
           sideOffset={6}
           style={{
@@ -773,8 +769,8 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
           }}
         >
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-[12.5px] font-medium text-ink">上下文</span>
-            <span className="text-[12px] tabular-nums text-ink-3">
+            <span className="text-13 font-medium text-ink">上下文</span>
+            <span className="text-xs tabular-nums text-ink-3">
               {usage.tokens === null ? '—' : formatTokens(usage.tokens)} /{' '}
               {formatTokens(usage.contextWindow)}
               {usage.percent !== null && ` (${usage.percent.toFixed(1).replace(/\.0$/, '')}%)`}
@@ -792,8 +788,8 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
           </div>
           {/* 按本会话累计显示（不是最近一轮）：单轮命中率受该轮是否新建缓存影响，波动大、看不出趋势。 */}
           <div className="mt-2 flex items-baseline justify-between gap-3">
-            <span className="text-[12.5px] text-ink-2">缓存命中率</span>
-            <span className="text-[12px] tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
+            <span className="text-13 text-ink-2">缓存命中率</span>
+            <span className="text-xs tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
           </div>
         </Popover.Content>
       </Popover.Portal>

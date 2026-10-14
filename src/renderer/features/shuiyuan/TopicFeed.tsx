@@ -12,7 +12,7 @@ export function CategoryTag({ category }: { category: { name: string; color: str
     <span className="flex min-w-0 items-center gap-1.5">
       <span
         aria-hidden="true"
-        className="size-2.5 shrink-0 rounded-[2px]"
+        className="size-2.5 shrink-0 rounded-[0.125rem]"
         style={{ backgroundColor: category.color }}
       />
       <span className="truncate">{category.name}</span>
@@ -38,7 +38,7 @@ function TopicAvatar({ topic }: { topic: ShuiyuanTopicSummary }) {
   return (
     <span
       aria-hidden="true"
-      className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-inset text-[13px] font-medium text-ink-3 max-md:size-8"
+      className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-inset text-13 font-medium text-ink-3 max-md:size-8"
     >
       {initial || '…'}
     </span>
@@ -86,9 +86,9 @@ function TopicRow({
           </span>
         </div>
         {showExcerpt && topic.excerpt ? (
-          <p className="line-clamp-2 text-[12px] leading-relaxed text-ink-3">{topic.excerpt}</p>
+          <p className="line-clamp-2 text-xs leading-relaxed text-ink-3">{topic.excerpt}</p>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12px] text-ink-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-ink-3">
           {/* 次级元信息一行排开：分类 · 作者 · 标签，纯文字弱化，标题是唯一主角。 */}
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
             {category && !isPM ? <CategoryTag category={category} /> : null}
@@ -105,7 +105,7 @@ function TopicRow({
               <span className="flex items-center gap-1.5" key={tag}>
                 <span
                   aria-hidden="true"
-                  className="size-2.5 shrink-0 rounded-[2px]"
+                  className="size-2.5 shrink-0 rounded-[0.125rem]"
                   style={{ backgroundColor: tagColor(tag) }}
                 />
                 {tag}
@@ -194,7 +194,7 @@ export function TopicFeed() {
         </div>
       ) : null}
       {!loading && !error && topics.length === 0 ? (
-        <p className="px-1 py-8 text-center text-[13px] text-ink-3">
+        <p className="px-1 py-8 text-center text-13 text-ink-3">
           {list.kind === 'search'
             ? '没有匹配的帖子'
             : list.kind === 'messages'
@@ -204,7 +204,7 @@ export function TopicFeed() {
       ) : null}
       {error ? (
         <div
-          className="mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
+          className="mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}

@@ -12,7 +12,7 @@ import { cn } from '../../../../lib/utils';
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
 /** code 类 textarea（args/env）共用特化：等宽小字号、代码区最小高度可拉伸。 */
-const codeAreaClass = 'min-h-20 resize-y py-2 font-mono text-[12px]';
+const codeAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 
 /** MCP 添加/编辑共用表单：新建提交 addMcpServer；编辑提交部分补丁（command/args/env 留空保持原值，视图不携带现值）。 */
 export function McpFormDialog({
@@ -65,7 +65,7 @@ export function McpFormDialog({
           <Dialog.Title className="text-base font-semibold">
             {isEdit ? `编辑 ${editing.server.name}` : '添加 MCP 服务器'}
           </Dialog.Title>
-          <Dialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
+          <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
             {isEdit
               ? '修改名称或连接配置；留空的 command / 参数 / 环境变量保持原值不变（保存后会重连）。'
               : '以 stdio 方式启动本地命令进程，为 Agent 提供外部工具与资源；保存后自动连接。'}
@@ -77,7 +77,7 @@ export function McpFormDialog({
               void submit();
             }}
           >
-            <label className="grid gap-2 text-[13px]">
+            <label className="grid gap-2 text-13">
               名称
               <Input
                 autoComplete="off"
@@ -87,7 +87,7 @@ export function McpFormDialog({
                 value={name}
               />
             </label>
-            <label className="grid gap-2 text-[13px]">
+            <label className="grid gap-2 text-13">
               command
               <Input
                 autoComplete="off"
@@ -98,7 +98,7 @@ export function McpFormDialog({
                 value={command}
               />
             </label>
-            <label className="grid gap-2 text-[13px]">
+            <label className="grid gap-2 text-13">
               参数（每行一个）
               <Textarea
                 className={codeAreaClass}
@@ -109,7 +109,7 @@ export function McpFormDialog({
                 value={argsText}
               />
             </label>
-            <label className="grid gap-2 text-[13px]">
+            <label className="grid gap-2 text-13">
               环境变量（每行 KEY=VALUE）
               <Textarea
                 className={codeAreaClass}
@@ -119,12 +119,12 @@ export function McpFormDialog({
                 spellCheck={false}
                 value={envText}
               />
-              <span className="text-[12px] leading-relaxed text-ink-3">
+              <span className="text-xs leading-relaxed text-ink-3">
                 子进程默认继承 Dela 进程的环境变量；env 值将以明文保存在本地数据库中。
               </span>
             </label>
             {error && (
-              <p className="text-[12px] text-red" role="alert">
+              <p className="text-xs text-red" role="alert">
                 {error}
               </p>
             )}

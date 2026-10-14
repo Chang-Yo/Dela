@@ -47,14 +47,14 @@ function RecipientRow({
   const foldedCount = to.length + cc.length - 1;
   return (
     <div className="flex gap-3">
-      <span className="w-14 shrink-0 text-[12px] leading-5 text-ink-3">收件人</span>
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[13px] leading-5">
+      <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">收件人</span>
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-13 leading-5">
         <span className="break-all">{formatMailAddress(self.name, self.address)}</span>
         {foldedCount > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="inline-flex items-center rounded-control border border-line px-2 py-0.5 text-[12px] text-ink-3 transition-colors hover:bg-hover-2"
+                className="inline-flex items-center rounded-control border border-line px-2 py-0.5 text-xs text-ink-3 transition-colors hover:bg-hover-2"
                 type="button"
               >
                 +{foldedCount} 收件者
@@ -133,7 +133,7 @@ export function MailReader({
     <section className={cn('@container flex min-h-0 min-w-0 flex-col bg-inset', className)}>
       <button
         className={cn(
-          'mx-4 mt-3 items-center self-start rounded-full border border-line px-3 py-1 text-[12px] text-ink-2 transition-colors hover:bg-hover-2',
+          'mx-4 mt-3 items-center self-start rounded-full border border-line px-3 py-1 text-xs text-ink-2 transition-colors hover:bg-hover-2',
           showBackButton ? 'inline-flex' : 'hidden',
         )}
         onClick={() => setMobileReading(false)}
@@ -141,12 +141,12 @@ export function MailReader({
       >
         ← 返回列表
       </button>
-      {detailLoading && <p className="m-auto text-[13px] text-ink-3">正在获取正文…</p>}
+      {detailLoading && <p className="m-auto text-13 text-ink-3">正在获取正文…</p>}
       {!detailLoading && !detail && !detailError && (
-        <p className="m-auto text-[13px] text-ink-3">选择一封邮件查看正文</p>
+        <p className="m-auto text-13 text-ink-3">选择一封邮件查看正文</p>
       )}
       {!detailLoading && detailError && !detail && (
-        <div className="m-auto grid place-items-center gap-3 text-center text-[13px] text-red">
+        <div className="m-auto grid place-items-center gap-3 text-center text-13 text-red">
           <p>{detailError}</p>
           {selectedMessageId !== null && (
             <Button
@@ -163,9 +163,9 @@ export function MailReader({
       )}
       {!detailLoading && detail && (
         <article className="min-h-0 flex-1 overflow-y-auto px-4 pt-6 pb-0 @min-[520px]:px-8 max-md:pt-2 max-md:pb-0">
-          <div className="mx-auto flex w-full max-w-[760px] flex-col">
+          <div className="mx-auto flex w-full max-w-[47.5rem] flex-col">
             <div className="flex items-start gap-2">
-              <h2 className="min-w-0 flex-1 break-words text-[21px] font-semibold leading-7 tracking-tight">
+              <h2 className="min-w-0 flex-1 break-words text-21 font-semibold leading-7 tracking-tight">
                 {detail.subject ?? '(无主题)'}
               </h2>
               {!readOnly && (
@@ -193,8 +193,8 @@ export function MailReader({
             </div>
             <div className="mt-3 grid gap-1.5 border-b border-line-soft pb-4">
               <div className="flex gap-3">
-                <span className="w-14 shrink-0 text-[12px] leading-5 text-ink-3">发件人</span>
-                <span className="min-w-0 flex-1 break-all text-[13px] leading-5">
+                <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">发件人</span>
+                <span className="min-w-0 flex-1 break-all text-13 leading-5">
                   {detail.sender
                     ? formatMailAddress(detail.sender.name, detail.sender.address)
                     : '(未知发件人)'}
@@ -206,27 +206,27 @@ export function MailReader({
               {/* 折叠时抄送并入"+N 收件者"悬浮列表;仅当无收件人(无法折叠)时保留独立抄送行。 */}
               {detail.to.length === 0 && detail.cc.length > 0 && (
                 <div className="flex gap-3">
-                  <span className="w-14 shrink-0 text-[12px] leading-5 text-ink-3">抄送</span>
-                  <span className="min-w-0 flex-1 break-all text-[13px] leading-5">
+                  <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">抄送</span>
+                  <span className="min-w-0 flex-1 break-all text-13 leading-5">
                     {detail.cc.map((cc) => formatMailAddress(cc.name, cc.address)).join(', ')}
                   </span>
                 </div>
               )}
               <div className="flex gap-3">
-                <span className="w-14 shrink-0 text-[12px] leading-5 text-ink-3">时间</span>
-                <span className="min-w-0 flex-1 break-all text-[13px] leading-5">
+                <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">时间</span>
+                <span className="min-w-0 flex-1 break-all text-13 leading-5">
                   {formatFullDate(detail.date)}
                 </span>
               </div>
               {detail.attachments.length > 0 && (
                 <div className="flex gap-3">
-                  <span className="w-14 shrink-0 text-[12px] leading-5 text-ink-3">
+                  <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">
                     附件 {detail.attachments.length}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                     {detail.attachments.map((attachment: MailAttachmentInfo) => (
                       <button
-                        className="inline-flex max-w-full items-center gap-1 rounded-control border border-line px-2 py-0.5 text-left text-[12px] transition-colors hover:bg-hover-2 disabled:cursor-wait disabled:opacity-60"
+                        className="inline-flex max-w-full items-center gap-1 rounded-control border border-line px-2 py-0.5 text-left text-xs transition-colors hover:bg-hover-2 disabled:cursor-wait disabled:opacity-60"
                         disabled={!attachment.part || downloadingPart === attachment.part}
                         key={`${attachment.filename}-${attachment.part}`}
                         onClick={() => void saveAttachment(attachment)}
@@ -247,14 +247,14 @@ export function MailReader({
               )}
             </div>
             {detailError && (
-              <p className="mt-2 text-[12px] text-red" role="alert">
+              <p className="mt-2 text-xs text-red" role="alert">
                 {detailError}
               </p>
             )}
             {detail.bodyHtml ? (
               <MailHtmlBody key={detail.id} html={detail.bodyHtml} text={detail.bodyText} />
             ) : (
-              <div className="mt-3 rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+              <div className="mt-3 rounded-t-lg border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
                 {detail.bodyText ?? '(无正文)'}
               </div>
             )}

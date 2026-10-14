@@ -87,7 +87,7 @@ const MessageImage = memo(function MessageImage({ id, name }: { id: string; name
     />
   ) : (
     <span
-      className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-[11px] text-ink-3"
+      className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-2xs text-ink-3"
       title={name || undefined}
     >
       图片
@@ -129,7 +129,7 @@ const UserMessage = memo(function UserMessage({
       <div className="mb-5 flex flex-col items-end">
         <textarea
           autoFocus
-          className="max-h-64 w-[85%] resize-none rounded-card border border-line border-line-strong bg-surface px-3.5 py-2 text-[13px] leading-relaxed text-ink shadow-card outline-none [field-sizing:content]"
+          className="max-h-64 w-[85%] resize-none rounded-card border border-line border-line-strong bg-surface px-3.5 py-2 text-13 leading-relaxed text-ink shadow-card outline-none [field-sizing:content]"
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return;
@@ -170,7 +170,7 @@ const UserMessage = memo(function UserMessage({
   return (
     <div className="group/user mb-5 flex flex-col items-end">
       {message.content ? (
-        <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-[13px] leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
+        <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-13 leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
           {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
           <ChatMarkdown className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent">
             {message.content}
@@ -188,7 +188,7 @@ const UserMessage = memo(function UserMessage({
         <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
           {message.attachments.map((attachment, index) => (
             <span
-              className="flex min-w-0 max-w-full items-center gap-1 rounded-chip bg-field px-1.5 py-0.5 text-[11.5px] text-ink-2 shadow-hairline"
+              className="flex min-w-0 max-w-full items-center gap-1 rounded-chip bg-field px-1.5 py-0.5 text-xs text-ink-2 shadow-hairline"
               key={`${attachment.name}:${index}`}
               title={attachment.name}
             >
@@ -204,7 +204,7 @@ const UserMessage = memo(function UserMessage({
             onOpenSource ? (
               <button
                 key={source.key}
-                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-[11.5px] text-ink-2 shadow-hairline transition-colors hover:bg-hover-2 hover:text-ink"
+                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-xs text-ink-2 shadow-hairline transition-colors hover:bg-hover-2 hover:text-ink"
                 onClick={() => onOpenSource(source.key)}
               >
                 {source.title}
@@ -212,7 +212,7 @@ const UserMessage = memo(function UserMessage({
             ) : (
               <span
                 key={source.key}
-                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-[11.5px] text-ink-2 shadow-hairline"
+                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-xs text-ink-2 shadow-hairline"
               >
                 {source.title}
               </span>
@@ -255,7 +255,7 @@ function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }
   return (
     <div
       role="alert"
-      className="my-3 flex items-start gap-2 rounded-card bg-red-tint px-3 py-2 text-[13px] leading-6 text-ink"
+      className="my-3 flex items-start gap-2 rounded-card bg-red-tint px-3 py-2 text-13 leading-6 text-ink"
     >
       <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-red" />
       <p className="min-w-0 flex-1 break-words">{reason}</p>
@@ -263,7 +263,7 @@ function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }
         <button
           type="button"
           onClick={onRetry}
-          className="-my-0.5 flex h-7 shrink-0 items-center gap-1 rounded-control px-2 text-[12px] font-medium text-ink-2 transition-colors hover:bg-surface hover:text-ink"
+          className="-my-0.5 flex h-7 shrink-0 items-center gap-1 rounded-control px-2 text-xs font-medium text-ink-2 transition-colors hover:bg-surface hover:text-ink"
         >
           <RotateCcw aria-hidden className="size-3.5" />
           重试
@@ -325,9 +325,9 @@ const AssistantMessage = memo(function AssistantMessage({
     : message.content;
 
   return (
-    <div className="group/msg mb-8 min-w-0 text-[13px] leading-7 [overflow-wrap:anywhere]">
+    <div className="group/msg mb-8 min-w-0 text-13 leading-7 [overflow-wrap:anywhere]">
       {live && empty && (
-        <p className="h-7 text-[13px] leading-7" role="status">
+        <p className="h-7 text-13 leading-7" role="status">
           <Shimmer>正在思考</Shimmer>
         </p>
       )}
@@ -348,7 +348,7 @@ const AssistantMessage = memo(function AssistantMessage({
         )}
       />
       {reason && <ErrorCard onRetry={onRetry} reason={reason} />}
-      {message.stopped && !live && <p className="my-2 text-[13px] text-ink-3">已停止</p>}
+      {message.stopped && !live && <p className="my-2 text-13 text-ink-3">已停止</p>}
       {onOpenDraft &&
         draftIds.map((draftId) => (
           <Button
@@ -368,7 +368,7 @@ const AssistantMessage = memo(function AssistantMessage({
 
 function CompactionDivider({ pending }: { pending?: boolean }) {
   return (
-    <div className="my-6 flex items-center gap-3 text-[12px] text-ink-3" role="status">
+    <div className="my-6 flex items-center gap-3 text-xs text-ink-3" role="status">
       <span className="h-px flex-1 bg-line" />
       <Archive aria-hidden className="size-3.5 shrink-0" />
       {pending ? <Shimmer>正在压缩上下文</Shimmer> : <span>上下文已自动压缩</span>}
@@ -542,7 +542,7 @@ export const ChatThread = memo(function ChatThread({
         </button>
       )}
       {hint && (
-        <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-[12px] text-ink-3">
+        <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-ink-3">
           {hint}
         </p>
       )}

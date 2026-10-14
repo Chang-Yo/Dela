@@ -84,7 +84,7 @@ export function AddToProjectDialog({
           <div className="flex items-start justify-between gap-4">
             <div>
               <Dialog.Title className="text-base font-semibold">添加到项目</Dialog.Title>
-              <Dialog.Description className="mt-2 text-[12px] text-ink-3">
+              <Dialog.Description className="mt-2 text-xs text-ink-3">
                 引用「{topicTitle || '该帖子'}」，原帖保持在水源不变。
               </Dialog.Description>
             </div>
@@ -99,7 +99,7 @@ export function AddToProjectDialog({
             </Dialog.Close>
           </div>
           <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-            <label className="grid gap-2 text-[13px]">
+            <label className="grid gap-2 text-13">
               位置
               <Select
                 onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
@@ -120,7 +120,7 @@ export function AddToProjectDialog({
               </Select>
             </label>
             {target === '__new__' ? (
-              <label className="grid gap-2 text-[13px]">
+              <label className="grid gap-2 text-13">
                 名称
                 <Input
                   aria-label="新项目名称"
@@ -131,7 +131,7 @@ export function AddToProjectDialog({
                 />
               </label>
             ) : null}
-            {error ? <p className="text-[12px] text-red">{error}</p> : null}
+            {error ? <p className="text-xs text-red">{error}</p> : null}
             <div className="flex justify-end">
               <Button disabled={busy} type="submit">
                 {busy ? '添加中…' : '添加'}

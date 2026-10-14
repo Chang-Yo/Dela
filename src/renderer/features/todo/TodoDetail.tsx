@@ -11,6 +11,7 @@ import {
 import type { TodoItem } from '../../../shared/api';
 import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
 import { Button } from '../../components/ui/button';
+import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';
 import { cn } from '../../lib/utils';
 import { TodoSheet } from './TodoSheet';
@@ -25,7 +26,11 @@ const INITIAL_BODY_HEIGHT = 240;
  * 链接点击转交外部打开。
  */
 function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => void }) {
-  const doc = useMemo(() => sanitizeHtml(html, 'https://oc.sjtu.edu.cn'), [html]);
+  const rootSize = useRootFontSize();
+  const doc = useMemo(
+    () => sanitizeHtml(html, 'https://oc.sjtu.edu.cn', rootSize),
+    [html, rootSize],
+  );
   const [body, setBody] = useState<HTMLElement | null>(null);
   const [height, setHeight] = useState(INITIAL_BODY_HEIGHT);
   useEffect(() => {
@@ -83,7 +88,7 @@ export function TodoDetail({
   const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
   return (
     <TodoSheet fixedHeight label="待办详情" title={item.title} onClose={onClose}>
-      <div className="mt-3 shrink-0 space-y-1.5 text-[13px] text-ink-3">
+      <div className="mt-3 shrink-0 space-y-1.5 text-13 text-ink-3">
         <p className="flex items-start gap-1.5">
           <BookOpen className="mt-0.5 size-3.5 shrink-0" />
           <span className="break-words">
@@ -109,7 +114,7 @@ export function TodoDetail({
       </div>
       {personal ? (
         item.notes && (
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-[13px] [scrollbar-width:none]">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-13 [scrollbar-width:none]">
             {item.notes}
           </div>
         )

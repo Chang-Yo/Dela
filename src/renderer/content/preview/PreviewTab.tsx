@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanSourceDoc } from '../../features/shuiyuan/SourceRefCard';
+import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
@@ -125,23 +126,24 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   /* HTML 消毒基址：Canvas 来源的相对地址补全到 Canvas 域；本地/导入条目（watchesDisk，
      Loader 接线里即 entry kind local/imported 的近似标记）不补外域 base——空 base 下
      绝对 http(s) 链接保留、相对地址剥除，避免相对地址被补到 Canvas 域造成跨域请求泄露。 */
+  const rootSize = useRootFontSize();
   const html = useMemo(
     () =>
       content?.format === 'html'
-        ? sanitizeHtml(content.text, doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn')
+        ? sanitizeHtml(content.text, doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn', rootSize)
         : '',
-    [content, doc?.watchesDisk],
+    [content, doc?.watchesDisk, rootSize],
   );
 
   if (!parsePreviewTabId(tabId))
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-[13px] text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
         无效的预览标签：{tabId}
       </div>
     );
   if (!doc || !content)
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-[13px] text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
         {error ? (
           <div role="alert" className="min-w-0">
             <p className="break-words">{error}</p>
@@ -211,7 +213,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'pdf' &&
         (content.previewUrl ? (
-          <Suspense fallback={<p className="p-4 text-[13px] text-ink-3">正在加载阅读器…</p>}>
+          <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载阅读器…</p>}>
             <PdfReader
               key={content.previewUrl}
               url={content.previewUrl}
@@ -220,7 +222,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             />
           </Suspense>
         ) : (
-          <p className="p-4 text-[13px] text-ink-3">正在准备预览…</p>
+          <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
         ))}
       {branch === 'image' && (
         <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -229,7 +231,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {(branch === 'docx' || branch === 'xlsx') &&
         (content.previewUrl ? (
-          <Suspense fallback={<p className="p-4 text-[13px] text-ink-3">正在加载预览…</p>}>
+          <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载预览…</p>}>
             {branch === 'docx' ? (
               <DocxPreview key={content.previewUrl} url={content.previewUrl} />
             ) : (
@@ -237,7 +239,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             )}
           </Suspense>
         ) : (
-          <p className="p-4 text-[13px] text-ink-3">正在准备预览…</p>
+          <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
         ))}
       {branch === 'pptx' && (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -249,7 +251,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             />
           )}
           {exported?.previewUrl ? (
-            <Suspense fallback={<p className="p-4 text-[13px] text-ink-3">正在加载阅读器…</p>}>
+            <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载阅读器…</p>}>
               <PdfReader
                 key={exported.previewUrl}
                 url={exported.previewUrl}
@@ -267,7 +269,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         </div>
       )}
       {branch === 'unsupported' && (
-        <p className="p-6 text-[13px] text-ink-3">此格式暂不支持内嵌预览，请下载文件或打开原文。</p>
+        <p className="p-6 text-13 text-ink-3">此格式暂不支持内嵌预览，请下载文件或打开原文。</p>
       )}
       {(branch === 'code' || branch === 'text') && (
         <CodeViewer
@@ -279,7 +281,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'markdown' && (
         <div
-          className="min-h-0 flex-1 overflow-auto p-6 text-[13px] leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-inset [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+          className="min-h-0 flex-1 overflow-auto p-6 text-13 leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-inset [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
           ref={scrollContainer}
           onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
         >

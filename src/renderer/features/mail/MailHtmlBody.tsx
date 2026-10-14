@@ -3,9 +3,10 @@ import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
 import { cn } from '../../lib/utils';
 import { frameHeightFromEvent, injectFrameHeightReport } from '../../components/ui/frame-height';
+import { useRootFontSize } from '../../lib/root-font-size';
 
 const toolbarToggle = cn(
-  'h-7 rounded-full px-3 text-[12px] transition-colors',
+  'h-7 rounded-full px-3 text-xs transition-colors',
   'aria-pressed:bg-hover-2 aria-pressed:font-medium aria-pressed:text-ink',
   'aria-[pressed=false]:text-ink-3 aria-[pressed=false]:hover:bg-hover',
 );
@@ -21,11 +22,12 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
   const [fitWidth, setFitWidth] = useState(false);
   const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const rootSize = useRootFontSize();
   const document = useMemo(() => {
     const doc = sanitizeMailHtml(html, remoteImages);
     injectFrameHeightReport(doc);
-    return renderMailHtml(doc, fitWidth);
-  }, [html, remoteImages, fitWidth]);
+    return renderMailHtml(doc, fitWidth, rootSize);
+  }, [html, remoteImages, fitWidth, rootSize]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -66,7 +68,7 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
         </button>
       </div>
       {plain ? (
-        <div className="mt-3 rounded-t-lg border-x border-t p-4 text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+        <div className="mt-3 rounded-t-lg border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
           {text ?? new DOMParser().parseFromString(html, 'text/html').body.textContent}
         </div>
       ) : (

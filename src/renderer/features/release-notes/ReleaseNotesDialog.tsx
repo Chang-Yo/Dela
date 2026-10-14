@@ -29,11 +29,11 @@ export function ReleaseNotesDialog() {
             {notes.map((note) => (
               <section className="grid gap-1.5" key={note.version}>
                 {notes.length > 1 && (
-                  <h3 className="text-[12px] font-medium text-ink-3">
+                  <h3 className="text-xs font-medium text-ink-3">
                     {note.version} · {note.date}
                   </h3>
                 )}
-                <ul className="grid list-disc gap-1.5 pl-4 text-[13px] leading-relaxed text-ink-2">
+                <ul className="grid list-disc gap-1.5 pl-4 text-13 leading-relaxed text-ink-2">
                   {note.highlights.map((item) => (
                     <li key={item}>{item}</li>
                   ))}

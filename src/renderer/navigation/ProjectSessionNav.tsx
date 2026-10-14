@@ -244,7 +244,7 @@ export function ProjectSessionNav({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="right" className="w-56">
-                  <DropdownMenuLabel className="break-words text-[13px] text-ink">
+                  <DropdownMenuLabel className="break-words text-13 text-ink">
                     {label}
                   </DropdownMenuLabel>
                   <DropdownMenuLabel>{sessions.length} 个对话</DropdownMenuLabel>
@@ -366,7 +366,7 @@ export function ProjectSessionNav({
           <div className="grid grid-cols-1 gap-px pb-1">
             {sessions.length === 0 && onNewChat && (
               <button
-                className="flex h-7 items-center gap-2 rounded-control pl-8 pr-2 text-left text-[12.5px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
+                className="flex h-7 items-center gap-2 rounded-control pl-8 pr-2 text-left text-13 text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
                 onClick={() => onNewChat(key)}
                 type="button"
               >
@@ -388,7 +388,7 @@ export function ProjectSessionNav({
             ))}
             {unpinned.length > RECENT_SESSIONS && (
               <button
-                className="flex h-7 items-center rounded-control pl-8 pr-2 text-left text-[12px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
+                className="flex h-7 items-center rounded-control pl-8 pr-2 text-left text-xs text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
                 onClick={() => toggleFullSessionList(key)}
                 type="button"
               >
@@ -469,7 +469,7 @@ export function ProjectSessionNav({
         <div className="flex items-center justify-between px-2 pb-1">
           <span
             className={cn(
-              'whitespace-nowrap text-[11.5px] font-medium text-ink-3',
+              'whitespace-nowrap text-xs font-medium text-ink-3',
               labelFade,
               collapsed && 'opacity-0',
             )}
@@ -527,7 +527,7 @@ export function ProjectSessionNav({
           <Dialog.Overlay className={dialogOverlay} />
           <Dialog.Content className={cn(dialogPanel, 'max-w-sm')}>
             <Dialog.Title className="text-base font-semibold">新建项目分组</Dialog.Title>
-            <Dialog.Description className="mt-1 text-[13px] text-ink-3">
+            <Dialog.Description className="mt-1 text-13 text-ink-3">
               将当前项目放入此分组。
             </Dialog.Description>
             <form

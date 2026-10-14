@@ -115,15 +115,15 @@ export function RemoteSection() {
         title="远程"
       />
       {error && (
-        <p className="text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
+        <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
           {error}
         </p>
       )}
       {connections !== null && connections.length === 0 && (
         <SettingsGroup>
           <div className="grid gap-1 py-3.5">
-            <span className="text-[13px] font-medium text-ink">还没有 SSH 连接</span>
-            <span className="text-[12px] leading-relaxed text-ink-3">
+            <span className="text-13 font-medium text-ink">还没有 SSH 连接</span>
+            <span className="text-xs leading-relaxed text-ink-3">
               点「新建连接」走一遍向导：填目的地并连上之后，选一个远端目录作为项目——连接就是从这里来的。
             </span>
           </div>
@@ -173,7 +173,7 @@ export function RemoteSection() {
                 title={connection.label}
               >
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className={cn('flex items-center gap-1.5 text-[12px]', status.tone)}>
+                  <span className={cn('flex items-center gap-1.5 text-xs', status.tone)}>
                     <span
                       aria-hidden="true"
                       className={cn('size-1.5 shrink-0 rounded-full', status.dot)}

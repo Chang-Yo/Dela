@@ -231,10 +231,10 @@ export function WorkbenchExplorer({
   // 视口钳制：目录渲染宽度不超过视口约 28%（下限 200），窄窗口下给内容区保留可用宽度；
   // 用户拖拽偏好仍按原值持久化，仅在渲染时钳制。
   const effectiveWidth = Math.min(width, Math.max(200, Math.round(viewportWidth * 0.28)));
-  const sectionClass = 'flex h-8 items-center gap-1 px-3 text-[11.5px] font-medium text-ink-3';
+  const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-ink-3';
   // 区块小标题：比组头浅一档的分层提示（同步 / 文件两区），纯展示不可交互；归档区靠底部
   // 分隔线 + 自身组头分层，不另加小标题以免与"归档"组头文字重复。
-  const eyebrowClass = 'px-3 pt-3 pb-1 text-[11px] font-medium tracking-wider text-ink-3/70';
+  const eyebrowClass = 'px-3 pt-3 pb-1 text-2xs font-medium tracking-wider text-ink-3/70';
   const chevron = (open: boolean) => (
     <ChevronRight
       className={cn(
@@ -263,7 +263,7 @@ export function WorkbenchExplorer({
         className={cn(
           // 三级背景层次（用户裁决，勿压平）：侧栏画布 --page → 目录树 --muted(=--inset)
           // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
-          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[280px] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-overlay max-md:animate-[drawer-left_200ms_var(--ease-out-strong)_both]',
+          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[17.5rem] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-overlay max-md:animate-[drawer-left_200ms_var(--ease-out-strong)_both]',
           resizing && 'transition-none',
           !visible && 'w-0 max-md:hidden',
         )}
@@ -295,7 +295,7 @@ export function WorkbenchExplorer({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-ink-2 transition-colors duration-150 hover:text-ink"
+                  className="min-w-0 flex-1 truncate text-left text-xs font-medium text-ink-2 transition-colors duration-150 hover:text-ink"
                   onClick={() => useTreeState.getState().select(rootId)}
                   title={
                     remoteRoot ? undefined : projectId ? (root?.name ?? '项目与文件夹') : '资料'
@@ -396,7 +396,7 @@ export function WorkbenchExplorer({
               <Search className="pointer-events-none absolute left-2 top-2 size-3.5 text-ink-3" />
               <Input
                 aria-label="筛选已同步内容"
-                className="h-8 bg-surface pl-7 text-[12px]"
+                className="h-8 bg-surface pl-7 text-xs"
                 onChange={(e) => useTreeState.getState().setQuery(e.target.value)}
                 placeholder="筛选已同步内容…"
                 value={query}
@@ -502,7 +502,7 @@ export function WorkbenchExplorer({
                         selected={activeDocKey}
                       />
                     ) : (
-                      <div className="px-4 py-3 text-[12px] text-ink-3">
+                      <div className="px-4 py-3 text-xs text-ink-3">
                         <p>连接 Canvas，查看课程资料。</p>
                         <Button
                           className="mt-3"

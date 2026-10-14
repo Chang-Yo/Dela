@@ -96,7 +96,7 @@ export function NewEventDialog({
         <form className="mt-4 flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
           <Input
             autoFocus
-            className="h-10 px-0 text-[15px] font-medium"
+            className="h-10 px-0 text-15 font-medium"
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="例如：小组讨论"
@@ -105,19 +105,19 @@ export function NewEventDialog({
           />
           <div className="grid divide-y overflow-hidden rounded-card border border-line">
             <div className="flex min-h-11 items-center gap-2 px-3">
-              <span className="w-8 shrink-0 text-[12px] text-ink-3">开始</span>
+              <span className="w-8 shrink-0 text-xs text-ink-3">开始</span>
               <div className="flex-1">
                 <DateTimeStepper label="开始时间" onChange={changeStart} value={startAt} />
               </div>
             </div>
             <div className="flex min-h-11 items-center gap-2 px-3">
-              <span className="w-8 shrink-0 text-[12px] text-ink-3">结束</span>
+              <span className="w-8 shrink-0 text-xs text-ink-3">结束</span>
               <div className="flex-1">
                 <DateTimeStepper label="结束时间" onChange={setEndAt} value={endAt} />
               </div>
             </div>
             <div className="flex h-11 items-center gap-2 px-3 transition-colors has-[:focus-visible]:bg-hover">
-              <span className="w-8 shrink-0 text-[12px] text-ink-3">地点</span>
+              <span className="w-8 shrink-0 text-xs text-ink-3">地点</span>
               <Input
                 aria-label="地点"
                 className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -130,7 +130,7 @@ export function NewEventDialog({
             <EventColorRow className="transition-colors" onColorChange={setColor} value={color} />
           </div>
           {error ? (
-            <p className="break-words text-[12px] text-red" role="alert">
+            <p className="break-words text-xs text-red" role="alert">
               {error}
             </p>
           ) : null}

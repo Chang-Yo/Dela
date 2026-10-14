@@ -154,12 +154,12 @@ export function ConnectionsSection({
       extra:
         trashRetention === null ? undefined : (
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] text-ink-3 max-md:hidden">已删除保留</span>
+            <span className="text-xs text-ink-3 max-md:hidden">已删除保留</span>
             <Select
               onValueChange={(value) => void changeRetention(Number(value) as MailTrashRetention)}
               value={String(trashRetention)}
             >
-              <SelectTrigger aria-label="已删除邮件保留" className="h-8 text-[12px]">
+              <SelectTrigger aria-label="已删除邮件保留" className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -204,7 +204,7 @@ export function ConnectionsSection({
     <div className="grid gap-10">
       <SectionHeader title="连接" />
       {loadError && (
-        <p className="text-[12px] text-red" role="alert">
+        <p className="text-xs text-red" role="alert">
           {loadError}
         </p>
       )}
@@ -232,9 +232,9 @@ export function ConnectionsSection({
                     <Icon className="size-4 text-ink-3" strokeWidth={1.8} />
                   </span>
                   <div className="grid min-w-0 gap-0.5">
-                    <strong className="text-[13px]">{name}</strong>
+                    <strong className="text-13">{name}</strong>
                     {description && (
-                      <span className="truncate text-[12px] text-ink-3" title={description}>
+                      <span className="truncate text-xs text-ink-3" title={description}>
                         {description}
                       </span>
                     )}
@@ -245,7 +245,7 @@ export function ConnectionsSection({
                   {/* 状态用颜色说话：绿点=已连接，灰点=未连接；文字只补充细节。 */}
                   <span
                     className={cn(
-                      'flex min-w-[72px] max-w-40 items-center gap-1.5 text-[12px] max-md:min-w-0',
+                      'flex min-w-[4.5rem] max-w-40 items-center gap-1.5 text-xs max-md:min-w-0',
                       connected ? 'text-ink' : 'text-ink-3',
                     )}
                     title={state}
@@ -278,7 +278,7 @@ export function ConnectionsSection({
           <Dialog.Overlay className={dialogOverlay} />
           <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
             <Dialog.Title className="text-base font-semibold">配置 Canvas</Dialog.Title>
-            <Dialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
+            <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
               {canvas.connected
                 ? '输入新的个人 Access Token 以替换当前连接。'
                 : '输入个人 Access Token，验证成功后读取课程列表；凭据加密保存在本机。'}

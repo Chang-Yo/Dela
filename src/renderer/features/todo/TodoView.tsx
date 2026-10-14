@@ -27,7 +27,7 @@ import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
 const inputClass =
-  'w-full rounded-control bg-field px-2.5 py-1.5 text-[13px] text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]';
+  'w-full rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]';
 
 // 行尾操作图标：始终占位避免悬停时行内容位移，悬停/键盘聚焦时浮现，触屏常显。
 const rowActionClass =
@@ -49,9 +49,9 @@ function CalendarOptionRows({
     <>
       <EventColorRow onColorChange={onColorChange} value={color} />
       <div className="flex h-11 items-center gap-2 px-3">
-        <span className="w-8 shrink-0 text-[12px] text-ink-3">日历</span>
+        <span className="w-8 shrink-0 text-xs text-ink-3">日历</span>
         <div className="flex flex-1 items-center justify-between gap-2">
-          <span className="text-[13px]">写入日历</span>
+          <span className="text-13">写入日历</span>
           <Switch checked={calendar} label="写入日历" onChange={onCalendarChange} />
         </div>
       </div>
@@ -103,7 +103,7 @@ function TodoComposer({
       >
         <Input
           autoFocus
-          className="h-10 px-0 text-[15px] font-medium"
+          className="h-10 px-0 text-15 font-medium"
           maxLength={200}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="例如：准备小组展示"
@@ -112,7 +112,7 @@ function TodoComposer({
         />
         <div className="grid divide-y overflow-hidden rounded-card border border-line">
           <div className="flex min-h-11 items-center gap-2 px-3">
-            <span className="w-8 shrink-0 text-[12px] text-ink-3">截止</span>
+            <span className="w-8 shrink-0 text-xs text-ink-3">截止</span>
             <div className="min-w-0 flex-1">
               {dueAt === null ? (
                 <Button
@@ -129,7 +129,7 @@ function TodoComposer({
                     <DateTimeStepper onChange={setDueAt} value={dueAt} />
                   </div>
                   <button
-                    className="inline-flex shrink-0 items-center gap-1 text-[12px] text-ink-3 transition-colors hover:text-ink"
+                    className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-3 transition-colors hover:text-ink"
                     onClick={() => setDueAt(null)}
                     type="button"
                   >
@@ -262,7 +262,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">TODO</h1>
-          <p className="mt-1 text-[12px] text-ink-3">
+          <p className="mt-1 text-xs text-ink-3">
             {state?.syncedAt
               ? `Canvas 更新于 ${dateLabel(state.syncedAt)}`
               : state?.connected
@@ -296,7 +296,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
         </div>
       </header>
       {(error || state?.error) && (
-        <p role="alert" className="mt-3 whitespace-pre-wrap text-[13px] text-red">
+        <p role="alert" className="mt-3 whitespace-pre-wrap text-13 text-red">
           {error || state?.error}
         </p>
       )}
@@ -313,18 +313,18 @@ export function TodoView({ request }: { request?: { id: string } }) {
           </Button>
         ))}
         {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
-        <label className="ml-auto flex items-center gap-2 text-[12px] text-ink-3">
+        <label className="ml-auto flex items-center gap-2 text-xs text-ink-3">
           <Switch checked={showCompleted} label="显示已完成" onChange={setShowCompleted} />
           显示已完成（{completedCount}）
         </label>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {!state ? (
-          <p className="py-8 text-center text-[13px] text-ink-3">
+          <p className="py-8 text-center text-13 text-ink-3">
             {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
           </p>
         ) : !items.length ? (
-          <p className="py-8 text-center text-[13px] text-ink-3">暂无符合条件的待办</p>
+          <p className="py-8 text-center text-13 text-ink-3">暂无符合条件的待办</p>
         ) : (
           <ul className="space-y-1">
             {items.map((item) => {
@@ -371,9 +371,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <span
-                        className={cn('break-words text-[13px] font-medium', done && 'text-ink-3')}
-                      >
+                      <span className={cn('break-words text-13 font-medium', done && 'text-ink-3')}>
                         {item.title}
                       </span>
                       {!item.readAt && (
@@ -387,10 +385,10 @@ export function TodoView({ request }: { request?: { id: string } }) {
                         />
                       )}
                     </div>
-                    <p className="mt-1 text-[12px] text-ink-3">
+                    <p className="mt-1 text-xs text-ink-3">
                       {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
                     </p>
-                    <p className={cn('mt-1 text-[12px]', overdue ? 'text-red' : 'text-ink-3')}>
+                    <p className={cn('mt-1 text-xs', overdue ? 'text-red' : 'text-ink-3')}>
                       {overdue ? '已过截止时间 · ' : ''}
                       {dateLabel(item.dueAt)}
                     </p>

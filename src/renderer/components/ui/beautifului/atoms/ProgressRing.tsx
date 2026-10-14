@@ -8,6 +8,7 @@ export function ProgressRing({
   progress: number; // 0..1
   tone?: "orange" | "green" | "red" | "accent" | "ink";
   children?: React.ReactNode;
+  /** Dela 适配：默认根字号（16px）下的边长，按 rem 派生，随设置 › 外观 › 字号缩放。 */
   size?: number;
 }) {
   const stroke = 2;
@@ -24,9 +25,9 @@ export function ProgressRing({
   return (
     <span
       className="relative inline-flex items-center justify-center"
-      style={{ width: size, height: size }}
+      style={{ width: `${size / 16}rem`, height: `${size / 16}rem` }}
     >
-      <svg width={size} height={size} className="-rotate-90 absolute inset-0">
+      <svg className="-rotate-90 absolute inset-0 size-full" viewBox={`0 0 ${size} ${size}`}>
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -48,7 +49,7 @@ export function ProgressRing({
           style={{ transition: "stroke-dashoffset 400ms cubic-bezier(0.23,1,0.32,1)" }}
         />
       </svg>
-      <span className="relative text-[12px] font-semibold tabular-nums">
+      <span className="relative text-xs font-semibold tabular-nums">
         {children}
       </span>
     </span>

@@ -36,7 +36,7 @@
   );
   --crepe-color-inline-area: var(--color-muted, var(--muted));
 
-  --crepe-base-font-size: calc(0.875rem * var(--font-scale, 1));
+  --crepe-base-font-size: 0.875rem;
   --crepe-font-title: var(--font-sans, inherit);
   --crepe-font-default: var(--font-sans, inherit);
   --crepe-font-code: var(--font-mono, ui-monospace, monospace);
@@ -46,7 +46,7 @@
   /* 书写区在画布内居中；max-width 放宽以减少宽屏两侧空白。 */
   max-width: 60rem;
   margin: 0 auto;
-  padding: 16px 48px 40vh;
+  padding: 1rem 3rem 40vh;
   color: var(--color-foreground, var(--foreground));
   caret-color: var(--color-foreground, var(--foreground));
 }
@@ -71,14 +71,14 @@
 
 /* 块引用：深色竖条 + 浅底，边界明确。 */
 .note-editor-host .milkdown .ProseMirror blockquote {
-  padding: 4px 16px 4px 20px;
-  margin: 4px 0;
+  padding: 0.25rem 1rem 0.25rem 1.25rem;
+  margin: 0.25rem 0;
   background: var(--color-muted, var(--muted));
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 0.5rem 0.5rem 0;
 }
 
 .note-editor-host .milkdown .ProseMirror blockquote::before {
-  width: 3px;
+  width: 0.1875rem;
   background: var(--color-primary, var(--primary));
 }
 
@@ -89,16 +89,16 @@
 
 /* 列表：标记与行号用中层灰，标签列收窄使文本更贴近正文缩进。 */
 .note-editor-host .milkdown .milkdown-list-item-block li {
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .note-editor-host .milkdown .milkdown-list-item-block li .label-wrapper {
-  width: 20px;
+  width: 1.25rem;
   color: var(--color-muted-foreground, var(--muted-foreground));
 }
 
 .note-editor-host .milkdown .milkdown-list-item-block li .label-wrapper .label {
-  width: 20px;
+  width: 1.25rem;
 }
 
 .note-editor-host .milkdown .milkdown-list-item-block li .label-wrapper svg {
@@ -122,8 +122,8 @@
   --code-gutter-overlay: rgb(0 0 0 / 8%);
   background: #f6f8fa;
   border: 1px solid #d0d7de;
-  border-radius: 8px;
-  padding: 4px 16px 16px;
+  border-radius: 0.5rem;
+  padding: 0.25rem 1rem 1rem;
   color: #1f2328;
 }
 
@@ -189,16 +189,16 @@
 }
 
 .note-editor-host .milkdown .milkdown-code-block .preview-panel .preview {
-  padding: 12px 0 4px;
+  padding: 0.75rem 0 0.25rem;
 }
 
 /* 行内公式悬浮框确认按钮：主题固定 24px 宽（为图标设计），中文文字会折行溢出，
    改为随内容展开。 */
 .note-editor-host .milkdown .milkdown-latex-inline-edit .container button {
   width: auto;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -208,17 +208,17 @@
 /* 代码块工具行统一为一组头部芯片：同高、同圆角、同底色；
    复制按钮仅显示图标（文字保留给读屏，font-size: 0 隐藏）。 */
 .note-editor-host .milkdown .milkdown-code-block .tools .language-button {
-  height: 24px;
+  height: 1.5rem;
   margin-bottom: 0;
-  padding: 0 6px 0 8px;
-  border-radius: 6px;
+  padding: 0 0.375rem 0 0.5rem;
+  border-radius: 0.375rem;
 }
 
 .note-editor-host .milkdown .milkdown-code-block .tools .tools-button-group button {
-  height: 24px;
-  padding: 0 6px;
+  height: 1.5rem;
+  padding: 0 0.375rem;
   background: var(--crepe-color-surface-low);
-  border-radius: 6px;
+  border-radius: 0.375rem;
 }
 
 .note-editor-host .milkdown .milkdown-code-block .tools .tools-button-group .copy-button {
@@ -253,5 +253,5 @@
 
 /* 阅读态：去掉编辑期的块手柄交互占位，保留版式。 */
 .note-editor-host[data-readonly='true'] .milkdown {
-  padding-bottom: 24px;
+  padding-bottom: 1.5rem;
 }

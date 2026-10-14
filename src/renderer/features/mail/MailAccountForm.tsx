@@ -31,9 +31,7 @@ export function MailAccountForm({
   const custom = mode === '第三方 IMAP';
   const wizard = variant === 'wizard';
   const field = wizard ? 'h-10 rounded-card' : '';
-  const label = wizard
-    ? 'text-[13px] font-medium text-ink-2'
-    : 'text-[12px] font-medium text-ink-3';
+  const label = wizard ? 'text-13 font-medium text-ink-2' : 'text-xs font-medium text-ink-3';
 
   return (
     <form
@@ -112,7 +110,7 @@ export function MailAccountForm({
                 placeholder="smtp.example.com"
                 port={smtpPort}
               />
-              <p className="text-[12px] leading-relaxed text-ink-3">
+              <p className="text-xs leading-relaxed text-ink-3">
                 固定使用 SSL/TLS 加密；用户名即邮箱地址。发信走 SMTP，收信走 IMAP。
               </p>
             </div>
@@ -121,9 +119,7 @@ export function MailAccountForm({
       </AnimatePresence>
       {error && (
         <p
-          className={
-            wizard ? 'text-[13px] [overflow-wrap:anywhere] text-red-600' : 'text-[13px] text-red'
-          }
+          className={wizard ? 'text-13 [overflow-wrap:anywhere] text-red-600' : 'text-13 text-red'}
           role="alert"
         >
           {error}

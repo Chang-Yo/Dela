@@ -177,7 +177,7 @@ export const TabBar = memo(function TabBar({
                   <Icon className="size-3.5 shrink-0 opacity-70" />
                   <span
                     className={cn(
-                      'min-w-0 flex-1 truncate px-0.5 text-left text-[12px]',
+                      'min-w-0 flex-1 truncate px-0.5 text-left text-xs',
                       unfocused && 'opacity-55',
                     )}
                     title={title}

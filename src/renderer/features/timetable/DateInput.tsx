@@ -94,7 +94,7 @@ export function DateInput({
   return (
     <div
       aria-label={label}
-      className={cn('flex items-center gap-1 text-[13px] tabular-nums', className)}
+      className={cn('flex items-center gap-1 text-13 tabular-nums', className)}
       data-slot="date-input"
       role="group"
     >

@@ -575,7 +575,7 @@ export function MailComposer({
     >
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         {leaveBlocked && (
-          <span role="status" className="text-[12px] text-ink-3">
+          <span role="status" className="text-xs text-ink-3">
             正在发送/保存邮件，完成后即可离开
           </span>
         )}
@@ -601,8 +601,8 @@ export function MailComposer({
           <X />
         </Button>
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <strong className="text-[13px]">新邮件</strong>
-          <span className="truncate text-[12px] text-ink-3 max-md:hidden">
+          <strong className="text-13">新邮件</strong>
+          <span className="truncate text-xs text-ink-3 max-md:hidden">
             从 {accountAddress} 发送
           </span>
         </div>
@@ -618,15 +618,15 @@ export function MailComposer({
 
       <div
         className={cn(
-          'mx-auto mt-3 flex min-h-0 w-full max-w-[760px] flex-1 flex-col rounded-card border border-line bg-surface px-4 pt-5 @min-[520px]:px-8 max-md:pt-3',
+          'mx-auto mt-3 flex min-h-0 w-full max-w-[47.5rem] flex-1 flex-col rounded-card border border-line bg-surface px-4 pt-5 @min-[520px]:px-8 max-md:pt-3',
           embedded && 'mt-0 max-w-none rounded-none border-0',
         )}
       >
         <label className="flex min-h-10 items-center border-b border-line transition-colors focus-within:border-line-strong">
-          <span className="w-16 shrink-0 text-[12px] text-ink-3">收件人</span>
+          <span className="w-16 shrink-0 text-xs text-ink-3">收件人</span>
           <input
             autoFocus
-            className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-ink-3"
+            className="min-w-0 flex-1 bg-transparent py-2 text-13 outline-none placeholder:text-ink-3"
             onChange={(event) => setTo(event.target.value)}
             placeholder="多个地址用逗号分隔"
             type="text"
@@ -634,9 +634,9 @@ export function MailComposer({
           />
         </label>
         <label className="flex min-h-10 items-center border-b border-line transition-colors focus-within:border-line-strong">
-          <span className="w-16 shrink-0 text-[12px] text-ink-3">主题</span>
+          <span className="w-16 shrink-0 text-xs text-ink-3">主题</span>
           <input
-            className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-ink-3"
+            className="min-w-0 flex-1 bg-transparent py-2 text-13 outline-none placeholder:text-ink-3"
             onChange={(event) => setSubject(event.target.value)}
             placeholder="邮件主题"
             type="text"
@@ -707,7 +707,7 @@ export function MailComposer({
             <input
               autoFocus
               className={cn(
-                'min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-ink-3',
+                'min-w-0 flex-1 bg-transparent py-2 text-13 outline-none placeholder:text-ink-3',
                 linkInvalid && 'text-red',
               )}
               onChange={(event) => {
@@ -729,9 +729,7 @@ export function MailComposer({
               value={linkDraft}
             />
             {linkInvalid && (
-              <span className="min-w-0 shrink truncate text-[12px] text-red">
-                请输入有效的链接地址
-              </span>
+              <span className="min-w-0 shrink truncate text-xs text-red">请输入有效的链接地址</span>
             )}
             <Button onClick={applyLink} size="sm" type="button">
               插入
@@ -745,7 +743,7 @@ export function MailComposer({
         <div
           aria-label="邮件正文"
           // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
-          className="min-h-0 flex-1 overflow-y-auto py-4 text-[13px] leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[520px] [&_img]:max-w-full [&_img]:rounded-md"
+          className="min-h-0 flex-1 overflow-y-auto py-4 text-13 leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-md"
           contentEditable
           onInput={handleEditorInput}
           onKeyDown={handleEditorKeyDown}
@@ -761,7 +759,7 @@ export function MailComposer({
           <div className="flex shrink-0 flex-wrap gap-2 border-t border-line py-3">
             {attachments.map((file) => (
               <span
-                className="inline-flex max-w-full items-center gap-1.5 rounded-control border border-line px-2 py-1 text-[12px]"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-control border border-line px-2 py-1 text-xs"
                 key={file.id}
               >
                 <Paperclip className="size-3 shrink-0 text-ink-3" strokeWidth={1.8} />
@@ -780,7 +778,7 @@ export function MailComposer({
           </div>
         )}
         {error && (
-          <p className="shrink-0 border-t border-line py-2 text-[12px] text-red" role="alert">
+          <p className="shrink-0 border-t border-line py-2 text-xs text-red" role="alert">
             {error}
           </p>
         )}

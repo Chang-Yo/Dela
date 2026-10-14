@@ -59,7 +59,7 @@ export function DocxPreview({ url }: { url: string }) {
     setZoom((value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value + direction * ZOOM_STEP)));
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-[12px]">
+      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-xs">
         <Button size="icon-sm" variant="ghost" aria-label="缩小文档" onClick={() => step(-1)}>
           <Minus />
         </Button>
@@ -85,7 +85,7 @@ export function DocxPreview({ url }: { url: string }) {
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-[13px] text-red"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-13 text-red"
           >
             文档打开失败：{error}
             <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
@@ -94,7 +94,7 @@ export function DocxPreview({ url }: { url: string }) {
           </p>
         )}
         {loading && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-[13px] text-ink-3">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-13 text-ink-3">
             正在加载文档…
           </p>
         )}

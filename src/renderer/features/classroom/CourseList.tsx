@@ -18,7 +18,7 @@ import { useExperimentEnabled } from '../settings/experimental';
 export function CourseList() {
   const courses = useClassroom((state) => state.courses);
   if (courses.length === 0) {
-    return <p className="px-3 py-6 text-center text-[12px] text-ink-3">本学期暂无课堂录像课程</p>;
+    return <p className="px-3 py-6 text-center text-xs text-ink-3">本学期暂无课堂录像课程</p>;
   }
   return (
     <nav aria-label="课程与录像" className="flex flex-col gap-0.5 px-2 pb-2">
@@ -42,7 +42,7 @@ function CourseSection({ course }: { course: VideoCourse }) {
       <button
         aria-expanded={open}
         className={cn(
-          'flex h-7 w-full items-center gap-1 rounded-chip px-1.5 text-[13px] transition-colors duration-150',
+          'flex h-7 w-full items-center gap-1 rounded-chip px-1.5 text-13 transition-colors duration-150',
           open ? 'font-medium text-ink' : 'text-ink-2 hover:bg-hover-2 hover:text-ink',
         )}
         onClick={() => toggleCourse(course.id)}
@@ -57,7 +57,7 @@ function CourseSection({ course }: { course: VideoCourse }) {
         />
         <span className="min-w-0 flex-1 truncate text-left">{course.name}</span>
         {!open && videos && (
-          <span className="shrink-0 pr-1 text-[11px] tabular-nums text-ink-3">{videos.length}</span>
+          <span className="shrink-0 pr-1 text-2xs tabular-nums text-ink-3">{videos.length}</span>
         )}
       </button>
       {open && (
@@ -65,7 +65,7 @@ function CourseSection({ course }: { course: VideoCourse }) {
           {loading && !videos ? (
             [0, 1, 2].map((index) => <VideoRowSkeleton key={index} />)
           ) : error && !videos ? (
-            <p className="px-2 py-2 text-[12px] text-ink-3">
+            <p className="px-2 py-2 text-xs text-ink-3">
               {error}
               <button
                 className="ml-2 underline underline-offset-2"
@@ -78,7 +78,7 @@ function CourseSection({ course }: { course: VideoCourse }) {
           ) : videos && videos.length > 0 ? (
             videos.map((video) => <VideoRow key={video.id} course={course} video={video} />)
           ) : (
-            <p className="px-2 py-2 text-[12px] text-ink-3">暂无录像</p>
+            <p className="px-2 py-2 text-xs text-ink-3">暂无录像</p>
           )}
         </div>
       )}
@@ -115,12 +115,10 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
         onClick={() => selectVideo(course.id, video.id)}
         type="button"
       >
-        <span
-          className={cn('truncate text-[13px]', selected ? 'font-medium text-ink' : 'text-ink-2')}
-        >
+        <span className={cn('truncate text-13', selected ? 'font-medium text-ink' : 'text-ink-2')}>
           {lectureTitle(video)}
         </span>
-        <span className="truncate text-[11.5px] tabular-nums text-ink-3">{lectureMeta(video)}</span>
+        <span className="truncate text-xs tabular-nums text-ink-3">{lectureMeta(video)}</span>
       </button>
       {downloadEnabled && <DownloadButton course={course} video={video} />}
     </div>
@@ -168,13 +166,13 @@ function DownloadButton({ course, video }: { course: VideoCourse; video: Classro
               onSelect={() => void download(course.name, video, stream.view)}
             >
               <span>画面{index + 1}</span>
-              <span className="ml-auto text-[12px] tabular-nums text-ink-3">
+              <span className="ml-auto text-xs tabular-nums text-ink-3">
                 {stream.duration > 0 ? formatTime(stream.duration) : ''}
               </span>
             </DropdownMenuItem>
           ))
         ) : (
-          <p className="px-2 py-1.5 text-[12px] text-ink-3">{streamsError || '正在读取画面…'}</p>
+          <p className="px-2 py-1.5 text-xs text-ink-3">{streamsError || '正在读取画面…'}</p>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

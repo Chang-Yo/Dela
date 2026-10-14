@@ -81,7 +81,7 @@ export function SkillsTab() {
     return (
       <div className="grid gap-10">
         <SectionHeader title="Skills" />
-        <p className="text-[13px] text-ink-3">Skills 仅在桌面端可用。</p>
+        <p className="text-13 text-ink-3">Skills 仅在桌面端可用。</p>
       </div>
     );
   }
@@ -112,7 +112,7 @@ export function SkillsTab() {
               <button
                 aria-pressed={scope === value}
                 className={cn(
-                  'rounded-control px-2.5 py-1 text-[12px] transition-colors',
+                  'rounded-control px-2.5 py-1 text-xs transition-colors',
                   scope === value
                     ? 'bg-surface text-ink shadow-hairline'
                     : 'text-ink-3 hover:text-ink',
@@ -125,14 +125,14 @@ export function SkillsTab() {
               </button>
             ))}
           </div>
-          <span className="text-[12px] tabular-nums text-ink-3">{visible.length} 项</span>
+          <span className="text-xs tabular-nums text-ink-3">{visible.length} 项</span>
         </div>
       )}
       {skills !== null && skills.length === 0 && (
         <SettingsGroup>
           <div className="grid gap-1 py-3.5">
-            <span className="text-[13px] font-medium text-ink">还没有发现 Skill</span>
-            <span className="text-[12px] leading-relaxed text-ink-3">
+            <span className="text-13 font-medium text-ink">还没有发现 Skill</span>
+            <span className="text-xs leading-relaxed text-ink-3">
               在用户主目录的 .dela/skills（或 .agents/skills、.zcode/skills）放入包含 SKILL.md
               的子文件夹（frontmatter 带 name 与 description），或放入工作区的
               .agents/skills，回到此页刷新即可发现并按需启用。
@@ -142,7 +142,7 @@ export function SkillsTab() {
       )}
       {skills !== null && skills.length > 0 && visible.length === 0 && (
         <SettingsGroup>
-          <p className="py-3.5 text-[13px] text-ink-3">该范围下没有 Skill。</p>
+          <p className="py-3.5 text-13 text-ink-3">该范围下没有 Skill。</p>
         </SettingsGroup>
       )}
       {groups.map((group) =>
@@ -157,19 +157,16 @@ export function SkillsTab() {
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       aria-hidden="true"
-                      className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2 text-[13px] font-medium uppercase text-ink-2"
+                      className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2 text-13 font-medium uppercase text-ink-2"
                     >
                       {skill.name.charAt(0)}
                     </span>
                     <div className="grid min-w-0 gap-0.5">
-                      <strong className="truncate text-[13px]">{skill.name}</strong>
-                      <span className="truncate text-[12px] text-ink-3" title={skill.description}>
+                      <strong className="truncate text-13">{skill.name}</strong>
+                      <span className="truncate text-xs text-ink-3" title={skill.description}>
                         {skill.description || '（无描述）'}
                       </span>
-                      <span
-                        className="truncate font-mono text-[11.5px] text-ink-3"
-                        title={skill.path}
-                      >
+                      <span className="truncate font-mono text-xs text-ink-3" title={skill.path}>
                         {skill.path}
                       </span>
                     </div>
@@ -216,7 +213,7 @@ export function SkillsTab() {
         ),
       )}
       {error && (
-        <p className="text-[12px] text-red" role="alert">
+        <p className="text-xs text-red" role="alert">
           {error}
         </p>
       )}
@@ -270,24 +267,24 @@ function SkillContentView({
         >
           <Dialog.Title className="text-base font-semibold">{skill.name}</Dialog.Title>
           <Dialog.Description
-            className="mt-1 truncate font-mono text-[11.5px] text-ink-3"
+            className="mt-1 truncate font-mono text-xs text-ink-3"
             title={skill.path}
           >
             {skill.path}
           </Dialog.Description>
           <div className="mt-3 min-h-32 overflow-y-auto rounded-card bg-inset p-3">
             {content === null && !error ? (
-              <p className="flex items-center gap-2 text-[12px] text-ink-3" role="status">
+              <p className="flex items-center gap-2 text-xs text-ink-3" role="status">
                 <LoaderCircle className="size-4 animate-spin" />
                 正在读取…
               </p>
             ) : (
-              <pre className="font-mono text-[12px] leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-ink-2">
+              <pre className="font-mono text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-ink-2">
                 {content}
               </pre>
             )}
             {error && (
-              <p className="text-[12px] text-red" role="alert">
+              <p className="text-xs text-red" role="alert">
                 {error}
               </p>
             )}
@@ -341,16 +338,16 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
           <Dialog.Title className="text-base font-semibold">上传到远端项目</Dialog.Title>
-          <Dialog.Description className="mt-1 text-[12px] leading-relaxed text-ink-3">
+          <Dialog.Description className="mt-1 text-xs leading-relaxed text-ink-3">
             把技能 {skill.name} 的目录（含附属文件）上传到远端项目的 .dela/skills/{skill.name}
             /，远端会话即可使用。
           </Dialog.Description>
           {uploaded ? (
-            <p className="mt-4 text-[12px] [overflow-wrap:anywhere] text-ink-2" role="status">
+            <p className="mt-4 text-xs [overflow-wrap:anywhere] text-ink-2" role="status">
               已上传 {uploaded.files} 个文件到 {uploaded.path}
             </p>
           ) : projects.length === 0 ? (
-            <p className="mt-4 text-[12px] text-ink-3">还没有远端项目。</p>
+            <p className="mt-4 text-xs text-ink-3">还没有远端项目。</p>
           ) : (
             <ul className="mt-4 grid gap-1">
               {projects.map((entry) => (
@@ -372,11 +369,8 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
                   >
                     <Cloud className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
                     <span className="grid min-w-0">
-                      <span className="truncate text-[13px] text-ink">{entry.name}</span>
-                      <span
-                        className="truncate font-mono text-[11.5px] text-ink-3"
-                        title={entry.path}
-                      >
+                      <span className="truncate text-13 text-ink">{entry.name}</span>
+                      <span className="truncate font-mono text-xs text-ink-3" title={entry.path}>
                         {entry.path}
                       </span>
                     </span>
@@ -387,7 +381,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
           )}
           <div className="mt-4 flex items-center justify-end gap-2">
             {conflict && !uploaded && (
-              <span className="mr-auto text-[12px] text-ink-2">远端已有同名技能，覆盖吗？</span>
+              <span className="mr-auto text-xs text-ink-2">远端已有同名技能，覆盖吗？</span>
             )}
             {!uploaded &&
               (conflict ? (

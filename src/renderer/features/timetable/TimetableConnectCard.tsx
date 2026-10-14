@@ -30,13 +30,13 @@ export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCa
   };
 
   return (
-    <section className="grid w-full max-w-[480px] justify-items-start gap-3 rounded-card border border-line bg-surface p-6">
+    <section className="grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6">
       <div className="grid size-10 place-items-center rounded-card bg-hover-2">
         <CalendarDays className="size-5" />
       </div>
       <div className="grid gap-1">
         <h2 className="text-lg font-semibold tracking-tight">连接教学信息服务网</h2>
-        <p className="text-[13px] leading-relaxed text-ink-3">
+        <p className="text-13 leading-relaxed text-ink-3">
           登录后读取课程、教师、教室、节次和教学周。登录在独立窗口完成。
         </p>
       </div>

@@ -180,7 +180,7 @@ export function GeneralSection() {
             >
               <div className="flex items-center justify-end gap-3">
                 <span
-                  className="truncate text-[12px] text-ink-3"
+                  className="truncate text-xs text-ink-3"
                   title={downloadDirectory || undefined}
                 >
                   {downloadDirectory || '跟随系统默认'}

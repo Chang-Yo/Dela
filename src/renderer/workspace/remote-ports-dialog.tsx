@@ -82,14 +82,14 @@ export function RemotePortsDialog({
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={cn(dialogPanel, 'max-w-md p-5')}>
           <div className="grid gap-1">
-            <Dialog.Title className="text-[13px] font-semibold">远端端口</Dialog.Title>
-            <Dialog.Description className="text-[12px] leading-relaxed text-ink-3">
+            <Dialog.Title className="text-13 font-semibold">远端端口</Dialog.Title>
+            <Dialog.Description className="text-xs leading-relaxed text-ink-3">
               远端监听中的端口；「打开」会建立一条 SSH 隧道并在浏览器访问，停止后隧道关闭。
             </Dialog.Description>
           </div>
           <div className="mt-4 grid max-h-80 min-h-0 content-start gap-0.5 overflow-y-auto">
             {state === null && !error ? (
-              <p className="flex items-center gap-2 py-4 text-[12px] text-ink-3" role="status">
+              <p className="flex items-center gap-2 py-4 text-xs text-ink-3" role="status">
                 <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                 正在读取远端端口…
               </p>
@@ -98,19 +98,19 @@ export function RemotePortsDialog({
                 const tunnel = tunnelOf(entry.port);
                 return (
                   <div
-                    className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-[13px] transition-colors duration-150 hover:bg-hover"
+                    className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-150 hover:bg-hover"
                     key={entry.port}
                   >
                     <Globe className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
                     <span className="min-w-0 flex-1 truncate text-ink-2" title={entry.process}>
                       {entry.process || '未知进程'}
                     </span>
-                    <span className="shrink-0 font-mono text-[12px] text-ink-3 tabular-nums">
+                    <span className="shrink-0 font-mono text-xs text-ink-3 tabular-nums">
                       :{entry.port}
                     </span>
                     {tunnel ? (
                       <>
-                        <span className="shrink-0 font-mono text-[11px] text-green tabular-nums">
+                        <span className="shrink-0 font-mono text-2xs text-green tabular-nums">
                           → 127.0.0.1:{tunnel.localPort}
                         </span>
                         <Button
@@ -147,20 +147,20 @@ export function RemotePortsDialog({
               })
             )}
             {state && state.ports.length === 0 && state.tunnels.length === 0 && (
-              <p className="px-2 py-4 text-[12px] text-ink-3">没有发现监听中的端口。</p>
+              <p className="px-2 py-4 text-xs text-ink-3">没有发现监听中的端口。</p>
             )}
             {state?.tunnels
               .filter((tunnel) => !state.ports.some((entry) => entry.port === tunnel.remotePort))
               .map((tunnel) => (
                 <div
-                  className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-[13px] transition-colors duration-150 hover:bg-hover"
+                  className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-150 hover:bg-hover"
                   key={`t-${tunnel.remotePort}`}
                 >
                   <Globe className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
                   <span className="min-w-0 flex-1 truncate text-ink-3">
                     端口 {tunnel.remotePort}（进程已退出）
                   </span>
-                  <span className="shrink-0 font-mono text-[11px] text-green tabular-nums">
+                  <span className="shrink-0 font-mono text-2xs text-green tabular-nums">
                     → 127.0.0.1:{tunnel.localPort}
                   </span>
                   <Button
@@ -180,7 +180,7 @@ export function RemotePortsDialog({
               ))}
           </div>
           {error && (
-            <p className="mt-3 text-[12px] [overflow-wrap:anywhere] text-red" role="alert">
+            <p className="mt-3 text-xs [overflow-wrap:anywhere] text-red" role="alert">
               {error}
             </p>
           )}

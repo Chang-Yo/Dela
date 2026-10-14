@@ -209,19 +209,19 @@ const referencePlugin = ViewPlugin.fromClass(
   { decorations: (value) => value.decorations },
 );
 
-// 编辑区内边距：.cm-scroller 与占位符覆盖层共用，避免两处漂移。
-const SCROLLER_PADDING = { x: 16, top: 14 };
+// 编辑区内边距：.cm-scroller 与占位符覆盖层共用，避免两处漂移。rem 随主题字号缩放。
+const SCROLLER_PADDING = { x: '1rem', top: '0.875rem' };
 
 const composerTheme = EditorView.theme({
-  '&': { fontSize: 'calc(14px * var(--font-scale, 1))', backgroundColor: 'transparent' },
+  '&': { fontSize: '0.875rem', backgroundColor: 'transparent' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     fontFamily: 'inherit',
     lineHeight: '1.65',
     overflowY: 'auto',
     // 高度封顶：绝对 224px + 相对 38vh 双上限，避免满高编辑器把消息流挤没。
-    maxHeight: 'min(224px, 38vh)',
-    padding: `${SCROLLER_PADDING.top}px ${SCROLLER_PADDING.x}px 6px`,
+    maxHeight: 'min(14rem, 38vh)',
+    padding: `${SCROLLER_PADDING.top} ${SCROLLER_PADDING.x} 0.375rem`,
   },
   // CM 默认给 .cm-content 上下 4px、.cm-line 左 6px 右 2px 的内边距，会让光标/正文
   // 相对自绘占位符整体偏移（下 4px、右 6px），统一归零，正文与占位符共用同一原点。
@@ -231,42 +231,42 @@ const composerTheme = EditorView.theme({
     position: 'relative',
     display: 'inline-flex',
     verticalAlign: 'bottom',
-    margin: '2px 0',
+    margin: '0.125rem 0',
   },
   '.dela-chat-image img': {
     display: 'block',
-    maxHeight: '76px',
-    maxWidth: '180px',
+    maxHeight: '4.75rem',
+    maxWidth: '11.25rem',
     // 与消息流内联图片同档圆角（rounded-xl），发送前后不跳变。
     borderRadius: 'var(--radius-xl)',
     border: '1px solid var(--color-line)',
   },
   '.dela-chat-image-fallback': {
     display: 'inline-block',
-    maxWidth: '160px',
+    maxWidth: '10rem',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    padding: '4px 10px',
-    borderRadius: '8px',
+    padding: '0.25rem 0.625rem',
+    borderRadius: 'var(--radius-control)',
     border: '1px dashed var(--color-line)',
     color: 'var(--color-ink-3)',
-    fontSize: '12px',
+    fontSize: '0.75rem',
   },
   '.dela-chat-image button': {
     position: 'absolute',
-    top: '-7px',
-    right: '-7px',
+    top: '-0.4375rem',
+    right: '-0.4375rem',
     display: 'grid',
     placeItems: 'center',
-    width: '16px',
-    height: '16px',
+    width: '1rem',
+    height: '1rem',
     borderRadius: '9999px',
     backgroundColor: 'var(--color-surface)',
     border: '1px solid var(--color-line)',
     color: 'var(--color-ink-3)',
     fontFamily: 'inherit',
-    fontSize: '11px',
+    fontSize: '0.6875rem',
     lineHeight: '1',
     cursor: 'pointer',
   },
@@ -275,7 +275,7 @@ const composerTheme = EditorView.theme({
   '.dela-ref-icon': {
     display: 'inline-flex',
     alignItems: 'center',
-    marginRight: '2px',
+    marginRight: '0.125rem',
     color: 'var(--color-ink-2)',
     verticalAlign: '-0.125em',
   },
@@ -283,7 +283,7 @@ const composerTheme = EditorView.theme({
 });
 
 const heroTheme = EditorView.theme({
-  '.cm-content': { minHeight: '64px' },
+  '.cm-content': { minHeight: '4rem' },
 });
 
 function filesFromTransfer(transfer: DataTransfer | null): File[] {
@@ -497,7 +497,7 @@ export function ComposerEditor({
           aria-hidden="true"
           className="pointer-events-none absolute select-none break-words text-ink-3"
           style={{
-            fontSize: 'calc(14px * var(--font-scale, 1))',
+            fontSize: '0.875rem',
             left: SCROLLER_PADDING.x,
             lineHeight: '1.65',
             right: SCROLLER_PADDING.x,

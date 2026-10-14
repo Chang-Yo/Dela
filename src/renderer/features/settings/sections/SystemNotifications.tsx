@@ -200,13 +200,13 @@ export function SystemNotifications() {
                 ) : null}
               </>
             ) : (
-              <span className="text-[12px] text-ink-3">暂停状态仅在桌面端可用。</span>
+              <span className="text-xs text-ink-3">暂停状态仅在桌面端可用。</span>
             )}
           </div>
         </SettingRow>
       </SettingsGroup>
       {error && (
-        <p className="text-[12px] text-red" role="alert">
+        <p className="text-xs text-red" role="alert">
           {error}
         </p>
       )}

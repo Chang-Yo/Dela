@@ -329,7 +329,7 @@ export function Explorer({
               }
             }}
             className={cn(
-              'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-[13px] outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-sm before:transition-colors focus-visible:ring-2 focus-visible:ring-bui-accent',
+              'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-13 outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-sm before:transition-colors focus-visible:ring-2 focus-visible:ring-bui-accent',
               selected === item.id
                 ? 'before:bg-hover-2 font-medium text-ink'
                 : // 目录列底色为 inset，hover 用 hover-2 才与其拉开层次。
@@ -380,9 +380,7 @@ export function Explorer({
             <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
               {item.name}
             </span>
-            {item.badge && (
-              <span className="text-[11.5px] tabular-nums text-ink-3">{item.badge}</span>
-            )}
+            {item.badge && <span className="text-xs tabular-nums text-ink-3">{item.badge}</span>}
             {actions && (
               <span
                 className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100"

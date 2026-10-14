@@ -84,7 +84,7 @@ function ChatTable({
 }: ComponentProps<'table'> & { node?: unknown }) {
   return (
     <div className="my-2 w-full overflow-x-auto">
-      <table className={cn('w-full text-[12px]', className)} {...props}>
+      <table className={cn('w-full text-xs', className)} {...props}>
         {children}
       </table>
     </div>

@@ -31,7 +31,7 @@ export function StepModelImportDialog({
         <Dialog.Overlay className={cn(dialogOverlay, 'bui-light')} />
         <Dialog.Content className={cn(dialogPanel, 'bui-light max-h-[85vh] max-w-md')}>
           <Dialog.Title className="text-base font-semibold">导入模型</Dialog.Title>
-          <Dialog.Description className="mt-1.5 text-[12px] leading-relaxed text-ink-3">
+          <Dialog.Description className="mt-1.5 text-xs leading-relaxed text-ink-3">
             勾选要加入配置的模型，最多保留 {LLM_MODEL_LIMIT} 个。
           </Dialog.Description>
           <Picker onConfirm={onConfirm} options={options} preselected={preselected} />
@@ -78,7 +78,7 @@ function Picker({
       />
       <div className="max-h-64 overflow-y-auto rounded-card border border-line">
         {visible.length === 0 ? (
-          <p className="px-3 py-4 text-[12px] text-ink-3">没有匹配的模型</p>
+          <p className="px-3 py-4 text-xs text-ink-3">没有匹配的模型</p>
         ) : (
           visible.map((id) => (
             <label
@@ -91,14 +91,14 @@ function Picker({
                 onChange={() => toggle(id)}
                 type="checkbox"
               />
-              <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={id}>
+              <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
                 {id}
               </span>
             </label>
           ))
         )}
       </div>
-      <p className="text-[12px] text-ink-3" role="status">
+      <p className="text-xs text-ink-3" role="status">
         已选 {picked.length} 个{dropped > 0 ? `，超出的 ${dropped} 个不会被导入` : ''}
       </p>
       <div className="flex items-center justify-end gap-2">

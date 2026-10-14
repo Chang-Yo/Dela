@@ -7,7 +7,7 @@ import { cn } from '../lib/utils';
 
 export const navRow = (active: boolean) =>
   cn(
-    'flex h-8 min-w-0 items-center gap-2.5 rounded-control px-2 text-left text-[13px] transition-colors duration-150',
+    'flex h-8 min-w-0 items-center gap-2.5 rounded-control px-2 text-left text-13 transition-colors duration-150',
     active ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
   );
 
@@ -20,7 +20,7 @@ export const navSubRow = (active: boolean) =>
     active ? 'bg-hover-2 text-ink' : 'text-ink-3 hover:bg-hover hover:text-ink-2',
   );
 
-export const navSectionTitle = 'px-2 pb-1 text-[11.5px] font-medium text-ink-3';
+export const navSectionTitle = 'px-2 pb-1 text-xs font-medium text-ink-3';
 
 /** 标题栏与侧栏头部的图标按钮。 */
 export const chromeIconButton =

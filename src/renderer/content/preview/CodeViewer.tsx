@@ -40,14 +40,14 @@ const codeHighlightStyle = HighlightStyle.define([
 const viewerTheme = EditorView.theme({
   '&': {
     height: '100%',
-    fontSize: 'calc(14px * var(--font-scale, 1))',
+    fontSize: '0.875rem',
     backgroundColor: 'transparent',
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     lineHeight: '1.625',
-    padding: '24px',
+    padding: '1.5rem',
   },
   '.cm-content': { caretColor: 'var(--syntax-caret)', margin: '0', textAlign: 'left' },
   '.cm-gutters': {
@@ -55,7 +55,7 @@ const viewerTheme = EditorView.theme({
     backgroundColor: 'var(--color-muted)',
     color: 'var(--color-muted-foreground)',
   },
-  '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 8px 0 4px' },
+  '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
 /* 文件名 → 语言：无扩展名按纯文本；语言包经 language-data 异步加载。 */

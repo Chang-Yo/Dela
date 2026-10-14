@@ -92,7 +92,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
         <div className="relative grid place-items-center overflow-hidden pb-[10vh] [@media(max-height:560px)]:pb-4">
           {/* 跳过动画：全程可点，不必等 CTA 出现。 */}
           <button
-            className="absolute right-6 top-4 z-10 text-[13px] text-ink-3 transition-colors hover:text-ink"
+            className="absolute right-6 top-4 z-10 text-13 text-ink-3 transition-colors hover:text-ink"
             onClick={leave}
             type="button"
           >
@@ -104,7 +104,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             <motion.img
               alt="Dela"
               animate={{ opacity: 1, y: 0 }}
-              className="size-[180px] [@media(max-height:560px)]:size-[132px]"
+              className="size-[11.25rem] [@media(max-height:560px)]:size-[8.25rem]"
               initial={reduced ? false : { opacity: 0, y: 14 }}
               src={logo}
               transition={{ delay: logoAtSeconds, duration: logoSeconds, ease: 'easeOut' }}
@@ -141,7 +141,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
           <motion.button
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-              'absolute bottom-12 rounded-full bg-ink px-7 py-2.5 text-[13px] text-surface transition-colors hover:opacity-90 [@media(max-height:560px)]:bottom-6',
+              'absolute bottom-12 rounded-full bg-ink px-7 py-2.5 text-13 text-surface transition-colors hover:opacity-90 [@media(max-height:560px)]:bottom-6',
               !ctaReady && 'pointer-events-none',
             )}
             initial={reduced ? false : { opacity: 0, y: 10 }}

@@ -7,7 +7,7 @@ import CodeBlock from '@/components/ui/beautifului/primitives/CodeBlock';
 // 输出形状见 shared/session.ts 的 AgentToolOutput（text + 工具 details）。
 
 function Caption({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11.5px] text-ink-3">{children}</p>;
+  return <p className="text-xs text-ink-3">{children}</p>;
 }
 
 /** 视图公共入参：failed 让工具卡带失败态（CodeBlock 左侧色条），输入输出结构不变。 */
@@ -169,7 +169,7 @@ function GenericView({ result, failed }: ViewProps) {
   return (
     <div className="mb-1 mt-1 min-w-0 space-y-1">
       {entries.map(([key, value]) => (
-        <p key={key} className="break-words text-[12px] leading-5">
+        <p key={key} className="break-words text-xs leading-5">
           <span className="text-ink-3">{key}: </span>
           <span className="text-ink-2">
             {typeof value === 'string' ? value : JSON.stringify(value)}
@@ -228,7 +228,7 @@ export function ToolBody({
   return (
     <>
       {reasonOutsideBlock && (
-        <p className="mb-1.5 break-words whitespace-pre-wrap text-[11.5px] leading-5 text-ink-3">
+        <p className="mb-1.5 break-words whitespace-pre-wrap text-xs leading-5 text-ink-3">
           {outputText(result) || '工具没有返回原因'}
         </p>
       )}

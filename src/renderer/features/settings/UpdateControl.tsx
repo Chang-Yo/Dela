@@ -40,7 +40,7 @@ export function UpdateControl() {
         title="软件更新"
       >
         {view.progress !== null ? (
-          <div className="flex items-center gap-2 text-[12px] tabular-nums text-ink-3">
+          <div className="flex items-center gap-2 text-xs tabular-nums text-ink-3">
             <span className="w-20 shrink-0 whitespace-nowrap">
               {downloadSpeed(state.bytesPerSecond)}
             </span>

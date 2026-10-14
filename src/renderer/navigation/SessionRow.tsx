@@ -93,9 +93,7 @@ export function SessionRow({
                 className={cn('size-1.5 shrink-0 rounded-full', visual.className)}
               />
             )}
-            <span
-              className={cn('sidebar-title min-w-0 flex-1 text-[12.5px]', active && 'font-medium')}
-            >
+            <span className={cn('sidebar-title min-w-0 flex-1 text-13', active && 'font-medium')}>
               {session.title || '新对话'}
             </span>
             {session.pinned && <Pin className="size-3 shrink-0 text-ink-3" aria-label="已置顶" />}
@@ -105,7 +103,7 @@ export function SessionRow({
           <HoverCard.Content
             side="right"
             align="start"
-            className={cn(menuPanel, 'grid max-w-80 gap-1.5 p-3 text-[12px]')}
+            className={cn(menuPanel, 'grid max-w-80 gap-1.5 p-3 text-xs')}
             sideOffset={8}
           >
             <span className="break-words font-medium">{session.title || '新对话'}</span>
@@ -122,7 +120,7 @@ export function SessionRow({
           data-archive-confirm=""
           size="sm"
           variant="destructive"
-          className="h-6 px-2 text-[11.5px]"
+          className="h-6 px-2 text-xs"
           disabled={busy}
           onClick={() => void change(true)}
         >

@@ -4,8 +4,13 @@ import { renderMailHtml } from '../features/mail/mail-html-display';
  * Canvas 网页正文（作业/讨论/页面等）清洗：剥离脚本类元素与内联事件属性，
  * 相对地址按 Canvas 站点补全，注入禁脚本 CSP，最后套阅读器默认样式，
  * 供沙箱 iframe 的 srcDoc 使用。资料详情与 TODO 详情共用。
+ * rootSize 为当前根字号：iframe 是独立文档，rem 不继承外层，不注入就不随字号设置缩放。
  */
-export function sanitizeHtml(text: string | null | undefined, baseUrl: string): string {
+export function sanitizeHtml(
+  text: string | null | undefined,
+  baseUrl: string,
+  rootSize: number,
+): string {
   const doc = new DOMParser().parseFromString(text || '<p>此内容没有正文。</p>', 'text/html');
   doc
     .querySelectorAll('script,iframe,object,embed,form,base,meta,link')
@@ -29,5 +34,5 @@ export function sanitizeHtml(text: string | null | undefined, baseUrl: string): 
   csp.content =
     "default-src 'none'; style-src 'unsafe-inline'; img-src data: https: http:; script-src 'none'; form-action 'none'";
   doc.head.prepend(csp);
-  return renderMailHtml(doc, true);
+  return renderMailHtml(doc, true, rootSize);
 }

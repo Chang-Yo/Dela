@@ -52,7 +52,7 @@
 - 状态用颜色点表达（绿＝连接 / 使用中，灰＝未连接）；页面主操作用主色（default）按钮。
 - 常驻能力整组说明一次，行内用锁徽标替代禁用开关。
 - Skills 行支持查看 `SKILL.md` 与打开所在位置（`capabilities:read-skill` / `reveal-skill`，主进程按名单独解析路径，渲染端不传路径）。
-- 隐私页按文档排版（限宽、13px 正文、枚举两列表）。
+- 隐私页按文档排版（限宽、text-13 正文、枚举两列表）。
 
 瞬时动作失败的报错与成功提示走应用内通知浮窗（`app/toasts.tsx` 的 `showToast`，内容区顶部居中滑入，error / success 变体，卡片为 beautifului `atoms/Toast.tsx`；error 8s / success 4s 自动消失，至多 4 条）。打开着的表单的校验与提交错误、持久态（连接红点、同步失败横幅、加载失败占位）仍内联展示，不进浮窗；终端输入与尺寸同步失败属高频连续操作，留内联红字条；后台自动动作（会话终态后的镜像刷新等）失败不弹浮窗，只留 console 线索。工作区 store 的 `error` 通道只承载镜像加载失败这一持久态，瞬时动作失败一律走浮窗。
 
@@ -78,7 +78,7 @@
 | 通用 › 导航入口     | 显示/隐藏              | 首页固定显示；资料、邮箱、课表、课堂视频、水源可单独隐藏，存 renderer localStorage `dela.nav-entries`。`renderer/navigation/entries.ts` 是侧栏与折叠后标题栏图标的单一真源。规则为「功能开启 > 入口显示」：隐藏入口只影响导航，能力照常；功能关闭时入口消失、显示开关置灰。                                                                                                                                                                                                                                                                                                    |
 | 通用 › 试验功能     | 总开关 + 子项          | `settings.getExperiments/setExperiment`；子项为「水源社区」「课堂视频下载」，只在总开关开启时生效（`main/settings/prefs.ts` 的 `experimentEnabled`），其下还有「视频默认下载目录」。键缺失或损坏都视为开启；关闭下载时立即取消进行中的任务。                                                                                                                                                                                                                                                                                                                                   |
 | 通用 › 软件更新     | 检查 / 下载 / 安装     | 打包版经 electron-updater 读取 CDN 的 latest.yml，手动下载，速度 / 进度条 / 百分比依次显示；确认并保存工作区后退出，显示支持展开安装细节的向导；向导完成后可重新打开并提示实际版本。保存失败保留确认入口，安装启动失败提示手动下载；开发运行不检查。                                                                                                                                                                                                                                                                                                                           |
-| 外观                | 主题/缩放/字号/图标    | `theme`（system/light/dark）、`zoom`（五档）、`fontScale`（四档）、`icon`（white/black），各自持久化并在主进程即时生效或下次启动生效。                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 外观                | 主题/缩放/字号/图标    | `theme`（system/light/dark）、`zoom`（五档）、`fontSize`（12–20px，默认 16）、`icon`（white/black），各自持久化并在主进程即时生效或下次启动生效。                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 快捷键              | 查看/改键/重置         | `settings.getKeybindings/setKeybindings/resetKeybindings`；动作目录在 `shared/keybindings.ts`，只存覆盖项，录制时拒绝同表冲突。                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 工作区 › 工作目录   | 选择位置               | `workspace.chooseDirectory()`；只影响之后新建的顶层内容。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | 工作区 › 笔记编辑   | 读取/保存偏好          | `workspace-prefs` 行的 `defaultNoteEditMode`（rich/source）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -100,6 +100,15 @@
 
 - 模型供应商 `verify()` 的密钥留空时一律沿用该提供商已存的密钥，改地址不要求重填；填了就以填的为准。模型列表支持检测导入（上限 64）、手动输入与逐行检测；模型配置先改草稿、随提供商保存。
 - 全局搜索（Ctrl+K）由 `features/settings/search-index.ts` 的关键词表跳转对应分区，设置页内无独立搜索框。
+
+#### 全局尺寸与字号（2026-10-14）
+
+设置 › 外观 › 字号改的是根元素 `font-size`（12–20px，默认 16；`app/theme.ts` 应用并镜像到 localStorage `dela.font-size`），rem 派生的一切随之缩放：文字、间距、图标、圆角、行高。由此派生几条硬约束：
+
+- **尺寸一律由 rem 派生**，禁止 `text-[13px]`、`w-[280px]`、`size={16}` 这类写死像素。换算基准固定 16：`N px → N/16 rem`（半像素先向上取整，11.5→12）。字号用 token、不散落魔数：token 以默认根字号下的像素命名（`--text-2xs`=11、`--text-xs`=12、`--text-13`、`--text-sm`=14、`--text-15`、`--text-base`=16、`--text-21`…，见 `styles/globals.css`）；圆角用 beautifului 的 `rounded-chip/control/card/window`。
+- **保留 px 的只有三类**：① 边框 / 描边 / 阴影（含 `ring-[3px]`、`shadow-[…]`）；② 媒体与容器查询断点（`md:`、`max-[1080px]`、`@min-[860px]`——CSS 规定查询里的相对单位按初始字号解析，改 rem 也不会跟随）；③ 第三方 dist 内改不到的固定值（已用覆盖规则补齐的见 `styles/globals.css` 末尾的 streamdown 行号）。拖拽调宽的容器尺寸（`AppShell` 侧栏、`MailView` 列表，含其阈值算术）同为 px：它们是用户用鼠标量出的画布尺寸，与实测宽度的比较在同一坐标系里。
+- 沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层：由 `lib/root-font-size.ts` 把当前根字号注进内层 `html`，字号变化时靠 MutationObserver 重新渲染。
+- 迁移自 `text-[Npx]` 的档位显式声明 `--text-N--line-height: inherit`，与任意值字号原本「只给 font-size、行高继承父级 1.5」的表现一致；`text-sm / base / lg / xl / 2xl / 3xl` 沿用 Tailwind 自带行高比（既有页面依赖，未改动）。
 
 ## 3. 会话与上下文
 

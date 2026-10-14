@@ -51,7 +51,7 @@ export function UpdatePrompt() {
           </Dialog.Title>
           {/* 进行中不再解释细节：这一步用户只需等，保存与退出已经发生在点按钮之前。 */}
           {!busy && (
-            <Dialog.Description className="mt-2 text-[12px] leading-relaxed text-ink-3">
+            <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
               退出后自动安装，终端任务会结束。
             </Dialog.Description>
           )}

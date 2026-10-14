@@ -37,7 +37,7 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
 
   if (sessionId === null) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-[13px] text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-13 text-ink-3">
         无效的会话标签
       </div>
     );
@@ -46,7 +46,7 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-[13px] text-ink-3">这个会话已被删除。</p>
+          <p className="text-13 text-ink-3">这个会话已被删除。</p>
           <Button
             className="[&_svg]:size-3.5"
             onClick={() => void session.newSession()}
@@ -201,7 +201,7 @@ const ChatSessionView = memo(function ChatSessionView({
       </div>
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}
       {chat && !chat.configured && (
-        <div className="flex items-center gap-2 px-3 text-[12px] text-ink-3">
+        <div className="flex items-center gap-2 px-3 text-xs text-ink-3">
           <span>配置模型供应商后即可开始对话</span>
           <Button
             size="sm"

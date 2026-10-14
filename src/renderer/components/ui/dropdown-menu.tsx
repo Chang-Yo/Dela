@@ -112,10 +112,7 @@ function DropdownMenuLabel({
 }) {
   return (
     <DropdownMenuPrimitive.Label
-      className={cn(
-        'px-2 pt-1.5 pb-1 text-[11.5px] font-medium text-ink-3 data-[inset]:pl-8',
-        className,
-      )}
+      className={cn('px-2 pt-1.5 pb-1 text-xs font-medium text-ink-3 data-[inset]:pl-8', className)}
       data-inset={inset}
       data-slot="dropdown-menu-label"
       {...props}
@@ -139,7 +136,7 @@ function DropdownMenuSeparator({
 function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<'span'>) {
   return (
     <span
-      className={cn('ml-auto text-[11.5px] tracking-widest text-ink-3', className)}
+      className={cn('ml-auto text-xs tracking-widest text-ink-3', className)}
       data-slot="dropdown-menu-shortcut"
       {...props}
     />

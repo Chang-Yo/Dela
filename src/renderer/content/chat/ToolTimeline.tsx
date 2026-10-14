@@ -100,7 +100,7 @@ function Disclosure({
         // data-trace-toggle：ChatThread 据此在用户展开过程时暂停贴底跟随。
         data-trace-toggle
         onClick={() => setOpen(!open)}
-        className="group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-[13px] text-ink-3 transition-colors duration-150 hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
+        className="group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-150 hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
       >
         <ChevronRight
           aria-hidden
@@ -111,7 +111,7 @@ function Disclosure({
         />
         {head}
       </button>
-      {open && <div className={cn(fadeIn, 'mb-2 ml-[18px] min-w-0')}>{children}</div>}
+      {open && <div className={cn(fadeIn, 'mb-2 ml-[1.125rem] min-w-0')}>{children}</div>}
     </div>
   );
 }
@@ -132,7 +132,7 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
           className={cn(
             'min-w-0 truncate',
             result.name === 'bash' || result.name === 'grep' || result.name === 'find'
-              ? 'font-mono text-[12px]'
+              ? 'font-mono text-xs'
               : '',
           )}
           title={target.full}
@@ -141,7 +141,7 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
         </span>
       )}
       {stat && !running && !failed && (
-        <span className="shrink-0 font-mono text-[12px] tabular-nums">
+        <span className="shrink-0 font-mono text-xs tabular-nums">
           <span className="text-green">+{stat.added}</span>{' '}
           <span className="text-red">−{stat.removed}</span>
         </span>
@@ -219,7 +219,7 @@ function Reasoning({ part, live }: { part: Extract<Part, { type: 'reasoning' }>;
       >
         <div
           data-reasoning-body
-          className="max-h-72 overflow-y-auto border-l border-line pl-3 text-[13px] leading-6 whitespace-pre-wrap text-ink-3"
+          className="max-h-72 overflow-y-auto border-l border-line pl-3 text-13 leading-6 whitespace-pre-wrap text-ink-3"
         >
           {part.text}
         </div>
@@ -266,7 +266,7 @@ export function ReplyTrace({
         <div
           key={key}
           data-assistant-body
-          className="my-3 min-w-0 text-[13px] leading-7 text-ink first:mt-0"
+          className="my-3 min-w-0 text-13 leading-7 text-ink first:mt-0"
         >
           {renderText ? (
             renderText(part.text)
@@ -297,7 +297,7 @@ export function ReplyTrace({
           aria-expanded={expanded}
           data-trace-toggle
           onClick={() => setExpanded(!expanded)}
-          className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-[13px] text-ink-3 transition-colors duration-150 hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
+          className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-150 hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
         >
           <ChevronRight
             aria-hidden
@@ -314,7 +314,7 @@ export function ReplyTrace({
           <div
             key={block.key}
             hidden={folded}
-            className={cn(fadeIn, 'ml-[7px] border-l border-line pl-[11px]')}
+            className={cn(fadeIn, 'ml-[0.4375rem] border-l border-line pl-[0.6875rem]')}
           >
             {renderBlock(block, index)}
           </div>

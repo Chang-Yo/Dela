@@ -49,7 +49,7 @@ function ConnectingHint() {
   }, []);
   if (!slow) return null;
   return (
-    <p className="flex items-center gap-2 px-3 py-3 text-[12px] text-ink-3" role="status">
+    <p className="flex items-center gap-2 px-3 py-3 text-xs text-ink-3" role="status">
       <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
       正在连接远端…
     </p>
@@ -205,13 +205,13 @@ export function ProjectFileTree({
   return (
     <>
       {remote.degraded && (
-        <p className="flex items-start gap-1.5 px-3 py-2 text-[12px] [overflow-wrap:anywhere] text-ink-3">
+        <p className="flex items-start gap-1.5 px-3 py-2 text-xs [overflow-wrap:anywhere] text-ink-3">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           <span>{remote.degraded}</span>
         </p>
       )}
       {remote.status && (
-        <p className="px-3 py-2 text-[12px] [overflow-wrap:anywhere] text-ink-3" role="status">
+        <p className="px-3 py-2 text-xs [overflow-wrap:anywhere] text-ink-3" role="status">
           {remote.status}
         </p>
       )}

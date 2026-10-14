@@ -192,7 +192,7 @@ export function PdfReader({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* safe 居中：工具组窄于容器时居中，放不下时对齐起点并横向滚动（居中溢出会把两侧按钮裁成不可达）。 */}
-      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-[12px]">
+      <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-xs">
         <Button
           size="icon-sm"
           variant="ghost"
@@ -278,7 +278,7 @@ export function PdfReader({
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-[13px] text-red"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-13 text-red"
           >
             PDF 打开失败：{error}
             <button
@@ -294,7 +294,7 @@ export function PdfReader({
           </p>
         )}
         {!pageCount && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-[13px] text-ink-3">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-13 text-ink-3">
             正在加载 PDF…
           </p>
         )}

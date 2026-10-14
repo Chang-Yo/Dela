@@ -179,14 +179,14 @@ export function SourcesTree({
                 {course ? (
                   <>
                     {course.syncedAt && (
-                      <p className="px-2 py-1 text-[12px] text-ink-3">
+                      <p className="px-2 py-1 text-xs text-ink-3">
                         更新于 {new Date(course.syncedAt).toLocaleString('zh-CN')}
                       </p>
                     )}
                     {course.error && (
                       <p
                         role="status"
-                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-[12px] text-red"
+                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-xs text-red"
                       >
                         {course.error}
                       </p>
@@ -243,7 +243,7 @@ export function SourcesTree({
         }}
       />
       {query && filtered.length === 0 && (
-        <p className="px-4 py-3 text-[12px] text-ink-3">已同步资料中没有匹配内容</p>
+        <p className="px-4 py-3 text-xs text-ink-3">已同步资料中没有匹配内容</p>
       )}
       {/* 确认框放在下拉菜单之外：DropdownMenuContent 关闭即卸载，挂在内层会被连同销毁。 */}
       {confirmCourse && (
@@ -256,7 +256,7 @@ export function SourcesTree({
                   ? `取消归档「${confirmCourse.name}」？`
                   : `归档「${confirmCourse.name}」？`}
               </AlertDialog.Title>
-              <AlertDialog.Description className="mt-1 text-[13px] leading-relaxed text-ink-3">
+              <AlertDialog.Description className="mt-1 text-13 leading-relaxed text-ink-3">
                 {confirmCourse.archived
                   ? '课程将恢复到原学期目录。'
                   : '归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。'}

@@ -9,7 +9,7 @@ export function ListBackButton() {
   const selectList = useShuiyuan((state) => state.selectList);
   return (
     <button
-      className="flex items-center gap-1 self-start text-[12px] text-ink-3 transition-colors hover:text-ink"
+      className="flex items-center gap-1 self-start text-xs text-ink-3 transition-colors hover:text-ink"
       onClick={() => void selectList({ kind: 'latest' })}
       type="button"
     >
@@ -39,27 +39,25 @@ export function BookmarkList() {
         >
           <div className="flex items-start gap-1.5">
             <Heart aria-hidden="true" className="mt-1 size-3.5 shrink-0 fill-current text-ink" />
-            <span className="line-clamp-2 text-[15px] font-medium leading-snug">
+            <span className="line-clamp-2 text-15 font-medium leading-snug">
               <ShuiyuanTitle text={bookmark.title} />
             </span>
           </div>
           {bookmark.excerpt ? (
-            <p className="line-clamp-2 text-[13px] leading-relaxed text-ink-3">
-              {bookmark.excerpt}
-            </p>
+            <p className="line-clamp-2 text-13 leading-relaxed text-ink-3">{bookmark.excerpt}</p>
           ) : null}
-          <p className="pl-5 text-[11px] tabular-nums text-ink-3">
+          <p className="pl-5 text-2xs tabular-nums text-ink-3">
             收藏于 {formatListDate(bookmark.createdAt)}
           </p>
         </button>
       ))}
-      {loading ? <p className="p-4 text-[12px] text-ink-3">加载中…</p> : null}
+      {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
       {!loading && !error && bookmarks.length === 0 ? (
-        <p className="px-1 py-8 text-center text-[13px] text-ink-3">还没有收藏</p>
+        <p className="px-1 py-8 text-center text-13 text-ink-3">还没有收藏</p>
       ) : null}
       {error ? (
         <div
-          className="mx-1 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
+          className="mx-1 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}
@@ -90,7 +88,7 @@ export function NotificationList() {
     <div className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-8 max-md:px-3">
       <ListBackButton />
       <div className="flex min-h-9 items-center justify-between gap-2 py-1">
-        <p className="text-[12px] text-ink-3">最近 30 天通知</p>
+        <p className="text-xs text-ink-3">最近 30 天通知</p>
         {hasUnread ? (
           <Button disabled={loading} onClick={() => void markRead()} size="sm" variant="ghost">
             <CheckCheck className="size-3.5" />
@@ -114,14 +112,12 @@ export function NotificationList() {
             <span className="grid min-w-0 flex-1 gap-1">
               <span
                 className={
-                  item.read
-                    ? 'text-[13px] leading-snug text-ink-2'
-                    : 'text-[13px] font-medium leading-snug'
+                  item.read ? 'text-13 leading-snug text-ink-2' : 'text-13 font-medium leading-snug'
                 }
               >
                 {meta.text}
               </span>
-              <span className="text-[11px] tabular-nums text-ink-3">
+              <span className="text-2xs tabular-nums text-ink-3">
                 {formatListDate(item.createdAt)}
               </span>
             </span>
@@ -131,13 +127,13 @@ export function NotificationList() {
           </button>
         );
       })}
-      {loading ? <p className="p-4 text-[12px] text-ink-3">加载中…</p> : null}
+      {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
       {!loading && !error && notifications.length === 0 ? (
-        <p className="px-1 py-8 text-center text-[13px] text-ink-3">暂无通知</p>
+        <p className="px-1 py-8 text-center text-13 text-ink-3">暂无通知</p>
       ) : null}
       {error ? (
         <div
-          className="mx-1 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-[12px] text-red"
+          className="mx-1 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}

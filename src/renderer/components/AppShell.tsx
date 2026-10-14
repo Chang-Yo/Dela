@@ -60,7 +60,7 @@ const platform = 'other' as const;
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section aria-label={title}>
-      <h3 className="text-[11.5px] font-medium tracking-[0.12em] text-ink-3">{title}</h3>
+      <h3 className="text-xs font-medium tracking-[0.12em] text-ink-3">{title}</h3>
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -69,12 +69,12 @@ function ShortcutSection({ children, title }: { children: ReactNode; title: stri
 function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; label: string }) {
   return (
     <div className="flex h-9 items-center justify-between gap-8">
-      <span className="min-w-0 truncate text-[13px] text-ink-2">{label}</span>
+      <span className="min-w-0 truncate text-13 text-ink-2">{label}</span>
       {keys ? (
         <span className="flex shrink-0 items-center gap-1">
           {keys.map((key) => (
             <kbd
-              className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-[12px] font-medium text-ink-2 shadow-hairline"
+              className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-xs font-medium text-ink-2 shadow-hairline"
               key={key}
             >
               {key}
@@ -82,7 +82,7 @@ function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; la
           ))}
         </span>
       ) : (
-        <span className="shrink-0 text-[13px] text-ink-3">{hint}</span>
+        <span className="shrink-0 text-13 text-ink-3">{hint}</span>
       )}
     </div>
   );
@@ -385,7 +385,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[40px_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[2.5rem_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -621,7 +621,7 @@ export function AppShell({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
-                <Dialog.Description className="mt-1 text-[13px] text-ink-3">
+                <Dialog.Description className="mt-1 text-13 text-ink-3">
                   与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
                 </Dialog.Description>
               </div>
@@ -677,7 +677,7 @@ export function AppShell({
           narrow
             ? cn(
                 drawerFromLeft,
-                'absolute bottom-0 left-0 top-10 z-40 w-[280px] max-w-[85vw] px-2 shadow-overlay',
+                'absolute bottom-0 left-0 top-10 z-40 w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
                 drawer === null && 'hidden',
               )
             : cn(
@@ -699,10 +699,10 @@ export function AppShell({
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
             {/* 纯品牌展示；回首页由下方「首页」行承担，避免相邻双入口。 */}
             <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
-              <DelaBrand className="h-[18px] w-auto" />
+              <DelaBrand className="h-[1.125rem] w-auto" />
               <span
                 className={cn(
-                  'text-[15px] font-semibold tracking-tight text-ink',
+                  'text-15 font-semibold tracking-tight text-ink',
                   labelFade,
                   sidebarCollapsed && 'opacity-0',
                 )}
