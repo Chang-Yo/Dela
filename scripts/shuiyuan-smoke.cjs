@@ -101,6 +101,38 @@ const routes = {
   'settings:get-theme': () => 'light',
   'settings:get-zoom': () => 1,
   'settings:get-font-scale': () => 1,
+  // 应用壳启动时读取的跨域通道：给出未配置 / 默认值，让界面安静装载。
+  'settings:get-experimental-features': () => true,
+  'settings:get-experimental-classroom': () => true,
+  'settings:get-keybindings': () => ({}),
+  'settings:get-workspace-prefs': () => ({
+    restoreLastProject: false,
+    defaultNoteEditMode: 'rich',
+    noteSpellcheck: false,
+  }),
+  'layout:get': () => null,
+  'layout:save': () => null,
+  'session:list': () => [],
+  'remotes:list': () => [],
+  'notifications:get-state': () => ({
+    items: [],
+    totalCount: 0,
+    unreadCount: 0,
+    snoozedUntil: null,
+    refresh: { mail: null, shuiyuan: null, todo: null },
+  }),
+  'update:get-state': () => ({
+    phase: 'idle',
+    currentVersion: '0.0.0',
+    version: null,
+    progress: 0,
+    bytesPerSecond: null,
+    checkedAt: null,
+    reason: null,
+    detail: null,
+    failedAt: null,
+  }),
+  'shuiyuan:get-state': () => ({ connected: true, username: 'tester', boundAt: iso(1000) }),
   'shuiyuan:site-structure': () => ({
     categories: [
       {
@@ -175,7 +207,7 @@ app
     await win.loadFile(join(root, 'out/renderer/index.html'), { query: { 'smoke-test': '1' } });
     await wait('document.querySelector(\'aside[aria-label=\\"主导航\\"]\')');
     await click(
-      "[...document.querySelectorAll('aside[aria-label=\\\"主导航\\\"] nav[aria-label=功能导航] button')].find(b => b.textContent.includes('水源'))",
+      "[...document.querySelectorAll('aside[aria-label=\\\"主导航\\\"] nav[aria-label=功能入口] button')].find(b => b.textContent.includes('水源'))",
     );
 
     // 信息流：表头、两个主题行、类别色点、未读徽标。
