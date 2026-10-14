@@ -11,7 +11,7 @@ import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
 import { useChat, useChatDraft, useChatSession, type ChatReference } from './use-chat';
 import { referenceContext } from './reference-tokens';
-import { useNavigationStore } from '../../app/navigation';
+import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { useWorkspaceStore } from '../../workspace/store';
 

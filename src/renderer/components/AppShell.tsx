@@ -31,7 +31,7 @@ import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast, ToastHost } from '../app/toasts';
 import { DelaBrand } from './ui/dela-brand';
 import { cn } from '../lib/utils';
-import { useNavigationStore, type AppView, type MobileDrawer } from '../app/navigation';
+import { useNavigationStore, type AppView, type MobileDrawer } from '../navigation/view';
 import { useShortcuts } from '../app/shortcuts';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
 import {

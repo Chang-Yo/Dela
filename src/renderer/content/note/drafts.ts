@@ -4,9 +4,9 @@
 // 「另一组还开着就不释放」，新架构把这个计数下沉到 store，content/note 组件挂载时
 // acquire、卸载时 release，最后一个引用释放时才冲盘并移除草稿。
 import { create } from 'zustand';
-import type { DocumentContent } from '../../shared/api';
-import { errorText } from './store';
-import { relocateWorkspacePath } from '../../shared/workspace';
+import type { DocumentContent } from '../../../shared/api';
+import { errorText } from '../../workspace/store';
+import { relocateWorkspacePath } from '../../../shared/workspace';
 
 export type NoteDraft = {
   content: DocumentContent;

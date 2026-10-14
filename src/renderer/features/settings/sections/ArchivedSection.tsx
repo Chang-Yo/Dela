@@ -13,7 +13,7 @@ import {
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
-import { useNavigationStore } from '../../../app/navigation';
+import { useNavigationStore } from '../../../navigation/view';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 

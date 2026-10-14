@@ -1,5 +1,5 @@
 // 工作台根：渲染项目布局（或最大化组/窄屏单列），承接布局类快捷键。
-// 布局载入（init）由装配层 workbench-shell 负责：home 视图不挂载本组件，
+// 布局载入（init）由装配层 WorkbenchShell 负责：home 视图不挂载本组件，
 // 装配层预热后，主动进入工作台时首帧即有布局，避免闪一次空白重载。
 import { type KeyboardEvent } from 'react';
 import type { KeybindingMap } from '../../shared/keybindings';

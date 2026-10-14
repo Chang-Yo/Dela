@@ -4,9 +4,9 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
-import type { WorkspaceEntry, WorkspaceState } from '../../shared/api';
-import { useNavigationStore as useTreeState } from '../navigation/store';
-import { useWorkspaceStore } from '../workspace/store';
+import type { WorkspaceEntry, WorkspaceState } from '../../../shared/api';
+import { useNavigationStore as useTreeState } from '../../navigation/store';
+import { useWorkspaceStore } from '../../workspace/store';
 
 const mediaStub = () => ({
   matches: false,
@@ -16,12 +16,12 @@ const mediaStub = () => ({
 
 let container: HTMLDivElement;
 let root: Root;
-let WorkbenchExplorer: typeof import('./workbench-explorer').WorkbenchExplorer;
+let WorkbenchExplorer: typeof import('../WorkbenchExplorer').WorkbenchExplorer;
 
 beforeAll(async () => {
   // explorer-state 在模块求值时就调 window.matchMedia，jsdom 没有这个 API。
   vi.stubGlobal('matchMedia', mediaStub);
-  ({ WorkbenchExplorer } = await import('./workbench-explorer'));
+  ({ WorkbenchExplorer } = await import('../WorkbenchExplorer'));
 });
 
 const remoteProject: WorkspaceEntry = {

@@ -40,7 +40,7 @@ import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
 import { SourcesTree, latestTermOf } from '../navigation/SourcesTree';
 import { useNavigationStore as useTreeState } from '../navigation/store';
-import { useNavigationStore as useAppNavigation } from './navigation';
+import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {
   archiveEntry,
   importDroppedFiles,
@@ -51,9 +51,9 @@ import {
   runEntryWork,
 } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
-import { showToast } from './toasts';
+import { showToast } from '../app/toasts';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
-import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
+import { useExplorerState, useViewportWidth } from './explorer-state';
 import { cn } from '../lib/utils';
 import { overlayFade } from '../components/ui/motion';
 

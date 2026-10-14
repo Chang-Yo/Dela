@@ -3,7 +3,7 @@ import { act, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceChat } from '../../../shared/api';
-import { useNavigationStore } from '../../app/navigation';
+import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { useChatDrafts } from './drafts';
 import { ChatHome } from './ChatHome';

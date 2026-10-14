@@ -22,22 +22,22 @@ import {
 } from '../content/preview/loader';
 import { parsePreviewTabId } from '../content/preview/tab-id';
 import { useSessions } from '../sessions/store';
-import { useWorkbenchLayout } from '../workbench/layout-store';
-import { useShortcuts } from './shortcuts';
-import { walkGroups, type LegacySeedInput } from '../workbench/layout-schema';
-import { Workbench } from '../workbench/Workbench';
+import { useWorkbenchLayout } from './layout-store';
+import { useShortcuts } from '../app/shortcuts';
+import { walkGroups, type LegacySeedInput } from './layout-schema';
+import { Workbench } from './Workbench';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
-import { useNoteDrafts } from '../workspace/drafts';
+import { useNoteDrafts } from '../content/note/drafts';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useRemoteReferences } from '../navigation/remote-references';
-import { documentTabId, useNavigationStore } from './navigation';
-import { showToast } from './toasts';
-import { MailDraftDialog } from './mail-draft-dialog';
+import { documentTabId, useNavigationStore } from '../navigation/view';
+import { showToast } from '../app/toasts';
+import { MailDraftDialog } from '../app/mail-draft-dialog';
 import { ChatHome } from '../content/chat/ChatHome';
 import { referenceCandidates } from '../content/chat/reference-tokens';
-import { currentContainerOf, WorkbenchExplorer } from './workbench-explorer';
+import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 
 const emptyViewState = { tabs: [], active: null, expanded: [], scroll: {} };
 
@@ -193,7 +193,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       liveIds.has(tabId.slice(tabId.indexOf(':') + 1));
     for (const group of walkGroups(layout.root))
       for (const tab of group.tabs) if (!keep(tab)) layout.closeTab(tab, group.id);
-    // 草稿随标签卸载自动冲盘释放（workspace/drafts 引用计数）；当前项目被删则回通用池。
+    // 草稿随标签卸载自动冲盘释放（note/drafts 引用计数）；当前项目被删则回通用池。
     if (rootId && !liveIds.has(rootId)) useNavigationStore.getState().openProject('');
   };
 
@@ -243,7 +243,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
             .filter((key) => !alive.has(key)),
         );
         if (orphans.length)
-          void import('../content/note').then((note) => {
+          void import('../content/note/index').then((note) => {
             for (const key of orphans) note.forgetNoteEditorState(key);
           });
       }),

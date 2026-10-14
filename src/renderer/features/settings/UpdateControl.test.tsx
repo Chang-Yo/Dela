@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, DocumentContent } from '../../../shared/api';
 import type { UpdateSnapshot } from '../../../shared/update';
 import { useToastStore } from '../../app/toasts';
-import { useNoteDrafts, type NoteDraft } from '../../workspace/drafts';
+import { useNoteDrafts, type NoteDraft } from '../../content/note/drafts';
 import { UpdateControl } from './UpdateControl';
 import { useUpdateState } from './update';
 

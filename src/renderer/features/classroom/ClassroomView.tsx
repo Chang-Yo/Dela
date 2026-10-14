@@ -2,7 +2,7 @@
 // 侧栏对齐资料面板：inset 底、紧凑头、eyebrow 小节标签、可拖宽度）。
 import { useEffect, useState } from 'react';
 import { KeyRound, Loader2, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
-import { useNavigationStore } from '../../app/navigation';
+import { useNavigationStore } from '../../navigation/view';
 import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';

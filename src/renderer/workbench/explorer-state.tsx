@@ -1,6 +1,6 @@
 // 工作台目录侧栏的可见性状态：宽屏折叠 / 窄屏抽屉开合 + 窄屏媒体查询镜像。
 // 展开入口渲染在最左上组（最大化时即最大化组）的标签栏左侧，空组由 TabGroup
-// 锚定同一坐标，与目录本体（app/workbench-explorer）共享此 store；折叠偏好沿用原 localStorage 键。
+// 锚定同一坐标，与目录本体（WorkbenchExplorer）共享此 store；折叠偏好沿用原 localStorage 键。
 import { create } from 'zustand';
 import { useEffect, useState } from 'react';
 import { PanelLeft } from 'lucide-react';

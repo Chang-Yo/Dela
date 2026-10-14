@@ -5,14 +5,14 @@
 import { create } from 'zustand';
 import { leaveComposer } from '../features/mail/compose-close';
 import { useShuiyuan } from '../features/shuiyuan/store';
-import { ancestorChainOf } from '../navigation/store';
+import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
-import { showToast } from './toasts';
+import { showToast } from '../app/toasts';
 
 export type AppView =
   | 'home'

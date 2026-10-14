@@ -1,11 +1,11 @@
 // 通知镜像订阅与跳转（迁移自旧 App.tsx 通知段）：镜像状态供通知中心与铃铛计数，
-// 跳转经 app/navigation 的定位脉冲分发。
+// 跳转经 navigation/view 的定位脉冲分发。
 import { useEffect, useRef, useState } from 'react';
 import type { NotificationItem, NotificationState } from '../../shared/api';
 import { leaveComposer } from '../features/mail/compose-close';
 import { errorText } from '../workspace/store';
 import { showToast } from './toasts';
-import { useNavigationStore } from './navigation';
+import { useNavigationStore } from '../navigation/view';
 
 /** active 对应旧 launchStage 门控：'flow' 阶段不订阅（主界面未挂载），其余阶段镜像就绪。 */
 export function useNotifications(active: boolean) {

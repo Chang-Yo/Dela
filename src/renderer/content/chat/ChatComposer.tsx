@@ -21,7 +21,7 @@ import { ComposerContextBar } from './composer-context-bar';
 import { Button } from '@/components/ui/beautifului/atoms/Button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
-import { useNavigationStore } from '../../app/navigation';
+import { useNavigationStore } from '../../navigation/view';
 import type {
   ChatCommandView,
   ChatMediaView,

@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
-import { useNoteDrafts } from '../../workspace/drafts';
+import { useNoteDrafts } from '../../content/note/drafts';
 import { saveChatDrafts } from '../../content/chat/drafts';
 import { saveComposers } from '../mail/compose-close';
 import { saveWorkbenchLayout } from '../../workbench/layout-store';

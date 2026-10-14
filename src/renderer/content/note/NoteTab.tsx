@@ -28,7 +28,7 @@ const scrollMemory = new Map<string, number>();
 
 /**
  * 笔记标签内容：ProjectDocument 笔记分支的承接者。草稿经注入的 NoteDraftSource
- * 读写（3B 由 workspace/drafts 接线），编辑/阅读/源码模式切换与自动保存状态展示在此。
+ * 读写（3B 由 note/drafts 接线），编辑/阅读/源码模式切换与自动保存状态展示在此。
  */
 export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const entryId = parseNoteTabId(tabId);
@@ -65,7 +65,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     return () => {
       active = false;
       window.removeEventListener('focus', refreshLocal);
-      // 卸载即释放引用：草稿先冲盘，最后一个引用才移除（workspace/drafts 语义）。
+      // 卸载即释放引用：草稿先冲盘，最后一个引用才移除（note/drafts 语义）。
       void source.release(entryId);
     };
   }, [entryId, source]);

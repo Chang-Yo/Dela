@@ -18,7 +18,7 @@ import {
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { unhideProjectInNav } from '../navigation/store';
-import { useNoteDrafts } from './drafts';
+import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
 import { RemoteConnectionWizard } from './remote-wizard';

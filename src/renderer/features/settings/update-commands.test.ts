@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi } from '../../../shared/api';
-import { useNoteDrafts } from '../../workspace/drafts';
+import { useNoteDrafts } from '../../content/note/drafts';
 import { useChatDrafts, registerChatAttachmentCheck } from '../../content/chat/drafts';
 import { registerComposeSave } from '../mail/compose-close';
 import { useWorkbenchLayout } from '../../workbench/layout-store';

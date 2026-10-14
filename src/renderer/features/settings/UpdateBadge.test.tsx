@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { UpdateSnapshot } from '../../../shared/update';
-import { useNavigationStore } from '../../app/navigation';
+import { useNavigationStore } from '../../navigation/view';
 import { UpdateBadge } from './UpdateBadge';
 import { useUpdateState } from './update';
 

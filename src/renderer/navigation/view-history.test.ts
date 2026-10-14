@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { WorkspaceEntry, WorkspaceState } from '../../shared/api';
 import { useWorkspaceStore } from '../workspace/store';
-import { useNavigationStore } from './navigation';
+import { useNavigationStore } from './view';
 
 const project: WorkspaceEntry = {
   id: 'p1',

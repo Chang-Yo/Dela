@@ -2,7 +2,7 @@
 // 动作只经 preload workspace:* 通道写事实并刷新镜像；展开落点、打开项目等 UI 后续
 // 由接线方经回调决定，动作本身不碰视图状态。
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
-import { useNoteDrafts } from './drafts';
+import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';

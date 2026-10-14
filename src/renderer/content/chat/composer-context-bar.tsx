@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } from 'lucide-react';
 import type { WorkspaceEntry } from '../../../shared/api';
-import { useNavigationStore } from '../../app/navigation';
+import { useNavigationStore } from '../../navigation/view';
 import { showToast } from '../../app/toasts';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';

@@ -1,6 +1,6 @@
 // 应用根组件（批次 3B 装配）：launch 阶段（首启引导）、AppShell 壳、视图切换动画。
 // 视图路由与定位脉冲在 ./navigation；主题/缩放在 ./theme；通知镜像在 ./notifications；
-// 工作台（Provider + 目录侧栏 + 弹窗）在 ./workbench-shell。
+// 工作台（Provider + 目录侧栏 + 弹窗）在 workbench/WorkbenchShell。
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell } from '../components/AppShell';
@@ -26,13 +26,17 @@ import { useSessions, updateSession } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
-import { useNoteDrafts } from '../workspace/drafts';
+import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
-import { projectIdFromLegacyScope, useNavigationStore, type MobileDrawer } from './navigation';
+import {
+  projectIdFromLegacyScope,
+  useNavigationStore,
+  type MobileDrawer,
+} from '../navigation/view';
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
-import { WorkbenchShell } from './workbench-shell';
+import { WorkbenchShell } from '../workbench/WorkbenchShell';
 import { setDefaultNoteEditMode } from '../content/note/default-mode';
 import { useNoteSpellcheck } from '../content/note/note-spellcheck';
 

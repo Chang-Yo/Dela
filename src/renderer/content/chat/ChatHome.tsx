@@ -1,8 +1,8 @@
 // 随聊的新建、发送与历史查看留在首页聊天；会话与运行状态由 sessions 管理。
 import { useEffect, useRef, useState } from 'react';
 import type { DelaApi, WorkspaceChat } from '../../../shared/api';
-import type { GeneralChatPulse } from '../../app/navigation';
-import { useNavigationStore } from '../../app/navigation';
+import type { GeneralChatPulse } from '../../navigation/view';
+import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';
 import { ChatTab } from './ChatTab';

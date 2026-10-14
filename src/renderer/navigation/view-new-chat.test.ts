@@ -7,7 +7,7 @@ import type { ChatScope, DelaApi, WorkspaceChat } from '../../shared/api';
 import { useSessions } from '../sessions/store';
 import { createDefaultLayout, walkGroups } from '../workbench/layout-schema';
 import { useWorkbenchLayout } from '../workbench/layout-store';
-import { useNavigationStore } from './navigation';
+import { useNavigationStore } from './view';
 
 function emptyChat(sessionId: string): WorkspaceChat {
   return {
