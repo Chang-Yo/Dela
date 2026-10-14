@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  net,
   safeStorage,
   session,
   type Cookie,
@@ -89,6 +90,84 @@ export async function clearCampusSession(): Promise<void> {
   rmSync(snapshotPath(), { force: true });
   rmSync(`${snapshotPath()}.tmp`, { force: true });
   persistenceError = undefined;
+}
+
+export interface CampusRequestOptions {
+  /** 用户可见的服务名，拼进超时、断网等报错文案。 */
+  service: string;
+  /** 登录失效（重定向、401/403）时的报错。 */
+  loginError: string;
+  method?: 'GET' | 'POST';
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+/**
+ * 经校园 Session 发请求并取回正文。Electron session.fetch 在内部构造 Response 时可能抛出
+ * 未捕获的状态码异常，因此直接消费 Chromium 响应。重定向一律视为登录失效；
+ * 超时、断网与 408/5xx 失败的 `cause` 为 'transient'，由调用方决定是否重试。
+ */
+export function campusRequest(
+  campus: Session,
+  url: string,
+  options: CampusRequestOptions,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      url,
+      method: options.method ?? 'GET',
+      session: campus,
+      useSessionCookies: true,
+      redirect: 'manual',
+    });
+    let settled = false;
+    const fail = (error: Error, transient = false) => {
+      if (settled) return;
+      settled = true;
+      if (transient) error.cause = 'transient';
+      clearTimeout(timer);
+      reject(error);
+      request.abort();
+    };
+    const timer = setTimeout(
+      () => fail(new Error(`${options.service}请求超时，请稍后重试`), true),
+      15000,
+    );
+    request.on('error', () => fail(new Error(`无法连接${options.service}，请检查网络`), true));
+    request.on('redirect', () => fail(new Error(options.loginError)));
+    request.on('response', (response) => {
+      const status = response.statusCode;
+      if (!Number.isInteger(status) || status < 200 || status > 599) {
+        fail(new Error(`${options.service}返回了无效状态，请稍后重试或重新登录`));
+        return;
+      }
+      if (status === 401 || status === 403 || (status >= 300 && status < 400)) {
+        fail(new Error(options.loginError));
+        return;
+      }
+      if (status !== 200) {
+        fail(
+          new Error(`${options.service}接口返回 ${status}`),
+          [408, 500, 502, 503, 504].includes(status),
+        );
+        return;
+      }
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const interrupted = () => fail(new Error(`${options.service}响应中断，请稍后重试`), true);
+      response.on('error', interrupted);
+      response.on('aborted', interrupted);
+      response.on('end', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(Buffer.concat(chunks).toString('utf8'));
+      });
+    });
+    for (const [name, value] of Object.entries(options.headers ?? {}))
+      request.setHeader(name, value);
+    request.end(options.body);
+  });
 }
 
 export interface CampusLoginOptions {

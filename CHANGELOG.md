@@ -22,6 +22,7 @@ Dela 的重要变更都记在这里。
 ### Changed
 
 - 整理仓库结构：校园会话从 `timetable/` 移到主进程根级 `campus.ts`；工作台装配与目录从 `app/` 移入 `workbench/`，视图路由移入 `navigation/view.ts`，笔记草稿移入 `content/note/`；主进程测试统一放进各域 `test/`；设置页接口说明并入开发文档；两个 TS 冒烟启动脚本合并为 `scripts/run-ts-smoke.mjs`。
+- 课表与课堂视频改用 `campus.ts` 中同一个校园请求封装 `campusRequest`。课表接口的 401/403 现在报登录失效，不再显示「课表接口返回 403」。
 
 ### Removed
 

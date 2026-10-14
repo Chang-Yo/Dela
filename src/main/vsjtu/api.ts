@@ -1,8 +1,7 @@
-import { net } from 'electron';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import type { ClassroomVideo, VideoCourse } from '../../shared/vsjtu';
-import { getCampusSession } from '../campus';
+import { campusRequest, getCampusSession } from '../campus';
 
 export const VIDEO_HOME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/';
 const BASE = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1';
@@ -32,61 +31,16 @@ function requestJson(url: string): Promise<unknown> {
 }
 
 async function requestOnce(url: string): Promise<unknown> {
-  const campus = await getCampusSession();
-  return new Promise((resolve, reject) => {
-    const request = net.request({
-      url,
-      session: campus,
-      useSessionCookies: true,
-      redirect: 'manual',
-    });
-    let settled = false;
-    const fail = (error: Error, retryable = false) => {
-      if (settled) return;
-      settled = true;
-      if (retryable) error.cause = 'transient';
-      clearTimeout(timer);
-      reject(error);
-      request.abort();
-    };
-    const timer = setTimeout(() => fail(new Error('交大视频请求超时，请重试'), true), 15000);
-    request.on('error', () => fail(new Error('无法连接交大视频，请检查网络'), true));
-    request.on('redirect', () => fail(loginError()));
-    request.on('response', (response) => {
-      if (
-        response.statusCode === 401 ||
-        response.statusCode === 403 ||
-        (response.statusCode >= 300 && response.statusCode < 400)
-      ) {
-        fail(loginError());
-        return;
-      }
-      if (response.statusCode !== 200) {
-        fail(
-          new Error(`交大视频接口返回 ${response.statusCode}`),
-          [408, 500, 502, 503, 504].includes(response.statusCode),
-        );
-        return;
-      }
-      const chunks: Buffer[] = [];
-      response.on('data', (chunk: Buffer) => chunks.push(chunk));
-      response.on('error', () => fail(new Error('交大视频响应中断'), true));
-      response.on('aborted', () => fail(new Error('交大视频响应中断'), true));
-      response.on('end', () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        try {
-          resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-        } catch {
-          reject(new Error('交大视频没有返回预期数据，请重新登录'));
-        }
-      });
-    });
-    request.setHeader('Accept', 'application/json');
-    request.setHeader('Referer', VIDEO_HOME);
-    request.end();
+  const text = await campusRequest(await getCampusSession(), url, {
+    service: '交大视频',
+    loginError: loginError().message,
+    headers: { Accept: 'application/json', Referer: VIDEO_HOME },
   });
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('交大视频没有返回预期数据，请重新登录');
+  }
 }
 
 export async function checkVideoLogin(): Promise<void> {

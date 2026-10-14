@@ -13,7 +13,10 @@ vi.mock('electron', () => ({
   net: { request: vi.fn() },
 }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../campus', () => ({ getCampusSession: vi.fn() }));
+vi.mock('../../campus', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../campus')>()),
+  getCampusSession: vi.fn(),
+}));
 
 function mockRequest(status: number | 'redirect' | 'error', body = '') {
   const request = Object.assign(new EventEmitter(), {
