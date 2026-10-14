@@ -3,7 +3,7 @@
 来源：<https://github.com/slev12397/beautiful-ui>（MIT，见 [LICENSE](./LICENSE)）。
 以 shadcn 风格整库复制进本仓库，目录结构与上游一致：
 
-- `atoms/` — 上游 `components/atoms/*`，组件库内部积木（Button、Shimmer、ProgressRing 等）。
+- `atoms/` — 上游 `components/atoms/*`，组件库内部积木（IconButton、Shimmer、ProgressRing 等）。
 - `primitives/` — 上游 `components/primitives/*`，面向产品的组件（当前仅 CodeBlock）。
 - `beautifului.css` — 上游 `app/globals.css` 的库部分：设计 token、`@theme` 映射与共享 keyframes。由 `styles/globals.css` 引入。
 
@@ -11,7 +11,7 @@
 
 1. **内部导入改路径**：`@/components/atoms/` → `@/components/ui/beautifului/atoms/`，`@/components/primitives/` → `@/components/ui/beautifului/primitives/`。`@/lib/utils` 与 Dela 既有实现一致，未改。
 2. **accent 命名空间**：Dela 的 shadcn token 已占用 `--accent`（hover 灰），上游的品牌蓝改为 `--bui-accent` / `--bui-accent-ink` / `--bui-accent-tint`，对应工具类 `bg-bui-accent`、`text-bui-accent-ink` 等。组件 API（`variant="accent"`）不变。
-3. **只保留在用的组件**（2026-10-14）：删除 Dela 未引用的 atoms（Chip、EntityChip、StreamText、TextRow、ValuePill）与 primitives（AgentScreen、ApprovalCard、ChatComposer、ContextCards、DiffTable、FilterTable、FineTuneCard、Flowchart、GlideMenu、InsightCards、LoadingState、PromptBar、RecommendationCard、RecordsTable、SearchList、SelectionActions、SidebarNav、StreamingText、TaskRows、ThinkingState、ToolChips），以及它们专属的 CSS 与 keyframes（`fade-up`、`eq-bounce`、`caret-blink`、`pixel-on`、`records-pulse`）。需要其中某个组件时从上游重新取用并重放本节适配。
+3. **只保留在用的组件**（2026-10-14）：删除 Dela 未引用的 atoms（Button、Chip、EntityChip、StreamText、TextRow、ValuePill）与 primitives（AgentScreen、ApprovalCard、ChatComposer、ContextCards、DiffTable、FilterTable、FineTuneCard、Flowchart、GlideMenu、InsightCards、LoadingState、PromptBar、RecommendationCard、RecordsTable、SearchList、SelectionActions、SidebarNav、StreamingText、TaskRows、ThinkingState、ToolChips），以及它们专属的 CSS 与 keyframes（`fade-up`、`eq-bounce`、`caret-blink`、`pixel-on`、`records-pulse`）。需要其中某个组件时从上游重新取用并重放本节适配。按钮统一用 `components/ui/button.tsx`（圆角矩形，shadcn 变体名），上游胶囊形 Button 不再使用。
 4. **字体 token 未引入**：上游 `--font-sans/--font-mono` 绑定 Next.js 字体，沿用 Dela 字体。
 5. **阴影值内联**：上游通过 `shadow-plugin` 提供 `--shadow-xs…lg`，此处将所需层级值直接内联进 token，未引入该依赖（避免全局改变 Dela 既有 `shadow-*` 工具类）。
 6. **`@custom-variant dark`**：上游 globals.css 中的 dark 变体定义移入 `beautifului.css`（Dela 此前未定义）。

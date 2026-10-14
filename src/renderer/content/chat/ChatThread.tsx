@@ -17,7 +17,7 @@ import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
 import { useReducedMotion } from 'framer-motion';
 import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
-import { Button } from '@/components/ui/beautifului/atoms/Button';
+import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
 import { ReplyTrace } from './ToolTimeline';
@@ -148,11 +148,11 @@ const UserMessage = memo(function UserMessage({
           </IconButton>
           <Button
             aria-label="重新发送"
-            className="size-6 gap-0 rounded-full p-0 [&_svg]:size-3.5"
+            className="rounded-full"
             disabled={!text.trim() && !message.images?.length}
             onClick={confirmEdit}
+            size="icon-xs"
             title="重新发送"
-            variant="primary"
           >
             <ArrowUp />
           </Button>
@@ -353,8 +353,7 @@ const AssistantMessage = memo(function AssistantMessage({
         draftIds.map((draftId) => (
           <Button
             key={draftId}
-            variant="secondary"
-            size="sm"
+            variant="outline"
             className="mb-2 mt-1 [&_svg]:size-3.5"
             onClick={() => onOpenDraft(draftId)}
           >

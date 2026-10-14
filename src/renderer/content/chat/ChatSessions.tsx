@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Archive, MessageSquare, Search, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../shared/api';
-import { Button } from '@/components/ui/beautifului/atoms/Button';
+import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { cn } from '../../lib/utils';
 import { poolKey, querySessions } from '../../sessions/store';
@@ -64,14 +64,13 @@ function SessionList({
           </button>
           {confirmingId === session.id ? (
             <Button
-              className="bg-red text-canvas"
               data-archive-confirm=""
               onClick={() => {
                 setConfirmingId(null);
                 onDeleteSession(session.id);
               }}
-              size="xs"
-              variant="primary"
+              size="sm"
+              variant="destructive"
             >
               确认归档
             </Button>
@@ -222,7 +221,11 @@ export function ChatSessions({
           {loadError && (
             <div className="flex items-center justify-center gap-2 px-3 py-6 text-[13px] text-ink-3">
               <span role="alert">历史对话加载失败</span>
-              <Button onClick={() => setListVersion((version) => version + 1)} size="xs">
+              <Button
+                onClick={() => setListVersion((version) => version + 1)}
+                size="sm"
+                variant="outline"
+              >
                 重试
               </Button>
             </div>

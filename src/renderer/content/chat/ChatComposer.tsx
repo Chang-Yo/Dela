@@ -18,7 +18,7 @@ import { cn } from '../../lib/utils';
 import { errorText } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
-import { Button } from '@/components/ui/beautifului/atoms/Button';
+import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
 import { useNavigationStore } from '../../navigation/view';
@@ -452,9 +452,8 @@ export function ChatComposer({
                           setModelPickerOpen(false);
                           useNavigationStore.getState().openSettings('providers');
                         }}
-                        size="xs"
-                        type="button"
-                        variant="secondary"
+                        size="sm"
+                        variant="outline"
                       >
                         <Settings />
                         打开设置 › 模型供应商

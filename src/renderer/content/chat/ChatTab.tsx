@@ -2,7 +2,7 @@ import { memo, useMemo, useState } from 'react';
 import { History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
-import { Button } from '@/components/ui/beautifului/atoms/Button';
+import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ChatComposer } from './ChatComposer';
 import { composerContext } from './composer-context';
@@ -50,8 +50,7 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
           <Button
             className="[&_svg]:size-3.5"
             onClick={() => void session.newSession()}
-            size="sm"
-            variant="secondary"
+            variant="outline"
           >
             <SquarePen />
             新对话
@@ -205,8 +204,8 @@ const ChatSessionView = memo(function ChatSessionView({
         <div className="flex items-center gap-2 px-3 text-[12px] text-ink-3">
           <span>配置模型供应商后即可开始对话</span>
           <Button
-            size="xs"
-            variant="quiet"
+            size="sm"
+            variant="ghost"
             onClick={() => useNavigationStore.getState().openSettings('providers')}
           >
             配置模型
