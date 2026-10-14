@@ -28,10 +28,10 @@ import {
   saveNoteImage,
   saveWorkspaceNote,
   updateWorkspaceEntry,
-  openProjectDirectory,
   getWorkspaceState,
   entry,
 } from '../api';
+import { openProjectDirectory } from '../project';
 
 const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 

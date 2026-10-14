@@ -14,11 +14,13 @@ import {
   readWorkspaceEntry,
   saveWorkspaceNote,
   saveNoteImage,
+} from './api';
+import {
   openProjectDirectory,
   projectGitBranch,
   projectGitBranches,
   projectGitCheckout,
-} from './api';
+} from './project';
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
 import { exportOfficePdf } from '../documents/export';

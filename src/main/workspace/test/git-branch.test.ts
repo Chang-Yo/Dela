@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { gitBranchesOf, gitBranchOf, gitCheckout } from '../api';
+import { gitBranchesOf, gitBranchOf, gitCheckout } from '../project';
 
 let root: string;
 
