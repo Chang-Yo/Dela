@@ -32,7 +32,9 @@ afterEach(() => {
 });
 
 describe('旧世界库重置', () => {
-  it('user_version 撞上当前版本号的旧库同样被丢弃重建', () => {
+  // 三个重置用例都走「备份整库 + 全量重建 schema」的真实 SQLite 路径，本地 <1s，
+  // 但共享 CI runner 满载时实测可达 7s+（2026-10-15 win-x64），默认 5s 会误杀。
+  it('user_version 撞上当前版本号的旧库同样被丢弃重建', { timeout: 30_000 }, () => {
     // 旧世界是 v5–v15 体系，版本号与当前 schema 撞车时不能只看版本号：
     // 只看它会既重置不了旧库、也不建新表，留下一堆缺表的库。
     const root = freshRoot();
@@ -47,7 +49,7 @@ describe('旧世界库重置', () => {
     ).toMatchObject({ count: 1 });
   });
 
-  it('v15 旧库被丢弃并备份，当前 schema 重建', () => {
+  it('v15 旧库被丢弃并备份，当前 schema 重建', { timeout: 30_000 }, () => {
     const root = freshRoot();
     plantLegacyDb(root, 15);
     const db = getDatabase();
@@ -73,7 +75,7 @@ describe('旧世界库重置', () => {
     ).toMatchObject({ count: 1 });
   });
 
-  it('user_version=0 且含特征表的半途库同样重置', () => {
+  it('user_version=0 且含特征表的半途库同样重置', { timeout: 30_000 }, () => {
     const root = freshRoot();
     plantLegacyDb(root, 0);
     const db = getDatabase();
