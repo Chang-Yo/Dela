@@ -217,6 +217,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '隐私条款',
     keywords: ['隐私', '数据', '安全', '条款', 'privacy'],
   },
+  {
+    id: 'terms',
+    section: 'terms',
+    title: '使用条款',
+    keywords: ['条款', '责任', '免责', '许可', '开源', 'terms'],
+  },
 ];
 
 export const settingsSectionLabels: Record<SettingsSectionId, string> = {
@@ -234,6 +240,7 @@ export const settingsSectionLabels: Record<SettingsSectionId, string> = {
   mcp: 'MCP Server',
   about: '关于',
   privacy: '隐私条款',
+  terms: '使用条款',
 };
 
 /** 全局搜索 setting 入口的分组摘要（与设置内搜索共用同一份关键词）。 */
@@ -252,6 +259,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   mcp: 'MCP 服务器与工具',
   about: '版本信息',
   privacy: '数据存放与外发说明',
+  terms: '使用本软件的责任划分',
 };
 
 /** 按分类聚合的全局搜索设置入口（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */

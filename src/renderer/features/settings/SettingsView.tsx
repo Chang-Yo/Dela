@@ -11,6 +11,7 @@ import { PrivacySection } from './sections/PrivacySection';
 import { RemoteSection } from './sections/RemoteSection';
 import { ShortcutsSection } from './sections/ShortcutsSection';
 import { SkillsSection } from './sections/SkillsSection';
+import { TermsSection } from './sections/TermsSection';
 import { WorkspaceSection } from './sections/WorkspaceSection';
 import { ConnectionsSection } from './connections/ConnectionsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
@@ -83,6 +84,7 @@ export function SettingsView({
           {section === 'mcp' && <McpSection />}
           {section === 'about' && <AboutSection />}
           {section === 'privacy' && <PrivacySection />}
+          {section === 'terms' && <TermsSection />}
         </div>
       </div>
     </div>

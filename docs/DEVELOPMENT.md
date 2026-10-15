@@ -52,7 +52,9 @@
 - 状态用颜色点表达（绿＝连接 / 使用中，灰＝未连接）；页面主操作用主色（default）按钮。
 - 常驻能力整组说明一次，行内用锁徽标替代禁用开关。
 - Skills 行支持查看 `SKILL.md` 与打开所在位置（`capabilities:read-skill` / `reveal-skill`，主进程按名单独解析路径，渲染端不传路径）。
-- 隐私页按文档排版（限宽、text-13 正文、枚举两列表）。
+- 条款页（隐私条款、使用条款）共用 `sections/legal-doc.tsx` 的 `LegalDocument`：正文是仓库根目录 docs 下的 Markdown（`docs/privacy.md` / `docs/terms.md`），构建时 `?raw` 内联后交给 react-markdown + remark-gfm 渲染，组件里不另抄一份，官网发布同一份文本。两页映射完全一致——限宽 42rem、text-13 正文、「序号 + 标题」小节、带表头的表格，正文里最需要读者记住的一句加粗；Markdown 的 h1 与页面标题重复，映射为不渲染。
+- 上面这套映射里小节间距落在标题自身的 `mt-10`（Markdown 的块是平级兄弟节点，容器给不了 grid 间距），`first:mt-0` 兜底文档若直接从 h2 开头。类名集中在 `legal-doc.tsx` 顶部的常量里，改一处两页一起变。
+- 写条款时要避开 `。**你` 这类「加粗以中文标点收尾、紧跟汉字」的写法：CommonMark 不把该 `**` 当作闭合，只会渲染出字面星号（GitHub 同样如此）。把收尾标点移到加粗之外即可；`legal-doc.test.tsx` 对两个文档都以「strong 数 == 源码里 `**` 对数」守住这条。
 
 瞬时动作失败的报错与成功提示走应用内通知浮窗（`app/toasts.tsx` 的 `showToast`，内容区顶部居中滑入，error / success 变体，卡片为 beautifului `atoms/Toast.tsx`；error 8s / success 4s 自动消失，至多 4 条）。打开着的表单的校验与提交错误、持久态（连接红点、同步失败横幅、加载失败占位）仍内联展示，不进浮窗；终端输入与尺寸同步失败属高频连续操作，留内联红字条；后台自动动作（会话终态后的镜像刷新等）失败不弹浮窗，只留 console 线索。工作区 store 的 `error` 通道只承载镜像加载失败这一持久态，瞬时动作失败一律走浮窗。
 
@@ -67,7 +69,7 @@
 | 基本 | 通用 general、外观 appearance、快捷键 shortcuts                                                 |
 | 数据 | 工作区 workspace、已归档 archived、连接 connections、远程 remotes                               |
 | 模型 | 模型供应商 providers、内置能力 capabilities、自定义指令 commands、Skills skills、MCP Server mcp |
-| 关于 | 关于 about、隐私条款 privacy                                                                    |
+| 关于 | 关于 about、隐私条款 privacy、使用条款 terms                                                    |
 
 #### 界面行为速览
 
@@ -94,7 +96,8 @@
 | Skills              | 发现与启停             | `capability.listSkills/setSkillEnabled`；扫描 `~/.dela/skills`、`~/.agents/skills` 与 `<工作目录>/workspace/.agents/skills` 三处的 SKILL.md，禁用即不进模型索引；文件系统管理，删目录即删除。                                                                                                                                                                                                                                                                                                                                                                                  |
 | MCP Server          | stdio 服务器管理       | `capability.listMcpServers/addMcpServer/updateMcpServer/removeMcpServer/refreshMcpServer`；视图带连接状态、工具数与错误，改配置即重连。                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 关于                | 版本与致谢             | `window.dela.version` 只读；Author 与 Sponsors 名单为源码内硬编码（`credits.ts`）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 隐私条款            | 只读说明               | 无 IPC；描述数据存放、凭据加密与 Agent 外发范围，非正式法律文本。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 隐私条款            | 只读说明               | 无 IPC；正文取自 `docs/privacy.md`，逐条陈述当前实现的数据事实：数据存放位置、凭据加密方式、Agent 外发内容与全部联网去向。                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 使用条款            | 只读说明               | 无 IPC；正文取自 `docs/terms.md`，安装或使用即接受，官网发布同一份文本。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 #### 补充约定
 

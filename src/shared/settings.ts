@@ -82,4 +82,5 @@ export type SettingsSectionId =
   | 'mcp'
   | 'remotes'
   | 'about'
-  | 'privacy';
+  | 'privacy'
+  | 'terms';
