@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { registerComposeClose, registerComposeSave, leaveComposer } from './compose-close';
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -112,7 +113,29 @@ function serializeBody(editor: HTMLDivElement): { html: string; text: string } {
     const href = link.getAttribute('href');
     if (href) link.append(` [${href}]`);
   }
-  return { html: clone.innerHTML, text: plainText.innerText };
+  // 离开文档的元素 innerText 会退化为 textContent，丢掉 BR 和块元素的换行。
+  let text = '';
+  const breakLine = (count: number) => {
+    const trailing = text.match(/\n*$/)?.[0].length ?? 0;
+    text += '\n'.repeat(Math.max(0, count - trailing));
+  };
+  const appendText = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += node.textContent ?? '';
+      return;
+    }
+    if (!(node instanceof Element)) return;
+    if (node.tagName === 'BR') {
+      text += '\n';
+      return;
+    }
+    const breaks = node.tagName === 'P' ? 2 : node.tagName === 'DIV' ? 1 : 0;
+    if (breaks && text) breakLine(breaks);
+    for (const child of node.childNodes) appendText(child);
+    if (breaks) breakLine(breaks);
+  };
+  for (const child of plainText.childNodes) appendText(child);
+  return { html: clone.innerHTML, text: text.replace(/\n+$/, '').replaceAll('\u00a0', ' ') };
 }
 
 export function MailComposer({
@@ -172,7 +195,11 @@ export function MailComposer({
     const editor = editorRef.current;
     if (!draft || !editor) return;
     if (!draft.html) {
-      editor.textContent = draft.text;
+      editor.replaceChildren();
+      for (const [index, line] of draft.text.split(/\r?\n/).entries()) {
+        if (index) editor.append(document.createElement('br'));
+        editor.append(document.createTextNode(line));
+      }
       if (draft.savedLocally) savedContent.current = JSON.stringify(snapshot());
       return;
     }
@@ -278,15 +305,6 @@ export function MailComposer({
   }, [dela]);
 
   useEffect(() => {
-    const updateLinkSelection = () => {
-      const editor = editorRef.current;
-      setHasLinkSelection(Boolean(editor && hasEditableSelection(editor)));
-    };
-    document.addEventListener('selectionchange', updateLinkSelection);
-    return () => document.removeEventListener('selectionchange', updateLinkSelection);
-  }, []);
-
-  useEffect(() => {
     const preventUnload = (event: BeforeUnloadEvent) => {
       if (!dirty || allowUnload.current) return;
       event.preventDefault();
@@ -318,18 +336,7 @@ export function MailComposer({
 
   const attachments = files.filter((file) => file.kind === 'attachment');
 
-  const syncFormatState = () => {
-    try {
-      setFormatState({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-      });
-    } catch {
-      /* 环境不支持 queryCommandState 时忽略。 */
-    }
-  };
-
-  const saveSelection = () => {
+  const saveSelection = useCallback(() => {
     const editor = editorRef.current;
     const selection = window.getSelection();
     if (!editor || !selection?.rangeCount) return;
@@ -340,8 +347,22 @@ export function MailComposer({
     } else {
       setHasLinkSelection(false);
     }
-    syncFormatState();
-  };
+    try {
+      const inside = editor.contains(range.commonAncestorContainer);
+      const bold = inside && document.queryCommandState('bold');
+      const italic = inside && document.queryCommandState('italic');
+      setFormatState((current) =>
+        current.bold === bold && current.italic === italic ? current : { bold, italic },
+      );
+    } catch {
+      /* 环境不支持 queryCommandState 时忽略。 */
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', saveSelection);
+    return () => document.removeEventListener('selectionchange', saveSelection);
+  }, [saveSelection]);
 
   const format = (command: 'bold' | 'italic') => {
     const editor = editorRef.current;
@@ -490,7 +511,6 @@ export function MailComposer({
       Boolean(editorRef.current?.innerText.trim()) ||
         Boolean(editorRef.current?.querySelector('img[data-dela-inline]')),
     );
-    syncFormatState();
     saveSelection();
   };
 
@@ -745,6 +765,7 @@ export function MailComposer({
           // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
           className="min-h-0 flex-1 overflow-y-auto py-4 text-13 leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-blue-600 [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-md"
           contentEditable
+          style={{ fontSynthesis: 'weight style' }}
           onInput={handleEditorInput}
           onKeyDown={handleEditorKeyDown}
           onKeyUp={saveSelection}

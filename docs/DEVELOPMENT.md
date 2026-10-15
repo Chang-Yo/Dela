@@ -108,6 +108,7 @@
 - **尺寸一律由 rem 派生**，禁止 `text-[13px]`、`w-[280px]`、`size={16}` 这类写死像素。换算基准固定 16：`N px → N/16 rem`（半像素先向上取整，11.5→12）。字号用 token、不散落魔数：token 以默认根字号下的像素命名（`--text-2xs`=11、`--text-xs`=12、`--text-13`、`--text-sm`=14、`--text-15`、`--text-base`=16、`--text-21`…，见 `styles/globals.css`）；圆角用 beautifului 的 `rounded-chip/control/card/window`。
 - **保留 px 的只有三类**：① 边框 / 描边 / 阴影（含 `ring-[3px]`、`shadow-[…]`）；② 媒体与容器查询断点（`md:`、`max-[1080px]`、`@min-[860px]`——CSS 规定查询里的相对单位按初始字号解析，改 rem 也不会跟随）；③ 第三方 dist 内改不到的固定值（已用覆盖规则补齐的见 `styles/globals.css` 末尾的 streamdown 行号）。拖拽调宽的容器尺寸（`AppShell` 侧栏、`MailView` 列表，含其阈值算术）同为 px：它们是用户用鼠标量出的画布尺寸，与实测宽度的比较在同一坐标系里。
 - 沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层：由 `lib/root-font-size.ts` 把当前根字号注进内层 `html`，字号变化时靠 MutationObserver 重新渲染。
+- 写邮件正文编辑区显式设置 `font-synthesis: weight style`，覆盖全局的 `none`，保证缺少斜体或粗体字形时仍能显示所选格式；该设置不写进发送 HTML。格式按钮通过编辑区选区和 `queryCommandState` 同步，监听 `selectionchange` 以覆盖鼠标、键盘及程序改变选区的情况。正文仍只保留 B / STRONG、I / EM、链接、段落和 CID 图片等已有安全子集；纯文本草稿按行恢复为 BR，发送与保存的纯文本按 BR / DIV / P 提取换行，不读取脱离文档的 `innerText`（会丢失块换行）。
 - 迁移自 `text-[Npx]` 的档位显式声明 `--text-N--line-height: inherit`，与任意值字号原本「只给 font-size、行高继承父级 1.5」的表现一致；`text-sm / base / lg / xl / 2xl / 3xl` 沿用 Tailwind 自带行高比（既有页面依赖，未改动）。
 
 ## 3. 会话与上下文
