@@ -15,6 +15,8 @@ vi.mock('../../settings/prefs', () => ({
   experimentEnabled: (key: string) => key !== 'shuiyuan' || flags.shuiyuan,
 }));
 import {
+  completeCapabilitySetup,
+  needsCapabilitySetup,
   effectiveDisabledSkills,
   listSkills,
   readDisabledSkills,
@@ -27,6 +29,30 @@ beforeEach(() => {
   flags.shuiyuan = true;
 });
 afterAll(() => rmSync(home, { recursive: true, force: true }));
+
+it('shows capability setup once without resetting existing skills or other onboarding settings', () => {
+  database
+    .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
+    .run('skills-disabled', '["mail"]');
+  expect(needsCapabilitySetup()).toBe(true);
+  expect(needsCapabilitySetup()).toBe(true);
+  completeCapabilitySetup();
+  expect(needsCapabilitySetup()).toBe(false);
+  expect(readDisabledSkills().has('mail')).toBe(true);
+  expect(
+    database
+      .prepare('SELECT value FROM workspace_settings WHERE key=?')
+      .get('capabilities-onboarding-version'),
+  ).toEqual({ value: '1' });
+});
+
+it('does not prompt after a newer setup version, but retries an invalid stored marker', () => {
+  const write = database.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)');
+  write.run('capabilities-onboarding-version', '2');
+  expect(needsCapabilitySetup()).toBe(false);
+  write.run('capabilities-onboarding-version', 'invalid');
+  expect(needsCapabilitySetup()).toBe(true);
+});
 
 it('lists the shuiyuan skill only while the feature is enabled', () => {
   expect(listSkills().some((skill) => skill.name === 'shuiyuan')).toBe(true);

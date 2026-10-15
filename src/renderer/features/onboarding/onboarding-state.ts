@@ -54,15 +54,14 @@ export function markDeclined() {
   if (needsWizard()) localStorage.setItem(declinedKey, '1');
 }
 
-/** 同意条款后还要不要走配置向导：只有全新安装需要，老用户同意完直接进主界面。 */
+/** 同意条款后还要不要走旧配置向导：只有全新安装需要；能力拓展由 App 独立检查。 */
 export function needsWizard() {
   return !existingUser();
 }
 
 /**
- * 是否直接进主界面。条款门对所有人成立：没有接受记录就一定先展示引导流程（条款页），
- * 否则点「不同意并退出」关掉应用再打开就能绕过去。接受过之后一律直接进主界面——
- * 引导是一次性的，不在重启后恢复未完成的向导。
+ * 是否跳过原有引导流程。没有接受记录就一定先展示条款页，避免拒绝后重启绕过。
+ * 接受过条款后不恢复旧向导；App 仍会检查独立的能力拓展版本。
  */
 export function onboardingCompleted() {
   return isSmokeTest || hasConsent();

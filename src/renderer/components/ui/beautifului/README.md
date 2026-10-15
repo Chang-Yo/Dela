@@ -19,6 +19,7 @@
    - `primitives/CodeBlock.tsx`：`plain`（跳过内置语法高亮）、`fill`（满宽）、`bodyClassName`（追加到代码主体）、`tone="error"`（失败态左侧 `--red` 色条）。
    - `atoms/ProgressRing.tsx`：`tone="ink"`（中性墨色档，低干扰进度，如 composer 上下文占用）。
    - `atoms/Switch.tsx`（2026-10-14）：由原 `components/ui/switch.tsx` 并入，在上游外观（ink 轨道、白色滑块、ease-out-strong 位移）上增加三态 `indeterminate`（`aria-checked="mixed"`，整域开关部分开启时用）、`disabled`、聚焦环与 `type="button"`；`label` 改为必填；尺寸为 h-5 w-9（上游 h-6 w-10）。
+   - `atoms/Toast.tsx`（2026-10-15）：增加 `neutral`、可选图标、右侧操作与正文下方内容槽，关闭回调改为可选；能力拓展复用通知卡片样式并显示安装进度，原有 error/success 通知保持原行为。
 8. **Dela 新增文件**：`atoms/IconButton.tsx` — 从上游 PromptBar 控件按钮提炼的静默图标钮（上游无此 atom）；`atoms/Toast.tsx` — 应用内通知浮窗卡片（error/success 两个变体，tint 圆底图标 + rounded-card 浮岛，纯展示，宿主在 `app/toasts.tsx`）；`atoms/Slider.tsx` — radix Slider 封装（上游无此 atom），按上游 Switch 的中性语言（`bg-line-strong` 槽 / `bg-ink` 填充 / 白色拇指），受控 `value`/`onValueChange`，用于课堂视频音量等连续值调节。
 9. **全局 token 统一**（2026-10-08）：`styles/globals.css` 的 shadcn 语义变量（`--background`、`--muted-foreground`、`--border` 等）全部映射到本库 token；唯一例外是 `--destructive-foreground`（本库没有对应档位，仍是裸色值）；跟随系统的深色由 `app/theme.ts` 解析为 `:root.dark`，与本库只认 `.dark` 的约定一致。`components/ui/` 下的 shadcn 基础件（button / input / textarea / select / dropdown-menu / context-menu / tooltip）保留 API，外观改用本库 token、圆角与 `pop-in` 动效，浮层样式集中在 `components/ui/menu-styles.ts`。
 10. **`.bui-light` 固定浅色作用域**（2026-10-08）：`beautifului.css` 在 `.dark` 之后复制一份浅色 token 到 `.bui-light`，供首启引导这类恒白画布在深色主题下仍使用浅色 token。

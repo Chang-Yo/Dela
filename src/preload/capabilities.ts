@@ -3,6 +3,8 @@ import { invoke } from './lib';
 
 // capabilities:* 通道透传（主进程实现见 src/main/agent/index.ts）。
 export const capabilityApi: CapabilityApi = {
+  needsSetup: () => invoke('capabilities:needs-setup'),
+  completeSetup: () => invoke('capabilities:complete-setup'),
   listSkills: () => invoke('capabilities:list-skills'),
   setSkillEnabled: (name, enabled) => invoke('capabilities:set-skill-enabled', name, enabled),
   installSkillDependencies: (name) => invoke('capabilities:install-skill-dependencies', name),

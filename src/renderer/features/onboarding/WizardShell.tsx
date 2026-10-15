@@ -11,12 +11,21 @@ type WizardShellProps = {
   /** 回到上一步；第 0 步不传，左下角不渲染回退按钮。 */
   onBack?: () => void;
   /** 跳过当前步骤（最后一步时即完成引导）。 */
-  onSkip: () => void;
+  onSkip?: () => void;
+  /** 最后一步以完成按钮替换底部说明，沿用同一导航与过渡框架。 */
+  footer?: ReactNode;
   children: ReactNode;
 };
 
 /** 全屏白色向导框架：顶部拖拽区与步骤进度点，顶部锚定的内容列（各步标题起点一致，切换时视线不跳），底部居中是本地存储说明，左下「← 上一步」与右下「跳过 →」左右对称。配色固定，不随主题。 */
-export function WizardShell({ step, stepCount, onBack, onSkip, children }: WizardShellProps) {
+export function WizardShell({
+  step,
+  stepCount,
+  onBack,
+  onSkip,
+  footer,
+  children,
+}: WizardShellProps) {
   // 进退方向决定内容滑入/滑出的水平朝向：前进从右进、后退从左回，与移动方向一致。
   const prevStepRef = useRef(step);
   const direction = step >= prevStepRef.current ? 1 : -1;
@@ -28,22 +37,24 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
     <MotionConfig reducedMotion="user">
       <div className="grid h-dvh grid-rows-[auto_1fr_auto] bui-light bg-surface text-ink">
         <OnboardingWindowBar>
-          <div
-            aria-label={`第 ${step + 1} 步，共 ${stepCount} 步`}
-            className="flex items-center gap-2"
-            role="group"
-          >
-            {Array.from({ length: stepCount }, (_, index) => (
-              <span
-                aria-current={index === step ? 'step' : undefined}
-                className={cn(
-                  'h-1.5 rounded-full transition-all duration-300',
-                  index === step ? 'w-5 bg-[var(--onboarding-accent)]' : 'w-1.5 bg-line-strong',
-                )}
-                key={index}
-              />
-            ))}
-          </div>
+          {stepCount > 0 && (
+            <div
+              aria-label={`第 ${step + 1} 步，共 ${stepCount} 步`}
+              className="flex items-center gap-2"
+              role="group"
+            >
+              {Array.from({ length: stepCount }, (_, index) => (
+                <span
+                  aria-current={index === step ? 'step' : undefined}
+                  className={cn(
+                    'h-1.5 rounded-full transition-all duration-300',
+                    index === step ? 'w-5 bg-[var(--onboarding-accent)]' : 'w-1.5 bg-line-strong',
+                  )}
+                  key={index}
+                />
+              ))}
+            </div>
+          )}
         </OnboardingWindowBar>
         <div className="grid min-h-0 content-start justify-items-center overflow-y-auto p-6 [@media(max-height:560px)]:p-4">
           <AnimatePresence initial={false} mode="wait">
@@ -60,7 +71,7 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
             </motion.div>
           </AnimatePresence>
         </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 pb-4 [@media(max-height:560px)]:pb-3">
+        <div className="grid grid-cols-[minmax(5rem,1fr)_minmax(0,26.25rem)_minmax(5rem,1fr)] items-center gap-4 px-6 pb-4 [@media(max-height:560px)]:pb-3">
           <div className="justify-self-start">
             {onBack && (
               <button
@@ -73,15 +84,21 @@ export function WizardShell({ step, stepCount, onBack, onSkip, children }: Wizar
               </button>
             )}
           </div>
-          <p className="text-xs text-ink-3">所有数据本地存储，不上传服务器</p>
-          <button
-            className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-13 text-ink-3 transition-colors hover:text-ink"
-            onClick={onSkip}
-            type="button"
-          >
-            跳过
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </button>
+          {footer ?? (
+            <p className="text-center text-xs text-ink-3">所有数据本地存储，不上传服务器</p>
+          )}
+          {onSkip ? (
+            <button
+              className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-13 text-ink-3 transition-colors hover:text-ink"
+              onClick={onSkip}
+              type="button"
+            >
+              跳过
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </button>
+          ) : (
+            <div />
+          )}
         </div>
       </div>
     </MotionConfig>

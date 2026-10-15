@@ -18,6 +18,22 @@ import documentSkill from '../documents/skill/SKILL.md?raw';
 import documentScript from '../documents/skill/scripts/read.py?raw';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
+const CAPABILITY_SETUP_VERSION = 1;
+const CAPABILITY_SETUP_KEY = 'capabilities-onboarding-version';
+
+export function needsCapabilitySetup(): boolean {
+  const row = getDatabase()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(CAPABILITY_SETUP_KEY) as { value: string } | undefined;
+  const version = Number(row?.value ?? 0);
+  return !Number.isFinite(version) || version < CAPABILITY_SETUP_VERSION;
+}
+
+export function completeCapabilitySetup(): void {
+  getDatabase()
+    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
+    .run(CAPABILITY_SETUP_KEY, String(CAPABILITY_SETUP_VERSION));
+}
 
 /** 全局 Skill 根目录：~/.dela/skills（内置 Skill 随应用写入；用户自己的 Skill 也放这里）。 */
 export function builtinSkillsDirectory(): string {
