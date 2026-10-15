@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
-import { FileDown, Loader2, Presentation, RefreshCw } from 'lucide-react';
+import { ExternalLink, FileDown, Loader2, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type {
   OfficeExportEvent,
@@ -124,12 +125,23 @@ export interface OfficePromptProps {
   onExported: (() => void) | undefined;
 }
 
-/** pptx 的确认卡片：Windows 经 PowerPoint 导出 PDF 预览，需用户主动触发。 */
+/** pptx 的确认卡片：Windows 经 PowerPoint 导出 PDF 预览，需用户主动触发；
+ *  也可以不经导出，直接用系统默认应用（如 PowerPoint）打开原文件。 */
 export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptProps) {
   const { exporting, opening, error, run, progress, elapsed } = useOfficeExport(
     officeRef,
     onExported,
   );
+  const openExternally = () => {
+    if (!officeRef) return;
+    window.dela?.workspace.openResourceFile(officeRef).catch((cause) =>
+      showToast({
+        variant: 'error',
+        title: '打开失败',
+        description: errorText(cause),
+      }),
+    );
+  };
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
       <Presentation className="size-10 text-ink-3" aria-hidden />
@@ -144,10 +156,16 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
           {!opening && <span className="text-2xs">已进行 {elapsed} 秒</span>}
         </div>
       ) : (
-        <Button size="sm" onClick={run}>
-          <FileDown aria-hidden />
-          导出为 PDF 预览
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={run}>
+            <FileDown aria-hidden />
+            导出为 PDF 预览
+          </Button>
+          <Button size="sm" variant="outline" onClick={openExternally}>
+            <ExternalLink aria-hidden />
+            在外部打开
+          </Button>
+        </div>
       )}
       {error && (
         <p role="alert" className="max-w-md break-words text-xs text-red">

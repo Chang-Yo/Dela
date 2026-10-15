@@ -86,6 +86,8 @@ export interface WorkspaceApi {
   switchProjectBranch(id: string, branch: string): Promise<void>;
   /** 把 pptx 经 PowerPoint 导出为 PDF（仅 Windows）：存入「预览导出」并建立关联。 */
   exportOfficePdf(ref: ResourceRef): Promise<void>;
+  /** 用系统默认应用打开资源的本地源文件（如 PowerPoint 打开 pptx），仅限资料与我的资料条目。 */
+  openResourceFile(ref: ResourceRef): Promise<void>;
   /** pptx 导出过程的阶段与进度通知。 */
   onOfficeExportProgress(listener: (event: OfficeExportEvent) => void): () => void;
   importFiles(parentId: string | null): Promise<void>;

@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, shell } from 'electron';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -160,4 +160,16 @@ export async function copyResourceToProject(input: unknown) {
     const [entry] = importWorkspaceFiles(parentId, [path]);
     return { ref: { type: 'workspace' as const, id: entry!.id }, entry: entry! };
   });
+}
+
+/** 用系统默认应用打开资源的本地源文件（pptx 关联通常指向 PowerPoint）。与导出 PDF 一样
+ *  只支持 Canvas 资料与我的资料条目；邮件附件要落临时目录，启动竞态下会被清理，不放行。 */
+export async function openResourceFile(ref: ResourceRef): Promise<void> {
+  const parsed = resourceRefSchema.parse(ref);
+  if (parsed.type !== 'canvas' && parsed.type !== 'workspace')
+    throw new Error('仅支持资料文件与我的资料条目');
+  const path =
+    parsed.type === 'canvas' ? await canvasFilePath(parsed.id) : await workspaceFilePath(parsed.id);
+  const error = await shell.openPath(path);
+  if (error) throw new Error(`无法用系统默认程序打开：${error}`);
 }
