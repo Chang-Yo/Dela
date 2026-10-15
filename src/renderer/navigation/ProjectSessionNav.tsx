@@ -402,8 +402,8 @@ export function ProjectSessionNav({
   };
 
   return (
-    // 侧栏唯一的滚动容器：功能入口/置顶/项目随整栏滚动，替代 aside+置顶+项目三层滚动嵌套。
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* 功能入口、置顶与「项目」标题行固定在顶部；滚动只发生在项目列表项。 */}
       <nav aria-label="功能入口" className="grid shrink-0 gap-px">
         <button
           aria-current={generalChatActive ? 'page' : undefined}
@@ -433,6 +433,7 @@ export function ProjectSessionNav({
           );
         })}
       </nav>
+      {/* 置顶与「项目」标题行固定：钉住的内容常驻可见，滚动条也只覆盖项目列表项。 */}
       {(projects.some((project) => preferences[project.id]?.pinned) ||
         projects.some((project) =>
           sessionsByProject[project.id]?.some((session) => session.pinned),
@@ -465,29 +466,29 @@ export function ProjectSessionNav({
           )}
         </section>
       )}
-      <section aria-labelledby="project-session-nav-title" className="mt-5 flex flex-col">
-        <div className="flex items-center justify-between px-2 pb-1">
-          <span
-            className={cn(
-              'whitespace-nowrap text-xs font-medium text-ink-3',
-              labelFade,
-              collapsed && 'opacity-0',
-            )}
-            id="project-session-nav-title"
-          >
-            项目
-          </span>
-          <button
-            aria-label="新建项目"
-            className={rowIconButton}
-            onClick={onNewProject}
-            title="新建项目"
-            type="button"
-          >
-            <Plus strokeWidth={1.8} />
-          </button>
-        </div>
-        <div className="grid grid-cols-1 content-start gap-px">
+      <div className="mt-5 flex shrink-0 items-center justify-between px-2 pb-1">
+        <span
+          className={cn(
+            'whitespace-nowrap text-xs font-medium text-ink-3',
+            labelFade,
+            collapsed && 'opacity-0',
+          )}
+          id="project-session-nav-title"
+        >
+          项目
+        </span>
+        <button
+          aria-label="新建项目"
+          className={rowIconButton}
+          onClick={onNewProject}
+          title="新建项目"
+          type="button"
+        >
+          <Plus strokeWidth={1.8} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <section aria-labelledby="project-session-nav-title" className="grid content-start gap-px">
           {['', ...sectionNames].map((section) => (
             <div key={section} className="min-w-0">
               {section &&
@@ -511,8 +512,8 @@ export function ProjectSessionNav({
                 )}
             </div>
           ))}
-        </div>
-      </section>
+        </section>
+      </div>
       <EntryDialogs
         request={renameProjectId ? { action: 'rename', id: renameProjectId } : null}
         onClose={() => setRenameProjectId(null)}

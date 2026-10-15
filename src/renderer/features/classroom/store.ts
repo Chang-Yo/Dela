@@ -15,13 +15,9 @@ export type ClassroomPhase = 'loading' | 'connect' | 'ready';
 
 interface ClassroomState {
   phase: ClassroomPhase;
-  /** 连接卡上的失败原因（登录失败或首次查询失败）。 */
-  connectHint: string | null;
   connectBusy: boolean;
   courses: VideoCourse[];
   coursesLoading: boolean;
-  /** 已有课程时刷新失败的提示（不整页降级为连接卡）。 */
-  coursesError: string | null;
   videos: Record<number, ClassroomVideo[]>;
   videosLoading: Record<number, boolean>;
   videosError: Record<number, string>;
@@ -52,11 +48,9 @@ let downloadSubscribed = false;
 
 export const useClassroom = create<ClassroomState>((set, get) => ({
   phase: 'loading',
-  connectHint: null,
   connectBusy: false,
   courses: [],
   coursesLoading: false,
-  coursesError: null,
   videos: {},
   videosLoading: {},
   videosError: {},
@@ -83,7 +77,7 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
     try {
       const courses = await window.dela!.vsjtu.listCourses();
       if (request !== coursesRequest) return;
-      set({ phase: 'ready', courses, coursesLoading: false, coursesError: null });
+      set({ phase: 'ready', courses, coursesLoading: false });
       const { expanded } = get();
       const target =
         expanded !== null && courses.some((course) => course.id === expanded)
@@ -97,26 +91,31 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
       else void get().ensureVideos(target);
     } catch (error) {
       if (request !== coursesRequest) return;
-      const hint = errorText(error);
-      // 一门课都没有时才降级为连接卡；否则保留页面、列表内提示。
-      if (get().courses.length === 0)
-        set({ phase: 'connect', connectHint: hint, coursesLoading: false });
-      else set({ coursesError: hint, coursesLoading: false });
+      // 一门课都没有时才降级为连接卡；否则保留页面，列表维持旧数据。失败原因走 toast。
+      set(
+        get().courses.length === 0
+          ? { phase: 'connect', coursesLoading: false }
+          : { coursesLoading: false },
+      );
+      showToast({ variant: 'error', title: '课程加载失败', description: errorText(error) });
     }
   },
 
   connect: async () => {
-    set({ connectBusy: true, connectHint: null });
+    set({ connectBusy: true });
     try {
       const result = await window.dela!.vsjtu.connect();
       if (!result.ok) {
-        set({ connectBusy: false, connectHint: result.error });
+        set({ connectBusy: false });
+        showToast({ variant: 'error', title: '登录未完成', description: result.error });
         return;
       }
     } catch (error) {
-      set({ connectBusy: false, connectHint: errorText(error) });
+      set({ connectBusy: false });
+      showToast({ variant: 'error', title: '登录未完成', description: errorText(error) });
       return;
     }
+    // 登录窗口完成后 busy 先解除；拉课程期间由 coursesLoading 驱动「正在获取视频列表…」。
     set({ connectBusy: false });
     await get().refresh();
   },

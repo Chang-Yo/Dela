@@ -2,7 +2,6 @@
 // 侧栏对齐资料面板：inset 底、紧凑头、eyebrow 小节标签、可拖宽度）。
 import { useEffect, useState } from 'react';
 import { KeyRound, Loader2, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
-import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import { PanelToggleButton } from '../../components/ui/panel-toggle';
@@ -125,18 +124,12 @@ function DesktopClassroomView() {
                   课堂视频
                 </span>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  {/* 连接不稳定时的主动出口：重开官方窗口登录并刷新课程。 */}
+                  {/* 连接不稳定时的主动出口：重开官方窗口登录并刷新课程。失败原因由 store 弹 toast。 */}
                   <Button
                     aria-label="重新登录交大视频"
                     className="hover:bg-hover-2"
                     disabled={connectBusy}
-                    onClick={() => {
-                      void connect().then(() => {
-                        const hint = useClassroom.getState().connectHint;
-                        if (hint)
-                          showToast({ variant: 'error', title: '登录未完成', description: hint });
-                      });
-                    }}
+                    onClick={() => void connect()}
                     size="icon-xs"
                     title={connectBusy ? '等待登录…' : '重新登录交大视频（更新会话）'}
                     variant="ghost"
@@ -231,9 +224,11 @@ function PlayerSection({
 }
 
 function ConnectCard() {
-  const connectHint = useClassroom((state) => state.connectHint);
   const connectBusy = useClassroom((state) => state.connectBusy);
+  const coursesLoading = useClassroom((state) => state.coursesLoading);
   const connect = useClassroom((state) => state.connect);
+  // 登录窗口阶段与登录后的课程拉取都算进行中：按钮停在对应文案，不再退回「登录」。
+  const busy = connectBusy || coursesLoading;
 
   return (
     <div className="grid flex-1 place-items-center p-6">
@@ -247,10 +242,9 @@ function ConnectCard() {
             登录后读取本学期课程与课堂录像。登录在官方窗口完成，校园会话与课表共用。
           </p>
         </div>
-        {connectHint ? <p className="break-words text-xs text-red">{connectHint}</p> : null}
-        <Button disabled={connectBusy} onClick={() => void connect()}>
-          <LogIn className="size-4" />
-          {connectBusy ? '等待登录…' : '登录'}
+        <Button disabled={busy} onClick={() => void connect()}>
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <LogIn className="size-4" />}
+          {connectBusy ? '等待登录…' : coursesLoading ? '正在获取视频列表…' : '登录'}
         </Button>
       </section>
     </div>
