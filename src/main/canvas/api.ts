@@ -595,6 +595,13 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
       updatedAt: source.updatedAt,
     };
   }
+  return readCanvasPage(id);
+}
+
+/** 页面正文供 GUI 与资源读取共用，不经过文件预览。 */
+export async function readCanvasPage(id: string) {
+  const source = getSource(id);
+  if (source.kind === 'file') throw new Error('资料不是页面');
   if (
     source.html === undefined &&
     (source.kind === 'page' || source.kind === 'assignment' || source.kind === 'discussion')
@@ -614,7 +621,7 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
   }
   return {
     title: source.title,
-    format: source.html !== undefined ? 'html' : 'unsupported',
+    format: source.html !== undefined ? ('html' as const) : ('unsupported' as const),
     text: source.html,
     url: source.url,
     dueAt: source.dueAt,

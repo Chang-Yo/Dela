@@ -1,16 +1,14 @@
 import { z } from 'zod';
-import { readCanvasSource } from '../../canvas/api';
-import { mailAttachment, readMailMessage } from '../../mail/api';
+import { readMailMessage } from '../../mail/api';
 import { readShuiyuanSource } from '../../shuiyuan/api';
 import { assertShuiyuanEnabled } from '../../settings/prefs';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
-import { readWorkspaceEntry } from '../../workspace/api';
+import { readResourceContent } from '../../resources';
 import { freshness, offset, tool, toolError } from './shared';
 
 type MailRef = Extract<ResourceRef, { type: 'mail' }>;
 type ShuiyuanRef = Extract<ResourceRef, { type: 'shuiyuan-topic' }>;
-type AttachmentRef = Extract<ResourceRef, { type: 'attachment' }>;
-type DocumentRef = Extract<ResourceRef, { type: 'canvas' | 'workspace' }>;
+type DocumentRef = Extract<ResourceRef, { type: 'canvas' | 'workspace' | 'attachment' }>;
 
 /** 业务层中文错误消息 → 统一错误码（消息保持原文）；未识别的错误原样抛出。 */
 function refineReadError(error: unknown): unknown {
@@ -81,14 +79,8 @@ function documentHint(ref: ResourceRef, title: string, format: string) {
   };
 }
 
-async function readAttachmentRef(ref: AttachmentRef, _offset: number, _limit: number) {
-  const { attachment } = mailAttachment(ref.messageId, ref.part);
-  return documentHint(ref, attachment.filename, 'file');
-}
-
 async function readDocumentRef(ref: DocumentRef, offset: number, limit: number) {
-  const content =
-    ref.type === 'canvas' ? await readCanvasSource(ref.id) : await readWorkspaceEntry(ref.id);
+  const content = await readResourceContent(ref);
   const cached = freshness('cached');
   // 图片直接作为图片消息附给视觉模型。
   if (content.format === 'image' && content.bytes && content.mime) {
@@ -117,10 +109,10 @@ async function readDocumentRef(ref: DocumentRef, offset: number, limit: number) 
     revision: content.revision ?? null,
     url: content.url,
     freshness: cached,
-    text: text?.slice(offset, offset + limit),
-    readable: text !== undefined,
-    totalCharacters: text?.length ?? null,
-    nextOffset: text !== undefined && offset + limit < text.length ? offset + limit : null,
+    text: text.slice(offset, offset + limit),
+    readable: true,
+    totalCharacters: text.length,
+    nextOffset: offset + limit < text.length ? offset + limit : null,
   };
 }
 
@@ -141,8 +133,6 @@ export const readResourceTool = tool(
         case 'shuiyuan-topic':
           assertShuiyuanEnabled();
           return await readShuiyuanRef(ref, offset, limit);
-        case 'attachment':
-          return await readAttachmentRef(ref, offset, limit);
         default:
           return await readDocumentRef(ref, offset, limit);
       }

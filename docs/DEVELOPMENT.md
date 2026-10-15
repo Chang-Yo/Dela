@@ -49,6 +49,8 @@
 
 文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 直链文字提取继续用 PDF.js，与本地文件 skill 分开。
 
+`read_resource` 的文件/笔记/来源读取统一走 `resources.readResourceContent`，不调用 GUI 的 `readWorkspaceEntry` / `readCanvasSource`。资源层只直接读取文本与图片，其余文件统一返回 `format: file` 和 skill 指引，不枚举 Office/PDF 格式、不生成预览地址、不查询 PowerPoint 导出关联；Canvas 文档和邮件附件在这一步只取元数据，直到 `prepare_document` 才获取文件。Canvas 非文件正文经 `readCanvasPage` 与 GUI 共用原有按需拉取逻辑。图片与文本继续复用已有输入类型清单；笔记修订值仍为正文 SHA256。GUI 预览格式支持不限制 skill 可尝试的文件类型。
+
 [隔离实测报告](../experiments/document-reading/REPORT.md) 是选型时的历史记录；当前行为以上述实现为准。
 
 ### 2.4 GUI
