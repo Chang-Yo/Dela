@@ -55,15 +55,19 @@ function Harness({
   context = null,
   contextUsage,
   referenceOptions = [],
+  onAddAttachmentFile = async () => {},
+  attachments = [],
 }: {
   context?: ComposerContext | null;
   contextUsage: ContextUsageView;
   referenceOptions?: ChatReference[];
+  onAddAttachmentFile?: ComponentProps<typeof ChatComposer>['onAddAttachmentFile'];
+  attachments?: ComponentProps<typeof ChatComposer>['attachments'];
 }) {
   const [value, setValue] = useState('');
   return (
     <ChatComposer
-      attachments={[]}
+      attachments={attachments}
       busy={false}
       configured
       context={context}
@@ -71,7 +75,7 @@ function Harness({
       effort={null}
       effortLevels={[]}
       model="test-model"
-      onAddAttachmentFile={async () => {}}
+      onAddAttachmentFile={onAddAttachmentFile}
       onAddAttachmentView={() => {}}
       onChange={setValue}
       onEffortSelect={() => {}}
@@ -128,6 +132,35 @@ afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  delete window.dela;
+});
+
+it('拖入 PPTX 交给附件入口，不再被文本白名单拒绝', async () => {
+  const add = vi.fn(async () => {});
+  window.dela = { chat: { listCommands: async () => [] } } as unknown as NonNullable<
+    typeof window.dela
+  >;
+  await act(async () => root.render(<Harness contextUsage={usage()} onAddAttachmentFile={add} />));
+  const file = new File(['binary document'], 'PRP结项汇报_v3(1).pptx.pptx');
+  const event = new Event('drop', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'dataTransfer', { value: { files: [file], types: ['Files'] } });
+  await act(async () => host.querySelector('textarea')!.dispatchEvent(event));
+  expect(add).toHaveBeenCalledWith(file);
+  expect(host.textContent).not.toContain('暂不支持');
+});
+
+it('只有文档附件时也允许发送', async () => {
+  await act(async () =>
+    root.render(
+      <Harness
+        contextUsage={usage()}
+        attachments={[
+          { id: 'doc', name: '课件.pdf', kind: 'attachment', size: 100, previewUrl: null },
+        ]}
+      />,
+    ),
+  );
+  expect(host.querySelector<HTMLButtonElement>('[aria-label="发送"]')?.disabled).toBe(false);
 });
 
 it('选中 @ 候选后原位插入 @路径 token（尾随空格），菜单收起', async () => {

@@ -13,16 +13,22 @@ import { randomUUID } from 'node:crypto';
 import type { ChatMediaView } from '../../shared/api';
 import {
   CHAT_IMAGE_MAX_BYTES,
+  CHAT_DOCUMENT_MAX_BYTES,
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKind,
-  imageFileExtensions,
-  textFileExtensions,
 } from '../../shared/chat-input';
 import { getDatabase } from '../database';
+import { DOCUMENT_SKILL, assertDocumentDependency } from '../documents/runtime';
+import { readDisabledSkills } from './skills';
 
 // 内联图片暂存在 userData/chat-media/<UUID>.<ext>：模型拿到的是 base64（随 Pi 会话落盘），
-// 历史展示按 id 读这里的缩略图；文本附件只进内存并在发送后释放。启动时按会话引用回收孤儿文件。
-const attachments = new Map<string, { name: string; bytes: Buffer }>();
+// 文档同样保留本地副本供 skill 按需读取；文本附件只进内存。启动时按会话引用回收孤儿文件。
+const attachments = new Map<string, { name: string } & ({ bytes: Buffer } | { path: string })>();
+
+function assertDocumentSkill(): void {
+  assertDocumentDependency();
+  if (readDisabledSkills().has(DOCUMENT_SKILL)) throw new Error('请先在设置 › Skills 启用文档读取');
+}
 
 function mediaDir(): string {
   const dir = join(app.getPath('userData'), 'chat-media');
@@ -47,7 +53,15 @@ function isUuid(value: string): boolean {
 
 export function stageChatMedia(name: string, bytes: Buffer): ChatMediaView {
   const kind = chatFileKind(name);
-  if (!kind) throw new Error('仅支持图片（png/jpg/jpeg/gif/webp）与常见文本文件');
+  if (kind === 'document') {
+    assertDocumentSkill();
+    if (bytes.length > CHAT_DOCUMENT_MAX_BYTES) throw new Error('文档附件超过 128 MiB 上限');
+    const id = randomUUID();
+    const path = join(mediaDir(), id + safeExtension(name));
+    writeFileSync(path, bytes);
+    attachments.set(id, { name, path });
+    return { id, name, size: bytes.length, kind: 'attachment', previewUrl: null };
+  }
   if (kind === 'image') {
     if (bytes.length > CHAT_IMAGE_MAX_BYTES) throw new Error('图片超过 5 MB 上限');
     const id = randomUUID();
@@ -69,32 +83,48 @@ export function stageChatMedia(name: string, bytes: Buffer): ChatMediaView {
 export async function pickChatMedia(owner: BrowserWindow): Promise<ChatMediaView[]> {
   const result = await dialog.showOpenDialog(owner, {
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: '图片与文本', extensions: [...imageFileExtensions, ...textFileExtensions] }],
+    filters: [{ name: '文件', extensions: ['*'] }],
   });
   if (result.canceled) return [];
   const picked: ChatMediaView[] = [];
-  for (const path of result.filePaths) {
-    const stat = statSync(path);
-    if (!stat.isFile()) continue;
-    picked.push(stageChatMedia(basename(path), readFileSync(path)));
+  try {
+    for (const path of result.filePaths) {
+      const stat = statSync(path);
+      if (!stat.isFile()) continue;
+      const kind = chatFileKind(basename(path));
+      const limit =
+        kind === 'image'
+          ? CHAT_IMAGE_MAX_BYTES
+          : kind === 'text'
+            ? CHAT_TEXT_ATTACHMENT_MAX_BYTES
+            : CHAT_DOCUMENT_MAX_BYTES;
+      if (stat.size > limit)
+        throw new Error(`“${basename(path)}”超过 ${limit / 1024 / 1024} MiB 上限`);
+      if (kind === 'document') assertDocumentSkill();
+      picked.push(stageChatMedia(basename(path), readFileSync(path)));
+    }
+    return picked;
+  } catch (error) {
+    releaseChatMedia(picked.map(({ id }) => id));
+    throw error;
   }
-  return picked;
 }
 
-/** 读取暂存内容：图片来自磁盘，附件来自内存。 */
+/** 图片与文档来自磁盘，文本附件来自内存。 */
 export function readChatMediaBytes(id: string): Buffer {
   if (!isUuid(id)) throw new Error('文件引用无效');
   const attachment = attachments.get(id);
-  if (attachment) return attachment.bytes;
+  if (attachment) return 'bytes' in attachment ? attachment.bytes : readFileSync(attachment.path);
   for (const file of readdirSync(mediaDir())) {
     if (file.startsWith(id)) return readFileSync(join(mediaDir(), file));
   }
   throw new Error('文件不存在或已过期，请重新添加');
 }
 
-export function readChatAttachment(id: string): { name: string; bytes: Buffer } {
+export function readChatAttachment(id: string) {
   const attachment = attachments.get(id);
   if (!attachment) throw new Error('附件不存在或已发送，请重新添加');
+  if ('path' in attachment) assertDocumentSkill();
   return attachment;
 }
 
@@ -117,12 +147,12 @@ export function releaseChatMedia(ids: readonly string[]): void {
   }
 }
 
-/** 附件内容进入当轮上下文后立即释放内存；图片落盘文件由消息引用，交给 GC。 */
+/** 释放附件的内存索引；图片与文档落盘文件由消息引用，交给 GC。 */
 export function releaseChatAttachments(ids: readonly string[]): void {
   for (const id of ids) attachments.delete(id);
 }
 
-/** 删除没有被任何会话引用的图片文件（引用记在 Pi 会话 JSONL 的用户消息元数据里）；启动时调用。 */
+/** 删除没有被任何会话引用的图片/文档文件；引用记在 Pi 会话用户消息元数据里。 */
 export function gcChatMedia(): void {
   const referenced = new Set<string>();
   const rows = getDatabase().prepare("SELECT file FROM sessions WHERE file != ''").all() as {

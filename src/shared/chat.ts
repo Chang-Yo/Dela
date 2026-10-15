@@ -7,7 +7,7 @@ export interface ChatAskInput {
   replaceLastUser?: boolean;
 }
 
-/** 暂存到主进程的图片/附件：图片持久化到磁盘供历史展示，附件发送后即释放。 */
+/** 图片和文档保留本地副本；文本附件发送后释放内存。 */
 export interface ChatMediaView {
   id: string;
   name: string;

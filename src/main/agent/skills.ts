@@ -170,6 +170,13 @@ export function ensureBuiltinSkills(): void {
   for (const [name, markdown] of Object.entries(BUILTIN_SKILLS)) {
     const path = join(builtinSkillsDirectory(), name, SKILL_ENTRY_FILE);
     if (existsSync(path)) {
+      if (name === DOCUMENT_SKILL) {
+        const previous = markdown
+          .replace('、邮件附件和 web_fetch 返回的 PDF 临时任务', '和邮件附件')
+          .replace(/^网页 PDF：.*\r?\n\r?\n/m, '');
+        if (readFileSync(path, 'utf8').replace(/\r\n/g, '\n') === previous.replace(/\r\n/g, '\n'))
+          writeFileSync(path, markdown, 'utf8');
+      }
       if (name === 'canvas' || name === 'mail') {
         const current = readFileSync(path, 'utf8');
         const migrated = current

@@ -45,7 +45,7 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 - **常驻工具**：`read`, `write`, `edit`, `bash`. 始终保持开启
 - **文件检索工具**：`find`, `grep`, `ls`
 - **网页搜索工具**：`web_search`(默认关闭，需自备API KEY), `web_fetch`（默认开启，免费）
-- **文档读取（按需安装）**：在「设置 › Skills」安装并启用 `document-reading`，让助手读取项目文件、Canvas 文件与邮件附件中的 Word、Excel、PowerPoint 和 PDF。组件使用官方源下载，不要求预装 Python；扫描件和图片内容需要模型支持读图。可取消安装、失败重试或关闭技能；首次引导暂不包含这一步。
+- **文档读取（按需安装）**：在「设置 › Skills」安装并启用 `document-reading`，可以直接在聊天中拖入或选择 Word、Excel、PowerPoint 和 PDF，也能读取项目文件、Canvas 文件、邮件附件与网页 PDF。组件使用官方源下载，不要求预装 Python；扫描件和图片内容需要模型支持读图。可取消安装、失败重试或关闭技能；首次引导暂不包含这一步。
 
 **remote project**: 通过上传编译好的 helper 文件至服务器，Dela 可以与远端建立隧道实现长连接，并通过 helper 的代理来实现对服务器上下文的获取，环境理解以及文件的读写。并且通过自动端口转发，可以**本地访问远程的启动的网页**。_只要能够连上ssh，就可以像本地一样操作读写！_
 

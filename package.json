@@ -54,7 +54,6 @@
     "@mdream/js": "2.0.1",
     "@milkdown/crepe": "7.22.1",
     "@milkdown/kit": "7.22.1",
-    "@napi-rs/canvas": "1.0.9",
     "@streamdown/code": "1.1.1",
     "@streamdown/math": "1.0.2",
     "@streamdown/mermaid": "1.0.2",

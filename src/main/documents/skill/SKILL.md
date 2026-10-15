@@ -1,6 +1,6 @@
 ---
 name: document-reading
-description: 读取 PDF、Word、PowerPoint 和 Excel 的正文、表格与图片，处理项目文档、Canvas 文件和邮件附件。用于理解已有文件，不用于编辑文档或界面预览。
+description: 读取 PDF、Word、PowerPoint 和 Excel 的正文、表格与图片，处理项目文档、Canvas 文件、邮件附件和 web_fetch 返回的 PDF 临时任务。用于理解已有文件，不用于编辑文档或界面预览。
 ---
 
 # 文档读取
@@ -11,6 +11,8 @@ description: 读取 PDF、Word、PowerPoint 和 Excel 的正文、表格与图�
 2. 返回 `python`、`script`、`input`、`output` 和 `jobId`。用 bash 调用 `"<python>" "<script>" "<input>" --output "<output>"`，所有路径分别加引号，不拼接文档中的命令。
 3. stdout 是 JSON，正文在 `content` 指向的 Markdown 文件中。先检查状态与警告，再用 read/grep 分段读取；不要把长文档整篇塞进上下文。
 4. 完成后执行 `dela release_document '{"jobId":"返回的 jobId"}'` 清理输入副本与输出。清理前完成所有正文与图片读取。
+
+网页 PDF：先调用 `web_fetch`。若返回 `document`，它就是已经准备好的任务，直接按第 2～4 步使用其中的路径和 `jobId`，不要重复下载或调用 `prepare_document`。网页读取上限与文档下载上限分开，PDF 超过 128 MiB 会明确失败，不解析截断文件。
 
 `needs_visual_read` 表示未提取到文字，不能声称读完。用 read 查看 `images` 中的页面图片；模型不支持视觉时说明限制。
 

@@ -29,6 +29,7 @@ import type {
   LlmProviderView,
 } from '../../../shared/api';
 import {
+  CHAT_ATTACHMENT_MAX,
   chatFileKind,
   chatImageToken,
   hasChatImages,
@@ -244,12 +245,9 @@ export function ChatComposer({
     let insertPos = pos;
     // 闭包里的 value 不含本轮已插入的 token，循环内自计数防止批量拖入绕过上限。
     let imageCount = matchChatImageTokens(value).length;
+    let attachmentCount = attachments.length;
     for (const file of files) {
       const kind = chatFileKind(file.name);
-      if (!kind) {
-        setFileError(`“${file.name}”暂不支持：仅接受图片与常见文本文件`);
-        continue;
-      }
       try {
         if (kind === 'image') {
           if (imageCount >= INLINE_IMAGE_MAX)
@@ -259,7 +257,10 @@ export function ChatComposer({
           insertPos = insertImageView(view, insertPos);
           imageCount += 1;
         } else {
+          if (attachmentCount >= CHAT_ATTACHMENT_MAX)
+            throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
           await onAddAttachmentFile(file);
+          attachmentCount += 1;
         }
         setFileError(null);
       } catch (e) {
@@ -275,16 +276,26 @@ export function ChatComposer({
       .then((views) => {
         let insertPos = editorRef.current?.selectionStart() ?? value.length;
         let imageCount = matchChatImageTokens(value).length;
+        let attachmentCount = attachments.length;
         for (const view of views) {
-          if (view.kind === 'image') {
-            if (imageCount >= INLINE_IMAGE_MAX) {
-              setFileError(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
-              continue;
+          try {
+            if (view.kind === 'image') {
+              if (imageCount >= INLINE_IMAGE_MAX) {
+                setFileError(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
+                void window.dela?.chat.releaseMedia([view.id]);
+                continue;
+              }
+              insertPos = insertImageView(view, insertPos);
+              imageCount += 1;
+            } else {
+              if (attachmentCount >= CHAT_ATTACHMENT_MAX)
+                throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
+              onAddAttachmentView(view);
+              attachmentCount += 1;
             }
-            insertPos = insertImageView(view, insertPos);
-            imageCount += 1;
-          } else {
-            onAddAttachmentView(view);
+          } catch (error) {
+            void window.dela?.chat.releaseMedia([view.id]);
+            setFileError(errorText(error));
           }
         }
       })
@@ -313,7 +324,7 @@ export function ChatComposer({
     },
   };
 
-  const canSend = value.trim().length > 0 || hasChatImages(value);
+  const canSend = value.trim().length > 0 || hasChatImages(value) || attachments.length > 0;
 
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);

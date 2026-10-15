@@ -1,5 +1,5 @@
 // 内置 Skill 随功能开关隐藏：水源关闭时不在设置页列出、注入名单里带上它，且不写回用户禁用名单。
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -45,4 +45,24 @@ it('writes the document skill but excludes it until its dependencies are install
   expect(effectiveDisabledSkills().has('document-reading')).toBe(true);
   await expect(setSkillEnabled('document-reading', true)).rejects.toThrow('安装文档读取组件');
   expect(listSkills().find((skill) => skill.name === 'document-reading')?.enabled).toBe(false);
+});
+
+it('upgrades the unmodified document skill while preserving user changes', async () => {
+  const path = join(home, '.dela', 'skills', 'document-reading', 'SKILL.md');
+  const current = readFileSync(path, 'utf8');
+  const previous = current
+    .split('\n')
+    .filter((line) => !line.startsWith('网页 PDF：'))
+    .join('\n')
+    .replace('、邮件附件和 web_fetch 返回的 PDF 临时任务', '和邮件附件')
+    .replace(/\n{3,}/g, '\n\n');
+  writeFileSync(path, previous.replace(/\r?\n/g, '\r\n'));
+  vi.resetModules();
+  (await import('../skills')).ensureBuiltinSkills();
+  expect(readFileSync(path, 'utf8')).toBe(current);
+  const edited = previous + '\n用户补充的读取要求\n';
+  writeFileSync(path, edited);
+  vi.resetModules();
+  (await import('../skills')).ensureBuiltinSkills();
+  expect(readFileSync(path, 'utf8')).toBe(edited);
 });

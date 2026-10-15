@@ -154,9 +154,6 @@ importers:
       '@milkdown/kit':
         specifier: 7.22.1
         version: 7.22.1(@codemirror/language@6.12.4)(@codemirror/state@6.7.4)(@codemirror/view@6.43.11)(supports-color@7.2.0)(typescript@7.0.2)
-      '@napi-rs/canvas':
-        specifier: 1.0.9
-        version: 1.0.9
       '@streamdown/code':
         specifier: 1.1.1
         version: 1.1.1(react@19.2.8)
@@ -6548,6 +6545,7 @@ snapshots:
       '@napi-rs/canvas-linux-x64-musl': 1.0.9
       '@napi-rs/canvas-win32-arm64-msvc': 1.0.9
       '@napi-rs/canvas-win32-x64-msvc': 1.0.9
+    optional: true
 
   '@noble/hashes@1.4.0': {}
 

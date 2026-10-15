@@ -33,7 +33,7 @@
 
 目录注意：rg/fd 落在 `~/.pi/agent/bin`，**不是** `userData/pi/bin`——bin 只认 `PI_CODING_AGENT_DIR` 环境变量，Dela 不设置它。skills 不是同一套：Dela 把 `agentDir` 显式指到 `userData/pi`，Pi 的 agent 级 skills 目录随之变成 `<userData>/pi/skills`，而 SDK 里没有读 `~/.pi/agent/skills` 的代码路径。所以 `userData/pi` 里隔离的是 auth、models、sessions 与 skills，**bin 是唯一例外**。
 
-`web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签。PDF、编码处理、2MB 上限与 offset 续读沿用现有实现；不执行网页 JavaScript。`web_search` 由用户提供搜索服务。
+`web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签。网页保留编码处理、2MB 上限与 offset 续读，不执行 JavaScript。PDF 按响应 MIME 或文件头识别，完整下载到文档临时任务并返回工具路径，正文由 document-reading skill 解析；超过 128 MiB 明确失败，不能把网页截断字节当成完整 PDF。`web_search` 由用户提供搜索服务。
 
 ### 2.2 dela 命令
 
@@ -47,7 +47,7 @@
 
 当前安装直接从官方源下载 Python 3.12.10 embeddable、uv 0.11.1 与 PyPI wheels，在 `userData/components/document-reading/1` 内组装隔离环境；Python/uv ZIP 固定 SHA256，42 项 Python 依赖锁定版本与 wheel hashes，禁止源码构建和 Agent 自行安装。使用 Windows 系统 tar 解压，最后自检成功才写 ready 标记；失败/取消不启用并清理未完成目录。主安装包只带 skill/脚本/锁文件，不带 Python/uv/wheels。后续镜像与预打包组件源另行建设，onboarding 尚未接入。
 
-文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 直链文字提取继续用 PDF.js，与本地文件 skill 分开。
+文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 下载复用 `prepareDocumentFile`，返回 `readable: false` 和 `document` 任务，skill 直接使用其中的路径，完成后 release，无需第二次下载。依赖缺失、下载中断或超过上限时失败并释放响应；失败任务目录清理。主进程 PDF.js 提取与其原生 canvas 运行时依赖已移除，renderer 的 PDF.js 阅读器保留。未修改的上一版内置文档 skill 会自动补齐网页 PDF 指引；用户编辑过的版本保留。
 
 `read_resource` 的文件/笔记/来源读取统一走 `resources.readResourceContent`，不调用 GUI 的 `readWorkspaceEntry` / `readCanvasSource`。资源层只直接读取文本与图片，其余文件统一返回 `format: file` 和 skill 指引，不枚举 Office/PDF 格式、不生成预览地址、不查询 PowerPoint 导出关联；Canvas 文档和邮件附件在这一步只取元数据，直到 `prepare_document` 才获取文件。Canvas 非文件正文经 `readCanvasPage` 与 GUI 共用原有按需拉取逻辑。图片与文本继续复用已有输入类型清单；笔记修订值仍为正文 SHA256。GUI 预览格式支持不限制 skill 可尝试的文件类型。
 
@@ -131,7 +131,8 @@
 - **会话 cwd**：项目会话是该项目的目录；通用（随聊）会话是 `<工作目录>/chat-sessions/<会话 id>` 私有目录；资料页会话用 `<工作目录>/courses`；`sessions.cwd` 为 NULL 的旧会话才回退到工作区根。目录缺失时报错，不静默换目录（远程项目跳过本地存在性检查）。
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、cwd、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
 - 会话归属在创建时确定，ChatTab 从会话快照取 projectId/cwd，不取当前工作台。
-- **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；附件文本与图片随用户消息进入 Pi 会话。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入 / 粘贴附件维持在 composer 上方 chips、上限 5，与引用分开计数。
+- **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；文本附件与图片随用户消息进入 Pi 会话，文档附件仅传本地 workspace 文件引用，由 document-reading skill 按需解析。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入 / 粘贴 / 选择的附件维持在 composer 上方 chips、上限 5，与引用分开计数。
+- **聊天文档附件**：输入入口仅区分内联图片、常见文本和其他文件，不枚举 Office/PDF 格式。图片上限 5 MiB、文本上限 1 MiB、文档上限 128 MiB；文档需要已安装且启用 document-reading skill。文档保存为 `userData/chat-media/<UUID>.<ext>`，消息元数据记录附件 id，发送后保留供追问；未发送附件移除时删除，启动时按会话引用回收孤儿文件。二进制不按 UTF-8 注入提示词，不复制进项目；支持只发送附件。当前远端项目无法访问本机解析组件，发送文档附件会提示切换本机会话。
 - **上下文占用**：快照与流式事件携带 `contextUsage`（Pi `getContextUsage` 的投影，仅打开中的会话有）；composer 底部圆环按占用显示进度，悬浮面板报 tokens、窗口总量、百分比与本会话缓存命中率。压缩后 tokens 未知时显示「—」。
 - 系统提示＝Pi 默认提示 + Dela 追加段（dela 命令说明、项目名与目录、用户自定义指令）。
 - 编辑重发在 Pi 会话树上分支，旧分支保留在 JSONL。
@@ -266,7 +267,7 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - `pnpm-workspace.yaml` 只放 pnpm 12 的项目设置（`saveExact`、`engineStrict`、`allowBuilds` 门控），**不是** monorepo：没有 `packages` 字段，也没有子包。注意 `allowBuilds` 里 `better-sqlite3: false`、`node-pty: true`——原生依赖用随包预编译产物，关闭源码重建。
 - `pnpm install` 会通过 Electron 提供的 `install-electron` 命令下载运行时（`postinstall`）。
 - `@earendil-works/*`（pi-coding-agent / pi-agent-core / pi-ai / pi-mcp）在 main 构建中以正则保持 external、随 node_modules 打包进 asar；pi 系为纯 ESM 包，main 的 CJS 产物经 `agent/pi.ts` 动态 `import()` 加载。
-- `@napi-rs/canvas` 在 `vite.main.config.ts` 标记 external 并加入 electron-builder `asarUnpack`。
+- PDF.js 仅作为 renderer 的构建依赖；主进程不加载 PDF.js 或原生 canvas，不随正式安装包分发该原生解析依赖。
 - 运行时依赖 Git Bash 与搜索工具 rg/fd：内核 Bash 工具与内置终端统一使用 Git Bash，内核 grep/find 用 rg/fd，均已随包分发（见 §9），用户不必预装；终端页的一键安装保留给没有随包副本的场景。
 - `userData/dela.db` 是否存在只用来区分新装与升级（`window.dela.firstLaunch`，主进程在建库前判定）；是否展示引导、展示哪一段，由 localStorage 里的同意标记与引导标记决定，见下条。URL 加 `?smoke-test=1` 可短路引导；冒烟会另开临时 profile。
 - 引导的三段顺序是 Intro 动画 → 条款接受页（`features/onboarding/ConsentStep.tsx`）→ 五步配置向导。接受页不在向导里：它没有跳过、不占进度点，两份条款（`docs/terms.md`、`docs/privacy.md`）依次展示，各自滚到底才能点「同意并继续」，另一侧「不同意并退出」走 `window:quit` 真正结束进程（窗口栏的关闭按钮走 `close()`，那只是收进托盘、后台照跑）。正文映射与设置里的两个条款页共用 `components/legal-markdown.tsx`。「已读到底」一旦成立就不再回退，导出提示出现或窗口变矮只改变文本框高度，不会把读完的人重新锁住。

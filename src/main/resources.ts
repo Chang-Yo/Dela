@@ -95,6 +95,10 @@ const documentJobs = () => join(app.getPath('temp'), 'dela-document-reading');
 const jobIdSchema = z.string().regex(/^job-[A-Za-z0-9]{6}$/);
 
 export async function prepareDocumentResource(ref: ResourceRef) {
+  return prepareDocumentFile((input) => withResourceFile(ref, (path) => copyFile(path, input)));
+}
+
+export async function prepareDocumentFile(writeInput: (path: string) => Promise<void>) {
   assertDocumentDependency();
   const root = documentJobs();
   await mkdir(root, { recursive: true });
@@ -106,11 +110,8 @@ export async function prepareDocumentResource(ref: ResourceRef) {
   }
   const job = await mkdtemp(join(root, 'job-'));
   try {
-    const input = await withResourceFile(ref, async (path) => {
-      const copy = join(job, 'input');
-      await copyFile(path, copy);
-      return copy;
-    });
+    const input = join(job, 'input');
+    await writeInput(input);
     return {
       jobId: basename(job),
       python: documentPython(),
