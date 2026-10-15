@@ -38,7 +38,8 @@ import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree
 import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
-import { SourcesTree, latestTermOf } from '../navigation/SourcesTree';
+import { SourcesTree } from '../navigation/SourcesTree';
+import { latestTermOf } from '../../shared/canvas';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {

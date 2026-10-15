@@ -11,4 +11,5 @@ export const canvas = {
   read: (id: string) => invoke('canvas:read', id),
   download: (id: string) => invoke('canvas:download', id),
   openLink: (url: string) => invoke('canvas:open-link', url),
+  cachedFiles: () => invoke('canvas:cached-files'),
 } satisfies CanvasApi;

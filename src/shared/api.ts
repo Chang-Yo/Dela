@@ -185,7 +185,7 @@ export type {
 
 export type { ChatAskInput, ChatMediaView, ChatCommandView, ChatApi } from './chat';
 
-export type { CanvasCourse, SourceItem, CanvasState, CanvasApi } from './canvas';
+export type { CachedCourseFile, CanvasCourse, SourceItem, CanvasState, CanvasApi } from './canvas';
 
 export type {
   DocumentContent,

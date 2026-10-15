@@ -16,6 +16,7 @@ import {
   syncCanvasCourse,
   getSource,
   cachedFile,
+  cachedCourseFiles,
   readCanvasSource,
   archiveCanvasCourse,
 } from './api';
@@ -71,4 +72,5 @@ export function registerCanvasIpc() {
       throw new Error('不支持的链接');
     await shell.openExternal(url.href);
   });
+  handle('cached-files', () => cachedCourseFiles());
 }

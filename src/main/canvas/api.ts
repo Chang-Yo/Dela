@@ -8,6 +8,9 @@ import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { availablePath, diskName, storageDirectory } from '../storage';
+import { latestTermOf } from '../../shared/canvas';
+import type { CachedCourseFile } from '../../shared/canvas';
+import { pickCourseFiles } from './course-files';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { classifyOfficeFile, officeZipMime } from '../documents/parse';
 import { loadCanvasToken, saveCanvasToken } from '../credentials';
@@ -647,4 +650,36 @@ export async function listTodoCanvasCourses() {
 
 export function listTodoCanvasAssignments(courseId: number) {
   return list(`courses/${courseId}/assignments?include[]=submission&per_page=50`);
+}
+
+/** @ 引用候选（通用池会话）：courses 目录下、已下载到本地的最新学期（未归档）课件。
+ *  缓存索引在 workspace_settings（canvas-file:* → 本地路径），legacy 缓存迁移到
+ *  courses 之后才会被统计（canvas:get-state 会顺带迁移）。 */
+export function cachedCourseFiles(): CachedCourseFile[] {
+  const state = getCanvasState();
+  const latest = latestTermOf(state.courses);
+  if (!latest) return [];
+  const coursesRoot = join(storageDirectory(), 'courses');
+  const roots = state.courses
+    .filter((course) => course.term === latest && !course.archived)
+    // 按 id 排序让同名课程的 title 归属确定；空名兜底与 sourceDirectory 的目录命名保持一致。
+    .sort((a, b) => a.id - b.id)
+    .map((course) => ({
+      courseName: course.name || `course-${course.id}`,
+      courseId: course.id,
+      root: join(
+        coursesRoot,
+        courseTermDirectory(course.term),
+        diskName(`${course.name || `course-${course.id}`} [${course.id}]`),
+      ),
+    }));
+  if (!roots.length) return [];
+  const rows = getDatabase()
+    .prepare("SELECT value FROM workspace_settings WHERE key LIKE 'canvas-file:%'")
+    .all() as { value: string }[];
+  return pickCourseFiles(
+    roots,
+    rows.map((row) => row.value),
+    existsSync,
+  );
 }
