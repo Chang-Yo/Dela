@@ -2,7 +2,10 @@ import { contextBridge } from 'electron';
 import { version } from '../../package.json';
 import type { DelaApi } from '../shared/api';
 import { canvas } from './canvas';
+import { cache } from './cache';
 import { chat } from './chat';
+import { consent } from './consent';
+import { backup } from './backup';
 import { llm } from './llm';
 import { capabilityApi as capability } from './capabilities';
 import { layout } from './layout';
@@ -33,6 +36,9 @@ contextBridge.exposeInMainWorld('dela', {
   notifications,
   window: windowApi,
   settings,
+  consent,
+  backup,
+  cache,
   llm,
   chat,
   mail,

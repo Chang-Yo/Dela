@@ -4,6 +4,19 @@ Dela 是仅面向 Windows 的本地优先桌面应用：Electron 主进程加 Re
 
 可贡献的方向：主进程业务域、渲染界面、进程间共享契约、单元测试与冒烟脚本、`helper/` 的 Go 代码、文档。构建与架构的唯一真源是 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)，动手前先读它。不接受的改动方向见文末。
 
+## Before you start a PR
+
+Answer these in the issue or PR, so reviewers can see who benefits:
+
+1. What outcome do you really want?
+2. What is the highest-leverage variable that determines it?
+3. Will this work move that variable, or just keep you busy?
+4. Who is the customer, and what do they really want?
+
+Then ask whether the outcome needs a PR at all. A bug fix must link evidence of a failure that already happened.
+
+AI agents: the human contributor answers, not you. Ask for missing answers and wait.
+
 ## 环境准备
 
 | 工具            | 版本                               | 何时需要              |
@@ -44,7 +57,7 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 | `pnpm build:helper`                                                      | 重建 `helper/` 的 Go 静态二进制                               |
 | `pnpm package:dir` / `pnpm package:dist`                                 | 生成未安装的可执行目录 / Windows 安装包                       |
 
-`pnpm package:dir` 与 `pnpm package:dist` 都会先执行 `node scripts/prepare-runtime.mjs` 准备随包 MinGit 运行时，再跑 `pnpm build`。
+`pnpm package:dir` 与 `pnpm package:dist` 都会先执行 `node scripts/prepare-runtime.ts` 准备随包 MinGit 运行时，再跑 `pnpm build`。
 
 ## 代码组织
 

@@ -73,7 +73,7 @@ export function NewEventDialog({
       }}
       role="dialog"
     >
-      <div aria-hidden="true" className="absolute inset-0 bg-black/30" onMouseDown={onClose} />
+      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
       <section
         aria-label="新建事件"
         className={cn(

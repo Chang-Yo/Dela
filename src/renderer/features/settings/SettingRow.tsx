@@ -25,7 +25,8 @@ export function SettingRow({
   /** 从属行（如总开关下的子项）：缩进一级，分隔线也跟着起点内移。 */
   nested?: boolean;
   settingId: string;
-  title: string;
+  /** 行标题：带副值（如缓存占用）时传节点。 */
+  title: ReactNode;
 }) {
   const label = (
     <div className="grid content-start gap-1">

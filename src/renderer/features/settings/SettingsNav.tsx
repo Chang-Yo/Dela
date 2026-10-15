@@ -9,6 +9,7 @@ import {
   Palette,
   Plug,
   Puzzle,
+  ScrollText,
   Server,
   ShieldCheck,
   SlidersHorizontal,
@@ -38,6 +39,7 @@ const sections: Array<{ id: SettingsSectionId; group: string; icon: LucideIcon }
   { id: 'mcp', group: '模型', icon: Server },
   { id: 'about', group: '关于', icon: Info },
   { id: 'privacy', group: '关于', icon: ShieldCheck },
+  { id: 'terms', group: '关于', icon: ScrollText },
 ];
 
 /** 按分组切分目录，保持目录顺序。 */

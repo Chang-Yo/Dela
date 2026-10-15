@@ -22,9 +22,11 @@ export function TodoSheet({
   const panelRef = useRef<HTMLElement>(null);
   // 挂载时把焦点移入面板，Esc 与读屏才能立即作用于对话框；
   // 面板内已有焦点（如标题输入的 autoFocus）时不抢占。
+  // preventScroll 必须带上：入场动画期间面板越出容器底边，默认聚焦会把
+  // overflow-hidden 祖先滚动 1.5rem 再钳回，背景随之上跳又落回（抖动）。
   useEffect(() => {
     if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
-      panelRef.current.focus();
+      panelRef.current.focus({ preventScroll: true });
     }
   }, []);
   return (
@@ -34,7 +36,7 @@ export function TodoSheet({
         if (event.key === 'Escape') onClose();
       }}
     >
-      <div aria-hidden="true" className="absolute inset-0 bg-black/30" onMouseDown={onClose} />
+      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
       <section
         aria-label={label}
         aria-modal="true"

@@ -63,7 +63,7 @@ export function updateView(state: UpdateSnapshot): UpdateView {
       };
     case 'downloading':
       return {
-        status: '正在下载更新',
+        status: state.progress >= 1 ? '下载已传输完成，正在校验并准备安装…' : '正在下载更新',
         action: null,
         label: null,
         progress: state.progress,
@@ -155,12 +155,18 @@ export const useUpdateState = create<UpdateState>((set, get) => ({
     };
     // 订阅挂在应用上而不是某个组件上：监听者只写 store，不存在写已卸载组件的问题，
     // 因此刻意不保存退订函数——单窗口桌面应用整个生命周期只需要这一份。
+    let receivedPush = false;
+    api.onState((snapshot) => {
+      receivedPush = true;
+      receive(snapshot);
+    });
     void api.getState().then(
-      receive,
+      (snapshot) => {
+        if (!receivedPush) receive(snapshot);
+      },
       // 读不到就维持空快照：标题栏安静，设置页按未检查过展示。
       () => {},
     );
-    api.onState(receive);
   },
 }));
 
@@ -218,9 +224,18 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
   try {
     // 打开下载页只借道系统浏览器，没有快照可回填。
     if (action === 'open-download') await api.openDownloadPage();
-    // 其余动作的新状态由主进程广播回来，这里不自己写快照，免得两处状态打架。
+    // 广播为主；下载完成的 IPC 回执可补回漏掉的 ready，但不能覆盖后续安装状态。
     else {
       const result = await api[action]();
+      const current = useUpdateState.getState().snapshot;
+      if (
+        action === 'download' &&
+        result.phase === 'ready' &&
+        current?.phase === 'downloading' &&
+        current.version === result.version
+      ) {
+        useUpdateState.setState({ snapshot: result });
+      }
       if (result.phase === 'error' || result.phase === 'unsupported') {
         return false;
       }

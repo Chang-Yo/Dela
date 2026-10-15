@@ -6,6 +6,7 @@ export const INLINE_IMAGE_MAX = 6;
 export const CHAT_ATTACHMENT_MAX = 5;
 export const CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const CHAT_TEXT_ATTACHMENT_MAX_BYTES = 1024 * 1024;
+export const CHAT_DOCUMENT_MAX_BYTES = 128 * 1024 * 1024;
 
 export const imageFileExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
 
@@ -121,10 +122,10 @@ export function chatImageToken(id: string, name: string): string {
   return `![${alt}](dela-img:${id})`;
 }
 
-export function chatFileKind(name: string): 'image' | 'text' | null {
+export function chatFileKind(name: string): 'image' | 'text' | 'document' {
   const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
-  if (!ext || ext === name.toLowerCase()) return null;
+  if (!ext || ext === name.toLowerCase()) return 'document';
   if (imageFileExtensions.includes(ext)) return 'image';
   if (textFileExtensions.includes(ext)) return 'text';
-  return null;
+  return 'document';
 }

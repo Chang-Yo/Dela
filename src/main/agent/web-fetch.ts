@@ -1,13 +1,15 @@
 import { htmlToMarkdown } from '@mdream/js';
 import { clean } from '@mdream/js/clean';
 import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
-import { extractDocumentBytes } from '../documents/parse';
+import { open } from 'node:fs/promises';
+import { prepareDocumentFile } from '../resources';
 
 // 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT_MS = 15000;
 const PAGE_BYTE_LIMIT = 2 * 1024 * 1024;
+const DOCUMENT_BYTE_LIMIT = 128 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 // 单次返回的字符数；超出部分经 offset 续读，分页本身不截断。
 const TEXT_LIMIT = 20000;
@@ -20,8 +22,8 @@ interface WebPageContent {
   totalCharacters: number;
   nextOffset: number | null;
   truncated: boolean;
-  pages?: number;
-  hasTextLayer?: boolean;
+  readable?: false;
+  document?: Awaited<ReturnType<typeof prepareDocumentFile>>;
   note?: string;
 }
 
@@ -34,7 +36,6 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
     fullText: string,
     bytesTruncated: boolean,
     extraNotes: string[] = [],
-    extra?: Pick<WebPageContent, 'pages' | 'hasTextLayer'>,
   ): WebPageContent => {
     const notes = [...extraNotes];
     if (bytesTruncated) notes.push('页面超过 2MB 读取上限，内容可能不完整');
@@ -51,7 +52,6 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
       totalCharacters: fullText.length,
       nextOffset,
       truncated: bytesTruncated,
-      ...(extra ?? {}),
       ...(notes.length ? { note: notes.join('；') } : {}),
     };
   };
@@ -70,28 +70,34 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
     const location =
       response.status >= 300 && response.status < 400 ? response.headers.get('location') : null;
     if (!location) break;
+    await response.body?.cancel();
     if (hop >= MAX_REDIRECTS) throw new Error('网页重定向次数过多');
     url = httpUrl(new URL(location, url).toString());
   }
   if (!response!.ok) throw new Error(`网页请求失败（HTTP ${response!.status}）`);
-  const { bytes, truncated: bytesTruncated } = await readCapped(response!);
   const contentType = response!.headers.get('content-type') ?? '';
+  const peeked = await peekResponse(response!);
   const looksLikePdf =
     contentType.toLowerCase().includes('pdf') ||
-    new TextDecoder('latin1').decode(bytes.subarray(0, 5)) === '%PDF-';
+    new TextDecoder('latin1').decode(peeked.prefix.subarray(0, 5)) === '%PDF-';
   if (looksLikePdf) {
-    const parsed = await extractDocumentBytes(bytes, 'page.pdf');
-    return finish(
-      url,
-      null,
-      contentType || 'application/pdf',
-      parsed.text,
-      bytesTruncated,
-      parsed.hasTextLayer ? [] : ['PDF 无文本层（扫描件），提取不到文字'],
-      { pages: parsed.pages, hasTextLayer: parsed.hasTextLayer },
-    );
+    try {
+      const document = await prepareDocumentFile((path) => saveDocument(peeked.response, path));
+      return {
+        ...finish(url, null, contentType || 'application/pdf', '', false),
+        readable: false,
+        document,
+        note: '此地址返回 PDF，已保存完整临时文件。使用 document-reading skill，直接用 document 中的 python、script、input、output 解析并读取正文或页面图片，无需再次 prepare_document；完成后用 document.jobId 调用 dela release_document。',
+      };
+    } finally {
+      await peeked.response.body?.cancel().catch(() => {});
+    }
   }
-  if (/^(image|audio|video)\//.test(contentType)) throw new Error('该地址是媒体文件，不是网页');
+  if (/^(image|audio|video)\//.test(contentType)) {
+    await peeked.response.body?.cancel();
+    throw new Error('该地址是媒体文件，不是网页');
+  }
+  const { bytes, truncated: bytesTruncated } = await readCapped(peeked.response);
   const charset = /charset=([\w-]+)/i.exec(contentType)?.[1];
   let source: string;
   try {
@@ -105,6 +111,55 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
     : { title: null, text: source };
   const normalized = text.replace(/\r\n/g, '\n');
   return finish(url, title, contentType || 'text/html', normalized, bytesTruncated);
+}
+
+async function peekResponse(response: Response) {
+  if (!response.body) return { response, prefix: new Uint8Array() };
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  while (length < 5) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    length += value.length;
+  }
+  const prefix = Buffer.concat(chunks);
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+    },
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) controller.close();
+      else controller.enqueue(value);
+    },
+    cancel: (reason) => reader.cancel(reason),
+  });
+  return { response: new Response(body, { headers: response.headers }), prefix };
+}
+
+async function saveDocument(response: Response, path: string): Promise<void> {
+  if (Number(response.headers.get('content-length')) > DOCUMENT_BYTE_LIMIT)
+    throw new Error('文档超过 128 MiB 下载上限，未解析截断内容');
+  const reader = response.body?.getReader();
+  const file = await open(path, 'wx');
+  let length = 0;
+  try {
+    if (!reader) throw new Error('文档响应为空');
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.length;
+      if (length > DOCUMENT_BYTE_LIMIT)
+        throw new Error('文档超过 128 MiB 下载上限，未解析截断内容');
+      await file.writeFile(value);
+    }
+  } finally {
+    await file.close();
+    await reader?.cancel().catch(() => {});
+    reader?.releaseLock();
+  }
 }
 
 function httpUrl(raw: string): URL {

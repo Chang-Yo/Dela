@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, WorkspaceEntry, WorkspaceState } from '../../../../../shared/api';
+import type { DelaApi, SkillView, WorkspaceEntry, WorkspaceState } from '../../../../../shared/api';
 import { useToastStore } from '../../../../app/toasts';
 import { useWorkspaceStore } from '../../../../workspace/store';
 import { SkillsTab } from './SkillsTab';
@@ -134,4 +134,70 @@ it('reports other errors as a toast', async () => {
     description: 'ssh 连接失败',
   });
   expect(document.body.textContent).not.toContain('覆盖吗？');
+});
+
+it('requires dependency installation before enabling document reading', async () => {
+  const missing: SkillView = {
+    ...skill,
+    name: 'document-reading',
+    enabled: false,
+    dependency: { status: 'missing' },
+  };
+  const ready: SkillView = { ...missing, enabled: true, dependency: { status: 'ready' } };
+  const installSkillDependencies = vi.fn(async () => [ready]);
+  window.dela = {
+    capability: { listSkills: async () => [missing], installSkillDependencies },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<SkillsTab />));
+  expect(container.querySelector('[role="switch"]')).toBeNull();
+  await act(async () => buttonByText('安装并启用').click());
+  expect(installSkillDependencies).toHaveBeenCalledWith('document-reading');
+  expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
+  expect(document.body.textContent).not.toContain('安装并启用');
+});
+
+it('keeps a failed dependency disabled and offers retry', async () => {
+  const failed: SkillView = {
+    ...skill,
+    name: 'document-reading',
+    enabled: false,
+    dependency: { status: 'error', error: '下载失败' },
+  };
+  const installSkillDependencies = vi.fn().mockRejectedValue(new Error('下载失败'));
+  window.dela = {
+    capability: { listSkills: async () => [failed], installSkillDependencies },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<SkillsTab />));
+  await act(async () => buttonByText('重试安装').click());
+  expect(container.querySelector('[role="switch"]')).toBeNull();
+  expect(buttonByText('重试安装').disabled).toBe(false);
+});
+
+it('cancels installation without presenting the user action as a failure', async () => {
+  const missing: SkillView = {
+    ...skill,
+    name: 'document-reading',
+    enabled: false,
+    dependency: { status: 'missing' },
+  };
+  let rejectInstall: (error: Error) => void = () => {};
+  const pending = new Promise<SkillView[]>((_resolve, reject) => {
+    rejectInstall = reject;
+  });
+  const cancelSkillInstallation = vi.fn(async () => {
+    rejectInstall(new Error('aborted'));
+  });
+  window.dela = {
+    capability: {
+      listSkills: async () => [missing],
+      installSkillDependencies: () => pending,
+      cancelSkillInstallation,
+    },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<SkillsTab />));
+  await act(async () => buttonByText('安装并启用').click());
+  await act(async () => buttonByText('取消安装').click());
+  expect(cancelSkillInstallation).toHaveBeenCalledWith('document-reading');
+  expect(useToastStore.getState().toasts).toHaveLength(0);
+  expect(buttonByText('安装并启用')).toBeTruthy();
 });

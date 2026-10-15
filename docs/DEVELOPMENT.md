@@ -33,7 +33,7 @@
 
 目录注意：rg/fd 落在 `~/.pi/agent/bin`，**不是** `userData/pi/bin`——bin 只认 `PI_CODING_AGENT_DIR` 环境变量，Dela 不设置它。skills 不是同一套：Dela 把 `agentDir` 显式指到 `userData/pi`，Pi 的 agent 级 skills 目录随之变成 `<userData>/pi/skills`，而 SDK 里没有读 `~/.pi/agent/skills` 的代码路径。所以 `userData/pi` 里隔离的是 auth、models、sessions 与 skills，**bin 是唯一例外**。
 
-`web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签。PDF、编码处理、2MB 上限与 offset 续读沿用现有实现；不执行网页 JavaScript。`web_search` 由用户提供搜索服务。
+`web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签。网页保留编码处理、2MB 上限与 offset 续读，不执行 JavaScript。PDF 按响应 MIME 或文件头识别，完整下载到文档临时任务并返回工具路径，正文由 document-reading skill 解析；超过 128 MiB 明确失败，不能把网页截断字节当成完整 PDF。`web_search` 由用户提供搜索服务。
 
 ### 2.2 dela 命令
 
@@ -41,7 +41,17 @@
 
 ### 2.3 skills
 
-纯文档领域知识，Pi 按 Agent Skills 规范发现。五个内置领域 skill（shuiyuan / canvas / mail / todo / curriculum）写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；设置页的禁用名单经 `skillsOverride` 过滤。扫描位置共三处：`~/.dela/skills`、`~/.agents/skills`、`<工作目录>/workspace/.agents/skills`（`<工作目录>` 即设置 › 工作区里选定的位置，缺省 `文档\Dela`）。
+领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。六个内置 skill（shuiyuan / canvas / mail / todo / curriculum / document-reading）写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；设置页的禁用名单经 `skillsOverride` 过滤。扫描位置共三处：`~/.dela/skills`、`~/.agents/skills`、`<工作目录>/workspace/.agents/skills`（`<工作目录>` 即设置 › 工作区里选定的位置，缺省 `文档\Dela`）。
+
+`document-reading` 同样写入 `~/.dela/skills`，配套脚本由应用维护。没有解析组件时设置页仍列出它，但显示关闭且不注入 Pi；开启前必须通过组件检查。「设置 › Skills」提供安装、阶段/下载进度、取消与重试，成功后启用，设置页关闭不删除组件。远端上传不支持此本机组件。
+
+当前安装直接从官方源下载 Python 3.12.10 embeddable、uv 0.11.1 与 PyPI wheels，在 `userData/components/document-reading/1` 内组装隔离环境；Python/uv ZIP 固定 SHA256，42 项 Python 依赖锁定版本与 wheel hashes，禁止源码构建和 Agent 自行安装。使用 Windows 系统 tar 解压，最后自检成功才写 ready 标记；失败/取消不启用并清理未完成目录。主安装包只带 skill/脚本/锁文件，不带 Python/uv/wheels。首次引导与老用户的一次性升级入口均使用「能力拓展」页，复用现有 Skills 安装 API。后续镜像与预打包组件源另行建设。
+
+文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 下载复用 `prepareDocumentFile`，返回 `readable: false` 和 `document` 任务，skill 直接使用其中的路径，完成后 release，无需第二次下载。依赖缺失、下载中断或超过上限时失败并释放响应；失败任务目录清理。主进程 PDF.js 提取与其原生 canvas 运行时依赖已移除，renderer 的 PDF.js 阅读器保留。未修改的上一版内置文档 skill 会自动补齐网页 PDF 指引；用户编辑过的版本保留。
+
+`read_resource` 的文件/笔记/来源读取统一走 `resources.readResourceContent`，不调用 GUI 的 `readWorkspaceEntry` / `readCanvasSource`。资源层只直接读取文本与图片，其余文件统一返回 `format: file` 和 skill 指引，不枚举 Office/PDF 格式、不生成预览地址、不查询 PowerPoint 导出关联；Canvas 文档和邮件附件在这一步只取元数据，直到 `prepare_document` 才获取文件。Canvas 非文件正文经 `readCanvasPage` 与 GUI 共用原有按需拉取逻辑。图片与文本继续复用已有输入类型清单；笔记修订值仍为正文 SHA256。GUI 预览格式支持不限制 skill 可尝试的文件类型。
+
+[隔离实测报告](../experiments/document-reading/REPORT.md) 是选型时的历史记录；当前行为以上述实现为准。
 
 ### 2.4 GUI
 
@@ -52,7 +62,10 @@
 - 状态用颜色点表达（绿＝连接 / 使用中，灰＝未连接）；页面主操作用主色（default）按钮。
 - 常驻能力整组说明一次，行内用锁徽标替代禁用开关。
 - Skills 行支持查看 `SKILL.md` 与打开所在位置（`capabilities:read-skill` / `reveal-skill`，主进程按名单独解析路径，渲染端不传路径）。
-- 隐私页按文档排版（限宽、text-13 正文、枚举两列表）。
+- 条款页（隐私条款、使用条款）与引导的条款接受页共用 `components/legal-markdown.tsx` 的 `LegalMarkdown`：正文是仓库根目录 docs 下的 Markdown（`docs/privacy.md` / `docs/terms.md`），构建时 `?raw` 内联后交给 react-markdown + remark-gfm 渲染，组件里不另抄一份，官网发布同一份文本。三处映射完全一致——「序号 + 标题」小节、带表头的表格，正文里最需要读者记住的一句加粗（`font-semibold text-ink`）；Markdown 的 h1 与页面标题重复，映射为不渲染。行宽与字号由各处的容器给：设置页（`sections/legal-doc.tsx` 的 `LegalDocument`）限宽 42rem、text-13，接受页放进固定高度的滚动框。
+- 上面这套映射里小节间距落在标题自身的 `mt-10`（Markdown 的块是平级兄弟节点，容器给不了 grid 间距），`first:mt-0` 兜底文档若直接从 h2 开头。元素级的类名都内联在 `legal-markdown.tsx`，改一处三处一起变；各页自己的容器类留在各自文件里。
+- 写条款时要避开 `。**你` 这类「加粗以中文标点收尾、紧跟汉字」的写法：CommonMark 不把该 `**` 当作闭合，只会渲染出字面星号（GitHub 同样如此）。把收尾标点移到加粗之外即可；`legal-doc.test.tsx` 对两个文档都以「strong 数 == 源码里 `**` 对数」守住这条。
+- 这两个文档同时是官网 `/privacy`、`/terms` 的正文来源（`../Dela_Web` 手抄一份网页版，两仓库互不 import）。**改这里就要同步改那边**，包括顶部的「最后更新」日期；官网独有的只有隐私条款的 7～9 节（关于本站、删除你的数据、条款变更与联系方式）。
 
 瞬时动作失败的报错与成功提示走应用内通知浮窗（`app/toasts.tsx` 的 `showToast`，内容区顶部居中滑入，error / success 变体，卡片为 beautifului `atoms/Toast.tsx`；error 8s / success 4s 自动消失，至多 4 条）。打开着的表单的校验与提交错误、持久态（连接红点、同步失败横幅、加载失败占位）仍内联展示，不进浮窗；终端输入与尺寸同步失败属高频连续操作，留内联红字条；后台自动动作（会话终态后的镜像刷新等）失败不弹浮窗，只留 console 线索。工作区 store 的 `error` 通道只承载镜像加载失败这一持久态，瞬时动作失败一律走浮窗。
 
@@ -67,7 +80,7 @@
 | 基本 | 通用 general、外观 appearance、快捷键 shortcuts                                                 |
 | 数据 | 工作区 workspace、已归档 archived、连接 connections、远程 remotes                               |
 | 模型 | 模型供应商 providers、内置能力 capabilities、自定义指令 commands、Skills skills、MCP Server mcp |
-| 关于 | 关于 about、隐私条款 privacy                                                                    |
+| 关于 | 关于 about、隐私条款 privacy、使用条款 terms                                                    |
 
 #### 界面行为速览
 
@@ -77,7 +90,7 @@
 | 通用 › 系统通知     | 四个开关与暂停         | 校园消息提醒（`campus-notifications`）、任务失败时提醒与任务完成时提醒（`task-notifications`）、暂停通知按钮组（与通知中心共用 `notifications-snoozed-until`）。                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 通用 › 导航入口     | 显示/隐藏              | 首页固定显示；资料、邮箱、课表、课堂视频、水源可单独隐藏，存 renderer localStorage `dela.nav-entries`。`renderer/navigation/entries.ts` 是侧栏与折叠后标题栏图标的单一真源。规则为「功能开启 > 入口显示」：隐藏入口只影响导航，能力照常；功能关闭时入口消失、显示开关置灰。                                                                                                                                                                                                                                                                                                    |
 | 通用 › 试验功能     | 总开关 + 子项          | `settings.getExperiments/setExperiment`；子项为「水源社区」「课堂视频下载」，只在总开关开启时生效（`main/settings/prefs.ts` 的 `experimentEnabled`），其下还有「视频默认下载目录」。键缺失或损坏都视为开启；关闭下载时立即取消进行中的任务。                                                                                                                                                                                                                                                                                                                                   |
-| 通用 › 软件更新     | 检查 / 下载 / 安装     | 打包版经 electron-updater 读取 CDN 的 latest.yml，手动下载，速度 / 进度条 / 百分比依次显示；确认并保存工作区后退出，显示支持展开安装细节的向导；向导完成后可重新打开并提示实际版本。保存失败保留确认入口，安装启动失败提示手动下载；开发运行不检查。                                                                                                                                                                                                                                                                                                                           |
+| 通用 › 软件更新     | 检查 / 下载 / 安装     | 打包版经 electron-updater 读取 CDN 的 latest.yml，手动下载，已下载 / 总大小、进度条、百分比依次显示；确认并保存工作区后退出，显示支持展开安装细节的向导；向导完成后可重新打开并提示实际版本。保存失败保留确认入口，安装启动失败提示手动下载；开发运行不检查。                                                                                                                                                                                                                                                                                                                  |
 | 外观                | 主题/缩放/字号/图标    | `theme`（system/light/dark）、`zoom`（五档）、`fontSize`（12–20px，默认 16）、`icon`（white/black），各自持久化并在主进程即时生效或下次启动生效。                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 快捷键              | 查看/改键/重置         | `settings.getKeybindings/setKeybindings/resetKeybindings`；动作目录在 `shared/keybindings.ts`，只存覆盖项，录制时拒绝同表冲突。                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 工作区 › 工作目录   | 选择位置               | `workspace.chooseDirectory()`；只影响之后新建的顶层内容。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -94,7 +107,8 @@
 | Skills              | 发现与启停             | `capability.listSkills/setSkillEnabled`；扫描 `~/.dela/skills`、`~/.agents/skills` 与 `<工作目录>/workspace/.agents/skills` 三处的 SKILL.md，禁用即不进模型索引；文件系统管理，删目录即删除。                                                                                                                                                                                                                                                                                                                                                                                  |
 | MCP Server          | stdio 服务器管理       | `capability.listMcpServers/addMcpServer/updateMcpServer/removeMcpServer/refreshMcpServer`；视图带连接状态、工具数与错误，改配置即重连。                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 关于                | 版本与致谢             | `window.dela.version` 只读；Author 与 Sponsors 名单为源码内硬编码（`credits.ts`）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 隐私条款            | 只读说明               | 无 IPC；描述数据存放、凭据加密与 Agent 外发范围，非正式法律文本。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 隐私条款            | 只读说明               | 无 IPC；正文取自 `docs/privacy.md`，逐条陈述当前实现的数据事实：数据存放位置、凭据加密方式、Agent 外发内容与全部联网去向。                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 使用条款            | 只读说明               | 无 IPC；正文取自 `docs/terms.md`；首次使用与接受记录缺失时在引导里强制接受（见 §11 引导条目），官网 `/terms` 发布同一份文本。                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 #### 补充约定
 
@@ -108,6 +122,7 @@
 - **尺寸一律由 rem 派生**，禁止 `text-[13px]`、`w-[280px]`、`size={16}` 这类写死像素。换算基准固定 16：`N px → N/16 rem`（半像素先向上取整，11.5→12）。字号用 token、不散落魔数：token 以默认根字号下的像素命名（`--text-2xs`=11、`--text-xs`=12、`--text-13`、`--text-sm`=14、`--text-15`、`--text-base`=16、`--text-21`…，见 `styles/globals.css`）；圆角用 beautifului 的 `rounded-chip/control/card/window`。
 - **保留 px 的只有三类**：① 边框 / 描边 / 阴影（含 `ring-[3px]`、`shadow-[…]`）；② 媒体与容器查询断点（`md:`、`max-[1080px]`、`@min-[860px]`——CSS 规定查询里的相对单位按初始字号解析，改 rem 也不会跟随）；③ 第三方 dist 内改不到的固定值（已用覆盖规则补齐的见 `styles/globals.css` 末尾的 streamdown 行号）。拖拽调宽的容器尺寸（`AppShell` 侧栏、`MailView` 列表，含其阈值算术）同为 px：它们是用户用鼠标量出的画布尺寸，与实测宽度的比较在同一坐标系里。
 - 沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层：由 `lib/root-font-size.ts` 把当前根字号注进内层 `html`，字号变化时靠 MutationObserver 重新渲染。
+- 写邮件正文编辑区显式设置 `font-synthesis: weight style`，覆盖全局的 `none`，保证缺少斜体或粗体字形时仍能显示所选格式；该设置不写进发送 HTML。格式按钮通过编辑区选区和 `queryCommandState` 同步，监听 `selectionchange` 以覆盖鼠标、键盘及程序改变选区的情况。正文仍只保留 B / STRONG、I / EM、链接、段落和 CID 图片等已有安全子集；纯文本草稿按行恢复为 BR，发送与保存的纯文本按 BR / DIV / P 提取换行，不读取脱离文档的 `innerText`（会丢失块换行）。
 - 迁移自 `text-[Npx]` 的档位显式声明 `--text-N--line-height: inherit`，与任意值字号原本「只给 font-size、行高继承父级 1.5」的表现一致；`text-sm / base / lg / xl / 2xl / 3xl` 沿用 Tailwind 自带行高比（既有页面依赖，未改动）。
 
 ## 3. 会话与上下文
@@ -116,7 +131,8 @@
 - **会话 cwd**：项目会话是该项目的目录；通用（随聊）会话是 `<工作目录>/chat-sessions/<会话 id>` 私有目录；资料页会话用 `<工作目录>/courses`；`sessions.cwd` 为 NULL 的旧会话才回退到工作区根。目录缺失时报错，不静默换目录（远程项目跳过本地存在性检查）。
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、cwd、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
 - 会话归属在创建时确定，ChatTab 从会话快照取 projectId/cwd，不取当前工作台。
-- **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；附件文本与图片随用户消息进入 Pi 会话。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入 / 粘贴附件维持在 composer 上方 chips、上限 5，与引用分开计数。
+- **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；文本附件与图片随用户消息进入 Pi 会话，文档附件仅传本地 workspace 文件引用，由 document-reading skill 按需解析。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入 / 粘贴 / 选择的附件维持在 composer 上方 chips、上限 5，与引用分开计数。候选默认取会话 cwd 下的工作区文件；通用池会话（projectId 为 null 且非远端）额外并入课件候选——`canvas:cached-files`（`main/canvas/course-files.ts` 纯函数 + `api.ts` 编排）列出 courses 目录下最新学期已下载到本地的文件，workspace store 在进入会话时拉取、30 秒内去重，标题形如「课程名/相对路径」，与工作区候选重名时以工作区为准。
+- **聊天文档附件**：输入入口仅区分内联图片、常见文本和其他文件，不枚举 Office/PDF 格式。图片上限 5 MiB、文本上限 1 MiB、文档上限 128 MiB；文档需要已安装且启用 document-reading skill。文档保存为 `userData/chat-media/<UUID>.<ext>`，消息元数据记录附件 id，发送后保留供追问；未发送附件移除时删除，启动时按会话引用回收孤儿文件。二进制不按 UTF-8 注入提示词，不复制进项目；支持只发送附件。当前远端项目无法访问本机解析组件，发送文档附件会提示切换本机会话。
 - **上下文占用**：快照与流式事件携带 `contextUsage`（Pi `getContextUsage` 的投影，仅打开中的会话有）；composer 底部圆环按占用显示进度，悬浮面板报 tokens、窗口总量、百分比与本会话缓存命中率。压缩后 tokens 未知时显示「—」。
 - 系统提示＝Pi 默认提示 + Dela 追加段（dela 命令说明、项目名与目录、用户自定义指令）。
 - 编辑重发在 Pi 会话树上分支，旧分支保留在 JSONL。
@@ -178,7 +194,9 @@ preload 暴露的 API：
 - Release 同时提供 `Dela-<版本>-win-x64.exe`、对应 `.exe.blockmap` 和渠道元数据。发布元数据统一为 `latest.yml`；预发布 Release 不进入 CDN 正式版目录，客户端固定 latest、拒绝预发布及降级。
 - 开启 NSIS differentialPackage，Generic provider 使用单段 Range 请求。更新器优先使用本地旧安装包和 blockmap 缓存，缺少缓存、旧 blockmap 或差分失败时退回全量下载；SHA-512 校验由更新器完成，不保证每次都是差分下载。
 - 主进程 `main/update/index.ts` 持有状态，检查与下载的 Promise 处理失败；进度和安装器异步启动错误通过事件接收。界面只读快照和派发动作，设置页关闭不会打断下载。发起安装后保持 installing，不把启动安装器当成安装成功。
-- 下载进度事件同时传递 `bytesPerSecond`，界面在进度条左侧显示速度、右侧显示百分比；尚无采样显示“计算中…”。差分回退时百分比保持不回退，但仍更新实时速度，重新下载和完成时清空旧速度。
+- 下载进度事件传递 `transferred` / `total`，进度条左侧显示“已下载 MB / 总大小 MB”（formatBytes 口径，与缓存占用等处一致），右侧百分比向下取整，避免未完成时提前显示 100%；总大小未知时显示“—”。差分回退时同步回退实际进度和传输量，避免旧的 100% 掩盖全量下载，差分情况下大小表示实际传输量。
+- 进度 100% 仅表示传输已完成，仍需等待校验及安装准备；界面显示“正在校验并准备安装”。收到 `update-downloaded` 正式完成事件即进入 ready，不再等待其后的缓存收尾；下载 Promise 成功回执也可进入 ready。渲染端先订阅再读取初始状态，迟到的读取结果不能覆盖推送；若漏收 ready 广播，下载 IPC 回执仅在同版本仍为 downloading 时补齐，不覆盖安装中的状态。
+- **完成状态修复验证（2026-10-14，本机）**：113 个更新相关测试、生产构建、lint、格式检查和启动冒烟通过；覆盖完成事件先于 Promise、迟到快照、漏收完成广播、100% 后才准备好安装及差分回退。尚未以新版客户端执行线上两版覆盖升级，不能把这些回归检查视为该次现场故障已完成端到端复现。
 - 每两小时后台检查一次，启动后 30 秒先查一次；仅打包运行且已有窗口时执行。开发模式不联网检查。缺少或不可读的 latest.yml 显示检查失败，不显示“已是最新”。
 - `autoDownload=false`、`autoInstallOnAppQuit=false`：用户手动下载，下载完成后选择“退出并安装”或“下次启动时提醒”；关闭弹窗后从设置页安装会重新确认。安装前保存笔记、聊天文字草稿、邮件草稿和工作台布局；运行中 Agent、未发送附件或保存失败会阻止安装，失败时保留确认入口。确认弹窗的正文只留一行（退出后自动安装、终端任务会结束），保存与安装进行中只显示标题、不再解释细节。终端任务会结束，不能恢复。
 - 安装调用 `quitAndInstall(false, true)`，关闭 Dela 并显示 NSIS 安装向导及进度，沿用原安装目录。`build/installer.nsh` 通过官方 NSIS 扩展宏启用可展开的“显示细节”：electron-builder 进入安装段先执行 `SetDetailsPrint none`，所以细节输出由 `customCheckAppRunning` 钩子重新打开（该钩子取代其默认实现，内部按原样重跑关闭 Dela 的检查），日志里才会出现开始安装、关闭运行中的 Dela、解压和安装完成这几段。`autoRunAppAfterInstall=true`，但非静默向导仍由用户在完成页选择是否运行 Dela。NSIS 安装后启动时自带 `--updated`，主进程以只读 preload 标记传给界面，只在该次启动提示实际版本，不把启动安装器当成更新成功。
@@ -204,13 +222,13 @@ preload 暴露的 API：
 
 ## 8. 持久化
 
-schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话不迁移）；v2→v3 只加 `workspace_entries.remote_id` 并建 `remotes` 表（旧条目一律视为本地项目）；v3→v4 给 `sessions` 加 `cwd` 列。更早的旧世界库整库备份为 `dela-legacy-backup.db` 后重建，旧聊天与笔记记录不迁移。
+schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话不迁移）；v2→v3 只加 `workspace_entries.remote_id` 并建 `remotes` 表（旧条目一律视为本地项目）；v3→v4 给 `sessions` 加 `cwd` 列；v4→v5 建 `consent_records` 表（条款接受记录，见 §11 引导条目）。更早的旧世界库整库备份为 `dela-legacy-backup.db` 后重建，旧聊天与笔记记录不迁移。旧世界库的判定与建表都不放进版本闸门：旧体系自己用 v5–v15，撞上当前版本号的老库只看版本号的话，既不会被拒绝也不会重建，只会留下缺表的库；`consent_records` 因此与 `addColumnIfMissing` 一样每次打开都幂等补建。
 
-表：`workspace_settings`、`workspace_entries`、`remotes`、`sessions`（索引，含 `cwd`、`message_count`），以及领域缓存（mail 三表、timetable 两表、`calendar_events`、canvas 两表、`shuiyuan_topics`、`todo_items`、notifications 两表）。笔记即磁盘文件。
+表：`workspace_settings`、`workspace_entries`、`remotes`、`sessions`（索引，含 `cwd`、`message_count`），`consent_records`（条款接受记录），以及领域缓存（mail 三表、timetable 两表、`calendar_events`、canvas 两表、`shuiyuan_topics`、`todo_items`、notifications 两表）。笔记即磁盘文件。
 
 ## 9. 终端
 
-与 Bash 同源：Git Bash + node-pty（ConPTY）+ xterm.js，实现参考 VS Code / Hyper；dela 桥函数同样注入项目终端。Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit（`resources/mingit`）→ 应用自装的 MinGit 运行时（下段），都缺失时明确报错（`locateBash()`），**不回退 PowerShell**。随包副本由 `scripts/prepare-runtime.mjs` 在打包前按源码里写死的版本与 SHA256 下载校验（版本定义只在 `src/main/terminal/mingit.ts` 一处），仓库不提交这份约 40MB 的产物（`.build/` 已忽略）；随包已有运行时时，启动会顺手清掉旧版本自装进用户目录的 MinGit 副本。
+与 Bash 同源：Git Bash + node-pty（ConPTY）+ xterm.js，实现参考 VS Code / Hyper；dela 桥函数同样注入项目终端。Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit（`resources/mingit`）→ 应用自装的 MinGit 运行时（下段），都缺失时明确报错（`locateBash()`），**不回退 PowerShell**。随包副本由 `scripts/prepare-runtime.ts` 在打包前按源码里写死的版本与 SHA256 下载校验（版本定义只在 `src/main/terminal/mingit.ts` 一处），仓库不提交这份约 40MB 的产物（`.build/` 已忽略）；随包已有运行时时，启动会顺手清掉旧版本自装进用户目录的 MinGit 副本。
 
 系统没装 Git for Windows 时（开发模式或旧版升级前的兜底），终端页可一键安装固定版本的官方 MinGit（`src/main/terminal/mingit.ts`）：从 npmmirror 镜像下载 zip（大陆 CDN 直连快，GitHub Releases 兜底，两者与官方发布物逐字节一致），SHA256 与版本号写死在源码（换版本必须成对更新），由系统自带 tar 解压进 `%LOCALAPPDATA%\Dela\mingit\v<版本>`，全程无需管理员权限。MinGit 只以 `sh.exe` 名义带 bash 本体，安装时复制出 `bash.exe`——argv[0] 决定 bash 是否走完整模式，`--rcfile` 注入 dela 桥依赖它；装成后把 `cmd/` 前插进主进程 PATH（`prependRuntimePath()`），终端与 Agent 的 bash 内 git 随即可用。失败与取消都清理半成品，换绑新版本安装时顺手删除旧版本目录。
 
@@ -222,12 +240,12 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 
 单仓库、单 `package.json`，三个进程分别构建：
 
-- `src/main/` — 主进程，按业务域分目录（`mail/`、`canvas/`、`timetable/`、`workspace/`、`shuiyuan/`、`remotes/`、`vsjtu/`、`update/`、`settings/`、`todo/`、`terminal/`、`search/`、`notifications/`、`documents/`），每域一个入口：`canvas/`、`mail/`、`remotes/`、`shuiyuan/`、`timetable/`、`workspace/`、`vsjtu/` 的入口叫 `api.ts`，`settings/`、`agent/`、`update/`、`todo/`、`terminal/`、`search/`、`notifications/` 叫 `index.ts`；`ipc.ts` 只在其中 8 个域与入口并列存在（上面七个 `api.ts` 域再加 `settings/`），其余域的 `register*Ipc()` 写在入口内部；`documents/` 无入口与 IPC，由其他域直接 import。大域的入口按职责拆出同目录模块，入口仍是对外唯一 import 点：`mail/` 拆出 `parse.ts`（MIME 与正文解析）、`store.ts`（行类型、IMAP 连接、账号与回收站设置）、`sync.ts`（同步引擎与账号配置），由 `api.ts` re-export；`shuiyuan/sources.ts`（来源引用与来源读取）同样经 `api.ts` re-export；`workspace/project.ts`（Git 分支、用 VS Code / 资源管理器打开项目）由调用方直接 import。`agent/` 为 Agent 基座：`pi.ts`（Pi SDK 接线与模型注册）、`session.ts`（会话索引、事件投影与 ask）、`environment.ts`（追加提示、dela 桥、skills、MCP 与联网工具）、`commands.ts` + `domain/`（dela 命令）、`index.ts`（`capabilities:*` 与 `chat:*` 通道注册）、`providers.ts`、`skills.ts`、`mcp.ts`、`tools.ts`（内置能力开关）、`media.ts`、`chat-commands.ts`、`web-fetch.ts`、`web-search.ts`（自写工具）。根级只留不属于任何业务域的模块：入口 `index.ts`、`database.ts`、`credentials.ts`、`storage.ts`（路径与文件名）、`ipc.ts`（调用来源校验与右键菜单）、`resources.ts`（跨域资源解析）、`campus.ts`（课表、水源与课堂视频共用的加密校园会话、官方登录窗口，以及课表与课堂视频共用的 `campusRequest`：经校园 Session 发请求、15 秒超时、重定向与 401/403 视为登录失效，并把超时、断网与 408/5xx 标为可重试）与 `modules.d.ts`。
+- `src/main/` — 主进程，按业务域分目录（`mail/`、`canvas/`、`timetable/`、`workspace/`、`shuiyuan/`、`remotes/`、`vsjtu/`、`update/`、`settings/`、`todo/`、`terminal/`、`search/`、`notifications/`、`documents/`），每域一个入口：`canvas/`、`mail/`、`remotes/`、`shuiyuan/`、`timetable/`、`workspace/`、`vsjtu/` 的入口叫 `api.ts`，`settings/`、`agent/`、`update/`、`todo/`、`terminal/`、`search/`、`notifications/` 叫 `index.ts`；`ipc.ts` 只在其中 8 个域与入口并列存在（上面七个 `api.ts` 域再加 `settings/`），其余域的 `register*Ipc()` 写在入口内部；`documents/` 无入口与 IPC，由其他域直接 import。大域的入口按职责拆出同目录模块，入口仍是对外唯一 import 点：`mail/` 拆出 `parse.ts`（MIME 与正文解析）、`store.ts`（行类型、IMAP 连接、账号与回收站设置）、`sync.ts`（同步引擎与账号配置），由 `api.ts` re-export；`shuiyuan/sources.ts`（来源引用与来源读取）同样经 `api.ts` re-export；`workspace/project.ts`（Git 分支、用 VS Code / 资源管理器打开项目）由调用方直接 import。`agent/` 为 Agent 基座：`pi.ts`（Pi SDK 接线与模型注册）、`session.ts`（会话索引、事件投影与 ask）、`environment.ts`（追加提示、dela 桥、skills、MCP 与联网工具）、`commands.ts` + `domain/`（dela 命令）、`index.ts`（`capabilities:*` 与 `chat:*` 通道注册）、`providers.ts`、`skills.ts`、`mcp.ts`、`tools.ts`（内置能力开关）、`media.ts`、`chat-commands.ts`、`web-fetch.ts`、`web-search.ts`（自写工具）。根级只留不属于任何业务域的模块：入口 `index.ts`、`database.ts`、`credentials.ts`、`storage.ts`（路径与文件名）、`ipc.ts`（调用来源校验与右键菜单）、`resources.ts`（跨域资源解析）、`consent.ts`（条款接受记录）、`backup.ts`（把本机数据导出到用户选定的位置）、`cache.ts`（Chromium 缓存占用与清理）、`campus.ts`（课表、水源与课堂视频共用的加密校园会话、官方登录窗口，以及课表与课堂视频共用的 `campusRequest`：经校园 Session 发请求、15 秒超时、重定向与 401/403 视为登录失效，并把超时、断网与 408/5xx 标为可重试）与 `modules.d.ts`。
 - `src/preload/` — contextBridge：`index.ts` 聚合入口 + 分域文件，只暴露受控 API。
-- `src/renderer/` — React 界面：`app/`（应用装配、主题、快捷键、通知与浮窗）、`workbench/`（标签工作台、布局树、工作台装配 `WorkbenchShell` 与目录 `WorkbenchExplorer`）、`content/`（chat / note / preview / review / terminal 标签内容，笔记草稿在 `content/note/drafts.ts`）、`navigation/`（侧栏与视图路由 `view.ts`）、`sessions/`、`workspace/`（条目镜像、条目操作与远程向导）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings / classroom 整页视图）、`lib/`、`styles/`；共享组件在 `components/`（`AppShell.tsx` 与 `ui/`），样式用 Tailwind v4 + 语义 token。
+- `src/renderer/` — React 界面：`app/`（应用装配、主题、快捷键、通知与浮窗）、`workbench/`（标签工作台、布局树、工作台装配 `WorkbenchShell` 与目录 `WorkbenchExplorer`）、`content/`（chat / note / preview / review / terminal 标签内容，笔记草稿在 `content/note/drafts.ts`）、`navigation/`（侧栏与视图路由 `view.ts`）、`sessions/`、`workspace/`（条目镜像、条目操作与远程向导）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings / classroom 整页视图）、`lib/`、`styles/`；共享组件在 `components/`（`AppShell.tsx`、`ErrorBoundary.tsx`、`legal-markdown.tsx` 与 `ui/`），样式用 Tailwind v4 + 语义 token。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数（`api.ts` 聚合 re-export）。
 - `helper/` — 远端工具服务的 Go 模块，只依赖标准库。
-- 测试与被测代码同层，但摆法按层不同：`src/main/` 一律用各域的 `test/` 子目录，根级 `src/main/test/` 只放根级模块的测试；`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本；需要打包的 TS 冒烟（workspace / remote）统一经 `scripts/run-ts-smoke.mjs <名称>` 构建并运行。
+- 测试与被测代码同层，但摆法按层不同：`src/main/` 一律用各域的 `test/` 子目录，根级 `src/main/test/` 只放根级模块的测试；`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本，全部为 TypeScript（Node 24 原生执行，仓库不再有 `.mjs`；`tsconfig.scripts.json` 纳入 `pnpm typecheck`）；需要打包的 TS 冒烟（workspace / remote）统一经 `scripts/run-ts-smoke.ts <名称>` 构建并运行。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 三个配置都写死 `envDir: false`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。打包白名单（`electron-builder.yml` 的 `files`）只含 `out/**/*`、`package.json` 与 `assets/` 下的两张品牌图——文档、个人凭据与 `.tools/` 都不进安装包。
 
@@ -249,9 +267,18 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - `pnpm-workspace.yaml` 只放 pnpm 12 的项目设置（`saveExact`、`engineStrict`、`allowBuilds` 门控），**不是** monorepo：没有 `packages` 字段，也没有子包。注意 `allowBuilds` 里 `better-sqlite3: false`、`node-pty: true`——原生依赖用随包预编译产物，关闭源码重建。
 - `pnpm install` 会通过 Electron 提供的 `install-electron` 命令下载运行时（`postinstall`）。
 - `@earendil-works/*`（pi-coding-agent / pi-agent-core / pi-ai / pi-mcp）在 main 构建中以正则保持 external、随 node_modules 打包进 asar；pi 系为纯 ESM 包，main 的 CJS 产物经 `agent/pi.ts` 动态 `import()` 加载。
-- `@napi-rs/canvas` 在 `vite.main.config.ts` 标记 external 并加入 electron-builder `asarUnpack`。
+- PDF.js 仅作为 renderer 的构建依赖；主进程不加载 PDF.js 或原生 canvas，不随正式安装包分发该原生解析依赖。
 - 运行时依赖 Git Bash 与搜索工具 rg/fd：内核 Bash 工具与内置终端统一使用 Git Bash，内核 grep/find 用 rg/fd，均已随包分发（见 §9），用户不必预装；终端页的一键安装保留给没有随包副本的场景。
-- 首启引导只由 `userData/dela.db` 是否存在决定：首次跑完即不再重播，开发模式也一样。URL 加 `?smoke-test=1` 可短路引导；冒烟会另开临时 profile。
+- `userData/dela.db` 是否存在只用来区分新装与升级（`window.dela.firstLaunch`，主进程在建库前判定）；是否展示引导、展示哪一段，由 localStorage 里的同意标记与引导标记决定，见下条。URL 加 `?smoke-test=1` 可短路引导；冒烟会另开临时 profile。
+- 新用户引导顺序是 Intro 动画 → 条款接受页（`features/onboarding/ConsentStep.tsx`）→ 五步配置向导 → 能力拓展 → 完成动画。接受页不在向导里：它没有跳过、不占进度点，两份条款（`docs/terms.md`、`docs/privacy.md`）依次展示，各自滚到底才能点「同意并继续」，另一侧「不同意并退出」走 `window:quit` 真正结束进程（窗口栏的关闭按钮走 `close()`，那只是收进托盘、后台照跑）。正文映射与设置里的两个条款页共用 `components/legal-markdown.tsx`。「已读到底」一旦成立就不再回退，导出提示出现或窗口变矮只改变文本框高度，不会把读完的人重新锁住。
+- 条款门对所有人成立：`onboardingCompleted()` 只看 `hasConsent()`，没有同意标记就一定先展示条款页——否则「不同意并退出」再打开就绕过去了。唯一例外是 `?smoke-test=1` 的短路（`--smoke-test` 走临时 profile，`--terminal-smoke-test` 在真实 profile 上也算短路，仅供开发）。接受过条款不重走旧向导，App 继续检查独立的能力拓展版本。
+- 「能力拓展」作为新用户六步向导的最后一步，复用同一个 WizardShell、步骤过渡与进度点，可返回模型配置；完成后才进入结束动画。老用户只补这页，完成后直接进主界面，不重放开场或完成动画。版本标记落在 SQLite `workspace_settings('capabilities-onboarding-version')`，当前版本为 1；缺失、无效或低于当前版本时展示，点击「完成配置」才通过 `capabilities:complete-setup` 写入，读取页面不写标记。未安装任何组件也能完成；关闭前没完成则下次继续显示。仅主动提高此版本才再次提醒，普通应用更新不触发。条款优先，更新内容弹窗在此页完成后才挂载。
+- 能力列表只展示真实带依赖的 Skill，不放入尚未实现的 OCR/语音示例；复用 beautiful-ui 的中性通知卡片，标题「能力拓展」，没有副标题说明。完成按钮使用既有 StepButton，在 WizardShell 底栏居中；新用户左侧保留上一步，老用户单独进入时没有上一步。内容区单独滚动，安装进度和列表长度不推移按钮；内容宽度与前五步一致。组件状态来自 `listSkills`，安装期间轮询实际阶段与下载字节，支持取消/失败重试；已安装但禁用的组件只做启用自检，不重复下载。点击完成不取消正在进行的安装，用户可在设置 › Skills 查看后续状态；设置页仍可安装、启停。页面和版本读取失败可重试，写标记失败不离开页面。
+- **老用户只补一次条款，不走开场与向导**：`needsWizard()` 判断本次是否还需要向导，老用户为 false——同意后走 `onConsentDone` 直接进主界面（不播「配置完成」动画），开场动画也不放。老用户的判据见 `existingUser()`：旧版引导痕迹（`completed` / `step` / `splash`），或「本次启动前就有数据库」——清过浏览数据、渲染层 origin 变过的老安装只剩一个 `dela.db`，只能靠这一点认出来。**不能拿「引导有没有开过头」反推**：上一版的 `started` 标记同样只在全新安装的首次启动写入，老用户里也有一批人只留下它，那样会把在用 Dela 的人当成新装。反过来，全新安装在条款页点了「不同意并退出」时会写下 `dela.onboarding.declined`（`markDeclined()`，只对新装生效）：下次启动数据库已经存在，不记这一笔就会被当成老用户，一次都没配置就被丢进主界面。
+- 门禁与留证分两处：门禁读 localStorage 里的同意标记（同步、启动就能判），留证写 `dela.db` 的 `consent_records`。用户每同意一份条款，界面就调一次 `consent:record`（`src/main/consent.ts`），主进程追加一行——文档名、正文顶部的「最后更新」日期、应用版本与时间；后两项由主进程盖章，界面只能提供前两项（`revisionOf()` 抓的就是 `docs/*.md` 里那行日期，抓不到时写 `unknown`）。写失败只记日志、不拦住用户：界面关心的是同意与否，而缺表这类错误已经在建库时幂等补掉。记录只追加不改写，条款改版后再次接受会留下新行，因此「同意的是哪一版、什么时候」可回溯。接受记录不参与门禁：localStorage 被清掉会重新弹条款页，这是有意的。
+- 「导出本机数据」（`backup:export`，`src/main/backup.ts`）只在条款接受页出现，且只给已经有本机数据的安装（`!needsWizard()`）——全新安装没有可导出的东西，摆一个出口只会让人以为有。主进程弹目录选择框，在所选位置下建一个带日期的文件夹，分「应用数据」「工作目录」「技能」（`~/.dela/skills`，用户自己写的 Skill 与内置 Skill 混在一处、分不开）三层复制：Chromium 的可再生缓存按名字在每一层跳过（本机实测占 userData 的 97%），数据库单独用 `VACUUM INTO` 取一致快照、不复制运行中的 `-wal`/`-shm`——一致快照说的是数据库，其余文件是读取那一刻的样子，导出期间应用照常运行。符号链接一律跳过（Windows 上的 junction 也在内，pnpm 的 `node_modules` 就是）：实测没有开发者模式时复刻链接直接 EPERM，会连累整个顶层条目一个文件都复制不出来。复制失败的顶层条目名（或「工作目录」「技能」）如实回报给界面，界面只说「没有复制成功」，不替用户断言是被占用。目标落在数据目录里面时直接拒绝，不让导出边写边读自己。
+- 导出期间界面按钮锁住，「不同意并退出」也在内——导出到一半退出会留下半个文件夹，用户还不知道少了什么。
+- 设置 › 通用 底部的「缓存占用」（`cache.ts`）：统计与清理都只认 Chromium 的缓存目录名 `cacheDirectoryNames`，在每一层按名字找，分区（`Partitions/dela-campus`）里的同名目录也算；用户数据、数据库与同名文件不动，链接（含 junction）一律不跟，避免量到目录树外面去。清理先让默认会话与校园会话自己放手（`clearCache` / `clearCodeCaches` / `clearStorageData` 的 cachestorage 与 shadercache，与名单一一对应），再按目录删；删不掉的如实回报 `blocked`，界面提示重启后再清。清除前后各量一次，差值为负时夹到 0（清除期间 Chromium 又在写新缓存）。导出本机数据跳过的是同一份名单（`backup.ts`）。
 - 远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go；改了 `helper/` 下的 Go 代码后执行 `pnpm build:helper --all` 重建 amd64 与 arm64 两个产物并一并提交——只重建 amd64 会让仓库里的 arm64 停在旧版（发布时 CI 会覆盖，但本地对 arm64 远端的测试用的是旧版）。
 
 ## 12. 常用命令
@@ -259,7 +286,7 @@ schema v4。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 | 命令                                            | 用途                                                               |
 | ----------------------------------------------- | ------------------------------------------------------------------ |
 | `pnpm dev`                                      | 启动开发服务器和窗口，监听主进程 / preload 变更                    |
-| `pnpm typecheck`                                | 三组 tsconfig 的类型检查                                           |
+| `pnpm typecheck`                                | 四组 tsconfig（main / preload / renderer / scripts）的类型检查     |
 | `pnpm build`                                    | 类型检查 + main / preload / renderer 三入口生产构建                |
 | `pnpm build:helper`                             | 重建远端 helper 的静态二进制（`--all` 含 arm64）                   |
 | `pnpm start`                                    | 启动已构建产物                                                     |
@@ -332,16 +359,16 @@ pnpm test
 - 单包 pnpm 锁文件不记录应用自身版本，升版无需修改锁文件。
 - preload 在构建时从 `package.json` 内联版本号，设置页关于与冒烟检查随之同步；升版后需重新构建，开发模式需重启。
 - 安装包会带上 `vendor/openssh`（`extraResources` 拷到 `resources/openssh`）。升级或更换它时按该目录 [README](../vendor/openssh/README.md) 的步骤做，并在打包目录里实跑一次 `resources\openssh\ssh.exe -V` 与一次真实连接。
-- 安装包也会带上 helper（`extraResources` 拷到 `resources/dela-helper`）。CI 与发布从本次源码构建 Linux amd64 与 arm64 产物（`build-helper.mjs --all`），覆盖仓库中的预编译文件后打包，避免发布旧 helper。预编译文件仍保留供无 Go 的本地开发者使用；升级 helper 时同步 Go 与 TS 两端的版本常量。
+- 安装包也会带上 helper（`extraResources` 拷到 `resources/dela-helper`）。CI 与发布从本次源码构建 Linux amd64 与 arm64 产物（`build-helper.ts --all`），覆盖仓库中的预编译文件后打包，避免发布旧 helper。预编译文件仍保留供无 Go 的本地开发者使用；升级 helper 时同步 Go 与 TS 两端的版本常量。
 - 安装包会带上搜索工具 `vendor/bin`（`extraResources` 拷到 `resources/bin`）。升级 rg/fd 时按该目录 [README](../vendor/bin/README.md) 的步骤做，并在打包目录里实跑一次 `resources\bin\rg.exe --version` 与 `resources\bin\fd.exe --version`。
-- 安装包会带上 MinGit 运行时：`pnpm package:dir` / `pnpm package:dist` 与发布 CI 都先执行 `node scripts/prepare-runtime.mjs`（下载、SHA256 校验、解压到 `.build/mingit`，幂等），再由 `extraResources` 拷到 `resources/mingit`。仓库不提交该产物；换 MinGit 版本只改 `src/main/terminal/mingit.ts` 的成对常量（脚本从源码解析同一份定义），打包目录里实跑一次 `resources\mingit\usr\bin\bash.exe --version` 验证。
+- 安装包会带上 MinGit 运行时：`pnpm package:dir` / `pnpm package:dist` 与发布 CI 都先执行 `node scripts/prepare-runtime.ts`（下载、SHA256 校验、解压到 `.build/mingit`，幂等），再由 `extraResources` 拷到 `resources/mingit`。仓库不提交该产物；换 MinGit 版本只改 `src/main/terminal/mingit.ts` 的成对常量（脚本从源码解析同一份定义），打包目录里实跑一次 `resources\mingit\usr\bin\bash.exe --version` 验证。
 
 ### 发布
 
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release：
 
-1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。
-2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.mjs` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。全部成功后创建 Release，上传 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
+1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。发版前把 `CHANGELOG.md` 的 `## Unreleased` 改成 `## <版本> - <发布日>`：更新内容弹窗只认 `## X.Y.Z - 日期` 分节（`features/release-notes/notes.ts`），留在 `Unreleased` 下的 `### 亮点` 会被静默跳过，弹窗不出现。
+2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.ts` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。全部成功后创建 Release，上传 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
 3. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
 4. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 

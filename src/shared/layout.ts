@@ -15,6 +15,9 @@ export interface GroupNode {
   id: string;
   tabs: TabId[];
   active: TabId | null;
+  /** 固定标签（VS Code 语义）：恒为 tabs 的前缀子集，批量关闭不波及；store 维护该不变量，
+   *  schema 只校验形状，引用失效/乱序由载入时的归一修复。 */
+  pinned?: TabId[];
 }
 
 export interface SplitNode {
@@ -58,6 +61,7 @@ const groupNodeSchema = z
     id: groupIdSchema,
     tabs: z.array(tabIdSchema).max(maxTabsPerGroup),
     active: tabIdSchema.nullable(),
+    pinned: z.array(tabIdSchema).max(maxTabsPerGroup).optional(),
   })
   .refine((node) => new Set(node.tabs).size === node.tabs.length, {
     message: '组内标签重复',

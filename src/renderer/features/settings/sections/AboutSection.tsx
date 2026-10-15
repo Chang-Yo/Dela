@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import { Feather, Heart, X } from 'lucide-react';
+import { Feather, Globe, Heart, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '../../../components/ui/button';
 import { DelaBrand } from '../../../components/ui/dela-brand';
@@ -36,12 +36,18 @@ const socialLinkMeta: Record<SocialLinkKind, { icon: ReactNode; label: string }>
   blog: { icon: <Feather />, label: '个人博客' },
   github: { icon: <GithubMark />, label: 'GitHub 主页' },
   zhihu: { icon: <ZhihuMark />, label: '知乎' },
+  website: { icon: <Globe />, label: '官网' },
 };
 
 const sponsorChannelMeta: Record<SponsorChannelKind, { dotClass: string; label: string }> = {
   alipay: { dotClass: 'bg-[#1677FF]', label: '支付宝' },
   wechat: { dotClass: 'bg-[#07C160]', label: '微信' },
 };
+
+const projectLinks: { icon: ReactNode; label: string; url: string }[] = [
+  { icon: <Globe />, label: '官网', url: 'https://dela.changyo.me' },
+  { icon: <GithubMark />, label: 'GitHub 仓库', url: 'https://github.com/Chang-Yo/Dela' },
+];
 
 function PersonLinks({ links }: { links: SocialLink[] }) {
   return (
@@ -118,12 +124,28 @@ function SponsorDialog({ person, trigger }: { person: CreditPerson; trigger: Rea
 function PersonIdentity({ person }: { person: CreditPerson }) {
   return (
     <div className="flex items-center gap-2.5">
-      <img
-        alt=""
-        aria-hidden="true"
-        className="size-6 rounded-full object-cover"
-        src={person.avatar}
-      />
+      {person.logo ? (
+        // 明暗两版 logo 叠放在同一网格单元，复用 dela-brand 在 globals.css 的主题切换规则。
+        <span aria-hidden="true" className="inline-grid size-6">
+          <img
+            alt=""
+            className="dela-brand-light col-start-1 row-start-1 size-full object-contain"
+            src={person.logo.light}
+          />
+          <img
+            alt=""
+            className="dela-brand-dark col-start-1 row-start-1 size-full object-contain"
+            src={person.logo.dark}
+          />
+        </span>
+      ) : (
+        <img
+          alt=""
+          aria-hidden="true"
+          className="size-6 rounded-full object-cover"
+          src={person.avatar}
+        />
+      )}
       <span className="text-13 font-medium text-ink">{person.name}</span>
     </div>
   );
@@ -168,11 +190,20 @@ export function AboutSection() {
   return (
     <div className="grid gap-10" data-setting-id="about">
       <SectionHeader title="关于" />
-      <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-12 text-center">
+      <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-6 text-center">
         <DelaBrand className="h-48 w-48" />
         <h2 className="text-4xl font-script tracking-tight">Dela</h2>
         <p className="text-13 text-ink-3">The world keeps changing. Dela stays with you.</p>
         <p className="mt-5 text-xs text-ink-3">版本 {window.dela?.version ?? '浏览器预览'}</p>
+        <div className="mt-1 flex items-center justify-center gap-1.5">
+          {projectLinks.map(({ icon, label, url }) => (
+            <Button asChild aria-label={label} key={url} size="icon-sm" variant="ghost">
+              <a href={url} rel="noreferrer" target="_blank">
+                {icon}
+              </a>
+            </Button>
+          ))}
+        </div>
       </section>
       {authorSection ? <CreditSectionBlock section={authorSection} /> : null}
       {sponsorsSection ? <CreditSectionBlock section={sponsorsSection} /> : null}

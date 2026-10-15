@@ -270,12 +270,13 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
           .refresh(projectId)
           .catch(() => {});
         if (openInWorkbench) {
-          // 落位同标题栏「新聊天」：单组向右分屏（空组会拒绝分屏，新对话就地落进去），多组进最右组。
+          // 落位同标题栏「新聊天」：单组向右分屏（新组只放新对话，不带当前聚焦标签；
+          // 空组会拒绝分屏，新对话就地落进去），多组进最右组。
           const current = useWorkbenchLayout.getState();
           const groups = current.ready ? walkGroups(current.root) : [];
           const rightmost = groups[groups.length - 1];
           if (rightmost) {
-            if (groups.length === 1) current.splitGroup(rightmost.id, 'vertical');
+            if (groups.length === 1) current.splitGroup(rightmost.id, 'vertical', true);
             else current.focusGroup(rightmost.id);
           }
           revealInProject(`chat:${chat.sessionId}`, null);

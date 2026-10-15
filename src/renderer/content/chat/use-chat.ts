@@ -8,6 +8,9 @@ import type {
 } from '../../../shared/api';
 import {
   CHAT_ATTACHMENT_MAX,
+  CHAT_DOCUMENT_MAX_BYTES,
+  CHAT_TEXT_ATTACHMENT_MAX_BYTES,
+  chatFileKind,
   hasChatImages,
   stripChatImageTokens,
 } from '../../../shared/chat-input';
@@ -25,9 +28,11 @@ import type { ReferenceSource } from './chat-source';
 
 export type { ChatReference };
 
-/** 可发送判定：快捷入口直发（direct）要求文本非空；常规发送允许纯图片（内联图片 token）。 */
-export function canSendInput(text: string, direct: boolean): boolean {
-  return direct ? text.trim().length > 0 : Boolean(text.trim() || hasChatImages(text));
+/** 快捷入口直发要求文本；常规发送也允许只附图片或文件。 */
+export function canSendInput(text: string, direct: boolean, attachmentCount = 0): boolean {
+  return direct
+    ? text.trim().length > 0
+    : Boolean(text.trim() || hasChatImages(text) || attachmentCount);
 }
 
 /** 发送失败后是否恢复输入：消息未上屏（快照里没有这条用户消息，或快照读不到）时恢复，
@@ -123,6 +128,9 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     if (!window.dela) throw new Error('附件仅在桌面端可用');
     if (attachmentsRef.current.length >= CHAT_ATTACHMENT_MAX)
       throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
+    const limit =
+      chatFileKind(file.name) === 'text' ? CHAT_TEXT_ATTACHMENT_MAX_BYTES : CHAT_DOCUMENT_MAX_BYTES;
+    if (file.size > limit) throw new Error(`附件超过 ${limit / 1024 / 1024} MB 上限`);
     const bytes = new Uint8Array(await file.arrayBuffer());
     const view = await window.dela.chat.stageMedia({ name: file.name, bytes });
     setAttachments((current) => [...current, view]);
@@ -148,7 +156,7 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     // 发送时点读取草稿（不依赖渲染期闭包）：拿到的一定是最后一次按键的值。
     const draft = useChatDrafts.getState().drafts[sessionId] ?? emptyDraft;
     const text = draft.prompt;
-    if (!window.dela || !canSendInput(text, false) || busy) return;
+    if (!window.dela || !canSendInput(text, false, attachments.length) || busy) return;
     const requested = sessionId;
     const sentReferences = references;
     const sentAttachments = attachments;

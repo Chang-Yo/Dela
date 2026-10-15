@@ -8,8 +8,32 @@ import type { SkillScope, SkillView } from '../../shared/capabilities';
 import { getDatabase } from '../database';
 import { storageDirectory } from '../storage';
 import { experimentEnabled } from '../settings/prefs';
+import {
+  DOCUMENT_SKILL,
+  assertDocumentDependency,
+  documentDependency,
+  verifyDocumentRuntime,
+} from '../documents/runtime';
+import documentSkill from '../documents/skill/SKILL.md?raw';
+import documentScript from '../documents/skill/scripts/read.py?raw';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
+const CAPABILITY_SETUP_VERSION = 1;
+const CAPABILITY_SETUP_KEY = 'capabilities-onboarding-version';
+
+export function needsCapabilitySetup(): boolean {
+  const row = getDatabase()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(CAPABILITY_SETUP_KEY) as { value: string } | undefined;
+  const version = Number(row?.value ?? 0);
+  return !Number.isFinite(version) || version < CAPABILITY_SETUP_VERSION;
+}
+
+export function completeCapabilitySetup(): void {
+  getDatabase()
+    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
+    .run(CAPABILITY_SETUP_KEY, String(CAPABILITY_SETUP_VERSION));
+}
 
 /** 全局 Skill 根目录：~/.dela/skills（内置 Skill 随应用写入；用户自己的 Skill 也放这里）。 */
 export function builtinSkillsDirectory(): string {
@@ -28,6 +52,7 @@ function skillSources(): { scope: SkillScope; directory: string }[] {
 
 /** 内置 Skill 正文：领域知识按业务拆分，正文教 agent 经 Bash 的 dela 命令操作（commands.ts）。 */
 const BUILTIN_SKILLS: Readonly<Record<string, string>> = {
+  [DOCUMENT_SKILL]: documentSkill,
   shuiyuan: `---
 name: shuiyuan
 description: 上海交大水源社区（BBS）：搜索与浏览话题、读帖子正文、把帖子关联进项目
@@ -68,7 +93,7 @@ description: Canvas 课程平台：课程与资料检索、作业要求阅读、
 - \`dela list_canvas_courses '{}'\`：已缓存课程列表
 - \`dela search_canvas_sources '{"query":"实验"}'\`：按标题搜课程资料
 - \`dela refresh_canvas_courses\` / \`dela refresh_canvas_course\`：同步课程（先同步后搜索）
-- \`dela read_resource '{"ref":{"type":"canvas","id":"file:123"}}'\`：读资料正文（PDF/DOCX 提取文字，扫描件可传 pages 渲染页面图像）
+- \`dela read_resource '{"ref":{"type":"canvas","id":"file:123"}}'\`：读资料页面正文；文件正文使用 document-reading Skill
 - \`dela link_canvas_source\`：把资料作为来源引用加入项目
 - \`dela copy_file_to_project\`：把资料复制为项目文件，长期使用
 
@@ -93,7 +118,7 @@ description: 交大邮箱：搜索邮件、读正文与附件、准备邮件草�
 - \`dela search_mail '{"query":"成绩单","limit":20}'\`：搜索邮件（按文件夹/日期过滤）
 - \`dela list_mail_folders '{}'\`：文件夹与同步状态
 - \`dela read_resource '{"ref":{"type":"mail","id":123}}'\`：读邮件正文（分页）
-- 附件：ref 用 \`{"type":"attachment","messageId":123,"part":"..."}\`，PDF/DOCX 提取文字
+- 附件：ref 用 \`{"type":"attachment","messageId":123,"part":"..."}\`；用 document-reading Skill 读取文件正文
 - \`dela prepare_email\`：准备邮件草稿（收件人/主题/正文），草稿在应用邮件编辑器中由用户发送
 
 ## 指引
@@ -160,10 +185,33 @@ export function ensureBuiltinSkills(): void {
   builtinEnsured = true;
   for (const [name, markdown] of Object.entries(BUILTIN_SKILLS)) {
     const path = join(builtinSkillsDirectory(), name, SKILL_ENTRY_FILE);
-    if (existsSync(path)) continue;
+    if (existsSync(path)) {
+      if (name === DOCUMENT_SKILL) {
+        const previous = markdown
+          .replace('、邮件附件和 web_fetch 返回的 PDF 临时任务', '和邮件附件')
+          .replace(/^网页 PDF：.*\r?\n\r?\n/m, '');
+        if (readFileSync(path, 'utf8').replace(/\r\n/g, '\n') === previous.replace(/\r\n/g, '\n'))
+          writeFileSync(path, markdown, 'utf8');
+      }
+      if (name === 'canvas' || name === 'mail') {
+        const current = readFileSync(path, 'utf8');
+        const migrated = current
+          .replace(
+            '读资料正文（PDF/DOCX 提取文字，扫描件可传 pages 渲染页面图像）',
+            '读资料页面正文；文件正文使用 document-reading Skill',
+          )
+          .replace('，PDF/DOCX 提取文字', '；用 document-reading Skill 读取文件正文');
+        if (migrated !== current) writeFileSync(path, migrated, 'utf8');
+      }
+      continue;
+    }
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, markdown, 'utf8');
   }
+  const script = join(builtinSkillsDirectory(), DOCUMENT_SKILL, 'scripts', 'read.py');
+  mkdirSync(dirname(script), { recursive: true });
+  if (!existsSync(script) || readFileSync(script, 'utf8') !== documentScript)
+    writeFileSync(script, documentScript, 'utf8');
 }
 
 function description(path: string): string {
@@ -186,7 +234,9 @@ function featureHiddenSkills(): Set<string> {
 
 /** 注入 Pi 的禁用名单：用户禁用的 + 随功能关闭隐藏的（后者不写回用户名单）。 */
 export function effectiveDisabledSkills(): Set<string> {
-  return new Set([...readDisabledSkills(), ...featureHiddenSkills()]);
+  const disabled = new Set([...readDisabledSkills(), ...featureHiddenSkills()]);
+  if (documentDependency().status !== 'ready') disabled.add(DOCUMENT_SKILL);
+  return disabled;
 }
 
 export function listSkills(): SkillView[] {
@@ -205,16 +255,24 @@ export function listSkills(): SkillView[] {
       skills.push({
         name: entry.name,
         description: description(path),
-        enabled: !disabled.has(entry.name),
+        enabled:
+          !disabled.has(entry.name) &&
+          (entry.name !== DOCUMENT_SKILL || documentDependency().status === 'ready'),
         path,
         scope: source.scope,
+        dependency: entry.name === DOCUMENT_SKILL ? documentDependency() : undefined,
       });
     }
   }
   return skills;
 }
 
-export function setSkillEnabled(name: string, enabled: boolean): SkillView[] {
+export async function setSkillEnabled(name: string, enabled: boolean): Promise<SkillView[]> {
+  if (!listSkills().some((skill) => skill.name === name)) throw new Error(`Skill 不存在：${name}`);
+  if (name === DOCUMENT_SKILL && enabled) {
+    assertDocumentDependency();
+    await verifyDocumentRuntime();
+  }
   const disabled = readDisabledSkills();
   if (enabled) disabled.delete(name);
   else disabled.add(name);

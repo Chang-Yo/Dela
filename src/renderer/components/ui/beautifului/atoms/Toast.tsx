@@ -1,6 +1,7 @@
 "use client";
 
-import { CircleAlert, CircleCheck, X } from "lucide-react";
+import { CircleAlert, CircleCheck, Sparkles, X, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./IconButton";
 
@@ -13,6 +14,7 @@ export type ToastVariant = "error" | "success";
 const tone = {
   error: { icon: CircleAlert, badge: "bg-red-tint text-red", role: "alert" },
   success: { icon: CircleCheck, badge: "bg-green-tint text-green", role: "status" },
+  neutral: { icon: Sparkles, badge: "bg-inset text-ink-2", role: "group" },
 } as const;
 
 export function ToastCard({
@@ -21,17 +23,26 @@ export function ToastCard({
   description,
   onClose,
   className,
+  icon,
+  action,
+  children,
 }: {
-  variant: ToastVariant;
+  variant: ToastVariant | "neutral";
   title: string;
   description?: string;
-  onClose: () => void;
+  onClose?: () => void;
   className?: string;
+  /** Dela 适配：能力拓展复用通知卡片，右侧操作和正文下方进度由调用方提供。 */
+  icon?: LucideIcon;
+  action?: ReactNode;
+  children?: ReactNode;
 }) {
-  const { icon: Icon, badge, role } = tone[variant];
+  const { badge, role } = tone[variant];
+  const Icon = icon ?? tone[variant].icon;
   return (
     <div
       role={role}
+      aria-label={variant === "neutral" ? title : undefined}
       className={cn(
         `pointer-events-auto flex w-96 max-w-full items-start gap-2.5 rounded-card
          border border-line bg-surface py-3 pl-3 pr-2 shadow-overlay`,
@@ -53,10 +64,14 @@ export function ToastCard({
             {description}
           </p>
         )}
+        {children}
       </div>
-      <IconButton aria-label="关闭通知" onClick={onClose} className="-mt-0.5">
-        <X />
-      </IconButton>
+      {action}
+      {onClose && (
+        <IconButton aria-label="关闭通知" onClick={onClose} className="-mt-0.5">
+          <X />
+        </IconButton>
+      )}
     </div>
   );
 }

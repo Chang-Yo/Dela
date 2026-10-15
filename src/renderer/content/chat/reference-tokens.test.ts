@@ -2,7 +2,13 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkspaceEntry } from '../../../shared/api';
 import type { ChatReference } from './drafts';
-import { matchReferenceTokens, referenceCandidates, referenceContext } from './reference-tokens';
+import {
+  matchReferenceTokens,
+  referenceCandidates,
+  referenceContext,
+  referenceEntryCandidates,
+  withCourseReferences,
+} from './reference-tokens';
 
 const ref = (key: string, title = key): ChatReference => ({ key, title });
 
@@ -103,5 +109,77 @@ describe('referenceCandidates（@ 候选范围）', () => {
 
   it('cwd 未知（会话快照未到）时不列任何候选', () => {
     expect(referenceCandidates(tree, null, null)).toEqual([]);
+  });
+});
+
+describe('withCourseReferences', () => {
+  it('并入课件候选：title 冲突时工作区文件优先', () => {
+    const local = [ref('E:/repo/笔记.md', '笔记.md')];
+    expect(
+      withCourseReferences(local, [
+        { path: 'C:/courses/软件工程/files/lec1.pdf', title: '软件工程/files/lec1.pdf' },
+        { path: 'E:/repo/笔记.md', title: '笔记.md' },
+      ]),
+    ).toEqual([
+      ref('E:/repo/笔记.md', '笔记.md'),
+      ref('C:/courses/软件工程/files/lec1.pdf', '软件工程/files/lec1.pdf'),
+    ]);
+  });
+
+  it('本地候选为空时课件就是全部候选；课件清单为空则不新增', () => {
+    expect(withCourseReferences([], [{ path: 'C:/a.pdf', title: '课/a.pdf' }])).toEqual([
+      ref('C:/a.pdf', '课/a.pdf'),
+    ]);
+    const local = [ref('E:/repo/笔记.md', '笔记.md')];
+    expect(withCourseReferences(local, [])).toEqual([ref('E:/repo/笔记.md', '笔记.md')]);
+  });
+});
+
+describe('referenceEntryCandidates（useEntries 三分支）', () => {
+  const entry = (id: string, path: string, remoteId?: string): WorkspaceEntry => ({
+    id,
+    parentId: null,
+    name: path.split('/').pop()!,
+    kind: 'project',
+    sourceId: null,
+    path,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+    ...(remoteId ? { remoteId } : {}),
+  });
+
+  const local = [entry('p1', 'E:/repo/Test')];
+  const course = { path: 'C:/courses/软件工程/files/lec1.pdf', title: '软件工程/files/lec1.pdf' };
+
+  it('远端会话用远端索引候选，本地镜像里没有远端文件', () => {
+    const remoteEntry = [entry('p1', '/remote/repo', 'remote-1')];
+    expect(
+      referenceEntryCandidates(
+        remoteEntry,
+        '/remote/repo',
+        'p1',
+        'remote-1',
+        [ref('/r/a.md', 'a.md')],
+        [course],
+      ),
+    ).toEqual([ref('/r/a.md', 'a.md')]);
+  });
+
+  it('本机项目会话用自己的目录候选，不并课件', () => {
+    expect(
+      referenceEntryCandidates(
+        local,
+        'E:/repo/Test',
+        'p1',
+        null,
+        [ref('/r/a.md', 'a.md')],
+        [course],
+      ),
+    ).toEqual([]);
+  });
+
+  it('通用池（projectId 为 null）并入课件候选', () => {
+    expect(referenceEntryCandidates(local, 'E:/repo', null, null, [], [course])).toEqual([
+      ref('C:/courses/软件工程/files/lec1.pdf', '软件工程/files/lec1.pdf'),
+    ]);
   });
 });

@@ -54,14 +54,16 @@ type Store = {
   /** 聚焦已有标签（无显式目标时）；显式目标组允许跨组重复打开（并排第二视图）。 */
   openTab(tabId: TabId, targetGroupId?: string): void;
   closeTab(tabId: TabId, groupId?: string): void;
-  /** 批量关闭：others = 除锚点外，right = 锚点右侧，all = 整组（含组本身）。 */
+  /** 批量关闭：others = 除锚点外，right = 锚点右侧，all = 整组（含组本身）；固定标签受保护。 */
   closeTabs(groupId: string, mode: 'others' | 'right' | 'all', anchor?: TabId): void;
+  /** 固定/取消固定：固定挪入固定区末尾，取消固定落到未固定区开头（VS Code 语义）。 */
+  togglePin(tabId: TabId, groupId: string): void;
   /** 组内排序 / 跨组移动（跨组去重：目标组已有同 id 标签时移动到新位置，不复制）。 */
   moveTab(tabId: TabId, fromGroupId: string, toGroupId: string, targetIndex?: number): void;
   /** 边缘拖放：在目标组的指定边缘分出新组并移入标签。 */
   moveTabToEdge(tabId: TabId, fromGroupId: string, targetGroupId: string, zone: EdgeZone): void;
   /** 把组包进新的二元 split（三屏经嵌套组合）；新组复制当前活动标签（VS Code 行为）。 */
-  splitGroup(groupId: string, orientation: SplitOrientation): void;
+  splitGroup(groupId: string, orientation: SplitOrientation, emptyNew?: boolean): void;
   setMaximized(groupId: string | null): void;
   setRatio(path: number[], ratio: number): void;
   focusGroup(groupId: string): void;
@@ -148,6 +150,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
         ...current,
         tabs: [...new Set(current.tabs.map(remapTab))],
         active: current.active ? remapTab(current.active) : null,
+        ...(current.pinned ? { pinned: [...new Set(current.pinned.map(remapTab))] } : {}),
       }));
     set({ root });
     schedulePersist();
@@ -231,7 +234,10 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const index = group.tabs.indexOf(tabId);
     const tabs = group.tabs.filter((tab) => tab !== tabId);
     const active = group.active === tabId ? (tabs[index] ?? tabs[index - 1] ?? null) : group.active;
-    let nextRoot = updateGroup(root, group.id, (node) => ({ ...node, tabs, active }));
+    let nextRoot = updateGroup(root, group.id, (node) => {
+      const pinned = node.pinned?.filter((tab) => tab !== tabId);
+      return { ...node, tabs, active, pinned: pinned?.length ? pinned : undefined };
+    });
     let nextFocus = focus;
     let nextMaximized = maximized;
     // 空组删除并收敛树（根组保留空态）；焦点落到相邻组。
@@ -260,15 +266,38 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     if (!group) return;
     const anchorTab = anchor ?? group.active;
     const index = anchorTab ? group.tabs.indexOf(anchorTab) : -1;
+    // 固定标签受保护（VS Code 语义）：批量关闭只清未固定区，逐个显式关闭不受限。
+    const pinned = group.pinned ?? [];
+    const notPinned = (tab: TabId) => !pinned.includes(tab);
     const victims =
       mode === 'all'
-        ? [...group.tabs]
+        ? group.tabs.filter(notPinned)
         : anchorTab && index >= 0
           ? mode === 'others'
-            ? group.tabs.filter((tab) => tab !== anchorTab)
-            : group.tabs.slice(index + 1)
+            ? group.tabs.filter((tab) => tab !== anchorTab && notPinned(tab))
+            : group.tabs.slice(index + 1).filter(notPinned)
           : [];
     for (const victim of victims) get().closeTab(victim, groupId);
+  },
+
+  togglePin: (tabId, groupId) => {
+    const { root } = get();
+    const group = findGroup(root, groupId);
+    if (!group?.tabs.includes(tabId)) return;
+    const pinned = group.pinned ?? [];
+    const nextPinned = pinned.includes(tabId)
+      ? pinned.filter((tab) => tab !== tabId)
+      : [...pinned, tabId];
+    // 区域内部相对顺序保持：固定挪入固定区末尾，取消固定落到未固定区开头。
+    const tabs = [...nextPinned, ...group.tabs.filter((tab) => !nextPinned.includes(tab))];
+    set({
+      root: updateGroup(root, groupId, (node) => ({
+        ...node,
+        tabs,
+        pinned: nextPinned.length ? nextPinned : undefined,
+      })),
+    });
+    schedulePersist();
   },
 
   moveTab: (tabId, fromGroupId, toGroupId, targetIndex) => {
@@ -279,25 +308,41 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const sameGroup = fromGroupId === toGroupId;
     const sourceTabs = source.tabs.filter((tab) => tab !== tabId);
     const destinationTabs = destination.tabs.filter((tab) => tab !== tabId);
-    const index = Math.max(
-      0,
-      Math.min(targetIndex ?? destinationTabs.length, destinationTabs.length),
-    );
+    // 固定区边界：未固定标签不得插进固定区之前；固定标签在固定区内任意换位
+    //（插入位 ≤ 其余固定标签数都仍在固定区前缀内），跨组移动保留固定态（仿 VS Code）。
+    const pinnedCount = (destination.pinned ?? []).filter((tab) => tab !== tabId).length;
+    const staysPinned = source.pinned?.includes(tabId) ?? false;
+    const upper = staysPinned ? pinnedCount : destinationTabs.length;
+    const index = Math.max(staysPinned ? 0 : pinnedCount, Math.min(targetIndex ?? upper, upper));
     destinationTabs.splice(index, 0, tabId);
-    let nextRoot = updateGroup(root, fromGroupId, (group) =>
-      sameGroup
-        ? { ...group, tabs: destinationTabs, active: group.active }
-        : {
-            ...group,
-            tabs: sourceTabs,
-            active: source.active === tabId ? (sourceTabs.at(-1) ?? null) : source.active,
-          },
-    );
+    // 目标组固定区按合并后的 tabs 顺序重建，恒为其前缀；拖入未固定副本时顺带剔除
+    // 目标组里同 id 的陈旧固定引用，否则前缀不变量会被破坏。
+    const pinnedSet = new Set(destination.pinned ?? []);
+    if (staysPinned) pinnedSet.add(tabId);
+    else pinnedSet.delete(tabId);
+    const nextPinned = destinationTabs.filter((tab) => pinnedSet.has(tab));
+    let nextRoot = updateGroup(root, fromGroupId, (group) => {
+      if (sameGroup)
+        return {
+          ...group,
+          tabs: destinationTabs,
+          active: group.active,
+          pinned: nextPinned.length ? nextPinned : undefined,
+        };
+      const pinned = group.pinned?.filter((tab) => tab !== tabId);
+      return {
+        ...group,
+        tabs: sourceTabs,
+        active: source.active === tabId ? (sourceTabs.at(-1) ?? null) : source.active,
+        pinned: pinned?.length ? pinned : undefined,
+      };
+    });
     if (!sameGroup)
       nextRoot = updateGroup(nextRoot, toGroupId, (group) => ({
         ...group,
         tabs: destinationTabs,
         active: tabId,
+        pinned: nextPinned.length ? nextPinned : undefined,
       }));
     set(collapseEmptyGroups({ root: nextRoot, focus: toGroupId, maximized: get().maximized }));
     schedulePersist();
@@ -326,15 +371,17 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     get().moveTab(tabId, fromGroupId, newGroup.id);
   },
 
-  splitGroup: (groupId, orientation) => {
+  splitGroup: (groupId, orientation, emptyNew = false) => {
     const { root } = get();
     const group = findGroup(root, groupId);
     if (!group?.active) return;
+    // 手动分屏像 VS Code 一样把当前聚焦标签带进新组；emptyNew 留空新组
+    // （标题栏「新聊天」用它给新会话腾一个干净的分屏）。
     const newGroup: GroupNode = {
       type: 'group',
       id: nextGroupId(root),
-      tabs: group.active ? [group.active] : [],
-      active: group.active,
+      tabs: emptyNew ? [] : [group.active],
+      active: emptyNew ? null : group.active,
     };
     const nextRoot = replaceGroupNode(root, groupId, () => ({
       type: 'split',

@@ -19,6 +19,10 @@ function chatWith(userTexts: string[]): WorkspaceChat {
 }
 
 describe('canSendInput（可发送判定，对照旧 use-chat.send 的 canSend）', () => {
+  it('允许只发送附件，快捷入口直发仍要求文本', () => {
+    expect(canSendInput('', false, 1)).toBe(true);
+    expect(canSendInput('', true, 1)).toBe(false);
+  });
   it('直发文本要求非空（快捷入口不携带图片）', () => {
     expect(canSendInput('  ', true)).toBe(false);
     expect(canSendInput('帮我查日程', true)).toBe(true);

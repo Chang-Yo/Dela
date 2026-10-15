@@ -1,18 +1,46 @@
 // 会话层：Pi 消息 → WorkspaceChat 投影；会话 cwd 取库里的 cwd 列（随聊是私有目录，资料页是课程目录），
 // cwd 为 NULL 的旧会话按项目目录/工作区根解析，项目目录缺失时报错而不换目录。
 import Database from 'better-sqlite3';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 
-const state = vi.hoisted(() => ({ db: null as Database.Database | null, root: '' }));
+const state = vi.hoisted(() => ({
+  db: null as Database.Database | null,
+  root: '',
+  configured: false,
+  messages: [] as AgentMessage[],
+  prompts: [] as string[],
+}));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
-vi.mock('../providers', () => ({ getActiveLlmProvider: () => null }));
+vi.mock('../providers', () => ({
+  getActiveLlmProvider: () =>
+    state.configured ? { name: 'test', model: 'm', models: [], effortLevels: [] } : null,
+}));
+vi.mock('../../documents/runtime', () => ({
+  DOCUMENT_SKILL: 'document-reading',
+  assertDocumentDependency: () => {},
+}));
+vi.mock('../pi', () => ({
+  openPiSession: async () => ({
+    subscribe: () => () => {},
+    get messages() {
+      return state.messages;
+    },
+    getSessionStats: () => ({ contextUsage: null }),
+    dispose: () => {},
+    prompt: async (text: string) => {
+      state.prompts.push(text);
+      state.messages.push({ role: 'user', content: text, timestamp: Date.now() });
+    },
+  }),
+}));
 vi.mock('../environment', () => ({
   agentEnvironment: () => ({
+    sessionOptions: async () => ({}),
     workspaceRoot: () => {
       const root = join(state.root, 'Dela', 'workspace');
       mkdirSync(root, { recursive: true });
@@ -21,9 +49,19 @@ vi.mock('../environment', () => ({
   }),
 }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
-import { newSession, openSession, projectMessages } from '../session';
+import {
+  askSession,
+  invalidateSessions,
+  newSession,
+  openSession,
+  projectMessages,
+} from '../session';
+import { readChatAttachment, stageChatMedia } from '../media';
 
 beforeEach(() => {
+  state.configured = false;
+  state.messages = [];
+  state.prompts = [];
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-'));
   state.db = new Database(':memory:');
   state.db.pragma('foreign_keys = ON');
@@ -41,8 +79,40 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  invalidateSessions();
   state.db?.close();
   rmSync(state.root, { recursive: true, force: true });
+});
+
+it('sends document-only messages as file references instead of decoding binary bytes into the prompt', async () => {
+  state.configured = true;
+  const bytes = Buffer.from([80, 75, 3, 4, 255, 0]);
+  const document = stageChatMedia('汇报.pptx.pptx', bytes);
+  const attachment = readChatAttachment(document.id);
+  if (!('path' in attachment)) throw new Error('expected document file');
+  const chat = newSession(null, 'chat');
+  const response = await askSession(chat.sessionId!, {
+    text: '',
+    attachments: [document.id],
+    context: [],
+  });
+  expect(state.prompts[0]).toContain('document-reading skill');
+  expect(state.prompts[0]).toContain(JSON.stringify(attachment.path));
+  expect(state.prompts[0]).not.toContain(bytes.toString('utf8'));
+  expect(response.messages[0]).toMatchObject({
+    role: 'user',
+    attachments: [{ name: document.name, id: document.id }],
+  });
+  expect(readFileSync(attachment.path).equals(bytes)).toBe(true);
+  expect(() => readChatAttachment(document.id)).toThrow('不存在');
+});
+
+it('continues to inline ordinary text attachment contents', async () => {
+  state.configured = true;
+  const attachment = stageChatMedia('notes.txt', Buffer.from('普通文本附件'));
+  const chat = newSession(null, 'chat');
+  await askSession(chat.sessionId!, { text: '总结', attachments: [attachment.id], context: [] });
+  expect(state.prompts[0]).toContain('<attachment name="notes.txt">\n普通文本附件\n</attachment>');
 });
 
 const assistant = (content: unknown[], extra: object = {}) =>

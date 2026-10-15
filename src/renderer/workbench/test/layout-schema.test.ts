@@ -86,6 +86,36 @@ describe('布局 schema 校验', () => {
     expect(countNodes(deep)).toBeGreaterThan(31);
     expect(parseWorkbenchLayout({ root: deep, focus: 'leaf', maximized: null })).toBeNull();
   });
+
+  it('接受 pinned 字段并在载入时归一：排序、去重、过滤失效引用', () => {
+    const parsed = parseWorkbenchLayout({
+      root: {
+        type: 'group',
+        id: 'a',
+        tabs: ['note:b', 'note:a', 'note:c'],
+        active: 'note:c',
+        pinned: ['note:a', 'note:gone', 'note:a'],
+      },
+      focus: 'a',
+      maximized: null,
+    });
+    expect(parsed?.root).toEqual({
+      type: 'group',
+      id: 'a',
+      tabs: ['note:a', 'note:b', 'note:c'],
+      active: 'note:c',
+      pinned: ['note:a'],
+    });
+  });
+
+  it('旧布局缺 pinned 字段照常载入', () => {
+    const parsed = parseWorkbenchLayout({
+      root: group('a', ['note:x'], 'note:x'),
+      focus: 'a',
+      maximized: null,
+    });
+    expect(parsed?.root).toEqual({ type: 'group', id: 'a', tabs: ['note:x'], active: 'note:x' });
+  });
 });
 
 describe('树操作', () => {

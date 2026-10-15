@@ -44,12 +44,13 @@ describe('parseChatBlocks', () => {
 });
 
 describe('chatFileKind', () => {
-  it('识别图片与文本扩展名，拒绝无扩展名与不支持类型', () => {
+  it('识别图片与文本，其余文件交给文档 skill 判断', () => {
     expect(chatFileKind('照片.JPG')).toBe('image');
     expect(chatFileKind('笔记.md')).toBe('text');
     expect(chatFileKind('脚本.ts')).toBe('text');
-    expect(chatFileKind('README')).toBeNull();
-    expect(chatFileKind('课件.pdf')).toBeNull();
-    expect(chatFileKind('压缩包.zip')).toBeNull();
+    expect(chatFileKind('README')).toBe('document');
+    expect(chatFileKind('课件.pdf')).toBe('document');
+    expect(chatFileKind('汇报.pptx.pptx')).toBe('document');
+    expect(chatFileKind('压缩包.zip')).toBe('document');
   });
 });

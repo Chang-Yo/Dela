@@ -212,7 +212,18 @@ const schema: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
 ];
 
-const SCHEMA_VERSION = 4;
+// 这张表与版本号解耦创建（见 getDatabase 里的说明），所以不在上面的 schema 数组里：
+// 条款接受记录只追加、不改写，一次接受一行。条款改版后再次接受会留下新行，
+// 因此「同意的是哪一版、什么时候同意的」可回溯。版本与时间由主进程填写。
+const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  document TEXT NOT NULL,
+  revision TEXT NOT NULL,
+  app_version TEXT NOT NULL,
+  accepted_at TEXT NOT NULL
+)`;
+
+const SCHEMA_VERSION = 5;
 
 /** v2→v3 只加列：远程项目不迁移已有数据，旧条目一律视为本地项目。
  *  旧世界库刚被整库丢弃、v1 库本就没有条目表，这两种情况下表还不存在，直接跳过。 */
@@ -233,33 +244,41 @@ export function getDatabase(): Database.Database {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     const version = db.pragma('user_version', { simple: true }) as number;
-    if (version !== SCHEMA_VERSION) {
-      const legacy = db
-        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
-        .get(LEGACY_MARKER);
-      if (legacy) {
-        // 旧世界库（特征表存在，user_version 为旧体系的任意值）：一次性备份后整库丢弃，不做迁移。
-        const backup = join(dir, 'dela-legacy-backup.db');
-        if (!existsSync(backup)) db.exec(`VACUUM INTO '${backup.replaceAll("'", "''")}'`);
-        db.pragma('foreign_keys = OFF');
-        db.transaction(() => {
-          for (const table of legacyTables) db.exec(`DROP TABLE IF EXISTS ${table}`);
-        })();
-        db.pragma('foreign_keys = ON');
-      } else if (version > SCHEMA_VERSION) {
-        throw new Error('数据库由更新版本的 Dela 创建，请先升级应用');
-      } else if (version === 1) {
-        // v1→v2：会话改由 Pi JSONL 承载，旧会话/运行/项目档案表不迁移；领域缓存与条目保留。
-        db.transaction(() => {
-          for (const table of ['runs', 'sessions', 'projects'])
-            db.exec(`DROP TABLE IF EXISTS ${table}`);
-        })();
-      }
+    // 旧世界库（特征表存在，user_version 为旧体系的任意值，包括与当前版本号相同的 4/5）必须
+    // 在版本闸门之前判定：放进闸门里，撞上当前版本号的老库既不会被拒绝也不会被重建，
+    // 只会留下一堆缺表的库，随后每次查询都报 no such table。
+    const legacy = db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
+      .get(LEGACY_MARKER);
+    if (legacy) {
+      // 旧世界库：一次性备份后整库丢弃，不做迁移。
+      const backup = join(dir, 'dela-legacy-backup.db');
+      if (!existsSync(backup)) db.exec(`VACUUM INTO '${backup.replaceAll("'", "''")}'`);
+      db.pragma('foreign_keys = OFF');
+      db.transaction(() => {
+        for (const table of legacyTables) db.exec(`DROP TABLE IF EXISTS ${table}`);
+      })();
+      db.pragma('foreign_keys = ON');
+    } else if (version > SCHEMA_VERSION) {
+      throw new Error('数据库由更新版本的 Dela 创建，请先升级应用');
+    } else if (version === 1) {
+      // v1→v2：会话改由 Pi JSONL 承载，旧会话/运行/项目档案表不迁移；领域缓存与条目保留。
+      db.transaction(() => {
+        for (const table of ['runs', 'sessions', 'projects'])
+          db.exec(`DROP TABLE IF EXISTS ${table}`);
+      })();
+    }
+    // 刚丢弃过旧世界库时版本号可能是任意值（含当前值），所以这里按「是否重建过」而不是只看版本号。
+    if (legacy || version !== SCHEMA_VERSION) {
       db.transaction(() => {
         for (const statement of schema) db.exec(statement);
         db.pragma(`user_version = ${SCHEMA_VERSION}`);
       })();
     }
+    // 建表也与版本号解耦：中途版本或手工改过的库可能已经是当前版本号却没这张表，
+    // 只认版本号会让它永久缺表，而写入失败在界面上是无感的。列修复（addColumnIfMissing）
+    // 早就出于同样原因每次打开都幂等补一次。
+    db.exec(createConsentRecords);
     // 列修复与版本号解耦：中途版本可能已经把 user_version 提到当前值却没加列（实测出现过），
     // 只认版本号会让这种库永久缺列；这里每次打开都幂等补一次，缺列才执行 ALTER。
     addColumnIfMissing(db, 'workspace_entries', 'remote_id', 'TEXT');

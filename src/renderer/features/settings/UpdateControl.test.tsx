@@ -17,7 +17,8 @@ const readyState: UpdateSnapshot = {
   currentVersion: '1.0.0',
   version: '1.0.1',
   progress: 1,
-  bytesPerSecond: null,
+  transferred: 0,
+  total: null,
   checkedAt: null,
   reason: null,
   detail: null,
@@ -146,33 +147,53 @@ it('有更新可下载时升级成主色按钮', async () => {
   expect(button('下载更新').className).toContain('bg-ink');
 });
 
-it('速度在进度条左侧，百分比在右侧，说明不重复百分比', async () => {
+it('已下载与总大小在进度条左侧，百分比在右侧', async () => {
   useUpdateState.setState({
     snapshot: {
       ...readyState,
       phase: 'downloading',
       progress: 0.42,
-      bytesPerSecond: 2 * 1024 * 1024,
+      transferred: 42 * 1024 * 1024,
+      total: 100 * 1024 * 1024,
     },
   });
   await act(async () => root.render(<UpdateControl />));
   const bar = container.querySelector('[role="progressbar"]')!;
-  expect(bar.previousElementSibling?.textContent).toBe('2.0 MB/s');
+  expect(bar.previousElementSibling?.textContent).toBe('42 MB / 100 MB');
   expect(bar.nextElementSibling?.textContent).toBe('42%');
   expect(bar.getAttribute('aria-valuenow')).toBe('42');
   expect(container.querySelector('[role="status"]')?.textContent).toBe('正在下载更新');
 });
 
-it.each([
-  [null, '计算中…'],
-  [0, '0 B/s'],
-  [2048, '2.0 KB/s'],
-] as const)('速度 %s 如实显示为 %s', async (bytesPerSecond, expected) => {
+it('总大小未知时不伪造分母，停在 0%', async () => {
   useUpdateState.setState({
-    snapshot: { ...readyState, phase: 'downloading', progress: 0, bytesPerSecond },
+    snapshot: {
+      ...readyState,
+      phase: 'downloading',
+      progress: 0,
+      transferred: 0,
+      total: null,
+    },
   });
   await act(async () => root.render(<UpdateControl />));
-  expect(container.querySelector('[role="progressbar"]')?.previousElementSibling?.textContent).toBe(
-    expected,
-  );
+  const bar = container.querySelector('[role="progressbar"]')!;
+  expect(bar.previousElementSibling?.textContent).toBe('0 B / —');
+  expect(bar.nextElementSibling?.textContent).toBe('0%');
+});
+
+it('百分比按字节计算，传输未完成时不提前进到 100%', async () => {
+  useUpdateState.setState({
+    snapshot: {
+      ...readyState,
+      phase: 'downloading',
+      progress: 0.99,
+      transferred: 103_809_024,
+      total: 104_857_600,
+    },
+  });
+  await act(async () => root.render(<UpdateControl />));
+  const bar = container.querySelector('[role="progressbar"]')!;
+  expect(bar.previousElementSibling?.textContent).toBe('99 MB / 100 MB');
+  expect(bar.nextElementSibling?.textContent).toBe('99%');
+  expect(bar.getAttribute('aria-valuenow')).toBe('99');
 });

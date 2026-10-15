@@ -23,10 +23,23 @@ export type {
 } from '../../shared/layout';
 export { maxLayoutNodes, maxTabsPerGroup, ratioMax, ratioMin } from '../../shared/layout';
 
+/** 固定区恒在未固定区之前（VS Code 语义）：载入时归一，过滤失效引用，容忍手工改动。 */
+function normalizeGroup(group: GroupNode): GroupNode {
+  const pinned = [...new Set(group.pinned ?? [])].filter((tab) => group.tabs.includes(tab));
+  return {
+    ...group,
+    tabs: [...pinned, ...group.tabs.filter((tab) => !pinned.includes(tab))],
+    pinned: pinned.length ? pinned : undefined,
+  };
+}
+
 /** 持久化数据（IPC 或其他来源）→ 布局；不合法返回 null，由调用方落到种子/默认。 */
 export function parseWorkbenchLayout(value: unknown): WorkbenchLayout | null {
   const parsed = workbenchLayoutSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) return null;
+  let root = parsed.data.root;
+  for (const group of walkGroups(root)) root = updateGroup(root, group.id, normalizeGroup);
+  return { ...parsed.data, root };
 }
 
 export function clampRatio(ratio: number): number {

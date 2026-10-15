@@ -36,7 +36,7 @@ import { documentTabId, useNavigationStore } from '../navigation/view';
 import { showToast } from '../app/toasts';
 import { MailDraftDialog } from '../app/mail-draft-dialog';
 import { ChatHome } from '../content/chat/ChatHome';
-import { referenceCandidates } from '../content/chat/reference-tokens';
+import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 
 const emptyViewState = { tabs: [], active: null, expanded: [], scroll: {} };
@@ -254,14 +254,20 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     () => ({
       // @ 引用即文件路径：只列会话 cwd 之下、且不属于其他项目目录的文件（项目会话 = 项目目录），
       // key 为绝对路径，title 为相对 cwd 的路径，与 agent 的工作目录一致。订阅 workspace 镜像。
+      // 通用池（随聊/资料页）另并入已下载课件候选：课件不在镜像里，按 cwd 过滤永远为空。
       useEntries: (projectId, cwd) => {
         const entries = useWorkspaceStore((state) => state.workspace.entries);
+        const courseFiles = useWorkspaceStore((state) => state.courseFiles);
         // 远程项目的 cwd 是远端路径，本地镜像里没有它的文件，候选改由远端索引提供。
         const remote = entries.find((item) => item.id === projectId)?.remoteId;
         const remoteEntries = useRemoteReferences(remote ? projectId : null);
+        useEffect(() => {
+          if (projectId === null && !remote) useWorkspaceStore.getState().ensureCourseFiles();
+        }, [projectId, remote]);
         return useMemo(
-          () => (remote ? remoteEntries : referenceCandidates(entries, cwd, projectId)),
-          [entries, cwd, projectId, remote, remoteEntries],
+          () =>
+            referenceEntryCandidates(entries, cwd, projectId, remote, remoteEntries, courseFiles),
+          [entries, cwd, projectId, remote, remoteEntries, courseFiles],
         );
       },
       // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
@@ -436,7 +442,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
                     onAction={openDialog}
                     onOpenDocument={(key) => void useNavigationStore.getState().openDocument(key)}
                     onOpenToSide={(key) => {
-                      // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，TabBar.splitTo 同款）。
+                      // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，手动分屏语义）。
                       const tabId = documentTabId(key);
                       const store = useWorkbenchLayout.getState();
                       store.openTab(tabId, store.focus);

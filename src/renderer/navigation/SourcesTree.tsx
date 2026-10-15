@@ -13,15 +13,9 @@ import {
 import { Explorer, type ExplorerItem } from '../components/ui/explorer';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
+import { latestTermOf } from '../../shared/canvas';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { cn } from '../lib/utils';
-
-// 学期按名称降序取第一个非"未标注学期"，作为默认展开/刷新的"最新学期"。
-export function latestTermOf(courses: { term: string }[]): string | undefined {
-  return [...new Set(courses.map((c) => c.term))]
-    .sort((a, b) => b.localeCompare(a))
-    .find((term) => term !== '未标注学期');
-}
 
 export function SourcesTree({
   expanded,

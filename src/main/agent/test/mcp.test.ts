@@ -21,7 +21,7 @@ import {
   updateMcpServer,
 } from '../mcp';
 
-const echoServer = fileURLToPath(new URL('./echo-server.mjs', import.meta.url));
+const echoServer = fileURLToPath(new URL('./echo-server.ts', import.meta.url));
 const echoConfig = { name: 'echo-srv', command: process.execPath, args: [echoServer], env: {} };
 
 /** 轮询等待断连等异步事件落地。 */

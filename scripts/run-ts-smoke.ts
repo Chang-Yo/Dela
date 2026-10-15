@@ -1,19 +1,22 @@
 // 把 scripts/<name>.ts 打成 CJS 放进 .tools/，再用 Electron 运行。
-// 用法：node scripts/run-ts-smoke.mjs workspace-smoke | remote-smoke
+// 用法：node scripts/run-ts-smoke.ts workspace-smoke | remote-smoke
 import { build } from 'vite';
 import { builtinModules, createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 
-const smokes = {
-  // office-export 经 resource-parse 动态加载原生画布；与 vite.main.config.ts 同样外置，
-  // 否则 rolldown 会把 .node 二进制当模块文本加载。
-  'workspace-smoke': { external: ['@napi-rs/canvas'], timeout: 60000 },
+/** 一项冒烟的打包与运行参数；external 声明不打进 bundle 的模块。 */
+interface SmokeConfig {
+  external: string[];
+  timeout: number;
+  minify?: boolean;
+}
+
+const smokes: Record<string, SmokeConfig> = {
+  'workspace-smoke': { external: [], timeout: 60000 },
   'remote-smoke': {
     external: [
       // 原生模块必须留在 node_modules：打进 bundle 后 node-pty 找不到自己的 prebuilds。
       'node-pty',
-      // 只用到 workspace/ipc、remotes 与 terminal；原生画布与 Pi 都是可选路径，外置避免打进产物。
-      '@napi-rs/canvas',
       '@earendil-works/pi-coding-agent',
     ],
     timeout: 180000,
@@ -22,7 +25,7 @@ const smokes = {
   },
 };
 
-const name = process.argv[2];
+const name = process.argv[2] ?? '';
 const smoke = smokes[name];
 if (!smoke) {
   console.error(`未知冒烟：${name}（可选 ${Object.keys(smokes).join(' / ')}）`);
@@ -48,7 +51,7 @@ await build({
   },
 });
 const require = createRequire(import.meta.url);
-const result = spawnSync(require('electron'), [`.tools/${name}.cjs`], {
+const result = spawnSync(require('electron') as string, [`.tools/${name}.cjs`], {
   stdio: 'inherit',
   timeout: smoke.timeout,
 });

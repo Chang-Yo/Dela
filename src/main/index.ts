@@ -1,5 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
 import { registerTodoIpc, refreshTodos } from './todo';
+import { registerBackupIpc } from './backup';
+import { registerCacheIpc } from './cache';
+import { registerConsentIpc } from './consent';
 import { join } from 'node:path';
 import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -100,6 +103,14 @@ let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
 let firstLaunch = false;
+
+// 托盘「退出」与引导条款页的「不同意并退出」共用：置位后 close 处理器不再拦成隐藏。
+function quitApp() {
+  quitting = true;
+  app.quit();
+}
+
+ipcMain.on('window:quit', quitApp);
 app.on('second-instance', () => {
   if (mainWindow && !mainWindow.isDestroyed()) showMainWindow(mainWindow);
   // 窗口尚未创建时，正常启动流程会显示它，不另建窗口。
@@ -115,72 +126,84 @@ if (smokeTest) {
 }
 
 // 注册业务 IPC；数据库在应用就绪后可用。
-app.whenReady().then(() => {
-  if (!hasSingleInstanceLock) return;
-  // Windows 系统通知按 AppUserModelID 识别应用；与 electron-builder.yml 的 appId 一致，
-  // 开发运行（未走安装器）也需要显式设置才能弹通知。
-  app.setAppUserModelId('io.dela.desktop');
-  // 标题栏内已有应用菜单；移除 Electron 默认菜单，避免额外的系统“退出”入口绕过托盘。
-  Menu.setApplicationMenu(null);
-  // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。
-  firstLaunch = !smokeTest && !existsSync(join(app.getPath('userData'), 'dela.db'));
-  getDatabase();
-  // 随包 MinGit 与搜索工具（rg/fd）前插 PATH：终端、Agent 的子进程一开始就能用 git/grep/find；
-  // 随包已有运行时时，顺手清掉旧版本自装进用户目录的 MinGit 副本。
-  prependRuntimePath();
-  cleanupLegacyMinGit();
-  registerPreviewProtocol();
-  applyTheme(savedTheme());
-  // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
-  // 之后不再于启动时改写，用户经任务管理器或本页开关的改动均以系统为准。
-  if (app.isPackaged && readSetting('open-at-login') === undefined) {
-    getDatabase()
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
-      .run('1');
-    app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
-  }
-  registerSettingsIpc();
-  registerMailIpc();
-  registerTimetableIpc();
-  registerVsjtuIpc();
-  registerCanvasIpc();
-  registerShuiyuanIpc();
-  registerAgentIpc();
-  registerWorkspaceIpc(subscribeChat, invalidateSessions);
-  registerTerminalIpc();
-  registerRemoteIpc();
-  registerSearchIpc();
-  registerNotificationsIpc();
-  registerTodoIpc();
-  registerUpdateIpc();
-  initializeNotifications();
-  // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
-  gcChatMedia();
-  if (!smokeTest) {
-    const refresh = () => {
-      void refreshNotifications().catch((error: unknown) =>
-        console.error('Notification refresh failed', error),
-      );
-    };
-    const syncMail = () => {
-      try {
-        if (getMailState().account) startMailSync();
-      } catch (error) {
-        console.error('Mail background sync failed', error);
-      }
-    };
-    const syncTodos = () => {
-      void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
-    };
-    syncTodos();
-    todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
-    refresh();
-    syncMail();
-    notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
-    mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
-    stopUpdateCheck = startBackgroundUpdateCheck();
-  }
-});
+app
+  .whenReady()
+  .then(() => {
+    if (!hasSingleInstanceLock) return;
+    // Windows 系统通知按 AppUserModelID 识别应用；与 electron-builder.yml 的 appId 一致，
+    // 开发运行（未走安装器）也需要显式设置才能弹通知。
+    app.setAppUserModelId('io.dela.desktop');
+    // 标题栏内已有应用菜单；移除 Electron 默认菜单，避免额外的系统“退出”入口绕过托盘。
+    Menu.setApplicationMenu(null);
+    // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。
+    firstLaunch = !smokeTest && !existsSync(join(app.getPath('userData'), 'dela.db'));
+    getDatabase();
+    // 随包 MinGit 与搜索工具（rg/fd）前插 PATH：终端、Agent 的子进程一开始就能用 git/grep/find；
+    // 随包已有运行时时，顺手清掉旧版本自装进用户目录的 MinGit 副本。
+    prependRuntimePath();
+    cleanupLegacyMinGit();
+    registerPreviewProtocol();
+    applyTheme(savedTheme());
+    // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
+    // 之后不再于启动时改写，用户经任务管理器或本页开关的改动均以系统为准。
+    if (app.isPackaged && readSetting('open-at-login') === undefined) {
+      getDatabase()
+        .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
+        .run('1');
+      app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
+    }
+    registerSettingsIpc();
+    registerConsentIpc();
+    registerBackupIpc();
+    registerCacheIpc();
+    registerMailIpc();
+    registerTimetableIpc();
+    registerVsjtuIpc();
+    registerCanvasIpc();
+    registerShuiyuanIpc();
+    registerAgentIpc();
+    registerWorkspaceIpc(subscribeChat, invalidateSessions);
+    registerTerminalIpc();
+    registerRemoteIpc();
+    registerSearchIpc();
+    registerNotificationsIpc();
+    registerTodoIpc();
+    registerUpdateIpc();
+    initializeNotifications();
+    // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
+    gcChatMedia();
+    if (!smokeTest) {
+      const refresh = () => {
+        void refreshNotifications().catch((error: unknown) =>
+          console.error('Notification refresh failed', error),
+        );
+      };
+      const syncMail = () => {
+        try {
+          if (getMailState().account) startMailSync();
+        } catch (error) {
+          console.error('Mail background sync failed', error);
+        }
+      };
+      const syncTodos = () => {
+        void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
+      };
+      syncTodos();
+      todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
+      refresh();
+      syncMail();
+      notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
+      mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
+      stopUpdateCheck = startBackgroundUpdateCheck();
+    }
+  })
+  .catch((error: unknown) => {
+    // 数据库拒绝降级打开（「由更新版本的 Dela 创建」）就是从这里冒出来的：
+    // 没有这个 catch 只会留下未处理的 rejection，用户看到的是「窗口一直不出现、也没提示」。
+    console.error(error);
+    dialog.showErrorBox('Dela 无法启动', error instanceof Error ? error.message : String(error));
+    app.exit(1);
+  });
 
 // 只把 http(s) 链接交给系统浏览器；无法解析的目标一律留在应用边界内。
 function openExternalUrl(url: string): void {
@@ -359,10 +382,7 @@ function createTray(window: BrowserWindow): void {
       { type: 'separator' },
       {
         label: '退出',
-        click: () => {
-          quitting = true;
-          app.quit();
-        },
+        click: quitApp,
       },
     ]),
   );

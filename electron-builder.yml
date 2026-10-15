@@ -15,8 +15,6 @@ files:
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*
-  # pdfjs 主进程渲染页图像所需的原生 canvas；覆盖主包与平台二进制包
-  - node_modules/@napi-rs/canvas*/**/*
   # 引导开场的可选视频；文件不存在时该行无副作用
   - out/renderer/assets/*.mp4
 # 自带 OpenSSH 客户端：系统没装时远程项目的回退（主进程按 resources/openssh 探测）
@@ -34,7 +32,7 @@ extraResources:
     to: dela-helper
     filter:
       - 'dela-helper-*'
-  # 随包 MinGit 运行时：scripts/prepare-runtime.mjs 在打包前下载并校验（主进程按 resources/mingit 探测），
+  # 随包 MinGit 运行时：scripts/prepare-runtime.ts 在打包前下载并校验（主进程按 resources/mingit 探测），
   # 让没装 Git for Windows 的机器开箱即用
   - from: .build/mingit
     to: mingit

@@ -18,7 +18,8 @@ const readyState: UpdateSnapshot = {
   currentVersion: '1.0.0',
   version: '1.0.1',
   progress: 1,
-  bytesPerSecond: null,
+  transferred: 0,
+  total: null,
   checkedAt: null,
   reason: null,
   detail: null,
@@ -201,4 +202,11 @@ it('推迟提醒保存失败时保留确认弹窗', async () => {
   expect(document.body.textContent).toContain('退出并安装');
   expect(useToastStore.getState().toasts[0]?.title).toBe('设置提醒失败');
   vi.restoreAllMocks();
+});
+
+it('100% 下载状态不提前弹，ready 后才显示退出安装确认', async () => {
+  await show({ ...readyState, phase: 'downloading', progress: 1 });
+  expect(document.body.textContent).not.toContain('退出并安装');
+  await show(readyState);
+  expect(document.body.textContent).toContain('退出并安装');
 });

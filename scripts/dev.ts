@@ -1,12 +1,15 @@
-import { spawn } from 'node:child_process';
-import { build, createServer } from 'vite';
-import electron from 'electron';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { build, createServer, type Rolldown, type ViteDevServer } from 'vite';
+import electronApi from 'electron';
 
-let child;
-let server;
-const watchers = [];
+// 从 node 进程 require('electron') 得到的是可执行文件路径字符串，不是 API 命名空间。
+const electron = electronApi as unknown as string;
+
+let child: ChildProcess | undefined;
+let server: ViteDevServer | undefined;
+const watchers: Rolldown.RolldownWatcher[] = [];
 let stopping = false;
-let restarting;
+let restarting: ReturnType<typeof setTimeout> | undefined;
 let initialized = false;
 
 async function stopChild() {
@@ -24,7 +27,7 @@ async function restart() {
   restarting = setTimeout(async () => {
     await stopChild();
     if (stopping) return;
-    child = spawn(
+    const current = spawn(
       electron,
       ['.', ...(process.argv.includes('--smoke-test') ? ['--smoke-test'] : [])],
       {
@@ -32,7 +35,7 @@ async function restart() {
         env: { ...process.env, DELA_DEV_URL: 'http://127.0.0.1:5173' },
       },
     );
-    const current = child;
+    child = current;
     current.once('exit', (code) => {
       if (child === current) void shutdown(code ?? 1);
     });
@@ -60,14 +63,19 @@ try {
   server = await createServer({ configFile: 'vite.renderer.config.ts', mode: 'development' });
   await server.listen();
   for (const configFile of ['vite.main.config.ts', 'vite.preload.config.ts']) {
-    const watcher = await build({ configFile, mode: 'development', build: { watch: {} } });
+    // build.watch 模式的返回值是 watcher，静态类型上是三态联合，这里断言成 watcher。
+    const watcher = (await build({
+      configFile,
+      mode: 'development',
+      build: { watch: {} },
+    })) as Rolldown.RolldownWatcher;
     watchers.push(watcher);
     await new Promise((resolve, reject) => {
-      const ready = (event) => {
+      const ready = (event: Rolldown.RolldownWatcherEvent) => {
         if (event.code === 'ERROR') reject(event.error);
         if (event.code === 'END') {
           watcher.off('event', ready);
-          resolve();
+          resolve(undefined);
         }
       };
       watcher.on('event', ready);

@@ -24,6 +24,7 @@ import {
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
 import { exportOfficePdf } from '../documents/export';
+import { openResourceFile } from '../resources';
 import {
   remoteById,
   remoteFileIndex,
@@ -183,6 +184,7 @@ export function registerWorkspaceIpc(
       event.sender.send('workspace:export-office-progress', { ...progress, ref: parsed }),
     );
   });
+  handle('open-resource-file', (ref) => openResourceFile(resourceRefSchema.parse(ref)));
   handle('import-files', async (value) => {
     const parentId = workspaceEntryIdSchema.nullable().parse(value);
     const picked = await dialog.showOpenDialog({

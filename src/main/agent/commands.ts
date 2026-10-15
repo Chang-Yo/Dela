@@ -8,6 +8,9 @@ import { timetableTools } from './domain/timetable';
 import { todoTools } from './domain/todo';
 import { workspaceTools } from './domain/workspace';
 import { readResourceTool } from './domain/read-resource';
+import { prepareDocumentResource, releaseDocumentResource } from '../resources';
+import { resourceRefSchema } from '../../shared/resources';
+import { tool } from './domain/shared';
 import type { AgentTool } from './domain/shared';
 import { assertShuiyuanEnabled, experimentEnabled } from '../settings/prefs';
 
@@ -30,7 +33,22 @@ const commandDomains = [
 ] as const;
 
 const commands: Record<string, AgentTool> = Object.assign(
-  { read_resource: readResourceTool },
+  {
+    read_resource: readResourceTool,
+    prepare_document: tool(
+      '为文档读取 skill 准备临时文件和工具路径，不解析正文、不复制进项目；需要已安装文档组件。',
+      z.object({ ref: resourceRefSchema }).strict(),
+      ({ ref }) => prepareDocumentResource(ref),
+    ),
+    release_document: tool(
+      '清理 prepare_document 生成的临时输入与输出；完成正文和图片读取后调用。',
+      z.object({ jobId: z.string() }).strict(),
+      async ({ jobId }) => {
+        await releaseDocumentResource(jobId);
+        return { released: true };
+      },
+    ),
+  },
   ...commandDomains.map((domain) => domain.commands),
 );
 

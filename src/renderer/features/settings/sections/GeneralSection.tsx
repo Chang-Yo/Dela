@@ -11,9 +11,10 @@ import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { SystemNotifications } from './SystemNotifications';
+import { CacheUsage } from './CacheUsage';
 import { UpdateControl } from '../UpdateControl';
 
-/** 设置 › 通用：应用行为（开机自启动）、导航入口显示、系统通知偏好、软件更新与试验功能（总开关 + 子项）。 */
+/** 设置 › 通用：应用行为（开机自启动）、导航入口显示、系统通知偏好、软件更新、试验功能（总开关 + 子项）与缓存占用。 */
 export function GeneralSection() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
@@ -199,6 +200,7 @@ export function GeneralSection() {
           )}
         </SettingsGroup>
       </div>
+      <CacheUsage />
     </div>
   );
 }

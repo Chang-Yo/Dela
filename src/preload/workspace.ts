@@ -26,6 +26,8 @@ export const workspace = {
   switchProjectBranch: (id: string, branch: string) =>
     invoke('workspace:switch-project-branch', id, branch) as Promise<void>,
   exportOfficePdf: (ref: ResourceRef) => invoke('workspace:export-office-pdf', ref),
+  openResourceFile: (ref: ResourceRef) =>
+    invoke('workspace:open-resource-file', ref) as Promise<void>,
   onOfficeExportProgress: (listener: (event: OfficeExportEvent) => void) =>
     on<OfficeExportEvent>('workspace:export-office-progress', listener),
   importFiles: (parentId: string | null) => invoke('workspace:import-files', parentId),
