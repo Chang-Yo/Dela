@@ -32,6 +32,21 @@ afterEach(() => {
 });
 
 describe('旧世界库重置', () => {
+  it('user_version 撞上当前版本号的旧库同样被丢弃重建', () => {
+    // 旧世界是 v5–v15 体系，版本号与当前 schema 撞车时不能只看版本号：
+    // 只看它会既重置不了旧库、也不建新表，留下一堆缺表的库。
+    const root = freshRoot();
+    plantLegacyDb(root, 5);
+    const db = getDatabase();
+    expect(
+      db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workspace_notes'").get(),
+    ).toBeUndefined();
+    expect(existsSync(join(root, 'dela-legacy-backup.db'))).toBe(true);
+    expect(
+      db.prepare("SELECT COUNT(*) AS count FROM workspace_entries WHERE name='归档'").get(),
+    ).toMatchObject({ count: 1 });
+  });
+
   it('v15 旧库被丢弃并备份，当前 schema 重建', () => {
     const root = freshRoot();
     plantLegacyDb(root, 15);
@@ -48,7 +63,7 @@ describe('旧世界库重置', () => {
     });
     backup.close();
     // 新 schema 可用：sessions 是 Pi 会话文件的索引，归档种子行存在。
-    expect(db.pragma('user_version', { simple: true })).toBe(4);
+    expect(db.pragma('user_version', { simple: true })).toBe(5);
     const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
     expect(columns.map(({ name }) => name)).toEqual(
       expect.arrayContaining(['file', 'archived', 'pinned', 'message_count']),
@@ -66,7 +81,7 @@ describe('旧世界库重置', () => {
       db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workspace_notes'").get(),
     ).toBeUndefined();
     expect(existsSync(join(root, 'dela-legacy-backup.db'))).toBe(true);
-    expect(db.pragma('user_version', { simple: true })).toBe(4);
+    expect(db.pragma('user_version', { simple: true })).toBe(5);
   });
 
   it('v3 库补 cwd 列，旧会话读回 cwd 为 NULL 且照常可用', () => {
@@ -100,7 +115,7 @@ describe('旧世界库重置', () => {
     old.pragma('user_version = 3');
     old.close();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(4);
+    expect(db.pragma('user_version', { simple: true })).toBe(5);
     const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
     expect(columns.map(({ name }) => name)).toContain('cwd');
     expect(
@@ -131,6 +146,46 @@ describe('旧世界库重置', () => {
     expect(row).toEqual({ name: '课题', remoteId: null });
   });
 
+  it('v4 库升级到 v5：补出条款接受记录表，已有数据不动', () => {
+    const root = freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.exec(
+      'CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT, data TEXT, read_at TEXT, notice_at TEXT)',
+    );
+    old.exec("INSERT INTO todo_items VALUES ('t1', 'me', '{}', NULL, NULL)");
+    old.pragma('user_version = 4');
+    old.close();
+    const db = getDatabase();
+    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM todo_items').get()).toMatchObject({
+      count: 1,
+    });
+    // 新表是空的：升级不会凭空多出一条「已同意」。
+    expect(db.prepare('SELECT COUNT(*) AS count FROM consent_records').get()).toMatchObject({
+      count: 0,
+    });
+  });
+
+  it('user_version 已是当前值却缺条款接受记录表的库，打开时补表', () => {
+    // 与上一例同一类半途库：版本号已到位、其他表都在，只缺新表。
+    // 建表若只认版本号，这种库会永久缺表，而留证失败在界面上是无感的。
+    const root = freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.exec(
+      'CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT, data TEXT, read_at TEXT, notice_at TEXT)',
+    );
+    old.pragma('user_version = 5');
+    old.close();
+    const db = getDatabase();
+    expect(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name='consent_records'",
+        )
+        .get(),
+    ).toMatchObject({ count: 1 });
+  });
+
   it('v1 库升级只重建会话表，领域缓存保留', () => {
     const root = freshRoot();
     const old = new Database(join(root, 'dela.db'));
@@ -152,14 +207,14 @@ describe('旧世界库重置', () => {
   it('全新目录直接建库，不产生备份', () => {
     freshRoot();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(4);
+    expect(db.pragma('user_version', { simple: true })).toBe(5);
     expect(existsSync(join(state.root, 'dela-legacy-backup.db'))).toBe(false);
   });
 
   it('未来版本的库（无特征表）拒绝打开', () => {
     const root = freshRoot();
     const db = new Database(join(root, 'dela.db'));
-    db.pragma('user_version = 5');
+    db.pragma('user_version = 6');
     db.close();
     expect(() => getDatabase()).toThrow('更新版本');
   });

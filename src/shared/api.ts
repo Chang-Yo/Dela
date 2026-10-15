@@ -1,9 +1,11 @@
 // 聚合出口：领域契约已拆分到同目录领域文件。
 // 本文件只 import 并 re-export，保证全仓既有 `from '../shared/api'` 等 import 不变；
 // 领域类型的变化请直接改对应领域文件，不在此处添加逻辑。
+import type { BackupApi } from './backup';
 import type { CapabilityApi } from './capabilities';
 import type { CanvasApi } from './canvas';
 import type { ChatApi } from './chat';
+import type { ConsentApi } from './consent';
 import type { LayoutApi } from './layout';
 import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
@@ -43,6 +45,9 @@ export interface DelaApi {
   readonly updatedOnLaunch: boolean;
   readonly window: WindowApi;
   readonly settings: SettingsApi;
+  /** 条款接受记录与导出本机数据只在引导的条款接受页使用（见 docs/DEVELOPMENT.md）。 */
+  readonly consent: ConsentApi;
+  readonly backup: BackupApi;
   readonly llm: LlmApi;
   readonly chat: ChatApi;
   readonly mail: MailApi;
@@ -59,6 +64,8 @@ export interface DelaApi {
 }
 
 export type { WindowState, TrayAction, WindowApi } from './window';
+export type { BackupApi, BackupResult } from './backup';
+export type { ConsentApi, ConsentDocument } from './consent';
 
 export type {
   MailAddress,

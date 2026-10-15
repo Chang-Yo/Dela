@@ -57,7 +57,7 @@ it('使用条款：小节标题、加粗、接受声明与附录表格都按版�
   expect(strong.some((text) => text.includes('不存在隶属、合作、赞助、认可或授权关系'))).toBe(true);
 
   expect(container.querySelector('blockquote')?.textContent).toContain(
-    '即表示你已阅读、理解并接受',
+    '以其他方式安装、运行本软件，同样视为你已阅读、理解并接受',
   );
   expect(container.querySelectorAll('tbody tr').length).toBe(13);
 });

@@ -381,7 +381,10 @@ export default function App() {
         />
       )}
       {launchStage === 'flow' && (
-        <OnboardingFlow onWizardDone={() => setLaunchStage('completion')} />
+        <OnboardingFlow
+          onConsentDone={() => setLaunchStage('app')}
+          onWizardDone={() => setLaunchStage('completion')}
+        />
       )}
       {/* 下载完成的确认弹窗挂在应用层：下载在后台跑完时，用户可能已经离开设置页。 */}
       {launchStage !== 'flow' && <UpdatePrompt />}
