@@ -5,6 +5,8 @@ import { invoke } from './lib';
 export const capabilityApi: CapabilityApi = {
   listSkills: () => invoke('capabilities:list-skills'),
   setSkillEnabled: (name, enabled) => invoke('capabilities:set-skill-enabled', name, enabled),
+  installSkillDependencies: (name) => invoke('capabilities:install-skill-dependencies', name),
+  cancelSkillInstallation: (name) => invoke('capabilities:cancel-skill-installation', name),
   readSkill: (name) => invoke('capabilities:read-skill', name),
   revealSkill: (name) => invoke('capabilities:reveal-skill', name),
   uploadSkillToRemote: (name, remotePath, overwrite) =>

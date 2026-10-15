@@ -1,7 +1,7 @@
 import { htmlToMarkdown } from '@mdream/js';
 import { clean } from '@mdream/js/clean';
 import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
-import { extractDocumentBytes } from '../documents/parse';
+import { extractPdfText } from '../documents/parse';
 
 // 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
 const BROWSER_UA =
@@ -80,7 +80,7 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
     contentType.toLowerCase().includes('pdf') ||
     new TextDecoder('latin1').decode(bytes.subarray(0, 5)) === '%PDF-';
   if (looksLikePdf) {
-    const parsed = await extractDocumentBytes(bytes, 'page.pdf');
+    const parsed = await extractPdfText(bytes);
     return finish(
       url,
       null,

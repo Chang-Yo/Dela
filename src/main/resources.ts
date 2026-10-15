@@ -1,6 +1,6 @@
 import { app } from 'electron';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { copyFile, mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { resourceRefSchema, type ResourceRef } from '../shared/resources';
 import { canvasFilePath } from './canvas/api';
@@ -8,6 +8,44 @@ import { readMailMessage, saveMailAttachment } from './mail/api';
 import { importWorkspaceFiles, workspaceFilePath } from './workspace/api';
 import { diskName } from './storage';
 import { workspaceEntryIdSchema } from '../shared/workspace';
+import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
+
+const documentJobs = () => join(app.getPath('temp'), 'dela-document-reading');
+const jobIdSchema = z.string().regex(/^job-[A-Za-z0-9]{6}$/);
+
+export async function prepareDocumentResource(ref: ResourceRef) {
+  assertDocumentDependency();
+  const root = documentJobs();
+  await mkdir(root, { recursive: true });
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !jobIdSchema.safeParse(entry.name).success) continue;
+    const path = join(root, entry.name);
+    if (Date.now() - (await stat(path)).mtimeMs > 24 * 60 * 60 * 1000)
+      await rm(path, { recursive: true, force: true });
+  }
+  const job = await mkdtemp(join(root, 'job-'));
+  try {
+    const input = await withResourceFile(ref, async (path) => {
+      const copy = join(job, 'input');
+      await copyFile(path, copy);
+      return copy;
+    });
+    return {
+      jobId: basename(job),
+      python: documentPython(),
+      script: join(app.getPath('home'), '.dela', 'skills', DOCUMENT_SKILL, 'scripts', 'read.py'),
+      input,
+      output: join(job, 'output'),
+    };
+  } catch (error) {
+    await rm(job, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+export async function releaseDocumentResource(jobId: unknown): Promise<void> {
+  await rm(join(documentJobs(), jobIdSchema.parse(jobId)), { recursive: true, force: true });
+}
 
 export async function withResourceFile<T>(
   source: ResourceRef,

@@ -41,7 +41,15 @@
 
 ### 2.3 skills
 
-纯文档领域知识，Pi 按 Agent Skills 规范发现。五个内置领域 skill（shuiyuan / canvas / mail / todo / curriculum）写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；设置页的禁用名单经 `skillsOverride` 过滤。扫描位置共三处：`~/.dela/skills`、`~/.agents/skills`、`<工作目录>/workspace/.agents/skills`（`<工作目录>` 即设置 › 工作区里选定的位置，缺省 `文档\Dela`）。
+领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。六个内置 skill（shuiyuan / canvas / mail / todo / curriculum / document-reading）写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；设置页的禁用名单经 `skillsOverride` 过滤。扫描位置共三处：`~/.dela/skills`、`~/.agents/skills`、`<工作目录>/workspace/.agents/skills`（`<工作目录>` 即设置 › 工作区里选定的位置，缺省 `文档\Dela`）。
+
+`document-reading` 同样写入 `~/.dela/skills`，配套脚本由应用维护。没有解析组件时设置页仍列出它，但显示关闭且不注入 Pi；开启前必须通过组件检查。「设置 › Skills」提供安装、阶段/下载进度、取消与重试，成功后启用，设置页关闭不删除组件。远端上传不支持此本机组件。
+
+当前安装直接从官方源下载 Python 3.12.10 embeddable、uv 0.11.1 与 PyPI wheels，在 `userData/components/document-reading/1` 内组装隔离环境；Python/uv ZIP 固定 SHA256，42 项 Python 依赖锁定版本与 wheel hashes，禁止源码构建和 Agent 自行安装。使用 Windows 系统 tar 解压，最后自检成功才写 ready 标记；失败/取消不启用并清理未完成目录。主安装包只带 skill/脚本/锁文件，不带 Python/uv/wheels。后续镜像与预打包组件源另行建设，onboarding 尚未接入。
+
+文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 直链文字提取继续用 PDF.js，与本地文件 skill 分开。
+
+[隔离实测报告](../experiments/document-reading/REPORT.md) 是选型时的历史记录；当前行为以上述实现为准。
 
 ### 2.4 GUI
 

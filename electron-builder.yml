@@ -15,7 +15,7 @@ files:
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*
-  # pdfjs 主进程渲染页图像所需的原生 canvas；覆盖主包与平台二进制包
+  # web_fetch 的 PDF.js Node 兼容层使用原生 canvas；覆盖主包与平台二进制包
   - node_modules/@napi-rs/canvas*/**/*
   # 引导开场的可选视频；文件不存在时该行无副作用
   - out/renderer/assets/*.mp4

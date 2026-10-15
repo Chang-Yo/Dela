@@ -66,6 +66,7 @@
     "diff": "9.0.0",
     "docx-preview": "0.4.1",
     "electron-updater": "6.8.10",
+    "file-type": "22.2.0",
     "framer-motion": "13.2.0",
     "gemoji": "8.1.0",
     "glimm": "0.3.1",

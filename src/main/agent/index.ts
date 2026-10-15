@@ -36,6 +36,11 @@ import {
   gcChatMedia,
 } from './media';
 import { listSkills, readSkill, revealSkill, setSkillEnabled, skillDirectory } from './skills';
+import {
+  DOCUMENT_SKILL,
+  cancelDocumentInstallation,
+  installDocumentDependency,
+} from '../documents/runtime';
 import { remoteById, targetOf } from '../remotes/api';
 import { uploadSkillToRemote } from '../remotes/context';
 import { remoteProjectOf } from '../workspace/api';
@@ -172,6 +177,17 @@ export function registerAgentIpc() {
 
   const name = z.string().trim().min(1).max(100);
   handle('capabilities:list-skills', () => listSkills());
+  handle('capabilities:install-skill-dependencies', (skill) => {
+    z.literal(DOCUMENT_SKILL).parse(skill);
+    return invalidating(async () => {
+      await installDocumentDependency();
+      return setSkillEnabled(DOCUMENT_SKILL, true);
+    });
+  });
+  handle('capabilities:cancel-skill-installation', (skill) => {
+    z.literal(DOCUMENT_SKILL).parse(skill);
+    cancelDocumentInstallation();
+  });
   handle('capabilities:set-skill-enabled', (skill, enabled) =>
     invalidating(() => setSkillEnabled(name.parse(skill), z.boolean().parse(enabled))),
   );
@@ -182,6 +198,7 @@ export function registerAgentIpc() {
       const skillName = name
         .refine((value) => !/[/\\]/.test(value) && value !== '.' && value !== '..')
         .parse(skill);
+      if (skillName === DOCUMENT_SKILL) throw new Error('文档读取组件仅在本机使用');
       const project = remoteProjectOf(z.string().trim().min(1).max(4096).parse(remotePath));
       if (!project) throw new Error('目标不是远端项目路径');
       return uploadSkillToRemote({

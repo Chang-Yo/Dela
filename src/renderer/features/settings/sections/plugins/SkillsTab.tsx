@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Cloud, CloudUpload, FileText, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
 import type { SkillScope, SkillView, WorkspaceEntry } from '../../../../../shared/api';
@@ -29,6 +29,8 @@ export function SkillsTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [skills, setSkills] = useState<SkillView[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const cancelRequested = useRef(false);
   const [error, setError] = useState<string | null>(null);
   // 范围过滤（参照 ZCode 的 Skills 面板）：全部 / 全局 / 项目。
   const [scope, setScope] = useState<'all' | SkillScope>('all');
@@ -47,6 +49,39 @@ export function SkillsTab() {
   useEffect(() => {
     refresh();
   }, []);
+
+  const dependencyInstalling =
+    installing || skills?.some((skill) => skill.dependency?.status === 'installing');
+  useEffect(() => {
+    if (!dependencyInstalling) return;
+    const timer = window.setInterval(refresh, 1000);
+    return () => window.clearInterval(timer);
+  }, [dependencyInstalling]);
+
+  const install = async (skill: SkillView) => {
+    if (!window.dela || installing) return;
+    cancelRequested.current = false;
+    setInstalling(true);
+    try {
+      setSkills(await window.dela.capability.installSkillDependencies(skill.name));
+    } catch (cause) {
+      refresh();
+      if (!cancelRequested.current)
+        showToast({ variant: 'error', title: '组件安装未完成', description: errorText(cause) });
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const cancelInstallation = async (name: string) => {
+    cancelRequested.current = true;
+    try {
+      await window.dela?.capability.cancelSkillInstallation(name);
+    } catch (cause) {
+      cancelRequested.current = false;
+      showToast({ variant: 'error', title: '取消失败', description: errorText(cause) });
+    }
+  };
 
   // 即时保存 + 失败回滚（与通知/工作区页签一致）。
   const toggle = async (skill: SkillView, next: boolean) => {
@@ -162,13 +197,30 @@ export function SkillsTab() {
                       {skill.name.charAt(0)}
                     </span>
                     <div className="grid min-w-0 gap-0.5">
-                      <strong className="truncate text-13">{skill.name}</strong>
+                      <strong className="truncate text-13">
+                        {skill.name === 'document-reading' ? '文档读取' : skill.name}
+                      </strong>
                       <span className="truncate text-xs text-ink-3" title={skill.description}>
                         {skill.description || '（无描述）'}
                       </span>
                       <span className="truncate font-mono text-xs text-ink-3" title={skill.path}>
                         {skill.path}
                       </span>
+                      {skill.dependency && skill.dependency.status !== 'ready' && (
+                        <span className="text-xs text-ink-3" role="status">
+                          {skill.dependency.status === 'error'
+                            ? skill.dependency.error
+                            : (skill.dependency.phase ?? '需要安装文档解析组件')}
+                        </span>
+                      )}
+                      {skill.dependency?.status === 'installing' && skill.dependency.total && (
+                        <progress
+                          className="h-1 w-full accent-ink"
+                          aria-label="文档组件下载进度"
+                          value={skill.dependency.received ?? 0}
+                          max={skill.dependency.total}
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -192,19 +244,36 @@ export function SkillsTab() {
                     </Button>
                     <Button
                       aria-label={`上传 ${skill.name} 到远端项目`}
+                      disabled={!!skill.dependency}
                       onClick={() => setUploading(skill)}
                       size="icon-sm"
-                      title="上传到远端项目"
+                      title={skill.dependency ? '此组件仅在本机使用' : '上传到远端项目'}
                       variant="ghost"
                     >
                       <CloudUpload />
                     </Button>
-                    <Switch
-                      checked={skill.enabled}
-                      disabled={busy}
-                      label={`启用 ${skill.name}`}
-                      onChange={(next) => void toggle(skill, next)}
-                    />
+                    {skill.dependency && skill.dependency.status !== 'ready' ? (
+                      skill.dependency.status === 'installing' || installing ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void cancelInstallation(skill.name)}
+                        >
+                          取消安装
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => void install(skill)}>
+                          {skill.dependency.status === 'error' ? '重试安装' : '安装并启用'}
+                        </Button>
+                      )
+                    ) : (
+                      <Switch
+                        checked={skill.enabled}
+                        disabled={busy}
+                        label={`启用 ${skill.name}`}
+                        onChange={(next) => void toggle(skill, next)}
+                      />
+                    )}
                   </div>
                 </li>
               ))}

@@ -4,6 +4,14 @@
 /** Skill 来源范围：global 来自用户主目录（.dela/.agents/.zcode），project 来自当前工作区。 */
 export type SkillScope = 'global' | 'project';
 
+export interface SkillDependency {
+  status: 'missing' | 'installing' | 'ready' | 'error';
+  phase?: string;
+  received?: number;
+  total?: number;
+  error?: string;
+}
+
 /** 已发现的 Skill（agentskills.io 规范的 SKILL.md 目录；同名时项目覆盖全局）。 */
 export interface SkillView {
   /** 目录名，同时是 ReadSkills 工具的 skill 参数。 */
@@ -15,6 +23,7 @@ export interface SkillView {
   path: string;
   /** 来源范围：全局或当前工作区。 */
   scope: SkillScope;
+  dependency?: SkillDependency;
 }
 
 export type McpConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -80,6 +89,8 @@ export interface CapabilityApi {
   listSkills(): Promise<SkillView[]>;
   /** 启停 Skill；返回最新列表（未知名抛错）。 */
   setSkillEnabled(name: string, enabled: boolean): Promise<SkillView[]>;
+  installSkillDependencies(name: string): Promise<SkillView[]>;
+  cancelSkillInstallation(name: string): Promise<void>;
   /** 读取 SKILL.md 全文（按名单独解析，渲染端不传路径）。 */
   readSkill(name: string): Promise<string>;
   /** 在系统文件管理器中显示 SKILL.md 所在位置。 */

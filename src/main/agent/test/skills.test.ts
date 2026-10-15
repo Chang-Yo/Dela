@@ -14,7 +14,12 @@ vi.mock('../../storage', () => ({ storageDirectory: () => home }));
 vi.mock('../../settings/prefs', () => ({
   experimentEnabled: (key: string) => key !== 'shuiyuan' || flags.shuiyuan,
 }));
-import { effectiveDisabledSkills, listSkills, readDisabledSkills } from '../skills';
+import {
+  effectiveDisabledSkills,
+  listSkills,
+  readDisabledSkills,
+  setSkillEnabled,
+} from '../skills';
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');
@@ -30,4 +35,14 @@ it('lists the shuiyuan skill only while the feature is enabled', () => {
   expect(listSkills().some((skill) => skill.name === 'shuiyuan')).toBe(false);
   expect(effectiveDisabledSkills().has('shuiyuan')).toBe(true);
   expect(readDisabledSkills().has('shuiyuan')).toBe(false);
+});
+
+it('writes the document skill but excludes it until its dependencies are installed', async () => {
+  expect(listSkills().find((skill) => skill.name === 'document-reading')).toMatchObject({
+    enabled: false,
+    dependency: { status: 'missing' },
+  });
+  expect(effectiveDisabledSkills().has('document-reading')).toBe(true);
+  await expect(setSkillEnabled('document-reading', true)).rejects.toThrow('安装文档读取组件');
+  expect(listSkills().find((skill) => skill.name === 'document-reading')?.enabled).toBe(false);
 });

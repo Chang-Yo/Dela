@@ -82,8 +82,9 @@ it('隐私条款：小节标题、加粗与两张表格都按版式渲染', asyn
   const strong = expectBoldAllRendered(privacy);
   expect(strong.some((text) => text.includes('没有远程数据库'))).toBe(true);
 
-  // 凭据文件表 5 行 + 联网位置表 13 行，两张表都和正文用同一组表格类名。
+  // 凭据文件表 5 行 + 联网位置表 14 行（含按需下载文档组件）。
   const tables = [...container.querySelectorAll('table')];
-  expect(tables.map((table) => table.querySelectorAll('tbody tr').length)).toEqual([5, 13]);
+  expect(tables.map((table) => table.querySelectorAll('tbody tr').length)).toEqual([5, 14]);
+  expect(tables[1]?.textContent).toContain('文档解析组件');
   expect(tables[0]?.querySelector('th')?.textContent).toBe('凭据文件');
 });
