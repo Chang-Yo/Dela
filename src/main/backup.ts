@@ -4,25 +4,10 @@ import { existsSync } from 'node:fs';
 import { basename, isAbsolute, join, relative } from 'node:path';
 import type { BackupResult } from '../shared/backup';
 import { builtinSkillsDirectory } from './agent/skills';
+import { cacheDirectoryNames } from './cache';
 import { getDatabase } from './database';
 import { checkWorkspaceSender } from './ipc';
 import { availablePath, storageDirectory } from './storage';
-
-// Chromium 的可再生缓存：本机实测占 userData 的 97%（Cache、Code Cache 以及各分区里的同名目录）。
-// 按名字在每一层跳过，分区里真正属于用户的数据（Local Storage、IndexedDB、Preferences）保留。
-const cacheNames = new Set([
-  'Cache',
-  'Code Cache',
-  'GPUCache',
-  'DawnGraphiteCache',
-  'DawnWebGPUCache',
-  'ShaderCache',
-  'GrShaderCache',
-  'CacheStorage',
-  'ScriptCache',
-  'Crashpad',
-  'logs',
-]);
 
 // 数据库走 VACUUM INTO 取一致快照；-wal/-shm 属于当前连接，跟着复制只会得到不自洽的副本。
 const databaseFiles = new Set(['dela.db', 'dela.db-wal', 'dela.db-shm', 'dela.db-journal']);
@@ -47,9 +32,9 @@ async function skipLinks(source: string) {
   return !(await lstat(source)).isSymbolicLink();
 }
 
-/** 应用数据额外按名字跳过 Chromium 缓存；工作目录里叫 Cache 的目录可能是用户自己的东西。 */
+/** 应用数据额外按名字跳过 Chromium 缓存（名单与设置里的「缓存占用」共用，见 `cache.ts`）；工作目录里叫 Cache 的目录可能是用户自己的东西。 */
 async function skipCacheAndLinks(source: string) {
-  if (cacheNames.has(basename(source))) return false;
+  if (cacheDirectoryNames.has(basename(source))) return false;
   return skipLinks(source);
 }
 

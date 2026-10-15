@@ -16,11 +16,17 @@ vi.mock('electron', () => ({
   ipcRenderer: { invoke: state.invoke },
   dialog: {},
   BrowserWindow: { fromWebContents: () => null },
+  session: {
+    defaultSession: { clearCache: vi.fn(), clearCodeCaches: vi.fn(), clearStorageData: vi.fn() },
+    fromPartition: () => ({}),
+  },
 }));
 
 import { registerBackupIpc } from '../backup';
+import { registerCacheIpc } from '../cache';
 import { registerConsentIpc } from '../consent';
 import { backup } from '../../preload/backup';
+import { cache } from '../../preload/cache';
 import { consent } from '../../preload/consent';
 
 beforeEach(() => {
@@ -49,4 +55,15 @@ it('导出通道只认应用主框架，别的来源一律拒绝', () => {
   expect(() => handler({ senderFrame: frame, sender: { mainFrame: frame } })).toThrow(
     '不允许的调用来源',
   );
+});
+
+it('缓存占用与清理：主进程注册的通道名与界面发出的完全一致', async () => {
+  registerCacheIpc();
+  expect([...state.handles.keys()]).toEqual(['cache:get-size', 'cache:clear']);
+
+  await cache.getSize();
+  expect(state.invoke).toHaveBeenLastCalledWith('cache:get-size');
+
+  await cache.clear();
+  expect(state.invoke).toHaveBeenLastCalledWith('cache:clear');
 });

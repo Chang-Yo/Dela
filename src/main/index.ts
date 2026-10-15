@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
 import { registerTodoIpc, refreshTodos } from './todo';
 import { registerBackupIpc } from './backup';
+import { registerCacheIpc } from './cache';
 import { registerConsentIpc } from './consent';
 import { join } from 'node:path';
 import { existsSync, mkdtempSync } from 'node:fs';
@@ -154,6 +155,7 @@ app
     registerSettingsIpc();
     registerConsentIpc();
     registerBackupIpc();
+    registerCacheIpc();
     registerMailIpc();
     registerTimetableIpc();
     registerVsjtuIpc();

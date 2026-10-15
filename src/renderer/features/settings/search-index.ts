@@ -76,6 +76,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '软件更新',
     keywords: ['通用', '更新', '升级', '版本', '检查更新', 'update', 'upgrade'],
   },
+  {
+    id: 'cache-usage',
+    section: 'general',
+    title: '缓存占用',
+    keywords: ['通用', '缓存', '清理', '清除', '空间', '占用', '磁盘', 'cache'],
+  },
   // 外观
   {
     id: 'theme',
