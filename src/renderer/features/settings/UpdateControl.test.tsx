@@ -159,24 +159,41 @@ it('已下载与总大小在进度条左侧，百分比在右侧', async () => {
   });
   await act(async () => root.render(<UpdateControl />));
   const bar = container.querySelector('[role="progressbar"]')!;
-  expect(bar.previousElementSibling?.textContent).toBe('42.0 M / 100.0 M');
+  expect(bar.previousElementSibling?.textContent).toBe('42 MB / 100 MB');
   expect(bar.nextElementSibling?.textContent).toBe('42%');
   expect(bar.getAttribute('aria-valuenow')).toBe('42');
   expect(container.querySelector('[role="status"]')?.textContent).toBe('正在下载更新');
 });
 
-it('总大小未知时不伪造分母，不到 100% 时不提前四舍五入', async () => {
+it('总大小未知时不伪造分母，停在 0%', async () => {
   useUpdateState.setState({
     snapshot: {
       ...readyState,
       phase: 'downloading',
-      progress: 0.9999,
+      progress: 0,
       transferred: 0,
       total: null,
     },
   });
   await act(async () => root.render(<UpdateControl />));
   const bar = container.querySelector('[role="progressbar"]')!;
-  expect(bar.previousElementSibling?.textContent).toBe('0.0 M / —');
+  expect(bar.previousElementSibling?.textContent).toBe('0 B / —');
+  expect(bar.nextElementSibling?.textContent).toBe('0%');
+});
+
+it('百分比按字节计算，传输未完成时不提前进到 100%', async () => {
+  useUpdateState.setState({
+    snapshot: {
+      ...readyState,
+      phase: 'downloading',
+      progress: 0.99,
+      transferred: 103_809_024,
+      total: 104_857_600,
+    },
+  });
+  await act(async () => root.render(<UpdateControl />));
+  const bar = container.querySelector('[role="progressbar"]')!;
+  expect(bar.previousElementSibling?.textContent).toBe('99 MB / 100 MB');
   expect(bar.nextElementSibling?.textContent).toBe('99%');
+  expect(bar.getAttribute('aria-valuenow')).toBe('99');
 });

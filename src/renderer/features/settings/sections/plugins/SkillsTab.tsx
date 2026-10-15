@@ -4,6 +4,7 @@ import { Cloud, CloudUpload, FileText, FolderOpen, LoaderCircle, RefreshCw } fro
 import type { SkillScope, SkillView, WorkspaceEntry } from '../../../../../shared/api';
 import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
 import { Button } from '../../../../components/ui/button';
+import { DownloadProgressRow } from '../../../../components/download-progress';
 import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { errorText, useWorkspaceStore } from '../../../../workspace/store';
 import { showToast } from '../../../../app/toasts';
@@ -197,30 +198,36 @@ export function SkillsTab() {
                       {skill.name.charAt(0)}
                     </span>
                     <div className="grid min-w-0 gap-0.5">
-                      <strong className="truncate text-13">
-                        {skill.name === 'document-reading' ? '文档读取' : skill.name}
-                      </strong>
+                      <strong className="truncate text-13">{skill.name}</strong>
                       <span className="truncate text-xs text-ink-3" title={skill.description}>
                         {skill.description || '（无描述）'}
                       </span>
                       <span className="truncate font-mono text-xs text-ink-3" title={skill.path}>
                         {skill.path}
                       </span>
-                      {skill.dependency && skill.dependency.status !== 'ready' && (
-                        <span className="text-xs text-ink-3" role="status">
-                          {skill.dependency.status === 'error'
-                            ? skill.dependency.error
-                            : (skill.dependency.phase ?? '需要安装文档解析组件')}
-                        </span>
-                      )}
-                      {skill.dependency?.status === 'installing' && skill.dependency.total && (
-                        <progress
-                          className="h-1 w-full accent-ink"
-                          aria-label="文档组件下载进度"
-                          value={skill.dependency.received ?? 0}
-                          max={skill.dependency.total}
+                      {skill.dependency &&
+                        skill.dependency.status !== 'ready' &&
+                        (skill.dependency.status === 'error' ? (
+                          <span
+                            className="truncate text-xs text-red"
+                            role="status"
+                            title={skill.dependency.error}
+                          >
+                            {skill.dependency.error ?? '组件安装失败'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-ink-3" role="status">
+                            {skill.dependency.phase ?? '需要安装文档解析组件'}
+                          </span>
+                        ))}
+                      {skill.dependency?.status === 'installing' && skill.dependency.total ? (
+                        <DownloadProgressRow
+                          barClassName="w-16 md:w-40"
+                          label={`${skill.name} 组件下载进度`}
+                          received={skill.dependency.received ?? 0}
+                          total={skill.dependency.total}
                         />
-                      )}
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">

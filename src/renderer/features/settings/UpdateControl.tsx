@@ -1,12 +1,9 @@
 import { ExternalLink } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { DownloadProgressRow } from '../../components/download-progress';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { useUpdateState, runUpdateAction, updateView } from './update';
-
-function downloadSize(bytes: number): string {
-  return `${(bytes / (1024 * 1024)).toFixed(1)} M`;
-}
 
 /**
  * 通用 › 软件更新。
@@ -37,28 +34,12 @@ export function UpdateControl() {
         title="软件更新"
       >
         {view.progress !== null ? (
-          <div className="flex items-center gap-2 text-xs tabular-nums text-ink-3">
-            <span className="min-w-32 shrink-0 whitespace-nowrap">
-              {downloadSize(state.transferred)} /{' '}
-              {state.total === null ? '—' : downloadSize(state.total)}
-            </span>
-            <div
-              aria-label="更新下载进度"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.floor(view.progress * 100)}
-              className="h-1 w-16 overflow-hidden rounded-full bg-line md:w-40"
-              role="progressbar"
-            >
-              <div
-                className="h-full rounded-full bg-ink-2 transition-[width] duration-300 ease-out"
-                style={{ width: `${Math.floor(view.progress * 100)}%` }}
-              />
-            </div>
-            <span aria-hidden="true" className="w-10 shrink-0 text-right">
-              {Math.floor(view.progress * 100)}%
-            </span>
-          </div>
+          <DownloadProgressRow
+            barClassName="w-16 md:w-40"
+            label="更新下载进度"
+            received={state.transferred}
+            total={state.total}
+          />
         ) : null}
         {action && view.label ? (
           <Button
