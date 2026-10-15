@@ -415,6 +415,101 @@ describe('持久化', () => {
   });
 });
 
+describe('togglePin / 固定区', () => {
+  beforeEach(() => installLayoutApi(() => null));
+
+  it('固定挪入固定区末尾，取消固定落到未固定区开头', () => {
+    for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
+
+    state().togglePin('note:b', 'primary');
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b', 'note:a', 'note:c']);
+    expect(findGroup(state().root, 'primary')?.pinned).toEqual(['note:b']);
+
+    state().togglePin('note:c', 'primary');
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b', 'note:c', 'note:a']);
+
+    state().togglePin('note:b', 'primary');
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:c', 'note:b', 'note:a']);
+    expect(findGroup(state().root, 'primary')?.pinned).toEqual(['note:c']);
+  });
+
+  it('批量关闭跳过固定标签，固定标签只能显式逐个关闭', () => {
+    for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
+    state().togglePin('note:a', 'primary');
+
+    // 关闭右侧不受固定区保护语义影响：锚点右侧全是未固定标签时照常关闭。
+    state().closeTabs('primary', 'right', 'note:a');
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a']);
+
+    state().openTab('note:b');
+    state().togglePin('note:b', 'primary');
+    state().openTab('note:c');
+    state().closeTabs('primary', 'others', 'note:c');
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b', 'note:c']);
+    state().closeTabs('primary', 'all');
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b']);
+  });
+
+  it('拖拽排序钳制在各自区域内：未固定进不了固定区，双固定可换位', () => {
+    for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
+    state().togglePin('note:a', 'primary');
+    state().togglePin('note:b', 'primary');
+
+    // 未固定 c 想插到最前：被钳到固定区之后，位置不变。
+    state().moveTab('note:c', 'primary', 'primary', 0);
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b', 'note:c']);
+
+    // 固定 a 拖到 b 的右半段（targetIndex=2 → 钳到固定区末尾）：可换位，不会越出固定区。
+    state().moveTab('note:a', 'primary', 'primary', 2);
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b', 'note:a', 'note:c']);
+
+    state().moveTab('note:a', 'primary', 'primary', 0);
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b', 'note:c']);
+  });
+
+  it('跨组移动保留固定状态（仿 VS Code），源组固定记录同步清理', () => {
+    state().openTab('note:a');
+    state().openTab('note:b');
+    state().togglePin('note:a', 'primary');
+    state().splitGroup('primary', 'vertical', true);
+    const side = groups()[1]!;
+    state().moveTab('note:a', 'primary', side.id);
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b']);
+    expect(findGroup(state().root, 'primary')?.pinned).toBeUndefined();
+    expect(findGroup(state().root, side.id)?.tabs).toEqual(['note:a']);
+    expect(findGroup(state().root, side.id)?.pinned).toEqual(['note:a']);
+  });
+
+  it('跨组拖入未固定副本时，目标组同 id 的陈旧固定引用被剔除', () => {
+    state().openTab('note:b');
+    state().openTab('note:a');
+    state().togglePin('note:b', 'primary');
+    state().splitGroup('primary', 'vertical', true);
+    const side = groups()[1]!;
+    state().openTab('note:a', side.id);
+    state().togglePin('note:a', side.id);
+    state().openTab('note:c', side.id);
+    expect(findGroup(state().root, side.id)?.tabs).toEqual(['note:a', 'note:c']);
+    // primary 里未固定的 a 拖到 side 尾部：合并后的 a 不能保持固定，否则
+    // pinned 不再是 tabs 的前缀。
+    state().moveTab('note:a', 'primary', side.id, 2);
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b']);
+    expect(findGroup(state().root, 'primary')?.pinned).toEqual(['note:b']);
+    expect(findGroup(state().root, side.id)?.tabs).toEqual(['note:c', 'note:a']);
+    expect(findGroup(state().root, side.id)?.pinned).toBeUndefined();
+  });
+
+  it('closeTab 同步清理固定记录，清空后字段收敛为缺省', () => {
+    for (const tab of ['note:a', 'note:b'] as const) state().openTab(tab);
+    state().togglePin('note:b', 'primary');
+
+    state().closeTab('note:b', 'primary');
+
+    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a']);
+    expect(findGroup(state().root, 'primary')?.pinned).toBeUndefined();
+  });
+});
+
 function groupOf(id: string) {
   return { type: 'group', id, tabs: [], active: null };
 }

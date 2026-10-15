@@ -30,7 +30,7 @@ export const TabBar = memo(function TabBar({
   const closeTab = useWorkbenchLayout((s) => s.closeTab);
   const closeTabs = useWorkbenchLayout((s) => s.closeTabs);
   const moveTab = useWorkbenchLayout((s) => s.moveTab);
-  const splitGroup = useWorkbenchLayout((s) => s.splitGroup);
+  const togglePin = useWorkbenchLayout((s) => s.togglePin);
   // 标签多到溢出时接住纵向滚轮横滚（VS Code 行为），同一 ref 也用于激活标签滚入可见区。
   const listRef = useHorizontalWheel<HTMLDivElement>();
   // roving tabindex 的焦点登记：方向键把焦点移到目标标签（选中态跟随，自动激活模式）。
@@ -108,11 +108,6 @@ export const TabBar = memo(function TabBar({
     moveTab(payload.tabId, payload.fromGroup, group.id, index);
   };
 
-  const splitTo = (tab: TabId, orientation: 'vertical' | 'horizontal') => {
-    openTab(tab, group.id);
-    splitGroup(group.id, orientation);
-  };
-
   const activeTab = group.active;
   if (!group.tabs.length) return null;
 
@@ -130,6 +125,7 @@ export const TabBar = memo(function TabBar({
       >
         {group.tabs.map((tab) => {
           const active = group.active === tab;
+          const isPinned = group.pinned?.includes(tab) ?? false;
           const Icon = iconOf(tab);
           const title = titleOf(tab);
           return (
@@ -168,49 +164,53 @@ export const TabBar = memo(function TabBar({
                   }}
                   onDragEnd={() => setCurrentTabDrag(null)}
                   onAuxClick={(event) => {
-                    if (event.button === 1) {
-                      event.preventDefault();
-                      closeTab(tab, group.id);
-                    }
+                    if (event.button !== 1) return;
+                    // 固定标签防误触：中键不关闭（本地取向），关闭走右键菜单；但始终拦下中键自动滚动。
+                    event.preventDefault();
+                    if (!isPinned) closeTab(tab, group.id);
                   }}
                 >
                   <Icon className="size-3.5 shrink-0 opacity-70" />
                   <span
                     className={cn(
                       'min-w-0 flex-1 truncate px-0.5 text-left text-xs',
+                      isPinned && 'italic',
                       unfocused && 'opacity-55',
                     )}
                     title={title}
                   >
                     {title}
                   </span>
-                  <button
-                    aria-hidden
-                    className="relative grid size-5 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink after:absolute after:-inset-1 after:content-['']"
-                    tabIndex={-1}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      closeTab(tab, group.id);
-                    }}
-                  >
-                    <X className="size-3" />
-                  </button>
+                  {!isPinned && (
+                    <button
+                      aria-hidden
+                      className="relative grid size-5 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink after:absolute after:-inset-1 after:content-['']"
+                      tabIndex={-1}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeTab(tab, group.id);
+                      }}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
                 </div>
               </ContextMenuTrigger>
               <ContextMenuContent>
-                <ContextMenuItem onSelect={() => splitTo(tab, 'vertical')}>
-                  向右分屏
-                </ContextMenuItem>
-                <ContextMenuItem onSelect={() => splitTo(tab, 'horizontal')}>
-                  向下分屏
+                <ContextMenuItem onSelect={() => togglePin(tab, group.id)}>
+                  {isPinned ? '取消固定' : '固定'}
                 </ContextMenuItem>
                 <ContextMenuItem onSelect={() => closeTab(tab, group.id)}>关闭</ContextMenuItem>
                 <ContextMenuItem onSelect={() => closeTabs(group.id, 'others', tab)}>
                   关闭其他
                 </ContextMenuItem>
-                {/* 右侧没有标签时无对象可关，禁用与 closeTabs 的空切片边界一致。 */}
+                {/* 锚点右侧没有未固定标签时无对象可关（固定区受保护），与 closeTabs 的空切片一致。 */}
                 <ContextMenuItem
-                  disabled={group.tabs.indexOf(tab) === group.tabs.length - 1}
+                  disabled={
+                    !group.tabs
+                      .slice(group.tabs.indexOf(tab) + 1)
+                      .some((right) => !(group.pinned ?? []).includes(right))
+                  }
                   onSelect={() => closeTabs(group.id, 'right', tab)}
                 >
                   关闭右侧

@@ -63,14 +63,22 @@ it('通用池工作台里新建对话就地开标签，不跳首页', async () =
   expect(useNavigationStore.getState().generalChat).toBeNull();
 });
 
-it('工作台只有一组时新建对话向右分屏', async () => {
+it('工作台只有一组时新建对话向右分屏，新组只放新对话', async () => {
   useNavigationStore.setState({ view: 'workbench', projectId: null });
   useWorkbenchLayout.getState().openTab('note:a');
 
   await useNavigationStore.getState().newChat(null);
 
+  // 分屏只负责腾出空组；标签由 WorkbenchShell 的 reveal effect 落进去，这里模拟同一步。
+  const reveal = useNavigationStore.getState().reveal;
+  expect(reveal?.tabId).toBe('chat:new');
+  useWorkbenchLayout.getState().openTab(reveal!.tabId);
+  useNavigationStore.getState().consumeReveal();
+
   expect(groups()).toHaveLength(2);
   expect(useWorkbenchLayout.getState().focus).toBe(groups()[1]!.id);
+  expect(groups()[1]!.tabs).toEqual(['chat:new']);
+  expect(groups()[0]!.tabs).toEqual(['note:a']);
 });
 
 it('工作台已有多组时新建对话进最右组，不再分屏', async () => {

@@ -436,7 +436,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
                     onAction={openDialog}
                     onOpenDocument={(key) => void useNavigationStore.getState().openDocument(key)}
                     onOpenToSide={(key) => {
-                      // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，TabBar.splitTo 同款）。
+                      // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，手动分屏语义）。
                       const tabId = documentTabId(key);
                       const store = useWorkbenchLayout.getState();
                       store.openTab(tabId, store.focus);
