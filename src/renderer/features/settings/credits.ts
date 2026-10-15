@@ -2,8 +2,10 @@ import alipayQr from '../../../../assets/credits/changyo/alipay.png';
 import authorAvatar from '../../../../assets/credits/changyo/avatar.jpg';
 import wechatQr from '../../../../assets/credits/changyo/wechat.png';
 import icebeerAvatar from '../../../../assets/credits/icebeer/avatar.jpg';
+import frameneoLogoBlack from '../../../../assets/sponsors/FRAMENEO_logo_black.png';
+import frameneoLogoWhite from '../../../../assets/sponsors/FRAMENEO_logo_white.png';
 
-export type SocialLinkKind = 'github' | 'blog' | 'zhihu';
+export type SocialLinkKind = 'github' | 'blog' | 'zhihu' | 'website';
 
 export interface SocialLink {
   kind: SocialLinkKind;
@@ -21,7 +23,9 @@ export interface SponsorChannel {
 
 export interface CreditPerson {
   name: string;
-  avatar: string;
+  avatar?: string;
+  /** 品牌赞助商没有头像，改用明暗两版 logo，与 README 赞助鸣谢同一份素材。 */
+  logo?: { light: string; dark: string };
   links?: SocialLink[];
   sponsor?: {
     channels: SponsorChannel[];
@@ -60,6 +64,11 @@ export const creditSections: CreditSection[] = [
   {
     title: 'Sponsors',
     people: [
+      {
+        name: 'FRAMENEO',
+        logo: { light: frameneoLogoBlack, dark: frameneoLogoWhite },
+        links: [{ kind: 'website', url: 'https://www.frameneo.com/' }],
+      },
       {
         name: '冰啤史莱姆',
         avatar: icebeerAvatar,
