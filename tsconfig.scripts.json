@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "lib": ["ES2023"], "types": ["node"] },
+  "include": [
+    "scripts/build-helper.ts",
+    "scripts/dev.ts",
+    "scripts/prepare-runtime.ts",
+    "scripts/run-ts-smoke.ts"
+  ]
+}

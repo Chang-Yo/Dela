@@ -24,7 +24,9 @@ const marker = join(root, '.build', 'mingit.prepared');
 const source = readFileSync(join(root, 'src', 'main', 'terminal', 'mingit.ts'), 'utf8');
 const version = /MINGIT_VERSION = '([^']+)'/.exec(source)?.[1];
 const sha256 = /MINGIT_SHA256 = '([0-9a-f]{64})'/.exec(source)?.[1];
-const urls = [...source.matchAll(/'(https:\/\/[^']*MinGit-[^']*\.zip)'/g)].map((match) => match[1]);
+const urls = [...source.matchAll(/'(https:\/\/[^']*MinGit-[^']*\.zip)'/g)].map(
+  (match) => match[1]!,
+);
 if (!version || !sha256 || urls.length < 2) {
   console.error('无法从 src/main/terminal/mingit.ts 解析 MinGit 版本定义，请检查常量拼写。');
   process.exit(1);
@@ -44,13 +46,14 @@ if (
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 const archive = join(outDir, 'mingit.zip');
-const failures = [];
+const failures: string[] = [];
 let downloaded = false;
 for (const url of urls) {
   try {
     console.log(`下载 ${url}`);
     const response = await fetch(url, { redirect: 'follow' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.body) throw new Error('下载没有返回内容');
     const hash = createHash('sha256');
     await pipeline(
       Readable.fromWeb(response.body),
@@ -86,7 +89,7 @@ rmSync(archive, { force: true });
 copyFileSync(join(outDir, 'usr', 'bin', 'sh.exe'), join(outDir, 'usr', 'bin', 'bash.exe'));
 for (const must of [join('usr', 'bin', 'bash.exe'), join('cmd', 'git.exe')]) {
   if (!existsSync(join(outDir, must))) {
-    console.error(`解压结果缺少 ${must.join('/')}`);
+    console.error(`解压结果缺少 ${must}`);
     process.exit(1);
   }
 }

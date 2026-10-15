@@ -40,7 +40,7 @@ jobs:
         working-directory: helper
         run: go test -count=1 -timeout=2m ./...
       - name: Build helper
-        run: node scripts/build-helper.mjs --all
+        run: node scripts/build-helper.ts --all
       - name: Smoke test helper executables
         run: |
           ./vendor/dela-helper/dela-helper-linux-amd64 --version

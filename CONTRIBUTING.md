@@ -57,7 +57,7 @@ Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendo
 | `pnpm build:helper`                                                      | 重建 `helper/` 的 Go 静态二进制                               |
 | `pnpm package:dir` / `pnpm package:dist`                                 | 生成未安装的可执行目录 / Windows 安装包                       |
 
-`pnpm package:dir` 与 `pnpm package:dist` 都会先执行 `node scripts/prepare-runtime.mjs` 准备随包 MinGit 运行时，再跑 `pnpm build`。
+`pnpm package:dir` 与 `pnpm package:dist` 都会先执行 `node scripts/prepare-runtime.ts` 准备随包 MinGit 运行时，再跑 `pnpm build`。
 
 ## 代码组织
 

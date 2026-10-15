@@ -1,10 +1,17 @@
 // 把 scripts/<name>.ts 打成 CJS 放进 .tools/，再用 Electron 运行。
-// 用法：node scripts/run-ts-smoke.mjs workspace-smoke | remote-smoke
+// 用法：node scripts/run-ts-smoke.ts workspace-smoke | remote-smoke
 import { build } from 'vite';
 import { builtinModules, createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 
-const smokes = {
+/** 一项冒烟的打包与运行参数；external 声明不打进 bundle 的模块。 */
+interface SmokeConfig {
+  external: string[];
+  timeout: number;
+  minify?: boolean;
+}
+
+const smokes: Record<string, SmokeConfig> = {
   'workspace-smoke': { external: [], timeout: 60000 },
   'remote-smoke': {
     external: [
@@ -18,7 +25,7 @@ const smokes = {
   },
 };
 
-const name = process.argv[2];
+const name = process.argv[2] ?? '';
 const smoke = smokes[name];
 if (!smoke) {
   console.error(`未知冒烟：${name}（可选 ${Object.keys(smokes).join(' / ')}）`);
@@ -44,7 +51,7 @@ await build({
   },
 });
 const require = createRequire(import.meta.url);
-const result = spawnSync(require('electron'), [`.tools/${name}.cjs`], {
+const result = spawnSync(require('electron') as string, [`.tools/${name}.cjs`], {
   stdio: 'inherit',
   timeout: smoke.timeout,
 });

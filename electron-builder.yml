@@ -32,7 +32,7 @@ extraResources:
     to: dela-helper
     filter:
       - 'dela-helper-*'
-  # 随包 MinGit 运行时：scripts/prepare-runtime.mjs 在打包前下载并校验（主进程按 resources/mingit 探测），
+  # 随包 MinGit 运行时：scripts/prepare-runtime.ts 在打包前下载并校验（主进程按 resources/mingit 探测），
   # 让没装 Git for Windows 的机器开箱即用
   - from: .build/mingit
     to: mingit

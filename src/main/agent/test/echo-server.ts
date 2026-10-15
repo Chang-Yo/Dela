@@ -5,6 +5,20 @@ import process from 'node:process';
 
 const echoToolName = process.env.DELA_TOOL_NAME ?? 'echo';
 
+interface JsonRpcRequest {
+  jsonrpc: '2.0';
+  id?: number | string;
+  method?: string;
+  params?: { protocolVersion?: string; name?: string; arguments?: Record<string, unknown> };
+}
+
+interface JsonRpcResponse {
+  jsonrpc: '2.0';
+  id?: number | string;
+  result?: unknown;
+  error?: { code: number; message: string };
+}
+
 const TOOLS = [
   {
     name: echoToolName,
@@ -27,11 +41,11 @@ const TOOLS = [
   },
 ];
 
-function write(message) {
+function write(message: JsonRpcResponse) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
-function handle(message) {
+function handle(message: JsonRpcRequest) {
   if (message.method === 'initialize') {
     write({
       jsonrpc: '2.0',
@@ -86,7 +100,7 @@ function handle(message) {
 
 let buffer = '';
 process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => {
+process.stdin.on('data', (chunk: string) => {
   buffer += chunk;
   let newline = buffer.indexOf('\n');
   while (newline >= 0) {
@@ -94,7 +108,7 @@ process.stdin.on('data', (chunk) => {
     buffer = buffer.slice(newline + 1);
     if (line) {
       try {
-        handle(JSON.parse(line));
+        handle(JSON.parse(line) as JsonRpcRequest);
       } catch {
         // 畸形行忽略：测试服务器只服务最小握手
       }
