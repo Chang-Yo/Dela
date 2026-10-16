@@ -46,7 +46,7 @@
 
 `document-reading` 同样写入 `~/.dela/skills`，配套脚本由应用维护。没有解析组件时设置页仍列出它，但显示关闭且不注入 Pi；开启前必须通过组件检查。「设置 › Skills」提供安装、阶段/下载进度、取消与重试，成功后启用，设置页关闭不删除组件。远端上传不支持此本机组件。
 
-当前安装器仅支持 Windows x64；macOS 尚不能安装或启用该文档读取组件，Agent 的 Office/PDF 正文读取因此不可用，GUI 预览和系统默认应用打开独立保留。安装直接从官方源下载 Python 3.12.10 embeddable、uv 0.11.1 与 PyPI wheels，在 `userData/components/document-reading/1` 内组装隔离环境；Python/uv ZIP 固定 SHA256，42 项 Python 依赖锁定版本与 wheel hashes，禁止源码构建和 Agent 自行安装。使用 Windows 系统 tar 解压，最后自检成功才写 ready 标记；失败/取消不启用并清理未完成目录。主安装包只带 skill/脚本/锁文件，不带 Python/uv/wheels。首次引导与老用户的一次性升级入口均使用「能力拓展」页，复用现有 Skills 安装 API。后续镜像与预打包组件源另行建设。
+安装器支持 Windows x64 与 Apple Silicon Mac。两端共用读取脚本、42 项依赖锁文件和安装状态流程；Windows 下载 Python.org 的 Python 3.12.10 embeddable，Mac 下载 Astral python-build-standalone 的 3.12.10 / 20250529 arm64 分发包，uv 均为 0.11.1，Python/uv 压缩包固定 SHA256。环境只安装到 `userData/components/document-reading/1`：Windows 解释器为 `python.exe`，Mac 为 `python/bin/python3`；不要求系统 Python、Homebrew 或管理员权限。依赖只接受官方 PyPI wheels、精确版本和锁定 hashes，禁止源码构建和 Agent 自行安装。解压使用各自系统 tar，最后自检成功才写 ready 标记；失败/取消不启用并清理未完成目录。保留下载包内许可证，并写入有固定来源的补充 `THIRD-PARTY-NOTICES.txt`（Python standalone、uv 及 wheel 缺少的许可证）。主安装包只带 skill/脚本/锁文件/许可证文本，不带 Python/uv/wheels。首次引导与老用户的一次性升级入口均使用「能力拓展」页，复用现有 Skills 安装 API。后续镜像与预打包组件源另行建设。
 
 文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 下载复用 `prepareDocumentFile`，返回 `readable: false` 和 `document` 任务，skill 直接使用其中的路径，完成后 release，无需第二次下载。依赖缺失、下载中断或超过上限时失败并释放响应；失败任务目录清理。主进程 PDF.js 提取与其原生 canvas 运行时依赖已移除，renderer 的 PDF.js 阅读器保留。未修改的上一版内置文档 skill 会自动补齐网页 PDF 指引；用户编辑过的版本保留。
 
@@ -320,6 +320,7 @@ macOS 的 rg/fd 位于 `vendor/bin/darwin-<arch>`，打包后为 `resources/bin/
 | `pnpm smoke:runtime`                            | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位        |
 | `pnpm smoke:desktop`                            | 原生菜单、关闭/恢复、取消退出后终端与命令桥存活                    |
 | `pnpm smoke:workspace`                          | 工作区回归                                                         |
+| `pnpm smoke:documents`                          | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）         |
 | `pnpm smoke:pdf`                                | PDF.js 阅读器回归                                                  |
 | `pnpm smoke:shuiyuan`                           | 水源社区回归                                                       |
 | `pnpm smoke:remote`                             | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`      |
@@ -441,7 +442,7 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 | Shell 与环境   | Mac 系统 Bash、系统 SSH、本机 Git；补常见工具目录，不执行用户登录 shell | 不自动加载 Zsh 配置；用户只写在 Zsh 初始化中的 SDK 环境不一定可见，系统命令参数也不保证与 Git Bash 完全一致；暂不随包引入另一套 Bash/GNU 工具链 |
 | 登录启动       | 保留默认开启的产品行为，参数按系统处理                                  | Mac 登录项许可、实际登录后隐藏启动仍待验收；冒烟脚本禁止注册，避免测试修改启动偏好                                                              |
 | PPTX 预览      | Mac 仅用系统默认应用打开原文件；Windows 保留 PowerPoint 转换            | Mac 不显示导出/重导出按钮，主进程提前拒绝转换；已有 PDF 仍可阅读并提示过期，不要求安装 Keynote                                                  |
-| Agent 文档读取 | 上游新增的可选解析组件仅支持 Windows x64，Mac 安装器尚未适配            | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；与 GUI 阅读器及 PPTX 外部打开分别验收                                                   |
+| Agent 文档读取 | Windows x64 / Apple Silicon 共用脚本与锁文件，安装器按平台选择运行时    | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；扫描件只输出页面图片，不宣称 OCR。与 GUI 阅读器及 PPTX 外部打开分别验收                 |
 | 分发与凭据     | 相同源码生成不同平台产物                                                | DMG/ZIP 用于开发验证；Mac 应用内更新明确不可用。签名、公证、稳定 Keychain 身份、最低版本和真实账号仍待验收；Intel 不在支持范围                  |
 
 实际登录启动、真实邮件草稿保存、系统级键位冲突、全屏/多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code 启动也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
@@ -450,7 +451,7 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 ### 16.3 macOS 本地验证
 
-使用 §11 的固定工具链。以下命令适用于 Apple Silicon，打包复用本机 Electron，不寻找签名身份、不发布。当前 Electron 声明的最低 macOS 为 13.0，不代表 Dela 的最低版本已实机验收：
+使用 §11 的固定工具链。以下命令适用于 Apple Silicon，打包复用本机 Electron，不寻找签名身份、不发布。当前 Electron 与文档组件 wheels 声明的最低 macOS 为 13.0，不代表 Dela 的最低版本已实机验收：
 
 ```sh
 pnpm build
@@ -470,6 +471,8 @@ pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Cont
 ```
 
 `smoke:runtime` 使用临时 profile、Pi 缓存与合成文件，在 `PI_OFFLINE=1` 下执行真实 Pi Bash 中的 `dela help`、grep 与 find；Mac 以仅含 `/usr/bin:/bin` 的 PATH 起步。桌面冒烟使用合成项目，给原生菜单回调传入真实辅助窗口，验证关闭目标及主窗口隐藏行为；执行真实 `app.quit()` 并通过 `beforeunload` 取消，再调用终端中的 `dela help`。邮件路径只覆盖退出意图的 IPC 与取消后存活，不连接邮箱或验证真实草稿保存。`smoke:workspace` 用本地网络桩与临时文件验证资料同步、导入、笔记冲突保护、移动恢复、预览协议及邮件附件草稿。
+
+`pnpm smoke:documents` 是 Apple Silicon 专用的显式联网检查，不包含在默认 CI 冒烟中：从官方源安装真实组件到独立临时 profile，经原 Skills API 启用，执行 `prepareDocumentFile` → 未修改的 Python 脚本 → `releaseDocumentResource`，读取合成 DOCX/XLSX/PPTX 和扫描 PDF，最后清理 profile；读取子进程仅使用系统 PATH。首次组件下载约 128 MiB（本机所选 wheels），需要 GitHub、Python 分发源和 PyPI 可达；网络失败与取消必须保留可重试状态。
 
 传入 `app.asar` 的冒烟由开发 Electron 加载包内代码与资源，Keychain 测试也属于开发 Electron 身份；实际 `.app` 另用 `--smoke-test` 检查。上述检查不代表真实账号业务、模型调用或正式签名应用已验收。早期 Keynote 转换实验见[验证记录](macos-validation.md#复现)，仅作历史证据；当前产品决定不接入转换器。
 

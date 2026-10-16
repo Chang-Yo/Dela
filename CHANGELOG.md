@@ -15,9 +15,15 @@ Dela 的重要变更都记在这里。
 
 ## Unreleased
 
+### 亮点
+
+- 在 Apple Silicon Mac 上，你可以从「设置 › Skills」安装文档读取，让助手读取 Office 和 PDF。
+
 ### Added
 
 - 增加 macOS 开发适配：终端、Agent、SSH、搜索工具与 VS Code 项目打开支持 Mac，桌面采用原生窗口按钮、菜单与 Command 快捷键，保留关闭后后台运行和 Dock 唤回，取消退出后终端与命令桥继续可用。两端复用业务代码，安装时修复原生终端权限、按平台划分打包资源，并提供 Apple Silicon Mac DMG/ZIP 开发产物与 arm64 CI 配置。Mac 应用内更新暂不可用且不请求 Windows 发布源，Mac PPTX 使用系统默认应用打开，不接入 PDF 转换器，正式分发仍待验收；实测结果见 [macOS 适配验证记录](docs/macos-validation.md)。
+
+- 文档读取组件支持 Apple Silicon Mac，复用 Windows 的解析脚本和精确依赖，独立安装 Python 并保留来源及许可证；支持取消、失败重试与自检，不依赖系统 Python。
 
 ### Changed
 

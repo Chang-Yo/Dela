@@ -12,6 +12,7 @@ interface SmokeConfig {
 }
 
 const smokes: Record<string, SmokeConfig> = {
+  'document-runtime-smoke': { external: [], timeout: 600000, minify: false },
   'runtime-smoke': {
     external: ['node-pty', /^@earendil-works\//],
     timeout: 45000,

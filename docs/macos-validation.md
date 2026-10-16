@@ -208,3 +208,56 @@ pnpm smoke:desktop "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
 ## 文档读取组件与 Apple Silicon 范围
 
 2026-10-16，在 `codex/macos-phase1`（基线 `5a8bb79`）、Apple Silicon / macOS 27.0.1 上先完成隔离调查。用户随后明确：**macOS 只需要支持 Apple Silicon，不适配 Intel Mac**。因此移除早期 Intel CI 任务及 `vendor/bin/darwin-x64` 资源，DMG/ZIP 目标固定 arm64；前文双架构计划与 Intel 待验收项仅保留为历史记录。Windows x64 和 Linux 远端 helper 的两种架构不受此决定影响。
+
+### 隔离验证
+
+没有修改 `read.py` 或依赖版本、wheel hashes；仅在锁文件标题补充 macOS arm64。测试下载、缓存、合成文档与详细输出位于被忽略的 `.tools/macos-document-eval/`，不读取个人文档，不写系统 Python 或用户组件目录。
+
+| 项目     | 结果与范围                                                                                                                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Python   | Astral python-build-standalone 3.12.10 / 20250529，arm64 `install_only_stripped`；SHA256 `2579c9ffcbb0a745f1de3d645612c7466269eb9a23316a54ece49d50c1c9122f`，与 uv 0.11.1 固定目录一致，下载后校验通过 |
+| uv       | 0.11.1 arm64；SHA256 `f7815f739ed5d0e4202e6292acedb8659b9ae7de663d07188d8c6cbd7f96303f`，与 GitHub Release digest 一致，下载后校验通过                                                                 |
+| 依赖     | 原 42 项精确依赖全部按 `--only-binary :all: --no-deps --require-hashes` 安装成功；未源码构建或放宽哈希。产品同款自检通过，`uv pip check` 检查 43 个已安装包通过（多出的一个是 standalone 自带 pip）    |
+| 读取     | 12 个用例通过；移动整个解释器到含中文与空格的新路径后再跑同一组，另 12 个通过。每次是独立 Python `-I` 子进程，cwd 在仓库外，PATH 仅 `/usr/bin:/bin`                                                    |
+| 原生库   | 检查 108 个解释器、动态库与扩展文件的 Mach-O 加载命令，没有指向系统目录以外的绝对依赖路径；动态库自身的 install name 不当作外部依赖。此检查不替代最低 macOS 实机验证                                   |
+| 体积     | 本机实际选择的 42 个 wheels 共 98088164 字节，加 Python/uv 压缩包共约 127.95 MiB 下载；安装后的普通文件合计约 356.34 MiB（含 pip 与测试生成的字节码），不是最终分发包体积                              |
+| 系统下限 | 官方 wheel 元数据存在 macOS 13 可用的完整 arm64 集合；当前主机选择了部分更新系统专用 wheel。未在 macOS 13 运行，不能宣称最低系统验收通过                                                               |
+
+12 个用例分别覆盖：带图片与表格的中文 DOCX、改名为 `.bin` 的 DOCX、多工作表 XLSX、重排页序且带备注和图片的 PPTX、中英文文本 PDF、PDF 选页与去重、7 页扫描 PDF 的首 6 页回退与剩余页提示、第 7 页续读、越界页码、对 Office 使用页码、缺失文件、损坏 PDF。扫描页图片另作静态目视确认；`needs_visual_read` 和图片未解读提示保持原样，没有增加 OCR。XLSX 未缓存公式不因跨平台验证而变成可计算结果。测试最初修正了合成 PDF 字体描述与 Markdown 转义断言，最终两组用例均通过；正式读取脚本没有改动。
+
+原脚本 SHA256：`79c914a4fa9f46c10f2a764914fbe92ceb854e3780b0dbbdb4130e03e3e14524`。
+
+安装复现参数（`PYTHON`、`SITE_PACKAGES` 均指向隔离目录）：
+
+```sh
+uv --no-config pip install --python "$PYTHON" --target "$SITE_PACKAGES" \
+  --only-binary :all: --no-deps --require-hashes --no-cache \
+  --default-index https://pypi.org/simple -r src/main/documents/skill/requirements.lock
+uv --no-config pip check --python "$PYTHON"
+"$PYTHON" -I src/main/documents/skill/scripts/read.py "$INPUT" --output "$OUTPUT"
+```
+
+### 调查发现与已确认取舍
+
+- Intel 最初只有 41/42 项匹配 wheel：`cryptography==50.0.2` 缺失。官方[更新记录](https://cryptography.io/en/latest/changelog/#v49-0-0)明确从 49.0.0 移除 macOS x86_64；uv 在 Intel 目标预检查中拒绝安装。仅把实验副本的 cryptography 换成 48.0.1 后预检查可解析 42 项，但 [PyPI 元数据](https://pypi.org/pypi/cryptography/48.0.1/json)列有已知安全公告；未将旧版安装或写入产品锁文件，也未断言这些公告均可在 Dela 文档路径触发。用户决定不支持 Intel 后，不再推进此路线。
+- Python/uv 的平台包和目录不同，读取脚本、文档任务、Skills API 与依赖版本共用，不形成第二套核心功能。PPTX 正文提取与 GUI 转 PDF 是不同能力；Mac GUI 仍只用系统默认应用打开 PPTX。
+- 补充许可证文本从对应版本源码或匹配的 Python full archive 获取，包含来源与原文摘要；保留已下载文件自带的许可证。Python full archive SHA256 为 `7b3698a64577aae9b6c32f31891dc367618714e0df3393fd7f1bb0d351c99200`；其元数据引用但未附带的 zlib-ng 文本从对应 2.2.4 源码补齐。Cobble 上游只在 README 声明 BSD-2-Clause，补充文件保留这一事实与作者来源，没有虚构版权年份。
+
+来源：[uv 固定 Python 目录](https://github.com/astral-sh/uv/blob/0.11.1/crates/uv-python/download-metadata.json)、[uv 0.11.1](https://github.com/astral-sh/uv/releases/tag/0.11.1)、[Python standalone 20250529](https://github.com/astral-sh/python-build-standalone/releases/tag/20250529)。原始来源信息与许可证正文保存在 `src/main/documents/runtime-licenses.txt`，由安装器写入组件目录；实验工具、下载包与日志不进入提交。
+
+### 接入后的回归
+
+Apple Silicon 安装路径已接入现有 `src/main/documents/runtime.ts`，没有增加另一套解析器或修改依赖版本。Windows 保留 embeddable Python、`python312._pth` 和 `uv.exe` 路径，Mac 使用 standalone 目录与 `/usr/bin/tar`。补充许可证进入主进程产物，安装时写入组件目录；打包检查确认 `.tools` 实验文件未进入 `app.asar`。
+
+| 检查           | 结果与范围                                                                                                                                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 单元测试       | 132 个文件 / 960 项通过；新增 9 项覆盖 Mac/Windows 安装参数、成功后发布 ready、重复调用复用、两次下载的哈希失败、取消清理及重试、缺失文件、初次/已有组件自检失败与不支持的平台                                               |
+| 静态检查       | 类型检查、lint、格式检查通过；新增联网冒烟纳入 TypeScript 项目。首次补充检查发现旧冒烟模式使用的 `app.setAppPath` 不在 Electron 公共类型中，删除该不必要调用后检查与真实安装复测通过                                         |
+| 真实组件流程   | `pnpm smoke:documents` 在开发 Electron 中使用真实安装器、官方源、原 Skills API 和资源任务 API；DOCX/XLSX/PPTX 正文及扫描 PDF 图片回退通过，临时任务与 profile 清理通过。不是模拟安装成功，也不是实际模型调用或手工点击设置页 |
+| 构建与产物     | `package:dist` 中的 `pnpm build` 通过；生成 arm64 DMG（251648583 字节）与 ZIP（250275516 字节），包内安装器 URL、哈希、许可证文本均存在，未混入本地实验工具                                                                  |
+| 启动与原生依赖 | 开发版 `pnpm smoke`、实际 `.app` 的 LaunchServices 启动（仓库外 cwd / 系统 PATH）、包内 SQLite/Keychain/PTY 冒烟通过；包内原生检查由开发 Electron 加载，正式签名身份尚未验证                                                 |
+| CI 与打包配置  | YAML 解析及目标断言通过：Mac 仅 arm64，Windows 保持 x64；未推送或触发 GitHub 工作流，不宣称云端检查通过                                                                                                                      |
+
+产物检查首次运行包内 `rg --version` 再次超过原有 5 秒阈值；之后 rg/fd 单独运行约 0.01/0.00 秒，按原脚本与原阈值重跑完整资源及 DMG/ZIP 完整性检查通过。该进程有一条 `syspolicyd` 来源跟踪日志，但不足以确定超时原因；未修改超时阈值，也未将其归结为已确认的 Gatekeeper 故障。此首次运行波动继续作为待排查项。
+
+本次未重复 DMG 挂载复制、ZIP 解包启动、桌面动画或真实账号/模型业务；未完成 Windows 实机、最低 macOS 实机、签名、公证、下载后首启和自动更新验收。README 与工具目录 README 均遵循人工维护约定，需由维护者同步 Apple Silicon 支持范围及可选组件说明。本地验证完成，改动按构建范围与文档组件两个主题分别提交，未推送。
