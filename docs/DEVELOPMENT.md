@@ -359,11 +359,11 @@ pnpm test
 `.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行：
 
 - Windows 任务为 `Check win-x64`，使用 `windows-2022`，与发布一致的 runner 和固定 Node / pnpm 版本；目录打包通过 `package:dir` 准备 MinGit，避免缺少随包 Bash。
-- Mac 任务为 `Check mac-arm64`（`macos-15`）与 `Check mac-x64`（`macos-15-intel`），按 [GitHub 官方 runner 架构表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)分别原生安装依赖、构建与验证；启动时核对 Node 架构，不能用交叉打包成功代替目标架构执行。
+- Mac 任务仅为 `Check mac-arm64`（`macos-15`），按 [GitHub 官方 runner 架构表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)原生安装依赖、构建与验证；启动时核对 Node 为 arm64。按产品范围不构建或验证 Intel Mac。
 - helper 任务名即 `Check helper linux (amd64 + arm64)`，在 `ubuntu-24.04` 用 Go 1.27.2 执行 `go vet`（含交叉 `linux/arm64`）、`go test`、构建两个架构的静态产物并跑 `--version`（arm64 走 qemu 用户态仿真）。Windows 与 Mac 任务下载当次产物用于打包，并逐字节核对打包后的文件。
 - 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包、包内 helper 核对及打包后冒烟。**CI 是分步执行这些命令，不是调用 `pnpm check`。**
 - Go 测试只使用 runner 本机临时目录、inotify 与回环 HTTP，不连接 SSH。Windows 任务明确留空 `DELA_REMOTE_HOST`，真实 SSH 联调继续手动运行，不作为发布前置条件。
-- Mac 任务额外执行依赖、离线运行时、桌面与终端冒烟，构建 DMG/ZIP，并通过 `scripts/verify-macos-package.ts` 检查应用标识、架构、随包资源、许可证与压缩包完整性，再跑实际 `.app` 及包内原生依赖/桌面/终端冒烟。DMG/ZIP 作为 `development-mac-<arch>` 验证产物保留 7 天，不发布 Release。
+- Mac 任务额外执行依赖、离线运行时、桌面与终端冒烟，构建 DMG/ZIP，并通过 `scripts/verify-macos-package.ts` 检查应用标识、架构、随包资源、许可证与压缩包完整性，再跑实际 `.app` 及包内原生依赖/桌面/终端冒烟。DMG/ZIP 作为 `development-mac-arm64` 验证产物保留 7 天，不发布 Release。
 - `scripts/macos-launch-smoke.ts` 经 LaunchServices 启动实际 `.app`，使用仓库外的工作目录与系统 PATH，读取应用自身的冒烟成功标记；`open` 返回成功本身不算验收。该模式使用隔离 profile、不注册登录项，仍不代替下载后 Gatekeeper 与真实首启引导验收。
 - Windows 检查不生成 NSIS 安装包；所有检查仅使用 `contents: read` 权限，同一 PR 或 main 分支的新提交会取消旧检查。Mac workflow 的云端执行结果需另行验收，不能由本地验证替代。
 
@@ -420,7 +420,7 @@ pnpm test
 
 ### 16.1 macOS 开发约定
 
-macOS 处于适配开发阶段，尚不提供正式发行版。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包及 DMG/ZIP 解包启动；具体环境、各阶段结果及证据范围见 [macOS 适配验证记录](macos-validation.md)。
+macOS 处于适配开发阶段，尚不提供正式发行版。2026-10-16 用户明确只支持 Apple Silicon，不适配 Intel Mac；早期记录中的 x64/双架构计划已撤销。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包及 DMG/ZIP 解包启动；具体环境、各阶段结果及证据范围见 [macOS 适配验证记录](macos-validation.md)。
 
 保持一个应用、一个 package、一套主干代码。业务逻辑、数据格式与 IPC 共用，Windows 合作者的常规业务功能无需另写 macOS 版本；涉及系统命令、路径或外部程序时仍需适配与双平台回归。平台差异优先留在现有定位、进程启动与系统交互函数中，出现真实重复和多个调用方后再提取共享函数。PPTX 在 Mac 仅提供系统默认应用打开，复用同一个资源解析与 `shell.openPath` 入口，不接入 Keynote 或其他 PDF 转换器；Windows 保留 PowerPoint 转换。
 
@@ -428,7 +428,7 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 聊天 `@` 文件引用按工作目录的路径格式判断归属：Windows 盘符与反斜杠 UNC 路径兼容大小写及两种分隔符；POSIX 路径逐字匹配，保留文件名里的反斜杠，避免大小写敏感卷上的不同项目相互干扰。引用的绝对路径保持不变。新建文件名仍使用两端共用的可移植命名限制。
 
-同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物为独立架构的 DMG 与 ZIP，默认构建本机架构，CI 分别传入 `--arm64` / `--x64`；不构建 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
 
 ### 16.2 跨平台取舍与待验收事项
 
@@ -442,15 +442,15 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 | 登录启动       | 保留默认开启的产品行为，参数按系统处理                                  | Mac 登录项许可、实际登录后隐藏启动仍待验收；冒烟脚本禁止注册，避免测试修改启动偏好                                                              |
 | PPTX 预览      | Mac 仅用系统默认应用打开原文件；Windows 保留 PowerPoint 转换            | Mac 不显示导出/重导出按钮，主进程提前拒绝转换；已有 PDF 仍可阅读并提示过期，不要求安装 Keynote                                                  |
 | Agent 文档读取 | 上游新增的可选解析组件仅支持 Windows x64，Mac 安装器尚未适配            | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；与 GUI 阅读器及 PPTX 外部打开分别验收                                                   |
-| 分发与凭据     | 相同源码生成不同平台产物                                                | DMG/ZIP 用于开发验证；Mac 应用内更新明确不可用。签名、公证、稳定 Keychain 身份、Intel/最低版本和真实账号仍待验收                                |
+| 分发与凭据     | 相同源码生成不同平台产物                                                | DMG/ZIP 用于开发验证；Mac 应用内更新明确不可用。签名、公证、稳定 Keychain 身份、最低版本和真实账号仍待验收；Intel 不在支持范围                  |
 
-实际登录启动、真实邮件草稿保存、系统级键位冲突、全屏/多显示器与动画表现仍需人工验收；Windows/Intel Mac 实机、真实 SSH 与 VS Code 启动也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
+实际登录启动、真实邮件草稿保存、系统级键位冲突、全屏/多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code 启动也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
 
 按当前协作决定，SSH 真机回归不作为本次 macOS 适配的阻塞项：合作者反馈已有远端测试稳定，本次重点验证 Mac 编译、打包、启动与本地 SSH 工具定位。该反馈不等于 macOS 客户端到远端的链路已验收；适配分支仍未执行真实 SSH 套件，不重复要求提供测试主机。
 
 ### 16.3 macOS 本地验证
 
-使用 §11 的固定工具链。以下命令适用于 Apple Silicon，打包复用本机 Electron，不寻找签名身份、不发布。Intel Mac 对应改为 `--x64` 和 `dist/mac/Dela.app`，并在该机器原生安装依赖；当前 Electron 声明的最低 macOS 为 13.0，不代表 Dela 的最低版本已实机验收：
+使用 §11 的固定工具链。以下命令适用于 Apple Silicon，打包复用本机 Electron，不寻找签名身份、不发布。当前 Electron 声明的最低 macOS 为 13.0，不代表 Dela 的最低版本已实机验收：
 
 ```sh
 pnpm build

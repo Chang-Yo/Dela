@@ -17,7 +17,11 @@ Dela 的重要变更都记在这里。
 
 ### Added
 
-- 增加 macOS 开发适配：终端、Agent、SSH、搜索工具与 VS Code 项目打开支持 Mac，桌面采用原生窗口按钮、菜单与 Command 快捷键，保留关闭后后台运行和 Dock 唤回，取消退出后终端与命令桥继续可用。两端复用业务代码，安装时修复原生终端权限、按平台划分打包资源，并提供 Mac DMG/ZIP 开发产物与双架构 CI 配置。Mac 应用内更新暂不可用且不请求 Windows 发布源，Mac PPTX 使用系统默认应用打开，不接入 PDF 转换器，正式分发仍待验收；实测结果见 [macOS 适配验证记录](docs/macos-validation.md)。
+- 增加 macOS 开发适配：终端、Agent、SSH、搜索工具与 VS Code 项目打开支持 Mac，桌面采用原生窗口按钮、菜单与 Command 快捷键，保留关闭后后台运行和 Dock 唤回，取消退出后终端与命令桥继续可用。两端复用业务代码，安装时修复原生终端权限、按平台划分打包资源，并提供 Apple Silicon Mac DMG/ZIP 开发产物与 arm64 CI 配置。Mac 应用内更新暂不可用且不请求 Windows 发布源，Mac PPTX 使用系统默认应用打开，不接入 PDF 转换器，正式分发仍待验收；实测结果见 [macOS 适配验证记录](docs/macos-validation.md)。
+
+### Changed
+
+- macOS 适配范围明确为 Apple Silicon，移除早期 Intel CI 任务和搜索工具资源。
 
 ### Fixed
 

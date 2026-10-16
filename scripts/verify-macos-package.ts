@@ -6,11 +6,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 assert.equal(process.platform, 'darwin', '请在 macOS 上验证 Mac 产物');
-assert.ok(['arm64', 'x64'].includes(process.arch), '未支持的 Mac 架构');
+assert.equal(process.arch, 'arm64', 'macOS 仅支持 Apple Silicon');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const bundle = resolve(
-  process.argv[2] || join(root, 'dist', process.arch === 'arm64' ? 'mac-arm64' : 'mac', 'Dela.app'),
-);
+const bundle = resolve(process.argv[2] || join(root, 'dist', 'mac-arm64', 'Dela.app'));
 const resources = join(bundle, 'Contents', 'Resources');
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const plist = (key: string) =>
@@ -28,7 +26,7 @@ assert.equal(
   execFileSync('/usr/bin/lipo', ['-archs', join(bundle, 'Contents/MacOS/Dela')], {
     encoding: 'utf8',
   }).trim(),
-  process.arch === 'x64' ? 'x86_64' : 'arm64',
+  'arm64',
 );
 assert.ok(existsSync(join(resources, 'app.asar')), '缺少应用代码');
 for (const name of ['openssh', 'mingit', 'app-update.yml']) {

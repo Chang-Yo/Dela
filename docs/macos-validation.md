@@ -204,3 +204,7 @@ pnpm smoke:desktop "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
 | 打包后启动 | LaunchServices 在仓库外、系统 PATH 下启动实际 `.app` 通过；包内原生依赖与桌面回归通过。包内依赖/桌面检查仍由开发 Electron 承载，不代表正式签名身份验收                                                              |
 
 构建保留既有动态导入、大 chunk 与打包可选依赖提示；桌面冒烟输出被断言的 PPTX 拒绝日志，工作区冒烟仍有未注册 `session:create` 的桩日志。未自动化检查动画，未执行真实 PPTX 默认应用交互、SSH、Windows/Intel Mac、云端 CI、签名/公证及真实账号业务；这些范围与“本机 Mac 编译和打包启动通过”分别记录。
+
+## 文档读取组件与 Apple Silicon 范围
+
+2026-10-16，在 `codex/macos-phase1`（基线 `5a8bb79`）、Apple Silicon / macOS 27.0.1 上先完成隔离调查。用户随后明确：**macOS 只需要支持 Apple Silicon，不适配 Intel Mac**。因此移除早期 Intel CI 任务及 `vendor/bin/darwin-x64` 资源，DMG/ZIP 目标固定 arm64；前文双架构计划与 Intel 待验收项仅保留为历史记录。Windows x64 和 Linux 远端 helper 的两种架构不受此决定影响。

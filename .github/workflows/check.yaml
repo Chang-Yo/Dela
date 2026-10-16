@@ -113,18 +113,8 @@ jobs:
 
   mac:
     needs: helper
-    name: Check mac-${{ matrix.arch }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            arch: arm64
-            app-dir: mac-arm64
-          - runner: macos-15-intel
-            arch: x64
-            app-dir: mac
-    runs-on: ${{ matrix.runner }}
+    name: Check mac-arm64
+    runs-on: macos-15
     timeout-minutes: 30
     defaults:
       run:
@@ -132,7 +122,7 @@ jobs:
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       DELA_REMOTE_HOST: ''
-      PACKAGED_APP: dist/${{ matrix.app-dir }}/Dela.app
+      PACKAGED_APP: dist/mac-arm64/Dela.app
     steps:
       - uses: actions/checkout@v6
         with:
@@ -151,7 +141,7 @@ jobs:
           package-manager-cache: false
       - name: Verify runner architecture
         env:
-          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_ARCH: arm64
         run: node -e 'if (process.arch !== process.env.EXPECTED_ARCH) process.exit(1)'
       - name: Install pnpm
         run: npm install --global pnpm@12.3.4
@@ -173,7 +163,7 @@ jobs:
           pnpm smoke:desktop
           pnpm exec electron scripts/terminal-smoke.cjs
       - name: Build development DMG and ZIP
-        run: pnpm package:dist --mac --${{ matrix.arch }} -c.electronDist=node_modules/electron/dist
+        run: pnpm package:dist --mac --arm64 -c.electronDist=node_modules/electron/dist
       - name: Verify package resources and archives
         run: node scripts/verify-macos-package.ts "$PACKAGED_APP"
       - name: Smoke test LaunchServices startup
@@ -186,7 +176,7 @@ jobs:
           pnpm exec electron scripts/terminal-smoke.cjs "$PACKAGED_APP/Contents/Resources/app.asar"
       - uses: actions/upload-artifact@v6
         with:
-          name: development-mac-${{ matrix.arch }}
+          name: development-mac-arm64
           path: |
             dist/*.dmg
             dist/*.zip

@@ -58,8 +58,12 @@ win:
 mac:
   category: public.app-category.productivity
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
   # 开发验证产物，尚未配置 Mac 更新源；不生成面向现有 Windows CDN 的元数据。
   publish: null
   extraResources:
