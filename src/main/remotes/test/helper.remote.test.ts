@@ -224,7 +224,7 @@ describe('helper 通道（真机）', () => {
   it('关闭后能重新建立通道', async () => {
     const session = await helperSession(target);
     expect(session).not.toBeNull();
-    expect(locateSsh()).toMatch(/ssh\.exe$/i);
+    expect(locateSsh()).toMatch(process.platform === 'darwin' ? /\/usr\/bin\/ssh$/ : /ssh\.exe$/i);
     await closeHelper();
   }, 180_000);
 

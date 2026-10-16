@@ -35,6 +35,7 @@ import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
 export interface DelaApi {
+  readonly platform: string;
   readonly vsjtu: VsjtuApi;
   capability: CapabilityApi;
   readonly todo: TodoApi;

@@ -29,6 +29,7 @@ import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast, ToastHost } from '../app/toasts';
 import { DelaBrand } from './ui/dela-brand';
 import { cn } from '../lib/utils';
+import { fileManagerName, platform } from '../lib/platform';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../navigation/view';
 import { useShortcuts } from '../app/shortcuts';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
@@ -53,9 +54,6 @@ import { useVisibleNavEntries } from '../navigation/entries';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
-
-// 快捷键提示的键位族（Windows-only，Mod 一律按 Ctrl 展开）。
-const platform = 'other' as const;
 
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
@@ -107,7 +105,7 @@ function WindowControls() {
     };
   }, []);
 
-  if (!window.dela) return null;
+  if (!window.dela || platform === 'mac') return null;
 
   return (
     <div className="[-webkit-app-region:no-drag] flex h-full">
@@ -335,7 +333,7 @@ export function AppShell({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
       // 动作由键位表解析：用户改键后此处无需改动，未绑定/未命中即不拦截。
-      const action = matchShortcut(useShortcuts.getState().bindings, event, 'global');
+      const action = matchShortcut(useShortcuts.getState().bindings, event, 'global', platform);
       if (!action) return;
       const { navigate, onImportFiles, onNewProject, onSearch, stepZoom } = shortcutsRef.current;
       event.preventDefault();
@@ -544,12 +542,16 @@ export function AppShell({
               <div className="flex h-7 items-center rounded-control shadow-hairline">
                 <button
                   aria-label={
-                    effectiveOpenTarget === 'vscode' ? vscodeOpenLabel : '在资源管理器打开项目'
+                    effectiveOpenTarget === 'vscode'
+                      ? vscodeOpenLabel
+                      : `在 ${fileManagerName} 中打开项目`
                   }
                   className="grid size-7 place-items-center rounded-l-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
                   onClick={() => openProjectDirectory(effectiveOpenTarget)}
                   title={
-                    effectiveOpenTarget === 'vscode' ? vscodeOpenLabel : '在资源管理器打开项目'
+                    effectiveOpenTarget === 'vscode'
+                      ? vscodeOpenLabel
+                      : `在 ${fileManagerName} 中打开项目`
                   }
                   type="button"
                 >
@@ -574,7 +576,7 @@ export function AppShell({
                     {!projectIsRemote && (
                       <DropdownMenuItem onSelect={() => openProjectDirectory('explorer')}>
                         <FolderOpen />
-                        资源管理器
+                        {fileManagerName}
                         {effectiveOpenTarget === 'explorer' && <Check className="ml-auto" />}
                       </DropdownMenuItem>
                     )}

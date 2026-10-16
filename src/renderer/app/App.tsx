@@ -220,12 +220,13 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', beforeUnload);
   }, []);
 
-  // 托盘：新建对话 → 通用聊天新会话；新建项目 → 工作台的新建项目弹窗。
+  // 托盘与原生菜单共用动作入口。
   useEffect(() => {
     return window.dela?.window.onTrayAction((action) => {
       const navigation = useNavigationStore.getState();
       if (action === 'new-chat') navigation.openGeneralChat(true);
-      else navigation.newProject();
+      else if (action === 'new-project') navigation.newProject();
+      else if (action === 'open-settings') navigation.navigate('settings');
     });
   }, []);
 

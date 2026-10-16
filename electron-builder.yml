@@ -17,40 +17,57 @@ asarUnpack:
   - node_modules/node-pty/**/*
   # 引导开场的可选视频；文件不存在时该行无副作用
   - out/renderer/assets/*.mp4
-# 自带 OpenSSH 客户端：系统没装时远程项目的回退（主进程按 resources/openssh 探测）
 extraResources:
-  - from: vendor/openssh
-    to: openssh
-    filter:
-      - 'ssh.exe'
-      - 'libcrypto.dll'
-      - 'LICENSE.txt'
-      - 'NOTICE.txt'
-      - 'README.md'
   # 远端 helper 的静态二进制：Dela 上传到远端后经 ssh -L 隧道访问（主进程按 resources/dela-helper 探测）
   - from: vendor/dela-helper
     to: dela-helper
     filter:
       - 'dela-helper-*'
-  # 随包 MinGit 运行时：scripts/prepare-runtime.ts 在打包前下载并校验（主进程按 resources/mingit 探测），
-  # 让没装 Git for Windows 的机器开箱即用
-  - from: .build/mingit
-    to: mingit
-  # 随包搜索工具：内核 grep/find spawn 的 rg 与 fd（主进程启动时把 resources/bin 前插 PATH）
+  # 两端共用搜索工具的来源与许可证；可执行文件按平台选择。
   - from: vendor/bin
     to: bin
+    filter:
+      - 'LICENSE-*.txt'
+      - 'README.md'
 npmRebuild: false
-# Windows-only，NSIS 安装包与 electron-updater 更新元数据。
-publish:
-  provider: generic
-  url: https://openlist.frameneo.com/sd/Dela_latest_release/
-  channel: latest
-  useMultipleRangeRequest: false
 win:
+  publish:
+    provider: generic
+    url: https://openlist.frameneo.com/sd/Dela_latest_release/
+    channel: latest
+    useMultipleRangeRequest: false
+  extraResources:
+    - from: vendor/openssh
+      to: openssh
+      filter:
+        - 'ssh.exe'
+        - 'libcrypto.dll'
+        - 'LICENSE.txt'
+        - 'NOTICE.txt'
+        - 'README.md'
+    - from: .build/mingit
+      to: mingit
+    - from: vendor/bin
+      to: bin
+      filter:
+        - '*.exe'
   target:
     - target: nsis
       arch:
         - x64
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  # 开发验证产物，尚未配置 Mac 更新源；不生成面向现有 Windows CDN 的元数据。
+  publish: null
+  extraResources:
+    - from: 'vendor/bin/darwin-${arch}'
+      to: 'bin/darwin-${arch}'
+      filter:
+        - 'rg'
+        - 'fd'
 nsis:
   include: build/installer.nsh
   oneClick: false

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Minus, X } from 'lucide-react';
+import { platform } from '../../lib/platform';
 
 /**
  * 引导期间的窗口栏：titleBarStyle hidden 下 AppShell 标题栏不存在，
@@ -14,7 +15,7 @@ export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
         </div>
       )}
       <div className="flex h-full [-webkit-app-region:no-drag]">
-        {window.dela && (
+        {window.dela && platform !== 'mac' && (
           <>
             <button
               aria-label="最小化"

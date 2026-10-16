@@ -31,6 +31,7 @@ export interface UpdateView {
 /** 失败与不可用原因到用户文案。 */
 const REASON_STATUS: Record<UpdateReason, string> = {
   'not-packaged': '开发运行不支持应用内更新',
+  'platform-unsupported': '当前平台暂未提供应用内更新',
   'feed-unavailable': '暂时无法获取更新信息，请稍后重试',
   'invalid-update': '更新文件校验失败，请重新下载',
   cancelled: '已取消',
@@ -41,7 +42,8 @@ function failureAction(
   reason: UpdateReason,
   failedAt: UpdateStep | null,
 ): { action: UpdateAction | null; label: string | null } {
-  if (reason === 'not-packaged') return { action: null, label: null };
+  if (reason === 'not-packaged' || reason === 'platform-unsupported')
+    return { action: null, label: null };
   if (failedAt === 'install') return { action: 'open-download', label: '下载安装包' };
   return { action: failedAt ?? 'check', label: '重试' };
 }

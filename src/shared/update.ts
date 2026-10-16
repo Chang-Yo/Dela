@@ -2,7 +2,12 @@
 
 /** 不可用或失败的原因。取值稳定：渲染层据此选文案，不解析 detail 与原始错误码。 */
 export type UpdateReason =
-  'not-packaged' | 'feed-unavailable' | 'invalid-update' | 'cancelled' | 'failed';
+  | 'not-packaged'
+  | 'platform-unsupported'
+  | 'feed-unavailable'
+  | 'invalid-update'
+  | 'cancelled'
+  | 'failed';
 
 /**
  * 更新流程阶段。渲染层只做「阶段 → 文案 + 可用动作」的映射，不自行推断状态。

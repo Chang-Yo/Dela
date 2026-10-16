@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   acceleratorFromEvent,
+  acceleratorKeys,
   defaultKeybindings,
   findShortcutConflicts,
   isAccelerator,
@@ -25,7 +26,7 @@ describe('acceleratorFromEvent', () => {
   it('修饰键按 Mod+Alt+Shift 顺序规范化，字母转大写', () => {
     expect(acceleratorFromEvent(key('n', { ctrlKey: true, shiftKey: true }))).toBe('Mod+Shift+N');
     expect(acceleratorFromEvent(key('z', { altKey: true }))).toBe('Alt+Z');
-    expect(acceleratorFromEvent(key('k', { metaKey: true }))).toBe('Mod+K');
+    expect(acceleratorFromEvent(key('k', { metaKey: true }), 'mac')).toBe('Mod+K');
   });
 
   it('命名键与标点沿用既有写法，空格与加号归一', () => {
@@ -92,6 +93,61 @@ describe('matchShortcut 与 digit 族', () => {
   it('解绑后不再命中', () => {
     const unbound = mergeKeybindings({ 'toggle-word-wrap': null });
     expect(matchShortcut(unbound, key('z', { altKey: true }), 'global')).toBeNull();
+  });
+});
+
+describe('macOS 键位语义', () => {
+  const bindings = defaultKeybindings();
+
+  it('⌘ 匹配 Mod，Control 留给终端与原生文本编辑', () => {
+    expect(matchShortcut(bindings, key('k', { metaKey: true }), 'global', 'mac')).toBe(
+      'global-search',
+    );
+    expect(matchShortcut(bindings, key('k', { ctrlKey: true }), 'global', 'mac')).toBeNull();
+    expect(matchShortcut(bindings, key('w', { ctrlKey: true }), 'workbench', 'mac')).toBeNull();
+    expect(matchShortcut(bindings, key('w', { metaKey: true }), 'workbench', 'mac')).toBe(
+      'close-tab',
+    );
+    expect(
+      matchShortcut(bindings, key('k', { metaKey: true, ctrlKey: true }), 'global', 'mac'),
+    ).toBeNull();
+  });
+
+  it('Control 可以单独录制，与 ⌘ 分开持久化和显示', () => {
+    const accelerator = acceleratorFromEvent(key('k', { ctrlKey: true }), 'mac');
+    expect(accelerator).toBe('Ctrl+K');
+    expect(isAccelerator(accelerator)).toBe(true);
+    expect(acceleratorKeys(accelerator, 'mac')).toEqual(['⌃', 'K']);
+    expect(acceleratorKeys('Mod+Alt+K', 'mac')).toEqual(['⌘', '⌥', 'K']);
+    const custom = mergeKeybindings({ 'global-search': accelerator });
+    expect(matchShortcut(custom, key('k', { ctrlKey: true }), 'global', 'mac')).toBe(
+      'global-search',
+    );
+    expect(matchShortcut(custom, key('k', { metaKey: true }), 'global', 'mac')).toBeNull();
+  });
+
+  it('Option 的字符变化不破坏字母和数字快捷键，组合输入不触发动作', () => {
+    expect(
+      matchShortcut(bindings, { ...key('Ω', { altKey: true }), code: 'KeyZ' }, 'global', 'mac'),
+    ).toBe('toggle-word-wrap');
+    expect(acceleratorFromEvent({ ...key('¡', { altKey: true }), code: 'Digit1' }, 'mac')).toBe(
+      'Alt+1',
+    );
+    expect(
+      matchShortcut(
+        bindings,
+        { ...key('k', { metaKey: true }), isComposing: true },
+        'global',
+        'mac',
+      ),
+    ).toBeNull();
+  });
+
+  it('Windows 仍使用 Control，不将系统 Win 键当作 Mod', () => {
+    expect(matchShortcut(bindings, key('k', { ctrlKey: true }), 'global', 'other')).toBe(
+      'global-search',
+    );
+    expect(matchShortcut(bindings, key('k', { metaKey: true }), 'global', 'other')).toBeNull();
   });
 });
 

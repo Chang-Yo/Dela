@@ -17,6 +17,11 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 
+if (process.platform === 'darwin') {
+  console.log('macOS 使用系统 Bash / Git 与 vendor/bin 下的对应架构搜索工具，无需 MinGit。');
+  process.exit(0);
+}
+
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, '.build', 'mingit');
 const marker = join(root, '.build', 'mingit.prepared');

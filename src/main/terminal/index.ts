@@ -21,17 +21,23 @@ import type {
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 
 function systemBash(): string | null {
+  if (process.platform === 'darwin') return existsSync('/bin/bash') ? '/bin/bash' : null;
   const candidates = [
-    join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git\\bin\\bash.exe'),
-    join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git\\bin\\bash.exe'),
-    join(process.env.LOCALAPPDATA ?? '', 'Programs\\Git\\bin\\bash.exe'),
+    join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'),
+    join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git', 'bin', 'bash.exe'),
+    join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Git', 'bin', 'bash.exe'),
   ];
   return candidates.find((path) => existsSync(path)) ?? null;
 }
 
-/** 定位 Git Bash：先系统安装（Git for Windows），再随包 MinGit，再应用自装的 MinGit 运行时；
+/** macOS 使用系统 Bash；Windows 先系统安装（Git for Windows），再随包 MinGit，再应用自装的 MinGit；
  *  都缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
 export function locateBash(): string {
+  if (process.platform === 'darwin') {
+    const bash = systemBash();
+    if (!bash) throw new Error('未找到 macOS 系统 Bash（/bin/bash），请检查系统环境');
+    return bash;
+  }
   return (
     systemBash() ??
     bundledBash() ??
@@ -51,7 +57,10 @@ let installController: AbortController | null = null;
 
 function bashStatus(): BashStatus {
   return {
-    found: (systemBash() ?? bundledBash() ?? mingitBash()) !== null,
+    found:
+      process.platform === 'darwin'
+        ? Boolean(locateBash())
+        : (systemBash() ?? bundledBash() ?? mingitBash()) !== null,
     install: { ...installState },
   };
 }
@@ -59,7 +68,7 @@ function bashStatus(): BashStatus {
 async function runInstall(owner: WebContents): Promise<BashStatus> {
   const current = bashStatus();
   // 已装或进行中：直接回报现状，不重复发起。
-  if (current.found || installController) return current;
+  if (process.platform !== 'win32' || current.found || installController) return current;
   const controller = new AbortController();
   installController = controller;
   Object.assign(installState, {
@@ -134,14 +143,17 @@ function ownedSession(owner: WebContents, id: unknown) {
   return session;
 }
 
-/** 终端与内核 Bash 同源（Git Bash）：经 --rcfile 链回标准初始化后注入 dela 命令桥，
+/** 终端与内核 Bash 同源：经 --rcfile 链回标准初始化后注入 dela 命令桥，
  *  使 skills 的领域命令在交互终端同样可用；桥的 URL/token 只进本会话环境。 */
 function writeRcfile(): { path: string; cleanup: () => void } {
   const directory = mkdtempSync(join(tmpdir(), 'dela-terminal-'));
   const path = join(directory, 'rc');
   writeFileSync(
     path,
-    '[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc\n[ -f ~/.bashrc ] && . ~/.bashrc\n' +
+    (process.platform === 'darwin'
+      ? '[ -f /etc/bashrc ] && . /etc/bashrc\n'
+      : '[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc\n') +
+      '[ -f ~/.bashrc ] && . ~/.bashrc\n' +
       COMMAND_BRIDGE +
       '\n',
   );
@@ -189,31 +201,37 @@ export function registerTerminalIpc() {
         cwd: app.getPath('home'),
         cols: 80,
         rows: 24,
-        useConptyDll: true,
+        ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
         env: { ...process.env, TERM: 'xterm-256color' },
       });
       title = connection.label;
     } else {
+      const bash = locateBash();
       const bridge = await domainBridge();
       const rcfile = writeRcfile();
       cleanup = rcfile.cleanup;
-      pty = spawn(locateBash(), ['--rcfile', rcfile.path, '-i'], {
-        name: 'xterm-256color',
-        cwd: location.path,
-        cols: 80,
-        rows: 24,
-        // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
-        useConptyDll: true,
-        env: {
-          ...process.env,
-          TERM: 'xterm-256color',
-          // 对齐 Git Bash 快捷方式的行为（登录 shell 由 profile 处理 MSYSTEM）。
-          MSYSTEM: 'MINGW64',
-          DELA_COMMAND_URL: bridge.url,
-          DELA_COMMAND_TOKEN: bridge.token,
-        },
-      });
-      title = 'Git Bash';
+      try {
+        pty = spawn(bash, ['--rcfile', rcfile.path, '-i'], {
+          name: 'xterm-256color',
+          cwd: location.path,
+          cols: 80,
+          rows: 24,
+          // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
+          ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
+          env: {
+            ...process.env,
+            TERM: 'xterm-256color',
+            // 对齐 Git Bash 快捷方式的行为（登录 shell 由 profile 处理 MSYSTEM）。
+            ...(process.platform === 'win32' ? { MSYSTEM: 'MINGW64' } : {}),
+            DELA_COMMAND_URL: bridge.url,
+            DELA_COMMAND_TOKEN: bridge.token,
+          },
+        });
+      } catch (error) {
+        cleanup();
+        throw error;
+      }
+      title = process.platform === 'darwin' ? 'Bash' : 'Git Bash';
     }
     const snapshot: TerminalSession = {
       id: parsedId,
@@ -300,7 +318,7 @@ export function registerTerminalIpc() {
     for (const [id, session] of sessions)
       if (session.owner === owner && session.projectId === parsedId) closeSession(id);
   });
-  app.on('before-quit', () => {
+  app.on('will-quit', () => {
     for (const id of sessions.keys()) closeSession(id);
   });
 }

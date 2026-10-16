@@ -8,6 +8,7 @@ import { useWorkbenchLayout } from './layout-store';
 import { findGroup, walkGroups } from './layout-schema';
 import { SplitNodeView } from './SplitNode';
 import { TabGroup } from './TabGroup';
+import { platform } from '../lib/platform';
 
 /** 键位表与「新建对话」由装配层传入（workbench 不反向依赖 app 的 store）。 */
 export function Workbench({
@@ -24,10 +25,13 @@ export function Workbench({
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing) return;
     const target = event.target instanceof HTMLElement ? event.target : null;
-    if (target?.closest('[role="dialog"], input, textarea, .cm-editor, [contenteditable="true"]'))
-      return;
-    const action = matchShortcut(bindings, event.nativeEvent, 'workbench');
+    const action = matchShortcut(bindings, event.nativeEvent, 'workbench', platform);
     if (!action) return;
+    if (target?.closest('[role="dialog"]')) return;
+    // Mac 的关标签组合即使焦点在编辑器/终端中也生效；Control 继续交给编辑器与 shell。
+    const macCloseTab = platform === 'mac' && action === 'close-tab' && event.metaKey;
+    if (!macCloseTab && target?.closest('input, textarea, .cm-editor, [contenteditable="true"]'))
+      return;
     const store = useWorkbenchLayout.getState();
     // Alt+数字聚焦第 N 组（沿用旧 Alt+1/2，泛化到 N 组）。
     if (action === 'focus-group') {

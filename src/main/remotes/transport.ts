@@ -68,6 +68,7 @@ const KEEPALIVE_SECONDS = 15;
 const KEEPALIVE_COUNT_MAX = 3;
 
 function binaryCandidates(binary: 'ssh' | 'sftp'): string[] {
+  if (process.platform === 'darwin') return [join('/usr/bin', binary)];
   const name = `${binary}.exe`;
   const bundledRoot = app.isPackaged
     ? join(process.resourcesPath, 'openssh')
@@ -88,7 +89,9 @@ export function locateSsh(binary: 'ssh' | 'sftp' = 'ssh'): string {
   const found = binaryCandidates(binary).find((path) => existsSync(path));
   if (!found)
     throw new Error(
-      '未找到 SSH 客户端：请在「设置 › 应用 › 可选功能」安装 OpenSSH 客户端，或把 openssh 目录放到 Dela 资源目录后重试',
+      process.platform === 'darwin'
+        ? `未找到 macOS 系统 SSH 客户端（/usr/bin/${binary}），请检查系统环境`
+        : '未找到 SSH 客户端：请在「设置 › 应用 › 可选功能」安装 OpenSSH 客户端，或把 openssh 目录放到 Dela 资源目录后重试',
     );
   located.set(binary, found);
   return found;

@@ -34,6 +34,7 @@ import {
 } from '../components/ui/dropdown-menu';
 import { EntryDialogs } from '../workspace/entry-dialogs';
 import { cn } from '../lib/utils';
+import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from './remote-color';
 import { useExperimental } from '../features/settings/experimental';
@@ -306,8 +307,7 @@ export function ProjectSessionNav({
                       )
                     }
                   >
-                    <FolderOpen />
-                    在资源管理器中显示
+                    <FolderOpen />在 {fileManagerName} 中显示
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {/* 「新建对话」由悬停按钮承担，不进菜单；行点击用于展开/折叠会话组。 */}

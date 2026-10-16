@@ -3,7 +3,7 @@
 // 录制新键位并在 keydown 时匹配动作；Workbench 经 props 取得合并后的键位表。
 //
 // 键位串格式：`Mod+Shift+N`。`Mod` 在 Windows/Linux 为 Ctrl、macOS 为 ⌘，
-// 与仓库既有的 Ctrl/⌘ 双标显示一致；命名键沿用 KeyboardEvent.key 的写法
+// macOS 的 Control 独立记为 Ctrl；命名键沿用 KeyboardEvent.key 的写法
 // （PageDown、ArrowUp、Escape…），空格写作 Space，`+` 归一为 `=`。
 
 export type ShortcutActionId =
@@ -136,6 +136,7 @@ export interface KeyEventLike {
   metaKey: boolean;
   altKey: boolean;
   shiftKey: boolean;
+  isComposing?: boolean;
 }
 
 const actionById = new Map(shortcutActions.map((action) => [action.id, action]));
@@ -187,11 +188,23 @@ function normalizeKey(key: string): string | null {
 }
 
 /** keydown → 键位串；单独的修饰键或无法识别的键返回 null。 */
-export function acceleratorFromEvent(event: KeyEventLike): string | null {
-  const key = normalizeKey(event.key);
+export function acceleratorFromEvent(
+  event: KeyEventLike,
+  platform: 'mac' | 'other' = 'other',
+): string | null {
+  if (event.isComposing || (platform === 'other' && event.metaKey)) return null;
+  // Option 会改变 event.key（如 Option+Z 为 Ω）；快捷键仍按相应字母/数字键识别。
+  const physicalKey =
+    platform === 'mac' && event.altKey
+      ? event.code?.match(/^(?:Key([A-Z])|Digit([0-9]))$/)
+      : undefined;
+  const key = normalizeKey(physicalKey?.[1] ?? physicalKey?.[2] ?? event.key);
   if (!key) return null;
   const parts: string[] = [];
-  if (event.ctrlKey || event.metaKey) parts.push('Mod');
+  if (platform === 'mac') {
+    if (event.metaKey) parts.push('Mod');
+    if (event.ctrlKey) parts.push('Ctrl');
+  } else if (event.ctrlKey) parts.push('Mod');
   if (event.altKey) parts.push('Alt');
   if (event.shiftKey) parts.push('Shift');
   parts.push(key);
@@ -205,7 +218,7 @@ export function isAccelerator(value: unknown): value is string {
   const key = parts.at(-1)!;
   if (normalizeKey(key) !== key) return false;
   const modifiers = parts.slice(0, -1);
-  return modifiers.every((part) => part === 'Mod' || part === 'Alt' || part === 'Shift');
+  return modifiers.every((part) => ['Mod', 'Ctrl', 'Alt', 'Shift'].includes(part));
 }
 
 /** 是否为 digit 族键位（末位为 1…9）。 */
@@ -224,10 +237,11 @@ function modifierPart(accelerator: string): string {
 function matchesAccelerator(
   accelerator: string | null,
   event: KeyEventLike,
+  platform: 'mac' | 'other',
   family?: 'digit',
 ): boolean {
   if (!accelerator) return false;
-  const pressed = acceleratorFromEvent(event);
+  const pressed = acceleratorFromEvent(event, platform);
   if (!pressed) return false;
   if (pressed === accelerator) return true;
   if (family !== 'digit' || !isDigitFamily(accelerator)) return false;
@@ -247,10 +261,11 @@ export function matchShortcut(
   bindings: KeybindingMap,
   event: KeyEventLike,
   scope: ShortcutScope,
+  platform: 'mac' | 'other' = 'other',
 ): ShortcutActionId | null {
   for (const action of shortcutActions) {
     if (action.scope !== scope) continue;
-    if (matchesAccelerator(bindings[action.id], event, action.family)) return action.id;
+    if (matchesAccelerator(bindings[action.id], event, platform, action.family)) return action.id;
   }
   return null;
 }
@@ -307,6 +322,7 @@ export function acceleratorKeys(
   const key = parts.pop()!;
   const chips = parts.map((part) => {
     if (part === 'Mod') return platform === 'mac' ? '⌘' : 'Ctrl';
+    if (part === 'Ctrl') return platform === 'mac' ? '⌃' : 'Ctrl';
     if (part === 'Shift') return '⇧';
     if (part === 'Alt') return platform === 'mac' ? '⌥' : 'Alt';
     return part;

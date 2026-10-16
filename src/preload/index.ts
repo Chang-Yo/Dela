@@ -25,6 +25,7 @@ import { workspace } from './workspace';
 import { vsjtu } from './vsjtu';
 
 contextBridge.exposeInMainWorld('dela', {
+  platform: process.platform,
   vsjtu,
   version,
   firstLaunch: process.argv.includes('--dela-first-launch'),

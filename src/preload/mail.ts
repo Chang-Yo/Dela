@@ -37,7 +37,7 @@ export const mail = {
   deleteDraft: (id: string) => invoke('mail:delete-draft', id),
   confirmDraftClose: () => invoke('mail:confirm-draft-close'),
   setComposeActive: (active: boolean) => invoke('mail:compose-active', active),
-  onRequestClose: (listener: () => void) => on('mail:request-close', listener),
+  onRequestClose: (listener: (quitting: boolean) => void) => on('mail:request-close', listener),
   syncNow: () => invoke('mail:sync'),
   onSyncStatus: (listener: (status: MailSyncStatus) => void) =>
     on<MailSyncStatus>('mail:sync-status', listener),

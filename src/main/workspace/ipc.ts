@@ -337,7 +337,7 @@ export function registerWorkspaceIpc(
     const id = workspaceEntryIdSchema.parse(value);
     const item = entry(id);
     if (item.kind === 'project' && remoteProjectOf(id))
-      throw new Error('远程项目不在本机，无法用资源管理器打开');
+      throw new Error('远程项目不在本机，无法在本机打开目录');
     const path =
       item.kind === 'project' || item.kind === 'folder' ? item.path : await workspaceFilePath(id);
     if (!path) throw new Error('此内容没有本地文件');

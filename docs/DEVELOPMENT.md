@@ -8,12 +8,13 @@
 - 日常编码约束：[AGENTS.md](../AGENTS.md)
 - 远端 helper 的协议与端点表：[helper/README.md](../helper/README.md)
 - 校园接口实测与资料索引：[sjtu-apis.md](sjtu-apis.md)
+- macOS 各阶段实验与验收证据：[macos-validation.md](macos-validation.md)
 
 ## 1. 产品与边界
 
 本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 `dela` 命令，工作台 GUI 是壳。
 
-- 单用户、单应用、单 package，仅 Windows（跨平台明确放弃）。
+- 单用户、单应用、单 package。正式分发仍仅 Windows；macOS 开发约定、跨平台取舍与验证流程见 §16，尚不代表功能完整或可以发布。
 - 仅通过 NSIS（`.exe`）分发 Windows x64 应用。应用内更新使用 electron-updater，从自有 CDN 获取正式 Release。
 - 无服务端，无账号系统。模型服务与检索 API 都由用户自己配置。
 - **固定约束**：交大 jAccount 开放平台的 `client_id` 已停止申请，不存在取得途径。凡是需要官方 jAccount 授权的方案都不可行；现有能力走 Canvas Personal Token、邮箱 IMAP/SMTP、致远一号 API 与个人会话型接口。
@@ -26,8 +27,8 @@
 
 | 工具                       | 来源                                                                                                                            |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| read / write / edit / bash | Pi 内置，cwd＝会话所属项目目录；bash 用 Git Bash（与终端同源），不可关闭                                                        |
-| grep / find / ls           | Pi 内置；首次使用时 Pi 自动下载 rg/fd（待验证离线体验）                                                                         |
+| read / write / edit / bash | Pi 内置，cwd＝会话所属项目目录；Windows 用 Git Bash，macOS 用系统 `/bin/bash`（与终端同源），不可关闭                           |
+| grep / find / ls           | Pi 内置；rg/fd 随包提供对应平台与架构版本，缺失时 Pi 才尝试下载                                                                 |
 | web_search / web_fetch     | Dela 自定义工具；web_search 默认关闭（要自备搜索服务），web_fetch 默认开启；搜索服务在「网络」域注册（Brave / Google / 自定义） |
 | MCP 工具                   | Dela 连接 stdio 服务器后作为自定义工具注入                                                                                      |
 
@@ -45,7 +46,7 @@
 
 `document-reading` 同样写入 `~/.dela/skills`，配套脚本由应用维护。没有解析组件时设置页仍列出它，但显示关闭且不注入 Pi；开启前必须通过组件检查。「设置 › Skills」提供安装、阶段/下载进度、取消与重试，成功后启用，设置页关闭不删除组件。远端上传不支持此本机组件。
 
-当前安装直接从官方源下载 Python 3.12.10 embeddable、uv 0.11.1 与 PyPI wheels，在 `userData/components/document-reading/1` 内组装隔离环境；Python/uv ZIP 固定 SHA256，42 项 Python 依赖锁定版本与 wheel hashes，禁止源码构建和 Agent 自行安装。使用 Windows 系统 tar 解压，最后自检成功才写 ready 标记；失败/取消不启用并清理未完成目录。主安装包只带 skill/脚本/锁文件，不带 Python/uv/wheels。首次引导与老用户的一次性升级入口均使用「能力拓展」页，复用现有 Skills 安装 API。后续镜像与预打包组件源另行建设。
+当前安装器仅支持 Windows x64；macOS 尚不能安装或启用该文档读取组件，Agent 的 Office/PDF 正文读取因此不可用，GUI 预览和系统默认应用打开独立保留。安装直接从官方源下载 Python 3.12.10 embeddable、uv 0.11.1 与 PyPI wheels，在 `userData/components/document-reading/1` 内组装隔离环境；Python/uv ZIP 固定 SHA256，42 项 Python 依赖锁定版本与 wheel hashes，禁止源码构建和 Agent 自行安装。使用 Windows 系统 tar 解压，最后自检成功才写 ready 标记；失败/取消不启用并清理未完成目录。主安装包只带 skill/脚本/锁文件，不带 Python/uv/wheels。首次引导与老用户的一次性升级入口均使用「能力拓展」页，复用现有 Skills 安装 API。后续镜像与预打包组件源另行建设。
 
 文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 下载复用 `prepareDocumentFile`，返回 `readable: false` 和 `document` 任务，skill 直接使用其中的路径，完成后 release，无需第二次下载。依赖缺失、下载中断或超过上限时失败并释放响应；失败任务目录清理。主进程 PDF.js 提取与其原生 canvas 运行时依赖已移除，renderer 的 PDF.js 阅读器保留。未修改的上一版内置文档 skill 会自动补齐网页 PDF 指引；用户编辑过的版本保留。
 
@@ -56,6 +57,12 @@
 ### 2.4 GUI
 
 标签工作台（聊天 / 笔记 / 预览 / 终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。
+
+macOS 使用系统原生标题栏与红黄绿按钮，应用导航栏位于其下方；Windows 保持原有自绘窗口控件。preload 只读的 `platform` 是 renderer 的平台来源。Mac 原生菜单保留编辑、隐藏、退出、全屏与窗口操作，业务菜单复用现有托盘动作通道；自定义快捷键仍由 renderer 派发，原生关闭窗口菜单不占用关标签的 ⌘W。关闭菜单操作 Electron 传入的当前窗口；辅助登录窗口正常关闭，无窗口时不操作。两端关闭主窗口均隐藏并保留后台任务，Mac 可经 Dock 恢复；真正退出沿用笔记/邮件守卫，终端与命令桥在 `will-quit` 才清理，取消退出时重置退出标记。
+
+共享键位的 `Mod` 在 Windows 为 Control、Mac 为 Command；Mac 的 Control 单独记为 `Ctrl`，不再误触发全局快捷键。Option+字母/数字按物理键识别，组合输入不派发动作。终端复制/粘贴为 Windows Ctrl+Shift+C/V、Mac ⌘C/V，Ctrl+C 继续中断 shell。Mac 编辑器或终端聚焦时 ⌘W 可关标签，弹窗内不关闭后方标签。系统菜单保留的组合（如 ⌘Q、⌘H、⌘M 和原生编辑组合）有优先权，不建议录制为其他动作。
+
+登录启动不使用 `openAsHidden`：Windows 传 `--hidden`，Mac 读取 `wasOpenedAtLogin` 决定是否隐藏；开发与冒烟运行不注册系统启动项。
 
 设置页语义约定：
 
@@ -142,13 +149,13 @@
 
 把远端 Linux 主机上的目录登记为项目。**本地内核 + 远程执行**：内核、模型密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端、目录读取与文件预览落到 SSH 远端（`src/main/remotes/`）。
 
-- **传输**：`transport.ts` 是一次性 ssh 的唯一边界，全部走 `ssh <host> <script>`，不引入 SFTP。系统 OpenSSH 优先、`vendor/openssh` 兜底（自带 `ssh.exe` + `libcrypto.dll` 经 `extraResources` 进 `resources/openssh`）。探测顺序是 System32 → Program Files → 自带目录；**System32 那份可能是旧版本**（本机实测 System32 为 9.5p2、Program Files 为 10.0p2），排障时先确认实际生效的是哪一个。一次调用一个 ssh 子进程，实测每次 0.3–0.6 秒。
+- **传输**：`transport.ts` 是一次性 ssh 的唯一边界，全部走 `ssh <host> <script>`，不引入 SFTP。Windows 系统 OpenSSH 优先、`vendor/openssh` 兜底（自带 `ssh.exe` + `libcrypto.dll` 经 `extraResources` 进 `resources/openssh`），探测顺序是 System32 → Program Files → 自带目录；**System32 那份可能是旧版本**（Windows 本机实测 System32 为 9.5p2、Program Files 为 10.0p2），排障时先确认实际生效的是哪一个。Mac 使用 `/usr/bin/ssh`。一次调用一个 ssh 子进程，Windows 实测每次 0.3–0.6 秒。
 - **helper 通道**（日常路径）：`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP。helper 是一个 Go 静态二进制，Dela 把它放到 `~/.dela/helper/<版本>-<sha8>/` 再启动。建好之后不再付握手钱（列目录实测 28 ms vs 310 ms）。端点、心跳与生命周期规则见 [helper/README.md](../helper/README.md)。
 - **工具**：read / write / edit / bash / ls / find 复用 Pi 的工具定义、只换 `operations`；grep 在 Pi 内部固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute 在远端搜（rg 缺失时退回 `grep -rnH`）。同名自定义工具覆盖内置（`agent-session.js` 注册表后写覆盖），因此这七个名字**不能**进 `excludeTools`。
-- **路径**：会话 cwd 就是远端 POSIX 绝对路径；工具传来的路径先经 `remotePath` 还原（Windows 会把 `/root/x` 解析成 `\root\x`）。远端上下文镜像到 `<userData>/remote-context/<remoteId>/<projectId>/`，`remotePath` 是唯一收口——七个工具（含 grep）的全部路径入口自动生效。
+- **路径**：会话 cwd 就是远端 POSIX 绝对路径；工具传来的路径先经 `remotePath` 还原（Windows 会把 `/root/x` 解析成 `\root\x`）。远端上下文镜像到 `<userData>/remote-context/<remoteId>/<projectId>/`，`remotePath` 是唯一收口——七个工具（含 grep）的全部路径入口自动生效。镜像路径和命令正文按路径格式匹配：Windows 镜像兼容大小写与两种分隔符，Mac/POSIX 镜像保留大小写及文件名中的反斜杠；前缀相似的兄弟目录不映射。
 - **本地不碰远端路径**：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建 / 重命名 / 移动，目录不进本地扫描也不 `fs.watch`。远端条目 id 是「项目 id + 远端路径」，两台连接上的同路径目录不会混。远端目录的变化由 helper 的 inotify 事件流推给目录树（只监视展开的那几层）。
 - **认证**：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
-- **VS Code 打开项目**：直接启动 `Code.exe`，远程项目附带 `--remote ssh-remote+<host>`；不使用 `windowsHide: true`，它会隐藏首次启动的 GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
+- **VS Code 打开项目**：Windows 直接启动 `Code.exe`，Mac 启动应用包内的 CLI；远程项目附带 `--remote ssh-remote+<host>`。不使用 `windowsHide: true`，它会隐藏首次启动的 Windows GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
 - **降级**：helper 起不来时（服务器禁执行 `noexec`、只读挂载、SELinux 拦截）自动分类原因并退回一次性 ssh，向导日志与目录树都显示人话文案。降级后端口预览与远端改动实时刷新不可用，其余功能照常。
 - **不做**：远端笔记写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
 
@@ -156,7 +163,7 @@
 
 - 连接是「一次调用一个 ssh 子进程」，没有多路复用。短时间并发握手太多时主机会直接断开（`Connection closed by <host> port 22`），并行跑多个真机测试文件就会偶发；`pnpm test:remote` 因此要串行（串行由 `vitest.remote.config.ts` 的 `fileParallelism: false` 保证）。App 侧一次工具调用只有一条连接，但模型并发发起多个工具调用时可能撞上主机的 MaxStartups。
 - `sshBaseArguments` 统一带 `ServerAliveInterval=15`、`ServerAliveCountMax=3`：一次 10 分钟无输出的远端命令会被对端 reset（`clientaliveinterval 0` + 客户端不发保活，中间的 NAT/防火墙丢连接）。心跳同时是隧道的保活包。
-- **路径归一化是最容易静默改错文件的点**：工具在调用 operations 之前用宿主 `node:path` 解析参数，本机实测 `path.resolve('/home/u/proj','src/a.ts')` → `E:\home\u\proj\src\a.ts`。operations 必须先去盘符前缀、再把 `\` 换成 `/`、合并重复斜杠后才拼命令。
+- **路径归一化是最容易静默改错文件的点**：工具在调用 operations 之前用宿主 `node:path` 解析参数，Windows 本机实测 `path.resolve('/home/u/proj','src/a.ts')` → `E:\home\u\proj\src\a.ts`。operations 仅对 Windows 形态去盘符、将 `\` 换成 `/`；原生 POSIX 路径不套用这些规则，避免静默改错文件。
 - 快速反复重启会在远端留几个「过期」helper：Dela 退出不发退出请求，旧实例带着过期 token 最多再活 5 分钟，拿不到请求，只是占位进程。
 - 多通道没有空闲回收，也没有条数上限：一个会话里用到过几个连接，就各留一条通道与一个远端 helper（各带自己的心跳），直到应用退出全部关掉。上界通常是个位数。
 
@@ -187,7 +194,7 @@ preload 暴露的 API：
 
 ## 6. 应用内更新
 
-使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 目标，不自行实现版本比较、差分下载或安装器。
+应用内更新目前仅用于 Windows，使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 目标，不自行实现版本比较、差分下载或安装器。macOS 开发版从初始快照即返回 `unsupported / platform-unsupported`，不注册后台检查、不恢复待安装标记、不调用更新器或打开仅提供 Windows 版本的下载页；设置页显示当前版本与能力限制。Mac 更新源、签名与两版升级完成验收后再启用。
 
 - 更新源为 `https://openlist.frameneo.com/sd/Dela_latest_release/`，通过 Generic provider 读取 `latest.yml`。下载页面为对应的 `/@s/Dela_latest_release` 分享页；客户端不解析分享页 HTML。构建时由 electron-builder 在 resources 中生成 `app-update.yml`，主进程构建将 electron-updater 保持 external。
 - CDN 定期拉取最新正式 GitHub Release 的文件并扁平存放，只保留最新版；上传和同步由 CDN 侧完成，CI 不持有 CDN 凭据。同步时安装包与 blockmap 应先于元数据就绪，避免元数据指向缺失文件。
@@ -228,13 +235,17 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 
 ## 9. 终端
 
+以下 Git Bash / MinGit 安装流程仅用于 Windows。macOS 固定使用 `/bin/bash` 和 Unix PTY，不安装/清理 MinGit、不设置 ConPTY 或 `MSYSTEM`；rcfile 读取 `/etc/bashrc` 与 `~/.bashrc` 后注入同一份 dela 桥。缺少系统 Bash 时直接返回 macOS 提示，不显示 Windows 安装引导。交互 shell 仍是 Bash，不读取用户的 Zsh 配置；PATH 保留继承顺序并补齐标准系统目录与 `/opt/homebrew/bin`、`/usr/local/bin`，不执行用户的登录 shell 来获取环境。Mac 的 Git 使用本机可用安装，不随包附带 Git。
+
 与 Bash 同源：Git Bash + node-pty（ConPTY）+ xterm.js，实现参考 VS Code / Hyper；dela 桥函数同样注入项目终端。Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit（`resources/mingit`）→ 应用自装的 MinGit 运行时（下段），都缺失时明确报错（`locateBash()`），**不回退 PowerShell**。随包副本由 `scripts/prepare-runtime.ts` 在打包前按源码里写死的版本与 SHA256 下载校验（版本定义只在 `src/main/terminal/mingit.ts` 一处），仓库不提交这份约 40MB 的产物（`.build/` 已忽略）；随包已有运行时时，启动会顺手清掉旧版本自装进用户目录的 MinGit 副本。
 
 系统没装 Git for Windows 时（开发模式或旧版升级前的兜底），终端页可一键安装固定版本的官方 MinGit（`src/main/terminal/mingit.ts`）：从 npmmirror 镜像下载 zip（大陆 CDN 直连快，GitHub Releases 兜底，两者与官方发布物逐字节一致），SHA256 与版本号写死在源码（换版本必须成对更新），由系统自带 tar 解压进 `%LOCALAPPDATA%\Dela\mingit\v<版本>`，全程无需管理员权限。MinGit 只以 `sh.exe` 名义带 bash 本体，安装时复制出 `bash.exe`——argv[0] 决定 bash 是否走完整模式，`--rcfile` 注入 dela 桥依赖它；装成后把 `cmd/` 前插进主进程 PATH（`prependRuntimePath()`），终端与 Agent 的 bash 内 git 随即可用。失败与取消都清理半成品，换绑新版本安装时顺手删除旧版本目录。
 
 内核（pi）的 `grep` / `find` 不在进程内实现，而是 spawn 外部 `rg` / `fd`；用户机器通常没有，pi 自身兜底是从 GitHub 直连下载（大陆大概率失败），因此随包分发：`vendor/bin/` 里的 `rg.exe` / `fd.exe` 经 `extraResources` 进 `resources/bin`，启动时前插 PATH 即被 pi 的 PATH 探测命中，不再触发下载（来源与升级步骤见 [vendor/bin/README](../vendor/bin/README.md)）。
 
-远程项目的终端是本地 `ssh -tt` 申请远端 PTY，远端不需要 node-pty；该终端不注入 dela 桥，但可以让 ssh 自己问密码与主机指纹。
+macOS 的 rg/fd 位于 `vendor/bin/darwin-<arch>`，打包后为 `resources/bin/darwin-<arch>`；只拷贝目标架构，许可证与 Windows 共用。PATH 按平台使用 `;` 或 `:` 分隔，不将 Windows exe 目录注入 Mac。
+
+远程项目的终端是本地 `ssh -tt` 申请远端 PTY，远端不需要 node-pty；该终端不注入 dela 桥，但可以让 ssh 自己问密码与主机指纹。macOS 使用 `/usr/bin/ssh`（SFTP 同样来自 `/usr/bin`），Windows 保留系统 OpenSSH → 随包客户端的顺序；远端协议与 Linux helper 不变。
 
 ## 10. 仓库组织
 
@@ -245,7 +256,7 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - `src/renderer/` — React 界面：`app/`（应用装配、主题、快捷键、通知与浮窗）、`workbench/`（标签工作台、布局树、工作台装配 `WorkbenchShell` 与目录 `WorkbenchExplorer`）、`content/`（chat / note / preview / review / terminal 标签内容，笔记草稿在 `content/note/drafts.ts`）、`navigation/`（侧栏与视图路由 `view.ts`）、`sessions/`、`workspace/`（条目镜像、条目操作与远程向导）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings / classroom 整页视图）、`lib/`、`styles/`；共享组件在 `components/`（`AppShell.tsx`、`ErrorBoundary.tsx`、`legal-markdown.tsx` 与 `ui/`），样式用 Tailwind v4 + 语义 token。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数（`api.ts` 聚合 re-export）。
 - `helper/` — 远端工具服务的 Go 模块，只依赖标准库。
-- 测试与被测代码同层，但摆法按层不同：`src/main/` 一律用各域的 `test/` 子目录，根级 `src/main/test/` 只放根级模块的测试；`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本，全部为 TypeScript（Node 24 原生执行，仓库不再有 `.mjs`；`tsconfig.scripts.json` 纳入 `pnpm typecheck`）；需要打包的 TS 冒烟（workspace / remote）统一经 `scripts/run-ts-smoke.ts <名称>` 构建并运行。
+- 测试与被测代码同层，但摆法按层不同：`src/main/` 一律用各域的 `test/` 子目录，根级 `src/main/test/` 只放根级模块的测试；`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本，全部为 TypeScript（Node 24 原生执行，仓库不再有 `.mjs`；`tsconfig.scripts.json` 纳入 `pnpm typecheck`）；需要打包的 TS 冒烟（workspace / remote / runtime）统一经 `scripts/run-ts-smoke.ts <名称>` 构建并运行。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 三个配置都写死 `envDir: false`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。打包白名单（`electron-builder.yml` 的 `files`）只含 `out/**/*`、`package.json` 与 `assets/` 下的两张品牌图——文档、个人凭据与 `.tools/` 都不进安装包。
 
@@ -264,11 +275,20 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
   ```
 
 - 新克隆的仓库不包含 `.tools/`，需自行安装上述版本。也可以将官方 Windows Node ZIP 解压到 `.tools/node-v24.21.0-win-x64`，再用该 Node 自带的 npm 执行 `npm install --prefix .tools/package-manager pnpm@12.3.4`。
+- Apple Silicon 本机也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.21.0-darwin-arm64`；已安装固定版本的 Node 与 pnpm 后，在当前 shell 启用并核对版本：
+
+  ```sh
+  export PATH="$PWD/.tools/node-v24.21.0-darwin-arm64/bin:$PATH"
+  node --version
+  pnpm --version
+  ```
+
 - `pnpm-workspace.yaml` 只放 pnpm 12 的项目设置（`saveExact`、`engineStrict`、`allowBuilds` 门控），**不是** monorepo：没有 `packages` 字段，也没有子包。注意 `allowBuilds` 里 `better-sqlite3: false`、`node-pty: true`——原生依赖用随包预编译产物，关闭源码重建。
-- `pnpm install` 会通过 Electron 提供的 `install-electron` 命令下载运行时（`postinstall`）。
+- `pnpm install` 的 `postinstall` 先通过 Electron 提供的 `install-electron` 命令下载运行时，再执行 `scripts/fix-native-permissions.ts`。后者仅在 Darwin 上给 node-pty 1.1.0 的 arm64/x64 `spawn-helper` 补上可执行位（包内原为 0644，会导致 `posix_spawnp failed`）；Windows 上不修改文件，不重建或升级依赖。
+- 已安装依赖后若只更新了 postinstall 脚本，显式执行 `pnpm run postinstall`，增量 install 可能不重新运行。
 - `@earendil-works/*`（pi-coding-agent / pi-agent-core / pi-ai / pi-mcp）在 main 构建中以正则保持 external、随 node_modules 打包进 asar；pi 系为纯 ESM 包，main 的 CJS 产物经 `agent/pi.ts` 动态 `import()` 加载。
 - PDF.js 仅作为 renderer 的构建依赖；主进程不加载 PDF.js 或原生 canvas，不随正式安装包分发该原生解析依赖。
-- 运行时依赖 Git Bash 与搜索工具 rg/fd：内核 Bash 工具与内置终端统一使用 Git Bash，内核 grep/find 用 rg/fd，均已随包分发（见 §9），用户不必预装；终端页的一键安装保留给没有随包副本的场景。
+- 运行时依赖 Bash 与搜索工具 rg/fd：Windows 随包分发 Git Bash，macOS 使用系统 Bash；rg/fd 两端均按架构随包分发（见 §9）。终端页的 MinGit 一键安装只用于 Windows。
 - `userData/dela.db` 是否存在只用来区分新装与升级（`window.dela.firstLaunch`，主进程在建库前判定）；是否展示引导、展示哪一段，由 localStorage 里的同意标记与引导标记决定，见下条。URL 加 `?smoke-test=1` 可短路引导；冒烟会另开临时 profile。
 - 新用户引导顺序是 Intro 动画 → 条款接受页（`features/onboarding/ConsentStep.tsx`）→ 五步配置向导 → 能力拓展 → 完成动画。接受页不在向导里：它没有跳过、不占进度点，两份条款（`docs/terms.md`、`docs/privacy.md`）依次展示，各自滚到底才能点「同意并继续」，另一侧「不同意并退出」走 `window:quit` 真正结束进程（窗口栏的关闭按钮走 `close()`，那只是收进托盘、后台照跑）。正文映射与设置里的两个条款页共用 `components/legal-markdown.tsx`。「已读到底」一旦成立就不再回退，导出提示出现或窗口变矮只改变文本框高度，不会把读完的人重新锁住。
 - 条款门对所有人成立：`onboardingCompleted()` 只看 `hasConsent()`，没有同意标记就一定先展示条款页——否则「不同意并退出」再打开就绕过去了。唯一例外是 `?smoke-test=1` 的短路（`--smoke-test` 走临时 profile，`--terminal-smoke-test` 在真实 profile 上也算短路，仅供开发）。接受过条款不重走旧向导，App 继续检查独立的能力拓展版本。
@@ -296,15 +316,18 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 | `pnpm test`                                     | Vitest 单元测试（不含真机远程套件）                                |
 | `pnpm test:remote`                              | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，需串行               |
 | `pnpm smoke`                                    | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离      |
+| `pnpm smoke:macos`                              | macOS 依赖验证：SQLite、Keychain、系统工具与 Bash PTY              |
+| `pnpm smoke:runtime`                            | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位        |
+| `pnpm smoke:desktop`                            | 原生菜单、关闭/恢复、取消退出后终端与命令桥存活                    |
 | `pnpm smoke:workspace`                          | 工作区回归                                                         |
 | `pnpm smoke:pdf`                                | PDF.js 阅读器回归                                                  |
 | `pnpm smoke:shuiyuan`                           | 水源社区回归                                                       |
 | `pnpm smoke:remote`                             | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`      |
-| `pnpm exec electron scripts/terminal-smoke.cjs` | 内置终端回归（Git Bash、多会话、选取复制）                         |
+| `pnpm exec electron scripts/terminal-smoke.cjs` | 内置终端回归（平台 Bash、多会话、选取复制）                        |
 | `pnpm exec electron scripts/mingit-smoke.cjs`   | MinGit 一键安装回归：真实下载约 40MB，装进临时沙箱                 |
 | `pnpm exec electron scripts/agent-smoke.cjs`    | Agent 基座回归：需 `DELA_SMOKE_BASE_URL/API_KEY/MODEL`，发真实请求 |
 | `pnpm package:dir`                              | 生成未安装的可执行目录                                             |
-| `pnpm package:dist`                             | 生成 Windows 安装包                                                |
+| `pnpm package:dist`                             | 生成当前平台安装产物（Windows NSIS / macOS DMG 与 ZIP）            |
 
 打包目录可运行 `dist/win-unpacked/Dela.exe --smoke-test` 做与 `pnpm smoke` 相同的检查；终端冒烟加 `dist/win-unpacked/resources/app.asar` 参数可验证包内资源。冒烟脚本使用独立测试目录与脱敏数据；除 `agent-smoke`（真实模型请求）与 `mingit-smoke`（真实下载 MinGit）外不发送真实请求。
 
@@ -333,15 +356,18 @@ pnpm test
 
 ## 14. CI
 
-`.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行，job 名 `Check win-x64`：
+`.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行：
 
-- 应用只构建 Windows x64（`windows-2022`），与发布一致的 runner 和固定 Node / pnpm 版本。
-- helper 任务名即 `Check helper linux (amd64 + arm64)`，在 `ubuntu-24.04` 用 Go 1.27.2 执行 `go vet`（含交叉 `linux/arm64`）、`go test`、构建两个架构的静态产物并跑 `--version`（arm64 走 qemu 用户态仿真）。Windows 任务下载当次产物用于打包，并逐字节核对打包后的文件。
+- Windows 任务为 `Check win-x64`，使用 `windows-2022`，与发布一致的 runner 和固定 Node / pnpm 版本；目录打包通过 `package:dir` 准备 MinGit，避免缺少随包 Bash。
+- Mac 任务为 `Check mac-arm64`（`macos-15`）与 `Check mac-x64`（`macos-15-intel`），按 [GitHub 官方 runner 架构表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)分别原生安装依赖、构建与验证；启动时核对 Node 架构，不能用交叉打包成功代替目标架构执行。
+- helper 任务名即 `Check helper linux (amd64 + arm64)`，在 `ubuntu-24.04` 用 Go 1.27.2 执行 `go vet`（含交叉 `linux/arm64`）、`go test`、构建两个架构的静态产物并跑 `--version`（arm64 走 qemu 用户态仿真）。Windows 与 Mac 任务下载当次产物用于打包，并逐字节核对打包后的文件。
 - 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包、包内 helper 核对及打包后冒烟。**CI 是分步执行这些命令，不是调用 `pnpm check`。**
 - Go 测试只使用 runner 本机临时目录、inotify 与回环 HTTP，不连接 SSH。Windows 任务明确留空 `DELA_REMOTE_HOST`，真实 SSH 联调继续手动运行，不作为发布前置条件。
-- 检查不生成安装包、不发布 Release，仅使用 `contents: read` 权限；同一 PR 或 main 分支的新提交会取消旧检查。
+- Mac 任务额外执行依赖、离线运行时、桌面与终端冒烟，构建 DMG/ZIP，并通过 `scripts/verify-macos-package.ts` 检查应用标识、架构、随包资源、许可证与压缩包完整性，再跑实际 `.app` 及包内原生依赖/桌面/终端冒烟。DMG/ZIP 作为 `development-mac-<arch>` 验证产物保留 7 天，不发布 Release。
+- `scripts/macos-launch-smoke.ts` 经 LaunchServices 启动实际 `.app`，使用仓库外的工作目录与系统 PATH，读取应用自身的冒烟成功标记；`open` 返回成功本身不算验收。该模式使用隔离 profile、不注册登录项，仍不代替下载后 Gatekeeper 与真实首启引导验收。
+- Windows 检查不生成 NSIS 安装包；所有检查仅使用 `contents: read` 权限，同一 PR 或 main 分支的新提交会取消旧检查。Mac workflow 的云端执行结果需另行验收，不能由本地验证替代。
 
-若要限制合并，需在 GitHub 的 main 分支规则中将 `Check win-x64` 设为必需检查——仅添加 workflow 不会自动启用分支保护。
+若要限制合并，需在 GitHub 的 main 分支规则中将已验收的对应平台任务设为必需检查——仅添加 workflow 不会自动启用分支保护。
 
 ## 15. 版本与发布
 
@@ -391,6 +417,61 @@ pnpm test
 
 - 以上是项目选择的构建基线，不代表最低系统实机兼容性已验收。GitHub runner 是构建环境，与最低运行系统不同。
 - 安装包名包含版本、系统和架构，避免产物重名。私有发布任务使用内置 `GITHUB_TOKEN`（`contents: write`），公开发布任务使用 `PUBLIC_RELEASE_TOKEN`，token 权限只覆盖公开仓库。
+
+### 16.1 macOS 开发约定
+
+macOS 处于适配开发阶段，尚不提供正式发行版。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包及 DMG/ZIP 解包启动；具体环境、各阶段结果及证据范围见 [macOS 适配验证记录](macos-validation.md)。
+
+保持一个应用、一个 package、一套主干代码。业务逻辑、数据格式与 IPC 共用，Windows 合作者的常规业务功能无需另写 macOS 版本；涉及系统命令、路径或外部程序时仍需适配与双平台回归。平台差异优先留在现有定位、进程启动与系统交互函数中，出现真实重复和多个调用方后再提取共享函数。PPTX 在 Mac 仅提供系统默认应用打开，复用同一个资源解析与 `shell.openPath` 入口，不接入 Keynote 或其他 PDF 转换器；Windows 保留 PowerPoint 转换。
+
+Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/Applications` 下标准应用包内的 CLI；完整路径以参数数组传递，本地与 Remote-SSH 入口共用，未安装时明确提示。项目目录入口在 Mac 显示 Finder，在 Windows 显示资源管理器，共用原有打开目录 IPC。Bash、PTY、搜索工具和 SSH 的运行约定见 §9，窗口与快捷键见 §2.4。
+
+聊天 `@` 文件引用按工作目录的路径格式判断归属：Windows 盘符与反斜杠 UNC 路径兼容大小写及两种分隔符；POSIX 路径逐字匹配，保留文件名里的反斜杠，避免大小写敏感卷上的不同项目相互干扰。引用的绝对路径保持不变。新建文件名仍使用两端共用的可移植命名限制。
+
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物为独立架构的 DMG 与 ZIP，默认构建本机架构，CI 分别传入 `--arm64` / `--x64`；不构建 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
+
+### 16.2 跨平台取舍与待验收事项
+
+| 项目           | 当前处理                                                                | 影响与后续决定                                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 核心业务与协作 | 单应用、同一主干与 IPC，业务功能共用                                    | 常规 Windows 功能更新可复用；新增系统调用、路径假设、外部程序依赖仍需双平台回归                                                                 |
+| 窗口控件       | Mac 原生标题栏，导航栏在下方；Windows 自绘                              | Mac 多占一行高度，但不需要写死红黄绿按钮的避让尺寸；若以后要合并标题栏，再单独评审不同缩放/字号/全屏布局                                        |
+| 关闭与退出     | 两端关闭主窗口均隐藏并保留任务；Mac 经 Dock 唤回、⌘Q 退出               | Mac 菜单关闭当前窗口，辅助登录窗口正常关闭；真正退出才结束终端                                                                                  |
+| 快捷键         | Mac 用 ⌘，Control 保留 shell/编辑含义；Option 按物理字母/数字键识别     | 用户显式绑定的 Option 组合会占用相应特殊字符输入；系统菜单组合优先，自定义键位需避开；⌘W 在编辑区关标签，Windows 保留原有输入区域守卫           |
+| Shell 与环境   | Mac 系统 Bash、系统 SSH、本机 Git；补常见工具目录，不执行用户登录 shell | 不自动加载 Zsh 配置；用户只写在 Zsh 初始化中的 SDK 环境不一定可见，系统命令参数也不保证与 Git Bash 完全一致；暂不随包引入另一套 Bash/GNU 工具链 |
+| 登录启动       | 保留默认开启的产品行为，参数按系统处理                                  | Mac 登录项许可、实际登录后隐藏启动仍待验收；冒烟脚本禁止注册，避免测试修改启动偏好                                                              |
+| PPTX 预览      | Mac 仅用系统默认应用打开原文件；Windows 保留 PowerPoint 转换            | Mac 不显示导出/重导出按钮，主进程提前拒绝转换；已有 PDF 仍可阅读并提示过期，不要求安装 Keynote                                                  |
+| Agent 文档读取 | 上游新增的可选解析组件仅支持 Windows x64，Mac 安装器尚未适配            | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；与 GUI 阅读器及 PPTX 外部打开分别验收                                                   |
+| 分发与凭据     | 相同源码生成不同平台产物                                                | DMG/ZIP 用于开发验证；Mac 应用内更新明确不可用。签名、公证、稳定 Keychain 身份、Intel/最低版本和真实账号仍待验收                                |
+
+实际登录启动、真实邮件草稿保存、系统级键位冲突、全屏/多显示器与动画表现仍需人工验收；Windows/Intel Mac 实机、真实 SSH 与 VS Code 启动也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
+
+按当前协作决定，SSH 真机回归不作为本次 macOS 适配的阻塞项：合作者反馈已有远端测试稳定，本次重点验证 Mac 编译、打包、启动与本地 SSH 工具定位。该反馈不等于 macOS 客户端到远端的链路已验收；适配分支仍未执行真实 SSH 套件，不重复要求提供测试主机。
+
+### 16.3 macOS 本地验证
+
+使用 §11 的固定工具链。以下命令适用于 Apple Silicon，打包复用本机 Electron，不寻找签名身份、不发布。Intel Mac 对应改为 `--x64` 和 `dist/mac/Dela.app`，并在该机器原生安装依赖；当前 Electron 声明的最低 macOS 为 13.0，不代表 Dela 的最低版本已实机验收：
+
+```sh
+pnpm build
+pnpm smoke
+pnpm smoke:macos
+pnpm smoke:runtime
+pnpm smoke:desktop
+pnpm smoke:workspace
+pnpm exec electron scripts/terminal-smoke.cjs
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm package:dist --mac --arm64 -c.electronDist=node_modules/electron/dist
+node scripts/verify-macos-package.ts dist/mac-arm64/Dela.app
+node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
+dist/mac-arm64/Dela.app/Contents/MacOS/Dela --smoke-test
+pnpm smoke:macos "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
+pnpm smoke:desktop "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
+pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
+```
+
+`smoke:runtime` 使用临时 profile、Pi 缓存与合成文件，在 `PI_OFFLINE=1` 下执行真实 Pi Bash 中的 `dela help`、grep 与 find；Mac 以仅含 `/usr/bin:/bin` 的 PATH 起步。桌面冒烟使用合成项目，给原生菜单回调传入真实辅助窗口，验证关闭目标及主窗口隐藏行为；执行真实 `app.quit()` 并通过 `beforeunload` 取消，再调用终端中的 `dela help`。邮件路径只覆盖退出意图的 IPC 与取消后存活，不连接邮箱或验证真实草稿保存。`smoke:workspace` 用本地网络桩与临时文件验证资料同步、导入、笔记冲突保护、移动恢复、预览协议及邮件附件草稿。
+
+传入 `app.asar` 的冒烟由开发 Electron 加载包内代码与资源，Keychain 测试也属于开发 Electron 身份；实际 `.app` 另用 `--smoke-test` 检查。上述检查不代表真实账号业务、模型调用或正式签名应用已验收。早期 Keynote 转换实验见[验证记录](macos-validation.md#复现)，仅作历史证据；当前产品决定不接入转换器。
 
 ## 17. 当前限制
 

@@ -4,7 +4,10 @@
   "include": [
     "scripts/build-helper.ts",
     "scripts/dev.ts",
+    "scripts/fix-native-permissions.ts",
+    "scripts/macos-launch-smoke.ts",
     "scripts/prepare-runtime.ts",
-    "scripts/run-ts-smoke.ts"
+    "scripts/run-ts-smoke.ts",
+    "scripts/verify-macos-package.ts"
   ]
 }

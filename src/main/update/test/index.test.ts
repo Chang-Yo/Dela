@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { UpdateSnapshot } from '../../../shared/update';
 
 const mocks = vi.hoisted(() => ({
@@ -60,6 +60,7 @@ function pending() {
 beforeEach(async () => {
   vi.resetModules();
   vi.resetAllMocks();
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
   mocks.isPackaged = true;
   mocks.handlers.clear();
   mocks.listeners.clear();
@@ -71,6 +72,31 @@ beforeEach(async () => {
   const { registerUpdateIpc } = await import('../index');
   registerUpdateIpc();
 });
+
+afterEach(() => vi.unstubAllGlobals());
+
+it.each([true, false])(
+  'Mac packaged=%s 从初始状态即禁用更新且所有入口不联网或安装',
+  async (packaged) => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin' });
+    mocks.isPackaged = packaged;
+    for (const action of ['get-state', 'check', 'download', 'install']) {
+      expect(await invoke(action)).toMatchObject({
+        phase: 'unsupported',
+        reason: 'platform-unsupported',
+        version: null,
+      });
+    }
+    await invoke('defer-install');
+    await invoke('open-download-page');
+    expect(mocks.checkForUpdates).not.toHaveBeenCalled();
+    expect(mocks.downloadUpdate).not.toHaveBeenCalled();
+    expect(mocks.quitAndInstall).not.toHaveBeenCalled();
+    expect(mocks.setPendingInstall).not.toHaveBeenCalled();
+    expect(mocks.openExternal).not.toHaveBeenCalled();
+    expect(mocks.listeners.size).toBe(0);
+  },
+);
 
 it('只检查正式版，关闭自动下载、退出安装和降级', async () => {
   const state = await invoke('check');

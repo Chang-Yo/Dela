@@ -48,6 +48,7 @@ function liveWindow() {
 
 beforeEach(() => {
   vi.resetModules();
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
   vi.useFakeTimers();
   mocks.windows = [liveWindow()];
   mocks.isPackaged = true;
@@ -63,9 +64,23 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('startBackgroundUpdateCheck', () => {
+  it('Mac 不注册后台计时器，不恢复或清除待安装标记', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin' });
+    mocks.pendingInstall = true;
+    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_INTERVAL } = await import('../index');
+    const stop = startBackgroundUpdateCheck();
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_INTERVAL);
+    expect(mocks.check).not.toHaveBeenCalled();
+    expect(mocks.download).not.toHaveBeenCalled();
+    expect(mocks.install).not.toHaveBeenCalled();
+    expect(mocks.setPendingInstall).not.toHaveBeenCalled();
+    stop();
+  });
   it('等窗口就位后先查一次，之后按间隔查，停止后不再查', async () => {
     const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY, BACKGROUND_CHECK_INTERVAL } =
       await import('../index');

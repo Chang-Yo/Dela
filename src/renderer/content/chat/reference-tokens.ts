@@ -89,13 +89,15 @@ export function referenceContext(text: string, options: ChatReference[]): ChatRe
   return refs;
 }
 
-/** path 在 base 之下时返回相对 base 的路径（统一正斜杠），否则 null。 */
+/** path 在 base 之下时返回相对路径；仅 Windows 路径归一化分隔符与大小写。 */
 function relativeTo(path: string, base: string): string | null {
-  const root = base.replace(/[\\/]+$/, '');
-  if (path.length <= root.length) return null;
-  if (path.slice(0, root.length).toLowerCase() !== root.toLowerCase()) return null;
-  if (!/[\\/]/.test(path[root.length]!)) return null;
-  return path.slice(root.length + 1).replaceAll('\\', '/');
+  const windows = /^(?:[a-z]:[\\/]|\\\\)/i.test(base);
+  const target = windows ? path.replaceAll('\\', '/') : path;
+  const root = (windows ? base.replaceAll('\\', '/') : base).replace(/\/+$/, '') + '/';
+  const matches = windows
+    ? target.toLowerCase().startsWith(root.toLowerCase())
+    : target.startsWith(root);
+  return matches && target.length > root.length ? target.slice(root.length) : null;
 }
 
 /** @ 候选：会话 cwd 之下、且不属于其他项目目录的文件，title 为相对 cwd 的路径。
