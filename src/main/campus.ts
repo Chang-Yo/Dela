@@ -186,30 +186,65 @@ export interface CampusLoginOptions {
   readonly retryProbe?: boolean;
 }
 
+export function createCampusLoginWindow(sender: WebContents, title: string): BrowserWindow {
+  const parent = BrowserWindow.fromWebContents(sender) ?? undefined;
+  const window = new BrowserWindow({
+    width: 920,
+    height: 720,
+    minWidth: 680,
+    minHeight: 520,
+    parent,
+    // Mac sheet 没有原生关闭按钮，登录页需要可直接取消的普通子窗口。
+    modal: process.platform !== 'darwin' && parent !== undefined,
+    autoHideMenuBar: true,
+    title,
+    webPreferences: {
+      partition: CAMPUS_PARTITION,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  attachContextMenu(window.webContents);
+  if (process.platform === 'darwin') {
+    window.webContents.on('before-input-event', (event, input) => {
+      if (
+        input.type === 'keyDown' &&
+        !input.isComposing &&
+        !input.control &&
+        !input.alt &&
+        !input.shift &&
+        (input.key === 'Escape' || (input.meta && input.key.toLowerCase() === 'w'))
+      ) {
+        event.preventDefault();
+        window.close();
+      }
+    });
+  }
+  return window;
+}
+
+type CampusLoginResult = { ok: true } | { ok: false; error: string };
+const loginWindows = new Map<
+  string,
+  { window: BrowserWindow; result: Promise<CampusLoginResult> }
+>();
+
 /** 校园域登录窗（课表与课堂视频共用）：到达目标域后探测，成功即关闭并清空待决结果。 */
 export async function openCampusLoginWindow(
   options: CampusLoginOptions,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<CampusLoginResult> {
   await getCampusSession();
-  return new Promise((resolve) => {
-    const parent = BrowserWindow.fromWebContents(options.sender) ?? undefined;
-    const loginWindow = new BrowserWindow({
-      width: 920,
-      height: 720,
-      minWidth: 680,
-      minHeight: 520,
-      parent,
-      modal: parent !== undefined,
-      autoHideMenuBar: true,
-      title: options.title,
-      webPreferences: {
-        partition: CAMPUS_PARTITION,
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-      },
-    });
-    attachContextMenu(loginWindow.webContents);
+  const key = `${options.sender.id}:${options.url}`;
+  const existing = loginWindows.get(key);
+  if (existing && !existing.window.isDestroyed()) {
+    if (existing.window.isMinimized()) existing.window.restore();
+    existing.window.show();
+    existing.window.focus();
+    return existing.result;
+  }
+  const loginWindow = createCampusLoginWindow(options.sender, options.title);
+  const result = new Promise<CampusLoginResult>((resolve) => {
     let completed = false;
     let retryTimer: ReturnType<typeof setInterval> | undefined;
     const finish = (result: { ok: true } | { ok: false; error: string }) => {
@@ -246,6 +281,7 @@ export async function openCampusLoginWindow(
       retryTimer = setInterval(() => void checkNavigation(currentUrl), 1000);
     }
     loginWindow.on('closed', () => {
+      if (loginWindows.get(key)?.window === loginWindow) loginWindows.delete(key);
       clearInterval(retryTimer);
       if (!completed) {
         completed = true;
@@ -256,4 +292,6 @@ export async function openCampusLoginWindow(
       finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
     });
   });
+  loginWindows.set(key, { window: loginWindow, result });
+  return result;
 }

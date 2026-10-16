@@ -1,7 +1,6 @@
-import { BrowserWindow, type WebContents } from 'electron';
+import type { BrowserWindow, WebContents } from 'electron';
 import { generateKeyPairSync, privateDecrypt, randomBytes, constants } from 'node:crypto';
 import { z } from 'zod';
-import { attachContextMenu } from '../ipc';
 import type {
   ShuiyuanBookmarkItem,
   ShuiyuanCategory,
@@ -23,7 +22,7 @@ import {
   loadShuiyuanCredential,
   saveShuiyuanCredential,
 } from '../credentials';
-import { CAMPUS_PARTITION, getCampusSession } from '../campus';
+import { createCampusLoginWindow, getCampusSession } from '../campus';
 
 export const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
 // 授权页请求形态：不带 auth_redirect，
@@ -39,6 +38,7 @@ interface PendingAuth {
 
 /** 一次授权的临时私钥状态；仅存主进程内存，被下一次授权替换或随进程退出消失。 */
 let pendingAuth: PendingAuth | null = null;
+let authWindow: BrowserWindow | null = null;
 
 export function getShuiyuanState(): ShuiyuanState {
   const credential = loadShuiyuanCredential();
@@ -50,14 +50,21 @@ export function getShuiyuanState(): ShuiyuanState {
 export async function startShuiyuanAuth(sender: WebContents): Promise<void> {
   // 水源登录走 jAccount，与课表共用校园 Session，已登录过则无需再次输入。
   await getCampusSession();
+  if (authWindow && !authWindow.isDestroyed()) {
+    if (authWindow.isMinimized()) authWindow.restore();
+    authWindow.show();
+    authWindow.focus();
+    return;
+  }
   const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const clientId = randomBytes(16).toString('hex');
   const nonce = randomBytes(16).toString('hex');
-  pendingAuth = {
+  const auth = {
     privPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
     clientId,
     nonce,
   };
+  pendingAuth = auth;
   const authorizeUrl = `${SHUIYUAN_ORIGIN}/user-api-key/new?${new URLSearchParams({
     scopes: SHUIYUAN_SCOPES,
     application_name: 'Dela',
@@ -65,28 +72,17 @@ export async function startShuiyuanAuth(sender: WebContents): Promise<void> {
     nonce,
     public_key: publicKey.export({ type: 'spki', format: 'pem' }).toString().trim(),
   })}`;
-  const parent = BrowserWindow.fromWebContents(sender) ?? undefined;
-  const authWindow = new BrowserWindow({
-    width: 920,
-    height: 720,
-    minWidth: 680,
-    minHeight: 520,
-    parent,
-    modal: parent !== undefined,
-    autoHideMenuBar: true,
-    title: '授权水源社区',
-    webPreferences: {
-      partition: CAMPUS_PARTITION,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
+  const window = createCampusLoginWindow(sender, '授权水源社区');
+  authWindow = window;
+  window.on('closed', () => {
+    if (authWindow === window) authWindow = null;
   });
-  attachContextMenu(authWindow.webContents);
   try {
-    await authWindow.loadURL(authorizeUrl);
+    await window.loadURL(authorizeUrl);
   } catch (error) {
-    if (!authWindow.isDestroyed()) authWindow.close();
+    if (window.isDestroyed()) return;
+    if (pendingAuth === auth) pendingAuth = null;
+    window.close();
     throw error;
   }
 }
@@ -98,11 +94,12 @@ const decryptedPayloadSchema = z.object({
 
 export async function bindShuiyuan(input: unknown): Promise<ShuiyuanState> {
   const payload = z.string().trim().min(1, '请先粘贴授权密文').parse(input).replace(/\s+/g, '');
-  if (!pendingAuth) throw new Error('请先点击「登录并授权」发起授权');
+  const auth = pendingAuth;
+  if (!auth) throw new Error('请先点击「登录并授权」发起授权');
   let decrypted: Buffer;
   try {
     decrypted = privateDecrypt(
-      { key: pendingAuth.privPem, padding: constants.RSA_PKCS1_PADDING },
+      { key: auth.privPem, padding: constants.RSA_PKCS1_PADDING },
       Buffer.from(payload, 'base64'),
     );
   } catch {
@@ -114,11 +111,14 @@ export async function bindShuiyuan(input: unknown): Promise<ShuiyuanState> {
   } catch {
     throw new Error('密文内容无法识别，请重新发起授权');
   }
-  if (parsed.nonce !== pendingAuth.nonce) {
+  if (parsed.nonce !== auth.nonce) {
     throw new Error('密文与本次授权不匹配，请重新点击「登录并授权」后再试');
   }
-  const credential = await verifyAndStore(parsed.key, pendingAuth.clientId);
-  pendingAuth = null;
+  const credential = await verifyAndStore(parsed.key, auth.clientId);
+  if (pendingAuth === auth) {
+    pendingAuth = null;
+    authWindow?.close();
+  }
   return {
     connected: true,
     username: credential.username,
@@ -178,6 +178,7 @@ export async function unbindShuiyuan(): Promise<void> {
   }
   clearShuiyuanCredential();
   pendingAuth = null;
+  authWindow?.close();
 }
 
 // ---- 数据面 ----

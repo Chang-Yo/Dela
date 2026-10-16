@@ -447,7 +447,7 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 实际登录启动、真实邮件草稿保存、系统级键位冲突、全屏/多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code 启动也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
 
-已确认的 Mac 登录窗口缺陷（2026-10-16，尚未修复）：水源授权与共用校园登录窗沿用 `parent + modal: true`，在 Mac 上成为没有原生关闭按钮的 sheet，阻塞背后的 Dela 页面。水源又依赖用户手动关窗后粘贴密文，因此无法按界面指引继续；课表/课堂视频成功后会自动关闭，但取消登录也缺少明显入口。当前可从系统菜单「文件 › 关闭窗口」关闭当前登录面板；Esc/⌘W 未提供此出口。来源、隔离复现和修复建议见 [验证记录](macos-validation.md#水源授权窗口无法返回的调查)，不把既有程序调用关窗测试当作可见关闭入口验收。
+水源授权、课表和课堂视频登录共用 `campus.ts` 中的窗口创建函数：Mac 使用带原生标题栏的普通子窗口，提供关闭按钮、Esc 与 ⌘W；Windows 保留模态窗口。关闭快捷键仅作用于辅助窗口，不抢主工作台的关标签动作。外部页面仍使用校园 Session、sandbox 与 contextIsolation，不加载主界面 preload。水源重复授权唤回现有窗口而不替换密钥，关窗后保留待绑定状态，绑定成功关闭本次窗口，失败可重试；课表/视频按发起窗口和入口 URL 复用正在进行的登录及其结果，取消时返回「未完成登录」并清理重探计时器。来源与验证范围见 [验证记录](macos-validation.md#水源授权窗口无法返回的调查)，程序调用关窗测试不能替代可见关闭入口验收。
 
 按当前协作决定，SSH 真机回归不作为本次 macOS 适配的阻塞项：合作者反馈已有远端测试稳定，本次重点验证 Mac 编译、打包、启动与本地 SSH 工具定位。该反馈不等于 macOS 客户端到远端的链路已验收；适配分支仍未执行真实 SSH 套件，不重复要求提供测试主机。
 
@@ -472,7 +472,7 @@ pnpm smoke:desktop "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
 pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
 ```
 
-`smoke:runtime` 使用临时 profile、Pi 缓存与合成文件，在 `PI_OFFLINE=1` 下执行真实 Pi Bash 中的 `dela help`、grep 与 find；Mac 以仅含 `/usr/bin:/bin` 的 PATH 起步。桌面冒烟使用合成项目，给原生菜单回调传入真实辅助窗口，验证关闭目标及主窗口隐藏行为；执行真实 `app.quit()` 并通过 `beforeunload` 取消，再调用终端中的 `dela help`。邮件路径只覆盖退出意图的 IPC 与取消后存活，不连接邮箱或验证真实草稿保存。`smoke:workspace` 用本地网络桩与临时文件验证资料同步、导入、笔记冲突保护、移动恢复、预览协议及邮件附件草稿。
+`smoke:runtime` 使用临时 profile、Pi 缓存与合成文件，在 `PI_OFFLINE=1` 下执行真实 Pi Bash 中的 `dela help`、grep 与 find；Mac 以仅含 `/usr/bin:/bin` 的 PATH 起步。桌面冒烟使用合成项目，经真实 IPC 打开水源授权窗（远端页面与验证响应替换为本地桩），检查平台窗口形态、隔离设置、重复打开复用及关闭后的 RSA 密文绑定；另给原生菜单回调传入真实辅助窗口，验证关闭目标及主窗口隐藏行为。执行真实 `app.quit()` 并通过 `beforeunload` 取消，再调用终端中的 `dela help`。邮件路径只覆盖退出意图的 IPC 与取消后存活，不连接邮箱或验证真实草稿保存。`smoke:workspace` 用本地网络桩与临时文件验证资料同步、导入、笔记冲突保护、移动恢复、预览协议及邮件附件草稿。
 
 `pnpm smoke:documents` 是 Apple Silicon 专用的显式联网检查，不包含在默认 CI 冒烟中：从官方源安装真实组件到独立临时 profile，经原 Skills API 启用，执行 `prepareDocumentFile` → 未修改的 Python 脚本 → `releaseDocumentResource`，读取合成 DOCX/XLSX/PPTX 和扫描 PDF，最后清理 profile；读取子进程仅使用系统 PATH。首次组件下载约 128 MiB（本机所选 wheels），需要 GitHub、Python 分发源和 PyPI 可达；网络失败与取消必须保留可重试状态。
 
