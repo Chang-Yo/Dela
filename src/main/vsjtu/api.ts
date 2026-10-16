@@ -73,12 +73,23 @@ async function allPages(path: string, params: Record<string, string>): Promise<u
       'page.pageIndex': String(page),
       'page.pageSize': '1000',
     });
+    const response = await requestJson(`${BASE}/${path}?${query}`);
+    const data = unwrap(response);
+    // 官方接口的成功空分页使用 null；只在第一页且明确零记录时接受。
+    if (
+      page === 1 &&
+      z.object({ ok: z.literal(true), dataOk: z.literal(true) }).safeParse(response).success &&
+      z
+        .object({ records: z.null(), rowCount: z.literal(0), pageCount: z.literal(0) })
+        .safeParse(data).success
+    )
+      return [];
     const parsed = z
       .object({
         records: z.array(z.unknown()),
         pageCount: z.number().int().nonnegative().optional(),
       })
-      .safeParse(unwrap(await requestJson(`${BASE}/${path}?${query}`)));
+      .safeParse(data);
     if (!parsed.success) throw new Error('交大视频列表数据格式已变化');
     records.push(...parsed.data.records);
     if (
