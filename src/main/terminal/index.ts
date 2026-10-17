@@ -21,6 +21,7 @@ import type {
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 
 function systemBash(): string | null {
+  if (process.platform === 'darwin') return existsSync('/bin/bash') ? '/bin/bash' : null;
   const candidates = [
     join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git\\bin\\bash.exe'),
     join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git\\bin\\bash.exe'),
@@ -29,8 +30,7 @@ function systemBash(): string | null {
   return candidates.find((path) => existsSync(path)) ?? null;
 }
 
-/** 定位 Git Bash：先系统安装（Git for Windows），再随包 MinGit，再应用自装的 MinGit 运行时；
- *  都缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
+/** macOS 开发环境使用系统 Bash；Windows 依次定位 Git for Windows、随包 MinGit 和自装 MinGit。 */
 export function locateBash(): string {
   return (
     systemBash() ??
@@ -134,7 +134,7 @@ function ownedSession(owner: WebContents, id: unknown) {
   return session;
 }
 
-/** 终端与内核 Bash 同源（Git Bash）：经 --rcfile 链回标准初始化后注入 dela 命令桥，
+/** 终端与内核 Bash 同源：经 --rcfile 链回标准初始化后注入 dela 命令桥，
  *  使 skills 的领域命令在交互终端同样可用；桥的 URL/token 只进本会话环境。 */
 function writeRcfile(): { path: string; cleanup: () => void } {
   const directory = mkdtempSync(join(tmpdir(), 'dela-terminal-'));
@@ -196,24 +196,25 @@ export function registerTerminalIpc() {
     } else {
       const bridge = await domainBridge();
       const rcfile = writeRcfile();
+      const windows = process.platform === 'win32';
       cleanup = rcfile.cleanup;
       pty = spawn(locateBash(), ['--rcfile', rcfile.path, '-i'], {
         name: 'xterm-256color',
         cwd: location.path,
         cols: 80,
         rows: 24,
-        // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
-        useConptyDll: true,
+        // Windows 与 VS Code 默认一致，使用随包分发的 ConPTY。
+        ...(windows ? { useConptyDll: true } : {}),
         env: {
           ...process.env,
           TERM: 'xterm-256color',
           // 对齐 Git Bash 快捷方式的行为（登录 shell 由 profile 处理 MSYSTEM）。
-          MSYSTEM: 'MINGW64',
+          ...(windows ? { MSYSTEM: 'MINGW64' } : {}),
           DELA_COMMAND_URL: bridge.url,
           DELA_COMMAND_TOKEN: bridge.token,
         },
       });
-      title = 'Git Bash';
+      title = windows ? 'Git Bash' : 'Bash';
     }
     const snapshot: TerminalSession = {
       id: parsedId,

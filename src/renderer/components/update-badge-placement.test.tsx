@@ -3,6 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import type { DelaApi } from '../../shared/api';
 import type { UpdateSnapshot } from '../../shared/update';
 import { useUpdateState } from '../features/settings/update';
 import { AppShell } from './AppShell';
@@ -10,6 +11,7 @@ import { AppShell } from './AppShell';
 // explorer-state 在模块顶层就读 window.matchMedia，jsdom 不提供它；
 // 必须在 import 之前装好，所以放在 hoisted 里。
 vi.hoisted(() => {
+  Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' });
   window.matchMedia = ((query: string) => ({
     matches: false,
     media: query,
@@ -88,6 +90,7 @@ afterEach(async () => {
   container.remove();
   useUpdateState.setState({ snapshot: null });
   localStorage.clear();
+  delete window.dela;
   vi.unstubAllGlobals();
 });
 
@@ -124,4 +127,22 @@ it('没有更新可处理时标题栏不留痕迹', async () => {
   useUpdateState.setState({ snapshot: { ...available, phase: 'up-to-date' } });
   await act(async () => renderShell());
   expect(byLabel('有可用的更新')).toBeUndefined();
+});
+
+it('macOS 桌面端为原生红黄绿按钮留出空间，且不重复渲染 Windows 窗口控制', async () => {
+  window.dela = {
+    window: {
+      close: vi.fn(),
+      getState: async () => ({ maximized: false }),
+      minimize: vi.fn(),
+      onStateChange: () => () => {},
+      toggleMaximize: vi.fn(),
+    },
+  } as unknown as DelaApi;
+  await act(async () => renderShell());
+  const sidebar = byLabel('收起侧边栏')!;
+  expect(sidebar.parentElement?.className).toContain('pl-20');
+  expect(byLabel('最小化')).toBeUndefined();
+  expect(byLabel('最大化')).toBeUndefined();
+  expect(byLabel('关闭')).toBeUndefined();
 });

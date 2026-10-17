@@ -54,8 +54,7 @@ import { useVisibleNavEntries } from '../navigation/entries';
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-200 ease-out';
 
-// 快捷键提示的键位族（Windows-only，Mod 一律按 Ctrl 展开）。
-const platform = 'other' as const;
+const platform = /Mac|iPhone|iPad/.test(navigator.platform) ? ('mac' as const) : ('other' as const);
 
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
@@ -107,7 +106,8 @@ function WindowControls() {
     };
   }, []);
 
-  if (!window.dela) return null;
+  // macOS 使用系统红黄绿按钮；Windows 继续使用应用内窗口控制。
+  if (!window.dela || platform === 'mac') return null;
 
   return (
     <div className="[-webkit-app-region:no-drag] flex h-full">
@@ -400,7 +400,13 @@ export function AppShell({
           'select-none [-webkit-app-region:drag]',
         )}
       >
-        <div className="flex h-full items-center">
+        <div
+          className={cn(
+            'flex h-full items-center',
+            // 预留原生红黄绿按钮区域，避免与侧栏、前进后退按钮重叠。
+            window.dela && platform === 'mac' && 'pl-20',
+          )}
+        >
           <button
             aria-controls="main-nav"
             aria-expanded={!navHidden}

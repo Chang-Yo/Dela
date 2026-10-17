@@ -1,4 +1,4 @@
-// 项目内置终端（Git Bash）：dela 命令桥注入（rcfile + 专用 env）、PTY 生命周期
+// 项目内置终端（Windows Git Bash / macOS 系统 Bash）：dela 命令桥注入（rcfile + 专用 env）、PTY 生命周期
 //（输入/尺寸/输出回放/退出后只读）、进程回收（单标签/项目/窗口）、调用方校验。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
@@ -85,14 +85,15 @@ afterAll(() => {
 });
 
 describe('项目内置终端', () => {
-  it('以 Git Bash 启动并注入 dela 命令桥（专用端口/token 与 rcfile 函数）', async () => {
+  it('以平台 Bash 启动并注入 dela 命令桥（专用端口/token 与 rcfile 函数）', async () => {
     const id = randomUUID();
     const snapshot = await invoke('create', owner, projectId, id);
-    expect(snapshot).toMatchObject({ title: 'Git Bash' });
+    const windows = process.platform === 'win32';
+    expect(snapshot).toMatchObject({ title: windows ? 'Git Bash' : 'Bash' });
     const [file, args, options] = mocks.spawn.mock.calls[0]! as [
       string,
       string[],
-      { env: Record<string, string>; cwd: string },
+      { env: Record<string, string>; cwd: string; useConptyDll?: boolean },
     ];
     expect(file).toBe(locateBash());
     expect(args[0]).toBe('--rcfile');
@@ -101,7 +102,8 @@ describe('项目内置终端', () => {
     // 桥只进本会话环境：随机端口 + 专用 token。
     expect(options.env.DELA_COMMAND_URL).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
     expect(options.env.DELA_COMMAND_TOKEN).toMatch(/^[0-9a-f]{64}$/);
-    expect(options.env.MSYSTEM).toBe('MINGW64');
+    expect(options.env.MSYSTEM).toBe(windows ? 'MINGW64' : undefined);
+    expect(options.useConptyDll).toBe(windows ? true : undefined);
     // rcfile 链回标准初始化并定义 dela 函数；会话关闭后随临时目录回收。
     const rc = args[1]!;
     expect(existsSync(rc)).toBe(true);
@@ -189,49 +191,59 @@ describe('Git Bash 运行时', () => {
     process.env.LOCALAPPDATA = state.root;
   });
 
-  it('locateBash：系统安装优先，其次随包 MinGit，最后自装副本；都缺失时给出安装指引', () => {
-    const bundled = join(state.root, '.build', 'mingit', 'usr', 'bin', 'bash.exe');
-    const local = join(mingitRoot(), 'usr', 'bin', 'bash.exe');
-    const system = join(state.root, 'Git', 'bin', 'bash.exe');
-    expect(() => locateBash()).toThrow('一键安装');
-    mkdirSync(join(mingitRoot(), 'usr', 'bin'), { recursive: true });
-    writeFileSync(local, '');
-    expect(locateBash()).toBe(local);
-    mkdirSync(join(bundled, '..'), { recursive: true });
-    writeFileSync(bundled, '');
-    expect(locateBash()).toBe(bundled);
-    mkdirSync(join(system, '..'), { recursive: true });
-    writeFileSync(system, '');
-    expect(locateBash()).toBe(system);
-    rmSync(join(system, '..', '..'), { recursive: true, force: true });
-    rmSync(join(bundled, '..', '..', '..'), { recursive: true, force: true });
-    rmSync(mingitRoot(), { recursive: true, force: true });
+  it.runIf(process.platform === 'darwin')('macOS 直接使用系统 Bash', () => {
+    expect(locateBash()).toBe('/bin/bash');
   });
 
-  it('bash-status 报告缺失；一键安装逐源尝试，全部失败进 error 态并清理半成品', async () => {
-    const fetchMock = vi.fn(async () => {
-      throw new Error('网络不可达');
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    expect(await invoke('bash-status', owner)).toEqual({
-      found: false,
-      install: { phase: 'idle', received: 0, total: 0, error: null },
-    });
-    await expect(invoke('install-bash', owner)).rejects.toThrow('下载失败');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(await invoke('bash-status', owner)).toMatchObject({
-      found: false,
-      install: { phase: 'error', error: expect.stringContaining('网络不可达') },
-    });
-    expect(existsSync(mingitRoot())).toBe(false);
-    expect(owner.send).toHaveBeenCalledWith(
-      'terminal:bash-install',
-      expect.objectContaining({ phase: 'error' }),
-    );
-    vi.unstubAllGlobals();
-  });
+  it.runIf(process.platform === 'win32')(
+    'locateBash：系统安装优先，其次随包 MinGit，最后自装副本；都缺失时给出安装指引',
+    () => {
+      const bundled = join(state.root, '.build', 'mingit', 'usr', 'bin', 'bash.exe');
+      const local = join(mingitRoot(), 'usr', 'bin', 'bash.exe');
+      const system = join(state.root, 'Git', 'bin', 'bash.exe');
+      expect(() => locateBash()).toThrow('一键安装');
+      mkdirSync(join(mingitRoot(), 'usr', 'bin'), { recursive: true });
+      writeFileSync(local, '');
+      expect(locateBash()).toBe(local);
+      mkdirSync(join(bundled, '..'), { recursive: true });
+      writeFileSync(bundled, '');
+      expect(locateBash()).toBe(bundled);
+      mkdirSync(join(system, '..'), { recursive: true });
+      writeFileSync(system, '');
+      expect(locateBash()).toBe(system);
+      rmSync(join(system, '..', '..'), { recursive: true, force: true });
+      rmSync(join(bundled, '..', '..', '..'), { recursive: true, force: true });
+      rmSync(mingitRoot(), { recursive: true, force: true });
+    },
+  );
 
-  it('安装中可取消，回到 idle 并清理', async () => {
+  it.runIf(process.platform === 'win32')(
+    'bash-status 报告缺失；一键安装逐源尝试，全部失败进 error 态并清理半成品',
+    async () => {
+      const fetchMock = vi.fn(async () => {
+        throw new Error('网络不可达');
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      expect(await invoke('bash-status', owner)).toEqual({
+        found: false,
+        install: { phase: 'idle', received: 0, total: 0, error: null },
+      });
+      await expect(invoke('install-bash', owner)).rejects.toThrow('下载失败');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(await invoke('bash-status', owner)).toMatchObject({
+        found: false,
+        install: { phase: 'error', error: expect.stringContaining('网络不可达') },
+      });
+      expect(existsSync(mingitRoot())).toBe(false);
+      expect(owner.send).toHaveBeenCalledWith(
+        'terminal:bash-install',
+        expect.objectContaining({ phase: 'error' }),
+      );
+      vi.unstubAllGlobals();
+    },
+  );
+
+  it.runIf(process.platform === 'win32')('安装中可取消，回到 idle 并清理', async () => {
     const fetchMock = vi.fn(
       (_url: unknown, init: { signal: AbortSignal }) =>
         new Promise((_resolve, reject) => {

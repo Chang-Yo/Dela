@@ -39,6 +39,7 @@ interface PendingAuth {
 
 /** 一次授权的临时私钥状态；仅存主进程内存，被下一次授权替换或随进程退出消失。 */
 let pendingAuth: PendingAuth | null = null;
+let activeAuthWindow: BrowserWindow | null = null;
 
 export function getShuiyuanState(): ShuiyuanState {
   const credential = loadShuiyuanCredential();
@@ -48,6 +49,11 @@ export function getShuiyuanState(): ShuiyuanState {
 }
 
 export async function startShuiyuanAuth(sender: WebContents): Promise<void> {
+  if (activeAuthWindow && !activeAuthWindow.isDestroyed()) {
+    activeAuthWindow.show();
+    activeAuthWindow.focus();
+    return;
+  }
   // 水源登录走 jAccount，与课表共用校园 Session，已登录过则无需再次输入。
   await getCampusSession();
   const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -72,7 +78,8 @@ export async function startShuiyuanAuth(sender: WebContents): Promise<void> {
     minWidth: 680,
     minHeight: 520,
     parent,
-    modal: parent !== undefined,
+    // macOS 的模态子窗口会变成没有关闭按钮的 sheet；保留父子关系但允许独立关闭。
+    modal: process.platform !== 'darwin' && parent !== undefined,
     autoHideMenuBar: true,
     title: '授权水源社区',
     webPreferences: {
@@ -81,6 +88,15 @@ export async function startShuiyuanAuth(sender: WebContents): Promise<void> {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+  activeAuthWindow = authWindow;
+  authWindow.on('closed', () => {
+    if (activeAuthWindow === authWindow) activeAuthWindow = null;
+  });
+  authWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.key !== 'Escape') return;
+    event.preventDefault();
+    authWindow.close();
   });
   attachContextMenu(authWindow.webContents);
   try {

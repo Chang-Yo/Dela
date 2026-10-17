@@ -10,7 +10,7 @@ import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
 import { registerVsjtuIpc } from './vsjtu/ipc';
-import { attachContextMenu } from './ipc';
+import { attachContextMenu, isSameRendererNavigation } from './ipc';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
@@ -262,6 +262,7 @@ async function createWindow(): Promise<void> {
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, url) => {
+    if (isSameRendererNavigation(window.webContents.getURL(), url)) return;
     event.preventDefault();
     openExternalUrl(url);
   });

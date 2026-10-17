@@ -8,6 +8,19 @@ import {
   type WebContents,
 } from 'electron';
 
+/** 允许 renderer 自身重载/同源路由；file 产物只允许回到同一个入口文件。 */
+export function isSameRendererNavigation(currentUrl: string, targetUrl: string): boolean {
+  try {
+    const current = new URL(currentUrl);
+    const target = new URL(targetUrl);
+    return current.protocol === 'file:'
+      ? target.protocol === 'file:' && target.pathname === current.pathname
+      : target.origin === current.origin;
+  } catch {
+    return false;
+  }
+}
+
 // Only the app's main frame can invoke credential, file and workspace operations.
 export function checkWorkspaceSender(event: IpcMainInvokeEvent) {
   const frame = event.senderFrame;

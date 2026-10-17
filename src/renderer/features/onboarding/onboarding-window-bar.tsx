@@ -6,6 +6,7 @@ import { Minus, X } from 'lucide-react';
  * 这里提供拖拽区与最小化/关闭，避免用户被全屏引导页困住。配色固定，不随主题。
  */
 export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   return (
     <div className="relative z-10 flex h-12 shrink-0 items-center justify-end [-webkit-app-region:drag]">
       {children && (
@@ -14,7 +15,7 @@ export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
         </div>
       )}
       <div className="flex h-full [-webkit-app-region:no-drag]">
-        {window.dela && (
+        {window.dela && !mac && (
           <>
             <button
               aria-label="最小化"
