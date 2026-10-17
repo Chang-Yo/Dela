@@ -11,6 +11,8 @@ import { $prose, replaceAll } from '@milkdown/kit/utils';
 import { isRelativeAssetPath, noteAssetUrl } from '../../../shared/note-files';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
+import { acceleratorFromEvent } from '../../../shared/keybindings';
+import { platform } from '../../lib/platform';
 import { useNoteSpellcheck } from './note-spellcheck';
 import './note-editor.css';
 
@@ -450,7 +452,7 @@ export function NoteEditor({
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229) return;
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      if (acceleratorFromEvent(event, platform) === 'Mod+S') {
         event.preventDefault();
         handlersByKey.get(key)?.onSave();
       }

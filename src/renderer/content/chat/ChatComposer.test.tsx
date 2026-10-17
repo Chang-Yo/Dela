@@ -3,6 +3,7 @@ import { act, useState, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ContextUsageView } from '../../../shared/api';
+import { useNavigationStore } from '../../navigation/view';
 import { ChatComposer, cacheHitRateText } from './ChatComposer';
 import type { ComposerContext } from './composer-context';
 import type { ComposerEditor } from './ComposerEditor';
@@ -57,12 +58,18 @@ function Harness({
   referenceOptions = [],
   onAddAttachmentFile = async () => {},
   attachments = [],
+  effort = null,
+  effortLevels = [],
+  onEffortSelect = () => {},
 }: {
   context?: ComposerContext | null;
   contextUsage: ContextUsageView;
   referenceOptions?: ChatReference[];
   onAddAttachmentFile?: ComponentProps<typeof ChatComposer>['onAddAttachmentFile'];
   attachments?: ComponentProps<typeof ChatComposer>['attachments'];
+  effort?: ComponentProps<typeof ChatComposer>['effort'];
+  effortLevels?: ComponentProps<typeof ChatComposer>['effortLevels'];
+  onEffortSelect?: ComponentProps<typeof ChatComposer>['onEffortSelect'];
 }) {
   const [value, setValue] = useState('');
   return (
@@ -72,13 +79,13 @@ function Harness({
       configured
       context={context}
       contextUsage={contextUsage}
-      effort={null}
-      effortLevels={[]}
+      effort={effort}
+      effortLevels={effortLevels}
       model="test-model"
       onAddAttachmentFile={onAddAttachmentFile}
       onAddAttachmentView={() => {}}
       onChange={setValue}
-      onEffortSelect={() => {}}
+      onEffortSelect={onEffortSelect}
       onModelSelect={() => {}}
       onRemoveAttachment={() => {}}
       onSend={() => {}}
@@ -131,8 +138,53 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   delete window.dela;
+});
+
+it('未配置思考强度时点击 default 显示原因，并可进入模型设置', async () => {
+  const select = vi.fn();
+  const openSettings = vi
+    .spyOn(useNavigationStore.getState(), 'openSettings')
+    .mockReturnValue(true);
+  await act(async () => root.render(<Harness contextUsage={usage()} onEffortSelect={select} />));
+  const trigger = host.querySelector<HTMLButtonElement>('[aria-label="思考强度"]')!;
+  expect(trigger.textContent).toBe('default');
+  await act(async () => trigger.click());
+  expect(document.body.textContent).toContain('当前模型尚未配置可选的思考强度档位');
+  const settingsButton = Array.from(document.body.querySelectorAll('button')).find(
+    (button) => button.textContent === '打开设置 › 模型供应商',
+  )!;
+  await act(async () => settingsButton.click());
+  expect(openSettings).toHaveBeenCalledExactlyOnceWith('providers');
+  expect(select).not.toHaveBeenCalled();
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+});
+
+it('已配置思考强度时仅列出允许的档位，选择后关闭菜单', async () => {
+  const select = vi.fn();
+  await act(async () =>
+    root.render(
+      <Harness
+        contextUsage={usage()}
+        effort="low"
+        effortLevels={['low', 'high']}
+        onEffortSelect={select}
+      />,
+    ),
+  );
+  const trigger = host.querySelector<HTMLButtonElement>('[aria-label="思考强度"]')!;
+  expect(trigger.textContent).toBe('low');
+  await act(async () => trigger.click());
+  const options = Array.from(
+    document.body.querySelectorAll<HTMLButtonElement>('ul[aria-label="思考强度"] button'),
+  );
+  expect(options.map((button) => button.textContent)).toEqual(['low', 'high']);
+  expect(document.body.textContent).not.toContain('当前模型尚未配置');
+  await act(async () => options[1]!.click());
+  expect(select).toHaveBeenCalledExactlyOnceWith('high');
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 });
 
 it('拖入 PPTX 交给附件入口，不再被文本白名单拒绝', async () => {

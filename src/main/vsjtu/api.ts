@@ -60,7 +60,11 @@ function unwrap(payload: unknown): unknown {
   if (!parsed.success) throw new Error('交大视频响应数据格式已变化');
   const result = parsed.data;
   if (result.status === 401 || result.status === 403 || result.code === '-1') throw loginError();
-  if (result.ok === false || (typeof result.status === 'number' && result.status !== 200))
+  if (
+    result.ok === false ||
+    result.dataOk === false ||
+    (typeof result.status === 'number' && result.status !== 200)
+  )
     throw new Error('交大视频接口请求失败');
   return result.result ?? result.data;
 }
@@ -73,12 +77,23 @@ async function allPages(path: string, params: Record<string, string>): Promise<u
       'page.pageIndex': String(page),
       'page.pageSize': '1000',
     });
+    const response = await requestJson(`${BASE}/${path}?${query}`);
+    const data = unwrap(response);
+    // 官方接口的成功空分页使用 null；只在第一页且明确零记录时接受。
+    if (
+      page === 1 &&
+      z.object({ ok: z.literal(true), dataOk: z.literal(true) }).safeParse(response).success &&
+      z
+        .object({ records: z.null(), rowCount: z.literal(0), pageCount: z.literal(0) })
+        .safeParse(data).success
+    )
+      return [];
     const parsed = z
       .object({
         records: z.array(z.unknown()),
         pageCount: z.number().int().nonnegative().optional(),
       })
-      .safeParse(unwrap(await requestJson(`${BASE}/${path}?${query}`)));
+      .safeParse(data);
     if (!parsed.success) throw new Error('交大视频列表数据格式已变化');
     records.push(...parsed.data.records);
     if (
@@ -99,11 +114,23 @@ export async function listCourses(): Promise<VideoCourse[]> {
   if (!terms.success) throw new Error('交大视频学期数据格式已变化');
   const term = terms.data.find((value) => value.currentTerm) ?? terms.data.at(-1);
   if (!term) return [];
-  const records = await allPages('myself/curriculum', {
+  let records = await allPages('myself/curriculum', {
     acteId: String(term.id),
     courBeginTime: '',
     courEndTime: '',
   });
+  // 部分账号的课表为空，但官网「我的课程」仍有点播；该列表跨学期，须逐条核对。
+  if (records.length === 0)
+    records = (
+      await allPages('group_subject_vod_list/t-1', {
+        'page.orders[0].asc': 'false',
+        'page.orders[0].field': 'courBeginTime',
+      })
+    ).filter((raw) => {
+      const course = z.object({ acteId: id }).safeParse(raw);
+      if (!course.success) throw new Error('交大视频课程学期数据格式已变化');
+      return course.data.acteId === term.id;
+    });
   const courses = new Map<number, VideoCourse>();
   for (const raw of records) {
     const course = z

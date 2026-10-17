@@ -17,6 +17,7 @@ import { prepareEmail } from '../src/main/mail/drafts';
 import { releaseComposeFiles } from '../src/main/mail/send';
 import {
   canvasNextPage,
+  cachedCourseFiles,
   configureCanvas,
   readCanvasSource,
   syncCanvasCourse,
@@ -71,7 +72,7 @@ globalThis.fetch = async (input, init) => {
   if (url.pathname.endsWith('/users/self/profile')) return json({ id: 1 });
   if (url.pathname.endsWith('/courses')) {
     if (url.searchParams.get('page') === '2')
-      return json([{ id: 2, name: '历史课程', term: { name: '2025 秋季' } }]);
+      return json([{ id: 2, name: '历史课程', term: { name: 'Michigan_2024-2025 Summer' } }]);
     return json([{ id: 1, name: '验证课程', term: { name: '2026 秋季' } }], {
       Link: '<https://oc.sjtu.edu.cn/api/v1/courses?page=2>; rel="next"',
     });
@@ -171,6 +172,10 @@ app
       ),
     );
     assert.deepEqual(new Uint8Array(readFileSync(cachedPath)), pdf);
+    assert.deepEqual(
+      cachedCourseFiles().map((file) => file.path),
+      [cachedPath],
+    );
     const oldCanvasPath = join(
       profile,
       'notes',

@@ -1,6 +1,6 @@
 // 项目目录的外部操作：Git 分支查询与切换、用 VS Code 或资源管理器打开项目目录。
 // 只依赖 api.ts 解析出的项目位置，不读写工作区条目。
-import { shell } from 'electron';
+import { app, shell } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -92,32 +92,52 @@ export async function openProjectDirectory(id: unknown, target: unknown): Promis
   const error = await shell.openPath(path);
   if (error) throw new Error(`无法打开项目目录：${error}`);
 }
-/** remoteAuthority 非空表示远端项目：本地 Code.exe 收到远端 POSIX 路径只会去开本地同名目录，
+/** remoteAuthority 非空表示远端项目：本地 VS Code 收到远端 POSIX 路径只会去开本地同名目录，
  *  只有 `--remote ssh-remote+<目的地>` 会让远端那台机器的 VS Code Server 打开它。 */
 async function openInVsCode(path: string, remoteAuthority: string | null = null): Promise<void> {
   const locate = () =>
     new Promise<string>((resolve, reject) => {
-      execFile('where', ['code'], (error, stdout) => {
-        const first = stdout.split(/\r?\n/).find((line) => line.trim());
-        if (error || !first)
-          reject(
-            new Error(
-              remoteAuthority
-                ? `未找到 VS Code 命令（code）。${remoteSshHint}`
-                : '未找到 VS Code 命令（code）。可先安装 VS Code，或在文件夹中显示后手动打开。',
-            ),
-          );
-        else resolve(first.trim());
-      });
+      execFile(
+        process.platform === 'darwin' ? '/usr/bin/which' : 'where',
+        ['code'],
+        (error, stdout) => {
+          let first = error ? undefined : stdout.split(/\r?\n/).find((line) => line.trim());
+          // Finder 启动时未必装过 code 的 PATH 链接，直接使用标准安装位置内的 CLI。
+          if (!first && process.platform === 'darwin') {
+            first = ['/Applications', join(app.getPath('home'), 'Applications')]
+              .map((directory) =>
+                join(
+                  directory,
+                  'Visual Studio Code.app',
+                  'Contents',
+                  'Resources',
+                  'app',
+                  'bin',
+                  'code',
+                ),
+              )
+              .find((candidate) => existsSync(candidate));
+          }
+          if (!first)
+            reject(
+              new Error(
+                remoteAuthority
+                  ? `未找到 VS Code 命令（code）。${remoteSshHint}`
+                  : '未找到 VS Code 命令（code）。可先安装 VS Code，或在文件夹中显示后手动打开。',
+              ),
+            );
+          else resolve(first.trim());
+        },
+      );
     });
   const cli = await locate();
-  // CLI 是批处理脚本；直接启动同安装目录的 Code.exe，路径不经 shell 展开。
-  const executable = join(dirname(cli), '..', 'Code.exe');
+  // Windows CLI 是批处理脚本，改启 Code.exe；macOS CLI 可直接执行。路径都不经 shell 展开。
+  const executable = process.platform === 'darwin' ? cli : join(dirname(cli), '..', 'Code.exe');
   if (!existsSync(executable))
     throw new Error(
       remoteAuthority
         ? `未找到 VS Code 程序。${remoteSshHint}`
-        : '未找到 VS Code 程序，可改用资源管理器打开项目。',
+        : '未找到 VS Code 程序，可在文件夹中显示后手动打开。',
     );
   await new Promise<void>((resolve, reject) => {
     const child = spawn(

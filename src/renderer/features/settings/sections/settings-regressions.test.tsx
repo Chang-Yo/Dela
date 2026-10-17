@@ -12,6 +12,8 @@ import { defaultKeybindings } from '../../../../shared/keybindings';
 import { useShortcuts } from '../../../app/shortcuts';
 import { LlmSection } from './LlmSection';
 import { ShortcutsSection } from './ShortcutsSection';
+import { GeneralSection } from './GeneralSection';
+import { useToastStore } from '../../../app/toasts';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -27,8 +29,41 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  for (const toast of useToastStore.getState().toasts) useToastStore.getState().dismiss(toast.id);
   delete window.dela;
   vi.unstubAllGlobals();
+});
+
+it('登录项等待系统批准时保持关闭、说明原因，批准后可重试开启', async () => {
+  const message = '请在 macOS「系统设置 › 通用 › 登录项」中允许 Dela，然后返回重试。';
+  const setOpenAtLogin = vi.fn().mockRejectedValueOnce(new Error(message)).mockResolvedValue(true);
+  window.dela = {
+    platform: 'darwin',
+    settings: {
+      getOpenAtLogin: async () => false,
+      setOpenAtLogin,
+      getExperiments: async () => ({ master: false, shuiyuan: false, videoDownload: false }),
+      getCampusNotifications: async () => true,
+      getTaskNotifications: async () => ({ failed: true, completed: false }),
+    },
+    notifications: {
+      getState: async () => ({ snoozedUntil: null }),
+      onUpdate: () => () => {},
+    },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<GeneralSection />));
+  const toggle = container.querySelector<HTMLButtonElement>('[aria-label="开机自启动"]')!;
+  expect(toggle.getAttribute('aria-checked')).toBe('false');
+  await act(async () => toggle.click());
+  expect(toggle.getAttribute('aria-checked')).toBe('false');
+  expect(toggle.disabled).toBe(false);
+  expect(useToastStore.getState().toasts).toEqual([
+    expect.objectContaining({ variant: 'error', description: message }),
+  ]);
+  await act(async () => toggle.click());
+  expect(toggle.getAttribute('aria-checked')).toBe('true');
+  expect(setOpenAtLogin).toHaveBeenNthCalledWith(1, true);
+  expect(setOpenAtLogin).toHaveBeenNthCalledWith(2, true);
 });
 
 function button(text: string): HTMLButtonElement {

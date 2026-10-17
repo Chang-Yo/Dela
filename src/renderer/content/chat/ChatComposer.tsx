@@ -127,7 +127,7 @@ export function ChatComposer({
   configured: boolean;
   model: string;
   onModelSelect: (provider: LlmProviderView, model: string) => void;
-  /** 当前推理强度档位；提供商未开启时为 null，控件显示 default 且不可改。 */
+  /** 当前推理强度档位；未配置时为 null，显示 default 并提供设置入口。 */
   effort: string | null;
   effortLevels: string[];
   onEffortSelect: (level: string) => void;
@@ -540,10 +540,7 @@ export function ChatComposer({
                   aria-label="思考强度"
                   // 中窄容器（≤260px）收成图标而非整颗消失，极窄（≤160px）才随次要按钮退场。
                   className={cn(triggerButton, '@max-[260px]:px-1.5 @max-[160px]:hidden')}
-                  disabled={effortLevels.length === 0}
-                  title={
-                    effortLevels.length ? '思考强度' : '在设置 › 模型供应商 中开启推理强度后可选'
-                  }
+                  title="思考强度"
                   type="button"
                 >
                   <span className="truncate @max-[260px]:hidden">{effort ?? 'default'}</span>
@@ -554,7 +551,7 @@ export function ChatComposer({
               <Popover.Portal>
                 <Popover.Content
                   align="end"
-                  className={cn('z-50 w-32', menuPanel)}
+                  className={cn('z-50', effortLevels.length ? 'w-32' : 'w-80', menuPanel)}
                   side="bottom"
                   sideOffset={6}
                   style={{
@@ -562,30 +559,53 @@ export function ChatComposer({
                     transformOrigin: 'top center',
                   }}
                 >
-                  <ul aria-label="思考强度">
-                    {effortLevels.map((level) => (
-                      <li key={level}>
-                        <button
-                          className={cn(
-                            'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
-                            level === effort
-                              ? 'bg-hover font-medium text-ink'
-                              : 'text-ink-2 hover:bg-hover hover:text-ink',
-                          )}
-                          onClick={() => {
-                            setEffortPickerOpen(false);
-                            onEffortSelect(level);
-                          }}
-                          type="button"
-                        >
-                          <span className="truncate">{level}</span>
-                          {level === effort && (
-                            <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
-                          )}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  {effortLevels.length === 0 ? (
+                    <div className="grid gap-2 px-1.5 py-2">
+                      <p className="text-xs text-ink-3">
+                        当前模型尚未配置可选的思考强度档位。在设置中编辑当前模型，勾选其支持的档位并保存。
+                      </p>
+                      <Button
+                        className="w-full justify-start [&_svg]:size-3.5"
+                        onClick={() => {
+                          setEffortPickerOpen(false);
+                          useNavigationStore.getState().openSettings('providers');
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Settings />
+                        打开设置 › 模型供应商
+                      </Button>
+                    </div>
+                  ) : (
+                    <ul aria-label="思考强度">
+                      {effortLevels.map((level) => (
+                        <li key={level}>
+                          <button
+                            className={cn(
+                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
+                              level === effort
+                                ? 'bg-hover font-medium text-ink'
+                                : 'text-ink-2 hover:bg-hover hover:text-ink',
+                            )}
+                            onClick={() => {
+                              setEffortPickerOpen(false);
+                              onEffortSelect(level);
+                            }}
+                            type="button"
+                          >
+                            <span className="truncate">{level}</span>
+                            {level === effort && (
+                              <Check
+                                className="ms-auto size-3 shrink-0 text-ink"
+                                strokeWidth={2.5}
+                              />
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </Popover.Content>
               </Popover.Portal>
             </Popover.Root>

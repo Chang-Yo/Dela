@@ -43,7 +43,13 @@ export const useNoteDrafts = create<Store>((set, get) => ({
       drafts[next] =
         next === key
           ? draft
-          : { ...draft, content: { ...draft.content, title: next.split(/[\\/]/).at(-1)! } };
+          : {
+              ...draft,
+              content: {
+                ...draft.content,
+                title: next.split(next.startsWith('/') ? '/' : /[\\/]/).at(-1)!,
+              },
+            };
     }
     set({ drafts });
   },

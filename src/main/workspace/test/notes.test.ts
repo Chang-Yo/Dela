@@ -202,8 +202,9 @@ describe('移动中断后的恢复', () => {
 });
 
 describe('打开项目目录', () => {
+  beforeEach(() => vi.stubGlobal('process', { ...process, platform: 'win32' }));
+  afterEach(() => vi.unstubAllGlobals());
   it('VS Code 接收完整路径参数，不经 shell 且不隐藏首次启动的窗口', async () => {
-    if (process.platform !== 'win32') return;
     const project = createWorkspaceEntry({
       parentId: null,
       name: '项目 % & 中文',
@@ -219,7 +220,6 @@ describe('打开项目目录', () => {
   });
 
   it('远端项目经 Remote-SSH 打开远端路径，不交给本地 VS Code 当本地目录', async () => {
-    if (process.platform !== 'win32') return;
     const project = insertRemoteProject('root@47.117.158.218', '/srv/app');
     const code = stubVsCode();
     vi.mocked(shell.openPath).mockClear();
@@ -235,7 +235,6 @@ describe('打开项目目录', () => {
   });
 
   it('未找到 VS Code 时提示远端项目需要 Remote - SSH 与 ssh config', async () => {
-    if (process.platform !== 'win32') return;
     const project = insertRemoteProject('gpu-box', '/srv/app');
     state.execFile.mockImplementation((_command, _args, callback) => callback(null, ''));
     await expect(openProjectDirectory(project, 'vscode')).rejects.toThrow('Remote - SSH');

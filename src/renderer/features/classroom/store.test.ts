@@ -26,6 +26,7 @@ beforeEach(() => {
   toast.mockClear();
   vsjtu.connect.mockReset();
   vsjtu.listCourses.mockReset();
+  vsjtu.listVideos.mockReset().mockResolvedValue([]);
   window.dela = { vsjtu } as unknown as typeof window.dela;
   useClassroom.setState({
     phase: 'connect',
@@ -104,4 +105,37 @@ it('已有课程时刷新失败保留页面并弹 toast', async () => {
     title: '课程加载失败',
     description: '网络中断',
   });
+});
+
+it('成功空课程保持就绪且不再请求录像或重新登录', async () => {
+  useClassroom.setState({
+    phase: 'ready',
+    courses: [{ id: 1, code: 'CS', name: '课程一' }],
+    expanded: 1,
+  });
+  vsjtu.listCourses.mockResolvedValue([]);
+  await useClassroom.getState().refresh();
+  expect(useClassroom.getState()).toMatchObject({
+    phase: 'ready',
+    courses: [],
+    expanded: null,
+    coursesLoading: false,
+  });
+  expect(vsjtu.connect).not.toHaveBeenCalled();
+  expect(vsjtu.listVideos).not.toHaveBeenCalled();
+  expect(toast).not.toHaveBeenCalled();
+});
+
+it('成功空录像作为已加载结果保存，再次展开不重复请求', async () => {
+  useClassroom.setState({ phase: 'ready', courses: [{ id: 1, code: 'CS', name: '课程一' }] });
+  await useClassroom.getState().ensureVideos(1);
+  await useClassroom.getState().ensureVideos(1);
+  expect(useClassroom.getState()).toMatchObject({
+    phase: 'ready',
+    videos: { 1: [] },
+    videosLoading: { 1: false },
+    videosError: { 1: '' },
+  });
+  expect(vsjtu.listVideos).toHaveBeenCalledTimes(1);
+  expect(toast).not.toHaveBeenCalled();
 });

@@ -15,7 +15,17 @@ let snapshot: UpdateSnapshot | null = null;
 let configured = false;
 
 function currentState(): UpdateSnapshot {
-  snapshot ??= initialUpdateState({ currentVersion: app.getVersion() });
+  if (!snapshot) {
+    snapshot = initialUpdateState({ currentVersion: app.getVersion() });
+    if (process.platform !== 'win32') {
+      snapshot = {
+        ...snapshot,
+        phase: 'unsupported',
+        reason: 'platform-unsupported',
+        failedAt: 'check',
+      };
+    }
+  }
   return snapshot;
 }
 
@@ -74,6 +84,7 @@ function configureUpdater(): void {
 
 async function beginCheck(): Promise<UpdateSnapshot> {
   const previous = currentState();
+  if (previous.reason === 'platform-unsupported') return previous;
   const started = dispatch({ type: 'check/started' });
   if (started === previous) return started;
   if (!app.isPackaged) return dispatch(failureEvent('check', 'not-packaged', null));
@@ -142,7 +153,7 @@ export function registerUpdateIpc(): void {
   });
   ipcMain.handle('update:open-download-page', async (event) => {
     checkWorkspaceSender(event);
-    await shell.openExternal(DOWNLOAD_PAGE_URL);
+    if (process.platform === 'win32') await shell.openExternal(DOWNLOAD_PAGE_URL);
   });
 }
 
@@ -155,6 +166,8 @@ function backgroundCheck(): void {
 }
 
 export function startBackgroundUpdateCheck(): () => void {
+  // 目前只有 Windows 的更新产物；Mac 不启动后台请求或恢复旧的待安装标记。
+  if (process.platform !== 'win32') return () => {};
   const timer = setInterval(backgroundCheck, BACKGROUND_CHECK_INTERVAL);
   const initial = setTimeout(backgroundCheck, BACKGROUND_CHECK_DELAY);
   const pending = setTimeout(() => {

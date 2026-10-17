@@ -58,7 +58,7 @@ export interface WorkspaceChat {
   model: string;
   /** 当前提供商的可选模型，驱动 composer 下拉。 */
   models: string[];
-  /** 当前提供商开启的推理强度档位；空数组表示未开启，composer 显示 default 且不可改。 */
+  /** 当前模型开启的推理强度档位；空数组表示未配置，composer 显示 default 并提供设置入口。 */
   effortLevels: string[];
   /** 当前选中的推理强度档位；未开启时为 null。 */
   effort: string | null;

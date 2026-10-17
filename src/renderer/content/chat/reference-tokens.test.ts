@@ -110,6 +110,41 @@ describe('referenceCandidates（@ 候选范围）', () => {
   it('cwd 未知（会话快照未到）时不列任何候选', () => {
     expect(referenceCandidates(tree, null, null)).toEqual([]);
   });
+
+  it('POSIX 路径区分大小写，不混入同名异大小写项目的文件', () => {
+    const entries = [
+      entry('own', '/repo/Project', 'project'),
+      entry('foreign', '/repo/project', 'project'),
+      entry('s1', '/repo/Project/readme.md'),
+      entry('s2', '/repo/project/readme.md'),
+    ];
+    expect(referenceCandidates(entries, '/repo/Project', 'own')).toEqual([
+      ref('/repo/Project/readme.md', 'readme.md'),
+    ]);
+  });
+
+  it('POSIX 文件名中的反斜杠保持原样，也不被当作目录边界', () => {
+    const path = '/repo/课程\\笔记.md';
+    const entries = [entry('s1', path), entry('outside', '/repo\\outside.md')];
+    const candidates = referenceCandidates(entries, '/repo', null);
+    expect(candidates).toEqual([ref(path, '课程\\笔记.md')]);
+    expect(referenceContext('@课程\\笔记.md', candidates)).toEqual(candidates);
+  });
+
+  it.each(['C:\\Repo\\', '\\\\server\\share\\Repo\\'])(
+    'Windows 路径 %s 忽略大小写并兼容两种分隔符',
+    (cwd) => {
+      const root = cwd.replaceAll('\\', '/').toLowerCase();
+      const path = `${root}docs\\readme.md`;
+      const entries = [entry('s1', path), entry('outside', `${root.slice(0, -1)}-other/file.md`)];
+      expect(referenceCandidates(entries, cwd, null)).toEqual([ref(path, 'docs/readme.md')]);
+    },
+  );
+
+  it.each(['/', 'C:\\'])('根目录 %s 可生成相对路径', (cwd) => {
+    const path = `${cwd}readme.md`;
+    expect(referenceCandidates([entry('s1', path)], cwd, null)).toEqual([ref(path, 'readme.md')]);
+  });
 });
 
 describe('withCourseReferences', () => {

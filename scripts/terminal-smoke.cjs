@@ -1,10 +1,16 @@
-// 真实应用、独立用户目录：验证标题栏 → Terminal → 多个 ConPTY 会话。
+// 真实应用、独立用户目录：验证标题栏 → Terminal → 多个 PTY 会话。
 const { app } = require('electron');
-const { join, resolve } = require('node:path');
+const { dirname, join, resolve } = require('node:path');
 const { mkdtempSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const assert = require('node:assert/strict');
 const root = resolve(process.argv[2] || '.');
+app.setAppPath(root);
+if (root.endsWith('.asar')) {
+  // 加载包内 main 时也按包内资源定位；脚本宿主仍为开发 Electron。
+  Object.defineProperty(app, 'isPackaged', { value: true });
+  process.resourcesPath = dirname(root);
+}
 const profile = mkdtempSync(join(tmpdir(), 'dela-terminal-smoke-'));
 app.setPath('userData', profile);
 app.setPath('documents', profile);
@@ -57,7 +63,17 @@ async function run(window) {
     window.reload();
   });
   await wait(`!!document.querySelector('button[title="终端 ; & 中文"]')`, 'project navigation');
-  await js(`document.querySelector('button[title="终端 ; & 中文"]').click()`);
+  // 项目名现在只展开会话；打开工作台走项目菜单。
+  await js(
+    `document.querySelector('button[aria-label="终端 ; & 中文 的项目菜单"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }))`,
+  );
+  await wait(
+    `[...document.querySelectorAll('[role="menuitem"]')].some(item => item.textContent.trim() === '打开项目')`,
+    'open project menu',
+  );
+  await js(
+    `[...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.trim() === '打开项目').click()`,
+  );
   await wait(
     `!!document.querySelector('button[aria-label="打开项目终端"]')`,
     'titlebar terminal button',
@@ -70,7 +86,7 @@ async function run(window) {
   const list = () => js(`window.dela.terminal.list('${project.id}')`);
   await wait(
     `window.dela.terminal.list('${project.id}').then(items => items.length === 1 && /\\$\\s*$|MINGW64/.test(items[0].buffer))`,
-    'Git Bash prompt ready',
+    'Bash prompt ready',
   );
   const first = (await list())[0];
   // dela 命令桥经 --rcfile 注入：type 应识别为函数。
@@ -100,6 +116,22 @@ async function run(window) {
     `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_EDIT\\r\\n'))`,
     'readline cursor movement and editing',
   );
+  if (process.platform === 'darwin') {
+    await js(
+      `window.dela.terminal.write('${first.id}', "printf 'INTERRUPT_READY\\n'; sleep 30\\r")`,
+    );
+    await wait(
+      `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('INTERRUPT_READY\\r\\n'))`,
+      'interrupt target running',
+    );
+    for (const type of ['keyDown', 'keyUp'])
+      window.webContents.sendInputEvent({ type, keyCode: 'c', modifiers: ['control'] });
+    await js(`window.dela.terminal.write('${first.id}', "echo INTERRUPT_OK\\r")`);
+    await wait(
+      `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('INTERRUPT_OK\\r\\n'))`,
+      'Control+C still interrupts Bash',
+    );
+  }
   // 隔离剪贴板夹具，不改写真实系统剪贴板。
   await js(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
     readText: async () => "echo DELA_PASTE",
@@ -112,6 +144,19 @@ async function run(window) {
     `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_PASTE'))`,
     'paste button',
   );
+  if (process.platform === 'darwin') {
+    await js(
+      `navigator.clipboard.readText = async () => 'echo COMMAND_PASTE'; document.querySelector('.xterm-helper-textarea').focus()`,
+    );
+    for (const type of ['keyDown', 'keyUp'])
+      window.webContents.sendInputEvent({ type, keyCode: 'v', modifiers: ['meta'] });
+    window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+    window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+    await wait(
+      `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('COMMAND_PASTE\\r\\n'))`,
+      'Command+V pastes into Bash',
+    );
+  }
   // 拖选锚定最后一个非空白 span 的精确矩形：bash 的 PS1 带空行与换行，整行锚定会漂到空白行。
   const selectionBox = await js(`(() => {
     const span = [...document.querySelectorAll('.xterm-rows span')]
@@ -154,6 +199,12 @@ async function run(window) {
     `typeof window.terminalCopiedText === 'string' && window.terminalCopiedText.length > 0`,
     'copy selected text',
   );
+  if (process.platform === 'darwin') {
+    await js("window.terminalCopiedText = ''");
+    for (const type of ['keyDown', 'keyUp'])
+      window.webContents.sendInputEvent({ type, keyCode: 'c', modifiers: ['meta'] });
+    await wait('window.terminalCopiedText.length > 0', 'Command+C copies terminal selection');
+  }
   await js(`window.terminalCopiedText = ''`);
   window.webContents.sendInputEvent({
     type: 'mouseDown',

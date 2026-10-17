@@ -18,7 +18,7 @@ export function checkWorkspaceSender(event: IpcMainInvokeEvent) {
   }
 }
 
-/** 右键菜单：按位置提供基本编辑操作（应用菜单已移除，这是唯一的剪切/复制/粘贴入口）。 */
+/** 右键菜单：按位置提供基本编辑操作，与 macOS 原生编辑菜单共用 Electron role。 */
 export function attachContextMenu(webContents: WebContents): void {
   webContents.on('context-menu', (_event, params) => {
     const items: MenuItemConstructorOptions[] = [];

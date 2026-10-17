@@ -28,7 +28,12 @@ vi.mock('../transport', async (importOriginal) => ({
   },
 }));
 
-import { listRemoteDirectory, remotePath, setContextMirrors } from '../operations';
+import {
+  listRemoteDirectory,
+  mirrorCommandText,
+  remotePath,
+  setContextMirrors,
+} from '../operations';
 
 const target = { host: 'user@10.0.0.5', keyPath: null };
 
@@ -85,6 +90,50 @@ describe('remotePath', () => {
     } finally {
       setContextMirrors('a', []);
       setContextMirrors('b', []);
+    }
+  });
+
+  it('POSIX 镜像区分大小写，保留目录和文件名里的反斜杠', () => {
+    const mirror = '/Users/me/课程\\资料/repo';
+    setContextMirrors('mac', [{ mirror, remote: '/srv/Project' }]);
+    try {
+      expect(remotePath(`${mirror}/读\\我.md`)).toBe('/srv/Project/读\\我.md');
+      expect(remotePath(mirror)).toBe('/srv/Project');
+      expect(remotePath(`${mirror.toLowerCase()}/SKILL.md`)).toBe(
+        `${mirror.toLowerCase()}/SKILL.md`,
+      );
+      expect(remotePath(`${mirror}-other/SKILL.md`)).toBe(`${mirror}-other/SKILL.md`);
+      expect(remotePath('/srv/Project/读\\我.md')).toBe('/srv/Project/读\\我.md');
+    } finally {
+      setContextMirrors('mac', []);
+    }
+  });
+});
+
+describe('mirrorCommandText', () => {
+  it('Mac 镜像按原样匹配，不改同名异大小写或前缀相似的其他目录', () => {
+    const mirror = '/Users/me/课程\\资料/repo';
+    setContextMirrors('mac', [{ mirror, remote: '/srv/Project' }]);
+    try {
+      expect(mirrorCommandText(`cat '${mirror}/读\\我.md'`)).toBe("cat '/srv/Project/读\\我.md'");
+      expect(mirrorCommandText(`cd '${mirror}' && pwd`)).toBe("cd '/srv/Project' && pwd");
+      const other = `cat '${mirror.toLowerCase()}/SKILL.md' '${mirror}-other/SKILL.md'`;
+      expect(mirrorCommandText(other)).toBe(other);
+    } finally {
+      setContextMirrors('mac', []);
+    }
+  });
+
+  it('Windows 镜像仍兼容大小写及混合分隔符，不匹配前缀相似的其他目录', () => {
+    setContextMirrors('win', [{ mirror: 'C:\\Users\\me\\repo', remote: '/srv/project' }]);
+    try {
+      expect(mirrorCommandText("cat 'c:/users/ME/repo\\skills\\SKILL.md'")).toBe(
+        "cat '/srv/project/skills/SKILL.md'",
+      );
+      const other = "cat 'C:/Users/me/repo-other/SKILL.md'";
+      expect(mirrorCommandText(other)).toBe(other);
+    } finally {
+      setContextMirrors('win', []);
     }
   });
 });

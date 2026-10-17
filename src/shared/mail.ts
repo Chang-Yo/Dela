@@ -172,7 +172,7 @@ export interface MailApi {
   deleteDraft(id: string): Promise<void>;
   confirmDraftClose(): Promise<'save' | 'discard' | 'cancel'>;
   setComposeActive(active: boolean): Promise<void>;
-  onRequestClose(listener: () => void): () => void;
+  onRequestClose(listener: (quitting: boolean) => void): () => void;
   syncNow(): Promise<void>;
   onSyncStatus(listener: (status: MailSyncStatus) => void): () => void;
 }

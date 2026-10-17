@@ -1,9 +1,9 @@
 // 项目内置终端（Git Bash）：dela 命令桥注入（rcfile + 专用 env）、PTY 生命周期
 //（输入/尺寸/输出回放/退出后只读）、进程回收（单标签/项目/窗口）、调用方校验。
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +14,14 @@ const mocks = vi.hoisted(() => ({
   directory: vi.fn(),
   check: vi.fn(),
 }));
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    existsSync: (path: Parameters<typeof actual.existsSync>[0]) =>
+      path === '/bin/bash' ? state.systemBash : actual.existsSync(path),
+  };
+});
 vi.mock('electron', () => ({
   ipcMain: {
     handle: (name: string, fn: (...args: unknown[]) => unknown) => mocks.handlers.set(name, fn),
@@ -39,7 +47,7 @@ vi.mock('../../workspace/api', async () => {
 import { registerTerminalIpc } from '..';
 import { locateBash } from '..';
 
-const state = vi.hoisted(() => ({ root: '' }));
+const state = vi.hoisted(() => ({ root: '', systemBash: true }));
 // kernel/bash → commands → 领域模块链用真实实现（桥服务器真实监听 127.0.0.1 随机端口）。
 
 registerTerminalIpc();
@@ -61,8 +69,16 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  mocks.app.get('before-quit')!();
+  mocks.app.get('will-quit')!();
   vi.clearAllMocks();
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
+  for (const name of ['ProgramFiles', 'ProgramFiles(x86)', 'LOCALAPPDATA'])
+    vi.stubEnv(name, state.root);
+  vi.stubEnv('MSYSTEM', undefined);
+  rmSync(state.root, { recursive: true, force: true });
+  mkdirSync(join(state.root, 'Git', 'bin'), { recursive: true });
+  writeFileSync(join(state.root, 'Git', 'bin', 'bash.exe'), '');
+  state.systemBash = true;
   mocks.directory.mockReturnValue('E:\\项目 ; & 中文');
   pty = {
     write: vi.fn(),
@@ -80,19 +96,35 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => {
+  mocks.app.get('will-quit')!();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
 afterAll(() => {
   rmSync(state.root, { recursive: true, force: true });
 });
 
-describe('项目内置终端', () => {
-  it('以 Git Bash 启动并注入 dela 命令桥（专用端口/token 与 rcfile 函数）', async () => {
+describe.each(['win32', 'darwin'])('项目内置终端（%s）', (platform) => {
+  beforeEach(() => vi.stubGlobal('process', { ...process, platform }));
+  it('退出尚未获准时不清理终端，实际退出才回收', async () => {
+    await invoke('create', owner, projectId, randomUUID());
+    mocks.app.get('before-quit')?.();
+    expect(pty.kill).not.toHaveBeenCalled();
+    expect(await invoke('list', owner, projectId)).toHaveLength(1);
+    mocks.app.get('will-quit')!();
+    expect(pty.kill).toHaveBeenCalledTimes(1);
+    expect(await invoke('list', owner, projectId)).toEqual([]);
+  });
+  it('以对应平台 Bash 启动并注入 dela 命令桥（专用端口/token 与 rcfile 函数）', async () => {
     const id = randomUUID();
     const snapshot = await invoke('create', owner, projectId, id);
-    expect(snapshot).toMatchObject({ title: 'Git Bash' });
+    expect(snapshot).toMatchObject({ title: platform === 'darwin' ? 'Bash' : 'Git Bash' });
     const [file, args, options] = mocks.spawn.mock.calls[0]! as [
       string,
       string[],
-      { env: Record<string, string>; cwd: string },
+      { env: Record<string, string>; cwd: string; useConptyDll?: boolean },
     ];
     expect(file).toBe(locateBash());
     expect(args[0]).toBe('--rcfile');
@@ -101,12 +133,26 @@ describe('项目内置终端', () => {
     // 桥只进本会话环境：随机端口 + 专用 token。
     expect(options.env.DELA_COMMAND_URL).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
     expect(options.env.DELA_COMMAND_TOKEN).toMatch(/^[0-9a-f]{64}$/);
-    expect(options.env.MSYSTEM).toBe('MINGW64');
+    expect(options.env.MSYSTEM).toBe(platform === 'win32' ? 'MINGW64' : undefined);
+    expect(options.useConptyDll).toBe(platform === 'win32' ? true : undefined);
     // rcfile 链回标准初始化并定义 dela 函数；会话关闭后随临时目录回收。
     const rc = args[1]!;
     expect(existsSync(rc)).toBe(true);
+    expect(readFileSync(rc, 'utf8')).toContain(
+      platform === 'darwin' ? '/etc/bashrc' : '/etc/bash.bashrc',
+    );
     invoke('close', owner, id);
     expect(existsSync(rc)).toBe(false);
+  });
+
+  it('启动失败时清理 rcfile，不留下会话', async () => {
+    mocks.spawn.mockImplementationOnce(() => {
+      throw new Error('spawn failed');
+    });
+    await expect(invoke('create', owner, projectId, randomUUID())).rejects.toThrow('spawn failed');
+    const rc = mocks.spawn.mock.calls[0]![1][1];
+    expect(existsSync(rc)).toBe(false);
+    expect(await invoke('list', owner, projectId)).toEqual([]);
   });
 
   it('解析当前项目目录启动 PTY，转发输入、尺寸与输出', async () => {
@@ -184,9 +230,7 @@ describe('Git Bash 运行时', () => {
   // 用环境变量把系统探测候选指到空目录，不需要 mock existsSync。
   const mingitRoot = () => join(state.root, 'Dela', 'mingit', 'v2.56.0.2');
   beforeEach(() => {
-    process.env.ProgramFiles = state.root;
-    process.env['ProgramFiles(x86)'] = state.root;
-    process.env.LOCALAPPDATA = state.root;
+    rmSync(join(state.root, 'Git'), { recursive: true, force: true });
   });
 
   it('locateBash：系统安装优先，其次随包 MinGit，最后自装副本；都缺失时给出安装指引', () => {
@@ -245,5 +289,25 @@ describe('Git Bash 运行时', () => {
     expect(await installing).toMatchObject({ found: false, install: { phase: 'idle' } });
     expect(existsSync(mingitRoot())).toBe(false);
     vi.unstubAllGlobals();
+  });
+});
+
+describe('macOS 系统 Bash', () => {
+  beforeEach(() => vi.stubGlobal('process', { ...process, platform: 'darwin' }));
+
+  it('固定使用系统 Bash，安装请求不下载 MinGit', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    expect(locateBash()).toBe('/bin/bash');
+    expect(await invoke('bash-status', owner)).toMatchObject({ found: true });
+    expect(await invoke('install-bash', owner)).toMatchObject({ found: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('系统 Bash 缺失时明确报错，不回退 Windows 运行时或显示安装卡片', async () => {
+    state.systemBash = false;
+    expect(() => locateBash()).toThrow('macOS 系统 Bash');
+    expect(() => invoke('bash-status', owner)).toThrow('macOS 系统 Bash');
+    await expect(invoke('install-bash', owner)).rejects.toThrow('macOS 系统 Bash');
   });
 });

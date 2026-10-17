@@ -96,6 +96,7 @@ if (typeof window !== 'undefined' && window.dela)
   });
 
 function useOfficeExport(ref: ResourceRef | undefined, onExported: (() => void) | undefined) {
+  const supported = window.dela?.platform === 'win32';
   const active = useOfficeExports((state) => (ref ? state.runs[exportKey(ref)] : undefined));
   const exporting = !!active && !active.error;
   const [now, setNow] = useState(() => Date.now());
@@ -107,9 +108,10 @@ function useOfficeExport(ref: ResourceRef | undefined, onExported: (() => void) 
   }, [exporting]);
   const elapsed = active ? Math.max(0, Math.round((now - active.startedAt) / 1000)) : 0;
   const run = () => {
-    if (ref && window.dela) useOfficeExports.getState().start(ref, onExported);
+    if (supported && ref && window.dela) useOfficeExports.getState().start(ref, onExported);
   };
   return {
+    supported,
     exporting,
     opening: active?.opening ?? false,
     error: active?.error ?? '',
@@ -128,7 +130,7 @@ export interface OfficePromptProps {
 /** pptx 的确认卡片：Windows 经 PowerPoint 导出 PDF 预览，需用户主动触发；
  *  也可以不经导出，直接用系统默认应用（如 PowerPoint）打开原文件。 */
 export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptProps) {
-  const { exporting, opening, error, run, progress, elapsed } = useOfficeExport(
+  const { supported, exporting, opening, error, run, progress, elapsed } = useOfficeExport(
     officeRef,
     onExported,
   );
@@ -149,6 +151,11 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
         <p className="text-13 font-medium">{title}</p>
         <p className="mt-1 text-xs text-ink-3">PowerPoint 演示文稿 · 只读，应用内不直接渲染</p>
       </div>
+      {!supported && (
+        <p className="max-w-md text-xs text-ink-3">
+          你可以用系统默认应用打开原文件。当前平台不提供 PPTX 转 PDF，也可以导入已转换的 PDF 阅读。
+        </p>
+      )}
       {exporting ? (
         <div role="status" className="flex flex-col items-center gap-1 text-xs text-ink-3">
           <Loader2 aria-hidden className="size-5 animate-spin" />
@@ -157,10 +164,12 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={run}>
-            <FileDown aria-hidden />
-            导出为 PDF 预览
-          </Button>
+          {supported && (
+            <Button size="sm" onClick={run}>
+              <FileDown aria-hidden />
+              导出为 PDF 预览
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={openExternally}>
             <ExternalLink aria-hidden />
             在外部打开
@@ -182,10 +191,14 @@ export function OfficeExportBanner({
   officeRef,
   onExported,
 }: Omit<OfficePromptProps, 'title'> & { exported: OfficeExportInfo }) {
-  const { exporting, opening, error, run, progress } = useOfficeExport(officeRef, onExported);
+  const { supported, exporting, opening, error, run, progress } = useOfficeExport(
+    officeRef,
+    onExported,
+  );
   /* 文档与导出内容一致时不占整行：仅保留重新导出入口；
      源文件更新过或上次导出失败时，才回到完整警示条说明情况。 */
   if (!exported.stale) {
+    if (!supported) return null;
     return (
       <div className="flex shrink-0 items-center justify-end gap-2 px-2 pt-1 text-2xs">
         {error && (
@@ -207,10 +220,14 @@ export function OfficeExportBanner({
     >
       <span>已打开导出的 {exported.title}</span>
       <span className="text-ink">源文件在导出后更新过，内容可能过期</span>
-      <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
-        {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
-        {exporting ? progressText(progress, opening) : '重新导出'}
-      </Button>
+      {supported ? (
+        <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
+          {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
+          {exporting ? progressText(progress, opening) : '重新导出'}
+        </Button>
+      ) : (
+        <span>当前平台暂不支持重新导出</span>
+      )}
       {error && (
         <span role="alert" className="text-red">
           {error}

@@ -6,6 +6,7 @@ import { mkdir, open, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SkillDependency } from '../../shared/capabilities';
 import requirements from './skill/requirements.lock?raw';
+import notices from './runtime-licenses.txt?raw';
 
 export const DOCUMENT_SKILL = 'document-reading';
 const VERSION = '1';
@@ -14,13 +15,27 @@ const PYTHON_SHA256 = '4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63
 const UV_URL =
   'https://github.com/astral-sh/uv/releases/download/0.11.1/uv-x86_64-pc-windows-msvc.zip';
 const UV_SHA256 = '6659250cebbd3bb6ee48bcb21a3f0c6656450d63fb97f0f069bcb532bdb688ed';
+const MAC_PYTHON_URL =
+  'https://github.com/astral-sh/python-build-standalone/releases/download/20250529/cpython-3.12.10%2B20250529-aarch64-apple-darwin-install_only_stripped.tar.gz';
+const MAC_PYTHON_SHA256 = '2579c9ffcbb0a745f1de3d645612c7466269eb9a23316a54ece49d50c1c9122f';
+const MAC_UV_URL =
+  'https://github.com/astral-sh/uv/releases/download/0.11.1/uv-aarch64-apple-darwin.tar.gz';
+const MAC_UV_SHA256 = 'f7815f739ed5d0e4202e6292acedb8659b9ae7de663d07188d8c6cbd7f96303f';
 
 export function documentRuntimeDirectory(): string {
   return join(app.getPath('userData'), 'components', DOCUMENT_SKILL, VERSION);
 }
 
-export function documentPython(): string {
-  return join(documentRuntimeDirectory(), 'python.exe');
+export function documentPython(root = documentRuntimeDirectory()): string {
+  return process.platform === 'darwin'
+    ? join(root, 'python', 'bin', 'python3')
+    : join(root, 'python.exe');
+}
+
+function sitePackages(root: string): string {
+  return process.platform === 'darwin'
+    ? join(root, 'python', 'lib', 'python3.12', 'site-packages')
+    : join(root, 'Lib', 'site-packages');
 }
 
 let installation: Promise<void> | undefined;
@@ -34,7 +49,7 @@ export function documentDependency(): SkillDependency {
     if (
       readFileSync(join(root, 'ready'), 'utf8') === VERSION &&
       existsSync(documentPython()) &&
-      existsSync(join(root, 'Lib', 'site-packages', 'markitdown', '__init__.py'))
+      existsSync(join(sitePackages(root), 'markitdown', '__init__.py'))
     )
       return { status: 'ready' };
   } catch {
@@ -78,7 +93,7 @@ export async function verifyDocumentRuntime(
 ): Promise<void> {
   try {
     await run(
-      join(root, 'python.exe'),
+      documentPython(root),
       [
         '-I',
         '-c',
@@ -120,11 +135,13 @@ async function download(
   if (digest.digest('hex') !== hash) throw new Error('组件下载校验失败，请重试');
 }
 
-async function extract(zip: string, target: string, signal: AbortSignal): Promise<void> {
+async function extract(archive: string, target: string, signal: AbortSignal): Promise<void> {
   await mkdir(target, { recursive: true });
   await run(
-    join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe'),
-    ['-xf', zip, '-C', target],
+    process.platform === 'darwin'
+      ? '/usr/bin/tar'
+      : join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe'),
+    ['-xf', archive, '-C', target],
     signal,
   );
 }
@@ -143,33 +160,43 @@ export function installDocumentDependency(): Promise<void> {
   const staging = root;
   let completed = false;
   installation = (async () => {
-    if (process.platform !== 'win32' || process.arch !== 'x64')
-      throw new Error('文档组件仅支持 Windows x64');
+    const mac = process.platform === 'darwin' && process.arch === 'arm64';
+    if (!mac && !(process.platform === 'win32' && process.arch === 'x64'))
+      throw new Error('文档组件仅支持 Windows x64 和 Apple Silicon Mac');
     await rm(staging, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
     await mkdir(staging, { recursive: true });
-    const pythonZip = join(staging, 'python.zip');
-    const uvZip = join(staging, 'uv.zip');
-    await download(PYTHON_URL, pythonZip, PYTHON_SHA256, signal);
-    await extract(pythonZip, staging, signal);
-    await download(UV_URL, uvZip, UV_SHA256, signal);
-    await extract(uvZip, join(staging, 'installer'), signal);
-    await writeFile(
-      join(staging, 'python312._pth'),
-      'python312.zip\n.\nLib/site-packages\nimport site\n',
+    const pythonArchive = join(staging, mac ? 'python.tar.gz' : 'python.zip');
+    const uvArchive = join(staging, mac ? 'uv.tar.gz' : 'uv.zip');
+    await download(
+      mac ? MAC_PYTHON_URL : PYTHON_URL,
+      pythonArchive,
+      mac ? MAC_PYTHON_SHA256 : PYTHON_SHA256,
+      signal,
     );
+    await extract(pythonArchive, staging, signal);
+    await download(mac ? MAC_UV_URL : UV_URL, uvArchive, mac ? MAC_UV_SHA256 : UV_SHA256, signal);
+    await extract(uvArchive, join(staging, 'installer'), signal);
+    if (!mac)
+      await writeFile(
+        join(staging, 'python312._pth'),
+        'python312.zip\n.\nLib/site-packages\nimport site\n',
+      );
     const lock = join(staging, 'requirements.lock');
     await writeFile(lock, requirements);
+    await writeFile(join(staging, 'THIRD-PARTY-NOTICES.txt'), notices);
     state = { status: 'installing', phase: '安装文档解析依赖' };
     await run(
-      join(staging, 'installer', 'uv.exe'),
+      mac
+        ? join(staging, 'installer', 'uv-aarch64-apple-darwin', 'uv')
+        : join(staging, 'installer', 'uv.exe'),
       [
         '--no-config',
         'pip',
         'install',
         '--python',
-        join(staging, 'python.exe'),
+        documentPython(staging),
         '--target',
-        join(staging, 'Lib', 'site-packages'),
+        sitePackages(staging),
         '--only-binary',
         ':all:',
         '--no-deps',
@@ -186,8 +213,8 @@ export function installDocumentDependency(): Promise<void> {
     await verifyDocumentRuntime(staging, signal);
     signal.throwIfAborted();
     await rm(join(staging, 'installer'), { recursive: true, force: true });
-    await rm(pythonZip);
-    await rm(uvZip);
+    await rm(pythonArchive);
+    await rm(uvArchive);
     // Publish readiness only after validation; Windows may keep imported DLLs locked briefly.
     signal.throwIfAborted();
     await writeFile(join(staging, 'ready'), VERSION);

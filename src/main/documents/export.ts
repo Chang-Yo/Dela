@@ -269,6 +269,8 @@ export function exportOfficePdf(
   ref: unknown,
   onProgress?: (progress: OfficeExportProgress) => void,
 ): Promise<void> {
+  if (process.platform !== 'win32')
+    return Promise.reject(new Error('当前平台暂不支持 PPTX 转 PDF，请用外部应用打开原文件。'));
   const parsed = resourceRefSchema.parse(ref);
   if (parsed.type !== 'canvas' && parsed.type !== 'workspace')
     throw new Error('仅支持资料文件与我的资料条目');

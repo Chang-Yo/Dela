@@ -129,16 +129,19 @@ export function setContextMirrors(key: string, routes: { mirror: string; remote:
   else mirrorRoutes.set(key, routes);
 }
 
-const trimSlash = (value: string) => value.replace(/\\/g, '/').replace(/\/+$/, '');
+const windowsPath = (value: string) => /^(?:[a-z]:[\\/]|\\)/i.test(value);
+const trimSlash = (value: string) =>
+  (windowsPath(value) ? value.replace(/\\/g, '/') : value).replace(/\/+$/, '');
 
 function throughMirror(value: string): string | null {
-  const normalized = value.replace(/\\/g, '/');
-  const lower = normalized.toLowerCase();
+  const normalized = windowsPath(value) ? value.replace(/\\/g, '/') : value;
   let best: { mirror: string; remote: string } | undefined;
   for (const routes of mirrorRoutes.values()) {
     for (const route of routes) {
-      const prefix = trimSlash(route.mirror);
-      if (lower === prefix.toLowerCase() || lower.startsWith(`${prefix.toLowerCase()}/`)) {
+      const windows = windowsPath(route.mirror);
+      const prefix = windows ? trimSlash(route.mirror).toLowerCase() : trimSlash(route.mirror);
+      const candidate = windows ? normalized.toLowerCase() : normalized;
+      if (candidate === prefix || candidate.startsWith(`${prefix}/`)) {
         if (!best || prefix.length > trimSlash(best.mirror).length) best = route;
       }
     }
@@ -149,31 +152,37 @@ function throughMirror(value: string): string | null {
 }
 
 /** 命令正文里的镜像路径也要翻回远端：模型可能直接 `cat <镜像路径>`。
- *  路径分隔符可能是 `/` 或 `\`，Windows 盘符大小写不定，所以整段大小写不敏感。
- *  换掉前缀后，同一段路径里剩下的 `\` 也要转成 `/`——bash 会把 `\` 当转义吃掉。 */
+ *  Windows 镜像兼容两种分隔符及大小写；POSIX 镜像保留大小写和文件名里的反斜杠。 */
 export function mirrorCommandText(command: string): string {
   const routes = [...mirrorRoutes.values()]
     .flat()
     .sort((left, right) => trimSlash(right.mirror).length - trimSlash(left.mirror).length);
   let result = command;
   for (const route of routes) {
+    const windows = windowsPath(route.mirror);
+    const separator = windows ? '[\\\\/]' : '/';
     const prefix = trimSlash(route.mirror)
       .split('/')
       .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-      .join('[\\\\/]');
+      .join(separator);
     // 尾巴吃到引号或 shell 元字符为止，路径里的空格要一起带上（模型多半会加引号）。
     result = result.replace(
-      new RegExp(`${prefix}([^"'|&;()<>\\n]*)`, 'gi'),
-      (_match, tail: string) => `${trimSlash(route.remote)}${tail.replace(/\\/g, '/')}`,
+      new RegExp(
+        `${prefix}(?=${separator}|[\\s"'|&;()<>]|$)([^"'|&;()<>\\n]*)`,
+        windows ? 'gi' : 'g',
+      ),
+      (_match, tail: string) =>
+        `${trimSlash(route.remote)}${windows ? tail.replace(/\\/g, '/') : tail}`,
     );
   }
   return result;
 }
 
-/** 还原远端 POSIX 路径：先翻镜像，再去盘符、反斜杠转正斜杠、合并重复斜杠。 */
+/** 还原远端 POSIX 路径：翻镜像，撤销 Windows 宿主的盘符/分隔符改写，合并重复斜杠。 */
 export function remotePath(value: string): string {
   const mapped = throughMirror(value);
-  let path = (mapped ?? value).replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
+  let path =
+    mapped ?? (windowsPath(value) ? value.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '') : value);
   path = path.replace(/\/{2,}/g, '/');
   if (!path.startsWith('/')) path = `/${path}`;
   return path.length > 1 ? path.replace(/\/+$/, '') || '/' : path;

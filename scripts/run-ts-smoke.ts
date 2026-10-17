@@ -1,17 +1,23 @@
 // 把 scripts/<name>.ts 打成 CJS 放进 .tools/，再用 Electron 运行。
-// 用法：node scripts/run-ts-smoke.ts workspace-smoke | remote-smoke
+// 用法：node scripts/run-ts-smoke.ts workspace-smoke | remote-smoke | runtime-smoke
 import { build } from 'vite';
 import { builtinModules, createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 
 /** 一项冒烟的打包与运行参数；external 声明不打进 bundle 的模块。 */
 interface SmokeConfig {
-  external: string[];
+  external: (string | RegExp)[];
   timeout: number;
   minify?: boolean;
 }
 
 const smokes: Record<string, SmokeConfig> = {
+  'document-runtime-smoke': { external: [], timeout: 600000, minify: false },
+  'runtime-smoke': {
+    external: ['node-pty', /^@earendil-works\//],
+    timeout: 45000,
+    minify: false,
+  },
   'workspace-smoke': { external: [], timeout: 60000 },
   'remote-smoke': {
     external: [

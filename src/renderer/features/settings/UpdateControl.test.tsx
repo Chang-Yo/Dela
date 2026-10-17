@@ -120,6 +120,24 @@ it('快照还没到手时不渲染任何东西（浏览器预览没有 preload �
   expect(container.textContent).toBe('');
 });
 
+it('平台尚未提供更新时说明限制，不显示检查、安装或 Windows 下载入口', async () => {
+  useUpdateState.setState({
+    snapshot: {
+      ...readyState,
+      phase: 'unsupported',
+      reason: 'platform-unsupported',
+      failedAt: 'check',
+      version: null,
+    },
+  });
+  await act(async () => root.render(<UpdateControl />));
+  expect(container.textContent).toContain('当前版本 1.0.0');
+  expect(container.querySelector('[role="status"]')?.textContent).toBe(
+    '当前平台暂未提供应用内更新',
+  );
+  expect(container.querySelector('button')).toBeNull();
+});
+
 it('常驻显示当前版本，未检查、开发运行这些状态下也不例外', async () => {
   for (const phase of ['idle', 'unsupported'] as const) {
     await act(async () => {

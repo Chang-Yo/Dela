@@ -15,8 +15,7 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-
-const platform = /Mac|iPhone|iPad/.test(navigator.platform) ? ('mac' as const) : ('other' as const);
+import { platform } from '../../../lib/platform';
 
 /** 键位串 → 可读文本（错误提示用）。 */
 function acceleratorText(accelerator: string | null, family?: 'digit'): string {
@@ -81,7 +80,7 @@ export function ShortcutsSection() {
       }
       // 只按修饰键时继续等待完整组合。
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return;
-      const accelerator = acceleratorFromEvent(event);
+      const accelerator = acceleratorFromEvent(event, platform);
       if (!accelerator) return;
       const action = shortcutActions.find((item) => item.id === recording);
       if (action?.family === 'digit' && !isDigitFamily(accelerator)) {

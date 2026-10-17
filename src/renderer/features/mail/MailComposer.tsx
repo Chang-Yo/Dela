@@ -25,6 +25,8 @@ import { cn } from '../../lib/utils';
 import { formatSize } from './mail-format';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
+import { acceleratorFromEvent } from '../../../shared/keybindings';
+import { platform } from '../../lib/platform';
 
 type Props = {
   draft?: PreparedEmail;
@@ -290,10 +292,13 @@ export function MailComposer({
   }, [sending, saving]);
   useEffect(() => {
     void dela.mail.setComposeActive(true);
-    const unsubscribe = dela.mail.onRequestClose(() => {
+    const unsubscribe = dela.mail.onRequestClose((quitting) => {
       const close = () => {
         allowUnload.current = true;
-        void dela.mail.setComposeActive(false).then(() => dela.window.close());
+        void dela.mail.setComposeActive(false).then(() => {
+          if (quitting) dela.window.quit();
+          else dela.window.close();
+        });
       };
       if (!leaveComposer(close)) return;
       close();
@@ -516,22 +521,18 @@ export function MailComposer({
 
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const editor = editorRef.current;
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+    const accelerator = acceleratorFromEvent(event.nativeEvent, platform);
+    if (accelerator === 'Mod+B') {
       event.preventDefault();
       format('bold');
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
+    if (accelerator === 'Mod+I') {
       event.preventDefault();
       format('italic');
       return;
     }
-    if (
-      (event.ctrlKey || event.metaKey) &&
-      event.key.toLowerCase() === 'k' &&
-      editor &&
-      hasEditableSelection(editor)
-    ) {
+    if (accelerator === 'Mod+K' && editor && hasEditableSelection(editor)) {
       event.preventDefault();
       // 链接键与全局搜索同键：就地消费，避免正文里按 Ctrl/⌘+K 同时弹出搜索框。
       event.stopPropagation();

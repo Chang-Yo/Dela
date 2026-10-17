@@ -24,8 +24,8 @@ const target: RemoteTarget = {
 };
 
 describe('transport（真机）', () => {
-  it('定位到系统或自带的 ssh.exe', () => {
-    expect(locateSsh()).toMatch(/ssh\.exe$/i);
+  it('定位到对应平台的 SSH 客户端', () => {
+    expect(locateSsh()).toMatch(process.platform === 'darwin' ? /\/usr\/bin\/ssh$/ : /ssh\.exe$/i);
   });
 
   it('自检返回系统、架构与主目录', async () => {

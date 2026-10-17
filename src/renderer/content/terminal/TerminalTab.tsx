@@ -8,6 +8,7 @@ import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { cn } from '../../lib/utils';
+import { platform } from '../../lib/platform';
 import '@xterm/xterm/css/xterm.css';
 
 const activeByProject = new Map<string, string>();
@@ -248,7 +249,11 @@ export function TerminalTab({ tabId }: TabComponentProps) {
     setHasSelection(false);
     const selection = terminal.onSelectionChange(() => setHasSelection(terminal.hasSelection()));
     terminal.attachCustomKeyEventHandler((event) => {
-      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && event.shiftKey) {
+      const clipboardModifier =
+        platform === 'mac'
+          ? event.metaKey && !event.ctrlKey && !event.shiftKey
+          : event.ctrlKey && !event.metaKey && event.shiftKey;
+      if (event.type === 'keydown' && clipboardModifier && !event.altKey) {
         if (event.code === 'KeyC' || event.code === 'KeyV') {
           event.preventDefault();
           if (event.code === 'KeyC') void copy();
@@ -366,7 +371,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         </div>
         <Button
           aria-label="复制终端选区"
-          title="复制选区（Ctrl+Shift+C）"
+          title={platform === 'mac' ? '复制选区（⌘C）' : '复制选区（Ctrl+Shift+C）'}
           disabled={!hasSelection}
           variant="ghost"
           size="icon-sm"
@@ -376,7 +381,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         </Button>
         <Button
           aria-label="粘贴到终端"
-          title="粘贴（Ctrl+Shift+V）"
+          title={platform === 'mac' ? '粘贴（⌘V）' : '粘贴（Ctrl+Shift+V）'}
           disabled={!active || active.exitCode !== null}
           variant="ghost"
           size="icon-sm"

@@ -89,7 +89,7 @@ interface OpenSessionInput {
   /** 追加到 Pi 默认系统提示之后（项目背景、用户自定义指令、dela 命令说明）。 */
   appendSystemPrompt: string[];
   customTools: ToolDefinition[];
-  /** Git Bash 路径（与终端同源）。 */
+  /** 平台 Bash 路径（与终端同源）。 */
   shellPath: string;
   /** bash 每条命令前置的脚本（dela 函数定义）。远程会话不注入。 */
   commandPrefix?: string;

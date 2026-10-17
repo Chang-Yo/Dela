@@ -10,7 +10,8 @@ import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
 import { registerVsjtuIpc } from './vsjtu/ipc';
-import { attachContextMenu } from './ipc';
+import { attachContextMenu, checkWorkspaceSender } from './ipc';
+import type { TrayAction } from '../shared/window';
 import { registerCanvasIpc } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
@@ -78,13 +79,18 @@ ipcMain.on('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
+ipcMain.on('window:quit', (event) => {
+  checkWorkspaceSender(event);
+  quitApp();
+});
+
 ipcMain.handle('window:get-state', (event) => ({
   maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false,
 }));
 
 const terminalSmokeTest = process.argv.includes('--terminal-smoke-test');
 const smokeTest = process.argv.includes('--smoke-test') || terminalSmokeTest;
-const startHidden = process.argv.includes('--hidden');
+let startHidden = process.argv.includes('--hidden');
 if (smokeTest && !terminalSmokeTest) {
   const profile = mkdtempSync(join(tmpdir(), 'dela-smoke-'));
   app.setPath('userData', profile);
@@ -110,7 +116,6 @@ function quitApp() {
   app.quit();
 }
 
-ipcMain.on('window:quit', quitApp);
 app.on('second-instance', () => {
   if (mainWindow && !mainWindow.isDestroyed()) showMainWindow(mainWindow);
   // 窗口尚未创建时，正常启动流程会显示它，不另建窗口。
@@ -132,9 +137,46 @@ app
     if (!hasSingleInstanceLock) return;
     // Windows 系统通知按 AppUserModelID 识别应用；与 electron-builder.yml 的 appId 一致，
     // 开发运行（未走安装器）也需要显式设置才能弹通知。
-    app.setAppUserModelId('io.dela.desktop');
-    // 标题栏内已有应用菜单；移除 Electron 默认菜单，避免额外的系统“退出”入口绕过托盘。
-    Menu.setApplicationMenu(null);
+    if (process.platform === 'win32') app.setAppUserModelId('io.dela.desktop');
+    if (process.platform === 'darwin') {
+      const action = (value: TrayAction) => () => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        showMainWindow(mainWindow);
+        mainWindow.webContents.send('window:tray-action', value);
+      };
+      Menu.setApplicationMenu(
+        Menu.buildFromTemplate([
+          {
+            label: 'Dela',
+            submenu: [
+              { role: 'about' },
+              { label: '设置…', click: action('open-settings') },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+          {
+            label: '文件',
+            submenu: [
+              { label: '新建对话', click: action('new-chat') },
+              { label: '新建项目', click: action('new-project') },
+              // ⌘W 留给可配置的工作台关标签动作，原生菜单不抢同一组合。
+              { label: '关闭窗口', click: (_item, window) => window?.close() },
+            ],
+          },
+          { role: 'editMenu', label: '编辑' },
+          { label: '视图', submenu: [{ role: 'togglefullscreen' }] },
+          { role: 'windowMenu', label: '窗口' },
+        ]),
+      );
+      if (app.isPackaged && !smokeTest) startHidden ||= app.getLoginItemSettings().wasOpenedAtLogin;
+    } else Menu.setApplicationMenu(null);
     // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。
     firstLaunch = !smokeTest && !existsSync(join(app.getPath('userData'), 'dela.db'));
     getDatabase();
@@ -144,13 +186,21 @@ app
     cleanupLegacyMinGit();
     registerPreviewProtocol();
     applyTheme(savedTheme());
+    if (process.platform === 'darwin') {
+      app.dock?.setIcon(
+        nativeImage.createFromPath(join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`)),
+      );
+    }
     // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
     // 之后不再于启动时改写，用户经任务管理器或本页开关的改动均以系统为准。
-    if (app.isPackaged && readSetting('open-at-login') === undefined) {
+    if (!smokeTest && app.isPackaged && readSetting('open-at-login') === undefined) {
       getDatabase()
         .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
         .run('1');
-      app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        ...(process.platform === 'win32' ? { args: ['--hidden'] } : {}),
+      });
     }
     registerSettingsIpc();
     registerConsentIpc();
@@ -235,7 +285,8 @@ async function createWindow(): Promise<void> {
     icon: nativeImage.createFromPath(
       join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
     ),
-    titleBarStyle: 'hidden',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    titleBarOverlay: process.platform === 'darwin',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -266,8 +317,10 @@ async function createWindow(): Promise<void> {
     openExternalUrl(url);
   });
   window.webContents.on('will-prevent-unload', (event) => {
+    const wasQuitting = quitting;
+    quitting = false;
     if (hasMailComposer(window.webContents.id)) {
-      window.webContents.send('mail:request-close');
+      window.webContents.send('mail:request-close', wasQuitting);
       return;
     }
     const choice = dialog.showMessageBoxSync(window, {
@@ -278,7 +331,10 @@ async function createWindow(): Promise<void> {
       title: '仍有未保存的内容',
       message: '有未保存的笔记或未发送的邮件，确定抛弃并退出 Dela 吗？',
     });
-    if (choice === 0) event.preventDefault();
+    if (choice === 0) {
+      quitting = wasQuitting;
+      event.preventDefault();
+    }
   });
   const session = window.webContents.session;
   // 渲染进程的 navigator.clipboard.writeText 走 clipboard-sanitized-write 权限；
@@ -349,6 +405,7 @@ async function createWindow(): Promise<void> {
 }
 
 function showMainWindow(window: BrowserWindow): void {
+  if (process.platform === 'darwin') app.show();
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
@@ -397,13 +454,13 @@ app
     app.exit(1);
   });
 app.on('window-all-closed', () => {
-  app.quit();
+  if (process.platform !== 'darwin') app.quit();
 });
 app.on('before-quit', () => {
   quitting = true;
-  closeDomainBridge();
 });
 app.on('will-quit', () => {
+  closeDomainBridge();
   tray?.destroy();
   clearInterval(todoTimer);
   clearInterval(notificationTimer);
@@ -420,8 +477,12 @@ app.on('will-quit', () => {
   closeDatabase();
 });
 app.on('activate', () => {
-  void createWindow().catch((error: unknown) => {
-    console.error(error);
-    app.exit(1);
-  });
+  void createWindow()
+    .then(() => {
+      if (mainWindow) showMainWindow(mainWindow);
+    })
+    .catch((error: unknown) => {
+      console.error(error);
+      app.exit(1);
+    });
 });

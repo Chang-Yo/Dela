@@ -61,4 +61,51 @@ describe('pickCourseFiles', () => {
     );
     expect(files).toEqual([{ path: 'C:/C/course [7]/Readme.MD', title: 'Course/Readme.MD' }]);
   });
+
+  it('POSIX 课程路径区分大小写，且不把反斜杠视为目录边界', () => {
+    expect(
+      pickCourseFiles(
+        [root('Course', 7, '/courses/Course [7]')],
+        [
+          '/courses/course [7]/wrong.pdf',
+          '/courses/Course [7]\\outside.pdf',
+          '/courses/Course [7]/Readme.MD',
+        ],
+        () => true,
+      ),
+    ).toEqual([{ path: '/courses/Course [7]/Readme.MD', title: 'Course/Readme.MD' }]);
+  });
+
+  it('POSIX 文件名中的反斜杠保留，不能与同名子目录文件合并', () => {
+    expect(
+      pickCourseFiles(
+        [root('课', 1, '/courses/课 [1]')],
+        ['/courses/课 [1]/a\\b.md', '/courses/课 [1]/a/b.md'],
+        () => true,
+      ),
+    ).toEqual([
+      { path: '/courses/课 [1]/a\\b.md', title: '课/a\\b.md' },
+      { path: '/courses/课 [1]/a/b.md', title: '课/a/b.md' },
+    ]);
+  });
+
+  it.each(['C:\\courses\\课 [1]\\', '\\\\server\\share\\课 [1]\\'])(
+    'Windows 路径 %s 保持大小写与混合分隔符兼容',
+    (directory) => {
+      const path = `${directory.toUpperCase()}files/Readme.MD`;
+      expect(pickCourseFiles([root('课', 1, directory)], [path], () => true)).toEqual([
+        { path, title: '课/files/Readme.MD' },
+      ]);
+    },
+  );
+
+  it('路径归一化后仍排除课程目录自身和越界文件', () => {
+    expect(
+      pickCourseFiles(
+        [root('课', 1, '/courses/one/')],
+        ['/courses/one', '/courses/one/../two/outside.md', '/courses/one/./files/a.md'],
+        () => true,
+      ),
+    ).toEqual([{ path: '/courses/one/./files/a.md', title: '课/files/a.md' }]);
+  });
 });

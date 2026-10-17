@@ -75,6 +75,13 @@ describe('远程工具（真机）', () => {
     await expect(ops.read.access(mangled(`${root}/nope.txt`))).rejects.toThrow(/不存在|不可读/);
   });
 
+  it('POSIX 文件名里的反斜杠不会变成目录分隔符', async () => {
+    const path = `${root}/字\\面.txt`;
+    await ops.write.writeFile(path, 'literal backslash\n');
+    expect((await run(`test -f ${shellQuote(path)}`)).exitCode).toBe(0);
+    expect((await ops.read.readFile(path)).toString()).toBe('literal backslash\n');
+  });
+
   it('识别图片 MIME（按扩展名，不多跑一次 ssh）', async () => {
     await expect(ops.read.detectImageMimeType('/root/a.png')).resolves.toBe('image/png');
     await expect(ops.read.detectImageMimeType('/root/a.ts')).resolves.toBeNull();

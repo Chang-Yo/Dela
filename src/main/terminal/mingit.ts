@@ -44,11 +44,13 @@ function bundledDir(): string {
 
 /** MinGit 里的 bash 本体以 sh.exe 名义分发，安装时复制出 bash.exe 才走完整 bash 模式。 */
 export function mingitBash(): string | null {
+  if (process.platform !== 'win32') return null;
   const bash = join(mingitDir(), 'usr', 'bin', 'bash.exe');
   return existsSync(bash) ? bash : null;
 }
 
 export function bundledBash(): string | null {
+  if (process.platform !== 'win32') return null;
   const bash = join(bundledDir(), 'usr', 'bin', 'bash.exe');
   return existsSync(bash) ? bash : null;
 }
@@ -63,10 +65,12 @@ function minGitRoot(): string | null {
 /** 随包搜索工具（rg/fd）：内核 grep/find 直接 spawn 它们，缺失时 pi 会从
  *  GitHub 直连下载（大陆大概率失败），所以随安装包分发并前插 PATH。 */
 function searchToolsDir(): string | null {
-  const dir = app.isPackaged
+  const root = app.isPackaged
     ? join(process.resourcesPath, 'bin')
     : join(app.getAppPath(), 'vendor', 'bin');
-  return existsSync(join(dir, 'rg.exe')) ? dir : null;
+  const dir = process.platform === 'darwin' ? join(root, `darwin-${process.arch}`) : root;
+  const suffix = process.platform === 'win32' ? '.exe' : '';
+  return ['rg', 'fd'].every((name) => existsSync(join(dir, `${name}${suffix}`))) ? dir : null;
 }
 
 let mingitPrepended = false;
@@ -75,6 +79,21 @@ let toolsPrepended = false;
 /** 终端与 Agent 的 bash 都继承主进程 PATH：前插生效 MinGit 的 cmd 目录（git 随即可用）
  *  与随包搜索工具目录（rg/fd），按来源各幂等一次；安装完成后可再次调用补插 git。 */
 export function prependRuntimePath(): void {
+  // Finder 启动时 PATH 可能只有系统目录；保留已有顺序，补齐系统工具及常用 Homebrew 位置。
+  if (process.platform === 'darwin') {
+    const paths = (process.env.PATH ?? '').split(':').filter(Boolean);
+    for (const path of [
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/usr/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+    ]) {
+      if (!paths.includes(path)) paths.push(path);
+    }
+    process.env.PATH = paths.join(':');
+  }
   const root = minGitRoot();
   if (!mingitPrepended && root) {
     process.env.PATH = `${join(root, 'cmd')};${process.env.PATH ?? ''}`;
@@ -82,7 +101,7 @@ export function prependRuntimePath(): void {
   }
   const tools = searchToolsDir();
   if (!toolsPrepended && tools) {
-    process.env.PATH = `${tools};${process.env.PATH ?? ''}`;
+    process.env.PATH = `${tools}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`;
     toolsPrepended = true;
   }
 }
@@ -103,6 +122,7 @@ let inflight: Promise<void> | null = null;
 
 /** 已装则直接返回；并发调用复用同一次安装。失败时清理半成品目录。 */
 export function installMinGit(hooks: MinGitInstallHooks): Promise<void> {
+  if (process.platform !== 'win32') return Promise.reject(new Error('MinGit 仅用于 Windows'));
   if (mingitBash()) return Promise.resolve();
   inflight ??= run(hooks).finally(() => {
     inflight = null;

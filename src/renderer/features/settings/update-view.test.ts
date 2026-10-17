@@ -65,7 +65,7 @@ describe('update', () => {
   });
 
   it('开发运行不给动作：用户在这里做什么都没用', () => {
-    for (const reason of ['not-packaged'] as const) {
+    for (const reason of ['not-packaged', 'platform-unsupported'] as const) {
       const view = updateView(snapshot({ phase: 'unsupported', reason, failedAt: 'check' }));
       expect(view.action).toBeNull();
       expect(view.label).toBeNull();
@@ -95,6 +95,7 @@ describe('update', () => {
   it('每种失败原因都有文案，新增原因不会漏掉展示', () => {
     const reasons: UpdateReason[] = [
       'not-packaged',
+      'platform-unsupported',
       'feed-unavailable',
       'invalid-update',
       'cancelled',
