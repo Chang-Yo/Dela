@@ -102,6 +102,18 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:set-open-at-login', (event, value) => {
     checkWorkspaceSender(event);
     const enabled = z.boolean().parse(value);
+    if (app.isPackaged && process.platform === 'darwin') {
+      app.setLoginItemSettings({ openAtLogin: enabled });
+      const actual = app.getLoginItemSettings();
+      if (enabled && actual.status === 'requires-approval')
+        throw new Error('请在 macOS「系统设置 › 通用 › 登录项」中允许 Dela，然后返回重试。');
+      if (actual.openAtLogin !== enabled || (!enabled && actual.status === 'requires-approval'))
+        throw new Error(
+          `macOS 未能${enabled ? '开启' : '关闭'}登录时启动，请在「系统设置 › 通用 › 登录项」中检查 Dela。`,
+        );
+      writeSetting('open-at-login', enabled ? '1' : '0');
+      return enabled;
+    }
     writeSetting('open-at-login', enabled ? '1' : '0');
     if (app.isPackaged)
       app.setLoginItemSettings({

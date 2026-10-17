@@ -26,10 +26,59 @@ vi.mock('../prefs', () => ({ writeSetting: state.write, savedOpenAtLogin: () => 
 import { registerSettingsIpc } from '../ipc';
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   state.packaged = true;
   state.getLogin.mockReturnValue({ openAtLogin: true });
   registerSettingsIpc();
+});
+
+describe('macOS 登录项生效确认', () => {
+  beforeEach(() => vi.stubGlobal('process', { ...process, platform: 'darwin' }));
+
+  it('需要系统批准时不记录开启成功，批准后可以重试', () => {
+    state.getLogin.mockReturnValue({ openAtLogin: false, status: 'requires-approval' });
+    expect(() => state.handlers.get('settings:set-open-at-login')!({}, true)).toThrow(
+      /系统设置.*登录项/,
+    );
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.handlers.get('settings:get-open-at-login')!({})).toBe(false);
+
+    state.getLogin.mockReturnValue({ openAtLogin: true, status: 'enabled' });
+    expect(state.handlers.get('settings:set-open-at-login')!({}, true)).toBe(true);
+    expect(state.write).toHaveBeenCalledWith('open-at-login', '1');
+  });
+
+  it.each(['not-registered', 'not-found'])('静默注册失败（%s）不返回成功', (status) => {
+    state.getLogin.mockReturnValue({ openAtLogin: false, status });
+    expect(() => state.handlers.get('settings:set-open-at-login')!({}, true)).toThrow(/未能开启/);
+    expect(state.write).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { openAtLogin: true, status: 'enabled' },
+    { openAtLogin: false, status: 'requires-approval' },
+  ])('未移除的登录项不能算关闭成功（$status）', (settings) => {
+    state.getLogin.mockReturnValue(settings);
+    expect(() => state.handlers.get('settings:set-open-at-login')!({}, false)).toThrow(/未能关闭/);
+    expect(state.write).not.toHaveBeenCalled();
+  });
+
+  it.each(['not-registered', 'not-found'])('确认未注册后保存关闭状态（%s）', (status) => {
+    state.getLogin.mockReturnValue({ openAtLogin: false, status });
+    expect(state.handlers.get('settings:set-open-at-login')!({}, false)).toBe(false);
+    expect(state.setLogin).toHaveBeenCalledWith({ openAtLogin: false });
+    expect(state.write).toHaveBeenCalledWith('open-at-login', '0');
+  });
+
+  it('系统调用失败时保留原偏好', () => {
+    state.setLogin.mockImplementation(() => {
+      throw new Error('registration failed');
+    });
+    expect(() => state.handlers.get('settings:set-open-at-login')!({}, true)).toThrow(
+      'registration failed',
+    );
+    expect(state.write).not.toHaveBeenCalled();
+  });
 });
 afterEach(() => vi.unstubAllGlobals());
 

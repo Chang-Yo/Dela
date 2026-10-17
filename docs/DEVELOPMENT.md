@@ -64,6 +64,8 @@ macOS 使用系统原生标题栏与红黄绿按钮，应用导航栏位于其�
 
 登录启动不使用 `openAsHidden`：Windows 传 `--hidden`，Mac 读取 `wasOpenedAtLogin` 决定是否隐藏；开发与冒烟运行不注册系统启动项。
 
+Mac 设置页切换登录启动后读取系统实际状态，再保存偏好并返回成功；等待系统批准时提示用户到系统设置允许后重试，注册/移除未生效或系统调用失败时保留原偏好。关闭时仍处于 `requires-approval` 也视为未成功移除。首次启动仍只尝试登记一次默认值，设置页读取系统状态；正式签名与公证之前，不能把开关测试视为真实登录启动验收。Windows 原有注册与设置流程保持不变。
+
 设置页语义约定：
 
 - 状态用颜色点表达（绿＝连接 / 使用中，灰＝未连接）；页面主操作用主色（default）按钮。
@@ -431,6 +433,8 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 聊天 `@` 文件引用按工作目录的路径格式判断归属：Windows 盘符与反斜杠 UNC 路径兼容大小写及两种分隔符；POSIX 路径逐字匹配，保留文件名里的反斜杠，避免大小写敏感卷上的不同项目相互干扰。引用的绝对路径保持不变。新建文件名仍使用两端共用的可移植命名限制。
 
 同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
+
+Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库。账号申请状态与后续真实验收证据记录在 `macos-validation.md`；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
 
 ### 16.2 跨平台取舍与待验收事项
 
