@@ -56,7 +56,7 @@ export interface UpdateApi {
   check(): Promise<UpdateSnapshot>;
   /** 下载已发现的更新；应用保持运行。 */
   download(): Promise<UpdateSnapshot>;
-  /** 打开已下载的 NSIS 安装向导并退出；完成后可重新启动。 */
+  /** 保存工作区后安装已下载更新；Windows 打开安装向导，Mac 替换应用并重启。 */
   install(): Promise<UpdateSnapshot>;
   /** 记下「下次启动时提醒」：下次启动准备更新，等待用户确认安装。 */
   deferInstall(): Promise<void>;

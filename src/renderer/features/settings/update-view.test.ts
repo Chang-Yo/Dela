@@ -18,6 +18,15 @@ const snapshot = (patch: Partial<UpdateSnapshot>): UpdateSnapshot => ({
 });
 
 describe('update', () => {
+  it('Mac 提示重启安装，不显示 Windows 安装向导文案', () => {
+    expect(updateView(snapshot({ phase: 'ready' }), 'darwin').status).toContain('退出并重新打开');
+    expect(updateView(snapshot({ phase: 'installing' }), 'darwin').status).toContain(
+      '退出并重新打开',
+    );
+    expect(updateView(snapshot({ phase: 'error', failedAt: 'install' }), 'darwin').status).toBe(
+      '无法安装更新，请下载安装包后手动安装',
+    );
+  });
   it('未检查过时只给一个检查入口', () => {
     expect(updateView(snapshot({}))).toEqual({
       status: null,

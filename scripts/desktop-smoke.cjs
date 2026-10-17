@@ -1,5 +1,5 @@
 // 独立 profile 检查真实主进程、原生菜单与可取消的退出，不访问真实账号或系统启动项。
-const { app, BrowserWindow, dialog, Menu } = require('electron');
+const { app, autoUpdater, BrowserWindow, dialog, Menu } = require('electron');
 const { dirname, join, resolve } = require('node:path');
 const { mkdtempSync } = require('node:fs');
 const { tmpdir } = require('node:os');
@@ -253,6 +253,18 @@ async function run(window) {
   app.emit('activate', {}, false);
   await wait(() => window.isVisible(), 'reopen after cancelled exit');
 
+  if (process.platform === 'darwin') {
+    const before = declined;
+    autoUpdater.emit('before-quit-for-update');
+    window.close();
+    await wait(() => declined === before + 1, 'Mac update close reaches unsaved-note guard');
+    await checkRuntime('AFTER_UPDATE_CANCEL');
+    window.close();
+    assert.equal(window.isVisible(), false);
+    app.emit('activate', {}, false);
+    await wait(() => window.isVisible(), 'reopen after cancelled Mac update');
+  }
+
   await js(
     'window.dela.mail.onRequestClose(quitting => { window.mailQuitRequested = quitting; }); window.dela.mail.setComposeActive(true)',
   );
@@ -262,6 +274,11 @@ async function run(window) {
   window.close();
   assert.equal(window.isVisible(), false);
   await js('window.onbeforeunload = null; window.dela.mail.setComposeActive(false)');
+  if (process.platform === 'darwin') {
+    autoUpdater.emit('before-quit-for-update');
+    window.close();
+    await wait(() => window.isDestroyed(), 'Mac update closes saved workspace instead of hiding');
+  }
   console.log(
     'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves PTY and command bridge; no login registration.',
   );

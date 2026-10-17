@@ -1,6 +1,8 @@
-// 应用内更新：主进程持有状态，electron-updater 负责版本比较、校验、差分下载与 NSIS 安装。
+// 应用内更新：主进程持有状态，electron-updater 负责版本比较、校验、下载与平台安装。
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { checkWorkspaceSender } from '../ipc';
 import { savedPendingInstall, setPendingInstall } from '../settings/prefs';
 import { failureEvent, initialUpdateState, reduceUpdate, type UpdateEvent } from './state';
@@ -14,10 +16,24 @@ export const PENDING_INSTALL_DELAY = 5_000;
 let snapshot: UpdateSnapshot | null = null;
 let configured = false;
 
+function supportsUpdates(): boolean {
+  if (process.platform === 'win32') return true;
+  if (process.platform !== 'darwin' || process.arch !== 'arm64' || !app.isPackaged) return false;
+  try {
+    // 仅签名候选包写入此标记；普通开发包继续禁用，不由运行时环境变量开启。
+    return (
+      JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8')).delaMacUpdates ===
+      true
+    );
+  } catch {
+    return false;
+  }
+}
+
 function currentState(): UpdateSnapshot {
   if (!snapshot) {
     snapshot = initialUpdateState({ currentVersion: app.getVersion() });
-    if (process.platform !== 'win32') {
+    if (!supportsUpdates()) {
       snapshot = {
         ...snapshot,
         phase: 'unsupported',
@@ -154,6 +170,8 @@ export function registerUpdateIpc(): void {
   ipcMain.handle('update:open-download-page', async (event) => {
     checkWorkspaceSender(event);
     if (process.platform === 'win32') await shell.openExternal(DOWNLOAD_PAGE_URL);
+    else if (supportsUpdates())
+      await shell.openExternal('https://github.com/Chang-Yo/Dela_releases/releases/latest');
   });
 }
 
@@ -166,8 +184,7 @@ function backgroundCheck(): void {
 }
 
 export function startBackgroundUpdateCheck(): () => void {
-  // 目前只有 Windows 的更新产物；Mac 不启动后台请求或恢复旧的待安装标记。
-  if (process.platform !== 'win32') return () => {};
+  if (!supportsUpdates()) return () => {};
   const timer = setInterval(backgroundCheck, BACKGROUND_CHECK_INTERVAL);
   const initial = setTimeout(backgroundCheck, BACKGROUND_CHECK_DELAY);
   const pending = setTimeout(() => {

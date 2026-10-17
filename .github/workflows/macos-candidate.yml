@@ -1,0 +1,88 @@
+name: macOS signed candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing stable version tag to validate (for example, v1.2.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-candidate-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: macos-15
+    environment: macos-release
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      DELA_MAC_UPDATE_URL: ${{ vars.DELA_MAC_UPDATE_URL }}
+      DELA_REMOTE_HOST: ''
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Verify runner architecture
+        run: node -e "if (process.arch !== 'arm64') process.exit(1)"
+      - name: Install pnpm
+        run: npm install --global pnpm@12.3.4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check and build
+        run: pnpm check
+      - name: Build current Linux helpers
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - run: node scripts/build-helper.ts --all
+      - name: Smoke test Electron
+        run: pnpm smoke
+      - name: Build signed and notarized candidate
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          export APPLE_API_KEY="$RUNNER_TEMP/dela-notary-key.p8"
+          trap 'rm -f "$APPLE_API_KEY"' EXIT
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          if (!process.env.APPLE_API_KEY_BASE64) throw new Error('Missing APPLE_API_KEY_BASE64');
+          writeFileSync(process.env.APPLE_API_KEY, Buffer.from(process.env.APPLE_API_KEY_BASE64, 'base64'), { mode: 0o600 });
+          NODE
+          node scripts/prepare-macos-release.ts
+          pnpm exec electron-builder --config .build/macos-release.json --mac --arm64 --publish never
+          node scripts/verify-macos-package.ts dist/mac-arm64/Dela.app --release
+          node scripts/verify-macos-update.ts dist/mac-arm64/Dela.app
+      - name: Smoke test signed candidate
+        run: node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
+      - uses: actions/upload-artifact@v6
+        with:
+          name: macos-signed-candidate-${{ inputs.tag }}
+          path: |
+            dist/Dela-*-mac-arm64.dmg
+            dist/Dela-*-mac-arm64.zip
+            dist/*.blockmap
+            dist/latest-mac.yml
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

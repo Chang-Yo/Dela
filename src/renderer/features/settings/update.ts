@@ -48,7 +48,11 @@ function failureAction(
   return { action: failedAt ?? 'check', label: '重试' };
 }
 
-export function updateView(state: UpdateSnapshot): UpdateView {
+export function updateView(
+  state: UpdateSnapshot,
+  platform = typeof window === 'undefined' ? undefined : window.dela?.platform,
+): UpdateView {
+  const mac = platform === 'darwin';
   switch (state.phase) {
     case 'idle':
       return { status: null, action: 'check', label: '检查更新', progress: null };
@@ -72,14 +76,16 @@ export function updateView(state: UpdateSnapshot): UpdateView {
       };
     case 'ready':
       return {
-        status: '更新已下载，安装时将退出 Dela 并打开安装向导',
+        status: mac
+          ? '更新已下载，安装时将退出并重新打开 Dela'
+          : '更新已下载，安装时将退出 Dela 并打开安装向导',
         action: 'install',
         label: '安装更新',
         progress: null,
       };
     case 'installing':
       return {
-        status: '正在打开安装向导，Dela 即将退出',
+        status: mac ? '正在准备安装，Dela 将退出并重新打开' : '正在打开安装向导，Dela 即将退出',
         action: null,
         label: null,
         progress: null,
@@ -90,7 +96,9 @@ export function updateView(state: UpdateSnapshot): UpdateView {
       return {
         status:
           state.failedAt === 'install'
-            ? '无法启动安装向导，请下载安装包后手动安装'
+            ? mac
+              ? '无法安装更新，请下载安装包后手动安装'
+              : '无法启动安装向导，请下载安装包后手动安装'
             : REASON_STATUS[reason],
         ...failureAction(reason, state.failedAt),
         progress: null,
@@ -150,7 +158,7 @@ export const useUpdateState = create<UpdateState>((set, get) => ({
       ) {
         showToast({
           variant: 'error',
-          title: '无法启动安装向导',
+          title: window.dela?.platform === 'darwin' ? '无法安装更新' : '无法启动安装向导',
           description: updateView(snapshot).status ?? '请下载安装包后手动安装。',
         });
       }

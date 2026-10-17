@@ -8,6 +8,8 @@
     "scripts/fix-native-permissions.ts",
     "scripts/macos-launch-smoke.ts",
     "scripts/prepare-runtime.ts",
+    "scripts/prepare-macos-release.ts",
+    "scripts/verify-macos-update.ts",
     "scripts/run-ts-smoke.ts",
     "scripts/verify-macos-package.ts",
     "src/main/modules.d.ts"

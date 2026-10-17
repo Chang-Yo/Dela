@@ -10,6 +10,7 @@ assert.equal(process.arch, 'arm64', 'macOS 仅支持 Apple Silicon');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const bundle = resolve(process.argv[2] || join(root, 'dist', 'mac-arm64', 'Dela.app'));
 const resources = join(bundle, 'Contents', 'Resources');
+const release = process.argv.includes('--release');
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const plist = (key: string) =>
   execFileSync(
@@ -29,7 +30,7 @@ assert.equal(
   'arm64',
 );
 assert.ok(existsSync(join(resources, 'app.asar')), '缺少应用代码');
-for (const name of ['openssh', 'mingit', 'app-update.yml']) {
+for (const name of ['openssh', 'mingit', ...(!release ? ['app-update.yml'] : [])]) {
   assert.ok(!existsSync(join(resources, name)), `Mac 产物不应包含 ${name}`);
 }
 const expectedTools = [`darwin-${process.arch}`];
@@ -43,7 +44,9 @@ assert.deepEqual(
 for (const name of ['rg', 'fd']) {
   const relative = join('bin', `darwin-${process.arch}`, name);
   const executable = join(resources, relative);
-  assert.deepEqual(readFileSync(executable), readFileSync(join(root, 'vendor', relative)));
+  // Developer ID 签名会改变 Mach-O 字节；候选包由 verify-macos-update 检查签名身份。
+  if (!release)
+    assert.deepEqual(readFileSync(executable), readFileSync(join(root, 'vendor', relative)));
   assert.ok(statSync(executable).mode & 0o111, `${name} 不可执行`);
   execFileSync(executable, ['--version'], { timeout: 5000, stdio: 'pipe' });
 }
@@ -60,7 +63,7 @@ for (const arch of ['amd64', 'arm64']) {
     readFileSync(join(root, 'vendor/dela-helper', name)),
   );
 }
-const prefix = join(root, 'dist', `Dela-${version}-mac-${process.arch}`);
+const prefix = join(resolve(bundle, '../..'), `Dela-${version}-mac-${process.arch}`);
 for (const extension of ['dmg', 'zip']) assert.ok(statSync(`${prefix}.${extension}`).size > 0);
 execFileSync('/usr/bin/hdiutil', ['verify', '-quiet', `${prefix}.dmg`], {
   timeout: 120000,

@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   isPackaged: true,
   pendingInstall: false,
   setPendingInstall: vi.fn(),
+  readFileSync: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -20,11 +21,13 @@ vi.mock('electron', () => ({
       return mocks.isPackaged;
     },
     getVersion: () => '1.0.0',
+    getAppPath: () => '/test/Dela.app/Contents/Resources/app.asar',
   },
   BrowserWindow: { getAllWindows: () => mocks.windows },
   ipcMain: { handle: vi.fn() },
   shell: { openExternal: vi.fn() },
 }));
+vi.mock('node:fs', () => ({ readFileSync: mocks.readFileSync }));
 vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
 vi.mock('../../settings/prefs', () => ({
   savedPendingInstall: () => mocks.pendingInstall,
@@ -53,6 +56,7 @@ beforeEach(() => {
   mocks.windows = [liveWindow()];
   mocks.isPackaged = true;
   mocks.pendingInstall = false;
+  mocks.readFileSync.mockReturnValue('{}');
   mocks.setPendingInstall.mockReset();
   mocks.check.mockReset();
   mocks.check.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: '1.0.0' } });
@@ -68,6 +72,19 @@ afterEach(() => {
 });
 
 describe('startBackgroundUpdateCheck', () => {
+  it('Mac 候选包启动后准备推迟的更新，但不自动安装', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin', arch: 'arm64' });
+    mocks.readFileSync.mockReturnValue('{"delaMacUpdates":true}');
+    mocks.pendingInstall = true;
+    mocks.check.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version: '1.0.1' } });
+    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../index');
+    const stop = startBackgroundUpdateCheck();
+    await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
+    expect(mocks.download).toHaveBeenCalledTimes(1);
+    expect(mocks.install).not.toHaveBeenCalled();
+    stop();
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('Mac 不注册后台计时器，不恢复或清除待安装标记', async () => {
     vi.stubGlobal('process', { ...process, platform: 'darwin' });
     mocks.pendingInstall = true;

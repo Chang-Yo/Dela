@@ -174,6 +174,17 @@ it('保存与安装期间保持模态锁，Esc 不能解除，也不再解释细
   expect(document.body.textContent).not.toContain('终端任务会结束');
 });
 
+it('Mac 安装提示说明重启，保留保存期间的模态保护', async () => {
+  window.dela = { ...window.dela!, platform: 'darwin' };
+  await show({ ...readyState, phase: 'installing' });
+  expect(document.body.textContent).toContain('正在准备安装并重启');
+  expect(document.body.textContent).not.toContain('安装向导');
+  await act(async () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+  expect(document.body.textContent).toContain('正在准备安装并重启');
+});
+
 it('关闭提示后从设置安装会再次确认，不直接退出', async () => {
   await show(readyState);
   await act(async () => button('下次启动时提醒').click());

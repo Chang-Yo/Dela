@@ -205,7 +205,9 @@ preload 暴露的 API：
 
 ## 6. 应用内更新
 
-应用内更新目前仅用于 Windows，使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 目标，不自行实现版本比较、差分下载或安装器。macOS 开发版从初始快照即返回 `unsupported / platform-unsupported`，不注册后台检查、不恢复待安装标记、不调用更新器或打开仅提供 Windows 版本的下载页；设置页显示当前版本与能力限制。Mac 更新源、签名与两版升级完成验收后再启用。
+正式分发的应用内更新目前仅用于 Windows，使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 目标，不自行实现版本比较、差分下载或安装器。普通 macOS 开发包从初始快照即返回 `unsupported / platform-unsupported`，不注册后台检查、不恢复待安装标记、不调用更新器或打开仅提供 Windows 版本的下载页。仅打包的 Apple Silicon 候选包可通过包内 `package.json` 的布尔标记 `delaMacUpdates: true` 复用同一更新流程；标记由 §16.4 的签名候选配置写入，不读取运行时环境变量。签名、公证与两版升级通过前不向普通用户启用。
+
+Mac 候选包由 electron-updater 的 Squirrel.Mac 后端处理 ZIP 更新，仍关闭自动下载与退出时自动安装，保存工作区后才显式调用安装；提示为退出并重启，不显示 Windows 安装向导。Electron 原生 `before-quit-for-update` 会先于窗口关闭触发，Mac 主进程据此进入退出状态，避免“关闭即隐藏”阻止更新；未保存内容取消关闭后恢复原有状态。该事件顺序见 [Electron autoUpdater 文档](https://www.electronjs.org/docs/latest/api/auto-updater/#event-before-quit-for-update)。Mac 手动下载兜底指向公开 Releases 页，Windows CDN 与 NSIS 路径保持不变。
 
 - 更新源为 `https://openlist.frameneo.com/sd/Dela_latest_release/`，通过 Generic provider 读取 `latest.yml`。下载页面为对应的 `/@s/Dela_latest_release` 分享页；客户端不解析分享页 HTML。构建时由 electron-builder 在 resources 中生成 `app-update.yml`，主进程构建将 electron-updater 保持 external。
 - CDN 定期拉取最新正式 GitHub Release 的文件并扁平存放，只保留最新版；上传和同步由 CDN 侧完成，CI 不持有 CDN 凭据。同步时安装包与 blockmap 应先于元数据就绪，避免元数据指向缺失文件。
@@ -376,7 +378,7 @@ pnpm test
 - 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包、包内 helper 核对及打包后冒烟。**CI 是分步执行这些命令，不是调用 `pnpm check`。**
 - Go 测试只使用 runner 本机临时目录、inotify 与回环 HTTP，不连接 SSH。Windows 任务明确留空 `DELA_REMOTE_HOST`，真实 SSH 联调继续手动运行，不作为发布前置条件。
 - Mac 任务额外执行依赖、离线运行时、桌面与终端冒烟，构建 DMG/ZIP，并通过 `scripts/verify-macos-package.ts` 检查应用标识、架构、随包资源、许可证与压缩包完整性，再跑实际 `.app` 及包内原生依赖/桌面/终端冒烟。DMG/ZIP 作为 `development-mac-arm64` 验证产物保留 7 天，不发布 Release。
-- `scripts/macos-launch-smoke.ts` 经 LaunchServices 启动实际 `.app`，使用仓库外的工作目录与系统 PATH，读取应用自身的冒烟成功标记；`open` 返回成功本身不算验收。该模式使用隔离 profile、不注册登录项，仍不代替下载后 Gatekeeper 与真实首启引导验收。
+- `scripts/macos-launch-smoke.ts` 经 LaunchServices 启动实际 `.app`，使用仓库外的工作目录与系统 PATH，读取应用自身的冒烟成功标记；`open` 返回成功本身不算验收。运行前先退出其他 Dela 实例，否则启动阶段的单实例锁会拦截测试包。该模式使用隔离 profile、不注册登录项，仍不代替下载后 Gatekeeper 与真实首启引导验收。
 - Windows 检查不生成 NSIS 安装包；所有检查仅使用 `contents: read` 权限，同一 PR 或 main 分支的新提交会取消旧检查。Mac workflow 的云端执行结果需另行验收，不能由本地验证替代。
 
 若要限制合并，需在 GitHub 的 main 分支规则中将已验收的对应平台任务设为必需检查——仅添加 workflow 不会自动启用分支保护。
@@ -442,7 +444,7 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 已下载课件的 `@` 候选同样按课程根目录的路径格式计算相对路径，不用宿主系统的路径规则解析另一平台的路径；排除目录自身、父级和其他盘符，POSIX 保留大小写及文件名中的反斜杠。移动或重命名本地条目时，标签、草稿和目录选中状态只迁移实际子树；POSIX 的反斜杠不是目录边界，草稿标题保留完整文件名。Windows 原有移动匹配规则保持不变。
 
-同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。默认 `mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，普通 Mac 包不生成 `app-update.yml`；正式发布工作流仍只处理 Windows，独立 Mac 签名候选流程见 §16.4。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
 
 Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库。账号申请状态与后续真实验收证据记录在 `macos-validation.md`；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
 
@@ -492,6 +494,26 @@ pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Cont
 `pnpm smoke:documents` 是 Apple Silicon 专用的显式联网检查，不包含在默认 CI 冒烟中：从官方源安装真实组件到独立临时 profile，经原 Skills API 启用，执行 `prepareDocumentFile` → 未修改的 Python 脚本 → `releaseDocumentResource`，读取合成 DOCX/XLSX/PPTX 和扫描 PDF，最后清理 profile；读取子进程仅使用系统 PATH。首次组件下载约 128 MiB（本机所选 wheels），需要 GitHub、Python 分发源和 PyPI 可达；网络失败与取消必须保留可重试状态。
 
 传入 `app.asar` 的冒烟由开发 Electron 加载包内代码与资源，Keychain 测试也属于开发 Electron 身份；实际 `.app` 另用 `--smoke-test` 检查。上述检查不代表真实账号业务、模型调用或正式签名应用已验收。早期 Keynote 转换实验见[验证记录](macos-validation.md#复现)，仅作历史证据；当前产品决定不接入转换器。
+
+### 16.4 Mac 签名候选包与更新源准备
+
+`.github/workflows/macos-candidate.yml` 仅手动触发，读取现有正式版本 tag，在 `macos-15` arm64 runner 上检查、构建当次 Linux helper、打包并验证候选产物。它只上传 Actions artifact，不创建或修改 GitHub Release，不接入现有 Windows `release.yml`，也不上传 CDN。账号审核期间无需运行此流程；当前没有签名、公证或真实两版升级通过的结论。
+
+账号就绪后，由维护者在 `macos-release` Environment 配置发布审核与以下输入：
+
+| 输入                                           | 用途                                                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Variable `DELA_MAC_UPDATE_URL`                 | 无凭据、以 `/` 结尾的 HTTPS 更新目录；先使用独立验收目录，不能指向网页分享页            |
+| Secret `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD` | 含私钥的 Developer ID Application `.p12` 的 Base64 内容及导出密码                       |
+| Secret `APPLE_API_KEY_BASE64`                  | 公证 API 的 `.p8` 文件 Base64；任务仅在 runner 临时目录解码为权限 0600 文件，完成后删除 |
+| Secret `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` | 公证 API key ID 与 issuer ID                                                            |
+| Secret `APPLE_TEAM_ID`                         | 发布者 Team ID，用于核对应用与 rg/fd 的签名身份                                         |
+
+`scripts/prepare-macos-release.ts` 核对 tag/版本、HTTPS 地址与必需凭据，再将继承默认构建配置的候选配置写到忽略目录 `.build/macos-release.json`；配置不含私钥和密码。它强制 Developer ID 签名与 Hardened Runtime、公证、arm64 DMG/ZIP，并显式签名随包 rg/fd。凭据缺失时失败，不退回未签名产物。`scripts/verify-macos-package.ts --release` 检查资源与归档，随后必须执行 `scripts/verify-macos-update.ts`，核对 `app-update.yml`、候选更新标记、同版本 DMG/ZIP 的大小和 SHA-512、Developer ID/Team ID、stapled ticket 与 Gatekeeper。
+
+更新源需提供候选包生成的 `latest-mac.yml`、同版本 ZIP、DMG 及 blockmap；Mac 使用 ZIP 安装更新，DMG 用于首次安装。文件应先于元数据上传。验证元数据与两份产物的脚本使用当前 updater 的 YAML 解析器与实际文件哈希，不自行生成签名或伪造公证结果。格式与平台要求参见 [electron-builder v26 Mac 文档](https://www.electron.build/v26/docs/mac/)。
+
+正式接入前，用相同 appId / Team ID 的 A、B 两版候选包验证检查、下载、取消/推迟、保存后安装、重启后实际版本，以及原凭据与数据保留；还需浏览器下载后的首次启动验证。Mac updater 原生事件与生命周期的离线回归不能替代此验收。通过后再确定正式源并接入公开发布，普通开发构建继续保持更新关闭。README 的平台与安装说明由人类维护。
 
 ## 17. 当前限制
 

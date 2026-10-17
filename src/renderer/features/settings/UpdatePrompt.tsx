@@ -43,7 +43,9 @@ export function UpdatePrompt() {
           <Dialog.Title className="text-base font-semibold">
             {busy
               ? installing
-                ? '正在打开安装向导'
+                ? window.dela?.platform === 'darwin'
+                  ? '正在准备安装并重启'
+                  : '正在打开安装向导'
                 : '正在保存工作区'
               : state?.version
                 ? `新版本 ${state.version}`

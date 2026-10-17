@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
+import {
+  app,
+  autoUpdater,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  shell,
+  Tray,
+} from 'electron';
 import { registerTodoIpc, refreshTodos } from './todo';
 import { registerBackupIpc } from './backup';
 import { registerCacheIpc } from './cache';
@@ -461,6 +471,12 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quitting = true;
 });
+if (process.platform === 'darwin') {
+  // Squirrel.Mac 先关窗口再发 before-quit，须提前退出“关闭即隐藏”分支。
+  autoUpdater.on('before-quit-for-update', () => {
+    quitting = true;
+  });
+}
 app.on('will-quit', () => {
   closeDomainBridge();
   tray?.destroy();

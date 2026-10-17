@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   setPendingInstall: vi.fn(),
   isPackaged: true,
   openExternal: vi.fn(),
+  readFileSync: vi.fn(),
 }));
 vi.mock('electron', () => ({
   app: {
@@ -17,6 +18,7 @@ vi.mock('electron', () => ({
       return mocks.isPackaged;
     },
     getVersion: () => '1.0.0',
+    getAppPath: () => '/test/Dela.app/Contents/Resources/app.asar',
   },
   BrowserWindow: {
     getAllWindows: () => [{ isDestroyed: () => false, webContents: { send: vi.fn() } }],
@@ -27,6 +29,7 @@ vi.mock('electron', () => ({
   },
   shell: { openExternal: mocks.openExternal },
 }));
+vi.mock('node:fs', () => ({ readFileSync: mocks.readFileSync }));
 vi.mock('electron-updater', () => ({
   autoUpdater: {
     checkForUpdates: mocks.checkForUpdates,
@@ -62,6 +65,7 @@ beforeEach(async () => {
   vi.resetAllMocks();
   vi.stubGlobal('process', { ...process, platform: 'win32' });
   mocks.isPackaged = true;
+  mocks.readFileSync.mockReturnValue('{}');
   mocks.handlers.clear();
   mocks.listeners.clear();
   mocks.checkForUpdates.mockResolvedValue({
@@ -74,6 +78,46 @@ beforeEach(async () => {
 });
 
 afterEach(() => vi.unstubAllGlobals());
+
+it('Mac 候选包复用检查、下载和显式安装，下载后不会自行安装', async () => {
+  vi.stubGlobal('process', { ...process, platform: 'darwin', arch: 'arm64' });
+  mocks.readFileSync.mockReturnValue('{"delaMacUpdates":true}');
+  mocks.downloadUpdate.mockResolvedValue(['Dela-1.0.1-mac-arm64.zip']);
+  expect((await invoke('check')).phase).toBe('available');
+  expect((await invoke('download')).phase).toBe('ready');
+  expect(mocks.quitAndInstall).not.toHaveBeenCalled();
+  const { autoUpdater } = await import('electron-updater');
+  expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
+  expect(autoUpdater.allowPrerelease).toBe(false);
+  expect(autoUpdater.allowDowngrade).toBe(false);
+  expect((await invoke('install')).phase).toBe('installing');
+  expect(mocks.quitAndInstall).toHaveBeenCalledExactlyOnceWith(false, true);
+  await invoke('open-download-page');
+  expect(mocks.openExternal).toHaveBeenCalledWith(
+    'https://github.com/Chang-Yo/Dela_releases/releases/latest',
+  );
+});
+
+it.each(['{}', '{"delaMacUpdates":"true"}', 'invalid JSON'])(
+  'Mac 包标记 %s 不会意外启用更新',
+  async (metadata) => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin', arch: 'arm64' });
+    mocks.readFileSync.mockReturnValue(metadata);
+    expect((await invoke('check')).phase).toBe('unsupported');
+    expect(mocks.checkForUpdates).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ['arm64', false],
+  ['x64', true],
+] as const)('Mac %s packaged=%s 即使有候选标记仍禁用更新', async (arch, packaged) => {
+  vi.stubGlobal('process', { ...process, platform: 'darwin', arch });
+  mocks.isPackaged = packaged;
+  mocks.readFileSync.mockReturnValue('{"delaMacUpdates":true}');
+  expect((await invoke('check')).phase).toBe('unsupported');
+  expect(mocks.checkForUpdates).not.toHaveBeenCalled();
+});
 
 it.each([true, false])(
   'Mac packaged=%s 从初始状态即禁用更新且所有入口不联网或安装',
@@ -110,6 +154,7 @@ it('只检查正式版，关闭自动下载、退出安装和降级', async () =
   expect(autoUpdater.allowDowngrade).toBe(false);
   expect(mocks.downloadUpdate).not.toHaveBeenCalled();
   expect(mocks.quitAndInstall).not.toHaveBeenCalled();
+  expect(mocks.readFileSync).not.toHaveBeenCalled();
 });
 
 it.each(['check', 'download'])('%s 进行中重复请求不重入', async (action) => {
