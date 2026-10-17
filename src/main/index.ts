@@ -285,7 +285,8 @@ async function createWindow(): Promise<void> {
     icon: nativeImage.createFromPath(
       join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`),
     ),
-    titleBarStyle: process.platform === 'darwin' ? 'default' : 'hidden',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    titleBarOverlay: process.platform === 'darwin',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,

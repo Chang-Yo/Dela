@@ -383,7 +383,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[2.5rem_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[env(titlebar-area-height,2.5rem)_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -396,6 +396,7 @@ export function AppShell({
         className={cn(
           'col-span-full flex items-center justify-between bg-page',
           'select-none [-webkit-app-region:drag]',
+          'pl-[env(titlebar-area-x,0px)] [&_button]:max-h-[env(titlebar-area-height,none)] [&_div]:max-h-[env(titlebar-area-height,none)]',
         )}
       >
         <div className="flex h-full items-center">

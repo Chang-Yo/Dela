@@ -52,6 +52,56 @@ async function run(window) {
   };
   await wait(() => js("!!document.querySelector('main')"), 'app mounted');
   assert.equal(await js('window.dela.platform'), process.platform);
+  if (process.platform === 'darwin') {
+    const bounds = window.getBounds();
+    const zoom = window.webContents.getZoomFactor();
+    const fontSize = await js('document.documentElement.style.fontSize');
+    try {
+      for (const width of [1100, 600]) {
+        window.setSize(width, bounds.height);
+        for (const [factor, font] of [
+          [0.9, 12],
+          [1, 16],
+          [1.5, 20],
+        ]) {
+          window.webContents.setZoomFactor(factor);
+          await js(`document.documentElement.style.fontSize = '${font}px'`);
+          await wait(
+            () => js(`Math.abs(innerWidth * ${factor} - ${width}) < 2`),
+            'titlebar zoom and resize',
+          );
+          const layout = await js(`(() => {
+            const header = document.querySelector('header');
+            return {
+              overlay: navigator.windowControlsOverlay.getTitlebarAreaRect().toJSON(),
+              visible: navigator.windowControlsOverlay.visible,
+              header: header.getBoundingClientRect().toJSON(),
+              drag: getComputedStyle(header).getPropertyValue('-webkit-app-region'),
+              buttons: [...header.querySelectorAll('button')].map(button => ({
+                rect: button.getBoundingClientRect().toJSON(),
+                drag: getComputedStyle(button).getPropertyValue('-webkit-app-region'),
+              })),
+            };
+          })()`);
+          assert.equal(layout.visible, true);
+          assert.ok(layout.overlay.x > 0 && layout.overlay.height > 0);
+          assert.equal(layout.header.top, 0);
+          assert.ok(Math.abs(layout.header.height - layout.overlay.height) < 1);
+          assert.equal(layout.drag, 'drag');
+          for (const { rect, drag } of layout.buttons) {
+            assert.ok(rect.left >= layout.overlay.x - 1, '导航覆盖原生窗口按钮');
+            assert.ok(rect.top >= -1 && rect.bottom <= layout.header.bottom + 1, '导航超出标题栏');
+            assert.ok(rect.right <= layout.header.right + 1, '导航超出窗口');
+            assert.equal(drag, 'no-drag');
+          }
+        }
+      }
+    } finally {
+      window.setBounds(bounds);
+      window.webContents.setZoomFactor(zoom);
+      await js(`document.documentElement.style.fontSize = ${JSON.stringify(fontSize)}`);
+    }
+  }
   // 真正经 IPC 打开授权窗，只替换远端页面和验证响应，不使用真实账号。
   const loadURL = BrowserWindow.prototype.loadURL;
   const fetch = globalThis.fetch;
@@ -197,6 +247,6 @@ async function run(window) {
   assert.equal(window.isVisible(), false);
   await js('window.onbeforeunload = null; window.dela.mail.setComposeActive(false)');
   console.log(
-    'Desktop smoke passed: authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves PTY and command bridge; no login registration.',
+    'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves PTY and command bridge; no login registration.',
   );
 }
