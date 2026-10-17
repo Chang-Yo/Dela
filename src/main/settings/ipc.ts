@@ -97,7 +97,12 @@ export function registerSettingsIpc(): void {
   // 开机自启：打包后以系统启动项为准（含任务管理器改动），开发运行不注册 electron.exe。
   ipcMain.handle('settings:get-open-at-login', (event) => {
     checkWorkspaceSender(event);
-    return app.isPackaged ? app.getLoginItemSettings().openAtLogin : savedOpenAtLogin();
+    if (!app.isPackaged) return savedOpenAtLogin();
+    // Windows 按完整命令行比对注册表启动项；新版写入带 --hidden、旧版不带，两种形态都要认。
+    return process.platform === 'win32'
+      ? app.getLoginItemSettings().openAtLogin ||
+          app.getLoginItemSettings({ args: ['--hidden'] }).openAtLogin
+      : app.getLoginItemSettings().openAtLogin;
   });
   ipcMain.handle('settings:set-open-at-login', (event, value) => {
     checkWorkspaceSender(event);

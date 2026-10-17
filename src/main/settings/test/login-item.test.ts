@@ -82,6 +82,20 @@ describe('macOS 登录项生效确认', () => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+describe('Windows 读取注册表启动项', () => {
+  beforeEach(() => vi.stubGlobal('process', { ...process, platform: 'win32' }));
+
+  it('带 --hidden 与不带的启动项都读作已开启，两种都缺失才算关闭', () => {
+    state.getLogin.mockImplementation((options?: { args?: string[] }) => ({
+      openAtLogin: (options?.args ?? []).includes('--hidden'),
+    }));
+    expect(state.handlers.get('settings:get-open-at-login')!({})).toBe(true);
+
+    state.getLogin.mockReturnValue({ openAtLogin: false });
+    expect(state.handlers.get('settings:get-open-at-login')!({})).toBe(false);
+  });
+});
+
 describe.each(['darwin', 'win32'])('登录启动（%s）', (platform) => {
   beforeEach(() => vi.stubGlobal('process', { ...process, platform }));
   it('向系统注册对应平台参数，并按系统状态读取', () => {
