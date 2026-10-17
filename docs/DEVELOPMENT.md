@@ -4,6 +4,7 @@
 
 - 使用者视角：[README.md](../README.md)
 - 协作方式：[CONTRIBUTING.md](../CONTRIBUTING.md)
+- 需求索引：[requirements/README.md](requirements/README.md)
 - 按版本分节的变更记录：[CHANGELOG.md](../CHANGELOG.md)
 - 日常编码约束：[AGENTS.md](../AGENTS.md)
 - 远端 helper 的协议与端点表：[helper/README.md](../helper/README.md)
@@ -13,7 +14,7 @@
 
 本地个人 Agent：内核是通用 agent，领域知识外置为 skills 与 `dela` 命令，工作台 GUI 是壳。
 
-- 单用户、单应用、单 package，仅 Windows（跨平台明确放弃）。
+- 单用户、单应用、单 package。正式打包与发布仅支持 Windows x64；macOS 只保留源码开发调试兼容，不构建或发布安装包。
 - 仅通过 NSIS（`.exe`）分发 Windows x64 应用。应用内更新使用 electron-updater，从自有 CDN 获取正式 Release。
 - 无服务端，无账号系统。模型服务与检索 API 都由用户自己配置。
 - **固定约束**：交大 jAccount 开放平台的 `client_id` 已停止申请，不存在取得途径。凡是需要官方 jAccount 授权的方案都不可行；现有能力走 Canvas Personal Token、邮箱 IMAP/SMTP、致远一号 API 与个人会话型接口。
@@ -26,7 +27,7 @@
 
 | 工具                       | 来源                                                                                                                            |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| read / write / edit / bash | Pi 内置，cwd＝会话所属项目目录；bash 用 Git Bash（与终端同源），不可关闭                                                        |
+| read / write / edit / bash | Pi 内置，cwd＝会话所属项目目录；Windows 用 Git Bash，macOS 开发调试用系统 `/bin/bash`（与终端同源），不可关闭                   |
 | grep / find / ls           | Pi 内置；首次使用时 Pi 自动下载 rg/fd（待验证离线体验）                                                                         |
 | web_search / web_fetch     | Dela 自定义工具；web_search 默认关闭（要自备搜索服务），web_fetch 默认开启；搜索服务在「网络」域注册（Brave / Google / 自定义） |
 | MCP 工具                   | Dela 连接 stdio 服务器后作为自定义工具注入                                                                                      |
@@ -56,6 +57,8 @@
 ### 2.4 GUI
 
 标签工作台（聊天 / 笔记 / 预览 / 终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。
+
+窗口外壳按平台分工：Windows 使用应用内最小化、最大化与关闭按钮；macOS 源码调试保留系统红黄绿按钮，标题栏左侧为其预留空间。renderer 的同源重载留在 Electron 窗口内，只有跨源 HTTP(S) 导航才交给系统浏览器。水源授权窗口在 macOS 上是可独立关闭的父子窗口（不是无关闭按钮的模态 sheet），`Escape` 同样退出；临时授权密钥仍留在主进程，关闭页面后可以粘贴已经复制的密文。
 
 设置页语义约定：
 
@@ -228,7 +231,7 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 
 ## 9. 终端
 
-与 Bash 同源：Git Bash + node-pty（ConPTY）+ xterm.js，实现参考 VS Code / Hyper；dela 桥函数同样注入项目终端。Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit（`resources/mingit`）→ 应用自装的 MinGit 运行时（下段），都缺失时明确报错（`locateBash()`），**不回退 PowerShell**。随包副本由 `scripts/prepare-runtime.ts` 在打包前按源码里写死的版本与 SHA256 下载校验（版本定义只在 `src/main/terminal/mingit.ts` 一处），仓库不提交这份约 40MB 的产物（`.build/` 已忽略）；随包已有运行时时，启动会顺手清掉旧版本自装进用户目录的 MinGit 副本。
+与 Bash 同源：node-pty + xterm.js，dela 桥函数同样注入项目终端。Windows 使用 Git Bash + ConPTY，探测顺序为系统 Git for Windows → 随包 MinGit（`resources/mingit`）→ 应用自装的 MinGit 运行时（下段），都缺失时明确报错（`locateBash()`），**不回退 PowerShell**。macOS 源码开发调试直接使用系统 `/bin/bash`，不传入 ConPTY 与 `MSYSTEM`。随包副本由 `scripts/prepare-runtime.ts` 在打包前按源码里写死的版本与 SHA256 下载校验（版本定义只在 `src/main/terminal/mingit.ts` 一处），仓库不提交这份约 40MB 的产物（`.build/` 已忽略）；随包已有运行时时，启动会顺手清掉旧版本自装进用户目录的 MinGit 副本。
 
 系统没装 Git for Windows 时（开发模式或旧版升级前的兜底），终端页可一键安装固定版本的官方 MinGit（`src/main/terminal/mingit.ts`）：从 npmmirror 镜像下载 zip（大陆 CDN 直连快，GitHub Releases 兜底，两者与官方发布物逐字节一致），SHA256 与版本号写死在源码（换版本必须成对更新），由系统自带 tar 解压进 `%LOCALAPPDATA%\Dela\mingit\v<版本>`，全程无需管理员权限。MinGit 只以 `sh.exe` 名义带 bash 本体，安装时复制出 `bash.exe`——argv[0] 决定 bash 是否走完整模式，`--rcfile` 注入 dela 桥依赖它；装成后把 `cmd/` 前插进主进程 PATH（`prependRuntimePath()`），终端与 Agent 的 bash 内 git 随即可用。失败与取消都清理半成品，换绑新版本安装时顺手删除旧版本目录。
 
@@ -249,6 +252,10 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 三个配置都写死 `envDir: false`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。打包白名单（`electron-builder.yml` 的 `files`）只含 `out/**/*`、`package.json` 与 `assets/` 下的两张品牌图——文档、个人凭据与 `.tools/` 都不进安装包。
 
+### 10.1 需求管理
+
+`docs/requirements/` 只记录团队成员明确要求登记的需求，采用「需求、验收、记录」三段式；描述缺少“做什么、为什么、怎样算完成”时由 Agent 先追问再整理。直接交给 Agent 实现的改动不自动建立需求文件，完成后记入 `CHANGELOG.md`；GitHub Issue 只是收集和讨论入口。具体格式和状态见 [需求索引](requirements/README.md)，Agent 行为边界见 `AGENTS.md`。
+
 ## 11. 工具链与启动
 
 | 工具    | 版本                                  | 何时需要             |
@@ -268,7 +275,7 @@ schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs`
 - `pnpm install` 会通过 Electron 提供的 `install-electron` 命令下载运行时（`postinstall`）。
 - `@earendil-works/*`（pi-coding-agent / pi-agent-core / pi-ai / pi-mcp）在 main 构建中以正则保持 external、随 node_modules 打包进 asar；pi 系为纯 ESM 包，main 的 CJS 产物经 `agent/pi.ts` 动态 `import()` 加载。
 - PDF.js 仅作为 renderer 的构建依赖；主进程不加载 PDF.js 或原生 canvas，不随正式安装包分发该原生解析依赖。
-- 运行时依赖 Git Bash 与搜索工具 rg/fd：内核 Bash 工具与内置终端统一使用 Git Bash，内核 grep/find 用 rg/fd，均已随包分发（见 §9），用户不必预装；终端页的一键安装保留给没有随包副本的场景。
+- Windows 运行时依赖 Git Bash 与搜索工具 rg/fd：内核 Bash 工具与内置终端统一使用 Git Bash，内核 grep/find 用 rg/fd，均已随包分发（见 §9），用户不必预装；终端页的一键安装保留给没有随包副本的场景。macOS 开发运行使用系统 Bash 及本机 PATH 上的搜索工具。
 - `userData/dela.db` 是否存在只用来区分新装与升级（`window.dela.firstLaunch`，主进程在建库前判定）；是否展示引导、展示哪一段，由 localStorage 里的同意标记与引导标记决定，见下条。URL 加 `?smoke-test=1` 可短路引导；冒烟会另开临时 profile。
 - 新用户引导顺序是 Intro 动画 → 条款接受页（`features/onboarding/ConsentStep.tsx`）→ 五步配置向导 → 能力拓展 → 完成动画。接受页不在向导里：它没有跳过、不占进度点，两份条款（`docs/terms.md`、`docs/privacy.md`）依次展示，各自滚到底才能点「同意并继续」，另一侧「不同意并退出」走 `window:quit` 真正结束进程（窗口栏的关闭按钮走 `close()`，那只是收进托盘、后台照跑）。正文映射与设置里的两个条款页共用 `components/legal-markdown.tsx`。「已读到底」一旦成立就不再回退，导出提示出现或窗口变矮只改变文本框高度，不会把读完的人重新锁住。
 - 条款门对所有人成立：`onboardingCompleted()` 只看 `hasConsent()`，没有同意标记就一定先展示条款页——否则「不同意并退出」再打开就绕过去了。唯一例外是 `?smoke-test=1` 的短路（`--smoke-test` 走临时 profile，`--terminal-smoke-test` 在真实 profile 上也算短路，仅供开发）。接受过条款不重走旧向导，App 继续检查独立的能力拓展版本。

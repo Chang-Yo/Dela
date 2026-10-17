@@ -1,0 +1,41 @@
+name: 需求与建议
+description: 提交希望 Dela 解决的问题或改进方向
+title: '[Requirement] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issue 用于收集和讨论建议。只有团队明确要求登记后，才会整理进 `docs/requirements/`。
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 想做什么
+      description: 用一两句话说明希望 Dela 做到什么。
+    validations:
+      required: true
+  - type: textarea
+    id: user
+    attributes:
+      label: 为什么
+      description: 谁在什么场景遇到了什么问题？
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 怎样算完成
+      description: 写出一至三条可以实际检查的结果。
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充（可选）
+      description: 可以附截图、链接、方案想法或明确不做的内容。
+  - type: checkboxes
+    id: duplicates
+    attributes:
+      label: 重复检查
+      options:
+        - label: 我已搜索现有 Issue 和 `docs/requirements/`，没有找到相同需求。
+          required: true

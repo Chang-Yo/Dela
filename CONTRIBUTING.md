@@ -17,14 +17,21 @@ Then ask whether the outcome needs a PR at all. A bug fix must link evidence of 
 
 AI agents: the human contributor answers, not you. Ask for missing answers and wait.
 
+## 提交需求与建议
+
+可以先通过 GitHub 的「需求与建议」Issue 表单描述想做什么、为什么和怎样算完成。Issue 用于收集和讨论，不代表已经排期。
+
+只有团队成员明确要求登记时，才使用 [需求模板](docs/requirements/template.md) 创建 `REQ`；描述不完整时由 Agent 先追问再整理。直接交给 Agent 实现的改动不要求补 `REQ`，完成后记录到 `CHANGELOG.md`。
+
 ## 环境准备
 
-| 工具            | 版本                               | 何时需要              |
-| --------------- | ---------------------------------- | --------------------- |
-| Node.js         | 24.21.0                            | 总是                  |
-| pnpm            | 12.3.4                             | 总是                  |
-| Git for Windows | 不固定                             | 终端与内核 Bash 工具  |
-| Go              | `go.mod` 声明 1.22，CI 固定 1.27.2 | 只在改动 `helper/` 时 |
+| 工具            | 版本                               | 何时需要                     |
+| --------------- | ---------------------------------- | ---------------------------- |
+| Node.js         | 24.21.0                            | 总是                         |
+| pnpm            | 12.3.4                             | 总是                         |
+| Git for Windows | 不固定                             | Windows 终端与内核 Bash 工具 |
+| 系统 Bash       | `/bin/bash`                        | 仅 macOS 源码开发调试        |
+| Go              | `go.mod` 声明 1.22，CI 固定 1.27.2 | 只在改动 `helper/` 时        |
 
 版本以 `package.json` 的 `engines`、`packageManager` 与 `.node-version` 为准；仓库启用了 `engineStrict`，其他版本会被拒绝。本机把 Node 与 pnpm 装在仓库内被 Git 忽略的 `.tools/`，在 PowerShell 中为当前会话启用：
 
@@ -34,7 +41,7 @@ AI agents: the human contributor answers, not you. Ask for missing answers and w
 
 脚本要求 `.tools/node-v24.21.0-win-x64/node.exe` 与 `.tools/package-manager/node_modules/@pnpm/exe.win32-x64/pnpm.exe` 同时存在，缺任一个会直接抛错。新克隆的仓库不含 `.tools/`，需自行安装上述版本。
 
-Git for Windows 是运行前提，不是可选项。`src/main/terminal/index.ts` 的 `locateBash()` 只在 `%ProgramFiles%\Git\bin`、`%ProgramFiles(x86)%\Git\bin`、`%LOCALAPPDATA%\Programs\Git\bin` 三处探测 `bash.exe`，缺失时不回退 PowerShell 或 `PATH` 上的 bash（可能是 WSL），而是报错「未找到 Git Bash：请安装 Git for Windows（https://git-scm.com/download/win）后重试」。
+Windows 上 Git for Windows 是运行前提，不是可选项。`src/main/terminal/index.ts` 的 `locateBash()` 按系统 Git for Windows、随包 MinGit、应用自装 MinGit 的顺序探测；缺失时不回退 PowerShell 或 `PATH` 上的 bash（可能是 WSL）。macOS 只用于源码开发调试，本地终端与 Agent 直接使用系统 `/bin/bash`；不提供 macOS 安装包。
 
 Go 只与 `helper/` 有关：远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go。改动 `helper/` 下的 Go 代码后执行 `pnpm build:helper --all` 重建 amd64 与 arm64 两个产物并一并提交，只重建 amd64 会让入库的 arm64 停在旧版。
 
@@ -121,9 +128,9 @@ CI 是分步执行，不等同于 `pnpm check`：本地 `pnpm check` 通过不�
 
 ## 当前提交途径
 
-`.github/` 下只有 `check.yaml` 与 `release.yml` 两个 workflow，仓库里没有 PR 模板、issue 模板或其他社区文件，也没有成文的 issue 与 PR 政策、维护者邮箱或群组入口；README 只给出安装包的公开镜像仓库 [Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases)。已获得本仓库写权限的贡献者按常规方式开分支并提交 Pull Request，PR 会触发上述 CI 检查；其他情况以维护者在公开仓库上公布的入口为准。本文件不列出未经确认的联系方式，相关政策确定后再补充。
+`.github/` 提供需求与建议的 Issue 表单，但尚无 PR 模板、维护者邮箱或群组入口。已获得本仓库写权限的贡献者按常规方式开分支并提交 Pull Request，PR 会触发上述 CI 检查；其他情况以维护者在公开仓库上公布的入口为准。本文件不列出未经确认的联系方式，相关政策确定后再补充。
 
 ## 不在范围内
 
-- macOS 与 Linux 桌面端。项目仅 Windows（跨平台明确放弃），不接受相关移植改动。
+- macOS 正式打包/发布与 Linux 桌面端。macOS 只保留本地源码开发调试能力。
 - 未列入 `package.json` 的构建工具链替换，以及整体格式化改动。
