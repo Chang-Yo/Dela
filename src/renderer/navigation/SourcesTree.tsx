@@ -13,7 +13,7 @@ import {
 import { Explorer, type ExplorerItem } from '../components/ui/explorer';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
-import { latestTermOf } from '../../shared/canvas';
+import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { cn } from '../lib/utils';
 
@@ -50,7 +50,7 @@ export function SourcesTree({
     confirmCourseId === null ? undefined : canvas.courses.find((c) => c.id === confirmCourseId);
   const nodes: ExplorerItem[] = [];
   if (bySource) nodes.push({ id: 'canvas', parentId: null, name: 'Canvas', container: true });
-  const terms = [...new Set(canvas.courses.map((c) => c.term))].sort((a, b) => b.localeCompare(a));
+  const terms = [...new Set(canvas.courses.map((c) => c.term))].sort(compareCanvasTerms);
   const latestTerm = latestTermOf(canvas.courses);
   const archivedTerms = new Set(
     terms.filter((term) => term === '未标注学期' || term !== latestTerm),

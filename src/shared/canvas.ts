@@ -28,10 +28,27 @@ export interface CanvasState {
   items: SourceItem[];
 }
 
-/** 学期按名称降序取第一个非「未标注学期」，作为默认展开/刷新/@ 候选的「最新学期」。 */
+/** 可识别学期按年份、季节降序并排在前面；同一时期或均无法识别时沿用名称降序。 */
+export function compareCanvasTerms(a: string, b: string): number {
+  const order = (term: string) => {
+    const match = term.match(
+      /(?:^|\D)(\d{4})(?:\s*-\s*(\d{4}))?\s*(?:学年|年)?[\s_]*(Fall|Spring|Summer|秋季?|春季?|夏季?)(?:学期)?\s*$/i,
+    );
+    if (!match) return 0;
+    const start = Number(match[1]);
+    const end = match[2] ? Number(match[2]) : start;
+    if (match[2] && end !== start + 1) return 0;
+    const season = /^(Fall|秋)/i.test(match[3]!) ? 2 : /^(Summer|夏)/i.test(match[3]!) ? 1 : 0;
+    // 跨年学年的春夏属于后一年；单年份名称直接使用该年。
+    return (season === 2 ? start : end) * 3 + season;
+  };
+  return order(b) - order(a) || b.localeCompare(a);
+}
+
+/** 取排序后的首个非「未标注学期」，供默认展开、刷新和 @ 候选共用。 */
 export function latestTermOf(courses: { term: string }[]): string | undefined {
   return [...new Set(courses.map((c) => c.term))]
-    .sort((a, b) => b.localeCompare(a))
+    .sort(compareCanvasTerms)
     .find((term) => term !== '未标注学期');
 }
 
