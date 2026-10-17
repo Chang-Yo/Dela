@@ -483,7 +483,7 @@ pnpm smoke:desktop "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
 pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Contents/Resources/app.asar"
 ```
 
-`smoke:runtime` 使用临时 profile、Pi 缓存与合成文件，在 `PI_OFFLINE=1` 下执行真实 Pi Bash 中的 `dela help`、grep 与 find；Mac 以仅含 `/usr/bin:/bin` 的 PATH 起步。桌面冒烟使用合成项目，经真实 IPC 打开水源授权窗（远端页面与验证响应替换为本地桩），检查平台窗口形态、隔离设置、重复打开复用及关闭后的 RSA 密文绑定；另给原生菜单回调传入真实辅助窗口，验证关闭目标及主窗口隐藏行为。执行真实 `app.quit()` 并通过 `beforeunload` 取消，再调用终端中的 `dela help`。邮件路径只覆盖退出意图的 IPC 与取消后存活，不连接邮箱或验证真实草稿保存。`smoke:workspace` 用本地网络桩与临时文件验证资料同步、导入、笔记冲突保护、移动恢复、预览协议及邮件附件草稿。
+`smoke:runtime` 使用临时 profile、Pi 缓存与合成文件，在 `PI_OFFLINE=1` 下执行真实 Pi Bash 中的 `dela help`、grep 与 find；Mac 以仅含 `/usr/bin:/bin` 的 PATH 起步。桌面冒烟的 Mac 标题栏检查在调整窗口和缩放后，有界等待 viewport、原生覆盖区域与 CSS 留白/高度一致，再检查导航遮挡、边界和拖动区；超时打印该尺寸组合与坐标，不跳过断言。桌面冒烟使用合成项目，经真实 IPC 打开水源授权窗（远端页面与验证响应替换为本地桩），检查平台窗口形态、隔离设置、重复打开复用及关闭后的 RSA 密文绑定；另给原生菜单回调传入真实辅助窗口，验证关闭目标及主窗口隐藏行为。执行真实 `app.quit()` 并通过 `beforeunload` 取消，再调用终端中的 `dela help`。邮件路径只覆盖退出意图的 IPC 与取消后存活，不连接邮箱或验证真实草稿保存。`smoke:workspace` 用本地网络桩与临时文件验证资料同步、导入、笔记冲突保护、移动恢复、预览协议及邮件附件草稿。
 
 `pnpm smoke:documents` 是 Apple Silicon 专用的显式联网检查，不包含在默认 CI 冒烟中：从官方源安装真实组件到独立临时 profile，经原 Skills API 启用，执行 `prepareDocumentFile` → 未修改的 Python 脚本 → `releaseDocumentResource`，读取合成 DOCX/XLSX/PPTX 和扫描 PDF，最后清理 profile；读取子进程仅使用系统 PATH。首次组件下载约 128 MiB（本机所选 wheels），需要 GitHub、Python 分发源和 PyPI 可达；网络失败与取消必须保留可重试状态。
 

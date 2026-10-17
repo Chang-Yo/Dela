@@ -70,7 +70,10 @@ async function run(window) {
             () => js(`Math.abs(innerWidth * ${factor} - ${width}) < 2`),
             'titlebar zoom and resize',
           );
-          const layout = await js(`(() => {
+          let layout;
+          // 缩放后的 viewport 与原生覆盖区/CSS 环境变量分别更新，不能只等 innerWidth。
+          await wait(async () => {
+            layout = await js(`(() => {
             const header = document.querySelector('header');
             return {
               overlay: navigator.windowControlsOverlay.getTitlebarAreaRect().toJSON(),
@@ -84,7 +87,15 @@ async function run(window) {
                 drag: getComputedStyle(button).getPropertyValue('-webkit-app-region'),
               })),
             };
-          })()`);
+            })()`);
+            return (
+              Math.abs(parseFloat(layout.paddingLeft) - layout.overlay.x) < 1 &&
+              Math.abs(layout.header.height - layout.overlay.height) < 1
+            );
+          }, 'titlebar overlay and CSS geometry').catch((error) => {
+            console.error('Titlebar geometry did not settle:', { width, factor, font, layout });
+            throw error;
+          });
           assert.equal(layout.visible, true);
           assert.ok(layout.overlay.x > 0 && layout.overlay.height > 0);
           assert.equal(layout.header.top, 0);
