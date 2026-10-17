@@ -76,8 +76,10 @@ async function run(window) {
               overlay: navigator.windowControlsOverlay.getTitlebarAreaRect().toJSON(),
               visible: navigator.windowControlsOverlay.visible,
               header: header.getBoundingClientRect().toJSON(),
+              paddingLeft: getComputedStyle(header).paddingLeft,
               drag: getComputedStyle(header).getPropertyValue('-webkit-app-region'),
               buttons: [...header.querySelectorAll('button')].map(button => ({
+                label: button.getAttribute('aria-label'),
                 rect: button.getBoundingClientRect().toJSON(),
                 drag: getComputedStyle(button).getPropertyValue('-webkit-app-region'),
               })),
@@ -89,7 +91,10 @@ async function run(window) {
           assert.ok(Math.abs(layout.header.height - layout.overlay.height) < 1);
           assert.equal(layout.drag, 'drag');
           for (const { rect, drag } of layout.buttons) {
-            assert.ok(rect.left >= layout.overlay.x - 1, '导航覆盖原生窗口按钮');
+            assert.ok(
+              rect.left >= layout.overlay.x - 1,
+              `导航覆盖原生窗口按钮: ${JSON.stringify({ width, factor, font, layout })}`,
+            );
             assert.ok(rect.top >= -1 && rect.bottom <= layout.header.bottom + 1, '导航超出标题栏');
             assert.ok(rect.right <= layout.header.right + 1, '导航超出窗口');
             assert.equal(drag, 'no-drag');
