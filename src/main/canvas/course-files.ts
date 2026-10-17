@@ -1,5 +1,5 @@
 // 课件缓存文件的 @ 引用候选（纯函数，无 electron/db 依赖，供 canvas/api 与测试共用）。
-import { resolve } from 'node:path';
+import { posix, win32 } from 'node:path';
 
 /** @ 引用候选的一个课件文件：courseName/courseId 用于 title 生成与冲突消解。 */
 export interface CourseRoot {
@@ -19,18 +19,23 @@ export function pickCourseFiles(
   const byTitle = new Map<string, { path: string; title: string }>();
   for (const path of cachedPaths) {
     if (!exists(path)) continue;
-    const resolved = resolve(path);
-    const hit = roots.find(({ root }) => {
-      const base = resolve(root).toLowerCase();
-      const lower = resolved.toLowerCase();
-      return lower.startsWith(`${base}\\`) || lower.startsWith(`${base}/`);
-    });
-    if (!hit) continue;
-    const relative = resolved.slice(resolve(hit.root).length + 1).replaceAll('\\', '/');
-    let title = `${hit.courseName}/${relative}`;
-    if (byTitle.has(title)) title = `${hit.courseName} [${hit.courseId}]/${relative}`;
-    // 再冲突（课程名本身形如「X [id]」且三方同相对路径）几乎不可达，放弃该文件而不是无限加后缀。
-    if (!byTitle.has(title)) byTitle.set(title, { path, title });
+    for (const { root, courseName, courseId } of roots) {
+      const paths = /^(?:[a-z]:[\\/]|\\\\)/i.test(root) ? win32 : posix;
+      const relative = paths.relative(root, path);
+      if (
+        !relative ||
+        relative === '..' ||
+        relative.startsWith(`..${paths.sep}`) ||
+        paths.isAbsolute(relative)
+      )
+        continue;
+      const name = paths === win32 ? relative.replaceAll('\\', '/') : relative;
+      let title = `${courseName}/${name}`;
+      if (byTitle.has(title)) title = `${courseName} [${courseId}]/${name}`;
+      // 再冲突（课程名本身形如「X [id]」且三方同相对路径）几乎不可达，放弃该文件而不是无限加后缀。
+      if (!byTitle.has(title)) byTitle.set(title, { path, title });
+      break;
+    }
   }
   return [...byTitle.values()];
 }

@@ -23,7 +23,8 @@ export interface WorkspaceEntryUpdate {
 
 export function relocateWorkspacePath(path: string, from: string, to: string): string {
   if (path === from) return to;
-  if (path.startsWith(`${from}\\`) || path.startsWith(`${from}/`))
+  const windows = /^(?:[a-z]:[\\/]|\\\\)/i.test(from);
+  if (path.startsWith(`${from}/`) || (windows && path.startsWith(`${from}\\`)))
     return `${to}${path.slice(from.length)}`;
   return path;
 }

@@ -136,6 +136,29 @@ describe('init', () => {
   });
 });
 
+describe('relocatePaths', () => {
+  it('移动 Mac 目录只更新所属标签与固定状态，保留同前缀兄弟文件', () => {
+    installLayoutApi(() => null);
+    useWorkbenchLayout.setState({
+      root: {
+        type: 'group',
+        id: 'primary',
+        tabs: ['note:/repo/a/note.md', 'preview:/repo/a\\sibling.md'],
+        active: 'note:/repo/a/note.md',
+        pinned: ['preview:/repo/a\\sibling.md'],
+      },
+    });
+    state().relocatePaths('/repo/a', '/repo/b');
+    expect(groups()[0]).toEqual({
+      type: 'group',
+      id: 'primary',
+      tabs: ['note:/repo/b/note.md', 'preview:/repo/a\\sibling.md'],
+      active: 'note:/repo/b/note.md',
+      pinned: ['preview:/repo/a\\sibling.md'],
+    });
+  });
+});
+
 describe('openTab', () => {
   beforeEach(() => installLayoutApi(() => null));
 

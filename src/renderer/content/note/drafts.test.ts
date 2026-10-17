@@ -34,6 +34,20 @@ afterEach(() => {
 
 beforeEach(() => vi.useFakeTimers());
 
+describe('draft relocation', () => {
+  it('移动 Mac 目录保留文件名和正文，不迁移同前缀的兄弟文件草稿', () => {
+    const draft = { content, text: 'unsaved', saved: 'old', saving: false, error: null };
+    const child = '/repo/a/note\\draft.md';
+    const sibling = '/repo/a\\note.md';
+    useNoteDrafts.setState({ drafts: { [child]: draft, [sibling]: draft } });
+    useNoteDrafts.getState().relocatePaths('/repo/a', '/repo/b');
+    expect(useNoteDrafts.getState().drafts).toEqual({
+      '/repo/b/note\\draft.md': { ...draft, content: { ...content, title: 'note\\draft.md' } },
+      [sibling]: draft,
+    });
+  });
+});
+
 describe('draft debounce', () => {
   it('saves once with the latest text after 600ms; each edit restarts the timer', async () => {
     const { saveMock } = installDela(

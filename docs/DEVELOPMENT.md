@@ -432,6 +432,8 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 聊天 `@` 文件引用按工作目录的路径格式判断归属：Windows 盘符与反斜杠 UNC 路径兼容大小写及两种分隔符；POSIX 路径逐字匹配，保留文件名里的反斜杠，避免大小写敏感卷上的不同项目相互干扰。引用的绝对路径保持不变。新建文件名仍使用两端共用的可移植命名限制。
 
+已下载课件的 `@` 候选同样按课程根目录的路径格式计算相对路径，不用宿主系统的路径规则解析另一平台的路径；排除目录自身、父级和其他盘符，POSIX 保留大小写及文件名中的反斜杠。移动或重命名本地条目时，标签、草稿和目录选中状态只迁移实际子树；POSIX 的反斜杠不是目录边界，草稿标题保留完整文件名。Windows 原有移动匹配规则保持不变。
+
 同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
 
 Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库。账号申请状态与后续真实验收证据记录在 `macos-validation.md`；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
