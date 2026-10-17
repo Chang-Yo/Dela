@@ -60,7 +60,11 @@ function unwrap(payload: unknown): unknown {
   if (!parsed.success) throw new Error('交大视频响应数据格式已变化');
   const result = parsed.data;
   if (result.status === 401 || result.status === 403 || result.code === '-1') throw loginError();
-  if (result.ok === false || (typeof result.status === 'number' && result.status !== 200))
+  if (
+    result.ok === false ||
+    result.dataOk === false ||
+    (typeof result.status === 'number' && result.status !== 200)
+  )
     throw new Error('交大视频接口请求失败');
   return result.result ?? result.data;
 }
@@ -110,11 +114,23 @@ export async function listCourses(): Promise<VideoCourse[]> {
   if (!terms.success) throw new Error('交大视频学期数据格式已变化');
   const term = terms.data.find((value) => value.currentTerm) ?? terms.data.at(-1);
   if (!term) return [];
-  const records = await allPages('myself/curriculum', {
+  let records = await allPages('myself/curriculum', {
     acteId: String(term.id),
     courBeginTime: '',
     courEndTime: '',
   });
+  // 部分账号的课表为空，但官网「我的课程」仍有点播；该列表跨学期，须逐条核对。
+  if (records.length === 0)
+    records = (
+      await allPages('group_subject_vod_list/t-1', {
+        'page.orders[0].asc': 'false',
+        'page.orders[0].field': 'courBeginTime',
+      })
+    ).filter((raw) => {
+      const course = z.object({ acteId: id }).safeParse(raw);
+      if (!course.success) throw new Error('交大视频课程学期数据格式已变化');
+      return course.data.acteId === term.id;
+    });
   const courses = new Map<number, VideoCourse>();
   for (const raw of records) {
     const course = z
