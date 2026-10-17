@@ -7,7 +7,7 @@ export interface CanvasCourse {
   code: string;
   syncedAt: string | null;
   error: string | null;
-  /** 已归档课程不再自动同步、不再提示同步错误，仅保留本地数据。 */
+  /** 已归档课程不参与后台同步，保留本地数据并可按需加载。 */
   archived?: boolean;
 }
 
@@ -61,9 +61,11 @@ export interface CachedCourseFile {
 
 export interface CanvasApi {
   getState(): Promise<CanvasState>;
+  onChanged(listener: (state: CanvasState) => void): () => void;
   configure(token: string): Promise<void>;
   disconnect(): Promise<void>;
   syncCourses(): Promise<CanvasState>;
+  refresh(): Promise<CanvasState>;
   syncCourse(id: number): Promise<CanvasState>;
   archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
   read(sourceId: string): Promise<DocumentContent>;

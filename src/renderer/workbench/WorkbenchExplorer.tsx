@@ -39,7 +39,6 @@ import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
 import { SourcesTree } from '../navigation/SourcesTree';
-import { latestTermOf } from '../../shared/canvas';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {
@@ -212,13 +211,7 @@ export function WorkbenchExplorer({
     const store = useWorkspaceStore.getState();
     void (async () => {
       try {
-        // 先刷新课程列表，否则新学期的课程拿不到；再逐门同步最新学期（顺序执行，避免并发轰炸 Canvas）。
-        store.setCanvas(await window.dela!.canvas.syncCourses());
-        const courses = useWorkspaceStore.getState().canvas.courses;
-        const latest = latestTermOf(courses);
-        for (const course of courses)
-          if (course.term === latest && !course.archived)
-            store.setCanvas(await window.dela!.canvas.syncCourse(course.id));
+        store.setCanvas(await window.dela!.canvas.refresh());
       } catch (cause) {
         showToast({ variant: 'error', title: '同步课程资料失败', description: errorText(cause) });
       } finally {

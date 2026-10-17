@@ -134,8 +134,7 @@ export function SourcesTree({
     if (open && id.startsWith('course:')) {
       const courseId = Number(id.slice(7));
       const course = canvas.courses.find((c) => c.id === courseId);
-      // 已归档课程不再自动同步（令牌可能已失效），需要时可手动恢复归档后再同步。
-      if (course && !course.archived && !course.syncedAt) void sync(courseId);
+      if (course && !course.syncedAt) void sync(courseId);
     }
   };
   return (
@@ -253,7 +252,7 @@ export function SourcesTree({
               <AlertDialog.Description className="mt-1 text-13 leading-relaxed text-ink-3">
                 {confirmCourse.archived
                   ? '课程将恢复到原学期目录。'
-                  : '归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。'}
+                  : '归档后将移入「归档」区，不参与后台同步；已有资料保留，展开时可按需加载。'}
               </AlertDialog.Description>
               <div className="mt-4 flex items-center justify-end gap-2">
                 <Button onClick={() => setConfirmCourseId(null)} variant="ghost">

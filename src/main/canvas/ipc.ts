@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,8 +6,9 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { broadcastTodos, refreshTodos } from '../todo';
 import { getDatabase } from '../database';
-import { clearCanvasToken } from '../credentials';
+import { clearCanvasToken, loadCanvasToken } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
+import { latestTermOf, type CanvasState } from '../../shared/canvas';
 import {
   getCanvasState,
   configureCanvas,
@@ -20,6 +21,58 @@ import {
   readCanvasSource,
   archiveCanvasCourse,
 } from './api';
+
+function broadcastCanvas(): CanvasState {
+  const state = getCanvasState();
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (window.isDestroyed()) continue;
+    const url = window.webContents.getURL();
+    if (
+      url.startsWith('http://127.0.0.1:5173/') ||
+      (url.startsWith('file:') && /\/renderer\/index\.html(?:\?|$)/.test(url))
+    )
+      window.webContents.send('canvas:changed', state);
+  }
+  return state;
+}
+
+let activeRefresh: { token: string | null; work: Promise<CanvasState> } | undefined;
+export function refreshCanvas(): Promise<CanvasState> {
+  const token = loadCanvasToken();
+  if (activeRefresh?.token === token) return activeRefresh.work;
+  const work = (async () => {
+    if (!token) return getCanvasState();
+    const state = await syncCanvasCourses();
+    broadcastCanvas();
+    const latest = latestTermOf(state.courses);
+    for (const { id } of state.courses) {
+      if (loadCanvasToken() !== token) break;
+      const course = getCanvasState().courses.find((item) => item.id === id);
+      if (!course || course.term !== latest || course.archived) continue;
+      await syncCanvasCourse(id);
+      broadcastCanvas();
+    }
+    return getCanvasState();
+  })().finally(() => {
+    if (activeRefresh?.work === work) activeRefresh = undefined;
+  });
+  activeRefresh = { token, work };
+  return work;
+}
+
+async function refreshInBackground() {
+  try {
+    await refreshCanvas();
+  } catch (error) {
+    console.error('Canvas background sync failed', error);
+  }
+}
+
+export function startCanvasSync(): () => void {
+  void refreshInBackground();
+  const timer = setInterval(refreshInBackground, 60 * 60_000);
+  return () => clearInterval(timer);
+}
 
 export function registerCanvasIpc() {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
@@ -44,14 +97,17 @@ export function registerCanvasIpc() {
   });
   handle('configure', async (token) => {
     await configureCanvas(z.string().parse(token));
+    void refreshInBackground();
     broadcastTodos();
     void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
   });
   handle('disconnect', () => {
     clearCanvasToken();
+    broadcastCanvas();
     broadcastTodos();
   });
   handle('sync-courses', syncCanvasCourses);
+  handle('refresh', refreshCanvas);
   handle('sync-course', (id) => syncCanvasCourse(z.number().int().positive().parse(id)));
   handle('archive-course', (id, archived) =>
     archiveCanvasCourse(z.number().int().positive().parse(id), z.boolean().parse(archived)),

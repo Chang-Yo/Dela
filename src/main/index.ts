@@ -12,7 +12,7 @@ import { registerTimetableIpc } from './timetable/ipc';
 import { registerVsjtuIpc } from './vsjtu/ipc';
 import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
-import { registerCanvasIpc } from './canvas/ipc';
+import { registerCanvasIpc, startCanvasSync } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
@@ -105,6 +105,7 @@ let todoTimer: ReturnType<typeof setInterval> | undefined;
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
 let stopUpdateCheck: (() => void) | undefined;
+let stopCanvasSync: (() => void) | undefined;
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
@@ -239,6 +240,7 @@ app
         void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
       };
       syncTodos();
+      stopCanvasSync = startCanvasSync();
       todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
       refresh();
       syncMail();
@@ -466,6 +468,7 @@ app.on('will-quit', () => {
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
   stopUpdateCheck?.();
+  stopCanvasSync?.();
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
   // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。
   closeRemoteWatch();

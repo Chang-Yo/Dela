@@ -58,14 +58,15 @@ async function request(path: string, token = loadCanvasToken()): Promise<Respons
   return response;
 }
 
-async function list(path: string): Promise<Row[]> {
+async function list(path: string, token = loadCanvasToken()): Promise<Row[]> {
   let next: string | null = new URL(path, apiRoot).href;
   const visited = new Set<string>();
   const result: Row[] = [];
   while (next) {
+    if (loadCanvasToken() !== token) throw new Error('Canvas 连接已更改，请重新同步');
     if (visited.has(next)) throw new Error('Canvas 返回了重复分页');
     visited.add(next);
-    const response = await request(next);
+    const response = await request(next, token);
     result.push(...z.array(rowSchema).parse(await response.json()));
     next = canvasNextPage(response.headers.get('link'));
   }
@@ -94,7 +95,9 @@ export async function configureCanvas(token: string) {
 }
 
 export async function syncCanvasCourses(): Promise<CanvasState> {
-  const courses = await list('courses?include[]=term&per_page=50');
+  const token = loadCanvasToken();
+  const courses = await list('courses?include[]=term&per_page=50', token);
+  if (loadCanvasToken() !== token) return getCanvasState();
   const db = getDatabase();
   const old = new Map(getCanvasState().courses.map((c) => [c.id, c]));
   db.transaction(() => {
@@ -139,16 +142,19 @@ export interface StoredSource {
   pageUrl?: string;
 }
 
-const syncing = new Map<number, Promise<CanvasState>>();
+const syncing = new Map<number, { token: string | null; work: Promise<CanvasState> }>();
 export function syncCanvasCourse(id: number): Promise<CanvasState> {
+  const token = loadCanvasToken();
   const existing = syncing.get(id);
-  if (existing) return existing;
-  const work = syncCourse(id).finally(() => syncing.delete(id));
-  syncing.set(id, work);
+  if (existing?.token === token) return existing.work;
+  const work = syncCourse(id, token).finally(() => {
+    if (syncing.get(id)?.work === work) syncing.delete(id);
+  });
+  syncing.set(id, { token, work });
   return work;
 }
 
-async function syncCourse(id: number): Promise<CanvasState> {
+async function syncCourse(id: number, token: string | null): Promise<CanvasState> {
   const course = getCanvasState().courses.find((c) => c.id === id);
   if (!course) throw new Error('课程不存在，请刷新课程列表');
   const items: SourceItem[] = [];
@@ -207,8 +213,8 @@ async function syncCourse(id: number): Promise<CanvasState> {
   // Each branch commits its own successful snapshot; unavailable tabs leave their old cache intact.
   await branch('files', '文件', async () => {
     const [folders, files] = await Promise.all([
-      list(`courses/${id}/folders?per_page=50`),
-      list(`courses/${id}/files?per_page=50`),
+      list(`courses/${id}/folders?per_page=50`, token),
+      list(`courses/${id}/files?per_page=50`, token),
     ]);
     const rootId = group('files', '文件');
     const roots = new Set(folders.filter((f) => f.parent_folder_id === null).map((f) => num(f.id)));
@@ -237,7 +243,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
       );
   });
   await branch('assignments', '作业', async () => {
-    const rows = await list(`courses/${id}/assignments?include[]=submission&per_page=50`);
+    const rows = await list(`courses/${id}/assignments?include[]=submission&per_page=50`, token);
     if (!rows.length) return;
     const rootId = group('assignments', '作业');
     for (const a of rows) {
@@ -279,7 +285,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
     }
   });
   await branch('discussions', '通知与讨论', async () => {
-    const rows = await list(`courses/${id}/discussion_topics?per_page=50`);
+    const rows = await list(`courses/${id}/discussion_topics?per_page=50`, token);
     if (!rows.length) return;
     const rootId = group('discussions', '通知与讨论');
     for (const d of rows) {
@@ -304,7 +310,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
     }
   });
   await branch('modules', '课程模块', async () => {
-    const modules = await list(`courses/${id}/modules?per_page=50`);
+    const modules = await list(`courses/${id}/modules?per_page=50`, token);
     if (!modules.length) return;
     const rootId = group('modules', '课程模块');
     for (const m of modules) {
@@ -317,7 +323,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
         kind: 'module',
         sourceId: null,
       });
-      for (const i of await list(`courses/${id}/modules/${num(m.id)}/items?per_page=50`)) {
+      for (const i of await list(`courses/${id}/modules/${num(m.id)}/items?per_page=50`, token)) {
         const nodeId = `module-item:${num(i.id)}`;
         const type = str(i.type);
         let sourceId: string | null =
@@ -369,12 +375,15 @@ async function syncCourse(id: number): Promise<CanvasState> {
       }
     }
   });
+  if (loadCanvasToken() !== token) return getCanvasState();
   const db = getDatabase();
-  course.syncedAt = new Date().toISOString();
-  course.error = errors.length ? errors.join('\n') : null;
+  // 同步期间用户可能归档课程，提交时保留最新的课程属性。
+  const current = getCanvasState().courses.find((item) => item.id === id)!;
+  current.syncedAt = new Date().toISOString();
+  current.error = errors.length ? errors.join('\n') : null;
   db.transaction(() => {
     db.prepare('UPDATE canvas_courses SET data=?, items=? WHERE id=?').run(
-      JSON.stringify(course),
+      JSON.stringify(current),
       JSON.stringify(items),
       id,
     );
@@ -384,7 +393,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
   return getCanvasState();
 }
 
-/** 归档/取消归档课程：归档后不参与自动同步，仅保留本地已同步数据。 */
+/** 归档/取消归档课程：归档后不参与后台同步，仍可按需加载。 */
 export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
   const db = getDatabase();
   const rowById = db.prepare('SELECT data FROM canvas_courses WHERE id=?').get(id) as
