@@ -1,4 +1,4 @@
-// 在目标架构的 Mac 上检查目录包与同版本 DMG/ZIP；只读，不安装或启动应用。
+// 在目标架构的 Mac 上检查目录包与同版本 DMG/ZIP（--dir 仅检查目录包）；只读，不安装或启动应用。
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -60,13 +60,17 @@ for (const arch of ['amd64', 'arm64']) {
     readFileSync(join(root, 'vendor/dela-helper', name)),
   );
 }
-const prefix = join(root, 'dist', `Dela-${version}-mac-${process.arch}`);
-for (const extension of ['dmg', 'zip']) assert.ok(statSync(`${prefix}.${extension}`).size > 0);
-execFileSync('/usr/bin/hdiutil', ['verify', '-quiet', `${prefix}.dmg`], {
-  timeout: 120000,
-  stdio: 'inherit',
-});
-execFileSync('/usr/bin/unzip', ['-tq', `${prefix}.zip`], { timeout: 120000, stdio: 'inherit' });
+if (!process.argv.includes('--dir')) {
+  const prefix = join(root, 'dist', `Dela-${version}-mac-${process.arch}`);
+  for (const extension of ['dmg', 'zip']) assert.ok(statSync(`${prefix}.${extension}`).size > 0);
+  execFileSync('/usr/bin/hdiutil', ['verify', '-quiet', `${prefix}.dmg`], {
+    timeout: 120000,
+    stdio: 'inherit',
+  });
+  execFileSync('/usr/bin/unzip', ['-tq', `${prefix}.zip`], { timeout: 120000, stdio: 'inherit' });
+}
 console.log(
-  `macOS package verified (${process.arch}): identity, resources, licenses, tools, DMG and ZIP integrity.`,
+  process.argv.includes('--dir')
+    ? 'macOS directory package verified: identity, resources, licenses and tools.'
+    : 'macOS package verified: identity, resources, licenses, tools, DMG and ZIP integrity.',
 );
