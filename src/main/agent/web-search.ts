@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getDatabase } from '../database';
+import { loadLlmConfig } from '../credentials';
 import type { WebSearchConfig } from '../../shared/capabilities';
 import { searchDeepSeek } from './deepseek';
 
@@ -77,6 +78,32 @@ export function writeWebSearchConfig(config: WebSearchConfig | null): WebSearchC
     JSON.stringify(normalized),
   );
   return normalized;
+}
+
+/** DeepSeek 官方端点判定：只认 api.deepseek.com，中转或自建网关一律不算。 */
+function isDeepSeekEndpoint(baseUrl: string): boolean {
+  try {
+    return /(^|\.)api\.deepseek\.com$/i.test(new URL(baseUrl).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** 把已配置的 DeepSeek 模型供应商密钥导入搜索服务：优先使用中的提供商，其次第一个可用的。
+ *  没有可导入的供应商时返回 null；已有 DeepSeek 配置的网页读取开关保持不变。 */
+export function importDeepSeekSearchKey(): WebSearchConfig | null {
+  const { providers, activeId } = loadLlmConfig();
+  const candidates = providers.filter(
+    (provider) => provider.apiKey && isDeepSeekEndpoint(provider.baseUrl),
+  );
+  const provider = candidates.find(({ id }) => id === activeId) ?? candidates[0];
+  if (!provider) return null;
+  const current = readWebSearchConfig();
+  return writeWebSearchConfig({
+    provider: 'deepseek',
+    apiKey: provider.apiKey,
+    useForFetch: current?.provider === 'deepseek' ? current.useForFetch : false,
+  });
 }
 
 interface WebSearchResult {

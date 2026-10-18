@@ -63,7 +63,12 @@ import {
 } from './mcp';
 import { domainTools, listBuiltinCapabilities, setBuiltinCapabilities } from './tools';
 import { loadPi } from './pi';
-import { readWebSearchConfig, webSearchConfigSchema, writeWebSearchConfig } from './web-search';
+import {
+  importDeepSeekSearchKey,
+  readWebSearchConfig,
+  webSearchConfigSchema,
+  writeWebSearchConfig,
+} from './web-search';
 
 export { closeDomainBridge, domainBridge } from './environment';
 export { gcChatMedia, invalidateSessions, loadPi, subscribeChat };
@@ -246,4 +251,5 @@ export function registerAgentIpc() {
   handle('capabilities:write-web-search-config', (config) =>
     writeWebSearchConfig(config === null ? null : webSearchConfigSchema.parse(config)),
   );
+  handle('capabilities:import-web-search-key', () => importDeepSeekSearchKey());
 }

@@ -137,4 +137,7 @@ export interface CapabilityApi {
   readWebSearchConfig(): Promise<WebSearchConfig | null>;
   /** 保存（校验各字段）或清除（null）；返回保存后的配置。 */
   writeWebSearchConfig(config: WebSearchConfig | null): Promise<WebSearchConfig | null>;
+  /** 把已配置的 DeepSeek 模型供应商密钥导入为 DeepSeek 搜索服务；没有可用供应商时返回 null。
+   *  密钥在主进程内读取，不经过表单。 */
+  importWebSearchKey(): Promise<WebSearchConfig | null>;
 }

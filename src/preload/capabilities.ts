@@ -24,4 +24,5 @@ export const capabilityApi: CapabilityApi = {
   setBuiltinDomain: (domain, enabled) => invoke('capabilities:set-builtin-domain', domain, enabled),
   readWebSearchConfig: () => invoke('capabilities:read-web-search-config'),
   writeWebSearchConfig: (config) => invoke('capabilities:write-web-search-config', config),
+  importWebSearchKey: () => invoke('capabilities:import-web-search-key'),
 };

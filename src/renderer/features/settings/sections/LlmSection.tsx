@@ -258,6 +258,10 @@ export function LlmSection() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 保存了 DeepSeek 供应商后是否弹出「开启联网搜索」引导。 */
+  const [searchPrompt, setSearchPrompt] = useState(false);
+  /** 每个供应商只提醒一次，避免失焦自动保存反复弹窗。 */
+  const offeredSearchPrompt = useRef(new Set<string>());
 
   /** 读取最新列表；selectId 指定刷新后选中的提供商（保存时用，新建的此时才出现在列表里）。 */
   const refresh = (selectId?: string) => {
@@ -330,6 +334,23 @@ export function LlmSection() {
     );
     setDetail((current) => (current === source ? { mode: 'edit', id: saved.id } : current));
     refresh();
+    // 刚配置或更新了 DeepSeek 模型、且搜索服务还没走 DeepSeek 时，引导一次。
+    if (offeredSearchPrompt.current.has(saved.id)) return;
+    const host = (() => {
+      try {
+        return new URL(saved.baseUrl).hostname;
+      } catch {
+        return '';
+      }
+    })();
+    if (!/(^|\.)api\.deepseek\.com$/i.test(host)) return;
+    offeredSearchPrompt.current.add(saved.id);
+    void window.dela?.capability
+      .readWebSearchConfig()
+      .then((config) => {
+        if (config?.provider !== 'deepseek') setSearchPrompt(true);
+      })
+      .catch(() => {});
   };
 
   return (
@@ -411,7 +432,67 @@ export function LlmSection() {
           {error}
         </p>
       )}
+      {searchPrompt && <DeepSeekSearchPrompt onClose={() => setSearchPrompt(false)} />}
     </div>
+  );
+}
+
+/** 首次配置 DeepSeek 模型后的引导：把同一个密钥导入搜索服务并打开联网搜索。 */
+function DeepSeekSearchPrompt({ onClose }: { onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const enable = async () => {
+    const dela = window.dela;
+    if (!dela || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const imported = await dela.capability.importWebSearchKey();
+      if (!imported) {
+        setError('没有找到可导入的 DeepSeek 密钥，请稍后在「内置能力」里手动填写');
+        return;
+      }
+      await dela.capability.setBuiltinCapability('web_search', true);
+      showToast({
+        variant: 'success',
+        title: '联网搜索已开启',
+        description: '已复用 DeepSeek 模型的密钥注册搜索服务',
+      });
+      onClose();
+    } catch (cause) {
+      setError(errorText(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
+      <Dialog.Portal>
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
+          <Dialog.Title className="text-base font-semibold">
+            要用 DeepSeek 联网搜索吗？
+          </Dialog.Title>
+          <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
+            检测到你配置了 DeepSeek 模型。可以复用同一个 API Key 开启联网搜索：Agent 会调用 DeepSeek
+            的搜索接口，按成功请求计费（5 元 / 千次）。密钥仍只保存在本地数据库。
+          </Dialog.Description>
+          {error && (
+            <p className="mt-3 text-xs [overflow-wrap:anywhere] text-red" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="mt-5 flex justify-end gap-2">
+            <Button disabled={busy} onClick={onClose} size="sm" type="button" variant="ghost">
+              稍后
+            </Button>
+            <Button disabled={busy} onClick={() => void enable()} size="sm" type="button">
+              开启联网搜索
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

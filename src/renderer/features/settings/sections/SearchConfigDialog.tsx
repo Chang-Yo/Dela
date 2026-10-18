@@ -54,8 +54,13 @@ export function SearchConfigDialog({
   const [provider, setProvider] = useState<WebSearchConfig['provider']>(
     config?.provider ?? 'brave',
   );
-  const [apiKey, setApiKey] = useState(config && 'apiKey' in config ? config.apiKey : '');
-  const [cx, setCx] = useState(config?.provider === 'google' ? config.cx : '');
+  // 每个选项保留各自的输入：切换选项只改变显示，不会把上一个选项的 Key 带过去。
+  const [braveKey, setBraveKey] = useState(config?.provider === 'brave' ? config.apiKey : '');
+  const [googleKey, setGoogleKey] = useState(config?.provider === 'google' ? config.apiKey : '');
+  const [googleCx, setGoogleCx] = useState(config?.provider === 'google' ? config.cx : '');
+  const [deepseekKey, setDeepseekKey] = useState(
+    config?.provider === 'deepseek' ? config.apiKey : '',
+  );
   const [url, setUrl] = useState(config?.provider === 'custom' ? config.url : '');
   const [headers, setHeaders] = useState(
     config?.provider === 'custom' ? headersText(config.headers) : '',
@@ -82,9 +87,11 @@ export function SearchConfigDialog({
   };
 
   const save = () => {
-    if (provider === 'brave') return submit({ provider, apiKey: apiKey.trim() });
-    if (provider === 'google') return submit({ provider, apiKey: apiKey.trim(), cx: cx.trim() });
-    if (provider === 'deepseek') return submit({ provider, apiKey: apiKey.trim(), useForFetch });
+    if (provider === 'brave') return submit({ provider, apiKey: braveKey.trim() });
+    if (provider === 'google')
+      return submit({ provider, apiKey: googleKey.trim(), cx: googleCx.trim() });
+    if (provider === 'deepseek')
+      return submit({ provider, apiKey: deepseekKey.trim(), useForFetch });
     const parsed = parseHeaders(headers);
     if (!parsed.ok) {
       setError(parsed.error);
@@ -95,6 +102,27 @@ export function SearchConfigDialog({
       url: url.trim(),
       ...(Object.keys(parsed.headers).length > 0 ? { headers: parsed.headers } : {}),
     });
+  };
+
+  /** 从「模型供应商」里已保存的 DeepSeek 配置导入密钥，避免重复粘贴。 */
+  const importExisting = async () => {
+    const dela = window.dela;
+    if (!dela || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const imported = await dela.capability.importWebSearchKey();
+      if (!imported || imported.provider !== 'deepseek') {
+        setError('没有找到已配置的 DeepSeek 模型供应商，请先在「模型供应商」中添加');
+        return;
+      }
+      setDeepseekKey(imported.apiKey);
+      setUseForFetch(imported.useForFetch);
+    } catch (cause) {
+      setError(errorText(cause));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -134,12 +162,12 @@ export function SearchConfigDialog({
                 API Key
                 <Input
                   autoComplete="off"
-                  onChange={(event) => setApiKey(event.target.value)}
+                  onChange={(event) => setBraveKey(event.target.value)}
                   placeholder="BSA…"
                   required
                   spellCheck={false}
                   type="password"
-                  value={apiKey}
+                  value={braveKey}
                 />
                 <span className="text-xs leading-relaxed text-ink-3">
                   走 Brave 为大模型设计的 LLM Context 端点（res/v1/llm/context），结果是从页面
@@ -153,23 +181,23 @@ export function SearchConfigDialog({
                   API Key
                   <Input
                     autoComplete="off"
-                    onChange={(event) => setApiKey(event.target.value)}
+                    onChange={(event) => setGoogleKey(event.target.value)}
                     placeholder="AIza…"
                     required
                     spellCheck={false}
                     type="password"
-                    value={apiKey}
+                    value={googleKey}
                   />
                 </label>
                 <label className="grid gap-2 text-13">
                   搜索引擎 ID（cx）
                   <Input
                     autoComplete="off"
-                    onChange={(event) => setCx(event.target.value)}
+                    onChange={(event) => setGoogleCx(event.target.value)}
                     placeholder="Programmable Search 的搜索引擎 ID"
                     required
                     spellCheck={false}
-                    value={cx}
+                    value={googleCx}
                   />
                 </label>
               </>
@@ -180,18 +208,30 @@ export function SearchConfigDialog({
                   API Key
                   <Input
                     autoComplete="off"
-                    onChange={(event) => setApiKey(event.target.value)}
+                    onChange={(event) => setDeepseekKey(event.target.value)}
                     placeholder="sk-…"
                     required
                     spellCheck={false}
                     type="password"
-                    value={apiKey}
+                    value={deepseekKey}
                   />
                   <span className="text-xs leading-relaxed text-ink-3">
                     走 DeepSeek 自研搜索引擎（/v1/tools/search），按成功请求计费：5 元 / 千次， QPS
                     5。
                   </span>
                 </label>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-ink-3">已配置过 DeepSeek 模型？</span>
+                  <Button
+                    disabled={busy}
+                    onClick={() => void importExisting()}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    导入已有 API
+                  </Button>
+                </div>
                 <div className="flex items-start justify-between gap-3 rounded-card border p-3">
                   <div className="grid gap-0.5">
                     <span className="text-13 font-medium">网页读取也使用 DeepSeek</span>
