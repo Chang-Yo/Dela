@@ -20,6 +20,14 @@ import {
   readCanvasSource,
   archiveCanvasCourse,
 } from './api';
+import {
+  canvasDownloadPlan,
+  canvasDownloads,
+  revealCanvasDownload,
+  retryCanvasDownload,
+  startCanvasDownload,
+  stopCanvasDownload,
+} from './downloads';
 
 export function registerCanvasIpc() {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
@@ -66,6 +74,35 @@ export function registerCanvasIpc() {
     const file = await cachedFile(source);
     await copyFile(file.path, filePath);
   });
+  handle('start-download', async (input) => {
+    const selection = z
+      .object({
+        courseId: z.number().int().positive(),
+        itemId: z.string().min(1).max(512).optional(),
+      })
+      .strict()
+      .parse(input);
+    const state = getCanvasState();
+    if (!state.connected) throw new Error('请先连接 Canvas');
+    canvasDownloadPlan(state, selection);
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: '下载课程资料：选择保存目录（覆盖同名文件）',
+      message: '保留课程与文件夹层级；目标位置的同名文件会在下载成功后覆盖。',
+      buttonLabel: '保存到此目录',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (canceled || !filePaths[0]) return null;
+    return startCanvasDownload(selection, filePaths[0]);
+  });
+  handle('downloads', canvasDownloads);
+  handle('stop-download', (id) => stopCanvasDownload(z.string().uuid().parse(id)));
+  handle('retry-download', (id, sourceId) =>
+    retryCanvasDownload(
+      z.string().uuid().parse(id),
+      z.string().min(1).max(512).optional().parse(sourceId),
+    ),
+  );
+  handle('reveal-download', (id) => revealCanvasDownload(z.string().uuid().parse(id)));
   handle('open-link', async (value) => {
     const url = new URL(z.string().max(8192).parse(value));
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)

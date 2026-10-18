@@ -17,6 +17,7 @@ import { prepareEmail } from '../src/main/mail/drafts';
 import { releaseComposeFiles } from '../src/main/mail/send';
 import {
   canvasNextPage,
+  canvasExportFile,
   cachedCourseFiles,
   configureCanvas,
   readCanvasSource,
@@ -24,6 +25,7 @@ import {
   syncCanvasCourses,
 } from '../src/main/canvas/api';
 import { registerCanvasIpc } from '../src/main/canvas/ipc';
+import { canvasDownloads, startCanvasDownload } from '../src/main/canvas/downloads';
 import {
   createWorkspaceEntry,
   getWorkspaceState,
@@ -46,6 +48,7 @@ registerPreviewScheme();
 const pdf = new TextEncoder().encode('%PDF-1.4\nfixture');
 let failFiles = false;
 let storageGets = 0;
+let lockedFile = false;
 globalThis.fetch = async (input, init) => {
   const url = new URL(String(input));
   const json = (body: unknown, headers: Record<string, string> = {}) =>
@@ -98,6 +101,8 @@ globalThis.fetch = async (input, init) => {
   if (url.pathname.endsWith('/files/3'))
     return json({
       id: 3,
+      updated_at: '2026-09-01',
+      locked_for_user: lockedFile,
       size: pdf.length,
       'content-type': 'application/pdf',
       url: 'https://oc.sjtu.edu.cn/files/3/download',
@@ -172,6 +177,29 @@ app
       ),
     );
     assert.deepEqual(new Uint8Array(readFileSync(cachedPath)), pdf);
+    assert.equal((await canvasExportFile('file:3')).path, cachedPath);
+    assert.equal(storageGets, 1);
+    lockedFile = true;
+    await assert.rejects(canvasExportFile('file:3'), /无权下载/);
+    assert.equal(storageGets, 1, '权限不足时不能借用已有预览缓存导出');
+    lockedFile = false;
+    const exportDirectory = join(profile, 'export');
+    const exportedPath = join(exportDirectory, '验证课程 [1]', '文件', '第三章', '课件.pdf');
+    mkdirSync(dirname(exportedPath), { recursive: true });
+    writeFileSync(exportedPath, '旧内容');
+    const batch = startCanvasDownload({ courseId: 1 }, exportDirectory);
+    const deadline = Date.now() + 10000;
+    let batchResult = canvasDownloads().find((task) => task.id === batch.id)!;
+    while (['queued', 'preparing', 'downloading'].includes(batchResult.state)) {
+      assert(Date.now() < deadline, '批量下载应在测试期限内完成');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      batchResult = canvasDownloads().find((task) => task.id === batch.id)!;
+    }
+    assert.equal(batchResult.state, 'completed');
+    assert.equal(batchResult.files.length, 1, '同一课件在模块中再次引用不重复下载');
+    assert.equal(batchResult.files[0]!.state, 'completed');
+    assert(batchResult.warning?.includes('仅包含已列出的文件'));
+    assert.deepEqual(new Uint8Array(readFileSync(exportedPath)), pdf);
     assert.deepEqual(
       cachedCourseFiles().map((file) => file.path),
       [cachedPath],

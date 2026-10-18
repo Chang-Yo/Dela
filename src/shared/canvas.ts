@@ -59,6 +59,30 @@ export interface CachedCourseFile {
   title: string;
 }
 
+export interface CanvasDownloadSelection {
+  courseId: number;
+  /** 不传时下载整门课程；否则下载资料树中该文件夹或模块的子树。 */
+  itemId?: string;
+}
+
+export interface CanvasDownloadFile {
+  sourceId: string;
+  /** 相对于任务课程目录的路径，不包含下载地址或凭据。 */
+  path: string;
+  state: 'queued' | 'downloading' | 'completed' | 'failed' | 'cancelled';
+  error?: string;
+}
+
+export interface CanvasDownload {
+  id: string;
+  title: string;
+  directory: string;
+  state: 'queued' | 'preparing' | 'downloading' | 'stopping' | 'completed' | 'cancelled' | 'failed';
+  files: CanvasDownloadFile[];
+  error?: string;
+  warning?: string;
+}
+
 export interface CanvasApi {
   getState(): Promise<CanvasState>;
   configure(token: string): Promise<void>;
@@ -68,6 +92,12 @@ export interface CanvasApi {
   archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
   read(sourceId: string): Promise<DocumentContent>;
   download(sourceId: string): Promise<void>;
+  startDownload(selection: CanvasDownloadSelection): Promise<CanvasDownload | null>;
+  downloads(): Promise<CanvasDownload[]>;
+  onDownloadsChanged(listener: (downloads: CanvasDownload[]) => void): () => void;
+  stopDownload(id: string): Promise<void>;
+  retryDownload(id: string, sourceId?: string): Promise<void>;
+  revealDownload(id: string): Promise<void>;
   openLink(url: string): Promise<void>;
   /** 已下载到本地 courses 目录、属于最新学期（未归档）的课件文件列表。 */
   cachedFiles(): Promise<CachedCourseFile[]>;

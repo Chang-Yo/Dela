@@ -403,6 +403,24 @@ export function getSource(id: string): StoredSource {
 }
 
 const downloads = new Map<string, Promise<{ path: string; mime: string }>>();
+
+/** 批量另存前重新检查当前账号权限及版本，不能因已有预览缓存跳过服务端检查。 */
+export async function canvasExportFile(id: string): Promise<{ path: string; mime: string }> {
+  const source = getSource(id);
+  if (source.kind !== 'file' || !source.fileId) throw new Error('资料不是可下载的文件');
+  const metadata = row(await (await request(`files/${source.fileId}`)).json());
+  if (metadata.locked_for_user === true || metadata.hidden_for_user === true)
+    throw new Error('当前账号无权下载此文件，或文件尚未开放');
+  if (num(metadata.id) !== source.fileId || !str(metadata.url))
+    throw new Error('Canvas 未返回可下载的文件');
+  return cachedFile({
+    ...source,
+    updatedAt: str(metadata.updated_at) || source.updatedAt,
+    size: num(metadata.size),
+    mime: str(metadata['content-type']) || source.mime,
+  });
+}
+
 export function cachedFile(source: StoredSource): Promise<{ path: string; mime: string }> {
   const key = `${source.id}:${source.updatedAt ?? ''}`;
   const existing = downloads.get(key);
