@@ -1,0 +1,27 @@
+/* 蓝色 色系 — 整套选用，不与其他色系混搭 */
+:root {
+  /* Apple Blue: Filled action buttons, selected states — the only chromatic interactive color, used sparingly so each appearance carries weight */
+  --color-apple-blue: #0071e3;
+  /* Link Blue: Outlined action borders, inline links — deeper saturation than Apple Blue, used where a filled pill would be too loud */
+  --color-link-blue: #0066cc;
+  /* Signal Blue: Decorative borders, image outlines, icon strokes — the lightest blue in the system, used for atmospheric emphasis rather than interaction */
+  --color-signal-blue: #2997ff;
+  /* Carbon: Primary text, heading borders, nav rules, card borders — the dominant ink color, near-black with a whisper of warmth */
+  --color-carbon: #1d1d1f;
+  /* Frost: Page canvas, body backgrounds, footer surface — the signature Apple light gray, slightly cooler than pure white */
+  --color-frost: #f5f5f7;
+  /* Ice: Elevated surface washes, subtle fills, button text on dark backgrounds — barely-blue tint that lifts a section without declaring it */
+  --color-ice: #f4f8fb;
+  /* Smoke: Secondary text, nav fills, button borders — the workhorse neutral for borders and icons that need more presence than mid-gray */
+  --color-smoke: #333333;
+  /* Graphite: Nav text, nav borders, link borders — sits between Carbon and Smoke for tertiary hierarchy */
+  --color-graphite: #474747;
+  /* Ash: Footer text, list borders, nav borders, muted body text — the mid-gray for content that should be present but quiet */
+  --color-ash: #707070;
+  /* Mist: Body borders, icon strokes, button borders — the lightest functional gray, for hairline rules on light surfaces */
+  --color-mist: #858585;
+  /* Onyx: Heading borders, nav borders, dark image backgrounds — true black for maximum contrast in promotional and heading contexts */
+  --color-onyx: #000000;
+  /* Pebble: Button background fills, disabled surfaces — the only near-white surface that is deliberately grayer than the canvas */
+  --color-pebble: #e2e2e5;
+}

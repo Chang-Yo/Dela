@@ -14,7 +14,111 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      helper: ${{ steps.filter.outputs.helper == 'true' || steps.filter.outputs.common == 'true' }}
+      windows: ${{ steps.filter.outputs.common == 'true' || steps.filter.outputs.runtime == 'true' || steps.filter.outputs.windows == 'true' }}
+      macos: ${{ steps.filter.outputs.common == 'true' || steps.filter.outputs.runtime == 'true' || steps.filter.outputs.macos == 'true' }}
+      archives: ${{ steps.filter.outputs.common == 'true' || steps.filter.outputs.archives == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            code:
+              - '!{docs/**,.agents/**,.claude/**,*.md,skills-lock.json}'
+            common:
+              - '.github/workflows/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.npmrc'
+              - 'electron-builder.*'
+              - 'vite*.config.*'
+              - 'vitest*.config.*'
+              - 'tsconfig*.json'
+              - 'build/**'
+              - 'assets/**'
+            helper:
+              - 'helper/**'
+              - 'scripts/build-helper.ts'
+              - 'vendor/dela-helper/**'
+            runtime:
+              - 'helper/**'
+              - 'vendor/dela-helper/**'
+              - 'scripts/**'
+              - 'src/main/*'
+              - 'src/main/terminal/**'
+              - 'src/main/remotes/**'
+              - 'src/main/documents/**'
+              - 'src/main/update/**'
+              - 'src/preload/**'
+              - 'src/shared/**'
+              - 'vendor/bin/*'
+            windows:
+              - 'vendor/openssh/**'
+            macos:
+              - 'vendor/bin/darwin-*/**'
+            archives:
+              - 'scripts/verify-macos-package.ts'
+
+  basic:
+    name: Basic checks
+    needs: changes
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      DELA_REMOTE_HOST: ''
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Install pnpm
+        run: npm install --global pnpm@12.3.4
+      - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Install formatting dependencies without build scripts
+        if: needs.changes.outputs.code != 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Check formatting
+        run: pnpm format:check
+      - name: Lint, typecheck, build and test
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          pnpm lint
+          pnpm build
+          pnpm test
+      - uses: actions/upload-artifact@v6
+        if: needs.changes.outputs.windows == 'true'
+        with:
+          name: windows-build
+          path: out/
+          if-no-files-found: error
+          retention-days: 1
+
   helper:
+    needs: [changes, basic]
+    if: needs.changes.outputs.helper == 'true'
     name: Check helper linux (amd64 + arm64)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -59,8 +163,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  check:
-    needs: helper
+  windows:
+    needs: [changes, basic, helper]
+    if: >-
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.basic.result == 'success' &&
+          needs.changes.outputs.windows == 'true' &&
+          (needs.helper.result == 'success' ||
+           (needs.changes.outputs.helper == 'false' && needs.helper.result == 'skipped')) }}
     name: Check win-x64
     runs-on: windows-2022
     timeout-minutes: 30
@@ -75,10 +184,12 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/download-artifact@v6
+        if: needs.changes.outputs.helper == 'true'
         with:
           name: helper-linux-amd64
           path: vendor/dela-helper
       - uses: actions/download-artifact@v6
+        if: needs.changes.outputs.helper == 'true'
         with:
           name: helper-linux-arm64
           path: vendor/dela-helper
@@ -90,18 +201,22 @@ jobs:
         run: npm install --global pnpm@12.3.4
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Check formatting
-        run: pnpm format:check
-      - name: Lint
-        run: pnpm lint
-      - name: Typecheck and build
-        run: pnpm build
-      - name: Run unit tests
-        run: pnpm test
+      - uses: actions/download-artifact@v6
+        with:
+          name: windows-build
+          path: out
       - name: Smoke test Electron
         run: pnpm smoke
       - name: Package application directory
-        run: pnpm package:dir --win --x64
+        if: needs.changes.outputs.archives != 'true'
+        run: |
+          pnpm prepare:runtime
+          pnpm exec electron-builder --dir --win --x64 --publish never
+      - name: Build Windows installer
+        if: needs.changes.outputs.archives == 'true'
+        run: |
+          pnpm prepare:runtime
+          pnpm exec electron-builder --win --x64 --publish never
       - name: Verify packaged helper
         run: |
           cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64
@@ -111,8 +226,13 @@ jobs:
           PACKAGED_EXECUTABLE: dist/win-unpacked/Dela.exe
         run: '"$PACKAGED_EXECUTABLE" --smoke-test'
 
-  mac:
-    needs: helper
+  macos:
+    needs: [changes, basic, helper]
+    if: >-
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.basic.result == 'success' &&
+          needs.changes.outputs.macos == 'true' &&
+          (needs.helper.result == 'success' ||
+           (needs.changes.outputs.helper == 'false' && needs.helper.result == 'skipped')) }}
     name: Check mac-arm64
     runs-on: macos-15
     timeout-minutes: 30
@@ -128,10 +248,12 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/download-artifact@v6
+        if: needs.changes.outputs.helper == 'true'
         with:
           name: helper-linux-amd64
           path: vendor/dela-helper
       - uses: actions/download-artifact@v6
+        if: needs.changes.outputs.helper == 'true'
         with:
           name: helper-linux-arm64
           path: vendor/dela-helper
@@ -147,10 +269,6 @@ jobs:
         run: npm install --global pnpm@12.3.4
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Check formatting and lint
-        run: |
-          pnpm format:check
-          pnpm lint
       - name: Build and test
         run: |
           pnpm build
@@ -162,9 +280,17 @@ jobs:
           pnpm smoke:runtime
           pnpm smoke:desktop
           pnpm exec electron scripts/terminal-smoke.cjs
+      - name: Package application directory
+        if: needs.changes.outputs.archives != 'true'
+        run: pnpm exec electron-builder --dir --mac --arm64 --publish never -c.electronDist=node_modules/electron/dist
       - name: Build development DMG and ZIP
-        run: pnpm package:dist --mac --arm64 -c.electronDist=node_modules/electron/dist
+        if: needs.changes.outputs.archives == 'true'
+        run: pnpm exec electron-builder --mac --arm64 --publish never -c.electronDist=node_modules/electron/dist
+      - name: Verify package resources
+        if: needs.changes.outputs.archives != 'true'
+        run: node scripts/verify-macos-package.ts "$PACKAGED_APP" --dir
       - name: Verify package resources and archives
+        if: needs.changes.outputs.archives == 'true'
         run: node scripts/verify-macos-package.ts "$PACKAGED_APP"
       - name: Smoke test LaunchServices startup
         run: node scripts/macos-launch-smoke.ts "$PACKAGED_APP"
@@ -175,6 +301,7 @@ jobs:
           pnpm smoke:desktop "$PACKAGED_APP/Contents/Resources/app.asar"
           pnpm exec electron scripts/terminal-smoke.cjs "$PACKAGED_APP/Contents/Resources/app.asar"
       - uses: actions/upload-artifact@v6
+        if: needs.changes.outputs.archives == 'true'
         with:
           name: development-mac-arm64
           path: |
@@ -183,3 +310,31 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
+
+  required:
+    name: CI required
+    if: always()
+    needs: [changes, basic, helper, windows, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify required results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          node --input-type=module <<'NODE'
+          const needs = JSON.parse(process.env.NEEDS);
+          for (const name of ['changes', 'basic']) {
+            if (needs[name].result !== 'success') {
+              throw new Error(name + ': ' + needs[name].result);
+            }
+          }
+          for (const name of ['helper', 'windows', 'macos']) {
+            const selected = needs.changes.outputs[name];
+            if (!['true', 'false'].includes(selected)) throw new Error('Missing selection: ' + name);
+            const expected = selected === 'true' ? 'success' : 'skipped';
+            if (needs[name].result !== expected) {
+              throw new Error(name + ': expected ' + expected + ', got ' + needs[name].result);
+            }
+          }
+          NODE

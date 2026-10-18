@@ -1,0 +1,17 @@
+/* 棕色 色系 — 整套选用，不与其他色系混搭 */
+:root {
+  /* Warm Cream: Light text on dark surfaces, inverse labels, and high-contrast captions. */
+  --color-warm-cream: #ffedd7;
+  /* Walnut Shadow: Page canvas and deepest background — warm near-black, not pure black. The void behind every product reveal */
+  --color-walnut-shadow: #100904;
+  /* Bark Brown: Elevated surface and filled button background — the one chromatic step above the canvas, used for the single solid CTA */
+  --color-bark-brown: #382416;
+  /* Cork Border: Hairline dividers, dashed section separators, subtle container borders — warmer than the canvas by one step */
+  --color-cork-border: #40372e;
+  /* Driftwood: Mid-tone warm gray for secondary dividers and muted structural elements — the bridge between Bark and Cream */
+  --color-driftwood: #6c5f51;
+  /* Ember Accent: Orange text accent for links, tags, and emphasized short phrases. */
+  --color-ember-accent: #dc5000;
+  /* Pure Black: SVG icon fills and decorative vector elements only — never used as a background or text color */
+  --color-pure-black: #000000;
+}

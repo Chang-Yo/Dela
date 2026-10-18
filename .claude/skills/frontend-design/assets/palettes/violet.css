@@ -1,0 +1,31 @@
+/* 蓝紫色 色系 — 整套选用，不与其他色系混搭 */
+:root {
+  /* Indigo Ink: Violet action color for filled buttons, selected navigation states, and focused conversion moments. */
+  --color-indigo-ink: #533afd;
+  /* Indigo Hover: Violet text accent for links, tags, and emphasized short phrases. Do not promote it to the primary CTA color */
+  --color-indigo-hover: #7389ff;
+  /* Midnight Ink: Primary heading and body text — deep near-black with a cool blue undertone that anchors the entire type system */
+  --color-midnight-ink: #061b31;
+  /* Slate: Gray text accent for links, tags, and emphasized short phrases. */
+  --color-slate: #64748d;
+  /* Steel: Tertiary body text and helper copy — sits between slate and the muted violet tints used on sub-labels */
+  --color-steel: #50617a;
+  /* Smoke: Muted violet-tinted text for large decorative headings and supporting copy — never for body paragraphs */
+  --color-smoke: #839bc8;
+  /* Pure White: Page canvas and elevated card surfaces; the default background against which everything else is measured */
+  --color-pure-white: #ffffff;
+  /* Mist: Footer background and section banding — a barely-perceptible cool tint that separates regions without a visible line */
+  --color-mist: #f8fafd;
+  /* Frost: Primary border color, subtle surface tint, and button hover backgrounds; the workhorse neutral that divides content */
+  --color-frost: #e5edf5;
+  /* Lavender Border: Hairline outline button border (1px) — the violet companion to indigo fills; pairs with white text for ghost CTAs */
+  --color-lavender-border: #b9b9f9;
+  /* Lilac Border: Secondary outline button border and softer dividers; a paler sibling of lavender for tertiary ghost actions */
+  --color-lilac-border: #d6d9fc;
+  /* Periwinkle Wash: Lightest violet surface — soft tinted backgrounds for highlighted cards, tag pills, and subtle emphasis blocks */
+  --color-periwinkle-wash: #e8e9ff;
+  /* Deep Violet: Heaviest accent stroke — rare use for emphasized borders or graphic frames; reads almost as a navy */
+  --color-deep-violet: #182659;
+  /* Amethyst Edge: Mid-violet outline border for developer-facing buttons; sits between indigo ink and lavender border */
+  --color-amethyst-edge: #7f71e6;
+}

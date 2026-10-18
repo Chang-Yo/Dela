@@ -1,0 +1,27 @@
+/* 灰色 色系 — 整套选用，不与其他色系混搭 */
+:root {
+  /* Paper White: Page canvas, card surfaces, light button fills — the default background that everything else sits on */
+  --color-paper-white: #fafafa;
+  /* Pure White: Elevated card surfaces, inset highlights, input fields */
+  --color-pure-white: #ffffff;
+  /* Hairline: 1px borders on buttons, links, and cards — visible at high zoom, invisible at speed */
+  --color-hairline: #ebebeb;
+  /* Ash: Disabled text, muted labels, brand name watermarks in customer logos */
+  --color-ash: #c9c9c9;
+  /* Smoke: Tertiary text, placeholder copy, subtle icon fills */
+  --color-smoke: #a8a8a8;
+  /* Graphite: Footer micro-copy, secondary metadata */
+  --color-graphite: #8f8f8f;
+  /* Slate: Customer brand names in logo strips, muted heading variants */
+  --color-slate: #7d7d7d;
+  /* Stone: Muted captions, helper text, and de-emphasized UI labels. */
+  --color-stone: #666666;
+  /* Charcoal: Body paragraph text, card descriptions, button secondary labels — where reading weight lives */
+  --color-charcoal: #4d4d4d;
+  /* Obsidian: Primary headings, nav borders, dark button fills, list markers — near-black that avoids pure #000 harshness */
+  --color-obsidian: #171717;
+  /* Carbon: SVG icon fills, logo marks, the triangle brand glyph — pure black reserved for graphic elements only */
+  --color-carbon: #000000;
+  /* Terminal Green: Green text accent for links, tags, and emphasized short phrases. Use as a supporting accent, not as a status color */
+  --color-terminal-green: #297a3a;
+}
