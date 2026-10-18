@@ -30,6 +30,9 @@ const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
 /** 复制成功对勾的自动复位时长（消息复制按钮共用）。 */
 const COPY_FEEDBACK_MS = 1500;
 
+/** TODO(#41 临时调试)：测试来源归因用，发布前连同下方标记与 debugToolSource 一起删除。 */
+const DEBUG_TOOL_SOURCE = true;
+
 /** 消息悬停操作栏：复制与保存为笔记，参照 assistant-ui ActionBar 的自动显隐。 */
 const MessageActions = memo(function MessageActions({
   content,
@@ -282,6 +285,22 @@ function splitInterrupt(parts: NonNullable<WorkspaceChat['messages'][number]['pa
   return { parts, reason: null };
 }
 
+/** 临时调试：判定这条回答来自 web_search、其他工具，还是纯生成。 */
+function debugToolSource(tools: WorkspaceChat['messages'][number]['toolResults']): string {
+  const names = tools?.map((result) => result.name) ?? [];
+  if (names.length === 0) return 'pure (no tool)';
+  const search = tools?.find((result) => result.name === 'web_search');
+  if (search) {
+    try {
+      const payload = JSON.parse(search.output?.text ?? '') as { provider?: string };
+      return `search:${payload.provider ?? 'unknown'}`;
+    } catch {
+      return 'search:parse-failed';
+    }
+  }
+  return `tools:${[...new Set(names)].join(',')}`;
+}
+
 const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
@@ -307,6 +326,7 @@ const AssistantMessage = memo(function AssistantMessage({
     part.type === 'tools' ? part.results.length > 0 : Boolean(part.text.trim()),
   );
   const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
+  const debugSource = debugToolSource(tools);
   // `dela prepare_email` 经 bash 调用，输出里带 "draftId":"<uuid>"。
   const draftIds = [
     ...new Set(
@@ -329,6 +349,11 @@ const AssistantMessage = memo(function AssistantMessage({
       {live && empty && (
         <p className="h-7 text-13 leading-7" role="status">
           <Shimmer>正在思考</Shimmer>
+        </p>
+      )}
+      {DEBUG_TOOL_SOURCE && (
+        <p className="mb-1 font-mono text-2xs text-ink-3" data-debug-tool-source>
+          [debug] {debugSource}
         </p>
       )}
       <ReplyTrace
