@@ -1,22 +1,24 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/Dela_black_bg.png">
   <img src="assets/Dela_white_bg.png" alt="Dela" width="160">
 </picture>
-
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
-[![Electron](https://img.shields.io/badge/Electron-44-47848F?logo=electron&logoColor=white)](https://www.electronjs.org)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
 </div>
 
 ---
 
+<div align="center">
+
 _The world keeps changing. Dela stays with you._
 
+</div>
+
 ---
+
+> [!IMPORTANT]
+> 下载、安装或使用 Dela，即视为你已阅读并同意本项目的[使用条款](docs/terms.md)与[隐私条款](docs/privacy.md)。
+> 如果你不同意其中部分内容，可以跳过对应服务的配置、不提供该项凭据，从而仅使用其余功能；如果你不同意全部条款，请停止使用并卸载本软件。
 
 Dela 是一款专门面向 SJTUer 的 Agent 产品。
 
@@ -54,13 +56,19 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 - **代码文件编辑**：支持绝大部分主流代码文件的高亮显示与编辑功能
 - **内置终端**：用户可以直接在应用打开内置终端（Git Bash），如果是 remote project 则默认为 ssh
 
+## 技术栈
+
+![Electron](https://img.shields.io/badge/Electron-v44-47848F?style=for-the-badge&logo=electron&logoColor=white&labelColor=1F2328)
+![React](https://img.shields.io/badge/React-v19-087EA4?style=for-the-badge&logo=react&logoColor=white&labelColor=1F2328)
+![TypeScript](https://img.shields.io/badge/TypeScript-v7-3178C6?style=for-the-badge&logo=typescript&logoColor=white&labelColor=1F2328)
+![Vite](https://img.shields.io/badge/Vite-v8-646CFF?style=for-the-badge&logo=vite&logoColor=white&labelColor=1F2328)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white&labelColor=1F2328)
+![Pi](https://img.shields.io/badge/Pi-v1.1-1E293B?style=for-the-badge&logoColor=white&labelColor=1F2328)
+![Go](https://img.shields.io/badge/Go-v1.22-00ADD8?style=for-the-badge&logo=go&logoColor=white&labelColor=1F2328)
+
 ## 下载安装
 
 从 [CDN 下载页](https://openlist.frameneo.com/@s/Dela_latest_release) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela_releases/releases/latest) 下载 Windows x64 的 NSIS（`.exe`）安装包。
-
-在 设置 › 通用 › 软件更新 中检查、下载和安装。旧版需手动覆盖安装一次带新更新机制的版本。确认安装后，Dela 保存工作区并退出，安装向导会显示进度，点击“显示细节”可展开安装日志（开始安装、关闭旧版本、解压与安装完成）；终端任务会结束。下载时，进度条左侧显示已下载 / 总大小，右侧显示百分比；传输达到 100% 后还会校验文件，准备好后才提示安装。安装完成后保留“运行 Dela”选项并点击“完成”，重新打开时会提示当前版本。差分下载不可用时退回完整下载，新版安装向导及两版覆盖升级仍需实机验证。
-
-首次启动会依次展示使用条款与隐私条款，两份都读到最底部并同意后才进入配置向导；点「不同意并退出」会直接结束应用（窗口栏的关闭按钮只是收进托盘），本机已有数据时可以先把它导出到你选择的位置。此前已经在用 Dela 的用户升级后只需补这一次同意，之后直接进入主界面。
 
 ## 本地开发
 
@@ -83,20 +91,21 @@ pnpm dev
 
 ## 文档
 
-| 文档                              | 内容                               | 读者           |
-| --------------------------------- | ---------------------------------- | -------------- |
-| [开发文档](docs/DEVELOPMENT.md)   | 架构、各子系统约定、构建与发布流程 | 贡献者（先读） |
-| [使用条款](docs/terms.md)         | 软件性质、责任划分与免责范围       | 使用者         |
-| [隐私条款](docs/privacy.md)       | 数据存放位置与联网去向             | 使用者         |
-| [更新日志](CHANGELOG.md)          | 按版本分节的变更记录               | 贡献者         |
-| [贡献指南](CONTRIBUTING.md)       | 环境准备、提交规范与协作方式       | 贡献者         |
-| [校园接口资料](docs/sjtu-apis.md) | Canvas 实测数据结构与交大接口索引  | 贡献者         |
+| 文档                                           | 内容                               | 读者           |
+| ---------------------------------------------- | ---------------------------------- | -------------- |
+| [开发文档](docs/DEVELOPMENT.md)                | 架构、各子系统约定、构建与发布流程 | 贡献者（先读） |
+| [使用条款](docs/terms.md)                      | 软件性质、责任划分与免责范围       | 使用者         |
+| [隐私条款](docs/privacy.md)                    | 数据存放位置与联网去向             | 使用者         |
+| [更新日志](CHANGELOG.md)                       | 按版本分节的变更记录               | 贡献者         |
+| [贡献指南](CONTRIBUTING.md)                    | 环境准备、提交规范与协作方式       | 贡献者         |
+| [功能边界](docs/what-we-not-do.md)             | 明确不做与需先讨论的功能           | 贡献者         |
+| [macOS 适配验证记录](docs/macos-validation.md) | Apple Silicon 适配结果与限制       | 贡献者         |
+| [安全策略](SECURITY.md)                        | 漏洞报告渠道、支持范围与安全边界   | 使用者、贡献者 |
+| [校园接口资料](docs/sjtu-apis.md)              | Canvas 实测数据结构与交大接口索引  | 贡献者         |
 
-## 作者
+## 贡献者
 
-<img src="assets/credits/changyo/avatar.jpg" alt="ChangYo" width="80" style="border-radius: 50%">
-
-**ChangYo**（[@Chang-Yo](https://github.com/Chang-Yo)）
+![Contributors](https://contrib.rocks/image?repo=Chang-Yo/Dela 'Contributors')
 
 ## 许可
 
@@ -106,18 +115,15 @@ pnpm dev
 
 <table>
   <tr>
-    <td width="90" align="center" valign="middle">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/FRAMENEO_logo_white.png">
-        <img src="assets/sponsors/FRAMENEO_logo_black.png" width="48" alt="FRAMENEO logo">
-      </picture>
+    <td width="80" align="center" valign="middle">
+      <img src="assets/sponsors/FRAMENEO_logo_black.png" width="44" alt="FRAMENEO logo">
     </td>
     <td valign="middle">
       <a href="https://www.frameneo.com/"><strong>FRAMENEO</strong></a><br>
-      为 Dela 的软件包分发提供免费的高速 CDN 服务
+      Provides CDN delivery for MAD Toolbox, reducing origin bandwidth usage for downloads and updates.
     </td>
     <td valign="middle">
-      <a href="https://www.frameneo.com/">Website</a>
+      <a href="https://www.frameneo.com/">FRAMENEO Website</a>
     </td>
   </tr>
 </table>

@@ -5,13 +5,7 @@
       "source": "Chang-Yo/skills",
       "sourceType": "github",
       "skillPath": "skills/frontend-design/SKILL.md",
-      "computedHash": "318a6e658213a7f38bab9cc7bd93d949cf8499a33f1cf0522faf4a99fad2eda3"
-    },
-    "probe-preflight": {
-      "source": "Chang-Yo/skills",
-      "sourceType": "github",
-      "skillPath": "skills/probe-preflight/SKILL.md",
-      "computedHash": "ce26deb7fe5e1b5dd1412ea3470d9fe04561a03ad2f85bd3a494ffcdad6b6c28"
+      "computedHash": "52dbce4eb4b002f0fb544b39750f4bb7e6e74af6c675713d4f94673db66c8862"
     },
     "react-dev": {
       "source": "softaworks/agent-toolkit",
@@ -24,6 +18,12 @@
       "sourceType": "github",
       "skillPath": "skills/react-useeffect/SKILL.md",
       "computedHash": "1fdf524f8335afac6f44d3460d6d20e71db9c1d14643e4a31ea17d6463504447"
+    },
+    "simple-english": {
+      "source": "AminBlg/SimpleEnglish",
+      "sourceType": "github",
+      "skillPath": "skills/simple-english/SKILL.md",
+      "computedHash": "9ee21eac93498a432a6efe1424591f250b8c06200f4bab4b84096c46a1cf6a1a"
     },
     "writing-clearly-and-concisely": {
       "source": "softaworks/agent-toolkit",

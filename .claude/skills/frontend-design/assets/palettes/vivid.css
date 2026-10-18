@@ -1,0 +1,35 @@
+/* 彩色 色系 — 整套选用，不与其他色系混搭 */
+:root {
+  /* Void: Page canvas, full-bleed backgrounds — the default everything sits on */
+  --color-void: #08090a;
+  /* Carbon: Card surfaces, nav bars — one step above canvas for contained content */
+  --color-carbon: #0f1011;
+  /* Obsidian: Elevated surfaces, deeper card panels */
+  --color-obsidian: #161718;
+  /* Graphite: Subtle borders, dividers, ghost button outlines — low-contrast structural edges */
+  --color-graphite: #23252a;
+  /* Smoke: Hairline borders at higher contrast than graphite — section separators */
+  --color-smoke: #383b3f;
+  /* Ash: Muted body text, inactive icons, secondary metadata */
+  --color-ash: #62666d;
+  /* Fog: Tertiary text, placeholder copy, icon fills */
+  --color-fog: #8a8f98;
+  /* Mist: Secondary headings, button text on dark surfaces */
+  --color-mist: #d0d6e0;
+  /* Bone: Near-white surface fills, high-contrast button text */
+  --color-bone: #e5e5e6;
+  /* Paper: Primary headings, hero type, max-contrast emphasis text */
+  --color-paper: #ffffff;
+  /* Acid Lime: Primary action buttons, active nav indicators — electric accent that breaks the monochrome system */
+  --color-acid-lime: #e4f222;
+  /* Pulse Green: Green outline accent for tags, dividers, and focused UI edges. Use as a supporting accent, not as a status color */
+  --color-pulse-green: #27a644;
+  /* Coral Red: Red wash for highlight backgrounds, decorative bands, and soft emphasis behind content. Use as a supporting accent, not as a status color */
+  --color-coral-red: #eb5757;
+  /* Signal Teal: Decorative accent, informational icon fills */
+  --color-signal-teal: #02b8cc;
+  /* Iris Violet: Tag/badge fills — soft chromatic punctuation on tags and labels */
+  --color-iris-violet: #6366f1;
+  /* Lavender: Secondary tag fills, category indicators */
+  --color-lavender: #8b5cf6;
+}
