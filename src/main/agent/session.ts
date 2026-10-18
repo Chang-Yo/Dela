@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { WebContents } from 'electron';
+import { shell, type WebContents } from 'electron';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { ImageContent, TextContent } from '@earendil-works/pi-ai';
@@ -27,6 +27,7 @@ import { getActiveLlmProvider } from './providers';
 import { openPiSession } from './pi';
 import { agentEnvironment } from './environment';
 import { remoteProjectOf } from '../workspace/api';
+import { resolveSessionFile } from './session-path';
 import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import { notifyRunFinished } from '../settings/task-notify';
 
@@ -107,6 +108,23 @@ function sessionCwd(projectId: string | null, stored: string | null): string {
   if (!existsSync(path) || !statSync(path).isDirectory())
     throw new Error(`项目目录不存在：${path}`);
   return path;
+}
+
+/** 会话内文件的定位/打开入口：相对路径按会话 cwd 解析；远程项目的文件不在本机。 */
+function sessionFilePath(sessionId: string, rawPath: string): string {
+  const meta = row(sessionId);
+  if (meta.project_id && remoteProjectOf(meta.project_id))
+    throw new Error('远程项目的文件不在本机，请用远端方式打开');
+  return resolveSessionFile(sessionCwd(meta.project_id, meta.cwd), rawPath);
+}
+
+export function revealSessionFile(sessionId: string, path: string): void {
+  shell.showItemInFolder(sessionFilePath(sessionId, path));
+}
+
+export async function openSessionFile(sessionId: string, path: string): Promise<void> {
+  const error = await shell.openPath(sessionFilePath(sessionId, path));
+  if (error) throw new Error(error);
 }
 
 async function ensureLive(id: string): Promise<Live> {

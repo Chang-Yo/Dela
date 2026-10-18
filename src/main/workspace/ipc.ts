@@ -348,6 +348,13 @@ export function registerWorkspaceIpc(
     }
     shell.showItemInFolder(path);
   });
+  handle('open-file', async (value) => {
+    prepareStorage();
+    const path = await workspaceFilePath(workspaceEntryIdSchema.parse(value));
+    if (!path) throw new Error('此内容没有本地文件');
+    const error = await shell.openPath(path);
+    if (error) throw new Error(error);
+  });
   handle('choose-directory', async () => {
     const result = await dialog.showOpenDialog({
       title: '新建工作区与课程资料的保存位置（已有文件不迁移）',

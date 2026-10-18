@@ -11,4 +11,6 @@ export const chat = {
   saveCommand: (input: { id?: string; name: string; prompt: string }) =>
     invoke('chat:save-command', input) as Promise<ChatCommandView>,
   deleteCommand: (id: string) => invoke('chat:delete-command', id),
+  revealFile: (sessionId: string, path: string) => invoke('chat:reveal-file', sessionId, path),
+  openFile: (sessionId: string, path: string) => invoke('chat:open-file', sessionId, path),
 } satisfies ChatApi;

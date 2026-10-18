@@ -56,7 +56,7 @@
 
 ### 2.4 GUI
 
-标签工作台（聊天 / 笔记 / 预览 / 终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。
+标签工作台（聊天 / 笔记 / 预览 / 终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。聊天回答末尾汇总本轮 `write` / `edit` 命中的文件（按首次出现去重），每行给出文件名、所在目录与「定位 / 打开」两个按钮；相对路径按会话 cwd 解析、必须是本机存在的文件，远程项目拒绝本机打开。
 
 聊天工具代码块复用 `CodeBlock`：标题栏的复制按钮保持单行且不参与收缩，长路径在剩余空间省略，避免聊天区的 `overflow-wrap: anywhere` 将 Copy / Copied 拆行；正文的换行与复制内容沿用原行为。
 

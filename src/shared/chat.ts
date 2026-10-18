@@ -33,4 +33,8 @@ export interface ChatApi {
   listCommands(): Promise<ChatCommandView[]>;
   saveCommand(input: { id?: string; name: string; prompt: string }): Promise<ChatCommandView>;
   deleteCommand(id: string): void;
+  /** 在系统文件管理器中定位本轮生成的文件；相对路径按会话 cwd 解析，文件须真实存在。 */
+  revealFile(sessionId: string, path: string): Promise<void>;
+  /** 用系统默认程序打开本轮生成的文件；相对路径按会话 cwd 解析，文件须真实存在。 */
+  openFile(sessionId: string, path: string): Promise<void>;
 }

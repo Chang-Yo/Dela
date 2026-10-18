@@ -24,7 +24,9 @@ import {
   listSessions,
   newSession,
   openSession,
+  openSessionFile,
   preloadPi,
+  revealSessionFile,
   subscribeChat,
   updateSessionVisibility,
 } from './session';
@@ -168,6 +170,14 @@ export function registerAgentIpc() {
   chatHandle('list-commands', () => listChatCommands());
   chatHandle('save-command', (_event, input) => saveChatCommand(input));
   chatHandle('delete-command', (_event, id) => deleteChatCommand(uuid.parse(id)));
+  // 本轮交付物：定位到资源管理器 / 用默认程序打开；路径由会话 cwd 限定。
+  const chatFilePath = (path: unknown) => z.string().min(1).max(32_767).parse(path);
+  chatHandle('reveal-file', (_event, sessionId, path) =>
+    revealSessionFile(uuid.parse(sessionId), chatFilePath(path)),
+  );
+  chatHandle('open-file', (_event, sessionId, path) =>
+    openSessionFile(uuid.parse(sessionId), chatFilePath(path)),
+  );
 
   handle('llm:list', () => listLlmProviders());
   handle('llm:save', (input) => invalidating(() => saveLlmProvider(input)));

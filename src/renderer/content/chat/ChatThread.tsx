@@ -23,15 +23,15 @@ import type { MailDraftDialog } from './chat-source';
 import { ReplyTrace } from './ToolTimeline';
 import { ChatMarkdown } from './markdown';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
+import { basenameOf, collectTurnFiles, dirnameOf } from './turn-files';
+import { showToast } from '../../app/toasts';
+import { errorText } from '../../workspace/store';
 
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
 
 /** 复制成功对勾的自动复位时长（消息复制按钮共用）。 */
 const COPY_FEEDBACK_MS = 1500;
-
-/** TODO(#41 临时调试)：测试来源归因用，发布前连同下方标记与 debugToolSource 一起删除。 */
-const DEBUG_TOOL_SOURCE = true;
 
 /** 消息悬停操作栏：复制与保存为笔记，参照 assistant-ui ActionBar 的自动显隐。 */
 const MessageActions = memo(function MessageActions({
@@ -285,26 +285,11 @@ function splitInterrupt(parts: NonNullable<WorkspaceChat['messages'][number]['pa
   return { parts, reason: null };
 }
 
-/** 临时调试：判定这条回答来自 web_search、其他工具，还是纯生成。 */
-function debugToolSource(tools: WorkspaceChat['messages'][number]['toolResults']): string {
-  const names = tools?.map((result) => result.name) ?? [];
-  if (names.length === 0) return 'pure (no tool)';
-  const search = tools?.find((result) => result.name === 'web_search');
-  if (search) {
-    try {
-      const payload = JSON.parse(search.output?.text ?? '') as { provider?: string };
-      return `search:${payload.provider ?? 'unknown'}`;
-    } catch {
-      return 'search:parse-failed';
-    }
-  }
-  return `tools:${[...new Set(names)].join(',')}`;
-}
-
 const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
   activeTool,
+  sessionId,
   onSaveNote,
   onOpenDraft,
   onRetry,
@@ -312,6 +297,8 @@ const AssistantMessage = memo(function AssistantMessage({
   message: WorkspaceChat['messages'][number];
   live: boolean;
   activeTool: string | undefined;
+  /** 所属会话 id；本轮交付物的定位/打开要走它做目录边界校验。 */
+  sessionId: string | null;
   onSaveNote: ((text: string) => void) | undefined;
   /** 容器未注入邮件草稿弹窗时为 undefined，对应入口隐藏。 */
   onOpenDraft: ((draftId: string) => void) | undefined;
@@ -326,7 +313,16 @@ const AssistantMessage = memo(function AssistantMessage({
     part.type === 'tools' ? part.results.length > 0 : Boolean(part.text.trim()),
   );
   const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
-  const debugSource = debugToolSource(tools);
+  const turnFiles = collectTurnFiles(parts);
+  const runFileAction = (action: 'reveal' | 'open', path: string) => {
+    const api = window.dela?.chat;
+    if (!api || !sessionId) return;
+    const pending =
+      action === 'reveal' ? api.revealFile(sessionId, path) : api.openFile(sessionId, path);
+    void pending.catch((cause: unknown) =>
+      showToast({ variant: 'error', title: '打开失败', description: errorText(cause) }),
+    );
+  };
   // `dela prepare_email` 经 bash 调用，输出里带 "draftId":"<uuid>"。
   const draftIds = [
     ...new Set(
@@ -349,11 +345,6 @@ const AssistantMessage = memo(function AssistantMessage({
       {live && empty && (
         <p className="h-7 text-13 leading-7" role="status">
           <Shimmer>正在思考</Shimmer>
-        </p>
-      )}
-      {DEBUG_TOOL_SOURCE && (
-        <p className="mb-1 font-mono text-2xs text-ink-3" data-debug-tool-source>
-          [debug] {debugSource}
         </p>
       )}
       <ReplyTrace
@@ -386,6 +377,41 @@ const AssistantMessage = memo(function AssistantMessage({
             检查并发送邮件
           </Button>
         ))}
+      {!live && turnFiles.length > 0 && (
+        <section className="mt-3 rounded-card border border-line p-3">
+          <p className="mb-2 text-xs text-ink-3">本轮改动 · {turnFiles.length} 个文件</p>
+          <ul className="grid gap-1.5">
+            {turnFiles.map(({ path, count }) => (
+              <li className="flex min-w-0 items-center gap-2" key={path}>
+                <FileText aria-hidden className="size-3.5 shrink-0 text-ink-3" />
+                <span className="shrink-0 truncate text-13" title={path}>
+                  {basenameOf(path)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs text-ink-3" title={path}>
+                  {dirnameOf(path)}
+                </span>
+                {count > 1 && <span className="shrink-0 text-2xs text-ink-3">{count} 次</span>}
+                <Button
+                  onClick={() => runFileAction('reveal', path)}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  定位
+                </Button>
+                <Button
+                  onClick={() => runFileAction('open', path)}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  打开
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {!live && content && <MessageActions content={content} onSaveNote={onSaveNote} />}
     </div>
   );
@@ -539,6 +565,7 @@ export const ChatThread = memo(function ChatThread({
             ) : (
               <AssistantMessage
                 key={`${chat.sessionId}:${index}`}
+                sessionId={chat.sessionId}
                 onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
                 live={streaming && index === messages.length - 1}
                 message={message}
