@@ -368,18 +368,22 @@ pnpm test
 
 ## 14. CI
 
-`.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行：
+保留两个 workflow：`check.yaml` 负责 PR 与 main 检查，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR、标签或手动启动检查。
 
-- Windows 任务为 `Check win-x64`，使用 `windows-2022`，与发布一致的 runner 和固定 Node / pnpm 版本；目录打包通过 `package:dir` 准备 MinGit，避免缺少随包 Bash。
-- Mac 任务仅为 `Check mac-arm64`（`macos-15`），按 [GitHub 官方 runner 架构表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)原生安装依赖、构建与验证；启动时核对 Node 为 arm64。按产品范围不构建或验证 Intel Mac。
-- helper 任务名即 `Check helper linux (amd64 + arm64)`，在 `ubuntu-24.04` 用 Go 1.27.2 执行 `go vet`（含交叉 `linux/arm64`）、`go test`、构建两个架构的静态产物并跑 `--version`（arm64 走 qemu 用户态仿真）。Windows 与 Mac 任务下载当次产物用于打包，并逐字节核对打包后的文件。
-- 执行冻结锁文件安装、`pnpm format:check`、`pnpm lint`、`pnpm build`（含类型检查）、`pnpm test`、`pnpm smoke`、应用目录打包、包内 helper 核对及打包后冒烟。**CI 是分步执行这些命令，不是调用 `pnpm check`。**
-- Go 测试只使用 runner 本机临时目录、inotify 与回环 HTTP，不连接 SSH。Windows 任务明确留空 `DELA_REMOTE_HOST`，真实 SSH 联调继续手动运行，不作为发布前置条件。
-- Mac 任务额外执行依赖、离线运行时、桌面与终端冒烟，构建 DMG/ZIP，并通过 `scripts/verify-macos-package.ts` 检查应用标识、架构、随包资源、许可证与压缩包完整性，再跑实际 `.app` 及包内原生依赖/桌面/终端冒烟。DMG/ZIP 作为 `development-mac-arm64` 验证产物保留 7 天，不发布 Release。
-- `scripts/macos-launch-smoke.ts` 经 LaunchServices 启动实际 `.app`，使用仓库外的工作目录与系统 PATH，读取应用自身的冒烟成功标记；`open` 返回成功本身不算验收。该模式使用隔离 profile、不注册登录项，仍不代替下载后 Gatekeeper 与真实首启引导验收。
-- Windows 检查不生成 NSIS 安装包；所有检查仅使用 `contents: read` 权限，同一 PR 或 main 分支的新提交会取消旧检查。Mac workflow 的云端执行结果需另行验收，不能由本地验证替代。
+`.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
 
-若要限制合并，需在 GitHub 的 main 分支规则中将已验收的对应平台任务设为必需检查——仅添加 workflow 不会自动启用分支保护。
+- `changes` 使用固定版本的 dorny/paths-filter。PR 按相对目标分支的累计改动分流；main 按本次 push 的全部改动分流，包括删除文件。
+- `basic` 在 Windows 执行格式检查。仅修改根目录 Markdown、`docs/`、`.agents/`、`.claude/` 或 `skills-lock.json` 时，安装依赖但不执行安装脚本，不构建或测试应用。其余改动执行 lint、`pnpm build`（含类型检查）及完整单元测试。
+- `helper` 在基础检查通过后按需执行：Go vet/test、Linux amd64/arm64 构建及可执行文件冒烟。触发范围是 `helper/`、helper 构建脚本、预编译 helper，以及公共依赖与构建配置。
+- `windows` / `macos` 在基础检查通过后按路径执行。主进程根目录、terminal/remotes/documents/update、preload/shared、scripts、helper 和共享工具资源触发两端；OpenSSH 资源触发 Windows，Darwin 工具触发 Mac。公共依赖、锁文件、构建配置、workflow、build/assets 触发两端及 helper。精确规则以 workflow 中的 filters 为准。
+- 平台检查默认打目录包并验证包内资源和启动。Windows 下载基础任务的 out 产物，不重复构建；Mac 在 arm64 runner 原生构建、测试并验证原生依赖、桌面、终端与 LaunchServices。两端不再重复格式/lint，也不再调用会重复构建的 package 脚本。
+- 公共配置与资源改动额外生成 Windows NSIS、Mac DMG/ZIP；修改 Mac 包验证脚本也生成归档。Mac 归档通过完整性检查后保留 7 天；普通目录包不上传。Windows 中间构建产物保留 1 天。
+- helper 被选中时，平台任务必须等待其成功并下载当次产物；无需重建时使用入库的 helper，不能因 helper 合理跳过而跳过平台任务。
+- `CI required` 始终汇总结果：changes/basic 必须成功，被选中的任务必须成功，未选中的任务必须为 skipped。失败、取消或非预期跳过均不能通过。
+
+GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换旧的平台必需检查名称；修改 workflow 本身不会更新远端分支规则。首次云端运行成功后再切换规则。变更识别 job 额外使用 `pull-requests: read`，其余检查仅有 `contents: read`。
+
+路径分流可能遗漏隐含的平台依赖；新增运行时入口或资源目录时同步更新 filters。真实 SSH 联调仍手动执行 `pnpm test:remote`，不接入 CI。Mac 云端冒烟不能替代签名、公证、Gatekeeper 下载后首启与自动更新验收；正式发布仍只处理 Windows。
 
 ## 15. 版本与发布
 
@@ -397,7 +401,7 @@ pnpm test
 - 单包 pnpm 锁文件不记录应用自身版本，升版无需修改锁文件。
 - preload 在构建时从 `package.json` 内联版本号，设置页关于与冒烟检查随之同步；升版后需重新构建，开发模式需重启。
 - 安装包会带上 `vendor/openssh`（`extraResources` 拷到 `resources/openssh`）。升级或更换它时按该目录 [README](../vendor/openssh/README.md) 的步骤做，并在打包目录里实跑一次 `resources\openssh\ssh.exe -V` 与一次真实连接。
-- 安装包也会带上 helper（`extraResources` 拷到 `resources/dela-helper`）。CI 与发布从本次源码构建 Linux amd64 与 arm64 产物（`build-helper.ts --all`），覆盖仓库中的预编译文件后打包，避免发布旧 helper。预编译文件仍保留供无 Go 的本地开发者使用；升级 helper 时同步 Go 与 TS 两端的版本常量。
+- 安装包也会带上 helper（`extraResources` 拷到 `resources/dela-helper`）。CI 在 helper 或公共配置变动时、发布在每次发版时，从本次源码构建 Linux amd64 与 arm64 产物（`build-helper.ts --all`），覆盖仓库中的预编译文件后打包，避免发布旧 helper。预编译文件仍保留供无 Go 的本地开发者使用；升级 helper 时同步 Go 与 TS 两端的版本常量。
 - 安装包会带上搜索工具 `vendor/bin`（`extraResources` 拷到 `resources/bin`）。升级 rg/fd 时按该目录 [README](../vendor/bin/README.md) 的步骤做，并在打包目录里实跑一次 `resources\bin\rg.exe --version` 与 `resources\bin\fd.exe --version`。
 - 安装包会带上 MinGit 运行时：`pnpm package:dir` / `pnpm package:dist` 与发布 CI 都先执行 `node scripts/prepare-runtime.ts`（下载、SHA256 校验、解压到 `.build/mingit`，幂等），再由 `extraResources` 拷到 `resources/mingit`。仓库不提交该产物；换 MinGit 版本只改 `src/main/terminal/mingit.ts` 的成对常量（脚本从源码解析同一份定义），打包目录里实跑一次 `resources\mingit\usr\bin\bash.exe --version` 验证。
 
