@@ -8,7 +8,7 @@
 - 日常编码约束：[AGENTS.md](../AGENTS.md)
 - 远端 helper 的协议与端点表：[helper/README.md](../helper/README.md)
 - 校园接口实测与资料索引：[sjtu-apis.md](sjtu-apis.md)
-- macOS 各阶段实验与验收证据：[macos-validation.md](macos-validation.md)
+- macOS 适配与验收证据：[macos-validation.md](macos-validation.md)
 
 ## 1. 产品与边界
 
@@ -432,7 +432,7 @@ pnpm test
 
 ### 16.1 macOS 开发约定
 
-macOS 处于适配开发阶段，尚不提供正式发行版。2026-10-16 用户明确只支持 Apple Silicon，不适配 Intel Mac；早期记录中的 x64/双架构计划已撤销。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包及 DMG/ZIP 解包启动；具体环境、各阶段结果及证据范围见 [macOS 适配验证记录](macos-validation.md)。
+macOS 处于适配开发阶段，尚不提供正式发行版。2026-10-16 用户明确只支持 Apple Silicon，不适配 Intel Mac；早期记录中的 x64/双架构计划已撤销。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包与 DMG/ZIP 解包启动、主要桌面交互、文档读取及核心校园业务；具体环境、结果与证据范围见 [macOS 适配验证记录](macos-validation.md)。
 
 保持一个应用、一个 package、一套主干代码。业务逻辑、数据格式与 IPC 共用，Windows 合作者的常规业务功能无需另写 macOS 版本；涉及系统命令、路径或外部程序时仍需适配与双平台回归。平台差异优先留在现有定位、进程启动与系统交互函数中，出现真实重复和多个调用方后再提取共享函数。PPTX 在 Mac 仅提供系统默认应用打开，复用同一个资源解析与 `shell.openPath` 入口，不接入 Keynote 或其他 PDF 转换器；Windows 保留 PowerPoint 转换。
 
@@ -458,11 +458,11 @@ Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保
 | 登录启动       | 保留默认开启的产品行为，参数按系统处理                                  | Mac 登录项许可、实际登录后隐藏启动仍待验收；冒烟脚本禁止注册，避免测试修改启动偏好                                                              |
 | PPTX 预览      | Mac 仅用系统默认应用打开原文件；Windows 保留 PowerPoint 转换            | Mac 不显示导出/重导出按钮，主进程提前拒绝转换；已有 PDF 仍可阅读并提示过期，不要求安装 Keynote                                                  |
 | Agent 文档读取 | Windows x64 / Apple Silicon 共用脚本与锁文件，安装器按平台选择运行时    | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；扫描件只输出页面图片，不宣称 OCR。与 GUI 阅读器及 PPTX 外部打开分别验收                 |
-| 分发与凭据     | 相同源码生成不同平台产物                                                | DMG/ZIP 用于开发验证；Mac 应用内更新明确不可用。签名、公证、稳定 Keychain 身份、最低版本和真实账号仍待验收；Intel 不在支持范围                  |
+| 分发与凭据     | 相同源码生成不同平台产物                                                | DMG/ZIP 用于开发验证；Mac 应用内更新明确不可用。签名、公证、稳定 Keychain 身份与最低版本仍待验收；真实账号仅完成本机抽样；Intel 不在支持范围    |
 
-本机已通过界面实测从 Dela 将含中文、空格和分号的项目目录交给 Finder 与 VS Code，笔记两种编辑模式下的 ⌘W、自动保存及 ⌘Q 退出也已验证；测试使用隔离 profile，由开发 Electron 加载打包代码，范围见[验证记录](macos-validation.md#本地系统集成与笔记交互验收)。实际登录启动、真实邮件草稿保存、系统级键位冲突、全屏/多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
+本机已通过界面实测从 Dela 将含中文、空格和分号的项目目录交给 Finder 与 VS Code，笔记两种编辑模式下的 ⌘W、自动保存及 ⌘Q 退出也已验证；测试使用隔离 profile，由开发 Electron 加载打包代码，范围见[验证记录](macos-validation.md#已验证能力)。实际登录启动、系统级键位冲突、多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
 
-水源授权、课表和课堂视频登录共用 `campus.ts` 中的窗口创建函数：Mac 使用带原生标题栏的普通子窗口，提供关闭按钮、Esc 与 ⌘W；Windows 保留模态窗口。关闭快捷键仅作用于辅助窗口，不抢主工作台的关标签动作。外部页面仍使用校园 Session、sandbox 与 contextIsolation，不加载主界面 preload。水源重复授权唤回现有窗口而不替换密钥，关窗后保留待绑定状态，绑定成功关闭本次窗口，失败可重试；课表/视频按发起窗口和入口 URL 复用正在进行的登录及其结果，取消时返回「未完成登录」并清理重探计时器。来源与验证范围见 [验证记录](macos-validation.md#水源授权窗口无法返回的调查)，程序调用关窗测试不能替代可见关闭入口验收。
+水源授权、课表和课堂视频登录共用 `campus.ts` 中的窗口创建函数：Mac 使用带原生标题栏的普通子窗口，提供关闭按钮、Esc 与 ⌘W；Windows 保留模态窗口。关闭快捷键仅作用于辅助窗口，不抢主工作台的关标签动作。外部页面仍使用校园 Session、sandbox 与 contextIsolation，不加载主界面 preload。水源重复授权唤回现有窗口而不替换密钥，关窗后保留待绑定状态，绑定成功关闭本次窗口，失败可重试；课表/视频按发起窗口和入口 URL 复用正在进行的登录及其结果，取消时返回「未完成登录」并清理重探计时器。来源与验证范围见 [验证记录](macos-validation.md#已验证能力)。可见关闭入口已在本机实机界面验收；自动测试覆盖窗口形态、复用与绑定路径。
 
 按当前协作决定，SSH 真机回归不作为本次 macOS 适配的阻塞项：合作者反馈已有远端测试稳定，本次重点验证 Mac 编译、打包、启动与本地 SSH 工具定位。该反馈不等于 macOS 客户端到远端的链路已验收；适配分支仍未执行真实 SSH 套件，不重复要求提供测试主机。
 
@@ -491,7 +491,7 @@ pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Cont
 
 `pnpm smoke:documents` 是 Apple Silicon 专用的显式联网检查，不包含在默认 CI 冒烟中：从官方源安装真实组件到独立临时 profile，经原 Skills API 启用，执行 `prepareDocumentFile` → 未修改的 Python 脚本 → `releaseDocumentResource`，读取合成 DOCX/XLSX/PPTX 和扫描 PDF，最后清理 profile；读取子进程仅使用系统 PATH。首次组件下载约 128 MiB（本机所选 wheels），需要 GitHub、Python 分发源和 PyPI 可达；网络失败与取消必须保留可重试状态。
 
-传入 `app.asar` 的冒烟由开发 Electron 加载包内代码与资源，Keychain 测试也属于开发 Electron 身份；实际 `.app` 另用 `--smoke-test` 检查。上述检查不代表真实账号业务、模型调用或正式签名应用已验收。早期 Keynote 转换实验见[验证记录](macos-validation.md#复现)，仅作历史证据；当前产品决定不接入转换器。
+传入 `app.asar` 的冒烟由开发 Electron 加载包内代码与资源，Keychain 测试也属于开发 Electron 身份；实际 `.app` 另用 `--smoke-test` 检查。上述检查不代表正式签名应用、全部账号业务或全部模型调用已验收。早期 Keynote 转换实验仅作历史证据，已从当前验证记录移除；当前产品决定不接入转换器。
 
 ## 17. 当前限制
 
