@@ -1,37 +1,13 @@
-# Dela 开发约束
+- **ATTENTION: This file can ONLY be modified and mantained by HUMAN.**
+- **To Agents: You can NEVER edit this file without permission. You can NEVER edit this file directly.**
+  - If the user ask you to edit it, you should remind him/her to edit by own hand.
 
-- 先读 `docs/DEVELOPMENT.md`（架构、子系统约定与构建发布流程的唯一真源）。用户最新明确决定优先于文档；无法取得 jAccount 开放平台的 client_id 是固定约束。
-- 单应用、单 package。`pnpm-workspace.yaml` 仅用于 pnpm 12 设置，不引入子包或 monorepo。
-- 优先一个函数或现有文件；出现真实重复和多个调用方后才提取抽象，不预建 Manager/Service/Factory 等层级。
-- renderer 不导入 main，不访问凭据和数据库；通过有限的 preload API 通信。Vite 不自动加载仓库 `.env`。
-- 不读取或输出无关密钥，不提交 `.env`、mobileconfig、个人数据、日志和本地工具。打包只包含明确产物。
-- 保持精确依赖与锁文件，使用 Node.js 24.21.0、pnpm 12.3.4；本机可先执行 `. ./scripts/use-local-tools.ps1`。
-- 前端 UI 优先复用 `@/components/ui/beautifului/`（vendored beautiful-ui，见其 README）；组件不满足时优先在该库内微调或增补（以 `Dela 适配` 注释标注并记录到 README），而不是另写自研样式。被替代的自研 UI 组件与样式必须顺手清理，禁止保留 Dead Code。
-- 改动后执行相关检查。涉及构建或原生依赖时，验证 `pnpm build`、`pnpm smoke` 和打包后启动。
-- 每次改动前和完成汇报时，明确影响范围：仅 macOS、仅 Windows、双端共用，或仅文档/开发工具，并区分代码影响与各平台实际验证结果。macOS 适配任务中，若会改变 Windows 的功能或交互，须先说明具体变化并取得用户明确同意再实施；不能将 macOS 适配授权视为 Windows 功能调整授权。共享文件是否影响双端，应按实际执行分支判断。
-- 重要改动同步更新 `CHANGELOG.md`（按版本分节的变更记录）与 `docs/DEVELOPMENT.md`（架构与流程）；面向使用者的变化更新 README。区分已验证事实、待验证能力与产品设想，不能以占位结果宣称功能完成。
-- `CHANGELOG.md` 每个版本分节最前面的 `### 亮点` 由 AI 维护，**面向普通用户**，会原样显示在更新后首次启动的「更新内容」弹窗里：
-  - 只写用户能感知的变化（新能力、体验改进、修好的问题），不写重构、测试、脚本、文件名、接口名与内部术语；
-  - 每版 1～4 条，每条一句话，说清「现在可以做什么 / 哪里变了」，必要时给出设置路径（如「设置 › 通用 › 导航入口」）；
-  - 语气平实友好，用「你」，不用感叹号、不夸大；纯内部版本不写亮点，弹窗即不出现。
-- 本项目以 GPL-3.0-or-later 发布。引入第三方代码须保留其许可证与来源并注明修改；来源不明或许可证不兼容的代码不得进入本仓库。
-- 每次产生大量的、具有统一主题的改动diff时，主动提醒用户是否需要提交commit
-
-## 仓库位置与姊妹仓库
-
-本仓库位于 `E:\GithubRepos\DelaProject\Dela`（2026-10 由 `E:\GithubRepos\Dela` 迁入）。同级的 `../Dela_Web` 是**另一个独立仓库**，负责产品官网（介绍、下载、更新日志）：
-
-- 两仓库互不 import，各自安装、构建、发版。Dela 仍是单应用、单 package，不因此变成 monorepo，也不引入 pnpm workspace 子包。
-- 跨仓库的**设计语言真源在本仓库**：`src/renderer/components/ui/beautifului/beautifului.css`。改配色、圆角、阴影、缓动后，需要同步到 `Dela_Web/src/app/globals.css`（单向）。
-- 分工与边界见 `../AGENTS.md`，官网侧约束见 `../Dela_Web/AGENTS.md`。
-
-# Coding core rules
-
-## 1. 先思考再编码
+# Working core rules
 
 **"不要默认假设。不要隐藏困惑。呈现权衡。"**
-
 **每个人的想法都受限于认知，注意提醒用户的Unknown unknown。**
+
+## 1. 先思考再编码
 
 实现之前：
 
@@ -46,7 +22,7 @@
 - 不实现超出需求的特性。
 - 不为仅使用一次的代码做抽象。
 - 不添加未经要求的"灵活性"或"可配置性"。
-- 不处理在当前系统边界内不会发生的错误场景。
+- **不处理在当前系统边界内不会发生的错误场景。**
 
 ## 3. 精准改动
 
@@ -57,10 +33,7 @@
 - 不要"改善"相邻的代码、注释或格式。
 - 不要重构没有问题的代码。
 - **与现有风格保持一致。**
-- 非必要不要每次修改文件时都写注释，代码本身就是解释，除非是必须考虑的失败案例
 - 如果发现无关的废弃代码，提出来而不是直接删除。
-- 前端UI设计中不要自主加上MagicNumber，如果有，比如向用户报告
-- 禁止使用 .mjs ，一律改为 TS
 
 当你的改动产生了孤立的代码时：
 
@@ -69,29 +42,68 @@
 
 检验标准："每一行改动都应该能追溯到用户的请求。"
 
-## 4. 从用户体验出发设计UX
+## 4. 代码提交
 
-- 用贴切的图标/ICON代替文字，减少认知负担
-- 学习优秀软件的设计，比如Apple，ChatGPT网页版
-- 存在动画时，维持视线的稳定移动
-  - 若一个元素一直存在，尽量不要出现移动方向之外的位移变化
-  - 若一个元素在动画前后存在状态发生改变，尽量不要影响其他元素的位移
+- 代码提交前应检查是否有相关文档需要更新，如果有，必须先更新之
+- commit信息始终遵循社区主流规范，不添加“第一轮”“批次”等无效工作计划信息
+- 每次commit的代码应该服务于同一个主题，目的或者任务，不要将多个关联不大的改动一起提交
+- 如果工作区出现了其他你没有参与改动的代码，除非用户要求，不要擅自修改或者commit对方的改动
 
-## 5. subagents
+## 5. 注释
 
-- 当你需要开启subaget并且提交给subagents的任务是多个重复类型的任务时，考虑增加subagent的数量并行执行提高速度
-- 记住，你最多同时开始5个subagents，控制好你的并发数
+- 不要写无意义的废话注释
+- 不要写将代码重新解释一遍的注释，代码本身就能够解释
+- 不要写代码工作的原理，而应该写
+  - 这个模块设计的理念，它在整个架构实现中的定位，它服务于/连接了/解决了什么
+  - MagicNumber的取舍，为什么会出现硬编码的MagicNumber
+- 保持代码简洁，用词精准，消除语义潜在的歧义
 
-## 6. 视觉检测
+## 6. 其他
 
-- 对于设计到动画效果而不是静态固定页面的检测，禁止使用 playwright, 禁止自己写探针脚本来截取动画多帧，应该让用户自己审阅动画效果
+- 禁止写 .cjs 文件，全部一律换为 .ts 格式
 
-## 7. 代码提交
+# 文件目录
 
-- commit信息始终遵循主流规范，不添加“第一轮”“批次”等无效信息
-- 当代码出现其他未见过的改动时，意味着有另一个Agent在并行工作，请只提交自己的改动，不要影响其他的改动
+下面是 Dela 项目的基本文件结构，在修改对应的代码前应该先定位代码对应的模块位置，并阅读足够的代码来获取到足够的上下文：
 
-## 8. 代码/文档维护
+```
+Dela/
+├─ src/
+│  ├─ main/                   Electron 主进程
+│  │  ├─ agent/               Pi 内核接入、工具与运行时
+│  │  ├─ canvas/              Canvas 课程资料
+│  │  ├─ documents/           文档读取与 Skill 组件
+│  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
+│  │  ├─ notifications/       通知轮询
+│  │  ├─ remotes/             远程项目与 helper 隧道
+│  │  ├─ search/              全局搜索
+│  │  ├─ settings/            设置与模型/网络配置
+│  │  ├─ shuiyuan/            水源社区
+│  │  ├─ terminal/            内置终端与 Bash 定位
+│  │  ├─ timetable/           课表
+│  │  ├─ todo/                TODO
+│  │  ├─ update/              应用内更新
+│  │  ├─ vsjtu/               致远一号
+│  │  └─ workspace/           工作区文件
+│  ├─ preload/                contextBridge 与有限 API
+│  ├─ renderer/               React 界面
+│  │  ├─ app/                 应用外壳、主题与全局状态
+│  │  ├─ workbench/           标签工作台
+│  │  ├─ content/             聊天、笔记、预览、审阅、终端内容区
+│  │  ├─ navigation/          侧栏与导航
+│  │  ├─ sessions/            会话管理
+│  │  ├─ workspace/           工作区浏览
+│  │  ├─ features/            业务功能页（mail、settings、timetable…）
+│  │  ├─ components/          通用组件与 beautifului
+│  │  ├─ lib/                 渲染层工具
+│  │  └─ styles/              全局样式与设计 token
+│  └─ shared/                 进程间 IPC 契约与纯函数
+├─ helper/                    Go 远端 helper
+├─ scripts/                   开发、冒烟、打包与校验脚本
+├─ docs/                      开发文档、条款与接口资料
+├─ vendor/                    入库的 helper、搜索工具与 OpenSSH
+├─ assets/                    图标与品牌素材
+└─ build/                     打包用图标等构建资源
+```
 
-- 当修改了旧代码时，必须检查一遍是否需要更新相关测试，不要等到测试时才发现测试未更新
-- README只能由人类编辑和维护，如果你是Agent，**绝对禁止擅自改动**，但可以提醒人类改动
+如果出现较大的代码改动，需要及时更新该目录树。
