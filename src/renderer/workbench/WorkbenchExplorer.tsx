@@ -39,6 +39,7 @@ import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
 import { SourcesTree } from '../navigation/SourcesTree';
+import { CanvasDownloadsPanel } from '../navigation/CanvasDownloadsPanel';
 import { latestTermOf } from '../../shared/canvas';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
@@ -89,6 +90,15 @@ export function WorkbenchExplorer({
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
   const canvas = useWorkspaceStore((s) => s.canvas);
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const downloadCanvas = async (courseId: number, itemId?: string) => {
+    try {
+      const task = await window.dela?.canvas.startDownload({ courseId, itemId });
+      if (task) setDownloadsOpen(true);
+    } catch (cause) {
+      showToast({ variant: 'error', title: '无法开始下载', description: errorText(cause) });
+    }
+  };
   const rootId = entries.some((entry) => entry.id === projectId) ? projectId : null;
   const root = entries.find((e) => e.id === rootId);
   // 打开的若是远程项目，这棵树本轮只读：拖入的落点是远端 POSIX 路径，
@@ -449,6 +459,7 @@ export function WorkbenchExplorer({
                       <GraduationCap className="size-4" />
                       课程资料
                     </button>
+                    <CanvasDownloadsPanel open={downloadsOpen} onOpenChange={setDownloadsOpen} />
                     <Button
                       aria-label="刷新课程资料"
                       className="hover:bg-hover-2"
@@ -495,6 +506,7 @@ export function WorkbenchExplorer({
                         bySource={bySource}
                         expanded={expanded}
                         onArchive={() => setArchiveOpen(true)}
+                        onDownload={downloadCanvas}
                         onExpand={expand}
                         onLink={(id) => onAction('link', id)}
                         onOpen={onOpenDocument}
@@ -556,6 +568,7 @@ export function WorkbenchExplorer({
                   {projectId === null && (
                     <SourcesTree
                       archived
+                      onDownload={downloadCanvas}
                       bySource={bySource}
                       expanded={expanded}
                       onExpand={expand}

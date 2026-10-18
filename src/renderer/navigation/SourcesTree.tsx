@@ -28,6 +28,7 @@ export function SourcesTree({
   archived = false,
   onArchive,
   onLink,
+  onDownload,
 }: {
   expanded: string[];
   onExpand: (id: string, open: boolean) => void;
@@ -41,6 +42,7 @@ export function SourcesTree({
   /** 课程归档成功后回调（用于展开上层「归档」区）。 */
   onArchive?: () => void;
   onLink: (key: string) => void;
+  onDownload?: (courseId: number, itemId?: string) => void;
 }) {
   const canvas = useWorkspaceStore((s) => s.canvas);
   const [loading, setLoading] = useState<number[]>([]);
@@ -157,7 +159,8 @@ export function SourcesTree({
           const course = canvas.courses.find((c) => `course:${c.id}` === node.id);
           const item = canvas.items.find((i) => i.id === node.id);
           const sourceId = item?.sourceId;
-          if (!course && !sourceId) return null;
+          const folder = item && (item.kind === 'folder' || item.kind === 'module');
+          if (!course && !sourceId && !folder) return null;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -170,6 +173,17 @@ export function SourcesTree({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
+                {onDownload && (course || folder) && (
+                  <DropdownMenuItem
+                    disabled={!canvas.connected}
+                    onSelect={() =>
+                      onDownload(course?.id ?? item!.courseId, course ? undefined : item!.id)
+                    }
+                  >
+                    <Download />
+                    {course ? '下载整门课程' : '下载此文件夹'}
+                  </DropdownMenuItem>
+                )}
                 {course ? (
                   <>
                     {course.syncedAt && (
