@@ -34,7 +34,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it('课程和无 sourceId 的文件夹都能从菜单启动批量下载', async () => {
+it('展示原始文件目录及未加入模块的课件，课程和文件夹都可批量下载', async () => {
   useWorkspaceStore.getState().setCanvas({
     connected: true,
     syncedAt: null,
@@ -42,6 +42,30 @@ it('课程和无 sourceId 的文件夹都能从菜单启动批量下载', async 
       { id: 1, name: '示例课', term: '2026 Fall', code: '', syncedAt: '2026-10-18', error: null },
     ],
     items: [
+      {
+        id: '1:files',
+        courseId: 1,
+        name: '文件',
+        parentId: null,
+        kind: 'folder',
+        sourceId: null,
+      },
+      {
+        id: 'folder:2',
+        courseId: 1,
+        name: '课件',
+        parentId: '1:files',
+        kind: 'folder',
+        sourceId: null,
+      },
+      {
+        id: 'folder:2/file:3',
+        courseId: 1,
+        name: '未加入模块.pdf',
+        parentId: 'folder:2',
+        kind: 'file',
+        sourceId: 'file:3',
+      },
       {
         id: '1:modules',
         courseId: 1,
@@ -53,22 +77,29 @@ it('课程和无 sourceId 的文件夹都能从菜单启动批量下载', async 
     ],
   });
   const onDownload = vi.fn();
+  const onOpen = vi.fn();
   await act(async () =>
     root.render(
       <SourcesTree
         bySource={false}
-        expanded={['term:2026 Fall', 'course:1']}
+        expanded={['term:2026 Fall', 'course:1', '1:files', 'folder:2']}
         selected={null}
         query=""
         onExpand={vi.fn()}
-        onOpen={vi.fn()}
+        onOpen={onOpen}
         onLink={vi.fn()}
         onDownload={onDownload}
       />,
     ),
   );
+  const file = host.querySelector<HTMLElement>('[role="treeitem"][aria-label="未加入模块.pdf"]');
+  expect(file).toBeTruthy();
+  await act(async () => file!.click());
+  expect(onOpen).toHaveBeenCalledExactlyOnceWith('source:file:3');
   for (const [name, label, itemId] of [
     ['示例课', '下载整门课程', undefined],
+    ['文件', '下载此文件夹', '1:files'],
+    ['课件', '下载此文件夹', 'folder:2'],
     ['课程模块', '下载此文件夹', '1:modules'],
   ]) {
     await act(async () => {

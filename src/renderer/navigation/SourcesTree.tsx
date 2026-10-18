@@ -65,16 +65,6 @@ export function SourcesTree({
       name: term,
       container: true,
     });
-  // 各课程内的「文件」根目录是全部文件的平铺集合，与模块等组织视图重复；本地不展示。
-  const fileRoots = new Set(canvas.courses.map((c) => `${c.id}:files`));
-  const parentOfItem = new Map(canvas.items.map((item) => [item.id, item.parentId]));
-  const inFlatFiles = (item: (typeof canvas.items)[number]) => {
-    if (fileRoots.has(item.id)) return true;
-    for (let id: string | null | undefined = item.parentId; id; id = parentOfItem.get(id))
-      if (fileRoots.has(id)) return true;
-    return false;
-  };
-  const shownItems = canvas.items.filter((item) => !inFlatFiles(item));
   for (const course of canvas.courses)
     if (!course.archived)
       nodes.push({
@@ -94,7 +84,7 @@ export function SourcesTree({
           name: course.name,
           container: true,
         });
-  for (const item of shownItems)
+  for (const item of canvas.items)
     nodes.push({
       id: item.id,
       parentId: item.parentId ?? `course:${item.courseId}`,
