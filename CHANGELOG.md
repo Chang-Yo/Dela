@@ -28,6 +28,8 @@ Dela 的重要变更都记在这里。
 
 - 文档读取组件支持 Apple Silicon Mac，复用 Windows 的解析脚本和精确依赖，独立安装 Python 并保留来源及许可证；支持取消、失败重试与自检，不依赖系统 Python。
 
+- 联网搜索新增 DeepSeek 服务：在「设置 › 内置能力 › 网络」填入 DeepSeek API Key 即可让 WebSearch 走官方搜索接口；同一弹窗可勾选让网页读取也走 DeepSeek，取不到正文或 PDF 直链时自动回退本地抓取。
+
 ### Changed
 
 - Mac 主窗口将原生红黄绿按钮与导航栏合并为一行；按系统提供的按钮区域避让并适应缩放，全屏时保留导航，Windows 窗口布局不变。

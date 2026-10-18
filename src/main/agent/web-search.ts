@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import type { WebSearchConfig } from '../../shared/capabilities';
+import { searchDeepSeek } from './deepseek';
 
 // 搜索服务注册（设置 › 内置能力 › 网络）：同一时刻至多一个生效，应用不内置搜索服务。
 const CONFIG_KEY = 'web-search-api';
@@ -26,6 +27,13 @@ export const webSearchConfigSchema = z.discriminatedUnion('provider', [
       provider: z.literal('custom'),
       url: z.string().url().max(2048),
       headers: headersSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal('deepseek'),
+      apiKey: z.string().trim().min(1).max(256),
+      useForFetch: z.boolean(),
     })
     .strict(),
 ]);
@@ -195,6 +203,8 @@ export async function webSearch(query: string, count = 5, freshness?: string) {
       ? await searchBrave(query, count, freshness, config.apiKey)
       : config.provider === 'google'
         ? await searchGoogle(query, count, config.apiKey, config.cx)
-        : await searchCustomEndpoint(query, config.url, config.headers);
+        : config.provider === 'deepseek'
+          ? await searchDeepSeek(query, count, config.apiKey)
+          : await searchCustomEndpoint(query, config.url, config.headers);
   return { query, provider: config.provider, results: results.slice(0, count) };
 }

@@ -70,12 +70,14 @@ export interface AgentCapabilityView {
  * WebSearch 的搜索服务注册（设置 › 内置能力 › 网络）：同一时刻至多一个生效。
  * brave 固定走 Brave 为大模型设计的 LLM Context 端点（res/v1/llm/context）；
  * google 用平台凭据；custom 为返回 { results: [{ title, url, content }] } JSON
- * （SearXNG 兼容格式）的任意端点，headers 适配用户自备的鉴权/加密策略。
+ * （SearXNG 兼容格式）的任意端点，headers 适配用户自备的鉴权/加密策略；
+ * deepseek 用官方自研搜索引擎，useForFetch 决定 web_fetch 是否也走其 Fetch 接口。
  */
 export type WebSearchConfig =
   | { provider: 'brave'; apiKey: string }
   | { provider: 'google'; apiKey: string; cx: string }
-  | { provider: 'custom'; url: string; headers?: Record<string, string> };
+  | { provider: 'custom'; url: string; headers?: Record<string, string> }
+  | { provider: 'deepseek'; apiKey: string; useForFetch: boolean };
 
 /** 上传本地 Skill 到远端项目的结果。 */
 export interface RemoteSkillUpload {

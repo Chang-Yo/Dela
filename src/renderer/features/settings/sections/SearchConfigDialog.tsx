@@ -6,12 +6,14 @@ import { Textarea } from '../../../components/ui/textarea';
 import type { WebSearchConfig } from '../../../../shared/api';
 import { errorText } from '../../../workspace/store';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
+import { Switch } from '../../../components/ui/beautifului/atoms/Switch';
 import { cn } from '../../../lib/utils';
 
 /** 三个注册选项的展示名（能力页入口按钮的 title 与表单共用）。 */
 export const webSearchProviderLabels: Record<WebSearchConfig['provider'], string> = {
   brave: 'Brave Search API',
   google: 'Google 搜索',
+  deepseek: 'DeepSeek',
   custom: '自定义端点',
 };
 
@@ -58,6 +60,9 @@ export function SearchConfigDialog({
   const [headers, setHeaders] = useState(
     config?.provider === 'custom' ? headersText(config.headers) : '',
   );
+  const [useForFetch, setUseForFetch] = useState(
+    config?.provider === 'deepseek' ? config.useForFetch : false,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +84,7 @@ export function SearchConfigDialog({
   const save = () => {
     if (provider === 'brave') return submit({ provider, apiKey: apiKey.trim() });
     if (provider === 'google') return submit({ provider, apiKey: apiKey.trim(), cx: cx.trim() });
+    if (provider === 'deepseek') return submit({ provider, apiKey: apiKey.trim(), useForFetch });
     const parsed = parseHeaders(headers);
     if (!parsed.ok) {
       setError(parsed.error);
@@ -99,8 +105,8 @@ export function SearchConfigDialog({
           <Dialog.Title className="text-base font-semibold">搜索服务</Dialog.Title>
           <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
             注册一个搜索服务供 WebSearch 使用；Dela 不内置搜索服务，凭据仅保存在本地数据库。
-            自定义端点需返回 {'{ results: [{ title, url, content }] }'} 形状的 JSON（SearXNG
-            兼容）。
+            DeepSeek 还可选择让网页读取一并走官方接口；自定义端点需返回{' '}
+            {'{ results: [{ title, url, content }] }'} 形状的 JSON（SearXNG 兼容）。
           </Dialog.Description>
           <form
             className="mt-4 grid gap-4"
@@ -166,6 +172,40 @@ export function SearchConfigDialog({
                     value={cx}
                   />
                 </label>
+              </>
+            )}
+            {provider === 'deepseek' && (
+              <>
+                <label className="grid gap-2 text-13">
+                  API Key
+                  <Input
+                    autoComplete="off"
+                    onChange={(event) => setApiKey(event.target.value)}
+                    placeholder="sk-…"
+                    required
+                    spellCheck={false}
+                    type="password"
+                    value={apiKey}
+                  />
+                  <span className="text-xs leading-relaxed text-ink-3">
+                    走 DeepSeek 自研搜索引擎（/v1/tools/search），按成功请求计费：5 元 / 千次， QPS
+                    5。
+                  </span>
+                </label>
+                <div className="flex items-start justify-between gap-3 rounded-card border p-3">
+                  <div className="grid gap-0.5">
+                    <span className="text-13 font-medium">网页读取也使用 DeepSeek</span>
+                    <span className="text-xs leading-relaxed text-ink-3">
+                      开启后 web_fetch 改走 /v1/tools/fetch；取不到正文或链接是 PDF
+                      时自动回退本地抓取。同样按次计费。
+                    </span>
+                  </div>
+                  <Switch
+                    checked={useForFetch}
+                    label="网页读取也使用 DeepSeek"
+                    onChange={setUseForFetch}
+                  />
+                </div>
               </>
             )}
             {provider === 'custom' && (
