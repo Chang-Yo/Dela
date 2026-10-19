@@ -25,7 +25,13 @@ const editorTheme = EditorView.theme({
   },
   // 与富文本（note-editor.css 的 60rem 居中）一致，超宽窗口下行宽不无限拉伸。
   '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
-  '&.cm-source-file .cm-content': { maxWidth: 'none', margin: '0', textAlign: 'left' },
+  '&.cm-source-file .cm-scroller': { padding: '1.5rem 0' },
+  '&.cm-source-file .cm-content': {
+    maxWidth: 'none',
+    margin: '0',
+    paddingRight: '1.5rem',
+    textAlign: 'left',
+  },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
   '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
   '.cm-gutters': {
@@ -33,9 +39,11 @@ const editorTheme = EditorView.theme({
     backgroundColor: 'transparent',
     color: 'var(--color-muted-foreground)',
   },
+  // 源码文件的行号栏横向滚动时 sticky：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
   '&.cm-source-file .cm-gutters': {
-    backgroundColor: 'var(--color-muted)',
+    backgroundColor: 'var(--color-surface)',
     borderRight: '1px solid var(--color-border)',
+    paddingLeft: '1.5rem',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
