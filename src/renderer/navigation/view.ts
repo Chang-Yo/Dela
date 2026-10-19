@@ -11,6 +11,7 @@ import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
+import { prepareAsideGroup } from '../workbench/open-aside';
 import { walkGroups } from '../workbench/layout-schema';
 import { showToast } from '../app/toasts';
 
@@ -270,15 +271,9 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
           .refresh(projectId)
           .catch(() => {});
         if (openInWorkbench) {
-          // 落位同标题栏「新聊天」：单组向右分屏（新组只放新对话，不带当前聚焦标签；
-          // 空组会拒绝分屏，新对话就地落进去），多组进最右组。
-          const current = useWorkbenchLayout.getState();
-          const groups = current.ready ? walkGroups(current.root) : [];
-          const rightmost = groups[groups.length - 1];
-          if (rightmost) {
-            if (groups.length === 1) current.splitGroup(rightmost.id, 'vertical', true);
-            else current.focusGroup(rightmost.id);
-          }
+          // 落位与轮次卡片的审阅/打开共用（workbench/open-aside）：单组向右分出空新组，
+          // 多组进最右组；标签本体经 reveal 脉冲由工作台装配层打开。
+          prepareAsideGroup();
           revealInProject(`chat:${chat.sessionId}`, null);
         } else {
           get().openChat(chat.sessionId, projectId);

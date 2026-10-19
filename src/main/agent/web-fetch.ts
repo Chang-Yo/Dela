@@ -3,6 +3,7 @@ import { clean } from '@mdream/js/clean';
 import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
 import { open } from 'node:fs/promises';
 import { prepareDocumentFile } from '../resources';
+import { fetchDeepSeek } from './deepseek';
 
 // 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
 const BROWSER_UA =
@@ -27,7 +28,11 @@ interface WebPageContent {
   note?: string;
 }
 
-export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageContent> {
+export async function fetchWebPage(
+  rawUrl: string,
+  offset = 0,
+  deepseek?: { apiKey: string },
+): Promise<WebPageContent> {
   const fetchedAt = new Date().toISOString();
   const finish = (
     url: URL,
@@ -56,6 +61,15 @@ export async function fetchWebPage(rawUrl: string, offset = 0): Promise<WebPageC
     };
   };
   let url = httpUrl(rawUrl);
+  if (deepseek && !looksLikePdfUrl(url)) {
+    try {
+      const page = await fetchDeepSeek(url.toString(), deepseek.apiKey);
+      if (page.text.trim())
+        return finish(url, page.title, 'text/markdown', page.text.replace(/\r\n/g, '\n'), false);
+    } catch {
+      // 注册了 DeepSeek 也不该让抓取失去可用性：取不到正文（404）或临时故障时回退本地抓取。
+    }
+  }
   let response: Response | null = null;
   for (let hop = 0; ; hop += 1) {
     response = await fetch(url, {
@@ -161,6 +175,8 @@ async function saveDocument(response: Response, path: string): Promise<void> {
     reader?.releaseLock();
   }
 }
+
+const looksLikePdfUrl = (url: URL) => /\.pdf$/i.test(url.pathname);
 
 function httpUrl(raw: string): URL {
   let url: URL;

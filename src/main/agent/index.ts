@@ -24,7 +24,17 @@ import {
   listSessions,
   newSession,
   openSession,
+  openSessionFile,
+  openSessionFileInVsCode,
+  listSessionTurnChanges,
+  readSessionTurnChanges,
+  readSessionTurnFileChange,
+  readSessionUncommittedChanges,
+  readSessionUncommittedFileChange,
+  uncommittedAvailability,
+  locateSessionFile,
   preloadPi,
+  revealSessionFile,
   subscribeChat,
   updateSessionVisibility,
 } from './session';
@@ -63,7 +73,16 @@ import {
 } from './mcp';
 import { domainTools, listBuiltinCapabilities, setBuiltinCapabilities } from './tools';
 import { loadPi } from './pi';
-import { readWebSearchConfig, webSearchConfigSchema, writeWebSearchConfig } from './web-search';
+import {
+  listWebSearchEntries,
+  listWebSearchKeySources,
+  listWebSearchOptions,
+  readWebSearchKey,
+  removeWebSearchEntry,
+  saveWebSearchEntry,
+  selectWebSearchEntry,
+  webSearchEntryInputSchema,
+} from './web-search';
 
 export { closeDomainBridge, domainBridge } from './environment';
 export { gcChatMedia, invalidateSessions, loadPi, subscribeChat };
@@ -82,6 +101,14 @@ function invalidating<T>(fn: () => T): T {
   const result = fn();
   if (result instanceof Promise) return result.finally(invalidateSessions) as T;
   invalidateSessions();
+  return result;
+}
+
+function changingWebSearch<T>(fn: () => T): T {
+  const result = invalidating(fn);
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send('capabilities:web-search-changed');
+  }
   return result;
 }
 
@@ -163,6 +190,43 @@ export function registerAgentIpc() {
   chatHandle('list-commands', () => listChatCommands());
   chatHandle('save-command', (_event, input) => saveChatCommand(input));
   chatHandle('delete-command', (_event, id) => deleteChatCommand(uuid.parse(id)));
+  // 本轮交付物：定位到资源管理器 / 用默认程序打开 / 用 VS Code 打开；
+  // locate-file 返回本机绝对路径供应用内预览标签使用。路径由会话 cwd 限定。
+  const chatFilePath = (path: unknown) => z.string().min(1).max(32_767).parse(path);
+  chatHandle('locate-file', (_event, sessionId, path) =>
+    locateSessionFile(uuid.parse(sessionId), chatFilePath(path)),
+  );
+  chatHandle('open-in-vscode', (_event, sessionId, path) =>
+    openSessionFileInVsCode(uuid.parse(sessionId), chatFilePath(path)),
+  );
+  chatHandle('reveal-file', (_event, sessionId, path) =>
+    revealSessionFile(uuid.parse(sessionId), chatFilePath(path)),
+  );
+  chatHandle('list-turn-changes', (_event, sessionId) =>
+    listSessionTurnChanges(uuid.parse(sessionId)),
+  );
+  chatHandle('read-turn-changes', (_event, sessionId, turnId, includeStats) =>
+    readSessionTurnChanges(
+      uuid.parse(sessionId),
+      uuid.parse(turnId),
+      z.boolean().optional().parse(includeStats),
+    ),
+  );
+  chatHandle('read-turn-file-change', (_event, sessionId, turnId, path) =>
+    readSessionTurnFileChange(uuid.parse(sessionId), uuid.parse(turnId), chatFilePath(path)),
+  );
+  chatHandle('read-uncommitted-changes', (_event, sessionId) =>
+    readSessionUncommittedChanges(uuid.parse(sessionId)),
+  );
+  chatHandle('uncommitted-availability', (_event, sessionId) =>
+    uncommittedAvailability(uuid.parse(sessionId)),
+  );
+  chatHandle('read-uncommitted-file-change', (_event, sessionId, path) =>
+    readSessionUncommittedFileChange(uuid.parse(sessionId), chatFilePath(path)),
+  );
+  chatHandle('open-file', (_event, sessionId, path) =>
+    openSessionFile(uuid.parse(sessionId), chatFilePath(path)),
+  );
 
   handle('llm:list', () => listLlmProviders());
   handle('llm:save', (input) => invalidating(() => saveLlmProvider(input)));
@@ -235,15 +299,27 @@ export function registerAgentIpc() {
   );
   handle('capabilities:list-builtin-capabilities', () => listBuiltinCapabilities());
   handle('capabilities:set-builtin-capability', (tool, enabled) =>
-    invalidating(() => setBuiltinCapabilities([name.parse(tool)], z.boolean().parse(enabled))),
+    changingWebSearch(() => setBuiltinCapabilities([name.parse(tool)], z.boolean().parse(enabled))),
   );
   handle('capabilities:set-builtin-domain', (domain, enabled) =>
-    invalidating(() =>
+    changingWebSearch(() =>
       setBuiltinCapabilities(domainTools(name.parse(domain)), z.boolean().parse(enabled)),
     ),
   );
-  handle('capabilities:read-web-search-config', () => readWebSearchConfig());
-  handle('capabilities:write-web-search-config', (config) =>
-    writeWebSearchConfig(config === null ? null : webSearchConfigSchema.parse(config)),
+  handle('capabilities:list-web-search-entries', () => listWebSearchEntries());
+  handle('capabilities:list-web-search-options', () => listWebSearchOptions());
+  // 搜索配置变更同时刷新会话工具与各窗口的选择器。
+  handle('capabilities:save-web-search-entry', (entry) =>
+    changingWebSearch(() => saveWebSearchEntry(webSearchEntryInputSchema.parse(entry))),
+  );
+  handle('capabilities:remove-web-search-entry', (id) =>
+    changingWebSearch(() => removeWebSearchEntry(uuid.parse(id))),
+  );
+  handle('capabilities:select-web-search-entry', (id) =>
+    changingWebSearch(() => selectWebSearchEntry(id === null ? null : uuid.parse(id))),
+  );
+  handle('capabilities:list-web-search-key-sources', () => listWebSearchKeySources());
+  handle('capabilities:read-web-search-key', (providerId) =>
+    readWebSearchKey(uuid.parse(providerId)),
   );
 }
