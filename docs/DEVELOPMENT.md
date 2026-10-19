@@ -410,7 +410,7 @@ pnpm test
 
 ## 14. CI
 
-保留两个 workflow：`check.yaml` 负责 PR 与 main 检查，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR、标签或手动启动检查。
+保留两个 workflow：`check.yaml` 负责 PR 与 main 检查，`release.yml` 负责 Windows tag 发布及手动 Mac 签名候选。没有定时回归，也不要求 Draft PR、标签或手动启动检查。
 
 `.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
 
@@ -426,6 +426,8 @@ pnpm test
 GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换旧的平台必需检查名称；修改 workflow 本身不会更新远端分支规则。首次云端运行成功后再切换规则。变更识别 job 额外使用 `pull-requests: read`，其余检查仅有 `contents: read`。
 
 路径分流可能遗漏隐含的平台依赖；新增运行时入口或资源目录时同步更新 filters。真实 SSH 联调仍手动执行 `pnpm test:remote`，不接入 CI。Mac 云端冒烟不能替代签名、公证、Gatekeeper 下载后首启与自动更新验收；正式发布仍只处理 Windows。
+
+`release.yml` 手动勾选 `macos_candidate` 时，仅在 arm64 Mac runner 构建所选 ref 的签名候选，Windows 发布任务全部跳过。凭据来自 `macos-release` 环境，签名、公证、归档内应用校验和启动冒烟均通过后才上传 DMG/ZIP artifact；不创建 Release。配置与运行步骤见 [Mac 签名候选包](macos-signing.md)。
 
 ## 15. 版本与发布
 
@@ -488,7 +490,7 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 已下载课件的 `@` 候选同样按课程根目录的路径格式计算相对路径，不用宿主系统的路径规则解析另一平台的路径；排除目录自身、父级和其他盘符，POSIX 保留大小写及文件名中的反斜杠。移动或重命名本地条目时，标签、草稿和目录选中状态只迁移实际子树；POSIX 的反斜杠不是目录边界，草稿标题保留完整文件名。Windows 原有移动匹配规则保持不变。
 
-同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；手动签名候选使用 `prepare-macos-release.ts` 生成独立配置，强制 Developer ID 与公证。本地签名与公证已通过，云端签名、Gatekeeper 下载后首启与自动更新仍待验收。
 
 Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库。账号申请状态与后续真实验收证据记录在 `macos-validation.md`；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
 

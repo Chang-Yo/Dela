@@ -7,24 +7,102 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing version tag to publish (for example, v0.1.0)'
-        required: true
+        description: 'Windows: existing version tag to publish (required unless building a Mac candidate)'
+        required: false
         type: string
+      macos_candidate:
+        description: 'Build a signed Mac candidate from the selected ref; do not publish a release'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: release-${{ inputs.macos_candidate && 'macos-candidate' || inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
+  macos-candidate:
+    if: github.event_name == 'workflow_dispatch' && inputs.macos_candidate
+    name: Sign and notarize mac-arm64
+    runs-on: macos-15
+    environment: macos-release
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      DELA_REMOTE_HOST: ''
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Verify runner architecture
+        run: node -e "if (process.platform !== 'darwin' || process.arch !== 'arm64') process.exit(1)"
+      - name: Install pnpm
+        run: npm install --global pnpm@12.3.4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check and build
+        run: pnpm check
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - name: Build current Linux helpers
+        run: node scripts/build-helper.ts --all
+      - name: Smoke test Electron
+        run: pnpm smoke
+      - name: Sign and notarize candidate
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          node scripts/prepare-macos-release.ts
+          pnpm exec electron-builder --config .build/macos-release.json --mac --arm64 --publish never
+      - name: Verify signatures, notarization and archives
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/verify-macos-package.ts dist/mac-arm64/Dela.app --signed
+      - name: Smoke test signed candidate
+        run: node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
+      - name: Record artifact checksums and source
+        run: |
+          cd dist
+          shasum -a 256 Dela-*-mac-arm64.dmg Dela-*-mac-arm64.zip > SHA256SUMS
+          git rev-parse HEAD > source-commit.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: macos-signed-candidate-${{ github.sha }}
+          path: |
+            dist/Dela-*-mac-arm64.dmg
+            dist/Dela-*-mac-arm64.zip
+            dist/SHA256SUMS
+            dist/source-commit.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
   prepare:
+    if: github.event_name != 'workflow_dispatch' || !inputs.macos_candidate
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       sha: ${{ steps.version.outputs.sha }}
     steps:
+      - name: Require a Windows release tag
+        if: github.event_name == 'workflow_dispatch' && !inputs.tag
+        run: echo 'Windows release requires the tag input.' >&2; exit 1
       - uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
