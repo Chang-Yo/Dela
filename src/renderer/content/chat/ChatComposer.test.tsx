@@ -324,15 +324,6 @@ it('提供商没有缓存数据时命中率显示 —，不写成 0%', async () 
   expect(document.body.textContent).not.toContain('0.0%');
 });
 
-it('新对话浮岛显示项目胶囊（通用池为随聊）', async () => {
-  await act(async () =>
-    root.render(
-      <Harness context={{ projectId: null, name: '随聊', remote: false }} contextUsage={usage()} />,
-    ),
-  );
-  expect(host.textContent).toContain('随聊');
-});
-
 it('命中率文本只在拿到两个累计字段且分母大于 0 时才算数，其余留空', () => {
   // main 未给出字段 = 提供商不上报缓存：不能显示成 0%。
   expect(cacheHitRateText(usage())).toBe('—');

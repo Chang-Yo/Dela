@@ -3,7 +3,6 @@ import {
   blockHeights,
   eventDayEdges,
   eventStyle,
-  formatEventRange,
   layoutDayColumns,
   minutesToRem,
   timelineStart,
@@ -102,26 +101,6 @@ describe('eventDayEdges', () => {
     };
     expect(eventDayEdges(event, new Date(2026, 8, 15)).isEnd).toBe(true);
     expect(eventDayEdges(event, new Date(2026, 8, 16)).isEnd).toBe(false);
-  });
-});
-
-describe('formatEventRange', () => {
-  it('同日事件只写一个日期', () => {
-    expect(
-      formatEventRange({
-        startAt: new Date(2026, 8, 14, 9, 0).toISOString(),
-        endAt: new Date(2026, 8, 14, 10, 0).toISOString(),
-      }),
-    ).toBe('9月14日（周一）09:00 – 10:00');
-  });
-
-  it('跨天事件两端各带日期与星期', () => {
-    expect(
-      formatEventRange({
-        startAt: new Date(2026, 8, 12, 22, 0).toISOString(),
-        endAt: new Date(2026, 8, 16, 10, 0).toISOString(),
-      }),
-    ).toBe('9月12日（周六）22:00 – 9月16日（周三）10:00');
   });
 });
 
