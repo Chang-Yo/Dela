@@ -24,7 +24,10 @@ export type {
   McpServerView,
   SkillScope,
   SkillView,
-  WebSearchConfig,
+  WebSearchEntry,
+  WebSearchEntryInput,
+  WebSearchEntrySummary,
+  WebSearchKeySource,
 } from './capabilities';
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
@@ -184,7 +187,16 @@ export type {
   NotificationsApi,
 } from './notifications';
 
-export type { ChatAskInput, ChatMediaView, ChatCommandView, ChatApi } from './chat';
+export type {
+  ChatAskInput,
+  ChatMediaView,
+  ChatCommandView,
+  ChatApi,
+  FileChangeSummary,
+  FileChangeDetail,
+  TurnChanges,
+  UncommittedChanges,
+} from './chat';
 
 export type { CachedCourseFile, CanvasCourse, SourceItem, CanvasState, CanvasApi } from './canvas';
 

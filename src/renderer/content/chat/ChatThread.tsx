@@ -23,6 +23,7 @@ import type { MailDraftDialog } from './chat-source';
 import { ReplyTrace } from './ToolTimeline';
 import { ChatMarkdown } from './markdown';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
+import { TurnChangesCard } from './TurnChangesCard';
 
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
@@ -286,6 +287,8 @@ const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
   activeTool,
+  sessionId,
+  reviewEnabled,
   onSaveNote,
   onOpenDraft,
   onRetry,
@@ -293,6 +296,9 @@ const AssistantMessage = memo(function AssistantMessage({
   message: WorkspaceChat['messages'][number];
   live: boolean;
   activeTool: string | undefined;
+  /** 所属会话 id；本轮改动卡片的读取与打开动作都按它路由到冻结记录与 cwd。 */
+  sessionId: string | null;
+  reviewEnabled: boolean;
   onSaveNote: ((text: string) => void) | undefined;
   /** 容器未注入邮件草稿弹窗时为 undefined，对应入口隐藏。 */
   onOpenDraft: ((draftId: string) => void) | undefined;
@@ -361,6 +367,13 @@ const AssistantMessage = memo(function AssistantMessage({
             检查并发送邮件
           </Button>
         ))}
+      {!live && sessionId && message.turnId && (
+        <TurnChangesCard
+          sessionId={sessionId}
+          turnId={message.turnId}
+          reviewEnabled={reviewEnabled}
+        />
+      )}
       {!live && content && <MessageActions content={content} onSaveNote={onSaveNote} />}
     </div>
   );
@@ -514,6 +527,8 @@ export const ChatThread = memo(function ChatThread({
             ) : (
               <AssistantMessage
                 key={`${chat.sessionId}:${index}`}
+                sessionId={chat.sessionId}
+                reviewEnabled={chat.projectId != null}
                 onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
                 live={streaming && index === messages.length - 1}
                 message={message}

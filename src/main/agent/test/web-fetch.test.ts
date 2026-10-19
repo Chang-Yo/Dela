@@ -236,4 +236,46 @@ describe('web_fetch', () => {
       note: expect.stringContaining('内容可能不完整'),
     });
   });
+
+  it('注册 DeepSeek 且开启网页读取时优先走官方抓取', async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ title: 'DeepSeek 标题', content: '正文'.repeat(11000) }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const page = await fetchWebPage('https://example.com/page', 0, { apiKey: 'sk-test' });
+    expect(page).toMatchObject({ title: 'DeepSeek 标题', contentType: 'text/markdown' });
+    expect(page.nextOffset).toBe(20000);
+    expect(page.text).toHaveLength(20000);
+    expect(page.source.url).toBe('https://example.com/page');
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]![0]).toBe('https://api.deepseek.com/v1/tools/fetch');
+  });
+
+  it('DeepSeek 取不到正文时回退本地抓取', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"error":{"message":"not found"}}', { status: 404 }))
+      .mockResolvedValueOnce(
+        new Response('<p>本地正文</p>', { headers: { 'content-type': 'text/html' } }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    const page = await fetchWebPage('https://example.com/page', 0, { apiKey: 'sk-test' });
+    expect(page.text).toContain('本地正文');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('PDF 直链不经过 DeepSeek，仍走文档流程', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('%PDF-1.7', { headers: { 'content-type': 'application/pdf' } }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    const pdf = await fetchWebPage('https://example.com/file.pdf', 0, { apiKey: 'sk-test' });
+    expect(pdf).toMatchObject({ readable: false, text: '' });
+    expect(fetch.mock.calls[0]![0].toString()).toBe('https://example.com/file.pdf');
+    await releaseDocumentResource(pdf.document!.jobId);
+  });
 });

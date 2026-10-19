@@ -120,5 +120,7 @@ export interface WorkspaceApi {
   remoteReferences(projectId: string): Promise<{ key: string; title: string }[]>;
   importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
   openLocal(id: string): Promise<void>;
+  /** 用系统默认程序打开本地文件（目录不适用；远端条目走远端打开）。 */
+  openFile(id: string): Promise<void>;
   chooseDirectory(): Promise<string>;
 }

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   CircleAlert,
   FileText,
+  Globe,
   Paperclip,
   Settings,
   Sparkles,
@@ -27,6 +28,7 @@ import type {
   ChatMediaView,
   ContextUsageView,
   LlmProviderView,
+  WebSearchEntrySummary,
 } from '../../../shared/api';
 import {
   CHAT_ATTACHMENT_MAX,
@@ -157,6 +159,37 @@ export function ChatComposer({
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const focused = providers?.find((provider) => provider.id === focusedId) ?? null;
   const [effortPickerOpen, setEffortPickerOpen] = useState(false);
+  // 搜索服务选择器：打开时读取配置保证新鲜；配置的增删改在设置弹窗。
+  const [searchPickerOpen, setSearchPickerOpen] = useState(false);
+  const [searchEntries, setSearchEntries] = useState<WebSearchEntrySummary[] | null>(null);
+  const [searchSelectedId, setSearchSelectedId] = useState<string | null>(null);
+  const [searchFailed, setSearchFailed] = useState(false);
+  const searchRequest = useRef(0);
+  const refreshSearch = () => {
+    if (!window.dela) return;
+    const request = ++searchRequest.current;
+    setSearchFailed(false);
+    void window.dela.capability
+      ?.listWebSearchOptions()
+      .then(({ entries, selectedId }) => {
+        if (request !== searchRequest.current) return;
+        setSearchEntries(entries);
+        setSearchSelectedId(selectedId);
+      })
+      .catch(() => {
+        if (request === searchRequest.current) setSearchFailed(true);
+      });
+  };
+  // 选中态是持久数据，挂载即读：发送首轮会从空态英雄布局切到会话布局重挂 composer，
+  // 本地状态归零，不同步的话已开启的搜索会错显成灰色。
+  useEffect(() => {
+    const unsubscribe = window.dela?.capability?.onWebSearchChanged?.(refreshSearch);
+    refreshSearch();
+    return () => {
+      unsubscribe?.();
+      searchRequest.current++;
+    };
+  }, []);
   // PromptBar 式单一滑动高亮：跟随键盘/鼠标共用的 index，测量当前行位置。
   const [rowBox, setRowBox] = useState<{ top: number; height: number } | null>(null);
 
@@ -339,6 +372,25 @@ export function ChatComposer({
       .catch(() => setProvidersFailed(true));
   };
 
+  const openSearchPicker = (open: boolean) => {
+    setSearchPickerOpen(open);
+    if (open) refreshSearch();
+  };
+
+  const selectSearchEntry = async (id: string | null) => {
+    if (!window.dela) return;
+    try {
+      await window.dela.capability.selectWebSearchEntry(id);
+      refreshSearch();
+      setSearchPickerOpen(false);
+    } catch (cause) {
+      setFileError(errorText(cause));
+      setSearchPickerOpen(false);
+    }
+  };
+
+  const selectedSearch = searchEntries?.find(({ id }) => id === searchSelectedId) ?? null;
+
   return (
     <div className="relative">
       {/* 新对话的项目浮岛：项目与分支各一个可点胶囊；有历史后 context 为 null 就撤掉。 */}
@@ -419,6 +471,100 @@ export function ChatComposer({
           <IconButton aria-label="引用资料" onClick={insertMention} title="引用资料（@）">
             <AtSign />
           </IconButton>
+          <Popover.Root onOpenChange={openSearchPicker} open={searchPickerOpen}>
+            <Popover.Trigger asChild>
+              <IconButton
+                aria-label={
+                  selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'
+                }
+                title={selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'}
+              >
+                <Globe className={selectedSearch ? 'text-success' : undefined} />
+              </IconButton>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                align="start"
+                className={cn('z-50 w-64', menuPanel)}
+                side="bottom"
+                sideOffset={6}
+                style={{
+                  animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+                  transformOrigin: 'top center',
+                }}
+              >
+                {searchEntries === null ? (
+                  <p className="px-2 py-3 text-xs text-ink-3">
+                    {searchFailed ? '搜索配置加载失败' : '正在加载搜索配置…'}
+                  </p>
+                ) : searchEntries.length === 0 ? (
+                  <div className="grid gap-2 px-1.5 py-2">
+                    <p className="text-xs text-ink-3">
+                      还没有搜索服务配置，可在设置 › 内置能力 的「网络」分组中添加。
+                    </p>
+                    <Button
+                      className="w-full justify-start [&_svg]:size-3.5"
+                      onClick={() => {
+                        setSearchPickerOpen(false);
+                        useNavigationStore.getState().openSettings('capabilities');
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Settings />
+                      打开设置 › 内置能力
+                    </Button>
+                  </div>
+                ) : (
+                  <ul aria-label="联网搜索">
+                    <li>
+                      <button
+                        aria-checked={searchSelectedId === null}
+                        className={cn(
+                          'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-13 transition-colors',
+                          searchSelectedId === null
+                            ? 'bg-hover font-medium text-ink'
+                            : 'text-ink-2 hover:bg-hover hover:text-ink',
+                        )}
+                        onClick={() => void selectSearchEntry(null)}
+                        role="radio"
+                        type="button"
+                      >
+                        <span className="truncate">关闭</span>
+                        {searchSelectedId === null && (
+                          <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
+                        )}
+                      </button>
+                    </li>
+                    {searchEntries.map((entry) => (
+                      <li key={entry.id}>
+                        <button
+                          aria-checked={entry.id === searchSelectedId}
+                          className={cn(
+                            'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-13 transition-colors',
+                            entry.id === searchSelectedId
+                              ? 'bg-hover font-medium text-ink'
+                              : 'text-ink-2 hover:bg-hover hover:text-ink',
+                          )}
+                          onClick={() => void selectSearchEntry(entry.id)}
+                          role="radio"
+                          type="button"
+                        >
+                          <span className="truncate">{entry.name}</span>
+                          {entry.provider === 'deepseek' && (
+                            <span className="shrink-0 text-2xs text-ink-3">按次计费</span>
+                          )}
+                          {entry.id === searchSelectedId && (
+                            <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
           <div className="flex-1" />
           {configured && contextUsage && <ContextIndicator usage={contextUsage} />}
           {configured && (
