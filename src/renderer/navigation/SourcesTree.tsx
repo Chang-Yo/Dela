@@ -205,7 +205,7 @@ export function SourcesTree({
                       )}
                       <DropdownMenuItem onSelect={() => onLink(`source:${sourceId}`)}>
                         <Link2 />
-                        加入文件夹或项目
+                        添加到项目
                       </DropdownMenuItem>
                       {sourceId.startsWith('file:') && (
                         <DropdownMenuItem
