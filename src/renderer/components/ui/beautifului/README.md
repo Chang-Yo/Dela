@@ -25,6 +25,7 @@
 10. **`.bui-light` 固定浅色作用域**（2026-10-08）：`beautifului.css` 在 `.dark` 之后复制一份浅色 token 到 `.bui-light`，供首启引导这类恒白画布在深色主题下仍使用浅色 token。
 11. **`atoms/SegmentedControl.tsx` 的段按钮加 `type="button"`**（2026-10-10）：用于表单内（邮箱连接表单的交大邮箱 / 第三方 IMAP 切换）时，无 type 会默认提交表单。
 12. **圆角 token 改 rem**（2026-10-14）：`--radius-chip/control/card/window` 上游是 `6/8/10/14px`，改为 `0.375/0.5/0.625/0.875rem`，使圆角随「设置 › 外观 › 字号」的根字号缩放。默认 16px 根字号下与上游像素一致。
+13. **CodeBlock 文件名行改正常行高**（2026-10-19）：`leading-none` 的 1em 行盒在字号调大后会裁掉下划线与字形下缘；文件名改用 `leading-normal`，头部由固定 `h-11` 改为 `min-h-11` + `py-2`，长路径仍由 `truncate` 省略。
 
 ## 升级方式
 

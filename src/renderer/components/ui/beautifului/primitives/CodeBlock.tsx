@@ -177,10 +177,11 @@ export default function CodeBlock({
         <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-red" />
       )}
       {/* header — file · (diff stat | copy) */}
-      <div className="flex h-11 items-center gap-2 border-b border-line px-4 text-13">
+      {/* Dela 适配：文件名保留正常行高；leading-none 的 1em 行盒会在字号调大后裁掉下划线与字形下缘。 */}
+      <div className="flex min-h-11 items-center gap-2 border-b border-line px-4 py-2 text-13">
         <span className="inline-flex min-w-0 items-center gap-[0.4375rem]">
           <FileIcon />
-          <span className="truncate font-mono leading-none text-ink">{filename}</span>
+          <span className="truncate font-mono leading-normal text-ink">{filename}</span>
         </span>
 
         {isDiff ? (
