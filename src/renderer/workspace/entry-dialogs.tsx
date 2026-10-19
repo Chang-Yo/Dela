@@ -121,6 +121,14 @@ export function EntryDialogs({
     return names.join(' / ');
   };
 
+  /** 新建条目落到哪：请求容器在树里的名字链，根用「我的内容」。 */
+  const targetLabel = (() => {
+    const container = request?.id
+      ? workspace.entries.find((entry) => entry.id === request.id)
+      : undefined;
+    return container ? pathName(container) : '我的内容';
+  })();
+
   /** 导入电脑上已有的文件夹作为项目：目录留在原处，成功后与新建项目走同一套后续动作。 */
   const importFolder = async () => {
     if (!window.dela || busy) return;
@@ -231,10 +239,12 @@ export function EntryDialogs({
                 : request?.action === 'link'
                   ? '在项目根目录引用资料，原位置保持不变。'
                   : request?.action === 'note'
-                    ? `笔记保存到 ${workspace.directory}`
-                    : request?.action === 'project'
-                      ? '新建空项目，或导入电脑上已有的文件夹。'
-                      : '按自己的主题组织内容。'}
+                    ? `笔记保存到 ${targetLabel}`
+                    : request?.action === 'folder'
+                      ? `文件夹建在 ${targetLabel} 下`
+                      : request?.action === 'project'
+                        ? '新建空项目，或导入电脑上已有的文件夹。'
+                        : '按自己的主题组织内容。'}
           </Dialog.Description>
           <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
             {(request?.action === 'link' || request?.action === 'move') && (

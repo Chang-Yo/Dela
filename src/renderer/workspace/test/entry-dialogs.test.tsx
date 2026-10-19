@@ -112,3 +112,30 @@ it('hands the new-project dialog over to the remote wizard', async () => {
   expect(list).toHaveBeenCalledOnce();
   expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
 });
+
+it('shows the real destination of a new note or folder', async () => {
+  const subFolder: WorkspaceEntry = {
+    id: 'p-1/aaa',
+    parentId: 'p-1',
+    name: 'aaa',
+    kind: 'folder',
+    sourceId: null,
+    path: 'D:/code/我的代码/aaa',
+    updatedAt: '2026-10-08T00:00:00.000Z',
+  };
+  useWorkspaceStore.setState({
+    workspace: { ...emptyState, entries: [external, subFolder] },
+    loaded: true,
+    error: null,
+  });
+
+  // 名称支持 a/b 写法后落点不再总是根目录，提示改为相对树根的层级：短、不会撑破面板。
+  await render({ action: 'note', id: subFolder.id });
+  expect(document.body.textContent).toContain('笔记保存到 我的代码 / aaa');
+
+  await render({ action: 'note', id: null });
+  expect(document.body.textContent).toContain('笔记保存到 我的内容');
+
+  await render({ action: 'folder', id: subFolder.id });
+  expect(document.body.textContent).toContain('文件夹建在 我的代码 / aaa 下');
+});
