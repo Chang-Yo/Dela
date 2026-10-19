@@ -14,6 +14,8 @@ Dela 的重要变更都记在这里。
 
 ## Unreleased
 
+## 1.3.0 - 2026-10-20
+
 ### 亮点
 
 - 在 Apple Silicon Mac 上，你可以从「设置 › Skills」安装文档读取，让助手读取 Office 和 PDF。
