@@ -1,8 +1,6 @@
-// 设置 › 远程：已保存的 SSH 连接（名称、目的地、私钥与最近一次「测试连接」的结果）。
-// 事实全在主进程：这里只做 list / probe / remove 三个通道的展示与调用。
-// Dela 不保存密码与密钥本身，凭据由 ssh 从 ~/.ssh 与 agent 读取。
-// 新增走「新建项目 › 连接远程目录」的向导（本页只给入口）：连接总是伴随着一个远程项目，
-// 让它单独在半路上出现会把「这条连接用来干什么」这一步丢掉。
+// 设置 › 远程：SSH 连接的展示与 list / probe / remove，事实全在主进程。
+// Dela 不保存密码与密钥，凭据由 ssh 从 ~/.ssh 与 agent 读取。
+// 新增走「新建项目 › 连接远程目录」向导：连接总伴随一个远程项目，单独新增会丢掉用途这一步。
 import { useCallback, useEffect, useState } from 'react';
 import { Cloud, Loader2, Plus } from 'lucide-react';
 import type { RemoteConnection, RemoteDraft } from '../../../../shared/api';
@@ -16,7 +14,6 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
 
-/** 单条连接最近一次「测试连接」的结果；未测过时不显示状态点文字。 */
 type ProbeState = { ok: boolean; message: string };
 
 const draftOf = (connection: RemoteConnection): RemoteDraft => ({
@@ -26,7 +23,6 @@ const draftOf = (connection: RemoteConnection): RemoteDraft => ({
   keyPath: connection.keyPath,
 });
 
-/** 状态点只有三个取值：没测过是「未连接」，测过按结果分「可用 / 失败」。 */
 function statusOf(probe: ProbeState | undefined) {
   if (!probe) return { dot: 'bg-ink-3', label: '未连接', tone: 'text-ink-3' };
   if (probe.ok) return { dot: 'bg-green', label: '可用', tone: 'text-ink' };

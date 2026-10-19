@@ -1,6 +1,5 @@
-// 远程项目主进程链路的真机回归：连接存取 → 自检 → 浏览目录 → 登记项目 → 列远端目录 →
-// @ 候选索引 → 删除保护。这里用假数据库 + 真实 ssh，覆盖渲染端调用到的那一层。
-// 需要 DELA_REMOTE_HOST（如 root@1.2.3.4），由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
+// 远程项目主进程链路的真机回归（假数据库 + 真实 ssh）：需要 DELA_REMOTE_HOST（如 root@1.2.3.4），
+// 由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';

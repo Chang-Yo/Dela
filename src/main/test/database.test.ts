@@ -53,7 +53,6 @@ describe('旧世界库重置', () => {
     const root = freshRoot();
     plantLegacyDb(root, 15);
     const db = getDatabase();
-    // 旧表与数据消失，备份文件落盘（内容来自丢弃前的旧库）。
     expect(
       db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workspace_notes'").get(),
     ).toBeUndefined();

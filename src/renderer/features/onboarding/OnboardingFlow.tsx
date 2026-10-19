@@ -27,8 +27,7 @@ type OnboardingFlowProps = {
 };
 
 /**
- * 首次启动引导：Intro 动画（视频/品牌/Quote）→ 条款接受 → 五步配置向导。
- * 老用户只补条款，同意后由宿主检查一次性的能力拓展入口。
+ * 首次启动引导：Intro 动画 → 条款接受 → 五步配置向导；老用户只补条款，由宿主检查能力拓展入口。
  * 完成动画由宿主在主界面之上渲染（CompletionOverlay），不属于本组件。
  */
 export function OnboardingFlow({ onConsentDone, onWizardDone }: OnboardingFlowProps) {

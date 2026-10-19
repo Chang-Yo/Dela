@@ -11,9 +11,7 @@ export type NoteDraft = {
 };
 
 /**
- * NoteTab 的草稿数据源（注入接口）。
- * 3B 由 content/note/drafts.ts 接线：useDraft 订阅草稿，acquire/release 按引用
- * 计数持有，edit 进入 600ms 防抖保存队列，save 立即冲盘。NoteTab 不感知 store 形态。
+ * NoteTab 的草稿数据源（注入接口）：由 content/note/drafts.ts 接线，NoteTab 不感知 store 形态。
  */
 export interface NoteDraftSource {
   /** 订阅文档的工作区层级路径；由装配层解析目录，内容层只负责展示。 */
@@ -28,7 +26,7 @@ export interface NoteDraftSource {
   save(entryId: string): Promise<boolean>;
   /** 关闭入口前冲盘并释放草稿；仍有未保存内容时 resolve false。 */
   release(entryId: string): Promise<boolean>;
-  /** 保存失败后的兜底：把当前正文另存为新笔记（原「另存为新笔记」入口）；未接线时不显示。 */
+  /** 保存失败后的兜底：把当前正文另存为新笔记；未接线时不显示。 */
   saveAsNewNote?(entryId: string, text: string): void;
 }
 

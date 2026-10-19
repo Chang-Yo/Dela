@@ -61,7 +61,6 @@ func TestWatchHubRealInotify(t *testing.T) {
 		t.Errorf("skipped=%+v，想要 [%s]", skipped, missing)
 	}
 
-	// 新建文件是结构变化：应该收到指向该目录的 change
 	file := filepath.Join(dir, "a.txt")
 	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
@@ -82,7 +81,6 @@ func TestWatchHubRealInotify(t *testing.T) {
 	case <-time.After(watchMergeWindow * 2):
 	}
 
-	// 删掉被监视的目录本身：先报结构变化，内核摘掉 watch 后记账要跟着清空
 	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +96,6 @@ func TestWatchHubRealInotify(t *testing.T) {
 	}
 	drainEvents(sub)
 
-	// 目录再回来时，同一个 id 重新 POST 同一批路径要能重新加上 watch
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +109,6 @@ func TestWatchHubRealInotify(t *testing.T) {
 		t.Fatalf("重新加上 watch 之后的事件不对：%+v", event)
 	}
 
-	// DELETE 之后不该再有事件
 	hub.forgetID("t1")
 	drainEvents(sub)
 	if err := os.WriteFile(filepath.Join(dir, "c.txt"), []byte("x"), 0o644); err != nil {
@@ -232,7 +228,6 @@ func TestWatchHTTPStream(t *testing.T) {
 		t.Fatalf("SSE 事件不对：%+v", event)
 	}
 
-	// 客户端断开：订阅者必须被清掉
 	cancel()
 	stream.Body.Close()
 	deadline := time.Now().Add(3 * time.Second)

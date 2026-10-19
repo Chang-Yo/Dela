@@ -1,6 +1,5 @@
-// 条目动作（迁移自 ProjectView 的 action/move 段）：归档、升级为项目、导入、拖放移动。
-// 动作只经 preload workspace:* 通道写事实并刷新镜像；展开落点、打开项目等 UI 后续
-// 由接线方经回调决定，动作本身不碰视图状态。
+// 条目动作：归档、升级为项目、导入、拖放移动。
+// 只经 preload workspace:* 写事实并刷新镜像，不碰视图状态；UI 后续由接线方经回调决定。
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from './store';
@@ -58,7 +57,7 @@ export function isDescendant(entries: WorkspaceEntry[], id: string, ancestor: st
   return false;
 }
 
-/** 拖放移动条目；把条目移进自身子树的操作静默忽略（旧 ProjectView.move 行为）。 */
+/** 拖放移动条目；移进自身子树的操作静默忽略。 */
 export function moveEntry(
   dragId: string,
   targetId: string | null,
@@ -89,7 +88,6 @@ export function importDroppedFiles(
   });
 }
 
-/** 经系统对话框导入本地文件。 */
 export function importFromDialog(parentId: string | null) {
   void runEntryWork(async () => {
     await window.dela!.workspace.importFiles(parentId);
@@ -106,7 +104,6 @@ export function archiveEntry(id: string, onArchived?: () => void) {
   });
 }
 
-/** 文件夹升级为项目并打开。 */
 export function promoteEntry(id: string, onOpenProject: (id: string) => void) {
   void runEntryWork(async () => {
     const result = await updateEntry(id, { kind: 'project' });
@@ -115,7 +112,7 @@ export function promoteEntry(id: string, onOpenProject: (id: string) => void) {
   });
 }
 
-/** 新建笔记的正文预填：显式 text 优先；否则按当前打开的资料拼来源 header（旧 newNote）。 */
+/** 新建笔记的正文预填：显式 text 优先；否则按当前打开的资料拼来源 header。 */
 export function prefillNoteText(activeKey: string | null, text: string): string {
   const { workspace, canvas } = useWorkspaceStore.getState();
   const entries = workspace.entries;

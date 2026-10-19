@@ -1,7 +1,4 @@
 // @vitest-environment jsdom
-// 设置 › 远程：列出已保存连接（目的地、端口、私钥）；「测试连接」的成功结果与
-// main 抛出的失败原因都原样显示；删除失败（连接下还有项目）经 toast 原样提示；
-// 没有连接时给一句引导与「新建连接」入口。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';

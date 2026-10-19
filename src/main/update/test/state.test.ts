@@ -8,7 +8,6 @@ const at = '2026-10-12T00:00:00.000Z';
 
 const base = () => initialUpdateState({ currentVersion: '1.0.0' });
 
-/** 依次派发事件，返回末态。 */
 const run = (state: UpdateSnapshot, events: UpdateEvent[]) => events.reduce(reduceUpdate, state);
 
 const reachedAvailable = (version = '1.0.1') =>

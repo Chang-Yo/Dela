@@ -1,4 +1,3 @@
-// 工作台布局 store。
 import { create } from 'zustand';
 import type {
   GroupNode,
@@ -34,8 +33,8 @@ import { showToast } from '../app/toasts';
 
 const PERSIST_DEBOUNCE_MS = 800;
 
-// 容量超限（单组 maxTabsPerGroup / 全树 maxLayoutNodes）此前静默 return（评审 6）。
-// 走应用内通知浮窗提示；不为此改动三个动作的返回签名。
+// 容量超限（单组 maxTabsPerGroup / 全树 maxLayoutNodes）只发应用内通知浮窗：
+// 三个动作保持现有签名，调用方不必处理新的失败返回。
 const CAPACITY_LIMIT_REACHED = '工作组容量已达上限，已忽略本次操作';
 
 function notifyCapacityLimit() {
@@ -73,7 +72,7 @@ type Store = {
 // 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 const pendingSaves = new Set<Promise<boolean>>();
-// 当前项目布局成功落库后要清的旧视图键（3C）：dela.editor.layout.{scope} 是旧 ProjectView
+// 当前项目布局成功落库后要清的旧视图键：dela.editor.layout.{scope} 是旧 ProjectView
 // 的布局事实（已迁移到 layout:{projectId}），agentOpen/agentWidth 是旧助手面板死键。
 // 布局保存失败不清理（下次变更重试）；项目快速切换时只清最后落库项目的键，
 // 未保存项目的旧键保留，供下次进入该项目时再次种子。
@@ -288,7 +287,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const nextPinned = pinned.includes(tabId)
       ? pinned.filter((tab) => tab !== tabId)
       : [...pinned, tabId];
-    // 区域内部相对顺序保持：固定挪入固定区末尾，取消固定落到未固定区开头。
     const tabs = [...nextPinned, ...group.tabs.filter((tab) => !nextPinned.includes(tab))];
     set({
       root: updateGroup(root, groupId, (node) => ({

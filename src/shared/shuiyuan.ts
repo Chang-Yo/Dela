@@ -166,7 +166,6 @@ export interface ShuiyuanApi {
   /** 私信会话列表（topic 形态）。 */
   listMessages(): Promise<ShuiyuanTopicPage>;
   listNotifications(): Promise<readonly ShuiyuanNotificationItem[]>;
-  /** 全部通知标记已读。 */
   markNotificationsRead(): Promise<void>;
   /** 未读计数（主进程 60s 内存缓存）。 */
   getCounts(): Promise<ShuiyuanCounts>;

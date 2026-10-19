@@ -1,6 +1,5 @@
-// 回答末尾的「本轮改动」卡片：数据来自主进程冻结的轮次 diff（目录前后快照比较，
-// 覆盖 bash 等一切写文件的途径），不再从工具调用清单推断。默认折叠防大轮次刷屏；
-// 行内「审阅 / 打开」按标题栏「新聊天」的落位开进最右标签组。
+// 回答末尾的「本轮改动」卡片：数据取自主进程冻结的轮次 diff（目录前后快照比较，
+// 覆盖 bash 等一切写文件的途径）；默认折叠防大轮次刷屏。
 import { memo, useEffect, useState } from 'react';
 import { ChevronDown, CodeXml, FolderOpen } from 'lucide-react';
 import type { FileChangeSummary, TurnChanges } from '../../../shared/api';
@@ -63,7 +62,7 @@ const TurnFileRow = memo(function TurnFileRow({
   const deleted = file.status === 'deleted';
   const fail = (cause: unknown) =>
     showToast({ variant: 'error', title: '打开失败', description: errorText(cause) });
-  /** 应用内打开：先解析本机绝对路径（deleted 时必然失败，按钮已禁用）。 */
+  /** deleted 时必然解析失败，对应按钮已禁用。 */
   const openInDela = () => {
     void window.dela?.chat
       .locateFile(sessionId, file.path)

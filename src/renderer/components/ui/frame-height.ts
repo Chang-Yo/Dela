@@ -1,11 +1,9 @@
 /**
  * 沙箱 iframe 的高度自适应与可选站内链接上报。srcDoc 文档会继承应用 CSP（script-src 'self'），
- * 因此外层 CSP 需 pin 本脚本的 sha256 hash（见 index.html）；脚本文本任何改动都要
- * 重新计算并同步内外层 CSP 的 hash——scripts/shuiyuan-smoke.cjs 的零控制台报错断言会拦截漂移。
- * 邮件正文与水源楼层共用同一段脚本，只维护一个 hash；链接上报仅在调用方提供
- * 站点 host 时启用。
- * 测量 body.scrollHeight 而非 documentElement：后者不会小于 iframe 视口高，
- * 短楼层会被垫出大片空白；两处消费方的 body 均为 margin:0 的内容自适应高度。
+ * 外层 CSP 因此要 pin 本脚本的 sha256（见 index.html）；脚本改动必须同步内外层 hash，
+ * scripts/shuiyuan-smoke.cjs 的零控制台报错断言会拦下漂移。邮件正文与水源楼层共用这段脚本。
+ * 测量 body.scrollHeight 而非 documentElement：后者不小于 iframe 视口高，短楼层会被垫出空白；
+ * 两处消费方的 body 均为 margin:0 的内容自适应高度。
  */
 const FRAME_HEIGHT_SOURCE = 'dela-frame-height';
 const FRAME_LINK_SOURCE = 'dela-frame-link';
@@ -28,7 +26,6 @@ export function injectFrameHeightReport(doc: Document, internalLinkHost?: string
   doc.body.append(script);
 }
 
-/** 校验来自目标 iframe 的高度上报消息，返回高度（px）；无效返回 null。 */
 export function frameHeightFromEvent(
   event: MessageEvent,
   iframe: HTMLIFrameElement | null,
@@ -42,7 +39,6 @@ export function frameHeightFromEvent(
     : null;
 }
 
-/** 校验来自目标 iframe 的站内链接消息，返回绝对地址；无效返回 null。 */
 export function frameLinkFromEvent(
   event: MessageEvent,
   iframe: HTMLIFrameElement | null,

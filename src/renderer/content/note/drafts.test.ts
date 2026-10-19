@@ -1,5 +1,3 @@
-// note/drafts 状态机单测：防抖保存、保存互斥与补写循环、acquire/release 引用计数、
-// force 重读不覆盖新编辑——对照旧 features/projects/workspace.ts 行为（含其原测试三项）。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DocumentContent } from '../../../shared/api';
 import { useNoteDrafts } from './drafts';

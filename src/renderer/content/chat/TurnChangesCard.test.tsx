@@ -88,7 +88,6 @@ it('默认折叠，展开后列出文件并显示行数统计', async () => {
   expect(dela.chat.readTurnChanges).toHaveBeenCalledWith(sessionId, turn.turnId, true);
   expect(dela.chat.readTurnChanges).toHaveBeenCalledTimes(1);
   expect(dela.chat.readTurnFileChange).not.toHaveBeenCalled();
-  // 折叠时不渲染文件行。
   expect(host.querySelectorAll('li')).toHaveLength(0);
 
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());

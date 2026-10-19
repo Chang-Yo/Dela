@@ -1,8 +1,7 @@
 // 会话视图类型：WorkspaceChat 是 Pi 会话消息的投影（main/agent/session.ts）。
 import type { ChatAskInput } from './chat';
 
-/** 工具输出（Pi 工具结果的投影）：text 是回灌给模型的文本，details 是工具的结构化细节
- *  （edit 的 diff 等），isError 标记失败。 */
+/** Pi 工具结果的投影：text 是回灌给模型的文本，details 是工具的结构化细节（edit 的 diff 等）。 */
 export interface AgentToolOutput {
   text: string;
   details?: unknown;
@@ -93,7 +92,6 @@ export interface WorkspaceChat {
 export type RunStatus =
   'pending' | 'running' | 'waiting_input' | 'completed' | 'failed' | 'stopped' | 'interrupted';
 
-/** session:on-run-event 载荷：Run 状态与活跃工具变化。 */
 export interface RunEvent {
   sessionId: string;
   runId: string;
@@ -135,10 +133,8 @@ export interface SessionApi {
   /** 发起一轮执行（同 session 串行、跨 session 并行）。 */
   ask(sessionId: string, input: ChatAskInput): Promise<WorkspaceChat>;
   cancelRun(sessionId: string): void;
-  /** 会话快照变化推送（sessionId + WorkspaceChat）。 */
   onSessionUpdate(listener: (sessionId: string, chat: WorkspaceChat) => void): () => void;
   /** 流式增量推送（仅末条 assistant 消息）：合并进镜像缓存，不广播全量历史。 */
   onStream(listener: (event: ChatStreamEvent) => void): () => void;
-  /** Run 状态/活跃工具变化推送。 */
   onRunEvent(listener: (event: RunEvent) => void): () => void;
 }

@@ -1,5 +1,4 @@
-// 项目内置终端（Git Bash）：dela 命令桥注入（rcfile + 专用 env）、PTY 生命周期
-//（输入/尺寸/输出回放/退出后只读）、进程回收（单标签/项目/窗口）、调用方校验。
+// 项目内置终端（Git Bash）的回归：命令桥注入、PTY 生命周期与进程回收。
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -135,7 +134,6 @@ describe.each(['win32', 'darwin'])('项目内置终端（%s）', (platform) => {
     expect(options.env.DELA_COMMAND_TOKEN).toMatch(/^[0-9a-f]{64}$/);
     expect(options.env.MSYSTEM).toBe(platform === 'win32' ? 'MINGW64' : undefined);
     expect(options.useConptyDll).toBe(platform === 'win32' ? true : undefined);
-    // rcfile 链回标准初始化并定义 dela 函数；会话关闭后随临时目录回收。
     const rc = args[1]!;
     expect(existsSync(rc)).toBe(true);
     expect(readFileSync(rc, 'utf8')).toContain(

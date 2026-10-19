@@ -22,8 +22,7 @@ const INITIAL_BODY_HEIGHT = 240;
 
 /**
  * 作业描述经清洗后放入沙箱 iframe 渲染。阅读器默认样式禁止文档纵向滚动，
- * 因此高度随内容自适应（body 上挂 ResizeObserver 量高），滚动交给所在限高滚动区；
- * 链接点击转交外部打开。
+ * 因此高度随内容自适应，滚动交给所在限高滚动区；链接点击转交外部打开。
  */
 function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => void }) {
   const rootSize = useRootFontSize();
@@ -67,7 +66,6 @@ function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => v
   );
 }
 
-/** 点击待办卡片滑出的详情：标题、元信息（课程·状态/截止/提交）、描述与操作。 */
 export function TodoDetail({
   item,
   now,

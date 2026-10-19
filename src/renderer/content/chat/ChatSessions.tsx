@@ -90,9 +90,7 @@ function SessionList({
   );
 }
 
-/** 历史对话：按标题或消息原文搜索，可打开或删除会话。项目会话在前，其后是通用入口；
- *  通用池会话（projectId 为 null）只列出通用一组。
- *  悬浮面板锚定内容区（main），从右缘滑出。 */
+/** 历史对话面板：项目会话在前、通用对话在后（通用池只列自己），锚定内容区从右缘滑出。 */
 export function ChatSessions({
   projectId,
   currentSessionId,
@@ -172,7 +170,7 @@ export function ChatSessions({
 
   if (!open) return null;
   // 面板锚定内容区（app-main）而非视口：侧栏展开时不遮挡导航，滚动状态也与之无关；
-  // 工作台暂无该锚点时退回 body（整窗覆盖），3B 接线时给出正式容器。
+  // 找不到锚点时退回 body（整窗覆盖）。
   const container = document.getElementById('app-main') ?? document.body;
 
   const sections = pools.map((pool) => ({

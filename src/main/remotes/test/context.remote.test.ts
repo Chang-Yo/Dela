@@ -1,5 +1,4 @@
-// 远端上下文镜像的真机验证：三处远端技能与祖先 AGENTS.md 取回本地逐字节一致，
-// 且镜像路径能翻回远端真身（含 bash 命令正文里的镜像路径）。
+// 远端上下文镜像的真机验证（含 bash 命令正文里的镜像路径翻译）。
 // 需要 DELA_REMOTE_HOST（如 root@1.2.3.4），由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

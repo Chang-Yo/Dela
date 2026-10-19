@@ -5,10 +5,7 @@ import { chromeIconButton } from '../../navigation/nav-styles';
 import { useUpdateState, pendingUpdate } from './update';
 
 /**
- * 标题栏的更新提示：后台查到有新版本时亮起，点一下落到「设置 › 通用」。
- *
- * 排在标题栏左侧这一组的最右端——它是状态提示，不属于前进/后退那串导航动作，
- * 插在中间会把导航按钮拆散。
+ * 排在标题栏左侧这一组的最右端：它是状态提示，插进前进/后退中间会把导航按钮拆散。
  * 颜色取 token 里的 --green，与「已连接」「可用」等正向状态同一个绿，不另起色值。
  */
 export function UpdateBadge() {

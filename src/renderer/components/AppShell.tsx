@@ -160,7 +160,6 @@ type AppShellProps = {
   notificationCount: number;
   /** TODO 未读数（readAt === null）：顶栏 TODO 图标据此变蓝，判定同系统通知的 todo 口径。 */
   todoUnreadCount: number;
-  /** 项目会话导航（sessions/runs 镜像数据与跳转回调由 App 装配后传入）。 */
   sessionsByProject: Record<string, NavSessionSummary[]>;
   runBadge: (sessionId: string) => SessionRunBadge;
   activeSessionId?: string | null;
@@ -271,7 +270,6 @@ export function AppShell({
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // 窄屏下侧边栏是覆盖式抽屉,由左上角菜单按钮控制;宽屏沿用完全折叠。
   // 拉宽窗口,或经后退/前进离开邮箱视图时,收起可能残留的邮箱级抽屉。
   useEffect(() => {
     if (!narrow || (drawer === 'mail' && view !== 'mail')) onMobileDrawerChange?.(null);

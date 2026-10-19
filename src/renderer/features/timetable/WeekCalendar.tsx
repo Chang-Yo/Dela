@@ -247,7 +247,7 @@ function LessonBlock({
           style={{
             ...eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
             ...eventStyle(start, end),
-            // 两侧各留 0.125rem 与相邻并排列隔开，单项独占时等价于原来的 inset-x-1。
+            // 两侧各留 0.125rem 与相邻并排列隔开。
             left: `calc(${layout.left}% + 0.125rem)`,
             width: `calc(${layout.width}% - 0.25rem)`,
           }}

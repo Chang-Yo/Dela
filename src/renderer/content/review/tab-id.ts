@@ -1,6 +1,5 @@
-// review:{sessionId}:{turnId}:{path}：冻结轮次的单文件审阅。
-// review:{sessionId}:uncommitted：会话工作目录相对 Git HEAD 的未提交改动聚合审阅。
-// UUID 定长，路径段可含冒号（Windows 盘符），按位置截取才能无损往返。
+// review:{sessionId}:{turnId}:{path}：冻结轮次的单文件审阅；review:{sessionId}:uncommitted：未提交改动聚合审阅。
+// UUID 定长、路径段可含冒号（Windows 盘符），只能按位置截取才能无损往返。
 import type { TabId } from '../../../shared/layout';
 
 export type ReviewTabTarget =

@@ -23,15 +23,12 @@ export function HandwritingLine({
   instant = false,
   line,
 }: {
-  /** INTRO_LETTERING 里的行名。 */
   line: LetteringKey;
   /** 字号与颜色走外层 class（font-script / text-6xl 等），尺寸按 em 跟着字号缩放。 */
   className?: string;
-  /** 单个字的书写时长（秒）。 */
   duration: number;
   /** 相邻字的起始间隔（秒），应小于 duration 才会连笔。 */
   charDelay: number;
-  /** 整行开始时间（秒）。 */
   delay: number;
   /** 减弱动效时直接给出终态，不做描边。 */
   instant?: boolean;

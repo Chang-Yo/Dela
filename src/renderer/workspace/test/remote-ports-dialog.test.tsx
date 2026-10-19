@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// 端口预览面板：快照渲染（端口/进程/隧道状态）、打开与停止都走 workspace 通道，
-// helper 不可用时报错行。状态在主进程，面板只负责展示与触发。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';

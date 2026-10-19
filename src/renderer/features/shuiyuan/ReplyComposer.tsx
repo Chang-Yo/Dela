@@ -37,7 +37,7 @@ type ReplyComposerProps = {
   submitLabel: string;
   /** 帖子关闭/归档等不可回复情形的提示；非空时输入区只读。 */
   disabledHint: string | null;
-  /** 楼层级回复目标；非空时在编辑器上方展示目标准条。 */
+  /** 楼层级回复目标。 */
   replyTarget: { postNumber: number; username: string } | null;
   onClearReplyTarget: () => void;
 };
@@ -54,7 +54,7 @@ function readAsBase64(file: File): Promise<string> {
   });
 }
 
-/** 水源回复器：Markdown 编辑 + 预览 + 附件上传（upload:// 链接写回正文）。 */
+/** 水源回复器：上传的附件以 upload:// 链接写回正文。 */
 export function ReplyComposer({
   value,
   onChange,
@@ -90,7 +90,7 @@ export function ReplyComposer({
     }
   };
 
-  // 全屏书写时 Esc 退出；挂在 window 上，焦点在编辑器内时同样生效。
+  // 挂在 window 上，焦点在编辑器内时 Esc 也能退出全屏。
   useEffect(() => {
     if (!maximized) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -170,7 +170,7 @@ export function ReplyComposer({
       </div>
     ) : null;
 
-  // 楼层级回复目标准条：X 清除后回到主题级回复。
+  // X 清除目标准条后回到主题级回复。
   const replyTargetBanner = replyTarget ? (
     <div className="flex shrink-0 items-center gap-1.5 rounded-control bg-inset px-2 py-1 text-xs text-ink-3">
       <Reply aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={1.8} />
@@ -188,7 +188,7 @@ export function ReplyComposer({
     </div>
   ) : null;
 
-  // 右上角窗口钮组：全屏书写 + 收起，悬在编辑/预览卡片角上，不占工具栏位置。
+  // 窗口钮组悬在编辑/预览卡片角上，不占工具栏位置。
   const windowButtons = (isMaximized: boolean) => (
     <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
       <Button
@@ -297,7 +297,7 @@ export function ReplyComposer({
     </div>
   );
 
-  // 全屏书写：表单铺满阅读区（TopicReader 根需 relative 作锚点），编辑器吃满剩余高度。
+  // 绝对定位铺满阅读区：TopicReader 根必须 relative 作锚点，编辑器吃满剩余高度。
   if (maximized) {
     return (
       <form

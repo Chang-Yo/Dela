@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
-// 远程连接向导：自检失败原样显示 main 的 message 且不保存；自检通过才落库（已存在的连接
-// 不重复保存），随后逐层选目录并登记项目。「连接」这一步现在真的引导 helper，所以还要覆盖
-// 进度逐行进日志区、helper 起不来时给出失败原因与降级警告且允许继续。
+// 远程连接向导：自检失败原样透出 main 的 message 且不落库；helper 起不来时降级但仍可继续。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';

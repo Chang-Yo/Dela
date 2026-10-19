@@ -2,7 +2,6 @@
 // 视图契约（McpServerView）不携带 command/args/env，编辑表单因此采用"留空保持原值"的部分补丁。
 import type { McpConnectionStatus } from '../../../../../shared/capabilities';
 
-/** args 编辑框：每行一个参数，去首尾空白，忽略空行。 */
 export function parseArgsText(text: string): string[] {
   return text
     .split('\n')
@@ -10,7 +9,7 @@ export function parseArgsText(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-/** env 编辑框：每行一条 KEY=VALUE（值可为空）；出现无 = 或空 KEY 的行时返回带行号的错误，env 为已收集部分（调用方先看 error）。 */
+/** 每行一条 KEY=VALUE（值可为空）；格式错误时返回带行号的错误，env 为已收集部分（调用方先看 error）。 */
 export function parseEnvText(text: string): { env: Record<string, string>; error: string | null } {
   const env: Record<string, string> = {};
   const lines = text.split('\n');
@@ -83,7 +82,6 @@ export interface McpStatusBadge {
   spin: boolean;
 }
 
-/** 连接状态 → 徽标展示：connecting 转圈 / connected 绿点+工具数 / disconnected 灰点 / error 红点。 */
 export function mcpStatusBadge(
   status: McpConnectionStatus,
   toolCount: number | null,

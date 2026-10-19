@@ -58,7 +58,6 @@ type Store = {
   setLiked: (postId: number, liked: boolean) => Promise<void>;
   submitReply: (raw: string, replyToPostNumber?: number) => Promise<void>;
   consumeTopicRequest: (request: { topicId: number; postNumber: number | null }) => void;
-  /** App 层「在水源页打开」入口：记录请求并随后由视图消费。 */
   requestTopic: (topicId: number, postNumber?: number) => void;
 };
 
@@ -96,7 +95,6 @@ function persistReadMarks(marks: ReadMarks): void {
   }
 }
 
-/** 未读判定：从未打开过，或打开后又有新回复。 */
 export function isTopicUnread(marks: Readonly<ReadMarks>, topic: ShuiyuanTopicSummary): boolean {
   const seen = marks[topic.id];
   if (!seen) return true;
@@ -311,7 +309,6 @@ export const useShuiyuan = create<Store>((set, get) => {
       const api = window.dela?.shuiyuan;
       if (!api) return;
       const next = !current;
-      // 乐观更新列表与阅读态；失败回滚。
       const apply = (value: boolean) => {
         set({
           topics: get().topics.map((topic) =>
@@ -427,7 +424,7 @@ export const useShuiyuan = create<Store>((set, get) => {
   };
 });
 
-/** 按类别 id 查类别（分类树常驻内存，未命中返回 null）。 */
+/** 分类树常驻内存；未命中返回 null。 */
 export function categoryOf(
   structure: ShuiyuanSiteStructure | null,
   categoryId: number | null,

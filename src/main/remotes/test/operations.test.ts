@@ -1,6 +1,5 @@
-// 远程工具的离线回归：还原被宿主 node:path 改写过的远端路径、通道调用失败后的退化策略。
-// 「写入真的落到远端、不在本地盘留下同名路径」这类判断需要真机，在 operations.remote.test.ts，
-// 由 pnpm test:remote 运行。
+// 远程工具的离线回归。「写入真的落到远端、不在本地盘留下同名路径」这类判断需要真机，
+// 在 operations.remote.test.ts，由 pnpm test:remote 运行。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
@@ -68,7 +67,6 @@ describe('remotePath', () => {
       expect(remotePath(`${mirror.toLowerCase()}/home/.dela/skills/x/SKILL.md`)).toBe(
         '/root/.dela/skills/x/SKILL.md',
       );
-      // 镜像根本身
       expect(remotePath(`${mirror}\\repo`)).toBe('/root/proj');
       // 远端绝对路径、被改写的相对路径都照旧
       expect(remotePath('/tmp/x')).toBe('/tmp/x');

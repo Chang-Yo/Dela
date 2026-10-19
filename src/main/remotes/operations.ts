@@ -1,13 +1,8 @@
 /**
- * 远程工具：把 Pi 七个内置工具的执行端换到 SSH 远端。
- *
- * read/write/edit/bash/ls/find 复用 Pi 的工具定义（参数 schema、描述、截断与渲染都不动），
- * 只注入 operations；grep 在 Pi 内部固定 spawn 本地 rg，没有 operations 可换，
- * 因此保留它的 schema 与描述、自写 execute 在远端搜索。
- *
- * 关键约束：工具在调用 operations 之前已经用宿主 node:path 解析过参数。
- * 本机实测 cwd=/root/proj 时 `src/a.ts` 会变成 `E:\root\proj\src\a.ts`，
- * 绝对路径 `/tmp/x` 会变成 `\tmp\x`，所以每个路径都必须先过 remotePath 还原。
+ * 远程工具：把 Pi 七个内置工具的执行端换到 SSH 远端。read/write/edit/bash/ls/find 复用 Pi 的定义、
+ * 只注入 operations；grep 在 Pi 内固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute。
+ * 关键约束：参数已被宿主 node:path 解析成 Windows 形态（`src/a.ts` → `E:\root\proj\src\a.ts`），
+ * 每个路径都必须先过 remotePath 还原。
  */
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
@@ -231,8 +226,6 @@ function globToRegExp(glob: string): RegExp {
 export function remoteOperations(target: RemoteTarget) {
   const listings = new Map<string, { at: number; directories: Map<string, boolean> }>();
 
-  /** helper 通道：拿不到就返回 null，调用方退回一次性 ssh。只有「重跑一次没有副作用」的
-   *  操作才配回退；bash 的命令可能已经跑过，它自己判（见 bash.exec）。 */
   const throughHelper = <T>(
     work: (session: HelperSession) => Promise<T>,
     fallback: () => Promise<T>,

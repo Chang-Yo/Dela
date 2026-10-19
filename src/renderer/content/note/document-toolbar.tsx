@@ -14,11 +14,8 @@ import { cn } from '../../lib/utils';
 /** 笔记编辑模式（本次会话内按文档记忆；含 frontmatter 等不支持语法的文档强制源码模式）。 */
 export type NoteMode = 'rich' | 'read' | 'source';
 
-/**
- * 笔记内容级工具栏（自 ProjectDocument 工具栏拆出）：保存状态低干扰展示、格式/源码
- * 切换、文件夹定位与重载。正常状态不常驻保存按钮（计划 §4.3：自动保存已覆盖该路径），
- * 失败重试与「另存为新笔记」入口在 NoteTab 的错误条中提供。
- */
+/** 笔记内容级工具栏：保存状态低干扰展示、格式/源码切换、文件夹定位与重载。
+ *  正常状态不常驻保存按钮（自动保存已覆盖该路径）；失败重试与「另存为新笔记」入口在 NoteTab 错误条。 */
 export function DocumentToolbar({
   path,
   markdown,

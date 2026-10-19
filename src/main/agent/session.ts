@@ -1,8 +1,6 @@
 /**
- * 会话层：SQLite 只存索引（项目归属、工作目录、标题、置顶、归档、JSONL 路径），完整记录是 Pi 的会话文件。
- * 每个打开的会话在内存里保留一个 Pi AgentSession；cwd 取会话自己的 cwd 列（通用会话是 chat-sessions 下的
- * 私有目录），该列为 NULL 时按项目目录解析（通用会话为工作区根），解析失败直接报错，不静默换目录。
- * renderer 看到的 WorkspaceChat 是 Pi 消息的投影。
+ * 会话层：SQLite 只存索引（项目归属、cwd、标题、置顶、归档与 JSONL 路径），完整记录是 Pi 的会话文件。
+ * renderer 看到的 WorkspaceChat 是 Pi 消息的投影；cwd 解析失败直接报错，不静默换目录。
  */
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
@@ -49,7 +47,6 @@ interface Live {
   cwd: string;
   /** 当前 Run（ask 进行中）；空闲为 undefined。 */
   run?: { id: string; tool?: string; cancelled?: boolean; done: Promise<void> };
-  /** 本轮用户消息的展示元数据（引用、图片、附件），按 Pi 消息时间戳对齐。 */
   unsubscribe: () => void;
   stale?: boolean;
 }
@@ -230,7 +227,7 @@ const textOf = (content: string | (TextContent | ImageContent)[]) =>
     ? content
     : content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
 
-/** 用户消息里 Dela 附加的前言（引用与附件）不进展示；元数据在 details 前缀里。 */
+/** Dela 在用户消息前附加的 <dela-meta> 块（引用、附件、turnId）不进展示。 */
 const META_PREFIX = '<dela-meta>';
 const META_SUFFIX = '</dela-meta>\n';
 

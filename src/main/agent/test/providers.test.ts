@@ -229,15 +229,12 @@ describe('LLM provider config', () => {
     const created = saveLlmProvider({ ...input, effortLevels: ['low', 'high'] });
     setActiveLlmProvider(created.id);
     setLlmEffort('high');
-    // 仍在列表内：编辑保留当前档位。
     saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: ['low', 'high'] });
     expect(listLlmProviders()[0]!.effort).toBe('high');
-    // high 被移出列表：回到第一档。
     saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: ['medium'] });
     const view = listLlmProviders()[0]!;
     expect(view.effortLevels).toEqual(['medium']);
     expect(view.effort).toBe('medium');
-    // 关闭（空列表）：清除档位，composer 回到 default。
     saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: [] });
     expect(listLlmProviders()[0]!.effort).toBeNull();
   });

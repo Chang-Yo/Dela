@@ -1,13 +1,7 @@
 /**
- * 远端 helper 通道：把「一次调用一次 SSH 握手」换成一条常驻通道。
- *
- * Windows OpenSSH 没有 ControlMaster，每调一次工具都要重新握手（实测冷启 4.2 秒）；
- * helper 让这条握手被复用，并补上 shell 命令给不了的能力：片段读取、二进制原子写、
- * 服务端哈希、可取消/可流式的长任务。上传、校验、启动、隧道、握手与心跳都在这里完成，
- * 调用方只看到 readFile / writeFile / exec。
- *
- * 任何一步不成立（缺产物、架构不符、远程不许执行、启动失败、隧道不通）都返回 null，
- * 调用方退回一次性 ssh —— 降级路径必须始终可用。
+ * 远端 helper 通道：Windows OpenSSH 没有 ControlMaster（实测冷启 4.2 秒），这里用一条常驻通道复用握手，
+ * 并补上 shell 命令给不了的能力（片段读取、二进制原子写、服务端哈希、可取消/流式长任务）。
+ * 任何一步不成立（缺产物、架构不符、远程不许执行、启动失败、隧道不通）都返回 null，调用方退回一次性 ssh —— 降级路径必须始终可用。
  */
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
@@ -193,7 +187,6 @@ export interface HelperPort {
   process?: string;
 }
 
-/** 端口预览的独立隧道：与 helper 通道无关，通道切换不影响它。 */
 export interface PortTunnel {
   localPort: number;
   close(): void;
@@ -429,7 +422,6 @@ async function ensureArtifact(
   onProgress?.({ step: 'verify', ok: true, detail: 'sha256 校验通过' });
 }
 
-/** 一次启动：写 token、拉起 helper、把 run.json 里的端口读回来。 */
 async function startHelper(target: RemoteTarget, dir: string, token: string): Promise<number> {
   const script = [
     'set -e',
@@ -825,20 +817,15 @@ async function ensure(
         if (++failures >= HEARTBEAT_FAILURES_BEFORE_DEAD) onDead?.();
       });
   }, HEARTBEAT_MS);
-  // 隧道进程退出（网络断、ssh 崩）：同样立刻报死。
   tunnel.once('exit', () => onDead?.());
   return { key: targetKey(target), token, session, timer, tunnel };
 }
 
 /**
- * 一个连接一条通道，同时可以有几条。
- *
- * 多通道不是优化，是并行会话的前提：两个不同主机的会话同时工作时，单通道会被每一次远端操作
- * 切走，而隧道一断 helper 就按请求上下文断开取消进程组——另一台上正在跑的构建会被 TERM，
- * 且按既定策略不重放。条目按连接 key 分开，各带各的心跳与降级提示。
- *
- * 值就是那条通道的 promise（identity 即条目本身）：摘除、失效、失败清理都先核对「表里还是不是
- * 这一条」，避免把后来新建的那条误杀。取或建是同步的，没有读改写窗口。
+ * 一个连接一条通道，可同时存在多条。多通道不是优化而是并行会话的前提：单通道下隧道一断，
+ * helper 就按请求上下文断开取消进程组——另一台上正在跑的构建会被 TERM，且按既定策略不重放。
+ * 值就是那条通道的 promise（identity 即条目本身）：摘除、失效、清理都先核对「表里还是不是这一条」，
+ * 避免误杀后来新建的那条；取或建是同步的，没有读改写窗口。
  */
 const channels = new Map<string, Promise<ActiveChannel | null>>();
 

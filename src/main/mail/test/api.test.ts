@@ -343,7 +343,6 @@ describe('mail local trash and folder sync', () => {
       db.prepare('SELECT COUNT(*) AS c FROM mail_messages WHERE folder_id = ?').get(draftsFolderId),
     ).toEqual({ c: 0 });
 
-    // 第二次同步不再触碰服务器草稿箱。
     startMailSync();
     await waitForSync();
     expect(imapHarness.deletions).toHaveLength(1);
@@ -526,7 +525,6 @@ describe('mail local trash and folder sync', () => {
     });
     expect(cacheChanges).toBe(1);
 
-    // 没有未读时不再触碰服务器。
     imapHarness.flagAdds = [];
     expect(await markAllMailSeen()).toEqual({ ok: true });
     expect(imapHarness.flagAdds).toHaveLength(0);

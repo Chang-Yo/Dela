@@ -134,7 +134,6 @@ export function currentSemester(now = new Date()): string {
   return `${year - 1}-${year}-3`;
 }
 
-/** 未指定学期时取当前学期；指定值仍走学期格式校验。 */
 export function resolveSemester(requested: unknown): string {
   return requested === undefined ? currentSemester() : semesterSchema.parse(requested);
 }
@@ -421,7 +420,7 @@ export function deleteCalendarEvent(id: unknown) {
   getDatabase().prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
 }
 
-/** 读取单条自建日历事件（calendar_events 表只读视图）；不存在返回 null。 */
+/** calendar_events 表只读视图；不存在返回 null。 */
 export function getCalendarEvent(idInput: unknown): CalendarEvent | null {
   const id = z.number().int().positive().parse(idInput);
   const row = getDatabase()

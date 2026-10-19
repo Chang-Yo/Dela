@@ -9,9 +9,8 @@ import type { ComposerContext } from './composer-context';
 import type { ComposerEditor } from './ComposerEditor';
 import type { ChatReference } from './use-chat';
 
-// 编辑器（CodeMirror）不参与本次验证：换成 textarea，但文档变化、光标位置与 handleRef
-// 的编辑操作仍按真实编辑器的方式回调（真实实现里 docChanged / selectionSet 走的是同一个
-// updateListener，replaceRange 走 dispatch changes）。
+// 编辑器（CodeMirror）不参与本次验证：换成 textarea，但文档变化、光标与 handleRef
+// 的编辑操作仍按真实编辑器的回调方式模拟。
 vi.mock('./ComposerEditor', () => ({
   ComposerEditor: ({
     value,

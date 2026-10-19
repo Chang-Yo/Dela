@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// 条款接受页：两份条款依次展示，各自读到最底部才能点「同意并继续」，
-// 第一份同意只是翻到第二份，两份都同意后才回调放行；这一页没有跳过。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -60,7 +58,6 @@ function box() {
   return container.querySelector<HTMLElement>('[data-consent-text]')!;
 }
 
-/** 按 scrollTop 触发一次滚动；内容高与视口高来自本用例的 metrics。 */
 async function scrollTo(scrollTop: number) {
   box().scrollTop = scrollTop;
   await act(async () => box().dispatchEvent(new Event('scroll')));
@@ -91,7 +88,6 @@ function firstHeading(markdown: string) {
   return /^## (.+)$/m.exec(markdown)?.[1] ?? '';
 }
 
-/** 滚动框与「同意并继续」的关系。 */
 async function agreeOnce() {
   await scrollTo(600);
   await act(async () => button('同意并继续').click());
@@ -106,7 +102,6 @@ it('先展示使用条款，内容不溢出时按钮直接可用', async () => {
   expect(title()).toBe('使用条款');
   expect(box().textContent).toContain(firstHeading(terms));
   expect(box().textContent).not.toContain(firstHeading(privacy));
-  // 这一页只有「不同意并退出」与「同意并继续」，没有跳过。
   expect(hasButton('不同意并退出')).toBe(true);
   expect(hasButton('同意并继续')).toBe(true);
   expect(hasButton('跳过')).toBe(false);
@@ -146,7 +141,6 @@ it('两份条款都要各自滑到底并同意，第二次同意才放行', asyn
   await render(onAgree);
 
   await agreeOnce();
-  // 翻到第二份后回到顶部重新计，第一份的阅读进度不带过来。
   expect(title()).toBe('隐私条款');
   expect(box().textContent).toContain(firstHeading(privacy));
   expect(box().scrollTop).toBe(0);
@@ -180,7 +174,6 @@ it('文本框与正文都在观察范围内，卸载时断开', async () => {
   const content = box().firstElementChild;
   expect(observer.observed).toContain(box());
   expect(observer.observed).toContain(content);
-  // 观察目标不随滚动事件增减。
   expect(observer.observed).toHaveLength(2);
 
   await act(async () => root.unmount());

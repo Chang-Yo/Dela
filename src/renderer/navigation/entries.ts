@@ -1,6 +1,5 @@
-// 功能入口的单一真源：侧栏「功能入口」、折叠后标题栏图标与设置 › 通用 的显示开关都读这里。
-// 规则：功能开启 > 入口显示。入口隐藏只影响导航，能力仍在；功能关闭（目前只有水源）时入口随之消失。
-// 首页固定显示，不在此列表里。
+// 功能入口的单一真源：侧栏、折叠后标题栏图标与设置 › 通用 的显示开关都读这里。
+// 功能开启 > 入口显示：隐藏只影响导航，能力仍在；功能关闭（目前只有水源）时入口消失。首页固定显示，不在此列表。
 import { CalendarDays, FolderOpen, Mail, MonitorPlay } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -45,7 +44,6 @@ export function useNavEntryAvailable(): (id: NavEntryId) => boolean {
   return (id) => id !== 'shuiyuan' || shuiyuan;
 }
 
-/** 最终显示的入口 = 功能开启 且 用户选择显示。 */
 export function useVisibleNavEntries() {
   const hidden = useNavEntryPrefs((state) => state.hidden);
   const available = useNavEntryAvailable();

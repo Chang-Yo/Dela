@@ -1,6 +1,6 @@
-// @ 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」
-// 的连续文本是一个引用 token——编辑器按这里的规则高亮，发送时解析回绝对路径（key）。
-// 手打错误、已删除文件的 @路径不高亮也不进上下文，只是普通文本。
+// @ 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」的连续文本
+// 是一个引用 token，编辑器按此高亮、发送时解析回绝对路径（key）；手打错误或已删除文件的
+// @路径只是普通文本，不高亮也不进上下文。
 import type { WorkspaceEntry } from '../../../shared/api';
 import type { ChatReference } from './drafts';
 
@@ -55,7 +55,6 @@ export function matchReferenceTokens(text: string, options: ChatReference[]): Re
   const byTitle = new Map(options.map((ref) => [ref.title, ref]));
   if (byTitle.size === 0) return [];
   const tokens: ReferenceToken[] = [];
-  // @ 前必须是行首或空白：候选 run 到首个空白为止，之后按需跨空格扩展。
   const run = /(?:^|\s)@([^\s]+)/g;
   for (const match of text.matchAll(run)) {
     const at = (match.index ?? 0) + match[0].length - match[1]!.length - 1;

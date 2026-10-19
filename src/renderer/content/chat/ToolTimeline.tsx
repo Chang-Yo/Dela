@@ -7,18 +7,12 @@ import { ChatMarkdown } from './markdown';
 import { ToolBody } from './tool-views';
 import { fadeIn } from '../../components/ui/motion';
 
-// 回复的行内轨迹（Codex / Claude 式）：思考与工具步骤按发生顺序夹在正文之间，
-// 每步一行「动词 + 对象」，点开看细节。运行中只有当前步骤带 shimmer；
-// 完成后连续的工具步骤收成一行摘要（「读取 3 个文件，编辑 1 个」）；
-// 整轮结束后的折叠行只报用时，不回放工具清单、操作数与失败数：
-// 失败只在该步骤行尾标注，整轮失败由消息末尾的错误卡说明。
-//
-// 尺度（聊天区统一）：轨迹行 13px / ink-3，悬浮 ink-2；正文 14px / ink；行高 28px 节奏。
+// 回复的行内轨迹（Codex / Claude 式）：思考与工具步骤按发生顺序夹在正文之间，每步一行「动词 + 对象」。
+// 整轮折叠行只报用时：失败标在步骤行尾，整轮失败由错误卡说明。
 
 type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 type Part = ChatParts[number];
 
-/** 工具 → 行内动词（进行时与完成时）与摘要里的量词名词。 */
 const verbs: Record<string, { doing: string; done: string; noun: string }> = {
   read: { doing: '正在读取', done: '读取', noun: '个文件' },
   write: { doing: '正在写入', done: '写入', noun: '个文件' },
@@ -81,7 +75,6 @@ function editStat(result: AgentToolResult): { added: number; removed: number } |
   );
 }
 
-/** 可展开的单行：箭头常驻弱化，悬浮加深；展开内容缩进到文字起点。 */
 function Disclosure({
   head,
   children,
@@ -182,7 +175,7 @@ function formatDuration(ms: number): string {
 
 function ToolGroup({ results, live }: { results: AgentToolResult[]; live: boolean }) {
   const failed = results.filter((result) => result.output?.isError).length;
-  // 运行中、单步或有失败时逐行展示（失败要看得见）；完成后多步收成摘要行。
+  // 运行中或单步时逐行展示；完成后多步收成摘要行，失败只在摘要标注。
   if (live || results.length === 1)
     return (
       <div className="my-1">

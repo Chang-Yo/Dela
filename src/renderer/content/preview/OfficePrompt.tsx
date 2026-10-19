@@ -195,8 +195,6 @@ export function OfficeExportBanner({
     officeRef,
     onExported,
   );
-  /* 文档与导出内容一致时不占整行：仅保留重新导出入口；
-     源文件更新过或上次导出失败时，才回到完整警示条说明情况。 */
   if (!exported.stale) {
     if (!supported) return null;
     return (

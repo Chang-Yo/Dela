@@ -20,7 +20,7 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
   return until.toISOString();
 }
 
-/** 通用 › 系统通知：校园消息与 Agent 任务的提醒偏好、暂停通知（与通知中心同一状态源）。 */
+/** 通用 › 系统通知；暂停状态与通知中心同源。 */
 export function SystemNotifications() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [campus, setCampus] = useState<boolean | null>(null);
@@ -115,8 +115,8 @@ export function SystemNotifications() {
   };
 
   return (
-    // 系统通知组：导语只对本组成立，所以跟组标题一起放在容器上方；容器底色承担分组边界。
-    // 导语那句「关闭≠停止收集」是为了防止用户以为关掉后会漏掉通知中心里的消息。
+    // 导语只对本组成立，跟着组标题放在容器上方（容器底色承担分组边界）；
+    // 「关闭≠停止收集」是防止用户以为关掉后会漏掉通知中心里的消息。
     <div className="grid gap-2">
       <SettingsGroup
         description="关闭只停用桌面弹窗，通知中心仍会收集。"

@@ -319,7 +319,6 @@ describe('会话归属与 cwd', () => {
     const dir = join(state.root, 'Dela', 'chat-sessions', chat.sessionId!);
     expect(chat.cwd).toBe(dir);
     expect(statSync(dir).isDirectory()).toBe(true);
-    // 复用同一个空会话入口时沿用同一个私有目录。
     expect(newSession(null, 'chat').sessionId).toBe(chat.sessionId);
     expect(openSession(chat.sessionId!).cwd).toBe(dir);
   });
@@ -347,7 +346,6 @@ describe('会话归属与 cwd', () => {
     expect(chat.sessionId).not.toBe('old-chat');
     expect(library.sessionId).not.toBe('old-chat');
     expect(library.sessionId).not.toBe(chat.sessionId);
-    // 各自复用自己那一档的空会话。
     expect(newSession(null, 'chat').sessionId).toBe(chat.sessionId);
     expect(newSession(null, 'library').sessionId).toBe(library.sessionId);
   });

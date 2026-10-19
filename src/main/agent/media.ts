@@ -40,7 +40,6 @@ function safeExtension(name: string): string {
   return (/\.[A-Za-z0-9]+$/.exec(name)?.[0] ?? '').toLowerCase();
 }
 
-/** 宽超 480px 的图片先缩到 480 再转 data URL 预览；空图返回 null。 */
 function previewDataUrl(image: NativeImage): string | null {
   if (image.isEmpty()) return null;
   const size = image.getSize();

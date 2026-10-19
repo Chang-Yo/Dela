@@ -2,9 +2,8 @@ import { BrowserWindow, Notification } from 'electron';
 import type { NotificationItem } from '../../shared/api';
 import { getDatabase } from '../database';
 
-// 系统桌面通知：仅提示标题，点击唤起主窗口并跳转对应界面。
-// 弹出条件：会话已过启动基线（armSystemNotifications）、未处暂停通知、校园提醒未关闭、
-// 主窗口未聚焦——聚焦时应用内铃铛红点已足够，避免同屏双重打扰。
+// 系统桌面通知：启动基线、暂停与主窗口焦点是公共守卫，校园通知另受提醒开关约束；
+// 聚焦时应用内铃铛红点已足够，避免同屏双重打扰。点击唤起主窗口，校园通知再跳转对应界面。
 
 let armed = false;
 

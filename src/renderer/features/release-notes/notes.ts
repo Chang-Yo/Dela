@@ -10,7 +10,7 @@ export interface ReleaseNote {
 
 const lastSeenKey = 'dela.release-notes.last-seen';
 
-/** 解析 CHANGELOG：只收已发布版本（跳过 Unreleased），没写亮点的版本不收。 */
+/** 只收已发布版本（跳过 Unreleased），没写亮点的版本不收。 */
 export function parseReleaseNotes(markdown: string): ReleaseNote[] {
   const notes: ReleaseNote[] = [];
   for (const section of markdown.split(/^## /m).slice(1)) {

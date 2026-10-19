@@ -190,8 +190,7 @@ export function registerAgentIpc() {
   chatHandle('list-commands', () => listChatCommands());
   chatHandle('save-command', (_event, input) => saveChatCommand(input));
   chatHandle('delete-command', (_event, id) => deleteChatCommand(uuid.parse(id)));
-  // 本轮交付物：定位到资源管理器 / 用默认程序打开 / 用 VS Code 打开；
-  // locate-file 返回本机绝对路径供应用内预览标签使用。路径由会话 cwd 限定。
+  // 路径由会话 cwd 限定；locate-file 返回本机绝对路径供应用内预览标签使用。
   const chatFilePath = (path: unknown) => z.string().min(1).max(32_767).parse(path);
   chatHandle('locate-file', (_event, sessionId, path) =>
     locateSessionFile(uuid.parse(sessionId), chatFilePath(path)),

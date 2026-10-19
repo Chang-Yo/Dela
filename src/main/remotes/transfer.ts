@@ -1,10 +1,6 @@
 /**
- * 远端文件的二进制传输：下载到本地、上传到远端、用系统默认程序打开。
- *
- * 方向不同、策略也不同：
- * - 下载按块拉（复用 helper 的片段读取），大文件不整篇进内存；本地先写 .part 再改名。
- * - 上传整篇读进内存后一次 PUT：helper 落盘是同目录临时文件 + rename，失败不留半个文件。
- * - 「用系统默认程序打开」= 下载到临时目录再交给 shell，退出时清掉这些临时文件。
+ * 远端文件二进制传输：下载分块写 .part 再改名，上传整篇读入（helper 侧临时文件 + rename），
+ * 两条路失败都不留半个文件；「用系统默认程序打开」下载到临时目录，退出时清理。
  */
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
@@ -51,7 +47,6 @@ export async function downloadRemoteFile(
   }
 }
 
-/** 上传一个本地文件到远端目录，返回写好的远端路径。 */
 export async function uploadLocalFile(
   target: RemoteTarget,
   localPath: string,
@@ -64,10 +59,7 @@ export async function uploadLocalFile(
 
 const openedFiles = new Set<string>();
 
-/**
- * 用系统默认程序打开远端文件：下载到临时目录（按连接 + 路径哈希命名，避免同名互踩），
- * 再交给 shell.openPath。
- */
+/** 下载到临时目录再交给系统默认程序；按连接 + 路径哈希命名，避免同名互踩。 */
 export async function openRemoteFile(target: RemoteTarget, remotePath: string): Promise<void> {
   const directory = join(app.getPath('temp'), 'dela-remote-open');
   await mkdir(directory, { recursive: true });
@@ -82,7 +74,6 @@ export async function openRemoteFile(target: RemoteTarget, remotePath: string): 
   if (error) throw new Error(`无法用系统默认程序打开：${error}`);
 }
 
-/** 退出时清掉为「系统默认程序打开」下载的临时文件。 */
 export async function closeRemoteOpens(): Promise<void> {
   const paths = [...openedFiles];
   openedFiles.clear();

@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
-// 远程项目在文件树里的懒加载：展开时才拉一层（listRemoteDirectory），子条目 id 用
-// 「项目 id + 远端绝对路径」，行提示显示「目的地:路径」；远端文件点击不发起打开动作。
+// 远端文件树的行为：懒加载、项目身份、连接提示与降级、目录监视上报。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -125,17 +124,14 @@ it('loads one remote level when the project is expanded and browses without open
   const { onSelect, onExpand } = await renderTree(['p-remote']);
   expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj');
   expect(row('src')).toBeTruthy();
-  // 目的地来自 remotes.list()，与远端绝对路径拼成行提示。
   expect(row('README.md').querySelector('[title]')?.getAttribute('title')).toBe(
     'user@10.0.0.5:/home/u/proj/README.md',
   );
 
-  // 远程文件点击 = 打开只读预览：回调 onSelect（渲染端没有本地条目标识）。
   await act(async () => row('README.md').click());
   expect(onSelect).toHaveBeenCalledWith('p-remote:/home/u/proj/README.md');
   expect(document.querySelector('[role="status"]')).toBeNull();
 
-  // 远程目录点击 = 展开（第二层在展开后才拉取）；展开键带项目身份。
   await act(async () => row('src').click());
   expect(onExpand).toHaveBeenCalledWith('p-remote:/home/u/proj/src', true);
   expect(listRemoteDirectory).toHaveBeenCalledTimes(1);
@@ -157,11 +153,9 @@ it('shows the degraded hint only for projects on the failing destination', async
   await renderTree(['p-remote']);
   expect(document.body.textContent).not.toContain('helper 通道不可用');
 
-  // 别的服务器降级：这棵树的项目连的不是那台，不提示。
   await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
   expect(document.body.textContent).not.toContain('helper 通道不可用');
 
-  // 多条通道可以同时降级：快照里两台都在，这棵树只显示自己那台。
   await act(async () =>
     emit([
       { destination: 'other@10.9.9.9', reason: 'noexec' },
@@ -171,11 +165,9 @@ it('shows the degraded hint only for projects on the failing destination', async
   expect(document.body.textContent).toContain('user@10.0.0.5 的 helper 通道不可用');
   expect(document.body.textContent).toContain('noexec');
 
-  // 这台的通道恢复（快照里只剩别台）：提示撤掉。
   await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
   expect(document.body.textContent).not.toContain('helper 通道不可用');
 
-  // 全恢复：快照清空。
   await act(async () => emit([]));
   expect(document.body.textContent).not.toContain('helper 通道不可用');
 });
@@ -252,7 +244,6 @@ it('marks a remote project row with its connection colour and leaves local rows 
     ),
   );
 
-  // 远端项目行用云朵顶掉文件夹图标，颜色由各自的连接 id 决定。
   const cloud = row('proj').querySelector<SVGElement>('svg.lucide-cloud')!;
   expect(cloud).toBeTruthy();
   expect(cloud.style.color).toBe(remoteAccent('r-1', 'text'));
@@ -265,7 +256,6 @@ it('marks a remote project row with its connection colour and leaves local rows 
     remoteAccent('r-1', 'text'),
   );
   expect(row('src').querySelector('svg.lucide-cloud')).toBeNull();
-  // 本地项目行照旧是文件夹图标、没有云朵与连接色。
   expect(row('本地项目').querySelector('svg.lucide-folder-kanban')).toBeTruthy();
   expect(row('本地项目').querySelector('svg.lucide-cloud')).toBeNull();
 });
@@ -495,7 +485,6 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
     '/home/u/proj/src',
   ]);
 
-  // 同一份集合重复渲染不重报。
   const calls = watchRemoteDirectories.mock.calls.length;
   await act(async () => {
     root.render(
@@ -516,7 +505,6 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   });
   expect(watchRemoteDirectories.mock.calls.length).toBe(calls);
 
-  // 收起一层：集合变小，重新上报。
   await act(async () => {
     root.render(
       <ProjectFileTree
@@ -536,7 +524,6 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   });
   expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', ['/home/u/proj']);
 
-  // 卸载：取消监视，远端不留 inotify watch。
   await act(async () => root.unmount());
   expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', []);
   root = createRoot(container);
@@ -616,7 +603,6 @@ it('shows the connecting hint while a remote root is still being read', async ()
   await act(async () => new Promise((resolve) => setTimeout(resolve, CONNECT_HINT_DELAY_MS + 50)));
   expect(document.querySelector('[role="status"]')?.textContent).toContain('正在连接远端');
 
-  // 清单到手后过渡让位给内容。
   await act(async () =>
     release([
       { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },

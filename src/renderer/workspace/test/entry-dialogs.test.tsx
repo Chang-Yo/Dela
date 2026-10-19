@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// 新建项目弹窗的「导入已有文件夹」入口：调用主进程登记外部目录，成功后与新建项目
-// 走同一套后续动作（刷新镜像、关弹窗、打开项目）；取消选择时什么都不发生。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';

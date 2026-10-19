@@ -57,14 +57,11 @@ export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
   return 'text';
 }
 
-/* 阅读位置按 标签+组 记忆：切换标签不丢（旧视图滚动持久化的会话内等价物）。 */
+/* 阅读位置按 标签+组 在会话内记忆，切换标签不丢。 */
 const scrollMemory = new Map<string, number>();
 
-/**
- * 文件预览标签内容：按 DocumentContent.format 分流到各预览器，承接原 SourceDetail
- * 与 ProjectDocument 只读分支（含水源来源与本地代码文件）。文档加载经注入的
- * ContentLoader（3B 接线），本域不感知条目树与读取 IPC。
- */
+/** 文件预览标签内容：按 DocumentContent.format 分流到各预览器。文档加载经注入的
+ *  ContentLoader，本域不感知条目树与读取 IPC。 */
 export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const loader = useContentLoader();
   const [doc, setDoc] = useState<LoadedDocument | null>(null);
@@ -163,7 +160,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const branch = previewBranchOf(doc);
   const exported = content.office?.export;
   const openLink = (url: string) => loader.openLink(url);
-  /* pptx 导出完成：重读文档（翻转进导出 PDF 渲染）并通知接线方（目录树刷新等）。 */
   const onOfficeRefresh = () => {
     load();
     loader.onExported?.(tabId);

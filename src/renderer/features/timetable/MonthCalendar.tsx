@@ -41,7 +41,7 @@ export function MonthCalendar({
   );
   const days = Array.from({ length: dayCount }, (_, index) => addDays(first, index));
   const groupedEvents = localEventsByDay(events);
-  // 拖拽跨天选择时间段的任务，参考 DayPilot 月视图：按住起点划过目标日期，松开后弹窗命名。
+  // 跨天拖拽选段参考 DayPilot 月视图：按住起点划到终点，松开后弹窗命名。
   const [drag, setDrag] = useState<{ start: Date; end: Date } | null>(null);
   const dragRange = drag
     ? [
@@ -123,7 +123,6 @@ export function MonthCalendar({
               aria-current={today ? 'date' : undefined}
               aria-label={`${date.getMonth() + 1}月${date.getDate()}日`}
               className={cn(
-                // button 默认垂直居中内容，改为 flex 顶对齐，日号稳定在左上角。
                 // 用 div + role 是为了能嵌套「更多」按钮，button 里不能再放交互元素。
                 'flex min-h-28 flex-col border-b border-line p-2 text-left transition-colors duration-150 hover:bg-hover @max-[320px]:min-h-16 @max-[320px]:p-1',
                 selected && 'bg-bui-accent-tint',

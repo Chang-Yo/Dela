@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// Dela 对所见即所得内核的适配：图片 alt/title 修复、链接输入规则、
-// frontmatter 会被破坏（因此该类文档强制源码模式，见 shared/note-files.ts）。
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -111,7 +109,6 @@ describe('编辑器 IME 回传', () => {
       editor.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
       editor.querySelector('p')!.textContent = '开始ni';
       await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith('开始ni\n'));
-      // 让父组件回传拼音，然后模拟输入法提交汉字的 DOM 修改。
       await new Promise((resolve) => setTimeout(resolve, 50));
       editor.querySelector('p')!.textContent = '开始你';
       editor.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '你' }));

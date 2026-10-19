@@ -13,10 +13,8 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
 
-// 应用固定版本的 MinGit（Git for Windows 官方嵌入发行版，含 bash 与 git）：
-// 打包时装进 resources/mingit（scripts/prepare-runtime.mjs），系统未装 Git for Windows
-// 也能开箱即用；旧版本与开发模式没有随包副本时，终端页可一键装到本机用户目录，无需管理员。
-// 版本与 SHA256 必须成对更新；哈希是对发布物 zip 的校验，镜像只加速不作信任源。
+// 固定版本 MinGit（Git for Windows 官方嵌入发行版，含 bash 与 git）：打包进 resources/mingit，
+// 系统未装 Git for Windows 也能用；版本与 SHA256 必须成对更新，镜像只加速不作信任源。
 export const MINGIT_VERSION = '2.56.0.2';
 const MINGIT_SHA256 = 'da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0dde84b01a1b3cd3be';
 /** 发布物 zip 的确切字节数，下载 headers 到达前用于展示进度。 */
@@ -35,7 +33,7 @@ function mingitDir(): string {
   return join(local, 'Dela', 'mingit', `v${MINGIT_VERSION}`);
 }
 
-/** 随包 MinGit 根目录：打包产物在 resources/mingit，开发模式对应 prepare-runtime.mjs 的产出；
+/** 随包 MinGit 根目录：打包产物在 resources/mingit，开发模式对应 prepare-runtime.ts 的产出；
  *  DELA_DEV_MINGIT 供测试与冒烟把随包候选指到沙箱，强制走自装分支。 */
 function bundledDir(): string {
   if (app.isPackaged) return join(process.resourcesPath, 'mingit');
@@ -55,7 +53,6 @@ export function bundledBash(): string | null {
   return existsSync(bash) ? bash : null;
 }
 
-/** 生效的 MinGit 根目录：随包优先，其次用户目录的自装副本；都没有为 null。 */
 function minGitRoot(): string | null {
   if (bundledBash()) return bundledDir();
   if (mingitBash()) return mingitDir();
@@ -120,7 +117,7 @@ export interface MinGitInstallHooks {
 
 let inflight: Promise<void> | null = null;
 
-/** 已装则直接返回；并发调用复用同一次安装。失败时清理半成品目录。 */
+/** 并发调用复用同一次安装；失败时清理半成品目录。 */
 export function installMinGit(hooks: MinGitInstallHooks): Promise<void> {
   if (process.platform !== 'win32') return Promise.reject(new Error('MinGit 仅用于 Windows'));
   if (mingitBash()) return Promise.resolve();

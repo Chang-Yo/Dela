@@ -22,11 +22,11 @@ export interface GroupNode {
 
 export interface SplitNode {
   type: 'split';
-  /** vertical = 左右并排（flex-row）；horizontal = 上下堆叠（flex-col），沿用旧 EditorLayout 语义。 */
+  /** vertical = 左右并排（flex-row）；horizontal = 上下堆叠（flex-col）。 */
   orientation: SplitOrientation;
   /** 第一个子节点占的比例，其余子节点均分剩余空间；2 子时即旧 primary/secondary 语义。 */
   ratio: number;
-  /** ≥2，支持嵌套组合出三屏（结构上是二叉/多叉树，本批 store 只产生二元 split）。 */
+  /** ≥2，支持嵌套组合出三屏（结构上是多叉树，store 只产生二元 split）。 */
   children: LayoutNode[];
 }
 
@@ -46,7 +46,7 @@ export const ratioMax = 0.95;
 export const maxLayoutNodes = 31;
 /** 单组标签上限，量级与旧 MAX_EDITOR_TABS 的单组实际占用一致。 */
 export const maxTabsPerGroup = 30;
-/** split 子节点数上限（schema 容忍历史多叉数据；store 本批只写二元）。 */
+/** split 子节点数上限（schema 容忍历史多叉数据；store 只写二元）。 */
 const maxSplitChildren = 4;
 
 // 模板串类型 TabId 的运行时校验：templateLiteral 让推断类型就是 `${TabKind}:${string}`。

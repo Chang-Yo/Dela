@@ -14,7 +14,6 @@ import { SystemNotifications } from './SystemNotifications';
 import { CacheUsage } from './CacheUsage';
 import { UpdateControl } from '../UpdateControl';
 
-/** 设置 › 通用：应用行为（开机自启动）、导航入口显示、系统通知偏好、软件更新、试验功能（总开关 + 子项）与缓存占用。 */
 export function GeneralSection() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
@@ -128,7 +127,7 @@ export function GeneralSection() {
       <SystemNotifications />
       <UpdateControl />
       <div className="grid gap-2">
-        {/* 有主语开关的组：标题做成容器内第一行，从属子项跟在后面（靠缩进表达层级，不再画竖线）。 */}
+        {/* 有主语开关的组：从属子项靠缩进表达层级。 */}
         <SettingsGroup settingId="experimental-features">
           <SettingRow
             description="允许使用试验阶段的功能；关闭时全部子项停用。"

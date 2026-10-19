@@ -103,9 +103,9 @@ export interface CampusRequestOptions {
 }
 
 /**
- * 经校园 Session 发请求并取回正文。Electron session.fetch 在内部构造 Response 时可能抛出
- * 未捕获的状态码异常，因此直接消费 Chromium 响应。重定向一律视为登录失效；
- * 超时、断网与 408/5xx 失败的 `cause` 为 'transient'，由调用方决定是否重试。
+ * 直接消费 Chromium 响应：Electron session.fetch 在内部构造 Response 时可能抛出未捕获的
+ * 状态码异常。重定向一律视为登录失效；超时、断网与 408/5xx 失败的 `cause` 为 'transient'，
+ * 由调用方决定是否重试。
  */
 export function campusRequest(
   campus: Session,
@@ -230,7 +230,7 @@ const loginWindows = new Map<
   { window: BrowserWindow; result: Promise<CampusLoginResult> }
 >();
 
-/** 校园域登录窗（课表与课堂视频共用）：到达目标域后探测，成功即关闭并清空待决结果。 */
+/** 课表与课堂视频共用的校园域登录窗。 */
 export async function openCampusLoginWindow(
   options: CampusLoginOptions,
 ): Promise<CampusLoginResult> {

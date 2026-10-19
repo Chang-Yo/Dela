@@ -38,10 +38,7 @@ async function skipCacheAndLinks(source: string) {
   return skipLinks(source);
 }
 
-/**
- * 导出一份本机数据到用户选定的位置：应用数据目录（跳过 Chromium 缓存、数据库单独取快照）、
- * 工作目录、以及用户自己的 Skill。返回没复制成功的顶层条目名，界面据此如实告知，不假装完整。
- */
+/** 返回没复制成功的顶层条目名：界面据此如实告知，不假装备份完整。 */
 export async function exportUserData(window: BrowserWindow | null): Promise<BackupResult> {
   const options = {
     title: '选择备份保存位置',

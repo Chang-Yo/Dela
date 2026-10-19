@@ -46,7 +46,7 @@ function mapRefRow(row: SourceRefRow): ShuiyuanSourceRef {
   };
 }
 
-/** 添加到项目前写入/更新来源引用行；内容实时取自当前站点数据。 */
+/** 写入/更新引用行，并缓存标题与摘要供离线回退（见 readShuiyuanSource）。 */
 export async function addShuiyuanSourceRef(topicIdInput: unknown): Promise<ShuiyuanSourceRef> {
   const topicId = z.number().int().positive().parse(topicIdInput);
   const detail = await getShuiyuanTopic(topicId);

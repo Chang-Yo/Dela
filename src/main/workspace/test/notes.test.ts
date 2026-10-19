@@ -1,7 +1,5 @@
-// 笔记文件能力的主进程行为：默认 .md、图片落盘 assets/、受限资源解析的边界、
-// Markdown 副本携带图片、笔记移动时按原相对路径携带图片且正文不变、
-// folder↔project 原地互转时的项目身份（条目 UUID + 项目目录）维护、
-// 把电脑上已有的文件夹登记为项目（目录留在原处）。
+// 笔记文件能力的主进程行为：默认 .md、图片落盘与受限资源解析、笔记移动/转换/导入项目时
+// 的身份维护（条目 UUID + 项目目录，目录原地不动）。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -448,14 +446,12 @@ describe('folder↔project 转换', () => {
     // 升格后路径与 UUID 都解析到同一项目身份。
     expect(entry(folder.id)).toMatchObject({ id: promoted.id, kind: 'project' });
 
-    // 转换伴随重命名：项目目录跟随移动。
     updateWorkspaceEntry(promoted.id, { name: '毕业设计' });
     expect(existsSync(join(workspaceRoot(), '毕业设计'))).toBe(true);
     expect(
       db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
     ).toEqual({ path: join(workspaceRoot(), '毕业设计') });
 
-    // 降格回到路径身份，项目行随之消失。
     const demoted = updateWorkspaceEntry(promoted.id, { name: '归档课题', kind: 'folder' });
     expect(existsSync(join(workspaceRoot(), '归档课题'))).toBe(true);
     expect(isAbsolute(demoted.id)).toBe(true);

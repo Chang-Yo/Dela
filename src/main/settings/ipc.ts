@@ -1,5 +1,4 @@
 // settings:* 通道注册。
-// 新增：campus-notifications、task-notifications、workspace-prefs、keybindings 四组偏好读写。
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
@@ -71,7 +70,6 @@ export function registerSettingsIpc(): void {
     writeSetting('icon', icon);
     return icon;
   });
-  // 页面缩放立即应用到调用窗口，并持久化供下次启动使用。
   ipcMain.handle('settings:get-zoom', (event) => {
     checkWorkspaceSender(event);
     return savedZoom();
