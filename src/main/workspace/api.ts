@@ -29,7 +29,7 @@ import { remoteById, targetOf } from '../remotes/api';
 import { locate } from '../remotes/transport';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
-import { availablePath, storageDirectory as directory } from '../storage';
+import { availablePath, diskName, storageDirectory as directory } from '../storage';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { officeZipMime } from '../documents/parse';
 import { workspaceArchiveId } from '../../shared/api';
@@ -470,6 +470,30 @@ function checkParent(parentId: string | null, movingId?: string) {
   }
 }
 
+/** 新建名称按「a/b/c.md」拆成相对路径分段；只接受相对路径，越界写法一律拒绝。 */
+function splitNestedName(name: string): string[] {
+  if (/^[\\/]/.test(name)) throw new Error('名称不能以路径分隔符开头');
+  const segments = name.split(/[\\/]+/).filter((segment) => segment.length > 0);
+  if (segments.length === 0) throw new Error('名称不能为空');
+  if (segments.some((segment) => segment === '.' || segment === '..'))
+    throw new Error('名称不能包含 . 或 ..');
+  return segments;
+}
+
+/** 中间段逐级建目录：已存在的目录复用，同名文件则报错，免得把新条目写进别人的文件位置。 */
+function ensureFolders(container: string, segments: string[]): string {
+  let current = container;
+  for (const segment of segments) {
+    current = join(current, diskName(segment));
+    if (!existsSync(current)) {
+      mkdirSync(current);
+      continue;
+    }
+    if (!statSync(current).isDirectory()) throw new Error(`「${segment}」已存在同名文件`);
+  }
+  return current;
+}
+
 export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntry {
   const parsed = z
     .object({
@@ -510,12 +534,20 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   }
   const id = randomUUID();
   const note = parsed.kind === 'note';
+  const folder = parsed.kind === 'folder';
   let path: string | null = null;
   if (parsed.kind !== 'source') {
-    // 新笔记默认 .md（所见即所得正文）；显式带其他扩展名时尊重用户选择。
-    const name = note && !hasFileNameExtension(parsed.name) ? `${parsed.name}.md` : parsed.name;
-    parsed.name = name;
-    path = availablePath(containerPath(parsed.parentId), name, !note);
+    if (note || folder) {
+      // 「a/b/c」：中间段建成目录，末段才是新建的条目本身。
+      const segments = splitNestedName(parsed.name);
+      const last = segments.pop()!;
+      // 新笔记默认 .md（所见即所得正文）；显式带其他扩展名时尊重用户选择。
+      const leaf = note && !hasFileNameExtension(last) ? `${last}.md` : last;
+      parsed.name = leaf;
+      path = availablePath(ensureFolders(containerPath(parsed.parentId), segments), leaf, folder);
+    } else {
+      path = availablePath(containerPath(parsed.parentId), parsed.name, true);
+    }
     if (note) writeFileSync(path, parsed.text ?? '', { flag: 'wx' });
     else mkdirSync(path);
   }

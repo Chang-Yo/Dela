@@ -318,6 +318,75 @@ describe('createWorkspaceEntry', () => {
     });
     expect(isAbsolute(note.id)).toBe(true);
   });
+
+  it('名称带路径分隔符时创建中间目录，末段才是条目', async () => {
+    const note = createWorkspaceEntry({
+      parentId: null,
+      name: 'aaa/bbb.md',
+      kind: 'note',
+      text: '# 嵌套',
+    });
+    expect(note.name).toBe('bbb.md');
+    expect(note.path).toBe(join(workspaceRoot(), 'aaa', 'bbb.md'));
+    expect((await readWorkspaceEntry(note.id)).text).toBe('# 嵌套');
+  });
+
+  it('多级目录、反斜杠与无扩展名笔记补 .md', () => {
+    const nested = createWorkspaceEntry({ parentId: null, name: 'x/y/z', kind: 'note', text: '' });
+    expect(nested.path).toBe(join(workspaceRoot(), 'x', 'y', 'z.md'));
+
+    const backslash = createWorkspaceEntry({
+      parentId: null,
+      name: 'win\\sub\\w.md',
+      kind: 'note',
+      text: '',
+    });
+    expect(backslash.path).toBe(join(workspaceRoot(), 'win', 'sub', 'w.md'));
+  });
+
+  it('新建文件夹同样支持多级路径', () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: 'p/q', kind: 'folder' });
+    expect(folder.path).toBe(join(workspaceRoot(), 'p', 'q'));
+    expect(folder.kind).toBe('folder');
+  });
+
+  it('重名只影响末段，中间目录复用', () => {
+    createWorkspaceEntry({ parentId: null, name: 'dup/note.md', kind: 'note', text: '' });
+    const second = createWorkspaceEntry({
+      parentId: null,
+      name: 'dup/note.md',
+      kind: 'note',
+      text: '',
+    });
+    expect(second.path).toBe(join(workspaceRoot(), 'dup', 'note (2).md'));
+  });
+
+  it('在已有文件夹内按相对路径创建', () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: '父级', kind: 'folder' });
+    const note = createWorkspaceEntry({
+      parentId: folder.id,
+      name: '甲/乙.md',
+      kind: 'note',
+      text: '',
+    });
+    expect(note.path).toBe(join(workspaceRoot(), '父级', '甲', '乙.md'));
+  });
+
+  it('拒绝越界写法，中间段是文件时报错且不落盘', () => {
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '../逃逸.md', kind: 'note', text: '' }),
+    ).toThrow();
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '/绝对.md', kind: 'note', text: '' }),
+    ).toThrow();
+
+    mkdirSync(workspaceRoot(), { recursive: true });
+    writeFileSync(join(workspaceRoot(), '占位'), 'x');
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '占位/内部.md', kind: 'note', text: '' }),
+    ).toThrow('同名文件');
+    expect(existsSync(join(workspaceRoot(), '占位', '内部.md'))).toBe(false);
+  });
 });
 
 describe('归档文件夹', () => {
