@@ -1,0 +1,43 @@
+name: 文档问题
+description: 报告文档的错误、缺失或可以改进的表述与结构
+title: '[Docs] '
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你帮助改进 Dela 的文档。提交前请先搜索现有 Issue，避免重复反馈。
+  - type: textarea
+    id: location
+    attributes:
+      label: 文档位置
+      description: 问题出现在哪份文档、页面或章节？可以附链接、路径或截图。
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题或改进点
+      description: 哪里有错误、缺失、不清楚，或者结构不易阅读？
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望改进
+      description: 修改后应该让读者更容易了解什么？不需要直接写出完整文案。
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充材料（可选）
+      description: 可以附参考文档、截图或其他有助于理解的信息。
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，没有找到相同问题。
+          required: true
