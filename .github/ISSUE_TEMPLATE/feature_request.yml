@@ -11,22 +11,23 @@ body:
   - type: textarea
     id: scenario
     attributes:
-      label: 使用场景
-      description: 在什么时候遇到了什么问题？
-      placeholder: 例如：在用 canvas 下载课程资料的时候，无法批量下载和管理，预览也很麻烦。
+      label: 使用场景与受众范围
+      description: 谁会在什么情况下遇到什么问题？主要针对哪一类用户的共同需求？
+      placeholder: 例如：在用 Canvas 下载课程资料的时候，无法批量下载和管理，预览也很麻烦；面向需要集中管理 Canvas 课程资料的学生。
     validations:
       required: true
   - type: textarea
     id: outcome
     attributes:
       label: 期望结果
-      description: 希望 Dela 做到什么？描述结果即可，不需要设计技术方案。
+      description: 希望 Dela 做到什么？最终解决什么样的问题？
+      placeholder: 例如：可以在 Dela 的资料界面，批量下载 Canvas 课程资料。
     validations:
       required: true
   - type: textarea
     id: acceptance
     attributes:
-      label: 怎样算解决
+      label: 验收标准
       description: 做到什么程度时，你会认为这个问题已经解决？若你作为测试会如何验收这个功能？
       placeholder: 建议写成一至三条可以看到或实际检查的结果。
     validations:
@@ -35,7 +36,7 @@ body:
     id: details
     attributes:
       label: 复杂需求补充（可选）
-      description: 可以补充正常怎么使用、失败时怎么办、关键规则，以及本次明确不做什么。不确定可以留空。
+      description: 可以补充具体的需求细节与设计边界等（如：正常的数据流程、失败时系统如何处理、关键规则，以及本次明确不做什么）。不确定可以留空。
   - type: textarea
     id: alternatives
     attributes:

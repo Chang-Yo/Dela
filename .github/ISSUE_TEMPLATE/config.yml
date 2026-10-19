@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: 想法还不成熟？先去讨论区聊聊
+    url: https://github.com/Chang-Yo/Dela/discussions/new
+    about: 如果还不确定想法是否适合 Dela 或能否实现，可以先与大家讨论。
