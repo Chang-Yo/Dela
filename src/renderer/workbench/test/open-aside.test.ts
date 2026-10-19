@@ -73,7 +73,9 @@ describe('openTabAside', () => {
       maximized: null,
     }));
     await state().init(uuid);
-    openTabAside('review:00000000-0000-4000-8000-00000000000a:00000000-0000-4000-8000-00000000000b:src/a.ts');
+    openTabAside(
+      'review:00000000-0000-4000-8000-00000000000a:00000000-0000-4000-8000-00000000000b:src/a.ts',
+    );
     expect(groups()).toHaveLength(2);
     expect(findGroup(state().root, 'right')!.tabs).toContain(
       'review:00000000-0000-4000-8000-00000000000a:00000000-0000-4000-8000-00000000000b:src/a.ts',

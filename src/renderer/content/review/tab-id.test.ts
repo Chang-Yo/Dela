@@ -44,7 +44,9 @@ describe('reviewTabTitle', () => {
       'session.ts',
     );
     expect(
-      reviewTabTitle(reviewTabId({ kind: 'turn', sessionId, turnId, path: 'E:\\dir\\quicksort.py' })),
+      reviewTabTitle(
+        reviewTabId({ kind: 'turn', sessionId, turnId, path: 'E:\\dir\\quicksort.py' }),
+      ),
     ).toBe('quicksort.py');
   });
 

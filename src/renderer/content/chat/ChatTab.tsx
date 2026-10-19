@@ -224,9 +224,7 @@ const ChatSessionView = memo(function ChatSessionView({
         {reviewReady && (
           <IconButton
             aria-label="工作区改动"
-            onClick={() =>
-              openTabAside(reviewTabId({ kind: 'uncommitted', sessionId: active }))
-            }
+            onClick={() => openTabAside(reviewTabId({ kind: 'uncommitted', sessionId: active }))}
             title="查看工作区未提交的改动"
           >
             <GitCompare />
