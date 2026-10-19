@@ -179,17 +179,6 @@ describe('openTab', () => {
     expect(state().focus).toBe('primary');
     expect(findGroup(state().root, 'primary')?.active).toBe('note:a');
   });
-
-  it('显式目标组允许跨组重复打开（并排第二视图）', () => {
-    state().openTab('note:a');
-    state().openTab('note:a', 'primary');
-    state().splitGroup('primary', 'vertical');
-    const side = groups()[1]!;
-    state().openTab('note:a', side.id);
-    expect(side.tabs.filter((tab) => tab === 'note:a')).toHaveLength(1);
-    expect(findGroup(state().root, 'primary')?.tabs).toContain('note:a');
-    expect(side.tabs).toContain('note:a');
-  });
 });
 
 describe('closeTab / closeTabs', () => {

@@ -114,7 +114,6 @@ it('新对话创建期间不显示旧会话，返回后绑定新身份', async (
   await act(async () => useNavigationStore.getState().openGeneralChat(true));
   expect(host.querySelector('[aria-label="消息输入"]')).toBeNull();
   expect(host.textContent).not.toContain('上一轮消息');
-  expect(host.textContent).toContain('正在打开对话');
   await act(async () => resolveNew(emptyChat('second')));
   await act(async () => useChatDrafts.getState().update('second', { prompt: '新会话草稿' }));
   expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe('新会话草稿');

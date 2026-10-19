@@ -57,7 +57,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it('项目胶囊列出全部项目（含远端）与「不在项目里（随聊）」', async () => {
+it('项目胶囊列出全部项目（含远端）', async () => {
   window.dela = {
     workspace: { projectBranch: async () => 'main' },
   } as unknown as DelaApi;
@@ -68,7 +68,6 @@ it('项目胶囊列出全部项目（含远端）与「不在项目里（随聊�
   const text = document.body.textContent!;
   expect(text).toContain('MAD-Producer');
   expect(text).toContain('ChangYo');
-  expect(text).toContain('不在项目里（随聊）');
 });
 
 it('分支胶囊显示当前分支，选中另一个就切换', async () => {

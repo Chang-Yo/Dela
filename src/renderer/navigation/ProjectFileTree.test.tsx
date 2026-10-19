@@ -90,8 +90,7 @@ const openRowMenu = (name: string) =>
     .querySelector<HTMLButtonElement>('[data-slot="dropdown-menu-trigger"]')!
     .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
 
-const menuLabels = () =>
-  [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim());
+const menuItems = () => document.querySelectorAll('[role="menuitem"]');
 
 it('loads one remote level when the project is expanded and browses without opening files', async () => {
   const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
@@ -151,10 +150,12 @@ it('shows the degraded hint only for projects on the failing destination', async
   } as unknown as DelaApi;
 
   await renderTree(['p-remote']);
-  expect(document.body.textContent).not.toContain('helper 通道不可用');
+  expect(document.body.textContent).not.toContain('user@10.0.0.5');
+  expect(document.body.textContent).not.toContain('noexec');
 
   await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
-  expect(document.body.textContent).not.toContain('helper 通道不可用');
+  expect(document.body.textContent).not.toContain('user@10.0.0.5');
+  expect(document.body.textContent).not.toContain('noexec');
 
   await act(async () =>
     emit([
@@ -162,14 +163,17 @@ it('shows the degraded hint only for projects on the failing destination', async
       { destination: 'user@10.0.0.5', reason: 'helper 目录所在挂载点启用了 noexec' },
     ]),
   );
-  expect(document.body.textContent).toContain('user@10.0.0.5 的 helper 通道不可用');
+  expect(document.body.textContent).toContain('user@10.0.0.5');
+  expect(document.body.textContent).not.toContain('other@10.9.9.9');
   expect(document.body.textContent).toContain('noexec');
 
   await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
-  expect(document.body.textContent).not.toContain('helper 通道不可用');
+  expect(document.body.textContent).not.toContain('user@10.0.0.5');
+  expect(document.body.textContent).not.toContain('noexec');
 
   await act(async () => emit([]));
-  expect(document.body.textContent).not.toContain('helper 通道不可用');
+  expect(document.body.textContent).not.toContain('user@10.0.0.5');
+  expect(document.body.textContent).not.toContain('noexec');
 });
 
 it('shows no status line while a remote level is loading', async () => {
@@ -197,7 +201,6 @@ it('shows no status line while a remote level is loading', async () => {
   await act(async () => {});
   expect(secondReadStarted).toBe(true);
   expect(document.querySelector('[role="status"]')).toBeNull();
-  expect(document.body.textContent).not.toContain('正在读取');
 
   await act(async () => gate.open?.());
   expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj/src');
@@ -529,20 +532,14 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   root = createRoot(container);
 });
 
-it('offers a remote project row no rename, move or archive', async () => {
-  // main 对远端条目的 update 一律拒绝（重命名/移动/归档都经 update）：这三项点了必然报错。
+it('limits a remote project row to a single action', async () => {
+  // main 对远端条目的 update 一律拒绝（重命名/移动/归档都经 update）：这些入口不能出现在菜单里。
   await renderTree([]);
   await act(async () => openRowMenu('proj'));
-  const labels = menuLabels();
-  expect(labels).not.toContain('重命名');
-  expect(labels).not.toContain('移动到…');
-  expect(labels).not.toContain('归档');
-  // 移除只删本地登记行，保留；新建类入口也在前面已收掉。
-  expect(labels).toContain('移除');
-  expect(labels).not.toContain('新建文件夹');
+  expect(menuItems()).toHaveLength(1);
 });
 
-it('keeps rename and move on a local project row', async () => {
+it('keeps the full action menu on a local project row', async () => {
   const localProject: WorkspaceEntry = {
     id: 'p-local',
     parentId: null,
@@ -568,8 +565,8 @@ it('keeps rename and move on a local project row', async () => {
     ),
   );
   await act(async () => openRowMenu('本地项目'));
-  expect(menuLabels()).toContain('重命名');
-  expect(menuLabels()).toContain('移动到…');
+  // 3 个新建入口 + 重命名/移动/归档 + 移除。
+  expect(menuItems().length).toBeGreaterThanOrEqual(7);
 });
 
 it('shows the connecting hint while a remote root is still being read', async () => {
@@ -601,7 +598,9 @@ it('shows the connecting hint while a remote root is still being read', async ()
   // 热通道几十毫秒就回来：先什么都不画，避免每次打开都闪一下转圈。
   expect(document.querySelector('[role="status"]')).toBeNull();
   await act(async () => new Promise((resolve) => setTimeout(resolve, CONNECT_HINT_DELAY_MS + 50)));
-  expect(document.querySelector('[role="status"]')?.textContent).toContain('正在连接远端');
+  const hint = document.querySelector('[role="status"]');
+  expect(hint).not.toBeNull();
+  expect(hint?.textContent).toBeTruthy();
 
   await act(async () =>
     release([

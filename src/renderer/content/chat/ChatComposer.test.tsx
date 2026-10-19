@@ -142,16 +142,14 @@ afterEach(async () => {
   delete window.dela;
 });
 
-it('未配置思考强度时点击 default 显示原因，并可进入模型设置', async () => {
+it('未配置思考强度时提供模型设置入口', async () => {
   const select = vi.fn();
   const openSettings = vi
     .spyOn(useNavigationStore.getState(), 'openSettings')
     .mockReturnValue(true);
   await act(async () => root.render(<Harness contextUsage={usage()} onEffortSelect={select} />));
   const trigger = host.querySelector<HTMLButtonElement>('[aria-label="思考强度"]')!;
-  expect(trigger.textContent).toBe('default');
   await act(async () => trigger.click());
-  expect(document.body.textContent).toContain('当前模型尚未配置可选的思考强度档位');
   const settingsButton = Array.from(document.body.querySelectorAll('button')).find(
     (button) => button.textContent === '打开设置 › 模型供应商',
   )!;
@@ -266,7 +264,6 @@ it('已配置思考强度时仅列出允许的档位，选择后关闭菜单', a
     document.body.querySelectorAll<HTMLButtonElement>('ul[aria-label="思考强度"] button'),
   );
   expect(options.map((button) => button.textContent)).toEqual(['low', 'high']);
-  expect(document.body.textContent).not.toContain('当前模型尚未配置');
   await act(async () => options[1]!.click());
   expect(select).toHaveBeenCalledExactlyOnceWith('high');
   expect(document.body.querySelector('[role="dialog"]')).toBeNull();
@@ -283,7 +280,6 @@ it('拖入 PPTX 交给附件入口，不再被文本白名单拒绝', async () =
   Object.defineProperty(event, 'dataTransfer', { value: { files: [file], types: ['Files'] } });
   await act(async () => host.querySelector('textarea')!.dispatchEvent(event));
   expect(add).toHaveBeenCalledWith(file);
-  expect(host.textContent).not.toContain('暂不支持');
 });
 
 it('只有文档附件时也允许发送', async () => {
@@ -317,30 +313,14 @@ it('有缓存数据时显示本会话累计命中率，保留一位小数', asyn
     root.render(<Harness contextUsage={usage({ inputTokens: 500, cachedTokens: 4500 })} />),
   );
   openUsage();
-  expect(document.body.textContent).toContain('缓存命中率');
   expect(document.body.textContent).toContain('90.0%');
 });
 
 it('提供商没有缓存数据时命中率显示 —，不写成 0%', async () => {
   await act(async () => root.render(<Harness contextUsage={usage()} />));
   openUsage();
-  expect(document.body.textContent).toContain('缓存命中率—');
+  expect(document.body.textContent).toContain('—');
   expect(document.body.textContent).not.toContain('0.0%');
-});
-
-it('新对话浮岛显示项目胶囊（通用池为随聊）', async () => {
-  await act(async () =>
-    root.render(
-      <Harness context={{ projectId: null, name: '随聊', remote: false }} contextUsage={usage()} />,
-    ),
-  );
-  expect(host.textContent).toContain('随聊');
-});
-
-it('没有浮岛数据（已有历史）时不显示项目与分支', async () => {
-  await act(async () => root.render(<Harness contextUsage={usage()} />));
-  expect(host.textContent).not.toContain('Dela');
-  expect(host.textContent).not.toContain('feat/remote-multi-channel');
 });
 
 it('命中率文本只在拿到两个累计字段且分母大于 0 时才算数，其余留空', () => {

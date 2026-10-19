@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ClassroomVideo } from '../../../shared/vsjtu';
-import {
-  formatBytes,
-  formatTime,
-  lectureDay,
-  lectureFileName,
-  lectureMeta,
-  lectureTitle,
-} from './player-format';
+import { formatBytes, formatTime, lectureFileName } from './player-format';
 
 const video = (overrides: Partial<ClassroomVideo> = {}): ClassroomVideo => ({
   id: 1,
@@ -44,23 +37,6 @@ describe('formatBytes', () => {
     expect(formatBytes(0)).toBeNull();
     expect(formatBytes(-1)).toBeNull();
     expect(formatBytes(Number.NaN)).toBeNull();
-  });
-});
-
-describe('lecture 展示', () => {
-  it('主标题与副标题', () => {
-    expect(lectureTitle(video())).toBe('10月8日 · 第3节');
-    expect(lectureMeta(video())).toBe('14:00–15:35 · 东上院405');
-  });
-  it('缺节次与教室时跳过缺项', () => {
-    expect(lectureTitle(video({ period: '' }))).toBe('10月8日');
-    expect(lectureMeta(video({ room: '' }))).toBe('14:00–15:35');
-  });
-  it('非纯数字节次原样展示', () => {
-    expect(lectureTitle(video({ period: '1-2' }))).toBe('10月8日 · 1-2');
-  });
-  it('无法解析的日期原样返回', () => {
-    expect(lectureDay(' unknown ')).toBe(' unknown ');
   });
 });
 

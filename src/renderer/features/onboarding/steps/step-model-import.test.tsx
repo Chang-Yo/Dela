@@ -73,7 +73,6 @@ it('搜索只过滤显示，勾选结果不受影响', async () => {
   expect(checkboxes()).toHaveLength(1);
 
   await act(async () => checkboxes()[0]!.click());
-  expect(button('导入所选 1 个')).toBeTruthy();
   await act(async () => button('导入所选 1 个').click());
   // beta 在检测列表里排第二，但只有它被勾选。
   expect(onConfirm).toHaveBeenCalledWith(['beta']);

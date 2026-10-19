@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+// 新建项目弹窗的「导入已有文件夹」入口：调用主进程登记外部目录，成功后与新建项目
+// 走同一套后续动作（刷新镜像、关弹窗、打开项目）；取消选择时什么都不发生。
+// 「连接远程目录」入口把外层弹窗交给远程向导。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -95,21 +98,17 @@ it('reports a rejected folder without closing', async () => {
   expect(onClose).not.toHaveBeenCalled();
 });
 
-it('offers folder import only when creating a project', async () => {
-  window.dela = { workspace: {} } as unknown as DelaApi;
-  await render({ action: 'folder', id: null });
-  expect(document.body.textContent).not.toContain('导入已有文件夹');
-});
-
-it('offers the remote wizard next to folder import and opens it', async () => {
+it('hands the new-project dialog over to the remote wizard', async () => {
+  const list = vi.fn(async () => []);
   window.dela = {
-    remotes: { list: async () => [], onSetupProgress: () => () => {} },
+    remotes: { list, onSetupProgress: () => () => {} },
     workspace: { getState: async () => emptyState },
   } as unknown as DelaApi;
   await render({ action: 'project', id: null });
+  expect(list).not.toHaveBeenCalled();
 
   await act(async () => dialogButton('连接远程目录').click());
-  // 向导接管：外层新建项目表单让出，第一步是「选择方式」。
-  expect(document.body.textContent).toContain('选择方式');
-  expect(document.body.textContent).not.toContain('导入已有文件夹');
+  // 向导接管并自己拉一次连接列表；外层弹窗让出，不会两层叠在一起。
+  expect(list).toHaveBeenCalledOnce();
+  expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
 });

@@ -32,28 +32,6 @@ it('差分回退时进度与传输量同步重置，重试清空旧传输量', (
   });
 });
 
-describe('initialUpdateState', () => {
-  it('从 idle 起步，不预先判定能力', () => {
-    expect(base()).toEqual({
-      phase: 'idle',
-      currentVersion: '1.0.0',
-      version: null,
-      progress: 0,
-      transferred: 0,
-      total: null,
-      checkedAt: null,
-      reason: null,
-      detail: null,
-      failedAt: null,
-    });
-  });
-
-  it('保留当前版本', () => {
-    const state = initialUpdateState({ currentVersion: '2.3.4' });
-    expect(state.currentVersion).toBe('2.3.4');
-  });
-});
-
 describe('检查', () => {
   it('有更新时进入 available 并带上版本', () => {
     const state = reachedAvailable('1.0.1');

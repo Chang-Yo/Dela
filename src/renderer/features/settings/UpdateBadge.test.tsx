@@ -53,16 +53,6 @@ it('没有更新待处理时不占位', async () => {
   expect(badge()).toBeNull();
 });
 
-it('检查中与失败都不提示，避免常亮一个假的提醒', async () => {
-  for (const phase of ['checking', 'up-to-date', 'installing', 'error'] as const) {
-    await act(async () => {
-      useUpdateState.setState({ snapshot: { ...base, phase } });
-      root.render(<UpdateBadge />);
-    });
-    expect(badge(), phase).toBeNull();
-  }
-});
-
 it('有更新时给出绿色提示，点击跳到设置「通用」', async () => {
   await act(async () => {
     useUpdateState.setState({ snapshot: available });

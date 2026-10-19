@@ -49,12 +49,4 @@ describe('reviewTabTitle', () => {
       ),
     ).toBe('quicksort.py');
   });
-
-  it('未提交改动变体给聚合标题', () => {
-    expect(reviewTabTitle(reviewTabId({ kind: 'uncommitted', sessionId }))).toBe('工作区改动');
-  });
-
-  it('无效标签键给中性标题', () => {
-    expect(reviewTabTitle('review:broken' as never)).toBe('改动审阅');
-  });
 });

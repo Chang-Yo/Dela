@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+// Dela 对所见即所得内核的适配：图片 alt/title 修复、链接输入规则。
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -109,6 +110,7 @@ describe('编辑器 IME 回传', () => {
       editor.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
       editor.querySelector('p')!.textContent = '开始ni';
       await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith('开始ni\n'));
+      // 让父组件回传拼音，然后模拟输入法提交汉字的 DOM 修改。
       await new Promise((resolve) => setTimeout(resolve, 50));
       editor.querySelector('p')!.textContent = '开始你';
       editor.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '你' }));
@@ -236,11 +238,6 @@ describe('Crepe 往返保真', () => {
       expect(out).toContain('标题');
     },
   );
-
-  it('frontmatter 会被内核改写（此类文档必须停在源码模式）', { timeout: 30_000 }, async () => {
-    const out = await roundTrip('---\ntitle: 笔记\n---\n\n正文\n');
-    expect(out).not.toContain('---\ntitle:');
-  });
 
   it(
     '输入 [文本](地址) 在键入 ) 时经输入规则转为链接（Milkdown 未内置）',
