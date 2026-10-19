@@ -17,7 +17,7 @@ import {
 } from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
-import { unhideProjectInNav } from '../navigation/store';
+import { unhideProjectInNav, useProjectNavPrefs } from '../navigation/store';
 import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
@@ -45,7 +45,7 @@ const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
   rename: '重命名',
   move: '移动到',
   remove: '移除内容',
-  link: '加入文件夹或项目',
+  link: '添加到项目',
   connect: '连接 Canvas',
 };
 
@@ -84,6 +84,7 @@ export function EntryDialogs({
   onOpenProject?: (id: string) => void;
 }) {
   const workspace = useWorkspaceStore((s) => s.workspace);
+  const projectPrefs = useProjectNavPrefs((s) => s.projects);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
@@ -102,6 +103,17 @@ export function EntryDialogs({
     setTarget(request?.initialTarget ?? '');
     setModalError(null);
   }, [request]);
+
+  const projects = workspace.entries.filter(
+    (entry) => entry.kind === 'project' && !entry.remoteId && !projectPrefs[entry.id]?.hidden,
+  );
+  let targetProject = workspace.entries.find((entry) => entry.id === target);
+  while (targetProject && targetProject.kind !== 'project')
+    targetProject = workspace.entries.find((entry) => entry.id === targetProject!.parentId);
+  const linkTarget =
+    target === '__new__'
+      ? target
+      : (projects.find((entry) => entry.id === targetProject?.id)?.id ?? '');
 
   const pathName = (entry: WorkspaceEntry): string => {
     const names = [entry.name];
@@ -158,8 +170,9 @@ export function EntryDialogs({
           ? request.id!.slice(7)
           : workspace.entries.find((e) => e.id === request.id)?.sourceId;
         if (!sourceId) throw new Error('请选择来源资料');
-        let parentId = target || null;
-        if (target === '__new__')
+        if (!linkTarget) throw new Error('请选择项目');
+        let parentId = linkTarget;
+        if (linkTarget === '__new__')
           parentId = (await api.create({ name, parentId: null, kind: 'project' })).id;
         created = await api.create({
           name: titleOf(request.id!),
@@ -220,7 +233,7 @@ export function EntryDialogs({
                     ? '解除此处的资料关联，原始资料保留。'
                     : '将文件或文件夹移至系统回收站。'
                 : request?.action === 'link'
-                  ? '引用同一份资料，原位置保持不变。'
+                  ? '在项目根目录引用资料，原位置保持不变。'
                   : request?.action === 'note'
                     ? `笔记保存到 ${workspace.directory}`
                     : request?.action === 'project'
@@ -230,26 +243,32 @@ export function EntryDialogs({
           <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
             {(request?.action === 'link' || request?.action === 'move') && (
               <div className="grid gap-2 text-13">
-                位置
+                {request.action === 'link' ? '项目' : '位置'}
                 <Select
                   onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
-                  value={target === '' ? ROOT_SELECT_VALUE : target}
+                  value={request.action === 'link' ? linkTarget : target || ROOT_SELECT_VALUE}
                 >
-                  <SelectTrigger aria-label="目标文件夹" className="w-full">
-                    <SelectValue />
+                  <SelectTrigger
+                    aria-label={request.action === 'link' ? '目标项目' : '目标文件夹'}
+                    className="w-full"
+                  >
+                    <SelectValue placeholder="选择项目" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
-                    {workspace.entries
-                      .filter(
-                        (e) =>
-                          (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
-                      )
-                      .map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {pathName(e)}
-                        </SelectItem>
-                      ))}
+                    {request.action === 'move' && (
+                      <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                    )}
+                    {(request.action === 'link'
+                      ? projects
+                      : workspace.entries.filter(
+                          (e) =>
+                            (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
+                        )
+                    ).map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {request.action === 'link' ? e.name : pathName(e)}
+                      </SelectItem>
+                    ))}
                     {request.action === 'link' && (
                       <SelectItem value="__new__">新建项目…</SelectItem>
                     )}
@@ -311,7 +330,7 @@ export function EntryDialogs({
               </Button>
               <Button
                 type="submit"
-                disabled={busy}
+                disabled={busy || (request?.action === 'link' && !linkTarget)}
                 variant={request?.action === 'remove' ? 'destructive' : undefined}
               >
                 {busy
