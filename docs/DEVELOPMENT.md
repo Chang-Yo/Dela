@@ -36,6 +36,44 @@
 
 `web_fetch` 的 HTML 转换使用纯 JS `@mdream/js`，保留 Markdown 结构、解析相对链接；仅过滤导航、页脚与非正文标签。网页保留编码处理、2MB 上限与 offset 续读，不执行 JavaScript。PDF 按响应 MIME 或文件头识别，完整下载到文档临时任务并返回工具路径，正文由 document-reading skill 解析；超过 128 MiB 明确失败，不能把网页截断字节当成完整 PDF。`web_search` 由用户提供搜索服务；注册 DeepSeek 并勾选「网页读取也使用 DeepSeek」后，`web_fetch` 优先走 `/v1/tools/fetch`，取不到正文、超时或 PDF 直链时回退本地抓取。
 
+### 2.1.1 轮次文件变化与 Git 审阅接口
+
+`main/agent/changes.ts` 提供本地目录的变更记录，`session.ts` 在每次 ask 开始时保存基准，执行结束后比较并冻结。覆盖目录范围内新增、修改、删除，不依赖 write/edit，所以 Bash 和脚本产物也能记录；运行期间人工或其他会话的并发修改也可能进入结果，不保证归因为 Agent 独占操作。
+
+卡片按 `WorkspaceChat.projectId` 区分会话：项目会话提供差异审阅与增删行数；随聊（无 projectId）只列变更文件，提供 Dela 内打开、VS Code 与系统文件管理器选项，不显示审阅和行数，也不调用文件 diff 详情接口。两类会话仍使用同一套后端快照记录，此处仅收窄随聊的展示与详情请求，不减少轮前、轮后目录扫描及快照存储。
+
+前端审阅 UI 建在这些接口上：回答末尾的 `TurnChangesCard` 读取冻结记录并以折叠卡片列出文件，项目会话通过 `readTurnChanges(sessionId, turnId, true)` 一次获取文件清单与增删统计。后端只解压一次整轮记录，按文件顺序计算 patch 统计，文件间让出主进程；不再为每个文件并发解压整轮记录。随聊省略统计，列表接口也默认不计算统计；无法统计的文件返回 `stat: null`。行内「审阅」开 `review:{sessionId}:{turnId}:{path}` 标签（`content/review`，unified patch 只读呈现），「打开」先经 `chat:locate-file` 解析本机绝对路径再开 `preview:{绝对路径}` 标签（文本/Markdown/PDF/Office 走既有预览，二进制显示不支持），下拉另提供 VS Code（`chat:open-in-vscode`）与资源管理器（`chat:reveal-file`）；已删除的文件禁用打开。两组动作与标题栏「新聊天」共用同一落位规则（`workbench/open-aside.ts` 的 `prepareAsideGroup`）：单组向右分出空新组，多组进最右组；区别只在开标签机制（newChat 走 reveal 脉冲，卡片直接 openTab）。无文件的记录（远程轮次、轮前快照缺失）不渲染卡片；partial 记录展开后展示警告。落盘失败的 `changesError` 尚未在界面呈现。
+
+`DiffView` 对长差异分页，每页最多 500 行，提供上一页与下一页；换 patch 时回到第一页。解析保留完整行号，DOM 仅挂载当前页，避免多行小文件一次生成大量元素。
+
+未提交改动的前端入口在会话顶栏（`ChatTab`，`uncommittedAvailability` 轻探测可用后才显示；非仓库、缺 Git、远程项目与随聊都不显示，探测开销约两次 git 调用，不做文件扫描）。目标为 `review:{sessionId}:uncommitted` 的聚合标签（`UncommittedReview`）：左侧文件列表、右侧选中文件的 `DiffView`，打开时自动选中第一个文件，不做自动轮询。已查看文件的 patch 与展示信息在组件内缓存，不保留前后完整文本；按序列化 UTF-16 长度估算，总预算 16 MiB，超限淘汰最早缓存项，单项超限则只展示不缓存。刷新开始时清空缓存并隐藏旧详情，刷新成功后即使选中文件不变也重取详情，原选中文件已不在列表时回落到第一个；组件卸载时释放缓存。未访问或被淘汰文件按请求时点读取，缓存文件的外部修改需刷新后才可见；列表与详情不保证同一时点快照。刷新前的过期响应不能覆盖新结果。读取警告在面板中展示，文件列表为空但有警告时不声称工作区没有改动。列表行不显示行数统计。`available: false` 按原因呈现（not-git / git-unavailable / remote）。
+
+`readUncommittedFileChange` 使用 Git 的 literal pathspec 精确限定目标路径，仅读取该文件的 HEAD 与磁盘内容，不再读取其他变更文件；已跟踪文本的 patch 交给 `git diff --no-ext-diff --no-textconv --no-color` 生成，遵循仓库的换行转换与 `.gitattributes`，详情仍保留读取时的原始前后文本。未跟踪文件和无首个提交的仓库沿用 jsdiff；目录边界、排除规则及文件大小限制保持一致。列表接口仍完整读取范围内的变更，不影响每轮对话快照的记录方式。
+
+每轮 UUID 同时作为 `RunEvent.runId`、消息 `turnId` 和冻结记录标识。消息元数据随 Pi JSONL 保存，assistant 投影继承该 turnId；旧消息不补造历史快照。历史列表也能独立查询，不依赖模型是否配置。轮次完成、模型失败、用户停止都先冻结已发生的文件变化，再通知完成；取消期间的扫描结束后不再启动 prompt。永久删除会话时清理该会话的冻结记录。
+
+前端入口均为 `window.dela.chat`，IPC 统一校验调用来源、会话存在性、UUID 与路径字符串；客户端不传任意工作目录。`path` 必须来自接口返回的相对路径：
+
+| 方法                                                | 返回                   | 用途                                                                |
+| --------------------------------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| `listTurnChanges(sessionId)`                        | `TurnChanges[]`        | 按开始时间倒序列出已冻结轮次                                        |
+| `readTurnChanges(sessionId, turnId, includeStats?)` | `TurnChanges \| null`  | 读取冻结轮次；includeStats 默认为 false，为 true 时批量返回行数统计 |
+| `readTurnFileChange(sessionId, turnId, path)`       | `FileChangeDetail`     | 读取当时前后文本与 unified patch，不读取当前文件                    |
+| `readUncommittedChanges(sessionId)`                 | `UncommittedChanges`   | 获取会话目录相对当前 Git HEAD 的净变化与未跟踪文件                  |
+| `readUncommittedFileChange(sessionId, path)`        | `FileChangeDetail`     | 按请求时的 HEAD / 工作区重新读取单文件差异                          |
+| `uncommittedAvailability(sessionId)`                | `available` + `reason` | 轻探测会话目录能否做未提交改动审阅，供入口可见性判定                |
+| `locateFile(sessionId, path)`                       | `string`               | 解析会话内文件的本机绝对路径（须真实存在），供应用内预览标签使用    |
+| `openInVsCode(sessionId, path)`                     | `Promise<void>`        | 用 VS Code 打开会话内文件                                           |
+| `revealFile(sessionId, path)`                       | `Promise<void>`        | 在系统文件管理器中定位会话内文件                                    |
+
+共享类型位于 `shared/chat.ts`。清单项包含 `path/status/beforeBytes/afterBytes/textDiff`，详情追加 `before/after/patch/note`；新增和删除分别使用 null 表示不存在的一侧。重命名先表示为删除加新增。轮次含 `cwd/startedAt/finishedAt/runStatus/state/warnings`，state 为 complete、partial 或 unavailable。完整文本不可用、扫描超限或不可读时必须展示警告，不把缺失记录伪装成“没有改动”。落盘失败通过完成事件的 `changesError` 上报，不覆盖模型原始结果。
+
+Git 当前改动合并已暂存、未暂存的净结果，额外列出未跟踪文件，不改索引、不建提交、不执行 reset。会话目录是仓库子目录时仅返回该目录内变化；尚无首个提交时以空树为基准。非 Git 目录返回 `available: false, reason: 'not-git'`，前端隐藏该入口；Git 缺失返回 git-unavailable，远程项目返回 remote；其他 Git 错误不伪装成非仓库。冻结的轮次 diff 不依赖 Git；远程轮次目前为 unavailable，不访问同名本机路径。
+
+目录候选：Git 项目使用 `git ls-files --cached --others --exclude-standard`，非 Git 目录使用随包 ripgrep 的 `--files --hidden --no-require-git`，沿用 ignore 规则。两种范围都排除 `.git/node_modules/.venv/venv/__pycache__/.cache/.next/.nuxt/.tools/.build/dist/out/target/coverage` 目录，保留可能含源码资源的 build。拒绝越出 cwd 的路径，不跟随符号链接，不把快照自身纳入扫描。单次最多 10,000 文件；UTF-8 文本单文件最多 1 MiB、每次扫描文本总预算 16 MiB。二进制仅提供变化标记；超过 16 MiB 的文件只比较大小与修改时间，不能保证发现保留时间戳和大小的内容替换。超限通过 warnings/note 暴露。
+
+冻结文件保存到 `userData/chat-changes/<sessionId>/<turnId>.json.gz`，仅保存有变化文件的前后状态，先写临时文件再替换。历史不随当前文件变化；普通缓存清理不删除它，应用数据导出会随 userData 一并备份。扫描并非文件系统事务，异常退出或进程崩溃前未完成的轮次可能没有冻结记录。首次轮前基准仅在内存中，不对崩溃中的未完成轮次补造 diff。每个文本 patch 最多计算 100ms，超时返回 null 及说明，仍可取前后文本。未实现回滚与整个会话累计 diff。
+
 ### 2.2 dela 命令
 
 领域能力的 CLI 门面。应用生命周期内一个本机 HTTP 桥（`127.0.0.1` 随机端口 + Bearer token），经 Pi 的 `shellCommandPrefix` 注入 bash，终端同样可用；`dela help` 列命令与 JSON Schema。

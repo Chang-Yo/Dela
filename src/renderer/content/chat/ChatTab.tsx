@@ -1,5 +1,5 @@
-import { memo, useMemo, useState } from 'react';
-import { History, SquarePen } from 'lucide-react';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { GitCompare, History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { referenceContext } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { useWorkspaceStore } from '../../workspace/store';
+import { openTabAside } from '../../workbench/open-aside';
+import { reviewTabId } from '../review/tab-id';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
 export function parseChatTabId(tabId: string): string | null {
@@ -162,6 +164,27 @@ const ChatSessionView = memo(function ChatSessionView({
   const chatState = useChat(active, referenceSource);
   const { chat, busy, editLast } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  // 工作区改动入口的可见性：轻探测会话目录是否为可审阅的 Git 仓库
+  // （非仓库、缺 Git、远程项目都不显示，随聊无项目目录同样不显示）。
+  const [reviewReady, setReviewReady] = useState(false);
+  useEffect(() => {
+    if (projectId === null || !window.dela) {
+      setReviewReady(false);
+      return;
+    }
+    let alive = true;
+    void window.dela.chat
+      .uncommittedAvailability(active)
+      .then((value) => {
+        if (alive) setReviewReady(value.available);
+      })
+      .catch(() => {
+        if (alive) setReviewReady(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [active, projectId]);
 
   // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
@@ -198,6 +221,17 @@ const ChatSessionView = memo(function ChatSessionView({
         >
           <SquarePen />
         </IconButton>
+        {reviewReady && (
+          <IconButton
+            aria-label="工作区改动"
+            onClick={() =>
+              openTabAside(reviewTabId({ kind: 'uncommitted', sessionId: active }))
+            }
+            title="查看工作区未提交的改动"
+          >
+            <GitCompare />
+          </IconButton>
+        )}
       </div>
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}
       {chat && !chat.configured && (

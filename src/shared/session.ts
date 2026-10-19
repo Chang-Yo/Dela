@@ -79,6 +79,8 @@ export interface WorkspaceChat {
       | { type: 'tools'; results: AgentToolResult[] }
     )[];
     startedAt?: number;
+    /** 对应冻结的本轮 diff；旧消息无此字段。 */
+    turnId?: string;
     finishedAt?: number;
     interrupted?: boolean;
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
@@ -98,6 +100,8 @@ export interface RunEvent {
   status: RunStatus;
   /** 状态为 running 时的当前工具名；空闲段为 undefined。 */
   activeTool?: string;
+  /** 冻结 diff 落盘失败；不改变 Agent 执行本身的完成状态。 */
+  changesError?: string;
 }
 
 /** session:on-stream 载荷：流式增量只携带本轮正在生成的末条 assistant 消息，

@@ -23,7 +23,65 @@ export interface ChatCommandView {
   prompt: string;
 }
 
+export interface FileChangeSummary {
+  /** 相对本次比较工作目录的路径，统一使用 /。 */
+  path: string;
+  status: 'added' | 'modified' | 'deleted';
+  beforeBytes: number | null;
+  afterBytes: number | null;
+  textDiff: boolean;
+  /** 轮次摘要按需返回；null 表示无法统计，省略表示未请求统计。 */
+  stat?: { added: number; deleted: number } | null;
+}
+
+export interface FileChangeDetail extends FileChangeSummary {
+  before: string | null;
+  after: string | null;
+  patch: string | null;
+  note: string | null;
+}
+
+export interface TurnChanges {
+  turnId: string;
+  cwd: string;
+  startedAt: string;
+  finishedAt: string;
+  runStatus: 'completed' | 'failed' | 'stopped';
+  state: 'complete' | 'partial' | 'unavailable';
+  warnings: string[];
+  files: FileChangeSummary[];
+}
+
+export interface UncommittedChanges {
+  /** false 时前端隐藏入口；错误与非 Git 目录通过 reason 区分。 */
+  available: boolean;
+  reason: 'not-git' | 'git-unavailable' | 'remote' | null;
+  cwd: string;
+  repositoryRoot: string | null;
+  /** 尚无首个提交的仓库为 null，以空树作为基准。 */
+  head: string | null;
+  warnings: string[];
+  files: FileChangeSummary[];
+}
+
 export interface ChatApi {
+  listTurnChanges(sessionId: string): Promise<TurnChanges[]>;
+  readTurnChanges(
+    sessionId: string,
+    turnId: string,
+    includeStats?: boolean,
+  ): Promise<TurnChanges | null>;
+  readTurnFileChange(sessionId: string, turnId: string, path: string): Promise<FileChangeDetail>;
+  readUncommittedChanges(sessionId: string): Promise<UncommittedChanges>;
+  readUncommittedFileChange(sessionId: string, path: string): Promise<FileChangeDetail>;
+  /** 会话目录能否做未提交改动审阅（轻探测，两次 git 调用，不做文件扫描）。 */
+  uncommittedAvailability(
+    sessionId: string,
+  ): Promise<Pick<UncommittedChanges, 'available' | 'reason'>>;
+  /** 会话内文件的本机绝对路径（相对路径按会话 cwd 解析，须真实存在）；应用内预览标签以它作标签键。 */
+  locateFile(sessionId: string, path: string): Promise<string>;
+  /** 用 VS Code 打开会话内文件；相对路径按会话 cwd 解析。 */
+  openInVsCode(sessionId: string, path: string): Promise<void>;
   stageMedia(input: { name: string; bytes: ArrayBuffer | Uint8Array }): Promise<ChatMediaView>;
   pickMedia(): Promise<ChatMediaView[]>;
   /** 已发送图片的缩略预览；附件或文件缺失时为 null。 */

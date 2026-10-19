@@ -59,7 +59,10 @@ export function titleOf(key: string): string {
     workspace.entries.find((e) => e.id === key)?.name ??
     canvas.items.find((i) => `source:${i.sourceId}` === key)?.name ??
     useNoteDrafts.getState().drafts[key]?.content.title ??
-    '资料'
+    // 纯磁盘路径标签（Agent 刚产出的文件可能晚于镜像刷新）：镜像没有就直接取路径末段。
+    (/[\\/]/.test(key)
+      ? key.slice(Math.max(key.lastIndexOf('/'), key.lastIndexOf('\\')) + 1) || key
+      : '资料')
   );
 }
 

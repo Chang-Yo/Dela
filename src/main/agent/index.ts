@@ -25,6 +25,14 @@ import {
   newSession,
   openSession,
   openSessionFile,
+  openSessionFileInVsCode,
+  listSessionTurnChanges,
+  readSessionTurnChanges,
+  readSessionTurnFileChange,
+  readSessionUncommittedChanges,
+  readSessionUncommittedFileChange,
+  uncommittedAvailability,
+  locateSessionFile,
   preloadPi,
   revealSessionFile,
   subscribeChat,
@@ -182,10 +190,39 @@ export function registerAgentIpc() {
   chatHandle('list-commands', () => listChatCommands());
   chatHandle('save-command', (_event, input) => saveChatCommand(input));
   chatHandle('delete-command', (_event, id) => deleteChatCommand(uuid.parse(id)));
-  // 本轮交付物：定位到资源管理器 / 用默认程序打开；路径由会话 cwd 限定。
+  // 本轮交付物：定位到资源管理器 / 用默认程序打开 / 用 VS Code 打开；
+  // locate-file 返回本机绝对路径供应用内预览标签使用。路径由会话 cwd 限定。
   const chatFilePath = (path: unknown) => z.string().min(1).max(32_767).parse(path);
+  chatHandle('locate-file', (_event, sessionId, path) =>
+    locateSessionFile(uuid.parse(sessionId), chatFilePath(path)),
+  );
+  chatHandle('open-in-vscode', (_event, sessionId, path) =>
+    openSessionFileInVsCode(uuid.parse(sessionId), chatFilePath(path)),
+  );
   chatHandle('reveal-file', (_event, sessionId, path) =>
     revealSessionFile(uuid.parse(sessionId), chatFilePath(path)),
+  );
+  chatHandle('list-turn-changes', (_event, sessionId) =>
+    listSessionTurnChanges(uuid.parse(sessionId)),
+  );
+  chatHandle('read-turn-changes', (_event, sessionId, turnId, includeStats) =>
+    readSessionTurnChanges(
+      uuid.parse(sessionId),
+      uuid.parse(turnId),
+      z.boolean().optional().parse(includeStats),
+    ),
+  );
+  chatHandle('read-turn-file-change', (_event, sessionId, turnId, path) =>
+    readSessionTurnFileChange(uuid.parse(sessionId), uuid.parse(turnId), chatFilePath(path)),
+  );
+  chatHandle('read-uncommitted-changes', (_event, sessionId) =>
+    readSessionUncommittedChanges(uuid.parse(sessionId)),
+  );
+  chatHandle('uncommitted-availability', (_event, sessionId) =>
+    uncommittedAvailability(uuid.parse(sessionId)),
+  );
+  chatHandle('read-uncommitted-file-change', (_event, sessionId, path) =>
+    readSessionUncommittedFileChange(uuid.parse(sessionId), chatFilePath(path)),
   );
   chatHandle('open-file', (_event, sessionId, path) =>
     openSessionFile(uuid.parse(sessionId), chatFilePath(path)),
