@@ -41,7 +41,8 @@ export interface DeepSeekSearchHit {
   snippet: string;
 }
 
-/** 搜索结果只取标题、链接与短摘要；snippet 缺失时回退长摘要（summary）。 */
+/** 搜索结果取标题、链接与长摘要：官方 summary（600–800 字）面向模型阅读，
+ *  snippet（100–200 字）面向前端展示，WebSearch 的消费者是模型。 */
 export async function searchDeepSeek(
   query: string,
   count: number,
@@ -51,7 +52,6 @@ export async function searchDeepSeek(
     results?: {
       title?: string | null;
       url?: string | null;
-      snippet?: string | null;
       summary?: string | null;
     }[];
   }>('/v1/tools/search', { query, count }, apiKey);
@@ -62,7 +62,7 @@ export async function searchDeepSeek(
             {
               url: item.url,
               title: compact(item.title) || item.url,
-              snippet: compact(item.snippet) || compact(item.summary),
+              snippet: compact(item.summary),
             },
           ]
         : [],

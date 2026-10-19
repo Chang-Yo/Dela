@@ -65,7 +65,7 @@ const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
   {
     name: 'web_search',
     label: '联网搜索',
-    description: '联网搜索（需注册搜索服务）',
+    description: '联网搜索（需配置搜索服务，在聊天输入框左下角选择）',
     domain: 'web',
     domainLabel: '网络',
   },

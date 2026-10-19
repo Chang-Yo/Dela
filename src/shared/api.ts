@@ -24,7 +24,10 @@ export type {
   McpServerView,
   SkillScope,
   SkillView,
-  WebSearchConfig,
+  WebSearchEntry,
+  WebSearchEntryInput,
+  WebSearchEntrySummary,
+  WebSearchKeySource,
 } from './capabilities';
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';

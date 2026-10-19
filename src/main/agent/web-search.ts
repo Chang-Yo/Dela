@@ -1,12 +1,21 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { loadLlmConfig } from '../credentials';
-import type { WebSearchConfig } from '../../shared/capabilities';
+import type {
+  WebSearchEntry,
+  WebSearchEntrySummary,
+  WebSearchKeySource,
+} from '../../shared/capabilities';
+import { readDisabledTools, setBuiltinCapabilities } from './tools';
 import { searchDeepSeek } from './deepseek';
 
-// 搜索服务注册（设置 › 内置能力 › 网络）：同一时刻至多一个生效，应用不内置搜索服务。
+// 搜索服务配置（设置 › 内置能力 › 网络）：可存多条（同类型可重复，供多账号复用额度），
+// 聊天输入框左下角选择当前使用哪一条；应用不内置搜索服务。
 const CONFIG_KEY = 'web-search-api';
 const REQUEST_TIMEOUT_MS = 15000;
+// 4 类服务各留多账号余量且列表一屏可浏览；再大主要防配置堆积。
+const ENTRY_LIMIT = 16;
 
 // 请求头键限 HTTP token 字符；条数封顶防滥用。
 const headerKeySchema = z.string().regex(/^[\w!#$%&'*+\-.^`|~]{1,128}$/);
@@ -14,7 +23,95 @@ const headersSchema = z
   .record(headerKeySchema, z.string().min(1).max(2048))
   .refine((headers) => Object.keys(headers).length <= 32, '自定义请求头最多 32 条');
 
-export const webSearchConfigSchema = z.discriminatedUnion('provider', [
+const nameSchema = z.string().trim().min(1).max(64);
+const uuid = z.string().uuid();
+
+export const webSearchEntrySchema = z.discriminatedUnion('provider', [
+  z
+    .object({
+      id: uuid,
+      name: nameSchema,
+      provider: z.literal('brave'),
+      apiKey: z.string().trim().min(1).max(256),
+    })
+    .strict(),
+  z
+    .object({
+      id: uuid,
+      name: nameSchema,
+      provider: z.literal('google'),
+      apiKey: z.string().trim().min(1).max(256),
+      cx: z.string().trim().min(1).max(128),
+    })
+    .strict(),
+  z
+    .object({
+      id: uuid,
+      name: nameSchema,
+      provider: z.literal('custom'),
+      url: z.string().url().max(2048),
+      headers: headersSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      id: uuid,
+      name: nameSchema,
+      provider: z.literal('deepseek'),
+      apiKey: z.string().trim().min(1).max(256),
+      useForFetch: z.boolean(),
+    })
+    .strict(),
+]);
+
+/** 保存入参：id 省略表示新建。 */
+export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
+  z
+    .object({
+      id: uuid.optional(),
+      name: nameSchema,
+      provider: z.literal('brave'),
+      apiKey: z.string().trim().min(1).max(256),
+    })
+    .strict(),
+  z
+    .object({
+      id: uuid.optional(),
+      name: nameSchema,
+      provider: z.literal('google'),
+      apiKey: z.string().trim().min(1).max(256),
+      cx: z.string().trim().min(1).max(128),
+    })
+    .strict(),
+  z
+    .object({
+      id: uuid.optional(),
+      name: nameSchema,
+      provider: z.literal('custom'),
+      url: z.string().url().max(2048),
+      headers: headersSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      id: uuid.optional(),
+      name: nameSchema,
+      provider: z.literal('deepseek'),
+      apiKey: z.string().trim().min(1).max(256),
+      useForFetch: z.boolean(),
+    })
+    .strict(),
+]);
+
+const registrySchema = z
+  .object({
+    providers: z.array(webSearchEntrySchema).max(ENTRY_LIMIT),
+    selectedId: uuid.nullable(),
+  })
+  .strict();
+
+// 旧单条配置（无 id/name）：读取时迁移为单元素列表。
+const legacyEntrySchema = z.discriminatedUnion('provider', [
   z.object({ provider: z.literal('brave'), apiKey: z.string().trim().min(1).max(256) }).strict(),
   z
     .object({
@@ -39,45 +136,135 @@ export const webSearchConfigSchema = z.discriminatedUnion('provider', [
     .strict(),
 ]);
 
-export function readWebSearchConfig(): WebSearchConfig | null {
+const legacyNames: Record<WebSearchEntry['provider'], string> = {
+  brave: 'Brave Search API',
+  google: 'Google 搜索',
+  custom: '自定义端点',
+  deepseek: 'DeepSeek',
+};
+
+interface Registry {
+  providers: WebSearchEntry[];
+  selectedId: string | null;
+}
+
+/** 读取注册表并做格式迁移（旧单条 / SearXNG { url }），迁移结果立即写回。 */
+function readRegistry(): Registry {
+  const row = getDatabase()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(CONFIG_KEY) as { value: string } | undefined;
+  if (!row) return { providers: [], selectedId: null };
+  let parsed: unknown;
   try {
-    const row = getDatabase()
-      .prepare('SELECT value FROM workspace_settings WHERE key=?')
-      .get(CONFIG_KEY) as { value: string } | undefined;
-    if (!row) return null;
-    const parsed: unknown = JSON.parse(row.value);
-    // 上一迭代短暂引入过 brave.endpoint 字段：读取时剥离，避免 strict 校验拒绝。
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      (parsed as { provider?: string }).provider === 'brave'
-    )
-      delete (parsed as { endpoint?: unknown }).endpoint;
-    const current = webSearchConfigSchema.safeParse(parsed);
-    if (current.success) return current.data;
+    parsed = JSON.parse(row.value);
+  } catch {
+    return { providers: [], selectedId: null };
+  }
+  const current = registrySchema.safeParse(parsed);
+  if (current.success) return current.data;
+  // 上一迭代短暂引入过 brave.endpoint 字段：读取时剥离，避免 strict 校验拒绝。
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    (parsed as { provider?: string }).provider === 'brave'
+  )
+    delete (parsed as { endpoint?: unknown }).endpoint;
+  const entry: WebSearchEntry | null = (() => {
+    const legacyEntry = legacyEntrySchema.safeParse(parsed);
+    if (legacyEntry.success)
+      return {
+        id: randomUUID(),
+        name: legacyNames[legacyEntry.data.provider],
+        ...legacyEntry.data,
+      };
     // 旧版仅存 { url }（SearXNG 端点）：迁移为自定义端点。
-    const legacy = z
+    const legacyUrl = z
       .object({ url: z.string().url().max(2048) })
       .strict()
       .safeParse(parsed);
-    return legacy.success ? { provider: 'custom', url: legacy.data.url } : null;
-  } catch {
-    return null;
-  }
+    return legacyUrl.success
+      ? { id: randomUUID(), name: legacyNames.custom, provider: 'custom', url: legacyUrl.data.url }
+      : null;
+  })();
+  if (!entry) return { providers: [], selectedId: null };
+  const migrated: Registry = { providers: [entry], selectedId: entry.id };
+  writeRegistry(migrated);
+  return migrated;
 }
 
-export function writeWebSearchConfig(config: WebSearchConfig | null): WebSearchConfig | null {
-  const db = getDatabase();
-  if (config === null) {
-    db.prepare('DELETE FROM workspace_settings WHERE key=?').run(CONFIG_KEY);
-    return null;
+function writeRegistry(registry: Registry): void {
+  getDatabase()
+    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
+    .run(CONFIG_KEY, JSON.stringify(registrySchema.parse(registry)));
+}
+
+export function listWebSearchEntries(): WebSearchEntry[] {
+  return readRegistry().providers;
+}
+
+/** 当前选用的条目（聊天侧选择器的记录）；null = 未选或无配置。 */
+export function readWebSearchConfig(): WebSearchEntry | null {
+  const { providers, selectedId } = readRegistry();
+  return providers.find(({ id }) => id === selectedId) ?? null;
+}
+
+/** 新建或更新一条配置；新建即选中并启用 web_search（填完就是要用），更新不改选中。返回最新列表。 */
+export function saveWebSearchEntry(
+  input: z.infer<typeof webSearchEntryInputSchema>,
+): WebSearchEntry[] {
+  const registry = readRegistry();
+  const exists = input.id != null && registry.providers.some(({ id }) => id === input.id);
+  // 幽灵 id（别处已删除的草稿）按新建追加会静默复活条目，明确报错让用户重建。
+  if (input.id != null && !exists) throw new Error('搜索服务配置不存在，可能已被删除');
+  if (!exists && registry.providers.length >= ENTRY_LIMIT)
+    throw new Error(`搜索服务配置最多 ${ENTRY_LIMIT} 条，请先删除部分配置`);
+  const saved = { ...input, id: input.id ?? randomUUID() } as WebSearchEntry;
+  const providers = exists
+    ? registry.providers.map((item) => (item.id === saved.id ? saved : item))
+    : [...registry.providers, saved];
+  writeRegistry({ providers, selectedId: exists ? registry.selectedId : saved.id });
+  if (!exists) setBuiltinCapabilities(['web_search'], true);
+  return providers;
+}
+
+/** 删除一条配置；删的是选中项时回落到剩余第一条；删空即关闭搜索，停用 web_search。 */
+export function removeWebSearchEntry(id: string): WebSearchEntry[] {
+  const registry = readRegistry();
+  const providers = registry.providers.filter((item) => item.id !== id);
+  const selectedId = registry.selectedId === id ? (providers[0]?.id ?? null) : registry.selectedId;
+  writeRegistry({ providers, selectedId });
+  if (selectedId === null) setBuiltinCapabilities(['web_search'], false);
+  return providers;
+}
+
+/** 聊天侧选择器的数据：脱敏条目（不含密钥与自定义请求头）与当前选中。 */
+export function listWebSearchOptions(): {
+  entries: WebSearchEntrySummary[];
+  selectedId: string | null;
+} {
+  const { providers, selectedId } = readRegistry();
+  return {
+    entries: providers.map(({ id, name, provider }) => ({ id, name, provider })),
+    selectedId:
+      !readDisabledTools().has('web_search') && providers.some(({ id }) => id === selectedId)
+        ? selectedId
+        : null,
+  };
+}
+
+/** 聊天侧选择当前使用哪条配置；选择即视为要用搜索，顺带确保 web_search 工具开启；
+ *  null = 关闭联网搜索，清空选中并关掉 web_search（web_fetch 仍走本地抓取）。 */
+export function selectWebSearchEntry(id: string | null): void {
+  if (id === null) {
+    writeRegistry({ ...readRegistry(), selectedId: null });
+    setBuiltinCapabilities(['web_search'], false);
+    return;
   }
-  const normalized = webSearchConfigSchema.parse(config);
-  db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(
-    CONFIG_KEY,
-    JSON.stringify(normalized),
-  );
-  return normalized;
+  const registry = readRegistry();
+  if (!registry.providers.some((item) => item.id === id))
+    throw new Error('搜索服务配置不存在，可能已被删除');
+  writeRegistry({ ...registry, selectedId: id });
+  setBuiltinCapabilities(['web_search'], true);
 }
 
 /** DeepSeek 官方端点判定：只认 api.deepseek.com，中转或自建网关一律不算。 */
@@ -89,21 +276,21 @@ function isDeepSeekEndpoint(baseUrl: string): boolean {
   }
 }
 
-/** 把已配置的 DeepSeek 模型供应商密钥导入搜索服务：优先使用中的提供商，其次第一个可用的。
- *  没有可导入的供应商时返回 null；已有 DeepSeek 配置的网页读取开关保持不变。 */
-export function importDeepSeekSearchKey(): WebSearchConfig | null {
+/** 可导入密钥的 DeepSeek 模型供应商（不含密钥）：使用中的排最前。 */
+export function listWebSearchKeySources(): WebSearchKeySource[] {
   const { providers, activeId } = loadLlmConfig();
-  const candidates = providers.filter(
-    (provider) => provider.apiKey && isDeepSeekEndpoint(provider.baseUrl),
-  );
-  const provider = candidates.find(({ id }) => id === activeId) ?? candidates[0];
-  if (!provider) return null;
-  const current = readWebSearchConfig();
-  return writeWebSearchConfig({
-    provider: 'deepseek',
-    apiKey: provider.apiKey,
-    useForFetch: current?.provider === 'deepseek' ? current.useForFetch : false,
-  });
+  return providers
+    .filter((provider) => provider.apiKey && isDeepSeekEndpoint(provider.baseUrl))
+    .map(({ id, name }) => ({ id, name, active: id === activeId }))
+    .sort((a, b) => Number(b.active) - Number(a.active));
+}
+
+/** 把指定 DeepSeek 模型供应商的密钥读给搜索表单预填（不落库，保存由表单决定）；
+ *  导入的是静态副本，供应商此后换 Key 不会跟随，需重新导入。
+ *  供应商不存在、未配置密钥或不是官方端点时返回 null。 */
+export function readWebSearchKey(providerId: string): string | null {
+  const provider = loadLlmConfig().providers.find(({ id }) => id === providerId);
+  return provider?.apiKey && isDeepSeekEndpoint(provider.baseUrl) ? provider.apiKey : null;
 }
 
 interface WebSearchResult {
@@ -221,10 +408,13 @@ async function searchCustomEndpoint(
   return results;
 }
 
-/** 联网搜索工具：需在设置 › 内置能力「网络」中注册搜索服务。 */
+/** 联网搜索工具：用聊天侧当前选中的配置执行；未选中或无配置时报错引导。 */
 export async function webSearch(query: string, count = 5, freshness?: string) {
   const config = readWebSearchConfig();
-  if (!config) throw new Error('尚未注册搜索服务：请在 设置 › 内置能力 的「网络」分组中配置');
+  if (!config)
+    throw new Error(
+      '尚未选择搜索服务：请在聊天输入框左下角选择，或在 设置 › 内置能力 的「网络」分组中配置',
+    );
   const results =
     config.provider === 'brave'
       ? await searchBrave(query, count, freshness, config.apiKey)

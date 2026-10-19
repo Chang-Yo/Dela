@@ -66,10 +66,14 @@ import {
 import { domainTools, listBuiltinCapabilities, setBuiltinCapabilities } from './tools';
 import { loadPi } from './pi';
 import {
-  importDeepSeekSearchKey,
-  readWebSearchConfig,
-  webSearchConfigSchema,
-  writeWebSearchConfig,
+  listWebSearchEntries,
+  listWebSearchKeySources,
+  listWebSearchOptions,
+  readWebSearchKey,
+  removeWebSearchEntry,
+  saveWebSearchEntry,
+  selectWebSearchEntry,
+  webSearchEntryInputSchema,
 } from './web-search';
 
 export { closeDomainBridge, domainBridge } from './environment';
@@ -89,6 +93,14 @@ function invalidating<T>(fn: () => T): T {
   const result = fn();
   if (result instanceof Promise) return result.finally(invalidateSessions) as T;
   invalidateSessions();
+  return result;
+}
+
+function changingWebSearch<T>(fn: () => T): T {
+  const result = invalidating(fn);
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send('capabilities:web-search-changed');
+  }
   return result;
 }
 
@@ -250,16 +262,27 @@ export function registerAgentIpc() {
   );
   handle('capabilities:list-builtin-capabilities', () => listBuiltinCapabilities());
   handle('capabilities:set-builtin-capability', (tool, enabled) =>
-    invalidating(() => setBuiltinCapabilities([name.parse(tool)], z.boolean().parse(enabled))),
+    changingWebSearch(() => setBuiltinCapabilities([name.parse(tool)], z.boolean().parse(enabled))),
   );
   handle('capabilities:set-builtin-domain', (domain, enabled) =>
-    invalidating(() =>
+    changingWebSearch(() =>
       setBuiltinCapabilities(domainTools(name.parse(domain)), z.boolean().parse(enabled)),
     ),
   );
-  handle('capabilities:read-web-search-config', () => readWebSearchConfig());
-  handle('capabilities:write-web-search-config', (config) =>
-    writeWebSearchConfig(config === null ? null : webSearchConfigSchema.parse(config)),
+  handle('capabilities:list-web-search-entries', () => listWebSearchEntries());
+  handle('capabilities:list-web-search-options', () => listWebSearchOptions());
+  // 搜索配置变更同时刷新会话工具与各窗口的选择器。
+  handle('capabilities:save-web-search-entry', (entry) =>
+    changingWebSearch(() => saveWebSearchEntry(webSearchEntryInputSchema.parse(entry))),
   );
-  handle('capabilities:import-web-search-key', () => importDeepSeekSearchKey());
+  handle('capabilities:remove-web-search-entry', (id) =>
+    changingWebSearch(() => removeWebSearchEntry(uuid.parse(id))),
+  );
+  handle('capabilities:select-web-search-entry', (id) =>
+    changingWebSearch(() => selectWebSearchEntry(id === null ? null : uuid.parse(id))),
+  );
+  handle('capabilities:list-web-search-key-sources', () => listWebSearchKeySources());
+  handle('capabilities:read-web-search-key', (providerId) =>
+    readWebSearchKey(uuid.parse(providerId)),
+  );
 }

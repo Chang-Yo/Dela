@@ -4,7 +4,7 @@ import { DeepSeekError, fetchDeepSeek, searchDeepSeek } from '../deepseek';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('deepseek search', () => {
-  it('只取标题、链接与短摘要，缺摘要时回退长摘要', async () => {
+  it('只取标题、链接与面向模型的长摘要（summary），忽略前端用的 snippet', async () => {
     const fetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -19,7 +19,7 @@ describe('deepseek search', () => {
     );
     vi.stubGlobal('fetch', fetch);
     expect(await searchDeepSeek('查询', 5, 'sk-test')).toEqual([
-      { title: 'A', url: 'https://a.example', snippet: '短摘要' },
+      { title: 'A', url: 'https://a.example', snippet: '长摘要' },
       { title: 'B', url: 'https://b.example', snippet: '只有长摘要' },
     ]);
     const [url, init] = fetch.mock.calls[0]! as [string, RequestInit];
