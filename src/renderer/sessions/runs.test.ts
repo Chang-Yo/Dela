@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RunEvent } from '../../shared/api';
-import { initRunsMirror, runBadge, sessionRunBadge, useRuns } from './runs';
+import { initRunsMirror, runBadge, useRuns } from './runs';
 
 // 与 store.test.ts 相同的模式：先装文件级 window mock，再手动挂接镜像订阅。
 const runEventListeners: Array<(event: RunEvent) => void> = [];
@@ -45,12 +45,6 @@ describe('runs mirror', () => {
     expect(runBadge('stopped')).toBeNull();
     expect(runBadge('interrupted')).toBeNull();
     expect(runBadge('waiting_input')).toBeNull();
-  });
-
-  it('sessionRunBadge 读取当前归并状态', () => {
-    useRuns.setState({ bySession: { s1: { runId: 'r1', status: 'failed' } } });
-    expect(sessionRunBadge('s1')).toBe('failed');
-    expect(sessionRunBadge('s2')).toBeNull();
   });
 
   it('markSeen 清掉终态记录供导航消徽标，运行中状态保留', () => {

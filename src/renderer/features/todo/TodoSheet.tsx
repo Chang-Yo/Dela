@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { sheetUp } from '../../components/ui/motion';
 
-/** 新建/编辑与详情共用的底部滑出面板壳：遮罩、卡片容器、标题行与关闭按钮。 */
+/** 新建/编辑与详情共用的底部滑出面板壳。 */
 export function TodoSheet({
   label,
   title,

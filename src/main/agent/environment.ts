@@ -1,8 +1,4 @@
-/**
- * 会话环境：Dela 对 Pi 会话的全部附加物都在这里组装——
- * 项目上下文与用户指令（追加系统提示）、dela 命令桥（bash 前缀 + 环境变量）、
- * 内置 skills 目录与禁用名单、MCP 工具（customTools）、被关闭的内置工具。
- */
+/** Dela 对 Pi 会话的全部附加物（系统提示、命令桥、skills、MCP 与工具开关）都在这里组装。 */
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
@@ -94,7 +90,6 @@ export function agentEnvironment() {
             agentsFiles: [...base.agentsFiles, ...context.agentsFiles],
           }),
           disabledSkills: effectiveDisabledSkills(),
-          // 覆盖内置工具的定义不能被 excludeTools 过滤掉，先把这七个名字摘出来。
           disabledTools: [...readDisabledTools()].filter(
             (name) => !BUILTIN_TOOL_NAMES.includes(name),
           ),

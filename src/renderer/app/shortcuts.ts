@@ -1,6 +1,5 @@
-// 快捷键绑定的 renderer 侧镜像：默认键位来自 shared/keybindings，用户覆盖持久化在 main
-// （workspace_settings 的 keybindings 行）。AppShell 的窗口级派发、Workbench（经 props）
-// 与设置 › 快捷键页共用本 store；首帧即用默认值，读到覆盖项后就地更新。
+// 快捷键绑定的 renderer 侧镜像：默认值来自 shared/keybindings，用户覆盖持久化在 main，
+// AppShell、Workbench 与设置 › 快捷键页共用本 store，首帧用默认值，读到覆盖项后就地更新。
 import { create } from 'zustand';
 import {
   defaultKeybindings,

@@ -23,7 +23,6 @@ const generalProject = '__general__';
 
 type Group = { id: string | null; name: string; sessions: ChatSessionSummary[] };
 
-/** 设置 › 已归档：按项目归类查看、恢复或永久删除已归档对话。 */
 export function ArchivedSection() {
   const [sessions, setSessions] = useState<ChatSessionSummary[] | null>(null);
   const [query, setQuery] = useState('');
@@ -59,7 +58,7 @@ export function ArchivedSection() {
   const projectName = (id: string | null) =>
     (id ? entries.find((entry) => entry.id === id)?.name : null) ?? '随聊';
 
-  // 筛选（标题/内容摘要）+ 项目过滤，再按项目归类；项目顺序沿用列表顺序（归档时间倒序）。
+  // 按项目归类；项目顺序沿用列表顺序（归档时间倒序）。
   const groups = useMemo<Group[]>(() => {
     const keyword = query.trim().toLowerCase();
     const filtered = (sessions ?? []).filter(
@@ -176,7 +175,6 @@ export function ArchivedSection() {
                 全部删除
               </Button>
             </div>
-            {/* 永久删除不可逆：破坏性操作的必要警示。 */}
             <p className="text-xs text-ink-3">
               恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
             </p>

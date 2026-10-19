@@ -1,4 +1,4 @@
-// 主题/缩放/字号的应用与 localStorage 镜像（迁移自旧 App.tsx 的散落 effects）。
+// 主题/缩放/字号的应用与 localStorage 镜像。
 import { useEffect, useState } from 'react';
 import type { ThemePreference, ZoomPreference } from '../../shared/api';
 import { fontSizeDefault, fontSizeMax, fontSizeMin } from '../../shared/api';

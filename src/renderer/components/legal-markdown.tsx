@@ -2,14 +2,12 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 /**
- * 条款正文（仓库根目录 docs 下的 Markdown）到界面的映射。设置里的隐私/使用条款页、
- * 首次启动的条款接受页三处共用同一份：改这里三处一起变，正文只改 docs 里的文件。
+ * 条款正文（仓库根目录 docs 下的 Markdown）到界面的映射：隐私页、使用条款页与首次启动的
+ * 接受页三处共用，改这里三处一起变，正文只改 docs 里的文件。
  *
- * 只映射元素级样式，行宽、字号与颜色由各处的容器给——设置页限宽 42rem，
- * 接受页放进可滚动文本框，两边观感一致但容器不同。
- *
- * 小节间距落在标题自己身上：Markdown 的块是平级兄弟节点，容器给不了 grid 间距。
- * h1 与各处的页面标题重复，不渲染；`first:mt-0` 兜底文档若直接从 h2 开头。
+ * 只映射元素级样式，行宽、字号与颜色由各处的容器给。小节间距落在标题自己身上：
+ * Markdown 的块是平级兄弟节点，容器给不了 grid 间距；h1 与各处页面标题重复，不渲染，
+ * `first:mt-0` 兜底文档直接从 h2 开头的情况。
  */
 const components: Components = {
   h1: () => null,

@@ -1,6 +1,5 @@
-// MCP 生命周期（阶段四 §5.3）：本地 node 脚本 echo 服务器（stdio JSON-RPC，无网络），
-// 覆盖连接、listTools→命名空间定义、callTool 往返、断连→error 视图、不可用边界、
-// 冲突跳过与配置持久化（真实 database.ts，electron app.getPath 指向临时目录）。
+// 用本地 echo 服务器（stdio JSON-RPC，无网络）走真实 database.ts（electron app.getPath
+// 指向临时目录），覆盖 MCP 连接、工具发现、断连与配置持久化。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,7 +23,6 @@ import {
 const echoServer = fileURLToPath(new URL('./echo-server.ts', import.meta.url));
 const echoConfig = { name: 'echo-srv', command: process.execPath, args: [echoServer], env: {} };
 
-/** 轮询等待断连等异步事件落地。 */
 async function until(assertion: () => void, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -142,7 +140,6 @@ describe('MCP 连接与工具发现', () => {
     const second = views.find((view) => view.name === 'a_b')!;
     expect(second).toMatchObject({ status: 'connected', toolCount: 3 });
     expect(second.error).toContain('已跳过');
-    // 只有第一个服务器的工具进入定义集合。
     expect(mcpToolDefinitions()).toHaveLength(3);
   }, 30000);
 
@@ -159,7 +156,6 @@ describe('MCP 连接与工具发现', () => {
       ok: true,
       result: { text: 'echo:你好' },
     });
-    // a-b 未被冲突影响的其余工具仍归 a-b 执行（fail 映射 UPSTREAM_ERROR）。
     await expect(executeMcpTool('mcp_a_b_fail', {})).resolves.toMatchObject({
       ok: false,
       error: { code: 'UPSTREAM_ERROR' },
@@ -181,7 +177,6 @@ describe('MCP 配置管理与持久化', () => {
     const stored = JSON.parse(row.value) as { id: string; name: string; enabled: boolean }[];
     expect(stored).toHaveLength(1);
     expect(stored[0]).toMatchObject({ id: created!.id, name: 'echo-srv', enabled: true });
-    // 禁用：视图回到 disconnected，工具从定义集合消失，调用给明确边界。
     // patch 先经 IPC 同款 zod 校验：仅启停不得改写 args/env（zod partial 默认值陷阱回归）。
     const disabled = await updateMcpServer(
       created!.id,
@@ -204,7 +199,6 @@ describe('MCP 配置管理与持久化', () => {
       ok: false,
       error: { code: 'NOT_CONFIGURED', message: expect.stringContaining('echo-srv') },
     });
-    // 重新启用：重连恢复。
     const enabled = await updateMcpServer(created!.id, { enabled: true });
     expect(enabled[0]).toMatchObject({ status: 'connected', toolCount: 3 });
   }, 30000);

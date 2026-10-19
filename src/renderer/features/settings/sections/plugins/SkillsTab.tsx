@@ -35,9 +35,7 @@ export function SkillsTab() {
   const [error, setError] = useState<string | null>(null);
   // 范围过滤（参照 ZCode 的 Skills 面板）：全部 / 全局 / 项目。
   const [scope, setScope] = useState<'all' | SkillScope>('all');
-  // 非 null 时弹出 SKILL.md 内容查看。
   const [viewing, setViewing] = useState<SkillView | null>(null);
-  // 非 null 时弹出「上传到远端项目」。
   const [uploading, setUploading] = useState<SkillView | null>(null);
 
   const refresh = () => {
@@ -104,7 +102,7 @@ export function SkillsTab() {
     }
   };
 
-  // 在文件管理器中显示 SKILL.md；失败（如目录已被删除）经 toast 提示。
+  // 目录可能已被删除，reveal 失败要经 toast 提示。
   const reveal = (skill: SkillView) => {
     void window.dela?.capability
       .revealSkill(skill.name)
@@ -387,7 +385,6 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
   const [busy, setBusy] = useState(false);
   // true 表示远端已有同名技能：显示覆盖确认，点「覆盖」才用 overwrite=true 重试。
   const [conflict, setConflict] = useState(false);
-  // 非 null 时展示上传结果，同一个弹窗里给出文件数与目标目录。
   const [uploaded, setUploaded] = useState<RemoteSkillUpload | null>(null);
   const project = projects.find((entry) => entry.id === projectId);
 

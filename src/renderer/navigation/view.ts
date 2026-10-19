@@ -1,7 +1,5 @@
-// 视图路由 zustand store：view、back/forward 栈、
-// 当前工作台项目与一次性定位请求脉冲（旧 App.tsx 的 chatRequest/mailRequest/todoRequest/
-// settingsRequest/createProject 五类脉冲迁到这里）。'workbench' 统一取代旧 home/project/
-// sources 三视图；projectId 为 null 表示通用（无项目）工作台。
+// 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
+// projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
 import { leaveComposer } from '../features/mail/compose-close';
 import { useShuiyuan } from '../features/shuiyuan/store';
@@ -71,7 +69,6 @@ interface NavigationState {
   newChat(projectId: string | null): Promise<string | null>;
   /** 随聊会话在首页打开，项目会话定位对应工作台标签。 */
   openChat(sessionId: string, projectId: string | null): boolean;
-  /** 记下首页当前停留在哪个会话。 */
   rememberHomeSession(sessionId: string): void;
   /** 打开笔记标签，自动归属其所在项目。 */
   openNote(entryId: string): boolean;

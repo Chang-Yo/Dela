@@ -11,10 +11,8 @@ import {
 import { cn } from '../../lib/utils';
 import { useShuiyuan, type ListSelection } from './store';
 
-// 搜索防抖：输入停顿该时长后才切换到搜索结果。
 const SEARCH_DEBOUNCE_MS = 400;
 
-/** 顶栏：feed 切换（最新/精品）、类别/标签筛选、搜索与三个个人入口。 */
 export function ShuiyuanHeader() {
   const list = useShuiyuan((state) => state.list);
   const structure = useShuiyuan((state) => state.structure);
@@ -88,8 +86,7 @@ export function ShuiyuanHeader() {
 
   return (
     <header className="border-b border-line bg-surface/95 px-4 py-2 backdrop-blur max-md:px-3">
-      {/* 宽屏三区网格（左入口 / 中列表切换与筛选+刷新 / 右搜索）；窄屏两行：入口/搜索在上，
-          列表切换、筛选与刷新在下。lg:contents 把首行包装拆散为网格项。 */}
+      {/* 宽屏三区网格；窄屏两行。lg:contents 把首行包装拆散为网格项。 */}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
         <div className="flex items-center gap-2.5 lg:contents">
           <div className="flex flex-wrap items-center gap-0.5 lg:col-start-1 lg:row-start-1 lg:justify-self-start">

@@ -89,7 +89,6 @@ export interface WorkspaceApi {
   exportOfficePdf(ref: ResourceRef): Promise<void>;
   /** 用系统默认应用打开资源的本地源文件（如 PowerPoint 打开 pptx），仅限资料与我的资料条目。 */
   openResourceFile(ref: ResourceRef): Promise<void>;
-  /** pptx 导出过程的阶段与进度通知。 */
   onOfficeExportProgress(listener: (event: OfficeExportEvent) => void): () => void;
   importFiles(parentId: string | null): Promise<void>;
   /** 选择电脑上已有的文件夹登记为项目（目录留在原处）；取消选择返回 null。 */
@@ -112,7 +111,6 @@ export interface WorkspaceApi {
   remotePorts(projectId: string): Promise<RemotePortsState>;
   /** 开（或复用）一条远端端口隧道并在系统浏览器打开；返回本地端口。 */
   openRemotePort(projectId: string, port: number): Promise<{ localPort: number }>;
-  /** 停掉这个项目的一条远端端口隧道。 */
   closeRemotePort(projectId: string, port: number): Promise<void>;
   /** 报上当前展开的远端目录做 watch（空数组 = 取消）；回报真正被监视的目录数。 */
   watchRemoteDirectories(projectId: string, paths: string[]): Promise<{ watching: number }>;

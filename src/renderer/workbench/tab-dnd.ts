@@ -1,5 +1,4 @@
-// 统一标签拖拽协议：application/x-dela-tab，
-// 是旧 application/x-dela-editor-tab 的泛化（负载带 kind 的 TabId + 来源组）。
+// 统一标签拖拽协议：application/x-dela-tab（负载带 kind 的 TabId + 来源组）。
 import type { TabId } from '../../shared/layout';
 
 export const tabDragType = 'application/x-dela-tab';

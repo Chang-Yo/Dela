@@ -40,7 +40,7 @@ type Connection = {
   extra?: ReactNode;
 };
 
-/** 设置 › 连接：Canvas、邮箱、教务、水源四张连接卡的容器（工作目录已迁往「工作区」）。 */
+/** 设置 › 连接：Canvas、邮箱、教务、水源四张连接卡的容器。 */
 export function ConnectionsSection({
   onOpenMail,
   onOpenShuiyuan,

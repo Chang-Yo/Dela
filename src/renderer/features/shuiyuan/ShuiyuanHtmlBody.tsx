@@ -40,7 +40,6 @@ function useIsDarkTheme(): boolean {
 /**
  * 水源楼层/引用正文的沙箱渲染：不透明源 iframe + 高度自适应上报，
  * 外链经 sandbox allow-popups + 主进程 windowOpenHandler 走系统浏览器。
- * 无边框透明底，楼层文字与阅读页融为一体。
  */
 export function ShuiyuanHtmlBody({
   html,

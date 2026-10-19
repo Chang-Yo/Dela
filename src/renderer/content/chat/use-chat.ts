@@ -54,11 +54,9 @@ export function useChatDraft(sessionId: string) {
   return useChatDrafts((state) => state.drafts[sessionId] ?? emptyDraft);
 }
 
-/** 单个会话的对话状态：快照与更新经 sessions 镜像（session:on-update 全局订阅，
- *  同一会话多个入口共享），发送走 session:ask、停止走 session:cancel-run。
- *  输入草稿按 sessionId 持久化（drafts.ts），本 hook 不订阅草稿（订阅在 useChatDraft）；
- *  附件 chip 随视图状态丢失，切换会话时释放暂存文件；内联图片随草稿文本保留
- *  （图片文件由启动 GC 回收）。 */
+/** 单个会话的对话状态：快照经 sessions 镜像共享（session:on-update 全局订阅，多入口同看一份）。
+ *  草稿按 sessionId 持久化（drafts.ts），本 hook 不订阅（订阅在 useChatDraft）；附件 chip
+ *  不持久化，切换会话即释放暂存文件；内联图片随草稿文本保留（文件由启动 GC 回收）。 */
 export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
   const chat = useSessions((state) => state.chats[sessionId] ?? null);
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
@@ -237,7 +235,7 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     if (current) useSessions.getState().putChat(sessionId, { ...current, ...patch });
   };
 
-  // 两列模型面板的提交：非使用中提供商先 setActive，再设置模型并刷新会话状态。
+  // 模型只写在当前使用中的提供商上：非使用中的必须先 setActive。
   const selectModel = (provider: LlmProviderView, model: string) => {
     const dela = window.dela;
     if (!dela) return;
@@ -252,7 +250,6 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
       );
   };
 
-  // 思考强度档位切换：乐观更新会话状态，持久化到当前使用中的提供商。
   const selectEffort = (level: string) => {
     const dela = window.dela;
     if (!dela) return;
@@ -358,7 +355,6 @@ export function useChatSession(projectId: string | null, sessionId: string, scop
       sessions: sessions as ChatSessionSummary[] | null,
       /** 当前视图展示的会话；null = 当前会话已被删除。 */
       active,
-      /** 切换本视图展示的会话（纯本地状态切换）。 */
       openSession: setActive,
       newSession,
       deleteSession,

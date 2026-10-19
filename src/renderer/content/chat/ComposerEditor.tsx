@@ -39,7 +39,7 @@ type ComposerMenuApi = {
 
 export type ComposerEditorHandle = {
   focus: () => void;
-  /** 在指定位置插入文本并把光标移到其后（内联图片 token 用）。 */
+  /** 插入文本并把光标移到片段之后（内联图片 token 用）。 */
   insertAt: (pos: number, text: string) => void;
   replaceRange: (from: number, to: number, text: string) => void;
   selectionStart: () => number;
@@ -171,7 +171,6 @@ function referenceDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   for (const token of matchReferenceTokens(view.state.doc.toString(), options)) {
     const { start, end, ref } = token;
-    // @ 与目录前缀替换成文件图标，只留文件名文本（强调蓝）；悬停可看完整路径。
     // 文本里仍是完整「@路径」，解析不受显示折叠影响。
     const split = ref.title.lastIndexOf('/');
     const nameStart = start + 1 + (split < 0 ? 0 : split + 1);
@@ -326,7 +325,7 @@ export function ComposerEditor({
   hero?: boolean;
   handleRef: RefObject<ComposerEditorHandle | null>;
   className?: string;
-  /** @ 引用候选：文本里命中候选 title 的 @路径高亮为引用 token。 */
+  /** @ 引用候选：文本中命中的 @路径会渲染成引用 token。 */
   referenceOptions: ChatReference[];
 }) {
   const host = useRef<HTMLDivElement>(null);

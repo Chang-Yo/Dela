@@ -2,9 +2,8 @@ import type { WorkspaceChat, WorkspaceEntry } from '../../../shared/api';
 
 /** 输入框上方浮岛要显示的信息：所在项目（通用池为随聊）与远端标记。 */
 export interface ComposerContext {
-  /** 项目 id；通用池为 null。 */
+  /** 通用池为 null。 */
   projectId: string | null;
-  /** 项目名；通用池（随聊）显示「随聊」。 */
   name: string;
   /** 远端项目用云朵图标，与侧栏项目行一致。 */
   remote: boolean;

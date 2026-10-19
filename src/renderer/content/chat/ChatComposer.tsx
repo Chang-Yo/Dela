@@ -858,7 +858,6 @@ function MentionTitle({ title }: { title: string }) {
   );
 }
 
-/** 引用与附件统一一种 chip：图标 + 名称 + 可选细节 + 移除。 */
 function ComposerChip({
   icon,
   label,

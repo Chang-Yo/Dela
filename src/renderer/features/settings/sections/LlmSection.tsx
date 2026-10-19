@@ -29,7 +29,6 @@ import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 
-/** 详情区目标：新建草稿，或某个已保存提供商的 id。 */
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
 /** 提供商首字母块（学 ZCode 的品牌位）：没有品牌图标时的身份标识。 */
@@ -47,7 +46,6 @@ function ProviderMonogram({ name, size }: { name: string; size: 'sm' | 'md' }) {
   );
 }
 
-/** 默认详情：当前使用中的提供商，其次列表第一个；列表为空时返回 null。 */
 function defaultDetail(providers: LlmProviderView[]): Detail | null {
   const provider = providers.find(({ active }) => active) ?? providers[0];
   return provider ? { mode: 'edit', id: provider.id } : null;
@@ -269,7 +267,6 @@ export function LlmSection() {
           if (selectId && views.some(({ id }) => id === selectId)) {
             return { mode: 'edit', id: selectId };
           }
-          // 选中项仍在列表里（编辑后刷新）或正处于新建草稿时保持不变。
           if (
             current?.mode === 'create' ||
             (current && views.some(({ id }) => id === current.id))
@@ -285,7 +282,6 @@ export function LlmSection() {
 
   useEffect(refresh, []);
 
-  // 启用与删除共用同一套 busy 处理，成功后都刷新列表。
   const run = async (operation: () => Promise<void>) => {
     if (!window.dela) return;
     setBusy(true);
@@ -426,7 +422,6 @@ function ProviderDetail({
 }: {
   /** 切换使用中与删除进行中：与列表共用同一 busy。 */
   busy: boolean;
-  /** 放弃新建草稿，回到当前使用中的提供商。 */
   onCancelCreate: () => void;
   onRemove: (id: string) => void;
   onSaved: (provider: LlmProviderView) => void;
@@ -834,7 +829,7 @@ function ProviderDetail({
             type="password"
             value={apiKey}
           />
-          {/* 密钥去向无法从输入框本身看出，保留原来的说明。 */}
+          {/* 密钥去向无法从输入框本身看出，需要就地说明。 */}
           <p className="text-xs leading-relaxed text-ink-3">
             密钥经系统加密保存在本机，不会回传页面。留空即沿用已保存的密钥。
           </p>
@@ -871,7 +866,6 @@ function ProviderDetail({
               </Button>
             </div>
           </div>
-          {/* 检测结果就地呈现：成功为绿色小字，附一键导入。 */}
           {verifyResult && (
             <p
               className={cn(

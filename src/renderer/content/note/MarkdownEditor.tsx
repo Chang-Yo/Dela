@@ -40,8 +40,6 @@ const editorTheme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
-/* 文件名 → 语言：空、无扩展名或 md/markdown 维持 Markdown；其余扩展名按
-   language-data 解析（语言包异步加载），解析不到按纯文本。 */
 type ResolvedLanguage =
   { kind: 'markdown' } | { kind: 'code'; language: LanguageDescription } | { kind: 'text' };
 
@@ -287,8 +285,7 @@ export function MarkdownEditor({
       view.current = null;
       if (handlers.get(instanceKey)?.sync === boundHandlers.sync) handlers.delete(instanceKey);
     };
-    // value/filename/scroll 初始装配一次（代码语言的异步加载见 loadLanguage）；
-    // 此后由下方 effect 单向同步外部变更。
+    // value/filename/scroll 只在首次挂载装配；后续外部变更由下方 effect 单向同步。
   }, []);
   useEffect(() => {
     view.current?.dispatch({
@@ -325,7 +322,6 @@ export function MarkdownEditor({
     latestValue.current = value;
     syncValue();
   }, [value]);
-  /* 同实例切换文件名时切换语言；语言包经 language-data 异步加载完成后 reconfigure。 */
   useEffect(() => {
     const current = view.current;
     if (!current || appliedFilename.current === filename) return;

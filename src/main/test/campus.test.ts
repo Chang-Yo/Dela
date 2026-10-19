@@ -1,6 +1,5 @@
-// 校园登录窗共用逻辑：到达目标域后探活收场。课堂视频的入口页本身就在目标域
-// （retryProbe）：未登录时探测失败不得关窗，覆盖 SSO 回跳、SPA 导航和异步登录；
-// 课表默认语义（加载登录页、到达即视为登录完成）探测失败即关窗返回错误。
+// 校园登录窗共用逻辑：到达目标域后探活收场。课堂视频入口页本身就在目标域（retryProbe）：
+// 未登录时探测失败不得关窗，覆盖 SSO 回跳、SPA 导航和异步登录；课表探测失败即关窗返回错误。
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

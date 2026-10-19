@@ -1,10 +1,5 @@
-// 更新状态机：纯函数，不碰 Electron 与更新器。主进程是唯一持有者，
-// 渲染层只读快照。
-//
-// 这里唯一需要防守的事情是**迟到与乱序**：更新器异步回调、下载进度回调、
-// 以及 IPC 层都可能让一个结果事件在状态已经走远之后才到达。规则统一为
-// 「结果事件只在它对应的进行中阶段生效，其余一律丢弃并原样返回 state」，
-// 于是任何迟到事件都不可能把状态拉回错误阶段。
+// 更新状态机：纯函数，主进程是唯一持有者，渲染层只读快照。
+// 唯一要防守的是迟到与乱序：结果事件只在对应的进行中阶段生效，其余丢弃并原样返回 state。
 import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../shared/update';
 
 export type UpdateEvent =
@@ -43,10 +38,7 @@ export function initialUpdateState(input: { currentVersion: string }): UpdateSna
   };
 }
 
-/**
- * 把「哪一步失败了」折成对应的事件。三个步骤的失败事件只有类型名不同，
- * 收敛成一个入口，调用方（包括更新器意外抛异常时的兜底）就不必按步骤各写一遍。
- */
+/** 三个步骤的失败事件只有类型名不同；收敛成一个入口，更新器异常兜底时也不必按步骤各写一遍。 */
 export function failureEvent(
   step: UpdateStep,
   reason: UpdateReason,

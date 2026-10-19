@@ -1,5 +1,5 @@
-// helper 通道真机回归：上传校验、启动、隧道、握手、进程组取消、目录清单、watch 与端口发现。
-// 需要 DELA_REMOTE_HOST（如 root@1.2.3.4），由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
+// helper 通道真机回归：需要 DELA_REMOTE_HOST（如 root@1.2.3.4），由 pnpm test:remote 运行，
+// 不在默认 pnpm test 与 CI 里。
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
@@ -238,7 +238,6 @@ describe('helper 通道（真机）', () => {
     );
     expect(killed.stdout.toString().trim()).toBe('0');
 
-    // 这次调用失败 → 探活判定通道已死 → 丢掉它，退回一次性 ssh 把结果拿到。
     const entries = await listRemoteDirectory(target, '/etc');
     expect(entries.length).toBeGreaterThan(0);
 

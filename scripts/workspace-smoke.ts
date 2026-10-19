@@ -348,7 +348,6 @@ app
     path = join(profile, 'notes', 'workspace', '主题资料', '记录.md');
     assert.equal(readFileSync(path, 'utf8'), '# 恢复测试');
     updateWorkspaceEntry(child.id, { name: '参考改名', parentId: other.id });
-    // 路径笔记的 id 即文件路径：随文件夹移动后按新位置读取。
     assert.equal(
       readFileSync(
         join(profile, 'notes', 'workspace', '独立项目', '参考改名', '笔记 (2).md'),
@@ -433,7 +432,6 @@ app
     assert.equal(rendererRange.status, 206);
     assert.equal(rendererRange.text, '%PDF-');
     assert.match(rendererRange.range, /^bytes 0-4\//);
-    // 工作台布局经 layout:* 持久化（取代旧 workspace.saveView）。
     const layout = {
       root: { type: 'group', id: 'g1', tabs: [`note:${moved.id}`], active: `note:${moved.id}` },
       focus: 'g1',

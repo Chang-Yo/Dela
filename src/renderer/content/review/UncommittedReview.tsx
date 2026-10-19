@@ -1,6 +1,5 @@
 // 未提交改动聚合审阅：会话工作目录相对 Git HEAD 的净变化（含未跟踪文件）。
-// 与轮次审阅的本质差异：数据按请求时点重算、会随工作区过期，因此提供手动刷新而不做自动轮询；
-// 已查看的文件仅在当前面板缓存，刷新后失效；未访问文件仍按请求时点读取。
+// 数据按请求时点重算、会随工作区过期，因此提供手动刷新而不轮询；已查看文件仅在当前面板缓存，刷新后失效。
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { GitCompare, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { FileChangeDetail, UncommittedChanges } from '../../../shared/api';

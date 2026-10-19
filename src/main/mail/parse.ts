@@ -126,7 +126,6 @@ export interface AttachmentItem {
   part: string | null;
 }
 
-/** 下载正文 part 并内联 CID 图片；返回纯文本与（HTML 邮件时的）原始 HTML。 */
 export async function downloadMessageBody(
   client: ImapFlow,
   uid: number,

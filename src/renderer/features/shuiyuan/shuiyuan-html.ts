@@ -81,12 +81,10 @@ export function sanitizeShuiyuanHtml(html: string): Document {
 }
 
 /**
- * 楼层文档的阅读样式。设计语言与全局一致：黑白灰阶梯 + 细线分隔 + 少量强调色，
- * 正文外的块（引用/onebox/代码/表格）用细边框和浅底承担层次，不做重卡片。
- * 色值手动镜像 beautiful-ui token（ink / ink-3 / line / inset / hover-2）——iframe 取不到外层 CSS 变量；
- * 链接色沿用日历蓝（--cal-blue-text），是全应用唯一的低饱和内容强调色。
- * 尺寸一律 rem：rootSize 是外层根字号（iframe 是独立文档，rem 需自己定根），
- * 字号设置变化时由调用方重新渲染。边框与阴影保留 px。
+ * 楼层文档的阅读样式：黑白灰阶梯 + 细线分隔 + 少量强调色，块级内容用细边框和浅底分层，不做重卡片。
+ * 色值手动镜像 beautiful-ui token（iframe 取不到外层 CSS 变量）；链接色沿用日历蓝（--cal-blue-text），
+ * 它是全应用唯一的低饱和内容强调色。
+ * 尺寸一律 rem——iframe 是独立文档，rootSize 由调用方传入，字号设置变化时重新渲染；边框与阴影保留 px。
  */
 export function renderShuiyuanHtml(
   doc: Document,

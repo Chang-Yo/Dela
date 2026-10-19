@@ -9,8 +9,6 @@ import { saveWorkbenchLayout } from '../../workbench/layout-store';
 import { useRuns, runBadge } from '../../sessions/runs';
 import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../../shared/update';
 
-// 更新那一条的展示映射，以及标题栏提示的判定。
-//
 // 渲染层不自行推断状态：文案与可用动作全部由快照的 phase / reason / failedAt 查表得到。
 // 后端的更新状态机（src/main/update/state.ts）新增阶段时，这里只有一个地方要跟上，
 // 而且漏掉分支会被 update-view.test.ts 的穷举报错。
@@ -28,7 +26,6 @@ export interface UpdateView {
   progress: number | null;
 }
 
-/** 失败与不可用原因到用户文案。 */
 const REASON_STATUS: Record<UpdateReason, string> = {
   'not-packaged': '开发运行不支持应用内更新',
   'platform-unsupported': '当前平台暂未提供应用内更新',
@@ -111,8 +108,6 @@ export function pendingUpdate(state: UpdateSnapshot): boolean {
   return state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready';
 }
 
-// 更新快照的渲染层镜像。
-//
 // 主进程是唯一真源（src/main/update/index.ts），这里只存最近一次快照给界面读。
 // 标题栏提示与设置页那一条读的是同一个 store，所以订阅整个应用只挂一次：
 // 用户从没打开过设置页，标题栏也得能亮。

@@ -3,9 +3,8 @@ import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 
-// 会话列表镜像：renderer 只持有视图状态与镜像，
-// 会话事实（chat_sessions 表）在 main；本模块全部数据来自 session:list 与
-// session:on-update 订阅，只读不发起执行（「打开视图不启动执行」）。
+// 会话列表镜像：会话事实（chat_sessions 表）在 main，本模块数据全来自 session:list 与
+// session:on-update，只读不发起执行（「打开视图不启动执行」）。
 
 /** 会话池键：projectId 为 null（通用池）时用占位符；projectId 为 UUID，不会与其冲突。 */
 export function poolKey(projectId: string | null): string {

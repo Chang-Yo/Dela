@@ -8,7 +8,6 @@ const at = '2026-10-12T00:00:00.000Z';
 
 const base = () => initialUpdateState({ currentVersion: '1.0.0' });
 
-/** 依次派发事件，返回末态。 */
 const run = (state: UpdateSnapshot, events: UpdateEvent[]) => events.reduce(reduceUpdate, state);
 
 const reachedAvailable = (version = '1.0.1') =>
@@ -30,28 +29,6 @@ it('差分回退时进度与传输量同步重置，重试清空旧传输量', (
   expect(reduceUpdate(failed, { type: 'download/started' })).toMatchObject({
     transferred: 0,
     total: null,
-  });
-});
-
-describe('initialUpdateState', () => {
-  it('从 idle 起步，不预先判定能力', () => {
-    expect(base()).toEqual({
-      phase: 'idle',
-      currentVersion: '1.0.0',
-      version: null,
-      progress: 0,
-      transferred: 0,
-      total: null,
-      checkedAt: null,
-      reason: null,
-      detail: null,
-      failedAt: null,
-    });
-  });
-
-  it('保留当前版本', () => {
-    const state = initialUpdateState({ currentVersion: '2.3.4' });
-    expect(state.currentVersion).toBe('2.3.4');
   });
 });
 

@@ -1,6 +1,5 @@
-// 远端上下文镜像的脱机验证：镜像目录由测试自己造，验证「镜像里的 skills 与 AGENTS.md
-// 真的会被 Pi 收下」（skills 给出镜像 filePath，AGENTS.md 带远端路径进 agentsFiles）。
-// 真机部分（逐字节回填、镜像路径回翻）在 context.remote.test.ts，由 pnpm test:remote 运行。
+// 远端上下文镜像的脱机验证：镜像由测试自造，确认 Pi 收下镜像里的 skills 与 AGENTS.md
+// （filePath 指向镜像、AGENTS.md 带远端路径）；真机部分见 context.remote.test.ts。
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

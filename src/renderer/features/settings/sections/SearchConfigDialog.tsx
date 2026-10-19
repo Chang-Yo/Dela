@@ -31,7 +31,6 @@ const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {
 
 const providers = Object.keys(webSearchProviderLabels) as WebSearchEntry['provider'][];
 
-/** 「每行 Key: Value」文本解析为请求头记录；空行跳过，缺冒号或缺值报错。 */
 function parseHeaders(
   text: string,
 ): { ok: true; headers: Record<string, string> } | { ok: false; error: string } {
@@ -53,8 +52,7 @@ const headersText = (headers: Record<string, string> | undefined) =>
 
 const headerAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 
-/** 搜索服务配置弹窗：两态——卡片堆叠列表与新增/编辑表单。
- *  只做增删改；当前使用哪一条在聊天输入框左下角选择。 */
+/** 列表与新增/编辑表单两态；当前使用哪一条在聊天输入框左下角选择。 */
 export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   const [entries, setEntries] = useState<WebSearchEntry[] | null>(null);
   /** null = 列表态；有值为表单态（无 id = 新建）。 */
@@ -200,7 +198,6 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** 新建 / 编辑单条配置的表单；保存即回到列表。 */
 function EntryForm({
   busy,
   draft,
@@ -289,8 +286,7 @@ function EntryForm({
     }
   };
 
-  /** 从「模型供应商」里已保存的 DeepSeek 配置取密钥预填；
-   *  命中多个供应商时展开选择（默认使用中的那个），切换选择即时重填。 */
+  /** 从「模型供应商」预填 DeepSeek 密钥；命中多个时展开选择，默认使用中的那个。 */
   const importKey = async (id?: string) => {
     const dela = window.dela;
     if (!dela || busy) return;

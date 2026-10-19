@@ -1,10 +1,8 @@
 /**
- * 远程传输层：Dela 的全部远程能力（内核工具、终端、目录树、@ 候选）都只经这里。
- * 默认调用系统 OpenSSH（Windows 10 1809+ 自带），缺失时回退到随包分发的 openssh 目录；
- * 两者调用方式与参数完全一致，回退只换一个可执行文件路径。
- *
+ * 远程传输层：内核工具、终端、目录树、@ 候选的全部远程能力都只经这里，默认调用系统 OpenSSH
+ * （Windows 10 1809+ 自带），缺失时回退随包分发的 openssh，两者调用方式完全一致。
  * 每条命令都是一个独立的 ssh 子进程（Windows OpenSSH 不支持 ControlMaster 多路复用），
- * 因此一次工具调用可能付多次握手；先把正确性做对，延迟优化另计。
+ * 因此一次工具调用可能付多次握手。
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -55,7 +53,6 @@ interface RemoteLocation {
   kind: 'directory' | 'file' | 'missing';
   /** 目录内容；不是目录时为 null。 */
   entries: RemoteDirEntry[] | null;
-  /** 是否为目录（kind === 'directory' 的简写）。 */
   directory: boolean;
 }
 

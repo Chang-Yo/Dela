@@ -1,8 +1,5 @@
-// 笔记草稿生命周期 store。read/edit/save/release 的防抖与互斥语义逐一保持：
-// 这是「同一文档多入口共享正文与版本」的关键。相对旧实现仅有一处扩展——
-// acquire/release 带引用计数：旧 ProjectView 在关闭标签时用 stillOpenElsewhere 手工判断
-// 「另一组还开着就不释放」，新架构把这个计数下沉到 store，content/note 组件挂载时
-// acquire、卸载时 release，最后一个引用释放时才冲盘并移除草稿。
+// 笔记草稿生命周期 store：同一文档多入口共享正文与版本，防抖与互斥语义是这份共享的关键。
+// acquire/release 以引用计数持有，最后一个引用释放时才冲盘并移除。
 import { create } from 'zustand';
 import type { DocumentContent } from '../../../shared/api';
 import { errorText } from '../../workspace/store';
@@ -18,7 +15,7 @@ export type NoteDraft = {
 
 type Store = {
   drafts: Record<string, NoteDraft>;
-  /** 读取（或复用）一份草稿；force 时先等在途保存结束再重读（旧 read 语义），不新增引用计数。 */
+  /** 读取（或复用）一份草稿；force 时先等在途保存结束再重读，不新增引用计数。 */
   acquire: (key: string, force?: boolean) => Promise<void>;
   /** Flush a draft before releasing it. False means it is still present and dirty. */
   release: (key: string) => Promise<boolean>;
@@ -103,7 +100,7 @@ export const useNoteDrafts = create<Store>((set, get) => ({
   },
   release: async (key) => {
     const refs = refcounts.get(key) ?? 0;
-    // 其他入口仍持有同一草稿：不冲盘不移除（旧实现由调用方以 stillOpenElsewhere 判断）。
+    // 其他入口仍持有同一草稿：不冲盘不移除。
     if (refs > 1) {
       refcounts.set(key, refs - 1);
       return true;

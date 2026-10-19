@@ -1,6 +1,5 @@
-// 打包前准备随包 MinGit 运行时：版本、SHA256 与下载源只写在 src/main/terminal/mingit.ts，
-// 这里从源码里解析同一份定义（换版本必须成对更新的约定不变），产出到 .build/mingit，
-// 由 electron-builder 的 extraResources 装进安装包。仓库不提交这份约 40MB 的产物。
+// 打包前准备随包 MinGit 运行时：版本、SHA256 与下载源只在 src/main/terminal/mingit.ts 定义，
+// 这里解析同一份定义（换版本必须成对更新），产物到 .build/mingit，仓库不提交这约 40MB。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {

@@ -1,6 +1,4 @@
-// 试验功能开关镜像：总开关 + 子项（水源、课堂视频下载）。
-// 侧栏入口显隐、设置 › 通用 的管理区与课堂视频下载按钮共用此 store，
-// 设置里切换即时反映到侧栏，不需要重新挂载。
+// 试验功能开关镜像：侧栏入口、设置管理区与课堂视频下载按钮共用，切换即时反映，无需重新挂载。
 import { create } from 'zustand';
 import type { ExperimentKey, ExperimentState } from '../../../shared/api';
 

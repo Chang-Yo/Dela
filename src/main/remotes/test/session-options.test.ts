@@ -1,6 +1,5 @@
-// 会话环境的组装规则：远程项目的会话必须是「七个远程工具 + 本机工具（联网/MCP）」，
-// 且不能带 dela 命令桥；这七个工具名一旦被 excludeTools 过滤，同名覆盖就失效了，
-// 模型会拿远端路径去调用 Pi 内置工具，在 Windows 上会写到本地盘。
+// 远程会话必须是「七个远程工具 + 本机工具（联网/MCP）」，且不能带 dela 命令桥：工具名一旦被
+// excludeTools 过滤，同名覆盖就会失效，模型会拿远端路径调用 Pi 内置工具，在 Windows 上写到本地盘。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 

@@ -1,13 +1,12 @@
-// 远端项目的取数状态：文件树正在连服务器（冷启动要几秒）、已就绪、读失败。
-// 目录树是唯一写入方；左侧项目行与资源管理器标题的悬浮提示读同一份状态，
-// 这样「正在连接」不会在树里转圈、在提示里却说「已连接」。
+// 远端项目的取数状态（连接中/就绪/读失败），由目录树独占写入；左侧项目行与资源管理器
+// 标题的悬浮提示读同一份状态，避免树里在转圈、提示里却说「已连接」。
 import { create } from 'zustand';
 
 export type RemotePhase = 'connecting' | 'ready' | 'failed';
 
 export interface RemoteActivity {
   phase: RemotePhase;
-  /** 失败原因（读目录失败时给界面看的那句）。 */
+  /** 直接展示给用户的失败原因。 */
   reason?: string;
 }
 

@@ -91,7 +91,6 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-/** 侧栏展开时左侧这一组只有导航按钮，提示要跟在前按钮之后。 */
 it('侧栏展开时排在前进之后，且是左侧这一组的最后一个', async () => {
   localStorage.setItem('dela.shell.sidebar-collapsed', 'false');
   await act(async () => renderShell());
@@ -103,7 +102,6 @@ it('侧栏展开时排在前进之后，且是左侧这一组的最后一个', a
   expect([...badge.parentElement!.querySelectorAll('button')].at(-1)).toBe(badge);
 });
 
-/** 侧栏折叠时左侧这一组多出首页/资料/设置等入口，提示仍要在它们之后。 */
 it('侧栏折叠时排在折叠入口之后，依然是最后一个', async () => {
   localStorage.setItem('dela.shell.sidebar-collapsed', 'true');
   await act(async () => renderShell());

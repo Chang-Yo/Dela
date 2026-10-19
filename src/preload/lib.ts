@@ -1,6 +1,5 @@
 import { ipcRenderer } from 'electron';
 
-/** IPC invoke 透传：通道名与参数原样发给主进程并等待结果。 */
 export const invoke = (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args);
 
 /** IPC 单向消息透传（不需要主进程回应的通道）。 */

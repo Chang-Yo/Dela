@@ -1,7 +1,5 @@
-// 远程项目在文件树里的懒加载：展开一层拉一层（workspace.listRemoteDirectory），
-// 结果只留在组件状态里，不写入 workspace 镜像——远端才是这些条目的唯一事实来源。
-// 子条目 id 是「项目 id + 远端绝对路径」（shared/remotes 的 remoteNodeId）：只用路径
-// 会让两台连接上的同路径目录串成同一个节点（清单、展开态、选中态都会混）。
+// 远程项目在文件树里的懒加载：展开一层拉一层，结果只留在组件状态里——远端是这些条目的唯一事实来源。
+// 子条目 id 带项目身份（remoteNodeId）：只用路径会让两台连接上的同路径目录串成同一个节点。
 import { useEffect, useRef, useState } from 'react';
 import type { HelperDegradation, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
@@ -24,7 +22,6 @@ const WATCH_DEBOUNCE_MS = 150;
 const withinChange = (path: string, changed: string) =>
   path === changed || path.startsWith(`${changed}/`);
 
-/** 远端条目的行提示：有连接信息时显示「目的地:路径」，否则退回路径。 */
 export const remoteTitle = (destination: string | undefined, path: string) =>
   destination ? `${destination}:${trimSlash(path)}` : trimSlash(path);
 
@@ -42,9 +39,8 @@ export interface RemoteTree {
 }
 
 /**
- * 传入的一律是当前这棵树里可见的条目（外加上 rootId 自身的条目）：同一份展开态被多棵树
- * 共用（我的内容 / 归档 / 打开的项目），不可见的远程项目不该触发远端请求。
- * rootId 是打开的项目 id：此时项目行不显示，它的远端内容直接落在树的顶层。
+ * 传入的必须是这棵树里可见的条目（外加 rootId 自身）：展开态被多棵树共用，不可见的远程
+ * 项目不该触发远端请求。rootId 是打开的项目 id，此时项目行不显示，内容直接落在顶层。
  */
 export function useRemoteTree(
   entries: WorkspaceEntry[],
@@ -86,7 +82,6 @@ export function useRemoteTree(
   /** 项目 id → 远端根：只有项目根这一层的读取代表「这台连接能不能用」（连服务器就发生在这里）。 */
   const rootPaths = new Map(projects.map((project) => [project.id, trimSlash(project.path!)]));
 
-  // 每个项目从自己的根往下走，收集仍展开的键与待拉取的目录。
   const openKeys = new Set<string>();
   const pending: { key: string; projectId: string; path: string }[] = [];
   const visit = (project: WorkspaceEntry, path: string, key: string) => {
@@ -208,7 +203,6 @@ export function useRemoteTree(
     });
   }, []);
 
-  // 展开的远端目录按需补齐：在途集合与失败记录保证不重复请求。
   useEffect(() => {
     const workspace = window.dela?.workspace;
     if (!workspace) return;
@@ -267,7 +261,6 @@ export function useRemoteTree(
         if (child.directory && expanded.includes(childKey)) walk(child.path, childKey);
       }
     };
-    // 项目作为当前树根时不显示项目行，它的远端内容直接挂在顶层。
     walk(trimSlash(project.path!), project.id === rootId ? null : project.id);
   }
 

@@ -24,8 +24,7 @@ const contentStyle = {
 const matches = (value: string, query: string) =>
   value.toLowerCase().includes(query.trim().toLowerCase());
 
-/** 新对话上方的项目浮岛：项目与分支各一个可点的胶囊，互不牵连。
- *  项目胶囊换项目（连带把新对话落到那个项目），分支胶囊切本地分支。 */
+/** 新对话上方的项目浮岛：项目与分支各一个可点的胶囊，互不牵连。 */
 export function ComposerContextBar({ context }: { context: ComposerContext }) {
   const entries = useWorkspaceStore((state) => state.workspace.entries);
   const projects = useMemo(() => entries.filter((entry) => entry.kind === 'project'), [entries]);

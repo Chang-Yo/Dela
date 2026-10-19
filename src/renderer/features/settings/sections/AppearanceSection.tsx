@@ -33,8 +33,8 @@ const icons: Array<{ id: IconPreference; label: string; src: string }> = [
 const zoomLabel = (zoom: ZoomPreference) => `${Math.round(zoom * 100)}%`;
 
 /**
- * 主题卡片的缩略图：面板与三条骨架都取主题 token，靠 `bui-light` / `dark` 把卡片单独切到对应主题，
- * 所以切到深色主题后浅色卡片仍是浅色。「跟随系统」左右各半，一眼看出是两套色。
+ * 主题卡片缩略图：面板与三条骨架都取主题 token，靠 `bui-light` / `dark` 把卡片单独切到对应主题，
+ * 所以深色主题下浅色卡片仍显示浅色；「跟随系统」左右各半。
  */
 function ThemePreview({ mode }: { mode: ThemePreference }) {
   const bars = (

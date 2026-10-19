@@ -48,7 +48,7 @@ export async function gitBranchesOf(directory: string): Promise<string[]> {
   });
 }
 
-/** 切换分支；失败时把 git 的 stderr 抛出去（工作区冲突、分支不存在都要让人看到原因）。 */
+/** 失败时抛出 git 的 stderr：工作区冲突、分支不存在都要让人看到原因。 */
 export async function gitCheckout(directory: string, branch: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     execFile(

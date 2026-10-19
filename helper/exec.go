@@ -24,8 +24,7 @@ const (
 	// 任务状态保留条数：Dela 只在本次连接内查询，不需要更久。
 	taskRetention   = 100
 	killGracePeriod = 5 * time.Second
-	// exec 的 stdout/stderr 一起算，避免两条流各自把上限吃满。
-	pumpBufferSize = 32 * 1024
+	pumpBufferSize  = 32 * 1024
 )
 
 type taskState string
@@ -213,14 +212,14 @@ func (s *sseWriter) send(value any) {
 	s.flusher.Flush()
 }
 
-// failed 报告这条流是不是已经写坏了，让长驻的流（watch）能早一步退出。
+// 长驻的流（watch）靠它早一步发现连接已坏。
 func (s *sseWriter) failed() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.broken
 }
 
-// comment 只写一条 SSE 注释帧（客户端会忽略它），用来在安静的连接上保活。
+// SSE 注释帧（客户端忽略），用于安静连接上的保活。
 func (s *sseWriter) comment(text string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -234,7 +233,7 @@ func (s *sseWriter) comment(text string) {
 	s.flusher.Flush()
 }
 
-// 执行命令：流式回传 stdout/stderr，进程组可取消，超时由 helper 裁定。
+// 超时由 helper 裁定；客户端断开视为失联，终止进程组。
 func (s *server) handleExec(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Command   string   `json:"command"`

@@ -1,5 +1,4 @@
-// 条目树 + Canvas 概览镜像。视图持久化（setView）已移交 workbench 布局，
-// 笔记草稿生命周期在 ./drafts.ts，本 store 不再持有。
+// 条目树 + Canvas 概览镜像。视图持久化在 workbench 布局，笔记草稿生命周期在 ./drafts.ts。
 import { create } from 'zustand';
 import type { CachedCourseFile, CanvasState, WorkspaceState } from '../../shared/api';
 

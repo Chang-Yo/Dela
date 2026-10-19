@@ -17,7 +17,7 @@ type WizardShellProps = {
   children: ReactNode;
 };
 
-/** 全屏白色向导框架：顶部拖拽区与步骤进度点，顶部锚定的内容列（各步标题起点一致，切换时视线不跳），底部居中是本地存储说明，左下「← 上一步」与右下「跳过 →」左右对称。配色固定，不随主题。 */
+/** 全屏白色向导框架：内容列顶部锚定，各步标题起点一致、切换时视线不跳；配色固定，不随主题。 */
 export function WizardShell({
   step,
   stepCount,

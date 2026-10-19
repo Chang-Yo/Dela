@@ -78,7 +78,7 @@ function documentHeaders(request: Request, contentType: string): Headers {
   });
 }
 
-/** Range 解析：单段区间返回起止与状态码；多段或不满足返回 null（调用方回 416）。 */
+/** 只接受单段 Range；多段或越界返回 null，由调用方回 416。 */
 function rangeOf(
   header: string | null,
   size: number,

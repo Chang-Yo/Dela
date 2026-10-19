@@ -64,7 +64,6 @@ async function downloadVideo(
     const directory = savedVideoDownloadDirectory();
     const options = {
       title: '下载课堂视频',
-      // 设过默认目录就从那里开始，文件名仍按课程与画面拼。
       defaultPath: directory ? join(directory, name) : name,
       filters: [{ name: 'MP4 视频', extensions: ['mp4'] }],
     };

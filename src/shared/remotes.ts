@@ -152,8 +152,6 @@ export interface RemoteApi {
   pickKey(): Promise<string | null>;
   /** 连接：自检 + 把 helper 真的引导起来，过程经 onSetupProgress 一行行送达。 */
   prepare(draft: RemoteDraft): Promise<RemotePrepare>;
-  /** 订阅引导进度；返回退订函数。 */
   onSetupProgress(listener: (progress: RemoteSetupProgress) => void): () => void;
-  /** 订阅 helper 降级快照；某条通道建立失败时带上原因，恢复后它从快照里消失。 */
   onHelperState(listener: (states: HelperDegradation[]) => void): () => void;
 }

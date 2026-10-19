@@ -1,5 +1,4 @@
-// 导出本机数据：跳过 Chromium 可再生缓存、给数据库取一致快照、失败条目如实上报。
-// 断言落在磁盘上真实存在（或不存在）什么，而不是「某个函数被调用了」。
+// 导出本机数据的回归：断言落在磁盘上真实存在（或不存在）什么，而不是「某个函数被调用了」。
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -125,7 +124,6 @@ it('跳过可再生缓存、保留用户数据，并给数据库取一致快照'
   expect(existsSync(join(result.path, '工作目录', 'note.txt'))).toBe(true);
   expect(existsSync(join(result.path, '技能', 'mine', 'SKILL.md'))).toBe(true);
 
-  // 数据库是快照：能独立打开、版本正确、包含刚提交的那一行，但不带 -wal/-shm。
   expect(existsSync(join(data, 'dela.db-wal'))).toBe(false);
   expect(existsSync(join(data, 'dela.db-shm'))).toBe(false);
   const snapshot = new Database(join(data, 'dela.db'), { readonly: true });

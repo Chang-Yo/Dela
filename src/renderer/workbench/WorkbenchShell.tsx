@@ -1,6 +1,5 @@
-// 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏 +
-// EntryDialogs + 导航脉冲消费都在这里（保持 app/App.tsx 小）。对照对象是旧
-// ProjectView/SourcesView 的装配职责；布局与标签本体在 workbench/（3A）。
+// 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏、
+// EntryDialogs 与导航脉冲消费都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
@@ -84,11 +83,8 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     s.workspace.entries.some((entry) => entry.id === projectId) ? projectId : null,
   );
 
-  // -------------------------------------------------------------------------
   // 导航脉冲消费：等工作台布局载入当前项目后再开标签，避免 init 覆盖掉新开的标签。
-  // useLayoutEffect：从首页主动打开会话或文档时布局已预热就绪，开标签须赶在
-  // 首帧绘制前，否则先画一帧空组再跳到会话标签。
-  // -------------------------------------------------------------------------
+  // useLayoutEffect：布局已预热时开标签须赶在首帧绘制前，否则先画一帧空组再跳到会话标签。
   useLayoutEffect(() => {
     const layout = useWorkbenchLayout.getState();
     // 子组件的 init effect 已开始加载时，本次 render 的 ready 仍可能是旧值。
@@ -153,9 +149,6 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     useNavigationStore.getState().setCreateProject(false);
   }, [createProject, loaded]);
 
-  // -------------------------------------------------------------------------
-  // 弹窗接线（workspace/entry-dialogs 的回调由这里接手旧 ProjectView 的后续动作）。
-  // -------------------------------------------------------------------------
   const openDialog = useCallback(
     (action: EntryAction | 'link' | 'connect', id: string | null, text?: string) =>
       setDialog({
@@ -193,13 +186,10 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       liveIds.has(tabId.slice(tabId.indexOf(':') + 1));
     for (const group of walkGroups(layout.root))
       for (const tab of group.tabs) if (!keep(tab)) layout.closeTab(tab, group.id);
-    // 草稿随标签卸载自动冲盘释放（note/drafts 引用计数）；当前项目被删则回通用池。
+    // 草稿随标签卸载自动冲盘释放（note/drafts 引用计数）。
     if (rootId && !liveIds.has(rootId)) useNavigationStore.getState().openProject('');
   };
 
-  // -------------------------------------------------------------------------
-  // 三个内容 Provider 的装配。
-  // -------------------------------------------------------------------------
   const legacy = useMemo<LegacySeedInput>(() => {
     // 通用工作台承接旧资料页（scope 'sources'）的标签；项目工作台承接各自 view:% 行。
     const scope = projectId ?? 'sources';
@@ -319,7 +309,6 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   );
 
   const loader = useMemo<ContentLoader>(() => {
-    /** 文档读取路径与旧 ProjectDocument/SourceDetail 一致：source: → canvas/水源，条目 → workspace。 */
     const loadDocument = async (tabKey: TabId): Promise<LoadedDocument> => {
       const target = parsePreviewTabId(tabKey);
       if (!target) throw new Error('无效的预览标签');
@@ -418,8 +407,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   }, []);
 
   if (!loaded && workspaceError === null && window.dela)
-    // 工作区镜像载入前不渲染：布局种子与标题解析都依赖条目树（旧 ProjectView 的
-    // workspaceLoaded 种子门控）。
+    // 工作区镜像载入前不渲染：布局种子与标题解析都依赖条目树。
     return <div className="min-h-0 flex-1 bg-surface" />;
 
   return (

@@ -9,8 +9,7 @@ export interface CourseRoot {
   root: string;
 }
 
-/** 从缓存路径清单里挑出位于任一课程目录之下的文件，title 为「课程名/相对路径」，
- *  冲突（同名课程或同名相对路径）时课程名追加 [courseId]。 */
+/** title 为「课程名/相对路径」；冲突（同名课程或同名相对路径）时课程名追加 [courseId]。 */
 export function pickCourseFiles(
   roots: CourseRoot[],
   cachedPaths: string[],

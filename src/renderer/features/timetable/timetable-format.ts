@@ -185,10 +185,8 @@ export function eventStyle(startMinute: number, endMinute: number): CSSPropertie
 // 供 style.left / style.width 拼接 % 使用。
 export type DayColumnLayout = { left: number; width: number };
 
-// 把时间重叠的项聚成簇，簇内按开始时间排序后贪心分配列（first-fit）：
-// 每项宽度 = 100 / 簇内最大列数，left = 列号 × 每项宽度。
-// 仅严格相交（start < other.end 且 other.start < end）算重叠；
-// 首尾相接（前一项的 end 等于后一项的 start）不算，各项仍占满整列。
+// 按簇 first-fit 分列：项宽 = 100 / 簇内最大列数，left = 列号 × 项宽。
+// 仅严格相交算重叠，首尾相接（前项的 end 等于后项的 start）不算，两项都占满整列。
 export function layoutDayColumns(
   items: readonly { id: string; start: number; end: number }[],
 ): Map<string, DayColumnLayout> {
@@ -203,7 +201,6 @@ export function layoutDayColumns(
       clusterEnd = Math.max(clusterEnd, sorted[clusterEndIndex]!.end);
       clusterEndIndex += 1;
     }
-    // 每列记录最后一项的结束时刻，放入第一个不冲突的列，放不下则新开一列。
     const columns: number[] = [];
     const placed = sorted.slice(index, clusterEndIndex).map((item) => {
       let column = columns.findIndex((end) => end <= item.start);

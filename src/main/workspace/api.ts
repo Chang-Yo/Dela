@@ -699,7 +699,6 @@ const officeFormats: Record<string, 'docx' | 'xlsx' | 'pptx'> = {
   '.pptx': 'pptx',
 };
 
-/** 受限预览协议的解析入口：本地/导入条目按扩展名放行 PDF 与三类 OOXML。 */
 export function workspacePreviewPath(id: string): string {
   prepareStorage();
   const item = entry(workspaceEntryIdSchema.parse(id));

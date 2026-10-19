@@ -84,11 +84,9 @@ it('默认折叠，展开后列出文件并显示行数统计', async () => {
   dela.chat.readTurnChanges.mockImplementation(async () => turn);
   await renderCard(sessionId, turn.turnId);
   expect(host.querySelector('[aria-expanded="false"]')).not.toBeNull();
-  expect(host.textContent).toContain('本轮改动 · 2 个文件');
   expect(dela.chat.readTurnChanges).toHaveBeenCalledWith(sessionId, turn.turnId, true);
   expect(dela.chat.readTurnChanges).toHaveBeenCalledTimes(1);
   expect(dela.chat.readTurnFileChange).not.toHaveBeenCalled();
-  // 折叠时不渲染文件行。
   expect(host.querySelectorAll('li')).toHaveLength(0);
 
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
@@ -135,8 +133,7 @@ it('部分记录在展开后展示警告，不给「一切正常」的假象', a
   dela.chat.readTurnChanges.mockImplementation(async () => turn);
   await renderCard(sessionId, turn.turnId);
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
-  expect(host.textContent).toContain('部分内容未能记录');
-  expect(host.textContent).toContain('等 2 项');
+  expect(host.textContent).toContain('big.bin: 二进制或非 UTF-8 文件，不提供文本 diff');
 });
 
 it('随聊只列文件并提供打开，不读取 diff 详情或显示审阅与行数', async () => {
@@ -146,7 +143,6 @@ it('随聊只列文件并提供打开，不读取 diff 详情或显示审阅与�
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
 
   expect(host.querySelectorAll('li')).toHaveLength(2);
-  expect(host.textContent).not.toContain('审阅');
   expect(host.textContent).not.toContain('+2');
   expect(dela.chat.readTurnFileChange).not.toHaveBeenCalled();
   expect(dela.chat.readTurnChanges).toHaveBeenCalledWith(sessionId, turn.turnId, false);

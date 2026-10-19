@@ -1,13 +1,7 @@
-// 连接远程目录向导：左侧四步、右侧表单（选择方式 → 填写连接 → 连接 → 选择目录）。
-// 事实来源全在主进程：探测（remotes:probe）成功才保存连接，浏览（remotes:browse）逐层拉
-// 远端目录，确认后经 workspace.importRemoteProject 登记项目。向导不落任何凭据，
-// 只保存目的地、端口与私钥路径——密码由 ssh 自己处理，Dela 不做密码登录。
-//
-// 第 3 步「连接」是行为变更：它不再只是自检，而是真的把 helper 上传并启动一遍
-// （探测 → 上传/校验 → 启动 → 隧道 → 握手），进度逐行进日志区。理由是连接的可用性取决于
-// 服务器上有没有这一版 helper：等到第一次调工具才失败的话，用户看到的是「远程项目打开了但
-// 又慢又不刷新」，而不是「这一步没有准备好」。helper 起不来不挡流程——那只是降级成一次性
-// ssh（见 docs/DEVELOPMENT.md §4 的降级说明），所以失败行之外还有一条降级警告行。
+// 连接远程目录向导：事实来源全在主进程；向导不落凭据，只存目的地、端口与私钥路径，密码交给 ssh。
+// 第 3 步「连接」真的上传并启动一遍 helper：可用性取决于服务器上有没有这一版，否则等到第一次调工具
+// 才失败，用户只会看到「项目打开了但又慢又不刷新」。helper 起不来仍降级成一次性 ssh
+// （docs/DEVELOPMENT.md §4），所以失败行之外还有一条降级警告行。
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import {
@@ -38,7 +32,6 @@ import type {
 import { unhideProjectInNav } from '../navigation/store';
 import { errorText, useWorkspaceStore } from './store';
 
-/** 向导步骤：下标即步骤序号，与左栏顺序一一对应。 */
 const steps = ['选择方式', '填写连接', '连接', '选择目录'] as const;
 
 /** 端口上限与 ssh 自身一致；空串表示交给 ssh 按 config 解析。 */
@@ -59,9 +52,8 @@ const stepLabels: Record<RemoteSetupStep, string> = {
 };
 
 /**
- * 一行引导日志：等宽、逐行追加，像终端输出而不是进度条。
- * 失败行（ok=false）用红色并挂 alert；只有 ready 的 ok=false 是降级警告——helper 用不了
- * 会退回一次性 ssh，向导照旧往前走，所以那一行不能报成错误。
+ * 一行引导日志：像终端输出而不是进度条。失败行（ok=false）用红色并挂 alert；只有 ready 的
+ * ok=false 是降级警告——helper 用不了会退回一次性 ssh，向导照旧往前走，所以那一行不能报成错误。
  */
 function SetupLine({ progress }: { progress: RemoteSetupProgress }) {
   const degraded = progress.step === 'ready' && progress.ok === false;
@@ -483,7 +475,6 @@ export function RemoteConnectionWizard({
                       {port.trim() ? `:${port.trim()}` : ''}
                     </code>
                   </div>
-                  {/* 日志区：固定高度，逐行追加，成功绿、失败红。 */}
                   <div
                     className="grid h-48 content-start gap-0.5 overflow-y-auto rounded-card border border-line bg-field px-3 py-2 font-mono text-xs leading-[1.7]"
                     ref={logRef}

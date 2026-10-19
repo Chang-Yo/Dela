@@ -108,7 +108,7 @@ it('keeps the project background when no session is highlighted', async () => {
 
 it('keeps the project background when the highlighted session is behind 显示更多', async () => {
   await render('s-4');
-  expect(document.body.textContent).toContain('显示更多');
+  expect(document.body.textContent).not.toContain(recent[3]!.title);
   expect(highlighted(projectRow())).toBe(true);
 });
 

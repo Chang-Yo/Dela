@@ -1,17 +1,8 @@
 /**
- * 远端目录 watch：渲染端把「当前展开的远端目录」交上来，这里换成 helper 的监视集合，
- * 再把 helper 推回来的变化转成已有的 `notifyRemoteChange` —— 目录树因此也能看到
- * Dela 之外改的远端文件（工具自己写文件那条路在 operations 里已经直接通知了）。
- *
- * **只监视展开的目录、不递归**：大仓库递归要几千个 inotify watch，而折叠着的目录变了
- * 也看不见，没有监视的价值。代价是「展开之后」才有实时性。
- *
- * **每个目标一条流**：通道现在按连接各有一条（见 helper.ts），所以两个不同主机的项目可以同时
- * 被监视——从前只有一条通道时后用的那个会让前一个的流让位。集合按项目留着不丢，`operations.withHelper`
- * 每次用到通道都会喊一声 `syncRemoteWatch`，于是「谁在用通道谁被监视」自动成立。
- *
- * helper 起不来（远端非 Linux、noexec、缺产物）不是错误：watch 整条缺席，调用方拿到
- * watching=0，工具改动触发的刷新照常工作。
+ * 远端目录 watch：渲染端交上「当前展开的远端目录」，这里换成 helper 的监视集合，事件再转成
+ * `notifyRemoteChange`，目录树因此也能看到 Dela 之外改的远端文件。
+ * 只监视展开的目录、不递归（大仓库递归要几千个 inotify watch，折叠的目录变了也看不见），代价是
+ * 「展开之后」才有实时性；每个目标一条流；helper 起不来只是 watch 缺席，工具改动触发的刷新照常。
  */
 import { notifyRemoteChange } from './events';
 import { helperSession, type HelperSession, type WatchEvent } from './helper';

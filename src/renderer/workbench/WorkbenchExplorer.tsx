@@ -1,8 +1,5 @@
-// 工作台目录侧栏（装配层）：项目文件树（navigation/ProjectFileTree）+ Canvas 资料树
-// （navigation/SourcesTree）+ 归档区，替代旧 ProjectView/SourcesView 的目录侧栏。
-// 树的展开/筛选/选中态在 navigation/store；条目动作除归档/升级为项目/导入（直连
-// entry-actions）外，经 onAction 交给 EntryDialogs（壳）。
-// 折叠/窄屏抽屉开合在 workbench/explorer-state（展开入口在焦点组标签栏左侧）。
+// 工作台目录侧栏（装配层）：项目文件树 + Canvas 资料树 + 归档区。树的展开/筛选/选中态在
+// navigation/store，条目动作经 onAction 交给 EntryDialogs（壳）；折叠/抽屉开合在 explorer-state。
 import { useEffect, useRef, useState } from 'react';
 import {
   Archive,
@@ -60,7 +57,7 @@ import { overlayFade } from '../components/ui/motion';
 
 const SIDEBAR_DEFAULT_WIDTH = 300;
 const SIDEBAR_MIN_WIDTH = 160;
-/** 目录宽度上界：再宽会明显挤占右侧内容栏；沿用既有上界，与 3A 批次首次引入值一致。 */
+/** 目录宽度上界：再宽会明显挤占右侧内容栏。 */
 const SIDEBAR_MAX_WIDTH = 360;
 const widthStorageKey = 'dela.workspace.sidebarWidth';
 

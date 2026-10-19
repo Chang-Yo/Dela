@@ -1,5 +1,4 @@
-// 能力层契约（MCP 与 Skills）。
-// 类型归 shared：main 拥有事实（连接状态、启停、发现），renderer 只持镜像。
+// 能力层契约（MCP 与 Skills）：main 拥有连接与启停事实，renderer 只持镜像。
 
 /** Skill 来源范围：global 来自用户主目录（.dela/.agents/.zcode），project 来自当前工作区。 */
 export type SkillScope = 'global' | 'project';
@@ -21,7 +20,6 @@ export interface SkillView {
   enabled: boolean;
   /** SKILL.md 的绝对路径（供 UI 展示来源）。 */
   path: string;
-  /** 来源范围：全局或当前工作区。 */
   scope: SkillScope;
   dependency?: SkillDependency;
 }
@@ -57,7 +55,6 @@ export interface AgentCapabilityView {
   label: string;
   /** 所属领域 id（canvas / mail / …），设置页按域分组与批量开关。 */
   domain: string;
-  /** 领域显示名。 */
   domainLabel: string;
   /** 提供给模型的工具描述（UI 摘要）。 */
   description: string;
@@ -95,7 +92,6 @@ export interface WebSearchEntrySummary {
 export interface WebSearchKeySource {
   id: string;
   name: string;
-  /** 是否为当前使用中的提供商。 */
   active: boolean;
 }
 
@@ -147,7 +143,6 @@ export interface CapabilityApi {
   removeMcpServer(id: string): Promise<McpServerView[]>;
   /** 显式重连并刷新工具列表（连接失败时给模型明确的不可用边界）。 */
   refreshMcpServer(id: string): Promise<McpServerView[]>;
-  /** 内置 Agent 能力（工具）清单与启用态。 */
   listBuiltinCapabilities(): Promise<AgentCapabilityView[]>;
   /** 单个内置能力启停；返回最新清单（未知名或常驻能力抛错）。 */
   setBuiltinCapability(name: string, enabled: boolean): Promise<AgentCapabilityView[]>;

@@ -17,10 +17,7 @@ import { cn } from '../../lib/utils';
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
 
-/**
- * 把当前帖子作为来源引用添加到项目/文件夹：先写 shuiyuan_topics 引用行，
- * 再建 workspace source 条目（sourceId 形如 shuiyuan-topic:<id>）。
- */
+/** 建的是引用型 source 条目（sourceId 前缀 shuiyuan-topic:），正文仍实时读水源。 */
 export function AddToProjectDialog({
   open,
   onClose,

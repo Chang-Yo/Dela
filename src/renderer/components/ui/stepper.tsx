@@ -53,7 +53,6 @@ function StepperInput({
     if (draft === null) return;
     setDraft(null);
     const parsed = Number(draft.trim());
-    // 空串或非数字视为放弃本次编辑，回到现值。
     if (draft.trim() === '' || !Number.isFinite(parsed)) return;
     const next = Math.min(max, Math.max(min, Math.round(parsed)));
     if (next !== value) onChange(next);

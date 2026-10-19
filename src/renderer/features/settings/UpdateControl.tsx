@@ -6,11 +6,8 @@ import { SettingsGroup } from './SettingsGroup';
 import { useUpdateState, runUpdateAction, updateView } from './update';
 
 /**
- * 通用 › 软件更新。
- *
- * 状态由主进程持有、经 update:state 广播，这里只读共享 store（标题栏提示读的是同一份）
- * 并派发动作：页面卸载不会打断进行中的下载，重新进入设置页也能立刻看到当前进度。
- * 浏览器预览没有 preload，此时整块不渲染。
+ * 通用 › 软件更新。状态由主进程持有、经 update:state 广播，这里只读共享 store（标题栏提示读同一份）
+ * 并派发动作；页面卸载不打断下载，重进设置页立刻看到进度。浏览器预览没有 preload，state 为空时不渲染。
  */
 export function UpdateControl() {
   const state = useUpdateState((snapshot) => snapshot.snapshot);

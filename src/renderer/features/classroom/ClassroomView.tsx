@@ -1,5 +1,4 @@
-// 课堂视频页：登录 → 可折叠课程侧栏 + 播放器 两栏（无页头，
-// 侧栏对齐资料面板：inset 底、紧凑头、eyebrow 小节标签、可拖宽度）。
+// 课堂视频页：登录 → 可折叠课程侧栏 + 播放器两栏；侧栏视觉对齐资料面板。
 import { useEffect, useState } from 'react';
 import { KeyRound, Loader2, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';

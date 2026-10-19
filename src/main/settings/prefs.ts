@@ -1,6 +1,4 @@
-// workspace_settings 中的设置读写（自 src/main/index.ts 内联实现迁出；行为不变）。
-// 除原有标量偏好外，承载 §4.4 新增的通知与工作现场偏好；全部经 zod 校验，
-// 键缺失或值损坏时回退默认值，不向调用方抛错。
+// workspace_settings 中的设置读写：读取时缺失或损坏的值回退默认，不向调用方抛错。
 import { z } from 'zod';
 import type { ThemePreference, IconPreference } from '../../shared/api';
 import { fontSizeDefault, fontSizeMax, fontSizeMin, zoomLevels } from '../../shared/api';

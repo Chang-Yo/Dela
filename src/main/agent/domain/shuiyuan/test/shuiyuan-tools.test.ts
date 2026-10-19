@@ -85,24 +85,6 @@ beforeEach(() => {
   });
 });
 
-describe('shuiyuan_status', () => {
-  it('reports the bound account without network access, and unbound as a state', () => {
-    expect(shuiyuanTools.shuiyuan_status.execute({})).toEqual({
-      connected: true,
-      username: 'alice',
-      boundAt: '2026-01-01T00:00:00.000Z',
-    });
-    expect(listTopics).not.toHaveBeenCalled();
-
-    state.mockReturnValue({ connected: false, username: null, boundAt: null });
-    expect(shuiyuanTools.shuiyuan_status.execute({})).toEqual({
-      connected: false,
-      username: null,
-      boundAt: null,
-    });
-  });
-});
-
 describe('search_shuiyuan_topics', () => {
   it('returns cursor pagination without a fabricated total', async () => {
     listTopics.mockResolvedValue({

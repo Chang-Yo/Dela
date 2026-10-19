@@ -1,6 +1,5 @@
 // 远程项目的真实窗口冒烟：真 preload、真 renderer、真主进程 IPC，远端也真连（需要
-// DELA_REMOTE_HOST / DELA_REMOTE_KEY，没设就跳过并退出 0）。覆盖四步向导、远端目录树、
-// 只读提示与 @ 候选用的远端索引——这些在 jsdom 里都只能靠手写的假 window.dela 代替。
+// DELA_REMOTE_HOST / DELA_REMOTE_KEY，未设置则跳过并退出 0）；这种链路在 jsdom 里只能靠假 window.dela 代替。
 import { app, BrowserWindow, ipcMain } from 'electron';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -128,12 +127,11 @@ app
       `(() => { const style = document.createElement('style'); style.textContent = '* { transition: none !important; animation: none !important; }'; document.head.append(style); })()`,
     );
 
-    // 1. 新建项目 → 连接远程目录：四步向导第一步（选择方式）。
     await wait(`document.querySelector('[aria-label="新建项目"]') !== null`, '侧栏新建项目按钮');
     await clickLabel('新建项目');
     await wait(`document.body.innerText.includes('连接远程目录')`, '新建项目弹窗');
     await click('连接远程目录');
-    // 第一步是「选择方式」：空档案里没有已保存的连接，先点「新建连接」才到填写表单。
+    // 空档案里没有已保存的连接，先点「新建连接」才到填写表单。
     await wait(
       `document.querySelector('[aria-label="SSH 目的地"]') !== null || [...document.querySelectorAll('button')].some(b => b.textContent.trim() === '新建连接' && b.offsetParent !== null)`,
       '向导第一步',
@@ -142,7 +140,7 @@ app
       await click('新建连接');
     await wait(`document.querySelector('[aria-label="SSH 目的地"]') !== null`, '向导填写表单');
 
-    // 2. 填写连接 → 下一步 → 连接：这一步真的自检、上传并启动 helper，所以先记下远端 helper 进程数。
+    // 「连接」会真的自检、上传并启动 helper，先记下远端 helper 进程数作旁证。
     await type('SSH 目的地', host!);
     if (target.keyPath) await type('私钥文件', target.keyPath);
     await click('下一步');
@@ -182,7 +180,6 @@ app
       '「连接」没有在服务器上留下 helper 进程：这一步就该上传并启动它',
     );
 
-    // 3. 选择目录：从主目录点进夹具目录，读到远端真实清单。
     await click('下一步：选择目录');
     await wait(
       `[...document.querySelectorAll('li button')].some(b => b.textContent.trim() === 'dela-gui-smoke')`,
@@ -196,9 +193,7 @@ app
       '向导当前路径',
     );
 
-    // 4. 添加为项目 → 项目被打开，tree 顶层直接挂远端根的内容（打开的项目不显示项目行）。
-    //    目录树的清单从 6.3 起走 helper 通道，而从 2026-10-10 起这条通道在向导的「连接」
-    //    一步就建好了：这里断言列一层没有把它换掉（换掉就意味着又付了一次上传与启动）。
+    // 列一层不应重建 helper 通道，否则又付一次上传与启动。
     await click('添加为项目');
     await wait(
       `document.querySelector('[role="treeitem"][aria-label="a b.txt"]') !== null`,
@@ -213,7 +208,6 @@ app
     assert.ok(entry.remoteId, `远程项目的 remoteId 没有传到渲染端：${JSON.stringify(entry)}`);
     assert.equal(entry.path, root);
 
-    // 5. 目录树：一层远端清单 → 行提示带目的地 → 点目录再懒加载一层 → 点文件开只读预览。
     const title = await evaluate(
       `document.querySelector('[role="treeitem"][aria-label="a b.txt"]').querySelector('[title]').getAttribute('title')`,
     );
@@ -229,7 +223,6 @@ app
       '向导建立的那条 helper 通道没有留在原地：目录树列一层时它不见了',
     );
     await evaluate(`document.querySelector('[role="treeitem"][aria-label="a b.txt"]').click()`);
-    // 预览内容就是远端那份文件：内容片段由 helper 读回，标签页标题取文件名。
     await wait(
       `document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.includes('a b.txt')`,
       '远端文件预览标签',
@@ -244,9 +237,8 @@ app
       '点远端文件应该新增一个预览标签',
     );
 
-    // 5b. 远端条目的操作菜单：文件给「下载到本地 / 用系统默认程序打开」，目录给「上传本地文件」，
-    //     本地的重命名/移动/移除一个都不给（那些动作在远端子条目上只会失败）。
-    //     Radix 的菜单在 pointerdown 上开，不是 click。
+    // 远端条目只给远端动作（本地的重命名/移动/移除在远端子条目上只会失败）。
+    // Radix 的菜单在 pointerdown 上开，不是 click。
     const menuItems = `[...document.querySelectorAll('[role="menuitem"]')].map(i => i.textContent.trim()).join('|')`;
     const openMenu = (label: string) =>
       evaluate(`(() => {
@@ -268,7 +260,6 @@ app
     assert.ok(!dirMenu.includes('新建文件夹'), `远端目录菜单不该出现本地动作：${dirMenu}`);
     await evaluate(closeMenu);
 
-    // 6. @ 候选数据：走真实 preload 与主进程，远端索引返回相对路径。
     const references = await evaluate(
       `(async () => (await window.dela.workspace.remoteReferences(${JSON.stringify(entry.id)})).map(r => r.title ?? r.key))()`,
     );
@@ -278,16 +269,15 @@ app
       `@ 候选缺少子目录文件：${JSON.stringify(references)}`,
     );
 
-    // 7. 远端工具写过文件：主进程广播 → preload → 目录树自己重读，新文件直接出现在树里。
-    //    （远端没有文件监听，这一步断了就只能靠用户收起再展开。）
+    // 远端没有文件监听：工具写文件后靠主进程广播让目录树重读，否则只能收起再展开。
     await remoteOperations(target).write.writeFile(`${root}/fresh.txt`, '新文件\n');
     await wait(
       `document.querySelector('[role="treeitem"][aria-label="fresh.txt"]') !== null`,
       '刷新后自动出现的远端新文件',
     );
 
-    // 8. Dela 之外改的远端文件：只走一次性 ssh（完全不经过工具），靠 helper 的 inotify
-    //    watch 推回来。每轮重 touch 一次，避免「上报监视集合」和这一次改动抢跑。
+    // Dela 之外改的远端文件只走一次性 ssh，靠 helper 的 inotify watch 推回来；
+    // 每轮重 touch 一次，避免「上报监视集合」和这次改动抢跑。
     const outside = `${root}/outside-watch.txt`;
     const outsideShown = `document.querySelector('[role="treeitem"][aria-label="outside-watch.txt"]') !== null`;
     let watched = false;
@@ -298,7 +288,7 @@ app
     }
     assert.ok(watched, 'Dela 之外建的文件没有出现在目录树里（watch 没生效）');
 
-    // 9. 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
+    // 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
     await evaluate(`(async () => {
       window.__term = { id: crypto.randomUUID(), data: '' };
       window.dela.terminal.onEvent((event) => {

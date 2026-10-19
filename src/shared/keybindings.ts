@@ -1,10 +1,5 @@
-// 可配置快捷键的单一事实来源：动作目录、默认键位与规范化纯函数。
-// main 用它校验持久化载荷（action id 与键位串），renderer 用它渲染设置页、
-// 录制新键位并在 keydown 时匹配动作；Workbench 经 props 取得合并后的键位表。
-//
-// 键位串格式：`Mod+Shift+N`。`Mod` 在 Windows/Linux 为 Ctrl、macOS 为 ⌘，
-// macOS 的 Control 独立记为 Ctrl；命名键沿用 KeyboardEvent.key 的写法
-// （PageDown、ArrowUp、Escape…），空格写作 Space，`+` 归一为 `=`。
+// 可配置快捷键的单一事实来源：动作目录、默认键位与规范化纯函数，供 main 校验持久化载荷、renderer 渲染设置与录制。
+// 键位串 `Mod` 在 Windows/Linux 为 Ctrl、macOS 为 ⌘（Control 另记 Ctrl）；命名键沿用 KeyboardEvent.key，空格=Space，`+`→`=`。
 
 export type ShortcutActionId =
   | 'new-project'
@@ -33,7 +28,6 @@ export interface ShortcutAction {
   scope: ShortcutScope;
   /** 设置页分组标题。 */
   group: string;
-  /** 动作名（设置页与帮助弹窗共用）。 */
   label: string;
   /** 默认键位；null 表示默认不绑定。 */
   defaultKeys: string | null;
@@ -116,7 +110,7 @@ export const shortcutActions: readonly ShortcutAction[] = [
     scope: 'global',
     group: '帮助',
     label: '快捷键一览',
-    // 标题栏不再有「帮助」菜单，浮层改由此键打开；Mod+/ 被 CodeMirror 的注释切换占用。
+    // Mod+/ 被 CodeMirror 的注释切换占用，所以用 F1。
     defaultKeys: 'F1',
   },
 ];
@@ -145,7 +139,6 @@ export function isShortcutActionId(value: string): value is ShortcutActionId {
   return actionById.has(value as ShortcutActionId);
 }
 
-/** 默认键位表。 */
 export function defaultKeybindings(): KeybindingMap {
   const map = {} as KeybindingMap;
   for (const action of shortcutActions) map[action.id] = action.defaultKeys;
@@ -178,7 +171,6 @@ const namedKeys = new Set([
   'Insert',
 ]);
 
-/** 规范化单键：字母转大写，空格写作 Space，`+` 归一为 `=`，其余沿用 KeyboardEvent.key。 */
 function normalizeKey(key: string): string | null {
   if (key === ' ' || key === 'Spacebar') return 'Space';
   if (key === '+') return '=';
@@ -211,7 +203,6 @@ export function acceleratorFromEvent(
   return parts.join('+');
 }
 
-/** 键位串是否合法（main 校验持久化载荷用）。 */
 export function isAccelerator(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0 || value.length > 32) return false;
   const parts = value.split('+');
@@ -221,7 +212,6 @@ export function isAccelerator(value: unknown): value is string {
   return modifiers.every((part) => ['Mod', 'Ctrl', 'Alt', 'Shift'].includes(part));
 }
 
-/** 是否为 digit 族键位（末位为 1…9）。 */
 export function isDigitFamily(accelerator: string): boolean {
   return /\+[1-9]$/.test(accelerator);
 }
@@ -230,10 +220,7 @@ function modifierPart(accelerator: string): string {
   return accelerator.slice(0, accelerator.lastIndexOf('+'));
 }
 
-/**
- * 事件是否命中某动作的键位。
- * digit 族只比较修饰键部分，末位数字接受 1…9（动作按序号作用于第 N 个工作组）。
- */
+/** digit 族只比较修饰键部分，末位数字接受 1…9（动作按序号作用于第 N 个工作组）。 */
 function matchesAccelerator(
   accelerator: string | null,
   event: KeyEventLike,
@@ -270,13 +257,12 @@ export function matchShortcut(
   return null;
 }
 
-/** 冲突项：同一键位被多个动作占用。 */
 export interface ShortcutConflict {
   accelerator: string;
   actionIds: ShortcutActionId[];
 }
 
-/** 查找冲突：digit 族按“修饰键 + 1…9”展开比较，跨作用域也算冲突（派发顺序不可依赖）。 */
+/** digit 族按“修饰键 + 1…9”展开比较；跨作用域也算冲突（派发顺序不可依赖）。 */
 export function findShortcutConflicts(bindings: KeybindingMap): ShortcutConflict[] {
   const used = new Map<string, ShortcutActionId[]>();
   const push = (accelerator: string, id: ShortcutActionId) => {
