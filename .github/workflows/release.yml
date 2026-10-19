@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Windows: existing version tag to publish (required unless building a Mac candidate)'
+        description: 'Existing version tag to publish (required unless building a Mac candidate)'
         required: false
         type: string
       macos_candidate:
@@ -24,8 +24,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  macos-candidate:
-    if: github.event_name == 'workflow_dispatch' && inputs.macos_candidate
+  macos:
+    needs: [prepare, helper]
+    if: >-
+      ${{ !cancelled() &&
+          ((github.event_name == 'workflow_dispatch' && inputs.macos_candidate) ||
+           (needs.prepare.result == 'success' && needs.helper.result == 'success')) }}
     name: Sign and notarize mac-arm64
     runs-on: macos-15
     environment: macos-release
@@ -38,8 +42,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.prepare.outputs.sha || github.sha }}
           persist-credentials: false
+      - uses: actions/download-artifact@v6
+        if: needs.helper.result == 'success'
+        with:
+          name: helper-linux-amd64
+          path: vendor/dela-helper
+      - uses: actions/download-artifact@v6
+        if: needs.helper.result == 'success'
+        with:
+          name: helper-linux-arm64
+          path: vendor/dela-helper
       - uses: actions/setup-node@v6
         with:
           node-version: '24.21.0'
@@ -53,10 +67,12 @@ jobs:
       - name: Check and build
         run: pnpm check
       - uses: actions/setup-go@v7
+        if: inputs.macos_candidate
         with:
           go-version: '1.27.2'
           cache: false
       - name: Build current Linux helpers
+        if: inputs.macos_candidate
         run: node scripts/build-helper.ts --all
       - name: Smoke test Electron
         run: pnpm smoke
@@ -79,16 +95,16 @@ jobs:
       - name: Record artifact checksums and source
         run: |
           cd dist
-          shasum -a 256 Dela-*-mac-arm64.dmg Dela-*-mac-arm64.zip > SHA256SUMS
-          git rev-parse HEAD > source-commit.txt
+          shasum -a 256 Dela-*-mac-arm64.dmg Dela-*-mac-arm64.zip > SHA256SUMS-mac-arm64
+          git rev-parse HEAD > source-commit-mac-arm64.txt
       - uses: actions/upload-artifact@v6
         with:
-          name: macos-signed-candidate-${{ github.sha }}
+          name: ${{ inputs.macos_candidate && format('macos-signed-candidate-{0}', github.sha) || 'installer-mac-arm64' }}
           path: |
             dist/Dela-*-mac-arm64.dmg
             dist/Dela-*-mac-arm64.zip
-            dist/SHA256SUMS
-            dist/source-commit.txt
+            dist/SHA256SUMS-mac-arm64
+            dist/source-commit-mac-arm64.txt
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
@@ -100,9 +116,9 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       sha: ${{ steps.version.outputs.sha }}
     steps:
-      - name: Require a Windows release tag
+      - name: Require a release tag
         if: github.event_name == 'workflow_dispatch' && !inputs.tag
-        run: echo 'Windows release requires the tag input.' >&2; exit 1
+        run: echo 'Release publication requires the tag input.' >&2; exit 1
       - uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
@@ -258,9 +274,8 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v6
         with:
-          pattern: installer-*
+          name: installer-win-x64
           path: installers
-          merge-multiple: true
       - name: Create and publish release
         shell: bash
         run: |
@@ -304,9 +319,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v6
         with:
-          pattern: installer-*
+          name: installer-win-x64
           path: installers
-          merge-multiple: true
       - uses: actions/download-artifact@v6
         with:
           name: release-notes
@@ -329,3 +343,55 @@ jobs:
               --draft --notes-file release-notes.md --title "$RELEASE_TAG" "${prerelease[@]}"
           fi
           gh release edit "$RELEASE_TAG" --draft=false --notes-file release-notes.md
+
+  publish-macos-private:
+    needs: [prepare, macos, release]
+    name: Add Mac installers to source release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - uses: actions/download-artifact@v6
+        with:
+          name: installer-mac-arm64
+          path: installers
+      - run: node scripts/publish-macos-release.ts installers
+
+  publish-macos-public:
+    needs: [prepare, macos, publish-public]
+    name: Add Mac installers to public release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+      GH_REPO: Chang-Yo/Dela_releases
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - uses: actions/download-artifact@v6
+        with:
+          name: installer-mac-arm64
+          path: installers
+      - run: node scripts/publish-macos-release.ts installers

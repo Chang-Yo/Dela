@@ -70,6 +70,8 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 从 [CDN 下载页](https://openlist.frameneo.com/@s/Dela_latest_release) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela_releases/releases/latest) 下载 Windows x64 的 NSIS（`.exe`）安装包。
 
+Apple Silicon Mac 安装包在签名、公证和检查通过后补充到同版本 GitHub Release，以实际附件为准。选择 `Dela-<版本>-mac-arm64.dmg`，打开后将 Dela 拖到「应用程序」；也提供 ZIP。Mac 暂不支持应用内自动更新，升级时需重新下载安装包；不支持 Intel Mac。
+
 ## 本地开发
 
 需要 Node.js **24.21.0** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
