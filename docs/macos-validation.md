@@ -2,7 +2,7 @@
 
 2026-10-15 至 2026-10-17，在 `codex/macos-phase1` 分支完成 Apple Silicon macOS 第一阶段适配。验证基线从 main `55108ce` 开始，期间同步至 `b3c5a70`。本文汇总验证结论、限制与复现方式；架构、平台约定与完整命令以 [DEVELOPMENT.md §16](DEVELOPMENT.md#16-平台基线) 为准。
 
-**当前结论**：开发运行、arm64 打包与解包启动、主要桌面交互、文档读取和核心校园业务已在本机通过。Developer ID 签名、公证、Gatekeeper 首启、自动更新、真实登录启动与 Windows 实机回归尚未完成；当前 macOS 产物仅供开发验证，不是正式发行版。
+**当前结论**：开发运行、arm64 打包与解包启动、主要桌面交互、文档读取和核心校园业务已在本机通过。2026-10-19 基于 main `4db182c` 完成 Developer ID 签名、Apple 公证、票据附加、Gatekeeper 策略检查与签名版基本使用。云端签名、浏览器下载后首启、自动更新、真实登录启动与 Windows 实机回归尚未完成；当前 macOS 产物不是正式发行版。
 
 ## 范围
 
@@ -11,7 +11,7 @@
 | 平台      | 仅 Apple Silicon arm64；不适配 Intel Mac；不支持 Linux 桌面端  |
 | 正式分发  | 仅 Windows x64；macOS 提供 arm64 DMG/ZIP 开发产物              |
 | 更新      | Mac 应用内更新默认关闭；签名候选与更新开关已准备，未接入线上源 |
-| 签名/公证 | 未执行；截至 2026-10-17，Apple Developer Program 申请审核中    |
+| 签名/公证 | 本地 Developer ID、Apple 公证、票据与 Gatekeeper 策略检查通过  |
 | 记录边界  | 本机抽样验证，不代表云端 CI、Windows 实机或全部账号/文件格式   |
 
 ## 环境
@@ -36,9 +36,23 @@
 | 模型、邮件与课件 | 真实模型调用 Bash 工具并返回结果；合成邮件草稿保存、退出重启后保留；Canvas PDF 预览、翻页与下载副本 SHA-256 一致。上述为抽样验证，不代表所有模型、邮箱与文件格式。                                                                                                         |
 | 路径与资料       | 聊天与课件引用的 POSIX 路径、反斜杠文件名、移动后的标签/草稿边界、学期时间排序与后台资料同步通过自动回归和本机应用检查。大小写敏感卷与 Windows 实机未验收。                                                                                                                |
 
+## Developer ID 本地验证
+
+2026-10-19 验证 main `4db182c` 的 1.2.0 候选包，安装到 `/Applications/Dela.app`；未发布 Release、启用自动更新或导出私钥。
+
+- `.app`、rg/fd 的严格签名校验、hardened runtime、安全时间戳与运行检查通过；220 个 `.pak` 语言资源均受框架签名资源清单保护。
+- Apple 公证返回 `Accepted`，审查日志无问题；附加票据后 `stapler validate` 与 `spctl --assess --type execute` 通过，后者显示 `Notarized Developer ID`。重新打包 ZIP 后，解压校验同样通过。
+- 经 LaunchServices 从仓库外目录与系统 PATH 启动真实签名包，SQLite、renderer、preload 隔离与 Pi ESM 冒烟通过。应用已运行时需退出或显式使用临时 `--user-data-dir`，避免单实例锁影响冒烟。
+- 升级前备份并逐文件校验旧应用、应用数据、工作目录与 Skills。用户允许钥匙串与「文稿」目录访问后，签名版正常启动与重启，历史聊天、邮件草稿保留，原有模型密钥可用，真实 Bash 工具调用通过；Canvas PDF、邮箱同步与水源抽样正常。
+- 课堂视频在旧版与签名版、同一现有数据目录下均要求重新登录，未重登复验。旧路径登录启动登记已关闭，新路径已启用，但未注销或重启 macOS 验证。按用户要求，以基本运行正常为本轮验收范围。
+
+2026-10-20 从 main `afd6ffe` 接入云端候选流程：`pnpm check` 通过 147 个文件 / 1121 项测试，actionlint 工作流检查通过。新校验脚本使用既有公证包验证了目录包、ZIP 解包与 DMG 挂载内的签名、票据和 Gatekeeper 策略，并确认错误 Team ID 和不合格签名会被拒绝。Windows 发布任务未修改，手动与 tag 发布分流已检查。
+
+云端接入复用上述签名配置，操作步骤见 [Mac 签名候选包](macos-signing.md)。云端签名需配置 CI Secrets 后单独验证，不能以本地通过代替。
+
 ## 未验收与限制
 
-- **发布链路**：Developer ID 签名、公证、Gatekeeper 下载后首启、稳定 Keychain 身份、Mac 更新源，以及同一签名身份的两版升级。签名候选工作流已准备但未执行；Mac 自动更新在正式验证完成前保持关闭。
+- **发布链路**：云端签名、Gatekeeper 下载后首启、稳定 Keychain 身份、Mac 更新源，以及同一签名身份的两版升级。手动签名候选已接入 Release 工作流但未云端执行；Mac 自动更新在正式验证完成前保持关闭。
 - **系统行为**：系统批准后的真实登录启动、系统保留快捷键与自定义键位的冲突、多显示器与动画表现。全屏仅复核静态布局。
 - **环境覆盖**：Windows 实机回归、最低 macOS 13、Intel Mac 与 GitHub Actions 云端 macOS 任务。Intel 不在支持范围；云端结果需在 GitHub 上另行确认。
 - **业务覆盖**：真实 SSH/Remote-SSH、完整首启向导与条款接受、全部账号/课程/文件格式。真实 SSH 按既定决定不作为本次适配的阻塞项。
