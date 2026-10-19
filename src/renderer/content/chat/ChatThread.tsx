@@ -18,6 +18,7 @@ import { useReducedMotion } from 'framer-motion';
 import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
 import { Button } from '@/components/ui/button';
+import { openLightbox } from '@/components/ui/lightbox';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
 import { ReplyTrace } from './ToolTimeline';
@@ -66,7 +67,7 @@ const MessageActions = memo(function MessageActions({
   );
 });
 
-/** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图。 */
+/** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图；点击放大查看。 */
 const MessageImage = memo(function MessageImage({ id, name }: { id: string; name: string }) {
   const [url, setUrl] = useState(() => getChatMediaPreview(id) ?? null);
   useEffect(() => {
@@ -80,12 +81,19 @@ const MessageImage = memo(function MessageImage({ id, name }: { id: string; name
     };
   }, [id, url]);
   return url ? (
-    <img
-      alt={name}
-      className="size-20 rounded-card border border-line border-line/60 object-cover"
-      src={url}
+    <button
+      aria-label={`放大查看 ${name || '图片'}`}
+      className="cursor-zoom-in"
+      onClick={() => openLightbox(url, name)}
       title={name || undefined}
-    />
+      type="button"
+    >
+      <img
+        alt={name}
+        className="size-20 rounded-card border border-line border-line/60 object-cover"
+        src={url}
+      />
+    </button>
   ) : (
     <span
       className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-2xs text-ink-3"

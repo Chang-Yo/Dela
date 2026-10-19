@@ -27,6 +27,7 @@ import {
 } from '@codemirror/view';
 import { cn } from '../../lib/utils';
 import { markdownHighlightStyle } from '../../lib/markdown-highlight';
+import { openLightbox } from '../../components/ui/lightbox';
 import { matchChatImageTokens } from '../../../shared/chat-input';
 import { getChatMediaPreview } from './media';
 import type { ChatReference } from './drafts';
@@ -76,6 +77,8 @@ class InlineImageWidget extends WidgetType {
       image.src = preview;
       image.alt = this.name;
       image.draggable = false;
+      image.className = 'cursor-zoom-in';
+      image.addEventListener('click', () => openLightbox(preview, this.name));
       wrap.appendChild(image);
     } else {
       const fallback = document.createElement('span');

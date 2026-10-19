@@ -3,6 +3,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WorkspaceChat } from '../../../shared/api';
+import { setChatMediaPreview } from './media';
 import { ChatThread } from './ChatThread';
 
 // jsdom 不排版；只替换 Markdown 渲染和浏览器尺寸边界，滚动逻辑使用真实组件。
@@ -316,4 +317,34 @@ it('停止的回复保留已输出正文', async () => {
     ),
   );
   expect(host.querySelector('[data-assistant-body]')?.textContent).toBe('尚未完成的片段');
+});
+
+it('用户消息的图片缩略图点击放大，点击遮罩或 Esc 关闭', async () => {
+  setChatMediaPreview('img-1', 'data:image/png;base64,QUJD');
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...chat,
+          messages: [
+            { role: 'user', content: '看这张图', images: [{ id: 'img-1', name: '01.png' }] },
+          ],
+        }}
+      />,
+    ),
+  );
+  const thumb = host.querySelector('img[alt="01.png"]');
+  expect(thumb).not.toBeNull();
+  await act(async () => (thumb!.parentElement as HTMLButtonElement).click());
+  let dialog = document.body.querySelector('[role="dialog"][aria-label="图片查看"]');
+  expect(dialog).not.toBeNull();
+  expect(dialog!.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,QUJD');
+  await act(async () => (dialog as HTMLDivElement).click());
+  expect(document.body.querySelector('[role="dialog"][aria-label="图片查看"]')).toBeNull();
+  await act(async () => (thumb!.parentElement as HTMLButtonElement).click());
+  dialog = document.body.querySelector('[role="dialog"][aria-label="图片查看"]');
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  });
+  expect(document.body.querySelector('[role="dialog"][aria-label="图片查看"]')).toBeNull();
 });
