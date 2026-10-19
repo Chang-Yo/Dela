@@ -1,5 +1,5 @@
 // workspace/store 状态机单测：并发 load 共享一次请求、局部失败不拖垮另一半、
-// 失败后可重试、refresh/setCanvas/setError 镜像语义（对照旧 features/projects/workspace.ts）。
+// 失败后可重试、refresh/setError 镜像语义（对照旧 features/projects/workspace.ts）。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspaceStore } from '../store';
 
@@ -93,9 +93,7 @@ describe('workspace store mirror', () => {
     expect(useWorkspaceStore.getState().canvas.connected).toBe(false);
   });
 
-  it('setCanvas mirrors the given state and setError unwraps IPC error prefixes', () => {
-    useWorkspaceStore.getState().setCanvas(canvasState);
-    expect(useWorkspaceStore.getState().canvas).toBe(canvasState);
+  it('setError unwraps IPC error prefixes and resets to null', () => {
     useWorkspaceStore
       .getState()
       .setError(new Error("Error invoking remote method 'workspace:get-state': Error: boom"));

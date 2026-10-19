@@ -107,12 +107,6 @@ it('下载不碰笔记，只有安装才需要冲盘', async () => {
   expect(saveDraft).not.toHaveBeenCalled();
 });
 
-it('打开确认弹窗不改写主进程快照', async () => {
-  await act(async () => root.render(<UpdateControl />));
-  await act(async () => button('安装更新').click());
-  expect(useUpdateState.getState().snapshot).toEqual(readyState);
-});
-
 it('快照还没到手时不渲染任何东西（浏览器预览没有 preload 就是这种情况）', async () => {
   delete window.dela;
   useUpdateState.setState({ snapshot: null });

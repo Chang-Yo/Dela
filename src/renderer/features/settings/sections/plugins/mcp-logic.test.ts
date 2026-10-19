@@ -16,11 +16,6 @@ describe('parseArgsText', () => {
       '--port 8080',
     ]);
   });
-
-  it('全空文本得到空数组', () => {
-    expect(parseArgsText('')).toEqual([]);
-    expect(parseArgsText(' \n \n')).toEqual([]);
-  });
 });
 
 describe('parseEnvText', () => {

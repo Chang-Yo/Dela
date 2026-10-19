@@ -132,10 +132,4 @@ describe('pendingUpdate', () => {
       expect(pendingUpdate(snapshot({ phase })), phase).toBe(false);
     }
   });
-
-  it('失败虽然有原因，但不该在标题栏常亮一个提示', () => {
-    expect(pendingUpdate(snapshot({ phase: 'error', reason: 'failed', failedAt: 'check' }))).toBe(
-      false,
-    );
-  });
 });

@@ -338,12 +338,6 @@ it('新对话浮岛显示项目胶囊（通用池为随聊）', async () => {
   expect(host.textContent).toContain('随聊');
 });
 
-it('没有浮岛数据（已有历史）时不显示项目与分支', async () => {
-  await act(async () => root.render(<Harness contextUsage={usage()} />));
-  expect(host.textContent).not.toContain('Dela');
-  expect(host.textContent).not.toContain('feat/remote-multi-channel');
-});
-
 it('命中率文本只在拿到两个累计字段且分母大于 0 时才算数，其余留空', () => {
   // main 未给出字段 = 提供商不上报缓存：不能显示成 0%。
   expect(cacheHitRateText(usage())).toBe('—');

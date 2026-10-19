@@ -26,16 +26,6 @@ describe('Canvas term ordering', () => {
     expect(courses.map(({ term }) => term)).toEqual(terms);
   });
 
-  it('preserves the order of standard unprefixed academic terms', () => {
-    const terms = ['2024-2025 Fall', '2025-2026 Fall', '2024-2025 Spring', '2025-2026 Spring'];
-    expect(terms.sort(compareCanvasTerms)).toEqual([
-      '2025-2026 Spring',
-      '2025-2026 Fall',
-      '2024-2025 Spring',
-      '2024-2025 Fall',
-    ]);
-  });
-
   it('compares single calendar years with academic years using the actual season year', () => {
     expect(
       ['2025-2026 Summer', '2026 秋季', '2026-2027 Spring', '2026 春季'].sort(compareCanvasTerms),

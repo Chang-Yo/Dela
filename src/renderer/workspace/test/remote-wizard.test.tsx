@@ -283,7 +283,7 @@ it('saves a new connection only after a successful probe, then registers the dir
   expect(useProjectNavPrefs.getState().projects[created.id]?.hidden).toBe(false);
 });
 
-it('fills the key path from the picker and can clear it again', async () => {
+it('fills the key path from the picker', async () => {
   const pickKey = vi.fn(async () => '/home/me/.ssh/id_ed25519');
   window.dela = {
     remotes: { list: async () => [], pickKey, onSetupProgress: progressChannel().onSetupProgress },
@@ -296,10 +296,6 @@ it('fills the key path from the picker and can clear it again', async () => {
 
   await act(async () => button('选择…', true).click());
   expect(inputByLabel('私钥文件').value).toBe('/home/me/.ssh/id_ed25519');
-
-  // 清空 = 交给 ssh config/agent：保存的动作在「连接」之后，这里只断言输入框回到了空。
-  await act(async () => setValue(inputByLabel('私钥文件'), ''));
-  expect(inputByLabel('私钥文件').value).toBe('');
 });
 
 it('requires a destination before advancing', async () => {

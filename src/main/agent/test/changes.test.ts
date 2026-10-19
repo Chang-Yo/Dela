@@ -7,6 +7,11 @@ import * as fsPromises from 'node:fs/promises';
 import { diffStatOf } from '../../../shared/diff';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+// 本文件逐个 spawn git 并做真实文件比对，Windows 上单个用例可达数秒；共享 CI runner
+// 满载时实测超过 vitest 默认的 5s 被误杀（2026-10-19 本机 5.1s）。按 database.test.ts
+// 的先例整文件放宽到 30s，避免把环境抖动当成回归。
+vi.setConfig({ testTimeout: 30_000 });
+
 const profile = vi.hoisted(() => ({ path: '' }));
 vi.mock('electron', () => ({ app: { getPath: () => profile.path } }));
 vi.mock('node:fs/promises', { spy: true });

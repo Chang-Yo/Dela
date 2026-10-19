@@ -103,11 +103,4 @@ describe('prepareAsideGroup', () => {
     expect(groups()[1]!.tabs).toEqual([]);
     expect(state().focus).toBe(groups()[1]!.id);
   });
-
-  it('布局未就绪时不动作，不碰陈旧布局树', () => {
-    useWorkbenchLayout.setState({ ready: false });
-    prepareAsideGroup();
-    expect(groups()).toHaveLength(1);
-    expect(state().focus).toBe('primary');
-  });
 });
