@@ -23,7 +23,7 @@ Dela 的重要变更都记在这里。
 
 ### Added
 
-- Mac 发布工作流支持手动构建 Developer ID 签名与 Apple 公证候选包，校验 DMG/ZIP 内的应用后上传 Actions artifact；Windows 发布与 Mac 自动更新状态不变。
+- Mac 发布工作流支持 Developer ID 签名与 Apple 公证，检查通过后自动向同版本 Release 补充 Apple Silicon DMG/ZIP；保留手动候选模式，Mac 失败不阻塞 Windows 发布，Mac 应用内更新仍关闭。
 
 - 对话每轮结束后冻结工作目录前后快照，回答末尾以折叠卡片列出本轮实际变更的文件（覆盖包括 bash 在内的所有写入方式），支持在 Dela 内、VS Code 或资源管理器中打开；项目会话另提供增删行数与差异审阅，随聊只提供文件清单与打开选项；历史轮次随会话保留，旧消息不补造历史。
 
