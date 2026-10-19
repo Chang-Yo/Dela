@@ -69,5 +69,6 @@ export const workspace = {
       : Promise.resolve();
   },
   openLocal: (id: string) => invoke('workspace:open-local', id),
+  openFile: (id: string) => invoke('workspace:open-file', id),
   chooseDirectory: () => invoke('workspace:choose-directory'),
 } satisfies WorkspaceApi;

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle, Lock, SlidersHorizontal } from 'lucide-react';
-import type { AgentCapabilityView, WebSearchConfig } from '../../../../shared/api';
+import type { AgentCapabilityView } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
 import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { SearchConfigDialog, webSearchProviderLabels } from './SearchConfigDialog';
+import { SearchConfigDialog } from './SearchConfigDialog';
 
 /** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
 function groupByDomain(capabilities: AgentCapabilityView[]) {
@@ -32,18 +32,27 @@ export function CapabilitiesSection() {
   const [capabilities, setCapabilities] = useState<AgentCapabilityView[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchConfig, setSearchConfig] = useState<WebSearchConfig | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
-    void window.dela?.capability
-      .listBuiltinCapabilities()
-      .then(setCapabilities)
-      .catch((cause) => setError(errorText(cause)));
-    void window.dela?.capability
-      .readWebSearchConfig()
-      .then(setSearchConfig)
-      .catch(() => {});
+    let request = 0;
+    const refresh = () => {
+      const current = ++request;
+      void window.dela?.capability
+        .listBuiltinCapabilities()
+        .then((list) => {
+          if (current === request) setCapabilities(list);
+        })
+        .catch((cause) => {
+          if (current === request) setError(errorText(cause));
+        });
+    };
+    const unsubscribe = window.dela?.capability.onWebSearchChanged?.(refresh);
+    refresh();
+    return () => {
+      unsubscribe?.();
+      request++;
+    };
   }, []);
 
   // 即时保存 + 失败回滚（与 Skills / MCP 页签一致）。
@@ -89,11 +98,7 @@ export function CapabilitiesSection() {
                         {group.id === 'web' && (
                           <Button
                             aria-label="配置搜索服务"
-                            title={
-                              searchConfig
-                                ? `搜索服务：${webSearchProviderLabels[searchConfig.provider]}`
-                                : '尚未注册搜索服务，点击配置'
-                            }
+                            title="配置搜索服务"
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => setSearchOpen(true)}
@@ -175,13 +180,7 @@ export function CapabilitiesSection() {
               {error}
             </p>
           )}
-          {searchOpen && (
-            <SearchConfigDialog
-              config={searchConfig}
-              onClose={() => setSearchOpen(false)}
-              onSaved={setSearchConfig}
-            />
-          )}
+          {searchOpen && <SearchConfigDialog onClose={() => setSearchOpen(false)} />}
         </>
       )}
     </div>

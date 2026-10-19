@@ -162,6 +162,92 @@ it('未配置思考强度时点击 default 显示原因，并可进入模型设�
   expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 });
 
+it('分屏中选择搜索服务后，另一个已挂载输入框应同步显示开启', async () => {
+  const entry = { id: 'search-a', name: '学校搜索', provider: 'brave' as const };
+  let selectedId: string | null = null;
+  const listeners = new Set<() => void>();
+  const selectWebSearchEntry = vi.fn(async (id: string | null) => {
+    selectedId = id;
+    for (const listener of listeners) listener();
+  });
+  window.dela = {
+    chat: { listCommands: async () => [] },
+    capability: {
+      listWebSearchOptions: async () => ({ entries: [entry], selectedId }),
+      selectWebSearchEntry,
+      onWebSearchChanged: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  await act(async () =>
+    root.render(
+      <>
+        <div data-chat="a">
+          <Harness contextUsage={usage()} />
+        </div>
+        <div data-chat="b">
+          <Harness contextUsage={usage()} />
+        </div>
+      </>,
+    ),
+  );
+  const first = host.querySelector('[data-chat="a"]')!;
+  const second = host.querySelector('[data-chat="b"]')!;
+  expect(second.querySelector('[aria-label="联网搜索：未开启"]')).not.toBeNull();
+  await act(async () =>
+    first.querySelector<HTMLButtonElement>('[aria-label="联网搜索：未开启"]')!.click(),
+  );
+  const option = Array.from(
+    document.body.querySelectorAll<HTMLButtonElement>('button[role="radio"]'),
+  ).find((button) => button.textContent === entry.name)!;
+  expect(option).toBeTruthy();
+  await act(async () => option.click());
+
+  expect(selectWebSearchEntry).toHaveBeenCalledExactlyOnceWith(entry.id);
+  expect(selectedId).toBe(entry.id);
+  expect(first.querySelector('[aria-label="联网搜索：学校搜索"]')).not.toBeNull();
+  expect(second.querySelector('[aria-label="联网搜索：学校搜索"]')).not.toBeNull();
+  await act(async () => selectWebSearchEntry(null));
+  expect(first.querySelector('[aria-label="联网搜索：未开启"]')).not.toBeNull();
+  expect(second.querySelector('[aria-label="联网搜索：未开启"]')).not.toBeNull();
+  await act(async () => root.unmount());
+  expect(listeners.size).toBe(0);
+  root = createRoot(host);
+});
+
+it('搜索配置变化后，迟到的首次读取不能覆盖新状态', async () => {
+  const entry = { id: 'search-a', name: '学校搜索', provider: 'brave' as const };
+  type Options = { entries: (typeof entry)[]; selectedId: string | null };
+  let resolveInitial!: (value: Options) => void;
+  const initial = new Promise<Options>((resolve) => {
+    resolveInitial = resolve;
+  });
+  const listeners = new Set<() => void>();
+  const listWebSearchOptions = vi
+    .fn()
+    .mockReturnValueOnce(initial)
+    .mockResolvedValue({ entries: [entry], selectedId: entry.id });
+  window.dela = {
+    chat: { listCommands: async () => [] },
+    capability: {
+      listWebSearchOptions,
+      onWebSearchChanged: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  await act(async () => root.render(<Harness contextUsage={usage()} />));
+  await act(async () => {
+    for (const listener of listeners) listener();
+  });
+  expect(host.querySelector('[aria-label="联网搜索：学校搜索"]')).not.toBeNull();
+  await act(async () => resolveInitial({ entries: [entry], selectedId: null }));
+  expect(host.querySelector('[aria-label="联网搜索：学校搜索"]')).not.toBeNull();
+});
+
 it('已配置思考强度时仅列出允许的档位，选择后关闭菜单', async () => {
   const select = vi.fn();
   await act(async () =>

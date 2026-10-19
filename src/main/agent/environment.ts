@@ -18,7 +18,7 @@ import { locateBash } from '../terminal';
 import { builtinSkillsDirectory, effectiveDisabledSkills, ensureBuiltinSkills } from './skills';
 import { mcpToolDefinitions, executeMcpTool } from './mcp';
 import { readDisabledTools } from './tools';
-import { webSearch } from './web-search';
+import { readWebSearchConfig, webSearch } from './web-search';
 import { fetchWebPage } from './web-fetch';
 
 /** 应用生命周期内一个命令桥：token 只进入 agent/终端的子进程环境，不含业务凭据。 */
@@ -127,7 +127,7 @@ const webTools: ToolDefinition[] = [
     name: 'web_search',
     label: 'web_search',
     description:
-      '联网搜索网页，返回标题、链接和摘要。需要用户先在设置里注册搜索服务（Brave / Google / 自定义端点）。freshness 仅 Brave 生效（pd/pw/pm/py）。',
+      '联网搜索网页，返回标题、链接和摘要。使用用户在聊天输入框左下角选中的搜索服务（Brave / Google / DeepSeek / 自定义端点），未选中时调用会报错引导。freshness 仅 Brave 生效（pd/pw/pm/py）。',
     parameters: {
       type: 'object',
       properties: {
@@ -150,8 +150,14 @@ const webTools: ToolDefinition[] = [
       properties: { url: { type: 'string' }, offset: { type: 'integer', minimum: 0 } },
       required: ['url'],
     } as unknown as ToolDefinition['parameters'],
-    execute: async (_id, params: { url: string; offset?: number }) =>
-      text(await fetchWebPage(params.url, params.offset)),
+    execute: async (_id, params: { url: string; offset?: number }) => {
+      const config = readWebSearchConfig();
+      const deepseek =
+        config?.provider === 'deepseek' && config.useForFetch
+          ? { apiKey: config.apiKey }
+          : undefined;
+      return text(await fetchWebPage(params.url, params.offset, deepseek));
+    },
   },
 ];
 
