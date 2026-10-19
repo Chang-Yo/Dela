@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as fsPromises from 'node:fs/promises';
@@ -25,8 +25,8 @@ let root: string;
 let cwd: string;
 let sessionId: string;
 
-beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'dela-changes-')));
+beforeEach(async () => {
+  root = await fsPromises.realpath(mkdtempSync(join(tmpdir(), 'dela-changes-')));
   cwd = join(root, 'project');
   profile.path = join(root, 'profile');
   mkdirSync(cwd);
@@ -253,7 +253,10 @@ it('单文件详情只读取目标文件，路径中的通配字符按字面匹�
     before: 'HEAD',
     after: 'changed',
   });
-  expect(read.mock.calls.map(([path]) => String(path))).toEqual([join(cwd, '[a].txt')]);
+  const actualPaths = await Promise.all(
+    read.mock.calls.map(([path]) => fsPromises.realpath(String(path))),
+  );
+  expect(actualPaths).toEqual([await fsPromises.realpath(join(cwd, '[a].txt'))]);
   await expect(readUncommittedFileChange(cwd, '../outside.txt')).rejects.toThrow('工作目录');
   await expect(readUncommittedFileChange(cwd, 'missing.txt')).rejects.toThrow('没有未提交改动');
 });

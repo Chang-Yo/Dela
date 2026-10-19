@@ -404,7 +404,7 @@ pnpm test
 - 涉及构建、原生依赖或打包时，另验证 `pnpm smoke` 与打包目录启动。
 - 重要改动同步更新 [CHANGELOG.md](../CHANGELOG.md)；面向使用者的变化更新 [README.md](../README.md)；架构与流程变化更新本文。
 
-默认 Vitest 配置将平台对应的 `vendor/bin` 搜索工具目录前插到测试进程 PATH，不依赖开发机或 CI 预装 ripgrep；单元测试不会执行 Electron 启动时的运行时初始化。需要断言规范化磁盘路径的测试先对临时目录调用 `realpathSync`，避免 Windows 的 `RUNNER~1` 与长用户名路径别名造成误报。
+默认 Vitest 配置将平台对应的 `vendor/bin` 搜索工具目录前插到测试进程 PATH，不依赖开发机或 CI 预装 ripgrep；单元测试不会执行 Electron 启动时的运行时初始化。磁盘路径断言使用与生产代码相同的 `fsPromises.realpath` 规范化实际路径与预期路径，避免 Windows 的 `RUNNER~1` 与长用户名路径别名造成误报；不能依赖普通 `realpathSync` 与异步原生实现返回相同的路径拼写。
 
 ## 14. CI
 
