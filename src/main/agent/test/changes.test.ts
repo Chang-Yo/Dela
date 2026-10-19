@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as fsPromises from 'node:fs/promises';
@@ -26,7 +26,7 @@ let cwd: string;
 let sessionId: string;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'dela-changes-'));
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'dela-changes-')));
   cwd = join(root, 'project');
   profile.path = join(root, 'profile');
   mkdirSync(cwd);
