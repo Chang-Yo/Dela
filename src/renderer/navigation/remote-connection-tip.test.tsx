@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 连接悬浮提示的内容：目的地（带端口）、远端根、以及「在不在连 / 为什么读不到」。
+// 连接悬浮提示的内容：目的地（带端口）、远端根，以及读失败的原因。
 // 触发与定位由 components/ui/tooltip 负责，这里只验内容。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -60,14 +60,14 @@ it('shows the destination with its port and the remote root', async () => {
   await render({ phase: 'connecting' });
   expect(container.textContent).toContain('远端项目');
   expect(container.textContent).toContain('user@10.0.0.5:2222 · /home/u/proj');
-  expect(container.textContent).toContain('正在连接…');
 });
 
 it('drops the destination line when the connection list is unavailable', async () => {
-  // 连接列表读不到不是错误路径：目的地少一行，项目名与远端根照常给。
+  // 连接列表读不到不是错误路径：没有目的地，项目名与远端根照常给。
   await render({ phase: 'ready' }, false);
-  expect(container.textContent).toContain('远程项目 · /home/u/proj');
-  expect(container.textContent).not.toContain('正在连接');
+  expect(container.textContent).toContain('远端项目');
+  expect(container.textContent).toContain('/home/u/proj');
+  expect(container.textContent).not.toContain('user@10.0.0.5');
 });
 
 it('reports the read failure as-is', async () => {

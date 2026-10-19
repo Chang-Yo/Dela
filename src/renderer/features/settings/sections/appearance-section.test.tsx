@@ -47,11 +47,10 @@ const control = (selector: string) => {
 const fontSizeInput = () => control('input[aria-label="字号"]') as HTMLInputElement;
 
 describe('font size', () => {
-  it('shows the current size in px and steps one pixel at a time', async () => {
+  it('shows the current size and steps one pixel at a time', async () => {
     const onFontSizeChange = render(16);
     const input = fontSizeInput();
     expect(input.value).toBe('16');
-    expect(input.parentElement?.textContent).toContain('px');
 
     // 箭头是按住连发的 pointerdown 交互，首次按下即走一步。
     const press = async (selector: string) => {

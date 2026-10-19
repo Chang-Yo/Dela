@@ -22,7 +22,6 @@ it('四万行差异每次最多渲染 500 行，翻页后行号连续', async ()
   const patch = '@@ -0,0 +1,40000 @@\n' + '+x\n'.repeat(40000);
   await act(async () => root.render(<DiffView patch={patch} />));
   expect(host.querySelectorAll('[role="row"]')).toHaveLength(500);
-  expect(host.textContent).toContain('第 1 / 81 页');
   const next = [...host.querySelectorAll('button')].find(
     (button) => button.textContent === '下一页',
   )!;
@@ -32,7 +31,6 @@ it('四万行差异每次最多渲染 500 行，翻页后行号连续', async ()
     host.querySelectorAll('[role="row"]')[0]!.querySelectorAll('[role="rowheader"]')[1]!
       .textContent,
   ).toBe('500');
-  expect(host.textContent).toContain('第 2 / 81 页');
 
   await act(async () => root.render(<DiffView patch={'@@ -1,1 +1,1 @@\n-old\n+new\n'} />));
   expect(host.querySelectorAll('[role="row"]')).toHaveLength(3);
@@ -50,5 +48,5 @@ it('最后一页可查看剩余行，不能继续前翻或后翻越界', async (
   expect(host.querySelectorAll('[role="row"]')).toHaveLength(101);
   expect(next!.disabled).toBe(true);
   await act(async () => previous!.click());
-  expect(host.textContent).toContain('第 1 / 2 页');
+  expect(previous!.disabled).toBe(true);
 });

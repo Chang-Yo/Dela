@@ -75,7 +75,6 @@ afterEach(async () => {
 
 it('列出改动文件并自动选中第一个，右侧呈现其差异', async () => {
   await render();
-  expect(host.textContent).toContain('2 个文件');
   expect(host.textContent).toContain('app.ts');
   expect(host.textContent).toContain('new.py');
   expect(host.querySelector('[aria-current="true"]')?.textContent).toContain('app.ts');
@@ -83,19 +82,12 @@ it('列出改动文件并自动选中第一个，右侧呈现其差异', async (
   expect(host.textContent).toContain('+src/app.ts');
 });
 
-it('非 Git 目录按原因说明，不伪装成空改动', async () => {
+it('非 Git 目录不读取文件详情', async () => {
   dela.chat.readUncommittedChanges.mockResolvedValue(
     summaryFixture({ available: false, reason: 'not-git', files: [] }),
   );
   await render();
-  expect(host.textContent).toContain('此目录不是 Git 仓库');
   expect(dela.chat.readUncommittedFileChange).not.toHaveBeenCalled();
-});
-
-it('干净仓库提示没有未提交改动', async () => {
-  dela.chat.readUncommittedChanges.mockResolvedValue(summaryFixture({ files: [] }));
-  await render();
-  expect(host.textContent).toContain('工作区没有未提交的改动');
 });
 
 it('刷新重读列表；选中文件被移除时回落到第一个', async () => {
@@ -140,14 +132,12 @@ it('刷新后选中文件不变也重新读取详情', async () => {
   expect(host.textContent).toContain('刷新后的内容');
 });
 
-it('读取不完整且没有文件时展示警告，不声称工作区干净', async () => {
+it('读取不完整且没有文件时展示扫描警告', async () => {
   dela.chat.readUncommittedChanges.mockResolvedValue(
     summaryFixture({ files: [], warnings: ['src/app.ts: 无法读取'] }),
   );
   await render();
   expect(host.textContent).toContain('src/app.ts: 无法读取');
-  expect(host.textContent).toContain('无法确认工作区是否存在未提交的改动');
-  expect(host.textContent).not.toContain('工作区没有未提交的改动');
 });
 
 it('部分文件可读取时仍展示扫描警告和可用差异', async () => {

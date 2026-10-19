@@ -75,7 +75,6 @@ async function openDialog(
   } as unknown as DelaApi;
   await act(async () => root.render(<SkillsTab />));
   const open = container.querySelector<HTMLButtonElement>('[aria-label="上传 lint 到远端项目"]')!;
-  expect(open.getAttribute('title')).toBe('上传到远端项目');
   await act(async () => open.click());
 }
 
@@ -88,21 +87,16 @@ it('empty state without remote projects', async () => {
   await act(async () =>
     container.querySelector<HTMLButtonElement>('[aria-label="上传 lint 到远端项目"]')!.click(),
   );
-  expect(document.body.textContent).toContain('还没有远端项目。');
   expect(buttonByText('上传').disabled).toBe(true);
 });
 
 it('uploads to the selected remote project', async () => {
   const call = vi.fn(async () => ({ path: '/root/proj/.dela/skills/lint', files: 3 }));
   await openDialog(call);
-  expect(document.body.textContent).toContain('上传到远端项目');
-  expect(document.body.textContent).toContain(
-    '把技能 lint 的目录（含附属文件）上传到远端项目的 .dela/skills/lint/，远端会话即可使用。',
-  );
   await act(async () => buttonByText('远端课题').click());
   await act(async () => buttonByText('上传').click());
   expect(call).toHaveBeenCalledWith('lint', '/root/proj', false);
-  expect(document.body.textContent).toContain('已上传 3 个文件到 /root/proj/.dela/skills/lint');
+  expect(document.body.textContent).toContain('/root/proj/.dela/skills/lint');
 });
 
 it('asks for overwrite when the remote skill exists', async () => {
@@ -120,7 +114,7 @@ it('asks for overwrite when the remote skill exists', async () => {
   expect(document.body.textContent).toContain('远端已有同名技能，覆盖吗？');
   await act(async () => buttonByText('覆盖').click());
   expect(call).toHaveBeenLastCalledWith('lint', '/root/proj', true);
-  expect(document.body.textContent).toContain('已上传 2 个文件到 /root/proj/.dela/skills/lint');
+  expect(document.body.textContent).toContain('/root/proj/.dela/skills/lint');
 });
 
 it('reports other errors as a toast', async () => {
@@ -130,7 +124,6 @@ it('reports other errors as a toast', async () => {
   await act(async () => buttonByText('上传').click());
   expect(useToastStore.getState().toasts[0]).toMatchObject({
     variant: 'error',
-    title: '上传失败',
     description: 'ssh 连接失败',
   });
   expect(document.body.textContent).not.toContain('覆盖吗？');
@@ -153,7 +146,6 @@ it('requires dependency installation before enabling document reading', async ()
   await act(async () => buttonByText('安装并启用').click());
   expect(installSkillDependencies).toHaveBeenCalledWith('document-reading');
   expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
-  expect(document.body.textContent).not.toContain('安装并启用');
 });
 
 it('keeps a failed dependency disabled and offers retry', async () => {

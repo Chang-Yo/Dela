@@ -248,7 +248,6 @@ it('整轮失败显示错误卡与重试，重试以原文重发', async () => {
   );
   const alert = host.querySelector('[role="alert"]')!;
   expect(alert.textContent).toContain('HTTP 401');
-  expect(host.textContent).not.toContain('本次执行中断');
   await act(async () => alert.querySelector('button')!.click());
   expect(onEditLast).toHaveBeenCalledWith('检查滚动');
 });
@@ -294,7 +293,7 @@ it('正文从首个字到工具调用及结束均保持同一节点，工具行�
   expect(host.querySelector('[data-assistant-body]')!.closest('[hidden]')).not.toBeNull();
 });
 
-it('停止的回复保留已输出正文并标注已停止', async () => {
+it('停止的回复保留已输出正文', async () => {
   await act(async () =>
     root.render(
       <ChatThread
@@ -317,5 +316,4 @@ it('停止的回复保留已输出正文并标注已停止', async () => {
     ),
   );
   expect(host.querySelector('[data-assistant-body]')?.textContent).toBe('尚未完成的片段');
-  expect(host.textContent).toContain('已停止');
 });

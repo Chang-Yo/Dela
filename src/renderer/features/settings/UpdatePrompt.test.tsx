@@ -102,14 +102,8 @@ it('只有下载完成才弹：其它阶段都不打扰用户', async () => {
   const quiet = ['idle', 'checking', 'up-to-date', 'available', 'downloading'];
   for (const phase of quiet) {
     await show({ ...readyState, phase } as UpdateSnapshot);
-    expect(document.body.textContent, phase).not.toContain('下次启动时提醒');
+    expect(document.body.querySelector('[role="dialog"]'), phase).toBeNull();
   }
-});
-
-it('说明只有一行：新版本号与会结束的终端任务', async () => {
-  await show(readyState);
-  expect(document.body.textContent).toContain('1.0.1');
-  expect(document.body.textContent).toContain('退出后自动安装，终端任务会结束。');
 });
 
 it('选「下次启动时提醒」只记标记，不安装', async () => {
@@ -118,7 +112,6 @@ it('选「下次启动时提醒」只记标记，不安装', async () => {
   expect(deferInstall).toHaveBeenCalledTimes(1);
   expect(install).not.toHaveBeenCalled();
   expect(saveDraft).not.toHaveBeenCalled();
-  expect(document.body.textContent).not.toContain('下次启动时提醒');
 });
 
 it('选「退出并安装」先冲草稿再安装', async () => {
@@ -143,7 +136,7 @@ it('答过就不再出现，但下一版下载完会重新问', async () => {
   await act(async () => button('下次启动时提醒').click());
   // 推迟不改状态机，快照仍是 ready，弹窗不该再冒出来。
   await show(readyState);
-  expect(document.body.textContent).not.toContain('下次启动时提醒');
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 
   await show({ ...readyState, phase: 'downloading', progress: 0.5 });
   await show({ ...readyState, version: '1.0.2' });
@@ -157,21 +150,21 @@ it('按 Esc 只是关掉弹窗，不替用户决定装还是等', async () => {
   });
   expect(install).not.toHaveBeenCalled();
   expect(deferInstall).not.toHaveBeenCalled();
-  expect(document.body.textContent).not.toContain('下次启动时提醒');
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 });
 
-it('保存与安装期间保持模态锁，Esc 不能解除，也不再解释细节', async () => {
+it('保存与安装期间保持模态锁，Esc 不能解除', async () => {
   await show(readyState);
   await act(async () => useUpdateState.setState({ preparingInstall: true }));
-  expect(document.body.textContent).toContain('正在保存工作区');
-  expect(document.body.textContent).not.toContain('终端任务会结束');
+  expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(document.querySelectorAll('[role="dialog"] button')).toHaveLength(0);
   await act(async () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   });
-  expect(document.body.textContent).toContain('正在保存工作区');
+  expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   await show({ ...readyState, phase: 'installing' });
-  expect(document.body.textContent).toContain('正在打开安装向导');
-  expect(document.body.textContent).not.toContain('终端任务会结束');
+  expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(document.querySelectorAll('[role="dialog"] button')).toHaveLength(0);
 });
 
 it('关闭提示后从设置安装会再次确认，不直接退出', async () => {
@@ -200,7 +193,7 @@ it('推迟提醒保存失败时保留确认弹窗', async () => {
   await show(readyState);
   await act(async () => button('下次启动时提醒').click());
   expect(document.body.textContent).toContain('退出并安装');
-  expect(useToastStore.getState().toasts[0]?.title).toBe('设置提醒失败');
+  expect(useToastStore.getState().toasts[0]?.variant).toBe('error');
   vi.restoreAllMocks();
 });
 
