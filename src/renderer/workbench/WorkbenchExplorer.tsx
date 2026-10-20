@@ -403,7 +403,9 @@ export function WorkbenchExplorer({
               />
             </div>
             <div
-              className="min-h-0 flex-1 overflow-y-auto"
+              // 目录层级深时行内的引导线与缩进会撑出横向溢出，而文件名本来就省略显示，
+              // 横向滚动条只会让省略失去意义：直接裁掉。
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
               onDoubleClick={(event) => {
                 // 远端空白处的「新建笔记」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
                 if (remoteRoot) return;
