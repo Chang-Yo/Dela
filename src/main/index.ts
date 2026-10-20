@@ -189,7 +189,7 @@ app
     applyTheme(savedTheme());
     if (process.platform === 'darwin') {
       app.dock?.setIcon(
-        nativeImage.createFromPath(join(app.getAppPath(), 'assets', `Dela_${savedIcon()}_bg.png`)),
+        nativeImage.createFromPath(join(__dirname, 'icons', `Dela_${savedIcon()}_bg.png`)),
       );
     }
     // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
