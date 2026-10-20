@@ -18,14 +18,16 @@ import { releaseComposeFiles } from '../src/main/mail/send';
 import {
   canvasNextPage,
   canvasExportFile,
+  archiveCanvasCourse,
   cachedCourseFiles,
   configureCanvas,
+  getCanvasState,
   readCanvasSource,
   syncCanvasCourse,
-  syncCanvasCourses,
 } from '../src/main/canvas/api';
-import { registerCanvasIpc } from '../src/main/canvas/ipc';
+import { refreshCanvas, registerCanvasIpc, startCanvasSync } from '../src/main/canvas/ipc';
 import { canvasDownloads, startCanvasDownload } from '../src/main/canvas/downloads';
+import { clearCanvasToken } from '../src/main/credentials';
 import {
   createWorkspaceEntry,
   getWorkspaceState,
@@ -49,6 +51,9 @@ const pdf = new TextEncoder().encode('%PDF-1.4\nfixture');
 let failFiles = false;
 let storageGets = 0;
 let lockedFile = false;
+let extraFile = false;
+let fileListRequests = 0;
+let onFilesRequest: (() => void | Promise<void>) | undefined;
 globalThis.fetch = async (input, init) => {
   const url = new URL(String(input));
   const json = (body: unknown, headers: Record<string, string> = {}) =>
@@ -85,7 +90,9 @@ globalThis.fetch = async (input, init) => {
       { id: 10, parent_folder_id: null, name: 'course files' },
       { id: 11, parent_folder_id: 10, name: '第三章' },
     ]);
-  if (url.pathname.endsWith('/courses/1/files'))
+  if (url.pathname.endsWith('/courses/1/files')) {
+    fileListRequests += 1;
+    await onFilesRequest?.();
     return failFiles
       ? new Response('', { status: 401 })
       : json([
@@ -98,6 +105,7 @@ globalThis.fetch = async (input, init) => {
             updated_at: '2026-09-01',
           },
         ]);
+  }
   if (url.pathname.endsWith('/files/3'))
     return json({
       id: 3,
@@ -122,9 +130,15 @@ globalThis.fetch = async (input, init) => {
   if (url.pathname.endsWith('/modules/20/items'))
     return url.searchParams.get('page') === '2'
       ? json([{ id: 22, title: '实验要求', type: 'Assignment', content_id: 4 }])
-      : json([{ id: 21, title: '课件引用', type: 'File', content_id: 3 }], {
-          Link: '<https://oc.sjtu.edu.cn/api/v1/courses/1/modules/20/items?page=2>; rel="next"',
-        });
+      : json(
+          [
+            { id: 21, title: '课件引用', type: 'File', content_id: 3 },
+            ...(extraFile ? [{ id: 23, title: '新课件', type: 'File', content_id: 5 }] : []),
+          ],
+          {
+            Link: '<https://oc.sjtu.edu.cn/api/v1/courses/1/modules/20/items?page=2>; rel="next"',
+          },
+        );
   throw new Error(`Unexpected fixture endpoint: ${url.pathname}`);
 };
 
@@ -136,8 +150,12 @@ app
       join(profile, 'notes'),
     );
     await configureCanvas('fixture-token');
-    assert.equal((await syncCanvasCourses()).courses.length, 2);
-    const synced = await syncCanvasCourse(1);
+    const stopCanvasSync = startCanvasSync();
+    const synced = await refreshCanvas();
+    stopCanvasSync();
+    assert.equal(synced.courses.length, 2);
+    assert.equal(synced.courses.find((course) => course.id === 2)?.syncedAt, null);
+    assert.equal(storageGets, 0, '后台同步不得下载课件');
     assert.equal(synced.items.find((item) => item.name === '课件.pdf')?.parentId, 'folder:11');
     assert.equal(synced.items.find((item) => item.id === 'module-item:21')?.sourceId, 'file:3');
     assert.equal(
@@ -145,6 +163,21 @@ app
       'assignment:4',
     );
     assert.throws(() => canvasNextPage('<https://example.com/steal>; rel="next"'), /分页地址无效/);
+    onFilesRequest = () => {
+      archiveCanvasCourse(1, true);
+    };
+    await syncCanvasCourse(1);
+    assert.equal(getCanvasState().courses.find((course) => course.id === 1)?.archived, true);
+    archiveCanvasCourse(1, false);
+    const beforeDisconnect = getCanvasState();
+    onFilesRequest = () => clearCanvasToken();
+    extraFile = true;
+    await syncCanvasCourse(1);
+    assert.deepEqual(getCanvasState().courses, beforeDisconnect.courses);
+    assert.deepEqual(getCanvasState().items, beforeDisconnect.items);
+    onFilesRequest = undefined;
+    extraFile = false;
+    await configureCanvas('fixture-token');
     failFiles = true;
     const partial = await syncCanvasCourse(1);
     assert(partial.courses.find((course) => course.id === 1)?.error?.includes('401'));
@@ -187,7 +220,25 @@ app
     const exportedPath = join(exportDirectory, '验证课程 [1]', '文件', '第三章', '课件.pdf');
     mkdirSync(dirname(exportedPath), { recursive: true });
     writeFileSync(exportedPath, '旧内容');
+    let releaseFiles!: () => void;
+    const pendingFiles = new Promise<void>((resolve) => {
+      releaseFiles = resolve;
+    });
+    let filesStarted!: () => void;
+    const waitForFiles = new Promise<void>((resolve) => {
+      filesStarted = resolve;
+    });
+    onFilesRequest = () => {
+      filesStarted();
+      return pendingFiles;
+    };
+    const previousRequests = fileListRequests;
+    const backgroundRefresh = refreshCanvas();
+    await waitForFiles;
     const batch = startCanvasDownload({ courseId: 1 }, exportDirectory);
+    releaseFiles();
+    await backgroundRefresh;
+    onFilesRequest = undefined;
     const deadline = Date.now() + 10000;
     let batchResult = canvasDownloads().find((task) => task.id === batch.id)!;
     while (['queued', 'preparing', 'downloading'].includes(batchResult.state)) {
@@ -196,6 +247,7 @@ app
       batchResult = canvasDownloads().find((task) => task.id === batch.id)!;
     }
     assert.equal(batchResult.state, 'completed');
+    assert.equal(fileListRequests - previousRequests, 1, '后台同步与批量下载应共用目录请求');
     assert.equal(batchResult.files.length, 1, '同一课件在模块中再次引用不重复下载');
     assert.equal(batchResult.files[0]!.state, 'completed');
     assert(batchResult.warning?.includes('仅包含已列出的文件'));
@@ -453,6 +505,23 @@ app
     });
     const invoke = (body: string) =>
       win.webContents.executeJavaScript(`(async () => { ${body} })()`);
+    failFiles = false;
+    extraFile = true;
+    assert.equal(
+      await invoke(`
+      let resolveChanged;
+      const changed = new Promise(resolve => { resolveChanged = resolve; });
+      const timeout = setTimeout(() => resolveChanged(false), 5000);
+      const off = window.dela.canvas.onChanged(state => {
+        if (state.items.some(item => item.name === '新课件')) resolveChanged(true);
+      });
+      try { await window.dela.canvas.refresh(); return await changed; }
+      finally { clearTimeout(timeout); off(); }
+    `),
+      true,
+      '后台目录变化须经真实 preload 推送到界面',
+    );
+    assert.equal(storageGets, 1, '更新目录不得下载新增课件');
     const rendererRange = await invoke(`
       const response = await fetch(${JSON.stringify(second.previewUrl)}, { headers: { Range: 'bytes=0-4' } });
       return { status: response.status, range: response.headers.get('content-range'), text: await response.text() };

@@ -27,6 +27,7 @@ let courseFilesFetchedAt = 0;
 // 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
 // 这里刷新条目镜像；编辑中的草稿独立持有，不受刷新影响。
 let subscribedChanges = false;
+let canvasRevision = 0;
 
 export const useWorkspaceStore = create<Store>((set, get) => ({
   workspace: { entries: [], views: {}, directory: '' },
@@ -40,6 +41,7 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
     if (get().loaded || !dela) return Promise.resolve();
     if (!subscribedChanges) {
       subscribedChanges = true;
+      dela.canvas.onChanged((canvas) => get().setCanvas(canvas));
       dela.workspace.onChanged(() => {
         // 推送驱动的后台刷新失败不打扰用户，下一轮变更推送会重试。
         void get()
@@ -50,6 +52,7 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
     // Concurrent callers (StrictMode double-invocation included) share one request;
     // cleared on settle so a failed load can be retried.
     if (!loadPromise) {
+      const revision = canvasRevision;
       loadPromise = (async () => {
         const [workspace, canvas] = await Promise.allSettled([
           dela.workspace.getState(),
@@ -57,8 +60,9 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
         ]);
         if (workspace.status === 'fulfilled') set({ workspace: workspace.value, loaded: true });
         else set({ error: errorText(workspace.reason) });
-        if (canvas.status === 'fulfilled') set({ canvas: canvas.value });
-        else set({ error: errorText(canvas.reason) });
+        if (canvas.status === 'fulfilled') {
+          if (canvasRevision === revision) set({ canvas: canvas.value });
+        } else if (canvasRevision === revision) set({ error: errorText(canvas.reason) });
       })().finally(() => {
         loadPromise = null;
       });
@@ -68,7 +72,10 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
   refresh: async () => {
     if (window.dela) set({ workspace: await window.dela.workspace.getState() });
   },
-  setCanvas: (canvas) => set({ canvas }),
+  setCanvas: (canvas) => {
+    canvasRevision += 1;
+    set({ canvas });
+  },
   ensureCourseFiles: () => {
     const dela = window.dela;
     if (!dela) return;

@@ -2,9 +2,11 @@
 // 失败后可重试、refresh/setError 镜像语义（对照旧 features/projects/workspace.ts）。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspaceStore } from '../store';
+import type { CanvasState } from '../../../shared/canvas';
 
 const workspaceState = { entries: [], views: {}, directory: 'C:/dela' };
 const canvasState = { connected: true, syncedAt: null, courses: [], items: [] };
+let canvasListener: (state: CanvasState) => void;
 
 function installDela(handlers: {
   workspace?: () => Promise<unknown>;
@@ -13,13 +15,20 @@ function installDela(handlers: {
   const getState = vi.fn(handlers.workspace ?? (async () => workspaceState));
   const getCanvasState = vi.fn(handlers.canvas ?? (async () => canvasState));
   const onChanged = vi.fn(() => () => undefined);
+  const onCanvasChanged = vi.fn((listener: typeof canvasListener) => {
+    canvasListener = listener;
+    return () => undefined;
+  });
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
-      dela: { workspace: { getState, onChanged }, canvas: { getState: getCanvasState } },
+      dela: {
+        workspace: { getState, onChanged },
+        canvas: { getState: getCanvasState, onChanged: onCanvasChanged },
+      },
     },
   });
-  return { getState, getCanvasState, onChanged };
+  return { getState, getCanvasState, onChanged, onCanvasChanged };
 }
 
 function resetStore() {
@@ -38,18 +47,36 @@ afterEach(() => {
 
 describe('workspace store mirror', () => {
   it('shares one request between concurrent load callers and mirrors both halves', async () => {
-    const { getState, getCanvasState, onChanged } = installDela({});
+    const { getState, getCanvasState, onChanged, onCanvasChanged } = installDela({});
     await Promise.all([useWorkspaceStore.getState().load(), useWorkspaceStore.getState().load()]);
     expect(getState).toHaveBeenCalledTimes(1);
     expect(getCanvasState).toHaveBeenCalledTimes(1);
     // 外部文件变化订阅只注册一次（模块级去重），变化回调复用 refresh 通道。
     expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(onCanvasChanged).toHaveBeenCalledTimes(1);
     expect(useWorkspaceStore.getState()).toMatchObject({
       loaded: true,
       workspace: workspaceState,
       canvas: canvasState,
       error: null,
     });
+  });
+
+  it('applies background updates without reopening the page and ignores a stale initial snapshot', async () => {
+    let finish!: (state: typeof canvasState) => void;
+    installDela({
+      canvas: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    });
+    const loading = useWorkspaceStore.getState().load();
+    const updated = { ...canvasState, syncedAt: '2026-10-17T12:00:00Z' };
+    canvasListener(updated);
+    expect(useWorkspaceStore.getState().canvas).toEqual(updated);
+    finish(canvasState);
+    await loading;
+    expect(useWorkspaceStore.getState().canvas).toEqual(updated);
   });
 
   it('keeps the workspace mirror when the canvas half rejects (Promise.allSettled)', async () => {
