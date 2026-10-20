@@ -242,17 +242,17 @@ preload 暴露的 API：
 
 ## 6. 应用内更新
 
-应用内更新目前仅用于 Windows，使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 目标，不自行实现版本比较、差分下载或安装器。macOS 开发版从初始快照即返回 `unsupported / platform-unsupported`，不注册后台检查、不恢复待安装标记、不调用更新器或打开仅提供 Windows 版本的下载页；设置页显示当前版本与能力限制。Mac 更新源、签名与两版升级完成验收后再启用。
+应用内更新用于 Windows 与 macOS（Apple Silicon），使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 与 DMG/ZIP 目标，不自行实现版本比较、差分下载或安装器。其余平台（如 Linux）从初始快照即返回 `unsupported / platform-unsupported`，不注册后台检查、不恢复待安装标记、不调用更新器或打开下载页；设置页显示当前版本与能力限制。
 
-- 更新源为 `https://openlist.frameneo.com/sd/Dela_latest_release/`，通过 Generic provider 读取 `latest.yml`。下载页面为对应的 `/@s/Dela_latest_release` 分享页；客户端不解析分享页 HTML。构建时由 electron-builder 在 resources 中生成 `app-update.yml`，主进程构建将 electron-updater 保持 external。
+- 更新源为 `https://openlist.frameneo.com/sd/Dela_latest_release/`，通过 Generic provider 读取 `latest.yml`（Windows）与 `latest-mac.yml`（macOS，顶层 path 指向更新用 zip，dmg 仅供首次安装）。下载页面为对应的 `/@s/Dela_latest_release` 分享页；客户端不解析分享页 HTML。构建时由 electron-builder 在 resources 中生成 `app-update.yml`，主进程构建将 electron-updater 保持 external。
 - CDN 定期拉取最新正式 GitHub Release 的文件并扁平存放，只保留最新版；上传和同步由 CDN 侧完成，CI 不持有 CDN 凭据。同步时安装包与 blockmap 应先于元数据就绪，避免元数据指向缺失文件。
-- Release 同时提供 `Dela-<版本>-win-x64.exe`、对应 `.exe.blockmap` 和渠道元数据。发布元数据统一为 `latest.yml`；预发布 Release 不进入 CDN 正式版目录，客户端固定 latest、拒绝预发布及降级。
+- Release 同时提供 `Dela-<版本>-win-x64.exe` 与对应 `.exe.blockmap`、`Dela-<版本>-mac-arm64.dmg/.zip` 与更新用 `.zip.blockmap`。发布元数据 Windows 为 `latest.yml`、macOS 为 `latest-mac.yml`；预发布 Release 不进入 CDN 正式版目录，客户端固定 latest、拒绝预发布及降级。
 - 开启 NSIS differentialPackage，Generic provider 使用单段 Range 请求。更新器优先使用本地旧安装包和 blockmap 缓存，缺少缓存、旧 blockmap 或差分失败时退回全量下载；SHA-512 校验由更新器完成，不保证每次都是差分下载。
 - 主进程 `main/update/index.ts` 持有状态，检查与下载的 Promise 处理失败；进度和安装器异步启动错误通过事件接收。界面只读快照和派发动作，设置页关闭不会打断下载。发起安装后保持 installing，不把启动安装器当成安装成功。
 - 下载进度事件传递 `transferred` / `total`，进度条左侧显示“已下载 MB / 总大小 MB”（formatBytes 口径，与缓存占用等处一致），右侧百分比向下取整，避免未完成时提前显示 100%；总大小未知时显示“—”。差分回退时同步回退实际进度和传输量，避免旧的 100% 掩盖全量下载，差分情况下大小表示实际传输量。
 - 进度 100% 仅表示传输已完成，仍需等待校验及安装准备；界面显示“正在校验并准备安装”。收到 `update-downloaded` 正式完成事件即进入 ready，不再等待其后的缓存收尾；下载 Promise 成功回执也可进入 ready。渲染端先订阅再读取初始状态，迟到的读取结果不能覆盖推送；若漏收 ready 广播，下载 IPC 回执仅在同版本仍为 downloading 时补齐，不覆盖安装中的状态。
 - **完成状态修复验证（2026-10-14，本机）**：113 个更新相关测试、生产构建、lint、格式检查和启动冒烟通过；覆盖完成事件先于 Promise、迟到快照、漏收完成广播、100% 后才准备好安装及差分回退。尚未以新版客户端执行线上两版覆盖升级，不能把这些回归检查视为该次现场故障已完成端到端复现。
-- 每两小时后台检查一次，启动后 30 秒先查一次；仅打包运行且已有窗口时执行。开发模式不联网检查。缺少或不可读的 latest.yml 显示检查失败，不显示“已是最新”。
+- 每两小时后台检查一次，启动后 30 秒先查一次；仅打包运行且已有窗口时执行。开发模式不联网检查。缺少或不可读的渠道元数据显示检查失败，不显示“已是最新”。
 - `autoDownload=false`、`autoInstallOnAppQuit=false`：用户手动下载，下载完成后选择“退出并安装”或“下次启动时提醒”；关闭弹窗后从设置页安装会重新确认。安装前保存笔记、聊天文字草稿、邮件草稿和工作台布局；运行中 Agent、未发送附件或保存失败会阻止安装，失败时保留确认入口。确认弹窗的正文只留一行（退出后自动安装、终端任务会结束），保存与安装进行中只显示标题、不再解释细节。终端任务会结束，不能恢复。
 - 安装调用 `quitAndInstall(false, true)`，关闭 Dela 并显示 NSIS 安装向导及进度，沿用原安装目录。`build/installer.nsh` 通过官方 NSIS 扩展宏启用可展开的“显示细节”：electron-builder 进入安装段先执行 `SetDetailsPrint none`，所以细节输出由 `customCheckAppRunning` 钩子重新打开（该钩子取代其默认实现，内部按原样重跑关闭 Dela 的检查），日志里才会出现开始安装、关闭运行中的 Dela、解压和安装完成这几段。`autoRunAppAfterInstall=true`，但非静默向导仍由用户在完成页选择是否运行 Dela。NSIS 安装后启动时自带 `--updated`，主进程以只读 preload 标记传给界面，只在该次启动提示实际版本，不把启动安装器当成更新成功。
 - 发起安装的行为由旧客户端决定：已安装 1.0.1 / 1.0.2 首次升级到修复版仍会使用旧的静默流程，运行修复版后的下一次更新才显示向导；手动运行新版安装包可直接使用向导。
@@ -452,7 +452,7 @@ GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换�
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。发版前把 `CHANGELOG.md` 的 `## Unreleased` 改成 `## <版本> - <发布日>`：更新内容弹窗只认 `## X.Y.Z - 日期` 分节（`features/release-notes/notes.ts`），留在 `Unreleased` 下的 `### 亮点` 会被静默跳过，弹窗不出现。
 2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.ts` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。全部成功后创建 Release，上传 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
-3. Mac 下载同一批 helper，独立完成检查、arm64 DMG/ZIP 构建、Developer ID 签名、Apple 公证、签名校验与启动冒烟；通过后向源码仓库和公开仓库的同版本 Release 追加 Mac 安装包、校验和及源码提交记录。Mac 失败或等待环境批准不阻塞 Windows 发布，但会影响工作流整体状态。
+3. Mac 下载同一批 helper，独立完成检查、arm64 DMG/ZIP 构建、Developer ID 签名、Apple 公证、签名校验、更新产物检查与启动冒烟；通过后向源码仓库和公开仓库的同版本 Release 追加 Mac 安装包、`.zip.blockmap`、`latest-mac.yml`、校验和及源码提交记录。Mac 失败或等待环境批准不阻塞 Windows 发布，但会影响工作流整体状态。
 4. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
 5. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 
@@ -490,9 +490,9 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 已下载课件的 `@` 候选同样按课程根目录的路径格式计算相对路径，不用宿主系统的路径规则解析另一平台的路径；排除目录自身、父级和其他盘符，POSIX 保留大小写及文件名中的反斜杠。移动或重命名本地条目时，标签、草稿和目录选中状态只迁移实际子树；POSIX 的反斜杠不是目录边界，草稿标题保留完整文件名。Windows 原有移动匹配规则保持不变。
 
-同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；签名包通过检查后追加到同版本 Release。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；发布构建由 `release.yml` 内联生成独立配置，强制 Developer ID 签名与公证。本地签名与公证已通过，云端签名、Gatekeeper 下载后首启与自动更新仍待验收。
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish` 与 `win.publish` 指向同一 CDN generic 更新源，Mac 包内同样生成 `app-update.yml`，发布产物多出 `latest-mac.yml`；签名包通过检查后追加到同版本 Release。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；发布构建由 `release.yml` 内联生成独立配置，强制 Developer ID 签名与公证。云端签名、公证与装订已随 v1.3.0 发布通过，Gatekeeper 下载后首启与两版升级仍待实机验收。
 
-Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
+Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库；Mac 应用内更新已启用，与 Windows 共用检查、下载、确认与安装流程，两版升级仍需实机验收。
 
 ### 16.2 跨平台取舍与待验收事项
 
@@ -506,7 +506,7 @@ Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保
 | 登录启动       | 保留默认开启的产品行为，参数按系统处理                                  | Mac 登录项许可、实际登录后隐藏启动仍待验收；冒烟脚本禁止注册，避免测试修改启动偏好                                                              |
 | PPTX 预览      | Mac 仅用系统默认应用打开原文件；Windows 保留 PowerPoint 转换            | Mac 不显示导出/重导出按钮，主进程提前拒绝转换；已有 PDF 仍可阅读并提示过期，不要求安装 Keynote                                                  |
 | Agent 文档读取 | Windows x64 / Apple Silicon 共用脚本与锁文件，安装器按平台选择运行时    | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；扫描件只输出页面图片，不宣称 OCR。与 GUI 阅读器及 PPTX 外部打开分别验收                 |
-| 分发与凭据     | 相同源码生成不同平台产物                                                | 签名 DMG/ZIP 接入 Release，首次云端发布待验收；Mac 应用内更新不可用。本地签名、公证通过，下载首启与最低版本未验收；Intel 不在支持范围           |
+| 分发与凭据     | 相同源码生成不同平台产物                                                | 签名 DMG/ZIP 已接入 Release（v1.3.0 云端签名、公证通过）；Mac 应用内更新已启用。Gatekeeper 下载后首启与两版升级未验收；Intel 不在支持范围       |
 
 本机已通过界面实测从 Dela 将含中文、空格和分号的项目目录交给 Finder 与 VS Code，笔记两种编辑模式下的 ⌘W、自动保存及 ⌘Q 退出也已验证；测试使用隔离 profile，由开发 Electron 加载打包代码。实际登录启动、系统级键位冲突、多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
 
