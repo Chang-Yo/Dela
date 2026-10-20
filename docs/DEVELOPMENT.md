@@ -422,7 +422,9 @@ pnpm test
 - helper 被选中时，平台任务必须等待其成功并下载当次产物；无需重建时使用入库的 helper，不能因 helper 合理跳过而跳过平台任务。
 - `CI required` 始终汇总结果：changes/basic 必须成功，被选中的任务必须成功，未选中的任务必须为 skipped。失败、取消或非预期跳过均不能通过。
 
-`pr-labels.yml` 使用 `pull_request_target` 在 PR 创建、更新与重新打开时打标签，覆盖 fork PR 的写权限；它不 checkout、不执行 PR 代码，只读取 API 元数据。标签必须预先创建，缺失时 workflow 只在 job summary 输出 `gh label create` 建议。大小按新增+删除行统计：S 0–99、M 100–399、L 400–800、XL 801–999、XXL 1000+；锁文件、`vendor/`、`out/`、`dist/` 不计入，文档与 CHANGELOG 正常计入。范围标签按路径叠加：`src/renderer/**` 或 `.tsx` 为 frontend，`src/main/**`、`src/preload/**`、`helper/**` 为 backend，`src/shared/**` 为 shared。类型标签优先取 closing issue 的 labels（`Fixes`/`Closes`/`Resolves`；`Refs` 不是关闭引用，不参与），单一类型优先于 PR 标题；多个 issue 类型冲突时回退到标题前缀（fix→bug、feat→enhancement、refactor、test、ci/build→ci、perf→performance、chore(deps)→dependencies），仍不明确则不打类型标签。`documentation` 仅在全部改动为文档时添加。这些标签由 workflow 管理，人工改动会在下一次 PR 事件中被校正；其他人工标签不受影响。
+`pr-labels.yml` 在 PR 创建、重新打开或推送提交时打标签：大小按过滤后的增删行分六档（0–10 / 11–80 / 81–200 / 201–400 / 401–800 / 801+，依次 XS 到 XXL），范围按路径叠加（`frontend`、`backend`、`shared`），类型取 closing issue 的标签、缺失时回退标题前缀，全部改动为文档时加 `documentation`。
+
+它用 `pull_request_target` 让 fork 的 PR 也能写标签，不 checkout PR 代码；标签须预先创建，缺失时只在 job summary 给出 `gh label create` 命令，人工改动会在下一次 PR 事件时被校正。
 
 GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换旧的平台必需检查名称；修改 workflow 本身不会更新远端分支规则。首次云端运行成功后再切换规则。变更识别 job 额外使用 `pull-requests: read`，其余检查仅有 `contents: read`。
 

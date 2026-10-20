@@ -39,25 +39,29 @@ jobs:
 
             // 标签必须预先创建；workflow 只在缺失时给出 gh label create 建议。
             const LABEL_DEFS = {
+              'size/XS': {
+                color: '44CC11',
+                description: '按新增+删除行统计 0-10 行（不含锁文件、vendor 与生成物）',
+              },
               'size/S': {
                 color: '77BB00',
-                description: '按新增+删除行统计 0-99 行（不含锁文件、vendor 与生成物）',
+                description: '按新增+删除行统计 11-80 行（不含锁文件、vendor 与生成物）',
               },
               'size/M': {
                 color: 'EEBB00',
-                description: '按新增+删除行统计 100-399 行（不含锁文件、vendor 与生成物）',
+                description: '按新增+删除行统计 81-200 行（不含锁文件、vendor 与生成物）',
               },
               'size/L': {
                 color: 'EE9900',
-                description: '按新增+删除行统计 400-800 行（不含锁文件、vendor 与生成物）',
+                description: '按新增+删除行统计 201-400 行（不含锁文件、vendor 与生成物）',
               },
               'size/XL': {
                 color: 'EE5500',
-                description: '按新增+删除行统计 801-999 行（不含锁文件、vendor 与生成物）',
+                description: '按新增+删除行统计 401-800 行（不含锁文件、vendor 与生成物）',
               },
               'size/XXL': {
                 color: 'EE0000',
-                description: '按新增+删除行统计 1000+ 行（不含锁文件、vendor 与生成物）',
+                description: '按新增+删除行统计 801+ 行（不含锁文件、vendor 与生成物）',
               },
               frontend: {
                 color: '1D76DB',
@@ -105,7 +109,14 @@ jobs:
               },
             }
 
-            const SIZE_LABELS = ['size/S', 'size/M', 'size/L', 'size/XL', 'size/XXL']
+            const SIZE_LABELS = [
+              'size/XS',
+              'size/S',
+              'size/M',
+              'size/L',
+              'size/XL',
+              'size/XXL',
+            ]
             const SCOPE_LABELS = ['frontend', 'backend', 'shared']
             const TYPE_LABELS = [
               'bug',
@@ -190,17 +201,19 @@ jobs:
               countedLines += (file.additions ?? 0) + (file.deletions ?? 0)
             }
 
-            // 阈值来自 issue 约定：S 0-99、M 100-399、L 400-800、XL 801-999、XXL 1000+。
+            // 阈值按审查注意力分档：≤10 / ≤80 / ≤200 / ≤400 / ≤800 / 更多。
             const sizeLabel =
-              countedLines <= 99
-                ? 'size/S'
-                : countedLines <= 399
-                  ? 'size/M'
-                  : countedLines <= 800
-                    ? 'size/L'
-                    : countedLines <= 999
-                      ? 'size/XL'
-                      : 'size/XXL'
+              countedLines <= 10
+                ? 'size/XS'
+                : countedLines <= 80
+                  ? 'size/S'
+                  : countedLines <= 200
+                    ? 'size/M'
+                    : countedLines <= 400
+                      ? 'size/L'
+                      : countedLines <= 800
+                        ? 'size/XL'
+                        : 'size/XXL'
 
             const targets = new Set([sizeLabel])
             // documentation 只在全部改动都是文档时添加；代码/CHANGELOG 混改时不加。
