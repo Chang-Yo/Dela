@@ -7,29 +7,20 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing version tag to publish (required unless building a Mac candidate)'
-        required: false
+        description: 'Existing version tag to publish (for example, v0.1.0)'
+        required: true
         type: string
-      macos_candidate:
-        description: 'Build a signed Mac candidate from the selected ref; do not publish a release'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ inputs.macos_candidate && 'macos-candidate' || inputs.tag || github.ref_name }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   macos:
     needs: [prepare, helper]
-    if: >-
-      ${{ !cancelled() &&
-          ((github.event_name == 'workflow_dispatch' && inputs.macos_candidate) ||
-           (needs.prepare.result == 'success' && needs.helper.result == 'success')) }}
     name: Sign and notarize mac-arm64
     runs-on: macos-15
     environment: macos-release
@@ -42,15 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.prepare.outputs.sha || github.sha }}
+          ref: ${{ needs.prepare.outputs.sha }}
           persist-credentials: false
       - uses: actions/download-artifact@v6
-        if: needs.helper.result == 'success'
         with:
           name: helper-linux-amd64
           path: vendor/dela-helper
       - uses: actions/download-artifact@v6
-        if: needs.helper.result == 'success'
         with:
           name: helper-linux-arm64
           path: vendor/dela-helper
@@ -66,17 +55,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check and build
         run: pnpm check
-      - uses: actions/setup-go@v7
-        if: inputs.macos_candidate
-        with:
-          go-version: '1.27.2'
-          cache: false
-      - name: Build current Linux helpers
-        if: inputs.macos_candidate
-        run: node scripts/build-helper.ts --all
       - name: Smoke test Electron
         run: pnpm smoke
-      - name: Sign and notarize candidate
+      - name: Sign and notarize
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
@@ -84,13 +65,31 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          node scripts/prepare-macos-release.ts
+          mkdir -p .build
+          # .pak 语言数据由 Electron 框架的资源封印保护；逐文件签名会沿框架链接重复处理它们。
+          cat > .build/macos-release.json <<EOF
+          {
+            "extends": "$PWD/electron-builder.yml",
+            "forceCodeSigning": true,
+            "mac": {
+              "identity": "$APPLE_TEAM_ID",
+              "hardenedRuntime": true,
+              "notarize": true,
+              "binaries": [
+                "Contents/Resources/bin/darwin-arm64/rg",
+                "Contents/Resources/bin/darwin-arm64/fd"
+              ],
+              "signIgnore": ["\\\\.pak$"],
+              "publish": null
+            }
+          }
+          EOF
           pnpm exec electron-builder --config .build/macos-release.json --mac --arm64 --publish never
       - name: Verify signatures, notarization and archives
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: node scripts/verify-macos-package.ts dist/mac-arm64/Dela.app --signed
-      - name: Smoke test signed candidate
+      - name: Smoke test signed app
         run: node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
       - name: Record artifact checksums and source
         run: |
@@ -99,7 +98,7 @@ jobs:
           git rev-parse HEAD > source-commit-mac-arm64.txt
       - uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.macos_candidate && format('macos-signed-candidate-{0}', github.sha) || 'installer-mac-arm64' }}
+          name: installer-mac-arm64
           path: |
             dist/Dela-*-mac-arm64.dmg
             dist/Dela-*-mac-arm64.zip
@@ -110,15 +109,11 @@ jobs:
           retention-days: 7
 
   prepare:
-    if: github.event_name != 'workflow_dispatch' || !inputs.macos_candidate
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       sha: ${{ steps.version.outputs.sha }}
     steps:
-      - name: Require a release tag
-        if: github.event_name == 'workflow_dispatch' && !inputs.tag
-        run: echo 'Release publication requires the tag input.' >&2; exit 1
       - uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
@@ -355,21 +350,13 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-      SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.prepare.outputs.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24.21.0'
-          package-manager-cache: false
       - uses: actions/download-artifact@v6
         with:
           name: installer-mac-arm64
           path: installers
-      - run: node scripts/publish-macos-release.ts installers
+      - name: Upload Mac installers
+        run: gh release upload "$RELEASE_TAG" installers/* --clobber
 
   publish-macos-public:
     needs: [prepare, macos, publish-public]
@@ -380,18 +367,10 @@ jobs:
       GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
       GH_REPO: Chang-Yo/Dela_releases
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-      SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.prepare.outputs.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24.21.0'
-          package-manager-cache: false
       - uses: actions/download-artifact@v6
         with:
           name: installer-mac-arm64
           path: installers
-      - run: node scripts/publish-macos-release.ts installers
+      - name: Upload Mac installers
+        run: gh release upload "$RELEASE_TAG" installers/* --clobber

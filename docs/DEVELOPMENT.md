@@ -8,7 +8,6 @@
 - 日常编码约束：[AGENTS.md](../AGENTS.md)
 - 远端 helper 的协议与端点表：[helper/README.md](../helper/README.md)
 - 校园接口实测与资料索引：[sjtu-apis.md](sjtu-apis.md)
-- macOS 适配与验收证据：[macos-validation.md](macos-validation.md)
 
 ## 1. 产品与边界
 
@@ -410,7 +409,7 @@ pnpm test
 
 ## 14. CI
 
-保留两个 workflow：`check.yaml` 负责 PR 与 main 检查，`release.yml` 负责 Windows tag 发布及手动 Mac 签名候选。没有定时回归，也不要求 Draft PR、标签或手动启动检查。
+保留两个 workflow：`check.yaml` 负责 PR 与 main 检查，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR、标签或手动启动检查。
 
 `.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
 
@@ -425,9 +424,7 @@ pnpm test
 
 GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换旧的平台必需检查名称；修改 workflow 本身不会更新远端分支规则。首次云端运行成功后再切换规则。变更识别 job 额外使用 `pull-requests: read`，其余检查仅有 `contents: read`。
 
-路径分流可能遗漏隐含的平台依赖；新增运行时入口或资源目录时同步更新 filters。真实 SSH 联调仍手动执行 `pnpm test:remote`，不接入 CI。Mac 云端冒烟不能替代签名、公证、Gatekeeper 下载后首启与自动更新验收。正式发布中 Windows 按原流程发布，Mac 独立完成签名与公证后追加附件，见 §15。
-
-`release.yml` 手动勾选 `macos_candidate` 时，仅在 arm64 Mac runner 构建所选 ref 的签名候选，Windows 发布任务全部跳过。凭据来自 `macos-release` 环境，签名、公证、归档内应用校验和启动冒烟均通过后才上传 DMG/ZIP artifact；不创建 Release。配置与运行步骤见 [Mac 签名与发布](macos-signing.md)。
+路径分流可能遗漏隐含的平台依赖；新增运行时入口或资源目录时同步更新 filters。真实 SSH 联调仍手动执行 `pnpm test:remote`，不接入 CI。Mac 云端冒烟不能替代签名、公证、Gatekeeper 下载后首启与自动更新验收；发布流程见 §15。
 
 ## 15. 版本与发布
 
@@ -455,13 +452,13 @@ GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换�
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。发版前把 `CHANGELOG.md` 的 `## Unreleased` 改成 `## <版本> - <发布日>`：更新内容弹窗只认 `## X.Y.Z - 日期` 分节（`features/release-notes/notes.ts`），留在 `Unreleased` 下的 `### 亮点` 会被静默跳过，弹窗不出现。
 2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.ts` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。全部成功后创建 Release，上传 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
-3. Mac 下载同一批 helper，独立完成检查、arm64 DMG/ZIP 构建、Developer ID 签名、Apple 公证、归档内签名校验与启动冒烟。通过后分别向源码仓库和公开仓库的同版本 Release 追加 Mac 安装包、校验和及源码提交记录。Mac 失败或等待环境批准不阻塞 Windows 发布，但会影响工作流整体状态。
+3. Mac 下载同一批 helper，独立完成检查、arm64 DMG/ZIP 构建、Developer ID 签名、Apple 公证、签名校验与启动冒烟；通过后向源码仓库和公开仓库的同版本 Release 追加 Mac 安装包、校验和及源码提交记录。Mac 失败或等待环境批准不阻塞 Windows 发布，但会影响工作流整体状态。
 4. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
-5. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布，保持 `macos_candidate` 未勾选。tag 必须包含当前发布脚本；勾选该选项仅构建候选，不发布 Release。
+5. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 
 `prepare` 与 `release` 任务是 Ubuntu runner，只做校验与 `gh` 上传，不构建应用；发布 job 会把 release notes 作为 artifact 上传，供 `publish-public` 复用，后者同样跑在 `ubuntu-24.04`。release 工作流的 `concurrency` 设了 `cancel-in-progress: false`，与 CI 相反。
 
-**重跑已有 tag**：Windows 流程仍用 `gh release upload --clobber` 覆盖同名产物。正式分发后不要覆盖重建安装包：CDN 缓存可能与新元数据不一致；程序变更应升版并发布新 tag。Mac 上传只追加文件，同名文件的大小与 SHA-256 一致时跳过，否则拒绝覆盖。失败时优先选择 Re-run failed jobs，避免重跑成功的 Windows 发布；artifact 保留 7 天。
+**重跑已有 tag**：Windows 与 Mac 上传均用 `gh release upload --clobber` 覆盖同名产物。正式分发后不要覆盖重建安装包：CDN 缓存可能与新元数据不一致；程序变更应升版并发布新 tag。失败时优先 Re-run failed jobs；artifact 保留 7 天。
 
 **公开镜像**：私有 Release 发布成功后，同一工作流会把同一批安装包、blockmap、更新元数据和完全相同的 release notes 再发布到公开仓库 [Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases) 的同名 tag Release。公开仓库中的 tag 由 GitHub 自动创建在其默认分支最新提交上，仅作发布锚点，不对应源码。
 
@@ -469,7 +466,7 @@ GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换�
 
 1. 公开仓库已有初始提交（例如 README）。
 2. 在本仓库 Settings → Secrets and variables → Actions 配置 `PUBLIC_RELEASE_TOKEN`：仅授权 `Chang-Yo/Dela_releases`、权限 Contents: Read and write 的 fine-grained PAT——内置 `GITHUB_TOKEN` 无法跨仓库发布。
-3. 按 [Mac 签名与发布](macos-signing.md) 配置 `macos-release` 环境、允许版本 tag、添加签名与公证 Secrets。源码和公开仓库均需允许发布后追加附件，不能启用 immutable release。Mac 上传复用上述 token，不修改 Windows 附件或 Release 说明。
+3. Mac 签名需要在 Settings → Environments 创建 `macos-release` 环境（允许 `main` 分支与 `v*` tag），并在其中配置 Secrets：`MAC_CSC_LINK`（Developer ID Application 证书 `.p12` 的 Base64）、`MAC_CSC_KEY_PASSWORD`（导出密码）、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。Mac 上传复用上述 token，不修改 Windows 附件或 Release 说明。
 
 ## 16. 平台基线
 
@@ -483,7 +480,7 @@ GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换�
 
 ### 16.1 macOS 开发约定
 
-macOS 已接入签名与自动发布流程，首次云端正式分发尚待验收。2026-10-16 用户明确只支持 Apple Silicon，不适配 Intel Mac；早期记录中的 x64/双架构计划已撤销。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包与 DMG/ZIP 解包启动、主要桌面交互、文档读取及核心校园业务；具体环境、结果与证据范围见 [macOS 适配验证记录](macos-validation.md)。
+macOS 已接入签名与自动发布流程，首次云端正式分发尚待验收。2026-10-16 用户明确只支持 Apple Silicon，不适配 Intel Mac；早期记录中的 x64/双架构计划已撤销。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包与 DMG/ZIP 解包启动、主要桌面交互、文档读取及核心校园业务。
 
 保持一个应用、一个 package、一套主干代码。业务逻辑、数据格式与 IPC 共用，Windows 合作者的常规业务功能无需另写 macOS 版本；涉及系统命令、路径或外部程序时仍需适配与双平台回归。平台差异优先留在现有定位、进程启动与系统交互函数中，出现真实重复和多个调用方后再提取共享函数。PPTX 在 Mac 仅提供系统默认应用打开，复用同一个资源解析与 `shell.openPath` 入口，不接入 Keynote 或其他 PDF 转换器；Windows 保留 PowerPoint 转换。
 
@@ -493,9 +490,9 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 已下载课件的 `@` 候选同样按课程根目录的路径格式计算相对路径，不用宿主系统的路径规则解析另一平台的路径；排除目录自身、父级和其他盘符，POSIX 保留大小写及文件名中的反斜杠。移动或重命名本地条目时，标签、草稿和目录选中状态只迁移实际子树；POSIX 的反斜杠不是目录边界，草稿标题保留完整文件名。Windows 原有移动匹配规则保持不变。
 
-同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；Mac 签名包通过检查后追加到同版本 Release。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；签名候选与正式发布使用 `prepare-macos-release.ts` 生成独立配置，强制 Developer ID 与公证。本地签名与公证已通过，云端签名、Gatekeeper 下载后首启与自动更新仍待验收。
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；签名包通过检查后追加到同版本 Release。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；发布构建由 `release.yml` 内联生成独立配置，强制 Developer ID 签名与公证。本地签名与公证已通过，云端签名、Gatekeeper 下载后首启与自动更新仍待验收。
 
-Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库。账号申请状态与后续真实验收证据记录在 `macos-validation.md`；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
+Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
 
 ### 16.2 跨平台取舍与待验收事项
 
@@ -511,9 +508,9 @@ Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保
 | Agent 文档读取 | Windows x64 / Apple Silicon 共用脚本与锁文件，安装器按平台选择运行时    | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；扫描件只输出页面图片，不宣称 OCR。与 GUI 阅读器及 PPTX 外部打开分别验收                 |
 | 分发与凭据     | 相同源码生成不同平台产物                                                | 签名 DMG/ZIP 接入 Release，首次云端发布待验收；Mac 应用内更新不可用。本地签名、公证通过，下载首启与最低版本未验收；Intel 不在支持范围           |
 
-本机已通过界面实测从 Dela 将含中文、空格和分号的项目目录交给 Finder 与 VS Code，笔记两种编辑模式下的 ⌘W、自动保存及 ⌘Q 退出也已验证；测试使用隔离 profile，由开发 Electron 加载打包代码，范围见[验证记录](macos-validation.md#已验证能力)。实际登录启动、系统级键位冲突、多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
+本机已通过界面实测从 Dela 将含中文、空格和分号的项目目录交给 Finder 与 VS Code，笔记两种编辑模式下的 ⌘W、自动保存及 ⌘Q 退出也已验证；测试使用隔离 profile，由开发 Electron 加载打包代码。实际登录启动、系统级键位冲突、多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
 
-水源授权、课表和课堂视频登录共用 `campus.ts` 中的窗口创建函数：Mac 使用带原生标题栏的普通子窗口，提供关闭按钮、Esc 与 ⌘W；Windows 保留模态窗口。关闭快捷键仅作用于辅助窗口，不抢主工作台的关标签动作。外部页面仍使用校园 Session、sandbox 与 contextIsolation，不加载主界面 preload。水源重复授权唤回现有窗口而不替换密钥，关窗后保留待绑定状态，绑定成功关闭本次窗口，失败可重试；课表/视频按发起窗口和入口 URL 复用正在进行的登录及其结果，取消时返回「未完成登录」并清理重探计时器。来源与验证范围见 [验证记录](macos-validation.md#已验证能力)。可见关闭入口已在本机实机界面验收；自动测试覆盖窗口形态、复用与绑定路径。
+水源授权、课表和课堂视频登录共用 `campus.ts` 中的窗口创建函数：Mac 使用带原生标题栏的普通子窗口，提供关闭按钮、Esc 与 ⌘W；Windows 保留模态窗口。关闭快捷键仅作用于辅助窗口，不抢主工作台的关标签动作。外部页面仍使用校园 Session、sandbox 与 contextIsolation，不加载主界面 preload。水源重复授权唤回现有窗口而不替换密钥，关窗后保留待绑定状态，绑定成功关闭本次窗口，失败可重试；课表/视频按发起窗口和入口 URL 复用正在进行的登录及其结果，取消时返回「未完成登录」并清理重探计时器。可见关闭入口已在本机实机界面验收；自动测试覆盖窗口形态、复用与绑定路径。
 
 按当前协作决定，SSH 真机回归不作为本次 macOS 适配的阻塞项：合作者反馈已有远端测试稳定，本次重点验证 Mac 编译、打包、启动与本地 SSH 工具定位。该反馈不等于 macOS 客户端到远端的链路已验收；适配分支仍未执行真实 SSH 套件，不重复要求提供测试主机。
 
