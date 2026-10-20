@@ -63,8 +63,10 @@ assert.equal(
   'arm64',
 );
 assert.ok(existsSync(join(resources, 'app.asar')), '缺少应用代码');
+// 应用内自动更新的 feed 配置：electron-updater 据此找到 CDN 上的 latest-mac.yml。
+assert.ok(existsSync(join(resources, 'app-update.yml')), '缺少 app-update.yml，自动更新不可用');
 const bundleHash = signed ? verifySignedBundle(bundle) : null;
-for (const name of ['openssh', 'mingit', 'app-update.yml']) {
+for (const name of ['openssh', 'mingit']) {
   assert.ok(!existsSync(join(resources, name)), `Mac 产物不应包含 ${name}`);
 }
 const expectedTools = [`darwin-${process.arch}`];
