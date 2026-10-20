@@ -72,12 +72,12 @@ const newButton = () => document.querySelector('[aria-label="新建"]');
 const collapseButton = () => document.querySelector('[aria-label="全部收起"]');
 const blank = () => document.querySelector<HTMLElement>('#workspace-explorer > .overflow-y-auto')!;
 
-async function render(projectId: string) {
+async function render(projectId: string, activeDocKey: string | null = null) {
   const onAction = vi.fn();
   await act(async () =>
     root.render(
       <WorkbenchExplorer
-        activeDocKey={null}
+        activeDocKey={activeDocKey}
         onAction={onAction}
         onOpenDocument={() => {}}
         onOpenToSide={() => {}}
@@ -102,6 +102,39 @@ it('keeps the write entries for a local project', async () => {
   const { onAction } = await render(localProject.id);
   expect(newButton()).toBeTruthy();
 
+  await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+  expect(onAction).toHaveBeenCalledWith('note', localProject.id);
+});
+
+it('chooses the new note location from the tree selection, not the open document', async () => {
+  const folder: WorkspaceEntry = {
+    id: 'D:/code/本地项目/aaa',
+    parentId: localProject.id,
+    name: 'aaa',
+    kind: 'folder',
+    sourceId: null,
+    path: 'D:/code/本地项目/aaa',
+    remoteId: null,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+  };
+  const openNote: WorkspaceEntry = {
+    id: 'D:/code/本地项目/aaa/bbb.md',
+    parentId: folder.id,
+    name: 'bbb.md',
+    kind: 'note',
+    sourceId: null,
+    path: 'D:/code/本地项目/aaa/bbb.md',
+    remoteId: null,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+  };
+  useWorkspaceStore.setState({
+    workspace: { ...workspace, entries: [...workspace.entries, folder, openNote] },
+    loaded: true,
+    error: null,
+  });
+
+  // 树里没有选中项，只是打开着 aaa/bbb.md：落点应是项目根，而不是它的父目录。
+  const { onAction } = await render(localProject.id, openNote.id);
   await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
   expect(onAction).toHaveBeenCalledWith('note', localProject.id);
 });

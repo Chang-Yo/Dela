@@ -135,7 +135,9 @@ export function WorkbenchExplorer({
   }, [narrow, mobileOpen]);
 
   const expand = (id: string, open: boolean) => useTreeState.getState().expand(id, open);
-  const container = () => currentContainerOf(selected ?? activeDocKey, rootId);
+  // 顶栏「+」与空白双击的落点只看树里的选中项：没有选中就落项目根。
+  // 不跟随当前打开的文件——否则新建后新文件成为活动文档，下一次新建会落进刚建出的子目录。
+  const container = () => currentContainerOf(selected, rootId);
 
   const selectEntry = (id: string) => {
     const item = entries.find((entry) => entry.id === id);
