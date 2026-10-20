@@ -546,6 +546,9 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
       parsed.name = leaf;
       path = availablePath(ensureFolders(containerPath(parsed.parentId), segments), leaf, folder);
     } else {
+      // 项目是工作区里的一级目录身份，名称必须是单段：/ 或 \ 会被 diskName 压成下划线，
+      // 建出来的目录和用户输入的名字对不上。
+      if (/[\\/]/.test(parsed.name)) throw new Error('项目名不能包含 / 或 \\');
       path = availablePath(containerPath(parsed.parentId), parsed.name, true);
     }
     if (note) writeFileSync(path, parsed.text ?? '', { flag: 'wx' });

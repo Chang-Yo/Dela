@@ -387,6 +387,13 @@ describe('createWorkspaceEntry', () => {
     ).toThrow('同名文件');
     expect(existsSync(join(workspaceRoot(), '占位', '内部.md'))).toBe(false);
   });
+
+  it('项目名不接受路径分隔符', () => {
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '研究/课题', kind: 'project' }),
+    ).toThrow('项目名不能包含');
+    expect(existsSync(join(workspaceRoot(), '研究'))).toBe(false);
+  });
 });
 
 describe('归档文件夹', () => {
