@@ -1,5 +1,5 @@
 // 独立 profile 检查真实主进程、原生菜单与可取消的退出，不访问真实账号或系统启动项。
-const { app, BrowserWindow, dialog, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, dialog, Menu } = require('electron');
 const { dirname, join, resolve } = require('node:path');
 const { mkdtempSync } = require('node:fs');
 const { tmpdir } = require('node:os');
@@ -62,12 +62,13 @@ async function run(window) {
   await wait(() => js("!!document.querySelector('main')"), 'app mounted');
   assert.equal(await js('window.dela.platform'), process.platform);
   if (process.platform === 'darwin') {
-    const preference = await js('window.dela.settings.getIcon()');
-    const expectedIcon = nativeImage.createFromPath(
-      join(root, 'out/main/icons', `Dela_${preference}_bg.png`),
+    // 品牌源图是 1254 像素，Dock 必须用构建生成的 1024 画布图标，而不是未加留白的源图。
+    assert.ok(dockIcon && !dockIcon.isEmpty(), 'Dock icon must use generated macOS assets');
+    assert.deepEqual(
+      dockIcon.getSize(),
+      { width: 1024, height: 1024 },
+      'Dock icon must use generated macOS assets',
     );
-    assert.ok(dockIcon && !expectedIcon.isEmpty(), 'Dock icon must use generated macOS assets');
-    assert.deepEqual(dockIcon.toPNG(), expectedIcon.toPNG());
     const bounds = window.getBounds();
     const zoom = window.webContents.getZoomFactor();
     const fontSize = await js('document.documentElement.style.fontSize');

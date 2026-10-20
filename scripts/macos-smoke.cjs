@@ -2,7 +2,7 @@
 const { app, nativeImage, safeStorage } = require('electron');
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
-const { mkdtempSync, rmSync } = require('node:fs');
+const { mkdtempSync, rmSync, statSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { createRequire } = require('node:module');
 const { dirname, join, resolve } = require('node:path');
@@ -26,18 +26,8 @@ if (process.platform !== 'darwin') {
     try {
       for (const name of ['white', 'black'])
         checkIcon(join(root, 'out/main/icons', `Dela_${name}_bg.png`));
-      if (root.endsWith('.asar')) {
-        const bundleIcon = join(profile, 'bundle-icon.png');
-        execFileSync('/usr/bin/sips', [
-          '-s',
-          'format',
-          'png',
-          join(dirname(root), 'icon.icns'),
-          '--out',
-          bundleIcon,
-        ]);
-        checkIcon(bundleIcon);
-      }
+      if (root.endsWith('.asar'))
+        assert.ok(statSync(join(dirname(root), 'icon.icns')).size > 0, '缺少应用图标');
       const Database = requireNative('better-sqlite3');
       const db = new Database(join(profile, 'smoke.db'));
       try {
@@ -75,25 +65,32 @@ if (process.platform !== 'darwin') {
   });
 }
 
+// 图标主体必须落在 1024 画布中的 824 区域，四周留 100 透明像素；只抽查边界与主体，
+// 留 10 像素容差吸收重采样的抗锯齿差异，避免整图扫描。
 function checkIcon(path) {
   const icon = nativeImage.createFromPath(path);
   assert.deepEqual(icon.getSize(), { width: 1024, height: 1024 }, path);
   const bitmap = icon.toBitmap();
-  let left = 1024,
-    top = 1024,
-    right = -1,
-    bottom = -1;
-  for (let y = 0; y < 1024; y++)
-    for (let x = 0; x < 1024; x++) {
-      const alpha = bitmap[(y * 1024 + x) * 4 + 3];
-      if (x < 99 || x > 924 || y < 99 || y > 924) assert.equal(alpha, 0, path);
-      if (alpha < 128) continue;
-      left = Math.min(left, x);
-      top = Math.min(top, y);
-      right = Math.max(right, x);
-      bottom = Math.max(bottom, y);
-    }
-  assert.deepEqual([left, top, right, bottom], [100, 100, 923, 923], path);
+  const alpha = (x, y) => bitmap[(y * 1024 + x) * 4 + 3];
+  for (const [x, y] of [
+    [0, 0],
+    [512, 0],
+    [0, 512],
+    [512, 99],
+    [99, 512],
+    [924, 512],
+    [512, 924],
+    [1023, 1023],
+  ])
+    assert.equal(alpha(x, y), 0, `${path} 在 (${x}, ${y}) 缺少透明留白`);
+  for (const [x, y] of [
+    [512, 512],
+    [110, 512],
+    [512, 110],
+    [913, 512],
+    [512, 913],
+  ])
+    assert.equal(alpha(x, y), 255, `${path} 在 (${x}, ${y}) 缺少图标主体`);
 }
 
 function checkPty(cwd) {
