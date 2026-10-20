@@ -533,7 +533,6 @@ function DesktopMailView({
     }
   };
 
-  /** 彻底删除/清空后,若该邮件正被阅读则回到列表态。 */
   const clearReading = (messageId: number) => {
     if (selectedMessageId !== messageId) return;
     detailRequest.current += 1;

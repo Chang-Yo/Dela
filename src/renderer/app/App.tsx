@@ -1,6 +1,5 @@
-// 应用根组件（批次 3B 装配）：launch 阶段（首启引导）、AppShell 壳、视图切换动画。
-// 视图路由与定位脉冲在 ./navigation；主题/缩放在 ./theme；通知镜像在 ./notifications；
-// 工作台（Provider + 目录侧栏 + 弹窗）在 workbench/WorkbenchShell。
+// 应用根组件：launch 阶段（首启引导）、AppShell 壳与视图切换。
+// 视图路由在 ./navigation；主题/缩放在 ./theme；通知镜像在 ./notifications；工作台在 workbench/WorkbenchShell。
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell } from '../components/AppShell';
@@ -197,7 +196,6 @@ export default function App() {
     });
   }, []);
 
-  // 启动进入聊天首页；项目布局在显式进入项目时恢复。
   useEffect(() => {
     void window.dela?.settings
       .getWorkspacePrefs()

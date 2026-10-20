@@ -41,8 +41,7 @@ type inotifyEvent struct {
 	mask uint32
 }
 
-// splitInotifyEvents 拆开一次 read 拿到的缓冲区。缓冲区来自 inotify，每条事件的总长天然是 4 字节的
-// 倍数，所以这个循环不会在名字中间切开。
+// 每条 inotify 事件的总长天然是 4 字节的倍数，循环不会在名字中间切开。
 func splitInotifyEvents(buffer []byte) []inotifyEvent {
 	events := make([]inotifyEvent, 0, len(buffer)/syscall.SizeofInotifyEvent)
 	for len(buffer) >= syscall.SizeofInotifyEvent {
@@ -80,7 +79,6 @@ type watchHub struct {
 	batch   watchBatch
 }
 
-// watchedDir 是一个内核 watch 的记账：wd、路径，以及在看它的 id。
 type watchedDir struct {
 	wd   int32
 	path string
@@ -443,7 +441,7 @@ func (s *server) watchStream(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-r.Context().Done():
-			return // 客户端断开：退掉这一轮，defer 会清掉订阅者
+			return
 		case <-keepAlive.C:
 			stream.comment("keep-alive")
 			if stream.failed() {

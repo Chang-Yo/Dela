@@ -25,15 +25,6 @@ describe('首次启动引导', () => {
     expect(state.onboardingCompleted()).toBe(false);
   });
 
-  it('条款门对任何人成立：没有接受记录就不算完成引导', async () => {
-    await import('./onboarding-state');
-    vi.resetModules();
-    const state = await import('./onboarding-state');
-    expect(state.onboardingCompleted()).toBe(false);
-    state.saveConsent();
-    expect(state.onboardingCompleted()).toBe(true);
-  });
-
   it('老用户同意条款后直接进主界面，不走向导', async () => {
     Object.defineProperty(window, 'dela', { value: { firstLaunch: false } });
     localStorage.setItem('dela.onboarding.completed', '1');

@@ -250,7 +250,6 @@ export function TopicReader() {
     if (snippet) appendQuote(username, postNumber, `${snippet}…`);
   };
 
-  // 跳到被回复的楼层：目标已加载就本地滚动加高亮，未加载则按楼层号重新打开。
   const jumpToPost = (postNumber: number) => {
     if (!detail) return;
     const loaded = detail.posts.some((item) => item.postNumber === postNumber);

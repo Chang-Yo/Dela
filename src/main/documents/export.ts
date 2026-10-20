@@ -17,8 +17,7 @@ const EXPORT_FOLDER_SETTING = 'preview-export-folder';
 const EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
- * Windows PowerShell 5.1 兼容脚本（不用 PS7 独有语法）：
- * COM 调 PowerPoint 后台打开（只读、无窗口）另存为 PDF，退出码 0 表示成功。
+ * Windows PowerShell 5.1 兼容脚本（不用 PS7 独有语法）：COM 调 PowerPoint 无窗口另存 PDF。
  * 输入/输出路径经环境变量传入，不拼接进命令文本。
  */
 const powerShellScript = [

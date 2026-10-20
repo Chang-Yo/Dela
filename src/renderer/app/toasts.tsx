@@ -1,5 +1,4 @@
-// 应用内通知浮窗子系统：zustand store + 命令式 API + 挂载层宿主。
-// 瞬时动作结果（打开目录失败、条目操作失败、容量超限等）任意模块直接调 showToast()；
+// 瞬时动作结果（打开目录失败、条目操作失败等）任意模块直接调 showToast()；
 // 持久状态（工作区镜像加载失败、表单校验）不经过这里，仍内联展示。
 import { create } from 'zustand';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
@@ -56,13 +55,12 @@ export const useToastStore = create<Store>((set, get) => ({
   },
 }));
 
-/** 组件外的命令式入口：showToast({ variant: 'error', title: '导入失败', description: 消息 })。 */
+/** 组件外的命令式入口。 */
 export function showToast(toast: Omit<ToastItem, 'id'>) {
   useToastStore.getState().push(toast);
 }
 
-/** 挂载宿主：钉在 AppShell 的 main#app-main 末尾，卡片从内容区顶部居中滑入、向下堆叠。
- * App 的 MotionConfig 包在视图切换子树外层、盖不到这里，降低动效需单独声明。 */
+/** 钉在 AppShell 的 main#app-main 末尾。App 的 MotionConfig 盖不到这里，降低动效要单独声明。 */
 export function ToastHost() {
   const toasts = useToastStore((state) => state.toasts);
   const dismiss = useToastStore((state) => state.dismiss);

@@ -1,9 +1,5 @@
-// 项目会话导航：顶部为通用聊天 /
-// 资料 / 业务入口位，中部为按项目展开的会话历史（前 3 条 + 「显示更多」，可滚动）；
-// 通用池会话不入项目树（随聊不属于任何项目），经「首页」与全局搜索可达。
-// 底部设置位由 AppShell 提供。项目列表来自 workspace/ 条目镜像；
-// 会话数据与运行徽标经注入接口进入，本组件不 import sessions/（3B 接线时由 sessions/
-// 镜像提供，见下方 props 注释）。
+// 项目会话导航：顶部功能入口，中部按项目分组的会话历史（前 3 条 + 「显示更多」）。
+// 会话数据与运行徽标由接入方注入（本组件不 import sessions/）；通用池会话不入项目树。
 import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
@@ -64,9 +60,9 @@ export const RECENT_SESSIONS = 3;
 const labelFade = 'transition-opacity duration-200 ease-out';
 
 export function ProjectSessionNav({
-  /** 按项目 id 注入的近期会话（近期优先排序）；3B 接线：来自 sessions/ 镜像。 */
+  /** 按项目 id 注入的近期会话（近期优先排序），来自 sessions/ 镜像。 */
   sessionsByProject,
-  /** 会话运行状态徽标；3B 接线：来自 sessions/runs 镜像。 */
+  /** 会话运行状态徽标，来自 sessions/runs 镜像。 */
   runBadge,
   onOpenSession,
   onDeleteSession,

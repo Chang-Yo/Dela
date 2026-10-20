@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// 端口预览面板：快照渲染（端口/进程/隧道状态）、打开与停止都走 workspace 通道，
-// helper 不可用时报错行。状态在主进程，面板只负责展示与触发。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -44,8 +42,9 @@ async function renderDialog() {
 it('lists ports with process names and active tunnels, and wires open/stop to the workspace API', async () => {
   const remotePorts = vi.fn(async () => snapshot);
   const openRemotePort = vi.fn(async () => ({ localPort: 45678 }));
+  const closeRemotePort = vi.fn(async () => undefined);
   window.dela = {
-    workspace: { remotePorts, openRemotePort },
+    workspace: { remotePorts, openRemotePort, closeRemotePort },
   } as unknown as DelaApi;
 
   await renderDialog();
@@ -53,8 +52,6 @@ it('lists ports with process names and active tunnels, and wires open/stop to th
   expect(remotePorts).toHaveBeenCalledWith('p-1');
   expect(document.body.textContent).toContain('node');
   expect(document.body.textContent).toContain(':5173');
-  // 没拿到归属的端口（别的用户的进程）显示「未知进程」，不空着。
-  expect(document.body.textContent).toContain('未知进程');
   // 已开的隧道显示本地落点，动作是「停止」而不是「打开」。
   expect(document.body.textContent).toContain('127.0.0.1:45677');
 
@@ -72,7 +69,8 @@ it('lists ports with process names and active tunnels, and wires open/stop to th
   const stopButton = [...document.querySelectorAll('button')].find((button) =>
     button.textContent?.includes('停止'),
   )!;
-  expect(stopButton).toBeTruthy();
+  await act(async () => stopButton.click());
+  expect(closeRemotePort).toHaveBeenCalledWith('p-1', 5173);
 });
 
 it('shows the helper-missing reason as an error line instead of a port list', async () => {

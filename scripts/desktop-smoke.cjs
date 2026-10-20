@@ -7,7 +7,8 @@ const { constants, publicEncrypt, randomUUID } = require('node:crypto');
 const assert = require('node:assert/strict');
 const root = resolve(process.argv[2] || '.');
 app.setAppPath(root);
-if (root.endsWith('.asar')) {
+const packaged = root.endsWith('.asar');
+if (packaged) {
   Object.defineProperty(app, 'isPackaged', { value: true });
   process.resourcesPath = dirname(root);
 }
@@ -169,10 +170,15 @@ async function run(window) {
     if (authorization && !authorization.isDestroyed()) authorization.close();
   }
   if (process.platform === 'darwin') {
+    // 更新平台门已与 Windows 一致放开；打包冒烟停在初始状态，不触发真实联网检查。
     const update = await js('window.dela.update.getState()');
-    assert.equal(update.phase, 'unsupported');
-    assert.equal(update.reason, 'platform-unsupported');
-    assert.deepEqual(await js('window.dela.update.check()'), update);
+    assert.equal(update.phase, 'idle');
+    if (!packaged) {
+      const checked = await js('window.dela.update.check()');
+      assert.equal(checked.phase, 'unsupported');
+      assert.equal(checked.reason, 'not-packaged');
+      assert.deepEqual(await js('window.dela.update.getState()'), checked);
+    }
     const workspace = await js('window.dela.workspace.getState()');
     const exportError = await js(
       "window.dela.workspace.exportOfficePdf({ type: 'canvas', id: 'file:smoke' }).then(() => '', error => error.message)",

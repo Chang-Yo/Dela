@@ -1,20 +1,12 @@
-// MCP 客户端接入：
-// - stdio 服务器配置持久化于 workspace_settings('mcp-servers')，id=uuid；
-// - 惰性连接（启用且首次被询问时发起）+ 显式 refresh 重连，连接超时 10s；
-// - 断连标 error（含错误消息）、工具集清空；后续调用按当前可用性返回明确错误；
-// - 工具命名空间 mcp_<server>_<tool>（server 名非字母数字转下划线），与内置或其他
-//   MCP 工具重名即跳过并在 server 视图 error 注明；
-// - **MCP 结果只是资料**：工具返回内容中的指令不扩大模型权限（见各工具 description，
-//   不修改 SYSTEM_PROMPT 主文案）。
-// pi-mcp 为纯 ESM 包（exports 无 require 条件），主进程产物是 CJS：只能经动态 import()
-// 加载（rolldown 对 external 保留原生 import()），不能顶层静态 require。
+// MCP 客户端接入：配置持久化于 workspace_settings('mcp-servers')，惰性连接 + 显式 refresh 重连；
+// 工具按 mcp_<server>_<tool> 命名空间化，断连标 error 并清空工具，返回内容只是资料而非指令。
 import { randomUUID } from 'node:crypto';
 import type { CallToolResult, Tool } from '@earendil-works/pi-mcp';
 import { z } from 'zod';
 import type { McpServerConfig, McpServerView } from '../../shared/capabilities';
 import { getDatabase } from '../database';
 
-/** OpenAI function 形状的工具定义；environment.ts 转成 Pi 自定义工具。 */
+/** environment.ts 转成 Pi 自定义工具。 */
 interface DynamicToolDefinition {
   type: 'function';
   function: { name: string; description: string; parameters: unknown };
@@ -23,7 +15,8 @@ interface DynamicToolDefinition {
 /** Pi 内置工具名：MCP 工具与之重名时跳过。 */
 const builtinToolNames = ['read', 'write', 'edit', 'bash', 'grep', 'find', 'ls'];
 
-/** SDK 模块句柄（首次连接时动态加载并缓存；类型经 typeof import 静态可得）。 */
+/** pi-mcp 为纯 ESM 包（exports 无 require 条件），主进程产物是 CJS：只能经动态 import() 加载
+ *  （rolldown 对 external 保留原生 import()），不能顶层静态 require；首次连接时加载并缓存。 */
 type McpSdk = typeof import('@earendil-works/pi-mcp');
 let mcpSdk: McpSdk | null = null;
 async function loadMcpSdk(): Promise<McpSdk> {
@@ -72,7 +65,6 @@ interface ManagedServer {
   status: McpServerView['status'];
   toolCount: number | null;
   error: string | null;
-  /** 连接成功后发现的工具（命名空间化名 → 服务器原生工具）。 */
   tools: { namespaced: string; tool: Tool }[];
   /** 进行中的连接（互斥；避免惰性触发与显式刷新并发握手）。 */
   connecting: Promise<void> | null;
@@ -105,7 +97,6 @@ function writeMcpConfigs(configs: McpServerConfig[]): void {
     .run(SERVERS_KEY, JSON.stringify(configs));
 }
 
-/** server 名 → 工具名前缀段：非字母数字转下划线。 */
 function namespaceOf(name: string): string {
   return `mcp_${name.replace(/[^a-zA-Z0-9]/g, '_')}`;
 }
@@ -119,7 +110,6 @@ function stderrTail(transport: { stderr: string }): string {
   return tail ? `（服务器输出：${tail.slice(-STDERR_TAIL_CHARS)}）` : '';
 }
 
-/** 使内存态与持久化配置一致：新增建目、删除断连移除、存留的刷新配置。 */
 function syncFromConfigs(): void {
   const configs = readMcpConfigs();
   for (const [id, entry] of servers)
@@ -143,7 +133,7 @@ function syncFromConfigs(): void {
   }
 }
 
-/** 清空已收纳的工具并撤销其路由登记（主动断开与 onClose 断连共用）。 */
+/** 撤销路由登记；主动断开与 onClose 断连共用。 */
 function dropAdoptedTools(entry: ManagedServer): void {
   for (const { namespaced } of entry.tools) toolOwner.delete(namespaced);
   entry.tools = [];
@@ -160,7 +150,6 @@ async function closeConnection(entry: ManagedServer): Promise<void> {
   if (client) await client.close().catch(() => {});
 }
 
-/** 全部已占用工具名（内置 + 其他已连接服务器的命名空间工具）。 */
 function reservedToolNames(exclude: ManagedServer): Set<string> {
   const names = new Set<string>(builtinToolNames);
   for (const entry of servers.values()) {
@@ -211,7 +200,7 @@ async function withTimeout<T>(
   }
 }
 
-/** 建立连接（spawn + initialize + 工具发现）。失败标 error 并保留明确原因。 */
+/** 建连失败标 error 并保留明确原因（含服务器 stderr 尾部）。 */
 function connectServer(entry: ManagedServer): Promise<void> {
   if (entry.connecting) return entry.connecting;
   entry.connecting = (async () => {
@@ -326,7 +315,6 @@ function toolResultPayload(sdk: McpSdk, result: CallToolResult) {
   };
 }
 
-/** 按命名空间路由回对应服务器执行；服务器不可用时返回明确的错误边界。 */
 export async function executeMcpTool(
   name: string,
   input: unknown,

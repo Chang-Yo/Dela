@@ -1,8 +1,5 @@
-// 工作区 CRUD 弹窗（迁移自 ProjectView 的 modal 段）：新建项目/文件夹/笔记、重命名、
-// 移动、移除、链接资料、连接 Canvas 共 8 种；表单状态与提交逻辑保持。
-// 与旧实现的差别只在「成功之后」：旧 submit 直接操作编辑器布局（清理被删条目的标签、
-// 打开新建的笔记），这里改为 onCreated/onRemoved/onOpenProject 回调，由接线方（3B
-// workbench/导航）接手——弹窗只负责表单与 workspace:*/canvas:* 通道调用。
+// 工作区 CRUD 弹窗：新建项目/文件夹/笔记、重命名、移动、移除、链接资料、连接 Canvas。
+// 弹窗只负责表单与 workspace:*/canvas:* 通道调用，「成功之后」的动作由接线方经回调接手。
 import { useEffect, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import { Cloud, FolderOpen } from 'lucide-react';
@@ -17,7 +14,7 @@ import {
 } from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
-import { unhideProjectInNav } from '../navigation/store';
+import { unhideProjectInNav, useProjectNavPrefs } from '../navigation/store';
 import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
@@ -33,11 +30,11 @@ export interface EntryDialogRequest {
   id: string | null;
   /** note 弹窗的正文预填（来源 header 等）。 */
   text?: string;
-  /** link/move 打开时预选的目标位置（旧 show() 里 currentContainer() 的取值）。 */
+  /** link/move 打开时预选的目标位置。 */
   initialTarget?: string;
 }
 
-// promote/import/archive 由接线处直连 entry-actions，永不入弹窗（旧 ProjectView.action 拦截）。
+// promote/import/archive 由接线处直连 entry-actions，永不入弹窗。
 const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
   folder: '新建文件夹',
   project: '新建项目',
@@ -45,11 +42,11 @@ const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
   rename: '重命名',
   move: '移动到',
   remove: '移除内容',
-  link: '加入文件夹或项目',
+  link: '添加到项目',
   connect: '连接 Canvas',
 };
 
-/** 标签页与目录共用的条目标题解析（旧 ProjectView.title）。 */
+/** 标签页与目录共用的条目标题解析。 */
 export function titleOf(key: string): string {
   const { workspace, canvas } = useWorkspaceStore.getState();
   // 远端预览标签的 key 是「项目 id + 远端绝对路径」，条目树里没有它，标题取文件名。
@@ -59,7 +56,10 @@ export function titleOf(key: string): string {
     workspace.entries.find((e) => e.id === key)?.name ??
     canvas.items.find((i) => `source:${i.sourceId}` === key)?.name ??
     useNoteDrafts.getState().drafts[key]?.content.title ??
-    '资料'
+    // 纯磁盘路径标签（Agent 刚产出的文件可能晚于镜像刷新）：镜像没有就直接取路径末段。
+    (/[\\/]/.test(key)
+      ? key.slice(Math.max(key.lastIndexOf('/'), key.lastIndexOf('\\')) + 1) || key
+      : '资料')
   );
 }
 
@@ -71,9 +71,9 @@ export function EntryDialogs({
   onOpenProject,
 }: {
   request: EntryDialogRequest | null;
-  /** 取消或成功提交后关闭；busy 期间不可关（旧 onOpenChange 行为）。 */
+  /** 取消或成功提交后关闭；busy 期间不可关。 */
   onClose: () => void;
-  /** create/link 成功后回调：打开新建笔记、展开父级等由接线方决定（旧 submit 尾段）。 */
+  /** create/link 成功后回调：打开新建笔记、展开父级等由接线方决定。 */
   onCreated?: (entry: WorkspaceEntry) => void;
   /** remove 成功后回调仍存活的条目 id 集合；接线方据此清理标签与草稿、退出已删项目。 */
   onRemoved?: (liveIds: Set<string>) => void;
@@ -81,6 +81,7 @@ export function EntryDialogs({
   onOpenProject?: (id: string) => void;
 }) {
   const workspace = useWorkspaceStore((s) => s.workspace);
+  const projectPrefs = useProjectNavPrefs((s) => s.projects);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
@@ -88,7 +89,6 @@ export function EntryDialogs({
   /** 远程向导：自带对话框与进行中状态，打开时让出外层弹窗（避免两层遮罩叠在一起）。 */
   const [wizard, setWizard] = useState(false);
 
-  // 旧 show()：打开时重置表单；rename 预填当前名，target 预选调用方给的位置。
   useEffect(() => {
     setName(
       request?.action === 'rename'
@@ -99,6 +99,17 @@ export function EntryDialogs({
     setTarget(request?.initialTarget ?? '');
     setModalError(null);
   }, [request]);
+
+  const projects = workspace.entries.filter(
+    (entry) => entry.kind === 'project' && !entry.remoteId && !projectPrefs[entry.id]?.hidden,
+  );
+  let targetProject = workspace.entries.find((entry) => entry.id === target);
+  while (targetProject && targetProject.kind !== 'project')
+    targetProject = workspace.entries.find((entry) => entry.id === targetProject!.parentId);
+  const linkTarget =
+    target === '__new__'
+      ? target
+      : (projects.find((entry) => entry.id === targetProject?.id)?.id ?? '');
 
   const pathName = (entry: WorkspaceEntry): string => {
     const names = [entry.name];
@@ -155,8 +166,9 @@ export function EntryDialogs({
           ? request.id!.slice(7)
           : workspace.entries.find((e) => e.id === request.id)?.sourceId;
         if (!sourceId) throw new Error('请选择来源资料');
-        let parentId = target || null;
-        if (target === '__new__')
+        if (!linkTarget) throw new Error('请选择项目');
+        let parentId = linkTarget;
+        if (linkTarget === '__new__')
           parentId = (await api.create({ name, parentId: null, kind: 'project' })).id;
         created = await api.create({
           name: titleOf(request.id!),
@@ -217,7 +229,7 @@ export function EntryDialogs({
                     ? '解除此处的资料关联，原始资料保留。'
                     : '将文件或文件夹移至系统回收站。'
                 : request?.action === 'link'
-                  ? '引用同一份资料，原位置保持不变。'
+                  ? '在项目根目录引用资料，原位置保持不变。'
                   : request?.action === 'note'
                     ? `笔记保存到 ${workspace.directory}`
                     : request?.action === 'project'
@@ -227,26 +239,32 @@ export function EntryDialogs({
           <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
             {(request?.action === 'link' || request?.action === 'move') && (
               <div className="grid gap-2 text-13">
-                位置
+                {request.action === 'link' ? '项目' : '位置'}
                 <Select
                   onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
-                  value={target === '' ? ROOT_SELECT_VALUE : target}
+                  value={request.action === 'link' ? linkTarget : target || ROOT_SELECT_VALUE}
                 >
-                  <SelectTrigger aria-label="目标文件夹" className="w-full">
-                    <SelectValue />
+                  <SelectTrigger
+                    aria-label={request.action === 'link' ? '目标项目' : '目标文件夹'}
+                    className="w-full"
+                  >
+                    <SelectValue placeholder="选择项目" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
-                    {workspace.entries
-                      .filter(
-                        (e) =>
-                          (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
-                      )
-                      .map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {pathName(e)}
-                        </SelectItem>
-                      ))}
+                    {request.action === 'move' && (
+                      <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                    )}
+                    {(request.action === 'link'
+                      ? projects
+                      : workspace.entries.filter(
+                          (e) =>
+                            (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
+                        )
+                    ).map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {request.action === 'link' ? e.name : pathName(e)}
+                      </SelectItem>
+                    ))}
                     {request.action === 'link' && (
                       <SelectItem value="__new__">新建项目…</SelectItem>
                     )}
@@ -308,7 +326,7 @@ export function EntryDialogs({
               </Button>
               <Button
                 type="submit"
-                disabled={busy}
+                disabled={busy || (request?.action === 'link' && !linkTarget)}
                 variant={request?.action === 'remove' ? 'destructive' : undefined}
               >
                 {busy

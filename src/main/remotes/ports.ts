@@ -1,10 +1,6 @@
 /**
- * 远端端口预览：列出远端监听端口，按需开 `ssh -L` 隧道并交给系统浏览器。
- *
- * 端口清单只走 helper 通道（`/v1/ports`）：一次性 ssh 解析 ss/netstat 的方言不为降级路径
- * 再造一套，helper 不可用就是「这项能力缺席」（与实时刷新同列，界面上说得清）。
- * 隧道是独立 ssh 进程，不挂在 helper 通道上：关掉某个连接的通道、放掉它都不影响已开的隧道；
- * 生命周期 = 显式停止、应用退出。同一远端端口只开一条，重复打开复用。
+ * 远端端口预览：端口清单只走 helper（一次性 ssh 解析 ss/netstat 方言不值得再造）；
+ * 隧道是独立 ssh 进程，不随 helper 关闭，同一远端端口复用至显式停止或退出。
  */
 import { shell } from 'electron';
 import { openPortTunnel, helperSession, type PortTunnel } from './helper';
@@ -36,7 +32,6 @@ export async function remotePortsState(target: RemoteTarget): Promise<RemotePort
   return { ports, tunnels: active.sort((a, b) => a.remotePort - b.remotePort) };
 }
 
-/** 打开（或复用）一条隧道并在系统浏览器里访问。返回本地端口给界面展示。 */
 export async function openRemotePort(target: RemoteTarget, remotePort: number): Promise<number> {
   const key = tunnelKey(target, remotePort);
   let entry = tunnels.get(key);

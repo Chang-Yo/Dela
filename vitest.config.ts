@@ -1,9 +1,16 @@
-import { resolve } from 'node:path';
+import { delimiter, resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: { alias: { '@': resolve('src/renderer') } },
   test: {
+    // 单元测试不启动 Electron，也需能找到应用随包分发的搜索工具。
+    env: {
+      PATH: [
+        resolve('vendor/bin', process.platform === 'darwin' ? `darwin-${process.arch}` : ''),
+        process.env.PATH ?? '',
+      ].join(delimiter),
+    },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

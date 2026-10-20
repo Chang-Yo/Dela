@@ -1,6 +1,5 @@
-// dela-helper 是 Dela 在远端运行的常驻工具服务：只绑回环地址，由 Dela 经 `ssh -L`
-// 隧道访问，每个请求都要带 token。它不做沙箱：权限就是启动它的那个 SSH 用户的权限，
-// 与一次性的 `ssh <host> <命令>` 完全一致。协议见 helper/README.md。
+// dela-helper 是 Dela 在远端运行的常驻工具服务：只绑回环地址，由 Dela 经 `ssh -L` 隧道访问，每个请求带 token。
+// 它不做沙箱：权限就是启动它的 SSH 用户的权限（与一次性的 `ssh <host> <命令>` 一致）。协议见 helper/README.md。
 package main
 
 import (

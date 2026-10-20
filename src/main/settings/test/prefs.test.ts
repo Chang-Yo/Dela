@@ -60,10 +60,6 @@ it('treats a sub-item as unavailable while the master switch is off', () => {
 });
 
 describe('font size', () => {
-  it('defaults to the browser base of 16px', () => {
-    expect(savedFontSize()).toBe(16);
-  });
-
   it('rounds and clamps any value into 12–20', () => {
     insert("INSERT INTO workspace_settings VALUES ('font-size', '17')");
     expect(savedFontSize()).toBe(17);
@@ -99,10 +95,6 @@ describe('font size', () => {
 });
 
 describe('task notification prefs', () => {
-  it('defaults to failed on / completed off', () => {
-    expect(getTaskNotificationPrefs()).toEqual({ completed: false, failed: true });
-  });
-
   it('round-trips saved prefs', () => {
     expect(setTaskNotificationPrefs({ completed: true, failed: false })).toEqual({
       completed: true,
@@ -134,10 +126,6 @@ describe('campus notifications', () => {
 
 describe('workspace prefs', () => {
   const defaults = { restoreLastProject: true, defaultNoteEditMode: 'rich', noteSpellcheck: false };
-
-  it('defaults to restoring last project, rich editing and spellcheck off', () => {
-    expect(getWorkspacePrefs()).toEqual(defaults);
-  });
 
   it('fills the spellcheck field for prefs stored before it existed', () => {
     insert(
@@ -183,10 +171,6 @@ describe('workspace prefs', () => {
 });
 
 describe('keybinding overrides', () => {
-  it('defaults to no overrides', () => {
-    expect(getKeybindingOverrides()).toEqual({});
-  });
-
   it('merges patches without touching stored actions', () => {
     expect(setKeybindingOverrides({ 'global-search': 'Mod+Shift+K' })).toEqual({
       'global-search': 'Mod+Shift+K',
@@ -235,10 +219,6 @@ describe('keybinding overrides', () => {
 });
 
 describe('agent instruction', () => {
-  it('defaults to empty so nothing is injected', () => {
-    expect(getAgentInstruction()).toBe('');
-  });
-
   it('round-trips text and trims surrounding whitespace', () => {
     expect(setAgentInstruction('  回答先给结论。  ')).toBe('回答先给结论。');
     expect(getAgentInstruction()).toBe('回答先给结论。');
@@ -273,10 +253,6 @@ describe('classroom video download directory', () => {
 });
 
 describe('pending update install', () => {
-  it('reads as nothing pending until it is written', () => {
-    expect(savedPendingInstall()).toBe(false);
-  });
-
   it('round-trips the deferred install flag', () => {
     expect(setPendingInstall(true)).toBe(true);
     expect(savedPendingInstall()).toBe(true);

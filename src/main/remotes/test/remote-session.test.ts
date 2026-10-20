@@ -50,7 +50,6 @@ describe('远程会话接线', () => {
     expect(session.getActiveToolNames()).toEqual(
       expect.arrayContaining(['read', 'write', 'edit', 'bash', 'ls', 'find', 'grep']),
     );
-    // 远端路径没有被当成宿主路径建出本地目录。
     expect(existsSync(resolveLocal(remotePath))).toBe(false);
     await session.dispose();
   }, 60_000);

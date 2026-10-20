@@ -1,13 +1,8 @@
 /**
- * 远端上下文镜像：远端 AGENTS.md 与三处 skills 落到本地，Pi 才读得到。
- *
- * Pi 的 skills 只有本地文件可用——写进系统提示的是 `filePath`，`/skill:name` 展开是本地
- * `readFileSync(skill.filePath)`。所以把远端内容镜像到 `<userData>/remote-context/<remoteId>/<projectId>/`，
- * 模型与工具拿到的镜像路径再由 `remotePath` 翻回远端真身（脚本正文里出现镜像路径也会翻译）。
- * AGENTS.md 不需要镜像：内容经 `agentsFilesOverride` 直接交给 Pi，`path` 写远端路径。
- *
- * 同步是**一次读取**（会话开始时一次 ssh 把三处 skills 与祖先 AGENTS.md 一起取回），
- * 不做全量仓库镜像，也不监听远端变化——目录树实时刷新与 watch 是 6.3。
+ * 远端上下文镜像：远端 AGENTS.md 与三处 skills 落到本地，Pi 才读得到——Pi 的 skills 只认本地文件
+ * （写进系统提示的是 `filePath`，`/skill:name` 展开是本地 `readFileSync`），镜像路径再由 `remotePath` 翻回远端。
+ * AGENTS.md 不镜像，内容经 `agentsFilesOverride` 直接交给 Pi、`path` 写远端路径；同步只做一次 ssh 读取，
+ * 不做全量仓库镜像，也不监听远端变化。
  */
 import { app } from 'electron';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';

@@ -17,8 +17,7 @@ const (
 	watchSubscriberQueue = 256
 )
 
-// reset 的理由。change 说的是「这些目录的直接子项可能变了」，reset 说的是「这些内容都要重读」，
-// 理由只是给调用方排查用。
+// change = 这些目录的直接子项可能变了，reset = 这些内容都要重读；reason 仅供调用方排查。
 const (
 	watchReasonOverflow = "overflow"         // 内核队列溢出：所有 id 都得重读
 	watchReasonTooMany  = "too-many-changes" // 单批路径超过 watchMaxChangePaths
@@ -33,8 +32,7 @@ type watchEvent struct {
 	Reason string   `json:"reason,omitempty"`
 }
 
-// watchBatch 是「攒变化」的全部状态。它不碰 inotify，纯粹是集合运算，单测可以直接喂。
-// 并发安全由调用方（watchHub 的 mu）负责，所以这里不加锁。
+// 纯集合运算，不碰 inotify，单测可以直接喂；并发安全由调用方（watchHub 的 mu）负责。
 type watchBatch struct {
 	pending map[string]*watchPending
 	global  string // 非空 = 所有 id 都要重读（内核溢出）
@@ -49,8 +47,7 @@ func newWatchBatch() watchBatch {
 	return watchBatch{pending: map[string]*watchPending{}}
 }
 
-// note 记下 id 名下某个目录的结构变化。明细长度天然有界：note 只在这个 id 正被监视的
-// 目录上调用，而那些目录由 watch.go 的 watchMaxPaths 封顶。
+// 明细长度天然有界：只在这个 id 正被监视的目录上调用，目录数由 watch.go 的 watchMaxPaths 封顶。
 func (b *watchBatch) note(id, path string) {
 	p := b.pending[id]
 	if p == nil {
@@ -69,7 +66,7 @@ func (b *watchBatch) overflow() {
 	b.global = watchReasonOverflow
 }
 
-// take 取走这一轮要发的事件并清空状态。一个 id 一轮最多一条事件：reset 优先于 change。
+// 一个 id 一轮最多一条事件：reset 优先于 change。
 func (b *watchBatch) take() []watchEvent {
 	pending := b.pending
 	b.pending = map[string]*watchPending{}
@@ -92,7 +89,6 @@ func (b *watchBatch) take() []watchEvent {
 	return events
 }
 
-// event 把一个 id 的待发状态折成一条事件。ok=false 表示它这一轮没东西可发。
 func (p *watchPending) event(id string) (watchEvent, bool) {
 	if p.reset != "" {
 		return watchEvent{Type: "reset", ID: id, Reason: p.reset}, true
@@ -111,8 +107,7 @@ func (p *watchPending) event(id string) (watchEvent, bool) {
 	return watchEvent{Type: "change", ID: id, Paths: paths}, true
 }
 
-// watchFanout 是 SSE 订阅者集合。发布绝不阻塞：订阅者读得慢只会丢它自己的事件，
-// 补一条 reset 顶替，因为「它错过了哪几条」已经算不出来了。
+// 发布绝不阻塞：读得慢的订阅者只丢自己的事件，补一条 reset 顶替——它错过了哪几条已算不出来。
 type watchFanout struct {
 	logger *log.Logger
 

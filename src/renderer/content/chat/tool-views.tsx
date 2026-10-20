@@ -34,7 +34,6 @@ function buildDiffRows(oldText: string, newText: string): DiffRow[] {
     for (let index = 0; index < lines.length; index += 1) {
       if (type === 'del') oldNo += 1;
       if (type === 'add' || type === 'ctx') newNo += 1;
-      // 相邻的 del/add 同序行做词级切分，其余整行作为一个 piece。
       const pairLine = pairLines?.[index];
       const pieces: CodePiece[] =
         type === 'del' && pairLine !== undefined && pair?.added

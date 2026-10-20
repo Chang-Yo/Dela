@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
-// Dela 对所见即所得内核的适配：图片 alt/title 修复、链接输入规则、
-// frontmatter 会被破坏（因此该类文档强制源码模式，见 shared/note-files.ts）。
+// Dela 对所见即所得内核的适配：图片 alt/title 修复、链接输入规则。
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -239,11 +238,6 @@ describe('Crepe 往返保真', () => {
       expect(out).toContain('标题');
     },
   );
-
-  it('frontmatter 会被内核改写（此类文档必须停在源码模式）', { timeout: 30_000 }, async () => {
-    const out = await roundTrip('---\ntitle: 笔记\n---\n\n正文\n');
-    expect(out).not.toContain('---\ntitle:');
-  });
 
   it(
     '输入 [文本](地址) 在键入 ) 时经输入规则转为链接（Milkdown 未内置）',

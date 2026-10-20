@@ -1,13 +1,11 @@
 /**
- * 会话层：SQLite 只存索引（项目归属、工作目录、标题、置顶、归档、JSONL 路径），完整记录是 Pi 的会话文件。
- * 每个打开的会话在内存里保留一个 Pi AgentSession；cwd 取会话自己的 cwd 列（通用会话是 chat-sessions 下的
- * 私有目录），该列为 NULL 时按项目目录解析（通用会话为工作区根），解析失败直接报错，不静默换目录。
- * renderer 看到的 WorkspaceChat 是 Pi 消息的投影。
+ * 会话层：SQLite 只存索引（项目归属、cwd、标题、置顶、归档与 JSONL 路径），完整记录是 Pi 的会话文件。
+ * renderer 看到的 WorkspaceChat 是 Pi 消息的投影；cwd 解析失败直接报错，不静默换目录。
  */
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { WebContents } from 'electron';
+import { shell, type WebContents } from 'electron';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { ImageContent, TextContent } from '@earendil-works/pi-ai';
@@ -18,6 +16,7 @@ import type {
   ChatSessionSummary,
   ContextUsageView,
   RunStatus,
+  UncommittedChanges,
   WorkspaceChat,
 } from '../../shared/api';
 import { parseChatBlocks, stripChatImageTokens } from '../../shared/chat-input';
@@ -27,8 +26,11 @@ import { getActiveLlmProvider } from './providers';
 import { openPiSession } from './pi';
 import { agentEnvironment } from './environment';
 import { remoteProjectOf } from '../workspace/api';
+import { openInVsCode } from '../workspace/project';
+import { resolveSessionFile } from './session-path';
 import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import { notifyRunFinished } from '../settings/task-notify';
+import * as changes from './changes';
 
 type ChatMessage = WorkspaceChat['messages'][number];
 
@@ -44,8 +46,7 @@ interface Live {
   session: AgentSession;
   cwd: string;
   /** 当前 Run（ask 进行中）；空闲为 undefined。 */
-  run?: { id: string; tool?: string };
-  /** 本轮用户消息的展示元数据（引用、图片、附件），按 Pi 消息时间戳对齐。 */
+  run?: { id: string; tool?: string; cancelled?: boolean; done: Promise<void> };
   unsubscribe: () => void;
   stale?: boolean;
 }
@@ -109,6 +110,81 @@ function sessionCwd(projectId: string | null, stored: string | null): string {
   return path;
 }
 
+/** 会话内文件的定位/打开入口：相对路径按会话 cwd 解析；远程项目的文件不在本机。 */
+function sessionFilePath(sessionId: string, rawPath: string): string {
+  const meta = row(sessionId);
+  if (meta.project_id && remoteProjectOf(meta.project_id))
+    throw new Error('远程项目的文件不在本机，请用远端方式打开');
+  return resolveSessionFile(sessionCwd(meta.project_id, meta.cwd), rawPath);
+}
+
+export function revealSessionFile(sessionId: string, path: string): void {
+  shell.showItemInFolder(sessionFilePath(sessionId, path));
+}
+
+export async function openSessionFile(sessionId: string, path: string): Promise<void> {
+  const error = await shell.openPath(sessionFilePath(sessionId, path));
+  if (error) throw new Error(error);
+}
+
+/** 解析会话内文件的本机绝对路径（须真实存在）：应用内预览标签以它作为标签键。 */
+export function locateSessionFile(sessionId: string, path: string): string {
+  return sessionFilePath(sessionId, path);
+}
+
+export async function openSessionFileInVsCode(sessionId: string, path: string): Promise<void> {
+  await openInVsCode(sessionFilePath(sessionId, path));
+}
+
+export function listSessionTurnChanges(id: string) {
+  row(id);
+  return changes.listTurnChanges(id);
+}
+
+export function readSessionTurnChanges(id: string, turnId: string, includeStats = false) {
+  row(id);
+  return changes.readTurnChanges(id, turnId, includeStats);
+}
+
+export function readSessionTurnFileChange(id: string, turnId: string, path: string) {
+  row(id);
+  return changes.readTurnFileChange(id, turnId, path);
+}
+
+export function readSessionUncommittedChanges(id: string) {
+  const meta = row(id);
+  const cwd = sessionCwd(meta.project_id, meta.cwd);
+  if (meta.project_id && remoteProjectOf(meta.project_id))
+    return Promise.resolve({
+      available: false,
+      reason: 'remote' as const,
+      cwd,
+      repositoryRoot: null,
+      head: null,
+      warnings: [],
+      files: [],
+    });
+  return changes.readUncommittedChanges(cwd);
+}
+
+export function readSessionUncommittedFileChange(id: string, path: string) {
+  const meta = row(id);
+  if (meta.project_id && remoteProjectOf(meta.project_id))
+    throw new Error('远程项目暂不支持变更审阅');
+  return changes.readUncommittedFileChange(sessionCwd(meta.project_id, meta.cwd), path);
+}
+
+/** 会话目录能否做未提交改动审阅：轻探测（两次 git 调用），供入口可见性判定。 */
+export async function uncommittedAvailability(
+  id: string,
+): Promise<Pick<UncommittedChanges, 'available' | 'reason'>> {
+  const meta = row(id);
+  const cwd = sessionCwd(meta.project_id, meta.cwd);
+  if (meta.project_id && remoteProjectOf(meta.project_id))
+    return { available: false, reason: 'remote' };
+  return changes.probeUncommitted(cwd);
+}
+
 async function ensureLive(id: string): Promise<Live> {
   const existing = live.get(id);
   if (existing) return existing;
@@ -151,7 +227,7 @@ const textOf = (content: string | (TextContent | ImageContent)[]) =>
     ? content
     : content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
 
-/** 用户消息里 Dela 附加的前言（引用与附件）不进展示；元数据在 details 前缀里。 */
+/** Dela 在用户消息前附加的 <dela-meta> 块（引用、附件、turnId）不进展示。 */
 const META_PREFIX = '<dela-meta>';
 const META_SUFFIX = '</dela-meta>\n';
 
@@ -185,11 +261,13 @@ export function projectMessages(
   const out: ChatMessage[] = [];
   let reply: ChatMessage | null = null;
   let lastUserAt = 0;
+  let lastTurnId: string | undefined;
   const results = new Map<string, AgentToolResult>();
   for (const message of messages) {
     if (message.role === 'user') {
       lastUserAt = message.timestamp;
       const { meta, text } = splitMeta(textOf(message.content));
+      lastTurnId = meta.turnId;
       out.push({ role: 'user', content: text, ...meta });
       reply = null;
     } else if (message.role === 'assistant') {
@@ -201,6 +279,7 @@ export function projectMessages(
           parts: [],
           toolResults: [],
           startedAt: lastUserAt || message.timestamp,
+          ...(lastTurnId ? { turnId: lastTurnId } : {}),
         };
         out.push(reply);
       }
@@ -253,7 +332,14 @@ export function projectMessages(
   const last = out.at(-1);
   if (running && last?.role === 'assistant') delete last.finishedAt;
   if (running && last?.role === 'user')
-    out.push({ role: 'assistant', content: '', parts: [], toolResults: [], startedAt: lastUserAt });
+    out.push({
+      role: 'assistant',
+      content: '',
+      parts: [],
+      toolResults: [],
+      startedAt: lastUserAt,
+      ...(lastTurnId ? { turnId: lastTurnId } : {}),
+    });
   return out;
 }
 
@@ -419,13 +505,20 @@ function touch(id: string, entry: Live) {
     .run(count, new Date().toISOString(), id);
 }
 
-function runEvent(sessionId: string, status: RunStatus, activeTool?: string) {
+function runEvent(
+  sessionId: string,
+  status: RunStatus,
+  activeTool?: string,
+  finishedRunId?: string,
+  changesError?: string,
+) {
   const entry = live.get(sessionId);
   send('session:on-run-event', {
     sessionId,
-    runId: entry?.run?.id ?? '',
+    runId: finishedRunId ?? entry?.run?.id ?? '',
     status,
     activeTool,
+    ...(changesError ? { changesError } : {}),
   });
 }
 
@@ -519,13 +612,17 @@ export function archiveProjectSessions(projectId: string | null): string[] {
 export async function deleteSession(id: string) {
   const entry = live.get(id);
   if (entry) {
+    const done = entry.run?.done;
+    if (entry.run) entry.run.cancelled = true;
     await entry.session.abort();
+    await done;
     entry.unsubscribe();
     entry.session.dispose();
     live.delete(id);
   }
   const { file } = row(id);
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
+  await changes.deleteTurnChanges(id);
   if (file && existsSync(file)) {
     const { shell } = await import('electron');
     await shell.trashItem(file).catch(() => {});
@@ -533,7 +630,9 @@ export async function deleteSession(id: string) {
 }
 
 export function cancelRun(id: string) {
-  void live.get(id)?.session.abort();
+  const entry = live.get(id);
+  if (entry?.run) entry.run.cancelled = true;
+  void entry?.session.abort();
 }
 
 const imageMime: Record<string, string> = {
@@ -568,7 +667,9 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     throw new Error('文档附件目前只支持本机会话，请切换到随聊或本地项目');
   // @ 引用即路径：只告诉模型路径，读取由模型用 read 自主完成（pull 模型）。
   const sources = input.context.map((key) => ({ key, title: key }));
+  const turnId = randomUUID();
   const meta = {
+    turnId,
     body: userText,
     ...(sources.length ? { sources } : {}),
     ...(imageMeta.length ? { images: imageMeta } : {}),
@@ -610,34 +711,74 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     getDatabase()
       .prepare('UPDATE sessions SET title=? WHERE id=?')
       .run((userText || attachments[0]?.name || '图片请求').slice(0, 60), id);
-  entry.run = { id: randomUUID() };
+  let finishRun!: () => void;
+  const run = {
+    id: turnId,
+    cancelled: false,
+    done: new Promise<void>((resolve) => {
+      finishRun = resolve;
+    }),
+  };
+  entry.run = run;
   liveSteps.set(id, new Map());
   runEvent(id, 'running');
   let status: 'completed' | 'failed' | 'stopped' = 'completed';
+  const startedAt = new Date().toISOString();
+  let before: changes.DirectorySnapshot | null = null;
+  let captureError: string | undefined;
   try {
-    await entry.session.prompt(prompt, images.length ? { images } : undefined);
+    if (meta0.project_id && remoteProjectOf(meta0.project_id))
+      captureError = '远程会话暂不记录目录快照';
+    else {
+      try {
+        before = await changes.captureDirectory(entry.cwd);
+      } catch (error) {
+        captureError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    if (run.cancelled) status = 'stopped';
+    else await entry.session.prompt(prompt, images.length ? { images } : undefined);
     const last = entry.session.messages.findLast((m) => m.role === 'assistant');
-    if (last?.role === 'assistant' && last.stopReason === 'aborted') status = 'stopped';
+    if (run.cancelled || (last?.role === 'assistant' && last.stopReason === 'aborted'))
+      status = 'stopped';
     else if (last?.role === 'assistant' && last.stopReason === 'error') status = 'failed';
   } catch (error) {
     status = 'failed';
     throw error;
   } finally {
-    releaseChatAttachments(input.attachments);
-    entry.run = undefined;
-    liveSteps.delete(id);
-    if (entry.session.sessionFile)
-      getDatabase()
-        .prepare('UPDATE sessions SET file=? WHERE id=?')
-        .run(entry.session.sessionFile, id);
-    touch(id, entry);
-    runEvent(id, status);
-    publish(id);
-    if (status !== 'stopped') notifyRunFinished(id, status);
-    if (entry.stale) {
-      entry.unsubscribe();
-      entry.session.dispose();
-      live.delete(id);
+    let changesError: string | undefined;
+    try {
+      await changes.freezeTurnChanges(
+        id,
+        turnId,
+        entry.cwd,
+        startedAt,
+        status,
+        before,
+        captureError,
+      );
+    } catch (error) {
+      changesError = error instanceof Error ? error.message : String(error);
+    }
+    try {
+      releaseChatAttachments(input.attachments);
+      entry.run = undefined;
+      liveSteps.delete(id);
+      if (entry.session.sessionFile)
+        getDatabase()
+          .prepare('UPDATE sessions SET file=? WHERE id=?')
+          .run(entry.session.sessionFile, id);
+      touch(id, entry);
+      runEvent(id, status, undefined, turnId, changesError);
+      publish(id);
+      if (status !== 'stopped') notifyRunFinished(id, status);
+      if (entry.stale) {
+        entry.unsubscribe();
+        entry.session.dispose();
+        live.delete(id);
+      }
+    } finally {
+      finishRun();
     }
   }
   return snapshot(id);

@@ -1,9 +1,8 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 
-// ChatTab 的容器注入面（与 content/note 的 draft-source、content/preview 的 loader 同一
-// 注入模式）：workbench registry 只按 TabComponentProps 传 tabId/groupId，引用数据源与
-// 邮件草稿弹窗经 ChatTabSourceProvider 提供。chat 域不 import workspace store。
-// 会话的项目归属来自会话快照本身（WorkspaceChat.projectId），不取当前工作台。
+// ChatTab 的容器注入面（与 note 的 draft-source、preview 的 loader 同一注入模式）：workbench 只传
+// tabId/groupId，引用数据源与邮件草稿弹窗经 Provider 注入；会话项目归属取自快照而非当前工作台。
+// chat 域不 import workspace store。
 
 /** @ 引用数据源：候选来自容器（workspace 镜像），发送前冲盘未保存的引用草稿。 */
 export interface ReferenceSource {
@@ -15,9 +14,7 @@ export interface ReferenceSource {
   flushReference?(key: string): Promise<void>;
 }
 
-/** 邮件草稿检查弹窗：由容器注入（3B 接 features/mail 的 MailComposer）。
- *  组件自包含整个弹窗：读取草稿（mail.openDraft）、账号校验、未保存关闭守卫
- *  （leaveComposer 语义）与发送，全部在组件内完成。 */
+/** 邮件草稿检查弹窗：由容器注入；读取草稿、账号校验、未保存关闭守卫与发送都在组件内完成。 */
 export type MailDraftDialogProps = {
   draftId: string;
   /** 仅在关闭守卫通过后调用。 */

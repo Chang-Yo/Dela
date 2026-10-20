@@ -40,7 +40,6 @@ const FOLDER_RANKS: Record<string, number> = {
   '\\Archive': 5,
 };
 
-/** 侧栏当前视图：真实文件夹、本地草稿或本地回收站。 */
 export type MailSelection = { kind: 'folder'; id: number } | { kind: 'drafts' } | { kind: 'trash' };
 
 type SidebarEntry =
@@ -48,7 +47,6 @@ type SidebarEntry =
   | { kind: 'drafts'; rank: number }
   | { kind: 'trash'; rank: number };
 
-/** 折叠态图标悬浮时在右侧显示名称提示;展开时原样渲染。 */
 function CollapsedTip({
   collapsed,
   label,
@@ -68,8 +66,7 @@ function CollapsedTip({
 }
 
 /**
- * 行内文字双态:折叠时宽度收为 0 并淡出,展开时随宽度揭示(clip),
- * 图标始终原位,高亮块随面板宽度连续缩放。
+ * 行内文字用 grid 0fr↔1fr 过渡揭示；图标始终原位，高亮块随面板宽度连续缩放。
  */
 function RowLabel({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
   return (
@@ -91,7 +88,6 @@ function RowLabel({ collapsed, children }: { collapsed: boolean; children: React
   );
 }
 
-/** 真实文件夹与本地伪条目共用的侧栏行;count 沿用未读角标样式。 */
 function SidebarRow({
   collapsed,
   selected,
@@ -153,9 +149,7 @@ type Props = {
   sync: MailSyncStatus | null;
   selection: MailSelection | null;
   onSelect: (selection: MailSelection) => void;
-  /** 本地草稿份数,用于角标。 */
   draftCount: number;
-  /** 回收站邮件数,用于角标。 */
   trashCount: number;
   confirmingDisconnect: boolean;
   handleDisconnect: () => Promise<void>;
@@ -226,7 +220,6 @@ export function MailFolders({
           <p
             className={cn(
               'whitespace-nowrap p-2 text-xs text-ink-3',
-              // 文字随折叠淡入/淡出;图标不参与,保持全程原位。
               'transition-opacity duration-150 ease-out',
               foldersCollapsed && 'opacity-0',
             )}

@@ -1,7 +1,15 @@
 // 会话层：Pi 消息 → WorkspaceChat 投影；会话 cwd 取库里的 cwd 列（随聊是私有目录，资料页是课程目录），
 // cwd 为 NULL 的旧会话按项目目录/工作区根解析，项目目录缺失时报错而不换目录。
 import Database from 'better-sqlite3';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +21,7 @@ const state = vi.hoisted(() => ({
   configured: false,
   messages: [] as AgentMessage[],
   prompts: [] as string[],
+  onPrompt: null as (() => void | Promise<void>) | null,
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
@@ -32,9 +41,11 @@ vi.mock('../pi', () => ({
     },
     getSessionStats: () => ({ contextUsage: null }),
     dispose: () => {},
+    abort: async () => {},
     prompt: async (text: string) => {
       state.prompts.push(text);
       state.messages.push({ role: 'user', content: text, timestamp: Date.now() });
+      await state.onPrompt?.();
     },
   }),
 }));
@@ -55,13 +66,20 @@ import {
   newSession,
   openSession,
   projectMessages,
+  listSessionTurnChanges,
+  readSessionTurnFileChange,
+  readSessionUncommittedChanges,
+  cancelRun,
+  deleteSession,
 } from '../session';
 import { readChatAttachment, stageChatMedia } from '../media';
+import * as changes from '../changes';
 
 beforeEach(() => {
   state.configured = false;
   state.messages = [];
   state.prompts = [];
+  state.onPrompt = null;
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-'));
   state.db = new Database(':memory:');
   state.db.pragma('foreign_keys = ON');
@@ -79,9 +97,101 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   invalidateSessions();
   state.db?.close();
   rmSync(state.root, { recursive: true, force: true });
+});
+
+it('真实 ask 生命周期冻结文件变化并将 turnId 持久化到消息元数据', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  const path = join(chat.cwd!, 'output.txt');
+  writeFileSync(path, 'before');
+  state.onPrompt = () => {
+    writeFileSync(path, 'after');
+  };
+  const response = await askSession(chat.sessionId!, {
+    text: '生成文件',
+    attachments: [],
+    context: [],
+  });
+  const turns = await listSessionTurnChanges(chat.sessionId!);
+  expect(turns).toHaveLength(1);
+  expect(turns[0]).toMatchObject({
+    state: 'complete',
+    runStatus: 'completed',
+    files: [{ path: 'output.txt', status: 'modified' }],
+  });
+  expect(response.messages[0]?.turnId).toBe(turns[0]!.turnId);
+  expect(
+    await readSessionTurnFileChange(chat.sessionId!, turns[0]!.turnId, 'output.txt'),
+  ).toMatchObject({ before: 'before', after: 'after' });
+  expect(await readSessionUncommittedChanges(chat.sessionId!)).toMatchObject({
+    available: false,
+    reason: 'not-git',
+  });
+});
+
+it('prompt 失败仍冻结此前的文件修改，不吞掉原始错误', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  state.onPrompt = () => {
+    writeFileSync(join(chat.cwd!, 'partial.txt'), 'partial');
+    throw new Error('model failed');
+  };
+  await expect(
+    askSession(chat.sessionId!, { text: '尝试', attachments: [], context: [] }),
+  ).rejects.toThrow('model failed');
+  expect(await listSessionTurnChanges(chat.sessionId!)).toMatchObject([
+    { runStatus: 'failed', files: [{ path: 'partial.txt', status: 'added' }] },
+  ]);
+});
+
+it('用户停止仍冻结已产生的文件，并在删除会话时清理快照', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  state.onPrompt = () => {
+    writeFileSync(join(chat.cwd!, 'stopped.txt'), 'partial');
+    cancelRun(chat.sessionId!);
+  };
+  await askSession(chat.sessionId!, { text: '停止', attachments: [], context: [] });
+  const [turn] = await listSessionTurnChanges(chat.sessionId!);
+  expect(turn).toMatchObject({
+    runStatus: 'stopped',
+    files: [{ path: 'stopped.txt', status: 'added' }],
+  });
+  await deleteSession(chat.sessionId!);
+  expect(existsSync(join(state.root, 'chat-changes', chat.sessionId!))).toBe(false);
+});
+
+it('远程会话不读取同名本地目录，接口明确返回不可用', async () => {
+  state.configured = true;
+  state
+    .db!.prepare(
+      "INSERT INTO workspace_entries VALUES ('remote-project', NULL, '远程', 'project', NULL, '/remote/project', 'remote-id', 'x')",
+    )
+    .run();
+  const chat = newSession('remote-project', 'chat');
+  await askSession(chat.sessionId!, { text: '读取远程', attachments: [], context: [] });
+  expect(await readSessionUncommittedChanges(chat.sessionId!)).toMatchObject({
+    available: false,
+    reason: 'remote',
+  });
+  expect(await listSessionTurnChanges(chat.sessionId!)).toMatchObject([
+    { state: 'unavailable', files: [] },
+  ]);
+});
+
+it('快照失败不阻止模型运行，结果明确标记 unavailable', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  vi.spyOn(changes, 'captureDirectory').mockRejectedValueOnce(new Error('scan failed'));
+  await askSession(chat.sessionId!, { text: '继续回答', attachments: [], context: [] });
+  expect(state.prompts).toHaveLength(1);
+  expect(await listSessionTurnChanges(chat.sessionId!)).toMatchObject([
+    { state: 'unavailable', warnings: ['scan failed'] },
+  ]);
 });
 
 it('sends document-only messages as file references instead of decoding binary bytes into the prompt', async () => {
@@ -209,7 +319,6 @@ describe('会话归属与 cwd', () => {
     const dir = join(state.root, 'Dela', 'chat-sessions', chat.sessionId!);
     expect(chat.cwd).toBe(dir);
     expect(statSync(dir).isDirectory()).toBe(true);
-    // 复用同一个空会话入口时沿用同一个私有目录。
     expect(newSession(null, 'chat').sessionId).toBe(chat.sessionId);
     expect(openSession(chat.sessionId!).cwd).toBe(dir);
   });
@@ -237,7 +346,6 @@ describe('会话归属与 cwd', () => {
     expect(chat.sessionId).not.toBe('old-chat');
     expect(library.sessionId).not.toBe('old-chat');
     expect(library.sessionId).not.toBe(chat.sessionId);
-    // 各自复用自己那一档的空会话。
     expect(newSession(null, 'chat').sessionId).toBe(chat.sessionId);
     expect(newSession(null, 'library').sessionId).toBe(library.sessionId);
   });

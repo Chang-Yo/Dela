@@ -17,7 +17,6 @@ export function StepModelImportDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** 检测到的全部模型。 */
   options: string[];
   /** 当前已导入的模型，打开时默认勾选。 */
   preselected: string[];

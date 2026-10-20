@@ -5,8 +5,8 @@ import { HandwritingLine } from './intro-handwriting';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 import { cn } from '../../lib/utils';
 
-// 氛围视频：assets/onboarding-video.webm（854×474、静音、9.5s）。铺满整窗并按 object-cover
-// 裁切，不做拉伸；品牌层出现后改用高斯模糊退为背景，不叠白色蒙版。
+// 氛围视频（854×474、静音、9.5s）：铺满整窗裁切不拉伸；品牌层出现后用高斯模糊退为背景，
+// 不叠白色蒙版。
 const introVideos = import.meta.glob<{ default: string }>(
   '../../../../assets/onboarding-video.webm',
   {
@@ -15,8 +15,7 @@ const introVideos = import.meta.glob<{ default: string }>(
 );
 const introVideoUrl = Object.values(introVideos)[0]?.default;
 
-// Intro 时间线（秒）：视频淡入 → Logo 浮现 → 品牌名手写 → Quote 手写 → 署名手写 → CTA。
-// 视频先播约两秒立住氛围，之后自上而下依次落笔，视线单方向移动。
+// 时间线（秒）：视频先播约两秒立住氛围，之后自上而下依次落笔，视线单方向移动。
 const videoFadeSeconds = 0.6;
 const logoAtSeconds = 3.2;
 const logoSeconds = 0.7;
@@ -99,7 +98,6 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             跳过
           </button>
 
-          {/* 品牌层：Logo 浮现，品牌名、Quote 与署名逐字手写落笔。 */}
           <div className="relative flex flex-col items-center">
             <motion.img
               alt="Dela"

@@ -15,7 +15,7 @@ import (
 
 func testLogger() *log.Logger { return log.New(io.Discard, "", 0) }
 
-// packInotifyEvent 按内核 struct inotify_event 的布局拼一条事件，名字按 4 字节补齐。
+// 按内核 struct inotify_event 布局拼事件：名字按 4 字节补齐。
 func packInotifyEvent(buffer []byte, wd int32, mask uint32, name string) []byte {
 	nameLen := len(name)
 	if pad := nameLen % 4; pad != 0 {
@@ -84,7 +84,7 @@ func TestSplitInotifyEvents(t *testing.T) {
 func TestWatchBatchMergeAndDedupe(t *testing.T) {
 	batch := newWatchBatch()
 	batch.note("a", "/x")
-	batch.note("a", "/x") // 同一窗口里的重复路径只算一次
+	batch.note("a", "/x")
 	batch.note("a", "/y")
 	batch.note("b", "/z")
 
@@ -104,7 +104,7 @@ func TestWatchBatchMergeAndDedupe(t *testing.T) {
 }
 
 func TestWatchBatchChangePathLimitAndReset(t *testing.T) {
-	// 刚好 256 个路径还发 change
+	// 正好达到上限仍发 change，超过才 reset。
 	batch := newWatchBatch()
 	for i := 0; i < watchMaxChangePaths; i++ {
 		batch.note("a", pathN(i))
@@ -114,12 +114,11 @@ func TestWatchBatchChangePathLimitAndReset(t *testing.T) {
 		t.Fatalf("%d 个路径应该是 change，得到 %+v", watchMaxChangePaths, events)
 	}
 
-	// 257 个就换成 reset：逐条列出来不如让调用方重读
+	// 超过上限换成 reset：逐条列不如让调用方重读。
 	batch = newWatchBatch()
 	for i := 0; i <= watchMaxChangePaths; i++ {
 		batch.note("a", pathN(i))
 	}
-	// 一个 id 换成 reset 不影响别的 id
 	batch.note("b", "/other")
 
 	events = batch.take()
@@ -145,7 +144,6 @@ func TestWatchBatchOverflow(t *testing.T) {
 		events[0].Reason != watchReasonOverflow {
 		t.Fatalf("溢出应该广播一条 reset(*, %s)，得到 %+v", watchReasonOverflow, events)
 	}
-	// 溢出之后的广播只发一次；新攒的变化照常发
 	batch.note("a", "/y")
 	events = batch.take()
 	if len(events) != 1 || events[0].ID != "a" || strings.Join(events[0].Paths, ",") != "/y" {
@@ -171,7 +169,6 @@ func TestWatchFanoutPublish(t *testing.T) {
 			t.Errorf("%s订阅者没收到事件", name)
 		}
 	}
-	// 空事件不该占队列
 	fanout.publish(nil)
 	select {
 	case event := <-first.ch:
@@ -224,7 +221,7 @@ func TestWatchHubHandleEvent(t *testing.T) {
 	hub.byWD[dir.wd] = dir
 	hub.byPath[dir.path] = dir
 
-	hub.handleEvent(inotifyEvent{wd: 5, mask: syscall.IN_MODIFY}) // 内容变化：不报
+	hub.handleEvent(inotifyEvent{wd: 5, mask: syscall.IN_MODIFY})
 	if len(hub.batch.pending) != 0 {
 		t.Fatalf("内容变化不该产生待发事件：%+v", hub.batch.pending)
 	}
@@ -233,7 +230,7 @@ func TestWatchHubHandleEvent(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("两个 id 都应该收到 change，得到 %+v", events)
 	}
-	hub.handleEvent(inotifyEvent{wd: 99, mask: syscall.IN_CREATE}) // 不认识的 wd：忽略
+	hub.handleEvent(inotifyEvent{wd: 99, mask: syscall.IN_CREATE})
 	if len(hub.batch.pending) != 0 {
 		t.Fatalf("不认识的 wd 不该产生待发事件：%+v", hub.batch.pending)
 	}
@@ -284,7 +281,6 @@ func TestWatchSetValidation(t *testing.T) {
 		}
 	}
 
-	// 未知方法
 	recorder := httptest.NewRecorder()
 	s.handleWatch(recorder, httptest.NewRequest(http.MethodPut, "/v1/watch", nil))
 	if recorder.Code != http.StatusMethodNotAllowed {

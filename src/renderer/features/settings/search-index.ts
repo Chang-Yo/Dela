@@ -7,7 +7,6 @@ export interface SettingsSearchItem {
   /** 索引项 id（稳定键）。 */
   id: string;
   section: SettingsSectionId;
-  /** 选项标题。 */
   title: string;
   /** 关键词：分类别名、同义词与常见英文。 */
   keywords: string[];
@@ -178,7 +177,7 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '模型供应商',
     keywords: ['模型', 'llm', 'ai', 'api', '提供商', '供应商', '密钥', 'key', '推理'],
   },
-  // 模型组内的能力管理（原「插件」分组，2026-10-06 并入模型）；「插件」仍作为搜索同义词保留
+  // 这些能力已并入模型分组；「插件」仍作为搜索同义词保留
   {
     id: 'capabilities',
     section: 'capabilities',

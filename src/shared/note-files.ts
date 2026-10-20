@@ -6,7 +6,6 @@ const markdownImageRefRe = /!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 interface MarkdownImageRef {
   /** 括号内的原始路径（未解码）。 */
   path: string;
-  /** alt 文本。 */
   alt: string;
   /** 整段引用的起始偏移。 */
   index: number;

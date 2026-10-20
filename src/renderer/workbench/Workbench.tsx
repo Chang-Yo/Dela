@@ -1,6 +1,5 @@
 // 工作台根：渲染项目布局（或最大化组/窄屏单列），承接布局类快捷键。
-// 布局载入（init）由装配层 WorkbenchShell 负责：home 视图不挂载本组件，
-// 装配层预热后，主动进入工作台时首帧即有布局，避免闪一次空白重载。
+// 布局载入由 WorkbenchShell 负责；home 不挂载本组件，预热后进入可避免首帧空白。
 import { type KeyboardEvent } from 'react';
 import type { KeybindingMap } from '../../shared/keybindings';
 import { digitFromEvent, matchShortcut } from '../../shared/keybindings';
@@ -33,7 +32,7 @@ export function Workbench({
     if (!macCloseTab && target?.closest('input, textarea, .cm-editor, [contenteditable="true"]'))
       return;
     const store = useWorkbenchLayout.getState();
-    // Alt+数字聚焦第 N 组（沿用旧 Alt+1/2，泛化到 N 组）。
+    // Alt+数字聚焦第 N 组。
     if (action === 'focus-group') {
       const digit = digitFromEvent(event.nativeEvent);
       const group = digit === null ? undefined : walkGroups(store.root)[digit - 1];

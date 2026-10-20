@@ -1,8 +1,4 @@
-/**
- * Pi Coding Agent 接线：Dela 的 agent 内核就是 pi-coding-agent SDK 本身。
- * 这里只做三件事：加载纯 ESM 的 SDK、把 Dela 的提供商配置注册成 Pi 模型、
- * 以项目目录为 cwd 创建/打开会话。工具、会话树、压缩、skills、AGENTS.md 都交给 Pi。
- */
+/** Pi Coding Agent 接线：内核就是 pi-coding-agent SDK；这里只做加载、提供商注册与按 cwd 建会话，工具与会话树仍归 Pi。 */
 import { app } from 'electron';
 import { join } from 'node:path';
 import type { AgentSession, ToolDefinition } from '@earendil-works/pi-coding-agent';
@@ -39,7 +35,7 @@ function thinkingLevel(effort: string | undefined) {
     : ('max' as const);
 }
 
-/** 当前提供商注册为 Pi 的 OpenAI 兼容提供商，返回当前模型与思考档位。 */
+/** 把当前提供商注册成 Pi 的 OpenAI 兼容提供商。 */
 async function resolveModel(provider: StoredLlmProvider, modelId = provider.model) {
   const runtime = await modelRuntime();
   const settings = llmModelSettings(provider, modelId);
@@ -83,7 +79,6 @@ async function modelRuntime() {
 
 interface OpenSessionInput {
   cwd: string;
-  /** 已有会话文件；缺省新建。 */
   file?: string;
   provider: StoredLlmProvider;
   /** 追加到 Pi 默认系统提示之后（项目背景、用户自定义指令、dela 命令说明）。 */
@@ -93,7 +88,6 @@ interface OpenSessionInput {
   shellPath: string;
   /** bash 每条命令前置的脚本（dela 函数定义）。远程会话不注入。 */
   commandPrefix?: string;
-  /** 额外的 skill 目录（Dela 内置 skills）。 */
   skillPaths: string[];
   /** 远端会话用：Pi 在本机读不到 AGENTS.md（cwd 是远端路径），由调用方注入远端内容。 */
   agentsFilesOverride?: (base: { agentsFiles: { path: string; content: string }[] }) => {

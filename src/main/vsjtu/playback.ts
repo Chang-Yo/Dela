@@ -1,7 +1,5 @@
 // 课堂视频在线播放代理：dela-resource://vsjtu/video/<videoId>/<view>?t=<token>。
-// 签名媒体地址与校园 cookie 都留在 main，renderer 只拿不透明的播放地址；
-// token 挡住 renderer 里远程内容（邮件 HTML 等）按可猜测的 videoId 盗播。
-// 拖拽进度条依赖 Range：原样转发给 live.sjtu.edu.cn 并透传 206。
+// 签名媒体地址与校园 cookie 留在 main；token 防止远程内容按可猜测的 videoId 盗播，Range 原样转发以支持拖拽。
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { getCampusSession } from '../campus';

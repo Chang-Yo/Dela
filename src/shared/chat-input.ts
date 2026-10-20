@@ -1,6 +1,5 @@
 // 助手 Composer 的输入模型：图文混排 blocks、附件类型与上限。
-// 内联图片以 Markdown 图片语法嵌入文本：![文件名](dela-img:<UUID>)，
-// 发送时按出现顺序拆成 text / image blocks 交给模型，附件不进入排版区。
+// 内联图片以 ![文件名](dela-img:<UUID>) 嵌入，发送时按出现顺序拆成 text / image blocks，附件不进入排版区。
 
 export const INLINE_IMAGE_MAX = 6;
 export const CHAT_ATTACHMENT_MAX = 5;
@@ -102,12 +101,11 @@ export function parseChatBlocks(text: string): ChatBlock[] {
   return blocks;
 }
 
-/** 文档中全部内联图片 token（matchAll 结果）。 */
 export function matchChatImageTokens(text: string): RegExpMatchArray[] {
   return [...text.matchAll(chatImageTokenRe)];
 }
 
-/** 去掉内联图片 token，保留纯文本（持久化消息 content 用）。 */
+/** 持久化消息 content 只存纯文本。 */
 export function stripChatImageTokens(text: string): string {
   return text.replace(chatImageTokenRe, '').trim();
 }

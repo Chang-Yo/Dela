@@ -6,11 +6,9 @@ import { CAMPUS_PARTITION } from './campus';
 import { checkWorkspaceSender } from './ipc';
 
 /**
- * Chromium 的可再生缓存目录名单：本机实测占应用数据目录的 97%（Cache、Code Cache 以及各分区、
- * 各会话里的同名目录）。按名字在每一层认，分区里真正属于用户的数据（Local Storage、IndexedDB、
- * Preferences）不动。导出跳过它们也是这份名单（`backup.ts`），两处必须是同一份。
- *
- * Crashpad 与 logs 不是缓存，但同样只对本机有意义、且可随时再生，一并算进来。
+ * Chromium 的可再生缓存目录名单：本机实测占应用数据目录的 97%。按名字在每一层认，分区里真正
+ * 属于用户的数据（Local Storage、IndexedDB、Preferences）不动；`backup.ts` 导出时跳过同一份
+ * 名单，两处必须同源。Crashpad 与 logs 不是缓存，但同样只对本机有意义、可随时再生，一并算进来。
  */
 export const cacheDirectoryNames = new Set([
   'Cache',
@@ -85,7 +83,7 @@ async function removeCaches(directory: string): Promise<boolean> {
 /**
  * 先让 Chromium 自己放手：缓存目录里的索引文件由它持有，不先清掉，磁盘上的目录删不干净。
  * 三类调用与名单一一对应——HTTP 缓存、脚本缓存、CacheStorage 与着色器缓存；Cookie、Local Storage
- * 等真正属于用户的数据一律不碰。只有默认会话与校园分区两种会话（见 docs/DEVELOPMENT.md §10）。
+ * 等真正属于用户的数据一律不碰。只有默认会话与校园分区两种会话。
  */
 async function releaseSessions() {
   for (const partition of [undefined, CAMPUS_PARTITION]) {

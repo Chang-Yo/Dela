@@ -262,7 +262,7 @@ export function parseModelList(payload: unknown): string[] | null {
 
 const VERIFY_TIMEOUT = 15000;
 
-/** 两种检测共用的取密钥逻辑：填了用填的，留空则沿用该提供商已存的密钥。 */
+/** 两种检测共用：留空沿用该提供商已存的密钥。 */
 function verificationConnection(input: {
   id?: string;
   baseUrl: string;
@@ -279,7 +279,7 @@ function verificationConnection(input: {
   return { baseUrl: parsed.baseUrl, key };
 }
 
-/** 轻量密钥检测：GET 模型列表端点，401/403 视为密钥无效，成功时顺带返回模型列表。 */
+/** 只做一次 GET：401/403 视为密钥无效，成功时顺带取回模型列表。 */
 export async function verifyLlm(input: {
   id?: string;
   baseUrl: string;

@@ -36,7 +36,6 @@ const codeHighlightStyle = HighlightStyle.define([
   { tag: t.tagName, color: 'var(--syntax-tag)' },
 ]);
 
-/* 代码从行号旁开始，正文随面板宽度展开；行号背景与正文区分。 */
 const viewerTheme = EditorView.theme({
   '&': {
     height: '100%',
@@ -47,18 +46,24 @@ const viewerTheme = EditorView.theme({
   '.cm-scroller': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     lineHeight: '1.625',
-    padding: '1.5rem',
+    padding: '1.5rem 0',
   },
-  '.cm-content': { caretColor: 'var(--syntax-caret)', margin: '0', textAlign: 'left' },
+  '.cm-content': {
+    caretColor: 'var(--syntax-caret)',
+    margin: '0',
+    paddingRight: '1.5rem',
+    textAlign: 'left',
+  },
+  // 行号栏在横向滚动时是 sticky 的：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
   '.cm-gutters': {
     borderRight: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-muted)',
+    backgroundColor: 'var(--color-surface)',
     color: 'var(--color-muted-foreground)',
+    paddingLeft: '1.5rem',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
-/* 文件名 → 语言：无扩展名按纯文本；语言包经 language-data 异步加载。 */
 function languageForFilename(filename: string): LanguageDescription | null {
   const dot = filename.lastIndexOf('.');
   if (dot <= 0) return null;
@@ -67,8 +72,7 @@ function languageForFilename(filename: string): LanguageDescription | null {
 }
 
 /**
- * 只读代码/文本文件查看器（原 ProjectDocument 的文本分支）：CodeMirror 只读装配，
- * 语法高亮、行号、搜索面板与原生复制；滚动位置由上层按标签记忆。
+ * 只读代码/文本文件查看器：CodeMirror 只读装配，滚动位置由上层按标签记忆。
  */
 export function CodeViewer({
   value,

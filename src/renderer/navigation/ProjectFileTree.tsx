@@ -1,7 +1,5 @@
-// 项目文件树：
-// 筛选/折叠/拖放移动/文件导入入口经 props 注入，条目动作回调交给接线方。
-// 远程项目的子目录在这里懒加载（见 ./remote-tree），远端条目只读：目录可展开并接收本地
-// 文件拖放（上传），文件开只读预览，两者都不参与内部拖拽与移动。
+// 项目文件树：条目动作、远端上传/下载都经 props 交给接线方；
+// 远端子目录懒加载（./remote-tree），条目只读，不参与内部拖拽与移动。
 import {
   Archive,
   Cloud,
@@ -9,6 +7,7 @@ import {
   Ellipsis,
   ExternalLink,
   FilePlus2,
+  FolderOpen,
   FolderPlus,
   FolderKanban,
   Loader2,
@@ -33,6 +32,8 @@ import {
 import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from './remote-color';
 import { remoteTitle, useRemoteTree } from './remote-tree';
+import { showToast } from '../app/toasts';
+import { errorText } from '../workspace/store';
 
 export type { EntryAction };
 
@@ -84,8 +85,7 @@ export function ProjectFileTree({
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
   onOpenToSide?: (id: string) => void;
-  /** 远端条目的动作：文件可下载/用系统程序打开，目录可上传本地文件。
-   *  端口预览在文件树 header（项目级动作，与具体目录无关），不进条目菜单。 */
+  /** 远端条目动作。端口预览是项目级动作，在文件树 header，不进条目菜单。 */
   onRemoteAction?: (action: 'download' | 'open' | 'upload', id: string) => void;
   query: string;
   excludeIds?: string[];
@@ -102,6 +102,12 @@ export function ProjectFileTree({
   };
   visit(rootId);
   const visible = entries.filter((e) => included.has(e.id));
+  /** 条目级文件动作：失败统一走浮窗，不打断文件树。 */
+  const runFileCommand = (title: string, command: () => Promise<void> | undefined) => {
+    void Promise.resolve(command()).catch((cause: unknown) =>
+      showToast({ variant: 'error', title, description: errorText(cause) }),
+    );
+  };
   // 打开的项目工作台里项目行本身不在 visible（只有它的子条目在），远程根要单独带上。
   const remote = useRemoteTree(
     entries.filter((e) => included.has(e.id) || e.id === rootId),
@@ -148,7 +154,7 @@ export function ProjectFileTree({
   }
   const remoteIds = new Set(remote.items.map((item) => item.id));
   const remoteDirs = new Set(remote.items.filter((item) => item.container).map((item) => item.id));
-  /** 远端条目：目录点击展开/收起，文件走只读预览（读取在接线方）。 */
+  /** 远端目录点击展开，文件走只读预览（读取在接线方）。 */
   const selectNode = (id: string) => {
     if (remoteDirs.has(id)) {
       onExpand(id, !expanded.includes(id));
@@ -260,6 +266,26 @@ export function ProjectFileTree({
                     <FolderKanban />
                     作为项目开展
                   </DropdownMenuItem>
+                )}
+                {!item.container && (
+                  <>
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        runFileCommand('定位失败', () => window.dela?.workspace.openLocal(item.id))
+                      }
+                    >
+                      <FolderOpen />
+                      在文件夹中显示
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        runFileCommand('打开失败', () => window.dela?.workspace.openFile(item.id))
+                      }
+                    >
+                      <ExternalLink />
+                      用系统默认程序打开
+                    </DropdownMenuItem>
+                  </>
                 )}
                 {onOpenToSide && openToSideItem(item.id)}
                 {/* 远端项目的重命名/移动/归档都走 main 的 update，而那条路径对远端项目一律拒绝

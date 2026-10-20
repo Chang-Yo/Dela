@@ -4,7 +4,6 @@ import { build } from 'vite';
 import { builtinModules, createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 
-/** 一项冒烟的打包与运行参数；external 声明不打进 bundle 的模块。 */
 interface SmokeConfig {
   external: (string | RegExp)[];
   timeout: number;

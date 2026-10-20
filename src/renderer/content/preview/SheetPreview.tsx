@@ -45,7 +45,6 @@ export function sanitizeTableHtml(html: string): string {
   return doc.body.innerHTML;
 }
 
-/** sheet_to_html 输出完整 HTML 文档，取出其中的表格元素即可。 */
 function tableHtml(sheet: XLSX.WorkSheet): string {
   const html = XLSX.utils.sheet_to_html(sheet);
   const table = /<table[\s\S]*?<\/table>/.exec(html)?.[0] ?? '';
@@ -57,7 +56,6 @@ function sheetTruncated(sheet: XLSX.WorkSheet): boolean {
   return !!range && range.e.r + 1 >= SHEET_ROW_LIMIT;
 }
 
-/** Excel 表格只读预览：SheetJS 读取后按工作表标签切换展示，单元格取显示值。 */
 export function SheetPreview({ url }: { url: string }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [sheets, setSheets] = useState<SheetTab[]>([]);

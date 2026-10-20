@@ -1,5 +1,5 @@
-// 标签组：标签栏 + 内容宿主（经 registry 解析组件）+ 边缘拖放分屏。
-// 同组只挂载活动标签（沿用旧 EditorLayout 行为）；组内非活动标签状态由内容组件本地保留与否自决。
+// 标签组：标签栏 + 内容宿主 + 边缘拖放分屏。
+// 同组只挂载活动标签；组内非活动标签状态由内容组件本地保留与否自决。
 import { memo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
 import type { GroupNode, TabId } from '../../shared/layout';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -20,7 +20,7 @@ import {
   type EdgeZone,
 } from './tab-dnd';
 
-/** 懒加载内容域的首帧占位：静态色块骨架（inset 底），不做动画。 */
+/** 懒加载内容域的首帧占位：静态色块，不做动画。 */
 function TabSuspenseFallback() {
   return <div className="min-h-0 min-w-0 flex-1 bg-inset" />;
 }
@@ -56,7 +56,7 @@ export const TabGroup = memo(function TabGroup({
   group: GroupNode;
   onNewChat: () => void;
 }) {
-  // 订阅派生布尔而非 focus/maximized 原值：只有本组的未聚焦态翻转时才重渲（评审 1）。
+  // 订阅派生布尔而非 focus/maximized 原值：只有本组的未聚焦态翻转时才重渲。
   const unfocused = useWorkbenchLayout((s) => s.maximized === null && s.focus !== group.id);
   const revealAnchor = useWorkbenchLayout(
     (s) => (s.maximized ?? walkGroups(s.root)[0]?.id ?? null) === group.id,

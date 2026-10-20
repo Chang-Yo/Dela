@@ -50,7 +50,6 @@ const render = () => act(async () => root.render(<CapabilitySetup onDone={done} 
 
 it('does not automatically install; allows completing with every component skipped', async () => {
   await render();
-  expect(host.textContent).toContain('能力拓展');
   expect(button('安装并启用')).toBeDefined();
   expect(api.installSkillDependencies).not.toHaveBeenCalled();
   await act(async () => button('完成配置').click());
@@ -58,14 +57,16 @@ it('does not automatically install; allows completing with every component skipp
   expect(done).toHaveBeenCalledOnce();
 });
 
-it('installs and enables the component, then shows its actual ready state', async () => {
+it('installs and enables the component without finishing setup', async () => {
   api.installSkillDependencies.mockImplementation(async () => [
     { ...skill, enabled: true, dependency: { status: 'ready' } },
   ]);
   await render();
+  const actionsBefore = host.querySelectorAll('button').length;
   await act(async () => button('安装并启用').click());
   expect(api.installSkillDependencies).toHaveBeenCalledWith('document-reading');
-  expect(host.textContent).toContain('已启用');
+  // 就绪后动作按钮让位给状态标记，界面不能还停在「安装并启用」。
+  expect(host.querySelectorAll('button')).toHaveLength(actionsBefore - 1);
   expect(done).not.toHaveBeenCalled();
 });
 
@@ -99,7 +100,8 @@ it('shows download progress and cancels without surfacing an intentional cancell
   expect(host.querySelector('[role="progressbar"]')).not.toBeNull();
   await act(async () => button('取消').click());
   expect(api.cancelSkillInstallation).toHaveBeenCalledWith('document-reading');
-  expect(host.textContent).not.toContain('cancelled');
+  // 用户主动取消不应被当成安装失败展示。
+  expect(host.querySelector('[role="alert"]')).toBeNull();
   expect(button('安装并启用')).toBeDefined();
 });
 

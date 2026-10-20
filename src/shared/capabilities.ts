@@ -1,5 +1,4 @@
-// 能力层契约（MCP 与 Skills）。
-// 类型归 shared：main 拥有事实（连接状态、启停、发现），renderer 只持镜像。
+// 能力层契约（MCP 与 Skills）：main 拥有连接与启停事实，renderer 只持镜像。
 
 /** Skill 来源范围：global 来自用户主目录（.dela/.agents/.zcode），project 来自当前工作区。 */
 export type SkillScope = 'global' | 'project';
@@ -21,7 +20,6 @@ export interface SkillView {
   enabled: boolean;
   /** SKILL.md 的绝对路径（供 UI 展示来源）。 */
   path: string;
-  /** 来源范围：全局或当前工作区。 */
   scope: SkillScope;
   dependency?: SkillDependency;
 }
@@ -57,7 +55,6 @@ export interface AgentCapabilityView {
   label: string;
   /** 所属领域 id（canvas / mail / …），设置页按域分组与批量开关。 */
   domain: string;
-  /** 领域显示名。 */
   domainLabel: string;
   /** 提供给模型的工具描述（UI 摘要）。 */
   description: string;
@@ -67,15 +64,36 @@ export interface AgentCapabilityView {
 }
 
 /**
- * WebSearch 的搜索服务注册（设置 › 内置能力 › 网络）：同一时刻至多一个生效。
+ * WebSearch 的搜索服务配置条目（设置 › 内置能力 › 「网络」分组，同类型可存多条）：
  * brave 固定走 Brave 为大模型设计的 LLM Context 端点（res/v1/llm/context）；
  * google 用平台凭据；custom 为返回 { results: [{ title, url, content }] } JSON
- * （SearXNG 兼容格式）的任意端点，headers 适配用户自备的鉴权/加密策略。
+ * （SearXNG 兼容格式）的任意端点，headers 适配用户自备的鉴权/加密策略；
+ * deepseek 用官方自研搜索引擎，useForFetch 决定 web_fetch 是否也走其 Fetch 接口。
+ * 当前使用哪一条由聊天输入框左下角的选择记录，设置页只做增删改。
  */
-export type WebSearchConfig =
-  | { provider: 'brave'; apiKey: string }
-  | { provider: 'google'; apiKey: string; cx: string }
-  | { provider: 'custom'; url: string; headers?: Record<string, string> };
+export type WebSearchEntry =
+  | { id: string; name: string; provider: 'brave'; apiKey: string }
+  | { id: string; name: string; provider: 'google'; apiKey: string; cx: string }
+  | { id: string; name: string; provider: 'custom'; url: string; headers?: Record<string, string> }
+  | { id: string; name: string; provider: 'deepseek'; apiKey: string; useForFetch: boolean };
+
+/** 保存入参：id 省略表示新建（新建即选中）。Omit 需分布到各判别分支，否则丢失判别字段。 */
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+export type WebSearchEntryInput = DistributiveOmit<WebSearchEntry, 'id'> & { id?: string };
+
+/** 聊天侧选择器用的脱敏条目：只有标识与类型，不含密钥与自定义请求头。 */
+export interface WebSearchEntrySummary {
+  id: string;
+  name: string;
+  provider: WebSearchEntry['provider'];
+}
+
+/** 可导入搜索密钥的 DeepSeek 模型供应商（只含标识，不含密钥）。 */
+export interface WebSearchKeySource {
+  id: string;
+  name: string;
+  active: boolean;
+}
 
 /** 上传本地 Skill 到远端项目的结果。 */
 export interface RemoteSkillUpload {
@@ -125,14 +143,27 @@ export interface CapabilityApi {
   removeMcpServer(id: string): Promise<McpServerView[]>;
   /** 显式重连并刷新工具列表（连接失败时给模型明确的不可用边界）。 */
   refreshMcpServer(id: string): Promise<McpServerView[]>;
-  /** 内置 Agent 能力（工具）清单与启用态。 */
   listBuiltinCapabilities(): Promise<AgentCapabilityView[]>;
   /** 单个内置能力启停；返回最新清单（未知名或常驻能力抛错）。 */
   setBuiltinCapability(name: string, enabled: boolean): Promise<AgentCapabilityView[]>;
   /** 按领域批量启停（跳过常驻能力）；返回最新清单。 */
   setBuiltinDomain(domain: string, enabled: boolean): Promise<AgentCapabilityView[]>;
-  /** 已注册的搜索服务；null = 未注册（WebSearch 报错引导）。 */
-  readWebSearchConfig(): Promise<WebSearchConfig | null>;
-  /** 保存（校验各字段）或清除（null）；返回保存后的配置。 */
-  writeWebSearchConfig(config: WebSearchConfig | null): Promise<WebSearchConfig | null>;
+  /** 已保存的全部搜索服务配置；增删改在设置弹窗，选择在聊天侧。 */
+  listWebSearchEntries(): Promise<WebSearchEntry[]>;
+  /** 聊天侧选择器的数据：脱敏条目与当前选中（工具停用或悬空 id 视为未选）。 */
+  listWebSearchOptions(): Promise<{ entries: WebSearchEntrySummary[]; selectedId: string | null }>;
+  /** 搜索配置或内置工具开关变化后通知，返回退订函数。 */
+  onWebSearchChanged(listener: () => void): () => void;
+  /** 新建（省略 id，新建即选中）或更新一条配置；返回最新列表。 */
+  saveWebSearchEntry(entry: WebSearchEntryInput): Promise<WebSearchEntry[]>;
+  /** 删除一条配置；删的是选中项时自动回落到剩余第一条；返回最新列表。 */
+  removeWebSearchEntry(id: string): Promise<WebSearchEntry[]>;
+  /** 聊天侧选择当前使用的配置；选择即视为要用搜索，顺带启用 web_search 工具；
+   *  传 null 表示关闭联网搜索。 */
+  selectWebSearchEntry(id: string | null): Promise<void>;
+  /** 可导入密钥的 DeepSeek 模型供应商（不含密钥）；使用中的排最前。 */
+  listWebSearchKeySources(): Promise<WebSearchKeySource[]>;
+  /** 读指定 DeepSeek 模型供应商的密钥给表单预填（不落库）；供应商不可用时返回 null。
+   *  导入的是静态副本，不随供应商换 Key 更新。 */
+  readWebSearchKey(providerId: string): Promise<string | null>;
 }

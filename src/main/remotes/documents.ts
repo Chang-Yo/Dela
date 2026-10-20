@@ -1,13 +1,6 @@
 /**
- * 远端文件的只读预览：把 helper 的片段读取拼成 DocumentContent。
- *
- * 格式判定与本地条目（workspace/api.ts 的 readWorkspaceEntry）共用 shared/documents，
- * 差别只在字节来自远端、且不能整篇进内存：
- * - 文本 / Markdown：只读头部一段，超限截断并在结尾说明；
- * - 图片：读字节直传（上限内），与本地一致走 bytes + blob URL；
- * - PDF / docx / xlsx：只给 dela-resource://remote 的地址，字节由协议按 Range 分块拉；
- * - pptx：内嵌预览依赖 PowerPoint 导出成 PDF，而导出要本地文件路径，远端文件按不支持处理；
- * - 其余：unsupported（与本地一致）。
+ * 远端文件只读预览：格式判定与本地共用 shared/documents。字节来自远端且不能整篇进内存，
+ * 文本/图片只读限长片段，PDF/docx/xlsx 交给 dela-resource 按 Range 拉取；PPTX 导出依赖本地路径，按不支持处理。
  */
 import type { DocumentContent } from '../../shared/documents';
 import { documentFormatOf } from '../../shared/documents';

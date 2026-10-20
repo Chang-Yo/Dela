@@ -11,7 +11,6 @@ import { cn } from '../../../../lib/utils';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
-/** code 类 textarea（args/env）共用特化：等宽小字号、代码区最小高度可拉伸。 */
 const codeAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 
 /** MCP 添加/编辑共用表单：新建提交 addMcpServer；编辑提交部分补丁（command/args/env 留空保持原值，视图不携带现值）。 */

@@ -2,15 +2,6 @@
 
 import { useCallback, useState, type ReactNode } from "react";
 
-/* ─────────────────────────────────────────────────────────
- * CODE BLOCK
- * A light editor panel with two versions (switch in the card):
- *   · Code — a line-numbered listing
- *   · Diff — a unified diff: old/new gutters, a green/red accent
- *     bar and row tint, plus word-level add/del highlights.
- * Both share syntax coloring, insets, and wrapping behavior.
- * ───────────────────────────────────────────────────────── */
-
 const FILE = "churn.ts";
 
 const CODE_LINES = [
@@ -23,16 +14,13 @@ const CODE_LINES = [
   "}",
 ];
 
-/* A single run of code within a diff row; `change` tints it as an add/del. */
 export type CodePiece = { text: string; change?: "add" | "del" };
-/* One row of a unified diff: old/new line numbers, its kind, and its pieces. */
 export type DiffRow = {
   old: number | null;
   cur: number | null;
   type: "ctx" | "add" | "del";
   pieces: CodePiece[];
 };
-/* Prominent copy strings on the code block. */
 export type CodeBlockLabels = { copy: string; copied: string };
 
 // Back-compat internal aliases for the local component signatures.
@@ -52,7 +40,6 @@ const DIFF: Row[] = [
 
 const HATCH = "repeating-linear-gradient(45deg, var(--red) 0, var(--red) 1.5px, transparent 1.5px, transparent 3px)";
 
-/* light syntax coloring — keywords/imports/conditionals, functions, strings & numbers */
 const KEYWORDS = new Set(["import", "from", "export", "default", "async", "function", "const", "let", "var", "await", "return", "if", "else", "for", "while", "new", "throw", "try", "catch", "null", "true", "false", "undefined"]);
 const TOKEN = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`|\b\d+(?:\.\d+)?\b|\b(?:import|from|export|default|async|function|const|let|var|await|return|if|else|for|while|new|throw|try|catch|null|true|false|undefined)\b|[A-Za-z_$][\w$]*(?=\s*\())/g;
 
@@ -66,9 +53,9 @@ function highlight(text: string): ReactNode[] {
     if (idx > last) nodes.push(<span key={k++}>{text.slice(last, idx)}</span>);
     let color: string;
     let weight: number | undefined;
-    if (/^["'`]/.test(t) || /^\d/.test(t)) color = "var(--orange)"; // string / number
-    else if (KEYWORDS.has(t)) color = "var(--bui-accent-ink)"; // keyword / import / conditional
-    else { color = "var(--ink)"; weight = 500; } // function call
+    if (/^["'`]/.test(t) || /^\d/.test(t)) color = "var(--orange)";
+    else if (KEYWORDS.has(t)) color = "var(--bui-accent-ink)";
+    else { color = "var(--ink)"; weight = 500; }
     nodes.push(<span key={k++} style={{ color, fontWeight: weight }}>{t}</span>);
     last = idx + t.length;
   }
@@ -115,19 +102,14 @@ function FileIcon() {
 const DEFAULT_LABELS: CodeBlockLabels = { copy: "Copy", copied: "Copied" };
 
 export type CodeBlockProps = {
-  /** Which view to render — "Code" (line-numbered listing) or "Diff". */
+  /** "Code" (line-numbered listing) or "Diff". */
   variant?: string;
-  /** The lines shown in the Code view. */
   lines?: string[];
-  /** Raw text placed on the clipboard by Copy. Defaults to `lines` joined. */
+  /** Defaults to `lines` joined. */
   code?: string;
-  /** The unified-diff rows shown in the Diff view. */
   diff?: DiffRow[];
-  /** Filename shown in the header. */
   filename?: string;
-  /** Prominent copy strings. */
   labels?: Partial<CodeBlockLabels>;
-  /** Called with the copied text after a successful copy. */
   onCopy?: (text: string) => void;
   /** Dela 适配：纯文本模式——跳过内置语法高亮（stdout、网页正文等非代码内容）。 */
   plain?: boolean;
@@ -176,11 +158,11 @@ export default function CodeBlock({
       {tone === "error" && (
         <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-red" />
       )}
-      {/* header — file · (diff stat | copy) */}
-      <div className="flex h-11 items-center gap-2 border-b border-line px-4 text-13">
+      {/* Dela 适配：文件名保留正常行高；leading-none 的 1em 行盒会在字号调大后裁掉下划线与字形下缘。 */}
+      <div className="flex min-h-11 items-center gap-2 border-b border-line px-4 py-2 text-13">
         <span className="inline-flex min-w-0 items-center gap-[0.4375rem]">
           <FileIcon />
-          <span className="truncate font-mono leading-none text-ink">{filename}</span>
+          <span className="truncate font-mono leading-normal text-ink">{filename}</span>
         </span>
 
         {isDiff ? (
@@ -208,7 +190,6 @@ export default function CodeBlock({
         )}
       </div>
 
-      {/* body — equal 12px inset on top / left / right; lines wrap */}
       <div className={`py-3 font-mono text-13 leading-[1.65] text-ink-2${bodyClassName ? ` ${bodyClassName}` : ""}`}>
         {isDiff ? (
           <div className="relative">

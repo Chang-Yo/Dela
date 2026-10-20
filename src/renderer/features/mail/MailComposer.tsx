@@ -319,9 +319,8 @@ export function MailComposer({
     return () => window.removeEventListener('beforeunload', preventUnload);
   }, [dirty]);
 
-  // 暂存附件的释放:主进程仅在发送成功后释放,保存/删除/丢弃草稿都依赖卸载时释放。
-  // 开发模式 StrictMode 挂载后立刻假卸载一次,同步释放会让重挂载后的保存/发送报
-  // 「所选文件已失效」,故推迟一个宏任务:假卸载被重挂载取消,真卸载照常全量释放。
+  // 附件暂存仅在发送成功后由主进程释放，其余路径依赖卸载释放；开发模式 StrictMode 会假卸载一次，
+  // 推迟一个宏任务可避免重挂载后保存/发送报「所选文件已失效」，真卸载仍会全量释放。
   useEffect(() => {
     if (releaseTimerRef.current !== null) {
       window.clearTimeout(releaseTimerRef.current);

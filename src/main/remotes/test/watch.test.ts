@@ -117,7 +117,6 @@ it('两个目标各有一条流：一台的事件不回到另一台', async () =
   const { seen, stop } = collect();
   await watchRemoteProject({ projectId: 'p-1', target, root: '/one', paths: ['/one'] });
   await vi.waitFor(() => expect(fake(target.host).sets.get('p-1')).toBeTruthy());
-  // 另一个目标被用到：它自己起一条流，第一台的流与集合都留着。
   await watchRemoteProject({ projectId: 'p-2', target: other, root: '/two', paths: ['/two'] });
   await vi.waitFor(() => expect(fake(other.host).sets.get('p-2')).toBeTruthy());
   expect(fake(target.host).sets.get('p-1')).toEqual(['/one']);
@@ -127,7 +126,6 @@ it('两个目标各有一条流：一台的事件不回到另一台', async () =
   fake(target.host).emit({ type: 'change', id: 'p-1', paths: ['/one/sub'] });
   expect(seen).toEqual(['/two', '/one/sub']);
 
-  // 撤销其中一个项目的监视：只收它自己那条流，另一台照旧。
   await unwatchRemoteProject('p-1');
   await vi.waitFor(() => expect(fake(target.host).listeners.size).toBe(0));
   fake(target.host).emit({ type: 'change', id: 'p-1', paths: ['/one/ignored'] });

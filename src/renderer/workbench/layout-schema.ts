@@ -52,7 +52,7 @@ export function countNodes(node: LayoutNode): number {
     : 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
 }
 
-/** split 嵌套深度（组 = 0；depth-1 split 即旧 EditorLayout 形态）；测试断言布局嵌套用。 */
+/** split 嵌套深度（组 = 0）；测试断言布局嵌套用。 */
 export function splitDepth(node: LayoutNode): number {
   return node.type === 'group' ? 0 : 1 + Math.max(...node.children.map(splitDepth));
 }
@@ -154,11 +154,9 @@ export function collapseEmptyGroups(layout: WorkbenchLayout): WorkbenchLayout {
   };
 }
 
-// ---------------------------------------------------------------------------
 // 旧数据种子：EditorLayout（localStorage 双组形态）+ view:% tabs → WorkbenchLayout。
-// 映射规则：`source:{id}` → `preview:source:{id}`；entryId 默认 `note:{entryId}`，
-// 调用方可用 resolveEntryKind 把 local/imported/source 条目判为 preview。
-// ---------------------------------------------------------------------------
+// `source:{id}` → `preview:source:{id}`；entryId 默认 `note:{entryId}`，调用方可用
+// resolveEntryKind 把 local/imported/source 条目判为 preview。
 
 /** 旧 ProjectView 的 localStorage 布局形态（宽容解析，字段均可缺省）。 */
 export interface LegacyEditorLayout {
@@ -194,7 +192,7 @@ export function readStoredLegacyLayout(scope: string): LegacyEditorLayout | null
   }
 }
 
-/** 布局成功落库（layout:{projectId}）后清除旧 ProjectView 的 localStorage 布局键（3C）。 */
+/** 布局成功落库（layout:{projectId}）后清除旧 ProjectView 的 localStorage 布局键。 */
 export function removeStoredLegacyLayout(scope: string): void {
   if (typeof localStorage === 'undefined') return;
   localStorage.removeItem(legacyLayoutKey(scope));

@@ -1,4 +1,3 @@
-/** 「9月28日 18:22」样式的短日期；无值时回退「无截止日期」。 */
 export function dateLabel(value: string | null) {
   return value
     ? new Date(value).toLocaleString('zh-CN', {

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// preview 标签键解析与格式分流决策（原 SourceDetail 分流 + ProjectDocument 只读分支）。
 import { describe, expect, it } from 'vitest';
 import { previewBranchOf } from './PreviewTab';
 import { parsePreviewTabId, type PreviewTabTarget } from './tab-id';

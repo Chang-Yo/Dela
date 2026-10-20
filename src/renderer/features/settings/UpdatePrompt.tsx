@@ -1,7 +1,5 @@
-// 下载完成后的确认弹窗。
-//
-// 安装会关闭并重新启动 Dela，所以下载完不能自己往下走：必须让用户挑时机。
-// 挂在应用层而不是设置页里——下载可能持续几分钟，用户早就离开设置页了。
+// 下载完成后的确认弹窗：安装会关掉并重启 Dela，必须让用户自己挑时机。
+// 挂在应用层——下载可能持续几分钟，用户早就离开设置页了。
 import { Dialog } from 'radix-ui';
 import { Button } from '../../components/ui/button';
 import { dialogOverlay, dialogPanel } from '../../components/ui/motion';

@@ -104,8 +104,7 @@ function watchWorkspace(client: WebContents) {
   }
 }
 
-/** workspace 通道不依赖 agent 域：会话订阅挂钩由装配层（main/index.ts 经 agent 门面）注入。 */
-/** subscribeChat：工作区通道顺带订阅会话推送；invalidateSessions：项目目录变化后让空闲 agent 会话按新 cwd 重建。 */
+/** workspace 通道不依赖 agent 域：会话订阅与项目目录变化后的会话重建都由装配层（main/index.ts 经 agent 门面）注入。 */
 export function registerWorkspaceIpc(
   subscribeChat: (client: WebContents) => void,
   invalidateSessions: () => void,
@@ -207,8 +206,8 @@ export function registerWorkspaceIpc(
     invalidateSessions();
     return created;
   });
-  // 远端通道共用的入口：projectId 解成目标与项目根，路径参数一律先判「在项目根之内」。
-  // 这段校验原本在每个远端通道里各抄一遍，谁漏一处就是越界读写。
+  // 远端通道共用入口：projectId 解成目标与项目根，路径参数一律先判「在项目根之内」；
+  // 集中一处校验，否则哪个通道漏判一处就是越界读写。
   const remoteTargetOf = (projectId: unknown) => {
     const location = projectLocation(projectId);
     if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
@@ -347,6 +346,13 @@ export function registerWorkspaceIpc(
       return;
     }
     shell.showItemInFolder(path);
+  });
+  handle('open-file', async (value) => {
+    prepareStorage();
+    const path = await workspaceFilePath(workspaceEntryIdSchema.parse(value));
+    if (!path) throw new Error('此内容没有本地文件');
+    const error = await shell.openPath(path);
+    if (error) throw new Error(error);
   });
   handle('choose-directory', async () => {
     const result = await dialog.showOpenDialog({

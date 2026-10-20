@@ -10,7 +10,7 @@ function revisionOf(markdown: string) {
   return /最后更新：(\S+)/.exec(markdown)?.[1] ?? 'unknown';
 }
 
-/** 依次展示的条款。两份都读到最底部并同意后才放行，这里没有跳过。 */
+/** 两份都读到最底部并同意后才放行，这里没有跳过。 */
 const documents = [
   { key: 'terms', title: '使用条款', markdown: terms, revision: revisionOf(terms) },
   { key: 'privacy', title: '隐私条款', markdown: privacy, revision: revisionOf(privacy) },
@@ -124,8 +124,8 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
     <div className="grid h-dvh grid-rows-[auto_1fr_auto] bui-light bg-surface text-ink">
       <OnboardingWindowBar />
 
-      {/* 中间行显式分两档：标题按内容、文本框吃掉剩余高度。文本框没有确定高度就不会滚，
-       * minmax(0,1fr) 与 min-h-0 都是为了让它在矮窗口里被压缩而不是把页面撑高。 */}
+      {/* 文本框没有确定高度就不会滚：minmax(0,1fr) 与 min-h-0 让它在矮窗口里被压缩，
+       * 而不是把页面撑高。 */}
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] justify-items-center gap-4 px-6 pt-8">
         <header className="grid w-full max-w-[42rem] gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{current.title}</h1>

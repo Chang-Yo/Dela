@@ -384,7 +384,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
   return getCanvasState();
 }
 
-/** 归档/取消归档课程：归档后不参与自动同步，仅保留本地已同步数据。 */
+/** 归档后不参与自动同步，仅保留本地已同步数据。 */
 export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
   const db = getDatabase();
   const rowById = db.prepare('SELECT data FROM canvas_courses WHERE id=?').get(id) as

@@ -1,7 +1,5 @@
-// 视图路由 zustand store：view、back/forward 栈、
-// 当前工作台项目与一次性定位请求脉冲（旧 App.tsx 的 chatRequest/mailRequest/todoRequest/
-// settingsRequest/createProject 五类脉冲迁到这里）。'workbench' 统一取代旧 home/project/
-// sources 三视图；projectId 为 null 表示通用（无项目）工作台。
+// 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
+// projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
 import { leaveComposer } from '../features/mail/compose-close';
 import { useShuiyuan } from '../features/shuiyuan/store';
@@ -11,6 +9,7 @@ import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
+import { prepareAsideGroup } from '../workbench/open-aside';
 import { walkGroups } from '../workbench/layout-schema';
 import { showToast } from '../app/toasts';
 
@@ -70,7 +69,6 @@ interface NavigationState {
   newChat(projectId: string | null): Promise<string | null>;
   /** 随聊会话在首页打开，项目会话定位对应工作台标签。 */
   openChat(sessionId: string, projectId: string | null): boolean;
-  /** 记下首页当前停留在哪个会话。 */
   rememberHomeSession(sessionId: string): void;
   /** 打开笔记标签，自动归属其所在项目。 */
   openNote(entryId: string): boolean;
@@ -270,15 +268,9 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
           .refresh(projectId)
           .catch(() => {});
         if (openInWorkbench) {
-          // 落位同标题栏「新聊天」：单组向右分屏（新组只放新对话，不带当前聚焦标签；
-          // 空组会拒绝分屏，新对话就地落进去），多组进最右组。
-          const current = useWorkbenchLayout.getState();
-          const groups = current.ready ? walkGroups(current.root) : [];
-          const rightmost = groups[groups.length - 1];
-          if (rightmost) {
-            if (groups.length === 1) current.splitGroup(rightmost.id, 'vertical', true);
-            else current.focusGroup(rightmost.id);
-          }
+          // 落位与轮次卡片的审阅/打开共用（workbench/open-aside）：单组向右分出空新组，
+          // 多组进最右组；标签本体经 reveal 脉冲由工作台装配层打开。
+          prepareAsideGroup();
           revealInProject(`chat:${chat.sessionId}`, null);
         } else {
           get().openChat(chat.sessionId, projectId);

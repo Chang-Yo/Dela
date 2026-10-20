@@ -1,6 +1,5 @@
-// 已保存的 ssh 连接（id → 连接）：目录树的行提示、项目行与资源管理器标题的悬浮提示都要「目的地」，
-// 三处共用这一个 hook，不再各自拉一遍。key 是「这次要用到哪些连接」，变了就重拉——
-// 新增/删除连接一定伴随 remoteId 集合变化，所以不必再单独做作废。
+// 已保存的 ssh 连接（id → 连接），供目录树、项目行与资源管理器标题共用，避免三处各拉一遍。
+// key 是「这次要用到哪些连接」；新增/删除连接必定改变 remoteId 集合，所以 key 变化即重拉，无需另做失效。
 import { useEffect, useState } from 'react';
 import type { RemoteConnection } from '../../shared/remotes';
 

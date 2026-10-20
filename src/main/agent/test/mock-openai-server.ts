@@ -2,12 +2,11 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 
 /**
- * 可编程的本地 OpenAI 兼容 SSE mock 服务，用于 core 运行时（Pi Agent Core 桥接层）测试。
- * 测试按顺序 enqueue 脚本化响应；服务记录每个请求的 URL、认证头与解析后的请求体，
- * 不包含任何真实密钥或个人数据（密钥固定为测试占位值）。
+ * 可编程的本地 OpenAI 兼容 SSE mock 服务（Pi Agent Core 桥接层测试用）：按序返回脚本化响应，
+ * 记录请求的 URL、认证头与请求体；密钥固定为测试占位值，不涉及真实数据。
  */
 
-/** 单个 SSE 帧：data 载荷与写出前的可编程延迟（延迟用于制造慢流，配合中断测试）。 */
+/** delayMs 用于制造慢流，配合中断测试。 */
 export interface SseFrame {
   data: unknown;
   delayMs?: number;

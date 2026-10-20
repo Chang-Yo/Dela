@@ -25,7 +25,13 @@ const editorTheme = EditorView.theme({
   },
   // 与富文本（note-editor.css 的 60rem 居中）一致，超宽窗口下行宽不无限拉伸。
   '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
-  '&.cm-source-file .cm-content': { maxWidth: 'none', margin: '0', textAlign: 'left' },
+  '&.cm-source-file .cm-scroller': { padding: '1.5rem 0' },
+  '&.cm-source-file .cm-content': {
+    maxWidth: 'none',
+    margin: '0',
+    paddingRight: '1.5rem',
+    textAlign: 'left',
+  },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
   '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
   '.cm-gutters': {
@@ -33,15 +39,15 @@ const editorTheme = EditorView.theme({
     backgroundColor: 'transparent',
     color: 'var(--color-muted-foreground)',
   },
+  // 源码文件的行号栏横向滚动时 sticky：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
   '&.cm-source-file .cm-gutters': {
-    backgroundColor: 'var(--color-muted)',
+    backgroundColor: 'var(--color-surface)',
     borderRight: '1px solid var(--color-border)',
+    paddingLeft: '1.5rem',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
-/* 文件名 → 语言：空、无扩展名或 md/markdown 维持 Markdown；其余扩展名按
-   language-data 解析（语言包异步加载），解析不到按纯文本。 */
 type ResolvedLanguage =
   { kind: 'markdown' } | { kind: 'code'; language: LanguageDescription } | { kind: 'text' };
 
@@ -287,8 +293,7 @@ export function MarkdownEditor({
       view.current = null;
       if (handlers.get(instanceKey)?.sync === boundHandlers.sync) handlers.delete(instanceKey);
     };
-    // value/filename/scroll 初始装配一次（代码语言的异步加载见 loadLanguage）；
-    // 此后由下方 effect 单向同步外部变更。
+    // value/filename/scroll 只在首次挂载装配；后续外部变更由下方 effect 单向同步。
   }, []);
   useEffect(() => {
     view.current?.dispatch({
@@ -325,7 +330,6 @@ export function MarkdownEditor({
     latestValue.current = value;
     syncValue();
   }, [value]);
-  /* 同实例切换文件名时切换语言；语言包经 language-data 异步加载完成后 reconfigure。 */
   useEffect(() => {
     const current = view.current;
     if (!current || appliedFilename.current === filename) return;

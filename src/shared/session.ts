@@ -1,8 +1,7 @@
 // 会话视图类型：WorkspaceChat 是 Pi 会话消息的投影（main/agent/session.ts）。
 import type { ChatAskInput } from './chat';
 
-/** 工具输出（Pi 工具结果的投影）：text 是回灌给模型的文本，details 是工具的结构化细节
- *  （edit 的 diff 等），isError 标记失败。 */
+/** Pi 工具结果的投影：text 是回灌给模型的文本，details 是工具的结构化细节（edit 的 diff 等）。 */
 export interface AgentToolOutput {
   text: string;
   details?: unknown;
@@ -79,6 +78,8 @@ export interface WorkspaceChat {
       | { type: 'tools'; results: AgentToolResult[] }
     )[];
     startedAt?: number;
+    /** 对应冻结的本轮 diff；旧消息无此字段。 */
+    turnId?: string;
     finishedAt?: number;
     interrupted?: boolean;
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
@@ -91,13 +92,14 @@ export interface WorkspaceChat {
 export type RunStatus =
   'pending' | 'running' | 'waiting_input' | 'completed' | 'failed' | 'stopped' | 'interrupted';
 
-/** session:on-run-event 载荷：Run 状态与活跃工具变化。 */
 export interface RunEvent {
   sessionId: string;
   runId: string;
   status: RunStatus;
   /** 状态为 running 时的当前工具名；空闲段为 undefined。 */
   activeTool?: string;
+  /** 冻结 diff 落盘失败；不改变 Agent 执行本身的完成状态。 */
+  changesError?: string;
 }
 
 /** session:on-stream 载荷：流式增量只携带本轮正在生成的末条 assistant 消息，
@@ -131,10 +133,8 @@ export interface SessionApi {
   /** 发起一轮执行（同 session 串行、跨 session 并行）。 */
   ask(sessionId: string, input: ChatAskInput): Promise<WorkspaceChat>;
   cancelRun(sessionId: string): void;
-  /** 会话快照变化推送（sessionId + WorkspaceChat）。 */
   onSessionUpdate(listener: (sessionId: string, chat: WorkspaceChat) => void): () => void;
   /** 流式增量推送（仅末条 assistant 消息）：合并进镜像缓存，不广播全量历史。 */
   onStream(listener: (event: ChatStreamEvent) => void): () => void;
-  /** Run 状态/活跃工具变化推送。 */
   onRunEvent(listener: (event: RunEvent) => void): () => void;
 }

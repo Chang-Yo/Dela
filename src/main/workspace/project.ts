@@ -48,7 +48,7 @@ export async function gitBranchesOf(directory: string): Promise<string[]> {
   });
 }
 
-/** 切换分支；失败时把 git 的 stderr 抛出去（工作区冲突、分支不存在都要让人看到原因）。 */
+/** 失败时抛出 git 的 stderr：工作区冲突、分支不存在都要让人看到原因。 */
 export async function gitCheckout(directory: string, branch: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     execFile(
@@ -94,7 +94,10 @@ export async function openProjectDirectory(id: unknown, target: unknown): Promis
 }
 /** remoteAuthority 非空表示远端项目：本地 VS Code 收到远端 POSIX 路径只会去开本地同名目录，
  *  只有 `--remote ssh-remote+<目的地>` 会让远端那台机器的 VS Code Server 打开它。 */
-async function openInVsCode(path: string, remoteAuthority: string | null = null): Promise<void> {
+export async function openInVsCode(
+  path: string,
+  remoteAuthority: string | null = null,
+): Promise<void> {
   const locate = () =>
     new Promise<string>((resolve, reject) => {
       execFile(

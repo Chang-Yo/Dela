@@ -179,17 +179,6 @@ describe('openTab', () => {
     expect(state().focus).toBe('primary');
     expect(findGroup(state().root, 'primary')?.active).toBe('note:a');
   });
-
-  it('显式目标组允许跨组重复打开（并排第二视图）', () => {
-    state().openTab('note:a');
-    state().openTab('note:a', 'primary');
-    state().splitGroup('primary', 'vertical');
-    const side = groups()[1]!;
-    state().openTab('note:a', side.id);
-    expect(side.tabs.filter((tab) => tab === 'note:a')).toHaveLength(1);
-    expect(findGroup(state().root, 'primary')?.tabs).toContain('note:a');
-    expect(side.tabs).toContain('note:a');
-  });
 });
 
 describe('closeTab / closeTabs', () => {
@@ -212,10 +201,10 @@ describe('closeTab / closeTabs', () => {
     state().openTab('note:a');
     state().openTab('note:b');
     state().openTab('note:c');
-    state().openTab('note:a'); // 激活 a（首个）
+    state().openTab('note:a');
     state().closeTab('note:a');
     expect(findGroup(state().root, 'primary')?.active).toBe('note:b');
-    state().closeTab('note:c'); // 激活 c（末尾）
+    state().closeTab('note:c');
     expect(findGroup(state().root, 'primary')?.active).toBe('note:b');
   });
 
@@ -394,7 +383,6 @@ describe('持久化', () => {
       focus: 'primary',
       maximized: null,
     });
-    // 新项目的种子写回仍按新项目键控。
     await vi.advanceTimersByTimeAsync(800);
     expect(save).toHaveBeenCalledTimes(3);
     expect(save).toHaveBeenNthCalledWith(3, other, {

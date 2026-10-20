@@ -1,6 +1,5 @@
-// 聚合出口：领域契约已拆分到同目录领域文件。
-// 本文件只 import 并 re-export，保证全仓既有 `from '../shared/api'` 等 import 不变；
-// 领域类型的变化请直接改对应领域文件，不在此处添加逻辑。
+// 聚合出口：领域契约在同目录领域文件，本文件只 re-export，保证全仓既有 import 路径不变。
+// 领域类型变化请直接改对应文件，不在此处添加逻辑。
 import type { BackupApi } from './backup';
 import type { CacheApi } from './cache';
 import type { CapabilityApi } from './capabilities';
@@ -24,7 +23,10 @@ export type {
   McpServerView,
   SkillScope,
   SkillView,
-  WebSearchConfig,
+  WebSearchEntry,
+  WebSearchEntryInput,
+  WebSearchEntrySummary,
+  WebSearchKeySource,
 } from './capabilities';
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
@@ -184,7 +186,16 @@ export type {
   NotificationsApi,
 } from './notifications';
 
-export type { ChatAskInput, ChatMediaView, ChatCommandView, ChatApi } from './chat';
+export type {
+  ChatAskInput,
+  ChatMediaView,
+  ChatCommandView,
+  ChatApi,
+  FileChangeSummary,
+  FileChangeDetail,
+  TurnChanges,
+  UncommittedChanges,
+} from './chat';
 
 export type { CachedCourseFile, CanvasCourse, SourceItem, CanvasState, CanvasApi } from './canvas';
 

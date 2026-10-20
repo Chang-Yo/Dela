@@ -6,7 +6,7 @@ import type { ResourceRef } from '../../../shared/resources';
 /** loadDocument 的结果：文档内容 + 呈现所需的定位上下文（由接线方按条目/资料解析）。 */
 export interface LoadedDocument {
   content: DocumentContent;
-  /** 水源主题来源：设置时呈现水源来源视图（原 ProjectDocument 的水源分支）。 */
+  /** 水源主题来源：设置时呈现水源来源视图。 */
   shuiyuanTopicId?: number;
   /** pptx 导出/快速预览的定位引用；Canvas 资料与本地条目各指向其资源。 */
   officeRef?: ResourceRef;
@@ -17,9 +17,9 @@ export interface LoadedDocument {
 }
 
 /**
- * PreviewTab 的内容接入（注入接口）：preview 域不感知条目树/Canvas 状态与读取 IPC，
- * 3B 由 workspace/canvas 镜像接线。tabKey 形如 preview:{entryId} 或
- * preview:source:{原 documentKey}（@ 引用型资料）。
+ * PreviewTab 的内容接入（注入接口）：preview 域不感知条目树/Canvas 状态与读取 IPC，由
+ * workspace/canvas 镜像接线。tabKey 形如 preview:{entryId} 或 preview:source:{原 documentKey}
+ * （@ 引用型资料）。
  */
 export interface ContentLoader {
   /** 读取 TabKey 对应的文档（重载/导出后重读同一路径）。 */
