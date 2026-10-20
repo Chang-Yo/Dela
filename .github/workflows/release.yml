@@ -92,6 +92,8 @@ jobs:
         run: |
           test -f dist/mac-arm64/Dela.app/Contents/Resources/app-update.yml
           test -f dist/latest-mac.yml || test -f dist/mac-arm64/latest-mac.yml
+          # electron-updater 的差量更新按 zip 直链 + .blockmap 探测，缺了就退回全量下载。
+          test -f dist/Dela-*-mac-arm64.zip.blockmap
       - name: Smoke test signed app
         run: node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
       - name: Record artifact checksums and source
@@ -105,6 +107,7 @@ jobs:
           path: |
             dist/Dela-*-mac-arm64.dmg
             dist/Dela-*-mac-arm64.zip
+            dist/Dela-*-mac-arm64.zip.blockmap
             dist/latest-mac.yml
             dist/mac-arm64/latest-mac.yml
             dist/SHA256SUMS-mac-arm64
