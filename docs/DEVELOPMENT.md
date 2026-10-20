@@ -411,19 +411,20 @@ pnpm test
 
 `ci.yml` 负责 PR 与 main 检查的变更检测、任务编排和结果汇总，通过 `workflow_call` 调用按职能拆分的文件。`pr-labels.yml` 独立管理 PR 标签，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR 或手动启动检查。
 
-| Workflow      | 职责                                                                       |
-| ------------- | -------------------------------------------------------------------------- |
-| `quality.yml` | Ubuntu 上检查格式，按需执行 lint、类型检查和 actionlint                    |
-| `test.yml`    | Windows 应用构建与单元测试，上传 out 产物                                  |
-| `helper.yml`  | Go vet/test、Linux amd64/arm64 构建与可执行文件冒烟，供 CI 和 Release 共用 |
-| `desktop.yml` | Windows/macOS 冒烟、目录包与安装包验证                                     |
+| Workflow              | 职责                                                                       |
+| --------------------- | -------------------------------------------------------------------------- |
+| `quality.yml`         | Ubuntu 上检查格式，按需执行 lint、类型检查和 actionlint                    |
+| `test.yml`            | Windows 应用构建与单元测试，上传 out 产物                                  |
+| `helper.yml`          | Go vet/test、Linux amd64/arm64 构建与可执行文件冒烟，供 CI 和 Release 共用 |
+| `desktop-windows.yml` | Windows 冒烟、目录包与安装包验证                                           |
+| `desktop-macos.yml`   | macOS 冒烟、目录包与安装包验证                                             |
 
 `.github/workflows/ci.yml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
 
 - `changes` 使用固定版本的 dorny/paths-filter。PR 按相对目标分支的累计改动分流；main 按本次 push 的全部改动分流，包括删除文件。
 - 格式检查始终执行，依赖安装禁用安装脚本。普通文档、仓库协作配置与标签 workflow 改动不构建或测试应用；workflow 改动额外执行 actionlint。应用源码、测试、脚本和相关配置触发 lint、类型检查、Windows 构建及单元测试；内置 Markdown 等应用资源属于源码，不按文档跳过。
 - helper 检查与应用检查并行。helper 源码、构建脚本、预编译产物、helper workflow 或公共构建配置变动时重建。
-- 主进程根目录、terminal/remotes/documents/update、preload/shared、scripts、helper 和共享工具资源触发两端桌面验证；OpenSSH 资源触发 Windows，Darwin 工具触发 Mac。公共依赖、锁文件、构建配置、CI/desktop/release workflow、build/assets 触发两端及 helper。精确规则以 `ci.yml` 的 filters 为准。
+- 主进程根目录、terminal/remotes/documents/update、preload/shared、scripts、helper 和共享工具资源触发两端桌面验证；OpenSSH 资源触发 Windows，Darwin 工具触发 Mac。公共依赖、锁文件、构建配置、CI、两个 desktop workflow 与 release workflow、build/assets 触发两端及 helper。精确规则以 `ci.yml` 的 filters 为准。
 - Windows 桌面任务下载 `test.yml` 的 out 产物，不重复构建；Mac 在 arm64 runner 原生构建、测试并验证原生依赖、桌面、终端与 LaunchServices，不等待 Windows 测试。静态检查不阻塞这些任务启动，最终由汇总检查共同把关。
 - 平台检查默认打目录包并验证资源和启动。公共配置与资源改动额外生成 Windows NSIS、Mac DMG/ZIP；修改 Mac 包验证脚本也生成归档。Mac 归档保留 7 天，Windows 中间构建产物保留 1 天，普通目录包不上传。
 - helper 被选中时，平台任务必须等待其成功并下载当次产物；无需重建时使用入库的 helper，不能因 helper 合理跳过而跳过平台任务。

@@ -52,7 +52,8 @@ jobs:
               - 'tsconfig*.json'
             common:
               - '.github/workflows/ci.yml'
-              - '.github/workflows/desktop.yml'
+              - '.github/workflows/desktop-windows.yml'
+              - '.github/workflows/desktop-macos.yml'
               - '.github/workflows/release.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'
@@ -112,9 +113,8 @@ jobs:
           needs.changes.outputs.windows == 'true' &&
           (needs.helper.result == 'success' ||
            (needs.changes.outputs.helper == 'false' && needs.helper.result == 'skipped')) }}
-    uses: ./.github/workflows/desktop.yml
+    uses: ./.github/workflows/desktop-windows.yml
     with:
-      platform: windows
       helper: ${{ needs.changes.outputs.helper == 'true' }}
       archives: ${{ needs.changes.outputs.archives == 'true' }}
 
@@ -125,9 +125,8 @@ jobs:
           needs.changes.outputs.macos == 'true' &&
           (needs.helper.result == 'success' ||
            (needs.changes.outputs.helper == 'false' && needs.helper.result == 'skipped')) }}
-    uses: ./.github/workflows/desktop.yml
+    uses: ./.github/workflows/desktop-macos.yml
     with:
-      platform: macos
       helper: ${{ needs.changes.outputs.helper == 'true' }}
       archives: ${{ needs.changes.outputs.archives == 'true' }}
 
