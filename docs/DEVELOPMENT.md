@@ -496,7 +496,7 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 已下载课件的 `@` 候选同样按课程根目录的路径格式计算相对路径，不用宿主系统的路径规则解析另一平台的路径；排除目录自身、父级和其他盘符，POSIX 保留大小写及文件名中的反斜杠。移动或重命名本地条目时，标签、草稿和目录选中状态只迁移实际子树；POSIX 的反斜杠不是目录边界，草稿标题保留完整文件名。Windows 原有移动匹配规则保持不变。
 
-同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish` 与 `win.publish` 指向同一 CDN generic 更新源，Mac 包内同样生成 `app-update.yml`，发布产物多出 `latest-mac.yml`；签名包通过检查后追加到同版本 Release。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；发布构建由 `release.yml` 内联生成独立配置，强制 Developer ID 签名与公证。云端签名、公证与装订已随 v1.3.0 发布通过，Gatekeeper 下载后首启与两版升级仍待实机验收。
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 构建用 `sips` 从同一组品牌图生成带透明留白的 1024 像素 Dock/应用图标，Windows 继续直接使用源图。Mac 产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish` 与 `win.publish` 指向同一 CDN generic 更新源，Mac 包内同样生成 `app-update.yml`，发布产物多出 `latest-mac.yml`；签名包通过检查后追加到同版本 Release。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；发布构建由 `release.yml` 内联生成独立配置，强制 Developer ID 签名与公证。云端签名、公证与装订已随 v1.3.0 发布通过，Gatekeeper 下载后首启与两版升级仍待实机验收。
 
 Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库；Mac 应用内更新已启用，与 Windows 共用检查、下载、确认与安装流程，两版升级仍需实机验收。
 

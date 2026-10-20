@@ -1,15 +1,14 @@
 // macOS 第一阶段：独立临时目录、合成数据；验证依赖，不代表产品终端已适配。
-const { app, safeStorage } = require('electron');
+const { app, nativeImage, safeStorage } = require('electron');
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { mkdtempSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { createRequire } = require('node:module');
-const { join, resolve } = require('node:path');
+const { dirname, join, resolve } = require('node:path');
 // 可传 app.asar 路径，检查打包后的原生依赖；Electron 宿主仍为执行此脚本的运行时。
-const requireNative = createRequire(
-  join(resolve(process.argv[2] || join(__dirname, '..')), 'package.json'),
-);
+const root = resolve(process.argv[2] || join(__dirname, '..'));
+const requireNative = createRequire(join(root, 'package.json'));
 
 if (process.platform !== 'darwin') {
   console.error('smoke:macos 仅在 macOS 上运行。');
@@ -25,6 +24,20 @@ if (process.platform !== 'darwin') {
   app.whenReady().then(async () => {
     let exitCode = 1;
     try {
+      for (const name of ['white', 'black'])
+        checkIcon(join(root, 'out/main/icons', `Dela_${name}_bg.png`));
+      if (root.endsWith('.asar')) {
+        const bundleIcon = join(profile, 'bundle-icon.png');
+        execFileSync('/usr/bin/sips', [
+          '-s',
+          'format',
+          'png',
+          join(dirname(root), 'icon.icns'),
+          '--out',
+          bundleIcon,
+        ]);
+        checkIcon(bundleIcon);
+      }
       const Database = requireNative('better-sqlite3');
       const db = new Database(join(profile, 'smoke.db'));
       try {
@@ -49,7 +62,7 @@ if (process.platform !== 'darwin') {
 
       await checkPty(profile);
       console.log(
-        `macOS smoke passed (${process.arch}, Electron ${process.versions.electron}): SQLite, Keychain round-trip, system tools, Bash PTY input/resize/exit.`,
+        `macOS smoke passed (${process.arch}, Electron ${process.versions.electron}): icon padding, SQLite, Keychain round-trip, system tools, Bash PTY input/resize/exit.`,
       );
       exitCode = 0;
     } catch (error) {
@@ -60,6 +73,27 @@ if (process.platform !== 'darwin') {
       app.exit(exitCode);
     }
   });
+}
+
+function checkIcon(path) {
+  const icon = nativeImage.createFromPath(path);
+  assert.deepEqual(icon.getSize(), { width: 1024, height: 1024 }, path);
+  const bitmap = icon.toBitmap();
+  let left = 1024,
+    top = 1024,
+    right = -1,
+    bottom = -1;
+  for (let y = 0; y < 1024; y++)
+    for (let x = 0; x < 1024; x++) {
+      const alpha = bitmap[(y * 1024 + x) * 4 + 3];
+      if (x < 99 || x > 924 || y < 99 || y > 924) assert.equal(alpha, 0, path);
+      if (alpha < 128) continue;
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+    }
+  assert.deepEqual([left, top, right, bottom], [100, 100, 923, 923], path);
 }
 
 function checkPty(cwd) {
