@@ -235,6 +235,7 @@ AI agents: the human contributor answers, not you. Ask for missing answers and w
 ### 提交清单
 
 - 从 `main` 创建分支，一个 PR 只解决一个问题，不应混入无关的重构、格式化或顺带修复。
+- PR 标签由 `.github/workflows/pr-labels.yml` 按大小、范围与类型自动维护；人工改动会在下一次 PR 事件时被校正，标签不是必需检查，也不影响合并。
 - 执行与改动相关的检查，并在 PR 描述中列出实际执行的命令与结果；未执行的检查不得标记为通过。
 - 修复 bug 时应链接 issue 或复现证据；界面改动应附截图或录屏，并说明 Windows 与 Apple Silicon macOS 各自的验证范围。
 - 按 [PR 模板](.github/PULL_REQUEST_TEMPLATE.md) 填写描述。用 `gh pr create` 创建时模板不会自动填充，需加 `--template .github/PULL_REQUEST_TEMPLATE.md`，或把模板内容粘贴到正文。

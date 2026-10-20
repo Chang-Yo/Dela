@@ -409,7 +409,7 @@ pnpm test
 
 ## 14. CI
 
-保留两个 workflow：`check.yaml` 负责 PR 与 main 检查，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR、标签或手动启动检查。
+保留三个 workflow：`check.yaml` 负责 PR 与 main 检查，`pr-labels.yml` 负责 PR 分类标签，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR 或手动启动检查；PR 标签自动维护，但不是必需检查。
 
 `.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
 
@@ -421,6 +421,10 @@ pnpm test
 - 公共配置与资源改动额外生成 Windows NSIS、Mac DMG/ZIP；修改 Mac 包验证脚本也生成归档。Mac 归档通过完整性检查后保留 7 天；普通目录包不上传。Windows 中间构建产物保留 1 天。
 - helper 被选中时，平台任务必须等待其成功并下载当次产物；无需重建时使用入库的 helper，不能因 helper 合理跳过而跳过平台任务。
 - `CI required` 始终汇总结果：changes/basic 必须成功，被选中的任务必须成功，未选中的任务必须为 skipped。失败、取消或非预期跳过均不能通过。
+
+`pr-labels.yml` 在 PR 创建、重新打开或推送提交时打标签：大小按过滤后的增删行分六档（0–10 / 11–80 / 81–200 / 201–400 / 401–800 / 801+，依次 XS 到 XXL），范围按路径叠加（`frontend`、`backend`、`shared`），类型取 closing issue 的标签、缺失时回退标题前缀，全部改动为文档时加 `documentation`。
+
+它用 `pull_request_target` 让 fork 的 PR 也能写标签，不 checkout PR 代码；标签须预先创建，缺失时只在 job summary 给出 `gh label create` 命令，人工改动会在下一次 PR 事件时被校正。
 
 GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换旧的平台必需检查名称；修改 workflow 本身不会更新远端分支规则。首次云端运行成功后再切换规则。变更识别 job 额外使用 `pull-requests: read`，其余检查仅有 `contents: read`。
 
