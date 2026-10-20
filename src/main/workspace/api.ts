@@ -36,7 +36,7 @@ import { workspaceArchiveId } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../../shared/workspace';
 import { textFileExtensions } from '../../shared/chat-input';
-import { documentFormatOf } from '../../shared/documents';
+import { documentFormatOf, isTextDocumentName } from '../../shared/documents';
 import { isRelativeAssetPath, matchMarkdownImageRefs } from '../../shared/note-files';
 import type {
   DocumentContent,
@@ -52,7 +52,7 @@ const entryColumns =
 
 // 笔记按扩展名区分为 Markdown 或普通文本；其余内容一律按文本读写。
 const markdownExtensions = ['.md', '.markdown'];
-// 本地/导入文件按 VSCode 对文本文件的宽泛处理内嵌展示；未列出的扩展仍不支持预览。
+// 保存文本文件时允许的扩展清单；预览的文本判定见 shared/documents 的 isTextDocumentName。
 // 清单与助手 composer 附件共用（shared/chat-input.ts，无点小写）。
 const textExtensions = new Set(textFileExtensions.map((extension) => `.${extension}`));
 
@@ -437,12 +437,12 @@ function fileEntry(
 ): WorkspaceEntry {
   const stats = statSync(path);
   if (!stats.isDirectory() && !stats.isFile()) throw new Error('条目不是普通文件');
-  const extension = extname(path).toLowerCase();
-  const text = textExtensions.has(extension) || !extension;
+  const name = basename(path);
+  const text = isTextDocumentName(name);
   return {
     id: stored?.id ?? path,
     parentId,
-    name: basename(path),
+    name,
     kind: stats.isDirectory() ? (stored?.kind ?? 'folder') : text ? 'note' : 'local',
     sourceId: null,
     path,
@@ -744,8 +744,9 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   }
   if (item.kind === 'local' || item.kind === 'imported') {
     const path = entryLocalPath(item);
-    // 格式判定与远端文件共用（shared/documents）：远端没有宿主 extname，两边保持同一套规则。
-    const format = documentFormatOf(path);
+    // 格式判定与远端文件共用（shared/documents）：传条目名而不是宿主路径，
+    // 避免 Windows 反斜杠让 .env.example 之类的点文件丢掉文件名语义。
+    const format = documentFormatOf(item.name);
     const office = officeFormats[extname(path).toLowerCase()];
     if (format === 'unsupported') return { title: item.name, format };
     const stats = statSync(path);

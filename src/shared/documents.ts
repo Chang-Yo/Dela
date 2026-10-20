@@ -16,13 +16,24 @@ function extensionOf(name: string): string {
   return dot <= 0 ? '' : base.slice(dot).toLowerCase();
 }
 
+/**
+ * 文本文件名：有扩展名的走共享清单；无扩展名的配置/脚本（.gitignore、Makefile）
+ * 与 .env 系列（.env、.env.example）也按文本处理。
+ */
+export function isTextDocumentName(name: string): boolean {
+  const ext = extensionOf(name);
+  if (ext === '') return true;
+  if (textFileExtensions.includes(ext.slice(1))) return true;
+  return /^\.env(?:\..+)?$/i.test(name.slice(name.lastIndexOf('/') + 1));
+}
+
 /** 按名字判定文档格式：本地条目与远端文件共用同一套规则（远端没有宿主 extname 可用）。 */
 export function documentFormatOf(name: string): DocumentContent['format'] {
   const ext = extensionOf(name);
   if (ext === '.pdf') return 'pdf';
   if (imageExtensions.includes(ext)) return 'image';
   if (markdownExtensions.includes(ext)) return 'markdown';
-  if (textFileExtensions.includes(ext.slice(1))) return 'text';
+  if (isTextDocumentName(name)) return 'text';
   return officeExtensions[ext] ?? 'unsupported';
 }
 

@@ -54,6 +54,16 @@ describe('远端文件预览', () => {
     );
   });
 
+  it('.env 系列与无扩展名文件按文本读取', async () => {
+    stat.mockResolvedValue(entry(4));
+    read.mockResolvedValue(Buffer.from('A=1\n'));
+    for (const name of ['.env', '.env.example', '.gitignore', 'Makefile']) {
+      const doc = await readRemoteDocument('p-1', target, `/home/u/proj/${name}`);
+      expect(doc.format).toBe('text');
+      expect(doc.text).toBe('A=1\n');
+    }
+  });
+
   it('PDF/Office 只给按 Range 分块的地址，字节不拉回本地', async () => {
     stat.mockResolvedValue(entry(2048, 7));
     const pdf = await readRemoteDocument('p-1', target, '/home/u/proj/manual.pdf');
