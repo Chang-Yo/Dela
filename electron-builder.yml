@@ -56,6 +56,7 @@ win:
       arch:
         - x64
 mac:
+  icon: out/main/icons/Dela_white_bg.png
   category: public.app-category.productivity
   # 与 Windows 同一个 CDN 目录：electron-updater 据此生成 latest-mac.yml 并把
   # app-update.yml 打进 .app；mac 更新走 zip，dmg 仅供首次安装。
