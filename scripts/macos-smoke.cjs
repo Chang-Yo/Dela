@@ -1,15 +1,14 @@
 // macOS 第一阶段：独立临时目录、合成数据；验证依赖，不代表产品终端已适配。
-const { app, safeStorage } = require('electron');
+const { app, nativeImage, safeStorage } = require('electron');
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
-const { mkdtempSync, rmSync } = require('node:fs');
+const { mkdtempSync, rmSync, statSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { createRequire } = require('node:module');
-const { join, resolve } = require('node:path');
+const { dirname, join, resolve } = require('node:path');
 // 可传 app.asar 路径，检查打包后的原生依赖；Electron 宿主仍为执行此脚本的运行时。
-const requireNative = createRequire(
-  join(resolve(process.argv[2] || join(__dirname, '..')), 'package.json'),
-);
+const root = resolve(process.argv[2] || join(__dirname, '..'));
+const requireNative = createRequire(join(root, 'package.json'));
 
 if (process.platform !== 'darwin') {
   console.error('smoke:macos 仅在 macOS 上运行。');
@@ -25,6 +24,10 @@ if (process.platform !== 'darwin') {
   app.whenReady().then(async () => {
     let exitCode = 1;
     try {
+      for (const name of ['white', 'black'])
+        checkIcon(join(root, 'out/main/icons', `Dela_${name}_bg.png`));
+      if (root.endsWith('.asar'))
+        assert.ok(statSync(join(dirname(root), 'icon.icns')).size > 0, '缺少应用图标');
       const Database = requireNative('better-sqlite3');
       const db = new Database(join(profile, 'smoke.db'));
       try {
@@ -49,7 +52,7 @@ if (process.platform !== 'darwin') {
 
       await checkPty(profile);
       console.log(
-        `macOS smoke passed (${process.arch}, Electron ${process.versions.electron}): SQLite, Keychain round-trip, system tools, Bash PTY input/resize/exit.`,
+        `macOS smoke passed (${process.arch}, Electron ${process.versions.electron}): icon padding, SQLite, Keychain round-trip, system tools, Bash PTY input/resize/exit.`,
       );
       exitCode = 0;
     } catch (error) {
@@ -60,6 +63,34 @@ if (process.platform !== 'darwin') {
       app.exit(exitCode);
     }
   });
+}
+
+// 图标主体必须落在 1024 画布中的 824 区域，四周留 100 透明像素；只抽查边界与主体，
+// 留 10 像素容差吸收重采样的抗锯齿差异，避免整图扫描。
+function checkIcon(path) {
+  const icon = nativeImage.createFromPath(path);
+  assert.deepEqual(icon.getSize(), { width: 1024, height: 1024 }, path);
+  const bitmap = icon.toBitmap();
+  const alpha = (x, y) => bitmap[(y * 1024 + x) * 4 + 3];
+  for (const [x, y] of [
+    [0, 0],
+    [512, 0],
+    [0, 512],
+    [512, 99],
+    [99, 512],
+    [924, 512],
+    [512, 924],
+    [1023, 1023],
+  ])
+    assert.equal(alpha(x, y), 0, `${path} 在 (${x}, ${y}) 缺少透明留白`);
+  for (const [x, y] of [
+    [512, 512],
+    [110, 512],
+    [512, 110],
+    [913, 512],
+    [512, 913],
+  ])
+    assert.equal(alpha(x, y), 255, `${path} 在 (${x}, ${y}) 缺少图标主体`);
 }
 
 function checkPty(cwd) {

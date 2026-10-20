@@ -19,6 +19,14 @@ app.setLoginItemSettings = () => {
   throw new Error('Smoke must not register login items');
 };
 let declined = 0;
+let dockIcon;
+if (process.platform === 'darwin') {
+  const setIcon = app.dock.setIcon.bind(app.dock);
+  app.dock.setIcon = (icon) => {
+    dockIcon = icon;
+    setIcon(icon);
+  };
+}
 dialog.showMessageBoxSync = () => {
   declined++;
   return 1;
@@ -54,6 +62,13 @@ async function run(window) {
   await wait(() => js("!!document.querySelector('main')"), 'app mounted');
   assert.equal(await js('window.dela.platform'), process.platform);
   if (process.platform === 'darwin') {
+    // 品牌源图是 1254 像素，Dock 必须用构建生成的 1024 画布图标，而不是未加留白的源图。
+    assert.ok(dockIcon && !dockIcon.isEmpty(), 'Dock icon must use generated macOS assets');
+    assert.deepEqual(
+      dockIcon.getSize(),
+      { width: 1024, height: 1024 },
+      'Dock icon must use generated macOS assets',
+    );
     const bounds = window.getBounds();
     const zoom = window.webContents.getZoomFactor();
     const fontSize = await js('document.documentElement.style.fontSize');
