@@ -4,7 +4,6 @@ import { LoaderCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../../components/ui/button';
-import { closeLightbox, openLightbox } from '../../components/ui/lightbox';
 import { ShuiyuanSourceDoc } from '../../features/shuiyuan/SourceRefCard';
 import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';
@@ -119,11 +118,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       new Blob([new Uint8Array(content.bytes)], { type: content.mime }),
     );
     setBlobUrl(url);
-    // 重读与卸载都会撤销 blobUrl，放大的图不能继续指着已释放的地址。
-    return () => {
-      closeLightbox(url);
-      URL.revokeObjectURL(url);
-    };
+    return () => URL.revokeObjectURL(url);
   }, [content?.bytes, content?.mime]);
   /* HTML 消毒基址：Canvas 来源的相对地址补全到 Canvas 域；本地/导入条目（watchesDisk，
      Loader 接线里即 entry kind local/imported 的近似标记）不补外域 base——空 base 下
@@ -227,14 +222,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         ))}
       {branch === 'image' && (
         <div className="min-h-0 flex-1 overflow-auto p-4">
-          {blobUrl && (
-            <img
-              alt={content.title}
-              className="max-w-full cursor-zoom-in"
-              onClick={() => openLightbox(blobUrl, content.title)}
-              src={blobUrl}
-            />
-          )}
+          {blobUrl && <img src={blobUrl} alt={content.title} className="max-w-full" />}
         </div>
       )}
       {(branch === 'docx' || branch === 'xlsx') &&
@@ -301,24 +289,15 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
                   {children}
                 </button>
               ),
-              img: ({ src, alt }) => {
-                if (!src) return null;
-                const resolved = doc.resolveImage?.(src) ?? src;
-                return (
+              img: ({ src, alt }) =>
+                src ? (
                   <img
+                    src={doc.resolveImage?.(src) ?? src}
                     alt={alt ?? ''}
-                    className="mx-auto max-w-full cursor-zoom-in rounded-card"
+                    className="mx-auto max-w-full rounded-card"
                     loading="lazy"
-                    onClick={(event) => {
-                      // 图片常包在链接里：放大时不要顺带打开链接。
-                      event.preventDefault();
-                      event.stopPropagation();
-                      openLightbox(resolved, alt ?? '');
-                    }}
-                    src={resolved}
                   />
-                );
-              },
+                ) : null,
               code: ({ className, children }) => {
                 const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
                 if (!language || !hljs.getLanguage(language))

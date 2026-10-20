@@ -29,7 +29,7 @@ function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: (
   );
 }
 
-let mounted: { root: Root; src: string | null } | null = null;
+let mounted: { root: Root } | null = null;
 
 /** 命令式入口：输入框图片 chip 等 React 树外的图片点击也走同一个 Lightbox；
  *  React 侧组件直接调用它，不再各自维护开关状态。重复调用只更新内容，不叠层。 */
@@ -37,16 +37,12 @@ export function openLightbox(src: string, alt?: string): void {
   if (!mounted) {
     const host = document.createElement('div');
     document.body.append(host);
-    mounted = { root: createRoot(host), src: null };
+    mounted = { root: createRoot(host) };
   }
-  mounted.src = src;
   mounted.root.render(<Lightbox alt={alt} onClose={closeLightbox} src={src} />);
 }
 
-/** 关闭看图。传 src 时只关正在展示该地址的那层：一处图片失效不误关别处的看图
- *  （如预览重读撤销 blobUrl 时，聊天里的图仍开着）。 */
-export function closeLightbox(src?: string): void {
-  if (mounted?.src == null || (src !== undefined && src !== mounted.src)) return;
-  mounted.src = null;
-  mounted.root.render(null);
+/** 主动关闭（Esc/点击遮罩之外的场景）。 */
+function closeLightbox(): void {
+  mounted?.root.render(null);
 }
