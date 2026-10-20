@@ -57,6 +57,13 @@ win:
         - x64
 mac:
   category: public.app-category.productivity
+  # 与 Windows 同一个 CDN 目录：electron-updater 据此生成 latest-mac.yml 并把
+  # app-update.yml 打进 .app；mac 更新走 zip，dmg 仅供首次安装。
+  publish:
+    provider: generic
+    url: https://openlist.frameneo.com/sd/Dela_latest_release/
+    channel: latest
+    useMultipleRangeRequest: false
   target:
     - target: dmg
       arch:
@@ -64,8 +71,6 @@ mac:
     - target: zip
       arch:
         - arm64
-  # 开发验证产物，尚未配置 Mac 更新源；不生成面向现有 Windows CDN 的元数据。
-  publish: null
   extraResources:
     - from: 'vendor/bin/darwin-${arch}'
       to: 'bin/darwin-${arch}'

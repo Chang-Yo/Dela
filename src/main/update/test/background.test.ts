@@ -68,8 +68,8 @@ afterEach(() => {
 });
 
 describe('startBackgroundUpdateCheck', () => {
-  it('Mac 不注册后台计时器，不恢复或清除待安装标记', async () => {
-    vi.stubGlobal('process', { ...process, platform: 'darwin' });
+  it('Linux 不注册后台计时器，不恢复或清除待安装标记', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux' });
     mocks.pendingInstall = true;
     const { startBackgroundUpdateCheck, BACKGROUND_CHECK_INTERVAL } = await import('../index');
     const stop = startBackgroundUpdateCheck();
@@ -79,6 +79,15 @@ describe('startBackgroundUpdateCheck', () => {
     expect(mocks.download).not.toHaveBeenCalled();
     expect(mocks.install).not.toHaveBeenCalled();
     expect(mocks.setPendingInstall).not.toHaveBeenCalled();
+    stop();
+  });
+  it('Mac 与 Windows 一样注册后台计时器并检查更新', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin' });
+    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../index');
+    const stop = startBackgroundUpdateCheck();
+    await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    expect(mocks.check).toHaveBeenCalledTimes(1);
     stop();
   });
   it('等窗口就位后先查一次，之后按间隔查，停止后不再查', async () => {

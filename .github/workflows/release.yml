@@ -79,8 +79,7 @@ jobs:
                 "Contents/Resources/bin/darwin-arm64/rg",
                 "Contents/Resources/bin/darwin-arm64/fd"
               ],
-              "signIgnore": ["\\\\.pak$"],
-              "publish": null
+              "signIgnore": ["\\\\.pak$"]
             }
           }
           EOF
@@ -89,6 +88,10 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: node scripts/verify-macos-package.ts dist/mac-arm64/Dela.app --signed
+      - name: Verify update artifacts
+        run: |
+          test -f dist/mac-arm64/Dela.app/Contents/Resources/app-update.yml
+          test -f dist/latest-mac.yml || test -f dist/mac-arm64/latest-mac.yml
       - name: Smoke test signed app
         run: node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
       - name: Record artifact checksums and source
@@ -102,6 +105,8 @@ jobs:
           path: |
             dist/Dela-*-mac-arm64.dmg
             dist/Dela-*-mac-arm64.zip
+            dist/latest-mac.yml
+            dist/mac-arm64/latest-mac.yml
             dist/SHA256SUMS-mac-arm64
             dist/source-commit-mac-arm64.txt
           if-no-files-found: error

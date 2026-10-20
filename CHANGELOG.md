@@ -18,6 +18,7 @@ Dela 的重要变更都记在这里。
 
 ### 亮点
 
+- 在 Apple Silicon Mac 上，Dela 会自动检查更新并提示安装，不用再手动下载新版本。
 - 在 Apple Silicon Mac 上，你可以从「设置 › Skills」安装文档读取，让助手读取 Office 和 PDF。
 - 资料页会按学年和季节排序，让你更容易找到较新的课程。
 - 课堂视频可以补充显示你在官网「我的课程」中能看到的本学期点播课程；确实没有课程或录像时显示空列表提示。
@@ -25,13 +26,15 @@ Dela 的重要变更都记在这里。
 
 ### Added
 
-- Mac 发布工作流支持 Developer ID 签名与 Apple 公证，检查通过后自动向同版本 Release 补充 Apple Silicon DMG/ZIP；Mac 应用内更新仍关闭。
+- Mac 发布工作流支持 Developer ID 签名与 Apple 公证，检查通过后自动向同版本 Release 补充 Apple Silicon DMG/ZIP，Mac 失败不阻塞 Windows 发布。
+
+- Mac 开启应用内自动更新：与 Windows 共用同一 CDN 更新目录（latest-mac.yml），检查、下载、确认与安装流程一致，更新包经签名与公证校验；此开关开启前的 Mac 安装需手动下载升级一次。
 
 - 对话每轮结束后冻结工作目录前后快照，回答末尾以折叠卡片列出本轮实际变更的文件（覆盖包括 bash 在内的所有写入方式），支持在 Dela 内、VS Code 或资源管理器中打开；项目会话另提供增删行数与差异审阅，随聊只提供文件清单与打开选项；历史轮次随会话保留，旧消息不补造历史。
 
 - 项目会话的聊天顶栏新增「工作区改动」：在 Git 仓库中可打开聚合审阅标签，左侧列出会话目录相对 HEAD 的未提交改动（含未跟踪文件，覆盖暂存与未暂存的净结果），右侧按需读取单文件差异并缓存已查看内容，手动刷新清空缓存并更新列表与当前差异；读取不完整时显示警告，非 Git 目录不显示入口。
 
-- 增加 Apple Silicon Mac 开发适配：桌面改用原生窗口按钮、菜单与 Command 快捷键，终端、Agent、SSH、搜索与 VS Code 项目打开可用，提供 DMG/ZIP 与 arm64 CI；应用内更新暂不可用，PPTX 交给系统应用打开，正式分发待验收。
+- 增加 Apple Silicon Mac 开发适配：桌面改用原生窗口按钮、菜单与 Command 快捷键，终端、Agent、SSH、搜索与 VS Code 项目打开可用，提供 DMG/ZIP 与 arm64 CI；PPTX 交给系统应用打开，正式分发待验收。
 
 - 文档读取组件支持 Apple Silicon Mac：复用 Windows 的解析脚本与依赖，独立安装 Python 并保留来源与许可证，不依赖系统 Python。
 
