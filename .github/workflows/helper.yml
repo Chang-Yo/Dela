@@ -1,0 +1,59 @@
+name: Helper
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Source commit to check and build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  helper:
+    name: Check helper linux (amd64 + arm64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Vet helper for linux/arm64
+        working-directory: helper
+        env:
+          GOOS: linux
+          GOARCH: arm64
+        run: go vet ./...
+      - name: Test helper locally (no SSH)
+        working-directory: helper
+        run: go test -count=1 -timeout=2m ./...
+      - name: Build helper
+        run: node scripts/build-helper.ts --all
+      - name: Smoke test helper executables
+        run: |
+          ./vendor/dela-helper/dela-helper-linux-amd64 --version
+          command -v qemu-aarch64-static >/dev/null 2>&1 || sudo apt-get install -y -qq qemu-user-static
+          qemu-aarch64-static ./vendor/dela-helper/dela-helper-linux-arm64 --version
+      - uses: actions/upload-artifact@v6
+        with:
+          name: helper-linux-amd64
+          path: vendor/dela-helper/dela-helper-linux-amd64
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v6
+        with:
+          name: helper-linux-arm64
+          path: vendor/dela-helper/dela-helper-linux-arm64
+          if-no-files-found: error
+          retention-days: 7

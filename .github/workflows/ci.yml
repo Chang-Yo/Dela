@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      workflows: ${{ steps.filter.outputs.workflows }}
+      app: ${{ steps.filter.outputs.app == 'true' || steps.filter.outputs.common == 'true' || steps.filter.outputs.windows == 'true' || steps.filter.outputs.helper == 'true' }}
+      helper: ${{ steps.filter.outputs.helper == 'true' || steps.filter.outputs.common == 'true' }}
+      windows: ${{ steps.filter.outputs.common == 'true' || steps.filter.outputs.runtime == 'true' || steps.filter.outputs.helper == 'true' || steps.filter.outputs.windows == 'true' }}
+      macos: ${{ steps.filter.outputs.archives == 'true' || steps.filter.outputs.common == 'true' || steps.filter.outputs.runtime == 'true' || steps.filter.outputs.helper == 'true' || steps.filter.outputs.macos == 'true' }}
+      archives: ${{ steps.filter.outputs.common == 'true' || steps.filter.outputs.archives == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            workflows:
+              - '.github/workflows/**'
+            app:
+              - 'src/**'
+              - 'scripts/**'
+              - 'vendor/bin/**'
+              - '.github/workflows/quality.yml'
+              - '.github/workflows/test.yml'
+              - '.oxlintrc*'
+              - 'oxlint.config.*'
+              - 'vitest*.config.*'
+              - 'tsconfig*.json'
+            common:
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/desktop.yml'
+              - '.github/workflows/release.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.npmrc'
+              - 'electron-builder.*'
+              - 'vite.*.config.*'
+              - 'build/**'
+              - 'assets/**'
+            helper:
+              - '.github/workflows/helper.yml'
+              - 'helper/**'
+              - 'scripts/build-helper.ts'
+              - 'vendor/dela-helper/**'
+            runtime:
+              - 'helper/**'
+              - 'vendor/dela-helper/**'
+              - 'scripts/**'
+              - 'src/main/*'
+              - 'src/main/terminal/**'
+              - 'src/main/remotes/**'
+              - 'src/main/documents/**'
+              - 'src/main/update/**'
+              - 'src/preload/**'
+              - 'src/shared/**'
+              - 'vendor/bin/*'
+            windows:
+              - 'vendor/openssh/**'
+            macos:
+              - 'vendor/bin/darwin-*/**'
+            archives:
+              - 'scripts/verify-macos-package.ts'
+
+  quality:
+    needs: changes
+    uses: ./.github/workflows/quality.yml
+    with:
+      workflows: ${{ needs.changes.outputs.workflows == 'true' }}
+      app: ${{ needs.changes.outputs.app == 'true' }}
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    uses: ./.github/workflows/test.yml
+
+  helper:
+    needs: changes
+    if: needs.changes.outputs.helper == 'true'
+    uses: ./.github/workflows/helper.yml
+    with:
+      ref: ${{ github.sha }}
+
+  windows:
+    needs: [changes, test, helper]
+    if: >-
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.test.result == 'success' &&
+          needs.changes.outputs.windows == 'true' &&
+          (needs.helper.result == 'success' ||
+           (needs.changes.outputs.helper == 'false' && needs.helper.result == 'skipped')) }}
+    uses: ./.github/workflows/desktop.yml
+    with:
+      platform: windows
+      helper: ${{ needs.changes.outputs.helper == 'true' }}
+      archives: ${{ needs.changes.outputs.archives == 'true' }}
+
+  macos:
+    needs: [changes, helper]
+    if: >-
+      ${{ !cancelled() && needs.changes.result == 'success' &&
+          needs.changes.outputs.macos == 'true' &&
+          (needs.helper.result == 'success' ||
+           (needs.changes.outputs.helper == 'false' && needs.helper.result == 'skipped')) }}
+    uses: ./.github/workflows/desktop.yml
+    with:
+      platform: macos
+      helper: ${{ needs.changes.outputs.helper == 'true' }}
+      archives: ${{ needs.changes.outputs.archives == 'true' }}
+
+  required:
+    name: CI required
+    if: always()
+    needs: [changes, quality, test, helper, windows, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify required results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          node --input-type=module <<'NODE'
+          const needs = JSON.parse(process.env.NEEDS);
+          for (const name of ['changes', 'quality']) {
+            if (needs[name].result !== 'success') {
+              throw new Error(name + ': ' + needs[name].result);
+            }
+          }
+          for (const name of ['test', 'helper', 'windows', 'macos']) {
+            const selected = needs.changes.outputs[name === 'test' ? 'app' : name];
+            if (!['true', 'false'].includes(selected)) throw new Error('Missing selection: ' + name);
+            const expected = selected === 'true' ? 'success' : 'skipped';
+            if (needs[name].result !== expected) {
+              throw new Error(name + ': expected ' + expected + ', got ' + needs[name].result);
+            }
+          }
+          NODE

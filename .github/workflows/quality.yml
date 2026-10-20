@@ -1,0 +1,47 @@
+name: Quality
+
+on:
+  workflow_call:
+    inputs:
+      workflows:
+        description: Validate GitHub Actions workflows
+        required: true
+        type: boolean
+      app:
+        description: Run application lint and type checks
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Format and static checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Install pnpm
+        run: npm install --global pnpm@12.3.4
+      - name: Install dependencies without build scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Check formatting
+        run: pnpm format:check
+      - name: Validate workflows
+        if: inputs.workflows
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color -shellcheck= -pyflakes=
+      - name: Lint
+        if: inputs.app
+        run: pnpm lint
+      - name: Typecheck
+        if: inputs.app
+        run: pnpm typecheck

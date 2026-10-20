@@ -409,18 +409,25 @@ pnpm test
 
 ## 14. CI
 
-保留三个 workflow：`check.yaml` 负责 PR 与 main 检查，`pr-labels.yml` 负责 PR 分类标签，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR 或手动启动检查；PR 标签自动维护，但不是必需检查。
+`ci.yml` 负责 PR 与 main 检查的变更检测、任务编排和结果汇总，通过 `workflow_call` 调用按职能拆分的文件。`pr-labels.yml` 独立管理 PR 标签，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR 或手动启动检查。
 
-`.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
+| Workflow      | 职责                                                                       |
+| ------------- | -------------------------------------------------------------------------- |
+| `quality.yml` | Ubuntu 上检查格式，按需执行 lint、类型检查和 actionlint                    |
+| `test.yml`    | Windows 应用构建与单元测试，上传 out 产物                                  |
+| `helper.yml`  | Go vet/test、Linux amd64/arm64 构建与可执行文件冒烟，供 CI 和 Release 共用 |
+| `desktop.yml` | Windows/macOS 冒烟、目录包与安装包验证                                     |
+
+`.github/workflows/ci.yml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
 
 - `changes` 使用固定版本的 dorny/paths-filter。PR 按相对目标分支的累计改动分流；main 按本次 push 的全部改动分流，包括删除文件。
-- `basic` 在 Windows 执行格式检查。仅修改根目录 Markdown、`docs/`、`.agents/`、`.claude/` 或 `skills-lock.json` 时，安装依赖但不执行安装脚本，不构建或测试应用。其余改动执行 lint、`pnpm build`（含类型检查）及完整单元测试。
-- `helper` 在基础检查通过后按需执行：Go vet/test、Linux amd64/arm64 构建及可执行文件冒烟。触发范围是 `helper/`、helper 构建脚本、预编译 helper，以及公共依赖与构建配置。
-- `windows` / `macos` 在基础检查通过后按路径执行。主进程根目录、terminal/remotes/documents/update、preload/shared、scripts、helper 和共享工具资源触发两端；OpenSSH 资源触发 Windows，Darwin 工具触发 Mac。公共依赖、锁文件、构建配置、workflow、build/assets 触发两端及 helper。精确规则以 workflow 中的 filters 为准。
-- 平台检查默认打目录包并验证包内资源和启动。Windows 下载基础任务的 out 产物，不重复构建；Mac 在 arm64 runner 原生构建、测试并验证原生依赖、桌面、终端与 LaunchServices。两端不再重复格式/lint，也不再调用会重复构建的 package 脚本。
-- 公共配置与资源改动额外生成 Windows NSIS、Mac DMG/ZIP；修改 Mac 包验证脚本也生成归档。Mac 归档通过完整性检查后保留 7 天；普通目录包不上传。Windows 中间构建产物保留 1 天。
+- 格式检查始终执行，依赖安装禁用安装脚本。普通文档、仓库协作配置与标签 workflow 改动不构建或测试应用；workflow 改动额外执行 actionlint。应用源码、测试、脚本和相关配置触发 lint、类型检查、Windows 构建及单元测试；内置 Markdown 等应用资源属于源码，不按文档跳过。
+- helper 检查与应用检查并行。helper 源码、构建脚本、预编译产物、helper workflow 或公共构建配置变动时重建。
+- 主进程根目录、terminal/remotes/documents/update、preload/shared、scripts、helper 和共享工具资源触发两端桌面验证；OpenSSH 资源触发 Windows，Darwin 工具触发 Mac。公共依赖、锁文件、构建配置、CI/desktop/release workflow、build/assets 触发两端及 helper。精确规则以 `ci.yml` 的 filters 为准。
+- Windows 桌面任务下载 `test.yml` 的 out 产物，不重复构建；Mac 在 arm64 runner 原生构建、测试并验证原生依赖、桌面、终端与 LaunchServices，不等待 Windows 测试。静态检查不阻塞这些任务启动，最终由汇总检查共同把关。
+- 平台检查默认打目录包并验证资源和启动。公共配置与资源改动额外生成 Windows NSIS、Mac DMG/ZIP；修改 Mac 包验证脚本也生成归档。Mac 归档保留 7 天，Windows 中间构建产物保留 1 天，普通目录包不上传。
 - helper 被选中时，平台任务必须等待其成功并下载当次产物；无需重建时使用入库的 helper，不能因 helper 合理跳过而跳过平台任务。
-- `CI required` 始终汇总结果：changes/basic 必须成功，被选中的任务必须成功，未选中的任务必须为 skipped。失败、取消或非预期跳过均不能通过。
+- `CI required` 始终汇总结果：changes/quality 必须成功，被选中的 test/helper/windows/macos 必须成功，未选中的任务必须为 skipped。失败、取消或非预期跳过均不能通过。入口不使用顶层路径过滤，避免文档 PR 的必需检查一直 Pending。
 
 `pr-labels.yml` 在 PR 创建、重新打开或推送提交时打标签：大小按过滤后的增删行分六档（0–10 / 11–80 / 81–200 / 201–400 / 401–800 / 801+，依次 XS 到 XXL），范围按路径叠加（`frontend`、`backend`、`shared`），类型取 closing issue 的标签、缺失时回退标题前缀，全部改动为文档时加 `documentation`。
 
@@ -457,22 +464,18 @@ Mac 的 `--dir` 开发目录包不生成 `app-update.yml`，目录资源校验�
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release：
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。发版前把 `CHANGELOG.md` 的 `## Unreleased` 改成 `## <版本> - <发布日>`：更新内容弹窗只认 `## X.Y.Z - 日期` 分节（`features/release-notes/notes.ts`），留在 `Unreleased` 下的 `### 亮点` 会被静默跳过，弹窗不出现。
-2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.ts` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。全部成功后创建 Release，上传 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
-3. Mac 下载同一批 helper，独立完成检查、arm64 DMG/ZIP 构建、Developer ID 签名、Apple 公证、签名校验、更新产物检查与启动冒烟；通过后向源码仓库和公开仓库的同版本 Release 追加 Mac 安装包、`.zip.blockmap`、`latest-mac.yml`、校验和及源码提交记录。Mac 失败或等待环境批准不阻塞 Windows 发布，但会影响工作流整体状态。
+2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.ts` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。验证成功后保存 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`，等待 Mac 验证完成。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
+3. Mac 下载同一批 helper，独立完成检查、arm64 DMG/ZIP 构建、Developer ID 签名、Apple 公证、签名校验、更新产物检查与启动冒烟；验证成功后保存 Mac 安装包、`.zip.blockmap`、`latest-mac.yml`、校验和及源码提交记录。Windows 与 Mac 并行构建，双方均成功后才向 Dela 源码仓库的草稿 Release 上传完整产物并公开；任一平台失败或等待环境批准都会阻塞发布。
 4. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
 5. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 
-`prepare` 与 `release` 任务是 Ubuntu runner，只做校验与 `gh` 上传，不构建应用；发布 job 会把 release notes 作为 artifact 上传，供 `publish-public` 复用，后者同样跑在 `ubuntu-24.04`。release 工作流的 `concurrency` 设了 `cancel-in-progress: false`，与 CI 相反。
+`prepare` 解析 tag 对应的 SHA，发布任务均检出该 SHA；复用的 `helper.yml` 通过 `ref` 输入接收 SHA，不使用 PR 路径跳过规则。`prepare` 与 `release` 任务使用 Ubuntu runner，只做校验与 `gh` 上传，不构建应用。release 工作流的 `concurrency` 设了 `cancel-in-progress: false`，与 CI 相反。
 
 **重跑已有 tag**：Windows 与 Mac 上传均用 `gh release upload --clobber` 覆盖同名产物。正式分发后不要覆盖重建安装包：CDN 缓存可能与新元数据不一致；程序变更应升版并发布新 tag。失败时优先 Re-run failed jobs；artifact 保留 7 天。
 
-**公开镜像**：私有 Release 发布成功后，同一工作流会把同一批安装包、blockmap、更新元数据和完全相同的 release notes 再发布到公开仓库 [Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases) 的同名 tag Release。公开仓库中的 tag 由 GitHub 自动创建在其默认分支最新提交上，仅作发布锚点，不对应源码。
+发布只使用 Dela 源码仓库的 Release，不再同步独立发布仓库，也不需要跨仓库 PAT。
 
-首次使用前的准备：
-
-1. 公开仓库已有初始提交（例如 README）。
-2. 在本仓库 Settings → Secrets and variables → Actions 配置 `PUBLIC_RELEASE_TOKEN`：仅授权 `Chang-Yo/Dela_releases`、权限 Contents: Read and write 的 fine-grained PAT——内置 `GITHUB_TOKEN` 无法跨仓库发布。
-3. Mac 签名需要在 Settings → Environments 创建 `macos-release` 环境（允许 `main` 分支与 `v*` tag），并在其中配置 Secrets：`MAC_CSC_LINK`（Developer ID Application 证书 `.p12` 的 Base64）、`MAC_CSC_KEY_PASSWORD`（导出密码）、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。Mac 上传复用上述 token，不修改 Windows 附件或 Release 说明。
+Mac 签名需要在 Settings → Environments 创建 `macos-release` 环境（允许 `main` 分支与 `v*` tag），并在其中配置 Secrets：`MAC_CSC_LINK`（Developer ID Application 证书 `.p12` 的 Base64）、`MAC_CSC_KEY_PASSWORD`（导出密码）、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。
 
 ## 16. 平台基线
 
@@ -482,7 +485,7 @@ Mac 的 `--dir` 开发目录包不生成 `app-update.yml`，目录资源校验�
 | macOS   | macOS 13.0   | arm64 | DMG / ZIP          | `macos-15`     |
 
 - 以上是项目选择的构建基线，不代表最低系统实机兼容性已验收。GitHub runner 是构建环境，与最低运行系统不同。
-- 安装包名包含版本、系统和架构，避免产物重名。私有发布任务使用内置 `GITHUB_TOKEN`（`contents: write`），公开发布任务使用 `PUBLIC_RELEASE_TOKEN`，token 权限只覆盖公开仓库。
+- 安装包名包含版本、系统和架构，避免产物重名。发布任务使用本仓库内置 `GITHUB_TOKEN`（`contents: write`）；检查与构建任务仅有 `contents: read`。
 
 ### 16.1 macOS 开发约定
 
