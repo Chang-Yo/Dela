@@ -1,0 +1,340 @@
+# PR 分类标签：大小按过滤后的增删行，范围按改动路径；标签由维护者预先创建。
+# 公开仓库的 fork PR 在 pull_request 下只有只读 token，因此使用 pull_request_target；
+# 本 workflow 不 checkout、不执行 PR 代码，只读取 API 元数据。
+name: PR labels
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Label PR
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Apply size and scope labels
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request
+            if (!pr) {
+              core.info('No pull request in payload; skipping.')
+              return
+            }
+
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const issue_number = pr.number
+
+            // 标签必须预先创建；workflow 只在缺失时给出 gh label create 建议。
+            const LABEL_DEFS = {
+              'size/S': {
+                color: '77BB00',
+                description: '按新增+删除行统计 0-99 行（不含锁文件、vendor 与生成物）',
+              },
+              'size/M': {
+                color: 'EEBB00',
+                description: '按新增+删除行统计 100-399 行（不含锁文件、vendor 与生成物）',
+              },
+              'size/L': {
+                color: 'EE9900',
+                description: '按新增+删除行统计 400-800 行（不含锁文件、vendor 与生成物）',
+              },
+              'size/XL': {
+                color: 'EE5500',
+                description: '按新增+删除行统计 801-999 行（不含锁文件、vendor 与生成物）',
+              },
+              'size/XXL': {
+                color: 'EE0000',
+                description: '按新增+删除行统计 1000+ 行（不含锁文件、vendor 与生成物）',
+              },
+              frontend: {
+                color: '1D76DB',
+                description: '涉及 src/renderer 或 .tsx 的前端改动',
+              },
+              backend: {
+                color: '5319E7',
+                description: '涉及 src/main、src/preload 或 helper 的后端改动',
+              },
+              shared: {
+                color: '006B75',
+                description: '涉及 src/shared 跨进程契约的改动',
+              },
+              bug: {
+                color: 'D73A4A',
+                description: "Something isn't working",
+              },
+              enhancement: {
+                color: 'A2EEEF',
+                description: 'New feature or request',
+              },
+              refactor: {
+                color: '6F42C1',
+                description: '不改变行为的代码结构调整',
+              },
+              test: {
+                color: '0E8A16',
+                description: '测试新增、删除或修正',
+              },
+              ci: {
+                color: '24292F',
+                description: 'CI、构建或开发工具链改动',
+              },
+              dependencies: {
+                color: '0366D6',
+                description: '依赖版本或锁文件更新',
+              },
+              performance: {
+                color: 'D93F0B',
+                description: '性能优化',
+              },
+              documentation: {
+                color: '0075CA',
+                description: 'Improvements or additions to documentation',
+              },
+            }
+
+            const SIZE_LABELS = ['size/S', 'size/M', 'size/L', 'size/XL', 'size/XXL']
+            const SCOPE_LABELS = ['frontend', 'backend', 'shared']
+            const TYPE_LABELS = [
+              'bug',
+              'enhancement',
+              'refactor',
+              'test',
+              'ci',
+              'dependencies',
+              'performance',
+            ]
+            const MANAGED_LABELS = [
+              ...SIZE_LABELS,
+              ...SCOPE_LABELS,
+              ...TYPE_LABELS,
+              'documentation',
+            ]
+
+            // 生成物与随改动不计入大小；文档与 CHANGELOG 属于核心内容，正常计入。
+            const SIZE_IGNORES = [
+              /^(?:pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|Cargo\.lock)$/,
+              /^vendor\//,
+              /^(?:out|dist)\//,
+            ]
+
+            const isDocs = (name) => name.startsWith('docs/') || /\.(?:md|mdx)$/i.test(name)
+            const isFrontend = (name) =>
+              name.startsWith('src/renderer/') || name.endsWith('.tsx')
+            const isBackend = (name) =>
+              name.startsWith('src/main/') ||
+              name.startsWith('src/preload/') ||
+              name.startsWith('helper/')
+            const isShared = (name) => name.startsWith('src/shared/')
+            const countsForSize = (name) =>
+              !SIZE_IGNORES.some((pattern) => pattern.test(name))
+
+            // PR 标题沿用 Conventional Commits；docs 交给纯文档规则判断，不在这里映射。
+            const titleTypeOf = (title) => {
+              const match = /^([a-z]+)(?:\(([^)]*)\))?!?\s*[:/]/i.exec(title || '')
+              if (!match) return null
+              const type = match[1].toLowerCase()
+              const scope = (match[2] || '').toLowerCase()
+              switch (type) {
+                case 'fix':
+                  return 'bug'
+                case 'feat':
+                  return 'enhancement'
+                case 'refactor':
+                  return 'refactor'
+                case 'test':
+                case 'tests':
+                  return 'test'
+                case 'ci':
+                case 'build':
+                  return 'ci'
+                case 'perf':
+                  return 'performance'
+                case 'deps':
+                case 'dependencies':
+                  return 'dependencies'
+                case 'chore':
+                  return /\b(?:deps|dependencies)\b/.test(scope) ? 'dependencies' : null
+                default:
+                  return null
+              }
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: issue_number,
+              per_page: 100,
+            })
+            if (typeof pr.changed_files === 'number' && pr.changed_files > files.length) {
+              core.warning(
+                `PR has ${pr.changed_files} changed files; only ${files.length} were returned by the API, so the size label may be underestimated.`,
+              )
+            }
+
+            let countedLines = 0
+            for (const file of files) {
+              if (!countsForSize(file.filename)) continue
+              countedLines += (file.additions ?? 0) + (file.deletions ?? 0)
+            }
+
+            // 阈值来自 issue 约定：S 0-99、M 100-399、L 400-800、XL 801-999、XXL 1000+。
+            const sizeLabel =
+              countedLines <= 99
+                ? 'size/S'
+                : countedLines <= 399
+                  ? 'size/M'
+                  : countedLines <= 800
+                    ? 'size/L'
+                    : countedLines <= 999
+                      ? 'size/XL'
+                      : 'size/XXL'
+
+            const targets = new Set([sizeLabel])
+            // documentation 只在全部改动都是文档时添加；代码/CHANGELOG 混改时不加。
+            if (files.length > 0 && files.every((file) => isDocs(file.filename)))
+              targets.add('documentation')
+
+            // 范围标签按“包含即打”并行叠加；docs 不参与范围判断。
+            const scopeFiles = files.filter((file) => !isDocs(file.filename))
+            if (scopeFiles.some((file) => isFrontend(file.filename))) targets.add('frontend')
+            if (scopeFiles.some((file) => isBackend(file.filename))) targets.add('backend')
+            if (scopeFiles.some((file) => isShared(file.filename))) targets.add('shared')
+
+            // 类型优先取 closing issue 的 labels（Fixes/Closes/Resolves）；
+            // Refs 只是普通引用，不构成关闭关系，不参与判断。
+            let linkedIssues = []
+            try {
+              const linked = await github.graphql(
+                `query ($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      closingIssuesReferences(first: 20) {
+                        nodes {
+                          labels(first: 30) {
+                            nodes {
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }`,
+                { owner, repo, number: issue_number },
+              )
+              linkedIssues =
+                linked?.repository?.pullRequest?.closingIssuesReferences?.nodes ?? []
+            } catch (error) {
+              core.warning(`Could not read closing issue references: ${error?.message ?? error}`)
+            }
+
+            const issueTypes = new Set()
+            for (const issue of linkedIssues) {
+              for (const label of issue.labels?.nodes ?? []) {
+                const name = label.name.toLowerCase()
+                if (TYPE_LABELS.includes(name)) issueTypes.add(name)
+              }
+            }
+
+            // 单一 issue 类型优先于 PR 标题；多个 issue 冲突时用标题兜底，仍不明确就不打类型。
+            const titleType = titleTypeOf(pr.title)
+            let typeLabel = null
+            if (issueTypes.size === 1) {
+              typeLabel = [...issueTypes][0]
+              if (titleType && titleType !== typeLabel)
+                core.info(
+                  `Using type ${typeLabel} from linked issue; PR title type is ${titleType}.`,
+                )
+            } else {
+              if (issueTypes.size > 1) {
+                core.warning(
+                  `Linked issues have conflicting types: ${[...issueTypes].join(', ')}; falling back to the PR title.`,
+                )
+              }
+              typeLabel = titleType
+            }
+            if (typeLabel) targets.add(typeLabel)
+
+            const targetNames = [...targets]
+            const repoLabels = await github.paginate(github.rest.issues.listLabelsForRepo, {
+              owner,
+              repo,
+              per_page: 100,
+            })
+            const existingByName = new Map(
+              repoLabels.map((label) => [label.name.toLowerCase(), label.name]),
+            )
+            const missing = targetNames.filter(
+              (name) => !existingByName.has(name.toLowerCase()),
+            )
+
+            const currentLabels = await github.paginate(
+              github.rest.issues.listLabelsOnIssue,
+              { owner, repo, issue_number, per_page: 100 },
+            )
+            const currentByName = new Map(
+              currentLabels.map((label) => [label.name.toLowerCase(), label.name]),
+            )
+            const targetKeys = new Set(targetNames.map((name) => name.toLowerCase()))
+            const managedKeys = new Set(MANAGED_LABELS.map((name) => name.toLowerCase()))
+
+            for (const label of currentLabels) {
+              const key = label.name.toLowerCase()
+              if (!managedKeys.has(key) || targetKeys.has(key)) continue
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number,
+                  name: label.name,
+                })
+              } catch (error) {
+                if (error?.status !== 404) throw error
+              }
+            }
+
+            const labelsToAdd = targetNames
+              .map((name) => existingByName.get(name.toLowerCase()))
+              .filter((name) => Boolean(name) && !currentByName.has(name.toLowerCase()))
+            if (labelsToAdd.length) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: labelsToAdd,
+              })
+            }
+
+            if (missing.length) {
+              core.warning(
+                `Missing labels: ${missing.join(', ')}. Create them before rerunning.`,
+              )
+              const suggestions = missing.map((name) => {
+                const def = LABEL_DEFS[name]
+                return `gh label create "${name}" --repo ${owner}/${repo} --color ${def.color} --description "${def.description}"`
+              })
+              await core.summary
+                .addHeading('缺少 PR 标签', 3)
+                .addRaw('workflow 不会自动创建标签。请由维护者或协作者创建后重跑：')
+                .addCodeBlock(suggestions.join('\n'), 'bash')
+                .write()
+            }
+
+            const ignored = files.filter((file) => !countsForSize(file.filename)).length
+            core.info(
+              `PR #${issue_number}: ${countedLines} counted lines (${ignored} ignored files) -> ${sizeLabel}; labels: ${targetNames.join(', ')}`,
+            )
+            if (missing.length) core.info(`Skipped missing labels: ${missing.join(', ')}`)
