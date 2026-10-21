@@ -5,14 +5,28 @@ import { Button } from '../../components/ui/button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type { TabId } from '../../../shared/layout';
-import { markdownRequiresSourceMode } from '../../../shared/note-files';
+import { decodeAssetPath, isRelativeAssetPath, noteAssetUrl } from '../../../shared/note-files';
 import { DocumentToolbar, type NoteMode } from './document-toolbar';
-import { getDefaultNoteEditMode } from './default-mode';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
-import { NoteEditor } from './NoteEditor';
+import { markdownImageInsert } from './live-preview';
 import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
 import { cn } from '../../lib/utils';
+
+/** Markdown 文件的图片粘贴/拖入：落盘到同目录 assets/，插入相对路径引用。 */
+const imageInsert = (entryId: string) =>
+  markdownImageInsert(
+    async (file) => {
+      if (!window.dela) throw new Error('仅桌面应用支持插入本地图片');
+      return window.dela.workspace.saveNoteImage(
+        entryId,
+        file.name,
+        new Uint8Array(await file.arrayBuffer()),
+      );
+    },
+    (cause) =>
+      showToast({ variant: 'error', title: '插入图片失败', description: errorText(cause) }),
+  );
 
 export function parseNoteTabId(tabId: string): string | null {
   if (!tabId.startsWith('note:')) return null;
@@ -20,13 +34,14 @@ export function parseNoteTabId(tabId: string): string | null {
   return entryId || null;
 }
 
-/* 编辑模式按笔记在本次会话内记忆。 */
+/* 编辑模式按文件在本次会话内记忆。 */
 const noteModes = new Map<string, NoteMode>();
-/* 源码模式滚动位置按 标签+组 记忆，不持久化。 */
+/* 滚动位置按 标签+组 记忆，不持久化。 */
 const scrollMemory = new Map<string, number>();
 
 /**
- * 笔记标签内容：草稿经注入的 NoteDraftSource 读写，编辑/阅读/源码模式切换与自动保存状态展示在此。
+ * 本地文本文件的编辑标签：草稿经注入的 NoteDraftSource 读写。Markdown 默认即时渲染（光标所在行显示原文），
+ * 可切到纯源码；其余文本按语言高亮。编辑器只把用户改的字节写回去，不做任何格式化。
  */
 export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const entryId = parseNoteTabId(tabId);
@@ -37,9 +52,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmReload, setConfirmReload] = useState(false);
   const [mode, setMode] = useState<NoteMode>(() =>
-    entryId !== null
-      ? (noteModes.get(entryId) ?? getDefaultNoteEditMode())
-      : getDefaultNoteEditMode(),
+    entryId !== null ? (noteModes.get(entryId) ?? 'live') : 'live',
   );
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -99,10 +112,26 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
       </div>
     );
 
+  if (draft.content.format !== 'markdown' && draft.content.format !== 'text')
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-13 text-ink-3">
+        <p>“{draft.content.title}”不是 UTF-8 文本，或超过 50 MB，无法在应用内打开。</p>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            void window.dela?.workspace
+              .openFile(entryId)
+              .catch((cause) =>
+                showToast({ variant: 'error', title: '打开失败', description: errorText(cause) }),
+              )
+          }
+        >
+          用默认程序打开
+        </Button>
+      </div>
+    );
   const markdown = draft.content.format === 'markdown';
-  // frontmatter 等会被所见即所得内核破坏的语法：整篇停留源码模式。
-  const forcedSource = markdown && markdownRequiresSourceMode(draft.text);
-  const effectiveMode: NoteMode = forcedSource ? 'source' : mode;
+  const readOnly = draft.content.readOnly === true;
   const changeMode = (next: NoteMode) => {
     noteModes.set(entryId, next);
     setMode(next);
@@ -112,7 +141,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     setError(null);
     void source.acquire(entryId, true).catch((cause) => setError(errorText(cause)));
   };
-  /* 笔记文件由应用管理：定位入口交给系统文件管理器。 */
+  /* 定位入口交给系统文件管理器。 */
   const openInFolder = () => {
     if (window.dela)
       void window.dela.workspace.openLocal(entryId).catch((cause) =>
@@ -127,13 +156,12 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   return (
     <section
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      aria-label={`笔记：${draft.content.title}`}
+      aria-label={`文件：${draft.content.title}`}
     >
       <DocumentToolbar
         path={path?.length ? path : [draft.content.title]}
         markdown={markdown}
-        forcedSource={forcedSource}
-        mode={effectiveMode}
+        mode={mode}
         onModeChange={changeMode}
         saving={draft.saving}
         dirty={dirty}
@@ -171,32 +199,30 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
           )}
         </div>
       )}
-      {forcedSource && (
+      {draft.content.truncated && (
         <p className="shrink-0 border-b px-4 py-2 text-xs text-ink-3">
-          此笔记包含暂不支持所见即所得的语法（frontmatter），已停在源码模式，内容将原样保存。
+          文件超过 1 MB，这里只读显示开头部分。要编辑完整内容请用外部编辑器打开。
         </p>
       )}
-      {markdown && effectiveMode !== 'source' ? (
-        <NoteEditor
-          value={draft.text}
-          documentKey={entryId}
-          editorStateKey={`note:${entryId}:${groupId}`}
-          readOnly={effectiveMode === 'read'}
-          autoFocus={draft.text === ''}
-          onChange={(text) => source.edit(entryId, text)}
-          onSave={() => void source.save(entryId)}
-        />
-      ) : (
-        <MarkdownEditor
-          value={draft.text}
-          filename={draft.content.title}
-          editorStateKey={`document:${entryId}:${groupId}`}
-          scroll={scrollMemory.get(scrollKey) ?? 0}
-          onChange={(text) => source.edit(entryId, text)}
-          onSave={() => void source.save(entryId)}
-          onScroll={(top) => scrollMemory.set(scrollKey, top)}
-        />
-      )}
+      {/* 模式切换换一个编辑器实例（key 不同）：即时渲染与源码各自保留撤销历史与光标。 */}
+      <MarkdownEditor
+        key={markdown ? mode : 'code'}
+        value={draft.text}
+        filename={draft.content.title}
+        editorStateKey={`document:${entryId}:${groupId}:${markdown ? mode : 'code'}`}
+        scroll={scrollMemory.get(scrollKey) ?? 0}
+        readOnly={readOnly}
+        livePreview={
+          markdown && mode === 'live'
+            ? (src) =>
+                isRelativeAssetPath(src) ? noteAssetUrl(entryId, decodeAssetPath(src)) : src
+            : undefined
+        }
+        extensions={markdown && !readOnly ? [imageInsert(entryId)] : []}
+        onChange={(text) => source.edit(entryId, text)}
+        onSave={() => void source.save(entryId)}
+        onScroll={(top) => scrollMemory.set(scrollKey, top)}
+      />
       <Dialog.Root onOpenChange={setConfirmReload} open={confirmReload}>
         <Dialog.Portal>
           <Dialog.Overlay className={dialogOverlay} />

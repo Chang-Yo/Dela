@@ -44,11 +44,3 @@ export function decodeAssetPath(path: string): string {
 export function noteAssetUrl(entryId: string, ref: string): string {
   return `dela-resource://note-asset/${encodeURIComponent(ref)}?id=${encodeURIComponent(entryId)}`;
 }
-
-/* 所见即所得内核会破坏 frontmatter（分隔线 + setext 标题化）。识别到 frontmatter 的
-   文档整篇进入源码模式，其他范围外语法（原始 HTML、脚注、指令块）经实测可原样保留。 */
-const frontmatterRe = /^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/;
-
-export function markdownRequiresSourceMode(text: string): boolean {
-  return frontmatterRe.test(text);
-}

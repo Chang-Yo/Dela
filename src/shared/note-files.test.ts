@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isRelativeAssetPath,
-  markdownRequiresSourceMode,
-  matchMarkdownImageRefs,
-} from './note-files';
+import { isRelativeAssetPath, matchMarkdownImageRefs } from './note-files';
 
 describe('matchMarkdownImageRefs', () => {
   it('提取 alt、路径与偏移，含 title 的引用不吞 title', () => {
@@ -36,17 +32,5 @@ describe('isRelativeAssetPath', () => {
     expect(isRelativeAssetPath('\\abs\\a.png')).toBe(false);
     expect(isRelativeAssetPath('E:\\Users\\a.png')).toBe(false);
     expect(isRelativeAssetPath('')).toBe(false);
-  });
-});
-
-describe('markdownRequiresSourceMode', () => {
-  it('frontmatter 文档强制源码模式', () => {
-    expect(markdownRequiresSourceMode('---\ntitle: A\n---\n\n正文')).toBe(true);
-    expect(markdownRequiresSourceMode('---\r\ntitle: A\r\n---\r\n正文')).toBe(true);
-  });
-  it('正文分隔线与空文档不误判', () => {
-    expect(markdownRequiresSourceMode('正文\n\n---\n\n结尾')).toBe(false);
-    expect(markdownRequiresSourceMode('')).toBe(false);
-    expect(markdownRequiresSourceMode('# 标题\n\n---\n\n内容')).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import type { TabId } from '../../shared/layout';
 import { isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../shared/remotes';
 import type { ResourceRef } from '../../shared/resources';
-// Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/milkdown/
+// Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/CodeMirror/
 // highlight.js），静态引入会让 registry 的懒加载分包失效。
 import {
   ChatTabSourceProvider,
@@ -212,30 +212,6 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     if (!loaded) return;
     void useWorkbenchLayout.getState().init(projectId, legacy);
   }, [loaded, projectId, legacy]);
-
-  // 笔记 Crepe 会话回收：会话键 = `${tabId}:${groupId}`，随布局树存活（NoteEditor 模块级
-  // Map）。树中消失的 note: 标签（关闭/跨组移动/项目切换换树/条目删除连带关标签）在此
-  // 销毁实例，否则无限滞留；动态 import 取 forgetNoteEditorState，不破坏 registry 懒加载分包。
-  useEffect(
-    () =>
-      useWorkbenchLayout.subscribe((state, prev) => {
-        if (state.root === prev.root) return;
-        const alive = new Set(
-          walkGroups(state.root).flatMap((group) => group.tabs.map((tab) => `${tab}:${group.id}`)),
-        );
-        const orphans = walkGroups(prev.root).flatMap((group) =>
-          group.tabs
-            .filter((tab) => tab.startsWith('note:'))
-            .map((tab) => `${tab}:${group.id}`)
-            .filter((key) => !alive.has(key)),
-        );
-        if (orphans.length)
-          void import('../content/note/index').then((note) => {
-            for (const key of orphans) note.forgetNoteEditorState(key);
-          });
-      }),
-    [],
-  );
 
   const referenceSource: ReferenceSource = useMemo(
     () => ({
