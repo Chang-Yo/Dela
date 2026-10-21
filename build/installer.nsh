@@ -12,8 +12,11 @@
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
 Var pid
+# 卸载器编译不包含安装选项页，声明这两个变量会触发 NSIS warning 6001；CI 把警告视为错误。
+!ifndef BUILD_UNINSTALLER
 Var DelaAutoStartCheckbox
 Var DelaAutoStart
+!endif
 
 !macro customCheckAppRunning
   SetDetailsPrint listonly
