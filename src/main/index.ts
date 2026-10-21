@@ -191,16 +191,18 @@ app
         nativeImage.createFromPath(join(__dirname, 'icons', `Dela_${savedIcon()}_bg.png`)),
       );
     }
-    // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
-    // 之后不再于启动时改写，用户经任务管理器或本页开关的改动均以系统为准。
-    if (!smokeTest && app.isPackaged && readSetting('open-at-login') === undefined) {
+    // macOS 首次启动仍登记默认开启；Windows 的默认值由安装器的复选框决定，
+    // 未勾选时不注册，之后由设置页或任务管理器改写系统启动项。
+    if (
+      !smokeTest &&
+      app.isPackaged &&
+      process.platform === 'darwin' &&
+      readSetting('open-at-login') === undefined
+    ) {
       getDatabase()
         .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
         .run('1');
-      app.setLoginItemSettings({
-        openAtLogin: true,
-        ...(process.platform === 'win32' ? { args: ['--hidden'] } : {}),
-      });
+      app.setLoginItemSettings({ openAtLogin: true });
     }
     registerSettingsIpc();
     registerConsentIpc();

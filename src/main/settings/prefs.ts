@@ -20,7 +20,7 @@ export const iconSchema = z.enum(['white', 'black']);
 export const zoomSchema = z
   .number()
   .refine((value) => (zoomLevels as readonly number[]).includes(value));
-// 持久化为 '1'/'0'；键不存在（老版本升级、首次使用）视为默认开启。
+// 持久化为 '1'/'0'；键不存在时开发运行与 macOS 视为默认开启，Windows 打包版以安装器为准。
 export const openAtLoginSchema = z
   .string()
   .transform((value) => value === '1')
