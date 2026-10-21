@@ -7,6 +7,7 @@ import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
+import { opensInEditor } from '../../shared/files';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { prepareAsideGroup } from '../workbench/open-aside';
@@ -115,11 +116,11 @@ function currentProjectLive(): boolean {
   );
 }
 
-/** 文档键（entryId 或 source:{sourceId}）→ TabId；笔记条目开 note 标签，其余只读预览。 */
+/** 文档键（entryId 或 source:{sourceId}）→ TabId；本地文本文件开编辑标签，专用格式与资料走预览。 */
 export function documentTabId(key: string): TabId {
   if (key.startsWith('source:')) return `preview:${key}`;
-  const kind = useWorkspaceStore.getState().workspace.entries.find((e) => e.id === key)?.kind;
-  return kind === 'note' ? `note:${key}` : `preview:${key}`;
+  const entry = useWorkspaceStore.getState().workspace.entries.find((e) => e.id === key);
+  return entry?.kind === 'file' && opensInEditor(entry.name) ? `note:${key}` : `preview:${key}`;
 }
 
 /** 会话所属项目的推导：旧 scope 身份（home/sources/projects）与未知项目一律落通用池。 */

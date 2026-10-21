@@ -87,13 +87,21 @@ Git 当前改动合并已暂存、未暂存的净结果，额外列出未跟踪�
 
 文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 下载复用 `prepareDocumentFile`，返回 `readable: false` 和 `document` 任务，skill 直接使用其中的路径，完成后 release，无需第二次下载。依赖缺失、下载中断或超过上限时失败并释放响应；失败任务目录清理。主进程 PDF.js 提取与其原生 canvas 运行时依赖已移除，renderer 的 PDF.js 阅读器保留。未修改的上一版内置文档 skill 会自动补齐网页 PDF 指引；用户编辑过的版本保留。
 
-`read_resource` 的文件/笔记/来源读取统一走 `resources.readResourceContent`，不调用 GUI 的 `readWorkspaceEntry` / `readCanvasSource`。资源层只直接读取文本与图片，其余文件统一返回 `format: file` 和 skill 指引，不枚举 Office/PDF 格式、不生成预览地址、不查询 PowerPoint 导出关联；Canvas 文档和邮件附件在这一步只取元数据，直到 `prepare_document` 才获取文件。Canvas 非文件正文经 `readCanvasPage` 与 GUI 共用原有按需拉取逻辑。图片与文本继续复用已有输入类型清单；笔记修订值仍为正文 SHA256。GUI 预览格式支持不限制 skill 可尝试的文件类型。
+`read_resource` 的文件/笔记/来源读取统一走 `resources.readResourceContent`，不调用 GUI 的 `readWorkspaceEntry` / `readCanvasSource`。资源层只直接读取文本与图片（格式判定与 GUI 同一套 `shared/files`，文本按内容识别），其余文件统一返回 `format: file` 和 skill 指引，不生成预览地址、不查询 PowerPoint 导出关联；Canvas 文档和邮件附件在这一步只取元数据，直到 `prepare_document` 才获取文件。Canvas 非文件正文经 `readCanvasPage` 与 GUI 共用原有按需拉取逻辑。文本修订值为正文 SHA256。GUI 预览格式支持不限制 skill 可尝试的文件类型。
 
 [隔离实测报告](../experiments/document-reading/REPORT.md) 是选型时的历史记录；当前行为以上述实现为准。
 
 ### 2.4 GUI
 
 标签工作台（聊天 / 笔记 / 预览 / 终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。聊天回答末尾汇总本轮 `write` / `edit` 命中的文件（按首次出现去重），每行给出文件名、所在目录与「定位 / 打开」两个按钮；相对路径按会话 cwd 解析、必须是本机存在的文件，远程项目拒绝本机打开。
+
+**文件模型**：工作区里只有 `folder / project / file / source` 四种条目，不区分「应用内笔记」与「外部文件」——笔记就是 `.md` 文件。格式只有一条规则（`shared/files.ts`），本地工作区、远端项目、Agent `read_resource` 与聊天附件共用：
+
+- 扩展名只用来挑专用查看器（Markdown、PDF、图片、docx/xlsx/pptx）；其余一律读前 8000 字节判定（与 Git 判二进制同窗口）：无 NUL 且是合法 UTF-8 即文本，否则二进制。不维护文本扩展名白名单，`.env`、`Makefile`、无后缀日志都按内容识别。非 UTF-8 文本（GBK 的 txt/csv）按二进制处理，防止按 UTF-8 读进来再写回把它写坏。
+- 体量：1 MB 以内可编辑；1–50 MB 只读显示开头 1 MB；超过 50 MB 不读内容，提示用默认程序打开。远端文件同样阈值，且始终只读。
+- 打开方式只凭名字决定（renderer 拿不到字节）：专用格式走 `preview:` 标签，其余进 `note:` 编辑标签；内容是二进制时编辑标签给出「用默认程序打开」。
+- 保存原地覆写（不写临时文件再 rename），保住可执行位、硬链接与符号链接；BOM 原样保留。保存前比对打开时的内容哈希，外部改过就拒绝，草稿留在界面上。
+- 新建文件名原样落盘，不补扩展名；「保存为笔记」预填 `新笔记.md`。Markdown 文件插入的图片存到同目录 `assets/`，移动时按相对路径（URI 编码先解码）携带。
 
 聊天工具代码块复用 `CodeBlock`：标题栏的复制按钮保持单行且不参与收缩，长路径在剩余空间省略，避免聊天区的 `overflow-wrap: anywhere` 将 Copy / Copied 拆行；正文的换行与复制内容沿用原行为。
 
@@ -183,7 +191,7 @@ Mac 设置页切换登录启动后读取系统实际状态，再保存偏好并�
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、cwd、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
 - 会话归属在创建时确定，ChatTab 从会话快照取 projectId/cwd，不取当前工作台。
 - **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；文本附件与图片随用户消息进入 Pi 会话，文档附件仅传本地 workspace 文件引用，由 document-reading skill 按需解析。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入 / 粘贴 / 选择的附件维持在 composer 上方 chips、上限 5，与引用分开计数。候选默认取会话 cwd 下的工作区文件；通用池会话（projectId 为 null 且非远端）额外并入课件候选——`canvas:cached-files`（`main/canvas/course-files.ts` 纯函数 + `api.ts` 编排）列出 courses 目录下最新学期已下载到本地的文件，workspace store 在进入会话时拉取、30 秒内去重，标题形如「课程名/相对路径」，与工作区候选重名时以工作区为准。
-- **聊天文档附件**：输入入口仅区分内联图片、常见文本和其他文件，不枚举 Office/PDF 格式。图片上限 5 MiB、文本上限 1 MiB、文档上限 128 MiB；文档需要已安装且启用 document-reading skill。文档保存为 `userData/chat-media/<UUID>.<ext>`，消息元数据记录附件 id，发送后保留供追问；未发送附件移除时删除，启动时按会话引用回收孤儿文件。二进制不按 UTF-8 注入提示词，不复制进项目；支持只发送附件。当前远端项目无法访问本机解析组件，发送文档附件会提示切换本机会话。
+- **聊天文档附件**：输入入口仅区分内联图片（png/jpeg/gif/webp）、文本（按内容嗅探，与工作区同一规则）和其他文件。图片上限 5 MiB、文本上限 1 MiB、文档上限 128 MiB；文档需要已安装且启用 document-reading skill。文档保存为 `userData/chat-media/<UUID>.<ext>`，消息元数据记录附件 id，发送后保留供追问；未发送附件移除时删除，启动时按会话引用回收孤儿文件。二进制不按 UTF-8 注入提示词，不复制进项目；支持只发送附件。当前远端项目无法访问本机解析组件，发送文档附件会提示切换本机会话。
 - **上下文占用**：快照与流式事件携带 `contextUsage`（Pi `getContextUsage` 的投影，仅打开中的会话有）；composer 底部圆环按占用显示进度，悬浮面板报 tokens、窗口总量、百分比与本会话缓存命中率。压缩后 tokens 未知时显示「—」。
 - 系统提示＝Pi 默认提示 + Dela 追加段（dela 命令说明、项目名与目录、用户自定义指令）。
 - 编辑重发在 Pi 会话树上分支，旧分支保留在 JSONL。
@@ -203,7 +211,7 @@ Canvas 资料目录与 `latestTermOf` 共用 `shared/canvas.ts` 的排序规则�
 - **认证**：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
 - **VS Code 打开项目**：Windows 直接启动 `Code.exe`，Mac 启动应用包内的 CLI；远程项目附带 `--remote ssh-remote+<host>`。不使用 `windowsHide: true`，它会隐藏首次启动的 Windows GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
 - **降级**：helper 起不来时（服务器禁执行 `noexec`、只读挂载、SELinux 拦截）自动分类原因并退回一次性 ssh，向导日志与目录树都显示人话文案。降级后端口预览与远端改动实时刷新不可用，其余功能照常。
-- **不做**：远端笔记写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
+- **不做**：远端文件写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
 
 开发注意（真机踩过的坑）：
 
@@ -277,7 +285,7 @@ preload 暴露的 API：
 
 ## 8. 持久化
 
-schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话不迁移）；v2→v3 只加 `workspace_entries.remote_id` 并建 `remotes` 表（旧条目一律视为本地项目）；v3→v4 给 `sessions` 加 `cwd` 列；v4→v5 建 `consent_records` 表（条款接受记录，见 §11 引导条目）。更早的旧世界库整库备份为 `dela-legacy-backup.db` 后重建，旧聊天与笔记记录不迁移。旧世界库的判定与建表都不放进版本闸门：旧体系自己用 v5–v15，撞上当前版本号的老库只看版本号的话，既不会被拒绝也不会重建，只会留下缺表的库；`consent_records` 因此与 `addColumnIfMissing` 一样每次打开都幂等补建。
+schema v6。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话不迁移）；v2→v3 只加 `workspace_entries.remote_id` 并建 `remotes` 表（旧条目一律视为本地项目）；v3→v4 给 `sessions` 加 `cwd` 列；v4→v5 建 `consent_records` 表（条款接受记录，见 §11 引导条目）；v5→v6 破坏性丢弃 `note/local/imported` 条目行与 `preview-export:%` 导出关联（条目统一为 file，导出的 PDF 留在磁盘按普通文件出现，pptx 重新导出即重建关联）。更早的旧世界库整库备份为 `dela-legacy-backup.db` 后重建，旧聊天与笔记记录不迁移。旧世界库的判定与建表都不放进版本闸门：旧体系自己用 v5–v15，撞上当前版本号的老库只看版本号的话，既不会被拒绝也不会重建，只会留下缺表的库；`consent_records` 因此与 `addColumnIfMissing` 一样每次打开都幂等补建。
 
 表：`workspace_settings`、`workspace_entries`、`remotes`、`sessions`（索引，含 `cwd`、`message_count`），`consent_records`（条款接受记录），以及领域缓存（mail 三表、timetable 两表、`calendar_events`、canvas 两表、`shuiyuan_topics`、`todo_items`、notifications 两表）。笔记即磁盘文件。
 
@@ -556,4 +564,4 @@ pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Cont
 - CDN 的线上更新文件、Range 和两版覆盖升级尚未验收，检查失败时可从下载页手动获取安装包。
 - 未配置代码签名，安装时可能遇到 SmartScreen 提示。
 - 工作流中的冒烟检查验证打包后程序及 SQLite / preload，不代替 NSIS 安装向导的实机验收。
-- 远端项目内不支持新建 / 编辑笔记；远端 PPTX 不支持内嵌预览；打开的预览不自动跟随远端改动。
+- 远端项目内不支持新建 / 编辑文件；远端 PPTX 不支持内嵌预览；打开的预览不自动跟随远端改动。

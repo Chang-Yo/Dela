@@ -1,8 +1,17 @@
-// 笔记文件能力的主进程行为：默认 .md、图片落盘与受限资源解析、笔记移动/转换/导入项目时
-// 的身份维护（条目 UUID + 项目目录，目录原地不动）。
+// 工作区文件的主进程行为：按内容判定格式、原样读写、图片落盘与受限资源解析、
+// 移动/转换/导入项目时的身份维护（条目 UUID + 项目目录，目录原地不动）。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, sep } from 'node:path';
 import { shell } from 'electron';
@@ -63,7 +72,7 @@ function createDb(): Database.Database {
   return db;
 }
 
-function insertFileEntry(db: Database.Database, path: string, kind: 'local' | 'imported') {
+function insertFileEntry(db: Database.Database, path: string, kind: 'file') {
   const id = crypto.randomUUID();
   db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, NULL, ?)').run(
     id,
@@ -137,7 +146,7 @@ describe('磁盘工作区', () => {
     writeFileSync(path, '# shell');
     expect(getWorkspaceState().entries.find((item) => item.id === path)).toMatchObject({
       parentId: folder,
-      kind: 'note',
+      kind: 'file',
     });
     const content = await readWorkspaceEntry(path);
     saveWorkspaceNote(path, '# edited', content.revision!);
@@ -146,7 +155,12 @@ describe('磁盘工作区', () => {
   });
 
   it('新建普通文件返回路径，重命名返回已有视图的路径映射', () => {
-    const note = createWorkspaceEntry({ parentId: null, name: '普通', kind: 'note', text: 'file' });
+    const note = createWorkspaceEntry({
+      parentId: null,
+      name: '普通.md',
+      kind: 'file',
+      text: 'file',
+    });
     expect(note.id).toBe(join(workspaceRoot(), '普通.md'));
     const result = updateWorkspaceEntry(note.id, { name: '新名.md' });
     expect(result).toEqual({
@@ -157,6 +171,54 @@ describe('磁盘工作区', () => {
     expect(existsSync(note.id)).toBe(false);
     expect(readFileSync(result.id, 'utf8')).toBe('file');
     expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 0 });
+  });
+});
+
+describe('按内容判定格式（无扩展名白名单）', () => {
+  const write = (name: string, data: string | Uint8Array) => {
+    const path = join(workspaceRoot(), name);
+    mkdirSync(workspaceRoot(), { recursive: true });
+    writeFileSync(path, data);
+    return path;
+  };
+
+  it('点文件与无后缀文本可编辑；无后缀二进制与非 UTF-8 文本不当文本打开', async () => {
+    expect(await readWorkspaceEntry(write('.env', 'KEY=1\n'))).toMatchObject({
+      format: 'text',
+      text: 'KEY=1\n',
+    });
+    expect(await readWorkspaceEntry(write('build', 'make all'))).toMatchObject({ format: 'text' });
+    const binary = await readWorkspaceEntry(write('core', Uint8Array.from([0x7f, 0x45, 0, 1])));
+    expect(binary.format).toBe('binary');
+    expect(binary.text).toBeUndefined();
+    // GBK「中文」：不是合法 UTF-8，按 UTF-8 读进来再写回会把它写坏。
+    const gbk = write('gbk.txt', Uint8Array.from([0xd6, 0xd0, 0xce, 0xc4]));
+    expect((await readWorkspaceEntry(gbk)).format).toBe('binary');
+    expect(() => saveWorkspaceNote(gbk, 'x', 'any')).toThrow('只有文本文件可以编辑');
+  });
+
+  it('超过 1 MB 只读头部且不可保存；超过 50 MB 不读内容', async () => {
+    const big = write('big.log', 'a'.repeat(1024 * 1024 + 10));
+    const content = await readWorkspaceEntry(big);
+    expect(content).toMatchObject({ format: 'text', readOnly: true, truncated: true });
+    expect(content.text).toHaveLength(1024 * 1024);
+    expect(() => saveWorkspaceNote(big, 'x', content.revision!)).toThrow('只能只读查看');
+  });
+
+  it('保存只写用户给的文本：CRLF 与 BOM 原样保留，原地覆写不换掉文件', async () => {
+    const original = '﻿a\r\nb\r\n';
+    const edited = '﻿a\r\nc\r\n';
+    const path = write('win.txt', original);
+    const link = join(state.root, 'hardlink.txt');
+    linkSync(path, link);
+    const before = await readWorkspaceEntry(path);
+    expect(before.text).toBe(original);
+    saveWorkspaceNote(path, edited, before.revision!);
+    expect(readFileSync(path, 'utf8')).toBe(edited);
+    // 硬链接仍指向同一份内容：说明是原地覆写，没有 rename 出一个新文件。
+    expect(readFileSync(link, 'utf8')).toBe(edited);
+    expect(statSync(path).ino).toBe(statSync(link).ino);
+    expect(existsSync(`${path}.tmp`)).toBe(false);
   });
 });
 
@@ -281,26 +343,19 @@ describe('打开项目目录', () => {
 });
 
 describe('createWorkspaceEntry', () => {
-  it('新笔记默认补 .md；显式扩展名时尊重用户选择', async () => {
+  it('文件名原样落盘，不补扩展名：无后缀与点文件都能新建', async () => {
+    for (const name of ['log', '.env', 'Makefile', 'demo.cpp']) {
+      const created = createWorkspaceEntry({ parentId: null, name, kind: 'file', text: 'x' });
+      expect(created).toMatchObject({ name, kind: 'file', id: join(workspaceRoot(), name) });
+      expect(await readWorkspaceEntry(created.id)).toMatchObject({ format: 'text', text: 'x' });
+    }
     const note = createWorkspaceEntry({
       parentId: null,
-      name: '会议记录',
-      kind: 'note',
+      name: '会议.md',
+      kind: 'file',
       text: '# 内容',
     });
-    expect(note.name).toBe('会议记录.md');
-    const content = await readWorkspaceEntry(note.id);
-    expect(content.format).toBe('markdown');
-    expect(content.text).toBe('# 内容');
-
-    const code = createWorkspaceEntry({
-      parentId: null,
-      name: 'demo.cpp',
-      kind: 'note',
-      text: 'int main() {}',
-    });
-    expect(code.name).toBe('demo.cpp');
-    expect((await readWorkspaceEntry(code.id)).format).toBe('text');
+    expect((await readWorkspaceEntry(note.id)).format).toBe('markdown');
   });
 
   it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
@@ -312,8 +367,8 @@ describe('createWorkspaceEntry', () => {
     // 同容器继续创建内容不受影响（source 行曾把容器误判成 source 而拒绝操作）。
     const note = createWorkspaceEntry({
       parentId: folder.id,
-      name: '笔记',
-      kind: 'note',
+      name: '笔记.md',
+      kind: 'file',
       text: '',
     });
     expect(isAbsolute(note.id)).toBe(true);
@@ -360,7 +415,12 @@ describe('归档文件夹', () => {
 
 describe('saveNoteImage / resolveWorkspaceAsset', () => {
   it('图片写入笔记目录 assets/，返回正斜杠相对路径，重名自动加序号', () => {
-    const note = createWorkspaceEntry({ parentId: null, name: '带图笔记', kind: 'note', text: '' });
+    const note = createWorkspaceEntry({
+      parentId: null,
+      name: '带图笔记.md',
+      kind: 'file',
+      text: '',
+    });
     expect(saveNoteImage(note.id, '截图.png', PNG)).toBe('assets/截图.png');
     expect(saveNoteImage(note.id, '截图.png', PNG)).toBe('assets/截图 (2).png');
     const resolved = resolveWorkspaceAsset(note.id, 'assets/截图.png');
@@ -373,8 +433,8 @@ describe('saveNoteImage / resolveWorkspaceAsset', () => {
     expect(existsSync(spaced.path)).toBe(true);
   });
 
-  it('拒绝越界路径、非图片扩展名与非笔记条目', () => {
-    const note = createWorkspaceEntry({ parentId: null, name: '笔记', kind: 'note', text: '' });
+  it('拒绝越界路径、非图片扩展名与非 Markdown 文件', () => {
+    const note = createWorkspaceEntry({ parentId: null, name: '笔记.md', kind: 'file', text: '' });
     expect(() => resolveWorkspaceAsset(note.id, '../逃逸.png')).toThrow('资源路径超出文档目录');
     expect(() => resolveWorkspaceAsset(note.id, 'assets/notes.txt')).toThrow('不支持的图片格式');
     expect(() => saveNoteImage(note.id, 'a.exe', PNG)).toThrow('不支持的图片格式');
@@ -382,8 +442,8 @@ describe('saveNoteImage / resolveWorkspaceAsset', () => {
     const sourceDir = join(state.root, '来源');
     mkdirSync(sourceDir);
     writeFileSync(join(sourceDir, '外部.png'), PNG);
-    const importedId = insertFileEntry(db, join(sourceDir, '外部.png'), 'imported');
-    expect(() => saveNoteImage(importedId, 'a.png', PNG)).toThrow('只有笔记可以插入图片');
+    const importedId = insertFileEntry(db, join(sourceDir, '外部.png'), 'file');
+    expect(() => saveNoteImage(importedId, 'a.png', PNG)).toThrow('只有 Markdown 文件可以插入图片');
     // 导入文件以自身目录为基准解析相对图片；向上跳出该目录的引用被拒绝。
     expect(resolveWorkspaceAsset(importedId, '外部.png').mime).toBe('image/png');
     writeFileSync(join(state.root, '逃逸.png'), PNG);
@@ -397,8 +457,8 @@ describe('笔记移动携带图片', () => {
     const folderB = createWorkspaceEntry({ parentId: null, name: 'B', kind: 'folder' });
     const note = createWorkspaceEntry({
       parentId: folderA.id,
-      name: '移动笔记',
-      kind: 'note',
+      name: '移动笔记.md',
+      kind: 'file',
       text: '![图](assets/fig.png)\n',
     });
     saveNoteImage(note.id, 'fig.png', PNG);
@@ -412,14 +472,28 @@ describe('笔记移动携带图片', () => {
     expect(existsSync(join(localPathOf(folderA.id), 'assets', 'fig.png'))).toBe(true);
     expect(resolveWorkspaceAsset(moved, 'assets/fig.png').mime).toBe('image/png');
   });
+
+  it('URI 编码的引用（空格、括号、中文）按解码后的文件名携带', () => {
+    const folderA = createWorkspaceEntry({ parentId: null, name: 'A', kind: 'folder' });
+    const folderB = createWorkspaceEntry({ parentId: null, name: 'B', kind: 'folder' });
+    const note = createWorkspaceEntry({
+      parentId: folderA.id,
+      name: '编码.md',
+      kind: 'file',
+      text: '![x](assets/%E6%88%AA%E5%9B%BE%20%281%29.png)\n',
+    });
+    saveNoteImage(note.id, '截图 (1).png', PNG);
+    const moved = updateWorkspaceEntry(note.id, { parentId: folderB.id }).toPath!;
+    expect(existsSync(join(dirname(moved), 'assets', '截图 (1).png'))).toBe(true);
+  });
 });
 
 describe('saveWorkspaceNote 外部冲突', () => {
-  it('revision 与磁盘不一致时拒绝保存且不改文件；一致时原子写入并返回新 revision', async () => {
+  it('revision 与磁盘不一致时拒绝保存且不改文件；一致时写入并返回新 revision', async () => {
     const note = createWorkspaceEntry({
       parentId: null,
-      name: '冲突笔记',
-      kind: 'note',
+      name: '冲突笔记.md',
+      kind: 'file',
       text: 'v1',
     });
     const before = await readWorkspaceEntry(note.id);
@@ -501,7 +575,7 @@ describe('导入已有文件夹作为项目', () => {
     expect(entries.find((item) => item.id === project.id)).toMatchObject({ kind: 'project' });
     expect(entries.find((item) => item.id === join(external(), 'README.md'))).toMatchObject({
       parentId: project.id,
-      kind: 'note',
+      kind: 'file',
     });
   });
 

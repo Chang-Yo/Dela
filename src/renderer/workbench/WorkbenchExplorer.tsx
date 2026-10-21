@@ -364,7 +364,7 @@ export function WorkbenchExplorer({
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => onAction('note', container())}>
                       <FilePlus2 />
-                      新建笔记
+                      新建文件
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onAction('folder', container())}>
                       <FolderPlus />
@@ -403,7 +403,7 @@ export function WorkbenchExplorer({
             <div
               className="min-h-0 flex-1 overflow-y-auto"
               onDoubleClick={(event) => {
-                // 远端空白处的「新建笔记」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
+                // 远端空白处的「新建文件」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
                 if (remoteRoot) return;
                 if (event.target === event.currentTarget) onAction('note', container());
               }}

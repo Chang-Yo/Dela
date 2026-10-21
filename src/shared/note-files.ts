@@ -31,6 +31,15 @@ export function isRelativeAssetPath(path: string): boolean {
   return true;
 }
 
+/** 正文里的路径可能是 URI 编码的（空格写成 %20）：找磁盘文件前先解码，坏编码按原样。 */
+export function decodeAssetPath(path: string): string {
+  try {
+    return decodeURI(path).replace(/%28/gi, '(').replace(/%29/gi, ')');
+  } catch {
+    return path;
+  }
+}
+
 /** 受限资源协议下的图片展示地址；协议按条目 ID 解析实际文件，不暴露磁盘路径。 */
 export function noteAssetUrl(entryId: string, ref: string): string {
   return `dela-resource://note-asset/${encodeURIComponent(ref)}?id=${encodeURIComponent(entryId)}`;

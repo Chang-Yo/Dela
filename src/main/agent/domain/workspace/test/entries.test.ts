@@ -31,17 +31,17 @@ describe('create_entry', () => {
       id,
       parentId: null,
       name: '笔记',
-      kind: 'note',
+      kind: 'file',
       sourceId: null,
       updatedAt: '2026-01-01T00:00:00Z',
     });
-    const entry = await createEntryTool.execute({ parentId: null, kind: 'note', name: '笔记' });
+    const entry = await createEntryTool.execute({ parentId: null, kind: 'file', name: '笔记' });
     expect(createWorkspaceEntry).toHaveBeenCalledWith({
       parentId: null,
-      kind: 'note',
+      kind: 'file',
       name: '笔记',
     });
-    expect(entry).toMatchObject({ ref: { type: 'workspace', id }, entry: { id, kind: 'note' } });
+    expect(entry).toMatchObject({ ref: { type: 'workspace', id }, entry: { id, kind: 'file' } });
   });
 });
 
@@ -121,7 +121,7 @@ describe('list_workspace_entries', () => {
           id: childId,
           parentId: id,
           name: '笔记B',
-          kind: 'note',
+          kind: 'file',
           sourceId: null,
           updatedAt: '2026-01-01T00:00:00Z',
         },

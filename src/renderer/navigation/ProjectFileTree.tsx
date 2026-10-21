@@ -253,7 +253,7 @@ export function ProjectFileTree({
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onAction('note', item.id)}>
                       <FilePlus2 />
-                      新建笔记
+                      新建文件
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onAction('import', item.id)}>
                       <FileInput />

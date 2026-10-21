@@ -156,7 +156,7 @@ export function collapseEmptyGroups(layout: WorkbenchLayout): WorkbenchLayout {
 
 // 旧数据种子：EditorLayout（localStorage 双组形态）+ view:% tabs → WorkbenchLayout。
 // `source:{id}` → `preview:source:{id}`；entryId 默认 `note:{entryId}`，调用方可用
-// resolveEntryKind 把 local/imported/source 条目判为 preview。
+// resolveEntryKind 把专用格式文件与资料条目判为 preview。
 
 /** 旧 ProjectView 的 localStorage 布局形态（宽容解析，字段均可缺省）。 */
 export interface LegacyEditorLayout {

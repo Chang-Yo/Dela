@@ -1,3 +1,5 @@
+import { SNIFF_BYTES, formatByName, imageMimeOf, isTextContent } from './files';
+
 // 助手 Composer 的输入模型：图文混排 blocks、附件类型与上限。
 // 内联图片以 ![文件名](dela-img:<UUID>) 嵌入，发送时按出现顺序拆成 text / image blocks，附件不进入排版区。
 
@@ -7,80 +9,8 @@ export const CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const CHAT_TEXT_ATTACHMENT_MAX_BYTES = 1024 * 1024;
 export const CHAT_DOCUMENT_MAX_BYTES = 128 * 1024 * 1024;
 
-export const imageFileExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
-
-// 与工作区文本预览共用同一份扩展名清单（无点小写）。
-export const textFileExtensions = [
-  'md',
-  'markdown',
-  'txt',
-  'text',
-  'log',
-  'csv',
-  'tsv',
-  'json',
-  'jsonc',
-  'xml',
-  'svg',
-  'yml',
-  'yaml',
-  'toml',
-  'ini',
-  'cfg',
-  'conf',
-  'properties',
-  'env',
-  'editorconfig',
-  'html',
-  'htm',
-  'css',
-  'scss',
-  'less',
-  'js',
-  'mjs',
-  'cjs',
-  'jsx',
-  'ts',
-  'tsx',
-  'vue',
-  'svelte',
-  'py',
-  'pyw',
-  'ipynb',
-  'c',
-  'h',
-  'cpp',
-  'cc',
-  'cxx',
-  'hpp',
-  'hh',
-  'java',
-  'cs',
-  'go',
-  'rs',
-  'rb',
-  'php',
-  'swift',
-  'kt',
-  'kts',
-  'scala',
-  'dart',
-  'sh',
-  'bash',
-  'zsh',
-  'ps1',
-  'bat',
-  'cmd',
-  'sql',
-  'r',
-  'pl',
-  'lua',
-  'tex',
-  'rst',
-  'mk',
-  'cmake',
-  'gradle',
-];
+// 视觉模型普遍接受的位图格式；svg 按文本附件、bmp 交给文档 skill。
+const chatImageMimes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
 type ChatBlock = { type: 'text'; text: string } | { type: 'image'; id: string; name: string };
 
@@ -120,10 +50,22 @@ export function chatImageToken(id: string, name: string): string {
   return `![${alt}](dela-img:${id})`;
 }
 
-export function chatFileKind(name: string): 'image' | 'text' | 'document' {
-  const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
-  if (!ext || ext === name.toLowerCase()) return 'document';
-  if (imageFileExtensions.includes(ext)) return 'image';
-  if (textFileExtensions.includes(ext)) return 'text';
-  return 'document';
+/** 附件分流：可直接给视觉模型的位图走内联图片；PDF/Office 与无法当文本读的内容交给文档 skill；
+ *  其余按文本附件。head 为文件开头字节，truncated 表示它不是整个文件。 */
+export function chatFileKind(
+  name: string,
+  head: Uint8Array,
+  truncated = false,
+): 'image' | 'text' | 'document' {
+  const format = formatByName(name);
+  if (format === 'image' && chatImageMimes.has(imageMimeOf(name) ?? '')) return 'image';
+  if (format === 'markdown') return 'text';
+  if (format && format !== 'image') return 'document';
+  return isTextContent(head, truncated) ? 'text' : 'document';
+}
+
+/** 浏览器 File 的附件分流：只读开头嗅探窗口，大文件不整个读进渲染进程。 */
+export async function chatFileKindOfFile(file: File): Promise<'image' | 'text' | 'document'> {
+  const head = new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer());
+  return chatFileKind(file.name, head, file.size > SNIFF_BYTES);
 }

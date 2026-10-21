@@ -208,7 +208,7 @@ app
     truncateSync(largePdfPath, largePdfSize);
     db.prepare(
       'INSERT INTO workspace_entries (id, name, kind, local_path, updated_at) VALUES (?, ?, ?, ?, ?)',
-    ).run(largePdfId, 'large-fixture.pdf', 'local', largePdfPath, new Date().toISOString());
+    ).run(largePdfId, 'large-fixture.pdf', 'file', largePdfPath, new Date().toISOString());
     const largePdf = await readWorkspaceEntry(largePdfId);
     assert.equal(largePdf.format, 'pdf');
     assert.equal(largePdf.bytes, undefined);
@@ -297,7 +297,7 @@ app
     assert(!existsSync(oldWorkspaceRoot));
     const note = createWorkspaceEntry({
       name: '笔记.md',
-      kind: 'note',
+      kind: 'file',
       parentId: child.id,
       text: '# 初稿',
     });
@@ -331,7 +331,7 @@ app
     assert.equal(path, join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记.md'));
     const duplicateNote = createWorkspaceEntry({
       name: '笔记.md',
-      kind: 'note',
+      kind: 'file',
       parentId: child.id,
       text: '独立副本',
     });
@@ -374,12 +374,12 @@ app
     assert(existsSync(join(moveTo, '笔记 (2).md')));
     const odd = createWorkspaceEntry({
       name: '../CON',
-      kind: 'note',
+      kind: 'file',
       parentId: folder.id,
       text: '安全路径',
     });
     assert.equal((await readWorkspaceEntry(odd.id)).text, '安全路径');
-    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON.md')));
+    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON')));
     renameSync(path, `${path}.external`);
     assert.throws(() => updateWorkspaceEntry(moved.id, { name: '不应生效.md' }));
     // 目录树按磁盘扫描：文件被外部移走时不列出，重命名失败也不得在磁盘上留下新名字。
@@ -387,7 +387,7 @@ app
     renameSync(`${path}.external`, path);
     createWorkspaceEntry({
       name: '未选资料',
-      kind: 'note',
+      kind: 'file',
       parentId: other.id,
       text: '不应发送的资料',
     });

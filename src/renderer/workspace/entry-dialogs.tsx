@@ -1,4 +1,4 @@
-// 工作区 CRUD 弹窗：新建项目/文件夹/笔记、重命名、移动、移除、链接资料、连接 Canvas。
+// 工作区 CRUD 弹窗：新建项目/文件夹/文件、重命名、移动、移除、链接资料、连接 Canvas。
 // 弹窗只负责表单与 workspace:*/canvas:* 通道调用，「成功之后」的动作由接线方经回调接手。
 import { useEffect, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
@@ -28,7 +28,7 @@ const ROOT_SELECT_VALUE = '__root__';
 export interface EntryDialogRequest {
   action: EntryAction | 'link' | 'connect';
   id: string | null;
-  /** note 弹窗的正文预填（来源 header 等）。 */
+  /** note（新建文件）弹窗的正文预填：带正文时是「保存为笔记」，名称预填 .md。 */
   text?: string;
   /** link/move 打开时预选的目标位置。 */
   initialTarget?: string;
@@ -38,7 +38,7 @@ export interface EntryDialogRequest {
 const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
   folder: '新建文件夹',
   project: '新建项目',
-  note: '新建笔记',
+  note: '新建文件',
   rename: '重命名',
   move: '移动到',
   remove: '移除内容',
@@ -73,7 +73,7 @@ export function EntryDialogs({
   request: EntryDialogRequest | null;
   /** 取消或成功提交后关闭；busy 期间不可关。 */
   onClose: () => void;
-  /** create/link 成功后回调：打开新建笔记、展开父级等由接线方决定。 */
+  /** create/link 成功后回调：打开新建文件、展开父级等由接线方决定。 */
   onCreated?: (entry: WorkspaceEntry) => void;
   /** remove 成功后回调仍存活的条目 id 集合；接线方据此清理标签与草稿、退出已删项目。 */
   onRemoved?: (liveIds: Set<string>) => void;
@@ -94,7 +94,9 @@ export function EntryDialogs({
       request?.action === 'rename'
         ? (useWorkspaceStore.getState().workspace.entries.find((e) => e.id === request.id)?.name ??
             '')
-        : '',
+        : request?.action === 'note' && request.text !== undefined
+          ? '新笔记.md'
+          : '',
     );
     setTarget(request?.initialTarget ?? '');
     setModalError(null);
@@ -184,7 +186,7 @@ export function EntryDialogs({
         created = await api.create({
           name,
           parentId: request.id,
-          kind: request.action,
+          kind: request.action === 'note' ? 'file' : request.action,
           text: request.text,
         });
       await useWorkspaceStore.getState().refresh();
@@ -231,7 +233,7 @@ export function EntryDialogs({
                 : request?.action === 'link'
                   ? '在项目根目录引用资料，原位置保持不变。'
                   : request?.action === 'note'
-                    ? `笔记保存到 ${workspace.directory}`
+                    ? '文件名原样使用，笔记请以 .md 结尾。'
                     : request?.action === 'project'
                       ? '新建空项目，或导入电脑上已有的文件夹。'
                       : '按自己的主题组织内容。'}

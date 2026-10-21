@@ -44,13 +44,17 @@ describe('parseChatBlocks', () => {
 });
 
 describe('chatFileKind', () => {
-  it('识别图片与文本，其余文件交给文档 skill 判断', () => {
-    expect(chatFileKind('照片.JPG')).toBe('image');
-    expect(chatFileKind('笔记.md')).toBe('text');
-    expect(chatFileKind('脚本.ts')).toBe('text');
-    expect(chatFileKind('README')).toBe('document');
-    expect(chatFileKind('课件.pdf')).toBe('document');
-    expect(chatFileKind('汇报.pptx.pptx')).toBe('document');
-    expect(chatFileKind('压缩包.zip')).toBe('document');
+  it('位图走内联图片，PDF/Office 与二进制交给文档 skill，其余文本按内容判定', () => {
+    const text = new TextEncoder().encode('hello');
+    const binary = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0]);
+    expect(chatFileKind('照片.JPG', binary)).toBe('image');
+    expect(chatFileKind('笔记.md', text)).toBe('text');
+    expect(chatFileKind('脚本.ts', text)).toBe('text');
+    expect(chatFileKind('README', text)).toBe('text');
+    expect(chatFileKind('.env', text)).toBe('text');
+    expect(chatFileKind('图标.svg', text)).toBe('text');
+    expect(chatFileKind('课件.pdf', text)).toBe('document');
+    expect(chatFileKind('汇报.pptx.pptx', binary)).toBe('document');
+    expect(chatFileKind('压缩包.zip', binary)).toBe('document');
   });
 });

@@ -168,7 +168,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
 
   const onCreated = (entry: WorkspaceEntry) => {
     if (entry.kind === 'project') return; // EntryDialogs 已回调 onOpenProject。
-    if (entry.kind === 'note') useWorkbenchLayout.getState().openTab(`note:${entry.id}`);
+    if (entry.kind === 'file') useWorkbenchLayout.getState().openTab(documentTabId(entry.id));
     else if (entry.kind === 'folder') {
       const tree = useTreeState.getState();
       tree.select(entry.id);
@@ -199,10 +199,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       viewTabs: view.tabs,
       viewActive: view.active,
       resolveEntryKind: (entryId) =>
-        useWorkspaceStore.getState().workspace.entries.find((e) => e.id === entryId)?.kind ===
-        'note'
-          ? 'note'
-          : 'preview',
+        documentTabId(entryId).startsWith('note:') ? 'note' : 'preview',
     };
   }, [projectId, loaded]);
 
@@ -349,11 +346,11 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         content.format === 'pptx'
           ? sourceId && !sourceId.startsWith('shuiyuan-topic:')
             ? { type: 'canvas', id: sourceId }
-            : entry && (entry.kind === 'local' || entry.kind === 'imported')
+            : entry?.kind === 'file'
               ? { type: 'workspace', id: entry.id }
               : undefined
           : undefined;
-      const local = entry?.kind === 'local' || entry?.kind === 'imported';
+      const local = entry?.kind === 'file';
       return {
         content,
         shuiyuanTopicId: sourceId?.startsWith('shuiyuan-topic:')

@@ -9,11 +9,11 @@ import { workspaceEntryIdSchema } from '../../../../shared/workspace';
 import { name, tool, toolError } from '../shared';
 
 export const createEntryTool = tool(
-  '创建项目、文件夹或 Markdown 笔记（本地写）。parentId 为 null 时创建在根目录；笔记可带初始正文 text。',
+  '创建项目、文件夹或文件（本地写）。parentId 为 null 时创建在根目录；文件名原样使用（不补扩展名，笔记请写 .md），可带初始正文 text。',
   z
     .object({
       parentId: workspaceEntryIdSchema.nullable(),
-      kind: z.enum(['project', 'folder', 'note']),
+      kind: z.enum(['project', 'folder', 'file']),
       name,
       text: z.string().max(2_000_000).optional(),
     })
