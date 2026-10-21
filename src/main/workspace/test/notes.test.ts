@@ -358,6 +358,43 @@ describe('createWorkspaceEntry', () => {
     expect((await readWorkspaceEntry(note.id)).format).toBe('markdown');
   });
 
+  it('名称里的 / 与 \\ 是路径分隔符：逐级建文件夹，已有文件夹复用', async () => {
+    const created = createWorkspaceEntry({ parentId: null, name: 'aaa/bbb.md', kind: 'file' });
+    expect(created).toMatchObject({
+      id: join(workspaceRoot(), 'aaa', 'bbb.md'),
+      name: 'bbb.md',
+      parentId: join(workspaceRoot(), 'aaa'),
+    });
+    createWorkspaceEntry({ parentId: null, name: 'aaa\\ccc.md', kind: 'file' });
+    expect(existsSync(join(workspaceRoot(), 'aaa', 'ccc.md'))).toBe(true);
+    createWorkspaceEntry({ parentId: null, name: 'x/y/z/', kind: 'folder' });
+    expect(statSync(join(workspaceRoot(), 'x', 'y', 'z')).isDirectory()).toBe(true);
+  });
+
+  it('重名报错不改名；. 与 .. 段拒绝；中间段撞上文件时报错', () => {
+    createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' });
+    expect(() => createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' })).toThrow(
+      '「a.md」已存在',
+    );
+    expect(existsSync(join(workspaceRoot(), 'a (2).md'))).toBe(false);
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '../escape.md', kind: 'file' }),
+    ).toThrow('路径段');
+    expect(() => createWorkspaceEntry({ parentId: null, name: 'p/./q', kind: 'folder' })).toThrow(
+      '路径段',
+    );
+    expect(existsSync(join(state.root, 'Dela', 'escape.md'))).toBe(false);
+    expect(() => createWorkspaceEntry({ parentId: null, name: 'a.md/b', kind: 'file' })).toThrow(
+      '不是文件夹',
+    );
+  });
+
+  it('重命名里的 / 仍按非法字符替换，不会变成移动', () => {
+    const file = createWorkspaceEntry({ parentId: null, name: 'r.md', kind: 'file' });
+    const renamed = updateWorkspaceEntry(file.id, { name: 'a/b.md' });
+    expect(renamed.id).toBe(join(workspaceRoot(), 'a_b.md'));
+  });
+
   it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
     db.prepare(

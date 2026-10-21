@@ -168,14 +168,13 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
 
   const onCreated = (entry: WorkspaceEntry) => {
     if (entry.kind === 'project') return; // EntryDialogs 已回调 onOpenProject。
+    // 名称可带子路径（a/b/c.md）：沿祖先链全部展开并选中，新条目才看得见。
+    if (entry.kind === 'file' || entry.kind === 'folder')
+      useTreeState
+        .getState()
+        .reveal(ancestorChainOf(useWorkspaceStore.getState().workspace.entries, entry.id));
     if (entry.kind === 'file') useWorkbenchLayout.getState().openTab(documentTabId(entry.id));
-    else if (entry.kind === 'folder') {
-      const tree = useTreeState.getState();
-      tree.select(entry.id);
-      if (entry.parentId) tree.expand(entry.parentId, true);
-    } else if (entry.parentId) {
-      useTreeState.getState().expand(entry.parentId, true);
-    }
+    else if (entry.parentId) useTreeState.getState().expand(entry.parentId, true);
   };
 
   const onRemoved = (liveIds: Set<string>) => {
@@ -401,6 +400,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
                   <WorkbenchExplorer
                     activeDocKey={activeDocKey}
                     onAction={openDialog}
+                    onCreated={onCreated}
                     onOpenDocument={(key) => void useNavigationStore.getState().openDocument(key)}
                     onOpenToSide={(key) => {
                       // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，手动分屏语义）。

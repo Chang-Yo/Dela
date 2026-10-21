@@ -329,8 +329,13 @@ app
     // 路径笔记不落 workspace_notes 行：文件路径即条目 id。
     let path = note.id;
     assert.equal(path, join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记.md'));
+    // 新建重名直接报错，不自动改名。
+    assert.throws(
+      () => createWorkspaceEntry({ name: '笔记.md', kind: 'file', parentId: child.id }),
+      /已存在/,
+    );
     const duplicateNote = createWorkspaceEntry({
-      name: '笔记.md',
+      name: '笔记 (2).md',
       kind: 'file',
       parentId: child.id,
       text: '独立副本',
@@ -372,14 +377,19 @@ app
     closeDatabase();
     getWorkspaceState();
     assert(existsSync(join(moveTo, '笔记 (2).md')));
+    // 越出父目录的路径段直接拒绝；Windows 保留名仍按段替换成安全名字。
+    assert.throws(
+      () => createWorkspaceEntry({ name: '../CON', kind: 'file', parentId: folder.id }),
+      /路径段/,
+    );
     const odd = createWorkspaceEntry({
-      name: '../CON',
+      name: 'CON',
       kind: 'file',
       parentId: folder.id,
       text: '安全路径',
     });
     assert.equal((await readWorkspaceEntry(odd.id)).text, '安全路径');
-    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '.._CON')));
+    assert(existsSync(join(profile, 'notes', 'workspace', '主题资料', '_CON')));
     renameSync(path, `${path}.external`);
     assert.throws(() => updateWorkspaceEntry(moved.id, { name: '不应生效.md' }));
     // 目录树按磁盘扫描：文件被外部移走时不列出，重命名失败也不得在磁盘上留下新名字。

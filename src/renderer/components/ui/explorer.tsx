@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -32,6 +33,15 @@ export interface ExplorerItem {
 
 export const explorerDragType = 'application/x-dela-entry';
 
+/** 行内新建：在 parentId 的子项最上方（null 为树根）插入一行名称输入框。 */
+export interface ExplorerPending {
+  parentId: string | null;
+  kind: 'file' | 'folder';
+  /** 回车或失焦时提交；返回错误文案则输入框保持打开并标红，返回 null 表示成功。 */
+  onSubmit: (name: string) => Promise<string | null>;
+  onCancel: () => void;
+}
+
 const explorerCollator = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: 'base',
@@ -50,6 +60,7 @@ export function Explorer({
   onImportFiles,
   onOpenToSide,
   sortItems = false,
+  pending,
 }: {
   items: ExplorerItem[];
   expanded: string[];
@@ -65,6 +76,7 @@ export function Explorer({
   onOpenToSide?: (id: string) => void;
   /** 仅对不依赖业务顺序的树启用文件夹优先自然排序。 */
   sortItems?: boolean;
+  pending?: ExplorerPending | null;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -103,6 +115,17 @@ export function Explorer({
     }
   };
   walk(null, 1);
+  // 输入行的位置：目标文件夹之后、它的第一个子项之前；目标不可见（被筛掉）时放到树顶。
+  const pendingAt = pending
+    ? pending.parentId === null
+      ? { index: 0, level: 1 }
+      : (() => {
+          const index = visible.findIndex((v) => v.item.id === pending.parentId);
+          return index < 0
+            ? { index: 0, level: 1 }
+            : { index: index + 1, level: visible[index]!.level + 1 };
+        })()
+    : null;
   // 缩进对齐线：亮段跟随选中项的祖先链（含自身），同 VS Code 的 active guide。
   const parentOf = new Map(items.map((item) => [item.id, item.parentId]));
   const trailOf = (id: string | null): string[] => {
@@ -279,6 +302,9 @@ export function Explorer({
         resetDrag();
       }}
     >
+      {pending && pendingAt?.index === visible.length && (
+        <PendingRow key="pending" pending={pending} level={pendingAt.level} />
+      )}
       {visible.map(({ item, level }, index) => {
         const branch = Boolean(item.container || children.has(item.id));
         // 目录 icon 只保留到第二层（学期/课程这类主目录），更深的子目录只留
@@ -298,100 +324,181 @@ export function Explorer({
         const dropRegion =
           activeDrop !== null && (activeDrop === item.id || ancestors.includes(activeDrop));
         return (
-          <div
-            key={item.id}
-            role="treeitem"
-            aria-label={item.name}
-            aria-level={level}
-            aria-expanded={branch ? open.has(item.id) : undefined}
-            aria-selected={selected === item.id}
-            tabIndex={
-              selected === item.id || (!visible.some((v) => v.item.id === selected) && index === 0)
-                ? 0
-                : -1
-            }
-            onKeyDown={(event) => {
-              if (event.target === event.currentTarget) keyDown(event, index, item, branch);
-            }}
-            {...dragProps?.(item, branch)}
-            onClick={(event) => {
-              event.currentTarget.focus();
-              if (event.altKey && onOpenToSide) onOpenToSide(item.id);
-              else onSelect(item.id);
-            }}
-            onContextMenu={(event) => {
-              const trigger = event.currentTarget.querySelector<HTMLButtonElement>(
-                '[data-slot="dropdown-menu-trigger"]',
-              );
-              if (trigger) {
-                event.preventDefault();
-                trigger.click();
+          <Fragment key={item.id}>
+            {pending && pendingAt?.index === index && (
+              <PendingRow pending={pending} level={pendingAt.level} />
+            )}
+            <div
+              role="treeitem"
+              aria-label={item.name}
+              aria-level={level}
+              aria-expanded={branch ? open.has(item.id) : undefined}
+              aria-selected={selected === item.id}
+              tabIndex={
+                selected === item.id ||
+                (!visible.some((v) => v.item.id === selected) && index === 0)
+                  ? 0
+                  : -1
               }
-            }}
-            className={cn(
-              'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-13 outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-sm before:transition-colors focus-visible:ring-2 focus-visible:ring-bui-accent',
-              selected === item.id
-                ? 'before:bg-hover-2 font-medium text-ink'
-                : // 目录列底色为 inset，hover 用 hover-2 才与其拉开层次。
-                  'text-ink-2 hover:text-ink hover:before:bg-hover-2',
-              // 落点区域行去圆角，使目录子树区域连成一块整色；蓝色调与选中态的
-              // 中性灰区分（--drop-target，globals.css 三作用域定义）。
-              dropRegion && 'rounded-none bg-drop-target text-ink',
-            )}
-            style={
-              {
-                paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})`,
-                // 叶子行保留图标前一格内边距；目录行包含折叠箭头。
-                '--highlight-left': `calc(var(--spacing) * ${(branch ? 2 : 6) + (level - 1) * 4})`,
-              } as CSSProperties
-            }
-          >
-            {Array.from({ length: level - 1 }, (_, guide) => (
-              <span
-                key={guide}
-                aria-hidden
-                className={cn(
-                  'absolute inset-y-0 w-px -translate-x-1/2',
-                  selectedTrail.has(ancestors[guide] ?? '') ? 'bg-line-strong' : 'bg-line',
-                )}
-                style={{ left: `calc(var(--spacing) * ${4 + guide * 4})` }}
-              />
-            ))}
-            <button
-              type="button"
-              aria-label={`${open.has(item.id) ? '收起' : '展开'} ${item.name}`}
-              tabIndex={-1}
-              className={cn('grid size-4 shrink-0 place-items-center', !branch && 'invisible')}
-              onClick={(event) => {
-                event.stopPropagation();
-                onExpand(item.id, !open.has(item.id));
+              onKeyDown={(event) => {
+                if (event.target === event.currentTarget) keyDown(event, index, item, branch);
               }}
+              {...dragProps?.(item, branch)}
+              onClick={(event) => {
+                event.currentTarget.focus();
+                if (event.altKey && onOpenToSide) onOpenToSide(item.id);
+                else onSelect(item.id);
+              }}
+              onContextMenu={(event) => {
+                const trigger = event.currentTarget.querySelector<HTMLButtonElement>(
+                  '[data-slot="dropdown-menu-trigger"]',
+                );
+                if (trigger) {
+                  event.preventDefault();
+                  trigger.click();
+                }
+              }}
+              className={cn(
+                'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-13 outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-sm before:transition-colors focus-visible:ring-2 focus-visible:ring-bui-accent',
+                selected === item.id
+                  ? 'before:bg-hover-2 font-medium text-ink'
+                  : // 目录列底色为 inset，hover 用 hover-2 才与其拉开层次。
+                    'text-ink-2 hover:text-ink hover:before:bg-hover-2',
+                // 落点区域行去圆角，使目录子树区域连成一块整色；蓝色调与选中态的
+                // 中性灰区分（--drop-target，globals.css 三作用域定义）。
+                dropRegion && 'rounded-none bg-drop-target text-ink',
+              )}
+              style={
+                {
+                  paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})`,
+                  // 叶子行保留图标前一格内边距；目录行包含折叠箭头。
+                  '--highlight-left': `calc(var(--spacing) * ${(branch ? 2 : 6) + (level - 1) * 4})`,
+                } as CSSProperties
+              }
             >
-              <ChevronRight
-                className={cn(
-                  'size-3 transition-transform duration-150 motion-reduce:transition-none',
-                  open.has(item.id) && 'rotate-90',
-                )}
-              />
-            </button>
-            {showIcon && (
-              <Icon className="mr-1 size-4 shrink-0 text-ink-3" strokeWidth={1.8} style={accent} />
-            )}
-            <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
-              {item.name}
-            </span>
-            {item.badge && <span className="text-xs tabular-nums text-ink-3">{item.badge}</span>}
-            {actions && (
-              <span
-                className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100"
-                onClick={(event) => event.stopPropagation()}
+              {Array.from({ length: level - 1 }, (_, guide) => (
+                <span
+                  key={guide}
+                  aria-hidden
+                  className={cn(
+                    'absolute inset-y-0 w-px -translate-x-1/2',
+                    selectedTrail.has(ancestors[guide] ?? '') ? 'bg-line-strong' : 'bg-line',
+                  )}
+                  style={{ left: `calc(var(--spacing) * ${4 + guide * 4})` }}
+                />
+              ))}
+              <button
+                type="button"
+                aria-label={`${open.has(item.id) ? '收起' : '展开'} ${item.name}`}
+                tabIndex={-1}
+                className={cn('grid size-4 shrink-0 place-items-center', !branch && 'invisible')}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onExpand(item.id, !open.has(item.id));
+                }}
               >
-                {actions(item)}
+                <ChevronRight
+                  className={cn(
+                    'size-3 transition-transform duration-150 motion-reduce:transition-none',
+                    open.has(item.id) && 'rotate-90',
+                  )}
+                />
+              </button>
+              {showIcon && (
+                <Icon
+                  className="mr-1 size-4 shrink-0 text-ink-3"
+                  strokeWidth={1.8}
+                  style={accent}
+                />
+              )}
+              <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
+                {item.name}
               </span>
-            )}
-          </div>
+              {item.badge && <span className="text-xs tabular-nums text-ink-3">{item.badge}</span>}
+              {actions && (
+                <span
+                  className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {actions(item)}
+                </span>
+              )}
+            </div>
+          </Fragment>
         );
       })}
+    </div>
+  );
+}
+
+/** 新建条目的名称输入行：回车或失焦提交，Esc 取消；空名失焦等于取消。
+ *  提交失败时边框标红、错误挂在下方，输入内容不丢，可直接改名重试。 */
+function PendingRow({ pending, level }: { pending: ExplorerPending; level: number }) {
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
+  // Esc 与回车之后都会触发 blur：已经处理过的这一轮不再重复提交或取消。
+  const settled = useRef(false);
+  const submit = async () => {
+    if (busy.current || settled.current) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      settled.current = true;
+      pending.onCancel();
+      return;
+    }
+    busy.current = true;
+    const failure = await pending.onSubmit(trimmed);
+    busy.current = false;
+    if (failure === null) settled.current = true;
+    else setError(failure);
+  };
+  const Icon = pending.kind === 'folder' ? Folder : FileText;
+  return (
+    <div
+      className="relative grid min-w-0 gap-0.5 py-0.5 pr-1"
+      style={{ paddingLeft: `calc(var(--spacing) * ${6 + (level - 1) * 4})` }}
+    >
+      <div className="flex min-w-0 items-center gap-1">
+        <Icon className="mr-1 size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
+        <input
+          autoFocus
+          aria-label={pending.kind === 'folder' ? '新文件夹名称' : '新文件名称'}
+          aria-invalid={error !== null}
+          aria-describedby={error ? 'explorer-pending-error' : undefined}
+          className={cn(
+            'h-6 min-w-0 flex-1 rounded-sm border bg-surface px-1.5 text-13 text-ink outline-none',
+            error ? 'border-red focus:border-red' : 'border-bui-accent',
+          )}
+          spellCheck={false}
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            if (error) setError(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              void submit();
+            } else if (event.key === 'Escape') {
+              event.preventDefault();
+              settled.current = true;
+              pending.onCancel();
+            }
+          }}
+          onBlur={() => void submit()}
+        />
+      </div>
+      {error && (
+        <p
+          id="explorer-pending-error"
+          role="alert"
+          className="ml-5 text-xs [overflow-wrap:anywhere] text-red"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }

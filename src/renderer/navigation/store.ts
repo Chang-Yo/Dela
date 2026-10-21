@@ -38,7 +38,14 @@ export function unhideProjectInNav(id: string): void {
   if (projects[id]?.hidden) setProject(id, { hidden: false });
 }
 
+/** 目录树里待命名的新条目（VS Code 式行内输入）：parentId 为 null 表示当前树根。 */
+export type PendingCreate = { parentId: string | null; kind: 'file' | 'folder' };
+
 type Store = {
+  /** 同一时刻至多一个；开新的会顶掉旧的（旧的输入未提交即作废）。 */
+  pendingCreate: PendingCreate | null;
+  startCreate: (pending: PendingCreate) => void;
+  cancelCreate: () => void;
   query: string;
   setQuery: (query: string) => void;
   /** 文件/资料树节点展开态。 */
@@ -58,6 +65,14 @@ type Store = {
 };
 
 export const useNavigationStore = create<Store>((set) => ({
+  pendingCreate: null,
+  // 目标文件夹要展开，输入行才看得见。
+  startCreate: (pending) =>
+    set((s) => ({
+      pendingCreate: pending,
+      expanded: pending.parentId ? [...new Set([...s.expanded, pending.parentId])] : s.expanded,
+    })),
+  cancelCreate: () => set({ pendingCreate: null }),
   query: '',
   setQuery: (query) => set({ query }),
   expanded: [],

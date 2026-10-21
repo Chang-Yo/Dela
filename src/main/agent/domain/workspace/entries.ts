@@ -9,7 +9,7 @@ import { workspaceEntryIdSchema } from '../../../../shared/workspace';
 import { name, tool, toolError } from '../shared';
 
 export const createEntryTool = tool(
-  '创建项目、文件夹或文件（本地写）。parentId 为 null 时创建在根目录；文件名原样使用（不补扩展名，笔记请写 .md），可带初始正文 text。',
+  '创建项目、文件夹或文件（本地写）。parentId 为 null 时创建在根目录；文件名原样使用（不补扩展名，笔记请写 .md），可带初始正文 text。文件与文件夹的 name 可含 / 表示子路径（如 notes/week1.md，中间文件夹自动建）；同名已存在时报错，不会覆盖或改名。',
   z
     .object({
       parentId: workspaceEntryIdSchema.nullable(),

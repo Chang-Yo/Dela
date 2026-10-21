@@ -19,7 +19,7 @@ import { remoteById, targetOf } from '../remotes/api';
 import { locate } from '../remotes/transport';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
-import { availablePath, storageDirectory as directory } from '../storage';
+import { availablePath, diskName, storageDirectory as directory } from '../storage';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { officeZipMime } from '../documents/parse';
 import { workspaceArchiveId } from '../../shared/api';
@@ -443,6 +443,36 @@ function checkParent(parentId: string | null, movingId?: string) {
   }
 }
 
+/** 新建名里的 `/`、`\` 是路径分隔符（与 VS Code 一致）：`a/b.md` 建出文件夹 a 与其中的 b.md，
+ *  中间的文件夹已存在就复用。每段单独过 diskName（Windows 保留名、非法字符仍会被替换），
+ *  `.` 与 `..` 段直接拒绝，结果因此必定落在父目录之内。
+ *  最后一段已存在时报错而不是自动改名：名字是用户明确敲进来的，悄悄变成「b (2).md」不如让他改。 */
+function createAtPath(
+  parentId: string | null,
+  name: string,
+  kind: 'folder' | 'file',
+  text?: string,
+): WorkspaceEntry {
+  const segments = name.split(/[\\/]+/).filter(Boolean);
+  if (!segments.length) throw new Error('请输入名称');
+  if (segments.some((segment) => segment === '.' || segment === '..'))
+    throw new Error('名称不能包含「.」或「..」路径段');
+  let directory = containerPath(parentId);
+  let parent = parentId;
+  for (const segment of segments.slice(0, -1)) {
+    directory = join(directory, diskName(segment));
+    const stats = statSync(directory, { throwIfNoEntry: false });
+    if (stats && !stats.isDirectory()) throw new Error(`「${segment}」已存在且不是文件夹`);
+    if (!stats) mkdirSync(directory);
+    parent = directory;
+  }
+  const path = join(directory, diskName(segments.at(-1)!));
+  if (existsSync(path)) throw new Error(`「${basename(path)}」已存在`);
+  if (kind === 'file') writeFileSync(path, text ?? '', { flag: 'wx' });
+  else mkdirSync(path);
+  return fileEntry(path, parent);
+}
+
 export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntry {
   const parsed = z
     .object({
@@ -481,17 +511,15 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
       WorkspaceEntry | undefined;
     if (duplicate) return duplicate;
   }
+  if (parsed.kind === 'folder' || parsed.kind === 'file')
+    return createAtPath(parsed.parentId, parsed.name, parsed.kind, parsed.text);
   const id = randomUUID();
-  const file = parsed.kind === 'file';
   let path: string | null = null;
-  if (parsed.kind !== 'source') {
-    // 名字原样落盘（不补扩展名）：`.env`、`Makefile`、`run.log` 都是用户要的文件名。
-    path = availablePath(containerPath(parsed.parentId), parsed.name, !file);
+  if (parsed.kind === 'project') {
+    path = availablePath(containerPath(parsed.parentId), parsed.name, true);
     parsed.name = basename(path);
-    if (file) writeFileSync(path, parsed.text ?? '', { flag: 'wx' });
-    else mkdirSync(path);
+    mkdirSync(path);
   }
-  if (parsed.kind === 'folder' || parsed.kind === 'file') return fileEntry(path!, parsed.parentId);
   db.transaction(() => {
     db.prepare(
       `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)

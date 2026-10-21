@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { WorkspaceEntry } from '../../shared/api';
-import { Explorer, type ExplorerItem } from '../components/ui/explorer';
+import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/ui/explorer';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
 import {
   DropdownMenu,
@@ -73,6 +73,7 @@ export function ProjectFileTree({
   query,
   excludeIds = [],
   archived = false,
+  pending,
 }: {
   entries: WorkspaceEntry[];
   rootId: string | null;
@@ -90,6 +91,8 @@ export function ProjectFileTree({
   query: string;
   excludeIds?: string[];
   archived?: boolean;
+  /** 行内新建；parentId 用条目 id，树根（rootId）由这里换成 Explorer 的 null。 */
+  pending?: ExplorerPending | null;
 }) {
   const excluded = new Set(excludeIds);
   const included = new Set<string>();
@@ -234,6 +237,9 @@ export function ProjectFileTree({
         onImportFiles={onImportFiles}
         onOpenToSide={onOpenToSide}
         sortItems
+        pending={
+          pending && { ...pending, parentId: pending.parentId === rootId ? null : pending.parentId }
+        }
         actions={(item) =>
           // 远端子条目不是本地条目：给远端自己的菜单（下载/打开/上传），本地动作一个不留。
           remoteIds.has(item.id) ? (

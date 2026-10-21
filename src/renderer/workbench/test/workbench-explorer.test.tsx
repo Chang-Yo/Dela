@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// 打开远端项目时目录侧栏收掉写入口：「+ 新建」下拉不出现，空白处双击也不开新建笔记弹窗；
-// 只读操作（全部收起）保留。本地项目树的这两个入口原样保留。
+// 打开远端项目时目录侧栏收掉写入口：「+ 新建」下拉不出现，空白处双击也不出现新建输入行；
+// 只读操作（全部收起）保留。本地项目树里新建是 VS Code 式行内输入，不开弹窗。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
@@ -59,7 +59,7 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   useWorkspaceStore.setState({ workspace, loaded: true, error: null });
-  useTreeState.setState({ expanded: [], query: '', selected: null });
+  useTreeState.setState({ expanded: [], query: '', selected: null, pendingCreate: null });
 });
 
 afterEach(async () => {
@@ -72,20 +72,24 @@ const newButton = () => document.querySelector('[aria-label="新建"]');
 const collapseButton = () => document.querySelector('[aria-label="全部收起"]');
 const blank = () => document.querySelector<HTMLElement>('#workspace-explorer > .overflow-y-auto')!;
 
+const nameInput = () => document.querySelector<HTMLInputElement>('[aria-label="新文件名称"]');
+
 async function render(projectId: string) {
   const onAction = vi.fn();
+  const onCreated = vi.fn();
   await act(async () =>
     root.render(
       <WorkbenchExplorer
         activeDocKey={null}
         onAction={onAction}
+        onCreated={onCreated}
         onOpenDocument={() => {}}
         onOpenToSide={() => {}}
         projectId={projectId}
       />,
     ),
   );
-  return { onAction };
+  return { onAction, onCreated };
 }
 
 it('hides the write entries while a remote project is open', async () => {
@@ -96,12 +100,75 @@ it('hides the write entries while a remote project is open', async () => {
 
   await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
   expect(onAction).not.toHaveBeenCalled();
+  expect(nameInput()).toBeNull();
 });
 
-it('keeps the write entries for a local project', async () => {
-  const { onAction } = await render(localProject.id);
+/** 受控 input 要走原生 setter 才会触发 React 的 onChange。 */
+function type(input: HTMLInputElement, value: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+const key = (input: HTMLInputElement, name: string) =>
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true }));
+
+it('creates files inline: double-click shows a name row, Enter submits, no dialog', async () => {
+  const created: WorkspaceEntry = {
+    ...localProject,
+    id: 'D:/code/本地项目/a/b.md',
+    name: 'b.md',
+    kind: 'file',
+  };
+  const create = vi.fn(async () => created);
+  window.dela = { workspace: { create, getState: async () => workspace } } as never;
+  const { onAction, onCreated } = await render(localProject.id);
   expect(newButton()).toBeTruthy();
 
   await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
-  expect(onAction).toHaveBeenCalledWith('note', localProject.id);
+  expect(onAction).not.toHaveBeenCalled();
+  const input = nameInput()!;
+  expect(document.activeElement).toBe(input);
+  await act(async () => type(input, 'a/b.md'));
+  await act(async () => key(input, 'Enter'));
+  expect(create).toHaveBeenCalledWith({ name: 'a/b.md', parentId: localProject.id, kind: 'file' });
+  expect(onCreated).toHaveBeenCalledWith(created);
+  expect(nameInput()).toBeNull();
+});
+
+it('keeps the row open with a red border on failure, and Escape cancels', async () => {
+  const create = vi.fn(async () => {
+    throw new Error('「a.md」已存在');
+  });
+  window.dela = { workspace: { create, getState: async () => workspace } } as never;
+  await render(localProject.id);
+  await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+  const input = nameInput()!;
+  await act(async () => type(input, 'a.md'));
+  await act(async () => key(input, 'Enter'));
+  expect(input.getAttribute('aria-invalid')).toBe('true');
+  expect(input.className).toContain('border-red');
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain('已存在');
+  expect(input.value).toBe('a.md');
+
+  await act(async () => key(input, 'Escape'));
+  expect(nameInput()).toBeNull();
+});
+
+it('submits on blur when a name was typed, cancels on blur when empty', async () => {
+  const create = vi.fn(async () => ({
+    ...localProject,
+    id: 'x',
+    name: 'x',
+    kind: 'file' as const,
+  }));
+  window.dela = { workspace: { create, getState: async () => workspace } } as never;
+  await render(localProject.id);
+  await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+  await act(async () => nameInput()!.blur());
+  expect(nameInput()).toBeNull();
+  expect(create).not.toHaveBeenCalled();
+
+  await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+  await act(async () => type(nameInput()!, 'x'));
+  await act(async () => nameInput()!.blur());
+  expect(create).toHaveBeenCalledTimes(1);
 });
