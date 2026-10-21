@@ -31,6 +31,7 @@ export const TabBar = memo(function TabBar({
   const closeTabs = useWorkbenchLayout((s) => s.closeTabs);
   const moveTab = useWorkbenchLayout((s) => s.moveTab);
   const togglePin = useWorkbenchLayout((s) => s.togglePin);
+  const keepTab = useWorkbenchLayout((s) => s.keepTab);
   // 标签多到溢出时接住纵向滚轮横滚（VS Code 行为），同一 ref 也用于激活标签滚入可见区。
   const listRef = useHorizontalWheel<HTMLDivElement>();
   // roving tabindex 的焦点登记：方向键把焦点移到目标标签（选中态跟随，自动激活模式）。
@@ -126,6 +127,7 @@ export const TabBar = memo(function TabBar({
         {group.tabs.map((tab) => {
           const active = group.active === tab;
           const isPinned = group.pinned?.includes(tab) ?? false;
+          const isPreview = group.preview === tab;
           const Icon = iconOf(tab);
           const title = titleOf(tab);
           return (
@@ -153,6 +155,8 @@ export const TabBar = memo(function TabBar({
                     active && (unfocused ? 'before:bg-ink/25' : 'before:bg-ink'),
                   )}
                   onClick={() => openTab(tab, group.id)}
+                  // 双击预览标签转常驻（VS Code 语义）。
+                  onDoubleClick={() => keepTab(tab, group.id)}
                   onKeyDown={(event) => onTabKeyDown(event, tab)}
                   onDragStart={(event) => {
                     setCurrentTabDrag({ tabId: tab, fromGroup: group.id });
@@ -174,10 +178,11 @@ export const TabBar = memo(function TabBar({
                   <span
                     className={cn(
                       'min-w-0 flex-1 truncate px-0.5 text-left text-xs',
-                      isPinned && 'italic',
+                      // 斜体只留给预览标签（会被下一次打开替换）；固定标签由缺省的关闭钮区分。
+                      isPreview && 'italic',
                       unfocused && 'opacity-55',
                     )}
-                    title={title}
+                    title={isPreview ? `${title}（预览，双击保留）` : title}
                   >
                     {title}
                   </span>
@@ -197,6 +202,9 @@ export const TabBar = memo(function TabBar({
                 </div>
               </ContextMenuTrigger>
               <ContextMenuContent>
+                {isPreview && (
+                  <ContextMenuItem onSelect={() => keepTab(tab, group.id)}>保留</ContextMenuItem>
+                )}
                 <ContextMenuItem onSelect={() => togglePin(tab, group.id)}>
                   {isPinned ? '取消固定' : '固定'}
                 </ContextMenuItem>
