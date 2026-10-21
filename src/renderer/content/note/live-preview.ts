@@ -1,8 +1,9 @@
 // Markdown 即时渲染（Obsidian 式 live preview）：文档始终是磁盘上的原文，这里只加装饰——
-// 光标不在的行隐藏标记符号、按语法树给标题/强调/代码/引用上样式，图片在行下方显示。
+// 光标不在的行隐藏标记符号、按语法树给标题/强调/代码/引用上样式，图片在行下方显示；
+// 光标不在公式或 mermaid 代码块里时，原文替换成渲染结果，光标移进去即回到原文。
 // 不做所见即所得的往返序列化：用户不改的字节一个都不会变（列表符号、空行、转义、换行符）。
 import { syntaxTree } from '@codemirror/language';
-import { RangeSetBuilder, type EditorState, type Extension } from '@codemirror/state';
+import { RangeSetBuilder, StateField, type EditorState, type Extension } from '@codemirror/state';
 import {
   Decoration,
   EditorView,
@@ -11,6 +12,8 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
+import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
+import { findMath, renderMath } from './math';
 
 /** 光标所在行（含多选区）保持原文，便于编辑标记本身。 */
 function activeLines(state: EditorState): Set<number> {
@@ -46,6 +49,60 @@ class ImageWidget extends WidgetType {
   }
 }
 
+class MathWidget extends WidgetType {
+  constructor(
+    readonly tex: string,
+    readonly display: boolean,
+  ) {
+    super();
+  }
+  eq(other: MathWidget) {
+    return other.tex === this.tex && other.display === this.display;
+  }
+  toDOM() {
+    const element = document.createElement(this.display ? 'div' : 'span');
+    element.className = this.display ? 'cm-md-math-block' : 'cm-md-math';
+    element.innerHTML = renderMath(this.tex, this.display);
+    return element;
+  }
+  // 点击公式交给编辑器定位光标：光标落进原文区间后公式回到可编辑的原文。
+  ignoreEvent() {
+    return false;
+  }
+}
+
+let mermaidSeq = 0;
+
+class MermaidWidget extends WidgetType {
+  constructor(readonly chart: string) {
+    super();
+  }
+  eq(other: MermaidWidget) {
+    return other.chart === this.chart;
+  }
+  toDOM() {
+    const element = document.createElement('div');
+    element.className = 'cm-md-mermaid';
+    element.textContent = '正在渲染图表…';
+    renderMermaid(`dela-note-mermaid-${(mermaidSeq += 1)}`, this.chart, mermaidConfig()).then(
+      ({ svg }) => {
+        element.innerHTML = svg;
+      },
+      (error: unknown) => {
+        element.classList.add('cm-md-mermaid-error');
+        element.textContent = `mermaid 语法错误：${error instanceof Error ? error.message : String(error)}`;
+      },
+    );
+    return element;
+  }
+  get estimatedHeight() {
+    return 160;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
 const hidden = Decoration.replace({});
 const mark = (className: string) => Decoration.mark({ class: className });
 const line = (className: string) => Decoration.line({ class: className });
@@ -74,6 +131,79 @@ const hiddenMarks = new Set([
 ]);
 
 type Range = { from: number; to: number; value: Decoration };
+
+const codeNodes = new Set(['InlineCode', 'FencedCode', 'CodeBlock', 'CodeText']);
+
+/** 位置落在行内代码或代码块里：公式扫描跳过它，`$` 在代码里只是字符。 */
+function inCode(state: EditorState, pos: number): boolean {
+  let node = syntaxTree(state).resolveInner(pos, 1);
+  while (!codeNodes.has(node.name)) {
+    if (!node.parent) return false;
+    node = node.parent;
+  }
+  return true;
+}
+
+/** 选区是否碰到 [from, to]：碰到就显示原文。 */
+function touches(state: EditorState, from: number, to: number): boolean {
+  return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+}
+
+/** 跨行的块级渲染（$$ 公式、mermaid 代码块）：块装饰只能来自 StateField，不能来自 ViewPlugin。 */
+function blockWidgets(state: EditorState): DecorationSet {
+  const ranges: Range[] = [];
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      if (node.name !== 'FencedCode') return;
+      const info = node.node.getChild('CodeInfo');
+      if (!info || state.sliceDoc(info.from, info.to).trim().toLowerCase() !== 'mermaid')
+        return false;
+      const body = node.node.getChild('CodeText');
+      if (!touches(state, node.from, node.to) && body)
+        ranges.push({
+          from: node.from,
+          to: node.to,
+          value: Decoration.replace({
+            widget: new MermaidWidget(state.sliceDoc(body.from, body.to)),
+            block: true,
+          }),
+        });
+      return false;
+    },
+  });
+  for (const math of findMath(state.sliceDoc(), 0, (pos) => inCode(state, pos))) {
+    if (!math.display || touches(state, math.from, math.to)) continue;
+    // 块级替换必须覆盖整行：$$ 前后同一行还有别的文字时退回行内显示。
+    const first = state.doc.lineAt(math.from);
+    const last = state.doc.lineAt(math.to);
+    const whole = first.from === math.from && last.to === math.to;
+    ranges.push({
+      from: math.from,
+      to: math.to,
+      value: Decoration.replace({ widget: new MathWidget(math.tex, true), block: whole }),
+    });
+  }
+  ranges.sort((a, b) => a.from - b.from);
+  const builder = new RangeSetBuilder<Decoration>();
+  let end = -1;
+  for (const range of ranges) {
+    if (range.from < end) continue; // 公式写在 mermaid 块里等重叠情况：先到者得。
+    builder.add(range.from, range.to, range.value);
+    end = range.to;
+  }
+  return builder.finish();
+}
+
+const blockField = StateField.define<DecorationSet>({
+  create: blockWidgets,
+  update: (value, transaction) =>
+    transaction.docChanged ||
+    transaction.selection ||
+    syntaxTree(transaction.startState) !== syntaxTree(transaction.state)
+      ? blockWidgets(transaction.state)
+      : value,
+  provide: (field) => EditorView.decorations.from(field),
+});
 
 function build(view: EditorView, resolveImage: (src: string) => string): DecorationSet {
   const { state } = view;
@@ -140,6 +270,18 @@ function build(view: EditorView, resolveImage: (src: string) => string): Decorat
       },
     });
   }
+  // 行内公式：光标不在其所在行时替换为渲染结果。块级公式在 blockWidgets 里处理。
+  for (const { from, to } of view.visibleRanges) {
+    const start = state.doc.lineAt(from).from;
+    for (const math of findMath(state.sliceDoc(start, to), start, (pos) => inCode(state, pos))) {
+      if (math.display || active.has(lineOf(math.from).number)) continue;
+      ranges.push({
+        from: math.from,
+        to: math.to,
+        value: Decoration.replace({ widget: new MathWidget(math.tex, false) }),
+      });
+    }
+  }
   // RangeSetBuilder 要求按起点排序；同一起点 line 装饰须先于 mark/replace。
   ranges.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
   const builder = new RangeSetBuilder<Decoration>();
@@ -172,6 +314,15 @@ const theme = EditorView.theme({
     backgroundColor: 'var(--color-muted)',
   },
   '.cm-md-image': { display: 'block', maxWidth: '100%', margin: '0.5rem 0', borderRadius: '6px' },
+  '.cm-md-math-block': { padding: '0.5rem 0', overflowX: 'auto', textAlign: 'center' },
+  '.cm-md-mermaid': {
+    padding: '0.5rem 0',
+    overflowX: 'auto',
+    textAlign: 'center',
+    color: 'var(--color-muted-foreground)',
+  },
+  '.cm-md-mermaid svg': { maxWidth: '100%', height: 'auto' },
+  '.cm-md-mermaid-error': { color: 'var(--color-destructive)', textAlign: 'left' },
 });
 
 /** 粘贴或拖入图片：交给 save 落盘（同目录 assets/），在光标/落点插入相对路径引用。
@@ -226,6 +377,7 @@ export function markdownImageInsert(
 export function markdownLivePreview(resolveImage: (src: string) => string): Extension {
   return [
     theme,
+    blockField,
     ViewPlugin.fromClass(
       class {
         decorations: DecorationSet;

@@ -69,6 +69,29 @@ describe('markdownLivePreview', () => {
     expect(view.state.sliceDoc()).toBe('前\n![截图 1.png](assets/%E6%88%AA%E5%9B%BE%201.png)后');
   });
 
+  it('公式与 mermaid：光标不在时显示渲染结果，光标移进去回到原文，正文不变', async () => {
+    const doc =
+      '行内 $x^2$ 公式\n\n$$\n\\frac{距离}{时间}\n$$\n\n```mermaid\ngraph TD; A-->B\n```\n\n末行';
+    const editor = mount(doc, doc.length);
+    expect(editor.contentDOM.querySelector('.cm-md-math .katex')).not.toBeNull();
+    expect(editor.contentDOM.querySelector('.cm-md-math-block .katex-display')).not.toBeNull();
+    expect(editor.contentDOM.querySelector('.cm-md-mermaid')).not.toBeNull();
+
+    editor.dispatch({ selection: { anchor: doc.indexOf('x^2') } });
+    expect(editor.contentDOM.querySelector('.cm-md-math')).toBeNull();
+    expect(editor.contentDOM.textContent).toContain('$x^2$');
+
+    editor.dispatch({ selection: { anchor: doc.indexOf('graph') } });
+    expect(editor.contentDOM.querySelector('.cm-md-mermaid')).toBeNull();
+    expect(editor.contentDOM.textContent).toContain('graph TD; A-->B');
+    expect(editor.state.sliceDoc()).toBe(doc);
+  });
+
+  it('代码里的 $ 不渲染成公式', () => {
+    const editor = mount('`$a$` 文字\n\n末行', '`$a$` 文字\n\n'.length);
+    expect(editor.contentDOM.querySelector('.cm-md-math')).toBeNull();
+  });
+
   it('图片在行下方按解析后的地址显示', () => {
     const editor = mount('![图](assets/a.png)\n\n文字', 0);
     const image = editor.contentDOM.querySelector<HTMLImageElement>('img.cm-md-image');
