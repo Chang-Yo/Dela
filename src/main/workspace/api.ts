@@ -445,7 +445,7 @@ function checkParent(parentId: string | null, movingId?: string) {
 
 /** 新建名里的 `/`、`\` 是路径分隔符（与 VS Code 一致）：`a/b.md` 建出文件夹 a 与其中的 b.md，
  *  中间的文件夹已存在就复用。每段单独过 diskName（Windows 保留名、非法字符仍会被替换），
- *  `.` 与 `..` 段直接拒绝，结果因此必定落在父目录之内。
+ *  `.` 与 `..` 段直接拒绝，结果因此必定落在父目录之内；以分隔符结尾（`aaa/`）一律建文件夹。
  *  最后一段已存在时报错而不是自动改名：名字是用户明确敲进来的，悄悄变成「b (2).md」不如让他改。 */
 function createAtPath(
   parentId: string | null,
@@ -453,6 +453,7 @@ function createAtPath(
   kind: 'folder' | 'file',
   text?: string,
 ): WorkspaceEntry {
+  const folder = kind === 'folder' || /[\\/]$/.test(name);
   const segments = name.split(/[\\/]+/).filter(Boolean);
   if (!segments.length) throw new Error('请输入名称');
   if (segments.some((segment) => segment === '.' || segment === '..'))
@@ -468,8 +469,8 @@ function createAtPath(
   }
   const path = join(directory, diskName(segments.at(-1)!));
   if (existsSync(path)) throw new Error(`「${basename(path)}」已存在`);
-  if (kind === 'file') writeFileSync(path, text ?? '', { flag: 'wx' });
-  else mkdirSync(path);
+  if (folder) mkdirSync(path);
+  else writeFileSync(path, text ?? '', { flag: 'wx' });
   return fileEntry(path, parent);
 }
 

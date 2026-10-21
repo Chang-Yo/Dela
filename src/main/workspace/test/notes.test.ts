@@ -371,6 +371,16 @@ describe('createWorkspaceEntry', () => {
     expect(statSync(join(workspaceRoot(), 'x', 'y', 'z')).isDirectory()).toBe(true);
   });
 
+  it('以 / 或 \\ 结尾的名字建文件夹，即使是从「新建文件」进来', () => {
+    expect(createWorkspaceEntry({ parentId: null, name: 'aaa/', kind: 'file' })).toMatchObject({
+      kind: 'folder',
+      name: 'aaa',
+    });
+    expect(statSync(join(workspaceRoot(), 'aaa')).isDirectory()).toBe(true);
+    createWorkspaceEntry({ parentId: null, name: 'p\\q\\', kind: 'file' });
+    expect(statSync(join(workspaceRoot(), 'p', 'q')).isDirectory()).toBe(true);
+  });
+
   it('重名报错不改名；. 与 .. 段拒绝；中间段撞上文件时报错', () => {
     createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' });
     expect(() => createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' })).toThrow(
