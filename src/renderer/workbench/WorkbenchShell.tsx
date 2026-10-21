@@ -37,6 +37,7 @@ import { MailDraftDialog } from '../app/mail-draft-dialog';
 import { ChatHome } from '../content/chat/ChatHome';
 import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
+import { openTarget } from './open-target';
 
 const emptyViewState = { tabs: [], active: null, expanded: [], scroll: {} };
 
@@ -57,7 +58,6 @@ function newChatInCurrentPool() {
 export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
   const reveal = useNavigationStore((s) => s.reveal);
-  const generalChat = useNavigationStore((s) => s.generalChat);
   const createProject = useNavigationStore((s) => s.createProject);
   const ready = useWorkbenchLayout((s) => s.ready);
   const layoutProjectId = useWorkbenchLayout((s) => s.projectId);
@@ -89,59 +89,10 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     const layout = useWorkbenchLayout.getState();
     // 子组件的 init effect 已开始加载时，本次 render 的 ready 仍可能是旧值。
     if (!reveal || !layout.ready || layout.projectId !== projectId) return;
-    layout.openTab(reveal.tabId);
+    openTarget(reveal.tabId);
+    if (reveal.keep) layout.keepTab(reveal.tabId);
     useNavigationStore.getState().consumeReveal();
   }, [reveal, ready, layoutProjectId, projectId]);
-
-  useEffect(() => {
-    if (home || !generalChat || !ready || layoutProjectId !== null) return;
-    let active = true;
-    void (async () => {
-      const dela = window.dela;
-      const navigation = useNavigationStore.getState();
-      if (!dela) {
-        navigation.consumeGeneralChat();
-        return;
-      }
-      try {
-        let sessionId: string | null = null;
-        if (!generalChat.create) {
-          // 优先定位已打开的通用会话标签；镜像未载入时先读一次列表。
-          await useSessions.getState().refresh(null);
-          const generalIds = new Set(
-            (useSessions.getState().lists.general ?? []).map((session) => session.id),
-          );
-          sessionId =
-            walkGroups(useWorkbenchLayout.getState().root)
-              .flatMap((group) => group.tabs)
-              .map((tab) => (tab.startsWith('chat:') ? tab.slice('chat:'.length) : null))
-              .find((id) => id !== null && generalIds.has(id)) ?? null;
-        }
-        if (!sessionId) {
-          // 这里是资料页（通用工作台）的通用池，新会话落在资料树的课程目录。
-          const chat = await dela.session.create(null, 'library');
-          if (!chat.sessionId) throw new Error('会话创建失败');
-          useSessions.getState().putChat(chat.sessionId, chat);
-          void useSessions
-            .getState()
-            .refresh(null)
-            .catch(() => {});
-          sessionId = chat.sessionId;
-        }
-        if (active) {
-          useWorkbenchLayout.getState().openTab(`chat:${sessionId}`);
-          useNavigationStore.getState().consumeGeneralChat();
-        }
-      } catch (cause) {
-        if (active)
-          showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
-        useNavigationStore.getState().consumeGeneralChat();
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [home, generalChat, ready, layoutProjectId]);
 
   useEffect(() => {
     if (!createProject || !loaded) return;
@@ -173,6 +124,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       useTreeState
         .getState()
         .reveal(ancestorChainOf(useWorkspaceStore.getState().workspace.entries, entry.id));
+    // 刚建的文件是要写的：直接常驻打开，不当预览。
     if (entry.kind === 'file') useWorkbenchLayout.getState().openTab(documentTabId(entry.id));
     else if (entry.parentId) useTreeState.getState().expand(entry.parentId, true);
   };
@@ -268,7 +220,11 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       useDraft: (entryId) => useNoteDrafts((state) => state.drafts[entryId]),
       acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
       release: (key) => useNoteDrafts.getState().release(key),
-      edit: (key, text) => useNoteDrafts.getState().edit(key, text),
+      edit: (key, text) => {
+        // 改过的文件不再是「只是看看」：预览标签转常驻，不会被下一次单击替换掉。
+        useWorkbenchLayout.getState().keepTab(`note:${key}`);
+        useNoteDrafts.getState().edit(key, text);
+      },
       save: (key) => useNoteDrafts.getState().save(key),
       saveAsNewNote: (entryId, text) =>
         openDialog(
@@ -402,13 +358,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
                     onAction={openDialog}
                     onCreated={onCreated}
                     onOpenDocument={(key) => void useNavigationStore.getState().openDocument(key)}
-                    onOpenToSide={(key) => {
-                      // 「在另一栏打开」：先在当前组激活标签再分屏（新组复制活动标签，手动分屏语义）。
-                      const tabId = documentTabId(key);
-                      const store = useWorkbenchLayout.getState();
-                      store.openTab(tabId, store.focus);
-                      store.splitGroup(store.focus, 'vertical');
-                    }}
+                    onOpenToSide={(key) => openTarget(documentTabId(key), { aside: true })}
                     projectId={projectId}
                   />
                   <Workbench bindings={bindings} onNewChat={newChatInCurrentPool} />

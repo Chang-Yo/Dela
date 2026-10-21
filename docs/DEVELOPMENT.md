@@ -41,7 +41,7 @@
 
 卡片按 `WorkspaceChat.projectId` 区分会话：项目会话提供差异审阅与增删行数；随聊（无 projectId）只列变更文件，提供 Dela 内打开、VS Code 与系统文件管理器选项，不显示审阅和行数，也不调用文件 diff 详情接口。两类会话仍使用同一套后端快照记录，此处仅收窄随聊的展示与详情请求，不减少轮前、轮后目录扫描及快照存储。
 
-前端审阅 UI 建在这些接口上：回答末尾的 `TurnChangesCard` 读取冻结记录并以折叠卡片列出文件，项目会话通过 `readTurnChanges(sessionId, turnId, true)` 一次获取文件清单与增删统计。后端只解压一次整轮记录，按文件顺序计算 patch 统计，文件间让出主进程；不再为每个文件并发解压整轮记录。随聊省略统计，列表接口也默认不计算统计；无法统计的文件返回 `stat: null`。行内「审阅」开 `review:{sessionId}:{turnId}:{path}` 标签（`content/review`，unified patch 只读呈现），「打开」先经 `chat:locate-file` 解析本机绝对路径再开 `preview:{绝对路径}` 标签（文本/Markdown/PDF/Office 走既有预览，二进制显示不支持），下拉另提供 VS Code（`chat:open-in-vscode`）与资源管理器（`chat:reveal-file`）；已删除的文件禁用打开。两组动作与标题栏「新聊天」共用同一落位规则（`workbench/open-aside.ts` 的 `prepareAsideGroup`）：单组向右分出空新组，多组进最右组；区别只在开标签机制（newChat 走 reveal 脉冲，卡片直接 openTab）。无文件的记录（远程轮次、轮前快照缺失）不渲染卡片；partial 记录展开后展示警告。落盘失败的 `changesError` 尚未在界面呈现。
+前端审阅 UI 建在这些接口上：回答末尾的 `TurnChangesCard` 读取冻结记录并以折叠卡片列出文件，项目会话通过 `readTurnChanges(sessionId, turnId, true)` 一次获取文件清单与增删统计。后端只解压一次整轮记录，按文件顺序计算 patch 统计，文件间让出主进程；不再为每个文件并发解压整轮记录。随聊省略统计，列表接口也默认不计算统计；无法统计的文件返回 `stat: null`。行内「审阅」开 `review:{sessionId}:{turnId}:{path}` 标签（`content/review`，unified patch 只读呈现），「打开」先经 `chat:locate-file` 解析本机绝对路径再开 `preview:{绝对路径}` 标签（文本/Markdown/PDF/Office 走既有预览，二进制显示不支持），下拉另提供 VS Code（`chat:open-in-vscode`）与资源管理器（`chat:reveal-file`）；已删除的文件禁用打开。两组动作都是「在旁边打开」（`workbench/open-target.ts` 的 `openTarget(tab, { aside: true })`），落位规则见下文 §2.4 标签规则。无文件的记录（远程轮次、轮前快照缺失）不渲染卡片；partial 记录展开后展示警告。落盘失败的 `changesError` 尚未在界面呈现。
 
 `DiffView` 对长差异分页，每页最多 500 行，提供上一页与下一页；换 patch 时回到第一页。解析保留完整行号，DOM 仅挂载当前页，避免多行小文件一次生成大量元素。
 
@@ -94,6 +94,13 @@ Git 当前改动合并已暂存、未暂存的净结果，额外列出未跟踪�
 ### 2.4 GUI
 
 标签工作台（聊天 / 笔记 / 预览 / 终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。聊天回答末尾汇总本轮 `write` / `edit` 命中的文件（按首次出现去重），每行给出文件名、所在目录与「定位 / 打开」两个按钮；相对路径按会话 cwd 解析、必须是本机存在的文件，远程项目拒绝本机打开。
+
+**标签规则**：所有「打开某样东西」的入口（目录树、资料树、侧栏会话、历史面板、深链、Agent 改动卡片）只决定打开什么、是否放到旁边；落在哪个组、是否预览只由 `workbench/open-target.ts` 的 `openTarget` 决定，规则表写在该文件顶部，`workbench/test/open-target.test.ts` 逐条覆盖。要点：
+
+- 已打开的标签一律去它所在的组聚焦；否则落焦点组。会话、终端、审阅是单例，「在旁边打开」遇到已打开的也只聚焦。
+- 预览标签（VS Code 语义，组内至多一个，标签名斜体）只用于**项目工作台**里的文件与资料：单击就地替换上一个预览；编辑、双击（目录树或标签）、拖动、右键「保留」后转常驻。资料（通用）工作台里打开的课件与文件都常驻，方便并排比对。会话一律常驻。
+- 「在旁边打开」落到焦点组右侧相邻的组，没有就向右分出一个空组；焦点组是空组时直接落进去。
+- 新对话与打开会话都留在当前工作台（项目或资料）就地开标签，不跳页、不分屏；只有在首页发起的随聊留在首页。main 对同一池复用未发送的空会话，渲染层不再替用户关闭空会话标签。
 
 **文件模型**：工作区里只有 `folder / project / file / source` 四种条目，不区分「应用内笔记」与「外部文件」——笔记就是 `.md` 文件。格式只有一条规则（`shared/files.ts`），本地工作区、远端项目、Agent `read_resource` 与聊天附件共用：
 

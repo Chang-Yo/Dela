@@ -166,6 +166,10 @@ export function WorkbenchExplorer({
     else onOpenToSide(key);
   };
 
+  /** 双击文件：打开并保留（预览标签转常驻）。 */
+  const keepDocument = (key: string) =>
+    void useAppNavigation.getState().openDocument(key, { keep: true });
+
   const move = (dragId: string, targetId: string | null) =>
     moveEntry(dragId, targetId, rootId, (target) => {
       if (target) expand(target, true);
@@ -556,6 +560,7 @@ export function WorkbenchExplorer({
                 onImportFiles={rootId ? importDroppedAnywhere : undefined}
                 onMove={remoteRoot ? undefined : move}
                 onOpenToSide={openToSide}
+                onActivate={keepDocument}
                 onRemoteAction={remoteAction}
                 onSelect={selectEntry}
                 query={query}

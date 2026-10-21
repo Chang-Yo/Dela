@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { openTabAside } from '../../workbench/open-aside';
+import { openTarget } from '../../workbench/open-target';
 import { reviewTabId } from '../review/tab-id';
 import { FileIcon, basenameOf, dirnameOf } from '../review/view-utils';
 import { fileManagerName } from '../../lib/platform';
@@ -66,11 +66,11 @@ const TurnFileRow = memo(function TurnFileRow({
   const openInDela = () => {
     void window.dela?.chat
       .locateFile(sessionId, file.path)
-      .then((absolute) => openTabAside(`preview:${absolute}`))
+      .then((absolute) => openTarget(`preview:${absolute}`, { aside: true }))
       .catch(fail);
   };
   const review = () =>
-    openTabAside(reviewTabId({ kind: 'turn', sessionId, turnId, path: file.path }));
+    openTarget(reviewTabId({ kind: 'turn', sessionId, turnId, path: file.path }), { aside: true });
   return (
     <li className="flex min-w-0 items-center gap-2 px-3 py-1.5" data-turn-file={file.path}>
       <FileIcon path={file.path} />

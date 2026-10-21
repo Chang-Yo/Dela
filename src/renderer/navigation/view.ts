@@ -9,9 +9,6 @@ import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { opensInEditor } from '../../shared/files';
 import { useSessions } from '../sessions/store';
-import { useWorkbenchLayout } from '../workbench/layout-store';
-import { prepareAsideGroup } from '../workbench/open-aside';
-import { walkGroups } from '../workbench/layout-schema';
 import { showToast } from '../app/toasts';
 
 export type AppView =
@@ -33,6 +30,8 @@ const projectStorageKey = 'dela.workspace.project';
 /** 一次性定位脉冲：每次赋新对象（seq 保证同目标也能再次触发），由工作台装配层消费。 */
 export interface RevealPulse {
   tabId: TabId;
+  /** 打开后直接保留（不作预览）：双击文件等「我要留着它」的打开。 */
+  keep?: boolean;
   seq: number;
 }
 
@@ -68,13 +67,13 @@ interface NavigationState {
   /** 通用聊天入口（导航「通用聊天」/托盘「新建对话」）。 */
   openGeneralChat(create: boolean): boolean;
   newChat(projectId: string | null): Promise<string | null>;
-  /** 随聊会话在首页打开，项目会话定位对应工作台标签。 */
+  /** 项目会话定位到项目工作台；随聊会话在资料工作台里就地开标签，否则回首页聊天。 */
   openChat(sessionId: string, projectId: string | null): boolean;
   rememberHomeSession(sessionId: string): void;
   /** 打开笔记标签，自动归属其所在项目。 */
   openNote(entryId: string): boolean;
-  /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台。 */
-  openDocument(key: string): boolean;
+  /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台；keep 时不作预览。 */
+  openDocument(key: string, options?: { keep?: boolean }): boolean;
   openTerminal(projectId: string): boolean;
   openMail(messageId: number): boolean;
   openTodo(id: string): boolean;
@@ -134,11 +133,11 @@ export function projectIdFromLegacyScope(scope: string): string | null {
 
 export const useNavigationStore = create<NavigationState>((set, get) => {
   /** 在指定项目的工作台里定位标签；换项目时清掉旧脉冲（旧 App.openProject 语义）。 */
-  const revealInProject = (tabId: TabId, projectId: string | null): boolean => {
+  const revealInProject = (tabId: TabId, projectId: string | null, keep = false): boolean => {
     if (projectId !== get().projectId) {
       if (!get().openProject(projectId ?? '')) return false;
     } else if (!get().navigate('workbench')) return false;
-    set({ reveal: { tabId, seq: ++pulseSeq } });
+    set({ reveal: { tabId, keep, seq: ++pulseSeq } });
     return true;
   };
   return {
@@ -235,47 +234,21 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     newChat: async (projectId) => {
-      // 已经在通用池工作台里发起（资料页空组空态、标题栏「新聊天」）时就地开标签，不把用户甩回首页。
-      const openInWorkbench = projectId === null && get().view === 'workbench';
-      const target = projectId === null && !openInWorkbench ? 'home' : 'workbench';
-      if (!window.dela || !get().navigate(target)) return null;
+      // 落点跟着发起处走：首页发起的随聊留在首页，工作台里发起的（项目或资料）就地开在焦点组，
+      // 不跳页、不分屏。main 对同一池复用未发送的空会话，所以连续新建不会堆出空标签。
+      const onHome = projectId === null && get().view !== 'workbench';
+      if (!window.dela || !get().navigate(onHome ? 'home' : 'workbench')) return null;
       try {
         // 通用会话的工作目录跟着落位走：首页随聊用私有目录，资料页用资料树里的课程目录。
-        const chat = await window.dela.session.create(
-          projectId,
-          openInWorkbench ? 'library' : 'chat',
-        );
+        const chat = await window.dela.session.create(projectId, onHome ? 'chat' : 'library');
         if (!chat.sessionId) throw new Error('会话创建失败');
         useSessions.getState().putChat(chat.sessionId, chat);
-        // 兼容此前连续新建留下的空标签；仅关闭视图，不删除会话和输入草稿。
-        const layout = useWorkbenchLayout.getState();
-        if (layout.ready && layout.projectId === projectId) {
-          const tabs = walkGroups(layout.root).flatMap((group) =>
-            group.tabs
-              .filter((tab) => tab.startsWith('chat:') && tab !== `chat:${chat.sessionId}`)
-              .map((tab) => ({ tab, groupId: group.id })),
-          );
-          for (const { tab, groupId } of tabs) {
-            const id = tab.slice('chat:'.length);
-            const previous =
-              useSessions.getState().chats[id] ??
-              (await window.dela.session.open(id).catch(() => null));
-            if (previous && previous.messages.length === 0 && !previous.running)
-              useWorkbenchLayout.getState().closeTab(tab, groupId);
-          }
-        }
         void useSessions
           .getState()
           .refresh(projectId)
           .catch(() => {});
-        if (openInWorkbench) {
-          // 落位与轮次卡片的审阅/打开共用（workbench/open-aside）：单组向右分出空新组，
-          // 多组进最右组；标签本体经 reveal 脉冲由工作台装配层打开。
-          prepareAsideGroup();
-          revealInProject(`chat:${chat.sessionId}`, null);
-        } else {
-          get().openChat(chat.sessionId, projectId);
-        }
+        if (onHome) get().openChat(chat.sessionId, null);
+        else revealInProject(`chat:${chat.sessionId}`, projectId);
         return chat.sessionId;
       } catch (cause) {
         showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
@@ -284,6 +257,9 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     openChat: (sessionId, projectId) => {
+      // 已在通用（资料）工作台里打开随聊历史：就地开标签，不跳回首页。
+      if (projectId === null && get().view === 'workbench' && get().projectId === null)
+        return revealInProject(`chat:${sessionId}`, null);
       if (projectId !== null) return revealInProject(`chat:${sessionId}`, projectId);
       if (!get().navigate('home')) return false;
       set({
@@ -304,7 +280,8 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       return revealInProject(`note:${entryId}`, project ?? null);
     },
 
-    openDocument: (key) => revealInProject(documentTabId(key), get().projectId),
+    openDocument: (key, options) =>
+      revealInProject(documentTabId(key), get().projectId, options?.keep),
     openTerminal: (projectId) => revealInProject(`terminal:${projectId}`, projectId),
 
     openMail: (messageId) => {

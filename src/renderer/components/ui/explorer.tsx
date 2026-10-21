@@ -61,6 +61,7 @@ export function Explorer({
   onOpenToSide,
   sortItems = false,
   pending,
+  onActivate,
 }: {
   items: ExplorerItem[];
   expanded: string[];
@@ -77,6 +78,8 @@ export function Explorer({
   /** 仅对不依赖业务顺序的树启用文件夹优先自然排序。 */
   sortItems?: boolean;
   pending?: ExplorerPending | null;
+  /** 双击行：叶子条目「打开并保留」（预览转常驻）；目录行双击不触发。 */
+  onActivate?: (id: string) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -348,6 +351,9 @@ export function Explorer({
                 event.currentTarget.focus();
                 if (event.altKey && onOpenToSide) onOpenToSide(item.id);
                 else onSelect(item.id);
+              }}
+              onDoubleClick={() => {
+                if (!branch) onActivate?.(item.id);
               }}
               onContextMenu={(event) => {
                 const trigger = event.currentTarget.querySelector<HTMLButtonElement>(

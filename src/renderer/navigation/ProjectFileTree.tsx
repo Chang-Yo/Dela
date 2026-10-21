@@ -74,6 +74,7 @@ export function ProjectFileTree({
   excludeIds = [],
   archived = false,
   pending,
+  onActivate,
 }: {
   entries: WorkspaceEntry[];
   rootId: string | null;
@@ -93,6 +94,7 @@ export function ProjectFileTree({
   archived?: boolean;
   /** 行内新建；parentId 用条目 id，树根（rootId）由这里换成 Explorer 的 null。 */
   pending?: ExplorerPending | null;
+  onActivate?: (id: string) => void;
 }) {
   const excluded = new Set(excludeIds);
   const included = new Set<string>();
@@ -237,6 +239,7 @@ export function ProjectFileTree({
         onImportFiles={onImportFiles}
         onOpenToSide={onOpenToSide}
         sortItems
+        onActivate={onActivate}
         pending={
           pending && { ...pending, parentId: pending.parentId === rootId ? null : pending.parentId }
         }
