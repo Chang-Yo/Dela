@@ -452,11 +452,8 @@ export function WorkbenchExplorer({
               />
             </div>
             <div
-              // 层级深时行内缩进与引导线会撑出横向溢出；文件名本来就省略显示，
-              // 横向滚动条只会让省略失去意义，直接裁掉。
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
               onDoubleClick={(event) => {
-                // 远端空白处的「新建文件」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
                 if (remoteRoot) return;
                 if (event.target === event.currentTarget) startCreate('file', container());
               }}
