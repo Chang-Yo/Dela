@@ -212,23 +212,25 @@ Canvas 资料目录与 `latestTermOf` 共用 `shared/canvas.ts` 的排序规则�
 
 把远端 Linux 主机上的目录登记为项目。**本地内核 + 远程执行**：内核、模型密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端、目录读取与文件预览落到 SSH 远端（`src/main/remotes/`）。
 
-- **传输**：`transport.ts` 是一次性 ssh 的唯一边界，全部走 `ssh <host> <script>`，不引入 SFTP。Windows 系统 OpenSSH 优先、`vendor/openssh` 兜底（自带 `ssh.exe` + `libcrypto.dll` 经 `extraResources` 进 `resources/openssh`），探测顺序是 System32 → Program Files → 自带目录；**System32 那份可能是旧版本**（Windows 本机实测 System32 为 9.5p2、Program Files 为 10.0p2），排障时先确认实际生效的是哪一个。Mac 使用 `/usr/bin/ssh`。一次调用一个 ssh 子进程，Windows 实测每次 0.3–0.6 秒。
-- **helper 通道**（日常路径）：`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP。helper 是一个 Go 静态二进制，Dela 把它放到 `~/.dela/helper/<版本>-<sha8>/` 再启动。建好之后不再付握手钱（列目录实测 28 ms vs 310 ms）。端点、心跳与生命周期规则见 [helper/README.md](../helper/README.md)。
-- **工具**：read / write / edit / bash / ls / find 复用 Pi 的工具定义、只换 `operations`；grep 在 Pi 内部固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute 在远端搜（rg 缺失时退回 `grep -rnH`）。同名自定义工具覆盖内置（`agent-session.js` 注册表后写覆盖），因此这七个名字**不能**进 `excludeTools`。
+- **helper 是唯一通道**：工具调用、目录树、预览、上下文镜像、@ 候选与端口发现全部经远端 helper（`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP），没有一次性 ssh 的退路。helper 是一个 Go 静态二进制，Dela 把它放到 `~/.dela/helper/<版本>-<sha8>/` 再启动；它在远端常驻，最后一个客户端断开后再活 1 小时。端点、任务与生命周期规则见 [helper/README.md](../helper/README.md)。只支持 Linux amd64/arm64；`$HOME` 禁止执行（noexec、只读挂载、SELinux）的服务器不支持，向导会给出分类过的原因并停在「连接」这一步。
+- **ssh 的职责**：`transport.ts` 只承担引导 helper（探测、上传、启动、诊断）、连接自检、目录选择器首页的主目录解析，`helper.ts` 用它起隧道，终端用它起 `ssh -tt`。Windows 系统 OpenSSH 优先、`vendor/openssh` 兜底（自带 `ssh.exe` + `libcrypto.dll` 经 `extraResources` 进 `resources/openssh`），探测顺序是 System32 → Program Files → 自带目录；**System32 那份可能是旧版本**（Windows 本机实测 System32 为 9.5p2、Program Files 为 10.0p2），排障时先确认实际生效的是哪一个。Mac 使用 `/usr/bin/ssh`。
+- **通道状态**（`helper.ts` 的 `Channel`）：每台服务器一条，状态是 connecting / ready / reconnecting / unavailable。隧道进程退出或心跳连续 3 次失败进 reconnecting：只拆本地隧道，按 1、2、4、8 秒退避重建（复用远端那个还活着的实例，通常 2 次 ssh），60 秒内回不来判为 unavailable。会话对象在通道一生中不变，重连期间的请求排队等它回来。只读请求、整文件写入与监视集合替换遇到隧道错误会自动重发；HTTP 非 2xx 是业务结果，不重发。首次引导失败直接判为 unavailable（多半是确定性的原因），之后距上次尝试超过 30 秒的下一次调用会再试一次。
+- **任务接回**：bash 工具在本地生成任务 id，`POST /v1/tasks` 创建（同 id 重发不会重复执行），再按字节偏移订阅输出流。流断了就等通道重连，用同一个 id 再提交一次，从记下的偏移续读，最终拿到真实的退出码。断线期间超出 8 MB 缓冲的部分接不回来，工具输出里会补一行说明。取消显式调 `/cancel`：断开连接已经不会终止任务。Dela 重启或休眠超过 1 小时，本地那轮工具调用已经不在，任务只会被远端终止或跑完，不会接回对话。
+- **工具**：read / write / edit / bash / ls / find 复用 Pi 的工具定义、只换 `operations`；grep 在 Pi 内部固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute 调 helper 的结构化搜索。find 与 grep 在远端有 rg 时交给 rg，没有时由 helper 自己遍历（规则差异见 helper/README.md）。同名自定义工具覆盖内置（`agent-session.js` 注册表后写覆盖），因此这七个名字**不能**进 `excludeTools`。
 - **路径**：会话 cwd 就是远端 POSIX 绝对路径；工具传来的路径先经 `remotePath` 还原（Windows 会把 `/root/x` 解析成 `\root\x`）。远端上下文镜像到 `<userData>/remote-context/<remoteId>/<projectId>/`，`remotePath` 是唯一收口——七个工具（含 grep）的全部路径入口自动生效。镜像路径和命令正文按路径格式匹配：Windows 镜像兼容大小写与两种分隔符，Mac/POSIX 镜像保留大小写及文件名中的反斜杠；前缀相似的兄弟目录不映射。
 - **本地不碰远端路径**：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建 / 重命名 / 移动，目录不进本地扫描也不 `fs.watch`。远端条目 id 是「项目 id + 远端路径」，两台连接上的同路径目录不会混。远端目录的变化由 helper 的 inotify 事件流推给目录树（只监视展开的那几层）。
 - **认证**：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
 - **VS Code 打开项目**：Windows 直接启动 `Code.exe`，Mac 启动应用包内的 CLI；远程项目附带 `--remote ssh-remote+<host>`。不使用 `windowsHide: true`，它会隐藏首次启动的 Windows GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
-- **降级**：helper 起不来时（服务器禁执行 `noexec`、只读挂载、SELinux 拦截）自动分类原因并退回一次性 ssh，向导日志与目录树都显示人话文案。降级后端口预览与远端改动实时刷新不可用，其余功能照常。
+- **不可用**：通道判为 unavailable 时，这台服务器的项目调用一律以 `HelperUnavailableError` 失败（带分类过的原因），目录树按目的地显示提示。
 - **不做**：远端文件写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
 
 开发注意（真机踩过的坑）：
 
-- 连接是「一次调用一个 ssh 子进程」，没有多路复用。短时间并发握手太多时主机会直接断开（`Connection closed by <host> port 22`），并行跑多个真机测试文件就会偶发；`pnpm test:remote` 因此要串行（串行由 `vitest.remote.config.ts` 的 `fileParallelism: false` 保证）。App 侧一次工具调用只有一条连接，但模型并发发起多个工具调用时可能撞上主机的 MaxStartups。
-- `sshBaseArguments` 统一带 `ServerAliveInterval=15`、`ServerAliveCountMax=3`：一次 10 分钟无输出的远端命令会被对端 reset（`clientaliveinterval 0` + 客户端不发保活，中间的 NAT/防火墙丢连接）。心跳同时是隧道的保活包。
+- ssh 一次调用一个子进程，没有多路复用。短时间并发握手太多时主机会直接断开（`Connection closed by <host> port 22`），并行跑多个真机测试文件就会偶发；`pnpm test:remote` 因此要串行（串行由 `vitest.remote.config.ts` 的 `fileParallelism: false` 保证）。App 侧日常调用都走 helper 的一条隧道，只有引导与重连才付 ssh 握手。
+- `sshBaseArguments` 统一带 `ServerAliveInterval=15`、`ServerAliveCountMax=3`：一次 10 分钟无输出的远端命令会被对端 reset（`clientaliveinterval 0` + 客户端不发保活，中间的 NAT/防火墙丢连接）。隧道靠它保活；helper 的任务流与 watch 流另有 30 秒一条的保活注释，客户端 90 秒收不到字节就判隧道半死、进重连。
 - **路径归一化是最容易静默改错文件的点**：工具在调用 operations 之前用宿主 `node:path` 解析参数，Windows 本机实测 `path.resolve('/home/u/proj','src/a.ts')` → `E:\home\u\proj\src\a.ts`。operations 仅对 Windows 形态去盘符、将 `\` 换成 `/`；原生 POSIX 路径不套用这些规则，避免静默改错文件。
-- 快速反复重启会在远端留几个「过期」helper：Dela 退出不发退出请求，旧实例带着过期 token 最多再活 5 分钟，拿不到请求，只是占位进程。
-- 多通道没有空闲回收，也没有条数上限：一个会话里用到过几个连接，就各留一条通道与一个远端 helper（各带自己的心跳），直到应用退出全部关掉。上界通常是个位数。
+- 远端一个版本一个实例：Dela 重启、重连都复用它（`run.json` + `token` 文件）。升级 helper 版本后会新起一个实例，旧实例空闲 1 小时后自己退出，跑在旧实例上的任务新版看不到。多台电脑以同一 SSH 用户连同一台服务器时共用一个实例，任务互相可见。
+- 多通道没有空闲回收，也没有条数上限：一个会话里用到过几个连接，就各留一条通道（各带自己的心跳），直到应用退出全部关掉。上界通常是个位数。
 
 ## 5. 课堂视频
 

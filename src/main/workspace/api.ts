@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { remoteById, targetOf } from '../remotes/api';
-import { locate } from '../remotes/transport';
+import { locateRemote } from '../remotes/operations';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
 import { availablePath, diskName, storageDirectory as directory } from '../storage';
@@ -110,8 +110,8 @@ export async function importRemoteProject(
     })
     .parse(path)
     .replace(/\/+$/, '');
-  const location = await locate(targetOf(connection), remotePath);
-  if (!location.directory) throw new Error(`远端目录不存在：${remotePath}`);
+  const location = await locateRemote(targetOf(connection), remotePath);
+  if (location.kind !== 'directory') throw new Error(`远端目录不存在：${remotePath}`);
   const database = getDatabase();
   // 同一远端目录只登记一次：重复导入返回已有项目。
   const existing = database

@@ -100,7 +100,6 @@ it('shows the prepare failure message verbatim and does not save', async () => {
     return {
       ok: false,
       message: '认证失败：Permission denied (publickey)',
-      helper: false,
     };
   });
   const save = vi.fn();
@@ -136,31 +135,23 @@ it('shows the prepare failure message verbatim and does not save', async () => {
   expect(save).not.toHaveBeenCalled();
 });
 
-it('appends setup progress lines and shows the degraded warning without blocking', async () => {
+// 远程项目只走 helper：它在这台服务器上起不来，向导就停在「连接」，不保存也不往下走。
+it('blocks and does not save when the helper cannot run on the server', async () => {
   const progress = progressChannel();
   const prepare = vi.fn(async (): Promise<RemotePrepare> => {
     progress.emit({ step: 'probe', detail: 'gpu-01 · Linux x86_64' });
     progress.emit({ step: 'upload', detail: '开始上传 6912345 字节' });
-    progress.emit({
-      step: 'ready',
-      ok: false,
-      detail: 'helper 通道不可用（helper 只支持 Linux，远端是 Darwin），改用一次性 ssh',
-    });
-    return { ok: true, message: 'gpu-01 · Linux x86_64', helper: false };
+    progress.emit({ step: 'start', ok: false, detail: 'helper 启动失败（诊断：noexec）' });
+    return { ok: false, message: 'helper 无法在这台服务器上运行：helper 启动失败（诊断：noexec）' };
   });
+  const browse = vi.fn();
   window.dela = {
     remotes: {
       list: async () => [saved],
       prepare,
       save: vi.fn(),
+      browse,
       onSetupProgress: progress.onSetupProgress,
-      browse: async (_draft: unknown, path: string | null) => ({
-        path: path ?? '/home/u',
-        parent: '/home',
-        home: '/home/u',
-        directory: true,
-        directories: [],
-      }),
     },
     workspace: { getState: async () => emptyState },
   } as unknown as DelaApi;
@@ -170,11 +161,11 @@ it('appends setup progress lines and shows the degraded warning without blocking
   await act(async () => button('连接', true).click());
 
   const log = document.querySelector('[role="log"]');
-  expect(log?.textContent).toContain('gpu-01 · Linux x86_64');
   expect(log?.textContent).toContain('开始上传 6912345 字节');
-  // 降级不是错误：日志里是警告行，而且仍然可以走到下一步。
-  expect(document.querySelectorAll('[role="alert"]')).toHaveLength(0);
-  expect(document.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain('noexec');
+  // 停在这一步：提交按钮还是「连接」，没有进入目录选择。
+  expect(document.querySelector('button[type="submit"]')?.textContent).toContain('连接');
+  expect(browse).not.toHaveBeenCalled();
 });
 
 it('reports a failed helper step with its reason in the log', async () => {
@@ -182,7 +173,7 @@ it('reports a failed helper step with its reason in the log', async () => {
   const prepare = vi.fn(async (): Promise<RemotePrepare> => {
     progress.emit({ step: 'probe', detail: 'gpu-01 · Linux x86_64' });
     progress.emit({ step: 'tunnel', ok: false, detail: '隧道未就绪' });
-    return { ok: true, message: 'gpu-01 · Linux x86_64', helper: false };
+    return { ok: false, message: 'helper 无法在这台服务器上运行：隧道未就绪' };
   });
   window.dela = {
     remotes: {
@@ -225,7 +216,7 @@ it('saves a new connection only after a successful probe, then registers the dir
   const prepare = vi.fn(async (): Promise<RemotePrepare> => {
     progress.emit({ step: 'probe', detail: 'gpu-01 · Linux x86_64' });
     progress.emit({ step: 'ready', ok: true, detail: 'helper 通道已就绪' });
-    return { ok: true, message: 'gpu-01 · Linux x86_64', helper: true };
+    return { ok: true, message: 'gpu-01 · Linux x86_64' };
   });
   window.dela = {
     remotes: {

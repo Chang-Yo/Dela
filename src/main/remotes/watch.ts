@@ -2,7 +2,7 @@
  * 远端目录 watch：渲染端交上「当前展开的远端目录」，这里换成 helper 的监视集合，事件再转成
  * `notifyRemoteChange`，目录树因此也能看到 Dela 之外改的远端文件。
  * 只监视展开的目录、不递归（大仓库递归要几千个 inotify watch，折叠的目录变了也看不见），代价是
- * 「展开之后」才有实时性；每个目标一条流；helper 起不来只是 watch 缺席，工具改动触发的刷新照常。
+ * 「展开之后」才有实时性；每个目标一条流。通道重连期间流断开，回来后重报集合并让目录树整片重读。
  */
 import { notifyRemoteChange } from './events';
 import { helperSession, type HelperSession, type WatchEvent } from './helper';
@@ -20,7 +20,7 @@ interface WatchSet extends RemoteWatchInput {
   targetKey: string;
 }
 
-/** 重连退避：通道刚被换掉、helper 还没起来都会走到这里，别用固定 1 秒去反复起远端进程。 */
+/** 流断开后的退避：通道在重连时 watchEvents 会排队等它回来，这里只防不可用时空转。 */
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
@@ -56,20 +56,18 @@ async function runStream(key: string, target: RemoteTarget, signal: AbortSignal)
   let backoff = RECONNECT_MIN_MS;
   let connected = false;
   while (!signal.aborted) {
-    const session = await helperSession(target).catch(() => null);
-    if (session) {
-      // 重连后必须重报：换了 helper 实例，旧集合跟着旧进程一起没了。
-      for (const set of setsOf(key)) await apply(session, set).catch(() => {});
-      // 断流期间没有订阅者，那段时间的事件 helper 侧直接丢掉了（队列都没有）：
-      // 重连后让目录树把根重读一遍，别指望下一轮事件把状态补齐。
-      if (connected) for (const set of setsOf(key)) notifyRemoteChange(set.root);
-      connected = true;
-      try {
-        await session.watchEvents((event) => handleEvent(key, event), signal);
-        backoff = RECONNECT_MIN_MS;
-      } catch (error) {
-        if (!signal.aborted) console.warn('[remotes] watch 流中断，退避重连', error);
-      }
+    const session = helperSession(target);
+    // 每次接上都重报：通道重连可能换了 helper 实例（远端被杀后重起），旧集合跟着旧进程一起没了。
+    for (const set of setsOf(key)) await apply(session, set).catch(() => {});
+    // 断流期间没有订阅者，那段时间的事件 helper 侧直接丢掉了（队列都没有）：
+    // 重连后让目录树把根重读一遍，别指望下一轮事件把状态补齐。
+    if (connected) for (const set of setsOf(key)) notifyRemoteChange(set.root);
+    connected = true;
+    try {
+      await session.watchEvents((event) => handleEvent(key, event), signal);
+      backoff = RECONNECT_MIN_MS;
+    } catch (error) {
+      if (!signal.aborted) console.warn('[remotes] watch 流中断，退避重连', error);
     }
     if (signal.aborted) break;
     await new Promise((resolve) => setTimeout(resolve, backoff));
@@ -106,18 +104,17 @@ export async function watchRemoteProject(input: RemoteWatchInput): Promise<{ wat
   }
   desired.set(input.projectId, { ...input, targetKey: targetKey(input.target) });
   syncRemoteWatch(input.target);
-  const session = await helperSession(input.target).catch(() => null);
-  if (!session) return { watching: 0 };
   const set = desired.get(input.projectId);
-  return { watching: set ? await apply(session, set).catch(() => 0) : 0 };
+  return { watching: set ? await apply(helperSession(input.target), set).catch(() => 0) : 0 };
 }
 
 export async function unwatchRemoteProject(projectId: string): Promise<void> {
   const set = desired.get(projectId);
   if (!set) return;
   desired.delete(projectId);
-  const session = await helperSession(set.target).catch(() => null);
-  await session?.clearWatch(projectId).catch(() => {});
+  await helperSession(set.target)
+    .clearWatch(projectId)
+    .catch(() => {});
   // 这个目标一套集合都不剩了：流收掉（helper 侧随上下文断开清理订阅者）。
   if (!setsOf(set.targetKey).length) stopStream(set.targetKey);
 }

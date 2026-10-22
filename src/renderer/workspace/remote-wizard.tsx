@@ -1,21 +1,9 @@
 // 连接远程目录向导：事实来源全在主进程；向导不落凭据，只存目的地、端口与私钥路径，密码交给 ssh。
-// 第 3 步「连接」真的上传并启动一遍 helper：可用性取决于服务器上有没有这一版，否则等到第一次调工具
-// 才失败，用户只会看到「项目打开了但又慢又不刷新」。helper 起不来仍降级成一次性 ssh
-// （docs/DEVELOPMENT.md §4），所以失败行之外还有一条降级警告行。
+// 第 3 步「连接」真的上传并启动一遍 helper：远程项目的全部能力都经它，起不来就停在这一步，
+// 而不是等到第一次调工具才失败（docs/DEVELOPMENT.md §4）。
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
-import {
-  ArrowLeft,
-  ArrowUp,
-  Check,
-  Folder,
-  House,
-  Loader2,
-  Plus,
-  Server,
-  TriangleAlert,
-  X,
-} from 'lucide-react';
+import { ArrowLeft, ArrowUp, Check, Folder, House, Loader2, Plus, Server, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
@@ -51,13 +39,9 @@ const stepLabels: Record<RemoteSetupStep, string> = {
   ready: '就绪',
 };
 
-/**
- * 一行引导日志：像终端输出而不是进度条。失败行（ok=false）用红色并挂 alert；只有 ready 的
- * ok=false 是降级警告——helper 用不了会退回一次性 ssh，向导照旧往前走，所以那一行不能报成错误。
- */
+/** 一行引导日志：像终端输出而不是进度条。失败行（ok=false）用红色并挂 alert。 */
 function SetupLine({ progress }: { progress: RemoteSetupProgress }) {
-  const degraded = progress.step === 'ready' && progress.ok === false;
-  const failed = progress.ok === false && !degraded;
+  const failed = progress.ok === false;
   return (
     <p
       className={cn('flex min-w-0 gap-2', failed && 'text-red')}
@@ -67,8 +51,6 @@ function SetupLine({ progress }: { progress: RemoteSetupProgress }) {
         <Check className="mt-1 size-3 shrink-0 text-green" aria-hidden="true" />
       ) : failed ? (
         <X className="mt-1 size-3 shrink-0 text-red" aria-hidden="true" />
-      ) : degraded ? (
-        <TriangleAlert className="mt-1 size-3 shrink-0 text-ink-3" aria-hidden="true" />
       ) : (
         <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ink-3" />
       )}

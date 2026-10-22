@@ -15,9 +15,9 @@ vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPa
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
 vi.mock('../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
-vi.mock('../transport', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../transport')>()),
-  locate: state.locate,
+vi.mock('../operations', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../operations')>()),
+  locateRemote: state.locate,
 }));
 
 import { getDatabase } from '../../database';
@@ -68,12 +68,7 @@ beforeEach(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-remote-'));
   state.db = createDb();
   state.locate.mockReset();
-  state.locate.mockResolvedValue({
-    path: '/root/proj',
-    kind: 'directory',
-    entries: [],
-    directory: true,
-  });
+  state.locate.mockResolvedValue({ path: '/root/proj', kind: 'directory', entries: [] });
   getDatabase()
     .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)")
     .run(state.root);

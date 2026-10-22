@@ -37,18 +37,15 @@ export interface RemoteSetupProgress {
   ok?: boolean;
 }
 
-/** 向导「连接」这一步的结果：自检不过就不能继续，helper 起不来只是降级。 */
+/** 向导「连接」这一步的结果：SSH 自检与 helper 引导都通过才能继续。 */
 export interface RemotePrepare {
-  /** SSH 自检是否通过（连目录都列不出来时只能停下来改目的地）。 */
   ok: boolean;
-  /** 自检失败的原因，或成功时的一行环境摘要。 */
+  /** 失败的原因（SSH 不通，或 helper 在这台服务器上起不来），或成功时的一行环境摘要。 */
   message: string;
-  /** helper 通道是否就绪；false 表示本次会话退回一次性 ssh（功能仍在，见 docs/DEVELOPMENT.md §4）。 */
-  helper: boolean;
 }
 
-/** helper 通道的降级状态：某条通道建立失败后 Dela 正在用一次性 ssh。
- *  哪台服务器用不了 helper，就按目的地对准哪台的项目提示；该通道恢复后从快照里消失。
+/** helper 通道不可用：远程项目的全部能力都经它，这台服务器的项目暂时不能用。
+ *  按目的地对准项目提示；该通道恢复后从快照里消失。
  *  同时可能有几条通道，所以送到渲染端的是一整份快照（每个连接各一条通道）。 */
 export interface HelperDegradation {
   /** ssh 目的地（host），与连接里的 host 字段一致。 */

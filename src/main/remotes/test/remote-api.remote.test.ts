@@ -1,4 +1,4 @@
-// 远程项目主进程链路的真机回归（假数据库 + 真实 ssh）：需要 DELA_REMOTE_HOST（如 root@1.2.3.4），
+// 远程项目主进程链路的真机回归（假数据库 + 真实 helper）：需要 DELA_REMOTE_HOST（如 root@1.2.3.4），
 // 由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -16,8 +16,7 @@ vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: 
 vi.mock('../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
 
 import { browseRemote, listRemotes, probeConnection, removeRemote, saveRemote } from '../api';
-import { remoteFileIndex } from '../api';
-import { listDirectory } from '../transport';
+import { listRemoteDirectory, remoteFileIndex, writeRemoteFile } from '../operations';
 import { importRemoteProject, projectLocation } from '../../workspace/api';
 import { parentOf, targetOf } from '../api';
 
@@ -45,10 +44,14 @@ function createDb(): Database.Database {
   return db;
 }
 
-beforeAll(() => {
+beforeAll(async () => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-remote-api-'));
   state.db = createDb();
-});
+  // 自带夹具：不依赖别的套件或冒烟脚本先在远端建好目录。
+  const target = targetOf({ host, keyPath });
+  await writeRemoteFile(target, `${testRoot}/a b.txt`, Buffer.from('hello\n'));
+  await writeRemoteFile(target, `${testRoot}/sub/nested.md`, Buffer.from('nested\n'));
+}, 120_000);
 afterAll(() => rmSync(state.root, { force: true, recursive: true }));
 
 describe('远程项目主进程链路（真机）', () => {
@@ -91,11 +94,11 @@ describe('远程项目主进程链路（真机）', () => {
       path: testRoot,
     });
 
-    const entries = await listDirectory(targetOf({ host, keyPath }), testRoot);
+    const entries = await listRemoteDirectory(targetOf({ host, keyPath }), testRoot);
     expect(entries.some((entry) => entry.name === 'sub' && entry.directory)).toBe(true);
     expect(entries.some((entry) => entry.name === 'a b.txt' && !entry.directory)).toBe(true);
 
-    const files = await remoteFileIndex({ host, keyPath }, testRoot);
+    const files = await remoteFileIndex({ host, keyPath }, testRoot, 1000);
     expect(files).toContain('a b.txt');
     expect(files).toContain('sub/nested.md');
     // 索引给的是相对路径，渲染端再与项目根拼成候选 key。

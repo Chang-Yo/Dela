@@ -276,7 +276,7 @@ app
       '刷新后自动出现的远端新文件',
     );
 
-    // Dela 之外改的远端文件只走一次性 ssh，靠 helper 的 inotify watch 推回来；
+    // Dela 之外改的远端文件（这里用一条独立的 ssh 去改），靠 helper 的 inotify watch 推回来；
     // 每轮重 touch 一次，避免「上报监视集合」和这次改动抢跑。
     const outside = `${root}/outside-watch.txt`;
     const outsideShown = `document.querySelector('[role="treeitem"][aria-label="outside-watch.txt"]') !== null`;

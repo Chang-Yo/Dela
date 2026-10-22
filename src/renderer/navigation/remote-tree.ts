@@ -32,7 +32,7 @@ export interface RemoteTree {
   destinations: Record<string, string>;
   /** 正在读取或读取失败的说明；无则 null。 */
   status: string | null;
-  /** helper 通道降级提示（对准这棵树里可见的项目）；无则 null。 */
+  /** helper 通道不可用提示（对准这棵树里可见的项目）；无则 null。 */
   degraded: string | null;
   /** 打开的项目正在首次连接（冷启动几秒）且还没有任何内容：面板该给过渡而不是空着。 */
   connecting: boolean;
@@ -99,7 +99,7 @@ export function useRemoteTree(
 
   const hasRemote = projects.length > 0;
 
-  // helper 通道的降级状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器降级不打扰这棵树。
+  // helper 通道的不可用状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器不打扰这棵树。
   useEffect(() => {
     const remotes = window.dela?.remotes;
     if (!hasRemote || !remotes?.onHelperState) return;
@@ -267,13 +267,13 @@ export function useRemoteTree(
   // 只报失败：读取中的提示会在每次展开/收起时插进、抽走一行，整棵树跟着上下跳。
   const status = Object.values(failed)[0] ?? null;
 
-  // 降级提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
-  // 多条通道各自降级时，一台恢复只让它自己那条从快照里消失，别的提示不受影响。
+  // 不可用提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
+  // 多条通道各自不可用时，一台恢复只让它自己那条从快照里消失，别的提示不受影响。
   const degraded = degradations.find((state) =>
     projects.some((project) => destinations[project.remoteId!] === state.destination),
   );
   const degradedText = degraded
-    ? `${degraded.destination} 的 helper 通道不可用，已退回一次性 ssh：${degraded.reason}`
+    ? `${degraded.destination} 的远程项目暂时不可用：${degraded.reason}`
     : null;
 
   // 首次连接这台服务器时整棵树还没有内容：面板给一个过渡，而不是空着让人以为没有文件。

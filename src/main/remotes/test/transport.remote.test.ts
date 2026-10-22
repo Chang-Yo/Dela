@@ -1,4 +1,4 @@
-// 传输层真机回归：命令拼装、NUL 清单解析与二进制写入往返，这些都无法用假 ssh 覆盖。
+// ssh 边界的真机回归：客户端定位、自检与错误。远程项目的读写与目录都经 helper，见 helper.remote.test.ts。
 // 需要 DELA_REMOTE_HOST（如 root@1.2.3.4），由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,17 +6,7 @@ vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
 
-import {
-  exec,
-  listDirectory,
-  locate,
-  locateSsh,
-  pathExists,
-  probeRemote,
-  readFile,
-  writeFile,
-  type RemoteTarget,
-} from '../transport';
+import { exec, locateSsh, probeRemote, type RemoteTarget } from '../transport';
 
 const target: RemoteTarget = {
   host: process.env.DELA_REMOTE_HOST!,
@@ -33,32 +23,6 @@ describe('transport（真机）', () => {
     expect(probe.system).toBe('Linux');
     expect(probe.home).toMatch(/^\//);
     expect(probe.bash).toContain('bash');
-  });
-
-  it('列目录解析 NUL 清单，含空格与中文名', async () => {
-    const dir = '/tmp/dela transport 测试';
-    // writeFile 自己会 mkdir -p 父目录，这里不必先建目录。
-    await writeFile(target, `${dir}/a b.txt`, 'hello');
-    const entries = await listDirectory(target, dir);
-    const names = entries.map((entry) => entry.name).sort();
-    expect(names).toEqual(['a b.txt']);
-    expect(entries[0]!.directory).toBe(false);
-  });
-
-  it('读写往返保持二进制一致', async () => {
-    const dir = '/tmp/dela-transport-bin';
-    const bytes = Buffer.from([0, 1, 2, 250, 255, 10, 13, 0]);
-    await writeFile(target, `${dir}/blob`, bytes);
-    expect(await readFile(target, `${dir}/blob`)).toEqual(bytes);
-  });
-
-  it('locate 与 pathExists 区分文件、目录与不存在', async () => {
-    const location = await locate(target, '/tmp');
-    expect(location.directory).toBe(true);
-    expect(location.entries?.length).toBeGreaterThan(0);
-    expect((await locate(target, '/tmp/dela-transport-bin/blob')).directory).toBe(false);
-    expect(await pathExists(target, '/tmp/dela-transport-bin')).toBe(true);
-    expect(await pathExists(target, '/tmp/dela-transport-nope')).toBe(false);
   });
 
   it('认证或主机不可达时给出可读错误', async () => {

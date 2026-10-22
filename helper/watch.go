@@ -414,23 +414,17 @@ func (s *server) watchForget(w http.ResponseWriter, r *http.Request) {
 // GET /v1/watch：SSE。事件就是 JSON，change 让调用方重读这几个目录层，
 // reset 让它重读该 id（或所有 id）下面的全部内容。
 func (s *server) watchStream(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		writeError(w, http.StatusInternalServerError, "no_stream", "当前连接不支持流式响应")
-		return
-	}
 	// 先订阅再写响应头：这中间的窗口里的事件会进队列，不会丢。
 	sub := s.watch.fanout.subscribe()
 	defer s.watch.fanout.unsubscribe(sub)
 
-	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.WriteHeader(http.StatusOK)
+	stream := openStream(w)
+	if stream == nil {
+		return
+	}
 	// 立刻把响应头刷出去。net/http 是懒发送：不刷的话要等第一条事件客户端才拿得到响应，
-	// 「流已建立」和「第一条变化」就分不开了（Dela 侧只能一直等）。exec 那边因为紧跟一条
-	// start 事件，天然没有这个问题。
-	flusher.Flush()
-	stream := &sseWriter{w: w, flusher: flusher}
+	// 「流已建立」和「第一条变化」就分不开了（Dela 侧只能一直等）。
+	stream.flusher.Flush()
 
 	// 保活：安静的目录可能几小时没有结构变化，而 Dela 侧把「这条流多久没有字节」当作
 	// 隧道半死的信号（心跳走的是另一条请求，不给这条流带数据）。注释帧不算事件，
