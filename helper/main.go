@@ -25,7 +25,7 @@ import (
 
 const (
 	protocolVersion = 2
-	helperVersion   = "0.3.0"
+	helperVersion   = "0.3.1"
 	idleTick        = 10 * time.Second
 	minTokenLength  = 16
 )
@@ -87,11 +87,14 @@ func (s *server) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/tasks/", s.auth(s.handleTaskAction))
 }
 
-// hello 只说握手需要的东西：版本对不上就不该继续用这条通道。
+// hello 说握手需要的东西（版本对不上就不该继续用这条通道），外加主目录：
+// 目录选择器从这里起步，省掉一次单独的 ssh 往返。
 func (s *server) handleHello(w http.ResponseWriter, r *http.Request) {
+	home, _ := os.UserHomeDir()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"protocol":      protocolVersion,
 		"helperVersion": helperVersion,
+		"home":          home,
 	})
 }
 

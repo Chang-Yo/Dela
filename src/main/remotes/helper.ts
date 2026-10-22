@@ -25,7 +25,7 @@ import {
 } from './transport';
 
 /** 必须与 helper/main.go 的 helperVersion 一致：不匹配说明远端跑的不是这一版产物。 */
-export const HELPER_VERSION = '0.3.0';
+export const HELPER_VERSION = '0.3.1';
 const PROTOCOL_VERSION = 2;
 /** 客户端每 30 秒发一次心跳；helper 连续 1 小时收不到任何请求才退出。 */
 const HEARTBEAT_MS = 30_000;
@@ -554,9 +554,10 @@ async function ensureArtifact(
   }
 
   // base64 走 ssh 的 stdin：二进制内容不经过 shell 解析，落盘后再核一次 sha256。
-  // 上传进度只报「开始 / 完成」：ssh 的 stdin 写没有可用的进度回调。
+  // 进度按 base64 字节折回原始字节报：界面显示的是产物大小，不是编码后的大小。
   const body = readFileSync(artifact);
-  onProgress?.({ step: 'upload', detail: `开始上传 ${body.length} 字节` });
+  onProgress?.({ step: 'upload', detail: '开始上传', bytes: { sent: 0, total: body.length } });
+  let reported = 0;
   const upload = await exec(
     target,
     [
@@ -568,7 +569,17 @@ async function ensureArtifact(
       'mv -f "$tmp" "$dir/dela-helper"',
       'sha256sum "$dir/dela-helper" | cut -d" " -f1',
     ].join('\n'),
-    { stdin: `${body.toString('base64')}\n`, timeoutMs: UPLOAD_TIMEOUT_MS },
+    {
+      stdin: `${body.toString('base64')}\n`,
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+      onStdinProgress: (sent, total) => {
+        const bytes = Math.round((sent / total) * body.length);
+        // 至少隔 2% 报一次：64 KB 一块会有上百次回调，界面不需要那么密。
+        if (bytes - reported < body.length / 50 && sent < total) return;
+        reported = bytes;
+        onProgress?.({ step: 'upload', bytes: { sent: bytes, total: body.length } });
+      },
+    },
   );
   const uploaded = upload.stdout.toString().trim();
   if (upload.code !== 0 || uploaded !== digest) {
@@ -577,7 +588,12 @@ async function ensureArtifact(
       `helper 上传校验失败：期望 ${digest.slice(0, 12)}，远端 ${uploaded.slice(0, 12) || upload.stderr.trim()}`,
     );
   }
-  onProgress?.({ step: 'upload', ok: true, detail: `上传完成 ${body.length} 字节` });
+  onProgress?.({
+    step: 'upload',
+    ok: true,
+    detail: '上传完成',
+    bytes: { sent: body.length, total: body.length },
+  });
   onProgress?.({ step: 'verify', ok: true, detail: 'sha256 校验通过' });
 }
 
@@ -669,6 +685,8 @@ async function bootstrap(
 interface Link {
   endpoint: Endpoint;
   process: ChildProcess;
+  /** 远端主目录（hello 里带回来）。 */
+  home: string;
 }
 
 /** 建立连接的一整步（引导 + 隧道 + 握手）：通道的状态机只依赖它，测试可以换成本地假实现。 */
@@ -692,13 +710,16 @@ const connectRemote: Connector = async (target, onProgress) => {
     detail: `本地 127.0.0.1:${tunnel.localPort} → 远端 127.0.0.1:${remote.port}`,
   });
   const endpoint = { port: tunnel.localPort, token: remote.token };
+  let home = '';
   try {
     const response = await sendRequest(endpoint, 'GET', '/v1/hello', { timeoutMs: 10_000 });
     assertOk(response, '握手');
     const hello = JSON.parse(response.body.toString()) as {
       protocol: number;
       helperVersion: string;
+      home?: string;
     };
+    home = hello.home ?? '';
     if (hello.protocol !== PROTOCOL_VERSION || hello.helperVersion !== HELPER_VERSION)
       throw new Error(`helper 版本不匹配：协议 ${hello.protocol}、版本 ${hello.helperVersion}`);
     onProgress?.({
@@ -711,7 +732,7 @@ const connectRemote: Connector = async (target, onProgress) => {
     onProgress?.({ step: 'handshake', ok: false, detail: String(error) });
     throw error;
   }
-  return { endpoint, process: tunnel.process };
+  return { endpoint, process: tunnel.process, home };
 };
 
 /** 通道状态：每台服务器一条通道，状态整份快照推给渲染端。 */
@@ -725,6 +746,8 @@ class Channel {
   state: ChannelState = 'connecting';
   reason = '';
   since = Date.now();
+  /** 远端主目录：每次连上时由 hello 带回。 */
+  home = '';
   private endpoint: Endpoint | null = null;
   private tunnel: ChildProcess | null = null;
   private heartbeat: NodeJS.Timeout | undefined;
@@ -776,6 +799,10 @@ class Channel {
   /** 手动重试：不可用时立刻重新引导，不等自动重试的间隔；其余状态什么都不做。 */
   async retry(): Promise<void> {
     if (this.state === 'unavailable') await this.connect('connecting');
+  }
+
+  snapshotWithHome() {
+    return { ...this.snapshot(), home: this.home };
   }
 
   snapshot(): RemoteChannelState {
@@ -831,6 +858,7 @@ class Channel {
     }
     this.tunnel = link.process;
     this.endpoint = link.endpoint;
+    this.home = link.home;
     link.process.once('exit', () => {
       if (this.tunnel === link.process) this.lost('隧道进程退出');
     });
@@ -1188,26 +1216,32 @@ export async function readyHelper(target: RemoteTarget): Promise<HelperSession> 
 }
 
 /**
- * 向导「连接」用：完整走一遍引导，把每一步报出去。已有通道就丢掉重来，
- * 这样「重试」按钮总能看到一份完整的日志。
+ * 向导「连接」用：已经连上就直接返回；否则完整走一遍引导，把每一步报出去。
+ * 不可用的通道丢掉重来，这样「重试」总能看到一份完整的日志。
  */
 export async function prepareHelper(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
-): Promise<{ ok: boolean; failure: string | null }> {
+): Promise<{ ok: boolean; failure: string | null; home: string | null }> {
   const key = targetKey(target);
+  const result = (channel: Channel) => {
+    const { state, reason, home } = channel.snapshotWithHome();
+    return state === 'ready'
+      ? { ok: true, failure: null, home: home || null }
+      : { ok: false, failure: reason, home: null };
+  };
   const existing = channels.get(key);
-  if (existing?.state === 'ready') {
-    onProgress?.({ step: 'handshake', ok: true, detail: 'helper 通道已就绪' });
-    return { ok: true, failure: null };
+  if (existing?.state === 'ready') return result(existing);
+  // 在连或在重连：等它自己的那一轮跑完，不另起一条。
+  if (existing && existing.state !== 'unavailable') {
+    await existing.endpointFor().catch(() => {});
+    return result(existing);
   }
   existing?.close();
   const channel = new Channel(target, broadcast, connector);
   channels.set(key, channel);
   await channel.connect('connecting', onProgress);
-  return channel.state === 'ready'
-    ? { ok: true, failure: null }
-    : { ok: false, failure: channel.reason };
+  return result(channel);
 }
 
 /** 放掉通道：只做本地收尾（停心跳、关隧道），远端实例靠空闲超时退出，任务照跑到那时。

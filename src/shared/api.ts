@@ -177,6 +177,7 @@ export type {
   RemoteProbe,
   RemoteSetupProgress,
   RemoteSetupStep,
+  SshConfigHost,
 } from './remotes';
 
 export type {

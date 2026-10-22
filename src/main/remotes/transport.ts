@@ -24,6 +24,8 @@ export function targetKey(target: RemoteTarget): string {
 
 interface ExecOptions {
   stdin?: Buffer | string;
+  /** 分块写 stdin 并报告已写字节（上传 helper 用）；不传就一次写完。 */
+  onStdinProgress?: (sent: number, total: number) => void;
   signal?: AbortSignal;
   timeoutMs?: number;
 }
@@ -149,9 +151,35 @@ export function exec(
       finish({ code: code ?? 1, stdout: Buffer.concat(chunks), stderr });
     });
 
-    if (options.stdin !== undefined) child.stdin.end(options.stdin);
-    else child.stdin.end();
+    if (options.stdin === undefined) child.stdin.end();
+    else if (!options.onStdinProgress) child.stdin.end(options.stdin);
+    else void writeChunked(child.stdin, Buffer.from(options.stdin), options.onStdinProgress);
   });
+}
+
+/** 进度粒度：64 KB 一块，等管道 drain 再写下一块，报出的字节数才是真的写进了 ssh。 */
+const STDIN_CHUNK = 64 * 1024;
+
+async function writeChunked(
+  stream: NodeJS.WritableStream,
+  body: Buffer,
+  onProgress: (sent: number, total: number) => void,
+): Promise<void> {
+  for (let offset = 0; offset < body.length; offset += STDIN_CHUNK) {
+    const chunk = body.subarray(offset, offset + STDIN_CHUNK);
+    if (!stream.write(chunk))
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          stream.off('drain', done);
+          stream.off('close', done);
+          resolve();
+        };
+        stream.on('drain', done);
+        stream.on('close', done);
+      });
+    onProgress(Math.min(offset + chunk.length, body.length), body.length);
+  }
+  stream.end();
 }
 
 /** 认证失败等错误在 stderr 上是英文原文；翻译成用户能动作的说明。 */

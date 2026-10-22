@@ -15,7 +15,14 @@ vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
 vi.mock('../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
 
-import { browseRemote, listRemotes, probeConnection, removeRemote, saveRemote } from '../api';
+import {
+  browseRemote,
+  listRemotes,
+  prepareRemote,
+  probeConnection,
+  removeRemote,
+  saveRemote,
+} from '../api';
 import { listRemoteDirectory, remoteFileIndex, writeRemoteFile } from '../operations';
 import { importRemoteProject, projectLocation } from '../../workspace/api';
 import { parentOf, targetOf } from '../api';
@@ -68,26 +75,26 @@ describe('远程项目主进程链路（真机）', () => {
     expect(probe.message).toMatch(/Linux|Darwin/);
   }, 60_000);
 
-  it('浏览从主目录起，能进能退', async () => {
-    const home = await browseRemote({ host, keyPath }, null);
-    expect(home.path).toMatch(/^\//);
-    expect(home.home).toBe(home.path);
-    // 主目录里必然存在 .ssh（连得上就说明用过密钥）或至少是个可读目录。
+  it('连接时带回主目录，浏览从主目录起，能进能退', async () => {
+    const prepared = await prepareRemote({ host, keyPath });
+    expect(prepared.ok).toBe(true);
+    expect(prepared.home).toMatch(/^\//);
+    const home = await browseRemote({ host, keyPath }, prepared.home!);
+    expect(home.path).toBe(prepared.home);
     expect(home.directories.every((entry) => entry.path.startsWith(home.path))).toBe(true);
     if (home.directories.length) {
       const child = await browseRemote({ host, keyPath }, home.directories[0]!.path);
       expect(parentOf(child.path)).toBe(home.path);
-      expect(child.home).toBeNull();
     }
-  }, 90_000);
+  }, 180_000);
 
   it('浏览到不存在的目录给出可读错误', async () => {
     await expect(browseRemote({ host, keyPath }, '/no/such/dir-9f3')).rejects.toThrow(/不是目录/);
   }, 60_000);
 
   it('登记远端项目、列一层目录、生成 @ 候选索引', async () => {
-    const project = await importRemoteProject(connectionId, testRoot);
-    expect(project).toMatchObject({ kind: 'project', name: 'dela-api-test', path: testRoot });
+    const project = await importRemoteProject(connectionId, testRoot, '接口测试');
+    expect(project).toMatchObject({ kind: 'project', name: '接口测试', path: testRoot });
     expect(projectLocation(project.id)).toEqual({
       kind: 'remote',
       remoteId: connectionId,

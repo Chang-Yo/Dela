@@ -12,10 +12,12 @@ import type {
   RemotePrepare,
   RemoteProbe,
   RemoteSetupProgress,
+  SshConfigHost,
 } from '../../shared/remotes';
 import { withinRemotePath } from '../../shared/remotes';
 import { prepareHelper } from './helper';
 import { locateRemote } from './operations';
+import { sshConfigHosts } from './ssh-config';
 import { probeRemote, type RemoteTarget } from './transport';
 
 const hostPattern = /^[A-Za-z0-9._@:[\]-]+$/;
@@ -110,6 +112,12 @@ export function removeRemote(id: string): void {
   getDatabase().prepare('DELETE FROM remotes WHERE id=?').run(id);
 }
 
+/** 本机 ssh config 里还没保存为连接的主机：向导下拉框里作为候选。 */
+export function configHostCandidates(): SshConfigHost[] {
+  const saved = new Set(listRemotes().map((connection) => connection.host));
+  return sshConfigHosts().filter((host) => !saved.has(host.alias));
+}
+
 export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> {
   const parsed = remoteDraftSchema.parse(draft);
   try {
@@ -122,27 +130,18 @@ export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> 
 }
 
 /**
- * 向导「连接」：先自检（与设置页「测试连接」同一条 probe 路径），再引导 helper。
- * 远程项目的全部能力都经 helper：它起不来，这台服务器就不能当远程项目用。
+ * 向导「连接」：引导 helper（已经连上就直接返回）。远程项目的全部能力都经 helper：
+ * 它起不来，这台服务器就不能当远程项目用。SSH 本身不通的原因由引导的第一步（探测）报出。
  */
 export async function prepareRemote(
   draft: RemoteDraft,
   onProgress?: (progress: RemoteSetupProgress) => void,
 ): Promise<RemotePrepare> {
   const parsed = remoteDraftSchema.parse(draft);
-  onProgress?.({ step: 'probe', detail: '正在检测 SSH 连接' });
-  const probe = await probeConnection(parsed);
-  onProgress?.({ step: 'probe', ok: probe.ok, detail: probe.message });
-  if (!probe.ok) return { ok: false, message: probe.message };
-
-  const { ok, failure } = await prepareHelper(targetOf(parsed), onProgress);
-  if (!ok) {
-    const message = `helper 无法在这台服务器上运行：${failure ?? '未知原因'}`;
-    onProgress?.({ step: 'ready', ok: false, detail: message });
-    return { ok: false, message };
-  }
+  const { ok, failure, home } = await prepareHelper(targetOf(parsed), onProgress);
+  if (!ok) return { ok: false, message: failure ?? '未知原因', home: null };
   onProgress?.({ step: 'ready', ok: true, detail: 'helper 通道已就绪' });
-  return { ok: true, message: probe.message };
+  return { ok: true, message: '', home };
 }
 
 export function parentOf(path: string): string | null {
@@ -160,28 +159,21 @@ export function remoteJoin(directory: string, name: string): string {
 /** 目标路径是否就是项目根或在其之内；同为根时一律放行。渲染端构造地址时用同一份判断。 */
 export const withinRemoteRoot = withinRemotePath;
 
-export async function browseRemote(
-  draft: RemoteDraft,
-  path: string | null,
-): Promise<RemoteBrowseResult> {
-  const parsed = remoteDraftSchema.parse(draft);
-  const target = targetOf(parsed);
-  // 只有从主目录起步时才知道 home；后续翻页由渲染端沿用首次结果。
-  const home = path ? null : (await probeRemote(target)).home;
-  const wanted = path ?? home!;
+export async function browseRemote(draft: RemoteDraft, path: string): Promise<RemoteBrowseResult> {
+  const target = targetOf(remoteDraftSchema.parse(draft));
+  const wanted = path.replace(/\/+$/, '') || '/';
   const location = await locateRemote(target, wanted);
   if (location.kind !== 'directory')
     throw new Error(`${wanted} 不是目录：请选择一个远端目录作为项目位置`);
-  const base = wanted.replace(/\/+$/, '');
   const directories = (location.entries ?? [])
     .filter((entry) => entry.directory)
     .map((entry) => ({
       name: entry.name,
-      path: remoteJoin(base, entry.name),
+      path: remoteJoin(wanted, entry.name),
       directory: true,
       size: null,
       modifiedAt: entry.modifiedAt,
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
-  return { path: wanted, parent: parentOf(wanted), home, directory: true, directories };
+  return { path: wanted, parent: parentOf(wanted), directories };
 }

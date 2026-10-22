@@ -2,7 +2,7 @@
 // DELA_REMOTE_HOST / DELA_REMOTE_KEY，未设置则跳过并退出 0）；这种链路在 jsdom 里只能靠假 window.dela 代替。
 import { app, BrowserWindow, ipcMain } from 'electron';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { closeDatabase, getDatabase } from '../src/main/database';
@@ -110,6 +110,16 @@ app
           buttons.at(-1).click();
         })()`,
       );
+    // 截图落到 out/smoke-shots/：面板的样子要人眼看，断言只管行为。
+    const shotDir = join(process.cwd(), 'out', 'smoke-shots');
+    mkdirSync(shotDir, { recursive: true });
+    const shoot = async (name: string) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      writeFileSync(
+        join(shotDir, `remote-${name}.png`),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+    };
     const clickLabel = (label: string) =>
       evaluate(`document.querySelector('[aria-label=${JSON.stringify(label)}]').click()`);
     const type = (label: string, value: string) =>
@@ -129,72 +139,49 @@ app
 
     await wait(`document.querySelector('[aria-label="新建项目"]') !== null`, '侧栏新建项目按钮');
     await clickLabel('新建项目');
-    await wait(`document.body.innerText.includes('连接远程目录')`, '新建项目弹窗');
-    await click('连接远程目录');
-    // 空档案里没有已保存的连接，先点「新建连接」才到填写表单。
-    await wait(
-      `document.querySelector('[aria-label="SSH 目的地"]') !== null || [...document.querySelectorAll('button')].some(b => b.textContent.trim() === '新建连接' && b.offsetParent !== null)`,
-      '向导第一步',
+    await wait(`document.body.innerText.includes('新建远程项目')`, '新建项目弹窗');
+    await click('新建远程项目');
+    // 空档案里没有已保存的连接（本机 ~/.ssh/config 里的主机会作为候选出现在下拉框里）。
+    // 冒烟走「新建连接」那条路：从下拉框里选最后一项，填完「保存并连接」。
+    await wait(`document.querySelector('[aria-label="服务器"]') !== null`, '新建远程项目面板');
+    await shoot('panel-initial');
+    await evaluate(
+      `document.querySelector('[aria-label="服务器"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))`,
     );
-    if (!(await evaluate(`document.querySelector('[aria-label="SSH 目的地"]') !== null`)))
-      await click('新建连接');
-    await wait(`document.querySelector('[aria-label="SSH 目的地"]') !== null`, '向导填写表单');
-
-    // 「连接」会真的自检、上传并启动 helper，先记下远端 helper 进程数作旁证。
+    await wait(`document.querySelectorAll('[role="option"]').length > 0`, '服务器下拉框');
+    await shoot('server-dropdown');
+    await evaluate(
+      `[...document.querySelectorAll('[role="option"]')].at(-1).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`,
+    );
+    await wait(`document.querySelector('[aria-label="SSH 目的地"]') !== null`, '连接表单');
     await type('SSH 目的地', host!);
     if (target.keyPath) await type('私钥文件', target.keyPath);
-    await click('下一步');
-    await wait(`document.body.innerText.includes('目的地')`, '向导第二步');
+    await shoot('connection-form');
     const helperCount = async () =>
       Number(
         (await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l')).stdout.toString().trim(),
       );
-    const helpersBefore = await helperCount();
-    await click('连接');
-    // 自检结果与引导进度都落在日志区（role=log）里：自检那行是「主机名 · 系统 架构」。
+    await click('保存并连接');
+    // 连上之后面板直接显示主目录的子目录（主目录由 helper 带回，不再单独跑 ssh）。
     await wait(
-      `(() => {
-        const el = document.querySelector('[role="log"]');
-        return !!el && el.innerText.includes('Linux');
-      })()`,
-      '自检通过的提示（主机名 · 系统 架构）',
+      `[...document.querySelectorAll('[role="option"] button')].some(b => b.textContent.trim() === 'dela-gui-smoke')`,
+      '面板里的远端目录清单',
     );
-    // 自检过了不等于 helper 起好：上传几 MB 产物要几十秒，必须等日志走到「就绪」那一步
-    // 再做判断，否则看到的是上传中途的快照。
-    await wait(
-      `(() => {
-        const el = document.querySelector('[role="log"]');
-        return !!el && el.innerText.includes('就绪');
-      })()`,
-      '引导日志走到就绪',
-    );
-    // 先看向导自己的结论：降级（helper 不可用）与就绪在日志里是不同的两行。
-    const ready = await evaluate(
-      `document.querySelector('[role="log"]').innerText.includes('helper 通道已就绪')`,
-    );
-    assert.ok(ready, '「连接」没有把 helper 引导起来：日志里应出现「helper 通道已就绪」');
-    // 再数一次远端进程作为旁证：留到现在的实例可能刚好到期，所以只要求不减少且至少有一个。
+    assert.ok((await helperCount()) >= 1, '连接后服务器上应有 helper 进程');
     const helpersAfterConnect = await helperCount();
-    assert.ok(
-      helpersAfterConnect >= 1 && helpersAfterConnect >= helpersBefore,
-      '「连接」没有在服务器上留下 helper 进程：这一步就该上传并启动它',
-    );
+    await shoot('directory-home');
 
-    await click('下一步：选择目录');
-    await wait(
-      `[...document.querySelectorAll('li button')].some(b => b.textContent.trim() === 'dela-gui-smoke')`,
-      '向导里的远端目录清单',
-    );
+    // 单击选中：项目名称跟着变，底部写明将添加哪个目录。
     await evaluate(
-      `[...document.querySelectorAll('li button')].find(b => b.textContent.trim() === 'dela-gui-smoke').click()`,
+      `[...document.querySelectorAll('[role="option"] button')].find(b => b.textContent.trim() === 'dela-gui-smoke').click()`,
     );
     await wait(
-      `[...document.querySelectorAll('span[title]')].some(s => s.getAttribute('title') === ${JSON.stringify(root)})`,
-      '向导当前路径',
+      `document.querySelector('[aria-label="项目名称"]').value === 'dela-gui-smoke'`,
+      '项目名称跟随选中的目录',
     );
+    await shoot('directory-selected');
 
-    // 列一层不应重建 helper 通道，否则又付一次上传与启动。
-    await click('添加为项目');
+    await click('添加项目');
     await wait(
       `document.querySelector('[role="treeitem"][aria-label="a b.txt"]') !== null`,
       '远端目录树里的文件行',

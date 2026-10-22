@@ -143,7 +143,7 @@ beforeEach(async () => {
     if (failNext) throw new Error(failNext);
     const tunnel = fakeTunnel();
     tunnels.push(tunnel);
-    return { endpoint: { port: helper.port, token }, process: tunnel };
+    return { endpoint: { port: helper.port, token }, process: tunnel, home: '/home/u' };
   });
 });
 

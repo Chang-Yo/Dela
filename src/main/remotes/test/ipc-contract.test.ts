@@ -39,6 +39,7 @@ describe('远程 IPC 通道契约', () => {
     expect(registered).toEqual([
       'remotes:browse',
       'remotes:cancel-task',
+      'remotes:config-hosts',
       'remotes:helper-states',
       'remotes:list',
       'remotes:pick-key',
@@ -57,7 +58,8 @@ describe('远程 IPC 通道契约', () => {
       remotes.save({ host: 'root@10.0.0.5' }),
       remotes.remove(remoteId),
       remotes.probe({ host: 'root@10.0.0.5' }),
-      remotes.browse({ host: 'root@10.0.0.5' }, null),
+      remotes.browse({ host: 'root@10.0.0.5' }, '/'),
+      remotes.configHosts(),
       remotes.pickKey(),
       remotes.prepare({ host: 'root@10.0.0.5' }),
       remotes.tasks(remoteId),
@@ -70,7 +72,7 @@ describe('远程 IPC 通道契约', () => {
     const unsubscribe = remotes.onSetupProgress(() => {});
     const unsubscribeState = remotes.onHelperState(() => {});
     expect([...new Set(state.invoked)].sort()).toEqual(registered);
-    expect(state.invoked).toHaveLength(11);
+    expect(state.invoked).toHaveLength(12);
     expect([...new Set(state.listened)].sort()).toEqual([
       'remotes:helper-state',
       'remotes:setup-progress',

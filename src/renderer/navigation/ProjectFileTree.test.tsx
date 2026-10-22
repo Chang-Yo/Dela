@@ -567,11 +567,11 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   root = createRoot(container);
 });
 
-it('limits a remote project row to a single action', async () => {
-  // main 对远端条目的 update 一律拒绝（重命名/移动/归档都经 update）：这些入口不能出现在菜单里。
+it('offers only rename and remove on a remote project row', async () => {
+  // 远端项目只能改 Dela 里登记的名字；移动、归档、新建对它都没有意义。
   await renderTree([]);
   await act(async () => openRowMenu('proj'));
-  expect(menuItems()).toHaveLength(1);
+  expect([...menuItems()].map((item) => item.textContent?.trim())).toEqual(['重命名', '移除']);
 });
 
 it('keeps the full action menu on a local project row', async () => {

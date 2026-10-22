@@ -18,7 +18,7 @@ import { unhideProjectInNav, useProjectNavPrefs } from '../navigation/store';
 import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
-import { RemoteConnectionWizard } from './remote-wizard';
+import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { cn } from '../lib/utils';
 
@@ -313,7 +313,7 @@ export function EntryDialogs({
                   variant="secondary"
                 >
                   <Cloud />
-                  连接远程目录
+                  新建远程项目
                 </Button>
               </div>
             )}
@@ -344,7 +344,7 @@ export function EntryDialogs({
         </Dialog.Content>
       </Dialog.Portal>
       {/* 向导有自己的对话框：外层弹窗打开它时关闭，取消后回到新建项目。 */}
-      <RemoteConnectionWizard
+      <NewRemoteProjectDialog
         open={wizard}
         onClose={() => setWizard(false)}
         onImported={(entry) => {

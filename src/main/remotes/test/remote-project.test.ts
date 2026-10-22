@@ -157,10 +157,15 @@ describe('远程条目的本地入口', () => {
     ).toThrow('远程项目内暂不支持新建文件与文件夹');
   });
 
-  it('远程项目不能重命名或移动', async () => {
-    const created = await importRemoteProject(remoteId, '/root/proj');
-    expect(() => updateWorkspaceEntry(created.id, { name: '改名' })).toThrow(
-      '远程项目暂不支持重命名或移动',
+  it('远程项目只能改登记的名字，不能移动；登记时可以自定义名字', async () => {
+    const named = await importRemoteProject(remoteId, '/root/proj', '实验 A');
+    expect(named.name).toBe('实验 A');
+    updateWorkspaceEntry(named.id, { name: '改名' });
+    expect(entry(named.id).name).toBe('改名');
+    expect(entry(named.id).path).toBe('/root/proj');
+    const folder = createWorkspaceEntry({ name: '归类', kind: 'folder', parentId: null });
+    expect(() => updateWorkspaceEntry(named.id, { parentId: folder.id })).toThrow(
+      '远程项目不能移动',
     );
   });
 

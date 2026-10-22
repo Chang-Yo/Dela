@@ -218,10 +218,11 @@ Canvas 资料目录与 `latestTermOf` 共用 `shared/canvas.ts` 的排序规则�
 - **任务接回**：bash 工具在本地生成任务 id，`POST /v1/tasks` 创建（同 id 重发不会重复执行），再按字节偏移订阅输出流。流断了就等通道重连，用同一个 id 再提交一次，从记下的偏移续读，最终拿到真实的退出码。断线期间超出 8 MB 缓冲的部分接不回来，工具输出里会补一行说明。取消显式调 `/cancel`：断开连接已经不会终止任务。Dela 重启或休眠超过 1 小时，本地那轮工具调用已经不在，任务只会被远端终止或跑完，不会接回对话。
 - **工具**：read / write / edit / bash / ls / find 复用 Pi 的工具定义、只换 `operations`；grep 在 Pi 内部固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute 调 helper 的结构化搜索。find 与 grep 在远端有 rg 时交给 rg，没有时由 helper 自己遍历（规则差异见 helper/README.md）。同名自定义工具覆盖内置（`agent-session.js` 注册表后写覆盖），因此这七个名字**不能**进 `excludeTools`。
 - **路径**：会话 cwd 就是远端 POSIX 绝对路径；工具传来的路径先经 `remotePath` 还原（Windows 会把 `/root/x` 解析成 `\root\x`）。远端上下文镜像到 `<userData>/remote-context/<remoteId>/<projectId>/`，`remotePath` 是唯一收口——七个工具（含 grep）的全部路径入口自动生效。镜像路径和命令正文按路径格式匹配：Windows 镜像兼容大小写与两种分隔符，Mac/POSIX 镜像保留大小写及文件名中的反斜杠；前缀相似的兄弟目录不映射。
-- **本地不碰远端路径**：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建 / 重命名 / 移动，目录不进本地扫描也不 `fs.watch`。远端条目 id 是「项目 id + 远端路径」，两台连接上的同路径目录不会混。远端目录的变化由 helper 的 inotify 事件流推给目录树（只监视展开的那几层）。
+- **本地不碰远端路径**：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建 / 重命名 / 移动（项目本身只能改登记的名字），目录不进本地扫描也不 `fs.watch`。远端条目 id 是「项目 id + 远端路径」，两台连接上的同路径目录不会混。远端目录的变化由 helper 的 inotify 事件流推给目录树（只监视展开的那几层）。
 - **认证**：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
 - **VS Code 打开项目**：Windows 直接启动 `Code.exe`，Mac 启动应用包内的 CLI；远程项目附带 `--remote ssh-remote+<host>`。不使用 `windowsHide: true`，它会隐藏首次启动的 Windows GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
 - **不可用**：通道判为 unavailable 时，这台服务器的项目调用一律以 `HelperUnavailableError` 失败（带分类过的原因），目录树按目的地显示提示；重连中也有一行提示，说明远端命令不受影响。
+- **新建远程项目**（`renderer/workspace/remote/`）：一个面板，项目名称 + 服务器下拉框 + 目录选择器。下拉框列出已保存的连接与 `~/.ssh/config` 里尚未保存的主机（`main/remotes/ssh-config.ts`，只读别名与 HostName/User/Port，选中即保存为连接）。选中服务器即调 `remotes.prepare`：已连上的直接返回主目录，否则走引导并经 `onSetupProgress` 推进度（上传带字节数）。连接、候选、通道状态、主目录与已读目录清单在 `remote-state.ts` 共享，目录清单只在本次运行内缓存，每台服务器上次浏览到的目录记在 localStorage。连接表单 `ConnectionForm` 与「设置 › 远程」共用。
 - **渲染端接口**：`remotes.onHelperState` 推全部通道的状态快照（`RemoteChannelState`：目的地、状态、原因、进入时刻），订阅时先补拉一次当前值（`remotes:helper-states`）；`remotes.tasks` / `cancelTask` 列出与取消某个连接上的远端任务；`remotes.retry` 手动重试一条不可用的通道。任务列表与重试暂无界面入口。
 - **不做**：远端文件写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
 

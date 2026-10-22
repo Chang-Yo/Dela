@@ -8,6 +8,7 @@ import { onRemoteChange } from './events';
 import { helperSession, helperStates, onHelperState, retryHelper } from './helper';
 import {
   browseRemote,
+  configHostCandidates,
   listRemotes,
   remoteById,
   targetOf,
@@ -48,8 +49,12 @@ export function registerRemoteIpc() {
   handle('remove', (id) => removeRemote(remoteIdSchema.parse(id)));
   handle('probe', (draft) => probeConnection(remoteDraftSchema.parse(draft)));
   handle('browse', (draft, path) =>
-    browseRemote(remoteDraftSchema.parse(draft), z.string().max(4096).nullable().parse(path)),
+    browseRemote(
+      remoteDraftSchema.parse(draft),
+      z.string().min(1).max(4096).startsWith('/').parse(path),
+    ),
   );
+  handle('config-hosts', () => configHostCandidates());
   handle('pick-key', () => pickKeyFile());
   // 引导 helper 可能几秒到几十秒（第一次要传产物），进度只能推着走：
   // 与 workspace:remote-change 同款，主进程不记任何状态。

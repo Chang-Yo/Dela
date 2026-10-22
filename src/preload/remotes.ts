@@ -7,6 +7,7 @@ import type {
   RemoteProbe,
   RemoteSetupProgress,
   RemoteTask,
+  SshConfigHost,
 } from '../shared/remotes';
 import { invoke, on } from './lib';
 
@@ -17,6 +18,7 @@ export const remotes: RemoteApi = {
   probe: (draft) => invoke('remotes:probe', draft) as Promise<RemoteProbe>,
   browse: (draft, path) => invoke('remotes:browse', draft, path) as Promise<RemoteBrowseResult>,
   pickKey: () => invoke('remotes:pick-key') as Promise<string | null>,
+  configHosts: () => invoke('remotes:config-hosts') as Promise<SshConfigHost[]>,
   prepare: (draft) => invoke('remotes:prepare', draft) as Promise<RemotePrepare>,
   onSetupProgress: (listener) => on<RemoteSetupProgress>('remotes:setup-progress', listener),
   onHelperState: (listener) => {

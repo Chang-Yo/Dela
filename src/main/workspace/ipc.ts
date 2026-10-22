@@ -195,8 +195,8 @@ export function registerWorkspaceIpc(
     const path = picked.filePaths[0];
     return picked.canceled || !path ? null : linkProjectFolder(path);
   });
-  handle('import-remote-project', async (remoteId, path) => {
-    const created = await importRemoteProject(remoteId, path);
+  handle('import-remote-project', async (remoteId, path, name) => {
+    const created = await importRemoteProject(remoteId, path, name);
     invalidateSessions();
     return created;
   });

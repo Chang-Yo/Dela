@@ -304,14 +304,13 @@ export function ProjectFileTree({
                   </>
                 )}
                 {onOpenToSide && openToSideItem(item.id)}
-                {/* 远端项目的重命名/移动/归档都走 main 的 update，而那条路径对远端项目一律拒绝
-                    （改的只是本地登记行，改了也没意义）：远端项目行只留「移除」这条本地操作。 */}
+                {/* 远端项目只能改 Dela 里登记的名字（远端目录不动）；移动/归档对它没有意义。 */}
+                <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>
+                  <Pencil />
+                  重命名
+                </DropdownMenuItem>
                 {!item.readOnly && (
                   <>
-                    <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>
-                      <Pencil />
-                      重命名
-                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onAction('move', item.id)}>
                       <FolderInput />
                       移动到…
