@@ -38,14 +38,7 @@ import {
   registerAgentIpc,
   subscribeChat,
 } from './agent';
-import {
-  applyTheme,
-  readSetting,
-  registerSettingsIpc,
-  savedIcon,
-  savedTheme,
-  savedZoom,
-} from './settings';
+import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } from './settings';
 import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';
 
 import Database from 'better-sqlite3';
@@ -190,19 +183,6 @@ app
       app.dock?.setIcon(
         nativeImage.createFromPath(join(__dirname, 'icons', `Dela_${savedIcon()}_bg.png`)),
       );
-    }
-    // macOS 首次启动仍登记默认开启；Windows 的默认值由安装器的复选框决定，
-    // 未勾选时不注册，之后由设置页或任务管理器改写系统启动项。
-    if (
-      !smokeTest &&
-      app.isPackaged &&
-      process.platform === 'darwin' &&
-      readSetting('open-at-login') === undefined
-    ) {
-      getDatabase()
-        .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
-        .run('1');
-      app.setLoginItemSettings({ openAtLogin: true });
     }
     registerSettingsIpc();
     registerConsentIpc();
