@@ -17,6 +17,7 @@ const mediaStub = () => ({
 let container: HTMLDivElement;
 let root: Root;
 let WorkbenchExplorer: typeof import('../WorkbenchExplorer').WorkbenchExplorer;
+let currentContainerOf: typeof import('../WorkbenchExplorer').currentContainerOf;
 
 beforeAll(async () => {
   // explorer-state 在模块求值时就调 window.matchMedia，jsdom 没有这个 API。
@@ -30,7 +31,7 @@ beforeAll(async () => {
       disconnect() {}
     },
   );
-  ({ WorkbenchExplorer } = await import('../WorkbenchExplorer'));
+  ({ WorkbenchExplorer, currentContainerOf } = await import('../WorkbenchExplorer'));
 });
 
 const remoteProject: WorkspaceEntry = {
@@ -75,6 +76,8 @@ const workspace: WorkspaceState = {
 beforeEach(() => {
   vi.stubGlobal('matchMedia', mediaStub);
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  // 选中行会滚进视口；jsdom 没有 scrollIntoView。
+  Element.prototype.scrollIntoView = () => {};
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -240,4 +243,31 @@ it('focuses the inline name row started from a row action menu', async () => {
   expect(input).not.toBeNull();
   expect(document.activeElement).toBe(input);
   expect(useTreeState.getState().pendingCreate).toEqual({ kind: 'file', parentId: localFolder.id });
+});
+
+// #91：切到空项目后，上一个项目选中的文件夹不能再当新建目标。
+it('falls back to the current project root when the selection belongs to another project', () => {
+  useWorkspaceStore.setState({
+    workspace: { ...workspace, entries: [...workspace.entries, localFolder] },
+    loaded: true,
+    error: null,
+  });
+  expect(currentContainerOf(localFolder.id, remoteProject.id)).toBe(remoteProject.id);
+  expect(currentContainerOf(localFolder.id, localProject.id)).toBe(localFolder.id);
+  expect(currentContainerOf(null, localProject.id)).toBe(localProject.id);
+  // 全局视图（rootId 为空）保持旧行为：选中项目时新建到项目内。
+  expect(currentContainerOf(localProject.id, null)).toBe(localProject.id);
+});
+
+// 点空白处 = 把新建目标切回项目根，后续新建落在二级而不是上次选中的子文件夹。
+it('clicking the blank area targets the project root for new entries', async () => {
+  useWorkspaceStore.setState({
+    workspace: { ...workspace, entries: [...workspace.entries, localFolder] },
+    loaded: true,
+    error: null,
+  });
+  await render(localProject.id);
+  act(() => useTreeState.getState().select(localFolder.id));
+  await act(async () => blank().click());
+  expect(useTreeState.getState().selected).toBe(localProject.id);
 });
