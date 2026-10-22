@@ -11,6 +11,7 @@ import {
   type DiagramPlugin,
 } from 'streamdown';
 import { cn } from '../../lib/utils';
+import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
 
 // mermaid 本体体积大，这里只注册插件对象，首次渲染图表时才动态加载真正的库。
 const lazyMermaidPlugin: DiagramPlugin = {
@@ -19,10 +20,7 @@ const lazyMermaidPlugin: DiagramPlugin = {
   language: 'mermaid',
   getMermaid: (config?: MermaidConfig) => ({
     initialize: () => {},
-    render: async (id: string, chart: string) => {
-      const { mermaid } = await import('@streamdown/mermaid');
-      return mermaid.getMermaid(config).render(id, chart);
-    },
+    render: (id: string, chart: string) => renderMermaid(id, chart, config),
   }),
 };
 
@@ -46,20 +44,12 @@ const chatControls: ControlsConfig = {
   image: false,
 };
 
-// mermaid 只在初始化时读主题；配置对象按当前明暗缓存，主题切换时引用变化触发图表重绘。
-// mermaid 渲染的 svg 文本默认用 trebuchet ms 等字体，与界面割裂；这里显式给定与应用一致的
-// sans 栈（与 globals.css 的 --font-sans 手工同步，那边改动需带这边）。
-const MERMAID_FONT_FAMILY = "Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif";
-let mermaidTheme: { dark: boolean; options: { config: MermaidConfig } } | null = null;
+// streamdown 要的是 { config } 包装；引用随明暗切换变化才会触发图表重绘。
+let mermaidWrapper: { config: MermaidConfig; options: { config: MermaidConfig } } | null = null;
 function mermaidOptions() {
-  const dark = document.documentElement.classList.contains('dark');
-  if (!mermaidTheme || mermaidTheme.dark !== dark) {
-    mermaidTheme = {
-      dark,
-      options: { config: { theme: dark ? 'dark' : 'default', fontFamily: MERMAID_FONT_FAMILY } },
-    };
-  }
-  return mermaidTheme.options;
+  const config = mermaidConfig();
+  if (mermaidWrapper?.config !== config) mermaidWrapper = { config, options: { config } };
+  return mermaidWrapper.options;
 }
 
 const chatTranslations = {

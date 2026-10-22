@@ -64,7 +64,7 @@ describe('旧世界库重置', () => {
     });
     backup.close();
     // 新 schema 可用：sessions 是 Pi 会话文件的索引，归档种子行存在。
-    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.pragma('user_version', { simple: true })).toBe(6);
     const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
     expect(columns.map(({ name }) => name)).toEqual(
       expect.arrayContaining(['file', 'archived', 'pinned', 'message_count']),
@@ -82,7 +82,7 @@ describe('旧世界库重置', () => {
       db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workspace_notes'").get(),
     ).toBeUndefined();
     expect(existsSync(join(root, 'dela-legacy-backup.db'))).toBe(true);
-    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.pragma('user_version', { simple: true })).toBe(6);
   });
 
   it('v3 库补 cwd 列，旧会话读回 cwd 为 NULL 且照常可用', () => {
@@ -116,7 +116,7 @@ describe('旧世界库重置', () => {
     old.pragma('user_version = 3');
     old.close();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.pragma('user_version', { simple: true })).toBe(6);
     const columns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
     expect(columns.map(({ name }) => name)).toContain('cwd');
     expect(
@@ -147,7 +147,7 @@ describe('旧世界库重置', () => {
     expect(row).toEqual({ name: '课题', remoteId: null });
   });
 
-  it('v4 库升级到 v5：补出条款接受记录表，已有数据不动', () => {
+  it('v4 库升级：补出条款接受记录表，已有数据不动', () => {
     const root = freshRoot();
     const old = new Database(join(root, 'dela.db'));
     old.exec(
@@ -157,7 +157,7 @@ describe('旧世界库重置', () => {
     old.pragma('user_version = 4');
     old.close();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.pragma('user_version', { simple: true })).toBe(6);
     expect(db.prepare('SELECT COUNT(*) AS count FROM todo_items').get()).toMatchObject({
       count: 1,
     });
@@ -187,6 +187,36 @@ describe('旧世界库重置', () => {
     ).toMatchObject({ count: 1 });
   });
 
+  it('v5 库升级：丢弃 note/local/imported 条目行与导出关联，项目与文件夹保留', () => {
+    const root = freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.exec(
+      `CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL,
+        kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT, updated_at TEXT NOT NULL)`,
+    );
+    old.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    for (const [id, kind] of [
+      ['p1', 'project'],
+      ['f1', 'folder'],
+      ['e1', 'imported'],
+      ['n1', 'note'],
+    ])
+      old.exec(
+        `INSERT INTO workspace_entries VALUES ('${id}', NULL, '${id}', '${kind}', NULL, NULL, NULL, 'x')`,
+      );
+    old.exec("INSERT INTO workspace_settings VALUES ('preview-export:workspace:x', '{}')");
+    old.exec("INSERT INTO workspace_settings VALUES ('directory', 'D:/Dela')");
+    old.pragma('user_version = 5');
+    old.close();
+    const db = getDatabase();
+    expect(db.prepare('SELECT id FROM workspace_entries ORDER BY id').all()).toEqual([
+      { id: '00000000-0000-4000-8000-000000000001' },
+      { id: 'f1' },
+      { id: 'p1' },
+    ]);
+    expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'directory' }]);
+  });
+
   it('v1 库升级只重建会话表，领域缓存保留', () => {
     const root = freshRoot();
     const old = new Database(join(root, 'dela.db'));
@@ -208,14 +238,14 @@ describe('旧世界库重置', () => {
   it('全新目录直接建库，不产生备份', () => {
     freshRoot();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(5);
+    expect(db.pragma('user_version', { simple: true })).toBe(6);
     expect(existsSync(join(state.root, 'dela-legacy-backup.db'))).toBe(false);
   });
 
   it('未来版本的库（无特征表）拒绝打开', () => {
     const root = freshRoot();
     const db = new Database(join(root, 'dela.db'));
-    db.pragma('user_version = 6');
+    db.pragma('user_version = 7');
     db.close();
     expect(() => getDatabase()).toThrow('更新版本');
   });

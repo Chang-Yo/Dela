@@ -76,9 +76,9 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 it.each([true, false])(
-  'Mac packaged=%s 从初始状态即禁用更新且所有入口不联网或安装',
+  'Linux packaged=%s 从初始状态即禁用更新且所有入口不联网或安装',
   async (packaged) => {
-    vi.stubGlobal('process', { ...process, platform: 'darwin' });
+    vi.stubGlobal('process', { ...process, platform: 'linux' });
     mocks.isPackaged = packaged;
     for (const action of ['get-state', 'check', 'download', 'install']) {
       expect(await invoke(action)).toMatchObject({
@@ -97,6 +97,15 @@ it.each([true, false])(
     expect(mocks.listeners.size).toBe(0);
   },
 );
+
+it('Mac packaged 与 Windows 同流程：可检查更新，打不开更新时给下载页', async () => {
+  vi.stubGlobal('process', { ...process, platform: 'darwin' });
+  const state = await invoke('check');
+  expect(state).toMatchObject({ phase: 'available', version: '1.0.1' });
+  expect(mocks.checkForUpdates).toHaveBeenCalledTimes(1);
+  await invoke('open-download-page');
+  expect(mocks.openExternal).toHaveBeenCalledTimes(1);
+});
 
 it('只检查正式版，关闭自动下载、退出安装和降级', async () => {
   const state = await invoke('check');

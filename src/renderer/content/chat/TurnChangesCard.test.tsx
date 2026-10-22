@@ -4,10 +4,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, FileChangeDetail, TurnChanges } from '../../../shared/api';
 import { TurnChangesCard } from './TurnChangesCard';
-import { openTabAside } from '../../workbench/open-aside';
+import { openTarget } from '../../workbench/open-target';
 
 // 落位行为由 workbench 的测试覆盖，这里只验证卡片的动作映射。
-vi.mock('../../workbench/open-aside', () => ({ openTabAside: vi.fn() }));
+vi.mock('../../workbench/open-target', () => ({ openTarget: vi.fn() }));
 
 const sessionId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4d';
 let turnSeq = 0;
@@ -112,14 +112,18 @@ it('审阅与打开按解析出的标签键落位，已删除文件的打开被�
 
   const review = host.querySelectorAll<HTMLButtonElement>('li button[type="button"]')[0]!;
   await act(async () => review.click());
-  expect(openTabAside).toHaveBeenCalledWith(`review:${sessionId}:${turn.turnId}:src/app.ts`);
+  expect(openTarget).toHaveBeenCalledWith(`review:${sessionId}:${turn.turnId}:src/app.ts`, {
+    aside: true,
+  });
 
   dela.chat.locateFile.mockResolvedValue('E:\\workspace\\Test\\src\\app.ts');
   const open = host.querySelector<HTMLButtonElement>('[title="在 Dela 中打开"]')!;
   await act(async () => open.click());
   expect(dela.chat.locateFile).toHaveBeenCalledWith(sessionId, 'src/app.ts');
   await act(async () => {});
-  expect(openTabAside).toHaveBeenCalledWith('preview:E:\\workspace\\Test\\src\\app.ts');
+  expect(openTarget).toHaveBeenCalledWith('preview:E:\\workspace\\Test\\src\\app.ts', {
+    aside: true,
+  });
 
   const deletedOpen = host.querySelector<HTMLButtonElement>('[title="文件已删除"]')!;
   expect(deletedOpen.disabled).toBe(true);
@@ -150,5 +154,7 @@ it('随聊只列文件并提供打开，不读取 diff 详情或显示审阅与�
 
   await act(async () => host.querySelector<HTMLButtonElement>('[title="在 Dela 中打开"]')!.click());
   expect(dela.chat.locateFile).toHaveBeenCalledWith(sessionId, 'src/app.ts');
-  expect(openTabAside).toHaveBeenCalledWith('preview:E:\\workspace\\Test\\src\\app.ts');
+  expect(openTarget).toHaveBeenCalledWith('preview:E:\\workspace\\Test\\src\\app.ts', {
+    aside: true,
+  });
 });

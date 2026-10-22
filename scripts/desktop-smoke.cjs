@@ -7,7 +7,8 @@ const { constants, publicEncrypt, randomUUID } = require('node:crypto');
 const assert = require('node:assert/strict');
 const root = resolve(process.argv[2] || '.');
 app.setAppPath(root);
-if (root.endsWith('.asar')) {
+const packaged = root.endsWith('.asar');
+if (packaged) {
   Object.defineProperty(app, 'isPackaged', { value: true });
   process.resourcesPath = dirname(root);
 }
@@ -18,6 +19,14 @@ app.setLoginItemSettings = () => {
   throw new Error('Smoke must not register login items');
 };
 let declined = 0;
+let dockIcon;
+if (process.platform === 'darwin') {
+  const setIcon = app.dock.setIcon.bind(app.dock);
+  app.dock.setIcon = (icon) => {
+    dockIcon = icon;
+    setIcon(icon);
+  };
+}
 dialog.showMessageBoxSync = () => {
   declined++;
   return 1;
@@ -53,6 +62,13 @@ async function run(window) {
   await wait(() => js("!!document.querySelector('main')"), 'app mounted');
   assert.equal(await js('window.dela.platform'), process.platform);
   if (process.platform === 'darwin') {
+    // 品牌源图是 1254 像素，Dock 必须用构建生成的 1024 画布图标，而不是未加留白的源图。
+    assert.ok(dockIcon && !dockIcon.isEmpty(), 'Dock icon must use generated macOS assets');
+    assert.deepEqual(
+      dockIcon.getSize(),
+      { width: 1024, height: 1024 },
+      'Dock icon must use generated macOS assets',
+    );
     const bounds = window.getBounds();
     const zoom = window.webContents.getZoomFactor();
     const fontSize = await js('document.documentElement.style.fontSize');
@@ -169,10 +185,15 @@ async function run(window) {
     if (authorization && !authorization.isDestroyed()) authorization.close();
   }
   if (process.platform === 'darwin') {
+    // 更新平台门已与 Windows 一致放开；打包冒烟停在初始状态，不触发真实联网检查。
     const update = await js('window.dela.update.getState()');
-    assert.equal(update.phase, 'unsupported');
-    assert.equal(update.reason, 'platform-unsupported');
-    assert.deepEqual(await js('window.dela.update.check()'), update);
+    assert.equal(update.phase, 'idle');
+    if (!packaged) {
+      const checked = await js('window.dela.update.check()');
+      assert.equal(checked.phase, 'unsupported');
+      assert.equal(checked.reason, 'not-packaged');
+      assert.deepEqual(await js('window.dela.update.getState()'), checked);
+    }
     const workspace = await js('window.dela.workspace.getState()');
     const exportError = await js(
       "window.dela.workspace.exportOfficePdf({ type: 'canvas', id: 'file:smoke' }).then(() => '', error => error.message)",

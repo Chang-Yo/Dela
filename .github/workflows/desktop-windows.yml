@@ -1,0 +1,74 @@
+name: Desktop windows validation
+
+on:
+  workflow_call:
+    inputs:
+      helper:
+        description: Download helper binaries built in this run
+        required: true
+        type: boolean
+      archives:
+        description: Build installers instead of directory packages
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Check win-x64
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      DELA_REMOTE_HOST: ''
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v6
+        if: inputs.helper
+        with:
+          name: helper-linux-amd64
+          path: vendor/dela-helper
+      - uses: actions/download-artifact@v6
+        if: inputs.helper
+        with:
+          name: helper-linux-arm64
+          path: vendor/dela-helper
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - name: Install pnpm
+        run: npm install --global pnpm@12.3.4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v6
+        with:
+          name: windows-build
+          path: out
+      - name: Smoke test Electron
+        run: pnpm smoke
+      - name: Package application directory
+        if: ${{ !inputs.archives }}
+        run: |
+          pnpm prepare:runtime
+          pnpm exec electron-builder --dir --win --x64 --publish never
+      - name: Build Windows installer
+        if: inputs.archives
+        run: |
+          pnpm prepare:runtime
+          pnpm exec electron-builder --win --x64 --publish never
+      - name: Verify packaged helper
+        run: |
+          cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64
+          cmp vendor/dela-helper/dela-helper-linux-arm64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-arm64
+      - name: Smoke test packaged app
+        env:
+          PACKAGED_EXECUTABLE: dist/win-unpacked/Dela.exe
+        run: '"$PACKAGED_EXECUTABLE" --smoke-test'

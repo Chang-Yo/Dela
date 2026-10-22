@@ -10,6 +10,10 @@ const DOWNLOAD_PAGE_URL = 'https://openlist.frameneo.com/@s/Dela_latest_release'
 export const BACKGROUND_CHECK_INTERVAL = 2 * 60 * 60 * 1000;
 export const BACKGROUND_CHECK_DELAY = 30_000;
 export const PENDING_INSTALL_DELAY = 5_000;
+// 目前只有 Windows 与 macOS 发布更新产物；其余平台保持 unsupported，不发起任何更新请求。
+function updatesAvailable(): boolean {
+  return process.platform === 'win32' || process.platform === 'darwin';
+}
 
 let snapshot: UpdateSnapshot | null = null;
 let configured = false;
@@ -17,7 +21,7 @@ let configured = false;
 function currentState(): UpdateSnapshot {
   if (!snapshot) {
     snapshot = initialUpdateState({ currentVersion: app.getVersion() });
-    if (process.platform !== 'win32') {
+    if (!updatesAvailable()) {
       snapshot = {
         ...snapshot,
         phase: 'unsupported',
@@ -153,7 +157,7 @@ export function registerUpdateIpc(): void {
   });
   ipcMain.handle('update:open-download-page', async (event) => {
     checkWorkspaceSender(event);
-    if (process.platform === 'win32') await shell.openExternal(DOWNLOAD_PAGE_URL);
+    if (updatesAvailable()) await shell.openExternal(DOWNLOAD_PAGE_URL);
   });
 }
 
@@ -166,8 +170,8 @@ function backgroundCheck(): void {
 }
 
 export function startBackgroundUpdateCheck(): () => void {
-  // 目前只有 Windows 的更新产物；Mac 不启动后台请求或恢复旧的待安装标记。
-  if (process.platform !== 'win32') return () => {};
+  // Windows 与 macOS 的更新产物发布在同一 CDN 目录，后台检查共用同一条流程。
+  if (!updatesAvailable()) return () => {};
   const timer = setInterval(backgroundCheck, BACKGROUND_CHECK_INTERVAL);
   const initial = setTimeout(backgroundCheck, BACKGROUND_CHECK_DELAY);
   const pending = setTimeout(() => {

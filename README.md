@@ -52,8 +52,8 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ### 工作台功能
 
-- **md笔记编辑**：所见即所得的md笔记编辑，支持 math 公式解析和 mermaid 流程图
-- **代码文件编辑**：支持绝大部分主流代码文件的高亮显示与编辑功能
+- **md笔记编辑**：笔记就是 `.md` 文件，即时渲染编辑（光标所在行显示原文），支持数学公式（含中文）与 mermaid 流程图；保存时原样写回，不改换行符与格式
+- **文件编辑**：任意文本文件都能打开编辑（包括 `.env`、`Makefile`、无后缀日志），按内容而不是扩展名识别；1 MB 以上只读预览
 - **内置终端**：用户可以直接在应用打开内置终端（Git Bash），如果是 remote project 则默认为 ssh
 
 ## 技术栈
@@ -68,11 +68,11 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ## 下载安装
 
-从 [CDN 下载页](https://openlist.frameneo.com/@s/Dela_latest_release) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela_releases/releases/latest) 下载 Windows x64 的 NSIS（`.exe`）安装包。
+从 [Dela官网](https://dela.changyo.me) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela/releases/latest) 下载对应平台的安装包。
 
 ## 本地开发
 
-需要 Node.js **24.21.0** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
+需要 Node.js **24.22.1** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
 
 ```sh
 pnpm install
@@ -91,17 +91,16 @@ pnpm dev
 
 ## 文档
 
-| 文档                                           | 内容                               | 读者           |
-| ---------------------------------------------- | ---------------------------------- | -------------- |
-| [开发文档](docs/DEVELOPMENT.md)                | 架构、各子系统约定、构建与发布流程 | 贡献者（先读） |
-| [使用条款](docs/terms.md)                      | 软件性质、责任划分与免责范围       | 使用者         |
-| [隐私条款](docs/privacy.md)                    | 数据存放位置与联网去向             | 使用者         |
-| [更新日志](CHANGELOG.md)                       | 按版本分节的变更记录               | 贡献者         |
-| [贡献指南](CONTRIBUTING.md)                    | 环境准备、提交规范与协作方式       | 贡献者         |
-| [功能边界](docs/what-we-not-do.md)             | 明确不做与需先讨论的功能           | 贡献者         |
-| [macOS 适配验证记录](docs/macos-validation.md) | Apple Silicon 适配结果与限制       | 贡献者         |
-| [安全策略](SECURITY.md)                        | 漏洞报告渠道、支持范围与安全边界   | 使用者、贡献者 |
-| [校园接口资料](docs/sjtu-apis.md)              | Canvas 实测数据结构与交大接口索引  | 贡献者         |
+| 文档                               | 内容                               | 读者           |
+| ---------------------------------- | ---------------------------------- | -------------- |
+| [开发文档](docs/DEVELOPMENT.md)    | 架构、各子系统约定、构建与发布流程 | 贡献者（先读） |
+| [使用条款](docs/terms.md)          | 软件性质、责任划分与免责范围       | 使用者         |
+| [隐私条款](docs/privacy.md)        | 数据存放位置与联网去向             | 使用者         |
+| [更新日志](CHANGELOG.md)           | 按版本分节的变更记录               | 贡献者         |
+| [贡献指南](CONTRIBUTING.md)        | 环境准备、提交规范与协作方式       | 贡献者         |
+| [功能边界](docs/what-we-not-do.md) | 明确不做与需先讨论的功能           | 贡献者         |
+| [安全策略](SECURITY.md)            | 漏洞报告渠道、支持范围与安全边界   | 使用者、贡献者 |
+| [校园接口资料](docs/sjtu-apis.md)  | Canvas 实测数据结构与交大接口索引  | 贡献者         |
 
 ## 贡献者
 

@@ -10,6 +10,8 @@ import { search, searchKeymap } from '@codemirror/search';
 import { useEditorSettings } from '../editor-settings';
 import { useNoteSpellcheck } from './note-spellcheck';
 import { markdownHighlightStyle } from '../../lib/markdown-highlight';
+import { markdownLivePreview } from './live-preview';
+import { formatByName } from '../../../shared/files';
 
 const editorTheme = EditorView.theme({
   '&': {
@@ -25,7 +27,13 @@ const editorTheme = EditorView.theme({
   },
   // 与富文本（note-editor.css 的 60rem 居中）一致，超宽窗口下行宽不无限拉伸。
   '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
-  '&.cm-source-file .cm-content': { maxWidth: 'none', margin: '0', textAlign: 'left' },
+  '&.cm-source-file .cm-scroller': { padding: '1.5rem 0' },
+  '&.cm-source-file .cm-content': {
+    maxWidth: 'none',
+    margin: '0',
+    paddingRight: '1.5rem',
+    textAlign: 'left',
+  },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
   '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
   '.cm-gutters': {
@@ -33,9 +41,11 @@ const editorTheme = EditorView.theme({
     backgroundColor: 'transparent',
     color: 'var(--color-muted-foreground)',
   },
+  // 源码文件的行号栏横向滚动时 sticky：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
   '&.cm-source-file .cm-gutters': {
-    backgroundColor: 'var(--color-muted)',
+    backgroundColor: 'var(--color-surface)',
     borderRight: '1px solid var(--color-border)',
+    paddingLeft: '1.5rem',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
@@ -48,6 +58,8 @@ const placeholderConf = new Compartment();
 const wrappingConf = new Compartment();
 const layoutConf = new Compartment();
 const contentAttributesConf = new Compartment();
+const previewConf = new Compartment();
+const readOnlyConf = new Compartment();
 const externalSync = Annotation.define<boolean>();
 
 type EditorHandlers = {
@@ -78,12 +90,19 @@ function replaceDocument(current: string, next: string) {
   return { from, to: currentEnd, insert: next.slice(from, nextEnd) };
 }
 
+/** 换行符跟随文件：CodeMirror 默认把任何换行都拆成行、再以 \n 拼回，CRLF 文件改一个字就整篇变 LF。
+ *  按第一个换行判定（与 VS Code 一致），新输入的行沿用它；混用换行的文件里另一种会被统一。
+ *  装配时只取一次：同一个编辑器会话里换行风格不变。 */
+export function lineSeparatorOf(text: string): '\r\n' | '\n' {
+  const first = text.indexOf('\n');
+  return first > 0 && text[first - 1] === '\r' ? '\r\n' : '\n';
+}
+
+/** 不传文件名（水源回复等撰写框）按 Markdown；文件按名字找语言，Dockerfile/Makefile 这类无后缀名也能匹配。 */
 function languageForFilename(filename: string | undefined): ResolvedLanguage {
   if (!filename) return { kind: 'markdown' };
-  const ext = filename.slice(filename.lastIndexOf('.') + 1).toLowerCase();
-  if (!ext || ext === filename.toLowerCase() || ext === 'md' || ext === 'markdown')
-    return { kind: 'markdown' };
-  const language = languages.find((l) => l.extensions.includes(ext));
+  if (formatByName(filename) === 'markdown') return { kind: 'markdown' };
+  const language = LanguageDescription.matchFilename(languages, filename);
   return language ? { kind: 'code', language } : { kind: 'text' };
 }
 
@@ -99,6 +118,9 @@ export function MarkdownEditor({
   ariaLabel = '笔记编辑器',
   saveOnBlur = true,
   editorStateKey,
+  livePreview,
+  readOnly = false,
+  extensions: extraExtensions = [],
 }: {
   value: string;
   filename?: string;
@@ -116,6 +138,12 @@ export function MarkdownEditor({
   saveOnBlur?: boolean;
   /** 传入后在切换标签时保留撤销历史、光标和滚动位置。每个编辑器组应使用不同值。 */
   editorStateKey?: string;
+  /** Markdown 即时渲染：传入相对图片的显示地址解析；不传为纯源码。仅取初值。 */
+  livePreview?: (src: string) => string;
+  /** 只读：仍可聚焦、搜索与复制（超过编辑上限或远端文件）。 */
+  readOnly?: boolean;
+  /** 调用方附加的扩展（如 Markdown 文件的图片粘贴）；仅取初值。 */
+  extensions?: Extension[];
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -138,7 +166,7 @@ export function MarkdownEditor({
     const current = view.current;
     if (!current) return;
     if (latestValue.current === lastPublishedValue.current) return;
-    const text = current.state.doc.toString();
+    const text = current.state.sliceDoc();
     if (latestValue.current === text) return;
     if (current.compositionStarted) {
       return;
@@ -167,8 +195,14 @@ export function MarkdownEditor({
     const transient: { current?: EditorSession } = {};
     const previous = persistent ? sessions.get(instanceKey) : undefined;
     const extensions: Extension[] = [
+      EditorState.lineSeparator.of(lineSeparatorOf(value)),
       history(),
       languageConf.of(initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []),
+      previewConf.of(
+        livePreview && initial.kind === 'markdown' ? markdownLivePreview(livePreview) : [],
+      ),
+      readOnlyConf.of(EditorState.readOnly.of(readOnly)),
+      ...extraExtensions,
       ...(showLineNumbers ? [lineNumbers()] : []),
       wrappingConf.of(wordWrap ? EditorView.lineWrapping : []),
       layoutConf.of(
@@ -221,7 +255,7 @@ export function MarkdownEditor({
           update.docChanged &&
           !update.transactions.some((transaction) => transaction.annotation(externalSync))
         )
-          handlers.get(instanceKey)?.onChange(update.state.doc.toString());
+          handlers.get(instanceKey)?.onChange(update.state.sliceDoc());
       }),
       EditorView.domEventHandlers({
         blur: () => {
@@ -237,9 +271,9 @@ export function MarkdownEditor({
     ];
     let state = previous?.state;
     if (!state) state = EditorState.create({ doc: value, extensions });
-    else if (state.doc.toString() !== value)
+    else if (state.sliceDoc() !== value)
       state = state.update({
-        changes: replaceDocument(state.doc.toString(), value),
+        changes: replaceDocument(state.sliceDoc(), value),
         annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
       }).state;
     const session: EditorSession = { state, scrollTop: previous?.scrollTop ?? scroll };
@@ -292,6 +326,11 @@ export function MarkdownEditor({
       effects: wrappingConf.reconfigure(wordWrap ? EditorView.lineWrapping : []),
     });
   }, [wordWrap]);
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: readOnlyConf.reconfigure(EditorState.readOnly.of(readOnly)),
+    });
+  }, [readOnly]);
   /* 拼写检查随设置页开关即时生效；两属性同处一个 compartment，故一并作依赖。 */
   useEffect(() => {
     view.current?.dispatch({

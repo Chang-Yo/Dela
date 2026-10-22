@@ -8,7 +8,6 @@
 - 日常编码约束：[AGENTS.md](../AGENTS.md)
 - 远端 helper 的协议与端点表：[helper/README.md](../helper/README.md)
 - 校园接口实测与资料索引：[sjtu-apis.md](sjtu-apis.md)
-- macOS 适配与验收证据：[macos-validation.md](macos-validation.md)
 
 ## 1. 产品与边界
 
@@ -42,7 +41,7 @@
 
 卡片按 `WorkspaceChat.projectId` 区分会话：项目会话提供差异审阅与增删行数；随聊（无 projectId）只列变更文件，提供 Dela 内打开、VS Code 与系统文件管理器选项，不显示审阅和行数，也不调用文件 diff 详情接口。两类会话仍使用同一套后端快照记录，此处仅收窄随聊的展示与详情请求，不减少轮前、轮后目录扫描及快照存储。
 
-前端审阅 UI 建在这些接口上：回答末尾的 `TurnChangesCard` 读取冻结记录并以折叠卡片列出文件，项目会话通过 `readTurnChanges(sessionId, turnId, true)` 一次获取文件清单与增删统计。后端只解压一次整轮记录，按文件顺序计算 patch 统计，文件间让出主进程；不再为每个文件并发解压整轮记录。随聊省略统计，列表接口也默认不计算统计；无法统计的文件返回 `stat: null`。行内「审阅」开 `review:{sessionId}:{turnId}:{path}` 标签（`content/review`，unified patch 只读呈现），「打开」先经 `chat:locate-file` 解析本机绝对路径再开 `preview:{绝对路径}` 标签（文本/Markdown/PDF/Office 走既有预览，二进制显示不支持），下拉另提供 VS Code（`chat:open-in-vscode`）与资源管理器（`chat:reveal-file`）；已删除的文件禁用打开。两组动作与标题栏「新聊天」共用同一落位规则（`workbench/open-aside.ts` 的 `prepareAsideGroup`）：单组向右分出空新组，多组进最右组；区别只在开标签机制（newChat 走 reveal 脉冲，卡片直接 openTab）。无文件的记录（远程轮次、轮前快照缺失）不渲染卡片；partial 记录展开后展示警告。落盘失败的 `changesError` 尚未在界面呈现。
+前端审阅 UI 建在这些接口上：回答末尾的 `TurnChangesCard` 读取冻结记录并以折叠卡片列出文件，项目会话通过 `readTurnChanges(sessionId, turnId, true)` 一次获取文件清单与增删统计。后端只解压一次整轮记录，按文件顺序计算 patch 统计，文件间让出主进程；不再为每个文件并发解压整轮记录。随聊省略统计，列表接口也默认不计算统计；无法统计的文件返回 `stat: null`。行内「审阅」开 `review:{sessionId}:{turnId}:{path}` 标签（`content/review`，unified patch 只读呈现），「打开」先经 `chat:locate-file` 解析本机绝对路径再开 `preview:{绝对路径}` 标签（文本/Markdown/PDF/Office 走既有预览，二进制显示不支持），下拉另提供 VS Code（`chat:open-in-vscode`）与资源管理器（`chat:reveal-file`）；已删除的文件禁用打开。两组动作都是「在旁边打开」（`workbench/open-target.ts` 的 `openTarget(tab, { aside: true })`），落位规则见下文 §2.4 标签规则。无文件的记录（远程轮次、轮前快照缺失）不渲染卡片；partial 记录展开后展示警告。落盘失败的 `changesError` 尚未在界面呈现。
 
 `DiffView` 对长差异分页，每页最多 500 行，提供上一页与下一页；换 patch 时回到第一页。解析保留完整行号，DOM 仅挂载当前页，避免多行小文件一次生成大量元素。
 
@@ -88,13 +87,29 @@ Git 当前改动合并已暂存、未暂存的净结果，额外列出未跟踪�
 
 文档正文通过 skill 的 `prepare_document` → 外部 Python 脚本 → read/grep/读图 → `release_document`：主进程仅获取文件与工具路径，不解析 Office/PDF。输入副本和输出位于系统临时目录 `dela-document-reading/job-*`，读取结束显式释放；下次准备文件时清理超过 24 小时的遗留任务，不写进用户项目。未安装时 prepare 拒绝。`read_resource` 保留文本、邮件正文、水源与图片能力，对二进制文件返回 skill 指引。手写 ZIP/XML 正文解析、解析缓存和 Agent 内 PDF 页渲染已移除；GUI DOCX/XLSX/PPTX 预览仍独立存在，Office 内容识别由 file-type 提供。`web_fetch` 的 PDF 下载复用 `prepareDocumentFile`，返回 `readable: false` 和 `document` 任务，skill 直接使用其中的路径，完成后 release，无需第二次下载。依赖缺失、下载中断或超过上限时失败并释放响应；失败任务目录清理。主进程 PDF.js 提取与其原生 canvas 运行时依赖已移除，renderer 的 PDF.js 阅读器保留。未修改的上一版内置文档 skill 会自动补齐网页 PDF 指引；用户编辑过的版本保留。
 
-`read_resource` 的文件/笔记/来源读取统一走 `resources.readResourceContent`，不调用 GUI 的 `readWorkspaceEntry` / `readCanvasSource`。资源层只直接读取文本与图片，其余文件统一返回 `format: file` 和 skill 指引，不枚举 Office/PDF 格式、不生成预览地址、不查询 PowerPoint 导出关联；Canvas 文档和邮件附件在这一步只取元数据，直到 `prepare_document` 才获取文件。Canvas 非文件正文经 `readCanvasPage` 与 GUI 共用原有按需拉取逻辑。图片与文本继续复用已有输入类型清单；笔记修订值仍为正文 SHA256。GUI 预览格式支持不限制 skill 可尝试的文件类型。
+`read_resource` 的文件/笔记/来源读取统一走 `resources.readResourceContent`，不调用 GUI 的 `readWorkspaceEntry` / `readCanvasSource`。资源层只直接读取文本与图片（格式判定与 GUI 同一套 `shared/files`，文本按内容识别），其余文件统一返回 `format: file` 和 skill 指引，不生成预览地址、不查询 PowerPoint 导出关联；Canvas 文档和邮件附件在这一步只取元数据，直到 `prepare_document` 才获取文件。Canvas 非文件正文经 `readCanvasPage` 与 GUI 共用原有按需拉取逻辑。文本修订值为正文 SHA256。GUI 预览格式支持不限制 skill 可尝试的文件类型。
 
 [隔离实测报告](../experiments/document-reading/REPORT.md) 是选型时的历史记录；当前行为以上述实现为准。
 
 ### 2.4 GUI
 
 标签工作台（聊天 / 笔记 / 预览 / 终端），经 IPC 消费同一套领域实现。UI 组件统一以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。聊天回答末尾汇总本轮 `write` / `edit` 命中的文件（按首次出现去重），每行给出文件名、所在目录与「定位 / 打开」两个按钮；相对路径按会话 cwd 解析、必须是本机存在的文件，远程项目拒绝本机打开。
+
+**标签规则**：所有「打开某样东西」的入口（目录树、资料树、侧栏会话、历史面板、深链、Agent 改动卡片）只决定打开什么、是否放到旁边；落在哪个组、是否预览只由 `workbench/open-target.ts` 的 `openTarget` 决定，规则表写在该文件顶部，`workbench/test/open-target.test.ts` 逐条覆盖。要点：
+
+- 已打开的标签一律去它所在的组聚焦；否则落焦点组。会话、终端、审阅是单例，「在旁边打开」遇到已打开的也只聚焦。
+- 预览标签（VS Code 语义，组内至多一个，标签名斜体）只用于**项目工作台**里的文件与资料：单击就地替换上一个预览；编辑、双击（目录树或标签）、拖动、右键「保留」后转常驻。资料（通用）工作台里打开的课件与文件都常驻，方便并排比对。会话一律常驻。
+- 「在旁边打开」落到焦点组右侧相邻的组，没有就向右分出一个空组；焦点组是空组时直接落进去。
+- 新对话与打开会话都留在当前工作台（项目或资料）就地开标签，不跳页、不分屏；只有在首页发起的随聊留在首页。main 对同一池复用未发送的空会话，渲染层不再替用户关闭空会话标签。
+
+**文件模型**：工作区里只有 `folder / project / file / source` 四种条目，不区分「应用内笔记」与「外部文件」——笔记就是 `.md` 文件。格式只有一条规则（`shared/files.ts`），本地工作区、远端项目、Agent `read_resource` 与聊天附件共用：
+
+- 扩展名只用来挑专用查看器（Markdown、PDF、图片、docx/xlsx/pptx）；其余一律读前 8000 字节判定（与 Git 判二进制同窗口）：无 NUL 且是合法 UTF-8 即文本，否则二进制。不维护文本扩展名白名单，`.env`、`Makefile`、无后缀日志都按内容识别。非 UTF-8 文本（GBK 的 txt/csv）按二进制处理，防止按 UTF-8 读进来再写回把它写坏。
+- 体量：1 MB 以内可编辑；1–50 MB 只读显示开头 1 MB；超过 50 MB 不读内容，提示用默认程序打开。远端文件同样阈值，且始终只读。
+- 打开方式只凭名字决定（renderer 拿不到字节）：专用格式走 `preview:` 标签，其余进 `note:` 编辑标签；内容是二进制时编辑标签给出「用默认程序打开」。
+- **不改原状**：Dela 不做格式化。Markdown 用 CodeMirror 即时渲染（`content/note/live-preview.ts`，光标所在行显示原文，其他行隐藏标记；光标不在公式与 mermaid 代码块里时显示 KaTeX / mermaid 渲染结果），文档始终是原文，不经 AST 往返序列化；编辑器换行符跟随文件首个换行（CRLF 不会被改成 LF），BOM 原样保留；保存原地覆写（不写临时文件再 rename），保住可执行位、硬链接与符号链接。保存前比对打开时的内容哈希，外部改过就拒绝，草稿留在界面上。
+- 公式（`content/note/math.ts`）：行内 `$…$` 按 Pandoc 规则识别（开 `$` 后、闭 `$` 前不能是空白，闭 `$` 后不能是数字），「花了 $5 和 $10」不会被当成公式；代码里的 `$` 跳过。公式里连续的中文与全角标点包进 `	ext{}` 用正文字体排版（KaTeX 数学模式下中文会落到回退字体、间距错乱），已在 `	ext{}` 等文本命令里的不重复包。mermaid 主题与字体和聊天区共用 `lib/mermaid.ts`，首次渲染时才加载库。
+- 新建文件名原样落盘，不补扩展名；`/` 与 `\` 是路径分隔符（`a/b.md` 建出文件夹 a 与其中的 b.md，已有文件夹复用；以分隔符结尾如 `aaa/` 一律建文件夹），每段仍过 `diskName`，`.`、`..` 段拒绝；最后一段重名直接报错，不自动加序号。重命名里的 `/` 仍按非法字符替换，不会变成移动。目录树里新建文件/文件夹是 VS Code 式行内输入（`components/ui/explorer.tsx` 的 `PendingRow`，状态在 `navigation/store` 的 `pendingCreate`）：回车或有内容时失焦提交，Esc 或空名失焦取消，失败时边框标红、输入保留。「保存为笔记」与新建项目仍走弹窗，前者预填 `新笔记.md`。Markdown 文件插入的图片存到同目录 `assets/`，移动时按相对路径（URI 编码先解码）携带。
 
 聊天工具代码块复用 `CodeBlock`：标题栏的复制按钮保持单行且不参与收缩，长路径在剩余空间省略，避免聊天区的 `overflow-wrap: anywhere` 将 Copy / Copied 拆行；正文的换行与复制内容沿用原行为。
 
@@ -147,8 +162,7 @@ Mac 设置页切换登录启动后读取系统实际状态，再保存偏好并�
 | 外观                | 主题/缩放/字号/图标    | `theme`（system/light/dark）、`zoom`（五档）、`fontSize`（12–20px，默认 16）、`icon`（white/black），各自持久化并在主进程即时生效或下次启动生效。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 快捷键              | 查看/改键/重置         | `settings.getKeybindings/setKeybindings/resetKeybindings`；动作目录在 `shared/keybindings.ts`，只存覆盖项，录制时拒绝同表冲突。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 工作区 › 工作目录   | 选择位置               | `workspace.chooseDirectory()`；只影响之后新建的顶层内容。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| 工作区 › 笔记编辑   | 读取/保存偏好          | `workspace-prefs` 行的 `defaultNoteEditMode`（rich/source）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 工作区 › 拼写检查   | 开关                   | 同一行的 `noteSpellcheck`（默认关）；所见即所得与源码编辑器即时生效。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 工作区 › 拼写检查   | 开关                   | `workspace-prefs` 行的 `noteSpellcheck`（默认关）；即时渲染与源码编辑器即时生效。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 工作区 › 布局重置   | 重置当前项目布局       | `layout.save(projectId, defaultLayout)`；下次进入该项目生效。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 工作区 › 已隐藏项目 | 恢复侧栏入口           | 侧栏「移除项目入口」写下的 `hidden` 偏好（`navigation/store.ts`），重新导入同一条目会清除它。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 已归档              | 搜索/筛选/恢复/删除    | `session.archived/update/remove`；永久删除要求先归档，两步确认，不可撤销。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -186,7 +200,7 @@ Mac 设置页切换登录启动后读取系统实际状态，再保存偏好并�
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、cwd、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
 - 会话归属在创建时确定，ChatTab 从会话快照取 projectId/cwd，不取当前工作台。
 - **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read；文本附件与图片随用户消息进入 Pi 会话，文档附件仅传本地 workspace 文件引用，由 document-reading skill 按需解析。引用以「@相对路径」token 内联在 composer 文本里（发送前经 `content/chat/reference-tokens.ts` 解析回绝对路径，未命中的 @文本只是正文），因此引用无数量上限；拖入 / 粘贴 / 选择的附件维持在 composer 上方 chips、上限 5，与引用分开计数。候选默认取会话 cwd 下的工作区文件；通用池会话（projectId 为 null 且非远端）额外并入课件候选——`canvas:cached-files`（`main/canvas/course-files.ts` 纯函数 + `api.ts` 编排）列出 courses 目录下最新学期已下载到本地的文件，workspace store 在进入会话时拉取、30 秒内去重，标题形如「课程名/相对路径」，与工作区候选重名时以工作区为准。
-- **聊天文档附件**：输入入口仅区分内联图片、常见文本和其他文件，不枚举 Office/PDF 格式。图片上限 5 MiB、文本上限 1 MiB、文档上限 128 MiB；文档需要已安装且启用 document-reading skill。文档保存为 `userData/chat-media/<UUID>.<ext>`，消息元数据记录附件 id，发送后保留供追问；未发送附件移除时删除，启动时按会话引用回收孤儿文件。二进制不按 UTF-8 注入提示词，不复制进项目；支持只发送附件。当前远端项目无法访问本机解析组件，发送文档附件会提示切换本机会话。
+- **聊天文档附件**：输入入口仅区分内联图片（png/jpeg/gif/webp）、文本（按内容嗅探，与工作区同一规则）和其他文件。图片上限 5 MiB、文本上限 1 MiB、文档上限 128 MiB；文档需要已安装且启用 document-reading skill。文档保存为 `userData/chat-media/<UUID>.<ext>`，消息元数据记录附件 id，发送后保留供追问；未发送附件移除时删除，启动时按会话引用回收孤儿文件。二进制不按 UTF-8 注入提示词，不复制进项目；支持只发送附件。当前远端项目无法访问本机解析组件，发送文档附件会提示切换本机会话。
 - **上下文占用**：快照与流式事件携带 `contextUsage`（Pi `getContextUsage` 的投影，仅打开中的会话有）；composer 底部圆环按占用显示进度，悬浮面板报 tokens、窗口总量、百分比与本会话缓存命中率。压缩后 tokens 未知时显示「—」。
 - 系统提示＝Pi 默认提示 + Dela 追加段（dela 命令说明、项目名与目录、用户自定义指令）。
 - 编辑重发在 Pi 会话树上分支，旧分支保留在 JSONL。
@@ -206,7 +220,7 @@ Canvas 资料目录与 `latestTermOf` 共用 `shared/canvas.ts` 的排序规则�
 - **认证**：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
 - **VS Code 打开项目**：Windows 直接启动 `Code.exe`，Mac 启动应用包内的 CLI；远程项目附带 `--remote ssh-remote+<host>`。不使用 `windowsHide: true`，它会隐藏首次启动的 Windows GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
 - **降级**：helper 起不来时（服务器禁执行 `noexec`、只读挂载、SELinux 拦截）自动分类原因并退回一次性 ssh，向导日志与目录树都显示人话文案。降级后端口预览与远端改动实时刷新不可用，其余功能照常。
-- **不做**：远端笔记写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
+- **不做**：远端文件写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
 
 开发注意（真机踩过的坑）：
 
@@ -245,17 +259,17 @@ preload 暴露的 API：
 
 ## 6. 应用内更新
 
-应用内更新目前仅用于 Windows，使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 目标，不自行实现版本比较、差分下载或安装器。macOS 开发版从初始快照即返回 `unsupported / platform-unsupported`，不注册后台检查、不恢复待安装标记、不调用更新器或打开仅提供 Windows 版本的下载页；设置页显示当前版本与能力限制。Mac 更新源、签名与两版升级完成验收后再启用。
+应用内更新用于 Windows 与 macOS（Apple Silicon），使用精确锁定的 electron-updater 6.8.10，配套 electron-builder 26.15.3 的 NSIS 与 DMG/ZIP 目标，不自行实现版本比较、差分下载或安装器。其余平台（如 Linux）从初始快照即返回 `unsupported / platform-unsupported`，不注册后台检查、不恢复待安装标记、不调用更新器或打开下载页；设置页显示当前版本与能力限制。
 
-- 更新源为 `https://openlist.frameneo.com/sd/Dela_latest_release/`，通过 Generic provider 读取 `latest.yml`。下载页面为对应的 `/@s/Dela_latest_release` 分享页；客户端不解析分享页 HTML。构建时由 electron-builder 在 resources 中生成 `app-update.yml`，主进程构建将 electron-updater 保持 external。
+- 更新源为 `https://openlist.frameneo.com/sd/Dela_latest_release/`，通过 Generic provider 读取 `latest.yml`（Windows）与 `latest-mac.yml`（macOS，顶层 path 指向更新用 zip，dmg 仅供首次安装）。下载页面为对应的 `/@s/Dela_latest_release` 分享页；客户端不解析分享页 HTML。构建时由 electron-builder 在 resources 中生成 `app-update.yml`，主进程构建将 electron-updater 保持 external。
 - CDN 定期拉取最新正式 GitHub Release 的文件并扁平存放，只保留最新版；上传和同步由 CDN 侧完成，CI 不持有 CDN 凭据。同步时安装包与 blockmap 应先于元数据就绪，避免元数据指向缺失文件。
-- Release 同时提供 `Dela-<版本>-win-x64.exe`、对应 `.exe.blockmap` 和渠道元数据。发布元数据统一为 `latest.yml`；预发布 Release 不进入 CDN 正式版目录，客户端固定 latest、拒绝预发布及降级。
+- Release 同时提供 `Dela-<版本>-win-x64.exe` 与对应 `.exe.blockmap`、`Dela-<版本>-mac-arm64.dmg/.zip` 与更新用 `.zip.blockmap`。发布元数据 Windows 为 `latest.yml`、macOS 为 `latest-mac.yml`；预发布 Release 不进入 CDN 正式版目录，客户端固定 latest、拒绝预发布及降级。
 - 开启 NSIS differentialPackage，Generic provider 使用单段 Range 请求。更新器优先使用本地旧安装包和 blockmap 缓存，缺少缓存、旧 blockmap 或差分失败时退回全量下载；SHA-512 校验由更新器完成，不保证每次都是差分下载。
 - 主进程 `main/update/index.ts` 持有状态，检查与下载的 Promise 处理失败；进度和安装器异步启动错误通过事件接收。界面只读快照和派发动作，设置页关闭不会打断下载。发起安装后保持 installing，不把启动安装器当成安装成功。
 - 下载进度事件传递 `transferred` / `total`，进度条左侧显示“已下载 MB / 总大小 MB”（formatBytes 口径，与缓存占用等处一致），右侧百分比向下取整，避免未完成时提前显示 100%；总大小未知时显示“—”。差分回退时同步回退实际进度和传输量，避免旧的 100% 掩盖全量下载，差分情况下大小表示实际传输量。
 - 进度 100% 仅表示传输已完成，仍需等待校验及安装准备；界面显示“正在校验并准备安装”。收到 `update-downloaded` 正式完成事件即进入 ready，不再等待其后的缓存收尾；下载 Promise 成功回执也可进入 ready。渲染端先订阅再读取初始状态，迟到的读取结果不能覆盖推送；若漏收 ready 广播，下载 IPC 回执仅在同版本仍为 downloading 时补齐，不覆盖安装中的状态。
 - **完成状态修复验证（2026-10-14，本机）**：113 个更新相关测试、生产构建、lint、格式检查和启动冒烟通过；覆盖完成事件先于 Promise、迟到快照、漏收完成广播、100% 后才准备好安装及差分回退。尚未以新版客户端执行线上两版覆盖升级，不能把这些回归检查视为该次现场故障已完成端到端复现。
-- 每两小时后台检查一次，启动后 30 秒先查一次；仅打包运行且已有窗口时执行。开发模式不联网检查。缺少或不可读的 latest.yml 显示检查失败，不显示“已是最新”。
+- 每两小时后台检查一次，启动后 30 秒先查一次；仅打包运行且已有窗口时执行。开发模式不联网检查。缺少或不可读的渠道元数据显示检查失败，不显示“已是最新”。
 - `autoDownload=false`、`autoInstallOnAppQuit=false`：用户手动下载，下载完成后选择“退出并安装”或“下次启动时提醒”；关闭弹窗后从设置页安装会重新确认。安装前保存笔记、聊天文字草稿、邮件草稿和工作台布局；运行中 Agent、未发送附件或保存失败会阻止安装，失败时保留确认入口。确认弹窗的正文只留一行（退出后自动安装、终端任务会结束），保存与安装进行中只显示标题、不再解释细节。终端任务会结束，不能恢复。
 - 安装调用 `quitAndInstall(false, true)`，关闭 Dela 并显示 NSIS 安装向导及进度，沿用原安装目录。`build/installer.nsh` 通过官方 NSIS 扩展宏启用可展开的“显示细节”：electron-builder 进入安装段先执行 `SetDetailsPrint none`，所以细节输出由 `customCheckAppRunning` 钩子重新打开（该钩子取代其默认实现，内部按原样重跑关闭 Dela 的检查），日志里才会出现开始安装、关闭运行中的 Dela、解压和安装完成这几段。`autoRunAppAfterInstall=true`，但非静默向导仍由用户在完成页选择是否运行 Dela。NSIS 安装后启动时自带 `--updated`，主进程以只读 preload 标记传给界面，只在该次启动提示实际版本，不把启动安装器当成更新成功。
 - 发起安装的行为由旧客户端决定：已安装 1.0.1 / 1.0.2 首次升级到修复版仍会使用旧的静默流程，运行修复版后的下一次更新才显示向导；手动运行新版安装包可直接使用向导。
@@ -280,7 +294,7 @@ preload 暴露的 API：
 
 ## 8. 持久化
 
-schema v5。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话不迁移）；v2→v3 只加 `workspace_entries.remote_id` 并建 `remotes` 表（旧条目一律视为本地项目）；v3→v4 给 `sessions` 加 `cwd` 列；v4→v5 建 `consent_records` 表（条款接受记录，见 §11 引导条目）。更早的旧世界库整库备份为 `dela-legacy-backup.db` 后重建，旧聊天与笔记记录不迁移。旧世界库的判定与建表都不放进版本闸门：旧体系自己用 v5–v15，撞上当前版本号的老库只看版本号的话，既不会被拒绝也不会重建，只会留下缺表的库；`consent_records` 因此与 `addColumnIfMissing` 一样每次打开都幂等补建。
+schema v6。迁移是逐段演进：v1→v2 只重建 `sessions`，删除 `runs` 与 `projects`（会话不迁移）；v2→v3 只加 `workspace_entries.remote_id` 并建 `remotes` 表（旧条目一律视为本地项目）；v3→v4 给 `sessions` 加 `cwd` 列；v4→v5 建 `consent_records` 表（条款接受记录，见 §11 引导条目）；v5→v6 破坏性丢弃 `note/local/imported` 条目行与 `preview-export:%` 导出关联（条目统一为 file，导出的 PDF 留在磁盘按普通文件出现，pptx 重新导出即重建关联）。更早的旧世界库整库备份为 `dela-legacy-backup.db` 后重建，旧聊天与笔记记录不迁移。旧世界库的判定与建表都不放进版本闸门：旧体系自己用 v5–v15，撞上当前版本号的老库只看版本号的话，既不会被拒绝也不会重建，只会留下缺表的库；`consent_records` 因此与 `addColumnIfMissing` 一样每次打开都幂等补建。
 
 表：`workspace_settings`、`workspace_entries`、`remotes`、`sessions`（索引，含 `cwd`、`message_count`），`consent_records`（条款接受记录），以及领域缓存（mail 三表、timetable 两表、`calendar_events`、canvas 两表、`shuiyuan_topics`、`todo_items`、notifications 两表）。笔记即磁盘文件。
 
@@ -315,7 +329,7 @@ macOS 的 rg/fd 位于 `vendor/bin/darwin-<arch>`，打包后为 `resources/bin/
 
 | 工具    | 版本                                  | 何时需要             |
 | ------- | ------------------------------------- | -------------------- |
-| Node.js | 24.21.0（`.node-version`、`engines`） | 总是                 |
+| Node.js | 24.22.1（`.node-version`、`engines`） | 总是                 |
 | pnpm    | 12.3.4（`packageManager`）            | 总是                 |
 | Go      | `go.mod` 声明 1.22，CI 固定 1.27.2    | 只在改远端 helper 时 |
 
@@ -325,11 +339,11 @@ macOS 的 rg/fd 位于 `vendor/bin/darwin-<arch>`，打包后为 `resources/bin/
   . ./scripts/use-local-tools.ps1
   ```
 
-- 新克隆的仓库不包含 `.tools/`，需自行安装上述版本。也可以将官方 Windows Node ZIP 解压到 `.tools/node-v24.21.0-win-x64`，再用该 Node 自带的 npm 执行 `npm install --prefix .tools/package-manager pnpm@12.3.4`。
-- Apple Silicon 本机也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.21.0-darwin-arm64`；已安装固定版本的 Node 与 pnpm 后，在当前 shell 启用并核对版本：
+- 新克隆的仓库不包含 `.tools/`，需自行安装上述版本。也可以将官方 Windows Node ZIP 解压到 `.tools/node-v24.22.1-win-x64`，再用该 Node 自带的 npm 执行 `npm install --prefix .tools/package-manager pnpm@12.3.4`。
+- Apple Silicon 本机也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.22.1-darwin-arm64`；已安装固定版本的 Node 与 pnpm 后，在当前 shell 启用并核对版本：
 
   ```sh
-  export PATH="$PWD/.tools/node-v24.21.0-darwin-arm64/bin:$PATH"
+  export PATH="$PWD/.tools/node-v24.22.1-darwin-arm64/bin:$PATH"
   node --version
   pnpm --version
   ```
@@ -412,22 +426,36 @@ pnpm test
 
 ## 14. CI
 
-保留两个 workflow：`check.yaml` 负责 PR 与 main 检查，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR、标签或手动启动检查。
+`ci.yml` 负责 PR 与 main 检查的变更检测、任务编排和结果汇总，通过 `workflow_call` 调用按职能拆分的文件。`pr-labels.yml` 独立管理 PR 标签，`release.yml` 负责 tag 发布。没有定时回归，也不要求 Draft PR 或手动启动检查。
 
-`.github/workflows/check.yaml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
+| Workflow              | 职责                                                                       |
+| --------------------- | -------------------------------------------------------------------------- |
+| `quality.yml`         | Ubuntu 上检查格式，按需执行 lint、类型检查和 actionlint                    |
+| `test.yml`            | Windows 应用构建与单元测试，上传 out 产物                                  |
+| `helper.yml`          | Go vet/test、Linux amd64/arm64 构建与可执行文件冒烟，供 CI 和 Release 共用 |
+| `desktop-windows.yml` | Windows 冒烟、目录包与安装包验证                                           |
+| `desktop-macos.yml`   | macOS 冒烟、目录包与安装包验证                                             |
+
+`.github/workflows/ci.yml` 在 PR 创建、更新、重新打开及 push 到 `main` 时运行。同一 PR 或 main 的新提交取消旧检查。
 
 - `changes` 使用固定版本的 dorny/paths-filter。PR 按相对目标分支的累计改动分流；main 按本次 push 的全部改动分流，包括删除文件。
-- `basic` 在 Windows 执行格式检查。仅修改根目录 Markdown、`docs/`、`.agents/`、`.claude/` 或 `skills-lock.json` 时，安装依赖但不执行安装脚本，不构建或测试应用。其余改动执行 lint、`pnpm build`（含类型检查）及完整单元测试。
-- `helper` 在基础检查通过后按需执行：Go vet/test、Linux amd64/arm64 构建及可执行文件冒烟。触发范围是 `helper/`、helper 构建脚本、预编译 helper，以及公共依赖与构建配置。
-- `windows` / `macos` 在基础检查通过后按路径执行。主进程根目录、terminal/remotes/documents/update、preload/shared、scripts、helper 和共享工具资源触发两端；OpenSSH 资源触发 Windows，Darwin 工具触发 Mac。公共依赖、锁文件、构建配置、workflow、build/assets 触发两端及 helper。精确规则以 workflow 中的 filters 为准。
-- 平台检查默认打目录包并验证包内资源和启动。Windows 下载基础任务的 out 产物，不重复构建；Mac 在 arm64 runner 原生构建、测试并验证原生依赖、桌面、终端与 LaunchServices。两端不再重复格式/lint，也不再调用会重复构建的 package 脚本。
-- 公共配置与资源改动额外生成 Windows NSIS、Mac DMG/ZIP；修改 Mac 包验证脚本也生成归档。Mac 归档通过完整性检查后保留 7 天；普通目录包不上传。Windows 中间构建产物保留 1 天。
+- 格式检查始终执行，依赖安装禁用安装脚本。普通文档、仓库协作配置与标签 workflow 改动不构建或测试应用；workflow 改动额外执行 actionlint。应用源码、测试、脚本和相关配置触发 lint、类型检查、Windows 构建及单元测试；内置 Markdown 等应用资源属于源码，不按文档跳过。
+- helper 检查与应用检查并行。helper 源码、构建脚本、预编译产物、helper workflow 或公共构建配置变动时重建。
+- 主进程根目录、terminal/remotes/documents/update、preload/shared、scripts、helper 和共享工具资源触发两端桌面验证；OpenSSH 资源触发 Windows，Darwin 工具触发 Mac。公共依赖、锁文件、构建配置、CI、两个 desktop workflow 与 release workflow、build/assets 触发两端及 helper。精确规则以 `ci.yml` 的 filters 为准。
+- Windows 桌面任务下载 `test.yml` 的 out 产物，不重复构建；Mac 在 arm64 runner 原生构建、测试并验证原生依赖、桌面、终端与 LaunchServices，不等待 Windows 测试。静态检查不阻塞这些任务启动，最终由汇总检查共同把关。
+- 平台检查默认打目录包并验证资源和启动。公共配置与资源改动额外生成 Windows NSIS、Mac DMG/ZIP；修改 Mac 包验证脚本也生成归档。Mac 归档保留 7 天，Windows 中间构建产物保留 1 天，普通目录包不上传。
 - helper 被选中时，平台任务必须等待其成功并下载当次产物；无需重建时使用入库的 helper，不能因 helper 合理跳过而跳过平台任务。
-- `CI required` 始终汇总结果：changes/basic 必须成功，被选中的任务必须成功，未选中的任务必须为 skipped。失败、取消或非预期跳过均不能通过。
+- `CI required` 始终汇总结果：changes/quality 必须成功，被选中的 test/helper/windows/macos 必须成功，未选中的任务必须为 skipped。失败、取消或非预期跳过均不能通过。入口不使用顶层路径过滤，避免文档 PR 的必需检查一直 Pending。
+
+`pr-labels.yml` 在 PR 创建、重新打开或推送提交时打标签：大小按过滤后的增删行分六档（0–10 / 11–80 / 81–200 / 201–400 / 401–800 / 801+，依次 XS 到 XXL），范围按路径叠加（`frontend`、`backend`、`shared`），类型取 closing issue 的标签、缺失时回退标题前缀，全部改动为文档时加 `documentation`。
+
+它用 `pull_request_target` 让 fork 的 PR 也能写标签，不 checkout PR 代码；标签须预先创建，缺失时只在 job summary 给出 `gh label create` 命令，人工改动会在下一次 PR 事件时被校正。
 
 GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换旧的平台必需检查名称；修改 workflow 本身不会更新远端分支规则。首次云端运行成功后再切换规则。变更识别 job 额外使用 `pull-requests: read`，其余检查仅有 `contents: read`。
 
-路径分流可能遗漏隐含的平台依赖；新增运行时入口或资源目录时同步更新 filters。真实 SSH 联调仍手动执行 `pnpm test:remote`，不接入 CI。Mac 云端冒烟不能替代签名、公证、Gatekeeper 下载后首启与自动更新验收；正式发布仍只处理 Windows。
+路径分流可能遗漏隐含的平台依赖；新增运行时入口或资源目录时同步更新 filters。真实 SSH 联调仍手动执行 `pnpm test:remote`，不接入 CI。Mac 云端冒烟不能替代签名、公证、Gatekeeper 下载后首启与自动更新验收；发布流程见 §15。
+
+Mac 的 `--dir` 开发目录包不生成 `app-update.yml`，目录资源校验不要求该文件；DMG/ZIP 构建及 `--signed` 校验仍要求包内更新配置，正式发布的检查不放宽。
 
 ## 15. 版本与发布
 
@@ -454,33 +482,32 @@ GitHub 分支规则应将固定的 `CI required` 设为必需检查，并替换�
 `.github/workflows/release.yml` 在推送 `v*` tag 时构建并发布 GitHub Release：
 
 1. 先提交版本号和代码，再执行 `git tag v0.1.0 && git push origin v0.1.0`；tag 必须等于 `v` + `package.json` 的版本。发版前把 `CHANGELOG.md` 的 `## Unreleased` 改成 `## <版本> - <发布日>`：更新内容弹窗只认 `## X.Y.Z - 日期` 分节（`features/release-notes/notes.ts`），留在 `Unreleased` 下的 `### 亮点` 会被静默跳过，弹窗不出现。
-2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.ts` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。全部成功后创建 Release，上传 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
-3. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
-4. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
+2. Linux helper 任务测试并构建该 tag 对应的源码；Windows 任务下载其产物，执行锁文件安装、类型检查与生产构建、单元测试、Electron 冒烟、随包运行时准备（`prepare-runtime.ts` 下载并校验 MinGit）、NSIS 构建、包内 helper 一致性与更新产物检查、打包目录启动检查。验证成功后保存 `.exe`、对应 `.exe.blockmap` 和渠道 `.yml`，等待 Mac 验证完成。正式版必须提供 `latest.yml`，包内必须有 `resources/app-update.yml`。
+3. Mac 下载同一批 helper，独立完成检查、arm64 DMG/ZIP 构建、Developer ID 签名、Apple 公证、签名校验、更新产物检查与启动冒烟；验证成功后保存 Mac 安装包、`.zip.blockmap`、`latest-mac.yml`、校验和及源码提交记录。Windows 与 Mac 并行构建，双方均成功后才向 Dela 源码仓库的草稿 Release 上传完整产物并公开；任一平台失败或等待环境批准都会阻塞发布。
+4. 含预发布后缀的版本（如 `0.2.0-beta.1`）自动标记为 prerelease。
+5. 也可在 Actions → Release installers → Run workflow 中手动填入已有 tag 构建发布。
 
-`prepare` 与 `release` 任务是 Ubuntu runner，只做校验与 `gh` 上传，不构建应用；发布 job 会把 release notes 作为 artifact 上传，供 `publish-public` 复用，后者同样跑在 `ubuntu-24.04`。release 工作流的 `concurrency` 设了 `cancel-in-progress: false`，与 CI 相反。
+`prepare` 解析 tag 对应的 SHA，发布任务均检出该 SHA；复用的 `helper.yml` 通过 `ref` 输入接收 SHA，不使用 PR 路径跳过规则。`prepare` 与 `release` 任务使用 Ubuntu runner，只做校验与 `gh` 上传，不构建应用。release 工作流的 `concurrency` 设了 `cancel-in-progress: false`，与 CI 相反。
 
-**重跑已有 tag**：现有流程仍用 `gh release upload --clobber` 覆盖同名产物。正式分发后不要覆盖重建安装包：CDN 缓存可能与新元数据不一致；程序变更应升版并发布新 tag。
+**重跑已有 tag**：Windows 与 Mac 上传均用 `gh release upload --clobber` 覆盖同名产物。正式分发后不要覆盖重建安装包：CDN 缓存可能与新元数据不一致；程序变更应升版并发布新 tag。失败时优先 Re-run failed jobs；artifact 保留 7 天。
 
-**公开镜像**：私有 Release 发布成功后，同一工作流会把同一批安装包、blockmap、更新元数据和完全相同的 release notes 再发布到公开仓库 [Chang-Yo/Dela_releases](https://github.com/Chang-Yo/Dela_releases) 的同名 tag Release。公开仓库中的 tag 由 GitHub 自动创建在其默认分支最新提交上，仅作发布锚点，不对应源码。
+发布只使用 Dela 源码仓库的 Release，不再同步独立发布仓库，也不需要跨仓库 PAT。
 
-首次使用前的准备：
-
-1. 公开仓库已有初始提交（例如 README）。
-2. 在本仓库 Settings → Secrets and variables → Actions 配置 `PUBLIC_RELEASE_TOKEN`：仅授权 `Chang-Yo/Dela_releases`、权限 Contents: Read and write 的 fine-grained PAT——内置 `GITHUB_TOKEN` 无法跨仓库发布。
+Mac 签名需要在 Settings → Environments 创建 `macos-release` 环境（允许 `main` 分支与 `v*` tag），并在其中配置 Secrets：`MAC_CSC_LINK`（Developer ID Application 证书 `.p12` 的 Base64）、`MAC_CSC_KEY_PASSWORD`（导出密码）、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。
 
 ## 16. 平台基线
 
-| 平台    | 最低系统基线 | 架构 | 产物               | GitHub runner  |
-| ------- | ------------ | ---- | ------------------ | -------------- |
-| Windows | Windows 10   | x64  | NSIS `.exe` 安装包 | `windows-2022` |
+| 平台    | 最低系统基线 | 架构  | 产物               | GitHub runner  |
+| ------- | ------------ | ----- | ------------------ | -------------- |
+| Windows | Windows 10   | x64   | NSIS `.exe` 安装包 | `windows-2022` |
+| macOS   | macOS 13.0   | arm64 | DMG / ZIP          | `macos-15`     |
 
 - 以上是项目选择的构建基线，不代表最低系统实机兼容性已验收。GitHub runner 是构建环境，与最低运行系统不同。
-- 安装包名包含版本、系统和架构，避免产物重名。私有发布任务使用内置 `GITHUB_TOKEN`（`contents: write`），公开发布任务使用 `PUBLIC_RELEASE_TOKEN`，token 权限只覆盖公开仓库。
+- 安装包名包含版本、系统和架构，避免产物重名。发布任务使用本仓库内置 `GITHUB_TOKEN`（`contents: write`）；检查与构建任务仅有 `contents: read`。
 
 ### 16.1 macOS 开发约定
 
-macOS 处于适配开发阶段，尚不提供正式发行版。2026-10-16 用户明确只支持 Apple Silicon，不适配 Intel Mac；早期记录中的 x64/双架构计划已撤销。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包与 DMG/ZIP 解包启动、主要桌面交互、文档读取及核心校园业务；具体环境、结果与证据范围见 [macOS 适配验证记录](macos-validation.md)。
+macOS 已接入签名与自动发布流程，首次云端正式分发尚待验收。2026-10-16 用户明确只支持 Apple Silicon，不适配 Intel Mac；早期记录中的 x64/双架构计划已撤销。当前验证覆盖 Apple Silicon 开发运行、arm64 目录包与 DMG/ZIP 解包启动、主要桌面交互、文档读取及核心校园业务。
 
 保持一个应用、一个 package、一套主干代码。业务逻辑、数据格式与 IPC 共用，Windows 合作者的常规业务功能无需另写 macOS 版本；涉及系统命令、路径或外部程序时仍需适配与双平台回归。平台差异优先留在现有定位、进程启动与系统交互函数中，出现真实重复和多个调用方后再提取共享函数。PPTX 在 Mac 仅提供系统默认应用打开，复用同一个资源解析与 `shell.openPath` 入口，不接入 Keynote 或其他 PDF 转换器；Windows 保留 PowerPoint 转换。
 
@@ -490,9 +517,9 @@ Mac 的 VS Code 入口先查 PATH 中的 `code`，再查 `/Applications` 与 `~/
 
 已下载课件的 `@` 候选同样按课程根目录的路径格式计算相对路径，不用宿主系统的路径规则解析另一平台的路径；排除目录自身、父级和其他盘符，POSIX 保留大小写及文件名中的反斜杠。移动或重命名本地条目时，标签、草稿和目录选中状态只迁移实际子树；POSIX 的反斜杠不是目录边界，草稿标题保留完整文件名。Windows 原有移动匹配规则保持不变。
 
-同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 开发产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish: null`，现有 CDN 配置仅属于 `win.publish`，Mac 包内不生成 `app-update.yml`；正式发布工作流仍只处理 Windows。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；Developer ID 签名、公证、Gatekeeper 下载后首启与自动更新仍待验收。
+同一代码版本生成不同平台产物。`electron-builder.yml` 将 OpenSSH exe、MinGit 与 Windows 搜索工具限定在 Windows 资源中；Mac 只拷入对应架构的 rg/fd，共享其许可证和 Linux helper，`prepare-runtime.ts` 在 Mac 不下载 MinGit。Mac 构建用 `sips` 从同一组品牌图生成带透明留白的 1024 像素 Dock/应用图标，Windows 继续直接使用源图。Mac 产物仅为 arm64 DMG 与 ZIP，打包配置显式限定 arm64，CI 同样传入 `--arm64`；不构建 Intel 或 Universal 包。`mac.publish` 与 `win.publish` 指向同一 CDN generic 更新源，Mac 包内同样生成 `app-update.yml`，发布产物多出 `latest-mac.yml`；签名包通过检查后追加到同版本 Release。开发验证使用 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取本机签名身份；发布构建由 `release.yml` 内联生成独立配置，强制 Developer ID 签名与公证。云端签名、公证与装订已随 v1.3.0 发布通过，Gatekeeper 下载后首启与两版升级仍待实机验收。
 
-Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库。账号申请状态与后续真实验收证据记录在 `macos-validation.md`；签名、公证和两版升级验收完成前不启用 Mac 自动更新。
+Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保持应用标识与发布者身份连续，签名私钥和公证认证材料仅放本机钥匙串或受保护的 CI Secrets，不进入仓库；Mac 应用内更新已启用，与 Windows 共用检查、下载、确认与安装流程，两版升级仍需实机验收。
 
 ### 16.2 跨平台取舍与待验收事项
 
@@ -506,11 +533,11 @@ Mac 正式发布的 Apple 开发者账号由 aizyeee 长期维护。接入时保
 | 登录启动       | 保留默认开启的产品行为，参数按系统处理                                  | Mac 登录项许可、实际登录后隐藏启动仍待验收；冒烟脚本禁止注册，避免测试修改启动偏好                                                              |
 | PPTX 预览      | Mac 仅用系统默认应用打开原文件；Windows 保留 PowerPoint 转换            | Mac 不显示导出/重导出按钮，主进程提前拒绝转换；已有 PDF 仍可阅读并提示过期，不要求安装 Keynote                                                  |
 | Agent 文档读取 | Windows x64 / Apple Silicon 共用脚本与锁文件，安装器按平台选择运行时    | Office/PDF 正文读取、文档附件与网页 PDF 读取依赖该组件；扫描件只输出页面图片，不宣称 OCR。与 GUI 阅读器及 PPTX 外部打开分别验收                 |
-| 分发与凭据     | 相同源码生成不同平台产物                                                | DMG/ZIP 用于开发验证；Mac 应用内更新明确不可用。签名、公证、稳定 Keychain 身份与最低版本仍待验收；真实账号仅完成本机抽样；Intel 不在支持范围    |
+| 分发与凭据     | 相同源码生成不同平台产物                                                | 签名 DMG/ZIP 已接入 Release（v1.3.0 云端签名、公证通过）；Mac 应用内更新已启用。Gatekeeper 下载后首启与两版升级未验收；Intel 不在支持范围       |
 
-本机已通过界面实测从 Dela 将含中文、空格和分号的项目目录交给 Finder 与 VS Code，笔记两种编辑模式下的 ⌘W、自动保存及 ⌘Q 退出也已验证；测试使用隔离 profile，由开发 Electron 加载打包代码，范围见[验证记录](macos-validation.md#已验证能力)。实际登录启动、系统级键位冲突、多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
+本机已通过界面实测从 Dela 将含中文、空格和分号的项目目录交给 Finder 与 VS Code，笔记编辑下的 ⌘W、自动保存及 ⌘Q 退出也已验证（在 Milkdown 时期；即时渲染编辑器尚未在 Mac 实机复验）；测试使用隔离 profile，由开发 Electron 加载打包代码。实际登录启动、系统级键位冲突、多显示器与动画表现仍需人工验收；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路也尚未在适配分支验收。模拟的平台分支测试不能替代实机回归。
 
-水源授权、课表和课堂视频登录共用 `campus.ts` 中的窗口创建函数：Mac 使用带原生标题栏的普通子窗口，提供关闭按钮、Esc 与 ⌘W；Windows 保留模态窗口。关闭快捷键仅作用于辅助窗口，不抢主工作台的关标签动作。外部页面仍使用校园 Session、sandbox 与 contextIsolation，不加载主界面 preload。水源重复授权唤回现有窗口而不替换密钥，关窗后保留待绑定状态，绑定成功关闭本次窗口，失败可重试；课表/视频按发起窗口和入口 URL 复用正在进行的登录及其结果，取消时返回「未完成登录」并清理重探计时器。来源与验证范围见 [验证记录](macos-validation.md#已验证能力)。可见关闭入口已在本机实机界面验收；自动测试覆盖窗口形态、复用与绑定路径。
+水源授权、课表和课堂视频登录共用 `campus.ts` 中的窗口创建函数：Mac 使用带原生标题栏的普通子窗口，提供关闭按钮、Esc 与 ⌘W；Windows 保留模态窗口。关闭快捷键仅作用于辅助窗口，不抢主工作台的关标签动作。外部页面仍使用校园 Session、sandbox 与 contextIsolation，不加载主界面 preload。水源重复授权唤回现有窗口而不替换密钥，关窗后保留待绑定状态，绑定成功关闭本次窗口，失败可重试；课表/视频按发起窗口和入口 URL 复用正在进行的登录及其结果，取消时返回「未完成登录」并清理重探计时器。可见关闭入口已在本机实机界面验收；自动测试覆盖窗口形态、复用与绑定路径。
 
 按当前协作决定，SSH 真机回归不作为本次 macOS 适配的阻塞项：合作者反馈已有远端测试稳定，本次重点验证 Mac 编译、打包、启动与本地 SSH 工具定位。该反馈不等于 macOS 客户端到远端的链路已验收；适配分支仍未执行真实 SSH 套件，不重复要求提供测试主机。
 
@@ -546,4 +573,4 @@ pnpm exec electron scripts/terminal-smoke.cjs "$PWD/dist/mac-arm64/Dela.app/Cont
 - CDN 的线上更新文件、Range 和两版覆盖升级尚未验收，检查失败时可从下载页手动获取安装包。
 - 未配置代码签名，安装时可能遇到 SmartScreen 提示。
 - 工作流中的冒烟检查验证打包后程序及 SQLite / preload，不代替 NSIS 安装向导的实机验收。
-- 远端项目内不支持新建 / 编辑笔记；远端 PPTX 不支持内嵌预览；打开的预览不自动跟随远端改动。
+- 远端项目内不支持新建 / 编辑文件；远端 PPTX 不支持内嵌预览；打开的预览不自动跟随远端改动。

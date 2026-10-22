@@ -46,22 +46,27 @@ const viewerTheme = EditorView.theme({
   '.cm-scroller': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     lineHeight: '1.625',
-    padding: '1.5rem',
+    padding: '1.5rem 0',
   },
-  '.cm-content': { caretColor: 'var(--syntax-caret)', margin: '0', textAlign: 'left' },
+  '.cm-content': {
+    caretColor: 'var(--syntax-caret)',
+    margin: '0',
+    paddingRight: '1.5rem',
+    textAlign: 'left',
+  },
+  // 行号栏在横向滚动时是 sticky 的：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
   '.cm-gutters': {
     borderRight: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-muted)',
+    backgroundColor: 'var(--color-surface)',
     color: 'var(--color-muted-foreground)',
+    paddingLeft: '1.5rem',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
+/** 按文件名匹配语言：Dockerfile、Makefile 这类无后缀名也能命中。 */
 function languageForFilename(filename: string): LanguageDescription | null {
-  const dot = filename.lastIndexOf('.');
-  if (dot <= 0) return null;
-  const ext = filename.slice(dot + 1).toLowerCase();
-  return languages.find((l) => l.extensions.includes(ext)) ?? null;
+  return LanguageDescription.matchFilename(languages, filename);
 }
 
 /**
