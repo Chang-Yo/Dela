@@ -18,7 +18,8 @@ import documentSkill from '../documents/skill/SKILL.md?raw';
 import documentScript from '../documents/skill/scripts/read.py?raw';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
-const CAPABILITY_SETUP_VERSION = 1;
+// 2：能力拓展页加入 Pi Packages，老用户升级后再看一次。
+const CAPABILITY_SETUP_VERSION = 2;
 const CAPABILITY_SETUP_KEY = 'capabilities-onboarding-version';
 
 export function needsCapabilitySetup(): boolean {

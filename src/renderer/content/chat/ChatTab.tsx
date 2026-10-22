@@ -130,6 +130,7 @@ function ChatComposerArea({
         referenceOptions={referenceOptions}
         notice={error}
         onDismissNotice={chatState.clearError}
+        sessionId={sessionId}
         value={prompt}
       />
     </div>

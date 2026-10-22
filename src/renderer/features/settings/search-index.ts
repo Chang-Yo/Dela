@@ -203,6 +203,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['插件', 'mcp', '服务器', 'server'],
   },
   {
+    id: 'packages',
+    section: 'packages',
+    title: 'Pi Packages',
+    keywords: ['插件', '扩展', 'extension', 'package', 'pi', 'npm', '社区', '包'],
+  },
+  {
     id: 'remote-connections',
     section: 'remotes',
     title: '远程连接',
@@ -237,6 +243,7 @@ export const settingsSectionLabels: Record<SettingsSectionId, string> = {
   commands: '自定义指令',
   skills: 'Skills',
   mcp: 'MCP Server',
+  packages: 'Pi Packages',
   about: '关于',
   privacy: '隐私条款',
   terms: '使用条款',
@@ -256,6 +263,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   commands: '全局指令与快捷指令模板',
   skills: '工作目录中的技能',
   mcp: 'MCP 服务器与工具',
+  packages: 'Pi 社区扩展、技能与提示模板',
   about: '版本信息',
   privacy: '数据存放与外发说明',
   terms: '使用本软件的责任划分',

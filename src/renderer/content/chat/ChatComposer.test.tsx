@@ -60,7 +60,9 @@ function Harness({
   effort = null,
   effortLevels = [],
   onEffortSelect = () => {},
+  sessionId = null,
 }: {
+  sessionId?: string | null;
   context?: ComposerContext | null;
   contextUsage: ContextUsageView;
   referenceOptions?: ChatReference[];
@@ -90,6 +92,7 @@ function Harness({
       onSend={() => {}}
       onStop={() => {}}
       referenceOptions={referenceOptions}
+      sessionId={sessionId}
       value={value}
     />
   );
@@ -103,11 +106,11 @@ const usage = (patch: Partial<ContextUsageView> = {}): ContextUsageView => ({
 });
 
 /** 触发 @ 候选：受控输入必须绕过 React 改写的 value setter，否则事件会被当成未变化。 */
-function typeMention() {
+function typeMention(text = '@') {
   const editor = host.querySelector<HTMLTextAreaElement>('textarea')!;
   const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
   act(() => {
-    setValue.call(editor, '@');
+    setValue.call(editor, text);
     editor.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
@@ -332,4 +335,44 @@ it('命中率文本只在拿到两个累计字段且分母大于 0 时才算数�
   // 上报过缓存写、但当次没命中：这是真实的 0%，要和「没有数据」区分开。
   expect(cacheHitRateText(usage({ inputTokens: 1000, cachedTokens: 0 }))).toBe('0.0%');
   expect(cacheHitRateText(usage({ inputTokens: 1, cachedTokens: 2 }))).toBe('66.7%');
+});
+
+it('`/` 候选列出会话里的 Pi 扩展命令与模板，选中后原样插入 `/name `', async () => {
+  const listSessionCommands = vi.fn(async () => [
+    { name: 'deploy', description: 'Deploy the app', kind: 'extension' as const, source: 'pi-ops' },
+    {
+      name: 'review',
+      description: 'Review a file',
+      kind: 'prompt' as const,
+      source: 'pi-ops',
+      argumentHint: '<file>',
+    },
+  ]);
+  const reportEditorText = vi.fn();
+  window.dela = {
+    chat: { listCommands: async () => [], listSessionCommands },
+    packages: {
+      reportEditorText,
+      onSessionState: () => () => {},
+      sessionState: async (sessionId: string) => ({
+        sessionId,
+        statuses: [{ key: 'ops', text: 'env: staging' }],
+        widgets: [],
+        workingMessage: null,
+      }),
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  await act(async () => root.render(<Harness contextUsage={usage()} sessionId="s-1" />));
+  expect(host.textContent).toContain('env: staging');
+
+  typeMention('/de');
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+  expect(listSessionCommands).toHaveBeenCalledWith('s-1');
+  const option = [...host.querySelectorAll('[role="option"]')].find((item) =>
+    item.textContent?.includes('/deploy'),
+  )!;
+  expect(option.textContent).toContain('Deploy the app');
+  await act(async () => option.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('/deploy ');
+  expect(reportEditorText).toHaveBeenLastCalledWith('s-1', '/deploy ');
 });

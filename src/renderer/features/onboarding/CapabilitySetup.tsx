@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, FileText } from 'lucide-react';
+import { Check, FileText, Package } from 'lucide-react';
 import type { SkillView } from '../../../shared/capabilities';
+import type { PackageSettings } from '../../../shared/packages';
+import { RuntimeStatus } from '../settings/sections/PackageRuntimeStatus';
 import { ToastCard } from '@/components/ui/beautifului/atoms/Toast';
 import { Button } from '../../components/ui/button';
 import { DownloadProgressRow } from '../../components/download-progress';
@@ -178,6 +180,7 @@ export function CapabilitySetup({
               </ToastCard>
             );
           })}
+        <PackagesCard disabled={saving} />
       </div>
       {error && (
         <div role="alert" className="flex flex-wrap items-center gap-2 text-13 text-red">
@@ -214,5 +217,72 @@ export function CapabilitySetup({
     <WizardShell step={0} stepCount={0} footer={footer}>
       {content}
     </WizardShell>
+  );
+}
+
+/** Pi Packages 总开关：与设置页同一个 enable 流程（先找本机 npm，没有就下载 Node 运行时）。 */
+function PackagesCard({ disabled }: { disabled: boolean }) {
+  const [settings, setSettings] = useState<PackageSettings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const api = window.dela?.packages;
+    if (!api) return;
+    void api.settings().then(setSettings);
+    return api.onSettingsChanged(setSettings);
+  }, []);
+
+  const runtime = settings?.runtime.status;
+  const working = runtime === 'checking' || runtime === 'installing';
+  const enable = async () => {
+    setError(null);
+    try {
+      setSettings(await window.dela!.packages.enable());
+    } catch (cause) {
+      setError(errorText(cause));
+    }
+  };
+
+  return (
+    <ToastCard
+      variant="neutral"
+      icon={Package}
+      title="Pi Packages"
+      description="安装 Pi 社区的扩展、Skills 与提示模板。扩展与 Dela 同权限运行。"
+      className="w-full flex-wrap items-center gap-4 p-4"
+      action={
+        settings?.enabled ? (
+          <span className="flex items-center gap-1.5 text-xs text-ink-3">
+            <Check className="size-4 text-green" />
+            已启用
+          </span>
+        ) : (
+          <Button
+            disabled={disabled || !settings || working}
+            onClick={() => void enable()}
+            size="sm"
+            variant="outline"
+          >
+            {working ? '准备中…' : runtime === 'error' ? '重试' : '启用'}
+          </Button>
+        )
+      }
+    >
+      {settings && (working || settings.enabled) && (
+        <div className="mt-3">
+          <RuntimeStatus settings={settings} />
+        </div>
+      )}
+      {error && runtime !== 'error' && (
+        <p role="alert" className="mt-2 break-words text-xs text-red">
+          {error}
+        </p>
+      )}
+      {runtime === 'error' && (
+        <div className="mt-2">
+          <RuntimeStatus settings={settings!} />
+        </div>
+      )}
+    </ToastCard>
   );
 }
