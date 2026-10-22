@@ -234,6 +234,11 @@ export function NewRemoteProjectDialog({
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content
           aria-describedby={undefined}
+          // toast 挂在对话框 portal 之外：点它（关闭、选中文字）不算点到对话框外面。
+          onInteractOutside={(event) => {
+            if ((event.target as Element | null)?.closest('[data-toast-host]'))
+              event.preventDefault();
+          }}
           className={cn(dialogPanel, 'grid max-h-[85vh] max-w-xl grid-rows-[auto_1fr] gap-4 p-5')}
         >
           <Dialog.Title className="text-base font-semibold">

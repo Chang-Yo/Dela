@@ -17,6 +17,7 @@ export const remotes: RemoteApi = {
   remove: (id) => invoke('remotes:remove', id) as Promise<void>,
   probe: (draft) => invoke('remotes:probe', draft) as Promise<RemoteProbe>,
   browse: (draft, path) => invoke('remotes:browse', draft, path) as Promise<RemoteBrowseResult>,
+  mkdir: (draft, parent, name) => invoke('remotes:mkdir', draft, parent, name) as Promise<string>,
   pickKey: () => invoke('remotes:pick-key') as Promise<string | null>,
   configHosts: () => invoke('remotes:config-hosts') as Promise<SshConfigHost[]>,
   prepare: (draft) => invoke('remotes:prepare', draft) as Promise<RemotePrepare>,

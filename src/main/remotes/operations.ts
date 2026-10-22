@@ -10,7 +10,7 @@ import { loadPi } from '../agent/pi';
 import { helperSession, type HelperLocation, type HelperSession } from './helper';
 import { notifyRemoteChange } from './events';
 import { syncRemoteWatch } from './watch';
-import type { RemoteDirEntry, RemoteTarget } from './transport';
+import { shellQuote, type RemoteDirEntry, type RemoteTarget } from './transport';
 
 /** 会话入口：顺带让这个目标的 watch 流起来（每个连接各一条，互不影响）。 */
 function session(target: RemoteTarget): HelperSession {
@@ -49,6 +49,19 @@ export function writeRemoteFile(
   content: Buffer,
 ): Promise<void> {
   return session(target).writeFile(path, content);
+}
+
+/** 建一层目录：helper 没有单独的 mkdir 接口，走 exec；不加 -p，同名已存在时直接报错。 */
+export async function makeRemoteDirectory(target: RemoteTarget, path: string): Promise<void> {
+  const chunks: Buffer[] = [];
+  const result = await session(target).exec(`mkdir -- ${shellQuote(path)}`, {
+    cwd: '/',
+    timeoutMs: 15_000,
+    onData: (chunk) => chunks.push(chunk),
+  });
+  if (result.code !== 0)
+    throw new Error(Buffer.concat(chunks).toString('utf8').trim() || `无法创建目录 ${path}`);
+  notifyRemoteChange(parentOf(path));
 }
 
 /** 一次请求回答「存在吗、是目录吗、里面有什么」：向导的目录选择器与导入项目用。 */

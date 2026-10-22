@@ -222,7 +222,7 @@ Canvas 资料目录与 `latestTermOf` 共用 `shared/canvas.ts` 的排序规则�
 - **认证**：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
 - **VS Code 打开项目**：Windows 直接启动 `Code.exe`，Mac 启动应用包内的 CLI；远程项目附带 `--remote ssh-remote+<host>`。不使用 `windowsHide: true`，它会隐藏首次启动的 Windows GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
 - **不可用**：通道判为 unavailable 时，这台服务器的项目调用一律以 `HelperUnavailableError` 失败（带分类过的原因），目录树按目的地显示提示；重连中也有一行提示，说明远端命令不受影响。
-- **新建远程项目**（`renderer/workspace/remote/`）：一个面板，项目名称 + 服务器下拉框 + 目录选择器。下拉框列出已保存的连接与 `~/.ssh/config` 里尚未保存的主机（`main/remotes/ssh-config.ts`，只读别名与 HostName/User/Port，选中即保存为连接）。选中服务器即调 `remotes.prepare`：已连上的直接返回主目录，否则走引导并经 `onSetupProgress` 推进度（上传带字节数）。连接、候选、通道状态、主目录与已读目录清单在 `remote-state.ts` 共享，目录清单只在本次运行内缓存，每台服务器上次浏览到的目录记在 localStorage。连接表单 `ConnectionForm` 与「设置 › 远程」共用。
+- **新建远程项目**（`renderer/workspace/remote/`）：一个面板，项目名称 + 服务器下拉框 + 目录选择器。下拉框列出已保存的连接与 `~/.ssh/config` 里尚未保存的主机（`main/remotes/ssh-config.ts`，只读别名与 HostName/User/Port，选中即保存为连接）。选中服务器即调 `remotes.prepare`：已连上的直接返回主目录，否则走引导并经 `onSetupProgress` 推进度（上传带字节数）。连接、候选、通道状态、主目录与已读目录清单在 `remote-state.ts` 共享，目录清单只在本次运行内缓存，每台服务器上次浏览到的目录记在 localStorage。目录选择器底栏可在当前目录下新建一层文件夹（`remotes:mkdir`，helper 没有 mkdir 接口，经 exec 跑不带 `-p` 的 `mkdir`），名字非法或创建失败走 toast；面板的 `onInteractOutside` 放过 `[data-toast-host]`，关 toast 不会关掉面板。连接表单 `ConnectionForm` 与「设置 › 远程」共用。
 - **渲染端接口**：`remotes.onHelperState` 推全部通道的状态快照（`RemoteChannelState`：目的地、状态、原因、进入时刻），订阅时先补拉一次当前值（`remotes:helper-states`）；`remotes.tasks` / `cancelTask` 列出与取消某个连接上的远端任务；`remotes.retry` 手动重试一条不可用的通道。任务列表与重试暂无界面入口。
 - **不做**：远端文件写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
 

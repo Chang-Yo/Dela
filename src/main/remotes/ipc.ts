@@ -8,6 +8,7 @@ import { onRemoteChange } from './events';
 import { helperSession, helperStates, onHelperState, retryHelper } from './helper';
 import {
   browseRemote,
+  createRemoteDirectory,
   configHostCandidates,
   listRemotes,
   remoteById,
@@ -52,6 +53,22 @@ export function registerRemoteIpc() {
     browseRemote(
       remoteDraftSchema.parse(draft),
       z.string().min(1).max(4096).startsWith('/').parse(path),
+    ),
+  );
+  handle('mkdir', (draft, parent, name) =>
+    createRemoteDirectory(
+      remoteDraftSchema.parse(draft),
+      z.string().min(1).max(4096).startsWith('/').parse(parent),
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(255)
+        .refine(
+          (value) => !/[/\0]/.test(value) && value !== '.' && value !== '..',
+          '文件夹名不合法',
+        )
+        .parse(name),
     ),
   );
   handle('config-hosts', () => configHostCandidates());

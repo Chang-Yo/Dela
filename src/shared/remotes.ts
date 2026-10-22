@@ -177,6 +177,8 @@ export interface RemoteApi {
   probe(draft: RemoteDraft): Promise<RemoteProbe>;
   /** 目录选择器：列出某个远端目录下的子目录（只列目录，含隐藏目录，由界面决定显示与否）。 */
   browse(draft: RemoteDraft, path: string): Promise<RemoteBrowseResult>;
+  /** 目录选择器里在 parent 下新建一层文件夹，返回新目录的完整路径。 */
+  mkdir(draft: RemoteDraft, parent: string, name: string): Promise<string>;
   /** 私钥文件选择器：取消返回 null。 */
   pickKey(): Promise<string | null>;
   /** 本机 `~/.ssh/config` 里还没保存为连接的主机。 */

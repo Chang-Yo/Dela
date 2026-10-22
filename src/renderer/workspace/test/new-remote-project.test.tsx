@@ -16,6 +16,9 @@ import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
 import { useRemoteState } from '../remote/remote-state';
 import { useWorkspaceStore } from '../store';
 import { useProjectNavPrefs } from '../../navigation/store';
+import { showToast } from '../../app/toasts';
+
+vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -216,6 +219,94 @@ it('jumps to a typed path from the path bar', async () => {
   );
   await flush();
   expect(remotes.browse).toHaveBeenLastCalledWith(expect.anything(), '/home/u/data');
+});
+
+it('creates a folder in the current directory and selects it', async () => {
+  let names = ['proj'];
+  const mkdir = vi.fn(async (_draft: unknown, parent: string, name: string) => {
+    names = [...names, name];
+    return `${parent}/${name}`;
+  });
+  api({
+    mkdir,
+    browse: vi.fn(async (_draft: unknown, path: string) => listing(path, names)),
+  });
+  await render();
+
+  await act(async () => button('新建文件夹').click());
+  await act(async () => setValue(input('新文件夹名称'), 'exp2'));
+  await act(async () =>
+    input('新文件夹名称').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    ),
+  );
+  await flush();
+  expect(mkdir).toHaveBeenCalledWith(
+    expect.objectContaining({ host: 'gpu-box' }),
+    '/home/u',
+    'exp2',
+  );
+  expect(document.querySelector('[aria-label="新文件夹名称"]')).toBeNull();
+  expect(document.querySelector('[aria-selected="true"]')?.textContent).toContain('exp2');
+  expect(input('项目名称').value).toBe('exp2');
+});
+
+it('reports a failed or invalid folder name in a toast and keeps the name row open', async () => {
+  const mkdir = vi.fn(async () => Promise.reject(new Error('mkdir: File exists')));
+  api({ mkdir });
+  await render();
+  await act(async () => button('新建文件夹').click());
+  const submit = (name: string) =>
+    act(async () => {
+      setValue(input('新文件夹名称'), name);
+      input('新文件夹名称').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      );
+    });
+
+  // 带路径分隔符的名字不发到远端，直接给出原因。
+  await submit('aa/dd');
+  await flush();
+  expect(mkdir).not.toHaveBeenCalled();
+  expect(showToast).toHaveBeenLastCalledWith(
+    expect.objectContaining({ variant: 'error', description: expect.stringContaining('/') }),
+  );
+
+  await submit('proj');
+  await flush();
+  expect(showToast).toHaveBeenLastCalledWith(
+    expect.objectContaining({ description: expect.stringContaining('File exists') }),
+  );
+  expect(input('新文件夹名称').value).toBe('proj');
+  expect(document.querySelector('[role="alert"]')).toBeNull();
+});
+
+it('stays open when a toast is clicked, but closes on a real outside click', async () => {
+  api();
+  const onClose = vi.fn();
+  await act(async () =>
+    root.render(<NewRemoteProjectDialog onClose={onClose} onImported={() => {}} open />),
+  );
+  await flush();
+  // toast 与对话框不在同一个 portal：关掉它不能被当成点了对话框外面。
+  const host = document.createElement('div');
+  host.setAttribute('data-toast-host', '');
+  const close = document.createElement('button');
+  host.append(close);
+  document.body.append(host);
+  // Radix 把左键的「点到外面」推迟到随后的 click 才判定。
+  const press = (target: Element) => {
+    target.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+  };
+  await act(async () => press(close));
+  await flush();
+  expect(onClose).not.toHaveBeenCalled();
+
+  await act(async () => press(document.body));
+  await flush();
+  expect(onClose).toHaveBeenCalled();
+  host.remove();
 });
 
 it('saves an ~/.ssh/config host as a connection when it is picked', async () => {

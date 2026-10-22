@@ -2,11 +2,14 @@
 // 路径栏平时是面包屑，点一下变成输入框，可粘贴路径回车跳转。
 // 已读过的目录走 remote-state 的缓存：返回上一级、再进来都是即时的，后台再静默刷新一次。
 // 读取中不禁用任何东西：路径栏立刻变，列表显示占位，用户可以继续往别处点。
+// 底栏「新建文件夹」在当前目录下建一层，建好后重读清单并选中它，可直接作为项目目录；
+// 失败是瞬时结果，走 toast，输入框保留原名方便改了再试。
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { ChevronRight, Clock, Folder, House, Search } from 'lucide-react';
+import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-react';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
 import type { RemoteBrowseResult, RemoteDraft } from '../../../shared/api';
+import { showToast } from '../../app/toasts';
 import { errorText } from '../store';
 import { useRemoteState } from './remote-state';
 
@@ -54,6 +57,8 @@ export function DirectoryBrowser({
   const [showHidden, setShowHidden] = useState(false);
   const [editing, setEditing] = useState(false);
   const [typed, setTyped] = useState(path);
+  /** 新建文件夹的名字；null 表示没在新建。 */
+  const [creating, setCreating] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
   // draft 每次渲染都是新对象：读取只跟着连接参数与路径走，用 ref 拿最新值。
   const draftRef = useRef(draft);
@@ -87,7 +92,32 @@ export function DirectoryBrowser({
   useEffect(() => {
     setFilter('');
     setTyped(path);
+    setCreating(null);
   }, [path]);
+
+  const createFolder = async () => {
+    const remotes = window.dela?.remotes;
+    const name = creating?.trim();
+    if (!remotes || !name) return;
+    // 主进程同样会拦；这里先拦是为了给出人话，而不是 zod 的校验转储。
+    const invalid = /[/\0]/.test(name)
+      ? '文件夹名不能包含 /，只能新建一层'
+      : name === '.' || name === '..'
+        ? '文件夹名不能是 . 或 ..'
+        : null;
+    if (invalid) {
+      showToast({ variant: 'error', title: '无法新建文件夹', description: invalid });
+      return;
+    }
+    try {
+      const created = await remotes.mkdir(draftRef.current, path, name);
+      cacheListing(destination, await remotes.browse(draftRef.current, path));
+      setCreating(null);
+      onSelect(created);
+    } catch (cause) {
+      showToast({ variant: 'error', title: '新建文件夹失败', description: errorText(cause) });
+    }
+  };
 
   const directories = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -235,6 +265,31 @@ export function DirectoryBrowser({
         role="listbox"
         tabIndex={0}
       >
+        {creating !== null && (
+          <li className="px-2 py-1">
+            <div className="flex items-center gap-2 px-1">
+              <FolderPlus className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
+              <Input
+                aria-label="新文件夹名称"
+                autoFocus
+                className="h-7 text-xs"
+                onChange={(event) => setCreating(event.target.value)}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void createFolder();
+                  } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setCreating(null);
+                  }
+                }}
+                placeholder="新文件夹名称，回车创建"
+                value={creating}
+              />
+            </div>
+          </li>
+        )}
         {parent && (
           <li>
             <button
@@ -310,7 +365,17 @@ export function DirectoryBrowser({
       </ul>
 
       <div className="flex items-center justify-between border-t border-line px-2.5 py-1.5 text-2xs text-ink-3">
-        <span>单击选中 · 双击进入 · ← 返回上一级</span>
+        <span className="flex-1" />
+        <button
+          className="mr-3 flex items-center gap-1 rounded-chip px-1 py-0.5 hover:bg-hover hover:text-ink"
+          onClick={() => {
+            setCreating('');
+          }}
+          type="button"
+        >
+          <FolderPlus className="size-3" />
+          新建文件夹
+        </button>
         <label className="flex items-center gap-1.5">
           <input
             checked={showHidden}

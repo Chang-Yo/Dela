@@ -16,7 +16,7 @@ import type {
 } from '../../shared/remotes';
 import { withinRemotePath } from '../../shared/remotes';
 import { prepareHelper } from './helper';
-import { locateRemote } from './operations';
+import { locateRemote, makeRemoteDirectory } from './operations';
 import { sshConfigHosts } from './ssh-config';
 import { probeRemote, type RemoteTarget } from './transport';
 
@@ -142,6 +142,17 @@ export async function prepareRemote(
   if (!ok) return { ok: false, message: failure ?? '未知原因', home: null };
   onProgress?.({ step: 'ready', ok: true, detail: 'helper 通道已就绪' });
   return { ok: true, message: '', home };
+}
+
+/** 目录选择器里新建文件夹：只建一层，名字不许带路径分隔符。 */
+export async function createRemoteDirectory(
+  draft: RemoteDraft,
+  parent: string,
+  name: string,
+): Promise<string> {
+  const path = remoteJoin(parent.replace(/\/+$/, '') || '/', name);
+  await makeRemoteDirectory(targetOf(remoteDraftSchema.parse(draft)), path);
+  return path;
 }
 
 export function parentOf(path: string): string | null {

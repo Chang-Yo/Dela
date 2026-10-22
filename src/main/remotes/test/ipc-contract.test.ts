@@ -42,6 +42,7 @@ describe('远程 IPC 通道契约', () => {
       'remotes:config-hosts',
       'remotes:helper-states',
       'remotes:list',
+      'remotes:mkdir',
       'remotes:pick-key',
       'remotes:prepare',
       'remotes:probe',
@@ -59,6 +60,7 @@ describe('远程 IPC 通道契约', () => {
       remotes.remove(remoteId),
       remotes.probe({ host: 'root@10.0.0.5' }),
       remotes.browse({ host: 'root@10.0.0.5' }, '/'),
+      remotes.mkdir({ host: 'root@10.0.0.5' }, '/', 'proj'),
       remotes.configHosts(),
       remotes.pickKey(),
       remotes.prepare({ host: 'root@10.0.0.5' }),
@@ -72,7 +74,7 @@ describe('远程 IPC 通道契约', () => {
     const unsubscribe = remotes.onSetupProgress(() => {});
     const unsubscribeState = remotes.onHelperState(() => {});
     expect([...new Set(state.invoked)].sort()).toEqual(registered);
-    expect(state.invoked).toHaveLength(12);
+    expect(state.invoked).toHaveLength(13);
     expect([...new Set(state.listened)].sort()).toEqual([
       'remotes:helper-state',
       'remotes:setup-progress',
