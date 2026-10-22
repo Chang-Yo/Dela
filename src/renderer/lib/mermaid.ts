@@ -2,9 +2,11 @@
 // mermaid 本体体积大，只在首次渲染图表时才动态加载。
 import type { MermaidConfig } from '@streamdown/mermaid';
 
-// mermaid 渲染的 svg 文本默认用 trebuchet ms 等字体，与界面割裂；这里显式给定与应用一致的
-// sans 栈（与 globals.css 的 --font-sans 手工同步，那边改动需带这边）。
-const MERMAID_FONT_FAMILY = "Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif";
+// mermaid 渲染的 svg 文本默认用 trebuchet ms 等字体，与界面割裂；字体栈取自界面自身
+// （globals.css 的 --font-sans），不再手工同步一份副本。
+function interfaceFontFamily(): string {
+  return getComputedStyle(document.documentElement).fontFamily;
+}
 
 let cached: { dark: boolean; config: MermaidConfig } | null = null;
 
@@ -14,7 +16,7 @@ export function mermaidConfig(): MermaidConfig {
   if (!cached || cached.dark !== dark)
     cached = {
       dark,
-      config: { theme: dark ? 'dark' : 'default', fontFamily: MERMAID_FONT_FAMILY },
+      config: { theme: dark ? 'dark' : 'default', fontFamily: interfaceFontFamily() },
     };
   return cached.config;
 }

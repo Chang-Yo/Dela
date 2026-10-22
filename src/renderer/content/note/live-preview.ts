@@ -289,8 +289,10 @@ function build(view: EditorView, resolveImage: (src: string) => string): Decorat
   return builder.finish();
 }
 
+// 只引用基础变量（--muted、--destructive 等）和一定会输出的 theme 变量：Tailwind v4 会裁掉没被工具类
+// 用到的 --color-*，引用它们可能落空。标题用 em，跟随编辑器正文字号缩放。
 const theme = EditorView.theme({
-  '.cm-md-h': { fontWeight: '600', color: 'var(--color-foreground)' },
+  '.cm-md-h': { fontWeight: '600', color: 'var(--foreground)' },
   '.cm-md-h1': { fontSize: '1.6em', lineHeight: '1.4' },
   '.cm-md-h2': { fontSize: '1.35em', lineHeight: '1.4' },
   '.cm-md-h3': { fontSize: '1.15em' },
@@ -298,31 +300,37 @@ const theme = EditorView.theme({
   '.cm-md-em': { fontStyle: 'italic' },
   '.cm-md-strike': { textDecoration: 'line-through' },
   '.cm-md-code': {
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-    backgroundColor: 'var(--color-muted)',
-    borderRadius: '4px',
+    fontFamily: 'var(--font-mono)',
+    backgroundColor: 'var(--muted)',
+    borderRadius: 'var(--radius-chip)',
     padding: '0 0.2em',
   },
   '.cm-md-link': { color: 'var(--syntax-string)', textDecoration: 'underline' },
   '.cm-md-quote': {
-    borderLeft: '2px solid var(--color-border)',
-    paddingLeft: '0.75rem',
-    color: 'var(--color-muted-foreground)',
+    borderLeft: '2px solid var(--border)',
+    paddingLeft: 'calc(var(--spacing) * 3)',
+    color: 'var(--muted-foreground)',
   },
-  '.cm-md-codeblock': {
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-    backgroundColor: 'var(--color-muted)',
+  '.cm-md-codeblock': { fontFamily: 'var(--font-mono)', backgroundColor: 'var(--muted)' },
+  '.cm-md-image': {
+    display: 'block',
+    maxWidth: '100%',
+    margin: 'calc(var(--spacing) * 2) 0',
+    borderRadius: 'var(--radius-chip)',
   },
-  '.cm-md-image': { display: 'block', maxWidth: '100%', margin: '0.5rem 0', borderRadius: '6px' },
-  '.cm-md-math-block': { padding: '0.5rem 0', overflowX: 'auto', textAlign: 'center' },
-  '.cm-md-mermaid': {
-    padding: '0.5rem 0',
+  '.cm-md-math-block': {
+    padding: 'calc(var(--spacing) * 2) 0',
     overflowX: 'auto',
     textAlign: 'center',
-    color: 'var(--color-muted-foreground)',
+  },
+  '.cm-md-mermaid': {
+    padding: 'calc(var(--spacing) * 2) 0',
+    overflowX: 'auto',
+    textAlign: 'center',
+    color: 'var(--muted-foreground)',
   },
   '.cm-md-mermaid svg': { maxWidth: '100%', height: 'auto' },
-  '.cm-md-mermaid-error': { color: 'var(--color-destructive)', textAlign: 'left' },
+  '.cm-md-mermaid-error': { color: 'var(--destructive)', textAlign: 'left' },
 });
 
 /** 粘贴或拖入图片：交给 save 落盘（同目录 assets/），在光标/落点插入相对路径引用。
