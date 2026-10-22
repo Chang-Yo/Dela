@@ -11,6 +11,7 @@ import { capabilityApi as capability } from './capabilities';
 import { layout } from './layout';
 import { mail } from './mail';
 import { notifications } from './notifications';
+import { packages } from './packages';
 import { remotes } from './remotes';
 import { search } from './search';
 import { session } from './session';
@@ -50,5 +51,6 @@ contextBridge.exposeInMainWorld('dela', {
   session,
   layout,
   capability,
+  packages,
   update,
 } satisfies DelaApi);

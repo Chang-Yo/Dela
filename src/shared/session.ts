@@ -87,6 +87,8 @@ export interface WorkspaceChat {
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
     stopped?: boolean;
     compacted?: boolean;
+    /** Pi 扩展经 sendMessage 发出、标了 display 的消息（role 固定为 assistant 一侧展示）。 */
+    extension?: { customType: string };
   }[];
 }
 

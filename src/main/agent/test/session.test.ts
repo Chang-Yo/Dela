@@ -60,6 +60,13 @@ vi.mock('../environment', () => ({
   }),
 }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
+vi.mock('../extensions', () => ({
+  bindSessionExtensions: async () => {},
+  extensionCommand: (_session: unknown, text: string) => text.startsWith('/ext-'),
+  releaseExtensionUi: () => {},
+  sessionSlashCommands: () => [],
+}));
+vi.mock('../packages', () => ({ packagesEnabled: () => false }));
 import {
   askSession,
   invalidateSessions,
@@ -414,4 +421,25 @@ describe('会话归属与 cwd', () => {
   it('非项目条目不能作为会话归属', () => {
     expect(() => newSession('nope', 'chat')).toThrow('项目不存在');
   });
+});
+
+it('扩展命令原样交给 Pi，本轮不发消息时不沿用上一轮的失败结果', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  // 上一轮以模型报错结束。
+  state.messages.push({
+    role: 'assistant',
+    content: [],
+    stopReason: 'error',
+    errorMessage: 'old failure',
+    timestamp: Date.now(),
+  } as unknown as AgentMessage);
+  // 扩展命令自己处理，不往会话里写消息。
+  state.onPrompt = () => {
+    state.messages.pop();
+  };
+  await askSession(chat.sessionId!, { text: '/ext-deploy now', attachments: [], context: [] });
+  expect(state.prompts.at(-1)).toBe('/ext-deploy now');
+  const turns = await listSessionTurnChanges(chat.sessionId!);
+  expect(turns.at(-1)?.runStatus).toBe('completed');
 });

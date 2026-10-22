@@ -31,6 +31,14 @@ import { resolveSessionFile } from './session-path';
 import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import { notifyRunFinished } from '../settings/task-notify';
 import * as changes from './changes';
+import {
+  bindSessionExtensions,
+  extensionCommand,
+  releaseExtensionUi,
+  sessionSlashCommands,
+} from './extensions';
+import { packagesEnabled } from './packages';
+import type { ChatSlashCommand } from '../../shared/chat';
 
 type ChatMessage = WorkspaceChat['messages'][number];
 
@@ -204,17 +212,38 @@ async function ensureLive(id: string): Promise<Live> {
   const entry: Live = { session, cwd, unsubscribe: () => {} };
   entry.unsubscribe = session.subscribe((event) => onEvent(id, entry, event));
   live.set(id, entry);
+  // 绑定会触发扩展的 session_start；扩展可能在里面发可见消息或改标题，所以先登记再绑定。
+  await bindSessionExtensions(id, session, {
+    setTitle: (title) => {
+      getDatabase().prepare('UPDATE sessions SET title=? WHERE id=?').run(title.slice(0, 60), id);
+      send('session:on-update', id, snapshot(id));
+    },
+  });
   return entry;
+}
+
+/**
+ * 输入框的 `/` 候选：扩展命令要等会话实例建好、扩展加载完才知道。只在开了 Pi packages
+ * 时才为此预建实例（会连带建立扩展运行时），没配模型时直接给空表。
+ */
+export async function listSessionCommands(id: string): Promise<ChatSlashCommand[]> {
+  if (!packagesEnabled() || !getActiveLlmProvider()) return [];
+  return sessionSlashCommands((await ensureLive(id)).session);
+}
+
+/** 丢弃一个会话实例：dispose 触发扩展的 session_shutdown，未答复的扩展对话框按取消处理。 */
+function disposeLive(id: string, entry: Live) {
+  entry.unsubscribe();
+  entry.session.dispose();
+  live.delete(id);
+  releaseExtensionUi(id);
 }
 
 /** 模型或能力配置改变：空闲实例立即丢弃，运行中的轮末丢弃，下次使用时按新配置重建。 */
 export function invalidateSessions() {
   for (const [id, entry] of live) {
-    if (!entry.run) {
-      entry.unsubscribe();
-      entry.session.dispose();
-      live.delete(id);
-    } else {
+    if (!entry.run) disposeLive(id, entry);
+    else {
       entry.stale = true;
     }
   }
@@ -319,6 +348,18 @@ export function projectMessages(
       if (step) {
         step.output = { ...toolOutput(message), ...(message.isError ? { isError: true } : {}) };
         step.finishedAt = message.timestamp;
+      }
+    } else if (message.role === 'custom') {
+      // 扩展的可见消息自成一条，不并进前后的模型回复；display=false 的只给模型看。
+      // appendEntry 写的扩展状态不是消息，根本不会出现在这里。
+      if (message.display) {
+        out.push({
+          role: 'assistant',
+          content: textOf(message.content),
+          parts: [],
+          extension: { customType: message.customType },
+        });
+        reply = null;
       }
     } else if (message.role === 'compactionSummary') {
       // 压缩点之前的历史仍在 JSONL；投影只保留摘要后的上下文，开头标注一条。
@@ -636,9 +677,7 @@ export async function deleteSession(id: string) {
     if (entry.run) entry.run.cancelled = true;
     await entry.session.abort();
     await done;
-    entry.unsubscribe();
-    entry.session.dispose();
-    live.delete(id);
+    disposeLive(id, entry);
   }
   const { file } = row(id);
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
@@ -756,9 +795,15 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
         captureError = error instanceof Error ? error.message : String(error);
       }
     }
+    // 只看本轮新产生的回复：扩展命令可能一条消息都不发，不能拿上一轮的结果来判本轮成败。
+    const priorCount = entry.session.messages.length;
     if (run.cancelled) status = 'stopped';
+    else if (extensionCommand(entry.session, userText))
+      // 扩展命令与 prompt 模板要以 `/name` 开头才认得：去掉 Dela 的 meta 前缀原样交给 Pi，
+      // 命令由扩展处理（可能根本不发消息），模板由 Pi 展开后照常进入对话。
+      await entry.session.prompt(userText, images.length ? { images } : undefined);
     else await entry.session.prompt(prompt, images.length ? { images } : undefined);
-    const last = entry.session.messages.findLast((m) => m.role === 'assistant');
+    const last = entry.session.messages.slice(priorCount).findLast((m) => m.role === 'assistant');
     if (run.cancelled || (last?.role === 'assistant' && last.stopReason === 'aborted'))
       status = 'stopped';
     else if (last?.role === 'assistant' && last.stopReason === 'error') status = 'failed';
@@ -792,11 +837,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
       runEvent(id, status, undefined, turnId, changesError);
       publish(id);
       if (status !== 'stopped') notifyRunFinished(id, status);
-      if (entry.stale) {
-        entry.unsubscribe();
-        entry.session.dispose();
-        live.delete(id);
-      }
+      if (entry.stale) disposeLive(id, entry);
     } finally {
       finishRun();
     }

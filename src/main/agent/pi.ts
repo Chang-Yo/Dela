@@ -1,7 +1,7 @@
 /** Pi Coding Agent 接线：内核就是 pi-coding-agent SDK；这里只做加载、提供商注册与按 cwd 建会话，工具与会话树仍归 Pi。 */
 import { app } from 'electron';
 import { join } from 'node:path';
-import type { AgentSession, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { AgentSession, PackageSource, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { Model } from '@earendil-works/pi-ai';
 import type { StoredLlmProvider } from '../credentials';
 import { llmModelSettings, LLM_DEFAULT_CONTEXT_WINDOW } from '../../shared/llm-presets';
@@ -16,7 +16,7 @@ export function loadPi(): Promise<Sdk> {
 }
 
 /** Pi 的全局目录（auth/models/settings/skills/bin）：放在应用数据下，与用户的 ~/.pi 隔离。 */
-function piAgentDir(): string {
+export function piAgentDir(): string {
   return join(app.getPath('userData'), 'pi');
 }
 
@@ -77,7 +77,7 @@ async function modelRuntime() {
   return runtimePromise;
 }
 
-interface OpenSessionInput {
+export interface OpenSessionInput {
   cwd: string;
   file?: string;
   provider: StoredLlmProvider;
@@ -95,6 +95,9 @@ interface OpenSessionInput {
   };
   disabledSkills: ReadonlySet<string>;
   disabledTools: string[];
+  /** 已启用的 Pi packages（设置 › 插件 › Packages）；为空时不加载任何包。 */
+  packages?: PackageSource[];
+  npmCommand?: string[];
 }
 
 export async function openPiSession(input: OpenSessionInput): Promise<AgentSession> {
@@ -106,6 +109,8 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     shellPath: input.shellPath,
     shellCommandPrefix: input.commandPrefix,
     defaultTools: ['read', 'bash', 'edit', 'write', 'grep', 'find', 'ls'],
+    ...(input.packages?.length ? { packages: input.packages } : {}),
+    ...(input.npmCommand ? { npmCommand: input.npmCommand } : {}),
   });
   const resourceLoader = new pi.DefaultResourceLoader({
     cwd: input.cwd,

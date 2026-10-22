@@ -56,6 +56,11 @@ vi.mock('../../agent/commands', () => ({
   startDomainBridge: () => ({ url: 'http://127.0.0.1:1', token: 'token' }),
 }));
 vi.mock('../../terminal', () => ({ locateBash: () => 'C:\\Git\\bash.exe' }));
+// 远程会话与本地会话一样带上已启用的 Pi packages（扩展代码在本机运行）。
+vi.mock('../../agent/packages', () => ({
+  enabledPackageSources: () => [{ source: 'C:\\pkgs\\demo', themes: [] }],
+  packageNpmCommand: () => undefined,
+}));
 vi.mock('../../agent/skills', () => ({
   builtinSkillsDirectory: () => 'C:\\skills',
   ensureBuiltinSkills: () => {},
@@ -105,6 +110,11 @@ describe('远程会话环境', () => {
     expect(options.agentsFilesOverride!({ agentsFiles: base })).toEqual({
       agentsFiles: [...base, { path: '/root/proj/AGENTS.md', content: '暗号：菠萝' }],
     });
+  });
+
+  it('已启用的 Pi packages 照常加载', async () => {
+    const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
+    expect(options.packages).toEqual([{ source: 'C:\\pkgs\\demo', themes: [] }]);
   });
 });
 

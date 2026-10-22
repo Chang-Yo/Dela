@@ -21,6 +21,7 @@ import {
   cancelRun,
   deleteSession,
   invalidateSessions,
+  listSessionCommands,
   listSessions,
   newSession,
   openSession,
@@ -38,6 +39,7 @@ import {
   subscribeChat,
   updateSessionVisibility,
 } from './session';
+import { registerPackagesIpc } from './packages-ipc';
 import {
   pickChatMedia,
   readChatMediaPreview,
@@ -114,6 +116,7 @@ function changingWebSearch<T>(fn: () => T): T {
 
 export function registerAgentIpc() {
   void preloadPi();
+  registerPackagesIpc();
   const handle = (channel: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(channel, (event, ...args) => {
       checkWorkspaceSender(event);
@@ -188,6 +191,11 @@ export function registerAgentIpc() {
   chatHandle('read-media-preview', (_event, id) => readChatMediaPreview(uuid.parse(id)));
   chatHandle('release-media', (_event, ids) => releaseChatMedia(z.array(uuid).max(24).parse(ids)));
   chatHandle('list-commands', () => listChatCommands());
+  chatHandle('list-session-commands', async (event, sessionId) => {
+    subscribeChat(event.sender);
+    await preloadPi();
+    return listSessionCommands(uuid.parse(sessionId));
+  });
   chatHandle('save-command', (_event, input) => saveChatCommand(input));
   chatHandle('delete-command', (_event, id) => deleteChatCommand(uuid.parse(id)));
   // 路径由会话 cwd 限定；locate-file 返回本机绝对路径供应用内预览标签使用。

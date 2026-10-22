@@ -16,6 +16,8 @@ import { mcpToolDefinitions, executeMcpTool } from './mcp';
 import { readDisabledTools } from './tools';
 import { readWebSearchConfig, webSearch } from './web-search';
 import { fetchWebPage } from './web-fetch';
+import { enabledPackageSources, packageNpmCommand } from './packages';
+import type { OpenSessionInput } from './pi';
 
 /** 应用生命周期内一个命令桥：token 只进入 agent/终端的子进程环境，不含业务凭据。 */
 let bridge: ReturnType<typeof startDomainBridge> | undefined;
@@ -57,7 +59,10 @@ export function agentEnvironment() {
       mkdirSync(root, { recursive: true });
       return root;
     },
-    async sessionOptions(projectId: string | null, cwd: string) {
+    async sessionOptions(
+      projectId: string | null,
+      cwd: string,
+    ): Promise<Omit<OpenSessionInput, 'cwd' | 'file' | 'provider'>> {
       const instruction = getAgentInstruction();
       const project = projectContext(projectId, cwd);
       ensureBuiltinSkills();
@@ -66,6 +71,8 @@ export function agentEnvironment() {
       const shared = [project, instruction && `用户附加指令：\n${instruction}`].filter(
         (part): part is string => Boolean(part),
       );
+      // Pi packages 本地与远程会话一视同仁：扩展代码始终在本机运行，这点在启用前的说明里讲清楚。
+      const packages = { packages: enabledPackageSources(), npmCommand: packageNpmCommand() };
       if (remote && projectId) {
         const connection = remoteById(remote.remoteId);
         const target = targetOf(connection);
@@ -95,6 +102,7 @@ export function agentEnvironment() {
           ),
           // 联网搜索与 MCP 都在本机跑，与项目在不在远端无关，照旧给上。
           customTools: [...webTools, ...mcpTools(), ...(await remoteTools(cwd, target))],
+          ...packages,
         };
       }
       const handle = await domainBridge();
@@ -106,6 +114,7 @@ export function agentEnvironment() {
         disabledSkills: effectiveDisabledSkills(),
         disabledTools: [...readDisabledTools()],
         customTools: [...webTools, ...mcpTools()],
+        ...packages,
       };
     },
   };
