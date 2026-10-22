@@ -30,6 +30,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  useAfterMenuClose,
 } from '../components/ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
 import type { ExplorerPending } from '../components/ui/explorer';
@@ -206,6 +207,8 @@ export function WorkbenchExplorer({
   /** 新建文件/文件夹在树里行内输入（VS Code 式），不开弹窗；落点为 null 时落在当前树根。 */
   const startCreate = (kind: 'file' | 'folder', parentId: string | null) =>
     useTreeState.getState().startCreate({ kind, parentId: parentId ?? rootId });
+  // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
+  const afterMenuClose = useAfterMenuClose();
   const pending: ExplorerPending | null = pendingCreate && {
     ...pendingCreate,
     onCancel: () => useTreeState.getState().cancelCreate(),
@@ -396,12 +399,25 @@ export function WorkbenchExplorer({
                       <Plus />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => startCreate('file', container())}>
+                  <DropdownMenuContent
+                    align="end"
+                    onCloseAutoFocus={afterMenuClose.onCloseAutoFocus}
+                  >
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const parentId = container();
+                        afterMenuClose.defer(() => startCreate('file', parentId));
+                      }}
+                    >
                       <FilePlus2 />
                       新建文件
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => startCreate('folder', container())}>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const parentId = container();
+                        afterMenuClose.defer(() => startCreate('folder', parentId));
+                      }}
+                    >
                       <FolderPlus />
                       新建文件夹
                     </DropdownMenuItem>

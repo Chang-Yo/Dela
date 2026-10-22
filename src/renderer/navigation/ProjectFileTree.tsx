@@ -28,6 +28,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  useAfterMenuClose,
 } from '../components/ui/dropdown-menu';
 import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from './remote-color';
@@ -96,6 +97,8 @@ export function ProjectFileTree({
   pending?: ExplorerPending | null;
   onActivate?: (id: string) => void;
 }) {
+  // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
+  const afterMenuClose = useAfterMenuClose();
   const excluded = new Set(excludeIds);
   const included = new Set<string>();
   const visit = (parentId: string | null) => {
@@ -252,15 +255,19 @@ export function ProjectFileTree({
           ) : (
             <DropdownMenu>
               {menuTrigger(item.name)}
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="start" onCloseAutoFocus={afterMenuClose.onCloseAutoFocus}>
                 {/* 远端项目行没有本地目录，main 对它的新建一律拒绝，入口就不必给。 */}
                 {item.container && !item.readOnly && (
                   <>
-                    <DropdownMenuItem onSelect={() => onAction('folder', item.id)}>
+                    <DropdownMenuItem
+                      onSelect={() => afterMenuClose.defer(() => onAction('folder', item.id))}
+                    >
                       <FolderPlus />
                       新建文件夹
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => onAction('note', item.id)}>
+                    <DropdownMenuItem
+                      onSelect={() => afterMenuClose.defer(() => onAction('note', item.id))}
+                    >
                       <FilePlus2 />
                       新建文件
                     </DropdownMenuItem>
