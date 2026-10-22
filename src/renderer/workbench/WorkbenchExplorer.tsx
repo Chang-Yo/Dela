@@ -452,9 +452,8 @@ export function WorkbenchExplorer({
               />
             </div>
             <div
-              className="min-h-0 flex-1 overflow-y-auto"
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
               onDoubleClick={(event) => {
-                // 远端空白处的「新建文件」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
                 if (remoteRoot) return;
                 if (event.target === event.currentTarget) startCreate('file', container());
               }}
