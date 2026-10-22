@@ -15,6 +15,7 @@ import {
   resetKeybindingOverrides,
   savedCampusNotifications,
   savedFontSize,
+  savedOpenAtLogin,
   experimentEnabled,
   savedExperiments,
   savedPendingInstall,
@@ -57,6 +58,14 @@ it('treats a sub-item as unavailable while the master switch is off', () => {
   setExperiment('videoDownload', false);
   expect(experimentEnabled('videoDownload')).toBe(false);
   expect(experimentEnabled('shuiyuan')).toBe(true);
+});
+
+it('keeps login startup off unless the user opted in', () => {
+  expect(savedOpenAtLogin()).toBe(false);
+  insert("INSERT INTO workspace_settings VALUES ('open-at-login', '1')");
+  expect(savedOpenAtLogin()).toBe(true);
+  insert("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', '0')");
+  expect(savedOpenAtLogin()).toBe(false);
 });
 
 describe('font size', () => {

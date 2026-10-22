@@ -20,11 +20,10 @@ export const iconSchema = z.enum(['white', 'black']);
 export const zoomSchema = z
   .number()
   .refine((value) => (zoomLevels as readonly number[]).includes(value));
-// 持久化为 '1'/'0'；键不存在（老版本升级、首次使用）视为默认开启。
 export const openAtLoginSchema = z
   .string()
   .transform((value) => value === '1')
-  .catch(true);
+  .catch(false);
 
 export function readSetting(key: string): string | undefined {
   const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
