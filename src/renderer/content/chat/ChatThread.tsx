@@ -294,6 +294,7 @@ function splitInterrupt(parts: NonNullable<WorkspaceChat['messages'][number]['pa
 const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
+  animate,
   activeTool,
   sessionId,
   reviewEnabled,
@@ -303,6 +304,8 @@ const AssistantMessage = memo(function AssistantMessage({
 }: {
   message: WorkspaceChat['messages'][number];
   live: boolean;
+  /** 挂载时回复尚未开始：只有本次视图里新产生的正文才播渐入动画。 */
+  animate: boolean;
   activeTool: string | undefined;
   /** 所属会话 id；本轮改动卡片的读取与打开动作都按它路由到冻结记录与 cwd。 */
   sessionId: string | null;
@@ -355,7 +358,7 @@ const AssistantMessage = memo(function AssistantMessage({
           <ChatMarkdown
             mode={live ? 'streaming' : 'static'}
             isAnimating={live && !activeTool}
-            animated={live && !reduced ? textAnimation : false}
+            animated={live && animate && !reduced ? textAnimation : false}
           >
             {text}
           </ChatMarkdown>
@@ -426,6 +429,13 @@ export const ChatThread = memo(function ChatThread({
 
   const messages = chat.messages;
   const streaming = Boolean(chat.running);
+  // 切走标签会卸载整棵消息树；挂载时已有正文的运行中回复，旧正文不再重播渐入动画。
+  const [resumedReplyAt] = useState(() => {
+    const last = chat.messages.at(-1);
+    return chat.running && last?.role === 'assistant' && last.content.trim()
+      ? last.startedAt
+      : undefined;
+  });
 
   const lastUserIndex = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -539,6 +549,7 @@ export const ChatThread = memo(function ChatThread({
                 reviewEnabled={chat.projectId != null}
                 onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
                 live={streaming && index === messages.length - 1}
+                animate={message.startedAt !== resumedReplyAt}
                 message={message}
                 activeTool={chat.activeTool}
                 onOpenDraft={MailDialog ? openDraft : undefined}

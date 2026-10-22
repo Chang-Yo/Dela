@@ -7,12 +7,23 @@ import { setChatMediaPreview } from './media';
 import { ChatThread } from './ChatThread';
 
 // jsdom 不排版；只替换 Markdown 渲染和浏览器尺寸边界，滚动逻辑使用真实组件。
+const motion = vi.hoisted(() => ({ reduced: true }));
 vi.mock('./markdown', () => ({
-  ChatMarkdown: ({ children, mode }: { children: ReactNode; mode?: 'static' | 'streaming' }) => (
-    <span data-markdown-mode={mode ?? 'static'}>{children}</span>
+  ChatMarkdown: ({
+    children,
+    mode,
+    animated,
+  }: {
+    children: ReactNode;
+    mode?: 'static' | 'streaming';
+    animated?: boolean | object;
+  }) => (
+    <span data-animated={animated ? 'true' : 'false'} data-markdown-mode={mode ?? 'static'}>
+      {children}
+    </span>
   ),
 }));
-vi.mock('framer-motion', () => ({ useReducedMotion: () => true }));
+vi.mock('framer-motion', () => ({ useReducedMotion: () => motion.reduced }));
 
 let host: HTMLDivElement;
 let root: Root;
@@ -49,6 +60,7 @@ const reserveHeight = () => {
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  motion.reduced = true;
   messageHeight = 1200;
   scrollTop = 0;
   nextFrame = undefined;
@@ -347,6 +359,65 @@ it('流式期间使用 streaming，消息结束后切回 static', async () => {
       .querySelector('[data-assistant-body] [data-markdown-mode]')
       ?.getAttribute('data-markdown-mode'),
   ).toBe('static');
+});
+
+it('切回标签等重挂载时，已在输出的正文不重播渐入动画', async () => {
+  motion.reduced = false;
+  const user = { role: 'user' as const, content: '问题' };
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...chat,
+          running: true,
+          messages: [
+            user,
+            {
+              role: 'assistant',
+              content: '已输出',
+              startedAt: 1,
+              parts: [{ type: 'text', text: '已输出' }],
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  expect(
+    host.querySelector('[data-assistant-body] [data-animated]')?.getAttribute('data-animated'),
+  ).toBe('false');
+});
+
+it('挂载时回复尚无正文，后续输出仍启用渐入动画', async () => {
+  motion.reduced = false;
+  const user = { role: 'user' as const, content: '问题' };
+  const waiting: WorkspaceChat = {
+    ...chat,
+    running: true,
+    messages: [user, { role: 'assistant', content: '', parts: [], startedAt: 1 }],
+  };
+  await act(async () => root.render(<ChatThread chat={waiting} />));
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...waiting,
+          messages: [
+            user,
+            {
+              role: 'assistant',
+              content: '回答',
+              startedAt: 1,
+              parts: [{ type: 'text', text: '回答' }],
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  expect(
+    host.querySelector('[data-assistant-body] [data-animated]')?.getAttribute('data-animated'),
+  ).toBe('true');
 });
 
 it('用户消息的图片缩略图点击放大，点击遮罩或 Esc 关闭', async () => {
