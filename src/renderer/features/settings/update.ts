@@ -171,8 +171,7 @@ export const useUpdateState = create<UpdateState>((set, get) => ({
 // 安装前统一保存工作区；保存期间由应用级弹窗阻止继续编辑。
 
 /**
- * 保存所有已打开笔记、聊天文字草稿、邮件草稿和工作台布局；任何一步失败都不安装。
- * 富文本编辑器先回传正文，避免只保存到 Milkdown 去抖之前的内容。
+ * 保存所有已打开文件、聊天文字草稿、邮件草稿和工作台布局；任何一步失败都不安装。
  */
 async function saveWorkspace(): Promise<void> {
   if (
@@ -181,8 +180,6 @@ async function saveWorkspace(): Promise<void> {
     throw new Error('还有 Agent 任务正在运行，请等待完成或停止任务，再安装更新。');
   }
   saveChatDrafts();
-  const { flushNoteEditors } = await import('../../content/note/NoteEditor');
-  flushNoteEditors();
   for (const key of Object.keys(useNoteDrafts.getState().drafts)) {
     if (!(await useNoteDrafts.getState().save(key)))
       throw new Error('有笔记未能保存，请处理后再安装更新。');

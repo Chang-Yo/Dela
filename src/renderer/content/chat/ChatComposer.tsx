@@ -32,7 +32,7 @@ import type {
 } from '../../../shared/api';
 import {
   CHAT_ATTACHMENT_MAX,
-  chatFileKind,
+  chatFileKindOfFile,
   chatImageToken,
   hasChatImages,
   INLINE_IMAGE_MAX,
@@ -280,7 +280,7 @@ export function ChatComposer({
     let imageCount = matchChatImageTokens(value).length;
     let attachmentCount = attachments.length;
     for (const file of files) {
-      const kind = chatFileKind(file.name);
+      const kind = await chatFileKindOfFile(file);
       try {
         if (kind === 'image') {
           if (imageCount >= INLINE_IMAGE_MAX)

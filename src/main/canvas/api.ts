@@ -605,7 +605,7 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
     const bytes = image ? new Uint8Array(await readFile(cached.path)) : undefined;
     return {
       title: source.title,
-      format: pdf ? 'pdf' : image ? 'image' : (office ?? 'unsupported'),
+      format: pdf ? 'pdf' : image ? 'image' : (office ?? 'binary'),
       bytes,
       previewUrl:
         pdf || office
@@ -642,7 +642,7 @@ export async function readCanvasPage(id: string) {
   }
   return {
     title: source.title,
-    format: source.html !== undefined ? ('html' as const) : ('unsupported' as const),
+    format: source.html !== undefined ? ('html' as const) : ('binary' as const),
     text: source.html,
     url: source.url,
     dueAt: source.dueAt,

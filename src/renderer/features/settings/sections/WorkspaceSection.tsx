@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Folder } from 'lucide-react';
-import type { NoteEditModePreference, WorkspacePrefs } from '../../../../shared/api';
+import type { WorkspacePrefs } from '../../../../shared/api';
 import type { WorkbenchLayout } from '../../../../shared/layout';
 import { Button } from '../../../components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../components/ui/select';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
@@ -32,11 +25,6 @@ function currentProjectId(): string | null {
     typeof localStorage === 'undefined' ? null : localStorage.getItem('dela.workspace.project');
   return raw ? raw : null;
 }
-
-const editModeLabels: Record<NoteEditModePreference, string> = {
-  rich: '所见即所得',
-  source: 'Markdown 源码',
-};
 
 /** 设置 › 工作区：工作目录、启动恢复、默认笔记编辑方式、笔记拼写检查、当前项目布局重置与隐藏项目恢复。 */
 export function WorkspaceSection() {
@@ -131,35 +119,8 @@ export function WorkspaceSection() {
             </Button>
           </div>
         </SettingRow>
-        {/* frontmatter 强制源码：防止用户以为模式切换入口丢失。 */}
         <SettingRow
-          description="含 frontmatter 等语法的笔记始终以源码模式打开。"
-          settingId="note-edit-mode"
-          title="默认笔记编辑方式"
-        >
-          <div className="flex items-center justify-end">
-            <Select
-              disabled={prefs === null || busy}
-              onValueChange={(value) =>
-                void changePrefs({ defaultNoteEditMode: value as NoteEditModePreference })
-              }
-              value={prefs?.defaultNoteEditMode ?? 'rich'}
-            >
-              <SelectTrigger aria-label="默认笔记编辑方式" className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(editModeLabels) as NoteEditModePreference[]).map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {editModeLabels[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </SettingRow>
-        <SettingRow
-          description="所见即所得与源码模式共用；关闭后不显示拼写波浪线。"
+          description="即时渲染与源码模式共用；关闭后不显示拼写波浪线。"
           settingId="note-spellcheck"
           title="笔记拼写检查"
         >

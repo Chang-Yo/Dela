@@ -268,6 +268,29 @@ describe('projectMessages', () => {
     });
   });
 
+  it('工具结果里的图片本体透传到 output.image，供轨迹预览', () => {
+    const messages = [
+      { role: 'user', content: '读一下 05.jpg', timestamp: 10 },
+      assistant([{ type: 'toolCall', id: 't1', name: 'read', arguments: { path: '05.jpg' } }]),
+      {
+        role: 'toolResult',
+        toolCallId: 't1',
+        toolName: 'read',
+        content: [
+          { type: 'text', text: 'Read image file [image/jpeg]' },
+          { type: 'image', mimeType: 'image/jpeg', data: 'aGVsbG8=' },
+        ],
+        isError: false,
+        timestamp: 30,
+      },
+    ] as AgentMessage[];
+    const [, reply] = projectMessages(messages);
+    expect(reply!.toolResults![0]!.output).toEqual({
+      text: 'Read image file [image/jpeg]',
+      image: { mimeType: 'image/jpeg', data: 'aGVsbG8=' },
+    });
+  });
+
   it('用户消息的 Dela 元数据前缀不进展示，引用与图片还原到消息字段', () => {
     const meta = { body: '看看这个', sources: [{ key: 'D:/p/a.md', title: 'D:/p/a.md' }] };
     const [user] = projectMessages([

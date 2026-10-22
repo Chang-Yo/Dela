@@ -10,8 +10,6 @@ import { useNoteDrafts, type NoteDraft } from '../../content/note/drafts';
 import { UpdateControl } from './UpdateControl';
 import { useUpdateState } from './update';
 
-vi.mock('../../content/note/NoteEditor', () => ({ flushNoteEditors: vi.fn() }));
-
 const readyState: UpdateSnapshot = {
   phase: 'ready',
   currentVersion: '1.0.0',

@@ -37,10 +37,20 @@ describe('远端文件预览', () => {
     stat.mockResolvedValue(entry(9 * 1024 * 1024, 2000));
     read.mockResolvedValue(Buffer.from('head'));
     const big = await readRemoteDocument('p-1', target, '/home/u/proj/b.txt');
-    expect(read).toHaveBeenCalledWith(target, '/home/u/proj/b.txt', 0, 4 * 1024 * 1024);
-    expect(big.text).toContain('head');
-    expect(big.text).toContain('只读了前 4 MB');
+    expect(read).toHaveBeenCalledWith(target, '/home/u/proj/b.txt', 0, 1024 * 1024);
+    expect(big).toMatchObject({ text: 'head', readOnly: true, truncated: true });
     expect(big.revision).toBe('2000-9437184');
+  });
+
+  it('无扩展名与点文件按内容判定：文本可看，二进制不当文本', async () => {
+    stat.mockResolvedValue(entry(6));
+    read.mockResolvedValue(Buffer.from('KEY=1\n'));
+    expect(await readRemoteDocument('p-1', target, '/home/u/proj/.env')).toMatchObject({
+      format: 'text',
+      text: 'KEY=1\n',
+    });
+    read.mockResolvedValue(Buffer.from([0x7f, 0x45, 0, 1]));
+    expect((await readRemoteDocument('p-1', target, '/home/u/proj/a.out')).format).toBe('binary');
   });
 
   it('Markdown 与代码扩展名按与本地同一套规则判定', async () => {

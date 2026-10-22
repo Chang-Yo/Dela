@@ -121,12 +121,6 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['工作区', '目录', '文件夹', '保存位置', '笔记位置', 'folder'],
   },
   {
-    id: 'note-edit-mode',
-    section: 'workspace',
-    title: '默认笔记编辑方式',
-    keywords: ['工作区', '笔记', '编辑', '所见即所得', '源码', 'markdown'],
-  },
-  {
     id: 'reset-layout',
     section: 'workspace',
     title: '布局重置',
@@ -253,7 +247,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   general: '开机自启动与系统通知',
   appearance: '主题、缩放、字号与图标',
   shortcuts: '查看与修改快捷键',
-  workspace: '工作目录、笔记编辑方式与布局',
+  workspace: '工作目录、拼写检查与布局',
   archived: '恢复或永久删除已归档对话',
   connections: 'Canvas、邮箱、教务与水源连接',
   remotes: 'SSH 远程主机与连接',

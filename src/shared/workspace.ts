@@ -33,7 +33,8 @@ export interface WorkspaceEntry {
   id: string;
   parentId: string | null;
   name: string;
-  kind: 'folder' | 'project' | 'note' | 'source' | 'local' | 'imported';
+  /** file 是磁盘上的任意文件，格式在打开时按内容判定（shared/files）。 */
+  kind: 'folder' | 'project' | 'file' | 'source';
   sourceId: string | null;
   path?: string;
   /** 远程项目及其子条目标记：path 是远端 POSIX 绝对路径，本地磁盘上没有对应文件。 */
@@ -59,7 +60,7 @@ export interface WorkspaceState {
 export interface WorkspaceCreateInput {
   parentId: string | null;
   name: string;
-  kind: 'folder' | 'project' | 'note' | 'source';
+  kind: 'folder' | 'project' | 'file' | 'source';
   sourceId?: string;
   text?: string;
 }
@@ -74,8 +75,9 @@ export interface WorkspaceApi {
   onChanged(listener: () => void): () => void;
   remove(id: string): Promise<void>;
   read(id: string): Promise<DocumentContent>;
+  /** 原地覆写文本文件；revision 与磁盘不一致时拒绝。 */
   saveNote(id: string, text: string, revision: string): Promise<string>;
-  /** 把新插入的本地图片存入笔记目录 assets/，返回相对路径。 */
+  /** 把新插入的本地图片存入 Markdown 文件同目录的 assets/，返回相对路径。 */
   saveNoteImage(id: string, name: string, bytes: Uint8Array): Promise<string>;
   /** 打开项目目录，main 验证项目身份并解析本地路径。 */
   openProjectDirectory(id: string, target: 'vscode' | 'explorer'): Promise<void>;

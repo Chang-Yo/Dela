@@ -191,10 +191,11 @@ function registerExportEntry(
     return previousEntryId;
   }
   const id = randomUUID();
+  // 导出的 PDF 需要稳定身份（关联记录按 id 指向它），所以落一行 file 条目；
   // 列名显式写出：这张表的列随 schema 版本增删过，位置参数会静默错位。
   db.prepare(
     `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
-     VALUES (?, ?, ?, 'imported', NULL, ?, ?)`,
+     VALUES (?, ?, ?, 'file', NULL, ?, ?)`,
   ).run(id, folderId, basename(path), path, now);
   return id;
 }

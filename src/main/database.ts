@@ -223,7 +223,7 @@ const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
   accepted_at TEXT NOT NULL
 )`;
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /** v2→v3 只加列：远程项目不迁移已有数据，旧条目一律视为本地项目。
  *  旧世界库刚被整库丢弃、v1 库本就没有条目表，这两种情况下表还不存在，直接跳过。 */
@@ -266,6 +266,19 @@ export function getDatabase(): Database.Database {
       db.transaction(() => {
         for (const table of ['runs', 'sessions', 'projects'])
           db.exec(`DROP TABLE IF EXISTS ${table}`);
+      })();
+    }
+    if (!legacy && version >= 1 && version < 6) {
+      // v5→v6：条目不再区分 note/local/imported，统一为 file。导出 PDF 的 imported 行及其关联
+      // 破坏性丢弃（PDF 文件留在「预览导出」，按普通文件出现；pptx 再导出一次即重建关联）。
+      // 半途库可能缺其中某张表，逐表判断。
+      const hasTable = (name: string) =>
+        db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
+      db.transaction(() => {
+        if (hasTable('workspace_entries'))
+          db.exec("DELETE FROM workspace_entries WHERE kind IN ('note', 'local', 'imported')");
+        if (hasTable('workspace_settings'))
+          db.exec("DELETE FROM workspace_settings WHERE key LIKE 'preview-export:%'");
       })();
     }
     // 刚丢弃过旧世界库时版本号可能是任意值（含当前值），所以这里按「是否重建过」而不是只看版本号。
