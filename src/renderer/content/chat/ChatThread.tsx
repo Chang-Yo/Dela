@@ -353,7 +353,7 @@ const AssistantMessage = memo(function AssistantMessage({
         finishedAt={message.finishedAt}
         renderText={(text) => (
           <ChatMarkdown
-            mode="streaming"
+            mode={live ? 'streaming' : 'static'}
             isAnimating={live && !activeTool}
             animated={live && !reduced ? textAnimation : false}
           >

@@ -8,7 +8,9 @@ import { ChatThread } from './ChatThread';
 
 // jsdom 不排版；只替换 Markdown 渲染和浏览器尺寸边界，滚动逻辑使用真实组件。
 vi.mock('./markdown', () => ({
-  ChatMarkdown: ({ children }: { children: ReactNode }) => children,
+  ChatMarkdown: ({ children, mode }: { children: ReactNode; mode?: 'static' | 'streaming' }) => (
+    <span data-markdown-mode={mode ?? 'static'}>{children}</span>
+  ),
 }));
 vi.mock('framer-motion', () => ({ useReducedMotion: () => true }));
 
@@ -317,6 +319,34 @@ it('停止的回复保留已输出正文', async () => {
     ),
   );
   expect(host.querySelector('[data-assistant-body]')?.textContent).toBe('尚未完成的片段');
+});
+
+it('流式期间使用 streaming，消息结束后切回 static', async () => {
+  const user = { role: 'user' as const, content: '问题' };
+  const parts = [{ type: 'text' as const, text: '回答' }];
+  const liveChat: WorkspaceChat = {
+    ...chat,
+    running: true,
+    messages: [user, { role: 'assistant', content: '回答', startedAt: 1, parts }],
+  };
+  await act(async () => root.render(<ChatThread chat={liveChat} />));
+  expect(
+    host
+      .querySelector('[data-assistant-body] [data-markdown-mode]')
+      ?.getAttribute('data-markdown-mode'),
+  ).toBe('streaming');
+
+  const doneChat: WorkspaceChat = {
+    ...liveChat,
+    running: false,
+    messages: [user, { role: 'assistant', content: '回答', startedAt: 1, finishedAt: 2, parts }],
+  };
+  await act(async () => root.render(<ChatThread chat={doneChat} />));
+  expect(
+    host
+      .querySelector('[data-assistant-body] [data-markdown-mode]')
+      ?.getAttribute('data-markdown-mode'),
+  ).toBe('static');
 });
 
 it('用户消息的图片缩略图点击放大，点击遮罩或 Esc 关闭', async () => {
