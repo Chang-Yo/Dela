@@ -657,7 +657,7 @@ export function AppShell({
               ))}
               <ShortcutSection title="鼠标">
                 <ShortcutRow hint="关闭标签" label="中键点击标签" />
-                <ShortcutRow hint="新建笔记" label="双击目录空白处" />
+                <ShortcutRow hint="新建文件" label="双击目录空白处" />
               </ShortcutSection>
             </div>
           </Dialog.Content>

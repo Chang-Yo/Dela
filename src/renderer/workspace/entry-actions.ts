@@ -112,7 +112,7 @@ export function promoteEntry(id: string, onOpenProject: (id: string) => void) {
   });
 }
 
-/** 新建笔记的正文预填：显式 text 优先；否则按当前打开的资料拼来源 header。 */
+/** 保存为笔记的正文预填：显式 text 优先；否则按当前打开的资料拼来源 header。 */
 export function prefillNoteText(activeKey: string | null, text: string): string {
   const { workspace, canvas } = useWorkspaceStore.getState();
   const entries = workspace.entries;

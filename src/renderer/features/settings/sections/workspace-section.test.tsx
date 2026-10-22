@@ -28,7 +28,6 @@ afterEach(async () => {
 it('persists the spellcheck switch and mirrors it to the note editors', async () => {
   const stored: WorkspacePrefs = {
     restoreLastProject: true,
-    defaultNoteEditMode: 'rich',
     noteSpellcheck: false,
   };
   const setWorkspacePrefs = vi.fn(async (patch: Partial<WorkspacePrefs>) => {

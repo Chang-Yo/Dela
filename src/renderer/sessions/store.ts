@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChatSessionSummary, WorkspaceChat } from '../../shared/api';
+import type { AgentToolOutput, ChatSessionSummary, WorkspaceChat } from '../../shared/api';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 
@@ -88,14 +88,42 @@ export function initSessionsMirror(): void {
     // 无缓存（会话未打开）或非运行态：丢弃增量，等待工具边界/终态的全量推送兜底。
     if (!current?.running) return;
     const last = current.messages.at(-1);
-    const messages =
+    const replaceLast =
       last?.role === 'assistant' &&
       last.startedAt === message.startedAt &&
-      last.finishedAt === undefined
-        ? [...current.messages.slice(0, -1), message]
-        : [...current.messages, message];
+      last.finishedAt === undefined;
+    const messages = replaceLast
+      ? [...current.messages.slice(0, -1), keepToolImages(last, message)]
+      : [...current.messages, message];
     useSessions.getState().putChat(sessionId, { ...current, messages, activeTool, contextUsage });
   });
+}
+
+type ChatMessage = WorkspaceChat['messages'][number];
+type ToolStep = NonNullable<ChatMessage['toolResults']>[number];
+
+/** 流式增量不带工具图片（见 ChatStreamEvent），替换末条消息时按 toolCallId 从旧消息回填：
+ *  图片仍停留在界面，但不必每帧重传 base64。 */
+function keepToolImages(previous: ChatMessage | undefined, next: ChatMessage): ChatMessage {
+  const images = new Map<string, NonNullable<AgentToolOutput['image']>>();
+  for (const step of previous?.toolResults ?? [])
+    if (step.output?.image) images.set(step.id, step.output.image);
+  if (!images.size) return next;
+  const fill = (step: ToolStep): ToolStep => {
+    const image = images.get(step.id);
+    return image && step.output && !step.output.image
+      ? { ...step, output: { ...step.output, image } }
+      : step;
+  };
+  return {
+    ...next,
+    ...(next.toolResults && { toolResults: next.toolResults.map(fill) }),
+    ...(next.parts && {
+      parts: next.parts.map((part) =>
+        part.type === 'tools' ? { ...part, results: part.results.map(fill) } : part,
+      ),
+    }),
+  };
 }
 
 initSessionsMirror();

@@ -52,8 +52,8 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ### 工作台功能
 
-- **md笔记编辑**：所见即所得的md笔记编辑，支持 math 公式解析和 mermaid 流程图
-- **代码文件编辑**：支持绝大部分主流代码文件的高亮显示与编辑功能
+- **md笔记编辑**：笔记就是 `.md` 文件，即时渲染编辑（光标所在行显示原文），支持数学公式（含中文）与 mermaid 流程图；保存时原样写回，不改换行符与格式
+- **文件编辑**：任意文本文件都能打开编辑（包括 `.env`、`Makefile`、无后缀日志），按内容而不是扩展名识别；1 MB 以上只读预览
 - **内置终端**：用户可以直接在应用打开内置终端（Git Bash），如果是 remote project 则默认为 ssh
 
 ## 技术栈
@@ -72,7 +72,7 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ## 本地开发
 
-需要 Node.js **24.21.0** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
+需要 Node.js **24.22.1** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
 
 ```sh
 pnpm install

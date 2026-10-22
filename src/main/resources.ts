@@ -1,21 +1,21 @@
 import { app, shell } from 'electron';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
-import { basename, extname, join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { resourceRefSchema, type ResourceRef } from '../shared/resources';
 import { cachedFile, canvasFilePath, getSource, readCanvasPage } from './canvas/api';
 import { mailAttachment, readMailMessage, saveMailAttachment } from './mail/api';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './workspace/api';
 import { readShuiyuanSource } from './shuiyuan/api';
-import { imageFileExtensions, textFileExtensions } from '../shared/chat-input';
+import { TEXT_PREVIEW_MAX_BYTES, formatByName, imageMimeOf, isTextContent } from '../shared/files';
+import { localFileFormat, textRevision } from './workspace/files';
 import { diskName } from './storage';
 import { workspaceEntryIdSchema } from '../shared/workspace';
 import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
 
 interface ResourceContent {
   title: string;
-  format: 'file' | 'text' | 'markdown' | 'html' | 'image' | 'unsupported';
+  format: 'file' | 'text' | 'markdown' | 'html' | 'image';
   text?: string;
   bytes?: Uint8Array;
   mime?: string;
@@ -23,11 +23,16 @@ interface ResourceContent {
   url?: string;
 }
 
+// Canvas 只按 mime 认得出图片；与工作区图片同一套视觉模型可读的位图。
+const canvasImageMimes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
 async function readCanvasResource(id: string): Promise<ResourceContent> {
   const source = getSource(id);
-  if (source.kind !== 'file') return readCanvasPage(id);
-  if (!imageFileExtensions.some((ext) => source.mime === `image/${ext === 'jpg' ? 'jpeg' : ext}`))
-    return { title: source.title, format: 'file' };
+  if (source.kind !== 'file') {
+    const page = await readCanvasPage(id);
+    return { ...page, format: page.format === 'html' ? 'html' : 'file' };
+  }
+  if (!canvasImageMimes.includes(source.mime ?? '')) return { title: source.title, format: 'file' };
   const cached = await cachedFile(source);
   return {
     title: source.title,
@@ -54,41 +59,37 @@ export async function readResourceContent(
       );
       return {
         title: content.title,
-        format: content.format === 'text' ? 'text' : 'html',
+        format: content.format === 'text' ? 'text' : content.format === 'html' ? 'html' : 'file',
         text: content.text,
         url: content.url,
       };
     }
     return readCanvasResource(item.sourceId);
   }
-  if (item.kind !== 'note' && item.kind !== 'local' && item.kind !== 'imported')
-    throw new Error('请选择要读取的文件或笔记');
-  const extension = extname(item.path ?? item.name)
-    .slice(1)
-    .toLowerCase();
-  const text = item.kind === 'note' || textFileExtensions.includes(extension);
-  const image = imageFileExtensions.includes(extension);
-  if (!text && !image) return { title: item.name, format: 'file' };
+  if (item.kind !== 'file') throw new Error('请选择要读取的文件');
+  // 名字已能判定的 PDF/Office 直接交给文档 skill，不碰文件；其余才读内容判定。
+  const named = formatByName(item.path ?? item.name);
+  if (named && named !== 'markdown' && named !== 'image')
+    return { title: item.name, format: 'file' };
   const path = await workspaceFilePath(ref.id);
+  const format = localFileFormat(path);
+  if (format !== 'text' && format !== 'markdown' && format !== 'image')
+    return { title: item.name, format: 'file' };
   const stats = await stat(path);
-  if (stats.size > 128 * 1024 * 1024) throw new Error('文件较大，请在外部应用中打开');
+  // Agent 按 offset 分页读文本，不受编辑上限约束；只挡住整篇进内存会出问题的体量。
+  if (stats.size > TEXT_PREVIEW_MAX_BYTES) throw new Error('文件较大，请在外部应用中打开');
   const bytes = await readFile(path);
-  if (text) {
-    const content = bytes.toString('utf8');
+  if (format === 'image')
     return {
       title: item.name,
-      format: extension === 'md' || extension === 'markdown' ? 'markdown' : 'text',
-      text: content,
-      revision: createHash('sha256').update(content).digest('hex'),
+      format: 'image',
+      bytes,
+      mime: imageMimeOf(path),
+      revision: `${stats.mtimeMs}-${stats.size}`,
     };
-  }
-  return {
-    title: item.name,
-    format: 'image',
-    bytes,
-    mime: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
-    revision: `${stats.mtimeMs}-${stats.size}`,
-  };
+  if (!isTextContent(bytes)) return { title: item.name, format: 'file' };
+  const content = bytes.toString('utf8');
+  return { title: item.name, format, text: content, revision: textRevision(content) };
 }
 
 const documentJobs = () => join(app.getPath('temp'), 'dela-document-reading');

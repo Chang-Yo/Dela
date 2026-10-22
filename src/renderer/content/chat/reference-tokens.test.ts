@@ -88,7 +88,7 @@ describe('referenceCandidates（@ 候选范围）', () => {
 
   // 通用池的 cwd 是工作区根，各项目目录都挂在它下面。
   const tree = [
-    entry('n1', 'E:/repo/笔记.md', 'note'),
+    entry('n1', 'E:/repo/笔记.md', 'file'),
     entry('dir', 'E:/repo/课程', 'folder'),
     entry('p1', 'E:/repo/Test', 'project'),
     entry('s1', 'E:/repo/Test/authAPI.js'),

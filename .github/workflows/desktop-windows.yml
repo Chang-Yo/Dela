@@ -42,7 +42,7 @@ jobs:
           path: vendor/dela-helper
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
           package-manager-cache: false
       - name: Install pnpm
         run: npm install --global pnpm@12.3.4

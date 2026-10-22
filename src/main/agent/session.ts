@@ -246,8 +246,10 @@ function splitMeta(text: string): { meta: Partial<ChatMessage>; text: string } {
 }
 
 function toolOutput(result: { content?: (TextContent | ImageContent)[]; details?: unknown }) {
+  const image = (result.content ?? []).find((block) => block.type === 'image');
   return {
     text: textOf(result.content ?? []),
+    ...(image ? { image: { mimeType: image.mimeType, data: image.data } } : {}),
     ...(result.details !== undefined ? { details: result.details } : {}),
   };
 }
@@ -477,6 +479,24 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
   }
 }
 
+/** 流式增量不带工具图片：图片已随工具结束的全量快照到过渲染端，
+ *  而 ~100ms 一帧的增量重传 base64 会让 IPC 包随图片体积与历史步骤线性膨胀。 */
+function withoutToolImages(message: ChatMessage): ChatMessage {
+  const strip = (step: AgentToolResult): AgentToolResult => {
+    if (!step.output?.image) return step;
+    const { image: _image, ...output } = step.output;
+    return { ...step, output };
+  };
+  const parts = message.parts?.map((part) =>
+    part.type === 'tools' ? { ...part, results: part.results.map(strip) } : part,
+  );
+  return {
+    ...message,
+    ...(message.toolResults && { toolResults: message.toolResults.map(strip) }),
+    ...(parts && { parts }),
+  };
+}
+
 /** 流式期 ~100ms 节流推送末条 assistant 消息（含未完成的流式消息）。 */
 function stream(id: string, entry: Live) {
   const now = Date.now();
@@ -492,7 +512,7 @@ function stream(id: string, entry: Live) {
   if (last?.role === 'assistant')
     send('session:on-stream', {
       sessionId: id,
-      message: last,
+      message: withoutToolImages(last),
       activeTool: entry.run?.tool,
       contextUsage: usageOf(entry),
     });
