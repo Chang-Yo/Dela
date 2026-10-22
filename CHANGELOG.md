@@ -14,6 +14,22 @@ Dela 的重要变更都记在这里。
 
 ## Unreleased
 
+### 亮点
+
+- 现在可以安装 Pi 社区的 package：扩展、Skills 和提示模板都能用。在「能力拓展」或 设置 › Pi Packages 打开后，填 npm 包名、git 仓库或本地文件夹就能安装；电脑上没有 npm 时，Dela 会自动下载一份。
+- 扩展的命令和提示模板会出现在输入框的 `/` 候选里，扩展弹出的选择和确认框直接在 Dela 里回答。
+
+### Added
+
+- Pi packages 接入：安装、更新、卸载经 Pi 的 `DefaultPackageManager`，启用的包写进会话的内存设置由 Pi 加载，状态存在 `workspace_settings`，不读写 `~/.pi`；只做全局范围，不加载项目 `.pi/settings.json` 声明的包。安装前必须勾选风险告知，装好默认关闭，可按扩展 / Skills / 提示模板分别开关，主题不加载；安装目录被删的包跳过加载并提示重新安装。
+- npm 运行时：开启 Pi packages 时优先用本机 npm（Node ≥ 20），没有就下载 Node 24.22.1（npmmirror 优先、nodejs.org 兜底，固定 SHA256）；npm 源可在官方与 npmmirror 间切换。
+- 扩展运行时按 Pi rpc 模式绑定：选择、确认、输入、编辑对话框在应用层弹出，通知与报错走 toast，状态栏与文本小部件显示在输入框，扩展可读写输入框；依赖终端界面的接口首次调用时提示不可用。扩展命令与 package 的提示模板进入 `/` 候选，`display` 为真的扩展消息单独成卡展示。
+
+### Changed
+
+- 「能力拓展」页加入 Pi Packages，老用户升级后会再看到一次这一页。
+- 使用条款与隐私条款补充第三方 Pi package 的责任边界、本机存放位置与联网去向。
+
 ## 1.4.0 - 2026-10-22
 
 ### 亮点

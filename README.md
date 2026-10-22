@@ -48,6 +48,8 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 - **文件检索工具**：`find`, `grep`, `ls`
 - **网页搜索工具**：`web_search`(默认关闭，需自备API KEY), `web_fetch`（默认开启，免费）
 
+**Pi Packages**：可以安装 Pi 社区的 package（扩展、skills、提示模板），来源支持 npm、git 与本地目录；扩展与 Dela 同权限运行，安装前请确认来源可信。
+
 **remote project**: 通过上传编译好的 helper 文件至服务器，Dela 可以与远端建立隧道实现长连接，并通过 helper 的代理来实现对服务器上下文的获取，环境理解以及文件的读写。并且通过自动端口转发，可以**本地访问远程的启动的网页**。_只要能够连上ssh，就可以像本地一样操作读写！_
 
 ### 工作台功能
