@@ -166,3 +166,36 @@ it('思考默认收起，展开后看到内容', async () => {
   await act(async () => rows()[0]!.click());
   expect(host.querySelector('[data-reasoning-body]')?.textContent).toBe('核对资料');
 });
+it('读取图片的步骤展开后预览图片本体，不显示占位文本', async () => {
+  await render([
+    {
+      type: 'tools',
+      results: [
+        {
+          id: 'img',
+          name: 'read',
+          input: { path: 'D:/p/05.jpg' },
+          output: {
+            text: 'Read image file [image/jpeg]',
+            image: { mimeType: 'image/jpeg', data: 'aGVsbG8=' },
+          },
+          finishedAt: 1,
+        },
+      ],
+    },
+  ]);
+  await act(async () => rows()[0]!.click());
+  const image = host.querySelector('img');
+  expect(image?.getAttribute('src')).toBe('data:image/jpeg;base64,aGVsbG8=');
+  expect(image?.getAttribute('alt')).toBe('D:/p/05.jpg');
+  expect(host.textContent).not.toContain('Read image file');
+  // 点击预览图打开全屏看图，Esc 关闭。
+  await act(async () => image!.click());
+  const dialog = document.body.querySelector('[role="dialog"][aria-label="图片查看"]');
+  expect(dialog).not.toBeNull();
+  expect(dialog!.querySelector('img')?.getAttribute('src')).toBe('data:image/jpeg;base64,aGVsbG8=');
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  });
+  expect(document.body.querySelector('[role="dialog"][aria-label="图片查看"]')).toBeNull();
+});

@@ -18,6 +18,7 @@ import { useReducedMotion } from 'framer-motion';
 import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
 import { Button } from '@/components/ui/button';
+import { openLightbox } from '@/components/ui/lightbox';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
 import { ReplyTrace } from './ToolTimeline';
@@ -66,7 +67,7 @@ const MessageActions = memo(function MessageActions({
   );
 });
 
-/** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图。 */
+/** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图；点击放大查看。 */
 const MessageImage = memo(function MessageImage({ id, name }: { id: string; name: string }) {
   const [url, setUrl] = useState(() => getChatMediaPreview(id) ?? null);
   useEffect(() => {
@@ -80,12 +81,19 @@ const MessageImage = memo(function MessageImage({ id, name }: { id: string; name
     };
   }, [id, url]);
   return url ? (
-    <img
-      alt={name}
-      className="size-20 rounded-card border border-line border-line/60 object-cover"
-      src={url}
+    <button
+      aria-label={`放大查看 ${name || '图片'}`}
+      className="cursor-zoom-in"
+      onClick={() => openLightbox(url, name)}
       title={name || undefined}
-    />
+      type="button"
+    >
+      <img
+        alt={name}
+        className="size-20 rounded-card border border-line border-line/60 object-cover"
+        src={url}
+      />
+    </button>
   ) : (
     <span
       className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-2xs text-ink-3"
@@ -173,7 +181,10 @@ const UserMessage = memo(function UserMessage({
       {message.content ? (
         <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-13 leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
           {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
-          <ChatMarkdown className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent">
+          <ChatMarkdown
+            className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent"
+            mode="static"
+          >
             {message.content}
           </ChatMarkdown>
         </div>
@@ -286,6 +297,7 @@ function splitInterrupt(parts: NonNullable<WorkspaceChat['messages'][number]['pa
 const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
+  animate,
   activeTool,
   sessionId,
   reviewEnabled,
@@ -295,6 +307,8 @@ const AssistantMessage = memo(function AssistantMessage({
 }: {
   message: WorkspaceChat['messages'][number];
   live: boolean;
+  /** 挂载时回复尚未开始：只有本次视图里新产生的正文才播渐入动画。 */
+  animate: boolean;
   activeTool: string | undefined;
   /** 所属会话 id；本轮改动卡片的读取与打开动作都按它路由到冻结记录与 cwd。 */
   sessionId: string | null;
@@ -345,9 +359,9 @@ const AssistantMessage = memo(function AssistantMessage({
         finishedAt={message.finishedAt}
         renderText={(text) => (
           <ChatMarkdown
-            mode="streaming"
+            mode={live ? 'streaming' : 'static'}
             isAnimating={live && !activeTool}
-            animated={live && !reduced ? textAnimation : false}
+            animated={live && animate && !reduced ? textAnimation : false}
           >
             {text}
           </ChatMarkdown>
@@ -418,6 +432,13 @@ export const ChatThread = memo(function ChatThread({
 
   const messages = chat.messages;
   const streaming = Boolean(chat.running);
+  // 切走标签会卸载整棵消息树；挂载时已有正文的运行中回复，旧正文不再重播渐入动画。
+  const [resumedReplyAt] = useState(() => {
+    const last = chat.messages.at(-1);
+    return chat.running && last?.role === 'assistant' && last.content.trim()
+      ? last.startedAt
+      : undefined;
+  });
 
   const lastUserIndex = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -531,6 +552,7 @@ export const ChatThread = memo(function ChatThread({
                 reviewEnabled={chat.projectId != null}
                 onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
                 live={streaming && index === messages.length - 1}
+                animate={message.startedAt !== resumedReplyAt}
                 message={message}
                 activeTool={chat.activeTool}
                 onOpenDraft={MailDialog ? openDraft : undefined}
