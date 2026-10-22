@@ -155,11 +155,11 @@ describe('远程条目的本地入口', () => {
     expect(() => entry('/root/proj/src/a.ts')).toThrow('远程条目请通过远程接口访问');
   });
 
-  it('远程项目内不能新建笔记或文件夹', async () => {
+  it('远程项目内不能新建文件或文件夹', async () => {
     const created = await importRemoteProject(remoteId, '/root/proj');
     expect(() =>
-      createWorkspaceEntry({ parentId: created.id, name: '笔记', kind: 'note' }),
-    ).toThrow('远程项目内暂不支持新建笔记与文件夹');
+      createWorkspaceEntry({ parentId: created.id, name: '笔记', kind: 'file' }),
+    ).toThrow('远程项目内暂不支持新建文件与文件夹');
   });
 
   it('远程项目不能重命名或移动', async () => {

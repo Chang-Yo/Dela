@@ -1,11 +1,13 @@
 // 会话视图类型：WorkspaceChat 是 Pi 会话消息的投影（main/agent/session.ts）。
 import type { ChatAskInput } from './chat';
 
-/** Pi 工具结果的投影：text 是回灌给模型的文本，details 是工具的结构化细节（edit 的 diff 等）。 */
+/** Pi 工具结果的投影：text 是回灌给模型的文本，details 是工具的结构化细节（edit 的 diff 等），
+ *  image 是工具回图给模型时的图片本体（read 读图片），供轨迹预览，base64 随消息投影。 */
 export interface AgentToolOutput {
   text: string;
   details?: unknown;
   isError?: boolean;
+  image?: { mimeType: string; data: string };
 }
 
 export interface AgentToolResult {
@@ -104,7 +106,8 @@ export interface RunEvent {
 
 /** session:on-stream 载荷：流式增量只携带本轮正在生成的末条 assistant 消息，
  *  渲染端合并进已缓存快照——全量历史广播的代价随会话长度线性放大，流式期每
- *  ~100ms 一次会导致 IPC 巨包与渲染端整线程重渲。 */
+ *  ~100ms 一次会导致 IPC 巨包与渲染端整线程重渲。工具图片只在工具结束的全量
+ *  快照里下发，增量不带 image，渲染端按 toolCallId 从旧消息回填。 */
 export interface ChatStreamEvent {
   sessionId: string;
   message: WorkspaceChat['messages'][number];

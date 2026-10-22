@@ -112,6 +112,49 @@ describe('sessions mirror store', () => {
     expect(useSessions.getState().chats['s2']?.messages).toHaveLength(1);
   });
 
+  it('流式增量不重传工具图片，替换末条消息时按 toolCallId 回填', () => {
+    useSessions.setState({ chats: {} });
+    const image = { mimeType: 'image/jpeg', data: 'aGVsbG8=' };
+    const step = (withImage: boolean) => ({
+      id: 't1',
+      name: 'read',
+      input: { path: '05.jpg' },
+      output: {
+        text: 'Read image file [image/jpeg]',
+        ...(withImage ? { image } : {}),
+      },
+      finishedAt: 2,
+    });
+    updateListeners[0]!('s1', {
+      ...chat('s1', 1),
+      running: true,
+      messages: [
+        { role: 'user', content: '看图' },
+        {
+          role: 'assistant',
+          content: '',
+          startedAt: 100,
+          toolResults: [step(true)],
+          parts: [{ type: 'tools', results: [step(true)] }],
+        },
+      ],
+    });
+    streamListeners[0]!({
+      sessionId: 's1',
+      message: {
+        role: 'assistant',
+        content: '看到了',
+        startedAt: 100,
+        toolResults: [step(false)],
+        parts: [{ type: 'tools', results: [step(false)] }],
+      },
+    });
+    const merged = useSessions.getState().chats['s1']!.messages[1]!;
+    expect(merged.toolResults?.[0]?.output?.image).toEqual(image);
+    const part = merged.parts?.[0];
+    expect(part?.type === 'tools' && part.results[0]?.output?.image).toEqual(image);
+  });
+
   it('会话条数变化的推送触发该池列表重读，侧栏标题与排序才跟得上', async () => {
     vi.useFakeTimers();
     sessionList.mockResolvedValue([summary('s1')]);

@@ -1,25 +1,15 @@
-import {
-  ChevronRight,
-  Clock,
-  Code,
-  Eye,
-  FolderOpen,
-  LoaderCircle,
-  PenLine,
-  RefreshCw,
-} from 'lucide-react';
+import { ChevronRight, Clock, Code, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 
-/** 笔记编辑模式（本次会话内按文档记忆；含 frontmatter 等不支持语法的文档强制源码模式）。 */
-export type NoteMode = 'rich' | 'read' | 'source';
+/** Markdown 编辑模式（本次会话内按文档记忆）：即时渲染或纯源码，两者编辑的都是同一份原文。 */
+export type NoteMode = 'live' | 'source';
 
-/** 笔记内容级工具栏：保存状态低干扰展示、格式/源码切换、文件夹定位与重载。
+/** 文件内容级工具栏：保存状态低干扰展示、即时渲染/源码切换、文件夹定位与重载。
  *  正常状态不常驻保存按钮（自动保存已覆盖该路径）；失败重试与「另存为新笔记」入口在 NoteTab 错误条。 */
 export function DocumentToolbar({
   path,
   markdown,
-  forcedSource,
   mode,
   onModeChange,
   saving,
@@ -30,10 +20,8 @@ export function DocumentToolbar({
   onReload,
 }: {
   path: string[];
-  /** Markdown 笔记才有富文本/阅读/源码切换；纯文本笔记始终是源码编辑器。 */
+  /** Markdown 才有即时渲染/源码切换；其他文本始终是代码编辑器。 */
   markdown: boolean;
-  /** frontmatter 等语法强制源码模式，切换入口整体隐藏。 */
-  forcedSource: boolean;
   mode: NoteMode;
   onModeChange: (mode: NoteMode) => void;
   saving: boolean;
@@ -48,7 +36,7 @@ export function DocumentToolbar({
     <div
       className="flex min-w-0 shrink-0 items-center gap-2 px-3 py-1.5 text-xs"
       role="toolbar"
-      aria-label="笔记操作"
+      aria-label="文件操作"
     >
       <nav aria-label="文件路径" className="min-w-0 flex-1 text-ink-3" title={path.join(' / ')}>
         <ol className="flex min-w-0 items-center gap-1 overflow-hidden">
@@ -89,30 +77,17 @@ export function DocumentToolbar({
         ) : /* 正常态不常驻「已保存」图标：长期占位无信息增量；失败详情由 NoteTab 错误条承载。 */
         null}
       </span>
-      {markdown && !forcedSource && (
-        <div className="flex shrink-0 items-center gap-0.5">
-          {mode !== 'source' && (
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              title={mode === 'read' ? '编辑' : '阅读模式'}
-              aria-label={mode === 'read' ? '编辑' : '阅读模式'}
-              onClick={() => onModeChange(mode === 'read' ? 'rich' : 'read')}
-            >
-              {mode === 'read' ? <PenLine /> : <Eye />}
-            </Button>
-          )}
-          <Button
-            size="icon-xs"
-            variant={mode === 'source' ? 'secondary' : 'ghost'}
-            title={mode === 'source' ? '返回所见即所得' : '源码模式'}
-            aria-label={mode === 'source' ? '返回所见即所得' : '源码模式'}
-            aria-pressed={mode === 'source'}
-            onClick={() => onModeChange(mode === 'source' ? 'rich' : 'source')}
-          >
-            <Code />
-          </Button>
-        </div>
+      {markdown && (
+        <Button
+          size="icon-xs"
+          variant={mode === 'source' ? 'secondary' : 'ghost'}
+          title={mode === 'source' ? '返回即时渲染' : '源码模式'}
+          aria-label={mode === 'source' ? '返回即时渲染' : '源码模式'}
+          aria-pressed={mode === 'source'}
+          onClick={() => onModeChange(mode === 'source' ? 'live' : 'source')}
+        >
+          <Code />
+        </Button>
       )}
       <div className="flex shrink-0 items-center gap-0.5">
         <Button

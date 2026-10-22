@@ -15,6 +15,7 @@ import {
   resetKeybindingOverrides,
   savedCampusNotifications,
   savedFontSize,
+  savedOpenAtLogin,
   experimentEnabled,
   savedExperiments,
   savedPendingInstall,
@@ -57,6 +58,14 @@ it('treats a sub-item as unavailable while the master switch is off', () => {
   setExperiment('videoDownload', false);
   expect(experimentEnabled('videoDownload')).toBe(false);
   expect(experimentEnabled('shuiyuan')).toBe(true);
+});
+
+it('keeps login startup off unless the user opted in', () => {
+  expect(savedOpenAtLogin()).toBe(false);
+  insert("INSERT INTO workspace_settings VALUES ('open-at-login', '1')");
+  expect(savedOpenAtLogin()).toBe(true);
+  insert("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', '0')");
+  expect(savedOpenAtLogin()).toBe(false);
 });
 
 describe('font size', () => {
@@ -125,38 +134,20 @@ describe('campus notifications', () => {
 });
 
 describe('workspace prefs', () => {
-  const defaults = { restoreLastProject: true, defaultNoteEditMode: 'rich', noteSpellcheck: false };
+  const defaults = { restoreLastProject: true, noteSpellcheck: false };
 
-  it('fills the spellcheck field for prefs stored before it existed', () => {
+  it('reads prefs stored by older versions: fills new fields, drops the removed edit-mode key', () => {
     insert(
-      'INSERT INTO workspace_settings VALUES (\'workspace-prefs\', \'{"restoreLastProject":false,"defaultNoteEditMode":"source"}\')',
+      `INSERT INTO workspace_settings VALUES ('workspace-prefs', '{"restoreLastProject":false,"defaultNoteEditMode":"source"}')`,
     );
-    expect(getWorkspacePrefs()).toEqual({
-      restoreLastProject: false,
-      defaultNoteEditMode: 'source',
-      noteSpellcheck: false,
-    });
+    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false, noteSpellcheck: false });
   });
 
   it('merges partial updates without touching other fields', () => {
-    setWorkspacePrefs({ defaultNoteEditMode: 'source' });
-    expect(getWorkspacePrefs()).toEqual({
-      restoreLastProject: true,
-      defaultNoteEditMode: 'source',
-      noteSpellcheck: false,
-    });
     setWorkspacePrefs({ restoreLastProject: false });
-    expect(getWorkspacePrefs()).toEqual({
-      restoreLastProject: false,
-      defaultNoteEditMode: 'source',
-      noteSpellcheck: false,
-    });
+    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false, noteSpellcheck: false });
     setWorkspacePrefs({ noteSpellcheck: true });
-    expect(getWorkspacePrefs()).toEqual({
-      restoreLastProject: false,
-      defaultNoteEditMode: 'source',
-      noteSpellcheck: true,
-    });
+    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false, noteSpellcheck: true });
   });
 
   it('falls back to defaults on corrupt stored JSON', () => {
@@ -164,8 +155,8 @@ describe('workspace prefs', () => {
     expect(getWorkspacePrefs()).toEqual(defaults);
   });
 
-  it('rejects invalid enum values', () => {
-    expect(() => setWorkspacePrefs({ defaultNoteEditMode: 'wysiwyg' })).toThrow();
+  it('rejects invalid values', () => {
+    expect(() => setWorkspacePrefs({ noteSpellcheck: 'yes' })).toThrow();
     expect(getWorkspacePrefs()).toEqual(defaults);
   });
 });

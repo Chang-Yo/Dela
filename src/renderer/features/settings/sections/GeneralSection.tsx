@@ -71,7 +71,7 @@ export function GeneralSection() {
     void window.dela?.settings
       .getOpenAtLogin()
       .then(setOpenAtLogin)
-      .catch(() => setOpenAtLogin(true));
+      .catch(() => setOpenAtLogin(false));
   }, []);
 
   // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化并同步系统启动项。
@@ -94,7 +94,7 @@ export function GeneralSection() {
         <SettingsGroup title="启动">
           <SettingRow settingId="open-at-login" title="开机自启动">
             <Switch
-              checked={openAtLogin ?? true}
+              checked={openAtLogin ?? false}
               disabled={openAtLogin === null || busy}
               label="开机自启动"
               onChange={(next) => void toggleOpenAtLogin(next)}

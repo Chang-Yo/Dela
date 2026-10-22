@@ -135,7 +135,6 @@ export type {
   ExperimentKey,
   ExperimentState,
   TaskNotificationPrefs,
-  NoteEditModePreference,
   WorkspacePrefs,
   SettingsApi,
   SettingsSectionId,

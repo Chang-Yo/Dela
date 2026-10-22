@@ -21,13 +21,14 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { WorkspaceEntry } from '../../shared/api';
-import { Explorer, type ExplorerItem } from '../components/ui/explorer';
+import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/ui/explorer';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  useAfterMenuClose,
 } from '../components/ui/dropdown-menu';
 import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from './remote-color';
@@ -73,6 +74,8 @@ export function ProjectFileTree({
   query,
   excludeIds = [],
   archived = false,
+  pending,
+  onActivate,
 }: {
   entries: WorkspaceEntry[];
   rootId: string | null;
@@ -90,7 +93,12 @@ export function ProjectFileTree({
   query: string;
   excludeIds?: string[];
   archived?: boolean;
+  /** 行内新建；parentId 用条目 id，树根（rootId）由这里换成 Explorer 的 null。 */
+  pending?: ExplorerPending | null;
+  onActivate?: (id: string) => void;
 }) {
+  // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
+  const afterMenuClose = useAfterMenuClose();
   const excluded = new Set(excludeIds);
   const included = new Set<string>();
   const visit = (parentId: string | null) => {
@@ -234,6 +242,10 @@ export function ProjectFileTree({
         onImportFiles={onImportFiles}
         onOpenToSide={onOpenToSide}
         sortItems
+        onActivate={onActivate}
+        pending={
+          pending && { ...pending, parentId: pending.parentId === rootId ? null : pending.parentId }
+        }
         actions={(item) =>
           // 远端子条目不是本地条目：给远端自己的菜单（下载/打开/上传），本地动作一个不留。
           remoteIds.has(item.id) ? (
@@ -243,17 +255,21 @@ export function ProjectFileTree({
           ) : (
             <DropdownMenu>
               {menuTrigger(item.name)}
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="start" onCloseAutoFocus={afterMenuClose.onCloseAutoFocus}>
                 {/* 远端项目行没有本地目录，main 对它的新建一律拒绝，入口就不必给。 */}
                 {item.container && !item.readOnly && (
                   <>
-                    <DropdownMenuItem onSelect={() => onAction('folder', item.id)}>
+                    <DropdownMenuItem
+                      onSelect={() => afterMenuClose.defer(() => onAction('folder', item.id))}
+                    >
                       <FolderPlus />
                       新建文件夹
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => onAction('note', item.id)}>
+                    <DropdownMenuItem
+                      onSelect={() => afterMenuClose.defer(() => onAction('note', item.id))}
+                    >
                       <FilePlus2 />
-                      新建笔记
+                      新建文件
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => onAction('import', item.id)}>
                       <FileInput />

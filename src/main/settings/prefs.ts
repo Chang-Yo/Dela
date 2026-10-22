@@ -20,11 +20,10 @@ export const iconSchema = z.enum(['white', 'black']);
 export const zoomSchema = z
   .number()
   .refine((value) => (zoomLevels as readonly number[]).includes(value));
-// 持久化为 '1'/'0'；键不存在（老版本升级、首次使用）视为默认开启。
 export const openAtLoginSchema = z
   .string()
   .transform((value) => value === '1')
-  .catch(true);
+  .catch(false);
 
 export function readSetting(key: string): string | undefined {
   const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
@@ -151,20 +150,18 @@ export function setTaskNotificationPrefs(input: unknown): TaskNotificationPrefs 
 }
 
 // ---------------------------------------------------------------------------
-// 工作现场偏好（启动恢复上次项目与标签、默认笔记编辑方式、笔记拼写检查）。
+// 工作现场偏好（启动恢复上次项目与标签、拼写检查）。
 // ---------------------------------------------------------------------------
 
 const workspacePrefsDefaults: WorkspacePrefs = {
   // 现行为本就恢复上次项目（App 读 localStorage 的最后项目键），默认开启与其一致。
   restoreLastProject: true,
-  defaultNoteEditMode: 'rich',
   // 现行为本就关闭拼写检查（两个编辑器都硬编码 spellcheck=false）。
   noteSpellcheck: false,
 };
 
 export const workspacePrefsSchema = z.object({
   restoreLastProject: z.boolean(),
-  defaultNoteEditMode: z.enum(['rich', 'source']),
   // 字段级 default：旧版存的 JSON 没有这个键，缺省补齐而不是让整条偏好回退默认值。
   noteSpellcheck: z.boolean().default(false),
 });

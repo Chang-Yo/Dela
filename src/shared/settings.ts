@@ -20,15 +20,11 @@ export interface TaskNotificationPrefs {
   failed: boolean;
 }
 
-/** 打开 Markdown 笔记时的默认编辑方式：所见即所得 / 源码。 */
-export type NoteEditModePreference = 'rich' | 'source';
-
-/** 工作现场偏好：启动恢复、笔记默认编辑方式与拼写检查。 */
+/** 工作现场偏好：启动恢复与拼写检查。 */
 export interface WorkspacePrefs {
   /** 启动时恢复上次项目与标签；关闭后启动进入首页。 */
   restoreLastProject: boolean;
-  defaultNoteEditMode: NoteEditModePreference;
-  /** 笔记编辑器（所见即所得与源码）的系统拼写检查；默认关，避免中文与技术词被标红。 */
+  /** 文件编辑器的系统拼写检查；默认关，避免中文与技术词被标红。 */
   noteSpellcheck: boolean;
 }
 

@@ -1,15 +1,5 @@
 import { shell } from 'electron';
-import {
-  basename,
-  dirname,
-  extname,
-  isAbsolute,
-  join,
-  posix,
-  relative,
-  resolve,
-  sep,
-} from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import {
   constants,
   copyFileSync,
@@ -22,22 +12,26 @@ import {
   statSync,
   unlinkSync,
 } from 'node:fs';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { remoteById, targetOf } from '../remotes/api';
 import { locate } from '../remotes/transport';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
-import { availablePath, storageDirectory as directory } from '../storage';
+import { availablePath, diskName, storageDirectory as directory } from '../storage';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { officeZipMime } from '../documents/parse';
 import { workspaceArchiveId } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../../shared/workspace';
-import { textFileExtensions } from '../../shared/chat-input';
-import { documentFormatOf } from '../../shared/documents';
-import { isRelativeAssetPath, matchMarkdownImageRefs } from '../../shared/note-files';
+import { imageMimeOf } from '../../shared/files';
+import {
+  decodeAssetPath,
+  isRelativeAssetPath,
+  matchMarkdownImageRefs,
+} from '../../shared/note-files';
+import { localFileFormat, readLocalText, textRevision, writeLocalText } from './files';
 import type {
   DocumentContent,
   WorkspaceCreateInput,
@@ -50,30 +44,10 @@ const nameSchema = z.string().trim().min(1).max(200);
 const entryColumns =
   'id, parent_id AS parentId, name, kind, source_id AS sourceId, remote_id AS remoteId, updated_at AS updatedAt';
 
-// 笔记按扩展名区分为 Markdown 或普通文本；其余内容一律按文本读写。
-const markdownExtensions = ['.md', '.markdown'];
-// 本地/导入文件按 VSCode 对文本文件的宽泛处理内嵌展示；未列出的扩展仍不支持预览。
-// 清单与助手 composer 附件共用（shared/chat-input.ts，无点小写）。
-const textExtensions = new Set(textFileExtensions.map((extension) => `.${extension}`));
-
-const hash = (text: string) => createHash('sha256').update(text).digest('hex');
-
-// 新插入图片的落盘白名单与大小上限（与助手内联图片的常规体积一致量级）。
-const noteImageMime: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.bmp': 'image/bmp',
-  '.svg': 'image/svg+xml',
-};
+// 插入图片的大小上限（与助手内联图片的常规体积一致量级）。
 const NOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
-
-/** 有可辨识扩展名（点后 1–8 位字母数字）才视为已带后缀；否则新建笔记补默认 .md。 */
-function hasFileNameExtension(name: string): boolean {
-  return /\.[a-z0-9]{1,8}$/i.test(name);
-}
+/** 图片整张读进主进程再交给 renderer：超过就请用户在外部打开。 */
+const IMAGE_READ_MAX_BYTES = 50 * 1024 * 1024;
 
 function entryLocalPath(item: WorkspaceEntry): string {
   if (item.path) return item.path;
@@ -166,27 +140,27 @@ export async function importRemoteProject(
 /** 图片/笔记资源的解析结果：受限资源协议按它读取文件，只服务图片格式。 */
 export function resolveWorkspaceAsset(id: string, ref: string): { path: string; mime: string } {
   const item = entry(id);
-  if (item.kind !== 'note' && item.kind !== 'local' && item.kind !== 'imported')
-    throw new Error('此条目没有本地目录');
-  const base = dirname(item.kind === 'note' ? notePath(item) : entryLocalPath(item));
+  if (item.kind !== 'file') throw new Error('此条目没有本地目录');
+  const base = dirname(entryLocalPath(item));
   const path = join(base, ...ref.split('/'));
   const within = relative(base, path);
   if (!within || within.startsWith('..') || isAbsolute(within))
     throw new Error('资源路径超出文档目录');
-  const mime = noteImageMime[extname(path).toLowerCase()];
+  const mime = imageMimeOf(path);
   if (!mime) throw new Error('不支持的图片格式');
   if (!statSync(path).isFile()) throw new Error('图片文件不存在');
   return { path, mime };
 }
 
-/** 新插入的本地图片保存到笔记目录 assets/ 下，返回可写入 Markdown 的相对路径。 */
+/** 新插入的本地图片保存到 Markdown 文件同目录的 assets/ 下，返回可写入正文的相对路径。 */
 export function saveNoteImage(id: string, name: string, bytes: Uint8Array): string {
   prepareStorage();
   const item = entry(id);
-  if (item.kind !== 'note') throw new Error('只有笔记可以插入图片');
+  if (item.kind !== 'file' || localFileFormat(entryLocalPath(item)) !== 'markdown')
+    throw new Error('只有 Markdown 文件可以插入图片');
+  const noteDir = dirname(entryLocalPath(item));
   if (bytes.byteLength > NOTE_IMAGE_MAX_BYTES) throw new Error('图片超过 20MB，无法保存');
-  if (!noteImageMime[extname(name).toLowerCase()]) throw new Error('不支持的图片格式');
-  const noteDir = dirname(notePath(item));
+  if (!imageMimeOf(name)) throw new Error('不支持的图片格式');
   const assets = join(noteDir, 'assets');
   mkdirSync(assets, { recursive: true });
   const path = availablePath(assets, name, false);
@@ -206,10 +180,11 @@ function carryNoteAssets(fromFile: string, toFile: string, text: string): void {
   };
   for (const ref of matchMarkdownImageRefs(text)) {
     if (!isRelativeAssetPath(ref.path)) continue;
-    const source = join(fromDir, ...ref.path.split('/'));
+    const relativePath = decodeAssetPath(ref.path);
+    const source = join(fromDir, ...relativePath.split('/'));
     if (!existsSync(source) || !statSync(source).isFile()) continue;
     if (!inside(source)) continue; // 工作区外的引用不携带
-    const target = join(toDir, ...ref.path.split('/'));
+    const target = join(toDir, ...relativePath.split('/'));
     if (existsSync(target) || !inside(target)) continue;
     mkdirSync(dirname(target), { recursive: true });
     copyFileSync(source, target, constants.COPYFILE_EXCL);
@@ -437,13 +412,11 @@ function fileEntry(
 ): WorkspaceEntry {
   const stats = statSync(path);
   if (!stats.isDirectory() && !stats.isFile()) throw new Error('条目不是普通文件');
-  const extension = extname(path).toLowerCase();
-  const text = textExtensions.has(extension) || !extension;
   return {
     id: stored?.id ?? path,
     parentId,
     name: basename(path),
-    kind: stats.isDirectory() ? (stored?.kind ?? 'folder') : text ? 'note' : 'local',
+    kind: stats.isDirectory() ? (stored?.kind ?? 'folder') : 'file',
     sourceId: null,
     path,
     updatedAt: stats.mtime.toISOString(),
@@ -470,12 +443,43 @@ function checkParent(parentId: string | null, movingId?: string) {
   }
 }
 
+/** 新建名里的 `/`、`\` 是路径分隔符（与 VS Code 一致）：`a/b.md` 建出文件夹 a 与其中的 b.md，
+ *  中间的文件夹已存在就复用。每段单独过 diskName（Windows 保留名、非法字符仍会被替换），
+ *  `.` 与 `..` 段直接拒绝，结果因此必定落在父目录之内；以分隔符结尾（`aaa/`）一律建文件夹。
+ *  最后一段已存在时报错而不是自动改名：名字是用户明确敲进来的，悄悄变成「b (2).md」不如让他改。 */
+function createAtPath(
+  parentId: string | null,
+  name: string,
+  kind: 'folder' | 'file',
+  text?: string,
+): WorkspaceEntry {
+  const folder = kind === 'folder' || /[\\/]$/.test(name);
+  const segments = name.split(/[\\/]+/).filter(Boolean);
+  if (!segments.length) throw new Error('请输入名称');
+  if (segments.some((segment) => segment === '.' || segment === '..'))
+    throw new Error('名称不能包含「.」或「..」路径段');
+  let directory = containerPath(parentId);
+  let parent = parentId;
+  for (const segment of segments.slice(0, -1)) {
+    directory = join(directory, diskName(segment));
+    const stats = statSync(directory, { throwIfNoEntry: false });
+    if (stats && !stats.isDirectory()) throw new Error(`「${segment}」已存在且不是文件夹`);
+    if (!stats) mkdirSync(directory);
+    parent = directory;
+  }
+  const path = join(directory, diskName(segments.at(-1)!));
+  if (existsSync(path)) throw new Error(`「${basename(path)}」已存在`);
+  if (folder) mkdirSync(path);
+  else writeFileSync(path, text ?? '', { flag: 'wx' });
+  return fileEntry(path, parent);
+}
+
 export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntry {
   const parsed = z
     .object({
       parentId: workspaceEntryIdSchema.nullable(),
       name: nameSchema,
-      kind: z.enum(['folder', 'project', 'note', 'source']),
+      kind: z.enum(['folder', 'project', 'file', 'source']),
       sourceId: z.string().max(512).optional(),
       text: z.string().max(2_000_000).optional(),
     })
@@ -483,7 +487,7 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   checkParent(parsed.parentId);
   prepareStorage();
   if (parsed.parentId && remoteProjectOf(parsed.parentId))
-    throw new Error('远程项目内暂不支持新建笔记与文件夹');
+    throw new Error('远程项目内暂不支持新建文件与文件夹');
   const db = getDatabase();
   if (parsed.kind === 'source') {
     // 来源引用按前缀区分平台：水源引用行落表，其余仍是 Canvas 资料表。
@@ -508,18 +512,15 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
       WorkspaceEntry | undefined;
     if (duplicate) return duplicate;
   }
+  if (parsed.kind === 'folder' || parsed.kind === 'file')
+    return createAtPath(parsed.parentId, parsed.name, parsed.kind, parsed.text);
   const id = randomUUID();
-  const note = parsed.kind === 'note';
   let path: string | null = null;
-  if (parsed.kind !== 'source') {
-    // 新笔记默认 .md（所见即所得正文）；显式带其他扩展名时尊重用户选择。
-    const name = note && !hasFileNameExtension(parsed.name) ? `${parsed.name}.md` : parsed.name;
-    parsed.name = name;
-    path = availablePath(containerPath(parsed.parentId), name, !note);
-    if (note) writeFileSync(path, parsed.text ?? '', { flag: 'wx' });
-    else mkdirSync(path);
+  if (parsed.kind === 'project') {
+    path = availablePath(containerPath(parsed.parentId), parsed.name, true);
+    parsed.name = basename(path);
+    mkdirSync(path);
   }
-  if (parsed.kind === 'folder' || parsed.kind === 'note') return fileEntry(path!, parsed.parentId);
   db.transaction(() => {
     db.prepare(
       `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
@@ -622,8 +623,11 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
       .run(JSON.stringify(move));
     try {
-      // 笔记移动前快照正文，移动后按原相对路径携带图片；正文不改写，草稿 revision 不受影响。
-      const noteText = current.kind === 'note' ? readFileSync(from, 'utf8') : null;
+      // Markdown 移动前快照正文，移动后按原相对路径携带图片；正文不改写，草稿 revision 不受影响。
+      const noteText =
+        current.kind === 'file' && localFileFormat(from) === 'markdown'
+          ? readFileSync(from, 'utf8')
+          : null;
       if (from !== to) renameSync(from, to);
       if (noteText !== null) carryNoteAssets(from, to, noteText);
     } catch (error) {
@@ -686,37 +690,26 @@ export function importWorkspaceFiles(parentId: string | null, paths: string[]): 
   }
 }
 
-export function notePath(item: WorkspaceEntry): string {
-  if (item.path) return item.path;
-  throw new Error('笔记不存在');
-}
-
-// 受限预览协议放行的本地文件扩展名：PDF 与三类 OOXML。
-const previewExtensions = new Set(['.pdf', '.docx', '.xlsx', '.pptx']);
-const officeFormats: Record<string, 'docx' | 'xlsx' | 'pptx'> = {
-  '.docx': 'docx',
-  '.xlsx': 'xlsx',
-  '.pptx': 'pptx',
-};
+// 受限预览协议放行的本地格式：PDF 与三类 OOXML 交给 renderer 按 Range 拉取。
+const streamedFormats = new Set(['pdf', 'docx', 'xlsx', 'pptx']);
 
 export function workspacePreviewPath(id: string): string {
   prepareStorage();
   const item = entry(workspaceEntryIdSchema.parse(id));
-  if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('文档不是可预览文件');
+  if (item.kind !== 'file') throw new Error('文档不是可预览文件');
   const path = entryLocalPath(item);
-  if (!previewExtensions.has(extname(path).toLowerCase())) throw new Error('文档不是可预览文件');
+  if (!streamedFormats.has(localFileFormat(path))) throw new Error('文档不是可预览文件');
   return path;
 }
 
 export async function workspaceFilePath(id: string): Promise<string> {
   prepareStorage();
   const item = entry(workspaceEntryIdSchema.parse(id));
-  if (item.kind === 'note') return notePath(item);
   // 水源来源是实时引用，没有本地文件路径。
   if (item.kind === 'source' && item.sourceId?.startsWith('shuiyuan-topic:'))
     throw new Error('条目不是文件');
   if (item.kind === 'source' && item.sourceId) return canvasFilePath(item.sourceId);
-  if (item.kind !== 'local' && item.kind !== 'imported') throw new Error('条目不是文件');
+  if (item.kind !== 'file') throw new Error('条目不是文件');
   const path = entryLocalPath(item);
   if (!statSync(path).isFile()) throw new Error('文件不存在');
   return path;
@@ -731,79 +724,64 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
     }
     return readCanvasSource(item.sourceId);
   }
-  if (item.kind === 'note') {
-    const path = notePath(item);
-    const text = readFileSync(path, 'utf8');
-    // 笔记由应用以 UTF-8 文本写入，任意名称都可作为文本打开；Markdown 扩展名才有预览。
+  if (item.kind !== 'file') throw new Error('请选择要打开的文档');
+  const path = entryLocalPath(item);
+  const format = localFileFormat(path);
+  const stats = statSync(path);
+  const version = `${stats.mtimeMs}-${stats.size}`;
+  if (format === 'markdown' || format === 'text') {
+    const read = readLocalText(path, format);
+    if (read.kind === 'binary') return { title: item.name, format: 'binary', revision: version };
     return {
       title: item.name,
-      format: markdownExtensions.includes(extname(path).toLowerCase()) ? 'markdown' : 'text',
-      text,
-      revision: hash(text),
+      format: read.format,
+      text: read.text,
+      readOnly: read.readOnly || undefined,
+      truncated: read.truncated || undefined,
+      // 只读片段没有可保存的版本；可编辑全文的 revision 是内容哈希，保存时据此判外部修改。
+      revision: read.readOnly ? version : textRevision(read.text),
     };
   }
-  if (item.kind === 'local' || item.kind === 'imported') {
-    const path = entryLocalPath(item);
-    // 格式判定与远端文件共用（shared/documents）：远端没有宿主 extname，两边保持同一套规则。
-    const format = documentFormatOf(path);
-    const office = officeFormats[extname(path).toLowerCase()];
-    if (format === 'unsupported') return { title: item.name, format };
-    const stats = statSync(path);
-    const version = `${stats.mtimeMs}-${stats.size}`;
+  if (format === 'binary') return { title: item.name, format, revision: version };
+  if (streamedFormats.has(format)) {
+    const previewUrl = `dela-resource://workspace/${encodeURIComponent(id)}?v=${version}`;
     if (format === 'pdf')
-      return {
-        title: item.name,
-        format,
-        previewUrl: `dela-resource://workspace/${encodeURIComponent(id)}?v=${version}`,
-        mime: 'application/pdf',
-        revision: version,
-      };
-    if (office) {
-      const link = office === 'pptx' ? readOfficeExportLink('workspace', id) : null;
-      const exported = link ? officeExportPreviewInfo(link, version) : null;
-      return {
-        title: item.name,
-        format,
-        previewUrl: `dela-resource://workspace/${encodeURIComponent(id)}?v=${version}`,
-        mime: officeZipMime[office],
-        revision: version,
-        office: exported ? { export: exported } : undefined,
-      };
-    }
-    if (stats.size > 128 * 1024 * 1024) throw new Error('文件较大，请在外部应用中打开');
-    const bytes = readFileSync(path);
+      return { title: item.name, format, previewUrl, mime: 'application/pdf', revision: version };
+    const office = format as 'docx' | 'xlsx' | 'pptx';
+    const link = office === 'pptx' ? readOfficeExportLink('workspace', id) : null;
+    const exported = link ? officeExportPreviewInfo(link, version) : null;
     return {
       title: item.name,
       format,
-      text: format === 'text' || format === 'markdown' ? bytes.toString('utf8') : undefined,
-      revision: format === 'text' || format === 'markdown' ? hash(bytes.toString('utf8')) : version,
-      bytes: format === 'text' ? undefined : new Uint8Array(bytes),
-      mime:
-        format === 'image'
-          ? `image/${extname(path).toLowerCase() === '.jpg' ? 'jpeg' : extname(path).slice(1)}`
-          : undefined,
+      previewUrl,
+      mime: officeZipMime[office],
+      revision: version,
+      office: exported ? { export: exported } : undefined,
     };
   }
-  throw new Error('请选择要打开的文档');
+  if (stats.size > IMAGE_READ_MAX_BYTES) throw new Error('图片较大，请在外部应用中打开');
+  return {
+    title: item.name,
+    format,
+    bytes: new Uint8Array(readFileSync(path)),
+    mime: imageMimeOf(path),
+    revision: version,
+  };
 }
 
 export function saveWorkspaceNote(id: string, text: string, revision: string): string {
   prepareStorage();
   const item = entry(id);
+  if (item.kind !== 'file') throw new Error('只有文本文件可以编辑');
   const path = entryLocalPath(item);
-  if (item.kind !== 'note' && !textExtensions.has(extname(path).toLowerCase()) && extname(path))
-    throw new Error('只有文本文件可以编辑');
-  const disk = readFileSync(path, 'utf8');
-  if (hash(disk) !== revision)
-    throw new Error('笔记已在外部修改。你的草稿仍在，请另存为新笔记或重新载入后编辑。');
-  const temporary = `${path}.tmp`;
-  writeFileSync(temporary, text);
-  renameSync(temporary, path);
+  const format = localFileFormat(path);
+  if (format !== 'markdown' && format !== 'text') throw new Error('只有文本文件可以编辑');
+  const next = writeLocalText(path, text, revision);
   if (!isAbsolute(id))
     getDatabase()
       .prepare('UPDATE workspace_entries SET updated_at=? WHERE id=?')
       .run(new Date().toISOString(), id);
-  return hash(text);
+  return next;
 }
 
 export async function removeWorkspaceEntry(value: unknown): Promise<void> {

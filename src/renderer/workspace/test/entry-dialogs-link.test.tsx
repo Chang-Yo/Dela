@@ -23,7 +23,7 @@ const workspace = {
     entry('子文件夹', 'folder', '课程项目'),
     entry('附件目录', 'folder', '子文件夹'),
     entry('嵌套项目', 'project', '子文件夹'),
-    entry('嵌套笔记', 'note', '嵌套项目'),
+    entry('嵌套笔记', 'file', '嵌套项目'),
     entry('第二项目', 'project'),
     entry('隐藏项目', 'project'),
     { ...entry('远程项目', 'project'), remoteId: 'ssh-1' },

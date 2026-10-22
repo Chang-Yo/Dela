@@ -1,8 +1,11 @@
 import { BrowserWindow, app, dialog, nativeImage, type NativeImage } from 'electron';
 import {
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
+  readSync,
   readdirSync,
   rmSync,
   statSync,
@@ -17,6 +20,7 @@ import {
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKind,
 } from '../../shared/chat-input';
+import { SNIFF_BYTES } from '../../shared/files';
 import { getDatabase } from '../database';
 import { DOCUMENT_SKILL, assertDocumentDependency } from '../documents/runtime';
 import { readDisabledSkills } from './skills';
@@ -46,12 +50,22 @@ function previewDataUrl(image: NativeImage): string | null {
   return (size.width > 480 ? image.resize({ width: 480, quality: 'good' }) : image).toDataURL();
 }
 
+function readHead(path: string, size: number): Buffer {
+  const fd = openSync(path, 'r');
+  try {
+    const buffer = Buffer.alloc(Math.min(size, SNIFF_BYTES));
+    return buffer.subarray(0, readSync(fd, buffer, 0, buffer.length, 0));
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
 }
 
 export function stageChatMedia(name: string, bytes: Buffer): ChatMediaView {
-  const kind = chatFileKind(name);
+  const kind = chatFileKind(name, bytes);
   if (kind === 'document') {
     assertDocumentSkill();
     if (bytes.length > CHAT_DOCUMENT_MAX_BYTES) throw new Error('文档附件超过 128 MiB 上限');
@@ -90,7 +104,7 @@ export async function pickChatMedia(owner: BrowserWindow): Promise<ChatMediaView
     for (const path of result.filePaths) {
       const stat = statSync(path);
       if (!stat.isFile()) continue;
-      const kind = chatFileKind(basename(path));
+      const kind = chatFileKind(basename(path), readHead(path, stat.size), stat.size > SNIFF_BYTES);
       const limit =
         kind === 'image'
           ? CHAT_IMAGE_MAX_BYTES

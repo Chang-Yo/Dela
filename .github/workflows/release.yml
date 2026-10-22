@@ -45,7 +45,7 @@ jobs:
           path: vendor/dela-helper
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
           package-manager-cache: false
       - name: Verify runner architecture
         run: node -e "if (process.platform !== 'darwin' || process.arch !== 'arm64') process.exit(1)"
@@ -146,50 +146,9 @@ jobs:
 
   helper:
     needs: prepare
-    name: Build helper linux (amd64 + arm64)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.prepare.outputs.sha }}
-          persist-credentials: false
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.27.2'
-          cache: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24.21.0'
-          package-manager-cache: false
-      - name: Vet helper for linux/arm64
-        working-directory: helper
-        env:
-          GOOS: linux
-          GOARCH: arm64
-        run: go vet ./...
-      - name: Test helper locally (no SSH)
-        working-directory: helper
-        run: go test -count=1 -timeout=2m ./...
-      - name: Build helper
-        run: node scripts/build-helper.ts --all
-      - name: Smoke test helper executables
-        run: |
-          ./vendor/dela-helper/dela-helper-linux-amd64 --version
-          command -v qemu-aarch64-static >/dev/null 2>&1 || sudo apt-get install -y -qq qemu-user-static
-          qemu-aarch64-static ./vendor/dela-helper/dela-helper-linux-arm64 --version
-      - uses: actions/upload-artifact@v6
-        with:
-          name: helper-linux-amd64
-          path: vendor/dela-helper/dela-helper-linux-amd64
-          if-no-files-found: error
-          retention-days: 7
-      - uses: actions/upload-artifact@v6
-        with:
-          name: helper-linux-arm64
-          path: vendor/dela-helper/dela-helper-linux-arm64
-          if-no-files-found: error
-          retention-days: 7
+    uses: ./.github/workflows/helper.yml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
 
   build:
     needs: [prepare, helper]
@@ -217,7 +176,7 @@ jobs:
           path: vendor/dela-helper
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
           package-manager-cache: false
       - name: Install pnpm
         run: npm install --global pnpm@12.3.4
@@ -261,7 +220,7 @@ jobs:
           retention-days: 7
 
   release:
-    needs: [prepare, build]
+    needs: [prepare, build, macos]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -279,6 +238,12 @@ jobs:
         with:
           name: installer-win-x64
           path: installers
+      - uses: actions/download-artifact@v6
+        with:
+          name: installer-mac-arm64
+          path: installers-macos
+      - name: Collect Mac release files
+        run: find installers-macos -type f -exec cp -t installers -- {} +
       - name: Create and publish release
         shell: bash
         run: |
@@ -303,82 +268,3 @@ jobs:
               --verify-tag --draft --generate-notes --notes-file release-notes.md --title "$RELEASE_TAG" "${prerelease[@]}"
           fi
           gh release edit "$RELEASE_TAG" --draft=false
-          gh release view "$RELEASE_TAG" --json body --jq .body > release-notes.md
-      - uses: actions/upload-artifact@v6
-        with:
-          name: release-notes
-          path: release-notes.md
-          if-no-files-found: error
-          retention-days: 7
-
-  publish-public:
-    needs: [prepare, release]
-    name: Publish to public releases repo
-    runs-on: ubuntu-24.04
-    env:
-      GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
-      GH_REPO: Chang-Yo/Dela_releases
-      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-    steps:
-      - uses: actions/download-artifact@v6
-        with:
-          name: installer-win-x64
-          path: installers
-      - uses: actions/download-artifact@v6
-        with:
-          name: release-notes
-          path: .
-      - name: Publish installers and release notes
-        shell: bash
-        run: |
-          if [[ -z "$GH_TOKEN" ]]; then
-            echo '::error::PUBLIC_RELEASE_TOKEN secret is not configured (fine-grained PAT with Contents write on Chang-Yo/Dela_releases)'
-            exit 1
-          fi
-          prerelease=()
-          if [[ "$RELEASE_TAG" == *-* ]]; then
-            prerelease=(--prerelease)
-          fi
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" installers/* --clobber
-          else
-            gh release create "$RELEASE_TAG" installers/* \
-              --draft --notes-file release-notes.md --title "$RELEASE_TAG" "${prerelease[@]}"
-          fi
-          gh release edit "$RELEASE_TAG" --draft=false --notes-file release-notes.md
-
-  publish-macos-private:
-    needs: [prepare, macos, release]
-    name: Add Mac installers to source release
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-    steps:
-      - uses: actions/download-artifact@v6
-        with:
-          name: installer-mac-arm64
-          path: installers
-      - name: Upload Mac installers
-        run: gh release upload "$RELEASE_TAG" installers/* --clobber
-
-  publish-macos-public:
-    needs: [prepare, macos, publish-public]
-    name: Add Mac installers to public release
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    env:
-      GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
-      GH_REPO: Chang-Yo/Dela_releases
-      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-    steps:
-      - uses: actions/download-artifact@v6
-        with:
-          name: installer-mac-arm64
-          path: installers
-      - name: Upload Mac installers
-        run: gh release upload "$RELEASE_TAG" installers/* --clobber

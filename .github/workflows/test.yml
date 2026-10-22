@@ -1,0 +1,40 @@
+name: Application tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and unit tests (Windows)
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      DELA_REMOTE_HOST: ''
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - name: Install pnpm
+        run: npm install --global pnpm@12.3.4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Unit tests
+        run: pnpm test
+      - uses: actions/upload-artifact@v6
+        with:
+          name: windows-build
+          path: out/
+          if-no-files-found: error
+          retention-days: 1

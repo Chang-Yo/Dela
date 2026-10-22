@@ -1,7 +1,7 @@
 import { mkdtempSync, existsSync } from 'node:fs';
 import { rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 
 const profile = vi.hoisted(() => ({ root: '' }));
@@ -81,14 +81,14 @@ it('rejects cleanup traversal and checks the dependency before acquiring files',
   );
 });
 
-it.each(['slides.pptx', 'archive.unknown'])(
+it.each(['slides.pptx', 'report.pdf'])(
   'returns a skill hint for %s without opening the file or querying GUI',
   async (name) => {
     const id = join(profile.root, name);
     vi.mocked(entry).mockReturnValue({
       id,
       name,
-      kind: 'local',
+      kind: 'file',
       parentId: null,
       sourceId: null,
       updatedAt: '',
@@ -118,6 +118,32 @@ it('returns Canvas file metadata without downloading, identifying, or previewing
   expect(readCanvasSource).not.toHaveBeenCalled();
 });
 
+it('classifies extensionless and dotfiles by content: text is readable, binary gets the skill hint', async () => {
+  const text = join(profile.root, '.env');
+  const binary = join(profile.root, 'core');
+  await writeFile(text, 'KEY=value\n');
+  await writeFile(binary, Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0, 1, 2]));
+  for (const [path, expected] of [
+    [text, { format: 'text', text: 'KEY=value\n' }],
+    [binary, { format: 'file', readable: false }],
+  ] as const) {
+    const name = basename(path);
+    vi.mocked(entry).mockReturnValue({
+      id: path,
+      path,
+      name,
+      kind: 'file',
+      parentId: null,
+      sourceId: null,
+      updatedAt: '',
+    });
+    vi.mocked(workspaceFilePath).mockResolvedValue(path);
+    expect(await readResourceTool.execute({ ref: { type: 'workspace', id: path } })).toMatchObject(
+      expected,
+    );
+  }
+});
+
 it('reads and paginates a note with its revision without querying GUI', async () => {
   const id = join(profile.root, 'note.md');
   await writeFile(id, 'abcdef');
@@ -125,7 +151,7 @@ it('reads and paginates a note with its revision without querying GUI', async ()
     id,
     path: id,
     name: 'note.md',
-    kind: 'note',
+    kind: 'file',
     parentId: null,
     sourceId: null,
     updatedAt: '',
@@ -153,7 +179,7 @@ it('preserves inline images for workspace and Canvas files', async () => {
     id,
     path: id,
     name: 'picture.jpg',
-    kind: 'local',
+    kind: 'file',
     parentId: null,
     sourceId: null,
     updatedAt: '',
