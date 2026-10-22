@@ -327,7 +327,7 @@ macOS 的 rg/fd 位于 `vendor/bin/darwin-<arch>`，打包后为 `resources/bin/
 
 | 工具    | 版本                                  | 何时需要             |
 | ------- | ------------------------------------- | -------------------- |
-| Node.js | 24.21.0（`.node-version`、`engines`） | 总是                 |
+| Node.js | 24.22.1（`.node-version`、`engines`） | 总是                 |
 | pnpm    | 12.3.4（`packageManager`）            | 总是                 |
 | Go      | `go.mod` 声明 1.22，CI 固定 1.27.2    | 只在改远端 helper 时 |
 
@@ -337,11 +337,11 @@ macOS 的 rg/fd 位于 `vendor/bin/darwin-<arch>`，打包后为 `resources/bin/
   . ./scripts/use-local-tools.ps1
   ```
 
-- 新克隆的仓库不包含 `.tools/`，需自行安装上述版本。也可以将官方 Windows Node ZIP 解压到 `.tools/node-v24.21.0-win-x64`，再用该 Node 自带的 npm 执行 `npm install --prefix .tools/package-manager pnpm@12.3.4`。
-- Apple Silicon 本机也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.21.0-darwin-arm64`；已安装固定版本的 Node 与 pnpm 后，在当前 shell 启用并核对版本：
+- 新克隆的仓库不包含 `.tools/`，需自行安装上述版本。也可以将官方 Windows Node ZIP 解压到 `.tools/node-v24.22.1-win-x64`，再用该 Node 自带的 npm 执行 `npm install --prefix .tools/package-manager pnpm@12.3.4`。
+- Apple Silicon 本机也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.22.1-darwin-arm64`；已安装固定版本的 Node 与 pnpm 后，在当前 shell 启用并核对版本：
 
   ```sh
-  export PATH="$PWD/.tools/node-v24.21.0-darwin-arm64/bin:$PATH"
+  export PATH="$PWD/.tools/node-v24.22.1-darwin-arm64/bin:$PATH"
   node --version
   pnpm --version
   ```
