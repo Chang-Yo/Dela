@@ -181,7 +181,10 @@ const UserMessage = memo(function UserMessage({
       {message.content ? (
         <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-13 leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
           {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
-          <ChatMarkdown className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent">
+          <ChatMarkdown
+            className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent"
+            mode="static"
+          >
             {message.content}
           </ChatMarkdown>
         </div>

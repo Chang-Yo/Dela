@@ -18,7 +18,7 @@ vi.mock('./markdown', () => ({
     mode?: 'static' | 'streaming';
     animated?: boolean | object;
   }) => (
-    <span data-animated={animated ? 'true' : 'false'} data-markdown-mode={mode ?? 'static'}>
+    <span data-animated={animated ? 'true' : 'false'} data-markdown-mode={mode ?? 'unset'}>
       {children}
     </span>
   ),
@@ -359,6 +359,32 @@ it('流式期间使用 streaming，消息结束后切回 static', async () => {
       .querySelector('[data-assistant-body] [data-markdown-mode]')
       ?.getAttribute('data-markdown-mode'),
   ).toBe('static');
+});
+
+it('用户消息始终按 static 渲染，不经过 remend', async () => {
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...chat,
+          running: false,
+          messages: [
+            { role: 'user', content: 'd <dsadsa dsadsa' },
+            {
+              role: 'assistant',
+              content: '回复',
+              startedAt: 1,
+              finishedAt: 2,
+              parts: [{ type: 'text', text: '回复' }],
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  expect(host.querySelector('[data-markdown-mode]')?.getAttribute('data-markdown-mode')).toBe(
+    'static',
+  );
 });
 
 it('切回标签等重挂载时，已在输出的正文不重播渐入动画', async () => {
