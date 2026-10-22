@@ -1,11 +1,12 @@
 import type {
-  HelperDegradation,
   RemoteApi,
   RemoteBrowseResult,
+  RemoteChannelState,
   RemoteConnection,
   RemotePrepare,
   RemoteProbe,
   RemoteSetupProgress,
+  RemoteTask,
 } from '../shared/remotes';
 import { invoke, on } from './lib';
 
@@ -18,5 +19,14 @@ export const remotes: RemoteApi = {
   pickKey: () => invoke('remotes:pick-key') as Promise<string | null>,
   prepare: (draft) => invoke('remotes:prepare', draft) as Promise<RemotePrepare>,
   onSetupProgress: (listener) => on<RemoteSetupProgress>('remotes:setup-progress', listener),
-  onHelperState: (listener) => on<HelperDegradation[]>('remotes:helper-state', listener),
+  onHelperState: (listener) => {
+    const stop = on<RemoteChannelState[]>('remotes:helper-state', listener);
+    // 推送只报变化：订阅时补拉一次当前快照，晚挂上的界面也能看到已经不可用的通道。
+    void (invoke('remotes:helper-states') as Promise<RemoteChannelState[]>).then(listener);
+    return stop;
+  },
+  tasks: (remoteId) => invoke('remotes:tasks', remoteId) as Promise<RemoteTask[]>,
+  cancelTask: (remoteId, taskId) =>
+    invoke('remotes:cancel-task', remoteId, taskId) as Promise<void>,
+  retry: (remoteId) => invoke('remotes:retry', remoteId) as Promise<RemoteChannelState>,
 };

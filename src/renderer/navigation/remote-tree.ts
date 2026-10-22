@@ -1,7 +1,7 @@
 // 远程项目在文件树里的懒加载：展开一层拉一层，结果只留在组件状态里——远端是这些条目的唯一事实来源。
 // 子条目 id 带项目身份（remoteNodeId）：只用路径会让两台连接上的同路径目录串成同一个节点。
 import { useEffect, useRef, useState } from 'react';
-import type { HelperDegradation, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
+import type { RemoteChannelState, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
 import type { ExplorerItem } from '../components/ui/explorer';
 import { errorText } from '../workspace/store';
@@ -32,7 +32,7 @@ export interface RemoteTree {
   destinations: Record<string, string>;
   /** 正在读取或读取失败的说明；无则 null。 */
   status: string | null;
-  /** helper 通道不可用提示（对准这棵树里可见的项目）；无则 null。 */
+  /** helper 通道不可用或重连中的提示（对准这棵树里可见的项目）；无则 null。 */
   degraded: string | null;
   /** 打开的项目正在首次连接（冷启动几秒）且还没有任何内容：面板该给过渡而不是空着。 */
   connecting: boolean;
@@ -60,7 +60,7 @@ export function useRemoteTree(
   const destinations = Object.fromEntries(
     Object.entries(connections).map(([id, connection]) => [id, connection.host]),
   );
-  const [degradations, setDegradations] = useState<HelperDegradation[]>([]);
+  const [channels, setChannels] = useState<RemoteChannelState[]>([]);
   const inFlight = useRef(new Set<string>());
   /** 已缓存清单：远端路径供变化通知判断过期，项目 id 供上报 watch 分组。 */
   const listed = useRef(new Map<string, { projectId: string; path: string }>());
@@ -99,11 +99,11 @@ export function useRemoteTree(
 
   const hasRemote = projects.length > 0;
 
-  // helper 通道的不可用状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器不打扰这棵树。
+  // helper 通道状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器不打扰这棵树。
   useEffect(() => {
     const remotes = window.dela?.remotes;
     if (!hasRemote || !remotes?.onHelperState) return;
-    return remotes.onHelperState(setDegradations);
+    return remotes.onHelperState(setChannels);
   }, [hasRemote]);
 
   // 收起时清掉失败记录：再次展开重试一次，避免一次网络抖动后目录永久打不开。
@@ -269,12 +269,17 @@ export function useRemoteTree(
 
   // 不可用提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
   // 多条通道各自不可用时，一台恢复只让它自己那条从快照里消失，别的提示不受影响。
-  const degraded = degradations.find((state) =>
-    projects.some((project) => destinations[project.remoteId!] === state.destination),
+  // 不可用优先于重连中：两台服务器各在一种状态时，先说用不了的那台。
+  const visible = channels.filter((channel) =>
+    projects.some((project) => destinations[project.remoteId!] === channel.destination),
   );
-  const degradedText = degraded
-    ? `${degraded.destination} 的远程项目暂时不可用：${degraded.reason}`
-    : null;
+  const unavailable = visible.find((channel) => channel.state === 'unavailable');
+  const reconnecting = visible.find((channel) => channel.state === 'reconnecting');
+  const degradedText = unavailable
+    ? `${unavailable.destination} 的远程项目暂时不可用：${unavailable.reason}`
+    : reconnecting
+      ? `与 ${reconnecting.destination} 的连接中断，正在重连；远端正在运行的命令不受影响`
+      : null;
 
   // 首次连接这台服务器时整棵树还没有内容：面板给一个过渡，而不是空着让人以为没有文件。
   // 逐层展开的读取几十毫秒就回来（还有内容在），不在这里报——那会让树上下跳。

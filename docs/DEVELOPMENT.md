@@ -221,7 +221,8 @@ Canvas 资料目录与 `latestTermOf` 共用 `shared/canvas.ts` 的排序规则�
 - **本地不碰远端路径**：`projectLocation` 分远程分支，`entry()` 拒绝远端路径，远程项目内禁新建 / 重命名 / 移动，目录不进本地扫描也不 `fs.watch`。远端条目 id 是「项目 id + 远端路径」，两台连接上的同路径目录不会混。远端目录的变化由 helper 的 inotify 事件流推给目录树（只监视展开的那几层）。
 - **认证**：Dela 不存任何口令；密钥走 ssh 自身的 `~/.ssh/config` 与 agent，密码只在交互终端里由 ssh 询问。连接自检 `ssh -o BatchMode=yes -o ConnectTimeout=10 <dest> true`，主机指纹不自动接受。
 - **VS Code 打开项目**：Windows 直接启动 `Code.exe`，Mac 启动应用包内的 CLI；远程项目附带 `--remote ssh-remote+<host>`。不使用 `windowsHide: true`，它会隐藏首次启动的 Windows GUI 窗口。VS Code 的 Remote - SSH 扩展与 ssh config 仍由用户配置。
-- **不可用**：通道判为 unavailable 时，这台服务器的项目调用一律以 `HelperUnavailableError` 失败（带分类过的原因），目录树按目的地显示提示。
+- **不可用**：通道判为 unavailable 时，这台服务器的项目调用一律以 `HelperUnavailableError` 失败（带分类过的原因），目录树按目的地显示提示；重连中也有一行提示，说明远端命令不受影响。
+- **渲染端接口**：`remotes.onHelperState` 推全部通道的状态快照（`RemoteChannelState`：目的地、状态、原因、进入时刻），订阅时先补拉一次当前值（`remotes:helper-states`）；`remotes.tasks` / `cancelTask` 列出与取消某个连接上的远端任务；`remotes.retry` 手动重试一条不可用的通道。任务列表与重试暂无界面入口。
 - **不做**：远端文件写回与编辑器内保存；远端 PPTX 内嵌预览（下载后用 PowerPoint 打开）；远程会话里没有 dela 校园命令；JS 扩展宿主；远端 MCP 端口转发。
 
 开发注意（真机踩过的坑）：

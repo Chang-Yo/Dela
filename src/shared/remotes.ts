@@ -44,14 +44,36 @@ export interface RemotePrepare {
   message: string;
 }
 
-/** helper 通道不可用：远程项目的全部能力都经它，这台服务器的项目暂时不能用。
- *  按目的地对准项目提示；该通道恢复后从快照里消失。
- *  同时可能有几条通道，所以送到渲染端的是一整份快照（每个连接各一条通道）。 */
-export interface HelperDegradation {
+/** helper 通道状态：connecting 首次引导中，ready 可用，reconnecting 隧道断了正在重建（远端任务照跑），
+ *  unavailable 起不来或重连超时（这台服务器的项目暂时不能用）。 */
+export type RemoteChannelStatus = 'connecting' | 'ready' | 'reconnecting' | 'unavailable';
+
+/** 一条 helper 通道的状态。每个连接各一条通道，送到渲染端的是全部通道的整份快照，
+ *  渲染端按目的地对准自己的项目；通道关闭后从快照里消失。 */
+export interface RemoteChannelState {
   /** ssh 目的地（host），与连接里的 host 字段一致。 */
   destination: string;
-  /** 给人看的原因：分类诊断（noexec／只读挂载／SELinux）或原始错误。 */
+  state: RemoteChannelStatus;
+  /** unavailable 时给人看的原因：分类诊断（noexec／只读挂载／SELinux）或原始错误；其余状态为空串。 */
   reason: string;
+  /** 进入当前状态的时刻（epoch 毫秒）。 */
+  since: number;
+}
+
+/** 远端任务（agent 的 bash 调用）的快照：断线期间也在远端继续跑。 */
+export interface RemoteTask {
+  id: string;
+  command: string;
+  cwd: string;
+  pid: number;
+  state: 'running' | 'exited' | 'cancelled' | 'timeout';
+  exitCode: number;
+  signal?: string;
+  /** epoch 毫秒。 */
+  startedAt: number;
+  durationMs: number;
+  /** 已产出的输出字节数。 */
+  output: number;
 }
 
 /** 远端监听端口（/v1/ports）：归属拿不到（别的用户的进程）时 pid/process 缺省。 */
@@ -150,5 +172,11 @@ export interface RemoteApi {
   /** 连接：自检 + 把 helper 真的引导起来，过程经 onSetupProgress 一行行送达。 */
   prepare(draft: RemoteDraft): Promise<RemotePrepare>;
   onSetupProgress(listener: (progress: RemoteSetupProgress) => void): () => void;
-  onHelperState(listener: (states: HelperDegradation[]) => void): () => void;
+  /** 全部 helper 通道的状态快照：订阅时立刻推一次当前值，之后每次变化再推。 */
+  onHelperState(listener: (states: RemoteChannelState[]) => void): () => void;
+  /** 这个连接上的远端任务（在跑的与最近结束的）；通道不可用时报错。 */
+  tasks(remoteId: string): Promise<RemoteTask[]>;
+  cancelTask(remoteId: string, taskId: string): Promise<void>;
+  /** 手动重试：通道不可用时立刻重新引导，不等自动重试的间隔。 */
+  retry(remoteId: string): Promise<RemoteChannelState>;
 }

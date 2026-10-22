@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type {
   DelaApi,
-  HelperDegradation,
+  RemoteChannelState,
   RemoteDirectoryEntry,
   WorkspaceEntry,
 } from '../../shared/api';
@@ -136,12 +136,12 @@ it('loads one remote level when the project is expanded and browses without open
   expect(listRemoteDirectory).toHaveBeenCalledTimes(1);
 });
 
-it('shows the degraded hint only for projects on the failing destination', async () => {
-  let emit: (states: HelperDegradation[]) => void = () => {};
+it('shows the unavailable hint only for projects on the failing destination', async () => {
+  let emit: (states: RemoteChannelState[]) => void = () => {};
   window.dela = {
     remotes: {
       list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }],
-      onHelperState: (listener: (states: HelperDegradation[]) => void) => {
+      onHelperState: (listener: (states: RemoteChannelState[]) => void) => {
         emit = listener;
         return () => {};
       },
@@ -153,27 +153,62 @@ it('shows the degraded hint only for projects on the failing destination', async
   expect(document.body.textContent).not.toContain('user@10.0.0.5');
   expect(document.body.textContent).not.toContain('noexec');
 
-  await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
+  await act(async () =>
+    emit([{ destination: 'other@10.9.9.9', state: 'unavailable', reason: 'noexec', since: 0 }]),
+  );
   expect(document.body.textContent).not.toContain('user@10.0.0.5');
   expect(document.body.textContent).not.toContain('noexec');
 
   await act(async () =>
     emit([
-      { destination: 'other@10.9.9.9', reason: 'noexec' },
-      { destination: 'user@10.0.0.5', reason: 'helper 目录所在挂载点启用了 noexec' },
+      { destination: 'other@10.9.9.9', state: 'unavailable', reason: 'noexec', since: 0 },
+      {
+        destination: 'user@10.0.0.5',
+        state: 'unavailable',
+        reason: 'helper 目录所在挂载点启用了 noexec',
+        since: 0,
+      },
     ]),
   );
   expect(document.body.textContent).toContain('user@10.0.0.5');
   expect(document.body.textContent).not.toContain('other@10.9.9.9');
   expect(document.body.textContent).toContain('noexec');
 
-  await act(async () => emit([{ destination: 'other@10.9.9.9', reason: 'noexec' }]));
+  await act(async () =>
+    emit([{ destination: 'other@10.9.9.9', state: 'unavailable', reason: 'noexec', since: 0 }]),
+  );
   expect(document.body.textContent).not.toContain('user@10.0.0.5');
   expect(document.body.textContent).not.toContain('noexec');
 
   await act(async () => emit([]));
   expect(document.body.textContent).not.toContain('user@10.0.0.5');
   expect(document.body.textContent).not.toContain('noexec');
+});
+
+it('says the connection is reconnecting without alarming, and says nothing when ready', async () => {
+  let emit: (states: RemoteChannelState[]) => void = () => {};
+  window.dela = {
+    remotes: {
+      list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }],
+      onHelperState: (listener: (states: RemoteChannelState[]) => void) => {
+        emit = listener;
+        return () => {};
+      },
+    },
+    workspace: { listRemoteDirectory: vi.fn(async () => []) },
+  } as unknown as DelaApi;
+
+  await renderTree(['p-remote']);
+  const channel = { destination: 'user@10.0.0.5', reason: '', since: 0 };
+  await act(async () => emit([{ ...channel, state: 'ready' }]));
+  expect(document.body.textContent).not.toContain('user@10.0.0.5');
+
+  await act(async () => emit([{ ...channel, state: 'reconnecting' }]));
+  expect(document.body.textContent).toContain('正在重连');
+  expect(document.body.textContent).toContain('远端正在运行的命令不受影响');
+
+  await act(async () => emit([{ ...channel, state: 'ready' }]));
+  expect(document.body.textContent).not.toContain('正在重连');
 });
 
 it('shows no status line while a remote level is loading', async () => {

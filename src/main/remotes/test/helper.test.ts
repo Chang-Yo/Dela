@@ -9,12 +9,14 @@ vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
 
+import type { RemoteChannelState } from '../../../shared/remotes';
 import {
   closeHelper,
   helperSession,
   HelperUnavailableError,
-  onHelperDegradation,
+  onHelperState,
   readyHelper,
+  retryHelper,
   setConnectorForTesting,
 } from '../helper';
 
@@ -181,15 +183,38 @@ describe('通道状态机', () => {
 
   it('首次引导失败就判为不可用，带原因推给渲染端，调用直接报错', async () => {
     failNext = 'helper 启动失败（诊断：noexec）';
-    const states: { destination: string; reason: string }[][] = [];
-    const stop = onHelperDegradation((snapshot) => states.push(snapshot));
+    const states: RemoteChannelState[][] = [];
+    const stop = onHelperState((snapshot) => states.push(snapshot));
     await expect(readyHelper(target)).rejects.toBeInstanceOf(HelperUnavailableError);
     await expect(helperSession(target).list('/p')).rejects.toThrow('noexec');
     expect(states.at(-1)).toEqual([
-      { destination: target.host, reason: 'helper 启动失败（诊断：noexec）' },
+      {
+        destination: target.host,
+        state: 'unavailable',
+        reason: 'helper 启动失败（诊断：noexec）',
+        since: expect.any(Number),
+      },
     ]);
     // 不可用后短时间内不会反复去起远端进程。
     expect(connects).toBe(1);
+    stop();
+  });
+
+  it('手动重试不等自动重试的间隔，原因消失后恢复可用', async () => {
+    failNext = '认证失败';
+    await expect(readyHelper(target)).rejects.toBeInstanceOf(HelperUnavailableError);
+    failNext = null;
+    expect((await retryHelper(target)).state).toBe('ready');
+    expect(await helperSession(target).list('/p')).toHaveLength(1);
+    expect(connects).toBe(2);
+  });
+
+  it('重连期间推 reconnecting，回来后推 ready', async () => {
+    await readyHelper(target);
+    const seen: string[] = [];
+    const stop = onHelperState((snapshot) => seen.push(snapshot[0]!.state));
+    cutTunnel();
+    await waitFor(() => seen.at(-1) === 'ready' && seen.includes('reconnecting'));
     stop();
   });
 });

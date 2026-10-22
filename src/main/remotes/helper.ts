@@ -12,7 +12,7 @@ import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
 import { app } from 'electron';
-import type { HelperDegradation, RemoteSetupProgress } from '../../shared/remotes';
+import type { RemoteChannelState, RemoteSetupProgress, RemoteTask } from '../../shared/remotes';
 import {
   exec,
   locateSsh,
@@ -232,20 +232,6 @@ export interface HelperSearchResult {
   truncated: boolean;
 }
 
-/** 远端任务的快照（/v1/tasks）。output 是写入过的总字节数。 */
-export interface HelperTask {
-  id: string;
-  command: string;
-  cwd: string;
-  pid: number;
-  state: 'running' | 'exited' | 'cancelled' | 'timeout';
-  exitCode: number;
-  signal?: string;
-  startedAt: number;
-  durationMs: number;
-  output: number;
-}
-
 /** 远端监听端口（/v1/ports）：pid 与进程名拿不到（别的用户）时缺省。 */
 export interface HelperPort {
   port: number;
@@ -285,7 +271,7 @@ export interface HelperSession {
   setWatch(id: string, paths: string[]): Promise<{ watching: number; skipped: string[] }>;
   clearWatch(id: string): Promise<void>;
   listPorts(): Promise<HelperPort[]>;
-  listTasks(): Promise<HelperTask[]>;
+  listTasks(): Promise<RemoteTask[]>;
   cancelTask(id: string): Promise<void>;
   /** 目录事件流：resolve 表示流结束（隧道断/helper 退出），由调用方决定是否重连。 */
   watchEvents(onEvent: (event: WatchEvent) => void, signal?: AbortSignal): Promise<void>;
@@ -787,6 +773,20 @@ class Channel {
     });
   }
 
+  /** 手动重试：不可用时立刻重新引导，不等自动重试的间隔；其余状态什么都不做。 */
+  async retry(): Promise<void> {
+    if (this.state === 'unavailable') await this.connect('connecting');
+  }
+
+  snapshot(): RemoteChannelState {
+    return {
+      destination: this.target.host,
+      state: this.state,
+      reason: this.reason,
+      since: this.since,
+    };
+  }
+
   /** 引导或重连：同一时刻只跑一轮。progress 只在首次引导时有人听（向导的日志区）。 */
   connect(state: 'connecting' | 'reconnecting', onProgress?: (p: RemoteSetupProgress) => void) {
     if (this.connecting) return this.connecting;
@@ -1025,7 +1025,7 @@ function createSession(channel: Channel): HelperSession {
     listPorts: async () =>
       (await json<{ ports?: HelperPort[] }>('GET', '/v1/ports', '列出远端端口')).ports ?? [],
     listTasks: async () =>
-      (await json<{ tasks?: HelperTask[] }>('GET', '/v1/tasks', '列出远端任务')).tasks ?? [],
+      (await json<{ tasks?: RemoteTask[] }>('GET', '/v1/tasks', '列出远端任务')).tasks ?? [],
     async cancelTask(id) {
       await request('POST', `/v1/tasks/${encodeURIComponent(id)}/cancel`, `取消任务 ${id} `);
     },
@@ -1138,20 +1138,21 @@ export function setConnectorForTesting(next: Connector | null): void {
   connector = next ?? connectRemote;
 }
 
-const stateListeners = new Set<(states: HelperDegradation[]) => void>();
+const stateListeners = new Set<(states: RemoteChannelState[]) => void>();
 
-/** 订阅不可用通道的快照（现有渲染端契约：只报用不了的那些）。 */
-export function onHelperDegradation(
-  listener: (degradations: HelperDegradation[]) => void,
-): () => void {
+/** 全部通道的状态快照。 */
+export function helperStates(): RemoteChannelState[] {
+  return [...channels.values()].map((channel) => channel.snapshot());
+}
+
+/** 订阅通道状态：每次任何一条通道变化都推整份快照。 */
+export function onHelperState(listener: (states: RemoteChannelState[]) => void): () => void {
   stateListeners.add(listener);
   return () => stateListeners.delete(listener);
 }
 
 function broadcast(): void {
-  const snapshot = [...channels.values()]
-    .filter((channel) => channel.state === 'unavailable')
-    .map((channel) => ({ destination: channel.target.host, reason: channel.reason }));
+  const snapshot = helperStates();
   for (const listener of stateListeners) listener(snapshot);
 }
 
@@ -1170,6 +1171,13 @@ function channelFor(target: RemoteTarget): Channel {
  *  HelperUnavailableError 失败（带分类过的原因），没有别的退路。 */
 export function helperSession(target: RemoteTarget): HelperSession {
   return channelFor(target).session;
+}
+
+/** 手动重试一条通道，返回重试之后的状态。 */
+export async function retryHelper(target: RemoteTarget): Promise<RemoteChannelState> {
+  const channel = channelFor(target);
+  await channel.retry();
+  return channel.snapshot();
 }
 
 /** 等这条通道第一次就绪或判为不可用：向导与需要「先连上再说」的入口用。 */
