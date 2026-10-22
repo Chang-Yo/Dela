@@ -10,7 +10,7 @@ import {
   CHAT_ATTACHMENT_MAX,
   CHAT_DOCUMENT_MAX_BYTES,
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
-  chatFileKind,
+  chatFileKindOfFile,
   hasChatImages,
   stripChatImageTokens,
 } from '../../../shared/chat-input';
@@ -127,7 +127,9 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     if (attachmentsRef.current.length >= CHAT_ATTACHMENT_MAX)
       throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
     const limit =
-      chatFileKind(file.name) === 'text' ? CHAT_TEXT_ATTACHMENT_MAX_BYTES : CHAT_DOCUMENT_MAX_BYTES;
+      (await chatFileKindOfFile(file)) === 'text'
+        ? CHAT_TEXT_ATTACHMENT_MAX_BYTES
+        : CHAT_DOCUMENT_MAX_BYTES;
     if (file.size > limit) throw new Error(`附件超过 ${limit / 1024 / 1024} MB 上限`);
     const bytes = new Uint8Array(await file.arrayBuffer());
     const view = await window.dela.chat.stageMedia({ name: file.name, bytes });

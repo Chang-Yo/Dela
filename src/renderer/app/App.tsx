@@ -42,7 +42,6 @@ import {
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
-import { setDefaultNoteEditMode } from '../content/note/default-mode';
 import { useNoteSpellcheck } from '../content/note/note-spellcheck';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
@@ -200,7 +199,6 @@ export default function App() {
     void window.dela?.settings
       .getWorkspacePrefs()
       .then((prefs) => {
-        setDefaultNoteEditMode(prefs.defaultNoteEditMode);
         useNoteSpellcheck.getState().setSpellcheck(prefs.noteSpellcheck);
       })
       .catch(() => {});

@@ -14,7 +14,7 @@ import { referenceContext } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { useWorkspaceStore } from '../../workspace/store';
-import { openTabAside } from '../../workbench/open-aside';
+import { openTarget } from '../../workbench/open-target';
 import { reviewTabId } from '../review/tab-id';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
@@ -213,7 +213,8 @@ const ChatSessionView = memo(function ChatSessionView({
         <IconButton
           aria-label="新对话"
           onClick={() =>
-            projectId === null
+            // 首页里是「开一个新随聊」，工作台里（项目或资料）就地在焦点组开；落点由 newChat 统一决定。
+            useNavigationStore.getState().view === 'home'
               ? useNavigationStore.getState().openGeneralChat(true)
               : void useNavigationStore.getState().newChat(projectId)
           }
@@ -224,7 +225,9 @@ const ChatSessionView = memo(function ChatSessionView({
         {reviewReady && (
           <IconButton
             aria-label="工作区改动"
-            onClick={() => openTabAside(reviewTabId({ kind: 'uncommitted', sessionId: active }))}
+            onClick={() =>
+              openTarget(reviewTabId({ kind: 'uncommitted', sessionId: active }), { aside: true })
+            }
             title="查看工作区未提交的改动"
           >
             <GitCompare />

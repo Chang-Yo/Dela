@@ -15,6 +15,8 @@ export interface GroupNode {
   id: string;
   tabs: TabId[];
   active: TabId | null;
+  /** 预览标签（VS Code 语义）：组内至多一个，下一次预览打开就地替换它；编辑、双击、拖动后转常驻。 */
+  preview?: TabId;
   /** 固定标签（VS Code 语义）：恒为 tabs 的前缀子集，批量关闭不波及；store 维护该不变量，
    *  schema 只校验形状，引用失效/乱序由载入时的归一修复。 */
   pinned?: TabId[];
@@ -62,6 +64,7 @@ const groupNodeSchema = z
     tabs: z.array(tabIdSchema).max(maxTabsPerGroup),
     active: tabIdSchema.nullable(),
     pinned: z.array(tabIdSchema).max(maxTabsPerGroup).optional(),
+    preview: tabIdSchema.optional(),
   })
   .refine((node) => new Set(node.tabs).size === node.tabs.length, {
     message: '组内标签重复',
