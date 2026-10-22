@@ -72,7 +72,7 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ## 本地开发
 
-需要 Node.js **24.21.0** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
+需要 Node.js **24.22.1** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
 
 ```sh
 pnpm install
