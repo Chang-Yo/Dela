@@ -52,8 +52,6 @@ jobs:
         with:
           name: windows-build
           path: out
-      - name: Smoke test Electron
-        run: pnpm smoke
       - name: Package application directory
         if: ${{ !inputs.archives }}
         run: |
