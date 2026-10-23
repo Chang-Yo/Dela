@@ -33,9 +33,11 @@ import { getMailState, startMailSync } from './mail/api';
 import {
   closeDomainBridge,
   gcChatMedia,
+  hasLiveSessions,
   invalidateSessions,
   loadPi,
   registerAgentIpc,
+  shutdownSessions,
   subscribeChat,
 } from './agent';
 import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } from './settings';
@@ -438,8 +440,17 @@ app
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
-app.on('before-quit', () => {
+// 退出前先结束 Agent 会话：扩展在 session_shutdown 里关掉自己起的子进程（如 MCP 服务器）。
+// 收尾是异步的，先拦下这一次退出，最多等 2 秒再退出。拦在 before-quit：will-quit 被拦下后
+// Electron 不再响应之后的 app.quit()。
+let sessionsClosed = false;
+app.on('before-quit', (event) => {
   quitting = true;
+  if (!sessionsClosed && hasLiveSessions()) {
+    event.preventDefault();
+    sessionsClosed = true;
+    void shutdownSessions(2000).finally(() => app.quit());
+  }
 });
 app.on('will-quit', () => {
   closeDomainBridge();

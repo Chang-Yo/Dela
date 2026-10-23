@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { ChatCommandView } from '../../shared/api';
+import { SESSION_COMMANDS, type ChatCommandView } from '../../shared/api';
 import { getDatabase } from '../database';
 
 // 设置 › 插件：自定义 / 指令。名称限制为无空白字符，保证能作为触发词输入。
@@ -40,6 +40,9 @@ export function listChatCommands(): ChatCommandView[] {
 
 export function saveChatCommand(input: unknown): ChatCommandView {
   const command = chatCommandInputSchema.parse(input);
+  // 与会话命令（/compact 等）同名会让 / 候选里出现两个一样的条目，新建与改名时拒绝。
+  if (SESSION_COMMANDS.some((item) => item.name === command.name.toLowerCase()))
+    throw new Error(`/${command.name} 是内置命令，请换一个名称`);
   const commands = readChatCommands();
   if (commands.some((item) => item.name === command.name && item.id !== command.id))
     throw new Error('已有同名指令');

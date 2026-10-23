@@ -9,6 +9,7 @@ import {
   Copy,
   FileText,
   NotebookPen,
+  Package,
   Pencil,
   RotateCcw,
   X,
@@ -393,6 +394,21 @@ const AssistantMessage = memo(function AssistantMessage({
   );
 });
 
+/** Pi 扩展经 sendMessage 发出的可见消息：标出 customType，与模型回复区分开。 */
+function ExtensionMessage({ content, customType }: { content: string; customType: string }) {
+  return (
+    <div className="my-3 grid gap-1.5 rounded-card bg-inset px-3.5 py-2.5">
+      <span className="flex items-center gap-1.5 text-2xs font-medium text-ink-3">
+        <Package aria-hidden className="size-3" strokeWidth={1.8} />
+        扩展 · {customType}
+      </span>
+      <ChatMarkdown className="text-13" mode="static">
+        {content}
+      </ChatMarkdown>
+    </div>
+  );
+}
+
 function CompactionDivider({ pending }: { pending?: boolean }) {
   return (
     <div className="my-6 flex items-center gap-3 text-xs text-ink-3" role="status">
@@ -537,6 +553,12 @@ export const ChatThread = memo(function ChatThread({
           {messages.map((message, index) =>
             message.compacted ? (
               <CompactionDivider key={`${chat.sessionId}:${index}`} />
+            ) : message.extension ? (
+              <ExtensionMessage
+                content={message.content}
+                customType={message.extension.customType}
+                key={`${chat.sessionId}:${index}`}
+              />
             ) : message.role === 'user' ? (
               <UserMessage
                 key={`${chat.sessionId}:${index}`}

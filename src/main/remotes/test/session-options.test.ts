@@ -56,10 +56,18 @@ vi.mock('../../agent/commands', () => ({
   startDomainBridge: () => ({ url: 'http://127.0.0.1:1', token: 'token' }),
 }));
 vi.mock('../../terminal', () => ({ locateBash: () => 'C:\\Git\\bash.exe' }));
+// 远程会话与本地会话一样带上已启用的 Pi packages（扩展代码在本机运行）。
+vi.mock('../../agent/packages', () => ({
+  enabledPackageSources: () => [{ source: 'C:\\pkgs\\demo', themes: [] }],
+  packageNpmCommand: () => undefined,
+  readDisabledPrompts: () => new Set<string>(),
+}));
 vi.mock('../../agent/skills', () => ({
   builtinSkillsDirectory: () => 'C:\\skills',
   ensureBuiltinSkills: () => {},
   effectiveDisabledSkills: () => new Set<string>(),
+  globalSkillDirectories: () => ['C:\\skills'],
+  readDisabledSkillPaths: () => new Set<string>(),
 }));
 vi.mock('../../agent/mcp', () => ({ mcpToolDefinitions: () => [], executeMcpTool: vi.fn() }));
 vi.mock('../../agent/tools', () => ({ readDisabledTools: () => state.disabled }));
@@ -97,6 +105,8 @@ describe('远程会话环境', () => {
       'C:\\data\\remote-context\\r1\\p-remote\\home\\.dela\\skills',
     ]);
     expect(options.skillPaths).not.toContain('C:\\skills');
+    // 镜像里的远端技能与本机全局技能一样按名称开关。
+    expect(options.globalSkillDirs).toEqual(expect.arrayContaining(options.skillPaths));
   });
 
   it('远端 AGENTS.md 的内容与远端路径一起注入，本地全局上下文不丢', async () => {
@@ -105,6 +115,11 @@ describe('远程会话环境', () => {
     expect(options.agentsFilesOverride!({ agentsFiles: base })).toEqual({
       agentsFiles: [...base, { path: '/root/proj/AGENTS.md', content: '暗号：菠萝' }],
     });
+  });
+
+  it('已启用的 Pi packages 照常加载', async () => {
+    const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
+    expect(options.packages).toEqual([{ source: 'C:\\pkgs\\demo', themes: [] }]);
   });
 });
 

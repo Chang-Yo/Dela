@@ -59,7 +59,9 @@ it('使用条款：小节标题、加粗、接受声明与附录表格都按版�
   expect(container.querySelector('blockquote')?.textContent).toContain(
     '以其他方式安装、运行本软件，同样视为你已阅读、理解并接受',
   );
-  expect(container.querySelectorAll('tbody tr').length).toBe(13);
+  // 附录联网位置表 16 行（含 Pi packages 的 Node 下载、npm/git 源与包自行访问的地址）。
+  expect(container.querySelectorAll('tbody tr').length).toBe(16);
+  expect(container.textContent).toContain('已启用的 Pi package 自行访问的地址');
 });
 
 it('隐私条款：小节标题、加粗与两张表格都按版式渲染', async () => {
@@ -82,9 +84,10 @@ it('隐私条款：小节标题、加粗与两张表格都按版式渲染', asyn
   const strong = expectBoldAllRendered(privacy);
   expect(strong.some((text) => text.includes('没有远程数据库'))).toBe(true);
 
-  // 凭据文件表 5 行 + 联网位置表 14 行（含按需下载文档组件）。
+  // 凭据文件表 5 行 + 联网位置表 15 行（含按需下载文档组件与 Pi packages）。
   const tables = [...container.querySelectorAll('table')];
-  expect(tables.map((table) => table.querySelectorAll('tbody tr').length)).toEqual([5, 14]);
+  expect(tables.map((table) => table.querySelectorAll('tbody tr').length)).toEqual([5, 15]);
+  expect(tables[1]?.textContent).toContain('Pi packages');
   expect(tables[1]?.textContent).toContain('文档解析组件');
   expect(tables[0]?.querySelector('th')?.textContent).toBe('凭据文件');
 });

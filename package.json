@@ -40,6 +40,7 @@
     "smoke:pdf": "electron scripts/pdf-smoke.cjs",
     "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs",
     "smoke:remote": "node scripts/run-ts-smoke.ts remote-smoke",
+    "smoke:packages": "electron scripts/packages-smoke.cjs",
     "prepare:runtime": "node scripts/prepare-runtime.ts"
   },
   "dependencies": {

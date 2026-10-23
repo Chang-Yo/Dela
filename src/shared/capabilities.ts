@@ -1,7 +1,11 @@
 // 能力层契约（MCP 与 Skills）：main 拥有连接与启停事实，renderer 只持镜像。
 
-/** Skill 来源范围：global 来自用户主目录（.dela/.agents/.zcode），project 来自当前工作区。 */
-export type SkillScope = 'global' | 'project';
+/**
+ * Skill 的来处：builtin 是 Dela 写进 ~/.dela/skills 的内置技能；user 是本机目录里用户自己放的
+ * （~/.dela/skills 其余条目与 ~/.agents/skills）；package 来自 Pi package；project 来自某个本地项目
+ * （Pi 认的 .agents/skills、.pi/skills，加上 Dela 认的 .agent/skills）。
+ */
+export type SkillOrigin = 'builtin' | 'user' | 'package' | 'project';
 
 export interface SkillDependency {
   status: 'missing' | 'installing' | 'ready' | 'error';
@@ -13,14 +17,19 @@ export interface SkillDependency {
 
 /** 已发现的 Skill（agentskills.io 规范的 SKILL.md 目录；同名时项目覆盖全局）。 */
 export interface SkillView {
-  /** 目录名，同时是 ReadSkills 工具的 skill 参数。 */
+  /** 唯一标识，即 SKILL.md 的绝对路径：启停、查看与上传都用它（主进程只认清单里有的）。 */
+  id: string;
   name: string;
   /** frontmatter 的 description，进入模型侧索引。 */
   description: string;
   enabled: boolean;
   /** SKILL.md 的绝对路径（供 UI 展示来源）。 */
   path: string;
-  scope: SkillScope;
+  origin: SkillOrigin;
+  /** origin 为 package / project 时所属的包或项目；同组的 Skill 在设置页归在一起。 */
+  group?: { id: string; label: string };
+  /** 不能单独开启的原因（所属包未启用、包关闭了 Skills）；有值时开关只读。 */
+  lockedReason?: string;
   dependency?: SkillDependency;
 }
 
@@ -107,18 +116,18 @@ export interface CapabilityApi {
   needsSetup(): Promise<boolean>;
   completeSetup(): Promise<void>;
   listSkills(): Promise<SkillView[]>;
-  /** 启停 Skill；返回最新列表（未知名抛错）。 */
-  setSkillEnabled(name: string, enabled: boolean): Promise<SkillView[]>;
+  /** 启停 Skill（id 取自清单）；返回最新列表（未知 id 抛错）。 */
+  setSkillEnabled(id: string, enabled: boolean): Promise<SkillView[]>;
   installSkillDependencies(name: string): Promise<SkillView[]>;
   cancelSkillInstallation(name: string): Promise<void>;
-  /** 读取 SKILL.md 全文（按名单独解析，渲染端不传路径）。 */
-  readSkill(name: string): Promise<string>;
+  /** 读取 SKILL.md 全文；id 必须在清单里，主进程不读清单外的路径。 */
+  readSkill(id: string): Promise<string>;
   /** 在系统文件管理器中显示 SKILL.md 所在位置。 */
-  revealSkill(name: string): Promise<void>;
+  revealSkill(id: string): Promise<void>;
   /** 把本地 Skill 目录（含附属文件）上传到远端项目的 .dela/skills/<name>/；
    *  目标已存在且 overwrite=false 时抛「远端已存在：…」，供渲染端二次确认。 */
   uploadSkillToRemote(
-    name: string,
+    id: string,
     remotePath: string,
     overwrite: boolean,
   ): Promise<RemoteSkillUpload>;

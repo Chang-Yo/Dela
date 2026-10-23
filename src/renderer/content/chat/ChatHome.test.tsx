@@ -1,17 +1,18 @@
 // @vitest-environment jsdom
 import { act, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceChat } from '../../../shared/api';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { useChatDrafts } from './drafts';
+import { useToastStore } from '../../app/toasts';
 import { ChatHome } from './ChatHome';
 import type { ChatComposer } from './ChatComposer';
 
 // 保留 ChatHome、ChatTab、发送逻辑与导航 store；输入编辑器和消息排版不参与路由验证。
 vi.mock('./ChatComposer', () => ({
-  ChatComposer: ({ value, onChange, onSend }: ComponentProps<typeof ChatComposer>) => (
+  ChatComposer: ({ value, onChange, onSend, notice }: ComponentProps<typeof ChatComposer>) => (
     <>
       <input
         aria-label="消息输入"
@@ -19,6 +20,7 @@ vi.mock('./ChatComposer', () => ({
         onChange={(event) => onChange(event.target.value)}
       />
       <button onClick={onSend}>发送</button>
+      {notice && <p role="alert">{notice}</p>}
     </>
   ),
 }));
@@ -186,4 +188,64 @@ it('历史快速切换时延迟返回不能覆盖最新会话，项目历史仍�
   expect(useNavigationStore.getState().view).toBe('workbench');
   expect(useNavigationStore.getState().projectId).toBe('project');
   expect(useNavigationStore.getState().reveal?.tabId).toBe('chat:project-history');
+});
+
+describe('会话命令', () => {
+  const sendText = async (text: string) => {
+    await act(async () => useChatDrafts.getState().update('first', { prompt: text }));
+    await act(async () =>
+      host.querySelectorAll('button').forEach((button) => {
+        if (button.textContent === '发送') button.click();
+      }),
+    );
+  };
+
+  it('/name 走命令通道、不发给模型，改完重读会话列表让标题生效', async () => {
+    const runCommand = vi.fn(async (id: string) => emptyChat(id));
+    window.dela!.session.runCommand = runCommand;
+    const ask = vi.spyOn(window.dela!.session, 'ask');
+    await act(async () => root.render(<ChatHome />));
+    const list = vi.spyOn(window.dela!.session, 'list');
+    await sendText('  /name  课程周报  ');
+    expect(runCommand).toHaveBeenCalledWith('first', 'name', '课程周报');
+    expect(ask).not.toHaveBeenCalled();
+    expect(list).toHaveBeenCalledWith(null, '');
+    expect(useChatDrafts.getState().drafts.first?.prompt ?? '').toBe('');
+    expect(useToastStore.getState().toasts.at(-1)?.title).toBe('已重命名');
+  });
+
+  it('命令失败时提示原因并把输入放回去', async () => {
+    window.dela!.session.runCommand = vi.fn(async () => {
+      throw new Error('对话还太短，没有可压缩的内容');
+    });
+    await act(async () => root.render(<ChatHome />));
+    await sendText('/compact 保留结论');
+    expect(host.querySelector('[role="alert"]')?.textContent).toBe('对话还太短，没有可压缩的内容');
+    expect(useChatDrafts.getState().drafts.first?.prompt).toBe('/compact 保留结论');
+  });
+
+  it('/new 开新对话，不发消息也不走命令通道', async () => {
+    const runCommand = vi.fn();
+    window.dela!.session.runCommand = runCommand;
+    const ask = vi.spyOn(window.dela!.session, 'ask');
+    await act(async () => root.render(<ChatHome />));
+    const create = vi.spyOn(window.dela!.session, 'create').mockResolvedValue(emptyChat('second'));
+    await sendText('/new');
+    expect(create).toHaveBeenCalledWith(null, 'chat');
+    expect(ask).not.toHaveBeenCalled();
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it('只是以 / 开头、不是命令的文字照常发给模型', async () => {
+    const runCommand = vi.fn();
+    window.dela!.session.runCommand = runCommand;
+    const ask = vi.spyOn(window.dela!.session, 'ask');
+    await act(async () => root.render(<ChatHome />));
+    await sendText('/compactor 是什么');
+    expect(ask).toHaveBeenCalledWith(
+      'first',
+      expect.objectContaining({ text: '/compactor 是什么' }),
+    );
+    expect(runCommand).not.toHaveBeenCalled();
+  });
 });

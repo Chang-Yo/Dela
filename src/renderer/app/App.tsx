@@ -16,6 +16,7 @@ import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
+import { ExtensionUiHost } from '../content/chat/ExtensionUiHost';
 import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
 import { useUpdateState } from '../features/settings/update';
 import { useExperimental, useExperimentEnabled } from '../features/settings/experimental';
@@ -439,6 +440,7 @@ export default function App() {
       {launchStage === 'capabilities' && <CapabilitySetup onDone={() => setLaunchStage('app')} />}
       {/* 下载完成的确认弹窗挂在应用层：下载在后台跑完时，用户可能已经离开设置页。 */}
       {appVisible && <UpdatePrompt />}
+      {appVisible && <ExtensionUiHost />}
       {launchStage === 'app' && <ReleaseNotesDialog />}
       {launchStage === 'completion' && <CompletionOverlay onFinished={finishCompletion} />}
     </>

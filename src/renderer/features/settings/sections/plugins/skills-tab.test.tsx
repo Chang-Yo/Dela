@@ -16,7 +16,8 @@ const skill = {
   description: '代码检查',
   enabled: true,
   path: '/home/u/.dela/skills/lint/SKILL.md',
-  scope: 'global' as const,
+  id: '/home/u/.dela/skills/lint/SKILL.md',
+  origin: 'user' as const,
 };
 
 const remoteProject: WorkspaceEntry = {
@@ -95,7 +96,7 @@ it('uploads to the selected remote project', async () => {
   await openDialog(call);
   await act(async () => buttonByText('远端课题').click());
   await act(async () => buttonByText('上传').click());
-  expect(call).toHaveBeenCalledWith('lint', '/root/proj', false);
+  expect(call).toHaveBeenCalledWith(skill.id, '/root/proj', false);
   expect(document.body.textContent).toContain('/root/proj/.dela/skills/lint');
 });
 
@@ -113,7 +114,7 @@ it('asks for overwrite when the remote skill exists', async () => {
   await act(async () => buttonByText('上传').click());
   expect(document.body.textContent).toContain('远端已有同名技能，覆盖吗？');
   await act(async () => buttonByText('覆盖').click());
-  expect(call).toHaveBeenLastCalledWith('lint', '/root/proj', true);
+  expect(call).toHaveBeenLastCalledWith(skill.id, '/root/proj', true);
   expect(document.body.textContent).toContain('/root/proj/.dela/skills/lint');
 });
 
@@ -192,4 +193,64 @@ it('cancels installation without presenting the user action as a failure', async
   expect(cancelSkillInstallation).toHaveBeenCalledWith('document-reading');
   expect(useToastStore.getState().toasts).toHaveLength(0);
   expect(buttonByText('安装并启用')).toBeTruthy();
+});
+
+it('groups skills by where they come from and toggles them by id', async () => {
+  const at = (path: string) => ({ id: path, path, description: '', enabled: true });
+  const skills: SkillView[] = [
+    { ...at('/home/u/.dela/skills/canvas/SKILL.md'), name: 'canvas', origin: 'builtin' },
+    { ...at('/home/u/.agents/skills/notes/SKILL.md'), name: 'notes', origin: 'user' },
+    {
+      ...at('/data/pi/npm/node_modules/autoresearch/skills/search/SKILL.md'),
+      name: 'search',
+      origin: 'package',
+      group: { id: 'pkg-1', label: 'autoresearch' },
+      enabled: false,
+      lockedReason: '所属包未启用',
+    },
+    {
+      ...at('/work/alpha/.agents/skills/lint/SKILL.md'),
+      name: 'lint',
+      origin: 'project',
+      group: { id: 'p-alpha', label: 'alpha' },
+    },
+    {
+      ...at('/work/beta/.agent/skills/lint/SKILL.md'),
+      name: 'lint',
+      origin: 'project',
+      group: { id: 'p-beta', label: 'beta' },
+    },
+  ];
+  const setSkillEnabled = vi.fn(async (id: string, enabled: boolean) =>
+    skills.map((item) => (item.id === id ? { ...item, enabled } : item)),
+  );
+  window.dela = {
+    capability: { listSkills: async () => skills, setSkillEnabled },
+  } as unknown as DelaApi;
+  await act(async () => root.render(<SkillsTab />));
+
+  const titles = [...container.querySelectorAll('section')].map(
+    (section) => section.firstElementChild?.textContent ?? '',
+  );
+  expect(titles.map((title) => title.split(/随|~|Pi|项目里/)[0])).toEqual([
+    'Dela 内置',
+    '本机',
+    'autoresearch',
+    'alpha',
+    'beta',
+  ]);
+  expect(container.textContent).toContain('所属包未启用');
+  const switchFor = (label: string) =>
+    [...container.querySelectorAll<HTMLButtonElement>('[role="switch"]')].filter(
+      (item) => item.getAttribute('aria-label') === label,
+    );
+  expect(switchFor('启用 search')[0]?.disabled).toBe(true);
+
+  // 两个项目的 lint 同名：只动 beta 那一个。
+  await act(async () => switchFor('启用 lint')[1]!.click());
+  expect(setSkillEnabled).toHaveBeenCalledWith('/work/beta/.agent/skills/lint/SKILL.md', false);
+
+  await act(async () => buttonByText('项目').click());
+  expect(container.textContent).not.toContain('canvas');
+  expect(container.textContent).toContain('alpha');
 });

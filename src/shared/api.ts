@@ -5,6 +5,7 @@ import type { CacheApi } from './cache';
 import type { CapabilityApi } from './capabilities';
 import type { CanvasApi } from './canvas';
 import type { ChatApi } from './chat';
+import type { PackageApi } from './packages';
 import type { ConsentApi } from './consent';
 import type { LayoutApi } from './layout';
 import type { LlmApi } from './llm';
@@ -21,7 +22,7 @@ export type {
   McpConnectionStatus,
   McpServerConfig,
   McpServerView,
-  SkillScope,
+  SkillOrigin,
   SkillView,
   WebSearchEntry,
   WebSearchEntryInput,
@@ -40,6 +41,7 @@ export interface DelaApi {
   readonly platform: string;
   readonly vsjtu: VsjtuApi;
   capability: CapabilityApi;
+  readonly packages: PackageApi;
   readonly todo: TodoApi;
   readonly terminal: TerminalApi;
   readonly version: string;
@@ -192,6 +194,7 @@ export type {
   ChatAskInput,
   ChatMediaView,
   ChatCommandView,
+  ChatSlashCommand,
   ChatApi,
   FileChangeSummary,
   FileChangeDetail,
@@ -200,6 +203,21 @@ export type {
 } from './chat';
 
 export type { CachedCourseFile, CanvasCourse, SourceItem, CanvasState, CanvasApi } from './canvas';
+
+export type {
+  ExtensionSessionState,
+  ExtensionUiEvent,
+  ExtensionUiReply,
+  ExtensionUiRequest,
+  NpmRegistry,
+  NpmRuntimeState,
+  PackageApi,
+  PackageProgress,
+  PackageProvides,
+  PackageResourceToggles,
+  PackageSettings,
+  PiPackageView,
+} from './packages';
 
 export type {
   DocumentContent,
@@ -227,7 +245,11 @@ export type {
   RunEvent,
   RunStatus,
   ChatStreamEvent,
+  MainSessionCommand,
+  SessionCommandName,
 } from './session';
+
+export { SESSION_COMMANDS, parseSessionCommand } from './session';
 
 export type {
   TabKind,

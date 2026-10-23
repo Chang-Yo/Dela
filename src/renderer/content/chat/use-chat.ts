@@ -4,8 +4,10 @@ import type {
   ChatScope,
   ChatSessionSummary,
   LlmProviderView,
+  SessionCommandName,
   WorkspaceChat,
 } from '../../../shared/api';
+import { parseSessionCommand } from '../../../shared/api';
 import {
   CHAT_ATTACHMENT_MAX,
   CHAT_DOCUMENT_MAX_BYTES,
@@ -56,8 +58,13 @@ export function useChatDraft(sessionId: string) {
 
 /** 单个会话的对话状态：快照经 sessions 镜像共享（session:on-update 全局订阅，多入口同看一份）。
  *  草稿按 sessionId 持久化（drafts.ts），本 hook 不订阅（订阅在 useChatDraft）；附件 chip
- *  不持久化，切换会话即释放暂存文件；内联图片随草稿文本保留（文件由启动 GC 回收）。 */
-export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
+ *  不持久化，切换会话即释放暂存文件；内联图片随草稿文本保留（文件由启动 GC 回收）。
+ *  onNewChat 是 /new 命令的落点，与会话视图里的「新对话」按钮同一个动作。 */
+export function useChat(
+  sessionId: string,
+  referenceSource?: ReferenceSource,
+  onNewChat?: () => void,
+) {
   const chat = useSessions((state) => state.chats[sessionId] ?? null);
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +165,11 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
     const text = draft.prompt;
     if (!window.dela || !canSendInput(text, false, attachments.length) || busy) return;
     const requested = sessionId;
+    const command = parseSessionCommand(text);
+    if (command) {
+      await runCommand(command.name, command.args, text);
+      return;
+    }
     const sentReferences = references;
     const sentAttachments = attachments;
     try {
@@ -194,6 +206,52 @@ export function useChat(sessionId: string, referenceSource?: ReferenceSource) {
           updateDraft(requested, { prompt: text });
           setAttachments(sentAttachments);
         }
+      }
+    } finally {
+      if (activeSession.current === requested) setPending(false);
+    }
+  };
+
+  /**
+   * 会话命令（/compact、/reload、/name、/new）：不发给模型。失败时恢复输入，方便改了重试；
+   * /compact 期间算作忙，停止按钮可以取消压缩。
+   */
+  const runCommand = async (name: SessionCommandName, args: string, text: string) => {
+    const dela = window.dela;
+    if (!dela) return;
+    const requested = sessionId;
+    if (attachments.length) {
+      setError('命令不能附带文件，请先移除附件');
+      return;
+    }
+    setError(null);
+    clearDraft(requested);
+    if (name === 'new') {
+      onNewChat?.();
+      return;
+    }
+    setPending(true);
+    try {
+      const result = await dela.session.runCommand(requested, name, args);
+      useSessions.getState().putChat(requested, result);
+      if (name === 'name') {
+        // 标题只在会话列表里，推送不带列表：重读一次，标签与侧栏才会换成新标题。
+        void useSessions
+          .getState()
+          .refresh(result.projectId)
+          .catch(() => {});
+        showToast({ variant: 'success', title: '已重命名' });
+      } else if (name === 'reload') {
+        showToast({
+          variant: 'success',
+          title: '已重新加载',
+          description: 'Skills、扩展与 AGENTS.md 已按最新内容加载。',
+        });
+      }
+    } catch (e) {
+      if (activeSession.current === requested) {
+        setError(errorText(e));
+        updateDraft(requested, { prompt: text });
       }
     } finally {
       if (activeSession.current === requested) setPending(false);

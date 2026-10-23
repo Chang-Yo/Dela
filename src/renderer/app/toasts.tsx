@@ -6,14 +6,15 @@ import { ToastCard, type ToastVariant } from '../components/ui/beautifului/atoms
 
 export interface ToastItem {
   id: number;
-  variant: ToastVariant;
+  /** neutral：没有成败之分的消息（如 Pi 扩展的通知）。 */
+  variant: ToastVariant | 'neutral';
   title: string;
   description?: string;
 }
 
 const MAX_TOASTS = 4;
 // 错误需要读的时间长一些；成功一瞥即走。
-const TTL_MS: Record<ToastVariant, number> = { error: 8000, success: 4000 };
+const TTL_MS: Record<ToastItem['variant'], number> = { error: 8000, success: 4000, neutral: 6000 };
 
 const timers = new Map<number, ReturnType<typeof setTimeout>>();
 

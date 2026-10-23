@@ -475,3 +475,26 @@ it('用户消息的图片缩略图点击放大，点击遮罩或 Esc 关闭', as
   });
   expect(document.body.querySelector('[role="dialog"][aria-label="图片查看"]')).toBeNull();
 });
+
+it('Pi 扩展的可见消息单独成卡，标出 customType', async () => {
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...chat,
+          messages: [
+            ...chat.messages,
+            {
+              role: 'assistant',
+              content: 'deployed **ok**',
+              parts: [],
+              extension: { customType: 'deploy' },
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  expect(host.textContent).toContain('扩展 · deploy');
+  expect(host.textContent).toContain('deployed **ok**');
+});

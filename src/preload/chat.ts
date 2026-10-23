@@ -1,4 +1,10 @@
-import type { ChatApi, ChatCommandView, ChatMediaView, UncommittedChanges } from '../shared/api';
+import type {
+  ChatApi,
+  ChatCommandView,
+  ChatMediaView,
+  ChatSlashCommand,
+  UncommittedChanges,
+} from '../shared/api';
 import { invoke } from './lib';
 
 export const chat = {
@@ -23,6 +29,8 @@ export const chat = {
   readMediaPreview: (id: string) => invoke('chat:read-media-preview', id) as Promise<string | null>,
   releaseMedia: (ids: readonly string[]) => invoke('chat:release-media', ids),
   listCommands: () => invoke('chat:list-commands') as Promise<ChatCommandView[]>,
+  listSessionCommands: (sessionId: string) =>
+    invoke('chat:list-session-commands', sessionId) as Promise<ChatSlashCommand[]>,
   saveCommand: (input: { id?: string; name: string; prompt: string }) =>
     invoke('chat:save-command', input) as Promise<ChatCommandView>,
   deleteCommand: (id: string) => invoke('chat:delete-command', id),
