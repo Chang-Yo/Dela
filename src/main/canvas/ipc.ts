@@ -14,6 +14,7 @@ import {
   configureCanvas,
   syncCanvasCourses,
   syncCanvasCourseTrees,
+  exportCanvasCourseFiles,
   type StoredSource,
   syncCanvasCourse,
   getSource,
@@ -79,6 +80,16 @@ export function registerCanvasIpc() {
     await shell.openExternal(url.href);
   });
   handle('cached-files', () => cachedCourseFiles());
+  handle('export-course-files', async (ids) => {
+    const courseIds = z.array(z.number().int().positive()).min(1).parse(ids);
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: '选择导出位置',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    const directory = filePaths[0];
+    if (canceled || !directory) return null;
+    return exportCanvasCourseFiles(courseIds, directory);
+  });
 }
 
 export function broadcastCanvasState(): CanvasState {

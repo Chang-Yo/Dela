@@ -240,6 +240,8 @@ Canvas 资料目录与 `latestTermOf` 共用 `shared/canvas.ts` 的排序规则�
 
 课程资料目录由主进程在后台同步：每小时定时器、应用启动与 `canvas:configure` 成功后各触发一次 `refreshCanvasTrees`（`main/canvas/ipc.ts`，未连接令牌静默跳过、进行中复用同一任务），先刷新课程列表再顺序同步最新学期未归档课程的目录树——与手动刷新同一口径，只拉清单不下载文件，文件仍按需经 `cachedFile` 下载。完成后经 `canvas:state` 推送（preload `canvas.onState`），workspace store 订阅后资料树随收随更新。
 
+「批量导出课件」（资料区 Canvas 操作菜单 → `workbench/CanvasExportDialog.tsx`）按学期分组勾选课程，最低粒度到课程；导出走 `canvas:export-course-files`：先弹系统目录选择框（取消返回 null），`collectCourseFileEntries`（`main/canvas/course-files.ts` 纯函数）沿父链只收集「文件」根目录（`courseId:files`）链上的文件，模块、作业提交等重复引用不在链上即被排除；文件经 `cachedFile` 按需下载后拷贝为 `<目标>/<课程名>/<课程内相对路径>`（各段过 `diskName`，同名课程目录追加 `[courseId]` 消解，同名文件覆盖即重复导出等于刷新），逐文件容错并汇总失败项。
+
 ## 4. 远程项目
 
 把远端 Linux 主机上的目录登记为项目。**本地内核 + 远程执行**：内核、模型密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端、目录读取与文件预览落到 SSH 远端（`src/main/remotes/`）。

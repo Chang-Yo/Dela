@@ -202,7 +202,14 @@ export type {
   UncommittedChanges,
 } from './chat';
 
-export type { CachedCourseFile, CanvasCourse, SourceItem, CanvasState, CanvasApi } from './canvas';
+export type {
+  CachedCourseFile,
+  CanvasCourse,
+  CanvasExportResult,
+  SourceItem,
+  CanvasState,
+  CanvasApi,
+} from './canvas';
 
 export type {
   ExtensionSessionState,

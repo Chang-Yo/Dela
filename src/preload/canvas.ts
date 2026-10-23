@@ -12,5 +12,6 @@ export const canvas = {
   download: (id: string) => invoke('canvas:download', id),
   openLink: (url: string) => invoke('canvas:open-link', url),
   cachedFiles: () => invoke('canvas:cached-files'),
+  exportCourseFiles: (courseIds: number[]) => invoke('canvas:export-course-files', courseIds),
   onState: (listener: (state: CanvasState) => void) => on<CanvasState>('canvas:state', listener),
 } satisfies CanvasApi;

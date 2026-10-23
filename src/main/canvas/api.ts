@@ -9,8 +9,8 @@ import { z } from 'zod';
 import { getDatabase } from '../database';
 import { availablePath, diskName, storageDirectory } from '../storage';
 import { latestTermOf } from '../../shared/canvas';
-import type { CachedCourseFile } from '../../shared/canvas';
-import { pickCourseFiles } from './course-files';
+import type { CachedCourseFile, CanvasExportResult } from '../../shared/canvas';
+import { pickCourseFiles, collectCourseFileEntries } from './course-files';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { classifyOfficeFile, officeZipMime } from '../documents/parse';
 import { loadCanvasToken, saveCanvasToken } from '../credentials';
@@ -693,4 +693,43 @@ export function cachedCourseFiles(): CachedCourseFile[] {
     rows.map((row) => row.value),
     existsSync,
   );
+}
+
+/** 批量导出所选课程「文件」目录下的课件到 target：复用 cachedFile 按需下载后拷贝，
+ *  结构为 <target>/<课程名>/<课程内相对路径>；同名课程目录自动追加 [courseId] 消解。 */
+export async function exportCanvasCourseFiles(
+  courseIds: number[],
+  target: string,
+): Promise<CanvasExportResult> {
+  const state = getCanvasState();
+  const result: CanvasExportResult = { dir: target, exported: 0, failed: [] };
+  const taken = new Map<string, number>();
+  for (const courseId of courseIds) {
+    const course = state.courses.find((item) => item.id === courseId);
+    if (!course) continue;
+    const name = diskName(course.name || `course-${courseId}`);
+    // 与 pickCourseFiles 同一冲突规则：普通名撞车才追加 [courseId]。
+    const directory = taken.get(name) === undefined ? name : diskName(`${name} [${courseId}]`);
+    taken.set(directory, courseId);
+    const entries = collectCourseFileEntries(courseId, state.items);
+    if (!entries.length) {
+      result.failed.push(`${course.name}：课程目录尚未同步或没有文件`);
+      continue;
+    }
+    for (const entry of entries) {
+      const relative = [directory, ...entry.folders, entry.name].join('/');
+      try {
+        const cached = await cachedFile(getSource(entry.sourceId));
+        const dir = join(target, directory, ...entry.folders.map((folder) => diskName(folder)));
+        mkdirSync(dir, { recursive: true });
+        await copyFile(cached.path, join(dir, diskName(entry.name)));
+        result.exported += 1;
+      } catch (error) {
+        result.failed.push(
+          `${relative}：${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+  return result;
 }
