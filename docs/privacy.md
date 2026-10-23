@@ -30,7 +30,7 @@
 
 工作目录（默认「文档/Dela」，可在 设置 › 工作区 更改）中的文件：笔记的 Markdown 正文与其中的图片、导入的文件、从 Canvas 下载的课程文件（courses/），以及导出到「预览导出」文件夹的 PDF。
 
-开启 Pi packages 时：登记的包（来源、启停、资源开关）存在数据库里；从 npm 或 git 安装的包在应用数据目录的 pi/npm 与 pi/git 下，本地目录来源不复制、只登记路径；本机没有 npm 时下载的 Node 运行时在 components/node 下。Dela 不读写你自己的 ~/.pi 目录。
+开启 Pi packages 时：登记的包（来源、启停、资源开关）存在数据库里；从 npm 或 git 安装的包在应用数据目录的 pi/npm 与 pi/git 下，本地目录来源不复制、只登记路径；本机没有 npm 时下载的 Node 运行时在 components/node 下；包注册的 MCP 服务器的连接日志在 pi/mcp.log。Dela 不读写你自己的 ~/.pi 目录，只有一个例外：包注册的、需要 OAuth 登录的 HTTP MCP 服务器，其登录凭据由 Pi 存在 ~/.pi/agent/mcp-auth.json。
 
 可选文档解析组件保存在应用数据目录的 components/document-reading 下。文档读取任务的输入副本与提取结果保存在系统临时目录的 dela-document-reading 下，读取结束后清理；异常退出留下的任务会在下次准备文档时清理超过 24 小时的部分。
 

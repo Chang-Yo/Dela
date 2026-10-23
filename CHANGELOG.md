@@ -18,17 +18,24 @@ Dela 的重要变更都记在这里。
 
 - 现在可以安装 Pi 社区的 package：扩展、Skills 和提示模板都能用。在「能力拓展」或 设置 › Pi Packages 打开后，填 npm 包名、git 仓库或本地文件夹就能安装；电脑上没有 npm 时，Dela 会自动下载一份。
 - 扩展的命令和提示模板会出现在输入框的 `/` 候选里，扩展弹出的选择和确认框直接在 Dela 里回答。
+- 装好的包提供了什么，会出现在它们各自的位置：Skills 在 设置 › Skills、提示模板和命令在 设置 › 自定义指令、MCP 服务器在 设置 › MCP Server，Pi Packages 页也会列出每个包带来的内容。
+- 设置 › Skills 改为按来处分组：Dela 内置、本机、每个 Pi 包、每个项目。项目里的 `.agents/skills` 和 `.agent/skills` 都会被识别，同名的 Skill 可以分别开关。
 
 ### Added
 
-- Pi packages 接入：安装、更新、卸载经 Pi 的 `DefaultPackageManager`，启用的包写进会话的内存设置由 Pi 加载，状态存在 `workspace_settings`，不读写 `~/.pi`；只做全局范围，不加载项目 `.pi/settings.json` 声明的包。安装前必须勾选风险告知，装好默认关闭，可按扩展 / Skills / 提示模板分别开关，主题不加载；安装目录被删的包跳过加载并提示重新安装。
+- Pi packages 接入：安装、更新、卸载经 Pi 的 `DefaultPackageManager`，启用的包写进会话的内存设置由 Pi 加载，状态存在 `workspace_settings`，不读写 `~/.pi`（包注册的、需要 OAuth 登录的 HTTP MCP 服务器凭据除外，由 Pi 存在 `~/.pi/agent/mcp-auth.json`）；只做全局范围，不加载项目 `.pi/settings.json` 声明的包。安装前必须勾选风险告知，装好默认关闭，可按扩展 / Skills / 提示模板分别开关，主题不加载；安装目录被删的包跳过加载并提示重新安装。
 - npm 运行时：开启 Pi packages 时优先用本机 npm（Node ≥ 20），没有就下载 Node 24.22.1（npmmirror 优先、nodejs.org 兜底，固定 SHA256）；npm 源可在官方与 npmmirror 间切换。
+- 包清单：每个包提供的 skills、提示模板、扩展命令、工具与 MCP 服务器由 Pi 的加载器算出，设置页的 Skills、自定义指令、MCP Server 分区各列一组；未启用的包只列文件类资源，不执行扩展代码。提示模板可逐个停用。
+- 包里的扩展注册的 MCP 服务器经 Pi 的 MCP 扩展连接（只在启用了包时加载 Pi 的 mcp、codemode、tool_search 扩展，不读任何 mcp.json）。
+- 项目 Skill：设置页按项目列出 Pi 会加载的项目级 skill，并额外识别项目根的 `.agent/skills`；项目与包里的 skill 按 `SKILL.md` 路径开关，全局 skill 仍按名称开关，同名互不影响。
+- 结束会话（按新配置重建、删除会话、退出应用）时给扩展发 `session_shutdown`：`AgentSession.dispose` 本身不发，扩展靠它关掉自己起的子进程（如包注册的 MCP 服务器）；应用退出时最多等 2 秒让扩展收尾。
 - 扩展运行时按 Pi rpc 模式绑定：选择、确认、输入、编辑对话框在应用层弹出，通知与报错走 toast，状态栏与文本小部件显示在输入框，扩展可读写输入框；依赖终端界面的接口首次调用时提示不可用。扩展命令与 package 的提示模板进入 `/` 候选，`display` 为真的扩展消息单独成卡展示。
 
 ### Changed
 
 - 「能力拓展」页加入 Pi Packages，老用户升级后会再看到一次这一页。
 - 使用条款与隐私条款补充第三方 Pi package 的责任边界、本机存放位置与联网去向。
+- 设置 › Skills 的分组从「全局 / 项目」改为内置、本机、每个 Pi package、每个本地项目；原先作为「项目」列出的 `<工作目录>/workspace/.agents/skills` 现在出现在它所在的各个项目下。
 
 ## 1.4.0 - 2026-10-22
 
