@@ -19,6 +19,7 @@ Dela 的重要变更都记在这里。
 - 现在可以安装 Pi 社区的 package：扩展、Skills 和提示模板都能用。在「能力拓展」或 设置 › Pi Packages 打开后，填 npm 包名、git 仓库或本地文件夹就能安装；电脑上没有 npm 时，Dela 会自动下载一份。
 - 扩展的命令和提示模板会出现在输入框的 `/` 候选里，扩展弹出的选择和确认框直接在 Dela 里回答。
 - 装好的包提供了什么，会出现在它们各自的位置：Skills 在 设置 › Skills、提示模板和命令在 设置 › 自定义指令、MCP 服务器在 设置 › MCP Server，Pi Packages 页也会列出每个包带来的内容。
+- 输入框新增四个命令：`/compact` 压缩上下文（可以跟一句压缩时要保留什么）、`/reload` 重新加载 Skills 和扩展、`/name` 给对话改名、`/new` 开新对话。
 - 设置 › Skills 改为按来处分组：Dela 内置、本机、每个 Pi 包、每个项目。项目里的 `.agents/skills` 和 `.agent/skills` 都会被识别，同名的 Skill 可以分别开关。
 
 ### Added
@@ -29,6 +30,7 @@ Dela 的重要变更都记在这里。
 - 包里的扩展注册的 MCP 服务器经 Pi 的 MCP 扩展连接（只在启用了包时加载 Pi 的 mcp、codemode、tool_search 扩展，不读任何 mcp.json）。
 - 项目 Skill：设置页按项目列出 Pi 会加载的项目级 skill，并额外识别项目根的 `.agent/skills`；项目与包里的 skill 按 `SKILL.md` 路径开关，全局 skill 仍按名称开关，同名互不影响。
 - 结束会话（按新配置重建、删除会话、退出应用）时给扩展发 `session_shutdown`：`AgentSession.dispose` 本身不发，扩展靠它关掉自己起的子进程（如包注册的 MCP 服务器）；应用退出时最多等 2 秒让扩展收尾。
+- 会话命令 `/compact [说明]`、`/reload`、`/name <标题>`、`/new`：Pi 的 slash command 只在它的终端界面里，Dela 自己实现这四个，经 `session:run-command` 执行，不作为消息发给模型。优先级为会话命令 > 扩展命令 > 提示模板；自定义指令不能与之同名。压缩后、模型回复前上下文用量显示 Pi 的估计值（标「约」）。
 - 扩展运行时按 Pi rpc 模式绑定：选择、确认、输入、编辑对话框在应用层弹出，通知与报错走 toast，状态栏与文本小部件显示在输入框，扩展可读写输入框；依赖终端界面的接口首次调用时提示不可用。扩展命令与 package 的提示模板进入 `/` 候选，`display` 为真的扩展消息单独成卡展示。
 
 ### Changed
