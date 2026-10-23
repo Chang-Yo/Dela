@@ -66,19 +66,20 @@ afterEach(() => {
 });
 
 describe('TODO 视图', () => {
-  it('默认显示月历，并可切换到列表查看无截止日期的待办', async () => {
+  it('默认显示月历，无截止日期的待办数量显示在列表切换上，可切换列表查看', async () => {
     await act(async () => {
       root.render(<TodoView />);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     expect(host.querySelector('[aria-label="待办日历"]')).not.toBeNull();
-    expect(host.textContent).toContain('另有 1 个待办没有截止时间');
-
     const listButton = [...host.querySelectorAll('button')].find((button) =>
       button.textContent?.includes('列表'),
     );
     expect(listButton).toBeTruthy();
+    expect(listButton!.textContent).toContain('1');
+    expect(listButton!.title).toContain('没有截止时间');
+
     await act(async () => {
       listButton!.click();
     });

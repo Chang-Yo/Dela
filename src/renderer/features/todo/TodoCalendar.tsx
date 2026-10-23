@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Popover } from 'radix-ui';
 import type { TodoItem } from '../../../shared/api';
 import { todoCompleted } from '../../../shared/todo';
-import { Button } from '../../components/ui/button';
 import { menuPanel } from '../../components/ui/menu-styles';
 import { cn } from '../../lib/utils';
 import {
@@ -13,7 +11,7 @@ import {
   formatTime,
   weekDays,
 } from '../timetable/timetable-format';
-import { groupTodosByDay, monthGridDays, monthLabel, todoCalendarColor } from './todo-calendar';
+import { groupTodosByDay, monthGridDays, todoCalendarColor } from './todo-calendar';
 
 function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) => void }) {
   const done = todoCompleted(item.status);
@@ -107,45 +105,22 @@ function DayOverflow({
   );
 }
 
-/** TODO 月历：只消费待办数据，不触发课表事件或「写入日历」开关。 */
+/** TODO 月历网格：只消费待办数据，月份导航由 TodoView 的页头提供。 */
 export function TodoCalendar({
   items,
   month,
-  onMonthChange,
   onOpenItem,
 }: {
   items: readonly TodoItem[];
   month: Date;
-  onMonthChange: (month: Date) => void;
   onOpenItem: (item: TodoItem) => void;
 }) {
   const grouped = groupTodosByDay(items);
   const days = monthGridDays(month);
   const todayKey = dateKey(new Date());
 
-  const step = (amount: number) =>
-    onMonthChange(new Date(month.getFullYear(), month.getMonth() + amount, 1));
-  const goToday = () => {
-    const today = new Date();
-    onMonthChange(new Date(today.getFullYear(), today.getMonth(), 1));
-  };
-
   return (
     <section aria-label="待办日历" className="@container">
-      <div className="flex flex-wrap items-center gap-1 pb-3">
-        <Button size="icon-sm" variant="ghost" aria-label="上个月" onClick={() => step(-1)}>
-          <ChevronLeft className="size-4" />
-        </Button>
-        <span className="min-w-28 text-center text-sm font-medium tabular-nums">
-          {monthLabel(month)}
-        </span>
-        <Button size="icon-sm" variant="ghost" aria-label="下个月" onClick={() => step(1)}>
-          <ChevronRight className="size-4" />
-        </Button>
-        <Button size="sm" variant="ghost" onClick={goToday}>
-          今天
-        </Button>
-      </div>
       <div className="grid grid-cols-7 border-b">
         {weekDays.map((day) => (
           <div className="px-2 py-2 text-center text-2xs text-ink-3 @max-[320px]:px-1" key={day}>
