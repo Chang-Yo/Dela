@@ -28,6 +28,18 @@ const view: PiPackageView = {
   enabled: false,
   resources: { extensions: true, skills: true, prompts: true },
   counts: { extensions: 1, skills: 2, prompts: 0, themes: 1 },
+  provides: {
+    skills: [
+      { name: 'research', description: '', path: '/p/skills/research/SKILL.md' },
+      { name: 'cite', description: '', path: '/p/skills/cite/SKILL.md' },
+    ],
+    prompts: [],
+    commands: [],
+    tools: [],
+    mcpServers: [],
+    extensionsInspected: false,
+  },
+  disabledPrompts: [],
   installedAt: '2026-10-23T00:00:00.000Z',
   diagnostics: ['extensions/index.ts：Cannot find module foo'],
 };
@@ -104,6 +116,9 @@ it('shows source, resource counts and load diagnostics; themes are marked as not
   expect(text).toContain('Skills 2');
   expect(text).not.toContain('提示模板 0');
   expect(text).toContain('主题 1（不适用）');
+  // 装进来的东西去了哪儿：Skill 名字直接列出，扩展未启用时说明启用后可见。
+  expect(text).toContain('research · cite');
+  expect(text).toContain('启用后显示它注册的命令、工具与 MCP 服务器');
   expect(text).toContain('Cannot find module foo');
 });
 

@@ -58,7 +58,7 @@ export function CapabilitySetup({
     try {
       const next =
         skill.dependency?.status === 'ready'
-          ? await window.dela.capability.setSkillEnabled(skill.name, true)
+          ? await window.dela.capability.setSkillEnabled(skill.id, true)
           : await window.dela.capability.installSkillDependencies(skill.name);
       if (active.current) setSkills(next);
     } catch (cause) {

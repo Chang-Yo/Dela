@@ -4,6 +4,14 @@ import { Type } from 'typebox';
 import { shout } from '../lib/shout';
 
 export default function (pi: ExtensionAPI) {
+  // 测试经环境变量给出一个 stdio MCP 服务器：验证包注册的 MCP 服务器能连上、工具可调用。
+  const mcpServer = process.env.DELA_FIXTURE_MCP_SERVER;
+  if (mcpServer)
+    pi.registerMcpServer('fixture-echo', {
+      command: process.execPath,
+      args: [mcpServer],
+      exposure: 'direct',
+    });
   pi.registerTool({
     name: 'fixture_echo',
     label: 'fixture_echo',
@@ -28,6 +36,11 @@ export default function (pi: ExtensionAPI) {
     handler: async () => {
       throw new Error('fixture command failed');
     },
+  });
+  pi.on('session_shutdown', (event) => {
+    const shutdowns = ((globalThis as Record<string, unknown>).__delaFixtureShutdowns ??=
+      []) as string[];
+    shutdowns.push(event.reason);
   });
   pi.on('session_start', async (_event, ctx) => {
     ctx.ui.notify(`fixture started in ${ctx.mode}`, 'info');

@@ -65,6 +65,7 @@ vi.mock('../extensions', () => ({
   extensionCommand: (_session: unknown, text: string) => text.startsWith('/ext-'),
   releaseExtensionUi: () => {},
   sessionSlashCommands: () => [],
+  shutdownSession: async (session: { dispose(): void }) => session.dispose(),
 }));
 vi.mock('../packages', () => ({ packagesEnabled: () => false }));
 import {

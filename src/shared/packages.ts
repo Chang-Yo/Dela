@@ -19,6 +19,20 @@ export interface PackageResourceToggles {
   prompts: boolean;
 }
 
+/** 包实际提供的东西：设置页的 Skills、自定义指令与 MCP 分区据此把它们列在各自的位置。 */
+export interface PackageProvides {
+  skills: { name: string; description: string; path: string }[];
+  prompts: { name: string; description: string; argumentHint?: string }[];
+  /** 扩展注册的 `/` 命令。 */
+  commands: { name: string; description: string }[];
+  /** 扩展注册的工具名。 */
+  tools: string[];
+  /** 扩展注册的 MCP 服务器；detail 是启动命令或地址。 */
+  mcpServers: { name: string; detail: string }[];
+  /** 命令、工具与 MCP 服务器要加载扩展代码才知道：只有启用且开了扩展的包为 true。 */
+  extensionsInspected: boolean;
+}
+
 export interface PiPackageView {
   id: string;
   /** Pi 认得的来源串：npm:<name>@<version> / git:<host>/<path>@<ref> / 本地绝对路径。 */
@@ -34,6 +48,9 @@ export interface PiPackageView {
   enabled: boolean;
   resources: PackageResourceToggles;
   counts: PackageResourceCounts;
+  provides: PackageProvides;
+  /** 按名称停用的 prompt 模板（设置 › 自定义指令里逐个开关）。 */
+  disabledPrompts: string[];
   installedAt: string;
   /** 加载这个包时 Pi 报出的问题（扩展加载失败、资源冲突等）。 */
   diagnostics: string[];
@@ -128,6 +145,8 @@ export interface PackageApi {
   pickLocal(): Promise<string | null>;
   setEnabled(id: string, enabled: boolean): Promise<PiPackageView[]>;
   setResources(id: string, resources: PackageResourceToggles): Promise<PiPackageView[]>;
+  /** 单个 prompt 模板的开关（按名称，与 Skills 的全局名单一样）。 */
+  setPromptEnabled(name: string, enabled: boolean): Promise<PiPackageView[]>;
   update(id: string): Promise<PiPackageView[]>;
   remove(id: string): Promise<PiPackageView[]>;
   reveal(id: string): Promise<void>;

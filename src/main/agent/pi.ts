@@ -1,6 +1,6 @@
 /** Pi Coding Agent 接线：内核就是 pi-coding-agent SDK；这里只做加载、提供商注册与按 cwd 建会话，工具与会话树仍归 Pi。 */
 import { app } from 'electron';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import type { AgentSession, PackageSource, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { Model } from '@earendil-works/pi-ai';
 import type { StoredLlmProvider } from '../credentials';
@@ -77,6 +77,12 @@ async function modelRuntime() {
   return runtimePromise;
 }
 
+/** path 是否在 dir 里面（不含 dir 本身）。 */
+export function isInside(path: string, dir: string): boolean {
+  const rest = relative(resolve(dir), resolve(path));
+  return rest !== '' && !rest.startsWith('..') && !isAbsolute(rest);
+}
+
 export interface OpenSessionInput {
   cwd: string;
   file?: string;
@@ -94,10 +100,41 @@ export interface OpenSessionInput {
     agentsFiles: { path: string; content: string }[];
   };
   disabledSkills: ReadonlySet<string>;
+  /** 按 SKILL.md 绝对路径停用的 Skill：项目与 Pi package 里的同名 Skill 互不影响。 */
+  disabledSkillPaths?: ReadonlySet<string>;
+  /**
+   * 按名称开关的全局 Skill 目录（内置、本机目录、Pi 自己的 skills 目录、远端镜像）；不在这些目录里
+   * 的（项目与包里的）按路径开关。Pi 在 skillsOverride 里还没给 Skill 贴上最终的来源标签，只能按路径分。
+   */
+  globalSkillDirs: string[];
+  /** 按名称停用的 prompt 模板（来自 Pi package）。 */
+  disabledPrompts?: ReadonlySet<string>;
   disabledTools: string[];
   /** 已启用的 Pi packages（设置 › 插件 › Packages）；为空时不加载任何包。 */
   packages?: PackageSource[];
   npmCommand?: string[];
+}
+
+/**
+ * 包里的扩展经 registerMcpServer 注册的服务器，要靠 Pi 的 MCP 扩展去连，工具默认以 codemode 暴露。
+ * CLI 自带这三个扩展，SDK 会话不带：只在启用了包时补上，不启用包的会话与之前完全一致。
+ * MCP 扩展给空配置、不读任何 mcp.json（Dela 自己的 MCP 由 mcp.ts 管理）；replaceable 让包自带的
+ * 同类扩展（别的 MCP 客户端）接管。日志写进 Dela 的 Pi 目录；OAuth 凭据存储 Pi 不导出构造方式，
+ * 仍在 Pi 的默认目录，只有需要 OAuth 的 HTTP 服务器会用到。
+ */
+function packageRuntimeExtensions(pi: Sdk, agentDir: string) {
+  return [
+    { name: 'codemode', factory: pi.createCodemodeExtension(), replaceable: true },
+    { name: 'tool-search', factory: pi.createToolSearchExtension(), replaceable: true },
+    {
+      name: 'mcp',
+      factory: pi.createMcpExtension({
+        loadConfig: () => ({ servers: [], errors: [] }),
+        logPath: join(agentDir, 'mcp.log'),
+      }),
+      replaceable: true,
+    },
+  ];
 }
 
 export async function openPiSession(input: OpenSessionInput): Promise<AgentSession> {
@@ -119,9 +156,22 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     additionalSkillPaths: input.skillPaths,
     appendSystemPrompt: input.appendSystemPrompt,
     ...(input.agentsFilesOverride ? { agentsFilesOverride: input.agentsFilesOverride } : {}),
+    ...(input.packages?.length
+      ? { extensionFactories: packageRuntimeExtensions(pi, agentDir) }
+      : {}),
     skillsOverride: (base) => ({
       ...base,
-      skills: base.skills.filter((skill) => !input.disabledSkills.has(skill.name)),
+      // 名称名单只管全局 Skill；项目与包里的按路径开关，同名的不受牵连。
+      skills: base.skills.filter((skill) => {
+        const path = resolve(skill.filePath);
+        return input.globalSkillDirs.some((dir) => isInside(path, dir))
+          ? !input.disabledSkills.has(skill.name)
+          : !input.disabledSkillPaths?.has(path);
+      }),
+    }),
+    promptsOverride: (base) => ({
+      ...base,
+      prompts: base.prompts.filter((prompt) => !input.disabledPrompts?.has(prompt.name)),
     }),
   });
   await resourceLoader.reload();

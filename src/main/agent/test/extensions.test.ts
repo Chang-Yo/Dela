@@ -1,9 +1,11 @@
 // Pi 扩展在 Dela 里的运行：真实 Pi 会话加载测试夹具包，对本地 mock 模型服务发请求。覆盖
 // session_start 里的通知、文本小部件与主题读取，扩展工具被模型调用，扩展命令的对话框经界面桥
-// 往返，可见的自定义消息进投影而 appendEntry 与 display=false 的不进，以及命令报错推给界面。
+// 往返，可见的自定义消息进投影而 appendEntry 与 display=false 的不进，命令报错推给界面，
+// 以及包注册的 MCP 服务器经 Pi 的 MCP 扩展连上、工具能被模型调用。
 import { cpSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import { MockOpenAiServer, mockFrames } from './mock-openai-server';
@@ -18,6 +20,7 @@ import {
   extensionCommand,
   releaseExtensionUi,
   sessionSlashCommands,
+  shutdownSession,
 } from '../extensions';
 import { extensionSessionState, replyExtensionUi, setExtensionUiSender } from '../extension-ui';
 import { projectMessages } from '../session';
@@ -43,6 +46,7 @@ let title = '';
 beforeAll(async () => {
   setExtensionUiSender((channel, payload) => sent.push({ channel, payload }));
   server = await MockOpenAiServer.start();
+  process.env.DELA_FIXTURE_MCP_SERVER = fileURLToPath(new URL('./echo-server.ts', import.meta.url));
   const cwd = mkdtempSync(join(root, 'cwd-'));
   session = await openPiSession({
     cwd,
@@ -60,6 +64,7 @@ beforeAll(async () => {
     customTools: [],
     shellPath: process.env.SHELL ?? 'bash',
     skillPaths: [],
+    globalSkillDirs: [],
     disabledSkills: new Set(),
     disabledTools: [],
     packages: [{ source: fixture, themes: [] }],
@@ -68,9 +73,9 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  session?.dispose();
+  delete process.env.DELA_FIXTURE_MCP_SERVER;
   await server?.close();
-  rmSync(root, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 describe('扩展运行时', () => {
@@ -173,6 +178,38 @@ describe('扩展运行时', () => {
     expect(projected.some((message) => message.content === 'model only')).toBe(false);
   });
 
+  it('包注册的 MCP 服务器经 Pi 的 MCP 扩展连上，工具能被模型调用', async () => {
+    const deadline = Date.now() + 10_000;
+    let tool: string | undefined;
+    while (!tool && Date.now() < deadline) {
+      tool = session.getActiveToolNames().find((name) => name.startsWith('mcp__fixture_echo'));
+      if (!tool) await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    expect(tool).toBeDefined();
+    const echo = session
+      .getActiveToolNames()
+      .find((name) => /^mcp__fixture_echo.*echo$/.test(name))!;
+    server.enqueue({
+      kind: 'sse',
+      frames: [
+        mockFrames.toolCallDelta({
+          index: 0,
+          id: 'call-mcp',
+          name: echo,
+          arguments: '{"message":"hi"}',
+        }),
+        mockFrames.finishFrame('tool_calls'),
+      ],
+    });
+    server.enqueue({
+      kind: 'sse',
+      frames: [mockFrames.textDelta('ok'), mockFrames.finishFrame('stop')],
+    });
+    await session.prompt('use mcp');
+    const result = session.messages.findLast((message) => message.role === 'toolResult');
+    expect(JSON.stringify(result)).toContain('echo:hi');
+  });
+
   it('命令抛错推给界面，带命令名', async () => {
     await session.prompt('/fixture-fail');
     expect(events()).toContainEqual({
@@ -204,5 +241,13 @@ describe('扩展运行时', () => {
       .uiContext;
     expect(await ui.select('wait', ['a'], { timeout: 20 })).toBeUndefined();
     expect(title).toBe('');
+  });
+
+  // 放在最后：结束会话后这个 session 不能再用。
+  it('结束会话时补发 session_shutdown，扩展起的 MCP 子进程随之退出', async () => {
+    await shutdownSession(session, 'quit');
+    expect((globalThis as Record<string, unknown>).__delaFixtureShutdowns).toEqual(['quit']);
+    // MCP 子进程的工作目录与日志都在临时目录里：进程还活着时 Windows 删不掉它。
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 });

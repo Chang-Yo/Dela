@@ -28,11 +28,12 @@ app.whenReady().then(async () => {
     assert.equal(process.platform, 'darwin');
     assert.equal(process.arch, 'arm64');
     assert.equal(documentDependency().status, 'missing');
-    assert.equal(listSkills().find((s) => s.name === 'document-reading')?.enabled, false);
+    const document = (await listSkills()).find((s) => s.name === 'document-reading');
+    assert.equal(document?.enabled, false);
     console.log('Installing document component in an isolated temporary profile…');
     await installDocumentDependency();
     assert.equal(documentDependency().status, 'ready');
-    const skills = await setSkillEnabled('document-reading', true);
+    const skills = await setSkillEnabled(document!.id, true);
     assert.equal(skills.find((s) => s.name === 'document-reading')?.enabled, true);
     assert.match(
       await readFile(join(documentRuntimeDirectory(), 'THIRD-PARTY-NOTICES.txt'), 'utf8'),

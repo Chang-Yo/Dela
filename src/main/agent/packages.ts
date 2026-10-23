@@ -1,7 +1,7 @@
 // Pi packages：Dela 只持有「装了哪些、启没启用、开哪几类资源」，解析、安装与加载全部交给 Pi 的
 // DefaultPackageManager / DefaultResourceLoader。状态存在 workspace_settings，建会话时把启用的包
 // 写进 Pi 的内存设置（settings.packages），不读写 Pi 的 settings.json，与用户自己的 ~/.pi 互不影响。
-// 只做全局范围：会话的 SettingsManager 不信任项目，项目 .pi/settings.json 里声明的包不会被加载。
+// 只做全局范围：会话设置在内存里，项目 .pi/settings.json 里声明的包不会被读取。
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -13,10 +13,12 @@ import type {
   PackageProgress,
   PackageResourceCounts,
   PackageResourceToggles,
+  PackageProvides,
   PackageSettings,
   PackageSourceType,
   PiPackageView,
 } from '../../shared/packages';
+import { inventoryPackages } from './discovery';
 import { readSetting, writeSetting } from '../settings/prefs';
 import { loadPi, piAgentDir } from './pi';
 import {
@@ -31,6 +33,7 @@ import {
 const ENABLED_KEY = 'pi-packages-enabled';
 const REGISTRY_KEY = 'pi-packages-registry';
 const PACKAGES_KEY = 'pi-packages';
+const PROMPTS_DISABLED_KEY = 'prompts-disabled';
 
 const REGISTRIES: Record<NpmRegistry, string> = {
   npmjs: 'https://registry.npmjs.org/',
@@ -58,6 +61,31 @@ function readPackages(): StoredPackage[] {
 
 function writePackages(packages: StoredPackage[]) {
   writeSetting(PACKAGES_KEY, JSON.stringify(packages));
+}
+
+/** 按名称停用的 prompt 模板：会话经 promptsOverride 过滤，与 Skills 的全局名单同一种做法。 */
+export function readDisabledPrompts(): Set<string> {
+  try {
+    return new Set(
+      z.array(z.string()).parse(JSON.parse(readSetting(PROMPTS_DISABLED_KEY) ?? '[]')),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function setPromptEnabled(name: string, enabled: boolean): Promise<PiPackageView[]> {
+  const disabled = readDisabledPrompts();
+  if (enabled) disabled.delete(name);
+  else disabled.add(name);
+  writeSetting(PROMPTS_DISABLED_KEY, JSON.stringify([...disabled]));
+  return listPackages();
+}
+
+/** 本地来源的安装目录就是它自己；npm/git 来源用装好时记下的目录。 */
+function installedPathOf(item: StoredPackage): string | null {
+  if (item.installedPath) return item.installedPath;
+  return sourceType(item.source) === 'local' ? item.source : null;
 }
 
 export function packagesEnabled(): boolean {
@@ -102,7 +130,10 @@ function sourceType(source: string): PackageSourceType {
 export function enabledPackageSources(): PackageSource[] {
   if (!packagesEnabled()) return [];
   return readPackages()
-    .filter((item) => item.enabled && existsSync(item.installedPath ?? item.source))
+    .filter((item) => {
+      const path = installedPathOf(item);
+      return item.enabled && path !== null && existsSync(path);
+    })
     .map((item) => {
       const off = (['extensions', 'skills', 'prompts'] as const).filter(
         (kind) => !item.resources[kind],
@@ -249,6 +280,7 @@ export function updatePackage(id: string): Promise<PiPackageView[]> {
   requireRuntime(sourceType(item.source));
   return serial(async () => {
     await piOperation([item.source], (pm) => pm.update(item.source));
+    inventoryEpoch++;
     return listPackages();
   });
 }
@@ -300,6 +332,21 @@ export async function listPackages(): Promise<PiPackageView[]> {
   const pm = await manager(packages.map((item) => ({ source: item.source })));
   // 只看已装好的：缺失的 npm/git 来源不要在列清单时触发安装。
   const resolved = await pm.resolve(async () => 'skip');
+  // 早先登记时没记下安装目录的包：按 Pi 的解析补上，会话加载与清单都靠它确认包还在。
+  let backfilled = false;
+  for (const item of packages) {
+    const path = item.installedPath ?? pm.getInstalledPath(item.source, 'user');
+    if (!item.installedPath && path && sourceType(item.source) !== 'local') {
+      item.installedPath = path;
+      backfilled = true;
+    }
+  }
+  if (backfilled) writePackages(packages);
+  const inventory = await packageInventory(packages).catch((error: unknown) => ({
+    provides: new Map<string, PackageProvides>(),
+    errors: new Map([['*', [error instanceof Error ? error.message : String(error)]]]),
+  }));
+  const disabledPrompts = [...readDisabledPrompts()];
   return packages.map((item) => {
     const type = sourceType(item.source);
     const installedPath = pm.getInstalledPath(item.source, 'user') ?? null;
@@ -323,10 +370,23 @@ export async function listPackages(): Promise<PiPackageView[]> {
       enabled: item.enabled,
       resources: item.resources,
       counts,
+      provides: inventory.provides.get(item.source) ?? {
+        skills: [],
+        prompts: [],
+        commands: [],
+        tools: [],
+        mcpServers: [],
+        extensionsInspected: false,
+      },
+      disabledPrompts,
       installedAt: item.installedAt,
       diagnostics: [
-        ...(installedPath ? [] : ['尚未安装或安装目录已被删除，请重新安装']),
-        ...(loadDiagnostics.get(item.source) ?? []),
+        ...new Set([
+          ...(installedPath ? [] : ['尚未安装或安装目录已被删除，请重新安装']),
+          ...(inventory.errors.get(item.source) ?? []),
+          ...(inventory.errors.get('*') ?? []),
+          ...(loadDiagnostics.get(item.source) ?? []),
+        ]),
       ],
     };
   });
@@ -369,3 +429,37 @@ export async function restorePackages(): Promise<void> {
 }
 
 export { locateNpm };
+
+/**
+ * 包清单（每个包提供的 skills、模板、命令、工具与 MCP 服务器）的缓存：清单要加载扩展代码，
+ * 按包的登记状态与总开关做键，任何启停、按类开关都会换键；更新包内容不改登记，靠 epoch 失效。
+ */
+let inventoryEpoch = 0;
+let inventoryCache: { key: string; value: ReturnType<typeof inventoryPackages> } | null = null;
+
+function packageInventory(packages: StoredPackage[]) {
+  const key = JSON.stringify([inventoryEpoch, packagesEnabled(), packages]);
+  if (inventoryCache?.key !== key) {
+    const load = new Map(
+      enabledPackageSources().map((item) => [typeof item === 'string' ? item : item.source, item]),
+    );
+    const installed = packages.flatMap((item) => {
+      const installedPath = installedPathOf(item);
+      if (!installedPath || !existsSync(installedPath)) return [];
+      return [
+        {
+          source: item.source,
+          installedPath,
+          load: item.resources.extensions ? (load.get(item.source) ?? null) : null,
+        },
+      ];
+    });
+    const value = inventoryPackages(installed);
+    inventoryCache = { key, value };
+    // 失败不缓存：下次打开设置页重新试。
+    value.catch(() => {
+      if (inventoryCache?.key === key) inventoryCache = null;
+    });
+  }
+  return inventoryCache.value;
+}

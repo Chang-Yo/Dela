@@ -54,6 +54,7 @@ describe('Pi packages IPC 通道契约', () => {
       packages.pickLocal(),
       packages.setEnabled(id, true),
       packages.setResources(id, { extensions: true, skills: true, prompts: true }),
+      packages.setPromptEnabled('review', false),
       packages.update(id),
       packages.remove(id),
       packages.reveal(id),
@@ -62,7 +63,7 @@ describe('Pi packages IPC 通道契约', () => {
     ]);
     packages.reportEditorText(id, 'x');
     expect([...new Set(state.invoked)].sort()).toEqual([...state.handled].sort());
-    expect(state.invoked).toHaveLength(15);
+    expect(state.invoked).toHaveLength(16);
     expect(state.sent).toEqual(state.listenedMain);
 
     const stops = [

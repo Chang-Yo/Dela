@@ -20,8 +20,10 @@ import {
   askSession,
   cancelRun,
   deleteSession,
+  hasLiveSessions,
   invalidateSessions,
   listSessionCommands,
+  shutdownSessions,
   listSessions,
   newSession,
   openSession,
@@ -50,9 +52,11 @@ import {
 import {
   completeCapabilitySetup,
   needsCapabilitySetup,
+  findSkill,
   listSkills,
   readSkill,
   revealSkill,
+  setGlobalSkillEnabled,
   setSkillEnabled,
   skillDirectory,
 } from './skills';
@@ -87,7 +91,14 @@ import {
 } from './web-search';
 
 export { closeDomainBridge, domainBridge } from './environment';
-export { gcChatMedia, invalidateSessions, loadPi, subscribeChat };
+export {
+  gcChatMedia,
+  hasLiveSessions,
+  invalidateSessions,
+  loadPi,
+  shutdownSessions,
+  subscribeChat,
+};
 
 const uuid = z.string().uuid();
 const askInputSchema = z.object({
@@ -262,29 +273,33 @@ export function registerAgentIpc() {
     z.literal(DOCUMENT_SKILL).parse(skill);
     return invalidating(async () => {
       await installDocumentDependency();
-      return setSkillEnabled(DOCUMENT_SKILL, true);
+      await setGlobalSkillEnabled(DOCUMENT_SKILL, true);
+      return listSkills();
     });
   });
   handle('capabilities:cancel-skill-installation', (skill) => {
     z.literal(DOCUMENT_SKILL).parse(skill);
     cancelDocumentInstallation();
   });
+  // Skill 的 id 是清单里的 SKILL.md 路径；主进程按清单解析，不接受清单外的路径。
+  const skillId = z.string().min(1).max(32_767);
   handle('capabilities:set-skill-enabled', (skill, enabled) =>
-    invalidating(() => setSkillEnabled(name.parse(skill), z.boolean().parse(enabled))),
+    invalidating(() => setSkillEnabled(skillId.parse(skill), z.boolean().parse(enabled))),
   );
-  handle('capabilities:read-skill', (skill) => readSkill(name.parse(skill)));
-  handle('capabilities:reveal-skill', (skill) => revealSkill(name.parse(skill)));
+  handle('capabilities:read-skill', (skill) => readSkill(skillId.parse(skill)));
+  handle('capabilities:reveal-skill', (skill) => revealSkill(skillId.parse(skill)));
   handle('capabilities:upload-skill-to-remote', (skill, remotePath, overwrite) =>
     invalidating(async () => {
+      const found = await findSkill(skillId.parse(skill));
       const skillName = name
         .refine((value) => !/[/\\]/.test(value) && value !== '.' && value !== '..')
-        .parse(skill);
+        .parse(found.name);
       if (skillName === DOCUMENT_SKILL) throw new Error('文档读取组件仅在本机使用');
       const project = remoteProjectOf(z.string().trim().min(1).max(4096).parse(remotePath));
       if (!project) throw new Error('目标不是远端项目路径');
       return uploadSkillToRemote({
         target: targetOf(remoteById(project.remoteId)),
-        skillDir: skillDirectory(skillName),
+        skillDir: skillDirectory(found),
         name: skillName,
         remoteDir: project.path,
         overwrite: z.boolean().parse(overwrite),

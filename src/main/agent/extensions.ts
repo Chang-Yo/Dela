@@ -107,6 +107,23 @@ export async function bindSessionExtensions(
   recordLoadDiagnostics(diagnostics);
 }
 
+/**
+ * 结束一个会话实例。AgentSession.dispose 不发 session_shutdown（Pi 由 AgentSessionRuntime 在
+ * dispose 前发），Dela 直接持有 AgentSession，所以在这里补发：扩展靠它关掉子进程、监听器与连接
+ * （包注册的 MCP 服务器就在其中）。reload 表示按新配置重建，quit 表示会话被删除或应用退出。
+ */
+export async function shutdownSession(
+  session: AgentSession,
+  reason: 'quit' | 'reload',
+): Promise<void> {
+  try {
+    if (session.extensionRunner.hasHandlers('session_shutdown'))
+      await session.extensionRunner.emit({ type: 'session_shutdown', reason });
+  } finally {
+    session.dispose();
+  }
+}
+
 export function releaseExtensionUi(sessionId: string) {
   releaseUi(sessionId);
 }

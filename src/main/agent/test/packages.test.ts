@@ -3,6 +3,7 @@
 import { cpSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,8 +19,10 @@ import {
   listPackages,
   normalizeSource,
   packagesEnabled,
+  readDisabledPrompts,
   removePackage,
   setPackageEnabled,
+  setPromptEnabled,
   setPackageResources,
 } from '../packages';
 import { writeSetting } from '../../settings/prefs';
@@ -114,5 +117,61 @@ describe('安装与启停', () => {
     const [view] = await installPackage(fixture);
     expect(await removePackage(view!.id)).toEqual([]);
     expect(existsSync(join(fixture, 'package.json'))).toBe(true);
+  });
+});
+
+describe('包清单', () => {
+  it('未启用的包只列文件类资源，不执行扩展代码；启用后列出命令、工具与 MCP 服务器', async () => {
+    process.env.DELA_FIXTURE_MCP_SERVER = fileURLToPath(
+      new URL('./echo-server.ts', import.meta.url),
+    );
+    try {
+      const [disabled] = await installPackage(fixture);
+      expect(disabled!.provides).toMatchObject({
+        skills: [{ name: 'fixture-skill', description: 'Fixture skill shipped by a Pi package' }],
+        prompts: [{ name: 'fixture-review', argumentHint: '<file>' }],
+        commands: [],
+        tools: [],
+        mcpServers: [],
+        extensionsInspected: false,
+      });
+      expect(disabled!.provides.skills[0]!.path).toBe(
+        join(fixture, 'skills', 'fixture-skill', 'SKILL.md'),
+      );
+
+      const [enabled] = await setPackageEnabled(disabled!.id, true);
+      expect(enabled!.provides.extensionsInspected).toBe(true);
+      expect(enabled!.provides.commands.map((command) => command.name).sort()).toEqual([
+        'fixture-ask',
+        'fixture-fail',
+      ]);
+      expect(enabled!.provides.tools).toEqual(['fixture_echo']);
+      expect(enabled!.provides.mcpServers).toEqual([
+        { name: 'fixture-echo', detail: expect.stringContaining('echo-server.ts') },
+      ]);
+
+      // 关掉扩展这一类：不再加载扩展代码，命令与工具从清单里消失。
+      const [noExtensions] = await setPackageResources(disabled!.id, {
+        extensions: false,
+        skills: true,
+        prompts: true,
+      });
+      expect(noExtensions!.provides).toMatchObject({
+        commands: [],
+        tools: [],
+        extensionsInspected: false,
+      });
+    } finally {
+      delete process.env.DELA_FIXTURE_MCP_SERVER;
+    }
+  });
+
+  it('prompt 模板按名称单独开关', async () => {
+    await installPackage(fixture);
+    const [view] = await setPromptEnabled('fixture-review', false);
+    expect(view!.disabledPrompts).toEqual(['fixture-review']);
+    expect(readDisabledPrompts().has('fixture-review')).toBe(true);
+    await setPromptEnabled('fixture-review', true);
+    expect(readDisabledPrompts().size).toBe(0);
   });
 });

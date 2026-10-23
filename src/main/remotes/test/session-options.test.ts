@@ -60,11 +60,14 @@ vi.mock('../../terminal', () => ({ locateBash: () => 'C:\\Git\\bash.exe' }));
 vi.mock('../../agent/packages', () => ({
   enabledPackageSources: () => [{ source: 'C:\\pkgs\\demo', themes: [] }],
   packageNpmCommand: () => undefined,
+  readDisabledPrompts: () => new Set<string>(),
 }));
 vi.mock('../../agent/skills', () => ({
   builtinSkillsDirectory: () => 'C:\\skills',
   ensureBuiltinSkills: () => {},
   effectiveDisabledSkills: () => new Set<string>(),
+  globalSkillDirectories: () => ['C:\\skills'],
+  readDisabledSkillPaths: () => new Set<string>(),
 }));
 vi.mock('../../agent/mcp', () => ({ mcpToolDefinitions: () => [], executeMcpTool: vi.fn() }));
 vi.mock('../../agent/tools', () => ({ readDisabledTools: () => state.disabled }));
@@ -102,6 +105,8 @@ describe('远程会话环境', () => {
       'C:\\data\\remote-context\\r1\\p-remote\\home\\.dela\\skills',
     ]);
     expect(options.skillPaths).not.toContain('C:\\skills');
+    // 镜像里的远端技能与本机全局技能一样按名称开关。
+    expect(options.globalSkillDirs).toEqual(expect.arrayContaining(options.skillPaths));
   });
 
   it('远端 AGENTS.md 的内容与远端路径一起注入，本地全局上下文不丢', async () => {

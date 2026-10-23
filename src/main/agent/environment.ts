@@ -11,13 +11,20 @@ import { remoteTools } from '../remotes/operations';
 import { syncRemoteContext } from '../remotes/context';
 import { COMMAND_BRIDGE, startDomainBridge } from './commands';
 import { locateBash } from '../terminal';
-import { builtinSkillsDirectory, effectiveDisabledSkills, ensureBuiltinSkills } from './skills';
+import {
+  builtinSkillsDirectory,
+  effectiveDisabledSkills,
+  ensureBuiltinSkills,
+  globalSkillDirectories,
+  readDisabledSkillPaths,
+} from './skills';
+import { piAgentDir, type OpenSessionInput } from './pi';
+import { extraProjectSkillDirs } from './discovery';
 import { mcpToolDefinitions, executeMcpTool } from './mcp';
 import { readDisabledTools } from './tools';
 import { readWebSearchConfig, webSearch } from './web-search';
 import { fetchWebPage } from './web-fetch';
-import { enabledPackageSources, packageNpmCommand } from './packages';
-import type { OpenSessionInput } from './pi';
+import { enabledPackageSources, packageNpmCommand, readDisabledPrompts } from './packages';
 
 /** 应用生命周期内一个命令桥：token 只进入 agent/终端的子进程环境，不含业务凭据。 */
 let bridge: ReturnType<typeof startDomainBridge> | undefined;
@@ -72,7 +79,12 @@ export function agentEnvironment() {
         (part): part is string => Boolean(part),
       );
       // Pi packages 本地与远程会话一视同仁：扩展代码始终在本机运行，这点在启用前的说明里讲清楚。
-      const packages = { packages: enabledPackageSources(), npmCommand: packageNpmCommand() };
+      const packages = {
+        packages: enabledPackageSources(),
+        npmCommand: packageNpmCommand(),
+        disabledSkillPaths: readDisabledSkillPaths(),
+        disabledPrompts: readDisabledPrompts(),
+      };
       if (remote && projectId) {
         const connection = remoteById(remote.remoteId);
         const target = targetOf(connection);
@@ -93,6 +105,12 @@ export function agentEnvironment() {
           shellPath: locateBash(),
           // 远端会话不挂本地校园 skills（正文教 dela 命令，远端没有），只加载镜像里的远端技能。
           skillPaths: context.skillPaths,
+          // 远端镜像里的 Skill 与本机全局 Skill 一样按名称开关。
+          globalSkillDirs: [
+            ...context.skillPaths,
+            ...globalSkillDirectories(),
+            join(piAgentDir(), 'skills'),
+          ],
           agentsFilesOverride: (base: { agentsFiles: { path: string; content: string }[] }) => ({
             agentsFiles: [...base.agentsFiles, ...context.agentsFiles],
           }),
@@ -106,11 +124,14 @@ export function agentEnvironment() {
         };
       }
       const handle = await domainBridge();
+      // 项目级 Skill：.agents/skills 与 .pi/skills 由 Pi 按 cwd 自己发现，.agent/skills 由 Dela 补上。
+      const projectSkillDirs = extraProjectSkillDirs(cwd);
       return {
         appendSystemPrompt: [DELA_PROMPT, ...shared],
         shellPath: locateBash(),
         commandPrefix: `export DELA_COMMAND_URL='${handle.url}' DELA_COMMAND_TOKEN='${handle.token}'\n${COMMAND_BRIDGE}`,
-        skillPaths: [builtinSkillsDirectory()],
+        skillPaths: [builtinSkillsDirectory(), ...projectSkillDirs],
+        globalSkillDirs: [...globalSkillDirectories(), join(piAgentDir(), 'skills')],
         disabledSkills: effectiveDisabledSkills(),
         disabledTools: [...readDisabledTools()],
         customTools: [...webTools, ...mcpTools()],

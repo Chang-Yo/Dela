@@ -260,6 +260,8 @@ export function PackagesSection() {
                   )}
                 </div>
 
+                <PackageProvidesList item={item} />
+
                 {item.diagnostics.length > 0 && (
                   <ul className="grid gap-0.5">
                     {item.diagnostics.map((message) => (
@@ -329,5 +331,46 @@ export function PackagesSection() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * 包实际提供了什么：Skills、提示模板、扩展命令、工具与 MCP 服务器的名字。逐项开关在各自的分区
+ * （Skills、自定义指令、MCP Server）里，这里只做总览，让用户知道装进来的东西去了哪儿。
+ */
+function PackageProvidesList({ item }: { item: PiPackageView }) {
+  const { provides } = item;
+  const rows: [string, string[]][] = [
+    ['Skills', provides.skills.map((skill) => skill.name)],
+    ['提示模板', provides.prompts.map((prompt) => `/${prompt.name}`)],
+    ['命令', provides.commands.map((command) => `/${command.name}`)],
+    ['工具', provides.tools],
+    ['MCP', provides.mcpServers.map((server) => server.name)],
+  ];
+  const visible = rows.filter(([, names]) => names.length > 0);
+  const pending = !provides.extensionsInspected && item.counts.extensions > 0;
+  if (!visible.length && !pending) return null;
+  return (
+    <dl
+      aria-label={`${item.name} 提供的内容`}
+      className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs"
+    >
+      {visible.map(([label, names]) => (
+        <div className="contents" key={label}>
+          <dt className="text-ink-3">{label}</dt>
+          <dd className="min-w-0 [overflow-wrap:anywhere] text-ink-2">{names.join(' · ')}</dd>
+        </div>
+      ))}
+      {pending && (
+        <div className="contents">
+          <dt className="text-ink-3">扩展</dt>
+          <dd className="text-ink-3">
+            {item.enabled && item.resources.extensions
+              ? '读取失败，见下方诊断'
+              : '启用后显示它注册的命令、工具与 MCP 服务器'}
+          </dd>
+        </div>
+      )}
+    </dl>
   );
 }

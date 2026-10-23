@@ -21,6 +21,7 @@ import {
   restorePackages,
   setPackageEnabled,
   setPackageResources,
+  setPromptEnabled,
   setRegistry,
   updatePackage,
 } from './packages';
@@ -96,6 +97,11 @@ export function registerPackagesIpc() {
   );
   handle('set-resources', (packageId, resources) =>
     invalidating(() => setPackageResources(id.parse(packageId), resourcesSchema.parse(resources))),
+  );
+  handle('set-prompt-enabled', (name, enabled) =>
+    invalidating(() =>
+      setPromptEnabled(z.string().trim().min(1).max(200).parse(name), z.boolean().parse(enabled)),
+    ),
   );
   handle('update', (packageId) => invalidating(() => updatePackage(id.parse(packageId))));
   handle('remove', (packageId) => invalidating(() => removePackage(id.parse(packageId))));

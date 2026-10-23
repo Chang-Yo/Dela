@@ -21,6 +21,7 @@ export const packages: PackageApi = {
   pickLocal: () => invoke('packages:pick-local'),
   setEnabled: (id, enabled) => invoke('packages:set-enabled', id, enabled),
   setResources: (id, resources) => invoke('packages:set-resources', id, resources),
+  setPromptEnabled: (name, enabled) => invoke('packages:set-prompt-enabled', name, enabled),
   update: (id) => invoke('packages:update', id),
   remove: (id) => invoke('packages:remove', id),
   reveal: (id) => invoke('packages:reveal', id),

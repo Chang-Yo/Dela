@@ -27,7 +27,8 @@ beforeEach(() => {
     description: '文档读取',
     enabled: false,
     path: '/skills/document-reading/SKILL.md',
-    scope: 'global',
+    id: '/skills/document-reading/SKILL.md',
+    origin: 'builtin',
     dependency: { status: 'missing' },
   };
   api.listSkills.mockImplementation(async () => [skill]);
@@ -75,7 +76,7 @@ it('enables an already installed component without downloading it again', async 
   api.setSkillEnabled.mockResolvedValue([{ ...skill, enabled: true }]);
   await render();
   await act(async () => button('启用').click());
-  expect(api.setSkillEnabled).toHaveBeenCalledWith('document-reading', true);
+  expect(api.setSkillEnabled).toHaveBeenCalledWith('/skills/document-reading/SKILL.md', true);
   expect(api.installSkillDependencies).not.toHaveBeenCalled();
 });
 

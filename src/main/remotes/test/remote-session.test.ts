@@ -40,6 +40,7 @@ describe('远程会话接线', () => {
       customTools: await remoteTools(remotePath, { host: 'root@127.0.0.1', keyPath: null }),
       shellPath: 'C:\\Program Files\\Git\\bin\\bash.exe',
       skillPaths: [],
+      globalSkillDirs: [],
       disabledSkills: new Set(),
       disabledTools: [],
     });

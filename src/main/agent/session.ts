@@ -36,6 +36,7 @@ import {
   extensionCommand,
   releaseExtensionUi,
   sessionSlashCommands,
+  shutdownSession,
 } from './extensions';
 import { packagesEnabled } from './packages';
 import type { ChatSlashCommand } from '../../shared/chat';
@@ -231,18 +232,35 @@ export async function listSessionCommands(id: string): Promise<ChatSlashCommand[
   return sessionSlashCommands((await ensureLive(id)).session);
 }
 
-/** 丢弃一个会话实例：dispose 触发扩展的 session_shutdown，未答复的扩展对话框按取消处理。 */
-function disposeLive(id: string, entry: Live) {
+/** 丢弃一个会话实例：先发 session_shutdown 再 dispose，未答复的扩展对话框按取消处理。 */
+function disposeLive(id: string, entry: Live, reason: 'quit' | 'reload'): Promise<void> {
   entry.unsubscribe();
-  entry.session.dispose();
   live.delete(id);
   releaseExtensionUi(id);
+  return shutdownSession(entry.session, reason).catch(() => {});
+}
+
+/** 应用退出前结束全部会话，让扩展收拾子进程；最多等 timeoutMs，卡住的扩展不拖住退出。 */
+export async function shutdownSessions(timeoutMs: number): Promise<void> {
+  const pending = [...live].map(([id, entry]) => {
+    if (entry.run) entry.run.cancelled = true;
+    return disposeLive(id, entry, 'quit');
+  });
+  if (!pending.length) return;
+  await Promise.race([
+    Promise.all(pending),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
+export function hasLiveSessions(): boolean {
+  return live.size > 0;
 }
 
 /** 模型或能力配置改变：空闲实例立即丢弃，运行中的轮末丢弃，下次使用时按新配置重建。 */
 export function invalidateSessions() {
   for (const [id, entry] of live) {
-    if (!entry.run) disposeLive(id, entry);
+    if (!entry.run) void disposeLive(id, entry, 'reload');
     else {
       entry.stale = true;
     }
@@ -677,7 +695,7 @@ export async function deleteSession(id: string) {
     if (entry.run) entry.run.cancelled = true;
     await entry.session.abort();
     await done;
-    disposeLive(id, entry);
+    await disposeLive(id, entry, 'quit');
   }
   const { file } = row(id);
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
@@ -837,7 +855,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
       runEvent(id, status, undefined, turnId, changesError);
       publish(id);
       if (status !== 'stopped') notifyRunFinished(id, status);
-      if (entry.stale) disposeLive(id, entry);
+      if (entry.stale) void disposeLive(id, entry, 'reload');
     } finally {
       finishRun();
     }

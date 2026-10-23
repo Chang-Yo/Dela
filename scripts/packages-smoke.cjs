@@ -1,7 +1,8 @@
 // 真实应用、独立用户目录：验证 Pi packages 的完整链路（本地夹具包，不联网、不下载 Node）。
 // 用法：pnpm build && electron scripts/packages-smoke.cjs [项目根或 app.asar]
-// 覆盖：经窗口 IPC 安装 → 默认关闭 → 启用 → 会话加载扩展（session_start 通知、/ 候选）→ 扩展命令的
-// 对话框在渲染端往返 → 可见消息进会话 → 卸载后新会话不再加载；打包产物里同时验证 jiti 从 asar 解析宿主模块。
+// 覆盖：经窗口 IPC 安装 → 默认关闭 → 启用 → 包的 Skill 出现在 Skills 分区、命令出现在包清单 → 会话加载扩展
+// （session_start 通知、/ 候选）→ 扩展命令的对话框在渲染端往返 → 可见消息进会话 → 卸载后新会话不再加载、
+// Skills 分区不再列出；打包产物里同时验证 jiti 从 asar 解析宿主模块。
 const { app } = require('electron');
 const { createServer } = require('node:http');
 const { cpSync, mkdtempSync } = require('node:fs');
@@ -83,7 +84,18 @@ async function run(window) {
   assert.equal(installed.length, 1);
   assert.equal(installed[0].enabled, false, '新装的包默认关闭');
   assert.deepEqual(installed[0].counts, { extensions: 1, skills: 1, prompts: 1, themes: 1 });
-  await js(`window.dela.packages.setEnabled(${JSON.stringify(installed[0].id)}, true)`);
+  const enabled = await js(
+    `window.dela.packages.setEnabled(${JSON.stringify(installed[0].id)}, true)`,
+  );
+  assert.deepEqual(
+    enabled[0].provides.commands.map((command) => command.name).sort(),
+    ['fixture-ask', 'fixture-fail'],
+    '启用后包清单列出扩展命令',
+  );
+  const skills = await js(`window.dela.capability.listSkills()`);
+  const packageSkill = skills.find((skill) => skill.name === 'fixture-skill');
+  assert.equal(packageSkill?.origin, 'package', '包的 Skill 出现在 Skills 分区');
+  assert.equal(packageSkill?.group?.label, 'dela-fixture-package');
 
   const chat = await js(`window.dela.session.create(null, 'chat')`);
   const commands = await js(
@@ -118,5 +130,10 @@ async function run(window) {
   const next = await js(`window.dela.session.create(null, 'chat')`);
   const left = await js(`window.dela.chat.listSessionCommands(${JSON.stringify(next.sessionId)})`);
   assert.ok(!left.some((command) => command.name === 'fixture-ask'), '卸载后新会话不再加载扩展');
+  const remaining = await js(`window.dela.capability.listSkills()`);
+  assert.ok(
+    !remaining.some((skill) => skill.origin === 'package'),
+    '卸载后 Skills 分区不再列出包的 Skill',
+  );
   server.close();
 }
