@@ -10,6 +10,11 @@
 
 <div align="center">
 
+**An Agent Harness designed for SJTUer**
+</div>
+
+<div align="center">
+
 _The world keeps changing. Dela stays with you._
 
 </div>
@@ -19,44 +24,44 @@ _The world keeps changing. Dela stays with you._
 > [!IMPORTANT]
 > 下载、安装或使用 Dela，即视为你已阅读并同意本项目的[使用条款](docs/terms.md)与[隐私条款](docs/privacy.md)。
 > 如果你不同意其中部分内容，可以跳过对应服务的配置、不提供该项凭据，从而仅使用其余功能；如果你不同意全部条款，请停止使用并卸载本软件。
+>
+> Demo 演示与下载见 [Dela 官网](https://dela.changyo.me)。
 
 Dela 是一款专门面向 SJTUer 的 Agent 产品。
 
-Dela 的内核基于 Pi 构建，所有的校园服务功能都通过交大公开 API 和学校服务器交互。所有个人信息数据全部经过加密存储在本地。
+Dela 的内核基于 Pi 构建，所有的校园服务功能都通过交大公开 API 和学校服务器交互。凭据经系统钥匙串加密后保存在本机，其余数据保存在本地，不上传服务器。
 
 ## 功能概览
 
-**水源社区与课堂视频下载属于试验功能，可在“设置 > 通用 > 试验功能”中开关；侧栏入口可在“设置 > 通用 > 导航入口”中隐藏。**
+**水源社区与课堂视频下载属于试验功能，可在 “设置 > 通用 > 试验功能” 中开关；所有侧栏功能入口可在 “设置 > 通用 > 导航入口” 中隐藏。**
 
 ### 校园信息服务
 
-- **Canvas 课程资料快捷预览**： 利用access token同步课程资料，快捷查看和切换不同课件，还支持一键下载；「添加到项目」可将课件引用放入所选本地项目的根目录；资料目录每小时在后台自动同步（仅目录清单，不下载文件内容），并支持按学期勾选课程批量导出课件到本地文件夹
-- **校园邮箱**： 支持交大邮箱和任意第三方 IMAP/SMTP 邮箱（需自填服务器）；可以快速同步邮件，还支持加粗、斜体等富文本写信、附件收发和保留正文换行的本地草稿
-- **课堂视频回看**：支持在应用内会看
-- **课表日历**：通过教学信息网获取个人课表，月视图支持“滑拽式”创建事件，支持和TODO双向互通
-- **水源社区（beta）**：通过Discourse User API Key 正式授权，为您提供沉浸式的阅读体验，并且可以接入 Agent
+- **Canvas 课程资料快捷预览**：利用 access token 同步课程资料，快捷查看和切换不同课件，还支持一键批量下载；「添加到项目」可将课件引用放入所选本地项目的根目录；资料目录每小时在后台自动同步，并支持按学期勾选课程批量导出课件到本地文件夹
+- **校园邮箱**：支持交大邮箱和任意第三方 IMAP/SMTP 邮箱的收信与写信功能，还可以本地保存草稿
+- **课堂视频回看**：支持在应用内查看自己的课堂视频回放，并把录像缓存到本地（试验功能）
+- **课表日历**：通过教学信息网获取个人课表，月视图支持“滑拽式”创建事件，支持和 TODO 双向互通
+- **水源社区（beta）**：通过 Discourse User API Key 安全授权，为您提供水源的另一种阅读体验，并且可以接入 Agent 被调用
 - **全局搜索**：搜索内容跨项目、会话、邮件、课程资料和设置
 - **TODO**：支持 Canvas 课程作业完成状态提醒，支持写入课表日历；月历视图按截止时间展示作业，Canvas 作业沿用课表课程配色
 
 ### Agent 功能
 
-Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校园skills**可以快速获取到用户的校园信息数据，比如读取Canvas课程状态，获取Canvas课程资料，读取个人所有邮件，获取课表，获取水源咨询等等，详情可以直接阅读应用内的内置校园skills类。
+Dela Harness 基于 Pi 构建，可以作为一款通用 agent 产品使用，并且 Dela 在 Coding 领域进行了特别加强。
 
-除此之外，Dela还具有较强的 Coding 能力，内置 9 大 tools，还有**独创的基于helper建立长连接隧道的远程项目功能**，胜任大部分生产力场景。
+Dela 支持导入第三方 skills 和接入 MCPs，通过**内置的校园 skills** 可以快速获取到用户的校园信息数据，比如读取 Canvas 课程状态，获取 Canvas 课程资料，读取个人所有邮件，获取课表，获取水源讯息等等，详情可以直接阅读应用内的内置校园 skills。
 
-- **常驻工具**：`read`, `write`, `edit`, `bash`. 始终保持开启
-- **文件检索工具**：`find`, `grep`, `ls`
-- **网页搜索工具**：`web_search`(默认关闭，需自备API KEY), `web_fetch`（默认开启，免费）
+Dela 提供自定义的 `web_search` 工具接入（如 DeepSeek、Brave、Google，默认关闭，需自备 API KEY），还提供免费的 `web_fetch` 工具（默认开启）。
 
-**Pi Packages**：可以安装 Pi 社区的 package（扩展、skills、提示模板），来源支持 npm、git 与本地目录；扩展与 Dela 同权限运行，安装前请确认来源可信。
+此外 Dela 还兼容大部分 Pi Packages 生态。可以安装 Pi 社区的 package（扩展、skills、提示模板），来源支持 npm、git 与本地目录；扩展与 Dela 同权限运行，安装前请确认来源可信。
 
-**remote project**: 通过上传编译好的 helper 文件至服务器，Dela 可以与远端建立隧道实现长连接，并通过 helper 的代理来实现对服务器上下文的获取，环境理解以及文件的读写。并且通过自动端口转发，可以**本地访问远程的启动的网页**。_只要能够连上ssh，就可以像本地一样操作读写！_
+Dela 的 **remote project** 可以把远端服务器目录登记为项目：通过 SSH 建立连接后，Dela 上传 helper runtime 维持本机与服务器之间的稳定通道，Agent 的读写与命令直接在服务器上执行，远端目录变化实时同步到文件树。远端文件可在应用内预览与下载，本地文件可拖入远端目录上传。
 
 ### 工作台功能
 
-- **md笔记编辑**：笔记就是 `.md` 文件，即时渲染编辑（光标所在行显示原文），支持数学公式（含中文）与 mermaid 流程图；保存时原样写回，不改换行符与格式
+- **Markdown 笔记编辑**：支持对 `.md` 文件即时渲染编辑，支持数学公式（含中文）与 mermaid 流程图
 - **文件编辑**：任意文本文件都能打开编辑（包括 `.env`、`Makefile`、无后缀日志），按内容而不是扩展名识别；1 MB 以上只读预览
-- **内置终端**：用户可以直接在应用打开内置终端（Git Bash），如果是 remote project 则默认为 ssh
+- **内置终端**：用户可以直接在应用打开内置终端（Git Bash），如果是 remote project 则默认为 ssh，默认继承项目目录作为启动路径
 
 ## 技术栈
 
@@ -70,7 +75,7 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ## 下载安装
 
-从 [Dela官网](https://dela.changyo.me) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela/releases/latest) 下载对应平台的安装包。
+从 [Dela 官网](https://dela.changyo.me) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela/releases/latest) 下载对应平台的安装包。Dela 支持应用内更新。
 
 ## 本地开发
 
@@ -114,6 +119,8 @@ pnpm dev
 
 ## 赞助鸣谢
 
+您可以前往 “设置 > 关于” 页面为作者提供赞助 🙏
+
 <table>
   <tr>
     <td width="80" align="center" valign="middle">
@@ -121,7 +128,7 @@ pnpm dev
     </td>
     <td valign="middle">
       <a href="https://www.frameneo.com/"><strong>FRAMENEO</strong></a><br>
-      为 Dela 的软件包分发提供免费的高速CDN服务。
+      为 Dela 的软件包分发提供免费的高速 CDN 服务。
     </td>
     <td valign="middle">
       <a href="https://www.frameneo.com/">FRAMENEO Website</a>
