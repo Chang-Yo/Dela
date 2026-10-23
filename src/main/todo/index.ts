@@ -203,6 +203,7 @@ async function syncCanvasTodos(): Promise<TodoState> {
               source: 'canvas',
               assignmentId: a.id,
               courseId: course.id,
+              courseCode: course.code || undefined,
               courseName: course.name,
               title: typeof a.name === 'string' ? a.name : '未命名作业',
               notes: '',

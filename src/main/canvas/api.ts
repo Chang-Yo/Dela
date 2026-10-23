@@ -640,11 +640,13 @@ export async function listTodoCanvasCourses() {
       .courses.filter((c) => c.archived)
       .map((c) => c.id),
   );
+  // code 供 TODO 月历与课表共用稳定配色键；name 仅用于展示。
   return courses
     .filter((c) => num(c.id) > 0 && !archived.has(num(c.id)))
     .map((c) => ({
       id: num(c.id),
       name: str(c.name) || str(c.course_code) || `课程 ${num(c.id)}`,
+      code: str(c.course_code),
     }));
 }
 

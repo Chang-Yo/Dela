@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
   CalendarCheck,
+  CalendarDays,
   CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   CircleCheckBig,
   ExternalLink,
+  List,
   Pencil,
   Plus,
   RefreshCw,
@@ -20,8 +24,10 @@ import { cn } from '../../lib/utils';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import { EventColorRow } from '../timetable/EventColorRow';
-import { roundToMinute } from '../timetable/timetable-format';
+import { roundToMinute, startOfDay } from '../timetable/timetable-format';
 import { DateTimeStepper } from './DateTimeStepper';
+import { TodoCalendar } from './TodoCalendar';
+import { monthLabel } from './todo-calendar';
 import { TodoDetail } from './TodoDetail';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
@@ -195,6 +201,8 @@ export function TodoView({ request }: { request?: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'all' | 'personal' | 'canvas'>('all');
+  const [view, setView] = useState<'calendar' | 'list'>('calendar');
+  const [month, setMonth] = useState(() => startOfDay(new Date()));
   const [showCompleted, setShowCompleted] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -256,19 +264,58 @@ export function TodoView({ request }: { request?: { id: string } }) {
         (filter === 'all' || item.source === filter) &&
         (showCompleted || !todoCompleted(item.status)),
     ) ?? [];
-  const completedCount = state?.items.filter((item) => todoCompleted(item.status)).length ?? 0;
+  const undatedCount = items.filter((item) => !item.dueAt).length;
+  const openItem = (id: string) => {
+    setDetailId(id);
+    void run(() => window.dela!.todo.markRead(id), { failTitle: '标记已读失败' });
+  };
+  // 月份导航放在页头副标题位置，日历网格只负责展示。
+  const stepMonth = (amount: number) =>
+    setMonth(new Date(month.getFullYear(), month.getMonth() + amount, 1));
+  const goToday = () => {
+    const today = new Date();
+    setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+  };
   return (
     <div className="relative mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden px-6 py-6 max-md:px-4">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">TODO</h1>
-          <p className="mt-1 text-xs text-ink-3">
-            {state?.syncedAt
-              ? `Canvas 更新于 ${dateLabel(state.syncedAt)}`
-              : state?.connected
-                ? 'Canvas 尚未同步'
-                : '连接 Canvas 后可同步作业'}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
+            {view === 'calendar' && (
+              <span className="flex items-center gap-0.5">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="上个月"
+                  onClick={() => stepMonth(-1)}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <span className="min-w-28 text-center text-sm font-medium tabular-nums text-ink">
+                  {monthLabel(month)}
+                </span>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="下个月"
+                  onClick={() => stepMonth(1)}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={goToday}>
+                  今天
+                </Button>
+              </span>
+            )}
+            <p>
+              {state?.syncedAt
+                ? `Canvas 更新于 ${dateLabel(state.syncedAt)}`
+                : state?.connected
+                  ? 'Canvas 尚未同步'
+                  : '连接 Canvas 后可同步作业'}
+            </p>
+          </div>
         </div>
         <div className="flex gap-1">
           <Button
@@ -312,17 +359,55 @@ export function TodoView({ request }: { request?: { id: string } }) {
             {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
           </Button>
         ))}
-        {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
-        <label className="ml-auto flex items-center gap-2 text-xs text-ink-3">
-          <Switch checked={showCompleted} label="显示已完成" onChange={setShowCompleted} />
-          显示已完成（{completedCount}）
-        </label>
+        <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+          {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
+          <label className="flex items-center gap-2 text-xs text-ink-3">
+            <Switch checked={showCompleted} label="显示已完成" onChange={setShowCompleted} />
+            显示已完成
+          </label>
+          <div
+            aria-label="TODO 视图"
+            className="flex items-center gap-0.5 rounded-control bg-inset p-0.5"
+            role="group"
+          >
+            <Button
+              size="sm"
+              variant={view === 'calendar' ? 'secondary' : 'ghost'}
+              aria-pressed={view === 'calendar'}
+              onClick={() => setView('calendar')}
+            >
+              <CalendarDays className="size-4" />
+              日历
+            </Button>
+            <Button
+              size="sm"
+              variant={view === 'list' ? 'secondary' : 'ghost'}
+              aria-pressed={view === 'list'}
+              title={
+                view === 'calendar' && undatedCount > 0
+                  ? `${undatedCount} 个待办没有截止时间`
+                  : undefined
+              }
+              onClick={() => setView('list')}
+            >
+              <List className="size-4" />
+              列表
+              {view === 'calendar' && undatedCount > 0 && (
+                <span className="rounded-full bg-ink px-1.5 text-2xs font-medium leading-4 tabular-nums text-surface">
+                  {undatedCount}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {!state ? (
           <p className="py-8 text-center text-13 text-ink-3">
             {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
           </p>
+        ) : view === 'calendar' ? (
+          <TodoCalendar items={items} month={month} onOpenItem={(item) => openItem(item.id)} />
         ) : !items.length ? (
           <p className="py-8 text-center text-13 text-ink-3">暂无符合条件的待办</p>
         ) : (
@@ -363,12 +448,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                   <button
                     type="button"
                     className="min-w-0 flex-1 text-left"
-                    onClick={() => {
-                      setDetailId(item.id);
-                      void run(() => window.dela!.todo.markRead(item.id), {
-                        failTitle: '标记已读失败',
-                      });
-                    }}
+                    onClick={() => openItem(item.id)}
                   >
                     <div className="flex items-center gap-2">
                       <span className={cn('break-words text-13 font-medium', done && 'text-ink-3')}>

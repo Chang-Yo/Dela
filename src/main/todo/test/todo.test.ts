@@ -51,7 +51,9 @@ beforeEach(() => {
       }
     },
   } as unknown as ReturnType<typeof getDatabase>);
-  vi.mocked(listTodoCanvasCourses).mockResolvedValue([{ id: 1, name: '测试课程' }]);
+  vi.mocked(listTodoCanvasCourses).mockResolvedValue([
+    { id: 1, name: '测试课程', code: 'TEST101' },
+  ]);
   vi.mocked(listTodoCanvasAssignments).mockResolvedValue([assignment(1)]);
 });
 afterEach(() => db.close());
@@ -71,6 +73,13 @@ describe('TODO 持久化与同步', () => {
     expect(todoNotifications()[0]!.readAt).not.toBeNull();
     expect(getTodoState().items.find((row) => row.id === item.id)!.status).toBe('pending');
     expect(getTodoState().syncing).toBe(false);
+  });
+  it('Canvas 作业保存课程代码，供日历与课表使用同一配色键', async () => {
+    await refreshTodos();
+    expect(getTodoState().items.find((item) => item.source === 'canvas')).toMatchObject({
+      courseCode: 'TEST101',
+      courseName: '测试课程',
+    });
   });
   it('远端完成不意味着本地已读', async () => {
     await refreshTodos();

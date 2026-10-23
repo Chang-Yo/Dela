@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { DateInput } from './DateInput';
 import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-format';
 import { dialogIn, overlayFade } from '../../components/ui/motion';
 import { errorText } from '../../workspace/store';
@@ -70,7 +69,15 @@ export function SemesterStartDialog({
         </div>
         <div className="grid gap-2">
           <div className="flex h-8 w-full items-center rounded-control bg-field px-2.5 text-13 text-ink shadow-hairline transition-[background-color,box-shadow] duration-150 focus-within:bg-surface focus-within:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]">
-            <DateInput autoFocus label="开学日期" onChange={setValue} value={value} />
+            {/* 原生 date input：日历弹层跟随全局 color-scheme，值即 YYYY-MM-DD，选不满不会产出非法日期。 */}
+            <input
+              aria-label="开学日期"
+              autoFocus
+              className="w-full bg-transparent text-13 tabular-nums outline-none"
+              onChange={(event) => setValue(event.target.value)}
+              type="date"
+              value={value}
+            />
           </div>
           {firstWeek ? (
             <p className="text-xs text-ink-3">

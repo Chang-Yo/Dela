@@ -16,6 +16,8 @@ export interface TodoItem {
   /** 仅个人待办：写入日历时的候选色；未选时渲染回退石墨色。 */
   color?: CalendarEventColor;
   courseId?: number;
+  /** Canvas 课程代码；月历与课表共用它生成稳定的课程颜色。 */
+  courseCode?: string;
   courseName?: string;
   assignmentId?: number;
   url?: string;
