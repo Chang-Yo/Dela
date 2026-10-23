@@ -93,6 +93,39 @@ const openRowMenu = (name: string) =>
 
 const menuItems = () => document.querySelectorAll('[role="menuitem"]');
 
+it('dims ignored names and hides repository metadata without hiding configuration files', async () => {
+  const file = (name: string): WorkspaceEntry => ({
+    id: `C:/repo/${name}`,
+    parentId: null,
+    name,
+    kind: 'file',
+    sourceId: null,
+    updatedAt: '',
+    gitIgnored: true,
+  });
+  await act(async () =>
+    root.render(
+      <ProjectFileTree
+        entries={['ignored.log', '.git', '.DS_Store', '.env', '.gitignore'].map(file)}
+        expanded={[]}
+        rootId={null}
+        query=""
+        selected={null}
+        onAction={() => {}}
+        onExpand={() => {}}
+        onSelect={() => {}}
+      />,
+    ),
+  );
+  expect(
+    row('ignored.log').querySelector('span[title="ignored.log"]')?.classList.contains('text-ink-3'),
+  ).toBe(true);
+  expect(row('.git')).toBeNull();
+  expect(row('.DS_Store')).toBeNull();
+  expect(row('.env')).not.toBeNull();
+  expect(row('.gitignore')).not.toBeNull();
+});
+
 it('reads only expanded local directories and releases children when their ancestor closes', async () => {
   const project = { ...remoteProject, id: 'local', remoteId: undefined, path: 'C:/local' };
   const folder = {

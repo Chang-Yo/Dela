@@ -30,6 +30,7 @@ export function relocateWorkspacePath(path: string, from: string, to: string): s
 }
 
 export interface WorkspaceEntry {
+  gitIgnored?: boolean;
   id: string;
   parentId: string | null;
   name: string;
@@ -43,6 +44,8 @@ export interface WorkspaceEntry {
 }
 
 export const workspaceArchiveId = '00000000-0000-4000-8000-000000000001';
+
+export const hiddenWorkspaceNames = new Set(['.git', '.svn', '.hg', '.DS_Store', 'Thumbs.db']);
 
 export interface WorkspaceViewState {
   tabs: string[];

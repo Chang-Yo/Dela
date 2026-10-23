@@ -134,6 +134,10 @@ function insertRemoteProject(host: string, path: string): string {
 let db: Database.Database;
 
 beforeEach(() => {
+  state.execFile.mockImplementation((_command, _args, _options, callback) => {
+    callback(new Error('not a repository'), '', '');
+    return { stdin: { on() {}, end() {} } };
+  });
   state.root = mkdtempSync(join(tmpdir(), 'dela-notes-'));
   db = createDb();
   vi.mocked(getDatabase).mockReturnValue(db);
@@ -144,6 +148,35 @@ afterEach(() => {
 });
 
 describe('磁盘工作区', () => {
+  it('批量读取 Git 忽略规则，保留反向规则与已跟踪文件，隐藏内部元数据', async () => {
+    const git = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    state.execFile.mockImplementation(git.execFile);
+    const project = createWorkspaceEntry({ parentId: null, name: 'repo', kind: 'project' });
+    const cwd = localPathOf(project.id);
+    git.execFileSync('git', ['init', '--quiet', cwd]);
+    writeFileSync(join(cwd, 'tracked.log'), 'tracked');
+    git.execFileSync('git', ['add', 'tracked.log'], { cwd });
+    writeFileSync(join(cwd, '.gitignore'), '*.log\n!keep.log\nbuild/\n');
+    for (const name of ['ignored.log', 'keep.log', '.env', '.DS_Store', 'Thumbs.db'])
+      writeFileSync(join(cwd, name), '');
+    mkdirSync(join(cwd, 'build'));
+    writeFileSync(join(cwd, 'build', 'output.txt'), '');
+    const items = await listLocalDirectory(project.id);
+    expect(items.find((item) => item.name === 'ignored.log')?.gitIgnored).toBe(true);
+    expect(items.find((item) => item.name === 'build')?.gitIgnored).toBe(true);
+    expect(items.find((item) => item.name === 'keep.log')?.gitIgnored).toBe(false);
+    expect(items.find((item) => item.name === 'tracked.log')?.gitIgnored).toBe(false);
+    expect(items.map((item) => item.name)).toEqual(expect.arrayContaining(['.env', '.gitignore']));
+    expect(items.some((item) => ['.git', '.DS_Store', 'Thumbs.db'].includes(item.name))).toBe(
+      false,
+    );
+    expect((await listLocalDirectory(join(cwd, 'build')))[0]?.gitIgnored).toBe(true);
+    writeFileSync(join(cwd, '.gitignore'), '');
+    expect(
+      (await listLocalDirectory(project.id)).find((item) => item.name === 'ignored.log')
+        ?.gitIgnored,
+    ).toBe(false);
+  });
   it('目录概览不扫描项目后代，逐层加载与独立搜索保留深层文件', async () => {
     const project = createWorkspaceEntry({ parentId: null, name: 'large', kind: 'project' });
     const deep = join(localPathOf(project.id), 'src', 'nested');
