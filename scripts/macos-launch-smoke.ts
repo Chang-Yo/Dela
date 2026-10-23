@@ -12,6 +12,7 @@ const directory = mkdtempSync(join(tmpdir(), 'dela-launch-smoke-'));
 const stdout = join(directory, 'stdout.log');
 const stderr = join(directory, 'stderr.log');
 try {
+  // 60 秒：公证过的包首启要过 Gatekeeper 评估（OCSP 校验 + 全包扫描），CI 虚拟机上可能明显慢于本地。
   execFileSync(
     '/usr/bin/open',
     [
@@ -29,7 +30,7 @@ try {
       '--args',
       '--smoke-test',
     ],
-    { cwd: directory, timeout: 30_000, stdio: 'pipe' },
+    { cwd: directory, timeout: 60_000, stdio: 'pipe' },
   );
   const output = readFileSync(stdout, 'utf8');
   // open 的退出码只代表启动请求成功，必须由应用自身报告冒烟通过。

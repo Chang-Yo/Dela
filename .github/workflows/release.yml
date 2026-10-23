@@ -108,7 +108,19 @@ jobs:
           # electron-updater 的差量更新按 zip 直链 + .blockmap 探测，缺了就退回全量下载。
           test -f dist/Dela-*-mac-arm64.zip.blockmap
       - name: Smoke test signed app
-        run: node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
+        run: |
+          # LaunchServices 启动与 Gatekeeper 首启评估在 CI 虚拟机上偶发超时；
+          # 同签名步骤整体重试，应用真跑不起来的话脚本内的通过断言会拦住。
+          attempt=1
+          until node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app; do
+            if [ "$attempt" -ge 3 ]; then
+              echo "Launch smoke failed after $attempt attempts"
+              exit 1
+            fi
+            echo "::warning::Launch smoke attempt $attempt failed, retrying"
+            attempt=$((attempt + 1))
+            sleep 15
+          done
       - name: Record artifact checksums and source
         run: |
           cd dist
