@@ -19,7 +19,7 @@ import {
   TriangleAlert,
   Upload,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { WorkspaceEntry } from '../../shared/api';
 import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/ui/explorer';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
@@ -41,6 +41,7 @@ export type { EntryAction };
 /** 连接过渡的延迟：热通道列一层只要几十毫秒，立刻画转圈等于每次打开都闪一下；
  *  冷启动（实测 3 秒级）才会越过它，那时空白必须被解释清楚。 */
 export const CONNECT_HINT_DELAY_MS = 200;
+const emptyExcludedIds: string[] = [];
 
 /** 首次连接远端时的过渡：只转圈，细节（连的是哪台）留给项目行的悬浮提示。 */
 function ConnectingHint() {
@@ -72,7 +73,7 @@ export function ProjectFileTree({
   onOpenToSide,
   onRemoteAction,
   query,
-  excludeIds = [],
+  excludeIds = emptyExcludedIds,
   archived = false,
   pending,
   onActivate,
@@ -99,17 +100,25 @@ export function ProjectFileTree({
 }) {
   // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
   const afterMenuClose = useAfterMenuClose();
-  const excluded = new Set(excludeIds);
-  const included = new Set<string>();
-  const visit = (parentId: string | null) => {
-    for (const e of entries)
-      if (e.parentId === parentId && !excluded.has(e.id) && !included.has(e.id)) {
-        included.add(e.id);
-        visit(e.id);
+  const { included, visible } = useMemo(() => {
+    const excluded = new Set(excludeIds);
+    const children = new Map<string | null, WorkspaceEntry[]>();
+    for (const entry of entries) {
+      const group = children.get(entry.parentId) ?? [];
+      group.push(entry);
+      children.set(entry.parentId, group);
+    }
+    const included = new Set<string>();
+    const pending = [rootId];
+    while (pending.length) {
+      for (const entry of children.get(pending.pop()!) ?? []) {
+        if (excluded.has(entry.id) || included.has(entry.id)) continue;
+        included.add(entry.id);
+        pending.push(entry.id);
       }
-  };
-  visit(rootId);
-  const visible = entries.filter((e) => included.has(e.id));
+    }
+    return { included, visible: entries.filter((entry) => included.has(entry.id)) };
+  }, [entries, rootId, excludeIds]);
   /** 条目级文件动作：失败统一走浮窗，不打断文件树。 */
   const runFileCommand = (title: string, command: () => Promise<void> | undefined) => {
     void Promise.resolve(command()).catch((cause: unknown) =>
@@ -145,16 +154,17 @@ export function ProjectFileTree({
   let filtered = all;
   let open = expanded;
   if (query.trim()) {
+    const parents = new Map(all.map((node) => [node.id, node.parentId]));
     const keep = new Set(
       all
         .filter((n) => n.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
         .map((n) => n.id),
     );
     for (const id of keep) {
-      let parent = all.find((n) => n.id === id)?.parentId;
+      let parent = parents.get(id);
       while (parent && !keep.has(parent)) {
         keep.add(parent);
-        parent = all.find((n) => n.id === parent)?.parentId;
+        parent = parents.get(parent);
       }
     }
     filtered = all.filter((n) => keep.has(n.id));

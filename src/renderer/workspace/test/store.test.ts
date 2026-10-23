@@ -101,4 +101,24 @@ describe('workspace store mirror', () => {
     useWorkspaceStore.getState().setError(null);
     expect(useWorkspaceStore.getState().error).toBeNull();
   });
+
+  it('coalesces refreshes but reads again for changes received during an active request', async () => {
+    let resolveFirst!: (value: typeof workspaceState) => void;
+    const next = { ...workspaceState, directory: 'C:/updated' };
+    const { getState } = installDela({
+      workspace: () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    });
+    const first = useWorkspaceStore.getState().refresh();
+    const second = useWorkspaceStore.getState().refresh();
+    const third = useWorkspaceStore.getState().refresh();
+    expect(getState).toHaveBeenCalledTimes(1);
+    getState.mockResolvedValue(next);
+    resolveFirst(workspaceState);
+    await Promise.all([first, second, third]);
+    expect(getState).toHaveBeenCalledTimes(2);
+    expect(useWorkspaceStore.getState().workspace).toEqual(next);
+  });
 });

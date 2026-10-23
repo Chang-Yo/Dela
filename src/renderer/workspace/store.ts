@@ -22,6 +22,8 @@ export const errorText = (error: unknown) =>
     : String(error);
 
 let loadPromise: Promise<void> | null = null;
+let refreshPromise: Promise<void> | null = null;
+let refreshPending = false;
 // 课件候选的拉取游标：0 = 上次拉取失败，下次触发立即重试。
 let courseFilesFetchedAt = 0;
 // 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
@@ -65,8 +67,20 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
     }
     return loadPromise;
   },
-  refresh: async () => {
-    if (window.dela) set({ workspace: await window.dela.workspace.getState() });
+  refresh: () => {
+    if (!window.dela) return Promise.resolve();
+    refreshPending = true;
+    if (!refreshPromise) {
+      refreshPromise = (async () => {
+        while (refreshPending) {
+          refreshPending = false;
+          set({ workspace: await window.dela!.workspace.getState() });
+        }
+      })().finally(() => {
+        refreshPromise = null;
+      });
+    }
+    return refreshPromise;
   },
   setCanvas: (canvas) => set({ canvas }),
   ensureCourseFiles: () => {

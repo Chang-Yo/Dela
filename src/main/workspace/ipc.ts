@@ -37,30 +37,32 @@ import { dialog, ipcMain, shell, type WebContents } from 'electron';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { storageDirectory as directory } from '../storage';
-import type { WorkspaceCreateInput } from '../../shared/api';
+import type { WorkspaceCreateInput, WorkspaceState } from '../../shared/api';
 import { workspaceEntryIdSchema } from '../../shared/workspace';
 import { watch, type FSWatcher } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 
 const watchers = new Map<string, FSWatcher>();
 const subscribers = new Set<WebContents>();
 let changedTimer: ReturnType<typeof setTimeout> | undefined;
+const changedPaths = new Set<string>();
 /** @ 候选上限：超长索引没有实用价值，还会拖慢 composer。 */
 const REMOTE_REFERENCE_LIMIT = 3000;
 /** 一次能报上去的监视目录数：真到这么多层说明树已经展开得很深，此时 inotify 额度也不宽裕。 */
 const REMOTE_WATCH_LIMIT = 4096;
-function watchWorkspace(client: WebContents) {
+function watchWorkspace(client: WebContents, state: WorkspaceState) {
   if (!subscribers.has(client)) {
     subscribers.add(client);
     client.once('destroyed', () => {
       subscribers.delete(client);
       if (!subscribers.size) {
+        clearTimeout(changedTimer);
+        changedPaths.clear();
         for (const watcher of watchers.values()) watcher.close();
         watchers.clear();
       }
     });
   }
-  const state = getWorkspaceState();
   const roots = new Set([
     join(state.directory, 'workspace'),
     ...state.entries
@@ -70,6 +72,25 @@ function watchWorkspace(client: WebContents) {
         item.kind === 'folder' || item.kind === 'project' ? item.path! : dirname(item.path!),
       ),
   ]);
+  for (const root of roots) {
+    if (
+      [...roots].some((parent) => {
+        if (parent === root) return false;
+        const suffix = relative(parent, root);
+        return (
+          !isAbsolute(suffix) &&
+          suffix !== '..' &&
+          !suffix.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
+        );
+      })
+    )
+      roots.delete(root);
+  }
+  for (const [root, watcher] of watchers) {
+    if (roots.has(root)) continue;
+    watcher.close();
+    watchers.delete(root);
+  }
   for (const root of roots) {
     if (watchers.has(root)) continue;
     try {
@@ -81,10 +102,13 @@ function watchWorkspace(client: WebContents) {
             .some((part) => part === '.git' || part === 'node_modules')
         )
           return;
+        changedPaths.add(file ? join(root, String(file)) : root);
         clearTimeout(changedTimer);
         changedTimer = setTimeout(() => {
+          const paths = [...changedPaths];
+          changedPaths.clear();
           for (const subscriber of subscribers)
-            if (!subscriber.isDestroyed()) subscriber.send('workspace:changed');
+            if (!subscriber.isDestroyed()) subscriber.send('workspace:changed', paths);
         }, 200);
       });
       watcher.on('error', () => {
@@ -112,8 +136,9 @@ export function registerWorkspaceIpc(
   ipcMain.handle('workspace:get-state', (event) => {
     checkWorkspaceSender(event);
     subscribeChat(event.sender);
-    watchWorkspace(event.sender);
-    return getWorkspaceState();
+    const state = getWorkspaceState();
+    watchWorkspace(event.sender, state);
+    return state;
   });
   handle('open-email-draft', async (id) => {
     const { openEmailDraft } = await import('../mail/drafts');
