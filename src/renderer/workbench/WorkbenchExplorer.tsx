@@ -40,7 +40,7 @@ import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
 import { SourcesTree } from '../navigation/SourcesTree';
 import { latestTermOf } from '../../shared/canvas';
-import { useNavigationStore as useTreeState } from '../navigation/store';
+import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {
   archiveEntry,
@@ -220,8 +220,12 @@ export function WorkbenchExplorer({
     });
   };
   /** 新建文件/文件夹在树里行内输入（VS Code 式），不开弹窗；落点为 null 时落在当前树根。 */
-  const startCreate = (kind: 'file' | 'folder', parentId: string | null) =>
-    useTreeState.getState().startCreate({ kind, parentId: parentId ?? rootId });
+  const startCreate = (kind: 'file' | 'folder', parentId: string | null) => {
+    const target = parentId ?? rootId;
+    const chain = target ? ancestorChainOf(entries, target) : [];
+    useTreeState.setState((s) => ({ expanded: [...new Set([...s.expanded, ...chain])] }));
+    useTreeState.getState().startCreate({ kind, parentId: target });
+  };
   // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
   const afterMenuClose = useAfterMenuClose();
   const pending: ExplorerPending | null = pendingCreate && {

@@ -306,9 +306,6 @@ export function Explorer({
         resetDrag();
       }}
     >
-      {pending && pendingAt?.index === visible.length && (
-        <PendingRow key="pending" pending={pending} level={pendingAt.level} />
-      )}
       {visible.map(({ item, level }, index) => {
         const branch = Boolean(item.container || children.has(item.id));
         // 目录行默认不画 folder 图标（折叠箭头已表达目录语义）；例外是携带信息的行：
@@ -431,6 +428,9 @@ export function Explorer({
           </Fragment>
         );
       })}
+      {pending && pendingAt?.index === visible.length && (
+        <PendingRow key="pending" pending={pending} level={pendingAt.level} />
+      )}
     </div>
   );
 }

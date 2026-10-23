@@ -168,13 +168,13 @@ async function chooseMenu(trigger: HTMLElement, label: string) {
   });
 }
 
-async function render(projectId: string | null) {
+async function render(projectId: string | null, activeDocKey: string | null = null) {
   const onAction = vi.fn();
   const onCreated = vi.fn();
   await act(async () =>
     root.render(
       <WorkbenchExplorer
-        activeDocKey={null}
+        activeDocKey={activeDocKey}
         onAction={onAction}
         onCreated={onCreated}
         onOpenDocument={() => {}}
@@ -184,6 +184,19 @@ async function render(projectId: string | null) {
     ),
   );
   return { onAction, onCreated };
+}
+
+/** 行内输入框与其目标目录行的先后关系：输入框必须在目录行之后（它的子项首位）。 */
+function inputFollowsRow(label: string) {
+  const row = [...document.querySelectorAll('[role="treeitem"]')].find((el) =>
+    el.getAttribute('aria-label')?.startsWith(label),
+  );
+  const input = document.querySelector<HTMLInputElement>(
+    '[aria-label="新文件名称"], [aria-label="新文件夹名称"]',
+  );
+  expect(row).toBeTruthy();
+  expect(input).toBeTruthy();
+  expect(row!.compareDocumentPosition(input!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 }
 
 it('hides the write entries while a remote project is open', async () => {
@@ -294,6 +307,36 @@ it('focuses the inline name row started from a row action menu', async () => {
   expect(input).not.toBeNull();
   expect(document.activeElement).toBe(input);
   expect(useTreeState.getState().pendingCreate).toEqual({ kind: 'file', parentId: localFolder.id });
+  // 输入行画在目标目录行的子项首位，而不是树顶。
+  inputFollowsRow('资料');
+});
+
+// 目标文件夹藏在折叠的父级下（活动文档在收起的项目深处）时，要展开祖先链让输入行
+// 落到目标之下，而不是被 Explorer 的兜底逻辑丢到树顶。
+it('places the pending row inside the target folder when its ancestors are collapsed', async () => {
+  useWorkspaceStore.setState({
+    workspace: {
+      ...workspace,
+      entries: [...workspace.entries, localFolder, deepFolder, deepNote],
+    },
+    loaded: true,
+    error: null,
+  });
+  // 全局视图：项目行收起，目标子目录两代都不可见。
+  await render(null, deepNote.id);
+  await chooseMenu(newButton()!, '新建文件');
+  expect(useTreeState.getState().pendingCreate).toEqual({ kind: 'file', parentId: deepFolder.id });
+  inputFollowsRow('子目录');
+
+  // 项目视图：项目行不在树里，但「资料」是收起的，目标子目录同样不可见。
+  act(() => useTreeState.setState({ pendingCreate: null, expanded: [] }));
+  await render(localProject.id, deepNote.id);
+  await chooseMenu(newButton()!, '新建文件夹');
+  expect(useTreeState.getState().pendingCreate).toEqual({
+    kind: 'folder',
+    parentId: deepFolder.id,
+  });
+  inputFollowsRow('子目录');
 });
 
 // 文件树目录行不画 folder 图标（折叠箭头已表达目录语义）；文件行用逐扩展名的彩色图标，
