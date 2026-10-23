@@ -52,16 +52,16 @@ jobs:
         with:
           name: windows-build
           path: out
+      - name: Prepare bundled runtime
+        run: pnpm prepare:runtime
+      - name: Smoke test runtime
+        run: pnpm smoke:runtime
       - name: Package application directory
         if: ${{ !inputs.archives }}
-        run: |
-          pnpm prepare:runtime
-          pnpm exec electron-builder --dir --win --x64 --publish never
+        run: pnpm exec electron-builder --dir --win --x64 --publish never
       - name: Build Windows installer
         if: inputs.archives
-        run: |
-          pnpm prepare:runtime
-          pnpm exec electron-builder --win --x64 --publish never
+        run: pnpm exec electron-builder --win --x64 --publish never
       - name: Verify packaged helper
         run: |
           cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64
