@@ -4,7 +4,8 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
     "jsx": "react-jsx",
-    "paths": { "@/*": ["./src/renderer/*"] }
+    "paths": { "@/*": ["./src/renderer/*"] },
+    "resolveJsonModule": true
   },
   "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts"]
 }

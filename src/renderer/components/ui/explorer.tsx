@@ -9,8 +9,9 @@ import {
   type DragEvent,
   type CSSProperties,
 } from 'react';
-import { ChevronRight, FileText, Folder, FolderOpen, FolderKanban } from 'lucide-react';
+import { ChevronRight, FileText, Folder, FolderKanban } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { fileIconUrl } from './file-icons';
 
 export interface ExplorerItem {
   id: string;
@@ -310,18 +311,12 @@ export function Explorer({
       )}
       {visible.map(({ item, level }, index) => {
         const branch = Boolean(item.container || children.has(item.id));
-        // 目录 icon 只保留到第二层（学期/课程这类主目录），更深的子目录只留
-        // 折叠箭头与文字；叶子文件 icon 不受影响。
-        const Icon =
-          item.icon ??
-          (item.project
-            ? FolderKanban
-            : branch
-              ? open.has(item.id)
-                ? FolderOpen
-                : Folder
-              : FileText);
-        const showIcon = !branch || level <= 2;
+        // 目录行默认不画 folder 图标（折叠箭头已表达目录语义）；例外是携带信息的行：
+        // 项目行的看板图标标记项目身份，强调色（远端同源分组）需要图标作颜色载体。
+        // 文件行用逐扩展名的彩色图标（material-icon-theme 精选），未收录的回落文档图标。
+        const fileIcon = !branch && !item.icon ? fileIconUrl(item.name) : null;
+        const Icon = item.icon ?? (item.project ? FolderKanban : branch ? Folder : FileText);
+        const showIcon = !branch || item.project || item.accent !== undefined;
         const accent = item.accent ? { color: item.accent } : undefined;
         const ancestors = trailOf(item.parentId);
         const dropRegion =
@@ -410,13 +405,16 @@ export function Explorer({
                   )}
                 />
               </button>
-              {showIcon && (
-                <Icon
-                  className="mr-1 size-4 shrink-0 text-ink-3"
-                  strokeWidth={1.8}
-                  style={accent}
-                />
-              )}
+              {showIcon &&
+                (fileIcon ? (
+                  <img alt="" className="mr-1 size-4 shrink-0" draggable={false} src={fileIcon} />
+                ) : (
+                  <Icon
+                    className="mr-1 size-4 shrink-0 text-ink-3"
+                    strokeWidth={1.8}
+                    style={accent}
+                  />
+                ))}
               <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
                 {item.name}
               </span>

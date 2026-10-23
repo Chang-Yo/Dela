@@ -67,6 +67,57 @@ const localFolder: WorkspaceEntry = {
   updatedAt: '2026-10-09T00:00:00.000Z',
 };
 
+const deepFolder: WorkspaceEntry = {
+  id: 'f-deep',
+  parentId: localFolder.id,
+  name: '子目录',
+  kind: 'folder',
+  sourceId: null,
+  path: 'D:/code/本地项目/资料/子目录',
+  remoteId: null,
+  updatedAt: '2026-10-09T00:00:00.000Z',
+};
+
+const deepNote: WorkspaceEntry = {
+  id: 'D:/code/本地项目/资料/子目录/n.md',
+  parentId: deepFolder.id,
+  name: 'n.md',
+  kind: 'file',
+  sourceId: null,
+  remoteId: null,
+  updatedAt: '2026-10-09T00:00:00.000Z',
+};
+
+const localImage: WorkspaceEntry = {
+  id: 'D:/code/本地项目/资料/b.png',
+  parentId: localFolder.id,
+  name: 'b.png',
+  kind: 'file',
+  sourceId: null,
+  remoteId: null,
+  updatedAt: '2026-10-09T00:00:00.000Z',
+};
+
+const localUnknown: WorkspaceEntry = {
+  id: 'D:/code/本地项目/资料/c.xyz',
+  parentId: localFolder.id,
+  name: 'c.xyz',
+  kind: 'file',
+  sourceId: null,
+  remoteId: null,
+  updatedAt: '2026-10-09T00:00:00.000Z',
+};
+
+const localDockerfile: WorkspaceEntry = {
+  id: 'D:/code/本地项目/资料/Dockerfile',
+  parentId: localFolder.id,
+  name: 'Dockerfile',
+  kind: 'file',
+  sourceId: null,
+  remoteId: null,
+  updatedAt: '2026-10-09T00:00:00.000Z',
+};
+
 const workspace: WorkspaceState = {
   entries: [remoteProject, localProject],
   views: {},
@@ -117,7 +168,7 @@ async function chooseMenu(trigger: HTMLElement, label: string) {
   });
 }
 
-async function render(projectId: string) {
+async function render(projectId: string | null) {
   const onAction = vi.fn();
   const onCreated = vi.fn();
   await act(async () =>
@@ -243,6 +294,50 @@ it('focuses the inline name row started from a row action menu', async () => {
   expect(input).not.toBeNull();
   expect(document.activeElement).toBe(input);
   expect(useTreeState.getState().pendingCreate).toEqual({ kind: 'file', parentId: localFolder.id });
+});
+
+// 文件树目录行不画 folder 图标（折叠箭头已表达目录语义）；文件行用逐扩展名的彩色图标，
+// 未收录的扩展名回落通用文档图标。
+it('shows no folder icons and picks file icons by extension', async () => {
+  useWorkspaceStore.setState({
+    workspace: {
+      ...workspace,
+      entries: [
+        ...workspace.entries,
+        localFolder,
+        deepFolder,
+        deepNote,
+        localImage,
+        localUnknown,
+        localDockerfile,
+      ],
+    },
+    loaded: true,
+    error: null,
+  });
+  await render(localProject.id);
+  act(() => useTreeState.setState({ expanded: [localFolder.id, deepFolder.id] }));
+  const row = (label: string) =>
+    [...document.querySelectorAll('[role="treeitem"]')].find(
+      (el) => el.getAttribute('aria-label') === label,
+    )!;
+  expect(row('资料').querySelector('.lucide-folder, .lucide-folder-open')).toBeNull();
+  expect(row('子目录').querySelector('.lucide-folder, .lucide-folder-open')).toBeNull();
+  const markdownIcon = row('n.md').querySelector('img')!;
+  const imageIcon = row('b.png').querySelector('img')!;
+  expect(markdownIcon).toBeTruthy();
+  expect(imageIcon).toBeTruthy();
+  // dev 下 SVG 直读 node_modules（/@fs/），资产来源即上游包的 icons/ 目录。
+  expect(markdownIcon.getAttribute('src')).toMatch(/material-icon-theme\/icons\/markdown\.svg$/);
+  expect(imageIcon.getAttribute('src')).toMatch(/material-icon-theme\/icons\/image\.svg$/);
+  // 未收录的扩展名回落 lucide 文档图标；无扩展名文件按完整文件名命中。
+  expect(row('c.xyz').querySelector('img')).toBeNull();
+  expect(row('c.xyz').querySelector('.lucide-file-text')).toBeTruthy();
+  expect(row('Dockerfile').querySelector('img')).toBeTruthy();
+
+  // 全局视图里项目行的看板图标保留：它标记的是项目，不是目录。
+  await render(null);
+  expect(row('本地项目').querySelector('.lucide-folder-kanban')).toBeTruthy();
 });
 
 // #91：切到空项目后，上一个项目选中的文件夹不能再当新建目标。
