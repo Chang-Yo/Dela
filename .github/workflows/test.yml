@@ -32,6 +32,8 @@ jobs:
         run: pnpm build
       - name: Unit tests
         run: pnpm test
+      - name: Smoke test Electron
+        run: pnpm smoke
       - uses: actions/upload-artifact@v6
         with:
           name: windows-build

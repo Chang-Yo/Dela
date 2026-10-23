@@ -16,25 +16,32 @@ const teamId = process.env.APPLE_TEAM_ID || '';
 if (signed) assert.match(teamId, /^[A-Z0-9]{10}$/, '--signed 需要 APPLE_TEAM_ID');
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
+function readSignature(executable: string) {
+  execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', executable], {
+    stdio: 'pipe',
+  });
+  const result = spawnSync('/usr/bin/codesign', ['--display', '--verbose=4', executable], {
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, '无法读取签名');
+  return result.stderr;
+}
+
+const cdHash = (signature: string) => /^CDHash=([a-f0-9]+)$/m.exec(signature)?.[1] || '';
+
 function verifySignedBundle(path: string) {
   let bundleHash = '';
   for (const executable of [
     path,
     ...['rg', 'fd'].map((name) => join(path, 'Contents/Resources/bin/darwin-arm64', name)),
   ]) {
-    execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', executable], {
-      stdio: 'pipe',
-    });
-    const result = spawnSync('/usr/bin/codesign', ['--display', '--verbose=4', executable], {
-      encoding: 'utf8',
-    });
-    assert.equal(result.status, 0, '无法读取签名');
-    assert.ok(result.stderr.includes(`TeamIdentifier=${teamId}\n`), '签名 Team ID 不匹配');
-    assert.match(result.stderr, /^Authority=Developer ID Application:/m);
-    assert.match(result.stderr, /^Timestamp=.+/m);
-    assert.match(result.stderr, /flags=.*\bruntime\b/);
+    const signature = readSignature(executable);
+    assert.ok(signature.includes(`TeamIdentifier=${teamId}\n`), '签名 Team ID 不匹配');
+    assert.match(signature, /^Authority=Developer ID Application:/m);
+    assert.match(signature, /^Timestamp=.+/m);
+    assert.match(signature, /flags=.*\bruntime\b/);
     if (executable === path) {
-      bundleHash = /^CDHash=([a-f0-9]+)$/m.exec(result.stderr)?.[1] || '';
+      bundleHash = cdHash(signature);
       assert.ok(bundleHash, '缺少应用签名摘要');
     }
   }
@@ -111,13 +118,15 @@ if (!process.argv.includes('--dir')) {
   if (signed) {
     const directory = mkdtempSync(join(tmpdir(), 'dela-signed-archives-'));
     const mount = join(directory, 'dmg');
+    // 公证票据与 Gatekeeper 已在目录包联网验过；归档副本只做离线签名校验，
+    // ZIP 丢失框架符号链接这类损坏仍会在 codesign --verify 暴露。
     try {
       execFileSync('/usr/bin/ditto', ['-x', '-k', `${prefix}.zip`, join(directory, 'zip')], {
         timeout: 120000,
         stdio: 'pipe',
       });
       assert.equal(
-        verifySignedBundle(join(directory, 'zip', 'Dela.app')),
+        cdHash(readSignature(join(directory, 'zip', 'Dela.app'))),
         bundleHash,
         'ZIP 内的应用与目录包不一致',
       );
@@ -128,7 +137,7 @@ if (!process.argv.includes('--dir')) {
       );
       try {
         assert.equal(
-          verifySignedBundle(join(mount, 'Dela.app')),
+          cdHash(readSignature(join(mount, 'Dela.app'))),
           bundleHash,
           'DMG 内的应用与目录包不一致',
         );

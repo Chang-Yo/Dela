@@ -43,7 +43,10 @@ jobs:
       - name: Smoke test helper executables
         run: |
           ./vendor/dela-helper/dela-helper-linux-amd64 --version
-          command -v qemu-aarch64-static >/dev/null 2>&1 || sudo apt-get install -y -qq qemu-user-static
+          if ! command -v qemu-aarch64-static >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq qemu-user-static
+          fi
           qemu-aarch64-static ./vendor/dela-helper/dela-helper-linux-arm64 --version
       - uses: actions/upload-artifact@v6
         with:

@@ -16,7 +16,7 @@ import { registerCanvasIpc, refreshCanvasTrees } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
-import { registerTerminalIpc } from './terminal';
+import { registerTerminalIpc, locateBash } from './terminal';
 import { cleanupLegacyMinGit, prependRuntimePath } from './terminal/mingit';
 import { closeHelper } from './remotes/helper';
 import { closeAllPortTunnels } from './remotes/ports';
@@ -44,6 +44,7 @@ import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } fro
 import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';
 
 import Database from 'better-sqlite3';
+import { spawn as spawnPty } from 'node-pty';
 
 // 在数据库、窗口和托盘初始化前抢占锁，重复启动只唤起已有实例。
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -245,7 +246,9 @@ app
     // 数据库拒绝降级打开（「由更新版本的 Dela 创建」）就是从这里冒出来的：
     // 没有这个 catch 只会留下未处理的 rejection，用户看到的是「窗口一直不出现、也没提示」。
     console.error(error);
-    dialog.showErrorBox('Dela 无法启动', error instanceof Error ? error.message : String(error));
+    if (!smokeTest) {
+      dialog.showErrorBox('Dela 无法启动', error instanceof Error ? error.message : String(error));
+    }
     app.exit(1);
   });
 
@@ -390,7 +393,25 @@ async function createWindow(): Promise<void> {
       const pi = await loadPi();
       if (typeof pi.createAgentSession !== 'function')
         throw new Error('Pi runtime smoke check failed');
-      console.log('Smoke check passed: SQLite, renderer, preload isolation, Agent runtime (ESM).');
+      // 签名与 hardened runtime 可能让 spawn-helper / ConPTY 起不来，打包产物要真起一次 PTY。
+      await new Promise<void>((resolve, reject) => {
+        const pty = spawnPty(locateBash(), ['--noprofile', '--norc', '-c', 'echo DELA_PTY_OK'], {
+          cols: 80,
+          rows: 24,
+          ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
+        });
+        let output = '';
+        pty.onData((data) => {
+          output += data;
+          if (output.includes('DELA_PTY_OK')) resolve();
+        });
+        pty.onExit(({ exitCode }) => {
+          if (exitCode !== 0) reject(new Error(`PTY smoke check failed (${exitCode}): ${output}`));
+        });
+      });
+      console.log(
+        'Smoke check passed: SQLite, renderer, preload isolation, Agent runtime (ESM), Bash PTY.',
+      );
     } finally {
       database.close();
     }

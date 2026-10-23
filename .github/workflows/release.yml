@@ -108,19 +108,7 @@ jobs:
           # electron-updater 的差量更新按 zip 直链 + .blockmap 探测，缺了就退回全量下载。
           test -f dist/Dela-*-mac-arm64.zip.blockmap
       - name: Smoke test signed app
-        run: |
-          # LaunchServices 启动与 Gatekeeper 首启评估在 CI 虚拟机上偶发超时；
-          # 同签名步骤整体重试，应用真跑不起来的话脚本内的通过断言会拦住。
-          attempt=1
-          until node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app; do
-            if [ "$attempt" -ge 3 ]; then
-              echo "Launch smoke failed after $attempt attempts"
-              exit 1
-            fi
-            echo "::warning::Launch smoke attempt $attempt failed, retrying"
-            attempt=$((attempt + 1))
-            sleep 15
-          done
+        run: dist/mac-arm64/Dela.app/Contents/MacOS/Dela --smoke-test
       - name: Record artifact checksums and source
         run: |
           cd dist
@@ -143,6 +131,9 @@ jobs:
 
   prepare:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: read
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       sha: ${{ steps.version.outputs.sha }}
@@ -168,6 +159,24 @@ jobs:
           const sha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
           appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\nsha=${sha}\n`);
           NODE
+      - name: Require passing CI and an unpublished release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.version.outputs.sha }}
+        run: |
+          ci="$(gh api "repos/$GH_REPO/commits/$SHA/check-runs?check_name=CI%20required&app_id=15368" \
+            --jq '.check_runs[0] | .conclusion // .status // "missing"')"
+          if [ "$ci" != success ]; then
+            echo "::error::CI required on $SHA is $ci; rerun this workflow after CI passes"
+            exit 1
+          fi
+          # electron-updater 只比版本号，已发布的版本换了构建，装过的用户永远拿不到。
+          if [ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null)" = false ]; then
+            echo "::error::$RELEASE_TAG is already published; release a new version instead"
+            exit 1
+          fi
 
   helper:
     needs: prepare

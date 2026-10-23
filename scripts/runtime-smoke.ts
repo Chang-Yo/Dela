@@ -85,7 +85,8 @@ app.whenReady().then(async () => {
     clearTimeout(timeout);
     closeDomainBridge();
     closeDatabase();
-    rmSync(profile, { recursive: true, force: true });
+    // Windows 上 Chromium 退出前一直占着 userData 里的着色器缓存，目录留给系统临时目录回收。
+    if (process.platform !== 'win32') rmSync(profile, { recursive: true, force: true });
     app.exit(exitCode);
   }
 });

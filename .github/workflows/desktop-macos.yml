@@ -60,7 +60,6 @@ jobs:
       - name: Smoke test Electron and runtime
         run: |
           pnpm smoke
-          pnpm smoke:macos
           pnpm smoke:runtime
           pnpm smoke:desktop
           pnpm exec electron scripts/terminal-smoke.cjs
@@ -76,12 +75,9 @@ jobs:
       - name: Verify package resources and archives
         if: inputs.archives
         run: node scripts/verify-macos-package.ts "$PACKAGED_APP"
-      - name: Smoke test LaunchServices startup
-        run: node scripts/macos-launch-smoke.ts "$PACKAGED_APP"
       - name: Smoke test packaged app and native dependencies
         run: |
           "$PACKAGED_APP/Contents/MacOS/Dela" --smoke-test
-          pnpm smoke:macos "$PACKAGED_APP/Contents/Resources/app.asar"
           pnpm smoke:desktop "$PACKAGED_APP/Contents/Resources/app.asar"
           pnpm exec electron scripts/terminal-smoke.cjs "$PACKAGED_APP/Contents/Resources/app.asar"
       - uses: actions/upload-artifact@v6

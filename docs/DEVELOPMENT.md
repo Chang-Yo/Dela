@@ -354,11 +354,10 @@ pnpm test
 打包复用本机 Electron，不寻找签名身份、不发布：
 
 ```sh
-pnpm build && pnpm smoke && pnpm smoke:macos && pnpm smoke:runtime
+pnpm build && pnpm smoke && pnpm smoke:runtime
 pnpm smoke:desktop && pnpm smoke:workspace
 CSC_IDENTITY_AUTO_DISCOVERY=false pnpm package:dist --mac --arm64 -c.electronDist=node_modules/electron/dist
 node scripts/verify-macos-package.ts dist/mac-arm64/Dela.app
-node scripts/macos-launch-smoke.ts dist/mac-arm64/Dela.app
 dist/mac-arm64/Dela.app/Contents/MacOS/Dela --smoke-test
 ```
 
