@@ -31,15 +31,16 @@ export function isRelativeAssetPath(path: string): boolean {
   return true;
 }
 
+/** 正文里的路径可能是 URI 编码的（空格写成 %20）：找磁盘文件前先解码，坏编码按原样。 */
+export function decodeAssetPath(path: string): string {
+  try {
+    return decodeURI(path).replace(/%28/gi, '(').replace(/%29/gi, ')');
+  } catch {
+    return path;
+  }
+}
+
 /** 受限资源协议下的图片展示地址；协议按条目 ID 解析实际文件，不暴露磁盘路径。 */
 export function noteAssetUrl(entryId: string, ref: string): string {
   return `dela-resource://note-asset/${encodeURIComponent(ref)}?id=${encodeURIComponent(entryId)}`;
-}
-
-/* 所见即所得内核会破坏 frontmatter（分隔线 + setext 标题化）。识别到 frontmatter 的
-   文档整篇进入源码模式，其他范围外语法（原始 HTML、脚注、指令块）经实测可原样保留。 */
-const frontmatterRe = /^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/;
-
-export function markdownRequiresSourceMode(text: string): boolean {
-  return frontmatterRe.test(text);
 }

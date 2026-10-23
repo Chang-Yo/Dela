@@ -37,10 +37,10 @@ function docOf(format: LoadedDocument['content']['format'], extra?: Partial<Load
 }
 
 describe('previewBranchOf', () => {
-  it('文本文件按是否本地磁盘文件区分：语法高亮查看器或纯文本', () => {
-    expect(previewBranchOf(docOf('text', { watchesDisk: true }))).toBe('code');
-    expect(previewBranchOf(docOf('text', { watchesDisk: false }))).toBe('text');
-    expect(previewBranchOf(docOf('text'))).toBe('text');
+  it('按格式分流；无法当文本打开的内容走 binary 提示', () => {
+    expect(previewBranchOf(docOf('text', { watchesDisk: true }))).toBe('text');
+    expect(previewBranchOf(docOf('markdown'))).toBe('markdown');
+    expect(previewBranchOf(docOf('binary'))).toBe('binary');
   });
 
   it('水源来源优先于格式分流', () => {

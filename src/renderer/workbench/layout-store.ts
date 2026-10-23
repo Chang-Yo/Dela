@@ -50,8 +50,11 @@ type Store = {
   ready: boolean;
   /** 载入项目布局；无保存时用旧数据种子或默认单组。rapid 切换由 token 竞态保护。 */
   init(projectId: string | null, legacy?: LegacySeedInput): Promise<void>;
-  /** 聚焦已有标签（无显式目标时）；显式目标组允许跨组重复打开（并排第二视图）。 */
-  openTab(tabId: TabId, targetGroupId?: string): void;
+  /** 聚焦已有标签（无显式目标时）；显式目标组允许跨组重复打开（并排第二视图）。
+   *  preview：作为该组的预览标签打开，就地替换组里现有的预览标签；已存在的常驻标签不降级。 */
+  openTab(tabId: TabId, targetGroupId?: string, options?: { preview?: boolean }): void;
+  /** 预览标签转常驻（编辑、双击、拖动）；不是预览标签时无动作。 */
+  keepTab(tabId: TabId, groupId?: string): void;
   closeTab(tabId: TabId, groupId?: string): void;
   /** 批量关闭：others = 除锚点外，right = 锚点右侧，all = 整组（含组本身）；固定标签受保护。 */
   closeTabs(groupId: string, mode: 'others' | 'right' | 'all', anchor?: TabId): void;
@@ -186,7 +189,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     if (!loadFailed) schedulePersist();
   },
 
-  openTab: (tabId, targetGroupId) => {
+  openTab: (tabId, targetGroupId, options) => {
     const { root, focus } = get();
     if (!targetGroupId) {
       const existing = walkGroups(root).find((group) => group.tabs.includes(tabId));
@@ -204,25 +207,42 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const fallback = findGroup(root, focus) ?? walkGroups(root)[0];
     if (!fallback) return;
     const groupId = targetGroupId && findGroup(root, targetGroupId) ? targetGroupId : fallback.id;
-    if (!findGroup(root, groupId)!.tabs.includes(tabId)) {
-      if (findGroup(root, groupId)!.tabs.length >= maxTabsPerGroup) {
-        notifyCapacityLimit();
-        return;
-      }
+    const group = findGroup(root, groupId)!;
+    if (group.tabs.includes(tabId)) {
       set({
-        root: updateGroup(root, groupId, (group) => ({
-          ...group,
-          tabs: [...group.tabs, tabId],
-          active: tabId,
-        })),
+        root: updateGroup(root, groupId, (node) => ({ ...node, active: tabId })),
         focus: groupId,
       });
-    } else {
-      set({
-        root: updateGroup(root, groupId, (group) => ({ ...group, active: tabId })),
-        focus: groupId,
-      });
+      schedulePersist();
+      return;
     }
+    // 预览打开就地顶替组里的预览标签（同一位置），否则追加；替换不占新的容量。
+    const replaced = options?.preview ? group.preview : undefined;
+    if (!replaced && group.tabs.length >= maxTabsPerGroup) {
+      notifyCapacityLimit();
+      return;
+    }
+    set({
+      root: updateGroup(root, groupId, (node) => ({
+        ...node,
+        tabs: replaced
+          ? node.tabs.map((tab) => (tab === replaced ? tabId : tab))
+          : [...node.tabs, tabId],
+        active: tabId,
+        preview: options?.preview ? tabId : node.preview,
+      })),
+      focus: groupId,
+    });
+    schedulePersist();
+  },
+
+  keepTab: (tabId, groupId) => {
+    const { root } = get();
+    const group = groupId
+      ? findGroup(root, groupId)
+      : walkGroups(root).find((node) => node.preview === tabId);
+    if (!group || group.preview !== tabId) return;
+    set({ root: updateGroup(root, group.id, (node) => ({ ...node, preview: undefined })) });
     schedulePersist();
   },
 
@@ -235,7 +255,13 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const active = group.active === tabId ? (tabs[index] ?? tabs[index - 1] ?? null) : group.active;
     let nextRoot = updateGroup(root, group.id, (node) => {
       const pinned = node.pinned?.filter((tab) => tab !== tabId);
-      return { ...node, tabs, active, pinned: pinned?.length ? pinned : undefined };
+      return {
+        ...node,
+        tabs,
+        active,
+        pinned: pinned?.length ? pinned : undefined,
+        preview: node.preview === tabId ? undefined : node.preview,
+      };
     });
     let nextFocus = focus;
     let nextMaximized = maximized;
@@ -293,6 +319,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
         ...node,
         tabs,
         pinned: nextPinned.length ? nextPinned : undefined,
+        preview: node.preview === tabId ? undefined : node.preview,
       })),
     });
     schedulePersist();
@@ -320,12 +347,15 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     else pinnedSet.delete(tabId);
     const nextPinned = destinationTabs.filter((tab) => pinnedSet.has(tab));
     let nextRoot = updateGroup(root, fromGroupId, (group) => {
+      // 拖动过的标签是用户主动安排的：转常驻（VS Code 语义）。
+      const preview = group.preview === tabId ? undefined : group.preview;
       if (sameGroup)
         return {
           ...group,
           tabs: destinationTabs,
           active: group.active,
           pinned: nextPinned.length ? nextPinned : undefined,
+          preview,
         };
       const pinned = group.pinned?.filter((tab) => tab !== tabId);
       return {
@@ -333,6 +363,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
         tabs: sourceTabs,
         active: source.active === tabId ? (sourceTabs.at(-1) ?? null) : source.active,
         pinned: pinned?.length ? pinned : undefined,
+        preview,
       };
     });
     if (!sameGroup)
@@ -341,6 +372,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
         tabs: destinationTabs,
         active: tabId,
         pinned: nextPinned.length ? nextPinned : undefined,
+        preview: group.preview === tabId ? undefined : group.preview,
       }));
     set(collapseEmptyGroups({ root: nextRoot, focus: toGroupId, maximized: get().maximized }));
     schedulePersist();

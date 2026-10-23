@@ -10,9 +10,6 @@ import { useToastStore } from '../../app/toasts';
 import { useUpdateState, runUpdateAction, deferInstall } from './update';
 import { chatImageToken } from '../../../shared/chat-input';
 
-const mocks = vi.hoisted(() => ({ flushNoteEditors: vi.fn() }));
-vi.mock('../../content/note/NoteEditor', () => mocks);
-
 const originalSave = useNoteDrafts.getState().save;
 let install: ReturnType<typeof vi.fn>;
 let releases: (() => void)[];
@@ -41,11 +38,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('回传编辑器正文、保存所有笔记和邮件、写入聊天与布局后才安装', async () => {
+it('保存所有文件草稿和邮件、写入聊天与布局后才安装', async () => {
   const order: string[] = [];
-  mocks.flushNoteEditors.mockImplementation(() => {
-    order.push('editors');
-  });
   useNoteDrafts.setState({
     drafts: {
       a: { content: {} as never, text: 'a', saved: '', saving: false, error: null },
@@ -91,17 +85,13 @@ it('回传编辑器正文、保存所有笔记和邮件、写入聊天与布局�
     },
   } as unknown as DelaApi;
   expect(await runUpdateAction('install')).toBe(true);
-  expect(order).toEqual(['editors', 'a', 'b', 'mail1', 'mail2', 'layout', 'install']);
+  expect(order).toEqual(['a', 'b', 'mail1', 'mail2', 'layout', 'install']);
   expect(useUpdateState.getState().preparingInstall).toBe(false);
 });
 
-it.each(['editor', 'mail', 'layout', 'storage', 'attachment', 'image', 'run'])(
+it.each(['mail', 'layout', 'storage', 'attachment', 'image', 'run'])(
   '%s 未能安全保存时不安装，并解除编辑锁',
   async (failure) => {
-    if (failure === 'editor')
-      mocks.flushNoteEditors.mockImplementation(() => {
-        throw new Error('editor');
-      });
     if (failure === 'mail') releases.push(registerComposeSave(async () => false));
     if (failure === 'layout') {
       useWorkbenchLayout.setState({ ready: true });

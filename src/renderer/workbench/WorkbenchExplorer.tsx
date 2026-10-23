@@ -30,8 +30,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  useAfterMenuClose,
 } from '../components/ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
+import type { ExplorerPending } from '../components/ui/explorer';
+import type { WorkspaceEntry } from '../../shared/api';
 import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
@@ -77,12 +80,15 @@ export function WorkbenchExplorer({
   onAction,
   onOpenDocument,
   onOpenToSide,
+  onCreated,
 }: {
   projectId: string | null;
   activeDocKey: string | null;
   onAction: (action: EntryAction | 'link' | 'connect', id: string | null) => void;
   onOpenDocument: (key: string) => void;
   onOpenToSide: (key: string) => void;
+  /** 行内新建成功后（打开新文件、选中新文件夹等由接线方决定，与弹窗新建同一出口）。 */
+  onCreated: (entry: WorkspaceEntry) => void;
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
   const canvas = useWorkspaceStore((s) => s.canvas);
@@ -97,6 +103,7 @@ export function WorkbenchExplorer({
   const selected = useTreeState((s) => s.selected);
   const expanded = useTreeState((s) => s.expanded);
   const query = useTreeState((s) => s.query);
+  const pendingCreate = useTreeState((s) => s.pendingCreate);
   const [width, setWidth] = useState(() => {
     const stored = Number(localStorage.getItem(widthStorageKey));
     return Number.isFinite(stored) && stored > 0 ? stored : SIDEBAR_DEFAULT_WIDTH;
@@ -160,6 +167,10 @@ export function WorkbenchExplorer({
     else onOpenToSide(key);
   };
 
+  /** 双击文件：打开并保留（预览标签转常驻）。 */
+  const keepDocument = (key: string) =>
+    void useAppNavigation.getState().openDocument(key, { keep: true });
+
   const move = (dragId: string, targetId: string | null) =>
     moveEntry(dragId, targetId, rootId, (target) => {
       if (target) expand(target, true);
@@ -193,10 +204,37 @@ export function WorkbenchExplorer({
       else await workspace.uploadRemoteFiles(remote.projectId, remote.path, null);
     });
   };
-  // 归档/升级为项目/导入不弹窗，直连 entry-actions（旧 ProjectView.action 的拦截语义）；
+  /** 新建文件/文件夹在树里行内输入（VS Code 式），不开弹窗；落点为 null 时落在当前树根。 */
+  const startCreate = (kind: 'file' | 'folder', parentId: string | null) =>
+    useTreeState.getState().startCreate({ kind, parentId: parentId ?? rootId });
+  // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
+  const afterMenuClose = useAfterMenuClose();
+  const pending: ExplorerPending | null = pendingCreate && {
+    ...pendingCreate,
+    onCancel: () => useTreeState.getState().cancelCreate(),
+    onSubmit: async (name) => {
+      try {
+        const created = await window.dela!.workspace.create({
+          name,
+          parentId: pendingCreate.parentId,
+          kind: pendingCreate.kind,
+        });
+        useTreeState.getState().cancelCreate();
+        await useWorkspaceStore.getState().refresh();
+        onCreated(created);
+        return null;
+      } catch (cause) {
+        return errorText(cause);
+      }
+    },
+  };
+
+  // 归档/升级为项目/导入/新建文件与文件夹不弹窗，直连 entry-actions 或行内输入；
   // 展开归档区、打开项目等后续 UI 也只有在这层接线才拿得到。
   const treeAction = (action: EntryAction, id: string | null) => {
-    if (action === 'import') importFromDialog(id);
+    if (action === 'note') startCreate('file', id);
+    else if (action === 'folder') startCreate('folder', id);
+    else if (action === 'import') importFromDialog(id);
     else if (action === 'archive' && id) archiveEntry(id, () => setArchiveOpen(true));
     else if (action === 'promote' && id)
       promoteEntry(id, (pid) => void useAppNavigation.getState().openProject(pid));
@@ -361,12 +399,25 @@ export function WorkbenchExplorer({
                       <Plus />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => onAction('note', container())}>
+                  <DropdownMenuContent
+                    align="end"
+                    onCloseAutoFocus={afterMenuClose.onCloseAutoFocus}
+                  >
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const parentId = container();
+                        afterMenuClose.defer(() => startCreate('file', parentId));
+                      }}
+                    >
                       <FilePlus2 />
-                      新建笔记
+                      新建文件
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => onAction('folder', container())}>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const parentId = container();
+                        afterMenuClose.defer(() => startCreate('folder', parentId));
+                      }}
+                    >
                       <FolderPlus />
                       新建文件夹
                     </DropdownMenuItem>
@@ -401,11 +452,10 @@ export function WorkbenchExplorer({
               />
             </div>
             <div
-              className="min-h-0 flex-1 overflow-y-auto"
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
               onDoubleClick={(event) => {
-                // 远端空白处的「新建笔记」同样落到本地路径：双击不再开弹窗（拖入上传照旧）。
                 if (remoteRoot) return;
-                if (event.target === event.currentTarget) onAction('note', container());
+                if (event.target === event.currentTarget) startCreate('file', container());
               }}
               onDragOver={(event) => {
                 if (event.dataTransfer.types.includes('Files')) {
@@ -519,11 +569,13 @@ export function WorkbenchExplorer({
                 canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
                 entries={entries}
                 expanded={expanded}
+                pending={pending}
                 onAction={treeAction}
                 onExpand={expand}
                 onImportFiles={rootId ? importDroppedAnywhere : undefined}
                 onMove={remoteRoot ? undefined : move}
                 onOpenToSide={openToSide}
+                onActivate={keepDocument}
                 onRemoteAction={remoteAction}
                 onSelect={selectEntry}
                 query={query}

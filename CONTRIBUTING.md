@@ -33,7 +33,7 @@
 
 | 工具            | 版本                               | 何时需要              |
 | --------------- | ---------------------------------- | --------------------- |
-| Node.js         | 24.21.0                            | 总是                  |
+| Node.js         | 24.22.1                            | 总是                  |
 | pnpm            | 12.3.4                             | 总是                  |
 | Git for Windows | 不固定                             | Windows 的终端与 Bash |
 | Go              | `go.mod` 声明 1.22，CI 固定 1.27.2 | 只在改动 `helper/` 时 |
@@ -46,10 +46,10 @@
 . ./scripts/use-local-tools.ps1
 ```
 
-新克隆的仓库不包含 `.tools/`，需自行安装上述版本。Apple Silicon Mac 也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.21.0-darwin-arm64`，然后在当前 shell 中启用：
+新克隆的仓库不包含 `.tools/`，需自行安装上述版本。Apple Silicon Mac 也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.22.1-darwin-arm64`，然后在当前 shell 中启用：
 
 ```sh
-export PATH="$PWD/.tools/node-v24.21.0-darwin-arm64/bin:$PATH"
+export PATH="$PWD/.tools/node-v24.22.1-darwin-arm64/bin:$PATH"
 ```
 
 安装依赖并启动开发窗口：

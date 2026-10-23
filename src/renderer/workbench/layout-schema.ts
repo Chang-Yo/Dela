@@ -26,10 +26,16 @@ export { maxLayoutNodes, maxTabsPerGroup, ratioMax, ratioMin } from '../../share
 /** 固定区恒在未固定区之前（VS Code 语义）：载入时归一，过滤失效引用，容忍手工改动。 */
 function normalizeGroup(group: GroupNode): GroupNode {
   const pinned = [...new Set(group.pinned ?? [])].filter((tab) => group.tabs.includes(tab));
+  // 预览标签必须仍在组内且未固定；失效引用直接丢掉（标签保留为常驻）。
+  const preview =
+    group.preview && group.tabs.includes(group.preview) && !pinned.includes(group.preview)
+      ? group.preview
+      : undefined;
   return {
     ...group,
     tabs: [...pinned, ...group.tabs.filter((tab) => !pinned.includes(tab))],
     pinned: pinned.length ? pinned : undefined,
+    preview,
   };
 }
 
@@ -156,7 +162,7 @@ export function collapseEmptyGroups(layout: WorkbenchLayout): WorkbenchLayout {
 
 // 旧数据种子：EditorLayout（localStorage 双组形态）+ view:% tabs → WorkbenchLayout。
 // `source:{id}` → `preview:source:{id}`；entryId 默认 `note:{entryId}`，调用方可用
-// resolveEntryKind 把 local/imported/source 条目判为 preview。
+// resolveEntryKind 把专用格式文件与资料条目判为 preview。
 
 /** 旧 ProjectView 的 localStorage 布局形态（宽容解析，字段均可缺省）。 */
 export interface LegacyEditorLayout {

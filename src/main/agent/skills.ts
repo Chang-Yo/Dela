@@ -1,13 +1,15 @@
 // Skills：发现、加载与渐进注入由 Pi 完成（agentskills.io 规范）。这里只负责
 // 把 Dela 内置的领域 skill 写进 ~/.dela/skills、给设置页列出可见 skill、维护禁用名单。
+// 设置页按来处分组：内置、本机目录、Pi package、每个本地项目；后两者按 SKILL.md 路径开关。
 import { app, shell } from 'electron';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
-import type { SkillScope, SkillView } from '../../shared/capabilities';
+import type { SkillOrigin, SkillView } from '../../shared/capabilities';
 import { getDatabase } from '../database';
-import { storageDirectory } from '../storage';
-import { experimentEnabled } from '../settings/prefs';
+import { experimentEnabled, readSetting, writeSetting } from '../settings/prefs';
+import { discoverProjectSkills } from './discovery';
+import { listPackages, packagesEnabled } from './packages';
 import {
   DOCUMENT_SKILL,
   assertDocumentDependency,
@@ -18,7 +20,8 @@ import documentSkill from '../documents/skill/SKILL.md?raw';
 import documentScript from '../documents/skill/scripts/read.py?raw';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
-const CAPABILITY_SETUP_VERSION = 1;
+// 2：能力拓展页加入 Pi Packages，老用户升级后再看一次。
+const CAPABILITY_SETUP_VERSION = 2;
 const CAPABILITY_SETUP_KEY = 'capabilities-onboarding-version';
 
 export function needsCapabilitySetup(): boolean {
@@ -40,14 +43,9 @@ export function builtinSkillsDirectory(): string {
   return join(app.getPath('home'), '.dela', 'skills');
 }
 
-/** 设置页展示的发现位置（与 Pi 的默认位置一致；项目级 .agents/skills 随会话 cwd 由 Pi 发现）。 */
-function skillSources(): { scope: SkillScope; directory: string }[] {
-  const home = app.getPath('home');
-  return [
-    { scope: 'global', directory: builtinSkillsDirectory() },
-    { scope: 'global', directory: join(home, '.agents', 'skills') },
-    { scope: 'project', directory: join(storageDirectory(), 'workspace', '.agents', 'skills') },
-  ];
+/** 本机全局 Skill 目录（与 Pi 的默认位置一致）；项目级的随会话 cwd 由 Pi 发现，见 discovery.ts。 */
+export function globalSkillDirectories(): string[] {
+  return [builtinSkillsDirectory(), join(app.getPath('home'), '.agents', 'skills')];
 }
 
 /** 内置 Skill 正文：领域知识按业务拆分，正文教 agent 经 Bash 的 dela 命令操作（commands.ts）。 */
@@ -239,27 +237,41 @@ export function effectiveDisabledSkills(): Set<string> {
   return disabled;
 }
 
-export function listSkills(): SkillView[] {
-  ensureBuiltinSkills();
+const DISABLED_PATHS_KEY = 'skills-disabled-paths';
+
+/** 按 SKILL.md 路径停用的项目与包 Skill。 */
+export function readDisabledSkillPaths(): Set<string> {
+  try {
+    const paths = z.array(z.string()).parse(JSON.parse(readSetting(DISABLED_PATHS_KEY) ?? '[]'));
+    return new Set(paths.map((path) => resolve(path)));
+  } catch {
+    return new Set();
+  }
+}
+
+function globalSkills(): SkillView[] {
   const disabled = readDisabledSkills();
   const hidden = featureHiddenSkills();
   const skills: SkillView[] = [];
   const seen = new Set<string>();
-  for (const source of skillSources()) {
-    if (!existsSync(source.directory)) continue;
-    for (const entry of readdirSync(source.directory, { withFileTypes: true })) {
-      const path = join(source.directory, entry.name, SKILL_ENTRY_FILE);
+  for (const directory of globalSkillDirectories()) {
+    if (!existsSync(directory)) continue;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name, SKILL_ENTRY_FILE);
       if (!entry.isDirectory() || seen.has(entry.name) || !existsSync(path)) continue;
       if (hidden.has(entry.name)) continue;
       seen.add(entry.name);
+      const origin: SkillOrigin =
+        directory === builtinSkillsDirectory() && entry.name in BUILTIN_SKILLS ? 'builtin' : 'user';
       skills.push({
+        id: path,
         name: entry.name,
         description: description(path),
         enabled:
           !disabled.has(entry.name) &&
           (entry.name !== DOCUMENT_SKILL || documentDependency().status === 'ready'),
         path,
-        scope: source.scope,
+        origin,
         dependency: entry.name === DOCUMENT_SKILL ? documentDependency() : undefined,
       });
     }
@@ -267,8 +279,64 @@ export function listSkills(): SkillView[] {
   return skills;
 }
 
-export async function setSkillEnabled(name: string, enabled: boolean): Promise<SkillView[]> {
-  if (!listSkills().some((skill) => skill.name === name)) throw new Error(`Skill 不存在：${name}`);
+/** 已装的 Pi package 里的 Skill；总开关关闭时一个都不列（会话也不加载任何包）。 */
+async function packageSkills(disabledPaths: Set<string>): Promise<SkillView[]> {
+  if (!packagesEnabled()) return [];
+  return (await listPackages()).flatMap((item) =>
+    item.provides.skills.map((skill) => ({
+      id: skill.path,
+      name: skill.name,
+      description: skill.description,
+      path: skill.path,
+      origin: 'package' as const,
+      group: { id: item.id, label: item.name },
+      enabled: item.enabled && item.resources.skills && !disabledPaths.has(skill.path),
+      ...(!item.enabled
+        ? { lockedReason: '所属包未启用' }
+        : !item.resources.skills
+          ? { lockedReason: '所属包关闭了 Skills' }
+          : {}),
+    })),
+  );
+}
+
+/** 每个本地项目里 Pi 会加载的项目级 Skill。远程项目的 Skill 在打开会话时从远端镜像，不在这里列。 */
+async function projectSkills(disabledPaths: Set<string>): Promise<SkillView[]> {
+  const projects = getDatabase()
+    .prepare(
+      "SELECT id, name, local_path AS path FROM workspace_entries WHERE kind='project' AND remote_id IS NULL AND local_path IS NOT NULL ORDER BY name",
+    )
+    .all() as { id: string; name: string; path: string }[];
+  const lists = await Promise.all(
+    projects
+      .filter((project) => existsSync(project.path))
+      .map(async (project) =>
+        (await discoverProjectSkills(project.path)).map((skill) => ({
+          id: skill.path,
+          name: skill.name,
+          description: skill.description,
+          path: skill.path,
+          origin: 'project' as const,
+          group: { id: project.id, label: project.name },
+          enabled: !disabledPaths.has(skill.path),
+        })),
+      ),
+  );
+  return lists.flat();
+}
+
+export async function listSkills(): Promise<SkillView[]> {
+  ensureBuiltinSkills();
+  const disabledPaths = readDisabledSkillPaths();
+  const [packages, projects] = await Promise.all([
+    packageSkills(disabledPaths),
+    projectSkills(disabledPaths),
+  ]);
+  return [...globalSkills(), ...packages, ...projects];
+}
+
+/** 全局 Skill 按名称开关（内置的文档读取要先装好组件）。 */
+export async function setGlobalSkillEnabled(name: string, enabled: boolean): Promise<void> {
   if (name === DOCUMENT_SKILL && enabled) {
     assertDocumentDependency();
     await verifyDocumentRuntime();
@@ -279,25 +347,36 @@ export async function setSkillEnabled(name: string, enabled: boolean): Promise<S
   getDatabase()
     .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('skills-disabled', ?)")
     .run(JSON.stringify([...disabled]));
+}
+
+export async function setSkillEnabled(id: string, enabled: boolean): Promise<SkillView[]> {
+  const skill = await findSkill(id);
+  if (skill.lockedReason) throw new Error(skill.lockedReason);
+  if (skill.origin === 'package' || skill.origin === 'project') {
+    const disabled = readDisabledSkillPaths();
+    if (enabled) disabled.delete(skill.path);
+    else disabled.add(skill.path);
+    writeSetting(DISABLED_PATHS_KEY, JSON.stringify([...disabled]));
+  } else await setGlobalSkillEnabled(skill.name, enabled);
   return listSkills();
 }
 
-/** 按名单独解析再读文件：渲染端不传路径，避免任意路径读取。 */
-function findSkill(name: string): SkillView {
-  const skill = listSkills().find((item) => item.name === name);
-  if (!skill) throw new Error(`Skill 不存在：${name}`);
+/** 按清单解析再读文件：渲染端传来的 id 必须是清单里的某一项，主进程不读清单外的路径。 */
+export async function findSkill(id: string): Promise<SkillView> {
+  const skill = (await listSkills()).find((item) => item.id === id);
+  if (!skill) throw new Error('Skill 不存在或已被移除');
   return skill;
 }
 
-export function readSkill(name: string): string {
-  return readFileSync(findSkill(name).path, 'utf8');
+export async function readSkill(id: string): Promise<string> {
+  return readFileSync((await findSkill(id)).path, 'utf8');
 }
 
-export function revealSkill(name: string): void {
-  shell.showItemInFolder(findSkill(name).path);
+export async function revealSkill(id: string): Promise<void> {
+  shell.showItemInFolder((await findSkill(id)).path);
 }
 
 /** 技能目录（SKILL.md 所在目录）：上传到远端时按目录整体带走。 */
-export function skillDirectory(name: string): string {
-  return dirname(findSkill(name).path);
+export function skillDirectory(skill: SkillView): string {
+  return dirname(skill.path);
 }

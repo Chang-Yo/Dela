@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { GitCompare, History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
@@ -14,7 +14,7 @@ import { referenceContext } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { useWorkspaceStore } from '../../workspace/store';
-import { openTabAside } from '../../workbench/open-aside';
+import { openTarget } from '../../workbench/open-target';
 import { reviewTabId } from '../review/tab-id';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
@@ -130,6 +130,7 @@ function ChatComposerArea({
         referenceOptions={referenceOptions}
         notice={error}
         onDismissNotice={chatState.clearError}
+        sessionId={sessionId}
         value={prompt}
       />
     </div>
@@ -161,7 +162,13 @@ const ChatSessionView = memo(function ChatSessionView({
   onOpenSource?: (key: string) => void;
   onSaveNote?: (text: string) => void;
 }) {
-  const chatState = useChat(active, referenceSource);
+  // 「新对话」按钮与 /new 命令同一个动作：首页里开一个新随聊，工作台里（项目或资料）就地在焦点组开。
+  const startNewChat = useCallback(() => {
+    if (useNavigationStore.getState().view === 'home')
+      useNavigationStore.getState().openGeneralChat(true);
+    else void useNavigationStore.getState().newChat(projectId);
+  }, [projectId]);
+  const chatState = useChat(active, referenceSource, startNewChat);
   const { chat, busy, editLast } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
   // 工作区改动入口的可见性：轻探测会话目录是否为可审阅的 Git 仓库
@@ -210,21 +217,15 @@ const ChatSessionView = memo(function ChatSessionView({
         <IconButton aria-label="历史对话" onClick={() => setSessionsOpen(true)} title="历史对话">
           <History />
         </IconButton>
-        <IconButton
-          aria-label="新对话"
-          onClick={() =>
-            projectId === null
-              ? useNavigationStore.getState().openGeneralChat(true)
-              : void useNavigationStore.getState().newChat(projectId)
-          }
-          title="新对话"
-        >
+        <IconButton aria-label="新对话" onClick={startNewChat} title="新对话">
           <SquarePen />
         </IconButton>
         {reviewReady && (
           <IconButton
             aria-label="工作区改动"
-            onClick={() => openTabAside(reviewTabId({ kind: 'uncommitted', sessionId: active }))}
+            onClick={() =>
+              openTarget(reviewTabId({ kind: 'uncommitted', sessionId: active }), { aside: true })
+            }
             title="查看工作区未提交的改动"
           >
             <GitCompare />

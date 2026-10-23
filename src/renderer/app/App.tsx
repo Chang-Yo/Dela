@@ -16,6 +16,7 @@ import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
+import { ExtensionUiHost } from '../content/chat/ExtensionUiHost';
 import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
 import { useUpdateState } from '../features/settings/update';
 import { useExperimental, useExperimentEnabled } from '../features/settings/experimental';
@@ -42,7 +43,6 @@ import {
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
-import { setDefaultNoteEditMode } from '../content/note/default-mode';
 import { useNoteSpellcheck } from '../content/note/note-spellcheck';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
@@ -200,7 +200,6 @@ export default function App() {
     void window.dela?.settings
       .getWorkspacePrefs()
       .then((prefs) => {
-        setDefaultNoteEditMode(prefs.defaultNoteEditMode);
         useNoteSpellcheck.getState().setSpellcheck(prefs.noteSpellcheck);
       })
       .catch(() => {});
@@ -441,6 +440,7 @@ export default function App() {
       {launchStage === 'capabilities' && <CapabilitySetup onDone={() => setLaunchStage('app')} />}
       {/* 下载完成的确认弹窗挂在应用层：下载在后台跑完时，用户可能已经离开设置页。 */}
       {appVisible && <UpdatePrompt />}
+      {appVisible && <ExtensionUiHost />}
       {launchStage === 'app' && <ReleaseNotesDialog />}
       {launchStage === 'completion' && <CompletionOverlay onFinished={finishCompletion} />}
     </>

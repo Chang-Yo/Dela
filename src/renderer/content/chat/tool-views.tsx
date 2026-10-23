@@ -2,9 +2,10 @@ import { diffLines, diffWords } from 'diff';
 import type { AgentToolResult } from '../../../shared/api';
 import type { CodePiece, DiffRow } from '@/components/ui/beautifului/primitives/CodeBlock';
 import CodeBlock from '@/components/ui/beautifului/primitives/CodeBlock';
+import { openLightbox } from '@/components/ui/lightbox';
 
-// 工具卡片的正文视图：按 Pi 内置工具（read/write/edit/bash/grep/find/ls）渲染输入与文本输出。
-// 输出形状见 shared/session.ts 的 AgentToolOutput（text + 工具 details）。
+// 工具卡片的正文视图：按 Pi 内置工具（read/write/edit/bash/grep/find/ls）渲染输入与文本输出，
+// read 读到图片时直接预览图片本体。输出形状见 shared/session.ts 的 AgentToolOutput（text + image + 工具 details）。
 
 function Caption({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-ink-3">{children}</p>;
@@ -113,6 +114,25 @@ function TextView({ result, title, failed }: ViewProps & { title: string }) {
   );
 }
 
+/** read 读到图片：图片本体随工具结果投影过来，直接预览，占位文本不再展示。 */
+function ImageView({ result }: ViewProps) {
+  const image = result.output?.image;
+  if (!image) return null;
+  const path = (result.input as { path?: string } | null)?.path ?? '';
+  const src = `data:${image.mimeType};base64,${image.data}`;
+  return (
+    <div className="mb-1 mt-1 min-w-0">
+      <img
+        alt={path}
+        className="max-h-80 w-auto max-w-full cursor-zoom-in rounded-card border border-line bg-surface object-contain"
+        onClick={() => openLightbox(src, path)}
+        src={src}
+        title={path || undefined}
+      />
+    </div>
+  );
+}
+
 function WriteView({ result, failed }: ViewProps) {
   const input = result.input as { path?: string; content?: string } | null;
   const text = input?.content ?? '';
@@ -201,7 +221,11 @@ function ToolView({ result, failed }: ViewProps) {
     case 'edit':
       return <EditView failed={failed} result={result} />;
     case 'read':
-      return <TextView failed={failed} result={result} title={str('path')} />;
+      return result.output?.image ? (
+        <ImageView failed={failed} result={result} />
+      ) : (
+        <TextView failed={failed} result={result} title={str('path')} />
+      );
     case 'ls':
       return <TextView failed={failed} result={result} title={str('path') || '.'} />;
     case 'grep':

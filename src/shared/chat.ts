@@ -23,6 +23,16 @@ export interface ChatCommandView {
   prompt: string;
 }
 
+/** 会话里 Pi 扩展注册的命令与 package 带来的 prompt 模板（输入框 `/` 候选）。 */
+export interface ChatSlashCommand {
+  name: string;
+  description: string;
+  kind: 'extension' | 'prompt';
+  /** 所属包的展示名。 */
+  source: string;
+  argumentHint?: string;
+}
+
 export interface FileChangeSummary {
   /** 相对本次比较工作目录的路径，统一使用 /。 */
   path: string;
@@ -89,6 +99,8 @@ export interface ChatApi {
   /** 移除尚未发送的暂存文件（composer 删除 chip、离开视图清理草稿）。 */
   releaseMedia(ids: readonly string[]): void;
   listCommands(): Promise<ChatCommandView[]>;
+  /** 会话已打开时，Pi 扩展命令与 package 的 prompt 模板；会话未建实例时为空。 */
+  listSessionCommands(sessionId: string): Promise<ChatSlashCommand[]>;
   saveCommand(input: { id?: string; name: string; prompt: string }): Promise<ChatCommandView>;
   deleteCommand(id: string): void;
   /** 在系统文件管理器中定位本轮生成的文件；相对路径按会话 cwd 解析，文件须真实存在。 */

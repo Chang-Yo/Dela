@@ -1,4 +1,4 @@
-// 远程项目主进程链路的真机回归（假数据库 + 真实 ssh）：需要 DELA_REMOTE_HOST（如 root@1.2.3.4），
+// 远程项目主进程链路的真机回归（假数据库 + 真实 helper）：需要 DELA_REMOTE_HOST（如 root@1.2.3.4），
 // 由 pnpm test:remote 运行，不在默认 pnpm test 与 CI 里。
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -15,9 +15,15 @@ vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
 vi.mock('../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
 
-import { browseRemote, listRemotes, probeConnection, removeRemote, saveRemote } from '../api';
-import { remoteFileIndex } from '../api';
-import { listDirectory } from '../transport';
+import {
+  browseRemote,
+  listRemotes,
+  prepareRemote,
+  probeConnection,
+  removeRemote,
+  saveRemote,
+} from '../api';
+import { listRemoteDirectory, remoteFileIndex, writeRemoteFile } from '../operations';
 import { importRemoteProject, projectLocation } from '../../workspace/api';
 import { parentOf, targetOf } from '../api';
 
@@ -45,10 +51,14 @@ function createDb(): Database.Database {
   return db;
 }
 
-beforeAll(() => {
+beforeAll(async () => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-remote-api-'));
   state.db = createDb();
-});
+  // 自带夹具：不依赖别的套件或冒烟脚本先在远端建好目录。
+  const target = targetOf({ host, keyPath });
+  await writeRemoteFile(target, `${testRoot}/a b.txt`, Buffer.from('hello\n'));
+  await writeRemoteFile(target, `${testRoot}/sub/nested.md`, Buffer.from('nested\n'));
+}, 120_000);
 afterAll(() => rmSync(state.root, { force: true, recursive: true }));
 
 describe('远程项目主进程链路（真机）', () => {
@@ -65,37 +75,37 @@ describe('远程项目主进程链路（真机）', () => {
     expect(probe.message).toMatch(/Linux|Darwin/);
   }, 60_000);
 
-  it('浏览从主目录起，能进能退', async () => {
-    const home = await browseRemote({ host, keyPath }, null);
-    expect(home.path).toMatch(/^\//);
-    expect(home.home).toBe(home.path);
-    // 主目录里必然存在 .ssh（连得上就说明用过密钥）或至少是个可读目录。
+  it('连接时带回主目录，浏览从主目录起，能进能退', async () => {
+    const prepared = await prepareRemote({ host, keyPath });
+    expect(prepared.ok).toBe(true);
+    expect(prepared.home).toMatch(/^\//);
+    const home = await browseRemote({ host, keyPath }, prepared.home!);
+    expect(home.path).toBe(prepared.home);
     expect(home.directories.every((entry) => entry.path.startsWith(home.path))).toBe(true);
     if (home.directories.length) {
       const child = await browseRemote({ host, keyPath }, home.directories[0]!.path);
       expect(parentOf(child.path)).toBe(home.path);
-      expect(child.home).toBeNull();
     }
-  }, 90_000);
+  }, 180_000);
 
   it('浏览到不存在的目录给出可读错误', async () => {
     await expect(browseRemote({ host, keyPath }, '/no/such/dir-9f3')).rejects.toThrow(/不是目录/);
   }, 60_000);
 
   it('登记远端项目、列一层目录、生成 @ 候选索引', async () => {
-    const project = await importRemoteProject(connectionId, testRoot);
-    expect(project).toMatchObject({ kind: 'project', name: 'dela-api-test', path: testRoot });
+    const project = await importRemoteProject(connectionId, testRoot, '接口测试');
+    expect(project).toMatchObject({ kind: 'project', name: '接口测试', path: testRoot });
     expect(projectLocation(project.id)).toEqual({
       kind: 'remote',
       remoteId: connectionId,
       path: testRoot,
     });
 
-    const entries = await listDirectory(targetOf({ host, keyPath }), testRoot);
+    const entries = await listRemoteDirectory(targetOf({ host, keyPath }), testRoot);
     expect(entries.some((entry) => entry.name === 'sub' && entry.directory)).toBe(true);
     expect(entries.some((entry) => entry.name === 'a b.txt' && !entry.directory)).toBe(true);
 
-    const files = await remoteFileIndex({ host, keyPath }, testRoot);
+    const files = await remoteFileIndex({ host, keyPath }, testRoot, 1000);
     expect(files).toContain('a b.txt');
     expect(files).toContain('sub/nested.md');
     // 索引给的是相对路径，渲染端再与项目根拼成候选 key。

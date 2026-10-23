@@ -25,24 +25,14 @@ const SheetPreview = lazy(() =>
   import('./SheetPreview').then((module) => ({ default: module.SheetPreview })),
 );
 
-/** 分流决策（纯函数）：水源来源优先于格式；本地文本/代码文件用语法高亮查看器。 */
+/** 分流决策（纯函数）：水源来源优先于格式。预览里的文本都是只读的（远端、资料）：
+ *  本地文本文件走 note: 编辑标签，不进这里。 */
 export type PreviewBranch =
-  | 'shuiyuan'
-  | 'code'
-  | 'html'
-  | 'pdf'
-  | 'image'
-  | 'docx'
-  | 'xlsx'
-  | 'pptx'
-  | 'markdown'
-  | 'text'
-  | 'unsupported';
+  'shuiyuan' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'markdown' | 'text' | 'binary';
 
 export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
   if (doc.shuiyuanTopicId !== undefined) return 'shuiyuan';
   const { format } = doc.content;
-  if (format === 'text' && doc.watchesDisk) return 'code';
   if (
     format === 'html' ||
     format === 'pdf' ||
@@ -51,7 +41,7 @@ export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
     format === 'xlsx' ||
     format === 'pptx' ||
     format === 'markdown' ||
-    format === 'unsupported'
+    format === 'binary'
   )
     return format;
   return 'text';
@@ -264,10 +254,17 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           )}
         </div>
       )}
-      {branch === 'unsupported' && (
-        <p className="p-6 text-13 text-ink-3">此格式暂不支持内嵌预览，请下载文件或打开原文。</p>
+      {branch === 'binary' && (
+        <p className="p-6 text-13 text-ink-3">
+          这个文件不是 UTF-8 文本或体积过大，无法内嵌预览，请下载文件或用默认程序打开。
+        </p>
       )}
-      {(branch === 'code' || branch === 'text') && (
+      {content.truncated && (branch === 'text' || branch === 'markdown') && (
+        <p className="shrink-0 border-b px-4 py-2 text-xs text-ink-3">
+          文件超过 1 MB，这里只显示开头部分。
+        </p>
+      )}
+      {branch === 'text' && (
         <CodeViewer
           value={content.text ?? ''}
           filename={content.title}

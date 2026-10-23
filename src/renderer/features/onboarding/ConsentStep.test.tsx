@@ -163,9 +163,9 @@ it('接受每一份时都留下带版本的记录', async () => {
 
   // 两份条款各自的「最后更新」日期随记录一起落库，日后回溯得到同意的是哪一版。
   await agreeOnce();
-  expect(record).toHaveBeenNthCalledWith(1, 'terms', '2026-10-15');
+  expect(record).toHaveBeenNthCalledWith(1, 'terms', '2026-10-23');
   await agreeOnce();
-  expect(record).toHaveBeenNthCalledWith(2, 'privacy', '2026-10-15');
+  expect(record).toHaveBeenNthCalledWith(2, 'privacy', '2026-10-23');
 });
 
 it('文本框与正文都在观察范围内，卸载时断开', async () => {

@@ -15,6 +15,7 @@ import type {
   ChatScope,
   ChatSessionSummary,
   ContextUsageView,
+  MainSessionCommand,
   RunStatus,
   UncommittedChanges,
   WorkspaceChat,
@@ -31,6 +32,15 @@ import { resolveSessionFile } from './session-path';
 import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
 import { notifyRunFinished } from '../settings/task-notify';
 import * as changes from './changes';
+import {
+  bindSessionExtensions,
+  extensionCommand,
+  releaseExtensionUi,
+  sessionSlashCommands,
+  shutdownSession,
+} from './extensions';
+import { packagesEnabled } from './packages';
+import type { ChatSlashCommand } from '../../shared/chat';
 
 type ChatMessage = WorkspaceChat['messages'][number];
 
@@ -49,6 +59,8 @@ interface Live {
   run?: { id: string; tool?: string; cancelled?: boolean; done: Promise<void> };
   unsubscribe: () => void;
   stale?: boolean;
+  /** 最近一次压缩后 Pi 估计的上下文 token 数：模型还没回复、实际用量未知时代替它显示。 */
+  compactedTokens?: number;
 }
 
 const live = new Map<string, Live>();
@@ -204,17 +216,56 @@ async function ensureLive(id: string): Promise<Live> {
   const entry: Live = { session, cwd, unsubscribe: () => {} };
   entry.unsubscribe = session.subscribe((event) => onEvent(id, entry, event));
   live.set(id, entry);
+  // 绑定会触发扩展的 session_start；扩展可能在里面发可见消息或改标题，所以先登记再绑定。
+  await bindSessionExtensions(id, session, {
+    setTitle: (title) => {
+      getDatabase().prepare('UPDATE sessions SET title=? WHERE id=?').run(title.slice(0, 60), id);
+      send('session:on-update', id, snapshot(id));
+    },
+  });
   return entry;
+}
+
+/**
+ * 输入框的 `/` 候选：扩展命令要等会话实例建好、扩展加载完才知道。只在开了 Pi packages
+ * 时才为此预建实例（会连带建立扩展运行时），没配模型时直接给空表。
+ */
+export async function listSessionCommands(id: string): Promise<ChatSlashCommand[]> {
+  if (!packagesEnabled() || !getActiveLlmProvider()) return [];
+  return sessionSlashCommands((await ensureLive(id)).session);
+}
+
+/** 丢弃一个会话实例：先发 session_shutdown 再 dispose，未答复的扩展对话框按取消处理。 */
+function disposeLive(id: string, entry: Live, reason: 'quit' | 'reload'): Promise<void> {
+  entry.unsubscribe();
+  live.delete(id);
+  releaseExtensionUi(id);
+  return shutdownSession(entry.session, reason).catch(() => {});
+}
+
+/** 应用退出前结束全部会话，让扩展收拾子进程；最多等 timeoutMs，卡住的扩展不拖住退出。 */
+export async function shutdownSessions(timeoutMs: number): Promise<void> {
+  const pending = [...live].map(([id, entry]) => {
+    if (entry.run) entry.run.cancelled = true;
+    return disposeLive(id, entry, 'quit');
+  });
+  if (!pending.length) return;
+  await Promise.race([
+    Promise.all(pending),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
+export function hasLiveSessions(): boolean {
+  return live.size > 0;
 }
 
 /** 模型或能力配置改变：空闲实例立即丢弃，运行中的轮末丢弃，下次使用时按新配置重建。 */
 export function invalidateSessions() {
   for (const [id, entry] of live) {
-    if (!entry.run) {
-      entry.unsubscribe();
-      entry.session.dispose();
-      live.delete(id);
-    } else {
+    // 压缩也算忙：此时丢弃会话会中止压缩（dispose 里的 abortCompaction）。
+    if (!entry.run && !entry.session.isCompacting) void disposeLive(id, entry, 'reload');
+    else {
       entry.stale = true;
     }
   }
@@ -246,8 +297,10 @@ function splitMeta(text: string): { meta: Partial<ChatMessage>; text: string } {
 }
 
 function toolOutput(result: { content?: (TextContent | ImageContent)[]; details?: unknown }) {
+  const image = (result.content ?? []).find((block) => block.type === 'image');
   return {
     text: textOf(result.content ?? []),
+    ...(image ? { image: { mimeType: image.mimeType, data: image.data } } : {}),
     ...(result.details !== undefined ? { details: result.details } : {}),
   };
 }
@@ -318,6 +371,18 @@ export function projectMessages(
         step.output = { ...toolOutput(message), ...(message.isError ? { isError: true } : {}) };
         step.finishedAt = message.timestamp;
       }
+    } else if (message.role === 'custom') {
+      // 扩展的可见消息自成一条，不并进前后的模型回复；display=false 的只给模型看。
+      // appendEntry 写的扩展状态不是消息，根本不会出现在这里。
+      if (message.display) {
+        out.push({
+          role: 'assistant',
+          content: textOf(message.content),
+          parts: [],
+          extension: { customType: message.customType },
+        });
+        reply = null;
+      }
     } else if (message.role === 'compactionSummary') {
       // 压缩点之前的历史仍在 JSONL；投影只保留摘要后的上下文，开头标注一条。
       out.push({
@@ -380,12 +445,29 @@ function snapshot(id: string): WorkspaceChat {
 }
 
 function usageOf(entry: Live | undefined): ContextUsageView | null {
-  if (!entry) return null;
   // 一次聚合同时取上下文占用与累计用量：getSessionStats 内部已算过 getContextUsage，
   // 分开调用会把这件按消息估算的重活在同一个流式节拍里做两遍。
-  const stats = entry.session.getSessionStats();
+  return entry ? contextUsageView(entry.session.getSessionStats(), entry.compactedTokens) : null;
+}
+
+/**
+ * Pi 的会话统计 → 界面上的上下文用量。压缩后 Pi 在模型下一次回复前给不出用量（tokens 为 null），
+ * 这时用压缩结果里的估计值 compactedTokens 顶上并标为估计；有了实际用量就不再用它。
+ */
+export function contextUsageView(
+  stats: Pick<ReturnType<AgentSession['getSessionStats']>, 'contextUsage' | 'tokens'>,
+  compactedTokens?: number,
+): ContextUsageView | null {
   const usage = stats.contextUsage;
   if (!usage) return null;
+  const estimate =
+    usage.tokens === null && compactedTokens !== undefined && usage.contextWindow > 0
+      ? {
+          tokens: compactedTokens,
+          percent: (compactedTokens / usage.contextWindow) * 100,
+          estimated: true,
+        }
+      : null;
   // 缓存命中率的分子分母都取本会话累计：SessionStats 聚合会话文件里的全部条目（含已被
   // 压缩或被分支抛弃的历史，那些请求确实按缓存价计过费）。提供商不上报缓存时这里恒为 0，
   // 直接下发会被读成「一次都没命中」，所以只在出现过缓存读或写时才带上这两个字段。
@@ -394,6 +476,7 @@ function usageOf(entry: Live | undefined): ContextUsageView | null {
     tokens: usage.tokens,
     contextWindow: usage.contextWindow,
     percent: usage.percent,
+    ...estimate,
     ...(cacheRead + cacheWrite > 0 ? { inputTokens: input, cachedTokens: cacheRead } : {}),
   };
 }
@@ -468,13 +551,36 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
     case 'message_update':
       stream(id, entry);
       break;
+    case 'compaction_end':
+      if (event.result?.estimatedTokensAfter !== undefined)
+        entry.compactedTokens = event.result.estimatedTokensAfter;
+      touch(id, entry);
+      publish(id);
+      break;
     case 'message_end':
     case 'compaction_start':
-    case 'compaction_end':
       touch(id, entry);
       publish(id);
       break;
   }
+}
+
+/** 流式增量不带工具图片：图片已随工具结束的全量快照到过渲染端，
+ *  而 ~100ms 一帧的增量重传 base64 会让 IPC 包随图片体积与历史步骤线性膨胀。 */
+function withoutToolImages(message: ChatMessage): ChatMessage {
+  const strip = (step: AgentToolResult): AgentToolResult => {
+    if (!step.output?.image) return step;
+    const { image: _image, ...output } = step.output;
+    return { ...step, output };
+  };
+  const parts = message.parts?.map((part) =>
+    part.type === 'tools' ? { ...part, results: part.results.map(strip) } : part,
+  );
+  return {
+    ...message,
+    ...(message.toolResults && { toolResults: message.toolResults.map(strip) }),
+    ...(parts && { parts }),
+  };
 }
 
 /** 流式期 ~100ms 节流推送末条 assistant 消息（含未完成的流式消息）。 */
@@ -492,7 +598,7 @@ function stream(id: string, entry: Live) {
   if (last?.role === 'assistant')
     send('session:on-stream', {
       sessionId: id,
-      message: last,
+      message: withoutToolImages(last),
       activeTool: entry.run?.tool,
       contextUsage: usageOf(entry),
     });
@@ -616,9 +722,7 @@ export async function deleteSession(id: string) {
     if (entry.run) entry.run.cancelled = true;
     await entry.session.abort();
     await done;
-    entry.unsubscribe();
-    entry.session.dispose();
-    live.delete(id);
+    await disposeLive(id, entry, 'quit');
   }
   const { file } = row(id);
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
@@ -647,6 +751,7 @@ const imageMime: Record<string, string> = {
 export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
   const entry = await ensureLive(id);
   if (entry.run) throw new Error('请等待当前回答完成');
+  if (entry.session.isCompacting) throw new Error('正在压缩上下文，请稍候');
   const blocks = parseChatBlocks(input.text);
   const userText = stripChatImageTokens(input.text);
   const images: ImageContent[] = [];
@@ -736,9 +841,15 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
         captureError = error instanceof Error ? error.message : String(error);
       }
     }
+    // 只看本轮新产生的回复：扩展命令可能一条消息都不发，不能拿上一轮的结果来判本轮成败。
+    const priorCount = entry.session.messages.length;
     if (run.cancelled) status = 'stopped';
+    else if (extensionCommand(entry.session, userText))
+      // 扩展命令与 prompt 模板要以 `/name` 开头才认得：去掉 Dela 的 meta 前缀原样交给 Pi，
+      // 命令由扩展处理（可能根本不发消息），模板由 Pi 展开后照常进入对话。
+      await entry.session.prompt(userText, images.length ? { images } : undefined);
     else await entry.session.prompt(prompt, images.length ? { images } : undefined);
-    const last = entry.session.messages.findLast((m) => m.role === 'assistant');
+    const last = entry.session.messages.slice(priorCount).findLast((m) => m.role === 'assistant');
     if (run.cancelled || (last?.role === 'assistant' && last.stopReason === 'aborted'))
       status = 'stopped';
     else if (last?.role === 'assistant' && last.stopReason === 'error') status = 'failed';
@@ -772,14 +883,61 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
       runEvent(id, status, undefined, turnId, changesError);
       publish(id);
       if (status !== 'stopped') notifyRunFinished(id, status);
-      if (entry.stale) {
-        entry.unsubscribe();
-        entry.session.dispose();
-        live.delete(id);
-      }
+      if (entry.stale) void disposeLive(id, entry, 'reload');
     } finally {
       finishRun();
     }
   }
+  return snapshot(id);
+}
+
+/** Pi 压缩失败时抛英文原文：常见的两种换成能看懂的说明，其余带上原文。 */
+function compactionError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/Nothing to compact/i.test(message)) return '对话还太短，没有可压缩的内容';
+  if (/Already compacted/i.test(message)) return '刚压缩过，还没有新的内容可压缩';
+  return `压缩失败：${message}`;
+}
+
+/**
+ * 会话命令（/compact、/reload、/name），对应 Pi 终端界面里的同名命令。它们不是一轮对话：不写用户消息、
+ * 不改自动标题、不记本轮文件变化，所以不走 askSession。执行完推一次快照，界面按快照更新。
+ */
+export async function runSessionCommand(
+  id: string,
+  name: MainSessionCommand,
+  args: string,
+): Promise<WorkspaceChat> {
+  row(id);
+  const busy = (entry: Live | undefined) => {
+    if (entry?.run) throw new Error('请等待当前回答完成');
+    if (entry?.session.isCompacting) throw new Error('正在压缩上下文，请稍候');
+  };
+  if (name === 'name') {
+    const title = args.trim();
+    if (!title) throw new Error('用法：/name 新标题');
+    getDatabase().prepare('UPDATE sessions SET title=? WHERE id=?').run(title.slice(0, 60), id);
+  } else if (name === 'reload') {
+    const entry = live.get(id);
+    busy(entry);
+    if (entry) await disposeLive(id, entry, 'reload');
+    // 立刻重建：扩展的加载错误与 session_start 里的通知现在就出现，而不是等下一次发送。
+    if (getActiveLlmProvider()) await ensureLive(id);
+  } else {
+    const entry = await ensureLive(id);
+    busy(entry);
+    try {
+      await entry.session.compact(args || undefined);
+    } catch (error) {
+      // 用户在压缩中点了停止（cancelRun → abort）：不算失败。
+      if (!/Compaction cancelled/i.test(error instanceof Error ? error.message : '')) {
+        throw new Error(compactionError(error));
+      }
+    } finally {
+      // 压缩期间配置变了：invalidateSessions 只标了 stale，这里补上丢弃。
+      if (entry.stale) void disposeLive(id, entry, 'reload');
+    }
+  }
+  publish(id);
   return snapshot(id);
 }

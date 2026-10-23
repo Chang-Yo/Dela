@@ -1,5 +1,6 @@
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 import { CheckIcon, CircleIcon } from 'lucide-react';
+import { useRef } from 'react';
 import type * as React from 'react';
 import { cn } from '../../lib/utils';
 import { menuItem, menuItemDestructive, menuPanel } from './menu-styles';
@@ -143,7 +144,26 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<'spa
   );
 }
 
+/** 菜单项要把焦点交给菜单外新出现的元素（如行内新建的名称输入框）时用：菜单关闭会把焦点还给
+ * 触发按钮，抢走新元素的焦点。defer 记下动作，等菜单关完（onCloseAutoFocus）再执行，并取消这次焦点回收。 */
+function useAfterMenuClose() {
+  const pending = useRef<(() => void) | null>(null);
+  return {
+    defer: (action: () => void) => {
+      pending.current = action;
+    },
+    onCloseAutoFocus: (event: Event) => {
+      const action = pending.current;
+      if (!action) return;
+      pending.current = null;
+      event.preventDefault();
+      action();
+    },
+  };
+}
+
 export {
+  useAfterMenuClose,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,

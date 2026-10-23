@@ -33,19 +33,14 @@ import { getMailState, startMailSync } from './mail/api';
 import {
   closeDomainBridge,
   gcChatMedia,
+  hasLiveSessions,
   invalidateSessions,
   loadPi,
   registerAgentIpc,
+  shutdownSessions,
   subscribeChat,
 } from './agent';
-import {
-  applyTheme,
-  readSetting,
-  registerSettingsIpc,
-  savedIcon,
-  savedTheme,
-  savedZoom,
-} from './settings';
+import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } from './settings';
 import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';
 
 import Database from 'better-sqlite3';
@@ -190,17 +185,6 @@ app
       app.dock?.setIcon(
         nativeImage.createFromPath(join(__dirname, 'icons', `Dela_${savedIcon()}_bg.png`)),
       );
-    }
-    // 开机自启默认开启：仅在首次初始化时登记默认值并注册系统启动项，
-    // 之后不再于启动时改写，用户经任务管理器或本页开关的改动均以系统为准。
-    if (!smokeTest && app.isPackaged && readSetting('open-at-login') === undefined) {
-      getDatabase()
-        .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('open-at-login', ?)")
-        .run('1');
-      app.setLoginItemSettings({
-        openAtLogin: true,
-        ...(process.platform === 'win32' ? { args: ['--hidden'] } : {}),
-      });
     }
     registerSettingsIpc();
     registerConsentIpc();
@@ -456,8 +440,17 @@ app
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
-app.on('before-quit', () => {
+// 退出前先结束 Agent 会话：扩展在 session_shutdown 里关掉自己起的子进程（如 MCP 服务器）。
+// 收尾是异步的，先拦下这一次退出，最多等 2 秒再退出。拦在 before-quit：will-quit 被拦下后
+// Electron 不再响应之后的 app.quit()。
+let sessionsClosed = false;
+app.on('before-quit', (event) => {
   quitting = true;
+  if (!sessionsClosed && hasLiveSessions()) {
+    event.preventDefault();
+    sessionsClosed = true;
+    void shutdownSessions(2000).finally(() => app.quit());
+  }
 });
 app.on('will-quit', () => {
   closeDomainBridge();

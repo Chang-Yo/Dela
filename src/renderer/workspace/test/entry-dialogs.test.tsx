@@ -98,17 +98,22 @@ it('reports a rejected folder without closing', async () => {
   expect(onClose).not.toHaveBeenCalled();
 });
 
-it('hands the new-project dialog over to the remote wizard', async () => {
+it('hands the new-project dialog over to the remote project panel', async () => {
   const list = vi.fn(async () => []);
   window.dela = {
-    remotes: { list, onSetupProgress: () => () => {} },
+    remotes: {
+      list,
+      configHosts: async () => [],
+      onHelperState: () => () => {},
+      onSetupProgress: () => () => {},
+    },
     workspace: { getState: async () => emptyState },
   } as unknown as DelaApi;
   await render({ action: 'project', id: null });
   expect(list).not.toHaveBeenCalled();
 
-  await act(async () => dialogButton('连接远程目录').click());
-  // 向导接管并自己拉一次连接列表；外层弹窗让出，不会两层叠在一起。
+  await act(async () => dialogButton('新建远程项目').click());
+  // 面板接管并自己拉一次连接列表；外层弹窗让出，不会两层叠在一起。
   expect(list).toHaveBeenCalledOnce();
   expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
 });

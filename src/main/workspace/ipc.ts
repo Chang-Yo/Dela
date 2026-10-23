@@ -25,14 +25,8 @@ import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
 import { exportOfficePdf } from '../documents/export';
 import { openResourceFile } from '../resources';
-import {
-  remoteById,
-  remoteFileIndex,
-  remoteJoin,
-  targetOf,
-  withinRemoteRoot,
-} from '../remotes/api';
-import { listRemoteDirectory } from '../remotes/operations';
+import { remoteById, remoteJoin, targetOf, withinRemoteRoot } from '../remotes/api';
+import { listRemoteDirectory, remoteFileIndex } from '../remotes/operations';
 import { readRemoteDocument } from '../remotes/documents';
 import { downloadRemoteFile, openRemoteFile, uploadLocalFile } from '../remotes/transfer';
 import { closeRemotePort, openRemotePort, remotePortsState } from '../remotes/ports';
@@ -201,8 +195,8 @@ export function registerWorkspaceIpc(
     const path = picked.filePaths[0];
     return picked.canceled || !path ? null : linkProjectFolder(path);
   });
-  handle('import-remote-project', async (remoteId, path) => {
-    const created = await importRemoteProject(remoteId, path);
+  handle('import-remote-project', async (remoteId, path, name) => {
+    const created = await importRemoteProject(remoteId, path, name);
     invalidateSessions();
     return created;
   });
@@ -320,7 +314,7 @@ export function registerWorkspaceIpc(
   });
   handle('remote-references', async (projectId) => {
     const { target, root } = remoteTargetOf(projectId);
-    // 上限下推到远端命令：@ 候选只要前 N 条，把整个仓库的索引传回来再截断是白付一次传输。
+    // 上限下推到 helper：@ 候选只要前 N 条，把整个仓库的索引传回来再截断是白付一次传输。
     const files = await remoteFileIndex(target, root, REMOTE_REFERENCE_LIMIT);
     return files.map((file) => ({ key: remoteJoin(root, file), title: file }));
   });

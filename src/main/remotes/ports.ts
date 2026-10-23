@@ -1,6 +1,6 @@
 /**
- * 远端端口预览：端口清单只走 helper（一次性 ssh 解析 ss/netstat 方言不值得再造）；
- * 隧道是独立 ssh 进程，不随 helper 关闭，同一远端端口复用至显式停止或退出。
+ * 远端端口预览：端口清单来自 helper；隧道是独立 ssh 进程，不随 helper 通道重连或关闭，
+ * 同一远端端口复用至显式停止或退出。
  */
 import { shell } from 'electron';
 import { openPortTunnel, helperSession, type PortTunnel } from './helper';
@@ -21,9 +21,7 @@ const tunnelKey = (target: RemoteTarget, remotePort: number) =>
 
 /** 端口清单 + 该目标当前已开的隧道：面板一次拿全。helper 不可用时抛错（面板展示原因）。 */
 export async function remotePortsState(target: RemoteTarget): Promise<RemotePortsState> {
-  const session = await helperSession(target);
-  if (!session) throw new Error('端口预览需要 helper 通道：当前不可用，已退回一次性 ssh');
-  const ports = await session.listPorts();
+  const ports = await helperSession(target).listPorts();
   const keyPrefix = `${targetKey(target)}#`;
   const active: RemotePortTunnel[] = [];
   for (const entry of tunnels.values())

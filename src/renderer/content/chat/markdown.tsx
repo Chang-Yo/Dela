@@ -11,6 +11,7 @@ import {
   type DiagramPlugin,
 } from 'streamdown';
 import { cn } from '../../lib/utils';
+import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
 
 // mermaid 本体体积大，这里只注册插件对象，首次渲染图表时才动态加载真正的库。
 const lazyMermaidPlugin: DiagramPlugin = {
@@ -19,10 +20,7 @@ const lazyMermaidPlugin: DiagramPlugin = {
   language: 'mermaid',
   getMermaid: (config?: MermaidConfig) => ({
     initialize: () => {},
-    render: async (id: string, chart: string) => {
-      const { mermaid } = await import('@streamdown/mermaid');
-      return mermaid.getMermaid(config).render(id, chart);
-    },
+    render: (id: string, chart: string) => renderMermaid(id, chart, config),
   }),
 };
 
@@ -46,20 +44,12 @@ const chatControls: ControlsConfig = {
   image: false,
 };
 
-// mermaid 只在初始化时读主题；配置对象按当前明暗缓存，主题切换时引用变化触发图表重绘。
-// mermaid 渲染的 svg 文本默认用 trebuchet ms 等字体，与界面割裂；这里显式给定与应用一致的
-// sans 栈（与 globals.css 的 --font-sans 手工同步，那边改动需带这边）。
-const MERMAID_FONT_FAMILY = "Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif";
-let mermaidTheme: { dark: boolean; options: { config: MermaidConfig } } | null = null;
+// streamdown 要的是 { config } 包装；引用随明暗切换变化才会触发图表重绘。
+let mermaidWrapper: { config: MermaidConfig; options: { config: MermaidConfig } } | null = null;
 function mermaidOptions() {
-  const dark = document.documentElement.classList.contains('dark');
-  if (!mermaidTheme || mermaidTheme.dark !== dark) {
-    mermaidTheme = {
-      dark,
-      options: { config: { theme: dark ? 'dark' : 'default', fontFamily: MERMAID_FONT_FAMILY } },
-    };
-  }
-  return mermaidTheme.options;
+  const config = mermaidConfig();
+  if (mermaidWrapper?.config !== config) mermaidWrapper = { config, options: { config } };
+  return mermaidWrapper.options;
 }
 
 const chatTranslations = {
@@ -105,8 +95,16 @@ const chatComponents = { table: ChatTable };
 const markdownStyles =
   '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-3 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-inset [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:rounded-control [&_pre]:bg-inset [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_[data-streamdown=code-block]]:gap-0 [&_[data-streamdown=code-block]]:rounded-card [&_[data-streamdown=code-block]]:border-0 [&_[data-streamdown=code-block]]:bg-inset [&_[data-streamdown=code-block]]:p-0 [&_[data-streamdown=code-block-header]]:sticky [&_[data-streamdown=code-block-header]]:top-0 [&_[data-streamdown=code-block-header]]:z-10 [&_[data-streamdown=code-block-header]]:justify-start [&_[data-streamdown=code-block-header]]:rounded-t-lg [&_[data-streamdown=code-block-header]]:bg-inset [&_[data-streamdown=code-block-header]]:px-2 [&_[data-streamdown=code-block]>div:nth-child(2)]:-mt-8 [&_[data-streamdown=code-block]>div:nth-child(2)]:pr-3 [&_[data-streamdown=code-block]>div:nth-child(2)]:top-0 [&_[data-streamdown=code-block-body]]:rounded-none [&_[data-streamdown=code-block-body]]:border-none [&_[data-streamdown=code-block-body]]:bg-transparent [&_[data-streamdown=code-block-body]]:p-0 [&_[data-streamdown=code-block-body]_pre]:my-0 [&_[data-streamdown=code-block-body]_pre]:rounded-none [&_[data-streamdown=code-block-body]_pre]:rounded-b-lg [&_[data-streamdown=code-block-actions]]:opacity-0 [&_[data-streamdown=code-block-actions]]:transition-opacity [&_[data-streamdown=code-block]:focus-within_[data-streamdown=code-block-actions]]:opacity-100 [&_[data-streamdown=code-block]:hover_[data-streamdown=code-block-actions]]:opacity-100 [&_div[data-streamdown=code-block-actions]]:border-0 [&_div[data-streamdown=code-block-actions]]:bg-transparent [&_div[data-streamdown=code-block-actions]]:p-0 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]]:rounded-control [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]_svg]:size-3.5 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]:hover]:bg-hover-2 [&_[data-streamdown=unordered-list]]:list-outside [&_[data-streamdown=unordered-list]]:pl-5 [&_[data-streamdown=ordered-list]]:list-outside [&_[data-streamdown=ordered-list]]:pl-5 [&_[data-streamdown=code-block-header]_span:empty::after]:content-["txt"]';
 
-/** 聊天区 Markdown 统一入口：插件、控件、表格组件与文案只在此配置一次。 */
-export function ChatMarkdown({ children, className, ...props }: ComponentProps<typeof Streamdown>) {
+/**
+ * 聊天区 Markdown 统一入口：插件、控件、表格组件与文案只在此配置一次。
+ * 默认 static；只有仍在流式输出的消息显式启用 streaming，完成态不能继续经过 remend 修补正文。
+ */
+export function ChatMarkdown({
+  children,
+  className,
+  mode = 'static',
+  ...props
+}: ComponentProps<typeof Streamdown>) {
   return (
     <Streamdown
       className={cn(markdownStyles, className)}
@@ -114,6 +112,7 @@ export function ChatMarkdown({ children, className, ...props }: ComponentProps<t
       components={chatComponents}
       controls={chatControls}
       mermaid={mermaidOptions()}
+      mode={mode}
       plugins={chatStreamdownPlugins}
       skipHtml
       translations={chatTranslations}

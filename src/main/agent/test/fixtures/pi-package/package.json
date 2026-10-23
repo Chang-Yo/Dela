@@ -1,0 +1,12 @@
+{
+  "name": "dela-fixture-package",
+  "version": "1.2.3",
+  "description": "Pi package fixture for Dela tests",
+  "keywords": [
+    "pi-package"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

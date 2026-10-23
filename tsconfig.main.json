@@ -1,5 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "lib": ["ES2023"], "types": ["node"] },
-  "include": ["src/main/**/*.ts", "src/shared/**/*.ts", "vite.*.config.ts"]
+  "include": ["src/main/**/*.ts", "src/shared/**/*.ts", "vite.*.config.ts"],
+  // 测试夹具里的 Pi package 由 Pi 的 jiti 加载（typebox 等宿主模块经它的别名解析），不属于主进程源码。
+  "exclude": ["src/main/**/test/fixtures/**"]
 }

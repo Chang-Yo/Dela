@@ -10,11 +10,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 const (
 	statBatchLimit = 512
 	bodyLimit      = 1 << 20
+	// access(2) 的 R_OK；syscall 包没有导出这个常量。
+	accessRead = 4
 )
 
 type dirEntry struct {
@@ -26,11 +29,13 @@ type dirEntry struct {
 }
 
 type statEntry struct {
-	Path       string `json:"path"`
-	Exists     bool   `json:"exists"`
-	Directory  bool   `json:"directory"`
-	Size       int64  `json:"size"`
-	ModifiedAt int64  `json:"modifiedAt"`
+	Path      string `json:"path"`
+	Exists    bool   `json:"exists"`
+	Directory bool   `json:"directory"`
+	// Readable：当前用户能否打开它（文件可读、目录可列），替代 `test -r`。
+	Readable   bool  `json:"readable"`
+	Size       int64 `json:"size"`
+	ModifiedAt int64 `json:"modifiedAt"`
 }
 
 // 只接受绝对路径：远端工具的 cwd 语义由调用方（Dela）自己保证，helper 不猜相对路径。
@@ -68,10 +73,13 @@ func queryInt(r *http.Request, name string, fallback int64) (int64, error) {
 	return value, nil
 }
 
-// 列一层：用 os.ReadDir 的 lstat 语义，与今天 `find -printf %y` 的判定一致（符号链接算文件）。
+// 列一层：用 os.ReadDir 的 lstat 语义（符号链接算文件）。
+// 带 `"locate": true` 时路径不是目录也不报错，而是回答它是什么（kind: directory/file/missing）：
+// 向导的目录选择器一次请求就要知道「存在吗、是目录吗、里面有什么」。
 func (s *server) handleList(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Path string `json:"path"`
+		Path   string `json:"path"`
+		Locate bool   `json:"locate"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -81,10 +89,29 @@ func (s *server) handleList(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_path", err.Error())
 		return
 	}
-	items, err := os.ReadDir(path)
+	if req.Locate {
+		info, err := os.Stat(path)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"path": path, "kind": "missing"})
+			return
+		}
+		if !info.IsDir() {
+			writeJSON(w, http.StatusOK, map[string]any{"path": path, "kind": "file"})
+			return
+		}
+	}
+	entries, err := listEntries(path)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "list_failed", err.Error())
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"path": path, "kind": "directory", "entries": entries})
+}
+
+func listEntries(path string) ([]dirEntry, error) {
+	items, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
 	}
 	entries := make([]dirEntry, 0, len(items))
 	for _, item := range items {
@@ -100,7 +127,7 @@ func (s *server) handleList(w http.ResponseWriter, r *http.Request) {
 			ModifiedAt: info.ModTime().UnixMilli(),
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"path": path, "entries": entries})
+	return entries, nil
 }
 
 func (s *server) handleStat(w http.ResponseWriter, r *http.Request) {
@@ -134,6 +161,7 @@ func (s *server) handleStat(w http.ResponseWriter, r *http.Request) {
 			Path:       path,
 			Exists:     true,
 			Directory:  info.IsDir(),
+			Readable:   syscall.Access(path, accessRead) == nil,
 			Size:       info.Size(),
 			ModifiedAt: info.ModTime().UnixMilli(),
 		})
@@ -199,6 +227,7 @@ func (s *server) handleRead(w http.ResponseWriter, r *http.Request) {
 }
 
 // 原子写：同目录临时文件 + rename，避免 Dela 读到写了一半的文件。
+// `parents=1` 时先建缺失的父目录：agent 的 write 工具要 mkdir -p 语义，省一次往返。
 func (s *server) handleWrite(w http.ResponseWriter, r *http.Request) {
 	path, err := requireAbsPath(r.URL.Query().Get("path"))
 	if err != nil {
@@ -206,6 +235,12 @@ func (s *server) handleWrite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dir := filepath.Dir(path)
+	if r.URL.Query().Get("parents") == "1" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			writeError(w, http.StatusBadRequest, "mkdir_failed", err.Error())
+			return
+		}
+	}
 	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 		writeError(w, http.StatusBadRequest, "no_directory", fmt.Sprintf("目录不存在：%s", dir))
 		return

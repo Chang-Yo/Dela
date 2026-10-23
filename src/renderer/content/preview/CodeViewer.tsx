@@ -64,11 +64,9 @@ const viewerTheme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
+/** 按文件名匹配语言：Dockerfile、Makefile 这类无后缀名也能命中。 */
 function languageForFilename(filename: string): LanguageDescription | null {
-  const dot = filename.lastIndexOf('.');
-  if (dot <= 0) return null;
-  const ext = filename.slice(dot + 1).toLowerCase();
-  return languages.find((l) => l.extensions.includes(ext)) ?? null;
+  return LanguageDescription.matchFilename(languages, filename);
 }
 
 /**

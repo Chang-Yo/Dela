@@ -48,12 +48,14 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 - **文件检索工具**：`find`, `grep`, `ls`
 - **网页搜索工具**：`web_search`(默认关闭，需自备API KEY), `web_fetch`（默认开启，免费）
 
+**Pi Packages**：可以安装 Pi 社区的 package（扩展、skills、提示模板），来源支持 npm、git 与本地目录；扩展与 Dela 同权限运行，安装前请确认来源可信。
+
 **remote project**: 通过上传编译好的 helper 文件至服务器，Dela 可以与远端建立隧道实现长连接，并通过 helper 的代理来实现对服务器上下文的获取，环境理解以及文件的读写。并且通过自动端口转发，可以**本地访问远程的启动的网页**。_只要能够连上ssh，就可以像本地一样操作读写！_
 
 ### 工作台功能
 
-- **md笔记编辑**：所见即所得的md笔记编辑，支持 math 公式解析和 mermaid 流程图
-- **代码文件编辑**：支持绝大部分主流代码文件的高亮显示与编辑功能
+- **md笔记编辑**：笔记就是 `.md` 文件，即时渲染编辑（光标所在行显示原文），支持数学公式（含中文）与 mermaid 流程图；保存时原样写回，不改换行符与格式
+- **文件编辑**：任意文本文件都能打开编辑（包括 `.env`、`Makefile`、无后缀日志），按内容而不是扩展名识别；1 MB 以上只读预览
 - **内置终端**：用户可以直接在应用打开内置终端（Git Bash），如果是 remote project 则默认为 ssh
 
 ## 技术栈
@@ -72,7 +74,7 @@ Dela Harness基于 Pi 构建，支持接入skills, mcps，通过**内置的校�
 
 ## 本地开发
 
-需要 Node.js **24.21.0** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
+需要 Node.js **24.22.1** 与 pnpm **12.3.4**（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
 
 ```sh
 pnpm install
