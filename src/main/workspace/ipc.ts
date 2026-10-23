@@ -1,7 +1,6 @@
 import {
   removeWorkspaceEntry,
   prepareStorage,
-  getWorkspaceState,
   entry,
   createWorkspaceEntry,
   updateWorkspaceEntry,
@@ -32,6 +31,12 @@ import { downloadRemoteFile, openRemoteFile, uploadLocalFile } from '../remotes/
 import { closeRemotePort, openRemotePort, remotePortsState } from '../remotes/ports';
 import { notifyRemoteChange } from '../remotes/events';
 import { watchRemoteProject } from '../remotes/watch';
+import {
+  getLocalWorkspaceState,
+  listLocalDirectory,
+  localEntryAncestors,
+  searchLocalWorkspace,
+} from './local-tree';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell, type WebContents } from 'electron';
 import { z } from 'zod';
@@ -94,7 +99,9 @@ function watchWorkspace(client: WebContents, state: WorkspaceState) {
   for (const root of roots) {
     if (watchers.has(root)) continue;
     try {
-      const watcher = watch(root, { recursive: true, persistent: false }, (_event, file) => {
+      const watcher = watch(root, { recursive: true, persistent: false }, (event, file) => {
+        // 目录清单不含内容或 mtime；内容写入不应使整棵树和引用候选失效。
+        if (event === 'change') return;
         if (
           file &&
           String(file)
@@ -133,12 +140,40 @@ export function registerWorkspaceIpc(
       subscribeChat(event.sender);
       return fn(...args);
     });
-  ipcMain.handle('workspace:get-state', (event) => {
+  ipcMain.handle('workspace:get-state', async (event) => {
     checkWorkspaceSender(event);
     subscribeChat(event.sender);
-    const state = getWorkspaceState();
+    const state = await getLocalWorkspaceState();
     watchWorkspace(event.sender, state);
     return state;
+  });
+  handle('list-local', (id) => listLocalDirectory(workspaceEntryIdSchema.nullable().parse(id)));
+  handle('local-ancestors', (id) => localEntryAncestors(workspaceEntryIdSchema.parse(id)));
+  handle('local-reference-files', async (cwd) =>
+    (await searchLocalWorkspace(workspaceEntryIdSchema.parse(cwd), '')).filter(
+      (item) => item.kind === 'file',
+    ),
+  );
+  const searches = new Map<string, AbortController>();
+  ipcMain.handle('workspace:search-local', async (event, id, query) => {
+    checkWorkspaceSender(event);
+    const key = `${event.sender.id}:${id ?? ''}`;
+    searches.get(key)?.abort();
+    if (!z.string().max(200).parse(query).trim()) {
+      searches.delete(key);
+      return [];
+    }
+    const controller = new AbortController();
+    searches.set(key, controller);
+    try {
+      return await searchLocalWorkspace(
+        workspaceEntryIdSchema.nullable().parse(id),
+        z.string().max(200).parse(query),
+        controller.signal,
+      );
+    } finally {
+      if (searches.get(key) === controller) searches.delete(key);
+    }
   });
   handle('open-email-draft', async (id) => {
     const { openEmailDraft } = await import('../mail/drafts');

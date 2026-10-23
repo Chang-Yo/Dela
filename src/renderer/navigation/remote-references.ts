@@ -1,6 +1,7 @@
 // 远程项目的 @ 引用候选：本地镜像没有远端文件，改向主进程要远端文件索引（优先 rg --files，
 // 缺失时退到 find）。成功后缓存到本次运行结束；失败不报错也不阻塞输入，候选为空仍可手打远端路径。
 import { useEffect, useState } from 'react';
+import type { WorkspaceEntry } from '../../shared/api';
 
 export interface RemoteReference {
   key: string;
@@ -9,6 +10,60 @@ export interface RemoteReference {
 
 const pending = new Map<string, Promise<RemoteReference[]>>();
 const loaded = new Map<string, RemoteReference[]>();
+const noLocalFiles: WorkspaceEntry[] = [];
+
+export function useLocalReferences(cwd: string | null): WorkspaceEntry[] {
+  const [result, setResult] = useState<{ cwd: string; files: WorkspaceEntry[] } | null>(null);
+  useEffect(() => {
+    const api = window.dela?.workspace;
+    if (!cwd || !api?.localReferenceFiles) return;
+    let live = true;
+    let revision = 0;
+    let running = false;
+    let queued = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const load = () => {
+      if (!live) return;
+      if (running) {
+        queued = true;
+        return;
+      }
+      running = true;
+      const current = ++revision;
+      void api
+        .localReferenceFiles(cwd)
+        .then((files) => {
+          if (live && current === revision) setResult({ cwd, files });
+        })
+        .catch((error) => console.error('[workspace] 读取引用候选失败', error))
+        .finally(() => {
+          running = false;
+          if (queued) {
+            queued = false;
+            load();
+          }
+        });
+    };
+    load();
+    const unsubscribe = api.onChanged((paths) => {
+      const normalized = (value: string) =>
+        /^[a-z]:[\\/]/i.test(value) ? value.replaceAll('\\', '/').toLowerCase() : value;
+      const root = normalized(cwd).replace(/\/$/, '');
+      if (
+        !paths.some((path) => normalized(path) === root || normalized(path).startsWith(`${root}/`))
+      )
+        return;
+      clearTimeout(timer);
+      timer = setTimeout(load, 300);
+    });
+    return () => {
+      live = false;
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [cwd]);
+  return result?.cwd === cwd ? result.files : noLocalFiles;
+}
 
 export function useRemoteReferences(projectId: string | null): RemoteReference[] {
   const [entries, setEntries] = useState<RemoteReference[]>([]);

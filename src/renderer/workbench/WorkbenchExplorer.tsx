@@ -160,7 +160,7 @@ export function WorkbenchExplorer({
   const container = () => currentContainerOf(selected ?? activeDocKey, rootId);
 
   const selectEntry = (id: string) => {
-    const item = entries.find((entry) => entry.id === id);
+    const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === id);
     if (!item) {
       // 远端条目不在 entries 里：文件直接开只读预览（读取按「项目 id + 远端路径」走远端通道）。
       if (parseRemoteNodeId(id)) onOpenDocument(id);
@@ -176,7 +176,7 @@ export function WorkbenchExplorer({
   };
 
   const openToSide = (key: string) => {
-    const item = entries.find((entry) => entry.id === key);
+    const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === key);
     if (item?.kind === 'project') void useAppNavigation.getState().openProject(key);
     else if (item?.kind === 'folder') selectEntry(key);
     else onOpenToSide(key);
@@ -588,23 +588,25 @@ export function WorkbenchExplorer({
                 </>
               )}
               <div className={eyebrowClass}>文件</div>
-              <ProjectFileTree
-                canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
-                entries={entries}
-                expanded={expanded}
-                pending={pending}
-                onAction={treeAction}
-                onExpand={expand}
-                onImportFiles={rootId ? importDroppedAnywhere : undefined}
-                onMove={remoteRoot ? undefined : move}
-                onOpenToSide={openToSide}
-                onActivate={keepDocument}
-                onRemoteAction={remoteAction}
-                onSelect={selectEntry}
-                query={query}
-                rootId={rootId}
-                selected={activeDocKey ?? selected}
-              />
+              {visible && (
+                <ProjectFileTree
+                  canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
+                  entries={entries}
+                  expanded={expanded}
+                  pending={pending}
+                  onAction={treeAction}
+                  onExpand={expand}
+                  onImportFiles={rootId ? importDroppedAnywhere : undefined}
+                  onMove={remoteRoot ? undefined : move}
+                  onOpenToSide={openToSide}
+                  onActivate={keepDocument}
+                  onRemoteAction={remoteAction}
+                  onSelect={selectEntry}
+                  query={query}
+                  rootId={rootId}
+                  selected={activeDocKey ?? selected}
+                />
+              )}
             </div>
             {/* 归档固定在侧栏最底部：不随上方滚动区滚动（flex 收尾自然贴底）；与滚动区之间
                 用一条极淡 hairline 分界（三区背景层次保持不变，此处作为固定底区的分界）；
@@ -638,20 +640,22 @@ export function WorkbenchExplorer({
                       selected={activeDocKey}
                     />
                   )}
-                  <ProjectFileTree
-                    archived
-                    canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
-                    entries={entries}
-                    expanded={expanded}
-                    onAction={treeAction}
-                    onExpand={expand}
-                    onMove={move}
-                    onOpenToSide={openToSide}
-                    onSelect={selectEntry}
-                    query={query}
-                    rootId={workspaceArchiveId}
-                    selected={activeDocKey ?? selected}
-                  />
+                  {visible && (
+                    <ProjectFileTree
+                      archived
+                      canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
+                      entries={entries}
+                      expanded={expanded}
+                      onAction={treeAction}
+                      onExpand={expand}
+                      onMove={move}
+                      onOpenToSide={openToSide}
+                      onSelect={selectEntry}
+                      query={query}
+                      rootId={workspaceArchiveId}
+                      selected={activeDocKey ?? selected}
+                    />
+                  )}
                 </div>
               )}
             </div>

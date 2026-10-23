@@ -55,6 +55,7 @@ export interface WorkspaceState {
   entries: WorkspaceEntry[];
   views: Record<string, WorkspaceViewState>;
   directory: string;
+  archivePath?: string;
 }
 
 export interface WorkspaceCreateInput {
@@ -67,6 +68,10 @@ export interface WorkspaceCreateInput {
 
 export interface WorkspaceApi {
   getState(): Promise<WorkspaceState>;
+  listLocalDirectory(id: string | null): Promise<WorkspaceEntry[]>;
+  searchLocal(rootId: string | null, query: string): Promise<WorkspaceEntry[]>;
+  localReferenceFiles(cwd: string): Promise<WorkspaceEntry[]>;
+  localAncestors(id: string): Promise<WorkspaceEntry[]>;
   create(input: WorkspaceCreateInput): Promise<WorkspaceEntry>;
   update(
     id: string,

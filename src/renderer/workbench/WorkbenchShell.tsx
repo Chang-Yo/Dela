@@ -30,7 +30,7 @@ import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { useNoteDrafts } from '../content/note/drafts';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
-import { useRemoteReferences } from '../navigation/remote-references';
+import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';
 import { showToast } from '../app/toasts';
 import { MailDraftDialog } from '../app/mail-draft-dialog';
@@ -117,8 +117,17 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     [rootId],
   );
 
-  const onCreated = (entry: WorkspaceEntry) => {
+  const onCreated = async (entry: WorkspaceEntry) => {
     if (entry.kind === 'project') return; // EntryDialogs 已回调 onOpenProject。
+    if (window.dela?.workspace.localAncestors && entry.path) {
+      try {
+        useWorkspaceStore
+          .getState()
+          .rememberEntries(await window.dela.workspace.localAncestors(entry.id));
+      } catch (error) {
+        useWorkspaceStore.getState().setError(error);
+      }
+    }
     // 名称可带子路径（a/b/c.md）：沿祖先链全部展开并选中，新条目才看得见。
     if (entry.kind === 'file' || entry.kind === 'folder')
       useTreeState
@@ -175,13 +184,21 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         // 远程项目的 cwd 是远端路径，本地镜像里没有它的文件，候选改由远端索引提供。
         const remote = entries.find((item) => item.id === projectId)?.remoteId;
         const remoteEntries = useRemoteReferences(remote ? projectId : null);
+        const localFiles = useLocalReferences(remote ? null : cwd);
         useEffect(() => {
           if (projectId === null && !remote) useWorkspaceStore.getState().ensureCourseFiles();
         }, [projectId, remote]);
         return useMemo(
           () =>
-            referenceEntryCandidates(entries, cwd, projectId, remote, remoteEntries, courseFiles),
-          [entries, cwd, projectId, remote, remoteEntries, courseFiles],
+            referenceEntryCandidates(
+              [...new Map([...entries, ...localFiles].map((item) => [item.id, item])).values()],
+              cwd,
+              projectId,
+              remote,
+              remoteEntries,
+              courseFiles,
+            ),
+          [entries, localFiles, cwd, projectId, remote, remoteEntries, courseFiles],
         );
       },
       // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。

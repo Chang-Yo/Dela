@@ -19,8 +19,8 @@ import {
   TriangleAlert,
   Upload,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import type { WorkspaceEntry } from '../../shared/api';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/ui/explorer';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
 import {
@@ -34,7 +34,7 @@ import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from './remote-color';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../app/toasts';
-import { errorText } from '../workspace/store';
+import { errorText, useWorkspaceStore } from '../workspace/store';
 
 export type { EntryAction };
 
@@ -60,13 +60,13 @@ function ConnectingHint() {
 }
 
 export function ProjectFileTree({
-  entries,
+  entries: baseEntries,
   rootId,
   selected,
   expanded,
   onExpand,
   onSelect,
-  onAction,
+  onAction: onEntryAction,
   onMove,
   canDrop,
   onImportFiles,
@@ -100,6 +100,92 @@ export function ProjectFileTree({
 }) {
   // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
   const afterMenuClose = useAfterMenuClose();
+  const [search, setSearch] = useState<{ key: string; entries: WorkspaceEntry[] } | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchVersion, setSearchVersion] = useState(0);
+  const searchKey = `${rootId ?? ''}\0${query.trim()}`;
+  useEffect(() => {
+    if (!query.trim()) return;
+    return window.dela?.workspace.onChanged?.(() => setSearchVersion((value) => value + 1));
+  }, [query]);
+  const entries = useMemo(() => {
+    if (!query.trim() || search?.key !== searchKey) return baseEntries;
+    return [
+      ...new Map([...baseEntries, ...search.entries].map((item) => [item.id, item])).values(),
+    ];
+  }, [baseEntries, query, search, searchKey]);
+  useEffect(() => {
+    if (!query.trim() || !window.dela?.workspace.searchLocal) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      setSearching(true);
+      setLocalError(null);
+      void window.dela!.workspace.searchLocal(rootId, query.trim()).then(
+        (items) => {
+          if (live) {
+            setSearch({ key: searchKey, entries: items });
+            setSearching(false);
+          }
+        },
+        (error) => {
+          if (live) {
+            setLocalError(errorText(error));
+            setSearching(false);
+          }
+        },
+      );
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+      void window.dela?.workspace.searchLocal(rootId, '').catch(() => {});
+    };
+  }, [rootId, query, searchKey, searchVersion]);
+  const directoryIds = useMemo(() => {
+    const ids = new Set(expanded);
+    if (rootId) ids.add(rootId);
+    const parents = new Map(entries.map((item) => [item.id, item.parentId]));
+    const belongs = (id: string) => {
+      const seen = new Set<string>();
+      let current: string | null | undefined = id;
+      while (current !== undefined && !seen.has(current ?? '')) {
+        if (current === rootId) return true;
+        if (current === null) return false;
+        seen.add(current);
+        current = parents.get(current);
+        if (current && current !== rootId && !ids.has(current)) return false;
+      }
+      return false;
+    };
+    const result = entries
+      .filter(
+        (item) =>
+          ids.has(item.id) &&
+          belongs(item.id) &&
+          !item.remoteId &&
+          (item.kind === 'folder' || item.kind === 'project'),
+      )
+      .map((item) => item.id);
+    if (rootId === workspaceArchiveId) result.push(rootId);
+    return result;
+  }, [entries, expanded, rootId]);
+  const directoriesKey = directoryIds.sort().join('\0');
+  const ownedDirectories = useRef(new Set<string>());
+  useEffect(() => {
+    const next = new Set(directoryIds);
+    const store = useWorkspaceStore.getState();
+    for (const id of ownedDirectories.current) if (!next.has(id)) store.releaseDirectory(id);
+    ownedDirectories.current = next;
+    for (const id of next)
+      void store.ensureDirectory(id).catch((error) => setLocalError(errorText(error)));
+  }, [directoriesKey]);
+  useEffect(
+    () => () => {
+      for (const id of ownedDirectories.current) useWorkspaceStore.getState().releaseDirectory(id);
+    },
+    [],
+  );
   const { included, visible } = useMemo(() => {
     const excluded = new Set(excludeIds);
     const children = new Map<string | null, WorkspaceEntry[]>();
@@ -172,12 +258,29 @@ export function ProjectFileTree({
   }
   const remoteIds = new Set(remote.items.map((item) => item.id));
   const remoteDirs = new Set(remote.items.filter((item) => item.container).map((item) => item.id));
+  const rememberResult = (id: string) => {
+    const result = entries.find((item) => item.id === id);
+    if (!result || baseEntries.some((item) => item.id === id)) return;
+    const byId = new Map((search?.entries ?? []).map((item) => [item.id, item]));
+    const chain: WorkspaceEntry[] = [];
+    let current: WorkspaceEntry | undefined = result;
+    while (current && !chain.some((item) => item.id === current!.id)) {
+      chain.push(current);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+    useWorkspaceStore.getState().rememberEntries(chain.reverse());
+  };
+  const onAction = (action: EntryAction, id: string | null) => {
+    if (id) rememberResult(id);
+    onEntryAction(action, id);
+  };
   /** 远端目录点击展开，文件走只读预览（读取在接线方）。 */
   const selectNode = (id: string) => {
     if (remoteDirs.has(id)) {
       onExpand(id, !expanded.includes(id));
       return;
     }
+    rememberResult(id);
     onSelect(id);
   };
   // 失败出口与本地条目动作一致：接线方用 runEntryWork 收进 workspace store 的错误条。
@@ -196,7 +299,12 @@ export function ProjectFileTree({
     </DropdownMenuTrigger>
   );
   const openToSideItem = (id: string) => (
-    <DropdownMenuItem onSelect={() => onOpenToSide?.(id)}>
+    <DropdownMenuItem
+      onSelect={() => {
+        rememberResult(id);
+        onOpenToSide?.(id);
+      }}
+    >
       <PanelRightOpen />
       在侧边打开
     </DropdownMenuItem>
@@ -228,6 +336,16 @@ export function ProjectFileTree({
   );
   return (
     <>
+      {localError && (
+        <p role="alert" className="px-3 py-2 text-xs text-red">
+          {localError}
+        </p>
+      )}
+      {query.trim() && searching && (
+        <p role="status" className="px-3 py-2 text-xs text-ink-3">
+          正在搜索…
+        </p>
+      )}
       {remote.degraded && (
         <p className="flex items-start gap-1.5 px-3 py-2 text-xs [overflow-wrap:anywhere] text-ink-3">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -247,12 +365,34 @@ export function ProjectFileTree({
         expanded={open}
         onExpand={onExpand}
         onSelect={selectNode}
-        onMove={onMove}
+        onMove={
+          onMove
+            ? (drag, target) => {
+                rememberResult(drag);
+                if (target) rememberResult(target);
+                onMove(drag, target);
+              }
+            : undefined
+        }
         canDrop={canDrop}
         onImportFiles={onImportFiles}
-        onOpenToSide={onOpenToSide}
+        onOpenToSide={
+          onOpenToSide
+            ? (id) => {
+                rememberResult(id);
+                onOpenToSide(id);
+              }
+            : undefined
+        }
         sortItems
-        onActivate={onActivate}
+        onActivate={
+          onActivate
+            ? (id) => {
+                rememberResult(id);
+                onActivate(id);
+              }
+            : undefined
+        }
         pending={
           pending && { ...pending, parentId: pending.parentId === rootId ? null : pending.parentId }
         }

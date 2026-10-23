@@ -39,6 +39,12 @@ import {
   entry,
 } from '../api';
 import { openProjectDirectory } from '../project';
+import {
+  getLocalWorkspaceState,
+  listLocalDirectory,
+  localEntryAncestors,
+  searchLocalWorkspace,
+} from '../local-tree';
 
 const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
@@ -138,6 +144,69 @@ afterEach(() => {
 });
 
 describe('磁盘工作区', () => {
+  it('目录概览不扫描项目后代，逐层加载与独立搜索保留深层文件', async () => {
+    const project = createWorkspaceEntry({ parentId: null, name: 'large', kind: 'project' });
+    const deep = join(localPathOf(project.id), 'src', 'nested');
+    mkdirSync(deep, { recursive: true });
+    const file = join(deep, 'needle.ts');
+    writeFileSync(file, 'export {};');
+    const overview = await getLocalWorkspaceState();
+    expect(overview.entries.some((item) => item.id === project.id)).toBe(true);
+    expect(overview.entries.some((item) => item.path === deep || item.path === file)).toBe(false);
+    const first = await listLocalDirectory(project.id);
+    expect(first.map((item) => item.name)).toEqual(['src']);
+    expect(first[0]?.parentId).toBe(project.id);
+    const found = await searchLocalWorkspace(project.id, 'needle');
+    expect(found.map((item) => item.path)).toEqual([
+      localPathOf(project.id),
+      join(localPathOf(project.id), 'src'),
+      deep,
+      file,
+    ]);
+    expect((await searchLocalWorkspace(project.id, '')).some((item) => item.path === file)).toBe(
+      true,
+    );
+    const ancestors = await localEntryAncestors(file);
+    expect(ancestors.map((item) => item.path)).toEqual([
+      localPathOf(project.id),
+      join(localPathOf(project.id), 'src'),
+      deep,
+      file,
+    ]);
+    expect(ancestors.map((item) => item.parentId)).toEqual([
+      null,
+      project.id,
+      join(localPathOf(project.id), 'src'),
+      deep,
+    ]);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await searchLocalWorkspace(project.id, 'needle', controller.signal)).toEqual([]);
+  });
+
+  it('目录列表保留来源引用和项目身份，删除后重新读取只返回当前文件', async () => {
+    const project = createWorkspaceEntry({ parentId: null, name: 'folder', kind: 'project' });
+    const path = localPathOf(project.id);
+    const child = join(path, 'child');
+    mkdirSync(child);
+    const nested = linkProjectFolder(child);
+    db.prepare(
+      "INSERT INTO workspace_entries VALUES ('source-1', NULL, '课件', 'source', 'file:1', ?, NULL, 'now')",
+    ).run(path);
+    const listing = await listLocalDirectory(project.id);
+    expect(listing.find((item) => item.id === nested.id)?.parentId).toBe(project.id);
+    expect(listing.find((item) => item.id === 'source-1')).toMatchObject({
+      parentId: project.id,
+      path: undefined,
+    });
+    const overview = await getLocalWorkspaceState();
+    expect(overview.entries.find((item) => item.id === nested.id)?.parentId).toBe(project.id);
+    rmSync(child, { recursive: true });
+    expect((await listLocalDirectory(project.id)).some((item) => item.id === nested.id)).toBe(
+      false,
+    );
+  });
+
   it('外部创建的文件可发现、打开与保存，无需数据库条目或笔记身份', async () => {
     const project = createWorkspaceEntry({ parentId: null, name: '磁盘项目', kind: 'project' });
     const folder = join(localPathOf(project.id), 'shell-folder');

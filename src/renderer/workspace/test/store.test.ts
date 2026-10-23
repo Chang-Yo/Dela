@@ -2,6 +2,7 @@
 // 失败后可重试、refresh/setError 镜像语义（对照旧 features/projects/workspace.ts）。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspaceStore } from '../store';
+import type { WorkspaceEntry } from '../../../shared/api';
 
 const workspaceState = { entries: [], views: {}, directory: 'C:/dela' };
 const canvasState = { connected: true, syncedAt: null, courses: [], items: [] };
@@ -24,6 +25,8 @@ function installDela(handlers: {
 
 function resetStore() {
   useWorkspaceStore.setState({
+    overview: null,
+    directories: {},
     workspace: { entries: [], views: {}, directory: '' },
     canvas: { connected: false, syncedAt: null, courses: [], items: [] },
     loaded: false,
@@ -37,6 +40,59 @@ afterEach(() => {
 });
 
 describe('workspace store mirror', () => {
+  it('loads a directory once, refreshes only an affected listing, and keeps unrelated row identities', async () => {
+    const item = (
+      id: string,
+      parentId: string | null,
+      kind: WorkspaceEntry['kind'] = 'folder',
+    ): WorkspaceEntry => ({
+      id,
+      parentId,
+      kind,
+      name: id,
+      path: id,
+      sourceId: null,
+      updatedAt: '',
+    });
+    const left = item('C:/left', null, 'project');
+    const right = item('C:/right', null, 'project');
+    const file = item('C:/right/file', right.id, 'file');
+    const overview = { ...workspaceState, entries: [left, right] };
+    installDela({ workspace: async () => overview });
+    const list = vi.fn(async (id: string | null) => (id === left.id ? [] : [file]));
+    window.dela!.workspace.listLocalDirectory = list;
+    useWorkspaceStore.setState({ workspace: overview, overview, directories: {} });
+    await Promise.all([
+      useWorkspaceStore.getState().ensureDirectory(left.id),
+      useWorkspaceStore.getState().ensureDirectory(left.id),
+    ]);
+    expect(list).toHaveBeenCalledTimes(1);
+    await useWorkspaceStore.getState().ensureDirectory(right.id);
+    const prior = useWorkspaceStore
+      .getState()
+      .workspace.entries.find((entry) => entry.id === file.id);
+    list.mockClear();
+    await useWorkspaceStore.getState().refresh(['C:/left/new.txt']);
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledWith(left.id);
+    expect(
+      useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === file.id),
+    ).toBe(prior);
+  });
+
+  it('does not restore directory data after it was released while a request was pending', async () => {
+    installDela({});
+    let resolve!: (entries: WorkspaceEntry[]) => void;
+    window.dela!.workspace.listLocalDirectory = () =>
+      new Promise((done) => {
+        resolve = done;
+      });
+    const request = useWorkspaceStore.getState().ensureDirectory('C:/closed');
+    useWorkspaceStore.getState().releaseDirectory('C:/closed');
+    resolve([]);
+    await request;
+    expect(useWorkspaceStore.getState().directories['C:/closed']).toBeUndefined();
+  });
   it('shares one request between concurrent load callers and mirrors both halves', async () => {
     const { getState, getCanvasState, onChanged } = installDela({});
     await Promise.all([useWorkspaceStore.getState().load(), useWorkspaceStore.getState().load()]);
@@ -89,7 +145,7 @@ describe('workspace store mirror', () => {
     const next = { entries: [], views: {}, directory: 'C:/elsewhere' };
     installDela({ workspace: async () => next });
     await useWorkspaceStore.getState().refresh();
-    expect(useWorkspaceStore.getState().workspace).toBe(next);
+    expect(useWorkspaceStore.getState().workspace).toEqual(next);
     expect(useWorkspaceStore.getState().canvas.connected).toBe(false);
   });
 

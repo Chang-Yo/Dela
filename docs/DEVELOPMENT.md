@@ -214,7 +214,11 @@ Mac 设置页切换登录启动后读取系统实际状态，再保存偏好并�
 
 ## 3. 会话与上下文
 
-本地工作区刷新目前仍返回完整目录镜像。一次 `workspace:get-state` 只扫描一次，监听根复用该状态；递归监听根去除重叠范围，并在项目取消登记后关闭旧监听。`workspace:changed` 携带合并后的绝对变化路径。渲染端串行合并刷新请求，刷新期间收到的新变化会触发后续读取，避免遗漏。项目文件树按父子索引收集后代，并缓存输入未变化时的结果，避免逐节点遍历全部条目。按目录懒加载、按路径局部更新和行虚拟化尚未实现。
+本地文件树按目录读取。`workspace:get-state` 通过 `main/workspace/local-tree.ts` 返回工作区根清单、已登记项目及其祖先，不递归扫描项目后代。展开目录时调用 `workspace:list-local`，异步 `readdir` 只列一层，不对每个文件读取 mtime；未登记文件的列表 `updatedAt` 为空，正文 revision 仍在读取文件时计算。折叠目录或隐藏侧栏后释放对应目录缓存。已展开目录按父子索引生成可见行，超过 100 行时使用 TanStack Virtual，仅挂载视口附近的行；键盘定位、选中项定位和行内新建保留。
+
+递归监听根去除重叠范围，项目取消登记后关闭旧监听。`workspace:changed` 携带合并后的绝对变化路径；内容写入不改变名称和类型，因此不刷新目录清单。渲染端串行合并变化，只重新读取受影响的已加载目录；刷新期间收到的新变化会触发后续读取。名称搜索独立异步遍历目录，输入防抖 250 ms，新搜索取消旧搜索，结果带祖先链；打开结果或新建深层文件时补齐必要的祖先。聊天 `@` 文件候选也独立读取会话 cwd，变化触发的扫描串行合并，不依赖侧栏是否展开。搜索和引用遍历跳过 `.git`、`node_modules`，不读取文件正文；普通目录展开仍可查看这些目录。完整同步 `getWorkspaceState()` 暂保留给现有 agent 工具，界面不再调用。
+
+实现参考：[Electron 性能建议](https://www.electronjs.org/docs/latest/tutorial/performance)的异步文件 I/O、[VS Code 文件监听说明](https://github.com/microsoft/vscode/wiki/File-Watcher-Internals)的监听去重，以及 [TanStack Virtual](https://tanstack.com/virtual/latest/docs/api/virtualizer) 的可见行渲染与动态测量。
 
 - **项目＝目录**：项目是 `kind='project'` 的 workspace 条目，身份是条目 UUID，目录是其 `local_path`；目录可在工作区内新建，也可导入电脑上已有的文件夹（留在原处，重命名 / 移动按同一套语义真的动磁盘）。远程项目的 `local_path` 是远端 POSIX 路径，本地没有这份目录（见 §4）。
 - **会话 cwd**：项目会话是该项目的目录；通用（随聊）会话是 `<工作目录>/chat-sessions/<会话 id>` 私有目录；资料页会话用 `<工作目录>/courses`；`sessions.cwd` 为 NULL 的旧会话才回退到工作区根。目录缺失时报错，不静默换目录（远程项目跳过本地存在性检查）。
