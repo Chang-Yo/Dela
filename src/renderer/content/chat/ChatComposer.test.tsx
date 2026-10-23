@@ -376,3 +376,53 @@ it('`/` 候选列出会话里的 Pi 扩展命令与模板，选中后原样插�
   expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('/deploy ');
   expect(reportEditorText).toHaveBeenLastCalledWith('s-1', '/deploy ');
 });
+
+it('`/` 候选列出 Dela 的会话命令，与之同名的扩展命令被遮住不列', async () => {
+  window.dela = {
+    chat: {
+      listCommands: async () => [],
+      listSessionCommands: async () => [
+        {
+          name: 'compact',
+          description: 'Extension compact',
+          kind: 'extension' as const,
+          source: 'pkg',
+        },
+      ],
+    },
+    packages: {
+      reportEditorText: () => {},
+      onSessionState: () => () => {},
+      sessionState: async (sessionId: string) => ({
+        sessionId,
+        statuses: [],
+        widgets: [],
+        workingMessage: null,
+      }),
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  await act(async () => root.render(<Harness contextUsage={usage()} sessionId="s-1" />));
+  typeMention('/');
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+  const options = [...host.querySelectorAll('[role="option"]')].map(
+    (item) => item.textContent ?? '',
+  );
+  for (const name of ['compact', 'reload', 'name', 'new'])
+    expect(options.filter((text) => text.startsWith(`//${name}`))).toHaveLength(1);
+  expect(options.join('\n')).not.toContain('Extension compact');
+  expect(options.find((text) => text.startsWith('//compact'))).toContain('压缩上下文');
+
+  const compact = [...host.querySelectorAll('[role="option"]')].find((item) =>
+    item.textContent?.startsWith('//compact'),
+  )!;
+  await act(async () => compact.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('/compact ');
+});
+
+it('压缩后的估计用量标「约」', async () => {
+  await act(async () =>
+    root.render(<Harness contextUsage={usage({ tokens: 30_000, percent: 15, estimated: true })} />),
+  );
+  openUsage();
+  expect(document.body.textContent).toContain('约 30K / 200K');
+});

@@ -30,13 +30,15 @@ export interface ChatSessionSummary {
   projectId?: string | null;
 }
 
-/** percent 为 0–100 百分数；tokens null = 暂不可知（如压缩后）。
+/** percent 为 0–100 百分数；tokens null = 暂不可知（如压缩后、Pi 也没给出估计）。
  *  inputTokens / cachedTokens 是本会话累计用量（Pi SessionStats.tokens 的 input / cacheRead，
  *  含已被压缩掉的历史），仅在提供商确实上报过缓存时才带上，见 main/agent/session.ts 的 usageOf。 */
 export interface ContextUsageView {
   tokens: number | null;
   contextWindow: number;
   percent: number | null;
+  /** 压缩后、模型还没回复前的估计值（Pi 的 estimatedTokensAfter）；下一次回复后换成实际用量。 */
+  estimated?: boolean;
   /** 本会话累计输入 token（不含缓存读取）。 */
   inputTokens?: number;
   /** 本会话累计缓存读取 token；与 inputTokens 同时出现。 */
@@ -123,6 +125,31 @@ export interface ChatStreamEvent {
 export type ChatScope = 'chat' | 'library';
 
 /** 会话身份 API（session:* 通道）。 */
+/**
+ * Dela 自己实现的会话命令，对应 Pi 终端界面里的同名命令（Pi 的 SDK 不带这些命令）。输入以它们开头时
+ * 不发给模型，也不经过扩展命令与提示模板：Dela 命令 > 扩展命令 > 提示模板 > 普通消息，与 Pi 一致。
+ */
+export const SESSION_COMMANDS = [
+  { name: 'compact', description: '压缩上下文', argumentHint: '[压缩时的说明]' },
+  { name: 'reload', description: '重新加载 Skills、扩展与 AGENTS.md' },
+  { name: 'name', description: '重命名对话', argumentHint: '<标题>' },
+  { name: 'new', description: '新对话' },
+] as const;
+
+export type SessionCommandName = (typeof SESSION_COMMANDS)[number]['name'];
+
+/** `/new` 只是界面跳转，由渲染端处理；其余在主进程执行。 */
+export type MainSessionCommand = Exclude<SessionCommandName, 'new'>;
+
+/** 输入是不是一条会话命令：命令名后要么结束、要么是空白再跟参数（`/compactor` 不算）。 */
+export function parseSessionCommand(
+  text: string,
+): { name: SessionCommandName; args: string } | null {
+  const match = /^\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(text.trim());
+  const name = SESSION_COMMANDS.find((command) => command.name === match?.[1])?.name;
+  return name ? { name, args: match?.[2]?.trim() ?? '' } : null;
+}
+
 export interface SessionApi {
   archived(): Promise<ChatSessionSummary[]>;
   update(sessionId: string, patch: { archived?: boolean; pinned?: boolean }): Promise<void>;
@@ -138,6 +165,8 @@ export interface SessionApi {
   /** 发起一轮执行（同 session 串行、跨 session 并行）。 */
   ask(sessionId: string, input: ChatAskInput): Promise<WorkspaceChat>;
   cancelRun(sessionId: string): void;
+  /** 执行一条会话命令（/compact、/reload、/name），返回执行后的快照；/compact 运行中可用 cancelRun 取消。 */
+  runCommand(sessionId: string, name: MainSessionCommand, args: string): Promise<WorkspaceChat>;
   onSessionUpdate(listener: (sessionId: string, chat: WorkspaceChat) => void): () => void;
   /** 流式增量推送（仅末条 assistant 消息）：合并进镜像缓存，不广播全量历史。 */
   onStream(listener: (event: ChatStreamEvent) => void): () => void;

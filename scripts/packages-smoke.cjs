@@ -2,7 +2,8 @@
 // 用法：pnpm build && electron scripts/packages-smoke.cjs [项目根或 app.asar]
 // 覆盖：经窗口 IPC 安装 → 默认关闭 → 启用 → 包的 Skill 出现在 Skills 分区、命令出现在包清单 → 会话加载扩展
 // （session_start 通知、/ 候选）→ 扩展命令的对话框在渲染端往返 → 可见消息进会话 → 卸载后新会话不再加载、
-// Skills 分区不再列出；打包产物里同时验证 jiti 从 asar 解析宿主模块。
+// Skills 分区不再列出；会话命令 /name、/reload（扩展重新加载）、/compact（对话太短的说明）走真实 IPC；
+// 打包产物里同时验证 jiti 从 asar 解析宿主模块。
 const { app } = require('electron');
 const { createServer } = require('node:http');
 const { cpSync, mkdtempSync } = require('node:fs');
@@ -125,6 +126,23 @@ async function run(window) {
   );
   const state = await js(`window.dela.packages.sessionState(${JSON.stringify(chat.sessionId)})`);
   assert.deepEqual(state.statuses, [{ key: 'fixture', text: 'color: blue' }]);
+
+  // 会话命令：/name 改标题（会话要有过消息才进列表），/reload 重建实例、扩展的 session_start 再跑一遍，
+  // /compact 在对话太短时给出说明。
+  const id = JSON.stringify(chat.sessionId);
+  await js(`window.dela.session.ask(${id}, { text: 'hello', attachments: [], context: [] })`);
+  await js(`window.dela.session.runCommand(${id}, 'name', '冒烟改名')`);
+  const listed = await js(`window.dela.session.list(null, '')`);
+  assert.equal(listed.find((item) => item.id === chat.sessionId)?.title, '冒烟改名');
+  const started = () =>
+    js(`window.__events.filter((event) => event.message === 'fixture started in rpc').length`);
+  const before = await started();
+  await js(`window.dela.session.runCommand(${id}, 'reload', '')`);
+  assert.equal(await started(), before + 1, '/reload 后扩展重新加载');
+  const compacted = await js(
+    `window.dela.session.runCommand(${id}, 'compact', '').then(() => 'ok', (e) => String(e))`,
+  );
+  assert.match(compacted, /对话还太短/);
 
   await js(`window.dela.packages.remove(${JSON.stringify(installed[0].id)})`);
   const next = await js(`window.dela.session.create(null, 'chat')`);

@@ -38,6 +38,7 @@ import {
   locateSessionFile,
   preloadPi,
   revealSessionFile,
+  runSessionCommand,
   subscribeChat,
   updateSessionVisibility,
 } from './session';
@@ -173,6 +174,13 @@ export function registerAgentIpc() {
   });
   sessionHandle('ask', (id, input) => askSession(uuid.parse(id), askInputSchema.parse(input)));
   sessionHandle('cancel-run', (id) => cancelRun(uuid.parse(id)));
+  sessionHandle('run-command', (id, name, args) =>
+    runSessionCommand(
+      uuid.parse(id),
+      z.enum(['compact', 'reload', 'name']).parse(name),
+      z.string().max(2000).parse(args),
+    ),
+  );
 
   const chatHandle = (
     name: string,

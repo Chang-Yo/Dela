@@ -242,7 +242,11 @@ export type {
   RunEvent,
   RunStatus,
   ChatStreamEvent,
+  MainSessionCommand,
+  SessionCommandName,
 } from './session';
+
+export { SESSION_COMMANDS, parseSessionCommand } from './session';
 
 export type {
   TabKind,

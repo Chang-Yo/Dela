@@ -15,6 +15,7 @@ import type {
   ChatScope,
   ChatSessionSummary,
   ContextUsageView,
+  MainSessionCommand,
   RunStatus,
   UncommittedChanges,
   WorkspaceChat,
@@ -58,6 +59,8 @@ interface Live {
   run?: { id: string; tool?: string; cancelled?: boolean; done: Promise<void> };
   unsubscribe: () => void;
   stale?: boolean;
+  /** 最近一次压缩后 Pi 估计的上下文 token 数：模型还没回复、实际用量未知时代替它显示。 */
+  compactedTokens?: number;
 }
 
 const live = new Map<string, Live>();
@@ -260,7 +263,8 @@ export function hasLiveSessions(): boolean {
 /** 模型或能力配置改变：空闲实例立即丢弃，运行中的轮末丢弃，下次使用时按新配置重建。 */
 export function invalidateSessions() {
   for (const [id, entry] of live) {
-    if (!entry.run) void disposeLive(id, entry, 'reload');
+    // 压缩也算忙：此时丢弃会话会中止压缩（dispose 里的 abortCompaction）。
+    if (!entry.run && !entry.session.isCompacting) void disposeLive(id, entry, 'reload');
     else {
       entry.stale = true;
     }
@@ -441,12 +445,29 @@ function snapshot(id: string): WorkspaceChat {
 }
 
 function usageOf(entry: Live | undefined): ContextUsageView | null {
-  if (!entry) return null;
   // 一次聚合同时取上下文占用与累计用量：getSessionStats 内部已算过 getContextUsage，
   // 分开调用会把这件按消息估算的重活在同一个流式节拍里做两遍。
-  const stats = entry.session.getSessionStats();
+  return entry ? contextUsageView(entry.session.getSessionStats(), entry.compactedTokens) : null;
+}
+
+/**
+ * Pi 的会话统计 → 界面上的上下文用量。压缩后 Pi 在模型下一次回复前给不出用量（tokens 为 null），
+ * 这时用压缩结果里的估计值 compactedTokens 顶上并标为估计；有了实际用量就不再用它。
+ */
+export function contextUsageView(
+  stats: Pick<ReturnType<AgentSession['getSessionStats']>, 'contextUsage' | 'tokens'>,
+  compactedTokens?: number,
+): ContextUsageView | null {
   const usage = stats.contextUsage;
   if (!usage) return null;
+  const estimate =
+    usage.tokens === null && compactedTokens !== undefined && usage.contextWindow > 0
+      ? {
+          tokens: compactedTokens,
+          percent: (compactedTokens / usage.contextWindow) * 100,
+          estimated: true,
+        }
+      : null;
   // 缓存命中率的分子分母都取本会话累计：SessionStats 聚合会话文件里的全部条目（含已被
   // 压缩或被分支抛弃的历史，那些请求确实按缓存价计过费）。提供商不上报缓存时这里恒为 0，
   // 直接下发会被读成「一次都没命中」，所以只在出现过缓存读或写时才带上这两个字段。
@@ -455,6 +476,7 @@ function usageOf(entry: Live | undefined): ContextUsageView | null {
     tokens: usage.tokens,
     contextWindow: usage.contextWindow,
     percent: usage.percent,
+    ...estimate,
     ...(cacheRead + cacheWrite > 0 ? { inputTokens: input, cachedTokens: cacheRead } : {}),
   };
 }
@@ -529,9 +551,14 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
     case 'message_update':
       stream(id, entry);
       break;
+    case 'compaction_end':
+      if (event.result?.estimatedTokensAfter !== undefined)
+        entry.compactedTokens = event.result.estimatedTokensAfter;
+      touch(id, entry);
+      publish(id);
+      break;
     case 'message_end':
     case 'compaction_start':
-    case 'compaction_end':
       touch(id, entry);
       publish(id);
       break;
@@ -724,6 +751,7 @@ const imageMime: Record<string, string> = {
 export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
   const entry = await ensureLive(id);
   if (entry.run) throw new Error('请等待当前回答完成');
+  if (entry.session.isCompacting) throw new Error('正在压缩上下文，请稍候');
   const blocks = parseChatBlocks(input.text);
   const userText = stripChatImageTokens(input.text);
   const images: ImageContent[] = [];
@@ -860,5 +888,56 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
       finishRun();
     }
   }
+  return snapshot(id);
+}
+
+/** Pi 压缩失败时抛英文原文：常见的两种换成能看懂的说明，其余带上原文。 */
+function compactionError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/Nothing to compact/i.test(message)) return '对话还太短，没有可压缩的内容';
+  if (/Already compacted/i.test(message)) return '刚压缩过，还没有新的内容可压缩';
+  return `压缩失败：${message}`;
+}
+
+/**
+ * 会话命令（/compact、/reload、/name），对应 Pi 终端界面里的同名命令。它们不是一轮对话：不写用户消息、
+ * 不改自动标题、不记本轮文件变化，所以不走 askSession。执行完推一次快照，界面按快照更新。
+ */
+export async function runSessionCommand(
+  id: string,
+  name: MainSessionCommand,
+  args: string,
+): Promise<WorkspaceChat> {
+  row(id);
+  const busy = (entry: Live | undefined) => {
+    if (entry?.run) throw new Error('请等待当前回答完成');
+    if (entry?.session.isCompacting) throw new Error('正在压缩上下文，请稍候');
+  };
+  if (name === 'name') {
+    const title = args.trim();
+    if (!title) throw new Error('用法：/name 新标题');
+    getDatabase().prepare('UPDATE sessions SET title=? WHERE id=?').run(title.slice(0, 60), id);
+  } else if (name === 'reload') {
+    const entry = live.get(id);
+    busy(entry);
+    if (entry) await disposeLive(id, entry, 'reload');
+    // 立刻重建：扩展的加载错误与 session_start 里的通知现在就出现，而不是等下一次发送。
+    if (getActiveLlmProvider()) await ensureLive(id);
+  } else {
+    const entry = await ensureLive(id);
+    busy(entry);
+    try {
+      await entry.session.compact(args || undefined);
+    } catch (error) {
+      // 用户在压缩中点了停止（cancelRun → abort）：不算失败。
+      if (!/Compaction cancelled/i.test(error instanceof Error ? error.message : '')) {
+        throw new Error(compactionError(error));
+      }
+    } finally {
+      // 压缩期间配置变了：invalidateSessions 只标了 stale，这里补上丢弃。
+      if (entry.stale) void disposeLive(id, entry, 'reload');
+    }
+  }
+  publish(id);
   return snapshot(id);
 }

@@ -22,6 +22,12 @@ const state = vi.hoisted(() => ({
   messages: [] as AgentMessage[],
   prompts: [] as string[],
   onPrompt: null as (() => void | Promise<void>) | null,
+  /** 假会话：每建一次实例加一；compact 的行为与是否在压缩由用例设置。 */
+  opened: 0,
+  disposed: 0,
+  compacting: false,
+  compact: null as ((instructions?: string) => Promise<unknown>) | null,
+  compactCalls: [] as (string | undefined)[],
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
@@ -35,12 +41,22 @@ vi.mock('../../documents/runtime', () => ({
 }));
 vi.mock('../pi', () => ({
   openPiSession: async () => ({
+    opened: ++state.opened,
     subscribe: () => () => {},
     get messages() {
       return state.messages;
     },
+    get isCompacting() {
+      return state.compacting;
+    },
     getSessionStats: () => ({ contextUsage: null }),
-    dispose: () => {},
+    dispose: () => {
+      state.disposed++;
+    },
+    compact: async (instructions?: string) => {
+      state.compactCalls.push(instructions);
+      return state.compact?.(instructions);
+    },
     abort: async () => {},
     prompt: async (text: string) => {
       state.prompts.push(text);
@@ -78,7 +94,9 @@ import {
   readSessionTurnFileChange,
   readSessionUncommittedChanges,
   cancelRun,
+  contextUsageView,
   deleteSession,
+  runSessionCommand,
 } from '../session';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
@@ -88,6 +106,11 @@ beforeEach(() => {
   state.messages = [];
   state.prompts = [];
   state.onPrompt = null;
+  state.opened = 0;
+  state.disposed = 0;
+  state.compacting = false;
+  state.compact = null;
+  state.compactCalls = [];
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-'));
   state.db = new Database(':memory:');
   state.db.pragma('foreign_keys = ON');
@@ -443,4 +466,132 @@ it('扩展命令原样交给 Pi，本轮不发消息时不沿用上一轮的失�
   expect(state.prompts.at(-1)).toBe('/ext-deploy now');
   const turns = await listSessionTurnChanges(chat.sessionId!);
   expect(turns.at(-1)?.runStatus).toBe('completed');
+});
+
+describe('会话命令', () => {
+  const titleOf = (id: string) =>
+    (state.db!.prepare('SELECT title FROM sessions WHERE id=?').get(id) as { title: string }).title;
+
+  it('/name 改标题（截到 60 字），没给标题时报出用法', async () => {
+    const chat = newSession(null, 'chat');
+    await runSessionCommand(chat.sessionId!, 'name', '  课程周报  ');
+    expect(titleOf(chat.sessionId!)).toBe('课程周报');
+    await runSessionCommand(chat.sessionId!, 'name', '长'.repeat(80));
+    expect(titleOf(chat.sessionId!)).toHaveLength(60);
+    await expect(runSessionCommand(chat.sessionId!, 'name', '')).rejects.toThrow('用法：/name');
+  });
+
+  it('/name 改过的标题，首条消息不再覆盖', async () => {
+    state.configured = true;
+    const chat = newSession(null, 'chat');
+    await runSessionCommand(chat.sessionId!, 'name', '我的标题');
+    await askSession(chat.sessionId!, { text: '第一句话', attachments: [], context: [] });
+    expect(titleOf(chat.sessionId!)).toBe('我的标题');
+  });
+
+  it('/reload 结束当前实例并立刻按新配置重建；没配模型时只结束', async () => {
+    state.configured = true;
+    const chat = newSession(null, 'chat');
+    await askSession(chat.sessionId!, { text: '你好', attachments: [], context: [] });
+    expect(state.opened).toBe(1);
+    await runSessionCommand(chat.sessionId!, 'reload', '');
+    expect(state.disposed).toBe(1);
+    expect(state.opened).toBe(2);
+
+    state.configured = false;
+    await runSessionCommand(chat.sessionId!, 'reload', '');
+    expect(state.disposed).toBe(2);
+    expect(state.opened).toBe(2);
+  });
+
+  it('/compact 带上说明交给 Pi；常见失败换成能看懂的说明；用户取消不算失败', async () => {
+    state.configured = true;
+    const chat = newSession(null, 'chat');
+    await runSessionCommand(chat.sessionId!, 'compact', '保留接口设计的结论');
+    await runSessionCommand(chat.sessionId!, 'compact', '');
+    expect(state.compactCalls).toEqual(['保留接口设计的结论', undefined]);
+
+    state.compact = async () => {
+      throw new Error('Nothing to compact (session too small)');
+    };
+    await expect(runSessionCommand(chat.sessionId!, 'compact', '')).rejects.toThrow(
+      '对话还太短，没有可压缩的内容',
+    );
+    state.compact = async () => {
+      throw new Error('provider exploded');
+    };
+    await expect(runSessionCommand(chat.sessionId!, 'compact', '')).rejects.toThrow(
+      '压缩失败：provider exploded',
+    );
+    state.compact = async () => {
+      throw new Error('Compaction cancelled');
+    };
+    await expect(runSessionCommand(chat.sessionId!, 'compact', '')).resolves.toMatchObject({
+      sessionId: chat.sessionId,
+    });
+  });
+
+  it('回答进行中不执行命令，也不打断它', async () => {
+    state.configured = true;
+    const chat = newSession(null, 'chat');
+    let finish!: () => void;
+    state.onPrompt = () => new Promise<void>((resolve) => (finish = resolve));
+    const ask = askSession(chat.sessionId!, { text: '慢慢想', attachments: [], context: [] });
+    await vi.waitFor(() => expect(state.prompts).toHaveLength(1));
+    await expect(runSessionCommand(chat.sessionId!, 'compact', '')).rejects.toThrow(
+      '请等待当前回答完成',
+    );
+    await expect(runSessionCommand(chat.sessionId!, 'reload', '')).rejects.toThrow(
+      '请等待当前回答完成',
+    );
+    expect(state.compactCalls).toEqual([]);
+    expect(state.disposed).toBe(0);
+    finish();
+    await ask;
+  });
+
+  it('压缩期间配置变了：不中止压缩，压缩完再丢弃实例；期间发消息给出说明', async () => {
+    state.configured = true;
+    const chat = newSession(null, 'chat');
+    let finish!: () => void;
+    state.compact = () => {
+      state.compacting = true;
+      return new Promise<void>((resolve) => (finish = resolve)).finally(() => {
+        state.compacting = false;
+      });
+    };
+    const compact = runSessionCommand(chat.sessionId!, 'compact', '');
+    await vi.waitFor(() => expect(state.compacting).toBe(true));
+    invalidateSessions();
+    expect(state.disposed).toBe(0);
+    await expect(
+      askSession(chat.sessionId!, { text: '插一句', attachments: [], context: [] }),
+    ).rejects.toThrow('正在压缩上下文');
+    finish();
+    await compact;
+    await vi.waitFor(() => expect(state.disposed).toBe(1));
+  });
+});
+
+describe('上下文用量', () => {
+  const stats = (tokens: number | null) => ({
+    contextUsage: {
+      tokens,
+      contextWindow: 200_000,
+      percent: tokens === null ? null : (tokens / 200_000) * 100,
+    },
+    tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+  });
+
+  it('压缩后实际用量未知时显示估计值，有了实际用量就不再用它', () => {
+    expect(contextUsageView(stats(null) as never, 30_000)).toMatchObject({
+      tokens: 30_000,
+      percent: 15,
+      estimated: true,
+    });
+    expect(contextUsageView(stats(null) as never)).toMatchObject({ tokens: null, percent: null });
+    const actual = contextUsageView(stats(50_000) as never, 30_000);
+    expect(actual).toMatchObject({ tokens: 50_000, percent: 25 });
+    expect(actual?.estimated).toBeUndefined();
+  });
 });

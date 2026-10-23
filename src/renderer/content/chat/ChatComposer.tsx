@@ -33,6 +33,7 @@ import type {
   LlmProviderView,
   WebSearchEntrySummary,
 } from '../../../shared/api';
+import { SESSION_COMMANDS } from '../../../shared/api';
 import {
   CHAT_ATTACHMENT_MAX,
   chatFileKindOfFile,
@@ -159,7 +160,7 @@ export function ChatComposer({
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [customCommands, setCustomCommands] = useState<ChatCommandView[]>([]);
-  const [sessionCommands, setSessionCommands] = useState<ChatSlashCommand[]>([]);
+  const [extensionCommands, setExtensionCommands] = useState<ChatSlashCommand[]>([]);
   const extensionState = useExtensionSessionState(sessionId);
   // 两列模型面板：打开时读取设置配置保证新鲜；focusedId 是左列当前查看的提供商。
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
@@ -220,7 +221,7 @@ export function ChatComposer({
   useEffect(() => {
     if (!slashOpen) return;
     let alive = true;
-    void loadSessionCommands(sessionId).then((commands) => alive && setSessionCommands(commands));
+    void loadSessionCommands(sessionId).then((commands) => alive && setExtensionCommands(commands));
     return () => {
       alive = false;
     };
@@ -236,14 +237,24 @@ export function ChatComposer({
       ? [
           ...builtinCommands,
           ...customCommands.map((command) => ({ ...command, hint: '自定义' })),
-          // Pi 扩展命令与模板原样以 `/name ` 交给 Pi，由它执行或展开。
-          ...sessionCommands.map((command) => ({
+          // Dela 的会话命令：插入 `/name ` 留给参数，发送时由 use-chat 拦下执行。
+          ...SESSION_COMMANDS.map((command) => ({
             name: command.name,
             prompt: `/${command.name} `,
-            hint: [command.argumentHint, command.description || command.source]
+            hint: ['argumentHint' in command ? command.argumentHint : '', command.description]
               .filter(Boolean)
               .join(' · '),
           })),
+          // Pi 扩展命令与模板原样以 `/name ` 交给 Pi，由它执行或展开；与会话命令同名的被它遮住，不列。
+          ...extensionCommands
+            .filter((command) => !SESSION_COMMANDS.some((item) => item.name === command.name))
+            .map((command) => ({
+              name: command.name,
+              prompt: `/${command.name} `,
+              hint: [command.argumentHint, command.description || command.source]
+                .filter(Boolean)
+                .join(' · '),
+            })),
         ].filter((command) => command.name.includes(menu.query))
       : [];
   const mentionItems =
@@ -1031,8 +1042,10 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-13 font-medium text-ink">上下文</span>
             <span className="text-xs tabular-nums text-ink-3">
-              {usage.tokens === null ? '—' : formatTokens(usage.tokens)} /{' '}
-              {formatTokens(usage.contextWindow)}
+              {usage.tokens === null
+                ? '—'
+                : `${usage.estimated ? '约 ' : ''}${formatTokens(usage.tokens)}`}{' '}
+              / {formatTokens(usage.contextWindow)}
               {usage.percent !== null && ` (${usage.percent.toFixed(1).replace(/\.0$/, '')}%)`}
             </span>
           </div>
