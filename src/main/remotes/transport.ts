@@ -1,8 +1,8 @@
 /**
- * 远程传输层：内核工具、终端、目录树、@ 候选的全部远程能力都只经这里，默认调用系统 OpenSSH
- * （Windows 10 1809+ 自带），缺失时回退随包分发的 openssh，两者调用方式完全一致。
- * 每条命令都是一个独立的 ssh 子进程（Windows OpenSSH 不支持 ControlMaster 多路复用），
- * 因此一次工具调用可能付多次握手。
+ * ssh 边界：只承担引导 helper（探测、上传、启动、诊断）、连接自检、隧道与终端的连接参数。
+ * 远程项目的工具调用、目录树与预览都经 helper（见 helper.ts），不在这里。
+ * 默认调用系统 OpenSSH（Windows 10 1809+ 自带），缺失时回退随包分发的 openssh。
+ * 每条命令都是一个独立的 ssh 子进程（Windows OpenSSH 不支持 ControlMaster 多路复用）。
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -24,14 +24,10 @@ export function targetKey(target: RemoteTarget): string {
 
 interface ExecOptions {
   stdin?: Buffer | string;
+  /** 分块写 stdin 并报告已写字节（上传 helper 用）；不传就一次写完。 */
+  onStdinProgress?: (sent: number, total: number) => void;
   signal?: AbortSignal;
   timeoutMs?: number;
-  /** 流式回调（bash 工具用它把输出实时喂给 UI）。 */
-  onData?: (chunk: Buffer) => void;
-  /** stderr 的流式回调；bash 工具需要它，文件读取不需要（不能污染 stdout）。 */
-  onStderr?: (chunk: Buffer) => void;
-  /** 是否在内存里收集 stdout；流式长输出用 false，避免无上限占用。 */
-  collect?: boolean;
 }
 
 interface ExecResult {
@@ -45,15 +41,6 @@ export interface RemoteDirEntry {
   directory: boolean;
   size: number | null;
   modifiedAt: number | null;
-}
-
-interface RemoteLocation {
-  /** 解析后的绝对路径（远端 POSIX 形态）。 */
-  path: string;
-  kind: 'directory' | 'file' | 'missing';
-  /** 目录内容；不是目录时为 null。 */
-  entries: RemoteDirEntry[] | null;
-  directory: boolean;
 }
 
 /** 单条命令的兜底超时：远端挂住时不能让调用方永久等待。 */
@@ -131,7 +118,6 @@ export function exec(
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    const collect = options.collect !== false;
     const chunks: Buffer[] = [];
     const errors: Buffer[] = [];
     let timedOut = false;
@@ -149,14 +135,8 @@ export function exec(
       resolve(result);
     };
 
-    child.stdout.on('data', (chunk: Buffer) => {
-      options.onData?.(chunk);
-      if (collect) chunks.push(chunk);
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      options.onStderr?.(chunk);
-      errors.push(chunk);
-    });
+    child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    child.stderr.on('data', (chunk: Buffer) => errors.push(chunk));
     child.on('error', (error) => {
       clearTimeout(timer);
       options.signal?.removeEventListener('abort', onAbort);
@@ -171,9 +151,35 @@ export function exec(
       finish({ code: code ?? 1, stdout: Buffer.concat(chunks), stderr });
     });
 
-    if (options.stdin !== undefined) child.stdin.end(options.stdin);
-    else child.stdin.end();
+    if (options.stdin === undefined) child.stdin.end();
+    else if (!options.onStdinProgress) child.stdin.end(options.stdin);
+    else void writeChunked(child.stdin, Buffer.from(options.stdin), options.onStdinProgress);
   });
+}
+
+/** 进度粒度：64 KB 一块，等管道 drain 再写下一块，报出的字节数才是真的写进了 ssh。 */
+const STDIN_CHUNK = 64 * 1024;
+
+async function writeChunked(
+  stream: NodeJS.WritableStream,
+  body: Buffer,
+  onProgress: (sent: number, total: number) => void,
+): Promise<void> {
+  for (let offset = 0; offset < body.length; offset += STDIN_CHUNK) {
+    const chunk = body.subarray(offset, offset + STDIN_CHUNK);
+    if (!stream.write(chunk))
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          stream.off('drain', done);
+          stream.off('close', done);
+          resolve();
+        };
+        stream.on('drain', done);
+        stream.on('close', done);
+      });
+    onProgress(Math.min(offset + chunk.length, body.length), body.length);
+  }
+  stream.end();
 }
 
 /** 认证失败等错误在 stderr 上是英文原文；翻译成用户能动作的说明。 */
@@ -213,110 +219,4 @@ async function remoteHome(target: RemoteTarget): Promise<string> {
   const home = result.stdout.toString().trim();
   if (!home.startsWith('/')) throw new Error('未能解析远端主目录');
   return home;
-}
-
-/** GNU find 的 NUL 分隔清单：文件名含换行或空格也不会解析错。 */
-const listCommand = (path: string) =>
-  `LC_ALL=C find ${shellQuote(path)} -mindepth 1 -maxdepth 1 -printf '%y\\0%f\\0%s\\0%T@\\0' 2>/dev/null`;
-
-function parseListing(stdout: Buffer): RemoteDirEntry[] {
-  const parts = stdout.toString('utf8').split('\0');
-  const entries: RemoteDirEntry[] = [];
-  for (let index = 0; index + 3 < parts.length; index += 4) {
-    const name = parts[index + 1]!;
-    if (!name || name === '.' || name === '..') continue;
-    const size = Number(parts[index + 2]);
-    const modified = Number(parts[index + 3]);
-    entries.push({
-      name,
-      directory: parts[index] === 'd',
-      size: Number.isFinite(size) ? size : null,
-      modifiedAt: Number.isFinite(modified) ? modified * 1000 : null,
-    });
-  }
-  return entries;
-}
-
-/** 非 GNU find（Alpine 等）的退化路径：只有名字与目录标记，大小与时间未知。 */
-async function listFallback(target: RemoteTarget, path: string): Promise<RemoteDirEntry[]> {
-  const result = await run(target, `LC_ALL=C ls -A1p ${shellQuote(path)} 2>/dev/null || true`);
-  return result.stdout
-    .toString()
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => ({
-      name: line.endsWith('/') ? line.slice(0, -1) : line,
-      directory: line.endsWith('/'),
-      size: null,
-      modifiedAt: null,
-    }));
-}
-
-export async function listDirectory(target: RemoteTarget, path: string): Promise<RemoteDirEntry[]> {
-  const result = await exec(target, listCommand(path), { collect: true });
-  const entries = result.code === 0 ? parseListing(result.stdout) : [];
-  if (result.code === 0 && (entries.length > 0 || result.stdout.length > 0)) return entries;
-  return listFallback(target, path);
-}
-
-/** 一次调用同时回答「存在吗」「是目录吗」与目录内容：
- *  首行是类型标记（d/f/-），其后的 NUL 清单与 listDirectory 同格式。
- *  每次 ssh 都是一次握手（Windows 无多路复用），目录选择器全靠这一条命令翻页。 */
-export async function locate(target: RemoteTarget, path: string): Promise<RemoteLocation> {
-  const quoted = shellQuote(path);
-  // 类型标记一律用 printf '%s\n'，别让以 - 开头的格式串被 printf 当成选项。
-  const script = [
-    `if [ -d ${quoted} ]; then printf '%s\\n' d; ${listCommand(path)}`,
-    `elif [ -e ${quoted} ]; then printf '%s\\n' f`,
-    `else printf '%s\\n' -; fi`,
-  ].join('; ');
-  const result = await exec(target, script, { timeoutMs: 20_000 });
-  if (result.code !== 0) throw new Error(sshErrorMessage(result));
-  const separator = result.stdout.indexOf(0x0a);
-  if (separator < 0) throw new Error('远端返回无法解析的目录清单');
-  const marker = result.stdout.subarray(0, separator).toString().trim();
-  if (marker !== 'd')
-    return {
-      path,
-      kind: marker === 'f' ? 'file' : 'missing',
-      entries: null,
-      directory: false,
-    };
-  return {
-    path,
-    kind: 'directory',
-    entries: parseListing(result.stdout.subarray(separator + 1)),
-    directory: true,
-  };
-}
-
-export async function readFile(target: RemoteTarget, path: string, signal?: AbortSignal) {
-  const result = await exec(target, `LC_ALL=C cat -- ${shellQuote(path)}`, { signal });
-  if (result.code !== 0) throw new Error(sshErrorMessage(result));
-  return result.stdout;
-}
-
-/** 写入走「同目录临时文件 + mv」：失败不留半个文件，成功即原子替换（与本地笔记保存同款）。 */
-export async function writeFile(
-  target: RemoteTarget,
-  path: string,
-  content: Buffer | string,
-): Promise<void> {
-  const script = [
-    'set -e',
-    `d=$(dirname -- ${shellQuote(path)})`,
-    'mkdir -p -- "$d"',
-    'tmp="$d/.dela-write-$$"',
-    'cat > "$tmp"',
-    `mv -f -- "$tmp" ${shellQuote(path)}`,
-  ].join('\n');
-  const result = await exec(target, script, { stdin: content });
-  if (result.code !== 0) throw new Error(sshErrorMessage(result));
-}
-
-export async function pathExists(target: RemoteTarget, path: string): Promise<boolean> {
-  const result = await exec(target, `test -e ${shellQuote(path)}`, { timeoutMs: 20_000 });
-  if (result.code === 0) return true;
-  if (result.code === 1) return false;
-  throw new Error(sshErrorMessage(result));
 }

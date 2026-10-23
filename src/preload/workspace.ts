@@ -32,8 +32,8 @@ export const workspace = {
     on<OfficeExportEvent>('workspace:export-office-progress', listener),
   importFiles: (parentId: string | null) => invoke('workspace:import-files', parentId),
   importProjectFolder: () => invoke('workspace:import-project-folder'),
-  importRemoteProject: (remoteId: string, path: string) =>
-    invoke('workspace:import-remote-project', remoteId, path),
+  importRemoteProject: (remoteId: string, path: string, name?: string) =>
+    invoke('workspace:import-remote-project', remoteId, path, name),
   listRemoteDirectory: (projectId: string, path: string) =>
     invoke('workspace:list-remote', projectId, path) as Promise<RemoteDirectoryEntry[]>,
   readRemoteDocument: (projectId: string, path: string) =>

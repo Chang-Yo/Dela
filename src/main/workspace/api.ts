@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { remoteById, targetOf } from '../remotes/api';
-import { locate } from '../remotes/transport';
+import { locateRemote } from '../remotes/operations';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/api';
 import { availablePath, diskName, storageDirectory as directory } from '../storage';
@@ -99,6 +99,7 @@ export function remoteProjectOf(id: string): RemoteRoot | null {
 export async function importRemoteProject(
   remoteId: unknown,
   path: unknown,
+  name?: unknown,
 ): Promise<WorkspaceEntry> {
   const connection = remoteById(z.string().uuid().parse(remoteId));
   const remotePath = z
@@ -110,8 +111,9 @@ export async function importRemoteProject(
     })
     .parse(path)
     .replace(/\/+$/, '');
-  const location = await locate(targetOf(connection), remotePath);
-  if (!location.directory) throw new Error(`远端目录不存在：${remotePath}`);
+  const projectName = nameSchema.optional().parse(name || undefined);
+  const location = await locateRemote(targetOf(connection), remotePath);
+  if (location.kind !== 'directory') throw new Error(`远端目录不存在：${remotePath}`);
   const database = getDatabase();
   // 同一远端目录只登记一次：重复导入返回已有项目。
   const existing = database
@@ -129,7 +131,7 @@ export async function importRemoteProject(
     )
     .run(
       id,
-      posix.basename(remotePath) || remotePath,
+      projectName ?? (posix.basename(remotePath) || remotePath),
       remotePath,
       connection.id,
       new Date().toISOString(),
@@ -583,7 +585,15 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     .parse(input);
   const current = entry(id);
   if (id === workspaceArchiveId) throw new Error('归档文件夹不能修改');
-  if (remoteProjectOf(id)) throw new Error('远程项目暂不支持重命名或移动');
+  // 远程项目只能改 Dela 里登记的名字：远端目录不动，也不能挪到别的文件夹下。
+  if (remoteProjectOf(id)) {
+    if (parsed.parentId !== undefined || parsed.kind) throw new Error('远程项目不能移动');
+    if (parsed.name !== undefined)
+      getDatabase()
+        .prepare('UPDATE workspace_entries SET name=?, updated_at=? WHERE id=?')
+        .run(parsed.name, new Date().toISOString(), id);
+    return { id };
+  }
   if (parsed.parentId !== undefined)
     checkParent(parsed.parentId, current.kind === 'source' ? undefined : id);
   if (parsed.kind && current.kind !== 'folder' && current.kind !== 'project')

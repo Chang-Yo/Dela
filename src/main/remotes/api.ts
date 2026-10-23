@@ -12,17 +12,13 @@ import type {
   RemotePrepare,
   RemoteProbe,
   RemoteSetupProgress,
+  SshConfigHost,
 } from '../../shared/remotes';
 import { withinRemotePath } from '../../shared/remotes';
 import { prepareHelper } from './helper';
-import {
-  locate,
-  probeRemote,
-  shellQuote,
-  sshErrorMessage,
-  exec,
-  type RemoteTarget,
-} from './transport';
+import { locateRemote, makeRemoteDirectory } from './operations';
+import { sshConfigHosts } from './ssh-config';
+import { probeRemote, type RemoteTarget } from './transport';
 
 const hostPattern = /^[A-Za-z0-9._@:[\]-]+$/;
 
@@ -116,6 +112,12 @@ export function removeRemote(id: string): void {
   getDatabase().prepare('DELETE FROM remotes WHERE id=?').run(id);
 }
 
+/** 本机 ssh config 里还没保存为连接的主机：向导下拉框里作为候选。 */
+export function configHostCandidates(): SshConfigHost[] {
+  const saved = new Set(listRemotes().map((connection) => connection.host));
+  return sshConfigHosts().filter((host) => !saved.has(host.alias));
+}
+
 export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> {
   const parsed = remoteDraftSchema.parse(draft);
   try {
@@ -128,32 +130,29 @@ export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> 
 }
 
 /**
- * 向导「连接」：先自检（与设置页「测试连接」同一条 probe 路径），再引导 helper。
- *
- * helper 起不来不是失败：一次性 ssh 仍然承接全部远程能力，只是每次调用都要重新握手、
- * 没有目录实时刷新与大文件片段读取（见 docs/DEVELOPMENT.md §4）。
+ * 向导「连接」：引导 helper（已经连上就直接返回）。远程项目的全部能力都经 helper：
+ * 它起不来，这台服务器就不能当远程项目用。SSH 本身不通的原因由引导的第一步（探测）报出。
  */
 export async function prepareRemote(
   draft: RemoteDraft,
   onProgress?: (progress: RemoteSetupProgress) => void,
 ): Promise<RemotePrepare> {
   const parsed = remoteDraftSchema.parse(draft);
-  onProgress?.({ step: 'probe', detail: '正在检测 SSH 连接' });
-  const probe = await probeConnection(parsed);
-  onProgress?.({ step: 'probe', ok: probe.ok, detail: probe.message });
-  if (!probe.ok) return { ok: false, message: probe.message, helper: false };
-
-  const { session, failure } = await prepareHelper(targetOf(parsed), onProgress);
-  if (!session) {
-    onProgress?.({
-      step: 'ready',
-      ok: false,
-      detail: `helper 通道不可用${failure?.detail ? `（${failure.detail}）` : ''}，改用一次性 ssh：功能仍在，只是每次调用重新握手，且没有目录实时刷新与大文件片段读取`,
-    });
-    return { ok: true, message: probe.message, helper: false };
-  }
+  const { ok, failure, home } = await prepareHelper(targetOf(parsed), onProgress);
+  if (!ok) return { ok: false, message: failure ?? '未知原因', home: null };
   onProgress?.({ step: 'ready', ok: true, detail: 'helper 通道已就绪' });
-  return { ok: true, message: probe.message, helper: true };
+  return { ok: true, message: '', home };
+}
+
+/** 目录选择器里新建文件夹：只建一层，名字不许带路径分隔符。 */
+export async function createRemoteDirectory(
+  draft: RemoteDraft,
+  parent: string,
+  name: string,
+): Promise<string> {
+  const path = remoteJoin(parent.replace(/\/+$/, '') || '/', name);
+  await makeRemoteDirectory(targetOf(remoteDraftSchema.parse(draft)), path);
+  return path;
 }
 
 export function parentOf(path: string): string | null {
@@ -171,47 +170,21 @@ export function remoteJoin(directory: string, name: string): string {
 /** 目标路径是否就是项目根或在其之内；同为根时一律放行。渲染端构造地址时用同一份判断。 */
 export const withinRemoteRoot = withinRemotePath;
 
-export async function browseRemote(
-  draft: RemoteDraft,
-  path: string | null,
-): Promise<RemoteBrowseResult> {
-  const parsed = remoteDraftSchema.parse(draft);
-  const target = targetOf(parsed);
-  // 只有从主目录起步时才知道 home；后续翻页由渲染端沿用首次结果。
-  const home = path ? null : (await probeRemote(target)).home;
-  const wanted = path ?? home!;
-  const location = await locate(target, wanted);
-  if (!location.directory) throw new Error(`${wanted} 不是目录：请选择一个远端目录作为项目位置`);
-  const base = wanted.replace(/\/+$/, '');
+export async function browseRemote(draft: RemoteDraft, path: string): Promise<RemoteBrowseResult> {
+  const target = targetOf(remoteDraftSchema.parse(draft));
+  const wanted = path.replace(/\/+$/, '') || '/';
+  const location = await locateRemote(target, wanted);
+  if (location.kind !== 'directory')
+    throw new Error(`${wanted} 不是目录：请选择一个远端目录作为项目位置`);
   const directories = (location.entries ?? [])
     .filter((entry) => entry.directory)
     .map((entry) => ({
       name: entry.name,
-      path: remoteJoin(base, entry.name),
+      path: remoteJoin(wanted, entry.name),
       directory: true,
       size: null,
       modifiedAt: entry.modifiedAt,
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
-  return { path: wanted, parent: parentOf(wanted), home, directory: true, directories };
-}
-
-/** 远端仓库文件索引（@ 候选）。limit 会下推到远端命令：整仓索引可能有几万条，
- *  只取前 N 条时没必要先把它们传回来。 */
-export async function remoteFileIndex(
-  target: RemoteTarget,
-  path: string,
-  limit?: number,
-): Promise<string[]> {
-  const script = [
-    `cd ${shellQuote(path)} 2>/dev/null || exit 3`,
-    `if command -v rg >/dev/null 2>&1; then rg --files --hidden -g '!.git' -g '!node_modules' 2>/dev/null`,
-    `else find . -type f -not -path './.git/*' -not -path './node_modules/*' 2>/dev/null | sed 's|^\\./||'; fi${
-      limit ? ` | head -n ${limit}` : ''
-    }`,
-  ].join('; ');
-  const result = await exec(target, script, { timeoutMs: 60_000 });
-  if (result.code === 3) throw new Error(`远端目录不存在：${path}`);
-  if (result.code !== 0) throw new Error(sshErrorMessage(result));
-  return result.stdout.toString().split('\n').filter(Boolean);
+  return { path: wanted, parent: parentOf(wanted), directories };
 }

@@ -38,30 +38,43 @@ describe('远程 IPC 通道契约', () => {
     const registered = [...state.handled].sort();
     expect(registered).toEqual([
       'remotes:browse',
+      'remotes:cancel-task',
+      'remotes:config-hosts',
+      'remotes:helper-states',
       'remotes:list',
+      'remotes:mkdir',
       'remotes:pick-key',
       'remotes:prepare',
       'remotes:probe',
       'remotes:remove',
+      'remotes:retry',
       'remotes:save',
+      'remotes:tasks',
     ]);
 
     // 每个方法都真的发一次：少一个方法（或写成别的通道名）这里就对不上。
+    const remoteId = '00000000-0000-4000-8000-000000000000';
     await Promise.all([
       remotes.list(),
       remotes.save({ host: 'root@10.0.0.5' }),
-      remotes.remove('00000000-0000-4000-8000-000000000000'),
+      remotes.remove(remoteId),
       remotes.probe({ host: 'root@10.0.0.5' }),
-      remotes.browse({ host: 'root@10.0.0.5' }, null),
+      remotes.browse({ host: 'root@10.0.0.5' }, '/'),
+      remotes.mkdir({ host: 'root@10.0.0.5' }, '/', 'proj'),
+      remotes.configHosts(),
       remotes.pickKey(),
       remotes.prepare({ host: 'root@10.0.0.5' }),
+      remotes.tasks(remoteId),
+      remotes.cancelTask(remoteId, 'task-1'),
+      remotes.retry(remoteId),
     ]);
-    expect([...new Set(state.invoked)].sort()).toEqual(registered);
-    expect(state.invoked).toHaveLength(7);
 
     // 订阅走的不是 invoke：通道名写错同样只在真窗口里表现为「进度一条都不来」。
+    // onHelperState 订阅时补拉一次当前快照（remotes:helper-states）。
     const unsubscribe = remotes.onSetupProgress(() => {});
     const unsubscribeState = remotes.onHelperState(() => {});
+    expect([...new Set(state.invoked)].sort()).toEqual(registered);
+    expect(state.invoked).toHaveLength(13);
     expect([...new Set(state.listened)].sort()).toEqual([
       'remotes:helper-state',
       'remotes:setup-progress',

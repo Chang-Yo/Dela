@@ -40,7 +40,7 @@ class FakeSession {
 const sessions = new Map<string, FakeSession>();
 
 vi.mock('../helper', () => ({
-  helperSession: async (target: { host: string }) => sessions.get(target.host) ?? null,
+  helperSession: (target: { host: string }) => sessions.get(target.host)!,
 }));
 
 import { onRemoteChange } from '../events';
@@ -102,8 +102,15 @@ it('撤销监视会告诉 helper，空集合等于取消', async () => {
   expect(empty.watching).toBe(0);
 });
 
-it('helper 起不来时不报错，只是拿不到监视', async () => {
-  sessions.clear();
+it('helper 不可用时不报错，只是拿不到监视', async () => {
+  const unavailable = new FakeSession();
+  unavailable.setWatch = async () => {
+    throw new Error('远端 user@10.0.0.5 不可用：noexec');
+  };
+  unavailable.watchEvents = async () => {
+    throw new Error('远端 user@10.0.0.5 不可用：noexec');
+  };
+  sessions.set(target.host, unavailable);
   const result = await watchRemoteProject({
     projectId: 'p-1',
     target,
