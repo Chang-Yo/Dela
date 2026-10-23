@@ -82,16 +82,15 @@ pnpm test
 
 根据改动范围补充相应的冒烟或真机测试：
 
-| 场景                           | 命令                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| Electron 基础冒烟              | `pnpm smoke`                                                                               |
-| macOS 依赖、Keychain、Bash PTY | `pnpm smoke:macos`                                                                         |
-| 离线运行时与 `dela` 桥         | `pnpm smoke:runtime`                                                                       |
-| 原生菜单、窗口关闭与恢复       | `pnpm smoke:desktop`                                                                       |
-| 工作区、文档组件、PDF、水源    | `pnpm smoke:workspace` / `pnpm smoke:documents` / `pnpm smoke:pdf` / `pnpm smoke:shuiyuan` |
-| 远程项目真机回归               | `pnpm test:remote`，需要 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`                        |
-| 远程项目窗口冒烟               | `pnpm smoke:remote`，同样需要 `DELA_REMOTE_HOST`                                           |
-| 打包目录启动                   | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test`                        |
+| 场景                        | 命令                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| Electron 基础冒烟           | `pnpm smoke`                                                                               |
+| 离线运行时与 `dela` 桥      | `pnpm smoke:runtime`                                                                       |
+| 原生菜单、窗口关闭与恢复    | `pnpm smoke:desktop`                                                                       |
+| 工作区、文档组件、PDF、水源 | `pnpm smoke:workspace` / `pnpm smoke:documents` / `pnpm smoke:pdf` / `pnpm smoke:shuiyuan` |
+| 远程项目真机回归            | `pnpm test:remote`，需要 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`                        |
+| 远程项目窗口冒烟            | `pnpm smoke:remote`，同样需要 `DELA_REMOTE_HOST`                                           |
+| 打包目录启动                | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test`                        |
 
 - 修改 `src/main/remotes/`、`helper/` 或远端路径与上下文镜像时，必须通过 `pnpm test:remote` 在真机上执行回归；该套件在默认测试与 CI 中均会跳过。
 - 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke`、`mingit-smoke` 与 `smoke:documents` 外，不应向真实服务发送请求。
