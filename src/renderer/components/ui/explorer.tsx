@@ -17,6 +17,7 @@ import { cn } from '../../lib/utils';
 import { fileIconUrl } from './file-icons';
 
 export interface ExplorerItem {
+  gitIgnored?: boolean;
   id: string;
   parentId: string | null;
   name: string;
@@ -535,7 +536,10 @@ export function Explorer({
                     style={accent}
                   />
                 ))}
-              <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
+              <span
+                className={cn('min-w-0 flex-1 truncate', item.gitIgnored && 'text-ink-3')}
+                title={item.title ?? item.name}
+              >
                 {item.name}
               </span>
               {item.badge && <span className="text-xs tabular-nums text-ink-3">{item.badge}</span>}

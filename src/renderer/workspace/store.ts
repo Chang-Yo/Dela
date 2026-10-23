@@ -183,7 +183,11 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
       refreshPromise = (async () => {
         while (refreshPending) {
           refreshPending = false;
-          const all = refreshAll;
+          const all =
+            refreshAll ||
+            [...refreshPaths].some((path) =>
+              /(?:^|[\\/])\.gitignore$|\.git[\\/]info[\\/]exclude$/.test(path),
+            );
           const changes = [...refreshPaths];
           refreshAll = false;
           refreshPaths.clear();

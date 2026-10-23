@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
+import { hiddenWorkspaceNames } from '../../shared/workspace';
 import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/ui/explorer';
 import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
 import {
@@ -198,7 +199,12 @@ export function ProjectFileTree({
     const pending = [rootId];
     while (pending.length) {
       for (const entry of children.get(pending.pop()!) ?? []) {
-        if (excluded.has(entry.id) || included.has(entry.id)) continue;
+        if (
+          excluded.has(entry.id) ||
+          included.has(entry.id) ||
+          hiddenWorkspaceNames.has(entry.name)
+        )
+          continue;
         included.add(entry.id);
         pending.push(entry.id);
       }
@@ -232,6 +238,7 @@ export function ProjectFileTree({
       title:
         e.remoteId && e.path ? remoteTitle(remote.destinations[e.remoteId], e.path) : undefined,
       readOnly: Boolean(e.remoteId),
+      gitIgnored: e.gitIgnored,
       // 同一台服务器的行同色：取色只看连接 id，同连接的项目行与子条目自然一致。
       accent,
     };

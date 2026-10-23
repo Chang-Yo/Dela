@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RemoteChannelState, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
+import { hiddenWorkspaceNames } from '../../shared/workspace';
 import type { ExplorerItem } from '../components/ui/explorer';
 import { errorText } from '../workspace/store';
 import { useRemoteActivity } from './remote-activity';
@@ -246,6 +247,7 @@ export function useRemoteTree(
     const accent = remoteAccent(project.remoteId, 'text');
     const walk = (path: string, parentId: string | null) => {
       for (const child of listings[keyOf(project, path)] ?? []) {
+        if (hiddenWorkspaceNames.has(child.name)) continue;
         const childKey = remoteNodeId(project.id, child.path);
         items.push({
           id: childKey,

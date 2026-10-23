@@ -216,7 +216,9 @@ Mac 设置页切换登录启动后读取系统实际状态，再保存偏好并�
 
 本地文件树按目录读取。`workspace:get-state` 通过 `main/workspace/local-tree.ts` 返回工作区根清单、已登记项目及其祖先，不递归扫描项目后代。展开目录时调用 `workspace:list-local`，异步 `readdir` 只列一层，不对每个文件读取 mtime；未登记文件的列表 `updatedAt` 为空，正文 revision 仍在读取文件时计算。折叠目录或隐藏侧栏后释放对应目录缓存。已展开目录按父子索引生成可见行，超过 100 行时使用 TanStack Virtual，仅挂载视口附近的行；键盘定位、选中项定位和行内新建保留。
 
-递归监听根去除重叠范围，项目取消登记后关闭旧监听。`workspace:changed` 携带合并后的绝对变化路径；内容写入不改变名称和类型，因此不刷新目录清单。渲染端串行合并变化，只重新读取受影响的已加载目录；刷新期间收到的新变化会触发后续读取。名称搜索独立异步遍历目录，输入防抖 250 ms，新搜索取消旧搜索，结果带祖先链；打开结果或新建深层文件时补齐必要的祖先。聊天 `@` 文件候选也独立读取会话 cwd，变化触发的扫描串行合并，不依赖侧栏是否展开。搜索和引用遍历跳过 `.git`、`node_modules`，不读取文件正文；普通目录展开仍可查看这些目录。完整同步 `getWorkspaceState()` 暂保留给现有 agent 工具，界面不再调用。
+递归监听根去除重叠范围，项目取消登记后关闭旧监听。`workspace:changed` 携带合并后的绝对变化路径；内容写入不改变名称和类型，因此不刷新目录清单。渲染端串行合并变化，只重新读取受影响的已加载目录；刷新期间收到的新变化会触发后续读取。名称搜索独立异步遍历目录，输入防抖 250 ms，新搜索取消旧搜索，结果带祖先链；打开结果或新建深层文件时补齐必要的祖先。聊天 `@` 文件候选也独立读取会话 cwd，变化触发的扫描串行合并，不依赖侧栏是否展开。搜索和引用遍历跳过 `.git`、`node_modules`，不读取文件正文；普通目录展开仍可查看 node_modules。完整同步 `getWorkspaceState()` 暂保留给现有 agent 工具，界面不再调用。
+
+文件树默认隐藏 `.git`、`.svn`、`.hg`、`.DS_Store`、`Thumbs.db`，保留 `.env`、`.gitignore`、`.vscode` 等配置文件。本地目录使用 [Git check-ignore](https://git-scm.com/docs/git-check-ignore) 的 `--stdin -z` 批量判断忽略状态，忽略项保留并使用 `text-ink-3` 淡化名称；遵循 Git 的嵌套规则、反向规则和已跟踪文件语义。每个目录清单只启动一次异步 Git 查询，搜索完成后按根目录批量判断，引用扫描不额外查询 Git。Git 不可用或目录不是仓库时正常展示；`.gitignore` 与 `.git/info/exclude` 变化刷新已加载目录的标记。远端树使用同一隐藏名单，暂不查询远端 Git 忽略状态。
 
 实现参考：[Electron 性能建议](https://www.electronjs.org/docs/latest/tutorial/performance)的异步文件 I/O、[VS Code 文件监听说明](https://github.com/microsoft/vscode/wiki/File-Watcher-Internals)的监听去重，以及 [TanStack Virtual](https://tanstack.com/virtual/latest/docs/api/virtualizer) 的可见行渲染与动态测量。
 

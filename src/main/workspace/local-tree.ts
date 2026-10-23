@@ -1,10 +1,12 @@
 import { mkdir, readdir, stat } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { basename, dirname, join, relative, resolve, isAbsolute, sep } from 'node:path';
 import { getDatabase } from '../database';
 import { storageDirectory } from '../storage';
 import { entry, prepareStorage, remoteProjectOf } from './api';
 import {
   workspaceArchiveId,
+  hiddenWorkspaceNames,
   type WorkspaceEntry,
   type WorkspaceState,
 } from '../../shared/workspace';
@@ -24,6 +26,42 @@ function within(root: string, path: string) {
   return !isAbsolute(suffix) && suffix !== '..' && !suffix.startsWith(`..${sep}`);
 }
 
+async function markGitIgnored(entries: WorkspaceEntry[], cwd: string) {
+  const files = entries.filter((item) => item.path && !item.remoteId && item.kind !== 'source');
+  if (!files.length) return entries;
+  const input = files.map((item) => item.path!.replaceAll('\\', '/')).join('\0') + '\0';
+  const ignored = await new Promise<Set<string>>((done) => {
+    const child = execFile(
+      'git',
+      ['check-ignore', '--stdin', '-z'],
+      {
+        cwd,
+        windowsHide: true,
+        timeout: 3000,
+        maxBuffer: Math.max(1024 * 1024, Buffer.byteLength(input) * 2),
+      },
+      (error, stdout) =>
+        done(
+          new Set(
+            error
+              ? []
+              : stdout
+                  .split('\0')
+                  .filter(Boolean)
+                  .map((path) => resolve(path)),
+          ),
+        ),
+    );
+    // 非仓库或 Git 提前退出时，stdin 可能关闭；目录浏览仍正常返回。
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(input);
+  });
+  return entries.map((item) => ({
+    ...item,
+    gitIgnored: Boolean(item.path && ignored.has(resolve(item.path))),
+  }));
+}
+
 async function readDirectory(path: string, parentId: string | null, stored: WorkspaceEntry[]) {
   const identities = new Map(
     stored
@@ -33,6 +71,7 @@ async function readDirectory(path: string, parentId: string | null, stored: Work
   const children = await readdir(path, { withFileTypes: true });
   const entries: WorkspaceEntry[] = [];
   for (const child of children) {
+    if (hiddenWorkspaceNames.has(child.name)) continue;
     if (child.isSymbolicLink() || (!child.isDirectory() && !child.isFile())) continue;
     const file = join(path, child.name);
     const identity = identities.get(file);
@@ -63,7 +102,7 @@ export async function listLocalDirectory(id: string | null): Promise<WorkspaceEn
   if (parent && parent.kind !== 'project' && parent.kind !== 'folder')
     throw new Error('请选择目录');
   const path = parent?.path ?? join(storageDirectory(), 'workspace');
-  return readDirectory(resolve(path), id, storedEntries());
+  return markGitIgnored(await readDirectory(resolve(path), id, storedEntries()), path);
 }
 
 export async function localEntryAncestors(id: string): Promise<WorkspaceEntry[]> {
@@ -106,7 +145,7 @@ export async function getLocalWorkspaceState(): Promise<WorkspaceState> {
   const stored = storedEntries();
   // prepareStorage 不保证无归档种子行的测试库已有 workspace。
   await mkdir(root, { recursive: true });
-  const entries = await readDirectory(root, null, stored);
+  const entries = await markGitIgnored(await readDirectory(root, null, stored), root);
   const byPath = new Map(
     entries.filter((item) => item.path).map((item) => [resolve(item.path!), item]),
   );
@@ -183,7 +222,7 @@ export async function searchLocalWorkspace(
   while (pending.length) {
     if (signal?.aborted) return [];
     const { item, ancestors } = pending.pop()!;
-    if (seen.has(item.id) || item.remoteId) continue;
+    if (seen.has(item.id) || item.remoteId || hiddenWorkspaceNames.has(item.name)) continue;
     seen.add(item.id);
     if (item.name.toLocaleLowerCase().includes(needle)) {
       for (const parent of ancestors) found.set(parent.id, parent);
@@ -202,5 +241,27 @@ export async function searchLocalWorkspace(
       if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error;
     }
   }
-  return [...found.values()];
+  const results = [...found.values()];
+  if (!query.trim()) return results;
+  // 搜索结果按根批量修饰，避免遍历每个目录时启动 Git。
+  const directories = rootId
+    ? roots
+        .filter((root) => root.path)
+        .map((root) => (root.kind === 'file' ? dirname(root.path!) : root.path!))
+    : [
+        join(storageDirectory(), 'workspace'),
+        ...stored
+          .filter((item) => item.kind === 'project' && item.path && !item.remoteId)
+          .map((item) => item.path!),
+      ];
+  const decorated = await Promise.all(
+    [...new Set(directories)].map((directory) =>
+      markGitIgnored(
+        results.filter((item) => item.path && within(directory, item.path)),
+        directory,
+      ),
+    ),
+  );
+  const byId = new Map(decorated.flat().map((item) => [item.id, item]));
+  return results.map((item) => byId.get(item.id) ?? item);
 }

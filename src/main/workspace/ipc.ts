@@ -101,9 +101,14 @@ function watchWorkspace(client: WebContents, state: WorkspaceState) {
     try {
       const watcher = watch(root, { recursive: true, persistent: false }, (event, file) => {
         // 目录清单不含内容或 mtime；内容写入不应使整棵树和引用候选失效。
-        if (event === 'change') return;
+        const ignoreRules =
+          file &&
+          (basename(String(file)) === '.gitignore' ||
+            /\.git[\\/]info[\\/]exclude$/.test(String(file)));
+        if (event === 'change' && !ignoreRules) return;
         if (
           file &&
+          !ignoreRules &&
           String(file)
             .split(/[\\/]/)
             .some((part) => part === '.git' || part === 'node_modules')
