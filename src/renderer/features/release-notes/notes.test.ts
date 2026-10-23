@@ -1,46 +1,34 @@
 // @vitest-environment jsdom
-// 更新内容弹窗的数据：只取 CHANGELOG 的「亮点」，按已看过的版本区间合并。
+// 更新内容弹窗的数据：取 CHANGELOG 每个版本的条目，按已看过的版本区间合并。
 import { beforeEach, expect, it } from 'vitest';
 import { notesBetween, parseReleaseNotes, takePendingReleaseNotes } from './notes';
 
 const sample = `# Changelog
 
-## Unreleased
+约定说明不是版本分节。
 
-### 亮点
+## Unreleased
 
 - 未发布的不显示
 
 ## 1.2.0 - 2026-11-02
 
-### 亮点
-
-- 第二条亮点
-- 第三条亮点
-
-### Fixed
-
-- 内部修复不进弹窗
+- 第二条条目
+- 第三条条目
 
 ## 1.1.0 - 2026-11-01
 
-### Fixed
-
-- 没有亮点的版本
-
 ## 1.0.5 - 2026-10-20
 
-### 亮点
-
-- 第一条亮点
+- 第一条条目
 `;
 
 beforeEach(() => localStorage.clear());
 
-it('只收已发布且写了亮点的版本，且不混入其他小节', () => {
+it('只收已发布版本，未发布与无条目版本跳过', () => {
   expect(parseReleaseNotes(sample)).toEqual([
-    { version: '1.2.0', date: '2026-11-02', highlights: ['第二条亮点', '第三条亮点'] },
-    { version: '1.0.5', date: '2026-10-20', highlights: ['第一条亮点'] },
+    { version: '1.2.0', date: '2026-11-02', items: ['第二条条目', '第三条条目'] },
+    { version: '1.0.5', date: '2026-10-20', items: ['第一条条目'] },
   ]);
 });
 

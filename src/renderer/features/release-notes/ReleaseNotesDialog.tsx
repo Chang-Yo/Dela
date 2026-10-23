@@ -1,4 +1,4 @@
-// 更新后首次启动的「更新内容」弹窗：内容取自 CHANGELOG 的「亮点」小节，没写亮点的版本不弹。
+// 更新后首次启动的「更新内容」弹窗：内容取自 CHANGELOG 每个版本的条目，条数本身就是上限。
 import { useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Button } from '../../components/ui/button';
@@ -34,7 +34,7 @@ export function ReleaseNotesDialog() {
                   </h3>
                 )}
                 <ul className="grid list-disc gap-1.5 pl-4 text-13 leading-relaxed text-ink-2">
-                  {note.highlights.map((item) => (
+                  {note.items.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>

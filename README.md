@@ -121,7 +121,7 @@ pnpm dev
     </td>
     <td valign="middle">
       <a href="https://www.frameneo.com/"><strong>FRAMENEO</strong></a><br>
-      Provides CDN delivery for MAD Toolbox, reducing origin bandwidth usage for downloads and updates.
+      为 Dela 的软件包分发提供免费的高速CDN服务。
     </td>
     <td valign="middle">
       <a href="https://www.frameneo.com/">FRAMENEO Website</a>
