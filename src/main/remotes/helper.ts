@@ -1,58 +1,64 @@
 /**
- * 远端 helper 通道：Windows OpenSSH 没有 ControlMaster（实测冷启 4.2 秒），这里用一条常驻通道复用握手，
- * 并补上 shell 命令给不了的能力（片段读取、二进制原子写、服务端哈希、可取消/流式长任务）。
- * 任何一步不成立（缺产物、架构不符、远程不许执行、启动失败、隧道不通）都返回 null，调用方退回一次性 ssh —— 降级路径必须始终可用。
+ * 远端 runtime（dela-helper）通道：远程项目的全部工具调用都经这里，没有一次性 ssh 的退路。
+ *
+ * helper 在远端常驻（最后一个客户端断开后再活 1 小时），生命周期不随隧道：网络抖动只让本地进入
+ * reconnecting，请求排队等通道回来，远端在跑的任务不受影响，重连后按偏移接回输出。
+ * ssh 只承担引导（探测、上传、启动、诊断）、重连（读 run.json）与隧道本身。
  */
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { request as httpRequest } from 'node:http';
+import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
 import { app } from 'electron';
-import type { HelperDegradation, RemoteSetupProgress } from '../../shared/remotes';
+import type { RemoteChannelState, RemoteSetupProgress, RemoteTask } from '../../shared/remotes';
 import {
   exec,
   locateSsh,
   shellQuote,
   sshBaseArguments,
+  sshErrorMessage,
   targetKey,
   type RemoteDirEntry,
   type RemoteTarget,
 } from './transport';
 
 /** 必须与 helper/main.go 的 helperVersion 一致：不匹配说明远端跑的不是这一版产物。 */
-export const HELPER_VERSION = '0.2.0';
-const PROTOCOL_VERSION = 1;
-/** 客户端每 30 秒发一次心跳，helper 连续 5 分钟收不到就退出并终止在跑的任务。 */
+export const HELPER_VERSION = '0.3.1';
+const PROTOCOL_VERSION = 2;
+/** 客户端每 30 秒发一次心跳；helper 连续 1 小时收不到任何请求才退出。 */
 const HEARTBEAT_MS = 30_000;
-const IDLE_TIMEOUT = '300s';
+const IDLE_TIMEOUT = '1h';
 const BOOTSTRAP_TIMEOUT_MS = 30_000;
 const UPLOAD_TIMEOUT_MS = 300_000;
 const REQUEST_TIMEOUT_MS = 120_000;
 const TUNNEL_READY_MS = 5_000;
 const STARTUP_WAIT_MS = 20_000;
-/** 调用失败后探活的上限：真断了会立刻连不上，半死的隧道才需要等到超时。 */
 const PROBE_TIMEOUT_MS = 3_000;
-/** 心跳连续失败几次算通道死了：一次失败可能只是通道被大任务占着（30 秒一次心跳）。 */
-const HEARTBEAT_FAILURES_BEFORE_DEAD = 3;
-/** exec 的客户端兜底：比 helper 自己的超时多留一点，正常都由 helper 先判定。 */
-const EXEC_GRACE_MS = 5_000;
-/** watch 流没有事件多久算「隧道半死」：正常心跳是 30 秒一次，5 分钟足够宽松。 */
-const WATCH_IDLE_MS = 300_000;
+/** 心跳连续失败几次算隧道断了：一次失败可能只是隧道被大响应占着。 */
+const HEARTBEAT_FAILURES_BEFORE_LOST = 3;
+/** 重连退避：1、2、4…秒，封顶 8 秒；整个重连窗口 60 秒，过了就判为不可用。 */
+const RECONNECT_MIN_MS = 1_000;
+const RECONNECT_MAX_MS = 8_000;
+const RECONNECT_WINDOW_MS = 60_000;
+/** 不可用之后，下一次调用距上次尝试超过这么久就自动再试一次（不定时轮询远端）。 */
+const RETRY_AFTER_MS = 30_000;
+/** 任务输出流多久没有字节算隧道半死：helper 在安静的流上每 30 秒发一条保活注释。 */
+const STREAM_IDLE_MS = 90_000;
 
 /** helper 推回来的目录事件：change 是「这几层要重读」，reset 是「丢过事件，整片重读」。 */
 export type WatchEvent =
   { type: 'change'; id: string; paths: string[] } | { type: 'reset'; id: string; reason: string };
 
-/** 远端架构 → 产物名里的 GOARCH。helper 只有 Linux 版本，其它一律降级。 */
+/** 远端架构 → 产物名里的 GOARCH。 */
 function helperArch(machine: string): 'amd64' | 'arm64' | null {
   if (machine === 'x86_64' || machine === 'amd64') return 'amd64';
   if (machine === 'aarch64' || machine === 'arm64') return 'arm64';
   return null;
 }
 
-/** 本地产物路径：开发时在 vendor/，打包后在 resources/。找不到就降级。 */
+/** 本地产物路径：开发时在 vendor/，打包后在 resources/。 */
 export function helperArtifact(arch: string): string | null {
   const root = app.isPackaged
     ? join(process.resourcesPath, 'dela-helper')
@@ -69,7 +75,7 @@ function helperRemoteDir(digest: string): string {
 /**
  * 分类受限环境的诊断输出（一行 key=value，竖线分隔）。
  * noexec／只读挂载／SELinux 的表象都一样——helper 起不来，原因必须单独问一次才说得清。
- * 只有「直接执行也失败」时才谈得上执行被拦；分类不出返回 null，让原始错误自己说话。
+ * 这些环境不在支持范围内，分类只为让用户知道为什么用不了。
  */
 export function classifyEnvironment(output: string): string | null {
   const values = new Map<string, string>();
@@ -120,15 +126,13 @@ function tunnelArguments(target: RemoteTarget, localPort: number, remotePort: nu
   ];
 }
 
-/**
- * 端口预览用的独立隧道：只做本地收尾，与 helper 通道无关——通道切换、放掉都不影响它，
- * 生命周期归调用方（显式停止或应用退出）。远端服务死了隧道还在：它只是一条转发管道，
- * 连不上时浏览器报连接拒绝，这就是准确的反馈，不值得为此探活。
- */
-export async function openPortTunnel(
-  target: RemoteTarget,
-  remotePort: number,
-): Promise<PortTunnel> {
+interface Tunnel {
+  localPort: number;
+  process: ChildProcess;
+}
+
+/** 起一条 `ssh -L` 并等本地端口可连；失败时把 ssh 的 stderr 一并带上。 */
+async function openTunnel(target: RemoteTarget, remotePort: number): Promise<Tunnel> {
   const localPort = await freePort();
   const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
     windowsHide: true,
@@ -139,19 +143,31 @@ export async function openPortTunnel(
     stderr += chunk.toString();
   });
   try {
-    await waitForPort(localPort, TUNNEL_READY_MS);
+    await waitForPort(localPort, TUNNEL_READY_MS, tunnel);
+    return { localPort, process: tunnel };
   } catch (error) {
     tunnel.kill();
     const detail = stderr.trim();
     throw detail ? new Error(`${String(error)}｜${detail}`) : error;
   }
+}
+
+/**
+ * 端口预览用的独立隧道：与 helper 通道无关——通道重连、不可用都不影响它，生命周期归调用方。
+ * 远端服务死了隧道还在：浏览器报连接拒绝就是准确的反馈。
+ */
+export async function openPortTunnel(
+  target: RemoteTarget,
+  remotePort: number,
+): Promise<PortTunnel> {
+  const tunnel = await openTunnel(target, remotePort);
   let closed = false;
   return {
-    localPort,
+    localPort: tunnel.localPort,
     close() {
       if (closed) return;
       closed = true;
-      tunnel.kill();
+      tunnel.process.kill();
     },
   };
 }
@@ -159,7 +175,7 @@ export async function openPortTunnel(
 export interface HelperExecOptions {
   cwd: string;
   signal?: AbortSignal;
-  /** 毫秒；由调用方换算，与 transport.exec 一致。 */
+  /** 毫秒；由调用方换算。 */
   timeoutMs?: number;
   env?: Record<string, string>;
   onData?: (chunk: Buffer) => void;
@@ -168,7 +184,8 @@ export interface HelperExecOptions {
 export interface HelperExecResult {
   code: number;
   state: 'exited' | 'cancelled' | 'timeout';
-  discarded: number;
+  /** 断线期间被缓冲挤掉、没能接回的字节数。 */
+  lost: number;
 }
 
 /** helper 的 stat 结果；路径不存在时 exists 为 false，其余字段为零值。 */
@@ -176,8 +193,43 @@ export interface HelperStat {
   path: string;
   exists: boolean;
   directory: boolean;
+  readable: boolean;
   size: number;
   modifiedAt: number;
+}
+
+/** list 带 locate 时的回答：路径不是目录也不报错。 */
+export interface HelperLocation {
+  path: string;
+  kind: 'directory' | 'file' | 'missing';
+  entries: RemoteDirEntry[];
+}
+
+export interface HelperGlobResult {
+  files: string[];
+  truncated: boolean;
+}
+
+export interface HelperSearchRequest {
+  path: string;
+  pattern: string;
+  glob?: string;
+  ignoreCase?: boolean;
+  literal?: boolean;
+  context?: number;
+  limit?: number;
+}
+
+export interface HelperSearchMatch {
+  path: string;
+  line: number;
+  text: string;
+  context?: { line: number; text: string }[];
+}
+
+export interface HelperSearchResult {
+  matches: HelperSearchMatch[];
+  truncated: boolean;
 }
 
 /** 远端监听端口（/v1/ports）：pid 与进程名拿不到（别的用户）时缺省。 */
@@ -194,8 +246,6 @@ export interface PortTunnel {
 
 export interface HelperSession {
   target: RemoteTarget;
-  /** 隧道本地端口，仅用于诊断展示。 */
-  port: number;
   readFile(path: string, signal?: AbortSignal): Promise<Buffer>;
   /** 片段读取（预览大文件用）：只把请求的那一段拉回本地，不整篇进内存。 */
   readFileRange(
@@ -204,18 +254,28 @@ export interface HelperSession {
     length: number,
     signal?: AbortSignal,
   ): Promise<Buffer>;
+  /** 原子写；缺失的父目录由 helper 建好。 */
   writeFile(path: string, content: Buffer | string): Promise<void>;
-  /** 目录清单（helper 的 `/v1/fs/list`）：一次 HTTP，不必为列一层付一次 ssh 握手。 */
   list(path: string, signal?: AbortSignal): Promise<RemoteDirEntry[]>;
-  /** 批量 stat（helper 的 `/v1/fs/stat`）：预览按 Range 取字节时每块都要 size/mtime，列父目录太贵。 */
+  /** 一次请求回答「存在吗、是目录吗、里面有什么」：目录选择器用。 */
+  locate(path: string, signal?: AbortSignal): Promise<HelperLocation>;
   stat(paths: string[], signal?: AbortSignal): Promise<HelperStat[]>;
+  glob(
+    path: string,
+    pattern: string,
+    limit: number,
+    signal?: AbortSignal,
+  ): Promise<HelperGlobResult>;
+  search(request: HelperSearchRequest, signal?: AbortSignal): Promise<HelperSearchResult>;
   /** 替换某个 id 的目录监视集合（只监视这些目录本身，不递归）。 */
   setWatch(id: string, paths: string[]): Promise<{ watching: number; skipped: string[] }>;
   clearWatch(id: string): Promise<void>;
-  /** 远端监听端口（回环与通配地址，helper 自己的除外）：端口预览用。 */
   listPorts(): Promise<HelperPort[]>;
-  /** 目录事件流：resolve 表示流结束（通道断/helper 退出），由调用方决定是否重连。 */
+  listTasks(): Promise<RemoteTask[]>;
+  cancelTask(id: string): Promise<void>;
+  /** 目录事件流：resolve 表示流结束（隧道断/helper 退出），由调用方决定是否重连。 */
   watchEvents(onEvent: (event: WatchEvent) => void, signal?: AbortSignal): Promise<void>;
+  /** 执行命令：断线时等通道回来、按偏移接回，命令本身只执行一次。 */
   exec(command: string, options: HelperExecOptions): Promise<HelperExecResult>;
 }
 
@@ -235,10 +295,15 @@ function freePort(): Promise<number> {
   });
 }
 
-/** 隧道端口由 ssh 绑定，连得上不代表远端已在听；真正的就绪判断是随后的握手。 */
-function waitForPort(port: number, timeoutMs: number): Promise<void> {
+/** 隧道端口由 ssh 绑定，连得上不代表远端已在听；真正的就绪判断是随后的握手。
+ *  ssh 提前退出（认证失败、远端端口不通）时立刻失败，不等满超时。 */
+function waitForPort(port: number, timeoutMs: number, owner?: ChildProcess): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
+    let exited = false;
+    owner?.once('exit', () => {
+      exited = true;
+    });
     const attempt = () => {
       const socket = createConnection({ host: '127.0.0.1', port });
       socket.once('connect', () => {
@@ -247,82 +312,25 @@ function waitForPort(port: number, timeoutMs: number): Promise<void> {
       });
       socket.once('error', () => {
         socket.destroy();
-        if (Date.now() > deadline) reject(new Error('隧道未就绪'));
+        if (exited) reject(new Error('隧道进程已退出'));
+        else if (Date.now() > deadline) reject(new Error('隧道未就绪'));
         else setTimeout(attempt, 100);
       });
     };
     attempt();
   });
 }
-
 interface HttpResponse {
   status: number;
   body: Buffer;
 }
 
-function sendRequest(
-  port: number,
-  token: string,
-  method: string,
-  path: string,
-  options: { body?: Buffer | string; timeoutMs?: number; signal?: AbortSignal } = {},
-): Promise<HttpResponse> {
-  return new Promise((resolve, reject) => {
-    // 一次请求有三个可能落定的地方（request 出错、响应读完、响应中途断掉）。
-    // 定时器挂在 request 的 close 上，所以响应开始之后必须由 response 侧落定：
-    // 否则隧道半死（响应头到了、正文没读完）时这个 Promise 既不 resolve 也不 reject。
-    let settled = false;
-    let responded = false;
-    const cleanup = () => {
-      options.signal?.removeEventListener('abort', onAbort);
-    };
-    const settle = (error?: Error, value?: HttpResponse) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      cleanup();
-      if (error) reject(error);
-      else resolve(value!);
-    };
-    const request = httpRequest(
-      {
-        host: '127.0.0.1',
-        port,
-        method,
-        path,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          ...(options.body === undefined
-            ? {}
-            : { 'Content-Length': Buffer.byteLength(options.body) }),
-        },
-      },
-      (response) => {
-        responded = true;
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () =>
-          settle(undefined, { status: response.statusCode ?? 0, body: Buffer.concat(chunks) }),
-        );
-        response.on('error', (error: Error) => settle(error));
-        response.on('close', () => settle(new Error('helper 连接中断')));
-      },
-    );
-    const timer = setTimeout(
-      () => request.destroy(new Error('请求超时')),
-      options.timeoutMs ?? REQUEST_TIMEOUT_MS,
-    );
-    const onAbort = () => request.destroy(new Error('aborted'));
-    options.signal?.addEventListener('abort', onAbort, { once: true });
-    request.on('error', (error: Error) => settle(error));
-    request.on('close', () => {
-      // 还没拿到响应就关了：这就是连接中断，不能只清定时器（那会让调用方永远等）。
-      if (!responded) settle(new Error('helper 连接中断'));
-      else clearTimeout(timer);
-    });
-    if (options.body !== undefined) request.write(options.body);
-    request.end();
-  });
+/** 隧道层面的失败（连不上、断在半路、超时）：重连能救。HTTP 非 2xx 不是这一类。 */
+export class HelperTransportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'HelperTransportError';
+  }
 }
 
 /** helper 用非 2xx 回答了一个业务问题（路径不存在、参数越界）：这是结果，不是通道故障。 */
@@ -336,6 +344,91 @@ export class HelperHttpError extends Error {
   }
 }
 
+/** 远端当前不可用（引导失败、重连超时）：带着分类过的原因，不再重试。 */
+export class HelperUnavailableError extends Error {
+  constructor(
+    readonly destination: string,
+    readonly reason: string,
+  ) {
+    super(`远端 ${destination} 不可用：${reason}`);
+    this.name = 'HelperUnavailableError';
+  }
+}
+
+const aborted = () => new Error('aborted');
+
+interface Endpoint {
+  port: number;
+  token: string;
+}
+
+function sendRequest(
+  endpoint: Endpoint,
+  method: string,
+  path: string,
+  options: { body?: Buffer | string; timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<HttpResponse> {
+  return new Promise((resolve, reject) => {
+    // 一次请求有三个可能落定的地方（request 出错、响应读完、响应中途断掉）。
+    // 响应开始之后必须由 response 侧落定：否则隧道半死（响应头到了、正文没读完）时这个 Promise 永远不落定。
+    let settled = false;
+    let responded = false;
+    const settle = (error?: Error, value?: HttpResponse) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', onAbort);
+      if (options.signal?.aborted) reject(aborted());
+      else if (error) reject(error);
+      else resolve(value!);
+    };
+    if (options.signal?.aborted) {
+      reject(aborted());
+      return;
+    }
+    const request = httpRequest(
+      {
+        host: '127.0.0.1',
+        port: endpoint.port,
+        method,
+        path,
+        headers: {
+          Authorization: `Bearer ${endpoint.token}`,
+          ...(options.body === undefined
+            ? {}
+            : { 'Content-Length': Buffer.byteLength(options.body) }),
+        },
+      },
+      (response) => {
+        responded = true;
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () =>
+          settle(undefined, { status: response.statusCode ?? 0, body: Buffer.concat(chunks) }),
+        );
+        response.on('error', () => settle(new HelperTransportError('helper 连接中断')));
+        response.on('close', () => settle(new HelperTransportError('helper 连接中断')));
+      },
+    );
+    const timer = setTimeout(
+      () => request.destroy(new HelperTransportError('请求超时')),
+      options.timeoutMs ?? REQUEST_TIMEOUT_MS,
+    );
+    const onAbort = () => request.destroy(aborted());
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    request.on('error', (error: Error) =>
+      settle(
+        error instanceof HelperTransportError ? error : new HelperTransportError(error.message),
+      ),
+    );
+    request.on('close', () => {
+      if (!responded) settle(new HelperTransportError('helper 连接中断'));
+    });
+    if (options.body !== undefined) request.write(options.body);
+    request.end();
+  });
+}
+
 /** 非 2xx 一律带上远端给的原因：它的错误文案比 HTTP 状态码有用。 */
 function assertOk(response: HttpResponse, what: string): void {
   if (response.status >= 200 && response.status < 300) return;
@@ -346,24 +439,94 @@ function assertOk(response: HttpResponse, what: string): void {
   } catch {
     // 不是 JSON 就原样带上
   }
-  throw new HelperHttpError(
-    `${what}失败（HTTP ${response.status}）：${detail.slice(0, 300)}`,
-    response.status,
-  );
+  throw new HelperHttpError(`${what}失败：${detail.slice(0, 300)}`, response.status);
 }
 
-async function jsonRequest<T>(
-  port: number,
-  token: string,
-  method: string,
+/** 打开一条 SSE 流；非 200 读完正文按业务错误抛，200 交给 onFrame 逐帧处理直到流结束。
+ *  安静超过 idleMs（helper 会定期发保活注释）就判为隧道半死。 */
+function openSse(
+  endpoint: Endpoint,
   path: string,
-  body?: unknown,
-  signal?: AbortSignal,
-): Promise<T> {
-  const payload = body === undefined ? undefined : JSON.stringify(body);
-  const response = await sendRequest(port, token, method, path, { body: payload, signal });
-  assertOk(response, path);
-  return JSON.parse(response.body.toString()) as T;
+  onFrame: (value: unknown) => void,
+  options: { signal?: AbortSignal; idleMs: number },
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let watchdog: NodeJS.Timeout | undefined;
+    const settle = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      options.signal?.removeEventListener('abort', onAbort);
+      if (options.signal?.aborted) reject(aborted());
+      else if (error) reject(error);
+      else resolve();
+    };
+    if (options.signal?.aborted) {
+      reject(aborted());
+      return;
+    }
+    const request = httpRequest(
+      {
+        host: '127.0.0.1',
+        port: endpoint.port,
+        method: 'GET',
+        path,
+        headers: { Authorization: `Bearer ${endpoint.token}` },
+      },
+      (response: IncomingMessage) => {
+        if ((response.statusCode ?? 0) !== 200) {
+          const chunks: Buffer[] = [];
+          response.on('data', (chunk: Buffer) => chunks.push(chunk));
+          response.on('end', () => {
+            try {
+              assertOk({ status: response.statusCode ?? 0, body: Buffer.concat(chunks) }, path);
+            } catch (error) {
+              settle(error as Error);
+            }
+          });
+          return;
+        }
+        const arm = () => {
+          clearTimeout(watchdog);
+          watchdog = setTimeout(
+            () => request.destroy(new HelperTransportError('流静默超时')),
+            options.idleMs,
+          );
+        };
+        arm();
+        let buffer = '';
+        response.on('data', (chunk: Buffer) => {
+          arm();
+          buffer += chunk.toString('utf8');
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() ?? '';
+          for (const frame of frames) {
+            const line = frame.split('\n').find((item) => item.startsWith('data: '));
+            if (!line) continue;
+            let value: unknown;
+            try {
+              value = JSON.parse(line.slice(6));
+            } catch {
+              continue; // 半截 JSON 只可能是分帧异常，丢掉这一帧不影响后续
+            }
+            onFrame(value);
+          }
+        });
+        response.on('end', () => settle());
+        response.on('error', () => settle(new HelperTransportError('流中断')));
+        response.on('close', () => settle(new HelperTransportError('流中断')));
+      },
+    );
+    const onAbort = () => request.destroy(aborted());
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    request.on('error', (error: Error) =>
+      settle(
+        error instanceof HelperTransportError ? error : new HelperTransportError(error.message),
+      ),
+    );
+    request.end();
+  });
 }
 
 /** 远端有没有这一版产物：sha256 一致就跳过上传，否则整份重传并复核。 */
@@ -384,21 +547,17 @@ async function ensureArtifact(
     ].join('\n'),
     { timeoutMs: BOOTSTRAP_TIMEOUT_MS },
   );
-  if (probe.code !== 0) {
-    const detail = probe.stderr.trim() || '探测远端 helper 失败';
-    onProgress?.({ step: 'verify', ok: false, detail });
-    throw new Error(detail);
-  }
+  if (probe.code !== 0) throw new Error(sshErrorMessage(probe));
   if (probe.stdout.toString().trim() === 'READY') {
     onProgress?.({ step: 'verify', ok: true, detail: '远端已有这一版产物，跳过上传' });
     return;
   }
 
   // base64 走 ssh 的 stdin：二进制内容不经过 shell 解析，落盘后再核一次 sha256。
-  // 上传进度只报「开始 / 完成（字节数）/ 校验」三档：ssh 的 stdin 写没有可用的进度回调，
-  // 为进度条去改上传协议得不偿失。
+  // 进度按 base64 字节折回原始字节报：界面显示的是产物大小，不是编码后的大小。
   const body = readFileSync(artifact);
-  onProgress?.({ step: 'upload', detail: `开始上传 ${body.length} 字节` });
+  onProgress?.({ step: 'upload', detail: '开始上传', bytes: { sent: 0, total: body.length } });
+  let reported = 0;
   const upload = await exec(
     target,
     [
@@ -410,384 +569,157 @@ async function ensureArtifact(
       'mv -f "$tmp" "$dir/dela-helper"',
       'sha256sum "$dir/dela-helper" | cut -d" " -f1',
     ].join('\n'),
-    { stdin: `${body.toString('base64')}\n`, timeoutMs: UPLOAD_TIMEOUT_MS },
+    {
+      stdin: `${body.toString('base64')}\n`,
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+      onStdinProgress: (sent, total) => {
+        const bytes = Math.round((sent / total) * body.length);
+        // 至少隔 2% 报一次：64 KB 一块会有上百次回调，界面不需要那么密。
+        if (bytes - reported < body.length / 50 && sent < total) return;
+        reported = bytes;
+        onProgress?.({ step: 'upload', bytes: { sent: bytes, total: body.length } });
+      },
+    },
   );
   const uploaded = upload.stdout.toString().trim();
   if (upload.code !== 0 || uploaded !== digest) {
-    const detail = `helper 上传校验失败：期望 ${digest.slice(0, 12)}，远端 ${uploaded.slice(0, 12) || upload.stderr.trim()}`;
-    onProgress?.({ step: 'verify', ok: false, detail });
-    throw new Error(detail);
+    onProgress?.({ step: 'upload', ok: false });
+    throw new Error(
+      `helper 上传校验失败：期望 ${digest.slice(0, 12)}，远端 ${uploaded.slice(0, 12) || upload.stderr.trim()}`,
+    );
   }
-  onProgress?.({ step: 'upload', ok: true, detail: `上传完成 ${body.length} 字节` });
+  onProgress?.({
+    step: 'upload',
+    ok: true,
+    detail: '上传完成',
+    bytes: { sent: body.length, total: body.length },
+  });
   onProgress?.({ step: 'verify', ok: true, detail: 'sha256 校验通过' });
 }
 
-async function startHelper(target: RemoteTarget, dir: string, token: string): Promise<number> {
+/**
+ * 找到或起一个 helper，返回它的端口与 token。一次 ssh 完成：
+ * run.json 在、pid 活着、版本对得上就复用（token 留在 0600 文件里）；否则写新 token 起新实例。
+ * 两个 Dela 同时起时 helper 自己用 flock 只放一个进来，抢输的那个退出码 3，脚本改为等对方的 run.json。
+ */
+async function findOrStart(
+  target: RemoteTarget,
+  dir: string,
+): Promise<Endpoint & { reused: boolean }> {
+  const token = randomBytes(24).toString('hex');
   const script = [
     'set -e',
     `dir=${dir}`,
     'umask 077',
-    `printf '%s' ${shellQuote(token)} > "$dir/token"`,
+    // 复用判定：pid 活着且 /proc 里的可执行文件就是这个目录下的那份。
+    'alive() { [ -s "$dir/run.json" ] && pid=$(sed -n \'s/.*"pid":\\([0-9]*\\).*/\\1/p\' "$dir/run.json") && [ -n "$pid" ] && [ "$(readlink "/proc/$pid/exe" 2>/dev/null)" = "$dir/dela-helper" ]; }',
+    'if alive; then printf REUSE; cat "$dir/run.json"; printf "\\n"; cat "$dir/token"; exit 0; fi',
+    `printf '%s' ${shellQuote(token)} > "$dir/token.new"`,
+    'mv -f "$dir/token.new" "$dir/token"',
     'rm -f "$dir/run.json"',
-    `setsid nohup "$dir/dela-helper" --port 0 --token-file "$dir/token" --run-file "$dir/run.json" --idle-timeout ${IDLE_TIMEOUT} >> "$dir/helper.log" 2>&1 < /dev/null &`,
-    'for i in $(seq 1 40); do [ -s "$dir/run.json" ] && break; sleep 0.25; done',
-    'if [ -s "$dir/run.json" ]; then cat "$dir/run.json"; else printf START-FAILED; tail -n 3 "$dir/helper.log" 2>/dev/null; exit 4; fi',
+    `setsid nohup "$dir/dela-helper" --port 0 --token-file "$dir/token" --run-file "$dir/run.json" --lock-file "$dir/lock" --idle-timeout ${IDLE_TIMEOUT} >> "$dir/helper.log" 2>&1 < /dev/null &`,
+    'for i in $(seq 1 40); do alive && break; sleep 0.25; done',
+    'if alive; then printf START; cat "$dir/run.json"; printf "\\n"; cat "$dir/token"; else printf START-FAILED; tail -n 3 "$dir/helper.log" 2>/dev/null; exit 4; fi',
   ].join('\n');
   const result = await exec(target, script, { timeoutMs: STARTUP_WAIT_MS });
-  const text = result.stdout.toString().trim();
-  if (result.code !== 0 || !text.startsWith('{'))
-    throw new Error(`helper 启动失败：${text || result.stderr.trim()}`);
-  const state = JSON.parse(text) as { port?: number };
-  if (!state.port) throw new Error('helper 未报告端口');
-  return state.port;
+  const text = result.stdout.toString();
+  // REUSE 与 START 等长：去掉标记后是「run.json 一行 + token 一行」。
+  const reused = text.startsWith('REUSE');
+  if (result.code !== 0 || !(reused || text.startsWith('START{')))
+    throw new Error(`helper 启动失败：${text.trim() || sshErrorMessage(result)}`);
+  const [state = '', remoteToken = ''] = text.slice('START'.length).split('\n');
+  const port = (JSON.parse(state) as { port?: number }).port;
+  if (!port || remoteToken.trim().length < 16) throw new Error('helper 未报告端口或 token');
+  return { port, token: remoteToken.trim(), reused };
 }
 
-function createSession(target: RemoteTarget, port: number, token: string): HelperSession {
-  return {
-    target,
-    port,
-    async readFile(path, signal) {
-      const response = await sendRequest(
-        port,
-        token,
-        'GET',
-        `/v1/fs/read?path=${encodeURIComponent(path)}`,
-        { signal },
-      );
-      assertOk(response, `读取 ${path}`);
-      return response.body;
-    },
-    async readFileRange(path, offset, length, signal) {
-      const query = `path=${encodeURIComponent(path)}&offset=${offset}&length=${length}`;
-      const response = await sendRequest(port, token, 'GET', `/v1/fs/read?${query}`, { signal });
-      assertOk(response, `读取 ${path}`);
-      return response.body;
-    },
-    async writeFile(path, content) {
-      const body = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
-      const response = await sendRequest(
-        port,
-        token,
-        'PUT',
-        `/v1/fs/write?path=${encodeURIComponent(path)}`,
-        { body },
-      );
-      assertOk(response, `写入 ${path}`);
-    },
-    async list(path, signal) {
-      // 目录清单一律是 POST + JSON：远端路径里可能有引号或中文，不进 query。
-      const response = await sendRequest(port, token, 'POST', '/v1/fs/list', {
-        body: Buffer.from(JSON.stringify({ path }), 'utf8'),
-        signal,
-      });
-      assertOk(response, `列出 ${path}`);
-      const body = JSON.parse(response.body.toString()) as { entries?: RemoteDirEntry[] };
-      return body.entries ?? [];
-    },
-    async stat(paths, signal) {
-      const response = await sendRequest(port, token, 'POST', '/v1/fs/stat', {
-        body: Buffer.from(JSON.stringify({ paths }), 'utf8'),
-        signal,
-      });
-      assertOk(response, `查询 ${paths.length} 个路径`);
-      const body = JSON.parse(response.body.toString()) as { items?: HelperStat[] };
-      return body.items ?? [];
-    },
-    async setWatch(id, paths) {
-      const response = await sendRequest(port, token, 'POST', '/v1/watch', {
-        body: Buffer.from(JSON.stringify({ id, paths }), 'utf8'),
-      });
-      assertOk(response, `监视 ${paths.length} 个目录`);
-      const body = JSON.parse(response.body.toString()) as {
-        watching?: number;
-        skipped?: string[];
-      };
-      // skipped = 没挂上 watch 的目录（不存在、不是目录、inotify 额度满）：调用方要知道。
-      return { watching: body.watching ?? 0, skipped: body.skipped ?? [] };
-    },
-    async clearWatch(id) {
-      const response = await sendRequest(
-        port,
-        token,
-        'DELETE',
-        `/v1/watch?id=${encodeURIComponent(id)}`,
-      );
-      assertOk(response, `取消监视 ${id}`);
-    },
-    watchEvents: (onEvent, signal) => runWatch(port, token, onEvent, signal),
-    exec: (command, options) => runExec(port, token, command, options),
-    async listPorts() {
-      const response = await sendRequest(port, token, 'GET', '/v1/ports');
-      assertOk(response, '列出远端端口');
-      const body = JSON.parse(response.body.toString()) as { ports?: HelperPort[] };
-      return body.ports ?? [];
-    },
-  };
-}
-
-/** 一次读一行 SSE 的公共骨架：`data: <json>\n\n` 分帧，其它字段忽略。 */
-function readSse(response: import('node:http').IncomingMessage, onJson: (value: unknown) => void) {
-  let buffer = '';
-  response.on('data', (chunk: Buffer) => {
-    buffer += chunk.toString('utf8');
-    const frames = buffer.split('\n\n');
-    buffer = frames.pop() ?? '';
-    for (const frame of frames) {
-      const line = frame.split('\n').find((item) => item.startsWith('data: '));
-      if (!line) continue;
-      try {
-        onJson(JSON.parse(line.slice(6)));
-      } catch {
-        /* 半截 JSON 只可能是分帧异常，丢掉这一帧不影响后续。 */
-      }
-    }
-  });
-}
-
-/**
- * 目录事件流：一直挂着，直到通道断、helper 退出或被调用方取消。
- * 这里不设客户端超时（它本来就该长挂），但设一个静默看门狗：隧道半死时不会永远等下去。
- */
-function runWatch(
-  port: number,
-  token: string,
-  onEvent: (event: WatchEvent) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let watchdog: NodeJS.Timeout | undefined;
-    const settle = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(watchdog);
-      signal?.removeEventListener('abort', onAbort);
-      if (error && !signal?.aborted) reject(error);
-      else resolve();
-    };
-    const request = httpRequest(
-      {
-        host: '127.0.0.1',
-        port,
-        method: 'GET',
-        path: '/v1/watch',
-        headers: { Authorization: `Bearer ${token}` },
-      },
-      (response) => {
-        if ((response.statusCode ?? 0) !== 200) {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk: Buffer) => chunks.push(chunk));
-          response.on('end', () =>
-            settle(new Error(`watch 失败：${chunks.join('').toString().trim().slice(0, 300)}`)),
-          );
-          return;
-        }
-        const arm = () => {
-          clearTimeout(watchdog);
-          watchdog = setTimeout(() => request.destroy(new Error('watch 静默超时')), WATCH_IDLE_MS);
-        };
-        arm();
-        response.on('data', () => arm());
-        readSse(response, (value) => onEvent(value as WatchEvent));
-        response.on('end', () => settle());
-        response.on('error', (error) => settle(error));
-        response.on('close', () => settle(new Error('watch 连接中断')));
-      },
-    );
-    const onAbort = () => {
-      request.destroy();
-      settle();
-    };
-    signal?.addEventListener('abort', onAbort, { once: true });
-    request.on('error', (error) => settle(error));
-    request.end();
-  });
-}
-
-/** 流式执行：SSE 四类事件，data 一律 base64；退出状态由 exit 事件给定。 */
-function runExec(
-  port: number,
-  token: string,
-  command: string,
-  options: HelperExecOptions,
-): Promise<HelperExecResult> {
-  return new Promise((resolve, reject) => {
-    let taskId = '';
-    let finished = false;
-    let buffer = '';
-    let exit: { code: number; state: string; discarded: number } | null = null;
-    let timer: NodeJS.Timeout | undefined;
-
-    const request = httpRequest(
-      {
-        host: '127.0.0.1',
-        port,
-        method: 'POST',
-        path: '/v1/exec',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      },
-      (response) => {
-        if ((response.statusCode ?? 0) !== 200) {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk: Buffer) => chunks.push(chunk));
-          response.on('end', () =>
-            reject(new Error(`执行失败：${chunks.join('').toString().trim().slice(0, 300)}`)),
-          );
-          return;
-        }
-        response.on('data', (chunk: Buffer) => {
-          buffer += chunk.toString('utf8');
-          const frames = buffer.split('\n\n');
-          buffer = frames.pop() ?? '';
-          for (const frame of frames) {
-            const line = frame.split('\n').find((item) => item.startsWith('data: '));
-            if (!line) continue;
-            const event = JSON.parse(line.slice(6)) as {
-              type: string;
-              taskId?: string;
-              data?: string;
-              code?: number;
-              state?: string;
-              discarded?: number;
-            };
-            if (event.type === 'start' && event.taskId) taskId = event.taskId;
-            else if ((event.type === 'stdout' || event.type === 'stderr') && event.data)
-              options.onData?.(Buffer.from(event.data, 'base64'));
-            else if (event.type === 'exit')
-              exit = {
-                code: event.code ?? 0,
-                state: event.state ?? 'exited',
-                discarded: event.discarded ?? 0,
-              };
-          }
-        });
-        response.on('end', () => {
-          finished = true;
-          clearTimeout(timer);
-          if (options.signal?.aborted) reject(new Error('aborted'));
-          else if (!exit) reject(new Error('helper 未回传退出状态'));
-          else
-            resolve({
-              code: exit.code,
-              state: exit.state as HelperExecResult['state'],
-              discarded: exit.discarded,
-            });
-        });
-        // 响应开始之后错误只会落在 response 上：隧道半死时必须在这里落定，否则调用方永远等。
-        response.on('error', (error) => settle(error));
-        response.on('close', () => settle(new Error('helper 连接中断')));
-      },
-    );
-    const settle = (error: Error) => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timer);
-      options.signal?.removeEventListener('abort', onAbort);
-      reject(options.signal?.aborted ? new Error('aborted') : error);
-    };
-    const onAbort = () => {
-      // 取消要显式告诉 helper：只断开本地连接会留下孤儿进程，构建工具的子孙会留在机器上。
-      if (taskId) {
-        void sendRequest(port, token, 'POST', `/v1/exec/${taskId}/cancel`).catch(() => {});
-      }
-      request.destroy();
-      settle(new Error('aborted'));
-    };
-    // 兜底：helper 自己的超时先到；这条只在通道半死时救场。
-    timer = setTimeout(
-      () => request.destroy(new Error('请求超时')),
-      (options.timeoutMs ?? REQUEST_TIMEOUT_MS) + EXEC_GRACE_MS,
-    );
-    options.signal?.addEventListener('abort', onAbort, { once: true });
-    request.on('error', (error) => {
-      if (finished) return;
-      settle(error);
-    });
-    request.end(
-      JSON.stringify({
-        command,
-        cwd: options.cwd,
-        timeoutMs: options.timeoutMs ?? 0,
-        env: Object.entries(options.env ?? {}).map(([key, value]) => `${key}=${value}`),
-      }),
-    );
-  });
-}
-
-interface ActiveChannel {
-  /** 这条通道属于哪个连接：并发调用下用它核对拿到的会话是不是自己要的那一台。 */
-  key: string;
-  session: HelperSession;
-  /** 探活用：隧道可能半死（本地端口在、远端不回），只有真发一次请求才分得清。 */
-  token: string;
-  timer: NodeJS.Timeout;
-  tunnel: ReturnType<typeof spawn>;
-}
-
-async function ensure(
+/** 引导：探测系统 → 确保产物 → 找到或起实例。只用 ssh；重连也走这里（产物在时只多一次 sha 比对）。 */
+async function bootstrap(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
-  /** 通道死了（隧道退出、心跳连续失败）时回调：注册表据此把它摘掉，下一次调用重建。 */
-  onDead?: () => void,
-): Promise<ActiveChannel> {
-  // 每一步失败都带着「是哪一步、为什么」报出去：向导的日志区就靠它说清楚停在哪里。
-  const fail: (step: RemoteSetupProgress['step'], error: unknown) => never = (step, error) => {
-    onProgress?.({
-      step,
-      ok: false,
-      detail: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
+): Promise<{ remote: Endpoint; dir: string }> {
+  const step = async <T>(name: RemoteSetupProgress['step'], work: () => Promise<T>): Promise<T> => {
+    try {
+      return await work();
+    } catch (error) {
+      onProgress?.({
+        step: name,
+        ok: false,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   };
-  const probe = await exec(target, 'uname -s; uname -m', { timeoutMs: BOOTSTRAP_TIMEOUT_MS }).catch(
-    (error: unknown) => fail('probe', error),
-  );
-  if (probe.code !== 0) fail('probe', new Error(probe.stderr.trim() || '无法探测远端系统'));
-  const [system = '', machine = ''] = probe.stdout.toString().trim().split('\n');
-  if (system.trim() !== 'Linux')
-    fail('probe', new Error(`helper 只支持 Linux，远端是 ${system.trim()}`));
-  const arch = helperArch(machine.trim());
-  if (!arch) fail('probe', new Error(`helper 没有 ${machine.trim()} 的产物`));
-  const artifact = helperArtifact(arch);
-  if (!artifact) fail('probe', new Error(`缺少 helper 产物：linux/${arch}`));
+  const artifact = await step('probe', async () => {
+    const probe = await exec(target, 'uname -s; uname -m', { timeoutMs: BOOTSTRAP_TIMEOUT_MS });
+    if (probe.code !== 0) throw new Error(sshErrorMessage(probe));
+    const [system = '', machine = ''] = probe.stdout.toString().trim().split('\n');
+    if (system.trim() !== 'Linux') throw new Error(`远程项目只支持 Linux，远端是 ${system.trim()}`);
+    const arch = helperArch(machine.trim());
+    if (!arch) throw new Error(`没有 ${machine.trim()} 架构的 helper`);
+    const artifact = helperArtifact(arch);
+    if (!artifact) throw new Error(`缺少 helper 产物：linux/${arch}`);
+    return artifact;
+  });
   const digest = sha256Of(readFileSync(artifact));
   const dir = helperRemoteDir(digest);
-  // 这里的探测不再单独报一行：向导的自检已经报过同一件事，重复两行只会让日志变吵。
-  await ensureArtifact(target, dir, artifact, digest, onProgress);
+  await step('verify', () => ensureArtifact(target, dir, artifact, digest, onProgress));
+  const remote = await step('start', async () => {
+    try {
+      return await findOrStart(target, dir);
+    } catch (error) {
+      // 起不来的最常见原因是受限环境：先问一次远端把原因分类出来。
+      const message = error instanceof Error ? error.message : String(error);
+      const diagnosis = await diagnoseEnvironment(target, dir);
+      throw new Error(diagnosis ? `${message}（诊断：${diagnosis}）` : message);
+    }
+  });
+  onProgress?.({
+    step: 'start',
+    ok: true,
+    detail: `${remote.reused ? '复用已在运行的实例' : '已启动新实例'}，远端 127.0.0.1:${remote.port}`,
+  });
+  return { remote, dir };
+}
+/** 一条可用的连接：隧道进程退出即视为断开。 */
+interface Link {
+  endpoint: Endpoint;
+  process: ChildProcess;
+  /** 远端主目录（hello 里带回来）。 */
+  home: string;
+}
 
-  const token = randomBytes(24).toString('hex');
-  const remotePort = await startHelper(target, dir, token).catch(async (error: unknown) => {
-    // 起不来的最常见原因是受限环境（noexec／只读挂载／SELinux），表象全是同一个：
-    // 先问一次远端把原因分类出来，向导日志与降级提示才有的放矢。
-    const message = error instanceof Error ? error.message : String(error);
-    const diagnosis = await diagnoseEnvironment(target, dir);
-    fail('start', diagnosis ? new Error(`${message}（诊断：${diagnosis}）`) : error);
-  });
-  onProgress?.({ step: 'start', ok: true, detail: `远端 127.0.0.1:${remotePort}` });
-  const localPort = await freePort();
-  const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
-    windowsHide: true,
-    stdio: ['ignore', 'ignore', 'pipe'],
-  });
-  let tunnelError = '';
-  tunnel.stderr?.on('data', (chunk: Buffer) => {
-    tunnelError += chunk.toString();
-  });
-  let tunnelReady = false;
+/** 建立连接的一整步（引导 + 隧道 + 握手）：通道的状态机只依赖它，测试可以换成本地假实现。 */
+export type Connector = (
+  target: RemoteTarget,
+  onProgress?: (progress: RemoteSetupProgress) => void,
+) => Promise<Link>;
+
+const connectRemote: Connector = async (target, onProgress) => {
+  const { remote } = await bootstrap(target, onProgress);
+  let tunnel: Tunnel;
   try {
-    await waitForPort(localPort, TUNNEL_READY_MS);
-    tunnelReady = true;
-    onProgress?.({
-      step: 'tunnel',
-      ok: true,
-      detail: `本地 127.0.0.1:${localPort} → 远端 127.0.0.1:${remotePort}`,
-    });
-    const hello = await jsonRequest<{ protocol: number; helperVersion: string }>(
-      localPort,
-      token,
-      'GET',
-      '/v1/hello',
-    );
+    tunnel = await openTunnel(target, remote.port);
+  } catch (error) {
+    onProgress?.({ step: 'tunnel', ok: false, detail: String(error) });
+    throw error;
+  }
+  onProgress?.({
+    step: 'tunnel',
+    ok: true,
+    detail: `本地 127.0.0.1:${tunnel.localPort} → 远端 127.0.0.1:${remote.port}`,
+  });
+  const endpoint = { port: tunnel.localPort, token: remote.token };
+  let home = '';
+  try {
+    const response = await sendRequest(endpoint, 'GET', '/v1/hello', { timeoutMs: 10_000 });
+    assertOk(response, '握手');
+    const hello = JSON.parse(response.body.toString()) as {
+      protocol: number;
+      helperVersion: string;
+      home?: string;
+    };
+    home = hello.home ?? '';
     if (hello.protocol !== PROTOCOL_VERSION || hello.helperVersion !== HELPER_VERSION)
       throw new Error(`helper 版本不匹配：协议 ${hello.protocol}、版本 ${hello.helperVersion}`);
     onProgress?.({
@@ -796,170 +728,529 @@ async function ensure(
       detail: `协议 ${hello.protocol} · helper ${hello.helperVersion}`,
     });
   } catch (error) {
-    tunnel.kill();
-    const detail = tunnelError.trim();
-    // 端口没通算隧道失败，握手没过才算握手失败：两者给用户的排查方向不一样。
-    fail(
-      tunnelReady ? 'handshake' : 'tunnel',
-      detail ? new Error(`${String(error)}｜${detail}`) : error,
-    );
+    tunnel.process.kill();
+    onProgress?.({ step: 'handshake', ok: false, detail: String(error) });
+    throw error;
   }
-  const session = createSession(target, localPort, token);
-  // 心跳兼作死亡探测：连续几次没有回应就报死，而不是把死会话一直发下去——watch 的重连循环与
-  // 端口面板直接调 helperSession，它们没有「失败后退回一次性 ssh」那条路来顺带丢掉死通道。
-  let failures = 0;
-  const timer = setInterval(() => {
-    void sendRequest(localPort, token, 'POST', '/v1/heartbeat', { timeoutMs: 10_000 })
-      .then(() => {
-        failures = 0;
-      })
-      .catch(() => {
-        if (++failures >= HEARTBEAT_FAILURES_BEFORE_DEAD) onDead?.();
-      });
-  }, HEARTBEAT_MS);
-  tunnel.once('exit', () => onDead?.());
-  return { key: targetKey(target), token, session, timer, tunnel };
-}
+  return { endpoint, process: tunnel.process, home };
+};
+
+/** 通道状态：每台服务器一条通道，状态整份快照推给渲染端。 */
+export type ChannelState = 'connecting' | 'ready' | 'reconnecting' | 'unavailable';
 
 /**
- * 一个连接一条通道，可同时存在多条。多通道不是优化而是并行会话的前提：单通道下隧道一断，
- * helper 就按请求上下文断开取消进程组——另一台上正在跑的构建会被 TERM，且按既定策略不重放。
- * 值就是那条通道的 promise（identity 即条目本身）：摘除、失效、清理都先核对「表里还是不是这一条」，
- * 避免误杀后来新建的那条；取或建是同步的，没有读改写窗口。
+ * 一台服务器一条通道。会话对象在通道一生中不变：重连只换隧道与本地端口，调用方拿着的 session
+ * 继续可用，请求在 reconnecting 期间排队，回来后照常发出。
  */
-const channels = new Map<string, Promise<ActiveChannel | null>>();
+class Channel {
+  state: ChannelState = 'connecting';
+  reason = '';
+  since = Date.now();
+  /** 远端主目录：每次连上时由 hello 带回。 */
+  home = '';
+  private endpoint: Endpoint | null = null;
+  private tunnel: ChildProcess | null = null;
+  private heartbeat: NodeJS.Timeout | undefined;
+  /** 等通道可用的请求：ready 时 resolve，unavailable 时 reject。 */
+  private waiters: { resolve: (endpoint: Endpoint) => void; reject: (error: Error) => void }[] = [];
+  private connecting: Promise<void> | null = null;
+  private lastAttempt = 0;
+  private closed = false;
+  readonly session: HelperSession;
 
-/** 身份核对：拿到的通道必须就是请求者的目标。核对不上当作「通道不可用」，让调用方退回一次性
- *  ssh——宁可慢，也不能把命令或写入送到另一台服务器上。 */
-export function sessionFor(
-  active: { key: string; session: HelperSession } | null,
-  key: string,
-): HelperSession | null {
-  return active && active.key === key ? active.session : null;
-}
+  constructor(
+    readonly target: RemoteTarget,
+    private readonly onState: () => void,
+    private readonly connector: Connector = connectRemote,
+  ) {
+    this.session = createSession(this);
+  }
 
-/** 每个连接各自的降级状态（key → 原因）。多通道下必须分开：一台服务器重新建立成功，不该把
- *  另一台的提示一起撤掉。推给界面的是整份快照，渲染端按目的地对准自己的项目。 */
-const degradations = new Map<string, HelperDegradation>();
-
-const degradationListeners = new Set<(degradations: HelperDegradation[]) => void>();
-
-export function onHelperDegradation(
-  listener: (degradations: HelperDegradation[]) => void,
-): () => void {
-  degradationListeners.add(listener);
-  return () => degradationListeners.delete(listener);
-}
-
-function broadcastDegradations(): void {
-  const snapshot = [...degradations.values()];
-  for (const listener of degradationListeners) listener(snapshot);
-}
-
-/** 丢掉一条通道：先把它从表里摘掉，再停心跳、关隧道。表里已经不是它就什么都不做——那是新建的
- *  那条，误杀会连带掐断它正在跑的命令。 */
-async function dropChannel(key: string, channel: Promise<ActiveChannel | null>): Promise<void> {
-  if (channels.get(key) !== channel) return;
-  channels.delete(key);
-  const active = await channel;
-  if (!active) return;
-  clearInterval(active.timer);
-  active.tunnel.kill();
-}
-
-export function helperSession(
-  target: RemoteTarget,
-  onProgress?: (progress: RemoteSetupProgress) => void,
-): Promise<HelperSession | null> {
-  const key = targetKey(target);
-  const existing = channels.get(key);
-  if (existing) return existing.then((active) => sessionFor(active, key));
-  const channel: Promise<ActiveChannel | null> = ensure(target, onProgress, () => {
-    void dropChannel(key, channel);
-  })
-    .catch((error: unknown) => {
-      console.warn('[remotes] helper 通道不可用，退回一次性 ssh', error);
-      // 降级提示按目的地对准项目：哪台服务器的 helper 用不了，哪台的项目知道。
-      degradations.set(key, {
-        destination: target.host,
-        reason: (error instanceof Error ? error.message : String(error)).slice(0, 200),
-      });
-      broadcastDegradations();
-      return null;
-    })
-    .then((active) => {
-      // 建立失败不留条目：否则这个连接之后每次调用都立刻拿到 null，本进程再也不会重建通道。
-      if (active) {
-        if (degradations.delete(key)) broadcastDegradations();
-      } else if (channels.get(key) === channel) channels.delete(key);
-      return active;
+  /** 拿一个可用端点：ready 立刻给；连接中排队；不可用时距上次尝试够久就再试一次，否则直接报错。 */
+  endpointFor(signal?: AbortSignal): Promise<Endpoint> {
+    if (this.closed)
+      return Promise.reject(new HelperUnavailableError(this.target.host, '通道已关闭'));
+    if (this.state === 'ready' && this.endpoint) return Promise.resolve(this.endpoint);
+    if (this.state === 'unavailable') {
+      if (Date.now() - this.lastAttempt < RETRY_AFTER_MS)
+        return Promise.reject(new HelperUnavailableError(this.target.host, this.reason));
+      this.connect('connecting');
+    }
+    return new Promise((resolve, reject) => {
+      const waiter = {
+        resolve: (endpoint: Endpoint) => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve(endpoint);
+        },
+        reject: (error: Error) => {
+          signal?.removeEventListener('abort', onAbort);
+          reject(error);
+        },
+      };
+      const onAbort = () => {
+        this.waiters = this.waiters.filter((item) => item !== waiter);
+        reject(aborted());
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.waiters.push(waiter);
     });
-  channels.set(key, channel);
-  return channel.then((active) => sessionFor(active, key));
+  }
+
+  /** 手动重试：不可用时立刻重新引导，不等自动重试的间隔；其余状态什么都不做。 */
+  async retry(): Promise<void> {
+    if (this.state === 'unavailable') await this.connect('connecting');
+  }
+
+  snapshotWithHome() {
+    return { ...this.snapshot(), home: this.home };
+  }
+
+  snapshot(): RemoteChannelState {
+    return {
+      destination: this.target.host,
+      state: this.state,
+      reason: this.reason,
+      since: this.since,
+    };
+  }
+
+  /** 引导或重连：同一时刻只跑一轮。progress 只在首次引导时有人听（向导的日志区）。 */
+  connect(state: 'connecting' | 'reconnecting', onProgress?: (p: RemoteSetupProgress) => void) {
+    if (this.connecting) return this.connecting;
+    this.setState(state);
+    this.connecting = this.run(state, onProgress).finally(() => {
+      this.connecting = null;
+    });
+    return this.connecting;
+  }
+
+  private async run(
+    state: 'connecting' | 'reconnecting',
+    onProgress?: (p: RemoteSetupProgress) => void,
+  ): Promise<void> {
+    const deadline = Date.now() + RECONNECT_WINDOW_MS;
+    let backoff = RECONNECT_MIN_MS;
+    for (;;) {
+      this.lastAttempt = Date.now();
+      try {
+        await this.establish(onProgress);
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        // 首次引导失败多半是确定性的（不支持的系统、noexec、认证失败），不必退避重试；
+        // 重连失败多半是网络还没恢复，在窗口内退避重试。
+        if (this.closed || state === 'connecting' || Date.now() + backoff > deadline) {
+          if (!this.closed) this.fail(reason.slice(0, 300));
+          return;
+        }
+        console.warn(`[remotes] ${this.target.host} 重连失败，${backoff}ms 后重试`, reason);
+        await new Promise((resolve) => setTimeout(resolve, backoff));
+        backoff = Math.min(backoff * 2, RECONNECT_MAX_MS);
+      }
+    }
+  }
+
+  private async establish(onProgress?: (p: RemoteSetupProgress) => void): Promise<void> {
+    const link = await this.connector(this.target, onProgress);
+    if (this.closed) {
+      link.process.kill();
+      return;
+    }
+    this.tunnel = link.process;
+    this.endpoint = link.endpoint;
+    this.home = link.home;
+    link.process.once('exit', () => {
+      if (this.tunnel === link.process) this.lost('隧道进程退出');
+    });
+    this.startHeartbeat(link.endpoint);
+    this.setState('ready');
+    for (const waiter of this.waiters.splice(0)) waiter.resolve(link.endpoint);
+  }
+
+  private startHeartbeat(endpoint: Endpoint) {
+    clearInterval(this.heartbeat);
+    let failures = 0;
+    this.heartbeat = setInterval(() => {
+      void sendRequest(endpoint, 'POST', '/v1/heartbeat', { timeoutMs: 10_000 })
+        .then(() => {
+          failures = 0;
+        })
+        .catch(() => {
+          if (++failures >= HEARTBEAT_FAILURES_BEFORE_LOST && this.endpoint === endpoint)
+            this.lost('心跳连续失败');
+        });
+    }, HEARTBEAT_MS);
+  }
+
+  /** 隧道断了（或半死）：拆掉本地这一侧，进 reconnecting。远端实例与任务不受影响。 */
+  lost(why: string) {
+    if (this.closed || this.state !== 'ready') return;
+    console.warn(`[remotes] ${this.target.host} 通道中断（${why}），开始重连`);
+    this.teardown();
+    void this.connect('reconnecting');
+  }
+
+  /** 一次请求以隧道错误失败时调用：探一次活，确实不通才进重连（别让一次超时拆掉好通道）。 */
+  async suspect(endpoint: Endpoint) {
+    if (this.endpoint !== endpoint) return;
+    try {
+      const response = await sendRequest(endpoint, 'GET', '/v1/hello', {
+        timeoutMs: PROBE_TIMEOUT_MS,
+      });
+      if (response.status >= 200 && response.status < 300) return;
+    } catch {
+      // 落到下面
+    }
+    if (this.endpoint === endpoint) this.lost('探活失败');
+  }
+
+  private fail(reason: string) {
+    this.reason = reason;
+    this.setState('unavailable');
+    const error = new HelperUnavailableError(this.target.host, reason);
+    for (const waiter of this.waiters.splice(0)) waiter.reject(error);
+  }
+
+  private teardown() {
+    clearInterval(this.heartbeat);
+    this.heartbeat = undefined;
+    const tunnel = this.tunnel;
+    this.tunnel = null;
+    this.endpoint = null;
+    tunnel?.kill();
+  }
+
+  /** 只做本地收尾，不向远端发退出请求：远端靠空闲超时自己退出。 */
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    this.teardown();
+    for (const waiter of this.waiters.splice(0))
+      waiter.reject(new HelperUnavailableError(this.target.host, '通道已关闭'));
+  }
+
+  private setState(state: ChannelState) {
+    if (this.state !== state) {
+      this.state = state;
+      this.since = Date.now();
+    }
+    if (state !== 'unavailable') this.reason = '';
+    this.onState();
+  }
 }
 
 /**
- * 向导「连接」用：完整走一遍引导，并把每一步报出去。
+ * 发一个可以安全重发的请求：隧道错误时等通道回来再发一次。只读请求、整文件写入（内容相同，
+ * 重发结果一样）、监视集合替换都属于这一类；任务创建靠 id 去重，也可以。
+ */
+async function retrying<T>(
+  channel: Channel,
+  signal: AbortSignal | undefined,
+  work: (endpoint: Endpoint) => Promise<T>,
+): Promise<T> {
+  for (;;) {
+    const endpoint = await channel.endpointFor(signal);
+    try {
+      return await work(endpoint);
+    } catch (error) {
+      if (!(error instanceof HelperTransportError) || signal?.aborted) throw error;
+      await channel.suspect(endpoint);
+    }
+  }
+}
+
+function createSession(channel: Channel): HelperSession {
+  const request = (
+    method: string,
+    path: string,
+    what: string,
+    options: { body?: Buffer | string; signal?: AbortSignal } = {},
+  ) =>
+    retrying(channel, options.signal, async (endpoint) => {
+      const response = await sendRequest(endpoint, method, path, options);
+      assertOk(response, what);
+      return response.body;
+    });
+  const json = async <T>(
+    method: string,
+    path: string,
+    what: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ): Promise<T> =>
+    JSON.parse(
+      (
+        await request(method, path, what, {
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal,
+        })
+      ).toString(),
+    ) as T;
+
+  return {
+    target: channel.target,
+    readFile: (path, signal) =>
+      request('GET', `/v1/fs/read?path=${encodeURIComponent(path)}`, `读取 ${path} `, { signal }),
+    readFileRange: (path, offset, length, signal) =>
+      request(
+        'GET',
+        `/v1/fs/read?path=${encodeURIComponent(path)}&offset=${offset}&length=${length}`,
+        `读取 ${path} `,
+        { signal },
+      ),
+    async writeFile(path, content) {
+      const body = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
+      await request(
+        'PUT',
+        `/v1/fs/write?parents=1&path=${encodeURIComponent(path)}`,
+        `写入 ${path} `,
+        {
+          body,
+        },
+      );
+    },
+    // 目录与搜索一律 POST + JSON：远端路径里可能有引号或中文，不进 query。
+    list: async (path, signal) =>
+      (
+        await json<{ entries?: RemoteDirEntry[] }>(
+          'POST',
+          '/v1/fs/list',
+          `列出 ${path} `,
+          { path },
+          signal,
+        )
+      ).entries ?? [],
+    locate: async (path, signal) => {
+      const body = await json<{ kind: HelperLocation['kind']; entries?: RemoteDirEntry[] }>(
+        'POST',
+        '/v1/fs/list',
+        `列出 ${path} `,
+        { path, locate: true },
+        signal,
+      );
+      return { path, kind: body.kind, entries: body.entries ?? [] };
+    },
+    stat: async (paths, signal) =>
+      (await json<{ items?: HelperStat[] }>('POST', '/v1/fs/stat', '查询路径', { paths }, signal))
+        .items ?? [],
+    glob: (path, pattern, limit, signal) =>
+      json<HelperGlobResult>('POST', '/v1/fs/glob', '查找文件', { path, pattern, limit }, signal),
+    search: (body, signal) =>
+      json<HelperSearchResult>('POST', '/v1/fs/search', '搜索', body, signal),
+    async setWatch(id, paths) {
+      const body = await json<{ watching?: number; skipped?: string[] }>(
+        'POST',
+        '/v1/watch',
+        `监视 ${paths.length} 个目录`,
+        { id, paths },
+      );
+      // skipped = 没挂上 watch 的目录（不存在、不是目录、inotify 额度满）：调用方要知道。
+      return { watching: body.watching ?? 0, skipped: body.skipped ?? [] };
+    },
+    async clearWatch(id) {
+      await request('DELETE', `/v1/watch?id=${encodeURIComponent(id)}`, `取消监视 ${id} `);
+    },
+    listPorts: async () =>
+      (await json<{ ports?: HelperPort[] }>('GET', '/v1/ports', '列出远端端口')).ports ?? [],
+    listTasks: async () =>
+      (await json<{ tasks?: RemoteTask[] }>('GET', '/v1/tasks', '列出远端任务')).tasks ?? [],
+    async cancelTask(id) {
+      await request('POST', `/v1/tasks/${encodeURIComponent(id)}/cancel`, `取消任务 ${id} `);
+    },
+    // watch 流不重试：它本来就该长挂，断了由 watch.ts 自己的循环决定何时重连。
+    async watchEvents(onEvent, signal) {
+      const endpoint = await channel.endpointFor(signal);
+      try {
+        await openSse(endpoint, '/v1/watch', (value) => onEvent(value as WatchEvent), {
+          signal,
+          idleMs: STREAM_IDLE_MS,
+        });
+      } catch (error) {
+        if (error instanceof HelperTransportError) void channel.suspect(endpoint);
+        throw error;
+      }
+    },
+    exec: (command, options) => runTask(channel, command, options),
+  };
+}
+
+interface TaskFrame {
+  type: 'output' | 'gap' | 'exit';
+  offset?: number;
+  data?: string;
+  bytes?: number;
+  state?: HelperExecResult['state'];
+  code?: number;
+}
+
+/**
+ * 跑一条命令并把输出接回来。
  *
- * helperSession 把失败吞掉换成 null（那正是「降级到一次性 ssh」，调用方不需要知道细节），
- * 但向导要能说出「哪一步、为什么」，所以这里从进度流里把那条 ok:false 捞出来一并返回；
- * 上传与启动仍然只有 helperSession 这一条路，不为向导另开旁路缓存。
+ * 任务 id 在本地生成：创建请求可能已经落地、响应却丢在半路，重连后用同一个 id 再提交，
+ * helper 只返回已有任务，不会再执行一遍。输出按绝对偏移续读，断线期间被缓冲挤掉的部分记进 lost。
+ */
+async function runTask(
+  channel: Channel,
+  command: string,
+  options: HelperExecOptions,
+): Promise<HelperExecResult> {
+  const id = randomBytes(12).toString('hex');
+  const body = JSON.stringify({
+    id,
+    command,
+    cwd: options.cwd,
+    timeoutMs: options.timeoutMs ?? 0,
+    env: Object.entries(options.env ?? {}).map(([key, value]) => `${key}=${value}`),
+  });
+  const signal = options.signal;
+  // 取消要显式告诉 helper：断开本地连接已经不会终止任务了。
+  const cancel = () => {
+    void channel
+      .endpointFor()
+      .then((endpoint) =>
+        sendRequest(endpoint, 'POST', `/v1/tasks/${id}/cancel`, { timeoutMs: 10_000 }),
+      )
+      .catch(() => {});
+  };
+  signal?.addEventListener('abort', cancel, { once: true });
+  try {
+    await retrying(channel, signal, async (endpoint) => {
+      const response = await sendRequest(endpoint, 'POST', '/v1/tasks', { body, signal });
+      assertOk(response, '执行命令');
+    });
+    let offset = 0;
+    let lost = 0;
+    let exit: TaskFrame | null = null;
+    while (!exit) {
+      const endpoint = await channel.endpointFor(signal);
+      try {
+        await openSse(
+          endpoint,
+          `/v1/tasks/${id}/stream?offset=${offset}`,
+          (value) => {
+            const frame = value as TaskFrame;
+            if (frame.type === 'gap') {
+              lost += frame.bytes ?? 0;
+              offset += frame.bytes ?? 0;
+            } else if (frame.type === 'output' && frame.data) {
+              const chunk = Buffer.from(frame.data, 'base64');
+              offset = (frame.offset ?? offset) + chunk.length;
+              options.onData?.(chunk);
+            } else if (frame.type === 'exit') exit = frame;
+          },
+          { signal, idleMs: STREAM_IDLE_MS },
+        );
+        if (!exit) throw new HelperTransportError('任务流提前结束');
+      } catch (error) {
+        if (!(error instanceof HelperTransportError) || signal?.aborted) throw error;
+        await channel.suspect(endpoint);
+      }
+    }
+    const final = exit as TaskFrame;
+    return { code: final.code ?? 0, state: final.state ?? 'exited', lost };
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+  }
+}
+
+/**
+ * 一个连接一条通道，可同时存在多条：一台服务器重连、不可用都不影响另一台。
+ * 通道在本进程内常驻（直到应用退出或显式 closeHelper），上界是用到过的连接数。
+ */
+const channels = new Map<string, Channel>();
+
+let connector: Connector = connectRemote;
+
+/** 仅测试用：换掉建立连接的那一步（引导 + 隧道 + 握手），状态机与会话照常运行。 */
+export function setConnectorForTesting(next: Connector | null): void {
+  connector = next ?? connectRemote;
+}
+
+const stateListeners = new Set<(states: RemoteChannelState[]) => void>();
+
+/** 全部通道的状态快照。 */
+export function helperStates(): RemoteChannelState[] {
+  return [...channels.values()].map((channel) => channel.snapshot());
+}
+
+/** 订阅通道状态：每次任何一条通道变化都推整份快照。 */
+export function onHelperState(listener: (states: RemoteChannelState[]) => void): () => void {
+  stateListeners.add(listener);
+  return () => stateListeners.delete(listener);
+}
+
+function broadcast(): void {
+  const snapshot = helperStates();
+  for (const listener of stateListeners) listener(snapshot);
+}
+
+function channelFor(target: RemoteTarget): Channel {
+  const key = targetKey(target);
+  let channel = channels.get(key);
+  if (!channel) {
+    channel = new Channel(target, broadcast, connector);
+    channels.set(key, channel);
+    void channel.connect('connecting');
+  }
+  return channel;
+}
+
+/** 拿到某个连接的会话。会话对象在通道一生中不变；通道不可用时它的每个调用都会以
+ *  HelperUnavailableError 失败（带分类过的原因），没有别的退路。 */
+export function helperSession(target: RemoteTarget): HelperSession {
+  return channelFor(target).session;
+}
+
+/** 手动重试一条通道，返回重试之后的状态。 */
+export async function retryHelper(target: RemoteTarget): Promise<RemoteChannelState> {
+  const channel = channelFor(target);
+  await channel.retry();
+  return channel.snapshot();
+}
+
+/** 等这条通道第一次就绪或判为不可用：向导与需要「先连上再说」的入口用。 */
+export async function readyHelper(target: RemoteTarget): Promise<HelperSession> {
+  const channel = channelFor(target);
+  await channel.endpointFor();
+  return channel.session;
+}
+
+/**
+ * 向导「连接」用：已经连上就直接返回；否则完整走一遍引导，把每一步报出去。
+ * 不可用的通道丢掉重来，这样「重试」总能看到一份完整的日志。
  */
 export async function prepareHelper(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
-): Promise<{ session: HelperSession | null; failure: RemoteSetupProgress | null }> {
-  let failure: RemoteSetupProgress | null = null;
-  const session = await helperSession(target, (progress) => {
-    if (progress.ok === false) failure = progress;
-    onProgress?.(progress);
-  });
-  return { session, failure };
-}
-
-/**
- * 放掉通道：只做本地收尾（停心跳、关隧道），**不向远端发退出请求**。
- *
- * 远端的 helper 靠心跳判活：心跳一停，它最多再活 IDLE_TIMEOUT 就自己退出（顺带终止在跑的任务）。
- * 少一次远端往返就少一类失败——请求发不出去时远端本来就只能等空闲自退，本地再写一套兜底反而
- * 会在通道出错时留下说不清的半开状态。
- *
- * 不带 target 是应用退出：所有连接都关。带 target 只关那一个连接。
- */
-export function closeHelper(target?: RemoteTarget): Promise<void> {
-  const keys = target ? [targetKey(target)] : [...channels.keys()];
-  return Promise.all(
-    keys.map((key) => {
-      const channel = channels.get(key);
-      return channel ? dropChannel(key, channel) : undefined;
-    }),
-  ).then(() => undefined);
-}
-
-/**
- * 一次调用失败后决定要不要丢掉通道：先探一次活。
- *
- * 多条会话共用一条通道，把「这次请求失败」直接当成「通道死了」会连带掐断别的会话正在远端跑的
- * 命令——helper 靠请求上下文断开取消进程组，隧道一断那边就 TERM。所以只在这条通道真的不通时
- * 才拆，而且只拆它自己那条。
- */
-export async function discardHelperIfDead(target: RemoteTarget): Promise<void> {
+): Promise<{ ok: boolean; failure: string | null; home: string | null }> {
   const key = targetKey(target);
-  const channel = channels.get(key);
-  if (!channel) return;
-  const active = await channel;
-  if (!active || (await probeAlive(active))) return;
-  await dropChannel(key, channel);
+  const result = (channel: Channel) => {
+    const { state, reason, home } = channel.snapshotWithHome();
+    return state === 'ready'
+      ? { ok: true, failure: null, home: home || null }
+      : { ok: false, failure: reason, home: null };
+  };
+  const existing = channels.get(key);
+  if (existing?.state === 'ready') return result(existing);
+  // 在连或在重连：等它自己的那一轮跑完，不另起一条。
+  if (existing && existing.state !== 'unavailable') {
+    await existing.endpointFor().catch(() => {});
+    return result(existing);
+  }
+  existing?.close();
+  const channel = new Channel(target, broadcast, connector);
+  channels.set(key, channel);
+  await channel.connect('connecting', onProgress);
+  return result(channel);
 }
 
-/** 探活：一次 `/v1/hello`。超时也算死——半死的隧道只有这个办法能分辨。 */
-async function probeAlive(channel: ActiveChannel): Promise<boolean> {
-  try {
-    const response = await sendRequest(channel.session.port, channel.token, 'GET', '/v1/hello', {
-      timeoutMs: PROBE_TIMEOUT_MS,
-    });
-    return response.status >= 200 && response.status < 300;
-  } catch {
-    return false;
+/** 放掉通道：只做本地收尾（停心跳、关隧道），远端实例靠空闲超时退出，任务照跑到那时。
+ *  不带 target 是应用退出：所有连接都关。 */
+export function closeHelper(target?: RemoteTarget): void {
+  const keys = target ? [targetKey(target)] : [...channels.keys()];
+  for (const key of keys) {
+    channels.get(key)?.close();
+    channels.delete(key);
   }
+  broadcast();
 }

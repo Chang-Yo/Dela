@@ -1,14 +1,15 @@
 /**
  * 远端上下文镜像：远端 AGENTS.md 与三处 skills 落到本地，Pi 才读得到——Pi 的 skills 只认本地文件
  * （写进系统提示的是 `filePath`，`/skill:name` 展开是本地 `readFileSync`），镜像路径再由 `remotePath` 翻回远端。
- * AGENTS.md 不镜像，内容经 `agentsFilesOverride` 直接交给 Pi、`path` 写远端路径；同步只做一次 ssh 读取，
+ * AGENTS.md 不镜像，内容经 `agentsFilesOverride` 直接交给 Pi、`path` 写远端路径；同步只跑一次远端脚本，
  * 不做全量仓库镜像，也不监听远端变化。
  */
 import { app } from 'electron';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
-import { remoteOperations, setContextMirrors } from './operations';
-import { pathExists, shellQuote, writeFile, type RemoteTarget } from './transport';
+import { helperSession } from './helper';
+import { remoteOperations, setContextMirrors, writeRemoteFile } from './operations';
+import { shellQuote, type RemoteTarget } from './transport';
 
 /** Pi 认的上下文文件名，顺序即优先级（与 resource-loader 的候选一致）。 */
 const CONTEXT_FILE_NAMES = [
@@ -223,12 +224,12 @@ export async function uploadSkillToRemote(input: {
   overwrite: boolean;
 }): Promise<{ path: string; files: number }> {
   const destination = `${input.remoteDir}/${REPO_SKILL_DIRS[1]}/${input.name}`;
-  if (!input.overwrite && (await pathExists(input.target, destination)))
+  if (!input.overwrite && (await helperSession(input.target).stat([destination]))[0]?.exists)
     throw new Error(`远端已存在：${destination}`);
 
   const files = skillFiles(input.skillDir);
   for (const file of files) {
-    await writeFile(
+    await writeRemoteFile(
       input.target,
       `${destination}/${file.replace(/\\/g, '/')}`,
       readFileSync(join(input.skillDir, file)),

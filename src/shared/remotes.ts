@@ -18,6 +18,16 @@ export interface RemoteDraft {
   keyPath?: string | null;
 }
 
+/** `~/.ssh/config` 里的一台具体主机：新建远程项目时作为候选，选中并连上后才保存为连接。 */
+export interface SshConfigHost {
+  /** Host 别名，就是交给 ssh 的目的地。 */
+  alias: string;
+  /** 以下只用于展示，连接时一律交给 ssh 按 config 解析。 */
+  hostName: string | null;
+  user: string | null;
+  port: number | null;
+}
+
 export interface RemoteProbe {
   ok: boolean;
   /** 成功时是一行环境摘要，失败时直接展示给用户的原因（主机不可达、认证失败、指纹未确认……）。 */
@@ -35,26 +45,49 @@ export interface RemoteSetupProgress {
   detail?: string;
   /** 缺省表示「这一步开始了」；true 成功；false 失败。 */
   ok?: boolean;
+  /** 只有上传带：已传与总字节数，界面据此画进度条。 */
+  bytes?: { sent: number; total: number };
 }
 
-/** 向导「连接」这一步的结果：自检不过就不能继续，helper 起不来只是降级。 */
+/** 连接（引导 helper）的结果：通过才能浏览目录。 */
 export interface RemotePrepare {
-  /** SSH 自检是否通过（连目录都列不出来时只能停下来改目的地）。 */
   ok: boolean;
-  /** 自检失败的原因，或成功时的一行环境摘要。 */
+  /** 失败的原因（SSH 不通，或 helper 在这台服务器上起不来）。 */
   message: string;
-  /** helper 通道是否就绪；false 表示本次会话退回一次性 ssh（功能仍在，见 docs/DEVELOPMENT.md §4）。 */
-  helper: boolean;
+  /** 远端主目录：目录选择器从这里起步；失败时为 null。 */
+  home: string | null;
 }
 
-/** helper 通道的降级状态：某条通道建立失败后 Dela 正在用一次性 ssh。
- *  哪台服务器用不了 helper，就按目的地对准哪台的项目提示；该通道恢复后从快照里消失。
- *  同时可能有几条通道，所以送到渲染端的是一整份快照（每个连接各一条通道）。 */
-export interface HelperDegradation {
+/** helper 通道状态：connecting 首次引导中，ready 可用，reconnecting 隧道断了正在重建（远端任务照跑），
+ *  unavailable 起不来或重连超时（这台服务器的项目暂时不能用）。 */
+export type RemoteChannelStatus = 'connecting' | 'ready' | 'reconnecting' | 'unavailable';
+
+/** 一条 helper 通道的状态。每个连接各一条通道，送到渲染端的是全部通道的整份快照，
+ *  渲染端按目的地对准自己的项目；通道关闭后从快照里消失。 */
+export interface RemoteChannelState {
   /** ssh 目的地（host），与连接里的 host 字段一致。 */
   destination: string;
-  /** 给人看的原因：分类诊断（noexec／只读挂载／SELinux）或原始错误。 */
+  state: RemoteChannelStatus;
+  /** unavailable 时给人看的原因：分类诊断（noexec／只读挂载／SELinux）或原始错误；其余状态为空串。 */
   reason: string;
+  /** 进入当前状态的时刻（epoch 毫秒）。 */
+  since: number;
+}
+
+/** 远端任务（agent 的 bash 调用）的快照：断线期间也在远端继续跑。 */
+export interface RemoteTask {
+  id: string;
+  command: string;
+  cwd: string;
+  pid: number;
+  state: 'running' | 'exited' | 'cancelled' | 'timeout';
+  exitCode: number;
+  signal?: string;
+  /** epoch 毫秒。 */
+  startedAt: number;
+  durationMs: number;
+  /** 已产出的输出字节数。 */
+  output: number;
 }
 
 /** 远端监听端口（/v1/ports）：归属拿不到（别的用户的进程）时 pid/process 缺省。 */
@@ -133,10 +166,6 @@ export interface RemoteBrowseResult {
   path: string;
   /** 上一级目录；已在根目录时为 null。 */
   parent: string | null;
-  /** 远端主目录；只有首次（未指定 path）解析时返回，翻页沿用首次结果。 */
-  home: string | null;
-  /** 目标路径本身是否目录；选项目只能选目录。 */
-  directory: boolean;
   /** 只列目录：选择项目目录时不需要文件。 */
   directories: RemoteDirectoryEntry[];
 }
@@ -146,12 +175,22 @@ export interface RemoteApi {
   save(draft: RemoteDraft & { id?: string | null }): Promise<RemoteConnection>;
   remove(id: string): Promise<void>;
   probe(draft: RemoteDraft): Promise<RemoteProbe>;
-  /** 目录选择器：path 为 null 时从远端主目录开始。 */
-  browse(draft: RemoteDraft, path: string | null): Promise<RemoteBrowseResult>;
+  /** 目录选择器：列出某个远端目录下的子目录（只列目录，含隐藏目录，由界面决定显示与否）。 */
+  browse(draft: RemoteDraft, path: string): Promise<RemoteBrowseResult>;
+  /** 目录选择器里在 parent 下新建一层文件夹，返回新目录的完整路径。 */
+  mkdir(draft: RemoteDraft, parent: string, name: string): Promise<string>;
   /** 私钥文件选择器：取消返回 null。 */
   pickKey(): Promise<string | null>;
-  /** 连接：自检 + 把 helper 真的引导起来，过程经 onSetupProgress 一行行送达。 */
+  /** 本机 `~/.ssh/config` 里还没保存为连接的主机。 */
+  configHosts(): Promise<SshConfigHost[]>;
+  /** 连接：把 helper 引导起来（已连上就直接返回），过程经 onSetupProgress 一行行送达。 */
   prepare(draft: RemoteDraft): Promise<RemotePrepare>;
   onSetupProgress(listener: (progress: RemoteSetupProgress) => void): () => void;
-  onHelperState(listener: (states: HelperDegradation[]) => void): () => void;
+  /** 全部 helper 通道的状态快照：订阅时立刻推一次当前值，之后每次变化再推。 */
+  onHelperState(listener: (states: RemoteChannelState[]) => void): () => void;
+  /** 这个连接上的远端任务（在跑的与最近结束的）；通道不可用时报错。 */
+  tasks(remoteId: string): Promise<RemoteTask[]>;
+  cancelTask(remoteId: string, taskId: string): Promise<void>;
+  /** 手动重试：通道不可用时立刻重新引导，不等自动重试的间隔。 */
+  retry(remoteId: string): Promise<RemoteChannelState>;
 }

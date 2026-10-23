@@ -1,45 +1,12 @@
-// 远程工具的离线回归。「写入真的落到远端、不在本地盘留下同名路径」这类判断需要真机，
+// 远程工具的离线回归：路径还原与镜像翻译。工具真的落到远端的判断需要真机，
 // 在 operations.remote.test.ts，由 pnpm test:remote 运行。
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
 
-/** 假会话：list 抛错即「这次通道调用失败」。 */
-let session: { list: (path: string) => Promise<unknown> } | null = null;
-const calls: string[] = [];
-
-vi.mock('../helper', () => ({
-  helperSession: async () => session,
-  // 真实现会先探活再决定拆不拆通道（见 helper.ts 与 helper.test.ts），这里只断言调用顺序与目标。
-  discardHelperIfDead: async (target: { host: string }) => {
-    calls.push(`probe:${target.host}`);
-  },
-  HelperHttpError: class HelperHttpError extends Error {},
-}));
-
-vi.mock('../transport', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../transport')>()),
-  listDirectory: async () => {
-    calls.push('ssh');
-    return [];
-  },
-}));
-
-import {
-  listRemoteDirectory,
-  mirrorCommandText,
-  remotePath,
-  setContextMirrors,
-} from '../operations';
-
-const target = { host: 'user@10.0.0.5', keyPath: null };
-
-beforeEach(() => {
-  calls.length = 0;
-  session = null;
-});
+import { mirrorCommandText, remotePath, setContextMirrors } from '../operations';
 
 describe('remotePath', () => {
   it('还原被 node:path 改写过的远端路径', () => {
@@ -133,30 +100,5 @@ describe('mirrorCommandText', () => {
     } finally {
       setContextMirrors('win', []);
     }
-  });
-});
-
-// 多个会话共用一条通道：一次失败只该降级这一次调用，不能顺手把通道拆掉——helper 靠请求上下文
-// 断开取消进程组，隧道一断，别的会话正在远端跑的命令会被一起 TERM。
-describe('通道失败后的退化', () => {
-  it('失败时先按目标探活再回退，不无条件拆通道', async () => {
-    session = {
-      list: async () => {
-        throw new Error('隧道半死');
-      },
-    };
-    expect(await listRemoteDirectory(target, '/home/u/proj')).toEqual([]);
-    expect(calls).toEqual([`probe:${target.host}`, 'ssh']);
-  });
-
-  it('业务错误不是通道故障：不探活也不回退', async () => {
-    const { HelperHttpError } = await import('../helper');
-    session = {
-      list: async () => {
-        throw new HelperHttpError('远端文件不存在：/home/u/proj/x', 404);
-      },
-    };
-    await expect(listRemoteDirectory(target, '/home/u/proj')).rejects.toThrow('远端文件不存在');
-    expect(calls).toEqual([]);
   });
 });

@@ -96,7 +96,8 @@ export interface WorkspaceApi {
   /** 选择电脑上已有的文件夹登记为项目（目录留在原处）；取消选择返回 null。 */
   importProjectFolder(): Promise<WorkspaceEntry | null>;
   /** 把远端目录登记为远程项目：local_path 存远端绝对路径，工具经 SSH 在远端执行。 */
-  importRemoteProject(remoteId: string, path: string): Promise<WorkspaceEntry>;
+  /** name 缺省时用目录名。同一远端目录重复登记返回已有项目（名字不改）。 */
+  importRemoteProject(remoteId: string, path: string, name?: string): Promise<WorkspaceEntry>;
   /** 远程目录的一层内容（懒加载，展开时才拉）。 */
   listRemoteDirectory(projectId: string, path: string): Promise<RemoteDirectoryEntry[]>;
   /** 远端文件的只读预览内容：文本给片段，PDF/Office 给按需分块的地址。 */

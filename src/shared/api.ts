@@ -164,7 +164,9 @@ export type {
 export type { GlobalSearchResult, SearchApi } from './search';
 
 export type {
-  HelperDegradation,
+  RemoteChannelState,
+  RemoteChannelStatus,
+  RemoteTask,
   RemoteApi,
   RemoteBrowseResult,
   RemoteConnection,
@@ -177,6 +179,7 @@ export type {
   RemoteProbe,
   RemoteSetupProgress,
   RemoteSetupStep,
+  SshConfigHost,
 } from './remotes';
 
 export type {

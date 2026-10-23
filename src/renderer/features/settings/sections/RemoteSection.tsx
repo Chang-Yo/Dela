@@ -1,126 +1,68 @@
-// 设置 › 远程：SSH 连接的展示与 list / probe / remove，事实全在主进程。
+// 设置 › 远程：已保存的 SSH 连接与它们的实时通道状态。编辑与新建用「新建远程项目」面板里同一份表单，
+// 状态点读 helper 通道的推送，不再是一次性的「测试连接」结果。
 // Dela 不保存密码与密钥，凭据由 ssh 从 ~/.ssh 与 agent 读取。
-// 新增走「新建项目 › 连接远程目录」向导：连接总伴随一个远程项目，单独新增会丢掉用途这一步。
-import { useCallback, useEffect, useState } from 'react';
-import { Cloud, Loader2, Plus } from 'lucide-react';
-import type { RemoteConnection, RemoteDraft } from '../../../../shared/api';
+import { useEffect, useState } from 'react';
+import { Cloud, Plus } from 'lucide-react';
+import type { RemoteConnection } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
 import { cn } from '../../../lib/utils';
 import { remoteAccent } from '../../../navigation/remote-color';
-import { RemoteConnectionWizard } from '../../../workspace/remote-wizard';
-import { errorText } from '../../../workspace/store';
-import { showToast } from '../../../app/toasts';
+import { ConnectionForm } from '../../../workspace/remote/ConnectionForm';
+import { NewRemoteProjectDialog } from '../../../workspace/remote/NewRemoteProjectDialog';
+import { channelDot, useRemoteState } from '../../../workspace/remote/remote-state';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
 
-type ProbeState = { ok: boolean; message: string };
-
-const draftOf = (connection: RemoteConnection): RemoteDraft => ({
-  label: connection.label,
-  host: connection.host,
-  port: connection.port,
-  keyPath: connection.keyPath,
-});
-
-function statusOf(probe: ProbeState | undefined) {
-  if (!probe) return { dot: 'bg-ink-3', label: '未连接', tone: 'text-ink-3' };
-  if (probe.ok) return { dot: 'bg-green', label: '可用', tone: 'text-ink' };
-  return { dot: 'bg-red', label: '失败', tone: 'text-ink' };
-}
+type Editing = { connection?: RemoteConnection } | null;
 
 export function RemoteSection() {
-  const [connections, setConnections] = useState<RemoteConnection[] | null>(null);
-  const [probes, setProbes] = useState<Record<string, ProbeState>>({});
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [wizard, setWizard] = useState(false);
+  const connections = useRemoteState((state) => state.connections);
+  const channels = useRemoteState((state) => state.channels);
+  const load = useRemoteState((state) => state.load);
+  const [editing, setEditing] = useState<Editing>(null);
+  const [projectFor, setProjectFor] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    const remotes = window.dela?.remotes;
-    if (!remotes) {
-      setConnections([]);
-      return;
-    }
-    let live = true;
-    void remotes.list().then(
-      (list) => {
-        if (live) setConnections(list);
-      },
-      (cause) => {
-        if (!live) return;
-        setConnections([]);
-        setError(errorText(cause));
-      },
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (editing)
+    return (
+      <div className="grid max-w-lg gap-6">
+        <ConnectionForm
+          connection={editing.connection}
+          onBack={() => setEditing(null)}
+          onRemoved={() => {
+            setEditing(null);
+            void load();
+          }}
+          onSaved={() => {
+            setEditing(null);
+            void load();
+          }}
+        />
+      </div>
     );
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  useEffect(() => load(), [load]);
-
-  const test = async (connection: RemoteConnection) => {
-    const remotes = window.dela?.remotes;
-    if (!remotes || busyId) return;
-    setBusyId(connection.id);
-    setError(null);
-    try {
-      const result = await remotes.probe(draftOf(connection));
-      setProbes((prev) => ({
-        ...prev,
-        [connection.id]: { ok: result.ok, message: result.message },
-      }));
-    } catch (cause) {
-      setError(errorText(cause));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const remove = async (connection: RemoteConnection) => {
-    const remotes = window.dela?.remotes;
-    if (!remotes || busyId) return;
-    setBusyId(connection.id);
-    try {
-      await remotes.remove(connection.id);
-      setConnections((prev) => (prev ?? []).filter((item) => item.id !== connection.id));
-      setProbes((prev) => {
-        const next = { ...prev };
-        delete next[connection.id];
-        return next;
-      });
-    } catch (cause) {
-      // main 的拒绝原因（如「该连接下还有项目，请先移除项目」）原样显示。
-      showToast({ variant: 'error', title: '删除连接失败', description: errorText(cause) });
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   return (
     <div className="grid gap-10">
       <SectionHeader
         action={
-          <Button onClick={() => setWizard(true)} size="sm" variant="secondary">
+          <Button onClick={() => setEditing({})} size="sm" variant="secondary">
             <Plus />
             新建连接
           </Button>
         }
-        description="经 SSH 使用远端主机上的目录；Dela 只保存目的地与私钥路径，凭据由 ssh 自己读取。"
+        description="经 SSH 使用远端主机上的目录；Dela 只保存目的地与私钥路径，凭据由 ssh 自己读取。~/.ssh/config 里的主机会出现在「新建远程项目」的服务器列表里。"
         title="远程"
       />
-      {error && (
-        <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
-          {error}
-        </p>
-      )}
       {connections !== null && connections.length === 0 && (
         <SettingsGroup>
           <div className="grid gap-1 py-3.5">
             <span className="text-13 font-medium text-ink">还没有 SSH 连接</span>
             <span className="text-xs leading-relaxed text-ink-3">
-              点「新建连接」走一遍向导：填目的地并连上之后，选一个远端目录作为项目——连接就是从这里来的。
+              点「新建连接」填一个目的地，或在新建远程项目时直接选 ~/.ssh/config 里的主机。
             </span>
           </div>
         </SettingsGroup>
@@ -128,11 +70,9 @@ export function RemoteSection() {
       {connections !== null && connections.length > 0 && (
         <SettingsGroup>
           {connections.map((connection) => {
-            const probe = probes[connection.id];
-            const status = statusOf(probe);
-            const target = `${connection.host}${
-              connection.port === null ? '' : `:${connection.port}`
-            }`;
+            const channel = channels[connection.host];
+            const dot = channelDot(channel);
+            const target = `${connection.host}${connection.port === null ? '' : `:${connection.port}`}`;
             return (
               <SettingRow
                 description={
@@ -140,13 +80,9 @@ export function RemoteSection() {
                     <span className="block truncate" title={target}>
                       {target} · {connection.keyPath ?? 'ssh 默认'}
                     </span>
-                    {/* 探测消息是诊断信息：成功时弱化，失败时用红色承担「为什么连不上」。 */}
-                    {probe && (
-                      <span
-                        className={cn('block [overflow-wrap:anywhere]', !probe.ok && 'text-red')}
-                        role={probe.ok ? 'status' : 'alert'}
-                      >
-                        {probe.message}
+                    {channel?.state === 'unavailable' && (
+                      <span className="block [overflow-wrap:anywhere] text-red" role="alert">
+                        {channel.reason}
                       </span>
                     )}
                   </>
@@ -169,31 +105,27 @@ export function RemoteSection() {
                 title={connection.label}
               >
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className={cn('flex items-center gap-1.5 text-xs', status.tone)}>
+                  <span className="flex items-center gap-1.5 text-xs text-ink-2">
                     <span
                       aria-hidden="true"
-                      className={cn('size-1.5 shrink-0 rounded-full', status.dot)}
+                      className={cn('size-1.5 shrink-0 rounded-full', dot.className)}
                     />
-                    {status.label}
+                    {dot.label}
                   </span>
                   <Button
-                    disabled={busyId !== null}
-                    onClick={() => void test(connection)}
+                    onClick={() => setProjectFor(connection.id)}
                     size="sm"
                     variant="secondary"
                   >
-                    {busyId === connection.id && <Loader2 className="animate-spin" />}
-                    测试连接
+                    新建项目
                   </Button>
-                  {/* 删除是破坏性动作，永远只是次要入口：ghost 无底色、文字再暗一档。 */}
                   <Button
                     className="text-ink-3 hover:text-ink"
-                    disabled={busyId !== null}
-                    onClick={() => void remove(connection)}
+                    onClick={() => setEditing({ connection })}
                     size="sm"
                     variant="ghost"
                   >
-                    删除
+                    编辑
                   </Button>
                 </div>
               </SettingRow>
@@ -201,17 +133,11 @@ export function RemoteSection() {
           })}
         </SettingsGroup>
       )}
-      {/* 向导自带对话框与进行中状态；关闭后重列一次，因为它可能在半路就存下了连接。 */}
-      <RemoteConnectionWizard
-        open={wizard}
-        onClose={() => {
-          setWizard(false);
-          void load();
-        }}
-        onImported={() => {
-          setWizard(false);
-          void load();
-        }}
+      <NewRemoteProjectDialog
+        initialConnectionId={projectFor ?? undefined}
+        onClose={() => setProjectFor(null)}
+        onImported={() => setProjectFor(null)}
+        open={projectFor !== null}
       />
     </div>
   );

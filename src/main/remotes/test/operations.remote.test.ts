@@ -16,7 +16,7 @@ import {
   statRemoteFile,
 } from '../operations';
 import { onRemoteChange } from '../events';
-import { exec, listDirectory, shellQuote, type RemoteTarget } from '../transport';
+import { exec, shellQuote, type RemoteTarget } from '../transport';
 
 const target: RemoteTarget = {
   host: process.env.DELA_REMOTE_HOST!,
@@ -51,9 +51,10 @@ describe('远程工具（真机）', () => {
     });
 
   it('bash 在远端目录执行并合并 stderr', async () => {
-    const result = await run('pwd; echo "$HOME"; echo 出错了 >&2');
+    const result = await run('pwd; echo "home=$HOME"; echo 出错了 >&2');
     expect(result.output.split('\n')[0]).toBe(root);
-    expect(result.output).toContain('/root');
+    // 登录 shell：HOME 是远端用户自己的主目录。
+    expect(result.output).toMatch(/home=\//);
     expect(result.output).toContain('出错了');
     expect(result.exitCode).toBe(0);
   });
@@ -82,7 +83,7 @@ describe('远程工具（真机）', () => {
     expect((await ops.read.readFile(path)).toString()).toBe('literal backslash\n');
   });
 
-  it('识别图片 MIME（按扩展名，不多跑一次 ssh）', async () => {
+  it('识别图片 MIME（按扩展名，不多跑一次远端请求）', async () => {
     await expect(ops.read.detectImageMimeType('/root/a.png')).resolves.toBe('image/png');
     await expect(ops.read.detectImageMimeType('/root/a.ts')).resolves.toBeNull();
   });
@@ -145,27 +146,21 @@ describe('远程工具（真机）', () => {
     expect(result.content[0]!.text).toBe('No matches found');
   }, 60_000);
 
-  it('工具调用真的走 helper 通道，而不是悄悄退回一次性 ssh', async () => {
-    await run('echo channel-check');
-    const alive = await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l');
-    expect(Number(alive.stdout.toString().trim())).toBeGreaterThan(0);
-  }, 60_000);
-
   it('bash 超时映射成 Pi 认的 timeout 前缀', async () => {
     await expect(ops.bash.exec('sleep 30', root, { onData: () => {}, timeout: 1 })).rejects.toThrow(
       'timeout:1',
     );
   }, 60_000);
 
-  it('输出被远端丢弃时补一条说明，不假装完整', async () => {
-    let output = '';
-    const result = await ops.bash.exec('head -c 9000000 /dev/zero | base64', root, {
+  it('大输出完整流回，不被任务缓冲截断（缓冲只兜住断线期间）', async () => {
+    let bytes = 0;
+    const result = await ops.bash.exec('head -c 12000000 /dev/zero | base64 -w0', root, {
       onData: (chunk) => {
-        output += chunk.toString();
+        bytes += chunk.length;
       },
     });
     expect(result.exitCode).toBe(0);
-    expect(output).toMatch(/已丢弃 \d+ 字节/);
+    expect(bytes).toBe(16_000_000);
   }, 120_000);
 
   it('预览用的 stat 与片段读取：只拉请求的那一段', async () => {
@@ -184,15 +179,14 @@ describe('远程工具（真机）', () => {
   }, 120_000);
 
   it('目录清单按远端原样返回，顺带把变化通知发出去', async () => {
-    // 目录树走的就是这个入口：清单内容必须与一次性 ssh 完全一致，只是不再付一次握手。
+    // 目录树走的就是这个入口：清单内容与远端 ls 一致。
     const seen: string[] = [];
     const stop = onRemoteChange((path) => seen.push(path));
     try {
       const entries = await listRemoteDirectory(target, root);
-      expect(entries.map((entry) => `${entry.name}:${entry.directory}`).sort()).toEqual(
-        (await listDirectory(target, root))
-          .map((entry) => `${entry.name}:${entry.directory}`)
-          .sort(),
+      const ls = await exec(target, `ls -A1 ${shellQuote(root)}`);
+      expect(entries.map((entry) => entry.name).sort()).toEqual(
+        ls.stdout.toString().split('\n').filter(Boolean).sort(),
       );
       await ops.write.writeFile(`${root}/notify.txt`, 'notify\n');
       expect(seen).toContain(root);

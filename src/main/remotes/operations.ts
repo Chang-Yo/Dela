@@ -1,112 +1,81 @@
 /**
- * 远程工具：把 Pi 七个内置工具的执行端换到 SSH 远端。read/write/edit/bash/ls/find 复用 Pi 的定义、
+ * 远程工具：把 Pi 七个内置工具的执行端换到远端 helper。read/write/edit/bash/ls/find 复用 Pi 的定义、
  * 只注入 operations；grep 在 Pi 内固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute。
+ * 全部调用只走 helper：helper 不可用时工具直接报错（带原因），不退回一次性 ssh。
  * 关键约束：参数已被宿主 node:path 解析成 Windows 形态（`src/a.ts` → `E:\root\proj\src\a.ts`），
  * 每个路径都必须先过 remotePath 还原。
  */
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
-import { discardHelperIfDead, HelperHttpError, helperSession, type HelperSession } from './helper';
+import { helperSession, type HelperLocation, type HelperSession } from './helper';
 import { notifyRemoteChange } from './events';
 import { syncRemoteWatch } from './watch';
-import {
-  exec,
-  listDirectory,
-  locate,
-  readFile,
-  shellQuote,
-  writeFile,
-  type RemoteDirEntry,
-  type RemoteTarget,
-} from './transport';
+import { shellQuote, type RemoteDirEntry, type RemoteTarget } from './transport';
 
-/** 通道优先、失败退回一次性 ssh：只用在「重跑一次没有副作用」的操作上。
- *  远端命令一旦可能已经跑过，再发一次会变成重复执行（`git push` 跑两遍），那些调用方自己判。 */
-async function withHelper<T>(
-  target: RemoteTarget,
-  work: (session: HelperSession) => Promise<T>,
-  fallback: () => Promise<T>,
-): Promise<T> {
-  try {
-    const session = await helperSession(target);
-    if (!session) return await fallback();
-    // 通道刚给了这个目标：顺带让 watch 也为它起一条流（每个连接各一条，互不影响）。
-    syncRemoteWatch(target);
-    return await work(session);
-  } catch (error) {
-    // helper 用非 2xx 回答的业务结果（路径不存在、参数越界）不是通道故障：
-    // 拆通道再走一遍一次性 ssh 只会把一次 404 放大成一次冷启动，还顺带掐断 watch 流。
-    if (error instanceof HelperHttpError) throw error;
-    console.warn('[remotes] helper 通道调用失败，退回一次性 ssh', error);
-    // 通道是多个会话共用的：先探活，只有它真的不通才拆，否则别把别人正在跑的命令一起掐了。
-    await discardHelperIfDead(target);
-    return fallback();
-  }
+/** 会话入口：顺带让这个目标的 watch 流起来（每个连接各一条，互不影响）。 */
+function session(target: RemoteTarget): HelperSession {
+  syncRemoteWatch(target);
+  return helperSession(target);
 }
 
-/** 目录清单：helper 通道优先（一次 HTTP，约 60ms），拿不到再退回一次性 ssh（约 300ms）。
- *  远端目录树每展开一层都走这里，这是用户能直接感觉到的延迟。 */
-export async function listRemoteDirectory(
-  target: RemoteTarget,
-  path: string,
-): Promise<RemoteDirEntry[]> {
-  return withHelper(
-    target,
-    (session) => session.list(path),
-    () => listDirectory(target, path),
-  );
+/** 目录清单：远端目录树每展开一层都走这里（一次 HTTP，约 30ms）。 */
+export function listRemoteDirectory(target: RemoteTarget, path: string): Promise<RemoteDirEntry[]> {
+  return session(target).list(path);
 }
 
-/** 远端文件的一条 stat。通道可用时走 `/v1/fs/stat`（预览每取一块都要问一次 size/mtime，
- *  列父目录整层太贵）；没有通道时退回父目录清单（一次性 ssh，本来就只有一次往返）。 */
+/** 远端文件的一条 stat：预览每取一块都要问一次 size/mtime。 */
 export async function statRemoteFile(target: RemoteTarget, path: string): Promise<RemoteDirEntry> {
+  const [stat] = await session(target).stat([path]);
+  if (!stat?.exists) throw new Error(`远端文件不存在：${path}`);
+  if (stat.directory) throw new Error(`这是目录，不是文件：${path}`);
   const name = path.slice(path.lastIndexOf('/') + 1);
-  return withHelper(
-    target,
-    async (session) => {
-      const [stat] = await session.stat([path]);
-      if (!stat?.exists) throw new Error(`远端文件不存在：${path}`);
-      if (stat.directory) throw new Error(`这是目录，不是文件：${path}`);
-      return { name, path, directory: false, size: stat.size, modifiedAt: stat.modifiedAt };
-    },
-    async () => {
-      const cut = path.lastIndexOf('/');
-      const entries = await listDirectory(target, cut <= 0 ? '/' : path.slice(0, cut));
-      const entry = entries.find((item) => item.name === name);
-      if (!entry) throw new Error(`远端文件不存在：${path}`);
-      if (entry.directory) throw new Error(`这是目录，不是文件：${path}`);
-      return entry;
-    },
-  );
+  return { name, directory: false, size: stat.size, modifiedAt: stat.modifiedAt };
 }
 
-/** 片段读取：预览用。helper 通道直接带 offset/length；没有通道时退回整文件读取再切片
- *  （降级路径，只在 helper 不可用时兜底，大文件这一路会整篇进内存）。 */
-export async function readRemoteRange(
+/** 片段读取：预览与分块下载用，只把请求的那一段拉回本地。 */
+export function readRemoteRange(
   target: RemoteTarget,
   path: string,
   offset: number,
   length: number,
 ): Promise<Buffer> {
-  return withHelper(
-    target,
-    (session) => session.readFileRange(path, offset, length),
-    async () => (await readFile(target, path)).subarray(offset, offset + length),
-  );
+  return session(target).readFileRange(path, offset, length);
 }
 
-/** 整文件写入：helper 通道一次 PUT（服务端同目录临时文件 + rename，失败不留半个文件），
- *  没有通道时退回一次性 ssh。上传二进制走这里。 */
-export async function writeRemoteFile(
+/** 整文件写入：helper 侧同目录临时文件 + rename，缺失的父目录一并建好。 */
+export function writeRemoteFile(
   target: RemoteTarget,
   path: string,
   content: Buffer,
 ): Promise<void> {
-  return withHelper(
-    target,
-    (session) => session.writeFile(path, content),
-    () => writeFile(target, path, content),
-  );
+  return session(target).writeFile(path, content);
+}
+
+/** 建一层目录：helper 没有单独的 mkdir 接口，走 exec；不加 -p，同名已存在时直接报错。 */
+export async function makeRemoteDirectory(target: RemoteTarget, path: string): Promise<void> {
+  const chunks: Buffer[] = [];
+  const result = await session(target).exec(`mkdir -- ${shellQuote(path)}`, {
+    cwd: '/',
+    timeoutMs: 15_000,
+    onData: (chunk) => chunks.push(chunk),
+  });
+  if (result.code !== 0)
+    throw new Error(Buffer.concat(chunks).toString('utf8').trim() || `无法创建目录 ${path}`);
+  notifyRemoteChange(parentOf(path));
+}
+
+/** 一次请求回答「存在吗、是目录吗、里面有什么」：向导的目录选择器与导入项目用。 */
+export function locateRemote(target: RemoteTarget, path: string): Promise<HelperLocation> {
+  return session(target).locate(path);
+}
+
+/** 远端仓库文件清单（@ 候选）：等价于 `rg --files`，limit 下推到 helper。 */
+export async function remoteFileIndex(
+  target: RemoteTarget,
+  path: string,
+  limit: number,
+): Promise<string[]> {
+  return (await session(target).glob(path, '**', limit)).files;
 }
 
 /**
@@ -192,8 +161,7 @@ const imageMime: Record<string, string> = {
   '.bmp': 'image/bmp',
 };
 
-/** 目录清单缓存：ls 工具会在 readdir 之后对每个条目再调一次 stat，
- *  逐条往返 SSH 会让一次列目录变成十几秒，这里用刚拉到的清单回答。 */
+/** 目录清单缓存：ls 工具会在 readdir 之后对每个条目再调一次 stat，用刚拉到的清单回答。 */
 const LISTING_TTL_MS = 10_000;
 /** 单行匹配文本上限（与 Pi 的 grep 一致）。 */
 const GREP_MAX_LINE_LENGTH = 500;
@@ -202,34 +170,11 @@ const GREP_MAX_LINE_LENGTH = 500;
  *  这里是纯类型收窄，运行时对象原样传递。 */
 const asTool = (definition: unknown): ToolDefinition => definition as ToolDefinition;
 
-/** glob → RegExp：与 Pi 的 find 一致，不含 `/` 的模式补上 `**` 前缀，`*` 不跨目录。
- *  必须一次扫描替换：分步 replace 会把上一步插入的 `.*` 再当成通配符改写掉。 */
-function globToRegExp(glob: string): RegExp {
-  const pattern = glob.includes('/') ? glob.replace(/^\//, '') : `**/${glob}`;
-  const source = pattern.replace(/(\*\*\/|\*\*|\*|\?|[.+^${}()|[\]\\])/g, (token) => {
-    switch (token) {
-      case '**/':
-        return '(?:.*/)?';
-      case '**':
-        return '.*';
-      case '*':
-        return '[^/]*';
-      case '?':
-        return '[^/]';
-      default:
-        return `\\${token}`;
-    }
-  });
-  return new RegExp(`^${source}$`);
-}
+const parentOf = (path: string) => path.slice(0, path.lastIndexOf('/')) || '/';
 
 export function remoteOperations(target: RemoteTarget) {
   const listings = new Map<string, { at: number; directories: Map<string, boolean> }>();
-
-  const throughHelper = <T>(
-    work: (session: HelperSession) => Promise<T>,
-    fallback: () => Promise<T>,
-  ): Promise<T> => withHelper(target, work, fallback);
+  const remote = () => session(target);
 
   const cacheListing = (path: string, entries: { name: string; directory: boolean }[]) => {
     if (listings.size > 64) listings.clear();
@@ -239,21 +184,15 @@ export function remoteOperations(target: RemoteTarget) {
     });
   };
 
-  const assertReadable = async (absolutePath: string) => {
-    const path = remotePath(absolutePath);
-    const result = await exec(target, `test -r ${shellQuote(path)}`, { timeoutMs: 20_000 });
-    if (result.code !== 0) throw new Error(`文件不存在或不可读：${path}`);
-  };
+  const statOne = async (path: string) => (await remote().stat([path]))[0];
 
   const read = {
-    readFile: (absolutePath: string) => {
+    readFile: (absolutePath: string) => remote().readFile(remotePath(absolutePath)),
+    access: async (absolutePath: string) => {
       const path = remotePath(absolutePath);
-      return throughHelper(
-        (session) => session.readFile(path),
-        () => readFile(target, path),
-      );
+      const stat = await statOne(path);
+      if (!stat?.exists || !stat.readable) throw new Error(`文件不存在或不可读：${path}`);
     },
-    access: assertReadable,
     detectImageMimeType: (absolutePath: string) => {
       const match = /\.[A-Za-z0-9]+$/.exec(remotePath(absolutePath));
       return Promise.resolve(match ? (imageMime[match[0].toLowerCase()] ?? null) : null);
@@ -261,25 +200,13 @@ export function remoteOperations(target: RemoteTarget) {
   };
 
   const write = {
-    writeFile: (absolutePath: string, content: string) => {
+    writeFile: async (absolutePath: string, content: string) => {
       const path = remotePath(absolutePath);
-      const parent = path.slice(0, path.lastIndexOf('/')) || '/';
-      // 写完就通知目录树：远端没有文件监听，不推这一次，新文件要等用户收起再展开才出现。
-      const written = throughHelper(
-        async (session) => {
-          // helper 的写入只管落盘（不替调用方建目录），这里补上 Pi 期望的 mkdir -p。
-          await session.exec(`mkdir -p -- ${shellQuote(parent)}`, { cwd: '/' });
-          await session.writeFile(path, content);
-        },
-        () => writeFile(target, path, content),
-      );
-      return written.then((result) => {
-        notifyRemoteChange(parent);
-        return result;
-      });
+      await remote().writeFile(path, content);
+      // 写完就通知目录树：watch 只盯展开的目录，新建的子目录要靠这一下才出现。
+      notifyRemoteChange(parentOf(path));
     },
-    // Pi 在 writeFile 之前会单独调一次 mkdir；transport.writeFile 自己就带着 mkdir -p，
-    // 再跑一趟 ssh 只是白付一次握手。
+    // Pi 在 writeFile 之前会单独调一次 mkdir；helper 的写入自己就建父目录。
     mkdir: async (dir: string) => {
       void dir;
     },
@@ -303,126 +230,67 @@ export function remoteOperations(target: RemoteTarget) {
           .map(([key, value]) => [key, String(value)]),
       );
       const remoteCwd = remotePath(cwd);
-      // 命令正文里可能直接写着镜像路径（模型从技能的 <location> 抄来的），一并翻回远端。
-      const remoteCommand = mirrorCommandText(command);
-      // Pi 传进来的是秒，两边的传输都收毫秒。
-      const timeoutMs = options.timeout ? options.timeout * 1000 : undefined;
-      // 登录 shell：远端命令要用用户自己的 PATH（nvm、conda 等都在 profile 里）。
-      const exported = Object.entries(forwarded).map(
-        ([key, value]) => `export ${key}=${shellQuote(value)}`,
+      const result = await remote().exec(
+        // 命令正文里可能直接写着镜像路径（模型从技能的 <location> 抄来的），一并翻回远端。
+        mirrorCommandText(command),
+        {
+          cwd: remoteCwd,
+          signal: options.signal,
+          // Pi 传进来的是秒，helper 收毫秒。
+          timeoutMs: options.timeout ? options.timeout * 1000 : undefined,
+          env: forwarded,
+          onData: options.onData,
+        },
       );
-
-      const session = await helperSession(target);
-      if (session) {
-        try {
-          const result = await session.exec(remoteCommand, {
-            cwd: remoteCwd,
-            signal: options.signal,
-            timeoutMs,
-            env: forwarded,
-            onData: options.onData,
-          });
-          if (result.discarded > 0)
-            options.onData(
-              Buffer.from(`\n[远端输出过大，已丢弃 ${result.discarded} 字节]\n`, 'utf8'),
-            );
-          // 命令可能建了目录或改了文件（mkdir / git clone / npm install 都走 bash）：
-          // 以 cwd 为界让目录树重读，命令是只读的也只是多一次很便宜的清单请求。
-          notifyRemoteChange(remoteCwd);
-          if (options.signal?.aborted) throw new Error('aborted');
-          if (result.state === 'timeout') throw new Error(`timeout:${options.timeout ?? 120}`);
-          return { exitCode: result.code };
-        } catch (error) {
-          // 不退回 ssh：命令可能已经在远端跑过，重发等于重复执行。
-          // 但要先探活再决定拆不拆通道——取消一条命令不该掐断别的会话的通道。
-          await discardHelperIfDead(target);
-          throw error;
-        }
-      }
-
-      const inner = [...exported, `cd ${shellQuote(remoteCwd)}`, remoteCommand].join(' && ');
-      const result = await exec(target, `exec bash -lc ${shellQuote(inner)}`, {
-        signal: options.signal,
-        timeoutMs,
-        onData: options.onData,
-        onStderr: options.onData,
-        collect: false,
-      });
+      if (result.lost > 0)
+        options.onData(Buffer.from(`\n[连接中断期间有 ${result.lost} 字节输出未能接回]\n`, 'utf8'));
+      // 命令可能建了目录或改了文件（mkdir / git clone / npm install 都走 bash）：
+      // 以 cwd 为界让目录树重读，命令是只读的也只是多一次很便宜的清单请求。
       notifyRemoteChange(remoteCwd);
       if (options.signal?.aborted) throw new Error('aborted');
-      if (result.code === 124) throw new Error(`timeout:${options.timeout ?? 120}`);
+      if (result.state === 'timeout') throw new Error(`timeout:${options.timeout ?? 120}`);
       return { exitCode: result.code };
     },
   };
 
-  const list = async (path: string) => {
-    const entries = await listDirectory(target, path);
-    cacheListing(path, entries);
-    return entries;
-  };
-
   const stat = async (absolutePath: string) => {
     const path = remotePath(absolutePath);
-    const parent = path.slice(0, path.lastIndexOf('/')) || '/';
     const name = path.slice(path.lastIndexOf('/') + 1);
-    const cached = listings.get(parent);
+    const cached = listings.get(parentOf(path));
     if (cached && Date.now() - cached.at < LISTING_TTL_MS) {
       const directory = cached.directories.get(name);
       if (directory !== undefined) return { isDirectory: () => directory };
     }
-    const found = await locate(target, path);
-    if (found.kind === 'missing') throw new Error(`文件不存在：${path}`);
+    const found = await statOne(path);
+    if (!found?.exists) throw new Error(`文件不存在：${path}`);
     return { isDirectory: () => found.directory };
   };
 
   const ls = {
-    exists: async (absolutePath: string) => {
-      const result = await exec(target, `test -e ${shellQuote(remotePath(absolutePath))}`, {
-        timeoutMs: 20_000,
-      });
-      return result.code === 0;
-    },
+    exists: async (absolutePath: string) =>
+      Boolean((await statOne(remotePath(absolutePath)))?.exists),
     stat,
-    readdir: async (absolutePath: string) =>
-      (await list(remotePath(absolutePath))).map((entry) => entry.name),
-  };
-
-  const glob = async (
-    pattern: string,
-    searchPath: string,
-    options: { ignore: string[]; limit: number },
-  ) => {
-    const path = remotePath(searchPath);
-    // 第一行报出用的是哪个后端：rg 已经按 glob 过滤，find 只做了粗筛要再筛一遍。
-    const script = [
-      `cd ${shellQuote(path)} 2>/dev/null || exit 3`,
-      `if command -v rg >/dev/null 2>&1; then`,
-      `printf 'rg\\n'`,
-      `rg --files --hidden -g ${shellQuote(pattern)} -g '!.git' -g '!node_modules' 2>/dev/null | head -n ${options.limit}`,
-      `else`,
-      `printf 'find\\n'`,
-      `find . -type f -not -path './.git/*' -not -path '*/node_modules/*' 2>/dev/null | head -n 8000`,
-      `fi`,
-    ].join('\n');
-    const result = await exec(target, script, { timeoutMs: 60_000 });
-    if (result.code === 3) throw new Error(`Path not found: ${path}`);
-    if (result.code !== 0) throw new Error(result.stderr.trim() || `远端命令退出码 ${result.code}`);
-    const [backend = '', ...lines] = result.stdout.toString().split('\n');
-    const files = lines.map((line) => line.replace(/^\.\//, '').trim()).filter(Boolean);
-    const matched =
-      backend === 'rg' ? files : files.filter((file) => globToRegExp(pattern).test(file));
-    return matched.slice(0, options.limit);
+    readdir: async (absolutePath: string) => {
+      const path = remotePath(absolutePath);
+      const entries = await remote().list(path);
+      cacheListing(path, entries);
+      return entries.map((entry) => entry.name);
+    },
   };
 
   const find = {
     exists: ls.exists,
-    glob,
+    glob: async (
+      pattern: string,
+      searchPath: string,
+      options: { ignore: string[]; limit: number },
+    ) => (await remote().glob(remotePath(searchPath), pattern, options.limit)).files,
   };
 
   return { read, write, edit: { ...read, writeFile: write.writeFile }, bash, ls, find };
 }
 
-/** 远端 grep：优先 ripgrep，无 rg 时退到 grep -rn。
+/** 远端 grep：helper 的结构化搜索（有 rg 用 rg，没有用 Go 遍历），输出格式照 Pi 的 grep。
  *  Pi 的 grep 工具没有 operations 注入点，所以这里保留它的 schema 与描述、只换 execute。 */
 export async function remoteGrepTool(cwd: string, target: RemoteTarget): Promise<ToolDefinition> {
   const pi = await loadPi();
@@ -439,77 +307,45 @@ export async function remoteGrepTool(cwd: string, target: RemoteTarget): Promise
         context?: number;
         limit?: number;
       };
-      const searchPath = remotePath(params.path && params.path !== '.' ? params.path : cwd);
-      const limit = Math.min(Math.max(params.limit ?? 100, 1), 500);
-      const context = params.context ? Math.max(1, Math.min(params.context, 20)) : 0;
-      const glob = params.glob?.replace(/^\*\*\//, '');
-      const rgFlags = [
-        '--line-number',
-        '--no-heading',
-        '--color=never',
-        '--glob !.git',
-        '--glob !node_modules',
-        params.ignoreCase ? '--ignore-case' : '',
-        params.literal ? '--fixed-strings' : '',
-        context ? `--context ${context}` : '',
-        glob ? `--glob ${shellQuote(glob)}` : '',
-      ]
-        .filter(Boolean)
-        .join(' ');
-      const grepFlags = [
-        '-rnH',
-        '-I',
-        '--exclude-dir=.git',
-        '--exclude-dir=node_modules',
-        params.ignoreCase ? '-i' : '',
-        params.literal ? '-F' : '',
-        context ? `-C ${context}` : '',
-        glob ? `--include=${shellQuote(glob)}` : '',
-      ]
-        .filter(Boolean)
-        .join(' ');
-      const needle = shellQuote(params.pattern);
-      const script = [
-        `cd ${shellQuote(searchPath)} 2>/dev/null || exit 3`,
-        `if command -v rg >/dev/null 2>&1; then`,
-        `rg ${rgFlags} -e ${needle} . 2>/dev/null`,
-        `else`,
-        `grep ${grepFlags} -e ${needle} . 2>/dev/null`,
-        `fi | head -n ${limit * 4 + 20}`,
-      ].join('\n');
-      const result = await exec(target, script, { signal, timeoutMs: 120_000 });
-      if (result.code === 3) throw new Error(`Path not found: ${searchPath}`);
-      if (result.code !== 0 && !result.stdout.length)
-        throw new Error(result.stderr.trim() || `远端搜索失败（退出码 ${result.code}）`);
-      const lines = result.stdout.toString().split('\n').filter(Boolean);
-      const output: string[] = [];
-      let matches = 0;
-      for (const line of lines) {
-        const match = /^(.*?):(\d+):(.*)$/.exec(line);
-        const context = /^(.*?)-(\d+)-(.*)$/.exec(line);
-        if (match) {
-          if (matches >= limit) break;
-          matches += 1;
-          const truncated = pi.truncateLine(match[3]!, GREP_MAX_LINE_LENGTH);
-          output.push(`${match[1]!.replace(/^\.\//, '')}:${match[2]}: ${truncated.text}`);
-        } else if (context) {
-          output.push(`${context[1]!.replace(/^\.\//, '')}-${context[2]}- ${context[3]}`);
-        } else if (line !== '--') {
-          output.push(line);
-        } else {
-          output.push('--');
-        }
-      }
-      if (!output.length)
+      const result = await session(target).search(
+        {
+          path: remotePath(params.path && params.path !== '.' ? params.path : cwd),
+          pattern: params.pattern,
+          glob: params.glob,
+          ignoreCase: params.ignoreCase,
+          literal: params.literal,
+          context: params.context ? Math.max(1, Math.min(params.context, 20)) : 0,
+          limit: Math.min(Math.max(params.limit ?? 100, 1), 500),
+        },
+        signal,
+      );
+      if (!result.matches.length)
         return {
           content: [{ type: 'text' as const, text: 'No matches found' }],
           details: undefined,
         };
+      const output: string[] = [];
+      let previous: { path: string; line: number } | null = null;
+      for (const match of result.matches) {
+        const before = (match.context ?? []).filter((line) => line.line < match.line);
+        const after = (match.context ?? []).filter((line) => line.line > match.line);
+        const first = before[0]?.line ?? match.line;
+        // 与 rg 的分组一致：同一文件里不相邻的两段之间用 -- 隔开。
+        if (previous && (previous.path !== match.path || first > previous.line + 1))
+          output.push('--');
+        for (const line of before) output.push(`${match.path}-${line.line}- ${line.text}`);
+        output.push(
+          `${match.path}:${match.line}: ${pi.truncateLine(match.text, GREP_MAX_LINE_LENGTH).text}`,
+        );
+        for (const line of after) output.push(`${match.path}-${line.line}- ${line.text}`);
+        previous = { path: match.path, line: after.at(-1)?.line ?? match.line };
+      }
       const truncated = pi.truncateHead(output.join('\n'), {
         maxLines: pi.DEFAULT_MAX_LINES,
         maxBytes: pi.DEFAULT_MAX_BYTES,
       });
-      const text = truncated.truncated ? `${truncated.content}\n\n[输出已截断]` : truncated.content;
+      const cut = truncated.truncated || result.truncated;
+      const text = cut ? `${truncated.content}\n\n[输出已截断]` : truncated.content;
       return { content: [{ type: 'text' as const, text }], details: undefined };
     },
   });

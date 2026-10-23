@@ -1,17 +1,27 @@
 # dela-helper
 
-Dela 在远端 Linux 主机上运行的常驻工具服务。Dela 把它上传到 `~/.dela/helper/<版本>-<sha8>/`，
-以 `--port 0 --token-file …` 启动，再经 `ssh -L` 隧道访问；它在 Dela 整体架构里的位置、
-降级边界与已知限制见 [`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md) §4，协议表在本文下方。
+Dela 在远端 Linux 主机上运行的常驻 runtime：远程项目的全部工具调用、目录树、预览与端口发现
+都经它执行，没有一次性 ssh 的退路。Dela 把它上传到 `~/.dela/helper/<版本>-<sha8>/` 并启动，
+再经 `ssh -L` 隧道访问；它在 Dela 整体架构里的位置与重连规则见
+[`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md) §4，协议表在本文下方。
 
-它对 Dela 的价值只有三件事：复用一条连接（Windows OpenSSH 没有 ControlMaster，每次调用
-都要重新握手）、提供 shell 命令给不了的能力（文件监听、片段读取、批量 stat、可取消的长任务）、
-抹平各发行版命令的差异。
-
-- **不做沙箱**：权限就是启动它的 SSH 用户的权限，和一次性的 `ssh <host> <命令>` 一样。
+- **不做沙箱**：权限就是启动它的 SSH 用户的权限，和 `ssh <host> <命令>` 一样。
 - **只绑回环**：`127.0.0.1`，不对外监听；每个请求都要带 `Authorization: Bearer <token>`。
-- **不装服务**：没有 systemd 单元、没有开机自启；连续 5 分钟收不到**任何请求**（空闲期只有心跳，所以效果等同于收不到心跳）就自己退出（顺带终止在跑的任务）。Dela 退出时只停心跳、不向远端发退出请求 —— 少一次远端往返，也少一类"请求发不出去"的失败；要立刻收掉就 `kill` 它的 pid（SIGTERM 同样是优雅退出）。
 - **只用标准库**：不拉任何 Go 依赖。
+
+## 生命周期
+
+- **不随隧道**：隧道断开只结束那一条 HTTP 连接，任务照跑。Dela 重连后用同一个 token 回到同一个实例，
+  按偏移接回任务输出。
+- **复用实例**：启动脚本先看 `run.json`（端口、pid、版本）。pid 活着且 `/proc/<pid>/exe` 就是这个
+  目录下的 `dela-helper`，就直接复用，token 从同目录的 `token`（0600）读回；否则写新 token 起新实例。
+- **只起一个**：`--lock-file` 用 `flock` 独占加锁。两个 Dela 同时起时抢输的那个退出码 3，
+  启动脚本转而等对方的 `run.json`。
+- **空闲 1 小时退出**：连续 `--idle-timeout`（默认 1h）收不到**任何请求**就退出，并终止在跑的任务。
+  Dela 开着时每 30 秒一次心跳，所以计时等于从最后一个客户端断开算起；在跑的任务不续命。
+  Dela 退出时只停心跳，不发退出请求；要立刻收掉就 `kill` 它的 pid（SIGTERM 同样是优雅退出）。
+- **安全面**：没有任何连接时它最多再活 1 小时，期间持有 token 的同一 SSH 用户的进程都能访问它。
+  这与该用户本来就能 `ssh` 进来执行任意命令的权限相同。
 
 ## 构建
 
@@ -24,25 +34,54 @@ pnpm build:helper --all    # 同时出 linux/arm64
 
 产物是静态二进制（`CGO_ENABLED=0`），glibc 与 musl 都能跑；升级 helper 时同时改 `helper/main.go`
 的 `helperVersion` 与 `src/main/remotes/helper.ts` 的 `HELPER_VERSION` 并重新构建——两者不一致会在
-握手时判为版本不匹配并整体降级。远端按「版本-sha8」分目录放，**旧版本目录不自动清理**
-（每版一个，便于回退）。
+握手时判为版本不匹配，这台服务器的远程项目不可用。远端按「版本-sha8」分目录放，
+**旧版本目录不自动清理**（每版一个，便于回退）；旧版本的实例空闲 1 小时后自己退出，
+跑在它上面的任务新版看不到。
 
 ## 协议一览
+
+协议版本 2。路径、命令与搜索条件一律放在 JSON 正文里（远端路径可能有引号或中文），只有读写用 query。
 
 | 方法   | 路径                                | 用途                                                            |
 | ------ | ----------------------------------- | --------------------------------------------------------------- |
 | GET    | `/v1/hello`                         | 协议版本与 helper 版本（只这两项）                              |
-| POST   | `/v1/heartbeat`                     | 客户端保活；5 分钟没有收到任何请求就退出                        |
-| POST   | `/v1/fs/list`                       | 列一层（带 stat）                                               |
-| POST   | `/v1/fs/stat`                       | 批量状态（远端预览取 size/mtime）                               |
+| POST   | `/v1/heartbeat`                     | 客户端保活                                                      |
+| POST   | `/v1/fs/list`                       | 列一层（带 stat）；`locate: true` 时路径不是目录也回答 `kind`   |
+| POST   | `/v1/fs/stat`                       | 批量状态（`exists`、`directory`、`readable`、size、mtime）      |
 | GET    | `/v1/fs/read?path=&offset=&length=` | 片段读取（二进制安全）                                          |
-| PUT    | `/v1/fs/write?path=`                | 原子写（同目录临时文件 + rename）                               |
+| PUT    | `/v1/fs/write?path=&parents=1`      | 原子写（同目录临时文件 + rename）；`parents=1` 先建缺失的父目录 |
+| POST   | `/v1/fs/glob`                       | 按 glob 找文件（相对路径）                                      |
+| POST   | `/v1/fs/search`                     | 按正则或字面量搜内容，返回结构化的匹配与上下文行                |
 | GET    | `/v1/ports`                         | 回环与通配地址上监听的 TCP 端口（helper 自身除外，带 pid/进程） |
 | POST   | `/v1/watch`                         | 替换某个 id 的监视目录集合（不递归）                            |
 | DELETE | `/v1/watch?id=`                     | 停掉某 id 的全部监视（幂等）                                    |
 | GET    | `/v1/watch`                         | SSE：目录结构变化 / 需要重读；安静时每 30 秒一条 `: keep-alive` |
-| POST   | `/v1/exec`                          | 起任务，SSE 流式回传 stdout/stderr                              |
-| POST   | `/v1/exec/{id}/cancel`              | 取消任务（终止整个进程组）                                      |
+| POST   | `/v1/tasks`                         | 创建任务；同一个 `id` 再提交只返回已有任务（`created: false`）  |
+| GET    | `/v1/tasks`                         | 列出任务（在跑的与最近结束的）                                  |
+| GET    | `/v1/tasks/{id}`                    | 单个任务的快照                                                  |
+| GET    | `/v1/tasks/{id}/stream?offset=`     | SSE：从绝对字节偏移起推输出，结束时推 `exit`；流断开不影响任务  |
+| POST   | `/v1/tasks/{id}/cancel`             | 取消任务（终止整个进程组）                                      |
+
+## tasks
+
+`POST /v1/tasks` 的 `id` 由客户端生成：创建请求可能已经落地、响应却丢在半路，客户端重连后用同一个
+`id` 再提交，helper 只返回已有任务，命令不会执行第二遍。命令用 `bash -lc` 跑（登录 shell，PATH 里有
+nvm、conda），stdout 与 stderr 进同一根管道，交织顺序与终端里看到的一致。
+
+- **流帧**：`output{offset, data}`（data 是 base64，offset 是这段数据起点的绝对偏移）、
+  `gap{offset, bytes}`（这段已被覆盖，接不回来）、`exit{state, code, signal, durationMs, output}`。
+  客户端记下 `offset + len(data)`，断线重连后从这里续读。
+- **缓冲**：每个任务 8 MB。有流在读时它只是背压窗口：生产者不超过最慢的读者一个缓冲，连着的时候
+  一个字节都不丢。断线期间没人读，写满后覆盖最旧的部分，续读时先收到一条 `gap`。
+- **结束**：显式取消、任务自己的 `timeoutMs`、helper 退出时终止整个进程组（先 SIGTERM，5 秒后
+  SIGKILL）。state 分别是 `cancelled`、`timeout`、`cancelled`；正常退出是 `exited`。
+- **保留**：在跑的任务一直留着；已结束的最多留 100 条或 1 小时，先到先清。
+
+## glob 与 search
+
+有 ripgrep 就交给它（`rg --files`、`rg --json`），没有就在 Go 里遍历，两条路返回同一种结构。
+差异：rg 额外遵守 `.gitignore`；Go 遍历只跳过 `.git` 与 `node_modules`，正则按 RE2 解析，
+不支持反向引用与环视，写了会报错，不会静默返回空结果。单行文本截到 500 字节。
 
 ## watch
 
