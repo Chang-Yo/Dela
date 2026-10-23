@@ -123,9 +123,15 @@ it('loads one remote level when the project is expanded and browses without open
   const { onSelect, onExpand } = await renderTree(['p-remote']);
   expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj');
   expect(row('src')).toBeTruthy();
-  expect(row('README.md').querySelector('[title]')?.getAttribute('title')).toBe(
-    'user@10.0.0.5:/home/u/proj/README.md',
-  );
+  // 远端条目的完整目的地由自定义 tooltip 呈现（原生 title 已移除）。
+  const nameSpan = row('README.md').querySelector('.truncate')!;
+  await act(async () => {
+    nameSpan.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }));
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  });
+  expect(document.body.textContent).toContain('user@10.0.0.5:/home/u/proj/README.md');
 
   await act(async () => row('README.md').click());
   expect(onSelect).toHaveBeenCalledWith('p-remote:/home/u/proj/README.md');

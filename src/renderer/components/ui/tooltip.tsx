@@ -51,4 +51,10 @@ function TooltipContent({
   );
 }
 
-export { Tooltip, TooltipContent, TooltipTrigger };
+/** 与 `Tooltip` 相同，但不自带 Provider：列表里成百上千个触发器共用一个顶层 Provider，
+ *  延迟与 skipDelay 才会跨行生效，否则每行各自计时。 */
+function TooltipRoot({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+}
+
+export { Tooltip, TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger };

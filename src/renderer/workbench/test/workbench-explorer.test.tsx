@@ -241,3 +241,34 @@ it('focuses the inline name row started from a row action menu', async () => {
   expect(document.activeElement).toBe(input);
   expect(useTreeState.getState().pendingCreate).toEqual({ kind: 'file', parentId: localFolder.id });
 });
+
+it('shows the folder path in a tooltip instead of the native title', async () => {
+  const nested: WorkspaceEntry = {
+    id: 'D:/code/本地项目/资料/a.md',
+    parentId: localFolder.id,
+    name: 'a.md',
+    kind: 'file',
+    sourceId: null,
+    path: 'D:/code/本地项目/资料/a.md',
+    remoteId: null,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+  };
+  useWorkspaceStore.setState({
+    workspace: { ...workspace, entries: [...workspace.entries, localFolder, nested] },
+    loaded: true,
+    error: null,
+  });
+  useTreeState.setState({ expanded: [localProject.id, localFolder.id] });
+  await render(localProject.id);
+
+  const row = document.querySelector('[aria-label="a.md"]')!;
+  // 原生 title 会延迟约一秒、样式不可控，改为统一的自定义提示。
+  expect(row.querySelector('[title]')).toBeNull();
+  await act(async () => {
+    row.querySelector('.truncate')!.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }));
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  });
+  expect(document.body.textContent).toContain('资料 / a.md');
+});

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { ChevronRight, FileText, Folder, FolderOpen, FolderKanban } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger } from './tooltip';
 
 export interface ExplorerItem {
   id: string;
@@ -85,6 +86,8 @@ export function Explorer({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [externalDropTarget, setExternalDropTarget] = useState<string | null>(null);
+  // 自定义 tooltip 全树同时只开一个：每行各自计时会在鼠标划过时互相打断、连续闪烁。
+  const [tipId, setTipId] = useState<string | null>(null);
   // 定位（面包屑 reveal 等）只展开祖先链不滚动树；选中行在视口外时滚到可见，否则点了像没反应。
   useEffect(() => {
     if (!selected) return;
@@ -136,6 +139,10 @@ export function Explorer({
     for (let current = id; current; current = parentOf.get(current) ?? null) chain.unshift(current);
     return chain;
   };
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  /** 悬停提示的完整层级：被截断的只是文件名，路径用来区分同名条目。 */
+  const pathLabel = (item: ExplorerItem): string =>
+    [...trailOf(item.parentId).map((id) => itemById.get(id)?.name ?? id), item.name].join(' / ');
   const selectedTrail = new Set<string>();
   for (
     let current: string | null | undefined = selected;
@@ -222,6 +229,7 @@ export function Explorer({
           draggable: Boolean(onMove) && !item.readOnly,
           onDragStart: (event: DragEvent) => {
             if (!onMove) return;
+            setTipId(null);
             setDropTarget(null);
             setExternalDropTarget(null);
             event.dataTransfer.effectAllowed = 'move';
@@ -279,7 +287,7 @@ export function Explorer({
   // 落点区域：目标目录行与其全部可见后代行连成一块高亮（VS Code 式），
   // 叶子行悬停时经由 anchorBranch 落到所属目录，区域因此覆盖整个子树。
   const activeDrop = dropTarget ?? externalDropTarget;
-  return (
+  const tree = (
     <div
       ref={root}
       role="tree"
@@ -356,6 +364,8 @@ export function Explorer({
                 if (!branch) onActivate?.(item.id);
               }}
               onContextMenu={(event) => {
+                // 右键会转成「⋯」菜单，工具提示要立刻让位，否则会压在菜单上。
+                setTipId(null);
                 const trigger = event.currentTarget.querySelector<HTMLButtonElement>(
                   '[data-slot="dropdown-menu-trigger"]',
                 );
@@ -417,9 +427,18 @@ export function Explorer({
                   style={accent}
                 />
               )}
-              <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
-                {item.name}
-              </span>
+              <TooltipRoot
+                open={dragId === null && tipId === item.id}
+                onOpenChange={(next) => setTipId(next ? item.id : null)}
+              >
+                <TooltipTrigger asChild>
+                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                </TooltipTrigger>
+                {/* 只在打开时算路径：几百行都拼一遍字符串没有必要。 */}
+                <TooltipContent side="right" align="center" className="max-w-96 break-words">
+                  {tipId === item.id ? (item.title ?? pathLabel(item)) : null}
+                </TooltipContent>
+              </TooltipRoot>
               {item.badge && <span className="text-xs tabular-nums text-ink-3">{item.badge}</span>}
               {actions && (
                 <span
@@ -435,6 +454,8 @@ export function Explorer({
       })}
     </div>
   );
+  // 单个 Provider 覆盖整棵树：延迟与 skipDelay 才会跨行生效。
+  return <TooltipProvider delayDuration={500}>{tree}</TooltipProvider>;
 }
 
 /** 新建条目的名称输入行：回车或失焦提交，Esc 取消；空名失焦等于取消。
