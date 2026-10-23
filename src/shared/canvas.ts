@@ -52,11 +52,36 @@ export function latestTermOf(courses: { term: string }[]): string | undefined {
     .find((term) => term !== '未标注学期');
 }
 
+/** 课程按学期分组：学期按 compareCanvasTerms 降序，组内按课程名排序；供批量导出弹窗等展示用。 */
+export function groupCanvasCoursesByTerm(
+  courses: CanvasCourse[],
+): { term: string; courses: CanvasCourse[] }[] {
+  const groups = new Map<string, CanvasCourse[]>();
+  for (const course of courses) {
+    const list = groups.get(course.term);
+    if (list) list.push(course);
+    else groups.set(course.term, [course]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => compareCanvasTerms(a, b))
+    .map(([term, list]) => ({
+      term,
+      courses: list.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id),
+    }));
+}
+
 /** 已下载到本地 courses 目录的课件文件（@ 引用候选）：
  *  path 为本地绝对路径（模型用 read 读取），title 为「课程名/相对课程目录的路径」。 */
 export interface CachedCourseFile {
   path: string;
   title: string;
+}
+
+/** 批量导出的结果：exported 为成功写入目标目录的文件数，failed 为「课程/文件：原因」列表。 */
+export interface CanvasExportResult {
+  dir: string;
+  exported: number;
+  failed: string[];
 }
 
 export interface CanvasApi {
@@ -71,4 +96,8 @@ export interface CanvasApi {
   openLink(url: string): Promise<void>;
   /** 已下载到本地 courses 目录、属于最新学期（未归档）的课件文件列表。 */
   cachedFiles(): Promise<CachedCourseFile[]>;
+  /** 批量导出所选课程「文件」目录下的全部课件；用户取消选择目标文件夹时返回 null。 */
+  exportCourseFiles(courseIds: number[]): Promise<CanvasExportResult | null>;
+  /** 订阅后台目录同步推送的课程状态；返回退订函数。 */
+  onState(listener: (state: CanvasState) => void): () => void;
 }

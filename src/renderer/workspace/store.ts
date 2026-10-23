@@ -90,6 +90,8 @@ let courseFilesFetchedAt = 0;
 // 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
 // 这里刷新条目镜像；编辑中的草稿独立持有，不受刷新影响。
 let subscribedChanges = false;
+// Canvas 后台目录同步经 canvas:state 推送，镜像在这里随收随更新。
+let subscribedCanvas = false;
 
 export const useWorkspaceStore = create<Store>((set, get) => ({
   workspace: { entries: [], views: {}, directory: '' },
@@ -154,6 +156,10 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
           .refresh(paths)
           .catch((cause) => console.error('[workspace] 刷新条目镜像失败', cause));
       });
+    }
+    if (!subscribedCanvas) {
+      subscribedCanvas = true;
+      dela.canvas.onState((state) => set({ canvas: state }));
     }
     // Concurrent callers (StrictMode double-invocation included) share one request;
     // cleared on settle so a failed load can be retried.

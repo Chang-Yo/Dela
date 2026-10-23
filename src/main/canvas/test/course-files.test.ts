@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickCourseFiles } from '../course-files';
+import { collectCourseFileEntries, pickCourseFiles } from '../course-files';
 
 const root = (courseName: string, courseId: number, dir: string) => ({
   courseName,
@@ -107,5 +107,90 @@ describe('pickCourseFiles', () => {
         () => true,
       ),
     ).toEqual([{ path: '/courses/one/./files/a.md', title: '课/files/a.md' }]);
+  });
+});
+
+describe('collectCourseFileEntries', () => {
+  const item = (partial: {
+    id: string;
+    parentId: string | null;
+    kind: 'folder' | 'file' | 'module';
+    name: string;
+    sourceId?: string | null;
+  }) => ({ courseId: 1, sourceId: null, ...partial });
+
+  const items = [
+    item({ id: '1:files', parentId: null, kind: 'folder', name: '文件' }),
+    item({ id: 'folder:10', parentId: '1:files', kind: 'folder', name: '讲义' }),
+    item({ id: 'folder:11', parentId: 'folder:10', kind: 'folder', name: '第1周' }),
+    item({
+      id: '1:files/file:1',
+      parentId: '1:files',
+      kind: 'file',
+      name: '大纲.pdf',
+      sourceId: 'file:1',
+    }),
+    item({
+      id: 'folder:10/file:2',
+      parentId: 'folder:10',
+      kind: 'file',
+      name: 'lec1.pdf',
+      sourceId: 'file:2',
+    }),
+    item({
+      id: 'folder:11/file:3',
+      parentId: 'folder:11',
+      kind: 'file',
+      name: 'hw.pdf',
+      sourceId: 'file:3',
+    }),
+    // 模块、作业提交里的同名引用与根目录链无关，必须排除。
+    item({ id: 'module:20', parentId: '1:modules', kind: 'module', name: '模块' }),
+    item({
+      id: 'module-item:30',
+      parentId: 'module:20',
+      kind: 'file',
+      name: 'lec1.pdf',
+      sourceId: 'file:2',
+    }),
+    item({
+      id: 'assignment:9:submission/file:4',
+      parentId: 'assignment:9:submission',
+      kind: 'file',
+      name: '提交.pdf',
+      sourceId: 'file:4',
+    }),
+  ];
+
+  it('只收集「文件」根目录链上的文件，folders 为课程内相对目录段', () => {
+    expect(collectCourseFileEntries(1, items)).toEqual([
+      { sourceId: 'file:1', name: '大纲.pdf', folders: [] },
+      { sourceId: 'file:2', name: 'lec1.pdf', folders: ['讲义'] },
+      { sourceId: 'file:3', name: 'hw.pdf', folders: ['讲义', '第1周'] },
+    ]);
+  });
+
+  it('其他课程的根目录链不算，悬空父链被安全放弃', () => {
+    const other = [
+      item({ id: '2:files', parentId: null, kind: 'folder', name: '文件' }),
+      item({
+        id: '2:files/file:5',
+        parentId: '2:files',
+        kind: 'file',
+        name: 'a.pdf',
+        sourceId: 'file:5',
+      }),
+      item({
+        id: 'folder:99/file:6',
+        parentId: 'folder:missing',
+        kind: 'file',
+        name: 'b.pdf',
+        sourceId: 'file:6',
+      }),
+    ];
+    expect(collectCourseFileEntries(2, other)).toEqual([
+      { sourceId: 'file:5', name: 'a.pdf', folders: [] },
+    ]);
+    expect(collectCourseFileEntries(1, other)).toEqual([]);
   });
 });

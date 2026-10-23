@@ -5,6 +5,7 @@ import {
   Archive,
   ChevronRight,
   ChevronsDownUp,
+  Download,
   Ellipsis,
   FilePlus2,
   FileInput,
@@ -33,6 +34,7 @@ import {
   useAfterMenuClose,
 } from '../components/ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
+import { CanvasExportDialog } from './CanvasExportDialog';
 import type { ExplorerPending } from '../components/ui/explorer';
 import type { WorkspaceEntry } from '../../shared/api';
 import { useRemoteActivity } from '../navigation/remote-activity';
@@ -130,6 +132,7 @@ export function WorkbenchExplorer({
   const viewportWidth = useViewportWidth();
   const drawerRef = useRef<HTMLElement>(null);
   const [bySource, setBySource] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   // 课程资料只在通用（无项目）工作台显示（承接旧资料页），且默认展开；项目工作台不渲染课程资料。
   const [coursesOpen, setCoursesOpen] = useState(() => projectId === null);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -556,6 +559,13 @@ export function WorkbenchExplorer({
                           <Folder />
                           {bySource ? '按课程分组' : '按来源分组'}
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!canvas.connected}
+                          onSelect={() => setExportOpen(true)}
+                        >
+                          <Download />
+                          批量导出课件
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -680,6 +690,7 @@ export function WorkbenchExplorer({
           projectId={portsForProject}
         />
       )}
+      {exportOpen && <CanvasExportDialog onClose={() => setExportOpen(false)} open />}
     </>
   );
 }

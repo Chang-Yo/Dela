@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareCanvasTerms, latestTermOf } from './canvas';
+import { compareCanvasTerms, groupCanvasCoursesByTerm, latestTermOf } from './canvas';
 
 describe('Canvas term ordering', () => {
   it('sorts prefixed and standard academic terms chronologically without renaming them', () => {
@@ -69,5 +69,41 @@ describe('Canvas term ordering', () => {
     expect(latestTermOf([])).toBeUndefined();
     expect(latestTermOf([{ term: '未标注学期' }])).toBeUndefined();
     expect(latestTermOf([{ term: '默认学期' }])).toBe('默认学期');
+  });
+});
+
+describe('groupCanvasCoursesByTerm', () => {
+  const course = (id: number, name: string, term: string) => ({
+    id,
+    name,
+    term,
+    code: '',
+    syncedAt: null,
+    error: null,
+  });
+
+  it('groups by term in descending term order and sorts courses by name within a group', () => {
+    // 组内名字用 ASCII：localeCompare 的中文排序依赖 ICU 环境，测试只锁分组与排序机制。
+    const courses = [
+      course(3, 'Networks', '2026-2027 Fall'),
+      course(1, '机器学习', '2025-2026 Spring'),
+      course(2, 'Algorithms', '2026-2027 Fall'),
+      course(4, '旧课', '2024-2025 Fall'),
+    ];
+    expect(groupCanvasCoursesByTerm(courses)).toEqual([
+      {
+        term: '2026-2027 Fall',
+        courses: [
+          course(2, 'Algorithms', '2026-2027 Fall'),
+          course(3, 'Networks', '2026-2027 Fall'),
+        ],
+      },
+      { term: '2025-2026 Spring', courses: [course(1, '机器学习', '2025-2026 Spring')] },
+      { term: '2024-2025 Fall', courses: [course(4, '旧课', '2024-2025 Fall')] },
+    ]);
+  });
+
+  it('returns no groups for an empty course list', () => {
+    expect(groupCanvasCoursesByTerm([])).toEqual([]);
   });
 });
