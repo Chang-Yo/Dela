@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,12 +6,14 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { broadcastTodos, refreshTodos } from '../todo';
 import { getDatabase } from '../database';
-import { clearCanvasToken } from '../credentials';
+import { clearCanvasToken, loadCanvasToken } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
+import { isWorkspaceWindow } from '../notifications/system';
 import {
   getCanvasState,
   configureCanvas,
   syncCanvasCourses,
+  syncCanvasCourseTrees,
   type StoredSource,
   syncCanvasCourse,
   getSource,
@@ -20,6 +22,7 @@ import {
   readCanvasSource,
   archiveCanvasCourse,
 } from './api';
+import type { CanvasState } from '../../shared/api';
 
 export function registerCanvasIpc() {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
@@ -46,6 +49,9 @@ export function registerCanvasIpc() {
     await configureCanvas(z.string().parse(token));
     broadcastTodos();
     void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
+    void refreshCanvasTrees().catch((error: unknown) =>
+      console.error('Canvas tree sync failed', error),
+    );
   });
   handle('disconnect', () => {
     clearCanvasToken();
@@ -73,4 +79,29 @@ export function registerCanvasIpc() {
     await shell.openExternal(url.href);
   });
   handle('cached-files', () => cachedCourseFiles());
+}
+
+export function broadcastCanvasState(): CanvasState {
+  const state = getCanvasState();
+  for (const window of BrowserWindow.getAllWindows())
+    if (!window.isDestroyed() && isWorkspaceWindow(window.webContents.getURL()))
+      window.webContents.send('canvas:state', state);
+  return state;
+}
+
+let activeTreeSync: Promise<CanvasState> | null = null;
+
+/** 后台目录同步入口（每小时定时器与配置令牌后共用）：未连接时静默跳过，进行中时复用同一任务。 */
+export function refreshCanvasTrees(): Promise<CanvasState> {
+  if (!loadCanvasToken()) return Promise.resolve(getCanvasState());
+  if (activeTreeSync) return activeTreeSync;
+  activeTreeSync = syncCanvasCourseTrees()
+    .then((state) => {
+      broadcastCanvasState();
+      return state;
+    })
+    .finally(() => {
+      activeTreeSync = null;
+    });
+  return activeTreeSync;
 }

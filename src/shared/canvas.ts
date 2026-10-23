@@ -71,4 +71,6 @@ export interface CanvasApi {
   openLink(url: string): Promise<void>;
   /** 已下载到本地 courses 目录、属于最新学期（未归档）的课件文件列表。 */
   cachedFiles(): Promise<CachedCourseFile[]>;
+  /** 订阅后台目录同步推送的课程状态；返回退订函数。 */
+  onState(listener: (state: CanvasState) => void): () => void;
 }

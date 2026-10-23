@@ -384,6 +384,15 @@ async function syncCourse(id: number): Promise<CanvasState> {
   return getCanvasState();
 }
 
+// 后台目录同步与手动刷新同一口径：最新学期 + 未归档；顺序执行避免并发轰炸 Canvas。
+export async function syncCanvasCourseTrees(): Promise<CanvasState> {
+  const state = await syncCanvasCourses();
+  const latest = latestTermOf(state.courses);
+  for (const course of state.courses)
+    if (course.term === latest && !course.archived) await syncCanvasCourse(course.id);
+  return getCanvasState();
+}
+
 /** 归档后不参与自动同步，仅保留本地已同步数据。 */
 export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
   const db = getDatabase();

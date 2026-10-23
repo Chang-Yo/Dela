@@ -12,7 +12,7 @@ import { registerTimetableIpc } from './timetable/ipc';
 import { registerVsjtuIpc } from './vsjtu/ipc';
 import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
-import { registerCanvasIpc } from './canvas/ipc';
+import { registerCanvasIpc, refreshCanvasTrees } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
@@ -96,9 +96,12 @@ if (smokeTest && !terminalSmokeTest) {
 const NOTIFICATION_REFRESH_MS = 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
 const TODO_REFRESH_MS = 15 * 60_000;
+// Canvas 课件目录树只拉清单不下载文件，每小时同步一次足够。
+const CANVAS_REFRESH_MS = 60 * 60_000;
 let todoTimer: ReturnType<typeof setInterval> | undefined;
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
+let canvasTimer: ReturnType<typeof setInterval> | undefined;
 let stopUpdateCheck: (() => void) | undefined;
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
@@ -222,10 +225,17 @@ app
       const syncTodos = () => {
         void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
       };
+      const syncCanvasTrees = () => {
+        void refreshCanvasTrees().catch((error: unknown) =>
+          console.error('Canvas tree sync failed', error),
+        );
+      };
       syncTodos();
       todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
       refresh();
       syncMail();
+      syncCanvasTrees();
+      canvasTimer = setInterval(syncCanvasTrees, CANVAS_REFRESH_MS);
       notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
       mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
       stopUpdateCheck = startBackgroundUpdateCheck();
@@ -458,6 +468,7 @@ app.on('will-quit', () => {
   clearInterval(todoTimer);
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
+  clearInterval(canvasTimer);
   stopUpdateCheck?.();
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
   // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。

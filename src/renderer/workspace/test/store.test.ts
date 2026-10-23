@@ -14,13 +14,17 @@ function installDela(handlers: {
   const getState = vi.fn(handlers.workspace ?? (async () => workspaceState));
   const getCanvasState = vi.fn(handlers.canvas ?? (async () => canvasState));
   const onChanged = vi.fn(() => () => undefined);
+  const onCanvasState = vi.fn(() => () => undefined);
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
-      dela: { workspace: { getState, onChanged }, canvas: { getState: getCanvasState } },
+      dela: {
+        workspace: { getState, onChanged },
+        canvas: { getState: getCanvasState, onState: onCanvasState },
+      },
     },
   });
-  return { getState, getCanvasState, onChanged };
+  return { getState, getCanvasState, onChanged, onCanvasState };
 }
 
 function resetStore() {
@@ -94,12 +98,14 @@ describe('workspace store mirror', () => {
     expect(useWorkspaceStore.getState().directories['C:/closed']).toBeUndefined();
   });
   it('shares one request between concurrent load callers and mirrors both halves', async () => {
-    const { getState, getCanvasState, onChanged } = installDela({});
+    const { getState, getCanvasState, onChanged, onCanvasState } = installDela({});
     await Promise.all([useWorkspaceStore.getState().load(), useWorkspaceStore.getState().load()]);
     expect(getState).toHaveBeenCalledTimes(1);
     expect(getCanvasState).toHaveBeenCalledTimes(1);
     // 外部文件变化订阅只注册一次（模块级去重），变化回调复用 refresh 通道。
     expect(onChanged).toHaveBeenCalledTimes(1);
+    // Canvas 后台同步推送的订阅同样只注册一次。
+    expect(onCanvasState).toHaveBeenCalledTimes(1);
     expect(useWorkspaceStore.getState()).toMatchObject({
       loaded: true,
       workspace: workspaceState,
