@@ -245,7 +245,9 @@ app
     // 数据库拒绝降级打开（「由更新版本的 Dela 创建」）就是从这里冒出来的：
     // 没有这个 catch 只会留下未处理的 rejection，用户看到的是「窗口一直不出现、也没提示」。
     console.error(error);
-    dialog.showErrorBox('Dela 无法启动', error instanceof Error ? error.message : String(error));
+    if (!smokeTest) {
+      dialog.showErrorBox('Dela 无法启动', error instanceof Error ? error.message : String(error));
+    }
     app.exit(1);
   });
 
