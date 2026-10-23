@@ -83,7 +83,20 @@ jobs:
             }
           }
           EOF
-          pnpm exec electron-builder --config .build/macos-release.json --mac --arm64 --publish never
+          # notarytool 向 Apple 上传安装包并轮询结果，偶发网络失败是常态；整体重跑兜底，
+          # 每次重试前清空 dist 避免在已签名产物上续跑，30 秒退避，最多五次。
+          # 真伪签名问题由后面的 verify 步骤把关，这里不区分失败原因。
+          attempt=1
+          until pnpm exec electron-builder --config .build/macos-release.json --mac --arm64 --publish never; do
+            if [ "$attempt" -ge 5 ]; then
+              echo "Sign/notarize failed after $attempt attempts"
+              exit 1
+            fi
+            echo "::warning::Sign/notarize attempt $attempt failed, cleaning dist and retrying"
+            attempt=$((attempt + 1))
+            rm -rf dist
+            sleep 30
+          done
       - name: Verify signatures, notarization and archives
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
