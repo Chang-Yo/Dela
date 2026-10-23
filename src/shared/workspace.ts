@@ -55,6 +55,7 @@ export interface WorkspaceState {
   entries: WorkspaceEntry[];
   views: Record<string, WorkspaceViewState>;
   directory: string;
+  archivePath?: string;
 }
 
 export interface WorkspaceCreateInput {
@@ -67,12 +68,16 @@ export interface WorkspaceCreateInput {
 
 export interface WorkspaceApi {
   getState(): Promise<WorkspaceState>;
+  listLocalDirectory(id: string | null): Promise<WorkspaceEntry[]>;
+  searchLocal(rootId: string | null, query: string): Promise<WorkspaceEntry[]>;
+  localReferenceFiles(cwd: string): Promise<WorkspaceEntry[]>;
+  localAncestors(id: string): Promise<WorkspaceEntry[]>;
   create(input: WorkspaceCreateInput): Promise<WorkspaceEntry>;
   update(
     id: string,
     input: { name?: string; parentId?: string | null; kind?: 'folder' | 'project' },
   ): Promise<WorkspaceEntryUpdate>;
-  onChanged(listener: () => void): () => void;
+  onChanged(listener: (paths: string[]) => void): () => void;
   remove(id: string): Promise<void>;
   read(id: string): Promise<DocumentContent>;
   /** 原地覆写文本文件；revision 与磁盘不一致时拒绝。 */

@@ -12,6 +12,7 @@ import type {
 import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
 import { remoteAccent } from './remote-color';
 import { useRemoteActivity } from './remote-activity';
+import { useWorkspaceStore } from '../workspace/store';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -91,6 +92,50 @@ const openRowMenu = (name: string) =>
     .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
 
 const menuItems = () => document.querySelectorAll('[role="menuitem"]');
+
+it('reads only expanded local directories and releases children when their ancestor closes', async () => {
+  const project = { ...remoteProject, id: 'local', remoteId: undefined, path: 'C:/local' };
+  const folder = {
+    ...project,
+    id: 'C:/local/src',
+    parentId: project.id,
+    kind: 'folder' as const,
+    name: 'src',
+    path: 'C:/local/src',
+  };
+  const ensure = vi.spyOn(useWorkspaceStore.getState(), 'ensureDirectory').mockResolvedValue();
+  const release = vi.spyOn(useWorkspaceStore.getState(), 'releaseDirectory');
+  const render = async (expanded: string[]) => {
+    await act(async () =>
+      root.render(
+        <ProjectFileTree
+          entries={[project, folder]}
+          expanded={expanded}
+          rootId={null}
+          query=""
+          selected={null}
+          onAction={() => {}}
+          onExpand={() => {}}
+          onSelect={() => {}}
+        />,
+      ),
+    );
+  };
+  try {
+    await render([]);
+    expect(ensure).not.toHaveBeenCalled();
+    await render([project.id, folder.id]);
+    expect(ensure.mock.calls.map((call) => call[0])).toEqual([folder.id, project.id]);
+    ensure.mockClear();
+    await render([folder.id]);
+    expect(ensure).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledWith(project.id);
+    expect(release).toHaveBeenCalledWith(folder.id);
+  } finally {
+    ensure.mockRestore();
+    release.mockRestore();
+  }
+});
 
 it('loads one remote level when the project is expanded and browses without opening files', async () => {
   const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>

@@ -7,7 +7,12 @@ import { invoke, on } from './lib';
 
 export const workspace = {
   getState: () => invoke('workspace:get-state'),
-  onChanged: (listener: () => void) => on('workspace:changed', listener),
+  listLocalDirectory: (id: string | null) => invoke('workspace:list-local', id),
+  searchLocal: (rootId: string | null, query: string) =>
+    invoke('workspace:search-local', rootId, query),
+  localReferenceFiles: (cwd: string) => invoke('workspace:local-reference-files', cwd),
+  localAncestors: (id: string) => invoke('workspace:local-ancestors', id),
+  onChanged: (listener: (paths: string[]) => void) => on('workspace:changed', listener),
   create: (input: WorkspaceCreateInput) => invoke('workspace:create', input),
   update: (
     id: string,

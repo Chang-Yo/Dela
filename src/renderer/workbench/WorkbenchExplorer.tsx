@@ -40,7 +40,7 @@ import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
 import { SourcesTree } from '../navigation/SourcesTree';
 import { latestTermOf } from '../../shared/canvas';
-import { useNavigationStore as useTreeState } from '../navigation/store';
+import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {
   archiveEntry,
@@ -64,14 +64,29 @@ const SIDEBAR_MIN_WIDTH = 160;
 const SIDEBAR_MAX_WIDTH = 360;
 const widthStorageKey = 'dela.workspace.sidebarWidth';
 
-/** 新建弹窗的目标容器：选中/活动文档所在文件夹，缺省回落到根（旧 currentContainer）。 */
+/** 新建弹窗的目标容器：选中/活动文档所在文件夹，缺省回落到根（旧 currentContainer）。
+ *  切换项目后 selected 可能仍指向上一个项目的条目：不属于当前根的一律回落到根，避免建到别的项目里。 */
 export function currentContainerOf(activeKey: string | null, rootId: string | null): string | null {
-  const entry = useWorkspaceStore.getState().workspace.entries.find((e) => e.id === activeKey);
-  return entry
-    ? entry.kind === 'folder' || entry.kind === 'project'
-      ? entry.id
-      : entry.parentId
-    : rootId;
+  const byId = new Map(
+    useWorkspaceStore.getState().workspace.entries.map((entry) => [entry.id, entry]),
+  );
+  const withinRoot = (id: string): boolean => {
+    if (!rootId) return true;
+    const seen = new Set<string>();
+    for (
+      let current = byId.get(id);
+      current && !seen.has(current.id);
+      current = current.parentId ? byId.get(current.parentId) : undefined
+    ) {
+      if (current.id === rootId) return true;
+      seen.add(current.id);
+    }
+    return false;
+  };
+  const entry = activeKey ? byId.get(activeKey) : undefined;
+  if (!entry) return rootId;
+  const folder = entry.kind === 'folder' || entry.kind === 'project' ? entry.id : entry.parentId;
+  return folder && withinRoot(folder) ? folder : rootId;
 }
 
 export function WorkbenchExplorer({
@@ -145,7 +160,7 @@ export function WorkbenchExplorer({
   const container = () => currentContainerOf(selected ?? activeDocKey, rootId);
 
   const selectEntry = (id: string) => {
-    const item = entries.find((entry) => entry.id === id);
+    const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === id);
     if (!item) {
       // 远端条目不在 entries 里：文件直接开只读预览（读取按「项目 id + 远端路径」走远端通道）。
       if (parseRemoteNodeId(id)) onOpenDocument(id);
@@ -161,7 +176,7 @@ export function WorkbenchExplorer({
   };
 
   const openToSide = (key: string) => {
-    const item = entries.find((entry) => entry.id === key);
+    const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === key);
     if (item?.kind === 'project') void useAppNavigation.getState().openProject(key);
     else if (item?.kind === 'folder') selectEntry(key);
     else onOpenToSide(key);
@@ -205,8 +220,12 @@ export function WorkbenchExplorer({
     });
   };
   /** 新建文件/文件夹在树里行内输入（VS Code 式），不开弹窗；落点为 null 时落在当前树根。 */
-  const startCreate = (kind: 'file' | 'folder', parentId: string | null) =>
-    useTreeState.getState().startCreate({ kind, parentId: parentId ?? rootId });
+  const startCreate = (kind: 'file' | 'folder', parentId: string | null) => {
+    const target = parentId ?? rootId;
+    const chain = target ? ancestorChainOf(entries, target) : [];
+    useTreeState.setState((s) => ({ expanded: [...new Set([...s.expanded, ...chain])] }));
+    useTreeState.getState().startCreate({ kind, parentId: target });
+  };
   // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
   const afterMenuClose = useAfterMenuClose();
   const pending: ExplorerPending | null = pendingCreate && {
@@ -453,6 +472,10 @@ export function WorkbenchExplorer({
             </div>
             <div
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+              // 点空白处回到项目根：之后的新建落在二级，而不是沿用上次选中的子文件夹。
+              onClick={(event) => {
+                if (event.target === event.currentTarget) useTreeState.getState().select(rootId);
+              }}
               onDoubleClick={(event) => {
                 if (remoteRoot) return;
                 if (event.target === event.currentTarget) startCreate('file', container());
@@ -565,23 +588,25 @@ export function WorkbenchExplorer({
                 </>
               )}
               <div className={eyebrowClass}>文件</div>
-              <ProjectFileTree
-                canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
-                entries={entries}
-                expanded={expanded}
-                pending={pending}
-                onAction={treeAction}
-                onExpand={expand}
-                onImportFiles={rootId ? importDroppedAnywhere : undefined}
-                onMove={remoteRoot ? undefined : move}
-                onOpenToSide={openToSide}
-                onActivate={keepDocument}
-                onRemoteAction={remoteAction}
-                onSelect={selectEntry}
-                query={query}
-                rootId={rootId}
-                selected={activeDocKey ?? selected}
-              />
+              {visible && (
+                <ProjectFileTree
+                  canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
+                  entries={entries}
+                  expanded={expanded}
+                  pending={pending}
+                  onAction={treeAction}
+                  onExpand={expand}
+                  onImportFiles={rootId ? importDroppedAnywhere : undefined}
+                  onMove={remoteRoot ? undefined : move}
+                  onOpenToSide={openToSide}
+                  onActivate={keepDocument}
+                  onRemoteAction={remoteAction}
+                  onSelect={selectEntry}
+                  query={query}
+                  rootId={rootId}
+                  selected={activeDocKey ?? selected}
+                />
+              )}
             </div>
             {/* 归档固定在侧栏最底部：不随上方滚动区滚动（flex 收尾自然贴底）；与滚动区之间
                 用一条极淡 hairline 分界（三区背景层次保持不变，此处作为固定底区的分界）；
@@ -615,20 +640,22 @@ export function WorkbenchExplorer({
                       selected={activeDocKey}
                     />
                   )}
-                  <ProjectFileTree
-                    archived
-                    canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
-                    entries={entries}
-                    expanded={expanded}
-                    onAction={treeAction}
-                    onExpand={expand}
-                    onMove={move}
-                    onOpenToSide={openToSide}
-                    onSelect={selectEntry}
-                    query={query}
-                    rootId={workspaceArchiveId}
-                    selected={activeDocKey ?? selected}
-                  />
+                  {visible && (
+                    <ProjectFileTree
+                      archived
+                      canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
+                      entries={entries}
+                      expanded={expanded}
+                      onAction={treeAction}
+                      onExpand={expand}
+                      onMove={move}
+                      onOpenToSide={openToSide}
+                      onSelect={selectEntry}
+                      query={query}
+                      rootId={workspaceArchiveId}
+                      selected={activeDocKey ?? selected}
+                    />
+                  )}
                 </div>
               )}
             </div>

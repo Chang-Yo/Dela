@@ -214,6 +214,12 @@ Mac 设置页切换登录启动后读取系统实际状态，再保存偏好并�
 
 ## 3. 会话与上下文
 
+本地文件树按目录读取。`workspace:get-state` 通过 `main/workspace/local-tree.ts` 返回工作区根清单、已登记项目及其祖先，不递归扫描项目后代。展开目录时调用 `workspace:list-local`，异步 `readdir` 只列一层，不对每个文件读取 mtime；未登记文件的列表 `updatedAt` 为空，正文 revision 仍在读取文件时计算。折叠目录或隐藏侧栏后释放对应目录缓存。已展开目录按父子索引生成可见行，超过 100 行时使用 TanStack Virtual，仅挂载视口附近的行；键盘定位、选中项定位和行内新建保留。
+
+递归监听根去除重叠范围，项目取消登记后关闭旧监听。`workspace:changed` 携带合并后的绝对变化路径；内容写入不改变名称和类型，因此不刷新目录清单。渲染端串行合并变化，只重新读取受影响的已加载目录；刷新期间收到的新变化会触发后续读取。名称搜索独立异步遍历目录，输入防抖 250 ms，新搜索取消旧搜索，结果带祖先链；打开结果或新建深层文件时补齐必要的祖先。聊天 `@` 文件候选也独立读取会话 cwd，变化触发的扫描串行合并，不依赖侧栏是否展开。搜索和引用遍历跳过 `.git`、`node_modules`，不读取文件正文；普通目录展开仍可查看这些目录。完整同步 `getWorkspaceState()` 暂保留给现有 agent 工具，界面不再调用。
+
+实现参考：[Electron 性能建议](https://www.electronjs.org/docs/latest/tutorial/performance)的异步文件 I/O、[VS Code 文件监听说明](https://github.com/microsoft/vscode/wiki/File-Watcher-Internals)的监听去重，以及 [TanStack Virtual](https://tanstack.com/virtual/latest/docs/api/virtualizer) 的可见行渲染与动态测量。
+
 - **项目＝目录**：项目是 `kind='project'` 的 workspace 条目，身份是条目 UUID，目录是其 `local_path`；目录可在工作区内新建，也可导入电脑上已有的文件夹（留在原处，重命名 / 移动按同一套语义真的动磁盘）。远程项目的 `local_path` 是远端 POSIX 路径，本地没有这份目录（见 §4）。
 - **会话 cwd**：项目会话是该项目的目录；通用（随聊）会话是 `<工作目录>/chat-sessions/<会话 id>` 私有目录；资料页会话用 `<工作目录>/courses`；`sessions.cwd` 为 NULL 的旧会话才回退到工作区根。目录缺失时报错，不静默换目录（远程项目跳过本地存在性检查）。
 - 会话的完整记录是 Pi JSONL（`userData/pi/sessions`），SQLite `sessions` 只是索引（项目归属、标题、置顶、归档、cwd、文件路径）。renderer 看到的 `WorkspaceChat` 是 Pi 消息的投影（`main/agent/session.ts`）。
@@ -346,7 +352,7 @@ macOS 的 rg/fd 位于 `vendor/bin/darwin-<arch>`，打包后为 `resources/bin/
 - `src/renderer/` — React 界面：`app/`（应用装配、主题、快捷键、通知与浮窗）、`workbench/`（标签工作台、布局树、工作台装配 `WorkbenchShell` 与目录 `WorkbenchExplorer`）、`content/`（chat / note / preview / review / terminal 标签内容，笔记草稿在 `content/note/drafts.ts`）、`navigation/`（侧栏与视图路由 `view.ts`）、`sessions/`、`workspace/`（条目镜像、条目操作与远程向导）、`features/`（mail / timetable / shuiyuan / todo / notifications / onboarding / search / settings / classroom 整页视图）、`lib/`、`styles/`；共享组件在 `components/`（`AppShell.tsx`、`ErrorBoundary.tsx`、`legal-markdown.tsx` 与 `ui/`），样式用 Tailwind v4 + 语义 token。
 - `src/shared/` — 进程间共享的 IPC 契约与纯函数（`api.ts` 聚合 re-export）。
 - `helper/` — 远端工具服务的 Go 模块，只依赖标准库。
-- 测试与被测代码同层，但摆法按层不同：`src/main/` 一律用各域的 `test/` 子目录，根级 `src/main/test/` 只放根级模块的测试；`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本，全部为 TypeScript（Node 24 原生执行，仓库不再有 `.mjs`；`tsconfig.scripts.json` 纳入 `pnpm typecheck`）；需要打包的 TS 冒烟（workspace / remote / runtime）统一经 `scripts/run-ts-smoke.ts <名称>` 构建并运行。
+- 测试与被测代码同层，但摆法按层不同：`src/main/` 一律用各域的 `test/` 子目录，根级 `src/main/test/` 只放根级模块的测试；`src/renderer/` 与 `src/shared/` 一般把 `*.test.ts` 与源码并排（`renderer/workbench/`、`renderer/workspace/` 仍用 `test/`）。`scripts/` 存放开发服务器与冒烟脚本，全部为 TypeScript（Node 24 原生执行，仓库不再有 `.mjs`；`tsconfig.scripts.json` 纳入 `pnpm typecheck`）；需要打包的 TS 冒烟（workspace / remote / runtime）统一经 `scripts/run-ts-smoke.ts <名称>` 构建并运行。文件树里逐扩展名的文件图标直接消费 material-icon-theme（MIT，devDependency）的上游 manifest（`components/ui/file-icons.ts`），仓库不留生成物、升级依赖即生效：SVG dev 经 `/@fs/` 读 node_modules（与 pdfjs 资产同法），构建时由 `vite.renderer.config.ts` 按引用集拷入 `out/renderer/file-icons/`。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；Vite 三个配置都写死 `envDir: false`；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取。打包白名单（`electron-builder.yml` 的 `files`）只含 `out/**/*`、`package.json` 与 `assets/` 下的两张品牌图——文档、个人凭据与 `.tools/` 都不进安装包。
 

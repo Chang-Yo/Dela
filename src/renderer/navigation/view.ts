@@ -119,7 +119,10 @@ function currentProjectLive(): boolean {
 export function documentTabId(key: string): TabId {
   if (key.startsWith('source:')) return `preview:${key}`;
   const entry = useWorkspaceStore.getState().workspace.entries.find((e) => e.id === key);
-  return entry?.kind === 'file' && opensInEditor(entry.name) ? `note:${key}` : `preview:${key}`;
+  return (entry?.kind === 'file' || (!entry && /^(?:[a-z]:[\\/]|\/)/i.test(key))) &&
+    opensInEditor(entry?.name ?? key)
+    ? `note:${key}`
+    : `preview:${key}`;
 }
 
 /** 会话所属项目的推导：旧 scope 身份（home/sources/projects）与未知项目一律落通用池。 */

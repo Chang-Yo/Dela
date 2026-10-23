@@ -1,6 +1,8 @@
 import {
-  Fragment,
+  useCallback,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -9,8 +11,10 @@ import {
   type DragEvent,
   type CSSProperties,
 } from 'react';
-import { ChevronRight, FileText, Folder, FolderOpen, FolderKanban } from 'lucide-react';
+import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
+import { ChevronRight, FileText, Folder, FolderKanban } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { fileIconUrl } from './file-icons';
 
 export interface ExplorerItem {
   id: string;
@@ -81,6 +85,7 @@ export function Explorer({
   /** 双击行：叶子条目「打开并保留」（预览转常驻）；目录行双击不触发。 */
   onActivate?: (id: string) => void;
 }) {
+  'use no memo';
   const root = useRef<HTMLDivElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -88,37 +93,45 @@ export function Explorer({
   // 定位（面包屑 reveal 等）只展开祖先链不滚动树；选中行在视口外时滚到可见，否则点了像没反应。
   useEffect(() => {
     if (!selected) return;
+    const index = visible.findIndex((row) => row.item.id === selected);
+    if (virtualized && index >= 0) virtualizer.scrollToIndex(index, { align: 'auto' });
     root.current
       ?.querySelector('[role="treeitem"][aria-selected="true"]')
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [selected]);
-  const children = new Map<string | null, ExplorerItem[]>();
-  for (const item of items) {
-    const group = children.get(item.parentId) ?? [];
-    group.push(item);
-    children.set(item.parentId, group);
-  }
-  if (sortItems) {
-    for (const group of children.values())
-      group.sort((a, b) => {
-        const aBranch = Boolean(a.container || children.has(a.id));
-        const bBranch = Boolean(b.container || children.has(b.id));
-        return Number(bBranch) - Number(aBranch) || explorerCollator.compare(a.name, b.name);
-      });
-  }
-  const open = new Set(expanded);
-  const visible: { item: ExplorerItem; level: number }[] = [];
-  const visited = new Set<string>();
-  const walk = (parentId: string | null, level: number) => {
-    for (const item of children.get(parentId) ?? []) {
-      if (visited.has(item.id)) continue;
-      visited.add(item.id);
-      visible.push({ item, level });
-      if (open.has(item.id)) walk(item.id, level + 1);
+  }, [selected, expanded]);
+  const children = useMemo(() => {
+    const children = new Map<string | null, ExplorerItem[]>();
+    for (const item of items) {
+      const group = children.get(item.parentId) ?? [];
+      group.push(item);
+      children.set(item.parentId, group);
     }
-  };
-  walk(null, 1);
-  // 输入行的位置：目标文件夹之后、它的第一个子项之前；目标不可见（被筛掉）时放到树顶。
+    if (sortItems) {
+      for (const group of children.values())
+        group.sort((a, b) => {
+          const aBranch = Boolean(a.container || children.has(a.id));
+          const bBranch = Boolean(b.container || children.has(b.id));
+          return Number(bBranch) - Number(aBranch) || explorerCollator.compare(a.name, b.name);
+        });
+    }
+    return children;
+  }, [items, sortItems]);
+  const open = useMemo(() => new Set(expanded), [expanded]);
+  const visible = useMemo(() => {
+    const rows: { item: ExplorerItem; level: number }[] = [];
+    const visited = new Set<string>();
+    const walk = (parentId: string | null, level: number) => {
+      for (const item of children.get(parentId) ?? []) {
+        if (visited.has(item.id)) continue;
+        visited.add(item.id);
+        rows.push({ item, level });
+        if (open.has(item.id)) walk(item.id, level + 1);
+      }
+    };
+    walk(null, 1);
+    return rows;
+  }, [children, open]);
+  const getItemKey = useCallback((index: number) => visible[index]!.item.id, [visible]);
   const pendingAt = pending
     ? pending.parentId === null
       ? { index: 0, level: 1 }
@@ -129,8 +142,83 @@ export function Explorer({
             : { index: index + 1, level: visible[index]!.level + 1 };
         })()
     : null;
+  const pendingAnchor = pendingAt ? Math.min(pendingAt.index, visible.length - 1) : -1;
+  // 大树按滚动视口挂载；小树保留原生完整 DOM，避免为短列表引入滚动测量。
+  const virtualized = visible.length > 100;
+  const [scrollMargin, setScrollMargin] = useState(0);
+  const [rowHeight, setRowHeight] = useState(28);
+  const scrollElement = () => {
+    let element = root.current?.parentElement ?? null;
+    while (element && !/(auto|scroll)/.test(getComputedStyle(element).overflowY))
+      element = element.parentElement;
+    return element;
+  };
+  // Explorer 显式退出自动 memo；虚拟行必须在每次滚动渲染时读取。
+  // oxlint-disable-next-line react/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: visible.length,
+    getScrollElement: scrollElement,
+    estimateSize: () => rowHeight,
+    getItemKey,
+    scrollMargin,
+    overscan: 8,
+    enabled: virtualized,
+    rangeExtractor: (range) => {
+      const indices = defaultRangeExtractor(range);
+      return pendingAnchor >= 0
+        ? [...new Set([...indices, pendingAnchor])].sort((a, b) => a - b)
+        : indices;
+    },
+  });
+  useEffect(() => {
+    if (virtualized && pendingAnchor >= 0)
+      virtualizer.scrollToIndex(pendingAnchor, { align: 'auto' });
+  }, [pendingAnchor, virtualized]);
+  useLayoutEffect(() => {
+    if (!virtualized || !root.current) return;
+    const element = scrollElement();
+    if (!element) return;
+    const measure = () => {
+      if (!root.current) return;
+      const spacing = Number.parseFloat(
+        getComputedStyle(root.current).getPropertyValue('--spacing'),
+      );
+      // Tailwind spacing 默认 0.25rem；行高由现有 h-7 token 决定。
+      const rootStyle = getComputedStyle(root.current);
+      const token = rootStyle.getPropertyValue('--spacing').trim();
+      const unit = token.endsWith('rem')
+        ? Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+        : 1;
+      if (Number.isFinite(spacing)) setRowHeight(spacing * unit * 7);
+      setScrollMargin(
+        root.current.getBoundingClientRect().top -
+          element.getBoundingClientRect().top +
+          element.scrollTop,
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    if (root.current.parentElement) observer.observe(root.current.parentElement);
+    return () => observer.disconnect();
+  }, [virtualized, items]);
+  const virtualRows = virtualizer.getVirtualItems();
+  const rendered = virtualized
+    ? virtualRows.map((row) => ({ ...visible[row.index]!, index: row.index, start: row.start }))
+    : visible.map((row, index) => ({ ...row, index, start: 0 }));
+  const pendingFocus = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (pendingFocus.current === null) return;
+    const element = root.current?.querySelector<HTMLElement>(
+      `[data-tree-index="${pendingFocus.current}"]`,
+    );
+    if (element) {
+      element.focus();
+      pendingFocus.current = null;
+    }
+  });
   // 缩进对齐线：亮段跟随选中项的祖先链（含自身），同 VS Code 的 active guide。
-  const parentOf = new Map(items.map((item) => [item.id, item.parentId]));
+  const parentOf = useMemo(() => new Map(items.map((item) => [item.id, item.parentId])), [items]);
   const trailOf = (id: string | null): string[] => {
     const chain: string[] = [];
     for (let current = id; current; current = parentOf.get(current) ?? null) chain.unshift(current);
@@ -152,7 +240,13 @@ export function Explorer({
     setExternalDropTarget(null);
   };
   const focusItem = (index: number) => {
-    root.current?.querySelectorAll<HTMLElement>('[role="treeitem"]')[index]?.focus();
+    pendingFocus.current = index;
+    if (virtualized) virtualizer.scrollToIndex(index, { align: 'auto' });
+    const element = root.current?.querySelector<HTMLElement>(`[data-tree-index="${index}"]`);
+    if (element) {
+      element.focus();
+      pendingFocus.current = null;
+    }
   };
   const keyDown = (event: KeyboardEvent, index: number, item: ExplorerItem, branch: boolean) => {
     let target = index;
@@ -285,6 +379,15 @@ export function Explorer({
       role="tree"
       aria-label={label}
       className="grid content-start gap-0 p-1"
+      style={
+        virtualized
+          ? {
+              position: 'relative',
+              display: 'block',
+              height: `calc(${virtualizer.getTotalSize()}px + 0.5rem)`,
+            }
+          : undefined
+      }
       onDragLeave={(event) => {
         // 指针离开整棵树才清除落点；行间移动由各行的 onDragOver 接力更新。
         if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
@@ -305,34 +408,46 @@ export function Explorer({
         resetDrag();
       }}
     >
-      {pending && pendingAt?.index === visible.length && (
+      {pending && visible.length === 0 && pendingAt && (
         <PendingRow key="pending" pending={pending} level={pendingAt.level} />
       )}
-      {visible.map(({ item, level }, index) => {
+      {rendered.map(({ item, level, index, start }) => {
         const branch = Boolean(item.container || children.has(item.id));
-        // 目录 icon 只保留到第二层（学期/课程这类主目录），更深的子目录只留
-        // 折叠箭头与文字；叶子文件 icon 不受影响。
-        const Icon =
-          item.icon ??
-          (item.project
-            ? FolderKanban
-            : branch
-              ? open.has(item.id)
-                ? FolderOpen
-                : Folder
-              : FileText);
-        const showIcon = !branch || level <= 2;
+        // 目录行默认不画 folder 图标（折叠箭头已表达目录语义）；例外是携带信息的行：
+        // 项目行的看板图标标记项目身份，强调色（远端同源分组）需要图标作颜色载体。
+        // 文件行用逐扩展名的彩色图标（material-icon-theme 精选），未收录的回落文档图标。
+        const fileIcon = !branch && !item.icon ? fileIconUrl(item.name) : null;
+        const Icon = item.icon ?? (item.project ? FolderKanban : branch ? Folder : FileText);
+        const showIcon = !branch || item.project || item.accent !== undefined;
         const accent = item.accent ? { color: item.accent } : undefined;
         const ancestors = trailOf(item.parentId);
         const dropRegion =
           activeDrop !== null && (activeDrop === item.id || ancestors.includes(activeDrop));
         return (
-          <Fragment key={item.id}>
+          <div
+            key={item.id}
+            data-index={index}
+            ref={virtualized ? virtualizer.measureElement : undefined}
+            style={
+              virtualized
+                ? {
+                    position: 'absolute',
+                    left: '0.25rem',
+                    right: '0.25rem',
+                    top: 0,
+                    transform: `translateY(calc(${start - scrollMargin}px + 0.25rem))`,
+                  }
+                : undefined
+            }
+          >
             {pending && pendingAt?.index === index && (
               <PendingRow pending={pending} level={pendingAt.level} />
             )}
             <div
               role="treeitem"
+              data-tree-index={index}
+              aria-posinset={(children.get(item.parentId) ?? []).indexOf(item) + 1}
+              aria-setsize={children.get(item.parentId)?.length}
               aria-label={item.name}
               aria-level={level}
               aria-expanded={branch ? open.has(item.id) : undefined}
@@ -410,13 +525,16 @@ export function Explorer({
                   )}
                 />
               </button>
-              {showIcon && (
-                <Icon
-                  className="mr-1 size-4 shrink-0 text-ink-3"
-                  strokeWidth={1.8}
-                  style={accent}
-                />
-              )}
+              {showIcon &&
+                (fileIcon ? (
+                  <img alt="" className="mr-1 size-4 shrink-0" draggable={false} src={fileIcon} />
+                ) : (
+                  <Icon
+                    className="mr-1 size-4 shrink-0 text-ink-3"
+                    strokeWidth={1.8}
+                    style={accent}
+                  />
+                ))}
               <span className="min-w-0 flex-1 truncate" title={item.title ?? item.name}>
                 {item.name}
               </span>
@@ -430,7 +548,10 @@ export function Explorer({
                 </span>
               )}
             </div>
-          </Fragment>
+            {pending && pendingAt?.index === visible.length && index === visible.length - 1 && (
+              <PendingRow pending={pending} level={pendingAt.level} />
+            )}
+          </div>
         );
       })}
     </div>
