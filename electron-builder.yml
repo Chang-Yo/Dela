@@ -12,6 +12,22 @@ files:
   - package.json
   - assets/Dela_white_bg.png
   - assets/Dela_black_bg.png
+  # 渲染层依赖已移入 devDependencies，由 Vite 打进 out/；
+  # 下面只兜底排除依赖收集中漏进产物或带全平台 prebuild 的部分。
+  # esbuild 是 Vite 的构建期工具，electron-builder 的 pnpm 依赖收集会漏收它。
+  - '!node_modules/@esbuild/**'
+  # native prebuild 按当前发布矩阵（win x64 / mac arm64）只保留目标平台
+  - '!node_modules/better-sqlite3/prebuilds/darwin-*'
+  - '!node_modules/better-sqlite3/prebuilds/linux*'
+  - '!node_modules/better-sqlite3/prebuilds/win32-arm64.node'
+  - '!node_modules/node-pty/prebuilds/darwin-*'
+  - '!node_modules/node-pty/prebuilds/linux*'
+  - '!node_modules/node-pty/prebuilds/win32-arm64'
+# Chromium 自带 55 种语言包（约 49MB），产品只面向中英文
+electronLanguages:
+  - en-US
+  - zh-CN
+  - zh-TW
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*

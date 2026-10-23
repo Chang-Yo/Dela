@@ -109,6 +109,37 @@ importers:
 
   .:
     dependencies:
+      '@earendil-works/pi-agent-core':
+        specifier: 1.1.0
+        version: 1.1.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.10.2)(ws@8.22.0)(zod@4.5.4)
+      '@earendil-works/pi-ai':
+        specifier: 1.1.0
+        version: 1.1.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.10.2)(ws@8.22.0)(zod@4.5.4)
+      '@earendil-works/pi-coding-agent':
+        specifier: 1.1.0
+        version: 1.1.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(ws@8.22.0)(zod@4.5.4)
+      '@earendil-works/pi-mcp':
+        specifier: 1.1.0
+        version: 1.1.0
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
+      electron-updater:
+        specifier: 6.8.10
+        version: 6.8.10(supports-color@7.2.0)
+      imapflow:
+        specifier: 2.0.0
+        version: 2.0.0
+      node-pty:
+        specifier: 1.1.0
+        version: 1.1.0
+      nodemailer:
+        specifier: 10.0.1
+        version: 10.0.1
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
       '@codemirror/commands':
         specifier: 6.11.0
         version: 6.11.0
@@ -130,18 +161,6 @@ importers:
       '@codemirror/view':
         specifier: 6.43.11
         version: 6.43.11
-      '@earendil-works/pi-agent-core':
-        specifier: 1.1.0
-        version: 1.1.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.10.2)(ws@8.22.0)(zod@4.5.4)
-      '@earendil-works/pi-ai':
-        specifier: 1.1.0
-        version: 1.1.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.10.2)(ws@8.22.0)(zod@4.5.4)
-      '@earendil-works/pi-coding-agent':
-        specifier: 1.1.0
-        version: 1.1.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(ws@8.22.0)(zod@4.5.4)
-      '@earendil-works/pi-mcp':
-        specifier: 1.1.0
-        version: 1.1.0
       '@lezer/highlight':
         specifier: 1.2.3
         version: 1.2.3
@@ -157,18 +176,33 @@ importers:
       '@streamdown/mermaid':
         specifier: 1.0.2
         version: 1.0.2(react@19.2.8)
+      '@tailwindcss/vite':
+        specifier: 4.3.3
+        version: 4.3.3(vite@8.2.2(@types/node@24.9.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       '@tanstack/react-virtual':
         specifier: 3.14.21
         version: 3.14.21(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
+      '@types/node':
+        specifier: 24.9.0
+        version: 24.9.0
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.7
+        version: 19.2.7(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: 6.1.1
+        version: 6.1.1(vite@8.2.2(@types/node@24.9.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       '@xterm/addon-fit':
         specifier: 0.11.0
         version: 0.11.0
       '@xterm/xterm':
         specifier: 6.0.0
         version: 6.0.0
-      better-sqlite3:
-        specifier: 13.0.3
-        version: 13.0.3
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -181,9 +215,12 @@ importers:
       docx-preview:
         specifier: 0.4.1
         version: 0.4.1
-      electron-updater:
-        specifier: 6.8.10
-        version: 6.8.10(supports-color@7.2.0)
+      electron:
+        specifier: 44.9.3
+        version: 44.9.3(supports-color@7.2.0)
+      electron-builder:
+        specifier: 26.15.3
+        version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
       file-type:
         specifier: 22.2.0
         version: 22.2.0(supports-color@7.2.0)
@@ -202,9 +239,9 @@ importers:
       iconoir-react:
         specifier: 7.12.1
         version: 7.12.1(react@19.2.8)
-      imapflow:
-        specifier: 2.0.0
-        version: 2.0.0
+      jsdom:
+        specifier: 30.1.0
+        version: 30.1.0(@noble/hashes@2.4.0)
       katex:
         specifier: 0.16.47
         version: 0.16.47
@@ -214,12 +251,18 @@ importers:
       lucide-react:
         specifier: 1.44.0
         version: 1.44.0(react@19.2.8)
-      node-pty:
-        specifier: 1.1.0
-        version: 1.1.0
-      nodemailer:
-        specifier: 10.0.1
-        version: 10.0.1
+      material-icon-theme:
+        specifier: 5.39.0
+        version: 5.39.0
+      oxlint:
+        specifier: 1.82.0
+        version: 1.82.0
+      pdfjs-dist:
+        specifier: 6.3.289
+        version: 6.3.289
+      prettier:
+        specifier: 3.9.6
+        version: 3.9.6
       radix-ui:
         specifier: 1.6.7
         version: 1.6.7(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -241,61 +284,12 @@ importers:
       tailwind-merge:
         specifier: 3.6.0
         version: 3.6.0
-      tw-animate-css:
-        specifier: 1.4.0
-        version: 1.4.0
-      xlsx:
-        specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-        version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-      zod:
-        specifier: 4.5.4
-        version: 4.5.4
-      zustand:
-        specifier: 5.0.15
-        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)
-    devDependencies:
-      '@tailwindcss/vite':
-        specifier: 4.3.3
-        version: 4.3.3(vite@8.2.2(@types/node@24.9.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
-      '@types/better-sqlite3':
-        specifier: 9.6.0
-        version: 9.6.0
-      '@types/node':
-        specifier: 24.9.0
-        version: 24.9.0
-      '@types/react':
-        specifier: 19.2.18
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: 19.2.7
-        version: 19.2.7(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: 6.1.1
-        version: 6.1.1(vite@8.2.2(@types/node@24.9.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
-      electron:
-        specifier: 44.9.3
-        version: 44.9.3(supports-color@7.2.0)
-      electron-builder:
-        specifier: 26.15.3
-        version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
-      jsdom:
-        specifier: 30.1.0
-        version: 30.1.0(@noble/hashes@2.4.0)
-      material-icon-theme:
-        specifier: 5.39.0
-        version: 5.39.0
-      oxlint:
-        specifier: 1.82.0
-        version: 1.82.0
-      pdfjs-dist:
-        specifier: 6.3.289
-        version: 6.3.289
-      prettier:
-        specifier: 3.9.6
-        version: 3.9.6
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+      tw-animate-css:
+        specifier: 1.4.0
+        version: 1.4.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -305,6 +299,12 @@ importers:
       vitest:
         specifier: 5.0.0
         version: 5.0.0(@types/node@24.9.0)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.9.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+      xlsx:
+        specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+        version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+      zustand:
+        specifier: 5.0.15
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)
 
 packages:
 

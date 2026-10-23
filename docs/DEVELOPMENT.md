@@ -226,6 +226,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/node-v24.22.1-darw
 - `allowBuilds` 里 `better-sqlite3: false`、`node-pty: true`——原生依赖用随包预编译产物，关闭源码重建。
 - `postinstall` 先下载 Electron 运行时，再执行 `fix-native-permissions.ts`：后者**仅在 Darwin** 上给 node-pty 的 `spawn-helper` 补可执行位（包内原为 0644，会导致 `posix_spawnp failed`）。只改了 postinstall 脚本时需显式重跑，增量 install 可能不重新执行。
 - `@earendil-works/*` 在 main 构建中保持 external、随 node_modules 打包进 asar；pi 系是纯 ESM，main 的 CJS 产物经动态 `import()` 加载。
+- 安装包体积：`dependencies` 只留主进程运行时要加载的包（electron-builder 会把它连闭包原样收进 asar），渲染层依赖放 devDependencies——放错边等于把 npm 目录再装一遍。
 - PDF.js 只是 renderer 的构建依赖；主进程不加载它，也不分发原生 canvas。
 
 **引导与条款门**：顺序是 Intro → 条款接受页 → 五步向导 → 能力拓展 → 完成动画。
