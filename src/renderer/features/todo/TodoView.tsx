@@ -24,7 +24,7 @@ import { cn } from '../../lib/utils';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import { EventColorRow } from '../timetable/EventColorRow';
-import { roundToMinute, startOfDay } from '../timetable/timetable-format';
+import { formatTime, roundToMinute, startOfDay } from '../timetable/timetable-format';
 import { DateTimeStepper } from './DateTimeStepper';
 import { TodoCalendar } from './TodoCalendar';
 import { monthLabel } from './todo-calendar';
@@ -264,82 +264,79 @@ export function TodoView({ request }: { request?: { id: string } }) {
         (filter === 'all' || item.source === filter) &&
         (showCompleted || !todoCompleted(item.status)),
     ) ?? [];
-  const undatedCount = items.filter((item) => !item.dueAt).length;
+  const undatedCount = (source: 'all' | 'canvas' | 'personal') =>
+    (state?.items ?? []).filter(
+      (item) =>
+        !item.dueAt && !todoCompleted(item.status) && (source === 'all' || item.source === source),
+    ).length;
   const openItem = (id: string) => {
     setDetailId(id);
     void run(() => window.dela!.todo.markRead(id), { failTitle: '标记已读失败' });
   };
-  // 月份导航放在页头副标题位置，日历网格只负责展示。
+  // 月份导航放在页头标题右侧，日历网格只负责展示。
   const stepMonth = (amount: number) =>
     setMonth(new Date(month.getFullYear(), month.getMonth() + amount, 1));
-  const goToday = () => {
-    const today = new Date();
-    setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-  };
   return (
     <div className="relative mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden px-6 py-6 max-md:px-4">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">TODO</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
-            {view === 'calendar' && (
-              <span className="flex items-center gap-0.5">
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label="上个月"
-                  onClick={() => stepMonth(-1)}
-                >
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <span className="min-w-28 text-center text-sm font-medium tabular-nums text-ink">
-                  {monthLabel(month)}
-                </span>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label="下个月"
-                  onClick={() => stepMonth(1)}
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-                <Button size="sm" variant="ghost" onClick={goToday}>
-                  今天
-                </Button>
+          {view === 'calendar' && (
+            <span className="flex items-center gap-0.5">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="上个月"
+                onClick={() => stepMonth(-1)}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="min-w-28 text-center text-sm font-medium tabular-nums text-ink">
+                {monthLabel(month)}
               </span>
-            )}
-            <p>
-              {state?.syncedAt
-                ? `Canvas 更新于 ${dateLabel(state.syncedAt)}`
-                : state?.connected
-                  ? 'Canvas 尚未同步'
-                  : '连接 Canvas 后可同步作业'}
-            </p>
-          </div>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="下个月"
+                onClick={() => stepMonth(1)}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </span>
+          )}
         </div>
-        <div className="flex gap-1">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="同步作业"
-            title="同步作业"
-            disabled={busy || state?.syncing || !state?.connected}
-            onClick={() => void run(() => window.dela!.todo.refresh(), { failTitle: '同步失败' })}
-          >
-            <RefreshCw className={cn('size-4', state?.syncing && 'animate-spin')} />
-          </Button>
-          <Button
-            size="sm"
-            disabled={!window.dela?.todo}
-            onClick={() => {
-              setCreating(true);
-              setEditingId(null);
-              setDetailId(null);
-            }}
-          >
-            <Plus className="size-4" />
-            新建待办
-          </Button>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-ink-3">
+            {state?.syncedAt
+              ? `${formatTime(new Date(state.syncedAt))}更新`
+              : state?.connected
+                ? 'Canvas 尚未同步'
+                : '连接 Canvas 后可同步作业'}
+          </p>
+          <div className="flex gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="同步作业"
+              title="同步作业"
+              disabled={busy || state?.syncing || !state?.connected}
+              onClick={() => void run(() => window.dela!.todo.refresh(), { failTitle: '同步失败' })}
+            >
+              <RefreshCw className={cn('size-4', state?.syncing && 'animate-spin')} />
+            </Button>
+            <Button
+              size="sm"
+              disabled={!window.dela?.todo}
+              onClick={() => {
+                setCreating(true);
+                setEditingId(null);
+                setDetailId(null);
+              }}
+            >
+              <Plus className="size-4" />
+              新建待办
+            </Button>
+          </div>
         </div>
       </header>
       {(error || state?.error) && (
@@ -348,17 +345,25 @@ export function TodoView({ request }: { request?: { id: string } }) {
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2 py-4">
-        {(['all', 'canvas', 'personal'] as const).map((value) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={filter === value ? 'secondary' : 'ghost'}
-            aria-pressed={filter === value}
-            onClick={() => setFilter(value)}
-          >
-            {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
-          </Button>
-        ))}
+        {(['all', 'canvas', 'personal'] as const).map((value) => {
+          const count = undatedCount(value);
+          return (
+            <Button
+              key={value}
+              size="sm"
+              variant={filter === value ? 'secondary' : 'ghost'}
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+            >
+              {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
+              {count > 0 && (
+                <span className="rounded-full bg-ink px-1.5 text-2xs font-medium leading-4 tabular-nums text-surface">
+                  {count}
+                </span>
+              )}
+            </Button>
+          );
+        })}
         <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-2">
           {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
           <label className="flex items-center gap-2 text-xs text-ink-3">
@@ -383,20 +388,10 @@ export function TodoView({ request }: { request?: { id: string } }) {
               size="sm"
               variant={view === 'list' ? 'secondary' : 'ghost'}
               aria-pressed={view === 'list'}
-              title={
-                view === 'calendar' && undatedCount > 0
-                  ? `${undatedCount} 个待办没有截止时间`
-                  : undefined
-              }
               onClick={() => setView('list')}
             >
               <List className="size-4" />
               列表
-              {view === 'calendar' && undatedCount > 0 && (
-                <span className="rounded-full bg-ink px-1.5 text-2xs font-medium leading-4 tabular-nums text-surface">
-                  {undatedCount}
-                </span>
-              )}
             </Button>
           </div>
         </div>

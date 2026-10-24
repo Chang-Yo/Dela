@@ -66,26 +66,27 @@ afterEach(() => {
 });
 
 describe('TODO 视图', () => {
-  it('默认显示月历，无截止日期的待办数量显示在列表切换上，可切换列表查看', async () => {
+  it('默认显示月历，无截止日期数量常驻筛选页签，可切换列表查看', async () => {
     await act(async () => {
       root.render(<TodoView />);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     expect(host.querySelector('[aria-label="待办日历"]')).not.toBeNull();
-    const listButton = [...host.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('列表'),
-    );
-    expect(listButton).toBeTruthy();
-    expect(listButton!.textContent).toContain('1');
-    expect(listButton!.title).toContain('没有截止时间');
+    const findButton = (label: string) =>
+      [...host.querySelectorAll('button')].find((button) => button.textContent?.includes(label));
+    expect(findButton('全部')!.textContent).toContain('1');
+    const listButton = findButton('列表')!;
+    expect(listButton.textContent).not.toContain('1');
+    expect(listButton.title).not.toContain('没有截止时间');
 
     await act(async () => {
-      listButton!.click();
+      listButton.click();
     });
 
     expect(host.querySelector('[aria-label="待办日历"]')).toBeNull();
     expect(host.textContent).toContain('课程作业');
     expect(host.textContent).toContain('无截止日期待办');
+    expect(findButton('全部')!.textContent).toContain('1');
   });
 });
