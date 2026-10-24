@@ -1,13 +1,19 @@
-// 课程手风琴列表：点课程展开该课录像；行 hover 浮现下载（多画面时下拉选画面）。
-// 行风格对齐资料面板树行：inset 底上 hover 用 hover-2 拉开层次（见 explorer 同款裁决）。
 import { useState } from 'react';
-import { ChevronRight, Download, Loader2 } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
+import { Button } from '../../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
 import { IconButton } from '../../components/ui/beautifului/atoms/IconButton';
 import { cn } from '../../lib/utils';
 import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
@@ -15,74 +21,69 @@ import { formatTime, lectureMeta, lectureTitle } from './player-format';
 import { useClassroom } from './store';
 import { useExperimentEnabled } from '../settings/experimental';
 
-export function CourseList() {
+export function CoursePicker() {
   const courses = useClassroom((state) => state.courses);
-  if (courses.length === 0) {
-    return <p className="px-3 py-6 text-center text-xs text-ink-3">本学期暂无课堂录像课程</p>;
-  }
+  const selectedCourseId = useClassroom((state) => state.selectedCourseId);
+  const selectCourse = useClassroom((state) => state.selectCourse);
   return (
-    <nav aria-label="课程与录像" className="flex flex-col gap-0.5 px-2 pb-2">
-      {courses.map((course) => (
-        <CourseSection key={course.id} course={course} />
-      ))}
-    </nav>
+    <div className="px-3 pb-3 pt-2">
+      <Select
+        value={selectedCourseId === null ? '' : String(selectedCourseId)}
+        onValueChange={(value) => selectCourse(Number(value))}
+        disabled={courses.length === 0}
+      >
+        <SelectTrigger
+          aria-label="当前课程"
+          className="h-auto w-full rounded-card bg-surface px-3 py-3"
+        >
+          <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+            <span className="text-2xs font-normal text-ink-3">
+              本学期 · {courses.length} 门课程
+            </span>
+            <span className="truncate">
+              <SelectValue placeholder="暂无课程" />
+            </span>
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {courses.map((course) => (
+            <SelectItem key={course.id} value={String(course.id)}>
+              {course.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
-function CourseSection({ course }: { course: VideoCourse }) {
-  const open = useClassroom((state) => state.expanded === course.id);
-  const toggleCourse = useClassroom((state) => state.toggleCourse);
-  const videos = useClassroom((state) => state.videos[course.id]);
-  const loading = useClassroom((state) => state.videosLoading[course.id] ?? false);
-  const error = useClassroom((state) => state.videosError[course.id] || null);
+export function CourseList() {
+  const course = useClassroom((state) =>
+    state.courses.find((course) => course.id === state.selectedCourseId),
+  );
+  const videos = useClassroom((state) => state.videos[state.selectedCourseId ?? -1]);
+  const loading = useClassroom((state) => state.videosLoading[state.selectedCourseId ?? -1]);
+  const error = useClassroom((state) => state.videosError[state.selectedCourseId ?? -1]);
   const ensureVideos = useClassroom((state) => state.ensureVideos);
-
+  if (!course)
+    return <p className="px-3 py-6 text-center text-xs text-ink-3">本学期暂无课堂录像课程</p>;
   return (
-    <div>
-      <button
-        aria-expanded={open}
-        className={cn(
-          'flex h-7 w-full items-center gap-1 rounded-chip px-1.5 text-13 transition-colors duration-150',
-          open ? 'font-medium text-ink' : 'text-ink-2 hover:bg-hover-2 hover:text-ink',
-        )}
-        onClick={() => toggleCourse(course.id)}
-        type="button"
-      >
-        <ChevronRight
-          aria-hidden
-          className={cn(
-            'size-3 shrink-0 text-ink-3 transition-transform duration-150 motion-reduce:transition-none',
-            open && 'rotate-90',
-          )}
-        />
-        <span className="min-w-0 flex-1 truncate text-left">{course.name}</span>
-        {!open && videos && (
-          <span className="shrink-0 pr-1 text-2xs tabular-nums text-ink-3">{videos.length}</span>
-        )}
-      </button>
-      {open && (
-        <div className="mb-1 ml-4 mt-0.5 flex flex-col gap-0.5">
-          {loading && !videos ? (
-            [0, 1, 2].map((index) => <VideoRowSkeleton key={index} />)
-          ) : error && !videos ? (
-            <p className="px-2 py-2 text-xs text-ink-3">
-              {error}
-              <button
-                className="ml-2 underline underline-offset-2"
-                onClick={() => void ensureVideos(course.id)}
-                type="button"
-              >
-                重试
-              </button>
-            </p>
-          ) : videos && videos.length > 0 ? (
-            videos.map((video) => <VideoRow key={video.id} course={course} video={video} />)
-          ) : (
-            <p className="px-2 py-2 text-xs text-ink-3">暂无录像</p>
-          )}
+    <nav aria-label="节次" className="flex flex-col gap-1 px-2 pb-2">
+      {loading && !videos ? (
+        [0, 1, 2].map((index) => <VideoRowSkeleton key={index} />)
+      ) : error && !videos ? (
+        <div className="px-2 py-3 text-xs text-ink-3">
+          <p>{error}</p>
+          <Button size="sm" variant="ghost" onClick={() => void ensureVideos(course.id)}>
+            重试
+          </Button>
         </div>
+      ) : videos?.length ? (
+        videos.map((video) => <VideoRow key={video.id} course={course} video={video} />)
+      ) : (
+        <p className="px-2 py-3 text-xs text-ink-3">暂无录像</p>
       )}
-    </div>
+    </nav>
   );
 }
 
@@ -111,6 +112,7 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
       )}
     >
       <button
+        aria-current={selected ? 'true' : undefined}
         className="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 text-left"
         onClick={() => selectVideo(course.id, video.id)}
         type="button"
