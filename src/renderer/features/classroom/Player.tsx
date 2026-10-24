@@ -74,6 +74,7 @@ export function Player({
   const streamsError = useClassroom((state) => state.streamsError[video.id] || null);
   const ensureStreams = useClassroom((state) => state.ensureStreams);
   const download = useClassroom((state) => state.download);
+  const seekRequest = useClassroom((state) => state.seekRequest);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -91,6 +92,24 @@ export function Player({
 
   const active = streams ? streams[Math.min(activeIndex, streams.length - 1)] : undefined;
   const playbackUrl = active?.playbackUrl;
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element || seekRequest?.videoId !== video.id) return;
+    const applySeek = () => {
+      if (useClassroom.getState().seekRequest !== seekRequest) return;
+      const time = Math.min(
+        seekRequest.seconds,
+        Number.isFinite(element.duration) ? element.duration : seekRequest.seconds,
+      );
+      element.currentTime = time;
+      setCurrentTime(time);
+      useClassroom.setState({ seekRequest: null, playbackTime: time });
+    };
+    if (element.readyState >= 1) applySeek();
+    else element.addEventListener('loadedmetadata', applySeek, { once: true });
+    return () => element.removeEventListener('loadedmetadata', applySeek);
+  }, [seekRequest, video.id, playbackUrl, reloadSeq]);
 
   // 切场次重置播放态并回到第一个画面；进页面时按需拉画面列表（行内下载可能已缓存）。
   useEffect(() => {
@@ -229,7 +248,11 @@ export function Player({
                 end = Math.max(end, ranges.end(index));
               setBufferedEnd(end);
             }}
-            onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+            onTimeUpdate={(event) => {
+              const time = event.currentTarget.currentTime;
+              setCurrentTime(time);
+              useClassroom.setState({ playbackTime: time });
+            }}
             preload="metadata"
             ref={videoRef}
             src={playbackUrl}

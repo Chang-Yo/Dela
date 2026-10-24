@@ -37,6 +37,8 @@ export interface VsjtuApi {
   listCourses(): Promise<VideoCourse[]>;
   listVideos(courseId: number): Promise<ClassroomVideo[]>;
   streams(videoId: number): Promise<VideoStream[]>;
+  transcript(videoId: number): Promise<VideoTranscript | null>;
+  exportTranscript(videoId: number, title: string): Promise<{ saved: boolean }>;
   download(videoId: number, view: number, name: string): Promise<void>;
   downloads(): Promise<VideoDownload[]>;
   cancelDownload(id: string): Promise<void>;

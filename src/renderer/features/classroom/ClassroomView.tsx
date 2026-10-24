@@ -8,6 +8,8 @@ import { useViewportWidth } from '../../workbench/explorer-state';
 import { cn } from '../../lib/utils';
 import { useExperimental, useExperimentEnabled } from '../settings/experimental';
 import { CourseList, CoursePicker } from './CourseList';
+import { TranscriptPanel } from './TranscriptPanel';
+import { SegmentedControl } from '../../components/ui/beautifului/atoms/SegmentedControl';
 import { DownloadsPanel } from './DownloadsPanel';
 import { Player } from './Player';
 import { useClassroom } from './store';
@@ -50,6 +52,7 @@ function DesktopClassroomView() {
     () => localStorage.getItem(collapsedStorageKey) === '1',
   );
   const [resizing, setResizing] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'节次' | '语音'>('节次');
   const viewportWidth = useViewportWidth();
 
   useEffect(() => {
@@ -152,9 +155,22 @@ function DesktopClassroomView() {
                 </div>
               </div>
               <CoursePicker />
-              <div className="px-3 pb-2 text-xs font-medium text-ink-2">节次</div>
-              <div className="min-h-0 flex-1 overflow-y-auto" id="classroom-courses">
-                <CourseList />
+              <div className="px-3 pb-3">
+                <SegmentedControl
+                  options={['节次', '语音']}
+                  value={sidebarTab}
+                  onChange={setSidebarTab}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col" id="classroom-courses">
+                {sidebarTab === '节次' ? (
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <CourseList />
+                  </div>
+                ) : (
+                  <TranscriptPanel />
+                )}
               </div>
             </div>
           </aside>
