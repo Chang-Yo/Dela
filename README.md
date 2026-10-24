@@ -49,7 +49,7 @@ Dela 的内核基于 Pi 构建，所有的校园服务功能都通过交大公�
 
 Dela Harness 基于 Pi 构建，可以作为一款通用 agent 产品使用，并且 Dela 在 Coding 领域进行了特别加强。
 
-Dela 支持导入第三方 skills 和接入 MCPs，通过**内置的校园 skills** 可以快速获取到用户的校园信息数据，比如读取 Canvas 课程状态，获取 Canvas 课程资料，读取个人所有邮件，获取课表，获取水源讯息等等，详情可以直接阅读应用内的内置校园 skills。
+Dela 支持导入第三方 skills 和接入 MCPs，通过**内置的校园 skills** 可以快速获取到用户的校园信息数据，比如读取 Canvas 课程状态，获取 Canvas 课程资料，读取个人所有邮件，获取课表，获取水源讯息、按时间范围读取课堂语音文稿与批量保存文稿等等，详情可以直接阅读应用内的内置校园 skills。
 
 Dela 提供自定义的 `web_search` 工具接入（如 DeepSeek、Brave、Google，默认关闭，需自备 API KEY），还提供免费的 `web_fetch` 工具（默认开启）。
 
