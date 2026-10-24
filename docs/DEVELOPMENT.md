@@ -64,7 +64,7 @@
 
 ### 2.3 skills
 
-领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。六个内置 skill（shuiyuan / canvas / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi。
+领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi。
 
 设置 › Skills 按来源分四组：内置、本机、每个 Pi package、每个本地项目。**开关的粒度不一样**——全局 skill 按名称记禁用，项目与包里的按 `SKILL.md` 绝对路径记，因为同名的可以共存且互不牵连。
 
@@ -146,7 +146,7 @@ Pi 社区的 package（扩展、skills、提示模板、主题）原样交给 Pi
 - 课程优先取本学期课表，**只有成功解析为空列表时**才补查官网「我的课程」的点播列表并按当前学期筛选。原课表非空不补查、不合并；失败就报错，不用备用来源掩盖。
 - 在线播放走主进程代理，本次运行随机密钥签发 HMAC token，Range/HEAD 语义透传，媒体请求不携带校园 Cookie、不跟随重定向。已开始传输的流中断后**不支持无缝续接**，交由页面重试。
 - 下载沿用 Electron `DownloadItem`，任务列表仅驻留内存，无跨重启续传；不合并、不转码、不依赖外部 FFmpeg。
-- 文稿基础接口复用校园会话，返回带毫秒时间戳的原始识别文本；暂无文稿与请求失败分开处理。文稿只在内存中有限缓存，不自动写入用户目录；Agent 与界面入口后续接入。
+- 文稿基础接口复用校园会话，返回带毫秒时间戳的原始识别文本；暂无文稿与请求失败分开处理。文稿只在内存中有限缓存，不自动写入用户目录；Agent 通过 classroom Skill 和 `dela` 命令按时间范围、字符分页读取，批量下载要求明确本机目录；界面入口后续接入。
 - `records: null` 与备用来源这两条都是实测得到的行为，代码里只有 `if`，没有「服务器实际这么干」这个事实。
 
 ## 6. 应用内更新
