@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Database } from 'better-sqlite3';
-import { deleteCalendarEvent, isConnected, parseSemesterStart, parseWeekNumbers } from '../api';
-import { getCampusSession } from '../../campus';
+import { deleteCalendarEvent, parseSemesterStart, parseWeekNumbers } from '../api';
 import { getDatabase } from '../../database';
-import { net, type Session } from 'electron';
-import { EventEmitter } from 'node:events';
 
 vi.mock('electron', () => ({
   BrowserWindow: {},
@@ -13,85 +10,6 @@ vi.mock('electron', () => ({
   net: { request: vi.fn() },
 }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../campus', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../campus')>()),
-  getCampusSession: vi.fn(),
-}));
-
-function mockRequest(status: number | 'redirect' | 'error', body = '') {
-  const request = Object.assign(new EventEmitter(), {
-    setHeader: vi.fn(),
-    abort: vi.fn(),
-    end: vi.fn(() =>
-      queueMicrotask(() => {
-        if (status === 'redirect') {
-          request.emit('redirect', 302);
-          return;
-        }
-        if (status === 'error') {
-          request.emit('error', new Error('network failed'));
-          return;
-        }
-        const response = Object.assign(new EventEmitter(), { statusCode: status });
-        request.emit('response', response);
-        response.emit('data', Buffer.from(body));
-        response.emit('end');
-      }),
-    ),
-  });
-  vi.mocked(net.request).mockReturnValue(request as unknown as ReturnType<typeof net.request>);
-  return request;
-}
-
-describe('campus connection validation', () => {
-  it.each([
-    [200, '{"kbList":[]}', true],
-    [302, '', false],
-    ['error', '', false],
-    [200, '<html>Login</html>', false],
-  ] as const)(
-    'handles response %s without constructing a Response',
-    async (status, body, expected) => {
-      const request = mockRequest(status, body);
-      const campus = {
-        cookies: { get: vi.fn().mockResolvedValue([{ name: 'JSESSIONID' }]) },
-      } as unknown as Session;
-      vi.mocked(getCampusSession).mockResolvedValue(campus);
-      expect(await isConnected()).toBe(expected);
-      expect(net.request).toHaveBeenLastCalledWith(
-        expect.objectContaining({ session: campus, useSessionCookies: true, redirect: 'manual' }),
-      );
-      expect(request.end).toHaveBeenCalledWith(expect.stringContaining('kzlx=ck'));
-      if (status !== 200) expect(request.abort).toHaveBeenCalled();
-    },
-  );
-
-  it('does not request a disconnected browser', async () => {
-    vi.mocked(net.request).mockClear();
-    vi.mocked(getCampusSession).mockResolvedValue({
-      cookies: { get: vi.fn().mockResolvedValue([]) },
-    } as unknown as Session);
-    expect(await isConnected()).toBe(false);
-    expect(net.request).not.toHaveBeenCalled();
-  });
-
-  it('aborts a stalled request after the timeout', async () => {
-    vi.useFakeTimers();
-    try {
-      const request = mockRequest(200);
-      request.end.mockImplementation(() => {});
-      vi.mocked(getCampusSession).mockResolvedValue({
-        cookies: { get: vi.fn().mockResolvedValue([{ name: 'JSESSIONID' }]) },
-      } as unknown as Session);
-      const connected = isConnected();
-      await vi.advanceTimersByTimeAsync(15000);
-      expect(await connected).toBe(false);
-      expect(request.abort).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-});
 
 describe('parseWeekNumbers', () => {
   it('expands ranges and comma-separated weeks', () => {

@@ -1,17 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CalendarEvent, TimetableLesson } from '../../../../../shared/timetable';
+import type { CalendarEvent } from '../../../../../shared/timetable';
 import { timetableTools } from '../index';
 
 vi.mock('../../../../timetable/api', async () => {
   const { z } = await import('zod');
   return {
-    isConnected: vi.fn(),
-    listSyncedSemesters: vi.fn(),
-    currentSemesterInfo: vi.fn(),
     scheduleQuerySchema: z.object({}).passthrough(),
     querySchedule: vi.fn(),
-    syncTimetable: vi.fn(),
-    listLessons: vi.fn(),
     createCalendarEvent: vi.fn(),
     deleteCalendarEvent: vi.fn(),
     getCalendarEvent: vi.fn(),
@@ -22,82 +17,16 @@ import {
   createCalendarEvent,
   deleteCalendarEvent,
   getCalendarEvent,
-  isConnected,
-  listLessons,
-  listSyncedSemesters,
-  currentSemesterInfo,
   querySchedule,
-  syncTimetable,
 } from '../../../../timetable/api';
 
-const connected = vi.mocked(isConnected);
-const semesters = vi.mocked(listSyncedSemesters);
-const currentInfo = vi.mocked(currentSemesterInfo);
 const schedule = vi.mocked(querySchedule);
-const sync = vi.mocked(syncTimetable);
-const lessons = vi.mocked(listLessons);
 const createEvent = vi.mocked(createCalendarEvent);
 const deleteEvent = vi.mocked(deleteCalendarEvent);
 const getEvent = vi.mocked(getCalendarEvent);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  connected.mockResolvedValue(true);
-  currentInfo.mockReturnValue({
-    semester: '2026-2027-1',
-    basis: '按本机时钟 2026-09-29 推断：9 月及以后属第一学期',
-  });
-});
-
-describe('get_timetable_status', () => {
-  it('reports the online probe, clock-inferred semester and synced semesters', async () => {
-    semesters.mockReturnValue([
-      {
-        semester: '2025-2026-2',
-        lastSyncedAt: '2026-03-01T00:00:00.000Z',
-        semesterStart: '2026-02-23',
-      },
-      { semester: '2026-2027-1', lastSyncedAt: '2026-09-20T00:00:00.000Z', semesterStart: null },
-    ]);
-    const result = (await timetableTools.get_timetable_status.execute({})) as {
-      connected: boolean;
-      currentSemester: { semester: string; basis: string };
-      semesters: { semester: string; isCurrent: boolean }[];
-      warnings: string[];
-    };
-    expect(result.connected).toBe(true);
-    expect(result.currentSemester).toEqual({
-      semester: '2026-2027-1',
-      basis: '按本机时钟 2026-09-29 推断：9 月及以后属第一学期',
-    });
-    expect(result.semesters).toEqual([
-      {
-        semester: '2025-2026-2',
-        lastSyncedAt: '2026-03-01T00:00:00.000Z',
-        semesterStart: '2026-02-23',
-        isCurrent: false,
-      },
-      {
-        semester: '2026-2027-1',
-        lastSyncedAt: '2026-09-20T00:00:00.000Z',
-        semesterStart: null,
-        isCurrent: true,
-      },
-    ]);
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain('2026-2027-1 缺少学期开始日期');
-  });
-
-  it('reports a disconnected campus session as a state, not an error', async () => {
-    connected.mockResolvedValue(false);
-    semesters.mockReturnValue([]);
-    const result = (await timetableTools.get_timetable_status.execute({})) as {
-      connected: boolean;
-      warnings: string[];
-    };
-    expect(result.connected).toBe(false);
-    expect(result.warnings[0]).toContain('未登录教学信息服务网');
-  });
 });
 
 describe('query_schedule', () => {
@@ -149,7 +78,7 @@ describe('query_schedule', () => {
       endAt: '2026-03-08T16:00:00.000Z',
     });
     expect(result.coverage.complete).toBe(false);
-    expect(result.coverage.warnings[0]).toContain('请先调用 refresh_timetable');
+    expect(result.coverage.warnings[0]).toContain('请提示用户到课表页面');
   });
 
   it('rejects mixed, missing or unordered time inputs at the schema layer', () => {
@@ -172,57 +101,6 @@ describe('query_schedule', () => {
     expect(() =>
       timetableTools.query_schedule.execute({ startDate: '2026-02-30', endDate: '2026-03-01' }),
     ).toThrow('日期不存在');
-  });
-});
-
-describe('refresh_timetable', () => {
-  it('syncs one semester and reports the resulting rows', async () => {
-    sync.mockResolvedValue({ ok: true });
-    semesters.mockReturnValue([
-      {
-        semester: '2026-2027-1',
-        lastSyncedAt: '2026-09-29T00:00:00.000Z',
-        semesterStart: '2026-09-14',
-      },
-    ]);
-    lessons.mockReturnValue([{}, {}, {}] as TimetableLesson[]);
-    const result = await timetableTools.refresh_timetable.execute({ semester: '2026-2027-1' });
-    expect(sync).toHaveBeenCalledWith('2026-2027-1');
-    expect(result).toEqual({
-      semester: '2026-2027-1',
-      lastSyncedAt: '2026-09-29T00:00:00.000Z',
-      semesterStart: '2026-09-14',
-      lessonCount: 3,
-    });
-  });
-
-  it('warns when the registrar did not return a semester start date', async () => {
-    sync.mockResolvedValue({ ok: true });
-    semesters.mockReturnValue([
-      { semester: '2026-2027-1', lastSyncedAt: '2026-09-29T00:00:00.000Z', semesterStart: null },
-    ]);
-    lessons.mockReturnValue([]);
-    const result = (await timetableTools.refresh_timetable.execute({
-      semester: '2026-2027-1',
-    })) as { warnings: string[] };
-    expect(result.warnings[0]).toContain('学期开始日期');
-  });
-
-  it('maps sync failures to contract error codes', async () => {
-    sync.mockResolvedValue({ ok: false, error: '登录已失效，请重新登录' });
-    await expect(
-      timetableTools.refresh_timetable.execute({ semester: '2026-2027-1' }),
-    ).rejects.toMatchObject({ code: 'AUTH_EXPIRED' });
-
-    sync.mockResolvedValue({ ok: false, error: '课表请求超时，请稍后重试' });
-    await expect(
-      timetableTools.refresh_timetable.execute({ semester: '2026-2027-1' }),
-    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
-
-    sync.mockResolvedValue({ ok: false, error: '课表接口返回 503' });
-    await expect(
-      timetableTools.refresh_timetable.execute({ semester: '2026-2027-1' }),
-    ).rejects.toMatchObject({ code: 'UPSTREAM_ERROR' });
   });
 });
 

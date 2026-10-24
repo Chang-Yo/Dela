@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarRange, ChevronLeft, ChevronRight, LogIn, Plus, RefreshCw } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson, TimetableState, TodoItem } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
@@ -207,6 +207,11 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
     try {
       const result = await timetable.syncNow(semester ?? undefined);
       if (!result.ok) {
+        // 会话过期是唯一需要登录介入的同步失败：直接转入登录并同步流程。
+        if (result.reason === 'auth') {
+          await connectAndSync();
+          return;
+        }
         showToast({
           variant: 'error',
           title: '同步课表失败',
@@ -231,14 +236,6 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
 
   if (!state || !semester) {
     return <div className="grid h-full place-items-center text-13 text-ink-3">正在读取课表…</div>;
-  }
-
-  if (!state.connected && lessons.length === 0) {
-    return (
-      <div className="grid h-full place-items-center p-6">
-        <TimetableConnectCard semester={semester} onSuccess={() => void loadSemester(semester)} />
-      </div>
-    );
   }
 
   const weekEnd = addDays(visibleWeekStart, 6);
@@ -298,19 +295,14 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
-              aria-label={state.connected ? '同步课表' : '重新登录'}
+              aria-label="同步课表"
               disabled={busy}
-              onClick={() => void (state.connected ? sync() : connectAndSync())}
-              size={state.connected ? 'icon-sm' : 'sm'}
-              title={state.connected ? formatSyncTime(state.lastSyncedAt) : undefined}
+              onClick={() => void sync()}
+              size="icon-sm"
+              title={formatSyncTime(state.lastSyncedAt)}
               variant="ghost"
             >
-              {state.connected ? (
-                <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
-              ) : (
-                <LogIn className="size-3.5" />
-              )}
-              {state.connected ? null : '重新登录'}
+              <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
             </Button>
             <div className="flex items-center rounded-control bg-hover-2 p-0.5">
               {(['week', 'month'] as const).map((value) => (
@@ -390,7 +382,11 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
         </p>
       ) : null}
 
-      {mode === 'week' ? (
+      {!state.lastSyncedAt ? (
+        <div className="grid flex-1 place-items-center p-6">
+          <TimetableConnectCard semester={semester} onSuccess={() => void loadSemester(semester)} />
+        </div>
+      ) : mode === 'week' ? (
         <WeekCalendar
           events={semesterWeekStart ? calendarEvents : []}
           lessons={weekLessons}
@@ -414,6 +410,13 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
           onClose={() => setEventDraft(null)}
           onCreated={() => {
             setEventDraft(null);
+            // 课表尚未同步时日历区显示的是登录卡，事件已落库但无处可见，须明确告知。
+            if (!state.lastSyncedAt)
+              showToast({
+                variant: 'success',
+                title: '事件已保存',
+                description: '同步课表后会在日历中显示',
+              });
             void loadEvents();
           }}
         />

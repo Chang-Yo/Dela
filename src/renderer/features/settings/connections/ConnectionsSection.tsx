@@ -49,7 +49,7 @@ export function ConnectionsSection({
   const canvas = useWorkspaceStore((state) => state.canvas);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
-  const [timetableConnected, setTimetableConnected] = useState(false);
+  const [timetableSyncedAt, setTimetableSyncedAt] = useState<string | null>(null);
   const [shuiyuanUser, setShuiyuanUser] = useState<string | null>(null);
   const [shuiyuanBusy, setShuiyuanBusy] = useState(false);
   const [shuiyuanConfirm, setShuiyuanConfirm] = useState(false);
@@ -65,7 +65,7 @@ export function ConnectionsSection({
       .then(([mailState, timetableState, shuiyuanState]) => {
         if (!active) return;
         setMailAddress(mailState.account?.address ?? null);
-        setTimetableConnected(timetableState.connected);
+        setTimetableSyncedAt(timetableState.lastSyncedAt);
         setShuiyuanUser(shuiyuanState.connected ? shuiyuanState.username : null);
         if (mailState.account) {
           void dela.mail
@@ -176,8 +176,8 @@ export function ConnectionsSection({
       itemId: 'timetable',
       name: '教学信息服务网',
       icon: CalendarDays,
-      state: timetableConnected ? '已连接' : '未连接',
-      connected: timetableConnected,
+      state: timetableSyncedAt ? '已同步' : '未同步',
+      connected: Boolean(timetableSyncedAt),
       actionLabel: '前往',
       onClick: onOpenTimetable,
     },

@@ -1,10 +1,11 @@
 // 校园登录窗共用逻辑：到达目标域后探活收场。课堂视频入口页本身就在目标域（retryProbe）：
 // 未登录时探测失败不得关窗，覆盖 SSO 回跳、SPA 导航和异步登录；课表探测失败即关窗返回错误。
+import { EventEmitter } from 'node:events';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BrowserWindowConstructorOptions, WebContents } from 'electron';
+import type { BrowserWindowConstructorOptions, Session, WebContents } from 'electron';
 
 const mock = vi.hoisted(() => ({
   userData: '',
@@ -12,6 +13,7 @@ const mock = vi.hoisted(() => ({
   windows: [] as unknown[],
   parent: {} as unknown,
   load: vi.fn<() => Promise<void>>(),
+  netRequest: vi.fn(),
 }));
 
 // 工厂在 import 初始化前执行，不能引用 node:events（会在提升期解引用未初始化绑定），
@@ -68,6 +70,7 @@ vi.mock('electron', () => {
   return {
     BrowserWindow: Object.assign(MockWindow, { fromWebContents: () => mock.parent }),
     app: { getPath: () => mock.userData },
+    net: { request: mock.netRequest },
     safeStorage: { isEncryptionAvailable: () => true },
     session: {
       fromPartition: () => ({
@@ -78,7 +81,12 @@ vi.mock('electron', () => {
 });
 vi.mock('../ipc', () => ({ attachContextMenu: () => {} }));
 
-import { createCampusLoginWindow, openCampusLoginWindow } from '../campus';
+import {
+  CampusAuthError,
+  campusRequest,
+  createCampusLoginWindow,
+  openCampusLoginWindow,
+} from '../campus';
 
 interface LoginWindowMock {
   webContents: { emit: (event: string, ...args: unknown[]) => void };
@@ -329,5 +337,100 @@ describe('openCampusLoginWindow', () => {
     loginWindow.close();
     await expect(pending).resolves.toEqual({ ok: false, error: '未完成登录' });
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('campusRequest', () => {
+  const url = 'https://i.sjtu.edu.cn/kbcx/xskbcx_cxXsgrkb.html';
+  const options = { service: '课表', loginError: '登录已失效，请重新登录' };
+
+  function mockRequest(status: number | 'redirect' | 'error', body = '') {
+    const request = Object.assign(new EventEmitter(), {
+      setHeader: vi.fn(),
+      abort: vi.fn(),
+      end: vi.fn(() =>
+        queueMicrotask(() => {
+          if (status === 'redirect') {
+            request.emit('redirect', 302);
+            return;
+          }
+          if (status === 'error') {
+            request.emit('error', new Error('network failed'));
+            return;
+          }
+          const response = Object.assign(new EventEmitter(), { statusCode: status });
+          request.emit('response', response);
+          response.emit('data', Buffer.from(body));
+          response.emit('end');
+        }),
+      ),
+    });
+    mock.netRequest.mockReturnValue(request);
+    return request;
+  }
+
+  it('正常回应解析正文，会话内手动重定向', async () => {
+    const request = mockRequest(200, '{"kbList":[]}');
+    await expect(campusRequest({} as Session, url, options)).resolves.toBe('{"kbList":[]}');
+    expect(mock.netRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ url, method: 'GET', useSessionCookies: true, redirect: 'manual' }),
+    );
+    expect(request.abort).not.toHaveBeenCalled();
+  });
+
+  it.each(['redirect', 401, 403] as const)('%s 回应抛登录失效错误', async (status) => {
+    const request = mockRequest(status);
+    let caught: unknown;
+    await campusRequest({} as Session, url, options).catch((error) => {
+      caught = error;
+    });
+    expect(caught).toBeInstanceOf(CampusAuthError);
+    expect((caught as Error).message).toBe('登录已失效，请重新登录');
+    expect(request.abort).toHaveBeenCalledOnce();
+  });
+
+  it('网络错误按可重试失败收场', async () => {
+    const request = mockRequest('error');
+    let caught: unknown;
+    await campusRequest({} as Session, url, options).catch((error) => {
+      caught = error;
+    });
+    expect((caught as Error).message).toBe('无法连接课表，请检查网络');
+    expect((caught as Error).cause).toBe('transient');
+    expect(request.abort).toHaveBeenCalledOnce();
+  });
+
+  it('408/5xx 标记可重试，其余状态不标记', async () => {
+    const unavailable = mockRequest(503);
+    let caught: unknown;
+    await campusRequest({} as Session, url, options).catch((error) => {
+      caught = error;
+    });
+    expect((caught as Error).message).toBe('课表接口返回 503');
+    expect((caught as Error).cause).toBe('transient');
+    expect(unavailable.abort).toHaveBeenCalledOnce();
+
+    const missing = mockRequest(404);
+    await campusRequest({} as Session, url, options).catch((error) => {
+      caught = error;
+    });
+    expect((caught as Error).message).toBe('课表接口返回 404');
+    expect((caught as Error).cause).toBeUndefined();
+    expect(missing.abort).toHaveBeenCalledOnce();
+  });
+
+  it('超时后中断请求', async () => {
+    vi.useFakeTimers();
+    const request = mockRequest(200);
+    request.end.mockImplementation(() => {});
+    let caught: unknown;
+    // reject 发生在推进计时器期间，须先挂上处理器避免 unhandled rejection。
+    campusRequest({} as Session, url, options).catch((error) => {
+      caught = error;
+    });
+    await vi.advanceTimersByTimeAsync(15000);
+    expect((caught as Error).message).toBe('课表请求超时，请稍后重试');
+    expect((caught as Error).cause).toBe('transient');
+    expect(request.abort).toHaveBeenCalledOnce();
   });
 });
