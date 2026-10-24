@@ -11,6 +11,10 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
+## unreleased
+
+- 新增水源链接直接应用内跳转，无需打开外部浏览器
+
 ## 2.0.1 - 2026-10-24
 
 - 优化安装包体积：渲染层依赖不再重复打包，Chromium 语言包只保留中英文，安装后占用由约 889 MB 降至约 597 MB。

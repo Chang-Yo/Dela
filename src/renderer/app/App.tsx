@@ -227,6 +227,13 @@ export default function App() {
     });
   }, []);
 
+  // 主进程分流回来的水源主题链接：聊天、邮件、文档等处的点击统一在应用内阅读。
+  useEffect(() => {
+    return window.dela?.shuiyuan?.onOpenTopic(({ topicId, postNumber }) =>
+      useNavigationStore.getState().openShuiyuanTopic(topicId, postNumber),
+    );
+  }, []);
+
   // 全局搜索入口交给 AppShell 的快捷键派发（Ctrl/⌘+K 可改键）；此处只守卫引导阶段：
   // completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
   const openSearch = () => {

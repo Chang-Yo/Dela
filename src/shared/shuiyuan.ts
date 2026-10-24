@@ -1,5 +1,40 @@
 import type { DocumentContent } from './documents';
 
+export const SHUIYUAN_HOST = 'shuiyuan.sjtu.edu.cn';
+
+export interface ShuiyuanTopicLink {
+  readonly topicId: number;
+  readonly postNumber?: number;
+}
+
+/** 识别 Discourse 的 /t/<id> 与 /t/<slug>/<id>/<post> 绝对链接。 */
+export function shuiyuanTopicFromUrl(value: string): ShuiyuanTopicLink | null {
+  try {
+    const url = new URL(value);
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      url.hostname !== SHUIYUAN_HOST ||
+      url.username ||
+      url.password
+    )
+      return null;
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts[0] !== 't') return null;
+    const idIndex = /^\d+$/.test(parts[1] ?? '') ? 1 : /^\d+$/.test(parts[2] ?? '') ? 2 : -1;
+    if (idIndex < 0 || parts.length > idIndex + 2) return null;
+    const topicId = Number(parts[idIndex]);
+    const postNumber = /^\d+$/.test(parts[idIndex + 1] ?? '')
+      ? Number(parts[idIndex + 1])
+      : undefined;
+    if (!Number.isSafeInteger(topicId) || topicId <= 0) return null;
+    if (postNumber !== undefined && (!Number.isSafeInteger(postNumber) || postNumber <= 0))
+      return null;
+    return postNumber === undefined ? { topicId } : { topicId, postNumber };
+  } catch {
+    return null;
+  }
+}
+
 export interface ShuiyuanState {
   readonly connected: boolean;
   readonly username: string | null;
@@ -191,4 +226,8 @@ export interface ShuiyuanApi {
   getSourceRef(topicId: number): Promise<ShuiyuanSourceRef | null>;
   /** 项目工作区打开水源来源时的文档内容（实时拉取，断网回退 excerpt）。 */
   readSource(topicId: number): Promise<DocumentContent>;
+  /** 在系统浏览器打开原帖；不经应用内链接分流。 */
+  openInBrowser(topicId: number): Promise<void>;
+  /** 主进程把站内主题链接（聊天、邮件、文档等处点击）交回应用内阅读。 */
+  onOpenTopic(listener: (target: ShuiyuanTopicLink) => void): () => void;
 }

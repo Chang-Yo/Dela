@@ -13,13 +13,7 @@ import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, useShuiyuan } from './store';
-import {
-  SHUIYUAN_ORIGIN,
-  avatarUrl,
-  formatCount,
-  formatListDate,
-  tagColor,
-} from './shuiyuan-format';
+import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ReplyComposer } from './ReplyComposer';
 import { AddToProjectDialog } from './AddToProjectDialog';
@@ -130,9 +124,7 @@ export function TopicReaderHeader() {
       {detail ? (
         <Button
           aria-label="打开原帖"
-          onClick={() =>
-            window.open(`${SHUIYUAN_ORIGIN}/t/topic/${detail.id}`, '_blank', 'noopener')
-          }
+          onClick={() => void window.dela?.shuiyuan.openInBrowser(detail.id)}
           size="icon-sm"
           variant="ghost"
         >

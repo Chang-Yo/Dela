@@ -1,5 +1,5 @@
-import type { ShuiyuanApi, ShuiyuanFeed } from '../shared/api';
-import { invoke } from './lib';
+import type { ShuiyuanApi, ShuiyuanFeed, ShuiyuanTopicLink } from '../shared/api';
+import { invoke, on } from './lib';
 
 export const shuiyuan = {
   getState: () => invoke('shuiyuan:get-state'),
@@ -28,4 +28,7 @@ export const shuiyuan = {
   addSourceRef: (topicId: number) => invoke('shuiyuan:add-source-ref', topicId),
   getSourceRef: (topicId: number) => invoke('shuiyuan:get-source-ref', topicId),
   readSource: (topicId: number) => invoke('shuiyuan:read-source', topicId),
+  openInBrowser: (topicId: number) => invoke('shuiyuan:open-in-browser', topicId),
+  onOpenTopic: (listener: (target: ShuiyuanTopicLink) => void) =>
+    on<ShuiyuanTopicLink>('shuiyuan:open-topic', listener),
 } satisfies ShuiyuanApi;

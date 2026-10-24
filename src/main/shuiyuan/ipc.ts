@@ -1,4 +1,4 @@
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
 import { checkWorkspaceSender } from '../ipc';
 import { assertShuiyuanEnabled } from '../settings/prefs';
 import {
@@ -24,6 +24,7 @@ import {
   startShuiyuanAuth,
   unbindShuiyuan,
 } from './api';
+import { shuiyuanTopicUrl } from './sources';
 
 export function registerShuiyuanIpc(): void {
   const handle = (name: string, fn: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown) =>
@@ -68,4 +69,7 @@ export function registerShuiyuanIpc(): void {
   handle('add-source-ref', (_event, topicId: unknown) => addShuiyuanSourceRef(topicId));
   handle('get-source-ref', (_event, topicId: unknown) => getShuiyuanSourceRef(topicId));
   handle('read-source', (_event, topicId: unknown) => readShuiyuanSource(topicId));
+  handle('open-in-browser', (_event, topicId: unknown) =>
+    shell.openExternal(shuiyuanTopicUrl(topicId)),
+  );
 }

@@ -5,7 +5,7 @@ import {
   frameLinkFromEvent,
   injectFrameHeightReport,
 } from '../../components/ui/frame-height';
-import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from './shuiyuan-format';
+import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
 import { useRootFontSize } from '../../lib/root-font-size';
 
 const INITIAL_BODY_HEIGHT = 48;

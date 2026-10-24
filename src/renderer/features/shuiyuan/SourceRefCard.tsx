@@ -16,13 +16,11 @@ export function ShuiyuanSourceDoc({
   content,
   text,
   onOpenInShuiyuan,
-  onOpenUrl,
 }: {
   topicId: number;
   content: DocumentContent;
   text: string;
   onOpenInShuiyuan: (topicId: number, postNumber?: number) => void;
-  onOpenUrl: (url: string) => void;
 }) {
   const [ref, setRef] = useState<ShuiyuanSourceRef | null>(null);
   useEffect(() => {
@@ -78,7 +76,11 @@ export function ShuiyuanSourceDoc({
               在水源页打开
             </Button>
             {content.url ? (
-              <Button onClick={() => onOpenUrl(content.url!)} size="sm" variant="ghost">
+              <Button
+                onClick={() => void window.dela?.shuiyuan.openInBrowser(topicId)}
+                size="sm"
+                variant="ghost"
+              >
                 <ExternalLink className="size-3.5" />
                 打开原帖
               </Button>
