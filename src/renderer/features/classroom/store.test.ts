@@ -13,6 +13,8 @@ const vsjtu = {
   listCourses: vi.fn(),
   listVideos: vi.fn(async () => []),
   streams: vi.fn(async () => []),
+  transcript: vi.fn(async () => null),
+  exportTranscript: vi.fn(async () => ({ saved: false })),
   download: vi.fn(async () => {}),
   downloads: vi.fn(async () => []),
   cancelDownload: vi.fn(async () => {}),

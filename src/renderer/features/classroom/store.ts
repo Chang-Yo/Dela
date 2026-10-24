@@ -23,6 +23,9 @@ interface ClassroomState {
   videosError: Record<number, string>;
   selectedCourseId: number | null;
   selectedVideoId: number | null;
+  seekRequest: { videoId: number; seconds: number } | null;
+  playbackTime: number;
+  seekTo: (videoId: number, seconds: number) => void;
   streams: Record<number, VideoStream[]>;
   /** 正在加载画面列表的 videoId（同时只有一个在途）。 */
   streamsLoading: number | null;
@@ -55,6 +58,12 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
   videosError: {},
   selectedCourseId: null,
   selectedVideoId: null,
+  seekRequest: null,
+  playbackTime: 0,
+  seekTo: (videoId, seconds) => {
+    if (get().selectedVideoId === videoId && Number.isFinite(seconds) && seconds >= 0)
+      set({ seekRequest: { videoId, seconds } });
+  },
   streams: {},
   streamsLoading: null,
   streamsError: {},
@@ -131,7 +140,12 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
 
   selectCourse: (courseId) => {
     if (get().selectedCourseId !== courseId)
-      set({ selectedCourseId: courseId, selectedVideoId: null });
+      set({
+        selectedCourseId: courseId,
+        selectedVideoId: null,
+        seekRequest: null,
+        playbackTime: 0,
+      });
     void get().ensureVideos(courseId);
   },
 
@@ -159,7 +173,12 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
   },
 
   selectVideo: (courseId, videoId) => {
-    set({ selectedCourseId: courseId, selectedVideoId: videoId });
+    set({
+      selectedCourseId: courseId,
+      selectedVideoId: videoId,
+      seekRequest: null,
+      playbackTime: 0,
+    });
     void get().ensureStreams(videoId);
   },
 
