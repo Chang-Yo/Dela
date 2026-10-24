@@ -18,7 +18,6 @@ export interface TimetableLesson {
 }
 
 export interface TimetableState {
-  readonly connected: boolean;
   readonly semester: string;
   readonly lastSyncedAt: string | null;
   readonly semesterStart: string | null;
@@ -61,6 +60,8 @@ export interface CalendarEventInput {
 export interface TimetableResult {
   readonly ok: boolean;
   readonly error?: string;
+  /** 非空表示失败原因是登录失效，界面据此引导重新登录而非当作普通失败。 */
+  readonly reason?: 'auth';
 }
 
 export interface TimetableApi {

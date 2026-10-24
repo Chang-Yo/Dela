@@ -11,7 +11,7 @@ type TimetableConnectCardProps = {
   onSuccess: () => void;
 };
 
-/** 未连接时的登录卡：登录在独立窗口完成，成功后同步课程。课表页与首启向导共用。 */
+/** 无同步记录时的登录卡：登录在独立窗口完成，成功后同步课程。课表页与首启向导共用。 */
 export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCardProps) {
   const [busy, setBusy] = useState(false);
 

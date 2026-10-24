@@ -102,6 +102,9 @@ export interface CampusRequestOptions {
   body?: string;
 }
 
+/** 登录失效错误：调用方据此引导重新登录，而非当作普通失败。 */
+export class CampusAuthError extends Error {}
+
 /**
  * 直接消费 Chromium 响应：Electron session.fetch 在内部构造 Response 时可能抛出未捕获的
  * 状态码异常。重定向一律视为登录失效；超时、断网与 408/5xx 失败的 `cause` 为 'transient'，
@@ -134,7 +137,7 @@ export function campusRequest(
       15000,
     );
     request.on('error', () => fail(new Error(`无法连接${options.service}，请检查网络`), true));
-    request.on('redirect', () => fail(new Error(options.loginError)));
+    request.on('redirect', () => fail(new CampusAuthError(options.loginError)));
     request.on('response', (response) => {
       const status = response.statusCode;
       if (!Number.isInteger(status) || status < 200 || status > 599) {
@@ -142,7 +145,7 @@ export function campusRequest(
         return;
       }
       if (status === 401 || status === 403 || (status >= 300 && status < 400)) {
-        fail(new Error(options.loginError));
+        fail(new CampusAuthError(options.loginError));
         return;
       }
       if (status !== 200) {

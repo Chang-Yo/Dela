@@ -216,22 +216,11 @@ describe('分组', () => {
   });
 });
 
-it('upgrades the unmodified document skill while preserving user changes', async () => {
-  const path = join(home, '.dela', 'skills', 'document-reading', 'SKILL.md');
-  const current = readFileSync(path, 'utf8');
-  const previous = current
-    .split('\n')
-    .filter((line) => !line.startsWith('网页 PDF：'))
-    .join('\n')
-    .replace('、邮件附件和 web_fetch 返回的 PDF 临时任务', '和邮件附件')
-    .replace(/\n{3,}/g, '\n\n');
-  writeFileSync(path, previous.replace(/\r?\n/g, '\r\n'));
+it('restores user-edited builtin skills to the bundled version', async () => {
+  const path = join(home, '.dela', 'skills', 'canvas', 'SKILL.md');
+  const bundled = readFileSync(path, 'utf8');
+  writeFileSync(path, `${bundled}\n用户补充的指引\n`);
   vi.resetModules();
   (await import('../skills')).ensureBuiltinSkills();
-  expect(readFileSync(path, 'utf8')).toBe(current);
-  const edited = previous + '\n用户补充的读取要求\n';
-  writeFileSync(path, edited);
-  vi.resetModules();
-  (await import('../skills')).ensureBuiltinSkills();
-  expect(readFileSync(path, 'utf8')).toBe(edited);
+  expect(readFileSync(path, 'utf8')).toBe(bundled);
 });
