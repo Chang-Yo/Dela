@@ -10,6 +10,15 @@ export interface ClassroomVideo {
   room: string;
   period: string;
 }
+export interface TranscriptSegment {
+  startMs: number;
+  endMs: number;
+  text: string;
+}
+export interface VideoTranscript {
+  videoId: number;
+  segments: TranscriptSegment[];
+}
 export interface VideoStream {
   view: number;
   duration: number;
