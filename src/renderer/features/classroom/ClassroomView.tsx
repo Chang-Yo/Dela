@@ -1,4 +1,3 @@
-// 课堂视频页：登录 → 可折叠课程侧栏 + 播放器两栏；侧栏视觉对齐资料面板。
 import { useEffect, useState } from 'react';
 import { KeyRound, Loader2, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -8,7 +7,7 @@ import { Resizer } from '../../components/ui/resizer';
 import { useViewportWidth } from '../../workbench/explorer-state';
 import { cn } from '../../lib/utils';
 import { useExperimental, useExperimentEnabled } from '../settings/experimental';
-import { CourseList } from './CourseList';
+import { CourseList, CoursePicker } from './CourseList';
 import { DownloadsPanel } from './DownloadsPanel';
 import { Player } from './Player';
 import { useClassroom } from './store';
@@ -33,7 +32,6 @@ const collapsedStorageKey = 'dela.classroom.sidebarCollapsed';
 
 function DesktopClassroomView() {
   const phase = useClassroom((state) => state.phase);
-  const courses = useClassroom((state) => state.courses);
   const coursesLoading = useClassroom((state) => state.coursesLoading);
   const init = useClassroom((state) => state.init);
   const refresh = useClassroom((state) => state.refresh);
@@ -153,10 +151,9 @@ function DesktopClassroomView() {
                   </Button>
                 </div>
               </div>
+              <CoursePicker />
+              <div className="px-3 pb-2 text-xs font-medium text-ink-2">节次</div>
               <div className="min-h-0 flex-1 overflow-y-auto" id="classroom-courses">
-                <div className="px-3 pb-1 pt-3 text-2xs font-medium tracking-wider text-ink-3/70">
-                  课程{courses.length > 0 ? ` · 本学期 ${courses.length} 门` : ''}
-                </div>
                 <CourseList />
               </div>
             </div>

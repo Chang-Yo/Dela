@@ -36,7 +36,6 @@ beforeEach(() => {
     videos: {},
     videosLoading: {},
     videosError: {},
-    expanded: null,
     selectedCourseId: null,
     selectedVideoId: null,
   });
@@ -111,14 +110,13 @@ it('成功空课程保持就绪且不再请求录像或重新登录', async () =
   useClassroom.setState({
     phase: 'ready',
     courses: [{ id: 1, code: 'CS', name: '课程一' }],
-    expanded: 1,
+    selectedCourseId: 1,
   });
   vsjtu.listCourses.mockResolvedValue([]);
   await useClassroom.getState().refresh();
   expect(useClassroom.getState()).toMatchObject({
     phase: 'ready',
     courses: [],
-    expanded: null,
     coursesLoading: false,
   });
   expect(vsjtu.connect).not.toHaveBeenCalled();
@@ -138,4 +136,26 @@ it('成功空录像作为已加载结果保存，再次展开不重复请求', a
   });
   expect(vsjtu.listVideos).toHaveBeenCalledTimes(1);
   expect(toast).not.toHaveBeenCalled();
+});
+
+it('切换课程清空当前节次，交错完成的录像请求仍正确缓存且不自动播放', async () => {
+  let first!: (videos: []) => void;
+  vsjtu.listVideos.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        first = resolve;
+      }),
+  );
+  vsjtu.streams.mockClear();
+  useClassroom.setState({ selectedCourseId: 1, selectedVideoId: 11 });
+  useClassroom.getState().selectCourse(2);
+  expect(useClassroom.getState().selectedVideoId).toBeNull();
+  useClassroom.getState().selectCourse(3);
+  await vi.waitFor(() => expect(useClassroom.getState().videos[3]).toEqual([]));
+  first([]);
+  await vi.waitFor(() => expect(useClassroom.getState().videosLoading[2]).toBe(false));
+  expect(useClassroom.getState().selectedCourseId).toBe(3);
+  useClassroom.getState().selectCourse(2);
+  expect(vsjtu.listVideos).toHaveBeenCalledTimes(2);
+  expect(vsjtu.streams).not.toHaveBeenCalled();
 });
