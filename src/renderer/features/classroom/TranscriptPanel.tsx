@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Loader2, Play, RotateCcw, Search } from 'lucide-react';
+import { FileOutput, Loader2, Play, RotateCcw, Search } from 'lucide-react';
 import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../../shared/vsjtu';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -96,7 +96,7 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
             disabled={loading || !!error || !transcript || exporting}
             onClick={() => void exportText()}
           >
-            {exporting ? <Loader2 className="animate-spin" /> : <Download />}
+            {exporting ? <Loader2 className="animate-spin" /> : <FileOutput />}
           </IconButton>
         </div>
       </div>
