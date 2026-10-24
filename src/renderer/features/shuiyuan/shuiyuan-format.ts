@@ -17,37 +17,6 @@ import type { ShuiyuanNotificationItem } from '../../../shared/api';
 
 /** 水源站点的头像/资源基地址；renderer 直接引用远程图（CSP 已放行 https）。 */
 export const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
-export const SHUIYUAN_HOST = 'shuiyuan.sjtu.edu.cn';
-
-/** 识别 Discourse 的 /t/<id> 与 /t/<slug>/<id>/<post> 站内链接。 */
-export function shuiyuanTopicFromUrl(
-  value: string,
-): { topicId: number; postNumber?: number } | null {
-  try {
-    const url = new URL(value, SHUIYUAN_ORIGIN);
-    if (
-      !['http:', 'https:'].includes(url.protocol) ||
-      url.hostname !== SHUIYUAN_HOST ||
-      url.username ||
-      url.password
-    )
-      return null;
-    const parts = url.pathname.split('/').filter(Boolean);
-    if (parts[0] !== 't') return null;
-    const idIndex = /^\d+$/.test(parts[1] ?? '') ? 1 : /^\d+$/.test(parts[2] ?? '') ? 2 : -1;
-    if (idIndex < 0 || parts.length > idIndex + 2) return null;
-    const topicId = Number(parts[idIndex]);
-    const postNumber = /^\d+$/.test(parts[idIndex + 1] ?? '')
-      ? Number(parts[idIndex + 1])
-      : undefined;
-    if (!Number.isSafeInteger(topicId) || topicId <= 0) return null;
-    if (postNumber !== undefined && (!Number.isSafeInteger(postNumber) || postNumber <= 0))
-      return null;
-    return postNumber === undefined ? { topicId } : { topicId, postNumber };
-  } catch {
-    return null;
-  }
-}
 
 export function avatarUrl(template: string | null, size = 48): string | null {
   if (!template) return null;

@@ -9,7 +9,9 @@ import {
   defaultTranslations,
   type ControlsConfig,
   type DiagramPlugin,
+  type LinkSafetyConfig,
 } from 'streamdown';
+import { shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
 import { cn } from '../../lib/utils';
 import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
 
@@ -81,6 +83,12 @@ function ChatTable({
 
 const chatComponents = { table: ChatTable };
 
+// 水源主题链接免外链确认：主进程会把它交回应用内阅读。
+const chatLinkSafety: LinkSafetyConfig = {
+  enabled: true,
+  onLinkCheck: (url) => shuiyuanTopicFromUrl(url) !== null,
+};
+
 /**
  * 聊天区消息体的 Markdown 版式（聊天气泡、回答、工作过程说明共用）。
  * 代码块参照 DeepSeek 网页版的无界一体化卡片：无边框、头部与代码之间无分隔线，头部 sticky
@@ -111,6 +119,7 @@ export function ChatMarkdown({
       codeBlockMaxHeight={0}
       components={chatComponents}
       controls={chatControls}
+      linkSafety={chatLinkSafety}
       mermaid={mermaidOptions()}
       mode={mode}
       plugins={chatStreamdownPlugins}

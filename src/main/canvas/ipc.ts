@@ -9,6 +9,7 @@ import { getDatabase } from '../database';
 import { clearCanvasToken, loadCanvasToken } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
 import { isWorkspaceWindow } from '../notifications/system';
+import { openShuiyuanLinkInApp } from '../shuiyuan/links';
 import {
   getCanvasState,
   configureCanvas,
@@ -77,7 +78,7 @@ export function registerCanvasIpc() {
     const url = new URL(z.string().max(8192).parse(value));
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
       throw new Error('不支持的链接');
-    await shell.openExternal(url.href);
+    if (!openShuiyuanLinkInApp(url.href)) await shell.openExternal(url.href);
   });
   handle('cached-files', () => cachedCourseFiles());
   handle('export-course-files', async (ids) => {

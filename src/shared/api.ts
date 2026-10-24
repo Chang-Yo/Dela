@@ -127,6 +127,7 @@ export type {
   ShuiyuanCounts,
   ShuiyuanSourceRef,
   ShuiyuanUpload,
+  ShuiyuanTopicLink,
   ShuiyuanApi,
 } from './shuiyuan';
 

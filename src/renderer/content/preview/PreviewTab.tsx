@@ -172,7 +172,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           text={content.text ?? ''}
           topicId={doc.shuiyuanTopicId}
           onOpenInShuiyuan={(topicId, postNumber) => loader.openShuiyuanTopic(topicId, postNumber)}
-          onOpenUrl={openLink}
         />
       )}
       {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}

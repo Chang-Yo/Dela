@@ -14,6 +14,7 @@ import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
 import { registerCanvasIpc, refreshCanvasTrees } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
+import { openShuiyuanLinkInApp } from './shuiyuan/links';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc, locateBash } from './terminal';
@@ -306,12 +307,12 @@ async function createWindow(): Promise<void> {
     window.hide();
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
-    openExternalUrl(url);
+    if (!openShuiyuanLinkInApp(url)) openExternalUrl(url);
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, url) => {
     event.preventDefault();
-    openExternalUrl(url);
+    if (!openShuiyuanLinkInApp(url)) openExternalUrl(url);
   });
   window.webContents.on('will-prevent-unload', (event) => {
     const wasQuitting = quitting;

@@ -1,5 +1,6 @@
 import { rootFontSize } from '../../lib/root-font-size';
-import { SHUIYUAN_HOST, SHUIYUAN_ORIGIN } from './shuiyuan-format';
+import { SHUIYUAN_HOST } from '../../../shared/shuiyuan';
+import { SHUIYUAN_ORIGIN } from './shuiyuan-format';
 
 /**
  * 水源楼层 HTML（Discourse cooked，服务端已消毒）在本应用的二次消毒：

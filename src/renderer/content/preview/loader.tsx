@@ -24,7 +24,7 @@ export interface LoadedDocument {
 export interface ContentLoader {
   /** 读取 TabKey 对应的文档（重载/导出后重读同一路径）。 */
   loadDocument(tabKey: TabId): Promise<LoadedDocument>;
-  /** 文档内链接分流：站内已同步 Canvas 文件开预览标签，其余交系统浏览器。 */
+  /** 文档内链接分流：站内已同步 Canvas 文件开预览标签，其余交主进程（水源主题回应用内，其余走系统浏览器）。 */
   openLink(url: string): void;
   /** 在水源页打开主题（跳转水源视图）。 */
   openShuiyuanTopic(topicId: number, postNumber?: number): void;
