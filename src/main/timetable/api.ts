@@ -10,6 +10,7 @@ import {
 import { getDatabase } from '../database';
 import { lessonOccurrences } from '../../shared/schedule';
 import {
+  CampusAuthError,
   campusRequest,
   flushCampusSession,
   getCampusSession,
@@ -212,17 +213,6 @@ function mapRow(row: LessonRow): TimetableLesson {
   };
 }
 
-export async function isConnected(): Promise<boolean> {
-  const campus = await getCampusSession();
-  if ((await campus.cookies.get({ url: CAMPUS_ORIGIN })).length === 0) return false;
-  try {
-    await fetchTimetable(currentSemester());
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
   return openCampusLoginWindow({
     sender,
@@ -320,7 +310,11 @@ export async function syncTimetable(semester: string): Promise<TimetableResult> 
     })();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      ...(error instanceof CampusAuthError ? { reason: 'auth' as const } : {}),
+    };
   }
 }
 
@@ -431,47 +425,10 @@ export function getCalendarEvent(idInput: unknown): CalendarEvent | null {
   return row ? mapEvent(row) : null;
 }
 
-/** 已同步学期状态（timetable_sync 表只读视图；手动补设学期日期会产生 last_synced_at 为空的行）。 */
-export interface SemesterSyncStatus {
-  readonly semester: string;
-  readonly lastSyncedAt: string | null;
-  readonly semesterStart: string | null;
-}
-
-export function listSyncedSemesters(): SemesterSyncStatus[] {
-  const rows = getDatabase()
-    .prepare(
-      'SELECT semester, last_synced_at, semester_start FROM timetable_sync ORDER BY semester',
-    )
-    .all() as { semester: string; last_synced_at: string; semester_start: string | null }[];
-  return rows.map((row) => ({
-    semester: row.semester,
-    lastSyncedAt: row.last_synced_at || null,
-    semesterStart: row.semester_start,
-  }));
-}
-
-/** 按本地时钟推断当前学期并显式给出推断依据（系统时间错误会让推断出错）。 */
-export function currentSemesterInfo(now = new Date()): { semester: string; basis: string } {
-  const semester = currentSemester(now);
-  const month = now.getMonth() + 1;
-  const label =
-    month >= 9
-      ? '9 月及以后属第一学期'
-      : month <= 2
-        ? '1–2 月仍属上一学年第一学期'
-        : month <= 7
-          ? '3–7 月属第二学期'
-          : '8 月属第三学期（暑期）';
-  const date = `${now.getFullYear()}-${String(month).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return { semester, basis: `按本机时钟 ${date} 推断：${label}` };
-}
-
-export async function getTimetableState(requested?: unknown): Promise<TimetableState> {
+export function getTimetableState(requested?: unknown): TimetableState {
   const semester = resolveSemester(requested);
   const row = syncRow(semester);
   return {
-    connected: await isConnected(),
     semester,
     lastSyncedAt: row?.last_synced_at || null,
     semesterStart: row?.semester_start ?? null,

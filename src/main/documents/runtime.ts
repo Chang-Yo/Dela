@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, open, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SkillDependency } from '../../shared/capabilities';
-import requirements from './skill/requirements.lock?raw';
+import requirements from './requirements.lock?raw';
 import notices from './runtime-licenses.txt?raw';
 
 export const DOCUMENT_SKILL = 'document-reading';
