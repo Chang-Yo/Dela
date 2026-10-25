@@ -6,6 +6,7 @@ import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
 import { Button } from '../../../../components/ui/button';
 import { DownloadProgressRow } from '../../../../components/download-progress';
 import { Switch } from '@/components/ui/beautifului/atoms/Switch';
+import { SegmentedControl } from '@/components/ui/beautifului/atoms/SegmentedControl';
 import { errorText, useWorkspaceStore } from '../../../../workspace/store';
 import { showToast } from '../../../../app/toasts';
 import { cn } from '../../../../lib/utils';
@@ -19,6 +20,10 @@ const ORIGIN_LABELS: Record<SkillOrigin, string> = {
   user: '本机',
   package: 'Pi Packages',
   project: '项目',
+};
+const FILTER_LABELS: Record<'all' | SkillOrigin, string> = {
+  all: '全部',
+  ...ORIGIN_LABELS,
 };
 const ORIGIN_DESCRIPTIONS: Record<SkillOrigin, string> = {
   builtin: '随 Dela 安装，写在 ~/.dela/skills',
@@ -173,24 +178,12 @@ export function SkillsTab() {
       />
       {skills !== null && skills.length > 0 && (
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-0.5 rounded-card bg-inset p-0.5" role="group">
-            {(['all', ...origins] as const).map((value) => (
-              <button
-                aria-pressed={filter === value}
-                className={cn(
-                  'rounded-control px-2.5 py-1 text-xs transition-colors',
-                  filter === value
-                    ? 'bg-surface text-ink shadow-hairline'
-                    : 'text-ink-3 hover:text-ink',
-                )}
-                key={value}
-                onClick={() => setFilter(value)}
-                type="button"
-              >
-                {value === 'all' ? '全部' : ORIGIN_LABELS[value]}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            labels={FILTER_LABELS}
+            onChange={setFilter}
+            options={['all', ...origins]}
+            value={filter}
+          />
           <span className="text-xs tabular-nums text-ink-3">{visible.length} 项</span>
         </div>
       )}
