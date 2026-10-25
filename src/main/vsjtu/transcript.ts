@@ -25,6 +25,14 @@ function timestamp(ms: number): string {
   return `${time}.${String(Math.floor(ms % 1000)).padStart(3, '0')}`;
 }
 
+/** 跨平台保存文件名：非法字符与控制字符换成下划线，去掉结尾的点/空格，限长 100。 */
+export function safeFileName(name: string): string {
+  return name
+    .replace(/[<>:"/\\|?*\p{Cc}]/gu, '_')
+    .replace(/[. ]+$/g, '')
+    .slice(0, 100);
+}
+
 /** 正文单独导出：分页读取不携带存文件用的标题头。 */
 export function formatSegments(segments: TranscriptSegment[]): string {
   return `${segments

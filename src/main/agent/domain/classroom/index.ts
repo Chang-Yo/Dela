@@ -8,6 +8,7 @@ import {
   listCourses,
   listVideos,
 } from '../../../vsjtu/api';
+import { safeFileName } from '../../../vsjtu/transcript';
 import { limit, match, offset, page, query, tool } from '../shared';
 
 const id = z.number().int().positive();
@@ -91,9 +92,7 @@ export const classroomTools = {
             continue;
           }
           const title = `${course.name} · ${video.start} · 第 ${video.period || '?'} 节`;
-          const name = `${course.name}-${video.start}`
-            .replace(/[<>:"/\\|?*\p{Cc}]/gu, '_')
-            .slice(0, 100);
+          const name = safeFileName(`${course.name}-${video.start}`);
           const path = join(directory, `${name}-${video.id}.txt`);
           await writeFile(path, formatTranscript(transcript, title), {
             encoding: 'utf8',

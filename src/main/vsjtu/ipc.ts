@@ -27,6 +27,7 @@ import {
   formatTranscript,
   VIDEO_HOME,
 } from './api';
+import { safeFileName } from './transcript';
 import { issuePlayback } from './playback';
 
 const id = z.number().int().positive();
@@ -63,12 +64,7 @@ async function downloadVideo(
     throw new Error('该画面正在下载');
   pending.add(key);
   try {
-    const name = `${
-      suggestedName
-        .replace(/[<>:"/\\|?*\p{Cc}]/gu, '_')
-        .replace(/[. ]+$/g, '')
-        .slice(0, 100) || videoId
-    }-画面${view}.mp4`;
+    const name = `${safeFileName(suggestedName) || videoId}-画面${view}.mp4`;
     const parent = BrowserWindow.fromWebContents(event.sender);
     const directory = savedVideoDownloadDirectory();
     const options = {
@@ -186,10 +182,7 @@ export function registerVsjtuIpc(): void {
     const title = z.string().trim().min(1).max(200).parse(rawTitle);
     const transcript = await getTranscript(id.parse(videoId));
     if (!transcript) throw new Error('该录像暂无语音文稿');
-    const name = title
-      .replace(/[<>:"/\\|?*\p{Cc}]/gu, '_')
-      .replace(/[. ]+$/g, '')
-      .slice(0, 100);
+    const name = safeFileName(title);
     const parent = BrowserWindow.fromWebContents(event.sender);
     const options = {
       title: '导出语音文稿',
