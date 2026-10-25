@@ -11,6 +11,10 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
+## Unreleased
+
+- 精简工具链与 CI：集中维护工具版本，减少重复类型检查并缓存 CI 依赖，保留平台测试与发布验证。
+
 ## 2.1.0 - 2026-10-25
 
 - 调整课堂视频侧栏为顶部课程切换卡片与独立节次列表；新增语音文稿与 classroom Skill，支持按时间范围分页读取、按节次保存完整文稿，界面支持语音搜索、点击时间戳跳转与导出 TXT。

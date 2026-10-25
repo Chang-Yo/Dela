@@ -10,7 +10,7 @@
 - 涉及到常量，编码，清单的内容不写，它们已经出现在代码中
 - 那些可以写入此：读代码得不到的外部事实（第三方接口的实际行为、平台约束）、设计取舍的理由、以及尚未验收的状态。
 
-或者简单一句话，此文档在常规情况下不需要更新，如果你想传递你的开发信息，请直接放进 commit log 中。
+或者简单一句话，**此文档在常规情况下不需要更新，如果你想传递你的开发信息，请直接放进 commit log 中。**
 
 其他文档导航：
 
@@ -161,8 +161,6 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 - 更新后首次启动的「更新内容」弹窗（`renderer/features/release-notes/`）以 `?raw` 内联 `CHANGELOG.md`，取每个已发布版本的条目，跨版本升级合并显示区间内各版本。首次安装只记录不弹，冒烟模式不弹。**没有额外的小节或标记**——条目本身就是弹窗内容，这也是 CHANGELOG 要保持简短的原因。
 - 尚未配置 Authenticode 签名。SHA-512 只验证文件与元数据一致，不能替代发布者签名。
 
-**未验收**：线上 CDN 的 `latest.yml`、Range 与差分流量、两版真实安装后的覆盖升级、UAC 与重启；Gatekeeper 下载后首启与 Mac 两版升级。单元测试与打包启动**不能**视为端到端升级通过。
-
 ## 7. 安全边界
 
 诚实而非表演：给了 bash 就不设业务级守卫、无沙箱、无越权校验；skill 启停是引导层。
@@ -210,19 +208,19 @@ Git Bash + node-pty + xterm.js，与 Agent 的 bash 同源（同一份 dela 桥�
 
 ## 11. 工具链与启动
 
-| 工具    | 版本                                  | 何时需要             |
-| ------- | ------------------------------------- | -------------------- |
-| Node.js | 24.22.1（`.node-version`、`engines`） | 总是                 |
-| pnpm    | 12.3.4（`packageManager`）            | 总是                 |
-| Go      | `go.mod` 声明 1.22，CI 固定 1.27.2    | 只在改远端 helper 时 |
+| 工具    | 版本                               | 何时需要             |
+| ------- | ---------------------------------- | -------------------- |
+| Node.js | `.node-version`                    | 总是                 |
+| pnpm    | `package.json` 的 `packageManager` | 总是                 |
+| Go      | `go.mod` 声明 1.22，CI 固定 1.27.2 | 只在改远端 helper 时 |
 
-版本固定后不要使用全局其他版本（`engineStrict` 会拒绝）。仓库本机把工具装在被 Git 忽略的 `.tools/` 中，当前会话启用：
+CI 从上述文件读取固定版本，本地推荐与 CI 一致；`engines` 声明兼容范围，`engineStrict` 拒绝范围之外的版本。仓库本机把工具装在被 Git 忽略的 `.tools/` 中，当前会话启用：
 
 ```powershell
 . ./scripts/use-local-tools.ps1
 ```
 
-Apple Silicon 则把校验后的官方 Node 解压到 `.tools/node-v24.22.1-darwin-arm64` 并前插 PATH。
+Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目录名，并将其 `bin` 目录前插 PATH，版本取自 `.node-version`。
 
 - `allowBuilds` 里 `better-sqlite3: false`、`node-pty: true`——原生依赖用随包预编译产物，关闭源码重建。
 - `postinstall` 先下载 Electron 运行时，再执行 `fix-native-permissions.ts`：后者**仅在 Darwin** 上给 node-pty 的 `spawn-helper` 补可执行位（包内原为 0644，会导致 `posix_spawnp failed`）。只改了 postinstall 脚本时需显式重跑，增量 install 可能不重新执行。
@@ -248,6 +246,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/node-v24.22.1-darw
 | `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                  |
 | `pnpm typecheck`                    | 四组 tsconfig（main / preload / renderer / scripts）类型检查  |
 | `pnpm build`                        | 类型检查 + 三个入口生产构建                                   |
+| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用            |
 | `pnpm check`                        | `format:check` + `lint` + `build` + `test`                    |
 | `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                           |
 | `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行        |
@@ -292,6 +291,8 @@ pnpm test
 | `desktop-macos.yml`   | macOS 冒烟、目录包与安装包验证                 |
 
 - 分流按改动路径：纯文档不构建应用，workflow 改动额外跑 actionlint，应用源码与内置 Markdown 资源触发完整检查。精确规则以 `ci.yml` 的 filters 为准。
+- 类型检查由 quality 执行一次；Windows 与 macOS 用 `build:bundle` 构建并分别运行测试，Windows 打包复用 test 的 out 产物。本地 `build`、`check` 与打包命令仍包含类型检查。
+- 普通 CI 缓存 pnpm store，依赖安装仍使用 `--frozen-lockfile`；发布任务不使用依赖缓存。
 - helper 被选中时平台任务必须等它成功并下载当次产物；**不能因为 helper 合理跳过就跳过平台任务**。
 - `CI required` 始终汇总：被选中的必须成功，未选中的必须 skipped。入口不使用顶层路径过滤，否则文档 PR 的必需检查会一直 Pending。
 - 路径分流可能遗漏隐含的平台依赖——新增运行时入口或资源目录时同步更新 filters。
@@ -308,6 +309,8 @@ pnpm test
 ### 发布
 
 推 `v*` tag 触发 `release.yml`：`prepare` 解析 tag 的 SHA 并校验，Windows 与 Mac 并行构建验证，**双方都成功才**上传到草稿 Release 并公开；任一平台失败或等待环境批准都会阻塞发布。含预发布后缀的版本自动标记 prerelease。
+
+发布保留两平台测试与产物验证，静态检查只在 Mac 的 `check` 中执行一次。`CI required` 会按路径跳过任务，因此不能用其成功结果替代全部发布检查。
 
 - tag 必须等于 `v` + `package.json` 版本。
 - 发版前把 `CHANGELOG.md` 的 `## Unreleased` 改成 `## <版本> - <发布日>`。更新内容弹窗只认 `## X.Y.Z - 日期` 分节，留在 `Unreleased` 下的条目会被静默跳过，弹窗不出现。
@@ -363,10 +366,3 @@ dist/mac-arm64/Dela.app/Contents/MacOS/Dela --smoke-test
 ```
 
 冒烟也可以传入 `app.asar` 路径，用开发 Electron 加载包内代码与资源；实际 `.app` 另用 `--smoke-test` 检查。**这些检查不代表正式签名应用、全部账号业务或全部模型调用已验收。**
-
-## 17. 当前限制
-
-- CDN 的线上更新文件、Range 与两版覆盖升级未验收；检查失败时可从下载页手动获取安装包。
-- Windows 未配置代码签名，安装时可能遇到 SmartScreen 提示。
-- 冒烟检查验证打包后程序与 SQLite / preload，不代替 NSIS 安装向导的实机验收。
-- 远端项目内不支持新建 / 编辑文件；远端 PPTX 不支持内嵌预览；打开的预览不自动跟随远端改动。
