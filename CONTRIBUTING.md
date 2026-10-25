@@ -33,12 +33,12 @@
 
 | 工具            | 版本                               | 何时需要              |
 | --------------- | ---------------------------------- | --------------------- |
-| Node.js         | 24.22.1                            | 总是                  |
-| pnpm            | 12.3.4                             | 总是                  |
+| Node.js         | `.node-version`                    | 总是                  |
+| pnpm            | `package.json` 的 `packageManager` | 总是                  |
 | Git for Windows | 不固定                             | Windows 的终端与 Bash |
 | Go              | `go.mod` 声明 1.22，CI 固定 1.27.2 | 只在改动 `helper/` 时 |
 
-版本以 `package.json` 的 `engines`、`packageManager` 与 `.node-version` 为准。仓库启用了 `engineStrict`，使用其他版本会被拒绝。请勿在项目中混用全局安装的其他 Node 或 pnpm 版本。
+CI 使用上述固定版本，本地推荐与 CI 一致。`package.json` 的 `engines` 声明兼容范围，`engineStrict` 拒绝范围之外的版本。
 
 在 Windows 上，可将 Node 与 pnpm 安装到仓库内被 Git 忽略的 `.tools/` 目录，并在 PowerShell 中为当前会话启用：
 
@@ -46,10 +46,10 @@
 . ./scripts/use-local-tools.ps1
 ```
 
-新克隆的仓库不包含 `.tools/`，需自行安装上述版本。Apple Silicon Mac 也可将校验后的官方 Node 压缩包解压到 `.tools/node-v24.22.1-darwin-arm64`，然后在当前 shell 中启用：
+新克隆的仓库不包含 `.tools/`，需自行安装上述版本。Apple Silicon Mac 也可将校验后的官方 Node 压缩包解压到 `.tools/`，保留原目录名，然后在当前 shell 中启用：
 
 ```sh
-export PATH="$PWD/.tools/node-v24.22.1-darwin-arm64/bin:$PATH"
+export PATH="$PWD/.tools/node-v$(cat .node-version)-darwin-arm64/bin:$PATH"
 ```
 
 安装依赖并启动开发窗口：

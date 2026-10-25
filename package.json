@@ -9,8 +9,8 @@
   "main": "out/main/index.cjs",
   "packageManager": "pnpm@12.3.4",
   "engines": {
-    "node": "24.22.1",
-    "pnpm": "12.3.4"
+    "node": ">=24.22.1 <25",
+    "pnpm": ">=12.3.4 <13"
   },
   "scripts": {
     "version:bump": "npm version --no-git-tag-version",
@@ -19,7 +19,8 @@
     "version:major": "npm version major --no-git-tag-version",
     "dev": "node scripts/dev.ts",
     "typecheck": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json && tsc -p tsconfig.scripts.json",
-    "build": "pnpm typecheck && vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && vite build --config vite.renderer.config.ts",
+    "build": "pnpm typecheck && pnpm build:bundle",
+    "build:bundle": "vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && vite build --config vite.renderer.config.ts",
     "build:helper": "node scripts/build-helper.ts",
     "start": "electron .",
     "format": "prettier --write .",

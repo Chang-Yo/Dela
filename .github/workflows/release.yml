@@ -45,12 +45,11 @@ jobs:
           path: vendor/dela-helper
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version-file: .node-version
           package-manager-cache: false
       - name: Verify runner architecture
         run: node -e "if (process.platform !== 'darwin' || process.arch !== 'arm64') process.exit(1)"
-      - name: Install pnpm
-        run: npm install --global pnpm@12.3.4
+      - uses: pnpm/action-setup@v4
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check and build
@@ -210,15 +209,14 @@ jobs:
           path: vendor/dela-helper
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.22.1'
+          node-version-file: .node-version
           package-manager-cache: false
-      - name: Install pnpm
-        run: npm install --global pnpm@12.3.4
+      - uses: pnpm/action-setup@v4
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build and test
         run: |
-          pnpm build
+          pnpm build:bundle
           pnpm test
       - name: Smoke test Electron
         run: pnpm smoke
