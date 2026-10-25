@@ -43,27 +43,23 @@ beforeEach(() => {
   });
 });
 
-it('登录未完成时弹错误 toast 并解除 busy', async () => {
-  vsjtu.connect.mockResolvedValue({ ok: false, error: '官方窗口已关闭' });
+it('登录未完成或抛错时弹错误 toast 并解除 busy', async () => {
+  vsjtu.connect.mockResolvedValueOnce({ ok: false, error: '官方窗口已关闭' });
   await useClassroom.getState().connect();
   expect(toast).toHaveBeenCalledWith({
     variant: 'error',
     title: '登录未完成',
     description: '官方窗口已关闭',
   });
-  expect(useClassroom.getState().connectBusy).toBe(false);
-  expect(useClassroom.getState().phase).toBe('connect');
-});
-
-it('登录调用抛错时同样弹错误 toast', async () => {
-  vsjtu.connect.mockRejectedValue(new Error('IPC 不可用'));
+  vsjtu.connect.mockRejectedValueOnce(new Error('IPC 不可用'));
   await useClassroom.getState().connect();
-  expect(toast).toHaveBeenCalledWith({
+  expect(toast).toHaveBeenLastCalledWith({
     variant: 'error',
     title: '登录未完成',
     description: 'IPC 不可用',
   });
   expect(useClassroom.getState().connectBusy).toBe(false);
+  expect(useClassroom.getState().phase).toBe('connect');
 });
 
 it('登录成功后先停在获取课程列表阶段，完成后进入就绪', async () => {

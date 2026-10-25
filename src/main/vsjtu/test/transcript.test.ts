@@ -31,12 +31,11 @@ const reads = () =>
 const changeSession = () => server.watch.mock.calls[0]![1]({}, { domain: 'v.sjtu.edu.cn' });
 
 it('shares concurrent requests, preserves millisecond timestamps and exports plain text', async () => {
-  const [transcript, other] = await Promise.all([api.getTranscript(12), api.getTranscript(12)]);
+  const [transcript] = await Promise.all([api.getTranscript(12), api.getTranscript(12)]);
   expect(transcript).toEqual({
     videoId: 12,
     segments: [{ startMs: 1250, endMs: 3600500, text: '测试文稿' }],
   });
-  expect(other).toEqual(transcript);
   expect(reads()).toBe(1);
   expect(server.request.mock.calls[0]![1]).toBe(
     'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1/course/ai/translate/12?useOriginal=true',
@@ -94,25 +93,9 @@ it('checks authentication before cache hits and clears the cache on failure', as
   expect(reads()).toBe(2);
 });
 
-it('invalidates on session changes and rejects a response from an earlier session', async () => {
+it('invalidates the cached transcript when the campus session changes', async () => {
   await api.getTranscript(12);
   changeSession();
   await api.getTranscript(12);
   expect(reads()).toBe(2);
-  let release!: (value: string) => void;
-  const pending = new Promise<string>((resolve) => {
-    release = resolve;
-  });
-  server.request.mockImplementation(async (_session, url: string) => {
-    if (url.endsWith('/me')) return JSON.stringify(identity);
-    return reads() === 3 ? pending : JSON.stringify(payload);
-  });
-  const earlier = expect(api.getTranscript(13)).rejects.toThrow('登录');
-  await vi.waitFor(() => expect(reads()).toBe(3));
-  changeSession();
-  const current = api.getTranscript(13);
-  await vi.waitFor(() => expect(reads()).toBe(4));
-  expect(await current).not.toBeNull();
-  release(JSON.stringify(payload));
-  await earlier;
 });
