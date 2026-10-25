@@ -9,7 +9,9 @@ const boundary = vi.hoisted(() => ({
   reveal: vi.fn(),
   downloadEnabled: true,
   directory: '',
+  write: vi.fn(),
 }));
+vi.mock('node:fs/promises', () => ({ writeFile: boundary.write }));
 let campus: EventEmitter;
 vi.mock('electron', () => ({
   app: { getPath: () => 'C:/Videos' },
@@ -36,6 +38,11 @@ vi.mock('../../campus', () => ({
   getCampusSession: async () => Object.assign(campus, { downloadURL: boundary.download }),
 }));
 vi.mock('../api', () => ({
+  getTranscript: async (videoId: number) => ({
+    videoId,
+    segments: [{ startMs: 0, endMs: 1000, text: '完整文稿' }],
+  }),
+  formatTranscript: () => '完整文稿\n',
   getStreams: async () => [
     { view: 5, duration: 3283, url: 'https://live.sjtu.edu.cn/test.mp4?key=private' },
   ],
@@ -50,6 +57,20 @@ beforeEach(() => {
 });
 const call = (name: string, ...args: unknown[]) =>
   boundary.handlers.get(`vsjtu:${name}`)!({ sender: {} }, ...args);
+
+it('exports the complete transcript only to a user-chosen path, independently of video downloads', async () => {
+  boundary.downloadEnabled = false;
+  boundary.choose.mockResolvedValueOnce({ canceled: true });
+  expect(await call('export-transcript', 60, '课程/节次')).toEqual({ saved: false });
+  expect(boundary.write).not.toHaveBeenCalled();
+  boundary.choose.mockResolvedValueOnce({ canceled: false, filePath: '/chosen/transcript.txt' });
+  expect(await call('export-transcript', 60, '课程/节次')).toEqual({ saved: true });
+  expect(boundary.write).toHaveBeenCalledWith('/chosen/transcript.txt', '完整文稿\n', 'utf8');
+  expect(boundary.choose).toHaveBeenLastCalledWith(
+    expect.objectContaining({ defaultPath: '课程_节次-60.txt' }),
+  );
+  expect(boundary.download).not.toHaveBeenCalled();
+});
 
 it('returns available views and duration with an opaque playback route, never the signed media address', async () => {
   const streams = (await call('streams', 60)) as Array<{

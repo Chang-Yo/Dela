@@ -8,6 +8,7 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import { join } from 'node:path';
+import { writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import type { VideoDownload } from '../../shared/vsjtu';
 import { checkWorkspaceSender } from '../ipc';
@@ -17,7 +18,16 @@ import {
   setVideoDownloadDirectory,
 } from '../settings/prefs';
 import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../campus';
-import { checkVideoLogin, getStreams, listCourses, listVideos, VIDEO_HOME } from './api';
+import {
+  checkVideoLogin,
+  getStreams,
+  listCourses,
+  listVideos,
+  getTranscript,
+  formatTranscript,
+  VIDEO_HOME,
+} from './api';
+import { safeFileName } from './transcript';
 import { issuePlayback } from './playback';
 
 const id = z.number().int().positive();
@@ -54,12 +64,7 @@ async function downloadVideo(
     throw new Error('该画面正在下载');
   pending.add(key);
   try {
-    const name = `${
-      suggestedName
-        .replace(/[<>:"/\\|?*\p{Cc}]/gu, '_')
-        .replace(/[. ]+$/g, '')
-        .slice(0, 100) || videoId
-    }-画面${view}.mp4`;
+    const name = `${safeFileName(suggestedName) || videoId}-画面${view}.mp4`;
     const parent = BrowserWindow.fromWebContents(event.sender);
     const directory = savedVideoDownloadDirectory();
     const options = {
@@ -167,6 +172,29 @@ export function registerVsjtuIpc(): void {
   ipcMain.handle('vsjtu:streams', async (event, videoId) => {
     check(event);
     return issuePlayback(id.parse(videoId));
+  });
+  ipcMain.handle('vsjtu:transcript', (event, videoId) => {
+    check(event);
+    return getTranscript(id.parse(videoId));
+  });
+  ipcMain.handle('vsjtu:export-transcript', async (event, videoId, rawTitle) => {
+    check(event);
+    const title = z.string().trim().min(1).max(200).parse(rawTitle);
+    const transcript = await getTranscript(id.parse(videoId));
+    if (!transcript) throw new Error('该录像暂无语音文稿');
+    const name = safeFileName(title);
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: '导出语音文稿',
+      defaultPath: `${name}-${videoId}.txt`,
+      filters: [{ name: '文本文件', extensions: ['txt'] }],
+    };
+    const selected = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options);
+    if (selected.canceled || !selected.filePath) return { saved: false };
+    await writeFile(selected.filePath, formatTranscript(transcript, title), 'utf8');
+    return { saved: true };
   });
   ipcMain.handle('vsjtu:download', (event, videoId, view, name) => {
     checkDownload(event);

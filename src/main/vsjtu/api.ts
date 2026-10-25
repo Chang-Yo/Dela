@@ -1,7 +1,10 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
-import type { ClassroomVideo, VideoCourse } from '../../shared/vsjtu';
+import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../shared/vsjtu';
 import { campusRequest, getCampusSession } from '../campus';
+import { parseTranscript } from './transcript';
+
+export { formatSegments, formatTranscript } from './transcript';
 
 export const VIDEO_HOME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/';
 const BASE = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1';
@@ -10,8 +13,8 @@ const object = z.record(z.string(), z.unknown());
 const id = z.coerce.number().int().positive();
 const requests = new Map<string, Promise<unknown>>();
 
-function requestJson(url: string): Promise<unknown> {
-  const pending = requests.get(url);
+function requestJson(url: string, key = url): Promise<unknown> {
+  const pending = requests.get(key);
   if (pending) return pending;
   const task = (async () => {
     try {
@@ -23,10 +26,10 @@ function requestJson(url: string): Promise<unknown> {
         return await requestOnce(url);
       }
     } finally {
-      requests.delete(url);
+      requests.delete(key);
     }
   })();
-  requests.set(url, task);
+  requests.set(key, task);
   return task;
 }
 
@@ -210,4 +213,60 @@ export async function getStreams(videoId: number) {
   return parseStreams(
     unwrap(await requestJson(`${BASE}/course_vod_urls_new?courseId=${id.parse(videoId)}`)),
   );
+}
+
+const TRANSCRIPT_TTL_MS = 5 * 60 * 1000;
+const TRANSCRIPT_CACHE_BYTES = 1024 * 1024;
+let cachedTranscript: VideoTranscript | undefined;
+let transcriptTimer: ReturnType<typeof setTimeout> | undefined;
+let transcriptSessionWatched = false;
+let transcriptGeneration = 0;
+
+function clearTranscriptCache(): void {
+  cachedTranscript = undefined;
+  clearTimeout(transcriptTimer);
+  transcriptTimer = undefined;
+}
+
+export async function getTranscript(videoId: number): Promise<VideoTranscript | null> {
+  videoId = id.parse(videoId);
+  const campus = await getCampusSession();
+  if (!transcriptSessionWatched) {
+    campus.cookies.on('changed', (_event, cookie) => {
+      const domain = cookie.domain?.replace(/^\./, '');
+      if (domain && ('v.sjtu.edu.cn' === domain || 'v.sjtu.edu.cn'.endsWith(`.${domain}`))) {
+        transcriptGeneration++;
+        clearTranscriptCache();
+      }
+    });
+    transcriptSessionWatched = true;
+  }
+  const generation = transcriptGeneration;
+  try {
+    // 抓取请求自身会以 401/403/重定向/code:-1 报登录失效；/me 只用于缓存命中的复核。
+    if (cachedTranscript?.videoId === videoId) {
+      await checkVideoLogin();
+      if (generation !== transcriptGeneration) throw loginError();
+      return structuredClone(cachedTranscript);
+    }
+    const url = `${BASE}/course/ai/translate/${videoId}?useOriginal=true`;
+    const response = await requestJson(url, `${generation}:${url}`);
+    if (generation !== transcriptGeneration) throw loginError();
+    const empty = z
+      .object({ code: z.null(), status: z.literal(200), ok: z.literal(true), data: z.null() })
+      .safeParse(response).success;
+    const transcript = parseTranscript(empty ? null : unwrap(response), videoId);
+    if (transcript) {
+      clearTranscriptCache();
+      if (Buffer.byteLength(JSON.stringify(transcript), 'utf8') <= TRANSCRIPT_CACHE_BYTES) {
+        cachedTranscript = structuredClone(transcript);
+        transcriptTimer = setTimeout(clearTranscriptCache, TRANSCRIPT_TTL_MS);
+        transcriptTimer.unref();
+      }
+    }
+    return transcript;
+  } catch (error) {
+    clearTranscriptCache();
+    throw error;
+  }
 }

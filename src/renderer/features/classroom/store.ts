@@ -21,9 +21,11 @@ interface ClassroomState {
   videos: Record<number, ClassroomVideo[]>;
   videosLoading: Record<number, boolean>;
   videosError: Record<number, string>;
-  expanded: number | null;
   selectedCourseId: number | null;
   selectedVideoId: number | null;
+  seekRequest: { videoId: number; seconds: number } | null;
+  playbackTime: number;
+  seekTo: (videoId: number, seconds: number) => void;
   streams: Record<number, VideoStream[]>;
   /** 正在加载画面列表的 videoId（同时只有一个在途）。 */
   streamsLoading: number | null;
@@ -32,7 +34,7 @@ interface ClassroomState {
   init: () => Promise<void>;
   refresh: () => Promise<void>;
   connect: () => Promise<void>;
-  toggleCourse: (courseId: number) => void;
+  selectCourse: (courseId: number) => void;
   ensureVideos: (courseId: number) => Promise<void>;
   selectVideo: (courseId: number, videoId: number) => void;
   ensureStreams: (videoId: number) => Promise<VideoStream[] | null>;
@@ -54,9 +56,14 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
   videos: {},
   videosLoading: {},
   videosError: {},
-  expanded: null,
   selectedCourseId: null,
   selectedVideoId: null,
+  seekRequest: null,
+  playbackTime: 0,
+  seekTo: (videoId, seconds) => {
+    if (get().selectedVideoId === videoId && Number.isFinite(seconds) && seconds >= 0)
+      set({ seekRequest: { videoId, seconds } });
+  },
   streams: {},
   streamsLoading: null,
   streamsError: {},
@@ -78,17 +85,15 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
       const courses = await window.dela!.vsjtu.listCourses();
       if (request !== coursesRequest) return;
       set({ phase: 'ready', courses, coursesLoading: false });
-      const { expanded } = get();
-      const target =
-        expanded !== null && courses.some((course) => course.id === expanded)
-          ? expanded
-          : (courses[0]?.id ?? null);
+      const { selectedCourseId } = get();
+      const target = courses.some((course) => course.id === selectedCourseId)
+        ? selectedCourseId
+        : (courses[0]?.id ?? null);
       if (target === null) {
-        set({ expanded: null });
+        set({ selectedCourseId: null, selectedVideoId: null });
         return;
       }
-      if (target !== expanded) get().toggleCourse(target);
-      else void get().ensureVideos(target);
+      get().selectCourse(target);
     } catch (error) {
       if (request !== coursesRequest) return;
       // 一门课都没有时才降级为连接卡；否则保留页面，列表维持旧数据。失败原因走 toast。
@@ -116,20 +121,37 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
       return;
     }
     // 登录窗口完成后 busy 先解除；拉课程期间由 coursesLoading 驱动「正在获取视频列表…」。
-    set({ connectBusy: false });
+    videosRequest++;
+    streamsRequest++;
+    set({
+      connectBusy: false,
+      courses: [],
+      videos: {},
+      videosLoading: {},
+      videosError: {},
+      streams: {},
+      streamsLoading: null,
+      streamsError: {},
+      selectedCourseId: null,
+      selectedVideoId: null,
+    });
     await get().refresh();
   },
 
-  toggleCourse: (courseId) => {
-    const { expanded } = get();
-    const next = expanded === courseId ? null : courseId;
-    set({ expanded: next });
-    if (next !== null) void get().ensureVideos(next);
+  selectCourse: (courseId) => {
+    if (get().selectedCourseId !== courseId)
+      set({
+        selectedCourseId: courseId,
+        selectedVideoId: null,
+        seekRequest: null,
+        playbackTime: 0,
+      });
+    void get().ensureVideos(courseId);
   },
 
   ensureVideos: async (courseId) => {
-    if (get().videos[courseId]) return;
-    const request = ++videosRequest;
+    if (get().videos[courseId] || get().videosLoading[courseId]) return;
+    const request = videosRequest;
     set({
       videosLoading: { ...get().videosLoading, [courseId]: true },
       videosError: { ...get().videosError, [courseId]: '' },
@@ -151,7 +173,12 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
   },
 
   selectVideo: (courseId, videoId) => {
-    set({ selectedCourseId: courseId, selectedVideoId: videoId });
+    set({
+      selectedCourseId: courseId,
+      selectedVideoId: videoId,
+      seekRequest: null,
+      playbackTime: 0,
+    });
     void get().ensureStreams(videoId);
   },
 

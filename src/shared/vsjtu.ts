@@ -10,6 +10,15 @@ export interface ClassroomVideo {
   room: string;
   period: string;
 }
+export interface TranscriptSegment {
+  startMs: number;
+  endMs: number;
+  text: string;
+}
+export interface VideoTranscript {
+  videoId: number;
+  segments: TranscriptSegment[];
+}
 export interface VideoStream {
   view: number;
   duration: number;
@@ -28,6 +37,8 @@ export interface VsjtuApi {
   listCourses(): Promise<VideoCourse[]>;
   listVideos(courseId: number): Promise<ClassroomVideo[]>;
   streams(videoId: number): Promise<VideoStream[]>;
+  transcript(videoId: number): Promise<VideoTranscript | null>;
+  exportTranscript(videoId: number, title: string): Promise<{ saved: boolean }>;
   download(videoId: number, view: number, name: string): Promise<void>;
   downloads(): Promise<VideoDownload[]>;
   cancelDownload(id: string): Promise<void>;

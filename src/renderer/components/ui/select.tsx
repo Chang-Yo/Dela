@@ -66,9 +66,10 @@ function SelectItem({
     <SelectPrimitive.Item
       className={cn(
         // 左右内边距对称：选中指示器是绝对定位的，不需要再为它预留右侧内边距
-        // （原 pr-8 会让高亮块右内边距远大于左侧）。长文本用 ItemText 的 pe-6 避让指示器。
+        // （原 pr-8 会让高亮块右内边距远大于左侧）。Radix 会丢弃 ItemText 上的 className，
+        // 截断与指示器避让只能挂在条目上选中末位的 ItemText span。
         menuItem,
-        'w-full',
+        'w-full [&>*:last-child]:truncate [&>*:last-child]:pe-6',
         className,
       )}
       data-slot="select-item"
@@ -79,7 +80,7 @@ function SelectItem({
           <CheckIcon className="size-3.5 text-ink" strokeWidth={2.5} />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText className="pe-6">{children}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   );
 }

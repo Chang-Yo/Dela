@@ -13,6 +13,8 @@ const vsjtu = {
   listCourses: vi.fn(),
   listVideos: vi.fn(async () => []),
   streams: vi.fn(async () => []),
+  transcript: vi.fn(async () => null),
+  exportTranscript: vi.fn(async () => ({ saved: false })),
   download: vi.fn(async () => {}),
   downloads: vi.fn(async () => []),
   cancelDownload: vi.fn(async () => {}),
@@ -36,33 +38,28 @@ beforeEach(() => {
     videos: {},
     videosLoading: {},
     videosError: {},
-    expanded: null,
     selectedCourseId: null,
     selectedVideoId: null,
   });
 });
 
-it('登录未完成时弹错误 toast 并解除 busy', async () => {
-  vsjtu.connect.mockResolvedValue({ ok: false, error: '官方窗口已关闭' });
+it('登录未完成或抛错时弹错误 toast 并解除 busy', async () => {
+  vsjtu.connect.mockResolvedValueOnce({ ok: false, error: '官方窗口已关闭' });
   await useClassroom.getState().connect();
   expect(toast).toHaveBeenCalledWith({
     variant: 'error',
     title: '登录未完成',
     description: '官方窗口已关闭',
   });
-  expect(useClassroom.getState().connectBusy).toBe(false);
-  expect(useClassroom.getState().phase).toBe('connect');
-});
-
-it('登录调用抛错时同样弹错误 toast', async () => {
-  vsjtu.connect.mockRejectedValue(new Error('IPC 不可用'));
+  vsjtu.connect.mockRejectedValueOnce(new Error('IPC 不可用'));
   await useClassroom.getState().connect();
-  expect(toast).toHaveBeenCalledWith({
+  expect(toast).toHaveBeenLastCalledWith({
     variant: 'error',
     title: '登录未完成',
     description: 'IPC 不可用',
   });
   expect(useClassroom.getState().connectBusy).toBe(false);
+  expect(useClassroom.getState().phase).toBe('connect');
 });
 
 it('登录成功后先停在获取课程列表阶段，完成后进入就绪', async () => {
@@ -111,14 +108,13 @@ it('成功空课程保持就绪且不再请求录像或重新登录', async () =
   useClassroom.setState({
     phase: 'ready',
     courses: [{ id: 1, code: 'CS', name: '课程一' }],
-    expanded: 1,
+    selectedCourseId: 1,
   });
   vsjtu.listCourses.mockResolvedValue([]);
   await useClassroom.getState().refresh();
   expect(useClassroom.getState()).toMatchObject({
     phase: 'ready',
     courses: [],
-    expanded: null,
     coursesLoading: false,
   });
   expect(vsjtu.connect).not.toHaveBeenCalled();
@@ -138,4 +134,26 @@ it('成功空录像作为已加载结果保存，再次展开不重复请求', a
   });
   expect(vsjtu.listVideos).toHaveBeenCalledTimes(1);
   expect(toast).not.toHaveBeenCalled();
+});
+
+it('切换课程清空当前节次，交错完成的录像请求仍正确缓存且不自动播放', async () => {
+  let first!: (videos: []) => void;
+  vsjtu.listVideos.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        first = resolve;
+      }),
+  );
+  vsjtu.streams.mockClear();
+  useClassroom.setState({ selectedCourseId: 1, selectedVideoId: 11 });
+  useClassroom.getState().selectCourse(2);
+  expect(useClassroom.getState().selectedVideoId).toBeNull();
+  useClassroom.getState().selectCourse(3);
+  await vi.waitFor(() => expect(useClassroom.getState().videos[3]).toEqual([]));
+  first([]);
+  await vi.waitFor(() => expect(useClassroom.getState().videosLoading[2]).toBe(false));
+  expect(useClassroom.getState().selectedCourseId).toBe(3);
+  useClassroom.getState().selectCourse(2);
+  expect(vsjtu.listVideos).toHaveBeenCalledTimes(2);
+  expect(vsjtu.streams).not.toHaveBeenCalled();
 });
