@@ -4,7 +4,7 @@ import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../shared/
 import { campusRequest, getCampusSession } from '../campus';
 import { parseTranscript } from './transcript';
 
-export { formatTranscript } from './transcript';
+export { formatSegments, formatTranscript } from './transcript';
 
 export const VIDEO_HOME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/';
 const BASE = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1';
@@ -243,9 +243,12 @@ export async function getTranscript(videoId: number): Promise<VideoTranscript | 
   }
   const generation = transcriptGeneration;
   try {
-    await checkVideoLogin();
-    if (generation !== transcriptGeneration) throw loginError();
-    if (cachedTranscript?.videoId === videoId) return structuredClone(cachedTranscript);
+    // 抓取请求自身会以 401/403/重定向/code:-1 报登录失效；/me 只用于缓存命中的复核。
+    if (cachedTranscript?.videoId === videoId) {
+      await checkVideoLogin();
+      if (generation !== transcriptGeneration) throw loginError();
+      return structuredClone(cachedTranscript);
+    }
     const url = `${BASE}/course/ai/translate/${videoId}?useOriginal=true`;
     const response = await requestJson(url, `${generation}:${url}`);
     if (generation !== transcriptGeneration) throw loginError();

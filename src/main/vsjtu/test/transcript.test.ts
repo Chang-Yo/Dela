@@ -38,7 +38,7 @@ it('shares concurrent requests, preserves millisecond timestamps and exports pla
   });
   expect(other).toEqual(transcript);
   expect(reads()).toBe(1);
-  expect(server.request.mock.calls[1]![1]).toBe(
+  expect(server.request.mock.calls[0]![1]).toBe(
     'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1/course/ai/translate/12?useOriginal=true',
   );
   expect(api.formatTranscript(transcript!, '课程 · 第 1 节')).toBe(

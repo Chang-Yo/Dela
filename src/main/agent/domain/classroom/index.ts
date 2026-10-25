@@ -1,7 +1,13 @@
 import { stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { z } from 'zod';
-import { formatTranscript, getTranscript, listCourses, listVideos } from '../../../vsjtu/api';
+import {
+  formatSegments,
+  formatTranscript,
+  getTranscript,
+  listCourses,
+  listVideos,
+} from '../../../vsjtu/api';
 import { limit, match, offset, page, query, tool } from '../shared';
 
 const id = z.number().int().positive();
@@ -40,7 +46,7 @@ export const classroomTools = {
         transcript?.segments.filter(
           (segment) => segment.endMs > startSeconds * 1000 && segment.startMs < endSeconds * 1000,
         ) ?? [];
-      const text = segments.length ? formatTranscript({ videoId, segments }, '课堂语音文稿') : '';
+      const text = segments.length ? formatSegments(segments) : '';
       return {
         videoId,
         available: transcript !== null,

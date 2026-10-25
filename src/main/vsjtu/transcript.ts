@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { VideoTranscript } from '../../shared/vsjtu';
+import type { TranscriptSegment, VideoTranscript } from '../../shared/vsjtu';
 
 const segment = z
   .object({ bg: z.number().nonnegative(), ed: z.number().nonnegative(), res: z.string() })
@@ -25,8 +25,13 @@ function timestamp(ms: number): string {
   return `${time}.${String(Math.floor(ms % 1000)).padStart(3, '0')}`;
 }
 
-export function formatTranscript(transcript: VideoTranscript, title: string): string {
-  return `${title}\n录像 ID：${transcript.videoId}\n\n${transcript.segments
+/** 正文单独导出：分页读取不携带存文件用的标题头。 */
+export function formatSegments(segments: TranscriptSegment[]): string {
+  return `${segments
     .map(({ startMs, endMs, text }) => `[${timestamp(startMs)}–${timestamp(endMs)}] ${text}`)
     .join('\n\n')}\n`;
+}
+
+export function formatTranscript(transcript: VideoTranscript, title: string): string {
+  return `${title}\n录像 ID：${transcript.videoId}\n\n${formatSegments(transcript.segments)}`;
 }
