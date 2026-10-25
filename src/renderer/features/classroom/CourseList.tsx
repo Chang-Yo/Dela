@@ -32,20 +32,11 @@ export function CoursePicker() {
         onValueChange={(value) => selectCourse(Number(value))}
         disabled={courses.length === 0}
       >
-        <SelectTrigger
-          aria-label="当前课程"
-          className="h-auto w-full rounded-card bg-surface px-3 py-3"
-        >
-          <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
-            <span className="text-2xs font-normal text-ink-3">
-              本学期 · {courses.length} 门课程
-            </span>
-            <span className="truncate">
-              <SelectValue placeholder="暂无课程" />
-            </span>
-          </span>
+        <SelectTrigger aria-label="当前课程" className="w-full">
+          <SelectValue placeholder="暂无课程" />
         </SelectTrigger>
-        <SelectContent>
+        {/* 面板与触发器同宽：课程名动辄二十字以上，等宽加截断比加宽面板更可读。 */}
+        <SelectContent className="w-(--radix-select-trigger-width)">
           {courses.map((course) => (
             <SelectItem key={course.id} value={String(course.id)}>
               {course.name}
