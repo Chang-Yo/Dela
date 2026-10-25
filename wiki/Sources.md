@@ -5,7 +5,7 @@
 以下保留交大官方或官方关联资料，供读者进入原始申请页和服务说明。这里既有办理入口，也有服务页和开发文档；不要把目录中的每个链接都理解为申请表单。实际办理方式以[办理与授权入口速查](https://github.com/Chang-Yo/Dela/wiki#办理与授权入口速查)为准。
 
 > [!NOTE]
-> 2026-10-25 已复查本 Wiki 收录的 129 个唯一外部链接。登录保护、仅接受 POST 的 Token 端点和站点反爬响应不视为失效链接。
+> 2026-10-25 已复查本 Wiki 收录的公开入口，并使用个人账号对第二课堂、选课社区和传承·交大完成小规模只读验证。登录保护、仅接受 POST 的 Token 端点和站点反爬响应不视为失效链接。
 
 ## 开发者平台、jAccount 与 Open API
 
@@ -125,7 +125,7 @@
 - [SJTU HPC 在线文档](https://docs.hpc.sjtu.edu.cn/)
 - [“交学伴”等校园 AI 教学案例](https://news.sjtu.edu.cn/ztzl_aijyzl/20260604/223459.html)
 
-## Canvas、教学与课堂视频
+## Canvas、教学、课堂视频与课程社区
 
 - [交大 Canvas](https://oc.sjtu.edu.cn/)
 - [Canvas LMS REST API 文档（交大实例）](https://oc.sjtu.edu.cn/doc/api/index.html)
@@ -135,6 +135,17 @@
 - [Education API](https://developer.sjtu.edu.cn/api/education.html)
 - [交大课堂视频服务](https://v.sjtu.edu.cn/)
 - [教育技术中心数字化教学环境](https://etc.sjtu.edu.cn/digital.html)
+- [第二课堂平台](https://activity.sjtu.edu.cn/)
+- [第二课堂校内活动通知](https://www.sjtu.edu.cn/tg/20240418/196322.html)
+- [第二课堂社区实现](https://github.com/SJTU-Geek/sjtu-mcp-contrib/blob/master/scripts/sjtu_activity.py)
+- [选课社区](https://course.sjtu.plus/)
+- [选课社区当前源码](https://github.com/SJTU-jCourse/next)
+- [选课社区 Agent Skill](https://github.com/SJTU-jCourse/next/tree/main/skills/jcourse)
+- [选课社区 Agent API 参考](https://github.com/SJTU-jCourse/next/blob/main/skills/jcourse/references/api.md)
+- [传承·交大](https://share.dyweb.sjtu.cn/)
+- [传承·交大服务条款](https://share.dyweb.sjtu.cn/terms)
+- [传承·交大隐私政策](https://share.dyweb.sjtu.cn/privacy)
+- [传承·交大资料上传规范](https://share.dyweb.sjtu.cn/upload-rules)
 
 ## 水源社区与 Discourse 授权资料
 

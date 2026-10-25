@@ -5,9 +5,9 @@
 > [!IMPORTANT]
 > 本 Wiki 不是接口可用性的永久承诺。校园平台会调整申请资格、字段和授权方式；开发前请重新核对对应服务的正式页面。
 
-| 收录范围            | 当前状态                       | 最近核对   |
-| ------------------- | ------------------------------ | ---------- |
-| 6 类、17 项校园服务 | 官方文档与个人账号实测并行记录 | 2026-10-25 |
+| 收录范围            | 当前状态                                 | 最近核对   |
+| ------------------- | ---------------------------------------- | ---------- |
+| 6 类、20 项校园服务 | 官方文档、个人账号实测与社区源码并行记录 | 2026-10-25 |
 
 ## 从这里开始
 
@@ -24,6 +24,7 @@
 
 - **实测：** 已使用个人账号完成登录、授权和数据读取。实测只证明记录日期的行为。
 - **官方：** 依据学校或上游平台公开文档整理；没有获批凭据时，不补写未经验证的响应行为。
+- **源码核对：** 已核对服务页面和公开仓库，但尚未使用个人账号复测。
 - **待补证：** 尚未取得稳定接口、开通材料或个人测试条件。只记录已确认的入口和证据缺口。
 
 ## 服务地图
@@ -37,6 +38,9 @@
 | 学习与社区     | [Canvas](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community#canvas-在线教学平台)                        | 个人 Access Token                       | Canvas REST API                  | 实测           |
 | 学习与社区     | [本科教学信息网与课表](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community#本科教学信息服务网与个人课表) | jAccount 会话或 Education API Token     | 个人课表接口、Education API      | 官方 + 实测    |
 | 学习与社区     | [课堂视频](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community#课堂视频)                                 | jAccount 会话                           | 课堂录像接口                     | 实测           |
+| 学习与社区     | [第二课堂](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community#第二课堂)                                 | jAccount 登录、`IMPSA-Token`            | 活动平台内部接口                 | 实测（只读）   |
+| 学习与社区     | [选课社区](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community#选课社区)                                 | 用户 API Key                            | 选课社区 API                     | 实测（只读）   |
+| 学习与社区     | [传承·交大](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community#传承交大)                                | jAccount 登录、站点 Token               | 当前生产接口                     | 实测（只读）   |
 | 学习与社区     | [水源社区](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community#水源社区)                                 | Discourse User API Key、Client ID       | Discourse REST JSON API          | 实测           |
 | 邮件与存储     | [交大邮箱](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage#交大邮箱)                                       | 邮箱密码或 Mail API Token               | IMAP、SMTP、Mail API             | 官方 + 实测    |
 | 邮件与存储     | [交大云盘 Pan](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage#交大云盘-pan)                               | jAccount 会话                           | 官方网页端和客户端               | API 待补证     |
@@ -50,14 +54,14 @@
 
 ## 分主题文档
 
-| 页面                                                                                   | 包含内容                           |
-| -------------------------------------------------------------------------------------- | ---------------------------------- |
-| [身份认证与开放平台](https://github.com/Chang-Yo/Dela/wiki/Identity-and-Open-Platform) | jAccount、Open API                 |
-| [校级数据与流程](https://github.com/Chang-Yo/Dela/wiki/Data-and-Workflows)             | 数据资源 API、交我办、InfoPlus     |
-| [学习与社区](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community)             | Canvas、教学信息网、课堂视频、水源 |
-| [邮件与存储](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage)                   | 交大邮箱、交大云盘                 |
-| [网络与部署](https://github.com/Chang-Yo/Dela/wiki/Network-and-Deployment)             | VPN、jCloud、域名网站、网络短信    |
-| [AI 与计算](https://github.com/Chang-Yo/Dela/wiki/AI-and-Compute)                      | OpenClaw、致远一号、交我算 HPC     |
+| 页面                                                                                   | 包含内容                                                          |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [身份认证与开放平台](https://github.com/Chang-Yo/Dela/wiki/Identity-and-Open-Platform) | jAccount、Open API                                                |
+| [校级数据与流程](https://github.com/Chang-Yo/Dela/wiki/Data-and-Workflows)             | 数据资源 API、交我办、InfoPlus                                    |
+| [学习与社区](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community)             | Canvas、教学信息网、课堂视频、第二课堂、选课社区、传承·交大、水源 |
+| [邮件与存储](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage)                   | 交大邮箱、交大云盘                                                |
+| [网络与部署](https://github.com/Chang-Yo/Dela/wiki/Network-and-Deployment)             | VPN、jCloud、域名网站、网络短信                                   |
+| [AI 与计算](https://github.com/Chang-Yo/Dela/wiki/AI-and-Compute)                      | OpenClaw、致远一号、交我算 HPC                                    |
 
 ## 办理与授权入口速查
 
@@ -71,6 +75,9 @@
 | Canvas                | [Canvas](https://oc.sjtu.edu.cn/) 登录后的个人设置页                                                                 | 服务入口；个人 Token 无独立审批流程 |
 | 本科教学信息服务网    | [教学信息服务网](https://i.sjtu.edu.cn/) 直接登录；Education API 走 jAccount 接口申请                                | 服务入口或交我办申请                |
 | 课堂视频              | [交大视频](https://v.sjtu.edu.cn/) 使用 jAccount 登录                                                                | 服务入口；权限来自本人教学班        |
+| 第二课堂              | [第二课堂](https://activity.sjtu.edu.cn/) 使用 jAccount 登录；本地工具复用登录后生成的 `IMPSA-Token`                 | 服务入口；内部接口无公开申请流程    |
+| 选课社区              | 登录[选课社区](https://course.sjtu.plus/)，在“API Keys”页面生成用户 Key                                              | 社区服务入口；用户自助生成          |
+| 传承·交大             | [传承·交大](https://share.dyweb.sjtu.cn/) 使用 jAccount 登录；本地工具复用浏览器本地存储中的站点 Token               | 社区服务入口；无公开 API 申请流程   |
 | 水源社区              | 应用生成水源 `/user-api-key/new` 授权链接，由用户登录并确认                                                          | 用户授权；不是校内审批表单          |
 | 交大邮箱              | 个人邮箱随 jAccount 开通；Mail API 走 jAccount 接口申请                                                              | 自动开通或交我办申请                |
 | 交大云盘 Pan          | [交大云盘](https://pan.sjtu.edu.cn/) 使用 jAccount 登录                                                              | 服务入口；暂无公开开发者 API 申请   |
