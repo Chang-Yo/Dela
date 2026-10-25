@@ -1,6 +1,6 @@
 # 待核查服务与证据缺口
 
-[← Wiki 首页](README.md) · [服务地图](README.md#服务地图) · [资料索引](sources.md) · [安全与合规](security.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [服务地图](https://github.com/Chang-Yo/Dela/wiki#服务地图) · [资料索引](https://github.com/Chang-Yo/Dela/wiki/Sources) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance)
 
 校园平台的申请资格、字段和授权方式会调整。服务页面没有公开第三方 API 时，本文不会把网页行为或社区项目接口写成学校的稳定承诺。
 
@@ -36,4 +36,4 @@
 
 ---
 
-[← Wiki 首页](README.md) · [查看资料索引](sources.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [查看资料索引](https://github.com/Chang-Yo/Dela/wiki/Sources)

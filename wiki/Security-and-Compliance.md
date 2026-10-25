@@ -1,6 +1,6 @@
 # 安全、隐私与合规
 
-[← Wiki 首页](README.md) · [服务目录](README.md#服务地图) · [资料索引](sources.md) · [待核查服务](roadmap.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [服务目录](https://github.com/Chang-Yo/Dela/wiki#服务地图) · [资料索引](https://github.com/Chang-Yo/Dela/wiki/Sources) · [待核查服务](https://github.com/Chang-Yo/Dela/wiki/Roadmap)
 
 本页集中记录各服务共用的安全边界。开发者应在实现前重新核对服务方当前页面。
 
@@ -45,4 +45,4 @@
 
 ---
 
-[← Wiki 首页](README.md) · [继续核对资料来源 →](sources.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [继续核对资料来源 →](https://github.com/Chang-Yo/Dela/wiki/Sources)

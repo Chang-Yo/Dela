@@ -1,6 +1,6 @@
 # 网络与部署服务
 
-[← Wiki 首页](README.md) · [← 邮件与存储](mail-storage.md) · [下一页：AI 与计算 →](ai-compute.md) · [安全与合规](security.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [← 邮件与存储](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage) · [下一页：AI 与计算 →](https://github.com/Chang-Yo/Dela/wiki/AI-and-Compute) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance)
 
 本页汇总校园网络接入、云资源、域名网站和网络短信。办理入口与自动化接口并不等价，请先确认每项服务的入口性质。
 
@@ -179,4 +179,4 @@ jCloud 提供云主机、磁盘、对象存储、数据库、网络和安全组�
 
 ---
 
-[← 上一页：邮件与存储](mail-storage.md) · [下一页：AI 与计算 →](ai-compute.md)
+[← 上一页：邮件与存储](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage) · [下一页：AI 与计算 →](https://github.com/Chang-Yo/Dela/wiki/AI-and-Compute)

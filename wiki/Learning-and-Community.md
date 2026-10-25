@@ -1,6 +1,6 @@
 # 学习与社区服务
 
-[← Wiki 首页](README.md) · [← 校级数据与流程](data-workflows.md) · [下一页：邮件与存储 →](mail-storage.md) · [安全与合规](security.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [← 校级数据与流程](https://github.com/Chang-Yo/Dela/wiki/Data-and-Workflows) · [下一页：邮件与存储 →](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance)
 
 本页覆盖个人学习资料、课表、课堂录像和水源社区。Canvas、教学信息网、课堂视频与水源均已完成个人账号实测。
 
@@ -269,4 +269,4 @@ Education API 还公开教学班、考试和绩点相关接口，具体可用字
 
 ---
 
-[← 上一页：校级数据与流程](data-workflows.md) · [下一页：邮件与存储 →](mail-storage.md)
+[← 上一页：校级数据与流程](https://github.com/Chang-Yo/Dela/wiki/Data-and-Workflows) · [下一页：邮件与存储 →](https://github.com/Chang-Yo/Dela/wiki/Mail-and-Storage)

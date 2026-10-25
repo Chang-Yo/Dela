@@ -1,6 +1,6 @@
 # 校园 AI 与计算资源
 
-[← Wiki 首页](README.md) · [← 网络与部署](network-deployment.md) · [安全与合规](security.md) · [待核查服务](roadmap.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [← 网络与部署](https://github.com/Chang-Yo/Dela/wiki/Network-and-Deployment) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance) · [待核查服务](https://github.com/Chang-Yo/Dela/wiki/Roadmap)
 
 本页汇总校园 Skill 生态、致远一号模型 API 与交我算 HPC，重点说明凭证、可调用能力和个人自动化路径。
 
@@ -140,4 +140,4 @@ OpenClaw 校园应用中心提供校园 Agent 指南、案例和 Skill 目录。
 
 ---
 
-[← 上一页：网络与部署](network-deployment.md) · [继续阅读：安全与合规 →](security.md)
+[← 上一页：网络与部署](https://github.com/Chang-Yo/Dela/wiki/Network-and-Deployment) · [继续阅读：安全与合规 →](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance)

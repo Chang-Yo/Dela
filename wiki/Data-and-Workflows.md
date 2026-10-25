@@ -1,6 +1,6 @@
 # 校级数据与流程服务
 
-[← Wiki 首页](README.md) · [← 身份与开放平台](identity.md) · [下一页：学习与社区 →](learning-community.md) · [安全与合规](security.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [← 身份与开放平台](https://github.com/Chang-Yo/Dela/wiki/Identity-and-Open-Platform) · [下一页：学习与社区 →](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance)
 
 本页面向校内业务系统开发者，介绍校级数据资源 API 与交我办 InfoPlus。两类服务都需要明确的业务主体、数据范围和审批流程。
 
@@ -109,4 +109,4 @@
 
 ---
 
-[← 上一页：身份与开放平台](identity.md) · [下一页：学习与社区 →](learning-community.md)
+[← 上一页：身份与开放平台](https://github.com/Chang-Yo/Dela/wiki/Identity-and-Open-Platform) · [下一页：学习与社区 →](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community)

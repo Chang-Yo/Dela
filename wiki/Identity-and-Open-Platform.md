@@ -1,6 +1,6 @@
 # 身份认证与开放平台
 
-[← Wiki 首页](README.md) · [下一页：校级数据与流程 →](data-workflows.md) · [安全与合规](security.md) · [资料索引](sources.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [下一页：校级数据与流程 →](https://github.com/Chang-Yo/Dela/wiki/Data-and-Workflows) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance) · [资料索引](https://github.com/Chang-Yo/Dela/wiki/Sources)
 
 本页说明校园统一身份认证和 Open API 的申请、授权与数据获取方式。先确定目标数据，再申请最小的 scope。
 
@@ -109,4 +109,4 @@ Open API 通过 OAuth 2.0 向获批应用提供身份、组织、教学、邮件
 
 ---
 
-[← Wiki 首页](README.md) · [下一页：校级数据与流程 →](data-workflows.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [下一页：校级数据与流程 →](https://github.com/Chang-Yo/Dela/wiki/Data-and-Workflows)

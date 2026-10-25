@@ -1,8 +1,8 @@
 # 资料索引
 
-[← Wiki 首页](README.md) · [服务地图](README.md#服务地图) · [安全与合规](security.md) · [待核查服务](roadmap.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [服务地图](https://github.com/Chang-Yo/Dela/wiki#服务地图) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance) · [待核查服务](https://github.com/Chang-Yo/Dela/wiki/Roadmap)
 
-以下保留交大官方或官方关联资料，供读者进入原始申请页和服务说明。这里既有办理入口，也有服务页和开发文档；不要把目录中的每个链接都理解为申请表单。实际办理方式以[办理与授权入口速查](README.md#办理与授权入口速查)为准。
+以下保留交大官方或官方关联资料，供读者进入原始申请页和服务说明。这里既有办理入口，也有服务页和开发文档；不要把目录中的每个链接都理解为申请表单。实际办理方式以[办理与授权入口速查](https://github.com/Chang-Yo/Dela/wiki#办理与授权入口速查)为准。
 
 > [!NOTE]
 > 2026-10-25 已复查本 Wiki 收录的 129 个唯一外部链接。登录保护、仅接受 POST 的 Token 端点和站点反爬响应不视为失效链接。
@@ -119,7 +119,7 @@
 
 ---
 
-[← Wiki 首页](README.md) · [查看待核查服务 →](roadmap.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [查看待核查服务 →](https://github.com/Chang-Yo/Dela/wiki/Roadmap)
 
 - [SJTU HPC 文档源码](https://github.com/SJTU-HPC/docs.hpc.sjtu.edu.cn)
 - [SJTU HPC 在线文档](https://docs.hpc.sjtu.edu.cn/)

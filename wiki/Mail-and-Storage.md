@@ -1,6 +1,6 @@
 # 邮件与存储服务
 
-[← Wiki 首页](README.md) · [← 学习与社区](learning-community.md) · [下一页：网络与部署 →](network-deployment.md) · [安全与合规](security.md)
+[← Wiki 首页](https://github.com/Chang-Yo/Dela/wiki) · [← 学习与社区](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community) · [下一页：网络与部署 →](https://github.com/Chang-Yo/Dela/wiki/Network-and-Deployment) · [安全与合规](https://github.com/Chang-Yo/Dela/wiki/Security-and-Compliance)
 
 本页说明交大邮箱和交大云盘的数据路径。邮箱支持标准协议与 Open API；云盘目前只记录官方网页端和客户端能力。
 
@@ -106,4 +106,4 @@ Pan 提供个人空间、交大空间、文件上传下载、共享、协作、�
 
 ---
 
-[← 上一页：学习与社区](learning-community.md) · [下一页：网络与部署 →](network-deployment.md)
+[← 上一页：学习与社区](https://github.com/Chang-Yo/Dela/wiki/Learning-and-Community) · [下一页：网络与部署 →](https://github.com/Chang-Yo/Dela/wiki/Network-and-Deployment)
