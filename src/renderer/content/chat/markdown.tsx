@@ -1,6 +1,7 @@
 import 'katex/dist/katex.min.css';
 
 import type { ComponentProps } from 'react';
+import ayuDark from '@shikijs/themes/ayu-dark';
 import { createCodePlugin } from '@streamdown/code';
 import { createMathPlugin } from '@streamdown/math';
 import type { MermaidConfig } from '@streamdown/mermaid';
@@ -26,13 +27,39 @@ const lazyMermaidPlugin: DiagramPlugin = {
   }),
 };
 
+/** 代码高亮沿用 Ayu Dark 的作用域规则，色值经 colorReplacements 换成随明暗翻转的 --syntax-* 变量：
+ *  明暗两个槽位用同一主题，配色与编辑器、预览完全一致。 */
+const syntaxRoles: Record<string, string> = {
+  '#10141c': 'var(--syntax-bg)',
+  '#bfbdb6': 'var(--syntax-fg)',
+  '#bfbdb6b3': 'color-mix(in srgb, var(--syntax-fg) 70%, transparent)',
+  '#ff8f40': 'var(--syntax-keyword)',
+  '#aad94c': 'var(--syntax-string)',
+  '#95e6cb': 'var(--syntax-regexp)',
+  '#d2a6ff': 'var(--syntax-constant)',
+  '#c594c5': 'var(--syntax-constant)',
+  '#ffb454': 'var(--syntax-function)',
+  '#59c2ff': 'var(--syntax-entity)',
+  '#39bae6': 'var(--syntax-tag)',
+  '#39bae680': 'color-mix(in srgb, var(--syntax-tag) 50%, transparent)',
+  '#f07178': 'var(--syntax-markup)',
+  '#f29668': 'var(--syntax-operator)',
+  '#e6c08a': 'var(--syntax-special)',
+  '#5a6673': 'var(--syntax-comment)',
+  '#70bf56': 'var(--syntax-added)',
+  '#73b8ff': 'var(--syntax-modified)',
+  '#f26d78': 'var(--syntax-removed)',
+  '#d95757': 'var(--syntax-error)',
+};
+const syntaxTheme = { ...ayuDark, name: 'dela-syntax', colorReplacements: syntaxRoles };
+
 /**
- * 聊天区 Markdown 渲染的共享配置：代码高亮用 shiki 双主题（与编辑器同一套 GitHub 配色）跟随明暗；
+ * 聊天区 Markdown 渲染的共享配置：代码高亮见 syntaxTheme；
  * 数学公式启用 KaTeX（含单美元行内公式，LLM 输出惯例）；mermaid 按需加载（全屏查看见 chatControls）。
  * controls 走对象式配置时子项默认全开，不需要的必须显式关闭。
  */
 const chatStreamdownPlugins = {
-  code: createCodePlugin({ themes: ['github-light', 'github-dark'] }),
+  code: createCodePlugin({ themes: [syntaxTheme, syntaxTheme] }),
   math: createMathPlugin({ singleDollarTextMath: true }),
   mermaid: lazyMermaidPlugin,
 };
@@ -101,7 +128,7 @@ const chatLinkSafety: LinkSafetyConfig = {
  * 无语言围栏时 streamdown 渲染空 span，头部标签以 :after 兜底 txt；公式超宽时横向滚动。
  */
 const markdownStyles =
-  '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-3 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-inset [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-2 [&_pre]:rounded-control [&_pre]:bg-inset [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_[data-streamdown=code-block]]:gap-0 [&_[data-streamdown=code-block]]:rounded-card [&_[data-streamdown=code-block]]:border-0 [&_[data-streamdown=code-block]]:bg-inset [&_[data-streamdown=code-block]]:p-0 [&_[data-streamdown=code-block-header]]:sticky [&_[data-streamdown=code-block-header]]:top-0 [&_[data-streamdown=code-block-header]]:z-10 [&_[data-streamdown=code-block-header]]:justify-start [&_[data-streamdown=code-block-header]]:rounded-t-lg [&_[data-streamdown=code-block-header]]:bg-inset [&_[data-streamdown=code-block-header]]:px-2 [&_[data-streamdown=code-block]>div:nth-child(2)]:-mt-8 [&_[data-streamdown=code-block]>div:nth-child(2)]:pr-3 [&_[data-streamdown=code-block]>div:nth-child(2)]:top-0 [&_[data-streamdown=code-block-body]]:rounded-none [&_[data-streamdown=code-block-body]]:border-none [&_[data-streamdown=code-block-body]]:bg-transparent [&_[data-streamdown=code-block-body]]:p-0 [&_[data-streamdown=code-block-body]_pre]:my-0 [&_[data-streamdown=code-block-body]_pre]:rounded-none [&_[data-streamdown=code-block-body]_pre]:rounded-b-lg [&_[data-streamdown=code-block-actions]]:opacity-0 [&_[data-streamdown=code-block-actions]]:transition-opacity [&_[data-streamdown=code-block]:focus-within_[data-streamdown=code-block-actions]]:opacity-100 [&_[data-streamdown=code-block]:hover_[data-streamdown=code-block-actions]]:opacity-100 [&_div[data-streamdown=code-block-actions]]:border-0 [&_div[data-streamdown=code-block-actions]]:bg-transparent [&_div[data-streamdown=code-block-actions]]:p-0 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]]:rounded-control [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]_svg]:size-3.5 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]:hover]:bg-hover-2 [&_[data-streamdown=unordered-list]]:list-outside [&_[data-streamdown=unordered-list]]:pl-5 [&_[data-streamdown=ordered-list]]:list-outside [&_[data-streamdown=ordered-list]]:pl-5 [&_[data-streamdown=code-block-header]_span:empty::after]:content-["txt"]';
+  '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_li]:my-1 [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-3 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-code [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_[data-streamdown=inline-code]]:text-(--syntax-operator) [&_pre]:my-2 [&_pre]:rounded-control [&_pre]:bg-code [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_[data-streamdown=code-block]]:gap-0 [&_[data-streamdown=code-block]]:rounded-card [&_[data-streamdown=code-block]]:border-0 [&_[data-streamdown=code-block]]:bg-code [&_[data-streamdown=code-block]]:p-0 [&_[data-streamdown=code-block-header]]:sticky [&_[data-streamdown=code-block-header]]:top-0 [&_[data-streamdown=code-block-header]]:z-10 [&_[data-streamdown=code-block-header]]:justify-start [&_[data-streamdown=code-block-header]]:rounded-t-lg [&_[data-streamdown=code-block-header]]:bg-code [&_[data-streamdown=code-block-header]]:px-2 [&_[data-streamdown=code-block]>div:nth-child(2)]:-mt-8 [&_[data-streamdown=code-block]>div:nth-child(2)]:pr-3 [&_[data-streamdown=code-block]>div:nth-child(2)]:top-0 [&_[data-streamdown=code-block-body]]:rounded-none [&_[data-streamdown=code-block-body]]:border-none [&_[data-streamdown=code-block-body]]:bg-transparent [&_[data-streamdown=code-block-body]]:p-0 [&_[data-streamdown=code-block-body]_pre]:my-0 [&_[data-streamdown=code-block-body]_pre]:rounded-none [&_[data-streamdown=code-block-body]_pre]:rounded-b-lg [&_[data-streamdown=code-block-actions]]:opacity-0 [&_[data-streamdown=code-block-actions]]:transition-opacity [&_[data-streamdown=code-block]:focus-within_[data-streamdown=code-block-actions]]:opacity-100 [&_[data-streamdown=code-block]:hover_[data-streamdown=code-block-actions]]:opacity-100 [&_div[data-streamdown=code-block-actions]]:border-0 [&_div[data-streamdown=code-block-actions]]:bg-transparent [&_div[data-streamdown=code-block-actions]]:p-0 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]]:rounded-control [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]_svg]:size-3.5 [&_div[data-streamdown=code-block-actions]_button[data-streamdown=code-block-copy-button]:hover]:bg-hover-2 [&_[data-streamdown=unordered-list]]:list-outside [&_[data-streamdown=unordered-list]]:pl-5 [&_[data-streamdown=ordered-list]]:list-outside [&_[data-streamdown=ordered-list]]:pl-5 [&_[data-streamdown=code-block-header]_span:empty::after]:content-["txt"]';
 
 /**
  * 聊天区 Markdown 统一入口：插件、控件、表格组件与文案只在此配置一次。
