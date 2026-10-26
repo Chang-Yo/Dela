@@ -70,6 +70,21 @@
   --syntax-variable: #953800;
   --syntax-tag: #116329;
   --syntax-caret: #0969da;
+  /* 笔记即时渲染里的代码（行内与代码块）：Ayu。白底上 Ayu Light 原色对比度过低（字符串约 2.5:1），
+     浅色取 ayu-colors 调色板同色相最深一级（l1），深色用 Ayu Dark 原色。 */
+  --ayu-bg: #ebeef0;
+  --ayu-fg: #5c6166;
+  --ayu-keyword: #cf6610;
+  --ayu-string: #719700;
+  --ayu-regexp: #3b9b7c;
+  --ayu-constant: #9d6fc8;
+  --ayu-func: #b37c00;
+  --ayu-entity: #1a91cd;
+  --ayu-tag: #4393ae;
+  --ayu-markup: #e5474f;
+  --ayu-operator: #e24e37;
+  --ayu-special: #b87734;
+  --ayu-comment: #86878c;
 }
 
 /* 深色主题：app/theme.ts 把手动选择与跟随系统统一解析成 :root.dark。 */
@@ -100,6 +115,19 @@
   --syntax-variable: #ffa657;
   --syntax-tag: #7ee787;
   --syntax-caret: #58a6ff;
+  --ayu-bg: #0d1017;
+  --ayu-fg: #bfbdb6;
+  --ayu-keyword: #ff8f40;
+  --ayu-string: #aad94c;
+  --ayu-regexp: #95e6cb;
+  --ayu-constant: #d2a6ff;
+  --ayu-func: #ffb454;
+  --ayu-entity: #59c2ff;
+  --ayu-tag: #39bae6;
+  --ayu-markup: #f07178;
+  --ayu-operator: #f29668;
+  --ayu-special: #e6c08a;
+  --ayu-comment: #5a6673;
 }
 
 /* 固定浅色作用域（beautifului.css 的 .bui-light）：语义变量在 :root 已解析成深色值，

@@ -3,7 +3,7 @@
 // 光标不在公式、mermaid 代码块或表格里时，原文替换成渲染结果，光标移进去即回到原文。
 // 不做所见即所得的往返序列化：用户不改的字节一个都不会变（列表符号、空行、转义、换行符）。
 // 表格等 GFM 语法要求调用方以 markdownLanguage 为 base 解析。
-import { syntaxTree } from '@codemirror/language';
+import { syntaxHighlighting, syntaxTree } from '@codemirror/language';
 import { RangeSetBuilder, StateField, type EditorState, type Extension } from '@codemirror/state';
 import {
   Decoration,
@@ -13,6 +13,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
+import { tagHighlighter, tags as t } from '@lezer/highlight';
 import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
 import { findMath, renderMath } from './math';
 
@@ -438,6 +439,48 @@ function build(view: EditorView, resolveImage: (src: string) => string): Decorat
   return builder.finish();
 }
 
+// 代码按 vscode-ayu 的作用域规则着色：这里只给 token 打类名，配色在主题里限定到代码块行内，
+// 正文仍走共用的 markdownHighlightStyle。色值见 globals.css 的 --ayu-*。
+const ayuTokens = tagHighlighter([
+  { tag: [t.monospace, t.definition(t.variableName)], class: 'cm-ayu-fg' },
+  { tag: t.keyword, class: 'cm-ayu-keyword' },
+  { tag: t.string, class: 'cm-ayu-string' },
+  { tag: [t.regexp, t.escape], class: 'cm-ayu-regexp' },
+  {
+    tag: [t.number, t.bool, t.null, t.atom, t.constant(t.variableName)],
+    class: 'cm-ayu-constant',
+  },
+  {
+    tag: [
+      t.function(t.variableName),
+      t.function(t.definition(t.variableName)),
+      t.function(t.propertyName),
+      t.attributeName,
+    ],
+    class: 'cm-ayu-func',
+  },
+  { tag: [t.typeName, t.className, t.namespace], class: 'cm-ayu-entity' },
+  { tag: t.tagName, class: 'cm-ayu-tag' },
+  { tag: t.propertyName, class: 'cm-ayu-markup' },
+  { tag: t.operator, class: 'cm-ayu-operator' },
+  { tag: [t.self, t.meta, t.annotation], class: 'cm-ayu-special' },
+  { tag: [t.comment, t.processingInstruction], class: 'cm-ayu-comment' },
+]);
+const ayuRoles = [
+  'fg',
+  'keyword',
+  'string',
+  'regexp',
+  'constant',
+  'func',
+  'entity',
+  'tag',
+  'markup',
+  'operator',
+  'special',
+  'comment',
+];
+
 // 只引用基础变量（--muted、--destructive 等）和一定会输出的 theme 变量：Tailwind v4 会裁掉没被工具类
 // 用到的 --color-*，引用它们可能落空。标题用 em，跟随编辑器正文字号缩放。
 const theme = EditorView.theme({
@@ -448,9 +491,11 @@ const theme = EditorView.theme({
   '.cm-md-strong': { fontWeight: '600' },
   '.cm-md-em': { fontStyle: 'italic' },
   '.cm-md-strike': { textDecoration: 'line-through' },
+  // 共用高亮的 span 套在行内代码标记里面：子元素一并取色，才压得过共用配色。
+  '.cm-md-code, .cm-md-code *': { color: 'var(--ayu-operator)' },
   '.cm-md-code': {
     fontFamily: 'var(--font-mono)',
-    backgroundColor: 'var(--muted)',
+    backgroundColor: 'var(--ayu-bg)',
     borderRadius: 'var(--radius-chip)',
     padding: '0 0.2em',
   },
@@ -460,7 +505,15 @@ const theme = EditorView.theme({
     paddingLeft: 'calc(var(--spacing) * 3)',
     color: 'var(--muted-foreground)',
   },
-  '.cm-md-codeblock': { fontFamily: 'var(--font-mono)', backgroundColor: 'var(--muted)' },
+  '.cm-md-codeblock': {
+    fontFamily: 'var(--font-mono)',
+    backgroundColor: 'var(--ayu-bg)',
+    color: 'var(--ayu-fg)',
+  },
+  ...Object.fromEntries(
+    ayuRoles.map((role) => [`.cm-md-codeblock .cm-ayu-${role}`, { color: `var(--ayu-${role})` }]),
+  ),
+  '.cm-md-codeblock .cm-ayu-comment': { color: 'var(--ayu-comment)', fontStyle: 'italic' },
   '.cm-md-hr': {
     backgroundImage: 'linear-gradient(var(--input), var(--input))',
     backgroundSize: '100% 2px',
@@ -553,6 +606,7 @@ export function markdownImageInsert(
 export function markdownLivePreview(resolveImage: (src: string) => string): Extension {
   return [
     theme,
+    syntaxHighlighting(ayuTokens),
     blockField,
     ViewPlugin.fromClass(
       class {
