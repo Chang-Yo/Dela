@@ -1,11 +1,3 @@
-import { useState } from 'react';
-import { Download, Loader2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
 import {
   Select,
@@ -14,12 +6,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import { IconButton } from '../../components/ui/beautifului/atoms/IconButton';
 import { cn } from '../../lib/utils';
 import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
-import { formatTime, lectureMeta, lectureTitle } from './player-format';
+import { lectureMeta, lectureTitle } from './player-format';
 import { useClassroom } from './store';
-import { useExperimentEnabled } from '../settings/experimental';
 
 export function CoursePicker() {
   const courses = useClassroom((state) => state.courses);
@@ -92,13 +82,11 @@ function VideoRowSkeleton() {
 function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVideo }) {
   const selected = useClassroom((state) => state.selectedVideoId === video.id);
   const selectVideo = useClassroom((state) => state.selectVideo);
-  const downloadEnabled = useExperimentEnabled('videoDownload');
 
   return (
-    // 行间不画分隔线：选中/悬停是圆角底色块，下载钮 hover 浮现。
     <div
       className={cn(
-        'group flex items-center gap-1 rounded-chip pl-2 pr-0.5 transition-colors duration-150',
+        'flex items-center rounded-chip px-2 transition-colors duration-150',
         selected ? 'bg-hover-2' : 'hover:bg-hover-2',
       )}
     >
@@ -113,61 +101,6 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
         </span>
         <span className="truncate text-xs tabular-nums text-ink-3">{lectureMeta(video)}</span>
       </button>
-      {downloadEnabled && <DownloadButton course={course} video={video} />}
     </div>
-  );
-}
-
-function DownloadButton({ course, video }: { course: VideoCourse; video: ClassroomVideo }) {
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const streams = useClassroom((state) => state.streams[video.id]);
-  const streamsLoading = useClassroom((state) => state.streamsLoading === video.id);
-  const streamsError = useClassroom((state) => state.streamsError[video.id] || null);
-  const ensureStreams = useClassroom((state) => state.ensureStreams);
-  const download = useClassroom((state) => state.download);
-  const pending = busy || streamsLoading;
-
-  return (
-    <DropdownMenu
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next && !streams && !streamsLoading) {
-          setBusy(true);
-          void ensureStreams(video.id).finally(() => setBusy(false));
-        }
-      }}
-      open={open}
-    >
-      <DropdownMenuTrigger asChild>
-        <span className="inline-flex opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
-          <IconButton
-            aria-label={`下载 ${lectureTitle(video)}`}
-            className="hover:bg-hover-2"
-            disabled={pending}
-            title="下载"
-          >
-            {pending ? <Loader2 className="animate-spin" /> : <Download />}
-          </IconButton>
-        </span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        {streams ? (
-          streams.map((stream, index) => (
-            <DropdownMenuItem
-              key={stream.view}
-              onSelect={() => void download(course.name, video, stream.view)}
-            >
-              <span>画面{index + 1}</span>
-              <span className="ml-auto text-xs tabular-nums text-ink-3">
-                {stream.duration > 0 ? formatTime(stream.duration) : ''}
-              </span>
-            </DropdownMenuItem>
-          ))
-        ) : (
-          <p className="px-2 py-1.5 text-xs text-ink-3">{streamsError || '正在读取画面…'}</p>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
