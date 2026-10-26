@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Folder } from 'lucide-react';
+import { Cloud, Folder } from 'lucide-react';
 import type { WorkspacePrefs } from '../../../../shared/api';
 import type { WorkbenchLayout } from '../../../../shared/layout';
 import { Button } from '../../../components/ui/button';
@@ -11,6 +11,7 @@ import { useNoteSpellcheck } from '../../../content/note/note-spellcheck';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { useProjectNavPrefs } from '../../../navigation/store';
+import { remoteAccent } from '../../../navigation/remote-color';
 
 /** 重置后的默认布局：单组空标签（workbench 的 createDefaultLayout 同构）。 */
 const defaultLayout: WorkbenchLayout = {
@@ -161,26 +162,44 @@ export function WorkspaceSection() {
             )}
           </div>
         </SettingRow>
-        {/* 隐藏只收起导航入口，项目文件与会话都还在；此处提供恢复。 */}
-        {hiddenProjects.length > 0 && (
-          <SettingRow settingId="hidden-projects" title="已隐藏项目">
-            <div className="grid content-start gap-2">
-              {hiddenProjects.map((project) => (
-                <div className="flex items-center gap-3" key={project.id}>
-                  <span className="min-w-0 flex-1 truncate text-13">{project.name}</span>
-                  <Button
-                    onClick={() => setProject(project.id, { hidden: false })}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    恢复入口
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </SettingRow>
-        )}
       </SettingsGroup>
+      {hiddenProjects.length > 0 && (
+        <SettingsGroup settingId="hidden-projects" title="已隐藏项目">
+          <ul className="grid">
+            {hiddenProjects.map((project) => (
+              <li
+                className="flex items-center justify-between gap-3 border-b py-3 last:border-0"
+                key={project.id}
+              >
+                <div className="flex min-w-0 items-baseline gap-3">
+                  <span className="shrink-0 text-13" title={project.name}>
+                    {project.name}
+                  </span>
+                  {/* 远程标记沿用侧栏约定：带连接配色的云朵，同一台服务器恒定同色。 */}
+                  {project.remoteId && (
+                    <Cloud
+                      aria-hidden="true"
+                      className="size-3.5 shrink-0 self-center"
+                      strokeWidth={1.8}
+                      style={{ color: remoteAccent(project.remoteId, 'text') }}
+                    />
+                  )}
+                  <span className="truncate text-xs text-ink-3" title={project.path}>
+                    {project.path}
+                  </span>
+                </div>
+                <Button
+                  onClick={() => setProject(project.id, { hidden: false })}
+                  size="sm"
+                  variant="secondary"
+                >
+                  恢复入口
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </SettingsGroup>
+      )}
     </div>
   );
 }
