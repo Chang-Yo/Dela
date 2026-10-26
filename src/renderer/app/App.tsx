@@ -43,7 +43,6 @@ import {
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
-import { useNoteSpellcheck } from '../content/note/note-spellcheck';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
  *  通用池（键 'general'）不入项目树，但保留镜像预热：会话标签标题解析（registry
@@ -194,15 +193,6 @@ export default function App() {
         }
       }
     });
-  }, []);
-
-  useEffect(() => {
-    void window.dela?.settings
-      .getWorkspacePrefs()
-      .then((prefs) => {
-        useNoteSpellcheck.getState().setSpellcheck(prefs.noteSpellcheck);
-      })
-      .catch(() => {});
   }, []);
 
   // 未保存笔记的退出守卫（草稿自动保存有 600ms 防抖窗口）。

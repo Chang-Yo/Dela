@@ -20,12 +20,10 @@ export interface TaskNotificationPrefs {
   failed: boolean;
 }
 
-/** 工作现场偏好：启动恢复与拼写检查。 */
+/** 工作现场偏好：启动恢复。 */
 export interface WorkspacePrefs {
   /** 启动时恢复上次项目与标签；关闭后启动进入首页。 */
   restoreLastProject: boolean;
-  /** 文件编辑器的系统拼写检查；默认关，避免中文与技术词被标红。 */
-  noteSpellcheck: boolean;
 }
 
 /** 试验功能：总开关 + 子项（水源、课堂视频下载）；子项只在总开关开启时生效，键缺失视为开启。 */

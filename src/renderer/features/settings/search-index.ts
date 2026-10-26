@@ -254,7 +254,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   general: '开机自启动与系统通知',
   appearance: '主题、缩放、字号与图标',
   shortcuts: '查看与修改快捷键',
-  workspace: '工作目录、拼写检查与布局',
+  workspace: '工作目录与布局',
   archived: '恢复或永久删除已归档对话',
   connections: 'Canvas、邮箱、教务与水源连接',
   remotes: 'SSH 远程主机与连接',

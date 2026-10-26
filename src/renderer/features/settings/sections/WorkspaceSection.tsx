@@ -1,13 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Cloud, Folder } from 'lucide-react';
-import type { WorkspacePrefs } from '../../../../shared/api';
 import type { WorkbenchLayout } from '../../../../shared/layout';
 import { Button } from '../../../components/ui/button';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
-import { Switch } from '@/components/ui/beautifului/atoms/Switch';
-import { useNoteSpellcheck } from '../../../content/note/note-spellcheck';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { useProjectNavPrefs } from '../../../navigation/store';
@@ -27,7 +24,7 @@ function currentProjectId(): string | null {
   return raw ? raw : null;
 }
 
-/** 设置 › 工作区：工作目录、启动恢复、默认笔记编辑方式、笔记拼写检查、当前项目布局重置与隐藏项目恢复。 */
+/** 设置 › 工作区：工作目录、当前项目布局重置与隐藏项目恢复。 */
 export function WorkspaceSection() {
   const directory = useWorkspaceStore((state) => state.workspace.directory);
   const entries = useWorkspaceStore((state) => state.workspace.entries);
@@ -36,40 +33,8 @@ export function WorkspaceSection() {
   const hiddenProjects = entries.filter(
     (entry) => entry.kind === 'project' && projectPrefs[entry.id]?.hidden,
   );
-  // null 表示尚未读到当前状态，控件保持禁用避免闪烁出错误的默认值。
-  const [prefs, setPrefs] = useState<WorkspacePrefs | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void window.dela?.settings
-      .getWorkspacePrefs()
-      .then(setPrefs)
-      .catch((cause) => setError(errorText(cause)));
-  }, []);
-
-  // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化。
-  const changePrefs = async (patch: Partial<WorkspacePrefs>) => {
-    if (busy || prefs === null) return;
-    setBusy(true);
-    const previous = prefs;
-    setPrefs({ ...prefs, ...patch });
-    try {
-      const saved = window.dela
-        ? await window.dela.settings.setWorkspacePrefs(patch)
-        : { ...prefs, ...patch };
-      setPrefs(saved);
-      // 已挂载的笔记编辑器读这个镜像：保存确认后再改，失败时不留下与磁盘不一致的状态。
-      if (patch.noteSpellcheck !== undefined)
-        useNoteSpellcheck.getState().setSpellcheck(saved.noteSpellcheck);
-    } catch (cause) {
-      setPrefs(previous);
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const chooseDirectory = () => {
     void window.dela?.workspace
@@ -98,18 +63,8 @@ export function WorkspaceSection() {
   return (
     <div className="grid gap-10">
       <SectionHeader title="工作区" />
-      {error && (
-        <p className="text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
       <SettingsGroup>
-        {/* 不迁移已有文件：改目录后旧笔记「消失」是用户最常见的误解，必须保留警示。 */}
-        <SettingRow
-          description="仅影响之后新建的内容，不迁移已有文件。"
-          settingId="work-directory"
-          title="工作目录"
-        >
+        <SettingRow settingId="work-directory" title="工作目录">
           <div className="flex items-center justify-end gap-3">
             <span className="truncate text-xs text-ink-3" title={directory || undefined}>
               {directory || '未选择'}
@@ -119,18 +74,6 @@ export function WorkspaceSection() {
               选择
             </Button>
           </div>
-        </SettingRow>
-        <SettingRow
-          description="即时渲染与源码模式共用；关闭后不显示拼写波浪线。"
-          settingId="note-spellcheck"
-          title="笔记拼写检查"
-        >
-          <Switch
-            checked={prefs?.noteSpellcheck ?? false}
-            disabled={prefs === null || busy}
-            label="笔记拼写检查"
-            onChange={(value) => void changePrefs({ noteSpellcheck: value })}
-          />
         </SettingRow>
         <SettingRow settingId="reset-layout" title="布局重置">
           <div className="grid content-start justify-items-end gap-1.5">

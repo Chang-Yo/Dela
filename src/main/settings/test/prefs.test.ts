@@ -134,20 +134,18 @@ describe('campus notifications', () => {
 });
 
 describe('workspace prefs', () => {
-  const defaults = { restoreLastProject: true, noteSpellcheck: false };
+  const defaults = { restoreLastProject: true };
 
-  it('reads prefs stored by older versions: fills new fields, drops the removed edit-mode key', () => {
+  it('reads prefs stored by older versions: drops the removed edit-mode and spellcheck keys', () => {
     insert(
-      `INSERT INTO workspace_settings VALUES ('workspace-prefs', '{"restoreLastProject":false,"defaultNoteEditMode":"source"}')`,
+      `INSERT INTO workspace_settings VALUES ('workspace-prefs', '{"restoreLastProject":false,"defaultNoteEditMode":"source","noteSpellcheck":true}')`,
     );
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false, noteSpellcheck: false });
+    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false });
   });
 
   it('merges partial updates without touching other fields', () => {
     setWorkspacePrefs({ restoreLastProject: false });
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false, noteSpellcheck: false });
-    setWorkspacePrefs({ noteSpellcheck: true });
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false, noteSpellcheck: true });
+    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false });
   });
 
   it('falls back to defaults on corrupt stored JSON', () => {
@@ -156,7 +154,7 @@ describe('workspace prefs', () => {
   });
 
   it('rejects invalid values', () => {
-    expect(() => setWorkspacePrefs({ noteSpellcheck: 'yes' })).toThrow();
+    expect(() => setWorkspacePrefs({ restoreLastProject: 'yes' })).toThrow();
     expect(getWorkspacePrefs()).toEqual(defaults);
   });
 });

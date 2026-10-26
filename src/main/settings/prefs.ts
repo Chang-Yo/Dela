@@ -150,20 +150,16 @@ export function setTaskNotificationPrefs(input: unknown): TaskNotificationPrefs 
 }
 
 // ---------------------------------------------------------------------------
-// 工作现场偏好（启动恢复上次项目与标签、拼写检查）。
+// 工作现场偏好（启动恢复上次项目与标签）。
 // ---------------------------------------------------------------------------
 
 const workspacePrefsDefaults: WorkspacePrefs = {
   // 现行为本就恢复上次项目（App 读 localStorage 的最后项目键），默认开启与其一致。
   restoreLastProject: true,
-  // 现行为本就关闭拼写检查（两个编辑器都硬编码 spellcheck=false）。
-  noteSpellcheck: false,
 };
 
 export const workspacePrefsSchema = z.object({
   restoreLastProject: z.boolean(),
-  // 字段级 default：旧版存的 JSON 没有这个键，缺省补齐而不是让整条偏好回退默认值。
-  noteSpellcheck: z.boolean().default(false),
 });
 
 export function getWorkspacePrefs(): WorkspacePrefs {
