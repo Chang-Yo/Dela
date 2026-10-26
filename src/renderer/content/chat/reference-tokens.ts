@@ -99,18 +99,19 @@ function relativeTo(path: string, base: string): string | null {
   return matches && target.length > root.length ? target.slice(root.length) : null;
 }
 
-/** @ 候选：会话 cwd 之下、且不属于其他项目目录的文件，title 为相对 cwd 的路径。
- *  通用池的 cwd 是工作区根，而各项目目录就挂在工作区根下面——只按 cwd 过滤的话，
- *  随聊的 @ 会列出别的项目的文件：上一个会话在哪个项目，看上去就像串了哪个会话的上下文。 */
+/** 项目候选覆盖 cwd 下的全部文件；通用池排除项目目录，title 为相对 cwd 的路径。 */
 export function referenceCandidates(
   entries: WorkspaceEntry[],
   cwd: string | null,
   projectId: string | null,
 ): ChatReference[] {
   if (!cwd) return [];
-  const foreign = entries
-    .filter((entry) => entry.kind === 'project' && entry.id !== projectId && entry.path)
-    .map((entry) => entry.path!);
+  const foreign =
+    projectId === null
+      ? entries
+          .filter((entry) => entry.kind === 'project' && entry.path)
+          .map((entry) => entry.path!)
+      : [];
   const refs: ChatReference[] = [];
   for (const entry of entries) {
     const path = entry.path;

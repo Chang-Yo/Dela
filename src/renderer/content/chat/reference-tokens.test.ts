@@ -111,6 +111,23 @@ describe('referenceCandidates（@ 候选范围）', () => {
     expect(referenceCandidates(tree, null, null)).toEqual([]);
   });
 
+  it('父子项目都能引用自己目录下的文件，子项目登记不会屏蔽父项目候选', () => {
+    const a = 'D:/Downloads/hw1-flights';
+    const b = `${a}/hw1-flights`;
+    const entries = [
+      entry('A', a, 'project'),
+      entry('B', b, 'project'),
+      entry('pdf', `${a}/HW1.pdf`, 'file'),
+      entry('sql', `${b}/setup.sql`, 'file'),
+    ];
+    expect(referenceCandidates(entries, a, 'A')).toEqual([
+      ref(`${a}/HW1.pdf`, 'HW1.pdf'),
+      ref(`${b}/setup.sql`, 'hw1-flights/setup.sql'),
+    ]);
+    expect(referenceCandidates(entries, b, 'B')).toEqual([ref(`${b}/setup.sql`, 'setup.sql')]);
+    expect(referenceCandidates(entries, a, null)).toEqual([]);
+  });
+
   it('POSIX 路径区分大小写，不混入同名异大小写项目的文件', () => {
     const entries = [
       entry('own', '/repo/Project', 'project'),

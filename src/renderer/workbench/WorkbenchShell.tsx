@@ -175,7 +175,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
 
   const referenceSource: ReferenceSource = useMemo(
     () => ({
-      // @ 引用即文件路径：只列会话 cwd 之下、且不属于其他项目目录的文件（项目会话 = 项目目录），
+      // @ 引用即文件路径：项目会话列 cwd 下全部文件，通用池排除其他项目目录，
       // key 为绝对路径，title 为相对 cwd 的路径，与 agent 的工作目录一致。订阅 workspace 镜像。
       // 通用池（随聊/资料页）另并入已下载课件候选：课件不在镜像里，按 cwd 过滤永远为空。
       useEntries: (projectId, cwd) => {

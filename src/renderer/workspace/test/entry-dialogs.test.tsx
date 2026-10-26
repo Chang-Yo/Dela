@@ -8,6 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry, WorkspaceState } from '../../../shared/api';
 import { EntryDialogs, type EntryDialogRequest } from '../entry-dialogs';
 import { useWorkspaceStore } from '../store';
+import { useProjectNavPrefs } from '../../navigation/store';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -36,6 +37,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   delete window.dela;
+  useProjectNavPrefs.setState({ projects: {} });
   vi.unstubAllGlobals();
 });
 
@@ -55,6 +57,7 @@ async function render(request: EntryDialogRequest, callbacks: object = {}) {
 }
 
 it('imports an existing folder as a project and opens it', async () => {
+  useProjectNavPrefs.setState({ projects: { 'p-1': { hidden: true } } });
   const importProjectFolder = vi.fn(async () => external);
   const getState = vi.fn(async () => ({ ...emptyState, entries: [external] }));
   window.dela = { workspace: { importProjectFolder, getState } } as unknown as DelaApi;
@@ -66,6 +69,7 @@ it('imports an existing folder as a project and opens it', async () => {
   expect(getState).toHaveBeenCalledOnce();
   expect(onOpenProject).toHaveBeenCalledWith('p-1');
   expect(onClose).toHaveBeenCalledOnce();
+  expect(useProjectNavPrefs.getState().projects['p-1']?.hidden).toBe(false);
 });
 
 it('keeps the dialog open when the folder picker is cancelled', async () => {

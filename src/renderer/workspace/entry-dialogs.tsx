@@ -132,6 +132,7 @@ export function EntryDialogs({
       const created = await window.dela.workspace.importProjectFolder();
       if (!created) return;
       await useWorkspaceStore.getState().refresh();
+      unhideProjectInNav(created.id);
       onClose();
       onOpenProject?.(created.id);
       onCreated?.(created);
