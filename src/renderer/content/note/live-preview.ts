@@ -123,6 +123,37 @@ class BulletWidget extends WidgetType {
   }
 }
 
+/** 任务列表复选框：点击只翻转 `[ ]`/`[x]` 里那一个字符，不移动光标。 */
+class TaskWidget extends WidgetType {
+  constructor(
+    readonly checked: boolean,
+    readonly markerOffset: number,
+  ) {
+    super();
+  }
+  eq(other: TaskWidget) {
+    return other.checked === this.checked && other.markerOffset === this.markerOffset;
+  }
+  toDOM(view: EditorView) {
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.className = 'cm-md-task';
+    box.checked = this.checked;
+    box.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      if (view.state.readOnly) return;
+      const at = view.posAtDOM(box) + this.markerOffset + 1;
+      view.dispatch({ changes: { from: at, to: at + 1, insert: this.checked ? ' ' : 'x' } });
+    });
+    // 勾选状态只由正文决定：浏览器自己的切换一律撤销，正文改动后组件会重建。
+    box.addEventListener('click', (event) => event.preventDefault());
+    return box;
+  }
+  ignoreEvent() {
+    return true;
+  }
+}
+
 type Segment = { text: string; className: string; math?: boolean };
 
 class TableWidget extends WidgetType {
@@ -404,10 +435,23 @@ function build(view: EditorView, resolveImage: (src: string) => string): Decorat
           return false;
         }
         if (name === 'ListMark' && !editing && node.node.parent?.parent?.name === 'BulletList') {
+          // 任务项的圆点与复选框合并显示，由下方 TaskMarker 一起替换。
+          if (node.node.nextSibling?.name === 'Task') return;
           let depth = 0;
           for (let list = node.node.parent.parent.parent; list; list = list.parent)
             if (list.name === 'BulletList' || list.name === 'OrderedList') depth += 1;
           ranges.push({ from: node.from, to: node.to, value: bullets[depth % bullets.length]! });
+          return;
+        }
+        if (name === 'TaskMarker' && !editing) {
+          const item = node.node.parent!.parent!;
+          const from = item.parent?.name === 'BulletList' ? item.from : node.from;
+          const checked = state.sliceDoc(node.from + 1, node.from + 2).toLowerCase() === 'x';
+          ranges.push({
+            from,
+            to: node.to,
+            value: Decoration.replace({ widget: new TaskWidget(checked, node.from - from) }),
+          });
           return;
         }
         if (name === 'FencedCode' || name === 'CodeBlock') {
@@ -558,6 +602,12 @@ const theme = EditorView.theme({
     width: '1ch',
     textAlign: 'center',
     color: 'var(--muted-foreground)',
+  },
+  '.cm-md-task': {
+    margin: '0 0.5ch 0 0',
+    verticalAlign: 'middle',
+    cursor: 'pointer',
+    accentColor: 'var(--ring)',
   },
   '.cm-md-table': { overflowX: 'auto', paddingBlock: 'calc(var(--spacing) * 2)' },
   '.cm-md-table table': { borderCollapse: 'collapse' },

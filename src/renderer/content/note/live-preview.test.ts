@@ -156,4 +156,21 @@ describe('markdownLivePreview', () => {
     expect(editor.contentDOM.querySelectorAll('.cm-line')[0]!.textContent).toBe('- 一');
     expect(editor.state.sliceDoc()).toBe(doc);
   });
+
+  it('任务列表显示复选框，点击只翻转勾选字符且不移动光标', () => {
+    const doc = '- [ ] 待办\n1. [X] 完成\n\n末行';
+    const editor = mount(doc, doc.length);
+    const boxes = editor.contentDOM.querySelectorAll<HTMLInputElement>('input.cm-md-task');
+    expect([...boxes].map((box) => box.checked)).toEqual([false, true]);
+    expect(editor.contentDOM.querySelectorAll('.cm-line')[0]!.textContent).toBe(' 待办');
+    expect(editor.contentDOM.querySelectorAll('.cm-line')[1]!.textContent).toBe('1.  完成');
+
+    boxes[0]!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    expect(editor.state.sliceDoc()).toBe('- [x] 待办\n1. [X] 完成\n\n末行');
+    editor.contentDOM
+      .querySelectorAll<HTMLInputElement>('input.cm-md-task')[1]!
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    expect(editor.state.sliceDoc()).toBe('- [x] 待办\n1. [ ] 完成\n\n末行');
+    expect(editor.state.selection.main.head).toBe(doc.length);
+  });
 });
