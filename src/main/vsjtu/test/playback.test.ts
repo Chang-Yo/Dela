@@ -34,7 +34,7 @@ it('shares concurrent source lookups so every returned playback token remains us
 
 it('does not cache an empty source list and allows a later retry when the recording is ready', async () => {
   upstream.streams.mockResolvedValueOnce([]);
-  await expect(issuePlayback(videoId)).rejects.toThrow('尚未就绪');
+  await expect(issuePlayback(videoId)).rejects.toThrow('暂未获取到可播放录像，请稍后重试');
   expect(await issuePlayback(videoId)).toHaveLength(1);
   expect(upstream.streams).toHaveBeenCalledTimes(2);
 });

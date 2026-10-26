@@ -192,7 +192,7 @@ export function parseStreams(
       ),
     })
     .safeParse(payload);
-  if (!parsed.success) throw new Error('交大视频画面数据格式已变化');
+  if (!parsed.success) throw new Error('暂未获取到可播放录像，请稍后重试', { cause: parsed.error });
   return parsed.data.courseVodViewList.map((stream) => {
     const url = new URL(stream.url);
     if (

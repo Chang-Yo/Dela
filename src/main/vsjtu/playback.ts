@@ -42,7 +42,7 @@ async function streamsOf(videoId: number, force = false): Promise<PlaybackEntry>
   const task = (async () => {
     try {
       const streams = await getStreams(videoId);
-      if (streams.length === 0) throw new Error('录像画面尚未就绪，请稍后重试');
+      if (streams.length === 0) throw new Error('暂未获取到可播放录像，请稍后重试');
       const entry = { streams, resolvedAt: Date.now(), usedAt: Date.now() };
       entries.set(videoId, entry);
       if (entries.size > MAX_ENTRIES) {
