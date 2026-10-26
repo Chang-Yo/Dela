@@ -302,6 +302,19 @@ it('does not discard earlier pages when a later page unexpectedly reports zero t
   expect(server.urls).toHaveLength(3);
 });
 
+it('rejects missing streams without guessing the cause and retains validation details', () => {
+  expect(() => parseStreams({ courseVodViewList: null })).toThrow(
+    expect.objectContaining({
+      message: '暂未获取到可播放录像，请稍后重试',
+      cause: expect.objectContaining({
+        issues: expect.arrayContaining([
+          expect.objectContaining({ path: ['courseVodViewList'], code: 'invalid_type' }),
+        ]),
+      }),
+    }),
+  );
+});
+
 it('keeps both valid streams and rejects links outside the known media host', () => {
   const streams = parseStreams({
     courseVodViewList: [
