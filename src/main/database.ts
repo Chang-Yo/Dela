@@ -148,6 +148,7 @@ const schema: string[] = [
     source_id TEXT,
     local_path TEXT,
     remote_id TEXT REFERENCES remotes(id) ON DELETE RESTRICT,
+    removed INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS workspace_parent ON workspace_entries(parent_id)`,
@@ -295,6 +296,7 @@ export function getDatabase(): Database.Database {
     // 列修复与版本号解耦：中途版本可能已经把 user_version 提到当前值却没加列（实测出现过），
     // 只认版本号会让这种库永久缺列；这里每次打开都幂等补一次，缺列才执行 ALTER。
     addColumnIfMissing(db, 'workspace_entries', 'remote_id', 'TEXT');
+    addColumnIfMissing(db, 'workspace_entries', 'removed', 'INTEGER NOT NULL DEFAULT 0');
     // v3→v4 只加列：会话自带工作目录，旧会话留 NULL 继续按项目目录解析。
     addColumnIfMissing(db, 'sessions', 'cwd', 'TEXT');
     // 第三方 IMAP 的 SMTP 参数：老库的 imap_host/imap_port 已存在，缺的是这两列。

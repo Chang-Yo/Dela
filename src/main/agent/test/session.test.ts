@@ -100,6 +100,7 @@ import {
 } from '../session';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
+import { removeWorkspaceEntry } from '../../workspace/api';
 
 beforeEach(() => {
   state.configured = false;
@@ -117,7 +118,7 @@ beforeEach(() => {
   state.db.exec(`
     CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL,
       kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL);
+      updated_at TEXT NOT NULL, removed INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE sessions (id TEXT PRIMARY KEY,
       project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL, file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
@@ -132,6 +133,26 @@ afterEach(() => {
   invalidateSessions();
   state.db?.close();
   rmSync(state.root, { recursive: true, force: true });
+});
+
+it.each([false, true])('移除项目后保留会话工作目录与执行主机 (remote=%s)', async (remote) => {
+  const id = crypto.randomUUID();
+  const directory = remote ? '/remote/course' : join(state.root, 'project');
+  if (!remote) mkdirSync(directory);
+  const remoteId = remote ? crypto.randomUUID() : null;
+  state
+    .db!.prepare(
+      'INSERT INTO workspace_entries (id, name, kind, local_path, remote_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+    .run(id, 'project', 'project', directory, remoteId, 'now');
+  const chat = newSession(id, 'chat');
+  await removeWorkspaceEntry(id);
+  invalidateSessions();
+  expect(openSession(chat.sessionId!)).toMatchObject({ projectId: id, cwd: directory });
+  const { projectLocation } = await import('../../workspace/api');
+  expect(projectLocation(id)).toEqual(
+    remote ? { kind: 'remote', path: directory, remoteId } : { kind: 'local', path: directory },
+  );
 });
 
 it('真实 ask 生命周期冻结文件变化并将 turnId 持久化到消息元数据', async () => {
@@ -200,7 +221,7 @@ it('远程会话不读取同名本地目录，接口明确返回不可用', asyn
   state.configured = true;
   state
     .db!.prepare(
-      "INSERT INTO workspace_entries VALUES ('remote-project', NULL, '远程', 'project', NULL, '/remote/project', 'remote-id', 'x')",
+      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('remote-project', NULL, '远程', 'project', NULL, '/remote/project', 'remote-id', 'x')",
     )
     .run();
   const chat = newSession('remote-project', 'chat');
@@ -358,7 +379,7 @@ describe('会话归属与 cwd', () => {
   it('项目会话的 cwd 是项目目录；空会话入口每个项目只有一个', () => {
     state
       .db!.prepare(
-        "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
+        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
       )
       .run(state.root);
     const first = newSession('p1', 'library');
@@ -407,7 +428,7 @@ describe('会话归属与 cwd', () => {
   it('新项目会话的 cwd 仍解析到项目目录，库里的 cwd 保持 NULL', () => {
     state
       .db!.prepare(
-        "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
+        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
       )
       .run(state.root);
     const session = newSession('p1', 'chat');
@@ -420,7 +441,7 @@ describe('会话归属与 cwd', () => {
   it('cwd 为 NULL 的旧会话仍按老规则解析：项目会话取项目目录，通用会话取工作区根', () => {
     state
       .db!.prepare(
-        "INSERT INTO workspace_entries VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
+        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
       )
       .run(state.root);
     state
@@ -436,7 +457,7 @@ describe('会话归属与 cwd', () => {
   it('项目目录不存在时拒绝新建会话，不回退到其他目录', () => {
     state
       .db!.prepare(
-        "INSERT INTO workspace_entries VALUES ('p2', NULL, '丢失', 'project', NULL, ?, NULL, 'x')",
+        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p2', NULL, '丢失', 'project', NULL, ?, NULL, 'x')",
       )
       .run(join(state.root, 'missing'));
     expect(() => newSession('p2', 'chat')).toThrow('项目目录不存在');

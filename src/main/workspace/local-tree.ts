@@ -16,7 +16,7 @@ function storedEntries(): WorkspaceEntry[] {
     .prepare(
       `SELECT id, parent_id AS parentId, name, kind,
     source_id AS sourceId, local_path AS path, remote_id AS remoteId,
-    updated_at AS updatedAt FROM workspace_entries`,
+    updated_at AS updatedAt FROM workspace_entries WHERE removed=0`,
     )
     .all() as WorkspaceEntry[];
 }

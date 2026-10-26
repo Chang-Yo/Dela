@@ -55,7 +55,8 @@ function createDb(): Database.Database {
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
       name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      removed INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE remotes (
@@ -80,13 +81,9 @@ function createDb(): Database.Database {
 
 function insertFileEntry(db: Database.Database, path: string, kind: 'file') {
   const id = crypto.randomUUID();
-  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, NULL, ?)').run(
-    id,
-    path.split(/[\\/]/).pop()!,
-    kind,
-    path,
-    new Date().toISOString(),
-  );
+  db.prepare(
+    'INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, ?, ?, NULL, ?, NULL, ?)',
+  ).run(id, path.split(/[\\/]/).pop()!, kind, path, new Date().toISOString());
   return id;
 }
 
@@ -120,14 +117,9 @@ function insertRemoteProject(host: string, path: string): string {
     host,
     new Date().toISOString(),
   );
-  db.prepare('INSERT INTO workspace_entries VALUES (?, NULL, ?, ?, NULL, ?, ?, ?)').run(
-    id,
-    path.split('/').pop()!,
-    'project',
-    path,
-    remoteId,
-    new Date().toISOString(),
-  );
+  db.prepare(
+    'INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, ?, ?, NULL, ?, ?, ?)',
+  ).run(id, path.split('/').pop()!, 'project', path, remoteId, new Date().toISOString());
   return id;
 }
 
@@ -224,7 +216,7 @@ describe('磁盘工作区', () => {
     mkdirSync(child);
     const nested = linkProjectFolder(child);
     db.prepare(
-      "INSERT INTO workspace_entries VALUES ('source-1', NULL, '课件', 'source', 'file:1', ?, NULL, 'now')",
+      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('source-1', NULL, '课件', 'source', 'file:1', ?, NULL, 'now')",
     ).run(path);
     const listing = await listLocalDirectory(project.id);
     expect(listing.find((item) => item.id === nested.id)?.parentId).toBe(project.id);
@@ -510,7 +502,7 @@ describe('createWorkspaceEntry', () => {
   it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
     db.prepare(
-      "INSERT INTO workspace_entries VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, NULL, ?)",
+      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, NULL, ?)",
     ).run(crypto.randomUUID(), folder.id, new Date().toISOString());
     expect(entry(folder.id).kind).toBe('folder');
     // 同容器继续创建内容不受影响（source 行曾把容器误判成 source 而拒绝操作）。
@@ -529,7 +521,7 @@ describe('归档文件夹', () => {
   const seedArchive = () =>
     db
       .prepare(
-        "INSERT INTO workspace_entries VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, NULL, '2026-10-07T00:00:00.000Z')",
+        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, NULL, '2026-10-07T00:00:00.000Z')",
       )
       .run();
 
@@ -685,7 +677,7 @@ describe('folder↔project 转换', () => {
     expect(entry(demoted.id).kind).toBe('folder');
   });
 
-  it('降格后项目会话经外键降级为通用', () => {
+  it('取消项目身份保留会话归属，重新登记沿用原身份', async () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
     const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
     const iso = '2026-09-29T00:00:00.000Z';
@@ -695,7 +687,15 @@ describe('folder↔project 转换', () => {
     updateWorkspaceEntry(promoted.id, { kind: 'folder' });
     expect(
       db.prepare('SELECT project_id AS projectId FROM sessions WHERE id=?').get('s-1'),
-    ).toEqual({ projectId: null });
+    ).toEqual({ projectId: promoted.id });
+    expect(entry(localPathOf(promoted.id)).kind).toBe('folder');
+    expect((await getLocalWorkspaceState()).entries.some((item) => item.id === promoted.id)).toBe(
+      false,
+    );
+    expect(linkProjectFolder(localPathOf(promoted.id)).id).toBe(promoted.id);
+    expect((await getLocalWorkspaceState()).entries.some((item) => item.id === promoted.id)).toBe(
+      true,
+    );
   });
 });
 

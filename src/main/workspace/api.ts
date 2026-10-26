@@ -122,7 +122,10 @@ export async function importRemoteProject(
        WHERE remote_id=? AND local_path=? AND kind='project'`,
     )
     .get(connection.id, remotePath) as WorkspaceEntry | undefined;
-  if (existing) return existing;
+  if (existing) {
+    database.prepare('UPDATE workspace_entries SET removed=0 WHERE id=?').run(existing.id);
+    return existing;
+  }
   const id = randomUUID();
   database
     .prepare(
@@ -319,7 +322,7 @@ export function prepareStorage() {
 export function getWorkspaceState(): WorkspaceState {
   prepareStorage();
   const stored = getDatabase()
-    .prepare(`SELECT ${entryColumns}, local_path AS path FROM workspace_entries`)
+    .prepare(`SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE removed=0`)
     .all() as WorkspaceEntry[];
   const root = containerPath(null);
   const entries: WorkspaceEntry[] = [];
@@ -395,7 +398,7 @@ export function entry(id: string): WorkspaceEntry {
     // 容器目录路径（去重键），不代表该目录的身份，必须排除，否则容器会被误判成 source。
     const stored = getDatabase()
       .prepare(
-        `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind != 'source'`,
+        `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind != 'source' AND removed=0 AND remote_id IS NULL`,
       )
       .get(resolve(id)) as WorkspaceEntry | undefined;
     return fileEntry(resolve(id), stored?.parentId ?? null, stored);
@@ -553,10 +556,13 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
   // 同一目录只登记一次：重复导入返回已有项目，不产生两个身份。
   const existing = db
     .prepare(
-      `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind='project'`,
+      `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind='project' AND remote_id IS NULL`,
     )
     .get(resolved) as WorkspaceEntry | undefined;
-  if (existing) return existing;
+  if (existing) {
+    db.prepare('UPDATE workspace_entries SET removed=0 WHERE id=?').run(existing.id);
+    return existing;
+  }
   const id = randomUUID();
   db.prepare(
     `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
@@ -571,6 +577,16 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
     new Date().toISOString(),
   );
   return entry(id);
+}
+
+function unregisterProject(id: string): void {
+  const db = getDatabase();
+  db.transaction(() => {
+    const used = db.prepare('SELECT 1 FROM sessions WHERE project_id=? LIMIT 1').get(id);
+    if (used)
+      db.prepare("UPDATE workspace_entries SET kind='project', removed=1 WHERE id=?").run(id);
+    else db.prepare('DELETE FROM workspace_entries WHERE id=?').run(id);
+  })();
 }
 
 export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntryUpdate {
@@ -660,21 +676,13 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
   if (parsed.kind === 'project' && current.kind === 'folder') {
     // 升格：纯路径文件夹补建条目行（项目身份 = 条目 UUID + local_path）；已有行只改 kind。
     if (isAbsolute(current.id)) {
-      const promoted = randomUUID();
-      getDatabase()
-        .prepare(
-          `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
-           VALUES (?, NULL, ?, ?, NULL, ?, ?)`,
-        )
-        .run(promoted, basename(to), 'project', to, new Date().toISOString());
-      nextId = promoted;
+      nextId = linkProjectFolder(to).id;
     } else {
       nextId = current.id;
       getDatabase().prepare("UPDATE workspace_entries SET kind='project' WHERE id=?").run(nextId);
     }
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
-    // 降格：删除条目行（项目会话经 FK 转为通用），目录回到纯路径身份。
-    getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
+    unregisterProject(current.id);
     nextId = to;
   }
   return { id: nextId, ...(from !== to ? { fromPath: from, toPath: to } : {}) };
@@ -799,8 +807,7 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
   if (id === workspaceArchiveId) throw new Error('归档文件夹不能移除');
   const item = entry(id);
   if (item.kind === 'project') {
-    // 「移除项目」即取消项目身份（同降格）：删除条目行，目录与文件保留，项目会话经外键转为通用。
-    getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
+    unregisterProject(item.id);
     return;
   }
   if (item.kind === 'source') {

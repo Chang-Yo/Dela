@@ -142,9 +142,9 @@ describe('旧世界库重置', () => {
     old.close();
     const db = getDatabase();
     const row = db
-      .prepare('SELECT name, remote_id AS remoteId FROM workspace_entries WHERE id=?')
+      .prepare('SELECT name, remote_id AS remoteId, removed FROM workspace_entries WHERE id=?')
       .get('p1');
-    expect(row).toEqual({ name: '课题', remoteId: null });
+    expect(row).toEqual({ name: '课题', remoteId: null, removed: 0 });
   });
 
   it('v4 库升级：补出条款接受记录表，已有数据不动', () => {

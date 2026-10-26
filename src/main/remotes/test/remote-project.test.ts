@@ -43,7 +43,7 @@ function createDb(): Database.Database {
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
       name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL);
+      updated_at TEXT NOT NULL, removed INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE remotes (id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL,
       port INTEGER, key_path TEXT, created_at TEXT NOT NULL);
@@ -176,6 +176,23 @@ describe('远程条目的本地入口', () => {
       getDatabase().prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(created.id),
     ).toBeUndefined();
     expect(state.locate).toHaveBeenCalled();
+  });
+
+  it('移除带历史的远程项目保留连接与身份，重新导入接回历史', async () => {
+    const created = await importRemoteProject(remoteId, '/root/proj');
+    getDatabase()
+      .prepare(
+        'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
+      )
+      .run('history', created.id, '', 'now', 'now');
+    await removeWorkspaceEntry(created.id);
+    expect(getWorkspaceState().entries.some((item) => item.id === created.id)).toBe(false);
+    expect(projectLocation(created.id)).toEqual({ kind: 'remote', remoteId, path: '/root/proj' });
+    expect((await importRemoteProject(remoteId, '/root/proj')).id).toBe(created.id);
+    expect(getWorkspaceState().entries.some((item) => item.id === created.id)).toBe(true);
+    expect(
+      getDatabase().prepare('SELECT project_id FROM sessions WHERE id=?').get('history'),
+    ).toEqual({ project_id: created.id });
   });
 });
 
