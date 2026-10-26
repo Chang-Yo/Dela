@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { markdown, markdownKeymap } from '@codemirror/lang-markdown';
+import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
 import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { Annotation, Compartment, EditorState, Transaction } from '@codemirror/state';
@@ -197,7 +197,11 @@ export function MarkdownEditor({
     const extensions: Extension[] = [
       EditorState.lineSeparator.of(lineSeparatorOf(value)),
       history(),
-      languageConf.of(initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []),
+      languageConf.of(
+        initial.kind === 'markdown'
+          ? markdown({ base: markdownLanguage, codeLanguages: languages })
+          : [],
+      ),
       previewConf.of(
         livePreview && initial.kind === 'markdown' ? markdownLivePreview(livePreview) : [],
       ),
@@ -305,7 +309,9 @@ export function MarkdownEditor({
     updateCursor();
     current.dispatch({
       effects: languageConf.reconfigure(
-        initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : [],
+        initial.kind === 'markdown'
+          ? markdown({ base: markdownLanguage, codeLanguages: languages })
+          : [],
       ),
     });
     if (initial.kind === 'code') loadLanguage(current, initial.language, filename);
@@ -374,7 +380,11 @@ export function MarkdownEditor({
       apply([]); // 语言加载期间先回到纯文本，不沿用上一文档的语言解析
       loadLanguage(current, resolved.language, filename);
     } else {
-      apply(resolved.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []);
+      apply(
+        resolved.kind === 'markdown'
+          ? markdown({ base: markdownLanguage, codeLanguages: languages })
+          : [],
+      );
     }
   }, [filename]);
   /* 占位文案热替换；重挂载复用 session 携带旧值时也在此纠正。 */

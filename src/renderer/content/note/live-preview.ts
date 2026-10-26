@@ -1,7 +1,8 @@
 // Markdown 即时渲染（Obsidian 式 live preview）：文档始终是磁盘上的原文，这里只加装饰——
 // 光标不在的行隐藏标记符号、按语法树给标题/强调/代码/引用上样式，图片在行下方显示；
-// 光标不在公式或 mermaid 代码块里时，原文替换成渲染结果，光标移进去即回到原文。
+// 光标不在公式、mermaid 代码块或表格里时，原文替换成渲染结果，光标移进去即回到原文。
 // 不做所见即所得的往返序列化：用户不改的字节一个都不会变（列表符号、空行、转义、换行符）。
+// 表格等 GFM 语法要求调用方以 markdownLanguage 为 base 解析。
 import { syntaxTree } from '@codemirror/language';
 import { RangeSetBuilder, StateField, type EditorState, type Extension } from '@codemirror/state';
 import {
@@ -103,20 +104,84 @@ class MermaidWidget extends WidgetType {
   }
 }
 
+class BulletWidget extends WidgetType {
+  constructor(readonly glyph: string) {
+    super();
+  }
+  eq(other: BulletWidget) {
+    return other.glyph === this.glyph;
+  }
+  toDOM() {
+    const element = document.createElement('span');
+    element.className = 'cm-md-bullet';
+    element.textContent = this.glyph;
+    return element;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
+type Segment = { text: string; className: string };
+
+class TableWidget extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly align: string[],
+    readonly rows: Segment[][][],
+  ) {
+    super();
+  }
+  eq(other: TableWidget) {
+    return other.source === this.source;
+  }
+  toDOM() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cm-md-table';
+    const table = wrapper.appendChild(document.createElement('table'));
+    const head = table.createTHead();
+    const body = table.createTBody();
+    this.rows.forEach((row, index) => {
+      const tr = (index ? body : head).insertRow();
+      row.forEach((segments, column) => {
+        const cell = tr.appendChild(document.createElement(index ? 'td' : 'th'));
+        cell.style.textAlign = this.align[column]!;
+        for (const { text, className } of segments) {
+          const span = cell.appendChild(document.createElement('span'));
+          span.className = className;
+          span.textContent = text;
+        }
+      });
+    });
+    return wrapper;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
 const hidden = Decoration.replace({});
 const mark = (className: string) => Decoration.mark({ class: className });
 const line = (className: string) => Decoration.line({ class: className });
 
 const headingLine = [1, 2, 3, 4, 5, 6].map((level) => line(`cm-md-h cm-md-h${level}`));
-const marks = {
-  StrongEmphasis: mark('cm-md-strong'),
-  Emphasis: mark('cm-md-em'),
-  Strikethrough: mark('cm-md-strike'),
-  InlineCode: mark('cm-md-code'),
-  Link: mark('cm-md-link'),
-} as const;
+const markClasses: Record<string, string> = {
+  StrongEmphasis: 'cm-md-strong',
+  Emphasis: 'cm-md-em',
+  Strikethrough: 'cm-md-strike',
+  InlineCode: 'cm-md-code',
+  Link: 'cm-md-link',
+};
+const marks = Object.fromEntries(
+  Object.entries(markClasses).map(([name, className]) => [name, mark(className)]),
+);
 const quoteLine = line('cm-md-quote');
 const codeLine = line('cm-md-codeblock');
+const hrLine = line('cm-md-hr');
+// 嵌套列表逐层换符号。
+const bullets = ['•', '◦', '▪'].map((glyph) =>
+  Decoration.replace({ widget: new BulletWidget(glyph) }),
+);
 
 // 光标离开后隐藏的标记符号；URL 与链接括号随 Link 一起隐藏，只留可读文本。
 const hiddenMarks = new Set([
@@ -149,11 +214,80 @@ function touches(state: EditorState, from: number, to: number): boolean {
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 }
 
-/** 跨行的块级渲染（$$ 公式、mermaid 代码块）：块装饰只能来自 StateField，不能来自 ViewPlugin。 */
+type SyntaxNode = ReturnType<typeof syntaxTree>['topNode'];
+
+/** 单元格内的行内语法拆成带样式的文本段；标记符号与链接地址不显示，转义只留字符本身。 */
+function cellSegments(state: EditorState, cell: SyntaxNode): Segment[] {
+  const segments: Segment[] = [];
+  const walk = (node: SyntaxNode, className: string) => {
+    let pos = node.from;
+    const text = (from: number, to: number) => {
+      if (to > from) segments.push({ text: state.sliceDoc(from, to), className });
+    };
+    for (let child = node.firstChild; child; child = child.nextSibling) {
+      text(pos, child.from);
+      if (child.name === 'Escape') text(child.from + 1, child.to);
+      else if (!hiddenMarks.has(child.name))
+        walk(child, [className, markClasses[child.name]].filter(Boolean).join(' '));
+      pos = child.to;
+    }
+    text(pos, node.to);
+  };
+  walk(cell, '');
+  return segments;
+}
+
+/** GFM 表格：对齐取自分隔行；空单元格没有 TableCell 节点，按竖线计列，多余列丢弃、缺列补空。 */
+function tableWidget(state: EditorState, table: SyntaxNode): TableWidget {
+  let align: string[] = [];
+  const rows: Segment[][][] = [];
+  for (let row = table.firstChild; row; row = row.nextSibling) {
+    if (row.name === 'TableDelimiter') {
+      align = state
+        .sliceDoc(row.from, row.to)
+        .trim()
+        .replace(/^\||\|$/g, '')
+        .split('|')
+        .map((spec) => {
+          const left = spec.trim().startsWith(':');
+          const right = spec.trim().endsWith(':');
+          return left && right ? 'center' : right ? 'right' : left ? 'left' : '';
+        });
+      continue;
+    }
+    const cells: Segment[][] = [];
+    let column = 0;
+    for (let child = row.firstChild; child; child = child.nextSibling) {
+      if (child.name === 'TableCell') cells[column] = cellSegments(state, child);
+      else if (child.from > row.from) column += 1;
+    }
+    rows.push(cells);
+  }
+  return new TableWidget(
+    state.sliceDoc(table.from, table.to),
+    align,
+    rows.map((cells) => align.map((_, column) => cells[column] ?? [])),
+  );
+}
+
+/** 跨行的块级渲染（$$ 公式、mermaid 代码块、表格）：块装饰只能来自 StateField，不能来自 ViewPlugin。 */
 function blockWidgets(state: EditorState): DecorationSet {
   const ranges: Range[] = [];
   syntaxTree(state).iterate({
     enter: (node) => {
+      if (node.name === 'Table') {
+        // 引用、列表里的表格不占整行，块级替换放不下：保持原文。
+        const whole =
+          state.doc.lineAt(node.from).from === node.from &&
+          state.doc.lineAt(node.to).to === node.to;
+        if (whole && !touches(state, node.from, node.to))
+          ranges.push({
+            from: node.from,
+            to: node.to,
+            value: Decoration.replace({ widget: tableWidget(state, node.node), block: true }),
+          });
+        return false;
+      }
       if (node.name !== 'FencedCode') return;
       const info = node.node.getChild('CodeInfo');
       if (!info || state.sliceDoc(info.from, info.to).trim().toLowerCase() !== 'mermaid')
@@ -218,13 +352,28 @@ function build(view: EditorView, resolveImage: (src: string) => string): Decorat
         const name = node.name;
         const startLine = lineOf(node.from);
         const editing = active.has(startLine.number);
-        const heading = /^ATXHeading([1-6])$/.exec(name);
+        const heading = /^(?:ATX|Setext)Heading([1-6])$/.exec(name);
         if (heading) {
           ranges.push({
             from: startLine.from,
             to: startLine.from,
             value: headingLine[Number(heading[1]) - 1]!,
           });
+          return;
+        }
+        if (name === 'HorizontalRule') {
+          if (!editing)
+            ranges.push(
+              { from: startLine.from, to: startLine.from, value: hrLine },
+              { from: node.from, to: node.to, value: hidden },
+            );
+          return false;
+        }
+        if (name === 'ListMark' && !editing && node.node.parent?.parent?.name === 'BulletList') {
+          let depth = 0;
+          for (let list = node.node.parent.parent.parent; list; list = list.parent)
+            if (list.name === 'BulletList' || list.name === 'OrderedList') depth += 1;
+          ranges.push({ from: node.from, to: node.to, value: bullets[depth % bullets.length]! });
           return;
         }
         if (name === 'FencedCode' || name === 'CodeBlock') {
@@ -258,7 +407,7 @@ function build(view: EditorView, resolveImage: (src: string) => string): Decorat
           }
           return false;
         }
-        const style = marks[name as keyof typeof marks];
+        const style = marks[name];
         if (style && node.to > node.from)
           ranges.push({ from: node.from, to: node.to, value: style });
         if (!editing && hiddenMarks.has(name) && node.to > node.from) {
@@ -312,6 +461,25 @@ const theme = EditorView.theme({
     color: 'var(--muted-foreground)',
   },
   '.cm-md-codeblock': { fontFamily: 'var(--font-mono)', backgroundColor: 'var(--muted)' },
+  '.cm-md-hr': {
+    backgroundImage: 'linear-gradient(var(--input), var(--input))',
+    backgroundSize: '100% 2px',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+  },
+  '.cm-md-bullet': {
+    display: 'inline-block',
+    width: '1ch',
+    textAlign: 'center',
+    color: 'var(--muted-foreground)',
+  },
+  '.cm-md-table': { overflowX: 'auto', padding: 'calc(var(--spacing) * 2) 0' },
+  '.cm-md-table table': { borderCollapse: 'collapse' },
+  '.cm-md-table th, .cm-md-table td': {
+    border: '1px solid var(--input)',
+    padding: 'calc(var(--spacing) * 1) calc(var(--spacing) * 3)',
+  },
+  '.cm-md-table th': { fontWeight: '600', backgroundColor: 'var(--muted)' },
   '.cm-md-image': {
     display: 'block',
     maxWidth: '100%',

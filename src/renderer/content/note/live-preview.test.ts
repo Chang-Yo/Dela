@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // 即时渲染只加装饰：正文字节原样保留，光标所在行显示标记，其他行隐藏标记。
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { markdown } from '@codemirror/lang-markdown';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -19,7 +19,7 @@ function mount(doc: string, cursor: number, separator?: string) {
     doc,
     selection: EditorSelection.cursor(cursor),
     extensions: [
-      markdown(),
+      markdown({ base: markdownLanguage }),
       markdownLivePreview((src) => `resolved:${src}`),
       separator ? EditorState.lineSeparator.of(separator) : [],
     ],
@@ -97,5 +97,50 @@ describe('markdownLivePreview', () => {
     const image = editor.contentDOM.querySelector<HTMLImageElement>('img.cm-md-image');
     expect(image?.getAttribute('src')).toBe('resolved:assets/a.png');
     expect(image?.alt).toBe('图');
+  });
+
+  it('表格：光标不在时渲染成表格（对齐、行内样式、空单元格），光标移进去回到原文', () => {
+    const doc = '| 名称 | 值 |\n|:--|--:|\n| **粗** `码` | a\\|b |\n|  | 2 |\n\n末行';
+    const editor = mount(doc, doc.length);
+    const table = editor.contentDOM.querySelector('.cm-md-table table')!;
+    const rows = [...table.querySelectorAll('tr')].map((row) =>
+      [...row.children].map((cell) => cell.textContent),
+    );
+    expect(rows).toEqual([
+      ['名称', '值'],
+      ['粗 码', 'a|b'],
+      ['', '2'],
+    ]);
+    expect(table.querySelector('th')!.style.textAlign).toBe('left');
+    expect(table.querySelectorAll('td')[1]!.style.textAlign).toBe('right');
+    expect(table.querySelector('td .cm-md-strong')?.textContent).toBe('粗');
+    expect(table.querySelector('td .cm-md-code')?.textContent).toBe('码');
+
+    editor.dispatch({ selection: { anchor: doc.indexOf('2') } });
+    expect(editor.contentDOM.querySelector('.cm-md-table')).toBeNull();
+    expect(editor.contentDOM.textContent).toContain('|:--|--:|');
+    expect(editor.state.sliceDoc()).toBe(doc);
+  });
+
+  it('分隔线：光标不在时整行画线，光标所在行显示原文', () => {
+    const editor = mount('上\n\n---\n\n下', 0);
+    expect(editor.contentDOM.querySelector('.cm-md-hr')?.textContent).toBe('');
+
+    editor.dispatch({ selection: { anchor: '上\n\n'.length } });
+    expect(editor.contentDOM.querySelector('.cm-md-hr')).toBeNull();
+    expect(editor.contentDOM.querySelectorAll('.cm-line')[2]!.textContent).toBe('---');
+  });
+
+  it('无序列表符号按层级换成圆点，有序列表与光标所在行保持原文', () => {
+    const doc = '- 一\n  * 二\n1. 三\n\n末行';
+    const editor = mount(doc, doc.length);
+    const lines = editor.contentDOM.querySelectorAll('.cm-line');
+    expect(lines[0]!.textContent).toBe('• 一');
+    expect(lines[1]!.textContent).toBe('  ◦ 二');
+    expect(lines[2]!.textContent).toBe('1. 三');
+
+    editor.dispatch({ selection: { anchor: 0 } });
+    expect(editor.contentDOM.querySelectorAll('.cm-line')[0]!.textContent).toBe('- 一');
+    expect(editor.state.sliceDoc()).toBe(doc);
   });
 });
