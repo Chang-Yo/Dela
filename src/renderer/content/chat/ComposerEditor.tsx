@@ -5,7 +5,7 @@ import {
   historyKeymap,
   insertNewlineAndIndent,
 } from '@codemirror/commands';
-import { insertNewlineContinueMarkup, markdown } from '@codemirror/lang-markdown';
+import { insertNewlineContinueMarkup, markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import {
@@ -26,7 +26,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { cn } from '../../lib/utils';
-import { markdownHighlightStyle } from '../../lib/markdown-highlight';
+import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
 import { openLightbox } from '../../components/ui/lightbox';
 import { matchChatImageTokens } from '../../../shared/chat-input';
 import { getChatMediaPreview } from './media';
@@ -363,7 +363,7 @@ export function ComposerEditor({
         doc: value,
         extensions: [
           history(),
-          markdown({ codeLanguages: languages }),
+          markdown({ base: markdownLanguage, codeLanguages: languages }),
           EditorView.lineWrapping,
           referenceField,
           imagePlugin,
@@ -405,6 +405,7 @@ export function ComposerEditor({
           keymap.of([...defaultKeymap, ...historyKeymap]),
           composerTheme,
           hero ? heroTheme : [],
+          syntaxHighlighting(codeHighlightStyle),
           syntaxHighlighting(markdownHighlightStyle),
           EditorView.contentAttributes.of({ 'aria-label': '发送给助手', spellcheck: 'false' }),
           EditorView.updateListener.of((update) => {

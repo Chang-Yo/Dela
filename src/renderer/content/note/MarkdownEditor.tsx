@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { markdown, markdownKeymap } from '@codemirror/lang-markdown';
+import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
 import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { Annotation, Compartment, EditorState, Transaction } from '@codemirror/state';
@@ -9,7 +9,7 @@ import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
 import { useEditorSettings } from '../editor-settings';
 import { useNoteSpellcheck } from './note-spellcheck';
-import { markdownHighlightStyle } from '../../lib/markdown-highlight';
+import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
 import { markdownLivePreview } from './live-preview';
 import { formatByName } from '../../../shared/files';
 
@@ -36,17 +36,15 @@ const editorTheme = EditorView.theme({
   },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
   '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
+  // 行号栏横向滚动时 sticky：背景必须不透明并接管左侧留白，否则长行会从行号下透出。
+  '.cm-scroller:has(.cm-gutters)': { paddingLeft: '0' },
   '.cm-gutters': {
     border: 'none',
-    backgroundColor: 'transparent',
-    color: 'var(--color-muted-foreground)',
-  },
-  // 源码文件的行号栏横向滚动时 sticky：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
-  '&.cm-source-file .cm-gutters': {
     backgroundColor: 'var(--color-surface)',
-    borderRight: '1px solid var(--color-border)',
+    color: 'var(--color-muted-foreground)',
     paddingLeft: '1.5rem',
   },
+  '&.cm-source-file .cm-gutters': { borderRight: '1px solid var(--color-border)' },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
@@ -197,9 +195,16 @@ export function MarkdownEditor({
     const extensions: Extension[] = [
       EditorState.lineSeparator.of(lineSeparatorOf(value)),
       history(),
-      languageConf.of(initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []),
+      languageConf.of(
+        initial.kind === 'markdown'
+          ? markdown({ base: markdownLanguage, codeLanguages: languages })
+          : [],
+      ),
+      // 即时渲染自己给正文上样式；只有看原文时才按 Ayu 给 Markdown 正文着色。
       previewConf.of(
-        livePreview && initial.kind === 'markdown' ? markdownLivePreview(livePreview) : [],
+        livePreview && initial.kind === 'markdown'
+          ? markdownLivePreview(livePreview)
+          : syntaxHighlighting(markdownHighlightStyle),
       ),
       readOnlyConf.of(EditorState.readOnly.of(readOnly)),
       ...extraExtensions,
@@ -234,7 +239,7 @@ export function MarkdownEditor({
         indentWithTab,
       ]),
       editorTheme,
-      syntaxHighlighting(markdownHighlightStyle),
+      syntaxHighlighting(codeHighlightStyle),
       contentAttributesConf.of(
         EditorView.contentAttributes.of({
           spellcheck: String(spellcheck),
@@ -305,7 +310,9 @@ export function MarkdownEditor({
     updateCursor();
     current.dispatch({
       effects: languageConf.reconfigure(
-        initial.kind === 'markdown' ? markdown({ codeLanguages: languages }) : [],
+        initial.kind === 'markdown'
+          ? markdown({ base: markdownLanguage, codeLanguages: languages })
+          : [],
       ),
     });
     if (initial.kind === 'code') loadLanguage(current, initial.language, filename);
@@ -374,7 +381,11 @@ export function MarkdownEditor({
       apply([]); // 语言加载期间先回到纯文本，不沿用上一文档的语言解析
       loadLanguage(current, resolved.language, filename);
     } else {
-      apply(resolved.kind === 'markdown' ? markdown({ codeLanguages: languages }) : []);
+      apply(
+        resolved.kind === 'markdown'
+          ? markdown({ base: markdownLanguage, codeLanguages: languages })
+          : [],
+      );
     }
   }, [filename]);
   /* 占位文案热替换；重挂载复用 session 携带旧值时也在此纠正。 */

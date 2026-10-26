@@ -61,15 +61,26 @@
   --cal-lilac-text: oklch(0.45 0.08 300);
   --cal-slate-bg: oklch(0.93 0.004 255);
   --cal-slate-text: oklch(0.37 0.014 255);
-  /* 语法高亮（Markdown 编辑器 CodeMirror 与预览 highlight.js 共用）：GitHub Light/Primer prettylights。 */
-  --syntax-keyword: #cf222e;
-  --syntax-string: #0a3069;
-  --syntax-constant: #0550ae;
-  --syntax-comment: #59636e;
-  --syntax-function: #6639ba;
-  --syntax-variable: #953800;
-  --syntax-tag: #116329;
-  --syntax-caret: #0969da;
+  /* 代码高亮全局唯一一套配色（CodeMirror、预览 highlight.js、聊天 shiki 共用）：Ayu，角色名同 ayu-colors。
+     白底上 Ayu Light 原色对比度过低（字符串约 2.5:1），浅色取调色板同色相最深一级（l1）。 */
+  --syntax-bg: #ebeef0;
+  --syntax-fg: #5c6166;
+  --syntax-keyword: #cf6610;
+  --syntax-string: #719700;
+  --syntax-regexp: #3b9b7c;
+  --syntax-constant: #9d6fc8;
+  --syntax-function: #b37c00;
+  --syntax-entity: #1a91cd;
+  --syntax-tag: #4393ae;
+  --syntax-markup: #e5474f;
+  --syntax-operator: #e24e37;
+  --syntax-special: #b87734;
+  --syntax-comment: #86878c;
+  --syntax-added: #719700;
+  --syntax-modified: #1a91cd;
+  --syntax-removed: #e5474f;
+  --syntax-error: #e5474f;
+  --syntax-caret: #cf6610;
 }
 
 /* 深色主题：app/theme.ts 把手动选择与跟随系统统一解析成 :root.dark。 */
@@ -92,14 +103,25 @@
   --cal-lilac-text: oklch(0.864 0.055 300);
   --cal-slate-bg: oklch(0.29 0.008 255);
   --cal-slate-text: oklch(0.85 0.008 255);
-  --syntax-keyword: #ff7b72;
-  --syntax-string: #a5d6ff;
-  --syntax-constant: #79c0ff;
-  --syntax-comment: #9198a1;
-  --syntax-function: #d2a8ff;
-  --syntax-variable: #ffa657;
-  --syntax-tag: #7ee787;
-  --syntax-caret: #58a6ff;
+  /* Ayu Dark 原色；注释原色在应用深色底面上不足 3:1，取调色板灰阶最浅一级。 */
+  --syntax-bg: #0d1017;
+  --syntax-fg: #bfbdb6;
+  --syntax-keyword: #ff8f40;
+  --syntax-string: #aad94c;
+  --syntax-regexp: #95e6cb;
+  --syntax-constant: #d2a6ff;
+  --syntax-function: #ffb454;
+  --syntax-entity: #59c2ff;
+  --syntax-tag: #39bae6;
+  --syntax-markup: #f07178;
+  --syntax-operator: #f29668;
+  --syntax-special: #e6c08a;
+  --syntax-comment: #667381;
+  --syntax-added: #70bf56;
+  --syntax-modified: #73b8ff;
+  --syntax-removed: #f26d78;
+  --syntax-error: #d95757;
+  --syntax-caret: #e6b450;
 }
 
 /* 固定浅色作用域（beautifului.css 的 .bui-light）：语义变量在 :root 已解析成深色值，
@@ -189,6 +211,7 @@
 }
 
 @theme inline {
+  --color-code: var(--syntax-bg);
   --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
   --font-script: Italianno, cursive;
   /* 字号 token：数值即默认根字号（16px）下的像素，值一律由 rem 派生——设置 › 外观 › 字号
@@ -296,84 +319,107 @@
     outline-offset: 2px;
   }
 
-  /* 预览代码块（highlight.js GitHub 主题类名）与编辑器共用 --syntax-* 配色。 */
-  .hljs-doctag,
+  /* 预览代码块（highlight.js 类名）按 vscode-ayu 的作用域规则映射到共用的 --syntax-* 配色。 */
   .hljs-keyword,
-  .hljs-meta .hljs-keyword,
+  .hljs-doctag,
   .hljs-template-tag,
   .hljs-template-variable,
-  .hljs-type,
-  .hljs-variable.language_ {
+  .hljs-meta .hljs-keyword {
     color: var(--syntax-keyword);
   }
 
-  .hljs-title,
-  .hljs-title.class_,
-  .hljs-title.class_.inherited__,
-  .hljs-title.function_ {
-    color: var(--syntax-function);
-  }
-
-  .hljs-attr,
-  .hljs-attribute,
-  .hljs-literal,
-  .hljs-meta,
-  .hljs-number,
-  .hljs-operator,
-  .hljs-variable,
-  .hljs-selector-attr,
-  .hljs-selector-class,
-  .hljs-selector-id {
-    color: var(--syntax-constant);
-  }
-
-  .hljs-regexp,
   .hljs-string,
+  .hljs-symbol,
   .hljs-meta .hljs-string {
     color: var(--syntax-string);
   }
 
-  .hljs-built_in,
-  .hljs-symbol {
-    color: var(--syntax-variable);
+  .hljs-regexp,
+  .hljs-char.escape_,
+  .hljs-selector-pseudo {
+    color: var(--syntax-regexp);
   }
 
-  .hljs-comment,
-  .hljs-code,
-  .hljs-formula {
-    color: var(--syntax-comment);
+  .hljs-number,
+  .hljs-literal,
+  .hljs-params {
+    color: var(--syntax-constant);
+  }
+
+  .hljs-title,
+  .hljs-title.function_,
+  .hljs-bullet,
+  .hljs-selector-class,
+  .hljs-selector-id,
+  .hljs-selector-attr {
+    color: var(--syntax-function);
+  }
+
+  .hljs-type,
+  .hljs-title.class_,
+  .hljs-selector-tag {
+    color: var(--syntax-entity);
   }
 
   .hljs-name,
-  .hljs-quote,
-  .hljs-selector-tag,
-  .hljs-selector-pseudo {
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-link,
+  .hljs-title.class_.inherited__ {
     color: var(--syntax-tag);
   }
 
+  .hljs-variable.language_ {
+    color: var(--syntax-tag);
+    font-style: italic;
+  }
+
+  .hljs-property,
+  .hljs-built_in {
+    color: var(--syntax-markup);
+  }
+
+  .hljs-operator,
+  .hljs-code {
+    color: var(--syntax-operator);
+  }
+
+  .hljs-meta {
+    color: var(--syntax-special);
+  }
+
+  .hljs-comment,
+  .hljs-formula {
+    color: var(--syntax-comment);
+    font-style: italic;
+  }
+
   .hljs-section {
-    color: var(--syntax-constant);
+    color: var(--syntax-string);
     font-weight: bold;
   }
 
-  .hljs-bullet {
-    color: var(--syntax-variable);
+  .hljs-quote {
+    color: var(--syntax-regexp);
+    font-style: italic;
   }
 
   .hljs-emphasis {
+    color: var(--syntax-markup);
     font-style: italic;
   }
 
   .hljs-strong {
+    color: var(--syntax-markup);
     font-weight: bold;
   }
 
   .hljs-addition {
-    color: var(--syntax-tag);
+    color: var(--syntax-added);
   }
 
   .hljs-deletion {
-    color: var(--syntax-keyword);
+    color: var(--syntax-removed);
   }
 
   /* 仅用 ::-webkit-scrollbar 定制：同时声明 scrollbar-width/color 会让 Chromium

@@ -1,40 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { defaultKeymap } from '@codemirror/commands';
-import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
+import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
-import { tags as t } from '@lezer/highlight';
 import { useEditorSettings } from '../editor-settings';
-
-/* 代码高亮配色与 note 域编辑器共用同一套 --syntax-* token（GitHub Light/Dark，
-   定义在 styles/globals.css，随系统明暗主题翻转）；标签按代码文件所需取子集。 */
-const codeHighlightStyle = HighlightStyle.define([
-  {
-    tag: [t.comment, t.meta, t.annotation, t.processingInstruction],
-    color: 'var(--syntax-comment)',
-  },
-  {
-    tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.operatorKeyword, t.definitionKeyword],
-    color: 'var(--syntax-keyword)',
-  },
-  { tag: [t.string, t.special(t.string), t.regexp, t.character], color: 'var(--syntax-string)' },
-  { tag: [t.number, t.bool, t.null, t.atom, t.unit, t.escape], color: 'var(--syntax-constant)' },
-  {
-    tag: [t.function(t.variableName), t.function(t.definition(t.variableName)), t.macroName],
-    color: 'var(--syntax-function)',
-  },
-  {
-    tag: [t.definition(t.variableName), t.typeName, t.className, t.namespace],
-    color: 'var(--syntax-variable)',
-  },
-  {
-    tag: [t.propertyName, t.special(t.propertyName), t.attributeName],
-    color: 'var(--syntax-constant)',
-  },
-  { tag: t.tagName, color: 'var(--syntax-tag)' },
-]);
+import { codeHighlightStyle } from '../../lib/syntax-highlight';
 
 const viewerTheme = EditorView.theme({
   '&': {

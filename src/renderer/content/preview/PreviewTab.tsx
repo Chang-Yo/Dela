@@ -279,7 +279,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'markdown' && (
         <div
-          className="min-h-0 flex-1 overflow-auto p-6 text-13 leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-inset [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+          className="min-h-0 flex-1 overflow-auto p-6 text-13 leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-code [&_pre]:p-4 [&_pre]:text-(--syntax-fg) [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-code [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:text-(--syntax-operator) [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
           ref={scrollContainer}
           onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
         >

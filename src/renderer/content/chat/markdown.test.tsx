@@ -34,3 +34,20 @@ it('static 模式保留未闭合尖括号之后的正文', async () => {
 
   expect(host.textContent).toBe('a <b dsadas');
 });
+
+it('代码块用共用的 --syntax-* 配色高亮，不写死任何主题色值', async () => {
+  await act(async () => {
+    root.render(<ChatMarkdown>{'```js\nconst a = "s"; // c\n```'}</ChatMarkdown>);
+  });
+  await vi.waitFor(() => expect(host.querySelector('pre span[style]')).not.toBeNull(), {
+    timeout: 10_000,
+  });
+
+  const styles = [...host.querySelectorAll<HTMLElement>('pre [style]')].map((node) =>
+    node.getAttribute('style'),
+  );
+  expect(styles.join(';')).toContain('var(--syntax-keyword)');
+  expect(styles.join(';')).toContain('var(--syntax-string)');
+  expect(styles.join(';')).toContain('var(--syntax-comment)');
+  expect(styles.join(';')).not.toMatch(/#[0-9a-f]{6}/i);
+});
