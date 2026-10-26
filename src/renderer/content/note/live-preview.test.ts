@@ -122,6 +122,19 @@ describe('markdownLivePreview', () => {
     expect(editor.state.sliceDoc()).toBe(doc);
   });
 
+  it('引用与列表里的表格连同行首前缀一起渲染，单元格里的行内公式渲染成公式', () => {
+    const doc =
+      '> | a | b |\n> |---|---|\n> | $x^2$ | 2 |\n\n- 项\n\n  | c |\n  |---|\n  | 3 |\n\n末行';
+    const editor = mount(doc, doc.length);
+    const [quoted, listed] = editor.contentDOM.querySelectorAll('.cm-md-table');
+    expect(quoted!.classList.contains('cm-md-quote')).toBe(true);
+    expect([...quoted!.querySelectorAll('tr')].length).toBe(2);
+    expect(quoted!.querySelector('td .cm-md-math .katex')).not.toBeNull();
+    expect((listed as HTMLElement).style.marginLeft).toBe('2ch');
+    expect(listed!.querySelector('td')?.textContent).toBe('3');
+    expect(editor.state.sliceDoc()).toBe(doc);
+  });
+
   it('分隔线：光标不在时整行画线，光标所在行显示原文', () => {
     const editor = mount('上\n\n---\n\n下', 0);
     expect(editor.contentDOM.querySelector('.cm-md-hr')?.textContent).toBe('');

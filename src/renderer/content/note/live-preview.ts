@@ -123,11 +123,12 @@ class BulletWidget extends WidgetType {
   }
 }
 
-type Segment = { text: string; className: string };
+type Segment = { text: string; className: string; math?: boolean };
 
 class TableWidget extends WidgetType {
   constructor(
     readonly source: string,
+    readonly prefix: string,
     readonly align: string[],
     readonly rows: Segment[][][],
   ) {
@@ -138,7 +139,9 @@ class TableWidget extends WidgetType {
   }
   toDOM() {
     const wrapper = document.createElement('div');
-    wrapper.className = 'cm-md-table';
+    // 引用里的表格沿用引用的左边线；列表里的表格按原文缩进对齐。
+    wrapper.className = this.prefix.includes('>') ? 'cm-md-table cm-md-quote' : 'cm-md-table';
+    if (!this.prefix.includes('>')) wrapper.style.marginLeft = `${this.prefix.length}ch`;
     const table = wrapper.appendChild(document.createElement('table'));
     const head = table.createTHead();
     const body = table.createTBody();
@@ -147,10 +150,15 @@ class TableWidget extends WidgetType {
       row.forEach((segments, column) => {
         const cell = tr.appendChild(document.createElement(index ? 'td' : 'th'));
         cell.style.textAlign = this.align[column]!;
-        for (const { text, className } of segments) {
+        for (const { text, className, math } of segments) {
           const span = cell.appendChild(document.createElement('span'));
-          span.className = className;
-          span.textContent = text;
+          if (math) {
+            span.className = 'cm-md-math';
+            span.innerHTML = renderMath(text, false);
+          } else {
+            span.className = className;
+            span.textContent = text;
+          }
         }
       });
     });
@@ -217,13 +225,14 @@ function touches(state: EditorState, from: number, to: number): boolean {
 
 type SyntaxNode = ReturnType<typeof syntaxTree>['topNode'];
 
-/** 单元格内的行内语法拆成带样式的文本段；标记符号与链接地址不显示，转义只留字符本身。 */
+/** 单元格内的行内语法拆成带样式的文本段；标记符号与链接地址不显示，转义只留字符本身，
+ *  行内公式整体换成一个公式段（公式里被误解析出的强调等标记一并吞掉）。 */
 function cellSegments(state: EditorState, cell: SyntaxNode): Segment[] {
-  const segments: Segment[] = [];
+  const pieces: { from: number; to: number; className: string }[] = [];
   const walk = (node: SyntaxNode, className: string) => {
     let pos = node.from;
     const text = (from: number, to: number) => {
-      if (to > from) segments.push({ text: state.sliceDoc(from, to), className });
+      if (to > from) pieces.push({ from, to, className });
     };
     for (let child = node.firstChild; child; child = child.nextSibling) {
       text(pos, child.from);
@@ -235,11 +244,28 @@ function cellSegments(state: EditorState, cell: SyntaxNode): Segment[] {
     text(pos, node.to);
   };
   walk(cell, '');
+  const maths = findMath(state.sliceDoc(cell.from, cell.to), cell.from, (pos) =>
+    inCode(state, pos),
+  );
+  const segments: Segment[] = [];
+  for (const piece of pieces) {
+    let from = piece.from;
+    for (const math of maths) {
+      if (math.to <= from || math.from >= piece.to) continue;
+      if (math.from > from)
+        segments.push({ text: state.sliceDoc(from, math.from), className: piece.className });
+      if (math.from >= piece.from) segments.push({ text: math.tex, className: '', math: true });
+      from = math.to;
+    }
+    if (piece.to > from)
+      segments.push({ text: state.sliceDoc(from, piece.to), className: piece.className });
+  }
   return segments;
 }
 
-/** GFM 表格：对齐取自分隔行；空单元格没有 TableCell 节点，按竖线计列，多余列丢弃、缺列补空。 */
-function tableWidget(state: EditorState, table: SyntaxNode): TableWidget {
+/** GFM 表格：对齐取自分隔行；空单元格没有 TableCell 节点，按竖线计列，多余列丢弃、缺列补空。
+ *  引用里的表格节点夹着各行的 QuoteMark，只取表头、数据行与分隔行。 */
+function tableWidget(state: EditorState, table: SyntaxNode, from: number): TableWidget {
   let align: string[] = [];
   const rows: Segment[][][] = [];
   for (let row = table.firstChild; row; row = row.nextSibling) {
@@ -256,6 +282,7 @@ function tableWidget(state: EditorState, table: SyntaxNode): TableWidget {
         });
       continue;
     }
+    if (row.name !== 'TableHeader' && row.name !== 'TableRow') continue;
     const cells: Segment[][] = [];
     let column = 0;
     for (let child = row.firstChild; child; child = child.nextSibling) {
@@ -265,7 +292,8 @@ function tableWidget(state: EditorState, table: SyntaxNode): TableWidget {
     rows.push(cells);
   }
   return new TableWidget(
-    state.sliceDoc(table.from, table.to),
+    state.sliceDoc(from, table.to),
+    state.sliceDoc(from, table.from),
     align,
     rows.map((cells) => align.map((_, column) => cells[column] ?? [])),
   );
@@ -277,15 +305,20 @@ function blockWidgets(state: EditorState): DecorationSet {
   syntaxTree(state).iterate({
     enter: (node) => {
       if (node.name === 'Table') {
-        // 引用、列表里的表格不占整行，块级替换放不下：保持原文。
+        // 块级替换必须覆盖整行：引用、列表里的表格连同行首的 `> `/缩进一起替换；
+        // 首行前面还有列表符号等其他内容时放不下，保持原文。
+        const from = state.doc.lineAt(node.from).from;
         const whole =
-          state.doc.lineAt(node.from).from === node.from &&
+          /^[ \t>]*$/.test(state.sliceDoc(from, node.from)) &&
           state.doc.lineAt(node.to).to === node.to;
-        if (whole && !touches(state, node.from, node.to))
+        if (whole && !touches(state, from, node.to))
           ranges.push({
-            from: node.from,
+            from,
             to: node.to,
-            value: Decoration.replace({ widget: tableWidget(state, node.node), block: true }),
+            value: Decoration.replace({
+              widget: tableWidget(state, node.node, from),
+              block: true,
+            }),
           });
         return false;
       }
@@ -526,7 +559,7 @@ const theme = EditorView.theme({
     textAlign: 'center',
     color: 'var(--muted-foreground)',
   },
-  '.cm-md-table': { overflowX: 'auto', padding: 'calc(var(--spacing) * 2) 0' },
+  '.cm-md-table': { overflowX: 'auto', paddingBlock: 'calc(var(--spacing) * 2)' },
   '.cm-md-table table': { borderCollapse: 'collapse' },
   '.cm-md-table th, .cm-md-table td': {
     border: '1px solid var(--input)',
