@@ -36,17 +36,15 @@ const editorTheme = EditorView.theme({
   },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
   '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
+  // 行号栏横向滚动时 sticky：背景必须不透明并接管左侧留白，否则长行会从行号下透出。
+  '.cm-scroller:has(.cm-gutters)': { paddingLeft: '0' },
   '.cm-gutters': {
     border: 'none',
-    backgroundColor: 'transparent',
-    color: 'var(--color-muted-foreground)',
-  },
-  // 源码文件的行号栏横向滚动时 sticky：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
-  '&.cm-source-file .cm-gutters': {
     backgroundColor: 'var(--color-surface)',
-    borderRight: '1px solid var(--color-border)',
+    color: 'var(--color-muted-foreground)',
     paddingLeft: '1.5rem',
   },
+  '&.cm-source-file .cm-gutters': { borderRight: '1px solid var(--color-border)' },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
