@@ -5,7 +5,7 @@ import {
   historyKeymap,
   insertNewlineAndIndent,
 } from '@codemirror/commands';
-import { insertNewlineContinueMarkup, markdown } from '@codemirror/lang-markdown';
+import { insertNewlineContinueMarkup, markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import {
@@ -363,7 +363,7 @@ export function ComposerEditor({
         doc: value,
         extensions: [
           history(),
-          markdown({ codeLanguages: languages }),
+          markdown({ base: markdownLanguage, codeLanguages: languages }),
           EditorView.lineWrapping,
           referenceField,
           imagePlugin,
