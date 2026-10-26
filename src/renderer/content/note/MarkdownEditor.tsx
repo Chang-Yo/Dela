@@ -9,7 +9,7 @@ import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
 import { useEditorSettings } from '../editor-settings';
 import { useNoteSpellcheck } from './note-spellcheck';
-import { markdownHighlightStyle } from '../../lib/markdown-highlight';
+import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
 import { markdownLivePreview } from './live-preview';
 import { formatByName } from '../../../shared/files';
 
@@ -202,8 +202,11 @@ export function MarkdownEditor({
           ? markdown({ base: markdownLanguage, codeLanguages: languages })
           : [],
       ),
+      // 即时渲染自己给正文上样式；只有看原文时才按 Ayu 给 Markdown 正文着色。
       previewConf.of(
-        livePreview && initial.kind === 'markdown' ? markdownLivePreview(livePreview) : [],
+        livePreview && initial.kind === 'markdown'
+          ? markdownLivePreview(livePreview)
+          : syntaxHighlighting(markdownHighlightStyle),
       ),
       readOnlyConf.of(EditorState.readOnly.of(readOnly)),
       ...extraExtensions,
@@ -238,7 +241,7 @@ export function MarkdownEditor({
         indentWithTab,
       ]),
       editorTheme,
-      syntaxHighlighting(markdownHighlightStyle),
+      syntaxHighlighting(codeHighlightStyle),
       contentAttributesConf.of(
         EditorView.contentAttributes.of({
           spellcheck: String(spellcheck),

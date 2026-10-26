@@ -26,7 +26,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { cn } from '../../lib/utils';
-import { markdownHighlightStyle } from '../../lib/markdown-highlight';
+import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
 import { openLightbox } from '../../components/ui/lightbox';
 import { matchChatImageTokens } from '../../../shared/chat-input';
 import { getChatMediaPreview } from './media';
@@ -405,6 +405,7 @@ export function ComposerEditor({
           keymap.of([...defaultKeymap, ...historyKeymap]),
           composerTheme,
           hero ? heroTheme : [],
+          syntaxHighlighting(codeHighlightStyle),
           syntaxHighlighting(markdownHighlightStyle),
           EditorView.contentAttributes.of({ 'aria-label': '发送给助手', spellcheck: 'false' }),
           EditorView.updateListener.of((update) => {
