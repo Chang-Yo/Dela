@@ -8,7 +8,11 @@ export type GlobalSearchResult = {
   subtitle: string | null;
 } & (
   | { kind: 'project'; id: string; target: { page: 'projects'; entryId: string } }
-  | { kind: 'chat'; id: string; target: { page: 'chat'; scope: string; sessionId: string } }
+  | {
+      kind: 'chat';
+      id: string;
+      target: { page: 'chat'; projectId: string | null; sessionId: string };
+    }
   | { kind: 'mail'; id: number; target: { page: 'mail'; messageId: number } }
   | { kind: 'todo'; id: string; target: { page: 'todo'; todoId: string } }
   | { kind: 'course-file'; id: string; target: { page: 'sources'; sourceId: string } }

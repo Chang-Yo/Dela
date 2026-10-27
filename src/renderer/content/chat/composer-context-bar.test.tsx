@@ -45,7 +45,6 @@ beforeEach(() => {
         entry('p2', 'MAD-Producer'),
         entry('p3', 'ChangYo', { remoteId: 'r1' }),
       ],
-      views: {},
       directory: 'E:/repo',
     },
   });

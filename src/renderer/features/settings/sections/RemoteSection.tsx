@@ -29,7 +29,7 @@ export function RemoteSection() {
 
   if (editing)
     return (
-      <div className="grid max-w-lg gap-6">
+      <div className="mx-auto grid w-full max-w-lg gap-6">
         <ConnectionForm
           connection={editing.connection}
           onBack={() => setEditing(null)}

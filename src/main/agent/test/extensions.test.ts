@@ -57,7 +57,6 @@ beforeAll(async () => {
       apiKey: 'test-only',
       models: ['mock-model'],
       model: 'mock-model',
-      effortLevels: [],
       presetId: null,
     },
     appendSystemPrompt: [],

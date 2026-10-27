@@ -21,7 +21,7 @@ vi.mock('../operations', async (importOriginal) => ({
 }));
 
 import { getDatabase } from '../../database';
-import { parentOf, remoteJoin, withinRemoteRoot } from '../api';
+import { parentOf, remoteJoin, withinRemoteRoot, removeRemote, listRemotes } from '../api';
 import {
   createWorkspaceEntry,
   entry,
@@ -50,7 +50,7 @@ function createDb(): Database.Database {
     CREATE TABLE sessions (
       id TEXT PRIMARY KEY, project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
       file TEXT NOT NULL, title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
-      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, cwd TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
   `);
   db.prepare('INSERT INTO remotes VALUES (?, ?, ?, ?, ?, ?)').run(
@@ -176,6 +176,33 @@ describe('远程条目的本地入口', () => {
       getDatabase().prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(created.id),
     ).toBeUndefined();
     expect(state.locate).toHaveBeenCalled();
+  });
+
+  it('移除远程项目删除条目与会话，连接保留，重新导入得到新身份', async () => {
+    const created = await importRemoteProject(remoteId, '/root/proj');
+    getDatabase()
+      .prepare(
+        'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
+      )
+      .run(crypto.randomUUID(), created.id, '', 'now', 'now');
+    await removeWorkspaceEntry(created.id);
+    expect(getWorkspaceState().entries.some((item) => item.id === created.id)).toBe(false);
+    expect(getDatabase().prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+    const reborn = await importRemoteProject(remoteId, '/root/proj');
+    expect(reborn.id).not.toBe(created.id);
+  });
+
+  it('删除连接时名下项目与会话一并移除', async () => {
+    const created = await importRemoteProject(remoteId, '/root/proj');
+    getDatabase()
+      .prepare(
+        'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
+      )
+      .run(crypto.randomUUID(), created.id, '', 'now', 'now');
+    await removeRemote(remoteId);
+    expect(listRemotes()).toEqual([]);
+    expect(getWorkspaceState().entries.some((item) => item.id === created.id)).toBe(false);
+    expect(getDatabase().prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
   });
 });
 

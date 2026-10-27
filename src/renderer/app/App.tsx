@@ -35,15 +35,10 @@ import { importFromDialog } from '../workspace/entry-actions';
 import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
-import {
-  projectIdFromLegacyScope,
-  useNavigationStore,
-  type MobileDrawer,
-} from '../navigation/view';
+import { useNavigationStore, type MobileDrawer } from '../navigation/view';
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
-import { useNoteSpellcheck } from '../content/note/note-spellcheck';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
  *  通用池（键 'general'）不入项目树，但保留镜像预热：会话标签标题解析（registry
@@ -196,15 +191,6 @@ export default function App() {
     });
   }, []);
 
-  useEffect(() => {
-    void window.dela?.settings
-      .getWorkspacePrefs()
-      .then((prefs) => {
-        useNoteSpellcheck.getState().setSpellcheck(prefs.noteSpellcheck);
-      })
-      .catch(() => {});
-  }, []);
-
   // 未保存笔记的退出守卫（草稿自动保存有 600ms 防抖窗口）。
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -270,8 +256,7 @@ export default function App() {
     const navigation = useNavigationStore.getState();
     const target = result.target;
     if (target.page === 'projects') navigation.openProject(target.entryId);
-    else if (target.page === 'chat')
-      navigation.openChat(target.sessionId, projectIdFromLegacyScope(target.scope));
+    else if (target.page === 'chat') navigation.openChat(target.sessionId, target.projectId);
     else if (target.page === 'mail') navigation.openMail(target.messageId);
     else if (target.page === 'sources') navigation.openDocument(`source:${target.sourceId}`);
     else if (target.page === 'todo') navigation.openTodo(target.todoId);

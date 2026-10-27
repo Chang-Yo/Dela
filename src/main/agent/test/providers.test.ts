@@ -98,7 +98,6 @@ describe('LLM provider config', () => {
   it('stores per-model limits and switches to that model’s own reasoning levels', () => {
     const created = saveLlmProvider({
       ...input,
-      effortLevels: ['low'],
       modelConfigs: {
         'deepseek-v4-pro': {
           contextWindow: 1000000,
@@ -211,41 +210,20 @@ describe('LLM provider config', () => {
     expect(config.providers[0]!.apiKey).toBe('test-only');
   });
 
-  it('normalizes effort levels to the canonical order and defaults the effort to the first', () => {
+  it('normalizes model effort levels and only accepts enabled levels', () => {
     const view = saveLlmProvider({
       ...input,
-      effortLevels: ['ultra', 'low', 'low', 'none'],
+      modelConfigs: { [input.model]: { effortLevels: ['ultra', 'low', 'low', 'none'] } },
     });
     expect(view.effortLevels).toEqual(['none', 'low', 'ultra']);
     expect(view.effort).toBe('none');
-    expect(listLlmProviders()[0]!.effort).toBe('none');
-  });
-
-  it('rejects effort levels outside the enum', () => {
-    expect(() => saveLlmProvider({ ...input, effortLevels: ['turbo'] })).toThrow();
-  });
-
-  it('keeps a still-listed effort when editing and resets it when its level is removed', () => {
-    const created = saveLlmProvider({ ...input, effortLevels: ['low', 'high'] });
-    setActiveLlmProvider(created.id);
-    setLlmEffort('high');
-    saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: ['low', 'high'] });
-    expect(listLlmProviders()[0]!.effort).toBe('high');
-    saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: ['medium'] });
-    const view = listLlmProviders()[0]!;
-    expect(view.effortLevels).toEqual(['medium']);
-    expect(view.effort).toBe('medium');
-    saveLlmProvider({ ...input, id: created.id, apiKey: '', effortLevels: [] });
-    expect(listLlmProviders()[0]!.effort).toBeNull();
-  });
-
-  it('switches the effort only within the enabled levels of the active provider', () => {
-    const created = saveLlmProvider({ ...input, effortLevels: ['low', 'high'] });
-    setActiveLlmProvider(created.id);
-    setLlmEffort('high');
-    expect(listLlmProviders()[0]!.effort).toBe('high');
+    setActiveLlmProvider(view.id);
+    setLlmEffort('low');
+    expect(listLlmProviders()[0]!.effort).toBe('low');
     expect(() => setLlmEffort('max')).toThrow(/不在当前提供商开启/);
-    expect(() => setLlmEffort('extreme')).toThrow();
+    expect(() =>
+      saveLlmProvider({ ...input, modelConfigs: { [input.model]: { effortLevels: ['turbo'] } } }),
+    ).toThrow();
   });
 
   it('keeps the stored key when editing with an empty apiKey', () => {

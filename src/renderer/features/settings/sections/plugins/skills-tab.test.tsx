@@ -40,7 +40,6 @@ const localProject: WorkspaceEntry = {
 
 const state = (entries: WorkspaceEntry[]): WorkspaceState => ({
   entries,
-  views: {},
   directory: '/tmp/dela',
 });
 

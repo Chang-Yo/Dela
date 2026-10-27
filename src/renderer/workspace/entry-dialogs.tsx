@@ -14,7 +14,6 @@ import {
 } from '../components/ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
-import { unhideProjectInNav, useProjectNavPrefs } from '../navigation/store';
 import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
@@ -81,7 +80,6 @@ export function EntryDialogs({
   onOpenProject?: (id: string) => void;
 }) {
   const workspace = useWorkspaceStore((s) => s.workspace);
-  const projectPrefs = useProjectNavPrefs((s) => s.projects);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
@@ -102,9 +100,7 @@ export function EntryDialogs({
     setModalError(null);
   }, [request]);
 
-  const projects = workspace.entries.filter(
-    (entry) => entry.kind === 'project' && !entry.remoteId && !projectPrefs[entry.id]?.hidden,
-  );
+  const projects = workspace.entries.filter((entry) => entry.kind === 'project' && !entry.remoteId);
   let targetProject = workspace.entries.find((entry) => entry.id === target);
   while (targetProject && targetProject.kind !== 'project')
     targetProject = workspace.entries.find((entry) => entry.id === targetProject!.parentId);
@@ -192,11 +188,7 @@ export function EntryDialogs({
       await useWorkspaceStore.getState().refresh();
       onClose();
       if (created) {
-        if (created.kind === 'project') {
-          // 导入的目录可能早先被「移除项目入口」隐藏过（同一目录只登记一次，加回来还是那一条）。
-          unhideProjectInNav(created.id);
-          onOpenProject?.(created.id);
-        }
+        if (created.kind === 'project') onOpenProject?.(created.id);
         onCreated?.(created);
       }
     } catch (error) {
@@ -225,8 +217,8 @@ export function EntryDialogs({
               : request?.action === 'remove'
                 ? workspace.entries.find((entry) => entry.id === request.id)?.kind === 'project'
                   ? workspace.entries.find((entry) => entry.id === request.id)?.remoteId
-                    ? '只取消登记，远端目录与文件不会改动，会话转入随聊。'
-                    : '取消项目身份，目录与文件保留，会话转入随聊。'
+                    ? '从 Dela 移除项目并删除其全部聊天记录；远端目录与文件保留。'
+                    : '从 Dela 移除项目并删除其全部聊天记录；目录与文件保留。'
                   : workspace.entries.find((entry) => entry.id === request.id)?.kind === 'source'
                     ? '解除此处的资料关联，原始资料保留。'
                     : '将文件或文件夹移至系统回收站。'

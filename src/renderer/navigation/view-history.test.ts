@@ -15,7 +15,7 @@ const project: WorkspaceEntry = {
   updatedAt: '2026-10-09T00:00:00.000Z',
 };
 
-const workspace: WorkspaceState = { entries: [project], views: {}, directory: 'D:/code' };
+const workspace: WorkspaceState = { entries: [project], directory: 'D:/code' };
 
 function seed(view: 'home' | 'workbench' | 'mail', projectId: string | null): void {
   useNavigationStore.setState({ view, projectId, backStack: [], forwardStack: [] });

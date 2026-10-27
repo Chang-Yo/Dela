@@ -8,7 +8,6 @@ import type { Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
 import { useEditorSettings } from '../editor-settings';
-import { useNoteSpellcheck } from './note-spellcheck';
 import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
 import { markdownLivePreview } from './live-preview';
 import { formatByName } from '../../../shared/files';
@@ -148,7 +147,6 @@ export function MarkdownEditor({
   const instanceKey = useRef(editorStateKey ?? `markdown-editor-${nextEditorId++}`).current;
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const wordWrap = useEditorSettings((state) => state.wordWrap);
-  const spellcheck = useNoteSpellcheck((state) => state.spellcheck);
   const handlersRef = useRef({ onChange, onSave, onScroll });
   handlersRef.current = { onChange, onSave, onScroll };
   const latestValue = useRef(value);
@@ -242,7 +240,7 @@ export function MarkdownEditor({
       syntaxHighlighting(codeHighlightStyle),
       contentAttributesConf.of(
         EditorView.contentAttributes.of({
-          spellcheck: String(spellcheck),
+          spellcheck: 'false',
           'aria-label': ariaLabel,
         }),
       ),
@@ -338,17 +336,17 @@ export function MarkdownEditor({
       effects: readOnlyConf.reconfigure(EditorState.readOnly.of(readOnly)),
     });
   }, [readOnly]);
-  /* 拼写检查随设置页开关即时生效；两属性同处一个 compartment，故一并作依赖。 */
+  /* aria-label 变化时重建 compartment 内容；拼写检查恒为关，与聊天输入框一致。 */
   useEffect(() => {
     view.current?.dispatch({
       effects: contentAttributesConf.reconfigure(
         EditorView.contentAttributes.of({
-          spellcheck: String(spellcheck),
+          spellcheck: 'false',
           'aria-label': ariaLabel,
         }),
       ),
     });
-  }, [spellcheck, ariaLabel]);
+  }, [ariaLabel]);
   useEffect(() => {
     view.current?.dispatch({
       effects: layoutConf.reconfigure(

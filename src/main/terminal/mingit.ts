@@ -103,12 +103,6 @@ export function prependRuntimePath(): void {
   }
 }
 
-/** 随包已带运行时后，旧版本自装进用户目录的 MinGit 成为约 100MB 的死重量，启动时顺手清掉。 */
-export function cleanupLegacyMinGit(): void {
-  if (!bundledBash()) return;
-  rmSync(join(mingitDir(), '..'), { recursive: true, force: true });
-}
-
 export interface MinGitInstallHooks {
   signal: AbortSignal;
   onProgress: (received: number, total: number) => void;

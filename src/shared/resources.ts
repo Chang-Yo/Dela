@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { workspaceEntryIdSchema } from './workspace';
 
-// Workspace references accept real file paths and legacy UUIDs; other resources retain domain IDs.
+// Workspace references accept real file paths and registered entry UUIDs; other resources retain domain IDs.
 export const resourceRefSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('workspace'), id: workspaceEntryIdSchema }).strict(),
   z.object({ type: z.literal('canvas'), id: z.string().min(1).max(512) }).strict(),

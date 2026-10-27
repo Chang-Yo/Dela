@@ -12,7 +12,7 @@ import { useWorkspaceStore } from '../store';
 let container: HTMLDivElement;
 let root: Root;
 
-const emptyState: WorkspaceState = { entries: [], views: {}, directory: '/tmp/dela' };
+const emptyState: WorkspaceState = { entries: [], directory: '/tmp/dela' };
 
 const external: WorkspaceEntry = {
   id: 'p-1',

@@ -4,12 +4,9 @@ import {
   clampRatio,
   countNodes,
   createDefaultLayout,
-  findGroup,
-  mapLegacyTabKey,
   nextGroupId,
   parseWorkbenchLayout,
   removeGroup,
-  seedLayoutFromLegacy,
   walkGroups,
 } from '../layout-schema';
 
@@ -145,102 +142,5 @@ describe('树操作', () => {
     const tree = split([group('a'), split([group('b'), group('c')])]);
     expect(walkGroups(tree).map((g) => g.id)).toEqual(['a', 'b', 'c']);
     expect(countNodes(tree)).toBe(5);
-  });
-});
-
-describe('旧数据种子迁移', () => {
-  const uuid = '00000000-0000-4000-8000-000000000002';
-
-  it('旧双组 split → depth-1 split，保留方向/比例/焦点', () => {
-    const layout = seedLayoutFromLegacy({
-      scope: uuid,
-      viewTabs: [],
-      viewActive: null,
-      stored: {
-        split: true,
-        orientation: 'horizontal',
-        ratio: 0.7,
-        focus: 'secondary',
-        groups: {
-          primary: { tabs: ['n1'], active: 'n1' },
-          secondary: { tabs: ['n2', 'source:9'], active: 'n2' },
-        },
-      },
-    });
-    expect(layout.root).toEqual({
-      type: 'split',
-      orientation: 'horizontal',
-      ratio: 0.7,
-      children: [
-        { type: 'group', id: 'primary', tabs: ['note:n1'], active: 'note:n1' },
-        {
-          type: 'group',
-          id: 'secondary',
-          tabs: ['note:n2', 'preview:source:9'],
-          active: 'note:n2',
-        },
-      ],
-    });
-    expect(layout.focus).toBe('secondary');
-    expect(layout.maximized).toBeNull();
-    // 旧 EditorLayout 恒为 depth-1 split（两组合成一根分割）。
-    expect(layout.root).toMatchObject({ type: 'split' });
-  });
-
-  it('tab 键映射：source: → preview:，entryId 默认 note:，resolveEntryKind 可判 preview', () => {
-    expect(mapLegacyTabKey('source:12')).toBe('preview:source:12');
-    expect(mapLegacyTabKey('entry-1')).toBe('note:entry-1');
-    expect(mapLegacyTabKey('entry-1', () => 'preview')).toBe('preview:entry-1');
-    expect(mapLegacyTabKey('')).toBeNull();
-  });
-
-  it('无存储 → view tabs 单组（去重、保序）', () => {
-    const layout = seedLayoutFromLegacy({
-      scope: uuid,
-      viewTabs: ['a', 'source:b', 'a'],
-      viewActive: 'source:b',
-    });
-    expect(layout.root).toEqual({
-      type: 'group',
-      id: 'primary',
-      tabs: ['note:a', 'preview:source:b'],
-      active: 'preview:source:b',
-    });
-    expect(layout.focus).toBe('primary');
-  });
-
-  it('组数据缺失时保留旧扁平 active', () => {
-    const layout = seedLayoutFromLegacy({
-      scope: uuid,
-      viewTabs: ['a', 'b'],
-      viewActive: 'a',
-      stored: { ratio: 0.5 },
-    });
-    expect(findGroup(layout.root, 'primary')?.active).toBe('note:a');
-  });
-
-  it('旧 ratio 越界收敛到新边界；split 但副组为空 → 单组', () => {
-    const clamped = seedLayoutFromLegacy({
-      scope: uuid,
-      viewTabs: [],
-      viewActive: null,
-      stored: {
-        split: true,
-        ratio: 0.99,
-        groups: { primary: { tabs: ['a'] }, secondary: { tabs: [] } },
-      },
-    });
-    expect(clamped.root.type).toBe('group');
-    const wide = seedLayoutFromLegacy({
-      scope: uuid,
-      viewTabs: [],
-      viewActive: null,
-      stored: {
-        split: true,
-        ratio: 0.99,
-        groups: { primary: { tabs: ['a'] }, secondary: { tabs: ['b'] } },
-      },
-    });
-    expect(wide.root.type === 'split' ? wide.root.ratio : null).toBe(0.95);
   });
 });

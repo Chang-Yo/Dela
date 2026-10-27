@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   ChatMediaView,
-  ChatScope,
-  ChatSessionSummary,
   LlmProviderView,
   SessionCommandName,
   WorkspaceChat,
@@ -17,7 +15,7 @@ import {
   stripChatImageTokens,
 } from '../../../shared/chat-input';
 import { showToast } from '../../app/toasts';
-import { poolKey, useSessions, updateSession } from '../../sessions/store';
+import { useSessions } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
 import { errorText } from '../../workspace/store';
 import {
@@ -346,79 +344,4 @@ export function useChat(
     selectEffort,
     refresh,
   };
-}
-
-/** 当前视图的会话管理：projectId 决定会话池（null = 通用），sessionId 为标签绑定的
- *  会话（workbench 换绑时跟随）；scope 是通用会话的工作目录归属（首页随聊/资料页课程目录），
- *  项目会话忽略它。面板内切换只改本视图的 active，不产生执行。
- *  新建/删除经 session:create/remove；打开视图不启动执行、切换视图不停止执行。 */
-export function useChatSession(projectId: string | null, sessionId: string, scope: ChatScope) {
-  const [active, setActive] = useState<string | null>(sessionId);
-  const pool = poolKey(projectId);
-  const sessions = useSessions((state) => state.lists[pool] ?? null);
-
-  // workbench 换绑标签会话（props 变化）时跟随；面板内切换不回写 props。
-  useEffect(() => {
-    setActive(sessionId);
-  }, [sessionId]);
-
-  // 镜像列表预热：导航与切换条共用；失败静默（列表按需可再刷）。
-  useEffect(() => {
-    void useSessions
-      .getState()
-      .refresh(projectId)
-      .catch(() => {});
-  }, [projectId]);
-
-  const newSession = useCallback(async () => {
-    const dela = window.dela;
-    if (!dela) return;
-    try {
-      // main 复用项目的空会话，重复点击不删除当前输入草稿。
-      const chat = await dela.session.create(projectId, scope);
-      if (!chat.sessionId) throw new Error('会话创建失败');
-      useSessions.getState().putChat(chat.sessionId, chat);
-      setActive(chat.sessionId);
-      void useSessions
-        .getState()
-        .refresh(projectId)
-        .catch(() => {});
-    } catch (e) {
-      showToast({ variant: 'error', title: '新建会话失败', description: errorText(e) });
-    }
-  }, [active, projectId, scope]);
-
-  const deleteSession = useCallback(
-    async (target: string) => {
-      const dela = window.dela;
-      if (!dela) return;
-      try {
-        await updateSession(target, { archived: true });
-        void useSessions
-          .getState()
-          .refresh(projectId)
-          .catch(() => {});
-        // 删除的是当前会话：进入空态，由用户显式开新对话（新身份模型下发送必须有会话）。
-        if (active === target) setActive(null);
-      } catch (e) {
-        showToast({ variant: 'error', title: '删除会话失败', description: errorText(e) });
-      }
-    },
-    [active, projectId],
-  );
-
-  // 返回值保持引用稳定（ChatSessionView 整体接收并 memo）：列表刷新、输入等无关
-  // 变化不再穿透到会话视图。
-  return useMemo(
-    () => ({
-      /** 会话池的摘要列表镜像（null = 尚未加载）。 */
-      sessions: sessions as ChatSessionSummary[] | null,
-      /** 当前视图展示的会话；null = 当前会话已被删除。 */
-      active,
-      openSession: setActive,
-      newSession,
-      deleteSession,
-    }),
-    [active, deleteSession, newSession, sessions],
-  );
 }

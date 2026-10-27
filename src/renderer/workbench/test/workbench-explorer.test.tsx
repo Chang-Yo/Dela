@@ -120,7 +120,6 @@ const localDockerfile: WorkspaceEntry = {
 
 const workspace: WorkspaceState = {
   entries: [remoteProject, localProject],
-  views: {},
   directory: 'D:/dela',
 };
 

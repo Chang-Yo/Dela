@@ -70,7 +70,7 @@ describe('global search', () => {
     ]);
   });
 
-  it('searches chat titles and names project scopes', () => {
+  it('searches chat titles and returns project identities', () => {
     insert(
       'INSERT INTO workspace_entries VALUES (?, ?, ?, ?)',
       'project-1',
@@ -103,7 +103,7 @@ describe('global search', () => {
           kind: 'chat',
           id: 'chat-content',
           subtitle: '毕业设计',
-          target: { page: 'chat', scope: 'project-1', sessionId: 'chat-content' },
+          target: { page: 'chat', projectId: 'project-1', sessionId: 'chat-content' },
         }),
       ]),
     );
@@ -114,7 +114,7 @@ describe('global search', () => {
           kind: 'chat',
           id: 'chat-tools',
           subtitle: '首页',
-          target: { page: 'chat', scope: 'home', sessionId: 'chat-tools' },
+          target: { page: 'chat', projectId: null, sessionId: 'chat-tools' },
         }),
       ]),
     );

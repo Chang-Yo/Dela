@@ -196,14 +196,10 @@ export async function getLocalWorkspaceState(): Promise<WorkspaceState> {
     }
     if (item.path && item.kind !== 'source') await add(item.path);
   }
-  const views = getDatabase()
-    .prepare("SELECT key, value FROM workspace_settings WHERE key LIKE 'view:%'")
-    .all() as { key: string; value: string }[];
   return {
     entries: entries.filter((item) => item.id !== workspaceArchiveId),
     directory,
     archivePath: stored.find((item) => item.id === workspaceArchiveId)?.path,
-    views: Object.fromEntries(views.map((view) => [view.key.slice(5), JSON.parse(view.value)])),
   };
 }
 

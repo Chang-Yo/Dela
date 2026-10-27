@@ -43,7 +43,7 @@ it('跨版本升级合并 (lastSeen, current] 区间，新版本在前', () => {
 });
 
 it('首次安装只记录版本不弹，同版本再次启动也不弹', () => {
-  expect(takePendingReleaseNotes('1.0.4', true)).toEqual([]);
+  expect(takePendingReleaseNotes('1.0.4')).toEqual([]);
   expect(localStorage.getItem('dela.release-notes.last-seen')).toBe('1.0.4');
-  expect(takePendingReleaseNotes('1.0.4', false)).toEqual([]);
+  expect(takePendingReleaseNotes('1.0.4')).toEqual([]);
 });

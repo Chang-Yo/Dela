@@ -41,7 +41,6 @@ it('manual compaction reports an estimate and leaves actual usage unknown until 
       apiKey: 'test-only',
       models: ['mock-model'],
       model: 'mock-model',
-      effortLevels: [],
       presetId: null,
     },
     appendSystemPrompt: [],

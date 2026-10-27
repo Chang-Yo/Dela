@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -73,15 +73,11 @@ describe.each(['arm64', 'x64'])('macOS 搜索工具（%s）', (arch) => {
   );
 });
 
-it('macOS 不探测、删除或下载 Windows MinGit；缺少搜索工具时不前插 exe 目录', async () => {
-  const legacy = join(state.root, 'Dela', 'mingit', 'v2.56.0.2', 'usr', 'bin', 'bash.exe');
-  touch(legacy);
+it('macOS 不探测或下载 Windows MinGit；缺少搜索工具时不前插 exe 目录', async () => {
   touch(join(state.root, '.build', 'mingit', 'usr', 'bin', 'bash.exe'));
   touch(join(state.root, 'vendor', 'bin', 'rg.exe'));
   expect(runtime.mingitBash()).toBeNull();
   expect(runtime.bundledBash()).toBeNull();
-  runtime.cleanupLegacyMinGit();
-  expect(existsSync(legacy)).toBe(true);
   const fetch = vi.fn();
   vi.stubGlobal('fetch', fetch);
   await expect(

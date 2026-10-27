@@ -1,6 +1,5 @@
-import { app } from 'electron';
 import { copyFile, link, open, readFile, rename, rm, stat } from 'node:fs/promises';
-import { constants, copyFileSync, createWriteStream, existsSync, mkdirSync } from 'node:fs';
+import { constants, createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
@@ -501,15 +500,6 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
     return { path: cached.value, mime: source.mime || 'application/octet-stream' };
   }
   mkdirSync(dir, { recursive: true });
-  const storeLegacy = (legacyPath: string) => {
-    const path = availablePath(dir, source.title);
-    copyFileSync(legacyPath, path, constants.COPYFILE_EXCL);
-    db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(cacheKey, path);
-    return path;
-  };
-  const legacy = join(app.getPath('userData'), 'canvas-cache', key);
-  if (existsSync(legacy))
-    return { path: storeLegacy(legacy), mime: source.mime || 'application/octet-stream' };
   const metadata = row(await (await request(`files/${source.fileId}`)).json());
   const downloadUrl = new URL(str(metadata.url), origin);
   if (downloadUrl.origin !== origin) throw new Error('Canvas 下载地址无效');
@@ -664,8 +654,7 @@ export function listTodoCanvasAssignments(courseId: number) {
 }
 
 /** @ 引用候选（通用池会话）：courses 目录下、已下载到本地的最新学期（未归档）课件。
- *  缓存索引在 workspace_settings（canvas-file:* → 本地路径），legacy 缓存迁移到
- *  courses 之后才会被统计（canvas:get-state 会顺带迁移）。 */
+ *  缓存索引在 workspace_settings（canvas-file:* → 本地路径）。 */
 export function cachedCourseFiles(): CachedCourseFile[] {
   const state = getCanvasState();
   const latest = latestTermOf(state.courses);

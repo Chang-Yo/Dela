@@ -261,14 +261,6 @@ function rewriteStoredPaths(from: string, to: string) {
   }
 }
 
-function migrateWorkspaceRoot() {
-  const oldRoot = join(directory(), '工作区');
-  const root = join(directory(), 'workspace');
-  if (!existsSync(oldRoot) || existsSync(root)) return;
-  renameSync(oldRoot, root);
-  getDatabase().transaction(() => rewriteStoredPaths(oldRoot, root))();
-}
-
 type PendingMove = {
   from: string;
   to: string;
@@ -304,7 +296,6 @@ function ensureArchiveFolder() {
 }
 
 export function prepareStorage() {
-  migrateWorkspaceRoot();
   ensureArchiveFolder();
   const pending = setting('storage-move');
   if (pending) {
@@ -374,13 +365,9 @@ export function getWorkspaceState(): WorkspaceState {
   };
   for (const item of stored.filter((item) => item.kind === 'source'))
     entries.push({ ...item, path: undefined, parentId: parentOf(item) });
-  const views = getDatabase()
-    .prepare("SELECT key, value FROM workspace_settings WHERE key LIKE 'view:%'")
-    .all() as { key: string; value: string }[];
   return {
     // 归档文件夹自身不进条目列表（资料树只经归档区呈现它，子条目仍带其 parentId）。
     entries: entries.filter((item) => item.id !== workspaceArchiveId),
-    views: Object.fromEntries(views.map((v) => [v.key.slice(5), JSON.parse(v.value)])),
     directory: directory(),
   };
 }
@@ -395,7 +382,7 @@ export function entry(id: string): WorkspaceEntry {
     // 容器目录路径（去重键），不代表该目录的身份，必须排除，否则容器会被误判成 source。
     const stored = getDatabase()
       .prepare(
-        `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind != 'source'`,
+        `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind != 'source' AND remote_id IS NULL`,
       )
       .get(resolve(id)) as WorkspaceEntry | undefined;
     return fileEntry(resolve(id), stored?.parentId ?? null, stored);
@@ -553,7 +540,7 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
   // 同一目录只登记一次：重复导入返回已有项目，不产生两个身份。
   const existing = db
     .prepare(
-      `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind='project'`,
+      `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind='project' AND remote_id IS NULL`,
     )
     .get(resolved) as WorkspaceEntry | undefined;
   if (existing) return existing;
@@ -598,6 +585,8 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     checkParent(parsed.parentId, current.kind === 'source' ? undefined : id);
   if (parsed.kind && current.kind !== 'folder' && current.kind !== 'project')
     throw new Error('只有文件夹可以作为项目开展');
+  // 降格同样删除项目行：名下还有子项目时与移除一样拒绝。
+  if (parsed.kind === 'folder' && current.kind === 'project') assertNoChildProjects(current.id);
   if (current.kind === 'source') {
     getDatabase()
       .prepare(
@@ -660,14 +649,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
   if (parsed.kind === 'project' && current.kind === 'folder') {
     // 升格：纯路径文件夹补建条目行（项目身份 = 条目 UUID + local_path）；已有行只改 kind。
     if (isAbsolute(current.id)) {
-      const promoted = randomUUID();
-      getDatabase()
-        .prepare(
-          `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
-           VALUES (?, NULL, ?, ?, NULL, ?, ?)`,
-        )
-        .run(promoted, basename(to), 'project', to, new Date().toISOString());
-      nextId = promoted;
+      nextId = linkProjectFolder(to).id;
     } else {
       nextId = current.id;
       getDatabase().prepare("UPDATE workspace_entries SET kind='project' WHERE id=?").run(nextId);
@@ -794,12 +776,32 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
   return next;
 }
 
+/** 删除/降格项目行之前的守卫：外键级联会带走子项目的登记行，却删不掉它们的会话
+ *  （残留成随聊）。拒绝并点名，让用户逐个处理。 */
+function assertNoChildProjects(projectId: string): void {
+  const children = getDatabase()
+    .prepare("SELECT name FROM workspace_entries WHERE parent_id=? AND kind='project'")
+    .all(projectId) as { name: string }[];
+  if (children.length)
+    throw new Error(
+      `项目下还有项目（${children.map((child) => child.name).join('、')}），请先移除它们`,
+    );
+}
+
 export async function removeWorkspaceEntry(value: unknown): Promise<void> {
   const id = workspaceEntryIdSchema.parse(value);
   if (id === workspaceArchiveId) throw new Error('归档文件夹不能移除');
   const item = entry(id);
   if (item.kind === 'project') {
-    // 「移除项目」即取消项目身份（同降格）：删除条目行，目录与文件保留，项目会话经外键转为通用。
+    assertNoChildProjects(item.id);
+    // 「移除项目」＝项目终结：名下会话（含归档）一并删除，目录与文件保留。
+    // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
+    const { deleteSession, invalidateSessions } = await import('../agent/session');
+    const ids = getDatabase()
+      .prepare('SELECT id FROM sessions WHERE project_id=?')
+      .all(item.id) as { id: string }[];
+    for (const row of ids) await deleteSession(row.id);
+    invalidateSessions();
     getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
     return;
   }

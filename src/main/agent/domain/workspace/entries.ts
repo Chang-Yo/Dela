@@ -45,11 +45,11 @@ export const updateEntryTool = tool(
 );
 
 export const removeEntryTool = tool(
-  '移除工作区条目（本地写）。普通文件与文件夹移入系统回收站；项目只取消项目身份，目录与会话保留；资料引用只解除关联。归档文件夹不能移除。',
+  '移除工作区条目（本地写）。普通文件与文件夹移入系统回收站；移除项目会删除名下全部会话（含归档），目录与文件保留；资料引用只解除关联。归档文件夹不能移除。',
   z.object({ id: workspaceEntryIdSchema }).strict(),
   async ({ id }) => {
     try {
-      removeWorkspaceEntry(id);
+      await removeWorkspaceEntry(id);
     } catch (error) {
       if (error instanceof Error && error.message.includes('不存在'))
         throw toolError('NOT_FOUND', error.message);

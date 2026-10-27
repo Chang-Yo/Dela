@@ -51,8 +51,6 @@ export function queryGlobalSearch(query: string): GlobalSearchResult[] {
           )
           .all(perKindLimit)
   ) as ProjectRow[];
-  // 会话归属 projects 表（v13）：通用会话（project_id NULL，含旧 home/sources/projects 入口
-  // 与孤儿会话）深链回退 'home'，与旧通道的 scope 推导规则一致。
   // 只按会话标题匹配：正文在 Pi 的 JSONL 会话文件里，sessions 表没有消息列。
   const chats = (
     query
@@ -121,7 +119,7 @@ export function queryGlobalSearch(query: string): GlobalSearchResult[] {
       id: row.id,
       title: row.title,
       subtitle: row.subtitle,
-      target: { page: 'chat' as const, scope: row.projectId ?? 'home', sessionId: row.id },
+      target: { page: 'chat' as const, projectId: row.projectId, sessionId: row.id },
     })),
     ...mail.map((row) => ({
       kind: 'mail' as const,

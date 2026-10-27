@@ -102,13 +102,17 @@ export function saveRemote(draft: RemoteDraft & { id?: string | null }): RemoteC
   return remoteById(id);
 }
 
-/** 还有项目引用时不允许删除，避免项目变成指向不存在连接的悬空条目。 */
-export function removeRemote(id: string): void {
+/** 删除连接＝连同名下项目一起按「移除项目」语义带走（会话删、远端目录留）：
+ *  想删服务器的用户不该被逼着先逐个清理项目。动态导入避开 workspace/api → 本模块的既有环。 */
+export async function removeRemote(id: string): Promise<void> {
   remoteById(id);
-  const used = getDatabase()
-    .prepare('SELECT COUNT(*) AS count FROM workspace_entries WHERE remote_id=?')
-    .get(id) as { count: number };
-  if (used.count > 0) throw new Error('该连接下还有项目，请先移除项目');
+  const projects = getDatabase()
+    .prepare(`SELECT id FROM workspace_entries WHERE remote_id=? AND kind='project'`)
+    .all(id) as { id: string }[];
+  if (projects.length) {
+    const { removeWorkspaceEntry } = await import('../workspace/api');
+    for (const project of projects) await removeWorkspaceEntry(project.id);
+  }
   getDatabase().prepare('DELETE FROM remotes WHERE id=?').run(id);
 }
 

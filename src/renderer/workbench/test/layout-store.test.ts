@@ -92,22 +92,22 @@ describe('init', () => {
     expect(state().ready).toBe(true);
   });
 
-  it('损坏的保存数据回退到旧数据种子', async () => {
+  it('损坏的保存数据回退到空布局', async () => {
     installLayoutApi(
       () =>
         ({ root: groupOf('broken'), focus: 'nope', maximized: 'x' }) as unknown as WorkbenchLayout,
     );
-    await state().init(uuid, { scope: uuid, viewTabs: ['a', 'source:b'], viewActive: 'a' });
+    await state().init(uuid);
     expect(groups()).toHaveLength(1);
     expect(findGroup(state().root, 'primary')).toEqual({
       type: 'group',
       id: 'primary',
-      tabs: ['note:a', 'preview:source:b'],
-      active: 'note:a',
+      tabs: [],
+      active: null,
     });
   });
 
-  it('无保存且无旧数据 → 默认空单组', async () => {
+  it('无保存数据 → 默认空单组', async () => {
     installLayoutApi(() => null);
     await state().init(null);
     expect(state().root).toEqual(createDefaultLayout().root);
@@ -355,7 +355,7 @@ describe('splitGroup / setMaximized / setRatio', () => {
 describe('持久化', () => {
   it('变更防抖 800ms 合并为一次 layout:save（按当前项目键控）', async () => {
     const { save } = installLayoutApi(() => null);
-    await state().init(uuid, { scope: uuid, viewTabs: [], viewActive: null });
+    await state().init(uuid);
     state().openTab('note:z');
     state().openTab('note:w');
     expect(save).not.toHaveBeenCalled();
@@ -371,7 +371,7 @@ describe('持久化', () => {
   it('800ms 去抖窗口内切换项目：init 冲刷在途保存并按旧项目键控', async () => {
     const other = '00000000-0000-4000-8000-000000000003';
     const { save } = installLayoutApi(() => null);
-    await state().init(uuid, { scope: uuid, viewTabs: [], viewActive: null });
+    await state().init(uuid);
     await vi.advanceTimersByTimeAsync(800); // init 自身的种子写回
     expect(save).toHaveBeenCalledTimes(1);
     state().openTab('note:z');
@@ -390,39 +390,6 @@ describe('持久化', () => {
       focus: 'primary',
       maximized: null,
     });
-  });
-
-  it('首次保存成功后清除旧视图 localStorage 键；保存失败保留', async () => {
-    const storage = new Map<string, string>([
-      [`dela.editor.layout.${uuid}`, '{"split":false}'],
-      ['dela.workspace.agentOpen', 'true'],
-      ['dela.workspace.agentWidth', '360'],
-    ]);
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => storage.get(key) ?? null,
-      removeItem: (key: string) => void storage.delete(key),
-    });
-    // 先失败：旧键必须保留（下次变更重试，期间旧数据仍是回退种子）。
-    let fail = true;
-    const save = vi.fn(async () => {
-      if (fail) throw new Error('db busy');
-    });
-    Object.defineProperty(globalThis, 'window', {
-      configurable: true,
-      value: {
-        dela: { layout: { get: vi.fn(async () => null), save } },
-      },
-    });
-    await state().init(uuid, { scope: uuid, viewTabs: [], viewActive: null });
-    await vi.advanceTimersByTimeAsync(800);
-    expect(storage.has(`dela.editor.layout.${uuid}`)).toBe(true);
-    // 成功后：旧布局键与助手面板死键一并清除。
-    fail = false;
-    state().openTab('note:z');
-    await vi.advanceTimersByTimeAsync(800);
-    expect(storage.has(`dela.editor.layout.${uuid}`)).toBe(false);
-    expect(storage.has('dela.workspace.agentOpen')).toBe(false);
-    expect(storage.has('dela.workspace.agentWidth')).toBe(false);
   });
 });
 

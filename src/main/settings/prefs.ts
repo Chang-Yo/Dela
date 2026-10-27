@@ -11,7 +11,6 @@ import {
   type ExperimentKey,
   type ExperimentState,
   type TaskNotificationPrefs,
-  type WorkspacePrefs,
 } from '../../shared/settings';
 import { getDatabase } from '../database';
 
@@ -87,16 +86,8 @@ export function normalizeFontSize(value: unknown): number {
   return Math.min(fontSizeMax, Math.max(fontSizeMin, Math.round(size)));
 }
 
-/**
- * 字号 px。旧版存的是档位（'font-scale' 的 0.9/1/1.1/1.25），按默认 16 的基准换算成
- * px（0.9→14、1→16、1.1→18、1.25→20），换到新键一写旧键即失效。
- */
 export function savedFontSize(): number {
-  const stored = readSetting('font-size');
-  if (stored === undefined) {
-    return normalizeFontSize(fontSizeDefault * Number(readSetting('font-scale')));
-  }
-  return normalizeFontSize(Number(stored));
+  return normalizeFontSize(readSetting('font-size') ?? fontSizeDefault);
 }
 
 export function savedOpenAtLogin(): boolean {
@@ -150,39 +141,8 @@ export function setTaskNotificationPrefs(input: unknown): TaskNotificationPrefs 
 }
 
 // ---------------------------------------------------------------------------
-// 工作现场偏好（启动恢复上次项目与标签、拼写检查）。
+// 工作现场偏好（启动恢复上次项目与标签）。
 // ---------------------------------------------------------------------------
-
-const workspacePrefsDefaults: WorkspacePrefs = {
-  // 现行为本就恢复上次项目（App 读 localStorage 的最后项目键），默认开启与其一致。
-  restoreLastProject: true,
-  // 现行为本就关闭拼写检查（两个编辑器都硬编码 spellcheck=false）。
-  noteSpellcheck: false,
-};
-
-export const workspacePrefsSchema = z.object({
-  restoreLastProject: z.boolean(),
-  // 字段级 default：旧版存的 JSON 没有这个键，缺省补齐而不是让整条偏好回退默认值。
-  noteSpellcheck: z.boolean().default(false),
-});
-
-export function getWorkspacePrefs(): WorkspacePrefs {
-  const raw = readSetting('workspace-prefs');
-  if (raw === undefined) return { ...workspacePrefsDefaults };
-  try {
-    return workspacePrefsSchema.catch({ ...workspacePrefsDefaults }).parse(JSON.parse(raw));
-  } catch {
-    return { ...workspacePrefsDefaults };
-  }
-}
-
-/** 部分合并：只写传入字段，未传字段保持现值。 */
-export function setWorkspacePrefs(input: unknown): WorkspacePrefs {
-  const partial = workspacePrefsSchema.partial().parse(input);
-  const next = { ...getWorkspacePrefs(), ...partial };
-  writeSetting('workspace-prefs', JSON.stringify(next));
-  return next;
-}
 
 // ---------------------------------------------------------------------------
 // 快捷键覆盖项（只存用户改过的动作；默认键位留在 shared/keybindings.ts，

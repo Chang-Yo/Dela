@@ -85,7 +85,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('Windows 读取注册表启动项', () => {
   beforeEach(() => vi.stubGlobal('process', { ...process, platform: 'win32' }));
 
-  it('带 --hidden 与不带的启动项都读作已开启，两种都缺失才算关闭', () => {
+  it('按注册时的 --hidden 参数读取 Windows 启动项', () => {
     state.getLogin.mockImplementation((options?: { args?: string[] }) => ({
       openAtLogin: (options?.args ?? []).includes('--hidden'),
     }));

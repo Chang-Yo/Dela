@@ -183,17 +183,19 @@ export function ArchivedSection() {
                 <span className="text-xs">
                   永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
                 </span>
-                <Button
-                  disabled={busy}
-                  onClick={() => void removeAll()}
-                  size="sm"
-                  variant="destructive"
-                >
-                  确认全部删除
-                </Button>
-                <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
-                  取消
-                </Button>
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    disabled={busy}
+                    onClick={() => void removeAll()}
+                    size="sm"
+                    variant="destructive"
+                  >
+                    确认全部删除
+                  </Button>
+                  <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
+                    取消
+                  </Button>
+                </div>
               </div>
             )}
             {error && (

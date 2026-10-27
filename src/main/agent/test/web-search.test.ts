@@ -1,4 +1,4 @@
-// 搜索服务多条目存储：旧单条配置迁移、新建即选中、删除回落与选择联动工具开关。
+// 搜索服务多条目存储：新建即选中、删除回落与选择联动工具开关。
 import { DatabaseSync } from 'node:sqlite';
 import { beforeEach, expect, it, vi } from 'vitest';
 
@@ -44,36 +44,6 @@ beforeEach(() => {
   database = new DatabaseSync(':memory:');
   database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
   capabilityCalls.length = 0;
-});
-
-function seed(value: unknown): void {
-  database
-    .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
-    .run('web-search-api', JSON.stringify(value));
-}
-
-it('旧单条配置读取时迁移为单元素列表并保持选中', () => {
-  seed({ provider: 'brave', apiKey: 'BSA-1' });
-  const config = readWebSearchConfig();
-  expect(config).toMatchObject({ provider: 'brave', apiKey: 'BSA-1' });
-  expect(config?.id).toBeTruthy();
-  expect(listWebSearchEntries()).toHaveLength(1);
-  // 迁移结果已写回新格式：再次读取不再走迁移分支。
-  const stored = database.prepare('SELECT value FROM workspace_settings').get()! as {
-    value: string;
-  };
-  expect(JSON.parse(stored.value)).toEqual({
-    providers: [config],
-    selectedId: config!.id,
-  });
-});
-
-it('旧版仅存 { url } 的 SearXNG 端点迁移为自定义端点', () => {
-  seed({ url: 'https://searx.example/search' });
-  expect(readWebSearchConfig()).toMatchObject({
-    provider: 'custom',
-    url: 'https://searx.example/search',
-  });
 });
 
 it('新建即选中，更新已有条目不改选中', () => {

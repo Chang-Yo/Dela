@@ -69,6 +69,13 @@ describe('remove_entry', () => {
     });
     await expect(removeEntryTool.execute({ id })).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
+
+  it('异步失败（子项目守卫等）原样抛出，不再被吞成假成功', async () => {
+    vi.mocked(removeWorkspaceEntry).mockRejectedValue(
+      new Error('项目下还有项目（子课题），请先移除它们'),
+    );
+    await expect(removeEntryTool.execute({ id })).rejects.toThrow('项目下还有项目');
+  });
 });
 
 describe('update_entry', () => {
@@ -90,7 +97,6 @@ describe('update_entry', () => {
           updatedAt: '2026-01-01T00:00:00Z',
         },
       ],
-      views: {},
       directory: 'D:/ws',
     });
     await expect(
@@ -126,7 +132,6 @@ describe('list_workspace_entries', () => {
           updatedAt: '2026-01-01T00:00:00Z',
         },
       ],
-      views: {},
       directory: 'D:/ws',
     });
     await expect(listWorkspaceEntriesTool.execute({ parentId: id })).resolves.toEqual({

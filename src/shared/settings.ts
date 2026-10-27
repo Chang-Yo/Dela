@@ -20,14 +20,6 @@ export interface TaskNotificationPrefs {
   failed: boolean;
 }
 
-/** 工作现场偏好：启动恢复与拼写检查。 */
-export interface WorkspacePrefs {
-  /** 启动时恢复上次项目与标签；关闭后启动进入首页。 */
-  restoreLastProject: boolean;
-  /** 文件编辑器的系统拼写检查；默认关，避免中文与技术词被标红。 */
-  noteSpellcheck: boolean;
-}
-
 /** 试验功能：总开关 + 子项（水源、课堂视频下载）；子项只在总开关开启时生效，键缺失视为开启。 */
 export type ExperimentKey = 'master' | 'shuiyuan' | 'videoDownload';
 export type ExperimentState = Record<ExperimentKey, boolean>;
@@ -51,9 +43,6 @@ export interface SettingsApi {
   setCampusNotifications(enabled: boolean): Promise<boolean>;
   getTaskNotifications(): Promise<TaskNotificationPrefs>;
   setTaskNotifications(prefs: TaskNotificationPrefs): Promise<TaskNotificationPrefs>;
-  getWorkspacePrefs(): Promise<WorkspacePrefs>;
-  /** 部分更新：只改传入的字段，其余保持现值。 */
-  setWorkspacePrefs(prefs: Partial<WorkspacePrefs>): Promise<WorkspacePrefs>;
   /** 快捷键覆盖项（只存与默认不同的动作）；null 表示显式解绑。 */
   getKeybindings(): Promise<KeybindingOverrides>;
   setKeybindings(patch: KeybindingOverrides): Promise<KeybindingOverrides>;

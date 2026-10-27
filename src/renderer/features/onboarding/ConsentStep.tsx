@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import privacy from '../../../../docs/privacy.md?raw';
 import terms from '../../../../docs/terms.md?raw';
 import { LegalMarkdown } from '../../components/legal-markdown';
-import { markDeclined } from './onboarding-state';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 
 /** 正文顶部的「最后更新」就是这一版的日期，接受记录据此回溯同意的是哪一版。 */
@@ -33,7 +32,7 @@ type ConsentStepProps = {
 };
 
 /**
- * 首次启动与老用户升级后的条款接受页：开场动画之后、配置向导之前。
+ * 条款接受页：开场动画之后、配置向导之前。
  * 「同意并继续」在文本框滚到底部之前保持禁用；换下一份条款时滚动位置与门禁一起重置。
  *
  * 「不同意并退出」走 window.quit() 真正结束进程。窗口栏的关闭按钮走的是 close()，
@@ -175,7 +174,6 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
               className="h-10 rounded-card px-5 text-13 text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
               disabled={backup.kind === 'running'}
               onClick={() => {
-                markDeclined();
                 window.dela?.window.quit();
               }}
               type="button"

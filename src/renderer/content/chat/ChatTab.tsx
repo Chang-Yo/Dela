@@ -9,12 +9,13 @@ import { composerContext } from './composer-context';
 import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
-import { useChat, useChatDraft, useChatSession, type ChatReference } from './use-chat';
+import { useChat, useChatDraft, type ChatReference } from './use-chat';
 import { referenceContext } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
-import { useSessions } from '../../sessions/store';
-import { useWorkspaceStore } from '../../workspace/store';
+import { updateSession, useSessions } from '../../sessions/store';
+import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { openTarget } from '../../workbench/open-target';
+import { showToast } from '../../app/toasts';
 import { reviewTabId } from '../review/tab-id';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
@@ -32,9 +33,6 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
   const projectId = useSessions((state) =>
     sessionId ? (state.chats[sessionId]?.projectId ?? null) : null,
   );
-  // 新建的通用会话跟着所在页走：首页是随聊私有目录，工作台（资料页）落资料树的课程目录。
-  const scope = useNavigationStore((state) => (state.view === 'home' ? 'chat' : 'library'));
-  const session = useChatSession(projectId, sessionId ?? '', scope);
   const referenceSource = source?.referenceSource;
 
   if (sessionId === null) {
@@ -44,32 +42,15 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
       </div>
     );
   }
-  if (session.active === null) {
-    return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-13 text-ink-3">这个会话已被删除。</p>
-          <Button
-            className="[&_svg]:size-3.5"
-            onClick={() => void session.newSession()}
-            variant="outline"
-          >
-            <SquarePen />
-            新对话
-          </Button>
-        </div>
-      </div>
-    );
-  }
   return (
     <ChatSessionView
-      active={session.active}
+      key={sessionId}
+      active={sessionId}
       mailDialog={source?.mailDialog}
       onOpenSource={source?.onOpenSource}
       onSaveNote={source?.onSaveNote}
       projectId={projectId}
       referenceSource={referenceSource}
-      session={session}
     />
   );
 }
@@ -145,7 +126,6 @@ function useReferenceOptions(source: ReferenceSource | undefined, chat: Workspac
 }
 
 const ChatSessionView = memo(function ChatSessionView({
-  session,
   active,
   projectId,
   referenceSource,
@@ -153,8 +133,6 @@ const ChatSessionView = memo(function ChatSessionView({
   onOpenSource,
   onSaveNote,
 }: {
-  session: ReturnType<typeof useChatSession>;
-  /** 已收窄为非 null 的当前会话（父组件处理删除后的空态）。 */
   active: string;
   projectId: string | null;
   referenceSource?: ReferenceSource;
@@ -267,7 +245,17 @@ const ChatSessionView = memo(function ChatSessionView({
       {conversation && composer(false)}
       <ChatSessions
         currentSessionId={active}
-        onDeleteSession={(id) => void session.deleteSession(id)}
+        onDeleteSession={(id) => {
+          void updateSession(id, { archived: true })
+            .then(() => {
+              const navigation = useNavigationStore.getState();
+              if (navigation.view === 'home' && navigation.lastHomeSessionId === id)
+                navigation.openGeneralChat(true);
+            })
+            .catch((error) => {
+              showToast({ variant: 'error', title: '归档失败', description: errorText(error) });
+            });
+        }}
         onOpenChange={setSessionsOpen}
         onOpenSession={(id) => useNavigationStore.getState().openChat(id, projectId)}
         open={sessionsOpen}

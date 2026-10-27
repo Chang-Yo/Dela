@@ -3,7 +3,6 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry } from '../../../shared/api';
-import { useProjectNavPrefs } from '../../navigation/store';
 import { EntryDialogs, type EntryDialogRequest } from '../entry-dialogs';
 import { useWorkspaceStore } from '../store';
 
@@ -17,7 +16,6 @@ function entry(
 
 const workspace = {
   directory: '/tmp/dela',
-  views: {},
   entries: [
     entry('课程项目', 'project'),
     entry('子文件夹', 'folder', '课程项目'),
@@ -53,7 +51,6 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   useWorkspaceStore.setState({ workspace, loaded: true, error: null });
-  useProjectNavPrefs.setState({ projects: { 隐藏项目: { hidden: true } } });
   window.dela = { workspace: { create, getState, update } } as unknown as DelaApi;
 });
 
@@ -62,7 +59,6 @@ afterEach(async () => {
   container.remove();
   delete window.dela;
   Element.prototype.scrollIntoView = scrollIntoView;
-  useProjectNavPrefs.setState({ projects: {} });
   vi.unstubAllGlobals();
 });
 
@@ -101,12 +97,12 @@ async function submit() {
   );
 }
 
-it('offers only visible local project entries without rescanning directories', async () => {
+it('offers only local project entries without rescanning directories', async () => {
   await render();
   const options = (await expand()).map((element) => element.textContent);
-  // 前三项是可见的本地项目；文件夹、远端项目、隐藏项目都不出现，只多一个新建入口。
-  expect(options).toHaveLength(4);
-  expect(options.slice(0, 3)).toEqual(['课程项目', '嵌套项目', '第二项目']);
+  // 前四项是本地项目；文件夹与远端项目都不出现，只多一个新建入口。
+  expect(options).toHaveLength(5);
+  expect(options.slice(0, 4)).toEqual(['课程项目', '嵌套项目', '第二项目', '隐藏项目']);
   expect(getState).not.toHaveBeenCalled();
 });
 
@@ -134,7 +130,7 @@ it('links to the project the user selects', async () => {
   expect(create).toHaveBeenCalledWith(expect.objectContaining({ parentId: '第二项目' }));
 });
 
-it.each([undefined, '普通文件夹', 'missing', '远程项目', '隐藏项目'])(
+it.each([undefined, '普通文件夹', 'missing', '远程项目'])(
   'requires a project choice for initial target %s',
   async (initialTarget) => {
     await render(initialTarget);
@@ -166,7 +162,15 @@ it('can create a project and link to its root when no projects exist', async () 
 
 it('clears an unavailable project target instead of silently using the workspace root', async () => {
   await render('课程项目');
-  await act(async () => useProjectNavPrefs.getState().setProject('课程项目', { hidden: true }));
+  // 目标项目从镜像里消失（如刚被移除）时清空选择，不静默落到工作区根。
+  await act(async () =>
+    useWorkspaceStore.setState({
+      workspace: {
+        ...workspace,
+        entries: workspace.entries.filter((item) => item.id !== '课程项目'),
+      },
+    }),
+  );
   await submit();
   expect(create).not.toHaveBeenCalled();
 });

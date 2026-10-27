@@ -5,9 +5,6 @@ import { fontSizeDefault, fontSizeMax, fontSizeMin } from '../../shared/api';
 
 const themeStorageKey = 'dela.theme';
 const fontSizeStorageKey = 'dela.font-size';
-/** 旧版字号档位键：读到就按默认 16 换算成 px 并删除，只迁移一次。 */
-const legacyFontScaleStorageKey = 'dela.font-scale';
-
 function clampFontSize(value: number): number {
   return Math.min(fontSizeMax, Math.max(fontSizeMin, Math.round(value)));
 }
@@ -21,12 +18,7 @@ function initialTheme(): ThemePreference {
 function initialFontSize(): number {
   const stored = Number(localStorage.getItem(fontSizeStorageKey));
   if (Number.isFinite(stored) && stored > 0) return clampFontSize(stored);
-  const legacy = Number(localStorage.getItem(legacyFontScaleStorageKey));
-  if (!Number.isFinite(legacy) || legacy <= 0) return fontSizeDefault;
-  const migrated = clampFontSize(fontSizeDefault * legacy);
-  localStorage.setItem(fontSizeStorageKey, String(migrated));
-  localStorage.removeItem(legacyFontScaleStorageKey);
-  return migrated;
+  return fontSizeDefault;
 }
 
 /** 桌面端主题/缩放事实在主进程 DB；这里持视图状态、应用 CSS 效果并镜像到 localStorage。 */

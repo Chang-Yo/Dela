@@ -327,7 +327,7 @@ describe('mail local trash and folder sync', () => {
       path === 'Drafts'
         ? { messages: 4 }
         : { messages: 0, unseen: 0, uidValidity: '1', uidNext: 1 };
-    // 旧版本同步留下的服务器草稿箱本地缓存。
+    // 已缓存文件夹被服务器标记为草稿箱后，也应清理本地记录。
     const draftsFolderId = insertFolder(db, 'Drafts', '\\Drafts');
     insertMessage(db, draftsFolderId, 10);
 

@@ -9,9 +9,7 @@ import { takePendingReleaseNotes } from './notes';
 
 export function ReleaseNotesDialog() {
   const [notes] = useState(() =>
-    isSmokeTest || !window.dela
-      ? []
-      : takePendingReleaseNotes(window.dela.version, window.dela.firstLaunch),
+    isSmokeTest || !window.dela ? [] : takePendingReleaseNotes(window.dela.version),
   );
   const [open, setOpen] = useState(notes.length > 0);
   if (!notes.length) return null;
