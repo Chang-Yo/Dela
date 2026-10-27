@@ -3,7 +3,7 @@ import type { RemoteDirectoryEntry, RemotePortsState } from './remotes';
 import type { ResourceRef } from './resources';
 import { z } from 'zod';
 
-/** 普通文件使用绝对磁盘路径；UUID 仅用于项目、资料关联及旧引用。 */
+/** 普通文件使用绝对磁盘路径；UUID 用于已登记的项目与资料条目。 */
 export const workspaceEntryIdSchema = z
   .string()
   .min(1)
@@ -11,7 +11,7 @@ export const workspaceEntryIdSchema = z
   .refine(
     (value) =>
       z.uuid().safeParse(value).success || /^(?:[a-z]:[\\/]|\\\\[^\\]+\\[^\\]+|\/)/i.test(value),
-    { message: '请选择工作区文件路径或有效的旧引用' },
+    { message: '请选择工作区文件路径或有效的条目' },
   );
 
 export interface WorkspaceEntryUpdate {
@@ -47,16 +47,8 @@ export const workspaceArchiveId = '00000000-0000-4000-8000-000000000001';
 
 export const hiddenWorkspaceNames = new Set(['.git', '.svn', '.hg', '.DS_Store', 'Thumbs.db']);
 
-export interface WorkspaceViewState {
-  tabs: string[];
-  active: string | null;
-  expanded: string[];
-  scroll: Record<string, number>;
-}
-
 export interface WorkspaceState {
   entries: WorkspaceEntry[];
-  views: Record<string, WorkspaceViewState>;
   directory: string;
   archivePath?: string;
 }

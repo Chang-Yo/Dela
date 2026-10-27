@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspaceStore } from '../store';
 import type { WorkspaceEntry } from '../../../shared/api';
 
-const workspaceState = { entries: [], views: {}, directory: 'C:/dela' };
+const workspaceState = { entries: [], directory: 'C:/dela' };
 const canvasState = { connected: true, syncedAt: null, courses: [], items: [] };
 
 function installDela(handlers: {
@@ -31,7 +31,7 @@ function resetStore() {
   useWorkspaceStore.setState({
     overview: null,
     directories: {},
-    workspace: { entries: [], views: {}, directory: '' },
+    workspace: { entries: [], directory: '' },
     canvas: { connected: false, syncedAt: null, courses: [], items: [] },
     loaded: false,
     error: null,
@@ -148,7 +148,7 @@ describe('workspace store mirror', () => {
   });
 
   it('refresh replaces the workspace mirror without touching canvas', async () => {
-    const next = { entries: [], views: {}, directory: 'C:/elsewhere' };
+    const next = { entries: [], directory: 'C:/elsewhere' };
     installDela({ workspace: async () => next });
     await useWorkspaceStore.getState().refresh();
     expect(useWorkspaceStore.getState().workspace).toEqual(next);

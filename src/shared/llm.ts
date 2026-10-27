@@ -1,4 +1,4 @@
-/** 未填写的限制沿用运行时默认值；缺省档位兼容旧提供商级配置。 */
+/** 未填写的限制沿用运行时默认值。 */
 export interface LlmModelSettings {
   contextWindow?: number;
   maxOutputTokens?: number;
@@ -33,8 +33,6 @@ export interface LlmSaveInput {
   models: string[];
   model: string;
   modelConfigs?: Record<string, LlmModelSettings>;
-  /** 旧提供商级档位；逐模型 modelConfigs 的配置优先。 */
-  effortLevels?: string[];
   presetId?: string | null;
 }
 

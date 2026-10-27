@@ -89,23 +89,8 @@ it('shows capability setup once without resetting existing skills or other onboa
   expect(
     database
       .prepare('SELECT value FROM workspace_settings WHERE key=?')
-      .get('capabilities-onboarding-version'),
-  ).toEqual({ value: '2' });
-});
-
-it('shows the capability page again to users who finished version 1 (before Pi Packages)', () => {
-  database
-    .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
-    .run('capabilities-onboarding-version', '1');
-  expect(needsCapabilitySetup()).toBe(true);
-});
-
-it('does not prompt after a newer setup version, but retries an invalid stored marker', () => {
-  const write = database.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)');
-  write.run('capabilities-onboarding-version', '3');
-  expect(needsCapabilitySetup()).toBe(false);
-  write.run('capabilities-onboarding-version', 'invalid');
-  expect(needsCapabilitySetup()).toBe(true);
+      .get('capabilities-onboarding-completed'),
+  ).toEqual({ value: '1' });
 });
 
 it('lists the shuiyuan skill only while the feature is enabled', async () => {

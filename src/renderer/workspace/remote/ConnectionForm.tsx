@@ -5,7 +5,9 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { RemoteConnection, RemoteDraft } from '../../../shared/api';
-import { errorText } from '../store';
+import { errorText, useWorkspaceStore } from '../store';
+import { useNavigationStore } from '../../navigation/view';
+import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
 
 /** 端口上限与 ssh 自身一致；空串表示交给 ssh 按 config 解析。 */
 const MAX_PORT = 65535;
@@ -32,6 +34,13 @@ export function ConnectionForm({
   const [keyPath, setKeyPath] = useState(start?.keyPath ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState(false);
+  // 选择器必须返回稳定引用（useSyncExternalStore 的 getSnapshot 缓存要求），过滤放渲染期。
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
+  // 名下项目随连接一并移除：这里列出它们是删除后果的预告，也方便删除前跳进去看一眼。
+  const projects = connection
+    ? entries.filter((entry) => entry.kind === 'project' && entry.remoteId === connection.id)
+    : [];
 
   const problem = () => {
     if (!host.trim()) return '请输入 SSH 目的地';
@@ -79,9 +88,16 @@ export function ConnectionForm({
     setError(null);
     try {
       await remotes.remove(connection.id);
+      // 名下项目随连接被级联移除，主进程不单推工作区变更：拉一次镜像后做与
+      // 资料树移除同一份的清场（关死标签、退出死项目、清后退栈里的死路由）。
+      if (projects.length) {
+        await useWorkspaceStore.getState().refresh();
+        purgeRemovedEntries(
+          new Set(useWorkspaceStore.getState().workspace.entries.map((entry) => entry.id)),
+        );
+      }
       onRemoved?.(connection.id);
     } catch (cause) {
-      // main 的拒绝原因（如「该连接下还有项目，请先移除项目」）原样显示。
       setError(errorText(cause));
     } finally {
       setBusy(false);
@@ -162,18 +178,78 @@ export function ConnectionForm({
       <p className="text-xs leading-relaxed text-ink-3">
         暂不支持密码登录：请使用密钥或 ssh agent，或在 ~/.ssh/config 中为该主机配置好认证。
       </p>
+      {projects.length > 0 && (
+        <div className="grid gap-1 rounded-card bg-inset px-4 py-2">
+          <h3 className="text-13 font-semibold text-ink-2">使用此连接的项目</h3>
+          <ul className="grid">
+            {projects.map((project) => (
+              <li
+                className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0"
+                key={project.id}
+              >
+                <div className="flex min-w-0 items-baseline gap-3">
+                  <span className="shrink-0 text-13" title={project.name}>
+                    {project.name}
+                  </span>
+                  <span className="truncate text-xs text-ink-3" title={project.path}>
+                    {project.path}
+                  </span>
+                </div>
+                <Button
+                  disabled={busy}
+                  onClick={() => useNavigationStore.getState().openProject(project.id)}
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                >
+                  打开项目
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {error && (
         <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
           {error}
         </p>
       )}
+      {connection && onRemoved && removeConfirm && (
+        <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-destructive/40 bg-red-tint p-3">
+          <span className="text-xs">
+            {projects.length
+              ? `删除连接将同时移除 ${projects.length} 个项目并删除其全部聊天记录；远端目录与文件保留。`
+              : '删除连接？需要时重新添加即可。'}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              disabled={busy}
+              onClick={() => void remove()}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              确认删除
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => setRemoveConfirm(false)}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              取消
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
-        <div>
-          {connection && onRemoved && (
+        <div className="flex items-center gap-2">
+          {connection && onRemoved && !removeConfirm && (
             <Button
               className="text-ink-3 hover:text-red"
               disabled={busy}
-              onClick={() => void remove()}
+              onClick={() => setRemoveConfirm(true)}
               type="button"
               variant="ghost"
             >

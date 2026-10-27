@@ -110,45 +110,11 @@ const registrySchema = z
   })
   .strict();
 
-// 旧单条配置（无 id/name）：读取时迁移为单元素列表。
-const legacyEntrySchema = z.discriminatedUnion('provider', [
-  z.object({ provider: z.literal('brave'), apiKey: z.string().trim().min(1).max(256) }).strict(),
-  z
-    .object({
-      provider: z.literal('google'),
-      apiKey: z.string().trim().min(1).max(256),
-      cx: z.string().trim().min(1).max(128),
-    })
-    .strict(),
-  z
-    .object({
-      provider: z.literal('custom'),
-      url: z.string().url().max(2048),
-      headers: headersSchema.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      provider: z.literal('deepseek'),
-      apiKey: z.string().trim().min(1).max(256),
-      useForFetch: z.boolean(),
-    })
-    .strict(),
-]);
-
-const legacyNames: Record<WebSearchEntry['provider'], string> = {
-  brave: 'Brave Search API',
-  google: 'Google 搜索',
-  custom: '自定义端点',
-  deepseek: 'DeepSeek',
-};
-
 interface Registry {
   providers: WebSearchEntry[];
   selectedId: string | null;
 }
 
-/** 读取注册表并做格式迁移（旧单条 / SearXNG { url }），迁移结果立即写回。 */
 function readRegistry(): Registry {
   const row = getDatabase()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
@@ -161,35 +127,7 @@ function readRegistry(): Registry {
     return { providers: [], selectedId: null };
   }
   const current = registrySchema.safeParse(parsed);
-  if (current.success) return current.data;
-  // 上一迭代短暂引入过 brave.endpoint 字段：读取时剥离，避免 strict 校验拒绝。
-  if (
-    parsed &&
-    typeof parsed === 'object' &&
-    (parsed as { provider?: string }).provider === 'brave'
-  )
-    delete (parsed as { endpoint?: unknown }).endpoint;
-  const entry: WebSearchEntry | null = (() => {
-    const legacyEntry = legacyEntrySchema.safeParse(parsed);
-    if (legacyEntry.success)
-      return {
-        id: randomUUID(),
-        name: legacyNames[legacyEntry.data.provider],
-        ...legacyEntry.data,
-      };
-    // 旧版仅存 { url }（SearXNG 端点）：迁移为自定义端点。
-    const legacyUrl = z
-      .object({ url: z.string().url().max(2048) })
-      .strict()
-      .safeParse(parsed);
-    return legacyUrl.success
-      ? { id: randomUUID(), name: legacyNames.custom, provider: 'custom', url: legacyUrl.data.url }
-      : null;
-  })();
-  if (!entry) return { providers: [], selectedId: null };
-  const migrated: Registry = { providers: [entry], selectedId: entry.id };
-  writeRegistry(migrated);
-  return migrated;
+  return current.success ? current.data : { providers: [], selectedId: null };
 }
 
 function writeRegistry(registry: Registry): void {

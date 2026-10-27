@@ -83,6 +83,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  vi.useRealTimers();
   delete window.dela;
   vi.unstubAllGlobals();
 });
@@ -248,4 +249,41 @@ describe('会话命令', () => {
     );
     expect(runCommand).not.toHaveBeenCalled();
   });
+});
+
+it('归档首页当前对话后通过导航创建新会话，不沿用归档会话身份', async () => {
+  vi.useFakeTimers();
+  await act(async () => root.render(<ChatHome />));
+  window.dela!.session.list = vi.fn(async () => [
+    {
+      id: 'first',
+      projectId: null,
+      title: '当前对话',
+      messageCount: 1,
+      archived: false,
+      pinned: false,
+      updatedAt: new Date().toISOString(),
+    },
+  ]);
+  window.dela!.session.update = vi.fn(async () => {});
+  const create = vi.spyOn(window.dela!.session, 'create').mockResolvedValue(emptyChat('second'));
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="历史对话"]')!.click());
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(200);
+  });
+  await act(async () =>
+    document.querySelector<HTMLButtonElement>('[aria-label="归档对话 当前对话"]')!.click(),
+  );
+  await act(async () => {
+    [...document.querySelectorAll('button')]
+      .find((button) => button.textContent === '确认归档')!
+      .click();
+  });
+  expect(window.dela!.session.update).toHaveBeenCalledWith('first', { archived: true });
+  expect(create).toHaveBeenCalledWith(null, 'chat');
+  expect(useNavigationStore.getState().lastHomeSessionId).toBe('second');
+  await act(async () => useChatDrafts.getState().update('second', { prompt: '归档之后的新草稿' }));
+  expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe(
+    '归档之后的新草稿',
+  );
 });

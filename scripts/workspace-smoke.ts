@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, net, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, net } from 'electron';
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,
@@ -246,26 +246,6 @@ app
         }),
       );
     }
-    // Legacy cache migration must work without downloading or overwriting an existing file.
-    mkdirSync(join(profile, 'canvas-cache'), { recursive: true });
-    writeFileSync(join(profile, 'canvas-cache', canvasKey), pdf);
-    db.prepare('DELETE FROM workspace_settings WHERE key=?').run(`canvas-file:${canvasKey}`);
-    await readCanvasSource('file:3');
-    assert.equal(storageGets, 1);
-    assert(
-      existsSync(
-        join(
-          profile,
-          'notes',
-          'courses',
-          'term-2026-fall',
-          '验证课程 [1]',
-          'files',
-          'folder-11',
-          '课件 (2).pdf',
-        ),
-      ),
-    );
     assert.equal((await readCanvasSource('assignment:4')).format, 'html');
 
     const folder = createWorkspaceEntry({ name: '主题资料', kind: 'folder', parentId: null });
@@ -285,16 +265,6 @@ app
       'project',
     );
     assert.throws(() => updateWorkspaceEntry(folder.id, { parentId: child.id }), /子文件夹/);
-    const oldWorkspaceRoot = join(profile, 'notes', '工作区');
-    const workspaceRoot = join(profile, 'notes', 'workspace');
-    renameSync(workspaceRoot, oldWorkspaceRoot);
-    db.prepare('UPDATE workspace_entries SET local_path=REPLACE(local_path, ?, ?)').run(
-      workspaceRoot,
-      oldWorkspaceRoot,
-    );
-    getWorkspaceState();
-    assert(existsSync(workspaceRoot));
-    assert(!existsSync(oldWorkspaceRoot));
     const note = createWorkspaceEntry({
       name: '笔记.md',
       kind: 'file',
@@ -450,19 +420,13 @@ app
     await invoke(
       `await window.dela.layout.save(${JSON.stringify(promoted.id)}, ${JSON.stringify(layout)});`,
     );
-    // 旧版单凭据迁移：写入 model-credential.bin 后首次访问 llm 配置应转为致远一号提供商。
-    writeFileSync(
-      join(profile, 'model-credential.bin'),
-      safeStorage.encryptString(
-        JSON.stringify({ key: 'legacy-model-key', model: 'deepseek-chat' }),
-      ),
+    const provider = await invoke(
+      `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'], model: 'deepseek-chat', presetId: 'zhiyuan' });`,
     );
+    await invoke(`await window.dela.llm.setActive(${JSON.stringify(provider.id)});`);
     const providers = await invoke(`return await window.dela.llm.list();`);
     assert.equal(providers.length, 1);
-    assert.equal(providers[0].name, '致远一号');
     assert.equal(providers[0].active, true);
-    assert.equal(providers[0].model, 'deepseek-chat');
-    assert.equal(existsSync(join(profile, 'model-credential.bin')), false);
     assert.equal('apiKey' in providers[0], false);
     const verified = await invoke(
       `return await window.dela.llm.verify({ id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
@@ -511,7 +475,7 @@ app
     win.destroy();
     closeDatabase();
     console.log(
-      'Workspace smoke passed: pagination, partial-sync cache, shared references, download isolation, folder conversion/moves, note conflict protection, persistent workbench layout, model provider migration and mail draft attachments.',
+      'Workspace smoke passed: pagination, partial-sync cache, shared references, download isolation, folder conversion/moves, note conflict protection, persistent workbench layout, model provider configuration and mail draft attachments.',
     );
     app.quit();
   })

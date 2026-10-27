@@ -5,7 +5,6 @@ import type {
   SettingsApi,
   TaskNotificationPrefs,
   ThemePreference,
-  WorkspacePrefs,
   ZoomPreference,
 } from '../shared/api';
 import { invoke } from './lib';
@@ -30,9 +29,6 @@ export const settings = {
   getTaskNotifications: () => invoke('settings:get-task-notifications'),
   setTaskNotifications: (prefs: TaskNotificationPrefs) =>
     invoke('settings:set-task-notifications', prefs),
-  getWorkspacePrefs: () => invoke('settings:get-workspace-prefs'),
-  setWorkspacePrefs: (prefs: Partial<WorkspacePrefs>) =>
-    invoke('settings:set-workspace-prefs', prefs),
   getKeybindings: () => invoke('settings:get-keybindings'),
   setKeybindings: (patch: KeybindingOverrides) => invoke('settings:set-keybindings', patch),
   resetKeybindings: () => invoke('settings:reset-keybindings'),

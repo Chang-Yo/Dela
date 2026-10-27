@@ -23,7 +23,8 @@ import { parsePreviewTabId } from '../content/preview/tab-id';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from './layout-store';
 import { useShortcuts } from '../app/shortcuts';
-import { walkGroups, type LegacySeedInput } from './layout-schema';
+import { walkGroups } from './layout-schema';
+import { purgeRemovedEntries } from './removed-cleanup';
 import { Workbench } from './Workbench';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
@@ -38,8 +39,6 @@ import { ChatHome } from '../content/chat/ChatHome';
 import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
-
-const emptyViewState = { tabs: [], active: null, expanded: [], scroll: {} };
 
 /** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {
@@ -138,30 +137,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     else if (entry.parentId) useTreeState.getState().expand(entry.parentId, true);
   };
 
-  const onRemoved = (liveIds: Set<string>) => {
-    const layout = useWorkbenchLayout.getState();
-    const keep = (tabId: TabId) =>
-      tabId.startsWith('chat:') ||
-      tabId.startsWith('preview:source:') ||
-      liveIds.has(tabId.slice(tabId.indexOf(':') + 1));
-    for (const group of walkGroups(layout.root))
-      for (const tab of group.tabs) if (!keep(tab)) layout.closeTab(tab, group.id);
-    // 草稿随标签卸载自动冲盘释放（note/drafts 引用计数）。
-    if (rootId && !liveIds.has(rootId)) useNavigationStore.getState().openProject('');
-  };
-
-  const legacy = useMemo<LegacySeedInput>(() => {
-    // 通用工作台承接旧资料页（scope 'sources'）的标签；项目工作台承接各自 view:% 行。
-    const scope = projectId ?? 'sources';
-    const view = useWorkspaceStore.getState().workspace.views[scope] ?? emptyViewState;
-    return {
-      scope,
-      viewTabs: view.tabs,
-      viewActive: view.active,
-      resolveEntryKind: (entryId) =>
-        documentTabId(entryId).startsWith('note:') ? 'note' : 'preview',
-    };
-  }, [projectId, loaded]);
+  const onRemoved = (liveIds: Set<string>) => purgeRemovedEntries(liveIds);
 
   // -------------------------------------------------------------------------
   // 布局预热（含 home 视图）：home 不挂载 Workbench，若等主动进入工作台才载布局，
@@ -170,8 +146,8 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!loaded) return;
-    void useWorkbenchLayout.getState().init(projectId, legacy);
-  }, [loaded, projectId, legacy]);
+    void useWorkbenchLayout.getState().init(projectId);
+  }, [loaded, projectId]);
 
   const referenceSource: ReferenceSource = useMemo(
     () => ({

@@ -15,7 +15,6 @@ import type {
 import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
 import { useRemoteState } from '../remote/remote-state';
 import { useWorkspaceStore } from '../store';
-import { useProjectNavPrefs } from '../../navigation/store';
 import { showToast } from '../../app/toasts';
 
 vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));
@@ -23,7 +22,7 @@ vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));
 let container: HTMLDivElement;
 let root: Root;
 
-const emptyState: WorkspaceState = { entries: [], views: {}, directory: '/tmp/dela' };
+const emptyState: WorkspaceState = { entries: [], directory: '/tmp/dela' };
 
 const saved: RemoteConnection = {
   id: 'r-1',
@@ -183,8 +182,6 @@ it('selects on click, enters on double click, and imports under a custom name', 
   const importRemoteProject = vi.fn(async () => created);
   const getState = vi.fn(async () => ({ ...emptyState, entries: [created] }));
   api({}, { importRemoteProject, getState });
-  // 这条项目行早先被侧栏的「移除项目入口」隐藏过：重新加进来时要能再看见。
-  useProjectNavPrefs.setState({ projects: { [created.id]: { hidden: true } } });
   const onImported = await render();
 
   const row = () => [...document.querySelectorAll<HTMLButtonElement>('[role="option"] button')][0]!;
@@ -202,7 +199,6 @@ it('selects on click, enters on double click, and imports under a custom name', 
   await act(async () => button('添加项目').click());
   expect(importRemoteProject).toHaveBeenCalledWith('r-1', '/home/u/proj', '我的实验');
   expect(onImported).toHaveBeenCalledWith(created);
-  expect(useProjectNavPrefs.getState().projects[created.id]?.hidden).toBe(false);
   // 下次打开这台服务器回到这里。
   expect(useRemoteState.getState().lastDirectory['gpu-box']).toBe('/home/u/proj');
 });

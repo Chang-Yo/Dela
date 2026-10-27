@@ -17,7 +17,7 @@ import {
   Pin,
   PinOff,
   Archive,
-  X,
+  Trash2,
   List,
 } from 'lucide-react';
 import {
@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import { EntryDialogs } from '../workspace/entry-dialogs';
+import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { cn } from '../lib/utils';
 import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../shared/api';
@@ -42,6 +42,7 @@ import { useNavigationStore, useProjectNavPrefs } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { Input } from '../components/ui/input';
+import { purgeRemovedEntries } from '../workbench/removed-cleanup';
 import { menuItem, menuPanel } from '../components/ui/menu-styles';
 import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './nav-styles';
 import { useRemoteActivity } from './remote-activity';
@@ -112,7 +113,7 @@ export function ProjectSessionNav({
   const preferences = useProjectNavPrefs((state) => state.projects);
   const setProjectPreference = useProjectNavPrefs((state) => state.setProject);
   const projects = entries
-    .filter((entry) => entry.kind === 'project' && !preferences[entry.id]?.hidden)
+    .filter((entry) => entry.kind === 'project')
     .sort(
       (a, b) =>
         Number(Boolean(preferences[b.id]?.pinned)) - Number(Boolean(preferences[a.id]?.pinned)),
@@ -125,7 +126,7 @@ export function ProjectSessionNav({
     .join('|');
   const connections = useRemoteConnections(remoteIdsKey);
   const activity = useRemoteActivity((state) => state.byProject);
-  const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
+  const [entryRequest, setEntryRequest] = useState<EntryDialogRequest | null>(null);
   const [sectionProjectId, setSectionProjectId] = useState<string | null>(null);
   const [sectionName, setSectionName] = useState('');
   const [archiving, setArchiving] = useState(false);
@@ -258,7 +259,7 @@ export function ProjectSessionNav({
                     {preferences[key]?.pinned ? <PinOff /> : <Pin />}
                     {preferences[key]?.pinned ? '取消置顶' : '置顶'}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setRenameProjectId(key)}>
+                  <DropdownMenuItem onSelect={() => setEntryRequest({ action: 'rename', id: key })}>
                     <Pencil />
                     编辑项目
                   </DropdownMenuItem>
@@ -311,10 +312,12 @@ export function ProjectSessionNav({
                     <Archive />
                     归档项目对话
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => setProjectPreference(key, { hidden: true })}>
-                    <X />
-                    移除项目入口
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setEntryRequest({ action: 'remove', id: key })}
+                  >
+                    <Trash2 />
+                    移除项目
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -511,8 +514,9 @@ export function ProjectSessionNav({
         </section>
       </div>
       <EntryDialogs
-        request={renameProjectId ? { action: 'rename', id: renameProjectId } : null}
-        onClose={() => setRenameProjectId(null)}
+        request={entryRequest}
+        onClose={() => setEntryRequest(null)}
+        onRemoved={purgeRemovedEntries}
       />
       <Dialog.Root
         open={sectionProjectId !== null}

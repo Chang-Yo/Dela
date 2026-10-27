@@ -1,40 +1,9 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import { join } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 
 let database: Database.Database | null = null;
-
-// 2026-10 破坏性重置：schema 从 v1 重开，不迁移旧世界数据（docs/DEVELOPMENT.md §8 持久化）。
-// 旧世界的特征表：workspace_notes（v5–v15 体系都有，新 schema 不再创建）。
-const LEGACY_MARKER = 'workspace_notes';
-const legacyTables = [
-  'runs',
-  'note_versions',
-  'sessions',
-  'projects',
-  'chat_sessions',
-  'vsjtu_videos',
-  'vsjtu_courses',
-  'vsjtu_sync',
-  'vsjtu_video_refs',
-  'workspace_notes',
-  'workspace_entries',
-  'remotes',
-  'workspace_settings',
-  'todo_items',
-  'notification_refreshes',
-  'notifications',
-  'shuiyuan_topics',
-  'canvas_sources',
-  'canvas_courses',
-  'calendar_events',
-  'timetable_lessons',
-  'timetable_sync',
-  'mail_messages',
-  'mail_folders',
-  'mail_accounts',
-];
 
 const schema: string[] = [
   // 邮箱缓存（账户/文件夹/近端邮件窗口）。
@@ -148,7 +117,6 @@ const schema: string[] = [
     source_id TEXT,
     local_path TEXT,
     remote_id TEXT REFERENCES remotes(id) ON DELETE RESTRICT,
-    removed INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS workspace_parent ON workspace_entries(parent_id)`,
@@ -213,9 +181,6 @@ const schema: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
 ];
 
-// 这张表与版本号解耦创建（见 getDatabase 里的说明），所以不在上面的 schema 数组里：
-// 条款接受记录只追加、不改写，一次接受一行。条款改版后再次接受会留下新行，
-// 因此「同意的是哪一版、什么时候同意的」可回溯。版本与时间由主进程填写。
 const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   document TEXT NOT NULL,
@@ -226,16 +191,6 @@ const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
 
 const SCHEMA_VERSION = 6;
 
-/** v2→v3 只加列：远程项目不迁移已有数据，旧条目一律视为本地项目。
- *  旧世界库刚被整库丢弃、v1 库本就没有条目表，这两种情况下表还不存在，直接跳过。 */
-function addColumnIfMissing(db: Database.Database, table: string, column: string, type: string) {
-  const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table);
-  if (!exists) return;
-  const columns = db.pragma(`table_info(${table})`) as { name: string }[];
-  if (columns.some((item) => item.name === column)) return;
-  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-}
-
 export function getDatabase(): Database.Database {
   if (database) return database;
   const dir = app.getPath('userData');
@@ -245,63 +200,13 @@ export function getDatabase(): Database.Database {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     const version = db.pragma('user_version', { simple: true }) as number;
-    // 旧世界库（特征表存在，user_version 为旧体系的任意值，包括与当前版本号相同的 4/5）必须
-    // 在版本闸门之前判定：放进闸门里，撞上当前版本号的老库既不会被拒绝也不会被重建，
-    // 只会留下一堆缺表的库，随后每次查询都报 no such table。
-    const legacy = db
-      .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
-      .get(LEGACY_MARKER);
-    if (legacy) {
-      // 旧世界库：一次性备份后整库丢弃，不做迁移。
-      const backup = join(dir, 'dela-legacy-backup.db');
-      if (!existsSync(backup)) db.exec(`VACUUM INTO '${backup.replaceAll("'", "''")}'`);
-      db.pragma('foreign_keys = OFF');
-      db.transaction(() => {
-        for (const table of legacyTables) db.exec(`DROP TABLE IF EXISTS ${table}`);
-      })();
-      db.pragma('foreign_keys = ON');
-    } else if (version > SCHEMA_VERSION) {
-      throw new Error('数据库由更新版本的 Dela 创建，请先升级应用');
-    } else if (version === 1) {
-      // v1→v2：会话改由 Pi JSONL 承载，旧会话/运行/项目档案表不迁移；领域缓存与条目保留。
-      db.transaction(() => {
-        for (const table of ['runs', 'sessions', 'projects'])
-          db.exec(`DROP TABLE IF EXISTS ${table}`);
-      })();
-    }
-    if (!legacy && version >= 1 && version < 6) {
-      // v5→v6：条目不再区分 note/local/imported，统一为 file。导出 PDF 的 imported 行及其关联
-      // 破坏性丢弃（PDF 文件留在「预览导出」，按普通文件出现；pptx 再导出一次即重建关联）。
-      // 半途库可能缺其中某张表，逐表判断。
-      const hasTable = (name: string) =>
-        db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
-      db.transaction(() => {
-        if (hasTable('workspace_entries'))
-          db.exec("DELETE FROM workspace_entries WHERE kind IN ('note', 'local', 'imported')");
-        if (hasTable('workspace_settings'))
-          db.exec("DELETE FROM workspace_settings WHERE key LIKE 'preview-export:%'");
-      })();
-    }
-    // 刚丢弃过旧世界库时版本号可能是任意值（含当前值），所以这里按「是否重建过」而不是只看版本号。
-    if (legacy || version !== SCHEMA_VERSION) {
-      db.transaction(() => {
-        for (const statement of schema) db.exec(statement);
-        db.pragma(`user_version = ${SCHEMA_VERSION}`);
-      })();
-    }
-    // 建表也与版本号解耦：中途版本或手工改过的库可能已经是当前版本号却没这张表，
-    // 只认版本号会让它永久缺表，而写入失败在界面上是无感的。列修复（addColumnIfMissing）
-    // 早就出于同样原因每次打开都幂等补一次。
-    db.exec(createConsentRecords);
-    // 列修复与版本号解耦：中途版本可能已经把 user_version 提到当前值却没加列（实测出现过），
-    // 只认版本号会让这种库永久缺列；这里每次打开都幂等补一次，缺列才执行 ALTER。
-    addColumnIfMissing(db, 'workspace_entries', 'remote_id', 'TEXT');
-    addColumnIfMissing(db, 'workspace_entries', 'removed', 'INTEGER NOT NULL DEFAULT 0');
-    // v3→v4 只加列：会话自带工作目录，旧会话留 NULL 继续按项目目录解析。
-    addColumnIfMissing(db, 'sessions', 'cwd', 'TEXT');
-    // 第三方 IMAP 的 SMTP 参数：老库的 imap_host/imap_port 已存在，缺的是这两列。
-    addColumnIfMissing(db, 'mail_accounts', 'smtp_host', 'TEXT');
-    addColumnIfMissing(db, 'mail_accounts', 'smtp_port', 'INTEGER');
+    if (version !== 0 && version !== SCHEMA_VERSION)
+      throw new Error('数据库格式不受支持，请使用当前版本创建的数据目录');
+    db.transaction(() => {
+      for (const statement of schema) db.exec(statement);
+      db.exec(createConsentRecords);
+      db.pragma(`user_version = ${SCHEMA_VERSION}`);
+    })();
   } catch (error) {
     db.close();
     throw error;

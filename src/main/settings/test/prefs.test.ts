@@ -10,7 +10,6 @@ import {
   getAgentInstruction,
   getKeybindingOverrides,
   getTaskNotificationPrefs,
-  getWorkspacePrefs,
   normalizeFontSize,
   resetKeybindingOverrides,
   savedCampusNotifications,
@@ -27,7 +26,6 @@ import {
   setPendingInstall,
   setTaskNotificationPrefs,
   setVideoDownloadDirectory,
-  setWorkspacePrefs,
 } from '../prefs';
 
 function insert(sql: string, ...values: SQLInputValue[]) {
@@ -82,24 +80,8 @@ describe('font size', () => {
     expect(normalizeFontSize(Number.NaN)).toBe(16);
   });
 
-  it('migrates the old scale levels onto px', () => {
-    const levels: [scale: string, size: number][] = [
-      ['0.9', 14],
-      ['1', 16],
-      ['1.1', 18],
-      ['1.25', 20],
-    ];
-    for (const [scale, size] of levels) {
-      database.exec('DELETE FROM workspace_settings');
-      insert('INSERT INTO workspace_settings VALUES (?, ?)', 'font-scale', scale);
-      expect(savedFontSize()).toBe(size);
-    }
-  });
-
-  it('prefers the stored px value over the legacy scale key', () => {
-    insert("INSERT INTO workspace_settings VALUES ('font-scale', '1.25')");
-    insert("INSERT INTO workspace_settings VALUES ('font-size', '15')");
-    expect(savedFontSize()).toBe(15);
+  it('uses the default when no font size is stored', () => {
+    expect(savedFontSize()).toBe(16);
   });
 });
 
@@ -130,32 +112,6 @@ describe('campus notifications', () => {
     expect(savedCampusNotifications()).toBe(false);
     expect(setCampusNotifications(true)).toBe(true);
     expect(savedCampusNotifications()).toBe(true);
-  });
-});
-
-describe('workspace prefs', () => {
-  const defaults = { restoreLastProject: true };
-
-  it('reads prefs stored by older versions: drops the removed edit-mode and spellcheck keys', () => {
-    insert(
-      `INSERT INTO workspace_settings VALUES ('workspace-prefs', '{"restoreLastProject":false,"defaultNoteEditMode":"source","noteSpellcheck":true}')`,
-    );
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false });
-  });
-
-  it('merges partial updates without touching other fields', () => {
-    setWorkspacePrefs({ restoreLastProject: false });
-    expect(getWorkspacePrefs()).toEqual({ restoreLastProject: false });
-  });
-
-  it('falls back to defaults on corrupt stored JSON', () => {
-    insert("INSERT INTO workspace_settings VALUES ('workspace-prefs', 'broken-json')");
-    expect(getWorkspacePrefs()).toEqual(defaults);
-  });
-
-  it('rejects invalid values', () => {
-    expect(() => setWorkspacePrefs({ restoreLastProject: 'yes' })).toThrow();
-    expect(getWorkspacePrefs()).toEqual(defaults);
   });
 });
 

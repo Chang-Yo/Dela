@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { WorkspaceEntry } from '../../shared/api';
 
-type ProjectNavPreference = { pinned?: boolean; hidden?: boolean; section?: string };
+type ProjectNavPreference = { pinned?: boolean; section?: string };
 export const useProjectNavPrefs = create<{
   projects: Record<string, ProjectNavPreference>;
   setProject: (id: string, patch: ProjectNavPreference) => void;
@@ -29,13 +29,6 @@ export function ancestorChainOf(entries: WorkspaceEntry[], id: string): string[]
     parent = entries.find((e) => e.id === parent)?.parentId;
   }
   return chain;
-}
-
-/** 项目被重新登记（导入同一目录会复用原来那条）时撤掉「移除项目入口」留下的隐藏偏好：
- *  否则项目加回来了，侧栏里还是看不见它，而会话又都还挂在它名下。 */
-export function unhideProjectInNav(id: string): void {
-  const { projects, setProject } = useProjectNavPrefs.getState();
-  if (projects[id]?.hidden) setProject(id, { hidden: false });
 }
 
 /** 目录树里待命名的新条目（VS Code 式行内输入）：parentId 为 null 表示当前树根。 */

@@ -113,7 +113,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
         },
       ];
     } catch {
-      // A corrupt legacy row must not make the notifications workspace unusable.
+      // A corrupt stored row must not make the notifications workspace unusable.
       return [];
     }
   });

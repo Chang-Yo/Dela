@@ -38,7 +38,6 @@ it('loads .agents and .agent project skills and keeps project toggles separate f
       apiKey: 'test-only',
       models: ['m'],
       model: 'm',
-      effortLevels: [],
       presetId: null,
     },
     appendSystemPrompt: [],

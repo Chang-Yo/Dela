@@ -35,11 +35,7 @@ import { importFromDialog } from '../workspace/entry-actions';
 import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
-import {
-  projectIdFromLegacyScope,
-  useNavigationStore,
-  type MobileDrawer,
-} from '../navigation/view';
+import { useNavigationStore, type MobileDrawer } from '../navigation/view';
 import { useNotifications } from './notifications';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
@@ -260,8 +256,7 @@ export default function App() {
     const navigation = useNavigationStore.getState();
     const target = result.target;
     if (target.page === 'projects') navigation.openProject(target.entryId);
-    else if (target.page === 'chat')
-      navigation.openChat(target.sessionId, projectIdFromLegacyScope(target.scope));
+    else if (target.page === 'chat') navigation.openChat(target.sessionId, target.projectId);
     else if (target.page === 'mail') navigation.openMail(target.messageId);
     else if (target.page === 'sources') navigation.openDocument(`source:${target.sourceId}`);
     else if (target.page === 'todo') navigation.openTodo(target.todoId);

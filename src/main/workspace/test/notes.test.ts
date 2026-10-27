@@ -55,8 +55,7 @@ function createDb(): Database.Database {
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
       name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL,
-      removed INTEGER NOT NULL DEFAULT 0
+      updated_at TEXT NOT NULL
     );
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE remotes (
@@ -72,6 +71,7 @@ function createDb(): Database.Database {
       message_count INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0,
       pinned INTEGER NOT NULL DEFAULT 0,
+      cwd TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -677,25 +677,59 @@ describe('folder↔project 转换', () => {
     expect(entry(demoted.id).kind).toBe('folder');
   });
 
-  it('取消项目身份保留会话归属，重新登记沿用原身份', async () => {
+  it('降格删除条目行，项目会话经外键转为通用', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
     const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
     const iso = '2026-09-29T00:00:00.000Z';
     db.prepare(
       'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-    ).run('s-1', promoted.id, '', iso, iso);
+    ).run(crypto.randomUUID(), promoted.id, '', iso, iso);
     updateWorkspaceEntry(promoted.id, { kind: 'folder' });
     expect(
-      db.prepare('SELECT project_id AS projectId FROM sessions WHERE id=?').get('s-1'),
-    ).toEqual({ projectId: promoted.id });
-    expect(entry(localPathOf(promoted.id)).kind).toBe('folder');
-    expect((await getLocalWorkspaceState()).entries.some((item) => item.id === promoted.id)).toBe(
-      false,
-    );
-    expect(linkProjectFolder(localPathOf(promoted.id)).id).toBe(promoted.id);
-    expect((await getLocalWorkspaceState()).entries.some((item) => item.id === promoted.id)).toBe(
-      true,
-    );
+      db.prepare('SELECT count(*) AS n FROM sessions WHERE project_id IS NOT NULL').get(),
+    ).toEqual({ n: 0 });
+    expect(existsSync(join(workspaceRoot(), '课题'))).toBe(true);
+  });
+
+  it('移除项目删除条目行与名下会话，目录保留', async () => {
+    const directory = join(state.root, '课题目录');
+    mkdirSync(directory);
+    const project = linkProjectFolder(directory);
+    const iso = '2026-09-29T00:00:00.000Z';
+    for (const archived of [0, 1])
+      db.prepare(
+        'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      ).run(crypto.randomUUID(), project.id, '', archived, iso, iso);
+    await removeWorkspaceEntry(project.id);
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 0 });
+    expect(existsSync(directory)).toBe(true);
+    // 重新导入同一目录得到全新身份，不接回历史。
+    const reborn = linkProjectFolder(directory);
+    expect(reborn.id).not.toBe(project.id);
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+  });
+
+  it('移除带子项目的父项目被拒绝，子项目登记与会话保留', async () => {
+    const parent = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'project' });
+    const child = createWorkspaceEntry({ parentId: parent.id, name: '子课题', kind: 'project' });
+    db.prepare(
+      'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(crypto.randomUUID(), child.id, '', 'now', 'now');
+    await expect(removeWorkspaceEntry(parent.id)).rejects.toThrow('子课题');
+    expect(entry(child.id).kind).toBe('project');
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 1 });
+  });
+
+  it('降格带子项目的父项目被拒绝，子项目登记与会话保留', () => {
+    const parent = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'project' });
+    const child = createWorkspaceEntry({ parentId: parent.id, name: '子课题', kind: 'project' });
+    db.prepare(
+      'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(crypto.randomUUID(), child.id, '', 'now', 'now');
+    expect(() => updateWorkspaceEntry(parent.id, { kind: 'folder' })).toThrow('子课题');
+    expect(entry(child.id).kind).toBe('project');
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 1 });
   });
 });
 

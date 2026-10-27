@@ -9,7 +9,6 @@ import {
   existsSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { llmProviderPresets } from '../shared/llm-presets';
 
 export interface MailCredential {
   address: string;
@@ -22,7 +21,6 @@ export class CredentialDecryptionError extends Error {
       (
         {
           'llm-providers.bin': '模型服务配置',
-          'model-credential.bin': '旧版模型配置',
           'mail-credentials.bin': '邮箱凭据',
           'canvas-token.bin': 'Canvas 凭据',
           'shuiyuan-key.bin': '水源凭据',
@@ -157,10 +155,6 @@ export interface StoredLlmProvider {
   models: string[];
   model: string;
   modelConfigs?: Record<string, import('../shared/llm').LlmModelSettings>;
-  /** 开启推理强度后暴露的档位子集；空数组表示未开启。 */
-  effortLevels: string[];
-  /** 当前选中的推理强度档位；未开启时为 undefined。 */
-  effort?: string;
   presetId: string | null;
 }
 
@@ -193,7 +187,7 @@ export function saveLlmConfig(config: StoredLlmConfig): void {
 
 export function loadLlmConfig(): StoredLlmConfig {
   const payload = readSealed(llmConfigPath());
-  if (payload === null) return migrateLegacyModelCredential();
+  if (payload === null) return { providers: [], activeId: null };
   return parseLlmConfig(payload);
 }
 
@@ -204,48 +198,10 @@ function parseLlmConfig(payload: string): StoredLlmConfig {
     providers: providers.map((provider) => ({
       ...provider,
       presetId: typeof provider.presetId === 'string' ? provider.presetId : null,
-      effortLevels: Array.isArray(provider.effortLevels)
-        ? provider.effortLevels.filter((level): level is string => typeof level === 'string')
-        : [],
     })),
     activeId:
       typeof parsed.activeId === 'string' && providers.some(({ id }) => id === parsed.activeId)
         ? parsed.activeId
         : null,
   };
-}
-
-/** 旧版单凭据（致远一号 key+model）迁移为多提供商配置；写入成功后删除旧文件。 */
-function migrateLegacyModelCredential(): StoredLlmConfig {
-  const legacyPath = join(app.getPath('userData'), 'model-credential.bin');
-  const payload = readSealed(legacyPath);
-  if (payload === null) return { providers: [], activeId: null };
-  const parsed = JSON.parse(payload) as {
-    key?: unknown;
-    model?: unknown;
-  };
-  if (typeof parsed.key !== 'string' || !parsed.key) return { providers: [], activeId: null };
-  const zhiyuan = llmProviderPresets[0]!;
-  const config: StoredLlmConfig = {
-    providers: [
-      {
-        id: randomUUID(),
-        name: zhiyuan.name,
-        baseUrl: zhiyuan.baseUrl,
-        apiKey: parsed.key,
-        models: zhiyuan.models,
-        model:
-          typeof parsed.model === 'string' && zhiyuan.models.includes(parsed.model)
-            ? parsed.model
-            : zhiyuan.models[0]!,
-        effortLevels: [],
-        presetId: zhiyuan.id,
-      },
-    ],
-    activeId: null,
-  };
-  config.activeId = config.providers[0]!.id;
-  saveLlmConfig(config);
-  unlinkSync(legacyPath);
-  return config;
 }

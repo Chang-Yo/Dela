@@ -51,13 +51,12 @@ export function notesBetween(
 
 /**
  * 本次启动要展示的更新内容，并把当前版本记为已看过。
- * 首次安装只记录不展示（新用户走引导页）；没有记录但不是首次安装的老用户，展示当前版本的条目。
+ * 首次记录不展示；已有版本记录时展示更新条目。
  */
-export function takePendingReleaseNotes(current: string, firstLaunch: boolean): ReleaseNote[] {
+export function takePendingReleaseNotes(current: string): ReleaseNote[] {
   const lastSeen = localStorage.getItem(lastSeenKey);
   localStorage.setItem(lastSeenKey, current);
-  if (firstLaunch && lastSeen === null) return [];
+  if (lastSeen === null) return [];
   const notes = parseReleaseNotes(changelog);
-  if (lastSeen === null) return notes.filter((note) => note.version === current);
   return notesBetween(notes, lastSeen, current);
 }

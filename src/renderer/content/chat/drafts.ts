@@ -8,7 +8,6 @@ type ChatDraft = { prompt: string };
 export const emptyDraft: ChatDraft = { prompt: '' };
 
 // localStorage 键名沿用 dela.* 前缀约定；跨页面切换与重启保留输入。
-// 旧 dela.chat.drafts 的 scope 键无映射，不迁移。
 const STORAGE_KEY = 'dela.session.drafts';
 // 会话草稿数量上限：超出时丢弃最早写入的草稿，避免无限增长。
 const MAX_SESSIONS = 30;
@@ -32,32 +31,19 @@ export function saveChatDrafts(): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
 }
 
-/** 逐条校验持久化草稿形状，脏 prompt 整条丢弃。旧版 references 数组迁移成 prompt 内联
- *  @token；source: 资料引用已无生产入口，迁移时丢弃。 */
-function asChatDraft(value: unknown): ChatDraft | null {
-  if (!value || typeof value !== 'object') return null;
-  const { prompt, references } = value as Record<string, unknown>;
-  if (typeof prompt !== 'string') return null;
-  if (!Array.isArray(references)) return { prompt };
-  let migrated = prompt;
-  for (const item of references) {
-    if (!item || typeof item !== 'object') continue;
-    const { key, title } = item as Record<string, unknown>;
-    if (typeof key !== 'string' || typeof title !== 'string') continue;
-    if (key.startsWith('source:') || title.includes('\n')) continue;
-    migrated += ` @${title}`;
-  }
-  return { prompt: migrated };
-}
-
 function loadStored(): Record<string, ChatDraft> {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     const drafts: Record<string, ChatDraft> = {};
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      const draft = asChatDraft(value);
-      if (draft) drafts[key] = draft;
+      if (
+        value &&
+        typeof value === 'object' &&
+        'prompt' in value &&
+        typeof value.prompt === 'string'
+      )
+        drafts[key] = { prompt: value.prompt };
     }
     return drafts;
   } catch {

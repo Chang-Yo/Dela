@@ -118,7 +118,7 @@ beforeEach(() => {
   state.db.exec(`
     CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL,
       kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL, removed INTEGER NOT NULL DEFAULT 0);
+      updated_at TEXT NOT NULL);
     CREATE TABLE sessions (id TEXT PRIMARY KEY,
       project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL, file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
@@ -135,7 +135,7 @@ afterEach(() => {
   rmSync(state.root, { recursive: true, force: true });
 });
 
-it.each([false, true])('移除项目后保留会话工作目录与执行主机 (remote=%s)', async (remote) => {
+it.each([false, true])('移除项目会删除名下全部会话与条目行 (remote=%s)', async (remote) => {
   const id = crypto.randomUUID();
   const directory = remote ? '/remote/course' : join(state.root, 'project');
   if (!remote) mkdirSync(directory);
@@ -146,13 +146,17 @@ it.each([false, true])('移除项目后保留会话工作目录与执行主机 (
     )
     .run(id, 'project', 'project', directory, remoteId, 'now');
   const chat = newSession(id, 'chat');
+  state
+    .db!.prepare(
+      'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
+    )
+    .run(crypto.randomUUID(), id, '', 'now', 'now');
   await removeWorkspaceEntry(id);
-  invalidateSessions();
-  expect(openSession(chat.sessionId!)).toMatchObject({ projectId: id, cwd: directory });
-  const { projectLocation } = await import('../../workspace/api');
-  expect(projectLocation(id)).toEqual(
-    remote ? { kind: 'remote', path: directory, remoteId } : { kind: 'local', path: directory },
-  );
+  expect(state.db!.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+  expect(state.db!.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({
+    n: 0,
+  });
+  expect(() => openSession(chat.sessionId!)).toThrow();
 });
 
 it('真实 ask 生命周期冻结文件变化并将 turnId 持久化到消息元数据', async () => {

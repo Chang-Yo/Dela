@@ -22,7 +22,6 @@ const provider: StoredLlmProvider = {
   apiKey: 'test',
   model: 'test-model',
   models: ['test-model'],
-  effortLevels: [],
   presetId: null,
 };
 

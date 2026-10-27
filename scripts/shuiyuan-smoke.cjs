@@ -95,7 +95,7 @@ let notifications = [
 const listCalls = [];
 
 const routes = {
-  'workspace:get-state': () => ({ entries: [], directory: '', views: {} }),
+  'workspace:get-state': () => ({ entries: [], directory: '' }),
   'canvas:get-state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
   'settings:get-theme': () => 'light',
@@ -104,11 +104,6 @@ const routes = {
   // 应用壳启动时读取的跨域通道：给出未配置 / 默认值，让界面安静装载。
   'settings:get-experiments': () => ({ master: true, shuiyuan: true, videoDownload: true }),
   'settings:get-keybindings': () => ({}),
-  'settings:get-workspace-prefs': () => ({
-    restoreLastProject: false,
-    defaultNoteEditMode: 'rich',
-    noteSpellcheck: false,
-  }),
   'layout:get': () => null,
   'layout:save': () => null,
   'session:list': () => [],

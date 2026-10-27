@@ -125,15 +125,6 @@ export function documentTabId(key: string): TabId {
     : `preview:${key}`;
 }
 
-/** 会话所属项目的推导：旧 scope 身份（home/sources/projects）与未知项目一律落通用池。 */
-export function projectIdFromLegacyScope(scope: string): string | null {
-  if (['home', 'sources', 'projects'].includes(scope)) return null;
-  const entry = useWorkspaceStore
-    .getState()
-    .workspace.entries.find((e) => e.id === scope && e.kind === 'project');
-  return entry?.id ?? null;
-}
-
 export const useNavigationStore = create<NavigationState>((set, get) => {
   /** 在指定项目的工作台里定位标签；换项目时清掉旧脉冲（旧 App.openProject 语义）。 */
   const revealInProject = (tabId: TabId, projectId: string | null, keep = false): boolean => {

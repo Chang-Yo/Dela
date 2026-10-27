@@ -1,11 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { copyFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { broadcastTodos, refreshTodos } from '../todo';
-import { getDatabase } from '../database';
 import { clearCanvasToken, loadCanvasToken } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
 import { isWorkspaceWindow } from '../notifications/system';
@@ -16,7 +12,6 @@ import {
   syncCanvasCourses,
   syncCanvasCourseTrees,
   exportCanvasCourseFiles,
-  type StoredSource,
   syncCanvasCourse,
   getSource,
   cachedFile,
@@ -32,21 +27,7 @@ export function registerCanvasIpc() {
       checkWorkspaceSender(event);
       return fn(...args);
     });
-  handle('get-state', async () => {
-    // Relocate only already-downloaded legacy files; listing courses never starts a download.
-    const rows = getDatabase().prepare('SELECT data FROM canvas_sources').all() as {
-      data: string;
-    }[];
-    for (const row of rows) {
-      const source: StoredSource = JSON.parse(row.data);
-      if (source.kind !== 'file' || !source.fileId) continue;
-      const key = createHash('sha256')
-        .update(`${source.fileId}:${source.updatedAt ?? ''}`)
-        .digest('hex');
-      if (existsSync(join(app.getPath('userData'), 'canvas-cache', key))) await cachedFile(source);
-    }
-    return getCanvasState();
-  });
+  handle('get-state', getCanvasState);
   handle('configure', async (token) => {
     await configureCanvas(z.string().parse(token));
     broadcastTodos();

@@ -5,19 +5,17 @@ export const LLM_MODEL_LIMIT = 64;
 export const LLM_DEFAULT_CONTEXT_WINDOW = 256000;
 export const LLM_DEFAULT_OUTPUT_TOKENS = 128000;
 
-/** 按模型覆盖；没有覆盖时保留旧提供商的档位与当前选择。 */
+/** 推理档位与当前选择按模型保存。 */
 export function llmModelSettings(
   provider: {
     model: string;
     modelConfigs?: Record<string, LlmModelSettings>;
-    effortLevels?: string[];
-    effort?: string | null;
   },
   model = provider.model,
 ): LlmModelSettings & { effortLevels: string[] } {
   const settings = provider.modelConfigs?.[model] ?? {};
-  const effortLevels = settings.effortLevels ?? provider.effortLevels ?? [];
-  const preferred = settings.effort ?? provider.effort;
+  const effortLevels = settings.effortLevels ?? [];
+  const preferred = settings.effort;
   const effort = preferred && effortLevels.includes(preferred) ? preferred : effortLevels[0];
   return { ...settings, effortLevels, effort };
 }

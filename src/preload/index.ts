@@ -29,7 +29,6 @@ contextBridge.exposeInMainWorld('dela', {
   platform: process.platform,
   vsjtu,
   version,
-  firstLaunch: process.argv.includes('--dela-first-launch'),
   updatedOnLaunch: process.argv.includes('--dela-updated'),
   todo,
   terminal,

@@ -16,7 +16,7 @@ function storedEntries(): WorkspaceEntry[] {
     .prepare(
       `SELECT id, parent_id AS parentId, name, kind,
     source_id AS sourceId, local_path AS path, remote_id AS remoteId,
-    updated_at AS updatedAt FROM workspace_entries WHERE removed=0`,
+    updated_at AS updatedAt FROM workspace_entries`,
     )
     .all() as WorkspaceEntry[];
 }
@@ -196,14 +196,10 @@ export async function getLocalWorkspaceState(): Promise<WorkspaceState> {
     }
     if (item.path && item.kind !== 'source') await add(item.path);
   }
-  const views = getDatabase()
-    .prepare("SELECT key, value FROM workspace_settings WHERE key LIKE 'view:%'")
-    .all() as { key: string; value: string }[];
   return {
     entries: entries.filter((item) => item.id !== workspaceArchiveId),
     directory,
     archivePath: stored.find((item) => item.id === workspaceArchiveId)?.path,
-    views: Object.fromEntries(views.map((view) => [view.key.slice(5), JSON.parse(view.value)])),
   };
 }
 

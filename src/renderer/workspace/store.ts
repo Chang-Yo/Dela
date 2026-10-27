@@ -94,7 +94,7 @@ let subscribedChanges = false;
 let subscribedCanvas = false;
 
 export const useWorkspaceStore = create<Store>((set, get) => ({
-  workspace: { entries: [], views: {}, directory: '' },
+  workspace: { entries: [], directory: '' },
   overview: null,
   directories: {},
   rememberEntries: (entries) => {

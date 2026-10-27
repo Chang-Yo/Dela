@@ -1,5 +1,5 @@
 // layout:* 通道与持久化。键 `layout:{projectId}`（通用 = `layout:_general`）存 workspace_settings。
-// 读写都经 zod 校验，损坏数据回退 null，不抛错给 renderer；`view:%` 行仅剩读取（旧布局种子）。
+// 读写都经 zod 校验，损坏数据回退 null，不抛错给 renderer。
 import { ipcMain } from 'electron';
 import { z } from 'zod';
 import { getDatabase } from '../database';

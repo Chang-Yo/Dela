@@ -10,7 +10,7 @@ import { errorText } from '../../workspace/store';
 import { WizardShell } from './WizardShell';
 import { StepButton } from './steps/step-controls';
 
-/** 新用户向导末页与老用户升级入口共用，组件安装继续使用现有 Skills API。 */
+/** 首次配置与未完成能力配置时共用，组件安装继续使用现有 Skills API。 */
 export function CapabilitySetup({
   onDone,
   children,

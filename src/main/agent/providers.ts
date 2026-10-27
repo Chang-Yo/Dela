@@ -61,7 +61,6 @@ const saveInputSchema = z
     models: modelsSchema,
     model: modelIdSchema,
     modelConfigs: z.record(modelIdSchema, modelSettingsSchema).optional(),
-    effortLevels: effortLevelsSchema,
     presetId: z.string().max(64).nullable().optional(),
   })
   .refine((input) => input.models.includes(input.model), {
@@ -108,7 +107,8 @@ export function listLlmProviders(): LlmProviderView[] {
 }
 
 /** 当前生效且持有密钥的提供商；agent 请求与 configured 状态的唯一来源。 */
-export function getActiveLlmProvider(): StoredLlmProvider | null {
+export function getActiveLlmProvider():
+  (StoredLlmProvider & { effortLevels: string[]; effort?: string }) | null {
   const config = loadLlmConfig();
   if (!config.activeId) return null;
   const provider = config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey);
@@ -121,7 +121,6 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
   const parsed = saveInputSchema.parse(input);
   const baseUrl = parsed.baseUrl.replace(/\/+$/, '');
   const presetId = parsed.presetId ?? null;
-  const effortLevels = normalizeEffortLevels(parsed.effortLevels);
   let config: StoredLlmConfig;
   try {
     config = loadLlmConfig();
@@ -139,7 +138,6 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       baseUrl,
       models: parsed.models,
       model: parsed.model,
-      effortLevels,
       presetId,
     });
     if (parsed.apiKey) provider.apiKey = parsed.apiKey;
@@ -152,14 +150,10 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       apiKey: parsed.apiKey,
       models: parsed.models,
       model: parsed.model,
-      effortLevels,
       presetId,
     };
     config.providers.push(provider);
   }
-  // 档位变化后收敛当前档位：仍在列表内则保留，否则回到第一档；关闭则清除。
-  if (provider.effort && !effortLevels.includes(provider.effort)) provider.effort = undefined;
-  if (!provider.effort && effortLevels.length) provider.effort = effortLevels[0];
   if (parsed.modelConfigs) {
     provider.modelConfigs = Object.fromEntries(
       Object.entries(parsed.modelConfigs).map(([id, settings]) => [
@@ -219,8 +213,7 @@ export function setLlmEffort(level: string): void {
   if (!levels.includes(parsed))
     throw new Error('该档位不在当前提供商开启的推理强度列表中，请先在设置中勾选');
   const settings = provider.modelConfigs?.[provider.model];
-  if (settings?.effortLevels) settings.effort = parsed;
-  else provider.effort = parsed;
+  settings!.effort = parsed;
   saveLlmConfig(config);
 }
 

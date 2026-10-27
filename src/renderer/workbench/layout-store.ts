@@ -18,13 +18,10 @@ import {
   nodeAtPath,
   parseWorkbenchLayout,
   removeGroup,
-  removeStoredLegacyLayout,
   replaceAtPath,
   replaceGroupNode,
-  seedLayoutFromLegacy,
   updateGroup,
   walkGroups,
-  type LegacySeedInput,
 } from './layout-schema';
 import type { EdgeZone } from './tab-dnd';
 import { relocateWorkspacePath } from '../../shared/workspace';
@@ -48,8 +45,8 @@ type Store = {
   maximized: string | null;
   /** init 完成前不渲染布局，避免默认空组闪一帧再被真实布局替换。 */
   ready: boolean;
-  /** 载入项目布局；无保存时用旧数据种子或默认单组。rapid 切换由 token 竞态保护。 */
-  init(projectId: string | null, legacy?: LegacySeedInput): Promise<void>;
+  /** 载入项目布局；无保存时用默认单组。rapid 切换由 token 竞态保护。 */
+  init(projectId: string | null): Promise<void>;
   /** 聚焦已有标签（无显式目标时）；显式目标组允许跨组重复打开（并排第二视图）。
    *  preview：作为该组的预览标签打开，就地替换组里现有的预览标签；已存在的常驻标签不降级。 */
   openTab(tabId: TabId, targetGroupId?: string, options?: { preview?: boolean }): void;
@@ -75,31 +72,13 @@ type Store = {
 // 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 const pendingSaves = new Set<Promise<boolean>>();
-// 当前项目布局成功落库后要清的旧视图键：dela.editor.layout.{scope} 是旧 ProjectView
-// 的布局事实（已迁移到 layout:{projectId}），agentOpen/agentWidth 是旧助手面板死键。
-// 布局保存失败不清理（下次变更重试）；项目快速切换时只清最后落库项目的键，
-// 未保存项目的旧键保留，供下次进入该项目时再次种子。
-let pendingLegacyScope: string | null = null;
-
-function clearLegacyViewKeys() {
-  if (pendingLegacyScope === null || typeof localStorage === 'undefined') return;
-  removeStoredLegacyLayout(pendingLegacyScope);
-  localStorage.removeItem('dela.workspace.agentOpen');
-  localStorage.removeItem('dela.workspace.agentWidth');
-  pendingLegacyScope = null;
-}
-
 function saveLayoutNow() {
   const api = typeof window === 'undefined' ? undefined : window.dela?.layout;
   if (!api) return Promise.resolve(false);
   const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
   const pending = api
     .save(projectId, { root, focus, maximized })
-    // 持久化失败不打断布局操作；下次变更会重试。首次成功后清除旧视图 localStorage 键。
-    .then(() => {
-      clearLegacyViewKeys();
-      return true;
-    })
+    .then(() => true)
     .catch(() => false);
   pendingSaves.add(pending);
   void pending.then(() => pendingSaves.delete(pending));
@@ -158,7 +137,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     schedulePersist();
   },
 
-  init: async (projectId, legacy) => {
+  init: async (projectId) => {
     // 同项目布局已在用（home↔工作台切换会重挂载宿主）：复用现态直接返回，不再置
     // ready=false 重走 IPC——那会让切换瞬间工作台空白一次，观感如同整页重载。
     if (get().ready && get().projectId === projectId) return;
@@ -178,14 +157,9 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       }
     }
     if (token !== initToken) return;
-    const next = collapseEmptyGroups(
-      parseWorkbenchLayout(saved) ??
-        (legacy ? seedLayoutFromLegacy(legacy) : createDefaultLayout()),
-    );
-    // 无论本次布局来自保存还是旧数据种子，落库成功后该项目的旧布局键都已成为死键。
-    pendingLegacyScope = legacy?.scope ?? null;
+    const next = collapseEmptyGroups(parseWorkbenchLayout(saved) ?? createDefaultLayout());
     set({ projectId, root: next.root, focus: next.focus, maximized: next.maximized, ready: true });
-    // 种子（含旧数据迁移）写回一次；loaded 场景写回相同数据无副作用；读取失败则不写回。
+    // 读取失败时不覆盖已存布局。
     if (!loadFailed) schedulePersist();
   },
 

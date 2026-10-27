@@ -4,7 +4,7 @@ import { registerBackupIpc } from './backup';
 import { registerCacheIpc } from './cache';
 import { registerConsentIpc } from './consent';
 import { join } from 'node:path';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase } from './database';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
@@ -18,7 +18,7 @@ import { openShuiyuanLinkInApp } from './shuiyuan/links';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc, locateBash } from './terminal';
-import { cleanupLegacyMinGit, prependRuntimePath } from './terminal/mingit';
+import { prependRuntimePath } from './terminal/mingit';
 import { closeHelper } from './remotes/helper';
 import { closeAllPortTunnels } from './remotes/ports';
 import { closeRemoteWatch } from './remotes/watch';
@@ -108,7 +108,6 @@ let stopUpdateCheck: (() => void) | undefined;
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
-let firstLaunch = false;
 
 // 托盘「退出」与引导条款页的「不同意并退出」共用：置位后 close 处理器不再拦成隐藏。
 function quitApp() {
@@ -177,13 +176,9 @@ app
       );
       if (app.isPackaged && !smokeTest) startHidden ||= app.getLoginItemSettings().wasOpenedAtLogin;
     } else Menu.setApplicationMenu(null);
-    // 必须在建库前判断；旧版本即使没有引导标记，也不应在升级后重新引导。
-    firstLaunch = !smokeTest && !existsSync(join(app.getPath('userData'), 'dela.db'));
     getDatabase();
     // 随包 MinGit 与搜索工具（rg/fd）前插 PATH：终端、Agent 的子进程一开始就能用 git/grep/find；
-    // 随包已有运行时时，顺手清掉旧版本自装进用户目录的 MinGit 副本。
     prependRuntimePath();
-    cleanupLegacyMinGit();
     registerPreviewProtocol();
     applyTheme(savedTheme());
     if (process.platform === 'darwin') {
@@ -291,7 +286,6 @@ async function createWindow(): Promise<void> {
       nodeIntegration: false,
       sandbox: true,
       additionalArguments: [
-        ...(firstLaunch ? ['--dela-first-launch'] : []),
         ...(app.isPackaged && process.argv.includes('--updated') ? ['--dela-updated'] : []),
       ],
     },

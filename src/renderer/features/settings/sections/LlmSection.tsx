@@ -630,7 +630,6 @@ function ProviderDetail({
         modelConfigs: Object.fromEntries(
           d.models.map((id) => [id, d.modelConfigs[id] ?? { effortLevels: [] }]),
         ),
-        effortLevels: [],
         presetId: provider.presetId,
       });
       if (d.apiKey) {
@@ -670,7 +669,6 @@ function ProviderDetail({
         modelConfigs: Object.fromEntries(
           models.map((id) => [id, modelConfigs[id] ?? { effortLevels: [] }]),
         ),
-        effortLevels: [],
         presetId: provider ? provider.presetId : presetId === 'custom' ? null : presetId,
       });
       // 新建后立即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。

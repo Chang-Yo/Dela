@@ -122,10 +122,7 @@ export async function importRemoteProject(
        WHERE remote_id=? AND local_path=? AND kind='project'`,
     )
     .get(connection.id, remotePath) as WorkspaceEntry | undefined;
-  if (existing) {
-    database.prepare('UPDATE workspace_entries SET removed=0 WHERE id=?').run(existing.id);
-    return existing;
-  }
+  if (existing) return existing;
   const id = randomUUID();
   database
     .prepare(
@@ -264,14 +261,6 @@ function rewriteStoredPaths(from: string, to: string) {
   }
 }
 
-function migrateWorkspaceRoot() {
-  const oldRoot = join(directory(), '工作区');
-  const root = join(directory(), 'workspace');
-  if (!existsSync(oldRoot) || existsSync(root)) return;
-  renameSync(oldRoot, root);
-  getDatabase().transaction(() => rewriteStoredPaths(oldRoot, root))();
-}
-
 type PendingMove = {
   from: string;
   to: string;
@@ -307,7 +296,6 @@ function ensureArchiveFolder() {
 }
 
 export function prepareStorage() {
-  migrateWorkspaceRoot();
   ensureArchiveFolder();
   const pending = setting('storage-move');
   if (pending) {
@@ -322,7 +310,7 @@ export function prepareStorage() {
 export function getWorkspaceState(): WorkspaceState {
   prepareStorage();
   const stored = getDatabase()
-    .prepare(`SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE removed=0`)
+    .prepare(`SELECT ${entryColumns}, local_path AS path FROM workspace_entries`)
     .all() as WorkspaceEntry[];
   const root = containerPath(null);
   const entries: WorkspaceEntry[] = [];
@@ -377,13 +365,9 @@ export function getWorkspaceState(): WorkspaceState {
   };
   for (const item of stored.filter((item) => item.kind === 'source'))
     entries.push({ ...item, path: undefined, parentId: parentOf(item) });
-  const views = getDatabase()
-    .prepare("SELECT key, value FROM workspace_settings WHERE key LIKE 'view:%'")
-    .all() as { key: string; value: string }[];
   return {
     // 归档文件夹自身不进条目列表（资料树只经归档区呈现它，子条目仍带其 parentId）。
     entries: entries.filter((item) => item.id !== workspaceArchiveId),
-    views: Object.fromEntries(views.map((v) => [v.key.slice(5), JSON.parse(v.value)])),
     directory: directory(),
   };
 }
@@ -398,7 +382,7 @@ export function entry(id: string): WorkspaceEntry {
     // 容器目录路径（去重键），不代表该目录的身份，必须排除，否则容器会被误判成 source。
     const stored = getDatabase()
       .prepare(
-        `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind != 'source' AND removed=0 AND remote_id IS NULL`,
+        `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind != 'source' AND remote_id IS NULL`,
       )
       .get(resolve(id)) as WorkspaceEntry | undefined;
     return fileEntry(resolve(id), stored?.parentId ?? null, stored);
@@ -559,10 +543,7 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
       `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind='project' AND remote_id IS NULL`,
     )
     .get(resolved) as WorkspaceEntry | undefined;
-  if (existing) {
-    db.prepare('UPDATE workspace_entries SET removed=0 WHERE id=?').run(existing.id);
-    return existing;
-  }
+  if (existing) return existing;
   const id = randomUUID();
   db.prepare(
     `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
@@ -577,16 +558,6 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
     new Date().toISOString(),
   );
   return entry(id);
-}
-
-function unregisterProject(id: string): void {
-  const db = getDatabase();
-  db.transaction(() => {
-    const used = db.prepare('SELECT 1 FROM sessions WHERE project_id=? LIMIT 1').get(id);
-    if (used)
-      db.prepare("UPDATE workspace_entries SET kind='project', removed=1 WHERE id=?").run(id);
-    else db.prepare('DELETE FROM workspace_entries WHERE id=?').run(id);
-  })();
 }
 
 export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntryUpdate {
@@ -614,6 +585,8 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     checkParent(parsed.parentId, current.kind === 'source' ? undefined : id);
   if (parsed.kind && current.kind !== 'folder' && current.kind !== 'project')
     throw new Error('只有文件夹可以作为项目开展');
+  // 降格同样删除项目行：名下还有子项目时与移除一样拒绝。
+  if (parsed.kind === 'folder' && current.kind === 'project') assertNoChildProjects(current.id);
   if (current.kind === 'source') {
     getDatabase()
       .prepare(
@@ -682,7 +655,8 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       getDatabase().prepare("UPDATE workspace_entries SET kind='project' WHERE id=?").run(nextId);
     }
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
-    unregisterProject(current.id);
+    // 降格：删除条目行（项目会话经 FK 转为通用），目录回到纯路径身份。
+    getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
     nextId = to;
   }
   return { id: nextId, ...(from !== to ? { fromPath: from, toPath: to } : {}) };
@@ -802,12 +776,33 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
   return next;
 }
 
+/** 删除/降格项目行之前的守卫：外键级联会带走子项目的登记行，却删不掉它们的会话
+ *  （残留成随聊）。拒绝并点名，让用户逐个处理。 */
+function assertNoChildProjects(projectId: string): void {
+  const children = getDatabase()
+    .prepare("SELECT name FROM workspace_entries WHERE parent_id=? AND kind='project'")
+    .all(projectId) as { name: string }[];
+  if (children.length)
+    throw new Error(
+      `项目下还有项目（${children.map((child) => child.name).join('、')}），请先移除它们`,
+    );
+}
+
 export async function removeWorkspaceEntry(value: unknown): Promise<void> {
   const id = workspaceEntryIdSchema.parse(value);
   if (id === workspaceArchiveId) throw new Error('归档文件夹不能移除');
   const item = entry(id);
   if (item.kind === 'project') {
-    unregisterProject(item.id);
+    assertNoChildProjects(item.id);
+    // 「移除项目」＝项目终结：名下会话（含归档）一并删除，目录与文件保留。
+    // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
+    const { deleteSession, invalidateSessions } = await import('../agent/session');
+    const ids = getDatabase()
+      .prepare('SELECT id FROM sessions WHERE project_id=?')
+      .all(item.id) as { id: string }[];
+    for (const row of ids) await deleteSession(row.id);
+    invalidateSessions();
+    getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
     return;
   }
   if (item.kind === 'source') {

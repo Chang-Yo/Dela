@@ -38,14 +38,14 @@ function createDb(): Database.Database {
     CREATE TABLE workspace_entries (
       id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
       name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL, removed INTEGER NOT NULL DEFAULT 0);
+      updated_at TEXT NOT NULL);
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE remotes (id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL,
       port INTEGER, key_path TEXT, created_at TEXT NOT NULL);
     CREATE TABLE sessions (
       id TEXT PRIMARY KEY, project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
       file TEXT NOT NULL, title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
-      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, cwd TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
   `);
   return db;
@@ -121,10 +121,11 @@ describe('远程项目主进程链路（真机）', () => {
     expect(count).toEqual({ n: 1 });
   }, 60_000);
 
-  it('还有项目在用连接时拒绝删除，移除项目后可以删', async () => {
-    expect(() => removeRemote(connectionId)).toThrow('该连接下还有项目');
-    state.db!.prepare('DELETE FROM workspace_entries').run();
-    removeRemote(connectionId);
+  it('删除连接时名下项目一并移除', async () => {
+    await removeRemote(connectionId);
     expect(listRemotes()).toEqual([]);
+    expect(
+      state.db!.prepare("SELECT count(*) AS n FROM workspace_entries WHERE kind='project'").get(),
+    ).toEqual({ n: 0 });
   });
 });

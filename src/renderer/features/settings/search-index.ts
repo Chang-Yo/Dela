@@ -126,12 +126,6 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '布局重置',
     keywords: ['工作区', '布局', '重置', '分屏', '标签', 'reset'],
   },
-  {
-    id: 'hidden-projects',
-    section: 'workspace',
-    title: '已隐藏项目',
-    keywords: ['工作区', '隐藏', '项目', '恢复入口', 'hide'],
-  },
   // 已归档
   {
     id: 'archived-chats',

@@ -6,7 +6,6 @@ import {
   getAgentInstruction,
   getKeybindingOverrides,
   getTaskNotificationPrefs,
-  getWorkspacePrefs,
   iconSchema,
   normalizeFontSize,
   resetKeybindingOverrides,
@@ -22,7 +21,6 @@ import {
   setCampusNotifications,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
-  setWorkspacePrefs,
   themeSchema,
   writeSetting,
   zoomSchema,
@@ -96,10 +94,8 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:get-open-at-login', (event) => {
     checkWorkspaceSender(event);
     if (!app.isPackaged) return savedOpenAtLogin();
-    // Windows 按完整命令行比对注册表启动项；新版写入带 --hidden、旧版不带，两种形态都要认。
     return process.platform === 'win32'
-      ? app.getLoginItemSettings().openAtLogin ||
-          app.getLoginItemSettings({ args: ['--hidden'] }).openAtLogin
+      ? app.getLoginItemSettings({ args: ['--hidden'] }).openAtLogin
       : app.getLoginItemSettings().openAtLogin;
   });
   ipcMain.handle('settings:set-open-at-login', (event, value) => {
@@ -142,15 +138,6 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:set-task-notifications', (event, value) => {
     checkWorkspaceSender(event);
     return setTaskNotificationPrefs(value);
-  });
-  // 工作现场偏好：启动恢复上次项目与标签、默认笔记编辑方式。
-  ipcMain.handle('settings:get-workspace-prefs', (event) => {
-    checkWorkspaceSender(event);
-    return getWorkspacePrefs();
-  });
-  ipcMain.handle('settings:set-workspace-prefs', (event, value) => {
-    checkWorkspaceSender(event);
-    return setWorkspacePrefs(value);
   });
   // 快捷键覆盖项：renderer 用默认表合并后派发；这里只负责校验与持久化。
   ipcMain.handle('settings:get-keybindings', (event) => {

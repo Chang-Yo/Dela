@@ -35,7 +35,7 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   useWorkspaceStore.setState({
-    workspace: { entries: [project], views: {}, directory: '/tmp/dela' } as WorkspaceState,
+    workspace: { entries: [project], directory: '/tmp/dela' } as WorkspaceState,
     loaded: true,
     error: null,
   });
@@ -128,7 +128,7 @@ it('shows a remote project with the cloud icon and its connection colour', async
     remoteId: 'r-1',
   };
   useWorkspaceStore.setState({
-    workspace: { entries: [project, remote], views: {}, directory: '/tmp/dela' } as WorkspaceState,
+    workspace: { entries: [project, remote], directory: '/tmp/dela' } as WorkspaceState,
     loaded: true,
     error: null,
   });
@@ -148,4 +148,29 @@ it('shows a remote project with the cloud icon and its connection colour', async
   // 远端行不再挂原生 title：连接信息（目的地、远端根、在不在连）交给悬浮提示。
   expect(remoteLabel.title).toBe('');
   expect(localRow.querySelector<HTMLButtonElement>('button[title]')?.title).toBe(project.name);
+});
+
+it.each([undefined, 'r-1'])('项目菜单提供独立的移除确认入口（remoteId=%s）', async (remoteId) => {
+  useWorkspaceStore.setState({
+    workspace: { entries: [{ ...project, remoteId }], directory: '/tmp/dela' },
+  });
+  await render(null);
+  const trigger = document.querySelector<HTMLButtonElement>('[aria-label="Test 的项目菜单"]')!;
+  await act(async () => trigger.focus());
+  await act(async () =>
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })),
+  );
+  const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  expect(items.some((item) => item.textContent?.trim() === '归档项目对话')).toBe(true);
+  const remove = items.find((item) => item.textContent?.trim() === '移除项目');
+  expect(remove).toBeDefined();
+  await act(async () => remove!.click());
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog?.textContent).toContain('删除其全部聊天记录');
+  expect(dialog?.textContent).toContain(remoteId ? '远端目录与文件保留' : '目录与文件保留');
+  await act(async () => {
+    [...dialog!.querySelectorAll('button')]
+      .find((button) => button.textContent === '取消')!
+      .click();
+  });
 });
