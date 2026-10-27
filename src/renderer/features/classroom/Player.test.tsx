@@ -100,6 +100,16 @@ it('offers a restart link that clears the saved position', async () => {
   expect(container.querySelector('[role="status"]')).toBeNull();
 });
 
+it('lets a transcript seek override the saved position', async () => {
+  savePlaybackProgress(video.id, 120);
+  classroom.state.seekRequest = { videoId: video.id, seconds: 60 };
+  const element = await renderPlayer();
+  await fire(element, 'loadedmetadata');
+  expect(element.currentTime).toBe(60);
+  expect(readPlaybackProgress(video.id)).toBe(60);
+  expect(classroom.state.seekRequest).toBeNull();
+});
+
 it('saves the current second on pause and clears progress after the lecture ends', async () => {
   const element = await renderPlayer();
   element.currentTime = 45.8;
