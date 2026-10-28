@@ -8,7 +8,7 @@ import { errorText, useWorkspaceStore } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 
 const pill =
-  'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 text-xs text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink';
+  'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink';
 const panel = 'z-50 w-64 rounded-card bg-surface p-1 shadow-raised';
 const searchRow = 'mb-1 flex items-center gap-2 rounded-control px-2 py-1.5 text-ink-3';
 const searchInput =

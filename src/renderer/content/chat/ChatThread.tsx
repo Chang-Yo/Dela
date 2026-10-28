@@ -206,26 +206,26 @@ const UserMessage = memo(function UserMessage({
         </div>
       ) : null}
       {message.attachments?.length ? (
-        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
           {message.attachments.map((attachment, index) => (
             <span
-              className="flex min-w-0 max-w-full items-center gap-1 rounded-chip bg-field px-1.5 py-0.5 text-xs text-ink-2 shadow-hairline"
+              className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field px-2 text-xs text-ink-2 shadow-hairline"
               key={`${attachment.name}:${index}`}
               title={attachment.name}
             >
-              <FileText className="size-3 shrink-0 text-ink-3" />
+              <FileText className="size-3.5 shrink-0 text-ink-3" />
               <span className="truncate">{attachment.name}</span>
             </span>
           ))}
         </div>
       ) : null}
       {message.sources?.length ? (
-        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1">
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
           {message.sources.map((source) =>
             onOpenSource ? (
               <button
                 key={source.key}
-                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-xs text-ink-2 shadow-hairline transition-colors hover:bg-hover-2 hover:text-ink"
+                className="h-7 max-w-full truncate rounded-control bg-field px-2 text-xs leading-7 text-ink-2 shadow-hairline transition-colors hover:bg-hover-2 hover:text-ink"
                 onClick={() => onOpenSource(source.key)}
               >
                 {source.title}
@@ -233,7 +233,7 @@ const UserMessage = memo(function UserMessage({
             ) : (
               <span
                 key={source.key}
-                className="max-w-full truncate rounded-chip bg-field px-1.5 py-0.5 text-xs text-ink-2 shadow-hairline"
+                className="h-7 max-w-full truncate rounded-control bg-field px-2 text-xs leading-7 text-ink-2 shadow-hairline"
               >
                 {source.title}
               </span>
