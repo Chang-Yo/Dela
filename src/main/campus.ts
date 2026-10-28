@@ -10,6 +10,7 @@ import {
 } from 'electron';
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { attachContextMenu } from './ipc';
 
 export const CAMPUS_PARTITION = 'persist:dela-campus';
@@ -97,6 +98,8 @@ export interface CampusRequestOptions {
   service: string;
   /** 登录失效（重定向、401/403）时的报错。 */
   loginError: string;
+  /** 接口另用此状态码表示未登录（交大视频身份接口返回 500）。 */
+  loginStatus?: number;
   method?: 'GET' | 'POST';
   headers?: Record<string, string>;
   body?: string;
@@ -144,7 +147,12 @@ export function campusRequest(
         fail(new Error(`${options.service}返回了无效状态，请稍后重试或重新登录`));
         return;
       }
-      if (status === 401 || status === 403 || (status >= 300 && status < 400)) {
+      if (
+        status === 401 ||
+        status === 403 ||
+        status === options.loginStatus ||
+        (status >= 300 && status < 400)
+      ) {
         fail(new CampusAuthError(options.loginError));
         return;
       }
@@ -297,4 +305,40 @@ export async function openCampusLoginWindow(
   });
   loginWindows.set(key, { window: loginWindow, result });
   return result;
+}
+
+const HIDDEN_LOGIN_PROBES = 30;
+
+/**
+ * 不弹窗地在校园分区加载一次性登录地址，每秒探测一次，探测通过即完成。
+ * 目标站点可能在页面脚本的首个接口请求里才下发会话，因此不以导航到达为准。
+ */
+export async function hiddenCampusLogin(url: string, probe: () => Promise<void>): Promise<void> {
+  await getCampusSession();
+  const window = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      partition: CAMPUS_PARTITION,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  try {
+    let failure: unknown;
+    window.loadURL(url).catch((error: unknown) => (failure = error));
+    for (let attempt = 1; ; attempt++) {
+      await delay(1000);
+      if (failure) throw failure;
+      try {
+        await probe();
+        return;
+      } catch (error) {
+        if (attempt >= HIDDEN_LOGIN_PROBES) throw new Error('登录超时', { cause: error });
+      }
+    }
+  } finally {
+    window.destroy();
+  }
 }

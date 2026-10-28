@@ -18,6 +18,7 @@ import {
   setVideoDownloadDirectory,
 } from '../settings/prefs';
 import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../campus';
+import { loadCanvasToken } from '../credentials';
 import {
   checkVideoLogin,
   getStreams,
@@ -25,6 +26,7 @@ import {
   listVideos,
   getTranscript,
   formatTranscript,
+  loginWithCanvas,
   VIDEO_HOME,
 } from './api';
 import { safeFileName } from './transcript';
@@ -147,8 +149,16 @@ export function registerVsjtuIpc(): void {
     checkWorkspaceSender(event);
     downloadEnabled();
   };
-  ipcMain.handle('vsjtu:connect', (event) => {
+  ipcMain.handle('vsjtu:connect', async (event) => {
     check(event);
+    if (loadCanvasToken())
+      try {
+        await loginWithCanvas();
+        await checkVideoLogin();
+        return { ok: true as const };
+      } catch {
+        // Canvas 登录失败时回落到官方登录窗口，由用户手动登录。
+      }
     return openCampusLoginWindow({
       sender: event.sender,
       title: '登录交大视频',

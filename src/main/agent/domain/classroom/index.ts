@@ -15,7 +15,7 @@ const id = z.number().int().positive();
 
 export const classroomTools = {
   list_classroom_courses: tool(
-    '联网列出本学期课堂视频课程，返回教学班 ID。需要先在课堂视频页面登录。',
+    '联网列出本学期课堂视频课程，返回教学班 ID。已连接 Canvas 时自动登录，否则需要先在课堂视频页面登录。',
     z.object({ query, offset, limit }).strict(),
     async ({ query, offset, limit }) =>
       page(
