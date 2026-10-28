@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
+import {
+  app,
+  autoUpdater as electronAutoUpdater,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  shell,
+  Tray,
+} from 'electron';
 import { registerTodoIpc, refreshTodos } from './todo';
 import { registerBackupIpc } from './backup';
 import { registerCacheIpc } from './cache';
@@ -114,6 +124,10 @@ function quitApp() {
   quitting = true;
   app.quit();
 }
+
+electronAutoUpdater.on('before-quit-for-update', () => {
+  quitting = true;
+});
 
 app.on('second-instance', () => {
   if (mainWindow && !mainWindow.isDestroyed()) showMainWindow(mainWindow);
