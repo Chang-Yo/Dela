@@ -8,9 +8,17 @@ import {
 } from 'pdfjs-dist';
 import { EventBus, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  MessageCircle,
+  Minus,
+  MoveHorizontal,
+  Plus,
+} from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { errorText } from '../../workspace/store';
+import { showToast } from '../../app/toasts';
 import 'pdfjs-dist/web/pdf_viewer.css';
 
 declare const __PDF_ASSET_DIR__: string;
@@ -24,10 +32,12 @@ export function PdfReader({
   url,
   scroll,
   onScroll,
+  onAskPage,
 }: {
   url: string;
   scroll: number;
   onScroll?: (top: number) => void;
+  onAskPage?: (page: number, bytes: ArrayBuffer, text: string) => Promise<void>;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const pages = useRef<HTMLDivElement>(null);
@@ -41,6 +51,7 @@ export function PdfReader({
   const [current, setCurrent] = useState(1);
   const [pageInput, setPageInput] = useState('1');
   const [zoom, setZoom] = useState(1);
+  const [asking, setAsking] = useState(false);
   useEffect(() => {
     let disposed = false;
     let initialized = false;
@@ -189,6 +200,33 @@ export function PdfReader({
     if (viewer.current && Number.isFinite(page) && pageCount)
       viewer.current.currentPageNumber = Math.min(pageCount, Math.max(1, Math.trunc(page)));
   };
+  const askCurrentPage = async () => {
+    if (!viewer.current || !pageCount || !onAskPage || asking) return;
+    const page = viewer.current.currentPageNumber;
+    const pageView = viewer.current.getPageView(page - 1).div;
+    const canvas = (pageView as HTMLElement).querySelector('canvas');
+    if (!canvas) throw new Error('当前页面还没有完成渲染，请稍后再试');
+    setAsking(true);
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+          (value: Blob | null) =>
+            value ? resolve(value) : reject(new Error('当前页面无法生成截图')),
+          'image/png',
+        ),
+      );
+      const pdfPage = viewer.current.getPageView(page - 1).pdfPage;
+      const textContent = pdfPage ? await pdfPage.getTextContent() : null;
+      const text =
+        textContent?.items
+          .map((item: { str?: string }) => item.str ?? '')
+          .filter(Boolean)
+          .join(' ') ?? '';
+      await onAskPage(page, await blob.arrayBuffer(), text);
+    } finally {
+      setAsking(false);
+    }
+  };
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* safe 居中：工具组窄于容器时居中，放不下时对齐起点并横向滚动（居中溢出会把两侧按钮裁成不可达）。 */}
@@ -267,6 +305,26 @@ export function PdfReader({
         >
           <Plus />
         </Button>
+        {onAskPage && (
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-label="询问当前 PDF 页面"
+            disabled={!pageCount || asking}
+            onClick={() =>
+              void askCurrentPage().catch((error) =>
+                showToast({
+                  variant: 'error',
+                  title: '打开 PDF 提问失败',
+                  description: errorText(error),
+                }),
+              )
+            }
+          >
+            <MessageCircle />
+            {asking ? '准备中…' : '问当前页'}
+          </Button>
+        )}
       </div>
       <div className="relative min-h-0 flex-1">
         <div

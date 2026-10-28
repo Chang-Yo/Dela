@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { FileOutput, Loader2, Play, RotateCcw, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { FileOutput, Loader2, MessageCircle, Play, RotateCcw, Search } from 'lucide-react';
 import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../../shared/vsjtu';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -9,6 +9,7 @@ import { errorText } from '../../workspace/store';
 import { cn } from '../../lib/utils';
 import { formatTime, lectureFileName, lectureTitle } from './player-format';
 import { useClassroom } from './store';
+import { openStudyChat } from '../../lib/study-context';
 
 export function TranscriptPanel() {
   const course = useClassroom((state) =>
@@ -29,6 +30,8 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
   const [query, setQuery] = useState('');
   const [reload, setReload] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const transcriptRef = useRef<HTMLDivElement>(null);
   const time = useClassroom((state) => state.playbackTime);
   const seekTo = useClassroom((state) => state.seekTo);
 
@@ -72,6 +75,44 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
     }
   };
 
+  const askSelectedText = async () => {
+    const text = selectedText.trim();
+    if (!text) return;
+    const selectedSegments =
+      transcript?.segments.filter(
+        (segment) => text.includes(segment.text) || segment.text.includes(text),
+      ) ?? [];
+    const first = selectedSegments[0];
+    const last = selectedSegments.at(-1) ?? first;
+    try {
+      await openStudyChat({
+        prompt: [
+          '请围绕我在课堂字幕中选中的内容回答后续问题。',
+          `课程：${course.name}`,
+          `录播：${lectureTitle(video)}`,
+          first && last
+            ? `字幕位置：${formatTime(first.startMs / 1000)}–${formatTime(last.endMs / 1000)}`
+            : '字幕位置：用户选中的片段',
+          `用户选中的字幕：\n${text.slice(0, 12000)}`,
+          '请先解释选段，再指出它和前后知识点的关系；回答需要引用字幕时间位置。',
+        ].join('\n'),
+        sessionKey: `lecture:${video.id}`,
+      });
+      setSelectedText('');
+    } catch (cause) {
+      showToast({ variant: 'error', title: '打开字幕提问失败', description: errorText(cause) });
+    }
+  };
+
+  const captureSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !transcriptRef.current) return;
+    const range = selection.getRangeAt(0);
+    if (!transcriptRef.current.contains(range.commonAncestorContainer)) return;
+    const text = selection.toString().trim();
+    if (text) setSelectedText(text);
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-3 pb-2">
@@ -98,12 +139,23 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
           >
             {exporting ? <Loader2 className="animate-spin" /> : <FileOutput />}
           </IconButton>
+          {selectedText && (
+            <IconButton
+              aria-label="询问选中的字幕"
+              title="询问选中的字幕"
+              onClick={() => void askSelectedText()}
+            >
+              <MessageCircle />
+            </IconButton>
+          )}
         </div>
       </div>
       <div
+        ref={transcriptRef}
         className="min-h-0 flex-1 overflow-y-auto px-2 pb-3"
         aria-label="语音文稿"
         aria-busy={loading}
+        onMouseUp={captureSelection}
       >
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-6 text-xs text-ink-3">

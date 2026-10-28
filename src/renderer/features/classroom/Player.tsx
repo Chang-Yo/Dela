@@ -7,6 +7,7 @@ import {
   Check,
   Download,
   Loader2,
+  MessageCircle,
   Maximize,
   Minimize,
   Pause,
@@ -33,6 +34,8 @@ import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
 import { formatTime, lectureMeta, lectureTitle } from './player-format';
 import { SeekBar } from './SeekBar';
 import { useClassroom } from './store';
+import { canvasBytes, openStudyChat } from '../../lib/study-context';
+import { showToast } from '../../app/toasts';
 
 const RATE_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
 const VOLUME_KEY = 'dela.classroom.volume';
@@ -80,10 +83,11 @@ export function Player({
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
   const [reloadSeq, setReloadSeq] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(() => useClassroom.getState().playbackTime);
   const [scrubTime, setScrubTime] = useState<number | null>(null);
   const [duration, setDuration] = useState(0);
   const [bufferedEnd, setBufferedEnd] = useState(0);
+  const [asking, setAsking] = useState(false);
   const [volume, setVolume] = useState(() => Math.min(1, Math.max(0, readNumber(VOLUME_KEY, 1))));
   const [rate, setRate] = useState(() => readNumber(RATE_KEY, 1));
   const [fullscreen, setFullscreen] = useState(false);
@@ -116,7 +120,7 @@ export function Player({
     setActiveIndex(0);
     setFailed(false);
     setReloadSeq(0);
-    setCurrentTime(0);
+    setCurrentTime(useClassroom.getState().playbackTime);
     setDuration(0);
     setBufferedEnd(0);
   }, [video.id]);
@@ -168,6 +172,62 @@ export function Player({
   const retry = () => {
     setFailed(false);
     setReloadSeq((seq) => seq + 1);
+  };
+
+  const askCurrentContext = async () => {
+    if (asking) return;
+    setAsking(true);
+    try {
+      const transcript = await window.dela!.vsjtu.transcript(video.id);
+      const start = Math.max(0, currentTime - 30) * 1000;
+      const end = (currentTime + 30) * 1000;
+      const nearby = transcript?.segments.filter(
+        (segment) => segment.endMs >= start && segment.startMs <= end,
+      );
+      const image = videoRef.current;
+      let frame: ArrayBuffer | undefined;
+      if (image && image.videoWidth > 0 && image.videoHeight > 0) {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 1280 / image.videoWidth);
+        canvas.width = Math.max(1, Math.round(image.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.videoHeight * scale));
+        try {
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('当前视频画面不可截图');
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          frame = await canvasBytes(canvas);
+        } catch {
+          // 跨域或受保护的视频可能无法导出画面；字幕上下文仍然可用。
+          frame = undefined;
+        }
+      }
+      const timestamp = formatTime(currentTime);
+      await openStudyChat({
+        prompt: [
+          '请围绕当前课堂位置回答我的后续问题。',
+          `课程：${course.name}`,
+          `录播：${lectureTitle(video)}`,
+          `当前时间：${timestamp}`,
+          `当前画面：${active ? `画面 ${active.view}` : '未知'}`,
+          nearby?.length
+            ? `附近字幕（约前后 30 秒）：\n${nearby.map((segment) => `[${formatTime(segment.startMs / 1000)}] ${segment.text}`).join('\n')}`
+            : '当前录播没有返回可用字幕。',
+          '请在回答中引用当前时间；如果需要其他课件或更早内容，请明确告诉我需要补充什么。',
+        ].join('\n'),
+        sessionKey: `lecture:${video.id}`,
+        images: frame
+          ? [{ name: `${lectureTitle(video)} · ${timestamp}.png`, bytes: frame }]
+          : undefined,
+      });
+    } catch (error) {
+      showToast({
+        variant: 'error',
+        title: '打开课堂提问失败',
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setAsking(false);
+    }
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -223,6 +283,14 @@ export function Player({
           title="下载当前画面"
         >
           {streamsLoading ? <Loader2 className="animate-spin" /> : <Download />}
+        </IconButton>
+        <IconButton
+          aria-label="询问当前课堂位置"
+          disabled={asking || !active}
+          onClick={() => void askCurrentContext()}
+          title="询问当前课堂位置"
+        >
+          {asking ? <Loader2 className="animate-spin" /> : <MessageCircle />}
         </IconButton>
       </div>
       <div className="mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-card bg-black shadow-hairline">

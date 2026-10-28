@@ -9,6 +9,7 @@ import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
+import { openStudyChat } from '../../lib/study-context';
 import type { TabId } from '../../../shared/layout';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
@@ -160,6 +161,21 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
     load();
     loader.onExported?.(tabId);
   };
+  const askPdfPage = async (title: string, page: number, bytes: ArrayBuffer, text: string) => {
+    await openStudyChat({
+      prompt: [
+        `请阅读并讲解这份 PDF 的第 ${page} 页。`,
+        `资料：${title}`,
+        `本次只附上第 ${page} 页图片；没有附上其他页。`,
+        text
+          ? `该页 PDF 文字层（只作为辅助核对，页面图片优先）：\n${text}`
+          : '该页没有可用文字层，请完全依据页面图片理解。',
+        `请优先解释页面上的公式、图表、关键概念和容易误解的地方，并在回答中明确引用第 ${page} 页。`,
+      ].join('\n'),
+      sessionKey: `pdf:${title}`,
+      images: [{ name: `${title} · 第 ${page} 页.png`, bytes }],
+    });
+  };
 
   return (
     <section
@@ -210,6 +226,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
               url={content.previewUrl}
               scroll={scroll}
               onScroll={onScroll}
+              onAskPage={(page, bytes, text) => askPdfPage(content.title, page, bytes, text)}
             />
           </Suspense>
         ) : (
@@ -248,6 +265,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
                 url={exported.previewUrl}
                 scroll={scroll}
                 onScroll={onScroll}
+                onAskPage={(page, bytes, text) => askPdfPage(content.title, page, bytes, text)}
               />
             </Suspense>
           ) : (
