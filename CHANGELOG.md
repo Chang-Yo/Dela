@@ -11,6 +11,10 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
+## Unreleased
+
+- 修复 macOS 安装更新时只关闭窗口而未退出进程的问题。
+
 ## 2.2.1 - 2026-10-27
 
 - 修复聊天消息中行内代码文字颜色过深的问题，改为继承正文颜色。
