@@ -46,8 +46,7 @@ export function CourseList() {
   const loading = useClassroom((state) => state.videosLoading[state.selectedCourseId ?? -1]);
   const error = useClassroom((state) => state.videosError[state.selectedCourseId ?? -1]);
   const ensureVideos = useClassroom((state) => state.ensureVideos);
-  if (!course)
-    return <p className="px-3 py-6 text-center text-xs text-ink-3">本学期暂无课堂录像课程</p>;
+  if (!course) return <p className="px-3 py-6 text-center text-xs text-ink-3">暂无课堂录像课程</p>;
   return (
     <nav aria-label="节次" className="flex flex-col gap-1 px-2 pb-2">
       {loading && !videos ? (

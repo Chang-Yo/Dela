@@ -3,7 +3,7 @@ import { invoke, on } from './lib';
 export const vsjtu = {
   connect: () => invoke('vsjtu:connect'),
   listCourses: () => invoke('vsjtu:list-courses'),
-  listVideos: (id: number) => invoke('vsjtu:list-videos', id),
+  listVideos: (id: number, source?: 'canvas') => invoke('vsjtu:list-videos', id, source),
   streams: (id: number) => invoke('vsjtu:streams', id),
   transcript: (id: number) => invoke('vsjtu:transcript', id),
   exportTranscript: (id: number, title: string) => invoke('vsjtu:export-transcript', id, title),

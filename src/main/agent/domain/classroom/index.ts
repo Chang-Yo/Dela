@@ -15,7 +15,7 @@ const id = z.number().int().positive();
 
 export const classroomTools = {
   list_classroom_courses: tool(
-    '联网列出本学期课堂视频课程，返回教学班 ID。已连接 Canvas 时自动登录，否则需要先在课堂视频页面登录。',
+    '列出课堂视频课程。已连接 Canvas 时与资料共用已同步课程，返回 Canvas ID 和 source=canvas；否则联网查询本学期视频课程，返回教学班 ID。后续查询须原样传递 id 和 source。',
     z.object({ query, offset, limit }).strict(),
     async ({ query, offset, limit }) =>
       page(
@@ -25,9 +25,10 @@ export const classroomTools = {
       ),
   ),
   list_classroom_videos: tool(
-    '联网列出指定教学班的录像节次；返回的录像 id 用于读取或下载语音文稿。',
-    z.object({ courseId: id, offset, limit }).strict(),
-    async ({ courseId, offset, limit }) => page(await listVideos(courseId), offset, limit),
+    '联网列出课程录像节次；Canvas 课程须传 source=canvas，由该课官方视频入口解析教学班。返回的录像 id 用于读取或下载语音文稿。',
+    z.object({ courseId: id, source: z.literal('canvas').optional(), offset, limit }).strict(),
+    async ({ courseId, source, offset, limit }) =>
+      page(await listVideos(courseId, source), offset, limit),
   ),
   read_classroom_transcript: tool(
     '读取录像时间范围内的语音文稿，不写文件、不要求工作区。时间单位为秒，默认读取前五分钟；包含与区间重叠的完整段落，正文按字符分页，nextOffset 用于同一区间续读。',
@@ -65,14 +66,21 @@ export const classroomTools = {
   download_classroom_transcripts: tool(
     '将同一课程中选定节次的完整文稿逐节保存为 TXT，返回各项结果，不返回正文。必须明确指定本机绝对目录；已有文件不覆盖。不支持远端目录。',
     z
-      .object({ courseId: id, videoIds: z.array(id).min(1).max(100), directory: z.string().min(1) })
+      .object({
+        courseId: id,
+        source: z.literal('canvas').optional(),
+        videoIds: z.array(id).min(1).max(100),
+        directory: z.string().min(1),
+      })
       .strict(),
-    async ({ courseId, videoIds, directory }) => {
+    async ({ courseId, source, videoIds, directory }) => {
       if (!isAbsolute(directory)) throw new Error('请指定本机文件夹的绝对路径');
       if (!(await stat(directory)).isDirectory()) throw new Error('保存位置不是文件夹');
-      const course = (await listCourses()).find((course) => course.id === courseId);
+      const course = (await listCourses()).find(
+        (course) => course.id === courseId && course.source === source,
+      );
       if (!course) throw new Error('未找到指定课程，请先列出课堂视频课程');
-      const videos = await listVideos(courseId);
+      const videos = await listVideos(courseId, source);
       const selected = [...new Set(videoIds)].map((id) => {
         const video = videos.find((video) => video.id === id);
         if (!video) throw new Error(`录像 ${id} 不在指定课程中`);

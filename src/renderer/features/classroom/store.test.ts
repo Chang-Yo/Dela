@@ -4,6 +4,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { VsjtuApi } from '../../../shared/vsjtu';
 import { useClassroom } from './store';
+import type { ClassroomVideo } from '../../../shared/vsjtu';
 
 const toast = vi.hoisted(() => vi.fn());
 vi.mock('../../app/toasts', () => ({ showToast: toast }));
@@ -11,7 +12,7 @@ vi.mock('../../app/toasts', () => ({ showToast: toast }));
 const vsjtu = {
   connect: vi.fn(),
   listCourses: vi.fn(),
-  listVideos: vi.fn(async () => []),
+  listVideos: vi.fn(async () => [] as ClassroomVideo[]),
   streams: vi.fn(async () => []),
   transcript: vi.fn(async () => null),
   exportTranscript: vi.fn(async () => ({ saved: false })),
@@ -134,6 +135,43 @@ it('成功空录像作为已加载结果保存，再次展开不重复请求', a
   });
   expect(vsjtu.listVideos).toHaveBeenCalledTimes(1);
   expect(toast).not.toHaveBeenCalled();
+});
+
+it('Canvas 课程查询录像时保留来源，避免把 Canvas ID 当成教学班 ID', async () => {
+  useClassroom.setState({ courses: [{ id: 42, code: 'PHYS', name: '物理', source: 'canvas' }] });
+  await useClassroom.getState().ensureVideos(42);
+  expect(vsjtu.listVideos).toHaveBeenCalledWith(42, 'canvas');
+});
+
+it('同一来源刷新课程列表时保留已选录像及缓存', async () => {
+  const course = { id: 42, code: 'PHYS', name: '物理', source: 'canvas' as const };
+  const videos = [{ id: 7, start: '', end: '', room: '', period: '' }];
+  useClassroom.setState({
+    courses: [course],
+    selectedCourseId: 42,
+    selectedVideoId: 7,
+    videos: { 42: videos },
+  });
+  vsjtu.listCourses.mockResolvedValue([course]);
+  await useClassroom.getState().refresh();
+  expect(useClassroom.getState().selectedVideoId).toBe(7);
+  expect(useClassroom.getState().videos[42]).toEqual(videos);
+  expect(vsjtu.listVideos).not.toHaveBeenCalled();
+});
+
+it('刷新切换到 Canvas 来源时丢弃旧来源同号课程的录像与在途结果', async () => {
+  let finish!: (videos: ClassroomVideo[]) => void;
+  vsjtu.listVideos.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+  useClassroom.setState({ courses: [{ id: 42, code: 'OLD', name: '旧课程' }] });
+  const pending = useClassroom.getState().ensureVideos(42);
+  vsjtu.listCourses.mockResolvedValue([
+    { id: 42, code: 'PHYS', name: 'Canvas 课程', source: 'canvas' },
+  ]);
+  await useClassroom.getState().refresh();
+  await vi.waitFor(() => expect(vsjtu.listVideos).toHaveBeenCalledWith(42, 'canvas'));
+  finish([{ id: 7, start: '', end: '', room: '', period: '' }]);
+  await pending;
+  expect(useClassroom.getState().videos[42]).toEqual([]);
 });
 
 it('切换课程清空当前节次，交错完成的录像请求仍正确缓存且不自动播放', async () => {

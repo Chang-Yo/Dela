@@ -23,14 +23,19 @@ vi.mock('electron', () => ({
             statusCode: server.statuses.shift() ?? 200,
           });
           request.emit('response', response);
-          response.emit('data', Buffer.from(JSON.stringify(server.replies.shift())));
+          response.emit('data', Buffer.from(JSON.stringify(server.replies.shift() ?? null)));
           response.emit('end');
         });
       return request;
     },
   },
 }));
-const canvas = vi.hoisted(() => ({ token: null as string | null, login: vi.fn() }));
+const canvas = vi.hoisted(() => ({
+  token: null as string | null,
+  login: vi.fn(),
+  loginUrl: vi.fn(),
+  courses: [] as { id: number; name: string; code: string; term: string; archived?: boolean }[],
+}));
 vi.mock('../../campus', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../campus')>()),
   getCampusSession: async () => ({}),
@@ -39,8 +44,8 @@ vi.mock('../../campus', async (importOriginal) => ({
 }));
 vi.mock('../../credentials', () => ({ loadCanvasToken: () => canvas.token }));
 vi.mock('../../canvas/api', () => ({
-  classroomLoginUrl: async () =>
-    'https://oc.sjtu.edu.cn/courses/1/external_tools/2?session_token=x',
+  classroomLoginUrl: canvas.loginUrl,
+  getCanvasState: () => ({ courses: canvas.courses }),
 }));
 import { checkVideoLogin, listCourses, listVideos, parseStreams } from '../api';
 
@@ -50,8 +55,66 @@ beforeEach(() => {
   server.statuses = [];
   canvas.token = null;
   canvas.login.mockReset();
+  canvas.loginUrl
+    .mockReset()
+    .mockResolvedValue('https://oc.sjtu.edu.cn/courses/1/external_tools/2?session_token=x');
+  canvas.courses = [];
 });
 const identity = { code: '0', result: { user: { code: 'test-user' } } };
+
+it('uses the same synced Canvas courses as materials, including same-name classes and older terms', async () => {
+  canvas.token = 'token';
+  canvas.courses = [
+    { id: 42, name: '大学物理（荣誉）（2）', code: 'PHYS-01', term: '2026-2027 Fall' },
+    { id: 43, name: '大学物理（荣誉）（2）', code: 'PHYS-02', term: '2026-2027 Fall' },
+    { id: 10, name: '往年课程', code: 'OLD', term: '2025-2026 Fall' },
+    { id: 11, name: '已归档', code: 'ARCHIVE', term: '2025-2026 Fall', archived: true },
+  ];
+  await expect(listCourses()).resolves.toEqual([
+    { id: 42, name: '大学物理（荣誉）（2）', code: 'PHYS-01', source: 'canvas' },
+    { id: 43, name: '大学物理（荣誉）（2）', code: 'PHYS-02', source: 'canvas' },
+    { id: 10, name: '往年课程', code: 'OLD', source: 'canvas' },
+  ]);
+  expect(server.urls).toEqual([]);
+});
+
+it('resolves a Canvas course through its own LTI entry before querying video teaching-class IDs', async () => {
+  canvas.token = 'token';
+  canvas.login.mockImplementation(async (_url, probe) =>
+    probe([
+      'https://oc.sjtu.edu.cn/courses/42/external_tools/2',
+      'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?teclId=9001&target=video',
+    ]),
+  );
+  server.replies = [identity, { ok: true, data: { records: [], pageCount: 0 } }];
+  await expect(listVideos(42, 'canvas')).resolves.toEqual([]);
+  expect(canvas.loginUrl).toHaveBeenCalledWith(42);
+  expect(new URL(server.urls.at(-1)!).searchParams.get('teclIds')).toBe('9001');
+  expect(
+    server.urls.some((url) => url.includes('curriculum') || url.includes('group_subject')),
+  ).toBe(false);
+});
+
+it('reports a missing Canvas video entry without querying a different course', async () => {
+  canvas.token = 'token';
+  canvas.loginUrl.mockRejectedValue(new Error('Canvas 课程中没有找到课堂视频入口'));
+  await expect(listVideos(42, 'canvas')).rejects.toThrow('课堂视频入口');
+  expect(server.urls).toEqual([]);
+});
+
+it.each([
+  'https://example.com/#/play-center?teclId=9001',
+  'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/home?teclId=9001',
+  'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?teclId=invalid',
+])(
+  'does not resolve a teaching class from an unrelated or invalid landing URL (%s)',
+  async (url) => {
+    canvas.token = 'token';
+    canvas.login.mockImplementation(async (_url, probe) => probe([url]));
+    await expect(listVideos(42, 'canvas')).rejects.toThrow();
+    expect(server.urls).toEqual([]);
+  },
+);
 
 it('treats the identity endpoint answering 500 as an expired session rather than an outage', async () => {
   server.replies = [{ code: '-1', status: 500 }];

@@ -84,6 +84,13 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
     try {
       const courses = await window.dela!.vsjtu.listCourses();
       if (request !== coursesRequest) return;
+      if (
+        courses.some((course) => course.source === 'canvas') !==
+        get().courses.some((course) => course.source === 'canvas')
+      ) {
+        videosRequest++;
+        set({ videos: {}, videosLoading: {}, videosError: {}, selectedVideoId: null });
+      }
       set({ phase: 'ready', courses, coursesLoading: false });
       const { selectedCourseId } = get();
       const target = courses.some((course) => course.id === selectedCourseId)
@@ -157,7 +164,8 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
       videosError: { ...get().videosError, [courseId]: '' },
     });
     try {
-      const videos = await window.dela!.vsjtu.listVideos(courseId);
+      const source = get().courses.find((course) => course.id === courseId)?.source;
+      const videos = await window.dela!.vsjtu.listVideos(courseId, source);
       if (request !== videosRequest) return;
       set({
         videos: { ...get().videos, [courseId]: videos },
