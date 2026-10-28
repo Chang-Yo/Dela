@@ -21,7 +21,7 @@ export function sanitizeHtml(
       if (a.name.startsWith('on') || a.name === 'srcdoc') el.removeAttribute(a.name);
   });
   doc.querySelectorAll('a[href],img[src]').forEach((el) => {
-    const attr = el.tagName === 'A' ? 'href' : 'src';
+    const attr = el.localName === 'a' ? 'href' : 'src';
     try {
       const url = new URL(el.getAttribute(attr)!, baseUrl);
       if (['https:', 'http:'].includes(url.protocol)) el.setAttribute(attr, url.href);
