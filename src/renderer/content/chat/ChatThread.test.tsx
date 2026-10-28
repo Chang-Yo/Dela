@@ -264,7 +264,7 @@ it('整轮失败显示错误卡与重试，重试以原文重发', async () => {
   const alert = host.querySelector('[role="alert"]')!;
   expect(alert.textContent).toContain('HTTP 401');
   await act(async () => alert.querySelector('button')!.click());
-  expect(onEditLast).toHaveBeenCalledWith('检查滚动');
+  expect(onEditLast).toHaveBeenCalledWith('检查滚动', undefined);
 });
 
 it('正文从首个字到工具调用及结束均保持同一节点，工具行出现在其后', async () => {

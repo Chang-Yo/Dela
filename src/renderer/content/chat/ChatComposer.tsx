@@ -20,12 +20,14 @@ import { cn } from '../../lib/utils';
 import { errorText } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
+import { ReplyCommentRail } from './reply-comment';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
 import { useNavigationStore } from '../../navigation/view';
 import type {
   ChatCommandView,
+  ChatComment,
   ChatSlashCommand,
   ChatMediaView,
   ContextUsageView,
@@ -112,6 +114,8 @@ export function ChatComposer({
   onEffortSelect,
   referenceOptions,
   attachments,
+  comments,
+  onCommentsChange,
   onAddAttachmentFile,
   onAddAttachmentView,
   onRemoveAttachment,
@@ -143,6 +147,9 @@ export function ChatComposer({
   onEffortSelect: (level: string) => void;
   referenceOptions: ChatReference[];
   attachments: ChatMediaView[];
+  /** 对回复正文的评论（草稿的一部分），显示在附件条上方的独立轨道。 */
+  comments: ChatComment[];
+  onCommentsChange: (comments: ChatComment[]) => void;
   onAddAttachmentFile: (file: File) => Promise<void>;
   onAddAttachmentView: (view: ChatMediaView) => void;
   onRemoveAttachment: (id: string) => void;
@@ -401,7 +408,11 @@ export function ChatComposer({
     },
   };
 
-  const canSend = value.trim().length > 0 || hasChatImages(value) || attachments.length > 0;
+  const canSend =
+    value.trim().length > 0 ||
+    hasChatImages(value) ||
+    attachments.length > 0 ||
+    comments.length > 0;
 
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
@@ -473,18 +484,25 @@ export function ChatComposer({
             松开以添加图片或附件
           </div>
         )}
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-3 pt-3">
-            {attachments.map((item) => (
-              <ComposerChip
-                detail={formatSize(item.size)}
-                icon={<FileText />}
-                key={item.id}
-                label={item.name}
-                onRemove={() => onRemoveAttachment(item.id)}
-                removeLabel={`移除附件 ${item.name}`}
-              />
-            ))}
+        {(comments.length > 0 || attachments.length > 0) && (
+          <div className="grid gap-1.5 px-3 pt-3">
+            {comments.length > 0 && (
+              <ReplyCommentRail comments={comments} onChange={onCommentsChange} />
+            )}
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {attachments.map((item) => (
+                  <ComposerChip
+                    detail={formatSize(item.size)}
+                    icon={<FileText />}
+                    key={item.id}
+                    label={item.name}
+                    onRemove={() => onRemoveAttachment(item.id)}
+                    removeLabel={`移除附件 ${item.name}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
         {extensionState && <ExtensionBar placement="aboveEditor" state={extensionState} />}

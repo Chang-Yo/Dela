@@ -524,3 +524,8 @@
     animation-duration: 1s !important;
   }
 }
+
+/* 回复评论：写评论时标出被评论的原文（reply-comment.tsx）。 */
+::highlight(dela-reply-comment) {
+  background-color: color-mix(in oklch, var(--bui-accent) 24%, transparent);
+}

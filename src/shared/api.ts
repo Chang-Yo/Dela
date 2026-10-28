@@ -190,6 +190,7 @@ export type {
 
 export type {
   ChatAskInput,
+  ChatComment,
   ChatMediaView,
   ChatCommandView,
   ChatSlashCommand,

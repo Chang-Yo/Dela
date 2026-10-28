@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { GitCompare, History, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
-import type { WorkspaceChat } from '../../../shared/api';
+import type { ChatComment, WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ChatComposer } from './ChatComposer';
@@ -75,7 +75,7 @@ function ChatComposerArea({
   sessionId: string;
   hero?: boolean;
 }) {
-  const { prompt } = useChatDraft(sessionId);
+  const { prompt, comments = noComments } = useChatDraft(sessionId);
   const referenceOptions = useReferenceOptions(referenceSource, chat);
   // 引用即文本：发送前从草稿文本解析 @token，附件与引用自此分开计数（附件维持上限 5）。
   const references = useMemo(
@@ -93,6 +93,8 @@ function ChatComposerArea({
       <ChatComposer
         hero={hero}
         attachments={chatState.attachments}
+        comments={comments}
+        onCommentsChange={chatState.setComments}
         busy={chatState.busy}
         configured={Boolean(chat?.configured)}
         context={context}
@@ -119,6 +121,7 @@ function ChatComposerArea({
 }
 
 const noReferences: ChatReference[] = [];
+const noComments: ChatComment[] = [];
 /** @ 候选：会话快照就位前（projectId/cwd 未知）不列候选，避免列出别的项目的文件。 */
 function useReferenceOptions(source: ReferenceSource | undefined, chat: WorkspaceChat | null) {
   const options = source?.useEntries(chat?.projectId ?? null, chat?.cwd ?? null);

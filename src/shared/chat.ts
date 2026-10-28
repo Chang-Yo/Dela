@@ -1,8 +1,15 @@
-/** Composer 发送载荷：markdown 文本（内联图片以 dela-img token 嵌入）、暂存附件与 @ 引用。 */
+/** 对回复正文中一段选中文字的评论；comment 为空即只引用这段文字。 */
+export interface ChatComment {
+  quote: string;
+  comment: string;
+}
+
+/** Composer 发送载荷：markdown 文本（内联图片以 dela-img token 嵌入）、暂存附件、@ 引用与评论。 */
 export interface ChatAskInput {
   text: string;
   attachments: string[];
   context: string[];
+  comments: ChatComment[];
   /** 编辑重发：丢弃会话中最后一条用户消息及其后内容，以 text 重新发起。 */
   replaceLastUser?: boolean;
 }

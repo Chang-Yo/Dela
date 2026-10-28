@@ -171,6 +171,7 @@ it('真实 ask 生命周期冻结文件变化并将 turnId 持久化到消息元
     text: '生成文件',
     attachments: [],
     context: [],
+    comments: [],
   });
   const turns = await listSessionTurnChanges(chat.sessionId!);
   expect(turns).toHaveLength(1);
@@ -197,7 +198,7 @@ it('prompt 失败仍冻结此前的文件修改，不吞掉原始错误', async 
     throw new Error('model failed');
   };
   await expect(
-    askSession(chat.sessionId!, { text: '尝试', attachments: [], context: [] }),
+    askSession(chat.sessionId!, { text: '尝试', attachments: [], context: [], comments: [] }),
   ).rejects.toThrow('model failed');
   expect(await listSessionTurnChanges(chat.sessionId!)).toMatchObject([
     { runStatus: 'failed', files: [{ path: 'partial.txt', status: 'added' }] },
@@ -211,7 +212,7 @@ it('用户停止仍冻结已产生的文件，并在删除会话时清理快照'
     writeFileSync(join(chat.cwd!, 'stopped.txt'), 'partial');
     cancelRun(chat.sessionId!);
   };
-  await askSession(chat.sessionId!, { text: '停止', attachments: [], context: [] });
+  await askSession(chat.sessionId!, { text: '停止', attachments: [], context: [], comments: [] });
   const [turn] = await listSessionTurnChanges(chat.sessionId!);
   expect(turn).toMatchObject({
     runStatus: 'stopped',
@@ -229,7 +230,12 @@ it('远程会话不读取同名本地目录，接口明确返回不可用', asyn
     )
     .run();
   const chat = newSession('remote-project', 'chat');
-  await askSession(chat.sessionId!, { text: '读取远程', attachments: [], context: [] });
+  await askSession(chat.sessionId!, {
+    text: '读取远程',
+    attachments: [],
+    context: [],
+    comments: [],
+  });
   expect(await readSessionUncommittedChanges(chat.sessionId!)).toMatchObject({
     available: false,
     reason: 'remote',
@@ -243,7 +249,12 @@ it('快照失败不阻止模型运行，结果明确标记 unavailable', async (
   state.configured = true;
   const chat = newSession(null, 'chat');
   vi.spyOn(changes, 'captureDirectory').mockRejectedValueOnce(new Error('scan failed'));
-  await askSession(chat.sessionId!, { text: '继续回答', attachments: [], context: [] });
+  await askSession(chat.sessionId!, {
+    text: '继续回答',
+    attachments: [],
+    context: [],
+    comments: [],
+  });
   expect(state.prompts).toHaveLength(1);
   expect(await listSessionTurnChanges(chat.sessionId!)).toMatchObject([
     { state: 'unavailable', warnings: ['scan failed'] },
@@ -261,6 +272,7 @@ it('sends document-only messages as file references instead of decoding binary b
     text: '',
     attachments: [document.id],
     context: [],
+    comments: [],
   });
   expect(state.prompts[0]).toContain('document-reading skill');
   expect(state.prompts[0]).toContain(JSON.stringify(attachment.path));
@@ -277,8 +289,33 @@ it('continues to inline ordinary text attachment contents', async () => {
   state.configured = true;
   const attachment = stageChatMedia('notes.txt', Buffer.from('普通文本附件'));
   const chat = newSession(null, 'chat');
-  await askSession(chat.sessionId!, { text: '总结', attachments: [attachment.id], context: [] });
+  await askSession(chat.sessionId!, {
+    text: '总结',
+    attachments: [attachment.id],
+    context: [],
+    comments: [],
+  });
   expect(state.prompts[0]).toContain('<attachment name="notes.txt">\n普通文本附件\n</attachment>');
+});
+
+it('只带回复评论也能发送：评论进 prompt，历史消息还原为结构化评论', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  const comments = [
+    { quote: '复杂度是 O(n²)', comment: '为什么不是 O(n log n)？' },
+    { quote: '用哈希表', comment: '' },
+  ];
+  const response = await askSession(chat.sessionId!, {
+    text: '',
+    attachments: [],
+    context: [],
+    comments,
+  });
+  expect(state.prompts[0]).toContain(
+    '<comment>\n<quote>\n复杂度是 O(n²)\n</quote>\n为什么不是 O(n log n)？\n</comment>',
+  );
+  expect(state.prompts[0]).toContain('<comment>\n<quote>\n用哈希表\n</quote>\n\n</comment>');
+  expect(response.messages[0]).toMatchObject({ role: 'user', content: '', comments });
 });
 
 const assistant = (content: unknown[], extra: object = {}) =>
@@ -487,7 +524,12 @@ it('扩展命令原样交给 Pi，本轮不发消息时不沿用上一轮的失�
   state.onPrompt = () => {
     state.messages.pop();
   };
-  await askSession(chat.sessionId!, { text: '/ext-deploy now', attachments: [], context: [] });
+  await askSession(chat.sessionId!, {
+    text: '/ext-deploy now',
+    attachments: [],
+    context: [],
+    comments: [],
+  });
   expect(state.prompts.at(-1)).toBe('/ext-deploy now');
   const turns = await listSessionTurnChanges(chat.sessionId!);
   expect(turns.at(-1)?.runStatus).toBe('completed');
@@ -510,14 +552,19 @@ describe('会话命令', () => {
     state.configured = true;
     const chat = newSession(null, 'chat');
     await runSessionCommand(chat.sessionId!, 'name', '我的标题');
-    await askSession(chat.sessionId!, { text: '第一句话', attachments: [], context: [] });
+    await askSession(chat.sessionId!, {
+      text: '第一句话',
+      attachments: [],
+      context: [],
+      comments: [],
+    });
     expect(titleOf(chat.sessionId!)).toBe('我的标题');
   });
 
   it('/reload 结束当前实例并立刻按新配置重建；没配模型时只结束', async () => {
     state.configured = true;
     const chat = newSession(null, 'chat');
-    await askSession(chat.sessionId!, { text: '你好', attachments: [], context: [] });
+    await askSession(chat.sessionId!, { text: '你好', attachments: [], context: [], comments: [] });
     expect(state.opened).toBe(1);
     await runSessionCommand(chat.sessionId!, 'reload', '');
     expect(state.disposed).toBe(1);
@@ -561,7 +608,12 @@ describe('会话命令', () => {
     const chat = newSession(null, 'chat');
     let finish!: () => void;
     state.onPrompt = () => new Promise<void>((resolve) => (finish = resolve));
-    const ask = askSession(chat.sessionId!, { text: '慢慢想', attachments: [], context: [] });
+    const ask = askSession(chat.sessionId!, {
+      text: '慢慢想',
+      attachments: [],
+      context: [],
+      comments: [],
+    });
     await vi.waitFor(() => expect(state.prompts).toHaveLength(1));
     await expect(runSessionCommand(chat.sessionId!, 'compact', '')).rejects.toThrow(
       '请等待当前回答完成',
@@ -590,7 +642,7 @@ describe('会话命令', () => {
     invalidateSessions();
     expect(state.disposed).toBe(0);
     await expect(
-      askSession(chat.sessionId!, { text: '插一句', attachments: [], context: [] }),
+      askSession(chat.sessionId!, { text: '插一句', attachments: [], context: [], comments: [] }),
     ).rejects.toThrow('正在压缩上下文');
     finish();
     await compact;

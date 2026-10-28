@@ -49,6 +49,24 @@ describe('useChatDrafts 启动加载', () => {
     expect(second.useChatDrafts.getState().drafts).toEqual({});
   });
 
+  it('回复评论随草稿重启保留；评论形状损坏时只丢评论、保留正文', async () => {
+    const comments = [{ quote: '原文片段', comment: '为什么？' }];
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        s1: { prompt: '', comments },
+        s2: { prompt: '正文', comments: [{ quote: '片段' }] },
+        s3: { prompt: '正文', comments: 'oops' },
+      }),
+    );
+    const { useChatDrafts } = await loadFresh();
+    expect(useChatDrafts.getState().drafts).toEqual({
+      s1: { prompt: '', comments },
+      s2: { prompt: '正文' },
+      s3: { prompt: '正文' },
+    });
+  });
+
   it('update 以 emptyDraft 为基底合并并写回存储', async () => {
     const { useChatDrafts } = await loadFresh();
     useChatDrafts.getState().update('s1', { prompt: 'abc' });

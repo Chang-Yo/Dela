@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
 import { useReducedMotion } from 'framer-motion';
-import type { WorkspaceChat } from '../../../shared/api';
+import type { ChatComment, WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
 import { Button } from '@/components/ui/button';
 import { openLightbox } from '@/components/ui/lightbox';
@@ -24,6 +24,7 @@ import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
 import { ReplyTrace } from './ToolTimeline';
 import { ChatMarkdown } from './markdown';
+import { ReplyCommentLayer } from './reply-comment';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
 import { TurnChangesCard } from './TurnChangesCard';
 
@@ -179,6 +180,13 @@ const UserMessage = memo(function UserMessage({
   }
   return (
     <div className="group/user mb-5 flex flex-col items-end">
+      {message.comments?.length ? (
+        <div className="mb-1.5 grid max-w-[85%] justify-items-end gap-1">
+          {message.comments.map((comment, index) => (
+            <SentComment comment={comment} key={index} />
+          ))}
+        </div>
+      ) : null}
       {message.content ? (
         <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-13 leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
           {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
@@ -263,6 +271,18 @@ const UserMessage = memo(function UserMessage({
   );
 });
 
+/** 已发送的回复评论：被引用的原文在上、评论在下，与正文气泡分开。 */
+function SentComment({ comment }: { comment: ChatComment }) {
+  return (
+    <div className="grid min-w-0 max-w-full gap-0.5 rounded-card bg-inset px-3 py-1.5 text-xs leading-5 shadow-hairline [overflow-wrap:anywhere]">
+      <blockquote className="line-clamp-3 whitespace-pre-wrap border-l-2 border-line-strong pl-2 text-ink-3">
+        {comment.quote}
+      </blockquote>
+      {comment.comment && <p className="whitespace-pre-wrap text-ink-2">{comment.comment}</p>}
+    </div>
+  );
+}
+
 /** 整轮失败（模型/网络）：回复末尾一张错误卡，原因 + 重试。 */
 function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }) {
   return (
@@ -346,7 +366,10 @@ const AssistantMessage = memo(function AssistantMessage({
     : message.content;
 
   return (
-    <div className="group/msg mb-8 min-w-0 text-13 leading-7 [overflow-wrap:anywhere]">
+    <div
+      className="group/msg mb-8 min-w-0 text-13 leading-7 [overflow-wrap:anywhere]"
+      data-reply-live={live || undefined}
+    >
       {live && empty && (
         <p className="h-7 text-13 leading-7" role="status">
           <Shimmer>正在思考</Shimmer>
@@ -435,7 +458,7 @@ export const ChatThread = memo(function ChatThread({
   onOpenSource?: (key: string) => void;
   /** 把回答保存为笔记；未提供时隐藏入口。 */
   onSaveNote?: (text: string) => void;
-  onEditLast?: (text: string) => void;
+  onEditLast?: (text: string, comments?: ChatComment[]) => void;
   /** 邮件草稿检查弹窗（容器注入，3B 接 features/mail）；未注入时隐藏草稿入口。 */
   mailDialog?: MailDraftDialog;
 }) {
@@ -532,7 +555,7 @@ export const ChatThread = memo(function ChatThread({
     if (!onEditLast || !lastUser) return undefined;
     const tokens = (lastUser.images ?? []).map((image) => chatImageToken(image.id, image.name));
     const text = [lastUser.content, ...tokens].filter(Boolean).join('\n');
-    return () => onEditLast(text);
+    return () => onEditLast(text, lastUser.comments);
   }, [lastUser, onEditLast]);
 
   return (
@@ -600,6 +623,7 @@ export const ChatThread = memo(function ChatThread({
           <ArrowDown className="size-4" strokeWidth={1.8} />
         </button>
       )}
+      {chat.sessionId && <ReplyCommentLayer scrollRef={scrollRef} sessionId={chat.sessionId} />}
       {hint && (
         <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-ink-3">
           {hint}
