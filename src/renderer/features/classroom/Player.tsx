@@ -31,12 +31,20 @@ import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { cn } from '../../lib/utils';
 import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
 import { formatTime, lectureMeta, lectureTitle } from './player-format';
+import {
+  clearPlaybackProgress,
+  readPlaybackProgress,
+  resumePlaybackTime,
+  savePlaybackProgress,
+} from './progress';
 import { SeekBar } from './SeekBar';
 import { useClassroom } from './store';
 
 const RATE_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
 const VOLUME_KEY = 'dela.classroom.volume';
 const RATE_KEY = 'dela.classroom.rate';
+const PROGRESS_SAVE_SECONDS = 5;
+const RESUME_NOTICE_MS = 5000;
 
 function readNumber(key: string, fallback: number): number {
   try {
@@ -87,11 +95,41 @@ export function Player({
   const [volume, setVolume] = useState(() => Math.min(1, Math.max(0, readNumber(VOLUME_KEY, 1))));
   const [rate, setRate] = useState(() => readNumber(RATE_KEY, 1));
   const [fullscreen, setFullscreen] = useState(false);
+  const [resumeNotice, setResumeNotice] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lastPositionRef = useRef(0);
+  const lastSavedRef = useRef(0);
+  const resumeNoticeShownRef = useRef(false);
+
+  const recordProgress = useCallback(
+    (time: number, force = false) => {
+      if (!Number.isFinite(time) || time < 0) return;
+      lastPositionRef.current = time;
+      if (!force && Math.abs(time - lastSavedRef.current) < PROGRESS_SAVE_SECONDS) return;
+      savePlaybackProgress(video.id, time);
+      lastSavedRef.current = time;
+    },
+    [video.id],
+  );
 
   const active = streams ? streams[Math.min(activeIndex, streams.length - 1)] : undefined;
   const playbackUrl = active?.playbackUrl;
+
+  // 切场次重置播放态并回到第一个画面；进页面时按需拉画面列表（行内下载可能已缓存）。
+  // 放在文稿 seek 之前，避免挂载时恢复出的进度被重置。
+  useEffect(() => {
+    setActiveIndex(0);
+    setFailed(false);
+    setReloadSeq(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setBufferedEnd(0);
+    setResumeNotice(null);
+    lastPositionRef.current = 0;
+    lastSavedRef.current = 0;
+    resumeNoticeShownRef.current = false;
+  }, [video.id]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -104,21 +142,38 @@ export function Player({
       );
       element.currentTime = time;
       setCurrentTime(time);
+      setResumeNotice(null);
+      recordProgress(time, true);
       useClassroom.setState({ seekRequest: null, playbackTime: time });
     };
     if (element.readyState >= 1) applySeek();
     else element.addEventListener('loadedmetadata', applySeek, { once: true });
     return () => element.removeEventListener('loadedmetadata', applySeek);
-  }, [seekRequest, video.id, playbackUrl, reloadSeq]);
+  }, [seekRequest, video.id, playbackUrl, reloadSeq, recordProgress]);
 
-  // 切场次重置播放态并回到第一个画面；进页面时按需拉画面列表（行内下载可能已缓存）。
+  // 续播提示按官方习惯短暂出现；自动消失，不挡住后续操作。
   useEffect(() => {
-    setActiveIndex(0);
-    setFailed(false);
-    setReloadSeq(0);
-    setCurrentTime(0);
-    setDuration(0);
-    setBufferedEnd(0);
+    if (resumeNotice === null) return;
+    const timer = setTimeout(() => setResumeNotice(null), RESUME_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [resumeNotice]);
+
+  // 页面隐藏或播放器卸载前再落一次盘；timeupdate 只按 5 秒节流写入。
+  useEffect(() => {
+    const flush = () => {
+      savePlaybackProgress(video.id, lastPositionRef.current);
+      lastSavedRef.current = lastPositionRef.current;
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      flush();
+    };
   }, [video.id]);
 
   useEffect(() => {
@@ -162,6 +217,23 @@ export function Player({
     if (!element || !Number.isFinite(time)) return;
     element.currentTime = time;
     setCurrentTime(time);
+    setResumeNotice(null);
+    recordProgress(time, true);
+    useClassroom.setState({ playbackTime: time });
+  };
+
+  const restartFromBeginning = () => {
+    clearPlaybackProgress(video.id);
+    lastPositionRef.current = 0;
+    lastSavedRef.current = 0;
+    setResumeNotice(null);
+    seek(0);
+  };
+
+  const selectView = (index: number) => {
+    recordProgress(videoRef.current?.currentTime ?? lastPositionRef.current, true);
+    setResumeNotice(null);
+    setActiveIndex(index);
   };
 
   // key 里带上重试序号：重挂 video 元素即重新发起整条加载链路。
@@ -189,6 +261,37 @@ export function Player({
     }
   };
 
+  const onLoadedMetadata = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const element = event.currentTarget;
+    const nextDuration = element.duration || 0;
+    setDuration(nextDuration);
+    // 文稿跳转优先于本地续播，避免同一场录像的两个恢复来源互相覆盖。
+    if (seekRequest?.videoId === video.id) {
+      resumeNoticeShownRef.current = true;
+      return;
+    }
+    const saved = readPlaybackProgress(video.id);
+    const resume = resumePlaybackTime(saved, nextDuration);
+    if (resume === null) {
+      if (saved !== null && nextDuration > 0) clearPlaybackProgress(video.id);
+      resumeNoticeShownRef.current = true;
+      setCurrentTime(0);
+      lastPositionRef.current = 0;
+      lastSavedRef.current = 0;
+      useClassroom.setState({ playbackTime: 0 });
+      return;
+    }
+    element.currentTime = resume;
+    setCurrentTime(resume);
+    lastPositionRef.current = resume;
+    lastSavedRef.current = resume;
+    useClassroom.setState({ playbackTime: resume });
+    if (!resumeNoticeShownRef.current) {
+      resumeNoticeShownRef.current = true;
+      setResumeNotice(resume);
+    }
+  };
+
   const viewLabel = (index: number) => `画面${index + 1}`;
   const activeClamped = streams ? Math.min(activeIndex, streams.length - 1) : 0;
 
@@ -211,7 +314,7 @@ export function Player({
         </div>
         {streams && streams.length > 1 && (
           <SegmentedControl
-            onChange={(label) => setActiveIndex(Number(label.replace('画面', '')) - 1)}
+            onChange={(label) => selectView(Number(label.replace('画面', '')) - 1)}
             options={streams.map((_, index) => viewLabel(index))}
             value={viewLabel(activeClamped)}
           />
@@ -225,7 +328,7 @@ export function Player({
           {streamsLoading ? <Loader2 className="animate-spin" /> : <Download />}
         </IconButton>
       </div>
-      <div className="mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-card bg-black shadow-hairline">
+      <div className="relative mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-card bg-black shadow-hairline">
         {active && !failed ? (
           <video
             autoPlay
@@ -236,10 +339,19 @@ export function Player({
               togglePlay();
             }}
             onDurationChange={(event) => setDuration(event.currentTarget.duration || 0)}
-            onEnded={() => setPlaying(false)}
+            onEnded={() => {
+              setPlaying(false);
+              clearPlaybackProgress(video.id);
+              lastPositionRef.current = 0;
+              lastSavedRef.current = 0;
+              setResumeNotice(null);
+            }}
             onError={() => setFailed(true)}
-            onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
-            onPause={() => setPlaying(false)}
+            onLoadedMetadata={onLoadedMetadata}
+            onPause={(event) => {
+              setPlaying(false);
+              if (!event.currentTarget.ended) recordProgress(event.currentTarget.currentTime, true);
+            }}
             onPlay={() => setPlaying(true)}
             onProgress={(event) => {
               const ranges = event.currentTarget.buffered;
@@ -252,6 +364,7 @@ export function Player({
               const time = event.currentTarget.currentTime;
               setCurrentTime(time);
               useClassroom.setState({ playbackTime: time });
+              recordProgress(time);
             }}
             preload="metadata"
             ref={videoRef}
@@ -280,6 +393,21 @@ export function Player({
                 </Button>
               </div>
             ) : null}
+          </div>
+        )}
+        {resumeNotice !== null && active && !failed && (
+          <div
+            className="absolute bottom-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-2 gap-y-1 rounded-control bg-black/80 px-3 py-2 text-13 text-white shadow-overlay"
+            role="status"
+          >
+            <span className="tabular-nums">上次观看到 {formatTime(resumeNotice)}，已继续播放</span>
+            <button
+              className="shrink-0 text-white/80 underline underline-offset-2 transition-colors hover:text-white"
+              onClick={restartFromBeginning}
+              type="button"
+            >
+              回到开头
+            </button>
           </div>
         )}
       </div>

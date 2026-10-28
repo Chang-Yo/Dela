@@ -30,9 +30,17 @@ vi.mock('electron', () => ({
     },
   },
 }));
+const canvas = vi.hoisted(() => ({ token: null as string | null, login: vi.fn() }));
 vi.mock('../../campus', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../campus')>()),
   getCampusSession: async () => ({}),
+  flushCampusSession: async () => {},
+  hiddenCampusLogin: canvas.login,
+}));
+vi.mock('../../credentials', () => ({ loadCanvasToken: () => canvas.token }));
+vi.mock('../../canvas/api', () => ({
+  classroomLoginUrl: async () =>
+    'https://oc.sjtu.edu.cn/courses/1/external_tools/2?session_token=x',
 }));
 import { checkVideoLogin, listCourses, listVideos, parseStreams } from '../api';
 
@@ -40,8 +48,46 @@ beforeEach(() => {
   server.replies = [];
   server.urls = [];
   server.statuses = [];
+  canvas.token = null;
+  canvas.login.mockReset();
 });
 const identity = { code: '0', result: { user: { code: 'test-user' } } };
+
+it('treats the identity endpoint answering 500 as an expired session rather than an outage', async () => {
+  server.replies = [{ code: '-1', status: 500 }];
+  server.statuses = [500];
+  await expect(checkVideoLogin()).rejects.toThrow('登录交大视频');
+  expect(server.urls).toEqual(['https://v.sjtu.edu.cn/jy-application-resourcemanage/authority/me']);
+});
+
+it('logs in through the Canvas token once and retries the expired request', async () => {
+  canvas.token = 'token';
+  server.replies = [null, identity];
+  server.statuses = [500, 200];
+  await checkVideoLogin();
+  expect(server.urls).toHaveLength(2);
+  expect(canvas.login).toHaveBeenCalledOnce();
+  const [url, probe] = canvas.login.mock.calls[0]!;
+  expect(url).toBe('https://oc.sjtu.edu.cn/courses/1/external_tools/2?session_token=x');
+  // 登录窗口的探测不能再触发 Canvas 登录，否则会等待自身。
+  server.replies = [null, identity];
+  server.statuses = [401, 200];
+  await expect(probe()).rejects.toThrow('登录');
+  await probe();
+  expect(canvas.login).toHaveBeenCalledOnce();
+});
+
+it('reports the expired session instead of looping when Canvas login does not restore it', async () => {
+  canvas.token = 'token';
+  server.replies = [null, null];
+  server.statuses = [401, 401];
+  await expect(checkVideoLogin()).rejects.toThrow('登录交大视频');
+  expect(canvas.login).toHaveBeenCalledOnce();
+  canvas.login.mockRejectedValueOnce(new Error('登录超时'));
+  server.replies = [null];
+  server.statuses = [401];
+  await expect(checkVideoLogin()).rejects.toThrow('通过 Canvas 登录交大视频失败：登录超时');
+});
 
 it('shares simultaneous identity checks without caching the login result across later calls', async () => {
   server.replies = [identity, identity];

@@ -5,6 +5,8 @@ vi.mock('../../campus', () => ({
   campusRequest: server.request,
   getCampusSession: async () => ({ cookies: { on: server.watch } }),
 }));
+vi.mock('../../credentials', () => ({ loadCanvasToken: () => null }));
+vi.mock('../../canvas/api', () => ({ classroomLoginUrl: vi.fn() }));
 
 const identity = { code: '0', result: { user: { code: 'test-user' } } };
 const data = { afterAssemblyList: [{ bg: 1250, ed: 3600500, res: '测试文稿' }] };
@@ -97,5 +99,14 @@ it('invalidates the cached transcript when the campus session changes', async ()
   await api.getTranscript(12);
   changeSession();
   await api.getTranscript(12);
+  expect(reads()).toBe(2);
+});
+
+it('refetches with the new session when the session changes during a read', async () => {
+  server.request.mockImplementationOnce(async () => {
+    changeSession();
+    return JSON.stringify(payload);
+  });
+  expect((await api.getTranscript(12))!.segments[0]!.text).toBe('测试文稿');
   expect(reads()).toBe(2);
 });

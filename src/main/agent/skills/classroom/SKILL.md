@@ -5,7 +5,7 @@ description: 交大课堂录像：查询课程节次，按时间范围读取语�
 
 # 课堂语音文稿
 
-复用 Dela 的校园登录。登录失效时请用户在课堂视频页面登录，不索取 Cookie、JWT 或 cURL。
+复用 Dela 的校园登录；已连接 Canvas 时会自动登录。仍提示登录失效时，请用户在课堂视频页面登录，不索取 Cookie、JWT 或 cURL。
 
 ## 命令（Bash 内 dela）
 
