@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { renderMailHtml } from '../features/mail/mail-html-display';
 
 /**
@@ -12,16 +13,13 @@ export function sanitizeHtml(
   rootSize: number,
   htmlScrollY: 'hidden' | 'auto' = 'hidden',
 ): string {
-  const doc = new DOMParser().parseFromString(text || '<p>此内容没有正文。</p>', 'text/html');
-  doc
-    .querySelectorAll('script,iframe,object,embed,form,base,meta,link')
-    .forEach((el) => el.remove());
-  doc.querySelectorAll('*').forEach((el) => {
-    for (const a of Array.from(el.attributes))
-      if (a.name.startsWith('on') || a.name === 'srcdoc') el.removeAttribute(a.name);
+  const clean = DOMPurify.sanitize(text || '<p>此内容没有正文。</p>', {
+    WHOLE_DOCUMENT: true,
+    FORBID_TAGS: ['form'],
   });
+  const doc = new DOMParser().parseFromString(clean, 'text/html');
   doc.querySelectorAll('a[href],img[src]').forEach((el) => {
-    const attr = el.tagName === 'A' ? 'href' : 'src';
+    const attr = el.localName === 'a' ? 'href' : 'src';
     try {
       const url = new URL(el.getAttribute(attr)!, baseUrl);
       if (['https:', 'http:'].includes(url.protocol)) el.setAttribute(attr, url.href);
