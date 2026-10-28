@@ -38,7 +38,10 @@ export function canvasNextPage(header: string | null): string | null {
 async function request(path: string, token = loadCanvasToken()): Promise<Response> {
   if (!token) throw new Error('请先连接 Canvas');
   const url = new URL(path, apiRoot);
-  if (url.origin !== origin || !url.pathname.startsWith('/api/v1/'))
+  if (
+    url.origin !== origin ||
+    !(url.pathname.startsWith('/api/v1/') || url.pathname === '/login/session_token')
+  )
     throw new Error('Canvas 地址无效');
   let response: Response;
   try {
@@ -90,6 +93,27 @@ export function getCanvasState(): CanvasState {
 export async function configureCanvas(token: string) {
   await request('users/self/profile', z.string().trim().min(1).max(4096).parse(token));
   saveCanvasToken(token.trim());
+}
+
+/** 交大视频不接受 Canvas 令牌：换取直达「课堂视频」LTI 入口的一次性网页登录地址，地址本身即凭据。 */
+export async function classroomLoginUrl(): Promise<string> {
+  for (const course of await list('courses?enrollment_state=active&per_page=100')) {
+    const tab = (await list(`courses/${num(course.id)}/tabs`)).find(
+      (tab) => str(tab.label).includes('课堂视频') && !str(tab.label).includes('旧版'),
+    );
+    if (!tab) continue;
+    const tool = new URL(str(tab.html_url), origin);
+    if (tool.origin !== origin) continue;
+    const response = await request(
+      `/login/session_token?${new URLSearchParams({ return_to: tool.href })}`,
+    );
+    const login = new URL(
+      z.object({ session_url: z.string() }).parse(await response.json()).session_url,
+    );
+    if (login.origin !== origin) throw new Error('Canvas 登录地址无效');
+    return login.href;
+  }
+  throw new Error('Canvas 课程中没有找到课堂视频入口');
 }
 
 export async function syncCanvasCourses(): Promise<CanvasState> {

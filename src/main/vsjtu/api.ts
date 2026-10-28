@@ -1,14 +1,31 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../shared/vsjtu';
-import { campusRequest, getCampusSession } from '../campus';
+import {
+  CampusAuthError,
+  campusRequest,
+  flushCampusSession,
+  getCampusSession,
+  hiddenCampusLogin,
+} from '../campus';
+import { classroomLoginUrl } from '../canvas/api';
+import { loadCanvasToken } from '../credentials';
 import { parseTranscript } from './transcript';
 
 export { formatSegments, formatTranscript } from './transcript';
 
 export const VIDEO_HOME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/';
 const BASE = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1';
+// 官方页面自用的身份接口；Canvas LTI 取得的会话 Cookie 只作用于该路径，/cloud-rbac 不认。
+const ME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/authority/me';
 const loginError = () => new Error('校园会话已失效，请登录交大视频');
+const requestOptions = {
+  service: '交大视频',
+  loginError: loginError().message,
+  headers: { Accept: 'application/json', Referer: VIDEO_HOME },
+};
+// 身份接口未登录时返回 500 与 code -1，而不是 401。
+const identityOptions = { ...requestOptions, loginStatus: 500 };
 const object = z.record(z.string(), z.unknown());
 const id = z.coerce.number().int().positive();
 const requests = new Map<string, Promise<unknown>>();
@@ -34,11 +51,16 @@ function requestJson(url: string, key = url): Promise<unknown> {
 }
 
 async function requestOnce(url: string): Promise<unknown> {
-  const text = await campusRequest(await getCampusSession(), url, {
-    service: '交大视频',
-    loginError: loginError().message,
-    headers: { Accept: 'application/json', Referer: VIDEO_HOME },
-  });
+  const campus = await getCampusSession();
+  const options = url === ME ? identityOptions : requestOptions;
+  let text: string;
+  try {
+    text = await campusRequest(campus, url, options);
+  } catch (error) {
+    if (!(error instanceof CampusAuthError) || !loadCanvasToken()) throw error;
+    await loginWithCanvas();
+    text = await campusRequest(campus, url, options);
+  }
   try {
     return JSON.parse(text);
   } catch {
@@ -46,16 +68,42 @@ async function requestOnce(url: string): Promise<unknown> {
   }
 }
 
-export async function checkVideoLogin(): Promise<void> {
-  const payload = object.safeParse(
-    await requestJson('https://v.sjtu.edu.cn/cloud-rbac/authority/me'),
-  );
+let canvasLogin: Promise<void> | undefined;
+
+/** 已连接 Canvas 时以令牌登录交大视频，免去官方窗口；同时失效的请求共用一次登录。 */
+export function loginWithCanvas(): Promise<void> {
+  canvasLogin ??= (async () => {
+    try {
+      // 探测直接请求，不经 requestOnce，避免等待自身这次登录。
+      await hiddenCampusLogin(await classroomLoginUrl(), async () =>
+        checkIdentity(
+          JSON.parse(await campusRequest(await getCampusSession(), ME, identityOptions)),
+        ),
+      );
+      await flushCampusSession();
+    } catch (error) {
+      throw new Error(
+        `通过 Canvas 登录交大视频失败：${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      canvasLogin = undefined;
+    }
+  })();
+  return canvasLogin;
+}
+
+function checkIdentity(response: unknown): void {
+  const payload = object.safeParse(response);
   if (
     !payload.success ||
     String(payload.data.code) !== '0' ||
     !object.safeParse(payload.data.result).data?.user
   )
     throw loginError();
+}
+
+export async function checkVideoLogin(): Promise<void> {
+  checkIdentity(await requestJson(ME));
 }
 
 function unwrap(payload: unknown): unknown {
@@ -244,14 +292,15 @@ export async function getTranscript(videoId: number): Promise<VideoTranscript | 
   const generation = transcriptGeneration;
   try {
     // 抓取请求自身会以 401/403/重定向/code:-1 报登录失效；/me 只用于缓存命中的复核。
+    // 会话在请求期间更新（重新登录或 Canvas 自动登录）时按新会话重取，不返回旧会话的结果。
     if (cachedTranscript?.videoId === videoId) {
       await checkVideoLogin();
-      if (generation !== transcriptGeneration) throw loginError();
+      if (generation !== transcriptGeneration) return await getTranscript(videoId);
       return structuredClone(cachedTranscript);
     }
     const url = `${BASE}/course/ai/translate/${videoId}?useOriginal=true`;
     const response = await requestJson(url, `${generation}:${url}`);
-    if (generation !== transcriptGeneration) throw loginError();
+    if (generation !== transcriptGeneration) return await getTranscript(videoId);
     const empty = z
       .object({ code: z.null(), status: z.literal(200), ok: z.literal(true), data: z.null() })
       .safeParse(response).success;

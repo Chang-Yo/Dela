@@ -251,7 +251,8 @@ function ConnectCard() {
         <div className="grid gap-1">
           <h2 className="text-lg font-semibold tracking-tight">登录交大视频</h2>
           <p className="text-13 leading-relaxed text-ink-3">
-            登录后读取本学期课程与课堂录像。登录在官方窗口完成，校园会话与课表共用。
+            登录后读取本学期课程与课堂录像。已连接 Canvas
+            时自动登录，否则在官方窗口完成，校园会话与课表共用。
           </p>
         </div>
         <Button disabled={busy} onClick={() => void connect()}>
