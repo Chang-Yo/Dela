@@ -23,6 +23,9 @@ describe('canSendInput（可发送判定，对照旧 use-chat.send 的 canSend�
     expect(canSendInput('', false, 1)).toBe(true);
     expect(canSendInput('', true, 1)).toBe(false);
   });
+  it('允许只发送回复评论', () => {
+    expect(canSendInput('', false, 0, 1)).toBe(true);
+  });
   it('直发文本要求非空（快捷入口不携带图片）', () => {
     expect(canSendInput('  ', true)).toBe(false);
     expect(canSendInput('帮我查日程', true)).toBe(true);

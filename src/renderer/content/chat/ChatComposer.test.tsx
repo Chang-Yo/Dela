@@ -76,6 +76,8 @@ function Harness({
   return (
     <ChatComposer
       attachments={attachments}
+      comments={[]}
+      onCommentsChange={() => {}}
       busy={false}
       configured
       context={context}

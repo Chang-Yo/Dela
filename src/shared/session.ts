@@ -1,5 +1,5 @@
 // 会话视图类型：WorkspaceChat 是 Pi 会话消息的投影（main/agent/session.ts）。
-import type { ChatAskInput } from './chat';
+import type { ChatAskInput, ChatComment } from './chat';
 
 /** Pi 工具结果的投影：text 是回灌给模型的文本，details 是工具的结构化细节（edit 的 diff 等），
  *  image 是工具回图给模型时的图片本体（read 读图片），供轨迹预览，base64 随消息投影。 */
@@ -74,6 +74,8 @@ export interface WorkspaceChat {
     images?: { id: string; name: string }[];
     /** 用户消息携带的文本附件名；内容已进入当轮模型上下文，文件不保留。 */
     attachments?: { name: string }[];
+    /** 用户消息携带的回复评论（按添加顺序）。 */
+    comments?: ChatComment[];
     toolResults?: AgentToolResult[];
     /** 按发生顺序保存公开说明、思考过程与相邻工具组；旧会话没有 parts。 */
     parts?: (

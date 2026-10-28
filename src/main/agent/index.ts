@@ -107,6 +107,9 @@ const askInputSchema = z.object({
   attachments: z.array(uuid).max(5),
   // 引用以 @token 内联在正文里、无数量上限（受 text 长度约束）；附件维持 5 个上限。
   context: z.array(z.string().max(32_767)),
+  comments: z.array(
+    z.object({ quote: z.string().trim().min(1).max(20000), comment: z.string().max(20000) }),
+  ),
   replaceLastUser: z.boolean().optional(),
 });
 

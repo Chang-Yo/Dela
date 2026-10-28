@@ -1,9 +1,11 @@
 import { create } from 'zustand';
+import type { ChatComment } from '../../../shared/api';
 import { hasChatImages } from '../../../shared/chat-input';
 
 export type ChatReference = { key: string; title: string };
 
-type ChatDraft = { prompt: string };
+/** comments：对回复正文的评论，随草稿持久化；没有评论时省略。 */
+type ChatDraft = { prompt: string; comments?: ChatComment[] };
 
 export const emptyDraft: ChatDraft = { prompt: '' };
 
@@ -31,6 +33,12 @@ export function saveChatDrafts(): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
 }
 
+const isComment = (value: unknown): value is ChatComment =>
+  Boolean(value) &&
+  typeof value === 'object' &&
+  typeof (value as ChatComment).quote === 'string' &&
+  typeof (value as ChatComment).comment === 'string';
+
 function loadStored(): Record<string, ChatDraft> {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
@@ -42,8 +50,15 @@ function loadStored(): Record<string, ChatDraft> {
         typeof value === 'object' &&
         'prompt' in value &&
         typeof value.prompt === 'string'
-      )
-        drafts[key] = { prompt: value.prompt };
+      ) {
+        const comments =
+          'comments' in value && Array.isArray(value.comments) && value.comments.every(isComment)
+            ? value.comments
+            : [];
+        drafts[key] = comments.length
+          ? { prompt: value.prompt, comments }
+          : { prompt: value.prompt };
+      }
     }
     return drafts;
   } catch {

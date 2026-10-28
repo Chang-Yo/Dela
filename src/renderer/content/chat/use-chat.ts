@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  ChatComment,
   ChatMediaView,
   LlmProviderView,
   SessionCommandName,
@@ -28,11 +29,16 @@ import type { ReferenceSource } from './chat-source';
 
 export type { ChatReference };
 
-/** 快捷入口直发要求文本；常规发送也允许只附图片或文件。 */
-export function canSendInput(text: string, direct: boolean, attachmentCount = 0): boolean {
+/** 快捷入口直发要求文本；常规发送也允许只附图片、文件或回复评论。 */
+export function canSendInput(
+  text: string,
+  direct: boolean,
+  attachmentCount = 0,
+  commentCount = 0,
+): boolean {
   return direct
     ? text.trim().length > 0
-    : Boolean(text.trim() || hasChatImages(text) || attachmentCount);
+    : Boolean(text.trim() || hasChatImages(text) || attachmentCount || commentCount);
 }
 
 /** 发送失败后是否恢复输入：消息未上屏（快照里没有这条用户消息，或快照读不到）时恢复，
@@ -125,6 +131,10 @@ export function useChat(
     (text: string) => updateDraft(sessionId, { prompt: text }),
     [sessionId, updateDraft],
   );
+  const setComments = useCallback(
+    (comments: ChatComment[]) => updateDraft(sessionId, { comments }),
+    [sessionId, updateDraft],
+  );
 
   // 附件暂存：与内联图片共用主进程通道，上限在主进程与这里各校验一次。
   const addAttachmentFile = async (file: File) => {
@@ -161,11 +171,14 @@ export function useChat(
     // 发送时点读取草稿（不依赖渲染期闭包）：拿到的一定是最后一次按键的值。
     const draft = useChatDrafts.getState().drafts[sessionId] ?? emptyDraft;
     const text = draft.prompt;
-    if (!window.dela || !canSendInput(text, false, attachments.length) || busy) return;
+    const comments = draft.comments ?? [];
+    if (!window.dela || !canSendInput(text, false, attachments.length, comments.length) || busy)
+      return;
     const requested = sessionId;
     const command = parseSessionCommand(text);
     if (command) {
-      await runCommand(command.name, command.args, text);
+      if (comments.length) setError('命令不能附带评论，请先移除评论');
+      else await runCommand(command.name, command.args, text);
       return;
     }
     const sentReferences = references;
@@ -191,6 +204,7 @@ export function useChat(
         text,
         attachments: sentAttachments.map((item) => item.id),
         context: sentReferences.map((ref) => ref.key),
+        comments,
       });
       if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
     } catch (e) {
@@ -201,7 +215,7 @@ export function useChat(
         const fresh = await window.dela.session.open(requested).catch(() => null);
         if (fresh) useSessions.getState().putChat(requested, fresh);
         if (activeSession.current === requested && shouldRestoreDraft(fresh, text)) {
-          updateDraft(requested, { prompt: text });
+          updateDraft(requested, { prompt: text, comments });
           setAttachments(sentAttachments);
         }
       }
@@ -262,9 +276,10 @@ export function useChat(
   };
 
   // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
+  // 编辑重发说明原提问不合适，不带回原评论；重试按原消息重发，带上原评论。
   // useCallback 保持引用稳定：ChatThread 与消息组件 memo 后，编辑重发入口不带动整树重渲。
   const editLast = useCallback(
-    async (text: string) => {
+    async (text: string, comments: ChatComment[] = []) => {
       if (!window.dela || busy) return;
       const requested = sessionId;
       setPending(true);
@@ -274,6 +289,7 @@ export function useChat(
           text,
           attachments: [],
           context: [],
+          comments,
           replaceLastUser: true,
         });
         if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
@@ -331,6 +347,7 @@ export function useChat(
     chat,
     busy,
     setPrompt,
+    setComments,
     attachments,
     addAttachmentFile,
     addAttachmentView,
