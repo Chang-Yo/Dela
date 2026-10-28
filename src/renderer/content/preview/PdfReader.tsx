@@ -307,9 +307,10 @@ export function PdfReader({
         </Button>
         {onAskPage && (
           <Button
-            size="sm"
-            variant="secondary"
+            size="icon-sm"
+            variant="ghost"
             aria-label="询问当前 PDF 页面"
+            title={asking ? '准备当前页…' : '询问当前页'}
             disabled={!pageCount || asking}
             onClick={() =>
               void askCurrentPage().catch((error) =>
@@ -322,7 +323,6 @@ export function PdfReader({
             }
           >
             <MessageCircle />
-            {asking ? '准备中…' : '问当前页'}
           </Button>
         )}
       </div>
