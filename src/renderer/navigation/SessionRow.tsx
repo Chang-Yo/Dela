@@ -57,8 +57,15 @@ export function SessionRow({
       if (!(event.target instanceof Element && event.target.closest('[data-archive-confirm]')))
         setConfirming(false);
     };
+    const cancelOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setConfirming(false);
+    };
     document.addEventListener('pointerdown', cancel);
-    return () => document.removeEventListener('pointerdown', cancel);
+    document.addEventListener('keydown', cancelOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', cancel);
+      document.removeEventListener('keydown', cancelOnEscape);
+    };
   }, [confirming]);
   const change = async (archive: boolean) => {
     if (busy) return;
@@ -123,6 +130,7 @@ export function SessionRow({
           variant="destructive"
           className="h-6 px-2 text-xs"
           disabled={busy}
+          onBlur={() => setConfirming(false)}
           onClick={() => void change(true)}
         >
           确认归档
