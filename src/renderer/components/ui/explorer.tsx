@@ -379,7 +379,7 @@ export function Explorer({
       ref={root}
       role="tree"
       aria-label={label}
-      className="grid content-start gap-0 p-1"
+      className="grid min-w-0 w-full content-start gap-0 p-1"
       style={
         virtualized
           ? {
@@ -428,6 +428,7 @@ export function Explorer({
           <div
             key={item.id}
             data-index={index}
+            className="min-w-0"
             ref={virtualized ? virtualizer.measureElement : undefined}
             style={
               virtualized
