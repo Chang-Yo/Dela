@@ -13,7 +13,7 @@ import type { MailApi } from './mail';
 import type { NotificationsApi } from './notifications';
 import type { RemoteApi } from './remotes';
 import type { SearchApi } from './search';
-import type { SessionApi } from './session';
+import type { SessionApi, SidechatApi } from './session';
 import type { SettingsApi } from './settings';
 import type { VsjtuApi } from './vsjtu';
 export type {
@@ -62,6 +62,7 @@ export interface DelaApi {
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
+  readonly sidechat: SidechatApi;
   readonly remotes: RemoteApi;
   readonly layout: LayoutApi;
   readonly search: SearchApi;
@@ -248,6 +249,8 @@ export type {
   ContextUsageView,
   WorkspaceChat,
   SessionApi,
+  SidechatApi,
+  SidechatView,
   RunEvent,
   RunStatus,
   ChatStreamEvent,
