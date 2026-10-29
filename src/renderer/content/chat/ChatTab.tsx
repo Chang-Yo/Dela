@@ -270,11 +270,13 @@ const ChatSessionView = memo(function ChatSessionView({
         </div>
       )}
       {conversation && composer(false)}
-      <SidechatPanel
-        onOpenSource={onOpenSource}
-        parentId={active}
-        referenceSource={referenceSource}
-      />
+      {sidechatOpen && (
+        <SidechatPanel
+          onOpenSource={onOpenSource}
+          parentId={active}
+          referenceSource={referenceSource}
+        />
+      )}
       <ChatSessions
         currentSessionId={active}
         onDeleteSession={(id) => {

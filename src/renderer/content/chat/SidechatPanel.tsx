@@ -18,6 +18,7 @@ import {
 } from '../../../shared/chat-input';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { showToast } from '../../app/toasts';
+import { cn } from '../../lib/utils';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';
@@ -28,6 +29,11 @@ import { emptyDraft, useChatDrafts } from './drafts';
 import { referenceContext } from './reference-tokens';
 import { sidechatDraftKey, useSidechats } from './sidechat-store';
 import { canSendInput } from './use-chat';
+
+// 只有新建的旁问从右边界滑入；切走标签再回来、从胶囊展开都不再滑入。
+const entered = new Set<string>();
+
+type Motion = 'enter' | 'expand' | 'collapse' | 'close' | null;
 
 export function SidechatPanel({
   parentId,
@@ -46,9 +52,7 @@ export function SidechatPanel({
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [collapsing, setCollapsing] = useState(false);
-  // 新开从右侧滑入；收起过一次之后的展开改为从右上角放大，和胶囊衔接。
-  const expandedOnce = useRef(false);
+  const [motion, setMotion] = useState<Motion>(() => (entered.has(parentId) ? null : 'enter'));
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
   const options = referenceSource?.useEntries(parent?.projectId ?? null, parent?.cwd ?? null);
@@ -123,6 +127,7 @@ export function SidechatPanel({
   };
 
   const close = () => {
+    entered.delete(parentId);
     useChatDrafts.getState().clear(key);
     void window.dela?.sidechat.close(parentId).catch(() => {});
     useSidechats.getState().forget(parentId);
@@ -132,6 +137,7 @@ export function SidechatPanel({
     void window.dela?.sidechat
       .keep(parentId)
       .then((chat) => {
+        entered.delete(parentId);
         useChatDrafts.getState().clear(key);
         useSidechats.getState().forget(parentId);
         useSessions.getState().putChat(chat.sessionId!, chat);
@@ -164,99 +170,123 @@ export function SidechatPanel({
     </span>
   );
 
-  if (collapsed) {
-    expandedOnce.current = true;
-    return (
-      <button
-        aria-label="展开旁问"
-        className="absolute right-3 top-12 z-30 flex h-8 items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover origin-top-right animate-[dialog-in_160ms_var(--ease-out-strong)_both]"
-        onClick={() => useSidechats.getState().setCollapsed(parentId, false)}
-        type="button"
-      >
-        {title}
-        <ChevronDown className="size-3.5 text-ink-3" />
-      </button>
-    );
-  }
+  // 收起与展开时面板和胶囊叠放交叉过渡：面板向右上角缩放淡出的同时胶囊浮现，反之亦然。
+  const pill = (
+    <button
+      aria-hidden={!collapsed || undefined}
+      aria-label="展开旁问"
+      className={cn(
+        'absolute right-3 top-12 z-30 flex h-8 origin-top-right items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover',
+        motion === 'collapse' && 'animate-[pill-in_200ms_var(--ease-out-strong)_40ms_both]',
+        motion === 'expand' && 'pointer-events-none animate-[pill-out_120ms_ease-in_both]',
+      )}
+      onClick={() => {
+        setMotion('expand');
+        useSidechats.getState().setCollapsed(parentId, false);
+      }}
+      tabIndex={collapsed ? undefined : -1}
+      type="button"
+    >
+      {title}
+      <ChevronDown className="size-3.5 text-ink-3" />
+    </button>
+  );
+
+  if (collapsed && motion !== 'collapse') return pill;
+
+  const animation = {
+    enter: 'slide-in-right 260ms var(--ease-out-strong) both',
+    expand: 'panel-grow 220ms var(--ease-out-strong) both',
+    collapse: 'panel-shrink 180ms var(--ease-out-strong) both',
+    close: 'slide-out-right 180ms cubic-bezier(0.55, 0, 1, 0.45) both',
+  };
 
   return (
-    <section
-      aria-label="旁问"
-      // 固定高度：消息区是 flex-1 的滚动容器，只有 max-h 时它撑开而不滚动，长回复被裁掉。
-      className="absolute right-3 top-12 z-30 flex h-[min(36rem,calc(100%-4rem))] w-[min(26rem,calc(100%-1.5rem))] flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised origin-top-right"
-      onAnimationEnd={(event) => {
-        if (event.target !== event.currentTarget || !collapsing) return;
-        setCollapsing(false);
-        useSidechats.getState().setCollapsed(parentId, true);
-      }}
-      style={{
-        animation: collapsing
-          ? 'shrink-out 140ms var(--ease-out-strong) both'
-          : `${expandedOnce.current ? 'dialog-in' : 'drawer-right'} 200ms var(--ease-out-strong) both`,
-      }}
-    >
-      <header className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
-        {title}
-        <IconButton
-          aria-label="保留为新会话"
-          disabled={busy || view.messages.length === 0}
-          onClick={keep}
-          title="保留为新会话"
-        >
-          <SquareArrowOutUpRight />
-        </IconButton>
-        <div className="flex-1" />
-        <IconButton aria-label="收起旁问" onClick={() => setCollapsing(true)} title="收起">
-          <ChevronUp />
-        </IconButton>
-        <IconButton aria-label="关闭旁问" onClick={close} title="关闭（内容不保留）">
-          <X />
-        </IconButton>
-      </header>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {view.messages.length > 0 ? (
-          <ChatThread chat={thread} draftKey={key} onOpenSource={onOpenSource} />
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-ink-3">
-            <MessageCircleDashed className="size-8" strokeWidth={1.5} />
-            <p className="text-13">随口一问，不扰主线</p>
-          </div>
+    <>
+      {(motion === 'collapse' || motion === 'expand') && pill}
+      <section
+        aria-label="旁问"
+        // 固定高度：消息区是 flex-1 的滚动容器，只有 max-h 时它撑开而不滚动，长回复被裁掉。
+        className={cn(
+          'absolute right-3 top-12 z-30 flex h-[min(36rem,calc(100%-4rem))] w-[min(26rem,calc(100%-1.5rem))] origin-top-right flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised',
+          motion === 'collapse' && 'pointer-events-none',
         )}
-      </div>
-      <div className="shrink-0 p-2">
-        <ChatComposer
-          attachments={attachments}
-          busy={busy}
-          comments={draft.comments ?? []}
-          configured={parent.configured}
-          effort={parent.effort}
-          effortLevels={parent.effortLevels}
-          model={parent.model}
-          modelUnavailable={parent.modelUnavailable}
-          notice={error}
-          onAddAttachmentFile={addAttachmentFile}
-          onAddAttachmentView={(staged) =>
-            setAttachments((current) =>
-              current.some((item) => item.id === staged.id) ? current : [...current, staged],
-            )
-          }
-          onChange={(prompt) => useChatDrafts.getState().update(key, { prompt })}
-          onCommentsChange={(comments) => useChatDrafts.getState().update(key, { comments })}
-          onDismissNotice={() => setError(null)}
-          onEffortSelect={() => {}}
-          onModelSelect={() => {}}
-          onRemoveAttachment={(id) => {
-            setAttachments((current) => current.filter((item) => item.id !== id));
-            void window.dela?.chat.releaseMedia([id]);
-          }}
-          onSend={() => void send()}
-          onStop={() => window.dela?.sidechat.cancel(parentId)}
-          providerId={parent.providerId}
-          referenceOptions={referenceOptions}
-          sidechat
-          value={draft.prompt}
-        />
-      </div>
-    </section>
+        onAnimationEnd={(event) => {
+          if (event.target !== event.currentTarget) return;
+          entered.add(parentId);
+          if (motion === 'collapse') useSidechats.getState().setCollapsed(parentId, true);
+          if (motion === 'close') close();
+          setMotion(null);
+        }}
+        style={motion ? { animation: animation[motion] } : undefined}
+      >
+        <header className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
+          {title}
+          <IconButton
+            aria-label="保留为新会话"
+            disabled={busy || view.messages.length === 0}
+            onClick={keep}
+            title="保留为新会话"
+          >
+            <SquareArrowOutUpRight />
+          </IconButton>
+          <div className="flex-1" />
+          <IconButton aria-label="收起旁问" onClick={() => setMotion('collapse')} title="收起">
+            <ChevronUp />
+          </IconButton>
+          <IconButton
+            aria-label="关闭旁问"
+            onClick={() => setMotion('close')}
+            title="关闭（内容不保留）"
+          >
+            <X />
+          </IconButton>
+        </header>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {view.messages.length > 0 ? (
+            <ChatThread chat={thread} draftKey={key} onOpenSource={onOpenSource} />
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-ink-3">
+              <MessageCircleDashed className="size-8" strokeWidth={1.5} />
+              <p className="text-13">随口一问，不扰主线</p>
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 p-2">
+          <ChatComposer
+            attachments={attachments}
+            busy={busy}
+            comments={draft.comments ?? []}
+            configured={parent.configured}
+            effort={parent.effort}
+            effortLevels={parent.effortLevels}
+            model={parent.model}
+            modelUnavailable={parent.modelUnavailable}
+            notice={error}
+            onAddAttachmentFile={addAttachmentFile}
+            onAddAttachmentView={(staged) =>
+              setAttachments((current) =>
+                current.some((item) => item.id === staged.id) ? current : [...current, staged],
+              )
+            }
+            onChange={(prompt) => useChatDrafts.getState().update(key, { prompt })}
+            onCommentsChange={(comments) => useChatDrafts.getState().update(key, { comments })}
+            onDismissNotice={() => setError(null)}
+            onEffortSelect={() => {}}
+            onModelSelect={() => {}}
+            onRemoveAttachment={(id) => {
+              setAttachments((current) => current.filter((item) => item.id !== id));
+              void window.dela?.chat.releaseMedia([id]);
+            }}
+            onSend={() => void send()}
+            onStop={() => window.dela?.sidechat.cancel(parentId)}
+            providerId={parent.providerId}
+            referenceOptions={referenceOptions}
+            sidechat
+            value={draft.prompt}
+          />
+        </div>
+      </section>
+    </>
   );
 }
