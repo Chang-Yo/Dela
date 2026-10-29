@@ -85,6 +85,7 @@ Dela/
 │  │  ├─ canvas/              Canvas 课程资料
 │  │  ├─ documents/           文档读取与 Skill 组件
 │  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
+│  │  ├─ migrations/          旧版用户的数据库迁移
 │  │  ├─ notifications/       通知轮询
 │  │  ├─ remotes/             远程项目与 helper 隧道
 │  │  ├─ search/              全局搜索

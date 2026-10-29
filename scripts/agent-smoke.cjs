@@ -40,8 +40,7 @@ async function run(window) {
       baseUrl: env.DELA_SMOKE_BASE_URL,
       apiKey: env.DELA_SMOKE_API_KEY,
       models: [env.DELA_SMOKE_MODEL],
-      model: env.DELA_SMOKE_MODEL,
-    })}).then((p) => window.dela.llm.setActive(p.id))`,
+    })})`,
   );
   const alpha = await call(
     `window.dela.workspace.create({ parentId: null, name: 'alpha', kind: 'project' })`,

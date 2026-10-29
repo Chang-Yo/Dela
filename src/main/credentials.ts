@@ -153,14 +153,14 @@ export interface StoredLlmProvider {
   baseUrl: string;
   apiKey: string;
   models: string[];
-  model: string;
   modelConfigs?: Record<string, import('../shared/llm').LlmModelSettings>;
   presetId: string | null;
+  /** 停用的提供商不进入会话的模型候选；用它的会话保留选择，但不能发送。 */
+  enabled: boolean;
 }
 
 export interface StoredLlmConfig {
   providers: StoredLlmProvider[];
-  activeId: string | null;
 }
 
 function llmConfigPath(): string {
@@ -177,7 +177,7 @@ function validProvider(value: unknown): value is StoredLlmProvider {
     typeof provider.apiKey === 'string' &&
     Array.isArray(provider.models) &&
     provider.models.every((model) => typeof model === 'string') &&
-    typeof provider.model === 'string'
+    typeof provider.enabled === 'boolean'
   );
 }
 
@@ -187,7 +187,7 @@ export function saveLlmConfig(config: StoredLlmConfig): void {
 
 export function loadLlmConfig(): StoredLlmConfig {
   const payload = readSealed(llmConfigPath());
-  if (payload === null) return { providers: [], activeId: null };
+  if (payload === null) return { providers: [] };
   return parseLlmConfig(payload);
 }
 
@@ -199,9 +199,5 @@ function parseLlmConfig(payload: string): StoredLlmConfig {
       ...provider,
       presetId: typeof provider.presetId === 'string' ? provider.presetId : null,
     })),
-    activeId:
-      typeof parsed.activeId === 'string' && providers.some(({ id }) => id === parsed.activeId)
-        ? parsed.activeId
-        : null,
   };
 }

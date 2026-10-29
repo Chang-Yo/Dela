@@ -23,10 +23,16 @@ vi.mock('../../credentials', () => ({
         name: 'DeepSeek 官方',
         baseUrl: 'https://api.deepseek.com/v1',
         apiKey: 'sk-school',
+        enabled: true,
       },
-      { id: 'p2', name: '中转', baseUrl: 'https://relay.example/v1', apiKey: 'sk-relay' },
+      {
+        id: 'p2',
+        name: '中转',
+        baseUrl: 'https://relay.example/v1',
+        apiKey: 'sk-relay',
+        enabled: true,
+      },
     ],
-    activeId: 'p1',
   }),
 }));
 import {
@@ -161,7 +167,7 @@ it('设置中禁用搜索工具后，聊天选择器应显示关闭', async () =
 
 it('密钥导入只认官方端点且中转网关不算 DeepSeek', () => {
   const sources = listWebSearchKeySources();
-  expect(sources).toEqual([{ id: 'p1', name: 'DeepSeek 官方', active: true }]);
+  expect(sources).toEqual([{ id: 'p1', name: 'DeepSeek 官方' }]);
   expect(readWebSearchKey('p1')).toBe('sk-school');
   expect(readWebSearchKey('p2')).toBeNull();
 });

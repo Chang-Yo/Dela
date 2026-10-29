@@ -107,7 +107,9 @@ export function ChatComposer({
   onStop,
   busy,
   configured,
+  providerId = null,
   model,
+  modelUnavailable = false,
   onModelSelect,
   effort,
   effortLevels,
@@ -139,7 +141,11 @@ export function ChatComposer({
   onStop: () => void;
   busy: boolean;
   configured: boolean;
+  /** 会话选中的提供商；模型列表据此标出当前项。 */
+  providerId?: string | null;
   model: string;
+  /** 会话的模型已停用或被移除：禁止发送，提示另选。 */
+  modelUnavailable?: boolean;
   onModelSelect: (provider: LlmProviderView, model: string) => void;
   /** 当前推理强度档位；未配置时为 null，显示 default 并提供设置入口。 */
   effort: string | null;
@@ -414,6 +420,8 @@ export function ChatComposer({
     attachments.length > 0 ||
     comments.length > 0;
 
+  const sendable = configured && !modelUnavailable && canSend;
+
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
     if (!open || !window.dela) return;
@@ -421,8 +429,9 @@ export function ChatComposer({
     window.dela.llm
       .list()
       .then((views) => {
-        setProviders(views);
-        setFocusedId(views.find((view) => view.active)?.id ?? views[0]?.id ?? null);
+        const enabled = views.filter((view) => view.enabled);
+        setProviders(enabled);
+        setFocusedId(enabled.find((view) => view.id === providerId)?.id ?? enabled[0]?.id ?? null);
       })
       .catch(() => setProvidersFailed(true));
   };
@@ -521,7 +530,7 @@ export function ChatComposer({
           onDropHandled={() => setDragging(false)}
           onFiles={(files, pos) => void addFiles(files, pos)}
           onSend={() => {
-            if (canSend) onSend();
+            if (canSend && !modelUnavailable) onSend();
           }}
           placeholderText={hero ? '有什么可以帮你？' : '回复…  @ 引用文件，/ 指令'}
           referenceOptions={referenceOptions}
@@ -636,11 +645,17 @@ export function ChatComposer({
               <Popover.Trigger asChild>
                 <button
                   aria-label="模型服务"
-                  className={cn(triggerButton, '@max-[220px]:px-1.5')}
-                  title={model}
+                  className={cn(
+                    triggerButton,
+                    '@max-[220px]:px-1.5',
+                    modelUnavailable && 'text-red hover:text-red',
+                  )}
+                  title={modelUnavailable ? `${model}（已停用或被移除，请另选模型）` : model}
                   type="button"
                 >
-                  <span className="truncate @max-[220px]:hidden">{model}</span>
+                  <span className="truncate @max-[220px]:hidden">
+                    {modelUnavailable ? `${model} · 已停用` : model}
+                  </span>
                   <Bot className="hidden size-3.5 @max-[220px]:block" />
                   <ChevronDown className="size-3 @max-[220px]:hidden" />
                 </button>
@@ -665,7 +680,7 @@ export function ChatComposer({
                   ) : providers.length === 0 ? (
                     <div className="grid gap-2 px-1.5 py-2">
                       <p className="text-xs text-ink-3">
-                        还没有配置模型供应商，可在设置 › 模型供应商 中添加。
+                        还没有启用的模型供应商，可在设置 › 模型供应商 中添加或启用。
                       </p>
                       <Button
                         className="w-full justify-start [&_svg]:size-3.5"
@@ -696,11 +711,11 @@ export function ChatComposer({
                               type="button"
                             >
                               <span className="truncate">{provider.name}</span>
-                              {provider.active && (
+                              {provider.id === providerId && (
                                 <span
-                                  aria-label="使用中"
+                                  aria-label="本会话使用"
                                   className="ms-auto size-1.5 shrink-0 rounded-full bg-green"
-                                  title="使用中"
+                                  title="本会话使用"
                                 />
                               )}
                             </button>
@@ -716,7 +731,7 @@ export function ChatComposer({
                             <button
                               className={cn(
                                 'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
-                                focused.active && model === item
+                                focused.id === providerId && model === item
                                   ? 'bg-hover font-medium text-ink'
                                   : 'text-ink-2 hover:bg-hover hover:text-ink',
                               )}
@@ -727,7 +742,7 @@ export function ChatComposer({
                               type="button"
                             >
                               <span className="truncate">{item}</span>
-                              {focused.active && model === item && (
+                              {focused.id === providerId && model === item && (
                                 <Check
                                   className="ms-auto size-3 shrink-0 text-ink"
                                   strokeWidth={2.5}
@@ -834,13 +849,13 @@ export function ChatComposer({
             <button
               aria-label="发送"
               className="flex size-7 shrink-0 items-center justify-center rounded-control transition-[background-color,color,transform] duration-200 enabled:active:scale-[0.94]"
-              disabled={!configured || !canSend}
+              disabled={!sendable}
               onClick={onSend}
               style={{
-                background: configured && canSend ? 'var(--ink)' : 'var(--line-strong)',
-                color: configured && canSend ? 'var(--surface)' : 'var(--ink-2)',
+                background: sendable ? 'var(--ink)' : 'var(--line-strong)',
+                color: sendable ? 'var(--surface)' : 'var(--ink-2)',
               }}
-              title="发送"
+              title={modelUnavailable ? '这个会话的模型已停用，请先另选模型' : '发送'}
               type="button"
             >
               <ArrowUp className="size-4" strokeWidth={2.4} />

@@ -176,7 +176,10 @@ const schema: string[] = [
     archived INTEGER NOT NULL DEFAULT 0,
     pinned INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    provider_id TEXT,
+    model TEXT,
+    effort TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
 ];
@@ -189,7 +192,7 @@ const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
   accepted_at TEXT NOT NULL
 )`;
 
-const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export function getDatabase(): Database.Database {
   if (database) return database;

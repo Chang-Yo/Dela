@@ -462,7 +462,7 @@ export function WorkbenchExplorer({
               </Button>
             </div>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col" id="workspace-explorer">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col" id="workspace-explorer">
             <div className="relative mx-2 mb-1">
               <Search className="pointer-events-none absolute left-2 top-2 size-3.5 text-ink-3" />
               <Input

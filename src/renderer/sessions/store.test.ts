@@ -39,9 +39,10 @@ function chat(sessionId: string, messageCount: number): WorkspaceChat {
     projectId: null,
     cwd: null,
     configured: true,
+    providerId: null,
     providerName: null,
     model: 'm',
-    models: [],
+    modelUnavailable: false,
     effortLevels: [],
     effort: null,
     messages: Array.from({ length: messageCount }, () => ({

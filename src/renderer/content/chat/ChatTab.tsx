@@ -101,6 +101,8 @@ function ChatComposerArea({
         effort={chat?.effort ?? null}
         effortLevels={chat?.effortLevels ?? []}
         model={chat?.model ?? ''}
+        modelUnavailable={chat?.modelUnavailable ?? false}
+        providerId={chat?.providerId ?? null}
         onAddAttachmentFile={chatState.addAttachmentFile}
         onAddAttachmentView={chatState.addAttachmentView}
         onChange={chatState.setPrompt}

@@ -73,7 +73,10 @@ function createDb(): Database.Database {
       pinned INTEGER NOT NULL DEFAULT 0,
       cwd TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      provider_id TEXT,
+      model TEXT,
+      effort TEXT
     );
   `);
   return db;

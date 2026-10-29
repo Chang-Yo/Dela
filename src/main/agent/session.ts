@@ -23,8 +23,10 @@ import type {
 import { parseChatBlocks, stripChatImageTokens } from '../../shared/chat-input';
 import { getDatabase } from '../database';
 import { storageDirectory } from '../storage';
-import { getActiveLlmProvider } from './providers';
-import { openPiSession } from './pi';
+import { llmProviders, usableLlmProviders } from './providers';
+import { openPiSession, resolveModel, type SessionModel } from './pi';
+import { llmModelSettings } from '../../shared/llm-presets';
+import type { StoredLlmProvider } from '../credentials';
 import { agentEnvironment } from './environment';
 import { remoteProjectOf } from '../workspace/api';
 import { openInVsCode } from '../workspace/project';
@@ -50,11 +52,15 @@ interface SessionRow {
   cwd: string | null;
   file: string;
   title: string;
+  provider_id: string | null;
+  model: string | null;
+  effort: string | null;
 }
 
 interface Live {
   session: AgentSession;
   cwd: string;
+  providerId: string;
   /** 当前 Run（ask 进行中）；空闲为 undefined。 */
   run?: { id: string; tool?: string; cancelled?: boolean; done: Promise<void> };
   unsubscribe: () => void;
@@ -78,7 +84,9 @@ function send(channel: string, ...args: unknown[]) {
 
 function row(id: string): SessionRow {
   const found = getDatabase()
-    .prepare('SELECT id, project_id, cwd, file, title FROM sessions WHERE id=?')
+    .prepare(
+      'SELECT id, project_id, cwd, file, title, provider_id, model, effort FROM sessions WHERE id=?',
+    )
     .get(id) as SessionRow | undefined;
   if (!found) throw new Error('会话不存在');
   return found;
@@ -197,23 +205,115 @@ export async function uncommittedAvailability(
   return changes.probeUncommitted(cwd);
 }
 
+type ModelChoice =
+  | { kind: 'none' }
+  | {
+      kind: 'unavailable';
+      providerId: string;
+      providerName: string | null;
+      model: string;
+      effort: string | null;
+    }
+  | { kind: 'ready'; selection: SessionModel; effortLevels: string[]; stored: boolean };
+
+function readyChoice(
+  provider: StoredLlmProvider,
+  model: string,
+  effort: string | null,
+  stored: boolean,
+): ModelChoice {
+  const settings = llmModelSettings(provider, model);
+  const valid = effort && settings.effortLevels.includes(effort) ? effort : null;
+  return {
+    kind: 'ready',
+    selection: { provider, model, effort: valid ?? settings.effort ?? null },
+    effortLevels: settings.effortLevels,
+    stored,
+  };
+}
+
+/** 会话自己的选择优先；从未选过的沿用最近发过消息的会话，那个也用不了时取第一个可用提供商的首个模型。 */
+function modelChoice(meta: SessionRow): ModelChoice {
+  const providers = llmProviders();
+  const usable = usableLlmProviders(providers);
+  if (meta.provider_id && meta.model) {
+    const provider = usable.find(({ id }) => id === meta.provider_id);
+    if (provider?.models.includes(meta.model))
+      return readyChoice(provider, meta.model, meta.effort, true);
+    return {
+      kind: 'unavailable',
+      providerId: meta.provider_id,
+      providerName: providers.find(({ id }) => id === meta.provider_id)?.name ?? null,
+      model: meta.model,
+      effort: meta.effort,
+    };
+  }
+  const recent = getDatabase()
+    .prepare(
+      'SELECT provider_id, model, effort FROM sessions WHERE message_count > 0 AND provider_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1',
+    )
+    .get() as Pick<SessionRow, 'provider_id' | 'model' | 'effort'> | undefined;
+  const inherited = recent && usable.find(({ id }) => id === recent.provider_id);
+  if (inherited && recent.model && inherited.models.includes(recent.model))
+    return readyChoice(inherited, recent.model, recent.effort, false);
+  const first = usable[0];
+  return first ? readyChoice(first, first.models[0]!, null, false) : { kind: 'none' };
+}
+
+function modelView(choice: ModelChoice) {
+  if (choice.kind === 'ready')
+    return {
+      configured: true,
+      providerId: choice.selection.provider.id,
+      providerName: choice.selection.provider.name,
+      model: choice.selection.model,
+      modelUnavailable: false,
+      effortLevels: choice.effortLevels,
+      effort: choice.selection.effort,
+    };
+  if (choice.kind === 'unavailable')
+    return {
+      configured: true,
+      providerId: choice.providerId,
+      providerName: choice.providerName,
+      model: choice.model,
+      modelUnavailable: true,
+      effortLevels: [],
+      effort: choice.effort,
+    };
+  return {
+    configured: false,
+    providerId: null,
+    providerName: null,
+    model: '',
+    modelUnavailable: false,
+    effortLevels: [],
+    effort: null,
+  };
+}
+
 async function ensureLive(id: string): Promise<Live> {
   const existing = live.get(id);
   if (existing) return existing;
-  const provider = getActiveLlmProvider();
-  if (!provider) throw new Error('请先在设置中配置模型服务');
   const meta = row(id);
+  const choice = modelChoice(meta);
+  if (choice.kind === 'none') throw new Error('请先在设置中配置模型服务');
+  if (choice.kind === 'unavailable')
+    throw new Error('这个会话的模型已停用或被移除，请在输入框里另选模型');
+  const { selection } = choice;
+  // 沿用来的选择在会话开始使用时写下，之后别的会话换模型不再影响它。
+  if (!choice.stored) storeModel(id, selection.provider.id, selection.model, selection.effort);
   const cwd = sessionCwd(meta.project_id, meta.cwd);
   const environment = agentEnvironment();
   const session = await openPiSession({
     cwd,
     file: existsSync(meta.file) ? meta.file : undefined,
-    provider,
+    selection,
     ...(await environment.sessionOptions(meta.project_id, cwd)),
   });
   if (session.sessionFile && session.sessionFile !== meta.file)
     getDatabase().prepare('UPDATE sessions SET file=? WHERE id=?').run(session.sessionFile, id);
-  const entry: Live = { session, cwd, unsubscribe: () => {} };
+  const entry: Live = { session, cwd, providerId: selection.provider.id, unsubscribe: () => {} };
   entry.unsubscribe = session.subscribe((event) => onEvent(id, entry, event));
   live.set(id, entry);
   // 绑定会触发扩展的 session_start；扩展可能在里面发可见消息或改标题，所以先登记再绑定。
@@ -231,7 +331,7 @@ async function ensureLive(id: string): Promise<Live> {
  * 时才为此预建实例（会连带建立扩展运行时），没配模型时直接给空表。
  */
 export async function listSessionCommands(id: string): Promise<ChatSlashCommand[]> {
-  if (!packagesEnabled() || !getActiveLlmProvider()) return [];
+  if (!packagesEnabled() || modelChoice(row(id)).kind !== 'ready') return [];
   return sessionSlashCommands((await ensureLive(id)).session);
 }
 
@@ -260,9 +360,17 @@ export function hasLiveSessions(): boolean {
   return live.size > 0;
 }
 
-/** 模型或能力配置改变：空闲实例立即丢弃，运行中的轮末丢弃，下次使用时按新配置重建。 */
-export function invalidateSessions() {
+function storeModel(id: string, providerId: string, model: string, effort: string | null) {
+  getDatabase()
+    .prepare('UPDATE sessions SET provider_id=?, model=?, effort=? WHERE id=?')
+    .run(providerId, model, effort, id);
+}
+
+/** 模型或能力配置改变：空闲实例立即丢弃，运行中的轮末丢弃，下次使用时按新配置重建。
+ *  给了 providerId 就只处理用这个提供商的会话。 */
+export function invalidateSessions(providerId?: string) {
   for (const [id, entry] of live) {
+    if (providerId && entry.providerId !== providerId) continue;
     // 压缩也算忙：此时丢弃会话会中止压缩（dispose 里的 abortCompaction）。
     if (!entry.run && !entry.session.isCompacting) void disposeLive(id, entry, 'reload');
     else {
@@ -409,31 +517,25 @@ export function projectMessages(
 }
 
 function snapshot(id: string): WorkspaceChat {
-  let provider: ReturnType<typeof getActiveLlmProvider> = null;
+  const entry = live.get(id);
+  const meta = row(id);
+  let choice: ModelChoice = { kind: 'none' };
   try {
-    provider = getActiveLlmProvider();
+    choice = modelChoice(meta);
   } catch {
     // 凭据不可读时只显示未配置状态。
   }
-  const entry = live.get(id);
-  const meta = row(id);
   let cwd: string | null = entry?.cwd ?? null;
   try {
     cwd ??= sessionCwd(meta.project_id, meta.cwd);
   } catch {
     // 项目目录缺失：快照照常展示历史，发送时由 ensureLive 报出具体错误。
   }
-  const effortLevels = provider?.effortLevels ?? [];
   return {
     sessionId: id,
     projectId: meta.project_id,
     cwd,
-    configured: Boolean(provider),
-    providerName: provider?.name ?? null,
-    model: provider?.model ?? '',
-    models: provider?.models ?? [],
-    effortLevels,
-    effort: effortLevels.length ? (provider?.effort ?? effortLevels[0]!) : null,
+    ...modelView(choice),
     contextUsage: usageOf(entry),
     messages: entry
       ? projectMessages(entry.session.messages, liveSteps.get(id), Boolean(entry.run))
@@ -942,7 +1044,7 @@ export async function runSessionCommand(
     busy(entry);
     if (entry) await disposeLive(id, entry, 'reload');
     // 立刻重建：扩展的加载错误与 session_start 里的通知现在就出现，而不是等下一次发送。
-    if (getActiveLlmProvider()) await ensureLive(id);
+    if (modelChoice(row(id)).kind === 'ready') await ensureLive(id);
   } else {
     const entry = await ensureLive(id);
     busy(entry);
@@ -960,4 +1062,50 @@ export async function runSessionCommand(
   }
   publish(id);
   return snapshot(id);
+}
+
+/**
+ * 只改这个会话的模型。空闲的实例就地切换（Pi 的 setModel 只改本会话并写进会话文件）；
+ * 运行或压缩中的实例标 stale，本轮照旧用原模型，结束后按新选择重建。
+ */
+export async function setSessionModel(
+  id: string,
+  providerId: string,
+  model: string,
+): Promise<WorkspaceChat> {
+  row(id);
+  const provider = usableLlmProviders().find((item) => item.id === providerId);
+  if (!provider) throw new Error('提供商不存在、已停用或缺少 API Key');
+  if (!provider.models.includes(model)) throw new Error('模型不在该提供商的模型列表中');
+  storeModel(id, providerId, model, null);
+  await applySelection(id);
+  publish(id);
+  return snapshot(id);
+}
+
+export async function setSessionEffort(id: string, level: string): Promise<WorkspaceChat> {
+  const choice = modelChoice(row(id));
+  if (choice.kind !== 'ready') throw new Error('请先为这个会话选择可用的模型');
+  if (!choice.effortLevels.includes(level))
+    throw new Error('该档位不在这个模型开启的推理强度列表中，请先在设置中勾选');
+  const { provider, model } = choice.selection;
+  storeModel(id, provider.id, model, level);
+  await applySelection(id);
+  publish(id);
+  return snapshot(id);
+}
+
+async function applySelection(id: string) {
+  const entry = live.get(id);
+  if (!entry) return;
+  if (entry.run || entry.session.isCompacting) {
+    entry.stale = true;
+    return;
+  }
+  const choice = modelChoice(row(id));
+  if (choice.kind !== 'ready') return;
+  const { model, thinking } = await resolveModel(choice.selection);
+  await entry.session.setModel(model);
+  entry.session.setThinkingLevel(thinking);
+  entry.providerId = choice.selection.provider.id;
 }

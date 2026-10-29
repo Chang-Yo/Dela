@@ -7,9 +7,7 @@ import {
   listLlmProviders,
   removeLlmProvider,
   saveLlmProvider,
-  setActiveLlmProvider,
-  setLlmEffort,
-  setLlmModel,
+  setLlmProviderEnabled,
   verifyLlm,
   verifyLlmModel,
 } from './providers';
@@ -39,6 +37,8 @@ import {
   preloadPi,
   revealSessionFile,
   runSessionCommand,
+  setSessionEffort,
+  setSessionModel,
   subscribeChat,
   updateSessionVisibility,
 } from './session';
@@ -177,6 +177,16 @@ export function registerAgentIpc() {
   });
   sessionHandle('ask', (id, input) => askSession(uuid.parse(id), askInputSchema.parse(input)));
   sessionHandle('cancel-run', (id) => cancelRun(uuid.parse(id)));
+  sessionHandle('set-model', (id, providerId, model) =>
+    setSessionModel(
+      uuid.parse(id),
+      uuid.parse(providerId),
+      z.string().min(1).max(200).parse(model),
+    ),
+  );
+  sessionHandle('set-effort', (id, level) =>
+    setSessionEffort(uuid.parse(id), z.string().min(1).max(16).parse(level)),
+  );
   sessionHandle('run-command', (id, name, args) =>
     runSessionCommand(
       uuid.parse(id),
@@ -258,15 +268,22 @@ export function registerAgentIpc() {
   );
 
   handle('llm:list', () => listLlmProviders());
-  handle('llm:save', (input) => invalidating(() => saveLlmProvider(input)));
-  handle('llm:remove', (id) => invalidating(() => removeLlmProvider(uuid.parse(id))));
-  handle('llm:set-active', (id) => invalidating(() => setActiveLlmProvider(uuid.parse(id))));
-  handle('llm:set-model', (model) =>
-    invalidating(() => setLlmModel(z.string().trim().min(1).max(200).parse(model))),
-  );
-  handle('llm:set-effort', (level) =>
-    invalidating(() => setLlmEffort(z.string().trim().min(1).max(16).parse(level))),
-  );
+  // 提供商配置只影响用它的会话；停用与删除也一样，那些会话下次使用时会提示另选模型。
+  handle('llm:save', (input) => {
+    const saved = saveLlmProvider(input);
+    invalidateSessions(saved.id);
+    return saved;
+  });
+  handle('llm:remove', (id) => {
+    const providerId = uuid.parse(id);
+    removeLlmProvider(providerId);
+    invalidateSessions(providerId);
+  });
+  handle('llm:set-enabled', (id, enabled) => {
+    const providerId = uuid.parse(id);
+    setLlmProviderEnabled(providerId, z.boolean().parse(enabled));
+    invalidateSessions(providerId);
+  });
   handle('llm:verify-model', (input) => verifyLlmModel(input));
   handle('llm:verify', (input) =>
     verifyLlm(

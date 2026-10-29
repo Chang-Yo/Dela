@@ -11,9 +11,8 @@ import {
   parseModelList,
   removeLlmProvider,
   saveLlmProvider,
-  setActiveLlmProvider,
-  setLlmEffort,
-  setLlmModel,
+  setLlmProviderEnabled,
+  usableLlmProviders,
   verifyLlm,
   verifyLlmModel,
 } from '../providers';
@@ -31,7 +30,7 @@ const saveMock = vi.mocked(saveLlmConfig);
 let config: StoredLlmConfig;
 
 beforeEach(() => {
-  config = { providers: [], activeId: null };
+  config = { providers: [] };
   loadMock.mockImplementation(() => config);
   saveMock.mockImplementation((next) => {
     config = next;
@@ -79,7 +78,7 @@ it('reuses the stored key for a model probe at any address', async () => {
   const result = await verifyLlmModel({
     id: created.id,
     baseUrl: 'https://other.example',
-    model: input.model,
+    model: 'deepseek-v4-pro',
   });
   expect(result.ok).toBe(false);
   expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
@@ -90,12 +89,11 @@ const input = {
   baseUrl: 'https://api.deepseek.com',
   apiKey: 'test-only',
   models: ['deepseek-v4-pro', 'deepseek-flash'],
-  model: 'deepseek-v4-pro',
   presetId: 'deepseek',
 };
 
 describe('LLM provider config', () => {
-  it('stores per-model limits and switches to that model’s own reasoning levels', () => {
+  it('stores per-model limits and reasoning levels', () => {
     const created = saveLlmProvider({
       ...input,
       modelConfigs: {
@@ -109,15 +107,8 @@ describe('LLM provider config', () => {
       },
     });
     expect(created.modelConfigs?.['deepseek-v4-pro']?.contextWindow).toBe(1000000);
-    expect(created.effortLevels).toEqual(['high', 'max']);
-    setActiveLlmProvider(created.id);
-    setLlmModel('deepseek-flash');
-    expect(listLlmProviders()[0]?.effortLevels).toEqual([]);
-    expect(() => setLlmEffort('low')).toThrow();
-    setLlmModel('deepseek-v4-pro');
-    setLlmEffort('high');
-    expect(listLlmProviders()[0]?.effort).toBe('high');
-    expect(config.providers[0]?.modelConfigs?.['deepseek-v4-pro']?.effort).toBe('high');
+    expect(created.modelConfigs?.['deepseek-v4-pro']?.effortLevels).toEqual(['high', 'max']);
+    expect(created.modelConfigs?.['deepseek-flash']?.effortLevels).toEqual([]);
   });
 
   it('rejects invalid model limits and settings for models outside the list', () => {
@@ -200,29 +191,22 @@ describe('LLM provider config', () => {
       name: input.name,
       baseUrl: input.baseUrl,
       models: input.models,
-      model: input.model,
-      effortLevels: [],
-      effort: null,
       presetId: input.presetId,
-      active: false,
+      enabled: true,
     });
     expect('apiKey' in view).toBe(false);
     expect(config.providers[0]!.apiKey).toBe('test-only');
   });
 
-  it('normalizes model effort levels and only accepts enabled levels', () => {
+  it('normalizes model effort levels and rejects unknown levels', () => {
+    const model = 'deepseek-v4-pro';
     const view = saveLlmProvider({
       ...input,
-      modelConfigs: { [input.model]: { effortLevels: ['ultra', 'low', 'low', 'none'] } },
+      modelConfigs: { [model]: { effortLevels: ['ultra', 'low', 'low', 'none'] } },
     });
-    expect(view.effortLevels).toEqual(['none', 'low', 'ultra']);
-    expect(view.effort).toBe('none');
-    setActiveLlmProvider(view.id);
-    setLlmEffort('low');
-    expect(listLlmProviders()[0]!.effort).toBe('low');
-    expect(() => setLlmEffort('max')).toThrow(/不在当前提供商开启/);
+    expect(view.modelConfigs?.[model]?.effortLevels).toEqual(['none', 'low', 'ultra']);
     expect(() =>
-      saveLlmProvider({ ...input, modelConfigs: { [input.model]: { effortLevels: ['turbo'] } } }),
+      saveLlmProvider({ ...input, modelConfigs: { [model]: { effortLevels: ['turbo'] } } }),
     ).toThrow();
   });
 
@@ -233,31 +217,16 @@ describe('LLM provider config', () => {
     expect(config.providers[0]!.name).toBe('DeepSeek 备用');
   });
 
-  it('rejects a default model outside the model list', () => {
-    expect(() => saveLlmProvider({ ...input, model: 'unknown-model' })).toThrow();
-  });
-
-  it('switches the active provider and refuses unknown ids', () => {
+  it('offers only enabled providers with a key to sessions, keeping disabled ones configured', () => {
     const created = saveLlmProvider(input);
-    setActiveLlmProvider(created.id);
-    expect(listLlmProviders()[0]!.active).toBe(true);
-    expect(() => setActiveLlmProvider('00000000-0000-4000-8000-000000000000')).toThrow();
-  });
-
-  it('clears the active id when removing the active provider', () => {
-    const created = saveLlmProvider(input);
-    setActiveLlmProvider(created.id);
+    setLlmProviderEnabled(created.id, false);
+    expect(usableLlmProviders()).toEqual([]);
+    expect(listLlmProviders()[0]!.enabled).toBe(false);
+    setLlmProviderEnabled(created.id, true);
+    expect(usableLlmProviders().map(({ id }) => id)).toEqual([created.id]);
+    expect(() => setLlmProviderEnabled('00000000-0000-4000-8000-000000000000', true)).toThrow();
     removeLlmProvider(created.id);
     expect(config.providers).toHaveLength(0);
-    expect(config.activeId).toBeNull();
-  });
-
-  it('switches models only within the active provider list', () => {
-    const created = saveLlmProvider(input);
-    setActiveLlmProvider(created.id);
-    setLlmModel('deepseek-flash');
-    expect(config.providers[0]!.model).toBe('deepseek-flash');
-    expect(() => setLlmModel('unknown-model')).toThrow();
   });
 });
 

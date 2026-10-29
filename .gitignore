@@ -11,6 +11,7 @@ native/*/build/
 output/playwright/
 *.tsbuildinfo
 *.tgz
+!vendor/xlsx/*.tgz
 
 # Credentials and private reference files
 .env
