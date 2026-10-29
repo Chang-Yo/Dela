@@ -46,6 +46,7 @@ export function SessionRow({
   onDelete?: (id: string) => void | Promise<void>;
 }) {
   const ProjectIcon = remoteId ? Cloud : Folder;
+  const title = session.title || '新对话';
   const badge = useSessionRunStatus(session.id);
   const visual = badge === null ? null : badgeVisual[badge];
   const [busy, setBusy] = useState(false);
@@ -56,8 +57,15 @@ export function SessionRow({
       if (!(event.target instanceof Element && event.target.closest('[data-archive-confirm]')))
         setConfirming(false);
     };
+    const cancelOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setConfirming(false);
+    };
     document.addEventListener('pointerdown', cancel);
-    return () => document.removeEventListener('pointerdown', cancel);
+    document.addEventListener('keydown', cancelOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', cancel);
+      document.removeEventListener('keydown', cancelOnEscape);
+    };
   }, [confirming]);
   const change = async (archive: boolean) => {
     if (busy) return;
@@ -94,7 +102,7 @@ export function SessionRow({
               />
             )}
             <span className={cn('sidebar-title min-w-0 flex-1 text-13', active && 'font-medium')}>
-              {session.title || '新对话'}
+              {title}
             </span>
             {session.pinned && <Pin className="size-3 shrink-0 text-ink-3" aria-label="已置顶" />}
           </button>
@@ -106,7 +114,7 @@ export function SessionRow({
             className={cn(menuPanel, 'grid max-w-80 gap-1.5 p-3 text-xs')}
             sideOffset={8}
           >
-            <span className="break-words font-medium">{session.title || '新对话'}</span>
+            <span className="break-words font-medium">{title}</span>
             <span className="flex items-center gap-1.5 text-ink-3">
               <ProjectIcon className="size-3.5" aria-hidden="true" />
               {projectName ?? '随聊'}
@@ -122,6 +130,7 @@ export function SessionRow({
           variant="destructive"
           className="h-6 px-2 text-xs"
           disabled={busy}
+          onBlur={() => setConfirming(false)}
           onClick={() => void change(true)}
         >
           确认归档
@@ -130,7 +139,7 @@ export function SessionRow({
         <div className={cn(rowActions, active ? 'bg-hover-2' : 'bg-hover')}>
           <button
             disabled={busy}
-            aria-label={`${session.pinned ? '取消置顶' : '置顶'} ${session.title}`}
+            aria-label={`${session.pinned ? '取消置顶' : '置顶'} ${title}`}
             title={session.pinned ? '取消置顶' : '置顶'}
             className={rowIconButton}
             onClick={() => void change(false)}
@@ -141,7 +150,7 @@ export function SessionRow({
           {onDelete && (
             <button
               disabled={busy}
-              aria-label={`归档 ${session.title}`}
+              aria-label={`归档 ${title}`}
               title="归档对话"
               className={rowIconButton}
               onClick={() => void change(true)}

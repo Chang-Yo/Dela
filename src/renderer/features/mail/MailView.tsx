@@ -802,7 +802,7 @@ function DesktopMailView({
                     <strong className="block truncate text-13">{item.subject || '(无主题)'}</strong>
                     <span className="block truncate text-xs text-ink-3">
                       {item.recipientText || '未填写收件人'} ·{' '}
-                      {new Date(item.updatedAt).toLocaleString()}
+                      {new Date(item.updatedAt).toLocaleString('zh-CN')}
                     </span>
                   </button>
                   <button
