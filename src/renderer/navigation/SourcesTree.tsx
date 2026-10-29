@@ -2,7 +2,7 @@
 // 订阅 workspace/store 的 Canvas 概览镜像，同步/归档/下载经 preload canvas:* 通道直连。
 import { useState } from 'react';
 import { AlertDialog } from 'radix-ui';
-import { Archive, Columns2, Ellipsis, Download, FileText, Link2 } from 'lucide-react';
+import { Archive, Columns2, Ellipsis, Download, FileText, FolderOpen, Link2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import { showToast } from '../app/toasts';
 import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
 import { dialogOverlay, dialogPanel } from '../components/ui/motion';
 import { cn } from '../lib/utils';
+import { fileManagerName } from '../lib/platform';
 
 export function SourcesTree({
   expanded,
@@ -199,21 +200,36 @@ export function SourcesTree({
                         <Link2 />
                         添加到项目
                       </DropdownMenuItem>
-                      {sourceId.startsWith('file:') && (
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            void window.dela?.canvas.download(sourceId).catch((cause) =>
-                              showToast({
-                                variant: 'error',
-                                title: '下载失败',
-                                description: errorText(cause),
-                              }),
-                            );
-                          }}
-                        >
-                          <Download />
-                          下载文件
-                        </DropdownMenuItem>
+                      {item?.kind === 'file' && (
+                        <>
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              void window.dela?.canvas.reveal(sourceId).catch((cause) =>
+                                showToast({
+                                  variant: 'error',
+                                  title: `打开 ${fileManagerName} 失败`,
+                                  description: errorText(cause),
+                                }),
+                              );
+                            }}
+                          >
+                            <FolderOpen />在 {fileManagerName} 中显示
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              void window.dela?.canvas.download(sourceId).catch((cause) =>
+                                showToast({
+                                  variant: 'error',
+                                  title: '下载失败',
+                                  description: errorText(cause),
+                                }),
+                              );
+                            }}
+                          >
+                            <Download />
+                            下载文件
+                          </DropdownMenuItem>
+                        </>
                       )}
                     </>
                   )

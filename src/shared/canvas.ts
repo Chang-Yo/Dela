@@ -93,6 +93,7 @@ export interface CanvasApi {
   archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
   read(sourceId: string): Promise<DocumentContent>;
   download(sourceId: string): Promise<void>;
+  reveal(sourceId: string): Promise<void>;
   openLink(url: string): Promise<void>;
   /** 已下载到本地 courses 目录、属于最新学期（未归档）的课件文件列表。 */
   cachedFiles(): Promise<CachedCourseFile[]>;
