@@ -94,15 +94,14 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     setState('busy');
     setError(null);
     try {
-      const saved = await window.dela.llm.save({
+      // 引导里选的模型排到列表首位：还没有会话可以沿用时，新会话取第一个可用提供商的首个模型。
+      await window.dela.llm.save({
         name: custom ? name.trim() : preset.name,
         baseUrl: effectiveBaseUrl,
         apiKey: apiKey || undefined,
-        models,
-        model,
+        models: [model, ...models.filter((item) => item !== model)],
         presetId: custom ? null : presetId,
       });
-      await window.dela.llm.setActive(saved.id);
       setState('success');
     } catch (cause) {
       setError(errorText(cause));

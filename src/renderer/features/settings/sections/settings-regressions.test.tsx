@@ -87,11 +87,8 @@ it('searches detected models before adding one and saves per-model settings', as
     name: 'Provider A',
     baseUrl: 'https://example.com',
     models: ['existing'],
-    model: 'existing',
-    effortLevels: [],
-    effort: null,
     presetId: null,
-    active: false,
+    enabled: true,
   };
   let saved: LlmSaveInput | undefined;
   window.dela = {
@@ -147,11 +144,8 @@ it('discards model detection results after the API address changes', async () =>
     name: 'Provider A',
     baseUrl: 'https://example.com',
     models: ['existing'],
-    model: 'existing',
-    effortLevels: [],
-    effort: null,
     presetId: null,
-    active: false,
+    enabled: true,
   };
   let finish!: (result: LlmVerifyResult) => void;
   window.dela = {
@@ -179,11 +173,8 @@ it('caps model import at 64 and reports the omitted count', async () => {
     name: 'Provider A',
     baseUrl: 'https://example.com',
     models: ['existing'],
-    model: 'existing',
-    effortLevels: [],
-    effort: null,
     presetId: null,
-    active: false,
+    enabled: true,
   };
   window.dela = {
     llm: {
@@ -209,11 +200,8 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
     name,
     baseUrl: 'https://example.com',
     models: ['model'],
-    model: 'model',
-    effortLevels: [],
-    effort: null,
     presetId: null,
-    active: false,
+    enabled: true,
   });
   const a = provider('a', 'Provider A');
   const b = provider('b', 'Provider B');
@@ -262,9 +250,8 @@ it('adopts the versioned API base discovered while creating a provider', async (
       }),
       save: async (input: LlmSaveInput) => {
         saved = input;
-        return { ...input, id: 'new', effortLevels: [], effort: null, active: true };
+        return { ...input, id: 'new', presetId: null, enabled: true };
       },
-      setActive: async () => {},
     },
   } as unknown as DelaApi;
   await act(async () => root.render(<LlmSection />));
@@ -288,11 +275,8 @@ it('rewrites an existing provider to the API base the service actually serves', 
     name: '自建网关',
     baseUrl: 'https://api.deepseek.com',
     models: ['deepseek-chat'],
-    model: 'deepseek-chat',
-    effortLevels: [],
-    effort: null,
     presetId: null,
-    active: true,
+    enabled: true,
   };
   window.dela = {
     llm: {

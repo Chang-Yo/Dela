@@ -64,7 +64,7 @@ async function run(window) {
   const js = (source) => window.webContents.executeJavaScript(`(async () => ${source})()`);
   const baseUrl = `http://127.0.0.1:${server.address().port}/v1`;
   await js(
-    `window.dela.llm.save(${JSON.stringify({ name: 'smoke', baseUrl, apiKey: 'smoke', models: ['m'], model: 'm' })}).then((p) => window.dela.llm.setActive(p.id))`,
+    `window.dela.llm.save(${JSON.stringify({ name: 'smoke', baseUrl, apiKey: 'smoke', models: ['m'] })})`,
   );
 
   // 渲染端记录扩展事件，并自动回答对话框（选第二项、确认）。

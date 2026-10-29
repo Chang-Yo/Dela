@@ -26,7 +26,7 @@ import { extensionSessionState, replyExtensionUi, setExtensionUiSender } from '.
 import { projectMessages } from '../session';
 import type { ExtensionUiEvent, ExtensionUiRequest } from '../../../shared/packages';
 
-vi.mock('../providers', () => ({ getActiveLlmProvider: () => null }));
+vi.mock('../providers', () => ({ llmProviders: () => [], usableLlmProviders: () => [] }));
 vi.mock('../environment', () => ({ agentEnvironment: () => ({}) }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 vi.mock('../packages', () => ({ packagesEnabled: () => true, recordLoadDiagnostics: () => {} }));
@@ -50,14 +50,18 @@ beforeAll(async () => {
   const cwd = mkdtempSync(join(root, 'cwd-'));
   session = await openPiSession({
     cwd,
-    provider: {
-      id: 'p',
-      name: 'mock',
-      baseUrl: server.baseUrl,
-      apiKey: 'test-only',
-      models: ['mock-model'],
+    selection: {
+      provider: {
+        id: 'p',
+        name: 'mock',
+        baseUrl: server.baseUrl,
+        apiKey: 'test-only',
+        models: ['mock-model'],
+        presetId: null,
+        enabled: true,
+      },
       model: 'mock-model',
-      presetId: null,
+      effort: null,
     },
     appendSystemPrompt: [],
     customTools: [],

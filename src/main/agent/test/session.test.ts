@@ -28,19 +28,36 @@ const state = vi.hoisted(() => ({
   compacting: false,
   compact: null as ((instructions?: string) => Promise<unknown>) | null,
   compactCalls: [] as (string | undefined)[],
+  providers: [] as {
+    id: string;
+    name: string;
+    baseUrl: string;
+    apiKey: string;
+    models: string[];
+    presetId: null;
+    enabled: boolean;
+  }[],
+  /** 假会话上的 setModel 调用（模型 id）。 */
+  modelSwitches: [] as string[],
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
-  getActiveLlmProvider: () =>
-    state.configured ? { name: 'test', model: 'm', models: [], effortLevels: [] } : null,
+  llmProviders: () => (state.configured ? state.providers : []),
+  usableLlmProviders: () =>
+    state.configured ? state.providers.filter(({ enabled }) => enabled) : [],
 }));
 vi.mock('../../documents/runtime', () => ({
   DOCUMENT_SKILL: 'document-reading',
   assertDocumentDependency: () => {},
 }));
 vi.mock('../pi', () => ({
+  resolveModel: async ({ model }: { model: string }) => ({ model, thinking: 'off' }),
   openPiSession: async () => ({
+    setModel: async (model: string) => {
+      state.modelSwitches.push(model);
+    },
+    setThinkingLevel: () => {},
     opened: ++state.opened,
     subscribe: () => () => {},
     get messages() {
@@ -97,6 +114,7 @@ import {
   contextUsageView,
   deleteSession,
   runSessionCommand,
+  setSessionModel,
 } from '../session';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
@@ -112,6 +130,18 @@ beforeEach(() => {
   state.compacting = false;
   state.compact = null;
   state.compactCalls = [];
+  state.providers = [
+    {
+      id: 'p1',
+      name: 'test',
+      baseUrl: 'https://example.invalid/v1',
+      apiKey: 'k',
+      models: ['m', 'm2'],
+      presetId: null,
+      enabled: true,
+    },
+  ];
+  state.modelSwitches = [];
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-'));
   state.db = new Database(':memory:');
   state.db.pragma('foreign_keys = ON');
@@ -123,7 +153,8 @@ beforeEach(() => {
       project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL, file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
-      cwd TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      cwd TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      provider_id TEXT, model TEXT, effort TEXT);
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
 });
@@ -670,5 +701,56 @@ describe('上下文用量', () => {
     const actual = contextUsageView(stats(50_000) as never, 30_000);
     expect(actual).toMatchObject({ tokens: 50_000, percent: 25 });
     expect(actual?.estimated).toBeUndefined();
+  });
+});
+
+describe('会话级模型', () => {
+  const ask = (id: string, text = '你好') =>
+    askSession(id, { text, attachments: [], context: [], comments: [] });
+
+  it('切换只影响本会话；新会话沿用最近发过消息的会话', async () => {
+    state.configured = true;
+    const a = newSession(null, 'chat').sessionId!;
+    await ask(a);
+    const b = newSession(null, 'chat').sessionId!;
+    await ask(b);
+    expect((await setSessionModel(a, 'p1', 'm2')).model).toBe('m2');
+    expect(openSession(b).model).toBe('m');
+    await ask(a);
+    expect(newSession(null, 'chat').model).toBe('m2');
+  });
+
+  it('空闲实例就地切换，运行中的一轮用原模型、结束后才按新选择重建', async () => {
+    state.configured = true;
+    const id = newSession(null, 'chat').sessionId!;
+    await ask(id);
+    await setSessionModel(id, 'p1', 'm2');
+    expect(state.modelSwitches).toEqual(['m2']);
+
+    let finish!: () => void;
+    state.onPrompt = () => new Promise<void>((resolve) => (finish = resolve));
+    const running = ask(id, '慢慢想');
+    await vi.waitFor(() => expect(state.prompts).toHaveLength(2));
+    await setSessionModel(id, 'p1', 'm');
+    expect(state.modelSwitches).toEqual(['m2']);
+    finish();
+    await running;
+    expect(state.disposed).toBe(1);
+    expect(openSession(id).model).toBe('m');
+  });
+
+  it('提供商停用后会话保留原选择但不能发送，另选模型后恢复', async () => {
+    state.configured = true;
+    const id = newSession(null, 'chat').sessionId!;
+    await ask(id);
+    invalidateSessions();
+    state.providers.push({ ...state.providers[0]!, id: 'p2', name: 'other' });
+    state.providers[0]!.enabled = false;
+    expect(openSession(id)).toMatchObject({ providerId: 'p1', model: 'm', modelUnavailable: true });
+    await expect(ask(id)).rejects.toThrow('另选模型');
+    await expect(setSessionModel(id, 'p1', 'm')).rejects.toThrow('已停用');
+    await setSessionModel(id, 'p2', 'm');
+    await ask(id);
+    expect(openSession(id)).toMatchObject({ providerId: 'p2', modelUnavailable: false });
   });
 });

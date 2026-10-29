@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Check, LoaderCircle, Lock, Pencil, PlugZap, Plus, Search, Trash2, X } from 'lucide-react';
 import { StatusPill } from '@/components/ui/beautifului/atoms/StatusPill';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import {
@@ -47,7 +48,7 @@ function ProviderMonogram({ name, size }: { name: string; size: 'sm' | 'md' }) {
 }
 
 function defaultDetail(providers: LlmProviderView[]): Detail | null {
-  const provider = providers.find(({ active }) => active) ?? providers[0];
+  const provider = providers.find(({ enabled }) => enabled) ?? providers[0];
   return provider ? { mode: 'edit', id: provider.id } : null;
 }
 
@@ -364,12 +365,12 @@ export function LlmSection() {
                         >
                           <ProviderMonogram name={provider.name} size="sm" />
                           <span className="truncate">{provider.name}</span>
-                          {/* 状态点：绿=使用中，灰=已配置未使用（与连接页同一语义）。 */}
+                          {/* 状态点：绿=启用（进入会话的模型候选），灰=停用。 */}
                           <span
                             aria-hidden="true"
                             className={cn(
                               'ms-auto size-1.5 shrink-0 rounded-full',
-                              provider.active ? 'bg-green' : 'bg-line-strong',
+                              provider.enabled ? 'bg-green' : 'bg-line-strong',
                             )}
                           />
                         </button>
@@ -391,7 +392,9 @@ export function LlmSection() {
                 onCancelCreate={() => setDetail(defaultDetail(providers ?? []))}
                 onRemove={(id) => void run(() => window.dela!.llm.remove(id))}
                 onSaved={(saved) => handleSaved(saved, detail!)}
-                onSetActive={(id) => void run(() => window.dela!.llm.setActive(id))}
+                onSetEnabled={(id, enabled) =>
+                  void run(() => window.dela!.llm.setEnabled(id, enabled))
+                }
                 provider={detailProvider}
               />
             </div>
@@ -417,7 +420,7 @@ function ProviderDetail({
   onCancelCreate,
   onRemove,
   onSaved,
-  onSetActive,
+  onSetEnabled,
   provider,
 }: {
   /** 切换使用中与删除进行中：与列表共用同一 busy。 */
@@ -425,7 +428,7 @@ function ProviderDetail({
   onCancelCreate: () => void;
   onRemove: (id: string) => void;
   onSaved: (provider: LlmProviderView) => void;
-  onSetActive: (id: string) => void;
+  onSetEnabled: (id: string, enabled: boolean) => void;
   /** 新建草稿时为 null；编辑时为该提供商的最新视图。 */
   provider: LlmProviderView | null;
 }) {
@@ -441,7 +444,6 @@ function ProviderDetail({
   const [models, setModels] = useState<string[]>(
     provider ? [...provider.models] : [...initialPreset.models],
   );
-  const [model, setModel] = useState(provider?.model ?? initialPreset.models[0] ?? '');
   const [modelInput, setModelInput] = useState('');
   const [modelConfigs, setModelConfigs] = useState<Record<string, LlmModelSettings>>(() =>
     provider
@@ -460,7 +462,7 @@ function ProviderDetail({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 编辑态即时保存的提交快照：所有字段改动同步写这里，persist 读取它组装完整保存载荷。
-  const formRef = useRef({ name, baseUrl, apiKey, models, model, modelConfigs });
+  const formRef = useRef({ name, baseUrl, apiKey, models, modelConfigs });
 
   const invalidateDetection = () => {
     connectionVersion.current += 1;
@@ -475,7 +477,6 @@ function ProviderDetail({
     setName(preset.name === '自定义' ? '' : preset.name);
     setBaseUrl(preset.baseUrl);
     setModels([...preset.models]);
-    setModel(preset.models[0] ?? '');
     setModelConfigs({});
     invalidateDetection();
   };
@@ -494,10 +495,6 @@ function ProviderDetail({
     const nextModels = [...models, value];
     formRef.current.models = nextModels;
     setModels(nextModels);
-    if (!model) {
-      formRef.current.model = value;
-      setModel(value);
-    }
     setModelInput('');
     setImportNotice(null);
     void persist();
@@ -521,11 +518,6 @@ function ProviderDetail({
     const nextModels = models.filter((item) => item !== value);
     formRef.current.models = nextModels;
     setModels(nextModels);
-    if (model === value) {
-      const next = nextModels[0] ?? '';
-      formRef.current.model = next;
-      setModel(next);
-    }
     void persist();
   };
 
@@ -534,9 +526,6 @@ function ProviderDetail({
     const imported = merged.slice(0, LLM_MODEL_LIMIT);
     formRef.current.models = imported;
     setModels(imported);
-    const next = imported.includes(model) ? model : (imported[0] ?? '');
-    formRef.current.model = next;
-    setModel(next);
     setImportNotice(
       merged.length > LLM_MODEL_LIMIT
         ? `模型数量过多，最多保留 64 个，${merged.length - LLM_MODEL_LIMIT} 个未导入`
@@ -626,7 +615,6 @@ function ProviderDetail({
         baseUrl: d.baseUrl,
         apiKey: d.apiKey || undefined,
         models: d.models,
-        model: d.model,
         modelConfigs: Object.fromEntries(
           d.models.map((id) => [id, d.modelConfigs[id] ?? { effortLevels: [] }]),
         ),
@@ -665,14 +653,12 @@ function ProviderDetail({
         baseUrl,
         apiKey: apiKey || undefined,
         models,
-        model,
         modelConfigs: Object.fromEntries(
           models.map((id) => [id, modelConfigs[id] ?? { effortLevels: [] }]),
         ),
         presetId: provider ? provider.presetId : presetId === 'custom' ? null : presetId,
       });
-      // 新建后立即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。
-      if (creating) await window.dela.llm.setActive(saved.id);
+      // 新建即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。
       onSaved(saved);
     } catch (cause) {
       setError(errorText(cause));
@@ -694,20 +680,12 @@ function ProviderDetail({
         </div>
         {provider && (
           <div className="flex shrink-0 items-center gap-2">
-            {provider.active ? (
-              <StatusPill className="h-5 px-2 text-xs" tone="green">
-                使用中
-              </StatusPill>
-            ) : (
-              <Button
-                disabled={busy}
-                onClick={() => onSetActive(provider.id)}
-                size="sm"
-                variant="secondary"
-              >
-                使用
-              </Button>
-            )}
+            <Switch
+              checked={provider.enabled}
+              disabled={busy}
+              label={provider.enabled ? `停用 ${provider.name}` : `启用 ${provider.name}`}
+              onChange={(enabled) => onSetEnabled(provider.id, enabled)}
+            />
             {confirmDelete ? (
               <>
                 <Button

@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  safeStorage,
   shell,
   Tray,
 } from 'electron';
@@ -16,7 +17,8 @@ import { registerConsentIpc } from './consent';
 import { join } from 'node:path';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { closeDatabase, getDatabase } from './database';
+import { closeDatabase, getDatabase, SCHEMA_VERSION } from './database';
+import { runMigrations } from './migrations';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { registerTimetableIpc } from './timetable/ipc';
 import { registerVsjtuIpc } from './vsjtu/ipc';
@@ -190,6 +192,16 @@ app
       );
       if (app.isPackaged && !smokeTest) startHidden ||= app.getLoginItemSettings().wasOpenedAtLogin;
     } else Menu.setApplicationMenu(null);
+    runMigrations(
+      {
+        userData: app.getPath('userData'),
+        seal: {
+          encrypt: (text) => safeStorage.encryptString(text),
+          decrypt: (data) => safeStorage.decryptString(data),
+        },
+      },
+      SCHEMA_VERSION,
+    );
     getDatabase();
     // 随包 MinGit 与搜索工具（rg/fd）前插 PATH：终端、Agent 的子进程一开始就能用 git/grep/find；
     prependRuntimePath();

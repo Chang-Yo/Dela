@@ -59,12 +59,8 @@ const saveInputSchema = z
     baseUrl: baseUrlSchema,
     apiKey: apiKeySchema.optional(),
     models: modelsSchema,
-    model: modelIdSchema,
     modelConfigs: z.record(modelIdSchema, modelSettingsSchema).optional(),
     presetId: z.string().max(64).nullable().optional(),
-  })
-  .refine((input) => input.models.includes(input.model), {
-    message: '默认模型必须在模型列表中',
   })
   .refine(
     (input) => Object.keys(input.modelConfigs ?? {}).every((id) => input.models.includes(id)),
@@ -79,14 +75,12 @@ function normalizeEffortLevels(levels: string[] | undefined): string[] {
   return reasoningEffortLevels.filter((level) => levels.includes(level));
 }
 
-function viewOf(provider: StoredLlmProvider, activeId: string | null): LlmProviderView {
-  const { effortLevels, effort } = llmModelSettings(provider);
+function viewOf(provider: StoredLlmProvider): LlmProviderView {
   return {
     id: provider.id,
     name: provider.name,
     baseUrl: provider.baseUrl,
     models: provider.models,
-    model: provider.model,
     ...(provider.modelConfigs
       ? {
           modelConfigs: Object.fromEntries(
@@ -94,27 +88,22 @@ function viewOf(provider: StoredLlmProvider, activeId: string | null): LlmProvid
           ),
         }
       : {}),
-    effortLevels,
-    effort: effort ?? null,
     presetId: provider.presetId,
-    active: provider.id === activeId,
+    enabled: provider.enabled,
   };
 }
 
 export function listLlmProviders(): LlmProviderView[] {
-  const config = loadLlmConfig();
-  return config.providers.map((provider) => viewOf(provider, config.activeId));
+  return loadLlmConfig().providers.map(viewOf);
 }
 
-/** 当前生效且持有密钥的提供商；agent 请求与 configured 状态的唯一来源。 */
-export function getActiveLlmProvider():
-  (StoredLlmProvider & { effortLevels: string[]; effort?: string }) | null {
-  const config = loadLlmConfig();
-  if (!config.activeId) return null;
-  const provider = config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey);
-  if (!provider) return null;
-  const { effortLevels, effort } = llmModelSettings(provider);
-  return { ...provider, effortLevels, effort };
+export function llmProviders(): StoredLlmProvider[] {
+  return loadLlmConfig().providers;
+}
+
+/** 可供会话选用的提供商：启用且持有密钥。 */
+export function usableLlmProviders(providers = llmProviders()): StoredLlmProvider[] {
+  return providers.filter(({ enabled, apiKey }) => enabled && apiKey);
 }
 
 export function saveLlmProvider(input: unknown): LlmProviderView {
@@ -127,7 +116,7 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
   } catch (cause) {
     // 添加提供商可重新建立失效配置；编辑已有提供商仍需能读到原配置，不能伪造其内容。
     if (parsed.id || !(cause instanceof CredentialDecryptionError)) throw cause;
-    config = { providers: [], activeId: null };
+    config = { providers: [] };
   }
   let provider: StoredLlmProvider | undefined;
   if (parsed.id) {
@@ -137,7 +126,6 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       name: parsed.name,
       baseUrl,
       models: parsed.models,
-      model: parsed.model,
       presetId,
     });
     if (parsed.apiKey) provider.apiKey = parsed.apiKey;
@@ -149,8 +137,8 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       baseUrl,
       apiKey: parsed.apiKey,
       models: parsed.models,
-      model: parsed.model,
       presetId,
+      enabled: true,
     };
     config.providers.push(provider);
   }
@@ -172,7 +160,7 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
     );
   }
   saveLlmConfig(config);
-  return viewOf(provider, config.activeId);
+  return viewOf(provider);
 }
 
 export function removeLlmProvider(id: string): void {
@@ -180,40 +168,15 @@ export function removeLlmProvider(id: string): void {
   const config = loadLlmConfig();
   const providers = config.providers.filter(({ id }) => id !== providerId);
   if (providers.length === config.providers.length) return;
-  saveLlmConfig({
-    providers,
-    activeId: config.activeId === providerId ? null : config.activeId,
-  });
+  saveLlmConfig({ providers });
 }
 
-export function setActiveLlmProvider(id: string): void {
+export function setLlmProviderEnabled(id: string, enabled: boolean): void {
   const providerId = idSchema.parse(id);
   const config = loadLlmConfig();
-  const provider = config.providers.find(({ id, apiKey }) => id === providerId && apiKey);
-  if (!provider) throw new Error('提供商不存在或缺少 API Key');
-  saveLlmConfig({ ...config, activeId: providerId });
-}
-
-export function setLlmModel(model: string): void {
-  const parsed = modelIdSchema.parse(model);
-  const config: StoredLlmConfig = loadLlmConfig();
-  const provider = config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey);
-  if (!provider) throw new Error('请先在设置中配置模型服务');
-  if (!provider.models.includes(parsed)) throw new Error('模型不在当前提供商的模型列表中');
-  provider.model = parsed;
-  saveLlmConfig(config);
-}
-
-export function setLlmEffort(level: string): void {
-  const parsed = z.enum(reasoningEffortLevels).parse(level);
-  const config: StoredLlmConfig = loadLlmConfig();
-  const provider = config.providers.find(({ id, apiKey }) => id === config.activeId && apiKey);
-  if (!provider) throw new Error('请先在设置中配置模型服务');
-  const levels = llmModelSettings(provider).effortLevels;
-  if (!levels.includes(parsed))
-    throw new Error('该档位不在当前提供商开启的推理强度列表中，请先在设置中勾选');
-  const settings = provider.modelConfigs?.[provider.model];
-  settings!.effort = parsed;
+  const provider = config.providers.find(({ id }) => id === providerId);
+  if (!provider) throw new Error('提供商不存在');
+  provider.enabled = enabled;
   saveLlmConfig(config);
 }
 

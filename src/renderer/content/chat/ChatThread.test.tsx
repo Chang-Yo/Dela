@@ -38,9 +38,10 @@ const chat: WorkspaceChat = {
   cwd: null,
   running: true,
   configured: true,
+  providerId: null,
   providerName: null,
   model: 'test-model',
-  models: [],
+  modelUnavailable: false,
   effortLevels: [],
   effort: null,
   messages: [

@@ -55,12 +55,14 @@ export interface WorkspaceChat {
   activeTool?: string;
   /** 上下文压缩进行中（低干扰状态，压缩期间短暂为 true）。 */
   compacting?: boolean;
+  /** 至少有一个启用且带密钥的提供商。 */
   configured: boolean;
-  /** 当前使用中的提供商名称；未配置时为 null。 */
+  /** 会话的模型选择；从未选择过的会话沿用最近发过消息的会话。 */
+  providerId: string | null;
   providerName: string | null;
   model: string;
-  /** 当前提供商的可选模型，驱动 composer 下拉。 */
-  models: string[];
+  /** 会话选中的提供商被停用、删除或移除了该模型：保留选择但不能发送，需在会话里另选。 */
+  modelUnavailable: boolean;
   /** 当前模型开启的推理强度档位；空数组表示未配置，composer 显示 default 并提供设置入口。 */
   effortLevels: string[];
   /** 当前选中的推理强度档位；未开启时为 null。 */
@@ -169,6 +171,9 @@ export interface SessionApi {
   cancelRun(sessionId: string): void;
   /** 执行一条会话命令（/compact、/reload、/name），返回执行后的快照；/compact 运行中可用 cancelRun 取消。 */
   runCommand(sessionId: string, name: MainSessionCommand, args: string): Promise<WorkspaceChat>;
+  /** 只改这个会话的模型；运行中的一轮照旧用原模型，下一轮生效。 */
+  setModel(sessionId: string, providerId: string, model: string): Promise<WorkspaceChat>;
+  setEffort(sessionId: string, level: string): Promise<WorkspaceChat>;
   onSessionUpdate(listener: (sessionId: string, chat: WorkspaceChat) => void): () => void;
   /** 流式增量推送（仅末条 assistant 消息）：合并进镜像缓存，不广播全量历史。 */
   onStream(listener: (event: ChatStreamEvent) => void): () => void;

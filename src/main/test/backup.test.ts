@@ -128,7 +128,7 @@ it('跳过可再生缓存、保留用户数据，并给数据库取一致快照'
   expect(existsSync(join(data, 'dela.db-shm'))).toBe(false);
   const snapshot = new Database(join(data, 'dela.db'), { readonly: true });
   try {
-    expect(snapshot.pragma('user_version', { simple: true })).toBe(6);
+    expect(snapshot.pragma('user_version', { simple: true })).toBe(7);
     expect(snapshot.prepare('SELECT COUNT(*) AS count FROM consent_records').get()).toEqual({
       count: 1,
     });

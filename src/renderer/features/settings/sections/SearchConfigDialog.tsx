@@ -286,7 +286,7 @@ function EntryForm({
     }
   };
 
-  /** 从「模型供应商」预填 DeepSeek 密钥；命中多个时展开选择，默认使用中的那个。 */
+  /** 从「模型供应商」预填 DeepSeek 密钥；命中多个时展开选择，默认第一个（启用的排在前面）。 */
   const importKey = async (id?: string) => {
     const dela = window.dela;
     if (!dela || busy) return;
@@ -299,7 +299,7 @@ function EntryForm({
         onError('没有找到已配置密钥的 DeepSeek 模型供应商，请先在「模型供应商」中添加');
         return;
       }
-      const target = id ?? (sources.find(({ active }) => active) ?? sources[0]!).id;
+      const target = id ?? sources[0]!.id;
       sourceIdRef.current = target;
       setSourceId(target);
       const key = await dela.capability.readWebSearchKey(target);

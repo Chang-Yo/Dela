@@ -101,7 +101,6 @@ export interface WebSearchEntrySummary {
 export interface WebSearchKeySource {
   id: string;
   name: string;
-  active: boolean;
 }
 
 /** 上传本地 Skill 到远端项目的结果。 */

@@ -22,7 +22,7 @@ describe('current database format', () => {
   it('creates and reopens the current database without losing data', () => {
     freshRoot();
     const db = getDatabase();
-    expect(db.pragma('user_version', { simple: true })).toBe(6);
+    expect(db.pragma('user_version', { simple: true })).toBe(7);
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1);
     db.prepare('INSERT INTO workspace_settings VALUES (?, ?)').run('test', 'value');
     closeDatabase();
@@ -31,7 +31,7 @@ describe('current database format', () => {
     ).toEqual({ value: 'value' });
   });
 
-  it.each([1, 5, 7])('rejects unsupported version %i without clearing its data', (version) => {
+  it.each([1, 6, 8])('rejects unsupported version %i without clearing its data', (version) => {
     const root = freshRoot();
     const db = new Database(join(root, 'dela.db'));
     db.exec('CREATE TABLE sample (value TEXT)');

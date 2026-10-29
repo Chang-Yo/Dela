@@ -27,6 +27,13 @@ function piSessionsDir(): string {
 /** 每个 Dela 提供商注册成独立的 Pi 提供商：鉴权按名字查，共用一个名字时各会话的地址与密钥会互相覆盖。 */
 const piProviderName = (provider: StoredLlmProvider) => `dela-${provider.id}`;
 
+/** 会话的模型选择：提供商连同其中的一个模型与推理档位。 */
+export interface SessionModel {
+  provider: StoredLlmProvider;
+  model: string;
+  effort: string | null;
+}
+
 /** Dela 档位 → Pi ThinkingLevel；超出 Pi 档位集的扩展档位挂到最高档。 */
 function thinkingLevel(effort: string | undefined) {
   if (!effort || effort === 'none') return 'off' as const;
@@ -36,11 +43,10 @@ function thinkingLevel(effort: string | undefined) {
     : ('max' as const);
 }
 
-/** 把当前提供商注册成 Pi 的 OpenAI 兼容提供商。 */
-async function resolveModel(provider: StoredLlmProvider, modelId = provider.model) {
+/** 把会话选中的提供商注册成 Pi 的 OpenAI 兼容提供商，返回其中的模型与思考档位。 */
+export async function resolveModel({ provider, model: modelId, effort }: SessionModel) {
   const runtime = await modelRuntime();
-  const settings = llmModelSettings(provider, modelId);
-  const reasoning = settings.effortLevels.length > 0;
+  const reasoning = llmModelSettings(provider, modelId).effortLevels.length > 0;
   const name = piProviderName(provider);
   runtime.registerProvider(name, {
     baseUrl: provider.baseUrl.replace(/\/+$/, ''),
@@ -66,7 +72,7 @@ async function resolveModel(provider: StoredLlmProvider, modelId = provider.mode
   });
   const model = runtime.getModel(name, modelId) as Model<'openai-completions'> | undefined;
   if (!model) throw new Error('模型不在当前提供商的模型列表中');
-  return { model, thinking: reasoning ? thinkingLevel(settings.effort) : ('off' as const) };
+  return { model, thinking: reasoning ? thinkingLevel(effort ?? undefined) : ('off' as const) };
 }
 
 let runtimePromise: ReturnType<Sdk['ModelRuntime']['create']> | undefined;
@@ -88,7 +94,7 @@ export function isInside(path: string, dir: string): boolean {
 export interface OpenSessionInput {
   cwd: string;
   file?: string;
-  provider: StoredLlmProvider;
+  selection: SessionModel;
   /** 追加到 Pi 默认系统提示之后（项目背景、用户自定义指令、dela 命令说明）。 */
   appendSystemPrompt: string[];
   customTools: ToolDefinition[];
@@ -142,7 +148,7 @@ function packageRuntimeExtensions(pi: Sdk, agentDir: string) {
 export async function openPiSession(input: OpenSessionInput): Promise<AgentSession> {
   const pi = await loadPi();
   const runtime = await modelRuntime();
-  const { model, thinking } = await resolveModel(input.provider);
+  const { model, thinking } = await resolveModel(input.selection);
   const agentDir = piAgentDir();
   const settingsManager = pi.SettingsManager.inMemory({
     shellPath: input.shellPath,
