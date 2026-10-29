@@ -17,6 +17,7 @@ import {
 } from '../../../shared/chat-input';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { showToast } from '../../app/toasts';
+import { cn } from '../../lib/utils';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';
@@ -176,7 +177,11 @@ export function SidechatPanel({
   return (
     <section
       aria-label="旁问"
-      className="absolute right-3 top-12 z-30 flex max-h-[calc(100%-4rem)] w-[min(26rem,calc(100%-1.5rem))] flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised animate-[pop-in_160ms_var(--ease-out-strong)_both]"
+      // 有内容后给定高度：消息区是 flex-1 的滚动容器，只有 max-h 时它撑开而不滚动，长回复被裁掉。
+      className={cn(
+        'absolute right-3 top-12 z-30 flex max-h-[calc(100%-4rem)] w-[min(26rem,calc(100%-1.5rem))] flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised animate-[pop-in_160ms_var(--ease-out-strong)_both]',
+        view.messages.length > 0 && 'h-[min(36rem,calc(100%-4rem))]',
+      )}
     >
       <header className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
         {title}
@@ -205,7 +210,7 @@ export function SidechatPanel({
           带着当前对话的上下文顺便问一句，回答不进入主对话。工具与主会话相同，可以读写文件。
         </p>
       ) : (
-        <div className="flex min-h-40 min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <ChatThread chat={thread} draftKey={key} onOpenSource={onOpenSource} />
         </div>
       )}
