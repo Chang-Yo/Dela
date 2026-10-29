@@ -201,6 +201,14 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
   return session;
 }
 
+/** 从会话文件的某个条目分出新会话文件：另开实例去分，原文件与正在用它的会话都不受影响。 */
+export async function forkSessionFile(file: string, cwd: string, entryId: string): Promise<string> {
+  const pi = await loadPi();
+  const forked = pi.SessionManager.open(file, piSessionsDir(), cwd).createBranchedSession(entryId);
+  if (!forked) throw new Error('分支会话没有写出文件');
+  return forked;
+}
+
 /** 设置页的模型检测：一次无工具的短请求，失败抛出 pi-ai 的错误文案（"<status>: …"）。 */
 export async function verifyModel(input: {
   baseUrl: string;

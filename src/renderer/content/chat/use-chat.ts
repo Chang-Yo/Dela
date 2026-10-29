@@ -16,6 +16,7 @@ import {
   stripChatImageTokens,
 } from '../../../shared/chat-input';
 import { showToast } from '../../app/toasts';
+import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
 import { errorText } from '../../workspace/store';
@@ -339,6 +340,24 @@ export function useChat(
       );
   };
 
+  // 分支是新会话：写进镜像后在当前位置打开，原会话不变。
+  const fork = useCallback(
+    (entryId: string) => {
+      const dela = window.dela;
+      if (!dela) return;
+      void dela.session
+        .fork(sessionId, entryId)
+        .then((forked) => {
+          useSessions.getState().putChat(forked.sessionId!, forked);
+          useNavigationStore.getState().openChat(forked.sessionId!, forked.projectId);
+        })
+        .catch((e) =>
+          showToast({ variant: 'error', title: '分支失败', description: errorText(e) }),
+        );
+    },
+    [sessionId],
+  );
+
   const refresh = () => {
     void window.dela?.session
       .open(sessionId)
@@ -362,6 +381,7 @@ export function useChat(
     editLast,
     selectModel,
     selectEffort,
+    fork,
     refresh,
   };
 }
