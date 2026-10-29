@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { GitCompare, History, SquarePen } from 'lucide-react';
+import { GitCompare, History, SquarePen, X } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,35 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
       projectId={projectId}
       referenceSource={referenceSource}
     />
+  );
+}
+
+/** 资料/课堂内嵌的学习助手：复用完整会话、上下文和输入组件，只改变承载位置。 */
+export function ChatSidePanel({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
+  const source = useChatTabSource();
+  const projectId = useSessions((state) => state.chats[sessionId]?.projectId ?? null);
+  return (
+    <aside
+      aria-label="学习助手"
+      className="flex h-full min-h-0 w-[min(25rem,38vw)] min-w-[18rem] shrink-0 flex-col border-l border-line bg-surface"
+    >
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
+        <span className="min-w-0 flex-1 truncate text-13 font-medium text-ink">学习助手</span>
+        <IconButton aria-label="关闭学习助手" title="关闭" onClick={onClose}>
+          <X />
+        </IconButton>
+      </div>
+      <div className="min-h-0 flex-1">
+        <ChatSessionView
+          active={sessionId}
+          mailDialog={source?.mailDialog}
+          onOpenSource={source?.onOpenSource}
+          onSaveNote={source?.onSaveNote}
+          projectId={projectId}
+          referenceSource={source?.referenceSource}
+        />
+      </div>
+    </aside>
   );
 }
 

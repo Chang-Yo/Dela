@@ -4,11 +4,17 @@ import type { WorkspaceChat } from '../../shared/api';
 import { useNavigationStore } from '../navigation/view';
 import { useSessions } from '../sessions/store';
 
-export async function openStudyChat(input: {
+export interface StudyChatResult {
+  sessionId: string;
+  projectId: string | null;
+}
+
+export async function sendStudyChat(input: {
   prompt: string;
   images?: { name: string; bytes: ArrayBuffer }[];
   sessionKey?: string;
-}): Promise<void> {
+  onSession?: (session: StudyChatResult) => void;
+}): Promise<StudyChatResult> {
   if (!window.dela) throw new Error('当前页面无法打开学习对话');
   const navigation = useNavigationStore.getState();
   const projectId = navigation.view === 'workbench' ? navigation.projectId : null;
@@ -22,6 +28,9 @@ export async function openStudyChat(input: {
   }
   chat ??= await window.dela.session.create(projectId, projectId ? 'library' : 'chat');
   if (!chat.sessionId) throw new Error('学习对话创建失败');
+  const session = { sessionId: chat.sessionId, projectId };
+  useSessions.getState().putChat(chat.sessionId, chat);
+  input.onSession?.(session);
   const media: ChatMediaView[] = [];
   try {
     let images = input.images ?? [];
@@ -61,11 +70,20 @@ export async function openStudyChat(input: {
       .getState()
       .refresh(projectId)
       .catch(() => {});
-    useNavigationStore.getState().openChat(result.sessionId!, projectId);
+    return { sessionId: result.sessionId!, projectId };
   } catch (error) {
     if (media.length) window.dela.chat.releaseMedia(media.map((item) => item.id));
     throw error;
   }
+}
+
+export async function openStudyChat(input: {
+  prompt: string;
+  images?: { name: string; bytes: ArrayBuffer }[];
+  sessionKey?: string;
+}): Promise<void> {
+  const result = await sendStudyChat(input);
+  useNavigationStore.getState().openChat(result.sessionId, result.projectId);
 }
 
 export async function canvasBytes(canvas: HTMLCanvasElement): Promise<ArrayBuffer> {

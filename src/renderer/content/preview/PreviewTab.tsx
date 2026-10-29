@@ -9,7 +9,7 @@ import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
-import { openStudyChat } from '../../lib/study-context';
+import { sendStudyChat } from '../../lib/study-context';
 import type { TabId } from '../../../shared/layout';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
@@ -18,6 +18,9 @@ import { parsePreviewTabId } from './tab-id';
 
 const PdfReader = lazy(() =>
   import('./PdfReader').then((module) => ({ default: module.PdfReader })),
+);
+const ChatSidePanel = lazy(() =>
+  import('../chat/ChatTab').then((module) => ({ default: module.ChatSidePanel })),
 );
 const DocxPreview = lazy(() =>
   import('./DocxPreview').then((module) => ({ default: module.DocxPreview })),
@@ -58,6 +61,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const [doc, setDoc] = useState<LoadedDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [studySessionId, setStudySessionId] = useState<string | null>(null);
   const scrollContainer = useRef<HTMLDivElement>(null);
   const docRef = useRef<LoadedDocument | null>(null);
   docRef.current = doc;
@@ -162,180 +166,198 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
     loader.onExported?.(tabId);
   };
   const askPdfPage = async (title: string, page: number, bytes: ArrayBuffer, text: string) => {
-    await openStudyChat({
-      prompt: [
-        `请阅读并讲解这份 PDF 的第 ${page} 页。`,
-        `资料：${title}`,
-        `本次只附上第 ${page} 页图片；没有附上其他页。`,
-        text
-          ? `该页 PDF 文字层（只作为辅助核对，页面图片优先）：\n${text}`
-          : '该页没有可用文字层，请完全依据页面图片理解。',
-        `请优先解释页面上的公式、图表、关键概念和容易误解的地方，并在回答中明确引用第 ${page} 页。`,
-      ].join('\n'),
-      sessionKey: `pdf:${title}`,
-      images: [{ name: `${title} · 第 ${page} 页.png`, bytes }],
-    });
+    try {
+      const result = await sendStudyChat({
+        prompt: [
+          `请阅读并讲解这份 PDF 的第 ${page} 页。`,
+          `资料：${title}`,
+          `本次只附上第 ${page} 页图片；没有附上其他页。`,
+          text
+            ? `该页 PDF 文字层（只作为辅助核对，页面图片优先）：\n${text}`
+            : '该页没有可用文字层，请完全依据页面图片理解。',
+          `请优先解释页面上的公式、图表、关键概念和容易误解的地方，并在回答中明确引用第 ${page} 页。`,
+        ].join('\n'),
+        sessionKey: `pdf:${title}`,
+        images: [{ name: `${title} · 第 ${page} 页.png`, bytes }],
+        onSession: ({ sessionId }) => setStudySessionId(sessionId),
+      });
+      setStudySessionId(result.sessionId);
+    } catch (error) {
+      setStudySessionId(null);
+      throw error;
+    }
   };
 
   return (
     <section
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       aria-label={`文档：${content.title}`}
     >
-      {branch === 'shuiyuan' && doc.shuiyuanTopicId !== undefined && (
-        <ShuiyuanSourceDoc
-          content={content}
-          text={content.text ?? ''}
-          topicId={doc.shuiyuanTopicId}
-          onOpenInShuiyuan={(topicId, postNumber) => loader.openShuiyuanTopic(topicId, postNumber)}
-        />
-      )}
-      {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}
-      {branch === 'html' && (
-        <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-line">
-          <iframe
-            title={content.title}
-            className="size-full border-0 bg-white"
-            sandbox="allow-same-origin"
-            referrerPolicy="no-referrer"
-            srcDoc={html}
-            onLoad={(event) => {
-              const frame = event.currentTarget;
-              const frameDoc = frame.contentDocument;
-              if (!frameDoc) return;
-              frame.contentWindow?.scrollTo(0, scroll);
-              frameDoc.addEventListener('click', (e) => {
-                const target = (e.target as Element).closest?.('a[href]');
-                if (target) {
-                  e.preventDefault();
-                  openLink(target.getAttribute('href')!);
-                }
-              });
-              frame.contentWindow?.addEventListener('scroll', () =>
-                onScroll(frame.contentWindow?.scrollY ?? 0),
-              );
-            }}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {branch === 'shuiyuan' && doc.shuiyuanTopicId !== undefined && (
+          <ShuiyuanSourceDoc
+            content={content}
+            text={content.text ?? ''}
+            topicId={doc.shuiyuanTopicId}
+            onOpenInShuiyuan={(topicId, postNumber) =>
+              loader.openShuiyuanTopic(topicId, postNumber)
+            }
           />
-        </div>
-      )}
-      {branch === 'pdf' &&
-        (content.previewUrl ? (
-          <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载阅读器…</p>}>
-            <PdfReader
-              key={content.previewUrl}
-              url={content.previewUrl}
-              scroll={scroll}
-              onScroll={onScroll}
-              onAskPage={(page, bytes, text) => askPdfPage(content.title, page, bytes, text)}
+        )}
+        {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}
+        {branch === 'html' && (
+          <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-line">
+            <iframe
+              title={content.title}
+              className="size-full border-0 bg-white"
+              sandbox="allow-same-origin"
+              referrerPolicy="no-referrer"
+              srcDoc={html}
+              onLoad={(event) => {
+                const frame = event.currentTarget;
+                const frameDoc = frame.contentDocument;
+                if (!frameDoc) return;
+                frame.contentWindow?.scrollTo(0, scroll);
+                frameDoc.addEventListener('click', (e) => {
+                  const target = (e.target as Element).closest?.('a[href]');
+                  if (target) {
+                    e.preventDefault();
+                    openLink(target.getAttribute('href')!);
+                  }
+                });
+                frame.contentWindow?.addEventListener('scroll', () =>
+                  onScroll(frame.contentWindow?.scrollY ?? 0),
+                );
+              }}
             />
-          </Suspense>
-        ) : (
-          <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
-        ))}
-      {branch === 'image' && (
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          {blobUrl && <img src={blobUrl} alt={content.title} className="max-w-full" />}
-        </div>
-      )}
-      {(branch === 'docx' || branch === 'xlsx') &&
-        (content.previewUrl ? (
-          <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载预览…</p>}>
-            {branch === 'docx' ? (
-              <DocxPreview key={content.previewUrl} url={content.previewUrl} />
-            ) : (
-              <SheetPreview key={content.previewUrl} url={content.previewUrl} />
-            )}
-          </Suspense>
-        ) : (
-          <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
-        ))}
-      {branch === 'pptx' && (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {exported && (
-            <OfficeExportBanner
-              exported={exported}
-              officeRef={doc.officeRef}
-              onExported={onOfficeRefresh}
-            />
-          )}
-          {exported?.previewUrl ? (
+          </div>
+        )}
+        {branch === 'pdf' &&
+          (content.previewUrl ? (
             <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载阅读器…</p>}>
               <PdfReader
-                key={exported.previewUrl}
-                url={exported.previewUrl}
+                key={content.previewUrl}
+                url={content.previewUrl}
                 scroll={scroll}
                 onScroll={onScroll}
                 onAskPage={(page, bytes, text) => askPdfPage(content.title, page, bytes, text)}
               />
             </Suspense>
           ) : (
-            <OfficePromptCard
-              title={content.title}
-              officeRef={doc.officeRef}
-              onExported={onOfficeRefresh}
-            />
-          )}
-        </div>
-      )}
-      {branch === 'binary' && (
-        <p className="p-6 text-13 text-ink-3">
-          这个文件不是 UTF-8 文本或体积过大，无法内嵌预览，请下载文件或用默认程序打开。
-        </p>
-      )}
-      {content.truncated && (branch === 'text' || branch === 'markdown') && (
-        <p className="shrink-0 border-b px-4 py-2 text-xs text-ink-3">
-          文件超过 1 MB，这里只显示开头部分。
-        </p>
-      )}
-      {branch === 'text' && (
-        <CodeViewer
-          value={content.text ?? ''}
-          filename={content.title}
-          scroll={scroll}
-          onScroll={onScroll}
-        />
-      )}
-      {branch === 'markdown' && (
-        <div
-          className="min-h-0 flex-1 overflow-auto p-6 text-13 leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-code [&_pre]:p-4 [&_pre]:text-(--syntax-fg) [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-code [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:text-(--syntax-operator) [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
-          ref={scrollContainer}
-          onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
-        >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children }) => (
-                <button className="text-ink underline" onClick={() => href && openLink(href)}>
-                  {children}
-                </button>
-              ),
-              img: ({ src, alt }) =>
-                src ? (
-                  <img
-                    src={doc.resolveImage?.(src) ?? src}
-                    alt={alt ?? ''}
-                    className="mx-auto max-w-full rounded-card"
-                    loading="lazy"
-                  />
-                ) : null,
-              code: ({ className, children }) => {
-                const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
-                if (!language || !hljs.getLanguage(language))
-                  return <code className={className}>{children}</code>;
-                return (
-                  <code
-                    className={className}
-                    dangerouslySetInnerHTML={{
-                      __html: hljs.highlight(String(children), { language }).value,
-                    }}
-                  />
-                );
-              },
-            }}
+            <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
+          ))}
+        {branch === 'image' && (
+          <div className="min-h-0 flex-1 overflow-auto p-4">
+            {blobUrl && <img src={blobUrl} alt={content.title} className="max-w-full" />}
+          </div>
+        )}
+        {(branch === 'docx' || branch === 'xlsx') &&
+          (content.previewUrl ? (
+            <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载预览…</p>}>
+              {branch === 'docx' ? (
+                <DocxPreview key={content.previewUrl} url={content.previewUrl} />
+              ) : (
+                <SheetPreview key={content.previewUrl} url={content.previewUrl} />
+              )}
+            </Suspense>
+          ) : (
+            <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
+          ))}
+        {branch === 'pptx' && (
+          <div className="flex min-h-0 flex-1 flex-col">
+            {exported && (
+              <OfficeExportBanner
+                exported={exported}
+                officeRef={doc.officeRef}
+                onExported={onOfficeRefresh}
+              />
+            )}
+            {exported?.previewUrl ? (
+              <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载阅读器…</p>}>
+                <PdfReader
+                  key={exported.previewUrl}
+                  url={exported.previewUrl}
+                  scroll={scroll}
+                  onScroll={onScroll}
+                  onAskPage={(page, bytes, text) => askPdfPage(content.title, page, bytes, text)}
+                />
+              </Suspense>
+            ) : (
+              <OfficePromptCard
+                title={content.title}
+                officeRef={doc.officeRef}
+                onExported={onOfficeRefresh}
+              />
+            )}
+          </div>
+        )}
+        {branch === 'binary' && (
+          <p className="p-6 text-13 text-ink-3">
+            这个文件不是 UTF-8 文本或体积过大，无法内嵌预览，请下载文件或用默认程序打开。
+          </p>
+        )}
+        {content.truncated && (branch === 'text' || branch === 'markdown') && (
+          <p className="shrink-0 border-b px-4 py-2 text-xs text-ink-3">
+            文件超过 1 MB，这里只显示开头部分。
+          </p>
+        )}
+        {branch === 'text' && (
+          <CodeViewer
+            value={content.text ?? ''}
+            filename={content.title}
+            scroll={scroll}
+            onScroll={onScroll}
+          />
+        )}
+        {branch === 'markdown' && (
+          <div
+            className="min-h-0 flex-1 overflow-auto p-6 text-13 leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-code [&_pre]:p-4 [&_pre]:text-(--syntax-fg) [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-code [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:text-(--syntax-operator) [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+            ref={scrollContainer}
+            onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
           >
-            {content.text ?? ''}
-          </ReactMarkdown>
-        </div>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => (
+                  <button className="text-ink underline" onClick={() => href && openLink(href)}>
+                    {children}
+                  </button>
+                ),
+                img: ({ src, alt }) =>
+                  src ? (
+                    <img
+                      src={doc.resolveImage?.(src) ?? src}
+                      alt={alt ?? ''}
+                      className="mx-auto max-w-full rounded-card"
+                      loading="lazy"
+                    />
+                  ) : null,
+                code: ({ className, children }) => {
+                  const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
+                  if (!language || !hljs.getLanguage(language))
+                    return <code className={className}>{children}</code>;
+                  return (
+                    <code
+                      className={className}
+                      dangerouslySetInnerHTML={{
+                        __html: hljs.highlight(String(children), { language }).value,
+                      }}
+                    />
+                  );
+                },
+              }}
+            >
+              {content.text ?? ''}
+            </ReactMarkdown>
+          </div>
+        )}
+      </div>
+      {studySessionId && (
+        <Suspense
+          fallback={<aside className="w-[min(25rem,38vw)] min-w-[18rem] border-l border-line" />}
+        >
+          <ChatSidePanel sessionId={studySessionId} onClose={() => setStudySessionId(null)} />
+        </Suspense>
       )}
     </section>
   );

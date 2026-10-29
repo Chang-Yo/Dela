@@ -305,10 +305,19 @@ export function PdfReader({
         >
           <Plus />
         </Button>
+      </div>
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={host}
+          className="absolute inset-0 overflow-auto overscroll-contain bg-inset [overflow-anchor:none] [scrollbar-gutter:stable]"
+        >
+          <div ref={pages} className="pdfViewer dela-pdf-pages" />
+        </div>
         {onAskPage && (
           <Button
             size="icon-sm"
-            variant="ghost"
+            variant="secondary"
+            className="absolute bottom-4 right-4 z-10 rounded-full shadow-raised"
             aria-label="询问当前 PDF 页面"
             title={asking ? '准备当前页…' : '询问当前页'}
             disabled={!pageCount || asking}
@@ -322,17 +331,9 @@ export function PdfReader({
               )
             }
           >
-            <MessageCircle />
+            <MessageCircle className={asking ? 'animate-pulse' : undefined} />
           </Button>
         )}
-      </div>
-      <div className="relative min-h-0 flex-1">
-        <div
-          ref={host}
-          className="absolute inset-0 overflow-auto overscroll-contain bg-inset [overflow-anchor:none] [scrollbar-gutter:stable]"
-        >
-          <div ref={pages} className="pdfViewer dela-pdf-pages" />
-        </div>
         {error && (
           <p
             role="alert"
