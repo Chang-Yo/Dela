@@ -13,6 +13,7 @@ import { prepareDocumentResource, releaseDocumentResource } from '../resources';
 import { resourceRefSchema } from '../../shared/resources';
 import { tool } from './domain/shared';
 import type { AgentTool } from './domain/shared';
+import { runCli, splitArgv } from './cli/bridge';
 import { assertShuiyuanEnabled, experimentEnabled } from '../settings/prefs';
 
 // 这些是 shell 的业务命令，不常驻模型工具表；复用应用已有的缓存、登录与操作边界。
@@ -54,6 +55,14 @@ const commands: Record<string, AgentTool> = Object.assign(
   ...commandDomains.map((domain) => domain.commands),
 );
 
+const domainEntries: Record<string, { description: string; commands: Record<string, AgentTool> }> =
+  Object.fromEntries(
+    commandDomains.map((domain) => [
+      domain.name,
+      { description: domain.description, commands: domain.commands as Record<string, AgentTool> },
+    ]),
+  );
+
 async function executeDomainCommand(name: string, input: unknown) {
   if (name === 'help') {
     const selected =
@@ -89,15 +98,27 @@ export async function startDomainBridge() {
       return;
     }
     try {
-      let body = '';
+      const chunks: Buffer[] = [];
+      let size = 0;
       for await (const chunk of request) {
-        body += chunk.toString();
-        if (body.length > 2_000_000) throw new Error('命令输入过大');
+        size += (chunk as Buffer).length;
+        if (size > 2_000_000) throw new Error('命令输入过大');
+        chunks.push(chunk as Buffer);
+      }
+      const body = Buffer.concat(chunks);
+      // 子命令写法走 NUL 分隔的参数数组；旧的 '<JSON>' 写法仍是 JSON 请求体。
+      if (request.headers['content-type'] === 'application/octet-stream') {
+        const result = await runCli(splitArgv(body), {
+          domains: domainEntries,
+          execute: executeDomainCommand,
+        });
+        response.writeHead(result.status).end(result.body);
+        return;
       }
       const parsed = z
         .object({ command: z.string().min(1), input: z.unknown().default({}) })
         .strict()
-        .parse(JSON.parse(body));
+        .parse(JSON.parse(body.toString('utf8')));
       const result = await executeDomainCommand(parsed.command, parsed.input);
       response.end(JSON.stringify({ ok: true, result }));
     } catch (error) {
@@ -153,10 +174,6 @@ const BLOCKED_PORTS = new Set([
 const isBlockedPort = (port: number) => BLOCKED_PORTS.has(port);
 
 export const COMMAND_BRIDGE = `dela() {
-  command_name="$1"
-  # 不能写 \${2:-{}}：bash 会把默认值截断在第一个 }，再拼出一个字面量 } 破坏 JSON。
-  command_json="$2"
-  [ -n "$command_json" ] || command_json='{}'
-  # 请求体走 stdin：走 argv 时 Windows 会按 ANSI 代码页转码，中文参数到服务端已是替换字符。
-  printf '{"command":"%s","input":%s}' "$command_name" "$command_json" | curl --silent --show-error --fail-with-body -H "Authorization: Bearer $DELA_COMMAND_TOKEN" -H 'Content-Type: application/json' --data-binary @- "$DELA_COMMAND_URL"
+  # 参数逐个以 NUL 分隔后经 stdin 递出：bash 侧不拼 JSON、不转义，中文也不会经过 curl 的 argv。
+  printf '%s\\0' "$@" | curl --silent --show-error --fail-with-body -H "Authorization: Bearer $DELA_COMMAND_TOKEN" -H 'Content-Type: application/octet-stream' --data-binary @- "$DELA_COMMAND_URL"
 }`;
