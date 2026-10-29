@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
+  MessageCircleDashed,
   MessageCircleQuestion,
   SquareArrowOutUpRight,
   X,
@@ -45,6 +46,9 @@ export function SidechatPanel({
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [collapsing, setCollapsing] = useState(false);
+  // 新开从右侧滑入；收起过一次之后的展开改为从右上角放大，和胶囊衔接。
+  const expandedOnce = useRef(false);
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
   const options = referenceSource?.useEntries(parent?.projectId ?? null, parent?.cwd ?? null);
@@ -160,11 +164,12 @@ export function SidechatPanel({
     </span>
   );
 
-  if (collapsed)
+  if (collapsed) {
+    expandedOnce.current = true;
     return (
       <button
         aria-label="展开旁问"
-        className="absolute right-3 top-12 z-30 flex h-8 items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover"
+        className="absolute right-3 top-12 z-30 flex h-8 items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover origin-top-right animate-[dialog-in_160ms_var(--ease-out-strong)_both]"
         onClick={() => useSidechats.getState().setCollapsed(parentId, false)}
         type="button"
       >
@@ -172,12 +177,23 @@ export function SidechatPanel({
         <ChevronDown className="size-3.5 text-ink-3" />
       </button>
     );
+  }
 
   return (
     <section
       aria-label="旁问"
       // 固定高度：消息区是 flex-1 的滚动容器，只有 max-h 时它撑开而不滚动，长回复被裁掉。
-      className="absolute right-3 top-12 z-30 flex h-[min(36rem,calc(100%-4rem))] w-[min(26rem,calc(100%-1.5rem))] flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised animate-[pop-in_160ms_var(--ease-out-strong)_both]"
+      className="absolute right-3 top-12 z-30 flex h-[min(36rem,calc(100%-4rem))] w-[min(26rem,calc(100%-1.5rem))] flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised origin-top-right"
+      onAnimationEnd={(event) => {
+        if (event.target !== event.currentTarget || !collapsing) return;
+        setCollapsing(false);
+        useSidechats.getState().setCollapsed(parentId, true);
+      }}
+      style={{
+        animation: collapsing
+          ? 'shrink-out 140ms var(--ease-out-strong) both'
+          : `${expandedOnce.current ? 'dialog-in' : 'drawer-right'} 200ms var(--ease-out-strong) both`,
+      }}
     >
       <header className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
         {title}
@@ -190,11 +206,7 @@ export function SidechatPanel({
           <SquareArrowOutUpRight />
         </IconButton>
         <div className="flex-1" />
-        <IconButton
-          aria-label="收起旁问"
-          onClick={() => useSidechats.getState().setCollapsed(parentId, true)}
-          title="收起"
-        >
+        <IconButton aria-label="收起旁问" onClick={() => setCollapsing(true)} title="收起">
           <ChevronUp />
         </IconButton>
         <IconButton aria-label="关闭旁问" onClick={close} title="关闭（内容不保留）">
@@ -202,8 +214,13 @@ export function SidechatPanel({
         </IconButton>
       </header>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {view.messages.length > 0 && (
+        {view.messages.length > 0 ? (
           <ChatThread chat={thread} draftKey={key} onOpenSource={onOpenSource} />
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-ink-3">
+            <MessageCircleDashed className="size-8" strokeWidth={1.5} />
+            <p className="text-13">随口一问，不扰主线</p>
+          </div>
         )}
       </div>
       <div className="shrink-0 p-2">

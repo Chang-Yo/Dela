@@ -529,3 +529,11 @@
 ::highlight(dela-reply-comment) {
   background-color: color-mix(in oklch, var(--bui-accent) 24%, transparent);
 }
+
+/* 旁问面板收起：向右上角缩小淡出，结束后换成胶囊。 */
+@keyframes shrink-out {
+  to {
+    opacity: 0;
+    scale: 0.9;
+  }
+}
