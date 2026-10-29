@@ -9,8 +9,8 @@ description: 交大课堂录像：查询课程节次，按时间范围读取语�
 
 ## 命令（Bash 内 dela）
 
-- `dela list_classroom_courses '{"query":"课程关键词"}'`：已连接 Canvas 时查与「资料」相同的已同步课程，否则查本学期视频课程；支持 offset/limit 分页。
-- `dela list_classroom_videos '{"courseId":123,"source":"canvas"}'`：查 Canvas 课程录像节次，同样支持分页。未连接 Canvas 时查询结果没有 source，后续命令也省略 source。
+- `dela list_classroom_courses '{"query":"课程关键词"}'`：以已同步 Canvas 课程为主，并补充本学期视频课表；支持 offset/limit 分页。
+- `dela list_classroom_videos '{"courseId":123,"source":"canvas"}'`：查 Canvas 课程录像节次，同样支持分页。视频课表的课程没有 source，查询它们时省略 source。
 - `dela read_classroom_transcript '{"videoId":456,"startSeconds":600,"endSeconds":900}'`：读取 10–15 分钟的文稿，不写文件，不要求工作区。
 - `dela download_classroom_transcripts '{"courseId":123,"source":"canvas","videoIds":[456,457],"directory":"/本机绝对路径"}'`：逐节保存完整 TXT。Windows 目录使用 `C:/...`。
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FileOutput, Loader2, Play, RotateCcw, Search } from 'lucide-react';
 import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../../shared/vsjtu';
+import { videoCourseKey } from '../../../shared/vsjtu';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { IconButton } from '../../components/ui/beautifului/atoms/IconButton';
@@ -12,10 +13,12 @@ import { useClassroom } from './store';
 
 export function TranscriptPanel() {
   const course = useClassroom((state) =>
-    state.courses.find((course) => course.id === state.selectedCourseId),
+    state.courses.find((course) => videoCourseKey(course) === state.selectedCourseKey),
   );
   const video = useClassroom((state) =>
-    state.videos[state.selectedCourseId ?? -1]?.find((video) => video.id === state.selectedVideoId),
+    state.videos[state.selectedCourseKey ?? '']?.find(
+      (video) => video.id === state.selectedVideoId,
+    ),
   );
   if (!course || !video)
     return <p className="px-3 py-6 text-center text-xs text-ink-3">请先在节次中选择一场录像</p>;

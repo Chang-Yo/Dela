@@ -13,6 +13,7 @@ import { SegmentedControl } from '../../components/ui/beautifului/atoms/Segmente
 import { DownloadsPanel } from './DownloadsPanel';
 import { Player } from './Player';
 import { useClassroom } from './store';
+import { videoCourseKey } from '../../../shared/vsjtu';
 
 export function ClassroomView() {
   if (!window.dela) {
@@ -200,10 +201,12 @@ function PlayerSection({
   onExpandSidebar: () => void;
 }) {
   const course = useClassroom((state) =>
-    state.courses.find((value) => value.id === state.selectedCourseId),
+    state.courses.find((value) => videoCourseKey(value) === state.selectedCourseKey),
   );
   const video = useClassroom((state) =>
-    state.videos[state.selectedCourseId ?? -1]?.find((value) => value.id === state.selectedVideoId),
+    state.videos[state.selectedCourseKey ?? '']?.find(
+      (value) => value.id === state.selectedVideoId,
+    ),
   );
 
   if (!course || !video) {

@@ -4,6 +4,11 @@ export interface VideoCourse {
   code: string;
   name: string;
   source?: 'canvas';
+  teachingClassId?: number;
+}
+
+export function videoCourseKey(course: Pick<VideoCourse, 'id' | 'source'>): string {
+  return `${course.source ?? 'video'}:${course.id}`;
 }
 export interface ClassroomVideo {
   id: number;

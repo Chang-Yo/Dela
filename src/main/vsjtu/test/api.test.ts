@@ -5,6 +5,7 @@ const server = vi.hoisted(() => ({
   replies: [] as unknown[],
   urls: [] as string[],
   statuses: [] as number[],
+  respond: undefined as ((url: string) => unknown) | undefined,
 }));
 vi.mock('electron', () => ({
   net: {
@@ -23,7 +24,14 @@ vi.mock('electron', () => ({
             statusCode: server.statuses.shift() ?? 200,
           });
           request.emit('response', response);
-          response.emit('data', Buffer.from(JSON.stringify(server.replies.shift() ?? null)));
+          response.emit(
+            'data',
+            Buffer.from(
+              JSON.stringify(
+                server.respond ? server.respond(url) : (server.replies.shift() ?? null),
+              ),
+            ),
+          );
           response.emit('end');
         });
       return request;
@@ -47,12 +55,18 @@ vi.mock('../../canvas/api', () => ({
   classroomLoginUrl: canvas.loginUrl,
   getCanvasState: () => ({ courses: canvas.courses }),
 }));
-import { checkVideoLogin, listCourses, listVideos, parseStreams } from '../api';
+let checkVideoLogin: typeof import('../api').checkVideoLogin;
+let listCourses: typeof import('../api').listCourses;
+let listVideos: typeof import('../api').listVideos;
+let parseStreams: typeof import('../api').parseStreams;
 
-beforeEach(() => {
+beforeEach(async () => {
+  vi.resetModules();
+  ({ checkVideoLogin, listCourses, listVideos, parseStreams } = await import('../api'));
   server.replies = [];
   server.urls = [];
   server.statuses = [];
+  server.respond = undefined;
   canvas.token = null;
   canvas.login.mockReset();
   canvas.loginUrl
@@ -62,7 +76,7 @@ beforeEach(() => {
 });
 const identity = { code: '0', result: { user: { code: 'test-user' } } };
 
-it('uses the same synced Canvas courses as materials, including same-name classes and older terms', async () => {
+it('keeps Canvas courses and supplements them with video timetable courses without merging names', async () => {
   canvas.token = 'token';
   canvas.courses = [
     { id: 42, name: '大学物理（荣誉）（2）', code: 'PHYS-01', term: '2026-2027 Fall' },
@@ -70,12 +84,27 @@ it('uses the same synced Canvas courses as materials, including same-name classe
     { id: 10, name: '往年课程', code: 'OLD', term: '2025-2026 Fall' },
     { id: 11, name: '已归档', code: 'ARCHIVE', term: '2025-2026 Fall', archived: true },
   ];
+  server.replies = [
+    identity,
+    [{ id: 11, currentTerm: true }],
+    {
+      ok: true,
+      data: {
+        records: [
+          { teclId: 42, subjCode: 'PHYS', subjName: '大学物理（荣誉）（2）' },
+          { teclId: 9002, subjCode: 'SOC', subjName: '职业生涯发展与规划' },
+        ],
+        pageCount: 1,
+      },
+    },
+  ];
   await expect(listCourses()).resolves.toEqual([
     { id: 42, name: '大学物理（荣誉）（2）', code: 'PHYS-01', source: 'canvas' },
     { id: 43, name: '大学物理（荣誉）（2）', code: 'PHYS-02', source: 'canvas' },
     { id: 10, name: '往年课程', code: 'OLD', source: 'canvas' },
+    { id: 42, name: '大学物理（荣誉）（2）', code: 'PHYS' },
+    { id: 9002, name: '职业生涯发展与规划', code: 'SOC' },
   ]);
-  expect(server.urls).toEqual([]);
 });
 
 it('resolves a Canvas course through its own LTI entry before querying video teaching-class IDs', async () => {
@@ -83,16 +112,146 @@ it('resolves a Canvas course through its own LTI entry before querying video tea
   canvas.login.mockImplementation(async (_url, probe) =>
     probe([
       'https://oc.sjtu.edu.cn/courses/42/external_tools/2',
-      'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?teclId=9001&target=video',
+      'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?opaque-encoded-launch',
     ]),
   );
-  server.replies = [identity, { ok: true, data: { records: [], pageCount: 0 } }];
+  server.replies = [
+    { ok: true, data: { source: 'CANVAS', canvasRecord: { teachingClassId: 9001 } } },
+    identity,
+    { ok: true, data: { records: [], pageCount: 0 } },
+  ];
   await expect(listVideos(42, 'canvas')).resolves.toEqual([]);
   expect(canvas.loginUrl).toHaveBeenCalledWith(42);
+  expect(server.urls[0]).toBe(
+    'https://v.sjtu.edu.cn/jy-application-resourcemanage/lms/launch-context',
+  );
   expect(new URL(server.urls.at(-1)!).searchParams.get('teclIds')).toBe('9001');
   expect(
     server.urls.some((url) => url.includes('curriculum') || url.includes('group_subject')),
   ).toBe(false);
+});
+
+it('merges a resolved Canvas entry with the same video teaching class while keeping other classes', async () => {
+  canvas.token = 'token';
+  canvas.courses = [{ id: 42, name: '物理', code: 'PHYS-07', term: 'Fall' }];
+  canvas.login.mockImplementation(async (_url, probe) =>
+    probe(['https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?encoded']),
+  );
+  server.replies = [
+    { ok: true, data: { source: 'CANVAS', canvasRecord: { teachingClassId: 9001 } } },
+    identity,
+    { ok: true, data: { records: [], pageCount: 0 } },
+    identity,
+    [{ id: 11, currentTerm: true }],
+    {
+      ok: true,
+      data: {
+        records: [
+          { teclId: 9001, subjName: '物理', subjCode: 'PHYS' },
+          { teclId: 9002, subjName: '物理', subjCode: 'PHYS' },
+        ],
+        pageCount: 1,
+      },
+    },
+  ];
+  await listVideos(42, 'canvas');
+  await expect(listCourses()).resolves.toEqual([
+    { id: 42, name: '物理', code: 'PHYS-07', source: 'canvas', teachingClassId: 9001 },
+    { id: 9002, name: '物理', code: 'PHYS' },
+  ]);
+});
+
+it('keeps Canvas courses available when the supplementary video timetable is unavailable', async () => {
+  canvas.token = 'token';
+  canvas.courses = [{ id: 42, name: '物理', code: 'PHYS-07', term: 'Fall' }];
+  canvas.login.mockRejectedValue(new Error('登录超时'));
+  server.statuses = [500];
+  server.replies = [{ code: '-1' }];
+  await expect(listCourses()).resolves.toEqual([
+    { id: 42, name: '物理', code: 'PHYS-07', source: 'canvas' },
+  ]);
+});
+
+it.each([
+  { source: 'OTHER', canvasRecord: { teachingClassId: 9001 } },
+  { source: 'CANVAS', canvasRecord: { teachingClassId: 0 } },
+])(
+  'does not query recordings when the official launch context is invalid (%j)',
+  async (context) => {
+    canvas.token = 'token';
+    canvas.login.mockImplementation(async (_url, probe) =>
+      probe(['https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?teclId=9001']),
+    );
+    server.replies = [{ ok: true, data: context }];
+    await expect(listVideos(42, 'canvas')).rejects.toThrow('未能取得');
+    expect(server.urls.some((url) => url.includes('subject_vod_list_new'))).toBe(false);
+  },
+);
+
+it('does not reuse resolved course mappings after changing the Canvas account', async () => {
+  canvas.token = 'first-account';
+  canvas.courses = [{ id: 42, name: '物理', code: 'PHYS-07', term: 'Fall' }];
+  canvas.login.mockImplementation(async (_url, probe) =>
+    probe(['https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?encoded']),
+  );
+  server.replies = [
+    { ok: true, data: { source: 'CANVAS', canvasRecord: { teachingClassId: 9001 } } },
+    identity,
+    { ok: true, data: { records: [], pageCount: 0 } },
+  ];
+  await listVideos(42, 'canvas');
+  canvas.token = 'second-account';
+  server.replies = [
+    identity,
+    [{ id: 11, currentTerm: true }],
+    {
+      ok: true,
+      data: { records: [{ teclId: 9001, subjName: '物理', subjCode: 'PHYS' }], pageCount: 1 },
+    },
+  ];
+  await expect(listCourses()).resolves.toEqual([
+    { id: 42, name: '物理', code: 'PHYS-07', source: 'canvas' },
+    { id: 9001, name: '物理', code: 'PHYS' },
+  ]);
+});
+
+it('serializes Canvas launches so their shared launch context cannot overwrite another course', async () => {
+  canvas.token = 'token';
+  let release!: () => void;
+  canvas.login
+    .mockImplementationOnce(async (_url, probe) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return probe([
+        'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?encoded',
+      ]);
+    })
+    .mockImplementation(async (_url, probe) =>
+      probe(['https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?encoded']),
+    );
+  let launches = 0;
+  server.respond = (url) =>
+    url.includes('launch-context')
+      ? {
+          ok: true,
+          data: { source: 'CANVAS', canvasRecord: { teachingClassId: 9000 + ++launches } },
+        }
+      : url.endsWith('/authority/me')
+        ? identity
+        : { ok: true, data: { records: [], pageCount: 0 } };
+  const first = listVideos(42, 'canvas');
+  await vi.waitFor(() => expect(release).toBeDefined());
+  const second = listVideos(43, 'canvas');
+  await Promise.resolve();
+  expect(canvas.login).toHaveBeenCalledTimes(1);
+  release();
+  await Promise.all([first, second]);
+  expect(
+    server.urls
+      .filter((url) => url.includes('subject_vod_list_new'))
+      .map((url) => new URL(url).searchParams.get('teclIds')),
+  ).toEqual(['9001', '9002']);
 });
 
 it('reports a missing Canvas video entry without querying a different course', async () => {
@@ -105,7 +264,6 @@ it('reports a missing Canvas video entry without querying a different course', a
 it.each([
   'https://example.com/#/play-center?teclId=9001',
   'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/home?teclId=9001',
-  'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?teclId=invalid',
 ])(
   'does not resolve a teaching class from an unrelated or invalid landing URL (%s)',
   async (url) => {

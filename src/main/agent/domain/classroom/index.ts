@@ -15,7 +15,7 @@ const id = z.number().int().positive();
 
 export const classroomTools = {
   list_classroom_courses: tool(
-    '列出课堂视频课程。已连接 Canvas 时与资料共用已同步课程，返回 Canvas ID 和 source=canvas；否则联网查询本学期视频课程，返回教学班 ID。后续查询须原样传递 id 和 source。',
+    '列出课堂视频课程。以已同步 Canvas 课程为主，补充本学期视频课表；source=canvas 时 id 为 Canvas ID，否则为视频教学班 ID。解析后按教学班合并重复入口。后续查询须原样传递 id 和 source。',
     z.object({ query, offset, limit }).strict(),
     async ({ query, offset, limit }) =>
       page(
