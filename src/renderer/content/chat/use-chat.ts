@@ -27,6 +27,7 @@ import {
   type ChatReference,
 } from './drafts';
 import type { ReferenceSource } from './chat-source';
+import { openSidechat } from './sidechat-store';
 
 export type { ChatReference };
 
@@ -226,7 +227,7 @@ export function useChat(
   };
 
   /**
-   * 会话命令（/compact、/reload、/name、/new）：不发给模型。失败时恢复输入，方便改了重试；
+   * 会话命令（/compact、/reload、/name、/new、/btw）：不发给模型。失败时恢复输入，方便改了重试；
    * /compact 期间算作忙，停止按钮可以取消压缩。
    */
   const runCommand = async (name: SessionCommandName, args: string, text: string) => {
@@ -241,6 +242,10 @@ export function useChat(
     clearDraft(requested);
     if (name === 'new') {
       onNewChat?.();
+      return;
+    }
+    if (name === 'btw') {
+      void openSidechat(requested, { prompt: args });
       return;
     }
     setPending(true);

@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { GitCompare, History, SquarePen } from 'lucide-react';
+import { GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { ChatComment, WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { openTarget } from '../../workbench/open-target';
 import { showToast } from '../../app/toasts';
 import { reviewTabId } from '../review/tab-id';
+import { SidechatPanel } from './SidechatPanel';
+import { openSidechat, useSidechats } from './sidechat-store';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
 export function parseChatTabId(tabId: string): string | null {
@@ -154,6 +156,11 @@ const ChatSessionView = memo(function ChatSessionView({
   const chatState = useChat(active, referenceSource, startNewChat);
   const { chat, busy, editLast, fork } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const sidechatOpen = useSidechats((state) => Boolean(state.views[active]));
+  const sidechatFromQuote = useCallback(
+    (quote: string) => void openSidechat(active, { quote }),
+    [active],
+  );
   // 工作区改动入口的可见性：轻探测会话目录是否为可审阅的 Git 仓库
   // （非仓库、缺 Git、远程项目都不显示，随聊无项目目录同样不显示）。
   const [reviewReady, setReviewReady] = useState(false);
@@ -192,7 +199,10 @@ const ChatSessionView = memo(function ChatSessionView({
   );
 
   return (
-    <div aria-label="对话" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface @container">
+    <div
+      aria-label="对话"
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-surface @container"
+    >
       {/* @container 宿主：空态标题的 @max-[…] 按此宽度生效；ChatComposer 自身另有
           @container 宿主，其内部降级断点测量 composer 实宽（外层 p-3 会造成 24px 死区）。 */}
       {/* 会话切换条：标签标题由 workbench 标签栏承载，这里只留历史与新对话入口。 */}
@@ -212,6 +222,16 @@ const ChatSessionView = memo(function ChatSessionView({
             title="查看工作区未提交的改动"
           >
             <GitCompare />
+          </IconButton>
+        )}
+        <div className="flex-1" />
+        {conversation && !sidechatOpen && (
+          <IconButton
+            aria-label="旁问"
+            onClick={() => void openSidechat(active)}
+            title="旁问：带着当前对话顺便问一句（/btw）"
+          >
+            <MessageCircleQuestion />
           </IconButton>
         )}
       </div>
@@ -234,6 +254,7 @@ const ChatSessionView = memo(function ChatSessionView({
           mailDialog={mailDialog}
           onEditLast={editLast}
           onFork={fork}
+          onSidechat={sidechatFromQuote}
           onOpenSource={onOpenSource}
           onSaveNote={onSaveNote}
         />
@@ -249,6 +270,11 @@ const ChatSessionView = memo(function ChatSessionView({
         </div>
       )}
       {conversation && composer(false)}
+      <SidechatPanel
+        onOpenSource={onOpenSource}
+        parentId={active}
+        referenceSource={referenceSource}
+      />
       <ChatSessions
         currentSessionId={active}
         onDeleteSession={(id) => {

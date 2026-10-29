@@ -112,7 +112,7 @@ type ToolStep = NonNullable<ChatMessage['toolResults']>[number];
 
 /** 流式增量不带工具图片（见 ChatStreamEvent），替换末条消息时按 toolCallId 从旧消息回填：
  *  图片仍停留在界面，但不必每帧重传 base64。 */
-function keepToolImages(previous: ChatMessage | undefined, next: ChatMessage): ChatMessage {
+export function keepToolImages(previous: ChatMessage | undefined, next: ChatMessage): ChatMessage {
   const images = new Map<string, NonNullable<AgentToolOutput['image']>>();
   for (const step of previous?.toolResults ?? [])
     if (step.output?.image) images.set(step.id, step.output.image);
