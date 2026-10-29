@@ -24,7 +24,8 @@ function piSessionsDir(): string {
   return join(piAgentDir(), 'sessions');
 }
 
-const PROVIDER = 'dela';
+/** 每个 Dela 提供商注册成独立的 Pi 提供商：鉴权按名字查，共用一个名字时各会话的地址与密钥会互相覆盖。 */
+const piProviderName = (provider: StoredLlmProvider) => `dela-${provider.id}`;
 
 /** Dela 档位 → Pi ThinkingLevel；超出 Pi 档位集的扩展档位挂到最高档。 */
 function thinkingLevel(effort: string | undefined) {
@@ -40,7 +41,8 @@ async function resolveModel(provider: StoredLlmProvider, modelId = provider.mode
   const runtime = await modelRuntime();
   const settings = llmModelSettings(provider, modelId);
   const reasoning = settings.effortLevels.length > 0;
-  runtime.registerProvider(PROVIDER, {
+  const name = piProviderName(provider);
+  runtime.registerProvider(name, {
     baseUrl: provider.baseUrl.replace(/\/+$/, ''),
     api: 'openai-completions',
     apiKey: provider.apiKey,
@@ -56,13 +58,13 @@ async function resolveModel(provider: StoredLlmProvider, modelId = provider.mode
         maxTokens: model.maxOutputTokens ?? 32000,
         // 开推理后 Pi 会把指令消息的 role 写成 OpenAI 专有的 developer，而 Dela 的提供商
         // （DeepSeek/智谱/MiniMax/致远与自定义网关）只认 system，会直接 422 invalid_request_error。
-        // Pi 的自动识别靠提供商标识或 baseUrl 里的厂商域名，Dela 把所有提供商都注册成 dela，
+        // Pi 的自动识别靠提供商标识或 baseUrl 里的厂商域名，Dela 的提供商名是 dela-<id>，
         // 识别不出来，只能显式关掉；system 是所有 OpenAI 兼容端点都接受的角色。
         compat: { supportsDeveloperRole: false },
       };
     }),
   });
-  const model = runtime.getModel(PROVIDER, modelId) as Model<'openai-completions'> | undefined;
+  const model = runtime.getModel(name, modelId) as Model<'openai-completions'> | undefined;
   if (!model) throw new Error('模型不在当前提供商的模型列表中');
   return { model, thinking: reasoning ? thinkingLevel(settings.effort) : ('off' as const) };
 }
