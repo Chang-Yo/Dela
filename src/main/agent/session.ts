@@ -764,6 +764,8 @@ function runEvent(
 // ===== Session API =====
 
 const summaryColumns = 'id, title, pinned, project_id AS projectId, updated_at AS updatedAt';
+type SummaryRow = Omit<ChatSessionSummary, 'pinned'> & { pinned: number };
+const toSummary = (row: SummaryRow): ChatSessionSummary => ({ ...row, pinned: row.pinned === 1 });
 
 export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
@@ -772,13 +774,15 @@ export function listSessions(projectId: string | null, query: string): ChatSessi
       `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count > 0
        ${query ? "AND title LIKE ? ESCAPE '\\'" : ''} ORDER BY pinned DESC, updated_at DESC LIMIT 100`,
     )
-    .all(...(query ? [projectId, pattern] : [projectId])) as ChatSessionSummary[];
+    .all(...(query ? [projectId, pattern] : [projectId]))
+    .map((row) => toSummary(row as SummaryRow));
 }
 
 export function archivedSessions(): ChatSessionSummary[] {
   return getDatabase()
     .prepare(`SELECT ${summaryColumns} FROM sessions WHERE archived = 1 ORDER BY updated_at DESC`)
-    .all() as ChatSessionSummary[];
+    .all()
+    .map((row) => toSummary(row as SummaryRow));
 }
 
 /** 通用池的空会话入口：cwd 是课件根目录的是资料页会话，其余非 NULL 的是随聊，两档互不复用；
