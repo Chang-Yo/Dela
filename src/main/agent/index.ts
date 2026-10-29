@@ -18,6 +18,7 @@ import {
   askSession,
   cancelRun,
   deleteSession,
+  forkSession,
   hasLiveSessions,
   invalidateSessions,
   listSessionCommands,
@@ -177,6 +178,9 @@ export function registerAgentIpc() {
   });
   sessionHandle('ask', (id, input) => askSession(uuid.parse(id), askInputSchema.parse(input)));
   sessionHandle('cancel-run', (id) => cancelRun(uuid.parse(id)));
+  sessionHandle('fork', (id, entryId) =>
+    forkSession(uuid.parse(id), z.string().min(1).max(64).parse(entryId)),
+  );
   sessionHandle('set-model', (id, providerId, model) =>
     setSessionModel(
       uuid.parse(id),

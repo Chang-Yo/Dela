@@ -6,7 +6,11 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { shell, type WebContents } from 'electron';
-import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type {
+  AgentSession,
+  AgentSessionEvent,
+  SessionManager,
+} from '@earendil-works/pi-coding-agent';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { ImageContent, TextContent } from '@earendil-works/pi-ai';
 import type {
@@ -24,7 +28,7 @@ import { parseChatBlocks, stripChatImageTokens } from '../../shared/chat-input';
 import { getDatabase } from '../database';
 import { storageDirectory } from '../storage';
 import { llmProviders, usableLlmProviders } from './providers';
-import { openPiSession, resolveModel, type SessionModel } from './pi';
+import { forkSessionFile, openPiSession, resolveModel, type SessionModel } from './pi';
 import { llmModelSettings } from '../../shared/llm-presets';
 import type { StoredLlmProvider } from '../credentials';
 import { agentEnvironment } from './environment';
@@ -413,18 +417,21 @@ function toolOutput(result: { content?: (TextContent | ImageContent)[]; details?
   };
 }
 
-/** running：会话正在执行时末条回复不写 finishedAt（renderer 据此合并流式增量）。 */
+/** running：会话正在执行时末条回复不写 finishedAt（renderer 据此合并流式增量）。
+ *  entryIds 与 messages 一一对应时，已完成的回复带上本轮最后一个条目，作为分支锚点。 */
 export function projectMessages(
   messages: AgentMessage[],
   pending?: Map<string, AgentToolResult>,
   running = false,
+  entryIds?: (string | undefined)[],
 ): ChatMessage[] {
   const out: ChatMessage[] = [];
   let reply: ChatMessage | null = null;
   let lastUserAt = 0;
   let lastTurnId: string | undefined;
   const results = new Map<string, AgentToolResult>();
-  for (const message of messages) {
+  for (const [index, message] of messages.entries()) {
+    const entryId = entryIds?.[index];
     if (message.role === 'user') {
       lastUserAt = message.timestamp;
       const { meta, text } = splitMeta(textOf(message.content));
@@ -473,12 +480,14 @@ export function projectMessages(
         reply.content = reply.content ? `${reply.content}\n\n${notice}` : notice;
       }
       reply.finishedAt = message.timestamp + (message.durationMs ?? 0);
+      if (entryId) reply.entryId = entryId;
     } else if (message.role === 'toolResult') {
       const step = results.get(message.toolCallId);
       if (step) {
         step.output = { ...toolOutput(message), ...(message.isError ? { isError: true } : {}) };
         step.finishedAt = message.timestamp;
       }
+      if (entryId && reply) reply.entryId = entryId;
     } else if (message.role === 'custom') {
       // 扩展的可见消息自成一条，不并进前后的模型回复；display=false 的只给模型看。
       // appendEntry 写的扩展状态不是消息，根本不会出现在这里。
@@ -503,7 +512,10 @@ export function projectMessages(
     }
   }
   const last = out.at(-1);
-  if (running && last?.role === 'assistant') delete last.finishedAt;
+  if (running && last?.role === 'assistant') {
+    delete last.finishedAt;
+    delete last.entryId;
+  }
   if (running && last?.role === 'user')
     out.push({
       role: 'assistant',
@@ -538,7 +550,9 @@ function snapshot(id: string): WorkspaceChat {
     ...modelView(choice),
     contextUsage: usageOf(entry),
     messages: entry
-      ? projectMessages(entry.session.messages, liveSteps.get(id), Boolean(entry.run))
+      ? entry.run
+        ? projectMessages(entry.session.messages, liveSteps.get(id), true)
+        : storedMessages(entry.session.sessionManager)
       : readMessages(id),
     running: Boolean(entry?.run),
     activeTool: entry?.run?.tool,
@@ -589,10 +603,27 @@ function readMessages(id: string): ChatMessage[] {
   if (!existsSync(file)) return [];
   try {
     const { SessionManager } = requirePiSync();
-    return projectMessages(SessionManager.open(file).buildSessionContext().messages);
+    return storedMessages(SessionManager.open(file));
   } catch {
     return [];
   }
+}
+
+/** 按会话记录投影：每条消息带上它所在的条目，已完成的回复因此有分支锚点。 */
+function storedMessages(manager: Pick<SessionManager, 'buildSessionProjection'>): ChatMessage[] {
+  const projected = manager
+    .buildSessionProjection()
+    .entries.flatMap(({ sourceEntry, messages }) =>
+      messages.map((message) => ({ sourceEntry, message })),
+    );
+  return projectMessages(
+    projected.map(({ message }) => message),
+    undefined,
+    false,
+    projected.map(({ sourceEntry }) =>
+      sourceEntry.type === 'message' ? sourceEntry.id : undefined,
+    ),
+  );
 }
 
 let piSync: typeof import('@earendil-works/pi-coding-agent') | undefined;
@@ -789,6 +820,41 @@ export function newSession(projectId: string | null, scope: ChatScope): Workspac
     )
     .run(id, projectId, cwd, '', now, now);
   return snapshot(id);
+}
+
+/**
+ * 从一条已完成回复分出新会话：同项目、同模型、同工作目录（历史里引用的文件都在那里），标题加「分支：」。
+ * 分支前的每轮改动记录按会话 id 保存，不随分支复制。
+ */
+export async function forkSession(id: string, entryId: string): Promise<WorkspaceChat> {
+  const meta = row(id);
+  if (!meta.file || !existsSync(meta.file)) throw new Error('会话还没有可分支的记录');
+  const forkedId = randomUUID();
+  const file = await forkSessionFile(meta.file, sessionCwd(meta.project_id, meta.cwd), entryId);
+  const userMessages = requirePiSync()
+    .SessionManager.open(file)
+    .buildSessionContext()
+    .messages.filter((message) => message.role === 'user').length;
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `INSERT INTO sessions (id, project_id, cwd, file, title, message_count, provider_id, model, effort, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      forkedId,
+      meta.project_id,
+      meta.cwd,
+      file,
+      `分支：${meta.title}`.slice(0, 60),
+      userMessages,
+      meta.provider_id,
+      meta.model,
+      meta.effort,
+      now,
+      now,
+    );
+  return snapshot(forkedId);
 }
 
 export function openSession(id: string): WorkspaceChat {

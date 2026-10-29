@@ -24,6 +24,7 @@ export const session = {
   cancelRun: (sessionId: string) => invoke('session:cancel-run', sessionId),
   runCommand: (sessionId: string, name: MainSessionCommand, args: string) =>
     invoke('session:run-command', sessionId, name, args),
+  fork: (sessionId: string, entryId: string) => invoke('session:fork', sessionId, entryId),
   setModel: (sessionId: string, providerId: string, model: string) =>
     invoke('session:set-model', sessionId, providerId, model),
   setEffort: (sessionId: string, level: string) => invoke('session:set-effort', sessionId, level),
