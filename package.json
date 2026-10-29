@@ -111,7 +111,7 @@
     "typescript": "7.0.2",
     "vite": "8.2.2",
     "vitest": "5.0.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "xlsx": "file:vendor/xlsx/xlsx-0.20.3.tgz",
     "zustand": "5.0.15"
   }
 }

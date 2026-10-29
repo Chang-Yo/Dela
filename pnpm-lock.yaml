@@ -306,8 +306,8 @@ importers:
         specifier: 5.0.0
         version: 5.0.0(@types/node@24.9.0)(jsdom@30.1.0(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.9.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       xlsx:
-        specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-        version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+        specifier: file:vendor/xlsx/xlsx-0.20.3.tgz
+        version: file:vendor/xlsx/xlsx-0.20.3.tgz
       zustand:
         specifier: 5.0.15
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)
@@ -4970,8 +4970,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz:
-    resolution: {integrity: sha512-oLDq3jw7AcLqKWH2AhCpVTZl8mf6X2YReP+Neh0SJUzV/BdZYjth94tG5toiMB1PPrYtxOCfaoUCkvtuH+3AJA==, tarball: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz}
+  xlsx@file:vendor/xlsx/xlsx-0.20.3.tgz:
+    resolution: {integrity: sha512-oLDq3jw7AcLqKWH2AhCpVTZl8mf6X2YReP+Neh0SJUzV/BdZYjth94tG5toiMB1PPrYtxOCfaoUCkvtuH+3AJA==, tarball: file:vendor/xlsx/xlsx-0.20.3.tgz}
     version: 0.20.3
     engines: {node: '>=0.8'}
     hasBin: true
@@ -10376,7 +10376,7 @@ snapshots:
 
   ws@8.22.0: {}
 
-  xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz: {}
+  xlsx@file:vendor/xlsx/xlsx-0.20.3.tgz: {}
 
   xml-name-validator@5.0.0: {}
 
