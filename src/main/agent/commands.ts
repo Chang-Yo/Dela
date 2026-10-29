@@ -157,5 +157,6 @@ export const COMMAND_BRIDGE = `dela() {
   # 不能写 \${2:-{}}：bash 会把默认值截断在第一个 }，再拼出一个字面量 } 破坏 JSON。
   command_json="$2"
   [ -n "$command_json" ] || command_json='{}'
-  curl --silent --show-error --fail-with-body -H "Authorization: Bearer $DELA_COMMAND_TOKEN" -H 'Content-Type: application/json' --data "{\\"command\\":\\"$command_name\\",\\"input\\":$command_json}" "$DELA_COMMAND_URL"
+  # 请求体走 stdin：走 argv 时 Windows 会按 ANSI 代码页转码，中文参数到服务端已是替换字符。
+  printf '{"command":"%s","input":%s}' "$command_name" "$command_json" | curl --silent --show-error --fail-with-body -H "Authorization: Bearer $DELA_COMMAND_TOKEN" -H 'Content-Type: application/json' --data-binary @- "$DELA_COMMAND_URL"
 }`;
