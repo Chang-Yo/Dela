@@ -14,14 +14,10 @@ export interface LlmProviderView {
   name: string;
   baseUrl: string;
   models: string[];
-  model: string;
   modelConfigs?: Record<string, LlmModelSettings>;
-  /** 当前模型暴露给 composer 的档位子集；空数组表示未开启。 */
-  effortLevels: string[];
-  /** 当前选中的推理强度档位；未开启时为 null。 */
-  effort: string | null;
   presetId: string | null;
-  active: boolean;
+  /** 启用只表示进入会话的模型候选；用哪个模型由会话自己决定。 */
+  enabled: boolean;
 }
 
 export interface LlmSaveInput {
@@ -31,7 +27,6 @@ export interface LlmSaveInput {
   /** 留空且 id 已存在时沿用已保存密钥（改地址同样不必重填）；新建时必填。 */
   apiKey?: string;
   models: string[];
-  model: string;
   modelConfigs?: Record<string, LlmModelSettings>;
   presetId?: string | null;
 }
@@ -56,11 +51,7 @@ export interface LlmApi {
   list(): Promise<LlmProviderView[]>;
   save(input: LlmSaveInput): Promise<LlmProviderView>;
   remove(id: string): Promise<void>;
-  setActive(id: string): Promise<void>;
-  /** 为当前使用中的提供商切换模型。 */
-  setModel(model: string): Promise<void>;
-  /** 为当前使用中的提供商切换推理强度档位（须在其已开启的档位列表内）。 */
-  setEffort(level: string): Promise<void>;
+  setEnabled(id: string, enabled: boolean): Promise<void>;
   verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
   verifyModel(
     input: LlmVerifyInput & { model: string; settings?: LlmModelSettings },

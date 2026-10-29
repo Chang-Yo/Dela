@@ -10,7 +10,7 @@ import { MockOpenAiServer, mockFrames } from './mock-openai-server';
 const root = mkdtempSync(join(tmpdir(), 'dela-compaction-'));
 vi.mock('electron', () => ({ app: { getPath: () => root } }));
 vi.mock('../../database', () => ({ getDatabase: () => null }));
-vi.mock('../providers', () => ({ getActiveLlmProvider: () => null }));
+vi.mock('../providers', () => ({ llmProviders: () => [], usableLlmProviders: () => [] }));
 vi.mock('../environment', () => ({ agentEnvironment: () => ({}) }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 vi.mock('../extensions', () => ({}));
@@ -34,14 +34,18 @@ it('manual compaction reports an estimate and leaves actual usage unknown until 
   const server = await MockOpenAiServer.start();
   const session = await openPiSession({
     cwd: mkdtempSync(join(root, 'cwd-')),
-    provider: {
-      id: 'p',
-      name: 'mock',
-      baseUrl: server.baseUrl,
-      apiKey: 'test-only',
-      models: ['mock-model'],
+    selection: {
+      provider: {
+        id: 'p',
+        name: 'mock',
+        baseUrl: server.baseUrl,
+        apiKey: 'test-only',
+        models: ['mock-model'],
+        presetId: null,
+        enabled: true,
+      },
       model: 'mock-model',
-      presetId: null,
+      effort: null,
     },
     appendSystemPrompt: [],
     customTools: [],

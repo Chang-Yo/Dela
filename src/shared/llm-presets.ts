@@ -7,11 +7,8 @@ export const LLM_DEFAULT_OUTPUT_TOKENS = 128000;
 
 /** 推理档位与当前选择按模型保存。 */
 export function llmModelSettings(
-  provider: {
-    model: string;
-    modelConfigs?: Record<string, LlmModelSettings>;
-  },
-  model = provider.model,
+  provider: { modelConfigs?: Record<string, LlmModelSettings> },
+  model: string,
 ): LlmModelSettings & { effortLevels: string[] } {
   const settings = provider.modelConfigs?.[model] ?? {};
   const effortLevels = settings.effortLevels ?? [];

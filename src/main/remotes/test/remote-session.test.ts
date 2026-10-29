@@ -20,9 +20,9 @@ const provider: StoredLlmProvider = {
   name: '测试',
   baseUrl: 'https://example.invalid/v1',
   apiKey: 'test',
-  model: 'test-model',
   models: ['test-model'],
   presetId: null,
+  enabled: true,
 };
 
 beforeEach(() => {
@@ -34,7 +34,7 @@ describe('远程会话接线', () => {
   it('cwd 用远端路径建会话，七个工具是 Dela 的远程版本且不在本地建目录', async () => {
     const session = await openPiSession({
       cwd: remotePath,
-      provider,
+      selection: { provider, model: 'test-model', effort: null },
       appendSystemPrompt: ['远端项目 /root/proj'],
       customTools: await remoteTools(remotePath, { host: 'root@127.0.0.1', keyPath: null }),
       shellPath: 'C:\\Program Files\\Git\\bin\\bash.exe',

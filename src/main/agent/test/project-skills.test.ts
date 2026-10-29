@@ -31,14 +31,18 @@ it('loads .agents and .agent project skills and keeps project toggles separate f
   const projectSkillDirs = extraProjectSkillDirs(project);
   const session = await openPiSession({
     cwd: project,
-    provider: {
-      id: 'p',
-      name: 'mock',
-      baseUrl: 'http://127.0.0.1:9/v1',
-      apiKey: 'test-only',
-      models: ['m'],
+    selection: {
+      provider: {
+        id: 'p',
+        name: 'mock',
+        baseUrl: 'http://127.0.0.1:9/v1',
+        apiKey: 'test-only',
+        models: ['m'],
+        presetId: null,
+        enabled: true,
+      },
       model: 'm',
-      presetId: null,
+      effort: null,
     },
     appendSystemPrompt: [],
     customTools: [],

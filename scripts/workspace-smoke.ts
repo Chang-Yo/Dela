@@ -38,7 +38,7 @@ import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { registerNotificationsIpc } from '../src/main/notifications';
 import { registerUpdateIpc } from '../src/main/update';
-import { listLlmProviders, setLlmModel, verifyLlm } from '../src/main/agent/providers';
+import { listLlmProviders, setLlmProviderEnabled, verifyLlm } from '../src/main/agent/providers';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);
@@ -380,7 +380,9 @@ app
     );
     // 只接 llm:* 三个通道：完整的 registerAgentIpc 会预载 Pi 运行时，超出本冒烟范围。
     ipcMain.handle('llm:list', () => listLlmProviders());
-    ipcMain.handle('llm:set-model', (_event, model: string) => setLlmModel(model));
+    ipcMain.handle('llm:set-enabled', (_event, id: string, enabled: boolean) =>
+      setLlmProviderEnabled(id, enabled),
+    );
     ipcMain.handle('llm:verify', (_event, input: Parameters<typeof verifyLlm>[0]) =>
       verifyLlm(input),
     );
@@ -421,20 +423,19 @@ app
       `await window.dela.layout.save(${JSON.stringify(promoted.id)}, ${JSON.stringify(layout)});`,
     );
     const provider = await invoke(
-      `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'], model: 'deepseek-chat', presetId: 'zhiyuan' });`,
+      `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'], presetId: 'zhiyuan' });`,
     );
-    await invoke(`await window.dela.llm.setActive(${JSON.stringify(provider.id)});`);
     const providers = await invoke(`return await window.dela.llm.list();`);
     assert.equal(providers.length, 1);
-    assert.equal(providers[0].active, true);
+    assert.equal(providers[0].enabled, true);
     assert.equal('apiKey' in providers[0], false);
     const verified = await invoke(
       `return await window.dela.llm.verify({ id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
     );
     assert.equal(verified.ok, true, verified.message);
     assert.deepEqual(verified.models, ['qwen', 'minimax']);
-    await invoke(`await window.dela.llm.setModel('minimax');`);
-    assert.equal((await invoke(`return await window.dela.llm.list();`))[0].model, 'minimax');
+    await invoke(`await window.dela.llm.setEnabled(${JSON.stringify(provider.id)}, false);`);
+    assert.equal((await invoke(`return await window.dela.llm.list();`))[0].enabled, false);
     const email = prepareEmail({
       to: ['recipient@example.com'],
       subject: '报告草稿',

@@ -214,13 +214,12 @@ function isDeepSeekEndpoint(baseUrl: string): boolean {
   }
 }
 
-/** 可导入密钥的 DeepSeek 模型供应商（不含密钥）：使用中的排最前。 */
+/** 可导入密钥的 DeepSeek 模型供应商（不含密钥）：启用的排最前。 */
 export function listWebSearchKeySources(): WebSearchKeySource[] {
-  const { providers, activeId } = loadLlmConfig();
-  return providers
-    .filter((provider) => provider.apiKey && isDeepSeekEndpoint(provider.baseUrl))
-    .map(({ id, name }) => ({ id, name, active: id === activeId }))
-    .sort((a, b) => Number(b.active) - Number(a.active));
+  return loadLlmConfig()
+    .providers.filter((provider) => provider.apiKey && isDeepSeekEndpoint(provider.baseUrl))
+    .sort((a, b) => Number(b.enabled) - Number(a.enabled))
+    .map(({ id, name }) => ({ id, name }));
 }
 
 /** 把指定 DeepSeek 模型供应商的密钥读给搜索表单预填（不落库，保存由表单决定）；

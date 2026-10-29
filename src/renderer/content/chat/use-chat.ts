@@ -309,15 +309,18 @@ export function useChat(
     if (current) useSessions.getState().putChat(sessionId, { ...current, ...patch });
   };
 
-  // 模型只写在当前使用中的提供商上：非使用中的必须先 setActive。
+  // 模型选择只属于这个会话，不影响其他会话。
   const selectModel = (provider: LlmProviderView, model: string) => {
     const dela = window.dela;
     if (!dela) return;
-    optimisticChat({ model });
-    const switchModel = provider.active
-      ? dela.llm.setModel(model)
-      : dela.llm.setActive(provider.id).then(() => dela.llm.setModel(model));
-    void switchModel
+    optimisticChat({
+      providerId: provider.id,
+      providerName: provider.name,
+      model,
+      modelUnavailable: false,
+    });
+    void dela.session
+      .setModel(sessionId, provider.id, model)
       .then(() => refresh())
       .catch((e) =>
         showToast({ variant: 'error', title: '切换模型失败', description: errorText(e) }),
@@ -328,8 +331,8 @@ export function useChat(
     const dela = window.dela;
     if (!dela) return;
     optimisticChat({ effort: level });
-    void dela.llm
-      .setEffort(level)
+    void dela.session
+      .setEffort(sessionId, level)
       .then(() => refresh())
       .catch((e) =>
         showToast({ variant: 'error', title: '切换思考强度失败', description: errorText(e) }),

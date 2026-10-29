@@ -37,9 +37,7 @@ it('导入 DeepSeek 密钥后切换到 Brave，不应把 DeepSeek 密钥保存�
   window.dela = {
     capability: {
       listWebSearchEntries: async () => [],
-      listWebSearchKeySources: async () => [
-        { id: 'deepseek-model', name: '学校账号', active: true },
-      ],
+      listWebSearchKeySources: async () => [{ id: 'deepseek-model', name: '学校账号' }],
       readWebSearchKey,
       saveWebSearchEntry,
     },

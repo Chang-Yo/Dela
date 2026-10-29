@@ -46,7 +46,8 @@ function createDb(): Database.Database {
       id TEXT PRIMARY KEY, project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
       file TEXT NOT NULL, title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, cwd TEXT,
-      created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      provider_id TEXT, model TEXT, effort TEXT);
   `);
   return db;
 }

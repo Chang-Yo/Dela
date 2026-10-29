@@ -69,7 +69,7 @@ export function agentEnvironment() {
     async sessionOptions(
       projectId: string | null,
       cwd: string,
-    ): Promise<Omit<OpenSessionInput, 'cwd' | 'file' | 'provider'>> {
+    ): Promise<Omit<OpenSessionInput, 'cwd' | 'file' | 'selection'>> {
       const instruction = getAgentInstruction();
       const project = projectContext(projectId, cwd);
       ensureBuiltinSkills();

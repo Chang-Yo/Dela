@@ -24,6 +24,9 @@ export const session = {
   cancelRun: (sessionId: string) => invoke('session:cancel-run', sessionId),
   runCommand: (sessionId: string, name: MainSessionCommand, args: string) =>
     invoke('session:run-command', sessionId, name, args),
+  setModel: (sessionId: string, providerId: string, model: string) =>
+    invoke('session:set-model', sessionId, providerId, model),
+  setEffort: (sessionId: string, level: string) => invoke('session:set-effort', sessionId, level),
   onSessionUpdate: (listener: (sessionId: string, chat: WorkspaceChat) => void) => {
     // 双载荷订阅（sessionId + chat），同 workspace.onChatUpdate 不走 lib.on 的单载荷封装。
     const subscription = (_event: unknown, sessionId: string, chat: WorkspaceChat) =>

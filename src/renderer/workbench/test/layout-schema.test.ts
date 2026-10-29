@@ -105,7 +105,7 @@ describe('布局 schema 校验', () => {
     });
   });
 
-  it('旧布局缺 pinned 字段照常载入', () => {
+  it('没有固定标签的组不带 pinned 字段', () => {
     const parsed = parseWorkbenchLayout({
       root: group('a', ['note:x'], 'note:x'),
       focus: 'a',
