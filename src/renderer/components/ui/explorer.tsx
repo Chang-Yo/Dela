@@ -545,7 +545,7 @@ export function Explorer({
               {item.badge && <span className="text-xs tabular-nums text-ink-3">{item.badge}</span>}
               {actions && (
                 <span
-                  className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100"
+                  className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 has-[[data-state=open]]:opacity-100 max-md:opacity-100"
                   onClick={(event) => event.stopPropagation()}
                 >
                   {actions(item)}
