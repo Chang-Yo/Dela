@@ -3,6 +3,7 @@ import { AboutSection } from './sections/AboutSection';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { ArchivedSection } from './sections/ArchivedSection';
 import { CapabilitiesSection } from './sections/CapabilitiesSection';
+import { CanvasCacheSection } from './sections/CanvasCacheSection';
 import { CommandsSection } from './sections/CommandsSection';
 import { GeneralSection } from './sections/GeneralSection';
 import { LlmSection } from './sections/LlmSection';
@@ -69,6 +70,7 @@ export function SettingsView({
           )}
           {section === 'shortcuts' && <ShortcutsSection />}
           {section === 'workspace' && <WorkspaceSection />}
+          {section === 'canvas-cache' && <CanvasCacheSection />}
           {section === 'archived' && <ArchivedSection />}
           {section === 'connections' && (
             <ConnectionsSection

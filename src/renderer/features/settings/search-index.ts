@@ -121,6 +121,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['工作区', '目录', '文件夹', '保存位置', '笔记位置', 'folder'],
   },
   {
+    id: 'canvas-cache',
+    section: 'canvas-cache',
+    title: 'Canvas 缓存',
+    keywords: ['Canvas', '课程资料', '课件', '缓存', '清理', '占用', '磁盘', 'cache'],
+  },
+  {
     id: 'reset-layout',
     section: 'workspace',
     title: '布局重置',
@@ -229,6 +235,7 @@ export const settingsSectionLabels: Record<SettingsSectionId, string> = {
   appearance: '外观',
   shortcuts: '快捷键',
   workspace: '工作区',
+  'canvas-cache': 'Canvas 缓存',
   archived: '已归档',
   connections: '连接',
   remotes: '远程',
@@ -249,6 +256,7 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   appearance: '主题、缩放、字号与图标',
   shortcuts: '查看与修改快捷键',
   workspace: '工作目录与布局',
+  'canvas-cache': '课程资料缓存位置、占用与清理',
   archived: '恢复或永久删除已归档对话',
   connections: 'Canvas、邮箱、教务与水源连接',
   remotes: 'SSH 远程主机与连接',
