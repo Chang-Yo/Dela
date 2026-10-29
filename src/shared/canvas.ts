@@ -77,6 +77,36 @@ export interface CachedCourseFile {
   title: string;
 }
 
+export interface CanvasCacheCourse {
+  id: number | null;
+  name: string;
+  fileCount: number;
+  bytes: number;
+}
+
+export interface CanvasCacheTerm {
+  term: string;
+  fileCount: number;
+  bytes: number;
+  courses: CanvasCacheCourse[];
+}
+
+export interface CanvasCacheStats {
+  directory: string;
+  fileCount: number;
+  bytes: number;
+  terms: CanvasCacheTerm[];
+}
+
+export type CanvasCacheScope =
+  { kind: 'all' } | { kind: 'term'; term: string } | { kind: 'course'; courseId: number };
+
+export interface CanvasCacheClearResult {
+  removedFiles: number;
+  freedBytes: number;
+  blockedFiles: number;
+}
+
 /** 批量导出的结果：exported 为成功写入目标目录的文件数，failed 为「课程/文件：原因」列表。 */
 export interface CanvasExportResult {
   dir: string;
@@ -94,6 +124,9 @@ export interface CanvasApi {
   read(sourceId: string): Promise<DocumentContent>;
   download(sourceId: string): Promise<void>;
   openLink(url: string): Promise<void>;
+  getCacheStats(): Promise<CanvasCacheStats>;
+  clearCache(scope: CanvasCacheScope): Promise<CanvasCacheClearResult>;
+  openCacheDirectory(): Promise<void>;
   /** 已下载到本地 courses 目录、属于最新学期（未归档）的课件文件列表。 */
   cachedFiles(): Promise<CachedCourseFile[]>;
   /** 批量导出所选课程「文件」目录下的全部课件；用户取消选择目标文件夹时返回 null。 */
