@@ -46,7 +46,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 
 import type { BackupResult } from '../../shared/backup';
 import { exportUserData } from '../backup';
-import { closeDatabase, getDatabase } from '../database';
+import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../database';
 
 let base: string;
 let userData: string;
@@ -128,7 +128,7 @@ it('跳过可再生缓存、保留用户数据，并给数据库取一致快照'
   expect(existsSync(join(data, 'dela.db-shm'))).toBe(false);
   const snapshot = new Database(join(data, 'dela.db'), { readonly: true });
   try {
-    expect(snapshot.pragma('user_version', { simple: true })).toBe(7);
+    expect(snapshot.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION);
     expect(snapshot.prepare('SELECT COUNT(*) AS count FROM consent_records').get()).toEqual({
       count: 1,
     });

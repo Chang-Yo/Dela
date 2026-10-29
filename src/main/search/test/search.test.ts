@@ -107,7 +107,7 @@ describe('global search', () => {
         }),
       ]),
     );
-    // 通用会话（project_id NULL，旧 home/sources/projects 入口并入）深链回退 'home'。
+    // 通用会话（project_id NULL）深链回到首页。
     expect(queryGlobalSearch('工具结果')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

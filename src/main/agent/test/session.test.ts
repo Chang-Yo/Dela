@@ -1,5 +1,5 @@
 // 会话层：Pi 消息 → WorkspaceChat 投影；会话 cwd 取库里的 cwd 列（随聊是私有目录，资料页是课程目录），
-// cwd 为 NULL 的旧会话按项目目录/工作区根解析，项目目录缺失时报错而不换目录。
+// cwd 为 NULL 时按项目目录/工作区根解析，项目目录缺失时报错而不换目录。
 import Database from 'better-sqlite3';
 import {
   existsSync,
@@ -481,7 +481,7 @@ describe('会话归属与 cwd', () => {
     );
   });
 
-  it('资料页与随聊的空会话不互相复用，cwd 为 NULL 的旧会话两边都不用', () => {
+  it('资料页与随聊的空会话不互相复用，cwd 为 NULL 的通用会话两边都不用', () => {
     state
       .db!.prepare(
         `INSERT INTO sessions (id, project_id, file, cwd, created_at, updated_at)
@@ -510,7 +510,7 @@ describe('会话归属与 cwd', () => {
     );
   });
 
-  it('cwd 为 NULL 的旧会话仍按老规则解析：项目会话取项目目录，通用会话取工作区根', () => {
+  it('cwd 为 NULL 时项目会话取项目目录，通用会话（如项目降格后）取工作区根', () => {
     state
       .db!.prepare(
         "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
