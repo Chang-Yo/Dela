@@ -275,12 +275,25 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
               : undefined
           : undefined;
       const local = entry?.kind === 'file';
+      const fileSourceId = sourceId?.startsWith('file:') ? sourceId : null;
+      const download = fileSourceId
+        ? () => {
+            void dela.canvas.download(fileSourceId).catch((cause) =>
+              showToast({
+                variant: 'error',
+                title: '下载失败',
+                description: errorText(cause),
+              }),
+            );
+          }
+        : undefined;
       return {
         content,
         shuiyuanTopicId: sourceId?.startsWith('shuiyuan-topic:')
           ? Number(sourceId.slice('shuiyuan-topic:'.length))
           : undefined,
         officeRef,
+        download,
         watchesDisk: local,
         resolveImage:
           entry && local

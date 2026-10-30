@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import hljs from 'highlight.js/lib/common';
-import { LoaderCircle } from 'lucide-react';
+import { Download, LoaderCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../../components/ui/button';
@@ -260,9 +260,17 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         </div>
       )}
       {branch === 'binary' && (
-        <p className="p-6 text-13 text-ink-3">
-          这个文件不是 UTF-8 文本或体积过大，无法内嵌预览，请下载文件或用默认程序打开。
-        </p>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="max-w-md text-13 leading-relaxed text-ink-3">
+            这个文件不是 UTF-8 文本或体积过大，无法内嵌预览，请下载文件或用默认程序打开。
+          </p>
+          {doc.download && (
+            <Button size="sm" onClick={doc.download}>
+              <Download aria-hidden />
+              下载文件
+            </Button>
+          )}
+        </div>
       )}
       {content.truncated && (branch === 'text' || branch === 'markdown') && (
         <p className="shrink-0 border-b px-4 py-2 text-xs text-ink-3">
