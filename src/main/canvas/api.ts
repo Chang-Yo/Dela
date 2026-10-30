@@ -11,10 +11,14 @@ import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
 import type {
   CachedCourseFile,
   CanvasCacheClearResult,
+  CanvasCachePinScope,
+  CanvasCachePins,
+  CanvasCachePolicy,
   CanvasCacheScope,
   CanvasCacheStats,
   CanvasExportResult,
 } from '../../shared/canvas';
+import { selectCanvasCacheEntries } from './cache-policy';
 import { pickCourseFiles, collectCourseFileEntries } from './course-files';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { classifyOfficeFile, officeZipMime } from '../documents/parse';
@@ -441,6 +445,74 @@ export function getSource(id: string): StoredSource {
 }
 
 const downloads = new Map<string, Promise<{ path: string; mime: string }>>();
+const CACHE_POLICY_KEY = 'canvas-cache-policy';
+const CACHE_LAST_CLEANUP_KEY = 'canvas-cache-last-cleanup';
+const DEFAULT_CACHE_POLICY: CanvasCachePolicy = {
+  enabled: false,
+  maxBytes: 5 * 1024 ** 3,
+  keepCurrentTerm: false,
+};
+let cleanupTask: Promise<CanvasCacheCleanupResult> | null = null;
+
+interface CanvasCacheCleanupResult {
+  removedFiles: number;
+  freedBytes: number;
+  blockedFiles: number;
+}
+
+function canvasCachePolicy(): CanvasCachePolicy {
+  const value = getDatabase()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(CACHE_POLICY_KEY) as { value: string } | undefined;
+  if (!value) return DEFAULT_CACHE_POLICY;
+  try {
+    const parsed = JSON.parse(value.value) as Partial<CanvasCachePolicy>;
+    if (
+      typeof parsed.enabled !== 'boolean' ||
+      typeof parsed.maxBytes !== 'number' ||
+      !Number.isFinite(parsed.maxBytes) ||
+      parsed.maxBytes < 100 * 1024 ** 2 ||
+      typeof parsed.keepCurrentTerm !== 'boolean'
+    )
+      return DEFAULT_CACHE_POLICY;
+    return {
+      enabled: parsed.enabled,
+      maxBytes: Math.round(parsed.maxBytes),
+      keepCurrentTerm: parsed.keepCurrentTerm,
+    };
+  } catch {
+    return DEFAULT_CACHE_POLICY;
+  }
+}
+
+function canvasCachePins(): CanvasCachePins {
+  const rows = getDatabase().prepare('SELECT kind, item_id FROM canvas_cache_pins').all() as {
+    kind: 'file' | 'course';
+    item_id: number;
+  }[];
+  return {
+    fileIds: rows.filter((row) => row.kind === 'file').map((row) => row.item_id),
+    courseIds: rows.filter((row) => row.kind === 'course').map((row) => row.item_id),
+  };
+}
+
+function touchCanvasCache(source: StoredSource) {
+  if (!source.fileId) return;
+  getDatabase()
+    .prepare(
+      `INSERT INTO canvas_cache_usage(cache_key, file_id, last_used_at) VALUES (?, ?, ?)
+       ON CONFLICT(cache_key) DO UPDATE SET file_id=excluded.file_id, last_used_at=excluded.last_used_at`,
+    )
+    .run(canvasFileCacheKey(source), source.fileId, Date.now());
+}
+
+function lastCanvasCacheCleanup(): string | null {
+  const row = getDatabase()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(CACHE_LAST_CLEANUP_KEY) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
 function canvasFileCacheKey(source: Pick<StoredSource, 'fileId' | 'updatedAt'>) {
   return `canvas-file:${createHash('sha256')
     .update(`${source.fileId}:${source.updatedAt ?? ''}`)
@@ -451,7 +523,15 @@ export function cachedFile(source: StoredSource): Promise<{ path: string; mime: 
   const key = `${source.id}:${source.updatedAt ?? ''}`;
   const existing = downloads.get(key);
   if (existing) return existing;
-  const work = downloadFile(source).finally(() => downloads.delete(key));
+  const work = downloadFile(source)
+    .then((file) => {
+      touchCanvasCache(source);
+      void runCanvasCacheCleanup().catch((error: unknown) =>
+        console.error('Canvas cache cleanup failed', error),
+      );
+      return file;
+    })
+    .finally(() => downloads.delete(key));
   downloads.set(key, work);
   return work;
 }
@@ -588,6 +668,10 @@ interface CanvasCacheEntry {
   term: string;
   courseId: number | null;
   courseName: string;
+  fileId: number | null;
+  lastUsedAt: number;
+  pinned: boolean;
+  coursePinned: boolean;
 }
 
 export function canvasCacheDirectory() {
@@ -614,8 +698,21 @@ async function canvasCacheEntries(): Promise<CanvasCacheEntry[]> {
   const db = getDatabase();
   const state = getCanvasState();
   const courses = new Map(state.courses.map((course) => [course.id, course]));
+  const usage = new Map(
+    (
+      db.prepare('SELECT cache_key, file_id, last_used_at FROM canvas_cache_usage').all() as {
+        cache_key: string;
+        file_id: number;
+        last_used_at: number;
+      }[]
+    ).map((row) => [row.cache_key, row]),
+  );
+  const pins = canvasCachePins();
   const sourceRows = db.prepare('SELECT data FROM canvas_sources').all() as { data: string }[];
-  const sources = new Map<string, { term: string; courseId: number; courseName: string }>();
+  const sources = new Map<
+    string,
+    { term: string; courseId: number; courseName: string; fileId: number }
+  >();
   for (const row of sourceRows) {
     const source = JSON.parse(row.data) as StoredSource;
     if (source.kind !== 'file' || !source.fileId) continue;
@@ -625,6 +722,7 @@ async function canvasCacheEntries(): Promise<CanvasCacheEntry[]> {
       term: course.term,
       courseId: course.id,
       courseName: course.name,
+      fileId: source.fileId,
     });
   }
   const rows = db
@@ -641,7 +739,32 @@ async function canvasCacheEntries(): Promise<CanvasCacheEntry[]> {
     } catch {
       continue;
     }
-    entries.push({ key: row.key, path: row.value, bytes, ...current });
+    const usageRow = usage.get(row.key);
+    const fileId =
+      ('fileId' in current && typeof current.fileId === 'number'
+        ? current.fileId
+        : usageRow?.file_id) ?? null;
+    const courseId = typeof current.courseId === 'number' ? current.courseId : null;
+    const coursePinned = courseId !== null && pins.courseIds.includes(courseId);
+    const filePinned = fileId !== null && pins.fileIds.includes(fileId);
+    let lastUsedAt = usageRow?.last_used_at ?? 0;
+    if (!lastUsedAt) {
+      try {
+        lastUsedAt = (await lstat(row.value)).mtimeMs;
+      } catch {
+        lastUsedAt = 0;
+      }
+    }
+    entries.push({
+      key: row.key,
+      path: row.value,
+      bytes,
+      ...current,
+      fileId,
+      lastUsedAt,
+      pinned: filePinned || coursePinned,
+      coursePinned,
+    });
   }
   return entries;
 }
@@ -675,6 +798,7 @@ export async function canvasCacheStats(): Promise<CanvasCacheStats> {
             name: courseEntries[0]!.courseName,
             fileCount: courseEntries.length,
             bytes: courseEntries.reduce((total, entry) => total + entry.bytes, 0),
+            pinned: courseEntries.some((entry) => entry.coursePinned),
           }));
         return {
           term,
@@ -683,7 +807,90 @@ export async function canvasCacheStats(): Promise<CanvasCacheStats> {
           courses: groups,
         };
       }),
+    policy: canvasCachePolicy(),
+    lastCleanupAt: lastCanvasCacheCleanup(),
   };
+}
+
+export function getCanvasCachePins(): CanvasCachePins {
+  return canvasCachePins();
+}
+
+export async function updateCanvasCachePolicy(
+  policy: CanvasCachePolicy,
+): Promise<CanvasCacheStats> {
+  const value: CanvasCachePolicy = {
+    enabled: z.boolean().parse(policy.enabled),
+    maxBytes: Math.round(
+      z
+        .number()
+        .finite()
+        .min(100 * 1024 ** 2)
+        .parse(policy.maxBytes),
+    ),
+    keepCurrentTerm: z.boolean().parse(policy.keepCurrentTerm),
+  };
+  getDatabase()
+    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
+    .run(CACHE_POLICY_KEY, JSON.stringify(value));
+  await runCanvasCacheCleanup();
+  return canvasCacheStats();
+}
+
+export async function setCanvasCachePin(
+  scope: CanvasCachePinScope,
+  pinned: boolean,
+): Promise<CanvasCachePins> {
+  const itemId = scope.kind === 'file' ? scope.fileId : scope.courseId;
+  if (typeof itemId !== 'number' || !Number.isInteger(itemId) || itemId <= 0)
+    throw new Error('缓存固定对象无效');
+  const db = getDatabase();
+  if (pinned)
+    db.prepare('INSERT OR IGNORE INTO canvas_cache_pins(kind, item_id) VALUES (?, ?)').run(
+      scope.kind,
+      itemId,
+    );
+  else
+    db.prepare('DELETE FROM canvas_cache_pins WHERE kind=? AND item_id=?').run(scope.kind, itemId);
+  if (!pinned) await runCanvasCacheCleanup();
+  return canvasCachePins();
+}
+
+export async function runCanvasCacheCleanup(): Promise<CanvasCacheCleanupResult> {
+  if (cleanupTask) return cleanupTask;
+  cleanupTask = (async () => {
+    const policy = canvasCachePolicy();
+    if (!policy.enabled) return { removedFiles: 0, freedBytes: 0, blockedFiles: 0 };
+    const entries = await canvasCacheEntries();
+    const selected = selectCanvasCacheEntries(
+      entries,
+      policy,
+      latestTermOf(getCanvasState().courses),
+    );
+    const db = getDatabase();
+    let removedFiles = 0;
+    let freedBytes = 0;
+    let blockedFiles = 0;
+    for (const entry of selected) {
+      try {
+        await rm(entry.path);
+        db.prepare('DELETE FROM workspace_settings WHERE key=?').run(entry.key);
+        db.prepare('DELETE FROM canvas_cache_usage WHERE cache_key=?').run(entry.key);
+        removedFiles++;
+        freedBytes += entry.bytes;
+      } catch {
+        blockedFiles++;
+      }
+    }
+    db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(
+      CACHE_LAST_CLEANUP_KEY,
+      new Date().toISOString(),
+    );
+    return { removedFiles, freedBytes, blockedFiles };
+  })().finally(() => {
+    cleanupTask = null;
+  });
+  return cleanupTask;
 }
 
 export async function clearCanvasCache(scope: CanvasCacheScope): Promise<CanvasCacheClearResult> {
@@ -701,6 +908,7 @@ export async function clearCanvasCache(scope: CanvasCacheScope): Promise<CanvasC
     try {
       await rm(entry.path, { force: true });
       db.prepare('DELETE FROM workspace_settings WHERE key=?').run(entry.key);
+      db.prepare('DELETE FROM canvas_cache_usage WHERE cache_key=?').run(entry.key);
       removedFiles++;
       freedBytes += entry.bytes;
     } catch {

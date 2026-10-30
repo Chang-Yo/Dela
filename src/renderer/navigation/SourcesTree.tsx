@@ -1,8 +1,8 @@
 // Canvas 资料树。
 // 订阅 workspace/store 的 Canvas 概览镜像，同步/归档/下载经 preload canvas:* 通道直连。
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertDialog } from 'radix-ui';
-import { Archive, Columns2, Ellipsis, Download, FileText, Link2 } from 'lucide-react';
+import { Archive, Columns2, Ellipsis, Download, FileText, Link2, Pin, PinOff } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import {
   DropdownMenu,
@@ -43,9 +43,19 @@ export function SourcesTree({
   onLink: (key: string) => void;
 }) {
   const canvas = useWorkspaceStore((s) => s.canvas);
+  const [cachePins, setCachePins] = useState<{ fileIds: number[]; courseIds: number[] }>({
+    fileIds: [],
+    courseIds: [],
+  });
   const [loading, setLoading] = useState<number[]>([]);
   // 待确认归档的课程 id；课程对象从 canvas 现查，确认时以最新归档态为准。
   const [confirmCourseId, setConfirmCourseId] = useState<number | null>(null);
+  useEffect(() => {
+    void window.dela?.canvas
+      .getCachePins()
+      .then(setCachePins)
+      .catch(() => {});
+  }, []);
   const confirmCourse =
     confirmCourseId === null ? undefined : canvas.courses.find((c) => c.id === confirmCourseId);
   const nodes: ExplorerItem[] = [];
@@ -181,6 +191,24 @@ export function SourcesTree({
                       <Archive />
                       {course.archived ? '取消归档' : '归档'}
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const pinned = cachePins.courseIds.includes(course.id);
+                        void window.dela?.canvas
+                          .setCachePin({ kind: 'course', courseId: course.id }, !pinned)
+                          .then(setCachePins)
+                          .catch((cause) =>
+                            showToast({
+                              variant: 'error',
+                              title: '保存固定设置失败',
+                              description: errorText(cause),
+                            }),
+                          );
+                      }}
+                    >
+                      {cachePins.courseIds.includes(course.id) ? <PinOff /> : <Pin />}
+                      {cachePins.courseIds.includes(course.id) ? '取消固定缓存' : '固定缓存'}
+                    </DropdownMenuItem>
                   </>
                 ) : (
                   sourceId && (
@@ -213,6 +241,34 @@ export function SourcesTree({
                         >
                           <Download />
                           下载文件
+                        </DropdownMenuItem>
+                      )}
+                      {sourceId.startsWith('file:') && (
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            const fileId = Number(sourceId.slice(5));
+                            if (!Number.isInteger(fileId) || fileId <= 0) return;
+                            const pinned = cachePins.fileIds.includes(fileId);
+                            void window.dela?.canvas
+                              .setCachePin({ kind: 'file', fileId }, !pinned)
+                              .then(setCachePins)
+                              .catch((cause) =>
+                                showToast({
+                                  variant: 'error',
+                                  title: '保存固定设置失败',
+                                  description: errorText(cause),
+                                }),
+                              );
+                          }}
+                        >
+                          {cachePins.fileIds.includes(Number(sourceId.slice(5))) ? (
+                            <PinOff />
+                          ) : (
+                            <Pin />
+                          )}
+                          {cachePins.fileIds.includes(Number(sourceId.slice(5)))
+                            ? '取消固定缓存'
+                            : '固定缓存'}
                         </DropdownMenuItem>
                       )}
                     </>

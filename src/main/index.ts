@@ -25,6 +25,7 @@ import { registerVsjtuIpc } from './vsjtu/ipc';
 import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
 import { registerCanvasIpc, refreshCanvasTrees } from './canvas/ipc';
+import { runCanvasCacheCleanup } from './canvas/api';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
 import { openShuiyuanLinkInApp } from './shuiyuan/links';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
@@ -233,6 +234,9 @@ app
     // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
     gcChatMedia();
     if (!smokeTest) {
+      void runCanvasCacheCleanup().catch((error: unknown) =>
+        console.error('Canvas cache cleanup failed', error),
+      );
       const refresh = () => {
         void refreshNotifications().catch((error: unknown) =>
           console.error('Notification refresh failed', error),

@@ -28,6 +28,14 @@ function v6Database() {
   db.close();
 }
 
+function v7Database() {
+  const db = new Database(dbPath());
+  db.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+  db.prepare('INSERT INTO workspace_settings VALUES (?, ?)').run('existing', 'value');
+  db.pragma('user_version = 7');
+  db.close();
+}
+
 const v6Config = {
   activeId: 'p2',
   providers: [
@@ -113,4 +121,20 @@ it('新安装与当前版本不迁移；缺少中间步骤的旧版本明确拒�
   db.close();
   expect(() => runMigrations({ userData, seal }, 7)).toThrow(UnsupportedDataVersionError);
   expect(existsSync(dbPath())).toBe(true);
+});
+
+it('v7→v8：增加 Canvas 缓存使用记录和固定表，并保留已有设置', () => {
+  v7Database();
+  expect(runMigrations({ userData, seal }, 8)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(8);
+  expect(db.prepare('SELECT value FROM workspace_settings WHERE key=?').get('existing')).toEqual({
+    value: 'value',
+  });
+  expect(db.prepare('SELECT COUNT(*) AS count FROM canvas_cache_usage').get()).toEqual({
+    count: 0,
+  });
+  expect(db.prepare('SELECT COUNT(*) AS count FROM canvas_cache_pins').get()).toEqual({ count: 0 });
+  db.close();
 });

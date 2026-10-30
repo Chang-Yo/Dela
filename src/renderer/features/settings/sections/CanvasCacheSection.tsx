@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FolderOpen, RefreshCw, Trash2 } from 'lucide-react';
-import type { CanvasCacheScope, CanvasCacheStats } from '../../../../shared/canvas';
+import { FolderOpen, Pin, PinOff, RefreshCw, Trash2 } from 'lucide-react';
+import type {
+  CanvasCachePolicy,
+  CanvasCacheScope,
+  CanvasCacheStats,
+} from '../../../../shared/canvas';
 import { Button } from '../../../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
+import { Switch } from '../../../components/ui/beautifului/atoms/Switch';
 import { showToast } from '../../../app/toasts';
 import { errorText } from '../../../workspace/store';
 import { formatBytes } from '../../classroom/player-format';
@@ -15,7 +27,18 @@ const emptyStats: CanvasCacheStats = {
   fileCount: 0,
   bytes: 0,
   terms: [],
+  policy: { enabled: false, maxBytes: 5 * 1024 ** 3, keepCurrentTerm: false },
+  lastCleanupAt: null,
 };
+
+const capacityOptions = [
+  [500 * 1024 ** 2, '500 MB'],
+  [1024 ** 3, '1 GB'],
+  [2 * 1024 ** 3, '2 GB'],
+  [5 * 1024 ** 3, '5 GB'],
+  [10 * 1024 ** 3, '10 GB'],
+  [20 * 1024 ** 3, '20 GB'],
+] as const;
 
 function bytesText(bytes: number) {
   return formatBytes(bytes) ?? '0 B';
@@ -87,6 +110,31 @@ export function CanvasCacheSection() {
     }
   };
 
+  const updatePolicy = async (next: CanvasCachePolicy) => {
+    if (!window.dela || busy) return;
+    setBusy(true);
+    try {
+      setStats(await window.dela.canvas.updateCachePolicy(next));
+    } catch (cause) {
+      showToast({ variant: 'error', title: '保存自动清理设置失败', description: errorText(cause) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleCoursePin = async (courseId: number, pinned: boolean) => {
+    if (!window.dela || busy) return;
+    setBusy(true);
+    try {
+      await window.dela.canvas.setCachePin({ kind: 'course', courseId }, !pinned);
+      await refresh();
+    } catch (cause) {
+      showToast({ variant: 'error', title: '保存固定设置失败', description: errorText(cause) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const current = stats ?? emptyStats;
   return (
     <div className="grid gap-10">
@@ -117,6 +165,67 @@ export function CanvasCacheSection() {
         <SettingRow settingId="canvas-cache-size" title="占用空间">
           <span className="text-xs tabular-nums text-ink-3">
             {stats ? `${bytesText(current.bytes)} · ${current.fileCount} 个文件` : '正在计算…'}
+          </span>
+        </SettingRow>
+      </SettingsGroup>
+
+      <SettingsGroup
+        description="自动清理默认关闭；开启后，Dela 会按容量和最近使用时间回收课程缓存。固定的课程和文件不会被清理。"
+        title="自动清理"
+      >
+        <SettingRow settingId="canvas-cache-auto-cleanup" title="自动清理缓存">
+          <Switch
+            checked={current.policy.enabled}
+            disabled={!stats || busy}
+            label="自动清理缓存"
+            onChange={(enabled) => void updatePolicy({ ...current.policy, enabled })}
+          />
+        </SettingRow>
+        <SettingRow
+          description="超过上限后，优先清理较久没有使用的文件。"
+          nested
+          settingId="canvas-cache-max-bytes"
+          title="最大占用"
+        >
+          <Select
+            disabled={!stats || busy}
+            onValueChange={(value) =>
+              void updatePolicy({ ...current.policy, maxBytes: Number(value) })
+            }
+            value={String(current.policy.maxBytes)}
+          >
+            <SelectTrigger aria-label="Canvas 缓存最大占用" className="min-w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {capacityOptions.map(([value, label]) => (
+                <SelectItem key={value} value={String(value)}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+        <SettingRow
+          description="清理时优先保留最新学期；固定的旧学期缓存仍会保留。"
+          nested
+          settingId="canvas-cache-keep-current-term"
+          title="只保留当前学期"
+        >
+          <Switch
+            checked={current.policy.keepCurrentTerm}
+            disabled={!stats || busy}
+            label="只保留当前学期"
+            onChange={(keepCurrentTerm) =>
+              void updatePolicy({ ...current.policy, keepCurrentTerm })
+            }
+          />
+        </SettingRow>
+        <SettingRow settingId="canvas-cache-last-cleanup" title="最近清理">
+          <span className="text-xs text-ink-3">
+            {current.lastCleanupAt
+              ? new Date(current.lastCleanupAt).toLocaleString('zh-CN')
+              : '尚未自动清理'}
           </span>
         </SettingRow>
       </SettingsGroup>
@@ -209,6 +318,23 @@ export function CanvasCacheSection() {
                             <span className="text-xs tabular-nums text-ink-3">
                               {bytesText(course.bytes)} · {course.fileCount} 个文件
                             </span>
+                            {course.pinned && (
+                              <Pin aria-hidden="true" className="size-3.5 text-ink-3" />
+                            )}
+                            {course.id !== null && (
+                              <Button
+                                aria-label={
+                                  course.pinned ? `取消固定${course.name}` : `固定${course.name}`
+                                }
+                                disabled={busy}
+                                onClick={() => void toggleCoursePin(course.id!, course.pinned)}
+                                size="icon-sm"
+                                title={course.pinned ? '取消固定缓存' : '固定缓存'}
+                                variant="ghost"
+                              >
+                                {course.pinned ? <PinOff /> : <Pin />}
+                              </Button>
+                            )}
                             {courseConfirming ? (
                               <>
                                 <Button

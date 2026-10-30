@@ -121,6 +121,16 @@ const schema: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS workspace_parent ON workspace_entries(parent_id)`,
   `CREATE TABLE IF NOT EXISTS workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS canvas_cache_usage (
+    cache_key TEXT PRIMARY KEY,
+    file_id INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS canvas_cache_pins (
+    kind TEXT NOT NULL CHECK(kind IN ('file', 'course')),
+    item_id INTEGER NOT NULL,
+    PRIMARY KEY(kind, item_id)
+  )`,
   `INSERT OR IGNORE INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
     VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, '2026-10-07T00:00:00.000Z')`,
   // 水源来源引用：仅在用户把帖子添加到项目时写入一行，不是同步缓存。
@@ -192,7 +202,7 @@ const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
   accepted_at TEXT NOT NULL
 )`;
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export function getDatabase(): Database.Database {
   if (database) return database;

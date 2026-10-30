@@ -18,6 +18,9 @@ import {
   cachedCourseFiles,
   canvasCacheDirectory,
   canvasCacheStats,
+  getCanvasCachePins,
+  updateCanvasCachePolicy,
+  setCanvasCachePin,
   clearCanvasCache,
   readCanvasSource,
   archiveCanvasCourse,
@@ -65,6 +68,32 @@ export function registerCanvasIpc() {
     if (!openShuiyuanLinkInApp(url.href)) await shell.openExternal(url.href);
   });
   handle('cache-stats', canvasCacheStats);
+  handle('cache-pins', getCanvasCachePins);
+  handle('update-cache-policy', (policy) =>
+    updateCanvasCachePolicy(
+      z
+        .object({
+          enabled: z.boolean(),
+          maxBytes: z
+            .number()
+            .finite()
+            .min(100 * 1024 ** 2),
+          keepCurrentTerm: z.boolean(),
+        })
+        .parse(policy),
+    ),
+  );
+  handle('set-cache-pin', (scope, pinned) =>
+    setCanvasCachePin(
+      z
+        .discriminatedUnion('kind', [
+          z.object({ kind: z.literal('file'), fileId: z.number().int().positive() }),
+          z.object({ kind: z.literal('course'), courseId: z.number().int().positive() }),
+        ])
+        .parse(scope),
+      z.boolean().parse(pinned),
+    ),
+  );
   handle('clear-cache', (scope) =>
     clearCanvasCache(
       z

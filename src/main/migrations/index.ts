@@ -3,8 +3,12 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import type { Migration, MigrationContext } from './types';
 import { v6tov7 } from './v6tov7';
+import { v7tov8 } from './v7tov8';
 
-const migrations: Migration[] = [{ from: 6, run: v6tov7 }];
+const migrations: Migration[] = [
+  { from: 6, run: v6tov7 },
+  { from: 7, run: v7tov8 },
+];
 
 /** 每一步改动的文件：迁移前整份备份，任何一步失败都整体还原。 */
 const touchedFiles = ['dela.db', 'llm-providers.bin'];

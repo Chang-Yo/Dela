@@ -82,6 +82,7 @@ export interface CanvasCacheCourse {
   name: string;
   fileCount: number;
   bytes: number;
+  pinned: boolean;
 }
 
 export interface CanvasCacheTerm {
@@ -96,7 +97,23 @@ export interface CanvasCacheStats {
   fileCount: number;
   bytes: number;
   terms: CanvasCacheTerm[];
+  policy: CanvasCachePolicy;
+  lastCleanupAt: string | null;
 }
+
+export interface CanvasCachePolicy {
+  enabled: boolean;
+  maxBytes: number;
+  keepCurrentTerm: boolean;
+}
+
+export interface CanvasCachePins {
+  fileIds: number[];
+  courseIds: number[];
+}
+
+export type CanvasCachePinScope =
+  { kind: 'file'; fileId: number } | { kind: 'course'; courseId: number };
 
 export type CanvasCacheScope =
   { kind: 'all' } | { kind: 'term'; term: string } | { kind: 'course'; courseId: number };
@@ -125,6 +142,9 @@ export interface CanvasApi {
   download(sourceId: string): Promise<void>;
   openLink(url: string): Promise<void>;
   getCacheStats(): Promise<CanvasCacheStats>;
+  getCachePins(): Promise<CanvasCachePins>;
+  updateCachePolicy(policy: CanvasCachePolicy): Promise<CanvasCacheStats>;
+  setCachePin(scope: CanvasCachePinScope, pinned: boolean): Promise<CanvasCachePins>;
   clearCache(scope: CanvasCacheScope): Promise<CanvasCacheClearResult>;
   openCacheDirectory(): Promise<void>;
   /** 已下载到本地 courses 目录、属于最新学期（未归档）的课件文件列表。 */
