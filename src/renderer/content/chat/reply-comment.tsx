@@ -2,7 +2,7 @@
 // composer 附件条上方的评论轨道，随草稿保存，发送时作为结构化评论交给主进程拼进提示词。
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { HoverCard, Popover } from 'radix-ui';
-import { Check, MessageSquarePlus, TextQuote, X } from 'lucide-react';
+import { Check, MessageCircleQuestion, MessageSquarePlus, TextQuote, X } from 'lucide-react';
 import type { ChatComment } from '../../../shared/api';
 import { menuPanel } from '@/components/ui/menu-styles';
 import { cn } from '../../lib/utils';
@@ -169,11 +169,15 @@ interface Target {
  * 始终夹在视口内。按下指针即收起（拖选途中不留旧浮层，写到一半点别处即放弃），拖滚动条除外。
  */
 export function ReplyCommentLayer({
-  sessionId,
+  draftKey,
   scrollRef,
+  onSidechat,
 }: {
-  sessionId: string;
+  /** 评论落进哪份草稿：主会话的 sessionId，旁问里是旁问草稿的键。 */
+  draftKey: string;
   scrollRef: RefObject<HTMLDivElement | null>;
+  /** 选中文字后另起旁问：把引用带进旁问的输入框；未提供时不显示入口。 */
+  onSidechat?: (quote: string) => void;
 }) {
   const [target, setTarget] = useState<Target | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -278,8 +282,8 @@ export function ReplyCommentLayer({
   if (!target) return null;
   const add = (comment: string) => {
     const { drafts, update } = useChatDrafts.getState();
-    update(sessionId, {
-      comments: [...(drafts[sessionId]?.comments ?? []), { quote: target.quote, comment }],
+    update(draftKey, {
+      comments: [...(drafts[draftKey]?.comments ?? []), { quote: target.quote, comment }],
     });
     setTarget(null);
   };
@@ -295,16 +299,32 @@ export function ReplyCommentLayer({
       {target.editing ? (
         <CommentInput onCancel={() => setTarget(null)} onSubmit={add} />
       ) : (
-        <button
-          className="flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink [&_svg]:size-3.5"
-          onClick={() => setTarget({ ...target, editing: true })}
-          // 不抢焦点、不清选区：点下去之前选中的文字保持原样。
-          onPointerDown={(event) => event.preventDefault()}
-          type="button"
-        >
-          <MessageSquarePlus aria-hidden />
-          添加到对话
-        </button>
+        <div className="flex">
+          <button
+            className="flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink [&_svg]:size-3.5"
+            onClick={() => setTarget({ ...target, editing: true })}
+            // 不抢焦点、不清选区：点下去之前选中的文字保持原样。
+            onPointerDown={(event) => event.preventDefault()}
+            type="button"
+          >
+            <MessageSquarePlus aria-hidden />
+            添加到对话
+          </button>
+          {onSidechat && (
+            <button
+              className="flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink [&_svg]:size-3.5"
+              onClick={() => {
+                onSidechat(target.quote);
+                setTarget(null);
+              }}
+              onPointerDown={(event) => event.preventDefault()}
+              type="button"
+            >
+              <MessageCircleQuestion aria-hidden />
+              旁问
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

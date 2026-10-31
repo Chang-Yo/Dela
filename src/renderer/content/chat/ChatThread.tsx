@@ -469,9 +469,15 @@ export const ChatThread = memo(function ChatThread({
   onSaveNote,
   onEditLast,
   onFork,
+  onSidechat,
+  draftKey = chat.sessionId,
   mailDialog,
 }: {
   chat: WorkspaceChat;
+  /** 选中回复文字后另起旁问；未提供时不显示入口。 */
+  onSidechat?: (quote: string) => void;
+  /** 回复评论落进的草稿键；默认是会话自己的草稿。 */
+  draftKey?: string | null;
   /** 点击引用来源 chip 时打开对应文档；未提供时 chip 以纯文本呈现。 */
   onOpenSource?: (key: string) => void;
   /** 把回答保存为笔记；未提供时隐藏入口。 */
@@ -644,7 +650,9 @@ export const ChatThread = memo(function ChatThread({
           <ArrowDown className="size-4" strokeWidth={1.8} />
         </button>
       )}
-      {chat.sessionId && <ReplyCommentLayer scrollRef={scrollRef} sessionId={chat.sessionId} />}
+      {draftKey && (
+        <ReplyCommentLayer draftKey={draftKey} onSidechat={onSidechat} scrollRef={scrollRef} />
+      )}
       {hint && (
         <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-ink-3">
           {hint}

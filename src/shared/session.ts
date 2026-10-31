@@ -162,12 +162,17 @@ export const SESSION_COMMANDS = [
   { name: 'reload', description: '重新加载 Skills、扩展与 AGENTS.md' },
   { name: 'name', description: '重命名对话', argumentHint: '<标题>' },
   { name: 'new', description: '新对话' },
+  {
+    name: 'btw',
+    description: '旁问：带着当前对话顺便问一句，不进入主对话',
+    argumentHint: '[问题]',
+  },
 ] as const;
 
 export type SessionCommandName = (typeof SESSION_COMMANDS)[number]['name'];
 
-/** `/new` 只是界面跳转，由渲染端处理；其余在主进程执行。 */
-export type MainSessionCommand = Exclude<SessionCommandName, 'new'>;
+/** `/new` 与 `/btw` 只是界面动作，由渲染端处理；其余在主进程执行。 */
+export type MainSessionCommand = Exclude<SessionCommandName, 'new' | 'btw'>;
 
 /** 输入是不是一条会话命令：命令名后要么结束、要么是空白再跟参数（`/compactor` 不算）。 */
 export function parseSessionCommand(
