@@ -126,6 +126,28 @@ export interface ChatStreamEvent {
   contextUsage?: ContextUsageView | null;
 }
 
+/** 旁问快照：messages 只含旁问自己的提问与回复，借来的主会话历史不重复下发。 */
+export interface SidechatView {
+  parentId: string;
+  running: boolean;
+  activeTool?: string;
+  messages: WorkspaceChat['messages'];
+}
+
+/** 旁问（sidechat:* 通道）：以主会话 id 寻址，每个主会话最多一个，不入库、关闭即丢弃。 */
+export interface SidechatApi {
+  open(parentId: string): Promise<SidechatView>;
+  ask(parentId: string, input: ChatAskInput): Promise<SidechatView>;
+  cancel(parentId: string): void;
+  close(parentId: string): Promise<void>;
+  /** 保留为新会话（「旁问：」前缀），返回新会话快照；旁问随之关闭。 */
+  keep(parentId: string): Promise<WorkspaceChat>;
+  onUpdate(listener: (view: SidechatView) => void): () => void;
+  /** 流式增量，sessionId 是主会话 id。 */
+  onStream(listener: (event: ChatStreamEvent) => void): () => void;
+  onClosed(listener: (parentId: string) => void): () => void;
+}
+
 /** 通用会话的工作目录归属：'chat' = 首页随聊的私有目录，'library' = 资料页的课程目录。
  *  项目会话（projectId 非空）由项目目录决定 cwd，忽略 scope。 */
 export type ChatScope = 'chat' | 'library';

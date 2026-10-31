@@ -19,10 +19,10 @@ import {
   cancelRun,
   deleteSession,
   forkSession,
-  hasLiveSessions,
+  hasLiveSessions as hasLiveMainSessions,
   invalidateSessions,
   listSessionCommands,
-  shutdownSessions,
+  shutdownSessions as shutdownMainSessions,
   listSessions,
   newSession,
   openSession,
@@ -44,6 +44,15 @@ import {
   updateSessionVisibility,
 } from './session';
 import { registerPackagesIpc } from './packages-ipc';
+import {
+  askSidechat,
+  cancelSidechat,
+  closeSidechat,
+  hasSidechats,
+  keepSidechat,
+  openSidechat,
+  shutdownSidechats,
+} from './sidechat';
 import {
   pickChatMedia,
   readChatMediaPreview,
@@ -101,6 +110,18 @@ export {
   shutdownSessions,
   subscribeChat,
 };
+
+function hasLiveSessions() {
+  return hasLiveMainSessions() || hasSidechats();
+}
+
+/** 退出前结束主会话与旁问，最多等 timeoutMs。 */
+async function shutdownSessions(timeoutMs: number) {
+  await Promise.race([
+    Promise.all([shutdownMainSessions(timeoutMs), shutdownSidechats()]),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
 
 const uuid = z.string().uuid();
 const askInputSchema = z.object({
@@ -181,6 +202,20 @@ export function registerAgentIpc() {
   sessionHandle('fork', (id, entryId) =>
     forkSession(uuid.parse(id), z.string().min(1).max(64).parse(entryId)),
   );
+  const sidechatHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
+    ipcMain.handle(`sidechat:${name}`, async (event, ...args) => {
+      checkWorkspaceSender(event);
+      subscribeChat(event.sender);
+      await preloadPi();
+      return fn(...args);
+    });
+  sidechatHandle('open', (id) => openSidechat(uuid.parse(id)));
+  sidechatHandle('ask', (id, input) =>
+    askSidechat(uuid.parse(id), askInputSchema.omit({ replaceLastUser: true }).parse(input)),
+  );
+  sidechatHandle('cancel', (id) => cancelSidechat(uuid.parse(id)));
+  sidechatHandle('close', (id) => closeSidechat(uuid.parse(id)));
+  sidechatHandle('keep', (id) => keepSidechat(uuid.parse(id)));
   sessionHandle('set-model', (id, providerId, model) =>
     setSessionModel(
       uuid.parse(id),
