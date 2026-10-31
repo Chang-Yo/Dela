@@ -3,6 +3,7 @@
   "compilerOptions": { "lib": ["ES2023"], "types": ["node"] },
   "include": [
     "scripts/build-helper.ts",
+    "scripts/ci-smoke.ts",
     "scripts/dev.ts",
     "scripts/document-runtime-smoke.ts",
     "scripts/fix-native-permissions.ts",

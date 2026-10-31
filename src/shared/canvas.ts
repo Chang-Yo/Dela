@@ -140,6 +140,7 @@ export interface CanvasApi {
   archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
   read(sourceId: string): Promise<DocumentContent>;
   download(sourceId: string): Promise<void>;
+  reveal(sourceId: string): Promise<void>;
   openLink(url: string): Promise<void>;
   getCacheStats(): Promise<CanvasCacheStats>;
   getCachePins(): Promise<CanvasCachePins>;

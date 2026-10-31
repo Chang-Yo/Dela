@@ -61,6 +61,11 @@ export function registerCanvasIpc() {
     const file = await cachedFile(source);
     await copyFile(file.path, filePath);
   });
+  handle('reveal', async (id) => {
+    const source = getSource(z.string().parse(id));
+    if (source.kind !== 'file') throw new Error('资料不是文件');
+    shell.showItemInFolder((await cachedFile(source)).path);
+  });
   handle('open-link', async (value) => {
     const url = new URL(z.string().max(8192).parse(value));
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)

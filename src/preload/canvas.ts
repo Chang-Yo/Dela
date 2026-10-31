@@ -10,6 +10,7 @@ export const canvas = {
   archiveCourse: (id: number, archived: boolean) => invoke('canvas:archive-course', id, archived),
   read: (id: string) => invoke('canvas:read', id),
   download: (id: string) => invoke('canvas:download', id),
+  reveal: (id: string) => invoke('canvas:reveal', id),
   openLink: (url: string) => invoke('canvas:open-link', url),
   getCacheStats: () => invoke('canvas:cache-stats'),
   getCachePins: () => invoke('canvas:cache-pins'),

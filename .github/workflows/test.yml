@@ -24,7 +24,7 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           cache: true
       - name: Install dependencies

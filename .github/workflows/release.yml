@@ -35,11 +35,11 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: helper-linux-amd64
           path: vendor/dela-helper
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: helper-linux-arm64
           path: vendor/dela-helper
@@ -49,7 +49,7 @@ jobs:
           package-manager-cache: false
       - name: Verify runner architecture
         run: node -e "if (process.platform !== 'darwin' || process.arch !== 'arm64') process.exit(1)"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Check and build
@@ -107,7 +107,7 @@ jobs:
           # electron-updater 的差量更新按 zip 直链 + .blockmap 探测，缺了就退回全量下载。
           test -f dist/Dela-*-mac-arm64.zip.blockmap
       - name: Smoke test signed app
-        run: dist/mac-arm64/Dela.app/Contents/MacOS/Dela --smoke-test
+        run: node scripts/ci-smoke.ts "Signed macOS app" dist/mac-arm64/Dela.app/Contents/MacOS/Dela --smoke-test
       - name: Record artifact checksums and source
         run: |
           cd dist
@@ -199,11 +199,11 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: helper-linux-amd64
           path: vendor/dela-helper
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: helper-linux-arm64
           path: vendor/dela-helper
@@ -211,7 +211,7 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build and test
@@ -266,11 +266,11 @@ jobs:
           ref: ${{ needs.prepare.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: installer-win-x64
           path: installers
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: installer-mac-arm64
           path: installers-macos

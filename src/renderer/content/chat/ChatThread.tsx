@@ -8,6 +8,7 @@ import {
   CircleAlert,
   Copy,
   FileText,
+  GitBranch,
   NotebookPen,
   Package,
   Pencil,
@@ -34,13 +35,15 @@ const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
 /** 复制成功对勾的自动复位时长（消息复制按钮共用）。 */
 const COPY_FEEDBACK_MS = 1500;
 
-/** 消息悬停操作栏：复制与保存为笔记，参照 assistant-ui ActionBar 的自动显隐。 */
+/** 消息悬停操作栏：复制、保存为笔记与分支，参照 assistant-ui ActionBar 的自动显隐。 */
 const MessageActions = memo(function MessageActions({
   content,
   onSaveNote,
+  onFork,
 }: {
   content: string;
   onSaveNote: ((text: string) => void) | undefined;
+  onFork: (() => void) | undefined;
 }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -63,6 +66,11 @@ const MessageActions = memo(function MessageActions({
       {onSaveNote && (
         <IconButton aria-label="保存为笔记" onClick={() => onSaveNote(content)} title="保存为笔记">
           <NotebookPen />
+        </IconButton>
+      )}
+      {onFork && (
+        <IconButton aria-label="从这里分支" onClick={onFork} title="从这里分支为新对话">
+          <GitBranch />
         </IconButton>
       )}
     </div>
@@ -323,6 +331,7 @@ const AssistantMessage = memo(function AssistantMessage({
   sessionId,
   reviewEnabled,
   onSaveNote,
+  onFork,
   onOpenDraft,
   onRetry,
 }: {
@@ -335,6 +344,8 @@ const AssistantMessage = memo(function AssistantMessage({
   sessionId: string | null;
   reviewEnabled: boolean;
   onSaveNote: ((text: string) => void) | undefined;
+  /** 从某个会话记录条目分支；未提供或回复没有锚点时隐藏入口。 */
+  onFork: ((entryId: string) => void) | undefined;
   /** 容器未注入邮件草稿弹窗时为 undefined，对应入口隐藏。 */
   onOpenDraft: ((draftId: string) => void) | undefined;
   /** 仅最后一条回复可重试。 */
@@ -412,7 +423,13 @@ const AssistantMessage = memo(function AssistantMessage({
           reviewEnabled={reviewEnabled}
         />
       )}
-      {!live && content && <MessageActions content={content} onSaveNote={onSaveNote} />}
+      {!live && content && (
+        <MessageActions
+          content={content}
+          onFork={onFork && message.entryId ? () => onFork(message.entryId!) : undefined}
+          onSaveNote={onSaveNote}
+        />
+      )}
     </div>
   );
 });
@@ -451,14 +468,23 @@ export const ChatThread = memo(function ChatThread({
   onOpenSource,
   onSaveNote,
   onEditLast,
+  onFork,
+  onSidechat,
+  draftKey = chat.sessionId,
   mailDialog,
 }: {
   chat: WorkspaceChat;
+  /** 选中回复文字后另起旁问；未提供时不显示入口。 */
+  onSidechat?: (quote: string) => void;
+  /** 回复评论落进的草稿键；默认是会话自己的草稿。 */
+  draftKey?: string | null;
   /** 点击引用来源 chip 时打开对应文档；未提供时 chip 以纯文本呈现。 */
   onOpenSource?: (key: string) => void;
   /** 把回答保存为笔记；未提供时隐藏入口。 */
   onSaveNote?: (text: string) => void;
   onEditLast?: (text: string, comments?: ChatComment[]) => void;
+  /** 从一条已完成回复分支为新会话；未提供时隐藏入口。 */
+  onFork?: (entryId: string) => void;
   /** 邮件草稿检查弹窗（容器注入，3B 接 features/mail）；未注入时隐藏草稿入口。 */
   mailDialog?: MailDraftDialog;
 }) {
@@ -602,6 +628,7 @@ export const ChatThread = memo(function ChatThread({
                 activeTool={chat.activeTool}
                 onOpenDraft={MailDialog ? openDraft : undefined}
                 onSaveNote={onSaveNote}
+                onFork={streaming ? undefined : onFork}
               />
             ),
           )}
@@ -623,7 +650,9 @@ export const ChatThread = memo(function ChatThread({
           <ArrowDown className="size-4" strokeWidth={1.8} />
         </button>
       )}
-      {chat.sessionId && <ReplyCommentLayer scrollRef={scrollRef} sessionId={chat.sessionId} />}
+      {draftKey && (
+        <ReplyCommentLayer draftKey={draftKey} onSidechat={onSidechat} scrollRef={scrollRef} />
+      )}
       {hint && (
         <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-ink-3">
           {hint}

@@ -23,7 +23,7 @@ interface SessionsState {
   forgetSession: (sessionId: string) => void;
 }
 
-export const useSessions = create<SessionsState>((set) => ({
+export const useSessions = create<SessionsState>((set, get) => ({
   lists: {},
   chats: {},
   refresh: async (projectId) => {
@@ -31,7 +31,12 @@ export const useSessions = create<SessionsState>((set) => ({
     const sessions = await window.dela.session.list(projectId, '');
     set((state) => ({ lists: { ...state.lists, [poolKey(projectId)]: sessions } }));
   },
-  putChat: (sessionId, chat) => set((state) => ({ chats: { ...state.chats, [sessionId]: chat } })),
+  putChat: (sessionId, chat) => {
+    const previous = get().chats[sessionId];
+    set((state) => ({ chats: { ...state.chats, [sessionId]: chat } }));
+    if ((previous?.messages.length ?? 0) !== chat.messages.length)
+      scheduleListRefresh(chat.projectId);
+  },
   forgetSession: (sessionId) =>
     set((state) => {
       const chats = { ...state.chats };
@@ -57,19 +62,24 @@ let sessionUpdateSubscription: (() => void) | null = null;
 
 /** 列表重读抖动（毫秒）：一轮问答里 on-update 会按工具边界多次到达，合并成一次查询。 */
 const listRefreshDelayMs = 300;
-let listRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+const listRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-/** 标题（首条消息才写）与「最近优先」排序都只体现在列表里，推送本身不带列表，
- *  所以条数变化后重读该池；否则侧栏要等到新建会话或手动刷新才更新。 */
+/** 标题（首条消息才写）与「最近优先」排序都只体现在列表里，快照本身不带列表，
+ *  所以任何来源（推送、ask/fork 结果）写入的快照条数变化后重读该池；按池各自防抖，
+ *  两个池前后脚变化时不会只刷到后一个。 */
 function scheduleListRefresh(projectId: string | null): void {
-  if (listRefreshTimer !== null) clearTimeout(listRefreshTimer);
-  listRefreshTimer = setTimeout(() => {
-    listRefreshTimer = null;
-    void useSessions
-      .getState()
-      .refresh(projectId)
-      .catch(() => {});
-  }, listRefreshDelayMs);
+  const key = poolKey(projectId);
+  clearTimeout(listRefreshTimers.get(key));
+  listRefreshTimers.set(
+    key,
+    setTimeout(() => {
+      listRefreshTimers.delete(key);
+      void useSessions
+        .getState()
+        .refresh(projectId)
+        .catch(() => {});
+    }, listRefreshDelayMs),
+  );
 }
 
 /** 订阅 session:on-update（幂等）：快照推送写入镜像缓存，供同一会话的多个入口共享。
@@ -77,9 +87,7 @@ function scheduleListRefresh(projectId: string | null): void {
 export function initSessionsMirror(): void {
   if (sessionUpdateSubscription || typeof window === 'undefined' || !window.dela) return;
   sessionUpdateSubscription = window.dela.session.onSessionUpdate((sessionId, chat) => {
-    const previous = useSessions.getState().chats[sessionId];
     useSessions.getState().putChat(sessionId, chat);
-    if (previous?.messages.length !== chat.messages.length) scheduleListRefresh(chat.projectId);
   });
   // 流式增量只改末条 assistant 消息：历史消息保持对象身份，memo 化的消息组件
   // 不重渲（全量推送会让整线程每 100ms 重新解析一次 markdown）。
@@ -104,7 +112,7 @@ type ToolStep = NonNullable<ChatMessage['toolResults']>[number];
 
 /** 流式增量不带工具图片（见 ChatStreamEvent），替换末条消息时按 toolCallId 从旧消息回填：
  *  图片仍停留在界面，但不必每帧重传 base64。 */
-function keepToolImages(previous: ChatMessage | undefined, next: ChatMessage): ChatMessage {
+export function keepToolImages(previous: ChatMessage | undefined, next: ChatMessage): ChatMessage {
   const images = new Map<string, NonNullable<AgentToolOutput['image']>>();
   for (const step of previous?.toolResults ?? [])
     if (step.output?.image) images.set(step.id, step.output.image);

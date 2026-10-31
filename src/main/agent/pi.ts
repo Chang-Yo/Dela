@@ -1,7 +1,14 @@
 /** Pi Coding Agent 接线：内核就是 pi-coding-agent SDK；这里只做加载、提供商注册与按 cwd 建会话，工具与会话树仍归 Pi。 */
 import { app } from 'electron';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import type { AgentSession, PackageSource, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import { writeFileSync } from 'node:fs';
+import type {
+  AgentSession,
+  FileEntry,
+  PackageSource,
+  SessionManager,
+  ToolDefinition,
+} from '@earendil-works/pi-coding-agent';
 import type { Model } from '@earendil-works/pi-ai';
 import type { StoredLlmProvider } from '../credentials';
 import { llmModelSettings, LLM_DEFAULT_CONTEXT_WINDOW } from '../../shared/llm-presets';
@@ -94,6 +101,8 @@ export function isInside(path: string, dir: string): boolean {
 export interface OpenSessionInput {
   cwd: string;
   file?: string;
+  /** 旁问：不落盘的会话记录，带着主会话的历史；扩展收到的 session_start 标为 fork。 */
+  inMemory?: SessionManager;
   selection: SessionModel;
   /** 追加到 Pi 默认系统提示之后（项目背景、用户自定义指令、dela 命令说明）。 */
   appendSystemPrompt: string[];
@@ -183,9 +192,11 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     }),
   });
   await resourceLoader.reload();
-  const sessionManager = input.file
-    ? pi.SessionManager.open(input.file, piSessionsDir(), input.cwd)
-    : pi.SessionManager.create(input.cwd, piSessionsDir());
+  const sessionManager =
+    input.inMemory ??
+    (input.file
+      ? pi.SessionManager.open(input.file, piSessionsDir(), input.cwd)
+      : pi.SessionManager.create(input.cwd, piSessionsDir()));
   const { session } = await pi.createAgentSession({
     cwd: input.cwd,
     agentDir,
@@ -197,8 +208,38 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     sessionManager,
     customTools: input.customTools,
     excludeTools: input.disabledTools,
+    ...(input.inMemory ? { sessionStartEvent: { type: 'session_start', reason: 'fork' } } : {}),
   });
   return session;
+}
+
+/** 从会话文件的某个条目分出新会话文件：另开实例去分，原文件与正在用它的会话都不受影响。 */
+export async function forkSessionFile(file: string, cwd: string, entryId: string): Promise<string> {
+  const pi = await loadPi();
+  const forked = pi.SessionManager.open(file, piSessionsDir(), cwd).createBranchedSession(entryId);
+  if (!forked) throw new Error('分支会话没有写出文件');
+  return forked;
+}
+
+/** 内存里的会话记录写成会话文件（文件名同 Pi 自己的命名），返回路径。 */
+export function writeSessionFile(header: FileEntry & { type: 'session' }, entries: FileEntry[]) {
+  const file = join(
+    piSessionsDir(),
+    `${header.timestamp.replace(/[:.]/g, '-')}_${header.id}.jsonl`,
+  );
+  writeFileSync(
+    file,
+    [header, ...entries]
+      .map(
+        (entry) => `${JSON.stringify(entry)}
+`,
+      )
+      .join(''),
+    {
+      flag: 'wx',
+    },
+  );
+  return file;
 }
 
 /** 设置页的模型检测：一次无工具的短请求，失败抛出 pi-ai 的错误文案（"<status>: …"）。 */

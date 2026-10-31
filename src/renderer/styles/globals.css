@@ -529,3 +529,39 @@
 ::highlight(dela-reply-comment) {
   background-color: color-mix(in oklch, var(--bui-accent) 24%, transparent);
 }
+
+/* 旁问面板：新建与关闭沿右边界整体进出（含 right-3 的 0.75rem）；收起与展开以右上角
+   为原点缩放，与胶囊交叉过渡。 */
+@keyframes slide-in-right {
+  from {
+    translate: calc(100% + 0.75rem) 0;
+  }
+}
+@keyframes slide-out-right {
+  to {
+    translate: calc(100% + 0.75rem) 0;
+  }
+}
+@keyframes panel-shrink {
+  to {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+@keyframes panel-grow {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+@keyframes pill-out {
+  to {
+    opacity: 0;
+  }
+}

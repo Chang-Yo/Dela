@@ -16,7 +16,7 @@ describe('useChatDrafts 启动加载', () => {
     vi.resetModules();
   });
 
-  it('合法 prompt 保留，未知字段忽略，形状损坏的条目丢弃', async () => {
+  it('合法 prompt 保留，未知字段忽略，形状损坏的条目与旁问草稿丢弃', async () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -27,6 +27,7 @@ describe('useChatDrafts 启动加载', () => {
         s5: { prompt: 'y', references: [{ key: 1, title: 't' }] },
         s6: { prompt: 'z', references: [{ key: 'source:1', title: '资料' }] },
         s7: { prompt: 'w' },
+        'sidechat:p1': { prompt: '旁问草稿' },
       }),
     );
     const { useChatDrafts } = await loadFresh();
