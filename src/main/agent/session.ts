@@ -864,7 +864,7 @@ type SummaryRow = Omit<ChatSessionSummary, 'pinned'> & { pinned: number };
 const toSummary = (row: SummaryRow): ChatSessionSummary => ({ ...row, pinned: row.pinned === 1 });
 
 export function listSessions(
-  projectId: string | null,
+  projectId: string | null | undefined,
   query: string,
   includeArchived = false,
   offset = 0,
@@ -873,17 +873,48 @@ export function listSessions(
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
   const safeOffset = Math.max(0, Math.floor(offset));
   const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+  const where = [
+    projectId === undefined ? '' : 'project_id IS ?',
+    includeArchived ? '' : 'archived = 0',
+    'message_count > 0',
+    query ? "title LIKE ? ESCAPE '\\'" : '',
+  ]
+    .filter(Boolean)
+    .join(' AND ');
+  const params = [
+    ...(projectId === undefined ? [] : [projectId]),
+    ...(query ? [pattern] : []),
+    safeLimit,
+    safeOffset,
+  ];
   return getDatabase()
     .prepare(
-      `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ?
-       ${includeArchived ? '' : 'AND archived = 0'} AND message_count > 0
-       ${query ? "AND title LIKE ? ESCAPE '\\'" : ''}
+      `SELECT ${summaryColumns} FROM sessions WHERE ${where}
        ORDER BY pinned DESC, updated_at DESC LIMIT ? OFFSET ?`,
     )
-    .all(
-      ...(query ? [projectId, pattern, safeLimit, safeOffset] : [projectId, safeLimit, safeOffset]),
-    )
+    .all(...params)
     .map((row) => toSummary(row as SummaryRow));
+}
+
+export function countSessions(
+  projectId: string | null | undefined,
+  query: string,
+  includeArchived = false,
+): number {
+  const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+  const where = [
+    projectId === undefined ? '' : 'project_id IS ?',
+    includeArchived ? '' : 'archived = 0',
+    'message_count > 0',
+    query ? "title LIKE ? ESCAPE '\\'" : '',
+  ]
+    .filter(Boolean)
+    .join(' AND ');
+  const params = [...(projectId === undefined ? [] : [projectId]), ...(query ? [pattern] : [])];
+  const row = getDatabase()
+    .prepare(`SELECT count(*) AS count FROM sessions WHERE ${where}`)
+    .get(...params) as { count: number };
+  return row.count;
 }
 
 export function archivedSessions(): ChatSessionSummary[] {
