@@ -111,6 +111,7 @@ vi.mock('../extensions', () => ({
 vi.mock('../packages', () => ({ packagesEnabled: () => false }));
 import {
   askSession,
+  cancelSessionRun,
   invalidateSessions,
   newSession,
   openSession,
@@ -123,6 +124,8 @@ import {
   deleteSession,
   runSessionCommand,
   setSessionModel,
+  startSessionRun,
+  waitSessionRun,
 } from '../session';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
@@ -259,6 +262,38 @@ it('用户停止仍冻结已产生的文件，并在删除会话时清理快照'
   });
   await deleteSession(chat.sessionId!);
   expect(existsSync(join(state.root, 'chat-changes', chat.sessionId!))).toBe(false);
+});
+
+it('异步运行返回句柄，等待与取消只作用于目标会话这一轮', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  let release!: () => void;
+  state.onPrompt = () => new Promise<void>((resolve) => (release = resolve));
+
+  const runId = await startSessionRun(chat.sessionId!, {
+    text: '异步执行',
+    attachments: [],
+    context: [],
+    comments: [],
+  });
+  await vi.waitFor(() => expect(state.prompts).toHaveLength(1));
+  expect(await waitSessionRun(runId, 10)).toMatchObject({
+    runId,
+    sessionId: chat.sessionId,
+    status: 'running',
+  });
+  expect(cancelSessionRun(runId)).toMatchObject({ runId, status: 'running' });
+  release();
+  await expect(waitSessionRun(runId, 1000)).resolves.toMatchObject({
+    runId,
+    status: 'stopped',
+  });
+});
+
+it('强制创建会话不会复用已有空会话', () => {
+  const first = newSession(null, 'chat');
+  const second = newSession(null, 'chat', true);
+  expect(second.sessionId).not.toBe(first.sessionId);
 });
 
 it('远程会话不读取同名本地目录，接口明确返回不可用', async () => {

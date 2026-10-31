@@ -56,9 +56,17 @@ export interface SessionRow {
   cwd: string | null;
   file: string;
   title: string;
+  archived: number;
   provider_id: string | null;
   model: string | null;
   effort: string | null;
+}
+
+interface LiveRun {
+  id: string;
+  tool?: string;
+  cancelled?: boolean;
+  done: Promise<void>;
 }
 
 interface Live {
@@ -66,7 +74,7 @@ interface Live {
   cwd: string;
   providerId: string;
   /** 当前 Run（ask 进行中）；空闲为 undefined。 */
-  run?: { id: string; tool?: string; cancelled?: boolean; done: Promise<void> };
+  run?: LiveRun;
   unsubscribe: () => void;
   stale?: boolean;
   /** 最近一次压缩后 Pi 估计的上下文 token 数：模型还没回复、实际用量未知时代替它显示。 */
@@ -75,6 +83,22 @@ interface Live {
 
 const live = new Map<string, Live>();
 const clients = new Set<WebContents>();
+const sessionRuns = new Map<string, SessionRunRecord>();
+const SESSION_RUN_LIMIT = 100;
+const SESSION_RUN_TTL = 10 * 60 * 1000;
+
+export interface SessionRunState {
+  runId: string;
+  sessionId: string;
+  status: RunStatus;
+  startedAt: number;
+  finishedAt?: number;
+  error?: string;
+}
+
+interface SessionRunRecord extends SessionRunState {
+  done: Promise<void>;
+}
 
 export function subscribeChat(client: WebContents) {
   if (clients.has(client)) return;
@@ -89,7 +113,7 @@ export function send(channel: string, ...args: unknown[]) {
 export function row(id: string): SessionRow {
   const found = getDatabase()
     .prepare(
-      'SELECT id, project_id, cwd, file, title, provider_id, model, effort FROM sessions WHERE id=?',
+      'SELECT id, project_id, cwd, file, title, archived, provider_id, model, effort FROM sessions WHERE id=?',
     )
     .get(id) as SessionRow | undefined;
   if (!found) throw new Error('会话不存在');
@@ -749,6 +773,64 @@ function touch(id: string, entry: Live) {
     .run(count, new Date().toISOString(), id);
 }
 
+function terminalRun(status: RunStatus) {
+  return (
+    status === 'completed' ||
+    status === 'failed' ||
+    status === 'stopped' ||
+    status === 'interrupted'
+  );
+}
+
+function pruneSessionRuns() {
+  const now = Date.now();
+  for (const [runId, run] of sessionRuns)
+    if (run.finishedAt && now - run.finishedAt > SESSION_RUN_TTL) sessionRuns.delete(runId);
+  if (sessionRuns.size <= SESSION_RUN_LIMIT) return;
+  for (const [runId] of [...sessionRuns]
+    .filter(([, run]) => terminalRun(run.status))
+    .sort(([, a], [, b]) => (a.finishedAt ?? 0) - (b.finishedAt ?? 0))) {
+    sessionRuns.delete(runId);
+    if (sessionRuns.size <= SESSION_RUN_LIMIT) break;
+  }
+}
+
+function runState(run: SessionRunRecord): SessionRunState {
+  return {
+    runId: run.runId,
+    sessionId: run.sessionId,
+    status: run.status,
+    startedAt: run.startedAt,
+    ...(run.finishedAt ? { finishedAt: run.finishedAt } : {}),
+    ...(run.error ? { error: run.error } : {}),
+  };
+}
+
+function requireSessionRun(runId: string) {
+  pruneSessionRuns();
+  const run = sessionRuns.get(runId);
+  if (!run) throw new Error('运行不存在或已过期');
+  return run;
+}
+
+function registerSessionRun(sessionId: string, run: LiveRun): SessionRunRecord {
+  const record: SessionRunRecord = {
+    runId: run.id,
+    sessionId,
+    status: 'running',
+    startedAt: Date.now(),
+    done: run.done,
+  };
+  sessionRuns.set(run.id, record);
+  pruneSessionRuns();
+  return record;
+}
+
+function failSessionRun(runId: string, error: unknown) {
+  const run = sessionRuns.get(runId);
+  if (run) run.error = error instanceof Error ? error.message : String(error);
+}
+
 function runEvent(
   sessionId: string,
   status: RunStatus,
@@ -757,9 +839,18 @@ function runEvent(
   changesError?: string,
 ) {
   const entry = live.get(sessionId);
+  const runId = finishedRunId ?? entry?.run?.id ?? '';
+  if (runId) {
+    const run = sessionRuns.get(runId);
+    if (run) {
+      run.status = status;
+      if (terminalRun(status)) run.finishedAt = Date.now();
+      pruneSessionRuns();
+    }
+  }
   send('session:on-run-event', {
     sessionId,
-    runId: finishedRunId ?? entry?.run?.id ?? '',
+    runId,
     status,
     activeTool,
     ...(changesError ? { changesError } : {}),
@@ -772,14 +863,26 @@ const summaryColumns = 'id, title, pinned, project_id AS projectId, updated_at A
 type SummaryRow = Omit<ChatSessionSummary, 'pinned'> & { pinned: number };
 const toSummary = (row: SummaryRow): ChatSessionSummary => ({ ...row, pinned: row.pinned === 1 });
 
-export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
+export function listSessions(
+  projectId: string | null,
+  query: string,
+  includeArchived = false,
+  offset = 0,
+  limit = 100,
+): ChatSessionSummary[] {
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+  const safeOffset = Math.max(0, Math.floor(offset));
+  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
   return getDatabase()
     .prepare(
-      `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count > 0
-       ${query ? "AND title LIKE ? ESCAPE '\\'" : ''} ORDER BY pinned DESC, updated_at DESC LIMIT 100`,
+      `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ?
+       ${includeArchived ? '' : 'AND archived = 0'} AND message_count > 0
+       ${query ? "AND title LIKE ? ESCAPE '\\'" : ''}
+       ORDER BY pinned DESC, updated_at DESC LIMIT ? OFFSET ?`,
     )
-    .all(...(query ? [projectId, pattern] : [projectId]))
+    .all(
+      ...(query ? [projectId, pattern, safeLimit, safeOffset] : [projectId, safeLimit, safeOffset]),
+    )
     .map((row) => toSummary(row as SummaryRow));
 }
 
@@ -806,7 +909,11 @@ function emptyGeneralSessionId(scope: ChatScope): string | undefined {
 /** 每个项目只保留一个空会话入口；文件在首条消息后由 Pi 写出。
  *  通用会话建自己的私有目录（随聊）或课件根目录（资料页）并写进 cwd 列，项目会话留 NULL
  *  继续按项目目录解析。 */
-export function newSession(projectId: string | null, scope: ChatScope): WorkspaceChat {
+export function newSession(
+  projectId: string | null,
+  scope: ChatScope,
+  force = false,
+): WorkspaceChat {
   if (projectId !== null) sessionCwd(projectId, null);
   const empty =
     projectId === null
@@ -818,7 +925,7 @@ export function newSession(projectId: string | null, scope: ChatScope): Workspac
             )
             .get(projectId) as { id: string } | undefined
         )?.id;
-  if (empty && !live.get(empty)?.run) return snapshot(empty);
+  if (empty && !force && !live.get(empty)?.run) return snapshot(empty);
   const id = randomUUID();
   const cwd =
     projectId !== null ? null : scope === 'library' ? libraryDirectory() : chatSessionDirectory(id);
@@ -907,6 +1014,12 @@ export async function sidechatSource(id: string) {
 
 export function openSession(id: string): WorkspaceChat {
   row(id);
+  return snapshot(id);
+}
+
+export function readSession(id: string, includeArchived = false): WorkspaceChat {
+  const meta = row(id);
+  if (meta.archived && !includeArchived) throw new Error('归档会话需要显式请求');
   return snapshot(id);
 }
 
@@ -1032,8 +1145,22 @@ export function composePrompt(input: ChatAskInput, cwd: string) {
   return { prompt, userText, images, attachments, comments, turnId };
 }
 
-/** 一轮对话：文本直接入上下文，文档附件仅传本地引用，由 skill 按需解析。 */
-export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
+interface PreparedSessionRun {
+  id: string;
+  entry: Live;
+  input: ChatAskInput;
+  prompt: string;
+  userText: string;
+  images: ImageContent[];
+  attachments: ReturnType<typeof composePrompt>['attachments'];
+  comments: ChatAskInput['comments'];
+  turnId: string;
+  meta: SessionRow;
+  run: LiveRun;
+  finishRun: () => void;
+}
+
+async function prepareSessionRun(id: string, input: ChatAskInput): Promise<PreparedSessionRun> {
   const entry = await ensureLive(id);
   if (entry.run) throw new Error('请等待当前回答完成');
   if (entry.session.isCompacting) throw new Error('正在压缩上下文，请稍候');
@@ -1077,7 +1204,37 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
   };
   entry.run = run;
   liveSteps.set(id, new Map());
+  registerSessionRun(id, run);
   runEvent(id, 'running');
+  return {
+    entry,
+    id,
+    input,
+    prompt,
+    userText,
+    images,
+    attachments,
+    comments,
+    turnId,
+    meta: meta0,
+    run,
+    finishRun,
+  };
+}
+
+async function executeSessionRun(prepared: PreparedSessionRun): Promise<void> {
+  const {
+    entry,
+    id,
+    input,
+    prompt,
+    userText,
+    images,
+    turnId,
+    meta: meta0,
+    run,
+    finishRun,
+  } = prepared;
   let status: 'completed' | 'failed' | 'stopped' = 'completed';
   const startedAt = new Date().toISOString();
   let before: changes.DirectorySnapshot | null = null;
@@ -1106,7 +1263,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     else if (last?.role === 'assistant' && last.stopReason === 'error') status = 'failed';
   } catch (error) {
     status = 'failed';
-    throw error;
+    failSessionRun(run.id, error);
   } finally {
     let changesError: string | undefined;
     try {
@@ -1139,7 +1296,40 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
       finishRun();
     }
   }
+}
+
+/** 启动一轮对话并立即返回运行 ID；消息仍按现有会话顺序写入目标会话。 */
+export async function startSessionRun(id: string, input: ChatAskInput): Promise<string> {
+  const prepared = await prepareSessionRun(id, input);
+  void executeSessionRun(prepared);
+  return prepared.run.id;
+}
+
+/** 一轮对话：文本直接入上下文，文档附件仅传本地引用，由 skill 按需解析。 */
+export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
+  const runId = await startSessionRun(id, input);
+  const run = requireSessionRun(runId);
+  await run.done;
+  if (run.error) throw new Error(run.error);
   return snapshot(id);
+}
+
+export async function waitSessionRun(runId: string, timeoutMs = 0): Promise<SessionRunState> {
+  const run = requireSessionRun(runId);
+  const timeout = Math.min(120_000, Math.max(0, Math.floor(timeoutMs)));
+  if (timeout > 0 && !terminalRun(run.status))
+    await Promise.race([run.done, new Promise<void>((resolve) => setTimeout(resolve, timeout))]);
+  return runState(run);
+}
+
+export function cancelSessionRun(runId: string): SessionRunState {
+  const run = requireSessionRun(runId);
+  if (terminalRun(run.status)) return runState(run);
+  const entry = live.get(run.sessionId);
+  if (!entry?.run || entry.run.id !== runId) throw new Error('运行不存在或已过期');
+  entry.run.cancelled = true;
+  void entry.session.abort();
+  return runState(run);
 }
 
 /** Pi 压缩失败时抛英文原文：常见的两种换成能看懂的说明，其余带上原文。 */
