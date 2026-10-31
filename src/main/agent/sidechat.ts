@@ -10,6 +10,7 @@ import { agentEnvironment } from './environment';
 import { bindSessionExtensions, releaseExtensionUi, shutdownSession } from './extensions';
 import { releaseChatAttachments } from './media';
 import { loadPi, openPiSession, writeSessionFile } from './pi';
+import { usableLlmProviders } from './providers';
 import {
   adoptSessionFile,
   composePrompt,
@@ -23,6 +24,7 @@ import {
 
 interface Side {
   session: AgentSession;
+  providerId: string;
   /** 扩展 UI 的会话身份：不与主会话共用，关闭旁问时只清它自己的扩展状态。 */
   uiId: string;
   /** 借来的主会话消息条数：界面只显示这之后的旁问内容。 */
@@ -128,6 +130,7 @@ async function createSide(parentId: string): Promise<Side> {
   });
   const side: Side = {
     session,
+    providerId: selection.provider.id,
     uiId: randomUUID(),
     baseCount: session.messages.length,
     steps: new Map(),
@@ -164,6 +167,8 @@ function requireSide(parentId: string): Side {
 export async function askSidechat(parentId: string, input: ChatAskInput): Promise<SidechatView> {
   const side = requireSide(parentId);
   if (side.run) throw new Error('请等待旁问回答完成');
+  if (!usableLlmProviders().some(({ id }) => id === side.providerId))
+    throw new Error('模型提供商已停用或不可用，请重新启用');
   const { prompt, images } = composePrompt(input, side.session.sessionManager.getCwd());
   let finish!: () => void;
   const run = { cancelled: false, done: new Promise<void>((resolve) => (finish = resolve)) };
