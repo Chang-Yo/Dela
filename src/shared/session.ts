@@ -88,6 +88,8 @@ export interface WorkspaceChat {
     startedAt?: number;
     /** 对应冻结的本轮 diff；旧消息无此字段。 */
     turnId?: string;
+    /** 已完成回复的最后一个会话记录条目：从这里分支会话。运行中的回复没有。 */
+    entryId?: string;
     finishedAt?: number;
     interrupted?: boolean;
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
@@ -124,6 +126,28 @@ export interface ChatStreamEvent {
   contextUsage?: ContextUsageView | null;
 }
 
+/** 旁问快照：messages 只含旁问自己的提问与回复，借来的主会话历史不重复下发。 */
+export interface SidechatView {
+  parentId: string;
+  running: boolean;
+  activeTool?: string;
+  messages: WorkspaceChat['messages'];
+}
+
+/** 旁问（sidechat:* 通道）：以主会话 id 寻址，每个主会话最多一个，不入库、关闭即丢弃。 */
+export interface SidechatApi {
+  open(parentId: string): Promise<SidechatView>;
+  ask(parentId: string, input: ChatAskInput): Promise<SidechatView>;
+  cancel(parentId: string): void;
+  close(parentId: string): Promise<void>;
+  /** 保留为新会话（「旁问：」前缀），返回新会话快照；旁问随之关闭。 */
+  keep(parentId: string): Promise<WorkspaceChat>;
+  onUpdate(listener: (view: SidechatView) => void): () => void;
+  /** 流式增量，sessionId 是主会话 id。 */
+  onStream(listener: (event: ChatStreamEvent) => void): () => void;
+  onClosed(listener: (parentId: string) => void): () => void;
+}
+
 /** 通用会话的工作目录归属：'chat' = 首页随聊的私有目录，'library' = 资料页的课程目录。
  *  项目会话（projectId 非空）由项目目录决定 cwd，忽略 scope。 */
 export type ChatScope = 'chat' | 'library';
@@ -138,12 +162,17 @@ export const SESSION_COMMANDS = [
   { name: 'reload', description: '重新加载 Skills、扩展与 AGENTS.md' },
   { name: 'name', description: '重命名对话', argumentHint: '<标题>' },
   { name: 'new', description: '新对话' },
+  {
+    name: 'btw',
+    description: '旁问：带着当前对话顺便问一句，不进入主对话',
+    argumentHint: '[问题]',
+  },
 ] as const;
 
 export type SessionCommandName = (typeof SESSION_COMMANDS)[number]['name'];
 
-/** `/new` 只是界面跳转，由渲染端处理；其余在主进程执行。 */
-export type MainSessionCommand = Exclude<SessionCommandName, 'new'>;
+/** `/new` 与 `/btw` 只是界面动作，由渲染端处理；其余在主进程执行。 */
+export type MainSessionCommand = Exclude<SessionCommandName, 'new' | 'btw'>;
 
 /** 输入是不是一条会话命令：命令名后要么结束、要么是空白再跟参数（`/compactor` 不算）。 */
 export function parseSessionCommand(
@@ -171,6 +200,8 @@ export interface SessionApi {
   cancelRun(sessionId: string): void;
   /** 执行一条会话命令（/compact、/reload、/name），返回执行后的快照；/compact 运行中可用 cancelRun 取消。 */
   runCommand(sessionId: string, name: MainSessionCommand, args: string): Promise<WorkspaceChat>;
+  /** 从这条回复分出新会话（「分支：」前缀，沿用项目与模型），原会话不变。 */
+  fork(sessionId: string, entryId: string): Promise<WorkspaceChat>;
   /** 只改这个会话的模型；运行中的一轮照旧用原模型，下一轮生效。 */
   setModel(sessionId: string, providerId: string, model: string): Promise<WorkspaceChat>;
   setEffort(sessionId: string, level: string): Promise<WorkspaceChat>;

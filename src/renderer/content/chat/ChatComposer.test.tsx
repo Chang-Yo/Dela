@@ -409,7 +409,7 @@ it('`/` 候选列出 Dela 的会话命令，与之同名的扩展命令被遮住
   const options = [...host.querySelectorAll('[role="option"]')].map(
     (item) => item.textContent ?? '',
   );
-  for (const name of ['compact', 'reload', 'name', 'new'])
+  for (const name of ['compact', 'reload', 'name', 'new', 'btw'])
     expect(options.filter((text) => text.startsWith(`//${name}`))).toHaveLength(1);
   expect(options.join('\n')).not.toContain('Extension compact');
   expect(options.find((text) => text.startsWith('//compact'))).toContain('压缩上下文');

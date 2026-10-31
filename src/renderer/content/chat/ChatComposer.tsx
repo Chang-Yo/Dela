@@ -127,7 +127,10 @@ export function ChatComposer({
   hero = false,
   context = null,
   sessionId = null,
+  sidechat = false,
 }: {
+  /** 旁问输入框：模型与思考强度沿用主会话、联网搜索是全局开关，这三个选择器都不显示。 */
+  sidechat?: boolean;
   /** 当前会话：用于 Pi 扩展的 `/` 命令、状态栏与输入框读写；未知时为 null。 */
   sessionId?: string | null;
   /** 新对话的项目浮岛数据；null = 不显示（已有历史或通用池没有项目）。 */
@@ -251,7 +254,8 @@ export function ChatComposer({
           ...builtinCommands,
           ...customCommands.map((command) => ({ ...command, hint: '自定义' })),
           // Dela 的会话命令：插入 `/name ` 留给参数，发送时由 use-chat 拦下执行。
-          ...SESSION_COMMANDS.map((command) => ({
+          // 旁问里没有会话命令：发出去就是普通提问。
+          ...(sidechat ? [] : SESSION_COMMANDS).map((command) => ({
             name: command.name,
             prompt: `/${command.name} `,
             hint: ['argumentHint' in command ? command.argumentHint : '', command.description]
@@ -532,7 +536,13 @@ export function ChatComposer({
           onSend={() => {
             if (canSend && !modelUnavailable) onSend();
           }}
-          placeholderText={hero ? '有什么可以帮你？' : '回复…  @ 引用文件，/ 指令'}
+          placeholderText={
+            hero
+              ? '有什么可以帮你？'
+              : sidechat
+                ? '顺便问一句…  @ 引用文件'
+                : '回复…  @ 引用文件，/ 指令'
+          }
           referenceOptions={referenceOptions}
           value={value}
         />
@@ -544,103 +554,108 @@ export function ChatComposer({
           <IconButton aria-label="引用资料" onClick={insertMention} title="引用资料（@）">
             <AtSign />
           </IconButton>
-          <Popover.Root onOpenChange={openSearchPicker} open={searchPickerOpen}>
-            <Popover.Trigger asChild>
-              <IconButton
-                aria-label={
-                  selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'
-                }
-                title={selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'}
-              >
-                <Globe className={selectedSearch ? 'text-success' : undefined} />
-              </IconButton>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                align="start"
-                className={cn('z-50 w-64', menuPanel)}
-                side="bottom"
-                sideOffset={6}
-                style={{
-                  animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-                  transformOrigin: 'top center',
-                }}
-              >
-                {searchEntries === null ? (
-                  <p className="px-2 py-3 text-xs text-ink-3">
-                    {searchFailed ? '搜索配置加载失败' : '正在加载搜索配置…'}
-                  </p>
-                ) : searchEntries.length === 0 ? (
-                  <div className="grid gap-2 px-1.5 py-2">
-                    <p className="text-xs text-ink-3">
-                      还没有搜索服务配置，可在设置 › 内置能力 的「网络」分组中添加。
+          {!sidechat && (
+            <Popover.Root onOpenChange={openSearchPicker} open={searchPickerOpen}>
+              <Popover.Trigger asChild>
+                <IconButton
+                  aria-label={
+                    selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'
+                  }
+                  title={selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'}
+                >
+                  <Globe className={selectedSearch ? 'text-success' : undefined} />
+                </IconButton>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  align="start"
+                  className={cn('z-50 w-64', menuPanel)}
+                  side="bottom"
+                  sideOffset={6}
+                  style={{
+                    animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+                    transformOrigin: 'top center',
+                  }}
+                >
+                  {searchEntries === null ? (
+                    <p className="px-2 py-3 text-xs text-ink-3">
+                      {searchFailed ? '搜索配置加载失败' : '正在加载搜索配置…'}
                     </p>
-                    <Button
-                      className="w-full justify-start [&_svg]:size-3.5"
-                      onClick={() => {
-                        setSearchPickerOpen(false);
-                        useNavigationStore.getState().openSettings('capabilities');
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Settings />
-                      打开设置 › 内置能力
-                    </Button>
-                  </div>
-                ) : (
-                  <ul aria-label="联网搜索">
-                    <li>
-                      <button
-                        aria-checked={searchSelectedId === null}
-                        className={cn(
-                          'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-13 transition-colors',
-                          searchSelectedId === null
-                            ? 'bg-hover font-medium text-ink'
-                            : 'text-ink-2 hover:bg-hover hover:text-ink',
-                        )}
-                        onClick={() => void selectSearchEntry(null)}
-                        role="radio"
-                        type="button"
+                  ) : searchEntries.length === 0 ? (
+                    <div className="grid gap-2 px-1.5 py-2">
+                      <p className="text-xs text-ink-3">
+                        还没有搜索服务配置，可在设置 › 内置能力 的「网络」分组中添加。
+                      </p>
+                      <Button
+                        className="w-full justify-start [&_svg]:size-3.5"
+                        onClick={() => {
+                          setSearchPickerOpen(false);
+                          useNavigationStore.getState().openSettings('capabilities');
+                        }}
+                        size="sm"
+                        variant="outline"
                       >
-                        <span className="truncate">关闭</span>
-                        {searchSelectedId === null && (
-                          <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
-                        )}
-                      </button>
-                    </li>
-                    {searchEntries.map((entry) => (
-                      <li key={entry.id}>
+                        <Settings />
+                        打开设置 › 内置能力
+                      </Button>
+                    </div>
+                  ) : (
+                    <ul aria-label="联网搜索">
+                      <li>
                         <button
-                          aria-checked={entry.id === searchSelectedId}
+                          aria-checked={searchSelectedId === null}
                           className={cn(
                             'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-13 transition-colors',
-                            entry.id === searchSelectedId
+                            searchSelectedId === null
                               ? 'bg-hover font-medium text-ink'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
                           )}
-                          onClick={() => void selectSearchEntry(entry.id)}
+                          onClick={() => void selectSearchEntry(null)}
                           role="radio"
                           type="button"
                         >
-                          <span className="truncate">{entry.name}</span>
-                          {entry.provider === 'deepseek' && (
-                            <span className="shrink-0 text-2xs text-ink-3">按次计费</span>
-                          )}
-                          {entry.id === searchSelectedId && (
+                          <span className="truncate">关闭</span>
+                          {searchSelectedId === null && (
                             <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
                           )}
                         </button>
                       </li>
-                    ))}
-                  </ul>
-                )}
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
+                      {searchEntries.map((entry) => (
+                        <li key={entry.id}>
+                          <button
+                            aria-checked={entry.id === searchSelectedId}
+                            className={cn(
+                              'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-13 transition-colors',
+                              entry.id === searchSelectedId
+                                ? 'bg-hover font-medium text-ink'
+                                : 'text-ink-2 hover:bg-hover hover:text-ink',
+                            )}
+                            onClick={() => void selectSearchEntry(entry.id)}
+                            role="radio"
+                            type="button"
+                          >
+                            <span className="truncate">{entry.name}</span>
+                            {entry.provider === 'deepseek' && (
+                              <span className="shrink-0 text-2xs text-ink-3">按次计费</span>
+                            )}
+                            {entry.id === searchSelectedId && (
+                              <Check
+                                className="ms-auto size-3 shrink-0 text-ink"
+                                strokeWidth={2.5}
+                              />
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          )}
           <div className="flex-1" />
           {configured && contextUsage && <ContextIndicator usage={contextUsage} />}
-          {configured && (
+          {configured && !sidechat && (
             <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
               <Popover.Trigger asChild>
                 <button
@@ -758,7 +773,7 @@ export function ChatComposer({
               </Popover.Portal>
             </Popover.Root>
           )}
-          {configured && (
+          {configured && !sidechat && (
             <Popover.Root onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
               <Popover.Trigger asChild>
                 <button

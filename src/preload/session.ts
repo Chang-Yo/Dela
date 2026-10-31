@@ -6,6 +6,8 @@ import type {
   MainSessionCommand,
   RunEvent,
   SessionApi,
+  SidechatApi,
+  SidechatView,
   WorkspaceChat,
 } from '../shared/api';
 import { invoke, on } from './lib';
@@ -24,6 +26,7 @@ export const session = {
   cancelRun: (sessionId: string) => invoke('session:cancel-run', sessionId),
   runCommand: (sessionId: string, name: MainSessionCommand, args: string) =>
     invoke('session:run-command', sessionId, name, args),
+  fork: (sessionId: string, entryId: string) => invoke('session:fork', sessionId, entryId),
   setModel: (sessionId: string, providerId: string, model: string) =>
     invoke('session:set-model', sessionId, providerId, model),
   setEffort: (sessionId: string, level: string) => invoke('session:set-effort', sessionId, level),
@@ -39,3 +42,14 @@ export const session = {
   onRunEvent: (listener: (event: RunEvent) => void) => on('session:on-run-event', listener),
   onStream: (listener: (event: ChatStreamEvent) => void) => on('session:on-stream', listener),
 } satisfies SessionApi;
+
+export const sidechat = {
+  open: (parentId: string) => invoke('sidechat:open', parentId),
+  ask: (parentId: string, input: ChatAskInput) => invoke('sidechat:ask', parentId, input),
+  cancel: (parentId: string) => invoke('sidechat:cancel', parentId),
+  close: (parentId: string) => invoke('sidechat:close', parentId),
+  keep: (parentId: string) => invoke('sidechat:keep', parentId),
+  onUpdate: (listener: (view: SidechatView) => void) => on('sidechat:on-update', listener),
+  onStream: (listener: (event: ChatStreamEvent) => void) => on('sidechat:on-stream', listener),
+  onClosed: (listener: (parentId: string) => void) => on('sidechat:on-closed', listener),
+} satisfies SidechatApi;

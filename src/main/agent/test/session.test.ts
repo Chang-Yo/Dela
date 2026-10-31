@@ -63,6 +63,14 @@ vi.mock('../pi', () => ({
     get messages() {
       return state.messages;
     },
+    sessionManager: {
+      buildSessionProjection: () => ({
+        entries: state.messages.map((message, index) => ({
+          sourceEntry: { type: 'message', id: `e${index}` },
+          messages: [message],
+        })),
+      }),
+    },
     get isCompacting() {
       return state.compacting;
     },

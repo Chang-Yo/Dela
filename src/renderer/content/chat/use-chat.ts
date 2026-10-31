@@ -16,6 +16,7 @@ import {
   stripChatImageTokens,
 } from '../../../shared/chat-input';
 import { showToast } from '../../app/toasts';
+import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
 import { errorText } from '../../workspace/store';
@@ -26,6 +27,7 @@ import {
   type ChatReference,
 } from './drafts';
 import type { ReferenceSource } from './chat-source';
+import { openSidechat } from './sidechat-store';
 
 export type { ChatReference };
 
@@ -225,7 +227,7 @@ export function useChat(
   };
 
   /**
-   * 会话命令（/compact、/reload、/name、/new）：不发给模型。失败时恢复输入，方便改了重试；
+   * 会话命令（/compact、/reload、/name、/new、/btw）：不发给模型。失败时恢复输入，方便改了重试；
    * /compact 期间算作忙，停止按钮可以取消压缩。
    */
   const runCommand = async (name: SessionCommandName, args: string, text: string) => {
@@ -240,6 +242,10 @@ export function useChat(
     clearDraft(requested);
     if (name === 'new') {
       onNewChat?.();
+      return;
+    }
+    if (name === 'btw') {
+      void openSidechat(requested, { prompt: args });
       return;
     }
     setPending(true);
@@ -339,6 +345,24 @@ export function useChat(
       );
   };
 
+  // 分支是新会话：写进镜像后在当前位置打开，原会话不变。
+  const fork = useCallback(
+    (entryId: string) => {
+      const dela = window.dela;
+      if (!dela) return;
+      void dela.session
+        .fork(sessionId, entryId)
+        .then((forked) => {
+          useSessions.getState().putChat(forked.sessionId!, forked);
+          useNavigationStore.getState().openChat(forked.sessionId!, forked.projectId);
+        })
+        .catch((e) =>
+          showToast({ variant: 'error', title: '分支失败', description: errorText(e) }),
+        );
+    },
+    [sessionId],
+  );
+
   const refresh = () => {
     void window.dela?.session
       .open(sessionId)
@@ -362,6 +386,7 @@ export function useChat(
     editLast,
     selectModel,
     selectEffort,
+    fork,
     refresh,
   };
 }

@@ -46,6 +46,7 @@ function loadStored(): Record<string, ChatDraft> {
     const drafts: Record<string, ChatDraft> = {};
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (
+        !key.startsWith('sidechat:') &&
         value &&
         typeof value === 'object' &&
         'prompt' in value &&
