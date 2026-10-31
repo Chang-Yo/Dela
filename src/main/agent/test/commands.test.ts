@@ -1,6 +1,5 @@
-// dela 命令桥 bash 函数：在真实 Git Bash 里执行 COMMAND_BRIDGE。
-// 两条回归：'<JSON>' 参数原样进入 input（\${2:-{}} 会被 bash 截断在第一个 } 再拼出字面量 }）；
-// 请求体经 stdin 递出，走 argv 时 Windows 会按 ANSI 代码页转码，非 ASCII 内容到端上已是替换字符。
+// dela 命令桥：bash 函数把参数逐个以 NUL 分隔后经 stdin 交给 curl。
+// 两条回归：参数原样到达服务端（不被 shell 截断）；非 ASCII 内容经真实 curl 与端口后仍是 UTF-8。
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -25,13 +24,13 @@ const CURL_STUB =
 function writeScript(prefix: string, env: string, line: string) {
   const directory = mkdtempSync(join(tmpdir(), `dela-bridge-${prefix}-`));
   const path = join(directory, 'run.sh');
-  writeFileSync(path, `${env}\n${COMMAND_BRIDGE}\ndela ${line}`);
+  writeFileSync(path, `${env}\n${COMMAND_BRIDGE}\n${line}`);
   return { directory, path };
 }
 
-/** 执行 `dela <line>`，返回 curl 桩捕获到的请求体 JSON。 */
-function bridgeBody(line: string) {
-  const capture = join(tmpdir(), `dela-bridge-capture-${process.pid}-${Date.now()}.json`);
+/** 执行一行 dela 调用，返回 curl 收到的 NUL 分隔参数。 */
+function bridgeArgv(line: string) {
+  const capture = join(tmpdir(), `dela-bridge-capture-${process.pid}-${Date.now()}.bin`);
   const { directory, path } = writeScript(
     'stub',
     `export DELA_COMMAND_URL='http://127.0.0.1:9/' DELA_COMMAND_TOKEN=t DELA_CAPTURE='${capture.replace(/\\/g, '/')}'\n${CURL_STUB}`,
@@ -41,15 +40,15 @@ function bridgeBody(line: string) {
     const run = spawnSync(locateBash(), [path], { encoding: 'utf8' });
     expect(run.stderr).toBe('');
     expect(run.status).toBe(0);
-    return JSON.parse(readFileSync(capture, 'utf8'));
+    return readFileSync(capture, 'utf8').split('\0').slice(0, -1);
   } finally {
     rmSync(directory, { recursive: true, force: true });
     rmSync(capture, { force: true });
   }
 }
 
-/** 用真实 curl 把 `dela <line>` 发到本机端口，返回端口收到的请求体。 */
-async function postedBody(port: number, line: string) {
+/** 用真实 curl 把一行 dela 调用发到本机端口，返回服务端收到的 NUL 分隔参数。 */
+async function postedArgv(port: number, line: string) {
   const { directory, path } = writeScript(
     'curl',
     `export DELA_COMMAND_URL='http://127.0.0.1:${port}/' DELA_COMMAND_TOKEN=t`,
@@ -68,36 +67,39 @@ async function postedBody(port: number, line: string) {
 }
 
 describe('dela 命令桥', () => {
-  it("把 '<JSON>' 原样作为 input 发送，缺省为 {}", () => {
-    expect(bridgeBody('help')).toEqual({ command: 'help', input: {} });
-    expect(bridgeBody("todo_list '{}'")).toEqual({ command: 'todo_list', input: {} });
-    expect(bridgeBody('todo_search \'{"query":"x"}\'')).toEqual({
-      command: 'todo_search',
-      input: { query: 'x' },
-    });
+  it('参数逐个按 NUL 分隔递出，不经 bash 重组', () => {
+    expect(bridgeArgv('dela todo save --title 交作业 --completed')).toEqual([
+      'todo',
+      'save',
+      '--title',
+      '交作业',
+      '--completed',
+    ]);
+    expect(bridgeArgv('dela help')).toEqual(['help']);
+    expect(bridgeArgv('dela todo query')).toEqual(['todo', 'query']);
   });
 
   // 走真实 curl 和本机端口，覆盖整条 argv → HTTP 的路径。Windows 上按 ANSI 代码页转码的问题
   // 只在这段路上暴露，桩函数拿不到 argv 转换，因此必须打真实端口。
-  it('非 ASCII 标题经端口送达时原样保留', async () => {
+  it('非 ASCII 参数经端口送达时原样保留', async () => {
     const samples = ['社团活动', '日本語テスト', '重要🎌【全角】', 'Lab 报告 第3次'];
-    const bodies: string[] = [];
+    const bodies: string[][] = [];
     const server = createServer((request, response) => {
       const chunks: Buffer[] = [];
       request.on('data', (chunk: Buffer) => chunks.push(chunk));
       request.on('end', () => {
-        bodies.push(Buffer.concat(chunks).toString('utf8'));
+        bodies.push(Buffer.concat(chunks).toString('utf8').split('\0').slice(0, -1));
         response.end('{"ok":true}');
       });
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as AddressInfo;
     try {
-      for (const title of samples) await postedBody(port, `create_event '{"title":"${title}"}'`);
+      for (const title of samples) await postedArgv(port, `dela todo save --title '${title}'`);
     } finally {
       server.close();
     }
 
-    expect(bodies.map((body) => JSON.parse(body).input.title)).toEqual(samples);
+    expect(bodies).toEqual(samples.map((title) => ['todo', 'save', '--title', title]));
   });
 });
