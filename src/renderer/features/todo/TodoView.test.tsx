@@ -43,6 +43,7 @@ let root: Root;
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  localStorage.clear();
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -88,5 +89,47 @@ describe('TODO 视图', () => {
     expect(host.textContent).toContain('课程作业');
     expect(host.textContent).toContain('无截止日期待办');
     expect(findButton('全部')!.textContent).toContain('1');
+  });
+
+  it('显示已完成默认打开，关闭后切换页面再回来仍保持关闭', async () => {
+    const completed: TodoItem = {
+      id: 'personal:2',
+      source: 'personal',
+      title: '已完成的待办',
+      notes: '',
+      dueAt: null,
+      status: 'completed',
+      readAt: null,
+      createdAt: dueAt,
+    };
+    window.dela!.todo.getState = vi.fn(async () => ({ ...state, items: [...items, completed] }));
+    const render = async () => {
+      await act(async () => {
+        root.render(<TodoView />);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    };
+    const findSwitch = () => host.querySelector<HTMLButtonElement>('[aria-label="显示已完成"]')!;
+
+    await render();
+    expect(findSwitch().getAttribute('aria-checked')).toBe('true');
+    await act(async () => {
+      [...host.querySelectorAll('button')]
+        .find((button) => button.textContent?.includes('列表'))!
+        .click();
+    });
+    expect(host.textContent).toContain('已完成的待办');
+
+    await act(async () => {
+      findSwitch().click();
+    });
+    expect(host.textContent).not.toContain('已完成的待办');
+    expect(localStorage.getItem('dela.todo.show-completed')).toBe('false');
+
+    // 重新挂载等价于切换页面后回来：偏好从 localStorage 恢复，而不是回到默认值。
+    act(() => root.unmount());
+    root = createRoot(host);
+    await render();
+    expect(findSwitch().getAttribute('aria-checked')).toBe('false');
   });
 });
