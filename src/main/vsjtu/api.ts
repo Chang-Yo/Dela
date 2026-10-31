@@ -8,7 +8,7 @@ import {
   getCampusSession,
   hiddenCampusLogin,
 } from '../campus';
-import { classroomLoginUrl } from '../canvas/api';
+import { classroomLoginUrl, getCanvasState } from '../canvas/api';
 import { loadCanvasToken } from '../credentials';
 import { parseTranscript } from './transcript';
 
@@ -29,6 +29,24 @@ const identityOptions = { ...requestOptions, loginStatus: 500 };
 const object = z.record(z.string(), z.unknown());
 const id = z.coerce.number().int().positive();
 const requests = new Map<string, Promise<unknown>>();
+let canvasLaunch: Promise<unknown> = Promise.resolve();
+let canvasCourseToken: string | null = null;
+const canvasTeachingClasses = new Map<number, number>();
+
+function withCanvasLogin<T>(operation: () => Promise<T>): Promise<T> {
+  const result = canvasLaunch.then(operation);
+  canvasLaunch = result.catch(() => {});
+  return result;
+}
+
+function canvasClassMapping(): Map<number, number> {
+  const token = loadCanvasToken();
+  if (token !== canvasCourseToken) {
+    canvasTeachingClasses.clear();
+    canvasCourseToken = token;
+  }
+  return canvasTeachingClasses;
+}
 
 function requestJson(url: string, key = url): Promise<unknown> {
   const pending = requests.get(key);
@@ -72,7 +90,7 @@ let canvasLogin: Promise<void> | undefined;
 
 /** 已连接 Canvas 时以令牌登录交大视频，免去官方窗口；同时失效的请求共用一次登录。 */
 export function loginWithCanvas(): Promise<void> {
-  canvasLogin ??= (async () => {
+  canvasLogin ??= withCanvasLogin(async () => {
     try {
       // 探测直接请求，不经 requestOnce，避免等待自身这次登录。
       await hiddenCampusLogin(await classroomLoginUrl(), async () =>
@@ -88,7 +106,7 @@ export function loginWithCanvas(): Promise<void> {
     } finally {
       canvasLogin = undefined;
     }
-  })();
+  });
   return canvasLogin;
 }
 
@@ -157,48 +175,110 @@ async function allPages(path: string, params: Record<string, string>): Promise<u
 }
 
 export async function listCourses(): Promise<VideoCourse[]> {
-  await checkVideoLogin();
-  const termResponse = await requestJson(`${BASE}/list/termYear`);
-  const terms = z
-    .array(z.object({ id, currentTerm: z.boolean().optional() }))
-    .safeParse(Array.isArray(termResponse) ? termResponse : unwrap(termResponse));
-  if (!terms.success) throw new Error('交大视频学期数据格式已变化');
-  const term = terms.data.find((value) => value.currentTerm) ?? terms.data.at(-1);
-  if (!term) return [];
-  let records = await allPages('myself/curriculum', {
-    acteId: String(term.id),
-    courBeginTime: '',
-    courEndTime: '',
-  });
-  // 部分账号的课表为空，但官网「我的课程」仍有点播；该列表跨学期，须逐条核对。
-  if (records.length === 0)
-    records = (
-      await allPages('group_subject_vod_list/t-1', {
-        'page.orders[0].asc': 'false',
-        'page.orders[0].field': 'courBeginTime',
-      })
-    ).filter((raw) => {
-      const course = z.object({ acteId: id }).safeParse(raw);
-      if (!course.success) throw new Error('交大视频课程学期数据格式已变化');
-      return course.data.acteId === term.id;
+  const mapping = canvasClassMapping();
+  const canvasCourses: VideoCourse[] = loadCanvasToken()
+    ? getCanvasState()
+        .courses.filter((course) => !course.archived)
+        .map((course) => ({
+          id: course.id,
+          code: course.code,
+          name: course.name,
+          source: 'canvas' as const,
+          ...(mapping.has(course.id) ? { teachingClassId: mapping.get(course.id)! } : {}),
+        }))
+    : [];
+  try {
+    await checkVideoLogin();
+    const termResponse = await requestJson(`${BASE}/list/termYear`);
+    const terms = z
+      .array(z.object({ id, currentTerm: z.boolean().optional() }))
+      .safeParse(Array.isArray(termResponse) ? termResponse : unwrap(termResponse));
+    if (!terms.success) throw new Error('交大视频学期数据格式已变化');
+    const term = terms.data.find((value) => value.currentTerm) ?? terms.data.at(-1);
+    if (!term) return canvasCourses;
+    let records = await allPages('myself/curriculum', {
+      acteId: String(term.id),
+      courBeginTime: '',
+      courEndTime: '',
     });
-  const courses = new Map<number, VideoCourse>();
-  for (const raw of records) {
-    const course = z
-      .object({ teclId: id.nullable(), subjCode: z.string().nullish(), subjName: z.string() })
-      .safeParse(raw);
-    if (!course.success) throw new Error('交大视频课程数据格式已变化');
-    if (course.data.teclId)
-      courses.set(course.data.teclId, {
-        id: course.data.teclId,
-        code: course.data.subjCode ?? '',
-        name: course.data.subjName,
+    // 部分账号的课表为空，但官网「课程点播」仍有课程；该列表跨学期，须逐条核对。
+    if (records.length === 0)
+      records = (
+        await allPages('group_subject_vod_list/t-1', {
+          'page.orders[0].asc': 'false',
+          'page.orders[0].field': 'courBeginTime',
+        })
+      ).filter((raw) => {
+        const course = z.object({ acteId: id }).safeParse(raw);
+        if (!course.success) throw new Error('交大视频课程学期数据格式已变化');
+        return course.data.acteId === term.id;
       });
+    const courses = new Map<number, VideoCourse>();
+    for (const raw of records) {
+      const course = z
+        .object({ teclId: id.nullable(), subjCode: z.string().nullish(), subjName: z.string() })
+        .safeParse(raw);
+      if (!course.success) throw new Error('交大视频课程数据格式已变化');
+      if (course.data.teclId)
+        courses.set(course.data.teclId, {
+          id: course.data.teclId,
+          code: course.data.subjCode ?? '',
+          name: course.data.subjName,
+        });
+    }
+    const canvasClasses = new Set(canvasCourses.map((course) => course.teachingClassId));
+    return [
+      ...canvasCourses,
+      ...[...courses.values()].filter((course) => !canvasClasses.has(course.id)),
+    ];
+  } catch (error) {
+    if (canvasCourses.length === 0) throw error;
+    return canvasCourses;
   }
-  return [...courses.values()];
 }
 
-export async function listVideos(courseId: number): Promise<ClassroomVideo[]> {
+export async function listVideos(courseId: number, source?: 'canvas'): Promise<ClassroomVideo[]> {
+  if (source === 'canvas') {
+    const canvasId = id.parse(courseId);
+    const mapping = canvasClassMapping();
+    courseId = await withCanvasLogin(async () => {
+      const loginUrl = await classroomLoginUrl(canvasId);
+      try {
+        const teachingClassId = await hiddenCampusLogin(loginUrl, async (navigationUrls) => {
+          const reached = navigationUrls.some((navigationUrl) => {
+            const url = new URL(navigationUrl);
+            return (
+              url.origin === 'https://v.sjtu.edu.cn' &&
+              url.pathname === '/jy-application-resourcemanage-ui/' &&
+              url.hash.split('?')[0] === '#/play-center'
+            );
+          });
+          if (!reached) throw new Error('尚未到达课堂视频页面');
+          const context = unwrap(
+            JSON.parse(
+              await campusRequest(
+                await getCampusSession(),
+                'https://v.sjtu.edu.cn/jy-application-resourcemanage/lms/launch-context',
+                requestOptions,
+              ),
+            ),
+          );
+          return z
+            .object({
+              source: z.literal('CANVAS'),
+              canvasRecord: z.object({ teachingClassId: id }),
+            })
+            .parse(context).canvasRecord.teachingClassId;
+        });
+        mapping.set(canvasId, teachingClassId);
+        return teachingClassId;
+      } catch (error) {
+        throw new Error('未能取得该课程的视频教学班，请从 Canvas 的课堂视频入口确认是否可用', {
+          cause: error,
+        });
+      }
+    });
+  }
   await checkVideoLogin();
   const records = await allPages('subject_vod_list_new', {
     teclIds: String(id.parse(courseId)),

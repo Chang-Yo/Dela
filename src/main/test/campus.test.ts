@@ -14,6 +14,7 @@ const mock = vi.hoisted(() => ({
   parent: {} as unknown,
   load: vi.fn<() => Promise<void>>(),
   netRequest: vi.fn(),
+  navigationUrl: '',
 }));
 
 // 工厂在 import 初始化前执行，不能引用 node:events（会在提升期解引用未初始化绑定），
@@ -34,7 +35,18 @@ vi.mock('electron', () => {
   };
   class MockWindow {
     private readonly emitter = createEmitter();
-    readonly webContents = createEmitter();
+    readonly webContents = Object.assign(createEmitter(), {
+      getURL: () => 'https://oc.sjtu.edu.cn/courses/42/external_tools/2',
+      mainFrame: {
+        get framesInSubtree() {
+          return [
+            { url: 'https://oc.sjtu.edu.cn/courses/42/external_tools/2' },
+            { url: mock.navigationUrl },
+          ];
+        },
+      },
+      setWindowOpenHandler: vi.fn(),
+    });
     closeCalled = false;
     minimized = false;
     focus = vi.fn();
@@ -66,6 +78,9 @@ vi.mock('electron', () => {
       this.closeCalled = true;
       this.emit('closed');
     }
+    destroy(): void {
+      this.close();
+    }
   }
   return {
     BrowserWindow: Object.assign(MockWindow, { fromWebContents: () => mock.parent }),
@@ -86,6 +101,7 @@ import {
   campusRequest,
   createCampusLoginWindow,
   openCampusLoginWindow,
+  hiddenCampusLogin,
 } from '../campus';
 
 interface LoginWindowMock {
@@ -338,6 +354,22 @@ describe('openCampusLoginWindow', () => {
     await expect(pending).resolves.toEqual({ ok: false, error: '未完成登录' });
     expect(vi.getTimerCount()).toBe(0);
   });
+});
+
+it('hidden login returns the probe result from the current landing URL and closes its window', async () => {
+  vi.useRealTimers();
+  mock.navigationUrl =
+    'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/#/play-center?teclId=9001';
+  const probe = vi.fn(async (_urls: readonly string[]) => 9001);
+  await expect(
+    hiddenCampusLogin('https://oc.sjtu.edu.cn/login/session_token', probe),
+  ).resolves.toBe(9001);
+  expect(probe).toHaveBeenCalledWith([
+    'https://oc.sjtu.edu.cn/courses/42/external_tools/2',
+    mock.navigationUrl,
+  ]);
+  expect(asWindow().closeCalled).toBe(true);
+  expect(asWindow().options.show).toBe(false);
 });
 
 describe('campusRequest', () => {

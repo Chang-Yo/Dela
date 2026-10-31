@@ -30,8 +30,8 @@ beforeEach(() => {
   } as unknown as typeof window.dela;
   useClassroom.setState({
     courses: [course],
-    videos: { 1: [video, { ...video, id: 12 }] },
-    selectedCourseId: 1,
+    videos: { 'video:1': [video, { ...video, id: 12 }] },
+    selectedCourseKey: 'video:1',
     selectedVideoId: 11,
     streams: { 11: [{ view: 1, duration: 100, playbackUrl: 'test.mp4' }] },
     seekRequest: null,

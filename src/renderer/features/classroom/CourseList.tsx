@@ -8,18 +8,19 @@ import {
 } from '../../components/ui/select';
 import { cn } from '../../lib/utils';
 import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
+import { videoCourseKey } from '../../../shared/vsjtu';
 import { lectureMeta, lectureTitle } from './player-format';
 import { useClassroom } from './store';
 
 export function CoursePicker() {
   const courses = useClassroom((state) => state.courses);
-  const selectedCourseId = useClassroom((state) => state.selectedCourseId);
+  const selectedCourseKey = useClassroom((state) => state.selectedCourseKey);
   const selectCourse = useClassroom((state) => state.selectCourse);
   return (
     <div className="px-3 pb-3 pt-2">
       <Select
-        value={selectedCourseId === null ? '' : String(selectedCourseId)}
-        onValueChange={(value) => selectCourse(Number(value))}
+        value={selectedCourseKey === null ? '' : String(selectedCourseKey)}
+        onValueChange={selectCourse}
         disabled={courses.length === 0}
       >
         <SelectTrigger aria-label="当前课程" className="w-full">
@@ -28,7 +29,11 @@ export function CoursePicker() {
         {/* 面板与触发器同宽：课程名动辄二十字以上，等宽加截断比加宽面板更可读。 */}
         <SelectContent className="w-(--radix-select-trigger-width)">
           {courses.map((course) => (
-            <SelectItem key={course.id} value={String(course.id)}>
+            <SelectItem
+              key={videoCourseKey(course)}
+              value={videoCourseKey(course)}
+              title={course.code}
+            >
               {course.name}
             </SelectItem>
           ))}
@@ -40,14 +45,13 @@ export function CoursePicker() {
 
 export function CourseList() {
   const course = useClassroom((state) =>
-    state.courses.find((course) => course.id === state.selectedCourseId),
+    state.courses.find((course) => videoCourseKey(course) === state.selectedCourseKey),
   );
-  const videos = useClassroom((state) => state.videos[state.selectedCourseId ?? -1]);
-  const loading = useClassroom((state) => state.videosLoading[state.selectedCourseId ?? -1]);
-  const error = useClassroom((state) => state.videosError[state.selectedCourseId ?? -1]);
+  const videos = useClassroom((state) => state.videos[state.selectedCourseKey ?? -1]);
+  const loading = useClassroom((state) => state.videosLoading[state.selectedCourseKey ?? -1]);
+  const error = useClassroom((state) => state.videosError[state.selectedCourseKey ?? -1]);
   const ensureVideos = useClassroom((state) => state.ensureVideos);
-  if (!course)
-    return <p className="px-3 py-6 text-center text-xs text-ink-3">本学期暂无课堂录像课程</p>;
+  if (!course) return <p className="px-3 py-6 text-center text-xs text-ink-3">暂无课堂录像课程</p>;
   return (
     <nav aria-label="节次" className="flex flex-col gap-1 px-2 pb-2">
       {loading && !videos ? (
@@ -55,7 +59,11 @@ export function CourseList() {
       ) : error && !videos ? (
         <div className="px-2 py-3 text-xs text-ink-3">
           <p>{error}</p>
-          <Button size="sm" variant="ghost" onClick={() => void ensureVideos(course.id)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void ensureVideos(videoCourseKey(course))}
+          >
             重试
           </Button>
         </div>
@@ -93,7 +101,7 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
       <button
         aria-current={selected ? 'true' : undefined}
         className="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 text-left"
-        onClick={() => selectVideo(course.id, video.id)}
+        onClick={() => selectVideo(videoCourseKey(course), video.id)}
         type="button"
       >
         <span className={cn('truncate text-13', selected ? 'font-medium text-ink' : 'text-ink-2')}>

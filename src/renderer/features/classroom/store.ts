@@ -1,6 +1,7 @@
 // 课堂视频页状态：课程/录像/画面三级数据 + 下载任务镜像。
 // 数据只经 window.dela.vsjtu 进入；请求守卫丢弃过期响应（与 shuiyuan/timetable 同款）。
 import { create } from 'zustand';
+import { videoCourseKey } from '../../../shared/vsjtu';
 import { showToast } from '../../app/toasts';
 import type {
   ClassroomVideo,
@@ -18,10 +19,10 @@ interface ClassroomState {
   connectBusy: boolean;
   courses: VideoCourse[];
   coursesLoading: boolean;
-  videos: Record<number, ClassroomVideo[]>;
-  videosLoading: Record<number, boolean>;
-  videosError: Record<number, string>;
-  selectedCourseId: number | null;
+  videos: Record<string, ClassroomVideo[]>;
+  videosLoading: Record<string, boolean>;
+  videosError: Record<string, string>;
+  selectedCourseKey: string | null;
   selectedVideoId: number | null;
   seekRequest: { videoId: number; seconds: number } | null;
   playbackTime: number;
@@ -34,9 +35,9 @@ interface ClassroomState {
   init: () => Promise<void>;
   refresh: () => Promise<void>;
   connect: () => Promise<void>;
-  selectCourse: (courseId: number) => void;
-  ensureVideos: (courseId: number) => Promise<void>;
-  selectVideo: (courseId: number, videoId: number) => void;
+  selectCourse: (courseId: string) => void;
+  ensureVideos: (courseId: string) => Promise<void>;
+  selectVideo: (courseId: string, videoId: number) => void;
   ensureStreams: (videoId: number) => Promise<VideoStream[] | null>;
   download: (courseName: string, video: ClassroomVideo, view: number) => Promise<void>;
   cancelDownload: (id: string) => void;
@@ -56,7 +57,7 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
   videos: {},
   videosLoading: {},
   videosError: {},
-  selectedCourseId: null,
+  selectedCourseKey: null,
   selectedVideoId: null,
   seekRequest: null,
   playbackTime: 0,
@@ -84,13 +85,40 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
     try {
       const courses = await window.dela!.vsjtu.listCourses();
       if (request !== coursesRequest) return;
+      if (
+        courses.some((course) => course.source === 'canvas') !==
+        get().courses.some((course) => course.source === 'canvas')
+      ) {
+        videosRequest++;
+        set({ videos: {}, videosLoading: {}, videosError: {}, selectedVideoId: null });
+      }
+      const { selectedCourseKey } = get();
+      const previous = get().courses.find((course) => videoCourseKey(course) === selectedCourseKey);
+      const teachingClassId =
+        previous?.source === 'canvas' ? previous.teachingClassId : previous?.id;
+      const targetCourse =
+        courses.find((course) => videoCourseKey(course) === selectedCourseKey) ??
+        courses.find(
+          (course) => teachingClassId !== undefined && course.teachingClassId === teachingClassId,
+        ) ??
+        courses[0];
+      const target = targetCourse ? videoCourseKey(targetCourse) : null;
+      if (
+        target &&
+        selectedCourseKey &&
+        target !== selectedCourseKey &&
+        teachingClassId !== undefined &&
+        targetCourse?.teachingClassId === teachingClassId
+      ) {
+        const videos = get().videos[selectedCourseKey];
+        set({
+          selectedCourseKey: target,
+          ...(videos ? { videos: { ...get().videos, [target]: videos } } : {}),
+        });
+      }
       set({ phase: 'ready', courses, coursesLoading: false });
-      const { selectedCourseId } = get();
-      const target = courses.some((course) => course.id === selectedCourseId)
-        ? selectedCourseId
-        : (courses[0]?.id ?? null);
       if (target === null) {
-        set({ selectedCourseId: null, selectedVideoId: null });
+        set({ selectedCourseKey: null, selectedVideoId: null });
         return;
       }
       get().selectCourse(target);
@@ -132,16 +160,16 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
       streams: {},
       streamsLoading: null,
       streamsError: {},
-      selectedCourseId: null,
+      selectedCourseKey: null,
       selectedVideoId: null,
     });
     await get().refresh();
   },
 
   selectCourse: (courseId) => {
-    if (get().selectedCourseId !== courseId)
+    if (get().selectedCourseKey !== courseId)
       set({
-        selectedCourseId: courseId,
+        selectedCourseKey: courseId,
         selectedVideoId: null,
         seekRequest: null,
         playbackTime: 0,
@@ -152,17 +180,20 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
   ensureVideos: async (courseId) => {
     if (get().videos[courseId] || get().videosLoading[courseId]) return;
     const request = videosRequest;
+    const course = get().courses.find((course) => videoCourseKey(course) === courseId);
+    if (!course) return;
     set({
       videosLoading: { ...get().videosLoading, [courseId]: true },
       videosError: { ...get().videosError, [courseId]: '' },
     });
     try {
-      const videos = await window.dela!.vsjtu.listVideos(courseId);
+      const videos = await window.dela!.vsjtu.listVideos(course.id, course.source);
       if (request !== videosRequest) return;
       set({
         videos: { ...get().videos, [courseId]: videos },
         videosLoading: { ...get().videosLoading, [courseId]: false },
       });
+      if (course.source === 'canvas') await get().refresh();
     } catch (error) {
       if (request !== videosRequest) return;
       set({
@@ -174,7 +205,7 @@ export const useClassroom = create<ClassroomState>((set, get) => ({
 
   selectVideo: (courseId, videoId) => {
     set({
-      selectedCourseId: courseId,
+      selectedCourseKey: courseId,
       selectedVideoId: videoId,
       seekRequest: null,
       playbackTime: 0,

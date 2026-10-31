@@ -1,7 +1,14 @@
 export interface VideoCourse {
+  /** source 为 canvas 时是 Canvas 课程 ID，否则是视频平台教学班 ID。 */
   id: number;
   code: string;
   name: string;
+  source?: 'canvas';
+  teachingClassId?: number;
+}
+
+export function videoCourseKey(course: Pick<VideoCourse, 'id' | 'source'>): string {
+  return `${course.source ?? 'video'}:${course.id}`;
 }
 export interface ClassroomVideo {
   id: number;
@@ -35,7 +42,7 @@ export interface VideoDownload {
 export interface VsjtuApi {
   connect(): Promise<{ ok: true } | { ok: false; error: string }>;
   listCourses(): Promise<VideoCourse[]>;
-  listVideos(courseId: number): Promise<ClassroomVideo[]>;
+  listVideos(courseId: number, source?: 'canvas'): Promise<ClassroomVideo[]>;
   streams(videoId: number): Promise<VideoStream[]>;
   transcript(videoId: number): Promise<VideoTranscript | null>;
   exportTranscript(videoId: number, title: string): Promise<{ saved: boolean }>;

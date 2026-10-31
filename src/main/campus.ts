@@ -313,7 +313,10 @@ const HIDDEN_LOGIN_PROBES = 30;
  * 不弹窗地在校园分区加载一次性登录地址，每秒探测一次，探测通过即完成。
  * 目标站点可能在页面脚本的首个接口请求里才下发会话，因此不以导航到达为准。
  */
-export async function hiddenCampusLogin(url: string, probe: () => Promise<void>): Promise<void> {
+export async function hiddenCampusLogin<T>(
+  url: string,
+  probe: (navigationUrls: readonly string[]) => Promise<T>,
+): Promise<T> {
   await getCampusSession();
   const window = new BrowserWindow({
     show: false,
@@ -332,8 +335,7 @@ export async function hiddenCampusLogin(url: string, probe: () => Promise<void>)
       await delay(1000);
       if (failure) throw failure;
       try {
-        await probe();
-        return;
+        return await probe(window.webContents.mainFrame.framesInSubtree.map((frame) => frame.url));
       } catch (error) {
         if (attempt >= HIDDEN_LOGIN_PROBES) throw new Error('登录超时', { cause: error });
       }

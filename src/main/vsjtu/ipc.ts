@@ -175,9 +175,9 @@ export function registerVsjtuIpc(): void {
     check(event);
     return listCourses();
   });
-  ipcMain.handle('vsjtu:list-videos', (event, courseId) => {
+  ipcMain.handle('vsjtu:list-videos', (event, courseId, source) => {
     check(event);
-    return listVideos(id.parse(courseId));
+    return listVideos(id.parse(courseId), z.literal('canvas').optional().parse(source));
   });
   ipcMain.handle('vsjtu:streams', async (event, videoId) => {
     check(event);

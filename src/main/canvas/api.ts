@@ -96,8 +96,12 @@ export async function configureCanvas(token: string) {
 }
 
 /** 交大视频不接受 Canvas 令牌：换取直达「课堂视频」LTI 入口的一次性网页登录地址，地址本身即凭据。 */
-export async function classroomLoginUrl(): Promise<string> {
-  for (const course of await list('courses?enrollment_state=active&per_page=100')) {
+export async function classroomLoginUrl(courseId?: number): Promise<string> {
+  const courses =
+    courseId === undefined
+      ? await list('courses?enrollment_state=active&per_page=100')
+      : [{ id: z.number().int().positive().parse(courseId) }];
+  for (const course of courses) {
     const tab = (await list(`courses/${num(course.id)}/tabs`)).find(
       (tab) => str(tab.label).includes('课堂视频') && !str(tab.label).includes('旧版'),
     );

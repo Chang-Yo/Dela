@@ -28,6 +28,23 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 
+it('preserves the Canvas course source when listing videos and exporting transcripts', async () => {
+  vi.mocked(listCourses).mockResolvedValue([
+    { id: 42, code: 'PHYS', name: '旁听课', source: 'canvas' },
+  ]);
+  vi.mocked(listVideos).mockResolvedValue([{ id: 11, start: '', end: '', room: '', period: '1' }]);
+  await classroomTools.list_classroom_videos.execute({ courseId: 42, source: 'canvas' });
+  expect(listVideos).toHaveBeenCalledWith(42, 'canvas');
+  await classroomTools.download_classroom_transcripts.execute({
+    courseId: 42,
+    source: 'canvas',
+    videoIds: [11],
+    directory,
+  });
+  expect(await readdir(directory)).toHaveLength(1);
+  expect(listVideos).toHaveBeenLastCalledWith(42, 'canvas');
+});
+
 it('bounds output, paginates within the same time range and does not write files', async () => {
   const input = { videoId: 11, startSeconds: 60, endSeconds: 120, limit: 100 };
   const first = (await classroomTools.read_classroom_transcript.execute(input)) as {
