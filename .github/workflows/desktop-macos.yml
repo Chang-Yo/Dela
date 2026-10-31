@@ -60,10 +60,10 @@ jobs:
           pnpm test
       - name: Smoke test Electron and runtime
         run: |
-          pnpm smoke
-          pnpm smoke:runtime
-          pnpm smoke:desktop
-          pnpm exec electron scripts/terminal-smoke.cjs
+          node scripts/ci-smoke.ts "Electron and native dependencies" pnpm smoke
+          node scripts/ci-smoke.ts "Agent runtime" pnpm smoke:runtime
+          node scripts/ci-smoke.ts "Desktop behavior" pnpm smoke:desktop
+          node scripts/ci-smoke.ts "Terminal behavior" pnpm exec electron scripts/terminal-smoke.cjs
       - name: Package application directory
         if: ${{ !inputs.archives }}
         run: pnpm exec electron-builder --dir --mac --arm64 --publish never -c.electronDist=node_modules/electron/dist
@@ -78,9 +78,9 @@ jobs:
         run: node scripts/verify-macos-package.ts "$PACKAGED_APP"
       - name: Smoke test packaged app and native dependencies
         run: |
-          "$PACKAGED_APP/Contents/MacOS/Dela" --smoke-test
-          pnpm smoke:desktop "$PACKAGED_APP/Contents/Resources/app.asar"
-          pnpm exec electron scripts/terminal-smoke.cjs "$PACKAGED_APP/Contents/Resources/app.asar"
+          node scripts/ci-smoke.ts "Packaged Electron and native dependencies" "$PACKAGED_APP/Contents/MacOS/Dela" --smoke-test
+          node scripts/ci-smoke.ts "Packaged desktop behavior" pnpm smoke:desktop "$PACKAGED_APP/Contents/Resources/app.asar"
+          node scripts/ci-smoke.ts "Packaged terminal behavior" pnpm exec electron scripts/terminal-smoke.cjs "$PACKAGED_APP/Contents/Resources/app.asar"
       - uses: actions/upload-artifact@v6
         if: inputs.archives
         with:
