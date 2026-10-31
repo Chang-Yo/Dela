@@ -177,6 +177,21 @@ describe('sessions mirror store', () => {
     vi.useRealTimers();
   });
 
+  it('不经推送写入的快照（分支、ask 结果）同样触发重读，两个池前后脚变化各自刷新', async () => {
+    vi.useFakeTimers();
+    sessionList.mockResolvedValue([summary('s1')]);
+    useSessions.setState({ lists: {}, chats: {} });
+
+    useSessions.getState().putChat('fork', { ...chat('fork', 2), projectId: 'p1' });
+    useSessions.getState().putChat('g', chat('g', 1));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sessionList).toHaveBeenCalledWith('p1', '');
+    expect(sessionList).toHaveBeenCalledWith(null, '');
+
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
   it('forgetSession 同时清出快照缓存与各池列表条目', () => {
     useSessions.setState({
       lists: {

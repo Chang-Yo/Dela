@@ -88,6 +88,8 @@ export interface WorkspaceChat {
     startedAt?: number;
     /** 对应冻结的本轮 diff；旧消息无此字段。 */
     turnId?: string;
+    /** 已完成回复的最后一个会话记录条目：从这里分支会话。运行中的回复没有。 */
+    entryId?: string;
     finishedAt?: number;
     interrupted?: boolean;
     /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
@@ -171,6 +173,8 @@ export interface SessionApi {
   cancelRun(sessionId: string): void;
   /** 执行一条会话命令（/compact、/reload、/name），返回执行后的快照；/compact 运行中可用 cancelRun 取消。 */
   runCommand(sessionId: string, name: MainSessionCommand, args: string): Promise<WorkspaceChat>;
+  /** 从这条回复分出新会话（「分支：」前缀，沿用项目与模型），原会话不变。 */
+  fork(sessionId: string, entryId: string): Promise<WorkspaceChat>;
   /** 只改这个会话的模型；运行中的一轮照旧用原模型，下一轮生效。 */
   setModel(sessionId: string, providerId: string, model: string): Promise<WorkspaceChat>;
   setEffort(sessionId: string, level: string): Promise<WorkspaceChat>;

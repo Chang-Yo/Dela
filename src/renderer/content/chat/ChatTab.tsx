@@ -152,7 +152,7 @@ const ChatSessionView = memo(function ChatSessionView({
     else void useNavigationStore.getState().newChat(projectId);
   }, [projectId]);
   const chatState = useChat(active, referenceSource, startNewChat);
-  const { chat, busy, editLast } = chatState;
+  const { chat, busy, editLast, fork } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
   // 工作区改动入口的可见性：轻探测会话目录是否为可审阅的 Git 仓库
   // （非仓库、缺 Git、远程项目都不显示，随聊无项目目录同样不显示）。
@@ -233,6 +233,7 @@ const ChatSessionView = memo(function ChatSessionView({
           chat={chat}
           mailDialog={mailDialog}
           onEditLast={editLast}
+          onFork={fork}
           onOpenSource={onOpenSource}
           onSaveNote={onSaveNote}
         />
