@@ -8,6 +8,7 @@ import { shuiyuanTools } from './domain/shuiyuan';
 import { timetableTools } from './domain/timetable';
 import { todoTools } from './domain/todo';
 import { workspaceTools } from './domain/workspace';
+import { sessionTools } from './domain/session';
 import { readResourceTool } from './domain/read-resource';
 import { prepareDocumentResource, releaseDocumentResource } from '../resources';
 import { resourceRefSchema } from '../../shared/resources';
@@ -32,6 +33,7 @@ const commandDomains = [
     description: '管理项目、关联校园资料与导入附件；普通文件用 read/write/edit/shell',
     commands: workspaceTools,
   },
+  { name: 'session', description: '读取、创建和调用 Dela 会话', commands: sessionTools },
 ] as const;
 
 const commands: Record<string, AgentTool> = Object.assign(

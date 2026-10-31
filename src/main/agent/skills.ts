@@ -24,6 +24,7 @@ import curriculumSkill from './skills/curriculum/SKILL.md?raw';
 import mailSkill from './skills/mail/SKILL.md?raw';
 import shuiyuanSkill from './skills/shuiyuan/SKILL.md?raw';
 import todoSkill from './skills/todo/SKILL.md?raw';
+import sessionSkill from './skills/session/SKILL.md?raw';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
 const CAPABILITY_SETUP_KEY = 'capabilities-onboarding-completed';
@@ -62,6 +63,7 @@ const BUILTIN_SKILLS: Readonly<Record<string, { path: string; content: string }[
   classroom: [{ path: SKILL_ENTRY_FILE, content: classroomSkill }],
   mail: [{ path: SKILL_ENTRY_FILE, content: mailSkill }],
   todo: [{ path: SKILL_ENTRY_FILE, content: todoSkill }],
+  session: [{ path: SKILL_ENTRY_FILE, content: sessionSkill }],
   curriculum: [{ path: SKILL_ENTRY_FILE, content: curriculumSkill }],
 };
 
