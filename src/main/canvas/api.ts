@@ -1,4 +1,4 @@
-import { copyFile, link, open, readFile, rename, rm, stat } from 'node:fs/promises';
+import { copyFile, link, lstat, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import { constants, createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -7,8 +7,14 @@ import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { availablePath, diskName, storageDirectory } from '../storage';
-import { latestTermOf } from '../../shared/canvas';
-import type { CachedCourseFile, CanvasExportResult } from '../../shared/canvas';
+import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
+import type {
+  CachedCourseFile,
+  CanvasCacheClearResult,
+  CanvasCacheScope,
+  CanvasCacheStats,
+  CanvasExportResult,
+} from '../../shared/canvas';
 import { pickCourseFiles, collectCourseFileEntries } from './course-files';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { classifyOfficeFile, officeZipMime } from '../documents/parse';
@@ -435,6 +441,12 @@ export function getSource(id: string): StoredSource {
 }
 
 const downloads = new Map<string, Promise<{ path: string; mime: string }>>();
+function canvasFileCacheKey(source: Pick<StoredSource, 'fileId' | 'updatedAt'>) {
+  return `canvas-file:${createHash('sha256')
+    .update(`${source.fileId}:${source.updatedAt ?? ''}`)
+    .digest('hex')}`;
+}
+
 export function cachedFile(source: StoredSource): Promise<{ path: string; mime: string }> {
   const key = `${source.id}:${source.updatedAt ?? ''}`;
   const existing = downloads.get(key);
@@ -501,11 +513,8 @@ function sourceDirectory(source: StoredSource): string {
 
 async function downloadFile(source: StoredSource): Promise<{ path: string; mime: string }> {
   if (!source.fileId) throw new Error('文件不可用');
-  const key = createHash('sha256')
-    .update(`${source.fileId}:${source.updatedAt ?? ''}`)
-    .digest('hex');
   const db = getDatabase();
-  const cacheKey = `canvas-file:${key}`;
+  const cacheKey = canvasFileCacheKey(source);
   const cached = db.prepare('SELECT value FROM workspace_settings WHERE key=?').get(cacheKey) as
     { value: string } | undefined;
   const dir = sourceDirectory(source);
@@ -570,6 +579,135 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
   source.mime = str(metadata['content-type']) || 'application/octet-stream';
   db.prepare('UPDATE canvas_sources SET data=? WHERE id=?').run(JSON.stringify(source), source.id);
   return { path, mime: source.mime };
+}
+
+interface CanvasCacheEntry {
+  key: string;
+  path: string;
+  bytes: number;
+  term: string;
+  courseId: number | null;
+  courseName: string;
+}
+
+export function canvasCacheDirectory() {
+  return join(storageDirectory(), 'courses');
+}
+
+function cachedPathInfo(path: string) {
+  const parts = path.split(/[\\/]+/).filter(Boolean);
+  const index = parts.lastIndexOf('courses');
+  if (index < 0) return { term: '未归类缓存', courseId: null, courseName: '其他缓存' };
+  const term = parts[index + 1];
+  const courseDirectory = parts[index + 2];
+  if (!term || !courseDirectory)
+    return { term: '未归类缓存', courseId: null, courseName: '其他缓存' };
+  const match = /^(.*) \[(\d+)\]$/.exec(courseDirectory);
+  return {
+    term,
+    courseId: match ? Number(match[2]) : null,
+    courseName: match?.[1] || courseDirectory,
+  };
+}
+
+async function canvasCacheEntries(): Promise<CanvasCacheEntry[]> {
+  const db = getDatabase();
+  const state = getCanvasState();
+  const courses = new Map(state.courses.map((course) => [course.id, course]));
+  const sourceRows = db.prepare('SELECT data FROM canvas_sources').all() as { data: string }[];
+  const sources = new Map<string, { term: string; courseId: number; courseName: string }>();
+  for (const row of sourceRows) {
+    const source = JSON.parse(row.data) as StoredSource;
+    if (source.kind !== 'file' || !source.fileId) continue;
+    const course = courses.get(source.courseId);
+    if (!course) continue;
+    sources.set(canvasFileCacheKey(source), {
+      term: course.term,
+      courseId: course.id,
+      courseName: course.name,
+    });
+  }
+  const rows = db
+    .prepare("SELECT key, value FROM workspace_settings WHERE key LIKE 'canvas-file:%'")
+    .all() as { key: string; value: string }[];
+  const entries: CanvasCacheEntry[] = [];
+  for (const row of rows) {
+    const current = sources.get(row.key) ?? cachedPathInfo(row.value);
+    let bytes = 0;
+    try {
+      const info = await lstat(row.value);
+      if (!info.isFile()) continue;
+      bytes = info.size;
+    } catch {
+      continue;
+    }
+    entries.push({ key: row.key, path: row.value, bytes, ...current });
+  }
+  return entries;
+}
+
+export async function canvasCacheStats(): Promise<CanvasCacheStats> {
+  const entries = await canvasCacheEntries();
+  const terms = new Map<string, CanvasCacheEntry[]>();
+  for (const entry of entries) {
+    const list = terms.get(entry.term);
+    if (list) list.push(entry);
+    else terms.set(entry.term, [entry]);
+  }
+  return {
+    directory: canvasCacheDirectory(),
+    fileCount: entries.length,
+    bytes: entries.reduce((total, entry) => total + entry.bytes, 0),
+    terms: [...terms.entries()]
+      .sort(([a], [b]) => compareCanvasTerms(a, b) || a.localeCompare(b))
+      .map(([term, termEntries]) => {
+        const courses = new Map<string, CanvasCacheEntry[]>();
+        for (const entry of termEntries) {
+          const key = `${entry.courseId ?? ''}:${entry.courseName}`;
+          const list = courses.get(key);
+          if (list) list.push(entry);
+          else courses.set(key, [entry]);
+        }
+        const groups = [...courses.values()]
+          .sort((a, b) => a[0]!.courseName.localeCompare(b[0]!.courseName))
+          .map((courseEntries) => ({
+            id: courseEntries[0]!.courseId,
+            name: courseEntries[0]!.courseName,
+            fileCount: courseEntries.length,
+            bytes: courseEntries.reduce((total, entry) => total + entry.bytes, 0),
+          }));
+        return {
+          term,
+          fileCount: termEntries.length,
+          bytes: termEntries.reduce((total, entry) => total + entry.bytes, 0),
+          courses: groups,
+        };
+      }),
+  };
+}
+
+export async function clearCanvasCache(scope: CanvasCacheScope): Promise<CanvasCacheClearResult> {
+  const db = getDatabase();
+  const entries = await canvasCacheEntries();
+  const selected = entries.filter((entry) => {
+    if (scope.kind === 'all') return true;
+    if (scope.kind === 'term') return entry.term === scope.term;
+    return entry.courseId === scope.courseId;
+  });
+  let removedFiles = 0;
+  let freedBytes = 0;
+  let blockedFiles = 0;
+  for (const entry of selected) {
+    try {
+      await rm(entry.path, { force: true });
+      db.prepare('DELETE FROM workspace_settings WHERE key=?').run(entry.key);
+      removedFiles++;
+      freedBytes += entry.bytes;
+    } catch {
+      blockedFiles++;
+    }
+  }
+  return { removedFiles, freedBytes, blockedFiles };
 }
 
 async function isPdf(path: string): Promise<boolean> {

@@ -58,6 +58,7 @@ export type SettingsSectionId =
   | 'appearance'
   | 'shortcuts'
   | 'workspace'
+  | 'canvas-cache'
   | 'archived'
   | 'connections'
   | 'providers'
