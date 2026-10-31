@@ -27,8 +27,8 @@ interface Side {
   providerId: string;
   /** 扩展 UI 的会话身份：不与主会话共用，关闭旁问时只清它自己的扩展状态。 */
   uiId: string;
-  /** 借来的主会话消息条数：界面只显示这之后的旁问内容。 */
-  baseCount: number;
+  /** 借来的主会话条目：Pi 压缩后消息数量会变化，不能用数组下标作为边界。 */
+  baseEntryIds: Set<string>;
   run?: { cancelled: boolean; tool?: string; done: Promise<void> };
   steps: Map<string, AgentToolResult>;
   streamedAt: number;
@@ -38,16 +38,20 @@ interface Side {
 const sides = new Map<string, Side>();
 const opening = new Map<string, Promise<Side>>();
 
+function messages(side: Side) {
+  return side.session.sessionManager
+    .buildSessionProjection()
+    .entries.flatMap(({ sourceEntry, messages }) =>
+      side.baseEntryIds.has(sourceEntry.id) ? [] : messages,
+    );
+}
+
 function view(parentId: string, side: Side): SidechatView {
   return {
     parentId,
     running: Boolean(side.run),
     activeTool: side.run?.tool,
-    messages: projectMessages(
-      side.session.messages.slice(side.baseCount),
-      side.steps,
-      Boolean(side.run),
-    ),
+    messages: projectMessages(messages(side), side.steps, Boolean(side.run)),
   };
 }
 
@@ -60,9 +64,9 @@ function stream(parentId: string, side: Side) {
   if (now - side.streamedAt < 100) return;
   side.streamedAt = now;
   const streaming = side.session.state.streamingMessage;
-  const messages = side.session.messages.slice(side.baseCount);
+  const ownMessages = messages(side);
   const last = projectMessages(
-    streaming ? [...messages, streaming] : messages,
+    streaming ? [...ownMessages, streaming] : ownMessages,
     side.steps,
     true,
   ).at(-1);
@@ -132,7 +136,7 @@ async function createSide(parentId: string): Promise<Side> {
     session,
     providerId: selection.provider.id,
     uiId: randomUUID(),
-    baseCount: session.messages.length,
+    baseEntryIds: new Set(session.sessionManager.getBranch().map(({ id }) => id)),
     steps: new Map(),
     streamedAt: 0,
     unsubscribe: () => {},
@@ -212,7 +216,7 @@ export async function closeSidechat(parentId: string): Promise<void> {
 export async function keepSidechat(parentId: string): Promise<WorkspaceChat> {
   const side = requireSide(parentId);
   if (side.run) throw new Error('请等待旁问回答完成');
-  if (side.session.messages.length === side.baseCount) throw new Error('旁问还没有内容');
+  if (!messages(side).length) throw new Error('旁问还没有内容');
   const manager = side.session.sessionManager;
   const header = manager.getHeader();
   if (!header) throw new Error('旁问记录缺少会话头');

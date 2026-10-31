@@ -12,6 +12,7 @@ const root = mkdtempSync(join(tmpdir(), 'dela-sidechat-'));
 const state = vi.hoisted(() => ({
   db: null as Database.Database | null,
   provider: null as StoredLlmProvider | null,
+  sessions: [] as import('@earendil-works/pi-coding-agent').AgentSession[],
 }));
 vi.mock('electron', () => ({ app: { getPath: () => root }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
@@ -36,7 +37,12 @@ vi.mock('../environment', () => ({
 }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 vi.mock('../extensions', () => ({
-  bindSessionExtensions: async () => {},
+  bindSessionExtensions: async (
+    _id: string,
+    session: import('@earendil-works/pi-coding-agent').AgentSession,
+  ) => {
+    state.sessions.push(session);
+  },
   extensionCommand: () => false,
   releaseExtensionUi: () => {},
   sessionSlashCommands: () => [],
@@ -195,6 +201,32 @@ it('保留旁问：成为带「旁问：」前缀的新会话，含借来的历�
   server.enqueue(reply('kept answer'));
   expect((await askSession(kept.sessionId!, input('接着问'))).messages).toHaveLength(6);
   expect(openSession(parent).messages).toHaveLength(2);
+});
+
+it('压缩旁问上下文后仍展示并可保留旁问内容', async () => {
+  const parent = newSession(null, 'chat').sessionId!;
+  server.enqueue(reply('main answer'));
+  await askSession(parent, input('主问题'));
+  await openSidechat(parent);
+  const side = state.sessions.at(-1)!;
+
+  server.enqueue(reply('side answer'));
+  await askSidechat(parent, input('旁问'));
+
+  const settings = side.settingsManager.getCompactionSettings(side.model);
+  vi.spyOn(side.settingsManager, 'getCompactionSettings').mockReturnValue({
+    ...settings,
+    keepRecentTokens: 1,
+  });
+  server.enqueue(reply('Earlier conversation summarized'));
+  server.enqueue(reply('Turn prefix summarized'));
+  await side.compact();
+
+  const afterCompaction = await openSidechat(parent);
+  expect(afterCompaction.messages.map((message) => message.content)).toContain('side answer');
+
+  const kept = await keepSidechat(parent);
+  expect(kept.messages.map((message) => message.content)).toContain('side answer');
 });
 
 it.each(['停用', '删除'] as const)('%s提供商后，已有旁问拒绝新请求并保留内容', async (action) => {
