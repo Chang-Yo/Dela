@@ -105,25 +105,65 @@ function mapEvent(row: CalendarEventRow): CalendarEvent {
   };
 }
 
-export function parseSemesterStart(values: readonly unknown[] | undefined): string | null {
-  const dates = (values ?? [])
-    .flatMap((value) => {
-      const text = typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
-      return text.match(/20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}/g) ?? [];
-    })
-    .map((value) => {
-      const [year, month, day] = value.split(/[-/.]/).map(Number);
-      if (!year || !month || !day) return null;
-      const date = new Date(year, month - 1, day);
-      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day)
-        return null;
-      return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day
-        .toString()
-        .padStart(2, '0')}`;
-    })
-    .filter((value): value is string => value !== null)
-    .sort();
-  return dates[0] ?? null;
+const fullDatePattern = /(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})/g;
+const compactDatePattern = /(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)/g;
+// 只认两位月日（`09-14`），避开周次写法 `1-16周` 被当成日期。
+const shortDatePattern = /(?<!\d)(\d{2})[-/.](\d{2})(?!\d)/g;
+
+function toDay(year: number, month: number, day: number): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+/** 补年份：秋学期 8–12 月落在前一年，1–7 月落在后一年；春/夏学期取后一年。 */
+function completeYear(semester: string | undefined, month: number): number | null {
+  if (!semester) return null;
+  const matched = /^(\d{4})-(\d{4})-([123])$/.exec(semester);
+  if (!matched) return null;
+  const [, first, second, term] = matched;
+  if (term === '1') return month >= 8 ? Number(first) : Number(second);
+  return Number(second);
+}
+
+/** 开学日期按第一周的周一保存，与课表周次换算保持一致。 */
+function mondayOfDay(day: string): string {
+  const millis = Date.parse(`${day}T00:00:00Z`);
+  const weekday = (new Date(millis).getUTCDay() + 6) % 7;
+  return new Date(millis - weekday * 86400000).toISOString().slice(0, 10);
+}
+
+/**
+ * 从课表接口的日期周次列表里取开学日期。
+ * `rqazcList` 的形态并不稳定：完整日期（2026-09-14、2026/9/14、20260914）与只有月日的
+ * 写法（09-14）都出现过，后者用学期标签补年份。取最早的合法日期并归到所在周的周一。
+ */
+export function parseSemesterStart(
+  values: readonly unknown[] | undefined,
+  semester?: string,
+): string | null {
+  const days: string[] = [];
+  for (const value of values ?? []) {
+    const text = typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
+    for (const matched of text.matchAll(fullDatePattern)) {
+      const day = toDay(Number(matched[1]), Number(matched[2]), Number(matched[3]));
+      if (day) days.push(day);
+    }
+    for (const matched of text.matchAll(compactDatePattern)) {
+      const day = toDay(Number(matched[1]), Number(matched[2]), Number(matched[3]));
+      if (day) days.push(day);
+    }
+    for (const matched of text.matchAll(shortDatePattern)) {
+      const month = Number(matched[1]);
+      const year = completeYear(semester, month);
+      if (year === null) continue;
+      const day = toDay(year, month, Number(matched[2]));
+      if (day) days.push(day);
+    }
+  }
+  if (!days.length) return null;
+  return mondayOfDay(days.sort()[0]!);
 }
 
 export function currentSemester(now = new Date()): string {
@@ -258,7 +298,7 @@ export async function syncTimetable(semester: string): Promise<TimetableResult> 
     const data = await fetchTimetable(semester);
     await flushCampusSession();
 
-    const semesterStart = parseSemesterStart(data.rqazcList);
+    const semesterStart = parseSemesterStart(data.rqazcList, semester);
     const lessons = data.kbList.flatMap((raw, index) => {
       const courseName = raw.kcmc?.trim();
       const weekday = Number(raw.xqj);

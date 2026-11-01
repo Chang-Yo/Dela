@@ -27,6 +27,24 @@ describe('parseSemesterStart', () => {
     expect(parseSemesterStart(['第2周 2026/09/21', '第1周 2026-09-14'])).toBe('2026-09-14');
   });
 
+  it('normalizes to the Monday of that week', () => {
+    expect(parseSemesterStart(['2026-09-15'], '2026-2027-1')).toBe('2026-09-14');
+  });
+
+  it('accepts compact YYYYMMDD dates from the timetable payload', () => {
+    expect(parseSemesterStart([{ RQ: '20260914' }], '2026-2027-1')).toBe('2026-09-14');
+  });
+
+  it('completes month-day dates from the semester label', () => {
+    expect(parseSemesterStart(['2026-2027-1', { RQ: '09-14' }], '2026-2027-1')).toBe('2026-09-14');
+    // 春学期落在学年后半：2025-2026-2 的 03-02 属于 2026 年。
+    expect(parseSemesterStart([{ RQ: '03-02' }], '2025-2026-2')).toBe('2026-03-02');
+  });
+
+  it('does not mistake week ranges for dates', () => {
+    expect(parseSemesterStart(['第1周 1-16周'], '2026-2027-1')).toBeNull();
+  });
+
   it('ignores malformed dates', () => {
     expect(parseSemesterStart(['第1周', '2026-02-30'])).toBeNull();
   });
