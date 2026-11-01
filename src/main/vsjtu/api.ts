@@ -165,14 +165,14 @@ export async function listCourses(): Promise<VideoCourse[]> {
   if (!terms.success) throw new Error('交大视频学期数据格式已变化');
   const term = terms.data.find((value) => value.currentTerm) ?? terms.data.at(-1);
   if (!term) return [];
-  let records = await allPages('myself/curriculum', {
+  const records = await allPages('myself/curriculum', {
     acteId: String(term.id),
     courBeginTime: '',
     courEndTime: '',
   });
-  // 部分账号的课表为空，但官网「我的课程」仍有点播；该列表跨学期，须逐条核对。
-  if (records.length === 0)
-    records = (
+  // 点播列表跨学期，只补充本学期的课程。
+  records.push(
+    ...(
       await allPages('group_subject_vod_list/t-1', {
         'page.orders[0].asc': 'false',
         'page.orders[0].field': 'courBeginTime',
@@ -181,7 +181,8 @@ export async function listCourses(): Promise<VideoCourse[]> {
       const course = z.object({ acteId: id }).safeParse(raw);
       if (!course.success) throw new Error('交大视频课程学期数据格式已变化');
       return course.data.acteId === term.id;
-    });
+    }),
+  );
   const courses = new Map<number, VideoCourse>();
   for (const raw of records) {
     const course = z

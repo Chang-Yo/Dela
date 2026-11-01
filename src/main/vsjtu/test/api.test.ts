@@ -140,6 +140,7 @@ it.each([
           pageCount: 2,
         },
       },
+      { ok: true, data: { records: [], pageCount: 0 } },
     ];
     expect(await listCourses()).toEqual([
       { id: 9000, code: 'CS3313', name: '计算理论' },
@@ -148,8 +149,8 @@ it.each([
     const url = new URL(server.urls[3]!);
     expect(url.searchParams.get('acteId')).toBe('11');
     expect(url.searchParams.get('page.pageIndex')).toBe('2');
-    expect(server.urls).toHaveLength(4);
-    expect(server.urls.some((url) => url.includes('group_subject_vod_list'))).toBe(false);
+    expect(server.urls).toHaveLength(5);
+    expect(server.urls.at(-1)).toContain('group_subject_vod_list/t-1');
   },
 );
 
@@ -222,13 +223,34 @@ describe.each(['courses', 'videos'] as const)('%s empty pages', (kind) => {
   );
 });
 
-describe('on-demand course fallback', () => {
+describe('on-demand course list', () => {
   beforeEach(() => {
     server.replies = [
       identity,
       [{ id: 11, currentTerm: true }, { id: 12 }],
       { ok: true, dataOk: true, data: { records: null, rowCount: 0, pageCount: 0 } },
     ];
+  });
+
+  it('merges on-demand courses into a nonempty timetable without merging same-name classes', async () => {
+    const course = { acteId: 11, teclId: 9000, subjCode: 'PHYS', subjName: '大学物理' };
+    server.replies[2] = { ok: true, data: { records: [course], pageCount: 1 } };
+    server.replies.push({
+      ok: true,
+      data: {
+        records: [
+          { ...course, teclId: '9000' },
+          { ...course, teclId: 9001 },
+          { ...course, acteId: 10, teclId: 8999 },
+          { ...course, acteId: 12, teclId: 9002 },
+        ],
+        pageCount: 1,
+      },
+    });
+    await expect(listCourses()).resolves.toEqual([
+      { id: 9000, code: 'PHYS', name: '大学物理' },
+      { id: 9001, code: 'PHYS', name: '大学物理' },
+    ]);
   });
 
   it('paginates the official course list, filters by current term and deduplicates course IDs', async () => {
@@ -291,7 +313,7 @@ describe('on-demand course fallback', () => {
     [{ code: '-1', data: null }, '登录'],
     [{ ok: true, data: { unexpected: [] } }, '列表数据格式已变化'],
   ] as const)(
-    'reports fallback errors instead of presenting an empty list (%j)',
+    'reports on-demand errors instead of presenting an empty list (%j)',
     async (reply, error) => {
       server.replies.push(reply);
       await expect(listCourses()).rejects.toThrow(error);
@@ -303,7 +325,7 @@ describe('on-demand course fallback', () => {
     { ok: false, data: { records: [], pageCount: 0 } },
     { ok: true, dataOk: false, data: { records: [], pageCount: 0 } },
   ])(
-    'does not fall back after the curriculum reports failure with an empty array (%j)',
+    'does not query on-demand courses after the curriculum reports failure (%j)',
     async (reply) => {
       server.replies[2] = reply;
       await expect(listCourses()).rejects.toThrow('接口请求失败');
