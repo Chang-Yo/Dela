@@ -31,6 +31,12 @@ export interface SemesterStartGuess {
   warnings: string[];
 }
 
+/** 与录像推断结果一起返回的额外信息：扫了几门课、哪几门读不到。 */
+export interface SemesterStartInference extends SemesterStartGuess {
+  checkedCourses: number;
+  failures: string[];
+}
+
 const semesterPattern = /^(\d{4})-(\d{4})-([123])$/;
 const dayPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
 const dayMilliseconds = 86400000;

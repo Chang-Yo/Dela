@@ -108,6 +108,7 @@ export type {
   TimetableResult,
   TimetableApi,
 } from './timetable';
+export type { SemesterStartInference } from './semester-start';
 export { calendarEventColors } from './timetable';
 
 export type {

@@ -12,4 +12,5 @@ export const timetable = {
   setSemesterStart: (semester: string, value: string) =>
     invoke('timetable:set-semester-start', semester, value),
   syncNow: (semester?: string) => invoke('timetable:sync', semester),
+  inferSemesterStart: (semester?: string) => invoke('timetable:infer-semester-start', semester),
 } satisfies TimetableApi;

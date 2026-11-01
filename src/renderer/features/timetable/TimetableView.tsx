@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react';
-import type { CalendarEvent, TimetableLesson, TimetableState, TodoItem } from '../../../shared/api';
+import type {
+  CalendarEvent,
+  SemesterStartInference,
+  TimetableLesson,
+  TimetableState,
+  TodoItem,
+} from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import {
@@ -66,6 +72,8 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   const [error, setError] = useState<string | null>(null);
   const [eventDraft, setEventDraft] = useState<{ start: Date; end: Date } | null>(null);
   const [semesterDraft, setSemesterDraft] = useState(false);
+  /** 同步后自动弹出的开学日期建议：只在缺开学日期时出现。 */
+  const [semesterSuggestion, setSemesterSuggestion] = useState<SemesterStartInference | null>(null);
   const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
   /** 上次已加载的学期：据此判断是否把选中周归位到本周。 */
   const loadedSemesterRef = useRef<string | null>(null);
@@ -82,12 +90,37 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
       setSemester(nextState.semester);
       setLessons([...nextLessons]);
       // 学期未变时保留用户选中的教学周：同步/改开学日期不应把用户拉回本周。
-      if (loadedSemesterRef.current === nextState.semester) return;
+      if (loadedSemesterRef.current === nextState.semester) return nextState;
       loadedSemesterRef.current = nextState.semester;
       const currentWeek = weekForDate(nextState.semesterStart, new Date());
       setSelectedWeek(currentWeek && currentWeek > 0 ? currentWeek : 1);
+      return nextState;
     },
     [timetable],
+  );
+
+  // 同步完成仍缺开学日期时，用课堂录像推断一个候选值并直接预填弹窗：
+  // 用户点一下保存即可，不必自己回忆「第一周周一」是哪天。推断失败不打断同步结果。
+  const suggestSemesterStart = useCallback(
+    async (target: string) => {
+      try {
+        const guess = await timetable.inferSemesterStart(target);
+        if (!guess.candidate) return;
+        setSemesterSuggestion(guess);
+        setSemesterDraft(true);
+      } catch (reason) {
+        console.warn('[timetable] 推断开学日期失败', reason);
+      }
+    },
+    [timetable],
+  );
+
+  const finishSync = useCallback(
+    async (requested?: string) => {
+      const next = await loadSemester(requested);
+      if (next && !next.semesterStart) await suggestSemesterStart(next.semester);
+    },
+    [loadSemester, suggestSemesterStart],
   );
 
   useEffect(() => {
@@ -195,7 +228,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
         showToast({ variant: 'error', title: '登录同步失败', description: failure });
         return;
       }
-      await loadSemester(semester ?? undefined);
+      await finishSync(semester ?? undefined);
     } finally {
       setBusy(false);
     }
@@ -219,7 +252,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
         });
         return;
       }
-      await loadSemester(semester ?? undefined);
+      await finishSync(semester ?? undefined);
     } finally {
       setBusy(false);
     }
@@ -399,7 +432,10 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
           lessons={lessons}
           month={month}
           onCreate={openNewEvent}
-          onEditSemesterStart={() => setSemesterDraft(true)}
+          onEditSemesterStart={() => {
+            setSemesterSuggestion(null);
+            setSemesterDraft(true);
+          }}
           semesterStart={state.semesterStart}
         />
       )}
@@ -424,14 +460,19 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
 
       {semesterDraft ? (
         <SemesterStartDialog
-          onClose={() => setSemesterDraft(false)}
+          onClose={() => {
+            setSemesterDraft(false);
+            setSemesterSuggestion(null);
+          }}
           onSaved={() => {
             setSemesterDraft(false);
+            setSemesterSuggestion(null);
             setError(null);
             void loadSemester(semester).catch((reason: unknown) => setError(errorText(reason)));
           }}
           semester={semester}
           semesterStart={state.semesterStart}
+          suggestion={semesterSuggestion}
         />
       ) : null}
 

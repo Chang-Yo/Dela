@@ -10,6 +10,7 @@ import {
   deleteCalendarEvent,
 } from './api';
 import { ipcMain } from 'electron';
+import { inferSemesterStartFromVideos } from './semester-start';
 import { clearCampusSession } from '../campus';
 import { checkWorkspaceSender } from '../ipc';
 import { type TimetableResult } from '../../shared/api';
@@ -40,5 +41,8 @@ export function registerTimetableIpc(): void {
   );
   ipcMain.handle('timetable:sync', (_event, requested?: unknown) =>
     syncTimetable(resolveSemester(requested)),
+  );
+  ipcMain.handle('timetable:infer-semester-start', async (_event, requested?: unknown) =>
+    inferSemesterStartFromVideos(resolveSemester(requested)),
   );
 }

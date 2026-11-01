@@ -1,3 +1,5 @@
+import type { SemesterStartInference } from './semester-start';
+
 export interface TimetableLesson {
   readonly id: number;
   readonly semester: string;
@@ -73,5 +75,7 @@ export interface TimetableApi {
   createEvent(input: CalendarEventInput): Promise<CalendarEvent>;
   deleteEvent(id: number): Promise<void>;
   setSemesterStart(semester: string, value: string): Promise<void>;
+  /** 用课堂录像推断开学日期候选值（联网只读，不写入）；用于同步后引导补设开学日期。 */
+  inferSemesterStart(semester?: string): Promise<SemesterStartInference>;
   syncNow(semester?: string): Promise<TimetableResult>;
 }

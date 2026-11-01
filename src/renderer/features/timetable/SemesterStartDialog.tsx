@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
+import type { SemesterStartInference } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-format';
 import { dialogIn, overlayFade } from '../../components/ui/motion';
@@ -9,18 +10,22 @@ import { cn } from '../../lib/utils';
 export function SemesterStartDialog({
   semester,
   semesterStart,
+  suggestion,
   onClose,
   onSaved,
 }: {
   semester: string;
   semesterStart: string | null;
+  /** 同步后由课堂录像推断出的候选值；用户手动打开时为空。 */
+  suggestion?: SemesterStartInference | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [value, setValue] = useState(semesterStart ?? '');
+  const [value, setValue] = useState(semesterStart ?? suggestion?.candidate ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const firstWeek = value ? weekStartFor(value, 1) : null;
+  const hinted = suggestion?.candidate === value;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -83,6 +88,16 @@ export function SemesterStartDialog({
             <p className="text-xs text-ink-3">
               第 1 教学周：{formatMonthDay(firstWeek)} –{' '}
               {formatMonthDay(new Date(firstWeek.getTime() + 6 * dayMilliseconds))}
+            </p>
+          ) : null}
+          {suggestion?.candidate ? (
+            <p className="break-words text-xs text-ink-3">
+              {hinted
+                ? `已按课堂录像预填：${suggestion.evidence[0]?.courseName ?? '本学期课程'} 等 ${suggestion.courses} 门课最早一节课在 ${formatMonthDay(new Date(`${suggestion.firstTeachingDay!}T00:00:00`))}。`
+                : `课堂录像推断的候选是 ${formatMonthDay(new Date(`${suggestion.candidate}T00:00:00`))}，已改为手动填写。`}
+              {suggestion.confidence === 'high'
+                ? ' 多门课的最早录像落在同一周。'
+                : ' 录像只会晚于真实开学日，这个日期可能偏晚，请核对。'}
             </p>
           ) : null}
         </div>

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { currentSemester, getTimetableState, setSemesterStart } from '../../../timetable/api';
-import { listCourses, listVideos } from '../../../vsjtu/api';
-import { inferSemesterStart, type SemesterRecording } from '../../../../shared/semester-start';
+import { inferSemesterStartFromVideos } from '../../../timetable/semester-start';
 import { tool } from '../shared';
 
 const semesterPattern = /^\d{4}-\d{4}-[123]$/;
@@ -24,31 +23,17 @@ export const inferSemesterStartTool = tool(
   async ({ semester, maxCourses }) => {
     const target = semester ?? currentSemester();
     const state = getTimetableState(target);
-    const courses = await listCourses();
-    const recordings: SemesterRecording[] = [];
-    const failures: string[] = [];
-    for (const course of courses.slice(0, maxCourses)) {
-      try {
-        for (const video of await listVideos(course.id))
-          recordings.push({ courseId: course.id, courseName: course.name, start: video.start });
-      } catch (error) {
-        failures.push(`${course.name}：${error instanceof Error ? error.message : '录像读取失败'}`);
-      }
-    }
-    if (courses.length && failures.length === Math.min(courses.length, maxCourses))
-      throw new Error(`课堂录像全部读取失败，无法推断开学日期（${failures[0]}）`);
+    const guess = await inferSemesterStartFromVideos(target, maxCourses);
 
-    const guess = inferSemesterStart(target, recordings);
     const warnings = [...guess.warnings];
     if (target !== currentSemester())
       warnings.push('课堂录像只覆盖当前学期，跨学期推断没有意义，请让用户手动填写日期');
     if (state.semesterStart)
       warnings.push(`该学期已有开学日期 ${state.semesterStart}，仅在与推断值不同时才需要修改`);
-    if (failures.length) warnings.push(`部分课程录像读取失败：${failures.join('；')}`);
+    if (guess.failures.length) warnings.push(`部分课程录像读取失败：${guess.failures.join('；')}`);
 
     return {
       ...guess,
-      checkedCourses: Math.min(courses.length, maxCourses),
       storedSemesterStart: state.semesterStart,
       written: false,
       nextStep: guess.candidate
