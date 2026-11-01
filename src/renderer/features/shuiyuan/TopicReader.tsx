@@ -21,8 +21,19 @@ import { CategoryTag } from './TopicFeed';
 import { TopicTimeline } from './TopicTimeline';
 import type { ShuiyuanPost } from '../../../shared/api';
 
-function stripToText(html: string): string {
-  return new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+type ReplyTarget = { postNumber: number; username: string };
+
+/* 回复草稿按帖子在本次会话内记忆：返回信息流、楼内链接切帖后回来仍在，不持久化。 */
+const replyDrafts = new Map<number, { text: string; target: ReplyTarget | null }>();
+
+/** 楼层正文转引用文本：去掉楼中嵌套的引用，块级元素之间保留换行。 */
+function quoteText(cooked: string): string {
+  const doc = new DOMParser().parseFromString(cooked, 'text/html');
+  doc.querySelectorAll('aside.quote, .lightbox-wrapper .meta').forEach((node) => node.remove());
+  doc
+    .querySelectorAll('p, li, br, pre, blockquote, h1, h2, h3, h4, h5, h6')
+    .forEach((node) => node.after('\n'));
+  return (doc.body.textContent ?? '').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function postElements(root: HTMLElement | null): HTMLElement[] {
@@ -183,11 +194,13 @@ export function TopicReader() {
   const loadPostWindow = useShuiyuan((state) => state.loadPostWindow);
   const submitReply = useShuiyuan((state) => state.submitReply);
   const setLiked = useShuiyuan((state) => state.setLiked);
-  const [draft, setDraft] = useState('');
-  const [composerOpen, setComposerOpen] = useState(false);
+  // 阅读器按 topicId 重挂载，挂载时的 topicId 即本实例的帖子。
+  const [topicId] = useState(() => useShuiyuan.getState().reading?.topicId ?? 0);
+  const [draft, setDraft] = useState(() => replyDrafts.get(topicId)?.text ?? '');
+  const [composerOpen, setComposerOpen] = useState(() => replyDrafts.has(topicId));
   /** 楼层级回复目标；null 为主题级回复。 */
-  const [replyTarget, setReplyTarget] = useState<{ postNumber: number; username: string } | null>(
-    null,
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(
+    () => replyDrafts.get(topicId)?.target ?? null,
   );
   /** 跳转落点楼层短暂高亮，让落点可辨认。 */
   const [highlight, setHighlight] = useState<number | null>(null);
@@ -320,24 +333,30 @@ export function TopicReader() {
   // 稳定引用：避免每次渲染都让各楼层 iframe 的 message 监听解绑重挂。
   // 指向本帖的链接在当前阅读流内跳楼，不整帖重载。
   const openTopicFromPost = useCallback(
-    (topicId: number, postNumber?: number) => {
-      if (topicId === useShuiyuan.getState().reading?.detail?.id) {
+    (targetTopicId: number, postNumber?: number) => {
+      if (targetTopicId === topicId) {
         void jumpRef.current(postNumber ?? 1);
       } else {
-        void openTopic(topicId, postNumber);
+        void openTopic(targetTopicId, postNumber);
       }
     },
-    [openTopic],
+    [openTopic, topicId],
   );
 
-  const appendQuote = (username: string, postNumber: number, snippet: string) => {
-    setComposerOpen(true);
-    setDraft((current) => `${current}> **@${username}**（第 ${postNumber} 楼）：${snippet}\n\n`);
-  };
+  useEffect(() => {
+    if (draft.trim() || replyTarget) replyDrafts.set(topicId, { text: draft, target: replyTarget });
+    else replyDrafts.delete(topicId);
+  }, [draft, replyTarget, topicId]);
 
-  const quote = (username: string, postNumber: number, cooked: string) => {
-    const snippet = stripToText(cooked).trim().slice(0, 120);
-    if (snippet) appendQuote(username, postNumber, `${snippet}…`);
+  // 水源原生引用：站点渲染成带头像的引用卡片，并通知被引用者。
+  const quote = (post: ShuiyuanPost) => {
+    const text = quoteText(post.cooked);
+    if (!text) return;
+    setComposerOpen(true);
+    setDraft((current) => {
+      const head = current ? `${current.replace(/\n+$/, '')}\n\n` : '';
+      return `${head}[quote="${post.username}, post:${post.postNumber}, topic:${topicId}"]\n${text}\n[/quote]\n\n`;
+    });
   };
 
   const placeholder = replyTarget ? `回复 @${replyTarget.username}…` : isPM ? '回复私信…' : '回复…';
@@ -349,10 +368,16 @@ export function TopicReader() {
       onExpandedChange={setComposerOpen}
       onClearReplyTarget={() => setReplyTarget(null)}
       onSubmit={async () => {
-        await submitReply(draft, replyTarget?.postNumber);
+        const postNumber = await submitReply(draft, replyTarget?.postNumber);
         setDraft('');
         setReplyTarget(null);
         setComposerOpen(false);
+        // 新楼没并进已加载段（中段阅读时）就先取它附近的一段，再定位过去；期间已切帖则不动。
+        const current = useShuiyuan.getState().reading;
+        if (current?.topicId !== topicId) return;
+        const loaded = current.detail?.posts.some((post) => post.postNumber === postNumber);
+        if (!loaded) await loadPostWindow(postNumber);
+        setPendingJump(postNumber);
       }}
       placeholder={placeholder}
       replyTarget={replyTarget}
@@ -485,7 +510,7 @@ export function TopicReader() {
                       />
                     </div>
                     <PostActions
-                      onQuote={(target) => quote(target.username, target.postNumber, target.cooked)}
+                      onQuote={quote}
                       onLike={(postId, liked) => void setLiked(postId, liked)}
                       onReply={(target) => {
                         setReplyTarget({

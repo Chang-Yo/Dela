@@ -58,7 +58,8 @@ type Store = {
   toggleBookmark: (topicId: number, current: boolean) => Promise<void>;
   /** 点赞楼层（乐观更新，失败回滚并暴露错误）。站点限制：API Key 无法取消已点的赞。 */
   setLiked: (postId: number, liked: boolean) => Promise<void>;
-  submitReply: (raw: string, replyToPostNumber?: number) => Promise<void>;
+  /** 返回新楼层的楼号，供阅读页定位到刚发出的回复。 */
+  submitReply: (raw: string, replyToPostNumber?: number) => Promise<number>;
   consumeTopicRequest: (request: { topicId: number; postNumber: number | null }) => void;
   requestTopic: (topicId: number, postNumber?: number) => void;
 };
@@ -420,7 +421,7 @@ export const useShuiyuan = create<Store>((set, get) => {
       if (!api || !reading?.detail) throw new Error('尚未打开帖子');
       const post: ShuiyuanPost = await api.createReply(reading.detail.id, raw, replyToPostNumber);
       // 请求期间切帖/返回：回复已在服务端创建，静默丢弃本地合并，重开该帖即见。
-      if (get().reading !== reading) return;
+      if (get().reading !== reading) return post.postNumber;
       const detail = reading.detail;
       // 已加载段没到末尾时只登记进 stream，由向下补楼按序加载，避免新楼跨过未加载的断档。
       const reachesEnd = loadedSpan(detail).last === detail.stream.length - 1;
@@ -436,6 +437,7 @@ export const useShuiyuan = create<Store>((set, get) => {
           },
         },
       });
+      return post.postNumber;
     },
 
     consumeTopicRequest: (request) => {

@@ -181,6 +181,9 @@ export interface ShuiyuanUpload {
   readonly shortUrl: string;
   readonly url: string | null;
   readonly originalFilename: string | null;
+  /** 图片的显示尺寸（Discourse thumbnail_width/height），写进 `![名|宽x高]` 供站点排版。 */
+  readonly width: number | null;
+  readonly height: number | null;
 }
 
 export interface ShuiyuanApi {
