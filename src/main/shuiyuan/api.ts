@@ -289,6 +289,7 @@ const rawTopicListSchema = z
   .passthrough();
 
 const rawDetailSchema = rawTopicSchema.extend({
+  highest_post_number: z.number().nullish(),
   post_stream: z
     .object({
       stream: z.array(z.number()).nullish(),
@@ -562,6 +563,7 @@ export async function getShuiyuanTopic(
     categoryId: parsed.category_id ?? null,
     tags: parsed.tags ?? [],
     postsCount: parsed.posts_count ?? 0,
+    highestPostNumber: parsed.highest_post_number ?? parsed.posts_count ?? 0,
     likeCount: parsed.like_count ?? null,
     views: parsed.views ?? null,
     createdAt: parsed.created_at ?? '',

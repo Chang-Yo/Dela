@@ -91,6 +91,8 @@ export interface ShuiyuanTopicDetail {
   readonly categoryId: number | null;
   readonly tags: readonly string[];
   readonly postsCount: number;
+  /** 最大楼号；删楼后会大于 postsCount，楼层进度按它换算。 */
+  readonly highestPostNumber: number;
   readonly likeCount: number | null;
   readonly views: number | null;
   readonly createdAt: string;

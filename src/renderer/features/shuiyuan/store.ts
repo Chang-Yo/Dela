@@ -52,7 +52,9 @@ type Store = {
   markNotificationsRead: () => Promise<void>;
   openTopic: (topicId: number, postNumber?: number) => Promise<void>;
   closeReading: () => void;
-  loadMorePosts: () => Promise<void>;
+  loadMorePosts: (direction: 'before' | 'after') => Promise<void>;
+  /** 以目标楼层附近的一段整体替换已加载楼层（跳到未加载区域）。 */
+  loadPostWindow: (postNumber: number) => Promise<void>;
   toggleBookmark: (topicId: number, current: boolean) => Promise<void>;
   /** 点赞楼层（乐观更新，失败回滚并暴露错误）。站点限制：API Key 无法取消已点的赞。 */
   setLiked: (postId: number, liked: boolean) => Promise<void>;
@@ -283,18 +285,22 @@ export const useShuiyuan = create<Store>((set, get) => {
       set({ reading: null });
     },
 
-    loadMorePosts: async () => {
+    loadMorePosts: async (direction) => {
       const api = window.dela?.shuiyuan;
       const reading = get().reading;
       if (!api || !reading?.detail) return;
       const detail = reading.detail;
-      const loaded = new Set(detail.posts.map((post) => post.id));
-      const nextIds = detail.stream.filter((id) => !loaded.has(id)).slice(0, 20);
+      const { first, last } = loadedSpan(detail);
+      const nextIds =
+        direction === 'after'
+          ? detail.stream.slice(last + 1, last + 21)
+          : detail.stream.slice(Math.max(0, first - 20), Math.max(0, first));
       if (nextIds.length === 0) return;
       try {
         const posts = await api.loadPosts(detail.id, nextIds);
         // 请求期间切帖/返回会替换 reading 引用，过期批次直接丢弃。
-        if (get().reading !== reading) return;
+        // 空批次不写回：楼层引用不变，阅读页的补楼观察器才不会立刻重发同一请求。
+        if (get().reading !== reading || posts.length === 0) return;
         const merged = [...detail.posts, ...posts].sort((a, b) => a.postNumber - b.postNumber);
         set({
           reading: { ...reading, detail: { ...detail, posts: merged } },
@@ -302,6 +308,22 @@ export const useShuiyuan = create<Store>((set, get) => {
       } catch (error) {
         if (get().reading !== reading) return;
         showToast({ variant: 'error', title: '加载更多失败', description: errorText(error) });
+      }
+    },
+
+    loadPostWindow: async (postNumber) => {
+      const api = window.dela?.shuiyuan;
+      const topicId = get().reading?.detail?.id;
+      if (!api || topicId === undefined) return;
+      try {
+        const detail = await api.getTopic(topicId, postNumber);
+        const current = get().reading;
+        if (current?.detail?.id !== topicId) return;
+        // 整段替换而非合并：合并会让已加载段在 stream 中断档，前后补楼无法按两端续接。
+        set({ reading: { ...current, detail } });
+      } catch (error) {
+        if (get().reading?.detail?.id !== topicId) return;
+        showToast({ variant: 'error', title: '跳转楼层失败', description: errorText(error) });
       }
     },
 
@@ -400,13 +422,16 @@ export const useShuiyuan = create<Store>((set, get) => {
       // 请求期间切帖/返回：回复已在服务端创建，静默丢弃本地合并，重开该帖即见。
       if (get().reading !== reading) return;
       const detail = reading.detail;
+      // 已加载段没到末尾时只登记进 stream，由向下补楼按序加载，避免新楼跨过未加载的断档。
+      const reachesEnd = loadedSpan(detail).last === detail.stream.length - 1;
       set({
         reading: {
           ...reading,
           detail: {
             ...detail,
             postsCount: Math.max(detail.postsCount, post.postNumber),
-            posts: [...detail.posts, post],
+            highestPostNumber: Math.max(detail.highestPostNumber, post.postNumber),
+            posts: reachesEnd ? [...detail.posts, post] : detail.posts,
             stream: detail.stream.includes(post.id) ? detail.stream : [...detail.stream, post.id],
           },
         },
@@ -423,6 +448,15 @@ export const useShuiyuan = create<Store>((set, get) => {
     },
   };
 });
+
+/** 已加载楼层在 stream 中的首尾下标：深链或跳转后，已加载段可能位于 stream 中部。 */
+export function loadedSpan(detail: ShuiyuanTopicDetail): { first: number; last: number } {
+  const loaded = new Set(detail.posts.map((post) => post.id));
+  return {
+    first: detail.stream.findIndex((id) => loaded.has(id)),
+    last: detail.stream.findLastIndex((id) => loaded.has(id)),
+  };
+}
 
 /** 分类树常驻内存；未命中返回 null。 */
 export function categoryOf(
