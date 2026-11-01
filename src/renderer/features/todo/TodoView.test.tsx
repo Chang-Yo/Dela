@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TodoItem, TodoState } from '../../../shared/api';
+import type { TodoItem, TodoSaveInput, TodoState } from '../../../shared/api';
 import { TodoView } from './TodoView';
 
 const dueAt = new Date(2026, 9, 21, 23, 59).toISOString();
@@ -131,5 +131,37 @@ describe('TODO 视图', () => {
     await render();
     expect(findSwitch().getAttribute('aria-checked')).toBe('false');
     expect(host.textContent).not.toContain('已完成的待办');
+  });
+
+  it('新建待办保存时不会默认成已经过去的截止时间', async () => {
+    const save = vi.fn(async (_input: TodoSaveInput) => state);
+    window.dela!.todo.save = save;
+    await act(async () => {
+      root.render(<TodoView />);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      [...host.querySelectorAll('button')]
+        .find((button) => button.textContent?.includes('新建待办'))!
+        .click();
+    });
+
+    const titleInput = host.querySelector<HTMLInputElement>(
+      'input[placeholder="例如：准备小组展示"]',
+    )!;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setValue.call(titleInput, '测试待办');
+      titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      [...host.querySelectorAll('button')]
+        .find((button) => button.textContent?.trim() === '保存')!
+        .click();
+    });
+
+    expect(save).toHaveBeenCalled();
+    const saved = save.mock.calls[0]![0];
+    expect(saved.dueAt == null || Date.parse(saved.dueAt) >= Date.now()).toBe(true);
   });
 });
