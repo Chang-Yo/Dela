@@ -91,7 +91,7 @@ describe('TODO 视图', () => {
     expect(findButton('全部')!.textContent).toContain('1');
   });
 
-  it('显示已完成默认打开，关闭后切换页面再回来仍保持关闭', async () => {
+  it('显示已完成默认打开，关闭后重新挂载仍保持关闭', async () => {
     const completed: TodoItem = {
       id: 'personal:2',
       source: 'personal',
@@ -126,10 +126,10 @@ describe('TODO 视图', () => {
     expect(host.textContent).not.toContain('已完成的待办');
     expect(localStorage.getItem('dela.todo.show-completed')).toBe('false');
 
-    // 重新挂载等价于切换页面后回来：偏好从 localStorage 恢复，而不是回到默认值。
     act(() => root.unmount());
     root = createRoot(host);
     await render();
     expect(findSwitch().getAttribute('aria-checked')).toBe('false');
+    expect(host.textContent).not.toContain('已完成的待办');
   });
 });

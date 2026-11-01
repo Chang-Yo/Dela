@@ -35,7 +35,6 @@ import { dateLabel } from './todo-format';
 const inputClass =
   'w-full rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]';
 
-// 「显示已完成」是视图偏好：默认打开，用户的选择跨页面切换与重启保留。
 const showCompletedStorageKey = 'dela.todo.show-completed';
 
 // 行尾操作图标：始终占位避免悬停时行内容位移，悬停/键盘聚焦时浮现，触屏常显。
@@ -220,7 +219,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
     try {
       localStorage.setItem(showCompletedStorageKey, String(showCompleted));
     } catch {
-      /* localStorage 不可用时仅保留本次会话的选择。 */
+      return;
     }
   }, [showCompleted]);
   useEffect(() => {
