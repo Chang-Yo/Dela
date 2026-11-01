@@ -32,7 +32,15 @@ export function lessonOccurrences(
     endAt: string;
     location: string | null;
   }[] = [];
-  if (!semesterStart) return { items, warnings: ['缺少学期开始日期，无法将课程转换为实际日期'] };
+  if (!semesterStart)
+    return {
+      items,
+      warnings: [
+        lessons.length
+          ? `已缓存 ${lessons.length} 条课程安排，但缺少学期开始日期，无法换算成具体日期`
+          : '缺少学期开始日期，无法将课程转换为实际日期',
+      ],
+    };
   const date = new Date(`${semesterStart}T00:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== semesterStart)
     return { items, warnings: ['学期开始日期无效'] };

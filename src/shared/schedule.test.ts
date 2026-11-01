@@ -60,4 +60,16 @@ describe('campus lesson dates', () => {
         .warnings,
     ).toEqual(['学期开始日期无效']);
   });
+  it('reports how many cached lessons are waiting for a semester start date', () => {
+    const result = lessonOccurrences(
+      [lesson, { ...lesson, id: 2 }],
+      null,
+      '2026-10-26T00:00:00Z',
+      '2026-11-02T00:00:00Z',
+    );
+    expect(result.items).toEqual([]);
+    expect(result.warnings).toEqual([
+      '已缓存 2 条课程安排，但缺少学期开始日期，无法换算成具体日期',
+    ]);
+  });
 });

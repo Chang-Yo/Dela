@@ -58,6 +58,17 @@ function shanghaiDayToUtc(date: string, edge: 'start' | 'end'): string {
   return new Date(utcMillis - 8 * 3600000).toISOString();
 }
 
+/** 给能查到但用不了的缺口补上下一步动作；未识别的警告原样返回。 */
+export function withNextStep(warning: string): string {
+  if (warning.startsWith('该学期课表尚未同步'))
+    return '该学期课表尚未同步，请提示用户到课表页面点击同步';
+  if (warning.includes('缺少学期开始日期'))
+    return `${warning}，请提示用户到课表页面设置开学日期（开学第一周的周一）`;
+  if (warning.includes('学期开始日期无效'))
+    return `${warning}，请提示用户到课表页面重新设置开学日期`;
+  return warning;
+}
+
 export const queryScheduleTool = tool(
   '查询时间范围内的课程与个人事件（只读本地缓存，按 Asia/Shanghai 展开周次）。优先传 startDate/endDate（YYYY-MM-DD，按上海时区解释为当日全天）；也可传 startAt/endAt（UTC ISO 8601）。semester 可选（格式 YYYY-YYYY-[123]），缺省按本机时钟取当前学期。学期未同步或缺学期开始日期时 coverage 带警告；课程与个人事件以 source 字段区分。',
   queryScheduleInput,
@@ -71,12 +82,8 @@ export const queryScheduleTool = tool(
       startAt,
       endAt,
     });
-    // 强化未同步警告：给出可执行的下一步，而不只是陈述缺口。
-    const warnings = result.coverage.warnings.map((warning) =>
-      warning === '该学期课表尚未同步'
-        ? '该学期课表尚未同步，请提示用户到课表页面点击同步'
-        : warning,
-    );
+    // 把缺口翻译成下一步动作，否则调用方只能看到空结果和一句陈述。
+    const warnings = result.coverage.warnings.map(withNextStep);
     return {
       semester: result.semester,
       timezone: result.timezone,

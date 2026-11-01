@@ -81,6 +81,26 @@ describe('query_schedule', () => {
     expect(result.coverage.warnings[0]).toContain('请提示用户到课表页面');
   });
 
+  it('turns a missing semester start date into the next step instead of a bare gap', async () => {
+    schedule.mockReturnValue({
+      semester: '2026-2027-1',
+      timezone: 'Asia/Shanghai',
+      items: [],
+      coverage: {
+        courseSyncedAt: '2026-10-28T15:59:27.788Z',
+        complete: false,
+        warnings: ['已缓存 20 条课程安排，但缺少学期开始日期，无法换算成具体日期'],
+      },
+    });
+    const result = (await timetableTools.query_schedule.execute({
+      startDate: '2026-11-02',
+      endDate: '2026-11-08',
+    })) as { coverage: { complete: boolean; warnings: string[] } };
+    expect(result.coverage.complete).toBe(false);
+    expect(result.coverage.warnings[0]).toContain('已缓存 20 条课程安排');
+    expect(result.coverage.warnings[0]).toContain('请提示用户到课表页面设置开学日期');
+  });
+
   it('rejects mixed, missing or unordered time inputs at the schema layer', () => {
     // schema 校验失败同步抛出（registry 映射为 INVALID_INPUT）。
     expect(() =>
