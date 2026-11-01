@@ -118,7 +118,8 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   const finishSync = useCallback(
     async (requested?: string) => {
       const next = await loadSemester(requested);
-      if (next && !next.semesterStart) await suggestSemesterStart(next.semester);
+      // 推断要联网拉录像，不阻塞同步结果：弹窗在上面的数据刷新完后再出现。
+      if (next && !next.semesterStart) void suggestSemesterStart(next.semester);
     },
     [loadSemester, suggestSemesterStart],
   );
