@@ -63,7 +63,7 @@ export function withNextStep(warning: string): string {
   if (warning.startsWith('该学期课表尚未同步'))
     return '该学期课表尚未同步，请提示用户到课表页面点击同步';
   if (warning.includes('缺少学期开始日期'))
-    return `${warning}，请提示用户到课表页面设置开学日期（开学第一周的周一）`;
+    return `${warning}，可先调 infer_semester_start 用课堂录像推断，请用户确认后用 set_semester_start 写入，或让用户到课表页面手动设置`;
   if (warning.includes('学期开始日期无效'))
     return `${warning}，请提示用户到课表页面重新设置开学日期`;
   return warning;

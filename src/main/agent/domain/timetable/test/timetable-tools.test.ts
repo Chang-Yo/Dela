@@ -10,20 +10,35 @@ vi.mock('../../../../timetable/api', async () => {
     createCalendarEvent: vi.fn(),
     deleteCalendarEvent: vi.fn(),
     getCalendarEvent: vi.fn(),
+    getTimetableState: vi.fn(),
+    setSemesterStart: vi.fn(),
+    currentSemester: vi.fn(() => '2026-2027-1'),
   };
 });
+
+vi.mock('../../../../vsjtu/api', () => ({
+  listCourses: vi.fn(),
+  listVideos: vi.fn(),
+}));
 
 import {
   createCalendarEvent,
   deleteCalendarEvent,
   getCalendarEvent,
+  getTimetableState,
   querySchedule,
+  setSemesterStart,
 } from '../../../../timetable/api';
+import { listCourses, listVideos } from '../../../../vsjtu/api';
 
 const schedule = vi.mocked(querySchedule);
 const createEvent = vi.mocked(createCalendarEvent);
 const deleteEvent = vi.mocked(deleteCalendarEvent);
 const getEvent = vi.mocked(getCalendarEvent);
+const state = vi.mocked(getTimetableState);
+const writeStart = vi.mocked(setSemesterStart);
+const courses = vi.mocked(listCourses);
+const videos = vi.mocked(listVideos);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -98,7 +113,8 @@ describe('query_schedule', () => {
     })) as { coverage: { complete: boolean; warnings: string[] } };
     expect(result.coverage.complete).toBe(false);
     expect(result.coverage.warnings[0]).toContain('已缓存 20 条课程安排');
-    expect(result.coverage.warnings[0]).toContain('请提示用户到课表页面设置开学日期');
+    expect(result.coverage.warnings[0]).toContain('infer_semester_start');
+    expect(result.coverage.warnings[0]).toContain('set_semester_start');
   });
 
   it('rejects mixed, missing or unordered time inputs at the schema layer', () => {
@@ -121,6 +137,67 @@ describe('query_schedule', () => {
     expect(() =>
       timetableTools.query_schedule.execute({ startDate: '2026-02-30', endDate: '2026-03-01' }),
     ).toThrow('日期不存在');
+  });
+});
+
+describe('semester start', () => {
+  beforeEach(() => {
+    state.mockReturnValue({
+      semester: '2026-2027-1',
+      lastSyncedAt: '2026-10-28T15:59:27.788Z',
+      semesterStart: null,
+    });
+  });
+
+  it('infers a candidate from the earliest recordings without writing it', async () => {
+    courses.mockResolvedValue([
+      { id: 1, code: 'CHN2800J', name: '中国现代文学概述' },
+      { id: 2, code: 'PHYS2500J', name: '普通物理（2）' },
+    ]);
+    videos.mockImplementation(async (courseId: number) =>
+      courseId === 1
+        ? [{ id: 11, start: '2026-09-14 11:50:20', end: '', room: '', period: '5' }]
+        : [{ id: 21, start: '2026-09-15 16:00:00', end: '', room: '', period: '9' }],
+    );
+    const result = (await timetableTools.infer_semester_start.execute({})) as {
+      candidate: string | null;
+      confidence: string;
+      written: boolean;
+      checkedCourses: number;
+    };
+    expect(result.candidate).toBe('2026-09-14');
+    expect(result.confidence).toBe('high');
+    expect(result.written).toBe(false);
+    expect(result.checkedCourses).toBe(2);
+    expect(writeStart).not.toHaveBeenCalled();
+  });
+
+  it('fails loudly when every course recording cannot be read', async () => {
+    courses.mockResolvedValue([{ id: 1, code: 'CHN2800J', name: '中国现代文学概述' }]);
+    videos.mockRejectedValue(new Error('登录已失效，请重新登录'));
+    await expect(timetableTools.infer_semester_start.execute({})).rejects.toThrow(
+      '无法推断开学日期',
+    );
+  });
+
+  it('writes a confirmed date and flags a non-Monday input', () => {
+    const result = timetableTools.set_semester_start.execute({ date: '2026-09-15' }) as {
+      written: boolean;
+      weekday: number;
+      weekOne: { start: string; end: string };
+      warning?: string;
+    };
+    expect(writeStart).toHaveBeenCalledWith('2026-2027-1', '2026-09-15');
+    expect(result.written).toBe(true);
+    expect(result.weekday).toBe(2);
+    expect(result.weekOne).toEqual({ start: '2026-09-14', end: '2026-09-20' });
+    expect(result.warning).toContain('不是周一');
+  });
+
+  it('rejects impossible calendar dates', () => {
+    expect(() => timetableTools.set_semester_start.execute({ date: '2026-02-30' })).toThrow(
+      '日期不存在',
+    );
   });
 });
 

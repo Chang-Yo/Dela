@@ -11,6 +11,10 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
+## Unreleased
+
+- 新增课表缺开学日期时的补救链路：`query_schedule` 报告已缓存的课程条数与下一步，Agent 可用课堂录像推断候选开学日期，经用户确认后写入本地课表。
+
 ## 2.3.0 - 2026-11-01
 
 - 修复课堂视频遗漏仅在课程点播列表中可见的课程，课表非空时也合并本学期点播课程。
