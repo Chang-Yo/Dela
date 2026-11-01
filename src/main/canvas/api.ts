@@ -589,6 +589,25 @@ export async function canvasFilePath(id: string): Promise<string> {
   return (await cachedFile(source)).path;
 }
 
+/** 正文里的课程文件链接未必在已同步的目录树中（隐藏的文件页或文件夹）：按链接现取文件信息。 */
+export async function linkedCanvasFile(url: URL): Promise<StoredSource | null> {
+  const match =
+    url.origin === origin ? url.pathname.match(/^\/courses\/(\d+)\/files\/(\d+)(?:\/|$)/) : null;
+  if (!match) return null;
+  const fileId = Number(match[2]);
+  const metadata = row(await (await request(`files/${fileId}`)).json());
+  return {
+    id: `file:${fileId}`,
+    courseId: Number(match[1]),
+    title: str(metadata.display_name) || str(metadata.filename) || `文件 ${fileId}`,
+    kind: 'file',
+    fileId,
+    mime: str(metadata['content-type']),
+    size: num(metadata.size),
+    updatedAt: str(metadata.updated_at) || null,
+  };
+}
+
 /** 受限预览协议的解析入口：返回 Canvas 文件的缓存路径，只放行 PDF 与可识别的 OOXML。 */
 export async function canvasPreviewPath(id: string): Promise<string> {
   const source = getSource(z.string().max(512).parse(id));

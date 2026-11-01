@@ -18,8 +18,19 @@ import {
   cachedCourseFiles,
   readCanvasSource,
   archiveCanvasCourse,
+  linkedCanvasFile,
+  type StoredSource,
 } from './api';
 import type { CanvasState } from '../../shared/api';
+
+async function saveSourceAs(source: StoredSource) {
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    defaultPath: source.title.replace(/[<>:"/\\|?*]/g, '_'),
+  });
+  if (canceled || !filePath) return;
+  const file = await cachedFile(source);
+  await copyFile(file.path, filePath);
+}
 
 export function registerCanvasIpc() {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
@@ -46,15 +57,7 @@ export function registerCanvasIpc() {
     archiveCanvasCourse(z.number().int().positive().parse(id), z.boolean().parse(archived)),
   );
   handle('read', (id) => readCanvasSource(z.string().max(512).parse(id)));
-  handle('download', async (id) => {
-    const source = getSource(z.string().parse(id));
-    const { canceled, filePath } = await dialog.showSaveDialog({
-      defaultPath: source.title.replace(/[<>:"/\\|?*]/g, '_'),
-    });
-    if (canceled || !filePath) return;
-    const file = await cachedFile(source);
-    await copyFile(file.path, filePath);
-  });
+  handle('download', (id) => saveSourceAs(getSource(z.string().parse(id))));
   handle('reveal', async (id) => {
     const source = getSource(z.string().parse(id));
     if (source.kind !== 'file') throw new Error('资料不是文件');
@@ -64,6 +67,8 @@ export function registerCanvasIpc() {
     const url = new URL(z.string().max(8192).parse(value));
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
       throw new Error('不支持的链接');
+    const file = await linkedCanvasFile(url);
+    if (file) return saveSourceAs(file);
     if (!openShuiyuanLinkInApp(url.href)) await shell.openExternal(url.href);
   });
   handle('cached-files', () => cachedCourseFiles());
