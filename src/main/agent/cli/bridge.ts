@@ -1,5 +1,5 @@
 import type { AgentTool } from '../domain/shared';
-import type { FlagSpec } from './flags';
+import type { FlagSpec, ParseResult } from './flags';
 import { flagsFromSchema, formatHelp, parseArgv } from './flags';
 
 export type DomainEntry = { description: string; commands: Record<string, AgentTool> };
@@ -8,6 +8,8 @@ export type CliResult = { status: number; body: string };
 
 export type CliDeps = {
   domains: Record<string, DomainEntry>;
+  /** 关掉的功能不列进 help（执行时另有开关检查）。 */
+  visible?: (domain: string) => boolean;
   execute: (name: string, input: unknown) => Promise<unknown>;
 };
 
@@ -27,6 +29,15 @@ const fail = (error: string, status = 400): CliResult => ({
   body: JSON.stringify({ ok: false, error }),
 });
 
+/** 旧的 dela <命令> '<JSON>' 写法：第二个参数是一段 JSON。 */
+function legacyInput(raw: string): ParseResult {
+  try {
+    return { ok: true, input: JSON.parse(raw) as Record<string, unknown> };
+  } catch {
+    return { ok: false, error: `参数需要合法 JSON，收到 ${raw}` };
+  }
+}
+
 function commandIndex(domains: Record<string, DomainEntry>) {
   const index = new Map<string, { domain: string; name: string; tool: AgentTool }>();
   for (const [domain, entry] of Object.entries(domains))
@@ -35,9 +46,12 @@ function commandIndex(domains: Record<string, DomainEntry>) {
   return index;
 }
 
-function overview(domains: Record<string, DomainEntry>) {
+const listedDomains = (deps: CliDeps) =>
+  Object.entries(deps.domains).filter(([domain]) => deps.visible?.(domain) ?? true);
+
+function overview(deps: CliDeps) {
   const lines = ['用法：dela <域> <命令> [参数]', ''];
-  for (const [domain, entry] of Object.entries(domains)) {
+  for (const [domain, entry] of listedDomains(deps)) {
     lines.push(`${domain}  ${entry.description}`);
     for (const [name, tool] of Object.entries(entry.commands))
       lines.push(`  ${name.padEnd(28)}${tool.description.split('。')[0]}`);
@@ -46,15 +60,16 @@ function overview(domains: Record<string, DomainEntry>) {
   return lines.join('\n');
 }
 
-/** 解析 `dela <域> <命令> [--flag 值]`；只接受 NUL 分隔后的参数数组。 */
+/** 解析 `dela <域> <命令> [--flag 值]`，以及旧的 `dela <命令> '<JSON>'`；只接受 NUL 分隔后的参数数组。 */
 export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> {
-  // dela help 与 dela <域> <命令> --help 都落到帮助文本，旧写法的 JSON Schema 列表仍在 JSON 通道里。
+  // dela help 与 dela <域> <命令> --help 都落到帮助文本。
   const wantsHelp = ['help', '--help', '-h'].includes(argv[0] ?? '');
-  const [first, second, ...rest] = wantsHelp ? argv.slice(1) : argv;
+  const tokens = wantsHelp ? argv.slice(1) : argv;
+  const [first, second, ...tail] = tokens;
   const index = commandIndex(deps.domains);
-  if (!first) return text(overview(deps.domains));
+  if (!first) return text(overview(deps));
 
-  const inDomain = deps.domains[first];
+  const inDomain = deps.visible?.(first) === false ? undefined : deps.domains[first];
   if (inDomain && !second) {
     const usage = Object.entries(inDomain.commands)
       .map(([name, tool]) => `  dela ${first} ${name}\n      ${tool.description}`)
@@ -69,11 +84,16 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
     return fail(`命令不存在：${argv.slice(0, 2).join(' ')}；可用 dela help 查看全部命令`, 404);
 
   const { domain, name, tool } = resolved;
+  // 带域时命令名占掉了第二个参数，不带域时它属于参数本身。
+  const args = inDomain ? tail : tokens.slice(1);
   const flags = flagsOf(name, tool);
-  if (wantsHelp || rest.includes('--help') || rest.includes('-h'))
+  if (wantsHelp || args.includes('--help') || args.includes('-h'))
     return text(formatHelp(`${domain} ${name}`, tool.description, flags));
 
-  const parsed = parseArgv(rest, flags);
+  const parsed =
+    !inDomain && args.length === 1 && args[0]!.startsWith('{')
+      ? legacyInput(args[0]!)
+      : parseArgv(args, flags);
   if (!parsed.ok) return fail(parsed.error);
 
   try {

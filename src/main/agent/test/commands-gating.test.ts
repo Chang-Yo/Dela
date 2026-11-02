@@ -26,6 +26,19 @@ beforeEach(() => {
   flags.shuiyuan = true;
 });
 
+/** 子命令写法：参数以 NUL 分隔经请求体递出。 */
+async function cli(...argv: string[]) {
+  const response = await fetch(bridge.url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${bridge.token}`,
+      'Content-Type': 'application/octet-stream',
+    },
+    body: Buffer.from(`${argv.join('\0')}\0`, 'utf8'),
+  });
+  return response.text();
+}
+
 async function run(command: string, input: unknown = {}) {
   const response = await fetch(bridge.url, {
     method: 'POST',
@@ -36,12 +49,11 @@ async function run(command: string, input: unknown = {}) {
 }
 
 it('hides and rejects shuiyuan commands while the feature is off', async () => {
-  const names = async () =>
-    ((await run('help')).result as { name: string }[]).map((item) => item.name);
-  expect(await names()).toContain('search_shuiyuan_topics');
+  expect(await cli('help')).toContain('search_shuiyuan_topics');
   flags.shuiyuan = false;
-  expect(await names()).not.toContain('search_shuiyuan_topics');
-  expect(await names()).toContain('query_todos');
+  expect(await cli('help')).not.toContain('search_shuiyuan_topics');
+  expect(await cli('help')).toContain('query_todos');
+  expect(await cli('shuiyuan')).toContain('命令不存在');
   const result = await run('search_shuiyuan_topics', { query: '数据结构' });
   expect(result).toMatchObject({ ok: false, error: '水源功能已关闭' });
 });

@@ -64,21 +64,6 @@ const domainEntries: Record<string, { description: string; commands: Record<stri
   );
 
 async function executeDomainCommand(name: string, input: unknown) {
-  if (name === 'help') {
-    const selected =
-      typeof input === 'object' && input !== null && 'command' in input
-        ? String(input.command)
-        : '';
-    const shuiyuanOff = !experimentEnabled('shuiyuan');
-    return Object.entries(commands)
-      .filter(([name]) => !shuiyuanOff || !Object.hasOwn(shuiyuanTools, name))
-      .filter(([name]) => !selected || name === selected)
-      .map(([name, command]) => ({
-        name,
-        description: command.description,
-        parameters: z.toJSONSchema(command.schema, { io: 'input' }),
-      }));
-  }
   if (!Object.hasOwn(commands, name)) throw new Error(`命令不存在：${name}，请使用 dela help`);
   if (Object.hasOwn(shuiyuanTools, name)) assertShuiyuanEnabled();
   return commands[name]!.execute(input);
@@ -106,10 +91,10 @@ export async function startDomainBridge() {
         chunks.push(chunk as Buffer);
       }
       const body = Buffer.concat(chunks);
-      // 子命令写法走 NUL 分隔的参数数组；旧的 '<JSON>' 写法仍是 JSON 请求体。
       if (request.headers['content-type'] === 'application/octet-stream') {
         const result = await runCli(splitArgv(body), {
           domains: domainEntries,
+          visible: (domain) => domain !== 'shuiyuan' || experimentEnabled('shuiyuan'),
           execute: executeDomainCommand,
         });
         response.writeHead(result.status).end(result.body);

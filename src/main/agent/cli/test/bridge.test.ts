@@ -65,6 +65,23 @@ describe('子命令解析', () => {
     expect(result).toEqual({ status: 500, body: '{"ok":false,"error":"待办不存在"}' });
   });
 
+  it("旧的 dela <命令> '<JSON>' 写法仍把 JSON 交给命令", async () => {
+    const execute = vi.fn(async () => ({}));
+    await run(['save', '{"title":"旧写法"}'], execute);
+    expect(execute).toHaveBeenCalledWith('save', { title: '旧写法' });
+    const broken = await run(['save', '{title:'], execute);
+    expect(broken.status).toBe(400);
+    expect(broken.body).toContain('参数需要合法 JSON');
+  });
+
+  it('不带域时多余的位置参数不静默丢掉', async () => {
+    const execute = vi.fn(async () => ({}));
+    const result = await run(['save', 'x'], execute);
+    expect(result.status).toBe(400);
+    expect(result.body).toContain('多余参数 x');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('NUL 分隔的请求体还原成参数数组', () => {
     expect(splitArgv(Buffer.from('todo\0save\0--title\0交作业\0', 'utf8'))).toEqual([
       'todo',
