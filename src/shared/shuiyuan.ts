@@ -91,6 +91,8 @@ export interface ShuiyuanTopicDetail {
   readonly categoryId: number | null;
   readonly tags: readonly string[];
   readonly postsCount: number;
+  /** 最大楼号；删楼后会大于 postsCount，楼层进度按它换算。 */
+  readonly highestPostNumber: number;
   readonly likeCount: number | null;
   readonly views: number | null;
   readonly createdAt: string;
@@ -179,6 +181,9 @@ export interface ShuiyuanUpload {
   readonly shortUrl: string;
   readonly url: string | null;
   readonly originalFilename: string | null;
+  /** 图片的显示尺寸（Discourse thumbnail_width/height），写进 `![名|宽x高]` 供站点排版。 */
+  readonly width: number | null;
+  readonly height: number | null;
 }
 
 export interface ShuiyuanApi {

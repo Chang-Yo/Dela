@@ -9,7 +9,7 @@ import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
 import { useEditorSettings } from '../editor-settings';
 import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
-import { markdownLivePreview } from './live-preview';
+import { markdownLivePreview, type ImageResolver } from './live-preview';
 import { formatByName } from '../../../shared/files';
 
 const editorTheme = EditorView.theme({
@@ -118,6 +118,7 @@ export function MarkdownEditor({
   livePreview,
   readOnly = false,
   extensions: extraExtensions = [],
+  alwaysWrap = false,
 }: {
   value: string;
   filename?: string;
@@ -136,17 +137,19 @@ export function MarkdownEditor({
   /** 传入后在切换标签时保留撤销历史、光标和滚动位置。每个编辑器组应使用不同值。 */
   editorStateKey?: string;
   /** Markdown 即时渲染：传入相对图片的显示地址解析；不传为纯源码。仅取初值。 */
-  livePreview?: (src: string) => string;
+  livePreview?: ImageResolver;
   /** 只读：仍可聚焦、搜索与复制（超过编辑上限或远端文件）。 */
   readOnly?: boolean;
   /** 调用方附加的扩展（如 Markdown 文件的图片粘贴）；仅取初值。 */
   extensions?: Extension[];
+  /** 无视全局换行设置始终自动换行（水源回复等撰写框）。 */
+  alwaysWrap?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const instanceKey = useRef(editorStateKey ?? `markdown-editor-${nextEditorId++}`).current;
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
-  const wordWrap = useEditorSettings((state) => state.wordWrap);
+  const wordWrap = useEditorSettings((state) => state.wordWrap) || alwaysWrap;
   const handlersRef = useRef({ onChange, onSave, onScroll });
   handlersRef.current = { onChange, onSave, onScroll };
   const latestValue = useRef(value);

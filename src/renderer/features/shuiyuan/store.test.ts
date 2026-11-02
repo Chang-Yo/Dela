@@ -58,6 +58,7 @@ function makeDetail(id: number, posts: ShuiyuanPost[]): ShuiyuanTopicDetail {
     categoryId: null,
     tags: [],
     postsCount: posts.length,
+    highestPostNumber: posts.at(-1)?.postNumber ?? 0,
     likeCount: null,
     views: null,
     createdAt: '2026-01-01T00:00:00Z',
@@ -188,5 +189,67 @@ describe('setLiked 失败回滚', () => {
     expect(state.reading?.detail?.id).toBe(2);
     expect(state.reading?.detail?.posts.find((post) => post.id === 21)?.liked).toBe(false);
     expect(state.listError).toBeNull();
+  });
+});
+
+describe('楼层分段加载', () => {
+  /** 60 楼长帖，只加载了深链落点附近的 30–40 楼。 */
+  function deepLinkedReading() {
+    const all = Array.from({ length: 60 }, (_, index) => makePost(index + 1));
+    const detail = { ...makeDetail(1, all.slice(29, 40)), stream: all.map((post) => post.id) };
+    return { topicId: 1, postNumber: 35, detail, loading: false, error: null };
+  }
+
+  function stubLoadPosts() {
+    const loadPosts = vi.fn(async (_topicId: number, ids: readonly number[]) =>
+      ids.map((id) => makePost(id)),
+    );
+    vi.stubGlobal('window', { dela: { shuiyuan: { loadPosts } } });
+    return loadPosts;
+  }
+
+  it('深链进入后向下补楼取已加载段之后的楼层，而不是从首楼开始', async () => {
+    const loadPosts = stubLoadPosts();
+    const { useShuiyuan } = await import('./store');
+    useShuiyuan.setState({ reading: deepLinkedReading() });
+    await useShuiyuan.getState().loadMorePosts('after');
+    expect(loadPosts.mock.calls[0]?.[1]).toEqual(Array.from({ length: 20 }, (_, i) => 41 + i));
+    const numbers = useShuiyuan.getState().reading?.detail?.posts.map((post) => post.postNumber);
+    expect(numbers).toEqual(Array.from({ length: 31 }, (_, i) => 30 + i));
+  });
+
+  it('向上补楼取紧邻已加载段之前的一批', async () => {
+    const loadPosts = stubLoadPosts();
+    const { useShuiyuan } = await import('./store');
+    useShuiyuan.setState({ reading: deepLinkedReading() });
+    await useShuiyuan.getState().loadMorePosts('before');
+    expect(loadPosts.mock.calls[0]?.[1]).toEqual(Array.from({ length: 20 }, (_, i) => 10 + i));
+    expect(useShuiyuan.getState().reading?.detail?.posts[0]?.postNumber).toBe(10);
+  });
+
+  it('已加载段未到末尾时，新回复只登记进 stream，不跨断档追加', async () => {
+    const reply = makePost(61);
+    vi.stubGlobal('window', { dela: { shuiyuan: { createReply: async () => reply } } });
+    const { useShuiyuan } = await import('./store');
+    useShuiyuan.setState({ reading: deepLinkedReading() });
+    await useShuiyuan.getState().submitReply('回复');
+    const detail = useShuiyuan.getState().reading?.detail;
+    expect(detail?.posts.at(-1)?.postNumber).toBe(40);
+    expect(detail?.stream.at(-1)).toBe(61);
+    expect(detail?.highestPostNumber).toBe(61);
+  });
+
+  it('跳楼请求期间切帖则丢弃返回的楼层段', async () => {
+    let resolveTopic: (detail: ShuiyuanTopicDetail) => void = () => {};
+    const getTopic = () => new Promise<ShuiyuanTopicDetail>((resolve) => (resolveTopic = resolve));
+    vi.stubGlobal('window', { dela: { shuiyuan: { getTopic } } });
+    const { useShuiyuan } = await import('./store');
+    useShuiyuan.setState({ reading: deepLinkedReading() });
+    const jumping = useShuiyuan.getState().loadPostWindow(55);
+    const other = { ...deepLinkedReading(), topicId: 2, detail: makeDetail(2, [makePost(1)]) };
+    useShuiyuan.setState({ reading: other });
+    resolveTopic(makeDetail(1, [makePost(55)]));
+    await jumping;
+    expect(useShuiyuan.getState().reading).toBe(other);
   });
 });

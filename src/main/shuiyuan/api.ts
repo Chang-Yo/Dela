@@ -289,6 +289,7 @@ const rawTopicListSchema = z
   .passthrough();
 
 const rawDetailSchema = rawTopicSchema.extend({
+  highest_post_number: z.number().nullish(),
   post_stream: z
     .object({
       stream: z.array(z.number()).nullish(),
@@ -375,7 +376,8 @@ function mapPost(raw: z.infer<typeof rawPostSchema>): ShuiyuanPost {
   return {
     id: raw.id,
     postNumber: raw.post_number,
-    username: raw.display_username || raw.username,
+    // 引用、@ 与回复目标都要站点用户名；display_username 可能是显示名。
+    username: raw.username,
     name: raw.name ?? null,
     avatarTemplate: raw.avatar_template ?? null,
     createdAt: raw.created_at ?? '',
@@ -562,6 +564,7 @@ export async function getShuiyuanTopic(
     categoryId: parsed.category_id ?? null,
     tags: parsed.tags ?? [],
     postsCount: parsed.posts_count ?? 0,
+    highestPostNumber: parsed.highest_post_number ?? parsed.posts_count ?? 0,
     likeCount: parsed.like_count ?? null,
     views: parsed.views ?? null,
     createdAt: parsed.created_at ?? '',
@@ -715,6 +718,8 @@ const rawUploadSchema = z
     short_url: z.string().min(1).nullish(),
     url: z.string().min(1).nullish(),
     original_filename: z.string().nullish(),
+    thumbnail_width: z.number().nullish(),
+    thumbnail_height: z.number().nullish(),
   })
   .passthrough();
 
@@ -773,6 +778,8 @@ export async function createShuiyuanUpload(
     shortUrl,
     url: parsed.data.url ?? null,
     originalFilename: parsed.data.original_filename ?? fileName,
+    width: parsed.data.thumbnail_width ?? null,
+    height: parsed.data.thumbnail_height ?? null,
   };
 }
 
