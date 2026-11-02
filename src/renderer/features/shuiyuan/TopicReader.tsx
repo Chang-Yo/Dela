@@ -228,7 +228,7 @@ export function TopicReader() {
   const span = detail ? loadedSpan(detail) : null;
   const hasBefore = span ? span.first > 0 : false;
   const hasAfter = detail && span ? span.last < detail.stream.length - 1 : false;
-  const totalCount = detail?.postsCount ?? 0;
+  const totalCount = detail?.highestPostNumber ?? 0;
 
   const recordFirstPost = () => {
     const root = scrollRef.current;

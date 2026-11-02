@@ -430,7 +430,6 @@ export const useShuiyuan = create<Store>((set, get) => {
           ...reading,
           detail: {
             ...detail,
-            postsCount: Math.max(detail.postsCount, post.postNumber),
             highestPostNumber: Math.max(detail.highestPostNumber, post.postNumber),
             posts: reachesEnd ? [...detail.posts, post] : detail.posts,
             stream: detail.stream.includes(post.id) ? detail.stream : [...detail.stream, post.id],
