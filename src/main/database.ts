@@ -144,7 +144,9 @@ const schema: string[] = [
     created_at TEXT NOT NULL,
     read_at TEXT,
     source_unread INTEGER NOT NULL DEFAULT 1,
-    href TEXT NOT NULL
+    href TEXT NOT NULL,
+    category TEXT,
+    count INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS idx_notifications_account_source_created
     ON notifications (account_key, source, created_at DESC)`,

@@ -127,15 +127,17 @@ it('v7→v8：保留原通知与已读状态，允许教务处来源', () => {
   expect(runMigrations({ userData, seal }, 8)).toBe(1);
   const db = new Database(dbPath());
   expect(db.pragma('user_version', { simple: true })).toBe(8);
-  expect(db.prepare('SELECT title, read_at FROM notifications').get()).toEqual({
+  expect(db.prepare('SELECT title, read_at, category, count FROM notifications').get()).toEqual({
     title: '原通知',
     read_at: '2026-10-02',
+    category: null,
+    count: 1,
   });
   expect(db.prepare('SELECT last_success_at FROM notification_refreshes').get()).toEqual({
     last_success_at: '2026-10-01',
   });
   db.prepare(
-    "INSERT INTO notifications VALUES ('new', 'jwc', 'students', '新通知', '', '2026-11-01', NULL, 1, '{}')",
+    "INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href) VALUES ('new', 'jwc', 'students', '新通知', '', '2026-11-01', NULL, 1, '{}')",
   ).run();
   db.prepare("INSERT INTO notification_refreshes VALUES ('jwc', 'students', NULL, NULL)").run();
   db.close();
