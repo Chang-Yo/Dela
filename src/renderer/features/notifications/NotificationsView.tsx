@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { JwcNoticeView } from './JwcNoticeView';
+import { groupNotifications, likeGroupSummary } from './group-notifications';
 import { useNotificationSourceFilter } from './source-filter';
 import {
   DropdownMenu,
@@ -34,6 +35,7 @@ type NotificationsViewProps = {
   error: string | null;
   onRefresh: () => void;
   onMarkRead: (id: string) => void;
+  onMarkGroupRead: (ids: string[]) => void;
   onMarkAllRead: () => void;
   onSnooze: (until: string | null) => void;
   onOpen: (item: NotificationItem) => void;
@@ -82,6 +84,71 @@ function SourceIcon({ source }: { source: NotificationItem['source'] }) {
   return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-3" />;
 }
 
+function LikeGroupRow({
+  items,
+  loading,
+  onMarkGroupRead,
+  onOpen,
+}: {
+  items: NotificationItem[];
+  loading: boolean;
+  onMarkGroupRead: (ids: string[]) => void;
+  onOpen: (item: NotificationItem) => void;
+}) {
+  const latest = items[0]!;
+  const unreadIds = items.filter((item) => !item.readAt).map((item) => item.id);
+  const unread = unreadIds.length > 0;
+  return (
+    <article className="relative rounded-card transition-colors duration-150 hover:bg-hover">
+      <button
+        className={cn(
+          'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+          unread && 'pr-14',
+        )}
+        onClick={() => onOpen(latest)}
+        type="button"
+      >
+        <SourceIcon source="shuiyuan" />
+        <span className="min-w-0 flex-1">
+          <span
+            className={
+              unread
+                ? 'block break-words text-13 font-semibold'
+                : 'block break-words text-13 font-normal'
+            }
+          >
+            {latest.title}
+          </span>
+          <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3">
+            {likeGroupSummary(items)}
+          </span>
+          <span className="mt-2 block text-xs tabular-nums text-ink-3">
+            水源 · {formatTime(latest.createdAt)}
+          </span>
+        </span>
+        {unread ? (
+          <span className="mt-1 shrink-0 rounded-full bg-inset px-2 text-xs tabular-nums text-ink">
+            {unreadIds.length} 未读
+          </span>
+        ) : null}
+      </button>
+      {unread ? (
+        <Button
+          aria-label={`将“${latest.title}”的 ${unreadIds.length} 条点赞标为已读`}
+          className="absolute top-2.5 right-2.5"
+          disabled={loading}
+          onClick={() => onMarkGroupRead(unreadIds)}
+          size="icon-sm"
+          title="标为已读"
+          variant="ghost"
+        >
+          <Check className="size-4" />
+        </Button>
+      ) : null}
+    </article>
+  );
+}
+
 export function NotificationsView({
   jwcNotice,
   onCloseJwcNotice,
@@ -90,6 +157,7 @@ export function NotificationsView({
   error,
   onRefresh,
   onMarkRead,
+  onMarkGroupRead,
   onMarkAllRead,
   onSnooze,
   onOpen,
@@ -127,6 +195,7 @@ export function NotificationsView({
     return () => window.clearInterval(timer);
   }, [state]);
   const items = state?.items.filter((item) => sources.includes(item.source)) ?? [];
+  const entries = groupNotifications(items);
   const sourceErrors = state
     ? (Object.entries(state.refresh).flatMap(([source, value]) =>
         value?.error ? [`${filterLabels[source as NotificationSource]}：${value.error}`] : [],
@@ -280,60 +349,73 @@ export function NotificationsView({
             显示最近 {state.items.length} 条，共 {state.totalCount} 条通知。
           </p>
         )}
-        {items.map((item) => (
-          <article
-            className="relative rounded-card transition-colors duration-150 hover:bg-hover"
-            key={item.id}
-          >
-            <button
-              className={cn(
-                'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
-                !item.readAt && 'pr-14',
-              )}
-              onClick={() => onOpen(item)}
-              type="button"
+        {entries.map((entry) => {
+          if (entry.kind === 'group')
+            return (
+              <LikeGroupRow
+                items={entry.items}
+                key={entry.key}
+                loading={loading}
+                onMarkGroupRead={onMarkGroupRead}
+                onOpen={onOpen}
+              />
+            );
+          const item = entry.item;
+          return (
+            <article
+              className="relative rounded-card transition-colors duration-150 hover:bg-hover"
+              key={item.id}
             >
-              <SourceIcon source={item.source} />
-              <span className="min-w-0 flex-1">
-                <span
-                  className={
-                    item.readAt
-                      ? 'block break-words text-13 font-normal'
-                      : 'block break-words text-13 font-semibold'
-                  }
-                >
-                  {item.title}
-                </span>
-                <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3 line-clamp-3">
-                  {item.body}
-                </span>
-                <span className="mt-2 block text-xs tabular-nums text-ink-3">
-                  {filterLabels[item.source]} · {formatTime(item.createdAt)}
-                </span>
-              </span>
-              {!item.readAt ? (
-                <span
-                  aria-label="未读"
-                  className="mt-1 size-2 shrink-0 rounded-full bg-ink"
-                  role="status"
-                />
-              ) : null}
-            </button>
-            {!item.readAt ? (
-              <Button
-                aria-label={`将“${item.title}”标为已读`}
-                className="absolute top-2.5 right-2.5"
-                disabled={loading}
-                onClick={() => onMarkRead(item.id)}
-                size="icon-sm"
-                title="标为已读"
-                variant="ghost"
+              <button
+                className={cn(
+                  'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+                  !item.readAt && 'pr-14',
+                )}
+                onClick={() => onOpen(item)}
+                type="button"
               >
-                <Check className="size-4" />
-              </Button>
-            ) : null}
-          </article>
-        ))}
+                <SourceIcon source={item.source} />
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={
+                      item.readAt
+                        ? 'block break-words text-13 font-normal'
+                        : 'block break-words text-13 font-semibold'
+                    }
+                  >
+                    {item.title}
+                  </span>
+                  <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3 line-clamp-3">
+                    {item.body}
+                  </span>
+                  <span className="mt-2 block text-xs tabular-nums text-ink-3">
+                    {filterLabels[item.source]} · {formatTime(item.createdAt)}
+                  </span>
+                </span>
+                {!item.readAt ? (
+                  <span
+                    aria-label="未读"
+                    className="mt-1 size-2 shrink-0 rounded-full bg-ink"
+                    role="status"
+                  />
+                ) : null}
+              </button>
+              {!item.readAt ? (
+                <Button
+                  aria-label={`将“${item.title}”标为已读`}
+                  className="absolute top-2.5 right-2.5"
+                  disabled={loading}
+                  onClick={() => onMarkRead(item.id)}
+                  size="icon-sm"
+                  title="标为已读"
+                  variant="ghost"
+                >
+                  <Check className="size-4" />
+                </Button>
+              ) : null}
+            </article>
+          );
+        })}
       </section>
     </div>
   );
