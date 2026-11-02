@@ -11,6 +11,12 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
 }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../jwc', () => ({
+  refreshJwc: vi.fn(),
+  getJwcNotice: vi.fn(),
+  getJwcCaptcha: vi.fn(),
+  downloadJwcAttachment: vi.fn(),
+}));
 vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
 vi.mock('../../credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
 vi.mock('../../mail/api', () => ({

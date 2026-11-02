@@ -14,6 +14,7 @@ import { checkWorkspaceSender } from '../ipc';
 import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from '../mail/api';
 import { listShuiyuanNotifications } from '../shuiyuan/api';
 import { experimentEnabled } from '../settings/prefs';
+import { refreshJwc, getJwcNotice, getJwcCaptcha, downloadJwcAttachment } from './jwc';
 import {
   armSystemNotifications,
   isWorkspaceWindow,
@@ -26,6 +27,7 @@ const filterSchema = z.union([
   z.literal('mail'),
   z.literal('shuiyuan'),
   z.literal('todo'),
+  z.literal('jwc'),
 ]);
 const snoozeSchema = z.string().datetime().nullable();
 let activeRefresh: Promise<NotificationState> | null = null;
@@ -48,6 +50,7 @@ function currentAccounts(): ActiveAccount[] {
   const mail = db.prepare('SELECT address FROM mail_accounts ORDER BY id LIMIT 1').get() as
     { address: string } | undefined;
   const accounts: ActiveAccount[] = mail ? [{ source: 'mail', key: mail.address }] : [];
+  accounts.push({ source: 'jwc', key: 'students' });
   // 水源关闭：不轮询、不展示已有通知，凭据保留。
   if (!experimentEnabled('shuiyuan')) return accounts;
   try {
@@ -91,6 +94,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
     try {
       const href = JSON.parse(row.href) as NotificationItem['href'];
       const knownHref =
+        (href.kind === 'jwc' && typeof href.url === 'string') ||
         (href.kind === 'mail' && typeof href.messageId === 'number') ||
         (href.kind === 'shuiyuan' && typeof href.topicId === 'number');
       if (!knownHref) return [];
@@ -136,7 +140,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
       )?.value ?? null,
     );
   const refresh = Object.fromEntries(
-    (['mail', 'shuiyuan'] as const).map((source) => {
+    (['mail', 'shuiyuan', 'jwc'] as const).map((source) => {
       const key = accountFor(source);
       if (!key) return [source, null];
       const row = db
@@ -321,7 +325,7 @@ export function getNotificationState(filter?: unknown): NotificationState {
   return notificationState(filterSchema.catch('all').parse(filter ?? 'all'));
 }
 
-export function refreshNotifications(): Promise<NotificationState> {
+export function refreshNotifications(force = false): Promise<NotificationState> {
   if (activeRefresh) return activeRefresh;
   activeRefresh = (async () => {
     try {
@@ -330,7 +334,7 @@ export function refreshNotifications(): Promise<NotificationState> {
       const key = accountFor('mail');
       if (key) saveRefresh('mail', key, error instanceof Error ? error.message : String(error));
     }
-    await refreshShuiyuan();
+    await Promise.all([refreshShuiyuan(), refreshJwc(force)]);
     // 首轮刷新构成启动基线；此后新增的通知才弹系统桌面通知。
     armSystemNotifications();
     return broadcast();
@@ -414,13 +418,25 @@ export function setNotificationSnooze(untilInput: unknown): NotificationState {
 }
 
 export function registerNotificationsIpc(): void {
+  ipcMain.handle('notifications:jwc-notice', (event, id) => {
+    checkWorkspaceSender(event);
+    return getJwcNotice(id);
+  });
+  ipcMain.handle('notifications:jwc-captcha', (event, id, attachmentId) => {
+    checkWorkspaceSender(event);
+    return getJwcCaptcha(id, attachmentId);
+  });
+  ipcMain.handle('notifications:jwc-download', (event, token, code) => {
+    checkWorkspaceSender(event);
+    return downloadJwcAttachment(token, code);
+  });
   ipcMain.handle('notifications:get-state', (event, filter) => {
     checkWorkspaceSender(event);
     return getNotificationState(filter);
   });
   ipcMain.handle('notifications:refresh', async (event) => {
     checkWorkspaceSender(event);
-    return refreshNotifications();
+    return refreshNotifications(true);
   });
   ipcMain.handle('notifications:mark-read', (event, id) => {
     checkWorkspaceSender(event);

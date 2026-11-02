@@ -13,6 +13,7 @@ export function useNotifications(active: boolean) {
   const [now, setNow] = useState(Date.now);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jwcNotice, setJwcNotice] = useState<NotificationItem | null>(null);
   /** 订阅与 run() 共用的读取序号：await 落地时序号已前进则结果过期，不得覆盖。 */
   const versionRef = useRef(0);
 
@@ -88,7 +89,18 @@ export function useNotifications(active: boolean) {
     if (!leaveComposer(() => openNotification(item))) return;
     const target = item.href;
     const navigation = useNavigationStore.getState();
-    if (target.kind === 'todo') navigation.openTodo(target.todoId);
+    if (target.kind === 'jwc') {
+      if (new URL(target.url).origin === 'https://jwc.sjtu.edu.cn') {
+        navigation.navigate('notifications');
+        setJwcNotice(item);
+      } else {
+        void window.dela?.canvas
+          .openLink(target.url)
+          .catch((reason) =>
+            showToast({ variant: 'error', title: '打开原文失败', description: errorText(reason) }),
+          );
+      }
+    } else if (target.kind === 'todo') navigation.openTodo(target.todoId);
     else if (target.kind === 'mail') navigation.openMail(target.messageId);
     else navigation.openShuiyuanTopic(target.topicId, target.postNumber ?? undefined);
     if (!item.readAt && window.dela?.notifications) {
@@ -115,5 +127,15 @@ export function useNotifications(active: boolean) {
   const todoUnread =
     notifications?.items.filter((item) => item.source === 'todo' && !item.readAt).length ?? 0;
 
-  return { notifications, count, todoUnread, loading, error, run, openNotification };
+  return {
+    notifications,
+    count,
+    todoUnread,
+    loading,
+    error,
+    run,
+    openNotification,
+    jwcNotice,
+    closeJwcNotice: () => setJwcNotice(null),
+  };
 }

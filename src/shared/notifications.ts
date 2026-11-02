@@ -1,4 +1,4 @@
-export type NotificationSource = 'mail' | 'shuiyuan' | 'todo';
+export type NotificationSource = 'mail' | 'shuiyuan' | 'todo' | 'jwc';
 export type NotificationFilter = 'all' | NotificationSource;
 export interface NotificationItem {
   id: string;
@@ -10,6 +10,7 @@ export interface NotificationItem {
   href:
     | { kind: 'todo'; todoId: string }
     | { kind: 'mail'; messageId: number }
+    | { kind: 'jwc'; url: string }
     | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null };
 }
 export interface NotificationState {
@@ -23,6 +24,12 @@ export interface NotificationState {
   >;
 }
 export interface NotificationsApi {
+  getJwcNotice(id: string): Promise<JwcNotice>;
+  getJwcCaptcha(id: string, attachmentId: string): Promise<{ token: string; image: string }>;
+  downloadJwcAttachment(
+    token: string,
+    code: string,
+  ): Promise<{ status: 'saved' | 'canceled' | 'invalid-code' }>;
   getState(filter?: NotificationFilter): Promise<NotificationState>;
   refresh(): Promise<NotificationState>;
   markRead(id: string): Promise<NotificationState>;
@@ -30,4 +37,13 @@ export interface NotificationsApi {
   setSnooze(until: string | null): Promise<NotificationState>;
   onUpdate(listener: (state: NotificationState) => void): () => void;
   onOpen(listener: (item: NotificationItem) => void): () => void;
+}
+
+export interface JwcNotice {
+  id: string;
+  title: string;
+  publishedAt: string;
+  url: string;
+  html: string;
+  attachments: { id: string; name: string; url: string }[];
 }

@@ -345,6 +345,8 @@ export default function App() {
                   {view === 'todo' && <TodoView request={todoRequest ?? undefined} />}
                   {view === 'notifications' && (
                     <NotificationsView
+                      jwcNotice={notifications.jwcNotice}
+                      onCloseJwcNotice={notifications.closeJwcNotice}
                       state={notifications.notifications}
                       loading={notifications.loading}
                       error={notifications.error}

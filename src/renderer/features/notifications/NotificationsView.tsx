@@ -7,11 +7,13 @@ import {
   Mail,
   RefreshCw,
   SlidersHorizontal,
+  GraduationCap,
 } from 'lucide-react';
 import type { NotificationFilter, NotificationItem, NotificationState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
+import { JwcNoticeView } from './JwcNoticeView';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +26,8 @@ import {
 } from '../../components/ui/dropdown-menu';
 
 type NotificationsViewProps = {
+  jwcNotice: NotificationItem | null;
+  onCloseJwcNotice: () => void;
   state: NotificationState | null;
   loading: boolean;
   error: string | null;
@@ -39,6 +43,7 @@ const filterLabels: Record<NotificationFilter, string> = {
   mail: '邮件',
   shuiyuan: '水源',
   todo: 'TODO',
+  jwc: '教务处',
 };
 
 function formatTime(value: string): string {
@@ -66,12 +71,21 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
 }
 
 function SourceIcon({ source }: { source: NotificationItem['source'] }) {
-  const Icon = source === 'mail' ? Mail : source === 'todo' ? CircleCheckBig : ShuiyuanIcon;
+  const Icon =
+    source === 'mail'
+      ? Mail
+      : source === 'todo'
+        ? CircleCheckBig
+        : source === 'jwc'
+          ? GraduationCap
+          : ShuiyuanIcon;
   return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-3" />;
 }
 
 export function NotificationsView({
-  state,
+  jwcNotice,
+  onCloseJwcNotice,
+  state: allState,
   loading,
   error,
   onRefresh,
@@ -81,6 +95,30 @@ export function NotificationsView({
   onOpen,
 }: NotificationsViewProps) {
   const [filter, setFilter] = useState<NotificationFilter>('all');
+  const [filteredState, setFilteredState] = useState<{
+    filter: NotificationFilter;
+    state: NotificationState;
+  } | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    setFilterError(null);
+    if (filter !== 'all' && window.dela) {
+      void window.dela.notifications.getState(filter).then(
+        (value) => {
+          if (active) setFilteredState({ filter, state: value });
+        },
+        (reason) => {
+          if (active) setFilterError(String(reason));
+        },
+      );
+    }
+    return () => {
+      active = false;
+    };
+  }, [filter, allState]);
+  const state =
+    filter !== 'all' && filteredState?.filter === filter ? filteredState.state : allState;
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     setNow(Date.now());
@@ -96,6 +134,9 @@ export function NotificationsView({
   const snoozed = state?.snoozedUntil && new Date(state.snoozedUntil).getTime() > now;
   // 初始抓取在途（有通知 API、尚无状态且无错误）时按加载态展示，避免闪现“暂不可用”。
   const initialLoading = !state && !error && Boolean(window.dela?.notifications);
+
+  if (jwcNotice)
+    return <JwcNoticeView key={jwcNotice.id} item={jwcNotice} onBack={onCloseJwcNotice} />;
 
   // 隐藏滑块但保留 overflow-y:scroll 的常驻槽位，条目增减不引起内容横向位移。
   return (
@@ -131,12 +172,12 @@ export function NotificationsView({
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button aria-label="筛选通知类型" size="icon-sm" title="筛选通知类型" variant="ghost">
+              <Button aria-label="筛选消息来源" size="icon-sm" title="筛选消息来源" variant="ghost">
                 <SlidersHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>通知类型</DropdownMenuLabel>
+              <DropdownMenuLabel>消息来源</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup
                 onValueChange={(value) => setFilter(value as NotificationFilter)}
@@ -192,12 +233,12 @@ export function NotificationsView({
         </div>
       ) : null}
 
-      {error ? (
+      {error || filterError ? (
         <div
           className="mt-4 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
-          <p>{error}</p>
+          <p>{error || filterError}</p>
           <Button className="mt-2" onClick={onRefresh} size="sm" variant="outline">
             重试
           </Button>
