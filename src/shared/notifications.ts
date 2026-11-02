@@ -1,8 +1,11 @@
 export type NotificationSource = 'mail' | 'shuiyuan' | 'todo' | 'jwc';
 export type NotificationFilter = 'all' | NotificationSource;
+export type NotificationCategory = 'like' | 'reply' | 'mention' | 'message' | 'other';
 export interface NotificationItem {
   id: string;
   source: NotificationSource;
+  category: NotificationCategory | null;
+  count: number;
   title: string;
   body: string;
   createdAt: string;

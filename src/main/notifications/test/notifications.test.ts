@@ -53,10 +53,34 @@ function createDb(): Database.Database {
     CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE mail_folders (id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL, special_use TEXT);
     CREATE TABLE mail_messages (id INTEGER PRIMARY KEY, folder_id INTEGER NOT NULL, subject TEXT, sender_name TEXT, sender_address TEXT, snippet TEXT, date TEXT, seen INTEGER NOT NULL, deleted_at TEXT);
-    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL);
+    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL, category TEXT, count INTEGER NOT NULL DEFAULT 1);
     CREATE TABLE notification_refreshes (source TEXT NOT NULL, account_key TEXT NOT NULL, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
   `);
   return db;
+}
+
+function bindShuiyuan(): void {
+  vi.mocked(loadShuiyuanCredential).mockReturnValue({
+    username: 'dela-user',
+    key: 'test-key',
+    clientId: 'test-client',
+    boundAt: '2026-09-16T00:00:00.000Z',
+  });
+}
+
+function shuiyuanLike(id: number, topicId: number, displayUsername: string, count = 1) {
+  return {
+    id,
+    type: 5,
+    read: false,
+    highPriority: false,
+    count,
+    createdAt: '2026-09-17T00:00:00.000Z',
+    topicId,
+    postNumber: 1,
+    fancyTitle: '我的帖子',
+    displayUsername,
+  };
 }
 
 function insertUnreadInboxMail(db: Database.Database): void {
@@ -191,6 +215,7 @@ describe('local notification inbox', () => {
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-16T00:00:00.000Z',
         topicId: 22,
         postNumber: 3,
@@ -218,6 +243,7 @@ describe('local notification inbox', () => {
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-03T00:00:00.000Z',
         topicId: 22,
         postNumber: 3,
@@ -229,6 +255,7 @@ describe('local notification inbox', () => {
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-11T00:00:00.000Z',
         topicId: 23,
         postNumber: 1,
@@ -257,6 +284,7 @@ describe('local notification inbox', () => {
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-16T00:00:00.000Z',
         topicId: 22,
         postNumber: 3,
@@ -271,6 +299,63 @@ describe('local notification inbox', () => {
     const state = getNotificationState();
     expect(state.items).toHaveLength(1);
     expect(state.refresh.shuiyuan?.error).toBe('network unavailable');
+  });
+
+  it('merges a burst of likes on one topic into a single system toast', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([
+      shuiyuanLike(1, 22, 'alice'),
+      shuiyuanLike(2, 22, 'bob'),
+      shuiyuanLike(3, 22, 'carol'),
+    ]);
+
+    await refreshNotifications();
+    expect(getNotificationState('shuiyuan').items).toHaveLength(3);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(systemNotifyItem).mock.calls[0]![1]).toBe('alice、bob 等 3 人赞了你的帖子');
+  });
+
+  it('joins new likes silently while the topic group still has unread items', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice'), shuiyuanLike(2, 22, 'bob')]);
+
+    await refreshNotifications();
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(getNotificationState('shuiyuan').unreadCount).toBe(2);
+  });
+
+  it('alerts again for a topic once all of its likes have been read', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice'), shuiyuanLike(2, 22, 'bob')]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead();
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![0].id).toBe('shuiyuan:dela-user:2');
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('bob 赞了你的帖子');
+  });
+
+  it('turns a consolidated like count increase back into unread and alerts again', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 1)])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 2)]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead();
+    expect(getNotificationState('shuiyuan').unreadCount).toBe(0);
+    await refreshNotifications();
+    const state = getNotificationState('shuiyuan');
+    expect(state.items[0]!.readAt).toBeNull();
+    expect(state.items[0]!.count).toBe(2);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('alice 等 2 人赞了你的帖子');
   });
 
   it('persists a global snooze timestamp without changing the unread count', async () => {

@@ -132,6 +132,7 @@ export interface ShuiyuanSiteStructure {
 export interface ShuiyuanNotificationItem {
   readonly id: number;
   readonly type: number;
+  readonly count: number;
   readonly read: boolean;
   readonly highPriority: boolean;
   readonly createdAt: string;

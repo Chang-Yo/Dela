@@ -47,6 +47,8 @@ export function parseJwcList(html: string, pageUrl: string) {
     items.push({
       id: `jwc:${articleId}`,
       source: 'jwc',
+      category: null,
+      count: 1,
       title,
       body: row.find('.wz p').text().trim(),
       createdAt: new Date(`${date}T00:00:00+08:00`).toISOString(),

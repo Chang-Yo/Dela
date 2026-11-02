@@ -139,6 +139,8 @@ export function todoNotifications(): NotificationItem[] {
       return {
         id: `todo:${row.id}`,
         source: 'todo',
+        category: null,
+        count: 1,
         title: item.title,
         body: `${item.courseName ?? 'Canvas'} · 新作业`,
         createdAt: row.notice_at!,
@@ -241,6 +243,8 @@ async function syncCanvasTodos(): Promise<TodoState> {
           systemNotifyItem({
             id: `todo:${notice.id}`,
             source: 'todo',
+            category: null,
+            count: 1,
             title: notice.title,
             body: `${course.name} · 新作业`,
             createdAt: now,

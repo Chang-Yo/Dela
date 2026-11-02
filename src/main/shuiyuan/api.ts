@@ -309,7 +309,11 @@ const rawNotificationSchema = z
     post_number: z.number().nullish(),
     fancy_title: z.string().nullish(),
     data: z
-      .object({ display_username: z.string().nullish(), topic_title: z.string().nullish() })
+      .object({
+        display_username: z.string().nullish(),
+        topic_title: z.string().nullish(),
+        count: z.number().nullish(),
+      })
       .passthrough()
       .nullish(),
   })
@@ -629,6 +633,7 @@ export async function listShuiyuanNotifications(): Promise<ShuiyuanNotificationI
   return (parsed.notifications ?? []).map((raw) => ({
     id: raw.id,
     type: raw.notification_type,
+    count: raw.data?.count ?? 1,
     read: raw.read ?? false,
     highPriority: raw.high_priority ?? false,
     createdAt: raw.created_at ?? '',

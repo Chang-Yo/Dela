@@ -182,6 +182,7 @@ export type {
 } from './remotes';
 
 export type {
+  NotificationCategory,
   NotificationSource,
   NotificationFilter,
   NotificationItem,

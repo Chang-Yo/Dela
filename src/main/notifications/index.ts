@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { z } from 'zod';
 import type {
+  NotificationCategory,
   NotificationFilter,
   NotificationItem,
   NotificationSource,
@@ -43,6 +44,8 @@ interface NotificationRow {
   read_at: string | null;
   mail_seen: number | null;
   href: string;
+  category: NotificationCategory | null;
+  count: number;
 }
 
 function currentAccounts(): ActiveAccount[] {
@@ -85,7 +88,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
       ? []
       : (db
           .prepare(
-            `SELECT n.id, n.source, n.title, n.body, n.created_at, n.read_at, n.href, m.seen AS mail_seen
+            `SELECT n.id, n.source, n.title, n.body, n.created_at, n.read_at, n.href, n.category, n.count, m.seen AS mail_seen
              FROM notifications n ${mailJoin}
              WHERE ${where} ORDER BY n.created_at DESC, n.id DESC LIMIT 200`,
           )
@@ -109,6 +112,8 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
         {
           id: row.id,
           source: row.source,
+          category: row.category,
+          count: row.count,
           title: row.title,
           body: row.body,
           createdAt: row.created_at,
@@ -199,24 +204,27 @@ function upsert(
   body: string,
   createdAt: string,
   href: NotificationItem['href'],
+  category: NotificationCategory | null = null,
+  count = 1,
 ): void {
   getDatabase()
     .prepare(
-      `INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?)
+      `INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href, category, count)
+       VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET title = excluded.title, body = excluded.body, created_at = excluded.created_at,
-         source_unread = 1, href = excluded.href`,
+         source_unread = 1, href = excluded.href, category = excluded.category, count = excluded.count,
+         read_at = CASE WHEN excluded.count > notifications.count THEN NULL ELSE notifications.read_at END`,
     )
-    .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href));
+    .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href), category, count);
 }
 
-function existingNotificationIds(source: NotificationSource, key: string): Set<string> {
-  return new Set(
+function existingNotifications(source: NotificationSource, key: string): Map<string, number> {
+  return new Map(
     (
       getDatabase()
-        .prepare('SELECT id FROM notifications WHERE source = ? AND account_key = ?')
-        .all(source, key) as { id: string }[]
-    ).map((row) => row.id),
+        .prepare('SELECT id, count FROM notifications WHERE source = ? AND account_key = ?')
+        .all(source, key) as { id: string; count: number }[]
+    ).map((row) => [row.id, row.count]),
   );
 }
 
@@ -243,7 +251,7 @@ function refreshMail(recordSuccess = true): void {
     snippet: string | null;
     date: string | null;
   }>;
-  const existing = existingNotificationIds('mail', key);
+  const existing = existingNotifications('mail', key);
   for (const message of unread) {
     const sender = message.sender_name || message.sender_address || '新邮件';
     const id = `mail:${key}:${message.id}`;
@@ -255,7 +263,17 @@ function refreshMail(recordSuccess = true): void {
     // 注册后到达的未读首次入库才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
     // date 缺失时无法证明晚于注册时刻，保守起见不弹（通知列表仍可见）。
     if (!existing.has(id) && (message.date ?? '') > account.created_at)
-      systemNotifyItem({ id, source: 'mail', title, body, createdAt, readAt: null, href });
+      systemNotifyItem({
+        id,
+        source: 'mail',
+        category: null,
+        count: 1,
+        title,
+        body,
+        createdAt,
+        readAt: null,
+        href,
+      });
   }
   const sync = getMailState().sync;
   if (sync.phase === 'error') saveRefresh('mail', key, sync.error ?? '邮箱同步失败');
@@ -265,6 +283,34 @@ function refreshMail(recordSuccess = true): void {
 function shuiyuanTitle(item: ShuiyuanNotificationItem): string {
   if (item.fancyTitle) return item.fancyTitle;
   return item.displayUsername ? `${item.displayUsername} 有新的互动` : '水源有新的动态';
+}
+
+function shuiyuanCategory(type: number): NotificationCategory {
+  if (type === 5 || type === 19) return 'like';
+  if (type === 2 || type === 3) return 'reply';
+  if (type === 1 || type === 15) return 'mention';
+  if (type === 6 || type === 7) return 'message';
+  return 'other';
+}
+
+function unreadLikeTopicIds(key: string): Set<number> {
+  return new Set(
+    (
+      getDatabase()
+        .prepare(
+          `SELECT DISTINCT json_extract(href, '$.topicId') AS topicId FROM notifications
+           WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like' AND read_at IS NULL`,
+        )
+        .all(key) as { topicId: number }[]
+    ).map((row) => row.topicId),
+  );
+}
+
+function likeSummary(likes: NotificationItem[]): string {
+  const total = likes.reduce((sum, like) => sum + like.count, 0);
+  const names = [...new Set(likes.map((like) => like.body).filter(Boolean))].slice(0, 2);
+  const shown = names.join('、');
+  return names.length === total ? `${shown} 赞了你的帖子` : `${shown} 等 ${total} 人赞了你的帖子`;
 }
 
 async function refreshShuiyuan(): Promise<void> {
@@ -281,29 +327,45 @@ async function refreshShuiyuan(): Promise<void> {
   try {
     const remote = await listShuiyuanNotifications();
     if (accountFor('shuiyuan') !== key) return;
-    const existing = existingNotificationIds('shuiyuan', key);
+    const existing = existingNotifications('shuiyuan', key);
+    const unreadLikeTopics = unreadLikeTopicIds(key);
+    const likeBursts = new Map<number, NotificationItem[]>();
     for (const item of remote) {
       if (item.read || item.topicId === null) continue;
       const id = `shuiyuan:${key}:${item.id}`;
       const title = shuiyuanTitle(item);
       const createdAt = item.createdAt || new Date().toISOString();
+      const body = item.displayUsername ?? '';
+      const category = shuiyuanCategory(item.type);
       const href: NotificationItem['href'] = {
         kind: 'shuiyuan',
         topicId: item.topicId,
         postNumber: item.postNumber,
       };
-      upsert('shuiyuan', key, id, title, item.displayUsername ?? '', createdAt, href);
-      // 绑定后发生的互动首次入库才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
-      if (!existing.has(id) && item.createdAt > credential.boundAt)
-        systemNotifyItem({
-          id,
-          source: 'shuiyuan',
-          title,
-          body: item.displayUsername ?? '',
-          createdAt,
-          readAt: null,
-          href,
-        });
+      upsert('shuiyuan', key, id, title, body, createdAt, href, category, item.count);
+      const previousCount = existing.get(id);
+      // 新 id，或服务端原地合并使 count 增长（同一条重新变为未读）都算一次新到达。
+      const arrived = previousCount === undefined || item.count > previousCount;
+      // 绑定后发生的互动首次到达才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
+      if (!arrived || item.createdAt <= credential.boundAt) continue;
+      const notification: NotificationItem = {
+        id,
+        source: 'shuiyuan',
+        category,
+        count: item.count,
+        title,
+        body,
+        createdAt,
+        readAt: null,
+        href,
+      };
+      if (category === 'like')
+        likeBursts.set(item.topicId, [...(likeBursts.get(item.topicId) ?? []), notification]);
+      else systemNotifyItem(notification);
+    }
+    for (const [topicId, likes] of likeBursts) {
+      if (unreadLikeTopics.has(topicId)) continue;
+      systemNotifyItem(likes[0]!, likeSummary(likes));
     }
     // `/notifications.json?recent=true` is a bounded page. Absence from it does not mean a
     // persisted notification was read, so read_at is never changed here.
