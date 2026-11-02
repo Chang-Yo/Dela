@@ -18,7 +18,7 @@ import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ReplyComposer } from './ReplyComposer';
 import { AddToProjectDialog } from './AddToProjectDialog';
 import { CategoryTag } from './TopicFeed';
-import { TopicTimeline } from './TopicTimeline';
+import { FloorCapsule, TopicTimeline } from './TopicTimeline';
 import type { ShuiyuanPost } from '../../../shared/api';
 
 type ReplyTarget = { postNumber: number; username: string };
@@ -42,6 +42,7 @@ function postElements(root: HTMLElement | null): HTMLElement[] {
 
 type PostActionsProps = {
   post: ShuiyuanPost;
+  canReply: boolean;
   onLike: (postId: number, liked: boolean) => void;
   onQuote: (post: ShuiyuanPost) => void;
   onReply: (post: ShuiyuanPost) => void;
@@ -51,7 +52,7 @@ type PostActionsProps = {
  * 楼层操作行（Discourse 式全 ghost，默认降透明、悬停/聚焦所在楼层时浮现）。
  * 站点实测（2026-09-21）：点赞可用；User API Key 无法取消点赞，已赞状态按钮不可再点。
  */
-function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
+function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsProps) {
   const likeCount = post.likeCount ?? 0;
   return (
     <footer className="mt-2.5 flex items-center justify-end gap-1 opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 max-md:opacity-100">
@@ -73,23 +74,27 @@ function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
         />
         {likeCount > 0 ? likeCount : null}
       </button>
-      <button
-        aria-label={`引用第 ${post.postNumber} 楼`}
-        className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-        onClick={() => onQuote(post)}
-        title="引用"
-        type="button"
-      >
-        <Quote className="size-3.5" strokeWidth={1.8} />
-      </button>
-      <button
-        className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-        onClick={() => onReply(post)}
-        type="button"
-      >
-        <Reply aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-        回复
-      </button>
+      {canReply ? (
+        <>
+          <button
+            aria-label={`引用第 ${post.postNumber} 楼`}
+            className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+            onClick={() => onQuote(post)}
+            title="引用"
+            type="button"
+          >
+            <Quote className="size-3.5" strokeWidth={1.8} />
+          </button>
+          <button
+            className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+            onClick={() => onReply(post)}
+            type="button"
+          >
+            <Reply aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
+            回复
+          </button>
+        </>
+      ) : null}
     </footer>
   );
 }
@@ -362,10 +367,8 @@ export function TopicReader() {
   const placeholder = replyTarget ? `回复 @${replyTarget.username}…` : isPM ? '回复私信…' : '回复…';
   const composer = (
     <ReplyComposer
-      disabledHint={detail?.closed ? '帖子已关闭，无法回复' : null}
-      expanded={composerOpen}
       onChange={setDraft}
-      onExpandedChange={setComposerOpen}
+      onClose={() => setComposerOpen(false)}
       onClearReplyTarget={() => setReplyTarget(null)}
       onSubmit={async () => {
         const postNumber = await submitReply(draft, replyTarget?.postNumber);
@@ -385,13 +388,25 @@ export function TopicReader() {
       value={draft}
     />
   );
+  const timeline = detail
+    ? {
+        current: currentPost ?? detail.posts[0]?.postNumber ?? 1,
+        highest: detail.highestPostNumber,
+        onJump: jumpToPost,
+        reply: detail.closed
+          ? { label: '已关闭', onClick: null }
+          : composerOpen
+            ? null
+            : { label: draft.trim() ? '继续回复' : '回复', onClick: () => setComposerOpen(true) },
+      }
+    : null;
 
   return (
     // relative 是回复器全屏书写态的定位锚点：铺满阅读区、不遮全局外壳。
-    <div className="relative flex h-full min-h-0 flex-col bg-surface">
-      <div className="relative min-h-0 flex-1 @container">
+    <div className="relative flex h-full min-h-0 flex-col bg-surface @container">
+      <div className="relative min-h-0 flex-1">
         <div
-          className="h-full overflow-y-auto"
+          className="h-full overflow-y-auto [scrollbar-gutter:stable]"
           onScroll={() => {
             recordFirstPost();
             cancelAnimationFrame(trackFrameRef.current);
@@ -399,7 +414,7 @@ export function TopicReader() {
           }}
           ref={scrollRef}
         >
-          {/* 窄版楼层读数浮在右下角，底部留白避免它压住末楼的操作条。 */}
+          {/* 窄版楼层胶囊浮在正文列右下角，底部留白避免它压住末楼的操作条。 */}
           <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-14 max-md:px-4 @min-[62rem]:pb-5">
             {reading?.error ? (
               <div
@@ -510,6 +525,7 @@ export function TopicReader() {
                       />
                     </div>
                     <PostActions
+                      canReply={!detail.closed}
                       onQuote={quote}
                       onLike={(postId, liked) => void setLiked(postId, liked)}
                       onReply={(target) => {
@@ -540,16 +556,10 @@ export function TopicReader() {
             ) : null}
           </div>
         </div>
-        {detail && detail.highestPostNumber > 1 ? (
-          <TopicTimeline
-            current={currentPost ?? detail.posts[0]?.postNumber ?? 1}
-            highest={detail.highestPostNumber}
-            onJump={jumpToPost}
-          />
-        ) : null}
+        {timeline ? <FloorCapsule {...timeline} /> : null}
       </div>
-      {/* 回复框常驻底部，从底边向上展开；帖子已关闭时由 composer 呈现只读提示。 */}
-      {detail ? composer : null}
+      {timeline ? <TopicTimeline {...timeline} /> : null}
+      {detail && !detail.closed && composerOpen ? composer : null}
     </div>
   );
 }

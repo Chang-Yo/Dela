@@ -109,31 +109,3 @@ export function uploadMarkdown(
   }
   return `[${name}|attachment](${upload.shortUrl}) (${formatSize(file.size)})`;
 }
-
-/**
- * 回复预览用 GFM 渲染：把水源专有写法（[quote]、upload://、|尺寸）换成它能显示的形式。
- * resolveUpload 给出已上传图片的显示地址，未知的 upload:// 退回文字占位。
- */
-export function previewMarkdown(
-  raw: string,
-  resolveUpload: (shortUrl: string) => string | null,
-): string {
-  return raw
-    .replace(
-      /\[quote(?:="([^,"]*)[^"]*")?\]\s*([\s\S]*?)\s*\[\/quote\]/g,
-      (_, user: string | undefined, body: string) =>
-        `${user ? `> **@${user}**：\n>\n` : ''}${body
-          .split('\n')
-          .map((line) => `> ${line}`)
-          .join('\n')}\n`,
-    )
-    .replace(/!\[([^\]|]*)\|(?:video|audio)\]\(upload:\/\/[^)]*\)/g, '`附件：$1`')
-    .replace(
-      /!\[([^\]|]*)(?:\|[^\]]*)?\]\((upload:\/\/[^)]*)\)/g,
-      (_, alt: string, shortUrl: string) => {
-        const url = resolveUpload(shortUrl);
-        return url ? `![${alt}](${url})` : `\`附件：${alt}\``;
-      },
-    )
-    .replace(/\[([^\]|]*)(?:\|attachment)?\]\(upload:\/\/[^)]*\)/g, '$1（附件）');
-}
