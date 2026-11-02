@@ -1,6 +1,6 @@
 import type {
-  NotificationFilter,
   NotificationItem,
+  NotificationSource,
   NotificationState,
   NotificationsApi,
 } from '../shared/api';
@@ -12,7 +12,7 @@ export const notifications = {
     invoke('notifications:jwc-captcha', id, attachmentId),
   downloadJwcAttachment: (token: string, code: string) =>
     invoke('notifications:jwc-download', token, code),
-  getState: (filter?: NotificationFilter) => invoke('notifications:get-state', filter),
+  getState: (sources?: readonly NotificationSource[]) => invoke('notifications:get-state', sources),
   refresh: () => invoke('notifications:refresh'),
   markRead: (id: string) => invoke('notifications:mark-read', id),
   markAllRead: () => invoke('notifications:mark-all-read'),

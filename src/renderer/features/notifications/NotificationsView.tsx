@@ -9,18 +9,19 @@ import {
   SlidersHorizontal,
   GraduationCap,
 } from 'lucide-react';
-import type { NotificationFilter, NotificationItem, NotificationState } from '../../../shared/api';
+import { notificationSources } from '../../../shared/api';
+import type { NotificationItem, NotificationSource, NotificationState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
 import { JwcNoticeView } from './JwcNoticeView';
+import { useNotificationSourceFilter } from './source-filter';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
@@ -38,8 +39,7 @@ type NotificationsViewProps = {
   onOpen: (item: NotificationItem) => void;
 };
 
-const filterLabels: Record<NotificationFilter, string> = {
-  all: '全部来源',
+const filterLabels: Record<NotificationSource, string> = {
   mail: '邮件',
   shuiyuan: '水源',
   todo: 'TODO',
@@ -94,19 +94,21 @@ export function NotificationsView({
   onSnooze,
   onOpen,
 }: NotificationsViewProps) {
-  const [filter, setFilter] = useState<NotificationFilter>('all');
+  const sources = useNotificationSourceFilter((store) => store.sources);
+  const toggleSource = useNotificationSourceFilter((store) => store.toggleSource);
+  const allSelected = sources.length === notificationSources.length;
   const [filteredState, setFilteredState] = useState<{
-    filter: NotificationFilter;
+    sources: readonly NotificationSource[];
     state: NotificationState;
   } | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     setFilterError(null);
-    if (filter !== 'all' && window.dela) {
-      void window.dela.notifications.getState(filter).then(
+    if (sources.length < notificationSources.length && window.dela) {
+      void window.dela.notifications.getState(sources).then(
         (value) => {
-          if (active) setFilteredState({ filter, state: value });
+          if (active) setFilteredState({ sources, state: value });
         },
         (reason) => {
           if (active) setFilterError(String(reason));
@@ -116,19 +118,18 @@ export function NotificationsView({
     return () => {
       active = false;
     };
-  }, [filter, allState]);
-  const state =
-    filter !== 'all' && filteredState?.filter === filter ? filteredState.state : allState;
+  }, [sources, allState]);
+  const state = !allSelected && filteredState?.sources === sources ? filteredState.state : allState;
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, [state]);
-  const items = state?.items.filter((item) => filter === 'all' || item.source === filter) ?? [];
+  const items = state?.items.filter((item) => sources.includes(item.source)) ?? [];
   const sourceErrors = state
     ? (Object.entries(state.refresh).flatMap(([source, value]) =>
-        value?.error ? [`${filterLabels[source as NotificationFilter]}：${value.error}`] : [],
+        value?.error ? [`${filterLabels[source as NotificationSource]}：${value.error}`] : [],
       ) as string[])
     : [];
   const snoozed = state?.snoozedUntil && new Date(state.snoozedUntil).getTime() > now;
@@ -179,16 +180,16 @@ export function NotificationsView({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>消息来源</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup
-                onValueChange={(value) => setFilter(value as NotificationFilter)}
-                value={filter}
-              >
-                {(Object.keys(filterLabels) as NotificationFilter[]).map((value) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    {filterLabels[value]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
+              {notificationSources.map((source) => (
+                <DropdownMenuCheckboxItem
+                  checked={sources.includes(source)}
+                  key={source}
+                  onCheckedChange={() => toggleSource(source)}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  {filterLabels[source]}
+                </DropdownMenuCheckboxItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
@@ -267,7 +268,9 @@ export function NotificationsView({
       ) : null}
       {state && !loading && items.length === 0 ? (
         <p className="py-12 text-center text-13 text-ink-3">
-          {filter === 'all' ? '暂时没有通知。' : `没有${filterLabels[filter]}通知。`}
+          {allSelected
+            ? '暂时没有通知。'
+            : `没有${sources.map((source) => filterLabels[source]).join('、')}通知。`}
         </p>
       ) : null}
 

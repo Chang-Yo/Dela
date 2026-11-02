@@ -1,5 +1,5 @@
-export type NotificationSource = 'mail' | 'shuiyuan' | 'todo' | 'jwc';
-export type NotificationFilter = 'all' | NotificationSource;
+export const notificationSources = ['mail', 'shuiyuan', 'todo', 'jwc'] as const;
+export type NotificationSource = (typeof notificationSources)[number];
 export type NotificationCategory = 'like' | 'reply' | 'mention' | 'message' | 'other';
 export interface NotificationItem {
   id: string;
@@ -33,7 +33,7 @@ export interface NotificationsApi {
     token: string,
     code: string,
   ): Promise<{ status: 'saved' | 'canceled' | 'invalid-code' }>;
-  getState(filter?: NotificationFilter): Promise<NotificationState>;
+  getState(sources?: readonly NotificationSource[]): Promise<NotificationState>;
   refresh(): Promise<NotificationState>;
   markRead(id: string): Promise<NotificationState>;
   markAllRead(): Promise<NotificationState>;

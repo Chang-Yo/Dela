@@ -224,9 +224,9 @@ describe('local notification inbox', () => {
       },
     ]);
     await refreshNotifications();
-    expect(getNotificationState('shuiyuan').items[0]!.readAt).toBeNull();
+    expect(getNotificationState(['shuiyuan']).items[0]!.readAt).toBeNull();
     await markNotificationRead('shuiyuan:dela-user:7');
-    expect(getNotificationState('shuiyuan').items[0]!.readAt).not.toBeNull();
+    expect(getNotificationState(['shuiyuan']).items[0]!.readAt).not.toBeNull();
   });
 
   it('skips system toasts for shuiyuan notifications predating the binding but toasts later ones', async () => {
@@ -266,7 +266,7 @@ describe('local notification inbox', () => {
 
     await refreshNotifications();
     // 存量互动仍进通知列表，但不弹系统桌面通知。
-    expect(getNotificationState('shuiyuan').items).toHaveLength(2);
+    expect(getNotificationState(['shuiyuan']).items).toHaveLength(2);
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
     expect(vi.mocked(systemNotifyItem).mock.calls[0]![0].id).toBe('shuiyuan:dela-user:8');
   });
@@ -293,7 +293,7 @@ describe('local notification inbox', () => {
       },
     ]);
     await refreshNotifications();
-    expect(getNotificationState('shuiyuan').items).toHaveLength(1);
+    expect(getNotificationState(['shuiyuan']).items).toHaveLength(1);
     vi.mocked(listShuiyuanNotifications).mockRejectedValueOnce(new Error('network unavailable'));
     await refreshNotifications();
     const state = getNotificationState();
@@ -310,7 +310,7 @@ describe('local notification inbox', () => {
     ]);
 
     await refreshNotifications();
-    expect(getNotificationState('shuiyuan').items).toHaveLength(3);
+    expect(getNotificationState(['shuiyuan']).items).toHaveLength(3);
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
     expect(vi.mocked(systemNotifyItem).mock.calls[0]![1]).toBe('alice、bob 等 3 人赞了你的帖子');
   });
@@ -324,7 +324,7 @@ describe('local notification inbox', () => {
     await refreshNotifications();
     await refreshNotifications();
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
-    expect(getNotificationState('shuiyuan').unreadCount).toBe(2);
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(2);
   });
 
   it('alerts again for a topic once all of its likes have been read', async () => {
@@ -349,13 +349,26 @@ describe('local notification inbox', () => {
 
     await refreshNotifications();
     await markAllNotificationsRead();
-    expect(getNotificationState('shuiyuan').unreadCount).toBe(0);
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
     await refreshNotifications();
-    const state = getNotificationState('shuiyuan');
+    const state = getNotificationState(['shuiyuan']);
     expect(state.items[0]!.readAt).toBeNull();
     expect(state.items[0]!.count).toBe(2);
     expect(systemNotifyItem).toHaveBeenCalledTimes(2);
     expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('alice 等 2 人赞了你的帖子');
+  });
+
+  it('limits the list and unread count to the selected sources', async () => {
+    insertUnreadInboxMail(db);
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')]);
+
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).items.map((item) => item.source)).toEqual([
+      'shuiyuan',
+    ]);
+    expect(getNotificationState(['mail']).unreadCount).toBe(1);
+    expect(getNotificationState(['mail', 'shuiyuan']).totalCount).toBe(2);
   });
 
   it('persists a global snooze timestamp without changing the unread count', async () => {

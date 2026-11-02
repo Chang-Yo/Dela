@@ -1,8 +1,8 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { z } from 'zod';
+import { notificationSources } from '../../shared/api';
 import type {
   NotificationCategory,
-  NotificationFilter,
   NotificationItem,
   NotificationSource,
   NotificationState,
@@ -23,13 +23,7 @@ import {
   NOTIFICATIONS_SNOOZE_KEY,
 } from './system';
 
-const filterSchema = z.union([
-  z.literal('all'),
-  z.literal('mail'),
-  z.literal('shuiyuan'),
-  z.literal('todo'),
-  z.literal('jwc'),
-]);
+const sourcesSchema = z.array(z.enum(notificationSources)).min(1);
 const snoozeSchema = z.string().datetime().nullable();
 let activeRefresh: Promise<NotificationState> | null = null;
 
@@ -69,11 +63,13 @@ function accountFor(source: NotificationSource): string | null {
   return currentAccounts().find((account) => account.source === source)?.key ?? null;
 }
 
-function notificationState(filter: NotificationFilter = 'all'): NotificationState {
+function notificationState(
+  sources: readonly NotificationSource[] = notificationSources,
+): NotificationState {
   refreshMail(false);
   const db = getDatabase();
   const accounts = currentAccounts();
-  const active = accounts.filter((account) => filter === 'all' || account.source === filter);
+  const active = accounts.filter((account) => sources.includes(account.source));
   const clauses = active.map(() => '(n.source = ? AND n.account_key = ?)');
   const bindings = active.flatMap((account) => [account.source, account.key]);
   // 邮件通知的已读派生自邮件本身的 seen 标志（本地删除的邮件不显示通知）；
@@ -161,7 +157,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
       ];
     }),
   ) as NotificationState['refresh'];
-  const todos = filter === 'all' || filter === 'todo' ? todoNotifications() : [];
+  const todos = sources.includes('todo') ? todoNotifications() : [];
   const todoState = getTodoState();
   refresh.todo = { lastSuccessAt: todoState.syncedAt, error: todoState.error };
   return {
@@ -383,8 +379,8 @@ export function initializeNotifications(): void {
   onMailCacheChanged(() => broadcast());
 }
 
-export function getNotificationState(filter?: unknown): NotificationState {
-  return notificationState(filterSchema.catch('all').parse(filter ?? 'all'));
+export function getNotificationState(input?: unknown): NotificationState {
+  return notificationState(sourcesSchema.catch([...notificationSources]).parse(input));
 }
 
 export function refreshNotifications(force = false): Promise<NotificationState> {
@@ -492,9 +488,9 @@ export function registerNotificationsIpc(): void {
     checkWorkspaceSender(event);
     return downloadJwcAttachment(token, code);
   });
-  ipcMain.handle('notifications:get-state', (event, filter) => {
+  ipcMain.handle('notifications:get-state', (event, sources) => {
     checkWorkspaceSender(event);
-    return getNotificationState(filter);
+    return getNotificationState(sources);
   });
   ipcMain.handle('notifications:refresh', async (event) => {
     checkWorkspaceSender(event);
