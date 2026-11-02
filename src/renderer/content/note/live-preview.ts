@@ -1,5 +1,5 @@
 // Markdown 即时渲染（Obsidian 式 live preview）：文档始终是磁盘上的原文，这里只加装饰——
-// 光标不在的行隐藏标记符号、按语法树给标题/强调/代码/引用上样式，图片在行下方显示；
+// 光标不在的行隐藏标记符号、按语法树给标题/强调/代码/引用上样式，图片在行下方显示（光标不在时只留图片）；
 // 光标不在公式、mermaid 代码块或表格里时，原文替换成渲染结果，光标移进去即回到原文。
 // 不做所见即所得的往返序列化：用户不改的字节一个都不会变（列表符号、空行、转义、换行符）。
 // 表格等 GFM 语法要求调用方以 markdownLanguage 为 base 解析；代码 token 由调用方的 codeHighlightStyle 着色，
@@ -32,11 +32,12 @@ class ImageWidget extends WidgetType {
   constructor(
     readonly src: string,
     readonly alt: string,
+    readonly block = false,
   ) {
     super();
   }
   eq(other: ImageWidget) {
-    return other.src === this.src && other.alt === this.alt;
+    return other.src === this.src && other.alt === this.alt && other.block === this.block;
   }
   toDOM() {
     const image = document.createElement('img');
@@ -44,7 +45,12 @@ class ImageWidget extends WidgetType {
     image.alt = this.alt;
     image.loading = 'lazy';
     image.className = 'cm-md-image';
-    return image;
+    if (!this.block) return image;
+    // 块级挂件的外边距不计入编辑器高度测量，外包一层 flow-root 把图片外边距收进盒子里。
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cm-md-image-block';
+    wrapper.append(image);
+    return wrapper;
   }
   ignoreEvent() {
     return false;
@@ -218,6 +224,7 @@ const marks = Object.fromEntries(
 const quoteLine = line('cm-md-quote');
 const codeLine = line('cm-md-codeblock');
 const hrLine = line('cm-md-hr');
+const imageSource = mark('cm-md-image-src');
 // 嵌套列表逐层换符号。
 const bullets = ['•', '◦', '▪'].map((glyph) =>
   Decoration.replace({ widget: new BulletWidget(glyph) }),
@@ -330,11 +337,50 @@ function tableWidget(state: EditorState, table: SyntaxNode, from: number): Table
   );
 }
 
-/** 跨行的块级渲染（$$ 公式、mermaid 代码块、表格）：块装饰只能来自 StateField，不能来自 ViewPlugin。 */
-function blockWidgets(state: EditorState): DecorationSet {
+/** 返回 null 表示这张「图片」不按图片显示（如水源的音视频附件），保持原文。 */
+export type ImageResolver = (src: string, alt: string) => string | null;
+
+function imageWidget(
+  state: EditorState,
+  node: SyntaxNode,
+  resolveImage: ImageResolver,
+  block = false,
+): ImageWidget | null {
+  const match = /^!\[([^\]]*)\]\(([^)\s]+)/.exec(state.sliceDoc(node.from, node.to));
+  if (!match) return null;
+  const src = resolveImage(match[2]!, match[1]!);
+  return src === null ? null : new ImageWidget(src, match[1]!, block);
+}
+
+/** 图片独占一行（允许缩进）时返回该行：光标不在时整行换成图片，不留一行原文。 */
+function imageLine(state: EditorState, node: SyntaxNode) {
+  const line = state.doc.lineAt(node.from);
+  const whole =
+    node.to <= line.to &&
+    /^[ \t]*$/.test(state.sliceDoc(line.from, node.from)) &&
+    /^\s*$/.test(state.sliceDoc(node.to, line.to));
+  return whole ? line : null;
+}
+
+/** 跨行的块级渲染（$$ 公式、mermaid 代码块、表格、独占一行的图片）：块装饰只能来自 StateField，不能来自 ViewPlugin。 */
+function blockWidgets(state: EditorState, resolveImage: ImageResolver): DecorationSet {
   const ranges: Range[] = [];
   syntaxTree(state).iterate({
     enter: (node) => {
+      if (node.name === 'Image') {
+        const line = imageLine(state, node.node);
+        const widget =
+          line && !touches(state, line.from, line.to)
+            ? imageWidget(state, node.node, resolveImage, true)
+            : null;
+        if (line && widget)
+          ranges.push({
+            from: line.from,
+            to: line.to,
+            value: Decoration.replace({ widget, block: true }),
+          });
+        return false;
+      }
       if (node.name === 'Table') {
         // 块级替换必须覆盖整行：引用、列表里的表格连同行首的 `> `/缩进一起替换；
         // 首行前面还有列表符号等其他内容时放不下，保持原文。
@@ -393,18 +439,19 @@ function blockWidgets(state: EditorState): DecorationSet {
   return builder.finish();
 }
 
-const blockField = StateField.define<DecorationSet>({
-  create: blockWidgets,
-  update: (value, transaction) =>
-    transaction.docChanged ||
-    transaction.selection ||
-    syntaxTree(transaction.startState) !== syntaxTree(transaction.state)
-      ? blockWidgets(transaction.state)
-      : value,
-  provide: (field) => EditorView.decorations.from(field),
-});
+const blockField = (resolveImage: ImageResolver) =>
+  StateField.define<DecorationSet>({
+    create: (state) => blockWidgets(state, resolveImage),
+    update: (value, transaction) =>
+      transaction.docChanged ||
+      transaction.selection ||
+      syntaxTree(transaction.startState) !== syntaxTree(transaction.state)
+        ? blockWidgets(transaction.state, resolveImage)
+        : value,
+    provide: (field) => EditorView.decorations.from(field),
+  });
 
-function build(view: EditorView, resolveImage: (src: string) => string): DecorationSet {
+function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
   const { state } = view;
   const active = activeLines(state);
   const ranges: Range[] = [];
@@ -470,19 +517,15 @@ function build(view: EditorView, resolveImage: (src: string) => string): Decorat
           return;
         }
         if (name === 'Image') {
-          const text = state.sliceDoc(node.from, node.to);
-          const match = /^!\[([^\]]*)\]\(([^)\s]+)/.exec(text);
-          if (match) {
-            const end = lineOf(node.to).to;
-            ranges.push({
-              from: end,
-              to: end,
-              value: Decoration.widget({
-                widget: new ImageWidget(resolveImage(match[2]!), match[1]!),
-                side: 1,
-              }),
-            });
-          }
+          // 独占一行且光标不在时由 blockWidgets 整行替换；其余情况图片显示在行下方，
+          // 原文编辑时弱化成源码样式、离开后隐藏，不被误当成正文。
+          const widget = imageWidget(state, node.node, resolveImage);
+          if (!widget || (!editing && imageLine(state, node.node))) return false;
+          const end = lineOf(node.to).to;
+          ranges.push(
+            { from: node.from, to: node.to, value: editing ? imageSource : hidden },
+            { from: end, to: end, value: Decoration.widget({ widget, side: 1 }) },
+          );
           return false;
         }
         const style = marks[name];
@@ -569,6 +612,8 @@ const theme = EditorView.theme({
     padding: 'calc(var(--spacing) * 1) calc(var(--spacing) * 3)',
   },
   '.cm-md-table th': { fontWeight: '600', backgroundColor: 'var(--muted)' },
+  '.cm-md-image-src': { color: 'var(--muted-foreground)', fontSize: '0.86em' },
+  '.cm-md-image-block': { display: 'flow-root' },
   '.cm-md-image': {
     display: 'block',
     maxWidth: '100%',
@@ -639,10 +684,10 @@ export function markdownImageInsert(
 }
 
 /** resolveImage 把正文里的相对图片地址换成受限资源协议地址（只影响显示，不改正文）。 */
-export function markdownLivePreview(resolveImage: (src: string) => string): Extension {
+export function markdownLivePreview(resolveImage: ImageResolver): Extension {
   return [
     theme,
-    blockField,
+    blockField(resolveImage),
     ViewPlugin.fromClass(
       class {
         decorations: DecorationSet;
