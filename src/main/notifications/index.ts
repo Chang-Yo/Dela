@@ -432,8 +432,11 @@ export function refreshNotifications(force = false): Promise<NotificationState> 
 }
 
 // 只更新当前账号名下的通知行；id 为 null 时更新全部，与 todo/index.ts 的 markTodoRead 同一模式。
-function markNotificationRowsRead(id: string | null): void {
-  const accounts = currentAccounts();
+function markNotificationRowsRead(
+  id: string | null,
+  sources: readonly NotificationSource[] = notificationSources,
+): void {
+  const accounts = currentAccounts().filter((account) => sources.includes(account.source));
   const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
   if (clauses.length === 0) return;
   getDatabase()
@@ -496,9 +499,11 @@ export async function markNotificationRead(idInput: unknown): Promise<Notificati
   return broadcast();
 }
 
-export async function markAllNotificationsRead(): Promise<NotificationState> {
-  markTodoRead();
-  markNotificationRowsRead(null);
+export async function markAllNotificationsRead(input?: unknown): Promise<NotificationState> {
+  const sources = sourcesSchema.default([...notificationSources]).parse(input);
+  if (sources.includes('todo')) markTodoRead();
+  markNotificationRowsRead(null, sources);
+  if (!sources.includes('mail')) return broadcast();
   const result = await markAllMailSeen();
   if (!result.ok) {
     const key = accountFor('mail');
@@ -545,9 +550,9 @@ export function registerNotificationsIpc(): void {
     checkWorkspaceSender(event);
     return markNotificationRead(id);
   });
-  ipcMain.handle('notifications:mark-all-read', (event) => {
+  ipcMain.handle('notifications:mark-all-read', (event, sources) => {
     checkWorkspaceSender(event);
-    return markAllNotificationsRead();
+    return markAllNotificationsRead(sources);
   });
   ipcMain.handle('notifications:set-snooze', (event, until) => {
     checkWorkspaceSender(event);

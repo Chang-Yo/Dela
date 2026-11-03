@@ -15,7 +15,8 @@ export const notifications = {
   getState: (sources?: readonly NotificationSource[]) => invoke('notifications:get-state', sources),
   refresh: () => invoke('notifications:refresh'),
   markRead: (id: string) => invoke('notifications:mark-read', id),
-  markAllRead: () => invoke('notifications:mark-all-read'),
+  markAllRead: (sources?: readonly NotificationSource[]) =>
+    invoke('notifications:mark-all-read', sources),
   setSnooze: (until: string | null) => invoke('notifications:set-snooze', until),
   onUpdate: (listener: (state: NotificationState) => void) =>
     on<NotificationState>('notifications:state', listener),

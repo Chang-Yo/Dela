@@ -36,7 +36,7 @@ export interface NotificationsApi {
   getState(sources?: readonly NotificationSource[]): Promise<NotificationState>;
   refresh(): Promise<NotificationState>;
   markRead(id: string): Promise<NotificationState>;
-  markAllRead(): Promise<NotificationState>;
+  markAllRead(sources?: readonly NotificationSource[]): Promise<NotificationState>;
   setSnooze(until: string | null): Promise<NotificationState>;
   onUpdate(listener: (state: NotificationState) => void): () => void;
   onOpen(listener: (item: NotificationItem) => void): () => void;

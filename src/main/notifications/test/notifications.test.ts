@@ -463,6 +463,18 @@ describe('local notification inbox', () => {
     expect(getNotificationState(['mail', 'shuiyuan']).totalCount).toBe(2);
   });
 
+  it('marks only the filtered sources read and leaves mail untouched on the server', async () => {
+    insertUnreadInboxMail(db);
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead(['shuiyuan']);
+    expect(markAllMailSeen).not.toHaveBeenCalled();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
+    expect(getNotificationState(['mail']).unreadCount).toBe(1);
+  });
+
   it('persists a global snooze timestamp without changing the unread count', async () => {
     setNotificationSnooze('2026-09-16T01:00:00.000Z');
     expect(getNotificationState().snoozedUntil).toBe('2026-09-16T01:00:00.000Z');

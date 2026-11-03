@@ -35,7 +35,7 @@ type NotificationsViewProps = {
   error: string | null;
   onRefresh: () => void;
   onMarkRead: (id: string) => void;
-  onMarkAllRead: () => void;
+  onMarkAllRead: (sources: readonly NotificationSource[]) => void;
   onSnooze: (until: string | null) => void;
   onOpen: (item: NotificationItem) => void;
 };
@@ -230,7 +230,7 @@ export function NotificationsView({
           <Button
             aria-label="全部标为已读"
             disabled={loading || !state?.unreadCount}
-            onClick={onMarkAllRead}
+            onClick={() => onMarkAllRead(sources)}
             size="sm"
             title="全部标为已读"
             variant="ghost"
