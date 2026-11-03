@@ -12,6 +12,7 @@ export const shuiyuan = {
   getTopic: (id: number, postNumber?: number) => invoke('shuiyuan:get-topic', id, postNumber),
   loadPosts: (topicId: number, postIds: readonly number[]) =>
     invoke('shuiyuan:load-posts', topicId, [...postIds]),
+  locatePost: (postId: number) => invoke('shuiyuan:locate-post', postId),
   listBookmarks: () => invoke('shuiyuan:list-bookmarks'),
   listMessages: () => invoke('shuiyuan:list-messages'),
   listNotifications: () => invoke('shuiyuan:list-notifications'),

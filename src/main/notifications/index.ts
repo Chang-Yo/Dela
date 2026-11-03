@@ -95,7 +95,8 @@ function notificationState(
       const knownHref =
         (href.kind === 'jwc' && typeof href.url === 'string') ||
         (href.kind === 'mail' && typeof href.messageId === 'number') ||
-        (href.kind === 'shuiyuan' && typeof href.topicId === 'number');
+        (href.kind === 'shuiyuan' && typeof href.topicId === 'number') ||
+        (href.kind === 'shuiyuan-post' && typeof href.postId === 'number');
       if (!knownHref) return [];
       const readAt =
         row.source === 'mail'
@@ -342,17 +343,22 @@ async function refreshShuiyuan(): Promise<void> {
     const previouslyUnreadLikes = unreadLikes(key);
     const likeBursts = new Map<number, NotificationItem[]>();
     for (const item of remote) {
-      if (item.topicId === null) continue;
+      // 合并点赞（type 19）是同一人连赞多层：没有 topic_id，count 是楼层数，单独成条不进主题分组。
+      const href: NotificationItem['href'] | null =
+        item.topicId !== null
+          ? { kind: 'shuiyuan', topicId: item.topicId, postNumber: item.postNumber }
+          : item.type === 19 && item.originalPostId !== null
+            ? { kind: 'shuiyuan-post', postId: item.originalPostId }
+            : null;
+      if (href === null) continue;
       const id = `shuiyuan:${key}:${item.id}`;
       const title = shuiyuanTitle(item);
       const createdAt = item.createdAt || new Date().toISOString();
-      const body = item.displayUsername ?? '';
+      const body =
+        href.kind === 'shuiyuan-post'
+          ? `${item.displayUsername ?? '有人'} 赞了你的 ${item.count} 个帖子`
+          : (item.displayUsername ?? '');
       const category = shuiyuanCategory(item.type);
-      const href: NotificationItem['href'] = {
-        kind: 'shuiyuan',
-        topicId: item.topicId,
-        postNumber: item.postNumber,
-      };
       const syncedAt = new Date().toISOString();
       upsert(
         'shuiyuan',
@@ -383,8 +389,9 @@ async function refreshShuiyuan(): Promise<void> {
         readAt: null,
         href,
       };
-      if (category === 'like')
-        likeBursts.set(item.topicId, [...(likeBursts.get(item.topicId) ?? []), notification]);
+      if (href.kind === 'shuiyuan-post') systemNotifyItem(notification, body);
+      else if (category === 'like')
+        likeBursts.set(href.topicId, [...(likeBursts.get(href.topicId) ?? []), notification]);
       else systemNotifyItem(notification);
     }
     const unreadLikeTopics = new Set(previouslyUnreadLikes.values());
@@ -460,22 +467,32 @@ export async function markNotificationRead(idInput: unknown): Promise<Notificati
   // 邮件通知的已读以邮件本身为准：委托 markMailSeen 在服务器标记 \Seen 并更新本地缓存；
   // 失败时保留未读，经来源错误行提示。
   const row = getDatabase()
-    .prepare('SELECT source, account_key, href, category FROM notifications WHERE id = ?')
+    .prepare(
+      "SELECT source, account_key, href, category, json_extract(href, '$.topicId') AS topic_id FROM notifications WHERE id = ?",
+    )
     .get(id) as
-    { source: string; account_key: string; href: string; category: string | null } | undefined;
+    | {
+        source: string;
+        account_key: string;
+        href: string;
+        category: string | null;
+        topic_id: number | null;
+      }
+    | undefined;
   // 点赞按主题成组展示与弹窗，打开或标记其中一条即视为读完该主题的全部点赞。
   if (
     row?.source === 'shuiyuan' &&
     row.category === 'like' &&
+    row.topic_id !== null &&
     row.account_key === accountFor('shuiyuan')
   ) {
     getDatabase()
       .prepare(
         `UPDATE notifications SET read_at = COALESCE(read_at, ?)
          WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like'
-           AND json_extract(href, '$.topicId') = json_extract(?, '$.topicId')`,
+           AND json_extract(href, '$.topicId') = ?`,
       )
-      .run(new Date().toISOString(), row.account_key, row.href);
+      .run(new Date().toISOString(), row.account_key, row.topic_id);
     return broadcast();
   }
   if (row?.source === 'mail') {

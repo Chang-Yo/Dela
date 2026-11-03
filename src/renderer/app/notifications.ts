@@ -102,6 +102,12 @@ export function useNotifications(active: boolean) {
       }
     } else if (target.kind === 'todo') navigation.openTodo(target.todoId);
     else if (target.kind === 'mail') navigation.openMail(target.messageId);
+    else if (target.kind === 'shuiyuan-post')
+      void window.dela?.shuiyuan.locatePost(target.postId).then(
+        (link) => navigation.openShuiyuanTopic(link.topicId, link.postNumber),
+        (reason) =>
+          showToast({ variant: 'error', title: '打开帖子失败', description: errorText(reason) }),
+      );
     else navigation.openShuiyuanTopic(target.topicId, target.postNumber ?? undefined);
     if (!item.readAt && window.dela?.notifications) {
       void run(() => window.dela!.notifications.markRead(item.id));

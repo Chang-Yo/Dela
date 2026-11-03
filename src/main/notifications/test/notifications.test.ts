@@ -80,6 +80,18 @@ function shuiyuanLike(id: number, topicId: number, displayUsername: string, coun
     postNumber: 1,
     fancyTitle: '我的帖子',
     displayUsername,
+    originalPostId: null,
+  };
+}
+
+function shuiyuanConsolidatedLike(id: number, displayUsername: string, count: number) {
+  return {
+    ...shuiyuanLike(id, 0, displayUsername, count),
+    type: 19,
+    topicId: null,
+    postNumber: null,
+    fancyTitle: '如何忘掉在高考中的成功与失败',
+    originalPostId: 4926962,
   };
 }
 
@@ -221,6 +233,7 @@ describe('local notification inbox', () => {
         postNumber: 3,
         fancyTitle: '回复了你的帖子',
         displayUsername: 'alice',
+        originalPostId: null,
       },
     ]);
     await refreshNotifications();
@@ -249,6 +262,7 @@ describe('local notification inbox', () => {
         postNumber: 3,
         fancyTitle: '绑定前的旧互动',
         displayUsername: 'alice',
+        originalPostId: null,
       },
       {
         id: 8,
@@ -261,6 +275,7 @@ describe('local notification inbox', () => {
         postNumber: 1,
         fancyTitle: '绑定后的新互动',
         displayUsername: 'bob',
+        originalPostId: null,
       },
     ]);
 
@@ -290,6 +305,7 @@ describe('local notification inbox', () => {
         postNumber: 3,
         fancyTitle: '回复了你的帖子',
         displayUsername: 'alice',
+        originalPostId: null,
       },
     ]);
     await refreshNotifications();
@@ -433,6 +449,26 @@ describe('local notification inbox', () => {
     await refreshNotifications();
     expect(systemNotifyItem).toHaveBeenCalledTimes(3);
     expect(vi.mocked(systemNotifyItem).mock.calls[2]![1]).toBe('dave 赞了你的帖子');
+  });
+
+  it('shows a consolidated like as its own item and alerts again when its post count grows', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanConsolidatedLike(9, 'alice', 3), shuiyuanLike(1, 22, 'bob')])
+      .mockResolvedValueOnce([shuiyuanConsolidatedLike(9, 'alice', 5), shuiyuanLike(1, 22, 'bob')]);
+
+    await refreshNotifications();
+    const consolidated = getNotificationState(['shuiyuan']).items.find(
+      (item) => item.id === 'shuiyuan:dela-user:9',
+    )!;
+    expect(consolidated.href).toEqual({ kind: 'shuiyuan-post', postId: 4926962 });
+    expect(consolidated.body).toBe('alice 赞了你的 3 个帖子');
+    expect(systemNotifyItem).toHaveBeenCalledWith(consolidated, 'alice 赞了你的 3 个帖子');
+
+    await markNotificationRead('shuiyuan:dela-user:9');
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
+    await refreshNotifications();
+    expect(vi.mocked(systemNotifyItem).mock.calls.at(-1)![1]).toBe('alice 赞了你的 5 个帖子');
   });
 
   it('alerts for a new like when the server reads the earlier ones in the same refresh', async () => {

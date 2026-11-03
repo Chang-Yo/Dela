@@ -17,6 +17,7 @@ import {
   listShuiyuanNotifications,
   listShuiyuanTopics,
   loadShuiyuanPosts,
+  locateShuiyuanPost,
   markShuiyuanNotificationsRead,
   readShuiyuanSource,
   setShuiyuanBookmarked,
@@ -48,6 +49,7 @@ export function registerShuiyuanIpc(): void {
   handle('load-posts', (_event, topicId: unknown, postIds: unknown) =>
     loadShuiyuanPosts(topicId, postIds),
   );
+  handle('locate-post', (_event, postId: unknown) => locateShuiyuanPost(postId));
   handle('list-bookmarks', () => listShuiyuanBookmarks());
   handle('list-messages', () => listShuiyuanMessages());
   handle('list-notifications', () => listShuiyuanNotifications());

@@ -14,7 +14,8 @@ export interface NotificationItem {
     | { kind: 'todo'; todoId: string }
     | { kind: 'mail'; messageId: number }
     | { kind: 'jwc'; url: string }
-    | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null };
+    | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null }
+    | { kind: 'shuiyuan-post'; postId: number };
 }
 export interface NotificationState {
   items: readonly NotificationItem[];
