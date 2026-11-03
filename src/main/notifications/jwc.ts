@@ -1,4 +1,4 @@
-import { app, dialog } from 'electron';
+import { dialog } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { load } from 'cheerio';
@@ -20,7 +20,6 @@ interface JwcSync {
   etag: string | null;
   modified: string | null;
   checkedAt: number;
-  devHistoryLoaded: boolean;
 }
 
 export function parseJwcList(html: string, pageUrl: string) {
@@ -66,39 +65,38 @@ export async function refreshJwc(force = false): Promise<void> {
   const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(syncKey) as
     { value: string } | undefined;
   const previous: JwcSync | null = saved ? JSON.parse(saved.value) : null;
-  const devHistory =
-    !app.isPackaged && Boolean(process.env.DELA_DEV_URL) && !previous?.devHistoryLoaded;
+  const initialSync = !previous;
   if (
     !force &&
-    !devHistory &&
+    !initialSync &&
     Date.now() < Math.max(nextCheckAt, (previous?.checkedAt ?? 0) + 20 * 60_000)
   )
     return;
   nextCheckAt = Date.now() + 20 * 60_000;
   try {
     const headers: Record<string, string> = {};
-    if (!devHistory && previous?.etag) headers['If-None-Match'] = previous.etag;
-    if (!devHistory && previous?.modified) headers['If-Modified-Since'] = previous.modified;
+    if (previous?.etag) headers['If-None-Match'] = previous.etag;
+    if (previous?.modified) headers['If-Modified-Since'] = previous.modified;
     const response = await fetch(listUrl, { headers, signal: AbortSignal.timeout(20_000) });
     const sync: JwcSync = previous ?? {
       seen: [],
       etag: null,
       modified: null,
       checkedAt: 0,
-      devHistoryLoaded: false,
     };
     const added: NotificationItem[] = [];
     if (response.status !== 304) {
       if (!response.ok) throw new Error(`教务处请求失败（${response.status}）`);
       let page = parseJwcList(await response.text(), listUrl);
       const candidates = [...page.items];
-      if (devHistory) {
-        const cutoff = new Date();
-        cutoff.setMonth(cutoff.getMonth() - 6);
+      let cutoff: Date | null = null;
+      if (initialSync) {
+        cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - 2);
         cutoff.setHours(0, 0, 0, 0);
         while (
           page.next &&
-          page.items.every((item) => Date.parse(item.createdAt) >= cutoff.getTime())
+          page.items.every((item) => Date.parse(item.createdAt) >= cutoff!.getTime())
         ) {
           const pageUrl = page.next;
           if (new URL(pageUrl).origin !== origin) throw new Error('教务处分页地址无效');
@@ -107,16 +105,11 @@ export async function refreshJwc(force = false): Promise<void> {
           page = parseJwcList(await older.text(), pageUrl);
           candidates.push(...page.items);
         }
-        candidates.splice(
-          0,
-          candidates.length,
-          ...candidates.filter((item) => Date.parse(item.createdAt) >= cutoff.getTime()),
-        );
-        sync.devHistoryLoaded = true;
       }
       const seen = new Set(sync.seen);
       for (const item of candidates) {
-        if (devHistory || (!seen.has(item.id) && previous)) added.push(item);
+        if (!seen.has(item.id) && (!cutoff || Date.parse(item.createdAt) >= cutoff.getTime()))
+          added.push(item);
         seen.add(item.id);
       }
       sync.seen = [...seen];
@@ -147,7 +140,7 @@ export async function refreshJwc(force = false): Promise<void> {
         last_success_at = excluded.last_success_at, error = NULL`,
       ).run(accountKey, new Date().toISOString());
     })();
-    if (!devHistory) for (const item of added) systemNotifyItem(item);
+    if (!initialSync) for (const item of added) systemNotifyItem(item);
   } catch (error) {
     db.prepare(
       `INSERT INTO notification_refreshes (source, account_key, last_success_at, error)

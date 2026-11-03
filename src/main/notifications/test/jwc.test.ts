@@ -72,28 +72,32 @@ it('学校列表中的公众号外链沿用学校文章 ID，不阻断其他通�
   });
 });
 
-it('正式版首次只建基线，此后同日新增文章仅收集一次，304 不清除数据', async () => {
+it('首次导入历史不提醒，此后同日新增文章仅收集一次，304 不清除数据', async () => {
   request.mockResolvedValueOnce(page(list(row(1))));
   await refreshJwc(true);
-  expect(db.prepare('SELECT * FROM notifications').all()).toHaveLength(0);
+  expect(db.prepare('SELECT * FROM notifications').all()).toHaveLength(1);
+  expect(systemNotifyItem).not.toHaveBeenCalled();
   request.mockResolvedValueOnce(page(list(row(2) + row(1))));
   await refreshJwc(true);
-  expect(db.prepare('SELECT id FROM notifications').all()).toEqual([{ id: 'jwc:2' }]);
+  expect(db.prepare('SELECT id FROM notifications ORDER BY id').all()).toEqual([
+    { id: 'jwc:1' },
+    { id: 'jwc:2' },
+  ]);
   expect(systemNotifyItem).toHaveBeenCalledTimes(1);
   request.mockResolvedValueOnce(new Response(null, { status: 304 }));
   await refreshJwc(true);
   expect(request.mock.calls[2]![1]!.headers).toMatchObject({ 'If-None-Match': '"v1"' });
-  expect(db.prepare('SELECT id FROM notifications').all()).toHaveLength(1);
+  expect(db.prepare('SELECT id FROM notifications').all()).toHaveLength(2);
   await refreshJwc();
   expect(request).toHaveBeenCalledTimes(3);
 });
 
-it('开发模式只导入半年内的历史通知且不弹系统通知', async () => {
-  Object.defineProperty(app, 'isPackaged', { value: false });
-  vi.stubEnv('DELA_DEV_URL', 'http://127.0.0.1:5173');
+it.each([true, false])('首次导入近两个月通知且不提醒（正式版：%s）', async (isPackaged) => {
+  Object.defineProperty(app, 'isPackaged', { value: isPackaged });
+  vi.stubEnv('DELA_DEV_URL', isPackaged ? '' : 'http://127.0.0.1:5173');
   request
     .mockResolvedValueOnce(page(list(row(10), 'mxxsdtz/98.htm')))
-    .mockResolvedValueOnce(page(list(row(9, '03', '2026.05') + row(8, '30', '2026.04'), '97.htm')));
+    .mockResolvedValueOnce(page(list(row(9, '02', '2026.09') + row(8, '01', '2026.09'), '97.htm')));
   await refreshJwc(true);
   expect(db.prepare('SELECT id FROM notifications ORDER BY id').all()).toEqual([
     { id: 'jwc:10' },
@@ -104,6 +108,14 @@ it('开发模式只导入半年内的历史通知且不弹系统通知', async (
   request.mockResolvedValueOnce(new Response(null, { status: 304 }));
   await refreshJwc(true);
   expect(request).toHaveBeenCalledTimes(3);
+});
+
+it('首次忽略的过期首页通知不会在后续刷新时作为新通知导入', async () => {
+  request.mockImplementation(async () => page(list(row(9, '01', '2026.09'))));
+  await refreshJwc(true);
+  await refreshJwc(true);
+  expect(db.prepare('SELECT id FROM notifications').all()).toHaveLength(0);
+  expect(systemNotifyItem).not.toHaveBeenCalled();
 });
 
 it('列表读取失败不推进基线，下次成功仍可发现新增', async () => {
