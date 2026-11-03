@@ -118,6 +118,14 @@ it('首次忽略的过期首页通知不会在后续刷新时作为新通知导�
   expect(systemNotifyItem).not.toHaveBeenCalled();
 });
 
+it('北京时间刚跨日时按当地日期保留两个月前当天的通知', async () => {
+  vi.setSystemTime(new Date('2026-11-01T16:30:00Z'));
+  request.mockResolvedValueOnce(page(list(row(9, '02', '2026.09') + row(8, '01', '2026.09'))));
+  await refreshJwc(true);
+  expect(db.prepare('SELECT id FROM notifications').all()).toEqual([{ id: 'jwc:9' }]);
+  expect(systemNotifyItem).not.toHaveBeenCalled();
+});
+
 it('列表读取失败不推进基线，下次成功仍可发现新增', async () => {
   request.mockResolvedValueOnce(page(list(row(1))));
   await refreshJwc(true);

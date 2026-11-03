@@ -91,9 +91,11 @@ export async function refreshJwc(force = false): Promise<void> {
       const candidates = [...page.items];
       let cutoff: Date | null = null;
       if (initialSync) {
-        cutoff = new Date();
-        cutoff.setMonth(cutoff.getMonth() - 2);
-        cutoff.setHours(0, 0, 0, 0);
+        const shanghaiOffset = 8 * 60 * 60_000;
+        cutoff = new Date(Date.now() + shanghaiOffset);
+        cutoff.setUTCMonth(cutoff.getUTCMonth() - 2);
+        cutoff.setUTCHours(0, 0, 0, 0);
+        cutoff.setTime(cutoff.getTime() - shanghaiOffset);
         while (
           page.next &&
           page.items.every((item) => Date.parse(item.createdAt) >= cutoff!.getTime())
