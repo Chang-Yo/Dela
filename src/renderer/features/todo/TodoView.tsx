@@ -40,7 +40,7 @@ const showCompletedStorageKey = 'dela.todo.show-completed';
 /** 新建待办的默认截止时间取当天结束，避免保存瞬间就被判为「已过截止时间」。 */
 function defaultDueAt(): Date {
   const date = new Date();
-  date.setHours(23, 59, 59, 0);
+  date.setHours(23, 59, 0, 0);
   return date;
 }
 
@@ -283,10 +283,9 @@ export function TodoView({ request }: { request?: { id: string } }) {
         (filter === 'all' || item.source === filter) &&
         (showCompleted || !todoCompleted(item.status)),
     ) ?? [];
-  const undatedCount = (source: 'all' | 'canvas' | 'personal') =>
+  const pendingCount = (source: 'all' | 'canvas' | 'personal') =>
     (state?.items ?? []).filter(
-      (item) =>
-        !item.dueAt && !todoCompleted(item.status) && (source === 'all' || item.source === source),
+      (item) => !todoCompleted(item.status) && (source === 'all' || item.source === source),
     ).length;
   const openItem = (id: string) => {
     setDetailId(id);
@@ -365,7 +364,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
       )}
       <div className="flex flex-wrap items-center gap-2 py-4">
         {(['all', 'canvas', 'personal'] as const).map((value) => {
-          const count = undatedCount(value);
+          const count = pendingCount(value);
           return (
             <Button
               key={value}

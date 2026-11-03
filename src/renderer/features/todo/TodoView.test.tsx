@@ -29,6 +29,16 @@ const items: TodoItem[] = [
     readAt: null,
     createdAt: dueAt,
   },
+  {
+    id: 'personal:3',
+    source: 'personal',
+    title: '有截止日期待办',
+    notes: '',
+    dueAt,
+    status: 'pending',
+    readAt: null,
+    createdAt: dueAt,
+  },
 ];
 const state: TodoState = {
   items,
@@ -67,7 +77,7 @@ afterEach(() => {
 });
 
 describe('TODO 视图', () => {
-  it('默认显示月历，无截止日期数量常驻筛选页签，可切换列表查看', async () => {
+  it('默认显示月历，未完成待办数量常驻筛选页签，可切换列表查看', async () => {
     await act(async () => {
       root.render(<TodoView />);
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -76,7 +86,9 @@ describe('TODO 视图', () => {
     expect(host.querySelector('[aria-label="待办日历"]')).not.toBeNull();
     const findButton = (label: string) =>
       [...host.querySelectorAll('button')].find((button) => button.textContent?.includes(label));
-    expect(findButton('全部')!.textContent).toContain('1');
+    expect(findButton('全部')!.textContent).toContain('3');
+    expect(findButton('Canvas 作业')!.textContent).toContain('1');
+    expect(findButton('个人待办')!.textContent).toContain('2');
     const listButton = findButton('列表')!;
     expect(listButton.textContent).not.toContain('1');
     expect(listButton.title).not.toContain('没有截止时间');
@@ -88,7 +100,7 @@ describe('TODO 视图', () => {
     expect(host.querySelector('[aria-label="待办日历"]')).toBeNull();
     expect(host.textContent).toContain('课程作业');
     expect(host.textContent).toContain('无截止日期待办');
-    expect(findButton('全部')!.textContent).toContain('1');
+    expect(findButton('全部')!.textContent).toContain('3');
   });
 
   it('显示已完成默认打开，关闭后重新挂载仍保持关闭', async () => {
