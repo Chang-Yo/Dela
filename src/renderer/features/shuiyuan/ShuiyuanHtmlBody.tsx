@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderShuiyuanHtml, sanitizeShuiyuanHtml } from './shuiyuan-html';
 import {
   frameHeightFromEvent,
+  frameImageFromEvent,
   frameLinkFromEvent,
   injectFrameHeightReport,
 } from '../../components/ui/frame-height';
+import { openLightbox } from '../../components/ui/lightbox';
 import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
 import { useRootFontSize } from '../../lib/root-font-size';
 
@@ -57,7 +59,10 @@ export function ShuiyuanHtmlBody({
   const internalNavigation = Boolean(onOpenTopic);
   const document = useMemo(() => {
     const doc = sanitizeShuiyuanHtml(html);
-    injectFrameHeightReport(doc, internalNavigation ? SHUIYUAN_HOST : undefined);
+    injectFrameHeightReport(doc, {
+      internalLinkHost: internalNavigation ? SHUIYUAN_HOST : undefined,
+      lightbox: true,
+    });
     return renderShuiyuanHtml(doc, dark, rootSize);
   }, [html, dark, rootSize, internalNavigation]);
 
@@ -68,6 +73,8 @@ export function ShuiyuanHtmlBody({
       const href = frameLinkFromEvent(event, iframeRef.current);
       const target = href ? shuiyuanTopicFromUrl(href) : null;
       if (target && onOpenTopic) onOpenTopic(target.topicId, target.postNumber);
+      const image = frameImageFromEvent(event, iframeRef.current);
+      if (image) openLightbox(image.src, image.alt);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);

@@ -54,7 +54,10 @@ export function sanitizeShuiyuanHtml(html: string): Document {
     }
   }
   for (const img of doc.querySelectorAll('img')) {
-    const src = absolute(img.getAttribute('src'));
+    // 灯箱链接指向原图，直接显示原图，不再加载缩略图。
+    const src = absolute(
+      img.closest('a.lightbox')?.getAttribute('href') ?? img.getAttribute('src'),
+    );
     img.referrerPolicy = 'no-referrer';
     img.loading = 'lazy';
     // srcset/sizes 里的候选不走代理改写，留着会覆盖已改写的 src 重新破图。
@@ -182,6 +185,7 @@ export function renderShuiyuanHtml(
     /* 图片灯箱：隐藏尺寸/文件名 meta，只留图片本体。 */
     .lightbox-wrapper { margin: 0.85em 0; display: inline-block; max-width: 100%; }
     .lightbox-wrapper .meta { display: none; }
+    a.lightbox { cursor: zoom-in; }
     .img-fallback { display: inline-block; padding: 0 0.45em; border-radius: 0.25rem;
       background: var(--soft); color: var(--fg-muted); font-size: 0.85em; }
 
