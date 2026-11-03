@@ -304,16 +304,16 @@ function shuiyuanCategory(type: number): NotificationCategory {
   return 'other';
 }
 
-function unreadLikeTopicIds(key: string): Set<number> {
-  return new Set(
+function unreadLikes(key: string): Map<string, number> {
+  return new Map(
     (
       getDatabase()
         .prepare(
-          `SELECT DISTINCT json_extract(href, '$.topicId') AS topicId FROM notifications
+          `SELECT id, json_extract(href, '$.topicId') AS topicId FROM notifications
            WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like' AND read_at IS NULL`,
         )
-        .all(key) as { topicId: number }[]
-    ).map((row) => row.topicId),
+        .all(key) as { id: string; topicId: number }[]
+    ).map((row) => [row.id, row.topicId]),
   );
 }
 
@@ -339,7 +339,7 @@ async function refreshShuiyuan(): Promise<void> {
     const remote = await listShuiyuanNotifications();
     if (accountFor('shuiyuan') !== key) return;
     const existing = existingNotifications('shuiyuan', key);
-    const unreadLikeTopics = unreadLikeTopicIds(key);
+    const previouslyUnreadLikes = unreadLikes(key);
     const likeBursts = new Map<number, NotificationItem[]>();
     for (const item of remote) {
       if (item.topicId === null) continue;
@@ -366,6 +366,7 @@ async function refreshShuiyuan(): Promise<void> {
         item.count,
         item.read ? syncedAt : null,
       );
+      if (item.read) previouslyUnreadLikes.delete(id);
       const previousCount = existing.get(id);
       // 新 id，或服务端原地合并使 count 增长（同一条重新变为未读）都算一次新到达。
       const arrived = previousCount === undefined || item.count > previousCount;
@@ -386,12 +387,13 @@ async function refreshShuiyuan(): Promise<void> {
         likeBursts.set(item.topicId, [...(likeBursts.get(item.topicId) ?? []), notification]);
       else systemNotifyItem(notification);
     }
+    const unreadLikeTopics = new Set(previouslyUnreadLikes.values());
     for (const [topicId, likes] of likeBursts) {
       if (unreadLikeTopics.has(topicId)) continue;
       systemNotifyItem(likes[0]!, likeSummary(likes));
     }
     // `/notifications.json?recent=true` is a bounded page. Absence from it does not mean a
-    // persisted notification was read, so read_at is never changed here.
+    // persisted notification was read; only an explicit server read marks a row read.
     saveRefresh('shuiyuan', key, null);
   } catch (error) {
     saveRefresh('shuiyuan', key, error instanceof Error ? error.message : String(error));
@@ -455,8 +457,24 @@ export async function markNotificationRead(idInput: unknown): Promise<Notificati
   // 邮件通知的已读以邮件本身为准：委托 markMailSeen 在服务器标记 \Seen 并更新本地缓存；
   // 失败时保留未读，经来源错误行提示。
   const row = getDatabase()
-    .prepare('SELECT source, href FROM notifications WHERE id = ?')
-    .get(id) as { source: string; href: string } | undefined;
+    .prepare('SELECT source, account_key, href, category FROM notifications WHERE id = ?')
+    .get(id) as
+    { source: string; account_key: string; href: string; category: string | null } | undefined;
+  // 点赞按主题成组展示与弹窗，打开或标记其中一条即视为读完该主题的全部点赞。
+  if (
+    row?.source === 'shuiyuan' &&
+    row.category === 'like' &&
+    row.account_key === accountFor('shuiyuan')
+  ) {
+    getDatabase()
+      .prepare(
+        `UPDATE notifications SET read_at = COALESCE(read_at, ?)
+         WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like'
+           AND json_extract(href, '$.topicId') = json_extract(?, '$.topicId')`,
+      )
+      .run(new Date().toISOString(), row.account_key, row.href);
+    return broadcast();
+  }
   if (row?.source === 'mail') {
     let messageId: number | null = null;
     try {

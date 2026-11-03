@@ -35,7 +35,6 @@ type NotificationsViewProps = {
   error: string | null;
   onRefresh: () => void;
   onMarkRead: (id: string) => void;
-  onMarkGroupRead: (ids: string[]) => void;
   onMarkAllRead: () => void;
   onSnooze: (until: string | null) => void;
   onOpen: (item: NotificationItem) => void;
@@ -87,17 +86,17 @@ function SourceIcon({ source }: { source: NotificationItem['source'] }) {
 function LikeGroupRow({
   items,
   loading,
-  onMarkGroupRead,
+  onMarkRead,
   onOpen,
 }: {
   items: NotificationItem[];
   loading: boolean;
-  onMarkGroupRead: (ids: string[]) => void;
+  onMarkRead: (id: string) => void;
   onOpen: (item: NotificationItem) => void;
 }) {
   const latest = items[0]!;
-  const unreadIds = items.filter((item) => !item.readAt).map((item) => item.id);
-  const unread = unreadIds.length > 0;
+  const unreadCount = items.filter((item) => !item.readAt).length;
+  const unread = unreadCount > 0;
   return (
     <article className="relative rounded-card transition-colors duration-150 hover:bg-hover">
       <button
@@ -128,16 +127,16 @@ function LikeGroupRow({
         </span>
         {unread ? (
           <span className="mt-1 shrink-0 rounded-full bg-inset px-2 text-xs tabular-nums text-ink">
-            {unreadIds.length} 未读
+            {unreadCount} 未读
           </span>
         ) : null}
       </button>
       {unread ? (
         <Button
-          aria-label={`将“${latest.title}”的 ${unreadIds.length} 条点赞标为已读`}
+          aria-label={`将“${latest.title}”的 ${unreadCount} 条点赞标为已读`}
           className="absolute top-2.5 right-2.5"
           disabled={loading}
-          onClick={() => onMarkGroupRead(unreadIds)}
+          onClick={() => onMarkRead(latest.id)}
           size="icon-sm"
           title="标为已读"
           variant="ghost"
@@ -157,7 +156,6 @@ export function NotificationsView({
   error,
   onRefresh,
   onMarkRead,
-  onMarkGroupRead,
   onMarkAllRead,
   onSnooze,
   onOpen,
@@ -356,7 +354,7 @@ export function NotificationsView({
                 items={entry.items}
                 key={entry.key}
                 loading={loading}
-                onMarkGroupRead={onMarkGroupRead}
+                onMarkRead={onMarkRead}
                 onOpen={onOpen}
               />
             );

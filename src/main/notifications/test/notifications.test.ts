@@ -412,6 +412,44 @@ describe('local notification inbox', () => {
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
   });
 
+  it('reads every like on a topic when one of them is marked read', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([
+        shuiyuanLike(1, 22, 'alice'),
+        shuiyuanLike(2, 22, 'bob'),
+        shuiyuanLike(3, 23, 'carol'),
+      ])
+      .mockResolvedValueOnce([
+        shuiyuanLike(1, 22, 'alice'),
+        shuiyuanLike(2, 22, 'bob'),
+        shuiyuanLike(3, 23, 'carol'),
+        shuiyuanLike(4, 22, 'dave'),
+      ]);
+
+    await refreshNotifications();
+    await markNotificationRead('shuiyuan:dela-user:2');
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(systemNotifyItem).mock.calls[2]![1]).toBe('dave 赞了你的帖子');
+  });
+
+  it('alerts for a new like when the server reads the earlier ones in the same refresh', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([
+        { ...shuiyuanLike(1, 22, 'alice'), read: true },
+        shuiyuanLike(2, 22, 'bob'),
+      ]);
+
+    await refreshNotifications();
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('bob 赞了你的帖子');
+  });
+
   it('limits the list and unread count to the selected sources', async () => {
     insertUnreadInboxMail(db);
     bindShuiyuan();

@@ -358,15 +358,6 @@ export default function App() {
                         window.dela?.notifications &&
                         void notifications.run(() => window.dela!.notifications.markRead(id))
                       }
-                      onMarkGroupRead={(ids) =>
-                        window.dela?.notifications &&
-                        void notifications.run(async () => {
-                          let state = await window.dela!.notifications.markRead(ids[0]!);
-                          for (const id of ids.slice(1))
-                            state = await window.dela!.notifications.markRead(id);
-                          return state;
-                        })
-                      }
                       onMarkAllRead={() =>
                         window.dela?.notifications &&
                         void notifications.run(() => window.dela!.notifications.markAllRead())
