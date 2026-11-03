@@ -82,7 +82,7 @@ let notifications = [
   },
   {
     id: 2,
-    type: 2,
+    type: 1,
     read: true,
     highPriority: false,
     createdAt: iso(200),
