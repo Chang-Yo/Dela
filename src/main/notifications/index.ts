@@ -202,16 +202,31 @@ function upsert(
   href: NotificationItem['href'],
   category: NotificationCategory | null = null,
   count = 1,
+  remoteReadAt: string | null = null,
 ): void {
   getDatabase()
     .prepare(
       `INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href, category, count)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET title = excluded.title, body = excluded.body, created_at = excluded.created_at,
          source_unread = 1, href = excluded.href, category = excluded.category, count = excluded.count,
-         read_at = CASE WHEN excluded.count > notifications.count THEN NULL ELSE notifications.read_at END`,
+         read_at = CASE
+           WHEN excluded.read_at IS NOT NULL THEN COALESCE(notifications.read_at, excluded.read_at)
+           WHEN excluded.count > notifications.count THEN NULL
+           ELSE notifications.read_at END`,
     )
-    .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href), category, count);
+    .run(
+      id,
+      source,
+      accountKey,
+      title,
+      body,
+      createdAt,
+      remoteReadAt,
+      JSON.stringify(href),
+      category,
+      count,
+    );
 }
 
 function existingNotifications(source: NotificationSource, key: string): Map<string, number> {
@@ -327,7 +342,7 @@ async function refreshShuiyuan(): Promise<void> {
     const unreadLikeTopics = unreadLikeTopicIds(key);
     const likeBursts = new Map<number, NotificationItem[]>();
     for (const item of remote) {
-      if (item.read || item.topicId === null) continue;
+      if (item.topicId === null) continue;
       const id = `shuiyuan:${key}:${item.id}`;
       const title = shuiyuanTitle(item);
       const createdAt = item.createdAt || new Date().toISOString();
@@ -338,12 +353,24 @@ async function refreshShuiyuan(): Promise<void> {
         topicId: item.topicId,
         postNumber: item.postNumber,
       };
-      upsert('shuiyuan', key, id, title, body, createdAt, href, category, item.count);
+      const syncedAt = new Date().toISOString();
+      upsert(
+        'shuiyuan',
+        key,
+        id,
+        title,
+        body,
+        createdAt,
+        href,
+        category,
+        item.count,
+        item.read ? syncedAt : null,
+      );
       const previousCount = existing.get(id);
       // 新 id，或服务端原地合并使 count 增长（同一条重新变为未读）都算一次新到达。
       const arrived = previousCount === undefined || item.count > previousCount;
-      // 绑定后发生的互动首次到达才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
-      if (!arrived || item.createdAt <= credential.boundAt) continue;
+      // 服务端已读的条目只同步状态，不弹系统通知；绑定后发生的未读互动首次到达才弹。
+      if (item.read || !arrived || item.createdAt <= credential.boundAt) continue;
       const notification: NotificationItem = {
         id,
         source: 'shuiyuan',

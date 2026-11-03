@@ -358,6 +358,60 @@ describe('local notification inbox', () => {
     expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('alice 等 2 人赞了你的帖子');
   });
 
+  it('stores likes already read on the server as read without alerting', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([
+      { ...shuiyuanLike(1, 22, 'alice'), read: true },
+    ]);
+
+    await refreshNotifications();
+    const state = getNotificationState(['shuiyuan']);
+    expect(state.items).toHaveLength(1);
+    expect(state.items[0]!.readAt).not.toBeNull();
+    expect(state.unreadCount).toBe(0);
+    expect(systemNotifyItem).not.toHaveBeenCalled();
+  });
+
+  it('marks a stored unread like read once the server reports it read', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([{ ...shuiyuanLike(1, 22, 'alice'), read: true }]);
+
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a like read locally while the server still reports it unread', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead();
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-alert when a consolidated like arrives already read on the server', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 1)])
+      .mockResolvedValueOnce([{ ...shuiyuanLike(1, 22, 'alice', 2), read: true }]);
+
+    await refreshNotifications();
+    await refreshNotifications();
+    const state = getNotificationState(['shuiyuan']);
+    expect(state.items[0]!.count).toBe(2);
+    expect(state.items[0]!.readAt).not.toBeNull();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+  });
+
   it('limits the list and unread count to the selected sources', async () => {
     insertUnreadInboxMail(db);
     bindShuiyuan();
