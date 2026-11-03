@@ -134,6 +134,7 @@ export interface ShuiyuanSiteStructure {
 export interface ShuiyuanNotificationItem {
   readonly id: number;
   readonly type: number;
+  readonly count: number;
   readonly read: boolean;
   readonly highPriority: boolean;
   readonly createdAt: string;
@@ -141,6 +142,7 @@ export interface ShuiyuanNotificationItem {
   readonly postNumber: number | null;
   readonly fancyTitle: string | null;
   readonly displayUsername: string | null;
+  readonly originalPostId: number | null;
 }
 
 export interface ShuiyuanBookmarkItem {
@@ -202,6 +204,8 @@ export interface ShuiyuanApi {
   getTopic(id: number, postNumber?: number): Promise<ShuiyuanTopicDetail>;
   /** 按 post id 分段加载楼层（长帖加载更多）。 */
   loadPosts(topicId: number, postIds: readonly number[]): Promise<readonly ShuiyuanPost[]>;
+  /** 按 post id 定位所在主题与楼层（合并点赞通知只带 post id）。 */
+  locatePost(postId: number): Promise<ShuiyuanTopicLink>;
   listBookmarks(): Promise<readonly ShuiyuanBookmarkItem[]>;
   /** 私信会话列表（topic 形态）。 */
   listMessages(): Promise<ShuiyuanTopicPage>;

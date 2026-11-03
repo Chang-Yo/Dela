@@ -7,38 +7,44 @@ import {
   Mail,
   RefreshCw,
   SlidersHorizontal,
+  GraduationCap,
 } from 'lucide-react';
-import type { NotificationFilter, NotificationItem, NotificationState } from '../../../shared/api';
+import { notificationSources } from '../../../shared/api';
+import type { NotificationItem, NotificationSource, NotificationState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
+import { JwcNoticeView } from './JwcNoticeView';
+import { groupNotifications, likeGroupSummary } from './group-notifications';
+import { useNotificationSourceFilter } from './source-filter';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
 
 type NotificationsViewProps = {
+  jwcNotice: NotificationItem | null;
+  onCloseJwcNotice: () => void;
   state: NotificationState | null;
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
   onMarkRead: (id: string) => void;
-  onMarkAllRead: () => void;
+  onMarkAllRead: (sources: readonly NotificationSource[]) => void;
   onSnooze: (until: string | null) => void;
   onOpen: (item: NotificationItem) => void;
 };
 
-const filterLabels: Record<NotificationFilter, string> = {
-  all: '全部来源',
+const filterLabels: Record<NotificationSource, string> = {
   mail: '邮件',
   shuiyuan: '水源',
   todo: 'TODO',
+  jwc: '教务处',
 };
 
 function formatTime(value: string): string {
@@ -66,12 +72,86 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
 }
 
 function SourceIcon({ source }: { source: NotificationItem['source'] }) {
-  const Icon = source === 'mail' ? Mail : source === 'todo' ? CircleCheckBig : ShuiyuanIcon;
+  const Icon =
+    source === 'mail'
+      ? Mail
+      : source === 'todo'
+        ? CircleCheckBig
+        : source === 'jwc'
+          ? GraduationCap
+          : ShuiyuanIcon;
   return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-3" />;
 }
 
+function LikeGroupRow({
+  items,
+  loading,
+  onMarkRead,
+  onOpen,
+}: {
+  items: NotificationItem[];
+  loading: boolean;
+  onMarkRead: (id: string) => void;
+  onOpen: (item: NotificationItem) => void;
+}) {
+  const latest = items[0]!;
+  const unreadCount = items.filter((item) => !item.readAt).length;
+  const unread = unreadCount > 0;
+  return (
+    <article className="relative rounded-card transition-colors duration-150 hover:bg-hover">
+      <button
+        className={cn(
+          'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+          unread && 'pr-14',
+        )}
+        onClick={() => onOpen(latest)}
+        type="button"
+      >
+        <SourceIcon source="shuiyuan" />
+        <span className="min-w-0 flex-1">
+          <span
+            className={
+              unread
+                ? 'block break-words text-13 font-semibold'
+                : 'block break-words text-13 font-normal'
+            }
+          >
+            {latest.title}
+          </span>
+          <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3">
+            {likeGroupSummary(items)}
+          </span>
+          <span className="mt-2 block text-xs tabular-nums text-ink-3">
+            水源 · {formatTime(latest.createdAt)}
+          </span>
+        </span>
+        {unread ? (
+          <span className="mt-1 shrink-0 rounded-full bg-inset px-2 text-xs tabular-nums text-ink">
+            {unreadCount} 未读
+          </span>
+        ) : null}
+      </button>
+      {unread ? (
+        <Button
+          aria-label={`将“${latest.title}”的 ${unreadCount} 条点赞标为已读`}
+          className="absolute top-2.5 right-2.5"
+          disabled={loading}
+          onClick={() => onMarkRead(latest.id)}
+          size="icon-sm"
+          title="标为已读"
+          variant="ghost"
+        >
+          <Check className="size-4" />
+        </Button>
+      ) : null}
+    </article>
+  );
+}
+
 export function NotificationsView({
-  state,
+  jwcNotice,
+  onCloseJwcNotice,
+  state: allState,
   loading,
   error,
   onRefresh,
@@ -80,22 +160,51 @@ export function NotificationsView({
   onSnooze,
   onOpen,
 }: NotificationsViewProps) {
-  const [filter, setFilter] = useState<NotificationFilter>('all');
+  const sources = useNotificationSourceFilter((store) => store.sources);
+  const toggleSource = useNotificationSourceFilter((store) => store.toggleSource);
+  const allSelected = sources.length === notificationSources.length;
+  const [filteredState, setFilteredState] = useState<{
+    sources: readonly NotificationSource[];
+    state: NotificationState;
+  } | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    setFilterError(null);
+    if (sources.length < notificationSources.length && window.dela) {
+      void window.dela.notifications.getState(sources).then(
+        (value) => {
+          if (active) setFilteredState({ sources, state: value });
+        },
+        (reason) => {
+          if (active) setFilterError(String(reason));
+        },
+      );
+    }
+    return () => {
+      active = false;
+    };
+  }, [sources, allState]);
+  const state = !allSelected && filteredState?.sources === sources ? filteredState.state : allState;
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, [state]);
-  const items = state?.items.filter((item) => filter === 'all' || item.source === filter) ?? [];
+  const items = state?.items.filter((item) => sources.includes(item.source)) ?? [];
+  const entries = groupNotifications(items);
   const sourceErrors = state
     ? (Object.entries(state.refresh).flatMap(([source, value]) =>
-        value?.error ? [`${filterLabels[source as NotificationFilter]}：${value.error}`] : [],
+        value?.error ? [`${filterLabels[source as NotificationSource]}：${value.error}`] : [],
       ) as string[])
     : [];
   const snoozed = state?.snoozedUntil && new Date(state.snoozedUntil).getTime() > now;
   // 初始抓取在途（有通知 API、尚无状态且无错误）时按加载态展示，避免闪现“暂不可用”。
   const initialLoading = !state && !error && Boolean(window.dela?.notifications);
+
+  if (jwcNotice)
+    return <JwcNoticeView key={jwcNotice.id} item={jwcNotice} onBack={onCloseJwcNotice} />;
 
   // 隐藏滑块但保留 overflow-y:scroll 的常驻槽位，条目增减不引起内容横向位移。
   return (
@@ -121,7 +230,7 @@ export function NotificationsView({
           <Button
             aria-label="全部标为已读"
             disabled={loading || !state?.unreadCount}
-            onClick={onMarkAllRead}
+            onClick={() => onMarkAllRead(sources)}
             size="sm"
             title="全部标为已读"
             variant="ghost"
@@ -131,23 +240,23 @@ export function NotificationsView({
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button aria-label="筛选通知类型" size="icon-sm" title="筛选通知类型" variant="ghost">
+              <Button aria-label="筛选消息来源" size="icon-sm" title="筛选消息来源" variant="ghost">
                 <SlidersHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>通知类型</DropdownMenuLabel>
+              <DropdownMenuLabel>消息来源</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup
-                onValueChange={(value) => setFilter(value as NotificationFilter)}
-                value={filter}
-              >
-                {(Object.keys(filterLabels) as NotificationFilter[]).map((value) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    {filterLabels[value]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
+              {notificationSources.map((source) => (
+                <DropdownMenuCheckboxItem
+                  checked={sources.includes(source)}
+                  key={source}
+                  onCheckedChange={() => toggleSource(source)}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  {filterLabels[source]}
+                </DropdownMenuCheckboxItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
@@ -192,12 +301,12 @@ export function NotificationsView({
         </div>
       ) : null}
 
-      {error ? (
+      {error || filterError ? (
         <div
           className="mt-4 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
-          <p>{error}</p>
+          <p>{error || filterError}</p>
           <Button className="mt-2" onClick={onRefresh} size="sm" variant="outline">
             重试
           </Button>
@@ -226,7 +335,9 @@ export function NotificationsView({
       ) : null}
       {state && !loading && items.length === 0 ? (
         <p className="py-12 text-center text-13 text-ink-3">
-          {filter === 'all' ? '暂时没有通知。' : `没有${filterLabels[filter]}通知。`}
+          {allSelected
+            ? '暂时没有通知。'
+            : `没有${sources.map((source) => filterLabels[source]).join('、')}通知。`}
         </p>
       ) : null}
 
@@ -236,60 +347,73 @@ export function NotificationsView({
             显示最近 {state.items.length} 条，共 {state.totalCount} 条通知。
           </p>
         )}
-        {items.map((item) => (
-          <article
-            className="relative rounded-card transition-colors duration-150 hover:bg-hover"
-            key={item.id}
-          >
-            <button
-              className={cn(
-                'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
-                !item.readAt && 'pr-14',
-              )}
-              onClick={() => onOpen(item)}
-              type="button"
+        {entries.map((entry) => {
+          if (entry.kind === 'group')
+            return (
+              <LikeGroupRow
+                items={entry.items}
+                key={entry.key}
+                loading={loading}
+                onMarkRead={onMarkRead}
+                onOpen={onOpen}
+              />
+            );
+          const item = entry.item;
+          return (
+            <article
+              className="relative rounded-card transition-colors duration-150 hover:bg-hover"
+              key={item.id}
             >
-              <SourceIcon source={item.source} />
-              <span className="min-w-0 flex-1">
-                <span
-                  className={
-                    item.readAt
-                      ? 'block break-words text-13 font-normal'
-                      : 'block break-words text-13 font-semibold'
-                  }
-                >
-                  {item.title}
-                </span>
-                <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3 line-clamp-3">
-                  {item.body}
-                </span>
-                <span className="mt-2 block text-xs tabular-nums text-ink-3">
-                  {filterLabels[item.source]} · {formatTime(item.createdAt)}
-                </span>
-              </span>
-              {!item.readAt ? (
-                <span
-                  aria-label="未读"
-                  className="mt-1 size-2 shrink-0 rounded-full bg-ink"
-                  role="status"
-                />
-              ) : null}
-            </button>
-            {!item.readAt ? (
-              <Button
-                aria-label={`将“${item.title}”标为已读`}
-                className="absolute top-2.5 right-2.5"
-                disabled={loading}
-                onClick={() => onMarkRead(item.id)}
-                size="icon-sm"
-                title="标为已读"
-                variant="ghost"
+              <button
+                className={cn(
+                  'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+                  !item.readAt && 'pr-14',
+                )}
+                onClick={() => onOpen(item)}
+                type="button"
               >
-                <Check className="size-4" />
-              </Button>
-            ) : null}
-          </article>
-        ))}
+                <SourceIcon source={item.source} />
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={
+                      item.readAt
+                        ? 'block break-words text-13 font-normal'
+                        : 'block break-words text-13 font-semibold'
+                    }
+                  >
+                    {item.title}
+                  </span>
+                  <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3 line-clamp-3">
+                    {item.body}
+                  </span>
+                  <span className="mt-2 block text-xs tabular-nums text-ink-3">
+                    {filterLabels[item.source]} · {formatTime(item.createdAt)}
+                  </span>
+                </span>
+                {!item.readAt ? (
+                  <span
+                    aria-label="未读"
+                    className="mt-1 size-2 shrink-0 rounded-full bg-ink"
+                    role="status"
+                  />
+                ) : null}
+              </button>
+              {!item.readAt ? (
+                <Button
+                  aria-label={`将“${item.title}”标为已读`}
+                  className="absolute top-2.5 right-2.5"
+                  disabled={loading}
+                  onClick={() => onMarkRead(item.id)}
+                  size="icon-sm"
+                  title="标为已读"
+                  variant="ghost"
+                >
+                  <Check className="size-4" />
+                </Button>
+              ) : null}
+            </article>
+          );
+        })}
       </section>
     </div>
   );

@@ -74,23 +74,23 @@ export function describeNotification(item: ShuiyuanNotificationItem): {
 } {
   const who = item.displayUsername ?? '有人';
   const title = item.fancyTitle ? `「${item.fancyTitle}」` : '';
-  const typeText: Record<number, { icon: LucideIcon; verb: string }> = {
-    1: { icon: Reply, verb: `回复了你在${title}的帖子` },
-    2: { icon: AtSign, verb: `在${title}中提到了你` },
-    3: { icon: Quote, verb: `在${title}中引用了你的帖子` },
-    4: { icon: Edit3, verb: `编辑了你在${title}的帖子` },
-    5: { icon: Heart, verb: `赞了你在${title}的帖子` },
-    6: { icon: Mail, verb: `给你发来私信${title}` },
-    9: { icon: Mail, verb: `给你发来私信${title}` },
-    10: { icon: Link2, verb: `在${title}中关联了你的帖子` },
-    11: { icon: BadgeCheck, verb: '你获得了新徽章' },
-    12: { icon: UserPlus, verb: `邀请你加入${title}` },
-    14: { icon: MessageSquareQuote, verb: `在${title}中提及了你所在的群组` },
-    18: { icon: Heart, verb: `赞了你在${title}的帖子` },
-    19: { icon: CheckCircle2, verb: `你在${title}的帖子已通过审核` },
+  const typeText: Record<number, { icon: LucideIcon; text: string }> = {
+    1: { icon: AtSign, text: `${who} 在${title}中提到了你` },
+    2: { icon: Reply, text: `${who} 回复了你在${title}的帖子` },
+    3: { icon: Quote, text: `${who} 在${title}中引用了你的帖子` },
+    4: { icon: Edit3, text: `${who} 编辑了你在${title}的帖子` },
+    5: { icon: Heart, text: `${who} 赞了你在${title}的帖子` },
+    6: { icon: Mail, text: `${who} 给你发来私信${title}` },
+    7: { icon: UserPlus, text: `${who} 邀请你加入私信${title}` },
+    9: { icon: Reply, text: `${who} 在你关注的${title}中发布了新帖子` },
+    11: { icon: Link2, text: `${who} 在${title}中链接了你的帖子` },
+    12: { icon: BadgeCheck, text: '你获得了新徽章' },
+    13: { icon: UserPlus, text: `${who} 邀请你参与${title}` },
+    15: { icon: MessageSquareQuote, text: `${who} 在${title}中提及了你所在的群组` },
+    19: { icon: Heart, text: `${who} 赞了你的 ${item.count} 个帖子` },
+    20: { icon: CheckCircle2, text: `你在${title}的帖子已通过审核` },
   };
-  const meta = typeText[item.type] ?? { icon: Bell, verb: `与你互动${title}` };
-  return { icon: meta.icon, text: `${who} ${meta.verb}` };
+  return typeText[item.type] ?? { icon: Bell, text: `${who} 与你互动${title}` };
 }
 
 const IMAGE_NAME = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i;

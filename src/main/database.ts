@@ -137,19 +137,21 @@ const schema: string[] = [
   // 通知中心。
   `CREATE TABLE IF NOT EXISTS notifications (
     id TEXT PRIMARY KEY,
-    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc')),
     account_key TEXT NOT NULL,
     title TEXT NOT NULL,
     body TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     read_at TEXT,
     source_unread INTEGER NOT NULL DEFAULT 1,
-    href TEXT NOT NULL
+    href TEXT NOT NULL,
+    category TEXT,
+    count INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE INDEX IF NOT EXISTS idx_notifications_account_source_created
     ON notifications (account_key, source, created_at DESC)`,
   `CREATE TABLE IF NOT EXISTS notification_refreshes (
-    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc')),
     account_key TEXT NOT NULL,
     last_success_at TEXT,
     error TEXT,
@@ -192,7 +194,7 @@ const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
   accepted_at TEXT NOT NULL
 )`;
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export function getDatabase(): Database.Database {
   if (database) return database;

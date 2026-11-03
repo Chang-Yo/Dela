@@ -1,5 +1,7 @@
 import { ArrowLeft, CheckCheck, Heart } from 'lucide-react';
+import { showToast } from '../../app/toasts';
 import { Button } from '../../components/ui/button';
+import { errorText } from '../../workspace/store';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { useShuiyuan } from './store';
 import { describeNotification, formatListDate } from './shuiyuan-format';
@@ -103,9 +105,19 @@ export function NotificationList() {
           <button
             className="flex w-full items-start gap-2.5 border-b border-line px-1 py-3.5 text-left transition-colors last:border-0 hover:bg-hover"
             key={item.id}
-            onClick={() =>
-              item.topicId !== null && void openTopic(item.topicId, item.postNumber ?? undefined)
-            }
+            onClick={() => {
+              if (item.topicId !== null) void openTopic(item.topicId, item.postNumber ?? undefined);
+              else if (item.originalPostId !== null)
+                void window.dela?.shuiyuan.locatePost(item.originalPostId).then(
+                  (link) => openTopic(link.topicId, link.postNumber),
+                  (reason) =>
+                    showToast({
+                      variant: 'error',
+                      title: '打开帖子失败',
+                      description: errorText(reason),
+                    }),
+                );
+            }}
             type="button"
           >
             <Icon aria-hidden="true" className="mt-1 size-4 shrink-0 text-ink-3" />

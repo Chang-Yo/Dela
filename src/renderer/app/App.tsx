@@ -345,6 +345,8 @@ export default function App() {
                   {view === 'todo' && <TodoView request={todoRequest ?? undefined} />}
                   {view === 'notifications' && (
                     <NotificationsView
+                      jwcNotice={notifications.jwcNotice}
+                      onCloseJwcNotice={notifications.closeJwcNotice}
                       state={notifications.notifications}
                       loading={notifications.loading}
                       error={notifications.error}
@@ -356,9 +358,11 @@ export default function App() {
                         window.dela?.notifications &&
                         void notifications.run(() => window.dela!.notifications.markRead(id))
                       }
-                      onMarkAllRead={() =>
+                      onMarkAllRead={(sources) =>
                         window.dela?.notifications &&
-                        void notifications.run(() => window.dela!.notifications.markAllRead())
+                        void notifications.run(() =>
+                          window.dela!.notifications.markAllRead(sources),
+                        )
                       }
                       onSnooze={(until) =>
                         window.dela?.notifications &&

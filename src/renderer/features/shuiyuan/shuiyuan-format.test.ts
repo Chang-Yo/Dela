@@ -1,5 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { uploadMarkdown } from './shuiyuan-format';
+import { describeNotification, uploadMarkdown } from './shuiyuan-format';
+
+const notification = (type: number, topicId: number | null = 42) => ({
+  id: 1,
+  type,
+  count: 5,
+  read: false,
+  highPriority: false,
+  createdAt: '2026-11-01T00:00:00Z',
+  topicId,
+  postNumber: topicId === null ? null : 3,
+  fancyTitle: topicId === null ? null : '期末复习',
+  displayUsername: '尼康感动常在',
+  originalPostId: topicId === null ? 4926962 : null,
+});
+
+describe('describeNotification', () => {
+  it('按 Discourse 类型区分提到（1）与回复（2）', () => {
+    expect(describeNotification(notification(1)).text).toBe(
+      '尼康感动常在 在「期末复习」中提到了你',
+    );
+    expect(describeNotification(notification(2)).text).toBe(
+      '尼康感动常在 回复了你在「期末复习」的帖子',
+    );
+  });
+
+  it('连赞（19）显示被赞的帖子数，而不是审核通过', () => {
+    expect(describeNotification(notification(19, null)).text).toBe(
+      '尼康感动常在 赞了你的 5 个帖子',
+    );
+  });
+});
 
 const upload = (
   originalFilename: string,

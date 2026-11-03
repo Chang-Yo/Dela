@@ -13,6 +13,7 @@ import type {
   ShuiyuanState,
   ShuiyuanTag,
   ShuiyuanTopicDetail,
+  ShuiyuanTopicLink,
   ShuiyuanTopicPage,
   ShuiyuanTopicSummary,
   ShuiyuanUpload,
@@ -310,7 +311,12 @@ const rawNotificationSchema = z
     post_number: z.number().nullish(),
     fancy_title: z.string().nullish(),
     data: z
-      .object({ display_username: z.string().nullish(), topic_title: z.string().nullish() })
+      .object({
+        display_username: z.string().nullish(),
+        topic_title: z.string().nullish(),
+        count: z.number().nullish(),
+        original_post_id: z.number().nullish(),
+      })
       .passthrough()
       .nullish(),
   })
@@ -591,6 +597,15 @@ export async function loadShuiyuanPosts(
   return (parsed.post_stream.posts ?? []).map(mapPost);
 }
 
+export async function locateShuiyuanPost(postIdInput: unknown): Promise<ShuiyuanTopicLink> {
+  const postId = z.number().int().positive().parse(postIdInput);
+  const parsed = z
+    .object({ topic_id: z.number(), post_number: z.number() })
+    .passthrough()
+    .parse(await shuiyuanRequest(`/posts/${postId}.json`));
+  return { topicId: parsed.topic_id, postNumber: parsed.post_number };
+}
+
 export async function listShuiyuanBookmarks(): Promise<ShuiyuanBookmarkItem[]> {
   const credential = loadShuiyuanCredential();
   if (!credential) throw new Error('尚未绑定水源社区');
@@ -632,6 +647,7 @@ export async function listShuiyuanNotifications(): Promise<ShuiyuanNotificationI
   return (parsed.notifications ?? []).map((raw) => ({
     id: raw.id,
     type: raw.notification_type,
+    count: raw.data?.count ?? 1,
     read: raw.read ?? false,
     highPriority: raw.high_priority ?? false,
     createdAt: raw.created_at ?? '',
@@ -639,6 +655,7 @@ export async function listShuiyuanNotifications(): Promise<ShuiyuanNotificationI
     postNumber: raw.post_number ?? null,
     fancyTitle: raw.fancy_title ?? raw.data?.topic_title ?? null,
     displayUsername: raw.data?.display_username ?? null,
+    originalPostId: raw.data?.original_post_id ?? null,
   }));
 }
 

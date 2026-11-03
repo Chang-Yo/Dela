@@ -114,3 +114,31 @@ it('新安装与当前版本不迁移；缺少中间步骤的旧版本明确拒�
   expect(() => runMigrations({ userData, seal }, 7)).toThrow(UnsupportedDataVersionError);
   expect(existsSync(dbPath())).toBe(true);
 });
+
+it('v7→v8：保留原通知与已读状态，允许教务处来源', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT CHECK(source IN ('mail','shuiyuan')), account_key TEXT, title TEXT, body TEXT, created_at TEXT, read_at TEXT, source_unread INTEGER, href TEXT);
+    CREATE INDEX idx_notifications_account_source_created ON notifications(account_key, source, created_at DESC);
+    CREATE TABLE notification_refreshes (source TEXT CHECK(source IN ('mail','shuiyuan')), account_key TEXT, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
+    INSERT INTO notifications VALUES ('old', 'mail', 'student', '原通知', '', '2026-10-01', '2026-10-02', 1, '{}');
+    INSERT INTO notification_refreshes VALUES ('mail', 'student', '2026-10-01', NULL);`);
+  before.pragma('user_version = 7');
+  before.close();
+  expect(runMigrations({ userData, seal }, 8)).toBe(1);
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(8);
+  expect(db.prepare('SELECT title, read_at, category, count FROM notifications').get()).toEqual({
+    title: '原通知',
+    read_at: '2026-10-02',
+    category: null,
+    count: 1,
+  });
+  expect(db.prepare('SELECT last_success_at FROM notification_refreshes').get()).toEqual({
+    last_success_at: '2026-10-01',
+  });
+  db.prepare(
+    "INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href) VALUES ('new', 'jwc', 'students', '新通知', '', '2026-11-01', NULL, 1, '{}')",
+  ).run();
+  db.prepare("INSERT INTO notification_refreshes VALUES ('jwc', 'students', NULL, NULL)").run();
+  db.close();
+});

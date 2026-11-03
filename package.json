@@ -49,6 +49,7 @@
     "@earendil-works/pi-coding-agent": "1.1.0",
     "@earendil-works/pi-mcp": "1.1.0",
     "better-sqlite3": "13.0.3",
+    "cheerio": "1.2.0",
     "electron-updater": "6.8.10",
     "imapflow": "2.0.0",
     "node-pty": "1.1.0",
