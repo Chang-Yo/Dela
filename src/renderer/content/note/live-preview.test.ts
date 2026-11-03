@@ -92,11 +92,38 @@ describe('markdownLivePreview', () => {
     expect(editor.contentDOM.querySelector('.cm-md-math')).toBeNull();
   });
 
-  it('图片在行下方按解析后的地址显示', () => {
+  it('图片在行下方按解析后的地址显示，光标所在时原文弱化显示', () => {
     const editor = mount('![图](assets/a.png)\n\n文字', 0);
     const image = editor.contentDOM.querySelector<HTMLImageElement>('img.cm-md-image');
     expect(image?.getAttribute('src')).toBe('resolved:assets/a.png');
     expect(image?.alt).toBe('图');
+    expect(editor.contentDOM.querySelector('.cm-md-image-src')?.textContent).toBe(
+      '![图](assets/a.png)',
+    );
+  });
+
+  it('光标离开后只留图片：独占一行时整行换成图片，夹在文字里时隐藏原文', () => {
+    const doc = '![图](assets/a.png)\n\n前文 ![小图](b.png) 后文\n\n末行';
+    const editor = mount(doc, doc.length);
+    const lines = [...editor.contentDOM.querySelectorAll('.cm-line')].map((l) => l.textContent);
+    expect(lines).not.toContain('![图](assets/a.png)');
+    expect(lines).toContain('前文  后文');
+    expect(editor.contentDOM.querySelectorAll('img.cm-md-image')).toHaveLength(2);
+    expect(editor.state.sliceDoc()).toBe(doc);
+  });
+
+  it('解析器返回 null 的图片保持原文、不渲染', () => {
+    const doc = '![clip|video](upload://a.mp4)\n\n末行';
+    view = new EditorView({
+      state: EditorState.create({
+        doc,
+        selection: EditorSelection.cursor(doc.length),
+        extensions: [markdown({ base: markdownLanguage }), markdownLivePreview(() => null)],
+      }),
+      parent: document.body,
+    });
+    expect(view.contentDOM.querySelector('img')).toBeNull();
+    expect(view.contentDOM.textContent).toContain('![clip|video](upload://a.mp4)');
   });
 
   it('表格：光标不在时渲染成表格（对齐、行内样式、空单元格），光标移进去回到原文', () => {

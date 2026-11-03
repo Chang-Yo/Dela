@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   CornerUpLeft,
@@ -12,20 +12,37 @@ import {
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
-import { categoryOf, useShuiyuan } from './store';
+import { categoryOf, loadedSpan, useShuiyuan } from './store';
 import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ReplyComposer } from './ReplyComposer';
 import { AddToProjectDialog } from './AddToProjectDialog';
 import { CategoryTag } from './TopicFeed';
+import { FloorCapsule, TopicTimeline } from './TopicTimeline';
 import type { ShuiyuanPost } from '../../../shared/api';
 
-function stripToText(html: string): string {
-  return new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+type ReplyTarget = { postNumber: number; username: string };
+
+/* 回复草稿按帖子在本次会话内记忆：返回信息流、楼内链接切帖后回来仍在，不持久化。 */
+const replyDrafts = new Map<number, { text: string; target: ReplyTarget | null }>();
+
+/** 楼层正文转引用文本：去掉楼中嵌套的引用，块级元素之间保留换行。 */
+function quoteText(cooked: string): string {
+  const doc = new DOMParser().parseFromString(cooked, 'text/html');
+  doc.querySelectorAll('aside.quote, .lightbox-wrapper .meta').forEach((node) => node.remove());
+  doc
+    .querySelectorAll('p, li, br, pre, blockquote, h1, h2, h3, h4, h5, h6')
+    .forEach((node) => node.after('\n'));
+  return (doc.body.textContent ?? '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function postElements(root: HTMLElement | null): HTMLElement[] {
+  return Array.from(root?.querySelectorAll<HTMLElement>('[data-post-number]') ?? []);
 }
 
 type PostActionsProps = {
   post: ShuiyuanPost;
+  canReply: boolean;
   onLike: (postId: number, liked: boolean) => void;
   onQuote: (post: ShuiyuanPost) => void;
   onReply: (post: ShuiyuanPost) => void;
@@ -35,7 +52,7 @@ type PostActionsProps = {
  * 楼层操作行（Discourse 式全 ghost，默认降透明、悬停/聚焦所在楼层时浮现）。
  * 站点实测（2026-09-21）：点赞可用；User API Key 无法取消点赞，已赞状态按钮不可再点。
  */
-function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
+function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsProps) {
   const likeCount = post.likeCount ?? 0;
   return (
     <footer className="mt-2.5 flex items-center justify-end gap-1 opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 max-md:opacity-100">
@@ -57,23 +74,27 @@ function PostActions({ post, onLike, onQuote, onReply }: PostActionsProps) {
         />
         {likeCount > 0 ? likeCount : null}
       </button>
-      <button
-        aria-label={`引用第 ${post.postNumber} 楼`}
-        className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-        onClick={() => onQuote(post)}
-        title="引用"
-        type="button"
-      >
-        <Quote className="size-3.5" strokeWidth={1.8} />
-      </button>
-      <button
-        className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-        onClick={() => onReply(post)}
-        type="button"
-      >
-        <Reply aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-        回复
-      </button>
+      {canReply ? (
+        <>
+          <button
+            aria-label={`引用第 ${post.postNumber} 楼`}
+            className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+            onClick={() => onQuote(post)}
+            title="引用"
+            type="button"
+          >
+            <Quote className="size-3.5" strokeWidth={1.8} />
+          </button>
+          <button
+            className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+            onClick={() => onReply(post)}
+            type="button"
+          >
+            <Reply aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
+            回复
+          </button>
+        </>
+      ) : null}
     </footer>
   );
 }
@@ -168,110 +189,198 @@ function PostAvatar({ post }: { post: ShuiyuanPost }) {
 /**
  * 阅读页主体：话题标题区（大标题 + 分类/标签/统计）+ 居中楼层流
  * （固定头像沟槽 + 楼底右对齐 ghost 操作条）+ 底部向上展开的回复框。
- * 楼层接近底部时自动分段加载；推入动画由外层负责。
+ * 楼层接近两端时自动分段补楼，右侧楼层进度可拖动跳楼；推入动画由外层负责。
  */
 export function TopicReader() {
   const reading = useShuiyuan((state) => state.reading);
   const structure = useShuiyuan((state) => state.structure);
   const openTopic = useShuiyuan((state) => state.openTopic);
   const loadMorePosts = useShuiyuan((state) => state.loadMorePosts);
+  const loadPostWindow = useShuiyuan((state) => state.loadPostWindow);
   const submitReply = useShuiyuan((state) => state.submitReply);
   const setLiked = useShuiyuan((state) => state.setLiked);
-  const [draft, setDraft] = useState('');
-  const [composerOpen, setComposerOpen] = useState(false);
+  // 阅读器按 topicId 重挂载，挂载时的 topicId 即本实例的帖子。
+  const [topicId] = useState(() => useShuiyuan.getState().reading?.topicId ?? 0);
+  const [draft, setDraft] = useState(() => replyDrafts.get(topicId)?.text ?? '');
+  const [composerOpen, setComposerOpen] = useState(() => replyDrafts.has(topicId));
   /** 楼层级回复目标；null 为主题级回复。 */
-  const [replyTarget, setReplyTarget] = useState<{ postNumber: number; username: string } | null>(
-    null,
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(
+    () => replyDrafts.get(topicId)?.target ?? null,
   );
-  /** 跳转落点楼层短暂高亮，让「回到底楼」的落点可辨认。 */
+  /** 跳转落点楼层短暂高亮，让落点可辨认。 */
   const [highlight, setHighlight] = useState<number | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState<'before' | 'after' | null>(null);
+  /** 视口顶端所在楼层，驱动楼层进度。 */
+  const [currentPost, setCurrentPost] = useState<number | null>(null);
+  /** 跳到未加载区域：新楼层段提交到 DOM 后再定位。 */
+  const [pendingJump, setPendingJump] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
+  /** 首个已加载楼层最近一次的视口位置，向上补楼后据此回补滚动。 */
+  const firstPostRef = useRef<{ postNumber: number; top: number; atTop: boolean } | null>(null);
+  const trackFrameRef = useRef(0);
   const detail = reading?.detail ?? null;
+  const posts = detail?.posts;
   const isPM = detail?.archetype === 'private_message';
   const category = categoryOf(structure, detail?.categoryId ?? null);
+  const span = detail ? loadedSpan(detail) : null;
+  const hasBefore = span ? span.first > 0 : false;
+  const hasAfter = detail && span ? span.last < detail.stream.length - 1 : false;
+  const totalCount = detail?.highestPostNumber ?? 0;
 
-  useEffect(() => {
-    const targetPostNumber = reading?.postNumber;
-    if (!detail || targetPostNumber === null || targetPostNumber === undefined) return;
-    scrollRef.current
-      ?.querySelector(`[data-post-number="${targetPostNumber}"]`)
-      ?.scrollIntoView({ block: 'start' });
+  const recordFirstPost = () => {
+    const root = scrollRef.current;
+    const first = root?.querySelector<HTMLElement>('[data-post-number]');
+    firstPostRef.current =
+      root && first
+        ? {
+            postNumber: Number(first.dataset.postNumber),
+            top: first.getBoundingClientRect().top,
+            atTop: root.scrollTop <= 0,
+          }
+        : null;
+  };
+
+  const trackCurrentPost = () => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const elements = postElements(root);
+    const rootTop = root.getBoundingClientRect().top;
+    const atEnd = root.scrollTop + root.clientHeight >= root.scrollHeight - 2;
+    const current = atEnd
+      ? elements.at(-1)
+      : elements.find((element) => element.getBoundingClientRect().bottom > rootTop + 1);
+    setCurrentPost(current ? Number(current.dataset.postNumber) : null);
+  };
+
+  const scrollToPost = (postNumber: number, smooth: boolean) => {
+    const elements = postElements(scrollRef.current);
+    // 目标楼被删时落到其后最近的一楼，越过末尾则落在最后一楼。
+    const target =
+      elements.find((element) => Number(element.dataset.postNumber) >= postNumber) ??
+      elements.at(-1);
+    if (!target) return;
+    target.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+    const landed = Number(target.dataset.postNumber);
+    setHighlight(landed);
+    window.setTimeout(() => setHighlight((current) => (current === landed ? null : current)), 1500);
+  };
+
+  // 滚动位于顶端时浏览器的滚动锚定不生效，向上补楼会把原首楼下推，这里按位移回补；
+  // 不在顶端时交给滚动锚定（它同时吸收落点上方 iframe 测高后的增长），这里不重复回补。
+  useLayoutEffect(() => {
+    const root = scrollRef.current;
+    const previous = firstPostRef.current;
+    const element = previous?.atTop
+      ? root?.querySelector<HTMLElement>(`[data-post-number="${previous.postNumber}"]`)
+      : null;
+    if (root && previous && element && element !== root.querySelector('[data-post-number]')) {
+      root.scrollTop += element.getBoundingClientRect().top - previous.top;
+    }
+    recordFirstPost();
+    trackCurrentPost();
+  }, [posts]);
+
+  useLayoutEffect(() => {
+    if (detail && reading?.postNumber) scrollToPost(reading.postNumber, false);
   }, [detail?.id, reading?.postNumber]);
 
-  const loadedCount = detail?.posts.length ?? 0;
-  const totalCount = detail?.postsCount ?? 0;
-  const hasMorePosts = detail ? loadedCount < totalCount : false;
+  useLayoutEffect(() => {
+    if (pendingJump === null) return;
+    scrollToPost(pendingJump, false);
+    setPendingJump(null);
+  }, [pendingJump]);
 
-  // 阅读器式的连续加载：哨兵进入视口前 320px 即取下一批楼层。
+  // 阅读器式的连续加载：哨兵进入视口前 320px 即向该方向补一批楼层，同一时刻只补一个方向。
+  // 楼层变化即重建观察器，仍在视口内的哨兵会立刻再触发一次。
   useEffect(() => {
-    const sentinel = sentinelRef.current;
     const root = scrollRef.current;
-    if (!sentinel || !root || !hasMorePosts) return;
+    if (!root || (!hasBefore && !hasAfter)) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting) || loadingRef.current) return;
+        const entry = entries.find((item) => item.isIntersecting);
+        if (!entry || loadingRef.current) return;
+        const direction = entry.target === topSentinelRef.current ? 'before' : 'after';
         loadingRef.current = true;
-        setLoadingMore(true);
-        void loadMorePosts().finally(() => {
+        setLoadingMore(direction);
+        void loadMorePosts(direction).finally(() => {
           loadingRef.current = false;
-          setLoadingMore(false);
+          setLoadingMore(null);
         });
       },
       { root, rootMargin: '320px 0px' },
     );
-    observer.observe(sentinel);
+    for (const sentinel of [topSentinelRef.current, bottomSentinelRef.current]) {
+      if (sentinel) observer.observe(sentinel);
+    }
     return () => observer.disconnect();
-  }, [hasMorePosts, loadMorePosts, loadedCount]);
+  }, [hasBefore, hasAfter, loadMorePosts, posts]);
 
+  const jumpToPost = async (postNumber: number) => {
+    const first = posts?.[0];
+    const last = posts?.at(-1);
+    if (!first || !last) return;
+    const reachable =
+      (postNumber >= first.postNumber || !hasBefore) &&
+      (postNumber <= last.postNumber || !hasAfter);
+    if (reachable) {
+      scrollToPost(postNumber, true);
+      return;
+    }
+    await loadPostWindow(postNumber);
+    setPendingJump(postNumber);
+  };
+
+  const jumpRef = useRef(jumpToPost);
+  jumpRef.current = jumpToPost;
   // 稳定引用：避免每次渲染都让各楼层 iframe 的 message 监听解绑重挂。
+  // 指向本帖的链接在当前阅读流内跳楼，不整帖重载。
   const openTopicFromPost = useCallback(
-    (topicId: number, postNumber?: number) => void openTopic(topicId, postNumber),
-    [openTopic],
+    (targetTopicId: number, postNumber?: number) => {
+      if (targetTopicId === topicId) {
+        void jumpRef.current(postNumber ?? 1);
+      } else {
+        void openTopic(targetTopicId, postNumber);
+      }
+    },
+    [openTopic, topicId],
   );
 
-  const appendQuote = (username: string, postNumber: number, snippet: string) => {
+  useEffect(() => {
+    if (draft.trim() || replyTarget) replyDrafts.set(topicId, { text: draft, target: replyTarget });
+    else replyDrafts.delete(topicId);
+  }, [draft, replyTarget, topicId]);
+
+  // 水源原生引用：站点渲染成带头像的引用卡片，并通知被引用者。
+  const quote = (post: ShuiyuanPost) => {
+    const text = quoteText(post.cooked);
+    if (!text) return;
     setComposerOpen(true);
-    setDraft((current) => `${current}> **@${username}**（第 ${postNumber} 楼）：${snippet}\n\n`);
-  };
-
-  const quote = (username: string, postNumber: number, cooked: string) => {
-    const snippet = stripToText(cooked).trim().slice(0, 120);
-    if (snippet) appendQuote(username, postNumber, `${snippet}…`);
-  };
-
-  const jumpToPost = (postNumber: number) => {
-    if (!detail) return;
-    const loaded = detail.posts.some((item) => item.postNumber === postNumber);
-    if (loaded) {
-      scrollRef.current
-        ?.querySelector(`[data-post-number="${postNumber}"]`)
-        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setHighlight(postNumber);
-      window.setTimeout(
-        () => setHighlight((current) => (current === postNumber ? null : current)),
-        1500,
-      );
-    } else {
-      void openTopic(detail.id, postNumber);
-    }
+    setDraft((current) => {
+      const head = current ? `${current.replace(/\n+$/, '')}\n\n` : '';
+      return `${head}[quote="${post.username}, post:${post.postNumber}, topic:${topicId}"]\n${text}\n[/quote]\n\n`;
+    });
   };
 
   const placeholder = replyTarget ? `回复 @${replyTarget.username}…` : isPM ? '回复私信…' : '回复…';
   const composer = (
     <ReplyComposer
-      disabledHint={detail?.closed ? '帖子已关闭，无法回复' : null}
-      expanded={composerOpen}
       onChange={setDraft}
-      onExpandedChange={setComposerOpen}
+      onClose={() => setComposerOpen(false)}
       onClearReplyTarget={() => setReplyTarget(null)}
       onSubmit={async () => {
-        await submitReply(draft, replyTarget?.postNumber);
+        const postNumber = await submitReply(draft, replyTarget?.postNumber);
         setDraft('');
         setReplyTarget(null);
         setComposerOpen(false);
+        // 新楼没并进已加载段（中段阅读时）就先取它附近的一段，再定位过去；期间已切帖则不动。
+        const current = useShuiyuan.getState().reading;
+        if (current?.topicId !== topicId) return;
+        const loaded = current.detail?.posts.some((post) => post.postNumber === postNumber);
+        if (!loaded) await loadPostWindow(postNumber);
+        setPendingJump(postNumber);
       }}
       placeholder={placeholder}
       replyTarget={replyTarget}
@@ -279,137 +388,178 @@ export function TopicReader() {
       value={draft}
     />
   );
+  const timeline = detail
+    ? {
+        current: currentPost ?? detail.posts[0]?.postNumber ?? 1,
+        highest: detail.highestPostNumber,
+        onJump: jumpToPost,
+        reply: detail.closed
+          ? { label: '已关闭', onClick: null }
+          : composerOpen
+            ? null
+            : { label: draft.trim() ? '继续回复' : '回复', onClick: () => setComposerOpen(true) },
+      }
+    : null;
 
   return (
     // relative 是回复器全屏书写态的定位锚点：铺满阅读区、不遮全局外壳。
-    <div className="relative flex h-full min-h-0 flex-col bg-surface">
-      <div className="min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
-        <div className="mx-auto w-full max-w-2xl px-5 py-5 max-md:px-4">
-          {reading?.error ? (
-            <div
-              className="rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
-              role="alert"
-            >
-              {reading.error}
-            </div>
-          ) : null}
-          {!detail && !reading?.error ? (
-            <p className="py-8 text-center text-13 text-ink-3">正在加载帖子…</p>
-          ) : null}
-          {detail ? (
-            // 话题标题区：正文列同宽，分类/标签/统计一行弱化呈现（Discourse 式）。
-            <header className="border-b border-line pb-4">
-              <h2 className="text-xl font-semibold leading-snug tracking-tight">
-                <ShuiyuanTitle text={detail.title} />
-              </h2>
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-3">
-                {isPM ? (
-                  <span className="flex items-center gap-1">
-                    <Mail aria-hidden="true" className="size-3" strokeWidth={1.8} />
-                    私信
-                  </span>
-                ) : category ? (
-                  <CategoryTag category={category} />
-                ) : null}
-                {detail.tags.map((tag) => (
-                  <span className="flex items-center gap-1.5" key={tag}>
-                    <span
-                      aria-hidden="true"
-                      className="size-2.5 shrink-0 rounded-[0.125rem]"
-                      style={{ backgroundColor: tagColor(tag) }}
-                    />
-                    {tag}
-                  </span>
-                ))}
-                <span className="tabular-nums">{totalCount} 楼</span>
-                <span className="tabular-nums">浏览 {formatCount(detail.views)}</span>
-                <span className="tabular-nums">发布于 {formatListDate(detail.createdAt)}</span>
-              </div>
-            </header>
-          ) : null}
-          {detail?.posts.map((post) => {
-            const repliedTo = post.replyToPostNumber
-              ? detail.posts.find((item) => item.postNumber === post.replyToPostNumber)
-              : null;
-            return (
-              <article
-                className={cn(
-                  'group flex gap-3 border-b border-line py-5 transition-colors last:border-0',
-                  highlight === post.postNumber && 'bg-bui-accent-tint',
-                )}
-                data-post-number={post.postNumber}
-                key={post.id}
+    <div className="relative flex h-full min-h-0 flex-col bg-surface @container">
+      <div className="relative min-h-0 flex-1">
+        <div
+          className="h-full overflow-y-auto [scrollbar-gutter:stable]"
+          onScroll={() => {
+            recordFirstPost();
+            cancelAnimationFrame(trackFrameRef.current);
+            trackFrameRef.current = requestAnimationFrame(trackCurrentPost);
+          }}
+          ref={scrollRef}
+        >
+          {/* 窄版楼层胶囊浮在正文列右下角，底部留白避免它压住末楼的操作条。 */}
+          <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-14 max-md:px-4 @min-[62rem]:pb-5">
+            {reading?.error ? (
+              <div
+                className="rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
+                role="alert"
               >
-                {/* 固定头像沟槽：正文永不绕到头像下方，扫读锚点逐楼对齐。 */}
-                <PostAvatar post={post} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    {/* 用户名压小加粗成「标签」，与 15px 常规正文的 iframe 内容拉开层级。 */}
-                    <span className="min-w-0 shrink truncate text-xs font-semibold">
-                      {post.username}
+                {reading.error}
+              </div>
+            ) : null}
+            {!detail && !reading?.error ? (
+              <p className="py-8 text-center text-13 text-ink-3">正在加载帖子…</p>
+            ) : null}
+            {detail ? (
+              // 话题标题区：正文列同宽，分类/标签/统计一行弱化呈现（Discourse 式）。
+              // 标题区与哨兵不参与滚动锚定，否则向上补楼时浏览器会以它们为锚、不回补。
+              <header className="border-b border-line pb-4 [overflow-anchor:none]">
+                <h2 className="text-xl font-semibold leading-snug tracking-tight">
+                  <ShuiyuanTitle text={detail.title} />
+                </h2>
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-3">
+                  {isPM ? (
+                    <span className="flex items-center gap-1">
+                      <Mail aria-hidden="true" className="size-3" strokeWidth={1.8} />
+                      私信
                     </span>
-                    {post.yours ? (
-                      <span className="shrink-0 rounded bg-inset px-1.5 py-px text-2xs text-ink-3">
-                        你
+                  ) : category ? (
+                    <CategoryTag category={category} />
+                  ) : null}
+                  {detail.tags.map((tag) => (
+                    <span className="flex items-center gap-1.5" key={tag}>
+                      <span
+                        aria-hidden="true"
+                        className="size-2.5 shrink-0 rounded-[0.125rem]"
+                        style={{ backgroundColor: tagColor(tag) }}
+                      />
+                      {tag}
+                    </span>
+                  ))}
+                  <span className="tabular-nums">{totalCount} 楼</span>
+                  <span className="tabular-nums">浏览 {formatCount(detail.views)}</span>
+                  <span className="tabular-nums">发布于 {formatListDate(detail.createdAt)}</span>
+                </div>
+              </header>
+            ) : null}
+            {detail && hasBefore ? (
+              <div
+                className="grid h-10 place-items-center [overflow-anchor:none]"
+                ref={topSentinelRef}
+              >
+                {loadingMore === 'before' ? (
+                  <span className="text-xs text-ink-3">正在加载楼层…</span>
+                ) : null}
+              </div>
+            ) : null}
+            {detail?.posts.map((post) => {
+              const repliedTo = post.replyToPostNumber
+                ? detail.posts.find((item) => item.postNumber === post.replyToPostNumber)
+                : null;
+              return (
+                <article
+                  className={cn(
+                    'group flex gap-3 border-b border-line py-5 transition-colors last:border-0',
+                    highlight === post.postNumber && 'bg-bui-accent-tint',
+                  )}
+                  data-post-number={post.postNumber}
+                  key={post.id}
+                >
+                  {/* 固定头像沟槽：正文永不绕到头像下方，扫读锚点逐楼对齐。 */}
+                  <PostAvatar post={post} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      {/* 用户名压小加粗成「标签」，与 15px 常规正文的 iframe 内容拉开层级。 */}
+                      <span className="min-w-0 shrink truncate text-xs font-semibold">
+                        {post.username}
                       </span>
-                    ) : null}
-                    {post.replyToPostNumber ? (
-                      <button
-                        aria-label={`跳到第 ${post.replyToPostNumber} 楼`}
-                        className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-                        onClick={() => jumpToPost(post.replyToPostNumber!)}
-                        title={
-                          repliedTo
-                            ? `回复 @${repliedTo.username} · 第 ${post.replyToPostNumber} 楼，点击跳转`
-                            : `回复第 ${post.replyToPostNumber} 楼，点击跳转`
-                        }
-                        type="button"
-                      >
-                        <CornerUpLeft aria-hidden="true" className="size-3 shrink-0" />
-                        <span className="truncate">
-                          {repliedTo ? repliedTo.username : `第 ${post.replyToPostNumber} 楼`}
+                      {post.yours ? (
+                        <span className="shrink-0 rounded bg-inset px-1.5 py-px text-2xs text-ink-3">
+                          你
                         </span>
-                      </button>
-                    ) : null}
-                    <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-3">
-                      第 {post.postNumber} 楼 · {formatListDate(post.createdAt)}
-                    </span>
-                  </div>
-                  <div className="mt-2.5">
-                    <ShuiyuanHtmlBody
-                      html={post.cooked}
-                      onOpenTopic={openTopicFromPost}
-                      title={`第 ${post.postNumber} 楼`}
+                      ) : null}
+                      {post.replyToPostNumber ? (
+                        <button
+                          aria-label={`跳到第 ${post.replyToPostNumber} 楼`}
+                          className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+                          onClick={() => void jumpToPost(post.replyToPostNumber!)}
+                          title={
+                            repliedTo
+                              ? `回复 @${repliedTo.username} · 第 ${post.replyToPostNumber} 楼，点击跳转`
+                              : `回复第 ${post.replyToPostNumber} 楼，点击跳转`
+                          }
+                          type="button"
+                        >
+                          <CornerUpLeft aria-hidden="true" className="size-3 shrink-0" />
+                          <span className="truncate">
+                            {repliedTo ? repliedTo.username : `第 ${post.replyToPostNumber} 楼`}
+                          </span>
+                        </button>
+                      ) : null}
+                      <span className="ml-auto shrink-0 text-xs tabular-nums text-ink-3">
+                        第 {post.postNumber} 楼 · {formatListDate(post.createdAt)}
+                      </span>
+                    </div>
+                    <div className="mt-2.5">
+                      <ShuiyuanHtmlBody
+                        html={post.cooked}
+                        onOpenTopic={openTopicFromPost}
+                        title={`第 ${post.postNumber} 楼`}
+                      />
+                    </div>
+                    <PostActions
+                      canReply={!detail.closed}
+                      onQuote={quote}
+                      onLike={(postId, liked) => void setLiked(postId, liked)}
+                      onReply={(target) => {
+                        setReplyTarget({
+                          postNumber: target.postNumber,
+                          username: target.username,
+                        });
+                        setComposerOpen(true);
+                      }}
+                      post={post}
                     />
                   </div>
-                  <PostActions
-                    onQuote={(target) => quote(target.username, target.postNumber, target.cooked)}
-                    onLike={(postId, liked) => void setLiked(postId, liked)}
-                    onReply={(target) => {
-                      setReplyTarget({
-                        postNumber: target.postNumber,
-                        username: target.username,
-                      });
-                      setComposerOpen(true);
-                    }}
-                    post={post}
-                  />
-                </div>
-              </article>
-            );
-          })}
-          {detail && hasMorePosts ? (
-            <div className="grid h-10 place-items-center" ref={sentinelRef}>
-              {loadingMore ? <span className="text-xs text-ink-3">正在加载楼层…</span> : null}
-            </div>
-          ) : null}
-          {detail && !hasMorePosts && detail.posts.length > 1 ? (
-            <p className="py-4 text-center text-xs text-ink-3">已读到末尾 · 共 {totalCount} 楼</p>
-          ) : null}
+                </article>
+              );
+            })}
+            {detail && hasAfter ? (
+              <div
+                className="grid h-10 place-items-center [overflow-anchor:none]"
+                ref={bottomSentinelRef}
+              >
+                {loadingMore === 'after' ? (
+                  <span className="text-xs text-ink-3">正在加载楼层…</span>
+                ) : null}
+              </div>
+            ) : null}
+            {detail && !hasAfter && detail.posts.length > 1 ? (
+              <p className="py-4 text-center text-xs text-ink-3">已读到末尾 · 共 {totalCount} 楼</p>
+            ) : null}
+          </div>
         </div>
+        {timeline ? <FloorCapsule {...timeline} /> : null}
       </div>
-      {/* 回复框常驻底部，从底边向上展开；帖子已关闭时由 composer 呈现只读提示。 */}
-      {detail ? composer : null}
+      {timeline ? <TopicTimeline {...timeline} /> : null}
+      {detail && !detail.closed && composerOpen ? composer : null}
     </div>
   );
 }

@@ -106,8 +106,9 @@ if (smokeTest && !terminalSmokeTest) {
   app.setPath('documents', profile);
   app.setPath('home', profile);
 }
-// 水源通知每分钟更新；IMAP 沿用现有增量同步，每五分钟检查一次。
-const NOTIFICATION_REFRESH_MS = 60_000;
+// 水源通知与其余水源请求共用 User API Key 每分钟 20 次的限额，两分钟一次；
+// IMAP 沿用现有增量同步，每五分钟检查一次。
+const NOTIFICATION_REFRESH_MS = 2 * 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
 const TODO_REFRESH_MS = 15 * 60_000;
 // Canvas 课件目录树只拉清单不下载文件，每小时同步一次足够。

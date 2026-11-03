@@ -13,7 +13,8 @@ import {
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
-import type { ShuiyuanNotificationItem } from '../../../shared/api';
+import type { ShuiyuanNotificationItem, ShuiyuanUpload } from '../../../shared/api';
+import { formatSize } from '../mail/mail-format';
 
 /** 水源站点的头像/资源基地址；renderer 直接引用远程图（CSP 已放行 https）。 */
 export const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
@@ -90,4 +91,21 @@ export function describeNotification(item: ShuiyuanNotificationItem): {
   };
   const meta = typeText[item.type] ?? { icon: Bell, verb: `与你互动${title}` };
   return { icon: meta.icon, text: `${who} ${meta.verb}` };
+}
+
+const IMAGE_NAME = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i;
+
+/** 与水源网页端编辑器一致的附件写法，站点据此生成灯箱、播放器与附件卡片。 */
+export function uploadMarkdown(
+  file: { name: string; type: string; size: number },
+  upload: ShuiyuanUpload,
+): string {
+  const name = (upload.originalFilename ?? file.name).replace(/[[\]|\n]/g, ' ');
+  const kind = file.type.split('/')[0];
+  if (kind === 'video' || kind === 'audio') return `![${name}|${kind}](${upload.shortUrl})`;
+  if (kind === 'image' || IMAGE_NAME.test(name)) {
+    const size = upload.width && upload.height ? `|${upload.width}x${upload.height}` : '';
+    return `![${name.replace(/\.\w+$/, '')}${size}](${upload.shortUrl})`;
+  }
+  return `[${name}|attachment](${upload.shortUrl}) (${formatSize(file.size)})`;
 }
