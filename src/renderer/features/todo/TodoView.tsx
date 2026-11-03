@@ -37,6 +37,13 @@ const inputClass =
 
 const showCompletedStorageKey = 'dela.todo.show-completed';
 
+/** 新建待办的默认截止时间取当天结束，避免保存瞬间就被判为「已过截止时间」。 */
+function defaultDueAt(): Date {
+  const date = new Date();
+  date.setHours(23, 59, 0, 0);
+  return date;
+}
+
 // 行尾操作图标：始终占位避免悬停时行内容位移，悬停/键盘聚焦时浮现，触屏常显。
 const rowActionClass =
   'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100';
@@ -83,9 +90,10 @@ function TodoComposer({
 }) {
   const [title, setTitle] = useState(item?.title ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
-  // 新建默认取创建时刻（向下取整到分钟）；编辑保留原值，允许为空。
+  // 新建默认到今天结束：取当前时刻会让待办一保存就显示「已过截止时间」。
+  // 编辑保留原值，允许为空。
   const [dueAt, setDueAt] = useState<Date | null>(() =>
-    item ? (item.dueAt ? roundToMinute(new Date(item.dueAt)) : null) : roundToMinute(new Date()),
+    item ? (item.dueAt ? roundToMinute(new Date(item.dueAt)) : null) : defaultDueAt(),
   );
   const [calendar, setCalendar] = useState(item?.calendar ?? false);
   const [color, setColor] = useState<CalendarEventColor>(item?.color ?? 'slate');
@@ -123,11 +131,7 @@ function TodoComposer({
             <span className="w-8 shrink-0 text-xs text-ink-3">截止</span>
             <div className="min-w-0 flex-1">
               {dueAt === null ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDueAt(roundToMinute(new Date()))}
-                >
+                <Button type="button" variant="outline" onClick={() => setDueAt(defaultDueAt())}>
                   <Plus className="size-4" />
                   设置截止时间
                 </Button>
@@ -279,10 +283,9 @@ export function TodoView({ request }: { request?: { id: string } }) {
         (filter === 'all' || item.source === filter) &&
         (showCompleted || !todoCompleted(item.status)),
     ) ?? [];
-  const undatedCount = (source: 'all' | 'canvas' | 'personal') =>
+  const pendingCount = (source: 'all' | 'canvas' | 'personal') =>
     (state?.items ?? []).filter(
-      (item) =>
-        !item.dueAt && !todoCompleted(item.status) && (source === 'all' || item.source === source),
+      (item) => !todoCompleted(item.status) && (source === 'all' || item.source === source),
     ).length;
   const openItem = (id: string) => {
     setDetailId(id);
@@ -361,7 +364,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
       )}
       <div className="flex flex-wrap items-center gap-2 py-4">
         {(['all', 'canvas', 'personal'] as const).map((value) => {
-          const count = undatedCount(value);
+          const count = pendingCount(value);
           return (
             <Button
               key={value}
