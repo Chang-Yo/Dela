@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { gzip, gunzip } from 'node:zlib';
 import { createTwoFilesPatch } from 'diff';
 import { diffStatOf } from '../../shared/diff';
+import { formatByName, imageMimeOf } from '../../shared/files';
 import type {
   FileChangeDetail,
   FileChangeSummary,
@@ -389,6 +390,66 @@ export async function readTurnFileChange(
   const file = (await loadTurn(sessionId, turnId))?.files.find((file) => file.path === path);
   if (!file) throw new Error('本轮没有此文件的变更记录');
   return detail(file);
+}
+
+export async function* readTurnExportFiles(sessionId: string, turnIds: Iterable<string>) {
+  const latest = new Map<
+    string,
+    { turnId: string; cwd: string; source: string; bytes: number; fingerprint: string }
+  >();
+  for (const turnId of turnIds) {
+    const turn = await loadTurn(sessionId, turnId);
+    if (!turn) continue;
+    for (const file of turn.files) {
+      const format = formatByName(file.path);
+      const mime = imageMimeOf(file.path);
+      if (
+        format === 'pdf' ||
+        format === 'docx' ||
+        format === 'xlsx' ||
+        format === 'pptx' ||
+        mime === 'image/png' ||
+        mime === 'image/jpeg' ||
+        mime === 'image/webp' ||
+        mime === 'image/gif'
+      ) {
+        const path = resolve(turn.cwd, file.path);
+        if (file.after) {
+          latest.set(path, {
+            turnId,
+            cwd: turn.cwd,
+            source: file.path,
+            bytes: file.after.bytes,
+            fingerprint: file.after.fingerprint,
+          });
+        } else latest.delete(path);
+      }
+    }
+  }
+  for (const { turnId, cwd, source, bytes: size, fingerprint } of latest.values()) {
+    let bytes: Buffer | null = null;
+    // 快照没有保存二进制正文。仅在磁盘副本与轮次记录的内容指纹一致时交付。
+    if (size <= HASH_BYTE_LIMIT && !fingerprint.startsWith('metadata:')) {
+      try {
+        const root = await realpath(cwd);
+        const path = resolve(root, source);
+        if (inside(root, path)) {
+          const info = await lstat(path);
+          const target = await realpath(path);
+          if (info.isFile() && info.size === size && inside(root, target)) {
+            const candidate = await readFile(target);
+            if (createHash('sha256').update(candidate).digest('hex') === fingerprint)
+              bytes = candidate;
+          }
+        }
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'EACCES' && code !== 'EPERM')
+          throw error;
+      }
+    }
+    yield { turnId, source, bytes };
+  }
 }
 
 export async function deleteTurnChanges(sessionId: string): Promise<void> {
