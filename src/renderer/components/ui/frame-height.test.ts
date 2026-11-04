@@ -55,3 +55,40 @@ it('pins the injected script hash in both the frame and the app CSP', async () =
   expect(doc.querySelector('meta')!.getAttribute('content')).toContain(hash);
   expect(appHtml).toContain(hash);
 });
+
+it('loads visible snapshot images and releases them offscreen while opening the original', () => {
+  let changed!: IntersectionObserverCallback;
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(callback: IntersectionObserverCallback) {
+        changed = callback;
+      }
+      observe() {}
+    },
+  );
+  document.body.innerHTML =
+    '<a class="lightbox"><img width="690" height="518" data-dela-image="dela-resource://shuiyuan-snapshot/42/image.jpg?thumbnail=1" data-dela-original="dela-resource://shuiyuan-snapshot/42/image.jpg"></a>';
+  injectFrameHeightReport(document, { lightbox: true });
+  const send = vi.spyOn(window, 'postMessage').mockImplementation(() => {});
+  new Function(document.querySelector('script')!.textContent!)();
+  const img = document.querySelector('img')!;
+  changed(
+    [{ target: img, isIntersecting: true }] as unknown as IntersectionObserverEntry[],
+    {} as IntersectionObserver,
+  );
+  expect(img.src).toContain('?thumbnail=1');
+  img.click();
+  expect(send).toHaveBeenCalledWith(
+    { source: 'dela-frame-image', src: 'dela-resource://shuiyuan-snapshot/42/image.jpg', alt: '' },
+    '*',
+  );
+  changed(
+    [{ target: img, isIntersecting: false }] as unknown as IntersectionObserverEntry[],
+    {} as IntersectionObserver,
+  );
+  expect(img.hasAttribute('src')).toBe(false);
+  expect(img.width).toBe(690);
+  send.mockRestore();
+  vi.unstubAllGlobals();
+});

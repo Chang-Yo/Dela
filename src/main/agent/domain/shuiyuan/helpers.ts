@@ -6,7 +6,7 @@ import { ToolError, toolError } from '../shared';
 /** 主题摘要瘦身：去掉头像模板等面向渲染的字段，附上可直接续读的引用。 */
 export function slimTopicSummary(topic: ShuiyuanTopicSummary) {
   return {
-    ref: { type: 'shuiyuan-topic' as const, id: topic.id },
+    ref: { type: 'shuiyuan-online' as const, id: topic.id },
     id: topic.id,
     title: topic.title,
     excerpt: topic.excerpt,

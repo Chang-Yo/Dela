@@ -31,5 +31,9 @@ export function v7tov8(db: Database.Database): void {
     );
     INSERT INTO notification_refreshes SELECT * FROM notification_refreshes_v7;
     DROP TABLE notification_refreshes_v7;
+    ALTER TABLE shuiyuan_topics ADD COLUMN snapshot_status TEXT
+      CHECK(snapshot_status IN ('saving', 'done', 'failed'));
+    ALTER TABLE shuiyuan_topics ADD COLUMN snapshot_at TEXT;
+    ALTER TABLE shuiyuan_topics ADD COLUMN snapshot_error TEXT;
   `);
 }

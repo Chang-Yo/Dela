@@ -47,14 +47,16 @@ export function ShuiyuanHtmlBody({
   html,
   title = '帖子正文',
   onOpenTopic,
+  initialHeight = INITIAL_BODY_HEIGHT,
 }: {
   html: string;
   title?: string;
   onOpenTopic?: (topicId: number, postNumber?: number) => void;
+  initialHeight?: number;
 }) {
   const dark = useIsDarkTheme();
   const rootSize = useRootFontSize();
-  const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
+  const [bodyHeight, setBodyHeight] = useState(initialHeight);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const internalNavigation = Boolean(onOpenTopic);
   const document = useMemo(() => {

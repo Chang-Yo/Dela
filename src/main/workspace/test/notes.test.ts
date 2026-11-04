@@ -22,7 +22,11 @@ vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.sp
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPath: vi.fn() } }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
-vi.mock('../../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
+vi.mock('../../shuiyuan/sources', () => ({ readShuiyuanSourcePreview: vi.fn() }));
+vi.mock('../../shuiyuan/snapshot', () => ({
+  collectShuiyuanSnapshots: vi.fn(),
+  ensureShuiyuanSnapshot: vi.fn(),
+}));
 
 import { getDatabase } from '../../database';
 import { workspaceArchiveId } from '../../../shared/workspace';

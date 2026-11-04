@@ -115,13 +115,41 @@ it('新安装与当前版本不迁移；缺少中间步骤的旧版本明确拒�
   expect(existsSync(dbPath())).toBe(true);
 });
 
-it('v7→v8：保留原通知与已读状态，允许教务处来源', () => {
+it('v7→v8：保留原通知与已读状态，允许教务处来源，水源引用补快照状态列', () => {
   const before = new Database(dbPath());
-  before.exec(`CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT CHECK(source IN ('mail','shuiyuan')), account_key TEXT, title TEXT, body TEXT, created_at TEXT, read_at TEXT, source_unread INTEGER, href TEXT);
-    CREATE INDEX idx_notifications_account_source_created ON notifications(account_key, source, created_at DESC);
-    CREATE TABLE notification_refreshes (source TEXT CHECK(source IN ('mail','shuiyuan')), account_key TEXT, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
+  before.exec(`CREATE TABLE IF NOT EXISTS shuiyuan_topics (
+    topic_id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    excerpt TEXT,
+    category_name TEXT,
+    author TEXT,
+    posts_count INTEGER,
+    added_at TEXT NOT NULL
+  );
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+    account_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    read_at TEXT,
+    source_unread INTEGER NOT NULL DEFAULT 1,
+    href TEXT NOT NULL
+  );
+CREATE INDEX IF NOT EXISTS idx_notifications_account_source_created
+    ON notifications (account_key, source, created_at DESC);
+CREATE TABLE IF NOT EXISTS notification_refreshes (
+    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+    account_key TEXT NOT NULL,
+    last_success_at TEXT,
+    error TEXT,
+    PRIMARY KEY (source, account_key)
+  );
     INSERT INTO notifications VALUES ('old', 'mail', 'student', '原通知', '', '2026-10-01', '2026-10-02', 1, '{}');
-    INSERT INTO notification_refreshes VALUES ('mail', 'student', '2026-10-01', NULL);`);
+    INSERT INTO notification_refreshes VALUES ('mail', 'student', '2026-10-01', NULL);
+    INSERT INTO shuiyuan_topics (topic_id, title, url, added_at) VALUES (1, '旧引用', 'u', '2026-10-01');`);
   before.pragma('user_version = 7');
   before.close();
   expect(runMigrations({ userData, seal }, 8)).toBe(1);
@@ -140,5 +168,17 @@ it('v7→v8：保留原通知与已读状态，允许教务处来源', () => {
     "INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href) VALUES ('new', 'jwc', 'students', '新通知', '', '2026-11-01', NULL, 1, '{}')",
   ).run();
   db.prepare("INSERT INTO notification_refreshes VALUES ('jwc', 'students', NULL, NULL)").run();
+  expect(
+    db
+      .prepare('SELECT title, snapshot_status, snapshot_at, snapshot_error FROM shuiyuan_topics')
+      .get(),
+  ).toEqual({ title: '旧引用', snapshot_status: null, snapshot_at: null, snapshot_error: null });
+  expect(() =>
+    db.prepare("UPDATE shuiyuan_topics SET snapshot_status = 'unknown'").run(),
+  ).toThrow();
+  expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
+  expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%_v7'").all()).toEqual([]);
   db.close();
+  expect(runMigrations({ userData, seal }, 8)).toBe(0);
+  expect(readdirSync(userData).filter((name) => name.endsWith('.migrating'))).toEqual([]);
 });

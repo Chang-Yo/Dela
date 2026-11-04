@@ -15,6 +15,7 @@ import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboard
 import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
+import { subscribeShuiyuanSnapshots } from '../features/shuiyuan/snapshot-store';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
 import { ExtensionUiHost } from '../content/chat/ExtensionUiHost';
 import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
@@ -219,6 +220,8 @@ export default function App() {
       useNavigationStore.getState().openShuiyuanTopic(topicId, postNumber),
     );
   }, []);
+
+  useEffect(() => subscribeShuiyuanSnapshots(), []);
 
   // 全局搜索入口交给 AppShell 的快捷键派发（Ctrl/⌘+K 可改键）；此处只守卫引导阶段：
   // completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
