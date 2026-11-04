@@ -15,13 +15,15 @@ vi.mock('../../../../shuiyuan/api', () => ({
   getShuiyuanSiteStructure: vi.fn(),
   getShuiyuanTopic: vi.fn(),
   loadShuiyuanPosts: vi.fn(),
-  addShuiyuanSourceRef: vi.fn(),
-  shuiyuanTopicUrl: vi.fn((id: number) => `https://shuiyuan.sjtu.edu.cn/t/topic/${id}`),
 }));
+vi.mock('../../../../shuiyuan/sources', () => ({
+  addShuiyuanSourceRef: vi.fn(),
+  shuiyuanTopicUrl: (id: number) => `https://shuiyuan.sjtu.edu.cn/t/topic/${id}`,
+}));
+import { addShuiyuanSourceRef } from '../../../../shuiyuan/sources';
 vi.mock('../../../../workspace/api', () => ({ createWorkspaceEntry: vi.fn() }));
 
 import {
-  addShuiyuanSourceRef,
   getShuiyuanSiteStructure,
   getShuiyuanState,
   getShuiyuanTopic,
@@ -99,7 +101,7 @@ describe('search_shuiyuan_topics', () => {
     };
     expect(listTopics).toHaveBeenCalledWith({ kind: 'search', query: '选课' }, undefined);
     expect(result.items).toHaveLength(2);
-    expect(result.items[0]!.ref).toEqual({ type: 'shuiyuan-topic', id: 1 });
+    expect(result.items[0]!.ref).toEqual({ type: 'shuiyuan-online', id: 1 });
     expect(result.nextCursor).toBe('/search.json?q=%E9%80%89%E8%AF%BE&page=2');
     expect(result.freshness).toEqual({ kind: 'realtime' });
     expect(result).not.toHaveProperty('total');
@@ -279,6 +281,7 @@ describe('link_shuiyuan_topic', () => {
     author: 'alice',
     postsCount: 60,
     addedAt: '2026-09-29T00:00:00.000Z',
+    snapshot: null,
   };
 
   it('writes the source ref row and a workspace source entry', async () => {
@@ -305,8 +308,8 @@ describe('link_shuiyuan_topic', () => {
       sourceId: 'shuiyuan-topic:42',
     });
     expect(result).toMatchObject({
-      ref: { type: 'shuiyuan-topic', id: 42 },
-      workspaceRef: { type: 'workspace', id: entry.id },
+      ref: { type: 'workspace', id: entry.id },
+      onlineRef: { type: 'shuiyuan-online', id: 42 },
     });
   });
 

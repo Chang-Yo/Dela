@@ -123,7 +123,7 @@ const schema: string[] = [
   `CREATE TABLE IF NOT EXISTS workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
   `INSERT OR IGNORE INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
     VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, '2026-10-07T00:00:00.000Z')`,
-  // 水源来源引用：仅在用户把帖子添加到项目时写入一行，不是同步缓存。
+  // 水源来源引用：用户把帖子添加到项目时写入一行；快照正文与图片存在 userData/shuiyuan-snapshots。
   `CREATE TABLE IF NOT EXISTS shuiyuan_topics (
     topic_id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -132,7 +132,10 @@ const schema: string[] = [
     category_name TEXT,
     author TEXT,
     posts_count INTEGER,
-    added_at TEXT NOT NULL
+    added_at TEXT NOT NULL,
+    snapshot_status TEXT CHECK(snapshot_status IN ('saving', 'done', 'failed')),
+    snapshot_at TEXT,
+    snapshot_error TEXT
   )`,
   // 通知中心。
   `CREATE TABLE IF NOT EXISTS notifications (

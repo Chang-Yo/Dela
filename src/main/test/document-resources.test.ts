@@ -29,7 +29,7 @@ vi.mock('../workspace/api', () => ({
     throw new Error('GUI preview must not be called');
   }),
 }));
-vi.mock('../shuiyuan/api', () => ({ readShuiyuanSource: vi.fn() }));
+vi.mock('../shuiyuan/sources', () => ({ readShuiyuanSource: vi.fn() }));
 vi.mock('../settings/prefs', () => ({ assertShuiyuanEnabled: vi.fn() }));
 vi.mock('../mail/api', () => ({
   readMailMessage: vi.fn(async () => ({ attachments: [{ part: '1', filename: '报名.xlsx' }] })),
@@ -45,7 +45,7 @@ import {
 } from '../resources';
 import { entry, readWorkspaceEntry, workspaceFilePath } from '../workspace/api';
 import { cachedFile, getSource, readCanvasPage, readCanvasSource } from '../canvas/api';
-import { readShuiyuanSource } from '../shuiyuan/api';
+import { readShuiyuanSource } from '../shuiyuan/sources';
 import { readResourceTool } from '../agent/domain/read-resource';
 import { assertDocumentDependency } from '../documents/runtime';
 

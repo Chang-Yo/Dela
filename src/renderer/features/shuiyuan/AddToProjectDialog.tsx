@@ -13,11 +13,14 @@ import {
 import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
 import { cn } from '../../lib/utils';
+import { showToast } from '../../app/toasts';
+
+const LARGE_TOPIC_POSTS = 1000;
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
 
-/** 建的是引用型 source 条目（sourceId 前缀 shuiyuan-topic:），正文仍实时读水源。 */
+/** 建的是引用型 source 条目（sourceId 前缀 shuiyuan-topic:），主进程随后在后台保存全帖快照。 */
 export function AddToProjectDialog({
   open,
   onClose,
@@ -42,7 +45,15 @@ export function AddToProjectDialog({
     setBusy(true);
     setErrorLocal(null);
     try {
-      await window.dela!.shuiyuan.addSourceRef(topicId);
+      const ref = await window.dela!.shuiyuan.addSourceRef(topicId);
+      if (
+        ref.snapshot?.status !== 'done' &&
+        (ref.postsCount ?? 0) > LARGE_TOPIC_POSTS &&
+        !window.confirm(
+          `该帖子有 ${ref.postsCount} 楼，保存快照（含原图）需要较长时间并占用较多磁盘空间。继续添加？`,
+        )
+      )
+        return;
       let parentId: string | null = target || null;
       if (target === '__new__') {
         if (!name.trim()) throw new Error('请填写项目名称');
@@ -61,6 +72,12 @@ export function AddToProjectDialog({
         sourceId: `shuiyuan-topic:${topicId}`,
       });
       await refresh();
+      if (ref.snapshot?.status !== 'done')
+        showToast({
+          variant: 'neutral',
+          title: '正在保存快照',
+          description: '完成后可在项目中查看全部楼层',
+        });
       onClose();
       setTarget('');
       setName('');
@@ -82,7 +99,7 @@ export function AddToProjectDialog({
             <div>
               <Dialog.Title className="text-base font-semibold">添加到项目</Dialog.Title>
               <Dialog.Description className="mt-2 text-xs text-ink-3">
-                引用「{topicTitle || '该帖子'}」，原帖保持在水源不变。
+                引用「{topicTitle || '该帖子'}」并在本地保存全帖快照（含原图），原帖保持在水源不变。
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>

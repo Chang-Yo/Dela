@@ -16,6 +16,7 @@ export interface DocumentContent {
   dueAt?: string | null;
   updatedAt?: string | null;
   revision?: string;
+  shuiyuanSnapshot?: { postCount: number; pageSize: number };
   /** pptx 的导出关联；存在 export 时直接内嵌渲染导出的 PDF。 */
   office?: { export?: OfficeExportInfo };
 }

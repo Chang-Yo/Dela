@@ -26,6 +26,7 @@ import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
 import { registerCanvasIpc, refreshCanvasTrees } from './canvas/ipc';
 import { registerShuiyuanIpc } from './shuiyuan/ipc';
+import { resumeShuiyuanSnapshots } from './shuiyuan/snapshot';
 import { openShuiyuanLinkInApp } from './shuiyuan/links';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
@@ -256,6 +257,9 @@ app
       };
       syncTodos();
       todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
+      void resumeShuiyuanSnapshots().catch((error: unknown) =>
+        console.error('Shuiyuan snapshot resume failed', error),
+      );
       refresh();
       syncMail();
       syncCanvasTrees();

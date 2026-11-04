@@ -11,6 +11,8 @@ import { availablePath, storageDirectory } from './storage';
 
 // 数据库走 VACUUM INTO 取一致快照；-wal/-shm 属于当前连接，跟着复制只会得到不自洽的副本。
 const databaseFiles = new Set(['dela.db', 'dela.db-wal', 'dela.db-shm', 'dela.db-journal']);
+// 备份只保留水源引用；快照和本机密钥不导出，恢复后尝试重新保存。
+const skippedDataEntries = new Set([...databaseFiles, 'shuiyuan-snapshots']);
 
 function backupFolderName(now: Date) {
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -68,7 +70,7 @@ export async function exportUserData(window: BrowserWindow | null): Promise<Back
 
   const skipped: string[] = [];
   for (const entry of await readdir(dataDirectory)) {
-    if (databaseFiles.has(entry)) continue;
+    if (skippedDataEntries.has(entry)) continue;
     try {
       await cp(join(dataDirectory, entry), join(backupData, entry), {
         recursive: true,

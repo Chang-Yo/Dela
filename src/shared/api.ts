@@ -125,6 +125,7 @@ export type {
   ShuiyuanFeed,
   ShuiyuanCounts,
   ShuiyuanSourceRef,
+  ShuiyuanSnapshotState,
   ShuiyuanUpload,
   ShuiyuanTopicLink,
   ShuiyuanApi,
