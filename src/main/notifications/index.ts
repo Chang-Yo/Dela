@@ -1,19 +1,22 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { z } from 'zod';
+import { notificationSources } from '../../shared/api';
 import type {
-  NotificationFilter,
+  NotificationCategory,
   NotificationItem,
   NotificationSource,
   NotificationState,
   ShuiyuanNotificationItem,
 } from '../../shared/api';
-import { getTodoState, markTodoRead, todoNotifications } from '../todo';
+import { canvasOwner, getTodoState, markTodoRead, todoNotifications } from '../todo';
 import { getDatabase } from '../database';
 import { loadShuiyuanCredential, type ShuiyuanCredential } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
 import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from '../mail/api';
 import { listShuiyuanNotifications } from '../shuiyuan/api';
+import { listCanvasAnnouncements, listTodoCanvasCourses } from '../canvas/api';
 import { experimentEnabled } from '../settings/prefs';
+import { refreshJwc, getJwcNotice, getJwcCaptcha, downloadJwcAttachment } from './jwc';
 import {
   armSystemNotifications,
   isWorkspaceWindow,
@@ -21,14 +24,10 @@ import {
   NOTIFICATIONS_SNOOZE_KEY,
 } from './system';
 
-const filterSchema = z.union([
-  z.literal('all'),
-  z.literal('mail'),
-  z.literal('shuiyuan'),
-  z.literal('todo'),
-]);
+const sourcesSchema = z.array(z.enum(notificationSources)).min(1);
 const snoozeSchema = z.string().datetime().nullable();
 let activeRefresh: Promise<NotificationState> | null = null;
+let nextCanvasCheckAt = 0;
 
 type ActiveAccount = { source: NotificationSource; key: string };
 
@@ -41,6 +40,8 @@ interface NotificationRow {
   read_at: string | null;
   mail_seen: number | null;
   href: string;
+  category: NotificationCategory | null;
+  count: number;
 }
 
 function currentAccounts(): ActiveAccount[] {
@@ -48,6 +49,13 @@ function currentAccounts(): ActiveAccount[] {
   const mail = db.prepare('SELECT address FROM mail_accounts ORDER BY id LIMIT 1').get() as
     { address: string } | undefined;
   const accounts: ActiveAccount[] = mail ? [{ source: 'mail', key: mail.address }] : [];
+  accounts.push({ source: 'jwc', key: 'students' });
+  try {
+    const canvas = canvasOwner();
+    if (canvas) accounts.push({ source: 'canvas', key: canvas });
+  } catch {
+    // 与水源同一口径：损坏的 Canvas 令牌不能连带隐藏邮件等其他来源的通知。
+  }
   // 水源关闭：不轮询、不展示已有通知，凭据保留。
   if (!experimentEnabled('shuiyuan')) return accounts;
   try {
@@ -63,11 +71,13 @@ function accountFor(source: NotificationSource): string | null {
   return currentAccounts().find((account) => account.source === source)?.key ?? null;
 }
 
-function notificationState(filter: NotificationFilter = 'all'): NotificationState {
+function notificationState(
+  sources: readonly NotificationSource[] = notificationSources,
+): NotificationState {
   refreshMail(false);
   const db = getDatabase();
   const accounts = currentAccounts();
-  const active = accounts.filter((account) => filter === 'all' || account.source === filter);
+  const active = accounts.filter((account) => sources.includes(account.source));
   const clauses = active.map(() => '(n.source = ? AND n.account_key = ?)');
   const bindings = active.flatMap((account) => [account.source, account.key]);
   // 邮件通知的已读派生自邮件本身的 seen 标志（本地删除的邮件不显示通知）；
@@ -82,7 +92,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
       ? []
       : (db
           .prepare(
-            `SELECT n.id, n.source, n.title, n.body, n.created_at, n.read_at, n.href, m.seen AS mail_seen
+            `SELECT n.id, n.source, n.title, n.body, n.created_at, n.read_at, n.href, n.category, n.count, m.seen AS mail_seen
              FROM notifications n ${mailJoin}
              WHERE ${where} ORDER BY n.created_at DESC, n.id DESC LIMIT 200`,
           )
@@ -91,8 +101,11 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
     try {
       const href = JSON.parse(row.href) as NotificationItem['href'];
       const knownHref =
+        (href.kind === 'jwc' && typeof href.url === 'string') ||
+        (href.kind === 'canvas' && typeof href.sourceId === 'string') ||
         (href.kind === 'mail' && typeof href.messageId === 'number') ||
-        (href.kind === 'shuiyuan' && typeof href.topicId === 'number');
+        (href.kind === 'shuiyuan' && typeof href.topicId === 'number') ||
+        (href.kind === 'shuiyuan-post' && typeof href.postId === 'number');
       if (!knownHref) return [];
       const readAt =
         row.source === 'mail'
@@ -105,6 +118,8 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
         {
           id: row.id,
           source: row.source,
+          category: row.category,
+          count: row.count,
           title: row.title,
           body: row.body,
           createdAt: row.created_at,
@@ -136,7 +151,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
       )?.value ?? null,
     );
   const refresh = Object.fromEntries(
-    (['mail', 'shuiyuan'] as const).map((source) => {
+    (['mail', 'shuiyuan', 'jwc', 'canvas'] as const).map((source) => {
       const key = accountFor(source);
       if (!key) return [source, null];
       const row = db
@@ -152,7 +167,7 @@ function notificationState(filter: NotificationFilter = 'all'): NotificationStat
       ];
     }),
   ) as NotificationState['refresh'];
-  const todos = filter === 'all' || filter === 'todo' ? todoNotifications() : [];
+  const todos = sources.includes('todo') ? todoNotifications() : [];
   const todoState = getTodoState();
   refresh.todo = { lastSuccessAt: todoState.syncedAt, error: todoState.error };
   return {
@@ -195,24 +210,42 @@ function upsert(
   body: string,
   createdAt: string,
   href: NotificationItem['href'],
+  category: NotificationCategory | null = null,
+  count = 1,
+  remoteReadAt: string | null = null,
 ): void {
   getDatabase()
     .prepare(
-      `INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?)
+      `INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href, category, count)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET title = excluded.title, body = excluded.body, created_at = excluded.created_at,
-         source_unread = 1, href = excluded.href`,
+         source_unread = 1, href = excluded.href, category = excluded.category, count = excluded.count,
+         read_at = CASE
+           WHEN excluded.read_at IS NOT NULL THEN COALESCE(notifications.read_at, excluded.read_at)
+           WHEN excluded.count > notifications.count THEN NULL
+           ELSE notifications.read_at END`,
     )
-    .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href));
+    .run(
+      id,
+      source,
+      accountKey,
+      title,
+      body,
+      createdAt,
+      remoteReadAt,
+      JSON.stringify(href),
+      category,
+      count,
+    );
 }
 
-function existingNotificationIds(source: NotificationSource, key: string): Set<string> {
-  return new Set(
+function existingNotifications(source: NotificationSource, key: string): Map<string, number> {
+  return new Map(
     (
       getDatabase()
-        .prepare('SELECT id FROM notifications WHERE source = ? AND account_key = ?')
-        .all(source, key) as { id: string }[]
-    ).map((row) => row.id),
+        .prepare('SELECT id, count FROM notifications WHERE source = ? AND account_key = ?')
+        .all(source, key) as { id: string; count: number }[]
+    ).map((row) => [row.id, row.count]),
   );
 }
 
@@ -239,7 +272,7 @@ function refreshMail(recordSuccess = true): void {
     snippet: string | null;
     date: string | null;
   }>;
-  const existing = existingNotificationIds('mail', key);
+  const existing = existingNotifications('mail', key);
   for (const message of unread) {
     const sender = message.sender_name || message.sender_address || '新邮件';
     const id = `mail:${key}:${message.id}`;
@@ -251,7 +284,17 @@ function refreshMail(recordSuccess = true): void {
     // 注册后到达的未读首次入库才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
     // date 缺失时无法证明晚于注册时刻，保守起见不弹（通知列表仍可见）。
     if (!existing.has(id) && (message.date ?? '') > account.created_at)
-      systemNotifyItem({ id, source: 'mail', title, body, createdAt, readAt: null, href });
+      systemNotifyItem({
+        id,
+        source: 'mail',
+        category: null,
+        count: 1,
+        title,
+        body,
+        createdAt,
+        readAt: null,
+        href,
+      });
   }
   const sync = getMailState().sync;
   if (sync.phase === 'error') saveRefresh('mail', key, sync.error ?? '邮箱同步失败');
@@ -261,6 +304,34 @@ function refreshMail(recordSuccess = true): void {
 function shuiyuanTitle(item: ShuiyuanNotificationItem): string {
   if (item.fancyTitle) return item.fancyTitle;
   return item.displayUsername ? `${item.displayUsername} 有新的互动` : '水源有新的动态';
+}
+
+function shuiyuanCategory(type: number): NotificationCategory {
+  if (type === 5 || type === 19) return 'like';
+  if (type === 2 || type === 3) return 'reply';
+  if (type === 1 || type === 15) return 'mention';
+  if (type === 6 || type === 7) return 'message';
+  return 'other';
+}
+
+function unreadLikes(key: string): Map<string, number> {
+  return new Map(
+    (
+      getDatabase()
+        .prepare(
+          `SELECT id, json_extract(href, '$.topicId') AS topicId FROM notifications
+           WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like' AND read_at IS NULL`,
+        )
+        .all(key) as { id: string; topicId: number }[]
+    ).map((row) => [row.id, row.topicId]),
+  );
+}
+
+function likeSummary(likes: NotificationItem[]): string {
+  const total = likes.reduce((sum, like) => sum + like.count, 0);
+  const names = [...new Set(likes.map((like) => like.body).filter(Boolean))].slice(0, 2);
+  const shown = names.join('、');
+  return names.length === total ? `${shown} 赞了你的帖子` : `${shown} 等 ${total} 人赞了你的帖子`;
 }
 
 async function refreshShuiyuan(): Promise<void> {
@@ -277,35 +348,139 @@ async function refreshShuiyuan(): Promise<void> {
   try {
     const remote = await listShuiyuanNotifications();
     if (accountFor('shuiyuan') !== key) return;
-    const existing = existingNotificationIds('shuiyuan', key);
+    const existing = existingNotifications('shuiyuan', key);
+    const previouslyUnreadLikes = unreadLikes(key);
+    const likeBursts = new Map<number, NotificationItem[]>();
     for (const item of remote) {
-      if (item.read || item.topicId === null) continue;
+      // 合并点赞（type 19）是同一人连赞多层：没有 topic_id，count 是楼层数，单独成条不进主题分组。
+      const href: NotificationItem['href'] | null =
+        item.topicId !== null
+          ? { kind: 'shuiyuan', topicId: item.topicId, postNumber: item.postNumber }
+          : item.type === 19 && item.originalPostId !== null
+            ? { kind: 'shuiyuan-post', postId: item.originalPostId }
+            : null;
+      if (href === null) continue;
       const id = `shuiyuan:${key}:${item.id}`;
       const title = shuiyuanTitle(item);
       const createdAt = item.createdAt || new Date().toISOString();
-      const href: NotificationItem['href'] = {
-        kind: 'shuiyuan',
-        topicId: item.topicId,
-        postNumber: item.postNumber,
+      const body =
+        href.kind === 'shuiyuan-post'
+          ? `${item.displayUsername ?? '有人'} 赞了你的 ${item.count} 个帖子`
+          : (item.displayUsername ?? '');
+      const category = shuiyuanCategory(item.type);
+      const syncedAt = new Date().toISOString();
+      upsert(
+        'shuiyuan',
+        key,
+        id,
+        title,
+        body,
+        createdAt,
+        href,
+        category,
+        item.count,
+        item.read ? syncedAt : null,
+      );
+      if (item.read) previouslyUnreadLikes.delete(id);
+      const previousCount = existing.get(id);
+      // 新 id，或服务端原地合并使 count 增长（同一条重新变为未读）都算一次新到达。
+      const arrived = previousCount === undefined || item.count > previousCount;
+      // 服务端已读的条目只同步状态，不弹系统通知；绑定后发生的未读互动首次到达才弹。
+      if (item.read || !arrived || item.createdAt <= credential.boundAt) continue;
+      const notification: NotificationItem = {
+        id,
+        source: 'shuiyuan',
+        category,
+        count: item.count,
+        title,
+        body,
+        createdAt,
+        readAt: null,
+        href,
       };
-      upsert('shuiyuan', key, id, title, item.displayUsername ?? '', createdAt, href);
-      // 绑定后发生的互动首次入库才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
-      if (!existing.has(id) && item.createdAt > credential.boundAt)
-        systemNotifyItem({
-          id,
-          source: 'shuiyuan',
-          title,
-          body: item.displayUsername ?? '',
-          createdAt,
-          readAt: null,
-          href,
-        });
+      if (href.kind === 'shuiyuan-post') systemNotifyItem(notification, body);
+      else if (category === 'like')
+        likeBursts.set(href.topicId, [...(likeBursts.get(href.topicId) ?? []), notification]);
+      else systemNotifyItem(notification);
+    }
+    const unreadLikeTopics = new Set(previouslyUnreadLikes.values());
+    for (const [topicId, likes] of likeBursts) {
+      if (unreadLikeTopics.has(topicId)) continue;
+      systemNotifyItem(likes[0]!, likeSummary(likes));
     }
     // `/notifications.json?recent=true` is a bounded page. Absence from it does not mean a
-    // persisted notification was read, so read_at is never changed here.
+    // persisted notification was read; only an explicit server read marks a row read.
     saveRefresh('shuiyuan', key, null);
   } catch (error) {
     saveRefresh('shuiyuan', key, error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function refreshCanvas(force: boolean): Promise<void> {
+  const key = accountFor('canvas');
+  if (!key || (!force && Date.now() < nextCanvasCheckAt)) return;
+  nextCanvasCheckAt = Date.now() + 20 * 60_000;
+  const db = getDatabase();
+  // 按课程记录首次成功同步：新学期新增课程的存量公告与首次同步一样只进列表，不弹系统通知。
+  const knownKey = `canvas-announcement-courses:${key}`;
+  const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(knownKey) as
+    { value: string } | undefined;
+  const known = new Set<number>(saved ? JSON.parse(saved.value) : []);
+  const errors: string[] = [];
+  try {
+    const existing = existingNotifications('canvas', key);
+    const syncedAt = new Date().toISOString();
+    // 逐课顺序请求，避免并发轰炸 Canvas；单门课失败不影响其余课程。
+    for (const course of await listTodoCanvasCourses()) {
+      try {
+        for (const announcement of await listCanvasAnnouncements(course.id)) {
+          const id = `canvas:${key}:${announcement.sourceId}`;
+          const createdAt = announcement.postedAt || syncedAt;
+          const href: NotificationItem['href'] = {
+            kind: 'canvas',
+            sourceId: announcement.sourceId,
+          };
+          // Canvas 网页端读过的公告同步为已读；Dela 内标记已读只记在本地，不回写 Canvas。
+          upsert(
+            'canvas',
+            key,
+            id,
+            announcement.title,
+            course.name,
+            createdAt,
+            href,
+            null,
+            1,
+            announcement.read ? syncedAt : null,
+          );
+          if (!known.has(course.id) || announcement.read || existing.has(id)) continue;
+          systemNotifyItem(
+            {
+              id,
+              source: 'canvas',
+              category: null,
+              count: 1,
+              title: announcement.title,
+              body: course.name,
+              createdAt,
+              readAt: null,
+              href,
+            },
+            course.name,
+          );
+        }
+        known.add(course.id);
+      } catch (error) {
+        errors.push(`${course.name}：${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    db.prepare('INSERT OR REPLACE INTO workspace_settings (key, value) VALUES (?, ?)').run(
+      knownKey,
+      JSON.stringify([...known]),
+    );
+    saveRefresh('canvas', key, errors.length ? errors.join('\n') : null);
+  } catch (error) {
+    saveRefresh('canvas', key, error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -317,11 +492,11 @@ export function initializeNotifications(): void {
   onMailCacheChanged(() => broadcast());
 }
 
-export function getNotificationState(filter?: unknown): NotificationState {
-  return notificationState(filterSchema.catch('all').parse(filter ?? 'all'));
+export function getNotificationState(input?: unknown): NotificationState {
+  return notificationState(sourcesSchema.catch([...notificationSources]).parse(input));
 }
 
-export function refreshNotifications(): Promise<NotificationState> {
+export function refreshNotifications(force = false): Promise<NotificationState> {
   if (activeRefresh) return activeRefresh;
   activeRefresh = (async () => {
     try {
@@ -330,7 +505,7 @@ export function refreshNotifications(): Promise<NotificationState> {
       const key = accountFor('mail');
       if (key) saveRefresh('mail', key, error instanceof Error ? error.message : String(error));
     }
-    await refreshShuiyuan();
+    await Promise.all([refreshShuiyuan(), refreshJwc(force), refreshCanvas(force)]);
     // 首轮刷新构成启动基线；此后新增的通知才弹系统桌面通知。
     armSystemNotifications();
     return broadcast();
@@ -341,8 +516,11 @@ export function refreshNotifications(): Promise<NotificationState> {
 }
 
 // 只更新当前账号名下的通知行；id 为 null 时更新全部，与 todo/index.ts 的 markTodoRead 同一模式。
-function markNotificationRowsRead(id: string | null): void {
-  const accounts = currentAccounts();
+function markNotificationRowsRead(
+  id: string | null,
+  sources: readonly NotificationSource[] = notificationSources,
+): void {
+  const accounts = currentAccounts().filter((account) => sources.includes(account.source));
   const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
   if (clauses.length === 0) return;
   getDatabase()
@@ -366,8 +544,34 @@ export async function markNotificationRead(idInput: unknown): Promise<Notificati
   // 邮件通知的已读以邮件本身为准：委托 markMailSeen 在服务器标记 \Seen 并更新本地缓存；
   // 失败时保留未读，经来源错误行提示。
   const row = getDatabase()
-    .prepare('SELECT source, href FROM notifications WHERE id = ?')
-    .get(id) as { source: string; href: string } | undefined;
+    .prepare(
+      "SELECT source, account_key, href, category, json_extract(href, '$.topicId') AS topic_id FROM notifications WHERE id = ?",
+    )
+    .get(id) as
+    | {
+        source: string;
+        account_key: string;
+        href: string;
+        category: string | null;
+        topic_id: number | null;
+      }
+    | undefined;
+  // 点赞按主题成组展示与弹窗，打开或标记其中一条即视为读完该主题的全部点赞。
+  if (
+    row?.source === 'shuiyuan' &&
+    row.category === 'like' &&
+    row.topic_id !== null &&
+    row.account_key === accountFor('shuiyuan')
+  ) {
+    getDatabase()
+      .prepare(
+        `UPDATE notifications SET read_at = COALESCE(read_at, ?)
+         WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like'
+           AND json_extract(href, '$.topicId') = ?`,
+      )
+      .run(new Date().toISOString(), row.account_key, row.topic_id);
+    return broadcast();
+  }
   if (row?.source === 'mail') {
     let messageId: number | null = null;
     try {
@@ -389,9 +593,11 @@ export async function markNotificationRead(idInput: unknown): Promise<Notificati
   return broadcast();
 }
 
-export async function markAllNotificationsRead(): Promise<NotificationState> {
-  markTodoRead();
-  markNotificationRowsRead(null);
+export async function markAllNotificationsRead(input?: unknown): Promise<NotificationState> {
+  const sources = sourcesSchema.default([...notificationSources]).parse(input);
+  if (sources.includes('todo')) markTodoRead();
+  markNotificationRowsRead(null, sources);
+  if (!sources.includes('mail')) return broadcast();
   const result = await markAllMailSeen();
   if (!result.ok) {
     const key = accountFor('mail');
@@ -414,21 +620,33 @@ export function setNotificationSnooze(untilInput: unknown): NotificationState {
 }
 
 export function registerNotificationsIpc(): void {
-  ipcMain.handle('notifications:get-state', (event, filter) => {
+  ipcMain.handle('notifications:jwc-notice', (event, id) => {
     checkWorkspaceSender(event);
-    return getNotificationState(filter);
+    return getJwcNotice(id);
+  });
+  ipcMain.handle('notifications:jwc-captcha', (event, id, attachmentId) => {
+    checkWorkspaceSender(event);
+    return getJwcCaptcha(id, attachmentId);
+  });
+  ipcMain.handle('notifications:jwc-download', (event, token, code) => {
+    checkWorkspaceSender(event);
+    return downloadJwcAttachment(token, code);
+  });
+  ipcMain.handle('notifications:get-state', (event, sources) => {
+    checkWorkspaceSender(event);
+    return getNotificationState(sources);
   });
   ipcMain.handle('notifications:refresh', async (event) => {
     checkWorkspaceSender(event);
-    return refreshNotifications();
+    return refreshNotifications(true);
   });
   ipcMain.handle('notifications:mark-read', (event, id) => {
     checkWorkspaceSender(event);
     return markNotificationRead(id);
   });
-  ipcMain.handle('notifications:mark-all-read', (event) => {
+  ipcMain.handle('notifications:mark-all-read', (event, sources) => {
     checkWorkspaceSender(event);
-    return markAllNotificationsRead();
+    return markAllNotificationsRead(sources);
   });
   ipcMain.handle('notifications:set-snooze', (event, until) => {
     checkWorkspaceSender(event);

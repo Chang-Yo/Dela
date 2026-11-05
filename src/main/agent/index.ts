@@ -44,6 +44,7 @@ import {
   updateSessionVisibility,
 } from './session';
 import { registerPackagesIpc } from './packages-ipc';
+import { exportSession } from './session-export';
 import {
   askSidechat,
   cancelSidechat,
@@ -191,6 +192,10 @@ export function registerAgentIpc() {
   );
   sessionHandle('archive-project', (id) => archiveProjectSessions(projectId.parse(id)));
   sessionHandle('open', (id) => openSession(uuid.parse(id)));
+  ipcMain.handle('session:export', (event, id) => {
+    checkWorkspaceSender(event);
+    return exportSession(uuid.parse(id), BrowserWindow.fromWebContents(event.sender));
+  });
   sessionHandle('remove', (id) => {
     const sessionId = uuid.parse(id);
     if (!archivedSessions().some((session) => session.id === sessionId))

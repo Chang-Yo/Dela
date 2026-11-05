@@ -174,3 +174,22 @@ it('单个条目复制失败不影响其余条目，名字如实回报', async (
   expect(existsSync(join(result.path, '应用数据', 'dela.db'))).toBe(true);
   expect(existsSync(join(result.path, '应用数据', 'Partitions'))).toBe(false);
 });
+
+it('excludes snapshot content and its sealed key while keeping database metadata', async () => {
+  const root = join(userData, 'shuiyuan-snapshots');
+  mkdirSync(join(root, '42'), { recursive: true });
+  writeFileSync(join(root, 'key.bin'), 'sealed-key');
+  writeFileSync(join(root, '42', 'page-0.json'), 'encrypted-body');
+  getDatabase()
+    .prepare(
+      "INSERT INTO shuiyuan_topics(topic_id, title, url, added_at) VALUES(42, '标题', 'url', 'now')",
+    )
+    .run();
+  const result = exported(await exportUserData(null));
+  expect(existsSync(join(result.path, '应用数据', 'shuiyuan-snapshots'))).toBe(false);
+  const db = new Database(join(result.path, '应用数据', 'dela.db'), { readonly: true });
+  expect(db.prepare('SELECT title FROM shuiyuan_topics WHERE topic_id=42').pluck().get()).toBe(
+    '标题',
+  );
+  db.close();
+});

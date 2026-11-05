@@ -66,13 +66,13 @@ function showToast(title: string, body: string, onClick: () => void): void {
   toast.show();
 }
 
-/** 新增通知的桌面提示入口；守卫不满足时静默返回，不影响通知收集。 */
-export function systemNotifyItem(item: NotificationItem): void {
+/** 新增通知的桌面提示入口；守卫不满足时静默返回，不影响通知收集。body 用于合并后的摘要，缺省不显示正文。 */
+export function systemNotifyItem(item: NotificationItem, body = ''): void {
   if (!armed || !Notification.isSupported() || snoozed() || !campusNotificationsEnabled()) return;
   const window = workspaceWindow();
   // 窗口不存在（尚未创建）或正被使用时不打扰；收起到托盘的窗口不聚焦，正常弹出。
   if (!window || window.isFocused()) return;
-  showToast(item.title, '', () => {
+  showToast(item.title, body, () => {
     workspaceWindow()?.webContents.send('notifications:open', item);
   });
 }

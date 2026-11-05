@@ -1,4 +1,9 @@
-import type { ShuiyuanApi, ShuiyuanFeed, ShuiyuanTopicLink } from '../shared/api';
+import type {
+  ShuiyuanApi,
+  ShuiyuanFeed,
+  ShuiyuanSnapshotState,
+  ShuiyuanTopicLink,
+} from '../shared/api';
 import { invoke, on } from './lib';
 
 export const shuiyuan = {
@@ -12,6 +17,7 @@ export const shuiyuan = {
   getTopic: (id: number, postNumber?: number) => invoke('shuiyuan:get-topic', id, postNumber),
   loadPosts: (topicId: number, postIds: readonly number[]) =>
     invoke('shuiyuan:load-posts', topicId, [...postIds]),
+  locatePost: (postId: number) => invoke('shuiyuan:locate-post', postId),
   listBookmarks: () => invoke('shuiyuan:list-bookmarks'),
   listMessages: () => invoke('shuiyuan:list-messages'),
   listNotifications: () => invoke('shuiyuan:list-notifications'),
@@ -28,6 +34,11 @@ export const shuiyuan = {
   addSourceRef: (topicId: number) => invoke('shuiyuan:add-source-ref', topicId),
   getSourceRef: (topicId: number) => invoke('shuiyuan:get-source-ref', topicId),
   readSource: (topicId: number) => invoke('shuiyuan:read-source', topicId),
+  readSnapshotPage: (topicId: number, page: number) =>
+    invoke('shuiyuan:read-snapshot-page', topicId, page),
+  refreshSnapshot: (topicId: number) => invoke('shuiyuan:refresh-snapshot', topicId),
+  onSnapshot: (listener: (state: ShuiyuanSnapshotState) => void) =>
+    on<ShuiyuanSnapshotState>('shuiyuan:snapshot', listener),
   openInBrowser: (topicId: number) => invoke('shuiyuan:open-in-browser', topicId),
   onOpenTopic: (listener: (target: ShuiyuanTopicLink) => void) =>
     on<ShuiyuanTopicLink>('shuiyuan:open-topic', listener),

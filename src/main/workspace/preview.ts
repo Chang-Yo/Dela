@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { canvasPreviewPath } from '../canvas/api';
 import { officeZipMime } from '../documents/parse';
 import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
+import { handleShuiyuanSnapshotRequest } from '../shuiyuan/snapshot-files';
 import { handleVsjtuMediaRequest } from '../vsjtu/playback';
 import { remoteById, targetOf, withinRemoteRoot } from '../remotes/api';
 import { readRemoteRange, statRemoteFile } from '../remotes/operations';
@@ -158,6 +159,8 @@ export function registerPreviewProtocol(): void {
         return new Response(null, { status: 405 });
       const url = new URL(request.url);
       if (url.hostname === 'shuiyuan') return handleShuiyuanMediaRequest(request);
+      // 水源快照图片：dela-resource://shuiyuan-snapshot/<topicId>/<hash>.<ext>。
+      if (url.hostname === 'shuiyuan-snapshot') return await handleShuiyuanSnapshotRequest(url);
       // 课堂视频播放：dela-resource://vsjtu/video/<videoId>/<view>?t=<token>（Range 透传）。
       if (url.hostname === 'vsjtu') return handleVsjtuMediaRequest(request);
       // 远端文档：dela-resource://remote/<projectId>?path=<远端绝对路径>（PDF/Office 按 Range 分块拉）；

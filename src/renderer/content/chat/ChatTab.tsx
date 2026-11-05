@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
+import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { ChatComment, WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/button';
@@ -156,6 +156,7 @@ const ChatSessionView = memo(function ChatSessionView({
   const chatState = useChat(active, referenceSource, startNewChat);
   const { chat, busy, editLast, fork } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const sidechatOpen = useSidechats((state) => Boolean(state.views[active]));
   const sidechatFromQuote = useCallback(
     (quote: string) => void openSidechat(active, { quote }),
@@ -187,6 +188,24 @@ const ChatSessionView = memo(function ChatSessionView({
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
   const conversation = chat && (busy || chat.messages.length > 0 || chat.running);
 
+  const saveConversation = async () => {
+    if (!window.dela) return;
+    setExporting(true);
+    try {
+      const { saved, missing } = await window.dela.session.export(active);
+      if (saved)
+        showToast({
+          variant: missing.length ? 'neutral' : 'success',
+          title: missing.length ? '会话已导出，部分文件未打包' : '会话已导出',
+          description: missing.length ? missing.join('、') : undefined,
+        });
+    } catch (error) {
+      showToast({ variant: 'error', title: '会话导出失败', description: errorText(error) });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const composer = (hero: boolean) => (
     <ChatComposerArea
       chat={chat}
@@ -205,7 +224,7 @@ const ChatSessionView = memo(function ChatSessionView({
     >
       {/* @container 宿主：空态标题的 @max-[…] 按此宽度生效；ChatComposer 自身另有
           @container 宿主，其内部降级断点测量 composer 实宽（外层 p-3 会造成 24px 死区）。 */}
-      {/* 会话切换条：标签标题由 workbench 标签栏承载，这里只留历史与新对话入口。 */}
+      {/* 标签标题由 workbench 标签栏承载。 */}
       <div className="flex h-10 shrink-0 items-center gap-1 px-3">
         <IconButton aria-label="历史对话" onClick={() => setSessionsOpen(true)} title="历史对话">
           <History />
@@ -225,6 +244,16 @@ const ChatSessionView = memo(function ChatSessionView({
           </IconButton>
         )}
         <div className="flex-1" />
+        {chat && chat.messages.length > 0 && (
+          <IconButton
+            aria-label="导出会话"
+            disabled={busy || chat.running || chat.compacting || exporting}
+            onClick={() => void saveConversation()}
+            title="导出会话 ZIP"
+          >
+            <Download />
+          </IconButton>
+        )}
         {conversation && !sidechatOpen && (
           <IconButton
             aria-label="旁问"

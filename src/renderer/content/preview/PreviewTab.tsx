@@ -117,7 +117,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const rootSize = useRootFontSize();
   const html = useMemo(
     () =>
-      content?.format === 'html'
+      content?.format === 'html' && doc?.shuiyuanTopicId === undefined
         ? sanitizeHtml(
             content.text,
             doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn',
@@ -125,7 +125,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             'auto',
           )
         : '',
-    [content, doc?.watchesDisk, rootSize],
+    [content, doc?.watchesDisk, doc?.shuiyuanTopicId, rootSize],
   );
 
   if (!parsePreviewTabId(tabId))
@@ -172,6 +172,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           text={content.text ?? ''}
           topicId={doc.shuiyuanTopicId}
           onOpenInShuiyuan={(topicId, postNumber) => loader.openShuiyuanTopic(topicId, postNumber)}
+          onReload={load}
         />
       )}
       {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}

@@ -18,7 +18,8 @@ import { getDatabase } from '../database';
 import { remoteById, targetOf } from '../remotes/api';
 import { locateRemote } from '../remotes/operations';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
-import { readShuiyuanSource } from '../shuiyuan/api';
+import { readShuiyuanSourcePreview } from '../shuiyuan/sources';
+import { collectShuiyuanSnapshots, ensureShuiyuanSnapshot } from '../shuiyuan/snapshot';
 import { availablePath, diskName, storageDirectory as directory } from '../storage';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
 import { officeZipMime } from '../documents/parse';
@@ -524,6 +525,8 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
       new Date().toISOString(),
     );
   })();
+  if (parsed.sourceId?.startsWith('shuiyuan-topic:'))
+    ensureShuiyuanSnapshot(Number(parsed.sourceId.slice('shuiyuan-topic:'.length)));
   return entry(id);
 }
 
@@ -657,6 +660,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
     // 降格：删除条目行（项目会话经 FK 转为通用），目录回到纯路径身份。
     getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
+    void collectShuiyuanSnapshots();
     nextId = to;
   }
   return { id: nextId, ...(from !== to ? { fromPath: from, toPath: to } : {}) };
@@ -697,7 +701,7 @@ export function workspacePreviewPath(id: string): string {
 export async function workspaceFilePath(id: string): Promise<string> {
   prepareStorage();
   const item = entry(workspaceEntryIdSchema.parse(id));
-  // 水源来源是实时引用，没有本地文件路径。
+  // 水源来源是引用条目，快照不对外暴露为文件路径。
   if (item.kind === 'source' && item.sourceId?.startsWith('shuiyuan-topic:'))
     throw new Error('条目不是文件');
   if (item.kind === 'source' && item.sourceId) return canvasFilePath(item.sourceId);
@@ -712,7 +716,7 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
   const item = entry(id);
   if (item.kind === 'source' && item.sourceId) {
     if (item.sourceId.startsWith('shuiyuan-topic:')) {
-      return readShuiyuanSource(Number(item.sourceId.slice('shuiyuan-topic:'.length)));
+      return readShuiyuanSourcePreview(Number(item.sourceId.slice('shuiyuan-topic:'.length)));
     }
     return readCanvasSource(item.sourceId);
   }
@@ -803,10 +807,12 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     for (const row of ids) await deleteSession(row.id);
     invalidateSessions();
     getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
+    await collectShuiyuanSnapshots();
     return;
   }
   if (item.kind === 'source') {
     getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(id);
+    await collectShuiyuanSnapshots();
     return;
   }
   // 用户在应用中明确移除文件时才调用回收站；失败保留原文件，不退化为永久删除。

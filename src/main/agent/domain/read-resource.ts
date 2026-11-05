@@ -1,13 +1,15 @@
 import { z } from 'zod';
 import { readMailMessage } from '../../mail/api';
-import { readShuiyuanSource } from '../../shuiyuan/api';
+import { getShuiyuanTopic } from '../../shuiyuan/api';
+import { shuiyuanPostsHtml, shuiyuanTopicUrl } from '../../shuiyuan/sources';
+import { requireShuiyuanBound, withShuiyuanErrors } from './shuiyuan/helpers';
 import { assertShuiyuanEnabled } from '../../settings/prefs';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
 import { readResourceContent } from '../../resources';
 import { freshness, offset, tool, toolError } from './shared';
 
 type MailRef = Extract<ResourceRef, { type: 'mail' }>;
-type ShuiyuanRef = Extract<ResourceRef, { type: 'shuiyuan-topic' }>;
+type ShuiyuanOnlineRef = Extract<ResourceRef, { type: 'shuiyuan-online' }>;
 type DocumentRef = Extract<ResourceRef, { type: 'canvas' | 'workspace' | 'attachment' }>;
 
 /** 业务层中文错误消息 → 统一错误码（消息保持原文）；未识别的错误原样抛出。 */
@@ -44,22 +46,21 @@ async function readMailRef(ref: MailRef, offset: number, limit: number) {
   };
 }
 
-async function readShuiyuanRef(ref: ShuiyuanRef, offset: number, limit: number) {
-  const content = await readShuiyuanSource(ref.id);
-  const text = content.text ?? '';
-  // readShuiyuanSource 实时路径固定返回 html；format 为 text 即断网回退的本地摘要。
-  const degraded = content.format === 'text';
+async function readShuiyuanOnlineRef(ref: ShuiyuanOnlineRef, offset: number, limit: number) {
+  requireShuiyuanBound();
+  const detail = await withShuiyuanErrors(() => getShuiyuanTopic(ref.id));
+  const text = shuiyuanPostsHtml(detail.posts);
   return {
     ref,
-    title: content.title,
-    format: content.format,
+    title: detail.title,
+    format: 'html',
     revision: null,
-    url: content.url,
-    freshness: degraded
-      ? freshness('cached')
-      : freshness('realtime', content.updatedAt ?? undefined),
-    ...(degraded
-      ? { degraded: true, note: '水源站点不可达，已回退本地缓存的帖子摘要，内容不完整' }
+    url: shuiyuanTopicUrl(ref.id),
+    freshness: freshness('realtime', detail.lastPostedAt),
+    ...(detail.posts.length < detail.stream.length
+      ? {
+          note: `只读到前 ${detail.posts.length}/${detail.stream.length} 楼，用 read_shuiyuan_topic 与 read_shuiyuan_posts 续读`,
+        }
       : {}),
     text: text.slice(offset, offset + limit),
     totalCharacters: text.length,
@@ -117,7 +118,7 @@ async function readDocumentRef(ref: DocumentRef, offset: number, limit: number) 
 }
 
 export const readResourceTool = tool(
-  '读取项目文本与笔记、Canvas 页面、邮件正文、水源帖子；图片直接附图。二进制文档与附件返回 document-reading skill 的读取指引，不在 Agent 内解析 Office/PDF。正文按字符分页；HTML 保留原始链接标记。',
+  '读取项目文本与笔记、Canvas 页面、邮件正文；workspace 水源来源只读本地快照或摘要，shuiyuan-online 只联网读取，失败时不切换来源；图片直接附图。二进制文档与附件返回 document-reading skill 的读取指引，不在 Agent 内解析 Office/PDF。正文按字符分页；HTML 保留原始链接标记。',
   z
     .object({
       ref: resourceRefSchema,
@@ -130,9 +131,9 @@ export const readResourceTool = tool(
       switch (ref.type) {
         case 'mail':
           return await readMailRef(ref, offset, limit);
-        case 'shuiyuan-topic':
+        case 'shuiyuan-online':
           assertShuiyuanEnabled();
-          return await readShuiyuanRef(ref, offset, limit);
+          return await readShuiyuanOnlineRef(ref, offset, limit);
         default:
           return await readDocumentRef(ref, offset, limit);
       }

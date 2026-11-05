@@ -302,7 +302,12 @@ async function syncCourse(id: number): Promise<CanvasState> {
     }
   });
   await branch('discussions', '通知与讨论', async () => {
-    const rows = await list(`courses/${id}/discussion_topics?per_page=50`);
+    // 默认列表只含讨论；带 only_announcements 参数（不论取值）只返回公告，两者不相交。
+    const [topics, announcements] = await Promise.all([
+      list(`courses/${id}/discussion_topics?per_page=50`),
+      list(`courses/${id}/discussion_topics?per_page=50&only_announcements=true`),
+    ]);
+    const rows = [...topics, ...announcements];
     if (!rows.length) return;
     const rootId = group('discussions', '通知与讨论');
     for (const d of rows) {
@@ -690,6 +695,32 @@ export async function listTodoCanvasCourses() {
       name: str(c.name) || str(c.course_code) || `课程 ${num(c.id)}`,
       code: str(c.course_code),
     }));
+}
+
+// 通知轮询只取公告；顺带缓存为课程资料，课程目录未同步时也能在应用内打开。
+export async function listCanvasAnnouncements(courseId: number) {
+  const rows = await list(
+    `courses/${courseId}/discussion_topics?per_page=50&only_announcements=true`,
+  );
+  const insert = getDatabase().prepare('INSERT OR REPLACE INTO canvas_sources VALUES (?, ?, ?)');
+  return rows.map((d) => {
+    const source: StoredSource = {
+      id: `discussion:${courseId}:${num(d.id)}`,
+      courseId,
+      title: str(d.title),
+      kind: 'discussion',
+      html: str(d.message),
+      url: str(d.html_url),
+      updatedAt: str(d.last_reply_at) || null,
+    };
+    insert.run(source.id, courseId, JSON.stringify(source));
+    return {
+      sourceId: source.id,
+      title: source.title,
+      postedAt: str(d.posted_at),
+      read: d.read_state === 'read',
+    };
+  });
 }
 
 export function listTodoCanvasAssignments(courseId: number) {

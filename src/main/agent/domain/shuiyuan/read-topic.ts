@@ -1,9 +1,10 @@
 import { z } from 'zod';
-import { getShuiyuanTopic, shuiyuanTopicUrl } from '../../../shuiyuan/api';
+import { getShuiyuanTopic } from '../../../shuiyuan/api';
+import { shuiyuanTopicUrl } from '../../../shuiyuan/sources';
 import { freshness, tool } from '../shared';
 import { requireShuiyuanBound, slimPost, withShuiyuanErrors } from './helpers';
 
-/** read_shuiyuan_posts 单次接受的楼层数上限（与业务 loadShuiyuanPosts 一致）。 */
+/** read_shuiyuan_posts 单次接受的楼层数上限（控制单次工具结果体积）。 */
 const READ_POSTS_CHUNK = 50;
 
 export const readShuiyuanTopicTool = tool(
@@ -20,7 +21,7 @@ export const readShuiyuanTopicTool = tool(
     const loaded = new Set(detail.posts.map((post) => post.id));
     const remaining = detail.stream.filter((id) => !loaded.has(id));
     return {
-      ref: { type: 'shuiyuan-topic', id: topicId },
+      ref: { type: 'shuiyuan-online', id: topicId },
       url: shuiyuanTopicUrl(topicId),
       title: detail.title,
       categoryId: detail.categoryId,

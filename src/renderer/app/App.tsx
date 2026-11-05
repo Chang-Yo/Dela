@@ -15,6 +15,7 @@ import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboard
 import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
+import { subscribeShuiyuanSnapshots } from '../features/shuiyuan/snapshot-store';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
 import { ExtensionUiHost } from '../content/chat/ExtensionUiHost';
 import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
@@ -220,6 +221,8 @@ export default function App() {
     );
   }, []);
 
+  useEffect(() => subscribeShuiyuanSnapshots(), []);
+
   // 全局搜索入口交给 AppShell 的快捷键派发（Ctrl/⌘+K 可改键）；此处只守卫引导阶段：
   // completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
   const openSearch = () => {
@@ -345,6 +348,8 @@ export default function App() {
                   {view === 'todo' && <TodoView request={todoRequest ?? undefined} />}
                   {view === 'notifications' && (
                     <NotificationsView
+                      jwcNotice={notifications.jwcNotice}
+                      onCloseJwcNotice={notifications.closeJwcNotice}
                       state={notifications.notifications}
                       loading={notifications.loading}
                       error={notifications.error}
@@ -356,9 +361,11 @@ export default function App() {
                         window.dela?.notifications &&
                         void notifications.run(() => window.dela!.notifications.markRead(id))
                       }
-                      onMarkAllRead={() =>
+                      onMarkAllRead={(sources) =>
                         window.dela?.notifications &&
-                        void notifications.run(() => window.dela!.notifications.markAllRead())
+                        void notifications.run(() =>
+                          window.dela!.notifications.markAllRead(sources),
+                        )
                       }
                       onSnooze={(until) =>
                         window.dela?.notifications &&

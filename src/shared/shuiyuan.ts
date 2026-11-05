@@ -134,6 +134,7 @@ export interface ShuiyuanSiteStructure {
 export interface ShuiyuanNotificationItem {
   readonly id: number;
   readonly type: number;
+  readonly count: number;
   readonly read: boolean;
   readonly highPriority: boolean;
   readonly createdAt: string;
@@ -141,6 +142,7 @@ export interface ShuiyuanNotificationItem {
   readonly postNumber: number | null;
   readonly fancyTitle: string | null;
   readonly displayUsername: string | null;
+  readonly originalPostId: number | null;
 }
 
 export interface ShuiyuanBookmarkItem {
@@ -174,6 +176,22 @@ export interface ShuiyuanSourceRef {
   readonly author: string | null;
   readonly postsCount: number | null;
   readonly addedAt: string;
+  readonly snapshot: ShuiyuanSnapshotState | null;
+}
+
+/** 本地快照的保存状态；更新快照期间 savedAt 仍指向可读的旧快照。 */
+export interface ShuiyuanSnapshotState {
+  readonly topicId: number;
+  readonly status: 'saving' | 'done' | 'failed';
+  readonly savedAt: string | null;
+  readonly error: string | null;
+  readonly progress: {
+    readonly phase: 'posts' | 'images';
+    readonly done: number;
+    readonly total: number;
+    /** 本次保存最近一次写出可读草稿的时间；楼层还没取齐时为 null。 */
+    readonly cachedAt: string | null;
+  } | null;
 }
 
 /** Composer 附件上传结果；shortUrl 为 upload:// 形态，可直接写进 Markdown。 */
@@ -202,6 +220,8 @@ export interface ShuiyuanApi {
   getTopic(id: number, postNumber?: number): Promise<ShuiyuanTopicDetail>;
   /** 按 post id 分段加载楼层（长帖加载更多）。 */
   loadPosts(topicId: number, postIds: readonly number[]): Promise<readonly ShuiyuanPost[]>;
+  /** 按 post id 定位所在主题与楼层（合并点赞通知只带 post id）。 */
+  locatePost(postId: number): Promise<ShuiyuanTopicLink>;
   listBookmarks(): Promise<readonly ShuiyuanBookmarkItem[]>;
   /** 私信会话列表（topic 形态）。 */
   listMessages(): Promise<ShuiyuanTopicPage>;
@@ -229,8 +249,12 @@ export interface ShuiyuanApi {
   /** 写入来源引用行（添加到项目前调用）。 */
   addSourceRef(topicId: number): Promise<ShuiyuanSourceRef>;
   getSourceRef(topicId: number): Promise<ShuiyuanSourceRef | null>;
-  /** 项目工作区打开水源来源时的文档内容（实时拉取，断网回退 excerpt）。 */
+  /** 项目工作区打开水源来源时的文档内容：只读本地快照，没有快照时返回保存中提示。 */
   readSource(topicId: number): Promise<DocumentContent>;
+  readSnapshotPage(topicId: number, page: number): Promise<string>;
+  /** 重新保存快照（失败重试与手动更新共用）；帖子须仍在某个项目里。 */
+  refreshSnapshot(topicId: number): Promise<void>;
+  onSnapshot(listener: (state: ShuiyuanSnapshotState) => void): () => void;
   /** 在系统浏览器打开原帖；不经应用内链接分流。 */
   openInBrowser(topicId: number): Promise<void>;
   /** 主进程把站内主题链接（聊天、邮件、文档等处点击）交回应用内阅读。 */

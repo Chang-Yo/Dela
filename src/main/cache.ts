@@ -1,6 +1,6 @@
 import { app, ipcMain, session } from 'electron';
 import { lstat, readdir, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import type { CacheClearResult } from '../shared/cache';
 import { CAMPUS_PARTITION } from './campus';
 import { checkWorkspaceSender } from './ipc';
@@ -24,6 +24,12 @@ export const cacheDirectoryNames = new Set([
   'logs',
 ]);
 
+function isCacheDirectory(path: string): boolean {
+  if (cacheDirectoryNames.has(basename(path))) return true;
+  const localPath = relative(app.getPath('userData'), path).replaceAll('\\', '/');
+  return /^shuiyuan-snapshots\/\d+(?:\.partial)?\/thumbnails$/.test(localPath);
+}
+
 /** 整棵目录的字节数；链接不跟（junction 也算链接，避免量到目录树外面去）。 */
 async function treeBytes(directory: string): Promise<number> {
   let total = 0;
@@ -40,7 +46,7 @@ async function treeBytes(directory: string): Promise<number> {
   return total;
 }
 
-/** 只统计名单里的缓存目录，其余目录继续往下找（分区里的同名目录也算）。 */
+/** 统计 Chromium 缓存与水源快照缩略图，其余目录继续往下找。 */
 async function cacheBytes(directory: string): Promise<number> {
   let total = 0;
   for (const name of await readdir(directory)) {
@@ -48,7 +54,7 @@ async function cacheBytes(directory: string): Promise<number> {
     try {
       const info = await lstat(path);
       if (info.isSymbolicLink() || !info.isDirectory()) continue;
-      total += cacheDirectoryNames.has(name) ? await treeBytes(path) : await cacheBytes(path);
+      total += isCacheDirectory(path) ? await treeBytes(path) : await cacheBytes(path);
     } catch {
       // 同上：读不到的目录跳过。
     }
@@ -56,7 +62,7 @@ async function cacheBytes(directory: string): Promise<number> {
   return total;
 }
 
-/** 删掉名单里的缓存目录，其余目录继续往下找。返回是否有内容没能删掉。 */
+/** 删除可再生缓存，其余目录继续往下找。返回是否有内容没能删掉。 */
 async function removeCaches(directory: string): Promise<boolean> {
   let names: string[];
   try {
@@ -71,7 +77,7 @@ async function removeCaches(directory: string): Promise<boolean> {
     try {
       const info = await lstat(path);
       if (info.isSymbolicLink() || !info.isDirectory()) continue;
-      if (cacheDirectoryNames.has(name)) await rm(path, { recursive: true, force: true });
+      if (isCacheDirectory(path)) await rm(path, { recursive: true, force: true });
       else blocked = (await removeCaches(path)) || blocked;
     } catch {
       blocked = true;
