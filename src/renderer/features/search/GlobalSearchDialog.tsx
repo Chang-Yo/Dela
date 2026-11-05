@@ -144,8 +144,12 @@ export function GlobalSearchDialog({
     onOpenChange(false);
   };
 
-  const settingsMatches = settingsResultsFor(query);
-  const allResults = [...settingsMatches, ...results];
+  const matches = [...settingsResultsFor(query), ...results];
+  const groupedResults = resultGroups.map((group) => ({
+    ...group,
+    results: matches.filter((result) => result.kind === group.kind),
+  }));
+  const allResults = groupedResults.flatMap((group) => group.results);
   const hasContent = allResults.length > 0;
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -171,10 +175,6 @@ export function GlobalSearchDialog({
     }
   };
 
-  const groupedResults = resultGroups.map((group) => ({
-    ...group,
-    results: allResults.filter((result) => result.kind === group.kind),
-  }));
   const isRecent = !query.trim();
   const resultListId = 'global-search-results';
 
