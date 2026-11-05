@@ -193,6 +193,7 @@ export interface SessionApi {
   create(projectId: string | null, scope: ChatScope): Promise<WorkspaceChat>;
   /** 打开会话：读取快照，不产生执行。 */
   open(sessionId: string): Promise<WorkspaceChat>;
+  export(sessionId: string): Promise<{ saved: boolean; missing: string[] }>;
   /** 永久删除已归档会话；运行中先中断本轮，仅设置中的管理入口调用。 */
   remove(sessionId: string): Promise<void>;
   /** 发起一轮执行（同 session 串行、跨 session 并行）。 */

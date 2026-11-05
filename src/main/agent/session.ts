@@ -385,7 +385,7 @@ export function invalidateSessions(providerId?: string) {
 
 // ===== Pi 消息 → WorkspaceChat 投影 =====
 
-const textOf = (content: string | (TextContent | ImageContent)[]) =>
+export const textOf = (content: string | (TextContent | ImageContent)[]) =>
   typeof content === 'string'
     ? content
     : content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
@@ -394,15 +394,18 @@ const textOf = (content: string | (TextContent | ImageContent)[]) =>
 const META_PREFIX = '<dela-meta>';
 const META_SUFFIX = '</dela-meta>\n';
 
-function splitMeta(text: string): { meta: Partial<ChatMessage>; text: string } {
+type UserMessageMeta = Omit<Partial<ChatMessage>, 'attachments'> & {
+  body?: string;
+  attachments?: { id?: string; name: string }[];
+};
+
+export function splitMeta(text: string): { meta: UserMessageMeta; text: string; rest?: string } {
   if (!text.startsWith(META_PREFIX)) return { meta: {}, text };
   const end = text.indexOf(META_SUFFIX);
   if (end < 0) return { meta: {}, text };
   try {
-    const meta = JSON.parse(text.slice(META_PREFIX.length, end)) as Partial<ChatMessage> & {
-      body?: string;
-    };
-    return { meta, text: meta.body ?? '' };
+    const meta = JSON.parse(text.slice(META_PREFIX.length, end)) as UserMessageMeta;
+    return { meta, text: meta.body ?? '', rest: text.slice(end + META_SUFFIX.length) };
   } catch {
     return { meta: {}, text };
   }
@@ -873,6 +876,15 @@ export function adoptSessionFile(
       now,
     );
   return snapshot(id);
+}
+
+export async function sessionExportBranch(id: string) {
+  const { file } = row(id);
+  if (!file || !existsSync(file)) throw new Error('这个会话还没有可导出的记录');
+  const pi = await loadPi();
+  const entry = live.get(id);
+  if (entry?.run || entry?.session.isCompacting) throw new Error('请等待当前回答或压缩完成');
+  return (entry?.session.sessionManager ?? pi.SessionManager.open(file)).getBranch();
 }
 
 /**

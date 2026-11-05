@@ -124,6 +124,27 @@ it('新对话创建期间不显示旧会话，返回后绑定新身份', async (
   expect(useNavigationStore.getState().view).toBe('home');
 });
 
+it('从会话顶部导出当前对话，并提示缺失附件', async () => {
+  const save = vi.fn(async () => ({ saved: true, missing: ['讲义.pdf'] }));
+  window.dela!.session.export = save;
+  await act(async () => root.render(<ChatHome />));
+  const button = () => host.querySelector<HTMLButtonElement>('[aria-label="导出会话"]');
+  expect(button()).toBeNull();
+  await act(async () =>
+    useSessions.getState().putChat('first', {
+      ...emptyChat('first'),
+      messages: [{ role: 'user', content: '请继续' }],
+    }),
+  );
+  await act(async () => button()!.click());
+  expect(save).toHaveBeenCalledWith('first');
+  expect(useToastStore.getState().toasts.at(-1)).toMatchObject({
+    title: '会话已导出，部分文件未打包',
+    description: '讲义.pdf',
+  });
+  expect(button()?.disabled).toBe(false);
+});
+
 it('回到首页接着上次会话，清空运行内存（重启）后才是新对话', async () => {
   await act(async () => root.render(<ChatHome />));
   await act(async () =>
