@@ -302,7 +302,12 @@ async function syncCourse(id: number): Promise<CanvasState> {
     }
   });
   await branch('discussions', '通知与讨论', async () => {
-    const rows = await list(`courses/${id}/discussion_topics?per_page=50`);
+    // 默认列表只含讨论；带 only_announcements 参数（不论取值）只返回公告，两者不相交。
+    const [topics, announcements] = await Promise.all([
+      list(`courses/${id}/discussion_topics?per_page=50`),
+      list(`courses/${id}/discussion_topics?per_page=50&only_announcements=true`),
+    ]);
+    const rows = [...topics, ...announcements];
     if (!rows.length) return;
     const rootId = group('discussions', '通知与讨论');
     for (const d of rows) {
