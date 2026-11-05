@@ -1,4 +1,4 @@
-// 课程同步的「通知与讨论」：交大 Canvas 的讨论列表过滤公告，公告须经 only_announcements 单独并入。
+// 课程同步的「通知与讨论」：讨论列表不含公告，公告须经 only_announcements 单独并入。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -85,11 +85,5 @@ describe('syncCanvasCourse discussions', () => {
       .prepare('SELECT data FROM canvas_sources WHERE id=?')
       .get('discussion:1:900') as { data: string };
     expect(JSON.parse(stored.data)).toMatchObject({ title: '期中考试安排', courseId: 1 });
-  });
-
-  it('does not duplicate announcements already present in the discussion list', async () => {
-    stubCanvas([announcement], [announcement]);
-    const synced = await syncCanvasCourse(1);
-    expect(synced.items.filter((item) => item.sourceId === 'discussion:1:900')).toHaveLength(1);
   });
 });

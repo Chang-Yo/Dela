@@ -302,12 +302,12 @@ async function syncCourse(id: number): Promise<CanvasState> {
     }
   });
   await branch('discussions', '通知与讨论', async () => {
-    // 交大 Canvas 的讨论列表不含公告，公告须经 only_announcements 单独取；按 id 合并去重。
+    // 默认列表只含讨论；带 only_announcements 参数（不论取值）只返回公告，两者不相交。
     const [topics, announcements] = await Promise.all([
       list(`courses/${id}/discussion_topics?per_page=50`),
       list(`courses/${id}/discussion_topics?per_page=50&only_announcements=true`),
     ]);
-    const rows = [...new Map([...topics, ...announcements].map((d) => [num(d.id), d])).values()];
+    const rows = [...topics, ...announcements];
     if (!rows.length) return;
     const rootId = group('discussions', '通知与讨论');
     for (const d of rows) {
