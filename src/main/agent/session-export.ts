@@ -1,13 +1,12 @@
 import { createWriteStream } from 'node:fs';
-import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { mkdtemp, rename, rm } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { dialog, type BrowserWindow } from 'electron';
 import type { ImageContent } from '@earendil-works/pi-ai';
 import { ZipFile } from 'yazl';
-import { extensionOf, imageMimeOf } from '../../shared/files';
-import { readTurnExportFiles } from './changes';
+import { extensionOf } from '../../shared/files';
 import { chatMediaPath } from './media';
 import { row, sessionExportBranch, splitMeta, textOf } from './session';
 
@@ -76,7 +75,7 @@ export async function exportSession(id: string, owner: BrowserWindow | null) {
   const staging = await mkdtemp(join(dirname(filePath), '.dela-export-'));
   const temporaryZip = join(staging, 'session.zip');
   try {
-    const missing = await writeSessionArchive(id, temporaryZip, title, branch);
+    const missing = await writeSessionArchive(temporaryZip, title, branch);
     await rename(temporaryZip, filePath);
     return { saved: true, missing };
   } finally {
@@ -85,37 +84,11 @@ export async function exportSession(id: string, owner: BrowserWindow | null) {
 }
 
 async function writeSessionArchive(
-  id: string,
   path: string,
   title: string,
   branch: Awaited<ReturnType<typeof sessionExportBranch>>,
 ) {
-  const turnIds = new Set<string>();
-  for (const entry of branch) {
-    if (entry.type !== 'message' || entry.message.role !== 'user') continue;
-    const { meta } = splitMeta(textOf(entry.message.content));
-    if (meta.turnId && /^[0-9a-f-]{36}$/i.test(meta.turnId)) turnIds.add(meta.turnId);
-  }
-  const outputs: {
-    turnId: string;
-    source: string;
-    name: string;
-    archivePath: string | null;
-    stagedPath: string | null;
-  }[] = [];
   const missing: string[] = [];
-  for await (const { turnId, source, bytes } of readTurnExportFiles(id, turnIds)) {
-    const name = basename(source);
-    const folder = imageMimeOf(name) ? 'media' : 'files';
-    const archivePath = bytes
-      ? folder + '/output-' + (outputs.length + 1) + '-' + safeArchiveName(name)
-      : null;
-    const stagedPath = bytes ? join(dirname(path), 'output-' + (outputs.length + 1)) : null;
-    if (stagedPath && bytes) await writeFile(stagedPath, bytes, { flag: 'wx' });
-    if (!bytes) missing.push(source);
-    outputs.push({ turnId, source, name, archivePath, stagedPath });
-  }
-
   const zip = new ZipFile();
   const records: unknown[] = [{ type: 'session', version: 1, title }];
   let fileNumber = 0;
@@ -175,6 +148,7 @@ async function writeSessionArchive(
         images,
         files,
         comments: meta.comments,
+        sources: meta.sources,
       });
     } else if (message.role === 'assistant') {
       for (const block of message.content) {
@@ -204,10 +178,6 @@ async function writeSessionArchive(
     }
   }
 
-  for (const { turnId, source, name, archivePath, stagedPath } of outputs) {
-    if (archivePath && stagedPath) zip.addFile(stagedPath, archivePath);
-    records.push({ type: 'artifact', turnId, source, name, path: archivePath });
-  }
   zip.addBuffer(
     Buffer.from(records.map((record) => JSON.stringify(record)).join('\n') + '\n'),
     'session.jsonl',

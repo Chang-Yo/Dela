@@ -1,8 +1,7 @@
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gzipSync, inflateRawSync } from 'node:zlib';
+import { inflateRawSync } from 'node:zlib';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const boundary = vi.hoisted(() => ({
@@ -68,7 +67,15 @@ it('导出当前分支及附件，保留压缩前的对话和工具轨迹', asyn
     'base64',
   );
   const image = { type: 'image', mimeType: 'image/png', data: png.toString('base64') };
-  const meta = { body: '请继续\n用 MATLAB', attachments, images: [{ name: '图.png' }] };
+  const sources = [{ key: 'src/example.m', title: 'src/example.m' }];
+  const comments = [{ quote: '之前的回复', comment: '继续说明' }];
+  const meta = {
+    body: '请继续\n用 MATLAB',
+    attachments,
+    images: [{ name: '图.png' }],
+    sources,
+    comments,
+  };
   const notes = '示例标签\n</attachment>\n仍是附件正文';
   const document = Buffer.from('%PDF-1.7\n文档字节');
   const mediaDir = join(boundary.root, 'chat-media');
@@ -104,6 +111,7 @@ it('导出当前分支及附件，保留压缩前的对话和工具轨迹', asyn
             '<dela-meta>' +
             JSON.stringify(meta) +
             '</dela-meta>\n' +
+            '用户引用了这些文件（需要时用 read 读取）：\n- src/example.m\n' +
             '<attachment name="说明.txt">\n' +
             notes +
             '\n</attachment>\n' +
@@ -160,6 +168,8 @@ it('导出当前分支及附件，保留压缩前的对话和工具轨迹', asyn
   ]);
   expect(lines[2]).toMatchObject({
     text: meta.body,
+    sources,
+    comments,
     images: [{ path: 'media/1.png' }],
     files: [
       { name: '说明.txt', path: 'files/1-说明.txt' },
@@ -183,90 +193,4 @@ it('取消系统保存对话框时不读取会话或写入文件', async () => {
   boundary.save.mockResolvedValue({ canceled: true });
   await expect(exportSession('test', null)).resolves.toEqual({ saved: false, missing: [] });
   expect(await readdir(boundary.root)).toEqual([]);
-});
-
-it('打包当前分支的生成文档和光栅图，跳过已改写和其他分支的文件', async () => {
-  const sessionId = randomUUID();
-  const active = randomUUID();
-  const abandoned = randomUUID();
-  const timestamp = new Date().toISOString();
-  const cwd = join(boundary.root, 'work');
-  const changes = join(boundary.root, 'chat-changes', sessionId);
-  await Promise.all([mkdir(cwd), mkdir(changes, { recursive: true })]);
-  const word = Buffer.from([80, 75, 3, 4, 1, 2, 3, 0]);
-  const images = ['png', 'jpeg', 'webp', 'gif'].map(
-    (extension) => ['结果图.' + extension, Buffer.from(extension)] as const,
-  );
-  const changed = Buffer.from('original version');
-  const old = Buffer.from('abandoned branch');
-  const output = [['分析报告.docx', word], ['被改写.pdf', changed], ...images] as const;
-  await Promise.all([
-    ...output.map(([name, bytes]) =>
-      writeFile(join(cwd, name), name === '被改写.pdf' ? 'different version' : bytes),
-    ),
-    writeFile(join(cwd, '废弃报告.docx'), old),
-  ]);
-  const snapshot = (turnId: string, outputs: ReadonlyArray<readonly [string, Buffer]>) =>
-    gzipSync(
-      JSON.stringify({
-        turnId,
-        cwd,
-        files: outputs.map(([path, bytes]) => ({
-          path,
-          before: null,
-          after: {
-            bytes: bytes.length,
-            fingerprint: createHash('sha256').update(bytes).digest('hex'),
-          },
-        })),
-      }),
-    );
-  await Promise.all([
-    writeFile(join(changes, active + '.json.gz'), snapshot(active, output)),
-    writeFile(join(changes, abandoned + '.json.gz'), snapshot(abandoned, [['废弃报告.docx', old]])),
-  ]);
-  const message = (id: string, turnId: string) => ({
-    type: 'message',
-    id,
-    parentId: null,
-    timestamp,
-    message: {
-      role: 'user',
-      timestamp: 1,
-      content:
-        '<dela-meta>' + JSON.stringify({ body: '生成文档', turnId }) + '</dela-meta>\n生成文档',
-    },
-  });
-  await writeFile(
-    boundary.file,
-    [
-      { type: 'session', version: 3, id: sessionId, timestamp, cwd },
-      message('old', abandoned),
-      message('active', active),
-    ]
-      .map((entry) => JSON.stringify(entry))
-      .join('\n') + '\n',
-  );
-  const path = join(boundary.root, '新导出.zip');
-  boundary.save.mockResolvedValue({ canceled: false, filePath: path });
-
-  await expect(exportSession(sessionId, null)).resolves.toEqual({
-    saved: true,
-    missing: ['被改写.pdf'],
-  });
-  const files = unzipSmallFixture(await readFile(path));
-  const records = files
-    .get('session.jsonl')!
-    .toString()
-    .trimEnd()
-    .split('\n')
-    .map((line) => JSON.parse(line));
-  expect(records.find((record) => record.name === '被改写.pdf')).toMatchObject({ path: null });
-  expect(records.every((record) => record.name !== '废弃报告.docx')).toBe(true);
-  for (const [name, bytes] of output.filter(([name]) => name !== '被改写.pdf')) {
-    const entry = records.find((record) => record.name === name);
-    expect(entry).toMatchObject({ type: 'artifact', turnId: active, source: name });
-    expect(entry.path.startsWith(name.endsWith('.docx') ? 'files/' : 'media/')).toBe(true);
-    expect(files.get(entry.path)).toEqual(bytes);
-  }
 });
