@@ -11,9 +11,14 @@ describe('notification source filter', () => {
     const { toggleSource } = useNotificationSourceFilter.getState();
     toggleSource('jwc');
     toggleSource('mail');
-    expect(useNotificationSourceFilter.getState().sources).toEqual(['shuiyuan', 'todo']);
+    expect(useNotificationSourceFilter.getState().sources).toEqual(['shuiyuan', 'todo', 'canvas']);
     toggleSource('jwc');
-    expect(useNotificationSourceFilter.getState().sources).toEqual(['shuiyuan', 'todo', 'jwc']);
+    expect(useNotificationSourceFilter.getState().sources).toEqual([
+      'shuiyuan',
+      'todo',
+      'jwc',
+      'canvas',
+    ]);
   });
 
   it('never leaves the selection empty', () => {

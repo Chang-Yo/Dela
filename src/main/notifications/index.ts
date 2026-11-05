@@ -8,12 +8,13 @@ import type {
   NotificationState,
   ShuiyuanNotificationItem,
 } from '../../shared/api';
-import { getTodoState, markTodoRead, todoNotifications } from '../todo';
+import { canvasOwner, getTodoState, markTodoRead, todoNotifications } from '../todo';
 import { getDatabase } from '../database';
 import { loadShuiyuanCredential, type ShuiyuanCredential } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
 import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from '../mail/api';
 import { listShuiyuanNotifications } from '../shuiyuan/api';
+import { listCanvasAnnouncements, listTodoCanvasCourses } from '../canvas/api';
 import { experimentEnabled } from '../settings/prefs';
 import { refreshJwc, getJwcNotice, getJwcCaptcha, downloadJwcAttachment } from './jwc';
 import {
@@ -26,6 +27,7 @@ import {
 const sourcesSchema = z.array(z.enum(notificationSources)).min(1);
 const snoozeSchema = z.string().datetime().nullable();
 let activeRefresh: Promise<NotificationState> | null = null;
+let nextCanvasCheckAt = 0;
 
 type ActiveAccount = { source: NotificationSource; key: string };
 
@@ -48,6 +50,12 @@ function currentAccounts(): ActiveAccount[] {
     { address: string } | undefined;
   const accounts: ActiveAccount[] = mail ? [{ source: 'mail', key: mail.address }] : [];
   accounts.push({ source: 'jwc', key: 'students' });
+  try {
+    const canvas = canvasOwner();
+    if (canvas) accounts.push({ source: 'canvas', key: canvas });
+  } catch {
+    // 与水源同一口径：损坏的 Canvas 令牌不能连带隐藏邮件等其他来源的通知。
+  }
   // 水源关闭：不轮询、不展示已有通知，凭据保留。
   if (!experimentEnabled('shuiyuan')) return accounts;
   try {
@@ -94,6 +102,7 @@ function notificationState(
       const href = JSON.parse(row.href) as NotificationItem['href'];
       const knownHref =
         (href.kind === 'jwc' && typeof href.url === 'string') ||
+        (href.kind === 'canvas' && typeof href.sourceId === 'string') ||
         (href.kind === 'mail' && typeof href.messageId === 'number') ||
         (href.kind === 'shuiyuan' && typeof href.topicId === 'number') ||
         (href.kind === 'shuiyuan-post' && typeof href.postId === 'number');
@@ -142,7 +151,7 @@ function notificationState(
       )?.value ?? null,
     );
   const refresh = Object.fromEntries(
-    (['mail', 'shuiyuan', 'jwc'] as const).map((source) => {
+    (['mail', 'shuiyuan', 'jwc', 'canvas'] as const).map((source) => {
       const key = accountFor(source);
       if (!key) return [source, null];
       const row = db
@@ -407,6 +416,74 @@ async function refreshShuiyuan(): Promise<void> {
   }
 }
 
+async function refreshCanvas(force: boolean): Promise<void> {
+  const key = accountFor('canvas');
+  if (!key || (!force && Date.now() < nextCanvasCheckAt)) return;
+  nextCanvasCheckAt = Date.now() + 20 * 60_000;
+  const db = getDatabase();
+  // 按课程记录首次成功同步：新学期新增课程的存量公告与首次同步一样只进列表，不弹系统通知。
+  const knownKey = `canvas-announcement-courses:${key}`;
+  const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(knownKey) as
+    { value: string } | undefined;
+  const known = new Set<number>(saved ? JSON.parse(saved.value) : []);
+  const errors: string[] = [];
+  try {
+    const existing = existingNotifications('canvas', key);
+    const syncedAt = new Date().toISOString();
+    // 逐课顺序请求，避免并发轰炸 Canvas；单门课失败不影响其余课程。
+    for (const course of await listTodoCanvasCourses()) {
+      try {
+        for (const announcement of await listCanvasAnnouncements(course.id)) {
+          const id = `canvas:${key}:${announcement.sourceId}`;
+          const createdAt = announcement.postedAt || syncedAt;
+          const href: NotificationItem['href'] = {
+            kind: 'canvas',
+            sourceId: announcement.sourceId,
+          };
+          // Canvas 网页端读过的公告同步为已读；Dela 内标记已读只记在本地，不回写 Canvas。
+          upsert(
+            'canvas',
+            key,
+            id,
+            announcement.title,
+            course.name,
+            createdAt,
+            href,
+            null,
+            1,
+            announcement.read ? syncedAt : null,
+          );
+          if (!known.has(course.id) || announcement.read || existing.has(id)) continue;
+          systemNotifyItem(
+            {
+              id,
+              source: 'canvas',
+              category: null,
+              count: 1,
+              title: announcement.title,
+              body: course.name,
+              createdAt,
+              readAt: null,
+              href,
+            },
+            course.name,
+          );
+        }
+        known.add(course.id);
+      } catch (error) {
+        errors.push(`${course.name}：${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    db.prepare('INSERT OR REPLACE INTO workspace_settings (key, value) VALUES (?, ?)').run(
+      knownKey,
+      JSON.stringify([...known]),
+    );
+    saveRefresh('canvas', key, errors.length ? errors.join('\n') : null);
+  } catch (error) {
+    saveRefresh('canvas', key, error instanceof Error ? error.message : String(error));
+  }
+}
+
 export function initializeNotifications(): void {
   // Database initialization creates the schema. Existing unread mail is intentionally included as passive local inbox state.
   refreshMail(false);
@@ -428,7 +505,7 @@ export function refreshNotifications(force = false): Promise<NotificationState> 
       const key = accountFor('mail');
       if (key) saveRefresh('mail', key, error instanceof Error ? error.message : String(error));
     }
-    await Promise.all([refreshShuiyuan(), refreshJwc(force)]);
+    await Promise.all([refreshShuiyuan(), refreshJwc(force), refreshCanvas(force)]);
     // 首轮刷新构成启动基线；此后新增的通知才弹系统桌面通知。
     armSystemNotifications();
     return broadcast();

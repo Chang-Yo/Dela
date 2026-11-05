@@ -1,4 +1,4 @@
-export const notificationSources = ['mail', 'shuiyuan', 'todo', 'jwc'] as const;
+export const notificationSources = ['mail', 'shuiyuan', 'todo', 'jwc', 'canvas'] as const;
 export type NotificationSource = (typeof notificationSources)[number];
 export type NotificationCategory = 'like' | 'reply' | 'mention' | 'message' | 'other';
 export interface NotificationItem {
@@ -14,6 +14,7 @@ export interface NotificationItem {
     | { kind: 'todo'; todoId: string }
     | { kind: 'mail'; messageId: number }
     | { kind: 'jwc'; url: string }
+    | { kind: 'canvas'; sourceId: string }
     | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null }
     | { kind: 'shuiyuan-post'; postId: number };
 }

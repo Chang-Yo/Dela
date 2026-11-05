@@ -5,6 +5,7 @@ import {
   Check,
   CheckCheck,
   Mail,
+  Megaphone,
   RefreshCw,
   SlidersHorizontal,
   GraduationCap,
@@ -45,6 +46,7 @@ const filterLabels: Record<NotificationSource, string> = {
   shuiyuan: '水源',
   todo: 'TODO',
   jwc: '教务处',
+  canvas: 'Canvas',
 };
 
 function formatTime(value: string): string {
@@ -79,7 +81,9 @@ function SourceIcon({ source }: { source: NotificationItem['source'] }) {
         ? CircleCheckBig
         : source === 'jwc'
           ? GraduationCap
-          : ShuiyuanIcon;
+          : source === 'canvas'
+            ? Megaphone
+            : ShuiyuanIcon;
   return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-3" />;
 }
 
