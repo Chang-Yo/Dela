@@ -697,6 +697,32 @@ export async function listTodoCanvasCourses() {
     }));
 }
 
+// 通知轮询只取公告；顺带缓存为课程资料，课程目录未同步时也能在应用内打开。
+export async function listCanvasAnnouncements(courseId: number) {
+  const rows = await list(
+    `courses/${courseId}/discussion_topics?per_page=50&only_announcements=true`,
+  );
+  const insert = getDatabase().prepare('INSERT OR REPLACE INTO canvas_sources VALUES (?, ?, ?)');
+  return rows.map((d) => {
+    const source: StoredSource = {
+      id: `discussion:${courseId}:${num(d.id)}`,
+      courseId,
+      title: str(d.title),
+      kind: 'discussion',
+      html: str(d.message),
+      url: str(d.html_url),
+      updatedAt: str(d.last_reply_at) || null,
+    };
+    insert.run(source.id, courseId, JSON.stringify(source));
+    return {
+      sourceId: source.id,
+      title: source.title,
+      postedAt: str(d.posted_at),
+      read: d.read_state === 'read',
+    };
+  });
+}
+
 export function listTodoCanvasAssignments(courseId: number) {
   return list(`courses/${courseId}/assignments?include[]=submission&per_page=50`);
 }

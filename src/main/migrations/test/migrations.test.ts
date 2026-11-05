@@ -115,7 +115,7 @@ it('新安装与当前版本不迁移；缺少中间步骤的旧版本明确拒�
   expect(existsSync(dbPath())).toBe(true);
 });
 
-it('v7→v8：保留原通知与已读状态，允许教务处来源，水源引用补快照状态列', () => {
+it('v7→v8：保留原通知与已读状态，允许教务处与 Canvas 来源，水源引用补快照状态列', () => {
   const before = new Database(dbPath());
   before.exec(`CREATE TABLE IF NOT EXISTS shuiyuan_topics (
     topic_id INTEGER PRIMARY KEY,
@@ -168,6 +168,10 @@ CREATE TABLE IF NOT EXISTS notification_refreshes (
     "INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href) VALUES ('new', 'jwc', 'students', '新通知', '', '2026-11-01', NULL, 1, '{}')",
   ).run();
   db.prepare("INSERT INTO notification_refreshes VALUES ('jwc', 'students', NULL, NULL)").run();
+  db.prepare(
+    "INSERT INTO notifications (id, source, account_key, title, created_at, href) VALUES ('c', 'canvas', 'owner', '公告', '2026-11-01', '{}')",
+  ).run();
+  db.prepare("INSERT INTO notification_refreshes VALUES ('canvas', 'owner', NULL, NULL)").run();
   expect(
     db
       .prepare('SELECT title, snapshot_status, snapshot_at, snapshot_error FROM shuiyuan_topics')

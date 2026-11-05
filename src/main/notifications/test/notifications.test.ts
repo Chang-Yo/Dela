@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../todo', () => ({
   getTodoState: () => ({ syncedAt: null, error: null }),
   todoNotifications: () => [],
+  canvasOwner: vi.fn(() => null),
   markTodoRead: vi.fn(),
 }));
 vi.mock('electron', () => ({
@@ -26,6 +27,10 @@ vi.mock('../../mail/api', () => ({
   onMailCacheChanged: vi.fn(),
 }));
 vi.mock('../../shuiyuan/api', () => ({ listShuiyuanNotifications: vi.fn() }));
+vi.mock('../../canvas/api', () => ({
+  listTodoCanvasCourses: vi.fn(),
+  listCanvasAnnouncements: vi.fn(),
+}));
 vi.mock('../system', () => ({
   armSystemNotifications: vi.fn(),
   isWorkspaceWindow: () => false,
@@ -43,6 +48,8 @@ import {
 import { getDatabase } from '../../database';
 import { loadShuiyuanCredential } from '../../credentials';
 import { listShuiyuanNotifications } from '../../shuiyuan/api';
+import { listCanvasAnnouncements, listTodoCanvasCourses } from '../../canvas/api';
+import { canvasOwner } from '../../todo';
 import { markAllMailSeen, markMailSeen } from '../../mail/api';
 import { systemNotifyItem } from '../system';
 
@@ -119,6 +126,7 @@ describe('local notification inbox', () => {
     vi.mocked(getDatabase).mockReturnValue(db);
     vi.mocked(loadShuiyuanCredential).mockReturnValue(null);
     vi.mocked(listShuiyuanNotifications).mockResolvedValue([]);
+    vi.mocked(canvasOwner).mockReturnValue(null);
     // 模拟服务器标记成功后的本地落库：已读派生自 mail_messages.seen。
     vi.mocked(markMailSeen).mockImplementation(async (messageId) => {
       getDatabase()
@@ -509,6 +517,81 @@ describe('local notification inbox', () => {
     expect(markAllMailSeen).not.toHaveBeenCalled();
     expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
     expect(getNotificationState(['mail']).unreadCount).toBe(1);
+  });
+
+  it('lists existing Canvas announcements silently on first sync and toasts later unread ones', async () => {
+    vi.mocked(canvasOwner).mockReturnValue('owner');
+    vi.mocked(listTodoCanvasCourses).mockResolvedValue([
+      { id: 1, name: '操作系统', code: 'CS260' },
+    ]);
+    const announcement = (id: number, read: boolean) => ({
+      sourceId: `discussion:1:${id}`,
+      title: `公告 ${id}`,
+      postedAt: `2026-09-1${id}T00:00:00.000Z`,
+      read,
+    });
+    vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([
+      announcement(1, true),
+      announcement(2, false),
+    ]);
+
+    await refreshNotifications(true);
+    expect(getNotificationState(['canvas'])).toMatchObject({ totalCount: 2, unreadCount: 1 });
+    expect(systemNotifyItem).not.toHaveBeenCalled();
+
+    vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([
+      announcement(3, false),
+      announcement(2, false),
+      announcement(1, true),
+    ]);
+    await refreshNotifications(true);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(systemNotifyItem).mock.calls[0]![0]).toMatchObject({
+      id: 'canvas:owner:discussion:1:3',
+      body: '操作系统',
+      href: { kind: 'canvas', sourceId: 'discussion:1:3' },
+    });
+  });
+
+  it('baselines Canvas courses one by one and keeps syncing past a failing course', async () => {
+    vi.mocked(canvasOwner).mockReturnValue('owner');
+    const course = (id: number) => ({ id, name: `课程 ${id}`, code: '' });
+    const announcement = (courseId: number, id: number) => ({
+      sourceId: `discussion:${courseId}:${id}`,
+      title: `公告 ${id}`,
+      postedAt: '2026-09-10T00:00:00.000Z',
+      read: false,
+    });
+    vi.mocked(listTodoCanvasCourses).mockResolvedValueOnce([course(1)]);
+    vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([announcement(1, 1)]);
+    await refreshNotifications(true);
+
+    // 新学期加入课程 2（存量公告）与课程 3（请求失败），课程 1 有新公告。
+    vi.mocked(listTodoCanvasCourses).mockResolvedValueOnce([course(3), course(2), course(1)]);
+    vi.mocked(listCanvasAnnouncements)
+      .mockRejectedValueOnce(new Error('令牌失效或无权访问此内容'))
+      .mockResolvedValueOnce([announcement(2, 5)])
+      .mockResolvedValueOnce([announcement(1, 2), announcement(1, 1)]);
+    await refreshNotifications(true);
+
+    expect(vi.mocked(systemNotifyItem).mock.calls.map(([item]) => item.id)).toEqual([
+      'canvas:owner:discussion:1:2',
+    ]);
+    expect(getNotificationState(['canvas'])).toMatchObject({
+      totalCount: 3,
+      refresh: { canvas: { error: '课程 3：令牌失效或无权访问此内容' } },
+    });
+  });
+
+  it('keeps mail notifications visible when the Canvas token cannot be decrypted', async () => {
+    insertUnreadInboxMail(db);
+    vi.mocked(canvasOwner).mockImplementation(() => {
+      throw new Error('decrypt failed');
+    });
+
+    await refreshNotifications();
+    expect(getNotificationState().unreadCount).toBe(1);
+    expect(listTodoCanvasCourses).not.toHaveBeenCalled();
   });
 
   it('persists a global snooze timestamp without changing the unread count', async () => {

@@ -32,7 +32,7 @@ type TodoRow = {
 type SyncState = { syncedAt: string | null; error: string | null; courses: number[] };
 let activeRefresh: Promise<TodoState> | null = null;
 
-function canvasOwner(): string | null {
+export function canvasOwner(): string | null {
   const token = loadCanvasToken();
   return token ? createHash('sha256').update(token).digest('hex') : null;
 }

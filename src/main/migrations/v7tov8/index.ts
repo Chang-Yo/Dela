@@ -5,7 +5,7 @@ export function v7tov8(db: Database.Database): void {
     ALTER TABLE notifications RENAME TO notifications_v7;
     CREATE TABLE notifications (
       id TEXT PRIMARY KEY,
-      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc')),
+      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc', 'canvas')),
       account_key TEXT NOT NULL,
       title TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
@@ -23,7 +23,7 @@ export function v7tov8(db: Database.Database): void {
       ON notifications (account_key, source, created_at DESC);
     ALTER TABLE notification_refreshes RENAME TO notification_refreshes_v7;
     CREATE TABLE notification_refreshes (
-      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc')),
+      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc', 'canvas')),
       account_key TEXT NOT NULL,
       last_success_at TEXT,
       error TEXT,
