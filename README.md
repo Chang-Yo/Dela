@@ -81,6 +81,8 @@ Dela 的 **remote project** 可以把远端服务器目录登记为项目：通�
 
 ## 本地开发
 
+从 `dev` 创建功能分支，贡献 PR 统一提交到 `dev`；只有仓库管理员可以发起 `dev` → `main` 的 PR。详见 [贡献指南](CONTRIBUTING.md#分支与合并流程)。
+
 推荐使用 [`.node-version`](.node-version) 指定的 Node.js 与 [`package.json`](package.json) 的 `packageManager` 指定的 pnpm，兼容范围见 `engines`（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
 
 ```sh

@@ -287,6 +287,8 @@ pnpm test
 
 `ci.yml` 负责变更检测、任务编排与结果汇总，通过 `workflow_call` 调用按职能拆分的文件；`pr-labels.yml` 管标签，`release.yml` 管发布。没有定时回归。
 
+CI 在 PR 创建、提交更新、重新打开、编辑及推送到 `dev`、`main` 时运行。
+
 | Workflow              | 职责                                           |
 | --------------------- | ---------------------------------------------- |
 | `quality.yml`         | 格式检查，按需执行 lint、类型检查与 actionlint |
@@ -304,6 +306,10 @@ pnpm test
 - 真实 SSH 联调仍手动执行，不接入 CI。云端冒烟不能替代签名、公证与自动更新验收。
 
 ## 15. 版本与发布
+
+分支流程见[贡献指南](../CONTRIBUTING.md#分支与合并流程)。GitHub Rulesets 对 `dev`、`main` 要求 PR 与 `CI required`，阻止强制推送与删除；`main` 额外限制为仅管理员通过 PR 更新。现有管理员 CI 绕过权限保留，常规合并仍应完成检查。
+
+Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `main` 的 PR 由管理员发起且来自 `dev`。规则在 Settings → Rules → Rulesets 中维护，参见 [GitHub 文档](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)。
 
 ### 升版
 

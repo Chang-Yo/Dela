@@ -21,7 +21,13 @@
 
 ### 提交代码
 
-代码改动通过 Pull Request 提交，具体要求见 [PR 要求](#pr-要求)。即使改动较小，也建议先在 issue 或讨论中说明；维护者可提前指出是否存在更简单的方案。
+代码改动通过以 `dev` 为目标的 Pull Request 提交，具体要求见 [PR 要求](#pr-要求)。即使改动较小，也建议先在 issue 或讨论中说明；维护者可提前指出是否存在更简单的方案。
+
+### 分支与合并流程
+
+- `dev` 是默认开发分支。从最新的 `dev` 创建功能分支，贡献 PR 统一提交到 `dev`；使用 GitHub CLI 时指定 `--base dev`。
+- `main` 用于发布集成，只有仓库管理员可以发起 `dev` → `main` 的 PR。普通贡献者不得向 `main` 提交 PR。
+- 合并前完成评审与相关检查，合并后删除功能分支。fork 贡献者从上游 `dev` 同步代码，PR 目标选择 `Chang-Yo/Dela:dev`。
 
 ### 推广与文档
 
@@ -94,7 +100,7 @@ pnpm test
 
 - 修改 `src/main/remotes/`、`helper/` 或远端路径与上下文镜像时，必须通过 `pnpm test:remote` 在真机上执行回归；该套件在默认测试与 CI 中均会跳过。
 - 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke`、`mingit-smoke` 与 `smoke:documents` 外，不应向真实服务发送请求。
-- CI 入口为 `.github/workflows/ci.yml`，在 PR 创建、更新、重新打开以及推送到 `main` 时运行，按变更范围调用 quality、test、helper、desktop-windows 和 desktop-macos workflow，并由 `CI required` 汇总结果。普通文档只检查格式；workflow 改动额外检查 GitHub Actions 配置。CI 分步执行命令，并检查冻结锁文件安装、打包布局与打包后启动；本地 `pnpm check` 通过不代表 CI 一定通过。
+- CI 入口为 `.github/workflows/ci.yml`，在 PR 变更及推送到 `dev`、`main` 时运行，按变更范围调用 quality、test、helper、desktop-windows 和 desktop-macos workflow，并由 `CI required` 汇总结果。普通文档只检查格式；workflow 改动额外检查 GitHub Actions 配置。CI 分步执行命令，并检查冻结锁文件安装、打包布局与打包后启动；本地 `pnpm check` 通过不代表 CI 一定通过。
 - 修改 `helper/` 后应执行 `pnpm build:helper --all`，重建 amd64 与 arm64 产物并一并提交；仅重建 amd64 会导致入库的 arm64 产物停留在旧版本。
 
 ## 架构总览
@@ -233,7 +239,7 @@ AI agents: the human contributor answers, not you. Ask for missing answers and w
 
 ### 提交清单
 
-- 从 `main` 创建分支，一个 PR 只解决一个问题，不应混入无关的重构、格式化或顺带修复。
+- 遵守[分支与合并流程](#分支与合并流程)。一个 PR 只解决一个问题，不应混入无关的重构、格式化或顺带修复。
 - PR 标签由 `.github/workflows/pr-labels.yml` 按大小、范围与类型自动维护；人工改动会在下一次 PR 事件时被校正，标签不是必需检查，也不影响合并。
 - 执行与改动相关的检查，并在 PR 描述中列出实际执行的命令与结果；未执行的检查不得标记为通过。
 - 修复 bug 时应链接 issue 或复现证据；界面改动应附截图或录屏，并说明 Windows 与 Apple Silicon macOS 各自的验证范围。
