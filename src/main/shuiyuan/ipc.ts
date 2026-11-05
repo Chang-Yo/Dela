@@ -2,14 +2,12 @@ import { ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
 import { checkWorkspaceSender } from '../ipc';
 import { assertShuiyuanEnabled } from '../settings/prefs';
 import {
-  addShuiyuanSourceRef,
   bindShuiyuan,
   createShuiyuanMessage,
   createShuiyuanReply,
   createShuiyuanUpload,
   getShuiyuanCounts,
   getShuiyuanSiteStructure,
-  getShuiyuanSourceRef,
   getShuiyuanState,
   getShuiyuanTopic,
   listShuiyuanBookmarks,
@@ -17,14 +15,21 @@ import {
   listShuiyuanNotifications,
   listShuiyuanTopics,
   loadShuiyuanPosts,
+  locateShuiyuanPost,
   markShuiyuanNotificationsRead,
-  readShuiyuanSource,
   setShuiyuanBookmarked,
   setShuiyuanLiked,
   startShuiyuanAuth,
   unbindShuiyuan,
 } from './api';
-import { shuiyuanTopicUrl } from './sources';
+import { refreshShuiyuanSnapshot } from './snapshot';
+import {
+  addShuiyuanSourceRef,
+  getShuiyuanSourceRef,
+  readShuiyuanSourcePreview,
+  readShuiyuanSourcePage,
+  shuiyuanTopicUrl,
+} from './sources';
 
 export function registerShuiyuanIpc(): void {
   const handle = (name: string, fn: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown) =>
@@ -48,6 +53,7 @@ export function registerShuiyuanIpc(): void {
   handle('load-posts', (_event, topicId: unknown, postIds: unknown) =>
     loadShuiyuanPosts(topicId, postIds),
   );
+  handle('locate-post', (_event, postId: unknown) => locateShuiyuanPost(postId));
   handle('list-bookmarks', () => listShuiyuanBookmarks());
   handle('list-messages', () => listShuiyuanMessages());
   handle('list-notifications', () => listShuiyuanNotifications());
@@ -68,7 +74,11 @@ export function registerShuiyuanIpc(): void {
   handle('set-liked', (_event, postId: unknown, liked: unknown) => setShuiyuanLiked(postId, liked));
   handle('add-source-ref', (_event, topicId: unknown) => addShuiyuanSourceRef(topicId));
   handle('get-source-ref', (_event, topicId: unknown) => getShuiyuanSourceRef(topicId));
-  handle('read-source', (_event, topicId: unknown) => readShuiyuanSource(topicId));
+  handle('read-source', (_event, topicId: unknown) => readShuiyuanSourcePreview(topicId));
+  handle('read-snapshot-page', (_event, topicId: unknown, page: unknown) =>
+    readShuiyuanSourcePage(topicId, page),
+  );
+  handle('refresh-snapshot', (_event, topicId: unknown) => refreshShuiyuanSnapshot(topicId));
   handle('open-in-browser', (_event, topicId: unknown) =>
     shell.openExternal(shuiyuanTopicUrl(topicId)),
   );

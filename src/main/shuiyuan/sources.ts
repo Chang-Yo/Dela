@@ -1,9 +1,16 @@
-// 水源帖子作为工作区来源：引用行（shuiyuan_topics）的写入与读取，以及来源内容的实时读取
-// 与断网回退。站点请求复用 api.ts。
+// 水源帖子作为工作区来源：引用行（shuiyuan_topics）的写入与读取，来源正文读本地快照（snapshot-files.ts）。
+// 站点请求复用 api.ts。
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import type { DocumentContent, ShuiyuanSourceRef } from '../../shared/api';
 import { getShuiyuanSiteStructure, getShuiyuanTopic, SHUIYUAN_ORIGIN } from './api';
+import {
+  readShuiyuanSnapshot,
+  findShuiyuanSnapshot,
+  readShuiyuanSnapshotPage,
+  type ShuiyuanSnapshotPost,
+} from './snapshot-files';
+import { shuiyuanSnapshotState } from './snapshot';
 
 function escapeHtml(value: string): string {
   return value
@@ -43,6 +50,7 @@ function mapRefRow(row: SourceRefRow): ShuiyuanSourceRef {
     author: row.author,
     postsCount: row.posts_count,
     addedAt: row.added_at,
+    snapshot: shuiyuanSnapshotState(row.topic_id),
   };
 }
 
@@ -66,6 +74,7 @@ export async function addShuiyuanSourceRef(topicIdInput: unknown): Promise<Shuiy
     author: first?.username ?? null,
     postsCount: detail.postsCount,
     addedAt: new Date().toISOString(),
+    snapshot: shuiyuanSnapshotState(topicId),
   };
   getDatabase()
     .prepare(
@@ -94,36 +103,60 @@ export function getShuiyuanSourceRef(topicIdInput: unknown): ShuiyuanSourceRef |
   return row ? mapRefRow(row) : null;
 }
 
-/** 项目工作区读取水源来源：实时拉取楼层合并为 HTML；断网回退引用行的摘要文本。 */
+/** 楼层合并为一段 HTML，楼层头只留用户名、楼号、日期与回复目标。 */
+export function shuiyuanPostsHtml(posts: readonly ShuiyuanSnapshotPost[]): string {
+  return posts
+    .map((post) => {
+      const head = [
+        `第 ${post.postNumber} 楼`,
+        escapeHtml(post.createdAt.slice(0, 10)),
+        ...(post.replyToPostNumber ? [`回复第 ${post.replyToPostNumber} 楼`] : []),
+      ].join(' · ');
+      return `<section class="dela-post"><header class="dela-post-head"><b>${escapeHtml(
+        post.username,
+      )}</b><span>· ${head}</span></header>${post.cooked}</section>`;
+    })
+    .join('\n');
+}
+
+function sourceExcerpt(topicId: number): DocumentContent {
+  const ref = getShuiyuanSourceRef(topicId);
+  if (!ref) throw new Error('该水源帖子引用不存在');
+  return { title: ref.title, format: 'text', text: ref.excerpt ?? '', url: ref.url };
+}
+
+export async function readShuiyuanSourcePreview(topicIdInput: unknown): Promise<DocumentContent> {
+  const topicId = z.number().int().positive().parse(topicIdInput);
+  const selected = await findShuiyuanSnapshot(topicId);
+  if (!selected) return sourceExcerpt(topicId);
+  const { index } = selected;
+  return {
+    title: index.title,
+    format: 'html',
+    url: shuiyuanTopicUrl(topicId),
+    updatedAt: index.savedAt,
+    shuiyuanSnapshot: { postCount: index.postCount, pageSize: index.pageSize },
+  };
+}
+
 export async function readShuiyuanSource(topicIdInput: unknown): Promise<DocumentContent> {
   const topicId = z.number().int().positive().parse(topicIdInput);
-  try {
-    const detail = await getShuiyuanTopic(topicId);
-    const body = detail.posts
-      .map(
-        (post) =>
-          `<section class="dela-post"><header class="dela-post-head"><b>${escapeHtml(
-            post.username,
-          )}</b><span>· 第 ${post.postNumber} 楼 · ${escapeHtml(
-            post.createdAt.slice(0, 10),
-          )}</span></header>${post.cooked}</section>`,
-      )
-      .join('\n');
-    return {
-      title: detail.title,
-      format: 'html',
-      text: body,
-      url: `${SHUIYUAN_ORIGIN}/t/topic/${topicId}`,
-      updatedAt: detail.lastPostedAt ?? null,
-    };
-  } catch {
-    const ref = getShuiyuanSourceRef(topicId);
-    if (!ref) throw new Error('无法读取该水源帖子，且本地没有缓存的引用信息');
-    return {
-      title: ref.title,
-      format: 'text',
-      text: ref.excerpt ?? '（离线：暂无摘要，请联网后打开原文）',
-      url: ref.url,
-    };
-  }
+  const snapshot = await readShuiyuanSnapshot(topicId);
+  if (!snapshot) return sourceExcerpt(topicId);
+  return {
+    title: snapshot.title,
+    format: 'html',
+    text: shuiyuanPostsHtml(snapshot.posts),
+    url: shuiyuanTopicUrl(topicId),
+    updatedAt: snapshot.savedAt,
+  };
+}
+
+export async function readShuiyuanSourcePage(
+  topicIdInput: unknown,
+  pageInput: unknown,
+): Promise<string> {
+  const topicId = z.number().int().positive().parse(topicIdInput);
+  const page = z.number().int().nonnegative().parse(pageInput);
+  return shuiyuanPostsHtml(await readShuiyuanSnapshotPage(topicId, page));
 }

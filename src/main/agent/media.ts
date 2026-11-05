@@ -123,14 +123,22 @@ export async function pickChatMedia(owner: BrowserWindow): Promise<ChatMediaView
   }
 }
 
+export function chatMediaPath(id: string): string | undefined {
+  if (!isUuid(id)) return;
+  const directory = mediaDir();
+  const file = readdirSync(directory, { withFileTypes: true }).find(
+    (entry) => entry.isFile() && (entry.name === id || entry.name.startsWith(id + '.')),
+  );
+  return file && join(directory, file.name);
+}
+
 /** 图片与文档来自磁盘，文本附件来自内存。 */
 export function readChatMediaBytes(id: string): Buffer {
   if (!isUuid(id)) throw new Error('文件引用无效');
   const attachment = attachments.get(id);
   if (attachment) return 'bytes' in attachment ? attachment.bytes : readFileSync(attachment.path);
-  for (const file of readdirSync(mediaDir())) {
-    if (file.startsWith(id)) return readFileSync(join(mediaDir(), file));
-  }
+  const path = chatMediaPath(id);
+  if (path) return readFileSync(path);
   throw new Error('文件不存在或已过期，请重新添加');
 }
 

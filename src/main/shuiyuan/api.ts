@@ -13,6 +13,7 @@ import type {
   ShuiyuanState,
   ShuiyuanTag,
   ShuiyuanTopicDetail,
+  ShuiyuanTopicLink,
   ShuiyuanTopicPage,
   ShuiyuanTopicSummary,
   ShuiyuanUpload,
@@ -23,6 +24,11 @@ import {
   saveShuiyuanCredential,
 } from '../credentials';
 import { createCampusLoginWindow, getCampusSession } from '../campus';
+import {
+  noteShuiyuanResponse,
+  recordShuiyuanRequest,
+  waitForShuiyuanBackgroundSlot,
+} from './budget';
 
 export const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
 // 授权页请求形态：不带 auth_redirect，
@@ -310,7 +316,12 @@ const rawNotificationSchema = z
     post_number: z.number().nullish(),
     fancy_title: z.string().nullish(),
     data: z
-      .object({ display_username: z.string().nullish(), topic_title: z.string().nullish() })
+      .object({
+        display_username: z.string().nullish(),
+        topic_title: z.string().nullish(),
+        count: z.number().nullish(),
+        original_post_id: z.number().nullish(),
+      })
       .passthrough()
       .nullish(),
   })
@@ -389,26 +400,40 @@ function mapPost(raw: z.infer<typeof rawPostSchema>): ShuiyuanPost {
   };
 }
 
-/** 统一请求：附加 key 头、超时与错误映射。返回解析后的 JSON。 */
-async function shuiyuanRequest(path: string, init?: RequestInit): Promise<unknown> {
+/**
+ * 统一请求：附加 key 头、超时与错误映射。返回解析后的 JSON。
+ * 传入 background 时按后台额度排队，429 后等待重试而不报错，background 中止即放弃。
+ */
+async function shuiyuanRequest(
+  path: string,
+  init?: RequestInit,
+  background?: AbortSignal,
+): Promise<unknown> {
   const credential = loadShuiyuanCredential();
   if (!credential) throw new Error('尚未绑定水源社区');
   let response: Response;
-  try {
-    response = await fetch(`${SHUIYUAN_ORIGIN}${path}`, {
-      ...init,
-      headers: {
-        'User-Api-Key': credential.key,
-        'User-Api-Client-Id': credential.clientId,
-        Accept: 'application/json',
-        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init?.headers,
-      },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch {
-    throw new Error('无法连接水源社区，请检查网络后重试');
-  }
+  do {
+    if (background) await waitForShuiyuanBackgroundSlot(background);
+    else recordShuiyuanRequest();
+    const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+    try {
+      response = await fetch(`${SHUIYUAN_ORIGIN}${path}`, {
+        ...init,
+        headers: {
+          'User-Api-Key': credential.key,
+          'User-Api-Client-Id': credential.clientId,
+          Accept: 'application/json',
+          ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+          ...init?.headers,
+        },
+        signal: background ? AbortSignal.any([background, timeout]) : timeout,
+      });
+    } catch {
+      background?.throwIfAborted();
+      throw new Error('无法连接水源社区，请检查网络后重试');
+    }
+    noteShuiyuanResponse(response);
+  } while (background && response.status === 429);
   if (response.ok) return response.json().catch(() => null);
   if (response.status === 401 || response.status === 403) {
     throw new Error('水源拒绝了该操作（HTTP 403）：密钥可能已失效或缺少写权限，请重新绑定');
@@ -552,12 +577,13 @@ function mapSearchResult(payload: unknown, query: string, page: number): Shuiyua
 export async function getShuiyuanTopic(
   idInput: unknown,
   postNumberInput?: unknown,
+  background?: AbortSignal,
 ): Promise<ShuiyuanTopicDetail> {
   const id = z.number().int().positive().parse(idInput);
   const postNumber =
     postNumberInput === undefined ? undefined : z.number().int().positive().parse(postNumberInput);
   const path = postNumber === undefined ? `/t/${id}.json` : `/t/${id}/${postNumber}.json`;
-  const parsed = rawDetailSchema.parse(await shuiyuanRequest(path));
+  const parsed = rawDetailSchema.parse(await shuiyuanRequest(path, undefined, background));
   return {
     id: parsed.id,
     title: parsed.title ?? parsed.fancy_title ?? '(无标题)',
@@ -577,18 +603,29 @@ export async function getShuiyuanTopic(
   };
 }
 
+// 单次最多 100 个 id：实测 200 个会被学校网关拦成「访问禁止」页面。
 export async function loadShuiyuanPosts(
   topicIdInput: unknown,
   postIdsInput: unknown,
+  background?: AbortSignal,
 ): Promise<ShuiyuanPost[]> {
   const topicId = z.number().int().positive().parse(topicIdInput);
-  const postIds = z.array(z.number().int().positive()).min(1).max(50).parse(postIdsInput);
+  const postIds = z.array(z.number().int().positive()).min(1).max(100).parse(postIdsInput);
   const query = postIds.map((postId) => `post_ids[]=${postId}`).join('&');
   const parsed = z
     .object({ post_stream: z.object({ posts: z.array(rawPostSchema).nullish() }).passthrough() })
     .passthrough()
-    .parse(await shuiyuanRequest(`/t/${topicId}/posts.json?${query}`));
+    .parse(await shuiyuanRequest(`/t/${topicId}/posts.json?${query}`, undefined, background));
   return (parsed.post_stream.posts ?? []).map(mapPost);
+}
+
+export async function locateShuiyuanPost(postIdInput: unknown): Promise<ShuiyuanTopicLink> {
+  const postId = z.number().int().positive().parse(postIdInput);
+  const parsed = z
+    .object({ topic_id: z.number(), post_number: z.number() })
+    .passthrough()
+    .parse(await shuiyuanRequest(`/posts/${postId}.json`));
+  return { topicId: parsed.topic_id, postNumber: parsed.post_number };
 }
 
 export async function listShuiyuanBookmarks(): Promise<ShuiyuanBookmarkItem[]> {
@@ -632,6 +669,7 @@ export async function listShuiyuanNotifications(): Promise<ShuiyuanNotificationI
   return (parsed.notifications ?? []).map((raw) => ({
     id: raw.id,
     type: raw.notification_type,
+    count: raw.data?.count ?? 1,
     read: raw.read ?? false,
     highPriority: raw.high_priority ?? false,
     createdAt: raw.created_at ?? '',
@@ -639,6 +677,7 @@ export async function listShuiyuanNotifications(): Promise<ShuiyuanNotificationI
     postNumber: raw.post_number ?? null,
     fancyTitle: raw.fancy_title ?? raw.data?.topic_title ?? null,
     displayUsername: raw.data?.display_username ?? null,
+    originalPostId: raw.data?.original_post_id ?? null,
   }));
 }
 
@@ -828,10 +867,3 @@ export async function setShuiyuanBookmarked(
   await shuiyuanRequest(`/bookmarks/${bookmark.id}`, { method: 'DELETE' });
   return false;
 }
-
-export {
-  addShuiyuanSourceRef,
-  getShuiyuanSourceRef,
-  readShuiyuanSource,
-  shuiyuanTopicUrl,
-} from './sources';

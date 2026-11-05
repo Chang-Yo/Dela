@@ -73,7 +73,7 @@ Dela 校园能力的接口资料，两部分合在一处。
 
 ## 7. 讨论与公告（DiscussionTopic）
 
-- `GET /courses/:id/discussion_topics` 同一结构涵盖公告与讨论，靠 `is_announcement` 区分；`only_announcements=true` 可只取公告。
+- `GET /courses/:id/discussion_topics` 默认只返回讨论；带 `only_announcements` 参数（`=true`/`=false`/空值均生效）只返回公告，两者不相交，同步需两次请求合并。返回结构中没有 `is_announcement` 字段（2026-11-04 实测：在读 9 门课默认列表 0 条、公告 10 条）。
 - 跨课程聚合端点 `GET /announcements` **必须传 `context_codes[]`**（缺省 400 `Missing context_codes`；`active_only=true` 还需 start/end 日期）。
 - 实测本人全部 48 门课中公告为 0（2026-09-10），讨论仅 2 门课在用（物理讨论题 5 条、C++ 每章讨论区 13 条）。该类数据在交大使用率低，但 API 可用、结构标准。
 - 2026-09-15 复测：计算经济学（CS3343-01，2026-2027 Fall）出现 1 条公告 "Welcome"（`locked=false`）。以学生身份 `POST /courses/:id/discussion_topics/:topic_id/entries`（JSON body `{"message":"..."}`，`Content-Type: application/json; charset=utf-8`）发布回复返回 **201 Created**，entry 含 `id`/`user_name`/`message`/`created_at`，Unicode（em dash）原样保存。学生回复公告的写入链路可用。

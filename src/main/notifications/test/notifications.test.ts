@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../todo', () => ({
   getTodoState: () => ({ syncedAt: null, error: null }),
   todoNotifications: () => [],
+  canvasOwner: vi.fn(() => null),
   markTodoRead: vi.fn(),
 }));
 vi.mock('electron', () => ({
@@ -11,6 +12,12 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
 }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../jwc', () => ({
+  refreshJwc: vi.fn(),
+  getJwcNotice: vi.fn(),
+  getJwcCaptcha: vi.fn(),
+  downloadJwcAttachment: vi.fn(),
+}));
 vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
 vi.mock('../../credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
 vi.mock('../../mail/api', () => ({
@@ -20,6 +27,10 @@ vi.mock('../../mail/api', () => ({
   onMailCacheChanged: vi.fn(),
 }));
 vi.mock('../../shuiyuan/api', () => ({ listShuiyuanNotifications: vi.fn() }));
+vi.mock('../../canvas/api', () => ({
+  listTodoCanvasCourses: vi.fn(),
+  listCanvasAnnouncements: vi.fn(),
+}));
 vi.mock('../system', () => ({
   armSystemNotifications: vi.fn(),
   isWorkspaceWindow: () => false,
@@ -37,6 +48,8 @@ import {
 import { getDatabase } from '../../database';
 import { loadShuiyuanCredential } from '../../credentials';
 import { listShuiyuanNotifications } from '../../shuiyuan/api';
+import { listCanvasAnnouncements, listTodoCanvasCourses } from '../../canvas/api';
+import { canvasOwner } from '../../todo';
 import { markAllMailSeen, markMailSeen } from '../../mail/api';
 import { systemNotifyItem } from '../system';
 
@@ -47,10 +60,46 @@ function createDb(): Database.Database {
     CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE mail_folders (id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL, special_use TEXT);
     CREATE TABLE mail_messages (id INTEGER PRIMARY KEY, folder_id INTEGER NOT NULL, subject TEXT, sender_name TEXT, sender_address TEXT, snippet TEXT, date TEXT, seen INTEGER NOT NULL, deleted_at TEXT);
-    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL);
+    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL, category TEXT, count INTEGER NOT NULL DEFAULT 1);
     CREATE TABLE notification_refreshes (source TEXT NOT NULL, account_key TEXT NOT NULL, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
   `);
   return db;
+}
+
+function bindShuiyuan(): void {
+  vi.mocked(loadShuiyuanCredential).mockReturnValue({
+    username: 'dela-user',
+    key: 'test-key',
+    clientId: 'test-client',
+    boundAt: '2026-09-16T00:00:00.000Z',
+  });
+}
+
+function shuiyuanLike(id: number, topicId: number, displayUsername: string, count = 1) {
+  return {
+    id,
+    type: 5,
+    read: false,
+    highPriority: false,
+    count,
+    createdAt: '2026-09-17T00:00:00.000Z',
+    topicId,
+    postNumber: 1,
+    fancyTitle: '我的帖子',
+    displayUsername,
+    originalPostId: null,
+  };
+}
+
+function shuiyuanConsolidatedLike(id: number, displayUsername: string, count: number) {
+  return {
+    ...shuiyuanLike(id, 0, displayUsername, count),
+    type: 19,
+    topicId: null,
+    postNumber: null,
+    fancyTitle: '如何忘掉在高考中的成功与失败',
+    originalPostId: 4926962,
+  };
 }
 
 function insertUnreadInboxMail(db: Database.Database): void {
@@ -77,6 +126,7 @@ describe('local notification inbox', () => {
     vi.mocked(getDatabase).mockReturnValue(db);
     vi.mocked(loadShuiyuanCredential).mockReturnValue(null);
     vi.mocked(listShuiyuanNotifications).mockResolvedValue([]);
+    vi.mocked(canvasOwner).mockReturnValue(null);
     // 模拟服务器标记成功后的本地落库：已读派生自 mail_messages.seen。
     vi.mocked(markMailSeen).mockImplementation(async (messageId) => {
       getDatabase()
@@ -185,17 +235,19 @@ describe('local notification inbox', () => {
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-16T00:00:00.000Z',
         topicId: 22,
         postNumber: 3,
         fancyTitle: '回复了你的帖子',
         displayUsername: 'alice',
+        originalPostId: null,
       },
     ]);
     await refreshNotifications();
-    expect(getNotificationState('shuiyuan').items[0]!.readAt).toBeNull();
+    expect(getNotificationState(['shuiyuan']).items[0]!.readAt).toBeNull();
     await markNotificationRead('shuiyuan:dela-user:7');
-    expect(getNotificationState('shuiyuan').items[0]!.readAt).not.toBeNull();
+    expect(getNotificationState(['shuiyuan']).items[0]!.readAt).not.toBeNull();
   });
 
   it('skips system toasts for shuiyuan notifications predating the binding but toasts later ones', async () => {
@@ -212,28 +264,32 @@ describe('local notification inbox', () => {
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-03T00:00:00.000Z',
         topicId: 22,
         postNumber: 3,
         fancyTitle: '绑定前的旧互动',
         displayUsername: 'alice',
+        originalPostId: null,
       },
       {
         id: 8,
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-11T00:00:00.000Z',
         topicId: 23,
         postNumber: 1,
         fancyTitle: '绑定后的新互动',
         displayUsername: 'bob',
+        originalPostId: null,
       },
     ]);
 
     await refreshNotifications();
     // 存量互动仍进通知列表，但不弹系统桌面通知。
-    expect(getNotificationState('shuiyuan').items).toHaveLength(2);
+    expect(getNotificationState(['shuiyuan']).items).toHaveLength(2);
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
     expect(vi.mocked(systemNotifyItem).mock.calls[0]![0].id).toBe('shuiyuan:dela-user:8');
   });
@@ -251,20 +307,291 @@ describe('local notification inbox', () => {
         type: 1,
         read: false,
         highPriority: false,
+        count: 1,
         createdAt: '2026-09-16T00:00:00.000Z',
         topicId: 22,
         postNumber: 3,
         fancyTitle: '回复了你的帖子',
         displayUsername: 'alice',
+        originalPostId: null,
       },
     ]);
     await refreshNotifications();
-    expect(getNotificationState('shuiyuan').items).toHaveLength(1);
+    expect(getNotificationState(['shuiyuan']).items).toHaveLength(1);
     vi.mocked(listShuiyuanNotifications).mockRejectedValueOnce(new Error('network unavailable'));
     await refreshNotifications();
     const state = getNotificationState();
     expect(state.items).toHaveLength(1);
     expect(state.refresh.shuiyuan?.error).toBe('network unavailable');
+  });
+
+  it('merges a burst of likes on one topic into a single system toast', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([
+      shuiyuanLike(1, 22, 'alice'),
+      shuiyuanLike(2, 22, 'bob'),
+      shuiyuanLike(3, 22, 'carol'),
+    ]);
+
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).items).toHaveLength(3);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(systemNotifyItem).mock.calls[0]![1]).toBe('alice、bob 等 3 人赞了你的帖子');
+  });
+
+  it('joins new likes silently while the topic group still has unread items', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice'), shuiyuanLike(2, 22, 'bob')]);
+
+    await refreshNotifications();
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(2);
+  });
+
+  it('alerts again for a topic once all of its likes have been read', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice'), shuiyuanLike(2, 22, 'bob')]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead();
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![0].id).toBe('shuiyuan:dela-user:2');
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('bob 赞了你的帖子');
+  });
+
+  it('turns a consolidated like count increase back into unread and alerts again', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 1)])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 2)]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
+    await refreshNotifications();
+    const state = getNotificationState(['shuiyuan']);
+    expect(state.items[0]!.readAt).toBeNull();
+    expect(state.items[0]!.count).toBe(2);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('alice 等 2 人赞了你的帖子');
+  });
+
+  it('stores likes already read on the server as read without alerting', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([
+      { ...shuiyuanLike(1, 22, 'alice'), read: true },
+    ]);
+
+    await refreshNotifications();
+    const state = getNotificationState(['shuiyuan']);
+    expect(state.items).toHaveLength(1);
+    expect(state.items[0]!.readAt).not.toBeNull();
+    expect(state.unreadCount).toBe(0);
+    expect(systemNotifyItem).not.toHaveBeenCalled();
+  });
+
+  it('marks a stored unread like read once the server reports it read', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([{ ...shuiyuanLike(1, 22, 'alice'), read: true }]);
+
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a like read locally while the server still reports it unread', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead();
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-alert when a consolidated like arrives already read on the server', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 1)])
+      .mockResolvedValueOnce([{ ...shuiyuanLike(1, 22, 'alice', 2), read: true }]);
+
+    await refreshNotifications();
+    await refreshNotifications();
+    const state = getNotificationState(['shuiyuan']);
+    expect(state.items[0]!.count).toBe(2);
+    expect(state.items[0]!.readAt).not.toBeNull();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads every like on a topic when one of them is marked read', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([
+        shuiyuanLike(1, 22, 'alice'),
+        shuiyuanLike(2, 22, 'bob'),
+        shuiyuanLike(3, 23, 'carol'),
+      ])
+      .mockResolvedValueOnce([
+        shuiyuanLike(1, 22, 'alice'),
+        shuiyuanLike(2, 22, 'bob'),
+        shuiyuanLike(3, 23, 'carol'),
+        shuiyuanLike(4, 22, 'dave'),
+      ]);
+
+    await refreshNotifications();
+    await markNotificationRead('shuiyuan:dela-user:2');
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(systemNotifyItem).mock.calls[2]![1]).toBe('dave 赞了你的帖子');
+  });
+
+  it('shows a consolidated like as its own item and alerts again when its post count grows', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanConsolidatedLike(9, 'alice', 3), shuiyuanLike(1, 22, 'bob')])
+      .mockResolvedValueOnce([shuiyuanConsolidatedLike(9, 'alice', 5), shuiyuanLike(1, 22, 'bob')]);
+
+    await refreshNotifications();
+    const consolidated = getNotificationState(['shuiyuan']).items.find(
+      (item) => item.id === 'shuiyuan:dela-user:9',
+    )!;
+    expect(consolidated.href).toEqual({ kind: 'shuiyuan-post', postId: 4926962 });
+    expect(consolidated.body).toBe('alice 赞了你的 3 个帖子');
+    expect(systemNotifyItem).toHaveBeenCalledWith(consolidated, 'alice 赞了你的 3 个帖子');
+
+    await markNotificationRead('shuiyuan:dela-user:9');
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
+    await refreshNotifications();
+    expect(vi.mocked(systemNotifyItem).mock.calls.at(-1)![1]).toBe('alice 赞了你的 5 个帖子');
+  });
+
+  it('alerts for a new like when the server reads the earlier ones in the same refresh', async () => {
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications)
+      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
+      .mockResolvedValueOnce([
+        { ...shuiyuanLike(1, 22, 'alice'), read: true },
+        shuiyuanLike(2, 22, 'bob'),
+      ]);
+
+    await refreshNotifications();
+    await refreshNotifications();
+    expect(systemNotifyItem).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('bob 赞了你的帖子');
+  });
+
+  it('limits the list and unread count to the selected sources', async () => {
+    insertUnreadInboxMail(db);
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')]);
+
+    await refreshNotifications();
+    expect(getNotificationState(['shuiyuan']).items.map((item) => item.source)).toEqual([
+      'shuiyuan',
+    ]);
+    expect(getNotificationState(['mail']).unreadCount).toBe(1);
+    expect(getNotificationState(['mail', 'shuiyuan']).totalCount).toBe(2);
+  });
+
+  it('marks only the filtered sources read and leaves mail untouched on the server', async () => {
+    insertUnreadInboxMail(db);
+    bindShuiyuan();
+    vi.mocked(listShuiyuanNotifications).mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')]);
+
+    await refreshNotifications();
+    await markAllNotificationsRead(['shuiyuan']);
+    expect(markAllMailSeen).not.toHaveBeenCalled();
+    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(0);
+    expect(getNotificationState(['mail']).unreadCount).toBe(1);
+  });
+
+  it('lists existing Canvas announcements silently on first sync and toasts later unread ones', async () => {
+    vi.mocked(canvasOwner).mockReturnValue('owner');
+    vi.mocked(listTodoCanvasCourses).mockResolvedValue([
+      { id: 1, name: '操作系统', code: 'CS260' },
+    ]);
+    const announcement = (id: number, read: boolean) => ({
+      sourceId: `discussion:1:${id}`,
+      title: `公告 ${id}`,
+      postedAt: `2026-09-1${id}T00:00:00.000Z`,
+      read,
+    });
+    vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([
+      announcement(1, true),
+      announcement(2, false),
+    ]);
+
+    await refreshNotifications(true);
+    expect(getNotificationState(['canvas'])).toMatchObject({ totalCount: 2, unreadCount: 1 });
+    expect(systemNotifyItem).not.toHaveBeenCalled();
+
+    vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([
+      announcement(3, false),
+      announcement(2, false),
+      announcement(1, true),
+    ]);
+    await refreshNotifications(true);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(systemNotifyItem).mock.calls[0]![0]).toMatchObject({
+      id: 'canvas:owner:discussion:1:3',
+      body: '操作系统',
+      href: { kind: 'canvas', sourceId: 'discussion:1:3' },
+    });
+  });
+
+  it('baselines Canvas courses one by one and keeps syncing past a failing course', async () => {
+    vi.mocked(canvasOwner).mockReturnValue('owner');
+    const course = (id: number) => ({ id, name: `课程 ${id}`, code: '' });
+    const announcement = (courseId: number, id: number) => ({
+      sourceId: `discussion:${courseId}:${id}`,
+      title: `公告 ${id}`,
+      postedAt: '2026-09-10T00:00:00.000Z',
+      read: false,
+    });
+    vi.mocked(listTodoCanvasCourses).mockResolvedValueOnce([course(1)]);
+    vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([announcement(1, 1)]);
+    await refreshNotifications(true);
+
+    // 新学期加入课程 2（存量公告）与课程 3（请求失败），课程 1 有新公告。
+    vi.mocked(listTodoCanvasCourses).mockResolvedValueOnce([course(3), course(2), course(1)]);
+    vi.mocked(listCanvasAnnouncements)
+      .mockRejectedValueOnce(new Error('令牌失效或无权访问此内容'))
+      .mockResolvedValueOnce([announcement(2, 5)])
+      .mockResolvedValueOnce([announcement(1, 2), announcement(1, 1)]);
+    await refreshNotifications(true);
+
+    expect(vi.mocked(systemNotifyItem).mock.calls.map(([item]) => item.id)).toEqual([
+      'canvas:owner:discussion:1:2',
+    ]);
+    expect(getNotificationState(['canvas'])).toMatchObject({
+      totalCount: 3,
+      refresh: { canvas: { error: '课程 3：令牌失效或无权访问此内容' } },
+    });
+  });
+
+  it('keeps mail notifications visible when the Canvas token cannot be decrypted', async () => {
+    insertUnreadInboxMail(db);
+    vi.mocked(canvasOwner).mockImplementation(() => {
+      throw new Error('decrypt failed');
+    });
+
+    await refreshNotifications();
+    expect(getNotificationState().unreadCount).toBe(1);
+    expect(listTodoCanvasCourses).not.toHaveBeenCalled();
   });
 
   it('persists a global snooze timestamp without changing the unread count', async () => {

@@ -116,3 +116,29 @@ it('有文件删不掉时如实回报 blocked', async () => {
   expect(result.freed).toBe(0);
   expect(existsSync(join(state.root, 'Cache'))).toBe(true);
 });
+
+it('统计并清理完整快照和草稿的缩略图，保留正文、原图、下载进度和其他同名目录', async () => {
+  const retained: string[] = [];
+  for (const topic of ['42', '43.partial']) {
+    const directory = join(state.root, 'shuiyuan-snapshots', topic);
+    write(join(directory, 'thumbnails', 'image.jpg'), 120);
+    write(join(directory, 'thumbnails', 'image.jpg.tmp'), 30);
+    for (const file of ['index.json', 'page-0.json', 'images/image.jpg', 'posts.ndjson']) {
+      const path = join(directory, file);
+      write(path, 200);
+      retained.push(path);
+    }
+  }
+  for (const directory of ['misc/thumbnails', 'shuiyuan-snapshots/thumbnails']) {
+    const path = join(state.root, directory, 'keep.jpg');
+    write(path, 100);
+    retained.push(path);
+  }
+
+  expect(await cacheSize()).toBe(3800);
+  expect(await clearCaches()).toEqual({ freed: 3800, blocked: false });
+  expect(await cacheSize()).toBe(0);
+  for (const topic of ['42', '43.partial'])
+    expect(existsSync(join(state.root, 'shuiyuan-snapshots', topic, 'thumbnails'))).toBe(false);
+  for (const path of retained) expect(existsSync(path)).toBe(true);
+});

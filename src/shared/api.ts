@@ -125,6 +125,7 @@ export type {
   ShuiyuanFeed,
   ShuiyuanCounts,
   ShuiyuanSourceRef,
+  ShuiyuanSnapshotState,
   ShuiyuanUpload,
   ShuiyuanTopicLink,
   ShuiyuanApi,
@@ -182,12 +183,13 @@ export type {
 } from './remotes';
 
 export type {
+  NotificationCategory,
   NotificationSource,
-  NotificationFilter,
   NotificationItem,
   NotificationState,
   NotificationsApi,
 } from './notifications';
+export { notificationSources } from './notifications';
 
 export type {
   ChatAskInput,

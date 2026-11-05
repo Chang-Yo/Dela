@@ -6,7 +6,7 @@ import { resourceRefSchema, type ResourceRef } from '../shared/resources';
 import { cachedFile, canvasFilePath, getSource, readCanvasPage } from './canvas/api';
 import { mailAttachment, readMailMessage, saveMailAttachment } from './mail/api';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './workspace/api';
-import { readShuiyuanSource } from './shuiyuan/api';
+import { readShuiyuanSource } from './shuiyuan/sources';
 import { TEXT_PREVIEW_MAX_BYTES, formatByName, imageMimeOf, isTextContent } from '../shared/files';
 import { localFileFormat, textRevision } from './workspace/files';
 import { diskName } from './storage';

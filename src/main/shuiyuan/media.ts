@@ -1,4 +1,5 @@
 import { loadShuiyuanCredential } from '../credentials';
+import { noteShuiyuanResponse, recordShuiyuanRequest } from './budget';
 
 const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
 const MEDIA_TIMEOUT_MS = 20000;
@@ -41,6 +42,7 @@ export async function handleShuiyuanMediaRequest(request: Request): Promise<Resp
     }
     const credential = loadShuiyuanCredential();
     if (!credential) return new Response(null, { status: 404 });
+    recordShuiyuanRequest();
     const response = await fetch(new URL(`${url.pathname}${url.search}`, SHUIYUAN_ORIGIN).href, {
       headers: {
         'User-Api-Key': credential.key,
@@ -49,6 +51,7 @@ export async function handleShuiyuanMediaRequest(request: Request): Promise<Resp
       method: request.method,
       signal: AbortSignal.timeout(MEDIA_TIMEOUT_MS),
     });
+    noteShuiyuanResponse(response);
     if (response.ok && isMediaResponse(response)) return mediaResponse(response);
   } catch {
     // 兜底：网络错误、超时与凭据不可读都不允许让 protocol.handle 的 handler 抛错。

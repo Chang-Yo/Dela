@@ -21,6 +21,7 @@ export const session = {
   create: (projectId: string | null, scope: ChatScope) =>
     invoke('session:create', projectId, scope),
   open: (sessionId: string) => invoke('session:open', sessionId),
+  export: (sessionId: string) => invoke('session:export', sessionId),
   remove: (sessionId: string) => invoke('session:remove', sessionId),
   ask: (sessionId: string, input: ChatAskInput) => invoke('session:ask', sessionId, input),
   cancelRun: (sessionId: string) => invoke('session:cancel-run', sessionId),
