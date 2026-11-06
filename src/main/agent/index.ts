@@ -91,6 +91,7 @@ import {
   updateMcpServer,
 } from './mcp';
 import { domainTools, listBuiltinCapabilities, setBuiltinCapabilities } from './tools';
+import { readSubagentLimit, setSubagentLimit } from './subagent';
 import { loadPi } from './pi';
 import {
   listWebSearchEntries,
@@ -402,6 +403,8 @@ export function registerAgentIpc() {
       setBuiltinCapabilities(domainTools(name.parse(domain)), z.boolean().parse(enabled)),
     ),
   );
+  handle('capabilities:get-subagent-limit', () => readSubagentLimit());
+  handle('capabilities:set-subagent-limit', (limit) => setSubagentLimit(limit));
   handle('capabilities:list-web-search-entries', () => listWebSearchEntries());
   handle('capabilities:list-web-search-options', () => listWebSearchOptions());
   // 搜索配置变更同时刷新会话工具与各窗口的选择器。

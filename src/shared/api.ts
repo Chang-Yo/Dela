@@ -254,6 +254,7 @@ export type {
   SessionApi,
   SidechatApi,
   SidechatView,
+  SubagentDetails,
   RunEvent,
   RunStatus,
   ChatStreamEvent,

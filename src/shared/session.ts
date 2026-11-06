@@ -22,6 +22,15 @@ export interface AgentToolResult {
   finishedAt?: number;
 }
 
+/** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
+export interface SubagentDetails {
+  taskId: string;
+  status: 'running' | 'completed' | 'failed' | 'stopped';
+  steps: number;
+  tool?: { name: string; target: string };
+  reply?: string | null;
+}
+
 export interface ChatSessionSummary {
   id: string;
   title: string;
@@ -58,6 +67,8 @@ export interface WorkspaceChat {
   compacting?: boolean;
   /** 运行中插队、还没送达模型的消息正文（不含 meta 前缀）。 */
   queued?: string[];
+  /** 子 Agent 的会话：由父会话的 task 工具派出，只读。 */
+  subagent?: { parentId: string; description: string };
   /** 至少有一个启用且带密钥的提供商。 */
   configured: boolean;
   /** 会话的模型选择；从未选择过的会话沿用最近发过消息的会话。 */

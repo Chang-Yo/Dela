@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
-import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
+import type { AgentToolResult, SubagentDetails, WorkspaceChat } from '../../../shared/api';
 import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
 import { cn } from '../../lib/utils';
 import { ChatMarkdown } from './markdown';
@@ -23,6 +23,7 @@ const verbs: Record<string, { doing: string; done: string; noun: string }> = {
   ls: { doing: '正在查看', done: '查看', noun: '个目录' },
   web_search: { doing: '正在搜索网页', done: '搜索网页', noun: '次' },
   web_fetch: { doing: '正在读取网页', done: '读取网页', noun: '个' },
+  task: { doing: '子 Agent 正在处理', done: '子 Agent', noun: '个任务' },
 };
 
 function verbOf(name: string) {
@@ -52,6 +53,8 @@ export function stepTarget(result: AgentToolResult): { short: string; full: stri
     case 'grep':
     case 'find':
       return { short: text('pattern'), full: text('pattern') };
+    case 'task':
+      return { short: text('description'), full: text('prompt') };
     default: {
       const value = [text('query'), text('url'), text('path'), text('name')].find(Boolean) ?? '';
       return { short: value, full: value };
@@ -117,6 +120,11 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
   const target = stepTarget(result);
   const stat = editStat(result);
   const label = running ? <Shimmer>{verb.doing}</Shimmer> : <span>{verb.done}</span>;
+  // 子 Agent 运行中：行尾跟着它当前的步骤。
+  const progress =
+    running && result.name === 'task'
+      ? (result.output?.details as SubagentDetails | undefined)?.tool
+      : undefined;
   return (
     <>
       <span className="shrink-0">{label}</span>
@@ -137,6 +145,11 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
         <span className="shrink-0 font-mono text-xs tabular-nums">
           <span className="text-green">+{stat.added}</span>{' '}
           <span className="text-red">−{stat.removed}</span>
+        </span>
+      )}
+      {progress && (
+        <span className="min-w-0 truncate text-xs" title={progress.target}>
+          · {verbOf(progress.name).doing} {progress.target}
         </span>
       )}
       {failed && <span className="shrink-0 text-red">失败</span>}
