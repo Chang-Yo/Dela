@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { app } from 'electron';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
-import type { TaskNoticeDetails, TaskStatus } from '../../shared/api';
+import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../shared/api';
 import { loadPi } from './pi';
 import { deliverTaskNotice, publish } from './session';
 
@@ -92,6 +92,17 @@ export function trackTask(
 }
 
 export const taskRunning = (id: string) => tasks.get(id)?.status === 'running';
+
+export function runningTasks(parentId: string): BackgroundTaskView[] {
+  return [...tasks.values()]
+    .filter((task) => task.parentId === parentId && task.status === 'running')
+    .map(({ id, kind, label, startedAt }) => ({ id, kind, label, startedAt }));
+}
+
+export function stopUserTask(parentId: string, id: string) {
+  ownTask(parentId, id);
+  stopTask(id, 'user');
+}
 
 export function stopTask(id: string, by: 'user' | 'model' | 'session') {
   const task = tasks.get(id);

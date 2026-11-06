@@ -312,6 +312,12 @@ export function useChat(
       .catch((e) => showToast({ variant: 'error', title: '撤回失败', description: errorText(e) }));
   };
 
+  const stopTask = (taskId: string) => {
+    void window.dela?.session
+      .stopTask(sessionId, taskId)
+      .catch((e) => showToast({ variant: 'error', title: '停止失败', description: errorText(e) }));
+  };
+
   // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
   // 编辑重发说明原提问不合适，不带回原评论；重试按原消息重发，带上原评论。
   // useCallback 保持引用稳定：ChatThread 与消息组件 memo 后，编辑重发入口不带动整树重渲。
@@ -415,6 +421,7 @@ export function useChat(
     send,
     stop,
     withdrawQueued,
+    stopTask,
     editLast,
     selectModel,
     selectEffort,
