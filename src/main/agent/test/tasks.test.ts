@@ -9,7 +9,10 @@ import type { TaskNotice } from '../session';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-tasks-'));
 const delivered = vi.hoisted(() => [] as { parentId: string; notice: TaskNotice; wake: boolean }[]);
-vi.mock('electron', () => ({ app: { getPath: () => root } }));
+vi.mock('electron', () => ({
+  app: { getPath: () => root, isPackaged: false, getAppPath: () => root },
+}));
+vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 vi.mock('../session', () => ({
   publish: () => {},
   deliverTaskNotice: async (parentId: string, notice: TaskNotice, wake: boolean) => {
@@ -17,9 +20,10 @@ vi.mock('../session', () => ({
   },
 }));
 
+import { locateBash } from '../../terminal';
 import { backgroundTools, stopSessionTasks, stopTask } from '../tasks';
 
-const shell = process.env.SHELL ?? 'bash';
+const shell = locateBash();
 let tools: ToolDefinition[];
 const tool = (name: string) => tools.find((item) => item.name === name)!;
 const textOf = (result: { content: { type: string; text?: string }[] }) =>

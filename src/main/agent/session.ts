@@ -27,6 +27,7 @@ import type {
   UncommittedChanges,
   WorkspaceChat,
 } from '../../shared/api';
+import { TASK_NOTICE } from '../../shared/api';
 import { parseChatBlocks, stripChatImageTokens } from '../../shared/chat-input';
 import { getDatabase } from '../database';
 import { storageDirectory } from '../storage';
@@ -1138,8 +1139,6 @@ export function withdrawQueued(id: string): ChatQueuedDraft | null {
     void entry.session.sendCustomMessage(noticeMessage(notice));
   return draft;
 }
-
-export const TASK_NOTICE = 'dela-task';
 
 const noticeMessage = (notice: TaskNotice) => ({
   customType: TASK_NOTICE,
