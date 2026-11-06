@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
   provider: null as StoredLlmProvider | null,
 }));
 vi.mock('electron', () => ({
-  app: { getPath: () => root },
+  app: { getPath: () => root, isPackaged: false, getAppPath: () => root },
   shell: { trashItem: async () => {} },
 }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
@@ -28,7 +28,7 @@ vi.mock('../environment', () => ({
     sessionOptions: async () => ({
       appendSystemPrompt: [],
       customTools: [],
-      shellPath: process.env.SHELL ?? 'bash',
+      shellPath: locateBash(),
       skillPaths: [],
       globalSkillDirs: [],
       disabledSkills: new Set(),
@@ -46,6 +46,7 @@ vi.mock('../extensions', () => ({
   shutdownSession: async (session: { dispose(): void }) => session.dispose(),
 }));
 vi.mock('../packages', () => ({ packagesEnabled: () => false }));
+vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 
 import {
   askSession,
@@ -59,6 +60,7 @@ import {
   withdrawQueued,
 } from '../session';
 import { sessionTurns } from '../session-read';
+import { locateBash } from '../../terminal';
 import { stopTask } from '../tasks';
 
 const reply = (text: string, delayMs = 0) => ({
