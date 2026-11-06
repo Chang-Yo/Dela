@@ -34,6 +34,9 @@ export interface SubagentDetails {
   background?: true;
 }
 
+/** 后台任务通知在 Pi 会话记录里的 customType。 */
+export const TASK_NOTICE = 'dela-task';
+
 /** 后台任务结束时投递给父会话的通知；turnId 是它所在（或唤醒）的那一轮。 */
 export interface TaskNoticeDetails {
   taskId: string;

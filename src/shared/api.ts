@@ -266,7 +266,7 @@ export type {
   SessionCommandName,
 } from './session';
 
-export { SESSION_COMMANDS, parseSessionCommand } from './session';
+export { SESSION_COMMANDS, TASK_NOTICE, parseSessionCommand } from './session';
 
 export type {
   TabKind,
