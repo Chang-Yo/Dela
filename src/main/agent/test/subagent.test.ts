@@ -1,5 +1,6 @@
 // 子 Agent（task 工具）：真实 Pi 会话加本地 mock 模型。子会话历史为空、工具里没有 task，
-// 只把最终回复交回父会话；带 taskId 续接；父会话停止时连带中止；并发数超出上限时直接报错。
+// 只把最终回复交回父会话；带 taskId 续接；父会话停止时连带中止；并发数超出上限时直接报错；
+// 在内置能力里关掉后不再提供。
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +14,7 @@ const root = mkdtempSync(join(tmpdir(), 'dela-subagent-'));
 const state = vi.hoisted(() => ({
   db: null as Database.Database | null,
   provider: null as StoredLlmProvider | null,
+  disabledTools: [] as string[],
 }));
 vi.mock('electron', () => ({
   app: { getPath: () => root },
@@ -32,7 +34,7 @@ vi.mock('../environment', () => ({
       skillPaths: [],
       globalSkillDirs: [],
       disabledSkills: new Set(),
-      disabledTools: [],
+      disabledTools: state.disabledTools,
     }),
     workspaceRoot: () => root,
   }),
@@ -208,6 +210,21 @@ it('父会话停止时连带中止子 Agent，子会话保留并记为停止', a
     isError: true,
     details: { taskId: child, status: 'stopped' },
   });
+});
+
+it('在内置能力里关掉 task 后，新会话没有 task 工具，后台 bash 照常可用', async () => {
+  state.disabledTools = ['task'];
+  const parent = newSession(null, 'chat').sessionId!;
+  const { requests, stop } = recorded();
+  server.enqueue(reply('好的'));
+  await askSession(parent, input('你好'));
+  stop();
+  state.disabledTools = [];
+
+  expect(toolNames(requests[0]!)).not.toContain('task');
+  expect(toolNames(requests[0]!)).toEqual(
+    expect.arrayContaining(['bash', 'task_output', 'task_stop']),
+  );
 });
 
 it('同时运行的子 Agent 超出上限时直接报错，不排队', async () => {
