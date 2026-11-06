@@ -22,13 +22,28 @@ export interface AgentToolResult {
   finishedAt?: number;
 }
 
+export type TaskStatus = 'running' | 'completed' | 'failed' | 'stopped';
+
 /** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
 export interface SubagentDetails {
   taskId: string;
-  status: 'running' | 'completed' | 'failed' | 'stopped';
+  status: TaskStatus;
   steps: number;
   tool?: { name: string; target: string };
   reply?: string | null;
+  background?: true;
+}
+
+/** 后台任务结束时投递给父会话的通知；turnId 是它所在（或唤醒）的那一轮。 */
+export interface TaskNoticeDetails {
+  taskId: string;
+  kind: 'bash' | 'subagent';
+  label: string;
+  status: Exclude<TaskStatus, 'running'>;
+  exitCode?: number;
+  durationMs: number;
+  noticeId: string;
+  turnId?: string;
 }
 
 export interface ChatSessionSummary {
@@ -113,6 +128,8 @@ export interface WorkspaceChat {
     compacted?: boolean;
     /** Pi 扩展经 sendMessage 发出、标了 display 的消息（role 固定为 assistant 一侧展示）。 */
     extension?: { customType: string };
+    /** 后台任务结束的通知。 */
+    task?: TaskNoticeDetails;
   }[];
 }
 

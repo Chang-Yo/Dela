@@ -6,7 +6,8 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { z } from 'zod';
 import type { SubagentDetails } from '../../shared/api';
 import { getDatabase } from '../database';
-import { createSubagentSession, row, runSubagent } from './session';
+import { createSubagentSession, row, runSubagent, sessionRunning } from './session';
+import { taskRunning, trackTask } from './tasks';
 
 const LIMIT_KEY = 'subagent-limit';
 export const SUBAGENT_LIMIT = { min: 1, max: 16, default: 4 };
@@ -42,6 +43,7 @@ function targetOf(args: unknown): string {
 const DESCRIPTION = `派一个子 Agent 独立完成一项任务，等它做完后返回它的最终回复。
 子 Agent 看不到当前对话的历史，工具与你相同（不能再派子 Agent），工作目录相同。prompt 里写清背景、目标、要交回什么，以及允许修改的文件范围；并行的子 Agent 改同一个文件会互相覆盖，派活时划好边界。
 同一条回复里调用多次 task，这些子 Agent 会并行运行。返回结果里的 taskId 可用来续接这个子 Agent 追问（它保留之前的对话）。
+background 为 true 时立即返回 taskId，子 Agent 在后台运行，结束时你会自动收到它的最终回复；期间可用 task_output 查看、task_stop 停止。
 需要总结或梳理另一个会话时，派一个子 Agent 用 session_read 读完目标会话再汇报，不要自己把整段会话读进上下文。`;
 
 export function taskTool(parentId: string): ToolDefinition {
@@ -55,12 +57,13 @@ export function taskTool(parentId: string): ToolDefinition {
         description: { type: 'string', description: '几个字的任务名，显示给用户' },
         prompt: { type: 'string', description: '交给子 Agent 的完整任务说明' },
         taskId: { type: 'string', description: '续接之前派出的子 Agent；省略时新派一个' },
+        background: { type: 'boolean', description: 'true 时在后台运行，不等它结束' },
       },
       required: ['description', 'prompt'],
     } as unknown as ToolDefinition['parameters'],
     async execute(
       _id,
-      params: { description: string; prompt: string; taskId?: string },
+      params: { description: string; prompt: string; taskId?: string; background?: boolean },
       signal,
       onUpdate,
     ) {
@@ -77,11 +80,40 @@ export function taskTool(parentId: string): ToolDefinition {
           // 不存在的 taskId 与别人的子 Agent 一样报错。
         }
         if (parent !== parentId) throw new Error(`没有这个子 Agent：${params.taskId}`);
+        if (taskRunning(params.taskId) || sessionRunning(params.taskId))
+          throw new Error('这个子 Agent 还在运行，等它结束再续接');
       }
       const taskId = params.taskId ?? createSubagentSession(parentId, params.description);
+      running += 1;
+      if (params.background) {
+        const abort = new AbortController();
+        trackTask(
+          {
+            id: taskId,
+            parentId,
+            kind: 'subagent',
+            label: params.description,
+            stop: () => abort.abort(),
+          },
+          runSubagent(taskId, params.prompt, abort.signal, () => {}).finally(() => (running -= 1)),
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `taskId: ${taskId}\n\n已在后台运行。结束时会自动通知你，不需要轮询。`,
+            },
+          ],
+          details: {
+            taskId,
+            status: 'running',
+            steps: 0,
+            background: true,
+          } satisfies SubagentDetails,
+        };
+      }
       const details: SubagentDetails = { taskId, status: 'running', steps: 0 };
       const update = () => onUpdate?.({ content: [], details: { ...details } });
-      running += 1;
       try {
         update();
         const result = await runSubagent(taskId, params.prompt, signal, (event) => {

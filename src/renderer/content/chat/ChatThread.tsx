@@ -4,7 +4,9 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpRight,
+  Bot,
   Check,
+  ChevronDown,
   CircleAlert,
   Copy,
   FileText,
@@ -14,17 +16,19 @@ import {
   Package,
   Pencil,
   RotateCcw,
+  SquareTerminal,
   X,
 } from 'lucide-react';
 import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
 import { useReducedMotion } from 'framer-motion';
-import type { ChatComment, WorkspaceChat } from '../../../shared/api';
+import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../shared/chat-input';
 import { Button } from '@/components/ui/button';
 import { openLightbox } from '@/components/ui/lightbox';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import type { MailDraftDialog } from './chat-source';
-import { ReplyTrace } from './ToolTimeline';
+import { formatDuration, ReplyTrace } from './ToolTimeline';
+import { openSubagent } from './tool-views';
 import { ChatMarkdown } from './markdown';
 import { ReplyCommentLayer } from './reply-comment';
 import { ensureChatMediaPreview, getChatMediaPreview } from './media';
@@ -457,6 +461,51 @@ const AssistantMessage = memo(function AssistantMessage({
   );
 });
 
+const TASK_STATUS: Record<TaskNoticeDetails['status'], string> = {
+  completed: '已完成',
+  failed: '失败',
+  stopped: '已停止',
+};
+
+/** 后台任务结束的通知：一行摘要，展开看交给模型的全文；子 Agent 可打开子会话。 */
+function TaskNoticeMessage({ content, task }: { content: string; task: TaskNoticeDetails }) {
+  const [open, setOpen] = useState(false);
+  const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
+  return (
+    <div className="my-3 grid gap-1.5 rounded-card bg-inset px-3.5 py-2.5">
+      <div className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
+        <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={1.8} />
+        <span className={`shrink-0 font-medium ${task.status === 'failed' ? 'text-red' : ''}`}>
+          后台任务{TASK_STATUS[task.status]}
+          {task.exitCode !== undefined && task.status === 'failed' && `（退出码 ${task.exitCode}）`}
+        </span>
+        <span className="min-w-0 flex-1 truncate" title={task.label}>
+          {task.label}
+        </span>
+        <span className="shrink-0 tabular-nums">{formatDuration(task.durationMs)}</span>
+        {task.kind === 'subagent' && (
+          <Button size="sm" variant="ghost" onClick={() => void openSubagent(task.taskId)}>
+            打开子会话
+          </Button>
+        )}
+        <IconButton
+          aria-expanded={open}
+          aria-label={open ? '收起通知' : '展开通知'}
+          className="size-6"
+          onClick={() => setOpen((value) => !value)}
+        >
+          <ChevronDown className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </IconButton>
+      </div>
+      {open && (
+        <ChatMarkdown className="text-13" mode="static">
+          {content}
+        </ChatMarkdown>
+      )}
+    </div>
+  );
+}
+
 /** Pi 扩展经 sendMessage 发出的可见消息：标出 customType，与模型回复区分开。 */
 function ExtensionMessage({ content, customType }: { content: string; customType: string }) {
   return (
@@ -637,6 +686,12 @@ export const ChatThread = memo(function ChatThread({
           {messages.map((message, index) =>
             message.compacted ? (
               <CompactionDivider key={`${chat.sessionId}:${index}`} />
+            ) : message.task ? (
+              <TaskNoticeMessage
+                content={message.content}
+                key={`${chat.sessionId}:${index}`}
+                task={message.task}
+              />
             ) : message.extension ? (
               <ExtensionMessage
                 content={message.content}

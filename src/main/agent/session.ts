@@ -23,6 +23,7 @@ import type {
   ContextUsageView,
   MainSessionCommand,
   RunStatus,
+  TaskNoticeDetails,
   UncommittedChanges,
   WorkspaceChat,
 } from '../../shared/api';
@@ -54,6 +55,7 @@ import {
 } from './extensions';
 import { packagesEnabled } from './packages';
 import { taskTool } from './subagent';
+import { backgroundTools, stopAllTasks, stopSessionTasks } from './tasks';
 import type { ChatSlashCommand } from '../../shared/chat';
 
 type ChatMessage = WorkspaceChat['messages'][number];
@@ -91,7 +93,15 @@ interface Run {
   finishing?: boolean;
   /** 插进本轮的消息；附件到本轮结束才释放，撤回的从这里拿回原始输入。 */
   steers: { prompt: string; input: ChatAskInput }[];
+  /** 插进本轮的后台任务通知：Pi 清空插队队列时会一并丢掉，轮末或撤回后补投没送达的。 */
+  notices: TaskNotice[];
   done: Promise<void>;
+}
+
+/** 后台任务结束的通知，作为 Pi 自定义消息（customType dela-task）进入父会话。 */
+export interface TaskNotice {
+  text: string;
+  details: TaskNoticeDetails;
 }
 
 const live = new Map<string, Live>();
@@ -330,14 +340,22 @@ async function ensureLive(id: string): Promise<Live> {
   if (!choice.stored) storeModel(id, selection.provider.id, selection.model, selection.effort);
   const cwd = sessionCwd(meta.project_id, meta.cwd);
   const options = await agentEnvironment().sessionOptions(meta.project_id, cwd);
-  // 子 Agent 不再派子 Agent；远程会话暂不支持子 Agent。
+  // 子 Agent 不再派子 Agent，也不开后台任务；远程会话暂不支持这两样。
   const delegates = !meta.parent_id && !(meta.project_id && remoteProjectOf(meta.project_id));
   const session = await openPiSession({
     cwd,
     file: existsSync(meta.file) ? meta.file : undefined,
     selection,
     ...options,
-    ...(delegates ? { customTools: [...options.customTools, taskTool(id)] } : {}),
+    ...(delegates
+      ? {
+          customTools: [
+            ...options.customTools,
+            ...(await backgroundTools(id, cwd, options.shellPath, options.commandPrefix)),
+            taskTool(id),
+          ],
+        }
+      : {}),
     ...(meta.parent_id ? { parentSession: row(meta.parent_id).file } : {}),
   });
   if (session.sessionFile && session.sessionFile !== meta.file)
@@ -374,6 +392,7 @@ function disposeLive(id: string, entry: Live, reason: 'quit' | 'reload'): Promis
 
 /** 应用退出前结束全部会话，让扩展收拾子进程；最多等 timeoutMs，卡住的扩展不拖住退出。 */
 export async function shutdownSessions(timeoutMs: number): Promise<void> {
+  stopAllTasks();
   const pending = [...live].map(([id, entry]) => {
     if (entry.run) entry.run.cancelled = true;
     return disposeLive(id, entry, 'quit');
@@ -519,6 +538,15 @@ export function projectMessages(
         step.finishedAt = message.timestamp;
       }
       if (entryId && reply) reply.entryId = entryId;
+    } else if (message.role === 'custom' && message.customType === TASK_NOTICE) {
+      // 唤醒父会话的通知开启新的一轮：随后的回复从通知算起，审阅对应这一轮。
+      const details = message.details as TaskNoticeDetails;
+      if (details.turnId) {
+        lastUserAt = message.timestamp;
+        lastTurnId = details.turnId;
+      }
+      out.push({ role: 'assistant', content: textOf(message.content), parts: [], task: details });
+      reply = null;
     } else if (message.role === 'custom') {
       // 扩展的可见消息自成一条，不并进前后的模型回复；display=false 的只给模型看。
       // appendEntry 写的扩展状态不是消息，根本不会出现在这里。
@@ -547,7 +575,7 @@ export function projectMessages(
     delete last.finishedAt;
     delete last.entryId;
   }
-  if (running && last?.role === 'user')
+  if (running && (last?.role === 'user' || last?.task))
     out.push({
       role: 'assistant',
       content: '',
@@ -673,7 +701,7 @@ export async function preloadPi() {
   piSync = await loadPi();
 }
 
-function publish(id: string) {
+export function publish(id: string) {
   send('session:on-update', id, snapshot(id));
 }
 
@@ -1039,7 +1067,10 @@ export function updateSessionVisibility(
 ) {
   row(id);
   const db = getDatabase();
-  if (patch.archived) void import('./sidechat').then(({ closeSidechat }) => closeSidechat(id));
+  if (patch.archived) {
+    stopSessionTasks(id);
+    void import('./sidechat').then(({ closeSidechat }) => closeSidechat(id));
+  }
   if (patch.archived !== undefined)
     db.prepare('UPDATE sessions SET archived=? WHERE id=? OR parent_id=?').run(
       Number(patch.archived),
@@ -1056,6 +1087,7 @@ export function archiveProjectSessions(projectId: string | null): string[] {
     .prepare('SELECT id FROM sessions WHERE project_id IS ? AND archived = 0')
     .all(projectId) as { id: string }[];
   db.prepare('UPDATE sessions SET archived=1 WHERE project_id IS ?').run(projectId);
+  for (const { id } of ids) stopSessionTasks(id);
   void import('./sidechat').then(({ closeSidechat }) =>
     Promise.all(ids.map(({ id }) => closeSidechat(id))),
   );
@@ -1065,6 +1097,7 @@ export function archiveProjectSessions(projectId: string | null): string[] {
 export async function deleteSession(id: string) {
   // 动态导入：sidechat 依赖本模块。
   await (await import('./sidechat')).closeSidechat(id);
+  stopSessionTasks(id);
   const entry = live.get(id);
   if (entry) {
     const done = entry.run?.done;
@@ -1097,7 +1130,64 @@ export function cancelRun(id: string): ChatQueuedDraft | null {
 
 export function withdrawQueued(id: string): ChatQueuedDraft | null {
   const entry = live.get(id);
-  return entry?.run ? queuedDraft(takeSteers(entry, entry.run)) : null;
+  if (!entry?.run) return null;
+  const draft = queuedDraft(takeSteers(entry, entry.run));
+  // 清空队列时一并丢掉的任务通知重新插进本轮。
+  for (const notice of undeliveredNotices(entry, entry.run))
+    void entry.session.sendCustomMessage(noticeMessage(notice));
+  return draft;
+}
+
+export const TASK_NOTICE = 'dela-task';
+
+const noticeMessage = (notice: TaskNotice) => ({
+  customType: TASK_NOTICE,
+  content: notice.text,
+  display: true,
+  details: notice.details,
+});
+
+function undeliveredNotices(entry: Live, run: Run): TaskNotice[] {
+  const delivered = new Set(
+    entry.session.messages.flatMap((message) =>
+      message.role === 'custom' && message.customType === TASK_NOTICE
+        ? [(message.details as TaskNoticeDetails).noticeId]
+        : [],
+    ),
+  );
+  return run.notices.filter((notice) => !delivered.has(notice.details.noticeId));
+}
+
+/**
+ * 后台任务结束的通知：父会话运行中插进本轮，收尾中等它结束，空闲时开一轮（界面显示运行中）。
+ * wake=false 时（用户在面板上手动停止）只追加进记录，不开新的一轮。
+ */
+export async function deliverTaskNotice(
+  id: string,
+  notice: TaskNotice,
+  wake: boolean,
+): Promise<void> {
+  const entry = await ensureLive(id);
+  if (!wake) {
+    // 运行中 Pi 把它留到本轮结束再追加，不插进工具调用与结果之间。
+    await entry.session.sendCustomMessage(noticeMessage(notice), { triggerTurn: false });
+    return;
+  }
+  const run = entry.run;
+  if (run && !run.finishing && !run.cancelled && entry.session.isStreaming) {
+    run.notices.push(notice);
+    await entry.session.sendCustomMessage(noticeMessage(notice));
+    return;
+  }
+  if (run || entry.session.isCompacting) {
+    await (run ? run.done : entry.session.waitForIdle());
+    return deliverTaskNotice(id, notice, wake);
+  }
+  const turnId = randomUUID();
+  const message = noticeMessage({ ...notice, details: { ...notice.details, turnId } });
+  await runTurn(id, entry, turnId, [], () =>
+    entry.session.sendCustomMessage(message, { triggerTurn: true }),
+  );
 }
 
 /** 清空 Pi 的插队队列，取回这些消息的原始输入；已送达的留在 run 里等轮末释放附件。 */
@@ -1271,6 +1361,7 @@ async function runTurn(
     id: turnId,
     cancelled: false,
     steers: [],
+    notices: [],
     done: new Promise<void>((resolve) => {
       finishRun = resolve;
     }),
@@ -1322,6 +1413,8 @@ async function runTurn(
     }
     // Pi 最后一次取队列之后才插进来的消息没人送达，收尾后作为新一轮发出。
     const orphaned = takeSteers(entry, run);
+    // 没送达的任务通知同样补投；用户停止了这一轮时只追加，不立刻再开一轮。
+    const lostNotices = undeliveredNotices(entry, run);
     try {
       releaseChatAttachments([
         ...attachments,
@@ -1344,6 +1437,10 @@ async function runTurn(
     for (const steer of orphaned)
       void askSession(id, steer).catch((error: unknown) =>
         console.error('插队消息发送失败', error),
+      );
+    for (const notice of lostNotices)
+      void deliverTaskNotice(id, notice, !run.cancelled).catch((error: unknown) =>
+        console.error('后台任务通知投递失败', error),
       );
   }
   return status;

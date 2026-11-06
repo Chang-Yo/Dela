@@ -4,8 +4,16 @@
  */
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type { SessionEntry, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { TaskNoticeDetails } from '../../shared/api';
 import { getDatabase } from '../database';
-import { listSessions, sessionBranch, sessionRunning, splitMeta, textOf } from './session';
+import {
+  listSessions,
+  sessionBranch,
+  sessionRunning,
+  splitMeta,
+  TASK_NOTICE,
+  textOf,
+} from './session';
 
 export type SessionTurnStatus = 'completed' | 'stopped' | 'interrupted' | 'running';
 
@@ -30,6 +38,21 @@ export const READ_LIMIT = 20_000;
 export function sessionTurns(branch: SessionEntry[], runningTurn?: string): SessionTurn[] {
   const turns: { turn: SessionTurn; last?: AssistantMessage }[] = [];
   for (const entry of branch) {
+    // 唤醒父会话的后台任务通知自成一轮，通知正文当作这一轮的输入。
+    if (entry.type === 'custom_message' && entry.customType === TASK_NOTICE) {
+      const { turnId } = entry.details as TaskNoticeDetails;
+      if (turnId && turns.at(-1)?.turn.turnId !== turnId)
+        turns.push({
+          turn: {
+            turnId,
+            at: entry.timestamp,
+            user: textOf(entry.content),
+            reply: null,
+            status: 'interrupted',
+          },
+        });
+      continue;
+    }
     if (entry.type !== 'message') continue;
     const { message } = entry;
     if (message.role === 'user') {
