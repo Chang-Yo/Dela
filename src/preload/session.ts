@@ -27,6 +27,7 @@ export const session = {
   ask: (sessionId: string, input: ChatAskInput) => invoke('session:ask', sessionId, input),
   cancelRun: (sessionId: string) => invoke('session:cancel-run', sessionId),
   withdrawQueued: (sessionId: string) => invoke('session:withdraw-queued', sessionId),
+  stopTask: (sessionId: string, taskId: string) => invoke('session:stop-task', sessionId, taskId),
   runCommand: (sessionId: string, name: MainSessionCommand, args: string) =>
     invoke('session:run-command', sessionId, name, args),
   fork: (sessionId: string, entryId: string) => invoke('session:fork', sessionId, entryId),

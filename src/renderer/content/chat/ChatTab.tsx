@@ -116,6 +116,8 @@ function ChatComposerArea({
         onStop={chatState.stop}
         queued={chat?.queued}
         onWithdrawQueued={chatState.withdrawQueued}
+        tasks={chat?.tasks}
+        onStopTask={chatState.stopTask}
         referenceOptions={referenceOptions}
         notice={error}
         onDismissNotice={chatState.clearError}

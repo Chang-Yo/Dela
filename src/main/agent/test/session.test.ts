@@ -118,6 +118,7 @@ vi.mock('../packages', () => ({ packagesEnabled: () => false }));
 // 假会话不跑工具：后台任务的工具与登记换成空壳（真实行为见 tasks.test / task-notice.test）。
 vi.mock('../tasks', () => ({
   backgroundTools: async () => [],
+  runningTasks: () => [],
   stopAllTasks: () => {},
   stopSessionTasks: () => {},
 }));
