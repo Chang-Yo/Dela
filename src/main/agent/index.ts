@@ -45,6 +45,7 @@ import {
   withdrawQueued,
 } from './session';
 import { registerPackagesIpc } from './packages-ipc';
+import { stopUserTask } from './tasks';
 import { exportSession } from './session-export';
 import {
   askSidechat,
@@ -207,6 +208,7 @@ export function registerAgentIpc() {
   sessionHandle('ask', (id, input) => askSession(uuid.parse(id), askInputSchema.parse(input)));
   sessionHandle('cancel-run', (id) => cancelRun(uuid.parse(id)));
   sessionHandle('withdraw-queued', (id) => withdrawQueued(uuid.parse(id)));
+  sessionHandle('stop-task', (id, taskId) => stopUserTask(uuid.parse(id), uuid.parse(taskId)));
   sessionHandle('fork', (id, entryId) =>
     forkSession(uuid.parse(id), z.string().min(1).max(64).parse(entryId)),
   );

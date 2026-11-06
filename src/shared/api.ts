@@ -247,6 +247,7 @@ export { workspaceArchiveId } from './workspace';
 export type {
   AgentToolOutput,
   AgentToolResult,
+  BackgroundTaskView,
   ChatScope,
   ChatSessionSummary,
   ContextUsageView,

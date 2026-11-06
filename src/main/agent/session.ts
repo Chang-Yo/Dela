@@ -55,7 +55,7 @@ import {
 } from './extensions';
 import { packagesEnabled } from './packages';
 import { taskTool } from './subagent';
-import { backgroundTools, stopAllTasks, stopSessionTasks } from './tasks';
+import { backgroundTools, runningTasks, stopAllTasks, stopSessionTasks } from './tasks';
 import type { ChatSlashCommand } from '../../shared/chat';
 
 type ChatMessage = WorkspaceChat['messages'][number];
@@ -617,6 +617,7 @@ function snapshot(id: string): WorkspaceChat {
     activeTool: entry?.run?.tool,
     compacting: entry?.session.isCompacting ?? false,
     queued: queuedTexts(entry?.session.getSteeringMessages() ?? []),
+    tasks: runningTasks(id),
     ...(meta.parent_id ? { subagent: { parentId: meta.parent_id, description: meta.title } } : {}),
   };
 }

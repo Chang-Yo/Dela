@@ -46,6 +46,14 @@ export interface TaskNoticeDetails {
   turnId?: string;
 }
 
+/** 正在运行的后台任务：bash 的 label 是命令，子 Agent 的是任务名（id 即子会话 id）。 */
+export interface BackgroundTaskView {
+  id: string;
+  kind: 'bash' | 'subagent';
+  label: string;
+  startedAt: number;
+}
+
 export interface ChatSessionSummary {
   id: string;
   title: string;
@@ -82,6 +90,8 @@ export interface WorkspaceChat {
   compacting?: boolean;
   /** 运行中插队、还没送达模型的消息正文（不含 meta 前缀）。 */
   queued?: string[];
+  /** 正在运行的后台任务；主对话停止后仍可能在跑。 */
+  tasks?: BackgroundTaskView[];
   /** 子 Agent 的会话：由父会话的 task 工具派出，只读。 */
   subagent?: { parentId: string; description: string };
   /** 至少有一个启用且带密钥的提供商。 */
@@ -241,6 +251,8 @@ export interface SessionApi {
   cancelRun(sessionId: string): Promise<ChatQueuedDraft | null>;
   /** 撤回全部还没送达的插队消息；没有时为 null。 */
   withdrawQueued(sessionId: string): Promise<ChatQueuedDraft | null>;
+  /** 用户在后台任务面板上停止一个任务：通知只追加进记录，不唤醒会话。 */
+  stopTask(sessionId: string, taskId: string): Promise<void>;
   /** 执行一条会话命令（/compact、/reload、/name），返回执行后的快照；/compact 运行中可用 cancelRun 取消。 */
   runCommand(sessionId: string, name: MainSessionCommand, args: string): Promise<WorkspaceChat>;
   /** 从这条回复分出新会话（「分支：」前缀，沿用项目与模型），原会话不变。 */
