@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron';
 import type {
   ChatAskInput,
+  ChatQueueEvent,
   ChatScope,
   ChatStreamEvent,
   MainSessionCommand,
@@ -25,6 +26,7 @@ export const session = {
   remove: (sessionId: string) => invoke('session:remove', sessionId),
   ask: (sessionId: string, input: ChatAskInput) => invoke('session:ask', sessionId, input),
   cancelRun: (sessionId: string) => invoke('session:cancel-run', sessionId),
+  withdrawQueued: (sessionId: string) => invoke('session:withdraw-queued', sessionId),
   runCommand: (sessionId: string, name: MainSessionCommand, args: string) =>
     invoke('session:run-command', sessionId, name, args),
   fork: (sessionId: string, entryId: string) => invoke('session:fork', sessionId, entryId),
@@ -42,6 +44,7 @@ export const session = {
   },
   onRunEvent: (listener: (event: RunEvent) => void) => on('session:on-run-event', listener),
   onStream: (listener: (event: ChatStreamEvent) => void) => on('session:on-stream', listener),
+  onQueue: (listener: (event: ChatQueueEvent) => void) => on('session:on-queue', listener),
 } satisfies SessionApi;
 
 export const sidechat = {

@@ -24,6 +24,13 @@ export interface ChatMediaView {
   previewUrl: string | null;
 }
 
+/** 撤回的插队消息：按发送顺序合并，回填输入框。 */
+export interface ChatQueuedDraft {
+  text: string;
+  comments: ChatComment[];
+  attachments: ChatMediaView[];
+}
+
 export interface ChatCommandView {
   id: string;
   name: string;

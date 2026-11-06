@@ -87,6 +87,8 @@ vi.mock('../pi', () => ({
       return state.compact?.(instructions);
     },
     abort: async () => {},
+    clearQueue: () => ({ steering: [], followUp: [] }),
+    getSteeringMessages: () => [],
     prompt: async (text: string) => {
       state.prompts.push(text);
       state.messages.push({ role: 'user', content: text, timestamp: Date.now() });
