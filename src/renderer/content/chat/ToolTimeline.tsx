@@ -178,7 +178,7 @@ function summarize(results: AgentToolResult[]): string {
 }
 
 /** 折叠行的用时：不足 1 秒按 1 秒计，分钟以上带分。 */
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   const seconds = Math.max(1, Math.ceil(ms / 1000));
   if (seconds < 60) return `${seconds} 秒`;
   const minutes = Math.floor(seconds / 60);
