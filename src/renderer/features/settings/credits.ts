@@ -7,6 +7,7 @@ import aaalpsssAvatar from '../../../../assets/credits/aaalpsss/avatar.png';
 import huangtongAvatar from '../../../../assets/credits/huangtong601-ops/avatar.jpg';
 import jinjiAvatar from '../../../../assets/credits/jinji-2005/avatar.jpg';
 import cophqAvatar from '../../../../assets/credits/cophq/avatar.jpg';
+import sbsjkmAvatar from '../../../../assets/credits/sbsjkm/avatar.jpg';
 import frameneoLogoBlack from '../../../../assets/sponsors/FRAMENEO_logo_black.png';
 import frameneoLogoWhite from '../../../../assets/sponsors/FRAMENEO_logo_white.png';
 
@@ -97,6 +98,11 @@ export const creditSections: CreditSection[] = [
         name: 'cophQ',
         avatar: cophqAvatar,
         links: [{ kind: 'github', url: 'https://github.com/cophQ' }],
+      },
+      {
+        name: 'SBSJKM',
+        avatar: sbsjkmAvatar,
+        links: [{ kind: 'github', url: 'https://github.com/SBSJKM' }],
       },
     ],
   },
