@@ -56,12 +56,12 @@ export function queryGlobalSearch(query: string): GlobalSearchResult[] {
     query
       ? db
           .prepare(
-            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' WHERE sessions.title LIKE ? ESCAPE '!' ORDER BY sessions.updated_at DESC LIMIT ?",
+            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' WHERE sessions.parent_id IS NULL AND sessions.title LIKE ? ESCAPE '!' ORDER BY sessions.updated_at DESC LIMIT ?",
           )
           .all(pattern, perKindLimit)
       : db
           .prepare(
-            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' ORDER BY sessions.updated_at DESC LIMIT ?",
+            "SELECT sessions.id, sessions.project_id AS projectId, sessions.title, coalesce(project.name, '首页') AS subtitle, sessions.updated_at AS updatedAt FROM sessions LEFT JOIN workspace_entries AS project ON project.id=sessions.project_id AND project.kind='project' WHERE sessions.parent_id IS NULL ORDER BY sessions.updated_at DESC LIMIT ?",
           )
           .all(perKindLimit)
   ) as ChatRow[];

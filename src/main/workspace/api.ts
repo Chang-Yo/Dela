@@ -802,7 +802,7 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
     const { deleteSession, invalidateSessions } = await import('../agent/session');
     const ids = getDatabase()
-      .prepare('SELECT id FROM sessions WHERE project_id=?')
+      .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
       .all(item.id) as { id: string }[];
     for (const row of ids) await deleteSession(row.id);
     invalidateSessions();

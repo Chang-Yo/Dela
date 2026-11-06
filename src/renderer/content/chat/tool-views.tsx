@@ -1,8 +1,12 @@
 import { diffLines, diffWords } from 'diff';
-import type { AgentToolResult } from '../../../shared/api';
+import type { AgentToolResult, SubagentDetails } from '../../../shared/api';
 import type { CodePiece, DiffRow } from '@/components/ui/beautifului/primitives/CodeBlock';
 import CodeBlock from '@/components/ui/beautifului/primitives/CodeBlock';
 import { openLightbox } from '@/components/ui/lightbox';
+import { Button } from '@/components/ui/button';
+import { useNavigationStore } from '../../navigation/view';
+import { useSessions } from '../../sessions/store';
+import { ChatMarkdown } from './markdown';
 
 // 工具卡片的正文视图：按 Pi 内置工具（read/write/edit/bash/grep/find/ls）渲染输入与文本输出，
 // read 读到图片时直接预览图片本体。输出形状见 shared/session.ts 的 AgentToolOutput（text + image + 工具 details）。
@@ -179,6 +183,42 @@ function EditView({ result, failed }: ViewProps) {
   );
 }
 
+/** 子会话不在任何会话列表里：先取快照得到项目归属，再按会话打开标签。 */
+async function openSubagent(taskId: string) {
+  const chat = await window.dela?.session.open(taskId);
+  if (!chat) return;
+  useSessions.getState().putChat(taskId, chat);
+  useNavigationStore.getState().openChat(taskId, chat.projectId);
+}
+
+/** 子 Agent：任务说明、步数与最终回复；完整过程在子会话里看。 */
+function SubagentView({ result }: ViewProps) {
+  const details = result.output?.details as SubagentDetails | undefined;
+  const prompt = (result.input as { prompt?: string } | null)?.prompt ?? '';
+  return (
+    <div className="mb-1 mt-1 grid min-w-0 gap-1.5">
+      {prompt && (
+        <p className="line-clamp-3 whitespace-pre-wrap break-words text-xs leading-5 text-ink-3">
+          {prompt}
+        </p>
+      )}
+      {details?.reply && (
+        <div className="max-h-80 overflow-y-auto rounded-card border border-line px-3 py-2 text-13 leading-6">
+          <ChatMarkdown animated={false}>{details.reply}</ChatMarkdown>
+        </div>
+      )}
+      {details && (
+        <div className="flex items-center gap-2 text-xs text-ink-3">
+          <span>共 {details.steps} 步</span>
+          <Button size="sm" variant="ghost" onClick={() => void openSubagent(details.taskId)}>
+            打开子会话
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 兜底视图（MCP、联网等自定义工具）：输入键值对 + 文本输出。 */
 function GenericView({ result, failed }: ViewProps) {
   const input = result.input;
@@ -231,6 +271,8 @@ function ToolView({ result, failed }: ViewProps) {
     case 'grep':
     case 'find':
       return <TextView failed={failed} result={result} title={str('pattern')} />;
+    case 'task':
+      return <SubagentView failed={failed} result={result} />;
     default:
       return <GenericView failed={failed} result={result} />;
   }
@@ -247,7 +289,11 @@ export function ToolBody({
   // write/edit 卡内是输入内容，输出为空时也无可看内容，这两种情况补一行说明，
   // 保证失败原因不会因为改用工具视图而消失。
   const reasonOutsideBlock =
-    failed && (result.name === 'write' || result.name === 'edit' || !outputText(result));
+    failed &&
+    (result.name === 'write' ||
+      result.name === 'edit' ||
+      result.name === 'task' ||
+      !outputText(result));
   return (
     <>
       {reasonOutsideBlock && (

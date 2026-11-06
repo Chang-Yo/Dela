@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { LoaderCircle, Lock, SlidersHorizontal } from 'lucide-react';
 import type { AgentCapabilityView } from '../../../../shared/api';
 import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
 import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
@@ -23,6 +24,63 @@ function groupByDomain(capabilities: AgentCapabilityView[]) {
       });
   }
   return [...groups.values()];
+}
+
+/** 子 Agent 并发上限：失焦或回车时保存，超出范围按主进程的校验报错并回滚。 */
+function SubagentLimit() {
+  const [saved, setSaved] = useState<number | null>(null);
+  const [draft, setDraft] = useState('');
+  useEffect(() => {
+    void window.dela?.capability.getSubagentLimit().then((limit) => {
+      setSaved(limit);
+      setDraft(String(limit));
+    });
+  }, []);
+  if (saved === null) return null;
+  const save = async () => {
+    const limit = Number(draft);
+    if (limit === saved) return;
+    try {
+      const next = await window.dela!.capability.setSubagentLimit(limit);
+      setSaved(next);
+      setDraft(String(next));
+    } catch {
+      showToast({ variant: 'error', title: '保存失败', description: '上限须为 1 到 16 的整数' });
+      setDraft(String(saved));
+    }
+  };
+  return (
+    <SettingsGroup settingId="capabilities-subagent" title="子 Agent">
+      <div
+        className="flex items-center justify-between gap-4 py-3"
+        data-setting-id="capability-task"
+      >
+        <div className="grid min-w-0 gap-0.5">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate text-13 font-medium">同时运行上限</span>
+            <span className="truncate font-mono text-xs text-ink-3">task</span>
+          </div>
+          <span className="line-clamp-2 text-xs leading-relaxed text-ink-3">
+            全应用同时运行的子 Agent 数，超出时派发失败，不排队
+          </span>
+        </div>
+        <Input
+          aria-label="子 Agent 同时运行上限"
+          className="w-16 shrink-0"
+          max="16"
+          min="1"
+          step="1"
+          type="number"
+          value={draft}
+          onBlur={() => void save()}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+      </div>
+    </SettingsGroup>
+  );
 }
 
 /** 设置 › 内置能力：Agent 可用的内置工具按域开关；关闭即从模型工具表移除。
@@ -173,6 +231,7 @@ export function CapabilitiesSection() {
                   </SettingsGroup>
                 );
               })}
+              <SubagentLimit />
             </div>
           )}
           {error && (

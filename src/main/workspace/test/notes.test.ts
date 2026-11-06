@@ -80,7 +80,8 @@ function createDb(): Database.Database {
       updated_at TEXT NOT NULL,
       provider_id TEXT,
       model TEXT,
-      effort TEXT
+      effort TEXT,
+      parent_id TEXT
     );
   `);
   return db;
