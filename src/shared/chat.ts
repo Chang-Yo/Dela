@@ -9,6 +9,8 @@ export interface ChatAskInput {
   text: string;
   attachments: string[];
   context: string[];
+  /** # 引用的会话：id 进 meta，模型需要时用 session_read 读取。 */
+  sessions?: { id: string; title: string }[];
   comments: ChatComment[];
   /** 编辑重发：丢弃会话中最后一条用户消息及其后内容，以 text 重新发起。 */
   replaceLastUser?: boolean;

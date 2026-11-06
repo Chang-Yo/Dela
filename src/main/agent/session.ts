@@ -9,6 +9,7 @@ import { shell, type WebContents } from 'electron';
 import type {
   AgentSession,
   AgentSessionEvent,
+  SessionEntry,
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
@@ -794,7 +795,8 @@ function runEvent(
 
 // ===== Session API =====
 
-const summaryColumns = 'id, title, pinned, project_id AS projectId, updated_at AS updatedAt';
+const summaryColumns =
+  'id, title, pinned, project_id AS projectId, updated_at AS updatedAt, created_at AS createdAt';
 type SummaryRow = Omit<ChatSessionSummary, 'pinned'> & { pinned: number };
 const toSummary = (row: SummaryRow): ChatSessionSummary => ({ ...row, pinned: row.pinned === 1 });
 
@@ -940,6 +942,18 @@ export async function sidechatSource(id: string) {
   return { meta, cwd, selection: choice.selection, branch };
 }
 
+export const sessionRunning = (id: string) => Boolean(live.get(id)?.run);
+
+/** 跨会话读取的原文：打开着的会话读内存里的记录（含本轮已落下的消息），其余直接读 JSONL。 */
+export function sessionBranch(id: string): { branch: SessionEntry[]; runningTurn?: string } {
+  const entry = live.get(id);
+  if (entry)
+    return { branch: entry.session.sessionManager.getBranch(), runningTurn: entry.run?.id };
+  const { file } = row(id);
+  if (!file || !existsSync(file)) return { branch: [] };
+  return { branch: requirePiSync().SessionManager.open(file).getBranch() };
+}
+
 export function openSession(id: string): WorkspaceChat {
   row(id);
   return snapshot(id);
@@ -1057,10 +1071,13 @@ export function composePrompt(input: ChatAskInput, cwd: string, turnId: string =
     throw new Error('文档附件目前只支持本机会话，请切换到随聊或本地项目');
   // @ 引用即路径：只告诉模型路径，读取由模型用 read 自主完成（pull 模型）。
   const sources = input.context.map((key) => ({ key, title: key }));
+  // # 引用的会话同样是 pull：只给 id，读取由模型用 session_read 完成。
+  const sessions = input.sessions ?? [];
   const meta = {
     turnId,
     body: userText,
     ...(sources.length ? { sources } : {}),
+    ...(sessions.length ? { sessions } : {}),
     ...(imageMeta.length ? { images: imageMeta } : {}),
     ...(attachments.length
       ? {
@@ -1076,6 +1093,9 @@ export function composePrompt(input: ChatAskInput, cwd: string, turnId: string =
     `${META_PREFIX}${JSON.stringify(meta)}${META_SUFFIX}`,
     sources.length
       ? `用户引用了这些文件（需要时用 read 读取）：\n${sources.map((s) => `- ${s.key}`).join('\n')}\n`
+      : '',
+    sessions.length
+      ? `用户引用了同项目的这些会话（需要时用 session_read 读取）：\n${sessions.map((s) => `- ${s.title}（sessionId: ${s.id}）`).join('\n')}\n`
       : '',
     ...attachments.map((attachment) =>
       'path' in attachment

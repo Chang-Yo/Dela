@@ -26,6 +26,7 @@ export interface ChatSessionSummary {
   id: string;
   title: string;
   updatedAt: string;
+  createdAt: string;
   pinned?: boolean;
   projectId?: string | null;
 }
@@ -74,6 +75,8 @@ export interface WorkspaceChat {
     role: 'user' | 'assistant';
     content: string;
     sources?: { key: string; title: string }[];
+    /** 用户消息里 # 引用的会话（同项目）；模型按需用 session_read 读取。 */
+    sessions?: { id: string; title: string }[];
     /** 用户消息携带的内联图片（按输入顺序）；id 对应 chat-media 落盘文件。 */
     images?: { id: string; name: string }[];
     /** 用户消息携带的文本附件名；内容已进入当轮模型上下文，文件不保留。 */
