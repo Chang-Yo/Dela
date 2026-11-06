@@ -1157,6 +1157,30 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
         ).slice(0, 60),
         id,
       );
+  await runTurn(id, entry, turnId, input.attachments, () =>
+    extensionCommand(entry.session, userText)
+      ? // 扩展命令与 prompt 模板要以 `/name` 开头才认得：去掉 Dela 的 meta 前缀原样交给 Pi，
+        // 命令由扩展处理（可能根本不发消息），模板由 Pi 展开后照常进入对话。
+        entry.session.prompt(userText, images.length ? { images } : undefined)
+      : entry.session.prompt(prompt, images.length ? { images } : undefined),
+  );
+  return snapshot(id);
+}
+
+type TurnStatus = 'completed' | 'failed' | 'stopped';
+
+/**
+ * 一轮执行的记账：登记 run、拍目录快照、冻结本轮改动、推送状态与提醒、轮末释放附件并丢弃过期实例。
+ * start 只负责把这一轮交给 Pi；不经这里开的一轮界面不显示运行中，改动也不进审阅。
+ */
+async function runTurn(
+  id: string,
+  entry: Live,
+  turnId: string,
+  attachments: string[],
+  start: () => Promise<void>,
+): Promise<TurnStatus> {
+  const meta = row(id);
   let finishRun!: () => void;
   const run: Run = {
     id: turnId,
@@ -1169,12 +1193,12 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
   entry.run = run;
   liveSteps.set(id, new Map());
   runEvent(id, 'running');
-  let status: 'completed' | 'failed' | 'stopped' = 'completed';
+  let status: TurnStatus = 'completed';
   const startedAt = new Date().toISOString();
   let before: changes.DirectorySnapshot | null = null;
   let captureError: string | undefined;
   try {
-    if (meta0.project_id && remoteProjectOf(meta0.project_id))
+    if (meta.project_id && remoteProjectOf(meta.project_id))
       captureError = '远程会话暂不记录目录快照';
     else {
       try {
@@ -1186,11 +1210,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     // 只看本轮新产生的回复：扩展命令可能一条消息都不发，不能拿上一轮的结果来判本轮成败。
     const priorCount = entry.session.messages.length;
     if (run.cancelled) status = 'stopped';
-    else if (extensionCommand(entry.session, userText))
-      // 扩展命令与 prompt 模板要以 `/name` 开头才认得：去掉 Dela 的 meta 前缀原样交给 Pi，
-      // 命令由扩展处理（可能根本不发消息），模板由 Pi 展开后照常进入对话。
-      await entry.session.prompt(userText, images.length ? { images } : undefined);
-    else await entry.session.prompt(prompt, images.length ? { images } : undefined);
+    else await start();
     const last = entry.session.messages.slice(priorCount).findLast((m) => m.role === 'assistant');
     if (run.cancelled || (last?.role === 'assistant' && last.stopReason === 'aborted'))
       status = 'stopped';
@@ -1218,7 +1238,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     const orphaned = takeSteers(entry, run);
     try {
       releaseChatAttachments([
-        ...input.attachments,
+        ...attachments,
         ...run.steers.flatMap((steer) => steer.input.attachments),
       ]);
       entry.run = undefined;
@@ -1240,7 +1260,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
         console.error('插队消息发送失败', error),
       );
   }
-  return snapshot(id);
+  return status;
 }
 
 async function steerRun(id: string, entry: Live, run: Run, input: ChatAskInput) {
