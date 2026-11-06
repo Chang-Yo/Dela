@@ -462,6 +462,9 @@ it('# 只列会话候选，选中后插入 #标题；「# 」是 Markdown 标题
   await act(async () => options[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
   expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('#复习计划 ');
 
+  typeMention('参考 #复习');
+  expect(host.querySelector('[role="option"]')?.textContent).toBe('复习计划');
+
   typeMention('# ');
   expect(host.querySelector('[role="listbox"]')).toBeNull();
   typeMention('@');

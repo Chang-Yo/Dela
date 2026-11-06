@@ -74,7 +74,7 @@ function detectMenu(text: string, caret: number): MenuState {
   const mention = /(?:^|\s)@([^\s@]{0,50})$/.exec(before);
   if (mention)
     return { kind: 'mention', query: mention[1]!, start: caret - mention[1]!.length - 1 };
-  const session = /(?:^|s)#([^s#]{0,50})$/.exec(before);
+  const session = /(?:^|\s)#([^\s#]{0,50})$/.exec(before);
   if (session)
     return { kind: 'session', query: session[1]!, start: caret - session[1]!.length - 1 };
   return null;
