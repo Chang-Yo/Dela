@@ -232,6 +232,47 @@ it('同时运行的子 Agent 超出上限时直接报错，不排队', async () 
   expect(results[1]!.output?.text).toContain('上限（1 个）');
 });
 
+it('后台子 Agent 立即返回并占用并发名额，结束时把最终回复作为通知交回父会话', async () => {
+  state
+    .db!.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('subagent-limit', '1')")
+    .run();
+  const parent = newSession(null, 'chat').sessionId!;
+  const parentRequests: RecordedRequest[] = [];
+  const stop = server.onRequest((request) => {
+    if (!JSON.stringify(request.body).includes('派个后台的')) {
+      server.enqueue(reply('整理完了：三点', 800));
+      return;
+    }
+    parentRequests.push(request);
+    server.enqueue(
+      [
+        taskCalls({ description: '后台整理', prompt: '慢慢整理', background: true }),
+        taskCalls({ description: '再派', prompt: '超出名额' }),
+        reply('已派出'),
+        reply('子 Agent 交回了'),
+      ][parentRequests.length - 1]!,
+    );
+  });
+  await askSession(parent, input('派个后台的'));
+  expect(parentRequests).toHaveLength(3);
+  expect(taskResults(parent)[0]!.output?.details).toMatchObject({
+    status: 'running',
+    background: true,
+  } satisfies Partial<SubagentDetails>);
+  expect(JSON.stringify(parentRequests[2]!.body)).toContain('上限（1 个）');
+  await vi.waitFor(() => expect(parentRequests).toHaveLength(4), { timeout: 10_000 });
+  await vi.waitFor(() => expect(openSession(parent).running).toBe(false), { timeout: 10_000 });
+  stop();
+  state.db!.prepare("DELETE FROM workspace_settings WHERE key='subagent-limit'").run();
+
+  expect(JSON.stringify(parentRequests[3]!.body)).toContain('整理完了：三点');
+  const [child] = children(parent);
+  expect(openSession(parent).messages.filter((message) => message.task)).toMatchObject([
+    { task: { taskId: child, kind: 'subagent', status: 'completed', label: '后台整理' } },
+  ]);
+  expect(openSession(parent).messages.at(-1)).toMatchObject({ content: '子 Agent 交回了' });
+});
+
 it('归档父会话时子会话一并归档，删除时一并删除', async () => {
   const parent = newSession(null, 'chat').sessionId!;
   server.enqueue(taskCalls({ description: '随手', prompt: '做一下' }));

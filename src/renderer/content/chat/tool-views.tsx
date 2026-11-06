@@ -184,7 +184,7 @@ function EditView({ result, failed }: ViewProps) {
 }
 
 /** 子会话不在任何会话列表里：先取快照得到项目归属，再按会话打开标签。 */
-async function openSubagent(taskId: string) {
+export async function openSubagent(taskId: string) {
   const chat = await window.dela?.session.open(taskId);
   if (!chat) return;
   useSessions.getState().putChat(taskId, chat);
@@ -209,7 +209,7 @@ function SubagentView({ result }: ViewProps) {
       )}
       {details && (
         <div className="flex items-center gap-2 text-xs text-ink-3">
-          <span>共 {details.steps} 步</span>
+          <span>{details.background ? '后台运行，结束时通知' : `共 ${details.steps} 步`}</span>
           <Button size="sm" variant="ghost" onClick={() => void openSubagent(details.taskId)}>
             打开子会话
           </Button>

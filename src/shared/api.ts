@@ -255,6 +255,8 @@ export type {
   SidechatApi,
   SidechatView,
   SubagentDetails,
+  TaskNoticeDetails,
+  TaskStatus,
   RunEvent,
   RunStatus,
   ChatStreamEvent,
