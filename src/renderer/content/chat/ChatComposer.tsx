@@ -14,6 +14,7 @@ import {
   Settings,
   Sparkles,
   Square,
+  Undo2,
   X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -128,7 +129,12 @@ export function ChatComposer({
   context = null,
   sessionId = null,
   sidechat = false,
+  queued = [],
+  onWithdrawQueued,
 }: {
+  /** 运行中插队、还没送达的消息；非空时显示在输入框上方，可整体撤回。 */
+  queued?: string[];
+  onWithdrawQueued?: () => void;
   /** 旁问输入框：模型与思考强度沿用主会话、联网搜索是全局开关，这三个选择器都不显示。 */
   sidechat?: boolean;
   /** 当前会话：用于 Pi 扩展的 `/` 命令、状态栏与输入框读写；未知时为 null。 */
@@ -425,6 +431,8 @@ export function ChatComposer({
     comments.length > 0;
 
   const sendable = configured && !modelUnavailable && canSend;
+  // 主会话运行中输入框有内容就是插队发送；旁问不插队，运行中始终是停止。
+  const stoppable = busy && (sidechat || !canSend);
 
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
@@ -463,6 +471,7 @@ export function ChatComposer({
     <div className="relative">
       {/* 新对话的项目浮岛：项目与分支各一个可点胶囊；有历史后 context 为 null 就撤掉。 */}
       {context && <ComposerContextBar context={context} />}
+      {queued.length > 0 && <QueuedMessages messages={queued} onWithdraw={onWithdrawQueued} />}
       {/* 提示条浮在输入框上方，不推移输入框与消息列表。 */}
       {(fileError ?? notice) && (
         <ComposerNotice
@@ -850,7 +859,7 @@ export function ChatComposer({
               </Popover.Portal>
             </Popover.Root>
           )}
-          {busy ? (
+          {stoppable ? (
             <button
               aria-label="停止执行"
               className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-opacity duration-150 hover:opacity-90 active:scale-[0.94]"
@@ -1031,6 +1040,45 @@ function ExtensionBar({
             </span>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** 待送达的插队消息：当前工具执行完后才交给模型；撤回把它们全部放回输入框（Pi 的队列只能整体清空）。 */
+function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdraw?: () => void }) {
+  return (
+    <div
+      aria-label="待送达的消息"
+      className="mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-13 leading-6 shadow-hairline"
+      role="status"
+      style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
+    >
+      <ol className="min-w-0 flex-1">
+        {messages.map((text, index) => (
+          <li className="flex min-w-0 items-baseline gap-2" key={index}>
+            <span
+              aria-hidden
+              className="min-w-3 shrink-0 text-right text-xs tabular-nums text-ink-3"
+            >
+              {index + 1}
+            </span>
+            <span className="truncate text-ink-2" title={text}>
+              {text.trim() || '图片或附件'}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {onWithdraw && (
+        <button
+          className="-mr-1 flex h-6 shrink-0 items-center gap-1 rounded-chip px-1.5 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink [&_svg]:size-3"
+          onClick={onWithdraw}
+          title="撤回到输入框"
+          type="button"
+        >
+          <Undo2 />
+          撤回
+        </button>
       )}
     </div>
   );
