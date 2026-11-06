@@ -285,6 +285,7 @@ it('归档首页当前对话后通过导航创建新会话，不沿用归档会�
       archived: false,
       pinned: false,
       updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     },
   ]);
   window.dela!.session.update = vi.fn(async () => {});

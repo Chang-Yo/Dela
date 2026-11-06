@@ -9,6 +9,7 @@ import {
   Copy,
   FileText,
   GitBranch,
+  MessageSquare,
   NotebookPen,
   Package,
   Pencil,
@@ -118,11 +119,13 @@ const MessageImage = memo(function MessageImage({ id, name }: { id: string; name
 const UserMessage = memo(function UserMessage({
   message,
   onOpenSource,
+  onOpenSession,
   onEdit,
   editable,
 }: {
   message: WorkspaceChat['messages'][number];
   onOpenSource: ((key: string) => void) | undefined;
+  onOpenSession: ((id: string) => void) | undefined;
   onEdit: (text: string) => void;
   editable: boolean;
 }) {
@@ -247,6 +250,23 @@ const UserMessage = memo(function UserMessage({
               </span>
             ),
           )}
+        </div>
+      ) : null}
+      {message.sessions?.length ? (
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
+          {message.sessions.map((session) => (
+            <button
+              key={session.id}
+              className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field px-2 text-xs text-ink-2 shadow-hairline transition-colors enabled:hover:bg-hover-2 enabled:hover:text-ink"
+              disabled={!onOpenSession}
+              onClick={() => onOpenSession?.(session.id)}
+              title={session.title}
+              type="button"
+            >
+              <MessageSquare className="size-3.5 shrink-0 text-ink-3" />
+              <span className="truncate">{session.title}</span>
+            </button>
+          ))}
         </div>
       ) : null}
       <div className="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/user:opacity-100 group-hover/user:opacity-100">
@@ -469,6 +489,7 @@ function CompactionDivider({ pending }: { pending?: boolean }) {
 export const ChatThread = memo(function ChatThread({
   chat,
   onOpenSource,
+  onOpenSession,
   onSaveNote,
   onEditLast,
   onFork,
@@ -483,6 +504,8 @@ export const ChatThread = memo(function ChatThread({
   draftKey?: string | null;
   /** 点击引用来源 chip 时打开对应文档；未提供时 chip 以纯文本呈现。 */
   onOpenSource?: (key: string) => void;
+  /** 点击 # 引用的会话 chip 时打开该会话；未提供时 chip 不可点。 */
+  onOpenSession?: (id: string) => void;
   /** 把回答保存为笔记；未提供时隐藏入口。 */
   onSaveNote?: (text: string) => void;
   onEditLast?: (text: string, comments?: ChatComment[]) => void;
@@ -625,6 +648,7 @@ export const ChatThread = memo(function ChatThread({
                 key={`${chat.sessionId}:${index}`}
                 message={message}
                 onOpenSource={onOpenSource}
+                onOpenSession={onOpenSession}
                 onEdit={handleEditLast}
                 editable={index === lastUserIndex && !streaming && onEditLast !== undefined}
               />

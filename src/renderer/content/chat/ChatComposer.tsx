@@ -10,6 +10,7 @@ import {
   FileText,
   Globe,
   LoaderCircle,
+  MessageSquare,
   Paperclip,
   Settings,
   Sparkles,
@@ -58,9 +59,9 @@ const builtinCommands = [
   { name: '整理', prompt: '帮我把引用资料里的要点整理成一份笔记', hint: '生成并保存笔记' },
 ];
 
-type MenuState = { kind: 'slash' | 'mention'; query: string; start: number } | null;
+type MenuState = { kind: 'slash' | 'mention' | 'session'; query: string; start: number } | null;
 
-/** 检测光标前的 / 或 @ 触发词；单独输入 / 或 @ 也打开候选（空查询）。 */
+/** 检测光标前的 /、@ 或 # 触发词；单独输入也打开候选（空查询）。「# 」是 Markdown 标题，不触发。 */
 function detectMenu(text: string, caret: number): MenuState {
   const before = text.slice(0, caret);
   const slash = /(?:^|\s)\/([^\s]{0,30})$/.exec(before);
@@ -68,6 +69,9 @@ function detectMenu(text: string, caret: number): MenuState {
   const mention = /(?:^|\s)@([^\s@]{0,50})$/.exec(before);
   if (mention)
     return { kind: 'mention', query: mention[1]!, start: caret - mention[1]!.length - 1 };
+  const session = /(?:^|s)#([^s#]{0,50})$/.exec(before);
+  if (session)
+    return { kind: 'session', query: session[1]!, start: caret - session[1]!.length - 1 };
   return null;
 }
 
@@ -281,9 +285,13 @@ export function ChatComposer({
         ].filter((command) => command.name.includes(menu.query))
       : [];
   const mentionItems =
-    menu?.kind === 'mention'
+    menu && menu.kind !== 'slash'
       ? referenceOptions
-          .filter((option) => option.title.toLowerCase().includes(menu.query.toLowerCase()))
+          .filter(
+            (option) =>
+              Boolean(option.session) === (menu.kind === 'session') &&
+              option.title.toLowerCase().includes(menu.query.toLowerCase()),
+          )
           .slice(0, 8)
       : [];
   const items: (typeof slashItems)[number][] | ChatReference[] =
@@ -320,8 +328,12 @@ export function ChatComposer({
     } else {
       const option = mentionItems[position];
       if (!option) return;
-      // 引用即文本：原位留下「@相对路径」token（尾随空格隔开后续输入），发送时解析回 key。
-      editorRef.current?.replaceRange(menu.start, caret, `@${option.title} `);
+      // 引用即文本：原位留下「@相对路径」或「#会话标题」token（尾随空格隔开后续输入），发送时解析回 key。
+      editorRef.current?.replaceRange(
+        menu.start,
+        caret,
+        `${option.session ? '#' : '@'}${option.title} `,
+      );
     }
     setMenu(null);
     setIndex(0);
@@ -926,6 +938,8 @@ export function ChatComposer({
               >
                 {menu?.kind === 'mention' ? (
                   <FileText className="size-3.5 shrink-0 text-ink-3" />
+                ) : menu?.kind === 'session' ? (
+                  <MessageSquare className="size-3.5 shrink-0 text-ink-3" />
                 ) : (
                   <span className="shrink-0 font-mono text-13 text-ink-3">/</span>
                 )}
@@ -934,6 +948,13 @@ export function ChatComposer({
                     <span className="shrink-0 text-13 font-medium text-ink">/{item.name}</span>
                     <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{item.hint}</span>
                   </>
+                ) : item.session ? (
+                  <span
+                    className="min-w-0 flex-1 truncate text-13 font-semibold"
+                    style={{ color: 'var(--cal-blue-text)' }}
+                  >
+                    {item.title}
+                  </span>
                 ) : (
                   <MentionTitle title={item.title} />
                 )}
