@@ -53,6 +53,7 @@ import {
   shutdownSession,
 } from './extensions';
 import { packagesEnabled } from './packages';
+import { taskTool } from './subagent';
 import type { ChatSlashCommand } from '../../shared/chat';
 
 type ChatMessage = WorkspaceChat['messages'][number];
@@ -66,6 +67,8 @@ export interface SessionRow {
   provider_id: string | null;
   model: string | null;
   effort: string | null;
+  /** 子 Agent 会话的父会话；顶层会话为 null。 */
+  parent_id: string | null;
 }
 
 interface Live {
@@ -107,7 +110,7 @@ export function send(channel: string, ...args: unknown[]) {
 export function row(id: string): SessionRow {
   const found = getDatabase()
     .prepare(
-      'SELECT id, project_id, cwd, file, title, provider_id, model, effort FROM sessions WHERE id=?',
+      'SELECT id, project_id, cwd, file, title, provider_id, model, effort, parent_id FROM sessions WHERE id=?',
     )
     .get(id) as SessionRow | undefined;
   if (!found) throw new Error('会话不存在');
@@ -326,12 +329,16 @@ async function ensureLive(id: string): Promise<Live> {
   // 沿用来的选择在会话开始使用时写下，之后别的会话换模型不再影响它。
   if (!choice.stored) storeModel(id, selection.provider.id, selection.model, selection.effort);
   const cwd = sessionCwd(meta.project_id, meta.cwd);
-  const environment = agentEnvironment();
+  const options = await agentEnvironment().sessionOptions(meta.project_id, cwd);
+  // 子 Agent 不再派子 Agent；远程会话暂不支持子 Agent。
+  const delegates = !meta.parent_id && !(meta.project_id && remoteProjectOf(meta.project_id));
   const session = await openPiSession({
     cwd,
     file: existsSync(meta.file) ? meta.file : undefined,
     selection,
-    ...(await environment.sessionOptions(meta.project_id, cwd)),
+    ...options,
+    ...(delegates ? { customTools: [...options.customTools, taskTool(id)] } : {}),
+    ...(meta.parent_id ? { parentSession: row(meta.parent_id).file } : {}),
   });
   if (session.sessionFile && session.sessionFile !== meta.file)
     getDatabase().prepare('UPDATE sessions SET file=? WHERE id=?').run(session.sessionFile, id);
@@ -582,6 +589,7 @@ function snapshot(id: string): WorkspaceChat {
     activeTool: entry?.run?.tool,
     compacting: entry?.session.isCompacting ?? false,
     queued: queuedTexts(entry?.session.getSteeringMessages() ?? []),
+    ...(meta.parent_id ? { subagent: { parentId: meta.parent_id, description: meta.title } } : {}),
   };
 }
 
@@ -804,7 +812,7 @@ export function listSessions(projectId: string | null, query: string): ChatSessi
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
   return getDatabase()
     .prepare(
-      `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count > 0
+      `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count > 0 AND parent_id IS NULL
        ${query ? "AND title LIKE ? ESCAPE '\\'" : ''} ORDER BY pinned DESC, updated_at DESC LIMIT 100`,
     )
     .all(...(query ? [projectId, pattern] : [projectId]))
@@ -813,7 +821,9 @@ export function listSessions(projectId: string | null, query: string): ChatSessi
 
 export function archivedSessions(): ChatSessionSummary[] {
   return getDatabase()
-    .prepare(`SELECT ${summaryColumns} FROM sessions WHERE archived = 1 ORDER BY updated_at DESC`)
+    .prepare(
+      `SELECT ${summaryColumns} FROM sessions WHERE archived = 1 AND parent_id IS NULL ORDER BY updated_at DESC`,
+    )
     .all()
     .map((row) => toSummary(row as SummaryRow));
 }
@@ -824,7 +834,7 @@ function emptyGeneralSessionId(scope: ChatScope): string | undefined {
   const row = getDatabase()
     .prepare(
       `SELECT id FROM sessions WHERE project_id IS NULL AND archived = 0 AND message_count = 0
-       AND cwd IS NOT NULL AND cwd IS ${scope === 'library' ? '?' : 'NOT ?'}
+       AND parent_id IS NULL AND cwd IS NOT NULL AND cwd IS ${scope === 'library' ? '?' : 'NOT ?'}
        ORDER BY updated_at DESC LIMIT 1`,
     )
     .get(coursesDirectory()) as { id: string } | undefined;
@@ -842,7 +852,7 @@ export function newSession(projectId: string | null, scope: ChatScope): Workspac
       : (
           getDatabase()
             .prepare(
-              'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 ORDER BY updated_at DESC LIMIT 1',
+              'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 AND parent_id IS NULL ORDER BY updated_at DESC LIMIT 1',
             )
             .get(projectId) as { id: string } | undefined
         )?.id;
@@ -944,6 +954,70 @@ export async function sidechatSource(id: string) {
 
 export const sessionRunning = (id: string) => Boolean(live.get(id)?.run);
 
+/** 子 Agent 的会话：同项目、同目录，模型与推理档位取父会话当时的选择，历史为空。 */
+export function createSubagentSession(parentId: string, description: string): string {
+  const parent = row(parentId);
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `INSERT INTO sessions (id, project_id, cwd, file, title, provider_id, model, effort, parent_id, created_at, updated_at)
+       VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      parent.project_id,
+      live.get(parentId)?.cwd ?? sessionCwd(parent.project_id, parent.cwd),
+      description.slice(0, 60),
+      parent.provider_id,
+      parent.model,
+      parent.effort,
+      parentId,
+      now,
+      now,
+    );
+  return id;
+}
+
+/** 子 Agent 跑一轮：signal 中止时连带停止；只交回本轮的最终回复。 */
+export async function runSubagent(
+  id: string,
+  prompt: string,
+  signal: AbortSignal | undefined,
+  onEvent: (event: AgentSessionEvent) => void,
+): Promise<{ status: TurnStatus; reply: string | null; error?: string }> {
+  const entry = await ensureLive(id);
+  if (entry.run || entry.session.isCompacting)
+    throw new Error('这个子 Agent 还在运行，等它结束再续接');
+  if (signal?.aborted) return { status: 'stopped', reply: null };
+  const turnId = randomUUID();
+  const priorCount = entry.session.messages.length;
+  const unsubscribe = entry.session.subscribe(onEvent);
+  const stop = () => cancelRun(id);
+  signal?.addEventListener('abort', stop, { once: true });
+  try {
+    const status = await runTurn(id, entry, turnId, [], () =>
+      entry.session.prompt(
+        `${META_PREFIX}${JSON.stringify({ turnId, body: prompt })}${META_SUFFIX}${prompt}`,
+      ),
+    );
+    const last = entry.session.messages.slice(priorCount).findLast((m) => m.role === 'assistant');
+    if (last?.role !== 'assistant') return { status, reply: null };
+    const reply = last.content
+      .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+      .join('\n\n')
+      .trim();
+    return {
+      status,
+      reply: reply || null,
+      ...(last.stopReason === 'error' ? { error: last.errorMessage ?? '未知错误' } : {}),
+    };
+  } finally {
+    signal?.removeEventListener('abort', stop);
+    unsubscribe();
+  }
+}
+
 /** 跨会话读取的原文：打开着的会话读内存里的记录（含本轮已落下的消息），其余直接读 JSONL。 */
 export function sessionBranch(id: string): { branch: SessionEntry[]; runningTurn?: string } {
   const entry = live.get(id);
@@ -967,7 +1041,11 @@ export function updateSessionVisibility(
   const db = getDatabase();
   if (patch.archived) void import('./sidechat').then(({ closeSidechat }) => closeSidechat(id));
   if (patch.archived !== undefined)
-    db.prepare('UPDATE sessions SET archived=? WHERE id=?').run(Number(patch.archived), id);
+    db.prepare('UPDATE sessions SET archived=? WHERE id=? OR parent_id=?').run(
+      Number(patch.archived),
+      id,
+      id,
+    );
   if (patch.pinned !== undefined)
     db.prepare('UPDATE sessions SET pinned=? WHERE id=?').run(Number(patch.pinned), id);
 }
@@ -995,6 +1073,10 @@ export async function deleteSession(id: string) {
     await done;
     await disposeLive(id, entry, 'quit');
   }
+  const children = getDatabase().prepare('SELECT id FROM sessions WHERE parent_id=?').all(id) as {
+    id: string;
+  }[];
+  for (const child of children) await deleteSession(child.id);
   const { file } = row(id);
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
   await changes.deleteTurnChanges(id);
@@ -1117,6 +1199,7 @@ export function composePrompt(input: ChatAskInput, cwd: string, turnId: string =
 
 /** 一轮对话：文本直接入上下文，文档附件仅传本地引用，由 skill 按需解析。运行中发来的消息插进本轮。 */
 export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
+  if (row(id).parent_id) throw new Error('子 Agent 的会话只读');
   const entry = await ensureLive(id);
   const current = entry.run;
   if (current && !input.replaceLastUser) {
@@ -1172,6 +1255,7 @@ type TurnStatus = 'completed' | 'failed' | 'stopped';
 /**
  * 一轮执行的记账：登记 run、拍目录快照、冻结本轮改动、推送状态与提醒、轮末释放附件并丢弃过期实例。
  * start 只负责把这一轮交给 Pi；不经这里开的一轮界面不显示运行中，改动也不进审阅。
+ * 子 Agent 的改动落在父会话这一轮的快照里，自己不拍快照、不记改动，也不弹完成提醒。
  */
 async function runTurn(
   id: string,
@@ -1181,6 +1265,7 @@ async function runTurn(
   start: () => Promise<void>,
 ): Promise<TurnStatus> {
   const meta = row(id);
+  const child = meta.parent_id !== null;
   let finishRun!: () => void;
   const run: Run = {
     id: turnId,
@@ -1200,7 +1285,7 @@ async function runTurn(
   try {
     if (meta.project_id && remoteProjectOf(meta.project_id))
       captureError = '远程会话暂不记录目录快照';
-    else {
+    else if (!child) {
       try {
         before = await changes.captureDirectory(entry.cwd);
       } catch (error) {
@@ -1222,15 +1307,16 @@ async function runTurn(
     run.finishing = true;
     let changesError: string | undefined;
     try {
-      await changes.freezeTurnChanges(
-        id,
-        turnId,
-        entry.cwd,
-        startedAt,
-        status,
-        before,
-        captureError,
-      );
+      if (!child)
+        await changes.freezeTurnChanges(
+          id,
+          turnId,
+          entry.cwd,
+          startedAt,
+          status,
+          before,
+          captureError,
+        );
     } catch (error) {
       changesError = error instanceof Error ? error.message : String(error);
     }
@@ -1250,7 +1336,7 @@ async function runTurn(
       touch(id, entry);
       runEvent(id, status, undefined, turnId, changesError);
       publish(id);
-      if (status !== 'stopped') notifyRunFinished(id, status);
+      if (status !== 'stopped' && !child) notifyRunFinished(id, status);
       if (entry.stale) void disposeLive(id, entry, 'reload');
     } finally {
       finishRun();

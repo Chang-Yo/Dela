@@ -204,7 +204,9 @@ const ChatSessionView = memo(function ChatSessionView({
 
   // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
-  const conversation = chat && (busy || chat.messages.length > 0 || chat.running);
+  // 子 Agent 的会话只读：没有输入框，不能编辑重发、分支或旁问。
+  const subagent = chat?.subagent;
+  const conversation = chat && (busy || chat.messages.length > 0 || chat.running || subagent);
 
   const saveConversation = async () => {
     if (!window.dela) return;
@@ -272,7 +274,7 @@ const ChatSessionView = memo(function ChatSessionView({
             <Download />
           </IconButton>
         )}
-        {conversation && !sidechatOpen && (
+        {conversation && !sidechatOpen && !subagent && (
           <IconButton
             aria-label="旁问"
             onClick={() => void openSidechat(active)}
@@ -299,9 +301,9 @@ const ChatSessionView = memo(function ChatSessionView({
         <ChatThread
           chat={chat}
           mailDialog={mailDialog}
-          onEditLast={editLast}
-          onFork={fork}
-          onSidechat={sidechatFromQuote}
+          onEditLast={subagent ? undefined : editLast}
+          onFork={subagent ? undefined : fork}
+          onSidechat={subagent ? undefined : sidechatFromQuote}
           onOpenSource={onOpenSource}
           onOpenSession={openSession}
           onSaveNote={onSaveNote}
@@ -317,7 +319,16 @@ const ChatSessionView = memo(function ChatSessionView({
           </div>
         </div>
       )}
-      {conversation && composer(false)}
+      {subagent ? (
+        <div className="mx-auto flex w-full max-w-3xl shrink-0 items-center gap-2 px-6 py-3 text-xs text-ink-3">
+          <span className="min-w-0 truncate">子 Agent · {subagent.description} · 只读</span>
+          <Button size="sm" variant="ghost" onClick={() => openSession(subagent.parentId)}>
+            回到父会话
+          </Button>
+        </div>
+      ) : (
+        conversation && composer(false)
+      )}
       {sidechatOpen && (
         <SidechatPanel
           onOpenSource={onOpenSource}
