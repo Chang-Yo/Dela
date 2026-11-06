@@ -42,6 +42,7 @@ import {
   setSessionModel,
   subscribeChat,
   updateSessionVisibility,
+  withdrawQueued,
 } from './session';
 import { registerPackagesIpc } from './packages-ipc';
 import { exportSession } from './session-export';
@@ -204,6 +205,7 @@ export function registerAgentIpc() {
   });
   sessionHandle('ask', (id, input) => askSession(uuid.parse(id), askInputSchema.parse(input)));
   sessionHandle('cancel-run', (id) => cancelRun(uuid.parse(id)));
+  sessionHandle('withdraw-queued', (id) => withdrawQueued(uuid.parse(id)));
   sessionHandle('fork', (id, entryId) =>
     forkSession(uuid.parse(id), z.string().min(1).max(64).parse(entryId)),
   );

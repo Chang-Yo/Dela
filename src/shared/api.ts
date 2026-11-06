@@ -195,6 +195,7 @@ export type {
   ChatAskInput,
   ChatComment,
   ChatMediaView,
+  ChatQueuedDraft,
   ChatCommandView,
   ChatSlashCommand,
   ChatApi,
@@ -256,6 +257,7 @@ export type {
   RunEvent,
   RunStatus,
   ChatStreamEvent,
+  ChatQueueEvent,
   MainSessionCommand,
   SessionCommandName,
 } from './session';
