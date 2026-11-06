@@ -363,6 +363,27 @@ it('只带回复评论也能发送：评论进 prompt，历史消息还原为结
   expect(response.messages[0]).toMatchObject({ role: 'user', content: '', comments });
 });
 
+it('# 引用的会话只把 id 交给模型，由它按需 session_read；历史消息带回引用', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  const sessions = [{ id: 's-1', title: '复习计划' }];
+  const response = await askSession(chat.sessionId!, {
+    text: '接着 #复习计划 做',
+    attachments: [],
+    context: [],
+    sessions,
+    comments: [],
+  });
+  expect(state.prompts[0]).toContain(
+    '用户引用了同项目的这些会话（需要时用 session_read 读取）：\n- 复习计划（sessionId: s-1）\n',
+  );
+  expect(response.messages[0]).toMatchObject({
+    role: 'user',
+    content: '接着 #复习计划 做',
+    sessions,
+  });
+});
+
 const assistant = (content: unknown[], extra: object = {}) =>
   ({
     role: 'assistant',

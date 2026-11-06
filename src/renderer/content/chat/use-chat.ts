@@ -186,7 +186,10 @@ export function useChat(
       else await runCommand(command.name, command.args, text);
       return;
     }
-    const sentReferences = references;
+    const sentReferences = references.filter((ref) => !ref.session);
+    const sentSessions = references.flatMap((ref) =>
+      ref.session ? [{ id: ref.key, title: ref.title }] : [],
+    );
     const sentAttachments = attachments;
     try {
       if (flushReference) {
@@ -209,6 +212,7 @@ export function useChat(
         text,
         attachments: sentAttachments.map((item) => item.id),
         context: sentReferences.map((ref) => ref.key),
+        ...(sentSessions.length ? { sessions: sentSessions } : {}),
         comments,
       });
       if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);

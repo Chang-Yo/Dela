@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
-import type { ChatComment, WorkspaceChat } from '../../../shared/api';
+import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ChatComposer } from './ChatComposer';
@@ -10,9 +10,9 @@ import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
 import { useChat, useChatDraft, type ChatReference } from './use-chat';
-import { referenceContext } from './reference-tokens';
+import { referenceContext, sessionReferences } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
-import { updateSession, useSessions } from '../../sessions/store';
+import { poolKey, updateSession, useSessions } from '../../sessions/store';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { openTarget } from '../../workbench/open-target';
 import { showToast } from '../../app/toasts';
@@ -127,11 +127,23 @@ function ChatComposerArea({
 }
 
 const noReferences: ChatReference[] = [];
+const noSessions: ChatSessionSummary[] = [];
 const noComments: ChatComment[] = [];
 /** @ 候选：会话快照就位前（projectId/cwd 未知）不列候选，避免列出别的项目的文件。 */
+/** @ 文件候选来自容器注入；# 会话候选是同池的其他会话（各池列表启动时已载入镜像）。 */
 function useReferenceOptions(source: ReferenceSource | undefined, chat: WorkspaceChat | null) {
-  const options = source?.useEntries(chat?.projectId ?? null, chat?.cwd ?? null);
-  return chat && options ? options : noReferences;
+  const projectId = chat?.projectId ?? null;
+  const files = source?.useEntries(projectId, chat?.cwd ?? null);
+  const sessions = useSessions((state) => state.lists[poolKey(projectId)]);
+  const sessionId = chat?.sessionId ?? null;
+  const ready = chat !== null;
+  return useMemo(
+    () =>
+      ready
+        ? [...(files ?? []), ...sessionReferences(sessions ?? noSessions, sessionId)]
+        : noReferences,
+    [ready, files, sessions, sessionId],
+  );
 }
 
 const ChatSessionView = memo(function ChatSessionView({
@@ -155,6 +167,10 @@ const ChatSessionView = memo(function ChatSessionView({
       useNavigationStore.getState().openGeneralChat(true);
     else void useNavigationStore.getState().newChat(projectId);
   }, [projectId]);
+  const openSession = useCallback(
+    (id: string) => useNavigationStore.getState().openChat(id, projectId),
+    [projectId],
+  );
   const chatState = useChat(active, referenceSource, startNewChat);
   const { chat, busy, editLast, fork } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -287,6 +303,7 @@ const ChatSessionView = memo(function ChatSessionView({
           onFork={fork}
           onSidechat={sidechatFromQuote}
           onOpenSource={onOpenSource}
+          onOpenSession={openSession}
           onSaveNote={onSaveNote}
         />
       ) : (
