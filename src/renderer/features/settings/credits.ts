@@ -9,6 +9,7 @@ import jinjiAvatar from '../../../../assets/credits/jinji-2005/avatar.jpg';
 import cophqAvatar from '../../../../assets/credits/cophq/avatar.jpg';
 import sbsjkmAvatar from '../../../../assets/credits/sbsjkm/avatar.jpg';
 import slayerwaltAvatar from '../../../../assets/credits/slayerwalt/avatar.jpg';
+import aletheiarAvatar from '../../../../assets/credits/aletheiar/avatar.png';
 import frameneoLogoBlack from '../../../../assets/sponsors/FRAMENEO_logo_black.png';
 import frameneoLogoWhite from '../../../../assets/sponsors/FRAMENEO_logo_white.png';
 
@@ -109,6 +110,11 @@ export const creditSections: CreditSection[] = [
         name: 'slayerwalt',
         avatar: slayerwaltAvatar,
         links: [{ kind: 'github', url: 'https://github.com/slayerwalt' }],
+      },
+      {
+        name: 'Aletheiar',
+        avatar: aletheiarAvatar,
+        links: [{ kind: 'github', url: 'https://github.com/Aletheiar' }],
       },
     ],
   },
