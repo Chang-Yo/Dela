@@ -26,7 +26,7 @@ function groupByDomain(capabilities: AgentCapabilityView[]) {
   return [...groups.values()];
 }
 
-/** 子 Agent 并发上限：失焦或回车时保存，超出范围按主进程的校验报错并回滚。 */
+/** 子 Agent 并发上限（task 开启时显示）：失焦或回车时保存，超出范围按主进程的校验报错并回滚。 */
 function SubagentLimit() {
   const [saved, setSaved] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
@@ -50,36 +50,31 @@ function SubagentLimit() {
     }
   };
   return (
-    <SettingsGroup settingId="capabilities-subagent" title="子 Agent">
-      <div
-        className="flex items-center justify-between gap-4 py-3"
-        data-setting-id="capability-task"
-      >
-        <div className="grid min-w-0 gap-0.5">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="truncate text-13 font-medium">同时运行上限</span>
-            <span className="truncate font-mono text-xs text-ink-3">task</span>
-          </div>
-          <span className="line-clamp-2 text-xs leading-relaxed text-ink-3">
-            全应用同时运行的子 Agent 数，超出时派发失败，不排队
-          </span>
-        </div>
-        <Input
-          aria-label="子 Agent 同时运行上限"
-          className="w-16 shrink-0"
-          max="16"
-          min="1"
-          step="1"
-          type="number"
-          value={draft}
-          onBlur={() => void save()}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur();
-          }}
-        />
+    <div
+      className="flex items-center justify-between gap-4 border-b py-3 last:border-0"
+      data-setting-id="capability-subagent-limit"
+    >
+      <div className="grid min-w-0 gap-0.5">
+        <span className="truncate text-13 font-medium">同时运行上限</span>
+        <span className="line-clamp-2 text-xs leading-relaxed text-ink-3">
+          全应用同时运行的子 Agent 数，超出时派发失败，不排队
+        </span>
       </div>
-    </SettingsGroup>
+      <Input
+        aria-label="子 Agent 同时运行上限"
+        className="w-16 shrink-0"
+        max="16"
+        min="1"
+        step="1"
+        type="number"
+        value={draft}
+        onBlur={() => void save()}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+        }}
+      />
+    </div>
   );
 }
 
@@ -164,7 +159,7 @@ export function CapabilitiesSection() {
                             <SlidersHorizontal className="size-4" strokeWidth={1.8} />
                           </Button>
                         )}
-                        {toggleable.length > 0 && (
+                        {toggleable.length > 1 && (
                           <Switch
                             checked={allEnabled}
                             disabled={busy}
@@ -228,10 +223,13 @@ export function CapabilitiesSection() {
                         )}
                       </div>
                     ))}
+                    {group.id === 'subagent' &&
+                      group.items.some((item) => item.name === 'task' && item.enabled) && (
+                        <SubagentLimit />
+                      )}
                   </SettingsGroup>
                 );
               })}
-              <SubagentLimit />
             </div>
           )}
           {error && (
