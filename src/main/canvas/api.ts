@@ -540,11 +540,11 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
   let response = first;
   if (first.status >= 300 && first.status < 400) {
     const target = new URL(first.headers.get('location') || '', origin);
-    if (
-      target.protocol !== 'https:' ||
-      ![new URL(origin).hostname, 's3.jcloud.sjtu.edu.cn'].includes(target.hostname)
-    )
-      throw new Error('Canvas 下载重定向无效');
+    const allowedHost =
+      target.hostname === new URL(origin).hostname ||
+      target.hostname === 's3.jcloud.sjtu.edu.cn' ||
+      target.hostname.endsWith('.s3.jcloud.sjtu.edu.cn');
+    if (target.protocol !== 'https:' || !allowedHost) throw new Error('Canvas 下载重定向无效');
     // Signed storage URL is a credential: never expose it or forward the Canvas Authorization header.
     response = await fetch(target, { redirect: 'error', signal: AbortSignal.timeout(120000) });
   }
