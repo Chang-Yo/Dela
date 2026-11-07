@@ -21,4 +21,4 @@ description: 交大课堂录像：查询课程节次，按时间范围读取语�
 - available=false 表示暂无文稿；available=true 而 text 为空表示该区间无匹配内容。网络或登录错误不等于暂无文稿。识别文本可能有误，引用时注明课程、节次和时间。
 - 只有用户要求保存时才下载。目标是本机目录，必须来自用户明确指定的位置或已经明确的本地项目，不根据界面当前选中项猜测。无工作区时优先只读，需要下载先明确目录；远程项目不要把远端路径传给本机下载命令。
 - 下载不截取时间范围，每项返回 saved/unavailable/failed。已有文件不会覆盖；只针对需要的节次重试。
-- `dela help '{"command":"read_classroom_transcript"}'` 查看参数，不确定时先查 help。
+- `dela classroom read_classroom_transcript --help` 查看参数，不确定时先查 help。
