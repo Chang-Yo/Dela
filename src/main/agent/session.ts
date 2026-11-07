@@ -9,6 +9,7 @@ import { shell, type WebContents } from 'electron';
 import type {
   AgentSession,
   AgentSessionEvent,
+  SessionEntry,
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
@@ -22,9 +23,11 @@ import type {
   ContextUsageView,
   MainSessionCommand,
   RunStatus,
+  TaskNoticeDetails,
   UncommittedChanges,
   WorkspaceChat,
 } from '../../shared/api';
+import { TASK_NOTICE } from '../../shared/api';
 import { parseChatBlocks, stripChatImageTokens } from '../../shared/chat-input';
 import { getDatabase } from '../database';
 import { storageDirectory } from '../storage';
@@ -52,6 +55,8 @@ import {
   shutdownSession,
 } from './extensions';
 import { packagesEnabled } from './packages';
+import { taskTool } from './subagent';
+import { backgroundTools, runningTasks, stopAllTasks, stopSessionTasks } from './tasks';
 import type { ChatSlashCommand } from '../../shared/chat';
 
 type ChatMessage = WorkspaceChat['messages'][number];
@@ -65,6 +70,8 @@ export interface SessionRow {
   provider_id: string | null;
   model: string | null;
   effort: string | null;
+  /** 子 Agent 会话的父会话；顶层会话为 null。 */
+  parent_id: string | null;
 }
 
 interface Live {
@@ -87,7 +94,15 @@ interface Run {
   finishing?: boolean;
   /** 插进本轮的消息；附件到本轮结束才释放，撤回的从这里拿回原始输入。 */
   steers: { prompt: string; input: ChatAskInput }[];
+  /** 插进本轮的后台任务通知：Pi 清空插队队列时会一并丢掉，轮末或撤回后补投没送达的。 */
+  notices: TaskNotice[];
   done: Promise<void>;
+}
+
+/** 后台任务结束的通知，作为 Pi 自定义消息（customType dela-task）进入父会话。 */
+export interface TaskNotice {
+  text: string;
+  details: TaskNoticeDetails;
 }
 
 const live = new Map<string, Live>();
@@ -106,7 +121,7 @@ export function send(channel: string, ...args: unknown[]) {
 export function row(id: string): SessionRow {
   const found = getDatabase()
     .prepare(
-      'SELECT id, project_id, cwd, file, title, provider_id, model, effort FROM sessions WHERE id=?',
+      'SELECT id, project_id, cwd, file, title, provider_id, model, effort, parent_id FROM sessions WHERE id=?',
     )
     .get(id) as SessionRow | undefined;
   if (!found) throw new Error('会话不存在');
@@ -325,12 +340,24 @@ async function ensureLive(id: string): Promise<Live> {
   // 沿用来的选择在会话开始使用时写下，之后别的会话换模型不再影响它。
   if (!choice.stored) storeModel(id, selection.provider.id, selection.model, selection.effort);
   const cwd = sessionCwd(meta.project_id, meta.cwd);
-  const environment = agentEnvironment();
+  const options = await agentEnvironment().sessionOptions(meta.project_id, cwd);
+  // 子 Agent 不再派子 Agent，也不开后台任务；远程会话暂不支持这两样。
+  const delegates = !meta.parent_id && !(meta.project_id && remoteProjectOf(meta.project_id));
   const session = await openPiSession({
     cwd,
     file: existsSync(meta.file) ? meta.file : undefined,
     selection,
-    ...(await environment.sessionOptions(meta.project_id, cwd)),
+    ...options,
+    ...(delegates
+      ? {
+          customTools: [
+            ...options.customTools,
+            ...(await backgroundTools(id, cwd, options.shellPath, options.commandPrefix)),
+            taskTool(id),
+          ],
+        }
+      : {}),
+    ...(meta.parent_id ? { parentSession: row(meta.parent_id).file } : {}),
   });
   if (session.sessionFile && session.sessionFile !== meta.file)
     getDatabase().prepare('UPDATE sessions SET file=? WHERE id=?').run(session.sessionFile, id);
@@ -366,6 +393,7 @@ function disposeLive(id: string, entry: Live, reason: 'quit' | 'reload'): Promis
 
 /** 应用退出前结束全部会话，让扩展收拾子进程；最多等 timeoutMs，卡住的扩展不拖住退出。 */
 export async function shutdownSessions(timeoutMs: number): Promise<void> {
+  stopAllTasks();
   const pending = [...live].map(([id, entry]) => {
     if (entry.run) entry.run.cancelled = true;
     return disposeLive(id, entry, 'quit');
@@ -511,6 +539,15 @@ export function projectMessages(
         step.finishedAt = message.timestamp;
       }
       if (entryId && reply) reply.entryId = entryId;
+    } else if (message.role === 'custom' && message.customType === TASK_NOTICE) {
+      // 唤醒父会话的通知开启新的一轮：随后的回复从通知算起，审阅对应这一轮。
+      const details = message.details as TaskNoticeDetails;
+      if (details.turnId) {
+        lastUserAt = message.timestamp;
+        lastTurnId = details.turnId;
+      }
+      out.push({ role: 'assistant', content: textOf(message.content), parts: [], task: details });
+      reply = null;
     } else if (message.role === 'custom') {
       // 扩展的可见消息自成一条，不并进前后的模型回复；display=false 的只给模型看。
       // appendEntry 写的扩展状态不是消息，根本不会出现在这里。
@@ -539,7 +576,7 @@ export function projectMessages(
     delete last.finishedAt;
     delete last.entryId;
   }
-  if (running && last?.role === 'user')
+  if (running && (last?.role === 'user' || last?.task))
     out.push({
       role: 'assistant',
       content: '',
@@ -581,6 +618,8 @@ function snapshot(id: string): WorkspaceChat {
     activeTool: entry?.run?.tool,
     compacting: entry?.session.isCompacting ?? false,
     queued: queuedTexts(entry?.session.getSteeringMessages() ?? []),
+    tasks: runningTasks(id),
+    ...(meta.parent_id ? { subagent: { parentId: meta.parent_id, description: meta.title } } : {}),
   };
 }
 
@@ -664,7 +703,7 @@ export async function preloadPi() {
   piSync = await loadPi();
 }
 
-function publish(id: string) {
+export function publish(id: string) {
   send('session:on-update', id, snapshot(id));
 }
 
@@ -794,7 +833,8 @@ function runEvent(
 
 // ===== Session API =====
 
-const summaryColumns = 'id, title, pinned, project_id AS projectId, updated_at AS updatedAt';
+const summaryColumns =
+  'id, title, pinned, project_id AS projectId, updated_at AS updatedAt, created_at AS createdAt';
 type SummaryRow = Omit<ChatSessionSummary, 'pinned'> & { pinned: number };
 const toSummary = (row: SummaryRow): ChatSessionSummary => ({ ...row, pinned: row.pinned === 1 });
 
@@ -802,7 +842,7 @@ export function listSessions(projectId: string | null, query: string): ChatSessi
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
   return getDatabase()
     .prepare(
-      `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count > 0
+      `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count > 0 AND parent_id IS NULL
        ${query ? "AND title LIKE ? ESCAPE '\\'" : ''} ORDER BY pinned DESC, updated_at DESC LIMIT 100`,
     )
     .all(...(query ? [projectId, pattern] : [projectId]))
@@ -811,7 +851,9 @@ export function listSessions(projectId: string | null, query: string): ChatSessi
 
 export function archivedSessions(): ChatSessionSummary[] {
   return getDatabase()
-    .prepare(`SELECT ${summaryColumns} FROM sessions WHERE archived = 1 ORDER BY updated_at DESC`)
+    .prepare(
+      `SELECT ${summaryColumns} FROM sessions WHERE archived = 1 AND parent_id IS NULL ORDER BY updated_at DESC`,
+    )
     .all()
     .map((row) => toSummary(row as SummaryRow));
 }
@@ -822,7 +864,7 @@ function emptyGeneralSessionId(scope: ChatScope): string | undefined {
   const row = getDatabase()
     .prepare(
       `SELECT id FROM sessions WHERE project_id IS NULL AND archived = 0 AND message_count = 0
-       AND cwd IS NOT NULL AND cwd IS ${scope === 'library' ? '?' : 'NOT ?'}
+       AND parent_id IS NULL AND cwd IS NOT NULL AND cwd IS ${scope === 'library' ? '?' : 'NOT ?'}
        ORDER BY updated_at DESC LIMIT 1`,
     )
     .get(coursesDirectory()) as { id: string } | undefined;
@@ -840,7 +882,7 @@ export function newSession(projectId: string | null, scope: ChatScope): Workspac
       : (
           getDatabase()
             .prepare(
-              'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 ORDER BY updated_at DESC LIMIT 1',
+              'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 AND parent_id IS NULL ORDER BY updated_at DESC LIMIT 1',
             )
             .get(projectId) as { id: string } | undefined
         )?.id;
@@ -940,6 +982,82 @@ export async function sidechatSource(id: string) {
   return { meta, cwd, selection: choice.selection, branch };
 }
 
+export const sessionRunning = (id: string) => Boolean(live.get(id)?.run);
+
+/** 子 Agent 的会话：同项目、同目录，模型与推理档位取父会话当时的选择，历史为空。 */
+export function createSubagentSession(parentId: string, description: string): string {
+  const parent = row(parentId);
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `INSERT INTO sessions (id, project_id, cwd, file, title, provider_id, model, effort, parent_id, created_at, updated_at)
+       VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      parent.project_id,
+      live.get(parentId)?.cwd ?? sessionCwd(parent.project_id, parent.cwd),
+      description.slice(0, 60),
+      parent.provider_id,
+      parent.model,
+      parent.effort,
+      parentId,
+      now,
+      now,
+    );
+  return id;
+}
+
+/** 子 Agent 跑一轮：signal 中止时连带停止；只交回本轮的最终回复。 */
+export async function runSubagent(
+  id: string,
+  prompt: string,
+  signal: AbortSignal | undefined,
+  onEvent: (event: AgentSessionEvent) => void,
+): Promise<{ status: TurnStatus; reply: string | null; error?: string }> {
+  const entry = await ensureLive(id);
+  if (entry.run || entry.session.isCompacting)
+    throw new Error('这个子 Agent 还在运行，等它结束再续接');
+  if (signal?.aborted) return { status: 'stopped', reply: null };
+  const turnId = randomUUID();
+  const priorCount = entry.session.messages.length;
+  const unsubscribe = entry.session.subscribe(onEvent);
+  const stop = () => cancelRun(id);
+  signal?.addEventListener('abort', stop, { once: true });
+  try {
+    const status = await runTurn(id, entry, turnId, [], () =>
+      entry.session.prompt(
+        `${META_PREFIX}${JSON.stringify({ turnId, body: prompt })}${META_SUFFIX}${prompt}`,
+      ),
+    );
+    const last = entry.session.messages.slice(priorCount).findLast((m) => m.role === 'assistant');
+    if (last?.role !== 'assistant') return { status, reply: null };
+    const reply = last.content
+      .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+      .join('\n\n')
+      .trim();
+    return {
+      status,
+      reply: reply || null,
+      ...(last.stopReason === 'error' ? { error: last.errorMessage ?? '未知错误' } : {}),
+    };
+  } finally {
+    signal?.removeEventListener('abort', stop);
+    unsubscribe();
+  }
+}
+
+/** 跨会话读取的原文：打开着的会话读内存里的记录（含本轮已落下的消息），其余直接读 JSONL。 */
+export function sessionBranch(id: string): { branch: SessionEntry[]; runningTurn?: string } {
+  const entry = live.get(id);
+  if (entry)
+    return { branch: entry.session.sessionManager.getBranch(), runningTurn: entry.run?.id };
+  const { file } = row(id);
+  if (!file || !existsSync(file)) return { branch: [] };
+  return { branch: requirePiSync().SessionManager.open(file).getBranch() };
+}
+
 export function openSession(id: string): WorkspaceChat {
   row(id);
   return snapshot(id);
@@ -951,9 +1069,16 @@ export function updateSessionVisibility(
 ) {
   row(id);
   const db = getDatabase();
-  if (patch.archived) void import('./sidechat').then(({ closeSidechat }) => closeSidechat(id));
+  if (patch.archived) {
+    stopSessionTasks(id);
+    void import('./sidechat').then(({ closeSidechat }) => closeSidechat(id));
+  }
   if (patch.archived !== undefined)
-    db.prepare('UPDATE sessions SET archived=? WHERE id=?').run(Number(patch.archived), id);
+    db.prepare('UPDATE sessions SET archived=? WHERE id=? OR parent_id=?').run(
+      Number(patch.archived),
+      id,
+      id,
+    );
   if (patch.pinned !== undefined)
     db.prepare('UPDATE sessions SET pinned=? WHERE id=?').run(Number(patch.pinned), id);
 }
@@ -964,6 +1089,7 @@ export function archiveProjectSessions(projectId: string | null): string[] {
     .prepare('SELECT id FROM sessions WHERE project_id IS ? AND archived = 0')
     .all(projectId) as { id: string }[];
   db.prepare('UPDATE sessions SET archived=1 WHERE project_id IS ?').run(projectId);
+  for (const { id } of ids) stopSessionTasks(id);
   void import('./sidechat').then(({ closeSidechat }) =>
     Promise.all(ids.map(({ id }) => closeSidechat(id))),
   );
@@ -973,6 +1099,7 @@ export function archiveProjectSessions(projectId: string | null): string[] {
 export async function deleteSession(id: string) {
   // 动态导入：sidechat 依赖本模块。
   await (await import('./sidechat')).closeSidechat(id);
+  stopSessionTasks(id);
   const entry = live.get(id);
   if (entry) {
     const done = entry.run?.done;
@@ -981,6 +1108,10 @@ export async function deleteSession(id: string) {
     await done;
     await disposeLive(id, entry, 'quit');
   }
+  const children = getDatabase().prepare('SELECT id FROM sessions WHERE parent_id=?').all(id) as {
+    id: string;
+  }[];
+  for (const child of children) await deleteSession(child.id);
   const { file } = row(id);
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
   await changes.deleteTurnChanges(id);
@@ -1001,7 +1132,62 @@ export function cancelRun(id: string): ChatQueuedDraft | null {
 
 export function withdrawQueued(id: string): ChatQueuedDraft | null {
   const entry = live.get(id);
-  return entry?.run ? queuedDraft(takeSteers(entry, entry.run)) : null;
+  if (!entry?.run) return null;
+  const draft = queuedDraft(takeSteers(entry, entry.run));
+  // 清空队列时一并丢掉的任务通知重新插进本轮。
+  for (const notice of undeliveredNotices(entry, entry.run))
+    void entry.session.sendCustomMessage(noticeMessage(notice));
+  return draft;
+}
+
+const noticeMessage = (notice: TaskNotice) => ({
+  customType: TASK_NOTICE,
+  content: notice.text,
+  display: true,
+  details: notice.details,
+});
+
+function undeliveredNotices(entry: Live, run: Run): TaskNotice[] {
+  const delivered = new Set(
+    entry.session.messages.flatMap((message) =>
+      message.role === 'custom' && message.customType === TASK_NOTICE
+        ? [(message.details as TaskNoticeDetails).noticeId]
+        : [],
+    ),
+  );
+  return run.notices.filter((notice) => !delivered.has(notice.details.noticeId));
+}
+
+/**
+ * 后台任务结束的通知：父会话运行中插进本轮，收尾中等它结束，空闲时开一轮（界面显示运行中）。
+ * wake=false 时（用户在面板上手动停止）只追加进记录，不开新的一轮。
+ */
+export async function deliverTaskNotice(
+  id: string,
+  notice: TaskNotice,
+  wake: boolean,
+): Promise<void> {
+  const entry = await ensureLive(id);
+  if (!wake) {
+    // 运行中 Pi 把它留到本轮结束再追加，不插进工具调用与结果之间。
+    await entry.session.sendCustomMessage(noticeMessage(notice), { triggerTurn: false });
+    return;
+  }
+  const run = entry.run;
+  if (run && !run.finishing && !run.cancelled && entry.session.isStreaming) {
+    run.notices.push(notice);
+    await entry.session.sendCustomMessage(noticeMessage(notice));
+    return;
+  }
+  if (run || entry.session.isCompacting) {
+    await (run ? run.done : entry.session.waitForIdle());
+    return deliverTaskNotice(id, notice, wake);
+  }
+  const turnId = randomUUID();
+  const message = noticeMessage({ ...notice, details: { ...notice.details, turnId } });
+  await runTurn(id, entry, turnId, [], () =>
+    entry.session.sendCustomMessage(message, { triggerTurn: true }),
+  );
 }
 
 /** 清空 Pi 的插队队列，取回这些消息的原始输入；已送达的留在 run 里等轮末释放附件。 */
@@ -1057,10 +1243,13 @@ export function composePrompt(input: ChatAskInput, cwd: string, turnId: string =
     throw new Error('文档附件目前只支持本机会话，请切换到随聊或本地项目');
   // @ 引用即路径：只告诉模型路径，读取由模型用 read 自主完成（pull 模型）。
   const sources = input.context.map((key) => ({ key, title: key }));
+  // # 引用的会话同样是 pull：只给 id，读取由模型用 session_read 完成。
+  const sessions = input.sessions ?? [];
   const meta = {
     turnId,
     body: userText,
     ...(sources.length ? { sources } : {}),
+    ...(sessions.length ? { sessions } : {}),
     ...(imageMeta.length ? { images: imageMeta } : {}),
     ...(attachments.length
       ? {
@@ -1076,6 +1265,9 @@ export function composePrompt(input: ChatAskInput, cwd: string, turnId: string =
     `${META_PREFIX}${JSON.stringify(meta)}${META_SUFFIX}`,
     sources.length
       ? `用户引用了这些文件（需要时用 read 读取）：\n${sources.map((s) => `- ${s.key}`).join('\n')}\n`
+      : '',
+    sessions.length
+      ? `用户引用了同项目的这些会话（需要时用 session_read 读取）：\n${sessions.map((s) => `- ${s.title}（sessionId: ${s.id}）`).join('\n')}\n`
       : '',
     ...attachments.map((attachment) =>
       'path' in attachment
@@ -1097,6 +1289,7 @@ export function composePrompt(input: ChatAskInput, cwd: string, turnId: string =
 
 /** 一轮对话：文本直接入上下文，文档附件仅传本地引用，由 skill 按需解析。运行中发来的消息插进本轮。 */
 export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
+  if (row(id).parent_id) throw new Error('子 Agent 的会话只读');
   const entry = await ensureLive(id);
   const current = entry.run;
   if (current && !input.replaceLastUser) {
@@ -1137,11 +1330,38 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
         ).slice(0, 60),
         id,
       );
+  await runTurn(id, entry, turnId, input.attachments, () =>
+    extensionCommand(entry.session, userText)
+      ? // 扩展命令与 prompt 模板要以 `/name` 开头才认得：去掉 Dela 的 meta 前缀原样交给 Pi，
+        // 命令由扩展处理（可能根本不发消息），模板由 Pi 展开后照常进入对话。
+        entry.session.prompt(userText, images.length ? { images } : undefined)
+      : entry.session.prompt(prompt, images.length ? { images } : undefined),
+  );
+  return snapshot(id);
+}
+
+type TurnStatus = 'completed' | 'failed' | 'stopped';
+
+/**
+ * 一轮执行的记账：登记 run、拍目录快照、冻结本轮改动、推送状态与提醒、轮末释放附件并丢弃过期实例。
+ * start 只负责把这一轮交给 Pi；不经这里开的一轮界面不显示运行中，改动也不进审阅。
+ * 子 Agent 的改动落在父会话这一轮的快照里，自己不拍快照、不记改动，也不弹完成提醒。
+ */
+async function runTurn(
+  id: string,
+  entry: Live,
+  turnId: string,
+  attachments: string[],
+  start: () => Promise<void>,
+): Promise<TurnStatus> {
+  const meta = row(id);
+  const child = meta.parent_id !== null;
   let finishRun!: () => void;
   const run: Run = {
     id: turnId,
     cancelled: false,
     steers: [],
+    notices: [],
     done: new Promise<void>((resolve) => {
       finishRun = resolve;
     }),
@@ -1149,14 +1369,14 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
   entry.run = run;
   liveSteps.set(id, new Map());
   runEvent(id, 'running');
-  let status: 'completed' | 'failed' | 'stopped' = 'completed';
+  let status: TurnStatus = 'completed';
   const startedAt = new Date().toISOString();
   let before: changes.DirectorySnapshot | null = null;
   let captureError: string | undefined;
   try {
-    if (meta0.project_id && remoteProjectOf(meta0.project_id))
+    if (meta.project_id && remoteProjectOf(meta.project_id))
       captureError = '远程会话暂不记录目录快照';
-    else {
+    else if (!child) {
       try {
         before = await changes.captureDirectory(entry.cwd);
       } catch (error) {
@@ -1166,11 +1386,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     // 只看本轮新产生的回复：扩展命令可能一条消息都不发，不能拿上一轮的结果来判本轮成败。
     const priorCount = entry.session.messages.length;
     if (run.cancelled) status = 'stopped';
-    else if (extensionCommand(entry.session, userText))
-      // 扩展命令与 prompt 模板要以 `/name` 开头才认得：去掉 Dela 的 meta 前缀原样交给 Pi，
-      // 命令由扩展处理（可能根本不发消息），模板由 Pi 展开后照常进入对话。
-      await entry.session.prompt(userText, images.length ? { images } : undefined);
-    else await entry.session.prompt(prompt, images.length ? { images } : undefined);
+    else await start();
     const last = entry.session.messages.slice(priorCount).findLast((m) => m.role === 'assistant');
     if (run.cancelled || (last?.role === 'assistant' && last.stopReason === 'aborted'))
       status = 'stopped';
@@ -1182,23 +1398,26 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     run.finishing = true;
     let changesError: string | undefined;
     try {
-      await changes.freezeTurnChanges(
-        id,
-        turnId,
-        entry.cwd,
-        startedAt,
-        status,
-        before,
-        captureError,
-      );
+      if (!child)
+        await changes.freezeTurnChanges(
+          id,
+          turnId,
+          entry.cwd,
+          startedAt,
+          status,
+          before,
+          captureError,
+        );
     } catch (error) {
       changesError = error instanceof Error ? error.message : String(error);
     }
     // Pi 最后一次取队列之后才插进来的消息没人送达，收尾后作为新一轮发出。
     const orphaned = takeSteers(entry, run);
+    // 没送达的任务通知同样补投；用户停止了这一轮时只追加，不立刻再开一轮。
+    const lostNotices = undeliveredNotices(entry, run);
     try {
       releaseChatAttachments([
-        ...input.attachments,
+        ...attachments,
         ...run.steers.flatMap((steer) => steer.input.attachments),
       ]);
       entry.run = undefined;
@@ -1210,7 +1429,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
       touch(id, entry);
       runEvent(id, status, undefined, turnId, changesError);
       publish(id);
-      if (status !== 'stopped') notifyRunFinished(id, status);
+      if (status !== 'stopped' && !child) notifyRunFinished(id, status);
       if (entry.stale) void disposeLive(id, entry, 'reload');
     } finally {
       finishRun();
@@ -1219,8 +1438,12 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
       void askSession(id, steer).catch((error: unknown) =>
         console.error('插队消息发送失败', error),
       );
+    for (const notice of lostNotices)
+      void deliverTaskNotice(id, notice, !run.cancelled).catch((error: unknown) =>
+        console.error('后台任务通知投递失败', error),
+      );
   }
-  return snapshot(id);
+  return status;
 }
 
 async function steerRun(id: string, entry: Live, run: Run, input: ChatAskInput) {

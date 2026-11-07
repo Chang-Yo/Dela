@@ -44,6 +44,7 @@ function chatTitleOf(sessionId: string): string {
     if (hit) return hit.title || '新对话';
   }
   const chat = useSessions.getState().chats[sessionId];
+  if (chat?.subagent) return chat.subagent.description;
   return chat && chat.messages.length === 0 ? '新对话' : '对话';
 }
 

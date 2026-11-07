@@ -450,3 +450,23 @@ it('运行中输入框有内容时按钮是发送（插队），清空后变回�
   typeMention('顺便问一句');
   expect(button().getAttribute('aria-label')).toBe('停止执行');
 });
+
+it('# 只列会话候选，选中后插入 #标题；「# 」是 Markdown 标题，不弹候选', async () => {
+  const session: ChatReference = { key: 's1', title: '复习计划', session: true };
+  await act(async () =>
+    root.render(<Harness contextUsage={usage()} referenceOptions={[reference, session]} />),
+  );
+  typeMention('#');
+  const options = [...host.querySelectorAll('[role="option"]')];
+  expect(options.map((option) => option.textContent)).toEqual(['复习计划']);
+  await act(async () => options[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('#复习计划 ');
+
+  typeMention('参考 #复习');
+  expect(host.querySelector('[role="option"]')?.textContent).toBe('复习计划');
+
+  typeMention('# ');
+  expect(host.querySelector('[role="listbox"]')).toBeNull();
+  typeMention('@');
+  expect(host.querySelector('[role="option"]')?.textContent).toContain('authAPI.js');
+});

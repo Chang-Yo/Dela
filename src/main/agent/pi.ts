@@ -103,6 +103,8 @@ export interface OpenSessionInput {
   file?: string;
   /** 旁问：不落盘的会话记录，带着主会话的历史；扩展收到的 session_start 标为 fork。 */
   inMemory?: SessionManager;
+  /** 子 Agent：新建的会话文件在 header 里记下父会话的文件。 */
+  parentSession?: string;
   selection: SessionModel;
   /** 追加到 Pi 默认系统提示之后（项目背景、用户自定义指令、dela 命令说明）。 */
   appendSystemPrompt: string[];
@@ -196,7 +198,11 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     input.inMemory ??
     (input.file
       ? pi.SessionManager.open(input.file, piSessionsDir(), input.cwd)
-      : pi.SessionManager.create(input.cwd, piSessionsDir()));
+      : pi.SessionManager.create(
+          input.cwd,
+          piSessionsDir(),
+          input.parentSession ? { parentSession: input.parentSession } : undefined,
+        ));
   const { session } = await pi.createAgentSession({
     cwd: input.cwd,
     agentDir,

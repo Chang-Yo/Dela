@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
-import type { ChatComment, WorkspaceChat } from '../../../shared/api';
+import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../shared/api';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ChatComposer } from './ChatComposer';
@@ -10,9 +10,9 @@ import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
 import { useChat, useChatDraft, type ChatReference } from './use-chat';
-import { referenceContext } from './reference-tokens';
+import { referenceContext, sessionReferences } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
-import { updateSession, useSessions } from '../../sessions/store';
+import { poolKey, updateSession, useSessions } from '../../sessions/store';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { openTarget } from '../../workbench/open-target';
 import { showToast } from '../../app/toasts';
@@ -116,6 +116,8 @@ function ChatComposerArea({
         onStop={chatState.stop}
         queued={chat?.queued}
         onWithdrawQueued={chatState.withdrawQueued}
+        tasks={chat?.tasks}
+        onStopTask={chatState.stopTask}
         referenceOptions={referenceOptions}
         notice={error}
         onDismissNotice={chatState.clearError}
@@ -127,11 +129,23 @@ function ChatComposerArea({
 }
 
 const noReferences: ChatReference[] = [];
+const noSessions: ChatSessionSummary[] = [];
 const noComments: ChatComment[] = [];
 /** @ 候选：会话快照就位前（projectId/cwd 未知）不列候选，避免列出别的项目的文件。 */
+/** @ 文件候选来自容器注入；# 会话候选是同池的其他会话（各池列表启动时已载入镜像）。 */
 function useReferenceOptions(source: ReferenceSource | undefined, chat: WorkspaceChat | null) {
-  const options = source?.useEntries(chat?.projectId ?? null, chat?.cwd ?? null);
-  return chat && options ? options : noReferences;
+  const projectId = chat?.projectId ?? null;
+  const files = source?.useEntries(projectId, chat?.cwd ?? null);
+  const sessions = useSessions((state) => state.lists[poolKey(projectId)]);
+  const sessionId = chat?.sessionId ?? null;
+  const ready = chat !== null;
+  return useMemo(
+    () =>
+      ready
+        ? [...(files ?? []), ...sessionReferences(sessions ?? noSessions, sessionId)]
+        : noReferences,
+    [ready, files, sessions, sessionId],
+  );
 }
 
 const ChatSessionView = memo(function ChatSessionView({
@@ -155,6 +169,10 @@ const ChatSessionView = memo(function ChatSessionView({
       useNavigationStore.getState().openGeneralChat(true);
     else void useNavigationStore.getState().newChat(projectId);
   }, [projectId]);
+  const openSession = useCallback(
+    (id: string) => useNavigationStore.getState().openChat(id, projectId),
+    [projectId],
+  );
   const chatState = useChat(active, referenceSource, startNewChat);
   const { chat, busy, editLast, fork } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -188,7 +206,9 @@ const ChatSessionView = memo(function ChatSessionView({
 
   // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
-  const conversation = chat && (busy || chat.messages.length > 0 || chat.running);
+  // 子 Agent 的会话只读：没有输入框，不能编辑重发、分支或旁问。
+  const subagent = chat?.subagent;
+  const conversation = chat && (busy || chat.messages.length > 0 || chat.running || subagent);
 
   const saveConversation = async () => {
     if (!window.dela) return;
@@ -256,7 +276,7 @@ const ChatSessionView = memo(function ChatSessionView({
             <Download />
           </IconButton>
         )}
-        {conversation && !sidechatOpen && (
+        {conversation && !sidechatOpen && !subagent && (
           <IconButton
             aria-label="旁问"
             onClick={() => void openSidechat(active)}
@@ -283,10 +303,11 @@ const ChatSessionView = memo(function ChatSessionView({
         <ChatThread
           chat={chat}
           mailDialog={mailDialog}
-          onEditLast={editLast}
-          onFork={fork}
-          onSidechat={sidechatFromQuote}
+          onEditLast={subagent ? undefined : editLast}
+          onFork={subagent ? undefined : fork}
+          onSidechat={subagent ? undefined : sidechatFromQuote}
           onOpenSource={onOpenSource}
+          onOpenSession={openSession}
           onSaveNote={onSaveNote}
         />
       ) : (
@@ -300,7 +321,16 @@ const ChatSessionView = memo(function ChatSessionView({
           </div>
         </div>
       )}
-      {conversation && composer(false)}
+      {subagent ? (
+        <div className="mx-auto flex w-full max-w-3xl shrink-0 items-center gap-2 px-6 py-3 text-xs text-ink-3">
+          <span className="min-w-0 truncate">子 Agent · {subagent.description} · 只读</span>
+          <Button size="sm" variant="ghost" onClick={() => openSession(subagent.parentId)}>
+            回到父会话
+          </Button>
+        </div>
+      ) : (
+        conversation && composer(false)
+      )}
       {sidechatOpen && (
         <SidechatPanel
           onOpenSource={onOpenSource}

@@ -247,6 +247,7 @@ export { workspaceArchiveId } from './workspace';
 export type {
   AgentToolOutput,
   AgentToolResult,
+  BackgroundTaskView,
   ChatScope,
   ChatSessionSummary,
   ContextUsageView,
@@ -254,6 +255,9 @@ export type {
   SessionApi,
   SidechatApi,
   SidechatView,
+  SubagentDetails,
+  TaskNoticeDetails,
+  TaskStatus,
   RunEvent,
   RunStatus,
   ChatStreamEvent,
@@ -262,7 +266,7 @@ export type {
   SessionCommandName,
 } from './session';
 
-export { SESSION_COMMANDS, parseSessionCommand } from './session';
+export { SESSION_COMMANDS, TASK_NOTICE, parseSessionCommand } from './session';
 
 export type {
   TabKind,

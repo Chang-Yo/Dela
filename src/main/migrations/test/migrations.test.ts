@@ -186,3 +186,17 @@ CREATE TABLE IF NOT EXISTS notification_refreshes (
   expect(runMigrations({ userData, seal }, 8)).toBe(0);
   expect(readdirSync(userData).filter((name) => name.endsWith('.migrating'))).toEqual([]);
 });
+
+it('v8→v9：会话表补 parent_id，原有会话都是顶层会话', () => {
+  v6Database();
+  const before = new Database(dbPath());
+  before.pragma('user_version = 8');
+  before.close();
+  expect(runMigrations({ userData, seal }, 9)).toBe(1);
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(9);
+  expect(db.prepare('SELECT id, parent_id FROM sessions').all()).toEqual([
+    { id: 's1', parent_id: null },
+  ]);
+  db.close();
+});

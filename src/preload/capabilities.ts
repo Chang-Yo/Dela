@@ -22,6 +22,8 @@ export const capabilityApi: CapabilityApi = {
   setBuiltinCapability: (name, enabled) =>
     invoke('capabilities:set-builtin-capability', name, enabled),
   setBuiltinDomain: (domain, enabled) => invoke('capabilities:set-builtin-domain', domain, enabled),
+  getSubagentLimit: () => invoke('capabilities:get-subagent-limit'),
+  setSubagentLimit: (limit) => invoke('capabilities:set-subagent-limit', limit),
   listWebSearchEntries: () => invoke('capabilities:list-web-search-entries'),
   listWebSearchOptions: () => invoke('capabilities:list-web-search-options'),
   onWebSearchChanged: (listener) => on('capabilities:web-search-changed', listener),
