@@ -149,6 +149,13 @@ export function readChatAttachment(id: string) {
   return attachment;
 }
 
+/** 还没释放的附件重新交回输入框（撤回插队消息）。 */
+export function chatAttachmentView(id: string): ChatMediaView {
+  const attachment = readChatAttachment(id);
+  const size = 'bytes' in attachment ? attachment.bytes.length : statSync(attachment.path).size;
+  return { id, name: attachment.name, size, kind: 'attachment', previewUrl: null };
+}
+
 export function readChatMediaPreview(id: string): string | null {
   if (!isUuid(id)) return null;
   for (const file of readdirSync(mediaDir())) {

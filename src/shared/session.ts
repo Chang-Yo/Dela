@@ -1,5 +1,5 @@
 // 会话视图类型：WorkspaceChat 是 Pi 会话消息的投影（main/agent/session.ts）。
-import type { ChatAskInput, ChatComment } from './chat';
+import type { ChatAskInput, ChatComment, ChatQueuedDraft } from './chat';
 
 /** Pi 工具结果的投影：text 是回灌给模型的文本，details 是工具的结构化细节（edit 的 diff 等），
  *  image 是工具回图给模型时的图片本体（read 读图片），供轨迹预览，base64 随消息投影。 */
@@ -55,6 +55,8 @@ export interface WorkspaceChat {
   activeTool?: string;
   /** 上下文压缩进行中（低干扰状态，压缩期间短暂为 true）。 */
   compacting?: boolean;
+  /** 运行中插队、还没送达模型的消息正文（不含 meta 前缀）。 */
+  queued?: string[];
   /** 至少有一个启用且带密钥的提供商。 */
   configured: boolean;
   /** 会话的模型选择；从未选择过的会话沿用最近发过消息的会话。 */
@@ -124,6 +126,12 @@ export interface ChatStreamEvent {
   /** 当前执行中的工具名；空闲段为 undefined。 */
   activeTool?: string;
   contextUsage?: ContextUsageView | null;
+}
+
+/** session:on-queue 载荷：插队消息排队或送达时推送，渲染端只替换快照里的 queued。 */
+export interface ChatQueueEvent {
+  sessionId: string;
+  queued: string[];
 }
 
 /** 旁问快照：messages 只含旁问自己的提问与回复，借来的主会话历史不重复下发。 */
@@ -196,9 +204,12 @@ export interface SessionApi {
   export(sessionId: string): Promise<{ saved: boolean; missing: string[] }>;
   /** 永久删除已归档会话；运行中先中断本轮，仅设置中的管理入口调用。 */
   remove(sessionId: string): Promise<void>;
-  /** 发起一轮执行（同 session 串行、跨 session 并行）。 */
+  /** 发起一轮执行（同 session 串行、跨 session 并行）；运行中发送即插队。 */
   ask(sessionId: string, input: ChatAskInput): Promise<WorkspaceChat>;
-  cancelRun(sessionId: string): void;
+  /** 停止本轮；还没送达的插队消息一并撤回，供回填输入框。 */
+  cancelRun(sessionId: string): Promise<ChatQueuedDraft | null>;
+  /** 撤回全部还没送达的插队消息；没有时为 null。 */
+  withdrawQueued(sessionId: string): Promise<ChatQueuedDraft | null>;
   /** 执行一条会话命令（/compact、/reload、/name），返回执行后的快照；/compact 运行中可用 cancelRun 取消。 */
   runCommand(sessionId: string, name: MainSessionCommand, args: string): Promise<WorkspaceChat>;
   /** 从这条回复分出新会话（「分支：」前缀，沿用项目与模型），原会话不变。 */
@@ -210,4 +221,5 @@ export interface SessionApi {
   /** 流式增量推送（仅末条 assistant 消息）：合并进镜像缓存，不广播全量历史。 */
   onStream(listener: (event: ChatStreamEvent) => void): () => void;
   onRunEvent(listener: (event: RunEvent) => void): () => void;
+  onQueue(listener: (event: ChatQueueEvent) => void): () => void;
 }

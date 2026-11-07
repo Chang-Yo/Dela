@@ -114,6 +114,8 @@ function ChatComposerArea({
         contextUsage={chat?.contextUsage ?? null}
         onSend={() => void chatState.send(references)}
         onStop={chatState.stop}
+        queued={chat?.queued}
+        onWithdrawQueued={chatState.withdrawQueued}
         referenceOptions={referenceOptions}
         notice={error}
         onDismissNotice={chatState.clearError}
