@@ -7,6 +7,7 @@ import {
   referenceCandidates,
   referenceContext,
   referenceEntryCandidates,
+  sessionReferences,
   withCourseReferences,
 } from './reference-tokens';
 
@@ -233,5 +234,42 @@ describe('referenceEntryCandidates（useEntries 三分支）', () => {
     expect(referenceEntryCandidates(local, 'E:/repo', null, null, [], [course])).toEqual([
       ref('C:/courses/软件工程/files/lec1.pdf', '软件工程/files/lec1.pdf'),
     ]);
+  });
+});
+
+describe('# 会话引用', () => {
+  const session = (id: string, title: string, updatedAt: string, createdAt = updatedAt) => ({
+    id,
+    title,
+    updatedAt,
+    createdAt,
+  });
+
+  it('候选是同池的其他会话，最近更新的在前；重名的缀上创建时间，文本仍唯一', () => {
+    const refs = sessionReferences(
+      [
+        session('a', '复习计划', '2026-11-01T08:00:00', '2026-11-01T08:00:00'),
+        session('self', '当前会话', '2026-11-06T08:00:00'),
+        session('b', '期中整理', '2026-11-04T08:00:00'),
+        session('c', '复习计划', '2026-11-05T09:12:00', '2026-11-03T14:20:00'),
+      ],
+      'self',
+    );
+    expect(refs).toEqual([
+      { key: 'c', title: '复习计划 · 11-03 14:20', session: true },
+      { key: 'b', title: '期中整理', session: true },
+      { key: 'a', title: '复习计划 · 11-01 08:00', session: true },
+    ]);
+  });
+
+  it('#标题 解析成会话；「# 」Markdown 标题、C# 与 @ 同名都不算', () => {
+    const refs: ChatReference[] = [
+      { key: 's1', title: '怎么复习？', session: true },
+      { key: 's2', title: '期中 整理', session: true },
+      ref('/p/怎么复习？'),
+    ];
+    expect(referenceContext('对比 #怎么复习？ 和 #期中 整理。', refs)).toEqual([refs[0], refs[1]]);
+    expect(matchReferenceTokens('# 怎么复习？\n学 C#怎么复习？', refs)).toEqual([]);
+    expect(matchReferenceTokens('#怎么复习？。', refs)).toMatchObject([{ start: 0, end: 6 }]);
   });
 });

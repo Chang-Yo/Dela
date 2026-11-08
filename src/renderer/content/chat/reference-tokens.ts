@@ -1,7 +1,7 @@
-// @ 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」的连续文本
-// 是一个引用 token，编辑器按此高亮、发送时解析回绝对路径（key）；手打错误或已删除文件的
-// @路径只是普通文本，不高亮也不进上下文。
-import type { WorkspaceEntry } from '../../../shared/api';
+// 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」或「# + 会话标题」的
+// 连续文本是一个引用 token，编辑器按此高亮、发送时解析回绝对路径或 sessionId（key）；手打错误或
+// 已删除的只是普通文本，不高亮也不进上下文。
+import type { ChatSessionSummary, WorkspaceEntry } from '../../../shared/api';
 import type { ChatReference } from './drafts';
 
 /** 文本中的一个引用 token：[start, end) 覆盖「@路径」全段（含 @，不含尾部标点）。 */
@@ -43,24 +43,32 @@ const TRAILING_PUNCT = new Set([
 // title 可含空格（文件名带空格合法）：run 未命中时向后按空白段扩展再试，最多 8 段。
 const MAX_SPACE_EXTENSIONS = 8;
 
-function trimTrailingPunct(value: string): string {
+/** 逐个去掉尾部标点直到命中已知 title：标题本身可能以标点结尾（「怎么复习？」）。 */
+function knownTitle(value: string, titles: Map<string, ChatReference>): string {
   let end = value.length;
-  while (end > 0 && TRAILING_PUNCT.has(value[end - 1]!)) end -= 1;
+  while (end > 0 && !titles.has(value.slice(0, end)) && TRAILING_PUNCT.has(value[end - 1]!))
+    end -= 1;
   return value.slice(0, end);
 }
 
-/** 扫描 text 中的全部引用 token（含重复）。@ 需位于行首或空白后，
- * user@host.com 这类前置非空白的 @ 不参与。 */
+/** 扫描 text 中的全部引用 token（含重复）。@ 与 # 需位于行首或空白后，
+ * user@host.com、C# 这类前置非空白的不参与；「# 」后紧跟空格是 Markdown 标题，也不参与。 */
 export function matchReferenceTokens(text: string, options: ChatReference[]): ReferenceToken[] {
-  const byTitle = new Map(options.map((ref) => [ref.title, ref]));
-  if (byTitle.size === 0) return [];
+  const bySigil = { '@': new Map<string, ChatReference>(), '#': new Map<string, ChatReference>() };
+  // 同名时先到先得：会话候选按最近更新排在前面。
+  for (const ref of options) {
+    const titles = bySigil[ref.session ? '#' : '@'];
+    if (!titles.has(ref.title)) titles.set(ref.title, ref);
+  }
+  if (bySigil['@'].size + bySigil['#'].size === 0) return [];
   const tokens: ReferenceToken[] = [];
-  const run = /(?:^|\s)@([^\s]+)/g;
+  const run = /(?:^|\s)([@#])([^\s]+)/g;
   for (const match of text.matchAll(run)) {
-    const at = (match.index ?? 0) + match[0].length - match[1]!.length - 1;
-    let segEnd = at + 1 + match[1]!.length;
+    const byTitle = bySigil[match[1] as '@' | '#'];
+    const at = (match.index ?? 0) + match[0].length - match[2]!.length - 1;
+    let segEnd = at + 1 + match[2]!.length;
     for (let extend = 0; ; extend += 1) {
-      const candidate = trimTrailingPunct(text.slice(at + 1, segEnd));
+      const candidate = knownTitle(text.slice(at + 1, segEnd), byTitle);
       const ref = byTitle.get(candidate);
       if (ref) {
         tokens.push({ start: at, end: at + 1 + candidate.length, ref });
@@ -86,6 +94,25 @@ export function referenceContext(text: string, options: ChatReference[]): ChatRe
     refs.push(token.ref);
   }
   return refs;
+}
+
+const pad = (value: number) => String(value).padStart(2, '0');
+
+/** # 引用候选：同项目的其他会话，最近更新的在前；重名的缀上创建时间，文本仍能唯一对应一个会话。 */
+export function sessionReferences(
+  sessions: ChatSessionSummary[],
+  currentId: string | null,
+): ChatReference[] {
+  const others = sessions
+    .filter((session) => session.id !== currentId)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const counts = new Map<string, number>();
+  for (const { title } of others) counts.set(title, (counts.get(title) ?? 0) + 1);
+  return others.map(({ id, title, createdAt }) => {
+    const at = new Date(createdAt);
+    const suffix = ` · ${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+    return { key: id, title: counts.get(title)! > 1 ? `${title}${suffix}` : title, session: true };
+  });
 }
 
 /** path 在 base 之下时返回相对路径；仅 Windows 路径归一化分隔符与大小写。 */

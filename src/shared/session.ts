@@ -22,10 +22,46 @@ export interface AgentToolResult {
   finishedAt?: number;
 }
 
+export type TaskStatus = 'running' | 'completed' | 'failed' | 'stopped';
+
+/** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
+export interface SubagentDetails {
+  taskId: string;
+  status: TaskStatus;
+  steps: number;
+  tool?: { name: string; target: string };
+  reply?: string | null;
+  background?: true;
+}
+
+/** 后台任务通知在 Pi 会话记录里的 customType。 */
+export const TASK_NOTICE = 'dela-task';
+
+/** 后台任务结束时投递给父会话的通知；turnId 是它所在（或唤醒）的那一轮。 */
+export interface TaskNoticeDetails {
+  taskId: string;
+  kind: 'bash' | 'subagent';
+  label: string;
+  status: Exclude<TaskStatus, 'running'>;
+  exitCode?: number;
+  durationMs: number;
+  noticeId: string;
+  turnId?: string;
+}
+
+/** 正在运行的后台任务：bash 的 label 是命令，子 Agent 的是任务名（id 即子会话 id）。 */
+export interface BackgroundTaskView {
+  id: string;
+  kind: 'bash' | 'subagent';
+  label: string;
+  startedAt: number;
+}
+
 export interface ChatSessionSummary {
   id: string;
   title: string;
   updatedAt: string;
+  createdAt: string;
   pinned?: boolean;
   projectId?: string | null;
 }
@@ -57,6 +93,10 @@ export interface WorkspaceChat {
   compacting?: boolean;
   /** 运行中插队、还没送达模型的消息正文（不含 meta 前缀）。 */
   queued?: string[];
+  /** 正在运行的后台任务；主对话停止后仍可能在跑。 */
+  tasks?: BackgroundTaskView[];
+  /** 子 Agent 的会话：由父会话的 task 工具派出，只读。 */
+  subagent?: { parentId: string; description: string };
   /** 至少有一个启用且带密钥的提供商。 */
   configured: boolean;
   /** 会话的模型选择；从未选择过的会话沿用最近发过消息的会话。 */
@@ -74,6 +114,8 @@ export interface WorkspaceChat {
     role: 'user' | 'assistant';
     content: string;
     sources?: { key: string; title: string }[];
+    /** 用户消息里 # 引用的会话（同项目）；模型按需用 session_read 读取。 */
+    sessions?: { id: string; title: string }[];
     /** 用户消息携带的内联图片（按输入顺序）；id 对应 chat-media 落盘文件。 */
     images?: { id: string; name: string }[];
     /** 用户消息携带的文本附件名；内容已进入当轮模型上下文，文件不保留。 */
@@ -99,6 +141,8 @@ export interface WorkspaceChat {
     compacted?: boolean;
     /** Pi 扩展经 sendMessage 发出、标了 display 的消息（role 固定为 assistant 一侧展示）。 */
     extension?: { customType: string };
+    /** 后台任务结束的通知。 */
+    task?: TaskNoticeDetails;
   }[];
 }
 
@@ -210,6 +254,8 @@ export interface SessionApi {
   cancelRun(sessionId: string): Promise<ChatQueuedDraft | null>;
   /** 撤回全部还没送达的插队消息；没有时为 null。 */
   withdrawQueued(sessionId: string): Promise<ChatQueuedDraft | null>;
+  /** 用户在后台任务面板上停止一个任务：通知只追加进记录，不唤醒会话。 */
+  stopTask(sessionId: string, taskId: string): Promise<void>;
   /** 执行一条会话命令（/compact、/reload、/name），返回执行后的快照；/compact 运行中可用 cancelRun 取消。 */
   runCommand(sessionId: string, name: MainSessionCommand, args: string): Promise<WorkspaceChat>;
   /** 从这条回复分出新会话（「分支：」前缀，沿用项目与模型），原会话不变。 */

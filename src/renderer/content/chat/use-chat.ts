@@ -186,7 +186,10 @@ export function useChat(
       else await runCommand(command.name, command.args, text);
       return;
     }
-    const sentReferences = references;
+    const sentReferences = references.filter((ref) => !ref.session);
+    const sentSessions = references.flatMap((ref) =>
+      ref.session ? [{ id: ref.key, title: ref.title }] : [],
+    );
     const sentAttachments = attachments;
     try {
       if (flushReference) {
@@ -209,6 +212,7 @@ export function useChat(
         text,
         attachments: sentAttachments.map((item) => item.id),
         context: sentReferences.map((ref) => ref.key),
+        ...(sentSessions.length ? { sessions: sentSessions } : {}),
         comments,
       });
       if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
@@ -306,6 +310,12 @@ export function useChat(
       .withdrawQueued(requested)
       .then((queued) => restoreQueued(requested, queued))
       .catch((e) => showToast({ variant: 'error', title: '撤回失败', description: errorText(e) }));
+  };
+
+  const stopTask = (taskId: string) => {
+    void window.dela?.session
+      .stopTask(sessionId, taskId)
+      .catch((e) => showToast({ variant: 'error', title: '停止失败', description: errorText(e) }));
   };
 
   // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
@@ -411,6 +421,7 @@ export function useChat(
     send,
     stop,
     withdrawQueued,
+    stopTask,
     editLast,
     selectModel,
     selectEffort,

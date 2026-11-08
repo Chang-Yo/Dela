@@ -156,6 +156,9 @@ export interface CapabilityApi {
   setBuiltinCapability(name: string, enabled: boolean): Promise<AgentCapabilityView[]>;
   /** 按领域批量启停（跳过常驻能力）；返回最新清单。 */
   setBuiltinDomain(domain: string, enabled: boolean): Promise<AgentCapabilityView[]>;
+  /** 全应用同时运行的子 Agent 上限（同步与后台合计）。 */
+  getSubagentLimit(): Promise<number>;
+  setSubagentLimit(limit: number): Promise<number>;
   /** 已保存的全部搜索服务配置；增删改在设置弹窗，选择在聊天侧。 */
   listWebSearchEntries(): Promise<WebSearchEntry[]>;
   /** 聊天侧选择器的数据：脱敏条目与当前选中（工具停用或悬空 id 视为未选）。 */

@@ -539,3 +539,28 @@ it('插队把一轮切成多段回复时，本轮改动卡片只挂在最后一�
   expect(cards).toHaveLength(1);
   expect(cards[0]!.parentElement!.textContent).toContain('A 和 B 都做完了');
 });
+
+it('用户消息里 # 引用的会话显示为 chip，点击打开该会话', async () => {
+  const onOpenSession = vi.fn();
+  await act(async () =>
+    root.render(
+      <ChatThread
+        onOpenSession={onOpenSession}
+        chat={{
+          ...chat,
+          running: false,
+          messages: [
+            {
+              role: 'user',
+              content: '接着 #复习计划 往下做',
+              sessions: [{ id: 's1', title: '复习计划' }],
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  const chip = host.querySelector<HTMLButtonElement>('button[title="复习计划"]')!;
+  await act(async () => chip.click());
+  expect(onOpenSession).toHaveBeenCalledWith('s1');
+});

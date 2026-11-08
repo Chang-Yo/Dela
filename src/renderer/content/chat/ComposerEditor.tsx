@@ -152,19 +152,27 @@ const FILE_ICON_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
   'stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
 
+// 会话图标（lucide message-square 同形）：# 引用的会话。
+const SESSION_ICON_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+
 class ReferenceIconWidget extends WidgetType {
-  constructor(readonly title: string) {
+  constructor(
+    readonly title: string,
+    readonly session = false,
+  ) {
     super();
   }
   eq(other: ReferenceIconWidget) {
-    return other.title === this.title;
+    return other.title === this.title && other.session === this.session;
   }
   toDOM() {
     const span = document.createElement('span');
     span.className = 'dela-ref-icon';
     span.setAttribute('aria-hidden', 'true');
     span.title = this.title;
-    span.innerHTML = FILE_ICON_SVG;
+    span.innerHTML = this.session ? SESSION_ICON_SVG : FILE_ICON_SVG;
     return span;
   }
 }
@@ -174,13 +182,13 @@ function referenceDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   for (const token of matchReferenceTokens(view.state.doc.toString(), options)) {
     const { start, end, ref } = token;
-    // 文本里仍是完整「@路径」，解析不受显示折叠影响。
-    const split = ref.title.lastIndexOf('/');
+    // 文本里仍是完整「@路径」，解析不受显示折叠影响；会话标题里的 / 不是目录，只折叠 #。
+    const split = ref.session ? -1 : ref.title.lastIndexOf('/');
     const nameStart = start + 1 + (split < 0 ? 0 : split + 1);
     builder.add(
       start,
       nameStart,
-      Decoration.replace({ widget: new ReferenceIconWidget(ref.title) }),
+      Decoration.replace({ widget: new ReferenceIconWidget(ref.title, ref.session) }),
     );
     builder.add(
       nameStart,
@@ -328,7 +336,7 @@ export function ComposerEditor({
   hero?: boolean;
   handleRef: RefObject<ComposerEditorHandle | null>;
   className?: string;
-  /** @ 引用候选：文本中命中的 @路径会渲染成引用 token。 */
+  /** @ 与 # 引用候选：文本中命中的 @路径、#会话标题会渲染成引用 token。 */
   referenceOptions: ChatReference[];
 }) {
   const host = useRef<HTMLDivElement>(null);

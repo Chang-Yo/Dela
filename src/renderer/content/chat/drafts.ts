@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import type { ChatComment } from '../../../shared/api';
 import { hasChatImages } from '../../../shared/chat-input';
 
-export type ChatReference = { key: string; title: string };
+/** session：# 引用的同项目会话，key 是 sessionId；其余是 @ 引用的文件，key 是绝对路径。 */
+export type ChatReference = { key: string; title: string; session?: true };
 
 /** comments：对回复正文的评论，随草稿持久化；没有评论时省略。 */
 type ChatDraft = { prompt: string; comments?: ChatComment[] };

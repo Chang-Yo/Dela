@@ -85,7 +85,19 @@ describe('远程会话环境', () => {
   it('给七个远程工具加本机工具，且不带 dela 命令桥', async () => {
     const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
     expect(names(options.customTools)).toEqual(
-      ['bash', 'edit', 'find', 'grep', 'ls', 'read', 'web_fetch', 'web_search', 'write'].sort(),
+      [
+        'bash',
+        'edit',
+        'find',
+        'grep',
+        'ls',
+        'read',
+        'session_read',
+        'session_search',
+        'web_fetch',
+        'web_search',
+        'write',
+      ].sort(),
     );
     expect(options.commandPrefix).toBeUndefined();
     expect(options.appendSystemPrompt.join('\n')).toContain('远端项目目录：/root/proj');
@@ -127,7 +139,12 @@ describe('本地会话环境', () => {
   it('保留 dela 命令桥与内置工具，不给远程工具', async () => {
     state.remote = false;
     const options = await agentEnvironment().sessionOptions('p-local', 'E:\\proj');
-    expect(names(options.customTools)).toEqual(['web_fetch', 'web_search']);
+    expect(names(options.customTools)).toEqual([
+      'session_read',
+      'session_search',
+      'web_fetch',
+      'web_search',
+    ]);
     expect(options.commandPrefix).toContain('DELA_COMMAND_URL');
   });
 });
