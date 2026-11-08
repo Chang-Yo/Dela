@@ -136,3 +136,24 @@ it('别的会话的任务查不到', async () => {
   ).rejects.toThrow('没有这个后台任务');
   await noticeOf(taskId);
 });
+
+it('只创建工具时不解析 shell，真正跑后台 bash 才要求本机存在 bash', async () => {
+  const missing = await backgroundTools(
+    'no-shell',
+    root,
+    join(root, 'missing-bash'),
+    undefined,
+    null,
+  );
+  await expect(
+    missing
+      .find((item) => item.name === 'bash')!
+      .execute(
+        'call',
+        { command: 'echo 后台', background: true } as never,
+        undefined,
+        undefined,
+        undefined as never,
+      ),
+  ).rejects.toThrow();
+});
