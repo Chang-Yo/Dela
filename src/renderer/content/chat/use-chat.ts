@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   ChatComment,
   ChatMediaView,
+  ChatQueuedDraft,
   LlmProviderView,
   SessionCommandName,
   WorkspaceChat,
@@ -74,7 +75,8 @@ export function useChat(
   const chat = useSessions((state) => state.chats[sessionId] ?? null);
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  // 计数而非开关：插队的请求很快返回，不能把仍在等待的那一轮也算作结束。
+  const [pending, setPending] = useState(0);
   const updateDraft = useChatDrafts((state) => state.update);
   const clearDraft = useChatDrafts((state) => state.clear);
   const activeSession = useRef(sessionId);
@@ -96,7 +98,7 @@ export function useChat(
     activeSession.current = sessionId;
     releaseAttachments();
     setError(null);
-    setPending(false);
+    setPending(0);
     return () => {
       releaseAttachments();
     };
@@ -128,7 +130,7 @@ export function useChat(
     if (badge && badge !== 'running') useRuns.getState().markSeen(sessionId);
   }, [run, sessionId]);
 
-  const busy = pending || Boolean(chat?.running);
+  const busy = pending > 0 || Boolean(chat?.running);
   const setPrompt = useCallback(
     (text: string) => updateDraft(sessionId, { prompt: text }),
     [sessionId, updateDraft],
@@ -169,21 +171,25 @@ export function useChat(
 
   // 发送前从文本解析好的引用（ChatTab 经 referenceContext 算出）；引用即文本，
   // 删除 = 删掉 @token，无需独立增删入口。
+  // 运行中发送即插队（主进程交给 Pi 的 steer）；命令要等本轮结束。
   const send = async (references: ChatReference[]) => {
     // 发送时点读取草稿（不依赖渲染期闭包）：拿到的一定是最后一次按键的值。
     const draft = useChatDrafts.getState().drafts[sessionId] ?? emptyDraft;
     const text = draft.prompt;
     const comments = draft.comments ?? [];
-    if (!window.dela || !canSendInput(text, false, attachments.length, comments.length) || busy)
-      return;
+    if (!window.dela || !canSendInput(text, false, attachments.length, comments.length)) return;
     const requested = sessionId;
     const command = parseSessionCommand(text);
     if (command) {
-      if (comments.length) setError('命令不能附带评论，请先移除评论');
+      if (busy) setError('运行中不能执行命令，请等待当前回答完成');
+      else if (comments.length) setError('命令不能附带评论，请先移除评论');
       else await runCommand(command.name, command.args, text);
       return;
     }
-    const sentReferences = references;
+    const sentReferences = references.filter((ref) => !ref.session);
+    const sentSessions = references.flatMap((ref) =>
+      ref.session ? [{ id: ref.key, title: ref.title }] : [],
+    );
     const sentAttachments = attachments;
     try {
       if (flushReference) {
@@ -196,7 +202,7 @@ export function useChat(
       showToast({ variant: 'error', title: '发送失败', description: errorText(e) });
       return;
     }
-    setPending(true);
+    setPending((count) => count + 1);
     setError(null);
     // 发送即清空输入：用户消息与流式增量经推送回显，不等整轮结束。
     clearDraft(requested);
@@ -206,6 +212,7 @@ export function useChat(
         text,
         attachments: sentAttachments.map((item) => item.id),
         context: sentReferences.map((ref) => ref.key),
+        ...(sentSessions.length ? { sessions: sentSessions } : {}),
         comments,
       });
       if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
@@ -222,7 +229,7 @@ export function useChat(
         }
       }
     } finally {
-      if (activeSession.current === requested) setPending(false);
+      if (activeSession.current === requested) setPending((count) => Math.max(0, count - 1));
     }
   };
 
@@ -248,7 +255,7 @@ export function useChat(
       void openSidechat(requested, { prompt: args });
       return;
     }
-    setPending(true);
+    setPending((count) => count + 1);
     try {
       const result = await dela.session.runCommand(requested, name, args);
       useSessions.getState().putChat(requested, result);
@@ -272,13 +279,43 @@ export function useChat(
         updateDraft(requested, { prompt: text });
       }
     } finally {
-      if (activeSession.current === requested) setPending(false);
+      if (activeSession.current === requested) setPending((count) => Math.max(0, count - 1));
     }
   };
 
+  // 撤回的插队消息排在输入框已有内容之前（与 Pi 终端界面一致）；视图已切走时附件无处安放，直接释放。
+  const restoreQueued = (requested: string, queued: ChatQueuedDraft | null) => {
+    if (!queued) return;
+    const current = useChatDrafts.getState().drafts[requested] ?? emptyDraft;
+    updateDraft(requested, {
+      prompt: [queued.text, current.prompt].filter((text) => text.trim()).join('\n\n'),
+      comments: [...queued.comments, ...(current.comments ?? [])],
+    });
+    if (activeSession.current === requested)
+      setAttachments((list) => [...queued.attachments, ...list]);
+    else void window.dela?.chat.releaseMedia(queued.attachments.map(({ id }) => id));
+  };
+
   const stop = () => {
-    // session:cancel-run 为即发即弃通道（preload 返回 void），失败无从在此提示。
-    window.dela?.session.cancelRun(sessionId);
+    const requested = sessionId;
+    void window.dela?.session
+      .cancelRun(requested)
+      .then((queued) => restoreQueued(requested, queued))
+      .catch(() => {});
+  };
+
+  const withdrawQueued = () => {
+    const requested = sessionId;
+    void window.dela?.session
+      .withdrawQueued(requested)
+      .then((queued) => restoreQueued(requested, queued))
+      .catch((e) => showToast({ variant: 'error', title: '撤回失败', description: errorText(e) }));
+  };
+
+  const stopTask = (taskId: string) => {
+    void window.dela?.session
+      .stopTask(sessionId, taskId)
+      .catch((e) => showToast({ variant: 'error', title: '停止失败', description: errorText(e) }));
   };
 
   // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
@@ -288,7 +325,7 @@ export function useChat(
     async (text: string, comments: ChatComment[] = []) => {
       if (!window.dela || busy) return;
       const requested = sessionId;
-      setPending(true);
+      setPending((count) => count + 1);
       setError(null);
       try {
         const result = await window.dela.session.ask(requested, {
@@ -303,7 +340,7 @@ export function useChat(
         if (activeSession.current === requested)
           showToast({ variant: 'error', title: '重新生成失败', description: errorText(e) });
       } finally {
-        if (activeSession.current === requested) setPending(false);
+        if (activeSession.current === requested) setPending((count) => Math.max(0, count - 1));
       }
     },
     [busy, sessionId],
@@ -383,6 +420,8 @@ export function useChat(
     clearError: () => setError(null),
     send,
     stop,
+    withdrawQueued,
+    stopTask,
     editLast,
     selectModel,
     selectEffort,

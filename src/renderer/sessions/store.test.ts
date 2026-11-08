@@ -23,6 +23,7 @@ Object.defineProperty(globalThis, 'window', {
           streamListeners.push(listener);
           return () => {};
         },
+        onQueue: () => () => {},
       },
     },
   },
@@ -30,7 +31,7 @@ Object.defineProperty(globalThis, 'window', {
 initSessionsMirror();
 
 function summary(id: string, updatedAt = '2026-09-29T10:00:00.000Z'): ChatSessionSummary {
-  return { id, title: `会话 ${id}`, updatedAt };
+  return { id, title: `会话 ${id}`, updatedAt, createdAt: updatedAt };
 }
 
 function chat(sessionId: string, messageCount: number): WorkspaceChat {

@@ -76,6 +76,13 @@ const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
     domain: 'web',
     domainLabel: '网络',
   },
+  {
+    name: 'task',
+    label: '派发子 Agent',
+    description: '派出上下文独立的子 Agent 并行处理子任务，可在后台运行',
+    domain: 'subagent',
+    domainLabel: '子 Agent',
+  },
 ].map((tool) =>
   ['read', 'write', 'edit', 'bash'].includes(tool.name)
     ? { ...tool, lockedReason: 'Agent 最小工具集，不可关闭' }

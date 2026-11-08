@@ -42,8 +42,10 @@ import {
   setSessionModel,
   subscribeChat,
   updateSessionVisibility,
+  withdrawQueued,
 } from './session';
 import { registerPackagesIpc } from './packages-ipc';
+import { stopUserTask } from './tasks';
 import { exportSession } from './session-export';
 import {
   askSidechat,
@@ -90,6 +92,7 @@ import {
   updateMcpServer,
 } from './mcp';
 import { domainTools, listBuiltinCapabilities, setBuiltinCapabilities } from './tools';
+import { readSubagentLimit, setSubagentLimit } from './subagent';
 import { loadPi } from './pi';
 import {
   listWebSearchEntries,
@@ -204,6 +207,8 @@ export function registerAgentIpc() {
   });
   sessionHandle('ask', (id, input) => askSession(uuid.parse(id), askInputSchema.parse(input)));
   sessionHandle('cancel-run', (id) => cancelRun(uuid.parse(id)));
+  sessionHandle('withdraw-queued', (id) => withdrawQueued(uuid.parse(id)));
+  sessionHandle('stop-task', (id, taskId) => stopUserTask(uuid.parse(id), uuid.parse(taskId)));
   sessionHandle('fork', (id, entryId) =>
     forkSession(uuid.parse(id), z.string().min(1).max(64).parse(entryId)),
   );
@@ -400,6 +405,8 @@ export function registerAgentIpc() {
       setBuiltinCapabilities(domainTools(name.parse(domain)), z.boolean().parse(enabled)),
     ),
   );
+  handle('capabilities:get-subagent-limit', () => readSubagentLimit());
+  handle('capabilities:set-subagent-limit', (limit) => setSubagentLimit(limit));
   handle('capabilities:list-web-search-entries', () => listWebSearchEntries());
   handle('capabilities:list-web-search-options', () => listWebSearchOptions());
   // 搜索配置变更同时刷新会话工具与各窗口的选择器。

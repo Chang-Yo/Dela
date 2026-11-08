@@ -7,6 +7,10 @@ import aaalpsssAvatar from '../../../../assets/credits/aaalpsss/avatar.png';
 import huangtongAvatar from '../../../../assets/credits/huangtong601-ops/avatar.jpg';
 import jinjiAvatar from '../../../../assets/credits/jinji-2005/avatar.jpg';
 import cophqAvatar from '../../../../assets/credits/cophq/avatar.jpg';
+import sbsjkmAvatar from '../../../../assets/credits/sbsjkm/avatar.jpg';
+import slayerwaltAvatar from '../../../../assets/credits/slayerwalt/avatar.jpg';
+import aletheiarAvatar from '../../../../assets/credits/aletheiar/avatar.png';
+import yixuanwang4Avatar from '../../../../assets/credits/yixuanwang4/avatar.png';
 import frameneoLogoBlack from '../../../../assets/sponsors/FRAMENEO_logo_black.png';
 import frameneoLogoWhite from '../../../../assets/sponsors/FRAMENEO_logo_white.png';
 
@@ -97,6 +101,25 @@ export const creditSections: CreditSection[] = [
         name: 'cophQ',
         avatar: cophqAvatar,
         links: [{ kind: 'github', url: 'https://github.com/cophQ' }],
+      },
+      {
+        name: 'SBSJKM',
+        avatar: sbsjkmAvatar,
+        links: [{ kind: 'github', url: 'https://github.com/SBSJKM' }],
+      },
+      {
+        name: 'slayerwalt',
+        avatar: slayerwaltAvatar,
+        links: [{ kind: 'github', url: 'https://github.com/slayerwalt' }],
+      },
+      {
+        name: 'Aletheiar',
+        avatar: aletheiarAvatar,
+        links: [{ kind: 'github', url: 'https://github.com/Aletheiar' }],
+      },
+      {
+        name: 'YixuanWang4',
+        avatar: yixuanwang4Avatar,
       },
     ],
   },

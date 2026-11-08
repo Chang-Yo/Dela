@@ -24,6 +24,9 @@ vi.mock('./markdown', () => ({
   ),
 }));
 vi.mock('framer-motion', () => ({ useReducedMotion: () => motion.reduced }));
+vi.mock('./TurnChangesCard', () => ({
+  TurnChangesCard: ({ turnId }: { turnId: string }) => <div data-turn-card={turnId} />,
+}));
 
 let host: HTMLDivElement;
 let root: Root;
@@ -498,4 +501,66 @@ it('Pi 扩展的可见消息单独成卡，标出 customType', async () => {
   );
   expect(host.textContent).toContain('扩展 · deploy');
   expect(host.textContent).toContain('deployed **ok**');
+});
+
+it('插队把一轮切成多段回复时，本轮改动卡片只挂在最后一段', async () => {
+  const turnId = 'turn-1';
+  await act(async () =>
+    root.render(
+      <ChatThread
+        chat={{
+          ...chat,
+          running: false,
+          messages: [
+            { role: 'user', content: '先做 A', turnId },
+            {
+              role: 'assistant',
+              content: '在做 A',
+              startedAt: 1,
+              finishedAt: 2,
+              turnId,
+              parts: [{ type: 'text', text: '在做 A' }],
+            },
+            { role: 'user', content: '顺便做 B', turnId },
+            {
+              role: 'assistant',
+              content: 'A 和 B 都做完了',
+              startedAt: 3,
+              finishedAt: 4,
+              turnId,
+              parts: [{ type: 'text', text: 'A 和 B 都做完了' }],
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  const cards = [...host.querySelectorAll('[data-turn-card]')];
+  expect(cards).toHaveLength(1);
+  expect(cards[0]!.parentElement!.textContent).toContain('A 和 B 都做完了');
+});
+
+it('用户消息里 # 引用的会话显示为 chip，点击打开该会话', async () => {
+  const onOpenSession = vi.fn();
+  await act(async () =>
+    root.render(
+      <ChatThread
+        onOpenSession={onOpenSession}
+        chat={{
+          ...chat,
+          running: false,
+          messages: [
+            {
+              role: 'user',
+              content: '接着 #复习计划 往下做',
+              sessions: [{ id: 's1', title: '复习计划' }],
+            },
+          ],
+        }}
+      />,
+    ),
+  );
+  const chip = host.querySelector<HTMLButtonElement>('button[title="复习计划"]')!;
+  await act(async () => chip.click());
+  expect(onOpenSession).toHaveBeenCalledWith('s1');
 });

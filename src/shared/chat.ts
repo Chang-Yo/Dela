@@ -9,6 +9,8 @@ export interface ChatAskInput {
   text: string;
   attachments: string[];
   context: string[];
+  /** # 引用的会话：id 进 meta，模型需要时用 session_read 读取。 */
+  sessions?: { id: string; title: string }[];
   comments: ChatComment[];
   /** 编辑重发：丢弃会话中最后一条用户消息及其后内容，以 text 重新发起。 */
   replaceLastUser?: boolean;
@@ -22,6 +24,13 @@ export interface ChatMediaView {
   kind: 'image' | 'attachment';
   /** 图片的缩略预览 data URL；附件为 null。 */
   previewUrl: string | null;
+}
+
+/** 撤回的插队消息：按发送顺序合并，回填输入框。 */
+export interface ChatQueuedDraft {
+  text: string;
+  comments: ChatComment[];
+  attachments: ChatMediaView[];
 }
 
 export interface ChatCommandView {

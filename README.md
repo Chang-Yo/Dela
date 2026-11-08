@@ -49,15 +49,14 @@ Dela 的内核基于 Pi 构建，所有的校园服务功能都通过交大公�
 
 Dela Harness 基于 Pi 构建，可以作为一款通用 agent 产品使用，并且 Dela 在 Coding 领域进行了特别加强。
 
-会话顶部的「导出会话」可将当前分支保存为 ZIP，内含精简的 `session.jsonl` 聊天记录、图片、上传附件、文件引用和回复评论，可交给其他 Agent 接续工作。导出包含工具调用和结果，分享前请检查内容。
-
-Dela 支持导入第三方 skills 和接入 MCPs，通过**内置的校园 skills** 可以快速获取到用户的校园信息数据，比如读取 Canvas 课程状态，获取 Canvas 课程资料，读取个人所有邮件，获取课表，获取水源讯息、按时间范围读取课堂语音文稿与批量保存文稿等等，详情可以直接阅读应用内的内置校园 skills。
-
-Dela 提供自定义的 `web_search` 工具接入（如 DeepSeek、Brave、Google，默认关闭，需自备 API KEY），还提供免费的 `web_fetch` 工具（默认开启）。
-
-此外 Dela 还兼容大部分 Pi Packages 生态。可以安装 Pi 社区的 package（扩展、skills、提示模板），来源支持 npm、git 与本地目录；扩展与 Dela 同权限运行，安装前请确认来源可信。
-
-Dela 的 **remote project** 可以把远端服务器目录登记为项目：通过 SSH 建立连接后，Dela 上传 helper runtime 维持本机与服务器之间的稳定通道，Agent 的读写与命令直接在服务器上执行，远端目录变化实时同步到文件树。远端文件可在应用内预览与下载。
+- **第三方接入**：支持导入第三方 skills、接入 MCP 服务器，并兼容大部分 Pi Packages 生态（扩展、skills、提示模板，来源支持 npm、git 与本地目录）；扩展与 Dela 同权限运行，安装前请确认来源可信
+- **内置校园 skills**：Agent 可以直接读取 Canvas 课程状态与资料、个人邮件、课表、水源讯息，按时间范围读取与批量保存课堂语音文稿等，详见应用内的内置校园 skills
+- **联网**：提供自定义的 `web_search` 工具接入（如 DeepSeek、Brave、Google，默认关闭，需自备 API KEY）与免费的 `web_fetch` 工具（默认开启）
+- **上下文**：`@` 引用项目文件、`#` 引用同一项目里的其他会话，Agent 按需读取而不是整段塞进上下文；支持上传附件和选中回复添加评论，旁问可以带着当前上下文临时提问而不进入主对话，也可以从任意一条回复分支出新会话
+- **Agent 编排**：主 Agent 可以派出上下文独立、工具相同的子 Agent 并行处理子任务，子会话可在只读标签中查看，可在「设置 › 内置能力」中关闭；也可以读取同一项目内其他会话的对话，比如派子 Agent 总结另一个会话
+- **异步执行**：长时间的命令（开发服务器、构建）和子 Agent 可以放到后台运行，结束后结果自动回到会话，Agent 会接着处理；运行中的后台任务显示在输入框工具栏，可随时停止。Agent 回答时还可以继续发送消息补充要求，消息在当前工具执行完后送达，送达前可撤回到输入框
+- **Remote project**：把远端服务器目录登记为项目，通过 SSH 建立连接后，Dela 上传 helper runtime 维持本机与服务器之间的稳定通道，Agent 的读写与命令直接在服务器上执行，远端目录变化实时同步到文件树，远端文件可在应用内预览与下载
+- **会话导出**：会话顶部的「导出会话」可将当前分支保存为 ZIP，内含精简的 `session.jsonl` 聊天记录、图片、上传附件、文件引用和回复评论，可交给其他 Agent 接续工作；导出包含工具调用和结果，分享前请检查内容
 
 ### 工作台功能
 
@@ -80,6 +79,8 @@ Dela 的 **remote project** 可以把远端服务器目录登记为项目：通�
 从 [Dela 官网](https://dela.changyo.me) 或 [GitHub Releases](https://github.com/Chang-Yo/Dela/releases/latest) 下载对应平台的安装包。Dela 支持应用内更新。
 
 ## 本地开发
+
+从 `dev` 创建功能分支，贡献 PR 统一提交到 `dev`；只有仓库管理员可以发起 `dev` → `main` 的 PR。详见 [贡献指南](CONTRIBUTING.md#分支与合并流程)。
 
 推荐使用 [`.node-version`](.node-version) 指定的 Node.js 与 [`package.json`](package.json) 的 `packageManager` 指定的 pnpm，兼容范围见 `engines`（本机可用 `. ./scripts/use-local-tools.ps1` 启用仓库内固定版本）：
 

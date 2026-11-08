@@ -24,6 +24,7 @@ import { mcpToolDefinitions, executeMcpTool } from './mcp';
 import { readDisabledTools } from './tools';
 import { readWebSearchConfig, webSearch } from './web-search';
 import { fetchWebPage } from './web-fetch';
+import { sessionTools } from './session-read';
 import { enabledPackageSources, packageNpmCommand, readDisabledPrompts } from './packages';
 
 /** 应用生命周期内一个命令桥：token 只进入 agent/终端的子进程环境，不含业务凭据。 */
@@ -118,8 +119,13 @@ export function agentEnvironment() {
           disabledTools: [...readDisabledTools()].filter(
             (name) => !BUILTIN_TOOL_NAMES.includes(name),
           ),
-          // 联网搜索与 MCP 都在本机跑，与项目在不在远端无关，照旧给上。
-          customTools: [...webTools, ...mcpTools(), ...(await remoteTools(cwd, target))],
+          // 联网搜索、MCP 与会话读取都在本机跑，与项目在不在远端无关，照旧给上。
+          customTools: [
+            ...webTools,
+            ...mcpTools(),
+            ...sessionTools(projectId),
+            ...(await remoteTools(cwd, target)),
+          ],
           ...packages,
         };
       }
@@ -134,7 +140,7 @@ export function agentEnvironment() {
         globalSkillDirs: [...globalSkillDirectories(), join(piAgentDir(), 'skills')],
         disabledSkills: effectiveDisabledSkills(),
         disabledTools: [...readDisabledTools()],
-        customTools: [...webTools, ...mcpTools()],
+        customTools: [...webTools, ...mcpTools(), ...sessionTools(projectId)],
         ...packages,
       };
     },

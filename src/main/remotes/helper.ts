@@ -173,6 +173,8 @@ export async function openPortTunnel(
 }
 
 export interface HelperExecOptions {
+  /** 调用方要自己经 cancelTask 取消时给出；缺省时本地随机生成。 */
+  id?: string;
   cwd: string;
   signal?: AbortSignal;
   /** 毫秒；由调用方换算。 */
@@ -1094,7 +1096,7 @@ async function runTask(
   command: string,
   options: HelperExecOptions,
 ): Promise<HelperExecResult> {
-  const id = randomBytes(12).toString('hex');
+  const id = options.id ?? randomBytes(12).toString('hex');
   const body = JSON.stringify({
     id,
     command,

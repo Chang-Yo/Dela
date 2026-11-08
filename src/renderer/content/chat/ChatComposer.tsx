@@ -9,11 +9,15 @@ import {
   CircleAlert,
   FileText,
   Globe,
+  Layers,
   LoaderCircle,
+  MessageSquare,
   Paperclip,
   Settings,
   Sparkles,
   Square,
+  SquareTerminal,
+  Undo2,
   X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -21,11 +25,14 @@ import { errorText } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';
+import { formatDuration } from './ToolTimeline';
+import { openSubagent } from './tool-views';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
 import { useNavigationStore } from '../../navigation/view';
 import type {
+  BackgroundTaskView,
   ChatCommandView,
   ChatComment,
   ChatSlashCommand,
@@ -57,9 +64,9 @@ const builtinCommands = [
   { name: '整理', prompt: '帮我把引用资料里的要点整理成一份笔记', hint: '生成并保存笔记' },
 ];
 
-type MenuState = { kind: 'slash' | 'mention'; query: string; start: number } | null;
+type MenuState = { kind: 'slash' | 'mention' | 'session'; query: string; start: number } | null;
 
-/** 检测光标前的 / 或 @ 触发词；单独输入 / 或 @ 也打开候选（空查询）。 */
+/** 检测光标前的 /、@ 或 # 触发词；单独输入也打开候选（空查询）。「# 」是 Markdown 标题，不触发。 */
 function detectMenu(text: string, caret: number): MenuState {
   const before = text.slice(0, caret);
   const slash = /(?:^|\s)\/([^\s]{0,30})$/.exec(before);
@@ -67,6 +74,9 @@ function detectMenu(text: string, caret: number): MenuState {
   const mention = /(?:^|\s)@([^\s@]{0,50})$/.exec(before);
   if (mention)
     return { kind: 'mention', query: mention[1]!, start: caret - mention[1]!.length - 1 };
+  const session = /(?:^|\s)#([^\s#]{0,50})$/.exec(before);
+  if (session)
+    return { kind: 'session', query: session[1]!, start: caret - session[1]!.length - 1 };
   return null;
 }
 
@@ -128,7 +138,17 @@ export function ChatComposer({
   context = null,
   sessionId = null,
   sidechat = false,
+  queued = [],
+  onWithdrawQueued,
+  tasks = [],
+  onStopTask,
 }: {
+  /** 运行中插队、还没送达的消息；非空时显示在输入框上方，可整体撤回。 */
+  queued?: string[];
+  onWithdrawQueued?: () => void;
+  /** 正在运行的后台任务；为空时不显示工具栏里的后台任务按钮。 */
+  tasks?: BackgroundTaskView[];
+  onStopTask?: (taskId: string) => void;
   /** 旁问输入框：模型与思考强度沿用主会话、联网搜索是全局开关，这三个选择器都不显示。 */
   sidechat?: boolean;
   /** 当前会话：用于 Pi 扩展的 `/` 命令、状态栏与输入框读写；未知时为 null。 */
@@ -275,9 +295,13 @@ export function ChatComposer({
         ].filter((command) => command.name.includes(menu.query))
       : [];
   const mentionItems =
-    menu?.kind === 'mention'
+    menu && menu.kind !== 'slash'
       ? referenceOptions
-          .filter((option) => option.title.toLowerCase().includes(menu.query.toLowerCase()))
+          .filter(
+            (option) =>
+              Boolean(option.session) === (menu.kind === 'session') &&
+              option.title.toLowerCase().includes(menu.query.toLowerCase()),
+          )
           .slice(0, 8)
       : [];
   const items: (typeof slashItems)[number][] | ChatReference[] =
@@ -314,8 +338,12 @@ export function ChatComposer({
     } else {
       const option = mentionItems[position];
       if (!option) return;
-      // 引用即文本：原位留下「@相对路径」token（尾随空格隔开后续输入），发送时解析回 key。
-      editorRef.current?.replaceRange(menu.start, caret, `@${option.title} `);
+      // 引用即文本：原位留下「@相对路径」或「#会话标题」token（尾随空格隔开后续输入），发送时解析回 key。
+      editorRef.current?.replaceRange(
+        menu.start,
+        caret,
+        `${option.session ? '#' : '@'}${option.title} `,
+      );
     }
     setMenu(null);
     setIndex(0);
@@ -425,6 +453,8 @@ export function ChatComposer({
     comments.length > 0;
 
   const sendable = configured && !modelUnavailable && canSend;
+  // 主会话运行中输入框有内容就是插队发送；旁问不插队，运行中始终是停止。
+  const stoppable = busy && (sidechat || !canSend);
 
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
@@ -463,6 +493,7 @@ export function ChatComposer({
     <div className="relative">
       {/* 新对话的项目浮岛：项目与分支各一个可点胶囊；有历史后 context 为 null 就撤掉。 */}
       {context && <ComposerContextBar context={context} />}
+      {queued.length > 0 && <QueuedMessages messages={queued} onWithdraw={onWithdrawQueued} />}
       {/* 提示条浮在输入框上方，不推移输入框与消息列表。 */}
       {(fileError ?? notice) && (
         <ComposerNotice
@@ -654,6 +685,7 @@ export function ChatComposer({
             </Popover.Root>
           )}
           <div className="flex-1" />
+          {tasks.length > 0 && onStopTask && <BackgroundTasks onStop={onStopTask} tasks={tasks} />}
           {configured && contextUsage && <ContextIndicator usage={contextUsage} />}
           {configured && !sidechat && (
             <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
@@ -850,7 +882,7 @@ export function ChatComposer({
               </Popover.Portal>
             </Popover.Root>
           )}
-          {busy ? (
+          {stoppable ? (
             <button
               aria-label="停止执行"
               className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-opacity duration-150 hover:opacity-90 active:scale-[0.94]"
@@ -917,6 +949,8 @@ export function ChatComposer({
               >
                 {menu?.kind === 'mention' ? (
                   <FileText className="size-3.5 shrink-0 text-ink-3" />
+                ) : menu?.kind === 'session' ? (
+                  <MessageSquare className="size-3.5 shrink-0 text-ink-3" />
                 ) : (
                   <span className="shrink-0 font-mono text-13 text-ink-3">/</span>
                 )}
@@ -925,6 +959,13 @@ export function ChatComposer({
                     <span className="shrink-0 text-13 font-medium text-ink">/{item.name}</span>
                     <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{item.hint}</span>
                   </>
+                ) : item.session ? (
+                  <span
+                    className="min-w-0 flex-1 truncate text-13 font-semibold"
+                    style={{ color: 'var(--cal-blue-text)' }}
+                  >
+                    {item.title}
+                  </span>
                 ) : (
                   <MentionTitle title={item.title} />
                 )}
@@ -1036,6 +1077,45 @@ function ExtensionBar({
   );
 }
 
+/** 待送达的插队消息：当前工具执行完后才交给模型；撤回把它们全部放回输入框（Pi 的队列只能整体清空）。 */
+function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdraw?: () => void }) {
+  return (
+    <div
+      aria-label="待送达的消息"
+      className="mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-13 leading-6 shadow-hairline"
+      role="status"
+      style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
+    >
+      <ol className="min-w-0 flex-1">
+        {messages.map((text, index) => (
+          <li className="flex min-w-0 items-baseline gap-2" key={index}>
+            <span
+              aria-hidden
+              className="min-w-3 shrink-0 text-right text-xs tabular-nums text-ink-3"
+            >
+              {index + 1}
+            </span>
+            <span className="truncate text-ink-2" title={text}>
+              {text.trim() || '图片或附件'}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {onWithdraw && (
+        <button
+          className="-mr-1 flex h-6 shrink-0 items-center gap-1 rounded-chip px-1.5 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink [&_svg]:size-3"
+          onClick={onWithdraw}
+          title="撤回到输入框"
+          type="button"
+        >
+          <Undo2 />
+          撤回
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   return (
     <div
@@ -1056,6 +1136,104 @@ function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: (
         </button>
       )}
     </div>
+  );
+}
+
+/** 工具栏里的后台任务：图标带运行数，弹层逐个列出，可停止；子 Agent 点开进入它的子会话。 */
+function BackgroundTasks({
+  tasks,
+  onStop,
+}: {
+  tasks: BackgroundTaskView[];
+  onStop: (taskId: string) => void;
+}) {
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button
+          aria-label={`后台任务（${tasks.length} 个运行中）`}
+          className="flex h-7 shrink-0 items-center gap-1 rounded-control px-1.5 text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
+          title="后台任务"
+          type="button"
+        >
+          <Layers className="size-4" />
+          <span className="text-xs tabular-nums">{tasks.length}</span>
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          aria-label="后台任务"
+          className={cn('z-50 w-72', menuPanel)}
+          side="top"
+          sideOffset={6}
+          style={{
+            animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
+            transformOrigin: 'bottom center',
+          }}
+        >
+          <BackgroundTaskList onStop={onStop} tasks={tasks} />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+/** 弹层打开时才挂载：计时每秒走一次，关上即停。 */
+function BackgroundTaskList({
+  tasks,
+  onStop,
+}: {
+  tasks: BackgroundTaskView[];
+  onStop: (taskId: string) => void;
+}) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <ul className="grid">
+      {tasks.map((task) => {
+        const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
+        const label = (
+          <>
+            <Icon className="size-3.5 shrink-0 text-ink-3" />
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-13 text-ink',
+                task.kind === 'bash' && 'font-mono',
+              )}
+              title={task.label}
+            >
+              {task.label}
+            </span>
+          </>
+        );
+        return (
+          <li className="flex h-9 items-center gap-2 rounded-chip pl-2 pr-1" key={task.id}>
+            {task.kind === 'subagent' ? (
+              <button
+                className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline"
+                onClick={() => void openSubagent(task.id)}
+                title="打开子会话"
+                type="button"
+              >
+                {label}
+              </button>
+            ) : (
+              label
+            )}
+            <span className="shrink-0 text-xs tabular-nums text-ink-3">
+              {formatDuration(now - task.startedAt)}
+            </span>
+            <IconButton aria-label="停止" onClick={() => onStop(task.id)} title="停止">
+              <Square className="size-3" />
+            </IconButton>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

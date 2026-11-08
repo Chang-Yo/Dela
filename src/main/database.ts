@@ -171,6 +171,7 @@ const schema: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_todo_owner ON todo_items(owner)`,
   // 会话索引：完整记录是 Pi 的 JSONL 会话文件（file 列）；项目即 kind='project' 的条目，
   // 会话自带工作目录（通用会话是 chat-sessions 下的私有目录），cwd 为 NULL 时按条目 local_path 解析。
+  // parent_id 非空的是子 Agent 会话：不进会话列表与搜索，随父会话归档、删除。
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
@@ -184,7 +185,8 @@ const schema: string[] = [
     updated_at TEXT NOT NULL,
     provider_id TEXT,
     model TEXT,
-    effort TEXT
+    effort TEXT,
+    parent_id TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
 ];
@@ -197,7 +199,7 @@ const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
   accepted_at TEXT NOT NULL
 )`;
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export function getDatabase(): Database.Database {
   if (database) return database;

@@ -29,7 +29,8 @@ beforeEach(() => {
       archived INTEGER NOT NULL DEFAULT 0,
       pinned INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      parent_id TEXT
     );
     CREATE TABLE mail_messages (
       id INTEGER PRIMARY KEY, subject TEXT, sender_name TEXT, sender_address TEXT, snippet TEXT,
@@ -120,6 +121,19 @@ describe('global search', () => {
     );
     // 正文在 Pi 的 JSONL 会话文件里，sessions 表不存消息，因此正文不参与匹配。
     expect(queryGlobalSearch('散热方案').filter((item) => item.kind === 'chat')).toHaveLength(0);
+    // 子 Agent 的会话只从父会话的工具卡片进入，不进搜索。
+    insert(
+      'INSERT INTO sessions (id, project_id, file, title, parent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'chat-child',
+      'project-1',
+      '',
+      '资料讨论子任务',
+      'chat-content',
+      '2026-09-16T13:00:00.000Z',
+      '2026-09-16T13:00:00.000Z',
+    );
+    expect(queryGlobalSearch('资料讨论').map((item) => item.id)).not.toContain('chat-child');
+    expect(queryGlobalSearch('').map((item) => item.id)).not.toContain('chat-child');
   });
 
   it('returns cached Canvas filenames only and ignores deleted mail', () => {

@@ -87,6 +87,8 @@ vi.mock('../pi', () => ({
       return state.compact?.(instructions);
     },
     abort: async () => {},
+    clearQueue: () => ({ steering: [], followUp: [] }),
+    getSteeringMessages: () => [],
     prompt: async (text: string) => {
       state.prompts.push(text);
       state.messages.push({ role: 'user', content: text, timestamp: Date.now() });
@@ -96,7 +98,7 @@ vi.mock('../pi', () => ({
 }));
 vi.mock('../environment', () => ({
   agentEnvironment: () => ({
-    sessionOptions: async () => ({}),
+    sessionOptions: async () => ({ customTools: [] }),
     workspaceRoot: () => {
       const root = join(state.root, 'Dela', 'workspace');
       mkdirSync(root, { recursive: true });
@@ -113,6 +115,13 @@ vi.mock('../extensions', () => ({
   shutdownSession: async (session: { dispose(): void }) => session.dispose(),
 }));
 vi.mock('../packages', () => ({ packagesEnabled: () => false }));
+// 假会话不跑工具：后台任务的工具与登记换成空壳（真实行为见 tasks.test / task-notice.test）。
+vi.mock('../tasks', () => ({
+  backgroundTools: async () => [],
+  runningTasks: () => [],
+  stopAllTasks: () => {},
+  stopSessionTasks: () => {},
+}));
 import {
   askSession,
   invalidateSessions,
@@ -166,8 +175,10 @@ beforeEach(() => {
       title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
       cwd TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-      provider_id TEXT, model TEXT, effort TEXT);
+      provider_id TEXT, model TEXT, effort TEXT, parent_id TEXT);
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE remotes (id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL,
+      port INTEGER, key_path TEXT, created_at TEXT NOT NULL);
   `);
 });
 
@@ -269,6 +280,11 @@ it('远程会话不读取同名本地目录，接口明确返回不可用', asyn
   state.configured = true;
   state
     .db!.prepare(
+      "INSERT INTO remotes VALUES ('remote-id', 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')",
+    )
+    .run();
+  state
+    .db!.prepare(
       "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('remote-project', NULL, '远程', 'project', NULL, '/remote/project', 'remote-id', 'x')",
     )
     .run();
@@ -359,6 +375,27 @@ it('只带回复评论也能发送：评论进 prompt，历史消息还原为结
   );
   expect(state.prompts[0]).toContain('<comment>\n<quote>\n用哈希表\n</quote>\n\n</comment>');
   expect(response.messages[0]).toMatchObject({ role: 'user', content: '', comments });
+});
+
+it('# 引用的会话只把 id 交给模型，由它按需 session_read；历史消息带回引用', async () => {
+  state.configured = true;
+  const chat = newSession(null, 'chat');
+  const sessions = [{ id: 's-1', title: '复习计划' }];
+  const response = await askSession(chat.sessionId!, {
+    text: '接着 #复习计划 做',
+    attachments: [],
+    context: [],
+    sessions,
+    comments: [],
+  });
+  expect(state.prompts[0]).toContain(
+    '用户引用了同项目的这些会话（需要时用 session_read 读取）：\n- 复习计划（sessionId: s-1）\n',
+  );
+  expect(response.messages[0]).toMatchObject({
+    role: 'user',
+    content: '接着 #复习计划 做',
+    sessions,
+  });
 });
 
 const assistant = (content: unknown[], extra: object = {}) =>
