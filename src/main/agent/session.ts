@@ -37,6 +37,7 @@ import { llmModelSettings } from '../../shared/llm-presets';
 import type { StoredLlmProvider } from '../credentials';
 import { agentEnvironment } from './environment';
 import { remoteProjectOf } from '../workspace/api';
+import { remoteById, targetOf } from '../remotes/api';
 import { openInVsCode } from '../workspace/project';
 import { resolveSessionFile } from './session-path';
 import {
@@ -341,8 +342,9 @@ async function ensureLive(id: string): Promise<Live> {
   if (!choice.stored) storeModel(id, selection.provider.id, selection.model, selection.effort);
   const cwd = sessionCwd(meta.project_id, meta.cwd);
   const options = await agentEnvironment().sessionOptions(meta.project_id, cwd);
-  // 子 Agent 不再派子 Agent，也不开后台任务；远程会话暂不支持这两样。
-  const delegates = !meta.parent_id && !(meta.project_id && remoteProjectOf(meta.project_id));
+  // 子 Agent 不再派子 Agent，也不开后台任务。
+  const delegates = !meta.parent_id;
+  const remote = meta.project_id ? remoteProjectOf(meta.project_id) : null;
   const session = await openPiSession({
     cwd,
     file: existsSync(meta.file) ? meta.file : undefined,
@@ -352,7 +354,13 @@ async function ensureLive(id: string): Promise<Live> {
       ? {
           customTools: [
             ...options.customTools,
-            ...(await backgroundTools(id, cwd, options.shellPath, options.commandPrefix)),
+            ...(await backgroundTools(
+              id,
+              cwd,
+              options.shellPath,
+              options.commandPrefix,
+              remote && targetOf(remoteById(remote.remoteId)),
+            )),
             taskTool(id),
           ],
         }
@@ -393,12 +401,13 @@ function disposeLive(id: string, entry: Live, reason: 'quit' | 'reload'): Promis
 
 /** 应用退出前结束全部会话，让扩展收拾子进程；最多等 timeoutMs，卡住的扩展不拖住退出。 */
 export async function shutdownSessions(timeoutMs: number): Promise<void> {
-  stopAllTasks();
-  const pending = [...live].map(([id, entry]) => {
-    if (entry.run) entry.run.cancelled = true;
-    return disposeLive(id, entry, 'quit');
-  });
-  if (!pending.length) return;
+  const pending = [
+    stopAllTasks(),
+    ...[...live].map(([id, entry]) => {
+      if (entry.run) entry.run.cancelled = true;
+      return disposeLive(id, entry, 'quit');
+    }),
+  ];
   await Promise.race([
     Promise.all(pending),
     new Promise((resolve) => setTimeout(resolve, timeoutMs)),

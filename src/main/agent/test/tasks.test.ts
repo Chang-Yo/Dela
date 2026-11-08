@@ -44,7 +44,7 @@ const noticeOf = async (taskId: string) => {
 
 beforeEach(async () => {
   delivered.length = 0;
-  tools = await backgroundTools('parent', root, shell, undefined);
+  tools = await backgroundTools('parent', root, shell, undefined, null);
 });
 
 afterAll(() => {
@@ -128,7 +128,7 @@ it('用户在面板上手动停止只追加通知、不唤醒；归档删除时�
 
 it('别的会话的任务查不到', async () => {
   const taskId = await start('echo 我的');
-  const others = await backgroundTools('other', root, shell, undefined);
+  const others = await backgroundTools('other', root, shell, undefined, null);
   await expect(
     others
       .find((item) => item.name === 'task_output')!
