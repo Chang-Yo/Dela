@@ -105,6 +105,10 @@ export function initSessionsMirror(): void {
       : [...current.messages, message];
     useSessions.getState().putChat(sessionId, { ...current, messages, activeTool, contextUsage });
   });
+  window.dela.session.onQueue(({ sessionId, queued }) => {
+    const current = useSessions.getState().chats[sessionId];
+    if (current) useSessions.getState().putChat(sessionId, { ...current, queued });
+  });
 }
 
 type ChatMessage = WorkspaceChat['messages'][number];

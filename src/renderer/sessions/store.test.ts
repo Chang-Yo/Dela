@@ -23,6 +23,7 @@ Object.defineProperty(globalThis, 'window', {
           streamListeners.push(listener);
           return () => {};
         },
+        onQueue: () => () => {},
       },
     },
   },

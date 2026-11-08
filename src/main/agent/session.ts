@@ -16,6 +16,7 @@ import type { ImageContent, TextContent } from '@earendil-works/pi-ai';
 import type {
   AgentToolResult,
   ChatAskInput,
+  ChatQueuedDraft,
   ChatScope,
   ChatSessionSummary,
   ContextUsageView,
@@ -35,7 +36,12 @@ import { agentEnvironment } from './environment';
 import { remoteProjectOf } from '../workspace/api';
 import { openInVsCode } from '../workspace/project';
 import { resolveSessionFile } from './session-path';
-import { readChatAttachment, readChatMediaBytes, releaseChatAttachments } from './media';
+import {
+  chatAttachmentView,
+  readChatAttachment,
+  readChatMediaBytes,
+  releaseChatAttachments,
+} from './media';
 import { notifyRunFinished } from '../settings/task-notify';
 import * as changes from './changes';
 import {
@@ -66,11 +72,22 @@ interface Live {
   cwd: string;
   providerId: string;
   /** 当前 Run（ask 进行中）；空闲为 undefined。 */
-  run?: { id: string; tool?: string; cancelled?: boolean; done: Promise<void> };
+  run?: Run;
   unsubscribe: () => void;
   stale?: boolean;
   /** 最近一次压缩后 Pi 估计的上下文 token 数：模型还没回复、实际用量未知时代替它显示。 */
   compactedTokens?: number;
+}
+
+interface Run {
+  id: string;
+  tool?: string;
+  cancelled?: boolean;
+  /** Pi 已答完、Dela 还在收尾：这时发来的消息等收尾结束后作为新一轮发出。 */
+  finishing?: boolean;
+  /** 插进本轮的消息；附件到本轮结束才释放，撤回的从这里拿回原始输入。 */
+  steers: { prompt: string; input: ChatAskInput }[];
+  done: Promise<void>;
 }
 
 const live = new Map<string, Live>();
@@ -563,8 +580,11 @@ function snapshot(id: string): WorkspaceChat {
     running: Boolean(entry?.run),
     activeTool: entry?.run?.tool,
     compacting: entry?.session.isCompacting ?? false,
+    queued: queuedTexts(entry?.session.getSteeringMessages() ?? []),
   };
 }
+
+const queuedTexts = (steering: readonly string[]) => steering.map((text) => splitMeta(text).text);
 
 function usageOf(entry: Live | undefined): ContextUsageView | null {
   // 一次聚合同时取上下文占用与累计用量：getSessionStats 内部已算过 getContextUsage，
@@ -702,6 +722,9 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
     case 'compaction_start':
       touch(id, entry);
       publish(id);
+      break;
+    case 'queue_update':
+      send('session:on-queue', { sessionId: id, queued: queuedTexts(event.steering) });
       break;
   }
 }
@@ -967,10 +990,38 @@ export async function deleteSession(id: string) {
   }
 }
 
-export function cancelRun(id: string) {
+/** 停止时先撤回还没送达的插队消息，与 Pi 终端界面一致：它们回到输入框，不随本轮丢掉。 */
+export function cancelRun(id: string): ChatQueuedDraft | null {
   const entry = live.get(id);
+  const queued = entry?.run ? queuedDraft(takeSteers(entry, entry.run)) : null;
   if (entry?.run) entry.run.cancelled = true;
   void entry?.session.abort();
+  return queued;
+}
+
+export function withdrawQueued(id: string): ChatQueuedDraft | null {
+  const entry = live.get(id);
+  return entry?.run ? queuedDraft(takeSteers(entry, entry.run)) : null;
+}
+
+/** 清空 Pi 的插队队列，取回这些消息的原始输入；已送达的留在 run 里等轮末释放附件。 */
+function takeSteers(entry: Live, run: Run) {
+  return entry.session.clearQueue().steering.flatMap((prompt) => {
+    const index = run.steers.findIndex((steer) => steer.prompt === prompt);
+    return index < 0 ? [] : run.steers.splice(index, 1).map(({ input }) => input);
+  });
+}
+
+function queuedDraft(inputs: ChatAskInput[]): ChatQueuedDraft | null {
+  if (!inputs.length) return null;
+  return {
+    text: inputs
+      .map(({ text }) => text)
+      .filter((text) => text.trim())
+      .join('\n\n'),
+    comments: inputs.flatMap(({ comments }) => comments),
+    attachments: inputs.flatMap(({ attachments }) => attachments.map(chatAttachmentView)),
+  };
 }
 
 const imageMime: Record<string, string> = {
@@ -981,8 +1032,9 @@ const imageMime: Record<string, string> = {
   webp: 'image/webp',
 };
 
-/** 一轮提问交给模型的内容：meta 前缀、@ 引用、附件、回复评论与正文；主会话与旁问共用。 */
-export function composePrompt(input: ChatAskInput, cwd: string) {
+/** 一轮提问交给模型的内容：meta 前缀、@ 引用、附件、回复评论与正文；主会话与旁问共用。
+ *  插队消息沿用所在 run 的 turnId，改动记录按 run 归属。 */
+export function composePrompt(input: ChatAskInput, cwd: string, turnId: string = randomUUID()) {
   const blocks = parseChatBlocks(input.text);
   const userText = stripChatImageTokens(input.text);
   const images: ImageContent[] = [];
@@ -1005,7 +1057,6 @@ export function composePrompt(input: ChatAskInput, cwd: string) {
     throw new Error('文档附件目前只支持本机会话，请切换到随聊或本地项目');
   // @ 引用即路径：只告诉模型路径，读取由模型用 read 自主完成（pull 模型）。
   const sources = input.context.map((key) => ({ key, title: key }));
-  const turnId = randomUUID();
   const meta = {
     turnId,
     body: userText,
@@ -1044,9 +1095,16 @@ export function composePrompt(input: ChatAskInput, cwd: string) {
   return { prompt, userText, images, attachments, comments, turnId };
 }
 
-/** 一轮对话：文本直接入上下文，文档附件仅传本地引用，由 skill 按需解析。 */
+/** 一轮对话：文本直接入上下文，文档附件仅传本地引用，由 skill 按需解析。运行中发来的消息插进本轮。 */
 export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
   const entry = await ensureLive(id);
+  const current = entry.run;
+  if (current && !input.replaceLastUser) {
+    if (!current.finishing && !current.cancelled) return steerRun(id, entry, current, input);
+    // 实例可能在轮末按新配置重建，等完从头再来。
+    await current.done;
+    return askSession(id, input);
+  }
   if (entry.run) throw new Error('请等待当前回答完成');
   if (entry.session.isCompacting) throw new Error('正在压缩上下文，请稍候');
   const { prompt, userText, images, attachments, comments, turnId } = composePrompt(
@@ -1080,9 +1138,10 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
         id,
       );
   let finishRun!: () => void;
-  const run = {
+  const run: Run = {
     id: turnId,
     cancelled: false,
+    steers: [],
     done: new Promise<void>((resolve) => {
       finishRun = resolve;
     }),
@@ -1120,6 +1179,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     status = 'failed';
     throw error;
   } finally {
+    run.finishing = true;
     let changesError: string | undefined;
     try {
       await changes.freezeTurnChanges(
@@ -1134,8 +1194,13 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     } catch (error) {
       changesError = error instanceof Error ? error.message : String(error);
     }
+    // Pi 最后一次取队列之后才插进来的消息没人送达，收尾后作为新一轮发出。
+    const orphaned = takeSteers(entry, run);
     try {
-      releaseChatAttachments(input.attachments);
+      releaseChatAttachments([
+        ...input.attachments,
+        ...run.steers.flatMap((steer) => steer.input.attachments),
+      ]);
       entry.run = undefined;
       liveSteps.delete(id);
       if (entry.session.sessionFile)
@@ -1150,7 +1215,20 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     } finally {
       finishRun();
     }
+    for (const steer of orphaned)
+      void askSession(id, steer).catch((error: unknown) =>
+        console.error('插队消息发送失败', error),
+      );
   }
+  return snapshot(id);
+}
+
+async function steerRun(id: string, entry: Live, run: Run, input: ChatAskInput) {
+  const { prompt, userText, images } = composePrompt(input, entry.cwd, run.id);
+  if (extensionCommand(entry.session, userText))
+    throw new Error('运行中不能执行命令，请等待当前回答完成');
+  await entry.session.steer(prompt, images.length ? images : undefined);
+  run.steers.push({ prompt, input });
   return snapshot(id);
 }
 

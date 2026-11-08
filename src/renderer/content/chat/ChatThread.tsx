@@ -326,6 +326,7 @@ function splitInterrupt(parts: NonNullable<WorkspaceChat['messages'][number]['pa
 const AssistantMessage = memo(function AssistantMessage({
   message,
   live,
+  turnEnd,
   animate,
   activeTool,
   sessionId,
@@ -337,6 +338,8 @@ const AssistantMessage = memo(function AssistantMessage({
 }: {
   message: WorkspaceChat['messages'][number];
   live: boolean;
+  /** 本轮（turnId）的最后一段回复：改动卡片只挂在这里。 */
+  turnEnd: boolean;
   /** 挂载时回复尚未开始：只有本次视图里新产生的正文才播渐入动画。 */
   animate: boolean;
   activeTool: string | undefined;
@@ -416,7 +419,7 @@ const AssistantMessage = memo(function AssistantMessage({
             检查并发送邮件
           </Button>
         ))}
-      {!live && sessionId && message.turnId && (
+      {!live && turnEnd && sessionId && message.turnId && (
         <TurnChangesCard
           sessionId={sessionId}
           turnId={message.turnId}
@@ -510,6 +513,15 @@ export const ChatThread = memo(function ChatThread({
       if (messages[index]?.role === 'user') return index;
     }
     return -1;
+  }, [messages]);
+
+  // 插队把一轮切成多段回复，它们共用 turnId；本轮改动卡片只挂在最后一段。
+  const turnEnds = useMemo(() => {
+    const ends = new Map<string, number>();
+    messages.forEach((message, index) => {
+      if (message.role === 'assistant' && message.turnId) ends.set(message.turnId, index);
+    });
+    return ends;
   }, [messages]);
 
   // 以一行正文高度作为到底部容差，避免固定像素阈值随字号失效；行高只读一次后缓存，
@@ -623,6 +635,7 @@ export const ChatThread = memo(function ChatThread({
                 reviewEnabled={chat.projectId != null}
                 onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
                 live={streaming && index === messages.length - 1}
+                turnEnd={message.turnId !== undefined && turnEnds.get(message.turnId) === index}
                 animate={message.startedAt !== resumedReplyAt}
                 message={message}
                 activeTool={chat.activeTool}
