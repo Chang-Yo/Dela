@@ -16,8 +16,10 @@ import {
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { app } from 'electron';
-import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
 import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../shared/api';
+import type { RemoteTarget } from '../remotes/transport';
+import { remoteBackgroundBash, remoteOperations } from '../remotes/operations';
 import { loadPi } from './pi';
 import { deliverTaskNotice, publish } from './session';
 
@@ -39,6 +41,8 @@ interface BackgroundTask {
   outcome?: TaskOutcome;
   stoppedBy?: 'user' | 'model' | 'session';
   stop: () => void;
+  /** done 落定、结果记下之后完成。 */
+  settled: Promise<void>;
   log?: string;
   tail: string;
 }
@@ -62,7 +66,7 @@ function logDir() {
 
 /** 登记一个后台任务；done 落定后记下结果并投递通知。 */
 export function trackTask(
-  task: Omit<BackgroundTask, 'startedAt' | 'status' | 'tail'> & { tail?: string },
+  task: Omit<BackgroundTask, 'startedAt' | 'status' | 'tail' | 'settled'> & { tail?: string },
   done: Promise<TaskOutcome>,
 ) {
   const entry: BackgroundTask = {
@@ -70,25 +74,25 @@ export function trackTask(
     tail: task.tail ?? '',
     startedAt: Date.now(),
     status: 'running',
+    settled: done
+      .catch((error: unknown): TaskOutcome => ({
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      }))
+      .then((outcome) => {
+        if (entry.stoppedBy && outcome.status !== 'completed')
+          outcome = { ...outcome, status: 'stopped' };
+        Object.assign(entry, { status: outcome.status, outcome, finishedAt: Date.now() });
+        // 父会话正在归档或删除：不投递，也不推快照（删除后会话已不存在）。
+        if (entry.stoppedBy === 'session') return;
+        publish(entry.parentId);
+        void deliverTaskNotice(entry.parentId, notice(entry), entry.stoppedBy !== 'user').catch(
+          (error: unknown) => console.error('后台任务通知投递失败', error),
+        );
+      }),
   };
   tasks.set(entry.id, entry);
   publish(entry.parentId);
-  void done
-    .catch((error: unknown): TaskOutcome => ({
-      status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
-    }))
-    .then((outcome) => {
-      if (entry.stoppedBy && outcome.status !== 'completed')
-        outcome = { ...outcome, status: 'stopped' };
-      Object.assign(entry, { status: outcome.status, outcome, finishedAt: Date.now() });
-      // 父会话正在归档或删除：不投递，也不推快照（删除后会话已不存在）。
-      if (entry.stoppedBy === 'session') return;
-      publish(entry.parentId);
-      void deliverTaskNotice(entry.parentId, notice(entry), entry.stoppedBy !== 'user').catch(
-        (error: unknown) => console.error('后台任务通知投递失败', error),
-      );
-    });
 }
 
 export const taskRunning = (id: string) => tasks.get(id)?.status === 'running';
@@ -116,8 +120,11 @@ export function stopSessionTasks(parentId: string) {
   for (const task of tasks.values()) if (task.parentId === parentId) stopTask(task.id, 'session');
 }
 
-export function stopAllTasks() {
-  for (const task of tasks.values()) stopTask(task.id, 'session');
+/** 退出应用：结束全部任务并等它们落定，远端的取消要赶在隧道关掉之前送到。 */
+export async function stopAllTasks() {
+  const running = [...tasks.values()].filter((task) => task.status === 'running');
+  for (const task of running) stopTask(task.id, 'session');
+  await Promise.all(running.map((task) => task.settled));
 }
 
 const statusText = (outcome: TaskOutcome) =>
@@ -181,48 +188,43 @@ function killTree(pid: number) {
   }
 }
 
-async function startBash(
-  parentId: string,
+/** 后台 bash 的执行端：signal 中止时连同它启动的子进程一起结束。 */
+export type BashRunner = (
   command: string,
+  options: { signal: AbortSignal; timeout?: number; onData: (chunk: Buffer) => void },
+) => Promise<TaskOutcome>;
+
+function localBash(
   cwd: string,
-  shellPath: string,
+  shell: ReturnType<typeof getShellConfig>,
   commandPrefix: string | undefined,
-  timeout: number | undefined,
-): Promise<string> {
-  const pi = await loadPi();
-  const shell = pi.getShellConfig(shellPath);
-  const id = randomUUID();
-  const log = join(logDir(), `${id}.log`);
-  const script = commandPrefix ? `${commandPrefix}\n${command}` : command;
-  const fromStdin = shell.commandTransport === 'stdin';
-  const child = spawn(shell.shell, fromStdin ? shell.args : [...shell.args, script], {
-    cwd,
-    detached: process.platform !== 'win32',
-    stdio: [fromStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
-  if (fromStdin) {
-    child.stdin?.on('error', () => {});
-    child.stdin?.end(script);
-  }
-  const file = createWriteStream(log);
-  let tail = '';
-  let timedOut = false;
-  let finished = false;
-  const onData = (chunk: Buffer) => {
-    if (finished) return;
-    file.write(chunk);
-    tail = (tail + chunk.toString()).slice(-TAIL_CHARS);
-    const task = tasks.get(id);
-    if (task) task.tail = tail;
-  };
-  child.stdout?.on('data', onData);
-  child.stderr?.on('data', onData);
-  const stop = () => child.pid && killTree(child.pid);
-  const timer = timeout ? setTimeout(() => ((timedOut = true), stop()), timeout * 1000) : undefined;
-  trackTask(
-    { id, parentId, kind: 'bash', label: command, stop, log },
-    new Promise<TaskOutcome>((resolve) => {
+): BashRunner {
+  return (command, { signal, timeout, onData }) => {
+    const script = commandPrefix ? `${commandPrefix}\n${command}` : command;
+    const fromStdin = shell.commandTransport === 'stdin';
+    const child = spawn(shell.shell, fromStdin ? shell.args : [...shell.args, script], {
+      cwd,
+      detached: process.platform !== 'win32',
+      stdio: [fromStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    if (fromStdin) {
+      child.stdin?.on('error', () => {});
+      child.stdin?.end(script);
+    }
+    let timedOut = false;
+    let finished = false;
+    const forward = (chunk: Buffer) => {
+      if (!finished) onData(chunk);
+    };
+    child.stdout?.on('data', forward);
+    child.stderr?.on('data', forward);
+    const stop = () => child.pid && killTree(child.pid);
+    signal.addEventListener('abort', stop, { once: true });
+    const timer = timeout
+      ? setTimeout(() => ((timedOut = true), stop()), timeout * 1000)
+      : undefined;
+    return new Promise<TaskOutcome>((resolve) => {
       let exitCode: number | null = null;
       let idle: NodeJS.Timeout | undefined;
       const finish = (outcome?: TaskOutcome) => {
@@ -230,9 +232,9 @@ async function startBash(
         finished = true;
         clearTimeout(timer);
         clearTimeout(idle);
+        signal.removeEventListener('abort', stop);
         child.stdout?.destroy();
         child.stderr?.destroy();
-        file.end();
         if (outcome) resolve(outcome);
         else if (timedOut) resolve({ status: 'failed', error: `超时（${timeout} 秒）` });
         else resolve({ status: exitCode === 0 ? 'completed' : 'failed', exitCode });
@@ -251,7 +253,28 @@ async function startBash(
         child.stderr?.on('data', settle);
       });
       child.once('close', () => finish());
-    }),
+    });
+  };
+}
+
+function startBash(
+  parentId: string,
+  command: string,
+  timeout: number | undefined,
+  run: BashRunner,
+): string {
+  const id = randomUUID();
+  const log = join(logDir(), `${id}.log`);
+  const file = createWriteStream(log);
+  const abort = new AbortController();
+  const onData = (chunk: Buffer) => {
+    file.write(chunk);
+    const task = tasks.get(id);
+    if (task) task.tail = (task.tail + chunk.toString()).slice(-TAIL_CHARS);
+  };
+  trackTask(
+    { id, parentId, kind: 'bash', label: command, stop: () => abort.abort(), log },
+    run(command, { signal: abort.signal, timeout, onData }).finally(() => file.end()),
   );
   return id;
 }
@@ -282,15 +305,18 @@ const text = (value: string) => ({
   details: undefined,
 });
 
-/** 同名覆盖内置 bash，加一个 background 参数；不带它时就是内置 bash。 */
+/** 同名覆盖 bash，加一个 background 参数；不带它时就是原来的 bash，远程会话里是远程版本。 */
 export async function backgroundTools(
   parentId: string,
   cwd: string,
   shellPath: string,
   commandPrefix: string | undefined,
+  target: RemoteTarget | null,
 ): Promise<ToolDefinition[]> {
   const pi = await loadPi();
-  const bash = pi.createBashToolDefinition(cwd, { shellPath, commandPrefix });
+  const bash = target
+    ? pi.createBashToolDefinition(cwd, { operations: remoteOperations(target).bash })
+    : pi.createBashToolDefinition(cwd, { shellPath, commandPrefix });
   const schema = bash.parameters as unknown as { properties: Record<string, unknown> };
   return [
     {
@@ -314,14 +340,11 @@ export async function backgroundTools(
         ctx,
       ) {
         if (!params.background) return bash.execute(toolCallId, params, signal, onUpdate, ctx);
-        const id = await startBash(
-          parentId,
-          params.command,
-          cwd,
-          shellPath,
-          commandPrefix,
-          params.timeout,
-        );
+        // 启动时才解析 shell，创建会话不依赖本机 bash。
+        const run = target
+          ? remoteBackgroundBash(target, cwd)
+          : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
+        const id = startBash(parentId, params.command, params.timeout, run);
         return text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`);
       },
     } as ToolDefinition,

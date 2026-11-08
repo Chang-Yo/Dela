@@ -44,7 +44,7 @@ const noticeOf = async (taskId: string) => {
 
 beforeEach(async () => {
   delivered.length = 0;
-  tools = await backgroundTools('parent', root, shell, undefined);
+  tools = await backgroundTools('parent', root, shell, undefined, null);
 });
 
 afterAll(() => {
@@ -128,11 +128,32 @@ it('用户在面板上手动停止只追加通知、不唤醒；归档删除时�
 
 it('别的会话的任务查不到', async () => {
   const taskId = await start('echo 我的');
-  const others = await backgroundTools('other', root, shell, undefined);
+  const others = await backgroundTools('other', root, shell, undefined, null);
   await expect(
     others
       .find((item) => item.name === 'task_output')!
       .execute('call', { taskId } as never, undefined, undefined, undefined as never),
   ).rejects.toThrow('没有这个后台任务');
   await noticeOf(taskId);
+});
+
+it('只创建工具时不解析 shell，真正跑后台 bash 才要求本机存在 bash', async () => {
+  const missing = await backgroundTools(
+    'no-shell',
+    root,
+    join(root, 'missing-bash'),
+    undefined,
+    null,
+  );
+  await expect(
+    missing
+      .find((item) => item.name === 'bash')!
+      .execute(
+        'call',
+        { command: 'echo 后台', background: true } as never,
+        undefined,
+        undefined,
+        undefined as never,
+      ),
+  ).rejects.toThrow();
 });

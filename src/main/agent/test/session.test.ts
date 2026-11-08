@@ -177,6 +177,8 @@ beforeEach(() => {
       cwd TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       provider_id TEXT, model TEXT, effort TEXT, parent_id TEXT);
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE remotes (id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL,
+      port INTEGER, key_path TEXT, created_at TEXT NOT NULL);
   `);
 });
 
@@ -276,6 +278,11 @@ it('用户停止仍冻结已产生的文件，并在删除会话时清理快照'
 
 it('远程会话不读取同名本地目录，接口明确返回不可用', async () => {
   state.configured = true;
+  state
+    .db!.prepare(
+      "INSERT INTO remotes VALUES ('remote-id', 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')",
+    )
+    .run();
   state
     .db!.prepare(
       "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('remote-project', NULL, '远程', 'project', NULL, '/remote/project', 'remote-id', 'x')",

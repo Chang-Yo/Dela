@@ -5,8 +5,10 @@
  * 关键约束：参数已被宿主 node:path 解析成 Windows 形态（`src/a.ts` → `E:\root\proj\src\a.ts`），
  * 每个路径都必须先过 remotePath 还原。
  */
+import { randomBytes } from 'node:crypto';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { loadPi } from '../agent/pi';
+import type { BashRunner } from '../agent/tasks';
 import { helperSession, type HelperLocation, type HelperSession } from './helper';
 import { notifyRemoteChange } from './events';
 import { syncRemoteWatch } from './watch';
@@ -150,6 +152,35 @@ export function remotePath(value: string): string {
   path = path.replace(/\/{2,}/g, '/');
   if (!path.startsWith('/')) path = `/${path}`;
   return path.length > 1 ? path.replace(/\/+$/, '') || '/' : path;
+}
+
+/**
+ * 后台 bash 的远端执行端。signal 不交给 exec：停止时显式取消，等 helper 报回结束才返回，
+ * 退出应用时据此等到取消送达再关隧道，远端不会留下没人管的进程。
+ */
+export function remoteBackgroundBash(target: RemoteTarget, cwd: string): BashRunner {
+  return async (command, { signal, timeout, onData }) => {
+    const remote = session(target);
+    const id = randomBytes(12).toString('hex');
+    const cancel = () => void remote.cancelTask(id).catch(() => {});
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      const result = await remote.exec(mirrorCommandText(command), {
+        id,
+        cwd,
+        timeoutMs: timeout ? timeout * 1000 : undefined,
+        onData,
+      });
+      if (result.lost > 0)
+        onData(Buffer.from(`\n[连接中断期间有 ${result.lost} 字节输出未能接回]\n`, 'utf8'));
+      notifyRemoteChange(cwd);
+      if (result.state === 'timeout') return { status: 'failed', error: `超时（${timeout} 秒）` };
+      if (result.state === 'cancelled') return { status: 'stopped' };
+      return { status: result.code === 0 ? 'completed' : 'failed', exitCode: result.code };
+    } finally {
+      signal.removeEventListener('abort', cancel);
+    }
+  };
 }
 
 const imageMime: Record<string, string> = {
