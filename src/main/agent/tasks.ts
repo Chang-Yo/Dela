@@ -317,9 +317,6 @@ export async function backgroundTools(
   const bash = target
     ? pi.createBashToolDefinition(cwd, { operations: remoteOperations(target).bash })
     : pi.createBashToolDefinition(cwd, { shellPath, commandPrefix });
-  const run = target
-    ? remoteBackgroundBash(target, cwd)
-    : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
   const schema = bash.parameters as unknown as { properties: Record<string, unknown> };
   return [
     {
@@ -343,6 +340,10 @@ export async function backgroundTools(
         ctx,
       ) {
         if (!params.background) return bash.execute(toolCallId, params, signal, onUpdate, ctx);
+        // 启动时才解析 shell，创建会话不依赖本机 bash。
+        const run = target
+          ? remoteBackgroundBash(target, cwd)
+          : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
         const id = startBash(parentId, params.command, params.timeout, run);
         return text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`);
       },
