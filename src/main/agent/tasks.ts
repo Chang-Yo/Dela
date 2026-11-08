@@ -18,6 +18,8 @@ import { randomUUID } from 'node:crypto';
 import { app } from 'electron';
 import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
 import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../shared/api';
+import type { RemoteTarget } from '../remotes/transport';
+import { remoteBackgroundBash, remoteOperations } from '../remotes/operations';
 import { loadPi } from './pi';
 import { deliverTaskNotice, publish } from './session';
 
@@ -39,6 +41,8 @@ interface BackgroundTask {
   outcome?: TaskOutcome;
   stoppedBy?: 'user' | 'model' | 'session';
   stop: () => void;
+  /** done 落定、结果记下之后完成。 */
+  settled: Promise<void>;
   log?: string;
   tail: string;
 }
@@ -62,7 +66,7 @@ function logDir() {
 
 /** 登记一个后台任务；done 落定后记下结果并投递通知。 */
 export function trackTask(
-  task: Omit<BackgroundTask, 'startedAt' | 'status' | 'tail'> & { tail?: string },
+  task: Omit<BackgroundTask, 'startedAt' | 'status' | 'tail' | 'settled'> & { tail?: string },
   done: Promise<TaskOutcome>,
 ) {
   const entry: BackgroundTask = {
@@ -70,25 +74,25 @@ export function trackTask(
     tail: task.tail ?? '',
     startedAt: Date.now(),
     status: 'running',
+    settled: done
+      .catch((error: unknown): TaskOutcome => ({
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      }))
+      .then((outcome) => {
+        if (entry.stoppedBy && outcome.status !== 'completed')
+          outcome = { ...outcome, status: 'stopped' };
+        Object.assign(entry, { status: outcome.status, outcome, finishedAt: Date.now() });
+        // 父会话正在归档或删除：不投递，也不推快照（删除后会话已不存在）。
+        if (entry.stoppedBy === 'session') return;
+        publish(entry.parentId);
+        void deliverTaskNotice(entry.parentId, notice(entry), entry.stoppedBy !== 'user').catch(
+          (error: unknown) => console.error('后台任务通知投递失败', error),
+        );
+      }),
   };
   tasks.set(entry.id, entry);
   publish(entry.parentId);
-  void done
-    .catch((error: unknown): TaskOutcome => ({
-      status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
-    }))
-    .then((outcome) => {
-      if (entry.stoppedBy && outcome.status !== 'completed')
-        outcome = { ...outcome, status: 'stopped' };
-      Object.assign(entry, { status: outcome.status, outcome, finishedAt: Date.now() });
-      // 父会话正在归档或删除：不投递，也不推快照（删除后会话已不存在）。
-      if (entry.stoppedBy === 'session') return;
-      publish(entry.parentId);
-      void deliverTaskNotice(entry.parentId, notice(entry), entry.stoppedBy !== 'user').catch(
-        (error: unknown) => console.error('后台任务通知投递失败', error),
-      );
-    });
 }
 
 export const taskRunning = (id: string) => tasks.get(id)?.status === 'running';
@@ -116,8 +120,11 @@ export function stopSessionTasks(parentId: string) {
   for (const task of tasks.values()) if (task.parentId === parentId) stopTask(task.id, 'session');
 }
 
-export function stopAllTasks() {
-  for (const task of tasks.values()) stopTask(task.id, 'session');
+/** 退出应用：结束全部任务并等它们落定，远端的取消要赶在隧道关掉之前送到。 */
+export async function stopAllTasks() {
+  const running = [...tasks.values()].filter((task) => task.status === 'running');
+  for (const task of running) stopTask(task.id, 'session');
+  await Promise.all(running.map((task) => task.settled));
 }
 
 const statusText = (outcome: TaskOutcome) =>
@@ -182,7 +189,7 @@ function killTree(pid: number) {
 }
 
 /** 后台 bash 的执行端：signal 中止时连同它启动的子进程一起结束。 */
-type BashRunner = (
+export type BashRunner = (
   command: string,
   options: { signal: AbortSignal; timeout?: number; onData: (chunk: Buffer) => void },
 ) => Promise<TaskOutcome>;
@@ -298,16 +305,21 @@ const text = (value: string) => ({
   details: undefined,
 });
 
-/** 同名覆盖内置 bash，加一个 background 参数；不带它时就是内置 bash。 */
+/** 同名覆盖 bash，加一个 background 参数；不带它时就是原来的 bash，远程会话里是远程版本。 */
 export async function backgroundTools(
   parentId: string,
   cwd: string,
   shellPath: string,
   commandPrefix: string | undefined,
+  target: RemoteTarget | null,
 ): Promise<ToolDefinition[]> {
   const pi = await loadPi();
-  const bash = pi.createBashToolDefinition(cwd, { shellPath, commandPrefix });
-  const run = localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
+  const bash = target
+    ? pi.createBashToolDefinition(cwd, { operations: remoteOperations(target).bash })
+    : pi.createBashToolDefinition(cwd, { shellPath, commandPrefix });
+  const run = target
+    ? remoteBackgroundBash(target, cwd)
+    : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
   const schema = bash.parameters as unknown as { properties: Record<string, unknown> };
   return [
     {
