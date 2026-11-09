@@ -135,8 +135,6 @@ export type {
   ThemePreference,
   IconPreference,
   ZoomPreference,
-  ExperimentKey,
-  ExperimentState,
   TaskNotificationPrefs,
   SettingsApi,
   SettingsSectionId,

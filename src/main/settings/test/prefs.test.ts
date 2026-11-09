@@ -15,13 +15,10 @@ import {
   savedCampusNotifications,
   savedFontSize,
   savedOpenAtLogin,
-  experimentEnabled,
-  savedExperiments,
   savedPendingInstall,
   savedVideoDownloadDirectory,
   setAgentInstruction,
   setCampusNotifications,
-  setExperiment,
   setKeybindingOverrides,
   setPendingInstall,
   setTaskNotificationPrefs,
@@ -35,27 +32,6 @@ function insert(sql: string, ...values: SQLInputValue[]) {
 beforeEach(() => {
   database = new DatabaseSync(':memory:');
   database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
-});
-
-it('keeps experiments on for new or corrupt settings and persists an explicit opt-out', () => {
-  expect(savedExperiments()).toEqual({ master: true, shuiyuan: true, videoDownload: true });
-  insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
-  expect(savedExperiments().master).toBe(true);
-  expect(setExperiment('shuiyuan', false).shuiyuan).toBe(false);
-  expect(setExperiment('shuiyuan', true).shuiyuan).toBe(true);
-});
-
-it('treats a sub-item as unavailable while the master switch is off', () => {
-  expect(experimentEnabled('videoDownload')).toBe(true);
-  setExperiment('master', false);
-  expect(experimentEnabled('videoDownload')).toBe(false);
-  expect(experimentEnabled('shuiyuan')).toBe(false);
-  // 子项自身的选择保留，总开关重新打开后恢复。
-  expect(savedExperiments().videoDownload).toBe(true);
-  setExperiment('master', true);
-  setExperiment('videoDownload', false);
-  expect(experimentEnabled('videoDownload')).toBe(false);
-  expect(experimentEnabled('shuiyuan')).toBe(true);
 });
 
 it('keeps login startup off unless the user opted in', () => {

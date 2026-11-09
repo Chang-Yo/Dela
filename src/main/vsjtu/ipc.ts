@@ -12,11 +12,7 @@ import { writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import type { VideoDownload } from '../../shared/vsjtu';
 import { checkWorkspaceSender } from '../ipc';
-import {
-  experimentEnabled,
-  savedVideoDownloadDirectory,
-  setVideoDownloadDirectory,
-} from '../settings/prefs';
+import { savedVideoDownloadDirectory, setVideoDownloadDirectory } from '../settings/prefs';
 import { flushCampusSession, getCampusSession, openCampusLoginWindow } from '../campus';
 import { loadCanvasToken } from '../credentials';
 import {
@@ -35,17 +31,6 @@ import { issuePlayback } from './playback';
 const id = z.number().int().positive();
 const downloads = new Map<string, { info: VideoDownload; item: DownloadItem; path: string }>();
 const pending = new Set<string>();
-// 观看是常规功能；只有下载属于试验功能（总开关与「课堂视频下载」子项都开启才可用）。
-function downloadEnabled(): void {
-  if (!experimentEnabled('videoDownload'))
-    throw new Error('请先在设置 → 通用的试验功能中开启「课堂视频下载」');
-}
-
-/** 下载开关关闭时立即取消进行中的任务。 */
-export function cancelVideoDownloads(): void {
-  for (const download of downloads.values())
-    if (download.info.state === 'progressing') download.item.cancel();
-}
 function notify(info: VideoDownload): void {
   for (const window of BrowserWindow.getAllWindows()) {
     // 校园登录窗口不接收下载数据。
@@ -78,7 +63,6 @@ async function downloadVideo(
       ? await dialog.showSaveDialog(parent, options)
       : await dialog.showSaveDialog(options);
     if (selected.canceled || !selected.filePath) return;
-    downloadEnabled();
     const stream = (await getStreams(videoId)).find((stream) => stream.view === view);
     if (!stream) throw new Error('该画面暂不可用');
     const target = stream.url;
@@ -145,10 +129,6 @@ async function downloadVideo(
 
 export function registerVsjtuIpc(): void {
   const check = (event: IpcMainInvokeEvent) => checkWorkspaceSender(event);
-  const checkDownload = (event: IpcMainInvokeEvent) => {
-    checkWorkspaceSender(event);
-    downloadEnabled();
-  };
   ipcMain.handle('vsjtu:connect', async (event) => {
     check(event);
     if (loadCanvasToken())
@@ -207,7 +187,7 @@ export function registerVsjtuIpc(): void {
     return { saved: true };
   });
   ipcMain.handle('vsjtu:download', (event, videoId, view, name) => {
-    checkDownload(event);
+    check(event);
     return downloadVideo(event, id.parse(videoId), id.parse(view), z.string().max(200).parse(name));
   });
   ipcMain.handle('vsjtu:downloads', (event) => {
@@ -224,11 +204,11 @@ export function registerVsjtuIpc(): void {
     if (download?.info.state === 'completed') shell.showItemInFolder(download.path);
   });
   ipcMain.handle('vsjtu:get-download-directory', (event) => {
-    checkDownload(event);
+    check(event);
     return savedVideoDownloadDirectory();
   });
   ipcMain.handle('vsjtu:choose-download-directory', async (event) => {
-    checkDownload(event);
+    check(event);
     const result = await dialog.showOpenDialog({
       title: '课堂录像的默认保存位置（每次下载仍可在保存对话框里改）',
       defaultPath: savedVideoDownloadDirectory() || app.getPath('videos'),

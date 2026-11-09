@@ -10,8 +10,6 @@ import {
   normalizeFontSize,
   resetKeybindingOverrides,
   savedCampusNotifications,
-  savedExperiments,
-  setExperiment,
   savedFontSize,
   savedIcon,
   savedOpenAtLogin,
@@ -25,7 +23,6 @@ import {
   writeSetting,
   zoomSchema,
 } from './prefs';
-import { cancelVideoDownloads } from '../vsjtu/ipc';
 
 export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'light' | 'dark' {
   nativeTheme.themeSource = theme;
@@ -33,20 +30,6 @@ export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'ligh
 }
 
 export function registerSettingsIpc(): void {
-  ipcMain.handle('settings:get-experiments', (event) => {
-    checkWorkspaceSender(event);
-    return savedExperiments();
-  });
-  ipcMain.handle('settings:set-experiment', (event, key, value) => {
-    checkWorkspaceSender(event);
-    const state = setExperiment(
-      z.enum(['master', 'shuiyuan', 'videoDownload']).parse(key),
-      z.boolean().parse(value),
-    );
-    // 下载关闭即取消进行中的任务（用户决定：立即取消，不等下完）。
-    if (!state.master || !state.videoDownload) cancelVideoDownloads();
-    return state;
-  });
   ipcMain.handle('settings:get-theme', (event) => {
     checkWorkspaceSender(event);
     return savedTheme();

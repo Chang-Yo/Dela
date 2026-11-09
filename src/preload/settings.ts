@@ -1,5 +1,4 @@
 import type {
-  ExperimentKey,
   IconPreference,
   KeybindingOverrides,
   SettingsApi,
@@ -10,9 +9,6 @@ import type {
 import { invoke } from './lib';
 
 export const settings = {
-  getExperiments: () => invoke('settings:get-experiments'),
-  setExperiment: (key: ExperimentKey, enabled: boolean) =>
-    invoke('settings:set-experiment', key, enabled),
   getTheme: () => invoke('settings:get-theme'),
   setTheme: (theme: ThemePreference) => invoke('settings:set-theme', theme),
   getIcon: () => invoke('settings:get-icon'),

@@ -17,7 +17,6 @@ import { SHUIYUAN_HOST } from '../../shared/shuiyuan';
 import { loadShuiyuanCredential } from '../credentials';
 import { getDatabase } from '../database';
 import { isWorkspaceWindow, systemNotifyToast } from '../notifications/system';
-import { experimentEnabled } from '../settings/prefs';
 import { getShuiyuanTopic, loadShuiyuanPosts, SHUIYUAN_ORIGIN } from './api';
 import { noteShuiyuanResponse, waitForShuiyuanBackgroundSlot } from './budget';
 
@@ -425,11 +424,11 @@ export async function collectShuiyuanSnapshots(): Promise<void> {
 
 /**
  * 启动时：先回收，再续上未完成的保存与文件丢失的快照（例如从不含快照的备份恢复）。
- * 失败的保存等用户手动重试；未绑定或水源关闭时不动。
+ * 失败的保存等用户手动重试；未绑定时不动。
  */
 export async function resumeShuiyuanSnapshots(): Promise<void> {
   await collectShuiyuanSnapshots();
-  if (!experimentEnabled('shuiyuan') || !loadShuiyuanCredential()) return;
+  if (!loadShuiyuanCredential()) return;
   const topicIds = getDatabase()
     .prepare(
       `SELECT topic_id FROM shuiyuan_topics

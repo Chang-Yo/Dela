@@ -13,7 +13,6 @@ import { prepareDocumentResource, releaseDocumentResource } from '../resources';
 import { resourceRefSchema } from '../../shared/resources';
 import { tool } from './domain/shared';
 import type { AgentTool } from './domain/shared';
-import { assertShuiyuanEnabled, experimentEnabled } from '../settings/prefs';
 
 // 这些是 shell 的业务命令，不常驻模型工具表；复用应用已有的缓存、登录与操作边界。
 const commandDomains = [
@@ -60,9 +59,7 @@ async function executeDomainCommand(name: string, input: unknown) {
       typeof input === 'object' && input !== null && 'command' in input
         ? String(input.command)
         : '';
-    const shuiyuanOff = !experimentEnabled('shuiyuan');
     return Object.entries(commands)
-      .filter(([name]) => !shuiyuanOff || !Object.hasOwn(shuiyuanTools, name))
       .filter(([name]) => !selected || name === selected)
       .map(([name, command]) => ({
         name,
@@ -71,7 +68,6 @@ async function executeDomainCommand(name: string, input: unknown) {
       }));
   }
   if (!Object.hasOwn(commands, name)) throw new Error(`命令不存在：${name}，请使用 dela help`);
-  if (Object.hasOwn(shuiyuanTools, name)) assertShuiyuanEnabled();
   return commands[name]!.execute(input);
 }
 

@@ -42,7 +42,6 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
     settings: {
       getOpenAtLogin: async () => false,
       setOpenAtLogin,
-      getExperiments: async () => ({ master: false, shuiyuan: false, videoDownload: false }),
       getCampusNotifications: async () => true,
       getTaskNotifications: async () => ({ failed: true, completed: false }),
     },
@@ -50,6 +49,7 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
       getState: async () => ({ snoozedUntil: null }),
       onUpdate: () => () => {},
     },
+    vsjtu: { getDownloadDirectory: async () => '' },
   } as unknown as DelaApi;
   await act(async () => root.render(<GeneralSection />));
   const toggle = container.querySelector<HTMLButtonElement>('[aria-label="开机自启动"]')!;

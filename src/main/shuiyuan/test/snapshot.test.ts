@@ -41,7 +41,6 @@ vi.mock('../../notifications/system', () => ({
   isWorkspaceWindow: () => true,
   systemNotifyToast: vi.fn(),
 }));
-vi.mock('../../settings/prefs', () => ({ experimentEnabled: () => true }));
 vi.mock('../api', () => ({
   SHUIYUAN_ORIGIN: 'https://shuiyuan.sjtu.edu.cn',
   getShuiyuanTopic: vi.fn(),

@@ -7,11 +7,7 @@ import {
   isShortcutActionId,
   type KeybindingOverrides,
 } from '../../shared/keybindings';
-import {
-  type ExperimentKey,
-  type ExperimentState,
-  type TaskNotificationPrefs,
-} from '../../shared/settings';
+import { type TaskNotificationPrefs } from '../../shared/settings';
 import { getDatabase } from '../database';
 
 export const themeSchema = z.enum(['system', 'light', 'dark']);
@@ -32,39 +28,6 @@ export function readSetting(key: string): string | undefined {
 
 export function writeSetting(key: string, value: string): void {
   getDatabase().prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value);
-}
-
-// 试验功能：总开关 + 子项，默认都开启；键缺失或值损坏都视为开启，只有显式写入 '0' 才关闭。
-// 子项只在总开关开启时生效，调用方用 experimentEnabled 取「实际是否可用」。
-const experimentKeys: Record<ExperimentKey, string> = {
-  master: 'experimental-features',
-  shuiyuan: 'experimental-shuiyuan',
-  videoDownload: 'experimental-video-download',
-};
-
-export function savedExperiments(): ExperimentState {
-  const read = (key: ExperimentKey) => readSetting(experimentKeys[key]) !== '0';
-  return {
-    master: read('master'),
-    shuiyuan: read('shuiyuan'),
-    videoDownload: read('videoDownload'),
-  };
-}
-
-export function setExperiment(key: ExperimentKey, enabled: boolean): ExperimentState {
-  writeSetting(experimentKeys[key], enabled ? '1' : '0');
-  return savedExperiments();
-}
-
-export function experimentEnabled(key: Exclude<ExperimentKey, 'master'>): boolean {
-  const state = savedExperiments();
-  return state.master && state[key];
-}
-
-/** 水源关闭时能力整体不可调用：IPC、Agent 命令与来源读取共用这一句报错。 */
-export function assertShuiyuanEnabled(): void {
-  if (!experimentEnabled('shuiyuan'))
-    throw new Error('水源功能已关闭，可在设置 → 通用的试验功能中开启');
 }
 
 export function savedTheme(): ThemePreference {
@@ -217,7 +180,7 @@ export function setAgentInstruction(input: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
-// 课堂视频默认下载目录（设置 › 通用 › 试验功能 › 课堂视频）：空串 = 没设过，
+// 课堂视频默认下载目录（设置 › 通用 › 课堂视频）：空串 = 没设过，
 // 下载时由系统保存对话框决定初始位置。值只来自主进程的目录选择器，不做校验。
 // ---------------------------------------------------------------------------
 

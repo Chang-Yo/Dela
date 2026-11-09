@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import type { SkillOrigin, SkillView } from '../../shared/capabilities';
 import { getDatabase } from '../database';
-import { experimentEnabled, readSetting, writeSetting } from '../settings/prefs';
+import { readSetting, writeSetting } from '../settings/prefs';
 import { discoverProjectSkills } from './discovery';
 import { listPackages, packagesEnabled } from './packages';
 import {
@@ -96,14 +96,8 @@ export function readDisabledSkills(): Set<string> {
   return new Set(parsed.success ? parsed.data : []);
 }
 
-/** 随功能开关隐藏的内置 Skill：水源关闭时既不注入 Agent，也不在设置页列出。 */
-function featureHiddenSkills(): Set<string> {
-  return new Set(experimentEnabled('shuiyuan') ? [] : ['shuiyuan']);
-}
-
-/** 注入 Pi 的禁用名单：用户禁用的 + 随功能关闭隐藏的（后者不写回用户名单）。 */
 export function effectiveDisabledSkills(): Set<string> {
-  const disabled = new Set([...readDisabledSkills(), ...featureHiddenSkills()]);
+  const disabled = readDisabledSkills();
   if (documentDependency().status !== 'ready') disabled.add(DOCUMENT_SKILL);
   return disabled;
 }
@@ -122,7 +116,6 @@ export function readDisabledSkillPaths(): Set<string> {
 
 function globalSkills(): SkillView[] {
   const disabled = readDisabledSkills();
-  const hidden = featureHiddenSkills();
   const skills: SkillView[] = [];
   const seen = new Set<string>();
   for (const directory of globalSkillDirectories()) {
@@ -130,7 +123,6 @@ function globalSkills(): SkillView[] {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name, SKILL_ENTRY_FILE);
       if (!entry.isDirectory() || seen.has(entry.name) || !existsSync(path)) continue;
-      if (hidden.has(entry.name)) continue;
       seen.add(entry.name);
       const origin: SkillOrigin =
         directory === builtinSkillsDirectory() && entry.name in BUILTIN_SKILLS ? 'builtin' : 'user';
