@@ -8,6 +8,7 @@
     "scripts/document-runtime-smoke.ts",
     "scripts/fix-native-permissions.ts",
     "scripts/prepare-runtime.ts",
+    "scripts/refactor-metrics.ts",
     "scripts/run-ts-smoke.ts",
     "scripts/verify-macos-package.ts",
     "src/main/modules.d.ts"

@@ -8,5 +8,30 @@
     "react/refs": "off",
     "react/use-memo": "off"
   },
+  "overrides": [
+    {
+      "files": ["src/{core,modules,sjtu,ui,app}/**"],
+      "rules": {
+        "react/set-state-in-effect": "error",
+        "react/refs": "error"
+      }
+    },
+    {
+      "files": ["src/main/{canvas,mail,shuiyuan,vsjtu,timetable,todo,notifications}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(\\.\\./)+agent(/|$)",
+                "message": "校园模块不能依赖 Agent 内核（docs/adr/0001、0005）：由内核通过注册表调用校园模块。"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "ignorePatterns": ["src/renderer/components/ui/beautifului/**"]
 }

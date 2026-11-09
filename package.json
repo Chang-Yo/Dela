@@ -26,6 +26,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "oxlint --deny-warnings src scripts",
+    "metrics": "node scripts/refactor-metrics.ts",
     "test": "vitest run --passWithNoTests",
     "test:remote": "vitest run --config vitest.remote.config.ts",
     "check": "pnpm format:check && pnpm lint && pnpm build && pnpm test",
