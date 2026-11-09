@@ -113,7 +113,8 @@ function onEvent(parentId: string, side: Side, event: AgentSessionEvent) {
       stream(parentId, side);
       break;
     case 'message_end':
-      publish(parentId, side);
+      // Pi 先通知监听者再把这条消息写进会话记录，而旁问的快照读的是记录：等写入后再推送。
+      queueMicrotask(() => publish(parentId, side));
       break;
   }
 }

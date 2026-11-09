@@ -1193,7 +1193,7 @@ function BackgroundTaskList({
     return () => clearInterval(timer);
   }, []);
   return (
-    <ul className="grid">
+    <ul className="grid grid-cols-1">
       {tasks.map((task) => {
         const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
         const label = (
