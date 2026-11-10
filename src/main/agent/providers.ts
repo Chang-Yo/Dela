@@ -125,7 +125,8 @@ async function builtinProviderFields(
   const vendor = (await llmCatalog()).find(({ id }) => id === piProvider);
   if (!vendor) throw new Error('Pi 目录中没有这个厂商');
   const missing = models.filter((id) => !vendor.models.some((model) => model.id === id));
-  if (missing.length) throw new Error(`这些模型不在 ${vendor.name} 的目录中：${missing.join('、')}`);
+  if (missing.length)
+    throw new Error(`这些模型不在 ${vendor.name} 的目录中：${missing.join('、')}`);
   return {
     baseUrl: vendor.baseUrl,
     modelConfigs: Object.fromEntries(
