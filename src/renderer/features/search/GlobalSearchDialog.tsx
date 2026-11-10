@@ -12,42 +12,43 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import type { GlobalSearchResult } from '../../../shared/api';
 import { cn } from '../../lib/utils';
-import { GLOBAL_SEARCH_PER_KIND_LIMIT } from '../../../shared/search';
 import { Button } from '../../components/ui/button';
-import { settingsResultsFor } from '../settings/search-index';
 import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { createClient } from '../../../core/protocol/contract';
+import {
+  SEARCH_LIMIT,
+  searchContract,
+  type SearchGroup,
+  type SearchHit,
+  type SearchIcon,
+} from '../../../modules/search/contract';
 
-const resultGroups: ReadonlyArray<{
-  kind: GlobalSearchResult['kind'];
-  label: string;
-  icon: LucideIcon;
-  /** 分组说明,标注主进程同步数据的条数上限。 */
-  note?: string;
-}> = [
-  { kind: 'project', label: '本地项目', icon: FolderKanban, note: '最多 10 条' },
-  { kind: 'chat', label: '聊天对话', icon: MessageSquare, note: '最多 10 条' },
-  { kind: 'mail', label: '邮件', icon: Mail, note: '最多 10 条' },
-  { kind: 'course-file', label: '课程资料', icon: FileText, note: '最多 10 条' },
-  { kind: 'todo', label: 'TODO / 作业', icon: CircleCheckBig, note: '最多 10 条' },
-  { kind: 'setting', label: '设置', icon: Settings },
-];
+const searchClient = createClient(searchContract, window.dela?.bridge);
 
-/** 设置入口是渲染层静态数据（设置域 search-index 单一来源）,与主进程返回的同步数据在本地合并展示。 */
+const groupIcons: Record<SearchIcon, LucideIcon> = {
+  folder: FolderKanban,
+  message: MessageSquare,
+  mail: Mail,
+  file: FileText,
+  check: CircleCheckBig,
+  settings: Settings,
+};
 
 function ResultRow({
   active,
+  icon: Icon,
   index,
   onActivate,
   onHover,
   result,
 }: {
   active: boolean;
+  icon: LucideIcon;
   index: number;
-  onActivate: (result: GlobalSearchResult) => void;
+  onActivate: (result: SearchHit) => void;
   onHover: (index: number) => void;
-  result: GlobalSearchResult;
+  result: SearchHit;
 }) {
   return (
     <div
@@ -65,7 +66,7 @@ function ResultRow({
         aria-hidden="true"
         className="grid size-7 shrink-0 place-items-center rounded-control bg-inset"
       >
-        <ResultIcon kind={result.kind} />
+        <Icon className="size-4 text-ink-3" strokeWidth={1.8} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-13 font-medium">{result.title}</span>
@@ -77,11 +78,6 @@ function ResultRow({
   );
 }
 
-function ResultIcon({ kind }: { kind: GlobalSearchResult['kind'] }) {
-  const Icon = resultGroups.find((group) => group.kind === kind)?.icon ?? Search;
-  return <Icon className="size-4 text-ink-3" strokeWidth={1.8} />;
-}
-
 export function GlobalSearchDialog({
   onOpenChange,
   onSelect,
@@ -89,11 +85,11 @@ export function GlobalSearchDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (result: GlobalSearchResult) => void;
+  onSelect: (result: SearchHit) => void;
 }) {
-  // results 跨打开/查询保留:新数据到达前继续展示旧结果,弹窗高度不会先塌陷再撑开。
+  // groups 跨打开/查询保留:新数据到达前继续展示旧结果,弹窗高度不会先塌陷再撑开。
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<readonly GlobalSearchResult[]>([]);
+  const [groups, setGroups] = useState<readonly SearchGroup[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -110,20 +106,12 @@ export function GlobalSearchDialog({
     setError(null);
     setRefreshing(true);
     const timer = window.setTimeout(() => {
-      const search = window.dela?.search;
-      if (!search) {
-        if (requestId.current === id) {
-          setRefreshing(false);
-          setError('搜索功能暂不可用。');
-        }
-        return;
-      }
-      void search
+      void searchClient
         .query(query)
         .then((next) => {
           if (requestId.current !== id) return;
-          setResults(next);
-          setSelectedIndex([...settingsResultsFor(query), ...next].length ? 0 : -1);
+          setGroups(next);
+          setSelectedIndex(next.length ? 0 : -1);
           setRefreshing(false);
         })
         .catch((reason: unknown) => {
@@ -139,17 +127,12 @@ export function GlobalSearchDialog({
     };
   }, [open, query]);
 
-  const selectResult = (result: GlobalSearchResult) => {
+  const selectResult = (result: SearchHit) => {
     onSelect(result);
     onOpenChange(false);
   };
 
-  const matches = [...settingsResultsFor(query), ...results];
-  const groupedResults = resultGroups.map((group) => ({
-    ...group,
-    results: matches.filter((result) => result.kind === group.kind),
-  }));
-  const allResults = groupedResults.flatMap((group) => group.results);
+  const allResults = groups.flatMap((group) => group.hits);
   const hasContent = allResults.length > 0;
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -249,24 +232,24 @@ export function GlobalSearchDialog({
                 <p className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-ink-3">
                   {isRecent ? '本地记录' : '搜索结果'}
                 </p>
-                {groupedResults.map((group) => {
-                  if (!group.results.length) return null;
-                  const GroupIcon = group.icon;
+                {groups.map((group) => {
+                  const GroupIcon = groupIcons[group.icon];
                   return (
-                    <section className="mt-1" key={group.kind}>
+                    <section className="mt-1" key={group.id}>
                       <h3 className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-ink-3">
                         <GroupIcon aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-                        {group.note && group.results.length >= GLOBAL_SEARCH_PER_KIND_LIMIT
-                          ? `${group.label}（${group.note}）`
+                        {group.truncated
+                          ? `${group.label}（最多 ${SEARCH_LIMIT} 条）`
                           : group.label}
                       </h3>
-                      {group.results.map((result) => {
+                      {group.hits.map((result) => {
                         const index = allResults.indexOf(result);
                         return (
                           <ResultRow
                             active={selectedIndex === index}
+                            icon={GroupIcon}
                             index={index}
-                            key={`${result.kind}-${result.id}`}
+                            key={`${group.id}-${result.id}`}
                             onActivate={selectResult}
                             onHover={setSelectedIndex}
                             result={result}

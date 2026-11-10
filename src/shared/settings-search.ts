@@ -1,7 +1,6 @@
 // 全局搜索 setting 入口的单一索引：每项 = 一个已实现的设置选项（含内置关键词，
-// 覆盖同义词与英文），按 section 聚合后供 GlobalSearchDialog 匹配展示。
-import type { GlobalSearchResult } from '../../../shared/search';
-import type { SettingsSectionId } from '../../../shared/settings';
+// 覆盖同义词与英文），按 section 聚合后由主进程的搜索来源匹配。
+import type { SettingsSectionId } from './settings';
 
 export interface SettingsSearchItem {
   /** 索引项 id（稳定键）。 */
@@ -243,28 +242,19 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   terms: '使用本软件的责任划分',
 };
 
-/** 按分类聚合的全局搜索设置入口（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */
-export function settingsResultsFor(query: string): GlobalSearchResult[] {
+/** 按分类聚合匹配（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */
+export function settingsSectionsMatching(query: string): SettingsSectionId[] {
   const keyword = query.trim().toLowerCase();
   const sections = Object.keys(settingsSectionLabels) as SettingsSectionId[];
-  return sections
-    .map((section) => {
-      const items = settingsSearchItems.filter((item) => item.section === section);
-      const haystack = [
-        settingsSectionLabels[section],
-        settingsSectionSummaries[section],
-        ...items.flatMap((item) => [item.title, ...item.keywords]),
-      ]
-        .join(' ')
-        .toLowerCase();
-      return { section, haystack };
-    })
-    .filter(({ haystack }) => !keyword || haystack.includes(keyword))
-    .map(({ section }) => ({
-      kind: 'setting' as const,
-      id: section,
-      title: settingsSectionLabels[section],
-      subtitle: `设置 · ${settingsSectionSummaries[section]}`,
-      target: { page: 'settings' as const, section },
-    }));
+  return sections.filter((section) => {
+    const items = settingsSearchItems.filter((item) => item.section === section);
+    const haystack = [
+      settingsSectionLabels[section],
+      settingsSectionSummaries[section],
+      ...items.flatMap((item) => [item.title, ...item.keywords]),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return !keyword || haystack.includes(keyword);
+  });
 }

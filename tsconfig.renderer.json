@@ -7,5 +7,13 @@
     "paths": { "@/*": ["./src/renderer/*"] },
     "resolveJsonModule": true
   },
-  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts"]
+  "include": [
+    "src/renderer/**/*.ts",
+    "src/renderer/**/*.tsx",
+    "src/shared/**/*.ts",
+    "src/core/protocol/**/*.ts",
+    "src/modules/*/contract.ts",
+    "src/modules/*/view/**/*.ts",
+    "src/modules/*/view/**/*.tsx"
+  ]
 }

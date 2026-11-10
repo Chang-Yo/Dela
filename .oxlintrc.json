@@ -31,6 +31,157 @@
           }
         ]
       }
+    },
+    {
+      "files": ["src/{core,modules,app}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/modules/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "group": ["**/app/*", "!**/app/module"],
+                "message": "模块只能引用 app/module.ts。"
+              },
+              {
+                "group": [
+                  "../../main/**",
+                  "../../../main/**",
+                  "../../../../main/**",
+                  "../../preload/**",
+                  "../../../preload/**",
+                  "../../../../preload/**"
+                ],
+                "message": "模块不能引用旧主进程与 preload 的内部实现。"
+              },
+              {
+                "group": [
+                  "../*/main/**",
+                  "../*/data/**",
+                  "../*/view",
+                  "../*/view/**",
+                  "../../*/main/**",
+                  "../../*/data/**",
+                  "../../*/view",
+                  "../../*/view/**",
+                  "./view",
+                  "./view/**",
+                  "../view",
+                  "../view/**"
+                ],
+                "message": "模块之间只通过对方的 index.ts 或 contract.ts 引用；主进程侧不能引用 view。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/modules/*/view/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "group": ["**/core/*", "!**/core/protocol", "**/core/*/**", "!**/core/protocol/**"],
+                "message": "view 只能引用 core/protocol。"
+              },
+              {
+                "group": [
+                  "**/app/**",
+                  "../../main/**",
+                  "../../../main/**",
+                  "../../../../main/**",
+                  "../../preload/**",
+                  "../../../preload/**",
+                  "../../../../preload/**",
+                  "**/modules/*/index",
+                  "**/modules/*",
+                  "!**/modules/*/contract",
+                  "**/shared/**",
+                  "**/renderer/**",
+                  "!**/renderer/components/ui/**",
+                  "!**/renderer/lib/utils"
+                ],
+                "message": "view 只能引用 core/protocol、模块契约与 ui（过渡期允许 renderer/components/ui 与 lib/utils）。"
+              },
+              {
+                "group": [
+                  "..",
+                  "../index",
+                  "../main/**",
+                  "../data/**",
+                  "../../main/**",
+                  "../../*",
+                  "../../*/index",
+                  "../../*/main/**",
+                  "../../*/data/**",
+                  "../../*/view/*",
+                  "@/**"
+                ],
+                "message": "view 不能引用本模块主进程侧，也只能经 contract.ts 或 view/index.ts 引用其他模块。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/{main,preload,renderer,shared}/**", "scripts/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "ignorePatterns": ["src/renderer/components/ui/beautifului/**"]

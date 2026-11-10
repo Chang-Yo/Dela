@@ -20,7 +20,8 @@ import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../features/search/GlobalSearchDialog';
 import { TimetableView } from '../features/timetable';
 import { TodoView } from '../features/todo/TodoView';
-import type { ChatSessionSummary, GlobalSearchResult } from '../../shared/api';
+import type { ChatSessionSummary } from '../../shared/api';
+import type { SearchHit } from '../../modules/search/contract';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
 import { useRuns } from '../sessions/runs';
 import { useSessions, updateSession } from '../sessions/store';
@@ -200,7 +201,7 @@ export default function App() {
   };
 
   // 全局搜索结果分发：chat 深链把旧 scope 身份归一到项目/通用池；course-file 落工作台预览标签。
-  const openSearchResult = (result: GlobalSearchResult) => {
+  const openSearchResult = (result: SearchHit) => {
     if (!leaveComposer(() => openSearchResult(result))) return;
     const navigation = useNavigationStore.getState();
     const target = result.target;
