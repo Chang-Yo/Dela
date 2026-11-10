@@ -25,21 +25,21 @@ export type { SettingsSectionId };
 
 /** 分区目录：group 为侧栏分组标题（设置内只有一层分类，分组仅作视觉归拢）。 */
 const sections: Array<{ id: SettingsSectionId; group: string; icon: LucideIcon }> = [
-  { id: 'general', group: '基本', icon: SlidersHorizontal },
-  { id: 'appearance', group: '基本', icon: Palette },
-  { id: 'shortcuts', group: '基本', icon: Keyboard },
-  { id: 'workspace', group: '数据', icon: LayoutGrid },
-  { id: 'archived', group: '数据', icon: Archive },
-  { id: 'connections', group: '数据', icon: Plug },
-  { id: 'remotes', group: '数据', icon: Cloud },
+  { id: 'general', group: '通用', icon: SlidersHorizontal },
+  { id: 'appearance', group: '通用', icon: Palette },
+  { id: 'shortcuts', group: '通用', icon: Keyboard },
+  { id: 'connections', group: '通用', icon: Plug },
+  { id: 'archived', group: '通用', icon: Archive },
   { id: 'providers', group: '模型', icon: Bot },
   { id: 'capabilities', group: '模型', icon: Blocks },
   { id: 'commands', group: '模型', icon: Terminal },
   { id: 'skills', group: '模型', icon: Puzzle },
   { id: 'mcp', group: '模型', icon: Server },
-  { id: 'about', group: '关于', icon: Info },
-  { id: 'privacy', group: '关于', icon: ShieldCheck },
-  { id: 'terms', group: '关于', icon: ScrollText },
+  { id: 'workspace', group: '工作区', icon: LayoutGrid },
+  { id: 'remotes', group: '工作区', icon: Cloud },
+  { id: 'about', group: '其他', icon: Info },
+  { id: 'privacy', group: '其他', icon: ShieldCheck },
+  { id: 'terms', group: '其他', icon: ScrollText },
 ];
 
 /** 按分组切分目录，保持目录顺序。 */
