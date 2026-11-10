@@ -10,22 +10,46 @@ import { todoTools } from './domain/todo';
 import { workspaceTools } from './domain/workspace';
 import { readResourceTool } from './domain/read-resource';
 import { prepareDocumentResource, releaseDocumentResource } from '../resources';
+import { DOCUMENT_SKILL } from '../documents/runtime';
+import { effectiveDisabledSkills } from './skills';
 import { resourceRefSchema } from '../../shared/resources';
 import { tool } from './domain/shared';
 import type { AgentTool } from './domain/shared';
 
 // 这些是 shell 的业务命令，不常驻模型工具表；复用应用已有的缓存、登录与操作边界。
+// 停用某个 Skill 时，它的命令同时从 dela help 和执行中消失。
 const commandDomains = [
-  { name: 'canvas', description: '查询、同步 Canvas 课程与资料', commands: canvasTools },
-  { name: 'classroom', description: '读取与下载课堂视频语音文稿', commands: classroomTools },
-  { name: 'mail', description: '检索邮件、读取附件与准备邮件草稿', commands: mailTools },
-  { name: 'shuiyuan', description: '查看水源分类、话题、搜索与帖子内容', commands: shuiyuanTools },
+  {
+    name: 'canvas',
+    skill: 'canvas',
+    description: '查询、同步 Canvas 课程与资料',
+    commands: canvasTools,
+  },
+  {
+    name: 'classroom',
+    skill: 'classroom',
+    description: '读取与下载课堂视频语音文稿',
+    commands: classroomTools,
+  },
+  {
+    name: 'mail',
+    skill: 'mail',
+    description: '检索邮件、读取附件与准备邮件草稿',
+    commands: mailTools,
+  },
+  {
+    name: 'shuiyuan',
+    skill: 'shuiyuan',
+    description: '查看水源分类、话题、搜索与帖子内容',
+    commands: shuiyuanTools,
+  },
   {
     name: 'timetable',
+    skill: 'curriculum',
     description: '查询课表与日程，同步课表、创建或删除日程',
     commands: timetableTools,
   },
-  { name: 'todo', description: '查询与管理待办、Canvas 作业', commands: todoTools },
+  { name: 'todo', skill: 'todo', description: '查询与管理待办、Canvas 作业', commands: todoTools },
   {
     name: 'workspace',
     description: '管理项目、关联校园资料与导入附件；普通文件用 read/write/edit/shell',
@@ -53,21 +77,37 @@ const commands: Record<string, AgentTool> = Object.assign(
   ...commandDomains.map((domain) => domain.commands),
 );
 
+const commandSkills: Record<string, string> = Object.assign(
+  {
+    prepare_document: DOCUMENT_SKILL,
+    release_document: DOCUMENT_SKILL,
+    link_canvas_source: 'canvas',
+  },
+  ...commandDomains.map((domain) =>
+    'skill' in domain
+      ? Object.fromEntries(Object.keys(domain.commands).map((name) => [name, domain.skill]))
+      : {},
+  ),
+);
+
 async function executeDomainCommand(name: string, input: unknown) {
+  const disabled = effectiveDisabledSkills();
+  const available = (name: string) =>
+    Object.hasOwn(commands, name) && !disabled.has(commandSkills[name] ?? '');
   if (name === 'help') {
     const selected =
       typeof input === 'object' && input !== null && 'command' in input
         ? String(input.command)
         : '';
     return Object.entries(commands)
-      .filter(([name]) => !selected || name === selected)
+      .filter(([name]) => available(name) && (!selected || name === selected))
       .map(([name, command]) => ({
         name,
         description: command.description,
         parameters: z.toJSONSchema(command.schema, { io: 'input' }),
       }));
   }
-  if (!Object.hasOwn(commands, name)) throw new Error(`命令不存在：${name}，请使用 dela help`);
+  if (!available(name)) throw new Error(`命令不存在或所属 Skill 已停用：${name}，请使用 dela help`);
   return commands[name]!.execute(input);
 }
 
