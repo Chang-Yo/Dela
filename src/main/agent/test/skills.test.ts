@@ -1,5 +1,5 @@
 // 设置页的 Skills 清单：内置与本机目录分开；Pi package 与每个本地项目各自成组，按 SKILL.md 路径开关，
-// 同名 Skill 互不牵连；水源随功能开关隐藏；文档读取在装好组件前不能开启。
+// 同名 Skill 互不牵连；文档读取在装好组件前不能开启。
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -11,7 +11,6 @@ const home = mkdtempSync(join(tmpdir(), 'dela-skills-'));
 // 项目放在 home 之外：Pi 沿项目目录向上找 .agents/skills，不能撞上测试里的本机目录。
 const projects = mkdtempSync(join(tmpdir(), 'dela-skill-projects-'));
 const state = vi.hoisted(() => ({
-  shuiyuan: true,
   packagesOn: true,
   packages: [] as PiPackageView[],
 }));
@@ -19,7 +18,6 @@ let database: DatabaseSync;
 vi.mock('electron', () => ({ app: { getPath: () => home }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => database }));
 vi.mock('../../settings/prefs', () => ({
-  experimentEnabled: (key: string) => key !== 'shuiyuan' || state.shuiyuan,
   readSetting: (key: string) =>
     (
       database.prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
@@ -68,7 +66,6 @@ beforeEach(() => {
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, name TEXT, kind TEXT, local_path TEXT, remote_id TEXT);
   `);
-  state.shuiyuan = true;
   state.packagesOn = true;
   state.packages = [];
 });
@@ -91,15 +88,6 @@ it('shows capability setup once without resetting existing skills or other onboa
       .prepare('SELECT value FROM workspace_settings WHERE key=?')
       .get('capabilities-onboarding-completed'),
   ).toEqual({ value: '1' });
-});
-
-it('lists the shuiyuan skill only while the feature is enabled', async () => {
-  expect(await byName('shuiyuan')).toHaveLength(1);
-  expect(effectiveDisabledSkills().has('shuiyuan')).toBe(false);
-  state.shuiyuan = false;
-  expect(await byName('shuiyuan')).toHaveLength(0);
-  expect(effectiveDisabledSkills().has('shuiyuan')).toBe(true);
-  expect(readDisabledSkills().has('shuiyuan')).toBe(false);
 });
 
 it('writes the document skill but excludes it until its dependencies are installed', async () => {

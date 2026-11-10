@@ -3,7 +3,6 @@ import { readMailMessage } from '../../mail/api';
 import { getShuiyuanTopic } from '../../shuiyuan/api';
 import { shuiyuanPostsHtml, shuiyuanTopicUrl } from '../../shuiyuan/sources';
 import { requireShuiyuanBound, withShuiyuanErrors } from './shuiyuan/helpers';
-import { assertShuiyuanEnabled } from '../../settings/prefs';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
 import { readResourceContent } from '../../resources';
 import { freshness, offset, tool, toolError } from './shared';
@@ -132,7 +131,6 @@ export const readResourceTool = tool(
         case 'mail':
           return await readMailRef(ref, offset, limit);
         case 'shuiyuan-online':
-          assertShuiyuanEnabled();
           return await readShuiyuanOnlineRef(ref, offset, limit);
         default:
           return await readDocumentRef(ref, offset, limit);

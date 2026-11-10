@@ -33,7 +33,6 @@ import { cn } from '../lib/utils';
 import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from './remote-color';
-import { useExperimental } from '../features/settings/experimental';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
@@ -103,9 +102,6 @@ export function ProjectSessionNav({
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
   const visibleEntries = useVisibleNavEntries();
-  useEffect(() => {
-    void useExperimental.getState().load();
-  }, []);
   const openProjects = useNavigationStore((s) => s.openProjects);
   const toggleProject = useNavigationStore((s) => s.toggleProject);
   const fullSessionLists = useNavigationStore((s) => s.fullSessionLists);

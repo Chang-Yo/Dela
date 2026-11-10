@@ -6,7 +6,6 @@ import { PanelToggleButton } from '../../components/ui/panel-toggle';
 import { Resizer } from '../../components/ui/resizer';
 import { useViewportWidth } from '../../workbench/explorer-state';
 import { cn } from '../../lib/utils';
-import { useExperimental, useExperimentEnabled } from '../settings/experimental';
 import { CourseList, CoursePicker } from './CourseList';
 import { TranscriptPanel } from './TranscriptPanel';
 import { SegmentedControl } from '../../components/ui/beautifului/atoms/SegmentedControl';
@@ -39,8 +38,6 @@ function DesktopClassroomView() {
   const refresh = useClassroom((state) => state.refresh);
   const connect = useClassroom((state) => state.connect);
   const connectBusy = useClassroom((state) => state.connectBusy);
-  // 观看是常规功能；下载面板与下载按钮只在试验子项「课堂视频下载」开启时出现。
-  const downloadEnabled = useExperimentEnabled('videoDownload');
 
   const [width, setWidth] = useState(() => {
     const stored = Number(localStorage.getItem(widthStorageKey));
@@ -57,7 +54,6 @@ function DesktopClassroomView() {
 
   useEffect(() => {
     void init();
-    void useExperimental.getState().load();
   }, [init]);
 
   // 宽度偏好防抖落盘；渲染宽度对窄视口钳制（与资料侧栏同款）。
@@ -140,7 +136,7 @@ function DesktopClassroomView() {
                       <KeyRound className="size-4" />
                     )}
                   </Button>
-                  {downloadEnabled && <DownloadsPanel />}
+                  <DownloadsPanel />
                   <Button
                     aria-label="刷新课程"
                     className="hover:bg-hover-2"

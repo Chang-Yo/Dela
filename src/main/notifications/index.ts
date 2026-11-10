@@ -15,7 +15,6 @@ import { checkWorkspaceSender } from '../ipc';
 import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from '../mail/api';
 import { listShuiyuanNotifications } from '../shuiyuan/api';
 import { listCanvasAnnouncements, listTodoCanvasCourses } from '../canvas/api';
-import { experimentEnabled } from '../settings/prefs';
 import { refreshJwc, getJwcNotice, getJwcCaptcha, downloadJwcAttachment } from './jwc';
 import {
   armSystemNotifications,
@@ -56,8 +55,6 @@ function currentAccounts(): ActiveAccount[] {
   } catch {
     // 与水源同一口径：损坏的 Canvas 令牌不能连带隐藏邮件等其他来源的通知。
   }
-  // 水源关闭：不轮询、不展示已有通知，凭据保留。
-  if (!experimentEnabled('shuiyuan')) return accounts;
   try {
     const credential = loadShuiyuanCredential();
     if (credential) accounts.push({ source: 'shuiyuan', key: credential.username });
@@ -335,7 +332,6 @@ function likeSummary(likes: NotificationItem[]): string {
 }
 
 async function refreshShuiyuan(): Promise<void> {
-  if (!experimentEnabled('shuiyuan')) return;
   // boundAt 是账号绑定时刻：早于它的存量未读只进通知列表，不弹系统通知。
   let credential: ShuiyuanCredential | null = null;
   try {

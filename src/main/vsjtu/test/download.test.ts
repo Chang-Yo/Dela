@@ -7,7 +7,6 @@ const boundary = vi.hoisted(() => ({
   download: vi.fn(),
   notify: vi.fn(),
   reveal: vi.fn(),
-  downloadEnabled: true,
   directory: '',
   write: vi.fn(),
 }));
@@ -30,7 +29,6 @@ vi.mock('electron', () => ({
 }));
 vi.mock('../../ipc', () => ({ checkWorkspaceSender: () => {} }));
 vi.mock('../../settings/prefs', () => ({
-  experimentEnabled: (key: string) => key === 'videoDownload' && boundary.downloadEnabled,
   savedVideoDownloadDirectory: () => boundary.directory,
   setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
 }));
@@ -47,19 +45,17 @@ vi.mock('../api', () => ({
     { view: 5, duration: 3283, url: 'https://live.sjtu.edu.cn/test.mp4?key=private' },
   ],
 }));
-import { cancelVideoDownloads, registerVsjtuIpc } from '../ipc';
+import { registerVsjtuIpc } from '../ipc';
 beforeEach(() => {
   campus = new EventEmitter();
   vi.clearAllMocks();
-  boundary.downloadEnabled = true;
   boundary.directory = '';
   registerVsjtuIpc();
 });
 const call = (name: string, ...args: unknown[]) =>
   boundary.handlers.get(`vsjtu:${name}`)!({ sender: {} }, ...args);
 
-it('exports the complete transcript only to a user-chosen path, independently of video downloads', async () => {
-  boundary.downloadEnabled = false;
+it('exports the complete transcript only to a user-chosen path', async () => {
   boundary.choose.mockResolvedValueOnce({ canceled: true });
   expect(await call('export-transcript', 60, '课程/节次')).toEqual({ saved: false });
   expect(boundary.write).not.toHaveBeenCalled();
@@ -83,29 +79,6 @@ it('returns available views and duration with an opaque playback route, never th
   expect(stream?.view).toBe(5);
   expect(stream?.duration).toBe(3283);
   expect(stream?.playbackUrl).toMatch(/^dela-resource:\/\/vsjtu\/video\/60\/5\?t=[0-9a-f]{32}$/);
-});
-
-it('keeps playback available but blocks downloads while the download experiment is off', async () => {
-  boundary.downloadEnabled = false;
-  await expect(call('streams', 60)).resolves.toHaveLength(1);
-  expect(() => call('download', 60, 5, '录像')).toThrow('课堂视频下载');
-  expect(() => call('get-download-directory')).toThrow('课堂视频下载');
-  expect(boundary.choose).not.toHaveBeenCalled();
-});
-
-it('cancels in-flight downloads when the download experiment is turned off', async () => {
-  boundary.choose.mockResolvedValue({ canceled: false, filePath: 'D:/录像.mp4' });
-  const item = Object.assign(new EventEmitter(), {
-    getURL: () => 'https://live.sjtu.edu.cn/test.mp4?key=private',
-    setSavePath: vi.fn(),
-    getTotalBytes: () => 100,
-    getReceivedBytes: () => 10,
-    cancel: vi.fn(),
-  });
-  boundary.download.mockImplementation(() => campus.emit('will-download', {}, item));
-  await call('download', 70, 5, '录像');
-  cancelVideoDownloads();
-  expect(item.cancel).toHaveBeenCalledTimes(1);
 });
 
 it('does not start a transfer when the native save dialog is cancelled', async () => {
