@@ -37,7 +37,15 @@ import { closeAllPortTunnels } from './remotes/ports';
 import { closeRemoteWatch } from './remotes/watch';
 import { closeRemoteOpens } from './remotes/transfer';
 import { registerRemoteIpc } from './remotes/ipc';
-import { registerSearchIpc } from './search';
+import { registerSearchProvider } from '../modules/search';
+import { registerModuleIpc } from '../app/ipc';
+import { modules } from '../app/modules';
+import { projectSearch } from './workspace/search';
+import { chatSearch } from './agent/search';
+import { mailSearch } from './mail/search';
+import { courseFileSearch } from './canvas/search';
+import { todoSearch } from './todo/search';
+import { settingsSearch } from './settings/search';
 import {
   initializeNotifications,
   registerNotificationsIpc,
@@ -227,7 +235,16 @@ app
     registerWorkspaceIpc(subscribeChat, invalidateSessions);
     registerTerminalIpc();
     registerRemoteIpc();
-    registerSearchIpc();
+    registerModuleIpc(modules);
+    for (const provider of [
+      projectSearch,
+      chatSearch,
+      mailSearch,
+      courseFileSearch,
+      todoSearch,
+      settingsSearch,
+    ])
+      registerSearchProvider(provider);
     registerNotificationsIpc();
     registerTodoIpc();
     registerUpdateIpc();

@@ -19,7 +19,7 @@ import {
 import type { SettingsSectionId } from '../../../shared/settings';
 import { cn } from '../../lib/utils';
 import { useHorizontalWheel } from '../../lib/use-horizontal-wheel';
-import { settingsSectionLabels } from './search-index';
+import { settingsSectionLabels } from '../../../shared/settings-search';
 
 export type { SettingsSectionId };
 

@@ -1,5 +1,6 @@
 // 聚合出口：领域契约在同目录领域文件，本文件只 re-export，保证全仓既有 import 路径不变。
 // 领域类型变化请直接改对应文件，不在此处添加逻辑。
+import type { Bridge } from '../core/protocol/contract';
 import type { BackupApi } from './backup';
 import type { CacheApi } from './cache';
 import type { CapabilityApi } from './capabilities';
@@ -11,7 +12,6 @@ import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
 import type { NotificationsApi } from './notifications';
 import type { RemoteApi } from './remotes';
-import type { SearchApi } from './search';
 import type { SessionApi, SidechatApi } from './session';
 import type { SettingsApi } from './settings';
 import type { VsjtuApi } from './vsjtu';
@@ -37,6 +37,8 @@ import type { WindowApi } from './window';
 import type { WorkspaceApi } from './workspace';
 
 export interface DelaApi {
+  /** 已迁入 modules/ 的模块经契约客户端调用主进程，见 core/protocol/contract。 */
+  readonly bridge: Bridge;
   readonly platform: string;
   readonly vsjtu: VsjtuApi;
   capability: CapabilityApi;
@@ -63,7 +65,6 @@ export interface DelaApi {
   readonly sidechat: SidechatApi;
   readonly remotes: RemoteApi;
   readonly layout: LayoutApi;
-  readonly search: SearchApi;
   readonly notifications: NotificationsApi;
   readonly update: UpdateApi;
 }
@@ -158,8 +159,6 @@ export type {
   LlmVerifyResult,
   LlmApi,
 } from './llm';
-
-export type { GlobalSearchResult, SearchApi } from './search';
 
 export type {
   RemoteChannelState,

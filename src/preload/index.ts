@@ -6,13 +6,13 @@ import { cache } from './cache';
 import { chat } from './chat';
 import { consent } from './consent';
 import { backup } from './backup';
+import { bridge } from './bridge';
 import { llm } from './llm';
 import { capabilityApi as capability } from './capabilities';
 import { layout } from './layout';
 import { mail } from './mail';
 import { notifications } from './notifications';
 import { remotes } from './remotes';
-import { search } from './search';
 import { session, sidechat } from './session';
 import { settings } from './settings';
 import { shuiyuan } from './shuiyuan';
@@ -26,13 +26,13 @@ import { vsjtu } from './vsjtu';
 
 contextBridge.exposeInMainWorld('dela', {
   platform: process.platform,
+  bridge,
   vsjtu,
   version,
   updatedOnLaunch: process.argv.includes('--dela-updated'),
   todo,
   terminal,
   remotes,
-  search,
   notifications,
   window: windowApi,
   settings,
