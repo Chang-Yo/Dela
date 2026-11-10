@@ -23,6 +23,21 @@ const headersSchema = z
   .record(headerKeySchema, z.string().min(1).max(2048))
   .refine((headers) => Object.keys(headers).length <= 32, '自定义请求头最多 32 条');
 
+// 自定义端点的请求体模板：填 {query}、{count} 占位后须是合法 JSON。
+const bodySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(8192)
+  .refine((body) => {
+    try {
+      JSON.parse(fillBody(body, 'q', 5));
+      return true;
+    } catch {
+      return false;
+    }
+  }, '请求体需为 JSON，可用 {query}、{count} 占位');
+
 const nameSchema = z.string().trim().min(1).max(64);
 const uuid = z.string().uuid();
 
@@ -50,6 +65,7 @@ export const webSearchEntrySchema = z.discriminatedUnion('provider', [
       name: nameSchema,
       provider: z.literal('custom'),
       url: z.string().url().max(2048),
+      body: bodySchema.optional(),
       headers: headersSchema.optional(),
     })
     .strict(),
@@ -89,6 +105,7 @@ export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
       name: nameSchema,
       provider: z.literal('custom'),
       url: z.string().url().max(2048),
+      body: bodySchema.optional(),
       headers: headersSchema.optional(),
     })
     .strict(),
@@ -313,29 +330,98 @@ async function searchGoogle(
   );
 }
 
-// 自定义端点：SearXNG 兼容 JSON（{ results: [{ title, url, content }] }）；
-// 注册的自定义请求头随请求发送（适配用户自备的鉴权/加密策略），可覆盖默认 accept。
+function fillBody(body: string, query: string, count: number): string {
+  return body
+    .replaceAll('{query}', JSON.stringify(query).slice(1, -1))
+    .replaceAll('{count}', String(count));
+}
+
+// 各家搜索 API 的结果数组位置与字段名不同，按常见写法依次尝试。
+const RESULT_PATHS = [
+  'results',
+  'organic_results',
+  'organic',
+  'items',
+  'data',
+  'web.results',
+  'webPages.value',
+  'data.webPages.value',
+  'data.results',
+  'data.items',
+];
+const URL_FIELDS = ['url', 'link', 'href'];
+const TITLE_FIELDS = ['title', 'name'];
+const SNIPPET_FIELDS = ['content', 'snippet', 'description', 'summary', 'text'];
+
+function pickText(item: Record<string, unknown>, fields: string[]): string | undefined {
+  for (const field of fields) {
+    const value = item[field];
+    if (typeof value === 'string') return value;
+  }
+}
+
+function readResults(payload: unknown): WebSearchResult[] {
+  const list = RESULT_PATHS.map((path) =>
+    path
+      .split('.')
+      .reduce<unknown>(
+        (value, key) =>
+          value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined,
+        payload,
+      ),
+  ).find(Array.isArray);
+  if (!list) {
+    const keys = payload && typeof payload === 'object' ? Object.keys(payload).join('、') : '';
+    throw new Error(
+      `无法识别搜索结果：返回的顶层字段为「${keys || '空'}」，需包含 results 等结果数组`,
+    );
+  }
+  return list.flatMap((item: unknown) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as Record<string, unknown>;
+    const url = pickText(record, URL_FIELDS);
+    if (!url) return [];
+    return [
+      {
+        url,
+        title: compact(pickText(record, TITLE_FIELDS)) || url,
+        snippet: compact(pickText(record, SNIPPET_FIELDS)),
+      },
+    ];
+  });
+}
+
+// 自定义端点：填了请求体走 POST，否则 GET；URL 与请求体中的 {query}、{count} 替换为实参。
+// GET 且 URL 不含 {query} 时按 SearXNG 追加 q 与 format=json。自定义请求头可覆盖默认头。
 async function searchCustomEndpoint(
   query: string,
+  count: number,
   endpoint: string,
+  body: string | undefined,
   headers: Record<string, string> | undefined,
 ): Promise<WebSearchResult[]> {
-  const params = new URLSearchParams({ q: query, format: 'json' });
-  const response = await fetch(`${endpoint}?${params}`, {
-    headers: { accept: 'application/json', ...headers },
+  const url =
+    body || endpoint.includes('{query}')
+      ? endpoint
+          .replaceAll('{query}', encodeURIComponent(query))
+          .replaceAll('{count}', String(count))
+      : `${endpoint}${endpoint.includes('?') ? '&' : '?'}${new URLSearchParams({ q: query, format: 'json' })}`;
+  const response = await fetch(url, {
+    method: body ? 'POST' : 'GET',
+    headers: {
+      accept: 'application/json',
+      ...(body ? { 'content-type': 'application/json' } : {}),
+      ...headers,
+    },
+    body: body ? fillBody(body, query, count) : undefined,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) throw searchError(response.status);
   const payload = (await response.json()) as {
-    results?: { url?: string | null; title?: string | null; content?: string | null }[];
     // SearXNG 把无响应引擎序列化为 [引擎名, 错误文案] 元组的数组。
     unresponsive_engines?: (string | [string, string])[];
   };
-  const results = (payload.results ?? []).flatMap((item) =>
-    item.url
-      ? [{ url: item.url, title: compact(item.title) || item.url, snippet: compact(item.content) }]
-      : [],
-  );
+  const results = readResults(payload);
   if (results.length === 0 && (payload.unresponsive_engines?.length ?? 0) > 0) {
     const engines = payload
       .unresponsive_engines!.map((entry) => (Array.isArray(entry) ? entry[0] : entry))
@@ -359,6 +445,6 @@ export async function webSearch(query: string, count = 5, freshness?: string) {
         ? await searchGoogle(query, count, config.apiKey, config.cx)
         : config.provider === 'deepseek'
           ? await searchDeepSeek(query, count, config.apiKey)
-          : await searchCustomEndpoint(query, config.url, config.headers);
+          : await searchCustomEndpoint(query, count, config.url, config.body, config.headers);
   return { query, provider: config.provider, results: results.slice(0, count) };
 }
