@@ -3,7 +3,9 @@ import { Dialog } from 'radix-ui';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Textarea } from '../../../../components/ui/textarea';
+import { SegmentedControl } from '../../../../components/ui/beautifului/atoms/SegmentedControl';
 import type { McpServerView } from '../../../../../shared/api';
+import type { McpTransportConfig } from '../../../../../shared/capabilities';
 import { errorText } from '../../../../workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
 import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
@@ -12,8 +14,11 @@ import { cn } from '../../../../lib/utils';
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
 const codeAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
+const transports = ['stdio', 'http'] as const;
+const transportLabels = { stdio: '本地命令', http: '远程地址' };
+const secretHint = '值经系统钥匙串加密保存在本机，不会再显示在界面上。';
 
-/** MCP 添加/编辑共用表单：新建提交 addMcpServer；编辑提交部分补丁（command/args/env 留空保持原值，视图不携带现值）。 */
+/** MCP 添加/编辑共用表单：新建提交 addMcpServer；编辑提交部分补丁（连接字段留空保持原值，视图不携带现值）。 */
 export function McpFormDialog({
   editing,
   onClose,
@@ -25,18 +30,26 @@ export function McpFormDialog({
   onSaved: (views: McpServerView[]) => void;
 }) {
   const isEdit = editing.mode === 'edit';
+  const [transport, setTransport] = useState<McpTransportConfig['transport']>(
+    isEdit ? editing.server.transport : 'stdio',
+  );
   const [name, setName] = useState(isEdit ? editing.server.name : '');
   const [command, setCommand] = useState('');
   const [argsText, setArgsText] = useState('');
   const [envText, setEnvText] = useState('');
+  const [url, setUrl] = useState('');
+  const [headersText, setHeadersText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     const dela = window.dela;
     if (!dela || busy) return;
-    // 先本地校验（名称/命令/env 格式），失败保留输入就地报错；通道错误同样保留输入。
-    const parsed = parseMcpForm({ name, command, argsText, envText }, { commandRequired: !isEdit });
+    // 先本地校验，失败保留输入就地报错；通道错误同样保留输入。
+    const parsed = parseMcpForm(
+      { transport, name, command, argsText, envText, url, headersText },
+      { isEdit },
+    );
     if (!parsed.ok) {
       setError(parsed.error);
       return;
@@ -45,8 +58,8 @@ export function McpFormDialog({
     setError(null);
     try {
       const views = isEdit
-        ? await dela.capability.updateMcpServer(editing.server.id, mcpUpdatePatch(parsed))
-        : await dela.capability.addMcpServer(parsed);
+        ? await dela.capability.updateMcpServer(editing.server.id, mcpUpdatePatch(parsed.value))
+        : await dela.capability.addMcpServer(parsed.value);
       onSaved(views);
       onClose();
     } catch (cause) {
@@ -66,8 +79,10 @@ export function McpFormDialog({
           </Dialog.Title>
           <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
             {isEdit
-              ? '修改名称或连接配置；留空的 command / 参数 / 环境变量保持原值不变（保存后会重连）。'
-              : '以 stdio 方式启动本地命令进程，为 Agent 提供外部工具与资源；保存后自动连接。'}
+              ? '修改名称或连接配置；留空的连接字段保持原值不变（保存后会重连）。'
+              : transport === 'stdio'
+                ? '以 stdio 方式启动本地命令进程，为 Agent 提供外部工具；保存后自动连接。'
+                : '通过 Streamable HTTP 连接远程服务器；暂不支持 OAuth 登录与旧版 SSE。'}
           </Dialog.Description>
           <form
             className="mt-4 grid gap-4"
@@ -76,6 +91,14 @@ export function McpFormDialog({
               void submit();
             }}
           >
+            {!isEdit && (
+              <SegmentedControl
+                labels={transportLabels}
+                onChange={setTransport}
+                options={transports}
+                value={transport}
+              />
+            )}
             <label className="grid gap-2 text-13">
               名称
               <Input
@@ -86,42 +109,72 @@ export function McpFormDialog({
                 value={name}
               />
             </label>
-            <label className="grid gap-2 text-13">
-              command
-              <Input
-                autoComplete="off"
-                onChange={(event) => setCommand(event.target.value)}
-                placeholder={isEdit ? '留空保持不变' : 'npx'}
-                required={!isEdit}
-                spellCheck={false}
-                value={command}
-              />
-            </label>
-            <label className="grid gap-2 text-13">
-              参数（每行一个）
-              <Textarea
-                className={codeAreaClass}
-                onChange={(event) => setArgsText(event.target.value)}
-                placeholder={'-y\n@modelcontextprotocol/server-weather'}
-                rows={3}
-                spellCheck={false}
-                value={argsText}
-              />
-            </label>
-            <label className="grid gap-2 text-13">
-              环境变量（每行 KEY=VALUE）
-              <Textarea
-                className={codeAreaClass}
-                onChange={(event) => setEnvText(event.target.value)}
-                placeholder={'WEATHER_API_KEY=…'}
-                rows={3}
-                spellCheck={false}
-                value={envText}
-              />
-              <span className="text-xs leading-relaxed text-ink-3">
-                子进程默认继承 Dela 进程的环境变量；env 值将以明文保存在本地数据库中。
-              </span>
-            </label>
+            {transport === 'stdio' ? (
+              <>
+                <label className="grid gap-2 text-13">
+                  command
+                  <Input
+                    autoComplete="off"
+                    onChange={(event) => setCommand(event.target.value)}
+                    placeholder={isEdit ? '留空保持不变' : 'npx'}
+                    required={!isEdit}
+                    spellCheck={false}
+                    value={command}
+                  />
+                </label>
+                <label className="grid gap-2 text-13">
+                  参数（每行一个）
+                  <Textarea
+                    className={codeAreaClass}
+                    onChange={(event) => setArgsText(event.target.value)}
+                    placeholder={'-y\n@modelcontextprotocol/server-weather'}
+                    rows={3}
+                    spellCheck={false}
+                    value={argsText}
+                  />
+                </label>
+                <label className="grid gap-2 text-13">
+                  环境变量（每行 KEY=VALUE）
+                  <Textarea
+                    className={codeAreaClass}
+                    onChange={(event) => setEnvText(event.target.value)}
+                    placeholder={'WEATHER_API_KEY=…'}
+                    rows={3}
+                    spellCheck={false}
+                    value={envText}
+                  />
+                  <span className="text-xs leading-relaxed text-ink-3">
+                    子进程默认继承 Dela 进程的环境变量；{secretHint}
+                  </span>
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="grid gap-2 text-13">
+                  地址
+                  <Input
+                    autoComplete="off"
+                    onChange={(event) => setUrl(event.target.value)}
+                    placeholder={isEdit ? '留空保持不变' : 'https://example.com/mcp'}
+                    required={!isEdit}
+                    spellCheck={false}
+                    value={url}
+                  />
+                </label>
+                <label className="grid gap-2 text-13">
+                  请求头（每行 Name: value）
+                  <Textarea
+                    className={codeAreaClass}
+                    onChange={(event) => setHeadersText(event.target.value)}
+                    placeholder={'Authorization: Bearer …'}
+                    rows={3}
+                    spellCheck={false}
+                    value={headersText}
+                  />
+                  <span className="text-xs leading-relaxed text-ink-3">{secretHint}</span>
+                </label>
+              </>
+            )}
             {error && (
               <p className="text-xs text-red" role="alert">
                 {error}

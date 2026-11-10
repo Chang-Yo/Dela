@@ -38,7 +38,7 @@
 
 `@earendil-works/pi-coding-agent` 的 `createAgentSession` 就是 agent 内核。会话树（JSONL）、多轮工具上下文、自动压缩、重试、`AGENTS.md` 上下文文件、skills 发现与渐进加载都由 Pi 承担，Dela 不另写执行循环、上下文组装或压缩。
 
-工具来源分三类：Pi 内置（read / write / edit / bash / grep / find / ls）、Dela 自写（web_search / web_fetch / session_search / session_read / task / task_output / task_stop，以及同名覆盖 bash 加上 background 参数）、MCP（stdio 服务器）。read/write/edit/bash 常驻不可关。
+工具来源分三类：Pi 内置（read / write / edit / bash / grep / find / ls）、Dela 自写（web_search / web_fetch / session_search / session_read / task / task_output / task_stop，以及同名覆盖 bash 加上 background 参数）、MCP（stdio 与 Streamable HTTP 服务器，配置整份加密保存在 `mcp-servers.bin`）。read/write/edit/bash 常驻不可关。
 
 两个容易踩的目录事实：
 
@@ -182,7 +182,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-schema v11。业务代码只认当前格式；旧数据在启动时由 `src/main/migrations/` 逐级升级（规则见该目录的 README），缺少对应迁移的旧版本与更新版本创建的数据拒绝打开。
+schema v12。业务代码只认当前格式；旧数据在启动时由 `src/main/migrations/` 逐级升级（规则见该目录的 README），缺少对应迁移的旧版本与更新版本创建的数据拒绝打开。
 
 模型选择属于会话：提供商只有启用/停用，没有全局「使用中」；新会话沿用最近发过消息的会话的模型，开始使用时写定。提供商分两类：内置厂商（`piProvider` 指向 Pi 目录中的厂商，模型只能从目录选）与自定义 OpenAI 兼容服务。
 
