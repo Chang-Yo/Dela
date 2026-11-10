@@ -14,7 +14,8 @@ vi.mock('electron', () => ({
   app: { getPath: () => tmpdir(), isPackaged: false, getAppPath: () => tmpdir() },
 }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
-import { COMMAND_BRIDGE } from '../commands';
+vi.mock('../skills', () => ({ effectiveDisabledSkills: () => new Set(['curriculum', 'canvas']) }));
+import { COMMAND_BRIDGE, startDomainBridge } from '../commands';
 import { locateBash } from '../../terminal';
 
 /** 把请求体写进文件而不真的发请求；只认桥当前使用的 --data-binary。 */
@@ -100,4 +101,23 @@ describe('dela 命令桥', () => {
 
     expect(bodies.map((body) => JSON.parse(body).input.title)).toEqual(samples);
   });
+});
+
+it('停用的 Skill 对应的命令不出现在 help 中，也不能执行', async () => {
+  const bridge = await startDomainBridge();
+  const call = async (command: string, input: unknown = {}) =>
+    (await fetch(bridge.url, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${bridge.token}` },
+      body: JSON.stringify({ command, input }),
+    }).then((response) => response.json())) as { ok: boolean; result?: { name: string }[] };
+  try {
+    const names = (await call('help')).result!.map((command) => command.name);
+    expect(names).toEqual(expect.arrayContaining(['query_todos', 'list_workspace_entries']));
+    expect(names).not.toEqual(expect.arrayContaining(['query_schedule']));
+    expect(names).not.toEqual(expect.arrayContaining(['link_canvas_source']));
+    expect(await call('query_schedule')).toMatchObject({ ok: false });
+  } finally {
+    bridge.close();
+  }
 });
