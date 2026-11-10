@@ -13,7 +13,6 @@ const api = {
   installSkillDependencies: vi.fn(),
   cancelSkillInstallation: vi.fn(),
   setSkillEnabled: vi.fn(),
-  completeSetup: vi.fn(),
 };
 const done = vi.fn();
 const button = (label: string) =>
@@ -32,7 +31,6 @@ beforeEach(() => {
     dependency: { status: 'missing' },
   };
   api.listSkills.mockImplementation(async () => [skill]);
-  api.completeSetup.mockResolvedValue(undefined);
   window.dela = {
     capability: api,
     window: { minimize: vi.fn(), close: vi.fn() },
@@ -47,14 +45,25 @@ afterEach(async () => {
   delete window.dela;
   vi.unstubAllGlobals();
 });
-const render = () => act(async () => root.render(<CapabilitySetup onDone={done} />));
+const render = () =>
+  act(async () =>
+    root.render(
+      <CapabilitySetup onDone={done}>
+        {(content, footer) => (
+          <>
+            {content}
+            {footer}
+          </>
+        )}
+      </CapabilitySetup>,
+    ),
+  );
 
 it('does not automatically install; allows completing with every component skipped', async () => {
   await render();
   expect(button('安装并启用')).toBeDefined();
   expect(api.installSkillDependencies).not.toHaveBeenCalled();
   await act(async () => button('完成配置').click());
-  expect(api.completeSetup).toHaveBeenCalledOnce();
   expect(done).toHaveBeenCalledOnce();
 });
 
@@ -106,7 +115,7 @@ it('shows download progress and cancels without surfacing an intentional cancell
   expect(button('安装并启用')).toBeDefined();
 });
 
-it('keeps failed installs retryable and does not finish if the database marker cannot be saved', async () => {
+it('keeps failed installs retryable', async () => {
   api.installSkillDependencies.mockImplementation(async () => {
     skill.dependency = { status: 'error', error: '下载失败' };
     throw new Error('下载失败');
@@ -115,12 +124,6 @@ it('keeps failed installs retryable and does not finish if the database marker c
   await act(async () => button('安装并启用').click());
   expect(host.textContent).toContain('下载失败');
   expect(button('重试')).toBeDefined();
-  api.completeSetup.mockRejectedValueOnce(new Error('无法保存配置'));
-  await act(async () => button('完成配置').click());
-  expect(done).not.toHaveBeenCalled();
-  expect(host.textContent).toContain('无法保存配置');
-  await act(async () => button('完成配置').click());
-  expect(done).toHaveBeenCalledOnce();
 });
 
 it('finishes while installation continues, without cancelling the background install', async () => {

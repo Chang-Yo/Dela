@@ -22,12 +22,12 @@ const wizardSteps = [MailStep, CampusStep, CanvasStep, ShuiyuanStep, LlmStep];
 type OnboardingFlowProps = {
   /** 完成包含能力拓展的六步向导，由宿主播放结束动画。 */
   onWizardDone: () => void;
-  /** 已完成配置的用户补完条款后由宿主检查能力拓展版本，不重走向导。 */
+  /** 已完成配置的用户只补条款，不重走向导。 */
   onConsentDone: () => void;
 };
 
 /**
- * 首次启动引导：Intro 动画 → 条款接受 → 五步配置向导；已完成配置的用户只补条款，由宿主检查能力拓展入口。
+ * 首次启动引导：Intro 动画 → 条款接受 → 六步配置向导；已完成配置的用户只补条款。
  * 完成动画由宿主在主界面之上渲染（CompletionOverlay），不属于本组件。
  */
 export function OnboardingFlow({ onConsentDone, onWizardDone }: OnboardingFlowProps) {
@@ -54,7 +54,6 @@ export function OnboardingFlow({ onConsentDone, onWizardDone }: OnboardingFlowPr
 
   const accept = useCallback(() => {
     saveConsent();
-    // 已完成配置的用户不重走配置向导，由宿主检查能力拓展入口。
     if (needsWizard()) setConsented(true);
     else onConsentDone();
   }, [onConsentDone]);

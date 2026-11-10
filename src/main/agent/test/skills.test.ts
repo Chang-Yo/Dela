@@ -22,8 +22,6 @@ vi.mock('../../settings/prefs', () => ({
     database.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value),
 }));
 import {
-  completeCapabilitySetup,
-  needsCapabilitySetup,
   effectiveDisabledSkills,
   listSkills,
   readDisabledSkillPaths,
@@ -61,22 +59,6 @@ beforeEach(() => {
 afterAll(() => {
   rmSync(home, { recursive: true, force: true });
   rmSync(projects, { recursive: true, force: true });
-});
-
-it('shows capability setup once without resetting existing skills or other onboarding settings', () => {
-  database
-    .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
-    .run('skills-disabled', '["mail"]');
-  expect(needsCapabilitySetup()).toBe(true);
-  expect(needsCapabilitySetup()).toBe(true);
-  completeCapabilitySetup();
-  expect(needsCapabilitySetup()).toBe(false);
-  expect(readDisabledSkills().has('mail')).toBe(true);
-  expect(
-    database
-      .prepare('SELECT value FROM workspace_settings WHERE key=?')
-      .get('capabilities-onboarding-completed'),
-  ).toEqual({ value: '1' });
 });
 
 it('writes the document skill but excludes it until its dependencies are installed', async () => {

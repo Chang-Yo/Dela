@@ -5,21 +5,19 @@ import { ToastCard } from '@/components/ui/beautifului/atoms/Toast';
 import { Button } from '../../components/ui/button';
 import { DownloadProgressRow } from '../../components/download-progress';
 import { errorText } from '../../workspace/store';
-import { WizardShell } from './WizardShell';
 import { StepButton } from './steps/step-controls';
 
-/** 首次配置与未完成能力配置时共用，组件安装继续使用现有 Skills API。 */
+/** 首次引导的最后一步：安装并启用需要额外组件的 Skill。 */
 export function CapabilitySetup({
   onDone,
   children,
 }: {
   onDone: () => void;
-  children?: (content: ReactNode, footer: ReactNode) => ReactNode;
+  children: (content: ReactNode, footer: ReactNode) => ReactNode;
 }) {
   const [skills, setSkills] = useState<SkillView[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const active = useRef(false);
   const cancelRequested = useRef(false);
 
@@ -77,21 +75,6 @@ export function CapabilitySetup({
     }
   };
 
-  const finish = async () => {
-    if (saving || !window.dela) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await window.dela.capability.completeSetup();
-      if (active.current) onDone();
-    } catch (cause) {
-      if (active.current) {
-        setError(errorText(cause));
-        setSaving(false);
-      }
-    }
-  };
-
   const content = (
     <div className="grid gap-7">
       <h2 className="text-2xl font-semibold tracking-tight">能力拓展</h2>
@@ -135,9 +118,7 @@ export function CapabilitySetup({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={
-                        saving || (!!busy && (busy !== skill.name || dependency.status === 'ready'))
-                      }
+                      disabled={!!busy && (busy !== skill.name || dependency.status === 'ready')}
                       onClick={() => void (downloading ? cancel(skill.name) : enable(skill))}
                     >
                       {downloading
@@ -200,19 +181,13 @@ export function CapabilitySetup({
   );
   const footer = (
     <StepButton
-      state={saving ? 'busy' : 'idle'}
+      state="idle"
       idleLabel="完成配置"
-      busyLabel="正在保存…"
+      busyLabel="完成配置"
       successLabel="完成配置"
       type="button"
-      onClick={() => void finish()}
+      onClick={onDone}
     />
   );
-  return children ? (
-    children(content, footer)
-  ) : (
-    <WizardShell step={0} stepCount={0} footer={footer}>
-      {content}
-    </WizardShell>
-  );
+  return children(content, footer);
 }

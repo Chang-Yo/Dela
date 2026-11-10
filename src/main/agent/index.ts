@@ -62,8 +62,6 @@ import {
   gcChatMedia,
 } from './media';
 import {
-  completeCapabilitySetup,
-  needsCapabilitySetup,
   findSkill,
   listSkills,
   readSkill,
@@ -336,8 +334,6 @@ export function registerAgentIpc() {
 
   const name = z.string().trim().min(1).max(100);
   handle('capabilities:list-skills', () => listSkills());
-  handle('capabilities:needs-setup', () => needsCapabilitySetup());
-  handle('capabilities:complete-setup', () => completeCapabilitySetup());
   handle('capabilities:install-skill-dependencies', (skill) => {
     z.literal(DOCUMENT_SKILL).parse(skill);
     return invalidating(async () => {
