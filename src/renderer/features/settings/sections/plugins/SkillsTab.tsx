@@ -14,11 +14,10 @@ import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
 import { SectionHeader } from '../../SectionHeader';
 import { SettingsGroup } from '../../SettingsGroup';
 
-const ORIGINS = ['builtin', 'user', 'package', 'project'] as const;
+const ORIGINS = ['builtin', 'user', 'project'] as const;
 const ORIGIN_LABELS: Record<SkillOrigin, string> = {
   builtin: '内置',
   user: '本机',
-  package: 'Pi Packages',
   project: '项目',
 };
 const FILTER_LABELS: Record<'all' | SkillOrigin, string> = {
@@ -28,7 +27,6 @@ const FILTER_LABELS: Record<'all' | SkillOrigin, string> = {
 const ORIGIN_DESCRIPTIONS: Record<SkillOrigin, string> = {
   builtin: '随 Dela 安装，写在 ~/.dela/skills',
   user: '~/.dela/skills 与 ~/.agents/skills 里你自己放的',
-  package: 'Pi Package',
   project: '项目里的 .agents/skills、.pi/skills 与 .agent/skills',
 };
 
@@ -39,7 +37,7 @@ interface SkillGroup {
   items: SkillView[];
 }
 
-/** 内置、本机各一组；每个包、每个项目各一组。组的顺序按来处，组内保持主进程给的顺序。 */
+/** 内置、本机各一组；每个项目各一组。组的顺序按来处，组内保持主进程给的顺序。 */
 function groupSkills(skills: SkillView[]): SkillGroup[] {
   const groups: SkillGroup[] = [];
   for (const skill of skills) {
@@ -69,7 +67,7 @@ const remoteProjectsOf = (entries: WorkspaceEntry[]) =>
       entry.kind === 'project' && !!entry.remoteId && !!entry.path,
   );
 
-/** 设置 › Skills：内置、本机目录、Pi package 与每个本地项目的技能，分组列出并逐个启停。 */
+/** 设置 › Skills：内置、本机目录与每个本地项目的技能，分组列出并逐个启停。 */
 export function SkillsTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [skills, setSkills] = useState<SkillView[] | null>(null);
@@ -77,7 +75,7 @@ export function SkillsTab() {
   const [installing, setInstalling] = useState(false);
   const cancelRequested = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  // 按来处过滤：全部 / 内置 / 本机 / Pi Packages / 项目（只列有内容的来处）。
+  // 按来处过滤：全部 / 内置 / 本机 / 项目（只列有内容的来处）。
   const [filter, setFilter] = useState<'all' | SkillOrigin>('all');
   const [viewing, setViewing] = useState<SkillView | null>(null);
   const [uploading, setUploading] = useState<SkillView | null>(null);
@@ -231,9 +229,6 @@ export function SkillsTab() {
                     <span className="truncate font-mono text-xs text-ink-3" title={skill.path}>
                       {skill.path}
                     </span>
-                    {skill.lockedReason && (
-                      <span className="text-xs text-ink-3">{skill.lockedReason}</span>
-                    )}
                     {skill.dependency &&
                       skill.dependency.status !== 'ready' &&
                       (skill.dependency.status === 'error' ? (
@@ -305,7 +300,7 @@ export function SkillsTab() {
                   ) : (
                     <Switch
                       checked={skill.enabled}
-                      disabled={busy || !!skill.lockedReason}
+                      disabled={busy}
                       label={`启用 ${skill.name}`}
                       onChange={(next) => void toggle(skill, next)}
                     />

@@ -38,7 +38,7 @@
 
 `@earendil-works/pi-coding-agent` 的 `createAgentSession` 就是 agent 内核。会话树（JSONL）、多轮工具上下文、自动压缩、重试、`AGENTS.md` 上下文文件、skills 发现与渐进加载都由 Pi 承担，Dela 不另写执行循环、上下文组装或压缩。
 
-工具来源分四类：Pi 内置（read / write / edit / bash / grep / find / ls）、Dela 自写（web_search / web_fetch / session_search / session_read / task / task_output / task_stop，以及同名覆盖 bash 加上 background 参数）、MCP（stdio 服务器）、Pi package 扩展（见 §2.3.1）。read/write/edit/bash 常驻不可关。
+工具来源分三类：Pi 内置（read / write / edit / bash / grep / find / ls）、Dela 自写（web_search / web_fetch / session_search / session_read / task / task_output / task_stop，以及同名覆盖 bash 加上 background 参数）、MCP（stdio 服务器）。read/write/edit/bash 常驻不可关。
 
 两个容易踩的目录事实：
 
@@ -68,23 +68,17 @@
 
 领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi。
 
-设置 › Skills 按来源分四组：内置、本机、每个 Pi package、每个本地项目。**开关的粒度不一样**——全局 skill 按名称记禁用，项目与包里的按 `SKILL.md` 绝对路径记，因为同名的可以共存且互不牵连。
+设置 › Skills 按来源分三组：内置、本机、每个本地项目。**开关的粒度不一样**——全局 skill 按名称记禁用，项目里的按 `SKILL.md` 绝对路径记，因为同名的可以共存且互不牵连。
 
 `document-reading` 是唯一带依赖的 skill：它需要一套独立的 Python 环境（Windows 用 Python.org embeddable，Mac 用 python-build-standalone，均为 3.12.10；uv 固定，压缩包固定 SHA256），装进 `userData/components`，不要求系统 Python、Homebrew 或管理员权限。依赖只接受 PyPI 官方 wheels 与锁定 hashes，**禁止源码构建，也禁止 Agent 自行安装**。没装组件时设置页仍列出它，但显示关闭且不注入 Pi。
 
 文档正文的读取交给外部 Python 脚本，主进程只负责取文件与工具路径，不解析 Office/PDF。输入副本与输出都在系统临时目录，用完显式释放，不写进用户项目。GUI 的 DOCX/XLSX/PPTX 预览是**另一条独立路径**，不复用这套。
 
-### 2.3.1 Pi packages
+### 2.3.1 第三方能力
 
-Pi 社区的 package（扩展、skills、提示模板、主题）原样交给 Pi 加载；Dela 不重写解析、安装或扩展运行时。原则是**兼容优先、用户知情选择**：Dela 负责告知、来源展示、启停与卸载，不设沙箱、不做权限隔离，也不以安全为由缩减兼容范围。
+第三方只经 Agent Skills 与 MCP 接入（见 [ADR 0002](adr/0002-pi-private-engine.md)、[ADR 0003](adr/0003-skills-and-mcp.md)）。会话的资源加载器关闭扩展、提示模板与主题，项目里的 `.pi/extensions`、`.pi/prompts` 与主题一律不加载。
 
-要记住的几点取舍：
-
-- 包的状态存在 `workspace_settings`，建会话时以内存设置交给 Pi，**不读写 Pi 自己的 settings.json**。首版只做全局范围，不加载项目 `.pi/settings.json` 声明的包。
-- 会话用 Pi 默认的「信任项目」策略，Pi 会按 cwd 自动加载项目里的 `.pi/extensions`、`.pi/skills`、`.pi/prompts` 与 `.agents/skills`——这是接入 packages 之前就有的行为，**不经过 Packages 的启用开关**。
-- 交给 Pi 的 `npmCommand` 必须是 npm 本身（`npm.cmd` / `bin/npm`）。Pi 按命令名识别包管理器，写成 `node npm-cli.js` 会识别失败。
-- `AgentSession.dispose` 不发 `session_shutdown`（Pi 由 `AgentSessionRuntime` 发），Dela 直接持有 `AgentSession`，所以自己补发再 dispose，扩展靠它关掉子进程。应用退出在 `before-quit` 拦一次等收尾——**不能拦在 `will-quit`**，被拦下后 Electron 不再响应后续 `app.quit()`。
-- 扩展代码与主进程同权限（见 §7）。
+应用退出在 `before-quit` 拦一次，等后台任务收尾——**不能拦在 `will-quit`**，被拦下后 Electron 不再响应后续 `app.quit()`。
 
 ### 2.4 GUI
 
@@ -128,7 +122,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 - 会话的完整记录是 Pi JSONL，SQLite `sessions` 只是索引；renderer 看到的是 Pi 消息的投影。会话归属在创建时确定，不从当前工作台推断。
 - **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read。引用以 token 内联在文本里，因此没有数量上限；附件是另一套 count（上限 5）。
 - **聊天文档附件**只传本地文件引用，由 document-reading skill 按需解析；二进制不按 UTF-8 注入提示词，不复制进项目。远端项目访问不到本机解析组件，发送文档附件会提示切换本机会话。
-- **会话命令**（`/compact`、`/reload`、`/name`、`/new`）由 Dela 自己实现，Pi 的 slash command 只在它的终端界面里。优先级与会话命令同名的扩展命令不列进候选，自定义指令也不许与之同名。命令不是一轮对话，不写用户消息、不改标题、不记文件变化。
+- **会话命令**（`/compact`、`/reload`、`/name`、`/new`）由 Dela 自己实现，Pi 的 slash command 只在它的终端界面里。自定义指令不许与会话命令同名。命令不是一轮对话，不写用户消息、不改标题、不记文件变化。
 - **插队**：运行中发送走 Pi 的 `steer()`，沿用本轮 turnId，改动按轮归属，改动卡片只挂在本轮最后一段回复上。Pi 已答完、Dela 还在收尾时发来的消息，等收尾结束后作为新一轮。停止与撤回都先清空 Pi 的队列，未送达的消息回到输入框。运行中不接受 / 命令。
 - **一轮执行只有一个入口** `runTurn`：用户发送、插队收尾后的新一轮与后台任务唤醒都经过它，运行状态、改动快照与完成通知才不会漏。
 - **跨会话读取**读 Pi 当前分支的原文（跨越压缩点，不含被编辑重发放弃的分支），按轮返回用户消息与最终回复，省略工具与推理；只限当前项目内未归档的会话。`#` 引用同样是 pull：发送时只把 sessionId 写进 meta，由模型按需读取。
@@ -183,7 +177,6 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 - Agent 的 bash 与文件工具即本机权限，不设沙箱。这是已知取舍，不是待修复的漏洞，也不要描述成安全隔离。
 - Pi 的 auth / models / sessions / skills 放在 `userData/pi`，与用户的 `~/.pi` 隔离（bin 例外，见 §2.1）。模型密钥只在主进程内注册给 Pi 运行时，不写入 `auth.json`。
 - 应用启动**不读取仓库 `.env`**，凭据只能在应用内配置。
-- 已启用的 Pi package 扩展与主进程同权限，能读到上述一切。
 
 ## 8. 持久化
 
@@ -266,7 +259,6 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 | `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位   |
 | `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端与命令桥存活               |
 | `pnpm smoke:workspace`              | 工作区回归                                                    |
-| `pnpm smoke:packages`               | Pi packages 回归：夹具包的安装、扩展运行与卸载，不联网        |
 | `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）    |
 | `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
 | `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |

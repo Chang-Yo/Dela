@@ -25,7 +25,6 @@ import { readDisabledTools } from './tools';
 import { readWebSearchConfig, webSearch } from './web-search';
 import { fetchWebPage } from './web-fetch';
 import { sessionTools } from './session-read';
-import { enabledPackageSources, packageNpmCommand, readDisabledPrompts } from './packages';
 
 /** 应用生命周期内一个命令桥：token 只进入 agent/终端的子进程环境，不含业务凭据。 */
 let bridge: ReturnType<typeof startDomainBridge> | undefined;
@@ -79,13 +78,7 @@ export function agentEnvironment() {
       const shared = [project, instruction && `用户附加指令：\n${instruction}`].filter(
         (part): part is string => Boolean(part),
       );
-      // Pi packages 本地与远程会话一视同仁：扩展代码始终在本机运行，这点在启用前的说明里讲清楚。
-      const packages = {
-        packages: enabledPackageSources(),
-        npmCommand: packageNpmCommand(),
-        disabledSkillPaths: readDisabledSkillPaths(),
-        disabledPrompts: readDisabledPrompts(),
-      };
+      const disabledSkillPaths = readDisabledSkillPaths();
       if (remote && projectId) {
         const connection = remoteById(remote.remoteId);
         const target = targetOf(connection);
@@ -126,7 +119,7 @@ export function agentEnvironment() {
             ...sessionTools(projectId),
             ...(await remoteTools(cwd, target)),
           ],
-          ...packages,
+          disabledSkillPaths,
         };
       }
       const handle = await domainBridge();
@@ -141,7 +134,7 @@ export function agentEnvironment() {
         disabledSkills: effectiveDisabledSkills(),
         disabledTools: [...readDisabledTools()],
         customTools: [...webTools, ...mcpTools(), ...sessionTools(projectId)],
-        ...packages,
+        disabledSkillPaths,
       };
     },
   };

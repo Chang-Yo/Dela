@@ -1,19 +1,14 @@
-// 设置页的 Skills 清单：内置与本机目录分开；Pi package 与每个本地项目各自成组，按 SKILL.md 路径开关，
+// 设置页的 Skills 清单：内置与本机目录分开；每个本地项目各自成组，按 SKILL.md 路径开关，
 // 同名 Skill 互不牵连；文档读取在装好组件前不能开启。
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PiPackageView } from '../../../shared/packages';
 
 const home = mkdtempSync(join(tmpdir(), 'dela-skills-'));
 // 项目放在 home 之外：Pi 沿项目目录向上找 .agents/skills，不能撞上测试里的本机目录。
 const projects = mkdtempSync(join(tmpdir(), 'dela-skill-projects-'));
-const state = vi.hoisted(() => ({
-  packagesOn: true,
-  packages: [] as PiPackageView[],
-}));
 let database: DatabaseSync;
 vi.mock('electron', () => ({ app: { getPath: () => home }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => database }));
@@ -25,10 +20,6 @@ vi.mock('../../settings/prefs', () => ({
     )?.value,
   writeSetting: (key: string, value: string) =>
     database.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value),
-}));
-vi.mock('../packages', () => ({
-  packagesEnabled: () => state.packagesOn,
-  listPackages: async () => state.packages,
 }));
 import {
   completeCapabilitySetup,
@@ -66,8 +57,6 @@ beforeEach(() => {
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, name TEXT, kind TEXT, local_path TEXT, remote_id TEXT);
   `);
-  state.packagesOn = true;
-  state.packages = [];
 });
 afterAll(() => {
   rmSync(home, { recursive: true, force: true });
@@ -142,44 +131,6 @@ describe('分组', () => {
       )
       .run(join(projects, 'missing'));
     expect((await listSkills()).filter((skill) => skill.origin === 'project')).toEqual([]);
-  });
-
-  it('Pi package 的 Skill 跟着包的启停：包未启用时只读，启用后按路径开关', async () => {
-    const path = join(home, 'pkg', 'skills', 'research', 'SKILL.md');
-    const pkg = {
-      id: '00000000-0000-4000-8000-000000000001',
-      name: 'autoresearch',
-      enabled: false,
-      resources: { extensions: true, skills: true, prompts: true },
-      provides: {
-        skills: [{ name: 'research', description: 'Deep research', path }],
-        prompts: [],
-        commands: [],
-        tools: [],
-        mcpServers: [],
-        extensionsInspected: false,
-      },
-    } as unknown as PiPackageView;
-    state.packages = [pkg];
-    const [locked] = await byName('research');
-    expect(locked).toMatchObject({
-      origin: 'package',
-      group: { label: 'autoresearch' },
-      enabled: false,
-      lockedReason: '所属包未启用',
-    });
-    await expect(setSkillEnabled(locked!.id, true)).rejects.toThrow('所属包未启用');
-
-    state.packages = [{ ...pkg, enabled: true }];
-    const [enabled] = await byName('research');
-    expect(enabled?.enabled).toBe(true);
-    expect(enabled?.lockedReason).toBeUndefined();
-    await setSkillEnabled(path, false);
-    expect((await byName('research'))[0]?.enabled).toBe(false);
-
-    // 总开关关掉：包一个都不加载，也就不列它们的 Skill。
-    state.packagesOn = false;
-    expect(await byName('research')).toEqual([]);
   });
 
   it('只认清单里的 id，不接受任意路径', async () => {

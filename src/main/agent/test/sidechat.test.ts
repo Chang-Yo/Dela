@@ -36,19 +36,17 @@ vi.mock('../environment', () => ({
   }),
 }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
-vi.mock('../extensions', () => ({
-  bindSessionExtensions: async (
-    _id: string,
-    session: import('@earendil-works/pi-coding-agent').AgentSession,
-  ) => {
-    state.sessions.push(session);
-  },
-  extensionCommand: () => false,
-  releaseExtensionUi: () => {},
-  sessionSlashCommands: () => [],
-  shutdownSession: async (session: { dispose(): void }) => session.dispose(),
-}));
-vi.mock('../packages', () => ({ packagesEnabled: () => false }));
+vi.mock('../pi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../pi')>();
+  return {
+    ...actual,
+    openPiSession: async (...args: Parameters<typeof actual.openPiSession>) => {
+      const session = await actual.openPiSession(...args);
+      state.sessions.push(session);
+      return session;
+    },
+  };
+});
 
 import {
   askSession,

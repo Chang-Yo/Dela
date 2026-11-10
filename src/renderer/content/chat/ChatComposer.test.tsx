@@ -60,11 +60,9 @@ function Harness({
   effort = null,
   effortLevels = [],
   onEffortSelect = () => {},
-  sessionId = null,
   busy = false,
   sidechat = false,
 }: {
-  sessionId?: string | null;
   busy?: boolean;
   sidechat?: boolean;
   context?: ComposerContext | null;
@@ -99,7 +97,6 @@ function Harness({
       onSend={() => {}}
       onStop={() => {}}
       referenceOptions={referenceOptions}
-      sessionId={sessionId}
       value={value}
     />
   );
@@ -344,71 +341,11 @@ it('命中率文本只在拿到两个累计字段且分母大于 0 时才算数�
   expect(cacheHitRateText(usage({ inputTokens: 1, cachedTokens: 2 }))).toBe('66.7%');
 });
 
-it('`/` 候选列出会话里的 Pi 扩展命令与模板，选中后原样插入 `/name `', async () => {
-  const listSessionCommands = vi.fn(async () => [
-    { name: 'deploy', description: 'Deploy the app', kind: 'extension' as const, source: 'pi-ops' },
-    {
-      name: 'review',
-      description: 'Review a file',
-      kind: 'prompt' as const,
-      source: 'pi-ops',
-      argumentHint: '<file>',
-    },
-  ]);
-  const reportEditorText = vi.fn();
-  window.dela = {
-    chat: { listCommands: async () => [], listSessionCommands },
-    packages: {
-      reportEditorText,
-      onSessionState: () => () => {},
-      sessionState: async (sessionId: string) => ({
-        sessionId,
-        statuses: [{ key: 'ops', text: 'env: staging' }],
-        widgets: [],
-        workingMessage: null,
-      }),
-    },
-  } as unknown as NonNullable<typeof window.dela>;
-  await act(async () => root.render(<Harness contextUsage={usage()} sessionId="s-1" />));
-  expect(host.textContent).toContain('env: staging');
-
-  typeMention('/de');
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-  expect(listSessionCommands).toHaveBeenCalledWith('s-1');
-  const option = [...host.querySelectorAll('[role="option"]')].find((item) =>
-    item.textContent?.includes('/deploy'),
-  )!;
-  expect(option.textContent).toContain('Deploy the app');
-  await act(async () => option.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-  expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('/deploy ');
-  expect(reportEditorText).toHaveBeenLastCalledWith('s-1', '/deploy ');
-});
-
-it('`/` 候选列出 Dela 的会话命令，与之同名的扩展命令被遮住不列', async () => {
-  window.dela = {
-    chat: {
-      listCommands: async () => [],
-      listSessionCommands: async () => [
-        {
-          name: 'compact',
-          description: 'Extension compact',
-          kind: 'extension' as const,
-          source: 'pkg',
-        },
-      ],
-    },
-    packages: {
-      reportEditorText: () => {},
-      onSessionState: () => () => {},
-      sessionState: async (sessionId: string) => ({
-        sessionId,
-        statuses: [],
-        widgets: [],
-        workingMessage: null,
-      }),
-    },
-  } as unknown as NonNullable<typeof window.dela>;
-  await act(async () => root.render(<Harness contextUsage={usage()} sessionId="s-1" />));
+it('`/` 候选列出 Dela 的会话命令', async () => {
+  window.dela = { chat: { listCommands: async () => [] } } as unknown as NonNullable<
+    typeof window.dela
+  >;
+  await act(async () => root.render(<Harness contextUsage={usage()} />));
   typeMention('/');
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
   const options = [...host.querySelectorAll('[role="option"]')].map(
@@ -416,7 +353,6 @@ it('`/` 候选列出 Dela 的会话命令，与之同名的扩展命令被遮住
   );
   for (const name of ['compact', 'reload', 'name', 'new', 'btw'])
     expect(options.filter((text) => text.startsWith(`//${name}`))).toHaveLength(1);
-  expect(options.join('\n')).not.toContain('Extension compact');
   expect(options.find((text) => text.startsWith('//compact'))).toContain('压缩上下文');
 
   const compact = [...host.querySelectorAll('[role="option"]')].find((item) =>

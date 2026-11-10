@@ -10,7 +10,6 @@ import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 import { cn } from '../../../lib/utils';
-import { PackageCommandGroups } from './PackageResourceGroups';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
@@ -196,7 +195,6 @@ export function CommandsSection() {
               </p>
             )}
           </div>
-          <PackageCommandGroups />
           {dialog && (
             <CommandFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={refresh} />
           )}

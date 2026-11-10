@@ -200,14 +200,6 @@ it('groups skills by where they come from and toggles them by id', async () => {
     { ...at('/home/u/.dela/skills/canvas/SKILL.md'), name: 'canvas', origin: 'builtin' },
     { ...at('/home/u/.agents/skills/notes/SKILL.md'), name: 'notes', origin: 'user' },
     {
-      ...at('/data/pi/npm/node_modules/autoresearch/skills/search/SKILL.md'),
-      name: 'search',
-      origin: 'package',
-      group: { id: 'pkg-1', label: 'autoresearch' },
-      enabled: false,
-      lockedReason: '所属包未启用',
-    },
-    {
       ...at('/work/alpha/.agents/skills/lint/SKILL.md'),
       name: 'lint',
       origin: 'project',
@@ -231,19 +223,16 @@ it('groups skills by where they come from and toggles them by id', async () => {
   const titles = [...container.querySelectorAll('section')].map(
     (section) => section.firstElementChild?.textContent ?? '',
   );
-  expect(titles.map((title) => title.split(/随|~|Pi|项目里/)[0])).toEqual([
+  expect(titles.map((title) => title.split(/随|~|项目里/)[0])).toEqual([
     'Dela 内置',
     '本机',
-    'autoresearch',
     'alpha',
     'beta',
   ]);
-  expect(container.textContent).toContain('所属包未启用');
   const switchFor = (label: string) =>
     [...container.querySelectorAll<HTMLButtonElement>('[role="switch"]')].filter(
       (item) => item.getAttribute('aria-label') === label,
     );
-  expect(switchFor('启用 search')[0]?.disabled).toBe(true);
 
   // 两个项目的 lint 同名：只动 beta 那一个。
   await act(async () => switchFor('启用 lint')[1]!.click());

@@ -3,11 +3,9 @@
  * 实例走与主会话相同的 openPiSession（系统提示、工具与模型一致，缓存前缀因此对得上），
  * 只是会话记录放在内存里；每个主会话最多一个旁问。「保留」时才把记录写成文件、登记成新会话。
  */
-import { randomUUID } from 'node:crypto';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AgentToolResult, ChatAskInput, SidechatView, WorkspaceChat } from '../../shared/api';
 import { agentEnvironment } from './environment';
-import { bindSessionExtensions, releaseExtensionUi, shutdownSession } from './extensions';
 import { releaseChatAttachments } from './media';
 import { loadPi, openPiSession, writeSessionFile } from './pi';
 import { usableLlmProviders } from './providers';
@@ -25,8 +23,6 @@ import {
 interface Side {
   session: AgentSession;
   providerId: string;
-  /** 扩展 UI 的会话身份：不与主会话共用，关闭旁问时只清它自己的扩展状态。 */
-  uiId: string;
   /** 借来的主会话条目：Pi 压缩后消息数量会变化，不能用数组下标作为边界。 */
   baseEntryIds: Set<string>;
   run?: { cancelled: boolean; tool?: string; done: Promise<void> };
@@ -136,15 +132,12 @@ async function createSide(parentId: string): Promise<Side> {
   const side: Side = {
     session,
     providerId: selection.provider.id,
-    uiId: randomUUID(),
     baseEntryIds: new Set(session.sessionManager.getBranch().map(({ id }) => id)),
     steps: new Map(),
     streamedAt: 0,
     unsubscribe: () => {},
   };
   side.unsubscribe = session.subscribe((event) => onEvent(parentId, side, event));
-  // 旁问没有标题可改：扩展的 setTitle 忽略。
-  await bindSessionExtensions(side.uiId, session, { setTitle: () => {} });
   return side;
 }
 
@@ -208,8 +201,7 @@ export async function closeSidechat(parentId: string): Promise<void> {
     await side.run.done;
   }
   side.unsubscribe();
-  releaseExtensionUi(side.uiId);
-  await shutdownSession(side.session, 'quit').catch(() => {});
+  side.session.dispose();
   send('sidechat:on-closed', parentId);
 }
 
