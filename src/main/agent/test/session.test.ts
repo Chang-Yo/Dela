@@ -34,7 +34,7 @@ const state = vi.hoisted(() => ({
     baseUrl: string;
     apiKey: string;
     models: string[];
-    presetId: null;
+    piProvider: null;
     enabled: boolean;
   }[],
   /** 假会话上的 setModel 调用（模型 id）。 */
@@ -150,7 +150,7 @@ beforeEach(() => {
       baseUrl: 'https://example.invalid/v1',
       apiKey: 'k',
       models: ['m', 'm2'],
-      presetId: null,
+      piProvider: null,
       enabled: true,
     },
   ];

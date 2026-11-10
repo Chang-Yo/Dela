@@ -87,12 +87,13 @@ it('searches detected models before adding one and saves per-model settings', as
     name: 'Provider A',
     baseUrl: 'https://example.com',
     models: ['existing'],
-    presetId: null,
+    piProvider: null,
     enabled: true,
   };
   let saved: LlmSaveInput | undefined;
   window.dela = {
     llm: {
+      catalog: async () => [],
       list: async () => [provider],
       verify: async () => ({
         ok: true,
@@ -144,12 +145,13 @@ it('discards model detection results after the API address changes', async () =>
     name: 'Provider A',
     baseUrl: 'https://example.com',
     models: ['existing'],
-    presetId: null,
+    piProvider: null,
     enabled: true,
   };
   let finish!: (result: LlmVerifyResult) => void;
   window.dela = {
     llm: {
+      catalog: async () => [],
       list: async () => [provider],
       verify: () =>
         new Promise<LlmVerifyResult>((resolve) => {
@@ -173,11 +175,12 @@ it('caps model import at 64 and reports the omitted count', async () => {
     name: 'Provider A',
     baseUrl: 'https://example.com',
     models: ['existing'],
-    presetId: null,
+    piProvider: null,
     enabled: true,
   };
   window.dela = {
     llm: {
+      catalog: async () => [],
       list: async () => [provider],
       save: async (input: LlmSaveInput) => ({ ...provider, ...input }),
       verify: async () => ({
@@ -200,7 +203,7 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
     name,
     baseUrl: 'https://example.com',
     models: ['model'],
-    presetId: null,
+    piProvider: null,
     enabled: true,
   });
   const a = provider('a', 'Provider A');
@@ -208,6 +211,7 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
   let finishSave!: (saved: LlmProviderView) => void;
   window.dela = {
     llm: {
+      catalog: async () => [],
       list: async () => [a, b],
       save: () =>
         new Promise<LlmProviderView>((resolve) => {
@@ -241,6 +245,7 @@ it('adopts the versioned API base discovered while creating a provider', async (
   let saved: LlmSaveInput | undefined;
   window.dela = {
     llm: {
+      catalog: async () => [],
       list: async () => [],
       verify: async () => ({
         ok: true,
@@ -250,12 +255,13 @@ it('adopts the versioned API base discovered while creating a provider', async (
       }),
       save: async (input: LlmSaveInput) => {
         saved = input;
-        return { ...input, id: 'new', presetId: null, enabled: true };
+        return { ...input, id: 'new', piProvider: null, enabled: true };
       },
     },
   } as unknown as DelaApi;
   await act(async () => root.render(<LlmSection />));
   await act(async () => button('添加提供商').click());
+  await fill(container.querySelector<HTMLInputElement>('input')!, '自建网关');
   await fill(
     container.querySelector<HTMLInputElement>('input[type="url"]')!,
     'http://192.168.60.110:13000/',
@@ -265,6 +271,7 @@ it('adopts the versioned API base discovered while creating a provider', async (
   expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.value).toBe(
     'http://192.168.60.110:13000/v1',
   );
+  await act(async () => button('一键导入').click());
   await act(async () => button('保存').click());
   expect(saved?.baseUrl).toBe('http://192.168.60.110:13000/v1');
 });
@@ -275,11 +282,12 @@ it('rewrites an existing provider to the API base the service actually serves', 
     name: '自建网关',
     baseUrl: 'https://api.deepseek.com',
     models: ['deepseek-chat'],
-    presetId: null,
+    piProvider: null,
     enabled: true,
   };
   window.dela = {
     llm: {
+      catalog: async () => [],
       list: async () => [provider],
       save: async (input: LlmSaveInput) => ({ ...provider, ...input }),
       verify: async () => ({

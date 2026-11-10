@@ -18,6 +18,27 @@ import {
 } from '../providers';
 import { MockOpenAiServer, mockFrames } from './mock-openai-server';
 
+vi.mock('../pi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../pi')>()),
+  llmCatalog: vi.fn(async () => [
+    {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com',
+      models: [
+        {
+          id: 'deepseek-v4-pro',
+          name: 'DeepSeek V4 Pro',
+          contextWindow: 1000000,
+          maxOutputTokens: 384000,
+          vision: false,
+          effortLevels: ['none', 'low', 'high', 'max'],
+        },
+      ],
+    },
+  ]),
+}));
+
 vi.mock('../../credentials', () => ({
   CredentialDecryptionError: class extends Error {},
   loadLlmConfig: vi.fn(),
@@ -64,15 +85,14 @@ it('detects actual model output over the same streaming API as chat', async () =
       apiKey: 'test-only',
       model: 'forbidden',
     });
-    expect(failure.ok).toBe(false);
-    expect(failure.message).not.toContain('private-upstream-message');
+    expect(failure).toEqual({ ok: false, message: '模型检测失败（HTTP 403）' });
   } finally {
     await server.close();
   }
 });
 
 it('reuses the stored key for a model probe at any address', async () => {
-  const created = saveLlmProvider(input);
+  const created = await saveLlmProvider(input);
   const fetcher = vi.fn().mockRejectedValue(new TypeError('network'));
   vi.stubGlobal('fetch', fetcher);
   const result = await verifyLlmModel({
@@ -89,12 +109,29 @@ const input = {
   baseUrl: 'https://api.deepseek.com',
   apiKey: 'test-only',
   models: ['deepseek-v4-pro', 'deepseek-flash'],
-  presetId: 'deepseek',
+  piProvider: null,
 };
 
 describe('LLM provider config', () => {
-  it('stores per-model limits and reasoning levels', () => {
-    const created = saveLlmProvider({
+  it('takes the address and effort levels of a built-in vendor from the Pi catalog', async () => {
+    const view = await saveLlmProvider({
+      name: 'DeepSeek',
+      apiKey: 'test-only',
+      models: ['deepseek-v4-pro'],
+      piProvider: 'deepseek',
+    });
+    expect(view.baseUrl).toBe('https://api.deepseek.com');
+    expect(view.modelConfigs?.['deepseek-v4-pro']).toEqual({
+      effortLevels: ['none', 'low', 'high', 'max'],
+      effort: 'high',
+    });
+    await expect(
+      saveLlmProvider({ ...input, models: ['deepseek-chat'], piProvider: 'deepseek' }),
+    ).rejects.toThrow('deepseek-chat');
+  });
+
+  it('stores per-model limits and reasoning levels', async () => {
+    const created = await saveLlmProvider({
       ...input,
       modelConfigs: {
         'deepseek-v4-pro': {
@@ -111,32 +148,32 @@ describe('LLM provider config', () => {
     expect(created.modelConfigs?.['deepseek-flash']?.effortLevels).toEqual([]);
   });
 
-  it('rejects invalid model limits and settings for models outside the list', () => {
-    expect(() =>
+  it('rejects invalid model limits and settings for models outside the list', async () => {
+    await expect(
       saveLlmProvider({
         ...input,
         modelConfigs: { 'deepseek-v4-pro': { maxOutputTokens: 512000 } },
       }),
-    ).toThrow();
-    expect(() =>
+    ).rejects.toThrow();
+    await expect(
       saveLlmProvider({ ...input, modelConfigs: { 'deepseek-v4-pro': { contextWindow: 8192 } } }),
-    ).toThrow();
-    expect(() =>
+    ).rejects.toThrow();
+    await expect(
       saveLlmProvider({ ...input, modelConfigs: { 'deepseek-v4-pro': { contextWindow: -1 } } }),
-    ).toThrow();
-    expect(() =>
+    ).rejects.toThrow();
+    await expect(
       saveLlmProvider({
         ...input,
         modelConfigs: { 'deepseek-v4-pro': { contextWindow: 1000, maxOutputTokens: 2000 } },
       }),
-    ).toThrow();
-    expect(() =>
+    ).rejects.toThrow();
+    await expect(
       saveLlmProvider({ ...input, modelConfigs: { unknown: { contextWindow: 1000000 } } }),
-    ).toThrow('模型配置必须属于模型列表');
+    ).rejects.toThrow('模型配置必须属于模型列表');
   });
-  it('accepts a new server while keeping the stored key', () => {
-    const created = saveLlmProvider(input);
-    const saved = saveLlmProvider({
+  it('accepts a new server while keeping the stored key', async () => {
+    const created = await saveLlmProvider(input);
+    const saved = await saveLlmProvider({
       ...input,
       id: created.id,
       baseUrl: 'https://other.example/v1',
@@ -146,9 +183,9 @@ describe('LLM provider config', () => {
     expect(config.providers[0]?.apiKey).toBe('test-only');
   });
 
-  it('allows changing the endpoint with an explicitly supplied key', () => {
-    const created = saveLlmProvider(input);
-    const saved = saveLlmProvider({
+  it('allows changing the endpoint with an explicitly supplied key', async () => {
+    const created = await saveLlmProvider(input);
+    const saved = await saveLlmProvider({
       ...input,
       id: created.id,
       baseUrl: 'https://other.example',
@@ -158,67 +195,67 @@ describe('LLM provider config', () => {
     expect(config.providers[0]?.apiKey).toBe('new-test-key');
   });
 
-  it('can add a provider after the old encrypted config becomes unreadable', () => {
+  it('can add a provider after the old encrypted config becomes unreadable', async () => {
     loadMock.mockImplementation(() => {
       throw new CredentialDecryptionError('unreadable', undefined);
     });
-    expect(saveLlmProvider(input).name).toBe(input.name);
+    expect((await saveLlmProvider(input)).name).toBe(input.name);
     expect(config.providers).toHaveLength(1);
     expect(config.providers[0]!.apiKey).toBe(input.apiKey);
   });
 
-  it('does not replace an unreadable config when editing an existing provider', () => {
+  it('does not replace an unreadable config when editing an existing provider', async () => {
     loadMock.mockImplementation(() => {
       throw new CredentialDecryptionError('unreadable', undefined);
     });
     const writes = saveMock.mock.calls.length;
-    expect(() => saveLlmProvider({ ...input, id: '00000000-0000-4000-8000-000000000001' })).toThrow(
-      'unreadable',
-    );
+    await expect(
+      saveLlmProvider({ ...input, id: '00000000-0000-4000-8000-000000000001' }),
+    ).rejects.toThrow('unreadable');
     expect(saveMock.mock.calls).toHaveLength(writes);
   });
 
-  it('does not treat unrelated read failures as an empty config', () => {
+  it('does not treat unrelated read failures as an empty config', async () => {
     loadMock.mockImplementation(() => {
       throw new Error('EACCES');
     });
-    expect(() => saveLlmProvider(input)).toThrow('EACCES');
+    await expect(saveLlmProvider(input)).rejects.toThrow('EACCES');
   });
-  it('saves a new provider with a generated id and returns the masked view', () => {
-    const view = saveLlmProvider(input);
+  it('saves a new provider with a generated id and returns the masked view', async () => {
+    const view = await saveLlmProvider(input);
     expect(view).toEqual({
       id: view.id,
       name: input.name,
       baseUrl: input.baseUrl,
       models: input.models,
-      presetId: input.presetId,
+      piProvider: null,
       enabled: true,
     });
     expect('apiKey' in view).toBe(false);
     expect(config.providers[0]!.apiKey).toBe('test-only');
   });
 
-  it('normalizes model effort levels and rejects unknown levels', () => {
+  it('normalizes model effort levels and rejects unknown levels', async () => {
     const model = 'deepseek-v4-pro';
-    const view = saveLlmProvider({
+    const view = await saveLlmProvider({
       ...input,
       modelConfigs: { [model]: { effortLevels: ['ultra', 'low', 'low', 'none'] } },
     });
     expect(view.modelConfigs?.[model]?.effortLevels).toEqual(['none', 'low', 'ultra']);
-    expect(() =>
+    await expect(
       saveLlmProvider({ ...input, modelConfigs: { [model]: { effortLevels: ['turbo'] } } }),
-    ).toThrow();
+    ).rejects.toThrow();
   });
 
-  it('keeps the stored key when editing with an empty apiKey', () => {
-    const created = saveLlmProvider(input);
-    saveLlmProvider({ ...input, id: created.id, apiKey: '', name: 'DeepSeek 备用' });
+  it('keeps the stored key when editing with an empty apiKey', async () => {
+    const created = await saveLlmProvider(input);
+    await saveLlmProvider({ ...input, id: created.id, apiKey: '', name: 'DeepSeek 备用' });
     expect(config.providers[0]!.apiKey).toBe('test-only');
     expect(config.providers[0]!.name).toBe('DeepSeek 备用');
   });
 
-  it('offers only enabled providers with a key to sessions, keeping disabled ones configured', () => {
-    const created = saveLlmProvider(input);
+  it('offers only enabled providers with a key to sessions, keeping disabled ones configured', async () => {
+    const created = await saveLlmProvider(input);
     setLlmProviderEnabled(created.id, false);
     expect(usableLlmProviders()).toEqual([]);
     expect(listLlmProviders()[0]!.enabled).toBe(false);
@@ -231,7 +268,7 @@ describe('LLM provider config', () => {
 });
 
 describe('model list endpoints', () => {
-  it('appends /models when the base already ends with a version segment', () => {
+  it('appends /models when the base already ends with a version segment', async () => {
     expect(modelListEndpoints('https://api.minimaxi.com/v1')).toEqual([
       { models: 'https://api.minimaxi.com/v1/models', apiBase: 'https://api.minimaxi.com/v1' },
     ]);
@@ -243,14 +280,14 @@ describe('model list endpoints', () => {
     ]);
   });
 
-  it('tries /v1/models before /models for plain origins', () => {
+  it('tries /v1/models before /models for plain origins', async () => {
     expect(modelListEndpoints('https://api.deepseek.com')).toEqual([
       { models: 'https://api.deepseek.com/v1/models', apiBase: 'https://api.deepseek.com/v1' },
       { models: 'https://api.deepseek.com/models', apiBase: 'https://api.deepseek.com' },
     ]);
   });
 
-  it('parses OpenAI, Zhipu and bare-array model lists with dedupe', () => {
+  it('parses OpenAI, Zhipu and bare-array model lists with dedupe', async () => {
     expect(parseModelList({ data: [{ id: 'qwen' }, { id: 'qwen' }, { id: 'minimax' }] })).toEqual([
       'qwen',
       'minimax',
@@ -271,7 +308,7 @@ describe('verifyLlm', () => {
     });
 
   it('reuses the stored key of a saved provider when apiKey is omitted, at whatever address is given', async () => {
-    const created = saveLlmProvider(input);
+    const created = await saveLlmProvider(input);
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(json({ data: [] }))
@@ -294,7 +331,7 @@ describe('verifyLlm', () => {
   });
 
   it('allows verification at a new endpoint with an explicit key', async () => {
-    const created = saveLlmProvider(input);
+    const created = await saveLlmProvider(input);
     const fetcher = vi.fn().mockResolvedValue(json({ data: [] }));
     vi.stubGlobal('fetch', fetcher);
     expect(

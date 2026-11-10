@@ -1,15 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  CircleCheck,
-  CircleX,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  ListPlus,
-  Loader2,
-  PlugZap,
-} from 'lucide-react';
+import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, Loader2, PlugZap } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
 import { SelectItem } from '../../../components/ui/select';
 import { errorText } from '../../../workspace/store';
@@ -17,24 +8,33 @@ import { StepButton, StepInput, StepSelect, type StepButtonState } from './step-
 import { StepGuide } from './step-guide';
 import { StepModelImportDialog } from './step-model-import';
 import { capModels } from './model-import';
-import { llmProviderPresets, findLlmPreset } from '../../../../shared/llm-presets';
-import type { LlmVerifyResult } from '../../../../shared/api';
+import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../shared/api';
 
-/** 向导 · 模型服务步骤：选预设或自定义 OpenAI 兼容服务，可先检测连通性并导入模型列表。 */
+const CUSTOM = 'custom';
+
+/** 向导 · 模型服务步骤：选 Pi 内置厂商或自定义 OpenAI 兼容服务，可先检测再保存。 */
 export function LlmStep({ onDone }: { onDone: () => void }) {
-  const [presetId, setPresetId] = useState(llmProviderPresets[0]!.id);
+  const [catalog, setCatalog] = useState<LlmCatalogProvider[] | null>(null);
+  const [vendorChoice, setVendorChoice] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [baseUrl, setBaseUrl] = useState(llmProviderPresets[0]!.baseUrl);
+  const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [models, setModels] = useState<string[]>([...llmProviderPresets[0]!.models]);
-  const [model, setModel] = useState(llmProviderPresets[0]!.models[0] ?? '');
+  const [models, setModels] = useState<string[]>([]);
+  const [model, setModel] = useState('');
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyResult, setVerifyResult] = useState<LlmVerifyResult | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const [state, setState] = useState<StepButtonState>('idle');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void window.dela?.llm
+      .catalog()
+      .then(setCatalog)
+      .catch(() => setCatalog([]));
+  }, []);
 
   if (!window.dela) {
     return (
@@ -45,33 +45,40 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     );
   }
 
-  const custom = presetId === 'custom';
-  const preset = findLlmPreset(presetId)!;
-  const effectiveBaseUrl = custom ? baseUrl.trim() : preset.baseUrl;
+  const vendorId =
+    vendorChoice ?? (catalog?.some(({ id }) => id === 'deepseek') ? 'deepseek' : CUSTOM);
+  const vendor = catalog?.find(({ id }) => id === vendorId);
+  const custom = catalog !== null && !vendor;
+  const options = vendor ? vendor.models.map(({ id }) => id) : models;
+  const selected = options.includes(model) ? model : (options[0] ?? '');
 
   const detected = verifyResult?.ok ? (verifyResult.models ?? []) : [];
 
-  const applyPreset = (id: string) => {
-    const next = findLlmPreset(id)!;
-    setPresetId(id);
+  const chooseVendor = (id: string) => {
+    setVendorChoice(id);
     setName('');
-    setBaseUrl(next.baseUrl);
-    setModels([...next.models]);
-    setModel(next.models[0] ?? '');
+    setModels([]);
+    setModel('');
     setVerifyResult(null);
     setImportOpen(false);
     setImportNotice(null);
   };
 
-  /** 检测只验证连通性并报出模型数量；哪些模型进配置由用户在弹层里勾选。 */
+  /** 内置厂商直接检测所选模型；自定义服务只验证连通性，哪些模型进配置由用户在弹层里勾选。 */
   const verify = async () => {
-    if (!window.dela || verifyBusy || !effectiveBaseUrl) return;
+    if (!window.dela || verifyBusy || (vendor ? !selected : !baseUrl.trim())) return;
     setVerifyBusy(true);
     setVerifyResult(null);
     setImportNotice(null);
     try {
       setVerifyResult(
-        await window.dela.llm.verify({ baseUrl: effectiveBaseUrl, apiKey: apiKey || undefined }),
+        vendor
+          ? await window.dela.llm.verifyModel({
+              piProvider: vendor.id,
+              apiKey: apiKey || undefined,
+              model: selected,
+            })
+          : await window.dela.llm.verify({ baseUrl: baseUrl.trim(), apiKey: apiKey || undefined }),
       );
     } catch (cause) {
       setVerifyResult({ ok: false, message: errorText(cause) });
@@ -83,25 +90,34 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
   const importModels = (picked: string[]) => {
     const { models: next, notice } = capModels(picked);
     setModels(next);
-    setModel(next.includes(model) ? model : (next[0] ?? ''));
+    setModel(next.includes(selected) ? selected : (next[0] ?? ''));
     setImportNotice(notice);
     setImportOpen(false);
   };
 
   const save = async () => {
     if (state === 'success') return onDone();
-    if (state === 'busy' || !window.dela || !model) return;
+    if (state === 'busy' || !window.dela || !selected) return;
     setState('busy');
     setError(null);
     try {
       // 引导里选的模型排到列表首位：还没有会话可以沿用时，新会话取第一个可用提供商的首个模型。
-      await window.dela.llm.save({
-        name: custom ? name.trim() : preset.name,
-        baseUrl: effectiveBaseUrl,
-        apiKey: apiKey || undefined,
-        models: [model, ...models.filter((item) => item !== model)],
-        presetId: custom ? null : presetId,
-      });
+      await window.dela.llm.save(
+        vendor
+          ? {
+              name: vendor.name,
+              apiKey: apiKey || undefined,
+              models: [selected],
+              piProvider: vendor.id,
+            }
+          : {
+              name: name.trim(),
+              baseUrl: baseUrl.trim(),
+              apiKey: apiKey || undefined,
+              models: [selected, ...models.filter((item) => item !== selected)],
+              piProvider: null,
+            },
+      );
       setState('success');
     } catch (cause) {
       setError(errorText(cause));
@@ -120,7 +136,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">配置模型服务</h2>
         <p className="text-13 leading-relaxed text-ink-3">
-          选择服务商或自定义 OpenAI 兼容端点，密钥加密保存于本机。
+          选择 Pi 内置的厂商，或自定义 OpenAI 兼容端点，密钥加密保存于本机。
         </p>
       </header>
       <StepGuide
@@ -129,12 +145,19 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             title: '选择服务商',
             content: (
               <div className="grid gap-4">
-                <StepSelect label="服务商" onValueChange={applyPreset} value={presetId}>
-                  {llmProviderPresets.map((item) => (
+                <StepSelect
+                  disabled={catalog === null}
+                  label="服务商"
+                  onValueChange={chooseVendor}
+                  placeholder="正在读取厂商目录…"
+                  value={catalog === null ? undefined : vendorId}
+                >
+                  {catalog?.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value={CUSTOM}>自定义（OpenAI 兼容）</SelectItem>
                 </StepSelect>
                 <AnimatePresence initial={false}>
                   {custom && (
@@ -178,19 +201,6 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             title: '填写密钥并检测',
             content: (
               <div className="grid gap-2.5">
-                {preset.keyUrl && (
-                  <div className="flex justify-end">
-                    <a
-                      className="flex items-center gap-1 text-xs text-ink-3 transition-colors hover:text-ink"
-                      href={preset.keyUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      获取密钥
-                      <ExternalLink className="size-3" aria-hidden="true" />
-                    </a>
-                  </div>
-                )}
                 <div className="relative">
                   <StepInput
                     aria-label="API Key"
@@ -206,7 +216,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     <button
                       aria-label="检测连接"
                       className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={verifyBusy || !effectiveBaseUrl}
+                      disabled={verifyBusy || (vendor ? !selected : !baseUrl.trim())}
                       onClick={() => void verify()}
                       title="检测连接"
                       type="button"
@@ -274,19 +284,28 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             content: (
               <div className="grid gap-4">
                 <StepSelect
-                  disabled={models.length === 0}
+                  disabled={options.length === 0}
                   // 空模型列表（自定义未检测）与就绪态间切换时重挂载，避免受控值 undefined 化。
-                  key={models.length === 0 ? 'empty' : 'ready'}
+                  key={options.length === 0 ? 'empty' : 'ready'}
                   label="模型"
-                  onValueChange={setModel}
+                  onValueChange={(value) => {
+                    setModel(value);
+                    if (vendor) setVerifyResult(null);
+                  }}
                   placeholder="先检测连接，导入可用模型"
-                  value={model === '' ? undefined : model}
+                  value={selected === '' ? undefined : selected}
                 >
-                  {models.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
+                  {vendor
+                    ? vendor.models.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))
+                    : models.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item}
+                        </SelectItem>
+                      ))}
                 </StepSelect>
                 {custom && models.length === 0 && (
                   <span className="text-xs text-ink-3">
@@ -300,7 +319,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                 )}
                 <StepButton
                   busyLabel="保存中…"
-                  disabled={models.length === 0}
+                  disabled={options.length === 0}
                   idleLabel="保存并完成"
                   state={state}
                   successLabel="已保存，完成设置"

@@ -154,7 +154,8 @@ export interface StoredLlmProvider {
   apiKey: string;
   models: string[];
   modelConfigs?: Record<string, import('../shared/llm').LlmModelSettings>;
-  presetId: string | null;
+  /** Pi 内置厂商的 id；null 为自定义的 OpenAI 兼容服务。 */
+  piProvider: string | null;
   /** 停用的提供商不进入会话的模型候选；用它的会话保留选择，但不能发送。 */
   enabled: boolean;
 }
@@ -197,7 +198,7 @@ function parseLlmConfig(payload: string): StoredLlmConfig {
   return {
     providers: providers.map((provider) => ({
       ...provider,
-      presetId: typeof provider.presetId === 'string' ? provider.presetId : null,
+      piProvider: typeof provider.piProvider === 'string' ? provider.piProvider : null,
     })),
   };
 }

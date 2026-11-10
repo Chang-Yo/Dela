@@ -21,7 +21,7 @@ const provider: StoredLlmProvider = {
   baseUrl: 'https://example.invalid/v1',
   apiKey: 'test',
   models: ['test-model'],
-  presetId: null,
+  piProvider: null,
   enabled: true,
 };
 

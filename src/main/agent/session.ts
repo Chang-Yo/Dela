@@ -33,7 +33,7 @@ import { getDatabase } from '../database';
 import { storageDirectory } from '../storage';
 import { llmProviders, usableLlmProviders } from './providers';
 import { forkSessionFile, loadPi, openPiSession, resolveModel, type SessionModel } from './pi';
-import { llmModelSettings } from '../../shared/llm-presets';
+import { llmModelSettings } from '../../shared/llm-models';
 import type { StoredLlmProvider } from '../credentials';
 import { agentEnvironment } from './environment';
 import { remoteProjectOf } from '../workspace/api';

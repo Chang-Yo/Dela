@@ -89,7 +89,7 @@ import {
 } from './mcp';
 import { domainTools, listBuiltinCapabilities, setBuiltinCapabilities } from './tools';
 import { readSubagentLimit, setSubagentLimit } from './subagent';
-import { loadPi } from './pi';
+import { llmCatalog, loadPi } from './pi';
 import {
   listWebSearchEntries,
   listWebSearchKeySources,
@@ -306,10 +306,11 @@ export function registerAgentIpc() {
     openSessionFile(uuid.parse(sessionId), chatFilePath(path)),
   );
 
+  handle('llm:catalog', () => llmCatalog());
   handle('llm:list', () => listLlmProviders());
   // 提供商配置只影响用它的会话；停用与删除也一样，那些会话下次使用时会提示另选模型。
-  handle('llm:save', (input) => {
-    const saved = saveLlmProvider(input);
+  handle('llm:save', async (input) => {
+    const saved = await saveLlmProvider(input);
     invalidateSessions(saved.id);
     return saved;
   });

@@ -8,9 +8,14 @@ import type {
   SessionManager,
   ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
-import type { Model } from '@earendil-works/pi-ai';
+import type { Api, Model } from '@earendil-works/pi-ai';
 import type { StoredLlmProvider } from '../credentials';
-import { llmModelSettings, LLM_DEFAULT_CONTEXT_WINDOW } from '../../shared/llm-presets';
+import type { LlmCatalogProvider } from '../../shared/llm';
+import {
+  llmModelSettings,
+  LLM_DEFAULT_CONTEXT_WINDOW,
+  LLM_DEFAULT_OUTPUT_TOKENS,
+} from '../../shared/llm-models';
 
 type Sdk = typeof import('@earendil-works/pi-coding-agent');
 
@@ -49,14 +54,59 @@ function thinkingLevel(effort: string | undefined) {
     : ('max' as const);
 }
 
-/** 把会话选中的提供商注册成 Pi 的 OpenAI 兼容提供商，返回其中的模型与思考档位。 */
-export async function resolveModel({ provider, model: modelId, effort }: SessionModel) {
+type Runtime = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>;
+
+// 需要云账号、订阅登录或 Pi 自家网关，只凭 API Key 接不进来。
+const unofferedProviders = new Set(['amazon-bedrock', 'github-copilot', 'radius']);
+
+/** Pi 目录中只凭 API Key 就能接入的厂商；地址带 {占位} 的要另配账号，不提供。 */
+function offeredProviders(runtime: Runtime) {
+  return runtime.getProviders().flatMap((provider) => {
+    const models = runtime.getModels(provider.id);
+    const offered =
+      !unofferedProviders.has(provider.id) &&
+      provider.auth.apiKey !== undefined &&
+      models.length > 0 &&
+      models.every(({ baseUrl }) => baseUrl && !baseUrl.includes('{'));
+    return offered ? [{ provider, models }] : [];
+  });
+}
+
+export async function llmCatalog(): Promise<LlmCatalogProvider[]> {
   const runtime = await modelRuntime();
-  const reasoning = llmModelSettings(provider, modelId).effortLevels.length > 0;
-  const name = piProviderName(provider);
-  runtime.registerProvider(name, {
+  void runtime.refresh({ allowNetwork: true }).catch(() => undefined);
+  const { getSupportedThinkingLevels } = await import('@earendil-works/pi-ai');
+  return offeredProviders(runtime).map(({ provider, models }) => ({
+    id: provider.id,
+    name: provider.name,
+    baseUrl: provider.baseUrl ?? models[0]!.baseUrl,
+    models: models.map((model) => ({
+      id: model.id,
+      name: model.name,
+      contextWindow: model.contextWindow,
+      maxOutputTokens: model.maxTokens,
+      vision: model.input.includes('image'),
+      effortLevels: model.reasoning
+        ? getSupportedThinkingLevels(model).map((level) => (level === 'off' ? 'none' : level))
+        : [],
+    })),
+  }));
+}
+
+/** 内置厂商直接沿用目录里的模型（协议、地址、兼容参数、请求头都随目录走），只换成用户的密钥。 */
+function builtinProviderConfig(runtime: Runtime, provider: StoredLlmProvider, piProvider: string) {
+  return {
+    name: provider.name,
+    apiKey: provider.apiKey,
+    models: provider.models.flatMap((id) => runtime.getModel(piProvider, id) ?? []),
+  };
+}
+
+function customProviderConfig(provider: StoredLlmProvider) {
+  return {
+    name: provider.name,
     baseUrl: provider.baseUrl.replace(/\/+$/, ''),
-    api: 'openai-completions',
+    api: 'openai-completions' as const,
     apiKey: provider.apiKey,
     models: provider.models.map((id) => {
       const model = llmModelSettings(provider, id);
@@ -64,29 +114,58 @@ export async function resolveModel({ provider, model: modelId, effort }: Session
         id,
         name: id,
         reasoning: model.effortLevels.length > 0,
-        input: ['text', 'image'],
+        input: model.vision ? ['text' as const, 'image' as const] : ['text' as const],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: model.contextWindow ?? LLM_DEFAULT_CONTEXT_WINDOW,
-        maxTokens: model.maxOutputTokens ?? 32000,
-        // 开推理后 Pi 会把指令消息的 role 写成 OpenAI 专有的 developer，而 Dela 的提供商
-        // （DeepSeek/智谱/MiniMax/致远与自定义网关）只认 system，会直接 422 invalid_request_error。
-        // Pi 的自动识别靠提供商标识或 baseUrl 里的厂商域名，Dela 的提供商名是 dela-<id>，
-        // 识别不出来，只能显式关掉；system 是所有 OpenAI 兼容端点都接受的角色。
+        maxTokens: model.maxOutputTokens ?? LLM_DEFAULT_OUTPUT_TOKENS,
+        // 开推理后 Pi 会把指令写成 OpenAI 专有的 developer 角色，多数兼容服务只认 system。
         compat: { supportsDeveloperRole: false },
       };
     }),
-  });
-  const model = runtime.getModel(name, modelId) as Model<'openai-completions'> | undefined;
-  if (!model) throw new Error('模型不在当前提供商的模型列表中');
-  return { model, thinking: reasoning ? thinkingLevel(effort ?? undefined) : ('off' as const) };
+  };
 }
 
-let runtimePromise: ReturnType<Sdk['ModelRuntime']['create']> | undefined;
+/** 注册时 Pi 会重组提供商并刷新快照；配置没变就跳过。 */
+const registeredConfigs = new Map<string, string>();
+
+/** 把会话选中的提供商注册成 Pi 的提供商，返回其中的模型与思考档位。 */
+export async function resolveModel({ provider, model: modelId, effort }: SessionModel) {
+  const runtime = await modelRuntime();
+  const name = piProviderName(provider);
+  const config = provider.piProvider
+    ? builtinProviderConfig(runtime, provider, provider.piProvider)
+    : customProviderConfig(provider);
+  const serialized = JSON.stringify(config);
+  if (registeredConfigs.get(name) !== serialized) {
+    runtime.registerProvider(name, config);
+    registeredConfigs.set(name, serialized);
+  }
+  const model = runtime.getModel(name, modelId);
+  if (!model)
+    throw new Error(
+      provider.piProvider
+        ? '模型已不在该厂商的目录中，请在设置中另选模型'
+        : '模型不在当前提供商的模型列表中',
+    );
+  return {
+    model,
+    thinking: model.reasoning ? thinkingLevel(effort ?? undefined) : ('off' as const),
+  };
+}
+
+let runtimePromise: Promise<Runtime> | undefined;
 async function modelRuntime() {
   const pi = await loadPi();
   runtimePromise ??= pi.ModelRuntime.create({
     authPath: join(piAgentDir(), 'auth.json'),
     modelsPath: join(piAgentDir(), 'models.json'),
+    // 不等网络：先用随包目录与上次缓存，pi.dev 的更新在后台拉取（4 小时一次）。
+    allowModelNetwork: true,
+    refreshOnCreate: false,
+  }).then(async (runtime) => {
+    await runtime.refresh({ allowNetwork: false });
+    void runtime.refresh({ allowNetwork: true }).catch(() => undefined);
+    return runtime;
   });
   return runtimePromise;
 }
@@ -218,24 +297,28 @@ export function writeSessionFile(header: FileEntry & { type: 'session' }, entrie
 
 /** 设置页的模型检测：一次无工具的短请求，失败抛出 pi-ai 的错误文案（"<status>: …"）。 */
 export async function verifyModel(input: {
+  piProvider: string | null;
   baseUrl: string;
   apiKey: string;
   model: string;
   reasoning: boolean;
 }): Promise<string> {
   const { completeSimple } = await import('@earendil-works/pi-ai/compat');
-  const model: Model<'openai-completions'> = {
-    id: input.model,
-    name: input.model,
-    api: 'openai-completions',
-    provider: 'dela-verify',
-    baseUrl: input.baseUrl.replace(/\/+$/, ''),
-    reasoning: input.reasoning,
-    input: ['text'],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: LLM_DEFAULT_CONTEXT_WINDOW,
-    maxTokens: 256,
-  };
+  const model: Model<Api> | undefined = input.piProvider
+    ? (await modelRuntime()).getModel(input.piProvider, input.model)
+    : {
+        id: input.model,
+        name: input.model,
+        api: 'openai-completions',
+        provider: 'dela-verify',
+        baseUrl: input.baseUrl.replace(/\/+$/, ''),
+        reasoning: input.reasoning,
+        input: ['text'],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: LLM_DEFAULT_CONTEXT_WINDOW,
+        maxTokens: 256,
+      };
+  if (!model) throw new Error('模型不在该厂商的目录中');
   const reply = await completeSimple(
     model,
     { messages: [{ role: 'user', content: 'Reply with OK.', timestamp: Date.now() }] },

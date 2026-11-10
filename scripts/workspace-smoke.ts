@@ -423,7 +423,7 @@ app
       `await window.dela.layout.save(${JSON.stringify(promoted.id)}, ${JSON.stringify(layout)});`,
     );
     const provider = await invoke(
-      `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'], presetId: 'zhiyuan' });`,
+      `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'] });`,
     );
     const providers = await invoke(`return await window.dela.llm.list();`);
     assert.equal(providers.length, 1);

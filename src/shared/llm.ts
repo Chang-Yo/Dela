@@ -15,7 +15,8 @@ export interface LlmProviderView {
   baseUrl: string;
   models: string[];
   modelConfigs?: Record<string, LlmModelSettings>;
-  presetId: string | null;
+  /** Pi 内置厂商的 id；null 为自定义的 OpenAI 兼容服务。 */
+  piProvider: string | null;
   /** 启用只表示进入会话的模型候选；用哪个模型由会话自己决定。 */
   enabled: boolean;
 }
@@ -23,12 +24,13 @@ export interface LlmProviderView {
 export interface LlmSaveInput {
   id?: string;
   name: string;
-  baseUrl: string;
+  /** 自定义服务必填；内置厂商取 Pi 目录里的地址。 */
+  baseUrl?: string;
   /** 留空且 id 已存在时沿用已保存密钥（改地址同样不必重填）；新建时必填。 */
   apiKey?: string;
   models: string[];
   modelConfigs?: Record<string, LlmModelSettings>;
-  presetId?: string | null;
+  piProvider?: string | null;
 }
 
 export interface LlmVerifyInput {
@@ -47,13 +49,40 @@ export interface LlmVerifyResult {
   baseUrl?: string;
 }
 
+/** Pi 目录里的模型：参数随目录更新，不由用户填写。 */
+export interface LlmCatalogModel {
+  id: string;
+  name: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  vision: boolean;
+  /** 空表示不支持思考；none 表示可以关闭思考。 */
+  effortLevels: string[];
+}
+
+/** 可用 API Key 接入的 Pi 内置厂商。 */
+export interface LlmCatalogProvider {
+  id: string;
+  name: string;
+  baseUrl: string;
+  models: LlmCatalogModel[];
+}
+
 export interface LlmApi {
+  /** 内置厂商与模型目录：随 Pi 发布，并定期从 pi.dev 更新。 */
+  catalog(): Promise<LlmCatalogProvider[]>;
   list(): Promise<LlmProviderView[]>;
   save(input: LlmSaveInput): Promise<LlmProviderView>;
   remove(id: string): Promise<void>;
   setEnabled(id: string, enabled: boolean): Promise<void>;
   verify(input: LlmVerifyInput): Promise<LlmVerifyResult>;
-  verifyModel(
-    input: LlmVerifyInput & { model: string; settings?: LlmModelSettings },
-  ): Promise<LlmVerifyResult>;
+  /** 自定义服务按 baseUrl 检测；内置厂商按 piProvider 取目录里的模型。 */
+  verifyModel(input: {
+    id?: string;
+    piProvider?: string | null;
+    baseUrl?: string;
+    apiKey?: string;
+    model: string;
+    settings?: LlmModelSettings;
+  }): Promise<LlmVerifyResult>;
 }
