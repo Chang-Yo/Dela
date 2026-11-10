@@ -102,13 +102,16 @@ function image(type = 'image/jpeg') {
   return new Response('bytes', { headers: { 'content-type': type } });
 }
 
+// Windows CI 的慢 runner 上，整条快照流程会超过 waitFor 默认的 1 秒
+const WAIT = { timeout: 5000 };
+
 async function saved(topicId = 42): Promise<string> {
   await vi.waitFor(() => {
     const row = db
       .prepare('SELECT snapshot_status FROM shuiyuan_topics WHERE topic_id = ?')
       .get(topicId) as { snapshot_status: string };
     expect(row.snapshot_status).not.toBe('saving');
-  });
+  }, WAIT);
   return (
     db.prepare('SELECT snapshot_status FROM shuiyuan_topics WHERE topic_id = ?').get(topicId) as {
       snapshot_status: string;
@@ -233,7 +236,7 @@ it('writes a readable draft with pending images before the images are saved', as
     const value = await readShuiyuanSnapshot(42);
     expect(value).not.toBeNull();
     return value!;
-  });
+  }, WAIT);
   expect(draft.posts).toHaveLength(2);
   const partial = join(userData, 'shuiyuan-snapshots', '42.partial');
   expect(readFileSync(join(partial, 'page-0.json')).includes(Buffer.from(original))).toBe(false);
@@ -329,7 +332,7 @@ it('makes saved images visible in paged drafts and keeps full reads available fo
   await vi.waitFor(async () => {
     expect((await findShuiyuanSnapshot(42))?.index).toMatchObject({ postCount: 25 });
     expect(release).toBeDefined();
-  });
+  }, WAIT);
   expect((await readShuiyuanSnapshotPage(42, 2))[0]!.cooked).toContain('data-snapshot-pending');
   release();
   expect(await saved()).toBe('done');
