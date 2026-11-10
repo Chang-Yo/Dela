@@ -149,6 +149,8 @@ export type {
 } from './keybindings';
 
 export type {
+  LlmCatalogModel,
+  LlmCatalogProvider,
   LlmModelSettings,
   LlmProviderView,
   LlmSaveInput,

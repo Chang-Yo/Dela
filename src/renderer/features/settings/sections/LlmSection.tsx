@@ -13,17 +13,20 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
-import type { LlmModelSettings, LlmProviderView, LlmVerifyResult } from '../../../../shared/api';
+import type {
+  LlmCatalogModel,
+  LlmCatalogProvider,
+  LlmModelSettings,
+  LlmProviderView,
+  LlmVerifyResult,
+} from '../../../../shared/api';
 import {
-  findLlmPreset,
-  llmProviderPresets,
   reasoningEffortLevels,
   llmModelSettings,
   LLM_MODEL_LIMIT,
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
-  type LlmProviderPreset,
-} from '../../../../shared/llm-presets';
+} from '../../../../shared/llm-models';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
@@ -47,23 +50,42 @@ function ProviderMonogram({ name, size }: { name: string; size: 'sm' | 'md' }) {
   );
 }
 
+const CUSTOM = 'custom';
+
+const compactTokens = (tokens: number) =>
+  Intl.NumberFormat('en', { notation: 'compact' }).format(tokens);
+
 function defaultDetail(providers: LlmProviderView[]): Detail | null {
   const provider = providers.find(({ enabled }) => enabled) ?? providers[0];
   return provider ? { mode: 'edit', id: provider.id } : null;
 }
 
-/** 编辑单个模型的草稿；最终随提供商保存，取消不会改变已有配置。 */
-function ModelSettingsDialog({
-  model,
-  settings,
-  onClose,
-  onSave,
-}: {
+interface ModelDialogProps {
   model: string;
   settings: LlmModelSettings;
   onClose: () => void;
   onSave: (settings: LlmModelSettings) => void;
-}) {
+}
+
+/** 内置厂商的模型参数随 Pi 目录，只能选默认思考强度；自定义服务的模型参数全部可编辑。 */
+function ModelSettingsDialog({
+  catalogModel,
+  ...props
+}: ModelDialogProps & { catalogModel: LlmCatalogModel | undefined }) {
+  return catalogModel ? (
+    <CatalogModelDialog
+      model={catalogModel}
+      effort={props.settings.effort}
+      onClose={props.onClose}
+      onSave={props.onSave}
+    />
+  ) : (
+    <CustomModelDialog {...props} />
+  );
+}
+
+/** 编辑单个模型的草稿；最终随提供商保存，取消不会改变已有配置。 */
+function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProps) {
   const [contextWindow, setContextWindow] = useState(settings.contextWindow?.toString() ?? '');
   const [maxOutputTokens, setMaxOutputTokens] = useState(
     settings.maxOutputTokens?.toString() ?? '',
@@ -251,9 +273,89 @@ function ModelSettingsDialog({
   );
 }
 
-/** 设置 › 模型供应商：左侧按预设/自定义分组列出提供商，右侧编辑选中的那一个。 */
+function CatalogModelDialog({
+  model,
+  effort: initialEffort,
+  onClose,
+  onSave,
+}: {
+  model: LlmCatalogModel;
+  effort: string | undefined;
+  onClose: () => void;
+  onSave: (settings: LlmModelSettings) => void;
+}) {
+  const levels = model.effortLevels;
+  const [effort, setEffort] = useState(
+    initialEffort && levels.includes(initialEffort) ? initialEffort : (levels[0] ?? ''),
+  );
+  return (
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className={dialogOverlay} />
+        <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
+          <div className="flex items-center justify-between gap-2">
+            <Dialog.Title className="text-base font-semibold">{model.name}</Dialog.Title>
+            <Dialog.Close asChild>
+              <Button aria-label="关闭模型设置" size="icon-xs" variant="ghost">
+                <X />
+              </Button>
+            </Dialog.Close>
+          </div>
+          <Dialog.Description className="mt-2 text-xs text-ink-3">
+            上下文 {compactTokens(model.contextWindow)} · 最大输出{' '}
+            {compactTokens(model.maxOutputTokens)}
+            {model.vision ? ' · 支持图片' : ''}。参数来自 Pi 模型目录。
+          </Dialog.Description>
+          <form
+            className="mt-4 grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSave({ effortLevels: levels, ...(effort ? { effort } : {}) });
+            }}
+          >
+            {levels.length > 0 ? (
+              <label className="grid gap-2 text-13">
+                默认思考强度
+                <Select value={effort} onValueChange={setEffort}>
+                  <SelectTrigger aria-label="默认思考强度">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {levels.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {level}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            ) : (
+              <p className="text-13 text-ink-3">这个模型不支持调节思考强度。</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button onClick={onClose} variant="ghost">
+                取消
+              </Button>
+              <Button disabled={levels.length === 0} type="submit">
+                应用
+              </Button>
+            </div>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/** 设置 › 模型供应商：左侧按内置厂商/自定义分组列出提供商，右侧编辑选中的那一个。 */
 export function LlmSection() {
   const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
+  const [catalog, setCatalog] = useState<LlmCatalogProvider[]>([]);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -281,7 +383,13 @@ export function LlmSection() {
       .catch((cause) => setError(errorText(cause)));
   };
 
-  useEffect(refresh, []);
+  useEffect(() => {
+    refresh();
+    void window.dela?.llm
+      .catalog()
+      .then(setCatalog)
+      .catch((cause) => setError(errorText(cause)));
+  }, []);
 
   const run = async (operation: () => Promise<void>) => {
     if (!window.dela) return;
@@ -311,11 +419,8 @@ export function LlmSection() {
   const detailProvider = detail?.mode === 'create' ? null : selected;
   const detailOpen = detail?.mode === 'create' || selected !== null;
   const groups = [
-    { label: '预设', items: (providers ?? []).filter(({ presetId }) => findLlmPreset(presetId)) },
-    {
-      label: '自定义',
-      items: (providers ?? []).filter(({ presetId }) => !findLlmPreset(presetId)),
-    },
+    { label: '内置厂商', items: (providers ?? []).filter(({ piProvider }) => piProvider) },
+    { label: '自定义', items: (providers ?? []).filter(({ piProvider }) => !piProvider) },
   ];
 
   /** 保存结果并入列表；只有仍停留在本次保存的详情时才切到保存后的提供商。 */
@@ -388,6 +493,7 @@ export function LlmSection() {
             <div className="py-4">
               <ProviderDetail
                 busy={busy}
+                catalog={catalog}
                 key={detailProvider?.id ?? 'create'}
                 onCancelCreate={() => setDetail(defaultDetail(providers ?? []))}
                 onRemove={(id) => void run(() => window.dela!.llm.remove(id))}
@@ -414,9 +520,10 @@ export function LlmSection() {
   );
 }
 
-/** 预设只用于预填默认值；编辑时密钥留空表示沿用已保存密钥。 */
+/** 内置厂商的地址与模型参数取自 Pi 目录；编辑时密钥留空表示沿用已保存密钥。 */
 function ProviderDetail({
   busy,
+  catalog,
   onCancelCreate,
   onRemove,
   onSaved,
@@ -425,6 +532,7 @@ function ProviderDetail({
 }: {
   /** 切换使用中与删除进行中：与列表共用同一 busy。 */
   busy: boolean;
+  catalog: LlmCatalogProvider[];
   onCancelCreate: () => void;
   onRemove: (id: string) => void;
   onSaved: (provider: LlmProviderView) => void;
@@ -433,17 +541,12 @@ function ProviderDetail({
   provider: LlmProviderView | null;
 }) {
   const creating = provider === null;
-  const initialPreset = provider
-    ? (findLlmPreset(provider.presetId) ??
-      llmProviderPresets.find((preset) => preset.id === 'custom')!)
-    : llmProviderPresets[0]!;
-  const [presetId, setPresetId] = useState(initialPreset.id);
-  const [name, setName] = useState(provider?.name ?? initialPreset.name);
-  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? initialPreset.baseUrl);
+  const [piProvider, setPiProvider] = useState<string | null>(provider?.piProvider ?? null);
+  const vendor = catalog.find(({ id }) => id === piProvider);
+  const [name, setName] = useState(provider?.name ?? '');
+  const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? '');
   const [apiKey, setApiKey] = useState('');
-  const [models, setModels] = useState<string[]>(
-    provider ? [...provider.models] : [...initialPreset.models],
-  );
+  const [models, setModels] = useState<string[]>(provider ? [...provider.models] : []);
   const [modelInput, setModelInput] = useState('');
   const [modelConfigs, setModelConfigs] = useState<Record<string, LlmModelSettings>>(() =>
     provider
@@ -472,14 +575,28 @@ function ProviderDetail({
     setImportNotice(null);
   };
 
-  const applyPreset = (preset: LlmProviderPreset) => {
-    setPresetId(preset.id);
-    setName(preset.name === '自定义' ? '' : preset.name);
-    setBaseUrl(preset.baseUrl);
-    setModels([...preset.models]);
+  const chooseVendor = (id: string) => {
+    const next = catalog.find((item) => item.id === id);
+    setPiProvider(next?.id ?? null);
+    setName(next?.name ?? '');
+    setBaseUrl('');
+    setModels(next?.models[0] ? [next.models[0].id] : []);
     setModelConfigs({});
     invalidateDetection();
   };
+
+  /** 内置厂商不带地址，档位由主进程按目录补全。 */
+  const payload = (form: typeof formRef.current) => ({
+    id: provider?.id,
+    name: form.name,
+    ...(piProvider ? {} : { baseUrl: form.baseUrl }),
+    apiKey: form.apiKey || undefined,
+    models: form.models,
+    modelConfigs: Object.fromEntries(
+      form.models.map((id) => [id, form.modelConfigs[id] ?? { effortLevels: [] }]),
+    ),
+    piProvider,
+  });
 
   const addModel = (id: string) => {
     const value = id.trim();
@@ -571,7 +688,8 @@ function ProviderDetail({
     try {
       const result = await window.dela.llm.verifyModel({
         id: provider?.id,
-        baseUrl,
+        piProvider,
+        baseUrl: piProvider ? undefined : baseUrl,
         apiKey: apiKey || undefined,
         model: id,
         settings: modelConfigs[id],
@@ -601,25 +719,13 @@ function ProviderDetail({
       setError('名称不能为空');
       return;
     }
-    try {
-      new URL(d.baseUrl);
-    } catch {
+    if (!piProvider && !URL.canParse(d.baseUrl)) {
       setError('API 地址格式不正确');
       return;
     }
     setError(null);
     try {
-      const saved = await window.dela.llm.save({
-        id: provider.id,
-        name: d.name,
-        baseUrl: d.baseUrl,
-        apiKey: d.apiKey || undefined,
-        models: d.models,
-        modelConfigs: Object.fromEntries(
-          d.models.map((id) => [id, d.modelConfigs[id] ?? { effortLevels: [] }]),
-        ),
-        presetId: provider.presetId,
-      });
+      const saved = await window.dela.llm.save(payload(d));
       if (d.apiKey) {
         d.apiKey = '';
         setApiKey('');
@@ -647,17 +753,9 @@ function ProviderDetail({
     setSaving(true);
     setError(null);
     try {
-      const saved = await window.dela.llm.save({
-        id: provider?.id,
-        name,
-        baseUrl,
-        apiKey: apiKey || undefined,
-        models,
-        modelConfigs: Object.fromEntries(
-          models.map((id) => [id, modelConfigs[id] ?? { effortLevels: [] }]),
-        ),
-        presetId: provider ? provider.presetId : presetId === 'custom' ? null : presetId,
-      });
+      const saved = await window.dela.llm.save(
+        payload({ name, baseUrl, apiKey, models, modelConfigs }),
+      );
       // 新建即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。
       onSaved(saved);
     } catch (cause) {
@@ -666,8 +764,6 @@ function ProviderDetail({
       setSaving(false);
     }
   };
-
-  const preset = findLlmPreset(presetId);
 
   return (
     <div className="grid content-start gap-4">
@@ -727,28 +823,32 @@ function ProviderDetail({
           else void persist();
         }}
       >
-        {creating && (
+        {creating ? (
           <div className="grid gap-2 text-13">
-            预设
-            <Select
-              onValueChange={(value) =>
-                applyPreset(llmProviderPresets.find((item) => item.id === value)!)
-              }
-              value={presetId}
-            >
-              <SelectTrigger aria-label="预设">
+            厂商
+            <Select onValueChange={chooseVendor} value={piProvider ?? CUSTOM}>
+              <SelectTrigger aria-label="厂商">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {llmProviderPresets.map((item) => (
+                <SelectItem value={CUSTOM}>自定义（OpenAI 兼容）</SelectItem>
+                {catalog.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
                     {item.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs leading-relaxed text-ink-3">
+              内置厂商的协议与模型参数由 Pi 识别，目录定期从 pi.dev
+              更新；列表里没有的服务选「自定义」。
+            </p>
           </div>
-        )}
+        ) : piProvider ? (
+          <p className="text-xs text-ink-3 [overflow-wrap:anywhere]">
+            {vendor?.name ?? piProvider} · {provider.baseUrl}
+          </p>
+        ) : null}
         <label className="grid gap-2 text-13">
           名称
           <Input
@@ -762,36 +862,26 @@ function ProviderDetail({
             value={name}
           />
         </label>
-        <label className="grid gap-2 text-13">
-          API 地址
-          <Input
-            autoComplete="off"
-            onBlur={() => persistIfChanged()}
-            onChange={(event) => {
-              formRef.current.baseUrl = event.target.value;
-              setBaseUrl(event.target.value);
-              invalidateDetection();
-            }}
-            placeholder="https://api.example.com/v1"
-            required
-            type="url"
-            value={baseUrl}
-          />
-        </label>
+        {!piProvider && (
+          <label className="grid gap-2 text-13">
+            API 地址
+            <Input
+              autoComplete="off"
+              onBlur={() => persistIfChanged()}
+              onChange={(event) => {
+                formRef.current.baseUrl = event.target.value;
+                setBaseUrl(event.target.value);
+                invalidateDetection();
+              }}
+              placeholder="https://api.example.com/v1"
+              required
+              type="url"
+              value={baseUrl}
+            />
+          </label>
+        )}
         <div className="grid gap-2 text-13">
-          <div className="flex items-center justify-between">
-            <span>API Key</span>
-            {preset?.keyUrl && (
-              <a
-                className="text-xs text-ink-3 underline-offset-2 hover:underline"
-                href={preset.keyUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                获取密钥
-              </a>
-            )}
-          </div>
+          <span>API Key</span>
           <Input
             autoComplete="off"
             onBlur={() => persistIfChanged()}
@@ -819,20 +909,23 @@ function ProviderDetail({
               </span>
             </span>
             <div className="flex items-center gap-2">
+              {!piProvider && (
+                <Button
+                  disabled={verifying || !baseUrl}
+                  onClick={() => void verify()}
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                >
+                  {verifying ? <LoaderCircle className="animate-spin" /> : null}
+                  {verifying ? '检测中…' : '检测模型'}
+                </Button>
+              )}
               <Button
-                disabled={verifying || !baseUrl}
-                onClick={() => void verify()}
-                size="sm"
-                type="button"
-                variant="secondary"
-              >
-                {verifying ? <LoaderCircle className="animate-spin" /> : null}
-                {verifying ? '检测中…' : '检测模型'}
-              </Button>
-              <Button
+                disabled={piProvider !== null && !vendor}
                 onClick={() => {
                   setAddingModel(true);
-                  if (!verifyResult && !verifying) void verify();
+                  if (!piProvider && !verifyResult && !verifying) void verify();
                 }}
                 size="sm"
                 variant="secondary"
@@ -865,14 +958,29 @@ function ProviderDetail({
           )}
           <ul className="divide-y">
             {models.map((id) => {
-              const settings = modelConfigs[id];
+              const catalogModel = vendor?.models.find((model) => model.id === id);
+              const settings = catalogModel
+                ? {
+                    ...modelConfigs[id],
+                    vision: catalogModel.vision,
+                    contextWindow: catalogModel.contextWindow,
+                  }
+                : modelConfigs[id];
               const result = modelResults[id];
               return (
                 <li className="grid gap-1 px-3 py-2" key={id}>
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                    <span
+                      className="min-w-0 flex-1 truncate font-mono text-xs"
+                      title={catalogModel?.name ?? id}
+                    >
                       {id}
                     </span>
+                    {vendor && !catalogModel && (
+                      <StatusPill className="h-5 px-2 text-xs" dot={false}>
+                        已下架
+                      </StatusPill>
+                    )}
                     {settings?.vision && (
                       <StatusPill className="h-5 px-2 text-xs" dot={false}>
                         视觉
@@ -880,15 +988,13 @@ function ProviderDetail({
                     )}
                     {settings?.contextWindow && (
                       <StatusPill className="h-5 px-2 text-xs" dot={false}>
-                        {Intl.NumberFormat('en', { notation: 'compact' }).format(
-                          settings.contextWindow,
-                        )}
+                        {compactTokens(settings.contextWindow)}
                       </StatusPill>
                     )}
                     <div className="flex shrink-0 items-center">
                       <Button
                         aria-label={`检测模型 ${id}`}
-                        disabled={!baseUrl || result === 'pending'}
+                        disabled={(!piProvider && !baseUrl) || result === 'pending'}
                         onClick={() => void verifyModel(id)}
                         size="icon-xs"
                         title="检测可用性"
@@ -902,6 +1008,7 @@ function ProviderDetail({
                       </Button>
                       <Button
                         aria-label={`编辑模型 ${id}`}
+                        disabled={piProvider !== null && !catalogModel}
                         onClick={() => setEditingModel(id)}
                         size="icon-xs"
                         title="编辑模型"
@@ -923,6 +1030,7 @@ function ProviderDetail({
                   {settings?.effortLevels?.length ? (
                     <span className="text-xs text-ink-3">
                       思考：{settings.effortLevels.join(' · ')}
+                      {catalogModel && settings.effort ? `（默认 ${settings.effort}）` : ''}
                     </span>
                   ) : null}
                   {result && result !== 'pending' && (
@@ -946,7 +1054,9 @@ function ProviderDetail({
             </p>
           )}
           <p className="text-xs leading-relaxed text-ink-3">
-            列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。
+            {piProvider
+              ? '模型目录随 Pi 更新；目录里没有的模型请改用「自定义」服务接入。'
+              : '列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。'}
           </p>
         </div>
         {error && (
@@ -985,76 +1095,122 @@ function ProviderDetail({
                 </Dialog.Close>
               </div>
               <Dialog.Description className="mt-2 text-xs text-ink-3">
-                先检测模型列表，再搜索添加；未提供列表接口时可手动输入模型 ID。
+                {vendor
+                  ? `从 ${vendor.name} 的模型目录中选择。`
+                  : '先检测模型列表，再搜索添加；未提供列表接口时可手动输入模型 ID。'}
               </Dialog.Description>
-              <div className="mt-4 grid gap-3">
-                <Button
-                  disabled={verifying || !baseUrl}
-                  onClick={() => void verify()}
-                  size="sm"
-                  variant="secondary"
-                >
-                  {verifying ? <LoaderCircle className="animate-spin" /> : <Search />}{' '}
-                  {verifying ? '检测中…' : '检测模型'}
-                </Button>
-                <Input
-                  aria-label="搜索或输入模型 ID"
-                  value={modelInput}
-                  onChange={(event) => setModelInput(event.target.value)}
-                  placeholder="搜索或输入模型 ID…"
-                />
-                <ul className="max-h-60 overflow-y-auto divide-y rounded-card border border-line">
-                  {(verifyResult?.models ?? [])
-                    .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
-                    .map((id) => (
-                      <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
-                        <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
-                          {id}
-                        </span>
-                        <Button
-                          aria-label={`添加模型 ${id}`}
-                          disabled={models.includes(id) || models.length >= LLM_MODEL_LIMIT}
-                          onClick={() => addModel(id)}
-                          size="icon-xs"
-                          variant="ghost"
-                        >
-                          {models.includes(id) ? <Check /> : <Plus />}
-                        </Button>
-                      </li>
-                    ))}
-                </ul>
-                {verifyResult && (
-                  <p
-                    className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-red')}
-                    role="status"
-                  >
-                    {verifyResult.message}
-                  </p>
-                )}
-                {importNotice && (
-                  <p className="text-xs text-ink-3" role="status">
-                    {importNotice}
-                  </p>
-                )}
-                <div className="flex items-center justify-end gap-2">
-                  {verifyResult?.models?.length ? (
-                    <Button
-                      onClick={() => importModels(verifyResult.models!)}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      一键导入
-                    </Button>
-                  ) : null}
-                  <Button
-                    disabled={!modelInput.trim() || models.includes(modelInput.trim())}
-                    onClick={() => addModel(modelInput)}
-                    size="sm"
-                  >
-                    添加此 ID
-                  </Button>
+              {vendor ? (
+                <div className="mt-4 grid gap-3">
+                  <Input
+                    aria-label="搜索模型"
+                    value={modelInput}
+                    onChange={(event) => setModelInput(event.target.value)}
+                    placeholder="搜索模型…"
+                  />
+                  <ul className="max-h-72 overflow-y-auto divide-y rounded-card border border-line">
+                    {vendor.models
+                      .filter((model) =>
+                        `${model.id} ${model.name}`
+                          .toLowerCase()
+                          .includes(modelInput.trim().toLowerCase()),
+                      )
+                      .map((model) => (
+                        <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={model.id}>
+                          <span className="grid min-w-0 flex-1">
+                            <span className="truncate text-13">{model.name}</span>
+                            <span className="truncate font-mono text-xs text-ink-3">
+                              {model.id} · {compactTokens(model.contextWindow)}
+                              {model.vision ? ' · 视觉' : ''}
+                            </span>
+                          </span>
+                          <Button
+                            aria-label={`添加模型 ${model.id}`}
+                            disabled={models.includes(model.id) || models.length >= LLM_MODEL_LIMIT}
+                            onClick={() => addModel(model.id)}
+                            size="icon-xs"
+                            variant="ghost"
+                          >
+                            {models.includes(model.id) ? <Check /> : <Plus />}
+                          </Button>
+                        </li>
+                      ))}
+                  </ul>
+                  {importNotice && (
+                    <p className="text-xs text-ink-3" role="status">
+                      {importNotice}
+                    </p>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="mt-4 grid gap-3">
+                  <Button
+                    disabled={verifying || !baseUrl}
+                    onClick={() => void verify()}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    {verifying ? <LoaderCircle className="animate-spin" /> : <Search />}{' '}
+                    {verifying ? '检测中…' : '检测模型'}
+                  </Button>
+                  <Input
+                    aria-label="搜索或输入模型 ID"
+                    value={modelInput}
+                    onChange={(event) => setModelInput(event.target.value)}
+                    placeholder="搜索或输入模型 ID…"
+                  />
+                  <ul className="max-h-60 overflow-y-auto divide-y rounded-card border border-line">
+                    {(verifyResult?.models ?? [])
+                      .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
+                      .map((id) => (
+                        <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
+                          <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                            {id}
+                          </span>
+                          <Button
+                            aria-label={`添加模型 ${id}`}
+                            disabled={models.includes(id) || models.length >= LLM_MODEL_LIMIT}
+                            onClick={() => addModel(id)}
+                            size="icon-xs"
+                            variant="ghost"
+                          >
+                            {models.includes(id) ? <Check /> : <Plus />}
+                          </Button>
+                        </li>
+                      ))}
+                  </ul>
+                  {verifyResult && (
+                    <p
+                      className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-red')}
+                      role="status"
+                    >
+                      {verifyResult.message}
+                    </p>
+                  )}
+                  {importNotice && (
+                    <p className="text-xs text-ink-3" role="status">
+                      {importNotice}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    {verifyResult?.models?.length ? (
+                      <Button
+                        onClick={() => importModels(verifyResult.models!)}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        一键导入
+                      </Button>
+                    ) : null}
+                    <Button
+                      disabled={!modelInput.trim() || models.includes(modelInput.trim())}
+                      onClick={() => addModel(modelInput)}
+                      size="sm"
+                    >
+                      添加此 ID
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>
@@ -1062,6 +1218,7 @@ function ProviderDetail({
       {editingModel && (
         <ModelSettingsDialog
           key={editingModel}
+          catalogModel={vendor?.models.find((model) => model.id === editingModel)}
           model={editingModel}
           settings={modelConfigs[editingModel] ?? {}}
           onClose={() => setEditingModel(null)}

@@ -232,3 +232,75 @@ it('v9→v10：删掉 Pi packages 与试验功能的残留，其余设置与文�
   expect(present).toEqual([]);
   expect(kept.every((dir) => existsSync(join(userData, dir, 'inner')))).toBe(true);
 });
+
+it('v10→v11：指向内置厂商的配置换成 piProvider 并只留目录模型，其余转为自定义', () => {
+  const before = new Database(dbPath());
+  before.pragma('user_version = 10');
+  before.close();
+  const provider = { apiKey: 'k', enabled: true };
+  writeFileSync(
+    configPath(),
+    seal.encrypt(
+      JSON.stringify({
+        providers: [
+          {
+            ...provider,
+            id: 'ds',
+            name: 'DeepSeek',
+            baseUrl: 'https://api.deepseek.com/',
+            models: ['deepseek-v4-pro', 'deepseek-chat'],
+            modelConfigs: { 'deepseek-v4-pro': { effortLevels: ['high'], effort: 'max' } },
+            presetId: 'deepseek',
+          },
+          {
+            ...provider,
+            id: 'mm',
+            name: 'MiniMax',
+            baseUrl: 'https://api.minimaxi.com/v1',
+            models: ['MiniMax-M3'],
+            presetId: 'minimax',
+          },
+          {
+            ...provider,
+            id: 'old',
+            name: '智谱',
+            baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+            models: ['glm-4.7'],
+            presetId: 'zhipu-coding',
+          },
+          {
+            ...provider,
+            id: 'zy',
+            name: '致远一号',
+            baseUrl: 'https://models.sjtu.edu.cn/api/v1',
+            models: ['qwen'],
+            presetId: 'zhiyuan',
+          },
+        ],
+      }),
+    ),
+  );
+
+  expect(runMigrations({ userData, seal }, 11)).toBe(1);
+
+  const { providers } = JSON.parse(readFileSync(configPath(), 'utf8'));
+  expect(providers.map((p: Record<string, unknown>) => 'presetId' in p)).toEqual([
+    false,
+    false,
+    false,
+    false,
+  ]);
+  expect(providers[0]).toMatchObject({
+    piProvider: 'deepseek',
+    baseUrl: 'https://api.deepseek.com',
+    models: ['deepseek-v4-pro'],
+    modelConfigs: { 'deepseek-v4-pro': { effortLevels: ['none', 'high', 'max'], effort: 'max' } },
+  });
+  expect(providers[1]).toMatchObject({
+    piProvider: 'minimax-cn',
+    baseUrl: 'https://api.minimaxi.com/anthropic',
+    modelConfigs: { 'MiniMax-M3': { effort: 'medium' } },
+  });
+  expect(providers[2]).toMatchObject({ piProvider: null, models: ['glm-4.7'] });
+  expect(providers[3]).toMatchObject({ piProvider: null, apiKey: 'k' });
+});

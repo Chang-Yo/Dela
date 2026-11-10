@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { LlmProviderView, LlmVerifyResult } from '../../shared/api';
+import type { LlmModelSettings, LlmProviderView, LlmVerifyResult } from '../../shared/api';
 import {
   LLM_MODEL_LIMIT,
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
   llmModelSettings,
   reasoningEffortLevels,
-} from '../../shared/llm-presets';
-import { verifyModel } from './pi';
+} from '../../shared/llm-models';
+import { llmCatalog, verifyModel } from './pi';
 import {
   CredentialDecryptionError,
   loadLlmConfig,
@@ -26,6 +26,7 @@ const baseUrlSchema = z
   .pipe(z.url({ protocol: /^https?$/ }));
 const apiKeySchema = z.string().max(4096);
 const modelIdSchema = z.string().trim().min(1).max(200);
+const piProviderSchema = z.string().max(64).nullable().optional();
 const modelsSchema = z.array(modelIdSchema).min(1).max(LLM_MODEL_LIMIT);
 const effortLevelsSchema = z.array(z.enum(reasoningEffortLevels)).max(8).optional();
 const modelSettingsSchema = z
@@ -56,11 +57,11 @@ const saveInputSchema = z
   .object({
     id: idSchema.optional(),
     name: nameSchema,
-    baseUrl: baseUrlSchema,
+    baseUrl: baseUrlSchema.optional(),
     apiKey: apiKeySchema.optional(),
     models: modelsSchema,
     modelConfigs: z.record(modelIdSchema, modelSettingsSchema).optional(),
-    presetId: z.string().max(64).nullable().optional(),
+    piProvider: piProviderSchema,
   })
   .refine(
     (input) => Object.keys(input.modelConfigs ?? {}).every((id) => input.models.includes(id)),
@@ -88,7 +89,7 @@ function viewOf(provider: StoredLlmProvider): LlmProviderView {
           ),
         }
       : {}),
-    presetId: provider.presetId,
+    piProvider: provider.piProvider,
     enabled: provider.enabled,
   };
 }
@@ -106,10 +107,48 @@ export function usableLlmProviders(providers = llmProviders()): StoredLlmProvide
   return providers.filter(({ enabled, apiKey }) => enabled && apiKey);
 }
 
-export function saveLlmProvider(input: unknown): LlmProviderView {
+/** 没选过默认档位时取 Pi 的默认 medium；厂商没有这一档就取比它高的最近一档。 */
+function defaultEffort(levels: string[]): string | undefined {
+  const medium = reasoningEffortLevels.indexOf('medium');
+  return (
+    levels.find((level) => reasoningEffortLevels.indexOf(level as 'medium') >= medium) ??
+    levels.at(-1)
+  );
+}
+
+/** 内置厂商：地址与思考档位取自 Pi 目录，用户只决定用哪些模型和默认档位。 */
+async function builtinProviderFields(
+  piProvider: string,
+  models: string[],
+  modelConfigs: Record<string, LlmModelSettings> | undefined,
+) {
+  const vendor = (await llmCatalog()).find(({ id }) => id === piProvider);
+  if (!vendor) throw new Error('Pi 目录中没有这个厂商');
+  const missing = models.filter((id) => !vendor.models.some((model) => model.id === id));
+  if (missing.length) throw new Error(`这些模型不在 ${vendor.name} 的目录中：${missing.join('、')}`);
+  return {
+    baseUrl: vendor.baseUrl,
+    modelConfigs: Object.fromEntries(
+      models.map((id) => {
+        const effortLevels = vendor.models.find((model) => model.id === id)!.effortLevels;
+        const preferred = modelConfigs?.[id]?.effort;
+        const effort =
+          preferred && effortLevels.includes(preferred) ? preferred : defaultEffort(effortLevels);
+        return [id, { effortLevels, ...(effort ? { effort } : {}) }];
+      }),
+    ),
+  };
+}
+
+export async function saveLlmProvider(input: unknown): Promise<LlmProviderView> {
   const parsed = saveInputSchema.parse(input);
-  const baseUrl = parsed.baseUrl.replace(/\/+$/, '');
-  const presetId = parsed.presetId ?? null;
+  const piProvider = parsed.piProvider ?? null;
+  const builtin = piProvider
+    ? await builtinProviderFields(piProvider, parsed.models, parsed.modelConfigs)
+    : undefined;
+  if (!builtin && !parsed.baseUrl) throw new Error('请填写 API 地址');
+  const baseUrl = builtin?.baseUrl ?? parsed.baseUrl!.replace(/\/+$/, '');
+  const modelConfigs = builtin?.modelConfigs ?? parsed.modelConfigs;
   let config: StoredLlmConfig;
   try {
     config = loadLlmConfig();
@@ -126,7 +165,7 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       name: parsed.name,
       baseUrl,
       models: parsed.models,
-      presetId,
+      piProvider,
     });
     if (parsed.apiKey) provider.apiKey = parsed.apiKey;
   } else {
@@ -137,14 +176,14 @@ export function saveLlmProvider(input: unknown): LlmProviderView {
       baseUrl,
       apiKey: parsed.apiKey,
       models: parsed.models,
-      presetId,
+      piProvider,
       enabled: true,
     };
     config.providers.push(provider);
   }
-  if (parsed.modelConfigs) {
+  if (modelConfigs) {
     provider.modelConfigs = Object.fromEntries(
-      Object.entries(parsed.modelConfigs).map(([id, settings]) => [
+      Object.entries(modelConfigs).map(([id, settings]) => [
         id,
         {
           ...settings,
@@ -219,20 +258,10 @@ export function parseModelList(payload: unknown): string[] | null {
 const VERIFY_TIMEOUT = 15000;
 
 /** 两种检测共用：留空沿用该提供商已存的密钥。 */
-function verificationConnection(input: {
-  id?: string;
-  baseUrl: string;
-  apiKey?: string;
-}): { baseUrl: string; key: string } | { ok: false; message: string } {
-  const parsed = z
-    .object({ id: idSchema.optional(), baseUrl: baseUrlSchema, apiKey: apiKeySchema.optional() })
-    .parse(input);
-  let key = parsed.apiKey?.trim() ?? '';
-  if (!key && parsed.id) {
-    key = loadLlmConfig().providers.find(({ id }) => id === parsed.id)?.apiKey ?? '';
-  }
-  if (!key) return { ok: false, message: '请先填写 API Key' };
-  return { baseUrl: parsed.baseUrl, key };
+function verificationKey(input: { id?: string; apiKey?: string }): string {
+  const key = input.apiKey?.trim();
+  if (key || !input.id) return key ?? '';
+  return loadLlmConfig().providers.find(({ id }) => id === input.id)?.apiKey ?? '';
 }
 
 /** 只做一次 GET：401/403 视为密钥无效，成功时顺带取回模型列表。 */
@@ -241,9 +270,12 @@ export async function verifyLlm(input: {
   baseUrl: string;
   apiKey?: string;
 }): Promise<LlmVerifyResult> {
-  const connection = verificationConnection(input);
-  if ('ok' in connection) return connection;
-  const { baseUrl, key } = connection;
+  const parsed = z
+    .object({ id: idSchema.optional(), baseUrl: baseUrlSchema, apiKey: apiKeySchema.optional() })
+    .parse(input);
+  const key = verificationKey(parsed);
+  if (!key) return { ok: false, message: '请先填写 API Key' };
+  const { baseUrl } = parsed;
   const typed = baseUrl.replace(/\/+$/, '');
   let unreachable = false;
   for (const { models: url, apiBase } of modelListEndpoints(baseUrl)) {
@@ -285,27 +317,31 @@ export async function verifyLlmModel(input: unknown): Promise<LlmVerifyResult> {
   const parsed = z
     .object({
       id: idSchema.optional(),
-      baseUrl: baseUrlSchema,
+      piProvider: piProviderSchema,
+      baseUrl: baseUrlSchema.optional(),
       apiKey: apiKeySchema.optional(),
       model: modelIdSchema,
       settings: modelSettingsSchema.optional(),
     })
     .parse(input);
-  const connection = verificationConnection(parsed);
-  if ('ok' in connection) return connection;
+  const key = verificationKey(parsed);
+  if (!key) return { ok: false, message: '请先填写 API Key' };
+  const piProvider = parsed.piProvider ?? null;
+  if (!piProvider && !parsed.baseUrl) return { ok: false, message: '请先填写 API 地址' };
   // 裸源地址先按模型列表端点探出真实 API 根：对话端点与它同前缀，不校正会打到网关首页上。
-  const typed = connection.baseUrl.replace(/\/+$/, '');
-  const corrected = /\/v\d+$/.test(typed)
-    ? undefined
-    : (await verifyLlm({ baseUrl: typed, apiKey: connection.key })).baseUrl;
+  const typed = parsed.baseUrl?.replace(/\/+$/, '') ?? '';
+  const corrected =
+    piProvider || /\/v\d+$/.test(typed)
+      ? undefined
+      : (await verifyLlm({ baseUrl: typed, apiKey: key })).baseUrl;
   const correction = corrected ? { baseUrl: corrected } : {};
   const settings = parsed.settings ?? {};
-  const effortLevels = settings.effortLevels ?? [];
-  const effort = settings.effort ?? effortLevels[0];
+  const effort = settings.effort ?? settings.effortLevels?.[0];
   try {
     const text = await verifyModel({
+      piProvider,
       baseUrl: corrected ?? typed,
-      apiKey: connection.key,
+      apiKey: key,
       model: parsed.model,
       reasoning: Boolean(effort && effort !== 'none'),
     });
@@ -313,9 +349,10 @@ export async function verifyLlmModel(input: unknown): Promise<LlmVerifyResult> {
       ? { ok: true, message: '模型可用', ...correction }
       : { ok: false, message: '请求完成但未返回内容，可用性待确认', ...correction };
   } catch (cause) {
-    // 不回显上游报文，避免服务将认证头或其他敏感数据拼进错误。
+    // 只取文案开头的状态码，不回显上游报文：服务可能把认证头等敏感数据拼进错误。
+    // pi-ai 的 onResponse 只在成功时回调，失败的状态码只在这段文案里。
     const message = cause instanceof Error ? cause.message : '';
-    const status = /^\s*(\d{3})/.exec(message)?.[1];
+    const status = /^\s*(\d{3})\b/.exec(message)?.[1];
     return {
       ok: false,
       message: status

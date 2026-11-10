@@ -1,4 +1,4 @@
-import { LLM_MODEL_LIMIT } from '../../../../shared/llm-presets';
+import { LLM_MODEL_LIMIT } from '../../../../shared/llm-models';
 
 /** 勾选结果按检测列表顺序回传；列表外的勾选（换过服务商后的残留）自然被丢掉。 */
 export function selectedModels(options: string[], checked: ReadonlySet<string>): string[] {

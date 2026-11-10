@@ -2,6 +2,7 @@ import type { LlmApi, LlmSaveInput, LlmVerifyInput } from '../shared/api';
 import { invoke } from './lib';
 
 export const llm = {
+  catalog: () => invoke('llm:catalog'),
   list: () => invoke('llm:list'),
   save: (input: LlmSaveInput) => invoke('llm:save', input),
   remove: (id: string) => invoke('llm:remove', id),

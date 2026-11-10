@@ -97,7 +97,7 @@ beforeAll(async () => {
     baseUrl: server.baseUrl,
     apiKey: 'test-only',
     models: ['mock-model'],
-    presetId: null,
+    piProvider: null,
     enabled: true,
   };
   state.db = new Database(':memory:');
