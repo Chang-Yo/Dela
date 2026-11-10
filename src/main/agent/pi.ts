@@ -97,6 +97,11 @@ export function isInside(path: string, dir: string): boolean {
   return rest !== '' && !rest.startsWith('..') && !isAbsolute(rest);
 }
 
+/** Pi 还会加载项目里的 .pi/skills；Dela 的项目 Skill 只认 .agents/skills。 */
+export function isPiProjectSkill(path: string, cwd: string): boolean {
+  return isInside(path, join(cwd, '.pi', 'skills'));
+}
+
 export interface OpenSessionInput {
   cwd: string;
   file?: string;
@@ -150,6 +155,7 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
       ...base,
       skills: base.skills.filter((skill) => {
         const path = resolve(skill.filePath);
+        if (isPiProjectSkill(path, input.cwd)) return false;
         return input.globalSkillDirs.some((dir) => isInside(path, dir))
           ? !input.disabledSkills.has(skill.name)
           : !input.disabledSkillPaths?.has(path);

@@ -91,12 +91,12 @@ it('empty state without remote projects', async () => {
 });
 
 it('uploads to the selected remote project', async () => {
-  const call = vi.fn(async () => ({ path: '/root/proj/.dela/skills/lint', files: 3 }));
+  const call = vi.fn(async () => ({ path: '/root/proj/.agents/skills/lint', files: 3 }));
   await openDialog(call);
   await act(async () => buttonByText('远端课题').click());
   await act(async () => buttonByText('上传').click());
   expect(call).toHaveBeenCalledWith(skill.id, '/root/proj', false);
-  expect(document.body.textContent).toContain('/root/proj/.dela/skills/lint');
+  expect(document.body.textContent).toContain('/root/proj/.agents/skills/lint');
 });
 
 it('asks for overwrite when the remote skill exists', async () => {
@@ -104,17 +104,17 @@ it('asks for overwrite when the remote skill exists', async () => {
     .fn()
     .mockRejectedValueOnce(
       new Error(
-        "Error invoking remote method 'capabilities:upload-skill-to-remote': Error: 远端已存在：/root/proj/.dela/skills/lint",
+        "Error invoking remote method 'capabilities:upload-skill-to-remote': Error: 远端已存在：/root/proj/.agents/skills/lint",
       ),
     )
-    .mockResolvedValueOnce({ path: '/root/proj/.dela/skills/lint', files: 2 });
+    .mockResolvedValueOnce({ path: '/root/proj/.agents/skills/lint', files: 2 });
   await openDialog(call);
   await act(async () => buttonByText('远端课题').click());
   await act(async () => buttonByText('上传').click());
   expect(document.body.textContent).toContain('远端已有同名技能，覆盖吗？');
   await act(async () => buttonByText('覆盖').click());
   expect(call).toHaveBeenLastCalledWith(skill.id, '/root/proj', true);
-  expect(document.body.textContent).toContain('/root/proj/.dela/skills/lint');
+  expect(document.body.textContent).toContain('/root/proj/.agents/skills/lint');
 });
 
 it('reports other errors as a toast', async () => {
@@ -206,7 +206,7 @@ it('groups skills by where they come from and toggles them by id', async () => {
       group: { id: 'p-alpha', label: 'alpha' },
     },
     {
-      ...at('/work/beta/.agent/skills/lint/SKILL.md'),
+      ...at('/work/beta/.agents/skills/lint/SKILL.md'),
       name: 'lint',
       origin: 'project',
       group: { id: 'p-beta', label: 'beta' },
@@ -236,7 +236,7 @@ it('groups skills by where they come from and toggles them by id', async () => {
 
   // 两个项目的 lint 同名：只动 beta 那一个。
   await act(async () => switchFor('启用 lint')[1]!.click());
-  expect(setSkillEnabled).toHaveBeenCalledWith('/work/beta/.agent/skills/lint/SKILL.md', false);
+  expect(setSkillEnabled).toHaveBeenCalledWith('/work/beta/.agents/skills/lint/SKILL.md', false);
 
   await act(async () => buttonByText('项目').click());
   expect(container.textContent).not.toContain('canvas');

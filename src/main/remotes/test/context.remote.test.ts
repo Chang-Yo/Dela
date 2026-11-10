@@ -32,11 +32,15 @@ describe('远端上下文镜像（真机）', () => {
   const root = `/tmp/dela-context-${Date.now()}`;
   const remoteDir = `${root}/nested/proj`;
   const home = `${root}/home`;
-  // 仓库内两处技能 + 服务器主目录一处技能，加上祖先目录的上下文文件。
+  // 仓库内的项目技能 + 服务器主目录一处技能，加上祖先目录的上下文文件。
+  // .dela/skills 不再是项目技能目录，放一个用来确认它不被镜像。
   const repoSkillFiles: [string, string][] = [
     ['.agents/skills/alpha/SKILL.md', skill('alpha', '仓库原生技能', 'ALPHA 正文')],
     ['.agents/skills/alpha/ref/note.txt', '附属文件\n'],
-    ['.dela/skills/beta/SKILL.md', skill('beta', 'Dela 仓库技能', 'BETA 正文')],
+  ];
+  const ignoredRepoSkill: [string, string] = [
+    '.dela/skills/beta/SKILL.md',
+    skill('beta', '旧目录技能', 'BETA 正文'),
   ];
   const serverSkillFile: [string, string] = [
     '.dela/skills/gamma/SKILL.md',
@@ -47,7 +51,7 @@ describe('远端上下文镜像（真机）', () => {
     await ops.bash.exec(`mkdir -p ${shellQuote(root)} && rm -rf ${shellQuote(root)}`, '/', {
       onData: () => {},
     });
-    for (const [path, content] of repoSkillFiles) {
+    for (const [path, content] of [...repoSkillFiles, ignoredRepoSkill]) {
       await ops.write.writeFile(`${remoteDir}/${path}`, content);
     }
     await ops.write.writeFile(`${home}/${serverSkillFile[0]}`, serverSkillFile[1]);
@@ -60,7 +64,7 @@ describe('远端上下文镜像（真机）', () => {
     setContextMirrors('live:test', []);
   }, 240_000);
 
-  it('三处技能与 AGENTS.md 回填镜像，镜像路径翻得回远端', async () => {
+  it('项目与主目录技能、AGENTS.md 回填镜像，镜像路径翻得回远端', async () => {
     const context = await syncRemoteContext({
       target,
       key: 'live:test',
@@ -72,9 +76,9 @@ describe('远端上下文镜像（真机）', () => {
     const mirror = contextMirrorRoot('r1', 'p1');
     expect(context.skillPaths).toEqual([
       join(mirror, 'repo', '.agents', 'skills'),
-      join(mirror, 'repo', '.dela', 'skills'),
       join(mirror, 'home', '.dela', 'skills'),
     ]);
+    expect(existsSync(join(mirror, 'repo', ignoredRepoSkill[0]))).toBe(false);
 
     // 逐字节一致：/skill 展开读的就是这几个镜像文件。
     for (const [path, content] of repoSkillFiles) {
@@ -127,10 +131,7 @@ describe('远端上下文镜像（真机）', () => {
       remoteDir,
     });
     const mirror = contextMirrorRoot('r2', 'p2');
-    expect(context.skillPaths.slice(0, 2)).toEqual([
-      join(mirror, 'repo', '.agents', 'skills'),
-      join(mirror, 'repo', '.dela', 'skills'),
-    ]);
+    expect(context.skillPaths[0]).toBe(join(mirror, 'repo', '.agents', 'skills'));
     expect(context.agentsFiles.some((file) => file.content === '暗号：菠萝\n')).toBe(true);
   }, 240_000);
 
@@ -148,7 +149,7 @@ describe('远端上下文镜像（真机）', () => {
     writeFileSync(join(local, 'SKILL.md'), skill('lint', '本地技能', 'LINT 正文'));
     writeFileSync(join(local, 'scripts/run.sh'), '#!/bin/sh\necho 远端执行\n');
     await ops.bash.exec(
-      `rm -rf ${shellQuote(remoteDir)}/.dela/skills/lint && git -C ${shellQuote(remoteDir)} init -q`,
+      `rm -rf ${shellQuote(remoteDir)}/.agents/skills/lint && git -C ${shellQuote(remoteDir)} init -q`,
       '/',
       { onData: () => {} },
     );
@@ -160,10 +161,10 @@ describe('远端上下文镜像（真机）', () => {
       remoteDir,
       overwrite: false,
     });
-    expect(uploaded).toEqual({ path: `${remoteDir}/.dela/skills/lint`, files: 2 });
+    expect(uploaded).toEqual({ path: `${remoteDir}/.agents/skills/lint`, files: 2 });
     for (const file of ['SKILL.md', 'scripts/run.sh']) {
       expect(
-        (await read(`${remoteDir}/.dela/skills/lint/${file}`)).equals(
+        (await read(`${remoteDir}/.agents/skills/lint/${file}`)).equals(
           readFileSync(join(local, file)),
         ),
         file,
@@ -174,7 +175,7 @@ describe('远端上下文镜像（真机）', () => {
     await ops.bash.exec(`git -C ${shellQuote(remoteDir)} status --porcelain -uall`, '/', {
       onData: (chunk) => status.push(chunk),
     });
-    expect(Buffer.concat(status).toString('utf8')).toContain('.dela/skills/lint/SKILL.md');
+    expect(Buffer.concat(status).toString('utf8')).toContain('.agents/skills/lint/SKILL.md');
 
     // 同名先拦下来（渲染端据此弹二次确认），覆盖后再传就换掉正文。
     await expect(
@@ -188,7 +189,7 @@ describe('远端上下文镜像（真机）', () => {
       remoteDir,
       overwrite: true,
     });
-    expect((await read(`${remoteDir}/.dela/skills/lint/SKILL.md`)).toString('utf8')).toContain(
+    expect((await read(`${remoteDir}/.agents/skills/lint/SKILL.md`)).toString('utf8')).toContain(
       '改过的正文',
     );
   }, 240_000);

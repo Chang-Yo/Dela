@@ -20,8 +20,8 @@ const CONTEXT_FILE_NAMES = [
   'CLAUDE.MD',
 ];
 
-/** 仓库内两处 skills（优先级从高到低）与服务器主目录下的一处。 */
-const REPO_SKILL_DIRS = ['.agents/skills', '.dela/skills'];
+/** 仓库内的项目 skills 与服务器主目录下的一处。 */
+const REPO_SKILL_DIR = '.agents/skills';
 const HOME_SKILL_DIR = '.dela/skills';
 
 /** 单个镜像文件的上限：skill 不该带大文件，超限的直接跳过（find 里过滤，不占传输）。 */
@@ -45,7 +45,7 @@ function mirrorScript(home: string, remoteDir: string, ancestors: string[]): str
   const sections: string[] = [`printf '${HOME_MARK}\\0%s\\0' "$HOME"`];
 
   const skillSections: { label: string; dir: string }[] = [
-    ...REPO_SKILL_DIRS.map((name) => ({ label: `repo:${name}`, dir: `${remoteDir}/${name}` })),
+    { label: `repo:${REPO_SKILL_DIR}`, dir: `${remoteDir}/${REPO_SKILL_DIR}` },
     { label: `home:${HOME_SKILL_DIR}`, dir: `${home}/${HOME_SKILL_DIR}` },
   ];
   for (const { label, dir } of skillSections) {
@@ -182,10 +182,11 @@ export async function syncRemoteContext(input: {
     if (!homeDir?.startsWith('/')) throw new Error('未能确定远端主目录');
 
     const skillPaths: string[] = [];
-    for (const name of REPO_SKILL_DIRS) {
-      const dir = writeMirror(join(mirrorRoot, 'repo', name), skills.get(`repo:${name}`) ?? []);
-      if (dir) skillPaths.push(dir);
-    }
+    const repoSkills = writeMirror(
+      join(mirrorRoot, 'repo', REPO_SKILL_DIR),
+      skills.get(`repo:${REPO_SKILL_DIR}`) ?? [],
+    );
+    if (repoSkills) skillPaths.push(repoSkills);
     const homeSkills = writeMirror(
       join(mirrorRoot, 'home', HOME_SKILL_DIR),
       skills.get(`home:${HOME_SKILL_DIR}`) ?? [],
@@ -212,7 +213,7 @@ function skillFiles(dir: string): string[] {
 }
 
 /**
- * 把本地技能目录上传到远端项目的 `.dela/skills/<名字>/`（含附属文件，随仓库进 git）。
+ * 把本地技能目录上传到远端项目的 `.agents/skills/<名字>/`（含附属文件，随仓库进 git）。
  * 目标已存在且 overwrite=false 时抛「远端已存在：…」，由调用方先问用户；
  * 技能里的脚本在远端执行，用远端自己的 Node/Python。
  */
@@ -223,7 +224,7 @@ export async function uploadSkillToRemote(input: {
   remoteDir: string;
   overwrite: boolean;
 }): Promise<{ path: string; files: number }> {
-  const destination = `${input.remoteDir}/${REPO_SKILL_DIRS[1]}/${input.name}`;
+  const destination = `${input.remoteDir}/${REPO_SKILL_DIR}/${input.name}`;
   if (!input.overwrite && (await helperSession(input.target).stat([destination]))[0]?.exists)
     throw new Error(`远端已存在：${destination}`);
 
