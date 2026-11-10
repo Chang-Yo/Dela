@@ -80,12 +80,14 @@ describe('分组', () => {
     expect(origin('from-agents')).toBe('user');
   });
 
-  it('按项目列出 .agents/skills 与 .agent/skills，同名 Skill 各自开关、不碰全局名单', async () => {
+  it('按项目列出 .agents/skills，同名 Skill 各自开关、不碰全局名单', async () => {
     const alpha = addProject('p-alpha', 'alpha');
     const beta = addProject('p-beta', 'beta');
     const alphaLint = writeSkill(join(alpha, '.agents', 'skills'), 'lint');
-    writeSkill(join(beta, '.agent', 'skills'), 'lint');
+    writeSkill(join(beta, '.agents', 'skills'), 'lint');
     writeSkill(join(beta, '.agents', 'skills'), 'deploy');
+    writeSkill(join(beta, '.pi', 'skills'), 'legacy');
+    writeSkill(join(beta, '.agent', 'skills'), 'typo');
 
     const lint = await byName('lint');
     expect(lint.map((skill) => [skill.origin, skill.group?.label])).toEqual([
@@ -93,6 +95,7 @@ describe('分组', () => {
       ['project', 'beta'],
     ]);
     expect((await byName('deploy'))[0]?.group).toEqual({ id: 'p-beta', label: 'beta' });
+    expect([...(await byName('legacy')), ...(await byName('typo'))]).toEqual([]);
 
     await setSkillEnabled(lint[0]!.id, false);
     const after = await byName('lint');

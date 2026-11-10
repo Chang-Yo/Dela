@@ -27,7 +27,7 @@ const FILTER_LABELS: Record<'all' | SkillOrigin, string> = {
 const ORIGIN_DESCRIPTIONS: Record<SkillOrigin, string> = {
   builtin: '随 Dela 安装，写在 ~/.dela/skills',
   user: '~/.dela/skills 与 ~/.agents/skills 里你自己放的',
-  project: '项目里的 .agents/skills、.pi/skills 与 .agent/skills',
+  project: '项目里的 .agents/skills',
 };
 
 interface SkillGroup {
@@ -190,9 +190,8 @@ export function SkillsTab() {
           <div className="grid gap-1 py-3.5">
             <span className="text-13 font-medium text-ink">还没有发现 Skill</span>
             <span className="text-xs leading-relaxed text-ink-3">
-              在用户主目录的 .dela/skills 或 .agents/skills，或项目里的
-              .agents/skills、.agent/skills 放入包含 SKILL.md 的子文件夹（frontmatter 带 name 与
-              description），回到此页刷新。
+              在用户主目录的 .dela/skills 或 .agents/skills，或项目里的 .agents/skills 放入包含
+              SKILL.md 的子文件夹（frontmatter 带 name 与 description），回到此页刷新。
             </span>
           </div>
         </SettingsGroup>
@@ -437,7 +436,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
         <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
           <Dialog.Title className="text-base font-semibold">上传到远端项目</Dialog.Title>
           <Dialog.Description className="mt-1 text-xs leading-relaxed text-ink-3">
-            把技能 {skill.name} 的目录（含附属文件）上传到远端项目的 .dela/skills/{skill.name}
+            把技能 {skill.name} 的目录（含附属文件）上传到远端项目的 .agents/skills/{skill.name}
             /，远端会话即可使用。
           </Dialog.Description>
           {uploaded ? (

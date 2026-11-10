@@ -19,7 +19,6 @@ import {
   readDisabledSkillPaths,
 } from './skills';
 import { piAgentDir, type OpenSessionInput } from './pi';
-import { extraProjectSkillDirs } from './discovery';
 import { mcpToolDefinitions, executeMcpTool } from './mcp';
 import { readDisabledTools } from './tools';
 import { readWebSearchConfig, webSearch } from './web-search';
@@ -123,13 +122,11 @@ export function agentEnvironment() {
         };
       }
       const handle = await domainBridge();
-      // 项目级 Skill：.agents/skills 与 .pi/skills 由 Pi 按 cwd 自己发现，.agent/skills 由 Dela 补上。
-      const projectSkillDirs = extraProjectSkillDirs(cwd);
       return {
         appendSystemPrompt: [DELA_PROMPT, ...shared],
         shellPath: locateBash(),
         commandPrefix: `export DELA_COMMAND_URL='${handle.url}' DELA_COMMAND_TOKEN='${handle.token}'\n${COMMAND_BRIDGE}`,
-        skillPaths: [builtinSkillsDirectory(), ...projectSkillDirs],
+        skillPaths: [builtinSkillsDirectory()],
         globalSkillDirs: [...globalSkillDirectories(), join(piAgentDir(), 'skills')],
         disabledSkills: effectiveDisabledSkills(),
         disabledTools: [...readDisabledTools()],
