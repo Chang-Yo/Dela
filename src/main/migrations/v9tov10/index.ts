@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs';
+import { chmodSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { MigrationContext } from '../types';
@@ -23,9 +23,17 @@ const removedPaths = [
   ['pi', 'mcp.log'],
 ];
 
+// git 的对象文件是只读的，Electron 44 的 rmSync 在 Windows 上删不掉只读文件
+function removeTree(path: string) {
+  if (!existsSync(path)) return;
+  if (statSync(path).isDirectory())
+    for (const entry of readdirSync(path, { recursive: true, withFileTypes: true }))
+      if (entry.isFile()) chmodSync(join(entry.parentPath, entry.name), 0o666);
+  rmSync(path, { recursive: true, force: true });
+}
+
 export function v9tov10(db: Database.Database, context: MigrationContext): void {
   const remove = db.prepare('DELETE FROM workspace_settings WHERE key = ?');
   for (const key of removedSettings) remove.run(key);
-  for (const path of removedPaths)
-    rmSync(join(context.userData, ...path), { recursive: true, force: true });
+  for (const path of removedPaths) removeTree(join(context.userData, ...path));
 }
