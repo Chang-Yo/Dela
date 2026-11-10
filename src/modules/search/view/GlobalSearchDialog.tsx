@@ -44,13 +44,15 @@ export function GlobalSearchDialog({
   onSelect: (hit: SearchHit) => void;
 }) {
   const [query, setQuery] = useState('');
-  // 拼音输入时每个字母都会触发 onChange，而主进程查询是同步的，防抖避免逐字查询。
-  const [debouncedQuery] = useDebounce(query.trim(), 180);
+  // 输入法组合中的拼音只显示在输入框里，选词上屏后才成为搜索词。
+  const [term, setTerm] = useState('');
+  // 主进程查询是同步的，防抖避免逐字查询。
+  const [debouncedTerm] = useDebounce(term.trim(), 180);
   const results = useQuery({
-    queryKey: ['search', debouncedQuery],
-    queryFn: () => search.query(debouncedQuery),
+    queryKey: ['search', debouncedTerm],
+    queryFn: () => search.query(debouncedTerm),
     enabled: open,
-    // 新结果到达前保留旧结果，弹窗高度不会先塌陷再撑开。
+    // 新结果到达前保留旧结果，列表不会先闪成加载状态。
     placeholderData: keepPreviousData,
   });
   const groups = results.data ?? [];
@@ -61,7 +63,7 @@ export function GlobalSearchDialog({
     selection.batch === results.dataUpdatedAt ? selection.index : hits.length ? 0 : -1;
   const select = (index: number) => setSelection({ batch: results.dataUpdatedAt, index });
   const hasContent = hits.length > 0;
-  const isRecent = !query.trim();
+  const isRecent = !term.trim();
   const busy = results.isFetching;
   const error = results.error?.message ?? null;
 
@@ -110,7 +112,11 @@ export function GlobalSearchDialog({
               aria-label="全局搜索"
               className="min-w-0 flex-1 bg-transparent text-13 outline-none placeholder:text-ink-3"
               maxLength={200}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                if (!(event.nativeEvent as InputEvent).isComposing) setTerm(event.target.value);
+              }}
+              onCompositionEnd={(event) => setTerm(event.currentTarget.value)}
               onKeyDown={handleKeyDown}
               placeholder="搜索项目、聊天、邮件或课程资料…"
               role="combobox"
@@ -128,7 +134,7 @@ export function GlobalSearchDialog({
               </Button>
             </Dialog.Close>
           </div>
-          <div className="max-h-80 min-h-0 overflow-y-auto p-2">
+          <div className="h-80 min-h-0 overflow-y-auto p-2">
             {error && !hasContent ? (
               <p className="px-3 py-5 text-13 text-red" role="alert">
                 {error}
