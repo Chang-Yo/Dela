@@ -1,14 +1,22 @@
-// 用本地 echo 服务器（stdio JSON-RPC，无网络）走真实 database.ts（electron app.getPath
-// 指向临时目录），覆盖 MCP 连接、工具发现、断连与配置持久化。
+// 用本地 echo 服务器（stdio JSON-RPC）与环回 HTTP 服务器走真实的加密配置文件
+// （safeStorage 换成明文），覆盖 MCP 连接、工具发现、断连与配置持久化。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const state = vi.hoisted(() => ({ root: '' }));
-vi.mock('electron', () => ({ app: { getPath: () => state.root } }));
-import { closeDatabase, getDatabase } from '../../database';
+vi.mock('electron', () => ({
+  app: { getPath: () => state.root },
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: (text: string) => Buffer.from(text),
+    decryptString: (data: Buffer) => data.toString(),
+  },
+}));
 import {
   addMcpServer,
   executeMcpTool,
@@ -21,7 +29,18 @@ import {
 } from '../mcp';
 
 const echoServer = fileURLToPath(new URL('./echo-server.ts', import.meta.url));
-const echoConfig = { name: 'echo-srv', command: process.execPath, args: [echoServer], env: {} };
+const echoConfig = {
+  name: 'echo-srv',
+  transport: 'stdio' as const,
+  command: process.execPath,
+  args: [echoServer],
+  env: {},
+};
+const storedConfigs = () =>
+  JSON.parse(readFileSync(join(state.root, 'mcp-servers.bin'), 'utf8')) as Record<
+    string,
+    unknown
+  >[];
 
 async function until(assertion: () => void, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
@@ -38,17 +57,14 @@ async function until(assertion: () => void, timeoutMs = 5000) {
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-mcp-'));
-  getDatabase();
 });
 
 afterAll(() => {
-  closeDatabase();
   rmSync(state.root, { recursive: true, force: true });
 });
 
 beforeEach(async () => {
   for (const view of listMcpServers()) await removeMcpServer(view.id);
-  getDatabase().prepare("DELETE FROM workspace_settings WHERE key='mcp-servers'").run();
 });
 
 describe('MCP 连接与工具发现', () => {
@@ -125,6 +141,7 @@ describe('MCP 连接与工具发现', () => {
   it('spawn 失败：error 视图携带原因', async () => {
     const views = await addMcpServer({
       name: 'broken',
+      transport: 'stdio',
       command: 'dela-definitely-missing-command',
       args: [],
       env: {},
@@ -169,12 +186,9 @@ describe('MCP 连接与工具发现', () => {
 });
 
 describe('MCP 配置管理与持久化', () => {
-  it('update 禁用即断开、重新启用重连；配置持久化于 workspace_settings', async () => {
+  it('update 禁用即断开、重新启用重连；配置持久化于加密文件', async () => {
     const [created] = await addMcpServer(echoConfig);
-    const row = getDatabase()
-      .prepare("SELECT value FROM workspace_settings WHERE key='mcp-servers'")
-      .get() as { value: string };
-    const stored = JSON.parse(row.value) as { id: string; name: string; enabled: boolean }[];
+    const stored = storedConfigs();
     expect(stored).toHaveLength(1);
     expect(stored[0]).toMatchObject({ id: created!.id, name: 'echo-srv', enabled: true });
     // patch 先经 IPC 同款 zod 校验：仅启停不得改写 args/env（zod partial 默认值陷阱回归）。
@@ -183,17 +197,7 @@ describe('MCP 配置管理与持久化', () => {
       mcpServerPatchSchema.parse({ enabled: false }),
     );
     expect(disabled[0]).toMatchObject({ enabled: false, status: 'disconnected', toolCount: null });
-    expect(
-      (
-        JSON.parse(
-          (
-            getDatabase()
-              .prepare("SELECT value FROM workspace_settings WHERE key='mcp-servers'")
-              .get() as { value: string }
-          ).value,
-        ) as { args: string[]; env: Record<string, string> }[]
-      )[0]!,
-    ).toMatchObject({ args: [echoServer], env: {} });
+    expect(storedConfigs()[0]).toMatchObject({ args: [echoServer], env: {} });
     expect(mcpToolDefinitions()).toHaveLength(0);
     await expect(executeMcpTool('mcp_echo_srv_echo', { message: 'x' })).resolves.toMatchObject({
       ok: false,
@@ -213,10 +217,85 @@ describe('MCP 配置管理与持久化', () => {
     const [created] = await addMcpServer(echoConfig);
     const views = await removeMcpServer(created!.id);
     expect(views).toHaveLength(0);
-    const row = getDatabase()
-      .prepare("SELECT value FROM workspace_settings WHERE key='mcp-servers'")
-      .get() as { value: string } | undefined;
-    expect(JSON.parse(row?.value ?? '[]')).toHaveLength(0);
+    expect(storedConfigs()).toHaveLength(0);
     await expect(removeMcpServer(created!.id)).rejects.toThrow('MCP 服务器不存在');
+  }, 20000);
+});
+
+describe('Streamable HTTP', () => {
+  // 只回 JSON 应答的最小服务器：要求 Bearer 令牌，GET 流返回 405
+  const server = createServer((request, response) => {
+    if (request.headers.authorization !== 'Bearer t') {
+      response.writeHead(401, { 'www-authenticate': 'Bearer' }).end();
+      return;
+    }
+    if (request.method !== 'POST') {
+      response.writeHead(405).end();
+      return;
+    }
+    let body = '';
+    request.on('data', (chunk) => (body += chunk));
+    request.on('end', () => {
+      const message = JSON.parse(body) as {
+        id?: number;
+        method: string;
+        params?: { arguments?: { message?: string } };
+      };
+      if (message.id === undefined) {
+        response.writeHead(202).end();
+        return;
+      }
+      const result =
+        message.method === 'initialize'
+          ? {
+              protocolVersion: '2025-11-25',
+              capabilities: { tools: {} },
+              serverInfo: { name: 'h', version: '1' },
+            }
+          : message.method === 'tools/list'
+            ? { tools: [{ name: 'echo', inputSchema: { type: 'object', properties: {} } }] }
+            : {
+                content: [
+                  { type: 'text', text: `http:${message.params?.arguments?.message ?? ''}` },
+                ],
+              };
+      response
+        .writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify({ jsonrpc: '2.0', id: message.id, result }));
+    });
+  });
+  let url = '';
+
+  beforeAll(async () => {
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp`;
+  });
+  afterAll(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+
+  it('带请求头连接、发现并调用工具；请求头只存在加密文件里', async () => {
+    const [view] = await addMcpServer({
+      name: 'remote',
+      transport: 'http',
+      url,
+      headers: { Authorization: 'Bearer t' },
+    });
+    expect(view).toMatchObject({ transport: 'http', status: 'connected', toolCount: 1 });
+    expect(JSON.stringify(view)).not.toContain('Bearer');
+    await expect(executeMcpTool('mcp_remote_echo', { message: 'hi' })).resolves.toMatchObject({
+      ok: true,
+      result: { text: 'http:hi' },
+    });
+    expect(storedConfigs()[0]).toMatchObject({ headers: { Authorization: 'Bearer t' } });
+  }, 20000);
+
+  it('服务器要求授权时说明原因，补上请求头后重连成功', async () => {
+    const [view] = await addMcpServer({ name: 'remote', transport: 'http', url, headers: {} });
+    expect(view).toMatchObject({ status: 'error' });
+    expect(view!.error).toContain('要求授权');
+    const [fixed] = await updateMcpServer(view!.id, { headers: { Authorization: 'Bearer t' } });
+    expect(fixed).toMatchObject({ status: 'connected', toolCount: 1 });
   }, 20000);
 });

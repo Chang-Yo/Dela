@@ -13,7 +13,7 @@ import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
 import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
 
-/** 设置 › MCP Server：stdio 服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
+/** 设置 › MCP Server：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [servers, setServers] = useState<McpServerView[] | null>(null);
@@ -122,7 +122,8 @@ export function McpTab() {
           <div className="grid gap-1 py-3.5">
             <span className="text-13 font-medium text-ink">还没有 MCP 服务器</span>
             <span className="text-xs leading-relaxed text-ink-3">
-              支持以本地命令（如 npx）启动的 stdio 服务器，添加后自动连接并检测工具。
+              支持本地命令（如 npx）启动的 stdio 服务器与 Streamable HTTP
+              远程服务器，添加后自动连接并检测工具。
             </span>
           </div>
         </SettingsGroup>

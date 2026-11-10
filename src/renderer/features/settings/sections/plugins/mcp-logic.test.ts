@@ -1,11 +1,11 @@
-// MCP 页签纯逻辑测试：args/env 文本解析、表单校验、编辑补丁与状态徽标映射（通道经 window.dela.capability，由主进程实现）。
+// MCP 页签纯逻辑测试：参数与键值文本解析、表单校验、编辑补丁与状态徽标映射。
 import { describe, expect, it } from 'vitest';
 import {
   mcpStatusBadge,
   mcpUpdatePatch,
   parseArgsText,
-  parseEnvText,
   parseMcpForm,
+  parsePairs,
 } from './mcp-logic';
 
 describe('parseArgsText', () => {
@@ -18,104 +18,116 @@ describe('parseArgsText', () => {
   });
 });
 
-describe('parseEnvText', () => {
-  it('每行 KEY=VALUE，允许空值与空行', () => {
-    expect(parseEnvText('A=1\nB=\n\n C = 2 ')).toEqual({
-      env: { A: '1', B: '', C: '2' },
+describe('parsePairs', () => {
+  it('env 每行 KEY=VALUE：允许空值与空行，以第一个 = 切开，重复键取后者', () => {
+    expect(parsePairs('A=1\nB=\n\n C = 2 \nCONN=a=b\nA=3', '=')).toEqual({
+      pairs: { A: '3', B: '', C: '2', CONN: 'a=b' },
       error: null,
     });
   });
 
-  it('重复键以后一行为准', () => {
-    expect(parseEnvText('A=1\nA=2')).toEqual({ env: { A: '2' }, error: null });
+  it('请求头每行 Name: value，值里的冒号保留', () => {
+    expect(parsePairs('Authorization: Bearer t\nX-Url: https://a', ':')).toEqual({
+      pairs: { Authorization: 'Bearer t', 'X-Url': 'https://a' },
+      error: null,
+    });
   });
 
-  it('缺 = 的行报错并指明行号', () => {
-    const result = parseEnvText('A=1\nBAD\nC=3');
-    expect(result.error).toBe('环境变量第 2 行应为 KEY=VALUE 格式');
-  });
-
-  it('空键（= 开头或 KEY 为空白）报错', () => {
-    expect(parseEnvText('=1').error).toBe('环境变量第 1 行应为 KEY=VALUE 格式');
-    expect(parseEnvText(' =1').error).toBe('环境变量第 1 行应为 KEY=VALUE 格式');
-  });
-
-  it('值里保留后续的 = （以第一个 = 分割）', () => {
-    expect(parseEnvText('CONN=a=b')).toEqual({ env: { CONN: 'a=b' }, error: null });
+  it('缺分隔符或空键时报错并指明行号', () => {
+    expect(parsePairs('A=1\nBAD', '=').error).toBe('环境变量第 2 行应为 KEY=VALUE 格式');
+    expect(parsePairs(' =1', '=').error).toBe('环境变量第 1 行应为 KEY=VALUE 格式');
+    expect(parsePairs('Bearer t', ':').error).toBe('请求头第 1 行应为 Name: value 格式');
   });
 });
 
 describe('parseMcpForm', () => {
-  const base = { command: 'npx', argsText: '-y\nserver', envText: 'KEY=1' };
+  const blank = { name: 's', command: '', argsText: '', envText: '', url: '', headersText: '' };
+  const stdio = { ...blank, transport: 'stdio' as const };
+  const http = { ...blank, transport: 'http' as const };
 
-  it('通过时返回去空白后的各字段', () => {
+  it('stdio：去空白后的各字段', () => {
     expect(
       parseMcpForm(
-        { name: ' weather ', argsText: '', envText: '', command: ' npx ' },
-        {
-          commandRequired: true,
-        },
+        { ...stdio, name: ' weather ', command: ' npx ', argsText: '-y\nserver', envText: 'K=1' },
+        { isEdit: false },
       ),
-    ).toEqual({ ok: true, name: 'weather', command: 'npx', args: [], env: {} });
-    expect(parseMcpForm({ name: 'weather', ...base }, { commandRequired: true })).toEqual({
+    ).toEqual({
       ok: true,
-      name: 'weather',
-      command: 'npx',
-      args: ['-y', 'server'],
-      env: { KEY: '1' },
+      value: {
+        transport: 'stdio',
+        name: 'weather',
+        command: 'npx',
+        args: ['-y', 'server'],
+        env: { K: '1' },
+      },
+    });
+  });
+
+  it('http：地址与请求头，只接受 http/https', () => {
+    expect(
+      parseMcpForm(
+        { ...http, url: ' https://a.com/mcp ', headersText: 'Authorization: Bearer t' },
+        { isEdit: false },
+      ),
+    ).toEqual({
+      ok: true,
+      value: {
+        transport: 'http',
+        name: 's',
+        url: 'https://a.com/mcp',
+        headers: { Authorization: 'Bearer t' },
+      },
+    });
+    expect(parseMcpForm({ ...http, url: 'ftp://a' }, { isEdit: false })).toEqual({
+      ok: false,
+      error: '地址需以 http:// 或 https:// 开头',
     });
   });
 
   it('名称必填且不含空白', () => {
-    expect(parseMcpForm({ name: '  ', ...base }, { commandRequired: true })).toEqual({
+    expect(parseMcpForm({ ...stdio, name: '  ', command: 'npx' }, { isEdit: false })).toEqual({
       ok: false,
       error: '名称不能为空',
     });
-    expect(parseMcpForm({ name: 'my server', ...base }, { commandRequired: true })).toEqual({
-      ok: false,
-      error: '名称不能包含空格',
-    });
-    expect(parseMcpForm({ name: 'my\tserver', ...base }, { commandRequired: true })).toEqual({
-      ok: false,
-      error: '名称不能包含空格',
-    });
+    expect(
+      parseMcpForm({ ...stdio, name: 'my\tserver', command: 'npx' }, { isEdit: false }),
+    ).toEqual({ ok: false, error: '名称不能包含空格' });
   });
 
-  it('command：新建必填，编辑可留空（保持原值）', () => {
-    expect(
-      parseMcpForm(
-        { name: 's', command: ' ', argsText: '', envText: '' },
-        { commandRequired: true },
-      ),
-    ).toEqual({ ok: false, error: 'command 不能为空' });
-    expect(
-      parseMcpForm(
-        { name: 's', command: '', argsText: '', envText: '' },
-        { commandRequired: false },
-      ),
-    ).toEqual({ ok: true, name: 's', command: '', args: [], env: {} });
-  });
-
-  it('env 格式错误直接透传给表单', () => {
-    const result = parseMcpForm(
-      { name: 's', command: 'npx', argsText: '', envText: 'BAD' },
-      {
-        commandRequired: true,
-      },
-    );
-    expect(result).toEqual({ ok: false, error: '环境变量第 1 行应为 KEY=VALUE 格式' });
+  it('command 与地址：新建必填，编辑可留空（保持原值）', () => {
+    expect(parseMcpForm(stdio, { isEdit: false })).toEqual({
+      ok: false,
+      error: 'command 不能为空',
+    });
+    expect(parseMcpForm(http, { isEdit: false })).toEqual({ ok: false, error: '地址不能为空' });
+    expect(parseMcpForm(stdio, { isEdit: true }).ok).toBe(true);
+    expect(parseMcpForm(http, { isEdit: true }).ok).toBe(true);
   });
 });
 
 describe('mcpUpdatePatch', () => {
-  it('留空的 command/args/env 不进补丁（保持原值）', () => {
-    expect(mcpUpdatePatch({ name: 's', command: '', args: [], env: {} })).toEqual({ name: 's' });
+  it('留空的连接字段不进补丁（保持原值）', () => {
+    expect(
+      mcpUpdatePatch({ transport: 'stdio', name: 's', command: '', args: [], env: {} }),
+    ).toEqual({ name: 's' });
+    expect(mcpUpdatePatch({ transport: 'http', name: 's', url: '', headers: {} })).toEqual({
+      name: 's',
+    });
   });
 
   it('填写过的字段进入补丁', () => {
-    expect(mcpUpdatePatch({ name: 's', command: 'node', args: ['a.js'], env: { X: '1' } })).toEqual(
-      { name: 's', command: 'node', args: ['a.js'], env: { X: '1' } },
-    );
+    expect(
+      mcpUpdatePatch({
+        transport: 'stdio',
+        name: 's',
+        command: 'node',
+        args: ['a.js'],
+        env: { X: '1' },
+      }),
+    ).toEqual({ name: 's', command: 'node', args: ['a.js'], env: { X: '1' } });
+    expect(
+      mcpUpdatePatch({ transport: 'http', name: 's', url: 'https://a', headers: { A: '1' } }),
+    ).toEqual({ name: 's', url: 'https://a', headers: { A: '1' } });
   });
 });
 

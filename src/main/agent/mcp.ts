@@ -1,10 +1,15 @@
-// MCP 客户端接入：配置持久化于 workspace_settings('mcp-servers')，惰性连接 + 显式 refresh 重连；
+// MCP 客户端接入：配置加密保存在 mcp-servers.bin，惰性连接 + 显式 refresh 重连；
 // 工具按 mcp_<server>_<tool> 命名空间化，断连标 error 并清空工具，返回内容只是资料而非指令。
 import { randomUUID } from 'node:crypto';
-import type { CallToolResult, Tool } from '@earendil-works/pi-mcp';
+import type { CallToolResult, McpTransport, Tool } from '@earendil-works/pi-mcp';
 import { z } from 'zod';
-import type { McpServerConfig, McpServerView } from '../../shared/capabilities';
-import { getDatabase } from '../database';
+import type {
+  McpServerConfig,
+  McpServerInput,
+  McpServerPatch,
+  McpServerView,
+} from '../../shared/capabilities';
+import { loadMcpServers, saveMcpServers } from '../credentials';
 
 /** environment.ts 转成 Pi 自定义工具。 */
 interface DynamicToolDefinition {
@@ -24,7 +29,6 @@ async function loadMcpSdk(): Promise<McpSdk> {
   return mcpSdk;
 }
 
-const SERVERS_KEY = 'mcp-servers';
 /** 连接（进程启动 + initialize 握手 + 首次工具发现）的超时上限。 */
 const CONNECT_TIMEOUT_MS = 10_000;
 /** 连接失败消息中附带的服务器 stderr 尾部长度。 */
@@ -32,30 +36,58 @@ const STDERR_TAIL_CHARS = 500;
 /** MCP 客户端在 initialize 握手中自报的身份。 */
 const CLIENT_INFO = { name: 'Dela', version: '0.0.0' };
 
-const mcpConfigSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().trim().min(1).max(60),
-  command: z.string().trim().min(1).max(500),
-  args: z.array(z.string().max(2000)).max(100),
-  env: z.record(z.string().max(200), z.string().max(4000)),
-  enabled: z.boolean(),
-});
+const nameField = z.string().trim().min(1).max(60);
+const commandField = z.string().trim().min(1).max(500);
+const argsField = z.array(z.string().max(2000)).max(100);
+const variablesField = z.record(z.string().max(200), z.string().max(4000));
+const urlField = z.url({ protocol: /^https?$/ }).max(2000);
 
-export const mcpServerInputSchema = z.object({
-  name: z.string().trim().min(1).max(60),
-  command: z.string().trim().min(1).max(500),
-  args: z.array(z.string().max(2000)).max(100).default([]),
-  env: z.record(z.string().max(200), z.string().max(4000)).default({}),
-});
+const mcpConfigSchema = z.discriminatedUnion('transport', [
+  z.object({
+    id: z.uuid(),
+    name: nameField,
+    enabled: z.boolean(),
+    transport: z.literal('stdio'),
+    command: commandField,
+    args: argsField,
+    env: variablesField,
+  }),
+  z.object({
+    id: z.uuid(),
+    name: nameField,
+    enabled: z.boolean(),
+    transport: z.literal('http'),
+    url: urlField,
+    headers: variablesField,
+  }),
+]);
+
+export const mcpServerInputSchema = z.discriminatedUnion('transport', [
+  z.object({
+    name: nameField,
+    transport: z.literal('stdio'),
+    command: commandField,
+    args: argsField.default([]),
+    env: variablesField.default({}),
+  }),
+  z.object({
+    name: nameField,
+    transport: z.literal('http'),
+    url: urlField,
+    headers: variablesField.default({}),
+  }),
+]);
 
 // 不用 .partial()：zod 4 对带 default 的字段做 partial 时仍会填默认值，
 // 会把仅启停的 patch 变成「清空 args/env」。
 export const mcpServerPatchSchema = z.object({
-  name: z.string().trim().min(1).max(60).optional(),
-  command: z.string().trim().min(1).max(500).optional(),
-  args: z.array(z.string().max(2000)).max(100).optional(),
-  env: z.record(z.string().max(200), z.string().max(4000)).optional(),
+  name: nameField.optional(),
   enabled: z.boolean().optional(),
+  command: commandField.optional(),
+  args: argsField.optional(),
+  env: variablesField.optional(),
+  url: urlField.optional(),
+  headers: variablesField.optional(),
 });
 
 interface ManagedServer {
@@ -70,31 +102,17 @@ interface ManagedServer {
   connecting: Promise<void> | null;
 }
 
-/** 内存态（id → 运行视图事实）；配置事实始终以 workspace_settings 为准，读前先同步。 */
+/** 内存态（id → 运行视图事实）；配置事实始终以 mcp-servers.bin 为准，读前先同步。 */
 const servers = new Map<string, ManagedServer>();
 
 /** 归一化工具名 → 服务器 id：adopt 时登记，断连清理时一并移除。执行路由按此精确归属，
  *  不猜命名空间前缀（服务器 a 的 b_x 与服务器 a-b 的 x 归一化同名时，最长前缀会误配）。 */
 const toolOwner = new Map<string, string>();
 
+/** 解不开时抛错，让设置页说明原因；工具表组装一侧自行降级为无服务器。 */
 function readMcpConfigs(): McpServerConfig[] {
-  try {
-    const row = getDatabase()
-      .prepare('SELECT value FROM workspace_settings WHERE key=?')
-      .get(SERVERS_KEY) as { value: string } | undefined;
-    if (!row) return [];
-    const parsed = z.array(mcpConfigSchema).safeParse(JSON.parse(row.value));
-    return parsed.success ? parsed.data : [];
-  } catch {
-    // 配置不可读（库不可用/损坏）视为无服务器：不阻断工具表组装。
-    return [];
-  }
-}
-
-function writeMcpConfigs(configs: McpServerConfig[]): void {
-  getDatabase()
-    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
-    .run(SERVERS_KEY, JSON.stringify(configs));
+  const parsed = z.array(mcpConfigSchema).safeParse(loadMcpServers());
+  return parsed.success ? parsed.data : [];
 }
 
 function namespaceOf(name: string): string {
@@ -105,9 +123,31 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function stderrTail(transport: { stderr: string }): string {
-  const tail = transport.stderr.trim();
+function stderrTail(sdk: McpSdk, transport: McpTransport): string {
+  const tail = transport instanceof sdk.StdioTransport ? transport.stderr.trim() : '';
   return tail ? `（服务器输出：${tail.slice(-STDERR_TAIL_CHARS)}）` : '';
+}
+
+function createTransport(sdk: McpSdk, config: McpServerConfig): McpTransport {
+  if (config.transport === 'http')
+    return new sdk.StreamableHttpTransport({ url: config.url, headers: { ...config.headers } });
+  // inheritEnv 默认 true：继承宿主环境再叠加服务器专属变量。
+  return new sdk.StdioTransport({
+    command: config.command,
+    args: config.args,
+    env: { ...config.env },
+  });
+}
+
+// OAuth 授权尚未接入：要求授权的服务器只能用请求头里的访问令牌连接
+function connectError(sdk: McpSdk, error: unknown): string {
+  if (error instanceof sdk.McpTimeoutError) return `连接超时（${CONNECT_TIMEOUT_MS / 1000}s）`;
+  if (error instanceof sdk.McpAuthRequiredError)
+    return '服务器要求授权（HTTP 401），Dela 暂不支持 OAuth 登录；如服务支持访问令牌，可在请求头中填写 Authorization';
+  // fetch 的网络错误只说 fetch failed，真正原因（DNS、拒绝连接）在 cause 里
+  if (error instanceof TypeError && error.cause instanceof Error)
+    return `${error.message}（${error.cause.message}）`;
+  return errorMessage(error);
 }
 
 function syncFromConfigs(): void {
@@ -209,12 +249,7 @@ function connectServer(entry: ManagedServer): Promise<void> {
     const sdk = await loadMcpSdk();
     // 惰性连接只发生在 disconnected（首次被询问）；error 态需显式 refresh/update 重连。
     const client = new sdk.McpClient(CLIENT_INFO);
-    const transport = new sdk.StdioTransport({
-      command: entry.config.command,
-      args: entry.config.args,
-      // inheritEnv 默认 true：继承宿主环境再叠加服务器专属变量。
-      env: { ...entry.config.env },
-    });
+    const transport = createTransport(sdk, entry.config);
     try {
       await withTimeout(
         client.connect(transport),
@@ -244,10 +279,7 @@ function connectServer(entry: ManagedServer): Promise<void> {
       dropAdoptedTools(entry);
       entry.toolCount = null;
       entry.status = 'error';
-      entry.error =
-        error instanceof sdk.McpTimeoutError
-          ? `连接超时（${CONNECT_TIMEOUT_MS / 1000}s）${stderrTail(transport)}`
-          : `${errorMessage(error)}${stderrTail(transport)}`;
+      entry.error = `${connectError(sdk, error)}${stderrTail(sdk, transport)}`;
     } finally {
       entry.connecting = null;
     }
@@ -259,6 +291,7 @@ function serverView(entry: ManagedServer): McpServerView {
   return {
     id: entry.config.id,
     name: entry.config.name,
+    transport: entry.config.transport,
     enabled: entry.config.enabled,
     status: entry.config.enabled ? entry.status : 'disconnected',
     toolCount: entry.config.enabled && entry.status === 'connected' ? entry.toolCount : null,
@@ -276,7 +309,12 @@ function findServer(id: string): ManagedServer {
 
 /** 当前已连接服务器的命名空间工具定义；顺带完成惰性连接的首次触发。 */
 export function mcpToolDefinitions(): DynamicToolDefinition[] {
-  syncFromConfigs();
+  try {
+    syncFromConfigs();
+  } catch {
+    // 配置解不开时不阻断会话：设置页会给出原因
+    return [];
+  }
   for (const entry of servers.values())
     if (entry.config.enabled && entry.status === 'disconnected' && !entry.connecting)
       void connectServer(entry).catch(() => {});
@@ -319,7 +357,11 @@ export async function executeMcpTool(
   name: string,
   input: unknown,
 ): Promise<{ ok: boolean; result?: unknown; error?: { code: string; message: string } }> {
-  syncFromConfigs();
+  try {
+    syncFromConfigs();
+  } catch (error) {
+    return { ok: false, error: { code: 'NOT_CONFIGURED', message: errorMessage(error) } };
+  }
   // 执行路由按 adopt 时登记的归一化名 → 服务器映射，不猜前缀（见 toolOwner 注释）。
   const ownerId = toolOwner.get(name);
   let entry = ownerId ? servers.get(ownerId) : undefined;
@@ -392,46 +434,31 @@ export function listMcpServers(): McpServerView[] {
 }
 
 /** 新增（默认启用）并立即连接验证：失败即以 error 视图呈现，不静默。 */
-export async function addMcpServer(input: {
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-}): Promise<McpServerView[]> {
+export async function addMcpServer(input: McpServerInput): Promise<McpServerView[]> {
   const config = { id: randomUUID(), enabled: true, ...input };
   const configs = readMcpConfigs();
   if (configs.some((existing) => existing.name === config.name))
     throw new Error(`已有同名服务器：${config.name}`);
-  writeMcpConfigs([...configs, mcpConfigSchema.parse(config)]);
+  saveMcpServers([...configs, mcpConfigSchema.parse(config)]);
   syncFromConfigs();
   await connectServer(findServer(config.id));
   return listMcpServers();
 }
 
 /** 启停或改配置；改配置（或重新启用）会重连，禁用即断开并清空工具。 */
-export async function updateMcpServer(
-  id: string,
-  patch: {
-    name?: string;
-    command?: string;
-    args?: string[];
-    env?: Record<string, string>;
-    enabled?: boolean;
-  },
-): Promise<McpServerView[]> {
+export async function updateMcpServer(id: string, patch: McpServerPatch): Promise<McpServerView[]> {
   const configs = readMcpConfigs();
   const index = configs.findIndex((config) => config.id === id);
   if (index < 0) throw new Error('MCP 服务器不存在');
   if (patch.name && configs.some((config, i) => i !== index && config.name === patch.name))
     throw new Error(`已有同名服务器：${patch.name}`);
   const previous = configs[index]!;
-  const configChanged = (['name', 'command', 'args', 'env'] as const).some(
-    (field) =>
-      patch[field] !== undefined &&
-      JSON.stringify(patch[field]) !== JSON.stringify(previous[field]),
-  );
-  configs[index] = mcpConfigSchema.parse({ ...previous, ...patch });
-  writeMcpConfigs(configs);
+  // 另一种传输方式的字段由 schema 丢弃，传输方式本身不可改
+  const next = mcpConfigSchema.parse({ ...previous, ...patch, transport: previous.transport });
+  const configChanged =
+    JSON.stringify({ ...next, enabled: previous.enabled }) !== JSON.stringify(previous);
+  configs[index] = next;
+  saveMcpServers(configs);
   syncFromConfigs();
   const entry = findServer(id);
   if (!entry.config.enabled) {
@@ -445,7 +472,7 @@ export async function updateMcpServer(
 export async function removeMcpServer(id: string): Promise<McpServerView[]> {
   const configs = readMcpConfigs();
   if (!configs.some((config) => config.id === id)) throw new Error('MCP 服务器不存在');
-  writeMcpConfigs(configs.filter((config) => config.id !== id));
+  saveMcpServers(configs.filter((config) => config.id !== id));
   syncFromConfigs();
   return listMcpServers();
 }

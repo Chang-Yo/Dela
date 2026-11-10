@@ -1,6 +1,11 @@
-// MCP 页签的可测纯逻辑：args/env 文本解析、表单校验、编辑补丁与状态徽标映射。
-// 视图契约（McpServerView）不携带 command/args/env，编辑表单因此采用"留空保持原值"的部分补丁。
-import type { McpConnectionStatus } from '../../../../../shared/capabilities';
+// MCP 页签的可测纯逻辑：参数与键值文本解析、表单校验、编辑补丁与状态徽标映射。
+// 视图不携带命令、地址与密钥，编辑表单因此采用"留空保持原值"的部分补丁。
+import type {
+  McpConnectionStatus,
+  McpServerInput,
+  McpServerPatch,
+  McpTransportConfig,
+} from '../../../../../shared/capabilities';
 
 export function parseArgsText(text: string): string[] {
   return text
@@ -9,68 +14,82 @@ export function parseArgsText(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-/** 每行一条 KEY=VALUE（值可为空）；格式错误时返回带行号的错误，env 为已收集部分（调用方先看 error）。 */
-export function parseEnvText(text: string): { env: Record<string, string>; error: string | null } {
-  const env: Record<string, string> = {};
+const pairFormats = {
+  '=': { label: '环境变量', format: 'KEY=VALUE' },
+  ':': { label: '请求头', format: 'Name: value' },
+};
+
+/** 每行一条键值（值可为空，以第一个分隔符切开）；格式错误时返回带行号的错误。 */
+export function parsePairs(
+  text: string,
+  separator: keyof typeof pairFormats,
+): { pairs: Record<string, string>; error: string | null } {
+  const pairs: Record<string, string> = {};
   const lines = text.split('\n');
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]!.trim();
     if (!line) continue;
-    const separator = line.indexOf('=');
-    const key = separator < 0 ? '' : line.slice(0, separator).trim();
-    if (!key) return { env, error: `环境变量第 ${index + 1} 行应为 KEY=VALUE 格式` };
-    env[key] = line.slice(separator + 1).trim();
+    const at = line.indexOf(separator);
+    const key = at < 0 ? '' : line.slice(0, at).trim();
+    if (!key) {
+      const { label, format } = pairFormats[separator];
+      return { pairs, error: `${label}第 ${index + 1} 行应为 ${format} 格式` };
+    }
+    pairs[key] = line.slice(at + 1).trim();
   }
-  return { env, error: null };
+  return { pairs, error: null };
 }
 
 export interface McpFormInput {
+  transport: McpTransportConfig['transport'];
   name: string;
   command: string;
   argsText: string;
   envText: string;
+  url: string;
+  headersText: string;
 }
 
-export type McpFormParsed =
-  | { ok: true; name: string; command: string; args: string[]; env: Record<string, string> }
-  | { ok: false; error: string };
+export type McpFormParsed = { ok: true; value: McpServerInput } | { ok: false; error: string };
 
 /**
- * 解析并校验表单：名称非空且不含空白字符；新建时 command 必填（编辑留空 = 保持原值）；
- * env 行必须为 KEY=VALUE。出错时返回可直接展示的错误文案。
+ * 解析并校验表单：名称非空且不含空白字符；新建时 command 或地址必填（编辑留空 = 保持原值）；
+ * 键值行格式错误时返回可直接展示的错误文案。
  */
-export function parseMcpForm(
-  input: McpFormInput,
-  options: { commandRequired: boolean },
-): McpFormParsed {
+export function parseMcpForm(input: McpFormInput, options: { isEdit: boolean }): McpFormParsed {
   const name = input.name.trim();
   if (!name) return { ok: false, error: '名称不能为空' };
   if (/\s/.test(name)) return { ok: false, error: '名称不能包含空格' };
+  if (input.transport === 'http') {
+    const url = input.url.trim();
+    if (!url && !options.isEdit) return { ok: false, error: '地址不能为空' };
+    if (url && !/^https?:$/.test(URL.parse(url)?.protocol ?? ''))
+      return { ok: false, error: '地址需以 http:// 或 https:// 开头' };
+    const { pairs, error } = parsePairs(input.headersText, ':');
+    if (error) return { ok: false, error };
+    return { ok: true, value: { transport: 'http', name, url, headers: pairs } };
+  }
   const command = input.command.trim();
-  if (!command && options.commandRequired) return { ok: false, error: 'command 不能为空' };
-  const { env, error } = parseEnvText(input.envText);
+  if (!command && !options.isEdit) return { ok: false, error: 'command 不能为空' };
+  const { pairs, error } = parsePairs(input.envText, '=');
   if (error) return { ok: false, error };
-  return { ok: true, name, command, args: parseArgsText(input.argsText), env };
+  return {
+    ok: true,
+    value: { transport: 'stdio', name, command, args: parseArgsText(input.argsText), env: pairs },
+  };
 }
 
-export interface McpUpdatePatch {
-  name: string;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-}
-
-/** 编辑表单 → updateMcpServer 补丁：command/args/env 留空即不发送（保持原值）。 */
-export function mcpUpdatePatch(parsed: {
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-}): McpUpdatePatch {
-  const patch: McpUpdatePatch = { name: parsed.name };
-  if (parsed.command) patch.command = parsed.command;
-  if (parsed.args.length > 0) patch.args = parsed.args;
-  if (Object.keys(parsed.env).length > 0) patch.env = parsed.env;
+/** 编辑表单 → updateMcpServer 补丁：留空的连接字段不发送（保持原值）。 */
+export function mcpUpdatePatch(value: McpServerInput): McpServerPatch {
+  const patch: McpServerPatch = { name: value.name };
+  if (value.transport === 'http') {
+    if (value.url) patch.url = value.url;
+    if (Object.keys(value.headers).length > 0) patch.headers = value.headers;
+    return patch;
+  }
+  if (value.command) patch.command = value.command;
+  if (value.args.length > 0) patch.args = value.args;
+  if (Object.keys(value.env).length > 0) patch.env = value.env;
   return patch;
 }
 

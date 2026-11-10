@@ -33,20 +33,31 @@ export interface SkillView {
 
 export type McpConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-/** MCP 服务器配置（持久化；command/args/env 为 stdio 传输）。 */
-export interface McpServerConfig {
-  id: string;
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-  enabled: boolean;
+export type McpTransportConfig =
+  | { transport: 'stdio'; command: string; args: string[]; env: Record<string, string> }
+  | { transport: 'http'; url: string; headers: Record<string, string> };
+
+/** MCP 服务器配置：只存在主进程，加密保存。 */
+export type McpServerConfig = { id: string; name: string; enabled: boolean } & McpTransportConfig;
+
+export type McpServerInput = { name: string } & McpTransportConfig;
+
+/** 传输方式创建后不变；连接字段留空即保持原值。 */
+export interface McpServerPatch {
+  name?: string;
+  enabled?: boolean;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
 }
 
-/** MCP 服务器的运行视图（配置 + 当前连接状态）。 */
+/** MCP 服务器的运行视图：不含命令、地址与密钥。 */
 export interface McpServerView {
   id: string;
   name: string;
+  transport: McpTransportConfig['transport'];
   enabled: boolean;
   status: McpConnectionStatus;
   /** 已连接时可发现的工具数；未知为 null。 */
@@ -135,23 +146,9 @@ export interface CapabilityApi {
     overwrite: boolean,
   ): Promise<RemoteSkillUpload>;
   listMcpServers(): Promise<McpServerView[]>;
-  addMcpServer(config: {
-    name: string;
-    command: string;
-    args: string[];
-    env: Record<string, string>;
-  }): Promise<McpServerView[]>;
+  addMcpServer(config: McpServerInput): Promise<McpServerView[]>;
   /** 启停或改配置；改配置会重连。 */
-  updateMcpServer(
-    id: string,
-    patch: {
-      name?: string;
-      command?: string;
-      args?: string[];
-      env?: Record<string, string>;
-      enabled?: boolean;
-    },
-  ): Promise<McpServerView[]>;
+  updateMcpServer(id: string, patch: McpServerPatch): Promise<McpServerView[]>;
   removeMcpServer(id: string): Promise<McpServerView[]>;
   /** 显式重连并刷新工具列表（连接失败时给模型明确的不可用边界）。 */
   refreshMcpServer(id: string): Promise<McpServerView[]>;

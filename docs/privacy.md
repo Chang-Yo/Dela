@@ -20,13 +20,14 @@
 
 同一目录下的加密凭据文件：
 
-| 凭据文件             | 保存的内容                          |
-| -------------------- | ----------------------------------- |
-| llm-providers.bin    | 模型服务地址与 API Key              |
-| mail-credentials.bin | 邮箱地址与密码                      |
-| canvas-token.bin     | Canvas 访问令牌                     |
-| shuiyuan-key.bin     | 水源 User API Key、用户名与绑定时间 |
-| campus-session.bin   | 教学信息服务网的登录会话 Cookie     |
+| 凭据文件             | 保存的内容                                     |
+| -------------------- | ---------------------------------------------- |
+| llm-providers.bin    | 模型服务地址与 API Key                         |
+| mail-credentials.bin | 邮箱地址与密码                                 |
+| canvas-token.bin     | Canvas 访问令牌                                |
+| shuiyuan-key.bin     | 水源 User API Key、用户名与绑定时间            |
+| mcp-servers.bin      | MCP 服务器的命令、参数、环境变量、地址与请求头 |
+| campus-session.bin   | 教学信息服务网的登录会话 Cookie                |
 
 旧版单凭据文件 model-credential.bin 在升级为多提供商配置后自动删除。
 
@@ -40,7 +41,7 @@
 
 - **凭据文件用 Electron safeStorage 加密后写入，解密能力由操作系统保管**；系统不支持加密时，应用拒绝读写并给出提示。
 - 写入先落临时文件再原子替换；旧文件无法解密时，先备份为「原文件名.unreadable-随机串.bak」再写入新内容，不因重新配置而删除。
-- **API Key 与令牌只在主进程内使用**：界面拿到的模型服务配置不含密钥字段；邮箱、Canvas 与水源只返回连接状态、邮箱地址或用户名，不含密码与令牌。
+- **API Key 与令牌只在主进程内使用**：界面拿到的模型服务配置不含密钥字段；邮箱、Canvas 与水源只返回连接状态、邮箱地址或用户名，不含密码与令牌；MCP 服务器只返回名称、连接方式与状态，不含命令、地址、环境变量与请求头。
 - **密钥不进入模型消息**：请求时由主进程把 API Key 放进 HTTP 请求头，发给模型的内容是对话与资料文本。
 
 ## 3. 运行 Agent 时发送到模型服务的内容
@@ -67,6 +68,7 @@
 | 交大视频       | v.sjtu.edu.cn：在线播放与下载课堂录像，使用登录窗口或 Canvas「课堂视频」外部工具取得的会话 Cookie。                                                                                                                                                                        |
 | 水源社区       | shuiyuan.sjtu.edu.cn：使用绑定时取得的 User API Key；绑定后约每两分钟检查未读通知；帖子添加到项目后在后台缓存全部楼层与图片作为快照。                                                                                                                                      |
 | jAccount       | jaccount.sjtu.edu.cn：登录页由学校提供，本应用不读取你输入的账号与密码，只保存登录后的会话 Cookie。                                                                                                                                                                        |
+| MCP 服务器     | 只连接你在 设置 › MCP Server 中添加的远程地址，携带你填写的请求头；Agent 调用其工具时，把工具参数发往该服务器。本地命令型服务器在本机运行，联网行为由该程序决定。                                                                                                          |
 | 远程项目       | 只连接你在 设置 › 远程 中自行添加的 SSH 主机。                                                                                                                                                                                                                             |
 | 软件更新       | openlist.frameneo.com：打包版定时检查正式版更新，你选择后下载安装包与差分数据；不会发送邮件、课程、聊天或模型密钥。                                                                                                                                                        |
 | 联网搜索       | 把搜索词发往你在 设置 › 内置能力 › 网络 中注册的搜索服务：Brave（api.search.brave.com）、Google（www.googleapis.com/customsearch）或你填写的自定义 JSON 端点（可带自定义请求头）。Dela 不内置搜索服务，未注册时不发起任何搜索请求。                                        |

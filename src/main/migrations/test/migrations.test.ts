@@ -304,3 +304,30 @@ it('v10→v11：指向内置厂商的配置换成 piProvider 并只留目录模�
   expect(providers[2]).toMatchObject({ piProvider: null, models: ['glm-4.7'] });
   expect(providers[3]).toMatchObject({ piProvider: null, apiKey: 'k' });
 });
+
+it('v11→v12：MCP 配置连同 env 移进加密文件并标为 stdio，数据库不再留明文', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+  const server = {
+    id: 'm1',
+    name: 'gh',
+    command: 'npx',
+    args: ['-y'],
+    env: { TOKEN: 's' },
+    enabled: true,
+  };
+  before
+    .prepare("INSERT INTO workspace_settings VALUES ('mcp-servers', ?), ('theme', 'dark')")
+    .run(JSON.stringify([server]));
+  before.pragma('user_version = 11');
+  before.close();
+
+  expect(runMigrations({ userData, seal }, 12)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
+  db.close();
+  expect(JSON.parse(readFileSync(join(userData, 'mcp-servers.bin'), 'utf8'))).toEqual([
+    { ...server, transport: 'stdio' },
+  ]);
+});

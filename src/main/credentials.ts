@@ -24,6 +24,7 @@ export class CredentialDecryptionError extends Error {
           'mail-credentials.bin': '邮箱凭据',
           'canvas-token.bin': 'Canvas 凭据',
           'shuiyuan-key.bin': '水源凭据',
+          'mcp-servers.bin': 'MCP 服务器配置',
         } as Record<string, string>
       )[basename(path)] ?? '凭据';
     super(`本机无法解密${label}，请在设置中重新配置。原加密文件仍保留，重新保存时会自动备份。`, {
@@ -144,6 +145,20 @@ export function loadShuiyuanCredential(): ShuiyuanCredential | null {
 
 export function clearShuiyuanCredential(): void {
   removeSealed(shuiyuanPath());
+}
+
+function mcpServersPath(): string {
+  return join(app.getPath('userData'), 'mcp-servers.bin');
+}
+
+/** 整份 MCP 配置加密保存：env、请求头与参数里都可能有密钥。结构由 mcp.ts 校验。 */
+export function saveMcpServers(configs: unknown[]): void {
+  writeSealed(mcpServersPath(), JSON.stringify(configs));
+}
+
+export function loadMcpServers(): unknown {
+  const payload = readSealed(mcpServersPath());
+  return payload === null ? [] : JSON.parse(payload);
 }
 
 /** 主进程持久化的 LLM 提供商配置实例；apiKey 只存在这里，不进 renderer 或 SQLite。 */
