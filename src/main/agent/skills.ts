@@ -25,20 +25,6 @@ import shuiyuanSkill from './skills/shuiyuan/SKILL.md?raw';
 import todoSkill from './skills/todo/SKILL.md?raw';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
-const CAPABILITY_SETUP_KEY = 'capabilities-onboarding-completed';
-
-export function needsCapabilitySetup(): boolean {
-  const row = getDatabase()
-    .prepare('SELECT value FROM workspace_settings WHERE key=?')
-    .get(CAPABILITY_SETUP_KEY) as { value: string } | undefined;
-  return row?.value !== '1';
-}
-
-export function completeCapabilitySetup(): void {
-  getDatabase()
-    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
-    .run(CAPABILITY_SETUP_KEY, '1');
-}
 
 /** 全局 Skill 根目录：~/.dela/skills（内置 Skill 随应用写入；用户自己的 Skill 也放这里）。 */
 export function builtinSkillsDirectory(): string {

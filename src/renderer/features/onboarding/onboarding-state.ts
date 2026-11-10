@@ -24,7 +24,7 @@ export function needsWizard() {
 
 /**
  * 是否跳过原有引导流程。没有接受记录就一定先展示条款页，避免拒绝后重启绕过。
- * 接受过条款后不恢复旧向导；App 仍会检查独立的能力拓展版本。
+ * 接受过条款后不恢复旧向导。
  */
 export function onboardingCompleted() {
   return isSmokeTest || hasConsent();

@@ -110,8 +110,6 @@ export interface RemoteSkillUpload {
 }
 
 export interface CapabilityApi {
-  needsSetup(): Promise<boolean>;
-  completeSetup(): Promise<void>;
   listSkills(): Promise<SkillView[]>;
   /** 启停 Skill（id 取自清单）；返回最新列表（未知 id 抛错）。 */
   setSkillEnabled(id: string, enabled: boolean): Promise<SkillView[]>;

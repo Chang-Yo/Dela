@@ -8,9 +8,6 @@ import { MailView } from '../features/mail';
 import { ClassroomView } from '../features/classroom';
 import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
-import { CapabilitySetup } from '../features/onboarding/CapabilitySetup';
-import { OnboardingWindowBar } from '../features/onboarding/onboarding-window-bar';
-import { Button } from '../components/ui/button';
 import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
 import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
@@ -77,32 +74,10 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<MobileDrawer | null>(null);
   // 首次启动引导：flow 期间主界面不渲染；completion 时主界面已挂载、完成动画叠在其上渐隐。
-  const [launchStage, setLaunchStage] = useState<
-    'flow' | 'checking' | 'capabilities' | 'completion' | 'app'
-  >(() => (isSmokeTest ? 'app' : onboardingCompleted() ? 'checking' : 'flow'));
-  const [setupCheck, setSetupCheck] = useState(0);
-  const [setupError, setSetupError] = useState<string | null>(null);
+  const [launchStage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>(() =>
+    isSmokeTest || onboardingCompleted() ? 'app' : 'flow',
+  );
   const appVisible = launchStage === 'app' || launchStage === 'completion';
-
-  useEffect(() => {
-    if (launchStage !== 'checking') return;
-    if (!window.dela) {
-      setLaunchStage('app');
-      return;
-    }
-    let active = true;
-    void window.dela.capability
-      .needsSetup()
-      .then((required) => {
-        if (active) setLaunchStage(required ? 'capabilities' : 'app');
-      })
-      .catch((cause) => {
-        if (active) setSetupError(errorText(cause));
-      });
-    return () => {
-      active = false;
-    };
-  }, [launchStage, setupCheck]);
 
   const view = useNavigationStore((state) => state.view);
   const projectId = useNavigationStore((state) => state.projectId);
@@ -376,38 +351,10 @@ export default function App() {
       )}
       {launchStage === 'flow' && (
         <OnboardingFlow
-          onConsentDone={() => setLaunchStage('checking')}
+          onConsentDone={() => setLaunchStage('app')}
           onWizardDone={() => setLaunchStage('completion')}
         />
       )}
-      {launchStage === 'checking' && (
-        <div className="grid h-dvh grid-rows-[auto_1fr] bui-light bg-surface text-ink">
-          <OnboardingWindowBar />
-          <main className="mx-auto w-full max-w-3xl px-6 pt-16">
-            {setupError ? (
-              <div className="mt-4 grid justify-items-start gap-3">
-                <h1 className="text-2xl font-semibold">能力拓展</h1>
-                <p role="alert" className="text-13 text-red">
-                  {setupError}
-                </p>
-                <Button
-                  onClick={() => {
-                    setSetupError(null);
-                    setSetupCheck((value) => value + 1);
-                  }}
-                >
-                  重试
-                </Button>
-              </div>
-            ) : (
-              <p role="status" className="sr-only">
-                正在启动…
-              </p>
-            )}
-          </main>
-        </div>
-      )}
-      {launchStage === 'capabilities' && <CapabilitySetup onDone={() => setLaunchStage('app')} />}
       {/* 下载完成的确认弹窗挂在应用层：下载在后台跑完时，用户可能已经离开设置页。 */}
       {appVisible && <UpdatePrompt />}
       {launchStage === 'app' && <ReleaseNotesDialog />}
