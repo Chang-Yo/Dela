@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -199,4 +207,28 @@ it('v8→v9：会话表补 parent_id，原有会话都是顶层会话', () => {
     { id: 's1', parent_id: null },
   ]);
   db.close();
+});
+
+it('v9→v10：删掉 Pi packages 与试验功能的残留，其余设置与文档组件保留', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    INSERT INTO workspace_settings VALUES ('pi-packages', '[]'), ('pi-packages-enabled', '1'),
+      ('prompts-disabled', '[]'), ('experimental-shuiyuan', '0'), ('theme', 'dark'),
+      ('capabilities-onboarding-completed', '1');`);
+  before.pragma('user_version = 9');
+  before.close();
+  const removed = ['components/node', 'pi/npm', 'pi/git', 'pi/tmp/extensions'];
+  const kept = ['components/document-reading/1', 'pi/sessions/a', 'pi/skills/b'];
+  for (const dir of [...removed, ...kept])
+    mkdirSync(join(userData, dir, 'inner'), { recursive: true });
+  writeFileSync(join(userData, 'pi', 'mcp.log'), '');
+
+  expect(runMigrations({ userData, seal }, 10)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
+  db.close();
+  const present = [...removed, 'pi/mcp.log'].filter((path) => existsSync(join(userData, path)));
+  expect(present).toEqual([]);
+  expect(kept.every((dir) => existsSync(join(userData, dir, 'inner')))).toBe(true);
 });
