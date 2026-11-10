@@ -213,7 +213,8 @@ it('v9→v10：删掉 Pi packages 与试验功能的残留，其余设置与文�
   const before = new Database(dbPath());
   before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     INSERT INTO workspace_settings VALUES ('pi-packages', '[]'), ('pi-packages-enabled', '1'),
-      ('prompts-disabled', '[]'), ('experimental-shuiyuan', '0'), ('theme', 'dark');`);
+      ('prompts-disabled', '[]'), ('experimental-shuiyuan', '0'), ('theme', 'dark'),
+      ('capabilities-onboarding-completed', '1');`);
   before.pragma('user_version = 9');
   before.close();
   const removed = ['components/node', 'pi/npm', 'pi/git', 'pi/tmp/extensions'];
