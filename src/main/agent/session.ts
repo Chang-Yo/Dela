@@ -48,17 +48,8 @@ import {
 } from './media';
 import { notifyRunFinished } from '../settings/task-notify';
 import * as changes from './changes';
-import {
-  bindSessionExtensions,
-  extensionCommand,
-  releaseExtensionUi,
-  sessionSlashCommands,
-  shutdownSession,
-} from './extensions';
-import { packagesEnabled } from './packages';
 import { taskTool } from './subagent';
 import { backgroundTools, runningTasks, stopAllTasks, stopSessionTasks } from './tasks';
-import type { ChatSlashCommand } from '../../shared/chat';
 
 type ChatMessage = WorkspaceChat['messages'][number];
 
@@ -372,46 +363,23 @@ async function ensureLive(id: string): Promise<Live> {
   const entry: Live = { session, cwd, providerId: selection.provider.id, unsubscribe: () => {} };
   entry.unsubscribe = session.subscribe((event) => onEvent(id, entry, event));
   live.set(id, entry);
-  // 绑定会触发扩展的 session_start；扩展可能在里面发可见消息或改标题，所以先登记再绑定。
-  await bindSessionExtensions(id, session, {
-    setTitle: (title) => {
-      getDatabase().prepare('UPDATE sessions SET title=? WHERE id=?').run(title.slice(0, 60), id);
-      send('session:on-update', id, snapshot(id));
-    },
-  });
   return entry;
 }
 
-/**
- * 输入框的 `/` 候选：扩展命令要等会话实例建好、扩展加载完才知道。只在开了 Pi packages
- * 时才为此预建实例（会连带建立扩展运行时），没配模型时直接给空表。
- */
-export async function listSessionCommands(id: string): Promise<ChatSlashCommand[]> {
-  if (!packagesEnabled() || modelChoice(row(id)).kind !== 'ready') return [];
-  return sessionSlashCommands((await ensureLive(id)).session);
-}
-
-/** 丢弃一个会话实例：先发 session_shutdown 再 dispose，未答复的扩展对话框按取消处理。 */
-function disposeLive(id: string, entry: Live, reason: 'quit' | 'reload'): Promise<void> {
+function disposeLive(id: string, entry: Live): void {
   entry.unsubscribe();
   live.delete(id);
-  releaseExtensionUi(id);
-  return shutdownSession(entry.session, reason).catch(() => {});
+  entry.session.dispose();
 }
 
-/** 应用退出前结束全部会话，让扩展收拾子进程；最多等 timeoutMs，卡住的扩展不拖住退出。 */
+/** 应用退出前停掉后台任务并结束全部会话；最多等 timeoutMs。 */
 export async function shutdownSessions(timeoutMs: number): Promise<void> {
-  const pending = [
-    stopAllTasks(),
-    ...[...live].map(([id, entry]) => {
-      if (entry.run) entry.run.cancelled = true;
-      return disposeLive(id, entry, 'quit');
-    }),
-  ];
-  await Promise.race([
-    Promise.all(pending),
-    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
-  ]);
+  const tasks = stopAllTasks();
+  for (const [id, entry] of [...live]) {
+    if (entry.run) entry.run.cancelled = true;
+    disposeLive(id, entry);
+  }
+  await Promise.race([tasks, new Promise((resolve) => setTimeout(resolve, timeoutMs))]);
 }
 
 export function hasLiveSessions(): boolean {
@@ -430,7 +398,7 @@ export function invalidateSessions(providerId?: string) {
   for (const [id, entry] of live) {
     if (providerId && entry.providerId !== providerId) continue;
     // 压缩也算忙：此时丢弃会话会中止压缩（dispose 里的 abortCompaction）。
-    if (!entry.run && !entry.session.isCompacting) void disposeLive(id, entry, 'reload');
+    if (!entry.run && !entry.session.isCompacting) disposeLive(id, entry);
     else {
       entry.stale = true;
     }
@@ -1115,7 +1083,7 @@ export async function deleteSession(id: string) {
     if (entry.run) entry.run.cancelled = true;
     await entry.session.abort();
     await done;
-    await disposeLive(id, entry, 'quit');
+    disposeLive(id, entry);
   }
   const children = getDatabase().prepare('SELECT id FROM sessions WHERE parent_id=?').all(id) as {
     id: string;
@@ -1340,11 +1308,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
         id,
       );
   await runTurn(id, entry, turnId, input.attachments, () =>
-    extensionCommand(entry.session, userText)
-      ? // 扩展命令与 prompt 模板要以 `/name` 开头才认得：去掉 Dela 的 meta 前缀原样交给 Pi，
-        // 命令由扩展处理（可能根本不发消息），模板由 Pi 展开后照常进入对话。
-        entry.session.prompt(userText, images.length ? { images } : undefined)
-      : entry.session.prompt(prompt, images.length ? { images } : undefined),
+    entry.session.prompt(prompt, images.length ? { images } : undefined),
   );
   return snapshot(id);
 }
@@ -1439,7 +1403,7 @@ async function runTurn(
       runEvent(id, status, undefined, turnId, changesError);
       publish(id);
       if (status !== 'stopped' && !child) notifyRunFinished(id, status);
-      if (entry.stale) void disposeLive(id, entry, 'reload');
+      if (entry.stale) disposeLive(id, entry);
     } finally {
       finishRun();
     }
@@ -1456,9 +1420,7 @@ async function runTurn(
 }
 
 async function steerRun(id: string, entry: Live, run: Run, input: ChatAskInput) {
-  const { prompt, userText, images } = composePrompt(input, entry.cwd, run.id);
-  if (extensionCommand(entry.session, userText))
-    throw new Error('运行中不能执行命令，请等待当前回答完成');
+  const { prompt, images } = composePrompt(input, entry.cwd, run.id);
   await entry.session.steer(prompt, images.length ? images : undefined);
   run.steers.push({ prompt, input });
   return snapshot(id);
@@ -1493,8 +1455,8 @@ export async function runSessionCommand(
   } else if (name === 'reload') {
     const entry = live.get(id);
     busy(entry);
-    if (entry) await disposeLive(id, entry, 'reload');
-    // 立刻重建：扩展的加载错误与 session_start 里的通知现在就出现，而不是等下一次发送。
+    if (entry) disposeLive(id, entry);
+    // 立刻重建：Skill、MCP 或远端连接的错误现在就报出来，不等下一次发送。
     if (modelChoice(row(id)).kind === 'ready') await ensureLive(id);
   } else {
     const entry = await ensureLive(id);
@@ -1508,7 +1470,7 @@ export async function runSessionCommand(
       }
     } finally {
       // 压缩期间配置变了：invalidateSessions 只标了 stale，这里补上丢弃。
-      if (entry.stale) void disposeLive(id, entry, 'reload');
+      if (entry.stale) disposeLive(id, entry);
     }
   }
   publish(id);

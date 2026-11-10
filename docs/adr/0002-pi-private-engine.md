@@ -18,7 +18,7 @@ Pi 只在 `core` 内部使用，Pi 的类型不得出现在 `core/protocol` 中�
 | `pi-coding-agent` | 锁定版本，Dela 可以覆盖或接管其中的部分实现 |
 | `pi-mcp`          | 使用它的传输层和 OAuth                      |
 
-移除 Pi Packages：扩展、主题、包安装、npm 运行时、扩展 UI 桥，以及 onboarding 中的相关卡片。会话的资源加载器关闭 `.pi/extensions` 和主题的隐式加载。
+移除 Pi Packages：扩展、prompt 模板、主题、包安装、npm 运行时、扩展 UI 桥，以及 onboarding 中的相关卡片。会话的资源加载器关闭 `.pi/extensions`、`.pi/prompts` 和主题的隐式加载。可复用的提示词改用 Dela 自己的斜杠指令。
 
 老用户的残留由 `v9tov10` 迁移清理：删除 `pi-packages*` 等设置键，删除 `userData/components/node`、`userData/pi/npm`、`userData/pi/git`。用户项目中的 `.pi/` 和 `~/.pi/agent` 属于用户和 Pi CLI，不做改动。
 

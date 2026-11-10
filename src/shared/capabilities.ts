@@ -2,10 +2,10 @@
 
 /**
  * Skill 的来处：builtin 是 Dela 写进 ~/.dela/skills 的内置技能；user 是本机目录里用户自己放的
- * （~/.dela/skills 其余条目与 ~/.agents/skills）；package 来自 Pi package；project 来自某个本地项目
+ * （~/.dela/skills 其余条目与 ~/.agents/skills）；project 来自某个本地项目
  * （Pi 认的 .agents/skills、.pi/skills，加上 Dela 认的 .agent/skills）。
  */
-export type SkillOrigin = 'builtin' | 'user' | 'package' | 'project';
+export type SkillOrigin = 'builtin' | 'user' | 'project';
 
 export interface SkillDependency {
   status: 'missing' | 'installing' | 'ready' | 'error';
@@ -26,10 +26,8 @@ export interface SkillView {
   /** SKILL.md 的绝对路径（供 UI 展示来源）。 */
   path: string;
   origin: SkillOrigin;
-  /** origin 为 package / project 时所属的包或项目；同组的 Skill 在设置页归在一起。 */
+  /** origin 为 project 时所属的项目；同组的 Skill 在设置页归在一起。 */
   group?: { id: string; label: string };
-  /** 不能单独开启的原因（所属包未启用、包关闭了 Skills）；有值时开关只读。 */
-  lockedReason?: string;
   dependency?: SkillDependency;
 }
 

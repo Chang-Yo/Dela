@@ -1,6 +1,6 @@
 // Skills：发现、加载与渐进注入由 Pi 完成（agentskills.io 规范）。这里只负责
 // 把 Dela 内置的领域 skill 写进 ~/.dela/skills、给设置页列出可见 skill、维护禁用名单。
-// 设置页按来处分组：内置、本机目录、Pi package、每个本地项目；后两者按 SKILL.md 路径开关。
+// 设置页按来处分组：内置、本机目录、每个本地项目；项目的按 SKILL.md 路径开关。
 import { app, shell } from 'electron';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -9,7 +9,6 @@ import type { SkillOrigin, SkillView } from '../../shared/capabilities';
 import { getDatabase } from '../database';
 import { readSetting, writeSetting } from '../settings/prefs';
 import { discoverProjectSkills } from './discovery';
-import { listPackages, packagesEnabled } from './packages';
 import {
   DOCUMENT_SKILL,
   assertDocumentDependency,
@@ -104,7 +103,7 @@ export function effectiveDisabledSkills(): Set<string> {
 
 const DISABLED_PATHS_KEY = 'skills-disabled-paths';
 
-/** 按 SKILL.md 路径停用的项目与包 Skill。 */
+/** 按 SKILL.md 路径停用的项目 Skill。 */
 export function readDisabledSkillPaths(): Set<string> {
   try {
     const paths = z.array(z.string()).parse(JSON.parse(readSetting(DISABLED_PATHS_KEY) ?? '[]'));
@@ -142,27 +141,6 @@ function globalSkills(): SkillView[] {
   return skills;
 }
 
-/** 已装的 Pi package 里的 Skill；总开关关闭时一个都不列（会话也不加载任何包）。 */
-async function packageSkills(disabledPaths: Set<string>): Promise<SkillView[]> {
-  if (!packagesEnabled()) return [];
-  return (await listPackages()).flatMap((item) =>
-    item.provides.skills.map((skill) => ({
-      id: skill.path,
-      name: skill.name,
-      description: skill.description,
-      path: skill.path,
-      origin: 'package' as const,
-      group: { id: item.id, label: item.name },
-      enabled: item.enabled && item.resources.skills && !disabledPaths.has(skill.path),
-      ...(!item.enabled
-        ? { lockedReason: '所属包未启用' }
-        : !item.resources.skills
-          ? { lockedReason: '所属包关闭了 Skills' }
-          : {}),
-    })),
-  );
-}
-
 /** 每个本地项目里 Pi 会加载的项目级 Skill。远程项目的 Skill 在打开会话时从远端镜像，不在这里列。 */
 async function projectSkills(disabledPaths: Set<string>): Promise<SkillView[]> {
   const projects = getDatabase()
@@ -190,12 +168,7 @@ async function projectSkills(disabledPaths: Set<string>): Promise<SkillView[]> {
 
 export async function listSkills(): Promise<SkillView[]> {
   ensureBuiltinSkills();
-  const disabledPaths = readDisabledSkillPaths();
-  const [packages, projects] = await Promise.all([
-    packageSkills(disabledPaths),
-    projectSkills(disabledPaths),
-  ]);
-  return [...globalSkills(), ...packages, ...projects];
+  return [...globalSkills(), ...(await projectSkills(readDisabledSkillPaths()))];
 }
 
 /** 全局 Skill 按名称开关（内置的文档读取要先装好组件）。 */
@@ -214,8 +187,7 @@ export async function setGlobalSkillEnabled(name: string, enabled: boolean): Pro
 
 export async function setSkillEnabled(id: string, enabled: boolean): Promise<SkillView[]> {
   const skill = await findSkill(id);
-  if (skill.lockedReason) throw new Error(skill.lockedReason);
-  if (skill.origin === 'package' || skill.origin === 'project') {
+  if (skill.origin === 'project') {
     const disabled = readDisabledSkillPaths();
     if (enabled) disabled.delete(skill.path);
     else disabled.add(skill.path);

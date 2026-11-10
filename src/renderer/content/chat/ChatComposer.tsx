@@ -10,7 +10,6 @@ import {
   FileText,
   Globe,
   Layers,
-  LoaderCircle,
   MessageSquare,
   Paperclip,
   Settings,
@@ -35,10 +34,8 @@ import type {
   BackgroundTaskView,
   ChatCommandView,
   ChatComment,
-  ChatSlashCommand,
   ChatMediaView,
   ContextUsageView,
-  ExtensionSessionState,
   LlmProviderView,
   WebSearchEntrySummary,
 } from '../../../shared/api';
@@ -54,7 +51,6 @@ import {
 import type { ChatReference } from './use-chat';
 import { ComposerEditor, type ComposerEditorHandle } from './ComposerEditor';
 import { setChatMediaPreview } from './media';
-import { loadSessionCommands, useExtensionSessionState } from './extension-session';
 
 const builtinCommands = [
   { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
@@ -136,7 +132,6 @@ export function ChatComposer({
   onDismissNotice,
   hero = false,
   context = null,
-  sessionId = null,
   sidechat = false,
   queued = [],
   onWithdrawQueued,
@@ -151,8 +146,6 @@ export function ChatComposer({
   onStopTask?: (taskId: string) => void;
   /** 旁问输入框：模型与思考强度沿用主会话、联网搜索是全局开关，这三个选择器都不显示。 */
   sidechat?: boolean;
-  /** 当前会话：用于 Pi 扩展的 `/` 命令、状态栏与输入框读写；未知时为 null。 */
-  sessionId?: string | null;
   /** 新对话的项目浮岛数据；null = 不显示（已有历史或通用池没有项目）。 */
   context?: ComposerContext | null;
   /** 发送前错误（会话层），显示在输入框上方；null = 无。 */
@@ -196,8 +189,6 @@ export function ChatComposer({
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [customCommands, setCustomCommands] = useState<ChatCommandView[]>([]);
-  const [extensionCommands, setExtensionCommands] = useState<ChatSlashCommand[]>([]);
-  const extensionState = useExtensionSessionState(sessionId);
   // 两列模型面板：打开时读取设置配置保证新鲜；focusedId 是左列当前查看的提供商。
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
@@ -252,22 +243,6 @@ export function ChatComposer({
     };
   }, []);
 
-  // 打开 `/` 候选时才去问会话：扩展命令随会话实例加载，首次可能要等扩展启动。
-  const slashOpen = menu?.kind === 'slash';
-  useEffect(() => {
-    if (!slashOpen) return;
-    let alive = true;
-    void loadSessionCommands(sessionId).then((commands) => alive && setExtensionCommands(commands));
-    return () => {
-      alive = false;
-    };
-  }, [slashOpen, sessionId]);
-
-  // 扩展的 getEditorText 是同步接口：正文变化时上报一份给主进程。
-  useEffect(() => {
-    if (sessionId) window.dela?.packages?.reportEditorText(sessionId, value);
-  }, [sessionId, value]);
-
   const slashItems =
     menu?.kind === 'slash'
       ? [
@@ -282,16 +257,6 @@ export function ChatComposer({
               .filter(Boolean)
               .join(' · '),
           })),
-          // Pi 扩展命令与模板原样以 `/name ` 交给 Pi，由它执行或展开；与会话命令同名的被它遮住，不列。
-          ...extensionCommands
-            .filter((command) => !SESSION_COMMANDS.some((item) => item.name === command.name))
-            .map((command) => ({
-              name: command.name,
-              prompt: `/${command.name} `,
-              hint: [command.argumentHint, command.description || command.source]
-                .filter(Boolean)
-                .join(' · '),
-            })),
         ].filter((command) => command.name.includes(menu.query))
       : [];
   const mentionItems =
@@ -549,7 +514,6 @@ export function ChatComposer({
             )}
           </div>
         )}
-        {extensionState && <ExtensionBar placement="aboveEditor" state={extensionState} />}
         <ComposerEditor
           className="@max-[220px]:[&_[aria-hidden='true']]:truncate"
           handleRef={editorRef}
@@ -577,7 +541,6 @@ export function ChatComposer({
           referenceOptions={referenceOptions}
           value={value}
         />
-        {extensionState && <ExtensionBar placement="belowEditor" state={extensionState} />}
         <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1 @max-[160px]:gap-0.5 @max-[160px]:px-1.5">
           <IconButton aria-label="添加图片或附件" onClick={pickFiles} title="添加图片或附件">
             <Paperclip />
@@ -1028,55 +991,6 @@ function ComposerChip({
 }
 
 /** composer 上方的提示条：发送前的错误（未配置、文件不支持、引用未保存）。 */
-/** Pi 扩展写到输入框的状态：文本小部件按位置分开，状态栏与工作提示跟在上方那一组里。
- *  都是扩展给的纯文本，等宽显示保留它们自己的对齐。 */
-function ExtensionBar({
-  placement,
-  state,
-}: {
-  placement: 'aboveEditor' | 'belowEditor';
-  state: ExtensionSessionState;
-}) {
-  const widgets = state.widgets.filter((widget) => widget.placement === placement);
-  const statuses = placement === 'aboveEditor' ? state.statuses : [];
-  const working = placement === 'aboveEditor' ? state.workingMessage : null;
-  if (!widgets.length && !statuses.length && !working) return null;
-  return (
-    <div
-      aria-label="扩展状态"
-      className={cn(
-        'grid gap-1 px-3 text-xs text-ink-3',
-        placement === 'aboveEditor' ? 'pt-2.5' : 'pb-1',
-      )}
-      role="status"
-    >
-      {widgets.map((widget) => (
-        <pre
-          className="overflow-x-auto font-mono text-2xs leading-relaxed whitespace-pre"
-          key={widget.key}
-        >
-          {widget.lines.join('\n')}
-        </pre>
-      ))}
-      {(statuses.length > 0 || working) && (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          {working && (
-            <span className="flex items-center gap-1.5">
-              <LoaderCircle className="size-3 animate-spin" />
-              {working}
-            </span>
-          )}
-          {statuses.map((status) => (
-            <span className="truncate" key={status.key} title={status.text}>
-              {status.text}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** 待送达的插队消息：当前工具执行完后才交给模型；撤回把它们全部放回输入框（Pi 的队列只能整体清空）。 */
 function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdraw?: () => void }) {
   return (

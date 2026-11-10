@@ -15,8 +15,6 @@ vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({ llmProviders: () => [], usableLlmProviders: () => [] }));
 vi.mock('../environment', () => ({ agentEnvironment: () => ({}) }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
-vi.mock('../extensions', () => ({}));
-vi.mock('../packages', () => ({}));
 
 import { loadPi } from '../pi';
 import { preloadPi } from '../session';

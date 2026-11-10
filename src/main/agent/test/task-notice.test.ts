@@ -38,14 +38,6 @@ vi.mock('../environment', () => ({
   }),
 }));
 vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
-vi.mock('../extensions', () => ({
-  bindSessionExtensions: async () => {},
-  extensionCommand: () => false,
-  releaseExtensionUi: () => {},
-  sessionSlashCommands: () => [],
-  shutdownSession: async (session: { dispose(): void }) => session.dispose(),
-}));
-vi.mock('../packages', () => ({ packagesEnabled: () => false }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 
 import {
