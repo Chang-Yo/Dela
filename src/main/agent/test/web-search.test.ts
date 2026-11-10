@@ -44,6 +44,8 @@ import {
   removeWebSearchEntry,
   saveWebSearchEntry,
   selectWebSearchEntry,
+  webSearch,
+  webSearchEntryInputSchema,
 } from '../web-search';
 
 beforeEach(() => {
@@ -170,4 +172,60 @@ it('密钥导入只认官方端点且中转网关不算 DeepSeek', () => {
   expect(sources).toEqual([{ id: 'p1', name: 'DeepSeek 官方' }]);
   expect(readWebSearchKey('p1')).toBe('sk-school');
   expect(readWebSearchKey('p2')).toBeNull();
+});
+
+it('自定义端点按请求体走 POST、替换占位，并识别非 SearXNG 的结果结构', async () => {
+  const fetch = vi.fn(async () =>
+    Response.json({
+      data: { webPages: { value: [{ name: '标题', url: 'https://a.cn', snippet: '摘要' }] } },
+    }),
+  );
+  vi.stubGlobal('fetch', fetch);
+  try {
+    saveWebSearchEntry(
+      webSearchEntryInputSchema.parse({
+        name: 'POST',
+        provider: 'custom',
+        url: 'https://search.example/v1',
+        body: '{ "query": "{query}", "count": {count} }',
+        headers: { Authorization: 'Bearer k' },
+      }),
+    );
+    expect(await webSearch('交大 "新闻"', 3)).toMatchObject({
+      results: [{ title: '标题', url: 'https://a.cn', snippet: '摘要' }],
+    });
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://search.example/v1');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ query: '交大 "新闻"', count: 3 });
+
+    fetch.mockResolvedValueOnce(Response.json({ answer: 'x' }));
+    await expect(webSearch('q')).rejects.toThrow('answer');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('自定义端点不含 {query} 时仍按 SearXNG 追加参数', async () => {
+  const fetch = vi.fn(async () =>
+    Response.json({ results: [{ title: 't', url: 'https://b.cn', content: 'c' }] }),
+  );
+  vi.stubGlobal('fetch', fetch);
+  try {
+    saveWebSearchEntry({ name: 'S', provider: 'custom', url: 'https://searx.example/search' });
+    expect((await webSearch('a b')).results).toHaveLength(1);
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://searx.example/search?q=a+b&format=json');
+    expect(init.method).toBe('GET');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('请求体模板替换占位后必须是 JSON', () => {
+  const entry = { name: 'X', provider: 'custom', url: 'https://x.example' };
+  expect(webSearchEntryInputSchema.safeParse({ ...entry, body: '{"q": {count}}' }).success).toBe(
+    true,
+  );
+  expect(webSearchEntryInputSchema.safeParse({ ...entry, body: 'q={query}' }).success).toBe(false);
 });

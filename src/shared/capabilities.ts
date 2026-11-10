@@ -73,15 +73,23 @@ export interface AgentCapabilityView {
 /**
  * WebSearch 的搜索服务配置条目（设置 › 内置能力 › 「网络」分组，同类型可存多条）：
  * brave 固定走 Brave 为大模型设计的 LLM Context 端点（res/v1/llm/context）；
- * google 用平台凭据；custom 为返回 { results: [{ title, url, content }] } JSON
- * （SearXNG 兼容格式）的任意端点，headers 适配用户自备的鉴权/加密策略；
+ * google 用平台凭据；custom 为任意 JSON 搜索端点，可配 GET/POST 模板与请求头，
+ * 结果按常见结构识别；
  * deepseek 用官方自研搜索引擎，useForFetch 决定 web_fetch 是否也走其 Fetch 接口。
  * 当前使用哪一条由聊天输入框左下角的选择记录，设置页只做增删改。
  */
 export type WebSearchEntry =
   | { id: string; name: string; provider: 'brave'; apiKey: string }
   | { id: string; name: string; provider: 'google'; apiKey: string; cx: string }
-  | { id: string; name: string; provider: 'custom'; url: string; headers?: Record<string, string> }
+  | {
+      id: string;
+      name: string;
+      provider: 'custom';
+      url: string;
+      /** JSON 请求体模板；填写即用 POST。 */
+      body?: string;
+      headers?: Record<string, string>;
+    }
   | { id: string; name: string; provider: 'deepseek'; apiKey: string; useForFetch: boolean };
 
 /** 保存入参：id 省略表示新建（新建即选中）。Omit 需分布到各判别分支，否则丢失判别字段。 */

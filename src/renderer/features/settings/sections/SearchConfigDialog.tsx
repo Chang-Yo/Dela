@@ -220,6 +220,7 @@ function EntryForm({
   const [apiKey, setApiKey] = useState('apiKey' in draft ? draft.apiKey : '');
   const [cx, setCx] = useState(draft.provider === 'google' ? draft.cx : '');
   const [url, setUrl] = useState(draft.provider === 'custom' ? draft.url : '');
+  const [body, setBody] = useState(draft.provider === 'custom' ? (draft.body ?? '') : '');
   const [headers, setHeaders] = useState(
     draft.provider === 'custom' ? headersText(draft.headers) : '',
   );
@@ -275,6 +276,7 @@ function EntryForm({
             ...base,
             provider: 'custom',
             url: url.trim(),
+            ...(body.trim() ? { body: body.trim() } : {}),
             ...(Object.keys(parsed.headers).length > 0 ? { headers: parsed.headers } : {}),
           }),
         );
@@ -469,15 +471,27 @@ function EntryForm({
               <Input
                 autoComplete="off"
                 onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://example.com/search"
+                placeholder="https://example.com/search?q={query}"
                 required
                 spellCheck={false}
                 type="url"
                 value={url}
               />
               <span className="text-xs leading-relaxed text-ink-3">
-                需返回 {'{ results: [{ title, url, content }] }'} 形状的 JSON（SearXNG 兼容）。
+                用 {'{query}'}、{'{count}'} 占位搜索词与条数；不含 {'{query}'} 的 GET 请求按 SearXNG
+                追加 q 与 format=json。结果自动识别 results、data、items 等常见结构。
               </span>
+            </label>
+            <label className="grid gap-2 text-13">
+              请求体（可选，填写后改用 POST）
+              <Textarea
+                className={headerAreaClass}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder={'{ "query": "{query}", "max_results": {count} }'}
+                rows={3}
+                spellCheck={false}
+                value={body}
+              />
             </label>
             <label className="grid gap-2 text-13">
               自定义请求头（可选，每行 Key: Value）
