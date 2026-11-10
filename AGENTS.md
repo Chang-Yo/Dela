@@ -151,6 +151,9 @@ src/
 ```
 Dela/
 ├─ src/
+│  ├─ core/protocol/          v3：模块契约工具（defineContract、implement、createClient）
+│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册
+│  ├─ modules/                v3：已迁移的通用模块（search）
 │  ├─ main/                   Electron 主进程
 │  │  ├─ agent/               Pi 内核接入、工具与运行时
 │  │  ├─ canvas/              Canvas 课程资料
@@ -159,7 +162,6 @@ Dela/
 │  │  ├─ migrations/          旧版用户的数据库迁移
 │  │  ├─ notifications/       通知轮询
 │  │  ├─ remotes/             远程项目与 helper 隧道
-│  │  ├─ search/              全局搜索
 │  │  ├─ settings/            设置与模型/网络配置
 │  │  ├─ shuiyuan/            水源社区
 │  │  ├─ terminal/            内置终端与 Bash 定位
@@ -168,7 +170,7 @@ Dela/
 │  │  ├─ update/              应用内更新
 │  │  ├─ vsjtu/               致远一号
 │  │  └─ workspace/           工作区文件
-│  ├─ preload/                contextBridge 与有限 API
+│  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
 │  ├─ renderer/               React 界面
 │  │  ├─ app/                 应用外壳、主题与全局状态
 │  │  ├─ workbench/           标签工作台

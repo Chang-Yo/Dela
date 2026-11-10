@@ -17,7 +17,7 @@ import { UpdatePrompt } from '../features/settings/UpdatePrompt';
 import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
 import { useUpdateState } from '../features/settings/update';
 import { ShuiyuanView } from '../features/shuiyuan';
-import { GlobalSearchDialog } from '../features/search/GlobalSearchDialog';
+import { GlobalSearchDialog } from '../../modules/search/view';
 import { TimetableView } from '../features/timetable';
 import { TodoView } from '../features/todo/TodoView';
 import type { ChatSessionSummary } from '../../shared/api';

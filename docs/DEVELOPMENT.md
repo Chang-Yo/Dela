@@ -211,6 +211,19 @@ Git Bash + node-pty + xterm.js，与 Agent 的 bash 同源（同一份 dela 桥�
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取；打包白名单只含 `out/**/*`、`package.json` 与品牌图——文档、凭据与 `.tools/` 都不进安装包。
 
+### 10.1 v3 模块迁移范例
+
+v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modules/search`）是第一个范例，后续模块照它的结构做。设计理由见 ADR [0009](adr/0009-renderer-state.md)、[0011](adr/0011-module-contracts.md)、[0012](adr/0012-nav-targets.md)。
+
+1. **契约**：在 `contract.ts` 中用 `defineContract` 声明通道与入参 schema，返回值用 `z.custom<T>()` 只给类型。
+2. **主进程**：在 `index.ts` 中用 `defineModule` 和 `implement` 导出模块；实现放在 `main/`。别的模块需要提供数据时，在 `index.ts` 中开注册口。
+3. **登记**：模块加进 `app/modules.ts`，契约加进 `app/contracts.ts`，删除旧的 `ipcMain.handle`、preload 文件和 `DelaApi` 字段。
+4. **界面**：组件放在 `view/`，从 `view/index.ts` 导出。用 `createClient(contract, window.dela?.bridge)` 加 `useQuery` 取数，不写 Effect、requestId 和定时器。
+5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
+6. **测试**：主进程查询对着 `database.ts` 建出的真实表跑，不写影子 schema；UI 不写快照和样式断言。
+
+依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。过渡期 `view/` 可以引用 `renderer/components/ui` 和 `renderer/lib/utils`，`src/ui` 建好后收紧。
+
 ## 11. 工具链与启动
 
 | 工具    | 版本                               | 何时需要             |
