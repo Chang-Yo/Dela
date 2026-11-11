@@ -17,7 +17,7 @@ import {
 } from '../../../../workspace/api';
 import { workspaceArchiveId } from '../../../../../shared/workspace';
 import { createEntryTool, removeEntryTool, updateEntryTool } from '../entries';
-import { linkCanvasSourceTool } from '../link-canvas-source';
+import { linkCanvasSourceTool } from '../../canvas/link-source';
 import { listWorkspaceEntriesTool } from '../list-entries';
 
 const id = 'da21ec6f-71ae-414c-ae59-7618b0dac93e';

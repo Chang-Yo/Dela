@@ -14,15 +14,8 @@ import {
   documentDependency,
   verifyDocumentRuntime,
 } from '../documents/runtime';
-import documentSkill from './skills/document-reading/SKILL.md?raw';
-import documentScript from './skills/document-reading/scripts/read.py?raw';
-import canvasSkill from './skills/canvas/SKILL.md?raw';
-import classroomSkill from './skills/classroom/SKILL.md?raw';
-import curriculumSkill from './skills/curriculum/SKILL.md?raw';
-import mailSkill from './skills/mail/SKILL.md?raw';
-import shuiyuanSkill from './skills/shuiyuan/SKILL.md?raw';
-import todoSkill from './skills/todo/SKILL.md?raw';
 import { hostPorts } from '../host';
+import { builtinSkills } from '../../core/capabilities/commands';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
 
@@ -36,20 +29,6 @@ export function globalSkillDirectories(): string[] {
   return [builtinSkillsDirectory(), join(hostPorts().paths.home(), '.agents', 'skills')];
 }
 
-/** 内置 Skill 资产：./skills/<名字>/，正文教 agent 经 Bash 的 dela 命令操作（commands.ts）。 */
-const BUILTIN_SKILLS: Readonly<Record<string, { path: string; content: string }[]>> = {
-  [DOCUMENT_SKILL]: [
-    { path: SKILL_ENTRY_FILE, content: documentSkill },
-    { path: 'scripts/read.py', content: documentScript },
-  ],
-  shuiyuan: [{ path: SKILL_ENTRY_FILE, content: shuiyuanSkill }],
-  canvas: [{ path: SKILL_ENTRY_FILE, content: canvasSkill }],
-  classroom: [{ path: SKILL_ENTRY_FILE, content: classroomSkill }],
-  mail: [{ path: SKILL_ENTRY_FILE, content: mailSkill }],
-  todo: [{ path: SKILL_ENTRY_FILE, content: todoSkill }],
-  curriculum: [{ path: SKILL_ENTRY_FILE, content: curriculumSkill }],
-};
-
 let builtinEnsured = false;
 /**
  * 进程内首次使用时把内置 Skill 覆写到 ~/.dela/skills：正文与 dela 命令面强绑定，
@@ -59,9 +38,9 @@ let builtinEnsured = false;
 export function ensureBuiltinSkills(): void {
   if (builtinEnsured) return;
   builtinEnsured = true;
-  for (const [name, files] of Object.entries(BUILTIN_SKILLS))
-    for (const file of files) {
-      const path = join(builtinSkillsDirectory(), name, file.path);
+  for (const skill of builtinSkills())
+    for (const file of skill.files) {
+      const path = join(builtinSkillsDirectory(), skill.name, file.path);
       if (existsSync(path) && readFileSync(path, 'utf8') === file.content) continue;
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, file.content, 'utf8');
@@ -103,6 +82,7 @@ function globalSkills(): SkillView[] {
   const disabled = readDisabledSkills();
   const skills: SkillView[] = [];
   const seen = new Set<string>();
+  const builtin = new Set(builtinSkills().map((skill) => skill.name));
   for (const directory of globalSkillDirectories()) {
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -110,7 +90,7 @@ function globalSkills(): SkillView[] {
       if (!entry.isDirectory() || seen.has(entry.name) || !existsSync(path)) continue;
       seen.add(entry.name);
       const origin: SkillOrigin =
-        directory === builtinSkillsDirectory() && entry.name in BUILTIN_SKILLS ? 'builtin' : 'user';
+        directory === builtinSkillsDirectory() && builtin.has(entry.name) ? 'builtin' : 'user';
       skills.push({
         id: path,
         name: entry.name,

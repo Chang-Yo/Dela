@@ -53,6 +53,7 @@ vi.mock('../context', () => ({
 }));
 vi.mock('../../agent/commands', () => ({
   COMMAND_BRIDGE: 'dela() { :; }',
+  commandPrompt: () => '',
   startDomainBridge: () => ({ url: 'http://127.0.0.1:1', token: 'token' }),
 }));
 vi.mock('../../terminal/mingit', () => ({ locateBash: () => 'C:\\Git\\bash.exe' }));

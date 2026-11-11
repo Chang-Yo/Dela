@@ -5,6 +5,7 @@ import { shuiyuanPostsHtml, shuiyuanTopicUrl } from '../../shuiyuan/sources';
 import { requireShuiyuanBound, withShuiyuanErrors } from './shuiyuan/helpers';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
 import { readResourceContent } from '../../resources';
+import type { CommandDomain } from '../../../core/capabilities/commands';
 import { freshness, offset, tool, toolError } from './shared';
 
 type MailRef = Extract<ResourceRef, { type: 'mail' }>;
@@ -140,3 +141,9 @@ export const readResourceTool = tool(
     }
   },
 );
+
+export const resourceDomain = {
+  name: 'resource',
+  description: '读取项目文件、笔记、Canvas 页面、邮件与水源正文',
+  commands: { read_resource: readResourceTool },
+} satisfies CommandDomain;

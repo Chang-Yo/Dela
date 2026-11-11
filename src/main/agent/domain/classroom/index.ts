@@ -9,11 +9,13 @@ import {
   listVideos,
 } from '../../../vsjtu/api';
 import { safeFileName } from '../../../vsjtu/transcript';
+import type { CommandDomain } from '../../../../core/capabilities/commands';
+import skill from '../../skills/classroom/SKILL.md?raw';
 import { limit, match, offset, page, query, tool } from '../shared';
 
 const id = z.number().int().positive();
 
-export const classroomTools = {
+const commands = {
   list_classroom_courses: tool(
     '联网列出本学期课堂视频课程，返回教学班 ID。已连接 Canvas 时自动登录，否则需要先在课堂视频页面登录。',
     z.object({ query, offset, limit }).strict(),
@@ -111,3 +113,10 @@ export const classroomTools = {
     },
   ),
 };
+
+export const classroomDomain = {
+  name: 'classroom',
+  description: '读取与下载课堂视频语音文稿',
+  skill: { name: 'classroom', files: [{ path: 'SKILL.md', content: skill }] },
+  commands,
+} satisfies CommandDomain;

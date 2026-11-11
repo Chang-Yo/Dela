@@ -38,6 +38,8 @@ import { closeRemoteWatch } from './remotes/watch';
 import { closeRemoteOpens } from './remotes/transfer';
 import { registerRemoteIpc } from './remotes/ipc';
 import { registerSearchProvider } from '../modules/search';
+import { registerCommandDomain } from '../core/capabilities/commands';
+import { builtinCommandDomains } from './agent/domain';
 import { registerModuleIpc } from '../app/ipc';
 import { modules } from '../app/modules';
 import { projectSearch } from './workspace/search';
@@ -247,6 +249,7 @@ app
       settingsSearch,
     ])
       registerSearchProvider(provider);
+    for (const domain of builtinCommandDomains) registerCommandDomain(domain);
     registerNotificationsIpc();
     registerTodoIpc();
     registerUpdateIpc();

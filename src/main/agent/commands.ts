@@ -1,117 +1,49 @@
+// dela 命令是 shell 里的业务命令，不常驻模型工具表；复用应用已有的缓存、登录与操作边界。
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
-import { canvasTools } from './domain/canvas';
-import { classroomTools } from './domain/classroom';
-import { mailTools } from './domain/mail';
-import { shuiyuanTools } from './domain/shuiyuan';
-import { timetableTools } from './domain/timetable';
-import { todoTools } from './domain/todo';
-import { workspaceTools } from './domain/workspace';
-import { readResourceTool } from './domain/read-resource';
-import { prepareDocumentResource, releaseDocumentResource } from '../resources';
-import { DOCUMENT_SKILL } from '../documents/runtime';
+import { enabledCommandDomains } from '../../core/capabilities/commands';
 import { effectiveDisabledSkills } from './skills';
-import { resourceRefSchema } from '../../shared/resources';
-import { tool } from './domain/shared';
-import type { AgentTool } from './domain/shared';
 
-// 这些是 shell 的业务命令，不常驻模型工具表；复用应用已有的缓存、登录与操作边界。
-// 停用某个 Skill 时，它的命令同时从 dela help 和执行中消失。
-const commandDomains = [
-  {
-    name: 'canvas',
-    skill: 'canvas',
-    description: '查询、同步 Canvas 课程与资料',
-    commands: canvasTools,
-  },
-  {
-    name: 'classroom',
-    skill: 'classroom',
-    description: '读取与下载课堂视频语音文稿',
-    commands: classroomTools,
-  },
-  {
-    name: 'mail',
-    skill: 'mail',
-    description: '检索邮件、读取附件与准备邮件草稿',
-    commands: mailTools,
-  },
-  {
-    name: 'shuiyuan',
-    skill: 'shuiyuan',
-    description: '查看水源分类、话题、搜索与帖子内容',
-    commands: shuiyuanTools,
-  },
-  {
-    name: 'timetable',
-    skill: 'curriculum',
-    description: '查询课表与日程，同步课表、创建或删除日程',
-    commands: timetableTools,
-  },
-  { name: 'todo', skill: 'todo', description: '查询与管理待办、Canvas 作业', commands: todoTools },
-  {
-    name: 'workspace',
-    description: '管理项目、关联校园资料与导入附件；普通文件用 read/write/edit/shell',
-    commands: workspaceTools,
-  },
-] as const;
-
-const commands: Record<string, AgentTool> = Object.assign(
-  {
-    read_resource: readResourceTool,
-    prepare_document: tool(
-      '为文档读取 skill 准备临时文件和工具路径，不解析正文、不复制进项目；需要已安装文档组件。',
-      z.object({ ref: resourceRefSchema }).strict(),
-      ({ ref }) => prepareDocumentResource(ref),
+function availableCommands() {
+  return new Map(
+    enabledCommandDomains(effectiveDisabledSkills()).flatMap((domain) =>
+      Object.entries(domain.commands),
     ),
-    release_document: tool(
-      '清理 prepare_document 生成的临时输入与输出；完成正文和图片读取后调用。',
-      z.object({ jobId: z.string() }).strict(),
-      async ({ jobId }) => {
-        await releaseDocumentResource(jobId);
-        return { released: true };
-      },
-    ),
-  },
-  ...commandDomains.map((domain) => domain.commands),
-);
-
-const commandSkills: Record<string, string> = Object.assign(
-  {
-    prepare_document: DOCUMENT_SKILL,
-    release_document: DOCUMENT_SKILL,
-    link_canvas_source: 'canvas',
-  },
-  ...commandDomains.map((domain) =>
-    'skill' in domain
-      ? Object.fromEntries(Object.keys(domain.commands).map((name) => [name, domain.skill]))
-      : {},
-  ),
-);
+  );
+}
 
 async function executeDomainCommand(name: string, input: unknown) {
-  const disabled = effectiveDisabledSkills();
-  const available = (name: string) =>
-    Object.hasOwn(commands, name) && !disabled.has(commandSkills[name] ?? '');
+  const commands = availableCommands();
   if (name === 'help') {
     const selected =
       typeof input === 'object' && input !== null && 'command' in input
         ? String(input.command)
         : '';
-    return Object.entries(commands)
-      .filter(([name]) => available(name) && (!selected || name === selected))
+    return [...commands]
+      .filter(([name]) => !selected || name === selected)
       .map(([name, command]) => ({
         name,
         description: command.description,
         parameters: z.toJSONSchema(command.schema, { io: 'input' }),
       }));
   }
-  if (!available(name)) throw new Error(`命令不存在或所属 Skill 已停用：${name}，请使用 dela help`);
-  return commands[name]!.execute(input);
+  const command = commands.get(name);
+  if (!command) throw new Error(`命令不存在或所属 Skill 已停用：${name}，请使用 dela help`);
+  return command.execute(input);
 }
 
-/** 本机命令桥（127.0.0.1 随机端口 + Bearer token）：token 只进入 agent 与终端的子进程环境，不含业务凭据。 */
+/** 系统提示中的命令域说明：只列出所属 Skill 未停用的域，与 dela help 一致。 */
+export function commandPrompt(): string {
+  return [
+    "下列能力在 bash 里用 `dela <命令> '<JSON>'` 调用，先 `dela help` 查看命令与参数；对应领域的 skill 有更完整的说明：",
+    ...enabledCommandDomains(effectiveDisabledSkills()).map(
+      (domain) => `- ${domain.name}：${domain.description}`,
+    ),
+  ].join('\n');
+}
+
+/** 本机命令桥（127.0.0.1 随机端口 + Bearer token）：token 只进入 Agent 的子进程环境，不含业务凭据。 */
 export async function startDomainBridge() {
   const token = randomBytes(32).toString('hex');
   const server = createServer(async (request, response) => {
