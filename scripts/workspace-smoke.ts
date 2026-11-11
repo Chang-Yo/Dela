@@ -12,6 +12,8 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { provideHostPorts } from '../src/main/host';
+import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase, getDatabase } from '../src/main/database';
 import { prepareEmail } from '../src/main/mail/drafts';
 import { releaseComposeFiles } from '../src/main/mail/send';
@@ -126,6 +128,7 @@ globalThis.fetch = async (input, init) => {
 app
   .whenReady()
   .then(async () => {
+    provideHostPorts(electronPorts);
     const db = getDatabase();
     db.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)").run(
       join(profile, 'notes'),

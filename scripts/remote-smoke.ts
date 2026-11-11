@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { provideHostPorts } from '../src/main/host';
+import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase, getDatabase } from '../src/main/database';
 import { registerModuleIpc } from '../src/app/ipc';
 import { modules } from '../src/app/modules';
@@ -45,6 +47,7 @@ let fixtureRoot: string | null = null;
 app
   .whenReady()
   .then(async () => {
+    provideHostPorts(electronPorts);
     closeDatabase();
     getDatabase();
 
