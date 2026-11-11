@@ -190,11 +190,13 @@ schema v12。业务代码只认当前格式；旧数据在启动时由 `src/main
 
 ## 9. 终端
 
-Git Bash + node-pty + xterm.js，与 Agent 的 bash 同源（同一份 dela 桥注入）。以下安装流程仅用于 Windows；macOS 固定用 `/bin/bash` 与 Unix PTY，不装 MinGit，不读用户的 Zsh 配置，不执行登录 shell 来取环境。
+node-pty + xterm.js。本地终端跟随用户自己的 shell：Windows 优先 PowerShell 7（PATH 上或默认安装目录），没有时用系统自带的 Windows PowerShell 5.1；macOS 以登录模式启动用户的默认 shell（通常是 zsh），加载用户自己的配置。终端不注入 dela 命令桥。
 
-- **Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit**，都缺失说明安装包被破坏，提示安装 Git for Windows 后重启，**不回退 PowerShell**。
-- 随包 MinGit 由打包前脚本 `prepare-runtime.ts` 按写死的版本与 SHA256 下载校验，仓库不提交这份约 40MB 的产物。MinGit 只以 `sh.exe` 名义带 bash 本体，脚本要复制出 `bash.exe`——**argv[0] 决定 bash 是否走完整模式**，而 `--rcfile` 注入 dela 桥依赖它。
-- 远程项目的终端是本地 `ssh -tt` 申请远端 PTY，不注入 dela 桥，但可以让 ssh 自己问密码与指纹。
+Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 dela 命令桥（`commandPrefix`）。macOS 用 `/bin/bash`，不执行登录 shell 来取环境；下面的 Git Bash 规则只用于 Windows 上的 Agent。
+
+- **Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit**，都缺失说明安装包被破坏，Agent 报错提示安装 Git for Windows 后重启，**不回退 PowerShell**。
+- 随包 MinGit 由打包前脚本 `prepare-runtime.ts` 按写死的版本与 SHA256 下载校验，仓库不提交这份约 40MB 的产物。MinGit 只以 `sh.exe` 名义带 bash 本体，脚本要复制出 `bash.exe`——**argv[0] 决定 bash 是否走完整模式**。
+- 远程项目的终端是本地 `ssh -tt` 申请远端 PTY，可以让 ssh 自己问密码与指纹。
 
 ## 10. 仓库组织
 
@@ -364,14 +366,14 @@ Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `ma
 
 ### 16.2 跨平台取舍
 
-| 项目           | 当前处理                                      | 影响                                                                         |
-| -------------- | --------------------------------------------- | ---------------------------------------------------------------------------- |
-| 核心业务       | 单应用、同一主干与 IPC，功能共用              | 新增系统调用、路径假设、外部程序依赖仍需双平台回归                           |
-| 窗口与退出     | Mac 原生按钮与导航共用一行；两端关闭都隐藏    | 只有真正退出才结束终端；Mac 经 Dock 唤回                                     |
-| Shell 与环境   | Mac 系统 Bash、SSH、Git；不执行用户登录 shell | 只写在 Zsh 初始化里的 SDK 环境不一定可见；暂不随包引入另一套 Bash/GNU 工具链 |
-| PPTX 预览      | Mac 仅系统默认应用打开                        | Mac 不显示导出按钮，主进程提前拒绝转换                                       |
-| Agent 文档读取 | 两端共用脚本与锁文件，安装器按平台选运行时    | 扫描件只输出页面图片，不宣称 OCR                                             |
-| 分发与凭据     | 相同源码生成不同平台产物                      | 签名与公证已接入发布，Gatekeeper 首启与两版升级未验收                        |
+| 项目           | 当前处理                                                                   | 影响                                                                                         |
+| -------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 核心业务       | 单应用、同一主干与 IPC，功能共用                                           | 新增系统调用、路径假设、外部程序依赖仍需双平台回归                                           |
+| 窗口与退出     | Mac 原生按钮与导航共用一行；两端关闭都隐藏                                 | 只有真正退出才结束终端；Mac 经 Dock 唤回                                                     |
+| Shell 与环境   | 终端用用户的登录 shell；Agent 用 Mac 系统 Bash、SSH、Git，不执行登录 shell | 只写在 Zsh 初始化里的 SDK 环境终端可见、Agent 不一定可见；暂不随包引入另一套 Bash/GNU 工具链 |
+| PPTX 预览      | Mac 仅系统默认应用打开                                                     | Mac 不显示导出按钮，主进程提前拒绝转换                                                       |
+| Agent 文档读取 | 两端共用脚本与锁文件，安装器按平台选运行时                                 | 扫描件只输出页面图片，不宣称 OCR                                                             |
+| 分发与凭据     | 相同源码生成不同平台产物                                                   | 签名与公证已接入发布，Gatekeeper 首启与两版升级未验收                                        |
 
 **未验收**：Mac 的实际登录启动、系统级键位冲突、多显示器与动画表现；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路。模拟的平台分支测试不能替代实机回归。
 

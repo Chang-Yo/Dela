@@ -67,7 +67,7 @@ pnpm dev
 
 `pnpm install` 的 `postinstall` 会下载 Electron 运行时，并在 macOS 上修正 `node-pty` 的 `spawn-helper` 可执行位。
 
-在 Windows 上，Git for Windows 是运行前提而非可选项：终端与 Agent 的 Bash 工具均依赖它。macOS 使用系统 `/bin/bash` 与本机 Git/SSH，无需安装 MinGit。Go 仅与 `helper/` 有关；远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go。
+在 Windows 上，Git for Windows 是运行前提而非可选项：Agent 的 Bash 工具依赖它（内置终端跟随系统 shell，不依赖它）。macOS 使用系统 `/bin/bash` 与本机 Git/SSH，无需安装 MinGit。Go 仅与 `helper/` 有关；远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go。
 
 模型服务、搜索服务与校园服务凭据均在应用设置中配置。请勿提交 `.env`、个人数据、日志与本地工具。
 

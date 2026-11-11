@@ -85,18 +85,10 @@ async function run(window) {
   );
   const list = () => js(`window.dela.terminal.list('${project.id}')`);
   await wait(
-    `window.dela.terminal.list('${project.id}').then(items => items.length === 1 && /\\$\\s*$|MINGW64/.test(items[0].buffer))`,
-    'Bash prompt ready',
+    `window.dela.terminal.list('${project.id}').then(items => items.length === 1 && /[$%>#]\\s*$/.test(items[0].buffer))`,
+    'shell prompt ready',
   );
   const first = (await list())[0];
-  // dela 命令桥经 --rcfile 注入：type 应识别为函数。
-  await js(
-    `window.dela.terminal.write('${first.id}', ${JSON.stringify('type dela >/dev/null && echo DELA_BRIDGE_OK\r')})`,
-  );
-  await wait(
-    `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('DELA_BRIDGE_OK'))`,
-    'dela bridge function injected',
-  );
   await js(`document.querySelector('.xterm-helper-textarea').focus()`);
   for (const keyCode of 'echo DELA_INPUT')
     window.webContents.sendInputEvent({ type: 'char', keyCode });
@@ -117,9 +109,7 @@ async function run(window) {
     'readline cursor movement and editing',
   );
   if (process.platform === 'darwin') {
-    await js(
-      `window.dela.terminal.write('${first.id}', "printf 'INTERRUPT_READY\\n'; sleep 30\\r")`,
-    );
+    await js(`window.dela.terminal.write('${first.id}', "echo INTERRUPT_READY; sleep 30\\r")`);
     await wait(
       `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('INTERRUPT_READY\\r\\n'))`,
       'interrupt target running',
@@ -129,7 +119,7 @@ async function run(window) {
     await js(`window.dela.terminal.write('${first.id}', "echo INTERRUPT_OK\\r")`);
     await wait(
       `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('INTERRUPT_OK\\r\\n'))`,
-      'Control+C still interrupts Bash',
+      'Control+C still interrupts the shell',
     );
   }
   // 隔离剪贴板夹具，不改写真实系统剪贴板。
@@ -154,10 +144,10 @@ async function run(window) {
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
     await wait(
       `window.dela.terminal.list('${project.id}').then(items => items[0].buffer.includes('COMMAND_PASTE\\r\\n'))`,
-      'Command+V pastes into Bash',
+      'Command+V pastes into the shell',
     );
   }
-  // 拖选锚定最后一个非空白 span 的精确矩形：bash 的 PS1 带空行与换行，整行锚定会漂到空白行。
+  // 拖选锚定最后一个非空白 span 的精确矩形：shell 提示符可能带空行与换行，整行锚定会漂到空白行。
   const selectionBox = await js(`(() => {
     const span = [...document.querySelectorAll('.xterm-rows span')]
       .filter(span => span.textContent.trim().length > 0)

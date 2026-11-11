@@ -50,7 +50,7 @@ import {
   withdrawQueued,
 } from '../session';
 import { sessionTurns } from '../session-read';
-import { locateBash } from '../../terminal';
+import { locateBash } from '../../terminal/mingit';
 import { stopTask } from '../tasks';
 
 const reply = (text: string, delayMs = 0) => ({

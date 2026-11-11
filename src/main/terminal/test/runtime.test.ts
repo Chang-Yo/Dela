@@ -3,7 +3,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-const state = vi.hoisted(() => ({ root: '', packaged: false }));
+const state = vi.hoisted(() => ({ root: '', packaged: false, systemBash: true }));
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    existsSync: (path: Parameters<typeof actual.existsSync>[0]) =>
+      path === '/bin/bash' ? state.systemBash : actual.existsSync(path),
+  };
+});
 vi.mock('electron', () => ({
   app: {
     getPath: () => state.root,
@@ -24,6 +32,7 @@ beforeEach(async () => {
   vi.resetModules();
   state.root = mkdtempSync(join(tmpdir(), 'dela-runtime-'));
   state.packaged = false;
+  state.systemBash = true;
   vi.stubGlobal('process', {
     ...process,
     platform: 'darwin',
@@ -83,4 +92,29 @@ it('Windows 仍使用 MinGit cmd 和 exe 搜索工具，以分号分隔', () => 
   touch(join(tools, 'fd.exe'));
   runtime.prependRuntimePath();
   expect(process.env.PATH).toBe(`${tools};${join(mingit, 'cmd')};C:\\Windows;C:\\custom`);
+});
+
+describe('Git Bash 定位', () => {
+  beforeEach(() => {
+    vi.stubGlobal('process', { ...process, platform: 'win32' });
+    for (const name of ['ProgramFiles', 'ProgramFiles(x86)', 'LOCALAPPDATA'])
+      vi.stubEnv(name, state.root);
+  });
+
+  it('系统 Git for Windows 优先，其次随包 MinGit；都缺失时提示安装后重启', () => {
+    const bundled = join(state.root, '.build', 'mingit', 'usr', 'bin', 'bash.exe');
+    const system = join(state.root, 'Git', 'bin', 'bash.exe');
+    expect(() => runtime.locateBash()).toThrow('后重启 Dela');
+    touch(bundled);
+    expect(runtime.locateBash()).toBe(bundled);
+    touch(system);
+    expect(runtime.locateBash()).toBe(system);
+  });
+
+  it('macOS 固定使用系统 Bash，缺失时明确报错', () => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin' });
+    expect(runtime.locateBash()).toBe('/bin/bash');
+    state.systemBash = false;
+    expect(() => runtime.locateBash()).toThrow('macOS 系统 Bash');
+  });
 });

@@ -20,7 +20,7 @@ vi.mock('../session', () => ({
   },
 }));
 
-import { locateBash } from '../../terminal';
+import { locateBash } from '../../terminal/mingit';
 import { backgroundTools, stopSessionTasks, stopTask } from '../tasks';
 
 const shell = locateBash();

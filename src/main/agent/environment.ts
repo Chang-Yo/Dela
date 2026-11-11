@@ -10,7 +10,7 @@ import { remoteById, targetOf } from '../remotes/api';
 import { remoteTools } from '../remotes/operations';
 import { syncRemoteContext } from '../remotes/context';
 import { COMMAND_BRIDGE, startDomainBridge } from './commands';
-import { locateBash } from '../terminal';
+import { locateBash } from '../terminal/mingit';
 import {
   builtinSkillsDirectory,
   effectiveDisabledSkills,

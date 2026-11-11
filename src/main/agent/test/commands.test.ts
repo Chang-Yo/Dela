@@ -16,7 +16,7 @@ vi.mock('electron', () => ({
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 vi.mock('../skills', () => ({ effectiveDisabledSkills: () => new Set(['curriculum', 'canvas']) }));
 import { COMMAND_BRIDGE, startDomainBridge } from '../commands';
-import { locateBash } from '../../terminal';
+import { locateBash } from '../../terminal/mingit';
 
 /** 把请求体写进文件而不真的发请求；只认桥当前使用的 --data-binary。 */
 const CURL_STUB =

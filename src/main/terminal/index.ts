@@ -1,44 +1,37 @@
 import { app, ipcMain, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { userInfo } from 'node:os';
+import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
 import { idSchema, projectLocation } from '../workspace/api';
 import { remoteById } from '../remotes/api';
 import { locateSsh, shellQuote } from '../remotes/transport';
-import { COMMAND_BRIDGE } from '../agent/commands';
-import { domainBridge } from '../agent';
-import { bundledBash } from './mingit';
 import type { TerminalEvent, TerminalSession } from '../../shared/terminal';
 
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 
-function systemBash(): string | null {
-  if (process.platform === 'darwin') return existsSync('/bin/bash') ? '/bin/bash' : null;
-  const candidates = [
-    join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'),
-    join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git', 'bin', 'bash.exe'),
-    join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Git', 'bin', 'bash.exe'),
-  ];
-  return candidates.find((path) => existsSync(path)) ?? null;
-}
-
-/** macOS 使用系统 Bash；Windows 先用系统安装的 Git for Windows，再用随包 MinGit。
- *  不回退 PATH 上的 bash（可能是 WSL）；都缺失说明安装包被破坏，交给用户自行修复。 */
-export function locateBash(): string {
-  if (process.platform === 'darwin') {
-    const bash = systemBash();
-    if (!bash) throw new Error('未找到 macOS 系统 Bash（/bin/bash），请检查系统环境');
-    return bash;
-  }
-  const bash = systemBash() ?? bundledBash();
-  if (!bash)
-    throw new Error(
-      '未找到 Git Bash：请安装 Git for Windows（https://git-scm.com/download/win）后重启 Dela',
+/** 交互终端跟随用户自己的 shell：Windows 优先 PowerShell 7，再用系统自带 5.1；Mac 用登录 shell。 */
+function systemShell(): { file: string; args: string[]; title: string } {
+  if (process.platform === 'win32') {
+    const pwsh = [
+      ...(process.env.PATH ?? '').split(';').filter(Boolean),
+      join(process.env.ProgramFiles ?? 'C:\\Program Files', 'PowerShell', '7'),
+    ]
+      .map((directory) => join(directory, 'pwsh.exe'))
+      .find((path) => existsSync(path));
+    const windowsPowerShell = join(
+      process.env.SystemRoot ?? 'C:\\Windows',
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe',
     );
-  return bash;
+    return { file: pwsh ?? windowsPowerShell, args: ['-NoLogo'], title: 'PowerShell' };
+  }
+  const file = userInfo().shell || '/bin/zsh';
+  return { file, args: ['-l'], title: basename(file) };
 }
 
 // 重挂载时回放最近输出；每个终端最多保留约 100 万字符，避免长期任务无限占用内存。
@@ -50,8 +43,6 @@ const sessions = new Map<
     owner: WebContents;
     pty: IPty;
     snapshot: TerminalSession;
-    /** rcfile 临时目录随会话回收。 */
-    cleanup: () => void;
   }
 >();
 
@@ -60,30 +51,12 @@ function closeSession(id: string) {
   if (!session) return;
   sessions.delete(id);
   if (session.snapshot.exitCode === null) session.pty.kill();
-  session.cleanup();
 }
 
 function ownedSession(owner: WebContents, id: unknown) {
   const session = sessions.get(idSchema.parse(id));
   if (!session || session.owner !== owner) throw new Error('终端会话不存在');
   return session;
-}
-
-/** 终端与内核 Bash 同源：经 --rcfile 链回标准初始化后注入 dela 命令桥，
- *  使 skills 的领域命令在交互终端同样可用；桥的 URL/token 只进本会话环境。 */
-function writeRcfile(): { path: string; cleanup: () => void } {
-  const directory = mkdtempSync(join(tmpdir(), 'dela-terminal-'));
-  const path = join(directory, 'rc');
-  writeFileSync(
-    path,
-    (process.platform === 'darwin'
-      ? '[ -f /etc/bashrc ] && . /etc/bashrc\n'
-      : '[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc\n') +
-      '[ -f ~/.bashrc ] && . ~/.bashrc\n' +
-      COMMAND_BRIDGE +
-      '\n',
-  );
-  return { path, cleanup: () => rmSync(directory, { force: true, recursive: true }) };
 }
 
 export function registerTerminalIpc() {
@@ -105,7 +78,6 @@ export function registerTerminalIpc() {
     if (sessions.has(parsedId)) throw new Error('终端会话已存在');
     let pty: IPty;
     let title: string;
-    let cleanup = () => {};
     if (location.kind === 'remote') {
       // 远程终端：本地 ssh -tt 申请远端 PTY，远端不需要部署 node-pty。
       // 这里刻意不加 BatchMode：交互终端可以让 ssh 自己问密码或询问主机指纹。
@@ -129,32 +101,17 @@ export function registerTerminalIpc() {
       });
       title = connection.label;
     } else {
-      const bash = locateBash();
-      const bridge = await domainBridge();
-      const rcfile = writeRcfile();
-      cleanup = rcfile.cleanup;
-      try {
-        pty = spawn(bash, ['--rcfile', rcfile.path, '-i'], {
-          name: 'xterm-256color',
-          cwd: location.path,
-          cols: 80,
-          rows: 24,
-          // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
-          ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
-          env: {
-            ...process.env,
-            TERM: 'xterm-256color',
-            // 对齐 Git Bash 快捷方式的行为（登录 shell 由 profile 处理 MSYSTEM）。
-            ...(process.platform === 'win32' ? { MSYSTEM: 'MINGW64' } : {}),
-            DELA_COMMAND_URL: bridge.url,
-            DELA_COMMAND_TOKEN: bridge.token,
-          },
-        });
-      } catch (error) {
-        cleanup();
-        throw error;
-      }
-      title = process.platform === 'darwin' ? 'Bash' : 'Git Bash';
+      const shell = systemShell();
+      pty = spawn(shell.file, shell.args, {
+        name: 'xterm-256color',
+        cwd: location.path,
+        cols: 80,
+        rows: 24,
+        // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
+        ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
+        env: { ...process.env, TERM: 'xterm-256color' },
+      });
+      title = shell.title;
     }
     const snapshot: TerminalSession = {
       id: parsedId,
@@ -168,7 +125,6 @@ export function registerTerminalIpc() {
       owner,
       pty,
       snapshot,
-      cleanup,
     };
     sessions.set(parsedId, session);
     const send = (event: TerminalEvent) => {
