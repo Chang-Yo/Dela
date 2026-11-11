@@ -16,10 +16,12 @@ import {
   getCampusSession,
   openCampusLoginWindow,
 } from '../campus';
+import { fetchGraduateTimetable, GRADUATE_CAMPUS_ORIGIN, GRADUATE_LOGIN_URL } from './graduate';
 
 const CAMPUS_ORIGIN = 'https://i.sjtu.edu.cn';
 const LOGIN_URL = `${CAMPUS_ORIGIN}/jaccountlogin`;
 const TIMETABLE_URL = `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkb.html?gnmkdm=N2151`;
+let loginUrl = LOGIN_URL;
 
 const rawLessonSchema = z
   .object({
@@ -214,15 +216,21 @@ function mapRow(row: LessonRow): TimetableLesson {
 }
 
 export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
+  const url = loginUrl;
+  const graduate = url === GRADUATE_LOGIN_URL;
   return openCampusLoginWindow({
     sender,
-    title: '登录教学信息服务网',
-    url: LOGIN_URL,
-    reached: (url) =>
-      (url.startsWith('https://i.sjtu.edu.cn/') || url.startsWith('http://i.sjtu.edu.cn/')) &&
-      !url.includes('/jaccountlogin'),
+    title: graduate ? '登录研究生教学信息平台' : '登录教学信息服务网',
+    url,
+    reached: (target) =>
+      graduate
+        ? target.startsWith(`${GRADUATE_CAMPUS_ORIGIN}/`)
+        : (target.startsWith('https://i.sjtu.edu.cn/') ||
+            target.startsWith('http://i.sjtu.edu.cn/')) &&
+          !target.includes('/jaccountlogin'),
+    retryProbe: graduate,
     probe: async () => {
-      await fetchTimetable(currentSemester());
+      await fetchTimetableData(currentSemester());
       await flushCampusSession();
     },
   });
@@ -253,40 +261,53 @@ async function fetchTimetable(semester: string) {
   return parsed.data;
 }
 
+async function fetchTimetableData(semester: string) {
+  const data = await fetchTimetable(semester);
+  if (data.kbList.length === 0) {
+    loginUrl = GRADUATE_LOGIN_URL;
+    const graduate = await fetchGraduateTimetable(semester);
+    if (graduate.lessons.length === 0)
+      throw new Error('本科和研究生课表均为空，请确认学期；原有课表不会被清除');
+    return graduate;
+  }
+
+  loginUrl = LOGIN_URL;
+  const lessons = data.kbList.flatMap((raw, index) => {
+    const courseName = raw.kcmc?.trim();
+    const weekday = Number(raw.xqj);
+    if (!courseName || !Number.isInteger(weekday) || weekday < 1 || weekday > 7) return [];
+    const periods = parsePeriods(raw.jcs || raw.jc);
+    const weeksText = raw.zcd?.trim() || '周次未提供';
+    const credits = raw.xf ? Number(raw.xf) : null;
+    return [
+      {
+        semester,
+        sourceId: raw.jxb_id || raw.kch_id || `${raw.kch ?? courseName}-${index}`,
+        courseCode: raw.kch?.trim() || '',
+        courseName,
+        className: raw.jxbmc?.trim() || null,
+        teacher: raw.xm?.trim() || null,
+        campus: raw.xqmc?.trim() || null,
+        classroom: raw.cdmc?.trim() || null,
+        weekday,
+        startPeriod: periods.start,
+        endPeriod: periods.end,
+        periodsText: raw.jc?.trim() || periods.text,
+        weeksText,
+        weekNumbers: JSON.stringify(parseWeekNumbers(raw.zcd)),
+        credits: Number.isFinite(credits) ? credits : null,
+        note: raw.xkbz?.trim() || null,
+      },
+    ];
+  });
+  if (lessons.length === 0) throw new Error('课表没有有效课程，原有课表不会被清除');
+  return { lessons, semesterStart: parseSemesterStart(data.rqazcList) };
+}
+
 export async function syncTimetable(semester: string): Promise<TimetableResult> {
   try {
-    const data = await fetchTimetable(semester);
+    const { lessons, semesterStart } = await fetchTimetableData(semester);
     await flushCampusSession();
-
-    const semesterStart = parseSemesterStart(data.rqazcList);
-    const lessons = data.kbList.flatMap((raw, index) => {
-      const courseName = raw.kcmc?.trim();
-      const weekday = Number(raw.xqj);
-      if (!courseName || !Number.isInteger(weekday) || weekday < 1 || weekday > 7) return [];
-      const periods = parsePeriods(raw.jcs || raw.jc);
-      const weeksText = raw.zcd?.trim() || '周次未提供';
-      const credits = raw.xf ? Number(raw.xf) : null;
-      return [
-        {
-          semester,
-          sourceId: raw.jxb_id || raw.kch_id || `${raw.kch ?? courseName}-${index}`,
-          courseCode: raw.kch?.trim() || '',
-          courseName,
-          className: raw.jxbmc?.trim() || null,
-          teacher: raw.xm?.trim() || null,
-          campus: raw.xqmc?.trim() || null,
-          classroom: raw.cdmc?.trim() || null,
-          weekday,
-          startPeriod: periods.start,
-          endPeriod: periods.end,
-          periodsText: raw.jc?.trim() || periods.text,
-          weeksText,
-          weekNumbers: JSON.stringify(parseWeekNumbers(raw.zcd)),
-          credits: Number.isFinite(credits) ? credits : null,
-          note: raw.xkbz?.trim() || null,
-        },
-      ];
-    });
 
     const db = getDatabase();
     const insert = db.prepare(
