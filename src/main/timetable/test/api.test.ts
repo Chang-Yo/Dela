@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Database } from 'better-sqlite3';
-import { deleteCalendarEvent, parseSemesterStart, parseWeekNumbers } from '../api';
+import { deleteCalendarEvent, parseSemesterStart, parseWeekNumbers, syncTimetable } from '../api';
+import { fetchGraduateTimetable } from '../graduate';
+import { campusRequest, getCampusSession } from '../../campus';
 import { getDatabase } from '../../database';
 
 vi.mock('electron', () => ({
@@ -10,6 +12,18 @@ vi.mock('electron', () => ({
   net: { request: vi.fn() },
 }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../../campus', () => ({
+  CampusAuthError: class CampusAuthError extends Error {},
+  campusRequest: vi.fn(),
+  flushCampusSession: vi.fn(),
+  getCampusSession: vi.fn(),
+  openCampusLoginWindow: vi.fn(),
+}));
+vi.mock('../graduate', () => ({
+  fetchGraduateTimetable: vi.fn(),
+  GRADUATE_CAMPUS_ORIGIN: 'https://yjs.sjtu.edu.cn',
+  GRADUATE_LOGIN_URL: 'https://yjs.sjtu.edu.cn/gsapp/sys/wdkbapp/*default/index.do#/xskcb',
+}));
 
 describe('parseWeekNumbers', () => {
   it('expands ranges and comma-separated weeks', () => {
@@ -44,5 +58,20 @@ describe('deleteCalendarEvent', () => {
     expect(() => deleteCalendarEvent(2.5)).toThrow();
     expect(() => deleteCalendarEvent('3')).toThrow();
     expect(prepare).toHaveBeenCalledOnce();
+  });
+});
+
+describe('syncTimetable', () => {
+  it('keeps cached lessons when both sources are empty', async () => {
+    vi.clearAllMocks();
+    vi.mocked(getCampusSession).mockResolvedValue({} as never);
+    vi.mocked(campusRequest).mockResolvedValue(JSON.stringify({ kbList: [] }));
+    vi.mocked(fetchGraduateTimetable).mockResolvedValue({ lessons: [], semesterStart: null });
+
+    await expect(syncTimetable('2026-2027-1')).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringContaining('原有课表不会被清除'),
+    });
+    expect(getDatabase).not.toHaveBeenCalled();
   });
 });
