@@ -33,16 +33,6 @@ async function executeDomainCommand(name: string, input: unknown) {
   return command.execute(input);
 }
 
-/** 系统提示中的命令域说明：只列出所属 Skill 未停用的域，与 dela help 一致。 */
-export function commandPrompt(): string {
-  return [
-    "下列能力在 bash 里用 `dela <命令> '<JSON>'` 调用，先 `dela help` 查看命令与参数；对应领域的 skill 有更完整的说明：",
-    ...enabledCommandDomains(effectiveDisabledSkills()).map(
-      (domain) => `- ${domain.name}：${domain.description}`,
-    ),
-  ].join('\n');
-}
-
 /** 本机命令桥（127.0.0.1 随机端口 + Bearer token）：token 只进入 Agent 的子进程环境，不含业务凭据。 */
 export async function startDomainBridge() {
   const token = randomBytes(32).toString('hex');

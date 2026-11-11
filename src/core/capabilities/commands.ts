@@ -32,6 +32,16 @@ export function enabledCommandDomains(disabledSkills: ReadonlySet<string>): Comm
   return domains.filter((domain) => !domain.skill || !disabledSkills.has(domain.skill.name));
 }
 
+/** 系统提示中的命令域说明，与 dela help 一致；没有可用命令域时不提 dela。 */
+export function commandPrompt(disabledSkills: ReadonlySet<string>): string | null {
+  const enabled = enabledCommandDomains(disabledSkills);
+  if (enabled.length === 0) return null;
+  return [
+    "下列能力在 bash 里用 `dela <命令> '<JSON>'` 调用，先 `dela help` 查看命令与参数；对应领域的 skill 有更完整的说明：",
+    ...enabled.map((domain) => `- ${domain.name}：${domain.description}`),
+  ].join('\n');
+}
+
 export function builtinSkills(): BuiltinSkill[] {
   return domains.flatMap((domain) => (domain.skill ? [domain.skill] : []));
 }
