@@ -1,12 +1,12 @@
 // 项目目录的外部操作：Git 分支查询与切换、用 VS Code 或资源管理器打开项目目录。
 // 只依赖 api.ts 解析出的项目位置，不读写工作区条目。
-import { app, shell } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { remoteById } from '../remotes/api';
 import { workspaceEntryIdSchema } from '../../shared/workspace';
+import { hostPorts } from '../host';
 import { projectDirectory, projectLocation, remoteProjectOf } from './api';
 
 /** 项目目录的当前 Git 分支：非仓库、目录不存在、git 缺失与分离 HEAD 都算「没有分支」。
@@ -89,8 +89,11 @@ export async function openProjectDirectory(id: unknown, target: unknown): Promis
   }
   const path = projectDirectory(id);
   if (action === 'vscode') return openInVsCode(path);
-  const error = await shell.openPath(path);
-  if (error) throw new Error(`无法打开项目目录：${error}`);
+  await hostPorts()
+    .desktop.open(path)
+    .catch((error: Error) => {
+      throw new Error(`无法打开项目目录：${error.message}`);
+    });
 }
 /** remoteAuthority 非空表示远端项目：本地 VS Code 收到远端 POSIX 路径只会去开本地同名目录，
  *  只有 `--remote ssh-remote+<目的地>` 会让远端那台机器的 VS Code Server 打开它。 */
@@ -107,7 +110,7 @@ export async function openInVsCode(
           let first = error ? undefined : stdout.split(/\r?\n/).find((line) => line.trim());
           // Finder 启动时未必装过 code 的 PATH 链接，直接使用标准安装位置内的 CLI。
           if (!first && process.platform === 'darwin') {
-            first = ['/Applications', join(app.getPath('home'), 'Applications')]
+            first = ['/Applications', join(hostPorts().paths.home(), 'Applications')]
               .map((directory) =>
                 join(
                   directory,

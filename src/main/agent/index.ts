@@ -1,6 +1,6 @@
 // agent 域入口：注册 session:* / chat:* / llm:* / capabilities:* 通道。
 // 会话、工具、压缩、skills 发现都在 Pi 里；这里只做 IPC 参数校验与转发。
-import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { type IpcMainInvokeEvent, ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
 import {
@@ -39,11 +39,11 @@ import {
   runSessionCommand,
   setSessionEffort,
   setSessionModel,
-  subscribeChat,
   updateSessionVisibility,
   withdrawQueued,
 } from './session';
 import { stopUserTask } from './tasks';
+import { hostPorts } from '../host';
 import { exportSession } from './session-export';
 import {
   askSidechat,
@@ -55,7 +55,7 @@ import {
   shutdownSidechats,
 } from './sidechat';
 import {
-  pickChatMedia,
+  stageChatMediaFiles,
   readChatMediaPreview,
   releaseChatMedia,
   stageChatMedia,
@@ -102,14 +102,7 @@ import {
 } from './web-search';
 
 export { closeDomainBridge, domainBridge } from './environment';
-export {
-  gcChatMedia,
-  hasLiveSessions,
-  invalidateSessions,
-  loadPi,
-  shutdownSessions,
-  subscribeChat,
-};
+export { gcChatMedia, hasLiveSessions, invalidateSessions, loadPi, shutdownSessions };
 
 function hasLiveSessions() {
   return hasLiveMainSessions() || hasSidechats();
@@ -145,9 +138,7 @@ function invalidating<T>(fn: () => T): T {
 
 function changingWebSearch<T>(fn: () => T): T {
   const result = invalidating(fn);
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send('capabilities:web-search-changed');
-  }
+  hostPorts().desktop.sendToWindows('capabilities:web-search-changed');
   return result;
 }
 
@@ -161,7 +152,7 @@ export function registerAgentIpc() {
   const sessionHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`session:${name}`, async (event, ...args) => {
       checkWorkspaceSender(event);
-      subscribeChat(event.sender);
+      hostPorts().broadcaster.subscribe(event.sender);
       await preloadPi();
       return fn(...args);
     });
@@ -192,7 +183,7 @@ export function registerAgentIpc() {
   sessionHandle('open', (id) => openSession(uuid.parse(id)));
   ipcMain.handle('session:export', (event, id) => {
     checkWorkspaceSender(event);
-    return exportSession(uuid.parse(id), BrowserWindow.fromWebContents(event.sender));
+    return exportSession(uuid.parse(id), event.sender);
   });
   sessionHandle('remove', (id) => {
     const sessionId = uuid.parse(id);
@@ -210,7 +201,7 @@ export function registerAgentIpc() {
   const sidechatHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`sidechat:${name}`, async (event, ...args) => {
       checkWorkspaceSender(event);
-      subscribeChat(event.sender);
+      hostPorts().broadcaster.subscribe(event.sender);
       await preloadPi();
       return fn(...args);
     });
@@ -260,9 +251,8 @@ export function registerAgentIpc() {
       Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength),
     );
   });
-  chatHandle('pick-media', (event) => {
-    const owner = BrowserWindow.fromWebContents(event.sender);
-    return owner ? pickChatMedia(owner) : [];
+  chatHandle('pick-media', async (event) => {
+    return stageChatMediaFiles(await hostPorts().desktop.pickFiles(event.sender));
   });
   chatHandle('read-media-preview', (_event, id) => readChatMediaPreview(uuid.parse(id)));
   chatHandle('release-media', (_event, ids) => releaseChatMedia(z.array(uuid).max(24).parse(ids)));

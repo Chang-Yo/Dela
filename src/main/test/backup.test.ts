@@ -46,6 +46,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 
 import type { BackupResult } from '../../shared/backup';
 import { exportUserData } from '../backup';
+import { provideTestHostPorts } from './host-mock';
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../database';
 
 let base: string;
@@ -90,6 +91,13 @@ beforeEach(() => {
   writeFileSync(join(state.documents, 'Dela', 'note.txt'), 'keep');
   // 用户自己写的 Skill 在 ~/.dela/skills，不在应用数据目录里，得单独带走。
   state.home = join(base, 'home');
+  provideTestHostPorts({
+    paths: {
+      userData: () => state.root,
+      home: () => state.home,
+      documents: () => state.documents,
+    },
+  });
   mkdirSync(join(state.home, '.dela', 'skills', 'mine'), { recursive: true });
   writeFileSync(join(state.home, '.dela', 'skills', 'mine', 'SKILL.md'), 'keep');
 });

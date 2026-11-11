@@ -14,12 +14,10 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, sep } from 'node:path';
-import { shell } from 'electron';
 import { EventEmitter } from 'node:events';
 
 const state = vi.hoisted(() => ({ root: '', execFile: vi.fn(), spawn: vi.fn() }));
 vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
-vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPath: vi.fn() } }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
 vi.mock('../../shuiyuan/sources', () => ({ readShuiyuanSourcePreview: vi.fn() }));
@@ -43,6 +41,8 @@ import {
   entry,
 } from '../api';
 import { openProjectDirectory } from '../project';
+import { provideTestHostPorts } from '../../test/host-mock';
+import { hostPorts } from '../../host';
 import {
   getLocalWorkspaceState,
   listLocalDirectory,
@@ -50,6 +50,7 @@ import {
   searchLocalWorkspace,
 } from '../local-tree';
 
+const open = () => vi.mocked(hostPorts().desktop.open);
 const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
 function createDb(): Database.Database {
@@ -139,6 +140,7 @@ beforeEach(() => {
     return { stdin: { on() {}, end() {} } };
   });
   state.root = mkdtempSync(join(tmpdir(), 'dela-notes-'));
+  provideTestHostPorts({ paths: { documents: () => state.root } });
   db = createDb();
   vi.mocked(getDatabase).mockReturnValue(db);
 });
@@ -384,7 +386,7 @@ describe('打开项目目录', () => {
   it('远端项目经 Remote-SSH 打开远端路径，不交给本地 VS Code 当本地目录', async () => {
     const project = insertRemoteProject('root@47.117.158.218', '/srv/app');
     const code = stubVsCode();
-    vi.mocked(shell.openPath).mockClear();
+    open().mockClear();
     await openProjectDirectory(project, 'vscode');
     expect(state.spawn).toHaveBeenLastCalledWith(
       code,
@@ -393,7 +395,7 @@ describe('打开项目目录', () => {
     );
     // 远端目录没有本地对应物，资源管理器无从打开。
     await expect(openProjectDirectory(project, 'explorer')).rejects.toThrow('没有本地目录');
-    expect(shell.openPath).not.toHaveBeenCalled();
+    expect(open()).not.toHaveBeenCalled();
   });
 
   it('未找到 VS Code 时提示远端项目需要 Remote - SSH 与 ssh config', async () => {
@@ -421,12 +423,11 @@ describe('打开项目目录', () => {
       name: '项目 % & 中文',
       kind: 'project',
     });
-    vi.mocked(shell.openPath).mockResolvedValue('');
     await openProjectDirectory(project.id, 'explorer');
-    expect(shell.openPath).toHaveBeenLastCalledWith(join(workspaceRoot(), '项目 % & 中文'));
+    expect(open()).toHaveBeenLastCalledWith(join(workspaceRoot(), '项目 % & 中文'));
     updateWorkspaceEntry(project.id, { name: '新项目' });
     await openProjectDirectory(project.id, 'explorer');
-    expect(shell.openPath).toHaveBeenLastCalledWith(join(workspaceRoot(), '新项目'));
+    expect(open()).toHaveBeenLastCalledWith(join(workspaceRoot(), '新项目'));
   });
 
   it('拒绝普通文件夹、无效项目 ID 和未知打开方式', async () => {
@@ -439,7 +440,7 @@ describe('打开项目目录', () => {
 
   it('系统打开失败时报告错误', async () => {
     const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
-    vi.mocked(shell.openPath).mockResolvedValueOnce('目录无法打开');
+    open().mockRejectedValueOnce(new Error('目录无法打开'));
     await expect(openProjectDirectory(project.id, 'explorer')).rejects.toThrow('目录无法打开');
   });
 });

@@ -15,6 +15,8 @@ vi.setConfig({ testTimeout: 30_000 });
 const profile = vi.hoisted(() => ({ path: '' }));
 vi.mock('electron', () => ({ app: { getPath: () => profile.path } }));
 vi.mock('node:fs/promises', { spy: true });
+
+import { provideTestHostPorts } from '../../test/host-mock';
 import {
   captureDirectory,
   deleteTurnChanges,
@@ -34,6 +36,7 @@ beforeEach(async () => {
   root = await fsPromises.realpath(mkdtempSync(join(tmpdir(), 'dela-changes-')));
   cwd = join(root, 'project');
   profile.path = join(root, 'profile');
+  provideTestHostPorts({ paths: { userData: () => profile.path } });
   mkdirSync(cwd);
   sessionId = randomUUID();
 });

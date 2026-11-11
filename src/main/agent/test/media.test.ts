@@ -27,6 +27,7 @@ vi.mock('../skills', () => ({
 vi.mock('../../database', () => ({
   getDatabase: () => ({ prepare: () => ({ all: () => state.sessions }) }),
 }));
+import { provideTestHostPorts } from '../../test/host-mock';
 import {
   gcChatMedia,
   readChatAttachment,
@@ -36,6 +37,7 @@ import {
 } from '../media';
 
 beforeEach(() => {
+  provideTestHostPorts({ paths: { userData: () => state.root } });
   state.missing = false;
   state.disabled = false;
   state.sessions = [];

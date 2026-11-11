@@ -1,5 +1,4 @@
 /** Pi Coding Agent 接线：内核就是 pi-coding-agent SDK；这里只做加载、提供商注册与按 cwd 建会话，工具与会话树仍归 Pi。 */
-import { app } from 'electron';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { writeFileSync } from 'node:fs';
 import type {
@@ -16,6 +15,7 @@ import {
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
 } from '../../shared/llm-models';
+import { hostPorts } from '../host';
 
 type Sdk = typeof import('@earendil-works/pi-coding-agent');
 
@@ -28,7 +28,7 @@ export function loadPi(): Promise<Sdk> {
 
 /** Pi 的全局目录（auth/models/settings/skills/bin）：放在应用数据下，与用户的 ~/.pi 隔离。 */
 export function piAgentDir(): string {
-  return join(app.getPath('userData'), 'pi');
+  return join(hostPorts().paths.userData(), 'pi');
 }
 
 function piSessionsDir(): string {

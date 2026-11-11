@@ -14,7 +14,6 @@ vi.mock('electron', () => ({ app: { getPath: () => root }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({ llmProviders: () => [], usableLlmProviders: () => [] }));
 vi.mock('../environment', () => ({ agentEnvironment: () => ({}) }));
-vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 
 import { loadPi } from '../pi';
 import { preloadPi } from '../session';

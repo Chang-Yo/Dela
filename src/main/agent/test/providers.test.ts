@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  CredentialDecryptionError,
-  loadLlmConfig,
-  saveLlmConfig,
-  type StoredLlmConfig,
-} from '../../credentials';
+import { CredentialDecryptionError } from '../../host';
+import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../../credentials';
 import {
   listLlmProviders,
   modelListEndpoints,
@@ -40,7 +36,6 @@ vi.mock('../pi', async (importOriginal) => ({
 }));
 
 vi.mock('../../credentials', () => ({
-  CredentialDecryptionError: class extends Error {},
   loadLlmConfig: vi.fn(),
   saveLlmConfig: vi.fn(),
 }));
@@ -197,7 +192,7 @@ describe('LLM provider config', () => {
 
   it('can add a provider after the old encrypted config becomes unreadable', async () => {
     loadMock.mockImplementation(() => {
-      throw new CredentialDecryptionError('unreadable', undefined);
+      throw new CredentialDecryptionError('llm-providers', undefined);
     });
     expect((await saveLlmProvider(input)).name).toBe(input.name);
     expect(config.providers).toHaveLength(1);
@@ -206,12 +201,12 @@ describe('LLM provider config', () => {
 
   it('does not replace an unreadable config when editing an existing provider', async () => {
     loadMock.mockImplementation(() => {
-      throw new CredentialDecryptionError('unreadable', undefined);
+      throw new CredentialDecryptionError('llm-providers', undefined);
     });
     const writes = saveMock.mock.calls.length;
     await expect(
       saveLlmProvider({ ...input, id: '00000000-0000-4000-8000-000000000001' }),
-    ).rejects.toThrow('unreadable');
+    ).rejects.toThrow(CredentialDecryptionError);
     expect(saveMock.mock.calls).toHaveLength(writes);
   });
 

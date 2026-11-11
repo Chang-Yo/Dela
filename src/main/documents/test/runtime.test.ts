@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   spawn: vi.fn(),
   digests: [] as string[],
 }));
-vi.mock('electron', () => ({ app: { getPath: () => mocks.profile }, net: { fetch: mocks.fetch } }));
 vi.mock('node:child_process', () => ({ spawn: mocks.spawn }));
 vi.mock('node:crypto', () => ({
   createHash: () => ({ update() {}, digest: () => mocks.digests.shift() }),
@@ -51,6 +50,11 @@ function fixture(path: string) {
 async function setup(platform = platforms[0]!) {
   vi.stubGlobal('process', { ...process, platform: platform.platform, arch: platform.arch });
   mocks.digests = [...platform.hashes];
+  const { provideTestHostPorts } = await import('../../test/host-mock');
+  provideTestHostPorts({
+    paths: { userData: () => mocks.profile },
+    network: { fetch: mocks.fetch },
+  });
   runtime = await import('../runtime');
   root = runtime.documentRuntimeDirectory();
   mocks.spawn.mockImplementation(

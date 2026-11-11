@@ -21,12 +21,14 @@ vi.mock('electron', () => ({
 
 import { closeDatabase, getDatabase } from '../database';
 import { registerConsentIpc } from '../consent';
+import { provideTestHostPorts } from './host-mock';
 
 const frame = { url: 'file:///index.html' };
 const event = { senderFrame: frame, sender: { mainFrame: frame } };
 
 function setup() {
   state.root = mkdtempSync(join(tmpdir(), 'dela-consent-'));
+  provideTestHostPorts({ paths: { userData: () => state.root } });
   registerConsentIpc();
   const handler = state.handlers.get('consent:record');
   if (!handler) throw new Error('没有注册 consent:record');

@@ -18,7 +18,6 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('electron', () => ({
   app: { getPath: () => root },
-  shell: { trashItem: async () => {} },
 }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
@@ -39,7 +38,6 @@ vi.mock('../environment', () => ({
     workspaceRoot: () => root,
   }),
 }));
-vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 
 import {
   askSession,

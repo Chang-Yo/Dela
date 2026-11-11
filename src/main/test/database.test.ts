@@ -5,11 +5,12 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 
 const state = vi.hoisted(() => ({ root: '' }));
-vi.mock('electron', () => ({ app: { getPath: () => state.root } }));
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../database';
+import { provideTestHostPorts } from './host-mock';
 
 function freshRoot(): string {
   state.root = mkdtempSync(join(tmpdir(), 'dela-db-'));
+  provideTestHostPorts({ paths: { userData: () => state.root } });
   return state.root;
 }
 

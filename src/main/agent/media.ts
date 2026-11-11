@@ -1,4 +1,3 @@
-import { BrowserWindow, app, dialog, nativeImage, type NativeImage } from 'electron';
 import {
   closeSync,
   existsSync,
@@ -24,6 +23,7 @@ import { SNIFF_BYTES } from '../../shared/files';
 import { getDatabase } from '../database';
 import { DOCUMENT_SKILL, assertDocumentDependency } from '../documents/runtime';
 import { readDisabledSkills } from './skills';
+import { hostPorts } from '../host';
 
 // 内联图片暂存在 userData/chat-media/<UUID>.<ext>：模型拿到的是 base64（随 Pi 会话落盘），
 // 文档同样保留本地副本供 skill 按需读取；文本附件只进内存。启动时按会话引用回收孤儿文件。
@@ -35,19 +35,13 @@ function assertDocumentSkill(): void {
 }
 
 function mediaDir(): string {
-  const dir = join(app.getPath('userData'), 'chat-media');
+  const dir = join(hostPorts().paths.userData(), 'chat-media');
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
 function safeExtension(name: string): string {
   return (/\.[A-Za-z0-9]+$/.exec(name)?.[0] ?? '').toLowerCase();
-}
-
-function previewDataUrl(image: NativeImage): string | null {
-  if (image.isEmpty()) return null;
-  const size = image.getSize();
-  return (size.width > 480 ? image.resize({ width: 480, quality: 'good' }) : image).toDataURL();
 }
 
 function readHead(path: string, size: number): Buffer {
@@ -84,7 +78,7 @@ export function stageChatMedia(name: string, bytes: Buffer): ChatMediaView {
       name,
       size: bytes.length,
       kind: 'image',
-      previewUrl: previewDataUrl(nativeImage.createFromBuffer(bytes)),
+      previewUrl: hostPorts().imageCodec.previewDataUrl(bytes),
     };
   }
   if (bytes.length > CHAT_TEXT_ATTACHMENT_MAX_BYTES) throw new Error('文本附件超过 1 MB 上限');
@@ -93,15 +87,10 @@ export function stageChatMedia(name: string, bytes: Buffer): ChatMediaView {
   return { id, name, size: bytes.length, kind: 'attachment', previewUrl: null };
 }
 
-export async function pickChatMedia(owner: BrowserWindow): Promise<ChatMediaView[]> {
-  const result = await dialog.showOpenDialog(owner, {
-    properties: ['openFile', 'multiSelections'],
-    filters: [{ name: '文件', extensions: ['*'] }],
-  });
-  if (result.canceled) return [];
+export function stageChatMediaFiles(paths: readonly string[]): ChatMediaView[] {
   const picked: ChatMediaView[] = [];
   try {
-    for (const path of result.filePaths) {
+    for (const path of paths) {
       const stat = statSync(path);
       if (!stat.isFile()) continue;
       const kind = chatFileKind(basename(path), readHead(path, stat.size), stat.size > SNIFF_BYTES);
@@ -160,7 +149,7 @@ export function readChatMediaPreview(id: string): string | null {
   if (!isUuid(id)) return null;
   for (const file of readdirSync(mediaDir())) {
     if (!file.startsWith(id)) continue;
-    return previewDataUrl(nativeImage.createFromPath(join(mediaDir(), file)));
+    return hostPorts().imageCodec.previewDataUrl(join(mediaDir(), file));
   }
   return null;
 }

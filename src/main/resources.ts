@@ -1,4 +1,3 @@
-import { app, shell } from 'electron';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -10,6 +9,7 @@ import { readShuiyuanSource } from './shuiyuan/sources';
 import { TEXT_PREVIEW_MAX_BYTES, formatByName, imageMimeOf, isTextContent } from '../shared/files';
 import { localFileFormat, textRevision } from './workspace/files';
 import { diskName } from './storage';
+import { hostPorts } from './host';
 import { workspaceEntryIdSchema } from '../shared/workspace';
 import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
 
@@ -92,7 +92,7 @@ export async function readResourceContent(
   return { title: item.name, format, text: content, revision: textRevision(content) };
 }
 
-const documentJobs = () => join(app.getPath('temp'), 'dela-document-reading');
+const documentJobs = () => join(hostPorts().paths.temp(), 'dela-document-reading');
 const jobIdSchema = z.string().regex(/^job-[A-Za-z0-9]{6}$/);
 
 export async function prepareDocumentResource(ref: ResourceRef) {
@@ -116,7 +116,14 @@ export async function prepareDocumentFile(writeInput: (path: string) => Promise<
     return {
       jobId: basename(job),
       python: documentPython(),
-      script: join(app.getPath('home'), '.dela', 'skills', DOCUMENT_SKILL, 'scripts', 'read.py'),
+      script: join(
+        hostPorts().paths.home(),
+        '.dela',
+        'skills',
+        DOCUMENT_SKILL,
+        'scripts',
+        'read.py',
+      ),
       input,
       output: join(job, 'output'),
     };
@@ -141,7 +148,7 @@ export async function withResourceFile<T>(
   const mail = await readMailMessage(source.messageId);
   const attachment = mail.attachments.find((item) => item.part === source.part);
   if (!attachment) throw new Error('附件不存在，请先同步邮件');
-  const temporaryDirectory = await mkdtemp(join(app.getPath('temp'), 'dela-attachment-'));
+  const temporaryDirectory = await mkdtemp(join(hostPorts().paths.temp(), 'dela-attachment-'));
   try {
     const path = join(temporaryDirectory, diskName(attachment.filename));
     await saveMailAttachment(source.messageId, source.part, path);
@@ -171,6 +178,9 @@ export async function openResourceFile(ref: ResourceRef): Promise<void> {
     throw new Error('仅支持资料文件与我的资料条目');
   const path =
     parsed.type === 'canvas' ? await canvasFilePath(parsed.id) : await workspaceFilePath(parsed.id);
-  const error = await shell.openPath(path);
-  if (error) throw new Error(`无法用系统默认程序打开：${error}`);
+  await hostPorts()
+    .desktop.open(path)
+    .catch((error: Error) => {
+      throw new Error(`无法用系统默认程序打开：${error.message}`);
+    });
 }

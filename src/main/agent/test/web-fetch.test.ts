@@ -6,10 +6,10 @@ import { join } from 'node:path';
 import { fetchWebPage } from '../web-fetch';
 import { releaseDocumentResource } from '../../resources';
 import { assertDocumentDependency } from '../../documents/runtime';
+import { provideTestHostPorts } from '../../test/host-mock';
 
 const profile = vi.hoisted(() => ({ root: '' }));
 profile.root = mkdtempSync(join(tmpdir(), 'dela-web-document-'));
-vi.mock('electron', () => ({ app: { getPath: () => profile.root } }));
 vi.mock('../../documents/runtime', () => ({
   DOCUMENT_SKILL: 'document-reading',
   assertDocumentDependency: vi.fn(),
@@ -21,6 +21,7 @@ vi.mock('../../mail/api', () => ({}));
 vi.mock('../../shuiyuan/api', () => ({}));
 vi.mock('../../storage', () => ({}));
 
+provideTestHostPorts({ paths: { userData: () => profile.root, temp: () => profile.root } });
 afterEach(() => vi.unstubAllGlobals());
 afterAll(() => rm(profile.root, { recursive: true, force: true }));
 

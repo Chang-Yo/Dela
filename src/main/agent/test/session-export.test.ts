@@ -7,13 +7,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const boundary = vi.hoisted(() => ({
   root: '',
   file: '',
-  save: vi.fn(),
+  save: vi.fn<() => Promise<string | null>>(async () => null),
 }));
 
 vi.mock('electron', () => ({
   app: { getPath: () => boundary.root, isPackaged: false },
   shell: {},
-  dialog: { showSaveDialog: boundary.save },
   nativeImage: {},
 }));
 vi.mock('../../database', () => ({
@@ -22,12 +21,25 @@ vi.mock('../../database', () => ({
   }),
 }));
 
+import { provideTestHostPorts } from '../../test/host-mock';
+
 import { exportSession } from '../session-export';
 
 beforeEach(async () => {
   boundary.root = await mkdtemp(join(tmpdir(), 'dela-session-export-'));
   boundary.file = join(boundary.root, 'pi.jsonl');
   boundary.save.mockReset();
+  provideTestHostPorts({
+    paths: { userData: () => boundary.root, home: () => boundary.root },
+    desktop: {
+      pickFiles: vi.fn(async () => []),
+      pickSavePath: boundary.save,
+      reveal: vi.fn(),
+      open: vi.fn(async () => {}),
+      trash: vi.fn(async () => {}),
+      sendToWindows: vi.fn(),
+    },
+  });
 });
 afterEach(() => rm(boundary.root, { recursive: true, force: true }));
 
@@ -142,7 +154,7 @@ it('导出当前分支及附件，保留压缩前的对话和工具轨迹', asyn
   await writeFile(boundary.file, session);
   const path = join(boundary.root, '导出.zip');
   await writeFile(path, 'existing ZIP chosen for replacement');
-  boundary.save.mockResolvedValue({ canceled: false, filePath: path });
+  boundary.save.mockResolvedValue(path);
 
   await expect(exportSession('test', null)).resolves.toEqual({
     saved: true,
@@ -190,7 +202,7 @@ it('导出当前分支及附件，保留压缩前的对话和工具轨迹', asyn
 });
 
 it('取消系统保存对话框时不读取会话或写入文件', async () => {
-  boundary.save.mockResolvedValue({ canceled: true });
+  boundary.save.mockResolvedValue(null);
   await expect(exportSession('test', null)).resolves.toEqual({ saved: false, missing: [] });
   expect(await readdir(boundary.root)).toEqual([]);
 });

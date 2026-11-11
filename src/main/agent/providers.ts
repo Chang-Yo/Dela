@@ -9,8 +9,8 @@ import {
   reasoningEffortLevels,
 } from '../../shared/llm-models';
 import { llmCatalog, verifyModel } from './pi';
+import { CredentialDecryptionError } from '../host';
 import {
-  CredentialDecryptionError,
   loadLlmConfig,
   saveLlmConfig,
   type StoredLlmConfig,

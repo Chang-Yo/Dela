@@ -3,20 +3,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const state = vi.hoisted(() => ({ root: '' }));
-vi.mock('electron', () => ({
-  app: { getPath: () => state.root },
-  safeStorage: {
-    isEncryptionAvailable: () => true,
-    encryptString: (text: string) => Buffer.from(text),
-    decryptString: (data: Buffer) => data.toString(),
-  },
-}));
 import {
   addMcpServer,
   executeMcpTool,
@@ -27,6 +19,8 @@ import {
   removeMcpServer,
   updateMcpServer,
 } from '../mcp';
+import { hostPorts } from '../../host';
+import { provideTestHostPorts } from '../../test/host-mock';
 
 const echoServer = fileURLToPath(new URL('./echo-server.ts', import.meta.url));
 const echoConfig = {
@@ -37,10 +31,7 @@ const echoConfig = {
   env: {},
 };
 const storedConfigs = () =>
-  JSON.parse(readFileSync(join(state.root, 'mcp-servers.bin'), 'utf8')) as Record<
-    string,
-    unknown
-  >[];
+  JSON.parse(hostPorts().secrets.read('mcp-servers')!) as Record<string, unknown>[];
 
 async function until(assertion: () => void, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
@@ -57,6 +48,7 @@ async function until(assertion: () => void, timeoutMs = 5000) {
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-mcp-'));
+  provideTestHostPorts({ paths: { userData: () => state.root } });
 });
 
 afterAll(() => {

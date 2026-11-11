@@ -106,7 +106,6 @@ vi.mock('../environment', () => ({
     },
   }),
 }));
-vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 // 假会话不跑工具：后台任务的工具与登记换成空壳（真实行为见 tasks.test / task-notice.test）。
 vi.mock('../tasks', () => ({
   backgroundTools: async () => [],
@@ -132,6 +131,7 @@ import {
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
 import { removeWorkspaceEntry } from '../../workspace/api';
+import { provideTestHostPorts } from '../../test/host-mock';
 
 beforeEach(() => {
   state.configured = false;
@@ -156,6 +156,7 @@ beforeEach(() => {
   ];
   state.modelSwitches = [];
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-'));
+  provideTestHostPorts({ paths: { userData: () => state.root, documents: () => state.root } });
   state.db = new Database(':memory:');
   state.db.pragma('foreign_keys = ON');
   state.db.exec(`

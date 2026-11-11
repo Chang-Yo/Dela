@@ -35,7 +35,8 @@ vi.mock('../environment', () => ({
     workspaceRoot: () => root,
   }),
 }));
-vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
+
+import { provideTestHostPorts } from '../../test/host-mock';
 vi.mock('../pi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../pi')>();
   return {
@@ -90,6 +91,7 @@ async function capture<T>(action: () => Promise<T>) {
 let server: MockOpenAiServer;
 
 beforeAll(async () => {
+  provideTestHostPorts({ paths: { userData: () => root, home: () => root } });
   server = await MockOpenAiServer.start();
   state.provider = {
     id: 'p1',

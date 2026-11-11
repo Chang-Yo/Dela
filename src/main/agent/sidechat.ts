@@ -14,11 +14,11 @@ import {
   composePrompt,
   projectMessages,
   row,
-  send,
   sidechatSource,
   toolOutput,
   withoutToolImages,
 } from './session';
+import { hostPorts } from '../host';
 
 interface Side {
   session: AgentSession;
@@ -52,7 +52,7 @@ function view(parentId: string, side: Side): SidechatView {
 }
 
 function publish(parentId: string, side: Side) {
-  send('sidechat:on-update', view(parentId, side));
+  hostPorts().broadcaster.send('sidechat:on-update', view(parentId, side));
 }
 
 function stream(parentId: string, side: Side) {
@@ -67,7 +67,7 @@ function stream(parentId: string, side: Side) {
     true,
   ).at(-1);
   if (last?.role === 'assistant')
-    send('sidechat:on-stream', {
+    hostPorts().broadcaster.send('sidechat:on-stream', {
       sessionId: parentId,
       message: withoutToolImages(last),
       activeTool: side.run?.tool,
@@ -202,7 +202,7 @@ export async function closeSidechat(parentId: string): Promise<void> {
   }
   side.unsubscribe();
   side.session.dispose();
-  send('sidechat:on-closed', parentId);
+  hostPorts().broadcaster.send('sidechat:on-closed', parentId);
 }
 
 /** 保留为新会话：借来的历史加旁问内容写成会话文件，标题加「旁问：」，然后关闭旁问。 */

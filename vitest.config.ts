@@ -9,6 +9,7 @@ export default defineConfig({
     ),
   },
   test: {
+    setupFiles: ['src/main/test/host-mock.ts'],
     // 单元测试不启动 Electron，也需能找到应用随包分发的搜索工具。
     env: {
       PATH: [

@@ -39,6 +39,7 @@ import {
 } from './local-tree';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell, type WebContents } from 'electron';
+import { hostPorts } from '../host';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { storageDirectory as directory } from '../storage';
@@ -135,19 +136,16 @@ function watchWorkspace(client: WebContents, state: WorkspaceState) {
 }
 
 /** workspace 通道不依赖 agent 域：会话订阅与项目目录变化后的会话重建都由装配层（main/index.ts 经 agent 门面）注入。 */
-export function registerWorkspaceIpc(
-  subscribeChat: (client: WebContents) => void,
-  invalidateSessions: () => void,
-) {
+export function registerWorkspaceIpc(invalidateSessions: () => void) {
   const handle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`workspace:${name}`, (event, ...args) => {
       checkWorkspaceSender(event);
-      subscribeChat(event.sender);
+      hostPorts().broadcaster.subscribe(event.sender);
       return fn(...args);
     });
   ipcMain.handle('workspace:get-state', async (event) => {
     checkWorkspaceSender(event);
-    subscribeChat(event.sender);
+    hostPorts().broadcaster.subscribe(event.sender);
     const state = await getLocalWorkspaceState();
     watchWorkspace(event.sender, state);
     return state;
@@ -235,7 +233,7 @@ export function registerWorkspaceIpc(
   // 导出过程要把阶段事件推给发起窗口，需要 event，走独立注册。
   ipcMain.handle('workspace:export-office-pdf', (event, ref) => {
     checkWorkspaceSender(event);
-    subscribeChat(event.sender);
+    hostPorts().broadcaster.subscribe(event.sender);
     // 事件带资源引用：并发导出时 renderer 能把进度归到对应文件。
     const parsed = resourceRefSchema.parse(ref);
     return exportOfficePdf(parsed, (progress) =>

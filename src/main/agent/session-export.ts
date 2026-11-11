@@ -3,12 +3,12 @@ import { mkdtemp, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { dialog, type BrowserWindow } from 'electron';
 import type { ImageContent } from '@earendil-works/pi-ai';
 import { ZipFile } from 'yazl';
 import { extensionOf } from '../../shared/files';
 import { chatMediaPath } from './media';
 import { row, sessionExportBranch, splitMeta, textOf } from './session';
+import { hostPorts, type ClientHandle } from '../host';
 
 const imageExtensions: Record<string, string> = {
   'image/png': 'png',
@@ -56,17 +56,14 @@ function safeArchiveName(name: string) {
   return (safeName(name.slice(0, name.length - suffix.length)) || '文件') + suffix;
 }
 
-export async function exportSession(id: string, owner: BrowserWindow | null) {
+export async function exportSession(id: string, owner: ClientHandle | null) {
   const { title } = row(id);
-  const options = {
+  const filePath = await hostPorts().desktop.pickSavePath(owner, {
     title: '导出会话',
     defaultPath: 'Dela - ' + (safeName(title) || '会话') + '.zip',
-    filters: [{ name: 'ZIP', extensions: ['zip'] }],
-  };
-  const { canceled, filePath } = owner
-    ? await dialog.showSaveDialog(owner, options)
-    : await dialog.showSaveDialog(options);
-  if (canceled || !filePath) return { saved: false, missing: [] };
+    extension: 'zip',
+  });
+  if (!filePath) return { saved: false, missing: [] };
   if (!filePath.toLowerCase().endsWith('.zip')) throw new Error('请选择 .zip 保存位置');
 
   const branch = await sessionExportBranch(id);
