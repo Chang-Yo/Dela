@@ -62,7 +62,7 @@ Dela Harness 基于 Pi 构建，可以作为一款通用 agent 产品使用，�
 
 - **Markdown 笔记编辑**：支持对 `.md` 文件即时渲染编辑，支持数学公式与 mermaid 流程图
 - **文件编辑**：任意文本文件都能打开编辑（包括 `.env`、`Makefile`、无后缀日志），按内容而不是扩展名识别；1 MB 以上只读预览
-- **内置终端**：用户可以直接在应用打开内置终端（Git Bash），如果是 remote project 则默认为 ssh，默认继承项目目录作为启动路径
+- **内置终端**：跟随系统 shell（Windows 优先 PowerShell 7，macOS 为登录 shell），如果是 remote project 则默认为 ssh，默认继承项目目录作为启动路径
 
 ## 技术栈
 

@@ -116,7 +116,7 @@ src/
 ├─ ui/         Design System，零业务依赖
 ├─ modules/    通用功能：没有交大也成立
 ├─ sjtu/       交大功能：离开交大就没有意义
-└─ app/        Electron 入口、工作台外壳、模块清单（app/modules.ts）
+└─ app/        Electron 入口、宿主端口实现、工作台外壳、模块清单（app/modules.ts）
 ```
 
 每个模块的结构统一为 `index.ts`（模块定义与唯一出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`、`data/`。
@@ -152,7 +152,7 @@ src/
 Dela/
 ├─ src/
 │  ├─ core/protocol/          v3：模块契约工具（defineContract、implement、createClient）
-│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册
+│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
 │  ├─ modules/                v3：已迁移的通用模块（search）
 │  ├─ main/                   Electron 主进程
 │  │  ├─ agent/               Pi 内核接入、工具与运行时
