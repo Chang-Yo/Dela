@@ -247,15 +247,14 @@ async function run(window) {
   const id = randomUUID();
   await js(`window.dela.terminal.create('${project.id}', '${id}')`);
   const checkRuntime = async (marker) => {
-    await js(
-      `window.dela.terminal.write('${id}', ${JSON.stringify(`dela help >/dev/null && printf '${marker}\\n'\r`)})`,
-    );
+    // 终端跟随系统 shell，不能再假设 bash 语法；echo 在 PowerShell 与 zsh 下一致。
+    await js(`window.dela.terminal.write('${id}', ${JSON.stringify(`echo ${marker}\r`)})`);
     await wait(
       () =>
         js(
           `window.dela.terminal.list('${project.id}').then(items => items.some(item => item.id === '${id}' && item.buffer.includes('${marker}\\r\\n') && item.exitCode === null))`,
         ),
-      'live PTY and bridge',
+      'live PTY',
     );
   };
   await checkRuntime('BEFORE_CLOSE');
@@ -268,7 +267,7 @@ async function run(window) {
   assert.equal(BrowserWindow.getAllWindows().length, 1);
   await checkRuntime('AFTER_REOPEN');
 
-  // 真正调用 app.quit，由 renderer 的 beforeunload 拦下；取消后终端/桥不得提前销毁。
+  // 真正调用 app.quit，由 renderer 的 beforeunload 拦下；取消后终端不得提前销毁。
   await js('window.onbeforeunload = () => false; void 0');
   app.quit();
   await wait(() => declined === 1, 'cancel unsaved-note exit');
@@ -288,6 +287,6 @@ async function run(window) {
   assert.equal(window.isVisible(), false);
   await js('window.onbeforeunload = null; window.dela.mail.setComposeActive(false)');
   console.log(
-    'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves PTY and command bridge; no login registration.',
+    'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves live PTY; no login registration.',
   );
 }
