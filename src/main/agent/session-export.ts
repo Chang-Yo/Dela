@@ -7,7 +7,16 @@ import type { ImageContent } from '@earendil-works/pi-ai';
 import { ZipFile } from 'yazl';
 import { extensionOf } from '../../shared/files';
 import { chatMediaPath } from './media';
-import { row, sessionExportBranch, splitMeta, textOf } from './session';
+import { sessionExportBranch } from './session/commands';
+import { splitMeta, textOf } from './session/projection';
+import {
+  COMMENTS_HEADER,
+  DOCUMENT_ATTACHMENT,
+  sourcesBlock,
+  TEXT_ATTACHMENT_END,
+  textAttachmentStart,
+} from './session/prompt';
+import { row } from './session/store';
 import { hostPorts, type ClientHandle } from '../host';
 
 const imageExtensions: Record<string, string> = {
@@ -16,26 +25,19 @@ const imageExtensions: Record<string, string> = {
   'image/webp': 'webp',
   'image/gif': 'gif',
 };
-const documentStart = '用户上传了文档附件：';
-const textEnd = '\n</attachment>\n';
-const textStart = (name: string) => '<attachment name="' + name + '">\n';
 
 function inlineTextEnd(embedded: string, start: number, nextName?: string) {
   for (
-    let end = embedded.indexOf(textEnd, start);
+    let end = embedded.indexOf(TEXT_ATTACHMENT_END, start);
     end !== -1;
-    end = embedded.indexOf(textEnd, end + textEnd.length)
+    end = embedded.indexOf(TEXT_ATTACHMENT_END, end + TEXT_ATTACHMENT_END.length)
   ) {
-    const next = end + textEnd.length;
+    const next = end + TEXT_ATTACHMENT_END.length;
     if (nextName === undefined) {
-      if (
-        next === embedded.length ||
-        embedded.startsWith('用户选中了你之前回复中的片段并留下评论', next)
-      )
-        return end;
+      if (next === embedded.length || embedded.startsWith(COMMENTS_HEADER, next)) return end;
     } else if (
-      embedded.startsWith(textStart(nextName), next) ||
-      embedded.startsWith(documentStart, next)
+      embedded.startsWith(textAttachmentStart(nextName), next) ||
+      embedded.startsWith(DOCUMENT_ATTACHMENT, next)
     ) {
       return end;
     }
@@ -110,25 +112,23 @@ async function writeSessionArchive(
         .map((image, index) => addImage(image, meta.images?.[index]?.name));
       // 文本附件没有磁盘副本，正文来自 Dela 写入提示词的附件块。
       const sourcePrefix = meta.sources?.length
-        ? '用户引用了这些文件（需要时用 read 读取）：\n' +
-          meta.sources.map(({ key }) => '- ' + key).join('\n') +
-          '\n'
+        ? sourcesBlock(meta.sources.map(({ key }) => key))
         : '';
       let embedded = rest.slice(sourcePrefix.length, rest.length - text.length);
       const attachments = meta.attachments ?? [];
       const files = attachments.map(({ id, name }, index) => {
         const path = 'files/' + ++fileNumber + '-' + safeArchiveName(name);
         const source = id && chatMediaPath(id);
-        const start = textStart(name);
+        const start = textAttachmentStart(name);
         if (embedded.startsWith(start)) {
           const end = inlineTextEnd(embedded, start.length, attachments[index + 1]?.name);
           if (end !== -1) {
             zip.addBuffer(Buffer.from(embedded.slice(start.length, end)), path);
-            embedded = embedded.slice(end + textEnd.length);
+            embedded = embedded.slice(end + TEXT_ATTACHMENT_END.length);
             return { name, path };
           }
         }
-        if (embedded.startsWith(documentStart))
+        if (embedded.startsWith(DOCUMENT_ATTACHMENT))
           embedded = embedded.slice(embedded.indexOf('\n') + 1);
         if (source) {
           zip.addFile(source, path);

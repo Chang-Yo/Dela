@@ -20,8 +20,20 @@ import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../sh
 import type { RemoteTarget } from '../remotes/transport';
 import { remoteBackgroundBash, remoteOperations } from '../remotes/operations';
 import { loadPi } from './pi';
-import { deliverTaskNotice, publish } from './session';
 import { hostPorts } from '../host';
+
+/** 后台任务结束的通知，作为 Pi 自定义消息（customType dela-task）进入父会话。 */
+export interface TaskNotice {
+  text: string;
+  details: TaskNoticeDetails;
+}
+
+/** 任务所属的父会话：由会话运行层注入，任务层因此不依赖会话。 */
+export interface TaskParent {
+  id: string;
+  publish(): void;
+  deliver(notice: TaskNotice, wake: boolean): Promise<void>;
+}
 
 export interface TaskOutcome {
   status: Exclude<TaskStatus, 'running'>;
@@ -32,7 +44,7 @@ export interface TaskOutcome {
 
 interface BackgroundTask {
   id: string;
-  parentId: string;
+  parent: TaskParent;
   kind: 'bash' | 'subagent';
   label: string;
   startedAt: number;
@@ -85,21 +97,21 @@ export function trackTask(
         Object.assign(entry, { status: outcome.status, outcome, finishedAt: Date.now() });
         // 父会话正在归档或删除：不投递，也不推快照（删除后会话已不存在）。
         if (entry.stoppedBy === 'session') return;
-        publish(entry.parentId);
-        void deliverTaskNotice(entry.parentId, notice(entry), entry.stoppedBy !== 'user').catch(
-          (error: unknown) => console.error('后台任务通知投递失败', error),
-        );
+        entry.parent.publish();
+        void entry.parent
+          .deliver(notice(entry), entry.stoppedBy !== 'user')
+          .catch((error: unknown) => console.error('后台任务通知投递失败', error));
       }),
   };
   tasks.set(entry.id, entry);
-  publish(entry.parentId);
+  entry.parent.publish();
 }
 
 export const taskRunning = (id: string) => tasks.get(id)?.status === 'running';
 
 export function runningTasks(parentId: string): BackgroundTaskView[] {
   return [...tasks.values()]
-    .filter((task) => task.parentId === parentId && task.status === 'running')
+    .filter((task) => task.parent.id === parentId && task.status === 'running')
     .map(({ id, kind, label, startedAt }) => ({ id, kind, label, startedAt }));
 }
 
@@ -117,7 +129,7 @@ export function stopTask(id: string, by: 'user' | 'model' | 'session') {
 
 /** 归档、删除父会话时结束它的全部后台任务，不投递通知。 */
 export function stopSessionTasks(parentId: string) {
-  for (const task of tasks.values()) if (task.parentId === parentId) stopTask(task.id, 'session');
+  for (const task of tasks.values()) if (task.parent.id === parentId) stopTask(task.id, 'session');
 }
 
 /** 退出应用：结束全部任务并等它们落定，远端的取消要赶在隧道关掉之前送到。 */
@@ -136,7 +148,7 @@ const statusText = (outcome: TaskOutcome) =>
         ? `失败（退出码 ${outcome.exitCode}）`
         : `失败${outcome.error ? `：${outcome.error}` : ''}`;
 
-function notice(task: BackgroundTask): { text: string; details: TaskNoticeDetails } {
+function notice(task: BackgroundTask): TaskNotice {
   const outcome = task.outcome!;
   const durationMs = task.finishedAt! - task.startedAt;
   const tail = task.tail.split('\n').slice(-NOTICE_LINES).join('\n').trimEnd();
@@ -258,7 +270,7 @@ function localBash(
 }
 
 function startBash(
-  parentId: string,
+  parent: TaskParent,
   command: string,
   timeout: number | undefined,
   run: BashRunner,
@@ -273,7 +285,7 @@ function startBash(
     if (task) task.tail = (task.tail + chunk.toString()).slice(-TAIL_CHARS);
   };
   trackTask(
-    { id, parentId, kind: 'bash', label: command, stop: () => abort.abort(), log },
+    { id, parent, kind: 'bash', label: command, stop: () => abort.abort(), log },
     run(command, { signal: abort.signal, timeout, onData }).finally(() => file.end()),
   );
   return id;
@@ -296,7 +308,7 @@ function readLog(log: string, offset: number | undefined) {
 
 function ownTask(parentId: string, id: string): BackgroundTask {
   const task = tasks.get(id);
-  if (task?.parentId !== parentId) throw new Error(`没有这个后台任务：${id}`);
+  if (task?.parent.id !== parentId) throw new Error(`没有这个后台任务：${id}`);
   return task;
 }
 
@@ -307,7 +319,7 @@ const text = (value: string) => ({
 
 /** 同名覆盖 bash，加一个 background 参数；不带它时就是原来的 bash，远程会话里是远程版本。 */
 export async function backgroundTools(
-  parentId: string,
+  parent: TaskParent,
   cwd: string,
   shellPath: string,
   commandPrefix: string | undefined,
@@ -344,7 +356,7 @@ export async function backgroundTools(
         const run = target
           ? remoteBackgroundBash(target, cwd)
           : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
-        const id = startBash(parentId, params.command, params.timeout, run);
+        const id = startBash(parent, params.command, params.timeout, run);
         return text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`);
       },
     } as ToolDefinition,
@@ -362,7 +374,7 @@ export async function backgroundTools(
         required: ['taskId'],
       } as unknown as ToolDefinition['parameters'],
       async execute(_id, params: { taskId: string; offset?: number }) {
-        const task = ownTask(parentId, params.taskId);
+        const task = ownTask(parent.id, params.taskId);
         const status = task.outcome ? statusText(task.outcome) : '运行中';
         if (task.kind === 'subagent')
           return text(
@@ -392,7 +404,7 @@ export async function backgroundTools(
         required: ['taskId'],
       } as unknown as ToolDefinition['parameters'],
       async execute(_id, params: { taskId: string }) {
-        const task = ownTask(parentId, params.taskId);
+        const task = ownTask(parent.id, params.taskId);
         if (task.status !== 'running') return text(`任务已经结束：${statusText(task.outcome!)}`);
         stopTask(task.id, 'model');
         return text('已停止。');

@@ -1,9 +1,7 @@
 /** Dela 对 Pi 会话的全部附加物（系统提示、命令桥、skills、MCP 与工具开关）都在这里组装。 */
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { getDatabase } from '../database';
-import { storageDirectory } from '../storage';
 import { getAgentInstruction } from '../settings/prefs';
 import { remoteProjectOf } from '../workspace/api';
 import { remoteById, targetOf } from '../remotes/api';
@@ -66,11 +64,6 @@ const BUILTIN_TOOL_NAMES = ['read', 'write', 'edit', 'bash', 'grep', 'find', 'ls
 
 export function agentEnvironment() {
   return {
-    workspaceRoot() {
-      const root = join(storageDirectory(), 'workspace');
-      mkdirSync(root, { recursive: true });
-      return root;
-    },
     async sessionOptions(
       projectId: string | null,
       cwd: string,

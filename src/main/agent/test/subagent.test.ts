@@ -35,21 +35,17 @@ vi.mock('../environment', () => ({
       disabledSkills: new Set(),
       disabledTools: state.disabledTools,
     }),
-    workspaceRoot: () => root,
   }),
 }));
 
 import {
-  askSession,
-  cancelRun,
   deleteSession,
-  listSessions,
   newSession,
   openSession,
-  preloadPi,
-  shutdownSessions,
   updateSessionVisibility,
-} from '../session';
+} from '../session/commands';
+import { askSession, cancelRun, shutdownSessions } from '../session/run';
+import { listSessions, preloadPi } from '../session/store';
 
 const reply = (text: string, delayMs = 0) => ({
   kind: 'sse' as const,

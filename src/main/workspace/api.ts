@@ -800,7 +800,8 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     assertNoChildProjects(item.id);
     // 「移除项目」＝项目终结：名下会话（含归档）一并删除，目录与文件保留。
     // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
-    const { deleteSession, invalidateSessions } = await import('../agent/session');
+    const { deleteSession } = await import('../agent/session/commands');
+    const { invalidateSessions } = await import('../agent/session/run');
     const ids = getDatabase()
       .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
       .all(item.id) as { id: string }[];

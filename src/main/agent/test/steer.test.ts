@@ -32,7 +32,6 @@ vi.mock('../environment', () => ({
       disabledSkills: new Set(),
       disabledTools: [],
     }),
-    workspaceRoot: () => root,
   }),
 }));
 // 冻结改动是收尾的第一步：拦在这里，就能在「Pi 已答完、Dela 还在收尾」的窗口里发消息。
@@ -48,15 +47,9 @@ vi.mock('../changes', async (importOriginal) => {
   };
 });
 
-import {
-  askSession,
-  cancelRun,
-  newSession,
-  openSession,
-  preloadPi,
-  shutdownSessions,
-  withdrawQueued,
-} from '../session';
+import { newSession, openSession } from '../session/commands';
+import { askSession, cancelRun, shutdownSessions, withdrawQueued } from '../session/run';
+import { preloadPi } from '../session/store';
 import { readChatAttachment, stageChatMedia } from '../media';
 
 const reply = (text: string, delayMs = 0) => ({

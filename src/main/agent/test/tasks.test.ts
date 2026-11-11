@@ -5,23 +5,30 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
-import type { TaskNotice } from '../session';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-tasks-'));
-const delivered = vi.hoisted(() => [] as { parentId: string; notice: TaskNotice; wake: boolean }[]);
+const delivered: { parentId: string; notice: TaskNotice; wake: boolean }[] = [];
 vi.mock('electron', () => ({
   app: { getPath: () => root, isPackaged: false, getAppPath: () => root },
 }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
-vi.mock('../session', () => ({
-  publish: () => {},
-  deliverTaskNotice: async (parentId: string, notice: TaskNotice, wake: boolean) => {
-    delivered.push({ parentId, notice, wake });
-  },
-}));
 
 import { locateBash } from '../../terminal/mingit';
-import { backgroundTools, stopSessionTasks, stopTask } from '../tasks';
+import {
+  backgroundTools,
+  stopSessionTasks,
+  stopTask,
+  type TaskNotice,
+  type TaskParent,
+} from '../tasks';
+
+const parent = (parentId: string): TaskParent => ({
+  id: parentId,
+  publish: () => {},
+  deliver: async (notice, wake) => {
+    delivered.push({ parentId, notice, wake });
+  },
+});
 
 const shell = locateBash();
 let tools: ToolDefinition[];
@@ -44,7 +51,7 @@ const noticeOf = async (taskId: string) => {
 
 beforeEach(async () => {
   delivered.length = 0;
-  tools = await backgroundTools('parent', root, shell, undefined, null);
+  tools = await backgroundTools(parent('parent'), root, shell, undefined, null);
 });
 
 afterAll(() => {
@@ -128,7 +135,7 @@ it('用户在面板上手动停止只追加通知、不唤醒；归档删除时�
 
 it('别的会话的任务查不到', async () => {
   const taskId = await start('echo 我的');
-  const others = await backgroundTools('other', root, shell, undefined, null);
+  const others = await backgroundTools(parent('other'), root, shell, undefined, null);
   await expect(
     others
       .find((item) => item.name === 'task_output')!
@@ -139,7 +146,7 @@ it('别的会话的任务查不到', async () => {
 
 it('只创建工具时不解析 shell，真正跑后台 bash 才要求本机存在 bash', async () => {
   const missing = await backgroundTools(
-    'no-shell',
+    parent('no-shell'),
     root,
     join(root, 'missing-bash'),
     undefined,
