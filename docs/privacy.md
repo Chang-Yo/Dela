@@ -73,7 +73,6 @@
 | 软件更新       | openlist.frameneo.com：打包版定时检查正式版更新，你选择后下载安装包与差分数据；不会发送邮件、课程、聊天或模型密钥。                                                                                                                                                        |
 | 联网搜索       | 把搜索词发往你在 设置 › 内置能力 › 网络 中注册的搜索服务：Brave（api.search.brave.com）、Google（www.googleapis.com/customsearch）或你填写的自定义 JSON 端点（可带自定义请求头）。Dela 不内置搜索服务，未注册时不发起任何搜索请求。                                        |
 | 读取网页       | 抓取模型指定的任意公网地址，只允许 http/https 与 80/443 端口；内网、环回与链路本地地址被拒绝，每一跳重定向都会重新做 DNS 校验。                                                                                                                                            |
-| 终端运行时     | 在终端页点击一键安装且本机没有 Git Bash 时，从 registry.npmmirror.com（备选 github.com）下载 MinGit。                                                                                                                                                                      |
 | 文档解析组件   | 在「能力拓展」或 设置 › Skills 安装文档读取组件时，连接 www.python.org、github.com 及其发行文件域名、pypi.org 和 files.pythonhosted.org 下载 Python、uv 与解析依赖；下载请求不包含你的文档或应用凭据。解析在本机执行，模型读取正文与图片时仍会按「模型服务」条目发送内容。 |
 | 远程图片       | 界面直接加载的远程图片：邮件正文图片默认显示（可在邮件页切换为隐藏），水源楼层中的站内图片经主进程代理取回，站外图片与头像由界面直接加载。                                                                                                                                 |
 

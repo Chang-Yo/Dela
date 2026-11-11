@@ -10,13 +10,8 @@ import { remoteById } from '../remotes/api';
 import { locateSsh, shellQuote } from '../remotes/transport';
 import { COMMAND_BRIDGE } from '../agent/commands';
 import { domainBridge } from '../agent';
-import { MINGIT_BYTES, bundledBash, installMinGit, mingitBash } from './mingit';
-import type {
-  BashInstallSnapshot,
-  BashStatus,
-  TerminalEvent,
-  TerminalSession,
-} from '../../shared/terminal';
+import { bundledBash } from './mingit';
+import type { TerminalEvent, TerminalSession } from '../../shared/terminal';
 
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 
@@ -30,89 +25,20 @@ function systemBash(): string | null {
   return candidates.find((path) => existsSync(path)) ?? null;
 }
 
-/** macOS 使用系统 Bash；Windows 先系统安装（Git for Windows），再随包 MinGit，再应用自装的 MinGit；
- *  都缺失时明确报错，不回退 PowerShell 或 PATH 上的 bash（可能是 WSL）。 */
+/** macOS 使用系统 Bash；Windows 先用系统安装的 Git for Windows，再用随包 MinGit。
+ *  不回退 PATH 上的 bash（可能是 WSL）；都缺失说明安装包被破坏，交给用户自行修复。 */
 export function locateBash(): string {
   if (process.platform === 'darwin') {
     const bash = systemBash();
     if (!bash) throw new Error('未找到 macOS 系统 Bash（/bin/bash），请检查系统环境');
     return bash;
   }
-  return (
-    systemBash() ??
-    bundledBash() ??
-    mingitBash() ??
-    (() => {
-      throw new Error(
-        '未找到 Git Bash：可在终端页一键安装 Dela 运行时，或安装 Git for Windows（https://git-scm.com/download/win）后重试',
-      );
-    })()
-  );
-}
-
-// MinGit 一键安装：主进程持有安装状态机，终端页经 bash-status 查询、事件收进度。
-// 装完立即 prepend PATH，终端与 Agent 的 bash 内 git 随即可用。
-const installState: BashInstallSnapshot = { phase: 'idle', received: 0, total: 0, error: null };
-let installController: AbortController | null = null;
-
-function bashStatus(): BashStatus {
-  return {
-    found:
-      process.platform === 'darwin'
-        ? Boolean(locateBash())
-        : (systemBash() ?? bundledBash() ?? mingitBash()) !== null,
-    install: { ...installState },
-  };
-}
-
-async function runInstall(owner: WebContents): Promise<BashStatus> {
-  const current = bashStatus();
-  // 已装或进行中：直接回报现状，不重复发起。
-  if (process.platform !== 'win32' || current.found || installController) return current;
-  const controller = new AbortController();
-  installController = controller;
-  Object.assign(installState, {
-    phase: 'downloading',
-    received: 0,
-    // headers 到达前先按已知的发布物大小展示进度，随后以 content-length 为准。
-    total: MINGIT_BYTES,
-    error: null,
-  });
-  // 高频进度节流到 100ms 一条 IPC，结束时再补发最终状态。
-  let lastPublish = 0;
-  const publish = (force = false) => {
-    const now = Date.now();
-    if (!force && now - lastPublish < 100) return;
-    lastPublish = now;
-    if (!owner.isDestroyed()) owner.send('terminal:bash-install', { ...installState });
-  };
-  publish(true);
-  try {
-    await installMinGit({
-      signal: controller.signal,
-      onProgress: (received, total) => {
-        installState.received = received;
-        installState.total = total;
-        publish();
-      },
-      onExtract: () => {
-        installState.phase = 'extracting';
-        publish(true);
-      },
-    });
-    Object.assign(installState, { phase: 'done', error: null });
-  } catch (cause) {
-    const cancelled = controller.signal.aborted;
-    Object.assign(installState, {
-      phase: cancelled ? 'idle' : 'error',
-      error: cancelled ? null : cause instanceof Error ? cause.message : String(cause),
-    });
-    if (!cancelled) throw new Error(installState.error!);
-  } finally {
-    installController = null;
-    publish(true);
-  }
-  return bashStatus();
+  const bash = systemBash() ?? bundledBash();
+  if (!bash)
+    throw new Error(
+      '未找到 Git Bash：请安装 Git for Windows（https://git-scm.com/download/win）后重启 Dela',
+    );
+  return bash;
 }
 
 // 重挂载时回放最近输出；每个终端最多保留约 100 万字符，避免长期任务无限占用内存。
@@ -167,9 +93,6 @@ export function registerTerminalIpc() {
       checkWorkspaceSender(event);
       return fn(event.sender, ...args);
     });
-  handle('bash-status', () => bashStatus());
-  handle('install-bash', (owner) => runInstall(owner));
-  handle('cancel-install-bash', () => installController?.abort());
   handle('list', (owner, projectId) => {
     projectLocation(projectId);
     return [...sessions.values()]

@@ -192,9 +192,8 @@ schema v12。业务代码只认当前格式；旧数据在启动时由 `src/main
 
 Git Bash + node-pty + xterm.js，与 Agent 的 bash 同源（同一份 dela 桥注入）。以下安装流程仅用于 Windows；macOS 固定用 `/bin/bash` 与 Unix PTY，不装 MinGit，不读用户的 Zsh 配置，不执行登录 shell 来取环境。
 
-- **Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit → 应用自装的 MinGit**，都缺失时明确报错，**不回退 PowerShell**。
-- 随包 MinGit 由打包前脚本按源码里写死的版本与 SHA256 下载校验（版本定义只有一处），仓库不提交这份约 40MB 的产物。
-- 一键安装只在系统没装 Git for Windows 时兜底：npmmirror 优先、GitHub 兜底，两者与官方发布物逐字节一致。MinGit 只以 `sh.exe` 名义带 bash 本体，安装时要复制出 `bash.exe`——**argv[0] 决定 bash 是否走完整模式**，而 `--rcfile` 注入 dela 桥依赖它。
+- **Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit**，都缺失说明安装包被破坏，提示安装 Git for Windows 后重启，**不回退 PowerShell**。
+- 随包 MinGit 由打包前脚本 `prepare-runtime.ts` 按写死的版本与 SHA256 下载校验，仓库不提交这份约 40MB 的产物。MinGit 只以 `sh.exe` 名义带 bash 本体，脚本要复制出 `bash.exe`——**argv[0] 决定 bash 是否走完整模式**，而 `--rcfile` 注入 dela 桥依赖它。
 - 远程项目的终端是本地 `ssh -tt` 申请远端 PTY，不注入 dela 桥，但可以让 ssh 自己问密码与指纹。
 
 ## 10. 仓库组织
@@ -278,7 +277,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 | `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
 | `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
 
-`pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`mingit-smoke`、`smoke:documents`）外不发送真实请求。
+`pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
 
 ## 13. 提交前检查
 
@@ -327,7 +326,7 @@ Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `ma
 
 `pnpm version:patch` / `version:minor` / `version:major` / `version:bump <版本>` 只改 `package.json` 的版本，不建 commit / tag，也不推送。preload 在构建时内联版本号，升版后需重新构建。
 
-安装包会带几类 `extraResources`，升级它们时各自按对应 README 的步骤做，并在打包目录里实跑一次验证：`vendor/openssh`（`ssh.exe -V` 与一次真实连接）、helper（发布与 CI 都从本次源码重建，避免发布旧产物）、`vendor/bin`（`rg.exe --version`、`fd.exe --version`）、MinGit（换版本只改源码里那对成对常量）。
+安装包会带几类 `extraResources`，升级它们时各自按对应 README 的步骤做，并在打包目录里实跑一次验证：`vendor/openssh`（`ssh.exe -V` 与一次真实连接）、helper（发布与 CI 都从本次源码重建，避免发布旧产物）、`vendor/bin`（`rg.exe --version`、`fd.exe --version`）、MinGit（换版本只改 `prepare-runtime.ts` 里那对成对常量）。
 
 ### 发布
 
