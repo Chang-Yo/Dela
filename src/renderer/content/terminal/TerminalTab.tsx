@@ -186,6 +186,8 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         selectionBackground: withAlpha(foreground, 0.28),
         selectionInactiveBackground: withAlpha(foreground, 0.16),
       },
+      // ANSI 默认色板按暗色背景设计；与 VS Code 一致按 WCAG AA 自动调整对比度。
+      minimumContrastRatio: 4.5,
       disableStdin: session.exitCode !== null,
       altClickMovesCursor: true,
       cursorStyle: 'block',
