@@ -8,7 +8,7 @@ import { app } from 'electron';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { helperSession } from './helper';
-import { remoteOperations, setContextMirrors, writeRemoteFile } from './operations';
+import { remoteBackend, setContextMirrors, writeRemoteFile } from './operations';
 import { shellQuote, type RemoteTarget } from './transport';
 
 /** Pi 认的上下文文件名，顺序即优先级（与 resource-loader 的候选一致）。 */
@@ -162,7 +162,7 @@ export async function syncRemoteContext(input: {
   const mirrorRoot = contextMirrorRoot(input.remoteId, input.projectId);
   const empty: RemoteContext = { skillPaths: [], agentsFiles: [] };
   try {
-    const { exec } = remoteOperations(input.target).bash;
+    const { exec } = remoteBackend(input.target).bash;
     const script = mirrorScript(
       input.home ?? '$HOME',
       input.remoteDir,

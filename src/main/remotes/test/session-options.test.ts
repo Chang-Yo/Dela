@@ -31,8 +31,9 @@ vi.mock('../api', () => ({
   targetOf: () => ({ host: 'root@10.0.0.5', keyPath: null }),
 }));
 // 真实实现要动态加载 Pi（纯 ESM）：这里只关心名字与组合，工具体换成空壳。
-vi.mock('../operations', () => ({
-  remoteTools: async (_cwd: string, _target: unknown): Promise<ToolDefinition[]> =>
+vi.mock('../operations', () => ({ remoteBackend: () => ({}) }));
+vi.mock('../../agent/remote-tools', () => ({
+  remoteTools: async (_cwd: string, _backend: unknown): Promise<ToolDefinition[]> =>
     ['read', 'write', 'edit', 'bash', 'ls', 'find', 'grep'].map((name) => ({
       name,
       label: name,

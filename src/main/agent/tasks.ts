@@ -17,8 +17,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
 import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../shared/api';
-import type { RemoteTarget } from '../remotes/transport';
-import { remoteBackgroundBash, remoteOperations } from '../remotes/operations';
+import type { RemoteBackend } from '../remotes/operations';
 import { loadPi } from './pi';
 import { hostPorts } from '../host';
 
@@ -323,11 +322,11 @@ export async function backgroundTools(
   cwd: string,
   shellPath: string,
   commandPrefix: string | undefined,
-  target: RemoteTarget | null,
+  remote: RemoteBackend | null,
 ): Promise<ToolDefinition[]> {
   const pi = await loadPi();
-  const bash = target
-    ? pi.createBashToolDefinition(cwd, { operations: remoteOperations(target).bash })
+  const bash = remote
+    ? pi.createBashToolDefinition(cwd, { operations: remote.bash })
     : pi.createBashToolDefinition(cwd, { shellPath, commandPrefix });
   const schema = bash.parameters as unknown as { properties: Record<string, unknown> };
   return [
@@ -353,8 +352,8 @@ export async function backgroundTools(
       ) {
         if (!params.background) return bash.execute(toolCallId, params, signal, onUpdate, ctx);
         // 启动时才解析 shell，创建会话不依赖本机 bash。
-        const run = target
-          ? remoteBackgroundBash(target, cwd)
+        const run: BashRunner = remote
+          ? (command, options) => remote.runInBackground(command, cwd, options)
           : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
         const id = startBash(parent, params.command, params.timeout, run);
         return text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`);

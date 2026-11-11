@@ -13,6 +13,7 @@ import type {
 import { TASK_NOTICE } from '../../../shared/api';
 import { hostPorts } from '../../host';
 import { remoteById, targetOf } from '../../remotes/api';
+import { remoteBackend } from '../../remotes/operations';
 import { remoteProjectOf } from '../../workspace/api';
 import * as changes from '../changes';
 import { agentEnvironment } from '../environment';
@@ -75,7 +76,7 @@ export async function ensureLive(id: string): Promise<Live> {
               cwd,
               options.shellPath,
               options.commandPrefix,
-              remote && targetOf(remoteById(remote.remoteId)),
+              remote && remoteBackend(targetOf(remoteById(remote.remoteId))),
             )),
             taskTool(parent, cwd, runSubagent),
           ],

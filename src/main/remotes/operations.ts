@@ -1,15 +1,16 @@
 /**
- * 远程工具：把 Pi 七个内置工具的执行端换到远端 helper。read/write/edit/bash/ls/find 复用 Pi 的定义、
- * 只注入 operations；grep 在 Pi 内固定 spawn 本地 rg，故保留其 schema 与描述、自写 execute。
- * 全部调用只走 helper：helper 不可用时工具直接报错（带原因），不退回一次性 ssh。
+ * 远程执行后端：文件读写、命令、搜索与后台命令都走远端 helper。本模块不认识 Pi 与 Agent，
+ * 工具适配在 agent/remote-tools。helper 不可用时直接报错（带原因），不退回一次性 ssh。
  * 关键约束：参数已被宿主 node:path 解析成 Windows 形态（`src/a.ts` → `E:\root\proj\src\a.ts`），
  * 每个路径都必须先过 remotePath 还原。
  */
 import { randomBytes } from 'node:crypto';
-import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
-import { loadPi } from '../agent/pi';
-import type { BashRunner } from '../agent/tasks';
-import { helperSession, type HelperLocation, type HelperSession } from './helper';
+import {
+  helperSession,
+  type HelperLocation,
+  type HelperSearchRequest,
+  type HelperSession,
+} from './helper';
 import { notifyRemoteChange } from './events';
 import { syncRemoteWatch } from './watch';
 import { shellQuote, type RemoteDirEntry, type RemoteTarget } from './transport';
@@ -154,33 +155,10 @@ export function remotePath(value: string): string {
   return path.length > 1 ? path.replace(/\/+$/, '') || '/' : path;
 }
 
-/**
- * 后台 bash 的远端执行端。signal 不交给 exec：停止时显式取消，等 helper 报回结束才返回，
- * 退出应用时据此等到取消送达再关隧道，远端不会留下没人管的进程。
- */
-export function remoteBackgroundBash(target: RemoteTarget, cwd: string): BashRunner {
-  return async (command, { signal, timeout, onData }) => {
-    const remote = session(target);
-    const id = randomBytes(12).toString('hex');
-    const cancel = () => void remote.cancelTask(id).catch(() => {});
-    signal.addEventListener('abort', cancel, { once: true });
-    try {
-      const result = await remote.exec(mirrorCommandText(command), {
-        id,
-        cwd,
-        timeoutMs: timeout ? timeout * 1000 : undefined,
-        onData,
-      });
-      if (result.lost > 0)
-        onData(Buffer.from(`\n[连接中断期间有 ${result.lost} 字节输出未能接回]\n`, 'utf8'));
-      notifyRemoteChange(cwd);
-      if (result.state === 'timeout') return { status: 'failed', error: `超时（${timeout} 秒）` };
-      if (result.state === 'cancelled') return { status: 'stopped' };
-      return { status: result.code === 0 ? 'completed' : 'failed', exitCode: result.code };
-    } finally {
-      signal.removeEventListener('abort', cancel);
-    }
-  };
+export interface RemoteRunOutcome {
+  status: 'completed' | 'failed' | 'stopped';
+  exitCode?: number | null;
+  error?: string;
 }
 
 const imageMime: Record<string, string> = {
@@ -194,16 +172,12 @@ const imageMime: Record<string, string> = {
 
 /** 目录清单缓存：ls 工具会在 readdir 之后对每个条目再调一次 stat，用刚拉到的清单回答。 */
 const LISTING_TTL_MS = 10_000;
-/** 单行匹配文本上限（与 Pi 的 grep 一致）。 */
-const GREP_MAX_LINE_LENGTH = 500;
-
-/** Pi 的工具定义在参数类型上是不变的，customTools 收的却是 ToolDefinition[]：
- *  这里是纯类型收窄，运行时对象原样传递。 */
-const asTool = (definition: unknown): ToolDefinition => definition as ToolDefinition;
 
 const parentOf = (path: string) => path.slice(0, path.lastIndexOf('/')) || '/';
 
-export function remoteOperations(target: RemoteTarget) {
+export type RemoteBackend = ReturnType<typeof remoteBackend>;
+
+export function remoteBackend(target: RemoteTarget) {
   const listings = new Map<string, { at: number; directories: Map<string, boolean> }>();
   const remote = () => session(target);
 
@@ -318,82 +292,50 @@ export function remoteOperations(target: RemoteTarget) {
     ) => (await remote().glob(remotePath(searchPath), pattern, options.limit)).files,
   };
 
-  return { read, write, edit: { ...read, writeFile: write.writeFile }, bash, ls, find };
-}
+  /** 结构化搜索：有 rg 用 rg，没有用 Go 遍历。 */
+  const search = (request: HelperSearchRequest, signal?: AbortSignal) =>
+    remote().search({ ...request, path: remotePath(request.path) }, signal);
 
-/** 远端 grep：helper 的结构化搜索（有 rg 用 rg，没有用 Go 遍历），输出格式照 Pi 的 grep。
- *  Pi 的 grep 工具没有 operations 注入点，所以这里保留它的 schema 与描述、只换 execute。 */
-export async function remoteGrepTool(cwd: string, target: RemoteTarget): Promise<ToolDefinition> {
-  const pi = await loadPi();
-  const base = pi.createGrepToolDefinition(cwd);
-  return asTool({
-    ...base,
-    execute: async (_toolCallId: string, rawParams: unknown, signal?: AbortSignal) => {
-      const params = rawParams as {
-        pattern: string;
-        path?: string;
-        glob?: string;
-        ignoreCase?: boolean;
-        literal?: boolean;
-        context?: number;
-        limit?: number;
-      };
-      const result = await session(target).search(
-        {
-          path: remotePath(params.path && params.path !== '.' ? params.path : cwd),
-          pattern: params.pattern,
-          glob: params.glob,
-          ignoreCase: params.ignoreCase,
-          literal: params.literal,
-          context: params.context ? Math.max(1, Math.min(params.context, 20)) : 0,
-          limit: Math.min(Math.max(params.limit ?? 100, 1), 500),
-        },
-        signal,
-      );
-      if (!result.matches.length)
-        return {
-          content: [{ type: 'text' as const, text: 'No matches found' }],
-          details: undefined,
-        };
-      const output: string[] = [];
-      let previous: { path: string; line: number } | null = null;
-      for (const match of result.matches) {
-        const before = (match.context ?? []).filter((line) => line.line < match.line);
-        const after = (match.context ?? []).filter((line) => line.line > match.line);
-        const first = before[0]?.line ?? match.line;
-        // 与 rg 的分组一致：同一文件里不相邻的两段之间用 -- 隔开。
-        if (previous && (previous.path !== match.path || first > previous.line + 1))
-          output.push('--');
-        for (const line of before) output.push(`${match.path}-${line.line}- ${line.text}`);
-        output.push(
-          `${match.path}:${match.line}: ${pi.truncateLine(match.text, GREP_MAX_LINE_LENGTH).text}`,
-        );
-        for (const line of after) output.push(`${match.path}-${line.line}- ${line.text}`);
-        previous = { path: match.path, line: after.at(-1)?.line ?? match.line };
-      }
-      const truncated = pi.truncateHead(output.join('\n'), {
-        maxLines: pi.DEFAULT_MAX_LINES,
-        maxBytes: pi.DEFAULT_MAX_BYTES,
+  /**
+   * 后台命令。signal 不交给 exec：停止时显式取消，等 helper 报回结束才返回，
+   * 退出应用时据此等到取消送达再关隧道，远端不会留下没人管的进程。
+   */
+  const runInBackground = async (
+    command: string,
+    cwd: string,
+    options: { signal: AbortSignal; timeout?: number; onData: (chunk: Buffer) => void },
+  ): Promise<RemoteRunOutcome> => {
+    const { signal, timeout, onData } = options;
+    const helper = remote();
+    const id = randomBytes(12).toString('hex');
+    const cancel = () => void helper.cancelTask(id).catch(() => {});
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      const result = await helper.exec(mirrorCommandText(command), {
+        id,
+        cwd,
+        timeoutMs: timeout ? timeout * 1000 : undefined,
+        onData,
       });
-      const cut = truncated.truncated || result.truncated;
-      const text = cut ? `${truncated.content}\n\n[输出已截断]` : truncated.content;
-      return { content: [{ type: 'text' as const, text }], details: undefined };
-    },
-  });
-}
+      if (result.lost > 0)
+        onData(Buffer.from(`\n[连接中断期间有 ${result.lost} 字节输出未能接回]\n`, 'utf8'));
+      notifyRemoteChange(cwd);
+      if (result.state === 'timeout') return { status: 'failed', error: `超时（${timeout} 秒）` };
+      if (result.state === 'cancelled') return { status: 'stopped' };
+      return { status: result.code === 0 ? 'completed' : 'failed', exitCode: result.code };
+    } finally {
+      signal.removeEventListener('abort', cancel);
+    }
+  };
 
-/** 七个工具的远程版本：名字与内置完全一致，Pi 按名字覆盖内置定义。 */
-export async function remoteTools(cwd: string, target: RemoteTarget): Promise<ToolDefinition[]> {
-  // Pi 是纯 ESM：主进程 CJS 产物只能动态 import，不能在文件顶部静态引入。
-  const pi = await loadPi();
-  const operations = remoteOperations(target);
-  return [
-    pi.createReadToolDefinition(cwd, { operations: operations.read }),
-    pi.createWriteToolDefinition(cwd, { operations: operations.write }),
-    pi.createEditToolDefinition(cwd, { operations: operations.edit }),
-    pi.createBashToolDefinition(cwd, { operations: operations.bash }),
-    pi.createLsToolDefinition(cwd, { operations: operations.ls }),
-    pi.createFindToolDefinition(cwd, { operations: operations.find }),
-    await remoteGrepTool(cwd, target),
-  ].map(asTool);
+  return {
+    read,
+    write,
+    edit: { ...read, writeFile: write.writeFile },
+    bash,
+    ls,
+    find,
+    search,
+    runInBackground,
+  };
 }

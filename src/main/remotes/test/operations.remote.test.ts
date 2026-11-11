@@ -8,13 +8,8 @@ vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
 
-import {
-  listRemoteDirectory,
-  readRemoteRange,
-  remoteGrepTool,
-  remoteOperations,
-  statRemoteFile,
-} from '../operations';
+import { listRemoteDirectory, readRemoteRange, remoteBackend, statRemoteFile } from '../operations';
+import { remoteGrepTool } from '../../agent/remote-tools';
 import { onRemoteChange } from '../events';
 import { exec, shellQuote, type RemoteTarget } from '../transport';
 
@@ -27,7 +22,7 @@ const root = '/tmp/dela-tools-test';
 const mangled = (path: string) => resolveLocal(path);
 
 describe('远程工具（真机）', () => {
-  const ops = remoteOperations(target);
+  const ops = remoteBackend(target);
 
   beforeAll(async () => {
     // 建目录这一步不能用它自己当 cwd：目录还不存在时 helper 会以 bad_cwd 拒掉。
@@ -121,7 +116,7 @@ describe('远程工具（真机）', () => {
   });
 
   it('grep 工具在远端搜索并给出 file:line 结果', async () => {
-    const tool = await remoteGrepTool(root, target);
+    const tool = await remoteGrepTool(root, ops);
     const result = (await tool.execute!(
       'call-1',
       { pattern: 'remote', path: mangled(root) },
@@ -135,7 +130,7 @@ describe('远程工具（真机）', () => {
   }, 60_000);
 
   it('grep 工具在无匹配时返回 No matches found', async () => {
-    const tool = await remoteGrepTool(root, target);
+    const tool = await remoteGrepTool(root, ops);
     const result = (await tool.execute!(
       'call-2',
       { pattern: '不可能出现的字符串9f3a', path: mangled(root) },

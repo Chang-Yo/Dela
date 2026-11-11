@@ -15,7 +15,7 @@ import { registerCanvasIpc } from '../src/main/canvas/ipc';
 import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerNotificationsIpc } from '../src/main/notifications';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
-import { remoteOperations } from '../src/main/remotes/operations';
+import { remoteBackend } from '../src/main/remotes/operations';
 import { exec, probeRemote } from '../src/main/remotes/transport';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerShuiyuanIpc } from '../src/main/shuiyuan/ipc';
@@ -261,7 +261,7 @@ app
     );
 
     // 远端没有文件监听：工具写文件后靠主进程广播让目录树重读，否则只能收起再展开。
-    await remoteOperations(target).write.writeFile(`${root}/fresh.txt`, '新文件\n');
+    await remoteBackend(target).write.writeFile(`${root}/fresh.txt`, '新文件\n');
     await wait(
       `document.querySelector('[role="treeitem"][aria-label="fresh.txt"]') !== null`,
       '刷新后自动出现的远端新文件',

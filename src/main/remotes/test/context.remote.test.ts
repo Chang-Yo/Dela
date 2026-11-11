@@ -11,7 +11,7 @@ vi.mock('electron', () => ({
 }));
 
 import { contextMirrorRoot, syncRemoteContext, uploadSkillToRemote } from '../context';
-import { mirrorCommandText, remoteOperations, remotePath, setContextMirrors } from '../operations';
+import { mirrorCommandText, remoteBackend, remotePath, setContextMirrors } from '../operations';
 import { shellQuote, type RemoteTarget } from '../transport';
 
 const skill = (name: string, description: string, body: string) =>
@@ -28,7 +28,7 @@ const target: RemoteTarget = {
 };
 
 describe('远端上下文镜像（真机）', () => {
-  const ops = remoteOperations(target);
+  const ops = remoteBackend(target);
   const root = `/tmp/dela-context-${Date.now()}`;
   const remoteDir = `${root}/nested/proj`;
   const home = `${root}/home`;
