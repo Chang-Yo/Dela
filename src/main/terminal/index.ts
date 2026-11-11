@@ -1,6 +1,6 @@
 import { app, ipcMain, type WebContents } from 'electron';
 import { spawn, type IPty } from 'node-pty';
-import { existsSync } from 'node:fs';
+import { lstatSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -20,7 +20,8 @@ function systemShell(): { file: string; args: string[]; title: string } {
       join(process.env.ProgramFiles ?? 'C:\\Program Files', 'PowerShell', '7'),
     ]
       .map((directory) => join(directory, 'pwsh.exe'))
-      .find((path) => existsSync(path));
+      // 商店版 pwsh 是应用执行别名，existsSync 认不出，lstat 能认出。
+      .find((path) => lstatSync(path, { throwIfNoEntry: false }));
     const windowsPowerShell = join(
       process.env.SystemRoot ?? 'C:\\Windows',
       'System32',
