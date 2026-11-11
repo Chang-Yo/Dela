@@ -449,6 +449,9 @@ export function cachedFile(source: StoredSource): Promise<{ path: string; mime: 
   return work;
 }
 
+/** 课件根目录，与 workspace 平级；资料库会话以它为工作目录。 */
+export const coursesDirectory = () => join(storageDirectory(), 'courses');
+
 function courseTermDirectory(term: string | undefined) {
   const value = term ?? '';
   const year = value.match(/(?:19|20)\d{2}/)?.[0];
@@ -496,8 +499,7 @@ function sourceDirectory(source: StoredSource): string {
     parentId = parent.parentId;
   }
   return join(
-    storageDirectory(),
-    'courses',
+    coursesDirectory(),
     courseTermDirectory(course?.term),
     diskName(`${course?.name || `course-${source.courseId}`} [${source.courseId}]`),
     ...folders,
@@ -733,7 +735,7 @@ export function cachedCourseFiles(): CachedCourseFile[] {
   const state = getCanvasState();
   const latest = latestTermOf(state.courses);
   if (!latest) return [];
-  const coursesRoot = join(storageDirectory(), 'courses');
+  const coursesRoot = coursesDirectory();
   const roots = state.courses
     .filter((course) => course.term === latest && !course.archived)
     // 按 id 排序让同名课程的 title 归属确定；空名兜底与 sourceDirectory 的目录命名保持一致。

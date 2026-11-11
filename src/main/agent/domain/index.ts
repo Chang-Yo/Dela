@@ -4,6 +4,8 @@ import {
   registerResourceResolver,
   type ResourceResolver,
 } from '../../../core/capabilities/resources';
+import { registerSessionScope } from '../../../core/agent/scopes';
+import { coursesDirectory } from '../../canvas/api';
 import { canvasDomain } from './canvas';
 import { classroomDomain } from './classroom';
 import { documentDomain } from './document';
@@ -29,4 +31,5 @@ export function registerBuiltinCapabilities(): void {
     registerCommandDomain(domain);
   for (const [type, resolver] of Object.entries(builtinResourceResolvers))
     registerResourceResolver(type, resolver as ResourceResolver);
+  registerSessionScope({ id: 'library', directory: coursesDirectory });
 }
