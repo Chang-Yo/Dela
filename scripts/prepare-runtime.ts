@@ -1,5 +1,5 @@
-// 打包前准备随包 MinGit 运行时：版本、SHA256 与下载源只在 src/main/terminal/mingit.ts 定义，
-// 这里解析同一份定义（换版本必须成对更新），产物到 .build/mingit，仓库不提交这约 40MB。
+// 打包前准备随包 MinGit（Git for Windows 官方嵌入发行版，含 bash 与 git），产物到 .build/mingit，
+// 仓库不提交这约 40MB。换版本时版本号与 SHA256 必须成对更新；镜像只加速，不作信任源。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -25,16 +25,13 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, '.build', 'mingit');
 const marker = join(root, '.build', 'mingit.prepared');
 
-const source = readFileSync(join(root, 'src', 'main', 'terminal', 'mingit.ts'), 'utf8');
-const version = /MINGIT_VERSION = '([^']+)'/.exec(source)?.[1];
-const sha256 = /MINGIT_SHA256 = '([0-9a-f]{64})'/.exec(source)?.[1];
-const urls = [...source.matchAll(/'(https:\/\/[^']*MinGit-[^']*\.zip)'/g)].map(
-  (match) => match[1]!,
-);
-if (!version || !sha256 || urls.length < 2) {
-  console.error('无法从 src/main/terminal/mingit.ts 解析 MinGit 版本定义，请检查常量拼写。');
-  process.exit(1);
-}
+const version = '2.56.0.2';
+const sha256 = 'da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0dde84b01a1b3cd3be';
+// npmmirror 逐字节镜像官方发布物，大陆直连快；GitHub Releases 兜底。两源都过同一 SHA256 校验。
+const urls = [
+  'https://registry.npmmirror.com/-/binary/git-for-windows/v2.56.0.windows.2/MinGit-2.56.0.2-64-bit.zip',
+  'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.2/MinGit-2.56.0.2-64-bit.zip',
+];
 
 // 已为同一版本准备过就直接跳过：本地连续打 dir/dist 包不重复下载。
 const fingerprint = `${version} ${sha256}`;
@@ -83,13 +80,13 @@ if (!downloaded) {
   process.exit(1);
 }
 
-// 与运行时一键安装同一条解压路径：Windows 10 1803+ 自带的 bsdtar。
+// Windows 10 1803+ 自带的 bsdtar 可直接解 zip，不引入解压依赖。
 const tar = join(process.env.windir ?? 'C:\\Windows', 'System32', 'tar.exe');
 const extract = spawnSync(tar, ['-xf', archive, '-C', outDir], { stdio: 'inherit' });
 if (extract.status !== 0) process.exit(extract.status ?? 1);
 rmSync(archive, { force: true });
 
-// MinGit 的 bash 本体以 sh.exe 名义分发；复制出 bash.exe 才走完整 bash 模式（同运行时安装）。
+// MinGit 的 bash 本体以 sh.exe 名义分发；argv[0] 为 bash 才走完整 bash 模式，故复制出 bash.exe。
 copyFileSync(join(outDir, 'usr', 'bin', 'sh.exe'), join(outDir, 'usr', 'bin', 'bash.exe'));
 for (const must of [join('usr', 'bin', 'bash.exe'), join('cmd', 'git.exe')]) {
   if (!existsSync(join(outDir, must))) {

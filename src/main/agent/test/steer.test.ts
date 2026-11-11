@@ -35,7 +35,6 @@ vi.mock('../environment', () => ({
     workspaceRoot: () => root,
   }),
 }));
-vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 // 冻结改动是收尾的第一步：拦在这里，就能在「Pi 已答完、Dela 还在收尾」的窗口里发消息。
 vi.mock('../changes', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../changes')>();

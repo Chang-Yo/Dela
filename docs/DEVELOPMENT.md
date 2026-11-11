@@ -190,12 +190,13 @@ schema v12。业务代码只认当前格式；旧数据在启动时由 `src/main
 
 ## 9. 终端
 
-Git Bash + node-pty + xterm.js，与 Agent 的 bash 同源（同一份 dela 桥注入）。以下安装流程仅用于 Windows；macOS 固定用 `/bin/bash` 与 Unix PTY，不装 MinGit，不读用户的 Zsh 配置，不执行登录 shell 来取环境。
+node-pty + xterm.js。本地终端跟随用户自己的 shell：Windows 优先 PowerShell 7（PATH 上或默认安装目录），没有时用系统自带的 Windows PowerShell 5.1；macOS 以登录模式启动用户的默认 shell（通常是 zsh），加载用户自己的配置。终端不注入 dela 命令桥。
 
-- **Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit → 应用自装的 MinGit**，都缺失时明确报错，**不回退 PowerShell**。
-- 随包 MinGit 由打包前脚本按源码里写死的版本与 SHA256 下载校验（版本定义只有一处），仓库不提交这份约 40MB 的产物。
-- 一键安装只在系统没装 Git for Windows 时兜底：npmmirror 优先、GitHub 兜底，两者与官方发布物逐字节一致。MinGit 只以 `sh.exe` 名义带 bash 本体，安装时要复制出 `bash.exe`——**argv[0] 决定 bash 是否走完整模式**，而 `--rcfile` 注入 dela 桥依赖它。
-- 远程项目的终端是本地 `ssh -tt` 申请远端 PTY，不注入 dela 桥，但可以让 ssh 自己问密码与指纹。
+Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 dela 命令桥（`commandPrefix`）。macOS 用 `/bin/bash`，不执行登录 shell 来取环境；下面的 Git Bash 规则只用于 Windows 上的 Agent。
+
+- **Git Bash 探测顺序：系统 Git for Windows → 随包 MinGit**，都缺失说明安装包被破坏，Agent 报错提示安装 Git for Windows 后重启，**不回退 PowerShell**。
+- 随包 MinGit 由打包前脚本 `prepare-runtime.ts` 按写死的版本与 SHA256 下载校验，仓库不提交这份约 40MB 的产物。MinGit 只以 `sh.exe` 名义带 bash 本体，脚本要复制出 `bash.exe`——**argv[0] 决定 bash 是否走完整模式**。
+- 远程项目的终端是本地 `ssh -tt` 申请远端 PTY，可以让 ssh 自己问密码与指纹。
 
 ## 10. 仓库组织
 
@@ -205,7 +206,7 @@ Git Bash + node-pty + xterm.js，与 Agent 的 bash 同源（同一份 dela 桥�
 
 按层约定：
 
-- `src/main/` 按业务域分目录，每域一个入口（大域名 `api.ts`，其余 `index.ts`），IPC 注册在入口或并列的 `ipc.ts`。大域可以在同目录拆模块，但**入口仍是对外唯一 import 点**。根级只放不属于任何业务域的模块。
+- `src/main/` 按业务域分目录，每域一个入口（大域名 `api.ts`，其余 `index.ts`），IPC 注册在入口或并列的 `ipc.ts`；已迁入 `src/modules` 的模块改用契约，由 `app/ipc.ts` 统一注册（见 §10.1）。大域可以在同目录拆模块，但**入口仍是对外唯一 import 点**。根级只放不属于任何业务域的模块。
 - 测试与被测代码同层：main 用各域的 `test/` 子目录，renderer 与 shared 与源码并排。
 - `scripts/` 全部为 TypeScript（Node 原生执行，仓库不再有 `.mjs`），纳入 `pnpm typecheck`。
 
@@ -222,7 +223,7 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
 6. **测试**：主进程查询对着 `database.ts` 建出的真实表跑，不写影子 schema；UI 不写快照和样式断言。
 
-依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。过渡期 `view/` 可以引用 `renderer/components/ui` 和 `renderer/lib/utils`，`src/ui` 建好后收紧。
+依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。过渡期 `view/` 可以引用 `renderer/components/ui` 和 `renderer/lib/utils`，`src/ui` 建好后收紧。renderer 的 Vite root 是 `src/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
 
 ## 11. 工具链与启动
 
@@ -278,7 +279,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 | `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
 | `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
 
-`pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`mingit-smoke`、`smoke:documents`）外不发送真实请求。
+`pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
 
 ## 13. 提交前检查
 
@@ -327,7 +328,7 @@ Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `ma
 
 `pnpm version:patch` / `version:minor` / `version:major` / `version:bump <版本>` 只改 `package.json` 的版本，不建 commit / tag，也不推送。preload 在构建时内联版本号，升版后需重新构建。
 
-安装包会带几类 `extraResources`，升级它们时各自按对应 README 的步骤做，并在打包目录里实跑一次验证：`vendor/openssh`（`ssh.exe -V` 与一次真实连接）、helper（发布与 CI 都从本次源码重建，避免发布旧产物）、`vendor/bin`（`rg.exe --version`、`fd.exe --version`）、MinGit（换版本只改源码里那对成对常量）。
+安装包会带几类 `extraResources`，升级它们时各自按对应 README 的步骤做，并在打包目录里实跑一次验证：`vendor/openssh`（`ssh.exe -V` 与一次真实连接）、helper（发布与 CI 都从本次源码重建，避免发布旧产物）、`vendor/bin`（`rg.exe --version`、`fd.exe --version`）、MinGit（换版本只改 `prepare-runtime.ts` 里那对成对常量）。
 
 ### 发布
 
@@ -365,14 +366,14 @@ Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `ma
 
 ### 16.2 跨平台取舍
 
-| 项目           | 当前处理                                      | 影响                                                                         |
-| -------------- | --------------------------------------------- | ---------------------------------------------------------------------------- |
-| 核心业务       | 单应用、同一主干与 IPC，功能共用              | 新增系统调用、路径假设、外部程序依赖仍需双平台回归                           |
-| 窗口与退出     | Mac 原生按钮与导航共用一行；两端关闭都隐藏    | 只有真正退出才结束终端；Mac 经 Dock 唤回                                     |
-| Shell 与环境   | Mac 系统 Bash、SSH、Git；不执行用户登录 shell | 只写在 Zsh 初始化里的 SDK 环境不一定可见；暂不随包引入另一套 Bash/GNU 工具链 |
-| PPTX 预览      | Mac 仅系统默认应用打开                        | Mac 不显示导出按钮，主进程提前拒绝转换                                       |
-| Agent 文档读取 | 两端共用脚本与锁文件，安装器按平台选运行时    | 扫描件只输出页面图片，不宣称 OCR                                             |
-| 分发与凭据     | 相同源码生成不同平台产物                      | 签名与公证已接入发布，Gatekeeper 首启与两版升级未验收                        |
+| 项目           | 当前处理                                                                   | 影响                                                                                         |
+| -------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 核心业务       | 单应用、同一主干与 IPC，功能共用                                           | 新增系统调用、路径假设、外部程序依赖仍需双平台回归                                           |
+| 窗口与退出     | Mac 原生按钮与导航共用一行；两端关闭都隐藏                                 | 只有真正退出才结束终端；Mac 经 Dock 唤回                                                     |
+| Shell 与环境   | 终端用用户的登录 shell；Agent 用 Mac 系统 Bash、SSH、Git，不执行登录 shell | 只写在 Zsh 初始化里的 SDK 环境终端可见、Agent 不一定可见；暂不随包引入另一套 Bash/GNU 工具链 |
+| PPTX 预览      | Mac 仅系统默认应用打开                                                     | Mac 不显示导出按钮，主进程提前拒绝转换                                                       |
+| Agent 文档读取 | 两端共用脚本与锁文件，安装器按平台选运行时                                 | 扫描件只输出页面图片，不宣称 OCR                                                             |
+| 分发与凭据     | 相同源码生成不同平台产物                                                   | 签名与公证已接入发布，Gatekeeper 首启与两版升级未验收                                        |
 
 **未验收**：Mac 的实际登录启动、系统级键位冲突、多显示器与动画表现；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路。模拟的平台分支测试不能替代实机回归。
 

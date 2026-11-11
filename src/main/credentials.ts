@@ -1,84 +1,16 @@
-import { app, safeStorage } from 'electron';
-import { basename, join } from 'node:path';
-import {
-  copyFileSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-  unlinkSync,
-  existsSync,
-} from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { hostPorts } from './host';
 
 export interface MailCredential {
   address: string;
   password: string;
 }
 
-export class CredentialDecryptionError extends Error {
-  constructor(path: string, cause: unknown) {
-    const label =
-      (
-        {
-          'llm-providers.bin': '模型服务配置',
-          'mail-credentials.bin': '邮箱凭据',
-          'canvas-token.bin': 'Canvas 凭据',
-          'shuiyuan-key.bin': '水源凭据',
-          'mcp-servers.bin': 'MCP 服务器配置',
-        } as Record<string, string>
-      )[basename(path)] ?? '凭据';
-    super(`本机无法解密${label}，请在设置中重新配置。原加密文件仍保留，重新保存时会自动备份。`, {
-      cause,
-    });
-    this.name = 'CredentialDecryptionError';
-  }
-}
-
-// 加密完成后原子替换；无法解密的旧文件先备份，不因重新配置而丢失恢复机会。
-function writeSealed(path: string, plaintext: string): void {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据加密存储');
-  const sealed = safeStorage.encryptString(plaintext);
-  const temporary = `${path}.${randomUUID()}.tmp`;
-  try {
-    if (existsSync(path)) {
-      try {
-        safeStorage.decryptString(readFileSync(path));
-      } catch {
-        copyFileSync(path, `${path}.unreadable-${randomUUID()}.bak`);
-      }
-    }
-    writeFileSync(temporary, sealed);
-    renameSync(temporary, path);
-  } finally {
-    if (existsSync(temporary)) unlinkSync(temporary);
-  }
-}
-
-function readSealed(path: string): string | null {
-  if (!existsSync(path)) return null;
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统不支持凭据解密');
-  const sealed = readFileSync(path);
-  try {
-    return safeStorage.decryptString(sealed);
-  } catch (cause) {
-    throw new CredentialDecryptionError(path, cause);
-  }
-}
-
-function removeSealed(path: string): void {
-  if (existsSync(path)) unlinkSync(path);
-}
-
-function credentialPath(): string {
-  return join(app.getPath('userData'), 'mail-credentials.bin');
-}
-
 export function saveMailCredentials(credential: MailCredential): void {
-  writeSealed(credentialPath(), JSON.stringify(credential));
+  hostPorts().secrets.write('mail-credentials', JSON.stringify(credential));
 }
 
 export function loadMailCredentials(): MailCredential | null {
-  const payload = readSealed(credentialPath());
+  const payload = hostPorts().secrets.read('mail-credentials');
   if (payload === null) return null;
   const parsed = JSON.parse(payload) as Partial<MailCredential>;
   if (typeof parsed.address !== 'string' || typeof parsed.password !== 'string') {
@@ -88,23 +20,19 @@ export function loadMailCredentials(): MailCredential | null {
 }
 
 export function clearMailCredentials(): void {
-  removeSealed(credentialPath());
-}
-
-function canvasTokenPath(): string {
-  return join(app.getPath('userData'), 'canvas-token.bin');
+  hostPorts().secrets.remove('mail-credentials');
 }
 
 export function saveCanvasToken(token: string): void {
-  writeSealed(canvasTokenPath(), token);
+  hostPorts().secrets.write('canvas-token', token);
 }
 
 export function loadCanvasToken(): string | null {
-  return readSealed(canvasTokenPath());
+  return hostPorts().secrets.read('canvas-token');
 }
 
 export function clearCanvasToken(): void {
-  removeSealed(canvasTokenPath());
+  hostPorts().secrets.remove('canvas-token');
 }
 
 /** 水源 User API Key 的本地形态；key 只存在主进程，不进 renderer 或数据库。 */
@@ -115,16 +43,12 @@ export interface ShuiyuanCredential {
   boundAt: string;
 }
 
-function shuiyuanPath(): string {
-  return join(app.getPath('userData'), 'shuiyuan-key.bin');
-}
-
 export function saveShuiyuanCredential(credential: ShuiyuanCredential): void {
-  writeSealed(shuiyuanPath(), JSON.stringify(credential));
+  hostPorts().secrets.write('shuiyuan-key', JSON.stringify(credential));
 }
 
 export function loadShuiyuanCredential(): ShuiyuanCredential | null {
-  const payload = readSealed(shuiyuanPath());
+  const payload = hostPorts().secrets.read('shuiyuan-key');
   if (payload === null) return null;
   const parsed = JSON.parse(payload) as Partial<ShuiyuanCredential>;
   if (
@@ -144,20 +68,16 @@ export function loadShuiyuanCredential(): ShuiyuanCredential | null {
 }
 
 export function clearShuiyuanCredential(): void {
-  removeSealed(shuiyuanPath());
-}
-
-function mcpServersPath(): string {
-  return join(app.getPath('userData'), 'mcp-servers.bin');
+  hostPorts().secrets.remove('shuiyuan-key');
 }
 
 /** 整份 MCP 配置加密保存：env、请求头与参数里都可能有密钥。结构由 mcp.ts 校验。 */
 export function saveMcpServers(configs: unknown[]): void {
-  writeSealed(mcpServersPath(), JSON.stringify(configs));
+  hostPorts().secrets.write('mcp-servers', JSON.stringify(configs));
 }
 
 export function loadMcpServers(): unknown {
-  const payload = readSealed(mcpServersPath());
+  const payload = hostPorts().secrets.read('mcp-servers');
   return payload === null ? [] : JSON.parse(payload);
 }
 
@@ -179,10 +99,6 @@ export interface StoredLlmConfig {
   providers: StoredLlmProvider[];
 }
 
-function llmConfigPath(): string {
-  return join(app.getPath('userData'), 'llm-providers.bin');
-}
-
 function validProvider(value: unknown): value is StoredLlmProvider {
   if (typeof value !== 'object' || value === null) return false;
   const provider = value as Partial<StoredLlmProvider>;
@@ -198,11 +114,11 @@ function validProvider(value: unknown): value is StoredLlmProvider {
 }
 
 export function saveLlmConfig(config: StoredLlmConfig): void {
-  writeSealed(llmConfigPath(), JSON.stringify(config));
+  hostPorts().secrets.write('llm-providers', JSON.stringify(config));
 }
 
 export function loadLlmConfig(): StoredLlmConfig {
-  const payload = readSealed(llmConfigPath());
+  const payload = hostPorts().secrets.read('llm-providers');
   if (payload === null) return { providers: [] };
   return parseLlmConfig(payload);
 }

@@ -1,5 +1,4 @@
 // 轮次审阅记录工作目录的前后状态，不依赖工具名称，也不把历史 diff 重新对当前文件计算。
-import { app } from 'electron';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
@@ -14,6 +13,7 @@ import type {
   TurnChanges,
   UncommittedChanges,
 } from '../../shared/chat';
+import { hostPorts } from '../host';
 
 const execute = promisify(execFile);
 const compress = promisify(gzip);
@@ -281,7 +281,7 @@ function detail(file: SavedChange, gitPatch?: string): FileChangeDetail {
 }
 
 function changesRoot() {
-  return join(app.getPath('userData'), 'chat-changes');
+  return join(hostPorts().paths.userData(), 'chat-changes');
 }
 function sessionDirectory(sessionId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(sessionId)) throw new Error('无效会话标识');

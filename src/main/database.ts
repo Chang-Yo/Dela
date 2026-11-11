@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
-import { app } from 'electron';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { hostPorts } from './host';
 
 let database: Database.Database | null = null;
 
@@ -203,7 +203,7 @@ export const SCHEMA_VERSION = 12;
 
 export function getDatabase(): Database.Database {
   if (database) return database;
-  const dir = app.getPath('userData');
+  const dir = hostPorts().paths.userData();
   mkdirSync(dir, { recursive: true });
   const db = new Database(join(dir, 'dela.db'));
   try {

@@ -15,13 +15,13 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { app } from 'electron';
 import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
 import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../shared/api';
 import type { RemoteTarget } from '../remotes/transport';
 import { remoteBackgroundBash, remoteOperations } from '../remotes/operations';
 import { loadPi } from './pi';
 import { deliverTaskNotice, publish } from './session';
+import { hostPorts } from '../host';
 
 export interface TaskOutcome {
   status: Exclude<TaskStatus, 'running'>;
@@ -57,7 +57,7 @@ let logDirectory: string | undefined;
 /** 上次运行留下的日志没有对应的任务，第一次用到时清掉。 */
 function logDir() {
   if (!logDirectory) {
-    logDirectory = join(app.getPath('userData'), 'background-tasks');
+    logDirectory = join(hostPorts().paths.userData(), 'background-tasks');
     rmSync(logDirectory, { recursive: true, force: true });
     mkdirSync(logDirectory, { recursive: true });
   }

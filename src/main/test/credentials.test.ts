@@ -10,7 +10,9 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CredentialDecryptionError, loadCanvasToken, saveCanvasToken } from '../credentials';
+import { electronPorts } from '../../app/host-electron';
+import { loadCanvasToken, saveCanvasToken } from '../credentials';
+import { CredentialDecryptionError, provideHostPorts } from '../host';
 
 const storage = vi.hoisted(() => ({ directory: '', available: true }));
 vi.mock('electron', () => ({
@@ -29,6 +31,7 @@ vi.mock('electron', () => ({
 beforeEach(() => {
   storage.directory = mkdtempSync(join(tmpdir(), 'dela-credentials-test-'));
   storage.available = true;
+  provideHostPorts(electronPorts);
 });
 afterEach(() => {
   for (const file of readdirSync(storage.directory)) unlinkSync(join(storage.directory, file));

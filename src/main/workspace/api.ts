@@ -1,4 +1,3 @@
-import { shell } from 'electron';
 import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import {
   constants,
@@ -15,6 +14,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
+import { hostPorts } from '../host';
 import { remoteById, targetOf } from '../remotes/api';
 import { locateRemote } from '../remotes/operations';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
@@ -816,5 +816,5 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     return;
   }
   // 用户在应用中明确移除文件时才调用回收站；失败保留原文件，不退化为永久删除。
-  await shell.trashItem(entryLocalPath(item));
+  await hostPorts().desktop.trash(entryLocalPath(item));
 }

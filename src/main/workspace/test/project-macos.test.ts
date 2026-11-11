@@ -8,10 +8,6 @@ const state = vi.hoisted(() => ({
   exists: vi.fn(),
   remote: false,
 }));
-vi.mock('electron', () => ({
-  app: { getPath: () => '/Users/test' },
-  shell: { openPath: vi.fn() },
-}));
 vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
 vi.mock('node:fs', () => ({ existsSync: state.exists }));
 vi.mock('../api', () => ({
@@ -21,6 +17,8 @@ vi.mock('../api', () => ({
 vi.mock('../../remotes/api', () => ({ remoteById: () => ({ host: 'gpu-box' }) }));
 
 import { openProjectDirectory } from '../project';
+import { provideTestHostPorts } from '../../test/host-mock';
+provideTestHostPorts({ paths: { home: () => '/Users/test' } });
 const id = '11111111-1111-4111-8111-111111111111';
 
 beforeEach(() => {

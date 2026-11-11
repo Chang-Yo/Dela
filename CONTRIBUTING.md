@@ -67,7 +67,7 @@ pnpm dev
 
 `pnpm install` 的 `postinstall` 会下载 Electron 运行时，并在 macOS 上修正 `node-pty` 的 `spawn-helper` 可执行位。
 
-在 Windows 上，Git for Windows 是运行前提而非可选项：终端与 Agent 的 Bash 工具均依赖它。macOS 使用系统 `/bin/bash` 与本机 Git/SSH，无需安装 MinGit。Go 仅与 `helper/` 有关；远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go。
+在 Windows 上，Git for Windows 是运行前提而非可选项：Agent 的 Bash 工具依赖它（内置终端跟随系统 shell，不依赖它）。macOS 使用系统 `/bin/bash` 与本机 Git/SSH，无需安装 MinGit。Go 仅与 `helper/` 有关；远端 helper 的静态二进制已入库在 `vendor/dela-helper/`，日常开发不需要 Go。
 
 模型服务、搜索服务与校园服务凭据均在应用设置中配置。请勿提交 `.env`、个人数据、日志与本地工具。
 
@@ -99,7 +99,7 @@ pnpm test
 | 打包目录启动                | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test`                        |
 
 - 修改 `src/main/remotes/`、`helper/` 或远端路径与上下文镜像时，必须通过 `pnpm test:remote` 在真机上执行回归；该套件在默认测试与 CI 中均会跳过。
-- 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke`、`mingit-smoke` 与 `smoke:documents` 外，不应向真实服务发送请求。
+- 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke` 与 `smoke:documents` 外，不应向真实服务发送请求。
 - CI 入口为 `.github/workflows/ci.yml`，在 PR 变更及推送到 `dev`、`main` 时运行，按变更范围调用 quality、test、helper、desktop-windows 和 desktop-macos workflow，并由 `CI required` 汇总结果。普通文档只检查格式；workflow 改动额外检查 GitHub Actions 配置。CI 分步执行命令，并检查冻结锁文件安装、打包布局与打包后启动；本地 `pnpm check` 通过不代表 CI 一定通过。
 - 修改 `helper/` 后应执行 `pnpm build:helper --all`，重建 amd64 与 arm64 产物并一并提交；仅重建 amd64 会导致入库的 arm64 产物停留在旧版本。
 
@@ -110,7 +110,7 @@ pnpm test
 │ Renderer (React)             │
 │ 标签工作台、设置、预览、终端 │
 └──────────────┬───────────────┘
-               │ preload / IPC（有限 API）
+               │ preload / IPC（契约白名单）
 ┌──────────────▼───────────────┐
 │ Electron Main                │
 │  ├─ Pi Coding Agent（内核）  │
@@ -131,7 +131,7 @@ pnpm test
 - **内核冻结**：`@earendil-works/pi-coding-agent` 的 `createAgentSession` 就是 agent 内核。会话树、多轮工具上下文、自动压缩、重试、skills 发现与渐进加载均由 Pi 承担，Dela 不另写执行循环、上下文组装或压缩。
 - **领域能力外置**：校园功能通过 `dela` 命令和 Skills 提供给内核。`dela` 是应用生命周期内的本机 HTTP 桥，经 `shellCommandPrefix` 注入 Bash，终端中也可直接使用；Skills 提供领域知识与工具使用指引，不是硬编码的执行分支。
 - **单向分层**：依赖方向自下而上为 Pi 内核 → `dela` 命令 → Skills → GUI。GUI 只消费同一套领域实现，不复制业务逻辑。
-- **进程边界**：renderer 不导入 main，不直接访问文件系统、数据库或凭据；所有能力均经 preload 暴露的有限 API 通信。校园网页使用独立 Session 与 sandbox，不加载主界面 preload。
+- **进程边界**：renderer 不导入 main，不直接访问文件系统、数据库或凭据；所有能力均经 preload 暴露的有限 API 通信；v3 迁移后的模块只经按契约白名单放行的 `bridge`（见 [ADR 0011](docs/adr/0011-module-contracts.md)）。校园网页使用独立 Session 与 sandbox，不加载主界面 preload。
 - **单应用、单 package**：仓库不是 monorepo。仅在出现真实重复与多个调用方后提取抽象，不预建 Manager、Service、Factory 层级。
 - **远程项目**：本地内核与远程执行分离。内核、模型密钥、会话 JSONL、Skills 与系统提示均在本地；工具执行、终端、目录读取与文件预览落到 SSH 远端。传输仅使用一次性 `ssh` 与 helper 隧道，不引入 SFTP。
 - **权限边界**：Agent 的 Bash 与文件工具以当前用户权限运行，没有额外沙箱。这是已知设计取舍，不应视为待修复漏洞，也不应描述为安全隔离。
@@ -144,6 +144,9 @@ pnpm test
 ```text
 Dela/
 ├─ src/
+│  ├─ core/protocol/          v3：模块契约工具（defineContract、implement、createClient）
+│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册
+│  ├─ modules/                v3：已迁移的通用模块（search）
 │  ├─ main/                   Electron 主进程，按业务域分目录
 │  │  ├─ agent/               Pi 会话、工具、MCP、Skills 与模型接入
 │  │  ├─ canvas/              Canvas 课程与资料
@@ -151,7 +154,6 @@ Dela/
 │  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
 │  │  ├─ notifications/       系统通知
 │  │  ├─ remotes/             远程项目、SSH 传输与 helper 隧道
-│  │  ├─ search/              全局搜索
 │  │  ├─ settings/            设置、偏好与任务通知
 │  │  ├─ shuiyuan/            水源社区
 │  │  ├─ terminal/            内置终端、Bash 与 MinGit
@@ -160,7 +162,7 @@ Dela/
 │  │  ├─ update/              应用内更新
 │  │  ├─ vsjtu/               致远一号
 │  │  └─ workspace/           工作区、项目目录与预览
-│  ├─ preload/                contextBridge 与 IPC 暴露层
+│  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
 │  ├─ renderer/               React 界面
 │  │  ├─ app/                 应用外壳、主题与全局状态
 │  │  ├─ workbench/           标签工作台

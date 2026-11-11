@@ -41,6 +41,9 @@ vi.mock('../../agent/session', () => ({
 }));
 
 import { backgroundTools, stopAllTasks } from '../../agent/tasks';
+import { provideTestHostPorts } from '../../test/host-mock';
+
+provideTestHostPorts({ paths: { userData: () => root } });
 
 const cwd = '/root/proj';
 let tools: ToolDefinition[];

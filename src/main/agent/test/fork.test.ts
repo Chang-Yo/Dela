@@ -32,7 +32,8 @@ vi.mock('../environment', () => ({
     workspaceRoot: () => root,
   }),
 }));
-vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
+
+import { provideTestHostPorts } from '../../test/host-mock';
 
 import {
   askSession,
@@ -53,6 +54,7 @@ const ask = (id: string, text: string) =>
 let server: MockOpenAiServer;
 
 beforeAll(async () => {
+  provideTestHostPorts({ paths: { userData: () => root } });
   server = await MockOpenAiServer.start();
   state.provider = {
     id: 'p1',

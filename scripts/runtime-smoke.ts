@@ -5,13 +5,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { locateBash } from '../src/main/terminal';
-import { prependRuntimePath } from '../src/main/terminal/mingit';
+import { locateBash, prependRuntimePath } from '../src/main/terminal/mingit';
 import { locateSsh } from '../src/main/remotes/transport';
 import { loadPi } from '../src/main/agent/pi';
 import { closeDomainBridge, domainBridge } from '../src/main/agent/environment';
 import { COMMAND_BRIDGE } from '../src/main/agent/commands';
 import { closeDatabase } from '../src/main/database';
+import { provideHostPorts } from '../src/main/host';
+import { electronPorts } from '../src/app/host-electron';
 
 const root = resolve('.');
 const profile = mkdtempSync(join(tmpdir(), 'dela-runtime-中文-'));
@@ -33,6 +34,7 @@ const timeout = setTimeout(() => app.exit(1), 30000);
 app.whenReady().then(async () => {
   let exitCode = 1;
   try {
+    provideHostPorts(electronPorts);
     prependRuntimePath();
     const tools = join(
       root,

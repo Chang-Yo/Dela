@@ -1,10 +1,10 @@
-import { app, net } from 'electron';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, open, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SkillDependency } from '../../shared/capabilities';
+import { hostPorts } from '../host';
 import requirements from './requirements.lock?raw';
 import notices from './runtime-licenses.txt?raw';
 
@@ -23,7 +23,7 @@ const MAC_UV_URL =
 const MAC_UV_SHA256 = 'f7815f739ed5d0e4202e6292acedb8659b9ae7de663d07188d8c6cbd7f96303f';
 
 export function documentRuntimeDirectory(): string {
-  return join(app.getPath('userData'), 'components', DOCUMENT_SKILL, VERSION);
+  return join(hostPorts().paths.userData(), 'components', DOCUMENT_SKILL, VERSION);
 }
 
 export function documentPython(root = documentRuntimeDirectory()): string {
@@ -116,7 +116,7 @@ async function download(
   hash: string,
   signal: AbortSignal,
 ): Promise<void> {
-  const response = await net.fetch(url, { signal });
+  const response = await hostPorts().network.fetch(url, { signal });
   if (!response.ok || !response.body) throw new Error(`组件下载失败（HTTP ${response.status}）`);
   const total = Number(response.headers.get('content-length')) || undefined;
   const file = await open(path, 'wx');

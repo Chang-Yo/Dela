@@ -30,8 +30,8 @@ import { resumeShuiyuanSnapshots } from './shuiyuan/snapshot';
 import { openShuiyuanLinkInApp } from './shuiyuan/links';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
-import { registerTerminalIpc, locateBash } from './terminal';
-import { prependRuntimePath } from './terminal/mingit';
+import { registerTerminalIpc } from './terminal';
+import { locateBash, prependRuntimePath } from './terminal/mingit';
 import { closeHelper } from './remotes/helper';
 import { closeAllPortTunnels } from './remotes/ports';
 import { closeRemoteWatch } from './remotes/watch';
@@ -60,8 +60,9 @@ import {
   loadPi,
   registerAgentIpc,
   shutdownSessions,
-  subscribeChat,
 } from './agent';
+import { provideHostPorts } from './host';
+import { electronPorts } from '../app/host-electron';
 import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } from './settings';
 import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';
 
@@ -160,6 +161,7 @@ app
   .whenReady()
   .then(() => {
     if (!hasSingleInstanceLock) return;
+    provideHostPorts(electronPorts);
     // Windows 系统通知按 AppUserModelID 识别应用；与 electron-builder.yml 的 appId 一致，
     // 开发运行（未走安装器）也需要显式设置才能弹通知。
     if (process.platform === 'win32') app.setAppUserModelId('io.dela.desktop');
@@ -232,7 +234,7 @@ app
     registerCanvasIpc();
     registerShuiyuanIpc();
     registerAgentIpc();
-    registerWorkspaceIpc(subscribeChat, invalidateSessions);
+    registerWorkspaceIpc(invalidateSessions);
     registerTerminalIpc();
     registerRemoteIpc();
     registerModuleIpc(modules);

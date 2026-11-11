@@ -21,6 +21,8 @@ vi.mock('../../settings/prefs', () => ({
   writeSetting: (key: string, value: string) =>
     database.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value),
 }));
+
+import { provideTestHostPorts } from '../../test/host-mock';
 import {
   effectiveDisabledSkills,
   listSkills,
@@ -50,6 +52,7 @@ function addProject(id: string, name: string) {
 const byName = async (name: string) => (await listSkills()).filter((skill) => skill.name === name);
 
 beforeEach(() => {
+  provideTestHostPorts({ paths: { userData: () => home, home: () => home } });
   database = new DatabaseSync(':memory:');
   database.exec(`
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -130,6 +133,8 @@ it('restores user-edited builtin skills to the bundled version', async () => {
   const bundled = readFileSync(path, 'utf8');
   writeFileSync(path, `${bundled}\n用户补充的指引\n`);
   vi.resetModules();
+  const { provideTestHostPorts: provideAfterReset } = await import('../../test/host-mock');
+  provideAfterReset({ paths: { userData: () => home, home: () => home } });
   (await import('../skills')).ensureBuiltinSkills();
   expect(readFileSync(path, 'utf8')).toBe(bundled);
 });

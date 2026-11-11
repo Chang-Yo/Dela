@@ -16,7 +16,6 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('electron', () => ({
   app: { getPath: () => root, isPackaged: false, getAppPath: () => root },
-  shell: { trashItem: async () => {} },
 }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
@@ -37,7 +36,6 @@ vi.mock('../environment', () => ({
     workspaceRoot: () => root,
   }),
 }));
-vi.mock('../../settings/task-notify', () => ({ notifyRunFinished: () => {} }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 
 import {
@@ -52,7 +50,7 @@ import {
   withdrawQueued,
 } from '../session';
 import { sessionTurns } from '../session-read';
-import { locateBash } from '../../terminal';
+import { locateBash } from '../../terminal/mingit';
 import { stopTask } from '../tasks';
 
 const reply = (text: string, delayMs = 0) => ({

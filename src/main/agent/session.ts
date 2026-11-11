@@ -5,7 +5,6 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { shell, type WebContents } from 'electron';
 import type {
   AgentSession,
   AgentSessionEvent,
@@ -46,10 +45,10 @@ import {
   readChatMediaBytes,
   releaseChatAttachments,
 } from './media';
-import { notifyRunFinished } from '../settings/task-notify';
 import * as changes from './changes';
 import { taskTool } from './subagent';
 import { backgroundTools, runningTasks, stopAllTasks, stopSessionTasks } from './tasks';
+import { hostPorts } from '../host';
 
 type ChatMessage = WorkspaceChat['messages'][number];
 
@@ -98,17 +97,6 @@ export interface TaskNotice {
 }
 
 const live = new Map<string, Live>();
-const clients = new Set<WebContents>();
-
-export function subscribeChat(client: WebContents) {
-  if (clients.has(client)) return;
-  clients.add(client);
-  client.once('destroyed', () => clients.delete(client));
-}
-
-export function send(channel: string, ...args: unknown[]) {
-  for (const client of clients) if (!client.isDestroyed()) client.send(channel, ...args);
-}
 
 export function row(id: string): SessionRow {
   const found = getDatabase()
@@ -167,12 +155,11 @@ function sessionFilePath(sessionId: string, rawPath: string): string {
 }
 
 export function revealSessionFile(sessionId: string, path: string): void {
-  shell.showItemInFolder(sessionFilePath(sessionId, path));
+  hostPorts().desktop.reveal(sessionFilePath(sessionId, path));
 }
 
 export async function openSessionFile(sessionId: string, path: string): Promise<void> {
-  const error = await shell.openPath(sessionFilePath(sessionId, path));
-  if (error) throw new Error(error);
+  await hostPorts().desktop.open(sessionFilePath(sessionId, path));
 }
 
 /** 解析会话内文件的本机绝对路径（须真实存在）：应用内预览标签以它作为标签键。 */
@@ -681,7 +668,7 @@ export async function preloadPi() {
 }
 
 export function publish(id: string) {
-  send('session:on-update', id, snapshot(id));
+  hostPorts().broadcaster.send('session:on-update', id, snapshot(id));
 }
 
 // ===== 事件 =====
@@ -740,7 +727,10 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
       publish(id);
       break;
     case 'queue_update':
-      send('session:on-queue', { sessionId: id, queued: queuedTexts(event.steering) });
+      hostPorts().broadcaster.send('session:on-queue', {
+        sessionId: id,
+        queued: queuedTexts(event.steering),
+      });
       break;
   }
 }
@@ -776,7 +766,7 @@ function stream(id: string, entry: Live) {
   );
   const last = messages.at(-1);
   if (last?.role === 'assistant')
-    send('session:on-stream', {
+    hostPorts().broadcaster.send('session:on-stream', {
       sessionId: id,
       message: withoutToolImages(last),
       activeTool: entry.run?.tool,
@@ -799,7 +789,7 @@ function runEvent(
   changesError?: string,
 ) {
   const entry = live.get(sessionId);
-  send('session:on-run-event', {
+  hostPorts().broadcaster.send('session:on-run-event', {
     sessionId,
     runId: finishedRunId ?? entry?.run?.id ?? '',
     status,
@@ -1092,10 +1082,7 @@ export async function deleteSession(id: string) {
   const { file } = row(id);
   getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
   await changes.deleteTurnChanges(id);
-  if (file && existsSync(file)) {
-    const { shell } = await import('electron');
-    await shell.trashItem(file).catch(() => {});
-  }
+  if (file && existsSync(file)) await hostPorts().desktop.trash(file);
 }
 
 /** 停止时先撤回还没送达的插队消息，与 Pi 终端界面一致：它们回到输入框，不随本轮丢掉。 */
@@ -1402,7 +1389,7 @@ async function runTurn(
       touch(id, entry);
       runEvent(id, status, undefined, turnId, changesError);
       publish(id);
-      if (status !== 'stopped' && !child) notifyRunFinished(id, status);
+      if (status !== 'stopped' && !child) hostPorts().notifier.notifyRunFinished(id, status);
       if (entry.stale) disposeLive(id, entry);
     } finally {
       finishRun();

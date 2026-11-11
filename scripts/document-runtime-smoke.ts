@@ -7,6 +7,8 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { provideHostPorts } from '../src/main/host';
+import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase } from '../src/main/database';
 import { listSkills, setSkillEnabled } from '../src/main/agent/skills';
 import {
@@ -25,6 +27,7 @@ const timeout = setTimeout(() => app.exit(1), 540000);
 app.whenReady().then(async () => {
   let exitCode = 1;
   try {
+    provideHostPorts(electronPorts);
     assert.equal(process.platform, 'darwin');
     assert.equal(process.arch, 'arm64');
     assert.equal(documentDependency().status, 'missing');
