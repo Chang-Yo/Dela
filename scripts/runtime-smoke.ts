@@ -13,8 +13,7 @@ import { COMMAND_BRIDGE } from '../src/main/agent/commands';
 import { closeDatabase } from '../src/main/database';
 import { provideHostPorts } from '../src/main/host';
 import { electronPorts } from '../src/app/host-electron';
-import { registerCommandDomain } from '../src/core/capabilities/commands';
-import { builtinCommandDomains } from '../src/main/agent/domain';
+import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
 const root = resolve('.');
 const profile = mkdtempSync(join(tmpdir(), 'dela-runtime-中文-'));
@@ -37,7 +36,7 @@ app.whenReady().then(async () => {
   let exitCode = 1;
   try {
     provideHostPorts(electronPorts);
-    for (const domain of builtinCommandDomains) registerCommandDomain(domain);
+    registerBuiltinCapabilities();
     prependRuntimePath();
     const tools = join(
       root,

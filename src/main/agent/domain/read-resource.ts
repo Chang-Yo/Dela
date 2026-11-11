@@ -4,13 +4,21 @@ import { getShuiyuanTopic } from '../../shuiyuan/api';
 import { shuiyuanPostsHtml, shuiyuanTopicUrl } from '../../shuiyuan/sources';
 import { requireShuiyuanBound, withShuiyuanErrors } from './shuiyuan/helpers';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
-import { readResourceContent } from '../../resources';
+import {
+  readCanvasResource,
+  readWorkspaceResource,
+  withAttachmentFile,
+  type ResourceContent,
+} from '../../resources';
+import { canvasFilePath } from '../../canvas/api';
+import { mailAttachment } from '../../mail/api';
+import { workspaceFilePath } from '../../workspace/api';
 import type { CommandDomain } from '../../../core/capabilities/commands';
+import { resourceResolver, type ResourceResolver } from '../../../core/capabilities/resources';
 import { freshness, offset, tool, toolError } from './shared';
 
 type MailRef = Extract<ResourceRef, { type: 'mail' }>;
 type ShuiyuanOnlineRef = Extract<ResourceRef, { type: 'shuiyuan-online' }>;
-type DocumentRef = Extract<ResourceRef, { type: 'canvas' | 'workspace' | 'attachment' }>;
 
 /** 业务层中文错误消息 → 统一错误码（消息保持原文）；未识别的错误原样抛出。 */
 function refineReadError(error: unknown): unknown {
@@ -80,8 +88,7 @@ function documentHint(ref: ResourceRef, title: string, format: string) {
   };
 }
 
-async function readDocumentRef(ref: DocumentRef, offset: number, limit: number) {
-  const content = await readResourceContent(ref);
+function readDocument(ref: ResourceRef, content: ResourceContent, offset: number, limit: number) {
   const cached = freshness('cached');
   // 图片直接作为图片消息附给视觉模型。
   if (content.format === 'image' && content.bytes && content.mime) {
@@ -128,19 +135,35 @@ export const readResourceTool = tool(
     .strict(),
   async ({ ref, offset, limit }) => {
     try {
-      switch (ref.type) {
-        case 'mail':
-          return await readMailRef(ref, offset, limit);
-        case 'shuiyuan-online':
-          return await readShuiyuanOnlineRef(ref, offset, limit);
-        default:
-          return await readDocumentRef(ref, offset, limit);
-      }
+      return await resourceResolver(ref.type).read(ref, offset, limit);
     } catch (error) {
       throw refineReadError(error);
     }
   },
 );
+
+// 过渡期各类引用的解析器：迁入各自模块后由模块注册。
+export const builtinResourceResolvers: {
+  [Type in ResourceRef['type']]: ResourceResolver<Extract<ResourceRef, { type: Type }>>;
+} = {
+  workspace: {
+    read: async (ref, offset, limit) =>
+      readDocument(ref, await readWorkspaceResource(ref.id), offset, limit),
+    path: (ref) => workspaceFilePath(ref.id),
+  },
+  canvas: {
+    read: async (ref, offset, limit) =>
+      readDocument(ref, await readCanvasResource(ref.id), offset, limit),
+    path: (ref) => canvasFilePath(ref.id),
+  },
+  attachment: {
+    read: async (ref) =>
+      documentHint(ref, mailAttachment(ref.messageId, ref.part).attachment.filename, 'file'),
+    withFile: (ref, consume) => withAttachmentFile(ref.messageId, ref.part, consume),
+  },
+  mail: { read: readMailRef },
+  'shuiyuan-online': { read: readShuiyuanOnlineRef },
+};
 
 export const resourceDomain = {
   name: 'resource',

@@ -2,8 +2,9 @@ import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/p
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { resourceRefSchema, type ResourceRef } from '../shared/resources';
-import { cachedFile, canvasFilePath, getSource, readCanvasPage } from './canvas/api';
-import { mailAttachment, readMailMessage, saveMailAttachment } from './mail/api';
+import { cachedFile, getSource, readCanvasPage } from './canvas/api';
+import { readMailMessage, saveMailAttachment } from './mail/api';
+import { resourceResolver } from '../core/capabilities/resources';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './workspace/api';
 import { readShuiyuanSource } from './shuiyuan/sources';
 import { TEXT_PREVIEW_MAX_BYTES, formatByName, imageMimeOf, isTextContent } from '../shared/files';
@@ -13,7 +14,7 @@ import { hostPorts } from './host';
 import { workspaceEntryIdSchema } from '../shared/workspace';
 import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
 
-interface ResourceContent {
+export interface ResourceContent {
   title: string;
   format: 'file' | 'text' | 'markdown' | 'html' | 'image';
   text?: string;
@@ -26,7 +27,7 @@ interface ResourceContent {
 // Canvas 只按 mime 认得出图片；与工作区图片同一套视觉模型可读的位图。
 const canvasImageMimes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
-async function readCanvasResource(id: string): Promise<ResourceContent> {
+export async function readCanvasResource(id: string): Promise<ResourceContent> {
   const source = getSource(id);
   if (source.kind !== 'file') {
     const page = await readCanvasPage(id);
@@ -43,15 +44,8 @@ async function readCanvasResource(id: string): Promise<ResourceContent> {
 }
 
 /** Agent 的资源读取不生成预览地址、不查询 Office 导出，也不枚举解析格式。 */
-export async function readResourceContent(
-  ref: Extract<ResourceRef, { type: 'workspace' | 'canvas' | 'attachment' }>,
-): Promise<ResourceContent> {
-  if (ref.type === 'canvas') return readCanvasResource(ref.id);
-  if (ref.type === 'attachment') {
-    const { attachment } = mailAttachment(ref.messageId, ref.part);
-    return { title: attachment.filename, format: 'file' };
-  }
-  const item = entry(ref.id);
+export async function readWorkspaceResource(id: string): Promise<ResourceContent> {
+  const item = entry(id);
   if (item.kind === 'source' && item.sourceId) {
     if (item.sourceId.startsWith('shuiyuan-topic:')) {
       const content = await readShuiyuanSource(
@@ -71,7 +65,7 @@ export async function readResourceContent(
   const named = formatByName(item.path ?? item.name);
   if (named && named !== 'markdown' && named !== 'image')
     return { title: item.name, format: 'file' };
-  const path = await workspaceFilePath(ref.id);
+  const path = await workspaceFilePath(id);
   const format = localFileFormat(path);
   if (format !== 'text' && format !== 'markdown' && format !== 'image')
     return { title: item.name, format: 'file' };
@@ -142,16 +136,24 @@ export async function withResourceFile<T>(
   consume: (path: string) => Promise<T> | T,
 ): Promise<T> {
   source = resourceRefSchema.parse(source);
-  if (source.type === 'canvas') return consume(await canvasFilePath(source.id));
-  if (source.type === 'workspace') return consume(await workspaceFilePath(source.id));
-  if (source.type !== 'attachment') throw new Error('请选择项目文件、Canvas 文件或邮件附件');
-  const mail = await readMailMessage(source.messageId);
-  const attachment = mail.attachments.find((item) => item.part === source.part);
+  const resolver = resourceResolver(source.type);
+  if (resolver.path) return consume(await resolver.path(source));
+  if (!resolver.withFile) throw new Error('请选择项目文件、Canvas 文件或邮件附件');
+  return resolver.withFile(source, consume);
+}
+
+export async function withAttachmentFile<T>(
+  messageId: number,
+  part: string,
+  consume: (path: string) => Promise<T> | T,
+): Promise<T> {
+  const mail = await readMailMessage(messageId);
+  const attachment = mail.attachments.find((item) => item.part === part);
   if (!attachment) throw new Error('附件不存在，请先同步邮件');
   const temporaryDirectory = await mkdtemp(join(hostPorts().paths.temp(), 'dela-attachment-'));
   try {
     const path = join(temporaryDirectory, diskName(attachment.filename));
-    await saveMailAttachment(source.messageId, source.part, path);
+    await saveMailAttachment(messageId, part, path);
     return await consume(path);
   } finally {
     // Only remove the temporary directory created by this call.
@@ -170,16 +172,14 @@ export async function copyResourceToProject(input: unknown) {
   });
 }
 
-/** 用系统默认应用打开资源的本地源文件（pptx 关联通常指向 PowerPoint）。与导出 PDF 一样
- *  只支持 Canvas 资料与我的资料条目；邮件附件要落临时目录，启动竞态下会被清理，不放行。 */
+/** 用系统默认应用打开资源的本地源文件（pptx 关联通常指向 PowerPoint）。邮件附件要落临时目录，
+ *  启动竞态下会被清理，所以只放行有持久文件的资源。 */
 export async function openResourceFile(ref: ResourceRef): Promise<void> {
   const parsed = resourceRefSchema.parse(ref);
-  if (parsed.type !== 'canvas' && parsed.type !== 'workspace')
-    throw new Error('仅支持资料文件与我的资料条目');
-  const path =
-    parsed.type === 'canvas' ? await canvasFilePath(parsed.id) : await workspaceFilePath(parsed.id);
+  const { path } = resourceResolver(parsed.type);
+  if (!path) throw new Error('仅支持资料文件与我的资料条目');
   await hostPorts()
-    .desktop.open(path)
+    .desktop.open(await path(parsed))
     .catch((error: Error) => {
       throw new Error(`无法用系统默认程序打开：${error.message}`);
     });
