@@ -1,0 +1,1917 @@
+{
+  "protocolVersion": 1,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "procedures": {
+      "type": "object",
+      "properties": {
+        "handshake": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "protocolVersion": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "protocolVersion"
+              ]
+            },
+            "output": {
+              "type": "object",
+              "properties": {
+                "protocolVersion": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "protocolVersion"
+              ]
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "list-sessions": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "query": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "projectId"
+              ]
+            },
+            "output": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ChatSessionSummary"
+              }
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "create-session": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "chat",
+                    "library"
+                  ]
+                }
+              },
+              "required": [
+                "projectId",
+                "scope"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "open-session": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "sessionId"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "ask": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "maxLength": 20000
+                },
+                "attachments": {
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "context": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 32767
+                  }
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 500
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title"
+                    ]
+                  }
+                },
+                "comments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "quote": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "comment": {
+                        "type": "string",
+                        "maxLength": 20000
+                      }
+                    },
+                    "required": [
+                      "quote",
+                      "comment"
+                    ]
+                  }
+                },
+                "replaceLastUser": {
+                  "type": "boolean"
+                },
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "text",
+                "attachments",
+                "context",
+                "comments",
+                "sessionId"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "cancel-run": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "sessionId"
+              ]
+            },
+            "output": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ChatQueuedDraft"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "withdraw-queued": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "sessionId"
+              ]
+            },
+            "output": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ChatQueuedDraft"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "stop-task": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "taskId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "sessionId",
+                "taskId"
+              ]
+            },
+            "output": {}
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "fork": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "entryId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              },
+              "required": [
+                "sessionId",
+                "entryId"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "list-models": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {}
+            },
+            "output": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "models": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "models"
+                ]
+              }
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "set-model": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "providerId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "sessionId",
+                "providerId",
+                "model"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "set-effort": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "level": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16
+                }
+              },
+              "required": [
+                "sessionId",
+                "level"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "list-commands": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {}
+            },
+            "output": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "prompt"
+                ]
+              }
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "run-command": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string",
+                  "enum": [
+                    "compact",
+                    "reload",
+                    "name"
+                  ]
+                },
+                "args": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "sessionId",
+                "name",
+                "args"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "open-sidechat": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "parentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "parentId"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/SidechatView"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "ask-sidechat": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "maxLength": 20000
+                },
+                "attachments": {
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "context": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 32767
+                  }
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 500
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title"
+                    ]
+                  }
+                },
+                "comments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "quote": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "comment": {
+                        "type": "string",
+                        "maxLength": 20000
+                      }
+                    },
+                    "required": [
+                      "quote",
+                      "comment"
+                    ]
+                  }
+                },
+                "parentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "text",
+                "attachments",
+                "context",
+                "comments",
+                "parentId"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/SidechatView"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "cancel-sidechat": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "parentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "parentId"
+              ]
+            },
+            "output": {}
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "close-sidechat": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "parentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "parentId"
+              ]
+            },
+            "output": {}
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "keep-sidechat": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "parentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "parentId"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "stage-media": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "bytes": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    },
+                    {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "bytes"
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/ChatMedia"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "read-media-preview": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            },
+            "output": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "release-media": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "ids": {
+                  "maxItems": 24,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                }
+              },
+              "required": [
+                "ids"
+              ]
+            },
+            "output": {}
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "list-turn-changes": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "sessionId"
+              ]
+            },
+            "output": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TurnChanges"
+              }
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "read-turn-changes": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "turnId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "includeStats": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "sessionId",
+                "turnId"
+              ]
+            },
+            "output": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TurnChanges"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        "read-turn-file-change": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "turnId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32767
+                }
+              },
+              "required": [
+                "sessionId",
+                "turnId",
+                "path"
+              ]
+            },
+            "output": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "added",
+                    "modified",
+                    "deleted"
+                  ]
+                },
+                "beforeBytes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "afterBytes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "textDiff": {
+                  "type": "boolean"
+                },
+                "stat": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "added": {
+                          "type": "number"
+                        },
+                        "deleted": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "added",
+                        "deleted"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "before": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "after": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "patch": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "path",
+                "status",
+                "beforeBytes",
+                "afterBytes",
+                "textDiff",
+                "before",
+                "after",
+                "patch",
+                "note"
+              ]
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ]
+        }
+      },
+      "required": [
+        "handshake",
+        "list-sessions",
+        "create-session",
+        "open-session",
+        "ask",
+        "cancel-run",
+        "withdraw-queued",
+        "stop-task",
+        "fork",
+        "list-models",
+        "set-model",
+        "set-effort",
+        "list-commands",
+        "run-command",
+        "open-sidechat",
+        "ask-sidechat",
+        "cancel-sidechat",
+        "close-sidechat",
+        "keep-sidechat",
+        "stage-media",
+        "read-media-preview",
+        "release-media",
+        "list-turn-changes",
+        "read-turn-changes",
+        "read-turn-file-change"
+      ]
+    },
+    "events": {
+      "type": "object",
+      "properties": {
+        "session-update": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "chat": {
+              "$ref": "#/$defs/WorkspaceChat"
+            }
+          },
+          "required": [
+            "sessionId",
+            "chat"
+          ]
+        },
+        "session-stream": {
+          "$ref": "#/$defs/ChatStreamEvent"
+        },
+        "run-event": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "running",
+                "waiting_input",
+                "completed",
+                "failed",
+                "stopped",
+                "interrupted"
+              ]
+            },
+            "activeTool": {
+              "type": "string"
+            },
+            "changesError": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "sessionId",
+            "runId",
+            "status"
+          ]
+        },
+        "queue": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "queued": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "sessionId",
+            "queued"
+          ]
+        },
+        "sidechat-update": {
+          "$ref": "#/$defs/SidechatView"
+        },
+        "sidechat-stream": {
+          "$ref": "#/$defs/ChatStreamEvent"
+        },
+        "sidechat-closed": {
+          "type": "object",
+          "properties": {
+            "parentId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "parentId"
+          ]
+        }
+      },
+      "required": [
+        "session-update",
+        "session-stream",
+        "run-event",
+        "queue",
+        "sidechat-update",
+        "sidechat-stream",
+        "sidechat-closed"
+      ]
+    }
+  },
+  "required": [
+    "procedures",
+    "events"
+  ],
+  "$defs": {
+    "ChatSessionSummary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "projectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "updatedAt",
+        "createdAt"
+      ]
+    },
+    "WorkspaceChat": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cwd": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "activeTool": {
+          "type": "string"
+        },
+        "compacting": {
+          "type": "boolean"
+        },
+        "queued": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "bash",
+                  "subagent"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "startedAt": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "label",
+              "startedAt"
+            ]
+          }
+        },
+        "subagent": {
+          "type": "object",
+          "properties": {
+            "parentId": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "parentId",
+            "description"
+          ]
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "providerId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "providerName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "modelUnavailable": {
+          "type": "boolean"
+        },
+        "effortLevels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contextUsage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextUsage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChatMessage"
+          }
+        }
+      },
+      "required": [
+        "sessionId",
+        "projectId",
+        "cwd",
+        "configured",
+        "providerId",
+        "providerName",
+        "model",
+        "modelUnavailable",
+        "effortLevels",
+        "effort",
+        "messages"
+      ]
+    },
+    "ContextUsage": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "contextWindow": {
+          "type": "number"
+        },
+        "percent": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "estimated": {
+          "type": "boolean"
+        },
+        "inputTokens": {
+          "type": "number"
+        },
+        "cachedTokens": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "tokens",
+        "contextWindow",
+        "percent"
+      ]
+    },
+    "ChatMessage": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "user",
+            "assistant"
+          ]
+        },
+        "content": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "title"
+            ]
+          }
+        },
+        "sessions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title"
+            ]
+          }
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "quote": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20000
+              },
+              "comment": {
+                "type": "string",
+                "maxLength": 20000
+              }
+            },
+            "required": [
+              "quote",
+              "comment"
+            ]
+          }
+        },
+        "toolResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AgentToolResult"
+          }
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "text"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "text"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "reasoning"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "number"
+                  },
+                  "finishedAt": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "type",
+                  "text"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "tools"
+                  },
+                  "results": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/AgentToolResult"
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "results"
+                ]
+              }
+            ]
+          }
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "turnId": {
+          "type": "string"
+        },
+        "entryId": {
+          "type": "string"
+        },
+        "finishedAt": {
+          "type": "number"
+        },
+        "interrupted": {
+          "type": "boolean"
+        },
+        "stopped": {
+          "type": "boolean"
+        },
+        "compacted": {
+          "type": "boolean"
+        },
+        "extension": {
+          "type": "object",
+          "properties": {
+            "customType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "customType"
+          ]
+        },
+        "task": {
+          "type": "object",
+          "properties": {
+            "taskId": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "bash",
+                "subagent"
+              ]
+            },
+            "label": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "failed",
+                "stopped"
+              ]
+            },
+            "exitCode": {
+              "type": "number"
+            },
+            "durationMs": {
+              "type": "number"
+            },
+            "noticeId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "taskId",
+            "kind",
+            "label",
+            "status",
+            "durationMs",
+            "noticeId"
+          ]
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ]
+    },
+    "AgentToolResult": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "input": {},
+        "output": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "details": {},
+            "isError": {
+              "type": "boolean"
+            },
+            "image": {
+              "type": "object",
+              "properties": {
+                "mimeType": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "mimeType",
+                "data"
+              ]
+            }
+          },
+          "required": [
+            "text"
+          ]
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "finishedAt": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "input"
+      ]
+    },
+    "ChatQueuedDraft": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "quote": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20000
+              },
+              "comment": {
+                "type": "string",
+                "maxLength": 20000
+              }
+            },
+            "required": [
+              "quote",
+              "comment"
+            ]
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChatMedia"
+          }
+        }
+      },
+      "required": [
+        "text",
+        "comments",
+        "attachments"
+      ]
+    },
+    "ChatMedia": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "size": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "image",
+            "attachment"
+          ]
+        },
+        "previewUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "size",
+        "kind",
+        "previewUrl"
+      ]
+    },
+    "SidechatView": {
+      "type": "object",
+      "properties": {
+        "parentId": {
+          "type": "string"
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "activeTool": {
+          "type": "string"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChatMessage"
+          }
+        }
+      },
+      "required": [
+        "parentId",
+        "running",
+        "messages"
+      ]
+    },
+    "TurnChanges": {
+      "type": "object",
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "finishedAt": {
+          "type": "string"
+        },
+        "runStatus": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "stopped"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChangeSummary"
+          }
+        }
+      },
+      "required": [
+        "turnId",
+        "cwd",
+        "startedAt",
+        "finishedAt",
+        "runStatus",
+        "state",
+        "warnings",
+        "files"
+      ]
+    },
+    "FileChangeSummary": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "added",
+            "modified",
+            "deleted"
+          ]
+        },
+        "beforeBytes": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "afterBytes": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "textDiff": {
+          "type": "boolean"
+        },
+        "stat": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "added": {
+                  "type": "number"
+                },
+                "deleted": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "added",
+                "deleted"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "status",
+        "beforeBytes",
+        "afterBytes",
+        "textDiff"
+      ]
+    },
+    "ChatStreamEvent": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/ChatMessage"
+        },
+        "activeTool": {
+          "type": "string"
+        },
+        "contextUsage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextUsage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "message"
+      ]
+    }
+  }
+}

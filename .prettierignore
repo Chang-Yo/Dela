@@ -9,3 +9,5 @@ pnpm-lock.yaml
 scripts/*.ps1
 # vendored 组件库，保留上游代码风格（见目录内 README）
 src/renderer/components/ui/beautifului/
+# 由 src/core/test/protocol-schema.test.ts 生成
+src/core/protocol/agent.schema.json
