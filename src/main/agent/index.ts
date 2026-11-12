@@ -1,5 +1,4 @@
-// agent 域入口：注册 session:* / chat:* / llm:* / capabilities:* 通道。
-// 会话、工具、压缩、skills 发现都在 Pi 里；这里只做 IPC 参数校验与转发。
+// agent 域入口：注册 Agent 协议与桌面私有的 session:* / chat:* / llm:* / capabilities:* 通道。
 import { type IpcMainInvokeEvent, ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
@@ -11,24 +10,14 @@ import {
   verifyLlm,
   verifyLlmModel,
 } from './providers';
-import { deleteChatCommand, listChatCommands, saveChatCommand } from './chat-commands';
-import {
-  archiveProjectSessions,
-  deleteSession,
-  forkSession,
-  newSession,
-  openSession,
-  runSessionCommand,
-  setSessionEffort,
-  setSessionModel,
-  updateSessionVisibility,
-} from './session/commands';
+import { agentContract } from '../../core/protocol/agent';
+import { channelsOf } from '../../core/protocol/contract';
+import { deleteChatCommand, saveChatCommand } from './chat-commands';
+import { agentProtocol } from './protocol';
+import { archiveProjectSessions, deleteSession, updateSessionVisibility } from './session/commands';
 import {
   openSessionFile,
   openSessionFileInVsCode,
-  listSessionTurnChanges,
-  readSessionTurnChanges,
-  readSessionTurnFileChange,
   readSessionUncommittedChanges,
   readSessionUncommittedFileChange,
   uncommittedAvailability,
@@ -36,33 +25,15 @@ import {
   revealSessionFile,
 } from './session/files';
 import {
-  askSession,
-  cancelRun,
   hasLiveSessions as hasLiveMainSessions,
   invalidateSessions,
   shutdownSessions as shutdownMainSessions,
-  withdrawQueued,
 } from './session/run';
-import { archivedSessions, listSessions, preloadPi } from './session/store';
-import { stopUserTask } from './tasks';
+import { archivedSessions, preloadPi } from './session/store';
 import { hostPorts } from '../host';
 import { exportSession } from './session-export';
-import {
-  askSidechat,
-  cancelSidechat,
-  closeSidechat,
-  hasSidechats,
-  keepSidechat,
-  openSidechat,
-  shutdownSidechats,
-} from './sidechat';
-import {
-  stageChatMediaFiles,
-  readChatMediaPreview,
-  releaseChatMedia,
-  stageChatMedia,
-  gcChatMedia,
-} from './media';
+import { hasSidechats, shutdownSidechats } from './sidechat';
+import { stageChatMediaFiles, gcChatMedia } from './media';
 import {
   findSkill,
   listSkills,
@@ -119,17 +90,6 @@ async function shutdownSessions(timeoutMs: number) {
 }
 
 const uuid = z.string().uuid();
-const askInputSchema = z.object({
-  text: z.string().max(20000),
-  attachments: z.array(uuid).max(5),
-  // 引用以 @token 内联在正文里、无数量上限（受 text 长度约束）；附件维持 5 个上限。
-  context: z.array(z.string().max(32_767)),
-  sessions: z.array(z.object({ id: uuid, title: z.string().max(500) })).optional(),
-  comments: z.array(
-    z.object({ quote: z.string().trim().min(1).max(20000), comment: z.string().max(20000) }),
-  ),
-  replaceLastUser: z.boolean().optional(),
-});
 
 /** 模型/能力配置写入后让空闲会话按新配置重建。 */
 function invalidating<T>(fn: () => T): T {
@@ -152,6 +112,17 @@ export function registerAgentIpc() {
       checkWorkspaceSender(event);
       return fn(...args);
     });
+  // 调用过协议的窗口才收得到会话事件。
+  for (const channel of channelsOf(agentContract)) {
+    const name = channel.slice(agentContract.namespace.length + 1);
+    ipcMain.handle(channel, async (event, input: unknown) => {
+      checkWorkspaceSender(event);
+      hostPorts().broadcaster.subscribe(event.sender);
+      await preloadPi();
+      return agentProtocol.call(name, input);
+    });
+  }
+
   const sessionHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
     ipcMain.handle(`session:${name}`, async (event, ...args) => {
       checkWorkspaceSender(event);
@@ -160,18 +131,6 @@ export function registerAgentIpc() {
       return fn(...args);
     });
   const projectId = uuid.nullable();
-  const chatScope = z.enum(['chat', 'library']);
-
-  sessionHandle('list', (id, query) =>
-    listSessions(
-      projectId.parse(id),
-      z
-        .string()
-        .max(200)
-        .parse(query ?? ''),
-    ),
-  );
-  sessionHandle('create', (id, scope) => newSession(projectId.parse(id), chatScope.parse(scope)));
   sessionHandle('archived', () => archivedSessions());
   sessionHandle('update', (id, patch) =>
     updateSessionVisibility(
@@ -183,7 +142,6 @@ export function registerAgentIpc() {
     ),
   );
   sessionHandle('archive-project', (id) => archiveProjectSessions(projectId.parse(id)));
-  sessionHandle('open', (id) => openSession(uuid.parse(id)));
   ipcMain.handle('session:export', (event, id) => {
     checkWorkspaceSender(event);
     return exportSession(uuid.parse(id), event.sender);
@@ -194,44 +152,6 @@ export function registerAgentIpc() {
       throw new Error('请先归档，再从设置中永久删除');
     return deleteSession(sessionId);
   });
-  sessionHandle('ask', (id, input) => askSession(uuid.parse(id), askInputSchema.parse(input)));
-  sessionHandle('cancel-run', (id) => cancelRun(uuid.parse(id)));
-  sessionHandle('withdraw-queued', (id) => withdrawQueued(uuid.parse(id)));
-  sessionHandle('stop-task', (id, taskId) => stopUserTask(uuid.parse(id), uuid.parse(taskId)));
-  sessionHandle('fork', (id, entryId) =>
-    forkSession(uuid.parse(id), z.string().min(1).max(64).parse(entryId)),
-  );
-  const sidechatHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
-    ipcMain.handle(`sidechat:${name}`, async (event, ...args) => {
-      checkWorkspaceSender(event);
-      hostPorts().broadcaster.subscribe(event.sender);
-      await preloadPi();
-      return fn(...args);
-    });
-  sidechatHandle('open', (id) => openSidechat(uuid.parse(id)));
-  sidechatHandle('ask', (id, input) =>
-    askSidechat(uuid.parse(id), askInputSchema.omit({ replaceLastUser: true }).parse(input)),
-  );
-  sidechatHandle('cancel', (id) => cancelSidechat(uuid.parse(id)));
-  sidechatHandle('close', (id) => closeSidechat(uuid.parse(id)));
-  sidechatHandle('keep', (id) => keepSidechat(uuid.parse(id)));
-  sessionHandle('set-model', (id, providerId, model) =>
-    setSessionModel(
-      uuid.parse(id),
-      uuid.parse(providerId),
-      z.string().min(1).max(200).parse(model),
-    ),
-  );
-  sessionHandle('set-effort', (id, level) =>
-    setSessionEffort(uuid.parse(id), z.string().min(1).max(16).parse(level)),
-  );
-  sessionHandle('run-command', (id, name, args) =>
-    runSessionCommand(
-      uuid.parse(id),
-      z.enum(['compact', 'reload', 'name']).parse(name),
-      z.string().max(2000).parse(args),
-    ),
-  );
 
   const chatHandle = (
     name: string,
@@ -241,25 +161,9 @@ export function registerAgentIpc() {
       checkWorkspaceSender(event);
       return fn(event, ...args);
     });
-  chatHandle('stage-media', (_event, input) => {
-    const parsed = z
-      .object({
-        name: z.string().min(1).max(255),
-        bytes: z.union([z.instanceof(ArrayBuffer), z.instanceof(Uint8Array)]),
-      })
-      .parse(input);
-    const bytes = parsed.bytes instanceof Uint8Array ? parsed.bytes : new Uint8Array(parsed.bytes);
-    return stageChatMedia(
-      parsed.name,
-      Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength),
-    );
-  });
   chatHandle('pick-media', async (event) => {
     return stageChatMediaFiles(await hostPorts().desktop.pickFiles(event.sender));
   });
-  chatHandle('read-media-preview', (_event, id) => readChatMediaPreview(uuid.parse(id)));
-  chatHandle('release-media', (_event, ids) => releaseChatMedia(z.array(uuid).max(24).parse(ids)));
-  chatHandle('list-commands', () => listChatCommands());
   chatHandle('save-command', (_event, input) => saveChatCommand(input));
   chatHandle('delete-command', (_event, id) => deleteChatCommand(uuid.parse(id)));
   // 路径由会话 cwd 限定；locate-file 返回本机绝对路径供应用内预览标签使用。
@@ -272,19 +176,6 @@ export function registerAgentIpc() {
   );
   chatHandle('reveal-file', (_event, sessionId, path) =>
     revealSessionFile(uuid.parse(sessionId), chatFilePath(path)),
-  );
-  chatHandle('list-turn-changes', (_event, sessionId) =>
-    listSessionTurnChanges(uuid.parse(sessionId)),
-  );
-  chatHandle('read-turn-changes', (_event, sessionId, turnId, includeStats) =>
-    readSessionTurnChanges(
-      uuid.parse(sessionId),
-      uuid.parse(turnId),
-      z.boolean().optional().parse(includeStats),
-    ),
-  );
-  chatHandle('read-turn-file-change', (_event, sessionId, turnId, path) =>
-    readSessionTurnFileChange(uuid.parse(sessionId), uuid.parse(turnId), chatFilePath(path)),
   );
   chatHandle('read-uncommitted-changes', (_event, sessionId) =>
     readSessionUncommittedChanges(uuid.parse(sessionId)),
