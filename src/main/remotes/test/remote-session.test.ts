@@ -13,7 +13,7 @@ vi.mock('electron', () => ({ app: { getPath: () => state.root, isPackaged: false
 import { openPiSession } from '../../agent/pi';
 import { remoteTools } from '../../agent/remote-tools';
 import { remoteBackend } from '../operations';
-import type { StoredLlmProvider } from '../../credentials';
+import type { StoredLlmProvider } from '../../agent/llm-config';
 
 const remotePath = '/root/proj';
 const provider: StoredLlmProvider = {

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import type { StoredLlmProvider } from '../../credentials';
+import type { StoredLlmProvider } from '../llm-config';
 import type { SubagentDetails } from '../../../shared/api';
 import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
 

@@ -14,7 +14,7 @@ vi.mock('../tools', async (importOriginal) => {
     },
   };
 });
-vi.mock('../../credentials', () => ({
+vi.mock('../llm-config', () => ({
   loadLlmConfig: () => ({
     providers: [
       {

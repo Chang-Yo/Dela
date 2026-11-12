@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CredentialDecryptionError } from '../../host';
-import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../../credentials';
+import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../llm-config';
 import {
   listLlmProviders,
   modelListEndpoints,
@@ -35,7 +35,7 @@ vi.mock('../pi', async (importOriginal) => ({
   ]),
 }));
 
-vi.mock('../../credentials', () => ({
+vi.mock('../llm-config', () => ({
   loadLlmConfig: vi.fn(),
   saveLlmConfig: vi.fn(),
 }));

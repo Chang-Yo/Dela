@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { hostPorts } from '../host';
-import { loadLlmConfig } from '../credentials';
+import { loadLlmConfig } from './llm-config';
 import type {
   WebSearchEntry,
   WebSearchEntrySummary,

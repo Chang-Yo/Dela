@@ -15,7 +15,7 @@ import {
   saveLlmConfig,
   type StoredLlmConfig,
   type StoredLlmProvider,
-} from '../credentials';
+} from './llm-config';
 
 const idSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(50);
