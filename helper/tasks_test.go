@@ -200,6 +200,24 @@ func TestTaskStreamIsLosslessWhileAttached(t *testing.T) {
 	}
 }
 
+// 创建响应与第一条流之间隔着一次往返：这段时间没有读者，也不能覆盖输出。
+func TestTaskWaitsForFirstStream(t *testing.T) {
+	_, endpoint := newTestServer(t)
+	size := 2*taskBufferBytes + 999
+	command := fmt.Sprintf("head -c %d /dev/zero | tr '\\0' a", size)
+	call(t, endpoint, http.MethodPost, "/v1/tasks", fmt.Sprintf(`{"id":"late","command":%q,"cwd":"/"}`, command))
+	time.Sleep(500 * time.Millisecond)
+	frames := readStream(context.Background(), t, endpoint, "late", 0, nil)
+	for _, f := range frames {
+		if f.Type == "gap" {
+			t.Fatalf("第一条流来得晚就丢了输出：%+v", f)
+		}
+	}
+	if got := len(outputOf(frames)); got != size {
+		t.Fatalf("收到 %d 字节，想要 %d", got, size)
+	}
+}
+
 func TestTaskCancelKillsProcessGroup(t *testing.T) {
 	_, endpoint := newTestServer(t)
 	pidFile := filepath.Join(t.TempDir(), "child")
