@@ -35,7 +35,7 @@ import {
 } from '../components/ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
 import { CanvasExportDialog } from './CanvasExportDialog';
-import type { ExplorerPending } from '../components/ui/explorer';
+import type { ExplorerPending } from '../components/explorer';
 import type { WorkspaceEntry } from '../../shared/api';
 import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';

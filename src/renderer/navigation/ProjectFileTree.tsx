@@ -22,8 +22,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { hiddenWorkspaceNames } from '../../shared/workspace';
-import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/ui/explorer';
-import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
+import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/explorer';
+import { ShuiyuanIcon } from '../features/shuiyuan/shuiyuan-icon';
 import { useShuiyuanSnapshotBadges } from '../features/shuiyuan/snapshot-store';
 import {
   DropdownMenu,

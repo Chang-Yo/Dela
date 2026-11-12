@@ -2,7 +2,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Feather, Globe, Heart, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '../../../components/ui/button';
-import { DelaBrand } from '../../../components/ui/dela-brand';
+import { DelaBrand } from '../../../components/dela-brand';
 import {
   creditSections,
   type CreditPerson,

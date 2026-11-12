@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, FileText, Folder, FolderKanban } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn } from '../lib/utils';
 import { fileIconUrl } from './file-icons';
 
 export interface ExplorerItem {

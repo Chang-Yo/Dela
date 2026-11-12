@@ -14,7 +14,7 @@ import { notificationSources } from '../../../shared/api';
 import type { NotificationItem, NotificationSource, NotificationState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
-import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
+import { ShuiyuanIcon } from '../shuiyuan/shuiyuan-icon';
 import { JwcNoticeView } from './JwcNoticeView';
 import { groupNotifications, likeGroupSummary } from './group-notifications';
 import { useNotificationSourceFilter } from './source-filter';

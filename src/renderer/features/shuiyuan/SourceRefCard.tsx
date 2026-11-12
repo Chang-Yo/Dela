@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ExternalLink, MessageSquare, RefreshCw, RotateCw } from 'lucide-react';
 import type { DocumentContent } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
-import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
+import { ShuiyuanIcon } from './shuiyuan-icon';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ShuiyuanSnapshotBody } from './ShuiyuanSnapshotBody';
 import { ShuiyuanTitle } from './shuiyuan-emoji';

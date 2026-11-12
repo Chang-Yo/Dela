@@ -3,7 +3,7 @@
 import { CalendarDays, FolderOpen, Mail, MonitorPlay } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ShuiyuanIcon } from '../components/ui/shuiyuan-icon';
+import { ShuiyuanIcon } from '../features/shuiyuan/shuiyuan-icon';
 
 export type NavEntryId = 'sources' | 'mail' | 'timetable' | 'classroom' | 'shuiyuan';
 

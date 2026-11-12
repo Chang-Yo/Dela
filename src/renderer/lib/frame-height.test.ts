@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { expect, it, vi } from 'vitest';
-import appHtml from '../../index.html?raw';
+import appHtml from '../index.html?raw';
 import { injectFrameHeightReport } from './frame-height';
 
 function clickLightboxImage(lightbox: boolean) {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { RemoteChannelState, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
 import { hiddenWorkspaceNames } from '../../shared/workspace';
-import type { ExplorerItem } from '../components/ui/explorer';
+import type { ExplorerItem } from '../components/explorer';
 import { errorText } from '../workspace/store';
 import { useRemoteActivity } from './remote-activity';
 import { remoteAccent } from './remote-color';

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { KeyRound, LogIn } from 'lucide-react';
 import type { ShuiyuanState } from '../../../shared/api';
 import { Button } from '../../components/ui/button';
-import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
+import { ShuiyuanIcon } from './shuiyuan-icon';
 import { Textarea } from '../../components/ui/textarea';
 import { errorText } from '../../workspace/store';
 import { showToast } from '../../app/toasts';

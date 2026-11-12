@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import { Explorer, type ExplorerItem } from '../components/ui/explorer';
+import { Explorer, type ExplorerItem } from '../components/explorer';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';

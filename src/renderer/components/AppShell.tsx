@@ -27,7 +27,7 @@ import { Resizer } from './ui/resizer';
 import { useEditorSettings } from '../content/editor-settings';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast, ToastHost } from '../app/toasts';
-import { DelaBrand } from './ui/dela-brand';
+import { DelaBrand } from './dela-brand';
 import { cn } from '../lib/utils';
 import { fileManagerName, platform } from '../lib/platform';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../navigation/view';

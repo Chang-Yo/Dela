@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { CalendarDays, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
-import { ShuiyuanIcon } from '../../../components/ui/shuiyuan-icon';
+import { ShuiyuanIcon } from '../../shuiyuan/shuiyuan-icon';
 import {
   Select,
   SelectContent,
