@@ -40,7 +40,8 @@ import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { registerNotificationsIpc } from '../src/main/notifications';
 import { registerUpdateIpc } from '../src/main/update';
-import { listLlmProviders, setLlmProviderEnabled, verifyLlm } from '../src/core/agent/providers';
+import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
+import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);
@@ -376,26 +377,14 @@ app
     });
 
     registerCanvasIpc();
-    // 会话订阅与索引失效属于 Agent 基座；本冒烟只验证工作区，传空实现。
-    registerWorkspaceIpc(
-      () => {},
-      () => {},
-    );
-    // 只接 llm:* 三个通道：完整的 registerAgentIpc 会预载 Pi 运行时，超出本冒烟范围。
-    ipcMain.handle('llm:list', () => listLlmProviders());
-    ipcMain.handle('llm:set-enabled', (_event, id: string, enabled: boolean) =>
-      setLlmProviderEnabled(id, enabled),
-    );
-    ipcMain.handle('llm:verify', (_event, input: Parameters<typeof verifyLlm>[0]) =>
-      verifyLlm(input),
-    );
+    registerAgentIpc();
+    registerWorkspaceIpc(invalidateSessions);
+    registerBuiltinCapabilities();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     registerSettingsIpc();
     registerRemoteIpc();
     registerNotificationsIpc();
     registerUpdateIpc();
-    // 会话通道属于 Agent 基座（完整注册会预载 Pi）；渲染端启动只需列表为空、新建可失败。
-    ipcMain.handle('agent:list-sessions', () => []);
     const win = new BrowserWindow({
       show: false,
       webPreferences: {
