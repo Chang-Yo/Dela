@@ -212,7 +212,7 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 
 - `src/main/` 按业务域分目录，每域一个入口（大域名 `api.ts`，其余 `index.ts`），IPC 注册在入口或并列的 `ipc.ts`；已迁入 `src/modules` 的模块改用契约，由 `app/ipc.ts` 统一注册（见 §10.1）。大域可以在同目录拆模块，但**入口仍是对外唯一 import 点**。根级只放不属于任何业务域的模块。
 - 主进程不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。终端与交大模块尚未迁移，仍直接引用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
-- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），可以单独做类型检查；它的 IPC 注册在 `src/app/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本，`shared` 只做转出。
+- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本，`shared` 只做转出。
 - 测试与被测代码同层：main 与 core 用各目录的 `test/` 子目录，renderer 与 shared 与源码并排。core 的测试可以引用 main 的实现做集成夹具。
 - `scripts/` 全部为 TypeScript（Node 原生执行，仓库不再有 `.mjs`），纳入 `pnpm typecheck`。
 
@@ -271,7 +271,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 | 命令                                | 用途                                                          |
 | ----------------------------------- | ------------------------------------------------------------- |
 | `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                  |
-| `pnpm typecheck`                    | 四组 tsconfig（main / preload / renderer / scripts）类型检查  |
+| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）   |
 | `pnpm build`                        | 类型检查 + 三个入口生产构建                                   |
 | `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用            |
 | `pnpm check`                        | `format:check` + `lint` + `build` + `test`                    |
@@ -280,7 +280,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 | `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离 |
 | `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位   |
 | `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                     |
-| `pnpm smoke:workspace`              | 工作区回归                                                    |
+| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）           |
 | `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）    |
 | `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
 | `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
