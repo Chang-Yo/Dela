@@ -11,7 +11,8 @@ const state = vi.hoisted(() => ({ root: '' }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root, isPackaged: false } }));
 
 import { openPiSession } from '../../agent/pi';
-import { remoteTools } from '../operations';
+import { remoteTools } from '../../agent/remote-tools';
+import { remoteBackend } from '../operations';
 import type { StoredLlmProvider } from '../../credentials';
 
 const remotePath = '/root/proj';
@@ -36,7 +37,10 @@ describe('远程会话接线', () => {
       cwd: remotePath,
       selection: { provider, model: 'test-model', effort: null },
       appendSystemPrompt: ['远端项目 /root/proj'],
-      customTools: await remoteTools(remotePath, { host: 'root@127.0.0.1', keyPath: null }),
+      customTools: await remoteTools(
+        remotePath,
+        remoteBackend({ host: 'root@127.0.0.1', keyPath: null }),
+      ),
       shellPath: 'C:\\Program Files\\Git\\bin\\bash.exe',
       skillPaths: [],
       globalSkillDirs: [],

@@ -17,22 +17,6 @@
       }
     },
     {
-      "files": ["src/main/{canvas,mail,shuiyuan,vsjtu,timetable,todo,notifications}/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "regex": "^(\\.\\./)+agent(/|$)",
-                "message": "校园模块不能依赖 Agent 内核（docs/adr/0001、0005）：由内核通过注册表调用校园模块。"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "files": ["src/{core,modules,app}/**"],
       "rules": {
         "no-restricted-imports": [
@@ -233,6 +217,54 @@
               {
                 "group": ["**/sjtu/**"],
                 "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/main/{canvas,mail,shuiyuan,vsjtu,timetable,todo,notifications}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "regex": "^(\\.\\./)+agent(/|$)",
+                "message": "校园模块不能依赖 Agent 内核（docs/adr/0001、0005）：由内核通过注册表调用校园模块。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/main/remotes/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "regex": "^(../)+agent(/|$)",
+                "message": "远程执行后端不能依赖 Agent：只暴露 RemoteBackend，Pi 工具适配在 agent/remote-tools。"
               }
             ]
           }

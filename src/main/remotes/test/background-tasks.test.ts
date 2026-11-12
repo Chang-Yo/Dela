@@ -34,6 +34,7 @@ vi.mock('../helper', () => ({
 vi.mock('../watch', () => ({ syncRemoteWatch: () => {} }));
 
 import { backgroundTools, stopAllTasks, type TaskNotice } from '../../agent/tasks';
+import { remoteBackend } from '../operations';
 import { provideTestHostPorts } from '../../test/host-mock';
 
 provideTestHostPorts({ paths: { userData: () => root } });
@@ -68,10 +69,7 @@ beforeEach(async () => {
     cwd,
     'bash',
     undefined,
-    {
-      host: 'root@10.0.0.5',
-      keyPath: null,
-    },
+    remoteBackend({ host: 'root@10.0.0.5', keyPath: null }),
   );
 });
 

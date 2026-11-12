@@ -5,7 +5,7 @@ import { getDatabase } from '../database';
 import { getAgentInstruction } from '../settings/prefs';
 import { remoteProjectOf } from '../workspace/api';
 import { remoteById, targetOf } from '../remotes/api';
-import { remoteTools } from '../remotes/operations';
+import { remoteBackend } from '../remotes/operations';
 import { syncRemoteContext } from '../remotes/context';
 import { COMMAND_BRIDGE, startDomainBridge } from './commands';
 import { commandPrompt } from '../../core/capabilities/commands';
@@ -22,6 +22,7 @@ import { mcpToolDefinitions, executeMcpTool } from './mcp';
 import { readDisabledTools } from './tools';
 import { readWebSearchConfig, webSearch } from './web-search';
 import { fetchWebPage } from './web-fetch';
+import { remoteTools } from './remote-tools';
 import { sessionTools } from './session-read';
 
 /** 应用生命周期内一个命令桥：token 只进入 Agent 的子进程环境，不含业务凭据。 */
@@ -115,7 +116,7 @@ export function agentEnvironment() {
             ...webTools,
             ...mcpTools(),
             ...sessionTools(projectId),
-            ...(await remoteTools(cwd, target)),
+            ...(await remoteTools(cwd, remoteBackend(target))),
           ],
           disabledSkillPaths,
         };

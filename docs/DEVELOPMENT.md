@@ -139,6 +139,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 把远端 Linux 主机上的目录登记为项目。**本地内核 + 远程执行**：内核、模型密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端、目录读取与文件预览落到 SSH 远端。
 
 - **helper 是唯一通道**：工具调用、目录树、预览、上下文镜像、@ 候选与端口发现全部经远端 helper（`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP），没有一次性 ssh 的退路。helper 是 Go 静态二进制，放在 `~/.dela/helper/<版本>-<sha8>/`，在远端常驻。端点、任务与生命周期规则见 [helper/README.md](../helper/README.md)。只支持 Linux amd64/arm64；`$HOME` 禁止执行（noexec、只读挂载、SELinux）的服务器不支持，向导会给出分类过的原因并停在「连接」。
+- **依赖方向**：`remotes` 只暴露 `RemoteBackend`（文件操作、命令、搜索、后台命令），不认识 Pi 与 Agent；七个远程工具的 Pi 适配在 `agent/remote-tools`，由 lint 守住。
 - **ssh 的职责**收窄到引导 helper、连接自检、目录选择器首页的主目录解析与终端 `ssh -tt`。**System32 那份 OpenSSH 可能是旧版本**（Windows 本机实测 System32 为 9.5p2、Program Files 为 10.0p2），排障时先确认实际生效的是哪一个。
 - **任务接回**：命令以任务运行，按客户端生成的 id 去重，断线后按字节偏移续读输出并拿到真实退出码。断线期间超出缓冲的部分接不回来，工具输出里会补一行说明。取消必须显式调用——断开连接已经不会终止任务。
 - **路径归一化是最容易静默改错文件的点**：工具在调用 operations 前用宿主 `node:path` 解析参数，Windows 本机实测 `path.resolve('/home/u/proj','src/a.ts')` → `E:\home\u\proj\src\a.ts`。operations 只对 Windows 形态去盘符、转分隔符，原生 POSIX 路径不套用这些规则。
