@@ -1,38 +1,33 @@
 // 会话视图类型：协议里的部分由 core/protocol/agent 的 schema 推导，这里只放桌面端自己的。
-import type { z } from 'zod';
 import type {
-  agentToolOutputSchema,
-  agentToolResultSchema,
-  backgroundTaskViewSchema,
-  chatQueueEventSchema,
-  chatScopeSchema,
-  chatSessionSummarySchema,
-  chatStreamEventSchema,
-  contextUsageViewSchema,
-  runEventSchema,
-  runStatusSchema,
-  sidechatViewSchema,
-  taskNoticeDetailsSchema,
-  taskStatusSchema,
-  workspaceChatSchema,
+  ChatAskInput,
+  ChatQueueEvent,
+  ChatQueuedDraft,
+  ChatScope,
+  ChatSessionSummary,
+  ChatStreamEvent,
+  RunEvent,
+  SidechatView,
+  TaskStatus,
+  WorkspaceChat,
 } from '../core/protocol/agent';
-import type { ChatAskInput, ChatQueuedDraft } from './chat';
 
-export type AgentToolOutput = z.infer<typeof agentToolOutputSchema>;
-export type AgentToolResult = z.infer<typeof agentToolResultSchema>;
-export type TaskStatus = z.infer<typeof taskStatusSchema>;
-export type TaskNoticeDetails = z.infer<typeof taskNoticeDetailsSchema>;
-export type BackgroundTaskView = z.infer<typeof backgroundTaskViewSchema>;
-export type ChatSessionSummary = z.infer<typeof chatSessionSummarySchema>;
-export type ContextUsageView = z.infer<typeof contextUsageViewSchema>;
-export type WorkspaceChat = z.infer<typeof workspaceChatSchema>;
-export type RunStatus = z.infer<typeof runStatusSchema>;
-export type RunEvent = z.infer<typeof runEventSchema>;
-export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
-export type ChatQueueEvent = z.infer<typeof chatQueueEventSchema>;
-export type SidechatView = z.infer<typeof sidechatViewSchema>;
-/** 'chat' 是首页随聊的私有目录，'library' 是资料页的课程目录；项目会话忽略它。 */
-export type ChatScope = z.infer<typeof chatScopeSchema>;
+export type {
+  AgentToolOutput,
+  AgentToolResult,
+  BackgroundTaskView,
+  ChatQueueEvent,
+  ChatScope,
+  ChatSessionSummary,
+  ChatStreamEvent,
+  ContextUsageView,
+  RunEvent,
+  RunStatus,
+  SidechatView,
+  TaskNoticeDetails,
+  TaskStatus,
+  WorkspaceChat,
+} from '../core/protocol/agent';
 
 /** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
 export interface SubagentDetails {

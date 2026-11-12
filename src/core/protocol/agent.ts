@@ -237,6 +237,30 @@ export const modelProviderViewSchema = z.object({
   models: z.array(z.string()),
 });
 
+export type ChatComment = z.infer<typeof chatCommentSchema>;
+export type ChatAskInput = z.infer<typeof chatAskInputSchema>;
+export type ChatMediaView = z.infer<typeof chatMediaViewSchema>;
+export type ChatQueuedDraft = z.infer<typeof chatQueuedDraftSchema>;
+export type ChatCommandView = z.infer<typeof chatCommandViewSchema>;
+export type FileChangeSummary = z.infer<typeof fileChangeSummarySchema>;
+export type FileChangeDetail = z.infer<typeof fileChangeDetailSchema>;
+export type TurnChanges = z.infer<typeof turnChangesSchema>;
+export type AgentToolOutput = z.infer<typeof agentToolOutputSchema>;
+export type AgentToolResult = z.infer<typeof agentToolResultSchema>;
+export type TaskStatus = z.infer<typeof taskStatusSchema>;
+export type TaskNoticeDetails = z.infer<typeof taskNoticeDetailsSchema>;
+export type BackgroundTaskView = z.infer<typeof backgroundTaskViewSchema>;
+export type ChatSessionSummary = z.infer<typeof chatSessionSummarySchema>;
+export type ContextUsageView = z.infer<typeof contextUsageViewSchema>;
+export type WorkspaceChat = z.infer<typeof workspaceChatSchema>;
+export type RunStatus = z.infer<typeof runStatusSchema>;
+export type RunEvent = z.infer<typeof runEventSchema>;
+export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
+export type ChatQueueEvent = z.infer<typeof chatQueueEventSchema>;
+export type SidechatView = z.infer<typeof sidechatViewSchema>;
+/** 'chat' 是首页随聊的私有目录，'library' 是资料页的课程目录；项目会话忽略它。 */
+export type ChatScope = z.infer<typeof chatScopeSchema>;
+
 const filePath = z.string().min(1).max(32_767);
 const empty = z.object({});
 const sidechatTarget = z.object({ parentId: uuid });

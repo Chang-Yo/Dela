@@ -6,13 +6,9 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { gzip, gunzip } from 'node:zlib';
 import { createTwoFilesPatch } from 'diff';
+import type { FileChangeDetail, FileChangeSummary, TurnChanges } from '../../core/protocol/agent';
 import { diffStatOf } from '../../shared/diff';
-import type {
-  FileChangeDetail,
-  FileChangeSummary,
-  TurnChanges,
-  UncommittedChanges,
-} from '../../shared/chat';
+import type { UncommittedChanges } from '../../shared/chat';
 import { hostPorts } from '../host';
 
 const execute = promisify(execFile);

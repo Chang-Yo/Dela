@@ -9,7 +9,7 @@ import type {
   RunStatus,
   TaskNoticeDetails,
   WorkspaceChat,
-} from '../../../shared/api';
+} from '../../../core/protocol/agent';
 import { TASK_NOTICE } from '../../../shared/api';
 import { hostPorts } from '../../host';
 import { remoteBackend } from '../../remotes/operations';

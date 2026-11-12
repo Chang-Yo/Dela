@@ -9,7 +9,7 @@ import type {
   ContextUsageView,
   TaskNoticeDetails,
   WorkspaceChat,
-} from '../../../shared/api';
+} from '../../../core/protocol/agent';
 import { TASK_NOTICE } from '../../../shared/api';
 import { hostPorts } from '../../host';
 import { runningTasks } from '../tasks';

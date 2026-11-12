@@ -1,7 +1,7 @@
 // 打开着的 Pi 会话实例：会话运行层建立和销毁，快照、跨会话读取与旁问只读它们。
 import { existsSync } from 'node:fs';
 import type { AgentSession, SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { AgentToolResult, ChatAskInput } from '../../../shared/api';
+import type { AgentToolResult, ChatAskInput } from '../../../core/protocol/agent';
 import type { TaskNotice } from '../tasks';
 import { requirePiSync, row } from './store';
 

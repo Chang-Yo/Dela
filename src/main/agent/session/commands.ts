@@ -1,6 +1,7 @@
 // 会话命令：新建、分支、归档、删除、换模型与 /compact、/reload、/name。
 import { existsSync } from 'node:fs';
-import type { ChatScope, MainSessionCommand, WorkspaceChat } from '../../../shared/api';
+import type { ChatScope, WorkspaceChat } from '../../../core/protocol/agent';
+import type { MainSessionCommand } from '../../../shared/api';
 import { hostPorts } from '../../host';
 import * as changes from '../changes';
 import { forkSessionFile, loadPi, resolveModel } from '../pi';

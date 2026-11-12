@@ -12,13 +12,13 @@ import {
 } from 'node:fs';
 import { basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { ChatMediaView } from '../../shared/api';
 import {
   CHAT_IMAGE_MAX_BYTES,
   CHAT_DOCUMENT_MAX_BYTES,
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKind,
 } from '../../shared/chat-input';
+import type { ChatMediaView } from '../../core/protocol/agent';
 import { SNIFF_BYTES } from '../../shared/files';
 import { readyDocumentReader } from './documents';
 import { readDisabledSkills } from './skills';
