@@ -151,17 +151,22 @@ src/
 ```
 Dela/
 ├─ src/
-│  ├─ core/protocol/          v3：模块契约工具（defineContract、implement、createClient）
+│  ├─ core/                   v3：Agent 内核，只依赖 Pi 与 Node
+│  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
+│  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
+│  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
+│  │  ├─ remote/              远程执行后端与 helper 通道
+│  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
 │  ├─ modules/                v3：已迁移的通用模块（search）
 │  ├─ main/                   Electron 主进程
-│  │  ├─ agent/               Pi 内核接入、工具与运行时
+│  │  ├─ agent/               dela 命令域与内置 Skills 的注册清单（P5 随各模块迁出）
 │  │  ├─ canvas/              Canvas 课程资料
 │  │  ├─ documents/           文档读取与 Skill 组件
 │  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
 │  │  ├─ migrations/          旧版用户的数据库迁移
 │  │  ├─ notifications/       通知轮询
-│  │  ├─ remotes/             远程项目与 helper 隧道
+│  │  ├─ remotes/             SSH 连接管理、端口转发与文件传输
 │  │  ├─ settings/            设置与模型/网络配置
 │  │  ├─ shuiyuan/            水源社区
 │  │  ├─ terminal/            内置终端与 Bash 定位

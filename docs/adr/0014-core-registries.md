@@ -15,7 +15,7 @@ Core 不认识具体业务，只提供注册表，由模块在启动时显式注
 - `core/capabilities/resources.ts`：`ResourceResolver` 按引用类型注册，负责 Agent 读取、持久文件路径与临时落盘。
 - `core/agent/scopes.ts`：`SessionScope` 登记共用同一工作目录的会话作用域。
 
-注册不做自动扫描，所有注册都写在一个显式清单里。过渡期这个清单是 `main/agent/domain/index.ts`，各模块迁入新目录后改由模块定义声明，并在 `app/modules.ts` 中列出。
+注册不做自动扫描，所有注册都写在一个显式清单里。过渡期这个清单是 `main/agent/domain/index.ts`（文档读取组件同样在这里注册），各模块迁入新目录后改由模块定义声明，并在 `app/modules.ts` 中列出。
 
 `src/core` 由 oxlint 守住边界：不能引用 Electron、React、旧主进程、renderer、shared、app、ui 与任何模块；`core/protocol` 只能引用 zod。
 
