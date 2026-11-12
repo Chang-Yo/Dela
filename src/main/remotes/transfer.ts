@@ -9,8 +9,8 @@ import { basename, join } from 'node:path';
 import { once } from 'node:events';
 import { app, shell } from 'electron';
 import { remoteJoin } from './api';
-import { readRemoteRange, statRemoteFile, writeRemoteFile } from './operations';
-import type { RemoteTarget } from './transport';
+import { readRemoteRange, statRemoteFile, writeRemoteFile } from '../../core/remote/operations';
+import type { RemoteTarget } from '../../core/remote/transport';
 
 /** 一次拉回的字节数：与预览协议同量级，避免单次请求过大把通道占满。 */
 const chunkSize = 1024 * 1024;

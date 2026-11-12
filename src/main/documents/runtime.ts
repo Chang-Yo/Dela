@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, open, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SkillDependency } from '../../shared/capabilities';
-import { hostPorts } from '../host';
+import { hostPorts } from '../../core/ports';
 import requirements from './requirements.lock?raw';
 import notices from './runtime-licenses.txt?raw';
 

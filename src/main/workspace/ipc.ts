@@ -25,12 +25,12 @@ import { registerLayoutIpc } from './layout';
 import { exportOfficePdf } from '../documents/export';
 import { openResourceFile } from '../resources';
 import { remoteById, remoteJoin, targetOf, withinRemoteRoot } from '../remotes/api';
-import { listRemoteDirectory, remoteFileIndex } from '../remotes/operations';
+import { listRemoteDirectory, remoteFileIndex } from '../../core/remote/operations';
 import { readRemoteDocument } from '../remotes/documents';
 import { downloadRemoteFile, openRemoteFile, uploadLocalFile } from '../remotes/transfer';
 import { closeRemotePort, openRemotePort, remotePortsState } from '../remotes/ports';
-import { notifyRemoteChange } from '../remotes/events';
-import { watchRemoteProject } from '../remotes/watch';
+import { notifyRemoteChange } from '../../core/remote/events';
+import { watchRemoteProject } from '../../core/remote/watch';
 import {
   getLocalWorkspaceState,
   listLocalDirectory,
@@ -39,7 +39,7 @@ import {
 } from './local-tree';
 import { resourceRefSchema } from '../../shared/resources';
 import { dialog, ipcMain, shell, type WebContents } from 'electron';
-import { hostPorts } from '../host';
+import { hostPorts } from '../../core/ports';
 import { z } from 'zod';
 import { getDatabase } from '../database';
 import { storageDirectory as directory } from '../storage';

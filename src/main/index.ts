@@ -32,9 +32,9 @@ import { registerPreviewProtocol, registerPreviewScheme } from './workspace/prev
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
 import { locateBash, prependRuntimePath } from './terminal/mingit';
-import { closeHelper } from './remotes/helper';
+import { closeHelper } from '../core/remote/helper';
 import { closeAllPortTunnels } from './remotes/ports';
-import { closeRemoteWatch } from './remotes/watch';
+import { closeRemoteWatch } from '../core/remote/watch';
 import { closeRemoteOpens } from './remotes/transfer';
 import { registerRemoteIpc } from './remotes/ipc';
 import { registerSearchProvider } from '../modules/search';
@@ -60,8 +60,8 @@ import {
   loadPi,
   registerAgentIpc,
   shutdownSessions,
-} from './agent';
-import { provideHostPorts } from './host';
+} from '../app/agent-ipc';
+import { provideHostPorts } from '../core/ports';
 import { electronPorts } from '../app/host-electron';
 import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } from './settings';
 import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';

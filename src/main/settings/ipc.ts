@@ -21,7 +21,7 @@ import {
   writeSetting,
   zoomSchema,
 } from './prefs';
-import { getAgentInstruction, setAgentInstruction } from '../agent/instruction';
+import { getAgentInstruction, setAgentInstruction } from '../../core/agent/instruction';
 
 export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'light' | 'dark' {
   nativeTheme.themeSource = theme;

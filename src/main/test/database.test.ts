@@ -6,7 +6,7 @@ import Database from 'better-sqlite3';
 
 const state = vi.hoisted(() => ({ root: '' }));
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../database';
-import { provideTestHostPorts } from './host-mock';
+import { provideTestHostPorts } from '../../core/test/host-mock';
 
 function freshRoot(): string {
   state.root = mkdtempSync(join(tmpdir(), 'dela-db-'));

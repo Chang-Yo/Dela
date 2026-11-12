@@ -10,10 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ root: '' }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root, isPackaged: false } }));
 
-import { openPiSession } from '../../agent/pi';
-import { remoteTools } from '../../agent/remote-tools';
-import { remoteBackend } from '../operations';
-import type { StoredLlmProvider } from '../../agent/llm-config';
+import { openPiSession } from '../../../core/agent/pi';
+import { remoteTools } from '../../../core/agent/remote-tools';
+import { remoteBackend } from '../../../core/remote/operations';
+import type { StoredLlmProvider } from '../../../core/agent/llm-config';
 
 const remotePath = '/root/proj';
 const provider: StoredLlmProvider = {

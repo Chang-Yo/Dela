@@ -19,8 +19,8 @@ vi.mock('../../shuiyuan/snapshot', () => ({
   collectShuiyuanSnapshots: vi.fn(),
   ensureShuiyuanSnapshot: vi.fn(),
 }));
-vi.mock('../operations', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../operations')>()),
+vi.mock('../../../core/remote/operations', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../core/remote/operations')>()),
   locateRemote: state.locate,
 }));
 
@@ -38,7 +38,7 @@ import {
   updateWorkspaceEntry,
   workspaceProjects,
 } from '../../workspace/api';
-import { provideTestHostPorts } from '../../test/host-mock';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
 
 const remoteId = '11111111-1111-4111-8111-111111111111';
 

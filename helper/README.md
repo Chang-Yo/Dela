@@ -33,7 +33,7 @@ pnpm build:helper --all    # 同时出 linux/arm64
 ```
 
 产物是静态二进制（`CGO_ENABLED=0`），glibc 与 musl 都能跑；升级 helper 时同时改 `helper/main.go`
-的 `helperVersion` 与 `src/main/remotes/helper.ts` 的 `HELPER_VERSION` 并重新构建——两者不一致会在
+的 `helperVersion` 与 `src/core/remote/helper.ts` 的 `HELPER_VERSION` 并重新构建——两者不一致会在
 握手时判为版本不匹配，这台服务器的远程项目不可用。远端按「版本-sha8」分目录放，
 **旧版本目录不自动清理**（每版一个，便于回退）；旧版本的实例空闲 1 小时后自己退出，
 跑在它上面的任务新版看不到。

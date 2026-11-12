@@ -50,7 +50,7 @@ function fixture(path: string) {
 async function setup(platform = platforms[0]!) {
   vi.stubGlobal('process', { ...process, platform: platform.platform, arch: platform.arch });
   mocks.digests = [...platform.hashes];
-  const { provideTestHostPorts } = await import('../../test/host-mock');
+  const { provideTestHostPorts } = await import('../../../core/test/host-mock');
   provideTestHostPorts({
     paths: { userData: () => mocks.profile },
     network: { fetch: mocks.fetch },

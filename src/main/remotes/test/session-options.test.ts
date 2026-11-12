@@ -10,8 +10,8 @@ const state = vi.hoisted(() => ({
 
 vi.mock('electron', () => ({ app: { getPath: () => 'C:\\data' } }));
 // 真实实现要动态加载 Pi（纯 ESM）：这里只关心名字与组合，工具体换成空壳。
-vi.mock('../operations', () => ({ remoteBackend: () => ({}) }));
-vi.mock('../../agent/remote-tools', () => ({
+vi.mock('../../../core/remote/operations', () => ({ remoteBackend: () => ({}) }));
+vi.mock('../../../core/agent/remote-tools', () => ({
   remoteTools: async (_cwd: string, _backend: unknown): Promise<ToolDefinition[]> =>
     ['read', 'write', 'edit', 'bash', 'ls', 'find', 'grep'].map((name) => ({
       name,
@@ -22,7 +22,7 @@ vi.mock('../../agent/remote-tools', () => ({
     })),
 }));
 // 镜像要真的 ssh：这里只验证「镜像结果怎么接给 Pi」。
-vi.mock('../context', () => ({
+vi.mock('../../../core/remote/context', () => ({
   syncRemoteContext: async () => ({
     skillPaths: [
       'C:\\data\\remote-context\\r1\\p-remote\\repo\\.agents\\skills',
@@ -31,22 +31,25 @@ vi.mock('../context', () => ({
     agentsFiles: [{ path: '/root/proj/AGENTS.md', content: '暗号：菠萝' }],
   }),
 }));
-vi.mock('../../agent/commands', () => ({
+vi.mock('../../../core/capabilities/command-server', () => ({
   COMMAND_BRIDGE: 'dela() { :; }',
   startDomainBridge: () => ({ url: 'http://127.0.0.1:1', token: 'token' }),
 }));
-vi.mock('../../agent/skills', () => ({
+vi.mock('../../../core/capabilities/skills', () => ({
   builtinSkillsDirectory: () => 'C:\\skills',
   ensureBuiltinSkills: () => {},
   effectiveDisabledSkills: () => new Set<string>(),
   globalSkillDirectories: () => ['C:\\skills'],
   readDisabledSkillPaths: () => new Set<string>(),
 }));
-vi.mock('../../agent/mcp', () => ({ mcpToolDefinitions: () => [], executeMcpTool: vi.fn() }));
-vi.mock('../../agent/tools', () => ({ readDisabledTools: () => state.disabled }));
+vi.mock('../../../core/capabilities/mcp', () => ({
+  mcpToolDefinitions: () => [],
+  executeMcpTool: vi.fn(),
+}));
+vi.mock('../../../core/capabilities/tools', () => ({ readDisabledTools: () => state.disabled }));
 
-import { agentEnvironment } from '../../agent/environment';
-import { provideTestHostPorts } from '../../test/host-mock';
+import { agentEnvironment } from '../../../core/agent/environment';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
 
 provideTestHostPorts({
   paths: { bash: () => 'C:\\Git\\bash.exe' },

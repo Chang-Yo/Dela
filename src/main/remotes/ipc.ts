@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
-import { onRemoteChange } from './events';
-import { helperSession, helperStates, onHelperState, retryHelper } from './helper';
+import { onRemoteChange } from '../../core/remote/events';
+import { helperSession, helperStates, onHelperState, retryHelper } from '../../core/remote/helper';
 import {
   browseRemote,
   createRemoteDirectory,

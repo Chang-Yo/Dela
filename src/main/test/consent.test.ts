@@ -21,7 +21,7 @@ vi.mock('electron', () => ({
 
 import { closeDatabase, getDatabase } from '../database';
 import { registerConsentIpc } from '../consent';
-import { provideTestHostPorts } from './host-mock';
+import { provideTestHostPorts } from '../../core/test/host-mock';
 
 const frame = { url: 'file:///index.html' };
 const event = { senderFrame: frame, sender: { mainFrame: frame } };

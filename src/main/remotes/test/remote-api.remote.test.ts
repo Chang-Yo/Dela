@@ -27,7 +27,11 @@ import {
   removeRemote,
   saveRemote,
 } from '../api';
-import { listRemoteDirectory, remoteFileIndex, writeRemoteFile } from '../operations';
+import {
+  listRemoteDirectory,
+  remoteFileIndex,
+  writeRemoteFile,
+} from '../../../core/remote/operations';
 import { importRemoteProject, projectLocation } from '../../workspace/api';
 import { parentOf, targetOf } from '../api';
 

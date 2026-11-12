@@ -9,7 +9,7 @@ import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
 import { handleShuiyuanSnapshotRequest } from '../shuiyuan/snapshot-files';
 import { handleVsjtuMediaRequest } from '../vsjtu/playback';
 import { remoteById, targetOf, withinRemoteRoot } from '../remotes/api';
-import { readRemoteRange, statRemoteFile } from '../remotes/operations';
+import { readRemoteRange, statRemoteFile } from '../../core/remote/operations';
 import { remoteDocumentMime } from '../remotes/documents';
 import { projectLocation, resolveWorkspaceAsset, workspacePreviewPath } from './api';
 

@@ -14,9 +14,9 @@ import {
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
-import { hostPorts, type Projects } from '../host';
+import { hostPorts, type Projects } from '../../core/ports';
 import { remoteById, targetOf } from '../remotes/api';
-import { locateRemote } from '../remotes/operations';
+import { locateRemote } from '../../core/remote/operations';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSourcePreview } from '../shuiyuan/sources';
 import { collectShuiyuanSnapshots, ensureShuiyuanSnapshot } from '../shuiyuan/snapshot';
@@ -821,8 +821,8 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     assertNoChildProjects(item.id);
     // 「移除项目」＝项目终结：名下会话（含归档）一并删除，目录与文件保留。
     // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
-    const { deleteSession } = await import('../agent/session/commands');
-    const { invalidateSessions } = await import('../agent/session/run');
+    const { deleteSession } = await import('../../core/agent/session/commands');
+    const { invalidateSessions } = await import('../../core/agent/session/run');
     const ids = getDatabase()
       .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
       .all(item.id) as { id: string }[];

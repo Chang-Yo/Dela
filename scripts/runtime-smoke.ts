@@ -6,12 +6,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { locateBash, prependRuntimePath } from '../src/main/terminal/mingit';
-import { locateSsh } from '../src/main/remotes/transport';
-import { loadPi } from '../src/main/agent/pi';
-import { closeDomainBridge, domainBridge } from '../src/main/agent/environment';
-import { COMMAND_BRIDGE } from '../src/main/agent/commands';
+import { locateSsh } from '../src/core/remote/transport';
+import { loadPi } from '../src/core/agent/pi';
+import { closeDomainBridge, domainBridge } from '../src/core/agent/environment';
+import { COMMAND_BRIDGE } from '../src/core/capabilities/command-server';
 import { closeDatabase } from '../src/main/database';
-import { provideHostPorts } from '../src/main/host';
+import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/host-electron';
 import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 

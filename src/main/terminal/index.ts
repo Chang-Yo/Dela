@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
 import { idSchema, projectLocation } from '../workspace/api';
 import { remoteById } from '../remotes/api';
-import { locateSsh, shellQuote } from '../remotes/transport';
+import { locateSsh, shellQuote } from '../../core/remote/transport';
 import type { TerminalEvent, TerminalSession } from '../../shared/terminal';
 
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;

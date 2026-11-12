@@ -25,7 +25,7 @@ import {
   type Desktop,
   type HostPorts,
   type SecretNamespace,
-} from '../main/host';
+} from '../core/ports';
 import { getDatabase } from '../main/database';
 import { notifyRunFinished } from '../main/settings/task-notify';
 import { storageDirectory } from '../main/storage';

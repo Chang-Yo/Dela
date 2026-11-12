@@ -76,6 +76,7 @@ jobs:
               - 'src/main/*'
               - 'src/main/terminal/**'
               - 'src/main/remotes/**'
+              - 'src/core/remote/**'
               - 'src/main/documents/**'
               - 'src/main/update/**'
               - 'src/preload/**'

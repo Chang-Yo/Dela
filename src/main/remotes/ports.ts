@@ -3,8 +3,8 @@
  * 同一远端端口复用至显式停止或退出。
  */
 import { shell } from 'electron';
-import { openPortTunnel, helperSession, type PortTunnel } from './helper';
-import { targetKey, type RemoteTarget } from './transport';
+import { openPortTunnel, helperSession, type PortTunnel } from '../../core/remote/helper';
+import { targetKey, type RemoteTarget } from '../../core/remote/transport';
 import type { RemotePortTunnel, RemotePortsState } from '../../shared/remotes';
 
 interface TunnelEntry {
