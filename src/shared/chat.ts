@@ -1,72 +1,23 @@
-/** 对回复正文中一段选中文字的评论；comment 为空即只引用这段文字。 */
-export interface ChatComment {
-  quote: string;
-  comment: string;
-}
+import type { z } from 'zod';
+import type {
+  chatAskInputSchema,
+  chatCommandViewSchema,
+  chatCommentSchema,
+  chatMediaViewSchema,
+  chatQueuedDraftSchema,
+  fileChangeDetailSchema,
+  fileChangeSummarySchema,
+  turnChangesSchema,
+} from '../core/protocol/agent';
 
-/** Composer 发送载荷：markdown 文本（内联图片以 dela-img token 嵌入）、暂存附件、@ 引用与评论。 */
-export interface ChatAskInput {
-  text: string;
-  attachments: string[];
-  context: string[];
-  /** # 引用的会话：id 进 meta，模型需要时用 session_read 读取。 */
-  sessions?: { id: string; title: string }[];
-  comments: ChatComment[];
-  /** 编辑重发：丢弃会话中最后一条用户消息及其后内容，以 text 重新发起。 */
-  replaceLastUser?: boolean;
-}
-
-/** 图片和文档保留本地副本；文本附件发送后释放内存。 */
-export interface ChatMediaView {
-  id: string;
-  name: string;
-  size: number;
-  kind: 'image' | 'attachment';
-  /** 图片的缩略预览 data URL；附件为 null。 */
-  previewUrl: string | null;
-}
-
-/** 撤回的插队消息：按发送顺序合并，回填输入框。 */
-export interface ChatQueuedDraft {
-  text: string;
-  comments: ChatComment[];
-  attachments: ChatMediaView[];
-}
-
-export interface ChatCommandView {
-  id: string;
-  name: string;
-  prompt: string;
-}
-
-export interface FileChangeSummary {
-  /** 相对本次比较工作目录的路径，统一使用 /。 */
-  path: string;
-  status: 'added' | 'modified' | 'deleted';
-  beforeBytes: number | null;
-  afterBytes: number | null;
-  textDiff: boolean;
-  /** 轮次摘要按需返回；null 表示无法统计，省略表示未请求统计。 */
-  stat?: { added: number; deleted: number } | null;
-}
-
-export interface FileChangeDetail extends FileChangeSummary {
-  before: string | null;
-  after: string | null;
-  patch: string | null;
-  note: string | null;
-}
-
-export interface TurnChanges {
-  turnId: string;
-  cwd: string;
-  startedAt: string;
-  finishedAt: string;
-  runStatus: 'completed' | 'failed' | 'stopped';
-  state: 'complete' | 'partial' | 'unavailable';
-  warnings: string[];
-  files: FileChangeSummary[];
-}
+export type ChatComment = z.infer<typeof chatCommentSchema>;
+export type ChatAskInput = z.infer<typeof chatAskInputSchema>;
+export type ChatMediaView = z.infer<typeof chatMediaViewSchema>;
+export type ChatQueuedDraft = z.infer<typeof chatQueuedDraftSchema>;
+export type ChatCommandView = z.infer<typeof chatCommandViewSchema>;
+export type FileChangeSummary = z.infer<typeof fileChangeSummarySchema>;
+export type FileChangeDetail = z.infer<typeof fileChangeDetailSchema>;
+export type TurnChanges = z.infer<typeof turnChangesSchema>;
 
 export interface UncommittedChanges {
   /** false 时前端隐藏入口；错误与非 Git 目录通过 reason 区分。 */

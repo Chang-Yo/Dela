@@ -395,7 +395,7 @@ app
     registerNotificationsIpc();
     registerUpdateIpc();
     // 会话通道属于 Agent 基座（完整注册会预载 Pi）；渲染端启动只需列表为空、新建可失败。
-    ipcMain.handle('session:list', () => []);
+    ipcMain.handle('agent:list-sessions', () => []);
     const win = new BrowserWindow({
       show: false,
       webPreferences: {

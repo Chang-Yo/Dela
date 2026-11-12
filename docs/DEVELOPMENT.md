@@ -228,6 +228,8 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
 6. **测试**：主进程查询对着 `database.ts` 建出的真实表跑，不写影子 schema；UI 不写快照和样式断言。
 
+Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导，`shared` 只做转出。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
+
 依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。过渡期 `view/` 可以引用 `renderer/components/ui` 和 `renderer/lib/utils`，`src/ui` 建好后收紧。renderer 的 Vite root 是 `src/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
 
 ## 11. 工具链与启动

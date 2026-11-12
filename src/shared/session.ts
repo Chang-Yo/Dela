@@ -1,28 +1,38 @@
-// 会话视图类型：WorkspaceChat 是 Pi 会话消息的投影（main/agent/session.ts）。
-import type { ChatAskInput, ChatComment, ChatQueuedDraft } from './chat';
+// 会话视图类型：协议里的部分由 core/protocol/agent 的 schema 推导，这里只放桌面端自己的。
+import type { z } from 'zod';
+import type {
+  agentToolOutputSchema,
+  agentToolResultSchema,
+  backgroundTaskViewSchema,
+  chatQueueEventSchema,
+  chatScopeSchema,
+  chatSessionSummarySchema,
+  chatStreamEventSchema,
+  contextUsageViewSchema,
+  runEventSchema,
+  runStatusSchema,
+  sidechatViewSchema,
+  taskNoticeDetailsSchema,
+  taskStatusSchema,
+  workspaceChatSchema,
+} from '../core/protocol/agent';
+import type { ChatAskInput, ChatQueuedDraft } from './chat';
 
-/** Pi 工具结果的投影：text 是回灌给模型的文本，details 是工具的结构化细节（edit 的 diff 等），
- *  image 是工具回图给模型时的图片本体（read 读图片），供轨迹预览，base64 随消息投影。 */
-export interface AgentToolOutput {
-  text: string;
-  details?: unknown;
-  isError?: boolean;
-  image?: { mimeType: string; data: string };
-}
-
-export interface AgentToolResult {
-  id: string;
-  name: string;
-  input: unknown;
-  /** 执行结果；运行中的步骤只有流式部分输出（或尚无输出）。 */
-  output?: AgentToolOutput;
-  /** 本步骤开始执行的 epoch 毫秒；旧会话与更早的记录没有。 */
-  startedAt?: number;
-  /** 本步骤完成的 epoch 毫秒；运行中或被中断的步骤没有。 */
-  finishedAt?: number;
-}
-
-export type TaskStatus = 'running' | 'completed' | 'failed' | 'stopped';
+export type AgentToolOutput = z.infer<typeof agentToolOutputSchema>;
+export type AgentToolResult = z.infer<typeof agentToolResultSchema>;
+export type TaskStatus = z.infer<typeof taskStatusSchema>;
+export type TaskNoticeDetails = z.infer<typeof taskNoticeDetailsSchema>;
+export type BackgroundTaskView = z.infer<typeof backgroundTaskViewSchema>;
+export type ChatSessionSummary = z.infer<typeof chatSessionSummarySchema>;
+export type ContextUsageView = z.infer<typeof contextUsageViewSchema>;
+export type WorkspaceChat = z.infer<typeof workspaceChatSchema>;
+export type RunStatus = z.infer<typeof runStatusSchema>;
+export type RunEvent = z.infer<typeof runEventSchema>;
+export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
+export type ChatQueueEvent = z.infer<typeof chatQueueEventSchema>;
+export type SidechatView = z.infer<typeof sidechatViewSchema>;
+/** 'chat' 是首页随聊的私有目录，'library' 是资料页的课程目录；项目会话忽略它。 */
+export type ChatScope = z.infer<typeof chatScopeSchema>;
 
 /** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
 export interface SubagentDetails {
@@ -37,155 +47,6 @@ export interface SubagentDetails {
 /** 后台任务通知在 Pi 会话记录里的 customType。 */
 export const TASK_NOTICE = 'dela-task';
 
-/** 后台任务结束时投递给父会话的通知；turnId 是它所在（或唤醒）的那一轮。 */
-export interface TaskNoticeDetails {
-  taskId: string;
-  kind: 'bash' | 'subagent';
-  label: string;
-  status: Exclude<TaskStatus, 'running'>;
-  exitCode?: number;
-  durationMs: number;
-  noticeId: string;
-  turnId?: string;
-}
-
-/** 正在运行的后台任务：bash 的 label 是命令，子 Agent 的是任务名（id 即子会话 id）。 */
-export interface BackgroundTaskView {
-  id: string;
-  kind: 'bash' | 'subagent';
-  label: string;
-  startedAt: number;
-}
-
-export interface ChatSessionSummary {
-  id: string;
-  title: string;
-  updatedAt: string;
-  createdAt: string;
-  pinned?: boolean;
-  projectId?: string | null;
-}
-
-/** percent 为 0–100 百分数；tokens null = 暂不可知（如压缩后、Pi 也没给出估计）。
- *  inputTokens / cachedTokens 是本会话累计用量（Pi SessionStats.tokens 的 input / cacheRead，
- *  含已被压缩掉的历史），仅在提供商确实上报过缓存时才带上，见 main/agent/session.ts 的 usageOf。 */
-export interface ContextUsageView {
-  tokens: number | null;
-  contextWindow: number;
-  percent: number | null;
-  /** 压缩后、模型还没回复前的估计值（Pi 的 estimatedTokensAfter）；下一次回复后换成实际用量。 */
-  estimated?: boolean;
-  /** 本会话累计输入 token（不含缓存读取）。 */
-  inputTokens?: number;
-  /** 本会话累计缓存读取 token；与 inputTokens 同时出现。 */
-  cachedTokens?: number;
-}
-
-export interface WorkspaceChat {
-  sessionId: string | null;
-  /** 会话所属项目（workspace 条目 id）；null = 通用会话。归属在创建时确定，不随视图变化。 */
-  projectId: string | null;
-  /** 会话 cwd（会话私有目录、项目目录或工作区根）：@ 引用以它为相对路径基准。 */
-  cwd: string | null;
-  running?: boolean;
-  activeTool?: string;
-  /** 上下文压缩进行中（低干扰状态，压缩期间短暂为 true）。 */
-  compacting?: boolean;
-  /** 运行中插队、还没送达模型的消息正文（不含 meta 前缀）。 */
-  queued?: string[];
-  /** 正在运行的后台任务；主对话停止后仍可能在跑。 */
-  tasks?: BackgroundTaskView[];
-  /** 子 Agent 的会话：由父会话的 task 工具派出，只读。 */
-  subagent?: { parentId: string; description: string };
-  /** 至少有一个启用且带密钥的提供商。 */
-  configured: boolean;
-  /** 会话的模型选择；从未选择过的会话沿用最近发过消息的会话。 */
-  providerId: string | null;
-  providerName: string | null;
-  model: string;
-  /** 会话选中的提供商被停用、删除或移除了该模型：保留选择但不能发送，需在会话里另选。 */
-  modelUnavailable: boolean;
-  /** 当前模型开启的推理强度档位；空数组表示未配置，composer 显示 default 并提供设置入口。 */
-  effortLevels: string[];
-  /** 当前选中的推理强度档位；未开启时为 null。 */
-  effort: string | null;
-  contextUsage?: ContextUsageView | null;
-  messages: {
-    role: 'user' | 'assistant';
-    content: string;
-    sources?: { key: string; title: string }[];
-    /** 用户消息里 # 引用的会话（同项目）；模型按需用 session_read 读取。 */
-    sessions?: { id: string; title: string }[];
-    /** 用户消息携带的内联图片（按输入顺序）；id 对应 chat-media 落盘文件。 */
-    images?: { id: string; name: string }[];
-    /** 用户消息携带的文本附件名；内容已进入当轮模型上下文，文件不保留。 */
-    attachments?: { name: string }[];
-    /** 用户消息携带的回复评论（按添加顺序）。 */
-    comments?: ChatComment[];
-    toolResults?: AgentToolResult[];
-    /** 按发生顺序保存公开说明、思考过程与相邻工具组；旧会话没有 parts。 */
-    parts?: (
-      | { type: 'text'; text: string }
-      | { type: 'reasoning'; text: string; startedAt?: number; finishedAt?: number }
-      | { type: 'tools'; results: AgentToolResult[] }
-    )[];
-    startedAt?: number;
-    /** 对应冻结的本轮 diff；旧消息无此字段。 */
-    turnId?: string;
-    /** 已完成回复的最后一个会话记录条目：从这里分支会话。运行中的回复没有。 */
-    entryId?: string;
-    finishedAt?: number;
-    interrupted?: boolean;
-    /** 用户主动停止：保留已生成的部分内容，不追加中断说明文案。 */
-    stopped?: boolean;
-    compacted?: boolean;
-    /** Pi 扩展经 sendMessage 发出、标了 display 的消息（role 固定为 assistant 一侧展示）。 */
-    extension?: { customType: string };
-    /** 后台任务结束的通知。 */
-    task?: TaskNoticeDetails;
-  }[];
-}
-
-/** Run 状态机；waiting_input 本轮不触发，interrupted 仅启动时写入。 */
-export type RunStatus =
-  'pending' | 'running' | 'waiting_input' | 'completed' | 'failed' | 'stopped' | 'interrupted';
-
-export interface RunEvent {
-  sessionId: string;
-  runId: string;
-  status: RunStatus;
-  /** 状态为 running 时的当前工具名；空闲段为 undefined。 */
-  activeTool?: string;
-  /** 冻结 diff 落盘失败；不改变 Agent 执行本身的完成状态。 */
-  changesError?: string;
-}
-
-/** session:on-stream 载荷：流式增量只携带本轮正在生成的末条 assistant 消息，
- *  渲染端合并进已缓存快照——全量历史广播的代价随会话长度线性放大，流式期每
- *  ~100ms 一次会导致 IPC 巨包与渲染端整线程重渲。工具图片只在工具结束的全量
- *  快照里下发，增量不带 image，渲染端按 toolCallId 从旧消息回填。 */
-export interface ChatStreamEvent {
-  sessionId: string;
-  message: WorkspaceChat['messages'][number];
-  /** 当前执行中的工具名；空闲段为 undefined。 */
-  activeTool?: string;
-  contextUsage?: ContextUsageView | null;
-}
-
-/** session:on-queue 载荷：插队消息排队或送达时推送，渲染端只替换快照里的 queued。 */
-export interface ChatQueueEvent {
-  sessionId: string;
-  queued: string[];
-}
-
-/** 旁问快照：messages 只含旁问自己的提问与回复，借来的主会话历史不重复下发。 */
-export interface SidechatView {
-  parentId: string;
-  running: boolean;
-  activeTool?: string;
-  messages: WorkspaceChat['messages'];
-}
-
 /** 旁问（sidechat:* 通道）：以主会话 id 寻址，每个主会话最多一个，不入库、关闭即丢弃。 */
 export interface SidechatApi {
   open(parentId: string): Promise<SidechatView>;
@@ -199,10 +60,6 @@ export interface SidechatApi {
   onStream(listener: (event: ChatStreamEvent) => void): () => void;
   onClosed(listener: (parentId: string) => void): () => void;
 }
-
-/** 通用会话的工作目录归属：'chat' = 首页随聊的私有目录，'library' = 资料页的课程目录。
- *  项目会话（projectId 非空）由项目目录决定 cwd，忽略 scope。 */
-export type ChatScope = 'chat' | 'library';
 
 /** 会话身份 API（session:* 通道）。 */
 /**
