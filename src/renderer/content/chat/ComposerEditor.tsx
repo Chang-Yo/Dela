@@ -247,8 +247,8 @@ const composerTheme = EditorView.theme({
     display: 'block',
     maxHeight: '4.75rem',
     maxWidth: '11.25rem',
-    // 与消息流内联图片同档圆角（rounded-xl），发送前后不跳变。
-    borderRadius: 'var(--radius-xl)',
+    // 与消息流内联图片同档圆角，发送前后不跳变。
+    borderRadius: 'var(--radius-window)',
     border: '1px solid var(--line)',
   },
   '.dela-chat-image-fallback': {

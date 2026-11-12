@@ -482,7 +482,7 @@ export function Explorer({
                 }
               }}
               className={cn(
-                'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-13 outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-sm before:transition-colors focus-visible:ring-2 focus-visible:ring-bui-accent',
+                'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-13 outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-chip before:transition-colors focus-visible:ring-2 focus-visible:ring-bui-accent',
                 selected === item.id
                   ? 'before:bg-hover-2 font-medium text-ink'
                   : // 目录列底色为 inset，hover 用 hover-2 才与其拉开层次。
@@ -599,7 +599,7 @@ function PendingRow({ pending, level }: { pending: ExplorerPending; level: numbe
           aria-invalid={error !== null}
           aria-describedby={error ? 'explorer-pending-error' : undefined}
           className={cn(
-            'h-6 min-w-0 flex-1 rounded-sm border bg-surface px-1.5 text-13 text-ink outline-none',
+            'h-6 min-w-0 flex-1 rounded-chip border bg-surface px-1.5 text-13 text-ink outline-none',
             error ? 'border-red focus:border-red' : 'border-bui-accent',
           )}
           spellCheck={false}

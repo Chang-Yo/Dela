@@ -763,7 +763,7 @@ export function MailComposer({
         <div
           aria-label="邮件正文"
           // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
-          className="min-h-0 flex-1 overflow-y-auto py-4 text-13 leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-bui-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-md"
+          className="min-h-0 flex-1 overflow-y-auto py-4 text-13 leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-bui-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-control"
           contentEditable
           style={{ fontSynthesis: 'weight style' }}
           onInput={handleEditorInput}

@@ -254,7 +254,7 @@ export function MailReader({
             {detail.bodyHtml ? (
               <MailHtmlBody key={detail.id} html={detail.bodyHtml} text={detail.bodyText} />
             ) : (
-              <div className="mt-3 rounded-t-lg border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
+              <div className="mt-3 rounded-t-card border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
                 {detail.bodyText ?? '(无正文)'}
               </div>
             )}

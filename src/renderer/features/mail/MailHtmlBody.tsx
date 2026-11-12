@@ -68,12 +68,12 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
         </button>
       </div>
       {plain ? (
-        <div className="mt-3 rounded-t-lg border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
+        <div className="mt-3 rounded-t-card border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
           {text ?? new DOMParser().parseFromString(html, 'text/html').body.textContent}
         </div>
       ) : (
         <iframe
-          className="mt-3 w-full rounded-t-lg border-x border-t bg-paper"
+          className="mt-3 w-full rounded-t-card border-x border-t bg-paper"
           ref={iframeRef}
           referrerPolicy="no-referrer"
           sandbox="allow-popups allow-scripts"

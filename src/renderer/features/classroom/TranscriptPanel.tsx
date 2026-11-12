@@ -168,7 +168,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return text.split(new RegExp(`(${escaped})`, 'gi')).map((part, index) =>
     index % 2 ? (
-      <mark key={index} className="rounded-sm bg-bui-accent-tint text-ink">
+      <mark key={index} className="rounded-chip bg-bui-accent-tint text-ink">
         {part}
       </mark>
     ) : (

@@ -42,7 +42,7 @@ export function TodoSheet({
         aria-modal="true"
         className={cn(
           sheetUp,
-          'absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-xl flex-col rounded-t-2xl bg-surface p-5 shadow-overlay max-md:px-4',
+          'absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-xl flex-col rounded-t-window bg-surface p-5 shadow-overlay max-md:px-4',
           fixedHeight
             ? 'h-[85%] overflow-hidden'
             : 'max-h-[calc(100%-2rem)] overflow-y-auto [scrollbar-width:none]',

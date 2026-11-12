@@ -195,7 +195,7 @@ export function ReplyComposer({
       aria-label="回复"
       className={cn(
         sheetUp,
-        'z-30 mx-auto flex w-full max-w-2xl flex-col rounded-t-2xl bg-surface shadow-overlay',
+        'z-30 mx-auto flex w-full max-w-2xl flex-col rounded-t-window bg-surface shadow-overlay',
         maximized ? 'absolute inset-x-0 top-3 bottom-0' : 'relative h-[min(22rem,50%)] shrink-0',
       )}
       onKeyDown={(event) => {

@@ -675,7 +675,7 @@ function DesktopMailView({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
-          <div className="m-auto grid w-full max-w-[25rem] gap-4 rounded-2xl border border-line bg-surface p-8 shadow-hairline">
+          <div className="m-auto grid w-full max-w-[25rem] gap-4 rounded-window border border-line bg-surface p-8 shadow-hairline">
             <div className="grid gap-1.5">
               <h2 className="text-lg font-semibold tracking-tight">连接邮箱</h2>
               <p className="text-13 leading-relaxed text-ink-3">

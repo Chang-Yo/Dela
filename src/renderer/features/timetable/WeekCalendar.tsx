@@ -328,8 +328,8 @@ function LocalEventBlock({
         <article
           className={cn(
             'absolute z-10 cursor-pointer overflow-hidden px-2 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint',
-            bleedLeft ? 'rounded-l-none' : 'rounded-l-lg',
-            bleedRight ? 'rounded-r-none' : 'rounded-r-lg',
+            bleedLeft ? 'rounded-l-none' : 'rounded-l-card',
+            bleedRight ? 'rounded-r-none' : 'rounded-r-card',
           )}
           onClick={open}
           onKeyDown={(event) => {

@@ -78,7 +78,7 @@ export function NewEventDialog({
         aria-label="新建事件"
         className={cn(
           sheetUp,
-          'absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl flex-col overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-overlay max-md:px-4',
+          'absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl flex-col overflow-y-auto rounded-t-window bg-surface p-5 shadow-overlay max-md:px-4',
         )}
       >
         <div className="flex items-center justify-between">
