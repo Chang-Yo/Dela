@@ -7,7 +7,7 @@ import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
-import { opensInEditor } from '../../shared/files';
+import { opensInEditor } from '../../core/protocol/files';
 import { useSessions } from '../sessions/store';
 import { showToast } from '../app/toasts';
 

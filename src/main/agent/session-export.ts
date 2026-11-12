@@ -5,7 +5,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ImageContent } from '@earendil-works/pi-ai';
 import { ZipFile } from 'yazl';
-import { extensionOf } from '../../shared/files';
+import { extensionOf } from '../../core/protocol/files';
 import { chatMediaPath } from './media';
 import { sessionExportBranch } from './session/commands';
 import { splitMeta, textOf } from './session/projection';

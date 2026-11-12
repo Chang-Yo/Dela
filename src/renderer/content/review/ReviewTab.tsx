@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { FileCode2, TriangleAlert } from 'lucide-react';
 import type { FileChangeDetail } from '../../../shared/api';
 import type { TabId } from '../../../shared/layout';
-import { diffStatOf } from '../../../shared/diff';
+import { diffStatOf } from '../../../core/protocol/diff';
 import { parseReviewTabId } from './tab-id';
 import { UncommittedReview } from './UncommittedReview';
 import { Centered, STATUS_TEXT, basenameOf, dirnameOf } from './view-utils';

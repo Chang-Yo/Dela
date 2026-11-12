@@ -1,5 +1,4 @@
 // 文档读取注册表：PDF、Office 的解析组件由文档模块注册；没有注册时不接收文档附件，也不保存网页 PDF。
-import type { SkillDependency } from '../../shared/capabilities';
 
 export interface PreparedDocument {
   jobId: string;
@@ -35,3 +34,4 @@ export function readyDocumentReader(): DocumentReader {
     throw new Error('请先在设置 › Skills 安装文档读取组件');
   return current;
 }
+import type { SkillDependency } from '../../core/protocol/capabilities';

@@ -15,7 +15,7 @@ import {
   chatFileKindOfFile,
   hasChatImages,
   stripChatImageTokens,
-} from '../../../shared/chat-input';
+} from '../../../core/protocol/chat-input';
 import { showToast } from '../../app/toasts';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';

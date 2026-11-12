@@ -47,7 +47,7 @@ import {
   hasChatImages,
   INLINE_IMAGE_MAX,
   matchChatImageTokens,
-} from '../../../shared/chat-input';
+} from '../../../core/protocol/chat-input';
 import type { ChatReference } from './use-chat';
 import { ComposerEditor, type ComposerEditorHandle } from './ComposerEditor';
 import { setChatMediaPreview } from './media';

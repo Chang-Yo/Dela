@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { ChatComment } from '../../../shared/api';
-import { hasChatImages } from '../../../shared/chat-input';
+import { hasChatImages } from '../../../core/protocol/chat-input';
 
 /** session：# 引用的同项目会话，key 是 sessionId；其余是 @ 引用的文件，key 是绝对路径。 */
 export type ChatReference = { key: string; title: string; session?: true };

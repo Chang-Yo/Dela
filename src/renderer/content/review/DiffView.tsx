@@ -1,7 +1,7 @@
 // unified patch 的只读呈现：双侧行号 + 增删着色。行级数据来自 shared/diff 的解析，
 // 长 diff 分页，避免小体积、多行文件一次创建大量 DOM；长行横向滚动。
 import { memo, useMemo, useState } from 'react';
-import { parseUnifiedPatch } from '../../../shared/diff';
+import { parseUnifiedPatch } from '../../../core/protocol/diff';
 import { Button } from '@/components/ui/button';
 
 // 每页约 2,500 个元素，限制渲染量且保留足够的上下文。

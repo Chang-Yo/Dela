@@ -3,7 +3,7 @@
 import { memo, useEffect, useState } from 'react';
 import { ChevronDown, CodeXml, FolderOpen } from 'lucide-react';
 import type { FileChangeSummary, TurnChanges } from '../../../shared/api';
-import type { DiffStat } from '../../../shared/diff';
+import type { DiffStat } from '../../../core/protocol/diff';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

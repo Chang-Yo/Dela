@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { hostPorts } from '../host';
-import { loadLlmConfig } from './llm-config';
 import type {
   WebSearchEntry,
   WebSearchEntrySummary,
   WebSearchKeySource,
-} from '../../shared/capabilities';
+} from '../../core/protocol/capabilities';
+import { hostPorts } from '../host';
+import { loadLlmConfig } from './llm-config';
 import { readDisabledTools, setBuiltinCapabilities } from './tools';
 import { searchDeepSeek } from './deepseek';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SNIFF_BYTES, extensionOf, fileFormatOf, isTextContent } from './files';
+import { SNIFF_BYTES, extensionOf, fileFormatOf, isTextContent } from '../protocol/files';
 
 const utf8 = (text: string) => new TextEncoder().encode(text);
 

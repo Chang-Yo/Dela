@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
-import type { SkillOrigin, SkillView } from '../../shared/capabilities';
+import type { SkillOrigin, SkillView } from '../../core/protocol/capabilities';
 import { discoverProjectSkills } from './discovery';
 import { documentReader, readyDocumentReader } from './documents';
 import { hostPorts } from '../host';

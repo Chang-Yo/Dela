@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ImageContent } from '@earendil-works/pi-ai';
 import type { ChatAskInput } from '../../../core/protocol/agent';
-import { parseChatBlocks, stripChatImageTokens } from '../../../shared/chat-input';
+import { parseChatBlocks, stripChatImageTokens } from '../../../core/protocol/chat-input';
 import { hostPorts } from '../../host';
 import { readChatAttachment, readChatMediaBytes } from '../media';
 import { encodeMeta } from './projection';

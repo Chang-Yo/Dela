@@ -10,7 +10,6 @@ import type {
   TaskNoticeDetails,
   WorkspaceChat,
 } from '../../../core/protocol/agent';
-import { TASK_NOTICE } from '../../../shared/api';
 import { hostPorts } from '../../host';
 import { remoteBackend } from '../../remotes/operations';
 import * as changes from '../changes';
@@ -29,6 +28,7 @@ import {
   toolOutput,
   usageOf,
   withoutToolImages,
+  TASK_NOTICE,
 } from './projection';
 import { composePrompt } from './prompt';
 import {

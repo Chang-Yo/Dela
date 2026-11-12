@@ -8,7 +8,7 @@ import type {
   McpServerInput,
   McpServerPatch,
   McpServerView,
-} from '../../shared/capabilities';
+} from '../../core/protocol/capabilities';
 import { hostPorts } from '../host';
 
 /** environment.ts 转成 Pi 自定义工具。 */

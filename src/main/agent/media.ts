@@ -17,9 +17,9 @@ import {
   CHAT_DOCUMENT_MAX_BYTES,
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKind,
-} from '../../shared/chat-input';
+} from '../../core/protocol/chat-input';
 import type { ChatMediaView } from '../../core/protocol/agent';
-import { SNIFF_BYTES } from '../../shared/files';
+import { SNIFF_BYTES } from '../../core/protocol/files';
 import { readyDocumentReader } from './documents';
 import { readDisabledSkills } from './skills';
 import { hostPorts } from '../host';

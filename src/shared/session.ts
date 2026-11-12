@@ -6,9 +6,9 @@ import type {
   ChatScope,
   ChatSessionSummary,
   ChatStreamEvent,
+  MainSessionCommand,
   RunEvent,
   SidechatView,
-  TaskStatus,
   WorkspaceChat,
 } from '../core/protocol/agent';
 
@@ -21,26 +21,17 @@ export type {
   ChatSessionSummary,
   ChatStreamEvent,
   ContextUsageView,
+  MainSessionCommand,
   RunEvent,
   RunStatus,
+  SessionCommandName,
   SidechatView,
+  SubagentDetails,
   TaskNoticeDetails,
   TaskStatus,
   WorkspaceChat,
 } from '../core/protocol/agent';
-
-/** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
-export interface SubagentDetails {
-  taskId: string;
-  status: TaskStatus;
-  steps: number;
-  tool?: { name: string; target: string };
-  reply?: string | null;
-  background?: true;
-}
-
-/** 后台任务通知在 Pi 会话记录里的 customType。 */
-export const TASK_NOTICE = 'dela-task';
+export { SESSION_COMMANDS, parseSessionCommand } from '../core/protocol/agent';
 
 /** 旁问（sidechat:* 通道）：以主会话 id 寻址，每个主会话最多一个，不入库、关闭即丢弃。 */
 export interface SidechatApi {
@@ -57,36 +48,6 @@ export interface SidechatApi {
 }
 
 /** 会话身份 API（session:* 通道）。 */
-/**
- * Dela 自己实现的会话命令，对应 Pi 终端界面里的同名命令（Pi 的 SDK 不带这些命令）。输入以它们开头时
- * 不发给模型，也不经过扩展命令与提示模板：Dela 命令 > 扩展命令 > 提示模板 > 普通消息，与 Pi 一致。
- */
-export const SESSION_COMMANDS = [
-  { name: 'compact', description: '压缩上下文', argumentHint: '[压缩时的说明]' },
-  { name: 'reload', description: '重新加载 Skills、扩展与 AGENTS.md' },
-  { name: 'name', description: '重命名对话', argumentHint: '<标题>' },
-  { name: 'new', description: '新对话' },
-  {
-    name: 'btw',
-    description: '旁问：带着当前对话顺便问一句，不进入主对话',
-    argumentHint: '[问题]',
-  },
-] as const;
-
-export type SessionCommandName = (typeof SESSION_COMMANDS)[number]['name'];
-
-/** `/new` 与 `/btw` 只是界面动作，由渲染端处理；其余在主进程执行。 */
-export type MainSessionCommand = Exclude<SessionCommandName, 'new' | 'btw'>;
-
-/** 输入是不是一条会话命令：命令名后要么结束、要么是空白再跟参数（`/compactor` 不算）。 */
-export function parseSessionCommand(
-  text: string,
-): { name: SessionCommandName; args: string } | null {
-  const match = /^\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(text.trim());
-  const name = SESSION_COMMANDS.find((command) => command.name === match?.[1])?.name;
-  return name ? { name, args: match?.[2]?.trim() ?? '' } : null;
-}
-
 export interface SessionApi {
   archived(): Promise<ChatSessionSummary[]>;
   update(sessionId: string, patch: { archived?: boolean; pinned?: boolean }): Promise<void>;

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { ChatCommandView } from '../../core/protocol/agent';
-import { SESSION_COMMANDS } from '../../shared/api';
+import { type ChatCommandView, SESSION_COMMANDS } from '../../core/protocol/agent';
 import { hostPorts } from '../host';
 
 // 设置 › 插件：自定义 / 指令。名称限制为无空白字符，保证能作为触发词输入。

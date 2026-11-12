@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTwoFilesPatch } from 'diff';
-import { diffStatOf, parseUnifiedPatch } from './diff';
+import { diffStatOf, parseUnifiedPatch } from '../protocol/diff';
 
 const patch = [
   '--- a/src/app.ts',

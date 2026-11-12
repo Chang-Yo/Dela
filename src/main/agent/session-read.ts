@@ -5,10 +5,9 @@
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type { SessionEntry, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { TaskNoticeDetails } from '../../core/protocol/agent';
-import { TASK_NOTICE } from '../../shared/api';
 import { hostPorts } from '../host';
 import { sessionBranch, sessionRunning } from './session/live';
-import { splitMeta, textOf } from './session/projection';
+import { splitMeta, textOf, TASK_NOTICE } from './session/projection';
 import { listSessions } from './session/store';
 
 export type SessionTurnStatus = 'completed' | 'stopped' | 'interrupted' | 'running';

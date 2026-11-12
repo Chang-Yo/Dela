@@ -4,8 +4,7 @@
  */
 import type { AgentSessionEvent, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { z } from 'zod';
-import type { TaskStatus } from '../../core/protocol/agent';
-import type { SubagentDetails } from '../../shared/api';
+import type { TaskStatus, SubagentDetails } from '../../core/protocol/agent';
 import { hostPorts } from '../host';
 import { sessionRunning } from './session/live';
 import { insertSubagentSession, row } from './session/store';

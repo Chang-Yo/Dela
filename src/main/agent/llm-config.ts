@@ -1,4 +1,4 @@
-import type { LlmModelSettings } from '../../shared/llm';
+import type { LlmModelSettings } from '../../core/protocol/llm';
 import { hostPorts } from '../host';
 
 /** 主进程持久化的 LLM 提供商配置实例；apiKey 只存在这里，不进 renderer 或 SQLite。 */

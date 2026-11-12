@@ -26,7 +26,7 @@ import {
   LLM_MODEL_LIMIT,
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
-} from '../../../../shared/llm-models';
+} from '../../../../core/protocol/llm-models';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';

@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { LlmModelSettings, LlmProviderView, LlmVerifyResult } from '../../shared/api';
+import type { LlmModelSettings, LlmProviderView, LlmVerifyResult } from '../../core/protocol/llm';
 import {
   LLM_MODEL_LIMIT,
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
   llmModelSettings,
   reasoningEffortLevels,
-} from '../../shared/llm-models';
+} from '../../core/protocol/llm-models';
 import { llmCatalog, verifyModel } from './pi';
 import { CredentialDecryptionError } from '../host';
 import {

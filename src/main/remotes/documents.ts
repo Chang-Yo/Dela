@@ -9,7 +9,7 @@ import {
   formatByName,
   imageMimeOf,
   isTextContent,
-} from '../../shared/files';
+} from '../../core/protocol/files';
 import { readRemoteRange, statRemoteFile } from './operations';
 import type { RemoteTarget } from './transport';
 

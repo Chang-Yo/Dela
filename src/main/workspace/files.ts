@@ -11,7 +11,7 @@ import {
   formatByName,
   isTextContent,
   type FileFormat,
-} from '../../shared/files';
+} from '../../core/protocol/files';
 
 export const textRevision = (text: string) => createHash('sha256').update(text).digest('hex');
 

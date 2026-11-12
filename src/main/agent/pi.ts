@@ -8,13 +8,13 @@ import type {
   ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
+import type { LlmCatalogProvider } from '../../core/protocol/llm';
 import type { StoredLlmProvider } from './llm-config';
-import type { LlmCatalogProvider } from '../../shared/llm';
 import {
   llmModelSettings,
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
-} from '../../shared/llm-models';
+} from '../../core/protocol/llm-models';
 import { hostPorts } from '../host';
 
 type Sdk = typeof import('@earendil-works/pi-coding-agent');
