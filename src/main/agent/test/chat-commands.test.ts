@@ -1,11 +1,11 @@
 // 自定义指令：与内置会话命令（/compact、/reload、/name、/new）同名的新建与改名被拒绝，报错是能读的一句话。
 import { DatabaseSync } from 'node:sqlite';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, expect, it } from 'vitest';
+import { provideTestHostPorts } from '../../test/host-mock';
+import { listChatCommands, saveChatCommand } from '../chat-commands';
 
 let database: DatabaseSync;
-vi.mock('../../database', () => ({ getDatabase: () => database }));
-
-import { listChatCommands, saveChatCommand } from '../chat-commands';
+provideTestHostPorts({ database: () => database });
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');

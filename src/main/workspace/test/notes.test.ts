@@ -140,7 +140,7 @@ beforeEach(() => {
     return { stdin: { on() {}, end() {} } };
   });
   state.root = mkdtempSync(join(tmpdir(), 'dela-notes-'));
-  provideTestHostPorts({ paths: { documents: () => state.root } });
+  provideTestHostPorts({ paths: { documents: () => state.root }, database: () => db });
   db = createDb();
   vi.mocked(getDatabase).mockReturnValue(db);
 });

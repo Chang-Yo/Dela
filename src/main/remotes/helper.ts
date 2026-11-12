@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
-import { app } from 'electron';
+import { hostPorts } from '../host';
 import type { RemoteChannelState, RemoteSetupProgress, RemoteTask } from '../../shared/remotes';
 import {
   exec,
@@ -58,21 +58,14 @@ function helperArch(machine: string): 'amd64' | 'arm64' | null {
   return null;
 }
 
-/** 本地产物路径：开发时在 vendor/，打包后在 resources/。 */
 export function helperArtifact(arch: string): string | null {
-  const root = app.isPackaged
-    ? join(process.resourcesPath, 'dela-helper')
-    : join(app.getAppPath(), 'vendor', 'dela-helper');
-  const path = join(root, `dela-helper-linux-${arch}`);
+  const path = join(hostPorts().paths.bundled('dela-helper'), `dela-helper-linux-${arch}`);
   return existsSync(path) ? path : null;
 }
 
 /** 随包的 Linux rg（打包时下载，仓库不提交）：开发时没准备就返回 null，helper 退回远端 PATH 里的 rg。 */
 function rgArtifact(arch: string): string | null {
-  const root = app.isPackaged
-    ? join(process.resourcesPath, 'remote-rg')
-    : join(app.getAppPath(), '.build', 'remote-rg');
-  const path = join(root, `rg-linux-${arch}`);
+  const path = join(hostPorts().paths.bundled('remote-rg'), `rg-linux-${arch}`);
   return existsSync(path) ? path : null;
 }
 

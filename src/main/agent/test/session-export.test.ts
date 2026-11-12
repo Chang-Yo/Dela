@@ -15,11 +15,6 @@ vi.mock('electron', () => ({
   shell: {},
   nativeImage: {},
 }));
-vi.mock('../../database', () => ({
-  getDatabase: () => ({
-    prepare: () => ({ get: () => ({ file: boundary.file, title: '项目/会话' }) }),
-  }),
-}));
 
 import { provideTestHostPorts } from '../../test/host-mock';
 
@@ -31,6 +26,10 @@ beforeEach(async () => {
   boundary.save.mockReset();
   provideTestHostPorts({
     paths: { userData: () => boundary.root, home: () => boundary.root },
+    database: () =>
+      ({
+        prepare: () => ({ get: () => ({ file: boundary.file, title: '项目/会话' }) }),
+      }) as never,
     desktop: {
       pickFiles: vi.fn(async () => []),
       pickSavePath: boundary.save,

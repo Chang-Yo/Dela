@@ -8,7 +8,7 @@ import type {
   ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
-import type { StoredLlmProvider } from '../credentials';
+import type { StoredLlmProvider } from './llm-config';
 import type { LlmCatalogProvider } from '../../shared/llm';
 import {
   llmModelSettings,

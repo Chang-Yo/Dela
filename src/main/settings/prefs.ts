@@ -162,24 +162,6 @@ export function resetKeybindingOverrides(): KeybindingOverrides {
 }
 
 // ---------------------------------------------------------------------------
-// 用户附加 Instruction（设置 › 自定义指令）：随系统提示注入每次 Run，缺省为空
-// （空串 = 不注入）。上限与自定义指令正文一致，避免一条偏好挤占过多上下文预算。
-// ---------------------------------------------------------------------------
-
-export const instructionSchema = z.string().trim().max(2000);
-
-/** 键缺失、超长或数据损坏一律回退空串：注入端只关心“有没有内容”。 */
-export function getAgentInstruction(): string {
-  return instructionSchema.catch('').parse(readSetting('agent-instruction') ?? '');
-}
-
-export function setAgentInstruction(input: unknown): string {
-  const text = instructionSchema.parse(input);
-  writeSetting('agent-instruction', text);
-  return text;
-}
-
-// ---------------------------------------------------------------------------
 // 课堂视频默认下载目录（设置 › 通用 › 课堂视频）：空串 = 没设过，
 // 下载时由系统保存对话框决定初始位置。值只来自主进程的目录选择器，不做校验。
 // ---------------------------------------------------------------------------

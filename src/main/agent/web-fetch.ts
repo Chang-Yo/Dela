@@ -2,7 +2,7 @@ import { htmlToMarkdown } from '@mdream/js';
 import { clean } from '@mdream/js/clean';
 import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
 import { open } from 'node:fs/promises';
-import { prepareDocumentFile } from '../resources';
+import { readyDocumentReader, type PreparedDocument } from './documents';
 import { fetchDeepSeek } from './deepseek';
 
 // 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
@@ -24,7 +24,7 @@ interface WebPageContent {
   nextOffset: number | null;
   truncated: boolean;
   readable?: false;
-  document?: Awaited<ReturnType<typeof prepareDocumentFile>>;
+  document?: PreparedDocument;
   note?: string;
 }
 
@@ -96,7 +96,9 @@ export async function fetchWebPage(
     new TextDecoder('latin1').decode(peeked.prefix.subarray(0, 5)) === '%PDF-';
   if (looksLikePdf) {
     try {
-      const document = await prepareDocumentFile((path) => saveDocument(peeked.response, path));
+      const document = await readyDocumentReader().prepare((path) =>
+        saveDocument(peeked.response, path),
+      );
       return {
         ...finish(url, null, contentType || 'application/pdf', '', false),
         readable: false,

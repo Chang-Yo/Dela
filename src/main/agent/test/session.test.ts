@@ -51,10 +51,6 @@ vi.mock('../providers', () => ({
   usableLlmProviders: () =>
     state.configured ? state.providers.filter(({ enabled }) => enabled) : [],
 }));
-vi.mock('../../documents/runtime', () => ({
-  DOCUMENT_SKILL: 'document-reading',
-  assertDocumentDependency: () => {},
-}));
 vi.mock('../pi', () => ({
   resolveModel: async ({ model }: { model: string }) => ({ model, thinking: 'off' }),
   openPiSession: async () => ({
@@ -124,11 +120,20 @@ import { projectMessages, contextUsageView } from '../session/projection';
 import { askSession, invalidateSessions, cancelRun } from '../session/run';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
-import { removeWorkspaceEntry } from '../../workspace/api';
+import { removeWorkspaceEntry, workspaceProjects } from '../../workspace/api';
 import { provideTestHostPorts } from '../../test/host-mock';
+import { registerDocumentReader } from '../documents';
 import { registerSessionScope } from '../../../core/agent/scopes';
 
 registerSessionScope({ id: 'library', directory: () => join(state.root, 'Dela', 'courses') });
+registerDocumentReader({
+  skill: 'document-reading',
+  dependency: () => ({ status: 'ready' }),
+  verify: async () => {},
+  prepare: async () => {
+    throw new Error('用例不准备文档');
+  },
+});
 
 beforeEach(() => {
   state.configured = false;
@@ -153,7 +158,15 @@ beforeEach(() => {
   ];
   state.modelSwitches = [];
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-'));
-  provideTestHostPorts({ paths: { userData: () => state.root, documents: () => state.root } });
+  provideTestHostPorts({
+    paths: {
+      userData: () => state.root,
+      documents: () => state.root,
+      storage: () => join(state.root, 'Dela'),
+    },
+    database: () => state.db!,
+    projects: workspaceProjects,
+  });
   state.db = new Database(':memory:');
   state.db.pragma('foreign_keys = ON');
   state.db.exec(`
@@ -184,6 +197,10 @@ it.each([false, true])('移除项目会删除名下全部会话与条目行 (rem
   const directory = remote ? '/remote/course' : join(state.root, 'project');
   if (!remote) mkdirSync(directory);
   const remoteId = remote ? crypto.randomUUID() : null;
+  if (remoteId)
+    state
+      .db!.prepare("INSERT INTO remotes VALUES (?, 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')")
+      .run(remoteId);
   state
     .db!.prepare(
       'INSERT INTO workspace_entries (id, name, kind, local_path, remote_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)',

@@ -4,7 +4,6 @@ import { beforeEach, expect, it, vi } from 'vitest';
 
 let database: DatabaseSync;
 const capabilityCalls: { names: string[]; enabled: boolean }[] = [];
-vi.mock('../../database', () => ({ getDatabase: () => database }));
 vi.mock('../tools', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../tools')>();
   return {
@@ -15,7 +14,7 @@ vi.mock('../tools', async (importOriginal) => {
     },
   };
 });
-vi.mock('../../credentials', () => ({
+vi.mock('../llm-config', () => ({
   loadLlmConfig: () => ({
     providers: [
       {
@@ -47,6 +46,9 @@ import {
   webSearch,
   webSearchEntryInputSchema,
 } from '../web-search';
+import { provideTestHostPorts } from '../../test/host-mock';
+
+provideTestHostPorts({ database: () => database });
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');

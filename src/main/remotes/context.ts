@@ -4,9 +4,9 @@
  * AGENTS.md 不镜像，内容经 `agentsFilesOverride` 直接交给 Pi、`path` 写远端路径；同步只跑一次远端脚本，
  * 不做全量仓库镜像，也不监听远端变化。
  */
-import { app } from 'electron';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
+import { hostPorts } from '../host';
 import { helperSession } from './helper';
 import { remoteBackend, setContextMirrors, writeRemoteFile } from './operations';
 import { shellQuote, type RemoteTarget } from './transport';
@@ -124,7 +124,7 @@ function parseRecords(stdout: Buffer): {
  *  项目 id 可能是「远端条目 id」这类带 `/` `:` 的字符串，只留安全字符再当目录名。 */
 export function contextMirrorRoot(remoteId: string, projectId: string): string {
   const safe = projectId.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 100);
-  return join(app.getPath('userData'), 'remote-context', remoteId, safe);
+  return join(hostPorts().paths.userData(), 'remote-context', remoteId, safe);
 }
 
 function writeMirror(dir: string, records: Record[]): string | null {

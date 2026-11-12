@@ -14,7 +14,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../database';
-import { hostPorts } from '../host';
+import { hostPorts, type Projects } from '../host';
 import { remoteById, targetOf } from '../remotes/api';
 import { locateRemote } from '../remotes/operations';
 import { canvasFilePath, readCanvasSource } from '../canvas/api';
@@ -94,6 +94,27 @@ export function remoteProjectOf(id: string): RemoteRoot | null {
   if (matches.length > 1) throw new Error('远端路径同时属于多个项目，无法确定归属');
   return matches[0] ?? null;
 }
+
+export const workspaceProjects: Projects = {
+  find: (id) =>
+    (getDatabase()
+      .prepare(
+        "SELECT name, local_path AS path FROM workspace_entries WHERE id=? AND kind='project'",
+      )
+      .get(id) as { name: string; path: string | null } | undefined) ?? null,
+  local: () =>
+    getDatabase()
+      .prepare(
+        "SELECT id, name, local_path AS path FROM workspace_entries WHERE kind='project' AND remote_id IS NULL AND local_path IS NOT NULL ORDER BY name",
+      )
+      .all() as { id: string; name: string; path: string }[],
+  remoteOf(id) {
+    const root = remoteProjectOf(id);
+    if (!root) return null;
+    const connection = remoteById(root.remoteId);
+    return { ...root, label: connection.label, target: targetOf(connection) };
+  },
+};
 
 /** 把远端目录登记为远程项目。目录留在远端，本地只补一条身份行；
  *  项目与子条目的 `local_path` 是远端 POSIX 路径，`remoteId` 指向连接。 */

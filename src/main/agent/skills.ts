@@ -5,15 +5,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import type { SkillOrigin, SkillView } from '../../shared/capabilities';
-import { getDatabase } from '../database';
-import { readSetting, writeSetting } from '../settings/prefs';
 import { discoverProjectSkills } from './discovery';
-import {
-  DOCUMENT_SKILL,
-  assertDocumentDependency,
-  documentDependency,
-  verifyDocumentRuntime,
-} from '../documents/runtime';
+import { documentReader, readyDocumentReader } from './documents';
 import { hostPorts } from '../host';
 import { builtinSkills } from '../../core/capabilities/commands';
 
@@ -53,7 +46,8 @@ function description(path: string): string {
 }
 
 export function readDisabledSkills(): Set<string> {
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare("SELECT value FROM workspace_settings WHERE key='skills-disabled'")
     .get() as { value: string } | undefined;
   const parsed = z.array(z.string()).safeParse(row ? JSON.parse(row.value) : []);
@@ -62,7 +56,8 @@ export function readDisabledSkills(): Set<string> {
 
 export function effectiveDisabledSkills(): Set<string> {
   const disabled = readDisabledSkills();
-  if (documentDependency().status !== 'ready') disabled.add(DOCUMENT_SKILL);
+  const reader = documentReader();
+  if (reader && reader.dependency().status !== 'ready') disabled.add(reader.skill);
   return disabled;
 }
 
@@ -71,7 +66,11 @@ const DISABLED_PATHS_KEY = 'skills-disabled-paths';
 /** 按 SKILL.md 路径停用的项目 Skill。 */
 export function readDisabledSkillPaths(): Set<string> {
   try {
-    const paths = z.array(z.string()).parse(JSON.parse(readSetting(DISABLED_PATHS_KEY) ?? '[]'));
+    const row = hostPorts()
+      .database()
+      .prepare('SELECT value FROM workspace_settings WHERE key=?')
+      .get(DISABLED_PATHS_KEY) as { value: string } | undefined;
+    const paths = z.array(z.string()).parse(JSON.parse(row?.value ?? '[]'));
     return new Set(paths.map((path) => resolve(path)));
   } catch {
     return new Set();
@@ -83,6 +82,7 @@ function globalSkills(): SkillView[] {
   const skills: SkillView[] = [];
   const seen = new Set<string>();
   const builtin = new Set(builtinSkills().map((skill) => skill.name));
+  const reader = documentReader();
   for (const directory of globalSkillDirectories()) {
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -97,10 +97,10 @@ function globalSkills(): SkillView[] {
         description: description(path),
         enabled:
           !disabled.has(entry.name) &&
-          (entry.name !== DOCUMENT_SKILL || documentDependency().status === 'ready'),
+          (entry.name !== reader?.skill || reader.dependency().status === 'ready'),
         path,
         origin,
-        dependency: entry.name === DOCUMENT_SKILL ? documentDependency() : undefined,
+        dependency: entry.name === reader?.skill ? reader.dependency() : undefined,
       });
     }
   }
@@ -109,11 +109,7 @@ function globalSkills(): SkillView[] {
 
 /** 每个本地项目里 Pi 会加载的项目级 Skill。远程项目的 Skill 在打开会话时从远端镜像，不在这里列。 */
 async function projectSkills(disabledPaths: Set<string>): Promise<SkillView[]> {
-  const projects = getDatabase()
-    .prepare(
-      "SELECT id, name, local_path AS path FROM workspace_entries WHERE kind='project' AND remote_id IS NULL AND local_path IS NOT NULL ORDER BY name",
-    )
-    .all() as { id: string; name: string; path: string }[];
+  const projects = hostPorts().projects.local();
   const lists = await Promise.all(
     projects
       .filter((project) => existsSync(project.path))
@@ -139,14 +135,12 @@ export async function listSkills(): Promise<SkillView[]> {
 
 /** 全局 Skill 按名称开关（内置的文档读取要先装好组件）。 */
 export async function setGlobalSkillEnabled(name: string, enabled: boolean): Promise<void> {
-  if (name === DOCUMENT_SKILL && enabled) {
-    assertDocumentDependency();
-    await verifyDocumentRuntime();
-  }
+  if (name === documentReader()?.skill && enabled) await readyDocumentReader().verify();
   const disabled = readDisabledSkills();
   if (enabled) disabled.delete(name);
   else disabled.add(name);
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('skills-disabled', ?)")
     .run(JSON.stringify([...disabled]));
 }
@@ -157,7 +151,10 @@ export async function setSkillEnabled(id: string, enabled: boolean): Promise<Ski
     const disabled = readDisabledSkillPaths();
     if (enabled) disabled.delete(skill.path);
     else disabled.add(skill.path);
-    writeSetting(DISABLED_PATHS_KEY, JSON.stringify([...disabled]));
+    hostPorts()
+      .database()
+      .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
+      .run(DISABLED_PATHS_KEY, JSON.stringify([...disabled]));
   } else await setGlobalSkillEnabled(skill.name, enabled);
   return listSkills();
 }

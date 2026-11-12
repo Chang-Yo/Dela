@@ -3,7 +3,6 @@ import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
 import {
-  getAgentInstruction,
   getKeybindingOverrides,
   getTaskNotificationPrefs,
   iconSchema,
@@ -15,7 +14,6 @@ import {
   savedOpenAtLogin,
   savedTheme,
   savedZoom,
-  setAgentInstruction,
   setCampusNotifications,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
@@ -23,6 +21,7 @@ import {
   writeSetting,
   zoomSchema,
 } from './prefs';
+import { getAgentInstruction, setAgentInstruction } from '../agent/instruction';
 
 export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'light' | 'dark' {
   nativeTheme.themeSource = theme;

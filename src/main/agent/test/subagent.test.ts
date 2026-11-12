@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import type { StoredLlmProvider } from '../../credentials';
+import type { StoredLlmProvider } from '../llm-config';
 import type { SubagentDetails } from '../../../shared/api';
 import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
 
@@ -19,7 +19,6 @@ const state = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   app: { getPath: () => root },
 }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
   llmProviders: () => (state.provider ? [state.provider] : []),
   usableLlmProviders: () => (state.provider ? [state.provider] : []),
@@ -46,6 +45,9 @@ import {
 } from '../session/commands';
 import { askSession, cancelRun, shutdownSessions } from '../session/run';
 import { listSessions, preloadPi } from '../session/store';
+import { provideTestHostPorts } from '../../test/host-mock';
+
+provideTestHostPorts({ database: () => state.db! });
 
 const reply = (text: string, delayMs = 0) => ({
   kind: 'sse' as const,

@@ -15,19 +15,11 @@ vi.mock('electron', () => ({
   nativeImage: {},
   dialog: {},
 }));
-vi.mock('../../documents/runtime', () => ({
-  DOCUMENT_SKILL: 'document-reading',
-  assertDocumentDependency: () => {
-    if (state.missing) throw new Error('请先安装文档读取组件');
-  },
-}));
 vi.mock('../skills', () => ({
   readDisabledSkills: () => new Set(state.disabled ? ['document-reading'] : []),
 }));
-vi.mock('../../database', () => ({
-  getDatabase: () => ({ prepare: () => ({ all: () => state.sessions }) }),
-}));
 import { provideTestHostPorts } from '../../test/host-mock';
+import { registerDocumentReader } from '../documents';
 import {
   gcChatMedia,
   readChatAttachment,
@@ -37,10 +29,21 @@ import {
 } from '../media';
 
 beforeEach(() => {
-  provideTestHostPorts({ paths: { userData: () => state.root } });
+  provideTestHostPorts({
+    paths: { userData: () => state.root },
+    database: () => ({ prepare: () => ({ all: () => state.sessions }) }) as never,
+  });
   state.missing = false;
   state.disabled = false;
   state.sessions = [];
+});
+registerDocumentReader({
+  skill: 'document-reading',
+  dependency: () => ({ status: state.missing ? 'missing' : 'ready' }),
+  verify: async () => {},
+  prepare: async () => {
+    throw new Error('用例不准备文档');
+  },
 });
 afterAll(() => rmSync(state.root, { recursive: true, force: true }));
 

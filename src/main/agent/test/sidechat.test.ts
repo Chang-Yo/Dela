@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import type { StoredLlmProvider } from '../../credentials';
+import type { StoredLlmProvider } from '../llm-config';
 import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-sidechat-'));
@@ -15,7 +15,6 @@ const state = vi.hoisted(() => ({
   sessions: [] as import('@earendil-works/pi-coding-agent').AgentSession[],
 }));
 vi.mock('electron', () => ({ app: { getPath: () => root }, shell: {} }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
   llmProviders: () => (state.provider ? [state.provider] : []),
   usableLlmProviders: () =>
@@ -85,7 +84,10 @@ async function capture<T>(action: () => Promise<T>) {
 let server: MockOpenAiServer;
 
 beforeAll(async () => {
-  provideTestHostPorts({ paths: { userData: () => root, home: () => root } });
+  provideTestHostPorts({
+    paths: { userData: () => root, home: () => root },
+    database: () => state.db!,
+  });
   server = await MockOpenAiServer.start();
   state.provider = {
     id: 'p1',

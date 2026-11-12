@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { SESSION_COMMANDS, type ChatCommandView } from '../../shared/api';
-import { getDatabase } from '../database';
+import { hostPorts } from '../host';
 
 // 设置 › 插件：自定义 / 指令。名称限制为无空白字符，保证能作为触发词输入。
 const commandName = z
@@ -22,7 +22,8 @@ const chatCommandStoredSchema = z.object({
 });
 
 function readChatCommands(): ChatCommandView[] {
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare("SELECT value FROM workspace_settings WHERE key='chat-commands'")
     .get() as { value: string } | undefined;
   if (!row) return [];
@@ -56,7 +57,8 @@ export function saveChatCommand(input: unknown): ChatCommandView {
     saved = { id: randomUUID(), name: command.name, prompt: command.prompt };
     commands.push(saved);
   }
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('chat-commands', ?)")
     .run(JSON.stringify(commands));
   return saved;
@@ -64,7 +66,8 @@ export function saveChatCommand(input: unknown): ChatCommandView {
 
 export function deleteChatCommand(id: string): void {
   const commands = readChatCommands().filter((item) => item.id !== id);
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('chat-commands', ?)")
     .run(JSON.stringify(commands));
 }

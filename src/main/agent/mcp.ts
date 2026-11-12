@@ -9,7 +9,7 @@ import type {
   McpServerPatch,
   McpServerView,
 } from '../../shared/capabilities';
-import { loadMcpServers, saveMcpServers } from '../credentials';
+import { hostPorts } from '../host';
 
 /** environment.ts 转成 Pi 自定义工具。 */
 interface DynamicToolDefinition {
@@ -109,9 +109,15 @@ const servers = new Map<string, ManagedServer>();
  *  不猜命名空间前缀（服务器 a 的 b_x 与服务器 a-b 的 x 归一化同名时，最长前缀会误配）。 */
 const toolOwner = new Map<string, string>();
 
+/** 整份配置加密保存：env、请求头与参数里都可能有密钥。 */
+function saveMcpServers(configs: unknown[]): void {
+  hostPorts().secrets.write('mcp-servers', JSON.stringify(configs));
+}
+
 /** 解不开时抛错，让设置页说明原因；工具表组装一侧自行降级为无服务器。 */
 function readMcpConfigs(): McpServerConfig[] {
-  const parsed = z.array(mcpConfigSchema).safeParse(loadMcpServers());
+  const payload = hostPorts().secrets.read('mcp-servers');
+  const parsed = z.array(mcpConfigSchema).safeParse(payload === null ? [] : JSON.parse(payload));
   return parsed.success ? parsed.data : [];
 }
 

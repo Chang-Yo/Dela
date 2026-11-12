@@ -6,8 +6,9 @@ let database: DatabaseSync;
 
 vi.mock('../../database', () => ({ getDatabase: () => database }));
 
+import { provideTestHostPorts } from '../../test/host-mock';
+import { getAgentInstruction, setAgentInstruction } from '../../agent/instruction';
 import {
-  getAgentInstruction,
   getKeybindingOverrides,
   getTaskNotificationPrefs,
   normalizeFontSize,
@@ -17,13 +18,14 @@ import {
   savedOpenAtLogin,
   savedPendingInstall,
   savedVideoDownloadDirectory,
-  setAgentInstruction,
   setCampusNotifications,
   setKeybindingOverrides,
   setPendingInstall,
   setTaskNotificationPrefs,
   setVideoDownloadDirectory,
 } from '../prefs';
+
+provideTestHostPorts({ database: () => database });
 
 function insert(sql: string, ...values: SQLInputValue[]) {
   database.prepare(sql).run(...values);

@@ -36,7 +36,9 @@ import {
   remoteProjectOf,
   removeWorkspaceEntry,
   updateWorkspaceEntry,
+  workspaceProjects,
 } from '../../workspace/api';
+import { provideTestHostPorts } from '../../test/host-mock';
 
 const remoteId = '11111111-1111-4111-8111-111111111111';
 
@@ -72,6 +74,7 @@ function createDb(): Database.Database {
 beforeEach(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-remote-'));
   state.db = createDb();
+  provideTestHostPorts({ database: () => state.db!, projects: workspaceProjects });
   state.locate.mockReset();
   state.locate.mockResolvedValue({ path: '/root/proj', kind: 'directory', entries: [] });
   getDatabase()

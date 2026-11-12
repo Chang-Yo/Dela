@@ -1,4 +1,6 @@
 // 主进程与桌面宿主之间的端口：agent 只依赖这些接口，Electron 实现在 app 中注入。
+import type { RemoteTarget } from './remotes/transport';
+
 /** 渲染进程的窗口或 WebContents 句柄；core 不解释它，原样交还给桌面实现。 */
 export type ClientHandle = object;
 
@@ -10,6 +12,9 @@ export interface HostPorts {
   imageCodec: ImageCodec;
   desktop: Desktop;
   network: Network;
+  /** 宿主打开并迁移好的数据库；表结构与迁移归宿主（core 只读写 sessions 与自己的设置键）。 */
+  database(): SqlDatabase;
+  projects: Projects;
 }
 
 export interface Paths {
@@ -17,6 +22,43 @@ export interface Paths {
   home(): string;
   documents(): string;
   temp(): string;
+  /** 用户选定的 Dela 数据目录，工作区与通用会话目录都在其下。 */
+  storage(): string;
+  /** 随应用分发的二进制目录：开发时在仓库内，打包后在 resources/。 */
+  bundled(name: BundledResource): string;
+  /** Agent 的 bash；找不到时抛出带安装指引的错误。 */
+  bash(): string;
+}
+
+export type BundledResource = 'dela-helper' | 'remote-rg' | 'openssh';
+
+export interface SqlStatement {
+  run(...params: unknown[]): unknown;
+  get(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+}
+
+export interface SqlDatabase {
+  prepare(sql: string): SqlStatement;
+}
+
+export interface RemoteProject {
+  id: string;
+  /** 远端项目根目录（POSIX 绝对路径）。 */
+  path: string;
+  remoteId: string;
+  label: string;
+  target: RemoteTarget;
+}
+
+/** 工作区的项目树归工作区模块，core 只按 id 查询。 */
+export interface Projects {
+  /** 项目条目；id 不是项目时返回 null。远程项目的 path 是远端路径。 */
+  find(id: string): { name: string; path: string | null } | null;
+  /** 本机项目，不含远程项目。 */
+  local(): { id: string; name: string; path: string }[];
+  /** 条目（项目、远端条目 id 或远端绝对路径）所属的远程项目；本地条目返回 null。 */
+  remoteOf(id: string): RemoteProject | null;
 }
 
 /** 走宿主的网络栈（系统代理、证书），与界面里的请求表现一致。 */

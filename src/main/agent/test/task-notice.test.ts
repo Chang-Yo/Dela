@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import type { StoredLlmProvider } from '../../credentials';
+import type { StoredLlmProvider } from '../llm-config';
 import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-task-notice-'));
@@ -17,7 +17,6 @@ const state = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   app: { getPath: () => root, isPackaged: false, getAppPath: () => root },
 }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
   llmProviders: () => (state.provider ? [state.provider] : []),
   usableLlmProviders: () => (state.provider ? [state.provider] : []),
@@ -44,6 +43,9 @@ import { preloadPi } from '../session/store';
 import { sessionTurns } from '../session-read';
 import { locateBash } from '../../terminal/mingit';
 import { stopTask } from '../tasks';
+import { provideTestHostPorts } from '../../test/host-mock';
+
+provideTestHostPorts({ database: () => state.db!, paths: { bash: locateBash } });
 
 const reply = (text: string, delayMs = 0) => ({
   kind: 'sse' as const,

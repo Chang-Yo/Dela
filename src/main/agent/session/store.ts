@@ -5,10 +5,8 @@ import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ChatScope, ChatSessionSummary } from '../../../shared/api';
 import { llmModelSettings } from '../../../shared/llm-models';
-import type { StoredLlmProvider } from '../../credentials';
-import { getDatabase } from '../../database';
-import { storageDirectory } from '../../storage';
-import { remoteProjectOf } from '../../workspace/api';
+import type { StoredLlmProvider } from '../llm-config';
+import { hostPorts } from '../../host';
 import { sessionScope, sessionScopes, type SessionScope } from '../../../core/agent/scopes';
 import { llmProviders, usableLlmProviders } from '../providers';
 import type { SessionModel } from '../pi';
@@ -27,7 +25,8 @@ export interface SessionRow {
 }
 
 export function row(id: string): SessionRow {
-  const found = getDatabase()
+  const found = hostPorts()
+    .database()
     .prepare(
       'SELECT id, project_id, cwd, file, title, provider_id, model, effort, parent_id FROM sessions WHERE id=?',
     )
@@ -38,14 +37,14 @@ export function row(id: string): SessionRow {
 
 /** 不属于任何项目的通用会话以工作区根为默认目录。 */
 function workspaceRoot() {
-  const root = join(storageDirectory(), 'workspace');
+  const root = join(hostPorts().paths.storage(), 'workspace');
   mkdirSync(root, { recursive: true });
   return root;
 }
 
 /** 通用会话的私有工作目录：与 workspace 平级的 chat-sessions/<会话 id>，建会话时建好。 */
 function chatSessionDirectory(id: string) {
-  const dir = join(storageDirectory(), 'chat-sessions', id);
+  const dir = join(hostPorts().paths.storage(), 'chat-sessions', id);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -61,25 +60,16 @@ function scopeDirectory(scope: SessionScope) {
  *  远程项目的路径在远端，本地没有对应目录，因此跳过本地存在性检查。 */
 export function sessionCwd(projectId: string | null, stored: string | null): string {
   if (stored) return stored;
-  const path =
-    projectId === null
-      ? workspaceRoot()
-      : (
-          getDatabase()
-            .prepare(
-              "SELECT local_path AS path FROM workspace_entries WHERE id=? AND kind='project'",
-            )
-            .get(projectId) as { path: string | null } | undefined
-        )?.path;
+  const path = projectId === null ? workspaceRoot() : hostPorts().projects.find(projectId)?.path;
   if (!path) throw new Error('项目不存在');
-  if (projectId && remoteProjectOf(projectId)) return path;
+  if (projectId && hostPorts().projects.remoteOf(projectId)) return path;
   if (!existsSync(path) || !statSync(path).isDirectory())
     throw new Error(`项目目录不存在：${path}`);
   return path;
 }
 
 export const isRemoteSession = (meta: SessionRow) =>
-  Boolean(meta.project_id && remoteProjectOf(meta.project_id));
+  Boolean(meta.project_id && hostPorts().projects.remoteOf(meta.project_id));
 
 export type ModelChoice =
   | { kind: 'none' }
@@ -124,7 +114,8 @@ export function modelChoice(meta: SessionRow): ModelChoice {
       effort: meta.effort,
     };
   }
-  const recent = getDatabase()
+  const recent = hostPorts()
+    .database()
     .prepare(
       'SELECT provider_id, model, effort FROM sessions WHERE message_count > 0 AND provider_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1',
     )
@@ -146,28 +137,33 @@ export function readySelection(meta: SessionRow): Extract<ModelChoice, { kind: '
 }
 
 export function storeModel(id: string, providerId: string, model: string, effort: string | null) {
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare('UPDATE sessions SET provider_id=?, model=?, effort=? WHERE id=?')
     .run(providerId, model, effort, id);
 }
 
 export function storeSessionFile(id: string, file: string) {
-  getDatabase().prepare('UPDATE sessions SET file=? WHERE id=?').run(file, id);
+  hostPorts().database().prepare('UPDATE sessions SET file=? WHERE id=?').run(file, id);
 }
 
 export function storeTitle(id: string, title: string) {
-  getDatabase().prepare('UPDATE sessions SET title=? WHERE id=?').run(title.slice(0, 60), id);
+  hostPorts()
+    .database()
+    .prepare('UPDATE sessions SET title=? WHERE id=?')
+    .run(title.slice(0, 60), id);
 }
 
 export function storeActivity(id: string, messageCount: number) {
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare('UPDATE sessions SET message_count=?, updated_at=? WHERE id=?')
     .run(messageCount, new Date().toISOString(), id);
 }
 
 /** 归档连带子 Agent 会话；置顶只作用于会话自己。 */
 export function storeVisibility(id: string, patch: { archived?: boolean; pinned?: boolean }) {
-  const db = getDatabase();
+  const db = hostPorts().database();
   if (patch.archived !== undefined)
     db.prepare('UPDATE sessions SET archived=? WHERE id=? OR parent_id=?').run(
       Number(patch.archived),
@@ -180,7 +176,7 @@ export function storeVisibility(id: string, patch: { archived?: boolean; pinned?
 
 /** 归档项目的全部会话，返回其中原先未归档的。 */
 export function archiveProject(projectId: string | null): string[] {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const ids = db
     .prepare('SELECT id FROM sessions WHERE project_id IS ? AND archived = 0')
     .all(projectId) as { id: string }[];
@@ -190,11 +186,13 @@ export function archiveProject(projectId: string | null): string[] {
 
 export const childSessionIds = (id: string) =>
   (
-    getDatabase().prepare('SELECT id FROM sessions WHERE parent_id=?').all(id) as { id: string }[]
+    hostPorts().database().prepare('SELECT id FROM sessions WHERE parent_id=?').all(id) as {
+      id: string;
+    }[]
   ).map((child) => child.id);
 
 export function removeSession(id: string) {
-  getDatabase().prepare('DELETE FROM sessions WHERE id=?').run(id);
+  hostPorts().database().prepare('DELETE FROM sessions WHERE id=?').run(id);
 }
 
 const summaryColumns =
@@ -204,7 +202,8 @@ const toSummary = (row: SummaryRow): ChatSessionSummary => ({ ...row, pinned: ro
 
 export function listSessions(projectId: string | null, query: string): ChatSessionSummary[] {
   const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
-  return getDatabase()
+  return hostPorts()
+    .database()
     .prepare(
       `SELECT ${summaryColumns} FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count > 0 AND parent_id IS NULL
        ${query ? "AND title LIKE ? ESCAPE '\\'" : ''} ORDER BY pinned DESC, updated_at DESC LIMIT 100`,
@@ -214,7 +213,8 @@ export function listSessions(projectId: string | null, query: string): ChatSessi
 }
 
 export function archivedSessions(): ChatSessionSummary[] {
-  return getDatabase()
+  return hostPorts()
+    .database()
     .prepare(
       `SELECT ${summaryColumns} FROM sessions WHERE archived = 1 AND parent_id IS NULL ORDER BY updated_at DESC`,
     )
@@ -229,7 +229,8 @@ function emptyGeneralSessionId(scope: ChatScope): string | undefined {
   const directories = scoped
     ? [scoped.directory()]
     : sessionScopes().map((item) => item.directory());
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare(
       `SELECT id FROM sessions WHERE project_id IS NULL AND archived = 0 AND message_count = 0
        AND parent_id IS NULL AND cwd IS NOT NULL AND cwd ${scoped ? '' : 'NOT '}IN (${directories.map(() => '?').join(', ')})
@@ -243,7 +244,8 @@ function emptyGeneralSessionId(scope: ChatScope): string | undefined {
 export function emptySessionId(projectId: string | null, scope: ChatScope): string | undefined {
   if (projectId === null) return emptyGeneralSessionId(scope);
   return (
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare(
         'SELECT id FROM sessions WHERE project_id IS ? AND archived = 0 AND message_count = 0 AND parent_id IS NULL ORDER BY updated_at DESC LIMIT 1',
       )
@@ -259,7 +261,8 @@ export function insertSession(projectId: string | null, scope: ChatScope): strin
   const cwd =
     projectId !== null ? null : scoped ? scopeDirectory(scoped) : chatSessionDirectory(id);
   const now = new Date().toISOString();
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare(
       'INSERT INTO sessions (id, project_id, cwd, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
@@ -275,7 +278,8 @@ export function adoptSessionFile(meta: SessionRow, file: string, titlePrefix: st
     .buildSessionContext()
     .messages.filter((message) => message.role === 'user').length;
   const now = new Date().toISOString();
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare(
       `INSERT INTO sessions (id, project_id, cwd, file, title, message_count, provider_id, model, effort, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -301,7 +305,8 @@ export function insertSubagentSession(parentId: string, description: string, cwd
   const parent = row(parentId);
   const id = randomUUID();
   const now = new Date().toISOString();
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare(
       `INSERT INTO sessions (id, project_id, cwd, file, title, provider_id, model, effort, parent_id, created_at, updated_at)
        VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?)`,
