@@ -1,31 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-// 按住连发：立刻执行一次，短暂延迟后以固定间隔重复，松开或移出按钮即停止。
-// 经 ref 转发最新回调，否则 interval 持有按下时的旧闭包，连发只会基于旧值原地重复。
-function useHoldRepeat(action: () => void) {
-  const actionRef = useRef(action);
-  // oxlint-disable-next-line react/refs -- 待迁入模块时改为不依赖 latest-value ref 的连发实现
-  actionRef.current = action;
-  const timeout = useRef<number | undefined>(undefined);
-  const interval = useRef<number | undefined>(undefined);
-  useEffect(
-    () => () => {
-      window.clearTimeout(timeout.current);
-      window.clearInterval(interval.current);
-    },
-    [],
-  );
-  const stop = () => {
-    window.clearTimeout(timeout.current);
-    window.clearInterval(interval.current);
-  };
+type HoldPhase = 'idle' | 'waiting' | 'repeating';
+
+// 按住连发：立刻执行一次，短暂延迟后以固定间隔重复；松开、移出按钮或到达边界即停止。
+// interval 随 action 重建：action 捕获的值变了身份才变，连发总是基于最新值。
+function useHoldRepeat(action: () => void, enabled: boolean) {
+  const [phase, setPhase] = useState<HoldPhase>('idle');
+  if (!enabled && phase !== 'idle') setPhase('idle');
+  useEffect(() => {
+    if (phase !== 'waiting') return;
+    const timeout = window.setTimeout(() => setPhase('repeating'), 400);
+    return () => window.clearTimeout(timeout);
+  }, [phase]);
+  useEffect(() => {
+    if (phase !== 'repeating') return;
+    const interval = window.setInterval(action, 64);
+    return () => window.clearInterval(interval);
+  }, [phase, action]);
+  const stop = () => setPhase('idle');
   const start = () => {
-    stop();
-    actionRef.current();
-    timeout.current = window.setTimeout(() => {
-      interval.current = window.setInterval(() => actionRef.current(), 64);
-    }, 400);
+    action();
+    setPhase('waiting');
   };
   return { onPointerDown: start, onPointerUp: stop, onPointerLeave: stop } as const;
 }
@@ -99,8 +95,8 @@ export function StepperControl({
   label: string;
   onStep: (delta: 1 | -1) => void;
 }) {
-  const increase = useHoldRepeat(() => onStep(1));
-  const decrease = useHoldRepeat(() => onStep(-1));
+  const increase = useHoldRepeat(() => onStep(1), canIncrease);
+  const decrease = useHoldRepeat(() => onStep(-1), canDecrease);
   const buttonClass =
     'grid size-7 place-items-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent select-none disabled:pointer-events-none disabled:opacity-40';
   return (
