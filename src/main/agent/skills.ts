@@ -6,12 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import type { SkillOrigin, SkillView } from '../../shared/capabilities';
 import { discoverProjectSkills } from './discovery';
-import {
-  DOCUMENT_SKILL,
-  assertDocumentDependency,
-  documentDependency,
-  verifyDocumentRuntime,
-} from '../documents/runtime';
+import { documentReader, readyDocumentReader } from './documents';
 import { hostPorts } from '../host';
 import { builtinSkills } from '../../core/capabilities/commands';
 
@@ -61,7 +56,8 @@ export function readDisabledSkills(): Set<string> {
 
 export function effectiveDisabledSkills(): Set<string> {
   const disabled = readDisabledSkills();
-  if (documentDependency().status !== 'ready') disabled.add(DOCUMENT_SKILL);
+  const reader = documentReader();
+  if (reader && reader.dependency().status !== 'ready') disabled.add(reader.skill);
   return disabled;
 }
 
@@ -86,6 +82,7 @@ function globalSkills(): SkillView[] {
   const skills: SkillView[] = [];
   const seen = new Set<string>();
   const builtin = new Set(builtinSkills().map((skill) => skill.name));
+  const reader = documentReader();
   for (const directory of globalSkillDirectories()) {
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -100,10 +97,10 @@ function globalSkills(): SkillView[] {
         description: description(path),
         enabled:
           !disabled.has(entry.name) &&
-          (entry.name !== DOCUMENT_SKILL || documentDependency().status === 'ready'),
+          (entry.name !== reader?.skill || reader.dependency().status === 'ready'),
         path,
         origin,
-        dependency: entry.name === DOCUMENT_SKILL ? documentDependency() : undefined,
+        dependency: entry.name === reader?.skill ? reader.dependency() : undefined,
       });
     }
   }
@@ -138,10 +135,7 @@ export async function listSkills(): Promise<SkillView[]> {
 
 /** 全局 Skill 按名称开关（内置的文档读取要先装好组件）。 */
 export async function setGlobalSkillEnabled(name: string, enabled: boolean): Promise<void> {
-  if (name === DOCUMENT_SKILL && enabled) {
-    assertDocumentDependency();
-    await verifyDocumentRuntime();
-  }
+  if (name === documentReader()?.skill && enabled) await readyDocumentReader().verify();
   const disabled = readDisabledSkills();
   if (enabled) disabled.delete(name);
   else disabled.add(name);

@@ -4,9 +4,10 @@ import { readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fetchWebPage } from '../web-fetch';
-import { releaseDocumentResource } from '../../resources';
+import { prepareDocumentFile, releaseDocumentResource } from '../../resources';
 import { assertDocumentDependency } from '../../documents/runtime';
 import { provideTestHostPorts } from '../../test/host-mock';
+import { registerDocumentReader } from '../documents';
 
 const profile = vi.hoisted(() => ({ root: '' }));
 profile.root = mkdtempSync(join(tmpdir(), 'dela-web-document-'));
@@ -22,6 +23,12 @@ vi.mock('../../shuiyuan/api', () => ({}));
 vi.mock('../../storage', () => ({}));
 
 provideTestHostPorts({ paths: { userData: () => profile.root, temp: () => profile.root } });
+registerDocumentReader({
+  skill: 'document-reading',
+  dependency: () => ({ status: 'ready' }),
+  verify: async () => {},
+  prepare: prepareDocumentFile,
+});
 afterEach(() => vi.unstubAllGlobals());
 afterAll(() => rm(profile.root, { recursive: true, force: true }));
 

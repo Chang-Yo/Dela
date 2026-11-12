@@ -51,10 +51,6 @@ vi.mock('../providers', () => ({
   usableLlmProviders: () =>
     state.configured ? state.providers.filter(({ enabled }) => enabled) : [],
 }));
-vi.mock('../../documents/runtime', () => ({
-  DOCUMENT_SKILL: 'document-reading',
-  assertDocumentDependency: () => {},
-}));
 vi.mock('../pi', () => ({
   resolveModel: async ({ model }: { model: string }) => ({ model, thinking: 'off' }),
   openPiSession: async () => ({
@@ -126,9 +122,18 @@ import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
 import { removeWorkspaceEntry, workspaceProjects } from '../../workspace/api';
 import { provideTestHostPorts } from '../../test/host-mock';
+import { registerDocumentReader } from '../documents';
 import { registerSessionScope } from '../../../core/agent/scopes';
 
 registerSessionScope({ id: 'library', directory: () => join(state.root, 'Dela', 'courses') });
+registerDocumentReader({
+  skill: 'document-reading',
+  dependency: () => ({ status: 'ready' }),
+  verify: async () => {},
+  prepare: async () => {
+    throw new Error('用例不准备文档');
+  },
+});
 
 beforeEach(() => {
   state.configured = false;

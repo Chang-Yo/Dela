@@ -20,7 +20,7 @@ import {
   chatFileKind,
 } from '../../shared/chat-input';
 import { SNIFF_BYTES } from '../../shared/files';
-import { DOCUMENT_SKILL, assertDocumentDependency } from '../documents/runtime';
+import { readyDocumentReader } from './documents';
 import { readDisabledSkills } from './skills';
 import { hostPorts } from '../host';
 
@@ -29,8 +29,8 @@ import { hostPorts } from '../host';
 const attachments = new Map<string, { name: string } & ({ bytes: Buffer } | { path: string })>();
 
 function assertDocumentSkill(): void {
-  assertDocumentDependency();
-  if (readDisabledSkills().has(DOCUMENT_SKILL)) throw new Error('请先在设置 › Skills 启用文档读取');
+  if (readDisabledSkills().has(readyDocumentReader().skill))
+    throw new Error('请先在设置 › Skills 启用文档读取');
 }
 
 function mediaDir(): string {

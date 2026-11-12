@@ -16,6 +16,7 @@ vi.mock('../../database', () => ({ getDatabase: () => database }));
 import { provideTestHostPorts } from '../../test/host-mock';
 import { workspaceProjects } from '../../workspace/api';
 import { registerCommandDomain } from '../../../core/capabilities/commands';
+import { registerDocumentReader } from '../documents';
 import {
   effectiveDisabledSkills,
   listSkills,
@@ -40,6 +41,14 @@ description: ${name} skill
   }
 }
 registerBuiltins(registerCommandDomain);
+registerDocumentReader({
+  skill: 'document-reading',
+  dependency: () => ({ status: 'missing' }),
+  verify: async () => {},
+  prepare: async () => {
+    throw new Error('用例不准备文档');
+  },
+});
 
 function writeSkill(dir: string, name: string) {
   const path = join(dir, name, 'SKILL.md');
