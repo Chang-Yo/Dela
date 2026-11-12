@@ -9,6 +9,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.remote.test.ts'],
     globalSetup: ['src/main/remotes/test/remote-host.setup.ts'],
+    setupFiles: ['src/core/test/host-mock.ts'],
     // 逐个文件串行：几套用例共用同一台主机上的 helper 通道与临时目录，
     // 并行跑会互相 closeHelper、抢 /tmp 下的固定路径。
     fileParallelism: false,
