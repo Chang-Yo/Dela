@@ -28,6 +28,7 @@ import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
 import { Resizer } from '../../../ui/resizer';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
+import { useMediaQuery } from '../../../ui/use-media-query';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 
@@ -141,7 +142,7 @@ function DesktopMailView({
   const [trashItems, setTrashItems] = useState<MailTrashItem[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
   const [trashError, setTrashError] = useState<string | null>(null);
-  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_MEDIA_QUERY).matches);
+  const narrow = useMediaQuery(NARROW_MEDIA_QUERY);
   const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
   // 邮箱 grid 容器实测宽度;初始按最宽处理,挂载后在布局阶段同步测量并纠正,不产生可见闪烁。
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
@@ -237,13 +238,6 @@ function DesktopMailView({
       /* Storage may be unavailable. */
     }
   }, [foldersCollapsed]);
-
-  useEffect(() => {
-    const media = window.matchMedia(NARROW_MEDIA_QUERY);
-    const update = () => setNarrow(media.matches);
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
 
   // 容器宽度驱动分级降档;未配置账户时 grid 晚于首帧挂载,依赖 gridElement 触发本 effect 重跑。
   useLayoutEffect(() => {
