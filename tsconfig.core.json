@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  // rootDir 让 tsc 拒绝 core 之外的源码：core 只依赖 Pi、Node 与 zod。
+  "compilerOptions": { "lib": ["ES2023"], "types": ["node"], "rootDir": "src/core" },
+  "include": ["src/core/**/*.ts"],
+  "exclude": ["src/core/**/test/**"]
+}
