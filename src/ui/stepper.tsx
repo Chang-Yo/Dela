@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 // 经 ref 转发最新回调，否则 interval 持有按下时的旧闭包，连发只会基于旧值原地重复。
 function useHoldRepeat(action: () => void) {
   const actionRef = useRef(action);
+  // oxlint-disable-next-line react/refs -- 待迁入模块时改为不依赖 latest-value ref 的连发实现
   actionRef.current = action;
   const timeout = useRef<number | undefined>(undefined);
   const interval = useRef<number | undefined>(undefined);
