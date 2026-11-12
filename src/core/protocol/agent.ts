@@ -237,6 +237,70 @@ export const modelProviderViewSchema = z.object({
   models: z.array(z.string()),
 });
 
+export type ChatComment = z.infer<typeof chatCommentSchema>;
+export type ChatAskInput = z.infer<typeof chatAskInputSchema>;
+export type ChatMediaView = z.infer<typeof chatMediaViewSchema>;
+export type ChatQueuedDraft = z.infer<typeof chatQueuedDraftSchema>;
+export type ChatCommandView = z.infer<typeof chatCommandViewSchema>;
+export type FileChangeSummary = z.infer<typeof fileChangeSummarySchema>;
+export type FileChangeDetail = z.infer<typeof fileChangeDetailSchema>;
+export type TurnChanges = z.infer<typeof turnChangesSchema>;
+export type AgentToolOutput = z.infer<typeof agentToolOutputSchema>;
+export type AgentToolResult = z.infer<typeof agentToolResultSchema>;
+export type TaskStatus = z.infer<typeof taskStatusSchema>;
+export type TaskNoticeDetails = z.infer<typeof taskNoticeDetailsSchema>;
+export type BackgroundTaskView = z.infer<typeof backgroundTaskViewSchema>;
+export type ChatSessionSummary = z.infer<typeof chatSessionSummarySchema>;
+export type ContextUsageView = z.infer<typeof contextUsageViewSchema>;
+export type WorkspaceChat = z.infer<typeof workspaceChatSchema>;
+export type RunStatus = z.infer<typeof runStatusSchema>;
+export type RunEvent = z.infer<typeof runEventSchema>;
+export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
+export type ChatQueueEvent = z.infer<typeof chatQueueEventSchema>;
+export type SidechatView = z.infer<typeof sidechatViewSchema>;
+/** 'chat' 是首页随聊的私有目录，'library' 是资料页的课程目录；项目会话忽略它。 */
+export type ChatScope = z.infer<typeof chatScopeSchema>;
+
+/** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
+export interface SubagentDetails {
+  taskId: string;
+  status: TaskStatus;
+  steps: number;
+  tool?: { name: string; target: string };
+  reply?: string | null;
+  background?: true;
+}
+
+/**
+ * Dela 自己实现的会话命令，对应 Pi 终端界面里的同名命令（Pi 的 SDK 不带这些命令）。输入以它们开头时
+ * 不发给模型，也不经过扩展命令与提示模板：Dela 命令 > 扩展命令 > 提示模板 > 普通消息，与 Pi 一致。
+ */
+export const SESSION_COMMANDS = [
+  { name: 'compact', description: '压缩上下文', argumentHint: '[压缩时的说明]' },
+  { name: 'reload', description: '重新加载 Skills、扩展与 AGENTS.md' },
+  { name: 'name', description: '重命名对话', argumentHint: '<标题>' },
+  { name: 'new', description: '新对话' },
+  {
+    name: 'btw',
+    description: '旁问：带着当前对话顺便问一句，不进入主对话',
+    argumentHint: '[问题]',
+  },
+] as const;
+
+export type SessionCommandName = (typeof SESSION_COMMANDS)[number]['name'];
+
+/** `/new` 与 `/btw` 只是界面动作，由渲染端处理；其余在主进程执行。 */
+export type MainSessionCommand = Exclude<SessionCommandName, 'new' | 'btw'>;
+
+/** 输入是不是一条会话命令：命令名后要么结束、要么是空白再跟参数（`/compactor` 不算）。 */
+export function parseSessionCommand(
+  text: string,
+): { name: SessionCommandName; args: string } | null {
+  const match = /^\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(text.trim());
+  const name = SESSION_COMMANDS.find((command) => command.name === match?.[1])?.name;
+  return name ? { name, args: match?.[2]?.trim() ?? '' } : null;
+}
+
 const filePath = z.string().min(1).max(32_767);
 const empty = z.object({});
 const sidechatTarget = z.object({ parentId: uuid });

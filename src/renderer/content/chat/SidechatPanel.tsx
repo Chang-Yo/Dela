@@ -15,7 +15,7 @@ import {
   CHAT_DOCUMENT_MAX_BYTES,
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKindOfFile,
-} from '../../../shared/chat-input';
+} from '../../../core/protocol/chat-input';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
 import { showToast } from '../../app/toasts';
 import { cn } from '../../lib/utils';

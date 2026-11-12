@@ -1,5 +1,5 @@
 // 会话内文件的定位、打开与改动审阅入口。
-import type { UncommittedChanges } from '../../../shared/api';
+import type { UncommittedChanges } from '../../../core/protocol/changes';
 import { hostPorts } from '../../host';
 import * as changes from '../changes';
 import { resolveSessionFile } from '../session-path';

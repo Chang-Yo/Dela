@@ -26,7 +26,7 @@ import { officeZipMime } from '../documents/parse';
 import { workspaceArchiveId } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../../shared/workspace';
-import { imageMimeOf } from '../../shared/files';
+import { imageMimeOf } from '../../core/protocol/files';
 import {
   decodeAssetPath,
   isRelativeAssetPath,

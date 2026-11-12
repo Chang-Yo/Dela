@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
 import { cn } from '../../../lib/utils';
-import { LLM_MODEL_LIMIT } from '../../../../shared/llm-models';
+import { LLM_MODEL_LIMIT } from '../../../../core/protocol/llm-models';
 import { capModels, selectedModels } from './model-import';
 
 /** 向导 · 导入模型弹层：从检测到的模型列表里勾选要写进配置的那些，默认勾上已导入的。 */

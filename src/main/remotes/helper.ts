@@ -11,8 +11,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { createConnection, createServer } from 'node:net';
 import { join } from 'node:path';
+import type {
+  RemoteChannelState,
+  RemoteSetupProgress,
+  RemoteTask,
+} from '../../core/protocol/remote';
 import { hostPorts } from '../host';
-import type { RemoteChannelState, RemoteSetupProgress, RemoteTask } from '../../shared/remotes';
 import {
   exec,
   locateSsh,

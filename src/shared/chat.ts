@@ -1,35 +1,22 @@
-import type { z } from 'zod';
 import type {
-  chatAskInputSchema,
-  chatCommandViewSchema,
-  chatCommentSchema,
-  chatMediaViewSchema,
-  chatQueuedDraftSchema,
-  fileChangeDetailSchema,
-  fileChangeSummarySchema,
-  turnChangesSchema,
+  ChatCommandView,
+  ChatMediaView,
+  FileChangeDetail,
+  TurnChanges,
 } from '../core/protocol/agent';
+import type { UncommittedChanges } from '../core/protocol/changes';
 
-export type ChatComment = z.infer<typeof chatCommentSchema>;
-export type ChatAskInput = z.infer<typeof chatAskInputSchema>;
-export type ChatMediaView = z.infer<typeof chatMediaViewSchema>;
-export type ChatQueuedDraft = z.infer<typeof chatQueuedDraftSchema>;
-export type ChatCommandView = z.infer<typeof chatCommandViewSchema>;
-export type FileChangeSummary = z.infer<typeof fileChangeSummarySchema>;
-export type FileChangeDetail = z.infer<typeof fileChangeDetailSchema>;
-export type TurnChanges = z.infer<typeof turnChangesSchema>;
-
-export interface UncommittedChanges {
-  /** false 时前端隐藏入口；错误与非 Git 目录通过 reason 区分。 */
-  available: boolean;
-  reason: 'not-git' | 'git-unavailable' | 'remote' | null;
-  cwd: string;
-  repositoryRoot: string | null;
-  /** 尚无首个提交的仓库为 null，以空树作为基准。 */
-  head: string | null;
-  warnings: string[];
-  files: FileChangeSummary[];
-}
+export type {
+  ChatAskInput,
+  ChatCommandView,
+  ChatComment,
+  ChatMediaView,
+  ChatQueuedDraft,
+  FileChangeDetail,
+  FileChangeSummary,
+  TurnChanges,
+} from '../core/protocol/agent';
+export type { UncommittedChanges } from '../core/protocol/changes';
 
 export interface ChatApi {
   listTurnChanges(sessionId: string): Promise<TurnChanges[]>;

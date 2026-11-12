@@ -22,7 +22,7 @@ import {
 import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
 import { useReducedMotion } from 'framer-motion';
 import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../shared/api';
-import { chatImageToken } from '../../../shared/chat-input';
+import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '@/components/ui/button';
 import { openLightbox } from '@/components/ui/lightbox';
 import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';

@@ -9,14 +9,16 @@ import type {
   ContextUsageView,
   TaskNoticeDetails,
   WorkspaceChat,
-} from '../../../shared/api';
-import { TASK_NOTICE } from '../../../shared/api';
+} from '../../../core/protocol/agent';
 import { hostPorts } from '../../host';
 import { runningTasks } from '../tasks';
 import { live, liveSteps, type Live } from './live';
 import { modelChoice, requirePiSync, row, sessionCwd, type ModelChoice } from './store';
 
 type ChatMessage = WorkspaceChat['messages'][number];
+
+/** 后台任务通知在 Pi 会话记录里的 customType。 */
+export const TASK_NOTICE = 'dela-task';
 
 export const textOf = (content: string | (TextContent | ImageContent)[]) =>
   typeof content === 'string'

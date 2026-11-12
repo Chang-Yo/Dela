@@ -3,7 +3,7 @@
 // 联网搜索默认关闭：它要求用户自备搜索服务，未注册时调用只会报错。
 // 读取网页默认开启：它不依赖任何注册，只受 web_fetch 自身的安全边界约束。
 import { z } from 'zod';
-import type { AgentCapabilityView } from '../../shared/capabilities';
+import type { AgentCapabilityView } from '../../core/protocol/capabilities';
 import { hostPorts } from '../host';
 
 const KEY = 'tools-disabled';

@@ -10,7 +10,7 @@ import { search, searchKeymap } from '@codemirror/search';
 import { useEditorSettings } from '../editor-settings';
 import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
 import { markdownLivePreview, type ImageResolver } from './live-preview';
-import { formatByName } from '../../../shared/files';
+import { formatByName } from '../../../core/protocol/files';
 
 const editorTheme = EditorView.theme({
   '&': {

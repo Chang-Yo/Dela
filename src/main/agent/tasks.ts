@@ -16,7 +16,7 @@ import {
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
-import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../shared/api';
+import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../../core/protocol/agent';
 import type { RemoteBackend } from '../remotes/operations';
 import { loadPi } from './pi';
 import { hostPorts } from '../host';

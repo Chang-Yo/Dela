@@ -3,8 +3,8 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ChatScope, ChatSessionSummary } from '../../../shared/api';
-import { llmModelSettings } from '../../../shared/llm-models';
+import type { ChatScope, ChatSessionSummary } from '../../../core/protocol/agent';
+import { llmModelSettings } from '../../../core/protocol/llm-models';
 import type { StoredLlmProvider } from '../llm-config';
 import { hostPorts } from '../../host';
 import { sessionScope, sessionScopes, type SessionScope } from '../../../core/agent/scopes';

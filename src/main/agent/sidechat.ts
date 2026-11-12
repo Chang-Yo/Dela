@@ -5,7 +5,12 @@
  */
 import { existsSync } from 'node:fs';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { AgentToolResult, ChatAskInput, SidechatView, WorkspaceChat } from '../../shared/api';
+import type {
+  AgentToolResult,
+  ChatAskInput,
+  SidechatView,
+  WorkspaceChat,
+} from '../../core/protocol/agent';
 import { agentEnvironment } from './environment';
 import { releaseChatAttachments } from './media';
 import { loadPi, openPiSession, writeSessionFile } from './pi';

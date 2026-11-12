@@ -8,7 +8,7 @@ import { useWorkbenchLayout } from '../../workbench/layout-store';
 import { useRuns } from '../../sessions/runs';
 import { useToastStore } from '../../app/toasts';
 import { useUpdateState, runUpdateAction, deferInstall } from './update';
-import { chatImageToken } from '../../../shared/chat-input';
+import { chatImageToken } from '../../../core/protocol/chat-input';
 
 const originalSave = useNoteDrafts.getState().save;
 let install: ReturnType<typeof vi.fn>;

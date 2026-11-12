@@ -28,7 +28,7 @@ import {
 import { cn } from '../../lib/utils';
 import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
 import { openLightbox } from '../../components/ui/lightbox';
-import { matchChatImageTokens } from '../../../shared/chat-input';
+import { matchChatImageTokens } from '../../../core/protocol/chat-input';
 import { getChatMediaPreview } from './media';
 import type { ChatReference } from './drafts';
 import { matchReferenceTokens } from './reference-tokens';

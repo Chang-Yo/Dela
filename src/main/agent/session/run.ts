@@ -9,8 +9,7 @@ import type {
   RunStatus,
   TaskNoticeDetails,
   WorkspaceChat,
-} from '../../../shared/api';
-import { TASK_NOTICE } from '../../../shared/api';
+} from '../../../core/protocol/agent';
 import { hostPorts } from '../../host';
 import { remoteBackend } from '../../remotes/operations';
 import * as changes from '../changes';
@@ -29,6 +28,7 @@ import {
   toolOutput,
   usageOf,
   withoutToolImages,
+  TASK_NOTICE,
 } from './projection';
 import { composePrompt } from './prompt';
 import {

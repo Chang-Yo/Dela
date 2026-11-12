@@ -1,5 +1,5 @@
 import type { ResourceRef } from './resources';
-import type { FileFormat } from './files';
+import type { FileFormat } from '../core/protocol/files';
 
 export interface DocumentContent {
   title: string;

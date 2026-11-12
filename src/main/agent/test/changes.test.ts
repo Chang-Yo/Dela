@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as fsPromises from 'node:fs/promises';
-import { diffStatOf } from '../../../shared/diff';
+import { diffStatOf } from '../../../core/protocol/diff';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 // 本文件逐个 spawn git 并做真实文件比对，Windows 上单个用例可达数秒；共享 CI runner
