@@ -9,7 +9,7 @@
 export const overlayFade = 'animate-[fade-in_160ms_var(--ease-out-strong)_both]';
 export const dialogIn = 'animate-[dialog-in_160ms_var(--ease-out-strong)_both]';
 
-export const dialogOverlay = `fixed inset-0 z-50 bg-black/30 ${overlayFade}`;
+export const dialogOverlay = `fixed inset-0 z-50 bg-scrim ${overlayFade}`;
 
 /** 对话框面板外观（定位与尺寸由调用方给出，如 max-w-md、max-h-[85vh]）。 */
 export const dialogPanel = `fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 rounded-window bg-surface p-6 text-ink shadow-overlay outline-none ${dialogIn} max-md:w-[calc(100%-2rem)]`;

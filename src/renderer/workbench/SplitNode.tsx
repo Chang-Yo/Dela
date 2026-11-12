@@ -89,7 +89,7 @@ export const SplitNodeView = memo(function SplitNodeView({
         }}
         className={cn(
           // 两个白色页面相邻，保留一条淡线作分界。
-          'bg-border/60',
+          'bg-line/60',
           vertical ? 'w-px' : 'h-px',
         )}
       />

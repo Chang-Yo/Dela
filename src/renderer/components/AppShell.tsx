@@ -131,7 +131,7 @@ function WindowControls() {
       </button>
       <button
         aria-label="关闭"
-        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-[#e81123] hover:text-white"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-window-close hover:text-on-accent"
         onClick={() => window.dela?.window.close()}
         type="button"
       >
@@ -666,7 +666,7 @@ export function AppShell({
       {narrow && drawer !== null && (
         <div
           aria-hidden="true"
-          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-30 bg-black/30')}
+          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-30 bg-scrim')}
           onMouseDown={() => onMobileDrawerChange?.(null)}
         />
       )}

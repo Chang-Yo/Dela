@@ -37,7 +37,7 @@ export function Slider({
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
         className={cn(
-          'block size-3 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.2)]',
+          'block size-3 rounded-full bg-on-accent shadow-[0_1px_2px_rgba(0,0,0,0.2)]',
           'outline-none transition-transform active:scale-[0.94]',
           'focus-visible:ring-2 focus-visible:ring-bui-accent',
         )}

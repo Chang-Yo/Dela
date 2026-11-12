@@ -59,7 +59,7 @@ export function BookmarkList() {
       ) : null}
       {error ? (
         <div
-          className="mx-1 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
+          className="mx-1 mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}
@@ -145,7 +145,7 @@ export function NotificationList() {
       ) : null}
       {error ? (
         <div
-          className="mx-1 mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
+          className="mx-1 mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}

@@ -161,10 +161,10 @@ export function WeekCalendar({
                 ))}
                 {showNow && currentDayIndex === index ? (
                   <div
-                    className="pointer-events-none absolute inset-x-0 z-20 border-t-[1.5px] border-red-500"
+                    className="pointer-events-none absolute inset-x-0 z-20 border-t-[1.5px] border-red"
                     style={{ top: `${minutesToRem(minuteOfDay(now) - timelineStart)}rem` }}
                   >
-                    <span className="absolute -left-1 -top-1 size-2 rounded-full bg-red-500" />
+                    <span className="absolute -left-1 -top-1 size-2 rounded-full bg-red" />
                   </div>
                 ) : null}
               </div>

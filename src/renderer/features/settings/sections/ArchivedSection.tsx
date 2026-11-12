@@ -179,7 +179,7 @@ export function ArchivedSection() {
               恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
             </p>
             {confirm?.kind === 'all' && (
-              <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-destructive/40 bg-red-tint p-3">
+              <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-red/40 bg-red-tint p-3">
                 <span className="text-xs">
                   永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
                 </span>

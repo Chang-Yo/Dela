@@ -30,7 +30,7 @@ export function Switch({
     >
       <span
         className={cn(
-          'block size-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-transform duration-200 ease-(--ease-out-strong)',
+          'block size-4 rounded-full bg-on-accent shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-transform duration-200 ease-(--ease-out-strong)',
           checked ? 'translate-x-4' : indeterminate && 'translate-x-2',
         )}
       />

@@ -204,7 +204,7 @@ export function TopicFeed() {
       ) : null}
       {error ? (
         <div
-          className="mt-3 rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
+          className="mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}

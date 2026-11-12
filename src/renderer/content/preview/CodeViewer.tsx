@@ -28,9 +28,9 @@ const viewerTheme = EditorView.theme({
   },
   // 行号栏在横向滚动时是 sticky 的：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
   '.cm-gutters': {
-    borderRight: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-surface)',
-    color: 'var(--color-muted-foreground)',
+    borderRight: '1px solid var(--line)',
+    backgroundColor: 'var(--surface)',
+    color: 'var(--ink-3)',
     paddingLeft: '1.5rem',
   },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },

@@ -34,16 +34,16 @@ const editorTheme = EditorView.theme({
     textAlign: 'left',
   },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--syntax-caret)' },
-  '.cm-placeholder': { color: 'var(--color-muted-foreground)' },
+  '.cm-placeholder': { color: 'var(--ink-3)' },
   // 行号栏横向滚动时 sticky：背景必须不透明并接管左侧留白，否则长行会从行号下透出。
   '.cm-scroller:has(.cm-gutters)': { paddingLeft: '0' },
   '.cm-gutters': {
     border: 'none',
-    backgroundColor: 'var(--color-surface)',
-    color: 'var(--color-muted-foreground)',
+    backgroundColor: 'var(--surface)',
+    color: 'var(--ink-3)',
     paddingLeft: '1.5rem',
   },
-  '&.cm-source-file .cm-gutters': { borderRight: '1px solid var(--color-border)' },
+  '&.cm-source-file .cm-gutters': { borderRight: '1px solid var(--line)' },
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 

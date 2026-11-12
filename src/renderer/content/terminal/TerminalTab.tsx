@@ -301,7 +301,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
             >
               <button
                 aria-selected={session.id === activeId}
-                className="flex items-center gap-2 rounded-control px-3 py-1.5 focus-visible:outline focus-visible:outline-ring"
+                className="flex items-center gap-2 rounded-control px-3 py-1.5 focus-visible:outline focus-visible:outline-bui-accent"
                 role="tab"
                 type="button"
                 onClick={() => select(session.id)}

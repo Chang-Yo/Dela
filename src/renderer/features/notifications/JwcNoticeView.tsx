@@ -120,7 +120,7 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
         <>
           <iframe
             title="教务处通知正文"
-            className="mt-5 block w-full overflow-hidden rounded-card border-0 bg-white"
+            className="mt-5 block w-full overflow-hidden rounded-card border-0 bg-paper"
             sandbox="allow-same-origin"
             referrerPolicy="no-referrer"
             srcDoc={html}

@@ -73,7 +73,7 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
         </div>
       ) : (
         <iframe
-          className="mt-3 w-full rounded-t-lg border-x border-t bg-white"
+          className="mt-3 w-full rounded-t-lg border-x border-t bg-paper"
           ref={iframeRef}
           referrerPolicy="no-referrer"
           sandbox="allow-popups allow-scripts"

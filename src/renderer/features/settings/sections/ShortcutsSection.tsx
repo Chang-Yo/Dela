@@ -130,7 +130,7 @@ export function ShortcutsSection() {
         </p>
       )}
       {conflicts.length > 0 && (
-        <p className="text-xs text-warning" role="status">
+        <p className="text-xs text-orange" role="status">
           {conflicts
             .map((conflict) => {
               const labels = conflict.actionIds

@@ -61,9 +61,7 @@ export function ShuiyuanHeader() {
       aria-current={active ? 'true' : undefined}
       className={cn(
         'relative grid size-8 place-items-center rounded-control transition-colors',
-        active
-          ? 'bg-sidebar-accent text-ink'
-          : 'text-ink-3 hover:bg-sidebar-accent/60 hover:text-ink',
+        active ? 'bg-hover-2 text-ink' : 'text-ink-3 hover:bg-hover-2/60 hover:text-ink',
       )}
       onClick={onClick}
       title={label}
@@ -158,7 +156,7 @@ export function ShuiyuanHeader() {
             </button>
           </div>
           {/* 切换与筛选分属两组操作，用细线隔开避免连成一簇。 */}
-          <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
+          <span aria-hidden="true" className="h-4 w-px shrink-0 bg-line" />
           <Select
             onValueChange={(value) => {
               void selectList(
@@ -207,7 +205,7 @@ export function ShuiyuanHeader() {
           {/* 刷新同属“当前列表”操作，紧随筛选器；与右侧搜索区分组。 */}
           <button
             aria-label="刷新"
-            className="grid size-8 place-items-center rounded-control text-ink-3 transition-colors hover:bg-sidebar-accent/60 hover:text-ink"
+            className="grid size-8 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2/60 hover:text-ink"
             onClick={() => {
               void refreshList();
               void refreshCounts();

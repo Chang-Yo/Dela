@@ -45,7 +45,7 @@ function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => v
     <div className="overflow-hidden rounded-card border border-line">
       <iframe
         title="作业描述"
-        className="w-full border-0 bg-white"
+        className="w-full border-0 bg-paper"
         referrerPolicy="no-referrer"
         sandbox="allow-same-origin"
         srcDoc={doc}

@@ -557,7 +557,7 @@ export function ChatComposer({
                   }
                   title={selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'}
                 >
-                  <Globe className={selectedSearch ? 'text-success' : undefined} />
+                  <Globe className={selectedSearch ? 'text-green' : undefined} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Portal>

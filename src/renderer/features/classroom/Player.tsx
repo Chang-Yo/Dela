@@ -328,7 +328,7 @@ export function Player({
           {streamsLoading ? <Loader2 className="animate-spin" /> : <Download />}
         </IconButton>
       </div>
-      <div className="relative mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-card bg-black shadow-hairline">
+      <div className="relative mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-card bg-media shadow-hairline">
         {active && !failed ? (
           <video
             autoPlay
@@ -373,7 +373,7 @@ export function Player({
         ) : failed ? (
           <div className="grid h-full place-items-center">
             <div className="flex flex-col items-center gap-2">
-              <p className="text-13 text-white/70">视频加载失败，请重试</p>
+              <p className="text-13 text-on-media/70">视频加载失败，请重试</p>
               <Button onClick={retry} size="sm" variant="secondary">
                 <RotateCcw className="size-3.5" />
                 重试
@@ -383,10 +383,10 @@ export function Player({
         ) : (
           <div className="grid h-full place-items-center">
             {streamsLoading ? (
-              <Loader2 className="size-5 animate-spin text-white/60" />
+              <Loader2 className="size-5 animate-spin text-on-media/60" />
             ) : streamsError ? (
               <div className="flex flex-col items-center gap-2">
-                <p className="text-13 text-white/70">{streamsError}</p>
+                <p className="text-13 text-on-media/70">{streamsError}</p>
                 <Button onClick={() => void ensureStreams(video.id)} size="sm" variant="secondary">
                   <RotateCcw className="size-3.5" />
                   重试
@@ -397,12 +397,12 @@ export function Player({
         )}
         {resumeNotice !== null && active && !failed && (
           <div
-            className="absolute bottom-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-2 gap-y-1 rounded-control bg-black/80 px-3 py-2 text-13 text-white shadow-overlay"
+            className="absolute bottom-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-2 gap-y-1 rounded-control bg-media/80 px-3 py-2 text-13 text-on-media shadow-overlay"
             role="status"
           >
             <span className="tabular-nums">上次观看到 {formatTime(resumeNotice)}，已继续播放</span>
             <button
-              className="shrink-0 text-white/80 underline underline-offset-2 transition-colors hover:text-white"
+              className="shrink-0 text-on-media/80 underline underline-offset-2 transition-colors hover:text-on-media"
               onClick={restartFromBeginning}
               type="button"
             >

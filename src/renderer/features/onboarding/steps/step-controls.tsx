@@ -41,9 +41,7 @@ export function StepButton({
     <button
       className={cn(
         'grid h-10 w-full place-items-center rounded-card text-13 font-medium text-surface transition-all',
-        state === 'success'
-          ? 'bg-[var(--onboarding-accent)] hover:opacity-90'
-          : 'bg-ink hover:opacity-90',
+        state === 'success' ? 'bg-cal-teal-text hover:opacity-90' : 'bg-ink hover:opacity-90',
         (disabled || state === 'busy') && 'cursor-not-allowed opacity-50 hover:bg-ink',
       )}
       disabled={disabled || state === 'busy'}

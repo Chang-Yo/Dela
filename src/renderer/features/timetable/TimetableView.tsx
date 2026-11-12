@@ -369,7 +369,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
 
       {error ? (
         <p
-          className="mx-4 mt-3 break-words rounded-card border border-line border-destructive/30 bg-red-tint px-3 py-2 text-xs text-red"
+          className="mx-4 mt-3 break-words rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
           role="alert"
         >
           {error}

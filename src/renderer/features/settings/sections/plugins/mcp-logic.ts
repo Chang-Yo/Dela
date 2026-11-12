@@ -107,16 +107,16 @@ export function mcpStatusBadge(
 ): McpStatusBadge {
   switch (status) {
     case 'connecting':
-      return { label: '连接中', dotClass: 'text-muted-foreground', spin: true };
+      return { label: '连接中', dotClass: 'text-ink-3', spin: true };
     case 'connected':
       return {
         label: toolCount === null ? '已连接' : `已连接 · ${toolCount} 个工具`,
-        dotClass: 'bg-success',
+        dotClass: 'bg-green',
         spin: false,
       };
     case 'disconnected':
-      return { label: '未连接', dotClass: 'bg-muted-foreground/40', spin: false };
+      return { label: '未连接', dotClass: 'bg-ink-3/40', spin: false };
     case 'error':
-      return { label: '连接失败', dotClass: 'bg-destructive', spin: false };
+      return { label: '连接失败', dotClass: 'bg-red', spin: false };
   }
 }

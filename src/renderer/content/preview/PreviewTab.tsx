@@ -180,7 +180,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-line">
           <iframe
             title={content.title}
-            className="size-full border-0 bg-white"
+            className="size-full border-0 bg-paper"
             sandbox="allow-same-origin"
             referrerPolicy="no-referrer"
             srcDoc={html}

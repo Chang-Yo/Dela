@@ -75,7 +75,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
                   value={token}
                 />
                 {error && (
-                  <p className="text-13 [overflow-wrap:anywhere] text-red-600" role="alert">
+                  <p className="text-13 [overflow-wrap:anywhere] text-red" role="alert">
                     {error}
                   </p>
                 )}

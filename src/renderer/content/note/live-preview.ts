@@ -559,10 +559,10 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
   return builder.finish();
 }
 
-// 只引用基础变量（--muted、--destructive 等）和一定会输出的 theme 变量：Tailwind v4 会裁掉没被工具类
+// 只引用基础变量（--inset、--red 等）和一定会输出的 theme 变量：Tailwind v4 会裁掉没被工具类
 // 用到的 --color-*，引用它们可能落空。标题用 em，跟随编辑器正文字号缩放。
 const theme = EditorView.theme({
-  '.cm-md-h': { fontWeight: '600', color: 'var(--foreground)' },
+  '.cm-md-h': { fontWeight: '600', color: 'var(--ink)' },
   '.cm-md-h1': { fontSize: '1.6em', lineHeight: '1.4' },
   '.cm-md-h2': { fontSize: '1.35em', lineHeight: '1.4' },
   '.cm-md-h3': { fontSize: '1.15em' },
@@ -578,9 +578,9 @@ const theme = EditorView.theme({
   },
   '.cm-md-link': { color: 'var(--syntax-tag)', textDecoration: 'underline' },
   '.cm-md-quote': {
-    borderLeft: '2px solid var(--border)',
+    borderLeft: '2px solid var(--line)',
     paddingLeft: 'calc(var(--spacing) * 3)',
-    color: 'var(--muted-foreground)',
+    color: 'var(--ink-3)',
   },
   '.cm-md-codeblock': {
     fontFamily: 'var(--font-mono)',
@@ -588,7 +588,7 @@ const theme = EditorView.theme({
     color: 'var(--syntax-fg)',
   },
   '.cm-md-hr': {
-    backgroundImage: 'linear-gradient(var(--input), var(--input))',
+    backgroundImage: 'linear-gradient(var(--line-strong), var(--line-strong))',
     backgroundSize: '100% 2px',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
@@ -597,22 +597,22 @@ const theme = EditorView.theme({
     display: 'inline-block',
     width: '1ch',
     textAlign: 'center',
-    color: 'var(--muted-foreground)',
+    color: 'var(--ink-3)',
   },
   '.cm-md-task': {
     margin: '0 0.5ch 0 0',
     verticalAlign: 'middle',
     cursor: 'pointer',
-    accentColor: 'var(--ring)',
+    accentColor: 'var(--bui-accent)',
   },
   '.cm-md-table': { overflowX: 'auto', paddingBlock: 'calc(var(--spacing) * 2)' },
   '.cm-md-table table': { borderCollapse: 'collapse' },
   '.cm-md-table th, .cm-md-table td': {
-    border: '1px solid var(--input)',
+    border: '1px solid var(--line-strong)',
     padding: 'calc(var(--spacing) * 1) calc(var(--spacing) * 3)',
   },
-  '.cm-md-table th': { fontWeight: '600', backgroundColor: 'var(--muted)' },
-  '.cm-md-image-src': { color: 'var(--muted-foreground)', fontSize: '0.86em' },
+  '.cm-md-table th': { fontWeight: '600', backgroundColor: 'var(--inset)' },
+  '.cm-md-image-src': { color: 'var(--ink-3)', fontSize: '0.86em' },
   '.cm-md-image-block': { display: 'flow-root' },
   '.cm-md-image': {
     display: 'block',
@@ -629,10 +629,10 @@ const theme = EditorView.theme({
     padding: 'calc(var(--spacing) * 2) 0',
     overflowX: 'auto',
     textAlign: 'center',
-    color: 'var(--muted-foreground)',
+    color: 'var(--ink-3)',
   },
   '.cm-md-mermaid svg': { maxWidth: '100%', height: 'auto' },
-  '.cm-md-mermaid-error': { color: 'var(--destructive)', textAlign: 'left' },
+  '.cm-md-mermaid-error': { color: 'var(--red)', textAlign: 'left' },
 });
 
 /** 粘贴或拖入图片：交给 save 落盘（同目录 assets/），在光标/落点插入相对路径引用。

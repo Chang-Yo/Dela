@@ -279,9 +279,9 @@ export function EntryDialogs({
             {request?.action === 'project' && (
               <div className="grid gap-2">
                 <div aria-hidden="true" className="flex items-center gap-3 text-xs">
-                  <span className="h-px flex-1 bg-border" />
+                  <span className="h-px flex-1 bg-line" />
                   <span className="text-ink-3">或</span>
-                  <span className="h-px flex-1 bg-border" />
+                  <span className="h-px flex-1 bg-line" />
                 </div>
                 <Button
                   disabled={busy}

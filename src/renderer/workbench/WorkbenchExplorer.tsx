@@ -309,7 +309,7 @@ export function WorkbenchExplorer({
       {narrow && mobileOpen && (
         <div
           aria-hidden="true"
-          className={cn(overlayFade, 'absolute inset-0 z-20 bg-black/30')}
+          className={cn(overlayFade, 'absolute inset-0 z-20 bg-scrim')}
           onMouseDown={() => useExplorerState.getState().setMobileOpen(false)}
         />
       )}
@@ -319,7 +319,7 @@ export function WorkbenchExplorer({
         inert={!visible}
         tabIndex={-1}
         className={cn(
-          // 三级背景层次（用户裁决，勿压平）：侧栏画布 --page → 目录树 --muted(=--inset)
+          // 三级背景层次（用户裁决，勿压平）：侧栏画布 --page → 目录树 --inset
           // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
           'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[17.5rem] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-overlay max-md:animate-[drawer-left_200ms_var(--ease-out-strong)_both]',
           resizing && 'transition-none',

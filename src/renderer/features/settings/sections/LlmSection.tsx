@@ -183,7 +183,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
               <div className="flex flex-wrap gap-1.5">
                 {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
                 <span
-                  className="flex items-center gap-1 rounded-control border border-transparent bg-hover-2 px-2 py-1 text-xs text-accent-foreground"
+                  className="flex items-center gap-1 rounded-control border border-transparent bg-hover-2 px-2 py-1 text-xs text-ink"
                   title="文本输入固定开启"
                 >
                   文本
@@ -195,7 +195,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
                   className={cn(
                     'rounded-control border border-line px-2 py-1 text-xs transition-colors',
                     vision
-                      ? 'border-transparent bg-hover-2 text-accent-foreground'
+                      ? 'border-transparent bg-hover-2 text-ink'
                       : 'text-ink-3 hover:bg-hover-2',
                   )}
                   onClick={() => setVision((current) => !current)}
@@ -216,7 +216,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
                     className={cn(
                       'rounded-control border border-line px-2 py-1 text-xs transition-colors',
                       effortLevels.includes(level)
-                        ? 'border-transparent bg-hover-2 text-accent-foreground'
+                        ? 'border-transparent bg-hover-2 text-ink'
                         : 'text-ink-3 hover:bg-hover-2',
                     )}
                     onClick={() =>
@@ -462,7 +462,7 @@ export function LlmSection() {
                           className={cn(
                             'flex h-8 w-full min-w-0 items-center gap-2.5 rounded-card px-2 text-left text-13 transition-colors',
                             active
-                              ? 'bg-hover font-medium text-accent-foreground'
+                              ? 'bg-hover font-medium text-ink'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
                           )}
                           onClick={() => setDetail({ mode: 'edit', id: provider.id })}
@@ -939,7 +939,7 @@ function ProviderDetail({
             <p
               className={cn(
                 'flex flex-wrap items-center gap-1.5 text-xs [overflow-wrap:anywhere]',
-                verifyResult.ok ? 'text-success' : 'text-red',
+                verifyResult.ok ? 'text-green' : 'text-red',
               )}
               role="status"
             >
@@ -1037,7 +1037,7 @@ function ProviderDetail({
                     <p
                       className={cn(
                         'text-xs [overflow-wrap:anywhere]',
-                        result.ok ? 'text-success' : 'text-red',
+                        result.ok ? 'text-green' : 'text-red',
                       )}
                       role="status"
                     >
@@ -1180,7 +1180,7 @@ function ProviderDetail({
                   </ul>
                   {verifyResult && (
                     <p
-                      className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-red')}
+                      className={cn('text-xs', verifyResult.ok ? 'text-green' : 'text-red')}
                       role="status"
                     >
                       {verifyResult.message}

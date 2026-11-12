@@ -247,7 +247,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     {verifyResult && (
                       <p
                         className={`flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-5 ${
-                          verifyResult.ok ? 'text-emerald-600' : 'text-red-600'
+                          verifyResult.ok ? 'text-green' : 'text-red'
                         }`}
                         role="status"
                       >
@@ -313,7 +313,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   </span>
                 )}
                 {error && (
-                  <p className="text-13 [overflow-wrap:anywhere] text-red-600" role="alert">
+                  <p className="text-13 [overflow-wrap:anywhere] text-red" role="alert">
                     {error}
                   </p>
                 )}

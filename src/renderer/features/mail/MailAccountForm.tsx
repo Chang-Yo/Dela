@@ -119,7 +119,7 @@ export function MailAccountForm({
       </AnimatePresence>
       {error && (
         <p
-          className={wizard ? 'text-13 [overflow-wrap:anywhere] text-red-600' : 'text-13 text-red'}
+          className={wizard ? 'text-13 [overflow-wrap:anywhere] text-red' : 'text-13 text-red'}
           role="alert"
         >
           {error}

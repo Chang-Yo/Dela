@@ -27,7 +27,7 @@ export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
             </button>
             <button
               aria-label="关闭"
-              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-[#e81123] hover:text-white"
+              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-window-close hover:text-on-accent"
               onClick={() => window.dela?.window.close()}
               type="button"
             >

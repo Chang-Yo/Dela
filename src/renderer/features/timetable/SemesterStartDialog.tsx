@@ -39,7 +39,7 @@ export function SemesterStartDialog({
   return (
     <div
       aria-modal="true"
-      className={cn(overlayFade, 'fixed inset-0 z-50 grid place-items-center bg-black/30 p-4')}
+      className={cn(overlayFade, 'fixed inset-0 z-50 grid place-items-center bg-scrim p-4')}
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}

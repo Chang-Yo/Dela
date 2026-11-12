@@ -49,8 +49,8 @@ const socialLinkMeta: Record<SocialLinkKind, { icon: ReactNode; label: string }>
 };
 
 const sponsorChannelMeta: Record<SponsorChannelKind, { dotClass: string; label: string }> = {
-  alipay: { dotClass: 'bg-[#1677FF]', label: '支付宝' },
-  wechat: { dotClass: 'bg-[#07C160]', label: '微信' },
+  alipay: { dotClass: 'bg-alipay', label: '支付宝' },
+  wechat: { dotClass: 'bg-wechat', label: '微信' },
 };
 
 const projectLinks: { icon: ReactNode; label: string; url: string }[] = [
@@ -99,7 +99,7 @@ function SponsorDialog({ person, trigger }: { person: CreditPerson; trigger: Rea
               const meta = sponsorChannelMeta[kind];
               return (
                 <figure className="grid justify-items-center gap-2" key={kind}>
-                  <div className="rounded-card bg-white p-2.5">
+                  <div className="rounded-card bg-paper p-2.5">
                     <img
                       alt={`${label ?? meta.label}收款二维码`}
                       className="w-full rounded-card"

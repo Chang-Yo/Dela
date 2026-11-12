@@ -215,7 +215,7 @@ export function ConnectionForm({
         </p>
       )}
       {connection && onRemoved && removeConfirm && (
-        <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-destructive/40 bg-red-tint p-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-red/40 bg-red-tint p-3">
           <span className="text-xs">
             {projects.length
               ? `删除连接将同时移除 ${projects.length} 个项目并删除其全部聊天记录；远端目录与文件保留。`
