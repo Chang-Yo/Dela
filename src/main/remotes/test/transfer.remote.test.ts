@@ -16,8 +16,8 @@ vi.mock('electron', () => ({
 }));
 
 import { closeRemoteOpens, downloadRemoteFile, openRemoteFile, uploadLocalFile } from '../transfer';
-import { readRemoteRange, statRemoteFile } from '../operations';
-import type { RemoteTarget } from '../transport';
+import { readRemoteRange, statRemoteFile } from '../../../core/remote/operations';
+import type { RemoteTarget } from '../../../core/remote/transport';
 
 const target: RemoteTarget = {
   host: process.env.DELA_REMOTE_HOST!,

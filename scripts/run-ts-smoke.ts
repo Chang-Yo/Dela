@@ -22,7 +22,7 @@ const smokes: Record<string, SmokeConfig> = {
     external: [
       // 原生模块必须留在 node_modules：打进 bundle 后 node-pty 找不到自己的 prebuilds。
       'node-pty',
-      '@earendil-works/pi-coding-agent',
+      /^@earendil-works\//,
     ],
     timeout: 180000,
     // 冒烟失败时要看真实函数名，压缩过的堆栈只有 a/b/e。

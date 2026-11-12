@@ -3,7 +3,7 @@ import { cp, lstat, mkdir, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, isAbsolute, join, relative } from 'node:path';
 import type { BackupResult } from '../shared/backup';
-import { builtinSkillsDirectory } from './agent/skills';
+import { builtinSkillsDirectory } from '../core/capabilities/skills';
 import { cacheDirectoryNames } from './cache';
 import { getDatabase } from './database';
 import { checkWorkspaceSender } from './ipc';

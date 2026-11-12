@@ -10,8 +10,8 @@ import {
   imageMimeOf,
   isTextContent,
 } from '../../core/protocol/files';
-import { readRemoteRange, statRemoteFile } from './operations';
-import type { RemoteTarget } from './transport';
+import { readRemoteRange, statRemoteFile } from '../../core/remote/operations';
+import type { RemoteTarget } from '../../core/remote/transport';
 
 /** 图片直传上限：再大就按不支持处理，避免整张图进主进程内存。 */
 const IMAGE_LIMIT = 32 * 1024 * 1024;

@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { remoteById } from '../remotes/api';
 import { workspaceEntryIdSchema } from '../../shared/workspace';
-import { hostPorts } from '../host';
+import { hostPorts } from '../../core/ports';
 import { projectDirectory, projectLocation, remoteProjectOf } from './api';
 
 /** 项目目录的当前 Git 分支：非仓库、目录不存在、git 缺失与分离 HEAD 都算「没有分支」。

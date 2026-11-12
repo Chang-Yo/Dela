@@ -17,7 +17,7 @@ vi.mock('../api', () => ({
 vi.mock('../../remotes/api', () => ({ remoteById: () => ({ host: 'gpu-box' }) }));
 
 import { openProjectDirectory } from '../project';
-import { provideTestHostPorts } from '../../test/host-mock';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
 provideTestHostPorts({ paths: { home: () => '/Users/test' } });
 const id = '11111111-1111-4111-8111-111111111111';
 

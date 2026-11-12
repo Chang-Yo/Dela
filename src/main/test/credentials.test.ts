@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { electronPorts } from '../../app/host-electron';
 import { loadCanvasToken, saveCanvasToken } from '../credentials';
-import { CredentialDecryptionError, provideHostPorts } from '../host';
+import { CredentialDecryptionError, provideHostPorts } from '../../core/ports';
 
 const storage = vi.hoisted(() => ({ directory: '', available: true }));
 vi.mock('electron', () => ({

@@ -122,7 +122,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 - **会话 cwd**：项目会话是该项目的目录，随聊是私有目录，资料页会话用课程目录。目录缺失时报错，**不静默换目录**。
 - **移除项目**：删除条目行并删除名下全部会话（含归档，JSONL 进回收站）；目录与文件不动，重新导入同一目录得到全新身份。项目上只有「归档会话」与「移除」两个动作，不设隐藏态。删除 SSH 连接时，名下远程项目按同一语义一并带走。
 - 会话的完整记录是 Pi JSONL，SQLite `sessions` 只是索引；renderer 看到的是 Pi 消息的投影。会话归属在创建时确定，不从当前工作台推断。
-- **会话层分四块**（`agent/session/`）：存储（SQLite 索引）、运行（Pi 实例与一轮执行）、投影（Pi 消息 → 界面，`<dela-meta>` 只在这里编解码）、命令（新建、分支、归档、换模型等）。后台任务与子 Agent 不引用会话，由运行层注入父会话的回调。
+- **会话层分四块**（`core/agent/session/`）：存储（SQLite 索引）、运行（Pi 实例与一轮执行）、投影（Pi 消息 → 界面，`<dela-meta>` 只在这里编解码）、命令（新建、分支、归档、换模型等）。后台任务与子 Agent 不引用会话，由运行层注入父会话的回调。
 - **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read。引用以 token 内联在文本里，因此没有数量上限；附件是另一套 count（上限 5）。
 - **聊天文档附件**只传本地文件引用，由 document-reading skill 按需解析；二进制不按 UTF-8 注入提示词，不复制进项目。远端项目访问不到本机解析组件，发送文档附件会提示切换本机会话。
 - **会话命令**（`/compact`、`/reload`、`/name`、`/new`）由 Dela 自己实现，Pi 的 slash command 只在它的终端界面里。自定义指令不许与会话命令同名。命令不是一轮对话，不写用户消息、不改标题、不记文件变化。
@@ -139,7 +139,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 把远端 Linux 主机上的目录登记为项目。**本地内核 + 远程执行**：内核、模型密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端、目录读取与文件预览落到 SSH 远端。
 
 - **helper 是唯一通道**：工具调用、目录树、预览、上下文镜像、@ 候选与端口发现全部经远端 helper（`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP），没有一次性 ssh 的退路。helper 是 Go 静态二进制，放在 `~/.dela/helper/<版本>-<sha8>/`，在远端常驻；随包的 Linux rg 一并上传到 `~/.dela/rg/<sha8>/`，远端没装 rg 也按 `.gitignore` 搜索。端点、任务与生命周期规则见 [helper/README.md](../helper/README.md)。只支持 Linux amd64/arm64；`$HOME` 禁止执行（noexec、只读挂载、SELinux）的服务器不支持，向导会给出分类过的原因并停在「连接」。
-- **依赖方向**：`remotes` 只暴露 `RemoteBackend`（文件操作、命令、搜索、后台命令），不认识 Pi 与 Agent；七个远程工具的 Pi 适配在 `agent/remote-tools`，由 lint 守住。
+- **依赖方向**：`remotes` 只暴露 `RemoteBackend`（文件操作、命令、搜索、后台命令），不认识 Pi 与 Agent；七个远程工具的 Pi 适配在 `core/agent/remote-tools`，由 lint 守住。
 - **ssh 的职责**收窄到引导 helper、连接自检、目录选择器首页的主目录解析与终端 `ssh -tt`。**System32 那份 OpenSSH 可能是旧版本**（Windows 本机实测 System32 为 9.5p2、Program Files 为 10.0p2），排障时先确认实际生效的是哪一个。
 - **任务接回**：命令以任务运行，按客户端生成的 id 去重，断线后按字节偏移续读输出并拿到真实退出码。断线期间超出缓冲的部分接不回来，工具输出里会补一行说明。取消必须显式调用——断开连接已经不会终止任务。
 - **路径归一化是最容易静默改错文件的点**：工具在调用 operations 前用宿主 `node:path` 解析参数，Windows 本机实测 `path.resolve('/home/u/proj','src/a.ts')` → `E:\home\u\proj\src\a.ts`。operations 只对 Windows 形态去盘符、转分隔符，原生 POSIX 路径不套用这些规则。
@@ -211,8 +211,9 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 按层约定：
 
 - `src/main/` 按业务域分目录，每域一个入口（大域名 `api.ts`，其余 `index.ts`），IPC 注册在入口或并列的 `ipc.ts`；已迁入 `src/modules` 的模块改用契约，由 `app/ipc.ts` 统一注册（见 §10.1）。大域可以在同目录拆模块，但**入口仍是对外唯一 import 点**。根级只放不属于任何业务域的模块。
-- 主进程不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框与网络都经 `src/main/host.ts` 的 `HostPorts`，Electron 实现在 `src/app/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。终端、remotes 与交大模块尚未迁移，仍直接引用 Electron。决策见 [ADR 0013](adr/0013-host-ports.md)。
-- 测试与被测代码同层：main 用各域的 `test/` 子目录，renderer 与 shared 与源码并排。
+- 主进程不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。终端与交大模块尚未迁移，仍直接引用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
+- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），可以单独做类型检查；它的 IPC 注册在 `src/app/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本，`shared` 只做转出。
+- 测试与被测代码同层：main 与 core 用各目录的 `test/` 子目录，renderer 与 shared 与源码并排。core 的测试可以引用 main 的实现做集成夹具。
 - `scripts/` 全部为 TypeScript（Node 原生执行，仓库不再有 `.mjs`），纳入 `pnpm typecheck`。
 
 边界约定：renderer 不导入 main、不访问凭据和数据库；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取；打包白名单只含 `out/**/*`、`package.json` 与品牌图——文档、凭据与 `.tools/` 都不进安装包。
@@ -298,7 +299,7 @@ pnpm build
 pnpm test
 ```
 
-- 改动远端（`src/main/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍（先 `pnpm fetch:remote-rg`），那批用例默认套件与 CI 都会跳过。
+- 改动远端（`src/core/remote/`、`src/main/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍（先 `pnpm fetch:remote-rg`），那批用例默认套件与 CI 都会跳过。
 - 涉及构建、原生依赖或打包时另验证 `pnpm smoke` 与打包目录启动。
 - 用户能感知的变化写进 [CHANGELOG.md](../CHANGELOG.md)；面向使用者的功能概览更新 [README.md](../README.md)；架构、取舍与平台状态变化更新本文。
 - 单元测试只保留能挡住回归的用例：优先行为契约、边界与错误、安全、持久化/迁移、平台差异。不为字面默认值、setter/getter 往返、第三方库行为或纯 DOM 结构写用例；同一行为只留一处覆盖。

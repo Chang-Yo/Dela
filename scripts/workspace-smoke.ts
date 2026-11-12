@@ -12,7 +12,7 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { provideHostPorts } from '../src/main/host';
+import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase, getDatabase } from '../src/main/database';
 import { prepareEmail } from '../src/main/mail/drafts';
@@ -40,7 +40,7 @@ import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { registerNotificationsIpc } from '../src/main/notifications';
 import { registerUpdateIpc } from '../src/main/update';
-import { listLlmProviders, setLlmProviderEnabled, verifyLlm } from '../src/main/agent/providers';
+import { listLlmProviders, setLlmProviderEnabled, verifyLlm } from '../src/core/agent/providers';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);

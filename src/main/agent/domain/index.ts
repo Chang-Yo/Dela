@@ -8,7 +8,7 @@ import { registerSessionScope } from '../../../core/agent/scopes';
 import { coursesDirectory } from '../../canvas/api';
 import { DOCUMENT_SKILL, documentDependency, verifyDocumentRuntime } from '../../documents/runtime';
 import { prepareDocumentFile } from '../../resources';
-import { registerDocumentReader } from '../documents';
+import { registerDocumentReader } from '../../../core/capabilities/documents';
 import { canvasDomain } from './canvas';
 import { classroomDomain } from './classroom';
 import { documentDomain } from './document';

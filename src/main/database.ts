@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import { hostPorts } from './host';
+import { hostPorts } from '../core/ports';
 
 let database: Database.Database | null = null;
 

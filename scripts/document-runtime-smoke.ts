@@ -7,10 +7,10 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { provideHostPorts } from '../src/main/host';
+import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase } from '../src/main/database';
-import { listSkills, setSkillEnabled } from '../src/main/agent/skills';
+import { listSkills, setSkillEnabled } from '../src/core/capabilities/skills';
 import {
   documentDependency,
   documentPython,

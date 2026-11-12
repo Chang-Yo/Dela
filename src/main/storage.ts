@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { getDatabase } from './database';
-import { hostPorts } from './host';
+import { hostPorts } from '../core/ports';
 
 export function storageDirectory() {
   const row = getDatabase()

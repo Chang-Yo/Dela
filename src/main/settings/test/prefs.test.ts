@@ -6,8 +6,8 @@ let database: DatabaseSync;
 
 vi.mock('../../database', () => ({ getDatabase: () => database }));
 
-import { provideTestHostPorts } from '../../test/host-mock';
-import { getAgentInstruction, setAgentInstruction } from '../../agent/instruction';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
+import { getAgentInstruction, setAgentInstruction } from '../../../core/agent/instruction';
 import {
   getKeybindingOverrides,
   getTaskNotificationPrefs,

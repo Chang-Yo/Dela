@@ -15,10 +15,10 @@ import type {
   SshConfigHost,
 } from '../../shared/remotes';
 import { withinRemotePath } from '../../shared/remotes';
-import { prepareHelper } from './helper';
-import { locateRemote, makeRemoteDirectory } from './operations';
+import { prepareHelper } from '../../core/remote/helper';
+import { locateRemote, makeRemoteDirectory } from '../../core/remote/operations';
 import { sshConfigHosts } from './ssh-config';
-import { probeRemote, type RemoteTarget } from './transport';
+import { probeRemote, type RemoteTarget } from '../../core/remote/transport';
 
 const hostPattern = /^[A-Za-z0-9._@:[\]-]+$/;
 

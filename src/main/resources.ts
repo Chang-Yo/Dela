@@ -15,7 +15,7 @@ import {
 } from '../core/protocol/files';
 import { localFileFormat, textRevision } from './workspace/files';
 import { diskName } from './storage';
-import { hostPorts } from './host';
+import { hostPorts } from '../core/ports';
 import { workspaceEntryIdSchema } from '../shared/workspace';
 import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
 

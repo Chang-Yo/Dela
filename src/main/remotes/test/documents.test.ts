@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../operations', () => ({
+vi.mock('../../../core/remote/operations', () => ({
   statRemoteFile: vi.fn(),
   readRemoteRange: vi.fn(),
 }));
 
 import { remoteAssetUrl } from '../../../shared/remotes';
 import { readRemoteDocument } from '../documents';
-import { readRemoteRange, statRemoteFile } from '../operations';
+import { readRemoteRange, statRemoteFile } from '../../../core/remote/operations';
 
 const target = { host: 'user@host', port: null, keyPath: null };
 const stat = vi.mocked(statRemoteFile);

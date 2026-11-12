@@ -41,8 +41,8 @@ import {
   entry,
 } from '../api';
 import { openProjectDirectory } from '../project';
-import { provideTestHostPorts } from '../../test/host-mock';
-import { hostPorts } from '../../host';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
+import { hostPorts } from '../../../core/ports';
 import {
   getLocalWorkspaceState,
   listLocalDirectory,

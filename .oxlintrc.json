@@ -77,6 +77,50 @@
       }
     },
     {
+      "files": ["src/core/remote/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "electron",
+                  "electron/**",
+                  "react",
+                  "react/**",
+                  "react-dom",
+                  "react-dom/**"
+                ],
+                "message": "core 只依赖 Pi 与 Node（docs/adr/0001、0013）：宿主能力经端口注入，界面在模块的 view/ 里。"
+              },
+              {
+                "group": [
+                  "**/main",
+                  "**/main/**",
+                  "**/preload/**",
+                  "**/renderer/**",
+                  "**/shared/**",
+                  "**/app/**",
+                  "**/modules/**",
+                  "**/ui/**"
+                ],
+                "message": "core 不认识具体业务（docs/adr/0014）：在 core/capabilities 开注册表，由模块注册进来。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "regex": "^(\\.\\./)+(agent|capabilities)(/|$)",
+                "message": "远程执行后端不能依赖 Agent：只暴露 RemoteBackend，Pi 工具适配在 core/agent/remote-tools。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/core/protocol/**"],
       "rules": {
         "no-restricted-imports": [
@@ -86,6 +130,33 @@
               {
                 "group": ["*", "**", "!zod", "!./*"],
                 "message": "core/protocol 只依赖 zod：桌面 React 与移动端共用协议，不能带入 core 其他部分或宿主依赖。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/core/**/test/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "electron",
+                  "electron/**",
+                  "react",
+                  "react/**",
+                  "react-dom",
+                  "react-dom/**"
+                ],
+                "message": "core 的测试可以用宿主实现做集成夹具，但不能依赖 Electron 与界面。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
               }
             ]
           }
@@ -239,7 +310,7 @@
                 "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
-                "regex": "^(\\.\\./)+agent(/|$)",
+                "regex": "^(\\.\\./)+(core/)?(agent|capabilities)(/|$)",
                 "message": "校园模块不能依赖 Agent 内核（docs/adr/0001、0005）：由内核通过注册表调用校园模块。"
               }
             ]
@@ -263,8 +334,8 @@
                 "message": "只有 app/modules.ts 可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
-                "regex": "^(../)+agent(/|$)",
-                "message": "远程执行后端不能依赖 Agent：只暴露 RemoteBackend，Pi 工具适配在 agent/remote-tools。"
+                "regex": "^(\\.\\./)+(core/)?(agent|capabilities)(/|$)",
+                "message": "远程执行后端不能依赖 Agent：只暴露 RemoteBackend，Pi 工具适配在 core/agent/remote-tools。"
               }
             ]
           }

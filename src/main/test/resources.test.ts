@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { canvasFilePath } from '../canvas/api';
 import { workspaceFilePath } from '../workspace/api';
 import { copyResourceToProject, openResourceFile } from '../resources';
-import { provideTestHostPorts } from './host-mock';
-import { hostPorts } from '../host';
+import { provideTestHostPorts } from '../../core/test/host-mock';
+import { hostPorts } from '../../core/ports';
 import { builtinResourceResolvers } from '../agent/domain/read-resource';
 import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
 
