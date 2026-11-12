@@ -54,7 +54,7 @@ function FloorField({
       <input
         aria-label="跳到楼层"
         autoFocus
-        className="h-7 w-16 rounded-control bg-surface px-1.5 text-xs tabular-nums text-ink shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)] outline-none"
+        className="h-7 w-16 rounded-control bg-surface px-1.5 text-xs tabular-nums text-ink shadow-focus outline-none"
         defaultValue={value}
         inputMode="numeric"
         onBlur={() => setEditing(false)}

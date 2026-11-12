@@ -235,7 +235,7 @@ function LessonBlock({
     <Tooltip>
       <TooltipTrigger asChild>
         <article
-          className="absolute z-10 cursor-pointer overflow-hidden rounded-card px-2 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
+          className="absolute z-10 cursor-pointer overflow-hidden rounded-card px-2 py-1.5 outline-none focus-visible:ring-3 focus-visible:ring-bui-accent-tint"
           onClick={open}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -327,7 +327,7 @@ function LocalEventBlock({
       <TooltipTrigger asChild>
         <article
           className={cn(
-            'absolute z-10 cursor-pointer overflow-hidden px-2 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint',
+            'absolute z-10 cursor-pointer overflow-hidden px-2 py-1.5 outline-none focus-visible:ring-3 focus-visible:ring-bui-accent-tint',
             bleedLeft ? 'rounded-l-none' : 'rounded-l-card',
             bleedRight ? 'rounded-r-none' : 'rounded-r-card',
           )}
@@ -386,7 +386,7 @@ function MobileLesson({
   const open = () => onOpen({ kind: 'lesson', lesson, date });
   return (
     <article
-      className="grid cursor-pointer grid-cols-[3.375rem_1fr] overflow-hidden rounded-card p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
+      className="grid cursor-pointer grid-cols-[3.375rem_1fr] overflow-hidden rounded-card p-3 outline-none focus-visible:ring-3 focus-visible:ring-bui-accent-tint"
       onClick={open}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -429,7 +429,7 @@ function MobileEvent({
   const open = () => onOpen(event.todoId ? { kind: 'todo', event } : { kind: 'event', event });
   return (
     <article
-      className="grid cursor-pointer grid-cols-[3.375rem_1fr] rounded-card p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
+      className="grid cursor-pointer grid-cols-[3.375rem_1fr] rounded-card p-3 outline-none focus-visible:ring-3 focus-visible:ring-bui-accent-tint"
       onClick={open}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {

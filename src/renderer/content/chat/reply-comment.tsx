@@ -290,7 +290,7 @@ export function ReplyCommentLayer({
   return (
     <div
       className={cn(
-        'absolute z-20 rounded-card bg-surface shadow-raised animate-[pop-in_160ms_var(--ease-out-strong)_both]',
+        'absolute z-20 rounded-card bg-surface shadow-raised animate-pop-in',
         target.editing ? 'w-80 max-w-[calc(100%-1rem)] p-1' : 'w-max p-0.5',
       )}
       key={target.editing ? 'input' : 'tip'}

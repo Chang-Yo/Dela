@@ -33,7 +33,7 @@ import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
 const inputClass =
-  'w-full rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]';
+  'w-full rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
 
 const showCompletedStorageKey = 'dela.todo.show-completed';
 

@@ -177,8 +177,8 @@ export function SidechatPanel({
       aria-label="展开旁问"
       className={cn(
         'absolute right-3 top-12 z-30 flex h-8 origin-top-right items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover',
-        motion === 'collapse' && 'animate-[pill-in_200ms_var(--ease-out-strong)_40ms_both]',
-        motion === 'expand' && 'pointer-events-none animate-[pill-out_120ms_ease-in_both]',
+        motion === 'collapse' && 'animate-pill-in',
+        motion === 'expand' && 'pointer-events-none animate-pill-out',
       )}
       onClick={() => {
         setMotion('expand');

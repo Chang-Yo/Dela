@@ -6,7 +6,7 @@ import { cn } from './cn';
 // 外观对齐 beautiful-ui 的字段：field 底 + hairline 描边，聚焦换成 surface 底 + accent 描边。
 const inputVariants = {
   default:
-    'bg-field shadow-hairline hover:shadow-[0_0_0_1px_var(--line-strong)] focus-visible:bg-surface focus-visible:shadow-[0_0_0_1px_var(--bui-accent),0_0_0_3px_var(--bui-accent-tint)]',
+    'bg-field shadow-hairline hover:shadow-hairline-strong focus-visible:bg-surface focus-visible:shadow-focus',
   ghost: '',
 } as const;
 
@@ -21,7 +21,7 @@ function Input({
       className={cn(
         'h-8 py-1 file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-13 file:font-medium file:text-ink',
         'placeholder:text-ink-3 selection:bg-bui-accent-tint flex w-full min-w-0 rounded-control bg-transparent px-2.5 text-13 text-ink transition-[background-color,box-shadow] duration-150 outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
-        'aria-invalid:shadow-[0_0_0_1px_var(--red)]',
+        'aria-invalid:shadow-invalid',
         inputVariants[variant],
         className,
       )}

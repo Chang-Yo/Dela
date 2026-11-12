@@ -355,7 +355,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
             </Select>
           ) : null}
           <button
-            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-hover-2 px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:bg-hover-2 focus-visible:ring-[3px] focus-visible:ring-bui-accent-tint"
+            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-hover-2 px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:bg-hover-2 focus-visible:ring-3 focus-visible:ring-bui-accent-tint"
             onClick={() => setSemesterDraft(true)}
             type="button"
           >
