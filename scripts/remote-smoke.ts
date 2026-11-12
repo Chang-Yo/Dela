@@ -10,7 +10,7 @@ import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase, getDatabase } from '../src/main/database';
 import { registerModuleIpc } from '../src/app/ipc';
 import { modules } from '../src/app/modules';
-import { invalidateSessions, registerAgentIpc, subscribeChat } from '../src/app/agent-ipc';
+import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
 import { registerCanvasIpc } from '../src/main/canvas/ipc';
 import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerNotificationsIpc } from '../src/main/notifications';
@@ -63,7 +63,7 @@ app
 
     registerRemoteIpc();
     // 与生产一致：会话订阅与失效钩子由装配层注入。
-    registerWorkspaceIpc(subscribeChat, invalidateSessions);
+    registerWorkspaceIpc(invalidateSessions);
     registerSettingsIpc();
     registerCanvasIpc();
     registerAgentIpc();
