@@ -666,7 +666,7 @@ export function AppShell({
       {narrow && drawer !== null && (
         <div
           aria-hidden="true"
-          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-drawer bg-scrim')}
+          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-scrim bg-scrim')}
           onMouseDown={() => onMobileDrawerChange?.(null)}
         />
       )}
@@ -678,7 +678,7 @@ export function AppShell({
           narrow
             ? cn(
                 drawerFromLeft,
-                'absolute bottom-0 left-0 top-10 z-scrim w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
+                'absolute bottom-0 left-0 top-10 z-overlay w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
                 drawer === null && 'hidden',
               )
             : cn(

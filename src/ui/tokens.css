@@ -277,7 +277,8 @@
 }
 
 @theme {
-  /* 全局叠放层级只在 ui 的浮层组件里使用；组件内部的局部叠放用 z-10/z-20 并在父元素加 isolate。 */
+  /* 全局层级：非模态侧栏用 drawer；模态的遮罩用 scrim、内容用 overlay。
+     组件内部的局部叠放用 z-10/z-20，并在父元素加 isolate。 */
   --z-index-drawer: 30;
   --z-index-scrim: 40;
   --z-index-overlay: 50;
