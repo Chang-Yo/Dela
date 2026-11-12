@@ -99,11 +99,6 @@ vi.mock('../pi', () => ({
 vi.mock('../environment', () => ({
   agentEnvironment: () => ({
     sessionOptions: async () => ({ customTools: [] }),
-    workspaceRoot: () => {
-      const root = join(state.root, 'Dela', 'workspace');
-      mkdirSync(root, { recursive: true });
-      return root;
-    },
   }),
 }));
 // 假会话不跑工具：后台任务的工具与登记换成空壳（真实行为见 tasks.test / task-notice.test）。
@@ -114,20 +109,19 @@ vi.mock('../tasks', () => ({
   stopSessionTasks: () => {},
 }));
 import {
-  askSession,
-  invalidateSessions,
   newSession,
   openSession,
-  projectMessages,
-  listSessionTurnChanges,
-  readSessionTurnFileChange,
-  readSessionUncommittedChanges,
-  cancelRun,
-  contextUsageView,
   deleteSession,
   runSessionCommand,
   setSessionModel,
-} from '../session';
+} from '../session/commands';
+import {
+  listSessionTurnChanges,
+  readSessionTurnFileChange,
+  readSessionUncommittedChanges,
+} from '../session/files';
+import { projectMessages, contextUsageView } from '../session/projection';
+import { askSession, invalidateSessions, cancelRun } from '../session/run';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
 import { removeWorkspaceEntry } from '../../workspace/api';

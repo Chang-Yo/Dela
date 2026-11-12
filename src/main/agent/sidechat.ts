@@ -3,21 +3,24 @@
  * 实例走与主会话相同的 openPiSession（系统提示、工具与模型一致，缓存前缀因此对得上），
  * 只是会话记录放在内存里；每个主会话最多一个旁问。「保留」时才把记录写成文件、登记成新会话。
  */
+import { existsSync } from 'node:fs';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AgentToolResult, ChatAskInput, SidechatView, WorkspaceChat } from '../../shared/api';
 import { agentEnvironment } from './environment';
 import { releaseChatAttachments } from './media';
 import { loadPi, openPiSession, writeSessionFile } from './pi';
 import { usableLlmProviders } from './providers';
+import { live } from './session/live';
 import {
-  adoptSessionFile,
-  composePrompt,
   projectMessages,
-  row,
-  sidechatSource,
+  snapshot,
+  splitMeta,
+  textOf,
   toolOutput,
   withoutToolImages,
-} from './session';
+} from './session/projection';
+import { composePrompt } from './session/prompt';
+import { adoptSessionFile, readySelection, row, sessionCwd } from './session/store';
 import { hostPorts } from '../host';
 
 interface Side {
@@ -113,6 +116,33 @@ function onEvent(parentId: string, side: Side, event: AgentSessionEvent) {
       queueMicrotask(() => publish(parentId, side));
       break;
   }
+}
+
+/**
+ * 旁问的起点：主会话当前分支上的记录。主会话正在回答时退到这一轮提问之前，
+ * 旁问看不到还没答完的那一轮。
+ */
+async function sidechatSource(id: string) {
+  const meta = row(id);
+  const { selection } = readySelection(meta);
+  const entry = live.get(id);
+  const manager =
+    entry?.session.sessionManager ??
+    (existsSync(meta.file) ? (await loadPi()).SessionManager.open(meta.file) : null);
+  let branch = manager?.getBranch() ?? [];
+  // 本轮提问可能还没写进记录（发送前要先拍目录快照），按 turnId 认，不能只看最后一条用户消息。
+  const turnId = entry?.run?.id;
+  const asking = turnId
+    ? branch.findIndex(
+        (item) =>
+          item.type === 'message' &&
+          item.message.role === 'user' &&
+          splitMeta(textOf(item.message.content)).meta.turnId === turnId,
+      )
+    : -1;
+  if (asking >= 0) branch = branch.slice(0, asking);
+  const cwd = entry?.cwd ?? sessionCwd(meta.project_id, meta.cwd);
+  return { meta, cwd, selection, branch };
 }
 
 async function createSide(parentId: string): Promise<Side> {
@@ -214,7 +244,7 @@ export async function keepSidechat(parentId: string): Promise<WorkspaceChat> {
   const header = manager.getHeader();
   if (!header) throw new Error('旁问记录缺少会话头');
   const file = writeSessionFile(header, manager.getEntries());
-  const chat = adoptSessionFile(row(parentId), file, '旁问：');
+  const chat = snapshot(adoptSessionFile(row(parentId), file, '旁问：'));
   await closeSidechat(parentId);
   return chat;
 }

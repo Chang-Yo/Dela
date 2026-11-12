@@ -16,7 +16,7 @@ vi.mock('../providers', () => ({ llmProviders: () => [], usableLlmProviders: () 
 vi.mock('../environment', () => ({ agentEnvironment: () => ({}) }));
 
 import { loadPi } from '../pi';
-import { preloadPi } from '../session';
+import { preloadPi } from '../session/store';
 import { pageTurns, sessionTools, sessionTurns, type SessionTurn } from '../session-read';
 
 let SessionManager: typeof Manager;

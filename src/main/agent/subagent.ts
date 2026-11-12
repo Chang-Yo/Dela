@@ -2,12 +2,13 @@
  * 子 Agent（task 工具）：在父会话的目录下另开一个历史为空的会话，工具与父会话相同（不含 task），
  * 只把最终回复交回父会话。同时运行的子 Agent 数全应用合计，超出直接报错，不排队。
  */
-import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { AgentSessionEvent, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { z } from 'zod';
-import type { SubagentDetails } from '../../shared/api';
+import type { SubagentDetails, TaskStatus } from '../../shared/api';
 import { getDatabase } from '../database';
-import { createSubagentSession, row, runSubagent, sessionRunning } from './session';
-import { taskRunning, trackTask } from './tasks';
+import { sessionRunning } from './session/live';
+import { insertSubagentSession, row } from './session/store';
+import { taskRunning, trackTask, type TaskParent } from './tasks';
 
 const LIMIT_KEY = 'subagent-limit';
 export const SUBAGENT_LIMIT = { min: 1, max: 16, default: 4 };
@@ -29,6 +30,20 @@ export function setSubagentLimit(value: unknown): number {
   return limit;
 }
 
+export interface SubagentResult {
+  status: Exclude<TaskStatus, 'running'>;
+  reply: string | null;
+  error?: string;
+}
+
+/** 子 Agent 跑一轮：由会话运行层注入，signal 中止时连带停止。 */
+export type RunSubagent = (
+  id: string,
+  prompt: string,
+  signal: AbortSignal | undefined,
+  onEvent: (event: AgentSessionEvent) => void,
+) => Promise<SubagentResult>;
+
 let running = 0;
 
 /** 子 Agent 当前步骤的对象：命令首行、路径或搜索词。 */
@@ -46,7 +61,11 @@ const DESCRIPTION = `派一个子 Agent 独立完成一项任务，等它做完�
 background 为 true 时立即返回 taskId，子 Agent 在后台运行，结束时你会自动收到它的最终回复；期间可用 task_output 查看、task_stop 停止。
 需要总结或梳理另一个会话时，派一个子 Agent 用 session_read 读完目标会话再汇报，不要自己把整段会话读进上下文。`;
 
-export function taskTool(parentId: string): ToolDefinition {
+export function taskTool(
+  parent: TaskParent,
+  cwd: string,
+  runSubagent: RunSubagent,
+): ToolDefinition {
   return {
     name: 'task',
     label: 'task',
@@ -73,24 +92,24 @@ export function taskTool(parentId: string): ToolDefinition {
           `同时运行的子 Agent 已达上限（${limit} 个）：等已有的结束后再派，或请用户在设置 › 内置能力里调高上限`,
         );
       if (params.taskId) {
-        let parent: string | null = null;
+        let owner: string | null = null;
         try {
-          parent = row(params.taskId).parent_id;
+          owner = row(params.taskId).parent_id;
         } catch {
           // 不存在的 taskId 与别人的子 Agent 一样报错。
         }
-        if (parent !== parentId) throw new Error(`没有这个子 Agent：${params.taskId}`);
+        if (owner !== parent.id) throw new Error(`没有这个子 Agent：${params.taskId}`);
         if (taskRunning(params.taskId) || sessionRunning(params.taskId))
           throw new Error('这个子 Agent 还在运行，等它结束再续接');
       }
-      const taskId = params.taskId ?? createSubagentSession(parentId, params.description);
+      const taskId = params.taskId ?? insertSubagentSession(parent.id, params.description, cwd);
       running += 1;
       if (params.background) {
         const abort = new AbortController();
         trackTask(
           {
             id: taskId,
-            parentId,
+            parent,
             kind: 'subagent',
             label: params.description,
             stop: () => abort.abort(),

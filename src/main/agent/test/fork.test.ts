@@ -29,20 +29,14 @@ vi.mock('../environment', () => ({
       disabledSkills: new Set(),
       disabledTools: [],
     }),
-    workspaceRoot: () => root,
   }),
 }));
 
 import { provideTestHostPorts } from '../../test/host-mock';
 
-import {
-  askSession,
-  forkSession,
-  newSession,
-  openSession,
-  preloadPi,
-  shutdownSessions,
-} from '../session';
+import { forkSession, newSession, openSession } from '../session/commands';
+import { askSession, shutdownSessions } from '../session/run';
+import { preloadPi } from '../session/store';
 
 const reply = (text: string) => ({
   kind: 'sse' as const,

@@ -6,7 +6,9 @@ import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type { SessionEntry, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { TASK_NOTICE, type TaskNoticeDetails } from '../../shared/api';
 import { getDatabase } from '../database';
-import { listSessions, sessionBranch, sessionRunning, splitMeta, textOf } from './session';
+import { sessionBranch, sessionRunning } from './session/live';
+import { splitMeta, textOf } from './session/projection';
+import { listSessions } from './session/store';
 
 export type SessionTurnStatus = 'completed' | 'stopped' | 'interrupted' | 'running';
 

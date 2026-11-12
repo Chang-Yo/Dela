@@ -32,7 +32,6 @@ vi.mock('../environment', () => ({
       disabledSkills: new Set(),
       disabledTools: [],
     }),
-    workspaceRoot: () => root,
   }),
 }));
 
@@ -49,14 +48,9 @@ vi.mock('../pi', async (importOriginal) => {
   };
 });
 
-import {
-  askSession,
-  invalidateSessions,
-  newSession,
-  openSession,
-  preloadPi,
-  shutdownSessions,
-} from '../session';
+import { newSession, openSession } from '../session/commands';
+import { askSession, invalidateSessions, shutdownSessions } from '../session/run';
+import { preloadPi } from '../session/store';
 import { askSidechat, closeSidechat, keepSidechat, openSidechat } from '../sidechat';
 
 const reply = (text: string, delayMs = 0) => ({

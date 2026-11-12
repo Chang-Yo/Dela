@@ -14,17 +14,16 @@ import {
 import { deleteChatCommand, listChatCommands, saveChatCommand } from './chat-commands';
 import {
   archiveProjectSessions,
-  archivedSessions,
-  askSession,
-  cancelRun,
   deleteSession,
   forkSession,
-  hasLiveSessions as hasLiveMainSessions,
-  invalidateSessions,
-  shutdownSessions as shutdownMainSessions,
-  listSessions,
   newSession,
   openSession,
+  runSessionCommand,
+  setSessionEffort,
+  setSessionModel,
+  updateSessionVisibility,
+} from './session/commands';
+import {
   openSessionFile,
   openSessionFileInVsCode,
   listSessionTurnChanges,
@@ -34,14 +33,17 @@ import {
   readSessionUncommittedFileChange,
   uncommittedAvailability,
   locateSessionFile,
-  preloadPi,
   revealSessionFile,
-  runSessionCommand,
-  setSessionEffort,
-  setSessionModel,
-  updateSessionVisibility,
+} from './session/files';
+import {
+  askSession,
+  cancelRun,
+  hasLiveSessions as hasLiveMainSessions,
+  invalidateSessions,
+  shutdownSessions as shutdownMainSessions,
   withdrawQueued,
-} from './session';
+} from './session/run';
+import { archivedSessions, listSessions, preloadPi } from './session/store';
 import { stopUserTask } from './tasks';
 import { hostPorts } from '../host';
 import { exportSession } from './session-export';

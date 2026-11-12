@@ -33,22 +33,14 @@ vi.mock('../environment', () => ({
       disabledSkills: new Set(),
       disabledTools: [],
     }),
-    workspaceRoot: () => root,
   }),
 }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 
-import {
-  askSession,
-  cancelRun,
-  newSession,
-  openSession,
-  preloadPi,
-  sessionBranch,
-  sessionRunning,
-  shutdownSessions,
-  withdrawQueued,
-} from '../session';
+import { newSession, openSession } from '../session/commands';
+import { sessionBranch, sessionRunning } from '../session/live';
+import { askSession, cancelRun, shutdownSessions, withdrawQueued } from '../session/run';
+import { preloadPi } from '../session/store';
 import { sessionTurns } from '../session-read';
 import { locateBash } from '../../terminal/mingit';
 import { stopTask } from '../tasks';

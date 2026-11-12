@@ -6,7 +6,6 @@ import { join } from 'node:path';
 import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { HelperExecOptions, HelperExecResult } from '../helper';
-import type { TaskNotice } from '../../agent/session';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-remote-tasks-'));
 const helper = vi.hoisted(() => ({
@@ -17,7 +16,7 @@ const helper = vi.hoisted(() => ({
   }[],
   cancelled: [] as string[],
 }));
-const delivered = vi.hoisted(() => [] as TaskNotice[]);
+const delivered: TaskNotice[] = [];
 vi.mock('electron', () => ({
   app: { getPath: () => root, isPackaged: false, getAppPath: () => root },
 }));
@@ -33,14 +32,8 @@ vi.mock('../helper', () => ({
   }),
 }));
 vi.mock('../watch', () => ({ syncRemoteWatch: () => {} }));
-vi.mock('../../agent/session', () => ({
-  publish: () => {},
-  deliverTaskNotice: async (_parentId: string, notice: TaskNotice) => {
-    delivered.push(notice);
-  },
-}));
 
-import { backgroundTools, stopAllTasks } from '../../agent/tasks';
+import { backgroundTools, stopAllTasks, type TaskNotice } from '../../agent/tasks';
 import { provideTestHostPorts } from '../../test/host-mock';
 
 provideTestHostPorts({ paths: { userData: () => root } });
@@ -64,10 +57,22 @@ beforeEach(async () => {
   helper.execs.length = 0;
   helper.cancelled.length = 0;
   delivered.length = 0;
-  tools = await backgroundTools('parent', cwd, 'bash', undefined, {
-    host: 'root@10.0.0.5',
-    keyPath: null,
-  });
+  tools = await backgroundTools(
+    {
+      id: 'parent',
+      publish: () => {},
+      deliver: async (notice) => {
+        delivered.push(notice);
+      },
+    },
+    cwd,
+    'bash',
+    undefined,
+    {
+      host: 'root@10.0.0.5',
+      keyPath: null,
+    },
+  );
 });
 
 afterAll(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
